@@ -1,0 +1,310 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{CA657958-0BE8-4D0F-95CD-602BF2C33D2D}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>NVEnc</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120_xp</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <CLRSupport>true</CLRSupport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120_xp</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+    <CLRSupport>true</CLRSupport>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <TargetExt>.auo</TargetExt>
+    <OutDir>$(SolutionDir)$(Platform)\$(ProjectName)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)$(Platform)\$(ProjectName)\$(Configuration)\obj\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <TargetExt>.auo</TargetExt>
+    <OutDir>$(SolutionDir)$(Platform)\$(ProjectName)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)$(Platform)\$(ProjectName)\$(Configuration)\obj\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;$(CUDA_PATH)\include;$(DXSDK_DIR)\include;</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>NVEnc.def</ModuleDefinitionFile>
+      <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
+    </Link>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;$(CUDA_PATH)\include;$(DXSDK_DIR)\include;</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>NVEnc.def</ModuleDefinitionFile>
+      <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
+    </Link>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="encode\auo_audio.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\auo_audio_parallel.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\auo_chapter.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\auo_encode.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\auo_faw2aac.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\auo_mux.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\auo_pipe.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\auo_runbat.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\auo_nvenc.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\auo_video.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\convert.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\convert_avx.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\fawcheck.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="frm\auo_error.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="frm\auo_frm.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="frm\auo_win7_taskbar.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="frm\frmConfig.cpp" />
+    <ClCompile Include="frm\frmLog.cpp" />
+    <ClCompile Include="NVEnc.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="prm\auo_conf.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="prm\auo_settings.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="prm\auo_util.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="NVEnc.def" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="auo.h" />
+    <ClInclude Include="auo_version.h" />
+    <ClInclude Include="encode\afs_client.h" />
+    <ClInclude Include="encode\auo_audio.h" />
+    <ClInclude Include="encode\auo_audio_parallel.h" />
+    <ClInclude Include="encode\auo_chapter.h" />
+    <ClInclude Include="encode\auo_encode.h" />
+    <ClInclude Include="encode\auo_faw2aac.h" />
+    <ClInclude Include="encode\auo_mux.h" />
+    <ClInclude Include="encode\auo_pipe.h" />
+    <ClInclude Include="encode\auo_runbat.h" />
+    <ClInclude Include="encode\auo_nvenc.h" />
+    <ClInclude Include="encode\auo_video.h" />
+    <ClInclude Include="encode\convert.h" />
+    <ClInclude Include="encode\fawcheck.h" />
+    <ClInclude Include="encode\vphelp_client.h" />
+    <ClInclude Include="frm\auo_clrutil.h" />
+    <ClInclude Include="frm\auo_error.h" />
+    <ClInclude Include="frm\auo_frm.h" />
+    <ClInclude Include="frm\frmAutoSaveLogSettings.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
+    <ClInclude Include="frm\frmBitrateCalculator.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
+    <ClInclude Include="frm\frmConfig.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
+    <ClInclude Include="frm\frmConfig_helper.h" />
+    <ClInclude Include="frm\frmLog.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
+    <ClInclude Include="frm\frmNewFolderName.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
+    <ClInclude Include="frm\frmOtherSettings.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
+    <ClInclude Include="frm\frmSaveNewStg.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
+    <ClInclude Include="frm\frmSetLogColor.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
+    <ClInclude Include="frm\frmSetTransparency.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
+    <ClInclude Include="output.h" />
+    <ClInclude Include="prm\auo_conf.h" />
+    <ClInclude Include="prm\auo_settings.h" />
+    <ClInclude Include="prm\auo_system.h" />
+    <ClInclude Include="prm\auo_util.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="auo_version.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="frm\frmAutoSaveLogSettings.resx">
+      <DependentUpon>frm\frmAutoSaveLogSettings.h</DependentUpon>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmAutoSaveLogSettings.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmBitrateCalculator.resx">
+      <DependentUpon>frm\frmBitrateCalculator.h</DependentUpon>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmBitrateCalculator.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmBitrateCalculator.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmConfig.resx">
+      <DependentUpon>frm\frmConfig.h</DependentUpon>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmConfig.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmConfig.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmLog.resx">
+      <DependentUpon>frm\frmLog.h</DependentUpon>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmLog.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmLog.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmOtherSettings.resx">
+      <DependentUpon>frm\frmOtherSettings.h</DependentUpon>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmOtherSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmOtherSettings.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmSaveNewStg.resx">
+      <DependentUpon>frm\frmSaveNewStg.h</DependentUpon>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmSaveNewSettings.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmSaveNewSettings.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmSetLogColor.resx">
+      <DependentUpon>frm\frmSetLogColor.h</DependentUpon>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmSetLogColor.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmSetLogColor.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmSetTransparency.resx">
+      <DependentUpon>frm\frmSetTransparency.h</DependentUpon>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NVEnc.frmSetTransparentKey.resources</LogicalName>
+      <LogicalName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NVEnc.frmSetTransparentKey.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NVEncCore\NVEncCore.vcxproj">
+      <Project>{1cd1cf80-e971-4a92-93e0-4aea5f4032b5}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

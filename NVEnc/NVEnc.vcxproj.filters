@@ -1,0 +1,246 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ソース ファイル">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="ヘッダー ファイル">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="リソース ファイル">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="フォーム">
+      <UniqueIdentifier>{e81a36b1-00c4-4b74-8048-47d86fb53116}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\encode">
+      <UniqueIdentifier>{d8afc5c5-cef4-4eb5-883d-8a5ff522f703}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\frm">
+      <UniqueIdentifier>{175fabf9-ebbf-4d10-b8d9-3fede2c47419}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\prm">
+      <UniqueIdentifier>{f58ea114-e447-490d-bcb7-36087e02294f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\encode">
+      <UniqueIdentifier>{eef21d47-589b-4574-808c-7bb02faaa301}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\frm">
+      <UniqueIdentifier>{c6891b33-bca3-44b5-99af-1022742dea92}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\prm">
+      <UniqueIdentifier>{d7060379-da1a-40b7-a006-b5fe025768aa}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="NVEnc.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert_avx.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_runbat.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_pipe.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_encode.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_mux.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\fawcheck.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_audio.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_faw2aac.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_video.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_audio_parallel.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_chapter.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="prm\auo_conf.cpp">
+      <Filter>ソース ファイル\prm</Filter>
+    </ClCompile>
+    <ClCompile Include="prm\auo_settings.cpp">
+      <Filter>ソース ファイル\prm</Filter>
+    </ClCompile>
+    <ClCompile Include="prm\auo_util.cpp">
+      <Filter>ソース ファイル\prm</Filter>
+    </ClCompile>
+    <ClCompile Include="frm\auo_win7_taskbar.cpp">
+      <Filter>ソース ファイル\frm</Filter>
+    </ClCompile>
+    <ClCompile Include="frm\auo_error.cpp">
+      <Filter>ソース ファイル\frm</Filter>
+    </ClCompile>
+    <ClCompile Include="frm\auo_frm.cpp">
+      <Filter>ソース ファイル\frm</Filter>
+    </ClCompile>
+    <ClCompile Include="frm\frmConfig.cpp">
+      <Filter>フォーム</Filter>
+    </ClCompile>
+    <ClCompile Include="frm\frmLog.cpp">
+      <Filter>フォーム</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_nvenc.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="NVEnc.def">
+      <Filter>ソース ファイル</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="auo.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="auo_version.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="output.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\convert.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_runbat.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_encode.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_mux.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\fawcheck.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_audio.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_faw2aac.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_video.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_pipe.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_audio_parallel.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_chapter.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\vphelp_client.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\afs_client.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="prm\auo_conf.h">
+      <Filter>ヘッダー ファイル\prm</Filter>
+    </ClInclude>
+    <ClInclude Include="prm\auo_settings.h">
+      <Filter>ヘッダー ファイル\prm</Filter>
+    </ClInclude>
+    <ClInclude Include="prm\auo_system.h">
+      <Filter>ヘッダー ファイル\prm</Filter>
+    </ClInclude>
+    <ClInclude Include="prm\auo_util.h">
+      <Filter>ヘッダー ファイル\prm</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\auo_frm.h">
+      <Filter>ヘッダー ファイル\frm</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\auo_clrutil.h">
+      <Filter>ヘッダー ファイル\frm</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\auo_error.h">
+      <Filter>ヘッダー ファイル\frm</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmAutoSaveLogSettings.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmBitrateCalculator.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmConfig.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmConfig_helper.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmLog.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmNewFolderName.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmOtherSettings.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmSaveNewStg.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmSetLogColor.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmSetTransparency.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_nvenc.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="auo_version.rc">
+      <Filter>リソース ファイル</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="frm\frmAutoSaveLogSettings.resx">
+      <Filter>リソース ファイル</Filter>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmBitrateCalculator.resx">
+      <Filter>リソース ファイル</Filter>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmConfig.resx">
+      <Filter>リソース ファイル</Filter>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmLog.resx">
+      <Filter>リソース ファイル</Filter>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmOtherSettings.resx">
+      <Filter>リソース ファイル</Filter>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmSaveNewStg.resx">
+      <Filter>リソース ファイル</Filter>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmSetLogColor.resx">
+      <Filter>リソース ファイル</Filter>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frm\frmSetTransparency.resx">
+      <Filter>リソース ファイル</Filter>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>

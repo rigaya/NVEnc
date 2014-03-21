@@ -1,0 +1,4 @@
+﻿LIBRARY "NVEnc.auo"
+
+EXPORTS
+    GetOutputPluginTable
