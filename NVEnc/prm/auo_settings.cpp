@@ -102,17 +102,21 @@ static inline void WriteFontInfo(const char *section, const char *keyname_base, 
 	const size_t keyname_base_len = strlen(keyname_base);
 	if (keyname_base_len >= INI_KEY_MAX_LEN)
 		return;
+
+	AUO_FONT_INFO current_info = { 0 };
+	GetFontInfo(section, keyname_base, &current_info, ini_file);
+
 	char key[INI_KEY_MAX_LEN];
 	memcpy(key, keyname_base, sizeof(key[0]) * (keyname_base_len + 1));
 	if (str_has_char(font_info->name)) {
 		strcpy_s(key + keyname_base_len, _countof(key) - keyname_base_len, "_name");
 		WritePrivateProfileString(section, key, font_info->name, ini_file);
 	}
-	if (font_info->size > 0.0) {
+	if (font_info->size > 0.0 || font_info->size != current_info.size) {
 		strcpy_s(key + keyname_base_len, _countof(key) - keyname_base_len, "_size");
 		WritePrivateProfileDouble(section, key, font_info->size, ini_file);
 	}
-	if (font_info->style != 0) {
+	if (font_info->style != 0 || font_info->style != current_info.style) {
 		strcpy_s(key + keyname_base_len, _countof(key) - keyname_base_len, "_style");
 		WritePrivateProfileInt(section, key, font_info->style, ini_file);
 	}

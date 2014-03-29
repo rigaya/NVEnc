@@ -27,15 +27,16 @@
 #include "auo_mux.h"
 #include "auo_encode.h"
 
-static void show_mux_info(const char *mux_stg_name, BOOL vidmux, BOOL audmux, BOOL tcmux, const char *muxer_mode_name) {
+static void show_mux_info(const char *mux_stg_name, BOOL vidmux, BOOL audmux, BOOL tcmux, BOOL chapmux, const char *muxer_mode_name) {
 	char mes[1024];
 	static const char * const ON_OFF_INFO[] = { "off", " on" };
 
-	sprintf_s(mes, _countof(mes), "%s でmuxを行います。映像:%s, 音声:%s, tc:%s, 拡張モード:%s", 
+	sprintf_s(mes, _countof(mes), "%s でmuxを行います。映像:%s, 音声:%s, tc:%s, chap:%s, 拡張モード:%s", 
 		mux_stg_name,
 		ON_OFF_INFO[vidmux != 0],
 		ON_OFF_INFO[audmux != 0],
 		ON_OFF_INFO[tcmux != 0],
+		ON_OFF_INFO[chapmux != 0],
 		muxer_mode_name);
 	write_log_auo_line_fmt(LOG_INFO, mes);
 
@@ -186,10 +187,11 @@ static void del_chap_cmd(char *cmd, BOOL apple_type_only) {
 static int get_excmd_mode(const CONF_GUIEX *conf, const PRM_ENC *pe) {
 	int mode = 0;
 	switch (pe->muxer_to_be_used) {
-		case MUXER_MKV:    mode = conf->mux.mkv_mode; break;
-		case MUXER_MPG:    mode = conf->mux.mpg_mode; break;
+		case MUXER_MKV:     mode = conf->mux.mkv_mode; break;
+		case MUXER_MPG:     mode = conf->mux.mpg_mode; break;
 		case MUXER_MP4:
-		case MUXER_TC2MP4: mode = conf->mux.mp4_mode; break;
+		case MUXER_TC2MP4: 
+		case MUXER_MP4_RAW: mode = conf->mux.mp4_mode; break;
 	}
 	return mode;
 }
@@ -261,12 +263,13 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
 	replace(cmd, nSize, "%{ex_cmd}", exstr);
 	if (!enable_chap_mux) {
 		del_chap_cmd(cmd, FALSE); //チャプター用コマンドとパラメータを削除
-	} else {
+	} else if (strstr(cmd, "%{chapter}") || strstr(cmd, "%{chap_apple}")) {
 		//もし、チャプターファイル名への置換があるなら、チャプターファイルの存在をチェックする
-		if ((strstr(cmd, "%{chapter}") || strstr(cmd, "%{chap_apple}")) && !PathFileExists(chap_file)) {
+		if (!PathFileExists(chap_file)) {
 			//チャプターファイルが存在しない
 			warning_mux_no_chapter_file();
 			del_chap_cmd(cmd, FALSE);
+			enable_chap_mux = FALSE;
 		} else {
 			replace(cmd, nSize, "%{chapter}", chap_file);
 			//オーディオディレイのカットを映像追加で行ったら、チャプター位置の修正も必要
@@ -289,7 +292,7 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
 				pe->muxer_to_be_used == MUXER_MP4_RAW) {
 				//apple形式チャプターファイルへの置換が行われたら、apple形式チャプターファイルを作成する
 				if (strstr(cmd, "%{chap_apple}")) {
-					AuoChapStatus sts = convert_chapter(chap_apple, chap_file, CODE_PAGE_UNSET, get_duration(oip));
+					int sts = convert_chapter(chap_apple, chap_file, CODE_PAGE_UNSET, get_duration(oip, pe));
 					if (sts != AUO_CHAP_ERR_NONE) {
 						warning_mux_chapter(sts);
 						del_chap_cmd(cmd, TRUE);
@@ -299,11 +302,13 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
 				}
 			}
 		}
+	} else {
+		enable_chap_mux = FALSE;
 	}
 	//その他の置換を実行
 	cmd_replace(cmd, nSize, pe, sys_dat, conf, oip);
 	//情報表示
-	show_mux_info(mux_stg->dispname, enable_vid_mux, enable_aud_mux, enable_tc_mux, muxer_mode->name);
+	show_mux_info(mux_stg->dispname, enable_vid_mux, enable_aud_mux, enable_tc_mux, enable_chap_mux, muxer_mode->name);
 	return AUO_RESULT_SUCCESS;
 }
 
@@ -483,6 +488,7 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
 		ret |= check_muxout_filesize(muxout, expected_filesize);
 		if (ret == AUO_RESULT_SUCCESS) {
 			if (enable_vid_mux) {
+				if (str_has_char(pe->muxed_vid_filename) && PathFileExists(pe->muxed_vid_filename)) remove(pe->muxed_vid_filename);
 				apply_appendix(pe->muxed_vid_filename, _countof(pe->muxed_vid_filename), pe->temp_filename, VID_FILE_APPENDIX);
 				strcat_s(pe->muxed_vid_filename, _countof(pe->muxed_vid_filename), PathFindExtension(pe->temp_filename));
 				if (PathFileExists(pe->muxed_vid_filename)) remove(pe->muxed_vid_filename);

@@ -72,6 +72,8 @@ typedef void * HANDLE;
 #include <unistd.h>
 #endif
 #include <stdarg.h>
+#pragma warning(push)
+#pragma warning(disable:4100)
 /*
 inline void NvPrintf(const char* format, ...)
 {
@@ -127,7 +129,7 @@ inline void nvGetFileSize(HANDLE hInputFile, DWORD *pFilesize)
     if (hInputFile != INVALID_HANDLE_VALUE)
     {
         file_size.LowPart = GetFileSize(hInputFile, (LPDWORD)&file_size.HighPart);
-        NvPrintf("[ Input Filesize] : %ld bytes\n", ((LONGLONG) file_size.HighPart << 32) + (LONGLONG)file_size.LowPart);
+        //NvPrintf("[ Input Filesize] : %ld bytes\n", ((LONGLONG) file_size.HighPart << 32) + (LONGLONG)file_size.LowPart);
 
         if (pFilesize != NULL) *pFilesize = file_size.LowPart;
     }
@@ -158,7 +160,7 @@ inline HANDLE nvOpenFile(const char *input_file)
 
     if (hInput == INVALID_HANDLE_VALUE)
     {
-        NvPrintf("nvOpenFile Failed to open \"%s\"\n", input_file);
+        //NvPrintf("nvOpenFile Failed to open \"%s\"\n", input_file);
         exit(EXIT_FAILURE);
     }
 
@@ -184,7 +186,7 @@ inline HANDLE nvOpenFileWrite(const char *output_file)
 
     if (hOutput == INVALID_HANDLE_VALUE)
     {
-        NvPrintf("nvOpenFileWrite Failed to open \"%s\"\n", output_file);
+        //NvPrintf("nvOpenFileWrite Failed to open \"%s\"\n", output_file);
         exit(EXIT_FAILURE);
     }
 
@@ -213,4 +215,5 @@ inline void nvCloseFile(HANDLE hFileHandle)
     }
 }
 
+#pragma warning(pop)
 #endif

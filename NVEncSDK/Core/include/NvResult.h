@@ -205,6 +205,8 @@ inline bool NvCheckError(NvResult &eCurrentResult, NvResult eNewResult)
 //! \param nLine Line number where check is being made.
 //! \warning If the code was compiled for production, the value of \e eResult
 //! is ignored and the assert will not stop execution.
+#pragma warning(push)
+#pragma warning(disable:4100)
 inline void NvAssertSucceeded(NvResult eResult, const char *pszFile, int nLine)
 {
     if (IsFailed(eResult))
@@ -215,7 +217,7 @@ inline void NvAssertSucceeded(NvResult eResult, const char *pszFile, int nLine)
 #endif
     }
 }
-
+#pragma warning(pop)
 //! Halt execution if \e eResult represents a failure.
 //! \see \e NvAssertSucceeded.
 #define AssertSucceeded(eResult) \

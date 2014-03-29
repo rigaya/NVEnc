@@ -19,6 +19,7 @@
 #include "frmSaveNewStg.h"
 #include "frmOtherSettings.h"
 #include "frmBitrateCalculator.h"
+#include "nv_util.h"
 
 using namespace NVEnc;
 
@@ -595,11 +596,19 @@ System::Void frmConfig::InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *syst
 
 System::Void frmConfig::InitComboBox() {
 	//コンボボックスに値を設定する
-	setComboBox(fcgCXEncMode,       list_nvenc_rc_method);
-	setComboBox(fcgCXCodecLevel,    list_avc_level);
-	setComboBox(fcgCXCodecProfile,  list_avc_profile);
-	setComboBox(fcgCXInterlaced,    list_interlaced);
-	setComboBox(fcgCXAspectRatio,   list_aspect_ratio);
+	setComboBox(fcgCXEncMode,           list_nvenc_rc_method);
+	setComboBox(fcgCXCodecLevel,        list_avc_level);
+	setComboBox(fcgCXCodecProfile,      list_avc_profile);
+	setComboBox(fcgCXInterlaced,        list_interlaced);
+	setComboBox(fcgCXAspectRatio,       list_aspect_ratio);
+	setComboBox(fcgCXAdaptiveTransform, list_adapt_transform);
+	setComboBox(fcgCXBDirectMode,       list_bdirect);
+	setComboBox(fcgCXMVPrecision,       list_mv_presicion);
+	setComboBox(fcgCXQualityPreset,     list_preset);
+	setComboBox(fcgCXVideoFormat,       list_videoformat);
+	setComboBox(fcgCXTransfer,          list_transfer);
+	setComboBox(fcgCXColorMatrix,       list_colormatrix);
+	setComboBox(fcgCXColorPrim,         list_colorprim);
 
 	setComboBox(fcgCXAudioTempDir,  list_audtempdir);
 	setComboBox(fcgCXMP4BoxTempDir, list_mp4boxtempdir);
@@ -741,6 +750,10 @@ System::Void frmConfig::AdjustLocation() {
 }
 
 System::Void frmConfig::InitForm() {
+	//CPU情報の取得
+	SetupFeatureTable();
+	getEnvironmentInfoDelegate = gcnew SetEnvironmentInfoDelegate(this, &frmConfig::SetEnvironmentInfo);
+	getEnvironmentInfoDelegate->BeginInvoke(nullptr, nullptr);
 	//ローカル設定のロード
 	LoadLocalStg();
 	//ローカル設定の反映
@@ -752,8 +765,6 @@ System::Void frmConfig::InitForm() {
 	//タイトル表示
 	this->Text = String(AUO_FULL_NAME).ToString();
 	//バージョン情報,コンパイル日時
-	//fcgpictureBoxVCEEnabled->Visible = check_if_vce_available();
-	fcgCBShowPerformanceInfo->Visible = CHECK_PERFORMANCE;
 	fcgLBVersion->Text     = String(AUO_VERSION_NAME).ToString();
 	fcgLBVersionDate->Text = L"build " + String(__DATE__).ToString() + L" " + String(__TIME__).ToString();
 	//ツールチップ
@@ -778,39 +789,49 @@ System::Void frmConfig::InitForm() {
 	//フォントの設定
 	if (str_has_char(sys_dat->exstg->s_local.conf_font.name))
 		SetFontFamilyToForm(this, gcnew FontFamily(String(sys_dat->exstg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
+	//NVEncが実行できるか
+	fcgPBNVEncLogoEnabled->Visible = 0 < paramCache->GetCachedNVEncCapability().size();
 }
 
 /////////////         データ <-> GUI     /////////////
 System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	this->SuspendLayout();
 
-	SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, cnf->nvenc.rateControl));
-	SetNUValue(fcgNUBitrate,           cnf->nvenc.avgBitRate);
-	SetNUValue(fcgNUMaxkbps,           cnf->nvenc.peakBitRate);
-	SetNUValue(fcgNUQPI,               cnf->nvenc.qpI);
-	SetNUValue(fcgNUQPP,               cnf->nvenc.qpP);
-	SetNUValue(fcgNUQPB,               cnf->nvenc.qpB);
-	SetNUValue(fcgNUGopLength,    (int)cnf->nvenc.gopLength);
-	SetCXIndex(fcgCXCodecLevel,        get_cx_index(list_avc_level, cnf->nvenc.level));
-	SetCXIndex(fcgCXCodecProfile,      get_cx_index(list_avc_profile, cnf->nvenc.profile));
-	//SetCXIndex(fcgCXInterlaced,        get_cx_index(list_interlaced, cnf->vid.vce_ext_prm.pic_struct));
-	/*if (cnf->qsv.nPAR[0] * cnf->qsv.nPAR[1] <= 0)
-		cnf->qsv.nPAR[0] = cnf->qsv.nPAR[1] = 0;
-	SetCXIndex(fcgCXAspectRatio, (cnf->qsv.nPAR[0] < 0));
-	SetNUValue(fcgNUAspectRatioX, abs(cnf->qsv.nPAR[0]));
-	SetNUValue(fcgNUAspectRatioY, abs(cnf->qsv.nPAR[1]));*/
-
-	SetNUValue(fcgNUSlices,             cnf->nvenc.numSlices);
-
-	fcgCBCABAC->Checked               = cnf->nvenc.vle_cabac_enable != 0;
-
-	fcgCBDeblock->Checked             = cnf->nvenc.disable_deblocking == 0;
+	SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, cnf->nvenc.enc_config.rcParams.rateControlMode));
+	SetNUValue(fcgNUBitrate,           cnf->nvenc.enc_config.rcParams.averageBitRate / 1000);
+	SetNUValue(fcgNUMaxkbps,           cnf->nvenc.enc_config.rcParams.maxBitRate / 1000);
+	SetNUValue(fcgNUQPI,               cnf->nvenc.enc_config.rcParams.constQP.qpIntra);
+	SetNUValue(fcgNUQPP,               cnf->nvenc.enc_config.rcParams.constQP.qpInterP);
+	SetNUValue(fcgNUQPB,               cnf->nvenc.enc_config.rcParams.constQP.qpInterB);
+	SetNUValue(fcgNUGopLength,         cnf->nvenc.enc_config.gopLength);
+	SetNUValue(fcgNUBframes,           cnf->nvenc.enc_config.frameIntervalP - 1);
+	SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, cnf->nvenc.enc_config.mvPrecision));
+	SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.bdirectMode));
+	SetNUValue(fcgNURefFrames,         cnf->nvenc.enc_config.encodeCodecConfig.h264Config.maxNumRefFrames);
+	SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.adaptiveTransformMode));
+	SetCXIndex(fcgCXQualityPreset,     get_cx_index(list_preset_ja, cnf->nvenc.preset));
+	
+	if (cnf->nvenc.par[0] * cnf->nvenc.par[1] <= 0)
+		cnf->nvenc.par[0] = cnf->nvenc.par[1] = 0;
+	SetCXIndex(fcgCXAspectRatio, (cnf->nvenc.par[0] < 0));
+	SetNUValue(fcgNUAspectRatioX, abs(cnf->nvenc.par[0]));
+	SetNUValue(fcgNUAspectRatioY, abs(cnf->nvenc.par[1]));
+	SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, cnf->nvenc.pic_struct));
+	SetCXIndex(fcgCXCodecProfile, get_cx_index(list_avc_profile, get_value_from_guid(cnf->nvenc.enc_config.profileGUID, codecprofile_names, _countof(codecprofile_names))));
+	SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.level));
+	SetNUValue(fcgNUSlices,       cnf->nvenc.enc_config.encodeCodecConfig.h264Config.sliceModeData);
+	fcgCBCABAC->Checked = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != cnf->nvenc.enc_config.encodeCodecConfig.h264Config.entropyCodingMode;
+	SetCXIndex(fcgCXVideoFormat, get_cx_index(list_videoformat, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoFormat));
+	fcgCBFullrange->Checked = 0 != cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag;
+	SetCXIndex(fcgCXTransfer,    get_cx_index(list_transfer,    cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics));
+	SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix));
+	SetCXIndex(fcgCXColorPrim,   get_cx_index(list_colorprim,   cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries));
 
 	//fcgCBShowPerformanceInfo->Checked = (CHECK_PERFORMANCE) ? cnf->vid.vce_ext_prm.show_performance_info != 0 : false;
 
 		//SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
 		SetCXIndex(fcgCXTempDir,             cnf->oth.temp_dir);
-		fcgCBAFS->Checked                  = cnf->vid.afs != 0;
+		fcgCBAFS->Checked                  = cnf->vid.afs != 0; 
 		fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
 
 		//音声
@@ -853,23 +874,47 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
 System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	//これもひたすら書くだけ。めんどい
-	cnf->nvenc.rateControl        = list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
-	cnf->nvenc.profile                    = list_avc_profile[fcgCXCodecProfile->SelectedIndex].value;
-	cnf->nvenc.level                      = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
-	cnf->nvenc.avgBitRate = (int)fcgNUBitrate->Value;
-	cnf->nvenc.peakBitRate   = (int)fcgNUMaxkbps->Value;
-	cnf->nvenc.gopLength                  = (int)fcgNUGopLength->Value;
-	cnf->nvenc.idr_period              = cnf->nvenc.gopLength;
-	cnf->nvenc.qpI                     = (int)fcgNUQPI->Value;
-	cnf->nvenc.qpP                     = (int)fcgNUQPP->Value;
-	cnf->nvenc.qpB                     = (int)fcgNUQPB->Value;
-	//cnf->vid.vce_ext_prm.pic_struct                  = (OVE_PICTURE_STRUCTURE_H264)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
+	cnf->nvenc.enc_config.rcParams.rateControlMode = (NV_ENC_PARAMS_RC_MODE)list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
+	cnf->nvenc.enc_config.rcParams.averageBitRate = (int)fcgNUBitrate->Value * 1000;
+	cnf->nvenc.enc_config.rcParams.maxBitRate = (int)fcgNUMaxkbps->Value * 1000;
+	cnf->nvenc.enc_config.rcParams.constQP.qpIntra  = (int)fcgNUQPI->Value;
+	cnf->nvenc.enc_config.rcParams.constQP.qpInterP = (int)fcgNUQPP->Value;
+	cnf->nvenc.enc_config.rcParams.constQP.qpInterB = (int)fcgNUQPB->Value;
+	cnf->nvenc.enc_config.gopLength = (int)fcgNUGopLength->Value;
+	cnf->nvenc.enc_config.frameIntervalP = (int)fcgNUBframes->Value + 1;
+	cnf->nvenc.enc_config.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.maxNumRefFrames = (int)fcgNURefFrames->Value;
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.adaptiveTransformMode = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;
+	cnf->nvenc.preset = list_preset_ja[fcgCXQualityPreset->SelectedIndex].value;
 
-	cnf->nvenc.numSlices = (int)fcgNUSlices->Value;
 
-	cnf->nvenc.vle_cabac_enable                 = fcgCBCABAC->Checked;
+	cnf->nvenc.par[0]                = (int)fcgNUAspectRatioX->Value;
+	cnf->nvenc.par[1]                = (int)fcgNUAspectRatioY->Value;
+	if (fcgCXAspectRatio->SelectedIndex == 1) {
+		cnf->nvenc.par[0] *= -1;
+		cnf->nvenc.par[1] *= -1;
+	}
 
-	cnf->nvenc.disable_deblocking           = !fcgCBDeblock->Checked;
+	cnf->nvenc.pic_struct = (NV_ENC_PIC_STRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
+	cnf->nvenc.enc_config.profileGUID = get_guid_from_value(list_avc_profile[fcgCXCodecProfile->SelectedIndex].value, codecprofile_names, _countof(codecprofile_names));
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.sliceModeData = (int)fcgNUSlices->Value;
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
+
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag      = fcgCBFullrange->Checked;
+	if (fcgCBFullrange->Checked || fcgCXVideoFormat->SelectedIndex == get_cx_index(list_videoformat, "undef")) {
+		cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag = 1;
+	}
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics = list_transfer[fcgCXTransfer->SelectedIndex].value;
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
+	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrim->SelectedIndex].value;
+	if (   fcgCXTransfer->SelectedIndex    == get_cx_index(list_transfer,    "undef")
+		|| fcgCXColorMatrix->SelectedIndex == get_cx_index(list_colormatrix, "undef")
+		|| fcgCXColorPrim->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) {
+		cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourDescriptionPresentFlag = 1;
+	}
 
 	//cnf->vid.vce_ext_prm.show_performance_info = fcgCBShowPerformanceInfo->Checked;
 
@@ -1228,6 +1273,54 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
 			System::Diagnostics::Process::Start(String(file_path).ToString());
 		} catch (...) {
 			MessageBox::Show(L"helpを開く際に不明なエラーが発生しました。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
+		}
+	}
+}
+
+System::Void frmConfig::SetupFeatureTable() {
+	//表示更新
+	fcgDGVFeatures->ReadOnly = true;
+	fcgDGVFeatures->AllowUserToAddRows = false;
+	fcgDGVFeatures->AllowUserToResizeRows = false;
+	fcgDGVFeatures->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
+	
+	dataTableNVEncFeatures = gcnew DataTable();
+	dataTableNVEncFeatures->Columns->Add(L"機能");
+	dataTableNVEncFeatures->Columns->Add(L"サポート");
+
+	fcgDGVFeatures->DataSource = dataTableNVEncFeatures; //テーブルをバインド
+}
+
+System::Void frmConfig::SetEnvironmentInfo() {
+	//CPU名
+	if (nullptr == StrCPUInfo || StrCPUInfo->Length <= 0) {
+		TCHAR cpu_info[256] = { 0 };
+		getCPUInfo(cpu_info, _countof(cpu_info));
+		StrCPUInfo = String(cpu_info).ToString()->Replace(L" CPU ", L" ");
+	}
+	//GPU名
+	if (nullptr == StrGPUInfo || StrGPUInfo->Length <= 0) {
+		TCHAR gpu_info[256] = { 0 };
+		getGPUInfo("NVIDIA", gpu_info, _countof(gpu_info));
+		StrGPUInfo = String(gpu_info).ToString();
+	}
+	//機能情報
+	if (dataTableNVEncFeatures->Rows->Count <= 1) {
+		paramCache->GetCachedNVEncCapability();
+	}
+	if (this->InvokeRequired) {
+		SetEnvironmentInfoDelegate^ sl = gcnew SetEnvironmentInfoDelegate(this, &frmConfig::SetEnvironmentInfo);
+		this->Invoke(sl);
+	} else {
+		fcgLBOSInfo->Text = String(getOSVersion()).ToString() + (is_64bit_os() ? String(L" x64").ToString() : String(L" x86").ToString());
+		fcgLBCPUInfoOnFeatureTab->Text = StrCPUInfo;
+		fcgLBGPUInfoOnFeatureTab->Text = StrGPUInfo;
+		auto nvencCapabilities = paramCache->GetCachedNVEncCapability();
+		for (auto cap : nvencCapabilities) {
+			DataRow^ drb = dataTableNVEncFeatures->NewRow();
+			drb[0] = String(cap.name).ToString();
+			drb[1] = cap.value.ToString();
+			dataTableNVEncFeatures->Rows->Add(drb);
 		}
 	}
 }

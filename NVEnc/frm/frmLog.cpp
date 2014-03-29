@@ -1,5 +1,5 @@
 ﻿//  -----------------------------------------------------------------------------------------
-//    QSVEnc by rigaya
+//    NVEnc by rigaya
 //  -----------------------------------------------------------------------------------------
 //   ソースコードについて
 //   ・無保証です。
@@ -72,16 +72,16 @@ void write_log_line(int log_type_index, const char *chr) {
 void flush_audio_log() {
 	frmLog::Instance::get()->FlushAudioLogCache();
 }
-////ログウィンドウからのx264制御を有効化
-//[STAThreadAttribute]
-//void enable_x264_control(BOOL *enc_pause, BOOL afs, BOOL add_progress, DWORD *start_time, int _total_frame) {
-//	frmLog::Instance::get()->Enablex264Control(enc_pause, afs, add_progress, start_time, _total_frame);
-//}
-////ログウィンドウからのx264制御を無効化
-//[STAThreadAttribute]
-//void disable_x264_control() {
-//	frmLog::Instance::get()->Disablex264Control();
-//}
+//ログウィンドウからのx264制御を有効化
+[STAThreadAttribute]
+void enable_enc_control(BOOL *enc_pause, BOOL afs, BOOL add_progress, DWORD start_time, int _total_frame) {
+	frmLog::Instance::get()->EnableEncControl(enc_pause, afs, add_progress, start_time, _total_frame);
+}
+//ログウィンドウからのx264制御を無効化
+[STAThreadAttribute]
+void disable_enc_control() {
+	frmLog::Instance::get()->DisableEncControl();
+}
 //ログウィンドウを閉じられるかどうかを設定
 [STAThreadAttribute]
 void set_prevent_log_close(BOOL prevent) {

@@ -152,19 +152,6 @@ static AUO_RESULT exit_audio_parallel_control(const OUTPUT_INFO *oip, PRM_ENC *p
 	return vid_ret;
 }
 
-void set_conf_nvenc_prm(EncodeConfig *nvenc_prm, const OUTPUT_INFO *oip) {
-	nvenc_prm->frameRateDen = oip->scale;
-	nvenc_prm->frameRateNum = oip->rate;
-
-	nvenc_prm->width    = oip->w;
-	nvenc_prm->maxWidth = oip->w;
-	nvenc_prm->curWidth = oip->w;
-
-	nvenc_prm->height    = oip->h;
-	nvenc_prm->maxHeight = oip->h;
-	nvenc_prm->curHeight = oip->h;
-}
-
 #pragma warning( push )
 #pragma warning( disable: 4100 )
 static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
@@ -175,52 +162,54 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	//H.264/ESしか出せないので拡張子を変更
 	change_ext(pe->temp_filename, _countof(pe->temp_filename), ".264");
 
-	EncoderAppParams appPrm = { 0 };
-	set_conf_nvenc_prm(&conf->nvenc, oip);
-	appPrm.endFrame = oip->n;
-	appPrm.numFramesToEncode = oip->n;
-	appPrm.output_file = pe->temp_filename;
+	AuoInputInfo auoInput = { 0 };
+	auoInput.conf = conf;
+	auoInput.oip = oip;
+	auoInput.pe = pe;
+	auoInput.interlaced = is_interlaced(conf->nvenc.pic_struct);
 
-
-	DWORD tm_vce = timeGetTime();
+	InEncodeVideoParam encPrm = { 0 };
+	encPrm.enc_config = conf->nvenc.enc_config;
+	encPrm.deviceID = conf->nvenc.deviceID;
+	encPrm.preset = conf->nvenc.preset;
+	encPrm.pic_struct = conf->nvenc.pic_struct;
+	encPrm.inputBuffer = conf->nvenc.inputBuffer;
+	encPrm.input.otherPrm = &auoInput;
+	encPrm.deviceID = 0;
+	encPrm.outputFilename = pe->temp_filename;
+	encPrm.inputBuffer = 3;
+	memcpy(encPrm.par, conf->nvenc.par, sizeof(encPrm.par));
+	
+	DWORD tm_start = timeGetTime();
 	set_window_title("NVEnc エンコード", PROGRESSBAR_CONTINUOUS);
+	log_process_events();
+
+	CAuoNvEnc auoNvEnc;
 
 	AUO_RESULT ret = AUO_RESULT_SUCCESS;
 	int *jitter = NULL;
-	const NVEncFunc *nvencFunc = getNVEncFuncList();
-	NVENC_HANDLE nvnec_hnd = NULL;
-	NVEncPrmSet prmSet;
-	ZeroMemory(&prmSet, sizeof(prmSet));
-	prmSet.inConfig = conf->nvenc;
-	prmSet.inAppPrm = appPrm;
-	prmSet.inFuncProgress = auo_nvenc_print_progress;
-	prmSet.inFuncMes = auo_nvenc_print_mes;
-	prmSet.inInput.funcReadFrame = auo_nvenc_read;
-	prmSet.inInput.type = FILE_DIRECT;
-
-	if (conf->vid.afs && is_interlaced(&conf->nvenc)) {
+	
+	if (conf->vid.afs && is_interlaced(encPrm.pic_struct)) {
 		ret |= AUO_RESULT_ERROR; error_afs_interlace_stg();
-	} else if (NULL == (jitter = (int *)calloc(oip->n + 1, sizeof(int)))) {
+	} else if (conf->vid.afs && NULL == (auoInput.jitter = jitter = (int *)calloc(oip->n + 1, sizeof(int)))) {
 		ret |= AUO_RESULT_ERROR; error_malloc_tc();
-	} else if (set_auo_nvenc_g_data(oip, conf, pe, jitter)
-		|| nvencFunc->nvInit(&nvnec_hnd, &prmSet)) {
-			ret |= AUO_RESULT_ERROR;
+	} else if (auoNvEnc.EncoderStartup(&encPrm)) {
+		ret |= AUO_RESULT_ERROR;
 	} else {
+		log_process_events();
 		if (conf->vid.afs) write_log_auo_line(LOG_INFO, "自動フィールドシフト  on");
-		ret |= nvencFunc->nvRun(nvnec_hnd) ? AUO_RESULT_SUCCESS : AUO_RESULT_ERROR;
+		ret |= auoNvEnc.Run() ? AUO_RESULT_ERROR : AUO_RESULT_SUCCESS;
 		flush_audio_log();
-		write_log_auo_enc_time("NVEnc エンコード", timeGetTime() - tm_vce);
+		write_log_auo_enc_time("NVEnc エンコード", timeGetTime() - tm_start);
 		//タイムコード出力
 		if (!ret && (conf->vid.afs || conf->vid.auo_tcfile_out))
 			tcfile_out(jitter, oip->n, (double)oip->rate / (double)oip->scale, conf->vid.afs, pe);
 		if (!ret && conf->vid.afs)
 			write_log_auo_line_fmt(LOG_INFO, "drop %d / %d frames", pe->drop_count, oip->n);
 		ret |= (pe->aud_parallel.abort) ? AUO_RESULT_ABORT : AUO_RESULT_SUCCESS;
-		nvencFunc->nvClose(nvnec_hnd);
 	}
 	set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
 	
-	clear_auo_nvenc_g_data();
 	if (jitter) free(jitter);
 
 	return ret;

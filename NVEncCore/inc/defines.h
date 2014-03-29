@@ -88,25 +88,11 @@ typedef struct
     char *reConfigFile;
 } EncoderAppParams;
 
-typedef struct {
-	int frameRateNum;
-	int frameRateDen;
-	int width;
-	int height;
-	int qualtiy_preset;
-	int numSlices;
-	int enablePTD;
-	int useMappedResources;
-	NvEncodeInterfaceType interfaceType;
-	int syncMode;
-	int endFrame;
-	char *outputFile;
-} EncoderInputParams;
-
 enum {
-	LOG_INFO    = 0,
-	LOG_WARNING = 1,
-	LOG_ERROR   = 2,
+	NV_LOG_DEBUG   = -1,
+	NV_LOG_INFO    =  0,
+	NV_LOG_WARNING =  1,
+	NV_LOG_ERROR   =  2,
 };
 
 

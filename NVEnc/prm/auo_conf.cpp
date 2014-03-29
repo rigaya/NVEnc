@@ -17,8 +17,7 @@
 #include "auo_conf.h"
 
 const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
-	sizeof(NV_ENC_CONFIG),
-	sizeof(EncoderInputParams),
+	sizeof(CONF_NVENC),
 	sizeof(CONF_VIDEO),
 	sizeof(CONF_AUDIO),
 	sizeof(CONF_MUX),
@@ -27,7 +26,6 @@ const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
 
 const size_t guiEx_config::conf_block_pointer[CONF_BLOCK_COUNT] = {
 	offsetof(CONF_GUIEX, nvenc),
-	offsetof(CONF_GUIEX, nvenc2),
 	offsetof(CONF_GUIEX, vid),
 	offsetof(CONF_GUIEX, aud),
 	offsetof(CONF_GUIEX, mux),

@@ -10,6 +10,8 @@
 #pragma once
 
 using namespace System;
+using namespace System::Data;
+using namespace System::Threading;
 using namespace System::IO;
 using namespace System::Collections::Generic;
 
@@ -57,6 +59,73 @@ namespace NVEnc {
 		String^ Path;
 		const char* args;
 	};
+	/*
+	ref class NVEncParamCache
+	{
+	public:
+		DataTable^ dataTableNVEncFeatures;
+		std::vector<NV_ENC_CONFIG> presetConfigs;
+		std::vector<NVEncCap> nvencCapabilities;
+		Thread^ thPresetConfig;
+		Thread^ thFeatures;
+		bool presetConfigCacheAvailable;
+		bool featuresCacheAvaialble;
+
+		NVEncParamCache() {
+			dataTableNVEncFeatures = gcnew DataTable();
+			dataTableNVEncFeatures->Columns->Add(L"機能");
+			dataTableNVEncFeatures->Columns->Add(L"サポート");
+
+			presetConfigCacheAvailable = false;
+			featuresCacheAvaialble = false;
+
+			thPresetConfig = gcnew Thread(gcnew ThreadStart(this, &NVEncParamCache::createPresetConfigCache));
+			thFeatures = gcnew Thread(gcnew ThreadStart(this, &NVEncParamCache::createFeaturesCache));
+			thPresetConfig->Start();
+			thFeatures->Start();
+		}
+		~NVEncParamCache() {
+			delete dataTableNVEncFeatures;
+			delete thFeatures;
+			delete thPresetConfig;
+		}
+
+		void createPresetConfigCache() {
+			NVEncParam param;
+			presetConfig = param.GetNVEncH264Preset(0);
+		}
+
+		void createFeaturesCache() {
+			NVEncParam param;
+			auto nvencCapabilities = param.GetNVEncCapability(0);
+			for (auto cap : nvencCapabilities) {
+				DataRow^ drb = dataTableQsvFeatures->NewRow();
+				drb[0] = String(cap.name).ToString();
+				drb[1] = String(cap.value).ToString();
+				dataTableQsvFeatures->Rows->Add(drb);
+			}
+		}
+
+		std::vector<NV_ENC_CONFIG> getPresetConfigCache() {
+			if (!presetConfigCacheAvailable) {
+				thPresetConfig->Join();
+				presetConfigCacheAvailable = true;
+			}
+			return presetConfig;
+		}
+
+		std::vector<NV_ENC_CONFIG> getFeaturesCache() {
+			if (!featuresCacheAvaialble) {
+				thFeatures->Join();
+				featuresCacheAvaialble = true;
+			}
+			return nvencCapabilities;
+		}
+
+		DataTable^ getFeatureTable() {
+			return dataTableNVEncFeatures;
+		}
+	};*/
 };
 
 const int fcgTBQualityTimerLatency = 600;

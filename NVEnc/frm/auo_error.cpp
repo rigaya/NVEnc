@@ -55,7 +55,7 @@ void error_no_exe_file(const char *name, const char *path) {
 		write_log_auo_line_fmt(LOG_ERROR, "指定された %s が %s にありません。", name, path);
 	else
 		write_log_auo_line_fmt(LOG_ERROR, "%s の場所が指定されていません。", name);
-	write_log_auo_line_fmt(LOG_ERROR, "%s を用意し、その場所を設定画面かから正しく指定してください。", name);
+	write_log_auo_line_fmt(LOG_ERROR, "%s を用意し、その場所を設定画面から正しく指定してください。", name);
 }
 
 void warning_auto_afs_disable() {
@@ -261,7 +261,7 @@ void warning_mux_no_chapter_file() {
 }
 
 void warning_mux_chapter(int sts) {
-	switch ((AuoChapStatus)sts) {
+	switch (sts) {
 		case AUO_CHAP_ERR_NONE: break;
 		case AUO_CHAP_ERR_FILE_OPEN:        write_log_auo_line(LOG_WARNING, "チャプターファイルのオープンに失敗しました。"); break;
 		case AUO_CHAP_ERR_FILE_READ:        write_log_auo_line(LOG_WARNING, "チャプターファイルの読み込みに失敗しました。"); break;

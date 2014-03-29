@@ -69,7 +69,6 @@
 #if defined(WIN32) || defined(_WIN32) || defined(WIN64)
 #define NV_WINDOWS
 #endif
-
 #include <include/videoFormats.h>
 #include "CNVEncoderH264.h"
 #include "CNVEncoder.h"
@@ -99,6 +98,9 @@ static char __NVEncodeLibName[] = "libnvidia-encode.so";
 #pragma warning (disable:4189)
 #pragma warning (disable:4311)
 #pragma warning (disable:4312)
+#pragma warning (disable:4701)
+#pragma warning (disable:4702)
+#pragma warning (disable:4703)
 
 /******************************FAKE KEY****************************************/
 static const GUID NV_CLIENT_KEY_TEST = { 0x0, 0x0, 0x0, { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } };
@@ -175,6 +177,8 @@ CNvEncoder::CNvEncoder() :
     memset(&m_stPresetConfig, 0, sizeof(NV_ENC_PRESET_CONFIG));
     SET_VER(m_stPresetConfig, NV_ENC_PRESET_CONFIG);
     SET_VER(m_stPresetConfig.presetCfg, NV_ENC_CONFIG);
+
+	m_log_level = NV_LOG_INFO;
 
     m_dwCodecProfileGUIDCount = 0;
     memset(&m_stCodecProfileGUID, 0, sizeof(GUID)) ;
@@ -312,7 +316,7 @@ unsigned int CNvEncoder::GetCodecType(GUID encodeGUID)
     }
     else
     {
-        fprintf(stderr, " unsupported codec \n");
+        nvPrintf(stderr, NV_LOG_ERROR, " unsupported codec \n");
     }
 
     return eEncodeCompressionStd;
@@ -339,7 +343,7 @@ unsigned int CNvEncoder::GetCodecProfile(GUID encodeProfileGUID)
     else
     {
         // unknown profile
-        fprintf(stderr, "CNvEncoder::GetCodecProfile is an unspecified GUID\n");
+        nvPrintf(stderr, NV_LOG_ERROR, "CNvEncoder::GetCodecProfile is an unspecified GUID\n");
         return 0;
     }
 
@@ -367,7 +371,7 @@ GUID CNvEncoder::GetCodecProfileGuid(unsigned int profile)
     else
     {
         // unknown profile
-        fprintf(stderr, "CNvEncoder::GetCodecProfile is an unspecified\n");
+        nvPrintf(stderr, NV_LOG_ERROR, "CNvEncoder::GetCodecProfile is an unspecified\n");
         return NV_ENC_H264_PROFILE_INVALID_GUID;
     }
     return NV_ENC_H264_PROFILE_INVALID_GUID;
@@ -416,7 +420,7 @@ HRESULT CNvEncoder::InitD3D9(unsigned int deviceID)
 
     if (deviceID >= m_pD3D->GetAdapterCount())
     {
-        fprintf(stderr, "CNvEncoder::InitD3D() - deviceID=%d is outside range [%d,%d]\n", deviceID, 0, m_pD3D->GetAdapterCount());
+        nvPrintf(stderr, NV_LOG_ERROR, "CNvEncoder::InitD3D() - deviceID=%d is outside range [%d,%d]\n", deviceID, 0, m_pD3D->GetAdapterCount());
         return E_FAIL;
     }
 
@@ -453,7 +457,7 @@ HRESULT CNvEncoder::InitD3D10(unsigned int deviceID)
     // If D3D10 is not present, print an error message and then quit    if (!bCheckD3D10) {
     if (!bCheckD3D10)
     {
-        fprintf(stderr, "> nvEncoder did not detect a D3D10 device, exiting...\n");
+        nvPrintf(stderr, NV_LOG_ERROR, "> nvEncoder did not detect a D3D10 device, exiting...\n");
         dynlinkUnloadD3D10API();
         return E_FAIL;
     }
@@ -469,11 +473,11 @@ HRESULT CNvEncoder::InitD3D10(unsigned int deviceID)
     {
            hr = sFnPtr_D3D10CreateDevice(pAdapter, D3D10_DRIVER_TYPE_HARDWARE, NULL, 0,D3D10_SDK_VERSION, &m_pD3D10Device);
            if(hr !=S_OK)
-               fprintf(stderr, "> Problem while creating %d D3d10 device \n",deviceID);
+               nvPrintf(stderr, NV_LOG_ERROR, "> Problem while creating %d D3d10 device \n",deviceID);
     }
     else
     {
-        fprintf(stderr, "> nvEncoder did not find %d D3D10 device \n",deviceID);
+        nvPrintf(stderr, NV_LOG_ERROR, "> nvEncoder did not find %d D3D10 device \n",deviceID);
         return E_FAIL;
     }
 
@@ -491,7 +495,7 @@ HRESULT CNvEncoder::InitD3D11(unsigned int deviceID)
     // If D3D10 is not present, print an error message and then quit    if (!bCheckD3D10) {
     if (!bCheckD3D11)
     {
-        fprintf(stderr, "> nvEncoder did not detect a D3D11 device, exiting...\n");
+        nvPrintf(stderr, NV_LOG_ERROR, "> nvEncoder did not detect a D3D11 device, exiting...\n");
         dynlinkUnloadD3D11API();
         return E_FAIL;
     }
@@ -513,11 +517,11 @@ HRESULT CNvEncoder::InitD3D11(unsigned int deviceID)
            hr = sFnPtr_D3D11CreateDevice(pAdapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, createDeviceFlags, NULL,
                                   0, D3D11_SDK_VERSION, &m_pD3D11Device, NULL, NULL);
            if(hr !=S_OK)
-               fprintf(stderr, "> Problem while creating %d D3d11 device \n",deviceID);
+               nvPrintf(stderr, NV_LOG_ERROR, "> Problem while creating %d D3d11 device \n",deviceID);
     }
     else
     {
-        fprintf(stderr, "> nvEncoder did not find %d D3D11 device \n",deviceID);
+        nvPrintf(stderr, NV_LOG_ERROR, "> nvEncoder did not find %d D3D11 device \n",deviceID);
         return E_FAIL;
     }
     return hr;
@@ -540,7 +544,7 @@ HRESULT CNvEncoder::InitCuda(unsigned int deviceID)
 
     if (cuResult != CUDA_SUCCESS)
     {
-        fprintf(stderr, ">> InitCUDA() - cuInit() failed error:0x%x\n", cuResult);
+        nvPrintf(stderr, NV_LOG_ERROR, ">> InitCUDA() - cuInit() failed error:0x%x\n", cuResult);
         return E_FAIL;
     }
 
@@ -548,7 +552,7 @@ HRESULT CNvEncoder::InitCuda(unsigned int deviceID)
 
     if (deviceCount == 0)
     {
-        fprintf(stderr, ">> InitCuda() - reports no devices available that support CUDA\n");
+        nvPrintf(stderr, NV_LOG_ERROR, ">> InitCuda() - reports no devices available that support CUDA\n");
         exit(EXIT_FAILURE);
     }
     else
@@ -572,7 +576,7 @@ HRESULT CNvEncoder::InitCuda(unsigned int deviceID)
 
     if (deviceID > (unsigned int)deviceCount-1)
     {
-        fprintf(stderr, ">> InitCUDA() - nvEncoder (-device=%d) is not a valid GPU device. <<\n\n", deviceID);
+        nvPrintf(stderr, NV_LOG_ERROR, ">> InitCUDA() - nvEncoder (-device=%d) is not a valid GPU device. <<\n\n", deviceID);
         exit(EXIT_FAILURE);
     }
 
@@ -584,7 +588,7 @@ HRESULT CNvEncoder::InitCuda(unsigned int deviceID)
 
     if (((SMmajor << 4) + SMminor) < 0x30)
     {
-        fprintf(stderr, "  [ GPU %d does not have NVENC capabilities] exiting\n", deviceID);
+        nvPrintf(stderr, NV_LOG_ERROR, "  [ GPU %d does not have NVENC capabilities] exiting\n", deviceID);
         exit(EXIT_FAILURE);
     }
 
@@ -849,7 +853,7 @@ unsigned char *CNvEncoder::LockInputBuffer(void *hInputSurface, unsigned int *pL
 
     if (hr != S_OK)
     {
-        fprintf(stderr, "\n unable to lock buffer");
+        nvPrintf(stderr, NV_LOG_ERROR, "\n unable to lock buffer");
     }
 
     *pLockedPitch = stLockInputBuffer.pitch;
@@ -864,7 +868,7 @@ HRESULT CNvEncoder::UnlockInputBuffer(void *hInputSurface)
 
     if (hr != S_OK)
     {
-        fprintf(stderr, "\n unable to unlock buffer");
+        nvPrintf(stderr, NV_LOG_ERROR, "\n unable to unlock buffer");
     }
 
     return hr;
@@ -1221,7 +1225,7 @@ HRESULT CNvEncoder::ReleaseEncoderResources()
             cuResult = cuCtxDestroy(m_cuContext);
 
             if (cuResult != CUDA_SUCCESS)
-                fprintf(stderr, "cuCtxDestroy error:0x%x\n", cuResult);
+                nvPrintf(stderr, NV_LOG_ERROR, "cuCtxDestroy error:0x%x\n", cuResult);
         }
 
 #if defined (NV_WINDOWS) && !defined (_NO_D3D)
@@ -1342,7 +1346,7 @@ HRESULT CNvEncoder::GetPresetConfig(int iPresetIdx)
 
     if (nvStatus != NV_ENC_SUCCESS)
     {
-        fprintf(stderr, "\n Wrong preset Value. Exiting \n");
+        nvPrintf(stderr, NV_LOG_ERROR, "\n Wrong preset Value. Exiting \n");
         checkNVENCErrors(nvStatus);
         return E_FAIL;
     }
@@ -1411,7 +1415,7 @@ bool CNvEncoder::ParseConfigString(const char *str)
     configs_s *cfg;
     bool ret = false;
     EncodeConfig *par = &m_stEncoderInput[0];
-    line = strdup(str);
+    line = _strdup(str);
 
     // remove comments
     p = line;
@@ -1473,7 +1477,7 @@ exit:
     if (line)
         free(line);
     if (!ret)
-        fprintf(stderr, "Ignoring %s\n", str);
+        nvPrintf(stderr, NV_LOG_ERROR, "Ignoring %s\n", str);
     return ret;
 }
 
@@ -1500,7 +1504,7 @@ bool CNvEncoder::ParseReConfigString(const char *str)
     configs_s cfg1 = {"frameNum", 0, offsetof(EncodeConfig, endFrame)};
     bool ret = false;
     EncodeConfig *par = &m_stEncoderInput[m_dwNumReConfig];
-    line = strdup(str);
+    line = _strdup(str);
 
     // remove comments
     p = line;
@@ -1571,7 +1575,7 @@ exit:
     if (line)
         free(line);
     if (!ret)
-        fprintf(stderr, "Ignoring %s\n", str);
+        nvPrintf(stderr, NV_LOG_ERROR, "Ignoring %s\n", str);
     return ret;
 }
 
@@ -1751,8 +1755,8 @@ HRESULT CNvEncoder::OpenEncodeSession(int argc, const char *argv[],unsigned int 
 
     if (nvStatus != NV_ENC_SUCCESS)
     {
-        fprintf(stderr, "File: %s, Line: %d, nvEncOpenEncodeSessionEx() returned with error %d\n", __FILE__, __LINE__, nvStatus);
-        fprintf(stderr, "Note: GUID key may be invalid or incorrect.  Recommend to upgrade your drivers and obtain a new key\n");
+        nvPrintf(stderr, NV_LOG_ERROR, "File: %s, Line: %d, nvEncOpenEncodeSessionEx() returned with error %d\n", __FILE__, __LINE__, nvStatus);
+        nvPrintf(stderr, NV_LOG_ERROR, "Note: GUID key may be invalid or incorrect.  Recommend to upgrade your drivers and obtain a new key\n");
         checkNVENCErrors(nvStatus);
     }
     else
@@ -1763,7 +1767,7 @@ HRESULT CNvEncoder::OpenEncodeSession(int argc, const char *argv[],unsigned int 
 
         if (nvStatus != NV_ENC_SUCCESS)
         {
-            fprintf(stderr, "File: %s, Line: %d, nvEncGetEncodeGUIDCount() returned with error %d\n", __FILE__, __LINE__, nvStatus);
+            nvPrintf(stderr, NV_LOG_ERROR, "File: %s, Line: %d, nvEncGetEncodeGUIDCount() returned with error %d\n", __FILE__, __LINE__, nvStatus);
             checkNVENCErrors(nvStatus);
         }
         else
@@ -1776,7 +1780,7 @@ HRESULT CNvEncoder::OpenEncodeSession(int argc, const char *argv[],unsigned int 
 
             if (nvStatus != NV_ENC_SUCCESS)
             {
-                fprintf(stderr, "File: %s, Line: %d, nvEncGetEncodeGUIDs() returned with error %d\n", __FILE__, __LINE__, nvStatus);
+                nvPrintf(stderr, NV_LOG_ERROR, "File: %s, Line: %d, nvEncGetEncodeGUIDs() returned with error %d\n", __FILE__, __LINE__, nvStatus);
                 checkNVENCErrors(nvStatus);
             }
             else
@@ -1818,7 +1822,7 @@ HRESULT CNvEncoder::OpenEncodeSession(int argc, const char *argv[],unsigned int 
 
         if (nvStatus != NV_ENC_SUCCESS)
         {
-            fprintf(stderr, "File: %s, Line: %d, nvEncGetEncodeProfileGUIDCount() returned with error %d\n", __FILE__, __LINE__, nvStatus);
+            nvPrintf(stderr, NV_LOG_ERROR, "File: %s, Line: %d, nvEncGetEncodeProfileGUIDCount() returned with error %d\n", __FILE__, __LINE__, nvStatus);
             checkNVENCErrors(nvStatus);
         }
         else
@@ -1831,7 +1835,7 @@ HRESULT CNvEncoder::OpenEncodeSession(int argc, const char *argv[],unsigned int 
 
             if (nvStatus != NV_ENC_SUCCESS)
             {
-                fprintf(stderr, "File: %s, Line: %d, nvEncGetEncodeProfileGUIDs() returned with error %d\n", __FILE__, __LINE__, nvStatus);
+                nvPrintf(stderr, NV_LOG_ERROR, "File: %s, Line: %d, nvEncGetEncodeProfileGUIDs() returned with error %d\n", __FILE__, __LINE__, nvStatus);
                 checkNVENCErrors(nvStatus);
             }
             else
@@ -1863,7 +1867,7 @@ HRESULT CNvEncoder::OpenEncodeSession(int argc, const char *argv[],unsigned int 
 
         if (nvStatus != NV_ENC_SUCCESS)
         {
-            fprintf(stderr, "File: %s, Line: %d, nvEncGetInputFormatCount() returned with error %d\n", __FILE__, __LINE__, nvStatus);
+            nvPrintf(stderr, NV_LOG_ERROR, "File: %s, Line: %d, nvEncGetInputFormatCount() returned with error %d\n", __FILE__, __LINE__, nvStatus);
             checkNVENCErrors(nvStatus);
         }
         else
@@ -1874,7 +1878,7 @@ HRESULT CNvEncoder::OpenEncodeSession(int argc, const char *argv[],unsigned int 
 
             if (nvStatus != NV_ENC_SUCCESS)
             {
-                fprintf(stderr, "File: %s, Line: %d, nvEncGetInputFormats() returned with error %d\n", __FILE__, __LINE__, nvStatus);
+                nvPrintf(stderr, NV_LOG_ERROR, "File: %s, Line: %d, nvEncGetInputFormats() returned with error %d\n", __FILE__, __LINE__, nvStatus);
                 checkNVENCErrors(nvStatus);
             }
             else
@@ -1902,3 +1906,52 @@ HRESULT CNvEncoder::OpenEncodeSession(int argc, const char *argv[],unsigned int 
     }
     return hr;
 }
+#pragma warning(push)
+#pragma warning(disable:4100)
+int CNvEncoder::nvPrintf(FILE *fp, int log_level, const TCHAR *format, ...) {
+	if (log_level < m_log_level)
+		return 0;
+
+	va_list args;
+	va_start(args, format);
+
+	int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+	TCHAR *buffer = (TCHAR *)malloc(len * sizeof(buffer[0]));
+	if (NULL != buffer) {
+
+		_vstprintf_s(buffer, len, format, args); // C4996
+
+#ifdef UNICODE
+		DWORD mode = 0;
+		bool stderr_write_to_console = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
+
+		char *buffer_char = NULL;
+		if (m_pStrLog || !stderr_write_to_console) {
+			if (NULL != (buffer_char = (char *)calloc(len * 2, sizeof(buffer_char[0]))))
+				WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, buffer, -1, buffer_char, len * 2, NULL, NULL);
+		}
+		if (buffer_char) {
+#else
+			char *buffer_char = buffer;
+#endif
+			if (m_pLogFileName) {
+				FILE *fp_log = NULL;
+				//logはANSI(まあようはShift-JIS)で保存する
+				if (0 == _tfopen_s(&fp_log, m_pLogFileName, _T("a")) && fp_log) {
+					fprintf(fp_log, buffer_char);
+					fclose(fp_log);
+				}
+			}
+#ifdef UNICODE
+			if (!stderr_write_to_console) //出力先がリダイレクトされるならANSIで
+				nvPrintf(stderr, NV_LOG_ERROR, buffer_char);
+			free(buffer_char);
+		}
+		if (stderr_write_to_console) //出力先がコンソールならWCHARで
+#endif
+			_ftprintf(fp, buffer);  
+		free(buffer);
+	}
+	return len;
+}
+#pragma warning(pop)

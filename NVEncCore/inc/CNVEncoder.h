@@ -112,6 +112,7 @@
 #include "threads/NvPthreadABI.h"
 #endif
 
+#include <tchar.h>
 #include "include/NvTypes.h"
 
 #include "threads/NvThreadingClasses.h"
@@ -126,6 +127,10 @@
 
 #ifndef max
 #define max(a,b) (a > b ? a : b)
+#endif
+
+#ifndef min
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
 #endif
 
 #define MAX_INPUT_QUEUE  32
@@ -150,6 +155,8 @@ typedef void *HANDLE;
 #define S_OK                     (0)
 #define E_FAIL                   (-1)
 #endif
+
+#define NvPrintf(format, ...) nvPrintf(stderr, NV_LOG_DEBUG, format, __VA_ARGS__)
 
 typedef struct
 {
@@ -532,6 +539,9 @@ class CNvEncoder
         virtual HRESULT                                      QueryEncodeCaps(NV_ENC_CAPS caps_type, int *p_nCapsVal);
 
     protected:
+		int                                                  m_log_level;
+		const TCHAR                                         *m_pLogFileName;
+		virtual int                                          nvPrintf(FILE *fp, int log_level, const TCHAR *fmt, ...);
 #if defined (NV_WINDOWS) && !defined (_NO_D3D)// Windows uses Direct3D or CUDA to access NVENC
         HRESULT                                              InitD3D9(unsigned int deviceID = 0);
         HRESULT                                              InitD3D10(unsigned int deviceID = 0);

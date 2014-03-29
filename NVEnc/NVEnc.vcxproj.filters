@@ -39,9 +39,6 @@
     <ClCompile Include="NVEnc.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="encode\convert_avx.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
     <ClCompile Include="encode\convert.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
@@ -100,6 +97,9 @@
       <Filter>フォーム</Filter>
     </ClCompile>
     <ClCompile Include="encode\auo_nvenc.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert_avx.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
   </ItemGroup>

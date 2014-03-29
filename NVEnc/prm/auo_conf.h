@@ -14,6 +14,7 @@
 #include "auo.h"
 #include "NVEncCore.h"
 
+
 const int CONF_INITIALIZED = 1;
 
 enum {
@@ -48,6 +49,15 @@ enum {
 };
 
 const int CMDEX_MAX_LEN = 2048;    //追加コマンドラインの最大長
+
+typedef struct CONF_NVENC {
+	NV_ENC_CONFIG enc_config;
+	NV_ENC_PIC_STRUCT pic_struct;
+	int preset;
+	int deviceID;
+	int inputBuffer;
+	int par[2];
+} CONF_NVENC;
 
 typedef struct {
 	BOOL afs;                      //自動フィールドシフトの使用
@@ -99,8 +109,7 @@ typedef struct {
 	int         block_count;                     //ヘッダ部を除いた設定のブロック数
 	int         block_size[CONF_BLOCK_MAX];      //各ブロックのサイズ
 	size_t      block_head_p[CONF_BLOCK_MAX];    //各ブロックのポインタ位置
-	NV_ENC_CONFIG nvenc;                         //nvencについての設定
-	EncoderInputParams nvenc2;                   //nvencのサブ設定
+	CONF_NVENC  nvenc;                           //nvencについての設定
 	CONF_VIDEO  vid;                             //その他動画についての設定
 	CONF_AUDIO  aud;                             //音声についての設定
 	CONF_MUX    mux;                             //muxについての設定

@@ -160,6 +160,8 @@ static bool dynlinkUnloadD3D11API(void)
     return true;
 }
 
+#pragma warning (push)
+#pragma warning (disable:4702)
 // Dynamically load the D3D11 DLLs loaded and map the function pointers
 static bool dynlinkLoadD3D11API(void)
 {
@@ -220,5 +222,6 @@ static bool dynlinkLoadD3D11API(void)
 #endif
     return true;
 }
+#pragma warning (pop)
 
 #endif

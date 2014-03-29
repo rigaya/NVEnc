@@ -107,7 +107,7 @@ void CNvEncoderH264::InitDefault()
     m_stEncoderInput[0].numSlices                = 1;   // 1 slice per frame
     m_stEncoderInput[0].level                    = 40;
     m_stEncoderInput[0].enablePTD                = 1;
-    m_stEncoderInput[0].useMappedResources       = 0;
+    m_stEncoderInput[0].useMappedResources       = 1;
     m_stEncoderInput[0].interfaceType            = NV_ENC_CUDA;  // Windows R304 (DX9 only), Windows R310 (DX10/DX11/CUDA), Linux R310 (CUDA only)
     m_stEncoderInput[0].syncMode                 = 1;
     m_stEncoderInput[0].endFrame                 = 0;
@@ -366,7 +366,7 @@ int CNvEncoderH264::EncoderMain(EncoderGPUInfo encoderInfo,
 
     if (S_OK != InitializeEncoder())
     {
-        fprintf(stderr, "\n nvEncoder Error: NVENC H.264 encoder initialization failure! Check input params!\n");
+        nvPrintf(stderr, NV_LOG_ERROR, "\n nvEncoder Error: NVENC H.264 encoder initialization failure! Check input params!\n");
         return 1;
     }
     if ((appParams.showCaps == 1) && (encoderID == 0))
@@ -436,7 +436,7 @@ int CNvEncoderH264::EncoderMain(EncoderGPUInfo encoderInfo,
                 hInput = nvOpenFile(m_stEncoderInput[m_dwReConfigIdx].InputClip);
                 if (S_OK != ReconfigureEncoder( m_stEncoderInput[m_dwReConfigIdx]))
                 {
-                    fprintf(stderr, "\n nvEncoder.exe Error: NVENC HW encoder initialization failure!  Please check input params for encoder %d!\n",encoderID);
+                    nvPrintf(stderr, NV_LOG_ERROR, "\n nvEncoder.exe Error: NVENC HW encoder initialization failure!  Please check input params for encoder %d!\n",encoderID);
                     return 1;
                 }
                 stEncodeFrame.bReconfigured = 1;

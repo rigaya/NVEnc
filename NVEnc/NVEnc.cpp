@@ -252,7 +252,9 @@ void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
 #pragma warning( disable: 4100 )
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
 	ZeroMemory(conf, sizeof(CONF_GUIEX));
-	initEncoderParams(NULL, &conf->nvenc);
+	conf->nvenc.enc_config = NVEncCore::initializedParam();
+	conf->nvenc.pic_struct = NV_ENC_PIC_STRUCT_FRAME;
+	conf->nvenc.preset = NV_ENC_PRESET_DEFAULT;
 	conf->size_all = CONF_INITIALIZED;
 }
 #pragma warning( pop )
@@ -302,7 +304,7 @@ static BOOL check_output(const OUTPUT_INFO *oip, const PRM_ENC *pe) {
 
 	//解像度
 	int w_mul = 2, h_mul = 2;
-	if (is_interlaced(&conf.nvenc))
+	if (is_interlaced(conf.nvenc.pic_struct))
 		h_mul *= 2;
 	if (oip->w % w_mul) {
 		error_invalid_resolution(TRUE,  w_mul, oip->w, oip->h);
