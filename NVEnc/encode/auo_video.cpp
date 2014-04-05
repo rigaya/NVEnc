@@ -179,6 +179,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	encPrm.outputFilename = pe->temp_filename;
 	encPrm.inputBuffer = 3;
 	memcpy(encPrm.par, conf->nvenc.par, sizeof(encPrm.par));
+
+	if (!check_if_nvcuda_dll_available()) {
+		write_log_auo_line(LOG_ERROR, "NVEncを開始できません。");
+		write_log_auo_line(LOG_ERROR, "NVIDIAのGPU用ドライバがインストールされていない可能性がります。");
+		return AUO_RESULT_ERROR;
+	}
 	
 	DWORD tm_start = timeGetTime();
 	set_window_title("NVEnc エンコード", PROGRESSBAR_CONTINUOUS);

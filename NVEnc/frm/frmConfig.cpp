@@ -790,7 +790,7 @@ System::Void frmConfig::InitForm() {
 	if (str_has_char(sys_dat->exstg->s_local.conf_font.name))
 		SetFontFamilyToForm(this, gcnew FontFamily(String(sys_dat->exstg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
 	//NVEncが実行できるか
-	fcgPBNVEncLogoEnabled->Visible = 0 < paramCache->GetCachedNVEncCapability().size();
+	fcgPBNVEncLogoEnabled->Visible = paramCache && 0 < paramCache->GetCachedNVEncCapability().size();
 }
 
 /////////////         データ <-> GUI     /////////////
@@ -1305,7 +1305,7 @@ System::Void frmConfig::SetEnvironmentInfo() {
 		StrGPUInfo = String(gpu_info).ToString();
 	}
 	//機能情報
-	if (dataTableNVEncFeatures->Rows->Count <= 1) {
+	if (paramCache && dataTableNVEncFeatures->Rows->Count <= 1) {
 		paramCache->GetCachedNVEncCapability();
 	}
 	if (this->InvokeRequired) {
@@ -1315,12 +1315,14 @@ System::Void frmConfig::SetEnvironmentInfo() {
 		fcgLBOSInfo->Text = String(getOSVersion()).ToString() + (is_64bit_os() ? String(L" x64").ToString() : String(L" x86").ToString());
 		fcgLBCPUInfoOnFeatureTab->Text = StrCPUInfo;
 		fcgLBGPUInfoOnFeatureTab->Text = StrGPUInfo;
-		auto nvencCapabilities = paramCache->GetCachedNVEncCapability();
-		for (auto cap : nvencCapabilities) {
-			DataRow^ drb = dataTableNVEncFeatures->NewRow();
-			drb[0] = String(cap.name).ToString();
-			drb[1] = cap.value.ToString();
-			dataTableNVEncFeatures->Rows->Add(drb);
+		if (paramCache) {
+			auto nvencCapabilities = paramCache->GetCachedNVEncCapability();
+			for (auto cap : nvencCapabilities) {
+				DataRow^ drb = dataTableNVEncFeatures->NewRow();
+				drb[0] = String(cap.name).ToString();
+				drb[1] = cap.value.ToString();
+				dataTableNVEncFeatures->Rows->Add(drb);
+			}
 		}
 	}
 }

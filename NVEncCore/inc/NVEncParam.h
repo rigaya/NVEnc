@@ -109,7 +109,7 @@ const CX_DESC list_nvenc_rc_method[] = {
 	{ _T("CQP - 固定量子化量"),                     NV_ENC_PARAMS_RC_CONSTQP   },
 	{ _T("CBR - 固定ビットレート"),                 NV_ENC_PARAMS_RC_CBR       },
 	{ _T("VBR - 可変ビットレート"),                 NV_ENC_PARAMS_RC_VBR       },
-	{ _T("VBR_MINQP - 下限QP付き可変ビットレート"), NV_ENC_PARAMS_RC_VBR_MINQP },
+	//{ _T("VBR_MINQP - 下限QP付き可変ビットレート"), NV_ENC_PARAMS_RC_VBR_MINQP },
 	{ NULL, NULL }
 };
 

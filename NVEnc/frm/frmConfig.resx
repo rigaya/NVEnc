@@ -314,7 +314,7 @@
   <metadata name="fcgTTEx.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>223, 45</value>
   </metadata>
-  <data name="fcgPBNVEncLogoDisabled.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="fcgPBNVEncLogoEnabled.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAAz0AAAEdCAYAAAAmWwlqAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
         YQUAAP+6SURBVHhe7N0FnFTplffxJIPb4O7u1jRtaOPu7u6ugw0wbujgDKPxTDIT381udjeb3bwbmyQz
@@ -5393,7 +5393,7 @@
         Jf/X/w0uK6G4xbVfrAAAAABJRU5ErkJggg==
 </value>
   </data>
-  <data name="fcgPBNVEncLogoEnabled.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+  <data name="fcgPBNVEncLogoDisabled.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAAz0AAAEdCAYAAAAmWwlqAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8
         YQUAAP+6SURBVHhe7P3noy3NdhV2338SBzDYxo9NcJZtDMZER1nOAdvKIkmgLCEUnCPKASEkkCUZCWHA

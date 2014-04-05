@@ -48,8 +48,13 @@ namespace NVEnc {
 	public:
 		frmConfig(CONF_GUIEX *_conf, const SYSTEM_DATA *_sys_dat)
 		{
-			paramCache = new NVEncParam();
-			paramCache->createCacheAsync(0);
+			try {
+				paramCache = new NVEncParam();
+			} catch (...) {
+				;
+			}
+			if (paramCache)
+				paramCache->createCacheAsync(0);
 			InitData(_conf, _sys_dat);
 			cnf_stgSelected = (CONF_GUIEX *)calloc(1, sizeof(CONF_GUIEX));
 			InitializeComponent();
@@ -797,9 +802,12 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 private: System::Windows::Forms::Label^  label2;
 private: System::Windows::Forms::Label^  fcgLBGPUInfoOnFeatureTab;
 private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
+private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
+
 private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoDisabled;
 
-private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
+
+
 
 
 
@@ -1075,6 +1083,8 @@ private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
 			this->fcgLBCodecProfile = (gcnew System::Windows::Forms::Label());
 			this->fcgLBEncMode = (gcnew System::Windows::Forms::Label());
 			this->fcgCXEncMode = (gcnew System::Windows::Forms::ComboBox());
+			this->fcgPBNVEncLogoEnabled = (gcnew System::Windows::Forms::PictureBox());
+			this->fcgPBNVEncLogoDisabled = (gcnew System::Windows::Forms::PictureBox());
 			this->tabPageExOpt = (gcnew System::Windows::Forms::TabPage());
 			this->fcgCBAuoTcfileout = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgCBAFS = (gcnew System::Windows::Forms::CheckBox());
@@ -1094,8 +1104,6 @@ private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
 			this->fcgCSExeFiles = (gcnew System::Windows::Forms::ContextMenuStrip(this->components));
 			this->fcgTSExeFileshelp = (gcnew System::Windows::Forms::ToolStripMenuItem());
 			this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
-			this->fcgPBNVEncLogoDisabled = (gcnew System::Windows::Forms::PictureBox());
-			this->fcgPBNVEncLogoEnabled = (gcnew System::Windows::Forms::PictureBox());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -1123,12 +1131,12 @@ private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioY))->BeginInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioX))->BeginInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUGopLength))->BeginInit();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoEnabled))->BeginInit();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoDisabled))->BeginInit();
 			this->tabPageExOpt->SuspendLayout();
 			this->tabPageNVEncFeatures->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->BeginInit();
 			this->fcgCSExeFiles->SuspendLayout();
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoDisabled))->BeginInit();
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoEnabled))->BeginInit();
 			this->SuspendLayout();
 			// 
 			// fcgtoolStripSettings
@@ -2210,8 +2218,8 @@ private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
 			this->tabPageVideoEnc->Controls->Add(this->fcgLBCodecProfile);
 			this->tabPageVideoEnc->Controls->Add(this->fcgLBEncMode);
 			this->tabPageVideoEnc->Controls->Add(this->fcgCXEncMode);
-			this->tabPageVideoEnc->Controls->Add(this->fcgPBNVEncLogoDisabled);
 			this->tabPageVideoEnc->Controls->Add(this->fcgPBNVEncLogoEnabled);
+			this->tabPageVideoEnc->Controls->Add(this->fcgPBNVEncLogoDisabled);
 			this->tabPageVideoEnc->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->tabPageVideoEnc->Location = System::Drawing::Point(4, 24);
@@ -2808,6 +2816,26 @@ private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
 			this->fcgCXEncMode->Tag = L"chValue";
 			this->fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 			// 
+			// fcgPBNVEncLogoEnabled
+			// 
+			this->fcgPBNVEncLogoEnabled->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgPBNVEncLogoEnabled.Image")));
+			this->fcgPBNVEncLogoEnabled->Location = System::Drawing::Point(6, 3);
+			this->fcgPBNVEncLogoEnabled->Name = L"fcgPBNVEncLogoEnabled";
+			this->fcgPBNVEncLogoEnabled->Size = System::Drawing::Size(219, 75);
+			this->fcgPBNVEncLogoEnabled->SizeMode = System::Windows::Forms::PictureBoxSizeMode::StretchImage;
+			this->fcgPBNVEncLogoEnabled->TabIndex = 148;
+			this->fcgPBNVEncLogoEnabled->TabStop = false;
+			// 
+			// fcgPBNVEncLogoDisabled
+			// 
+			this->fcgPBNVEncLogoDisabled->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgPBNVEncLogoDisabled.Image")));
+			this->fcgPBNVEncLogoDisabled->Location = System::Drawing::Point(6, 3);
+			this->fcgPBNVEncLogoDisabled->Name = L"fcgPBNVEncLogoDisabled";
+			this->fcgPBNVEncLogoDisabled->Size = System::Drawing::Size(219, 75);
+			this->fcgPBNVEncLogoDisabled->SizeMode = System::Windows::Forms::PictureBoxSizeMode::StretchImage;
+			this->fcgPBNVEncLogoDisabled->TabIndex = 149;
+			this->fcgPBNVEncLogoDisabled->TabStop = false;
+			// 
 			// tabPageExOpt
 			// 
 			this->tabPageExOpt->Controls->Add(this->fcgCBAuoTcfileout);
@@ -3025,26 +3053,6 @@ private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
 			this->fcgLBguiExBlog->VisitedLinkColor = System::Drawing::Color::Gray;
 			this->fcgLBguiExBlog->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &frmConfig::fcgLBguiExBlog_LinkClicked);
 			// 
-			// fcgPBNVEncLogoDisabled
-			// 
-			this->fcgPBNVEncLogoDisabled->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgPBNVEncLogoDisabled.Image")));
-			this->fcgPBNVEncLogoDisabled->Location = System::Drawing::Point(6, 3);
-			this->fcgPBNVEncLogoDisabled->Name = L"fcgPBNVEncLogoDisabled";
-			this->fcgPBNVEncLogoDisabled->Size = System::Drawing::Size(219, 75);
-			this->fcgPBNVEncLogoDisabled->SizeMode = System::Windows::Forms::PictureBoxSizeMode::StretchImage;
-			this->fcgPBNVEncLogoDisabled->TabIndex = 148;
-			this->fcgPBNVEncLogoDisabled->TabStop = false;
-			// 
-			// fcgPBNVEncLogoEnabled
-			// 
-			this->fcgPBNVEncLogoEnabled->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgPBNVEncLogoEnabled.Image")));
-			this->fcgPBNVEncLogoEnabled->Location = System::Drawing::Point(6, 3);
-			this->fcgPBNVEncLogoEnabled->Name = L"fcgPBNVEncLogoEnabled";
-			this->fcgPBNVEncLogoEnabled->Size = System::Drawing::Size(219, 75);
-			this->fcgPBNVEncLogoEnabled->SizeMode = System::Windows::Forms::PictureBoxSizeMode::StretchImage;
-			this->fcgPBNVEncLogoEnabled->TabIndex = 149;
-			this->fcgPBNVEncLogoEnabled->TabStop = false;
-			// 
 			// frmConfig
 			// 
 			this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -3108,14 +3116,14 @@ private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioY))->EndInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioX))->EndInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUGopLength))->EndInit();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoEnabled))->EndInit();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoDisabled))->EndInit();
 			this->tabPageExOpt->ResumeLayout(false);
 			this->tabPageExOpt->PerformLayout();
 			this->tabPageNVEncFeatures->ResumeLayout(false);
 			this->tabPageNVEncFeatures->PerformLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->EndInit();
 			this->fcgCSExeFiles->ResumeLayout(false);
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoDisabled))->EndInit();
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoEnabled))->EndInit();
 			this->ResumeLayout(false);
 			this->PerformLayout();
 
@@ -3572,6 +3580,8 @@ private: System::Windows::Forms::PictureBox^  fcgPBNVEncLogoEnabled;
 		}
 	private:
 		System::Void fcgBTQualityStg_Click(System::Object^  sender, System::EventArgs^  e) {
+			if (NULL == paramCache)
+				return;
 			CONF_GUIEX cnf;
 			FrmToConf(&cnf);
 			auto presetList = paramCache->GetCachedNVEncH264Preset();

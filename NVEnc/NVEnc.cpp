@@ -191,7 +191,8 @@ BOOL func_output( OUTPUT_INFO *oip )
 
 	if (!(ret & (AUO_RESULT_ERROR | AUO_RESULT_ABORT)))
 		ret |= run_bat_file(&conf, oip, &pe, &sys_dat, RUN_BAT_AFTER);
-
+	
+	log_process_events();
 	return (ret & AUO_RESULT_ERROR) ? FALSE : TRUE;
 }
 
@@ -252,6 +253,7 @@ void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
 #pragma warning( disable: 4100 )
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
 	ZeroMemory(conf, sizeof(CONF_GUIEX));
+	guiEx_config::write_conf_header(conf);
 	conf->nvenc.enc_config = NVEncCore::initializedParam();
 	conf->nvenc.pic_struct = NV_ENC_PIC_STRUCT_FRAME;
 	conf->nvenc.preset = NV_ENC_PRESET_DEFAULT;

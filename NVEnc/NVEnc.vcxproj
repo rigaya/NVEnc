@@ -71,8 +71,7 @@
       <ModuleDefinitionFile>NVEnc.def</ModuleDefinitionFile>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <OptimizeReferences>false</OptimizeReferences>
-      <DelayLoadDLLs>
-      </DelayLoadDLLs>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <Culture>0x0411</Culture>
@@ -109,8 +108,7 @@
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>NVEnc.def</ModuleDefinitionFile>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
-      <DelayLoadDLLs>
-      </DelayLoadDLLs>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <Culture>0x0411</Culture>
