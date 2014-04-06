@@ -177,7 +177,7 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
 	if (CL_SUCCESS != (ret = cl_get_func(&cl))) {
 		_tcscpy_s(buffer, buffer_size, _T("Unknown (Failed to load OpenCL.dll)"));
 	} else if (CL_SUCCESS != (ret = cl_get_platform_and_device(VendorName, CL_DEVICE_TYPE_GPU, &data, &cl))) {
-		_stprintf_s(buffer, buffer_size, _T("Unknown (Failed to find %s GPU)"), VendorName);
+		_stprintf_s(buffer, buffer_size, _T("Unknown (Failed to find %s GPU)"), to_tchar(VendorName).c_str());
 	} else {
 		if (driver_version_only)
 			cl_get_driver_version(&data, &cl, buffer, buffer_size);
