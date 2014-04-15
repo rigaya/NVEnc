@@ -692,8 +692,8 @@ int NVEncCore::RunEncodeThread() {
 	}
 
 	FlushEncoder();
-
-	m_EncThread.m_stsThread = (NV_ENC_SUCCESS != nvStatus) ? NVENC_THREAD_ERROR : NVENC_THREAD_FINISHED;
+	
+	_InterlockedExchange((uint32_t *)&m_EncThread.m_stsThread, (NV_ENC_SUCCESS != nvStatus) ? NVENC_THREAD_ERROR : NVENC_THREAD_FINISHED);
 
 	return 0;
 }
@@ -715,7 +715,7 @@ int NVEncCore::Run() {
 
 		//入力フレーム取得 (デコード), 色空間しながらコピー
 		if (0 != (ret = m_pInput->LoadNextFrame(pInputBuf->pInput))) {
-			m_EncThread.m_stsThread = ret;
+			_InterlockedExchange((uint32_t *)&m_EncThread.m_stsThread, ret);
 		}
 
 		//フレームバッファへの格納を通知
