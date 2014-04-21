@@ -286,6 +286,18 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
 					rename(chap_file_new, chap_file);
 				}
 			}
+			//必要ならnero形式をUTF-8に変換
+			if (sys_dat->exstg->s_local.chap_nero_convert_to_utf8) {
+				char chap_utf8[MAX_PATH_LEN];
+				apply_appendix(chap_utf8, _countof(chap_utf8), chap_file, ".utf8.txt");
+				int sts = convert_chapter(chap_utf8, chap_file, CODE_PAGE_UNSET, get_duration(oip, pe), CHAP_TYPE_NERO, true);
+				if (AUO_CHAP_ERR_NONE != sts) {
+					warning_chapter_convert_to_utf8(sts);
+				} else {
+					remove(chap_file);
+					rename(chap_utf8, chap_file);
+				}
+			}
 			//mp4系ならapple形式チャプター追加も考慮する
 			if (pe->muxer_to_be_used == MUXER_MP4 || 
 				pe->muxer_to_be_used == MUXER_TC2MP4 || 

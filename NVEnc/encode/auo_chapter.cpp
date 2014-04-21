@@ -24,12 +24,6 @@
 #include "auo_util.h"
 #include "auo_chapter.h"
 
-enum AuoChapType {
-	CHAP_TYPE_UNKNOWN = 0,
-	CHAP_TYPE_NERO    = 1,
-	CHAP_TYPE_APPLE   = 2,
-};
-
 double get_chap_second(chapter_t *chap) {
 	return (double)(chap->h * 3600 + chap->m * 60 + chap->s) + chap->ms * 0.001;
 }
@@ -116,24 +110,28 @@ int write_apple_chap(const char *filename, IMultiLanguage2 *pImul, chapter_list_
 	return sts;
 }
 
-int write_nero_chap(const char *filename, IMultiLanguage2 *pImul, chapter_list_t *chap_list) {
+int write_nero_chap(const char *filename, IMultiLanguage2 *pImul, chapter_list_t *chap_list, bool utf8) {
 	int sts = AUO_CHAP_ERR_NONE;
 	FILE *fp = NULL;
 	if (fopen_s(&fp, filename, "wb") || fp == NULL) {
 		sts = AUO_CHAP_ERR_FILE_OPEN;
 	} else {
+		if (utf8)
+			fwrite(UTF8_BOM, 1, sizeof(UTF8_BOM), fp);
+
+		const DWORD output_codepage = (utf8) ? CODE_PAGE_UTF8 : CODE_PAGE_SJIS;
 		std::vector<char> char_buffer;
 		for (int i = 0; i < chap_list->count; i++) {
 			static const char * const KEY_BASE = "CHAPTER";
 			static const char * const KEY_NAME = "NAME";
 			const DWORD chapter_name_length = wcslen(chap_list->data[i].name) + 1;
-			if (char_buffer.size() < chapter_name_length * 2)
-				char_buffer.resize(chapter_name_length * 2);
+			if (char_buffer.size() < chapter_name_length * 4)
+				char_buffer.resize(chapter_name_length * 4);
 			memset(&char_buffer[0], 0, char_buffer.size() * sizeof(char_buffer[0]));
 
 			DWORD encMode = 0;
 			UINT buf_len_in_byte = char_buffer.size();
-			if (S_OK != pImul->ConvertString(&encMode, CODE_PAGE_UTF16_LE, CODE_PAGE_SJIS, (BYTE *)chap_list->data[i].name, NULL, (BYTE *)&char_buffer[0], &buf_len_in_byte))
+			if (S_OK != pImul->ConvertString(&encMode, CODE_PAGE_UTF16_LE, output_codepage, (BYTE *)chap_list->data[i].name, NULL, (BYTE *)&char_buffer[0], &buf_len_in_byte))
 				return AUO_CHAP_ERR_CONVERTION;
 
 			fprintf(fp, "%s%02d=%02d:%02d:%02d:%03d\r\n", KEY_BASE, i+1, chap_list->data[i].h, chap_list->data[i].m, chap_list->data[i].s, chap_list->data[i].ms);
@@ -367,7 +365,7 @@ static int read_nero_chap(const char *nero_filename, IMultiLanguage2 *pImul, DWO
 }
 
 //チャプターの種類を大雑把に判別
-static AuoChapType check_chap_type(const WCHAR *data) {
+static int check_chap_type(const WCHAR *data) {
 	if (data == NULL || wcslen(data) == 0)
 		return CHAP_TYPE_UNKNOWN;
 	const WCHAR *rw, *qw, *pw = wcsstr(data, L"CHAPTER");
@@ -386,7 +384,7 @@ static AuoChapType check_chap_type(const WCHAR *data) {
 }
 
 //チャプターの種類を大雑把に判別
-static AuoChapType check_chap_type_from_file(const char *filename, IMultiLanguage2 *pImul, DWORD orig_code_page) {
+static int check_chap_type_from_file(const char *filename, IMultiLanguage2 *pImul, DWORD orig_code_page) {
 	int sts = AUO_CHAP_ERR_NONE;
 	if (filename == NULL || pImul == NULL)
 		return CHAP_TYPE_UNKNOWN;
@@ -399,7 +397,7 @@ static AuoChapType check_chap_type_from_file(const char *filename, IMultiLanguag
 }
 
 static int get_chapter_list(chapter_list_t *chap_list, const char *filename, IMultiLanguage2 *pImul, DWORD orig_code_page) {
-	AuoChapType chapter_type = CHAP_TYPE_UNKNOWN;
+	int chapter_type = CHAP_TYPE_UNKNOWN;
 	if (CHAP_TYPE_UNKNOWN == (chapter_type = check_chap_type_from_file(filename, pImul, orig_code_page)))
 		return AUO_CHAP_ERR_INVALID_FMT;
 
@@ -432,13 +430,13 @@ static double get_fake_duration(chapter_list_t *chap_list) {
 	return (double)(last_chap->h * 3600 + last_chap->m * 60 + last_chap->s) + (last_chap->ms + 1.1) * 0.001;
 }
 
-int convert_chapter(const char *new_filename, const char *orig_filename, DWORD orig_code_page, double duration) {
+int convert_chapter(const char *new_filename, const char *orig_filename, DWORD orig_code_page, double duration, int out_chap_type, bool nero_out_utf8) {
 	if (new_filename == NULL || orig_filename == NULL || new_filename == orig_filename)
 		return AUO_CHAP_ERR_NULL_PTR;
 
 	int sts = AUO_CHAP_ERR_NONE;
 	IMultiLanguage2 *pImul = NULL;
-	AuoChapType chap_type = CHAP_TYPE_UNKNOWN;
+	int chap_type = CHAP_TYPE_UNKNOWN;
 
 	//COM用初期化
 	CoInitialize(NULL);
@@ -457,9 +455,12 @@ int convert_chapter(const char *new_filename, const char *orig_filename, DWORD o
 		if (AUO_CHAP_ERR_NONE == sts && duration <= 0.0)
 			duration = get_fake_duration(&chap_list);
 
+		if (CHAP_TYPE_ANOTHER == out_chap_type)
+			out_chap_type = (CHAP_TYPE_APPLE == chap_type) ? CHAP_TYPE_NERO : CHAP_TYPE_APPLE;
+
 		if (AUO_CHAP_ERR_NONE == sts)
-			sts = (chap_type == CHAP_TYPE_NERO) ? write_apple_chap(new_filename, pImul, &chap_list, duration)
-										        : write_nero_chap(new_filename, pImul, &chap_list);
+			sts = (CHAP_TYPE_NERO == out_chap_type) ? write_nero_chap(new_filename, pImul, &chap_list, nero_out_utf8)
+										            : write_apple_chap(new_filename, pImul, &chap_list, duration);
 
 		free_chapter_list(&chap_list);
 	}
@@ -507,7 +508,7 @@ int create_chapter_file_delayed_by_add_vframe(const char *new_filename, const ch
 			data->ms = (int)chap_time_ms;
 		}
 
-		sts = (chapter_type == CHAP_TYPE_NERO) ? write_nero_chap(new_filename, pImul, &chap_list)
+		sts = (chapter_type == CHAP_TYPE_NERO) ? write_nero_chap(new_filename, pImul, &chap_list, false)
 										       : write_apple_chap(new_filename, pImul, &chap_list, 0.0);
 
 		free_chapter_list(&chap_list);

@@ -23,6 +23,13 @@ typedef struct {
 } chapter_list_t;
 
 enum {
+	CHAP_TYPE_ANOTHER = -1,
+	CHAP_TYPE_UNKNOWN = 0,
+	CHAP_TYPE_NERO    = 1,
+	CHAP_TYPE_APPLE   = 2,
+};
+
+enum {
 	AUO_CHAP_ERR_NONE = 0,
 	AUO_CHAP_ERR_FILE_OPEN,
 	AUO_CHAP_ERR_FILE_WRITE,
@@ -46,7 +53,7 @@ double get_chap_second(chapter_t *chap);
 //チャプターファイルの変換を行う
 //基本的にはorig_nero_filename(nero形式) から new_apple_filename(apple形式) へ
 //orig_fileがapple形式の場合、nero形式を出力してファイル名をスワップする
-int convert_chapter(const char *new_apple_filename, const char *orig_nero_filename, DWORD orig_code_page, double duration);
+int convert_chapter(const char *new_apple_filename, const char *orig_nero_filename, DWORD orig_code_page, double duration, int out_chap_type = CHAP_TYPE_ANOTHER, bool nero_out_utf8 = false);
 
 int create_chapter_file_delayed_by_add_vframe(const char *new_filename, const char *orig_filename, int delay_ms);
 
