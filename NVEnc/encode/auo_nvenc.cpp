@@ -211,7 +211,7 @@ int AuoInput::LoadNextFrame(EncodeInputSurfaceInfo *surface) {
 	}
 
 	if (m_iFrame >= oip->n) {
-		oip->func_rest_time_disp(m_iFrame, oip->n);
+		oip->func_rest_time_disp(m_iFrame-1, oip->n);
 		release_audio_parallel_events(pe);
 		return NVENC_THREAD_FINISHED;
 	}

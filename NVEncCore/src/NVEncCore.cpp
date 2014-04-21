@@ -620,7 +620,7 @@ int NVEncCore::RunEncodeThread() {
 		m_EncThread.SetNextSurface(pInput, pOutputBitstream);
 	}
 
-	for (uint32_t i_frame = 0; !m_EncThread.m_bthForceAbort && !(NVENC_THREAD_FINISHED == m_EncThread.m_stsThread && i_frame == m_pStatus->m_sData.frameIn); i_frame++) {
+	for (uint32_t i_frame = 0; ; i_frame++) {
 		//入力フレームのポインタ取得
 		EncodeInputSurfaceInfo *pInput = NULL;
 		EncodeOutputBuffer *pOutputBitstream = NULL;
@@ -632,6 +632,8 @@ int NVEncCore::RunEncodeThread() {
 
 		//デコード・入力結果をもらう
 		m_EncThread.GetNextFrame(&pInput, &pOutputBitstream);
+		if (m_EncThread.m_bthForceAbort || (NVENC_THREAD_FINISHED == m_EncThread.m_stsThread && i_frame == m_pStatus->m_sData.frameIn))
+			break;
 
 		EncodeFrameConfig frame = stEncodeFrame;
 		//EncodeFrame(&stEncodeFrame, false);
