@@ -134,7 +134,7 @@ int write_nero_chap(const char *filename, IMultiLanguage2 *pImul, chapter_list_t
 			if (S_OK != pImul->ConvertString(&encMode, CODE_PAGE_UTF16_LE, output_codepage, (BYTE *)chap_list->data[i].name, NULL, (BYTE *)&char_buffer[0], &buf_len_in_byte))
 				return AUO_CHAP_ERR_CONVERTION;
 
-			fprintf(fp, "%s%02d=%02d:%02d:%02d:%03d\r\n", KEY_BASE, i+1, chap_list->data[i].h, chap_list->data[i].m, chap_list->data[i].s, chap_list->data[i].ms);
+			fprintf(fp, "%s%02d=%02d:%02d:%02d.%03d\r\n", KEY_BASE, i+1, chap_list->data[i].h, chap_list->data[i].m, chap_list->data[i].s, chap_list->data[i].ms);
 			fprintf(fp, "%s%02d%s=%s\r\n", KEY_BASE, i+1, KEY_NAME, &char_buffer[0]);
 		}
 		fclose(fp);
