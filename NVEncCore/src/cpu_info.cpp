@@ -36,6 +36,14 @@ static int getCPUName(char *buffer, size_t nSize) {
 		}
 		memcpy(buffer + offset, CPUInfo, sizeof(CPUInfo));
 	}
+	auto remove_string =[](char *target_str, const char *remove_str) {
+		char *ptr = strstr(target_str, remove_str);
+		if (nullptr != ptr) {
+			memmove(ptr, ptr + strlen(remove_str), strlen(ptr) - strlen(remove_str) + 1);
+		}
+	};
+	remove_string(buffer, "(R)");
+	remove_string(buffer, "(TM)");
 	//crop space beforce string
 	for (int i = 0; buffer[i]; i++) {
 		if (buffer[i] != ' ') {
