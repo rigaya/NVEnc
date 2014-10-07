@@ -74,8 +74,6 @@ typedef struct {
 	int    style;     //フォントスタイル
 } AUO_FONT_INFO;
 
-void open_log_window(const char *savefile, int current_pass, int total_pass);
-
 void write_log_auo_line_fmt(int log_type_index, const char *format, ... );
 void write_log_auo_enc_time(const char *mes, DWORD time);
 

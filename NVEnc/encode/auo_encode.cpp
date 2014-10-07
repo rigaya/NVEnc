@@ -24,6 +24,203 @@
 #include "auo_frm.h"
 #include "auo_encode.h"
 #include "auo_error.h"
+#include "auo_audio.h"
+#include "auo_faw2aac.h"
+
+static BOOL check_muxer_exist(MUXER_SETTINGS *muxer_stg) {
+	if (PathFileExists(muxer_stg->fullpath)) 
+		return TRUE;
+	error_no_exe_file(muxer_stg->filename, muxer_stg->fullpath);
+	return FALSE;
+}
+
+BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const guiEx_settings *exstg) {
+	BOOL check = TRUE;
+	//ファイル名長さ
+	if (strlen(oip->savefile) > (MAX_PATH_LEN - MAX_APPENDIX_LEN - 1)) {
+		error_filename_too_long();
+		check = FALSE;
+	}
+
+	//出力するもの
+	if (pe->video_out_type == VIDEO_OUTPUT_DISABLED && !(oip->flag & OUTPUT_INFO_FLAG_AUDIO)) {
+		error_nothing_to_output();
+		check = FALSE;
+	}
+
+	//解像度
+	int w_mul = 2, h_mul = 2;
+	if (is_interlaced(conf->nvenc.pic_struct))
+		h_mul *= 2;
+	if (oip->w % w_mul) {
+		error_invalid_resolution(TRUE,  w_mul, oip->w, oip->h);
+		check = FALSE;
+	}
+	if (oip->h % h_mul) {
+		error_invalid_resolution(FALSE, h_mul, oip->w, oip->h);
+		check = FALSE;
+	}
+
+	if (conf->oth.out_audio_only)
+		write_log_auo_line(LOG_INFO, "音声のみ出力を行います。");
+
+	//音声エンコーダ
+	if (oip->flag & OUTPUT_INFO_FLAG_AUDIO) {
+		AUDIO_SETTINGS *aud_stg = &exstg->s_aud[conf->aud.encoder];
+		if (str_has_char(aud_stg->filename) && !PathFileExists(aud_stg->fullpath)) {
+			//fawの場合はfaw2aacがあればOKだが、それもなければエラー
+			if (!(conf->aud.encoder == exstg->s_aud_faw_index && check_if_faw2aac_exists())) {
+				error_no_exe_file(aud_stg->filename, aud_stg->fullpath);
+				check = FALSE;
+			}
+		}
+	}
+
+	//muxer
+	switch (pe->muxer_to_be_used) {
+		case MUXER_TC2MP4:
+			check &= check_muxer_exist(&exstg->s_mux[MUXER_MP4]); //tc2mp4使用時は追加でmp4boxも必要
+			//下へフォールスルー
+		case MUXER_MP4:
+		case MUXER_MKV:
+			check &= check_muxer_exist(&exstg->s_mux[pe->muxer_to_be_used]);
+			break;
+		default:
+			break;
+	}
+
+	//オーディオディレイカット
+	if (conf->vid.afs && AUDIO_DELAY_CUT_ADD_VIDEO == conf->aud.delay_cut) {
+		info_afs_audio_delay_confliction();
+		conf->aud.audio_encode_timing = 0;
+	}
+
+	return check;
+}
+
+void open_log_window(const char *savefile, const SYSTEM_DATA *sys_dat, int current_pass, int total_pass) {
+	char mes[MAX_PATH_LEN + 512];
+	char *newLine = (get_current_log_len(current_pass)) ? "\r\n\r\n" : ""; //必要なら行送り
+	static const char *SEPARATOR = "------------------------------------------------------------------------------------------------------------------------------";
+	if (total_pass < 2)
+		sprintf_s(mes, sizeof(mes), "%s%s\r\n[%s]\r\n%s", newLine, SEPARATOR, savefile, SEPARATOR);
+	else
+		sprintf_s(mes, sizeof(mes), "%s%s\r\n[%s] (%d / %d pass)\r\n%s", newLine, SEPARATOR, savefile, current_pass, total_pass, SEPARATOR);
+	
+	show_log_window(sys_dat->aviutl_dir, sys_dat->exstg->s_local.disable_visual_styles);
+	write_log_line(LOG_INFO, mes);
+}
+
+static void set_tmpdir(PRM_ENC *pe, int tmp_dir_index, const char *savefile, const SYSTEM_DATA *sys_dat) {
+	if (tmp_dir_index < TMP_DIR_OUTPUT || TMP_DIR_CUSTOM < tmp_dir_index)
+		tmp_dir_index = TMP_DIR_OUTPUT;
+
+	if (tmp_dir_index == TMP_DIR_SYSTEM) {
+		//システムの一時フォルダを取得
+		if (GetTempPath(_countof(pe->temp_filename), pe->temp_filename) != NULL) {
+			PathRemoveBackslash(pe->temp_filename);
+			write_log_auo_line_fmt(LOG_INFO, "一時フォルダ : %s", pe->temp_filename);
+		} else {
+			warning_failed_getting_temp_path();
+			tmp_dir_index = TMP_DIR_OUTPUT;
+		}
+	}
+	if (tmp_dir_index == TMP_DIR_CUSTOM) {
+		//指定されたフォルダ
+		if (DirectoryExistsOrCreate(sys_dat->exstg->s_local.custom_tmp_dir)) {
+			strcpy_s(pe->temp_filename, _countof(pe->temp_filename), sys_dat->exstg->s_local.custom_tmp_dir);
+			PathRemoveBackslash(pe->temp_filename);
+			write_log_auo_line_fmt(LOG_INFO, "一時フォルダ : %s", pe->temp_filename);
+		} else {
+			warning_no_temp_root(sys_dat->exstg->s_local.custom_tmp_dir);
+			tmp_dir_index = TMP_DIR_OUTPUT;
+		}
+	}
+	if (tmp_dir_index == TMP_DIR_OUTPUT) {
+		//出力フォルダと同じ("\"なし)
+		strcpy_s(pe->temp_filename, _countof(pe->temp_filename), savefile);
+		PathRemoveFileSpecFixed(pe->temp_filename);
+	}
+}
+
+static void set_aud_delay_cut(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat) {
+	pe->delay_cut_additional_vframe = 0;
+	pe->delay_cut_additional_aframe = 0;
+	if (oip->flag & OUTPUT_INFO_FLAG_AUDIO) {
+		int audio_delay = sys_dat->exstg->s_aud[conf->aud.encoder].mode[conf->aud.enc_mode].delay;
+		if (audio_delay) {
+			const double fps = oip->rate / (double)oip->scale;
+			const int audio_rate = oip->audio_rate;
+			switch (conf->aud.delay_cut) {
+			case AUDIO_DELAY_CUT_DELETE_AUDIO:
+				pe->delay_cut_additional_aframe = -1 * audio_delay;
+				break;
+			case AUDIO_DELAY_CUT_ADD_VIDEO:
+				pe->delay_cut_additional_vframe = additional_vframe_for_aud_delay_cut(fps, audio_rate, audio_delay);
+				pe->delay_cut_additional_aframe = additional_silence_for_aud_delay_cut(fps, audio_rate, audio_delay);
+				break;
+			case AUDIO_DELAY_CUT_NONE:
+			default:
+				conf->aud.delay_cut = AUDIO_DELAY_CUT_NONE;
+				break;
+			}
+		} else {
+			conf->aud.delay_cut = AUDIO_DELAY_CUT_NONE;
+		}
+	}
+}
+
+void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat) {
+	//初期化
+	ZeroMemory(pe, sizeof(PRM_ENC));
+	//設定更新
+	sys_dat->exstg->load_encode_stg();
+	sys_dat->exstg->load_append();
+	sys_dat->exstg->load_fn_replace();
+
+	pe->video_out_type = check_video_ouput(conf, oip);
+	pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
+	memcpy(&pe->append, &sys_dat->exstg->s_append, sizeof(FILE_APPENDIX));
+
+	char filename_replace[MAX_PATH_LEN];
+
+	//一時フォルダの決定
+	set_tmpdir(pe, conf->oth.temp_dir, oip->savefile, sys_dat);
+
+	//音声一時フォルダの決定
+	char *cus_aud_tdir = pe->temp_filename;
+	if (conf->aud.aud_temp_dir) {
+		if (DirectoryExistsOrCreate(sys_dat->exstg->s_local.custom_audio_tmp_dir)) {
+			cus_aud_tdir = sys_dat->exstg->s_local.custom_audio_tmp_dir;
+			write_log_auo_line_fmt(LOG_INFO, "音声一時フォルダ : %s", cus_aud_tdir);
+		} else {
+			warning_no_aud_temp_root(sys_dat->exstg->s_local.custom_audio_tmp_dir);
+		}
+	}
+	strcpy_s(pe->aud_temp_dir, _countof(pe->aud_temp_dir), cus_aud_tdir);
+
+	//ファイル名置換を行い、一時ファイル名を作成
+	strcpy_s(filename_replace, _countof(filename_replace), PathFindFileName(oip->savefile));
+	sys_dat->exstg->apply_fn_replace(filename_replace, _countof(filename_replace));
+	PathCombineLong(pe->temp_filename, _countof(pe->temp_filename), pe->temp_filename, filename_replace);
+	
+	//FAWチェックとオーディオディレイの修正
+	if (conf->aud.faw_check)
+		auo_faw_check(&conf->aud, oip, pe, sys_dat->exstg);
+	set_aud_delay_cut(conf, pe, oip, sys_dat);
+}
+
+void auto_save_log(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
+	guiEx_settings ex_stg(true);
+	ex_stg.load_log_win();
+	if (!ex_stg.s_log.auto_save_log)
+		return;
+	char log_file_path[MAX_PATH_LEN];
+	if (AUO_RESULT_SUCCESS != getLogFilePath(log_file_path, _countof(log_file_path), pe, sys_dat, conf, oip))
+		warning_no_auto_save_log_dir();
+	auto_save_log_file(log_file_path);
+	return;
+}
 
 int additional_vframe_for_aud_delay_cut(double fps, int audio_rate, int audio_delay) {
 	double delay_sec = audio_delay / (double)audio_rate;

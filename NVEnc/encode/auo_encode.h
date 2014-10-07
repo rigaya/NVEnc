@@ -27,6 +27,11 @@ static const char * const VID_FILE_APPENDIX = "_vid";
 
 typedef AUO_RESULT (*encode_task) (CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
 
+BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const guiEx_settings *exstg);
+void open_log_window(const char *savefile, const SYSTEM_DATA *sys_dat, int current_pass, int total_pass);
+void auto_save_log(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
+void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat);
+
 int additional_vframe_for_aud_delay_cut(double fps, int audio_rate, int audio_delay);
 int additional_silence_for_aud_delay_cut(double fps, int audio_rate, int audio_delay, int vframe_added = -1);
 BOOL fps_after_afs_is_24fps(const int frame_n, const PRM_ENC *pe);
