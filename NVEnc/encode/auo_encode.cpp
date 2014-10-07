@@ -161,7 +161,6 @@ static void set_aud_delay_cut(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *
 				break;
 			case AUDIO_DELAY_CUT_NONE:
 			default:
-				conf->aud.delay_cut = AUDIO_DELAY_CUT_NONE;
 				break;
 			}
 		} else {

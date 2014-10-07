@@ -254,9 +254,11 @@ void guiEx_settings::load_aud() {
 		s_aud[i].dispname     = s_aud_mc.SetPrivateProfileString(encoder_section, "dispname",     "", ini_fileName);
 		s_aud[i].filename     = s_aud_mc.SetPrivateProfileString(encoder_section, "filename",     "", ini_fileName);
 		s_aud[i].aud_appendix = s_aud_mc.SetPrivateProfileString(encoder_section, "aud_appendix", "", ini_fileName);
+		s_aud[i].raw_appendix = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_appendix", "", ini_fileName);
 		s_aud[i].cmd_base     = s_aud_mc.SetPrivateProfileString(encoder_section, "base_cmd",     "", ini_fileName);
 		s_aud[i].cmd_2pass    = s_aud_mc.SetPrivateProfileString(encoder_section, "2pass_cmd",    "", ini_fileName);
 		s_aud[i].cmd_help     = s_aud_mc.SetPrivateProfileString(encoder_section, "help_cmd",     "", ini_fileName);
+		s_aud[i].cmd_raw      = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_cmd",      "", ini_fileName);
 		s_aud[i].pipe_input   = GetPrivateProfileInt(            encoder_section, "pipe_input",    0, ini_fileName);
 
 		sprintf_s(encoder_section, sizeof(encoder_section), "%s%s", INI_SECTION_MODE, s_aud[i].keyName);
@@ -366,18 +368,19 @@ void guiEx_settings::load_mux() {
 		len = strlen(MUXER_TYPE[i]);
 		s_mux[i].keyName = (char *)s_mux_mc.CutMem((len + 1) * sizeof(s_mux[i].keyName[0]));
 		memcpy(s_mux[i].keyName, MUXER_TYPE[i], (len + 1) * sizeof(s_mux[i].keyName[0]));
-		s_mux[i].dispname = s_mux_mc.SetPrivateProfileString(muxer_section, "dispname", "", ini_fileName);
-		s_mux[i].filename = s_mux_mc.SetPrivateProfileString(muxer_section, "filename", "", ini_fileName);
-		s_mux[i].base_cmd = s_mux_mc.SetPrivateProfileString(muxer_section, "base_cmd", "", ini_fileName);
-		s_mux[i].out_ext = (char *)s_mux_mc.GetPtr();
+		s_mux[i].dispname  = s_mux_mc.SetPrivateProfileString(muxer_section, "dispname",  "", ini_fileName);
+		s_mux[i].filename  = s_mux_mc.SetPrivateProfileString(muxer_section, "filename",  "", ini_fileName);
+		s_mux[i].base_cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, "base_cmd",  "", ini_fileName);
+		s_mux[i].out_ext   = (char *)s_mux_mc.GetPtr();
 		strcpy_s(s_mux[i].out_ext, s_mux_mc.GetRemain(), MUXER_OUT_EXT[i]);
 		s_mux_mc.CutString(sizeof(s_mux[i].out_ext[0]));
-		s_mux[i].vid_cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, "vd_cmd",   "", ini_fileName);
-		s_mux[i].aud_cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, "au_cmd",   "", ini_fileName);
-		s_mux[i].tc_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "tc_cmd",   "", ini_fileName);
-		s_mux[i].tmp_cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, "tmp_cmd",  "", ini_fileName);
-		s_mux[i].help_cmd = s_mux_mc.SetPrivateProfileString(muxer_section, "help_cmd", "", ini_fileName);
-		s_mux[i].post_mux = GetPrivateProfileInt(muxer_section, "post_mux", MUXER_DISABLED,  ini_fileName);
+		s_mux[i].vid_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "vd_cmd",    "", ini_fileName);
+		s_mux[i].aud_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "au_cmd",    "", ini_fileName);
+		s_mux[i].delay_cmd = s_mux_mc.SetPrivateProfileString(muxer_section, "delay_cmd", "", ini_fileName);
+		s_mux[i].tc_cmd    = s_mux_mc.SetPrivateProfileString(muxer_section, "tc_cmd",    "", ini_fileName);
+		s_mux[i].tmp_cmd   = s_mux_mc.SetPrivateProfileString(muxer_section, "tmp_cmd",   "", ini_fileName);
+		s_mux[i].help_cmd  = s_mux_mc.SetPrivateProfileString(muxer_section, "help_cmd",  "", ini_fileName);
+		s_mux[i].post_mux  = GetPrivateProfileInt(muxer_section, "post_mux", MUXER_DISABLED,  ini_fileName);
 
 		sprintf_s(muxer_section, _countof(muxer_section), "%s%s", INI_SECTION_MODE, s_mux[i].keyName);
 		s_mux[i].ex_count = GetPrivateProfileInt(muxer_section, "count", 0, ini_fileName);

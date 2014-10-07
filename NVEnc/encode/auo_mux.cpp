@@ -317,6 +317,18 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
 	} else {
 		enable_chap_mux = FALSE;
 	}
+	//音声ディレイ修正用コマンド %{delay_cmd}
+	const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud[conf->aud.encoder];
+	if (aud_stg->mode[conf->aud.enc_mode].delay
+		&& AUDIO_DELAY_CUT_EDTS == conf->aud.delay_cut
+		&& str_has_char(mux_stg->delay_cmd)) {
+		char str[128] = { 0 };
+		sprintf_s(str, "%d", aud_stg->mode[conf->aud.enc_mode].delay);
+		replace(cmd, nSize, "%{delay_cmd}", mux_stg->delay_cmd);
+		replace(cmd, nSize, "%{delay}", str);
+	} else {
+		replace(cmd, nSize, "%{delay_cmd}", "");
+	}
 	//その他の置換を実行
 	cmd_replace(cmd, nSize, pe, sys_dat, conf, oip);
 	//情報表示

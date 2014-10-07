@@ -85,14 +85,6 @@ static AUO_RESULT check_audio_length(const OUTPUT_INFO *oip) {
 	return (check_range(audio_length / video_length, 0.5, 1.5)) ? AUO_RESULT_SUCCESS : AUO_RESULT_ERROR;
 }
 
-static void show_audio_enc_info(AUDIO_SETTINGS *aud_stg, CONF_AUDIO *cnf_aud) {
-	char bitrate[128] = { 0 };
-	if (aud_stg->mode[cnf_aud->enc_mode].bitrate)
-		sprintf_s(bitrate, _countof(bitrate), ", %dkbps", cnf_aud->bitrate);
-	char *use2pass = (cnf_aud->use_2pass) ? ", 2pass" : "";
-	write_log_auo_line_fmt(LOG_INFO, "%s で音声エンコードを行います。%s%s%s", aud_stg->dispname, aud_stg->mode[cnf_aud->enc_mode].name, bitrate, use2pass);
-}
-
 static void build_wave_header(BYTE *head, const OUTPUT_INFO *oip, BOOL use_8bit, int sample_n) {
 	static const char * const RIFF_HEADER = "RIFF";
 	static const char * const WAVE_HEADER = "WAVE";
@@ -163,6 +155,8 @@ static void build_audcmd(aud_data_t *aud_dat, const CONF_GUIEX *conf, const AUDI
 	strcpy_s(aud_dat->cmd, nSize, aud_stg->cmd_base);
 	//%{2pass_cmd}
 	replace(aud_dat->cmd, nSize, "%{2pass_cmd}", (conf->aud.use_2pass) ? aud_stg->cmd_2pass : "");
+	//%{raw_cmd}
+	replace(aud_dat->cmd, nSize, "%{raw_cmd}", (conf->aud.delay_cut == AUDIO_DELAY_CUT_EDTS) ? aud_stg->cmd_raw : "");
 	//%{mode}
 	replace(aud_dat->cmd, nSize, "%{mode}", aud_stg->mode[conf->aud.enc_mode].cmd);
 	//%{wavpath}
@@ -191,8 +185,10 @@ static void show_progressbar(BOOL use_pipe, const char *enc_name, int progress_m
 	set_window_title(mes, progress_mode);
 }
 
-static void show_audio_delay_cut_info(const PRM_ENC *pe) {
-	if (0 != pe->delay_cut_additional_aframe || 0 != pe->delay_cut_additional_vframe) {
+static void show_audio_delay_cut_info(int delay_cut, const PRM_ENC *pe) {
+	if (AUDIO_DELAY_CUT_EDTS == delay_cut) {
+		write_log_auo_line_fmt(LOG_INFO, "音声エンコードディレイカット - %s", AUDIO_DELAY_CUT_MODE[AUDIO_DELAY_CUT_EDTS]);
+	} else if (0 != pe->delay_cut_additional_aframe || 0 != pe->delay_cut_additional_vframe) {
 		char message[1024] = { 0 };
 		int mes_len = 0;
 		mes_len += sprintf_s(message, _countof(message), "音声エンコードディレイカット - ");
@@ -213,6 +209,15 @@ static void show_audio_delay_cut_info(const PRM_ENC *pe) {
 		}
 		write_log_auo_line(LOG_INFO, message);
 	}
+}
+
+static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO *cnf_aud, const PRM_ENC *pe) {
+	char bitrate[128] = { 0 };
+	if (aud_stg->mode[cnf_aud->enc_mode].bitrate)
+		sprintf_s(bitrate, _countof(bitrate), ", %dkbps", cnf_aud->bitrate);
+	char *use2pass = (cnf_aud->use_2pass) ? ", 2pass" : "";
+	write_log_auo_line_fmt(LOG_INFO, "%s で音声エンコードを行います。%s%s%s", aud_stg->dispname, aud_stg->mode[cnf_aud->enc_mode].name, bitrate, use2pass);
+	show_audio_delay_cut_info(cnf_aud->delay_cut, pe);
 }
 
 static void recalculate_audio_delay_cut_for_afs(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const AUDIO_SETTINGS *aud_stg) {
@@ -323,7 +328,6 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
 		show_progressbar(use_pipe, auddispname, PROGRESSBAR_CONTINUOUS);
 
 		//wav出力
-		show_audio_delay_cut_info(pe);
 		for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)
 			silent_wav_output(aud_dat[i_aud].fp_out, pe->delay_cut_additional_aframe, wav_8bit, oip->audio_ch);
 
@@ -372,9 +376,9 @@ static AUO_RESULT init_aud_dat(aud_data_t *aud_dat, PRM_ENC *pe, BOOL use_pipe, 
 
 	//wavfile名作成
 	make_wavfilename(aud_dat, use_pipe, pe->temp_filename, pe->append.wav);
-
+	
 	//pe一時パラメータにコピーしておく
-	strcpy_s(pe->append.aud[aud_dat->id], _countof(pe->append.aud[0]), aud_stg->aud_appendix);
+	strcpy_s(pe->append.aud[aud_dat->id], _countof(pe->append.aud[0]), (conf->aud.delay_cut == AUDIO_DELAY_CUT_EDTS) ? aud_stg->raw_appendix : aud_stg->aud_appendix);
 	if (aud_dat->id)
 		insert_before_ext(pe->append.aud[aud_dat->id], _countof(pe->append.aud[0]), aud_dat->id);
 
@@ -435,7 +439,7 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
 		return ret;
 
 	//使用するエンコーダの設定を選択
-	AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud[conf->aud.encoder];
+	const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud[conf->aud.encoder];
 	pe->aud_count = (aud_stg->mode[conf->aud.enc_mode].use_8bit == 2) ? 2 : 1;
 	
 	//もし必要なら、オーディオディレイカット用の追加sample数を再計算する
@@ -466,7 +470,7 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
 		init_aud_dat(&aud_dat[i_aud], pe, use_pipe, conf, oip, sys_dat, aud_stg);
 
 	//情報表示
-	show_audio_enc_info(aud_stg, &conf->aud);
+	show_audio_enc_info(aud_stg, &conf->aud, pe);
 
 	//auddir作成
 	PathGetDirectory(auddir, _countof(auddir), aud_stg->fullpath);
