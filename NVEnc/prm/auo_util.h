@@ -55,10 +55,8 @@ enum {
 
 //関数マクロ
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
-#define foreach(type,it,a) \
-    for (type::iterator (it)=(a)->begin();(it)!=(a)->end();(it)++)
-#define const_foreach(type,it,a) \
-    for (type::const_iterator (it)=(a)->begin();(it)!=(a)->end();(it)++)
+#define foreach(it,a) \
+    for (auto (it)=(a).begin();(it)!=(a).end();(it)++)
 
 //基本的な関数
 static inline double pow2(double a) {

@@ -66,14 +66,14 @@ int FAWCheck(short *audio_dat, int audio_n, int audio_rate, int audio_size) {
 		if (zero_blocks[i].size() < (size_t)(audio_n * ZERO_BLOCK_COUNT_THRESHOLD / audio_rate))
 			continue;
 		int zero_sum = 0;
-		foreach(std::vector<int>, it_zero_len, &zero_blocks[i])
-			zero_sum += *it_zero_len;
+		for (auto zero_len : zero_blocks[i])
+			zero_sum += zero_len;
 		if (zero_sum < audio_n * ZERO_SUM_RATIO_MIN[i] || zero_sum > audio_n * ZERO_SUM_RATIO_MAX)
 			continue;
 		double zero_avg = zero_sum / (double)(zero_blocks[i].size());
 		double zero_sd = 0;
-		foreach(std::vector<int>, it_zero_len, &zero_blocks[i])
-			zero_sd += pow2(*it_zero_len - zero_avg);
+		for (auto zero_len : zero_blocks[i])
+			zero_sd += pow2(zero_len - zero_avg);
 		zero_sd = sqrt(zero_sd / (zero_blocks[i].size() - 1));
 		if (zero_sd > zero_avg * ZERO_SD_RATIO)
 			continue;

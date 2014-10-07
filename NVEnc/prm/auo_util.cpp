@@ -267,15 +267,15 @@ BOOL SetThreadPriorityForModule(DWORD TargetProcessId, const char *TargetModule,
 	BOOL ret = TRUE;
 	std::vector<DWORD> thread_list = GetThreadList(TargetProcessId);
 	std::vector<MODULEENTRY32> module_list = GetModuleList(TargetProcessId);
-	foreach(std::vector<DWORD>, it_tid, &thread_list) {
-		void *thread_address = GetThreadBeginAddress(*it_tid);
+	for (auto thread_id : thread_list) {
+		void *thread_address = GetThreadBeginAddress(thread_id);
 		if (!thread_address) {
 			ret = FALSE;
 		} else {
-			foreach(std::vector<MODULEENTRY32>, it_module, &module_list) {
-				if (   check_range(thread_address, it_module->modBaseAddr, it_module->modBaseAddr + it_module->modBaseSize - 1)
-					&& (NULL == TargetModule || NULL == _strnicmp(TargetModule, it_module->szModule, strlen(TargetModule)))) {
-					ret &= !!SetThreadPriorityFromThreadId(*it_tid, ThreadPriority);
+			for (auto i_module : module_list) {
+				if (   check_range(thread_address, i_module.modBaseAddr, i_module.modBaseAddr + i_module.modBaseSize - 1)
+					&& (NULL == TargetModule || NULL == _strnicmp(TargetModule, i_module.szModule, strlen(TargetModule)))) {
+					ret &= !!SetThreadPriorityFromThreadId(thread_id, ThreadPriority);
 					break;
 				}
 			}
@@ -297,15 +297,15 @@ BOOL SetThreadAffinityForModule(DWORD TargetProcessId, const char *TargetModule,
 	BOOL ret = TRUE;
 	std::vector<DWORD> thread_list = GetThreadList(TargetProcessId);
 	std::vector<MODULEENTRY32> module_list = GetModuleList(TargetProcessId);
-	foreach(std::vector<DWORD>, it_tid, &thread_list) {
-		void *thread_address = GetThreadBeginAddress(*it_tid);
+	for (auto thread_id : thread_list) {
+		void *thread_address = GetThreadBeginAddress(thread_id);
 		if (!thread_address) {
 			ret = FALSE;
 		} else {
-			foreach(std::vector<MODULEENTRY32>, it_module, &module_list) {
-				if (   check_range(thread_address, it_module->modBaseAddr, it_module->modBaseAddr + it_module->modBaseSize - 1)
-					&& (NULL == TargetModule || NULL == _strnicmp(TargetModule, it_module->szModule, strlen(TargetModule)))) {
-					ret &= !!SetThreadAffinityFromThreadId(*it_tid, ThreadAffinityMask);
+			for (auto i_module : module_list) {
+				if (   check_range(thread_address, i_module.modBaseAddr, i_module.modBaseAddr + i_module.modBaseSize - 1)
+					&& (NULL == TargetModule || NULL == _strnicmp(TargetModule, i_module.szModule, strlen(TargetModule)))) {
+					ret &= !!SetThreadAffinityFromThreadId(thread_id, ThreadAffinityMask);
 					break;
 				}
 			}
