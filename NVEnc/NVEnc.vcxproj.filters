@@ -81,9 +81,6 @@
     <ClCompile Include="prm\auo_util.cpp">
       <Filter>ソース ファイル\prm</Filter>
     </ClCompile>
-    <ClCompile Include="frm\auo_win7_taskbar.cpp">
-      <Filter>ソース ファイル\frm</Filter>
-    </ClCompile>
     <ClCompile Include="frm\auo_error.cpp">
       <Filter>ソース ファイル\frm</Filter>
     </ClCompile>

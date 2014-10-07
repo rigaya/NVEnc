@@ -179,10 +179,6 @@
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
     </ClCompile>
-    <ClCompile Include="frm\auo_win7_taskbar.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
-    </ClCompile>
     <ClCompile Include="frm\frmConfig.cpp" />
     <ClCompile Include="frm\frmLog.cpp" />
     <ClCompile Include="NVEnc.cpp">
