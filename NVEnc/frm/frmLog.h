@@ -856,7 +856,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItem1;
 			array<int>^ LogLineColorIndex = gcnew array<int>(richTextLog->Lines->Length); //各行の色のインデックス
 			for (int i = 0, position = 0; i < richTextLog->Lines->Length; i++) {
 				LogLineColorIndex[i] = 0;
-				if (richTextLog->Lines[i]->Length) {
+				if (reinterpret_cast<String^>(richTextLog->Lines[i])->Length) {
 					richTextLog->Select(position, 1);
 					for (int i_col_idx = 0; i_col_idx < 3; i_col_idx++) {
 						if (richTextLog->SelectionColor.Equals(log_color_text[i_col_idx])) {
@@ -865,7 +865,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItem1;
 						}
 					}
 				}
-				position += richTextLog->Lines[i]->Length + 1; //改行コード分追加
+				position += reinterpret_cast<String^>(richTextLog->Lines[i])->Length + 1; //改行コード分追加
 			}
 			array<String^>^ LogLines = richTextLog->Lines; //各行の文字列
 			//テキストボックスをクリア
@@ -950,7 +950,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItem1;
 			bool PathSelected = false;
 			for (int j = -1; j <= 1; j++) {
 				if (0 <= i_line + j && i_line + j < richTextLog->Lines->Length) {
-					String^ strLine = richTextLog->Lines[i_line + j];
+					String^ strLine = reinterpret_cast<String^>(richTextLog->Lines[i_line + j]);
 					const int startPos = strLine->IndexOf(L'[');
 					const int finPos = strLine->LastIndexOf(L']');
 					if (startPos >= 0 && finPos > startPos) {
