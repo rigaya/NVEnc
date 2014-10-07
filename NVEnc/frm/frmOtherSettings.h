@@ -86,6 +86,7 @@ namespace NVEnc {
 	private: System::Windows::Forms::Label^  fosLBDefaultOutExt;
 	private: System::Windows::Forms::CheckBox^  fosCBRunBatMinimized;
 	private: System::Windows::Forms::CheckBox^  fosCBChapConvertToUTF8;
+	private: System::Windows::Forms::CheckBox^  fosCBOutputMoreLog;
 
 
 
@@ -133,13 +134,14 @@ namespace NVEnc {
 			this->fosLBDefaultOutExt = (gcnew System::Windows::Forms::Label());
 			this->fosCBRunBatMinimized = (gcnew System::Windows::Forms::CheckBox());
 			this->fosCBChapConvertToUTF8 = (gcnew System::Windows::Forms::CheckBox());
+			this->fosCBOutputMoreLog = (gcnew System::Windows::Forms::CheckBox());
 			this->SuspendLayout();
 			// 
 			// fosCBCancel
 			// 
 			this->fosCBCancel->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
 			this->fosCBCancel->DialogResult = System::Windows::Forms::DialogResult::Cancel;
-			this->fosCBCancel->Location = System::Drawing::Point(171, 480);
+			this->fosCBCancel->Location = System::Drawing::Point(171, 511);
 			this->fosCBCancel->Name = L"fosCBCancel";
 			this->fosCBCancel->Size = System::Drawing::Size(84, 29);
 			this->fosCBCancel->TabIndex = 1;
@@ -150,7 +152,7 @@ namespace NVEnc {
 			// fosCBOK
 			// 
 			this->fosCBOK->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
-			this->fosCBOK->Location = System::Drawing::Point(283, 480);
+			this->fosCBOK->Location = System::Drawing::Point(283, 511);
 			this->fosCBOK->Name = L"fosCBOK";
 			this->fosCBOK->Size = System::Drawing::Size(84, 29);
 			this->fosCBOK->TabIndex = 2;
@@ -346,13 +348,24 @@ namespace NVEnc {
 			this->fosCBChapConvertToUTF8->Text = L"チャプターmux時、UTF-8に変換する";
 			this->fosCBChapConvertToUTF8->UseVisualStyleBackColor = true;
 			// 
+			// fosCBOutputMoreLog
+			// 
+			this->fosCBOutputMoreLog->AutoSize = true;
+			this->fosCBOutputMoreLog->Location = System::Drawing::Point(24, 478);
+			this->fosCBOutputMoreLog->Name = L"fosCBOutputMoreLog";
+			this->fosCBOutputMoreLog->Size = System::Drawing::Size(143, 19);
+			this->fosCBOutputMoreLog->TabIndex = 28;
+			this->fosCBOutputMoreLog->Text = L"音声・muxのログも表示";
+			this->fosCBOutputMoreLog->UseVisualStyleBackColor = true;
+			// 
 			// frmOtherSettings
 			// 
 			this->AcceptButton = this->fosCBOK;
 			this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
 			this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Dpi;
 			this->CancelButton = this->fosCBCancel;
-			this->ClientSize = System::Drawing::Size(392, 519);
+			this->ClientSize = System::Drawing::Size(392, 550);
+			this->Controls->Add(this->fosCBOutputMoreLog);
 			this->Controls->Add(this->fosCBChapConvertToUTF8);
 			this->Controls->Add(this->fosCBRunBatMinimized);
 			this->Controls->Add(this->fosLBDefaultOutExt2);
@@ -405,6 +418,7 @@ namespace NVEnc {
 			fos_ex_stg->s_local.chap_nero_convert_to_utf8 = fosCBChapConvertToUTF8->Checked;
 			fos_ex_stg->s_log.minimized                   = fosCBLogStartMinimized->Checked;
 			fos_ex_stg->s_log.transparent                 = !fosCBLogDisableTransparency->Checked;
+			fos_ex_stg->s_log.log_level                    =(fosCBOutputMoreLog->Checked) ? LOG_MORE : LOG_INFO;
 			fos_ex_stg->s_local.get_relative_path         = fosCBGetRelativePath->Checked;
 			fos_ex_stg->s_local.default_output_ext        = fosCXDefaultOutExt->SelectedIndex;
 			fos_ex_stg->s_local.run_bat_minimized         = fosCBRunBatMinimized->Checked;
@@ -436,6 +450,7 @@ namespace NVEnc {
 			fosCBChapConvertToUTF8->Checked      = fos_ex_stg->s_local.chap_nero_convert_to_utf8 != 0;
 			fosCBLogStartMinimized->Checked      = fos_ex_stg->s_log.minimized != 0;
 			fosCBLogDisableTransparency->Checked = fos_ex_stg->s_log.transparent == 0;
+			fosCBOutputMoreLog->Checked             = fos_ex_stg->s_log.log_level != LOG_INFO;
 			fosCBGetRelativePath->Checked        = fos_ex_stg->s_local.get_relative_path != 0;
 			fosCXDefaultOutExt->SelectedIndex    = fos_ex_stg->s_local.default_output_ext;
 			fosCBRunBatMinimized->Checked        = fos_ex_stg->s_local.run_bat_minimized != 0;

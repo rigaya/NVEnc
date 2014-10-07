@@ -494,6 +494,7 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
 	if (ret & AUO_RESULT_ERROR)
 		return AUO_RESULT_ERROR; //エラーメッセージはbuild_mux_cmd関数内で吐かれる
 	sprintf_s(muxargs, _countof(muxargs), "\"%s\" %s", mux_stg->fullpath, muxcmd);
+	write_log_auo_line(LOG_MORE, muxargs);
 	//パイプの設定
 	pipes.stdOut.mode = AUO_PIPE_ENABLE;
 	pipes.stdErr.mode = AUO_PIPE_MUXED;
@@ -510,6 +511,7 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
 		while (ReadLogExe(&pipes, mux_stg->dispname, &log_line_cache) > 0);
 
 		ret |= check_muxout_filesize(muxout, expected_filesize);
+		int muxer_log_level = LOG_MORE;
 		if (ret == AUO_RESULT_SUCCESS) {
 			if (enable_vid_mux) {
 				if (str_has_char(pe->muxed_vid_filename) && PathFileExists(pe->muxed_vid_filename)) remove(pe->muxed_vid_filename);
@@ -535,14 +537,15 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
 				}
 			}
 		} else if (ret & AUO_RESULT_ERROR) {
+			muxer_log_level = LOG_ERROR;
 			error_mux_failed(mux_stg->dispname, muxargs);
 			if (PathFileExists(muxout))
 				remove(muxout);
-			write_cached_lines(LOG_ERROR, mux_stg->dispname, &log_line_cache);
 		} else {
 			//AUO_RESULT_WARNING
 			change_mux_vid_filename(muxout, pe);
 		}
+		write_cached_lines(LOG_ERROR, mux_stg->dispname, &log_line_cache);
 		CloseHandle(pi_mux.hProcess);
 		CloseHandle(pi_mux.hThread);
 	}

@@ -260,6 +260,7 @@ void guiEx_settings::load_aud() {
 		s_aud[i].cmd_help     = s_aud_mc.SetPrivateProfileString(encoder_section, "help_cmd",     "", ini_fileName);
 		s_aud[i].cmd_raw      = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_cmd",      "", ini_fileName);
 		s_aud[i].pipe_input   = GetPrivateProfileInt(            encoder_section, "pipe_input",    0, ini_fileName);
+		s_aud[i].disable_log  = GetPrivateProfileInt(            encoder_section, "disable_log",   0, ini_fileName);
 
 		sprintf_s(encoder_section, sizeof(encoder_section), "%s%s", INI_SECTION_MODE, s_aud[i].keyName);
 		int tmp_count = GetPrivateProfileInt(encoder_section, "count", 0, ini_fileName);
@@ -473,6 +474,7 @@ void guiEx_settings::load_log_win() {
 	clear_log_win();
 	s_log.minimized          = GetPrivateProfileInt(   ini_section_main, "log_start_minimized",  DEFAULT_LOG_START_MINIMIZED,  conf_fileName);
 	s_log.wine_compat        = GetPrivateProfileInt(   ini_section_main, "log_wine_compat",      DEFAULT_LOG_WINE_COMPAT,      conf_fileName);
+	s_log.log_level          = GetPrivateProfileInt(   ini_section_main, "log_level",            DEFAULT_LOG_LEVEL,            conf_fileName);
 	s_log.transparent        = GetPrivateProfileInt(   ini_section_main, "log_transparent",      DEFAULT_LOG_TRANSPARENT,      conf_fileName);
 	s_log.transparency       = GetPrivateProfileInt(   ini_section_main, "log_transparency",     DEFAULT_LOG_TRANSPARENCY,     conf_fileName);
 	s_log.auto_save_log      = GetPrivateProfileInt(   ini_section_main, "log_auto_save",        DEFAULT_LOG_AUTO_SAVE,        conf_fileName);
@@ -563,6 +565,7 @@ void guiEx_settings::save_local() {
 void guiEx_settings::save_log_win() {
 	WritePrivateProfileIntWithDefault(   ini_section_main, "log_start_minimized",   s_log.minimized,          DEFAULT_LOG_START_MINIMIZED,  conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "log_wine_compat",       s_log.wine_compat,        DEFAULT_LOG_WINE_COMPAT,      conf_fileName);
+	WritePrivateProfileIntWithDefault(   ini_section_main, "log_level",             s_log.log_level,          DEFAULT_LOG_LEVEL,            conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "log_transparent",       s_log.transparent,        DEFAULT_LOG_TRANSPARENT,      conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "log_transparency",      s_log.transparency,       DEFAULT_LOG_TRANSPARENCY,     conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "log_auto_save",         s_log.auto_save_log,      DEFAULT_LOG_AUTO_SAVE,        conf_fileName);
