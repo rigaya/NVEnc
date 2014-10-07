@@ -107,6 +107,7 @@
     <None Include="NVEnc.def">
       <Filter>ソース ファイル</Filter>
     </None>
+    <None Include="NVEnc.ini" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auo.h">

@@ -204,6 +204,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="NVEnc.def" />
+    <None Include="NVEnc.ini" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auo.h" />
