@@ -15,6 +15,9 @@
 #include <VersionHelpers.h>
 #endif
 #include <string.h>
+#include <vector>
+#include <string>
+#include <cstdarg>
 #include <stddef.h>
 #include <stdio.h>
 #include <algorithm>
@@ -37,6 +40,7 @@
 #define CODE_PAGE_UNSET       0xffffffff
 
 //BOM文字リスト
+static const int MAX_UTF8_CHAR_LENGTH = 6;
 static const BYTE UTF8_BOM[]     = { 0xEF, 0xBB, 0xBF };
 static const BYTE UTF16_LE_BOM[] = { 0xFF, 0xFE };
 static const BYTE UTF16_BE_BOM[] = { 0xFE, 0xFF };
@@ -57,6 +61,53 @@ enum {
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #define foreach(it,a) \
     for (auto (it)=(a).begin();(it)!=(a).end();(it)++)
+
+static std::string strprintf(const char* format, ...) {
+	std::va_list arg;
+	va_start(arg, format);
+
+	std::string ret;
+	ret.resize(_vscprintf(format, arg) + 1);
+	int n = vsprintf_s(&ret[0], ret.size(), format, arg);
+	ret.resize(n);
+	va_end(arg);
+	return ret;
+}
+
+static std::wstring strprintf(const wchar_t* format, ...) {
+	std::va_list arg;
+	va_start(arg, format);
+
+	std::wstring ret;
+	ret.resize(_vscwprintf(format, arg) + 1);
+	int n = vswprintf_s(&ret[0], ret.size(), format, arg);
+	ret.resize(n);
+	va_end(arg);
+	return ret;
+}
+
+template<typename T>
+static std::basic_string<T> replace(std::basic_string<T> targetString, std::basic_string<T> oldStr, std::basic_string<T> newStr) {
+	for (std::basic_string<T>::size_type pos(targetString.find(oldStr)); std::basic_string<T>::npos != pos;
+		pos = targetString.find(oldStr, pos + newStr.length()) ) {
+        targetString.replace(pos, oldStr.length(), newStr);
+    }
+    return targetString;
+}
+
+template<typename T>
+static std::vector<std::basic_string<T>> split(const std::basic_string<T> &str, T delim) {
+	std::vector<std::basic_string<T>> res;
+	string::size_type current = 0, found;
+	for (; std::basic_string<T>::npos != (found = str.find_first_of(delim, current)); current = found + 1) {
+		res.push_back(std::basic_string<T>(str, current, found - current));
+		current = found + 1;
+	}
+	std::basic_string<T> last_line = std::basic_string<T>(str, current, str.length() - current);
+	if (std::wcslen(last_line.c_str()))
+		res.push_back(last_line);
+	return res;
+}
 
 //基本的な関数
 static inline double pow2(double a) {

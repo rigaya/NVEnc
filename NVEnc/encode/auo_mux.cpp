@@ -272,44 +272,35 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
 			enable_chap_mux = FALSE;
 		} else {
 			replace(cmd, nSize, "%{chapter}", chap_file);
-			//オーディオディレイのカットを映像追加で行ったら、チャプター位置の修正も必要
-			if (0 < pe->delay_cut_additional_vframe) {
-				const double fps = oip->rate / (double)oip->scale * (fps_after_afs_is_24fps(oip->n, pe) ? 0.8 : 1.0);
-				const int vid_delay_ms = (int)(pe->delay_cut_additional_vframe * 1000.0 / fps + 0.5);
-				char chap_file_new[MAX_PATH_LEN];
-				apply_appendix(chap_file_new, _countof(chap_file_new), chap_file, ".new.txt");
-				int sts = create_chapter_file_delayed_by_add_vframe(chap_file_new, chap_file, vid_delay_ms);
-				if (AUO_CHAP_ERR_NONE != sts) {
-					warning_mux_chapter(sts);
-				} else {
-					remove(chap_file);
-					rename(chap_file_new, chap_file);
+			chapter_file chapter;
+			if (AUO_CHAP_ERR_NONE != (chapter.read_file(chap_file, CODE_PAGE_UNSET, get_duration(oip, pe)))) {
+				warning_mux_chapter(chapter.get_result());
+			} else {
+				chapter.add_dummy_chap_zero_pos();
+				//オーディオディレイのカットを映像追加で行ったら、チャプター位置の修正も必要
+				if (0 < pe->delay_cut_additional_vframe) {
+					const double fps = oip->rate / (double)oip->scale * (fps_after_afs_is_24fps(oip->n, pe) ? 0.8 : 1.0);
+					const int vid_delay_ms = (int)(pe->delay_cut_additional_vframe * 1000.0 / fps + 0.5);
+					chapter.delay_chapter(vid_delay_ms);
 				}
-			}
-			//必要ならnero形式をUTF-8に変換
-			if (sys_dat->exstg->s_local.chap_nero_convert_to_utf8) {
-				char chap_utf8[MAX_PATH_LEN];
-				apply_appendix(chap_utf8, _countof(chap_utf8), chap_file, ".utf8.txt");
-				int sts = convert_chapter(chap_utf8, chap_file, CODE_PAGE_UNSET, get_duration(oip, pe), CHAP_TYPE_NERO, true);
-				if (AUO_CHAP_ERR_NONE != sts) {
-					warning_chapter_convert_to_utf8(sts);
-				} else {
-					remove(chap_file);
-					rename(chap_utf8, chap_file);
-				}
-			}
-			//mp4系ならapple形式チャプター追加も考慮する
-			if (pe->muxer_to_be_used == MUXER_MP4 || 
-				pe->muxer_to_be_used == MUXER_TC2MP4 || 
-				pe->muxer_to_be_used == MUXER_MP4_RAW) {
-				//apple形式チャプターファイルへの置換が行われたら、apple形式チャプターファイルを作成する
-				if (strstr(cmd, "%{chap_apple}")) {
-					int sts = convert_chapter(chap_apple, chap_file, CODE_PAGE_UNSET, get_duration(oip, pe));
-					if (sts != AUO_CHAP_ERR_NONE) {
-						warning_mux_chapter(sts);
-						del_chap_cmd(cmd, TRUE);
-					} else {
-						replace(cmd, nSize, "%{chap_apple}", chap_apple);
+				//必要ならnero形式をUTF-8に変換
+				chapter.overwrite_file(CHAP_TYPE_UNKNOWN, (sys_dat->exstg->s_local.chap_nero_convert_to_utf8 && CHAP_TYPE_NERO == chapter.file_chapter_type()));
+
+				//mp4系ならapple形式チャプター追加も考慮する
+				if (pe->muxer_to_be_used == MUXER_MP4 || 
+					pe->muxer_to_be_used == MUXER_TC2MP4 || 
+					pe->muxer_to_be_used == MUXER_MP4_RAW) {
+					//apple形式チャプターファイルへの置換が行われたら、apple形式チャプターファイルを作成する
+					if (strstr(cmd, "%{chap_apple}")) {
+						if (AUO_CHAP_ERR_NONE != chapter.write_file(chap_apple, CHAP_TYPE_ANOTHER, false)) {
+							warning_mux_chapter(chapter.get_result());
+							del_chap_cmd(cmd, TRUE);
+						} else {
+							replace(cmd, nSize, "%{chap_apple}", chap_apple);
+							if (CHAP_TYPE_APPLE == chapter.file_chapter_type()) {
+								swap_file(chap_apple, chap_file);
+							}
+						}
 					}
 				}
 			}
