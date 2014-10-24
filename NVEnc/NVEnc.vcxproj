@@ -167,6 +167,10 @@
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
+    <ClCompile Include="encode\exe_version.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+    </ClCompile>
     <ClCompile Include="encode\fawcheck.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
@@ -217,6 +221,7 @@
     <ClInclude Include="encode\auo_nvenc.h" />
     <ClInclude Include="encode\auo_video.h" />
     <ClInclude Include="encode\convert.h" />
+    <ClInclude Include="encode\exe_version.h" />
     <ClInclude Include="encode\fawcheck.h" />
     <ClInclude Include="encode\vphelp_client.h" />
     <ClInclude Include="frm\auo_clrutil.h" />

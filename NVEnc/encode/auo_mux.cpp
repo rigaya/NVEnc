@@ -26,13 +26,21 @@
 #include "auo_system.h"
 #include "auo_mux.h"
 #include "auo_encode.h"
+#include "exe_version.h"
 
-static void show_mux_info(const char *mux_stg_name, BOOL vidmux, BOOL audmux, BOOL tcmux, BOOL chapmux, const char *muxer_mode_name) {
+static void show_mux_info(const MUXER_SETTINGS *mux_stg, BOOL vidmux, BOOL audmux, BOOL tcmux, BOOL chapmux, const char *muxer_mode_name) {
 	char mes[1024];
 	static const char * const ON_OFF_INFO[] = { "off", " on" };
 
-	sprintf_s(mes, _countof(mes), "%s でmuxを行います。映像:%s, 音声:%s, tc:%s, chap:%s, 拡張モード:%s", 
-		mux_stg_name,
+	std::string ver_str = "";
+	int version[4] = { 0 };
+	if (str_has_char(mux_stg->ver_cmd) && 0 == get_exe_version_from_cmd(mux_stg->fullpath, mux_stg->ver_cmd, version)) {
+		ver_str = " (" + ver_string(version) + ")";
+	}
+
+	sprintf_s(mes, _countof(mes), "%s%sでmuxを行います。映像:%s, 音声:%s, tc:%s, chap:%s, 拡張モード:%s", 
+		mux_stg->dispname,
+		ver_str.c_str(),
 		ON_OFF_INFO[vidmux != 0],
 		ON_OFF_INFO[audmux != 0],
 		ON_OFF_INFO[tcmux != 0],
@@ -40,7 +48,7 @@ static void show_mux_info(const char *mux_stg_name, BOOL vidmux, BOOL audmux, BO
 		muxer_mode_name);
 	write_log_auo_line_fmt(LOG_INFO, mes);
 
-	sprintf_s(mes, _countof(mes), "%s で mux中...", mux_stg_name);
+	sprintf_s(mes, _countof(mes), "%s で mux中...", mux_stg->dispname);
 	set_window_title(mes, PROGRESSBAR_MARQUEE);
 }
 
@@ -323,7 +331,7 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
 	//その他の置換を実行
 	cmd_replace(cmd, nSize, pe, sys_dat, conf, oip);
 	//情報表示
-	show_mux_info(mux_stg->dispname, enable_vid_mux, enable_aud_mux, enable_tc_mux, enable_chap_mux, muxer_mode->name);
+	show_mux_info(mux_stg, enable_vid_mux, enable_aud_mux, enable_tc_mux, enable_chap_mux, muxer_mode->name);
 	return AUO_RESULT_SUCCESS;
 }
 

@@ -160,6 +160,7 @@ typedef struct {
 	char *cmd_2pass;             //2nd pass用コマンドライン
 	char *cmd_raw;               //raw出力用コマンドライン
 	char *cmd_help;              //ヘルプ表示用コマンドライン
+	char *cmd_ver;               //バージョン表示用のコマンドライン
 	int mode_count;              //エンコードモードの数
 	AUDIO_ENC_MODE *mode;        //エンコードモードの設定
 } AUDIO_SETTINGS;
@@ -184,6 +185,7 @@ typedef struct {
 	char *delay_cmd;              //音声エンコーダディレイ指定用のコマンドライン
 	char *tmp_cmd;                //一時フォルダ指定用コマンドライン
 	char *help_cmd;               //ヘルプ表示用コマンドライン
+	char *ver_cmd;                //バージョン表示用のコマンドライン
 	int ex_count;                 //拡張オプションの数
 	MUXER_CMD_EX *ex_cmd;         //拡張オプション
 	int post_mux;                 //muxerを実行したあとに別のmuxerを実行する

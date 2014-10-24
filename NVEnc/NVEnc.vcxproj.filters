@@ -99,6 +99,9 @@
     <ClCompile Include="encode\convert_avx.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
+    <ClCompile Include="encode\exe_version.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="NVEnc.def">
@@ -207,6 +210,9 @@
       <Filter>フォーム</Filter>
     </ClInclude>
     <ClInclude Include="encode\auo_nvenc.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\exe_version.h">
       <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
   </ItemGroup>
