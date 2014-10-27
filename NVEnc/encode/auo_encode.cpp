@@ -549,13 +549,15 @@ double get_duration(const OUTPUT_INFO *oip, const PRM_ENC *pe) {
 
 int ReadLogExe(PIPE_SET *pipes, const char *exename, LOG_CACHE *log_line_cache) {
 	DWORD pipe_read = 0;
-	if (!PeekNamedPipe(pipes->stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
-		return -1;
-	if (pipe_read) {
-		ReadFile(pipes->stdOut.h_read, pipes->read_buf + pipes->buf_len, sizeof(pipes->read_buf) - pipes->buf_len - 1, &pipe_read, NULL);
-		pipes->buf_len += pipe_read;
-		pipes->read_buf[pipes->buf_len] = '\0';
-		write_log_exe_mes(pipes->read_buf, &pipes->buf_len, exename, log_line_cache);
+	if (pipes->stdOut.h_read) {
+		if (!PeekNamedPipe(pipes->stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
+			return -1;
+		if (pipe_read) {
+			ReadFile(pipes->stdOut.h_read, pipes->read_buf + pipes->buf_len, sizeof(pipes->read_buf) - pipes->buf_len - 1, &pipe_read, NULL);
+			pipes->buf_len += pipe_read;
+			pipes->read_buf[pipes->buf_len] = '\0';
+			write_log_exe_mes(pipes->read_buf, &pipes->buf_len, exename, log_line_cache);
+		}
 	}
 	return (int)pipe_read;
 }
