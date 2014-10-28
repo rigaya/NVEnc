@@ -578,7 +578,7 @@ void write_cached_lines(int log_level, const char *exename, LOG_CACHE *log_line_
 		}
 		if (buffer) {
 			sprintf_s(buffer, buffer_len, MESSAGE_FORMAT, exename, LOG_LEVEL_STR[log_level_idx], log_line_cache->lines[i]);
-			write_log_line(log_level, buffer);
+			write_log_line(log_level, buffer, true);
 		}
 	}
 	if (buffer) free(buffer);

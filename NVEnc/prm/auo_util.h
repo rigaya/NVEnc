@@ -976,6 +976,9 @@ DWORD check_bom(const void* chr);
 //与えられた文字列から主に日本語について文字コード判定を行う
 DWORD get_code_page(const void *str, DWORD size_in_byte);
 
+//CODE_PAGE_SJIS / CODE_PAGE_UTF8 / CODE_PAGE_EUC_JP についてのみ判定を行う
+DWORD jpn_check(const void *str, DWORD size_in_byte);
+
 //IMultipleLanguge2 の DetectInoutCodePageがたまに的外れな「西ヨーロッパ言語」を返すので
 //西ヨーロッパ言語 なら Shift-JIS にしてしまう
 BOOL fix_ImulL_WesternEurope(UINT *code_page);

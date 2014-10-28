@@ -164,4 +164,15 @@ static Color ColorfromInt(int *color_src) {
 	return Color::FromArgb(color_src[0], color_src[1], color_src[2]);
 }
 
+static inline String^ Utf8toString(const char *str) {
+	int length = strlen(str);
+	if (CODE_PAGE_UTF8 != jpn_check(str, length)) {
+		return String(str).ToString();
+	}
+	array<Byte>^ a = gcnew array<Byte>(length);
+	for (int i = 0; i < length; i++)
+		a[i] = str[i];
+	return System::Text::Encoding::UTF8->GetString(a);
+}
+
 #endif //_AUO_CLRUTIL_H_

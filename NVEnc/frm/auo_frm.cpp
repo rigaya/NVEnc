@@ -75,7 +75,7 @@ static int write_log_enc_mes_line(char *const mes, LOG_CACHE *cache_line) {
 		if (p != mes)
 			for (char *const prefix_adjust = p - prefix_len; p > prefix_adjust; p--)
 				*(p-1) = ' ';
-		(cache_line) ? add_line_to_cache(cache_line, p) : write_log_line(mes_type, p);
+		(cache_line) ? add_line_to_cache(cache_line, p) : write_log_line(mes_type, p, true);
 		p=q+1;
 	} while (flag_continue);
 	return mes_len;

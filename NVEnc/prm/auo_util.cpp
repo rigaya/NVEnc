@@ -72,16 +72,14 @@ static BOOL isASCII(const void *str, DWORD size_in_byte) {
 	return TRUE;
 }
 
-static int jpn_check(const void *str, DWORD size_in_byte) {
+DWORD jpn_check(const void *str, DWORD size_in_byte) {
 	int score_sjis = 0;
 	int score_euc = 0;
 	int score_utf8 = 0;
 	const BYTE * const str_fin = (const BYTE *)str + size_in_byte;
 	for (const BYTE *chr = (const BYTE *)str; chr < str_fin - 1; chr++) {
-		if ((0x81 <= chr[0] && chr[0] <= 0x9F) ||
-			(0xE0 <= chr[0] && chr[0] <= 0xFC) ||
-			(0x40 <= chr[1] && chr[1] <= 0x7E) ||
-			(0x80 <= chr[1] && chr[1] <= 0xFC)) {
+		if (   ((0x81 <= chr[0] && chr[0] <= 0x9F) || (0xE0 <= chr[0] && chr[0] <= 0xFC))
+			&& ((0x40 <= chr[1] && chr[1] <= 0x7E) || (0x80 <= chr[1] && chr[1] <= 0xFC))) {
 				score_sjis += 2; chr++;
 		}
 	}
