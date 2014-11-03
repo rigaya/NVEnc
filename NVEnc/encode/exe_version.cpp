@@ -130,7 +130,7 @@ int get_exe_version_from_cmd(const char *exe_path, const char *cmd_ver, int vers
 		}
 		for (char *rtr = nullptr; 0 != ret && nullptr != (str = strtok_s(str, "\n", &rtr)); ) {
 			char *ptr = str;
-			static const char *PREFIX[] = { "fdkaac", "flac", "qaac", "refalac", "version", "revision.", "revision", "rev.", "rev", " r.", " r", " v" };
+			static const char *PREFIX[] = { "fdkaac", "flac", "qaac", "refalac", "opus-tools", "version", "revision.", "revision", "rev.", "rev", " r.", " r", " v" };
 			for (int i = 0; i < _countof(PREFIX); i++) {
 				char *qtr = NULL;
 				if (NULL != (qtr = stristr(ptr, PREFIX[i]))) {
