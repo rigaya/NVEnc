@@ -27,6 +27,7 @@
 #include "auo_mux.h"
 #include "auo_encode.h"
 #include "exe_version.h"
+#include "cpu_info.h"
 
 static void show_mux_info(const MUXER_SETTINGS *mux_stg, BOOL vidmux, BOOL audmux, BOOL tcmux, BOOL chapmux, const char *muxer_mode_name) {
 	char mes[1024];
@@ -545,6 +546,7 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
 			change_mux_vid_filename(muxout, pe);
 		}
 		write_cached_lines(muxer_log_level, mux_stg->dispname, &log_line_cache);
+		write_log_auo_line_fmt(LOG_MORE, "%s CPU使用率: %.2f%%", mux_stg->dispname, GetProcessAvgCPUUsage(pi_mux.hProcess));
 		CloseHandle(pi_mux.hProcess);
 		CloseHandle(pi_mux.hThread);
 	}

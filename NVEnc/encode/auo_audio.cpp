@@ -30,6 +30,7 @@
 #include "auo_audio_parallel.h"
 #include "auo_encode.h"
 #include "exe_version.h"
+#include "cpu_info.h"
 
 const int WAVE_HEADER_SIZE = 44;
 const int RIFF_SIZE_POS    = 4;
@@ -440,6 +441,7 @@ static AUO_RESULT audio_finish_enc(AUO_RESULT ret, aud_data_t *aud_dat, const AU
 			write_cached_lines(LOG_MORE, aud_stg->dispname, &aud_dat->log_line_cache);
 		}
 	}
+	write_log_auo_line_fmt(LOG_MORE, "%s CPU使用率: %.2f%%", aud_stg->dispname, GetProcessAvgCPUUsage(aud_dat->pi_aud.hProcess));
 
 	CloseHandle(aud_dat->pi_aud.hProcess);
 	CloseHandle(aud_dat->pi_aud.hThread);
