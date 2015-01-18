@@ -544,7 +544,7 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
 			//AUO_RESULT_WARNING
 			change_mux_vid_filename(muxout, pe);
 		}
-		write_cached_lines(LOG_ERROR, mux_stg->dispname, &log_line_cache);
+		write_cached_lines(muxer_log_level, mux_stg->dispname, &log_line_cache);
 		CloseHandle(pi_mux.hProcess);
 		CloseHandle(pi_mux.hThread);
 	}
