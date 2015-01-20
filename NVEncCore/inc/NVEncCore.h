@@ -240,7 +240,7 @@ public:
 	virtual NVENCSTATUS createDeviceCodecList();
 
 	//Profile, Preset, Featureなどの情報を作成し、m_EncodeFeaturesを完成させる
-	virtual NVENCSTATUS createDeviceFeatureList();
+	virtual NVENCSTATUS createDeviceFeatureList(bool getPresetConfig = true);
 
 	//コーデックのFeature情報のリストの作成・取得
 	virtual const std::vector<NVEncCodecFeature>& GetNVEncCapability();
@@ -249,7 +249,7 @@ protected:
 	NVENCSTATUS setCodecProfileList(void *m_hEncoder, NVEncCodecFeature& codecFeature);
 
 	//指定したcodecFeatureのプリセットリストをcodecFeatureに作成
-	NVENCSTATUS setCodecPresetList(void *m_hEncoder, NVEncCodecFeature& codecFeature);
+	NVENCSTATUS setCodecPresetList(void *m_hEncoder, NVEncCodecFeature& codecFeature, bool getPresetConfig = true);
 
 	//指定したcodecFeatureの対応入力フォーマットリストをcodecFeatureに作成
 	NVENCSTATUS setInputFormatList(void *m_hEncoder, NVEncCodecFeature& codecFeature);

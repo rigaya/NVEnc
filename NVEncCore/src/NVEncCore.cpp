@@ -610,7 +610,7 @@ NVENCSTATUS NVEncCore::setCodecProfileList(void *m_hEncoder, NVEncCodecFeature& 
 	return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::setCodecPresetList(void *m_hEncoder, NVEncCodecFeature& codecFeature) {
+NVENCSTATUS NVEncCore::setCodecPresetList(void *m_hEncoder, NVEncCodecFeature& codecFeature, bool getPresetConfig) {
 	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 	uint32_t dwCodecProfileGUIDCount = 0;
 	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetCount(m_hEncoder, codecFeature.codec, &dwCodecProfileGUIDCount))) {
@@ -626,12 +626,14 @@ NVENCSTATUS NVEncCore::setCodecPresetList(void *m_hEncoder, NVEncCodecFeature& c
 		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodePresetGUIDs() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
 		return nvStatus;
 	}
-	for (uint32_t i = 0; i < codecFeature.presets.size(); i++) {
-		INIT_CONFIG(codecFeature.presetConfigs[i], NV_ENC_PRESET_CONFIG);
-		SET_VER(codecFeature.presetConfigs[i].presetCfg, NV_ENC_CONFIG);
-		if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetConfig(m_hEncoder, codecFeature.codec, codecFeature.presets[i], &codecFeature.presetConfigs[i]))) {
-			NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodePresetConfig() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
-			return nvStatus;
+	if (getPresetConfig) {
+		for (uint32_t i = 0; i < codecFeature.presets.size(); i++) {
+			INIT_CONFIG(codecFeature.presetConfigs[i], NV_ENC_PRESET_CONFIG);
+			SET_VER(codecFeature.presetConfigs[i].presetCfg, NV_ENC_CONFIG);
+			if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetConfig(m_hEncoder, codecFeature.codec, codecFeature.presets[i], &codecFeature.presetConfigs[i]))) {
+				NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodePresetConfig() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+				return nvStatus;
+			}
 		}
 	}
 	return nvStatus;
@@ -710,7 +712,7 @@ NVENCSTATUS NVEncCore::createDeviceCodecList() {
 	return SetEncodeCodecList(m_hEncoder);
 }
 
-NVENCSTATUS NVEncCore::createDeviceFeatureList() {
+NVENCSTATUS NVEncCore::createDeviceFeatureList(bool getPresetConfig) {
 	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 	//m_EncodeFeaturesが作成されていなければ、自動的に作成
 	if (m_EncodeFeatures.size() == 0)
@@ -719,7 +721,7 @@ NVENCSTATUS NVEncCore::createDeviceFeatureList() {
 	if (NV_ENC_SUCCESS == nvStatus) {
 		for (uint32_t i = 0; i < m_EncodeFeatures.size(); i++) {
 			setCodecProfileList(m_hEncoder, m_EncodeFeatures[i]);
-			setCodecPresetList(m_hEncoder, m_EncodeFeatures[i]);
+			setCodecPresetList(m_hEncoder, m_EncodeFeatures[i], getPresetConfig);
 			setInputFormatList(m_hEncoder, m_EncodeFeatures[i]);
 			GetCurrentDeviceNVEncCapability(m_hEncoder, m_EncodeFeatures[i]);
 		}
