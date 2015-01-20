@@ -133,7 +133,6 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 	
 	m_pStatus = pStatus;
 	AuoInputInfo *info = reinterpret_cast<AuoInputInfo *>(inputPrm->otherPrm);
-	memcpy(m_crop, inputPrm->crop, sizeof(m_crop));
 
 	oip = info->oip;
 	conf = info->conf;
@@ -141,11 +140,13 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 	jitter = info->jitter;
 	m_interlaced = info->interlaced;
 
+	int fps_gcd = nv_get_gcd(oip->rate, oip->scale);
+
 	pStatus->m_sData.frameTotal = oip->n;
 	inputPrm->width = oip->w;
 	inputPrm->height = oip->h;
-	inputPrm->rate = oip->rate;
-	inputPrm->scale = oip->scale;
+	inputPrm->rate = oip->rate / fps_gcd;
+	inputPrm->scale = oip->scale / fps_gcd;
 
 //表でうっとおしいので省略する
 #define NONE  AUO_SIMD_NONE
@@ -194,12 +195,14 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 		else if (m_ConvCSPInfo->SIMD & SSE3)  _tcscat_s(buf, _countof(buf), "SSE3");
 		else if (m_ConvCSPInfo->SIMD & SSE2)  _tcscat_s(buf, _countof(buf), "SSE2");
 	}
-
+	
+	setSurfaceInfo(inputPrm);
+	m_stSurface.src_pitch = inputPrm->width;
 	CreateInputInfo(_T("auo"), _T("yuy2"), (m_interlaced) ? _T("nv12i") : _T("nv12p"), buf, inputPrm);
 
 	return 0;
 }
-int AuoInput::LoadNextFrame(EncodeInputSurfaceInfo *surface) {
+int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
 	if (FALSE != (pe->aud_parallel.abort = oip->func_is_abort()))
 		return NVENC_THREAD_ABORT;
 
@@ -242,19 +245,20 @@ int AuoInput::LoadNextFrame(EncodeInputSurfaceInfo *surface) {
 			return false;
 		}
 	}
-	m_ConvCSPInfo->func[!!m_interlaced](surface->pExtAllocHost, frame, surface->dwWidth, surface->dwWidth * 2, surface->dwCuPitch, surface->dwHeight, surface->dwHeight, m_crop);
+	m_ConvCSPInfo->func[!!m_interlaced](dst, frame, m_stSurface.width, m_stSurface.src_pitch * 2, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
 
 	m_iFrame++;
 	if (!(m_iFrame & 7))
 		aud_parallel_task(oip, pe);
 
-	_InterlockedIncrement(&m_pStatus->m_sData.frameIn);
+	m_pStatus->m_sData.frameIn++;
 
 	uint32_t tm = timeGetTime();
 	if (tm - m_tmLastUpdate > 800) {
 		m_tmLastUpdate = tm;
 		oip->func_rest_time_disp(m_iFrame, oip->n);
 		oip->func_update_preview();
+		m_pStatus->UpdateDisplay();
 	}
 
 	return NVENC_THREAD_RUNNING;
@@ -268,22 +272,22 @@ CAuoNvEnc::~CAuoNvEnc() {
 
 }
 
-int CAuoNvEnc::InitInput() {
+NVENCSTATUS CAuoNvEnc::InitInput(InEncodeVideoParam *inputParam) {
 	m_pStatus = new AuoEncodeStatus();
 	m_pInput = new AuoInput();
-	int ret = m_pInput->Init(&m_InputParam.input, m_pStatus);
-	m_pStatus->m_nOutputFPSRate = m_InputParam.input.rate;
-	m_pStatus->m_nOutputFPSScale = m_InputParam.input.scale;
-	return ret;
+	int ret = m_pInput->Init(&inputParam->input, m_pStatus);
+	m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
+	m_pStatus->m_nOutputFPSScale = inputParam->input.scale;
+	return (ret) ? NV_ENC_ERR_GENERIC : NV_ENC_SUCCESS;
 }
 
 #pragma warning (push)
 #pragma warning (disable:4100)
-int CAuoNvEnc::nvPrintf(FILE *fp, int log_level, const char *format, ...) {
-	if (log_level < m_log_level)
+int CAuoNvEnc::NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) {
+	if (logLevel < m_nLogLevel)
 		return 0;
 
-	log_level = clamp(log_level, LOG_INFO, LOG_ERROR);
+	logLevel = clamp(logLevel, LOG_INFO, LOG_ERROR);
 
 	va_list args;
 	va_start(args, format);
@@ -303,8 +307,8 @@ int CAuoNvEnc::nvPrintf(FILE *fp, int log_level, const char *format, ...) {
 		if ((b = strrchr(mes, '\r', a - mes - 2)) != NULL)
 			mes = b + 1;
 		*a = '\0';
-		sprintf_s(mes_line, mes_line_len, "nvenc [%s]: %s", LOG_LEVEL_STR[log_level], mes);
-		write_log_line(log_level, mes_line);
+		sprintf_s(mes_line, mes_line_len, "nvenc [%s]: %s", LOG_LEVEL_STR[logLevel], mes);
+		write_log_line(logLevel, mes_line);
 		mes = a + 1;
 	}
 	if ((a = strrchr(mes, '\r', fin - mes - 1)) != NULL) {

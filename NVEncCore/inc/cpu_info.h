@@ -10,10 +10,26 @@
 #ifndef _CPU_INFO_H_
 #define _CPU_INFO_H_
 
+#include <Windows.h>
 #include <tchar.h>
 
+BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core);
+
 int getCPUInfo(TCHAR *buffer, size_t nSize);
+
+template <size_t size>
+int inline getCPUInfo(TCHAR(&buffer)[size]) {
+	return getCPUInfo(buffer, size);
+}
+
 double getCPUDefaultClock();
 double getCPUMaxTurboClock(unsigned int num_thread);
+
+typedef struct PROCESS_TIME {
+	UINT64 creation, exit, kernel, user;
+} PROCESS_TIME;
+
+BOOL GetProcessTime(HANDLE hProcess, PROCESS_TIME *time);
+double GetProcessAvgCPUUsage(HANDLE hProcess, PROCESS_TIME *start = nullptr);
 
 #endif //_CPU_INFO_H_

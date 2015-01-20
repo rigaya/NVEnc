@@ -29,7 +29,8 @@ enum {
 	RUN_BAT_BEFORE = 0x02,
 };
 
-static const char *CONF_NAME          = "NVEnc ConfigFile";
+static const char *CONF_NAME          = "NVEnc ConfigFile v2";
+static const char *CONF_NAME_OLD      = "NVEnc ConfigFile";
 const int CONF_NAME_BLOCK_LEN         = 32;
 const int CONF_BLOCK_MAX              = 32;
 const int CONF_BLOCK_COUNT            = 6; //最大 CONF_BLOCK_MAXまで
@@ -66,6 +67,8 @@ typedef struct CONF_NVENC {
 	int deviceID;
 	int inputBuffer;
 	int par[2];
+	int codec;
+	NV_ENC_CODEC_CONFIG codecConfig[8];
 } CONF_NVENC;
 
 typedef struct {
@@ -129,12 +132,13 @@ class guiEx_config {
 private:
 	static const size_t conf_block_pointer[CONF_BLOCK_COUNT];
 	static const int conf_block_data[CONF_BLOCK_COUNT];
+	static void convert_nvencstg_to_nvencstgv2(CONF_GUIEX *conf, const void *dat);
 public:
 	guiEx_config();
 	static void write_conf_header(CONF_GUIEX *conf);
 	static int  adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int old_size);
-	int  load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file);       //設定をstgファイルから読み込み
-	int  save_qsvp_conf(const CONF_GUIEX *conf, const char *stg_file); //設定をstgファイルとして保存
+	int  load_guiex_conf(CONF_GUIEX *conf, const char *stg_file);       //設定をstgファイルから読み込み
+	int  save_guiex_conf(const CONF_GUIEX *conf, const char *stg_file); //設定をstgファイルとして保存
 };
 
 //定義はNVEnc.cpp

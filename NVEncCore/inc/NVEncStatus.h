@@ -7,8 +7,7 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#ifndef _NVENC_STATUS_H_
-#define _NVENC_STATUS_H_
+#pragma once
 
 #include <Windows.h>
 #include <stdio.h>
@@ -18,6 +17,7 @@
 #include <process.h>
 #pragma comment(lib, "winmm.lib")
 #include "nvEncodeAPI.h"
+#include "cpu_info.h"
 
 
 #ifndef MIN3
@@ -60,6 +60,11 @@ public:
 		m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
 	}
 	~EncodeStatus() { };
+
+	virtual void SetStart() {
+		m_sData.tmStart = timeGetTime();
+		GetProcessTime(GetCurrentProcess(), &m_sStartTime);
+	}
 	virtual void AddOutputInfo(const NV_ENC_LOCK_BITSTREAM *bitstream) {
 		const NV_ENC_PIC_TYPE picType = bitstream->pictureType;
 		const uint32_t outputBytes = bitstream->bitstreamSizeInBytes;
@@ -191,7 +196,7 @@ public:
 		int mm = time_elapsed / (60*1000);
 		time_elapsed -= mm * (60*1000);
 		int ss = (time_elapsed + 500) / 1000;
-		_stprintf_s(mes, _countof(mes), _T("encode time %d:%02d:%02d\n"), hh, mm, ss);
+		_stprintf_s(mes, _countof(mes), _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime));
 		WriteLine(mes);
 		
 		uint32_t maxCount = MAX3(m_sData.frameOutI, m_sData.frameOutP, m_sData.frameOutB);
@@ -203,10 +208,9 @@ public:
 		WriteFrameTypeResult(_T("frame type B   "), m_sData.frameOutB,   maxCount, m_sData.frameOutBSize, maxFrameSize, (m_sData.frameOutB) ? m_sData.frameOutBQPSum / (double)m_sData.frameOutB : -1);
 	}
 public:
+	PROCESS_TIME m_sStartTime;
 	EncodeStatusData m_sData;
 	uint32_t m_nOutputFPSRate = 0;
 	uint32_t m_nOutputFPSScale = 0;
 	bool m_bStdErrWriteToConsole;
 };
-
-#endif //_NVENC_STATUS_H_

@@ -17,15 +17,15 @@
 #include "cpu_info.h"
 
 static int getCPUName(char *buffer, size_t nSize) {
-	int CPUInfo[4] = {-1};
-	__cpuid(CPUInfo, 0x80000000);
-	unsigned int nExIds = CPUInfo[0];
+    int CPUInfo[4] = {-1};
+    __cpuid(CPUInfo, 0x80000000);
+    unsigned int nExIds = CPUInfo[0];
 	if (nSize < 0x40)
 		return 1;
 
 	memset(buffer, 0, 0x40);
-	for (unsigned int i = 0x80000000; i <= nExIds; i++) {
-		__cpuid(CPUInfo, i);
+    for (unsigned int i = 0x80000000; i <= nExIds; i++) {
+        __cpuid(CPUInfo, i);
 		int offset = 0;
 		switch (i) {
 			case 0x80000002: offset =  0; break;
@@ -34,16 +34,17 @@ static int getCPUName(char *buffer, size_t nSize) {
 			default:
 				continue;
 		}
-		memcpy(buffer + offset, CPUInfo, sizeof(CPUInfo));
+		memcpy(buffer + offset, CPUInfo, sizeof(CPUInfo)); 
 	}
 	auto remove_string =[](char *target_str, const char *remove_str) {
 		char *ptr = strstr(target_str, remove_str);
 		if (nullptr != ptr) {
-			memmove(ptr, ptr + strlen(remove_str), strlen(ptr) - strlen(remove_str) + 1);
+			memmove(ptr, ptr + strlen(remove_str), (strlen(ptr) - strlen(remove_str) + 1) *  sizeof(target_str[0]));
 		}
 	};
 	remove_string(buffer, "(R)");
 	remove_string(buffer, "(TM)");
+	remove_string(buffer, "CPU");
 	//crop space beforce string
 	for (int i = 0; buffer[i]; i++) {
 		if (buffer[i] != ' ') {
@@ -112,7 +113,7 @@ static DWORD CountSetBits(ULONG_PTR bitMask) {
 	return bitSetCount;
 }
 
-static BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core) {
+BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core) {
 	*physical_processor_core = 0;
 	*logical_processor_core = 0;
 
@@ -154,7 +155,7 @@ static BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_pro
 
 		case RelationCache:
 		{
-			// Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache.
+			// Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
 			PCACHE_DESCRIPTOR Cache = &ptr->Cache;
 			processorL1CacheCount += (Cache->Level == 1);
 			processorL2CacheCount += (Cache->Level == 2);
@@ -204,9 +205,9 @@ static UINT64 __fastcall repeatFunc(int *test) {
 		x0 = _mm_xor_si128(x0, x1);
 		x0 = _mm_xor_si128(x0, x2);))
 	}
-
+	
 	UINT64 fin = __rdtscp(&dummy); //終了はrdtscpで受ける
-
+	
 	//計算結果を強引に使うことで最適化による計算の削除を抑止する
 	x0 = _mm_add_epi32(x0, x1);
 	x0 = _mm_add_epi32(x0, x2);
@@ -225,9 +226,9 @@ static unsigned int __stdcall getCPUClockMaxSubFunc(void *arg) {
 
 	int test = 0;
 	UINT64 result = MAXUINT64;
-
+	
 	for (int j = 0; j < 4; j++) {
-		for (int i = 0; i < 500; i++) {
+		for (int i = 0; i < 800; i++) {
 			//連続で大量に行うことでTurboBoostを働かせる
 			//何回か行って最速値を使用する
 			result = min(result, repeatFunc(&test));
@@ -281,7 +282,7 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
 			break; //失敗したらBreak
 		}
 	}
-
+	
 	if (thread_loaded) {
 		for (DWORD i_thread = 0; i_thread < thread_loaded; i_thread++) {
 			ResumeThread(list_of_threads[i_thread]);
@@ -306,7 +307,9 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
 	return resultClock;
 }
 
+#if ENABLE_OPENCL
 #include "cl_func.h"
+#endif
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -318,7 +321,7 @@ double getCPUDefaultClockOpenCL() {
 	char buffer[1024] = { 0 };
 	getCPUName(buffer, _countof(buffer));
 	const std::vector<const char*> vendorNameList = { "Intel", "NVIDIA", "AMD" };
-
+	
 	const char *vendorName = NULL;
 	for (auto vendor : vendorNameList) {
 		if (cl_check_vendor_name(buffer, vendor)) {
@@ -371,4 +374,26 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
 		}
 	}
 	return ret;
+}
+
+BOOL GetProcessTime(HANDLE hProcess, PROCESS_TIME *time) {
+	SYSTEMTIME systime;
+	GetSystemTime(&systime);
+	return (NULL != hProcess
+		&& GetProcessTimes(hProcess, (FILETIME *)&time->creation, (FILETIME *)&time->exit, (FILETIME *)&time->kernel, (FILETIME *)&time->user)
+		&& (WAIT_OBJECT_0 == WaitForSingleObject(hProcess, 0) || SystemTimeToFileTime(&systime, (FILETIME *)&time->exit)));
+}
+
+double GetProcessAvgCPUUsage(HANDLE hProcess, PROCESS_TIME *start) {
+	PROCESS_TIME current = { 0 };
+	DWORD physicalProcessors = 0, logicalProcessors = 0;
+	double result = 0;
+	if (NULL != hProcess
+		&& getProcessorCount(&physicalProcessors, &logicalProcessors)
+		&& GetProcessTime(hProcess, &current)) {
+		UINT64 current_total_time = current.kernel + current.user;
+		UINT64 start_total_time = (nullptr == start) ? 0 : start->kernel + start->user;
+		result = (current_total_time - start_total_time) * 100.0 / (double)(logicalProcessors * (current.exit - ((nullptr == start) ? current.creation : start->exit)));
+	}
+	return result;
 }

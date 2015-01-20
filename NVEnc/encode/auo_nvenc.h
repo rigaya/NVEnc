@@ -19,7 +19,7 @@
 #include "auo_system.h"
 
 #include "convertCSP.h"
-#include "InputYUV.h"
+#include "NVEncInput.h"
 #include "NVEncCore.h"
 
 typedef struct AuoInputInfo {
@@ -45,7 +45,7 @@ protected:
 	virtual void WriteLine(const TCHAR *mes) override;
 };
 
-class AuoInput : public BasicInput
+class AuoInput : public NVEncBasicInput
 {
 private:
 	const OUTPUT_INFO *oip;
@@ -62,7 +62,7 @@ public:
 	AuoInput();
 	~AuoInput();
 	virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
-	virtual int LoadNextFrame(EncodeInputSurfaceInfo *surface) override;
+	virtual int LoadNextFrame(void *dst, int dst_pitch) override;
 	virtual void Close() override;
 };
 
@@ -72,8 +72,8 @@ public:
 	CAuoNvEnc();
 	~CAuoNvEnc();
 protected:
-	virtual int nvPrintf(FILE *fp, int log_level, const TCHAR *fmt, ...) override;
-	virtual int InitInput() override;
+	virtual int NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) override;
+	virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam) override;
 };
 
 #endif //_AUO_NVENC_H_

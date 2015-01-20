@@ -73,21 +73,25 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int ol
 		}
 		if (data_table == NULL)
 			return ret;
-		BYTE *dst = (BYTE *)conf_buf;
-		BYTE *block = NULL;
-		dst += CONF_HEAD_SIZE;
-		//ブロック部分のコピー
-		for (int i = 0; i < ((CONF_GUIEX *)data_table)->block_count; ++i) {
-			block = (BYTE *)old_data + ((CONF_GUIEX *)data_table)->block_head_p[i];
-			dst = (BYTE *)conf_buf + conf_block_pointer[i];
-			memcpy(dst, block, min(((CONF_GUIEX *)data_table)->block_size[i], conf_block_data[i]));
+		if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD)) {
+			convert_nvencstg_to_nvencstgv2(conf_buf, old_data);
+		} else {
+			BYTE *dst = (BYTE *)conf_buf;
+			BYTE *block = NULL;
+			dst += CONF_HEAD_SIZE;
+			//ブロック部分のコピー
+			for (int i = 0; i < ((CONF_GUIEX *)data_table)->block_count; ++i) {
+				block = (BYTE *)old_data + ((CONF_GUIEX *)data_table)->block_head_p[i];
+				dst = (BYTE *)conf_buf + conf_block_pointer[i];
+				memcpy(dst, block, min(((CONF_GUIEX *)data_table)->block_size[i], conf_block_data[i]));
+			}
 		}
 		ret = TRUE;
 	}
 	return ret;
 }
 
-int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
+int guiEx_config::load_guiex_conf(CONF_GUIEX *conf, const char *stg_file) {
 	size_t conf_size = 0;
 	BYTE *dst, *filedat;
 	//初期化
@@ -99,7 +103,8 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
 	//設定ファイルチェック
 	char conf_name[CONF_NAME_BLOCK_LEN + 32];
 	fread(&conf_name, sizeof(char), CONF_NAME_BLOCK_LEN, fp);
-	if (strcmp(CONF_NAME, conf_name)) {
+	if (   strcmp(CONF_NAME,     conf_name)
+		&& strcmp(CONF_NAME_OLD, conf_name)) {
 		fclose(fp);
 		return CONF_ERROR_FILE_OPEN;
 	}
@@ -115,6 +120,12 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
 		return CONF_ERROR_BLOCK_SIZE;
 
 	write_conf_header(conf);
+	
+	//旧設定ファイルから変換
+	if (0 == strcmp(CONF_NAME_OLD, conf_name)) {
+		convert_nvencstg_to_nvencstgv2(conf, dat);
+		return 0;
+	}
 
 	dst = (BYTE *)conf;
 	//filedat = (BYTE *)data;
@@ -134,7 +145,7 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
 	return 0;
 }
 
-int guiEx_config::save_qsvp_conf(const CONF_GUIEX *conf, const char *stg_file) {
+int guiEx_config::save_guiex_conf(const CONF_GUIEX *conf, const char *stg_file) {
 	CONF_GUIEX save_conf;
 	memcpy(&save_conf, conf, sizeof(CONF_GUIEX));
 	ZeroMemory(&save_conf.block_count, sizeof(save_conf.block_count));

@@ -32,7 +32,6 @@
 #include "auo_video.h"
 #include "auo_audio_parallel.h"
 
-#include "NVEncCore.h"
 #include "auo_nvenc.h"
 
 DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *pe) {
@@ -169,10 +168,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	auoInput.interlaced = is_interlaced(conf->nvenc.pic_struct);
 
 	InEncodeVideoParam encPrm = { 0 };
-	encPrm.enc_config = conf->nvenc.enc_config;
+	encPrm.codec = conf->nvenc.codec;
+	encPrm.encConfig = conf->nvenc.enc_config;
+	encPrm.encConfig.encodeCodecConfig = conf->nvenc.codecConfig[conf->nvenc.codec];
 	encPrm.deviceID = conf->nvenc.deviceID;
 	encPrm.preset = conf->nvenc.preset;
-	encPrm.pic_struct = conf->nvenc.pic_struct;
+	encPrm.picStruct = conf->nvenc.pic_struct;
 	encPrm.inputBuffer = conf->nvenc.inputBuffer;
 	encPrm.input.otherPrm = &auoInput;
 	encPrm.deviceID = 0;
@@ -195,16 +196,19 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	AUO_RESULT ret = AUO_RESULT_SUCCESS;
 	int *jitter = NULL;
 	
-	if (conf->vid.afs && is_interlaced(encPrm.pic_struct)) {
+	if (conf->vid.afs && is_interlaced(encPrm.picStruct)) {
 		ret |= AUO_RESULT_ERROR; error_afs_interlace_stg();
 	} else if (conf->vid.afs && NULL == (auoInput.jitter = jitter = (int *)calloc(oip->n + 1, sizeof(int)))) {
 		ret |= AUO_RESULT_ERROR; error_malloc_tc();
-	} else if (auoNvEnc.EncoderStartup(&encPrm)) {
+	} else if (auoNvEnc.Initialize(&encPrm)) {
+		ret |= AUO_RESULT_ERROR;
+	} else if (auoNvEnc.InitEncode(&encPrm)) {
 		ret |= AUO_RESULT_ERROR;
 	} else {
 		log_process_events();
+		auoNvEnc.PrintEncodingParamsInfo(LOG_INFO);
 		if (conf->vid.afs) write_log_auo_line(LOG_INFO, "自動フィールドシフト  on");
-		ret |= auoNvEnc.Run() ? AUO_RESULT_ERROR : AUO_RESULT_SUCCESS;
+		ret |= auoNvEnc.Encode() ? AUO_RESULT_ERROR : AUO_RESULT_SUCCESS;
 		flush_audio_log();
 		write_log_auo_enc_time("NVEnc エンコード", timeGetTime() - tm_start);
 		//タイムコード出力

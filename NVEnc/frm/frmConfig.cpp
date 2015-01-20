@@ -19,7 +19,6 @@
 #include "frmSaveNewStg.h"
 #include "frmOtherSettings.h"
 #include "frmBitrateCalculator.h"
-#include "nv_util.h"
 
 using namespace NVEnc;
 
@@ -495,7 +494,7 @@ System::Void frmConfig::SaveToStgFile(String^ stgName) {
 	if (!Directory::Exists(stgDir))
 		Directory::CreateDirectory(stgDir);
 	guiEx_config exCnf;
-	int result = exCnf.save_qsvp_conf(cnf_stgSelected, stg_name);
+	int result = exCnf.save_guiex_conf(cnf_stgSelected, stg_name);
 	free(stg_name);
 	switch (result) {
 		case CONF_ERROR_FILE_OPEN:
@@ -555,7 +554,7 @@ System::Void frmConfig::fcgTSSettings_DropDownItemClicked(System::Object^  sende
 	guiEx_config exCnf;
 	char stg_path[MAX_PATH_LEN];
 	GetCHARfromString(stg_path, sizeof(stg_path), ClickedMenuItem->Tag->ToString());
-	if (exCnf.load_qsvp_conf(&load_stg, stg_path) == CONF_ERROR_FILE_OPEN) {
+	if (exCnf.load_guiex_conf(&load_stg, stg_path) == CONF_ERROR_FILE_OPEN) {
 		if (MessageBox::Show(L"設定ファイルオープンに失敗しました。\n"
 			               + L"このファイルを削除しますか?",
 						   L"エラー", MessageBoxButtons::YesNo, MessageBoxIcon::Error)
@@ -607,19 +606,24 @@ System::Void frmConfig::InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *syst
 
 System::Void frmConfig::InitComboBox() {
 	//コンボボックスに値を設定する
+	setComboBox(fcgCXEncCodec,          list_nvenc_codecs);
 	setComboBox(fcgCXEncMode,           list_nvenc_rc_method);
 	setComboBox(fcgCXCodecLevel,        list_avc_level);
-	setComboBox(fcgCXCodecProfile,      list_avc_profile);
+	setComboBox(fcgCXCodecProfile,      h264_profile_names);
 	setComboBox(fcgCXInterlaced,        list_interlaced);
 	setComboBox(fcgCXAspectRatio,       list_aspect_ratio);
 	setComboBox(fcgCXAdaptiveTransform, list_adapt_transform);
 	setComboBox(fcgCXBDirectMode,       list_bdirect);
 	setComboBox(fcgCXMVPrecision,       list_mv_presicion);
-	setComboBox(fcgCXQualityPreset,     list_preset);
+	setComboBox(fcgCXQualityPreset,     preset_names);
 	setComboBox(fcgCXVideoFormat,       list_videoformat);
 	setComboBox(fcgCXTransfer,          list_transfer);
 	setComboBox(fcgCXColorMatrix,       list_colormatrix);
 	setComboBox(fcgCXColorPrim,         list_colorprim);
+	setComboBox(fcgCXHEVCTier,          h264_profile_names);
+	setComboBox(fxgCXHEVCLevel,         list_hevc_level);
+	setComboBox(fcgCXHEVCMaxCUSize,     list_hevc_cu_size);
+	setComboBox(fcgCXHEVCMinCUSize,     list_hevc_cu_size);
 
 	setComboBox(fcgCXAudioTempDir,  list_audtempdir);
 	setComboBox(fcgCXMP4BoxTempDir, list_mp4boxtempdir);
@@ -671,11 +675,17 @@ System::Void frmConfig::InitStgFileList() {
 }
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
+	bool h264_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_H264;
+	bool hevc_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_HEVC;
+
 	int vce_rc_method = list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
 	bool cqp_mode = (vce_rc_method == NV_ENC_PARAMS_RC_CONSTQP);
 	bool cbr_vbr_mode = (vce_rc_method == NV_ENC_PARAMS_RC_CBR || vce_rc_method == NV_ENC_PARAMS_RC_VBR);
 
 	this->SuspendLayout();
+	
+	fcgPNHEVC->Visible = hevc_mode;
+	fcgPNH264->Visible = h264_mode;
 
 	fcgPNQP->Visible = cqp_mode;
 	fcgNUQPI->Enabled = cqp_mode;
@@ -694,6 +704,16 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 
 	this->ResumeLayout();
 	this->PerformLayout();
+}
+
+System::Void frmConfig::fcgCodecChanged(System::Object^  sender, System::EventArgs^  e) {
+	bool h264_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_H264;
+	bool hevc_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_HEVC;
+	if (hevc_mode && !paramCache->HEVCAvailable()) {
+		h264_mode = true;
+		hevc_mode = false;
+		fcgCXEncCodec->SelectedIndex = NV_ENC_H264;
+	}
 }
 
 System::Void frmConfig::fcgChangeMuxerVisible(System::Object^  sender, System::EventArgs^  e) {
@@ -802,12 +822,19 @@ System::Void frmConfig::InitForm() {
 		SetFontFamilyToForm(this, gcnew FontFamily(String(sys_dat->exstg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
 	//NVEncが実行できるか
 	fcgPBNVEncLogoEnabled->Visible = paramCache && 0 < paramCache->GetCachedNVEncCapability().size();
+	//HEVCエンコができるか
+	if (!paramCache->HEVCAvailable()) {
+		fcgCXEncCodec->Items[NV_ENC_HEVC] = L"-------------";
+	}
+	fcgCXEncCodec->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCodecChanged);
+	fcgCodecChanged(nullptr, nullptr);
 }
 
 /////////////         データ <-> GUI     /////////////
 System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	this->SuspendLayout();
 
+	SetCXIndex(fcgCXEncCodec,          get_index_from_value(cnf->nvenc.codec, list_nvenc_codecs));
 	SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, cnf->nvenc.enc_config.rcParams.rateControlMode));
 	SetNUValue(fcgNUBitrate,           cnf->nvenc.enc_config.rcParams.averageBitRate / 1000);
 	SetNUValue(fcgNUMaxkbps,           cnf->nvenc.enc_config.rcParams.maxBitRate / 1000);
@@ -817,26 +844,34 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	SetNUValue(fcgNUGopLength,         cnf->nvenc.enc_config.gopLength);
 	SetNUValue(fcgNUBframes,           cnf->nvenc.enc_config.frameIntervalP - 1);
 	SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, cnf->nvenc.enc_config.mvPrecision));
-	SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.bdirectMode));
 	SetNUValue(fcgNURefFrames,         cnf->nvenc.enc_config.encodeCodecConfig.h264Config.maxNumRefFrames);
-	SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.adaptiveTransformMode));
-	SetCXIndex(fcgCXQualityPreset,     get_cx_index(list_preset_ja, cnf->nvenc.preset));
+	SetCXIndex(fcgCXQualityPreset,     get_index_from_value(cnf->nvenc.preset, preset_names));
 	
 	if (cnf->nvenc.par[0] * cnf->nvenc.par[1] <= 0)
 		cnf->nvenc.par[0] = cnf->nvenc.par[1] = 0;
 	SetCXIndex(fcgCXAspectRatio, (cnf->nvenc.par[0] < 0));
 	SetNUValue(fcgNUAspectRatioX, abs(cnf->nvenc.par[0]));
 	SetNUValue(fcgNUAspectRatioY, abs(cnf->nvenc.par[1]));
+
+	//H.264
 	SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, cnf->nvenc.pic_struct));
-	SetCXIndex(fcgCXCodecProfile, get_cx_index(list_avc_profile, get_value_from_guid(cnf->nvenc.enc_config.profileGUID, codecprofile_names, _countof(codecprofile_names))));
-	SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.level));
-	SetNUValue(fcgNUSlices,       cnf->nvenc.enc_config.encodeCodecConfig.h264Config.sliceModeData);
-	fcgCBCABAC->Checked = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != cnf->nvenc.enc_config.encodeCodecConfig.h264Config.entropyCodingMode;
-	SetCXIndex(fcgCXVideoFormat, get_cx_index(list_videoformat, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoFormat));
-	fcgCBFullrange->Checked = 0 != cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag;
-	SetCXIndex(fcgCXTransfer,    get_cx_index(list_transfer,    cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics));
-	SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix));
-	SetCXIndex(fcgCXColorPrim,   get_cx_index(list_colorprim,   cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries));
+	SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level,            cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.level));
+	SetCXIndex(fcgCXCodecProfile, get_index_from_value(get_value_from_guid(cnf->nvenc.enc_config.profileGUID, h264_profile_names), h264_profile_names));
+	SetNUValue(fcgNUSlices,       cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.sliceModeData);
+	fcgCBCABAC->Checked        = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode;
+	SetCXIndex(fcgCXVideoFormat,       get_cx_index(list_videoformat,     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat));
+	fcgCBFullrange->Checked                                        = 0 != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag;
+	SetCXIndex(fcgCXTransfer,          get_cx_index(list_transfer,        cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics));
+	SetCXIndex(fcgCXColorMatrix,       get_cx_index(list_colormatrix,     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix));
+	SetCXIndex(fcgCXColorPrim,         get_cx_index(list_colorprim,       cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries));
+	SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode));
+	SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode));
+	
+	//HEVC
+	SetCXIndex(fcgCXHEVCTier,      get_index_from_value(cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.tier, h265_profile_names));
+	SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.level));
+	SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxCUSize));
+	SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.minCUSize));
 
 	//fcgCBShowPerformanceInfo->Checked = (CHECK_PERFORMANCE) ? cnf->vid.vce_ext_prm.show_performance_info != 0 : false;
 
@@ -885,6 +920,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
 System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	//これもひたすら書くだけ。めんどい
+	cnf->nvenc.codec = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value;
 	cnf->nvenc.enc_config.rcParams.rateControlMode = (NV_ENC_PARAMS_RC_MODE)list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
 	cnf->nvenc.enc_config.rcParams.averageBitRate = (int)fcgNUBitrate->Value * 1000;
 	cnf->nvenc.enc_config.rcParams.maxBitRate = (int)fcgNUMaxkbps->Value * 1000;
@@ -896,8 +932,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->nvenc.enc_config.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
 	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
 	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.maxNumRefFrames = (int)fcgNURefFrames->Value;
-	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.adaptiveTransformMode = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;
-	cnf->nvenc.preset = list_preset_ja[fcgCXQualityPreset->SelectedIndex].value;
+	cnf->nvenc.preset = preset_names[fcgCXQualityPreset->SelectedIndex].value;
 
 
 	cnf->nvenc.par[0]                = (int)fcgNUAspectRatioX->Value;
@@ -907,25 +942,33 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 		cnf->nvenc.par[1] *= -1;
 	}
 
+	//H.264
 	cnf->nvenc.pic_struct = (NV_ENC_PIC_STRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
-	cnf->nvenc.enc_config.profileGUID = get_guid_from_value(list_avc_profile[fcgCXCodecProfile->SelectedIndex].value, codecprofile_names, _countof(codecprofile_names));
-	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
-	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.sliceModeData = (int)fcgNUSlices->Value;
-	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
+	cnf->nvenc.enc_config.profileGUID = get_guid_from_value(h264_profile_names[fcgCXCodecProfile->SelectedIndex].value, h264_profile_names);
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.sliceModeData = (int)fcgNUSlices->Value;
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
 
-	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
-	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag      = fcgCBFullrange->Checked;
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag      = fcgCBFullrange->Checked;
 	if (fcgCBFullrange->Checked || fcgCXVideoFormat->SelectedIndex == get_cx_index(list_videoformat, "undef")) {
-		cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag = 1;
+		cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoSignalTypePresentFlag = 1;
 	}
-	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics = list_transfer[fcgCXTransfer->SelectedIndex].value;
-	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
-	cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrim->SelectedIndex].value;
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = list_transfer[fcgCXTransfer->SelectedIndex].value;
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrim->SelectedIndex].value;
 	if (   fcgCXTransfer->SelectedIndex    == get_cx_index(list_transfer,    "undef")
 		|| fcgCXColorMatrix->SelectedIndex == get_cx_index(list_colormatrix, "undef")
 		|| fcgCXColorPrim->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) {
-		cnf->nvenc.enc_config.encodeCodecConfig.h264Config.h264VUIParameters.colourDescriptionPresentFlag = 1;
+		cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourDescriptionPresentFlag = 1;
 	}
+
+	//HEVC
+	cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.level = list_hevc_level[fxgCXHEVCLevel->SelectedIndex].value;
+	cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.tier  = h265_profile_names[fcgCXHEVCTier->SelectedIndex].value;
+	cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMaxCUSize->SelectedIndex].value;
+	cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
 
 	//cnf->vid.vce_ext_prm.show_performance_info = fcgCBShowPerformanceInfo->Checked;
 
@@ -1290,16 +1333,26 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
 
 System::Void frmConfig::SetupFeatureTable() {
 	//表示更新
-	fcgDGVFeatures->ReadOnly = true;
-	fcgDGVFeatures->AllowUserToAddRows = false;
-	fcgDGVFeatures->AllowUserToResizeRows = false;
-	fcgDGVFeatures->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
-	
-	dataTableNVEncFeatures = gcnew DataTable();
-	dataTableNVEncFeatures->Columns->Add(L"機能");
-	dataTableNVEncFeatures->Columns->Add(L"サポート");
+	fcgDGVFeaturesH264->ReadOnly = true;
+	fcgDGVFeaturesH264->AllowUserToAddRows = false;
+	fcgDGVFeaturesH264->AllowUserToResizeRows = false;
+	fcgDGVFeaturesH264->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
 
-	fcgDGVFeatures->DataSource = dataTableNVEncFeatures; //テーブルをバインド
+	fcgDGVFeaturesHEVC->ReadOnly = true;
+	fcgDGVFeaturesHEVC->AllowUserToAddRows = false;
+	fcgDGVFeaturesHEVC->AllowUserToResizeRows = false;
+	fcgDGVFeaturesHEVC->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
+	
+	dataTableNVEncFeaturesH264 = gcnew DataTable();
+	dataTableNVEncFeaturesH264->Columns->Add(L"機能");
+	dataTableNVEncFeaturesH264->Columns->Add(L"サポート");
+
+	dataTableNVEncFeaturesHEVC = gcnew DataTable();
+	dataTableNVEncFeaturesHEVC->Columns->Add(L"機能");
+	dataTableNVEncFeaturesHEVC->Columns->Add(L"サポート");
+
+	fcgDGVFeaturesH264->DataSource = dataTableNVEncFeaturesH264; //テーブルをバインド
+	fcgDGVFeaturesHEVC->DataSource = dataTableNVEncFeaturesHEVC; //テーブルをバインド
 }
 
 System::Void frmConfig::SetEnvironmentInfo() {
@@ -1316,7 +1369,7 @@ System::Void frmConfig::SetEnvironmentInfo() {
 		StrGPUInfo = String(gpu_info).ToString();
 	}
 	//機能情報
-	if (paramCache && dataTableNVEncFeatures->Rows->Count <= 1) {
+	if (paramCache && dataTableNVEncFeaturesH264->Rows->Count <= 1) {
 		paramCache->GetCachedNVEncCapability();
 	}
 	if (this->InvokeRequired) {
@@ -1328,11 +1381,23 @@ System::Void frmConfig::SetEnvironmentInfo() {
 		fcgLBGPUInfoOnFeatureTab->Text = StrGPUInfo;
 		if (paramCache) {
 			auto nvencCapabilities = paramCache->GetCachedNVEncCapability();
-			for (auto cap : nvencCapabilities) {
-				DataRow^ drb = dataTableNVEncFeatures->NewRow();
-				drb[0] = String(cap.name).ToString();
-				drb[1] = cap.value.ToString();
-				dataTableNVEncFeatures->Rows->Add(drb);
+			auto hevcFeatures = NVEncParam::GetHEVCFeatures(nvencCapabilities);
+			auto h264Features = NVEncParam::GetH264Features(nvencCapabilities);
+			if (nullptr != h264Features) {
+				for (auto cap : h264Features->caps) {
+					DataRow^ drb = dataTableNVEncFeaturesH264->NewRow();
+					drb[0] = String(cap.name).ToString();
+					drb[1] = cap.value.ToString();
+					dataTableNVEncFeaturesH264->Rows->Add(drb);
+				}
+			}
+			if (nullptr != hevcFeatures) {
+				for (auto cap : hevcFeatures->caps) {
+					DataRow^ drb = dataTableNVEncFeaturesHEVC->NewRow();
+					drb[0] = String(cap.name).ToString();
+					drb[1] = cap.value.ToString();
+					dataTableNVEncFeaturesHEVC->Rows->Add(drb);
+				}
 			}
 		}
 	}

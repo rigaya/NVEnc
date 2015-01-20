@@ -13,14 +13,15 @@
 #include <thread>
 #include <tchar.h>
 #include <cuda.h>
-#include <CNVEncoder.h>
 #include "process.h"
 #pragma comment(lib, "winmm.lib")
-#include "helper_nvenc.h"
+#include "nvEncodeAPI.h"
 #include "NVEncCore.h"
 #include "NVEncVersion.h"
+#include "NVEncStatus.h"
 #include "NVEncParam.h"
-#include "nv_util.h"
+#include "NVEncUtil.h"
+#include "helper_nvenc.h"
 
 bool check_if_nvcuda_dll_available() {
 	//check for nvcuda.dll
@@ -58,717 +59,1135 @@ NVEncoderGPUInfo::NVEncoderGPUInfo() {
 };
 
 NVEncoderGPUInfo::~NVEncoderGPUInfo() {
-
 };
-
-NVEncEncodeThread::NVEncEncodeThread() {
-
-}
-NVEncEncodeThread::~NVEncEncodeThread() {
-	Close();
-}
-
-int NVEncEncodeThread::GetNextFrame(EncodeInputSurfaceInfo **pInput, EncodeOutputBuffer **pOutputBitstream) {
-	const int inputBufIdx = m_nFrameGet % m_nFrameBuffer;
-	InputThreadBuf *pInputBuf = &m_InputBuf[inputBufIdx];
-
-	WaitForSingleObject(pInputBuf->heInputDone, INFINITE);
-	//エラー・中断要求などでの終了
-	if (m_bthForceAbort || NVENC_THREAD_ABORT == m_stsThread)
-		return NVENC_THREAD_ABORT;
-	*pInput = pInputBuf->pInput;
-	*pOutputBitstream = pInputBuf->pOutputBitstream;
-	m_nFrameGet++;
-	return m_stsThread;
-}
-
-int NVEncEncodeThread::SetNextSurface(EncodeInputSurfaceInfo *pInput, EncodeOutputBuffer *pOutputBitstream) {
-	const int inputBufIdx = m_nFrameSet % m_nFrameBuffer;
-	InputThreadBuf *pInputBuf = &m_InputBuf[inputBufIdx];
-	pInputBuf->pInput = pInput;
-	pInputBuf->pOutputBitstream = pOutputBitstream;
-	SetEvent(pInputBuf->heInputStart);
-	m_nFrameSet++;
-	return 0;
-}
-
-int NVEncEncodeThread::Init(uint32_t bufferSize) {
-	Close();
-
-	m_nFrameBuffer = bufferSize;
-
-	if (NULL == (m_InputBuf = (InputThreadBuf *)_aligned_malloc(sizeof(m_InputBuf[0]) * m_nFrameBuffer, 64))) {
-		return 1;
-	}
-	ZeroMemory(m_InputBuf, sizeof(m_InputBuf[0]) * m_nFrameBuffer);
-	for (uint32_t i = 0; i < m_nFrameBuffer; i++) {
-		if (   NULL == (m_InputBuf[i].heInputDone  = CreateEvent(NULL, FALSE, FALSE, NULL))
-			|| NULL == (m_InputBuf[i].heInputStart = CreateEvent(NULL, FALSE, FALSE, NULL))) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
-int NVEncEncodeThread::RunEncFuncbyThread(unsigned(__stdcall * func) (void *), void *pClass) {
-	if (NULL == (m_thEncode = (HANDLE)_beginthreadex(NULL, 0, func, pClass, 0, 0))) {
-		return 1;
-	}
-	return 0;
-}
-
-void NVEncEncodeThread::Close() {
-	if (m_thEncode) {
-		WaitToFinish(NVENC_THREAD_FINISHED);
-	}
-	if (m_InputBuf) {
-		for (uint32_t i = 0; i < m_nFrameBuffer; i++) {
-			CloseHandle(m_InputBuf[i].heInputDone);
-			CloseHandle(m_InputBuf[i].heInputStart);
-		}
-		_aligned_free(m_InputBuf);
-		m_InputBuf = NULL;
-	}
-	m_errMes.clear();
-	m_bthForceAbort = FALSE;
-	m_nFrameGet = 0;
-	m_nFrameSet = 0;
-	m_nFrameBuffer = 1;
-	m_stsThread = 0;
-}
-
-void NVEncEncodeThread::WaitToFinish(int sts) {
-	//読み込み終了(MFX_ERR_MORE_DATA)ではなく、エラーや中断だった場合、
-	//直ちに終了する
-	if (NVENC_THREAD_FINISHED != sts) {
-		InterlockedIncrement((DWORD*)&m_bthForceAbort);
-		for (uint32_t i = 0; i < m_nFrameBuffer; i++) {
-			SetEvent(m_InputBuf[i].heInputDone);
-		}
-	}
-	//RunEncodeの終了を待つ
-	WaitForSingleObject(m_thEncode, INFINITE);
-	CloseHandle(m_thEncode);
-	m_thEncode = NULL;
-}
 
 NVEncCore::NVEncCore() {
-	m_pStatus = NULL;
-	m_pInput = NULL;
-};
+	m_pEncodeAPI = nullptr;
+	m_hinstLib = NULL;
+	m_hEncoder = nullptr;
+	m_fOutput = nullptr;
+	m_nLogLevel = NV_LOG_INFO;
+	m_pStatus = nullptr;
+	m_pInput = nullptr;
+	m_uEncodeBufferCount = 16;
+	m_pOutputBuf = nullptr;
+
+	INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
+    INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
+
+    memset(&m_stEOSOutputBfr, 0, sizeof(m_stEOSOutputBfr));
+    memset(&m_stEncodeBuffer, 0, sizeof(m_stEncodeBuffer));
+}
 
 NVEncCore::~NVEncCore() {
-	Close();
-};
+	Deinitialize();
 
-void NVEncCore::Close() {
-	if (NULL != m_pStatus) {
-		delete m_pStatus;
-		m_pStatus = NULL;
+    if (m_pEncodeAPI) {
+        delete m_pEncodeAPI;
+        m_pEncodeAPI = nullptr;
+    }
+
+    if (m_hinstLib) {
+        FreeLibrary(m_hinstLib);
+        m_hinstLib = NULL;
+    }
+
+	if (m_pOutputBuf) {
+		free(m_pOutputBuf);
+		m_pOutputBuf = nullptr;
 	}
-	if (NULL != m_pInput) {
-		delete m_pInput;
-		m_pInput = NULL;
+}
+
+#pragma warning(push)
+#pragma warning(disable:4100)
+int NVEncCore::NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) {
+	if (logLevel < m_nLogLevel)
+		return 0;
+
+	va_list args;
+	va_start(args, format);
+
+	int len = _vscprintf(format, args);
+	char *const buffer = (char*)malloc((len+1) * sizeof(buffer[0])); // _vscprintf doesn't count terminating '\0'
+
+	vsprintf_s(buffer, len+1, format, args);
+
+
+	return len;
+}
+
+NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
+	return NV_ENC_ERR_INVALID_CALL;
+}
+#pragma warning(pop)
+
+NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
+    CUresult cuResult;
+    if (CUDA_SUCCESS != (cuResult = cuInit(0))) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("cuInit error:0x%x\n"), cuResult);
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+	
+    int deviceCount = 0;
+    if (CUDA_SUCCESS != (cuResult = cuDeviceGetCount(&deviceCount))) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("cuDeviceGetCount error:0x%x\n"), cuResult);
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+
+	deviceID = max(0, deviceID);
+
+    if (deviceID > (unsigned int)deviceCount - 1) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("Invalid Device Id = %d\n"), deviceID);
+        return NV_ENC_ERR_INVALID_ENCODERDEVICE;
+    }
+	
+    CUdevice device;
+    if (CUDA_SUCCESS != (cuResult = cuDeviceGet(&device, deviceID))) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("cuDeviceGet error:0x%x\n"), cuResult);
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+	
+    int SMminor = 0, SMmajor = 0;
+    if (CUDA_SUCCESS != (cuDeviceComputeCapability(&SMmajor, &SMminor, deviceID))) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("cuDeviceComputeCapability error:0x%x\n"), cuResult);
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+
+    if (((SMmajor << 4) + SMminor) < 0x30) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("GPU %d does not have NVENC capabilities exiting\n"), deviceID);
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+
+    if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), 0, device))) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("cuCtxCreate error:0x%x\n"), cuResult);
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+	
+    CUcontext cuContextCurr;
+    if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&cuContextCurr))) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x\n"), cuResult);
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCore::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void** inputBuffer, uint32_t isYuv444) {
+    NV_ENC_CREATE_INPUT_BUFFER createInputBufferParams;
+    INIT_CONFIG(createInputBufferParams, NV_ENC_CREATE_INPUT_BUFFER);
+
+    createInputBufferParams.width = width;
+    createInputBufferParams.height = height;
+    createInputBufferParams.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
+    createInputBufferParams.bufferFmt = isYuv444 ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
+
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncCreateInputBuffer(m_hEncoder, &createInputBufferParams);
+    if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncCreateInputBuffer() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+
+    *inputBuffer = createInputBufferParams.inputBuffer;
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    if (inputBuffer) {
+        nvStatus = m_pEncodeAPI->nvEncDestroyInputBuffer(m_hEncoder, inputBuffer);
+        if (nvStatus != NV_ENC_SUCCESS) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncDestroyInputBuffer() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+			return nvStatus;
+        }
+    }
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncCreateBitstreamBuffer(uint32_t size, void** bitstreamBuffer) {
+    NV_ENC_CREATE_BITSTREAM_BUFFER createBitstreamBufferParams;
+    INIT_CONFIG(createBitstreamBufferParams, NV_ENC_CREATE_BITSTREAM_BUFFER);
+
+    createBitstreamBufferParams.size = size;
+    createBitstreamBufferParams.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
+
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncCreateBitstreamBuffer(m_hEncoder, &createBitstreamBufferParams);
+    if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncCreateBitstreamBuffer() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+
+    *bitstreamBuffer = createBitstreamBufferParams.bitstreamBuffer;
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncDestroyBitstreamBuffer(NV_ENC_OUTPUT_PTR bitstreamBuffer) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    if (bitstreamBuffer) {
+        nvStatus = m_pEncodeAPI->nvEncDestroyBitstreamBuffer(m_hEncoder, bitstreamBuffer);
+        if (nvStatus != NV_ENC_SUCCESS) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncDestroyBitstreamBuffer() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+			return nvStatus;
+        }
+    }
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncLockBitstream(NV_ENC_LOCK_BITSTREAM* lockBitstreamBufferParams) {
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, lockBitstreamBufferParams);
+    if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncLockBitstream() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncUnlockBitstream(NV_ENC_OUTPUT_PTR bitstreamBuffer) {
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, bitstreamBuffer);
+    if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncUnlockBitstream() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncLockInputBuffer(void* inputBuffer, void** bufferDataPtr, uint32_t* pitch) {
+    NV_ENC_LOCK_INPUT_BUFFER lockInputBufferParams;
+    INIT_CONFIG(lockInputBufferParams, NV_ENC_LOCK_INPUT_BUFFER);
+
+    lockInputBufferParams.inputBuffer = inputBuffer;
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockInputBuffer(m_hEncoder, &lockInputBufferParams);
+	if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncLockInputBuffer() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+
+    *bufferDataPtr = lockInputBufferParams.bufferDataPtr;
+    *pitch = lockInputBufferParams.pitch;
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncUnlockInputBuffer(NV_ENC_INPUT_PTR inputBuffer) {
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncUnlockInputBuffer(m_hEncoder, inputBuffer);
+	if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncUnlockInputBuffer() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncGetEncodeStats(NV_ENC_STAT* encodeStats) {
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncGetEncodeStats(m_hEncoder, encodeStats);
+    if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodeStats() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD* sequenceParamPayload) {
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncGetSequenceParams(m_hEncoder, sequenceParamPayload);
+    if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetSequenceParams() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncRegisterAsyncEvent(void** completionEvent) {
+    NV_ENC_EVENT_PARAMS eventParams;
+    INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS);
+
+    eventParams.completionEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncRegisterAsyncEvent(m_hEncoder, &eventParams);
+    if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncRegisterAsyncEvent() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+
+    *completionEvent = eventParams.completionEvent;
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncUnregisterAsyncEvent(void* completionEvent) {
+    if (completionEvent) {
+		NV_ENC_EVENT_PARAMS eventParams;
+        INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS);
+
+        eventParams.completionEvent = completionEvent;
+
+        NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncUnregisterAsyncEvent(m_hEncoder, &eventParams);
+        if (nvStatus != NV_ENC_SUCCESS) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncUnregisterAsyncEvent() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+			return nvStatus;
+		}
+    }
+
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCore::NvEncMapInputResource(void* registeredResource, void** mappedResource) {
+    NV_ENC_MAP_INPUT_RESOURCE mapInputResParams;
+    INIT_CONFIG(mapInputResParams, NV_ENC_MAP_INPUT_RESOURCE);
+
+    mapInputResParams.registeredResource = registeredResource;
+
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncMapInputResource(m_hEncoder, &mapInputResParams);
+    if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncMapInputResource() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
 	}
+
+    *mappedResource = mapInputResParams.mappedResource;
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncUnmapInputResource(NV_ENC_INPUT_PTR mappedInputBuffer) {
+    if (mappedInputBuffer) {
+        NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncUnmapInputResource(m_hEncoder, mappedInputBuffer);
+        if (nvStatus != NV_ENC_SUCCESS) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncUnmapInputResource() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+			return nvStatus;
+		}
+    }
+
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCore::NvEncDestroyEncoder() {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+
+    if (m_hEncoder && m_pEncodeAPI) {
+        nvStatus = m_pEncodeAPI->nvEncDestroyEncoder(m_hEncoder);
+		m_hEncoder = NULL;
+    }
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncFlushEncoderQueue(void *hEOSEvent) {
+    NV_ENC_PIC_PARAMS encPicParams;
+    INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
+    encPicParams.encodePicFlags = NV_ENC_PIC_FLAG_EOS;
+    encPicParams.completionEvent = hEOSEvent;
+
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncEncodePicture(m_hEncoder, &encPicParams);
+	if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncEncodePicture() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
+    if (pEncodeBuffer->stOutputBfr.hBitstreamBuffer == NULL && pEncodeBuffer->stOutputBfr.bEOSFlag == FALSE) {
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
+
+    if (pEncodeBuffer->stOutputBfr.bWaitOnEvent == TRUE) {
+        if (!pEncodeBuffer->stOutputBfr.hOutputEvent) {
+            return NV_ENC_ERR_INVALID_PARAM;
+        }
+        WaitForSingleObject(pEncodeBuffer->stOutputBfr.hOutputEvent, INFINITE);
+    }
+
+    if (pEncodeBuffer->stOutputBfr.bEOSFlag)
+        return NV_ENC_SUCCESS;
+
+    NV_ENC_LOCK_BITSTREAM lockBitstreamData;
+    INIT_CONFIG(lockBitstreamData, NV_ENC_LOCK_BITSTREAM);
+    lockBitstreamData.outputBitstream = pEncodeBuffer->stOutputBfr.hBitstreamBuffer;
+    lockBitstreamData.doNotWait = false;
+
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, &lockBitstreamData);
+    if (nvStatus == NV_ENC_SUCCESS) {
+		m_pStatus->AddOutputInfo(&lockBitstreamData);
+        fwrite(lockBitstreamData.bitstreamBufferPtr, 1, lockBitstreamData.bitstreamSizeInBytes, m_fOutput);
+        nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
+    } else {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncLockBitstream() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::FlushEncoder() {
+    NVENCSTATUS nvStatus = NvEncFlushEncoderQueue(m_stEOSOutputBfr.hOutputEvent);
+    if (nvStatus != NV_ENC_SUCCESS) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("NvEncFlushEncoderQueue() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
+    }
+
+    EncodeBuffer *pEncodeBufer = m_EncodeBufferQueue.GetPending();
+    while (pEncodeBufer) {
+        ProcessOutput(pEncodeBufer);
+        pEncodeBufer = m_EncodeBufferQueue.GetPending();
+    }
+
+    if (WaitForSingleObject(m_stEOSOutputBfr.hOutputEvent, 500) != WAIT_OBJECT_0) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("m_stEOSOutputBfr.hOutputEventが終了しません。"));
+        nvStatus = NV_ENC_ERR_GENERIC;
+    }
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::Deinitialize() {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+	
 	if (m_fOutput) {
 		fclose(m_fOutput);
 		m_fOutput = NULL;
 	}
+	if (m_pInput) {
+		m_pInput->Close();
+		delete m_pInput;
+		m_pInput = nullptr;
+	}
+
+    ReleaseIOBuffers();
+
+    nvStatus = NvEncDestroyEncoder();
+
+    if (m_pDevice) {
+        CUresult cuResult = CUDA_SUCCESS;
+        cuResult = cuCtxDestroy((CUcontext)m_pDevice);
+        if (cuResult != CUDA_SUCCESS)
+            NVPrintf(stderr, NV_LOG_ERROR, _T("cuCtxDestroy error:0x%x\n"), cuResult);
+
+        m_pDevice = NULL;
+    }
+
+    return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::setEncodeCodecList(void *encode) {
+NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+
+    m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_uEncodeBufferCount);
+    for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
+        nvStatus = NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, 0);
+        if (nvStatus != NV_ENC_SUCCESS) {
+            NVPrintf(stderr, NV_LOG_ERROR, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
+            return nvStatus;
+        }
+
+        m_stEncodeBuffer[i].stInputBfr.bufferFmt = NV_ENC_BUFFER_FORMAT_NV12_PL;
+        m_stEncodeBuffer[i].stInputBfr.dwWidth = uInputWidth;
+        m_stEncodeBuffer[i].stInputBfr.dwHeight = uInputHeight;
+
+        nvStatus = NvEncCreateBitstreamBuffer(BITSTREAM_BUFFER_SIZE, &m_stEncodeBuffer[i].stOutputBfr.hBitstreamBuffer);
+        if (nvStatus != NV_ENC_SUCCESS) {
+            NVPrintf(stderr, NV_LOG_ERROR, _T("Failed to allocate Output Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
+            return nvStatus;
+        }
+        m_stEncodeBuffer[i].stOutputBfr.dwBitstreamBufferSize = BITSTREAM_BUFFER_SIZE;
+
+        nvStatus = NvEncRegisterAsyncEvent(&m_stEncodeBuffer[i].stOutputBfr.hOutputEvent);
+        if (nvStatus != NV_ENC_SUCCESS)
+            return nvStatus;
+        m_stEncodeBuffer[i].stOutputBfr.bWaitOnEvent = true;
+    }
+
+    m_stEOSOutputBfr.bEOSFlag = TRUE;
+
+    nvStatus = NvEncRegisterAsyncEvent(&m_stEOSOutputBfr.hOutputEvent);
+	if (nvStatus != NV_ENC_SUCCESS)
+		return nvStatus;
+
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
+    for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
+		if (m_stEncodeBuffer[i].stInputBfr.hInputSurface) {
+			NvEncDestroyInputBuffer(m_stEncodeBuffer[i].stInputBfr.hInputSurface);
+			m_stEncodeBuffer[i].stInputBfr.hInputSurface = NULL;
+		}
+
+		if (m_stEncodeBuffer[i].stOutputBfr.hBitstreamBuffer) {
+			NvEncDestroyBitstreamBuffer(m_stEncodeBuffer[i].stOutputBfr.hBitstreamBuffer);
+			m_stEncodeBuffer[i].stOutputBfr.hBitstreamBuffer = NULL;
+		}
+		if (m_stEncodeBuffer[i].stOutputBfr.hOutputEvent) {
+			NvEncUnregisterAsyncEvent(m_stEncodeBuffer[i].stOutputBfr.hOutputEvent);
+			nvCloseFile(m_stEncodeBuffer[i].stOutputBfr.hOutputEvent);
+			m_stEncodeBuffer[i].stOutputBfr.hOutputEvent = NULL;
+		}
+    }
+
+    if (m_stEOSOutputBfr.hOutputEvent) {
+        NvEncUnregisterAsyncEvent(m_stEOSOutputBfr.hOutputEvent);
+        nvCloseFile(m_stEOSOutputBfr.hOutputEvent);
+        m_stEOSOutputBfr.hOutputEvent = NULL;
+    }
+
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
+	if (!check_if_nvcuda_dll_available()) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("CUDAが使用できないため、NVEncによるエンコードが行えません。(check_if_nvcuda_dll_available)\n"));
+		return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+	}
+
+	NVEncoderGPUInfo gpuInfo;
+	if (0 == gpuInfo.getGPUList().size()) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("NVEncが使用可能なGPUが見つかりませんでした。\n"));
+		return NV_ENC_ERR_NO_ENCODE_DEVICE;
+	}
+
+	NVENCSTATUS nvStatus;
+	if (NV_ENC_SUCCESS != (nvStatus = InitCuda(inputParam->deviceID))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("Cudaの初期化に失敗しました。\n"));
+		return nvStatus;
+	}
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCore::NvEncOpenEncodeSessionEx(void* device, NV_ENC_DEVICE_TYPE deviceType) {
+    NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS openSessionExParams;
+	INIT_CONFIG(openSessionExParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS);
+
+    openSessionExParams.device = device;
+    openSessionExParams.deviceType = deviceType;
+    openSessionExParams.reserved = NULL;
+    openSessionExParams.apiVersion = NVENCAPI_VERSION;
+	
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("m_pEncodeAPI->nvEncOpenEncodeSessionExに失敗しました。: %d\n  %s\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		if (nvStatus == NV_ENC_ERR_OUT_OF_MEMORY) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("このエラーはメモリが不足しているか、同時にNVEncで3ストリーム以上エンコードしようとすると発生することがあります。"));
+		}
+		return nvStatus;
+    }
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::SetEncodeCodecList(void *m_hEncoder) {
 	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeGUIDCount(encode, &m_dwEncodeGUIDCount))) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodeGUIDCount() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+	uint32_t dwEncodeGUIDCount = 0;
+	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeGUIDCount(m_hEncoder, &dwEncodeGUIDCount))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodeGUIDCount() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
 		return nvStatus;
 	}
 	uint32_t uArraysize = 0;
 	GUID guid_init = { 0 };
-	m_EncodeCodecGUIDs.resize(m_dwEncodeGUIDCount, guid_init);
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeGUIDs(encode, &m_EncodeCodecGUIDs[0], m_dwEncodeGUIDCount, &uArraysize))) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodeGUIDs() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+	std::vector<GUID> list_codecs;
+	list_codecs.resize(dwEncodeGUIDCount, guid_init);
+	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeGUIDs(m_hEncoder, &list_codecs[0], dwEncodeGUIDCount, &uArraysize))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodeGUIDs() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
 		return nvStatus;
+	}
+	for (auto codec : list_codecs) {
+		m_EncodeFeatures.push_back(NVEncCodecFeature(codec));
 	}
 	return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::setCodecProfileList(void *encode, GUID encodeCodec) {
+NVENCSTATUS NVEncCore::setCodecProfileList(void *m_hEncoder, NVEncCodecFeature& codecFeature) {
 	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeProfileGUIDCount(encode, encodeCodec, &m_dwCodecProfileGUIDCount))) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodeProfileGUIDCount() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+	uint32_t dwCodecProfileGUIDCount = 0;
+	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeProfileGUIDCount(m_hEncoder, codecFeature.codec, &dwCodecProfileGUIDCount))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodeProfileGUIDCount() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
 		return nvStatus;
 	}
 	uint32_t uArraysize = 0;
 	GUID guid_init = { 0 };
-	m_CodecProfileGUIDs.resize(m_dwCodecProfileGUIDCount, guid_init);
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeProfileGUIDs(encode, encodeCodec, &m_CodecProfileGUIDs[0], m_dwCodecProfileGUIDCount, &uArraysize))) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodeProfileGUIDs() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+	codecFeature.profiles.resize(dwCodecProfileGUIDCount, guid_init);
+	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeProfileGUIDs(m_hEncoder, codecFeature.codec, &codecFeature.profiles[0], dwCodecProfileGUIDCount, &uArraysize))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodeProfileGUIDs() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
 		return nvStatus;
 	}
 	return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::setInputFormatList(void *encode, GUID encodeCodec) {
+NVENCSTATUS NVEncCore::setCodecPresetList(void *m_hEncoder, NVEncCodecFeature& codecFeature) {
 	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetInputFormatCount(encode, encodeCodec, &m_dwInputFmtCount))) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetInputFormatCount() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+	uint32_t dwCodecProfileGUIDCount = 0;
+	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetCount(m_hEncoder, codecFeature.codec, &dwCodecProfileGUIDCount))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodePresetCount() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
 		return nvStatus;
 	}
 	uint32_t uArraysize = 0;
-	m_pAvailableSurfaceFmts = new NV_ENC_BUFFER_FORMAT[m_dwInputFmtCount];
-	memset(m_pAvailableSurfaceFmts, 0, sizeof(m_pAvailableSurfaceFmts[0]) * m_dwInputFmtCount);
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetInputFormats(encode, encodeCodec, m_pAvailableSurfaceFmts, m_dwInputFmtCount, &uArraysize))) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetInputFormats() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+	GUID guid_init = { 0 };
+	NV_ENC_PRESET_CONFIG config_init = { 0 };
+	codecFeature.presets.resize(dwCodecProfileGUIDCount, guid_init);
+	codecFeature.presetConfigs.resize(dwCodecProfileGUIDCount, config_init);
+	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetGUIDs(m_hEncoder, codecFeature.codec, &codecFeature.presets[0], dwCodecProfileGUIDCount, &uArraysize))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodePresetGUIDs() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
 		return nvStatus;
 	}
-
+	for (uint32_t i = 0; i < codecFeature.presets.size(); i++) {
+		INIT_CONFIG(codecFeature.presetConfigs[i], NV_ENC_PRESET_CONFIG);
+		SET_VER(codecFeature.presetConfigs[i].presetCfg, NV_ENC_CONFIG);
+		if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetConfig(m_hEncoder, codecFeature.codec, codecFeature.presets[i], &codecFeature.presetConfigs[i]))) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetEncodePresetConfig() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+			return nvStatus;
+		}
+	}
 	return nvStatus;
 }
 
-int NVEncCore::NVEncCoreOpenEncodeSession(int deviceID, GUID profileGUID, int preset_idx) {
+NVENCSTATUS NVEncCore::setInputFormatList(void *m_hEncoder, NVEncCodecFeature& codecFeature) {
 	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-
-	uint32_t target_codec = NV_ENC_H264;
-
-	NV_ENC_CAPS_PARAM stCapsParam = { 0 };
-	SET_VER(stCapsParam, NV_ENC_CAPS_PARAM);
-
-	GUID clientKey = { 0 };
-	NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS stEncodeSessionParams = { 0 };
-	SET_VER(stEncodeSessionParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS);
-	stEncodeSessionParams.apiVersion = NVENCAPI_VERSION;
-	stEncodeSessionParams.clientKeyPtr = &clientKey;
-
-	InitCuda(deviceID);
-	stEncodeSessionParams.device = reinterpret_cast<void *>(m_cuContext);
-	stEncodeSessionParams.deviceType = NV_ENC_DEVICE_TYPE_CUDA;
-
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&stEncodeSessionParams, &m_hEncoder))) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("nvEncOpenEncodeSessionEx() がエラーを返しました。 %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
-		TCHAR buffer[1024] = { 0 };
-		getEnviromentInfo(buffer, _countof(buffer));
-		nvPrintf(stderr, NV_LOG_ERROR, _T("%s\n"), buffer);
-		nvPrintf(stderr, NV_LOG_ERROR, _T("NVEncの使用にはドライバ334.89以降が必要です。\n"));
-		nvPrintf(stderr, NV_LOG_ERROR, _T("NVIDIAのドライバを最新のものに更新して再度試してください。\n"));
+	uint32_t dwInputFmtCount = 0;
+	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetInputFormatCount(m_hEncoder, codecFeature.codec, &dwInputFmtCount))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetInputFormatCount() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
 		return nvStatus;
 	}
-	m_uRefCount++;
-
-	//コーデックのサポートの確認
-	if (NV_ENC_SUCCESS != (nvStatus = setEncodeCodecList(m_hEncoder)))
+	uint32_t uArraysize = 0;
+	codecFeature.surfaceFmt.resize(dwInputFmtCount);
+	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetInputFormats(m_hEncoder, codecFeature.codec, &codecFeature.surfaceFmt[0], dwInputFmtCount, &uArraysize))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncGetInputFormats() がエラーを返しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
 		return nvStatus;
-
-	bool codecAvailable = false;
-	for (auto codecGUID : m_EncodeCodecGUIDs) {
-		if (GetCodecType(codecGUID) == target_codec) {
-			m_stEncodeGUID = codecGUID;
-			codecAvailable = true;
-			break;
-		}
-	}
-	if (!codecAvailable) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("コーデックがサポートされていません。\n"));
-		return 1;
-	}
-
-	if (0 <= preset_idx)
-		GetPresetConfig(preset_idx);
-
-
-	//プロファイルのサポートの確認
-	if (NV_ENC_SUCCESS != (nvStatus = setCodecProfileList(m_hEncoder, m_stEncodeGUID))) {
-		return nvStatus;
-	}
-	bool profileAvailable = false;
-	for (auto codecProfileGUID : m_CodecProfileGUIDs) {
-		if (0 == memcmp(&codecProfileGUID, &profileGUID, sizeof(GUID))) {
-			profileAvailable = true;
-			break;
-		}
-	}
-	if (!profileAvailable) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("選択されたH.264のプロファイルがサポートされていません。\n"));
-		nvPrintf(stderr, NV_LOG_ERROR, _T("もう一度、設定を見なおしてみてください。\n"));
-		return 1;
-	}
-
-
-	//InputFormatのサポートの確認
-	if (NV_ENC_SUCCESS != (nvStatus = setInputFormatList(m_hEncoder, m_stEncodeGUID))) {
-		return nvStatus;
-	}
-	bool bFmtFound = false;
-	for (uint32_t idx = 0; idx < m_dwInputFmtCount; idx++) {
-		if (NV_ENC_BUFFER_FORMAT_NV12_TILED64x16 == m_pAvailableSurfaceFmts[idx]) {
-			m_dwInputFormat = m_pAvailableSurfaceFmts[idx];
-			bFmtFound = true;
-		}
-	}
-	if (!bFmtFound) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("入力フォーマットが決定できません。\n"));
-		return 1;
 	}
 
 	return nvStatus;
 }
 
-std::vector<NVEncCap> NVEncCore::GetCurrentDeviceNVEncCapability() {
-	std::vector<NVEncCap> caps;
-
+NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *m_hEncoder, NVEncCodecFeature& codecFeature) {
+	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 	auto add_cap_info = [&](NV_ENC_CAPS cap_id, const TCHAR *cap_name) {
-		NV_ENC_CAPS_PARAM param = { 0 };
-		SET_VER(param, NV_ENC_CAPS_PARAM);
+		NV_ENC_CAPS_PARAM param;
+		INIT_CONFIG(param, NV_ENC_CAPS_PARAM);
 		param.capsToQuery = cap_id;
 		int value = 0;
-		if (NV_ENC_SUCCESS == m_pEncodeAPI->nvEncGetEncodeCaps(m_hEncoder, m_stEncodeGUID, &param, &value)) {
+		NVENCSTATUS result = m_pEncodeAPI->nvEncGetEncodeCaps(m_hEncoder, codecFeature.codec, &param, &value);
+		if (NV_ENC_SUCCESS == result) {
 			NVEncCap cap = { 0 };
 			cap.id = cap_id;
 			cap.name = cap_name;
 			cap.value = value;
-			caps.push_back(cap);
+			codecFeature.caps.push_back(cap);
+		} else {
+			nvStatus = result;
 		}
 	};
 
-	add_cap_info(NV_ENC_CAPS_NUM_MAX_BFRAMES,              "Max Bframes");
-	add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  "RC Modes");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       "Field Encoding");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_MONOCHROME,           "MonoChrome");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_FMO,                  "FMO");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_QPELMV,               "Quater-Pel MV");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_BDIRECT_MODE,         "B Direct Mode");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_CABAC,                "CABAC");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM,   "Adaptive Transform");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_STEREO_MVC,           "StereoMVC");
-	add_cap_info(NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS,      "Max Temporal Layers");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_PFRAMES, "Hierarchial P Frames");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_BFRAMES, "Hierarchial B Frames");
-	add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    "Max H.264 Level");
-	add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    "Min H.264 Level");
-	add_cap_info(NV_ENC_CAPS_SEPARATE_COLOUR_PLANE,        "4:4:4");
-	add_cap_info(NV_ENC_CAPS_WIDTH_MAX,                    "Max Width");
-	add_cap_info(NV_ENC_CAPS_HEIGHT_MAX,                   "Max Height");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_RES_CHANGE,       "Dynamic Resolution Change");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE,   "Dynamic Bitrate Change");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_FORCE_CONSTQP,    "Forced constant QP");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_RCMODE_CHANGE,    "Dynamic RC Mode Change");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_SUBFRAME_READBACK,    "Subframe Readback");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_CONSTRAINED_ENCODING, "Constrained Encoding");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_INTRA_REFRESH,        "Intra Refresh");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE,  "Custom VBV Bufsize");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_DYNAMIC_SLICE_MODE,   "Dynamic Slice Mode");
-	add_cap_info(NV_ENC_CAPS_SUPPORT_REF_PIC_INVALIDATION, "Ref Pic Invalidiation");
-	add_cap_info(NV_ENC_CAPS_PREPROC_SUPPORT,              "PreProcess");
-	add_cap_info(NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT,         "Async Encoding");
-	add_cap_info(NV_ENC_CAPS_MB_NUM_MAX,                   "Max MBs");
-
-	return caps;
+	add_cap_info(NV_ENC_CAPS_NUM_MAX_BFRAMES,              _T("Max Bframes"));
+	add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  _T("RC Modes"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       _T("Field Encoding"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_MONOCHROME,           _T("MonoChrome"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_FMO,                  _T("FMO"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_QPELMV,               _T("Quater-Pel MV"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_BDIRECT_MODE,         _T("B Direct Mode"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_CABAC,                _T("CABAC"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM,   _T("Adaptive Transform"));
+	add_cap_info(NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS,      _T("Max Temporal Layers"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_PFRAMES, _T("Hierarchial P Frames"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_BFRAMES, _T("Hierarchial B Frames"));
+	add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    _T("Max H.264 Level"));
+	add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    _T("Min H.264 Level"));
+	add_cap_info(NV_ENC_CAPS_SEPARATE_COLOUR_PLANE,        _T("4:4:4"));
+	add_cap_info(NV_ENC_CAPS_WIDTH_MAX,                    _T("Max Width"));
+	add_cap_info(NV_ENC_CAPS_HEIGHT_MAX,                   _T("Max Height"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_RES_CHANGE,       _T("Dynamic Resolution Change"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE,   _T("Dynamic Bitrate Change"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_FORCE_CONSTQP,    _T("Forced constant QP"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_RCMODE_CHANGE,    _T("Dynamic RC Mode Change"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_SUBFRAME_READBACK,    _T("Subframe Readback"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_CONSTRAINED_ENCODING, _T("Constrained Encoding"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_INTRA_REFRESH,        _T("Intra Refresh"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE,  _T("Custom VBV Bufsize"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_DYNAMIC_SLICE_MODE,   _T("Dynamic Slice Mode"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_REF_PIC_INVALIDATION, _T("Ref Pic Invalidiation"));
+	add_cap_info(NV_ENC_CAPS_PREPROC_SUPPORT,              _T("PreProcess"));
+	add_cap_info(NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT,         _T("Async Encoding"));
+	add_cap_info(NV_ENC_CAPS_MB_NUM_MAX,                   _T("Max MBs"));
+	return nvStatus;
 }
 
-int NVEncCore::get_limit(NV_ENC_CAPS flag) {
-	return get_value(flag, m_nvEncCaps);
+NVENCSTATUS NVEncCore::createDeviceCodecList() {
+	return SetEncodeCodecList(m_hEncoder);
 }
 
-void NVEncCore::PreInitializeEncoder() {
+NVENCSTATUS NVEncCore::createDeviceFeatureList() {
+	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+	//m_EncodeFeaturesが作成されていなければ、自動的に作成
+	if (m_EncodeFeatures.size() == 0)
+		nvStatus = SetEncodeCodecList(m_hEncoder);
 
+	if (NV_ENC_SUCCESS == nvStatus) {
+		for (uint32_t i = 0; i < m_EncodeFeatures.size(); i++) {
+			setCodecProfileList(m_hEncoder, m_EncodeFeatures[i]);
+			setCodecPresetList(m_hEncoder, m_EncodeFeatures[i]);
+			setInputFormatList(m_hEncoder, m_EncodeFeatures[i]);
+			GetCurrentDeviceNVEncCapability(m_hEncoder, m_EncodeFeatures[i]);
+		}
+	}
+	return nvStatus;
 }
 
-int NVEncCore::SetInputParam(const InEncodeVideoParam *param) {
-	m_bAsyncModeEncoding = true;
+const std::vector<NVEncCodecFeature>& NVEncCore::GetNVEncCapability() {
+	if (m_EncodeFeatures.size() == 0) {
+		createDeviceFeatureList();
+	}
+	return m_EncodeFeatures;
+}
+
+const NVEncCodecFeature *NVEncCore::getCodecFeature(const GUID& codec) {
+	for (uint32_t i = 0; i < m_EncodeFeatures.size(); i++) {
+		if (0 == memcmp(&m_EncodeFeatures[i].codec, &codec, sizeof(m_stCodecGUID))) {
+			return &m_EncodeFeatures[i];
+		}
+	}
+	return nullptr;
+}
+
+int NVEncCore::getCapLimit(NV_ENC_CAPS flag, const NVEncCodecFeature *codecFeature) {
+	if (nullptr == codecFeature) {
+		if (nullptr == (codecFeature = getCodecFeature(m_stCodecGUID))) {
+			return 0;
+		}
+	}
+	return get_value(flag, codecFeature->caps);
+}
+
+bool NVEncCore::checkProfileSupported(GUID profile, const NVEncCodecFeature *codecFeature) {
+	if (nullptr == codecFeature) {
+		if (nullptr == (codecFeature = getCodecFeature(m_stCodecGUID))) {
+			return false;
+		}
+	}
+	for (auto codecProf : codecFeature->profiles) {
+		if (0 == memcmp(&profile, &codecProf, sizeof(codecProf))) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool NVEncCore::checkPresetSupported(GUID preset, const NVEncCodecFeature *codecFeature) {
+	if (nullptr == codecFeature) {
+		if (nullptr == (codecFeature = getCodecFeature(m_stCodecGUID))) {
+			return false;
+		}
+	}
+	for (auto codecPreset : codecFeature->presets) {
+		if (0 == memcmp(&preset, &codecPreset, sizeof(codecPreset))) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, const NVEncCodecFeature *codecFeature) {
+	if (nullptr == codecFeature) {
+		if (nullptr == (codecFeature = getCodecFeature(m_stCodecGUID))) {
+			return false;
+		}
+	}
+	for (auto codecFmt : codecFeature->surfaceFmt) {
+		if (0 == memcmp(&surfaceFormat, &codecFmt, sizeof(surfaceFormat))) {
+			return true;
+		}
+	}
+	return false;
+}
+
+NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
+	memcpy(&m_stEncConfig, &inputParam->encConfig, sizeof(m_stEncConfig));
+	memcpy(&m_stPicStruct, &inputParam->picStruct, sizeof(m_stPicStruct));
 	
-	m_uMaxWidth          = param->input.width  - param->input.crop[0] - param->input.crop[2];
-	m_uMaxHeight         = param->input.height - param->input.crop[1] - param->input.crop[3];
-	m_dwFrameWidth       = m_uMaxWidth;
-	m_dwFrameHeight      = m_uMaxHeight;
+	//コーデックの決定とチェック
+	m_stCodecGUID = inputParam->codec == NV_ENC_H264 ? NV_ENC_CODEC_H264_GUID : NV_ENC_CODEC_HEVC_GUID;
+	if (nullptr == getCodecFeature(m_stCodecGUID)) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("指定されたコーデックはサポートされていません。\n"));
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
 
-	m_stEncodeConfig = param->enc_config;
+	//プロファイルのチェック
+	if (inputParam->codec == NV_ENC_HEVC) {
+		//m_stEncConfig.profileGUIDはデフォルトではH.264のプロファイル情報
+		//HEVCのプロファイル情報は、m_stEncConfig.encodeCodecConfig.hevcConfig.tierに保存されている
+		m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.hevcConfig.tier, h265_profile_names);
+	}
+	if (!checkProfileSupported(m_stEncConfig.profileGUID)) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("指定されたプロファイルはサポートされていません。\n"));
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
+
+	//プリセットのチェック
+	if (!checkPresetSupported(get_guid_from_value(inputParam->preset, preset_names))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("指定されたプリセットはサポートされていません。\n"));
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
+
+	//入力フォーマットはここでは気にしない
+	//NV_ENC_BUFFER_FORMAT_NV12_TILED64x16
+	//if (!checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT_NV12_TILED64x16)) {
+	//	NVPrintf(stderr, NV_LOG_ERROR, _T("入力フォーマットが決定できません。\n"));
+	//	return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	//}
+
+	//バッファサイズ (固定で24として与える)
+	m_uEncodeBufferCount = 24; // inputParam->inputBuffer;
+	if (m_uEncodeBufferCount > MAX_ENCODE_QUEUE) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("入力バッファは多すぎます。: %d フレーム\n"), m_uEncodeBufferCount);
+		NVPrintf(stderr, NV_LOG_ERROR, _T("%d フレームまでに設定して下さい。\n"), MAX_ENCODE_QUEUE);
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
+
+	//解像度の決定
+	m_uEncWidth   = inputParam->input.width  - inputParam->input.crop[0] - inputParam->input.crop[2];
+	m_uEncHeight  = inputParam->input.height - inputParam->input.crop[1] - inputParam->input.crop[3];
 
 	//制限事項チェック
-	if ((m_uMaxWidth & 1) || (m_uMaxHeight & (1 + 2 * !!is_interlaced(param->pic_struct)))) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("解像度が無効です。: %dx%d\n"), m_uMaxWidth, m_uMaxHeight);
-		nvPrintf(stderr, NV_LOG_ERROR, _T("縦横の解像度は2の倍数である必要があります。\n"));
-		if (is_interlaced(param->pic_struct)) {
-			nvPrintf(stderr, NV_LOG_ERROR, _T("さらに、インタレ保持エンコードでは縦解像度は4の倍数である必要があります。\n"));
+	if ((m_uEncWidth & 1) || (m_uEncHeight & (1 + 2 * !!is_interlaced(inputParam->picStruct)))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("解像度が無効です。: %dx%d\n"), m_uEncWidth, m_uEncHeight);
+		NVPrintf(stderr, NV_LOG_ERROR, _T("縦横の解像度は2の倍数である必要があります。\n"));
+		if (is_interlaced(inputParam->picStruct)) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("さらに、インタレ保持エンコードでは縦解像度は4の倍数である必要があります。\n"));
 		}
-		return 1;
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	}
 	//環境による制限
-	if (m_uMaxWidth > (uint32_t)get_limit(NV_ENC_CAPS_WIDTH_MAX) || m_uMaxHeight > (uint32_t)get_limit(NV_ENC_CAPS_HEIGHT_MAX)) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("解像度が上限を超えています。: %dx%d [上限: %dx%d]\n"), m_uMaxWidth, m_uMaxHeight, get_limit(NV_ENC_CAPS_WIDTH_MAX), get_limit(NV_ENC_CAPS_HEIGHT_MAX));
-		return 1;
+	if (m_uEncWidth > (uint32_t)getCapLimit(NV_ENC_CAPS_WIDTH_MAX) || m_uEncHeight > (uint32_t)getCapLimit(NV_ENC_CAPS_HEIGHT_MAX)) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("解像度が上限を超えています。: %dx%d [上限: %dx%d]\n"), m_uEncWidth, m_uEncHeight, getCapLimit(NV_ENC_CAPS_WIDTH_MAX), getCapLimit(NV_ENC_CAPS_HEIGHT_MAX));
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	}
 
-	if (is_interlaced(param->pic_struct) && !get_limit(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING)) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("インターレース保持エンコードはサポートされていません。\n"));
-		return 1;
+	if (is_interlaced(inputParam->picStruct) && !getCapLimit(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING)) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("インターレース保持エンコードはサポートされていません。\n"));
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	}
-	if (m_stEncodeConfig.rcParams.rateControlMode != (m_stEncodeConfig.rcParams.rateControlMode & get_limit(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES))) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("選択されたレート制御モードはサポートされていません。\n"));
-		return 1;
+	if (m_stEncConfig.rcParams.rateControlMode != (m_stEncConfig.rcParams.rateControlMode & getCapLimit(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("選択されたレート制御モードはサポートされていません。\n"));
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	}
-	if (m_stEncodeConfig.frameIntervalP - 1 > get_limit(NV_ENC_CAPS_NUM_MAX_BFRAMES)) {
-		m_stEncodeConfig.frameIntervalP = get_limit(NV_ENC_CAPS_NUM_MAX_BFRAMES) + 1;
-		nvPrintf(stderr, NV_LOG_WARNING, _T("Bフレームの最大数は%dです。\n"), get_limit(NV_ENC_CAPS_NUM_MAX_BFRAMES));
+	if (m_stEncConfig.frameIntervalP - 1 > getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES)) {
+		m_stEncConfig.frameIntervalP = getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES) + 1;
+		NVPrintf(stderr, NV_LOG_WARN, _T("Bフレームの最大数は%dです。\n"), getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES));
 	}
-	if (NV_ENC_H264_ENTROPY_CODING_MODE_CABAC == m_stEncodeConfig.encodeCodecConfig.h264Config.entropyCodingMode && !get_limit(NV_ENC_CAPS_SUPPORT_CABAC)) {
-		m_stEncodeConfig.encodeCodecConfig.h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
-		nvPrintf(stderr, NV_LOG_WARNING, _T("CABACはサポートされていません。\n"));
+	if (NV_ENC_H264_ENTROPY_CODING_MODE_CABAC == m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_CABAC)) {
+		m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
+		NVPrintf(stderr, NV_LOG_WARN, _T("CABACはサポートされていません。\n"));
 	}
-	if (NV_ENC_H264_FMO_ENABLE == m_stEncodeConfig.encodeCodecConfig.h264Config.fmoMode && !get_limit(NV_ENC_CAPS_SUPPORT_FMO)) {
-		m_stEncodeConfig.encodeCodecConfig.h264Config.fmoMode = NV_ENC_H264_FMO_DISABLE;
-		nvPrintf(stderr, NV_LOG_WARNING, _T("FMOはサポートされていません。\n"));
+	if (NV_ENC_H264_FMO_ENABLE == m_stEncConfig.encodeCodecConfig.h264Config.fmoMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_FMO)) {
+		m_stEncConfig.encodeCodecConfig.h264Config.fmoMode = NV_ENC_H264_FMO_DISABLE;
+		NVPrintf(stderr, NV_LOG_WARN, _T("FMOはサポートされていません。\n"));
 	}
-	if (NV_ENC_H264_BDIRECT_MODE_TEMPORAL & m_stEncodeConfig.encodeCodecConfig.h264Config.bdirectMode && !get_limit(NV_ENC_CAPS_SUPPORT_BDIRECT_MODE)) {
-		m_stEncodeConfig.encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
-		nvPrintf(stderr, NV_LOG_WARNING, _T("B Direct モードはサポートされていません。\n"));
+	if (NV_ENC_H264_BDIRECT_MODE_TEMPORAL & m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_BDIRECT_MODE)) {
+		m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
+		NVPrintf(stderr, NV_LOG_WARN, _T("B Direct モードはサポートされていません。\n"));
 	}
-	if ((NV_ENC_MV_PRECISION_QUARTER_PEL == m_stEncodeConfig.mvPrecision) && !get_limit(NV_ENC_CAPS_SUPPORT_QPELMV)) {
-		m_stEncodeConfig.mvPrecision = NV_ENC_MV_PRECISION_HALF_PEL;
-		nvPrintf(stderr, NV_LOG_WARNING, _T("1/4画素精度MV探索はサポートされていません。\n"));
+	if ((NV_ENC_MV_PRECISION_QUARTER_PEL == m_stEncConfig.mvPrecision) && !getCapLimit(NV_ENC_CAPS_SUPPORT_QPELMV)) {
+		m_stEncConfig.mvPrecision = NV_ENC_MV_PRECISION_HALF_PEL;
+		NVPrintf(stderr, NV_LOG_WARN, _T("1/4画素精度MV探索はサポートされていません。\n"));
 	}
-	if (NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE != m_stEncodeConfig.encodeCodecConfig.h264Config.adaptiveTransformMode && !get_limit(NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM)) {
-		m_stEncodeConfig.encodeCodecConfig.h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
-		nvPrintf(stderr, NV_LOG_WARNING, _T("Adaptive Tranform はサポートされていません。\n"));
+	if (NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE != m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM)) {
+		m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
+		NVPrintf(stderr, NV_LOG_WARN, _T("Adaptive Tranform はサポートされていません。\n"));
 	}
-	if (0 != m_stEncodeConfig.rcParams.vbvBufferSize && !get_limit(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
-		m_stEncodeConfig.rcParams.vbvBufferSize = 0;
-		nvPrintf(stderr, NV_LOG_WARNING, _T("VBVバッファサイズの指定はサポートされていません。\n"));
+	if (0 != m_stEncConfig.rcParams.vbvBufferSize && !getCapLimit(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
+		m_stEncConfig.rcParams.vbvBufferSize = 0;
+		NVPrintf(stderr, NV_LOG_WARN, _T("VBVバッファサイズの指定はサポートされていません。\n"));
 	}
 	//自動決定パラメータ
-	if (0 == m_stEncodeConfig.gopLength) {
-		m_stEncodeConfig.gopLength = (int)(param->input.rate / (double)param->input.scale + 0.5) * 10;
+	if (0 == m_stEncConfig.gopLength) {
+		m_stEncConfig.gopLength = (int)(inputParam->input.rate / (double)inputParam->input.scale + 0.5) * 10;
 	}
 	//SAR自動設定
-	std::pair<int, int> par = std::make_pair(param->par[0], param->par[1]);
-	adjust_sar(&par.first, &par.second, m_uMaxWidth, m_uMaxHeight);
+	std::pair<int, int> par = std::make_pair(inputParam->par[0], inputParam->par[1]);
+	adjust_sar(&par.first, &par.second, m_uEncWidth, m_uEncHeight);
 	int sar_idx = get_h264_sar_idx(par);
 	if (sar_idx < 0) {
-		nvPrintf(stderr, NV_LOG_WARNING, _T("適切なSAR値を決定できませんでした。\n"));
+		NVPrintf(stderr, NV_LOG_WARN, _T("適切なSAR値を決定できませんでした。\n"));
 		sar_idx = 0;
 	}
 	if (sar_idx) {
 		;//と思ったが、aspect_ratioは設定できないのかな?
 	}
 	//色空間設定自動
-	int frame_height = m_uMaxHeight;
+	int frame_height = m_uEncHeight;
 	auto apply_auto_colormatrix = [frame_height](uint32_t& value, const CX_DESC *list) {
 		if (COLOR_VALUE_AUTO == value)
 			value = (frame_height >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value;
 	};
-	apply_auto_colormatrix(m_stEncodeConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries, list_colorprim);
-	apply_auto_colormatrix(m_stEncodeConfig.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer);
-	apply_auto_colormatrix(m_stEncodeConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix, list_colormatrix);
 
-	memset(&m_stInitEncParams, 0, sizeof(NV_ENC_INITIALIZE_PARAMS));
-	SET_VER(m_stInitEncParams, NV_ENC_INITIALIZE_PARAMS);
-	m_stInitEncParams.encodeConfig        = &m_stEncodeConfig;
-	m_stInitEncParams.darHeight           = m_dwFrameHeight;
-	m_stInitEncParams.darWidth            = m_dwFrameWidth;
-	m_stInitEncParams.encodeHeight        = m_dwFrameHeight;
-	m_stInitEncParams.encodeWidth         = m_dwFrameWidth;
+	apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries, list_colorprim);
+	apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer);
+	apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix, list_colormatrix);
 
-	m_stInitEncParams.maxEncodeHeight     = m_uMaxHeight;
-	m_stInitEncParams.maxEncodeWidth      = m_uMaxWidth;
+	INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
+	m_stCreateEncodeParams.encodeConfig        = &m_stEncConfig;
+	m_stCreateEncodeParams.darHeight           = m_uEncHeight;
+	m_stCreateEncodeParams.darWidth            = m_uEncWidth;
+	m_stCreateEncodeParams.encodeHeight        = m_uEncHeight;
+	m_stCreateEncodeParams.encodeWidth         = m_uEncWidth;
 
-	m_stInitEncParams.frameRateNum        = m_InputParam.input.rate;
-	m_stInitEncParams.frameRateDen        = m_InputParam.input.scale;
+	m_stCreateEncodeParams.maxEncodeHeight     = m_uEncHeight;
+	m_stCreateEncodeParams.maxEncodeWidth      = m_uEncWidth;
+
+	m_stCreateEncodeParams.frameRateNum        = inputParam->input.rate;
+	m_stCreateEncodeParams.frameRateDen        = inputParam->input.scale;
 	//Fix me add theading model
-	m_stInitEncParams.enableEncodeAsync   = m_bAsyncModeEncoding;
-	m_stInitEncParams.enablePTD           = true;
-	m_stInitEncParams.encodeGUID          = m_stEncodeGUID;
-	m_stInitEncParams.presetGUID          = m_stPresetGUID;
+	m_stCreateEncodeParams.enableEncodeAsync   = true;
+	m_stCreateEncodeParams.enablePTD           = true;
+	m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
+	m_stCreateEncodeParams.presetGUID          = preset_names[inputParam->preset].id;
 
-	//整合性チェック (一般)
-	m_stInitEncParams.encodeConfig->frameFieldMode = (param->pic_struct == NV_ENC_PIC_STRUCT_FRAME) ? NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME : NV_ENC_PARAMS_FRAME_FIELD_MODE_FIELD;
-	m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.entropyCodingMode = (m_stEncoderInput[0].profile > 66) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
-	m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.idrPeriod   = m_stInitEncParams.encodeConfig->gopLength;
-	if (m_stInitEncParams.encodeConfig->frameIntervalP - 1 <= 0) {
-		nvPrintf(stderr, NV_LOG_WARNING, _T("Bフレーム無しの場合、B Direct モードはサポートされていません。\n"));
-		m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
+	if (inputParam->codec == NV_ENC_HEVC) {
+		//整合性チェック (一般, H.265/HEVC)
+		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
+		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB = m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.maxNumRefFrames;
+	} else if (inputParam->codec == NV_ENC_H264) {
+		//整合性チェック (一般, H.264/AVC)
+		m_stCreateEncodeParams.encodeConfig->frameFieldMode = (inputParam->picStruct == NV_ENC_PIC_STRUCT_FRAME) ? NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME : NV_ENC_PARAMS_FRAME_FIELD_MODE_FIELD;
+		//m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.entropyCodingMode = (m_stEncoderInput[0].profile > 66) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
+		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
+		if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 <= 0) {
+			NVPrintf(stderr, NV_LOG_WARN, _T("Bフレーム無しの場合、B Direct モードはサポートされていません。\n"));
+			m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
+		}
+
+		//整合性チェック (H.264 VUI)
+		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.overscanInfoPresentFlag =
+			(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.overscanInfo) ? 1 : 0;
+
+		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag =
+			(get_cx_value(list_videoformat, "undef") != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFormat
+			|| m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag) ? 1 : 0;
+
+		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourDescriptionPresentFlag =
+			(  get_cx_value(list_colorprim,   "undef") != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries
+			|| get_cx_value(list_transfer,    "undef") != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics
+			|| get_cx_value(list_colormatrix, "undef") != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix) ? 1 : 0;
 	}
-	
-	//整合性チェック (H.264 VUI)
-	m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.overscanInfoPresentFlag =
-		(m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.overscanInfo) ? 1 : 0;
 
-	m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag = 
-		(get_cx_value(list_videoformat, "undef") != (int)m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFormat
-		|| m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag) ? 1 : 0;
-
-	m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourDescriptionPresentFlag = 
-		(  get_cx_value(list_colorprim,   "undef") != (int)m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries
-		|| get_cx_value(list_transfer,    "undef") != (int)m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics
-		|| get_cx_value(list_colormatrix, "undef") != (int)m_stInitEncParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix) ? 1 : 0;
-
-	return 0;
+	return NV_ENC_SUCCESS;
 }
 
-int NVEncCore::InitInput() {
-	m_pStatus = new EncodeStatus();
-	m_pInput = new BasicInput();
-	int ret = m_pInput->Init(&m_InputParam.input, m_pStatus);
-	if (0 == m_InputParam.input.rate || 0 == m_InputParam.input.scale) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("フレーム読み込みの開始に失敗しました。\n"));
-		nvPrintf(stderr, NV_LOG_ERROR, _T("%s\n"), m_pInput->getInputMes());
-		return 1;
+NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
+	NVENCSTATUS nvStatus;
+
+	if (NV_ENC_SUCCESS != (nvStatus = SetInputParam(inputParam)))
+		return nvStatus;
+
+	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncInitializeEncoder(m_hEncoder, &m_stCreateEncodeParams))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("エンコーダの初期化に失敗しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		return nvStatus;
 	}
-	if (0 == m_InputParam.input.rate || 0 == m_InputParam.input.scale) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("フレームレートが正しく取得できていません。: %d/%d fps\n"), m_InputParam.input.rate, m_InputParam.input.scale);
-		return 1;
-	}
-	//自動GCD
-	int gcd_fps = nv_get_gcd(m_InputParam.input.rate, m_InputParam.input.scale);
-	m_InputParam.input.rate /= gcd_fps;
-	m_InputParam.input.scale /= gcd_fps;
-	m_pStatus->m_nOutputFPSRate = m_InputParam.input.rate;
-	m_pStatus->m_nOutputFPSScale = m_InputParam.input.scale;
-	return ret;
+
+	return nvStatus;
 }
 
-int NVEncCore::EncoderStartup(const InEncodeVideoParam *param) {
-	Close();
-
-	m_InputParam = *param;
-
-	m_log_level = NV_LOG_INFO;
-
-	if (!check_if_nvcuda_dll_available()) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("CUDAが使用できないため、NVEncによるエンコードが行えません。(check_if_nvcuda_dll_available)\n"));
-		return 1;
-	}
-
-	NVEncoderGPUInfo gpuInfo;
-	if (0 >= gpuInfo.getGPUList().size()) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("NVEncが使用可能なGPUが見つかりませんでした。\n"));
-		m_log_level = NV_LOG_DEBUG;
-		InitCuda(m_InputParam.deviceID);
-		return 1;
-	}
-
-	//Open OutputFile
-	if (_tfopen_s(&m_fOutput, m_InputParam.outputFilename.c_str(), _T("wb")) || NULL == m_fOutput) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("出力ファイルのオープンに失敗しました。\n"));
-		return 1;
-	}
-
-	//Open Input, Get Input Info
-	if (InitInput()) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("入力ファイルを開けませんでした。\n"));
-		return 1;
-	}
-
-
-	//m_stEncoderInput[0]は使わないが初期化しておく
-	InitDefault();
-
-	if (NVEncCoreOpenEncodeSession(m_InputParam.deviceID, m_InputParam.enc_config.profileGUID, m_InputParam.preset)) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("エンコーダを開けませんでした。(NVEncCoreOpenEncodeSession)\n"));
-		return 1;
-	}
-
-	m_nvEncCaps = GetCurrentDeviceNVEncCapability();
-	if (0 == m_nvEncCaps.size()) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("エンコーダ機能のチェックに失敗しました。\n"));
-		return 1;
-	}
-
-	PreInitializeEncoder();
-	if (SetInputParam(&m_InputParam)) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("パラメータが不適切なため、エンコードを続行できません。\n"));
-		return 1;
-	}
-	if (S_OK != InitializeEncoder()) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("エンコーダを開けませんでした。(InitializeEncoder)\n"));
-		return 1;
-	}
-
-	if (m_EncThread.Init(param->inputBuffer)) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("エンコードスレッド用バッファの確保に失敗しました。\n"));
-		return 1;
-	}
-
-	nvPrintf(stderr, NV_LOG_INFO, "%s\n", GetEncodingParamsInfo(m_log_level).c_str());
-
-	return 0;
-}
-
-unsigned int __stdcall NVEncCore::RunEncThreadLauncher(void *pParam) {
-	NVEncCore *ptr = reinterpret_cast<NVEncCore *>(pParam);
-	return ptr->RunEncodeThread();
-}
-
-int NVEncCore::RunEncodeThread() {
+NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
 	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-	const uint32_t width = m_dwFrameWidth;
-	const uint32_t height = m_dwFrameHeight;
-	EncodeFrameConfig stEncodeFrame = { 0 };
-	stEncodeFrame.width = width;
-	stEncodeFrame.height = height;
-	stEncodeFrame.stride[0] = width;
-	stEncodeFrame.stride[1] = width / 2;
-	stEncodeFrame.stride[2] = width / 2;
-	stEncodeFrame.picStruct = m_InputParam.pic_struct;
 
-	const uint32_t preDecodeFrame = m_EncThread.GetBufferSize() - 1;
-	for (uint32_t i_frame = 0; i_frame < preDecodeFrame; i_frame++) {
-		//入力フレームのポインタ取得
-		EncodeInputSurfaceInfo *pInput = NULL;
-		EncodeOutputBuffer *pOutputBitstream = NULL;
-		m_stInputSurfQueue.Remove(pInput, INFINITE);
-		m_stOutputSurfQueue.Remove(pOutputBitstream, INFINITE);
-
-		//これをスレッドに渡す
-		m_EncThread.SetNextSurface(pInput, pOutputBitstream);
+	//入力ファイルを開き、入力情報も取得
+	if (NV_ENC_SUCCESS != (nvStatus = InitInput(inputParam))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("入力ファイルを開けませんでした。\n"));
+		return nvStatus;
 	}
 
-	for (uint32_t i_frame = 0; ; i_frame++) {
-		//入力フレームのポインタ取得
-		EncodeInputSurfaceInfo *pInput = NULL;
-		EncodeOutputBuffer *pOutputBitstream = NULL;
-		m_stInputSurfQueue.Remove(pInput, INFINITE);
-		m_stOutputSurfQueue.Remove(pOutputBitstream, INFINITE);
-
-		//これをスレッドに渡す
-		m_EncThread.SetNextSurface(pInput, pOutputBitstream);
-
-		//デコード・入力結果をもらう
-		m_EncThread.GetNextFrame(&pInput, &pOutputBitstream);
-		if (m_EncThread.m_bthForceAbort || (NVENC_THREAD_FINISHED == m_EncThread.m_stsThread && i_frame == m_pStatus->m_sData.frameIn))
-			break;
-
-		EncodeFrameConfig frame = stEncodeFrame;
-		//EncodeFrame(&stEncodeFrame, false);
-		NV_ENC_MAP_INPUT_RESOURCE mapRes = { 0 };
-
-		//CUDAを使って転送
-		cuCtxPushCurrent(m_cuContext);
-		CUcontext cuContextCurr;
-		CUresult result = cuMemcpyHtoD((CUdeviceptr)pInput->pExtAlloc, pInput->pExtAllocHost, pInput->dwCuPitch*pInput->dwHeight*3/2);
-		if (CUDA_SUCCESS != result) {
-			m_EncThread.m_errMes = _T("GPUへのフレーム転送に失敗しました。\n");
-			nvStatus = NV_ENC_ERR_GENERIC;
-			break;
-		}
-		cuCtxPopCurrent(&cuContextCurr);
-
-		SET_VER(mapRes, NV_ENC_MAP_INPUT_RESOURCE);
-		mapRes.registeredResource  = pInput->hRegisteredHandle;
-		if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncMapInputResource(m_hEncoder, &mapRes))) {
-			m_EncThread.m_errMes = _T("フレームのエンコードに失敗しました。\n  nvEncMapInputResource - ");
-			m_EncThread.m_errMes += to_tchar(_nvencGetErrorEnum(nvStatus)).c_str();
-			break;
-		}
-		pInput->hInputSurface = mapRes.mappedResource;
-
-		memset(&m_stEncodePicParams, 0, sizeof(m_stEncodePicParams));
-		SET_VER(m_stEncodePicParams, NV_ENC_PIC_PARAMS);
-		m_stEncodePicParams.inputBuffer     = pInput->hInputSurface;
-		m_stEncodePicParams.bufferFmt       = pInput->bufferFmt;
-		m_stEncodePicParams.inputWidth      = pInput->dwWidth;
-		m_stEncodePicParams.inputHeight     = pInput->dwHeight;
-		m_stEncodePicParams.outputBitstream = pOutputBitstream->hBitstreamBuffer;
-		m_stEncodePicParams.completionEvent = m_bAsyncModeEncoding == true ? pOutputBitstream->hOutputEvent : NULL;
-		m_stEncodePicParams.pictureStruct   = frame.picStruct;
-		m_stEncodePicParams.encodePicFlags  = 0;
-		m_stEncodePicParams.inputTimeStamp  = 0;
-		m_stEncodePicParams.inputDuration   = 0;
-		m_stEncodePicParams.codecPicParams.h264PicParams.sliceMode = m_stEncodeConfig.encodeCodecConfig.h264Config.sliceMode;
-		m_stEncodePicParams.codecPicParams.h264PicParams.sliceModeData = m_stEncodeConfig.encodeCodecConfig.h264Config.sliceModeData;
-		memcpy(&m_stEncodePicParams.rcParams, &m_stEncodeConfig.rcParams, sizeof(m_stEncodePicParams.rcParams));
-
-		if (NV_ENC_SUCCESS == (nvStatus = m_pEncodeAPI->nvEncEncodePicture(m_hEncoder, &m_stEncodePicParams))) {
-			EncoderThreadData stThreadData;
-			stThreadData.pOutputBfr = pOutputBitstream;
-			stThreadData.pInputBfr = pInput;
-			pOutputBitstream->bWaitOnEvent = true;
-			stThreadData.pOutputBfr->bReconfiguredflag = frame.bReconfigured;
-
-			// Queue o/p Sample
-			if (!m_pEncoderThread->QueueSample(stThreadData)) {
-				assert(0);
-			}
-		} else {
-			m_EncThread.m_errMes = _T("フレームのエンコードに失敗しました。\n  nvEncEncodePicture - ");
-			m_EncThread.m_errMes += to_tchar(_nvencGetErrorEnum(nvStatus)).c_str();
-			break;
-		}
+	//出力ファイルを開く
+	if (_tfopen_s(&m_fOutput, inputParam->outputFilename.c_str(), _T("wb")) || NULL == m_fOutput) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("出力ファイルのオープンに失敗しました。\n"));
+		return NV_ENC_ERR_GENERIC;
 	}
 
-	FlushEncoder();
+	//出力バッファ
+	if (nullptr != (m_pOutputBuf = (char *)malloc(OUTPUT_BUF_SIZE))) {
+		setvbuf(m_fOutput, m_pOutputBuf, _IOFBF, OUTPUT_BUF_SIZE);
+	}
+
+	//エンコーダにパラメータを渡し、初期化
+	if (NV_ENC_SUCCESS != (nvStatus = CreateEncoder(inputParam))) {
+		return nvStatus;
+	}
 	
-	_InterlockedExchange((uint32_t *)&m_EncThread.m_stsThread, (NV_ENC_SUCCESS != nvStatus) ? NVENC_THREAD_ERROR : NVENC_THREAD_FINISHED);
-
-	return 0;
+	//入出力用メモリ確保
+	if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight))) {
+		return nvStatus;
+	}
+	return nvStatus;
 }
 
-int NVEncCore::Run() {
-	m_pStatus->m_sData.tmStart = timeGetTime();
+NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
+	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
-	if (m_EncThread.RunEncFuncbyThread(RunEncThreadLauncher, this)) {
-		nvPrintf(stderr, NV_LOG_ERROR, _T("エンコードスレッドの起動に失敗しました。\n"));
-		return 1;
-	}
-	int ret = NVENC_THREAD_RUNNING;
-
-	uint32_t encThreadBufSize = m_EncThread.GetBufferSize();
-	for (uint32_t i_frame = 0; NVENC_THREAD_RUNNING == m_EncThread.m_stsThread; i_frame++) {
-		//開いているフレームバッファへのポインタをもらう
-		InputThreadBuf *pInputBuf = &m_EncThread.m_InputBuf[i_frame % encThreadBufSize];
-		WaitForSingleObject(pInputBuf->heInputStart, INFINITE);
-
-		//入力フレーム取得 (デコード), 色空間しながらコピー
-		if (0 != (ret = m_pInput->LoadNextFrame(pInputBuf->pInput))) {
-			_InterlockedExchange((uint32_t *)&m_EncThread.m_stsThread, ret);
-		}
-
-		//フレームバッファへの格納を通知
-		SetEvent(pInputBuf->heInputDone);
-
-		if (0 != ret)
-			break;
-
-		m_pStatus->UpdateDisplay();
-
-		if (NVENC_THREAD_ERROR == m_EncThread.m_stsThread) {
-			ret = NVENC_THREAD_ERROR;
-			break;
+	if (NULL == m_hinstLib) {
+		if (NULL == (m_hinstLib = LoadLibrary(NVENCODE_API_DLL))) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("%sがシステムに存在しません。\n"), NVENCODE_API_DLL);
+			NVPrintf(stderr, NV_LOG_ERROR, _T("NVIDIAのドライバが動作条件を満たしているか確認して下さい。"));
+			return NV_ENC_ERR_OUT_OF_MEMORY;
 		}
 	}
+	
+	MYPROC nvEncodeAPICreateInstance; // function pointer to create instance in nvEncodeAPI
+	if (NULL == (nvEncodeAPICreateInstance = (MYPROC)GetProcAddress(m_hinstLib, "NvEncodeAPICreateInstance"))) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("NvEncodeAPICreateInstanceのアドレス取得に失敗しました。\n"));
+		return NV_ENC_ERR_OUT_OF_MEMORY;
+	}
 
-	m_EncThread.WaitToFinish(ret);
-	DestroyEncoder();
+	if (NULL == (m_pEncodeAPI = new NV_ENCODE_API_FUNCTION_LIST)) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("NV_ENCODE_API_FUNCTION_LIST用のメモリ確保に失敗しました。\n"));
+		return NV_ENC_ERR_OUT_OF_MEMORY;
+	}
 
-	if (ret == NVENC_THREAD_ERROR && _tcslen(m_EncThread.m_errMes.c_str()))
-		nvPrintf(stderr, NV_LOG_ERROR, "%s\n", m_EncThread.m_errMes.c_str());
+	memset(m_pEncodeAPI, 0, sizeof(NV_ENCODE_API_FUNCTION_LIST));
+	m_pEncodeAPI->version = NV_ENCODE_API_FUNCTION_LIST_VER;
 
-	//結果表示
-	m_pStatus->writeResult();
+	if (NV_ENC_SUCCESS != (nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI))) {
+		if (nvStatus == NV_ENC_ERR_INVALID_VERSION) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncodeAPIのインスタンス作成に失敗しました。ドライバのバージョンが古い可能性があります。\n"));
+			NVPrintf(stderr, NV_LOG_ERROR, _T("最新のドライバに更新して試してみてください。\n"));
+		} else {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("nvEncodeAPIのインスタンス作成に失敗しました。: %d (%s)\n"), nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+		}
+		return nvStatus;
+	}
 
+	//m_pDeviceを初期化
+	if (NV_ENC_SUCCESS != (nvStatus = InitDevice(inputParam))) {
+		return nvStatus;
+	}
+
+	if (NV_ENC_SUCCESS != (nvStatus = NvEncOpenEncodeSessionEx(m_pDevice, NV_ENC_DEVICE_TYPE_CUDA))) {
+		return nvStatus;
+	}
+	
+	//作成したデバイスの情報をfeature取得
+	if (NV_ENC_SUCCESS != (nvStatus = createDeviceFeatureList())) {
+		return nvStatus;
+	}
+	return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::EncodeFrame(int encode_idx) {
+    EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+    if (!pEncodeBuffer) {
+        ProcessOutput(m_EncodeBufferQueue.GetPending());
+        pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+    }
+	
+    NV_ENC_PIC_PARAMS encPicParams;
+    INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
+
+    encPicParams.inputBuffer = pEncodeBuffer->stInputBfr.hInputSurface;
+    encPicParams.bufferFmt = pEncodeBuffer->stInputBfr.bufferFmt;
+    encPicParams.inputWidth = m_uEncWidth;
+    encPicParams.inputHeight = m_uEncHeight;
+    encPicParams.outputBitstream = pEncodeBuffer->stOutputBfr.hBitstreamBuffer;
+    encPicParams.completionEvent = pEncodeBuffer->stOutputBfr.hOutputEvent;
+    encPicParams.inputTimeStamp = encode_idx;
+    encPicParams.pictureStruct = NV_ENC_PIC_STRUCT_FRAME;
+    //encPicParams.qpDeltaMap = qpDeltaMapArray;
+    //encPicParams.qpDeltaMapSize = qpDeltaMapArraySize;
+
+
+    //if (encPicCommand)
+    //{
+    //    if (encPicCommand->bForceIDR)
+    //    {
+    //        encPicParams.encodePicFlags |= NV_ENC_PIC_FLAG_FORCEIDR;
+    //    }
+
+    //    if (encPicCommand->bForceIntraRefresh)
+    //    {
+    //        if (codecGUID == NV_ENC_CODEC_HEVC_GUID)
+    //        {
+    //            encPicParams.codecPicParams.hevcPicParams.forceIntraRefreshWithFrameCnt = encPicCommand->intraRefreshDuration;
+    //        }
+    //        else
+    //        {
+    //            encPicParams.codecPicParams.h264PicParams.forceIntraRefreshWithFrameCnt = encPicCommand->intraRefreshDuration;
+    //        }
+    //    }
+    //}
+
+    NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncEncodePicture(m_hEncoder, &encPicParams);
+    if (nvStatus != NV_ENC_SUCCESS && nvStatus != NV_ENC_ERR_NEED_MORE_INPUT) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("フレームの投入に失敗しました。\n"));
+        return nvStatus;
+    }
+
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCore::Encode() {
+	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+
+	m_pStatus->SetStart();
+
+	int ret = 0;
+	const int bufferCount = m_uEncodeBufferCount;
+	for (int iFrame = 0; nvStatus == NV_ENC_SUCCESS; iFrame++) {
+		uint32_t lockedPitch = 0;
+		unsigned char *pInputSurface = nullptr;
+		const int index = iFrame % bufferCount;
+		NvEncLockInputBuffer(m_stEncodeBuffer[index].stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
+		ret = m_pInput->LoadNextFrame(pInputSurface, lockedPitch);
+		NvEncUnlockInputBuffer(m_stEncodeBuffer[index].stInputBfr.hInputSurface);
+		if (ret)
+			break;
+		nvStatus = EncodeFrame(m_pStatus->m_sData.frameIn);
+	}
+	if (nvStatus == NV_ENC_SUCCESS) {
+		FlushEncoder();
+	}
 	if (m_fOutput) {
 		fclose(m_fOutput);
 		m_fOutput = NULL;
 	}
-
-	return (ret == NVENC_THREAD_FINISHED) ? 0 : 1;
+	if (m_pInput) {
+		m_pInput->Close();
+		delete m_pInput;
+		m_pInput = nullptr;
+	}
+	m_pStatus->writeResult();
+	return nvStatus;
 }
 
-void NVEncCore::setInitializedVUIParam(NV_ENC_CONFIG *conf) {
-	conf->encodeCodecConfig.h264Config.h264VUIParameters.overscanInfo = 0;
-	conf->encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix = get_cx_value(list_colormatrix, "undef");
-	conf->encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries = get_cx_value(list_colorprim, "undef");
-	conf->encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics = get_cx_value(list_transfer, "undef");
-	conf->encodeCodecConfig.h264Config.h264VUIParameters.videoFormat = get_cx_value(list_videoformat, "undef");
+NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamH264() {
+	NV_ENC_CODEC_CONFIG config = { 0 };
+
+	config.h264Config.level = NV_ENC_LEVEL_AUTOSELECT;
+	config.h264Config.idrPeriod      = DEFAULT_GOP_LENGTH;
+	config.h264Config.bdirectMode    = (DEFAULT_B_FRAMES > 0) ? NV_ENC_H264_BDIRECT_MODE_TEMPORAL : NV_ENC_H264_BDIRECT_MODE_DISABLE;
+
+	config.h264Config.chromaFormatIDC = 1;
+	config.h264Config.disableDeblockingFilterIDC = 0;
+	config.h264Config.disableSPSPPS  = 0;
+	config.h264Config.sliceMode      = 3;
+	config.h264Config.sliceModeData  = DEFAULT_NUM_SLICES;
+	config.h264Config.maxNumRefFrames = DEFAULT_REF_FRAMES;
+	config.h264Config.bdirectMode    = NV_ENC_H264_BDIRECT_MODE_AUTOSELECT;
+
+	config.h264Config.h264VUIParameters.overscanInfo = 0;
+	config.h264Config.h264VUIParameters.colourMatrix            = get_cx_value(list_colormatrix, "undef");
+	config.h264Config.h264VUIParameters.colourPrimaries         = get_cx_value(list_colorprim,   "undef");
+	config.h264Config.h264VUIParameters.transferCharacteristics = get_cx_value(list_transfer,    "undef");
+	config.h264Config.h264VUIParameters.videoFormat             = get_cx_value(list_videoformat, "undef");
+
+	return config;
 }
 
-NV_ENC_CONFIG NVEncCore::initializedParam() {
-	const int DEFAULT_GOP_LENGTH  = 300;
-	const int DEFAULT_B_FRAMES    = 3;
-	const int DEFAULT_REF_FRAMES  = 3;
-	const int DEFAULT_NUM_SLICES  = 1;
-	const int DEFAUTL_QP_I        = 21;
-	const int DEFAULT_QP_P        = 24;
-	const int DEFAULT_QP_B        = 26;
-	const int DEFAULT_AVG_BITRATE = 6000000;
-	const int DEFAULT_MAX_BITRATE = 15000000;
+NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamHEVC() {
+	NV_ENC_CODEC_CONFIG config = { 0 };
+
+	config.hevcConfig.level = NV_ENC_LEVEL_AUTOSELECT;
+	config.hevcConfig.tier  = NV_ENC_TIER_HEVC_MAIN;
+	config.hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_8x8;
+	config.hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_32x32;
+	config.hevcConfig.sliceMode = 0;
+	config.hevcConfig.sliceModeData = 0;
+	config.hevcConfig.maxNumRefFramesInDPB = DEFAULT_REF_FRAMES;
+
+	return config;
+}
+
+NV_ENC_CONFIG NVEncCore::DefaultParam() {
 
 	NV_ENC_CONFIG config = { 0 };
 	SET_VER(config, NV_ENC_CONFIG);
@@ -780,6 +1199,7 @@ NV_ENC_CONFIG NVEncCore::initializedParam() {
 	config.frameIntervalP                 = DEFAULT_B_FRAMES + 1;
 	config.mvPrecision                    = NV_ENC_MV_PRECISION_QUARTER_PEL;
 	config.monoChromeEncoding             = 0;
+	config.rcParams.version               = NV_ENC_RC_PARAMS_VER;
 	config.rcParams.averageBitRate        = DEFAULT_AVG_BITRATE;
 	config.rcParams.maxBitRate            = DEFAULT_MAX_BITRATE;
 	config.rcParams.enableInitialRCQP     = 1;
@@ -792,29 +1212,9 @@ NV_ENC_CONFIG NVEncCore::initializedParam() {
 
 	config.rcParams.vbvBufferSize         = 0;
 	config.rcParams.vbvInitialDelay       = 0;
-	config.encodeCodecConfig.h264Config.level = NV_ENC_LEVEL_AUTOSELECT;
-
-	config.encodeCodecConfig.h264Config.idrPeriod      = config.gopLength;
-	config.encodeCodecConfig.h264Config.bdirectMode    = (config.frameIntervalP - 1 > 0) ? NV_ENC_H264_BDIRECT_MODE_TEMPORAL : NV_ENC_H264_BDIRECT_MODE_DISABLE;
-
-	config.encodeCodecConfig.h264Config.disableDeblockingFilterIDC = 0;
-	config.encodeCodecConfig.h264Config.disableSPSPPS  = 0;
-	config.encodeCodecConfig.h264Config.sliceMode      = 3;
-	config.encodeCodecConfig.h264Config.sliceModeData  = DEFAULT_NUM_SLICES;
-	config.encodeCodecConfig.h264Config.maxNumRefFrames = DEFAULT_REF_FRAMES;
-	config.encodeCodecConfig.h264Config.bdirectMode    = NV_ENC_H264_BDIRECT_MODE_AUTOSELECT;
-
-	setInitializedVUIParam(&config);
+	config.encodeCodecConfig              = DefaultParamH264();
 
 	return config;
-}
-
-bool NVEncCore::checkNVEncAvialable() {
-	NVEncoderGPUInfo gpuInfo;
-	if (0 >= gpuInfo.getGPUList().size()) {
-		return false;
-	}
-	return 0 == NVEncCoreOpenEncodeSession(0);
 }
 
 tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
@@ -853,44 +1253,45 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	getGPUInfo("NVIDIA", gpu_info, _countof(gpu_info));
 
 	add_str(NV_LOG_ERROR, _T("NVEnc %s (%s), using NVENC API v%d.%d\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
-	add_str(NV_LOG_INFO,  _T("OS バージョン           %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
-	add_str(NV_LOG_INFO,  _T("CPU情報                 %s\n"), cpu_info);
-	add_str(NV_LOG_INFO,  _T("GPU情報                 %s\n"), gpu_info);
-	add_str(NV_LOG_ERROR, _T("NVENC API Interface     %s\n"), to_tchar(nvenc_interface_names[m_stEncoderInput[0].interfaceType].name).c_str());
-	add_str(NV_LOG_ERROR, _T("入力フレームバッファ    %d frames\n"), m_EncThread.GetBufferSize());
+	add_str(NV_LOG_INFO,  _T("OS バージョン           %s (%s)\n"), getOSVersion(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
+	add_str(NV_LOG_INFO,  _T("CPU                     %s\n"), cpu_info);
+	add_str(NV_LOG_INFO,  _T("GPU                     %s\n"), gpu_info);
+	add_str(NV_LOG_ERROR, _T("入力フレームバッファ    %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
 	add_str(NV_LOG_ERROR, _T("入力フレーム情報        %s\n"), m_pInput->getInputMes());
-	add_str(NV_LOG_ERROR, _T("出力動画情報            %s\n"), to_tchar(get_name_from_guid(m_stEncodeConfig.profileGUID, codecprofile_names, _countof(codecprofile_names))).c_str());
-	add_str(NV_LOG_ERROR, _T("                        %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_dwFrameWidth, m_dwFrameHeight, (m_stEncodeConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), 0,0, m_stInitEncParams.frameRateNum / (double)m_stInitEncParams.frameRateDen, m_stInitEncParams.frameRateNum, m_stInitEncParams.frameRateDen);
-	add_str(NV_LOG_DEBUG, _T("Encoder Preset          %s\n"), to_tchar(preset_names[m_InputParam.preset].name).c_str());
-	add_str(NV_LOG_ERROR, _T("レート制御モード        %s\n"), to_tchar(ratecontrol_names[m_stEncodeConfig.rcParams.rateControlMode].name).c_str());
-	if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncodeConfig.rcParams.rateControlMode) {
-		add_str(NV_LOG_ERROR, _T("CQP値                   I:%d  P:%d  B:%d\n"), m_stEncodeConfig.rcParams.constQP.qpIntra, m_stEncodeConfig.rcParams.constQP.qpInterP, m_stEncodeConfig.rcParams.constQP.qpInterB);
+	add_str(NV_LOG_ERROR, _T("出力動画情報            %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
+		to_tchar((get_value_from_guid(m_stCodecGUID, list_nvenc_codecs) == NV_ENC_H264)
+		? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names)).c_str());
+	add_str(NV_LOG_ERROR, _T("                        %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), 0,0, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
+	add_str(NV_LOG_DEBUG, _T("Encoder Preset          %s\n"), to_tchar(get_name_from_guid(m_stCreateEncodeParams.presetGUID, preset_names)).c_str());
+	add_str(NV_LOG_ERROR, _T("レート制御モード        %s\n"), to_tchar(get_desc(list_nvenc_rc_method, m_stEncConfig.rcParams.rateControlMode)).c_str());
+	if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
+		add_str(NV_LOG_ERROR, _T("CQP値                   I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB);
 	} else {
-		add_str(NV_LOG_ERROR, _T("ビットレート            %d kbps (Max: %d kbps)\n"), m_stEncodeConfig.rcParams.averageBitRate / 1000, m_stEncodeConfig.rcParams.maxBitRate / 1000);
-		if (m_stEncodeConfig.rcParams.enableInitialRCQP)
-			add_str(NV_LOG_INFO,  _T("初期QP値                I:%d  P:%d  B:%d\n"), m_stEncodeConfig.rcParams.constQP.qpIntra, m_stEncodeConfig.rcParams.constQP.qpInterP, m_stEncodeConfig.rcParams.constQP.qpInterB);
-		if (m_stEncodeConfig.rcParams.enableMaxQP || m_stEncodeConfig.rcParams.enableMinQP) {
-			int minQPI = (m_stEncodeConfig.rcParams.enableMinQP) ? m_stEncodeConfig.rcParams.minQP.qpIntra  :  0;
-			int maxQPI = (m_stEncodeConfig.rcParams.enableMaxQP) ? m_stEncodeConfig.rcParams.maxQP.qpIntra  : 51;
-			int minQPP = (m_stEncodeConfig.rcParams.enableMinQP) ? m_stEncodeConfig.rcParams.minQP.qpInterP :  0;
-			int maxQPP = (m_stEncodeConfig.rcParams.enableMaxQP) ? m_stEncodeConfig.rcParams.maxQP.qpInterP : 51;
-			int minQPB = (m_stEncodeConfig.rcParams.enableMinQP) ? m_stEncodeConfig.rcParams.minQP.qpInterB :  0;
-			int maxQPB = (m_stEncodeConfig.rcParams.enableMaxQP) ? m_stEncodeConfig.rcParams.maxQP.qpInterB : 51;
+		add_str(NV_LOG_ERROR, _T("ビットレート            %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
+		if (m_stEncConfig.rcParams.enableInitialRCQP)
+			add_str(NV_LOG_INFO,  _T("初期QP値                I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB);
+		if (m_stEncConfig.rcParams.enableMaxQP || m_stEncConfig.rcParams.enableMinQP) {
+			int minQPI = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpIntra  :  0;
+			int maxQPI = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpIntra  : 51;
+			int minQPP = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpInterP :  0;
+			int maxQPP = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpInterP : 51;
+			int minQPB = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpInterB :  0;
+			int maxQPB = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpInterB : 51;
 			add_str(NV_LOG_INFO,  _T("QP制御範囲              I:%d-%d  P:%d-%d  B:%d-%d\n"), minQPI, maxQPI, minQPP, maxQPP, minQPB, maxQPB);
 		}
-		add_str(NV_LOG_DEBUG, _T("VBV設定                 BufSize: %s  InitialDelay:%s\n"), value_or_auto(m_stEncodeConfig.rcParams.vbvBufferSize, 0).c_str(), value_or_auto(m_stEncodeConfig.rcParams.vbvInitialDelay, 0).c_str());
+		add_str(NV_LOG_DEBUG, _T("VBV設定                 BufSize: %s  InitialDelay:%s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize, 0).c_str(), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay, 0).c_str());
 	}
-	add_str(NV_LOG_INFO,  _T("GOP長                   %d frames\n"), m_stEncodeConfig.gopLength);
-	add_str(NV_LOG_INFO,  _T("連続Bフレーム数         %d frames\n"), m_stEncodeConfig.frameIntervalP - 1);
-	add_str(NV_LOG_DEBUG, _T("hierarchical Frames     P:%s  B:%s\n"), on_off(m_stEncodeConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncodeConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
+	add_str(NV_LOG_INFO,  _T("GOP長                   %d frames\n"), m_stEncConfig.gopLength);
+	add_str(NV_LOG_INFO,  _T("連続Bフレーム数         %d frames\n"), m_stEncConfig.frameIntervalP - 1);
+	add_str(NV_LOG_DEBUG, _T("hierarchical Frames     P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
 	add_str(NV_LOG_DEBUG, _T("出力                    "));
 	TCHAR bitstream_info[256] = { 0 };
-	if (m_stEncodeConfig.encodeCodecConfig.h264Config.outputBufferingPeriodSEI) _tcscat_s(bitstream_info, _countof(bitstream_info), _T("BufferingPeriodSEI,"));
-	if (m_stEncodeConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("PicTimingSEI,"));
-	if (m_stEncodeConfig.encodeCodecConfig.h264Config.outputAUD)                _tcscat_s(bitstream_info, _countof(bitstream_info), _T("AUD,"));
-	if (m_stEncodeConfig.encodeCodecConfig.h264Config.outputFramePackingSEI)    _tcscat_s(bitstream_info, _countof(bitstream_info), _T("FramePackingSEI,"));
-	if (m_stEncodeConfig.encodeCodecConfig.h264Config.outputRecoveryPointSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("RecoveryPointSEI,"));
-	if (m_stEncodeConfig.encodeCodecConfig.h264Config.repeatSPSPPS)             _tcscat_s(bitstream_info, _countof(bitstream_info), _T("repeatSPSPPS,"));
+	if (m_stEncConfig.encodeCodecConfig.h264Config.outputBufferingPeriodSEI) _tcscat_s(bitstream_info, _countof(bitstream_info), _T("BufferingPeriodSEI,"));
+	if (m_stEncConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("PicTimingSEI,"));
+	if (m_stEncConfig.encodeCodecConfig.h264Config.outputAUD)                _tcscat_s(bitstream_info, _countof(bitstream_info), _T("AUD,"));
+	if (m_stEncConfig.encodeCodecConfig.h264Config.outputFramePackingSEI)    _tcscat_s(bitstream_info, _countof(bitstream_info), _T("FramePackingSEI,"));
+	if (m_stEncConfig.encodeCodecConfig.h264Config.outputRecoveryPointSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("RecoveryPointSEI,"));
+	if (m_stEncConfig.encodeCodecConfig.h264Config.repeatSPSPPS)             _tcscat_s(bitstream_info, _countof(bitstream_info), _T("repeatSPSPPS,"));
 	if (_tcslen(bitstream_info)) {
 		bitstream_info[_tcslen(bitstream_info)-1] = _T('\0');
 	} else {
@@ -898,92 +1299,26 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	}
 	add_str(NV_LOG_DEBUG, "%s\n", bitstream_info);
 
-	add_str(NV_LOG_DEBUG, _T("可変フレームレート      %s\n"), on_off(m_stEncodeConfig.encodeCodecConfig.h264Config.enableVFR));
-	add_str(NV_LOG_DEBUG, _T("LTR                     %s"),   on_off(m_stEncodeConfig.encodeCodecConfig.h264Config.enableLTR));
-	if (m_stEncodeConfig.encodeCodecConfig.h264Config.enableLTR) {
-		add_str(NV_LOG_DEBUG, _T(", Mode:%d, NumFrames:%d"), m_stEncodeConfig.encodeCodecConfig.h264Config.ltrTrustMode, m_stEncodeConfig.encodeCodecConfig.h264Config.ltrNumFrames);
+	add_str(NV_LOG_DEBUG, _T("可変フレームレート      %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableVFR));
+	add_str(NV_LOG_DEBUG, _T("LTR                     %s"),   on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableLTR));
+	if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR) {
+		add_str(NV_LOG_DEBUG, _T(", Mode:%d, NumFrames:%d"), m_stEncConfig.encodeCodecConfig.h264Config.ltrTrustMode, m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames);
 	}
 	add_str(NV_LOG_DEBUG, _T("\n"));
-	add_str(NV_LOG_DEBUG, _T("YUV 4:4:4               %s\n"), on_off(m_stEncodeConfig.encodeCodecConfig.h264Config.separateColourPlaneFlag));
-	add_str(NV_LOG_INFO,  _T("参照距離                %d\n"), m_stEncodeConfig.encodeCodecConfig.h264Config.maxNumRefFrames);
-	if (3 == m_stEncodeConfig.encodeCodecConfig.h264Config.sliceMode) {
-		add_str(NV_LOG_INFO,  _T("スライス数              %d\n"), m_stEncodeConfig.encodeCodecConfig.h264Config.sliceModeData);
+	add_str(NV_LOG_DEBUG, _T("YUV 4:4:4               %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.separateColourPlaneFlag));
+	add_str(NV_LOG_INFO,  _T("参照距離                %d frames\n"), m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames);
+	if (3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
+		add_str(NV_LOG_DEBUG, _T("スライス数              %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
 	} else {
-		add_str(NV_LOG_INFO,  _T("スライス                Mode:%d, ModeData:%d\n"), m_stEncodeConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncodeConfig.encodeCodecConfig.h264Config.sliceModeData);
+		add_str(NV_LOG_DEBUG, _T("スライス                Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
 	}
-	add_str(NV_LOG_INFO,  _T("Adaptive Transform      %s\n"), get_desc(list_adapt_transform, m_stEncodeConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
-	add_str(NV_LOG_DEBUG, _T("FMO                     %s\n"), get_desc(list_fmo, m_stEncodeConfig.encodeCodecConfig.h264Config.fmoMode));
-	add_str(NV_LOG_DEBUG, _T("Coding Mode             %s\n"), get_desc(list_entropy_coding, m_stEncodeConfig.encodeCodecConfig.h264Config.entropyCodingMode));
-	add_str(NV_LOG_INFO,  _T("動き予測方式            %s\n"), get_desc(list_bdirect, m_stEncodeConfig.encodeCodecConfig.h264Config.bdirectMode));
+	add_str(NV_LOG_DEBUG, _T("Adaptive Transform      %s\n"), get_desc(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
+	add_str(NV_LOG_DEBUG, _T("FMO                     %s\n"), get_desc(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
+	add_str(NV_LOG_DEBUG, _T("Coding Mode             %s\n"), get_desc(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));
+	add_str(NV_LOG_DEBUG, _T("動き予測方式            %s\n"), get_desc(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
 	return str;
 }
 
-HRESULT NVEncCore::CopyBitstreamData(EncoderThreadData stThreadData) {
-	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-	HRESULT hr = S_OK;
-
-	if (stThreadData.pOutputBfr->hBitstreamBuffer == NULL && stThreadData.pOutputBfr->bEOSFlag == false)
-	{
-		return E_FAIL;
-	}
-	if (stThreadData.pOutputBfr->bWaitOnEvent == true)
-	{
-		if (!stThreadData.pOutputBfr->hOutputEvent)
-		{
-			return E_FAIL;
-		}
-
-#if defined (NV_WINDOWS)
-		WaitForSingleObject(stThreadData.pOutputBfr->hOutputEvent, INFINITE);
-#endif
-	}
-
-	if (stThreadData.pOutputBfr->bEOSFlag)
-		return S_OK;
-
-	if (m_stEncoderInput[m_dwReConfigIdx].useMappedResources)
-	{
-		// unmap the mapped resource ptr
-		nvStatus = m_pEncodeAPI->nvEncUnmapInputResource(m_hEncoder, stThreadData.pInputBfr->hInputSurface);
-		stThreadData.pInputBfr->hInputSurface = NULL;
-	}
-
-	NV_ENC_LOCK_BITSTREAM lockBitstreamData;
-	nvStatus = NV_ENC_SUCCESS;
-	memset(&lockBitstreamData, 0, sizeof(lockBitstreamData));
-	SET_VER(lockBitstreamData, NV_ENC_LOCK_BITSTREAM);
-
-	if (m_stInitEncParams.reportSliceOffsets)
-		lockBitstreamData.sliceOffsets = new unsigned int[m_stEncoderInput[m_dwReConfigIdx].numSlices];
-
-	lockBitstreamData.outputBitstream = stThreadData.pOutputBfr->hBitstreamBuffer;
-	lockBitstreamData.doNotWait = false;
-
-	nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, &lockBitstreamData);
-
-	if (nvStatus == NV_ENC_SUCCESS)
-	{
-		m_pStatus->AddOutputInfo(&lockBitstreamData);
-		fwrite(lockBitstreamData.bitstreamBufferPtr, 1, lockBitstreamData.bitstreamSizeInBytes, m_fOutput);
-		nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, stThreadData.pOutputBfr->hBitstreamBuffer);
-		checkNVENCErrors(nvStatus);
-	}
-
-	if (!m_stOutputSurfQueue.Add(stThreadData.pOutputBfr))
-	{
-		assert(0);
-	}
-
-	if (!m_stInputSurfQueue.Add(stThreadData.pInputBfr))
-	{
-		assert(0);
-	}
-
-	if (lockBitstreamData.sliceOffsets)
-		delete(lockBitstreamData.sliceOffsets);
-
-	if (nvStatus != NV_ENC_SUCCESS)
-		hr = E_FAIL;
-
-	return hr;
+int NVEncCore::PrintEncodingParamsInfo(int output_level) {
+	return NVPrintf(stderr, NV_LOG_INFO, _T("%s"), GetEncodingParamsInfo(output_level).c_str());
 }

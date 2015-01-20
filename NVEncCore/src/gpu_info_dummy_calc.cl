@@ -1,4 +1,4 @@
-
+﻿
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 /* just a dummy calculation to boost gpu, calulation has no meanings */

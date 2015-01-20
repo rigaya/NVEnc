@@ -247,9 +247,11 @@ void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
 	ZeroMemory(conf, sizeof(CONF_GUIEX));
 	guiEx_config::write_conf_header(conf);
-	conf->nvenc.enc_config = NVEncCore::initializedParam();
+	conf->nvenc.enc_config = NVEncCore::DefaultParam();
+	conf->nvenc.codecConfig[0] = NVEncCore::DefaultParamH264();
+	conf->nvenc.codecConfig[1] = NVEncCore::DefaultParamHEVC();
 	conf->nvenc.pic_struct = NV_ENC_PIC_STRUCT_FRAME;
-	conf->nvenc.preset = NV_ENC_PRESET_DEFAULT;
+	conf->nvenc.preset = 0;
 	conf->size_all = CONF_INITIALIZED;
 }
 #pragma warning( pop )

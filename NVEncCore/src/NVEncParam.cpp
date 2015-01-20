@@ -13,160 +13,115 @@
 #include "NVEncParam.h"
 
 NVEncParam::NVEncParam() {
-	mCurrentDeviceID = -1;
-	thCreateCache = NULL;
+	m_pNVEncCore = nullptr;
+	m_hThCreateCache = NULL;
+	m_hEvCreateCache = NULL;
+	m_hEvCreateCodecCache = NULL;
+	m_bH264 = false;
+	m_bHEVC = false;
 }
 
 NVEncParam::~NVEncParam() {
-	mCurrentDeviceID = -1;
-	DestroyEncoder();
-	if (thCreateCache) {
-		CloseHandle(thCreateCache);
-		thCreateCache = NULL;
+	if (nullptr != m_pNVEncCore) {
+		delete m_pNVEncCore;
+		m_pNVEncCore = nullptr;
+	}
+	if (m_hThCreateCache) {
+		WaitForSingleObject(m_hThCreateCache, INFINITE);
+		CloseHandle(m_hThCreateCache);
+		m_hThCreateCache = NULL;
+	}
+	if (m_hEvCreateCache) {
+		CloseHandle(m_hEvCreateCache);
+		m_hEvCreateCache = NULL;
+	}
+	if (m_hEvCreateCodecCache) {
+		CloseHandle(m_hEvCreateCodecCache);
+		m_hEvCreateCodecCache = NULL;
 	}
 }
 
-int NVEncParam::OpenEncoder(int deviceID) {
-	if (NULL == m_pEncodeAPI)
-		return 0;
-	if (mCurrentDeviceID == deviceID)
-		return 0;
-	if (mCurrentDeviceID >= 0) {
-		DestroyEncoder();
-	}
+int NVEncParam::createCache(int deviceID) {
 	if (!check_if_nvcuda_dll_available())
 		return 1;
 
-	mCurrentDeviceID = -1;
+	m_pNVEncCore = new NVEncCore();
 
-	NVEncoderGPUInfo gpuInfo;
-	if (deviceID >= (int)gpuInfo.getGPUList().size())
+	InEncodeVideoParam inputParam = { 0 };
+	inputParam.encConfig = NVEncCore::DefaultParam();
+	inputParam.deviceID = deviceID;
+	if (NV_ENC_SUCCESS != m_pNVEncCore->Initialize(&inputParam))
 		return 1;
 
-	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+	m_pNVEncCore->createDeviceCodecList();
+	m_EncodeFeatures = m_pNVEncCore->GetNVEncCapability();
+	m_bH264 = nullptr != GetH264Features(m_EncodeFeatures);
+	m_bHEVC = nullptr != GetHEVCFeatures(m_EncodeFeatures);
+	SetEvent(m_hEvCreateCodecCache);
 
-	uint32_t target_codec = NV_ENC_H264;
-
-	NV_ENC_CAPS_PARAM stCapsParam = { 0 };
-	SET_VER(stCapsParam, NV_ENC_CAPS_PARAM);
-
-	GUID clientKey = { 0 };
-	NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS stEncodeSessionParams = { 0 };
-	SET_VER(stEncodeSessionParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS);
-	stEncodeSessionParams.apiVersion = NVENCAPI_VERSION;
-	stEncodeSessionParams.clientKeyPtr = &clientKey;
-
-	InitCuda(deviceID);
-	stEncodeSessionParams.device = reinterpret_cast<void *>(m_cuContext);
-	stEncodeSessionParams.deviceType = NV_ENC_DEVICE_TYPE_CUDA;
-
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&stEncodeSessionParams, &m_hEncoder))) {
-		return 1;
+	m_pNVEncCore->createDeviceFeatureList();
+	m_EncodeFeatures = m_pNVEncCore->GetNVEncCapability();
+	if (nullptr != m_pNVEncCore) {
+		delete m_pNVEncCore;
+		m_pNVEncCore = nullptr;
 	}
-	m_uRefCount++;
-
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeGUIDCount(m_hEncoder, &m_dwEncodeGUIDCount))) {
-		return 1;
-	}
-	uint32_t uArraysize = 0;
-	std::vector<GUID> encodeCodecGUIDs(m_dwEncodeGUIDCount, GUID{ 0 });
-	if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodeGUIDs(m_hEncoder, &encodeCodecGUIDs[0], m_dwEncodeGUIDCount, &uArraysize))) {
-		return 1;
-	}
-	bool codecAvailable = false;
-	for (auto codecGUID : encodeCodecGUIDs) {
-		if (GetCodecType(codecGUID) == target_codec) {
-			m_stEncodeGUID = codecGUID;
-			codecAvailable = true;
-			break;
-		}
-	}
-	if (!codecAvailable) {
-		return 1;
-	}
-
-	mCurrentDeviceID = deviceID;
-
+	SetEvent(m_hEvCreateCache);
 	return 0;
-}
-
-std::vector<NV_ENC_CONFIG> NVEncParam::GetNVEncH264Preset(int deviceID) {
-	std::vector<NV_ENC_CONFIG> config;
-
-	if (OpenEncoder(deviceID))
-		return config;
-
-	NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-	uint32_t uPresetCount = 0;
-	std::vector<GUID> presetGUIDs;
-	if (NV_ENC_SUCCESS == (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetCount(m_hEncoder, m_stEncodeGUID, &uPresetCount))) {
-		presetGUIDs.resize(uPresetCount, GUID{ 0 });
-		config.resize(uPresetCount, NV_ENC_CONFIG{ 0 });
-		uint32_t uPresetCount2 = 0;
-		if (NV_ENC_SUCCESS == (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetGUIDs(m_hEncoder, m_stEncodeGUID, &presetGUIDs[0], uPresetCount, &uPresetCount2))) {
-
-            for (unsigned int i = 0; i < uPresetCount; i++) {
-				NV_ENC_PRESET_CONFIG preset_config;
-				memset(&preset_config, 0, sizeof(NV_ENC_PRESET_CONFIG));
-				SET_VER(preset_config, NV_ENC_PRESET_CONFIG);
-				SET_VER(preset_config.presetCfg, NV_ENC_CONFIG);
-                nvStatus = m_pEncodeAPI->nvEncGetEncodePresetConfig(m_hEncoder, m_stEncodeGUID, presetGUIDs[i], &preset_config);
-				setInitializedVUIParam(&preset_config.presetCfg);
-				config[i] = preset_config.presetCfg;
-            }
-        }
-    }
-	return config;
-}
-
-std::vector<NVEncCap> NVEncParam::GetNVEncCapability(int deviceID) {
-	std::vector<NVEncCap> caps;
-
-	if (OpenEncoder(deviceID))
-		return caps;
-
-	return GetCurrentDeviceNVEncCapability();
 }
 
 unsigned int __stdcall NVEncParam::createCacheLoader(void *prm) {
 	NVEncParam *nvencParam = reinterpret_cast<NVEncParam *>(prm);
-	int deviceID = nvencParam->mCurrentDeviceID;
-	nvencParam->mCurrentDeviceID = -1;
+	int deviceID = nvencParam->m_nTargetDeviceID;
+	nvencParam->m_nTargetDeviceID = -1;
 	nvencParam->createCache(deviceID);
 	return 0;
 }
 
-void NVEncParam::createCache(int deviceID) {
-	if (OpenEncoder(deviceID))
-		return;
-	m_presetCache = GetNVEncH264Preset(deviceID);
-	m_capsCache = GetNVEncCapability(deviceID);
-	return;
-}
-
 int NVEncParam::createCacheAsync(int deviceID) {
-	mCurrentDeviceID = deviceID;
-	thCreateCache = (HANDLE)_beginthreadex(NULL, 0, createCacheLoader, this, 0, NULL);
-	if (NULL == thCreateCache) {
+	m_nTargetDeviceID = deviceID;
+	GetCachedNVEncCapability(); //スレッドが生きていたら終了を待機
+	//一度リソース開放
+	if (m_hEvCreateCodecCache) CloseHandle(m_hEvCreateCodecCache);
+	if (m_hEvCreateCache) CloseHandle(m_hEvCreateCache);
+	if (m_hThCreateCache) CloseHandle(m_hThCreateCache);
+	//イベントの作成とスレッドの起動
+	m_hEvCreateCodecCache = (HANDLE)CreateEvent(NULL, TRUE, FALSE, NULL);
+	m_hEvCreateCache      = (HANDLE)CreateEvent(NULL, TRUE, FALSE, NULL);
+	m_hThCreateCache      = (HANDLE)_beginthreadex(NULL, 0, createCacheLoader, this, 0, NULL);
+	if (NULL == m_hThCreateCache) {
 		return 1;
 	}
 	return 0;
 }
 
-std::vector<NV_ENC_CONFIG> NVEncParam::GetCachedNVEncH264Preset() {
-	if (thCreateCache) {
-		WaitForSingleObject(thCreateCache, INFINITE);
-		CloseHandle(thCreateCache);
-		thCreateCache = NULL;
-	}
-	return m_presetCache;
+bool NVEncParam::H264Available() {
+	WaitForSingleObject(m_hEvCreateCodecCache, INFINITE);
+	return m_bH264;
 }
 
-std::vector<NVEncCap> NVEncParam::GetCachedNVEncCapability() {
-	if (thCreateCache) {
-		WaitForSingleObject(thCreateCache, INFINITE);
-		CloseHandle(thCreateCache);
-		thCreateCache = NULL;
+bool NVEncParam::HEVCAvailable() {
+	WaitForSingleObject(m_hEvCreateCodecCache, INFINITE);
+	return m_bHEVC;
+}
+
+const std::vector<NVEncCodecFeature>& NVEncParam::GetCachedNVEncCapability() {
+	WaitForSingleObject(m_hEvCreateCache, INFINITE);
+	return m_EncodeFeatures;
+}
+
+const NVEncCodecFeature *NVEncParam::GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures) {
+	for (uint32_t i = 0; i < codecFeatures.size(); i++) {
+		if (0 == memcmp(&codecFeatures[i].codec, &NV_ENC_CODEC_HEVC_GUID, sizeof(GUID))) {
+			return &codecFeatures[i];
+		}
 	}
-	return m_capsCache;
+	return nullptr;
+}
+const NVEncCodecFeature *NVEncParam::GetH264Features(const std::vector<NVEncCodecFeature>& codecFeatures) {
+	for (uint32_t i = 0; i < codecFeatures.size(); i++) {
+		if (0 == memcmp(&codecFeatures[i].codec, &NV_ENC_CODEC_H264_GUID, sizeof(GUID))) {
+			return &codecFeatures[i];
+		}
+	}
+	return nullptr;
 }
