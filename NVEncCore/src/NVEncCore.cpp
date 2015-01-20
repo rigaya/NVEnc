@@ -1002,6 +1002,11 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
 	if (nullptr != (m_pOutputBuf = (char *)malloc(OUTPUT_BUF_SIZE))) {
 		setvbuf(m_fOutput, m_pOutputBuf, _IOFBF, OUTPUT_BUF_SIZE);
 	}
+	
+	//作成したデバイスの情報をfeature取得
+	if (NV_ENC_SUCCESS != (nvStatus = createDeviceFeatureList(false))) {
+		return nvStatus;
+	}
 
 	//エンコーダにパラメータを渡し、初期化
 	if (NV_ENC_SUCCESS != (nvStatus = CreateEncoder(inputParam))) {
@@ -1056,11 +1061,6 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
 	}
 
 	if (NV_ENC_SUCCESS != (nvStatus = NvEncOpenEncodeSessionEx(m_pDevice, NV_ENC_DEVICE_TYPE_CUDA))) {
-		return nvStatus;
-	}
-	
-	//作成したデバイスの情報をfeature取得
-	if (NV_ENC_SUCCESS != (nvStatus = createDeviceFeatureList())) {
 		return nvStatus;
 	}
 	return nvStatus;
