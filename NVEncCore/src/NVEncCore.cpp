@@ -705,6 +705,8 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *m_hEncoder, NVEncCo
 	add_cap_info(NV_ENC_CAPS_PREPROC_SUPPORT,              _T("PreProcess"));
 	add_cap_info(NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT,         _T("Async Encoding"));
 	add_cap_info(NV_ENC_CAPS_MB_NUM_MAX,                   _T("Max MBs"));
+	add_cap_info(NV_ENC_CAPS_MB_PER_SEC_MAX,               _T("MAX MB per sec"));
+	add_cap_info(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE,      _T("Lossless"));
 	return nvStatus;
 }
 
