@@ -833,8 +833,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 	//	return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	//}
 
-	//バッファサイズ (固定で24として与える)
-	m_uEncodeBufferCount = 24; // inputParam->inputBuffer;
+	//バッファサイズ (固定で16として与える)
+	m_uEncodeBufferCount = 16; // inputParam->inputBuffer;
 	if (m_uEncodeBufferCount > MAX_ENCODE_QUEUE) {
 		NVPrintf(stderr, NV_LOG_ERROR, _T("入力バッファは多すぎます。: %d フレーム\n"), m_uEncodeBufferCount);
 		NVPrintf(stderr, NV_LOG_ERROR, _T("%d フレームまでに設定して下さい。\n"), MAX_ENCODE_QUEUE);
