@@ -859,6 +859,17 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 		NVPrintf(stderr, NV_LOG_ERROR, _T("解像度が上限を超えています。: %dx%d [上限: %dx%d]\n"), m_uEncWidth, m_uEncHeight, getCapLimit(NV_ENC_CAPS_WIDTH_MAX), getCapLimit(NV_ENC_CAPS_HEIGHT_MAX));
 		return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	}
+	uint32_t heightMod = 16 * (1 + !!is_interlaced(inputParam->picStruct));
+	uint32_t targetMB = ((m_uEncWidth + 15) / 16) * ((m_uEncHeight + (heightMod - 1)) / heightMod);
+	if (targetMB > (uint32_t)getCapLimit(NV_ENC_CAPS_MB_NUM_MAX)) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("解像度が上限を超えています。: %dx%d MB数: %d [上限: %d]\n"), m_uEncWidth, m_uEncHeight, targetMB, getCapLimit(NV_ENC_CAPS_MB_NUM_MAX));
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
+	uint32_t targetMBperSec = (targetMB * inputParam->input.rate + inputParam->input.scale - 1) / inputParam->input.scale;
+	if (targetMBperSec > (uint32_t)getCapLimit(NV_ENC_CAPS_MB_PER_SEC_MAX)) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("解像度が上限を超えています。: %dx%d MB/s: %d [上限: %d]\n"), m_uEncWidth, m_uEncHeight, targetMBperSec, getCapLimit(NV_ENC_CAPS_MB_PER_SEC_MAX));
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
 
 	if (is_interlaced(inputParam->picStruct) && !getCapLimit(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING)) {
 		NVPrintf(stderr, NV_LOG_ERROR, _T("インターレース保持エンコードはサポートされていません。\n"));
