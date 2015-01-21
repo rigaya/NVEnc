@@ -859,6 +859,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	SetCXIndex(fcgCXCodecProfile, get_index_from_value(get_value_from_guid(cnf->nvenc.enc_config.profileGUID, h264_profile_names), h264_profile_names));
 	SetNUValue(fcgNUSlices,       cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.sliceModeData);
 	fcgCBCABAC->Checked        = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode;
+	fcgCBDeblock->Checked                                          = 0 == cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.disableDeblockingFilterIDC;
 	SetCXIndex(fcgCXVideoFormat,       get_cx_index(list_videoformat,     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat));
 	fcgCBFullrange->Checked                                        = 0 != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag;
 	SetCXIndex(fcgCXTransfer,          get_cx_index(list_transfer,        cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics));
@@ -949,6 +950,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.sliceModeData = (int)fcgNUSlices->Value;
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
+	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = false == fcgCBDeblock->Checked;
 
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag      = fcgCBFullrange->Checked;
