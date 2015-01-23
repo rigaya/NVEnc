@@ -49,7 +49,7 @@ static void show_help() {
 		_T("入力は %s%sraw YUV, YUV4MPEG2(y4m)です。\n")
 		_T("Raw入力時には, fps, input-res の指定も必要です。\n")
 		_T("\n")
-		_T("出力フォーマットは raw H.264/AVC ES.\n")
+		_T("出力フォーマットは raw H.264/AVC または H.265/HEVC ESです。\n")
 		_T("\n")
 		_T("実行例:\n")
 		_T("  NVEncC -i \"<avsfilename>\" -o \"<outfilename>\"\n")
@@ -65,7 +65,7 @@ static void show_help() {
 		_T("-i,--input <filename>             入力ファイル名の指定\n")
 		_T("-o,--output <filename>            出力ファイル名の指定\n")
 		_T("\n")
-		_T(" Input formats (指定のない場合、拡張子から自動判定)\n")
+		_T(" 入力フォーマット (指定のない場合、拡張子から自動判定)\n")
 		_T("   --raw                          rawとしてファイルを読み込み\n")
 		_T("   --y4m                          y4mとしてファイルを読み込み\n")
 #if AVI_READER
@@ -122,7 +122,7 @@ static void show_help() {
 			_T("H.265/HEVC\n")
 			_T("   --cu-max <int>                 CUの最大サイズを指定する\n")
 			_T("   --cu-min  <int>                CUの最小サイズを指定する\n")
-			_T("                                    いずれも 16 or 32 を指定可能"));
+			_T("                                    8, 16, 32 を指定可能"));
 }
 
 static void show_hw() {
