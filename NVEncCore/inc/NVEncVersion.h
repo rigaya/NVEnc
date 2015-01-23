@@ -26,6 +26,6 @@
 #else
 #define RAW_READER 1
 #define AVI_READER 0
-#define AVS_READER 0
+#define AVS_READER 1
 #endif
 

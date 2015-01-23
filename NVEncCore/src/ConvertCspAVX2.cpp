@@ -11,7 +11,7 @@
 #include <immintrin.h>
 
 template<bool use_stream>
-static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
+static void __forceinline avx2_memcpy(uint8_t *dst, const uint8_t *src, int size) {
 	if (size < 128) {
 		for (int i = 0; i < size; i++)
 			dst[i] = src[i];
@@ -85,13 +85,13 @@ static __forceinline void separate_low_up(__m256i& x0_return_lower, __m256i& x1_
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
-void convert_yuy2_to_nv12_avx2(void **dst_array, void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+void convert_yuy2_to_nv12_avx2(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	const int crop_left   = crop[0];
 	const int crop_up     = crop[1];
 	const int crop_right  = crop[2];
 	const int crop_bottom = crop[3];
 	void *dst = dst_array[0];
-	void *src = src_array[0];
+	const void *src = src_array[0];
 	uint8_t *srcLine = (uint8_t *)src + src_y_pitch_byte * crop_up + crop_left;
 	uint8_t *dstYLine = (uint8_t *)dst;
 	uint8_t *dstCLine = dstYLine + dst_y_pitch_byte * dst_height;
@@ -146,13 +146,13 @@ static __forceinline __m256i yuv422_to_420_i_interpolate(__m256i y_up, __m256i y
 	return y0;
 }
 
-void convert_yuy2_to_nv12_i_avx2(void **dst_array, void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+void convert_yuy2_to_nv12_i_avx2(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	const int crop_left   = crop[0];
 	const int crop_up     = crop[1];
 	const int crop_right  = crop[2];
 	const int crop_bottom = crop[3];
 	void *dst = dst_array[0];
-	void *src = src_array[0];
+	const void *src = src_array[0];
 	uint8_t *srcLine = (uint8_t *)src + src_y_pitch_byte * crop_up + crop_left;
 	uint8_t *dstYLine = (uint8_t *)dst;
 	uint8_t *dstCLine = dstYLine + dst_y_pitch_byte * dst_height;
@@ -199,7 +199,7 @@ void convert_yuy2_to_nv12_i_avx2(void **dst_array, void **src_array, int width, 
 #pragma warning (push)
 #pragma warning (disable: 4127)
 template<bool uv_only>
-static void __forceinline convert_yv12_to_nv12_avx2_base(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+static void __forceinline convert_yv12_to_nv12_avx2_base(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	const int crop_left   = crop[0];
 	const int crop_up     = crop[1];
 	const int crop_right  = crop[2];
@@ -243,10 +243,10 @@ static void __forceinline convert_yv12_to_nv12_avx2_base(void **dst, void **src,
 }
 #pragma warning (pop)
 
-void convert_yv12_to_nv12_avx2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+void convert_yv12_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	convert_yv12_to_nv12_avx2_base<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
 }
 
-void convert_uv_yv12_to_nv12_avx2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+void convert_uv_yv12_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	convert_yv12_to_nv12_avx2_base<true>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
 }

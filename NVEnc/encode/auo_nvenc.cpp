@@ -130,7 +130,7 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 	Close();
 	
 	m_pStatus = pStatus;
-	AuoInputInfo *info = reinterpret_cast<AuoInputInfo *>(inputPrm->otherPrm);
+	auto *info = reinterpret_cast<InputInfoAuo *>(inputPrm->otherPrm);
 
 	oip = info->oip;
 	conf = info->conf;
@@ -206,7 +206,7 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
 			return false;
 		}
 	}
-	m_pConvCSPInfo->func[!!m_interlaced](&dst, &frame, m_stSurface.width, 0, m_stSurface.src_pitch * 2, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
+	m_pConvCSPInfo->func[!!m_interlaced](&dst, (const void **)&frame, m_stSurface.width, 0, m_stSurface.src_pitch * 2, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
 
 	m_iFrame++;
 	if (!(m_iFrame & 7))

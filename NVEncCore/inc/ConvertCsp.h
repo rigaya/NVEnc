@@ -10,7 +10,7 @@
 #ifndef _CONVERT_CSP_H_
 #define _CONVERT_CSP_H_
 
-typedef void (*funcConvertCSP) (void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
 enum NV_ENC_CSP {
 	NV_ENC_CSP_NA,
@@ -18,6 +18,8 @@ enum NV_ENC_CSP {
 	NV_ENC_CSP_YV12,
 	NV_ENC_CSP_YUY2,
 };
+
+static const TCHAR *NV_ENC_CSP_NAMES[] = { _T("Invalid"), _T("nv12"), _T("yv12"), _T("yuy2") };
 
 typedef struct ConvertCSP {
 	NV_ENC_CSP csp_from, csp_to;

@@ -69,9 +69,7 @@ protected:
 	EncodeInputSurfaceInfo m_stSurface;
 	EncodeStatus *m_pStatus = NULL;
 	FILE *m_fp = NULL;
-	bool m_bIsY4m = false;
 	tstring m_inputMes;
-	uint8_t *m_inputBuffer = NULL;
 	uint32_t m_tmLastUpdate = 0;
 	const ConvertCSP *m_pConvCSPInfo = nullptr;
 };

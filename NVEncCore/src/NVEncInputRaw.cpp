@@ -19,7 +19,7 @@
 
 #if RAW_READER
 
-int NVEncRawInput::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
+int NVEncInputRaw::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
 	char *p, *q = NULL;
 	for (p = buf; (p = strtok_s(p, " ", &q)) != NULL; ) {
 		switch (*p) {
@@ -98,15 +98,15 @@ int NVEncRawInput::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
 	return 0;
 }
 
-NVEncRawInput::NVEncRawInput() {
+NVEncInputRaw::NVEncInputRaw() {
 
 }
 
-NVEncRawInput::~NVEncRawInput() {
+NVEncInputRaw::~NVEncInputRaw() {
 	Close();
 }
 
-int NVEncRawInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
+int NVEncInputRaw::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 	Close();
 
 	m_pStatus = pStatus;
@@ -149,7 +149,7 @@ int NVEncRawInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 	return 0;
 }
 
-void NVEncRawInput::Close() {
+void NVEncInputRaw::Close() {
 	if (m_fp) {
 		fclose(m_fp);
 		m_fp = NULL;
@@ -161,7 +161,7 @@ void NVEncRawInput::Close() {
 	m_bIsY4m = false;
 }
 
-int NVEncRawInput::LoadNextFrame(void *dst, int dst_pitch) {
+int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
 
 	if (m_bIsY4m) {
 		BYTE y4m_buf[8] = { 0 };
@@ -179,9 +179,11 @@ int NVEncRawInput::LoadNextFrame(void *dst, int dst_pitch) {
 	if (frameSize != fread(m_inputBuffer, 1, frameSize, m_fp)) {
 		return -1;
 	}
-	void *dst_array[3], *src_array[3];
+	void *dst_array[3];
 	dst_array[0] = dst;
 	dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * m_stSurface.height;
+
+	const void *src_array[3];
 	src_array[0] = m_inputBuffer;
 	src_array[1] = (uint8_t *)src_array[0] + m_stSurface.src_pitch * m_stSurface.height;
 	src_array[2] = (uint8_t *)src_array[1] + m_stSurface.src_pitch * m_stSurface.height / 4;

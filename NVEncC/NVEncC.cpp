@@ -319,7 +319,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 		} else if (IS_OPTION("avi")) {
 			conf_set->input.type = NV_ENC_INPUT_AVI;
 #endif
-#if AVI_READER
+#if AVS_READER
 		} else if (IS_OPTION("avs")) {
 			conf_set->input.type = NV_ENC_INPUT_AVS;
 #endif

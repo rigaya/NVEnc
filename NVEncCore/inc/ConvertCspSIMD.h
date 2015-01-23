@@ -113,7 +113,7 @@ static __forceinline void separate_low_up(__m128i& x0_return_lower, __m128i& x1_
 	x1_return_upper = _mm_packus_epi16(x4, x5);
 }
 
-static void __forceinline convert_yuy2_to_nv12_simd(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+static void __forceinline convert_yuy2_to_nv12_simd(void *dst, const void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	const int crop_left   = crop[0];
 	const int crop_up     = crop[1];
 	const int crop_right  = crop[2];
@@ -184,7 +184,7 @@ static __forceinline __m128i yuv422_to_420_i_interpolate(__m128i y_up, __m128i y
 	return x0;
 }
 
-static void __forceinline convert_yuy2_to_nv12_i_simd(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+static void __forceinline convert_yuy2_to_nv12_i_simd(void *dst, const void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	const int crop_left   = crop[0];
 	const int crop_up     = crop[1];
 	const int crop_right  = crop[2];
@@ -235,7 +235,7 @@ static void __forceinline convert_yuy2_to_nv12_i_simd(void *dst, void *src, int 
 #pragma warning (disable: 4100)
 #pragma warning (disable: 4127)
 template<bool uv_only>
-static void __forceinline convert_yv12_to_nv12_simd(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+static void __forceinline convert_yv12_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	const int crop_left   = crop[0];
 	const int crop_up     = crop[1];
 	const int crop_right  = crop[2];

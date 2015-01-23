@@ -23,6 +23,7 @@
 #include "NVEncUtil.h"
 #include "NVEncInput.h"
 #include "NVEncInputRaw.h"
+#include "NVEncInputAvs.h"
 #include "helper_nvenc.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
@@ -140,11 +141,20 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 		}
 	}
 
+	InputInfoAvs inputInfoAvs = { 0 };
+
 	switch (inputParam->input.type) {
+#if AVS_READER
+	case NV_ENC_INPUT_AVS:
+		inputInfoAvs.interlaced = is_interlaced(inputParam->picStruct);
+		inputParam->input.otherPrm = &inputInfoAvs;
+		m_pInput = new NVEncInputAvs();
+		break;
+#endif
 	case NV_ENC_INPUT_RAW:
 	case NV_ENC_INPUT_Y4M:
 	default:
-		m_pInput = new NVEncRawInput();
+		m_pInput = new NVEncInputRaw();
 		break;
 	}
 

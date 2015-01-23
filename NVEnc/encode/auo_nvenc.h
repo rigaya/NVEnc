@@ -22,13 +22,13 @@
 #include "NVEncInput.h"
 #include "NVEncCore.h"
 
-typedef struct AuoInputInfo {
+typedef struct InputInfoAuo {
 	const OUTPUT_INFO *oip;
 	CONF_GUIEX *conf;
 	PRM_ENC *pe;
 	int *jitter;
 	BOOL interlaced;
-} AuoInputInfo;
+} InputInfoAuo;
 
 typedef struct ConvCSPInfo {
 	funcConvertCSP func[2];
