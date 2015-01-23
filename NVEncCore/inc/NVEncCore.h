@@ -27,11 +27,11 @@ static const int DEFAULT_GOP_LENGTH  = 300;
 static const int DEFAULT_B_FRAMES    = 3;
 static const int DEFAULT_REF_FRAMES  = 3;
 static const int DEFAULT_NUM_SLICES  = 1;
-static const int DEFAUTL_QP_I        = 21;
-static const int DEFAULT_QP_P        = 24;
-static const int DEFAULT_QP_B        = 26;
-static const int DEFAULT_AVG_BITRATE = 6000000;
-static const int DEFAULT_MAX_BITRATE = 15000000;
+static const int DEFAUTL_QP_I        = 20;
+static const int DEFAULT_QP_P        = 23;
+static const int DEFAULT_QP_B        = 25;
+static const int DEFAULT_AVG_BITRATE = 7500000;
+static const int DEFAULT_MAX_BITRATE = 17500000;
 
 enum {
 	NVENC_THREAD_RUNNING = 0,
