@@ -18,3 +18,14 @@
 #else
 #define BUILD_ARCH_STR _T("x64")
 #endif
+
+#ifdef NVENC_AUO
+#define RAW_READER 0
+#define AVI_READER 0
+#define AVS_READER 0
+#else
+#define RAW_READER 1
+#define AVI_READER 0
+#define AVS_READER 0
+#endif
+

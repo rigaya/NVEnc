@@ -57,7 +57,6 @@ private:
 	BOOL m_interlaced;
 	uint32_t m_tmLastUpdate;
 	BOOL m_pause;
-	const ConvCSPInfo *m_ConvCSPInfo;
 public:
 	AuoInput();
 	~AuoInput();

@@ -7,12 +7,29 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#define USE_SSE2  1
-#define USE_SSSE3 1
-#define USE_SSE41 0
+#pragma once
 
-#include "ConvertCSPSIMD.h"
+#include <stdio.h>
+#include <tchar.h>
+#include <string>
+#include "NVEncUtil.h"
+#include "NVEncStatus.h"
+#include "NVEncVersion.h"
+#include "NVEncInput.h"
 
-void convert_yuy2_to_nv12_i_ssse3(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
-	return convert_yuy2_to_nv12_i_simd(dst[0], src[0], width, src_y_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
-}
+#if RAW_READER
+
+class NVEncRawInput : public NVEncBasicInput {
+public:
+	NVEncRawInput();
+	~NVEncRawInput();
+
+	virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
+	virtual int LoadNextFrame(void *dst, int dst_pitch) override;
+	virtual void Close() override;
+
+protected:
+	virtual int ParseY4MHeader(char *buf, InputVideoInfo *inputPrm);
+};
+
+#endif RAW_READER

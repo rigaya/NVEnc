@@ -111,7 +111,6 @@ AuoInput::AuoInput() {
 	pe = NULL;
 	m_tmLastUpdate = timeGetTime();
 	m_pause = FALSE;
-	m_ConvCSPInfo = NULL;
 }
 
 AuoInput::~AuoInput() {
@@ -125,7 +124,6 @@ void AuoInput::Close() {
 	conf = NULL;
 	pe = NULL;
 	m_iFrame = 0;
-	m_ConvCSPInfo = NULL;
 	disable_enc_control();
 }
 int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
@@ -148,33 +146,7 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 	inputPrm->rate = oip->rate / fps_gcd;
 	inputPrm->scale = oip->scale / fps_gcd;
 
-//表でうっとおしいので省略する
-#define NONE  AUO_SIMD_NONE
-#define SSE2  AUO_SIMD_SSE2
-#define SSE3  AUO_SIMD_SSE3
-#define SSSE3 AUO_SIMD_SSSE3
-#define SSE41 AUO_SIMD_SSE41
-#define SSE42 AUO_SIMD_SSE42
-#define AVX   AUO_SIMD_AVX
-#define AVX2  AUO_SIMD_AVX2
-
-	static const ConvCSPInfo funcList[] = {
-		{ convert_yuy2_to_nv12_avx2, convert_yuy2_to_nv12_i_avx2,  AVX2|AVX       },
-		{ convert_yuy2_to_nv12_avx,  convert_yuy2_to_nv12_i_avx,   AVX|SSSE3|SSE2 },
-		{ convert_yuy2_to_nv12_sse2, convert_yuy2_to_nv12_i_ssse3, SSSE3|SSE2     },
-		{ convert_yuy2_to_nv12_sse2, convert_yuy2_to_nv12_i_sse2,  SSE2           },
-		{ convert_yuy2_to_nv12,      convert_yuy2_to_nv12_i,       NONE           },
-		{ NULL, NULL, 0 }
-	};
-
-	const DWORD availableSIMD = get_availableSIMD();
-	for (int i = 0; funcList[i].func[0]; i++) {
-		if ((funcList[i].SIMD & availableSIMD) != funcList[i].SIMD)
-			continue;
-
-		m_ConvCSPInfo = &funcList[i];
-		break;
-	}
+	m_pConvCSPInfo = get_convert_csp_func(NV_ENC_CSP_YUY2, NV_ENC_CSP_NV12, false);
 
 	enable_enc_control(&m_pause, pe->afs_init, FALSE, timeGetTime(), oip->n);
 
@@ -184,21 +156,10 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 			return 1;
 		}
 	}
-
-	TCHAR buf[128] = { 0 };
-	if (m_ConvCSPInfo->SIMD != NONE) {
-		if      (m_ConvCSPInfo->SIMD & AVX2)  _tcscat_s(buf, _countof(buf), "AVX2");
-		else if (m_ConvCSPInfo->SIMD & AVX)   _tcscat_s(buf, _countof(buf), "AVX");
-		else if (m_ConvCSPInfo->SIMD & SSE42) _tcscat_s(buf, _countof(buf), "SSE4.2");
-		else if (m_ConvCSPInfo->SIMD & SSE41) _tcscat_s(buf, _countof(buf), "SSE4.1");
-		else if (m_ConvCSPInfo->SIMD & SSSE3) _tcscat_s(buf, _countof(buf), "SSSE3");
-		else if (m_ConvCSPInfo->SIMD & SSE3)  _tcscat_s(buf, _countof(buf), "SSE3");
-		else if (m_ConvCSPInfo->SIMD & SSE2)  _tcscat_s(buf, _countof(buf), "SSE2");
-	}
 	
 	setSurfaceInfo(inputPrm);
 	m_stSurface.src_pitch = inputPrm->width;
-	CreateInputInfo(_T("auo"), _T("yuy2"), (m_interlaced) ? _T("nv12i") : _T("nv12p"), buf, inputPrm);
+	CreateInputInfo(_T("auo"), _T("yuy2"), (m_interlaced) ? _T("nv12i") : _T("nv12p"), get_simd_str(m_pConvCSPInfo->simd), inputPrm);
 
 	return 0;
 }
@@ -245,7 +206,7 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
 			return false;
 		}
 	}
-	m_ConvCSPInfo->func[!!m_interlaced](dst, frame, m_stSurface.width, m_stSurface.src_pitch * 2, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
+	m_pConvCSPInfo->func[!!m_interlaced](&dst, &frame, m_stSurface.width, 0, m_stSurface.src_pitch * 2, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
 
 	m_iFrame++;
 	if (!(m_iFrame & 7))

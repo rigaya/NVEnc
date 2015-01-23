@@ -10,6 +10,48 @@
 #include <stdint.h>
 #include <immintrin.h>
 
+template<bool use_stream>
+static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
+	if (size < 128) {
+		for (int i = 0; i < size; i++)
+			dst[i] = src[i];
+		return;
+	}
+	uint8_t *dst_fin = dst + size;
+	uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)(dst_fin + 31) & ~31) - 128);
+	__m256i y0, y1, y2, y3;
+	const int start_align_diff = (int)((size_t)dst & 31);
+	if (start_align_diff) {
+		y0 = _mm256_loadu_si256((__m256i*)src);
+		_mm256_storeu_si256((__m256i*)dst, y0);
+		dst += 32 - start_align_diff;
+		src += 32 - start_align_diff;
+	}
+#define _mm256_stream_switch_si256(x, ymm) ((use_stream) ? _mm256_stream_si256((x), (ymm)) : _mm256_store_si256((x), (ymm)))
+	for ( ; dst < dst_aligned_fin; dst += 128, src += 128) {
+		y0 = _mm256_loadu_si256((__m256i*)(src +  0));
+		y1 = _mm256_loadu_si256((__m256i*)(src + 32));
+		y2 = _mm256_loadu_si256((__m256i*)(src + 64));
+		y3 = _mm256_loadu_si256((__m256i*)(src + 96));
+		_mm256_stream_switch_si256((__m256i*)(dst +  0), y0);
+		_mm256_stream_switch_si256((__m256i*)(dst + 32), y1);
+		_mm256_stream_switch_si256((__m256i*)(dst + 64), y2);
+		_mm256_stream_switch_si256((__m256i*)(dst + 96), y3);
+	}
+#undef _mm256_stream_switch_si256
+	uint8_t *dst_tmp = dst_fin - 128;
+	src -= (dst - dst_tmp);
+	y0 = _mm256_loadu_si256((__m256i*)(src +  0));
+	y1 = _mm256_loadu_si256((__m256i*)(src + 32));
+	y2 = _mm256_loadu_si256((__m256i*)(src + 64));
+	y3 = _mm256_loadu_si256((__m256i*)(src + 96));
+	_mm256_storeu_si256((__m256i*)(dst_tmp +  0), y0);
+	_mm256_storeu_si256((__m256i*)(dst_tmp + 32), y1);
+	_mm256_storeu_si256((__m256i*)(dst_tmp + 64), y2);
+	_mm256_storeu_si256((__m256i*)(dst_tmp + 96), y3);
+	_mm256_zeroupper();
+}
+
 //本来の256bit alignr
 #define MM_ABS(x) (((x) < 0) ? -(x) : (x))
 #define _mm256_alignr256_epi8(a, b, i) ((i<=16) ? _mm256_alignr_epi8(_mm256_permute2x128_si256(a, b, (0x00<<4) + 0x03), b, i) : _mm256_alignr_epi8(a, _mm256_permute2x128_si256(a, b, (0x00<<4) + 0x03), MM_ABS(i-16)))
@@ -41,11 +83,13 @@ static __forceinline void separate_low_up(__m256i& x0_return_lower, __m256i& x1_
 	x1_return_upper = _mm256_packus_epi16(x4, x5);
 }
 
-void convert_yuy2_to_nv12_avx2(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+void convert_yuy2_to_nv12_avx2(void **dst_array, void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	const int crop_left   = crop[0];
 	const int crop_up     = crop[1];
 	const int crop_right  = crop[2];
 	const int crop_bottom = crop[3];
+	void *dst = dst_array[0];
+	void *src = src_array[0];
 	uint8_t *srcLine = (uint8_t *)src + src_y_pitch_byte * crop_up + crop_left;
 	uint8_t *dstYLine = (uint8_t *)dst;
 	uint8_t *dstCLine = dstYLine + dst_y_pitch_byte * dst_height;
@@ -99,11 +143,13 @@ static __forceinline __m256i yuv422_to_420_i_interpolate(__m256i y_up, __m256i y
 	return y0;
 }
 
-void convert_yuy2_to_nv12_i_avx2(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+void convert_yuy2_to_nv12_i_avx2(void **dst_array, void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	const int crop_left   = crop[0];
 	const int crop_up     = crop[1];
 	const int crop_right  = crop[2];
 	const int crop_bottom = crop[3];
+	void *dst = dst_array[0];
+	void *src = src_array[0];
 	uint8_t *srcLine = (uint8_t *)src + src_y_pitch_byte * crop_up + crop_left;
 	uint8_t *dstYLine = (uint8_t *)dst;
 	uint8_t *dstCLine = dstYLine + dst_y_pitch_byte * dst_height;
@@ -145,4 +191,59 @@ void convert_yuy2_to_nv12_i_avx2(void *dst, void *src, int width, int src_y_pitc
 		dstYLine += dst_y_pitch_byte << 1;
 	}
 	_mm256_zeroupper();
+}
+
+#pragma warning (push)
+#pragma warning (disable: 4127)
+template<bool uv_only>
+static void __forceinline convert_yv12_to_nv12_avx2_base(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+	const int crop_left   = crop[0];
+	const int crop_up     = crop[1];
+	const int crop_right  = crop[2];
+	const int crop_bottom = crop[3];
+	//Y成分のコピー
+	if (!uv_only) {
+		uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * crop_up + crop_left;
+		uint8_t *dstLine = (uint8_t *)dst[0];
+		const int y_fin = height - crop_bottom;
+		const int y_width = width - crop_right - crop_left;
+		for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+			avx2_memcpy<false>(dstLine, srcYLine, y_width);
+		}
+	}
+	//UV成分のコピー
+	uint8_t *srcULine = (uint8_t *)src[1] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+	uint8_t *srcVLine = (uint8_t *)src[2] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+	uint8_t *dstLine = (uint8_t *)dst[1];
+	const int uv_fin = (height - crop_bottom) >> 1;
+	for (int y = crop_up >> 1; y < uv_fin; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
+		const int x_fin = width - crop_right;
+		uint8_t *src_u_ptr = srcULine;
+		uint8_t *src_v_ptr = srcVLine;
+		uint8_t *dst_ptr = dstLine;
+		__m256i y0, y1, y2;
+		for (int x = crop_left; x < x_fin; x += 64, src_u_ptr += 32, src_v_ptr += 32, dst_ptr += 64) {
+			y0 = _mm256_loadu_si256((const __m256i *)src_u_ptr);
+			y1 = _mm256_loadu_si256((const __m256i *)src_v_ptr);
+
+			y0 = _mm256_permute4x64_epi64(y0, _MM_SHUFFLE(3,1,2,0));
+			y1 = _mm256_permute4x64_epi64(y1, _MM_SHUFFLE(3,1,2,0));
+
+			y2 = _mm256_unpackhi_epi8(y0, y1);
+			y0 = _mm256_unpacklo_epi8(y0, y1);
+
+			_mm256_storeu_si256((__m256i *)(dst_ptr +  0), y0);
+			_mm256_storeu_si256((__m256i *)(dst_ptr + 32), y2);
+		}
+	}
+	_mm256_zeroupper();
+}
+#pragma warning (pop)
+
+void convert_yv12_to_nv12_avx2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+	convert_yv12_to_nv12_avx2_base<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
+}
+
+void convert_uv_yv12_to_nv12_avx2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+	convert_yv12_to_nv12_avx2_base<true>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
 }

@@ -19,6 +19,44 @@
 #include <smmintrin.h> //イントリンシック命令 SSE4.1
 #endif
 
+static void __forceinline memcpy_sse(uint8_t *dst, const uint8_t *src, int size) {
+	if (size < 64) {
+		for (int i = 0; i < size; i++)
+			dst[i] = src[i];
+		return;
+	}
+	uint8_t *dst_fin = dst + size;
+	uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)(dst_fin + 15) & ~15) - 64);
+	__m128 x0, x1, x2, x3;
+	const int start_align_diff = (int)((size_t)dst & 15);
+	if (start_align_diff) {
+		x0 = _mm_loadu_ps((float*)src);
+		_mm_storeu_ps((float*)dst, x0);
+		dst += 16 - start_align_diff;
+		src += 16 - start_align_diff;
+	}
+	for ( ; dst < dst_aligned_fin; dst += 64, src += 64) {
+		x0 = _mm_loadu_ps((float*)(src +  0));
+		x1 = _mm_loadu_ps((float*)(src + 16));
+		x2 = _mm_loadu_ps((float*)(src + 32));
+		x3 = _mm_loadu_ps((float*)(src + 48));
+		_mm_store_ps((float*)(dst +  0), x0);
+		_mm_store_ps((float*)(dst + 16), x1);
+		_mm_store_ps((float*)(dst + 32), x2);
+		_mm_store_ps((float*)(dst + 48), x3);
+	}
+	uint8_t *dst_tmp = dst_fin - 64;
+	src -= (dst - dst_tmp);
+	x0 = _mm_loadu_ps((float*)(src +  0));
+	x1 = _mm_loadu_ps((float*)(src + 16));
+	x2 = _mm_loadu_ps((float*)(src + 32));
+	x3 = _mm_loadu_ps((float*)(src + 48));
+	_mm_storeu_ps((float*)(dst_tmp +  0), x0);
+	_mm_storeu_ps((float*)(dst_tmp + 16), x1);
+	_mm_storeu_ps((float*)(dst_tmp + 32), x2);
+	_mm_storeu_ps((float*)(dst_tmp + 48), x3);
+}
+
 #define _mm_store_switch_si128(ptr, xmm) ((aligned_store) ? _mm_store_si128(ptr, xmm) : _mm_storeu_si128(ptr, xmm))
 
 #if USE_SSSE3
@@ -192,5 +230,48 @@ static void __forceinline convert_yuy2_to_nv12_i_simd(void *dst, void *src, int 
 		dstYLine += dst_y_pitch_byte << 1;
 	}
 }
+
+#pragma warning (push)
+#pragma warning (disable: 4127)
+template<bool uv_only>
+static void __forceinline convert_yv12_to_nv12_simd(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+	const int crop_left   = crop[0];
+	const int crop_up     = crop[1];
+	const int crop_right  = crop[2];
+	const int crop_bottom = crop[3];
+	//Y成分のコピー
+	if (!uv_only) {
+		uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * crop_up + crop_left;
+		uint8_t *dstLine = (uint8_t *)dst[0];
+		const int y_fin = height - crop_bottom;
+		const int y_width = width - crop_right - crop_left;
+		for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+			memcpy_sse(dstLine, srcYLine, y_width);
+		}
+	}
+	//UV成分のコピー
+	uint8_t *srcULine = (uint8_t *)src[1] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+	uint8_t *srcVLine = (uint8_t *)src[2] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+	uint8_t *dstLine = (uint8_t *)dst[1];
+	const int uv_fin = (height - crop_bottom) >> 1;
+	for (int y = crop_up >> 1; y < uv_fin; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
+		const int x_fin = width - crop_right;
+		uint8_t *src_u_ptr = srcULine;
+		uint8_t *src_v_ptr = srcVLine;
+		uint8_t *dst_ptr = dstLine;
+		__m128i x0, x1, x2;
+		for (int x = crop_left; x < x_fin; x += 32, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 32) {
+			x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
+			x1 = _mm_loadu_si128((const __m128i *)src_v_ptr);
+
+			x2 = _mm_unpackhi_epi8(x0, x1);
+			x0 = _mm_unpacklo_epi8(x0, x1);
+
+			_mm_storeu_si128((__m128i *)(dst_ptr +  0), x0);
+			_mm_storeu_si128((__m128i *)(dst_ptr + 16), x2);
+		}
+	}
+}
+#pragma warning (pop)
 
 #endif //_CONVERT_CSP_H_

@@ -10,19 +10,23 @@
 #ifndef _CONVERT_CSP_H_
 #define _CONVERT_CSP_H_
 
-typedef void (*funcConvertCSP) (void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+typedef void (*funcConvertCSP) (void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
-void convert_yv12_to_nv12(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+enum NV_ENC_CSP {
+	NV_ENC_CSP_NA,
+	NV_ENC_CSP_NV12,
+	NV_ENC_CSP_YV12,
+	NV_ENC_CSP_YUY2,
+};
 
-void convert_yuy2_to_nv12(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
-void convert_yuy2_to_nv12_sse2(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
-void convert_yuy2_to_nv12_avx(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
-void convert_yuy2_to_nv12_avx2(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+typedef struct ConvertCSP {
+	NV_ENC_CSP csp_from, csp_to;
+	bool uv_only;
+	funcConvertCSP func[2];
+	unsigned int simd;
+} ConvertCSP;
 
-void convert_yuy2_to_nv12_i(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
-void convert_yuy2_to_nv12_i_sse2(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
-void convert_yuy2_to_nv12_i_ssse3(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
-void convert_yuy2_to_nv12_i_avx(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
-void convert_yuy2_to_nv12_i_avx2(void *dst, void *src, int width, int src_y_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+const ConvertCSP *get_convert_csp_func(NV_ENC_CSP csp_from, NV_ENC_CSP csp_to, bool uv_only);
+const TCHAR *get_simd_str(unsigned int simd);
 
 #endif //_CONVERT_CSP_H_

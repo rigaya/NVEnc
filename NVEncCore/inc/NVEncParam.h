@@ -26,30 +26,36 @@ typedef struct {
 } guid_desc;
 
 const guid_desc h264_profile_names[] = {
-    { NV_ENC_H264_PROFILE_BASELINE_GUID, "Baseline", 66 },
-    { NV_ENC_H264_PROFILE_MAIN_GUID,     "Main",     77 },
-    { NV_ENC_H264_PROFILE_HIGH_GUID,     "High",    100 },
-    //{ NV_ENC_H264_PROFILE_STEREO_GUID,   "Stereo",  128 }
+    { NV_ENC_H264_PROFILE_BASELINE_GUID, _T("Baseline"), 66 },
+    { NV_ENC_H264_PROFILE_MAIN_GUID,     _T("Main"),     77 },
+    { NV_ENC_H264_PROFILE_HIGH_GUID,     _T("High"),    100 },
+    //{ NV_ENC_H264_PROFILE_STEREO_GUID,   _T("Stereo"),  128 }
 };
 
 const guid_desc h265_profile_names[] = {
-    { NV_ENC_HEVC_PROFILE_MAIN_GUID, "Main", NV_ENC_TIER_HEVC_MAIN },
-    //{ NV_ENC_HEVC_PROFILE_HIGH_GUID, "High", NV_ENC_TIER_HEVC_HIGH },
+    { NV_ENC_HEVC_PROFILE_MAIN_GUID, _T("Main"), NV_ENC_TIER_HEVC_MAIN },
+    //{ NV_ENC_HEVC_PROFILE_HIGH_GUID, _T("High"), NV_ENC_TIER_HEVC_HIGH },
 };
 
 const guid_desc preset_names[] = {
-    { NV_ENC_PRESET_DEFAULT_GUID,              "Default Preset",                           0 },
-    { NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID,  "Low Latancy Default Preset",               1 },
-    { NV_ENC_PRESET_HP_GUID,                   "High Performance (HP) Preset",             2 },
-    { NV_ENC_PRESET_HQ_GUID,                   "High Quality (HQ) Preset",                 3 },
-    { NV_ENC_PRESET_BD_GUID,                   "Blue Ray Preset",                          4 },
-    { NV_ENC_PRESET_LOW_LATENCY_HQ_GUID,       "Low Latancy High Quality (HQ) Preset",     5 },
-    { NV_ENC_PRESET_LOW_LATENCY_HP_GUID,       "Low Latancy High Performance (HP) Preset", 6 }
+    { NV_ENC_PRESET_DEFAULT_GUID,              _T("Default Preset"),                           0 },
+    { NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID,  _T("Low Latancy Default Preset"),               1 },
+    { NV_ENC_PRESET_HP_GUID,                   _T("High Performance (HP) Preset"),             2 },
+    { NV_ENC_PRESET_HQ_GUID,                   _T("High Quality (HQ) Preset"),                 3 },
+    { NV_ENC_PRESET_BD_GUID,                   _T("Blue Ray Preset"),                          4 },
+    { NV_ENC_PRESET_LOW_LATENCY_HQ_GUID,       _T("Low Latancy High Quality (HQ) Preset"),     5 },
+    { NV_ENC_PRESET_LOW_LATENCY_HP_GUID,       _T("Low Latancy High Performance (HP) Preset"), 6 }
 };
 
 const guid_desc list_nvenc_codecs[] = {
 	{ NV_ENC_CODEC_H264_GUID, _T("H.264/AVC"),  NV_ENC_H264 },
 	{ NV_ENC_CODEC_HEVC_GUID, _T("H.265/HEVC"), NV_ENC_HEVC },
+};
+const CX_DESC list_nvenc_codecs_for_opt[] = {
+	{ _T("h264"), NV_ENC_H264 },
+	{ _T("avc"),  NV_ENC_H264 },
+	{ _T("hevc"), NV_ENC_HEVC },
+	{ _T("h265"), NV_ENC_HEVC },
 };
 
 const CX_DESC list_avc_level[] = { 
@@ -93,7 +99,7 @@ const CX_DESC list_hevc_level[] = {
 
 const CX_DESC list_hevc_cu_size[] = { 
 	{ _T("auto"), NV_ENC_HEVC_CUSIZE_AUTOSELECT },
-	{ _T(" 8"),   NV_ENC_HEVC_CUSIZE_8x8        },
+	{ _T("8"),    NV_ENC_HEVC_CUSIZE_8x8        },
 	{ _T("16"),   NV_ENC_HEVC_CUSIZE_16x16      },
 	{ _T("32"),   NV_ENC_HEVC_CUSIZE_32x32      },
 	{ _T("64"),   NV_ENC_HEVC_CUSIZE_64x64      },
@@ -223,7 +229,7 @@ const CX_DESC list_preset_ja[] = {
 #endif
 
 template<size_t count>
-static const char *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]) {
+static const TCHAR *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]) {
 	for (int i = 0; i < count; i++) {
 		if (0 == memcmp(&desc[i].id, &guid, sizeof(GUID))) {
 			return desc[i].desc;
@@ -253,6 +259,26 @@ static GUID get_guid_from_value(int value, const guid_desc (&desc)[count]) {
 };
 
 template<size_t count>
+static GUID get_guid_from_name(const TCHAR *name, const guid_desc (&desc)[count]) {
+	for (int i = 0; i < count; i++) {
+		if (0 == _tcsicmp(name, desc[i].desc)) {
+			return desc[i].id;
+		}
+	}
+	return GUID{ 0 };
+};
+
+template<size_t count>
+static int get_value_from_name(const TCHAR *name, const guid_desc (&desc)[count]) {
+	for (int i = 0; i < count; i++) {
+		if (0 == _tcsicmp(name, desc[i].desc)) {
+			return desc[i].value;
+		}
+	}
+	return -1;
+};
+
+template<size_t count>
 static int get_index_from_value(int value, const guid_desc (&desc)[count]) {
 	for (int i = 0; i < count; i++) {
 		if (desc[i].value == (uint32_t)value) {
@@ -276,24 +302,24 @@ static int get_cx_index(const CX_DESC * list, int v) {
 	return 0;
 }
 
-static int get_cx_index(const CX_DESC * list, const char *chr) {
+static int get_cx_index(const CX_DESC * list, const TCHAR *chr) {
 	for (int i = 0; list[i].desc; i++)
-		if (0 == strcmp(list[i].desc, chr))
+		if (0 == _tcscmp(list[i].desc, chr))
 			return i;
 	return 0;
 }
 
-static int get_cx_value(const CX_DESC * list, const char *chr) {
+static int get_cx_value(const CX_DESC * list, const TCHAR *chr) {
 	for (int i = 0; list[i].desc; i++)
-		if (0 == strcmp(list[i].desc, chr))
+		if (0 == _tcscmp(list[i].desc, chr))
 			return list[i].value;
 	return 0;
 }
 
 static int PARSE_ERROR_FLAG = INT_MIN;
-static int get_value_from_chr(const CX_DESC *list, const char *chr) {
+static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
 	for (int i = 0; list[i].desc; i++)
-		if (_stricmp(list[i].desc, chr) == 0)
+		if (_tcsicmp(list[i].desc, chr) == 0)
 			return list[i].value;
 	return PARSE_ERROR_FLAG;
 }

@@ -21,11 +21,15 @@
 #include "NVEncStatus.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
+#include "NVEncInput.h"
+#include "NVEncInputRaw.h"
 #include "helper_nvenc.h"
+#include "shlwapi.h"
+#pragma comment(lib, "shlwapi.lib")
 
 bool check_if_nvcuda_dll_available() {
 	//check for nvcuda.dll
-	HMODULE hModule = LoadLibrary("nvcuda.dll");
+	HMODULE hModule = LoadLibrary(_T("nvcuda.dll"));
 	if (hModule == NULL)
 		return false;
 	FreeLibrary(hModule);
@@ -71,6 +75,7 @@ NVEncCore::NVEncCore() {
 	m_pInput = nullptr;
 	m_uEncodeBufferCount = 16;
 	m_pOutputBuf = nullptr;
+	m_pDevice = nullptr;
 
 	INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -107,17 +112,50 @@ int NVEncCore::NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) {
 	va_list args;
 	va_start(args, format);
 
-	int len = _vscprintf(format, args);
-	char *const buffer = (char*)malloc((len+1) * sizeof(buffer[0])); // _vscprintf doesn't count terminating '\0'
+	int len = _vsctprintf(format, args);
+	TCHAR *const buffer = (TCHAR*)malloc((len+1) * sizeof(buffer[0])); // _vscprintf doesn't count terminating '\0'
 
-	vsprintf_s(buffer, len+1, format, args);
+	_vstprintf_s(buffer, len+1, format, args);
 
+	_ftprintf(fp, buffer);
 
 	return len;
 }
 
 NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
+#if RAW_READER
+	if (inputParam->input.type == NV_ENC_INPUT_UNKNWON) {
+		if (0 == _tcsicmp(_T(".y4m"), PathFindExtension(inputParam->input.filename.c_str()))) {
+			inputParam->input.type = NV_ENC_INPUT_Y4M;
+#if AVI_READER
+		} else if (0 == _tcsicmp(_T(".avi"), PathFindExtension(inputParam->input.filename.c_str()))) {
+			inputParam->input.type = NV_ENC_INPUT_AVI;
+#endif
+#if AVS_READER
+		} else if (0 == _tcsicmp(_T(".avs"), PathFindExtension(inputParam->input.filename.c_str()))) {
+			inputParam->input.type = NV_ENC_INPUT_AVS;
+#endif
+		} else {
+			inputParam->input.type = NV_ENC_INPUT_RAW;
+		}
+	}
+
+	switch (inputParam->input.type) {
+	case NV_ENC_INPUT_RAW:
+	case NV_ENC_INPUT_Y4M:
+	default:
+		m_pInput = new NVEncRawInput();
+		break;
+	}
+
+	m_pStatus = new EncodeStatus();
+	int ret = m_pInput->Init(&inputParam->input, m_pStatus);
+	m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
+	m_pStatus->m_nOutputFPSScale = inputParam->input.scale;
+	return (ret) ? NV_ENC_ERR_GENERIC : NV_ENC_SUCCESS;
+#else
 	return NV_ENC_ERR_INVALID_CALL;
+#endif
 }
 #pragma warning(pop)
 
@@ -844,8 +882,20 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 	//解像度の決定
 	m_uEncWidth   = inputParam->input.width  - inputParam->input.crop[0] - inputParam->input.crop[2];
 	m_uEncHeight  = inputParam->input.height - inputParam->input.crop[1] - inputParam->input.crop[3];
-
+	
 	//制限事項チェック
+	if (inputParam->input.width < 0 && inputParam->input.height < 0) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("解像度が無効です。: %dx%d\n"), inputParam->input.width, inputParam->input.height);
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
+	if (   inputParam->input.width  <= inputParam->input.crop[0] + inputParam->input.crop[2]
+		&& inputParam->input.height <= inputParam->input.crop[1] + inputParam->input.crop[3]) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("Crop値が無効です。: %dx%d, Crop [%d,%d,%d,%d]\n"),
+			inputParam->input.width, inputParam->input.height,
+			inputParam->input.crop[0], inputParam->input.crop[1], inputParam->input.crop[2], inputParam->input.crop[3]);
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
+
 	if ((m_uEncWidth & 1) || (m_uEncHeight & (1 + 2 * !!is_interlaced(inputParam->picStruct)))) {
 		NVPrintf(stderr, NV_LOG_ERROR, _T("解像度が無効です。: %dx%d\n"), m_uEncWidth, m_uEncHeight);
 		NVPrintf(stderr, NV_LOG_ERROR, _T("縦横の解像度は2の倍数である必要があります。\n"));
@@ -877,6 +927,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 	}
 	if (m_stEncConfig.rcParams.rateControlMode != (m_stEncConfig.rcParams.rateControlMode & getCapLimit(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES))) {
 		NVPrintf(stderr, NV_LOG_ERROR, _T("選択されたレート制御モードはサポートされていません。\n"));
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
+	if (m_stEncConfig.frameIntervalP < 0) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("Bフレーム設定が無効です。正の値を使用してください。: %d\n"), m_stEncConfig.frameIntervalP - 1);
 		return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	}
 	if (m_stEncConfig.frameIntervalP - 1 > getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES)) {
@@ -929,9 +983,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 			value = (frame_height >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value;
 	};
 
-	apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries, list_colorprim);
+	apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries,         list_colorprim);
 	apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer);
-	apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix, list_colormatrix);
+	apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix,            list_colormatrix);
 
 	INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
 	m_stCreateEncodeParams.encodeConfig        = &m_stEncConfig;
@@ -970,13 +1024,13 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 			(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.overscanInfo) ? 1 : 0;
 
 		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag =
-			(get_cx_value(list_videoformat, "undef") != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFormat
+			(get_cx_value(list_videoformat, _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFormat
 			|| m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag) ? 1 : 0;
 
 		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourDescriptionPresentFlag =
-			(  get_cx_value(list_colorprim,   "undef") != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries
-			|| get_cx_value(list_transfer,    "undef") != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics
-			|| get_cx_value(list_colormatrix, "undef") != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix) ? 1 : 0;
+			(  get_cx_value(list_colorprim,   _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries
+			|| get_cx_value(list_transfer,    _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics
+			|| get_cx_value(list_colormatrix, _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix) ? 1 : 0;
 	}
 
 	return NV_ENC_SUCCESS;
@@ -1180,10 +1234,10 @@ NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamH264() {
 	config.h264Config.bdirectMode    = NV_ENC_H264_BDIRECT_MODE_AUTOSELECT;
 
 	config.h264Config.h264VUIParameters.overscanInfo = 0;
-	config.h264Config.h264VUIParameters.colourMatrix            = get_cx_value(list_colormatrix, "undef");
-	config.h264Config.h264VUIParameters.colourPrimaries         = get_cx_value(list_colorprim,   "undef");
-	config.h264Config.h264VUIParameters.transferCharacteristics = get_cx_value(list_transfer,    "undef");
-	config.h264Config.h264VUIParameters.videoFormat             = get_cx_value(list_videoformat, "undef");
+	config.h264Config.h264VUIParameters.colourMatrix            = get_cx_value(list_colormatrix, _T("undef"));
+	config.h264Config.h264VUIParameters.colourPrimaries         = get_cx_value(list_colorprim,   _T("undef"));
+	config.h264Config.h264VUIParameters.transferCharacteristics = get_cx_value(list_transfer,    _T("undef"));
+	config.h264Config.h264VUIParameters.videoFormat             = get_cx_value(list_videoformat, _T("undef"));
 
 	return config;
 }
@@ -1251,7 +1305,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 			str = _T("auto");
 		} else {
 			TCHAR buf[256];
-			sprintf_s(buf, _countof(buf), _T("%d"), value);
+			_stprintf_s(buf, _countof(buf), _T("%d"), value);
 			str = buf;
 		}
 		return str;
@@ -1274,11 +1328,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	add_str(NV_LOG_ERROR, _T("入力フレームバッファ    %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
 	add_str(NV_LOG_ERROR, _T("入力フレーム情報        %s\n"), m_pInput->getInputMes());
 	add_str(NV_LOG_ERROR, _T("出力動画情報            %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
-		to_tchar((get_value_from_guid(m_stCodecGUID, list_nvenc_codecs) == NV_ENC_H264)
-		? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names)).c_str());
+		(get_value_from_guid(m_stCodecGUID, list_nvenc_codecs) == NV_ENC_H264)
+		? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
 	add_str(NV_LOG_ERROR, _T("                        %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), 0,0, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
-	add_str(NV_LOG_DEBUG, _T("Encoder Preset          %s\n"), to_tchar(get_name_from_guid(m_stCreateEncodeParams.presetGUID, preset_names)).c_str());
-	add_str(NV_LOG_ERROR, _T("レート制御モード        %s\n"), to_tchar(get_desc(list_nvenc_rc_method, m_stEncConfig.rcParams.rateControlMode)).c_str());
+	add_str(NV_LOG_DEBUG, _T("Encoder Preset          %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, preset_names));
+	add_str(NV_LOG_ERROR, _T("レート制御モード        %s\n"), get_desc(list_nvenc_rc_method, m_stEncConfig.rcParams.rateControlMode));
 	if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
 		add_str(NV_LOG_ERROR, _T("CQP値                   I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB);
 	} else {
@@ -1312,7 +1366,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	} else {
 		_tcscpy_s(bitstream_info, _countof(bitstream_info), _T("-"));
 	}
-	add_str(NV_LOG_DEBUG, "%s\n", bitstream_info);
+	add_str(NV_LOG_DEBUG, _T("%s\n"), bitstream_info);
 
 	add_str(NV_LOG_DEBUG, _T("可変フレームレート      %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableVFR));
 	add_str(NV_LOG_DEBUG, _T("LTR                     %s"),   on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableLTR));

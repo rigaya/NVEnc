@@ -14,9 +14,24 @@
 #include <string>
 #include "NVEncUtil.h"
 #include "NVEncStatus.h"
+#include "NVEncVersion.h"
+#include "ConvertCsp.h"
 
+enum {
+	NV_ENC_INPUT_UNKNWON = 0,
+	NV_ENC_INPUT_AUO = 0,
+	NV_ENC_INPUT_RAW,
+	NV_ENC_INPUT_Y4M,
+#if AVI_READER
+	NV_ENC_INPUT_AVI,
+#endif
+#if AVS_READER
+	NV_ENC_INPUT_AVS
+#endif
+};
 
 typedef struct InputVideoInfo {
+	int type;    //種類 (NV_ENC_INPUT_xxx)
 	int width;   //横解像度
 	int height;  //縦解像度
 	int scale;   //フレームレート (分子)
@@ -33,10 +48,6 @@ typedef struct EncodeInputSurfaceInfo {
 	int crop[4];
 } EncodeInputSurfaceInfo;
 
-typedef struct InputInfo {
-	bool isY4m;
-} BasicInputInfo;
-
 class NVEncBasicInput {
 public:
 	NVEncBasicInput();
@@ -51,8 +62,6 @@ public:
 	}
 
 protected:
-	virtual int ParseY4MHeader(char *buf, InputVideoInfo *inputPrm);
-
 	virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *convSIMD, const TCHAR *outputCSpName, const InputVideoInfo *inputPrm);
 
 	virtual void setSurfaceInfo(InputVideoInfo *inputPrm);
@@ -63,4 +72,6 @@ protected:
 	bool m_bIsY4m = false;
 	tstring m_inputMes;
 	uint8_t *m_inputBuffer = NULL;
+	uint32_t m_tmLastUpdate = 0;
+	const ConvertCSP *m_pConvCSPInfo = nullptr;
 };

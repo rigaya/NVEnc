@@ -16,18 +16,25 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
 		Release|Win32 = Release|Win32
+		RelStatic|Win32 = RelStatic|Win32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{CA657958-0BE8-4D0F-95CD-602BF2C33D2D}.Debug|Win32.ActiveCfg = Debug|Win32
 		{CA657958-0BE8-4D0F-95CD-602BF2C33D2D}.Debug|Win32.Build.0 = Debug|Win32
 		{CA657958-0BE8-4D0F-95CD-602BF2C33D2D}.Release|Win32.ActiveCfg = Release|Win32
 		{CA657958-0BE8-4D0F-95CD-602BF2C33D2D}.Release|Win32.Build.0 = Release|Win32
+		{CA657958-0BE8-4D0F-95CD-602BF2C33D2D}.RelStatic|Win32.ActiveCfg = RelStatic|Win32
 		{1CD1CF80-E971-4A92-93E0-4AEA5F4032B5}.Debug|Win32.ActiveCfg = Debug|Win32
 		{1CD1CF80-E971-4A92-93E0-4AEA5F4032B5}.Debug|Win32.Build.0 = Debug|Win32
 		{1CD1CF80-E971-4A92-93E0-4AEA5F4032B5}.Release|Win32.ActiveCfg = Release|Win32
 		{1CD1CF80-E971-4A92-93E0-4AEA5F4032B5}.Release|Win32.Build.0 = Release|Win32
+		{1CD1CF80-E971-4A92-93E0-4AEA5F4032B5}.RelStatic|Win32.ActiveCfg = RelStatic|Win32
+		{1CD1CF80-E971-4A92-93E0-4AEA5F4032B5}.RelStatic|Win32.Build.0 = RelStatic|Win32
 		{2EEB3276-C363-4820-92EA-FEA8BF1045FE}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2EEB3276-C363-4820-92EA-FEA8BF1045FE}.Debug|Win32.Build.0 = Debug|Win32
 		{2EEB3276-C363-4820-92EA-FEA8BF1045FE}.Release|Win32.ActiveCfg = Release|Win32
+		{2EEB3276-C363-4820-92EA-FEA8BF1045FE}.RelStatic|Win32.ActiveCfg = RelStatic|Win32
+		{2EEB3276-C363-4820-92EA-FEA8BF1045FE}.RelStatic|Win32.Build.0 = RelStatic|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
