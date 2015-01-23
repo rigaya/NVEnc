@@ -133,7 +133,7 @@ public:
 		}
 	}
 	virtual void WriteLine(const TCHAR *mes) {
-		fprintf(stderr, "%s\n", mes);
+		_ftprintf(stderr, _T("%s\n"), mes);
 	}
 	virtual void UpdateDisplay() {
 		uint32_t tm = timeGetTime();
