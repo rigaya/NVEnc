@@ -23,6 +23,8 @@ void convert_uv_yv12_to_nv12_avx(void **dst, void **src, int width, int src_y_pi
 void convert_uv_yv12_to_nv12_avx2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
 //適当。
+#pragma warning (push)
+#pragma warning (disable: 4100)
 void convert_yuy2_to_nv12(void **dst_array, void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	int crop_left   = crop[0];
 	int crop_up     = crop[1];
@@ -83,6 +85,7 @@ void convert_yuy2_to_nv12_i(void **dst_array, void **src_array, int width, int s
 		}
 	}
 }
+#pragma warning (pop)
 
 
 enum {

@@ -83,6 +83,8 @@ static __forceinline void separate_low_up(__m256i& x0_return_lower, __m256i& x1_
 	x1_return_upper = _mm256_packus_epi16(x4, x5);
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4100)
 void convert_yuy2_to_nv12_avx2(void **dst_array, void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
 	const int crop_left   = crop[0];
 	const int crop_up     = crop[1];
@@ -128,6 +130,7 @@ void convert_yuy2_to_nv12_avx2(void **dst_array, void **src_array, int width, in
 	}
 	_mm256_zeroupper();
 }
+#pragma warning (push)
 
 static __forceinline __m256i yuv422_to_420_i_interpolate(__m256i y_up, __m256i y_down, int i) {
 	__m256i y0, y1;

@@ -232,6 +232,7 @@ static void __forceinline convert_yuy2_to_nv12_i_simd(void *dst, void *src, int 
 }
 
 #pragma warning (push)
+#pragma warning (disable: 4100)
 #pragma warning (disable: 4127)
 template<bool uv_only>
 static void __forceinline convert_yv12_to_nv12_simd(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
