@@ -157,7 +157,8 @@ static void show_nvenc_features() {
 
 
 	_ftprintf(stdout, _T("%s\n"), buf);
-
+	
+	_ftprintf(stdout, _T("使用可能な各機能の情報を表示します。\n"));
 	for (auto codecNVEncCaps : nvEncCaps) {
 		_ftprintf(stdout, _T("コーデック: %s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
 		size_t max_length = 0;
