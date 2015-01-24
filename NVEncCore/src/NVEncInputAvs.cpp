@@ -159,9 +159,6 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 	inputPrm->height = m_sAVSinfo->height;
 	inputPrm->rate = m_sAVSinfo->fps_numerator / fps_gcd;
 	inputPrm->scale = m_sAVSinfo->fps_denominator / fps_gcd;
-
-
-	m_pConvCSPInfo = get_convert_csp_func(NV_ENC_CSP_YV12, NV_ENC_CSP_NV12, false);
 	
 	TCHAR avisynth_version[32] = { 0 };
 	AVS_Value val_version = m_sAvisynth.invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(nullptr, 0), nullptr);
