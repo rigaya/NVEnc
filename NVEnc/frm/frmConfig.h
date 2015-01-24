@@ -1074,6 +1074,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBAFS;
 			this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
 			this->fcgtabControlNVEnc = (gcnew System::Windows::Forms::TabControl());
 			this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+			this->fcgCBAFS = (gcnew System::Windows::Forms::CheckBox());
 			this->label1 = (gcnew System::Windows::Forms::Label());
 			this->fcgCXEncCodec = (gcnew System::Windows::Forms::ComboBox());
 			this->fcgNURefFrames = (gcnew System::Windows::Forms::NumericUpDown());
@@ -1170,7 +1171,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBAFS;
 			this->fcgCSExeFiles = (gcnew System::Windows::Forms::ContextMenuStrip(this->components));
 			this->fcgTSExeFileshelp = (gcnew System::Windows::Forms::ToolStripMenuItem());
 			this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
-			this->fcgCBAFS = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -2288,6 +2288,17 @@ private: System::Windows::Forms::CheckBox^  fcgCBAFS;
 			this->tabPageVideoEnc->Text = L"動画エンコード";
 			this->tabPageVideoEnc->UseVisualStyleBackColor = true;
 			// 
+			// fcgCBAFS
+			// 
+			this->fcgCBAFS->AutoSize = true;
+			this->fcgCBAFS->Location = System::Drawing::Point(349, 33);
+			this->fcgCBAFS->Name = L"fcgCBAFS";
+			this->fcgCBAFS->Size = System::Drawing::Size(183, 18);
+			this->fcgCBAFS->TabIndex = 154;
+			this->fcgCBAFS->Tag = L"chValue";
+			this->fcgCBAFS->Text = L"自動フィールドシフト(afs)を使用する";
+			this->fcgCBAFS->UseVisualStyleBackColor = true;
+			// 
 			// label1
 			// 
 			this->label1->AutoSize = true;
@@ -3287,17 +3298,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBAFS;
 			this->fcgLBguiExBlog->Text = L"NVEncについて";
 			this->fcgLBguiExBlog->VisitedLinkColor = System::Drawing::Color::Gray;
 			this->fcgLBguiExBlog->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &frmConfig::fcgLBguiExBlog_LinkClicked);
-			// 
-			// fcgCBAFS
-			// 
-			this->fcgCBAFS->AutoSize = true;
-			this->fcgCBAFS->Location = System::Drawing::Point(349, 33);
-			this->fcgCBAFS->Name = L"fcgCBAFS";
-			this->fcgCBAFS->Size = System::Drawing::Size(183, 18);
-			this->fcgCBAFS->TabIndex = 154;
-			this->fcgCBAFS->Tag = L"chValue";
-			this->fcgCBAFS->Text = L"自動フィールドシフト(afs)を使用する";
-			this->fcgCBAFS->UseVisualStyleBackColor = true;
 			// 
 			// frmConfig
 			// 
