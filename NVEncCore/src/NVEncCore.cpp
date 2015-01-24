@@ -1235,17 +1235,17 @@ NVENCSTATUS NVEncCore::Encode() {
 NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamH264() {
 	NV_ENC_CODEC_CONFIG config = { 0 };
 
-	config.h264Config.level = NV_ENC_LEVEL_AUTOSELECT;
-	config.h264Config.idrPeriod      = DEFAULT_GOP_LENGTH;
-	config.h264Config.bdirectMode    = (DEFAULT_B_FRAMES > 0) ? NV_ENC_H264_BDIRECT_MODE_TEMPORAL : NV_ENC_H264_BDIRECT_MODE_DISABLE;
+	config.h264Config.level     = NV_ENC_LEVEL_AUTOSELECT;
+	config.h264Config.idrPeriod = DEFAULT_GOP_LENGTH;
 
-	config.h264Config.chromaFormatIDC = 1;
+	config.h264Config.chromaFormatIDC            = 1;
 	config.h264Config.disableDeblockingFilterIDC = 0;
-	config.h264Config.disableSPSPPS  = 0;
-	config.h264Config.sliceMode      = 3;
-	config.h264Config.sliceModeData  = DEFAULT_NUM_SLICES;
-	config.h264Config.maxNumRefFrames = DEFAULT_REF_FRAMES;
-	config.h264Config.bdirectMode    = NV_ENC_H264_BDIRECT_MODE_AUTOSELECT;
+	config.h264Config.disableSPSPPS              = 0;
+	config.h264Config.sliceMode                  = 3;
+	config.h264Config.sliceModeData              = DEFAULT_NUM_SLICES;
+	config.h264Config.maxNumRefFrames            = DEFAULT_REF_FRAMES;
+	config.h264Config.bdirectMode                = (DEFAULT_B_FRAMES > 0) ? NV_ENC_H264_BDIRECT_MODE_SPATIAL : NV_ENC_H264_BDIRECT_MODE_DISABLE;
+	config.h264Config.adaptiveTransformMode      = NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE;
 
 	config.h264Config.h264VUIParameters.overscanInfo = 0;
 	config.h264Config.h264VUIParameters.colourMatrix            = get_cx_value(list_colormatrix, _T("undef"));
