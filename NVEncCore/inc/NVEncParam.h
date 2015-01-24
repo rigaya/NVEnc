@@ -187,8 +187,8 @@ const CX_DESC list_nvenc_rc_method[] = {
 
 const CX_DESC list_interlaced[] = {
 	{ _T("Progressive"), NV_ENC_PIC_STRUCT_FRAME            },
-	{ _T("tff"),         NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM },
-	{ _T("bff"),         NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM },
+	{ _T("Interlaced"),  NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM },
+	//{ _T("bff"),         NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM },
 	{ NULL, NULL }
 };
 const CX_DESC list_entropy_coding[] = {
