@@ -447,7 +447,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			i_arg++;
 			int value = 0;
 			if (get_list_value(list_colormatrix, argv[i_arg], &value)) {
-				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
+				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix = value;
 			} else {
 				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
 				return -1;
@@ -456,7 +456,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			i_arg++;
 			int value = 0;
 			if (get_list_value(list_colorprim, argv[i_arg], &value)) {
-				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
+				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries = value;
 			} else {
 				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
 				return -1;
@@ -465,7 +465,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			i_arg++;
 			int value = 0;
 			if (get_list_value(list_transfer, argv[i_arg], &value)) {
-				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
+				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = value;
 			} else {
 				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
 				return -1;
