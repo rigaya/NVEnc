@@ -1334,6 +1334,8 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	TCHAR gpu_info[1024] = { 0 };
 	getGPUInfo("NVIDIA", gpu_info, _countof(gpu_info));
 
+	int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
+
 	add_str(NV_LOG_ERROR, _T("NVEnc %s (%s), using NVENC API v%d.%d\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
 	add_str(NV_LOG_INFO,  _T("OS バージョン           %s (%s)\n"), getOSVersion(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
 	add_str(NV_LOG_INFO,  _T("CPU                     %s\n"), cpu_info);
@@ -1341,8 +1343,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	add_str(NV_LOG_ERROR, _T("入力フレームバッファ    %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
 	add_str(NV_LOG_ERROR, _T("入力フレーム情報        %s\n"), m_pInput->getInputMes());
 	add_str(NV_LOG_ERROR, _T("出力動画情報            %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
-		(get_value_from_guid(m_stCodecGUID, list_nvenc_codecs) == NV_ENC_H264)
-		? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
+		(codec == NV_ENC_H264) ? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
 	add_str(NV_LOG_ERROR, _T("                        %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), 0,0, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
 	add_str(NV_LOG_DEBUG, _T("Encoder Preset          %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, preset_names));
 	add_str(NV_LOG_ERROR, _T("レート制御モード        %s\n"), get_desc(list_nvenc_rc_method, m_stEncConfig.rcParams.rateControlMode));
@@ -1365,39 +1366,43 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	}
 	add_str(NV_LOG_INFO,  _T("GOP長                   %d frames\n"), m_stEncConfig.gopLength);
 	add_str(NV_LOG_INFO,  _T("連続Bフレーム数         %d frames\n"), m_stEncConfig.frameIntervalP - 1);
-	add_str(NV_LOG_DEBUG, _T("hierarchical Frames     P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
-	add_str(NV_LOG_DEBUG, _T("出力                    "));
-	TCHAR bitstream_info[256] = { 0 };
-	if (m_stEncConfig.encodeCodecConfig.h264Config.outputBufferingPeriodSEI) _tcscat_s(bitstream_info, _countof(bitstream_info), _T("BufferingPeriodSEI,"));
-	if (m_stEncConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("PicTimingSEI,"));
-	if (m_stEncConfig.encodeCodecConfig.h264Config.outputAUD)                _tcscat_s(bitstream_info, _countof(bitstream_info), _T("AUD,"));
-	if (m_stEncConfig.encodeCodecConfig.h264Config.outputFramePackingSEI)    _tcscat_s(bitstream_info, _countof(bitstream_info), _T("FramePackingSEI,"));
-	if (m_stEncConfig.encodeCodecConfig.h264Config.outputRecoveryPointSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("RecoveryPointSEI,"));
-	if (m_stEncConfig.encodeCodecConfig.h264Config.repeatSPSPPS)             _tcscat_s(bitstream_info, _countof(bitstream_info), _T("repeatSPSPPS,"));
-	if (_tcslen(bitstream_info)) {
-		bitstream_info[_tcslen(bitstream_info)-1] = _T('\0');
-	} else {
-		_tcscpy_s(bitstream_info, _countof(bitstream_info), _T("-"));
+	if (codec == NV_ENC_H264) {
+		add_str(NV_LOG_DEBUG, _T("出力                    "));
+		TCHAR bitstream_info[256] ={ 0 };
+		if (m_stEncConfig.encodeCodecConfig.h264Config.outputBufferingPeriodSEI) _tcscat_s(bitstream_info, _countof(bitstream_info), _T("BufferingPeriodSEI,"));
+		if (m_stEncConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("PicTimingSEI,"));
+		if (m_stEncConfig.encodeCodecConfig.h264Config.outputAUD)                _tcscat_s(bitstream_info, _countof(bitstream_info), _T("AUD,"));
+		if (m_stEncConfig.encodeCodecConfig.h264Config.outputFramePackingSEI)    _tcscat_s(bitstream_info, _countof(bitstream_info), _T("FramePackingSEI,"));
+		if (m_stEncConfig.encodeCodecConfig.h264Config.outputRecoveryPointSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("RecoveryPointSEI,"));
+		if (m_stEncConfig.encodeCodecConfig.h264Config.repeatSPSPPS)             _tcscat_s(bitstream_info, _countof(bitstream_info), _T("repeatSPSPPS,"));
+		if (_tcslen(bitstream_info)) {
+			bitstream_info[_tcslen(bitstream_info)-1] = _T('\0');
+		} else {
+			_tcscpy_s(bitstream_info, _countof(bitstream_info), _T("-"));
+		}
+		add_str(NV_LOG_DEBUG, _T("%s\n"), bitstream_info);
 	}
-	add_str(NV_LOG_DEBUG, _T("%s\n"), bitstream_info);
 
-	add_str(NV_LOG_DEBUG, _T("可変フレームレート      %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableVFR));
-	add_str(NV_LOG_DEBUG, _T("LTR                     %s"),   on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableLTR));
-	if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR) {
-		add_str(NV_LOG_DEBUG, _T(", Mode:%d, NumFrames:%d"), m_stEncConfig.encodeCodecConfig.h264Config.ltrTrustMode, m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames);
-	}
-	add_str(NV_LOG_DEBUG, _T("\n"));
-	add_str(NV_LOG_DEBUG, _T("YUV 4:4:4               %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.separateColourPlaneFlag));
-	add_str(NV_LOG_INFO,  _T("参照距離                %d frames\n"), m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames);
-	if (3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
+	add_str(NV_LOG_INFO,  _T("参照距離                %d frames\n"), (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
+	if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
 		add_str(NV_LOG_DEBUG, _T("スライス数              %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
 	} else {
 		add_str(NV_LOG_DEBUG, _T("スライス                Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
 	}
-	add_str(NV_LOG_DEBUG, _T("Adaptive Transform      %s\n"), get_desc(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
-	add_str(NV_LOG_DEBUG, _T("FMO                     %s\n"), get_desc(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
-	add_str(NV_LOG_DEBUG, _T("Coding Mode             %s\n"), get_desc(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));
-	add_str(NV_LOG_DEBUG, _T("動き予測方式            %s\n"), get_desc(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
+	if (codec == NV_ENC_H264) {
+		add_str(NV_LOG_DEBUG, _T("hierarchical Frames     P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
+		add_str(NV_LOG_DEBUG, _T("可変フレームレート      %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableVFR));
+		add_str(NV_LOG_DEBUG, _T("LTR                     %s"),   on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableLTR));
+		if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR) {
+			add_str(NV_LOG_DEBUG, _T(", Mode:%d, NumFrames:%d"), m_stEncConfig.encodeCodecConfig.h264Config.ltrTrustMode, m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames);
+		}
+		add_str(NV_LOG_DEBUG, _T("\n"));
+		add_str(NV_LOG_DEBUG, _T("YUV 4:4:4               %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.separateColourPlaneFlag));
+		add_str(NV_LOG_DEBUG, _T("Adaptive Transform      %s\n"), get_desc(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
+		add_str(NV_LOG_DEBUG, _T("FMO                     %s\n"), get_desc(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
+		add_str(NV_LOG_DEBUG, _T("Coding Mode             %s\n"), get_desc(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));
+		add_str(NV_LOG_DEBUG, _T("動き予測方式            %s\n"), get_desc(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
+	}
 	return str;
 }
 
