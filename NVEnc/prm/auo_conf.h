@@ -68,7 +68,7 @@ typedef struct CONF_NVENC {
 	int inputBuffer;
 	int par[2];
 	int codec;
-	NV_ENC_CODEC_CONFIG codecConfig[8];
+	NV_ENC_CODEC_CONFIG codecConfig[2];
 } CONF_NVENC;
 
 typedef struct {
