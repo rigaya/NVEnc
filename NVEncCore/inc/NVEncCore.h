@@ -23,7 +23,7 @@
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
 
-static const int DEFAULT_GOP_LENGTH  = 300;
+static const int DEFAULT_GOP_LENGTH  = 0;
 static const int DEFAULT_B_FRAMES    = 3;
 static const int DEFAULT_REF_FRAMES  = 3;
 static const int DEFAULT_NUM_SLICES  = 1;
