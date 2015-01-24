@@ -1023,7 +1023,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 	if (inputParam->codec == NV_ENC_HEVC) {
 		//整合性チェック (一般, H.265/HEVC)
 		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
-		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB = m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.maxNumRefFrames;
 	} else if (inputParam->codec == NV_ENC_H264) {
 		//整合性チェック (一般, H.264/AVC)
 		m_stCreateEncodeParams.encodeConfig->frameFieldMode = (inputParam->picStruct == NV_ENC_PIC_STRUCT_FRAME) ? NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME : NV_ENC_PARAMS_FRAME_FIELD_MODE_FIELD;

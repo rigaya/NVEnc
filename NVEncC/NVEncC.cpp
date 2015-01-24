@@ -406,6 +406,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			int value = 0;
 			if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
 				codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
+				codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
 			} else {
 				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
 				return -1;
