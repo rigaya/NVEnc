@@ -950,25 +950,27 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 		m_stEncConfig.frameIntervalP = getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES) + 1;
 		NVPrintf(stderr, NV_LOG_WARN, _T("Bフレームの最大数は%dです。\n"), getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES));
 	}
-	if (NV_ENC_H264_ENTROPY_CODING_MODE_CABAC == m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_CABAC)) {
-		m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
-		NVPrintf(stderr, NV_LOG_WARN, _T("CABACはサポートされていません。\n"));
-	}
-	if (NV_ENC_H264_FMO_ENABLE == m_stEncConfig.encodeCodecConfig.h264Config.fmoMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_FMO)) {
-		m_stEncConfig.encodeCodecConfig.h264Config.fmoMode = NV_ENC_H264_FMO_DISABLE;
-		NVPrintf(stderr, NV_LOG_WARN, _T("FMOはサポートされていません。\n"));
-	}
-	if (NV_ENC_H264_BDIRECT_MODE_TEMPORAL & m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_BDIRECT_MODE)) {
-		m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
-		NVPrintf(stderr, NV_LOG_WARN, _T("B Direct モードはサポートされていません。\n"));
+	if (inputParam->codec == NV_ENC_H264) {
+		if (NV_ENC_H264_ENTROPY_CODING_MODE_CABAC == m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_CABAC)) {
+			m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
+			NVPrintf(stderr, NV_LOG_WARN, _T("CABACはサポートされていません。\n"));
+		}
+		if (NV_ENC_H264_FMO_ENABLE == m_stEncConfig.encodeCodecConfig.h264Config.fmoMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_FMO)) {
+			m_stEncConfig.encodeCodecConfig.h264Config.fmoMode = NV_ENC_H264_FMO_DISABLE;
+			NVPrintf(stderr, NV_LOG_WARN, _T("FMOはサポートされていません。\n"));
+		}
+		if (NV_ENC_H264_BDIRECT_MODE_TEMPORAL & m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_BDIRECT_MODE)) {
+			m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_DISABLE;
+			NVPrintf(stderr, NV_LOG_WARN, _T("B Direct モードはサポートされていません。\n"));
+		}
+		if (NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE != m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM)) {
+			m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
+			NVPrintf(stderr, NV_LOG_WARN, _T("Adaptive Tranform はサポートされていません。\n"));
+		}
 	}
 	if ((NV_ENC_MV_PRECISION_QUARTER_PEL == m_stEncConfig.mvPrecision) && !getCapLimit(NV_ENC_CAPS_SUPPORT_QPELMV)) {
 		m_stEncConfig.mvPrecision = NV_ENC_MV_PRECISION_HALF_PEL;
 		NVPrintf(stderr, NV_LOG_WARN, _T("1/4画素精度MV探索はサポートされていません。\n"));
-	}
-	if (NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE != m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM)) {
-		m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
-		NVPrintf(stderr, NV_LOG_WARN, _T("Adaptive Tranform はサポートされていません。\n"));
 	}
 	if (0 != m_stEncConfig.rcParams.vbvBufferSize && !getCapLimit(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
 		m_stEncConfig.rcParams.vbvBufferSize = 0;
