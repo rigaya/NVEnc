@@ -170,6 +170,13 @@ const CX_DESC list_mv_presicion[] = {
 	{ NULL, NULL }
 };
 
+const CX_DESC list_mv_presicion_ja[] = {
+	{ _T("1画素精度"),   NV_ENC_MV_PRECISION_FULL_PEL    },
+	{ _T("1/2画素精度"), NV_ENC_MV_PRECISION_HALF_PEL    },
+	{ _T("1/4画素精度"), NV_ENC_MV_PRECISION_QUARTER_PEL },
+	{ NULL, NULL }
+};
+
 const CX_DESC list_nvenc_rc_method[] = {
 	{ _T("CQP - 固定量子化量"),                     NV_ENC_PARAMS_RC_CONSTQP   },
 	{ _T("CBR - 固定ビットレート"),                 NV_ENC_PARAMS_RC_CBR       },

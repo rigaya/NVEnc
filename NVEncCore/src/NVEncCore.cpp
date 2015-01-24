@@ -1385,12 +1385,14 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	}
 
 	add_str(NV_LOG_INFO,  _T("参照距離                %d frames\n"), (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
+	add_str(NV_LOG_INFO,  _T("動きベクトル精度        %s\n"), get_desc(list_mv_presicion_ja, m_stEncConfig.mvPrecision));
 	if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
 		add_str(NV_LOG_DEBUG, _T("スライス数              %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
 	} else {
 		add_str(NV_LOG_DEBUG, _T("スライス                Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
 	}
 	if (codec == NV_ENC_H264) {
+		add_str(NV_LOG_INFO,  _T("CABAC/deblock           %s / %s\n"), get_desc(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode), on_off(!m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC));
 		add_str(NV_LOG_DEBUG, _T("hierarchical Frames     P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
 		add_str(NV_LOG_DEBUG, _T("可変フレームレート      %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableVFR));
 		add_str(NV_LOG_DEBUG, _T("LTR                     %s"),   on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableLTR));
@@ -1401,8 +1403,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 		add_str(NV_LOG_DEBUG, _T("YUV 4:4:4               %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.separateColourPlaneFlag));
 		add_str(NV_LOG_DEBUG, _T("Adaptive Transform      %s\n"), get_desc(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
 		add_str(NV_LOG_DEBUG, _T("FMO                     %s\n"), get_desc(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
-		add_str(NV_LOG_DEBUG, _T("Coding Mode             %s\n"), get_desc(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));
-		add_str(NV_LOG_DEBUG, _T("動き予測方式            %s\n"), get_desc(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
+		add_str(NV_LOG_DEBUG, _T("動き予測                %s\n"), get_desc(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
 	}
 	return str;
 }
