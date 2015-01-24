@@ -26,14 +26,16 @@ typedef struct {
 } guid_desc;
 
 const guid_desc h264_profile_names[] = {
-    { NV_ENC_H264_PROFILE_BASELINE_GUID, _T("Baseline"), 66 },
-    { NV_ENC_H264_PROFILE_MAIN_GUID,     _T("Main"),     77 },
-    { NV_ENC_H264_PROFILE_HIGH_GUID,     _T("High"),    100 },
+    { NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, _T("auto"),      0 },
+    { NV_ENC_H264_PROFILE_BASELINE_GUID,    _T("baseline"), 66 },
+    { NV_ENC_H264_PROFILE_MAIN_GUID,        _T("main"),     77 },
+    { NV_ENC_H264_PROFILE_HIGH_GUID,        _T("high"),    100 },
     //{ NV_ENC_H264_PROFILE_STEREO_GUID,   _T("Stereo"),  128 }
 };
 
 const guid_desc h265_profile_names[] = {
-    { NV_ENC_HEVC_PROFILE_MAIN_GUID, _T("Main"), NV_ENC_TIER_HEVC_MAIN },
+    //{ NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, _T("auto"),                     0 },
+    { NV_ENC_HEVC_PROFILE_MAIN_GUID,        _T("main"), NV_ENC_TIER_HEVC_MAIN },
     //{ NV_ENC_HEVC_PROFILE_HIGH_GUID, _T("High"), NV_ENC_TIER_HEVC_HIGH },
 };
 
@@ -164,6 +166,7 @@ const CX_DESC nvenc_interface_names[] = {
 };
 
 const CX_DESC list_mv_presicion[] = {
+	//{ _T("auto"),     NV_ENC_MV_PRECISION_DEFAULT     },
 	{ _T("full-pel"), NV_ENC_MV_PRECISION_FULL_PEL    },
 	{ _T("half-pel"), NV_ENC_MV_PRECISION_HALF_PEL    },
 	{ _T("Q-pel"),    NV_ENC_MV_PRECISION_QUARTER_PEL },
@@ -171,6 +174,7 @@ const CX_DESC list_mv_presicion[] = {
 };
 
 const CX_DESC list_mv_presicion_ja[] = {
+	//{ _T("自動"),        NV_ENC_MV_PRECISION_DEFAULT     },
 	{ _T("1画素精度"),   NV_ENC_MV_PRECISION_FULL_PEL    },
 	{ _T("1/2画素精度"), NV_ENC_MV_PRECISION_HALF_PEL    },
 	{ _T("1/4画素精度"), NV_ENC_MV_PRECISION_QUARTER_PEL },
@@ -182,6 +186,9 @@ const CX_DESC list_nvenc_rc_method[] = {
 	{ _T("CBR - 固定ビットレート"),                 NV_ENC_PARAMS_RC_CBR       },
 	{ _T("VBR - 可変ビットレート"),                 NV_ENC_PARAMS_RC_VBR       },
 	//{ _T("VBR_MINQP - 下限QP付き可変ビットレート"), NV_ENC_PARAMS_RC_VBR_MINQP },
+	//{ _T("Low Latency 2pass Quality"),              NV_ENC_PARAMS_RC_2_PASS_QUALITY },
+	//{ _T("Low Latency 2pass Frame Size"),           NV_ENC_PARAMS_RC_2_PASS_FRAMESIZE_CAP },
+	//{ _T("2pass VBR - 可変ビットレート"),           NV_ENC_PARAMS_RC_2_PASS_VBR },
 	{ NULL, NULL }
 };
 
@@ -192,14 +199,14 @@ const CX_DESC list_interlaced[] = {
 	{ NULL, NULL }
 };
 const CX_DESC list_entropy_coding[] = {
-	{ _T("auto"),  NV_ENC_H264_ENTROPY_CODING_MODE_AUTOSELECT },
+	//{ _T("auto"),  NV_ENC_H264_ENTROPY_CODING_MODE_AUTOSELECT },
 	{ _T("cabac"), NV_ENC_H264_ENTROPY_CODING_MODE_CABAC      },
 	{ _T("cavlc"), NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC      },
 	{ NULL, NULL }
 };
 
 const CX_DESC list_bdirect[] = {
-	{ _T("auto"),     NV_ENC_H264_BDIRECT_MODE_AUTOSELECT },
+	//{ _T("auto"),     NV_ENC_H264_BDIRECT_MODE_AUTOSELECT },
 	{ _T("disabled"), NV_ENC_H264_BDIRECT_MODE_DISABLE    },
 	{ _T("temporal"), NV_ENC_H264_BDIRECT_MODE_TEMPORAL   },
 	{ _T("spatial"),  NV_ENC_H264_BDIRECT_MODE_SPATIAL    },
