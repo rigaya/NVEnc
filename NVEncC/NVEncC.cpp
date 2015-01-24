@@ -93,6 +93,7 @@ static void show_help() {
 		_T("                                    デフォルト %d kbps\n")
 		_T("\n")
 		_T("   --max-bitrate <int>            最大ビットレート(kbps) / デフォルト: %d kbps\n")
+		_T("   --gop-len <int>                GOPのフレーム数 / デフォルト: %d frames%s")
 		_T("   --bframes <int>                連続Bフレーム数 / デフォルト %d フレーム\n")
 		_T("   --ref <int>                    参照距離 / デフォルト %d フレーム\n")
 		_T("   --mv-precision <string>        動きベクトル精度 / デフォルト: Q-pel\n")
@@ -111,6 +112,7 @@ static void show_help() {
 		(AVS_READER) ? _T("avs, ") : _T(""),
 		DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
 		DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
+		DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (自動)") : _T(""),
 		DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
 
 		print_list_options(stdout, _T("--videoformat <string>"), list_videoformat, 0);
@@ -365,7 +367,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
 				return -1;
 			}
-		} else if (IS_OPTION("gop-length")) {
+		} else if (IS_OPTION("gop-len")) {
 			i_arg++;
 			int value = 0;
 			if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
