@@ -2307,6 +2307,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBAFS;
 			this->fcgCXEncCodec->Size = System::Drawing::Size(160, 22);
 			this->fcgCXEncCodec->TabIndex = 150;
 			this->fcgCXEncCodec->Tag = L"chValue";
+			this->fcgCXEncCodec->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 			// 
 			// fcgNURefFrames
 			// 
