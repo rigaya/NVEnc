@@ -84,6 +84,15 @@
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+      <PreprocessorDefinitions>WIN32;_M_IX86;</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\NVEncCore\inc</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
+    </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -114,6 +123,15 @@
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+      <PreprocessorDefinitions>WIN32;_M_IX86;</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\NVEncCore\inc</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
+    </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
     <ClCompile>
@@ -145,6 +163,15 @@
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+      <PreprocessorDefinitions>WIN32;_M_IX86;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\NVEncCore\inc</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
+    </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="NVEncC.cpp" />
@@ -153,6 +180,12 @@
     <ProjectReference Include="..\NVEncCore\NVEncCore.vcxproj">
       <Project>{1cd1cf80-e971-4a92-93e0-4aea5f4032b5}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="NVEncC_version.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="NVEncC_version.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
