@@ -99,6 +99,7 @@
     </ResourceCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -138,6 +139,7 @@
     </ResourceCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
@@ -176,6 +178,7 @@
     </ResourceCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
