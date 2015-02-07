@@ -435,7 +435,8 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
 			for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)
 				if (0 != (enable_aud_mux = audio_to_mux_is_raw(pe, sys_dat, MODE_ONE | (0x01 << i_aud)) << i_aud))
 					break;
-	} else if (muxer_is_remux_only(pe, sys_dat)) {
+	} else if (conf->vid.afs //自動フィールドシフト(timelineeditor)使用時のみ、個別のmuxが必要となる (timelienedtior実行後、post_muxでここを通る)
+		&& muxer_is_remux_only(pe, sys_dat)) {
 		//mp4用muxer(初期状態)で、動画・音声ともrawなら、raw用muxerに完全に切り替える
 		if ((enable_vid_mux && video_to_mux_is_raw(pe, sys_dat)) && 
 			(enable_aud_mux && audio_to_mux_is_raw(pe, sys_dat, ALL))) {
@@ -450,6 +451,10 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
 					if (AUO_RESULT_SUCCESS != (ret |= run_mux_as(conf, oip, pe, sys_dat, MUXER_MP4_RAW)))
 						return ret;
 		}
+	} else if (pe->muxer_to_be_used == MUXER_MP4 && !conf->vid.afs && str_has_char(sys_dat->exstg->s_mux[MUXER_MP4_RAW].base_cmd)) {
+		//自動フィールドシフト(timelineeditor)使用時以外は、remuxerを使用しなくても良くなった
+		//なので、単純に使用するmuxerをmuxer.exeに切り替え
+		pe->muxer_to_be_used = MUXER_MP4_RAW;
 	}
 
 	//mux処理の開始
