@@ -8,6 +8,7 @@
 //  -----------------------------------------------------------------------------------------
 
 #include <stdio.h>
+#include <stdint.h>
 #include <vector>
 #include <map>
 #include <sstream>
@@ -49,6 +50,32 @@ void adjust_sar(int *sar_w, int *sar_h, int width, int height) {
 		*sar_w = aspect_w / b;
 		*sar_h = aspect_h / b;
 	}
+}
+
+void get_dar_pixels(unsigned int* width, unsigned int* height, int sar_w, int sar_h) {
+	int w = *width;
+	int h = *height;
+	if (0 != (w * h * sar_w * sar_h)) {
+		int x = w * sar_w;
+		int y = h * sar_h;
+		int a = x, b = y, c;
+		while ((c = a % b) != 0)
+			a = b, b = c;
+		x /= b;
+		y /= b;
+		c = ((y + h - 1) / h) * h;
+		*width  = x * c;
+		*height = y * c;
+	}
+}
+
+std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned int darWidth, unsigned int darHeight) {
+	int x = darWidth  * height;
+	int y = darHeight *  width;
+	int a = x, b = y, c;
+	while ((c = a % b) != 0)
+		a = b, b = c;
+	return std::make_pair<int, int>(x / b, y / b);
 }
 
 static const std::map<int, std::pair<int, int>> sar_list = {

@@ -66,6 +66,8 @@ UINT64 getPhysicalRamSize(UINT64 *ramUsed);
 void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size);
 
 void adjust_sar(int *sar_w, int *sar_h, int width, int height);
+void get_dar_pixels(unsigned int* width, unsigned int* height, int sar_w, int sar_h);
+std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned int darWidth, unsigned int darHeight);
 
 //拡張子が一致するか確認する
 static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {

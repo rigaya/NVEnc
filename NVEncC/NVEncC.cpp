@@ -85,6 +85,8 @@ static void show_help() {
 		_T("   --profile <string>             プロファイルの指定\n")
 		_T("                                    H.264: baseline, main, high(デフォルト)\n")
 		_T("   --level <string>               Levelの指定\n")
+		_T("   --sar <int>:<int>              SAR(PAR, 画素比)の指定\n")
+		_T("   --dar <int>:<int>              DAR(画面比)の指定\n")
 		_T("\n")
 		_T("   --cqp <int> or                 固定量子化量でエンコード\n")
 		_T("         <int>:<int>:<int>          デフォルト: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
@@ -506,6 +508,23 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				flag = true;
 			}
 			if (!flag) {
+				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				return -1;
+			}
+		} else if (IS_OPTION("sar") || IS_OPTION("par") || IS_OPTION("dar")) {
+			i_arg++;
+			int a[2] = { 0 };
+			if (   2 == _stscanf_s(argv[i_arg], _T("%d:%d"), &a[0], &a[1])
+				|| 2 == _stscanf_s(argv[i_arg], _T("%d/%d"), &a[0], &a[1])
+				|| 2 == _stscanf_s(argv[i_arg], _T("%d.%d"), &a[0], &a[1])
+				|| 2 == _stscanf_s(argv[i_arg], _T("%d,%d"), &a[0], &a[1])) {
+				if (IS_OPTION("dar")) {
+					a[0] = -a[0];
+					a[1] = -a[1];
+				}
+				conf_set->par[0] = a[0];
+				conf_set->par[1] = a[1];
+			} else {
 				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
 				return -1;
 			}

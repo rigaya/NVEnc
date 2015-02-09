@@ -983,14 +983,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 	//SAR自動設定
 	std::pair<int, int> par = std::make_pair(inputParam->par[0], inputParam->par[1]);
 	adjust_sar(&par.first, &par.second, m_uEncWidth, m_uEncHeight);
-	int sar_idx = get_h264_sar_idx(par);
-	if (sar_idx < 0) {
-		NVPrintf(stderr, NV_LOG_WARN, _T("適切なSAR値を決定できませんでした。\n"));
-		sar_idx = 0;
-	}
-	if (sar_idx) {
-		;//と思ったが、aspect_ratioは設定できないのかな?
-	}
+
 	//色空間設定自動
 	int frame_height = m_uEncHeight;
 	auto apply_auto_colormatrix = [frame_height](uint32_t& value, const CX_DESC *list) {
@@ -1004,10 +997,11 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
 	INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
 	m_stCreateEncodeParams.encodeConfig        = &m_stEncConfig;
-	m_stCreateEncodeParams.darHeight           = m_uEncHeight;
-	m_stCreateEncodeParams.darWidth            = m_uEncWidth;
 	m_stCreateEncodeParams.encodeHeight        = m_uEncHeight;
 	m_stCreateEncodeParams.encodeWidth         = m_uEncWidth;
+	m_stCreateEncodeParams.darHeight           = m_uEncHeight;
+	m_stCreateEncodeParams.darWidth            = m_uEncWidth;
+	get_dar_pixels(&m_stCreateEncodeParams.darWidth, &m_stCreateEncodeParams.darHeight, par.first, par.second);
 
 	m_stCreateEncodeParams.maxEncodeHeight     = m_uEncHeight;
 	m_stCreateEncodeParams.maxEncodeWidth      = m_uEncWidth;
@@ -1336,6 +1330,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	getGPUInfo("NVIDIA", gpu_info, _countof(gpu_info));
 
 	int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
+	auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
 
 	add_str(NV_LOG_ERROR, _T("NVEnc %s (%s), using NVENC API v%d.%d\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
 	add_str(NV_LOG_INFO,  _T("OS バージョン           %s (%s)\n"), getOSVersion(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
@@ -1345,7 +1340,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 	add_str(NV_LOG_ERROR, _T("入力フレーム情報        %s\n"), m_pInput->getInputMes());
 	add_str(NV_LOG_ERROR, _T("出力動画情報            %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
 		(codec == NV_ENC_H264) ? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
-	add_str(NV_LOG_ERROR, _T("                        %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), 0,0, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
+	add_str(NV_LOG_ERROR, _T("                        %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), sar.first, sar.second, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
 	add_str(NV_LOG_DEBUG, _T("Encoder Preset          %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, preset_names));
 	add_str(NV_LOG_ERROR, _T("レート制御モード        %s\n"), get_desc(list_nvenc_rc_method, m_stEncConfig.rcParams.rateControlMode));
 	if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
