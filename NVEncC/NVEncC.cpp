@@ -582,12 +582,14 @@ int _tmain(int argc, TCHAR **argv) {
 
 	encPrm.encConfig.encodeCodecConfig = codecPrm[encPrm.codec];
 
+	int ret = 1;
+
 	NVEncCore nvEnc;
+	if (   NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
+		&& NV_ENC_SUCCESS == nvEnc.InitEncode(&encPrm)) {
+		nvEnc.PrintEncodingParamsInfo(NV_LOG_INFO);
+		ret = (NV_ENC_SUCCESS == nvEnc.Encode()) ? 0 : 1;
+	}
 
-	nvEnc.Initialize(&encPrm);
-	nvEnc.InitEncode(&encPrm);
-	nvEnc.PrintEncodingParamsInfo(NV_LOG_INFO);
-	nvEnc.Encode();
-
-	return 0;
+	return ret;
 }
