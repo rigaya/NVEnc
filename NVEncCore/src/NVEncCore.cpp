@@ -1064,6 +1064,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
 	//入力ファイルを開き、入力情報も取得
 	if (NV_ENC_SUCCESS != (nvStatus = InitInput(inputParam))) {
 		NVPrintf(stderr, NV_LOG_ERROR, _T("入力ファイルを開けませんでした。\n"));
+		NVPrintf(stderr, NV_LOG_ERROR, m_pInput->getInputMes());
 		return nvStatus;
 	}
 
