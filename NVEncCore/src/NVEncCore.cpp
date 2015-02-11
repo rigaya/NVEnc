@@ -1241,6 +1241,7 @@ NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamH264() {
 	config.h264Config.maxNumRefFrames            = DEFAULT_REF_FRAMES;
 	config.h264Config.bdirectMode                = (DEFAULT_B_FRAMES > 0) ? NV_ENC_H264_BDIRECT_MODE_SPATIAL : NV_ENC_H264_BDIRECT_MODE_DISABLE;
 	config.h264Config.adaptiveTransformMode      = NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE;
+	config.h264Config.entropyCodingMode          = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
 
 	config.h264Config.h264VUIParameters.overscanInfo = 0;
 	config.h264Config.h264VUIParameters.colourMatrix            = get_cx_value(list_colormatrix, _T("undef"));
