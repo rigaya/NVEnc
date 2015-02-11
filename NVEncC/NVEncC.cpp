@@ -78,6 +78,7 @@ static void show_help() {
 		//_T("   --vpy-mt                       vpy(mt)としてファイルを読み込み\n")
 		_T("\n")
 		_T("   --input-res <int>x<int>        入力解像度\n")
+		_T("   --crop <int>,<int>,<int>,<int> 左、上、右、下の切り落とし画素数\n")
 		_T("-f,--fps <int>/<int> or <float>   フレームレートの指定\n")
 		_T("\n")
 		_T("-c,--codec <string>               出力コーデックの指定\n")
@@ -303,6 +304,16 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				|| 2 == _stscanf_s(argv[i_arg], _T("%d,%d"), &a[0], &a[1])) {
 				conf_set->input.width  = a[0];
 				conf_set->input.height = a[1];
+			} else {
+				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				return -1;
+			}
+		} else if (IS_OPTION("crop")) {
+			i_arg++;
+			int a[4] = { 0 };
+			if (   4 == _stscanf_s(argv[i_arg], _T("%d,%d,%d,%d"), &a[0], &a[1], &a[2], &a[3])
+				|| 4 == _stscanf_s(argv[i_arg], _T("%d:%d:%d:%d"), &a[0], &a[1], &a[2], &a[3])) {
+				memcpy(conf_set->input.crop, a, sizeof(conf_set->input.crop));
 			} else {
 				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
 				return -1;

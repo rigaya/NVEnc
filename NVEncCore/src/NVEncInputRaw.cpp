@@ -181,7 +181,7 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
 	}
 	void *dst_array[3];
 	dst_array[0] = dst;
-	dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * m_stSurface.height;
+	dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]);
 
 	const void *src_array[3];
 	src_array[0] = m_inputBuffer;

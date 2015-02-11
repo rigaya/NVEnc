@@ -200,7 +200,7 @@ int NVEncInputAvs::LoadNextFrame(void *dst, int dst_pitch) {
 
 	void *dst_array[3];
 	dst_array[0] = dst;
-	dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * m_stSurface.height;
+	dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]);
 
 	const void *src_array[3] = { avs_get_read_ptr_p(frame, AVS_PLANAR_Y), avs_get_read_ptr_p(frame, AVS_PLANAR_U), avs_get_read_ptr_p(frame, AVS_PLANAR_V) };
 	//if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {

@@ -909,11 +909,23 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 		return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	}
 
-	if ((m_uEncWidth & 1) || (m_uEncHeight & (1 + 2 * !!is_interlaced(inputParam->picStruct)))) {
+	const int height_check_mask = 1 + 2 * !!is_interlaced(inputParam->picStruct);
+	if ((m_uEncWidth & 1) || (m_uEncHeight & height_check_mask)) {
 		NVPrintf(stderr, NV_LOG_ERROR, _T("解像度が無効です。: %dx%d\n"), m_uEncWidth, m_uEncHeight);
 		NVPrintf(stderr, NV_LOG_ERROR, _T("縦横の解像度は2の倍数である必要があります。\n"));
 		if (is_interlaced(inputParam->picStruct)) {
 			NVPrintf(stderr, NV_LOG_ERROR, _T("さらに、インタレ保持エンコードでは縦解像度は4の倍数である必要があります。\n"));
+		}
+		return NV_ENC_ERR_UNSUPPORTED_PARAM;
+	}
+	if ((inputParam->input.crop[0] & 1) || (inputParam->input.crop[2] & 1)
+		|| (inputParam->input.crop[1] & height_check_mask) || (inputParam->input.crop[3] & height_check_mask)) {
+		NVPrintf(stderr, NV_LOG_ERROR, _T("Crop値が無効です。: %dx%d, Crop [%d,%d,%d,%d]\n"),
+			inputParam->input.width, inputParam->input.height,
+			inputParam->input.crop[0], inputParam->input.crop[1], inputParam->input.crop[2], inputParam->input.crop[3]);
+		NVPrintf(stderr, NV_LOG_ERROR, _T("Crop値は2の倍数である必要があります。\n"));
+		if (is_interlaced(inputParam->picStruct)) {
+			NVPrintf(stderr, NV_LOG_ERROR, _T("さらに、インタレ保持エンコードでは縦Crop値は4の倍数である必要があります。\n"));
 		}
 		return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	}
