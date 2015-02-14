@@ -25,6 +25,9 @@ static void show_version() {
 #else
 	_ftprintf(stdout, _T("NVEncC (x64) %s by rigaya, build %s %s\n"), VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
 #endif
+	_ftprintf(stdout, _T("  avi reader: %s\n"), ENABLED_INFO[!!AVI_READER]);
+	_ftprintf(stdout, _T("  avs reader: %s\n"), ENABLED_INFO[!!AVS_READER]);
+	_ftprintf(stdout, _T("  vpy reader: %s\n"), ENABLED_INFO[!!VPY_READER]);
 	_ftprintf(stdout, _T("\n"));
 }
 

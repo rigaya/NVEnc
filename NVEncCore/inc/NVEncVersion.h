@@ -27,7 +27,11 @@
 #else
 #define RAW_READER 1
 #define AVI_READER 0
+#ifdef _M_IX86
 #define AVS_READER 1
+#else
+#define AVS_READER 0
+#endif
 #define VPY_READER 1
 #endif
 

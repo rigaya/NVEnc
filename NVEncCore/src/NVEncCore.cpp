@@ -145,9 +145,13 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 			inputParam->input.type = NV_ENC_INPUT_RAW;
 		}
 	}
-
+	
+#if AVS_READER
 	InputInfoAvs inputInfoAvs = { 0 };
+#endif
+#if VPY_READER
 	InputInfoVpy inputInfoVpy = { 0 };
+#endif
 
 	switch (inputParam->input.type) {
 #if AVS_READER
