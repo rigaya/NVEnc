@@ -169,6 +169,7 @@
     <ClCompile Include="src\NVEncInput.cpp" />
     <ClCompile Include="src\NVEncInputAvs.cpp" />
     <ClCompile Include="src\NVEncInputRaw.cpp" />
+    <ClCompile Include="src\NVEncInputVpy.cpp" />
     <ClCompile Include="src\NvEncoderPerf.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -188,6 +189,7 @@
     <ClInclude Include="inc\NVEncInput.h" />
     <ClInclude Include="inc\NVEncInputAvs.h" />
     <ClInclude Include="inc\NVEncInputRaw.h" />
+    <ClInclude Include="inc\NVEncInputVpy.h" />
     <ClInclude Include="inc\NvEncoderPerf.h" />
     <ClInclude Include="inc\NVEncCore.h" />
     <ClInclude Include="inc\NVEncParam.h" />

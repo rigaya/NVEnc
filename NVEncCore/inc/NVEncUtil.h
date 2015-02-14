@@ -44,8 +44,9 @@ static tstring to_tchar(const char *string) {
 	return tstr;
 }
 
-static inline int nv_get_gcd(int a, int b) {
-	int c;
+template<typename T>
+static inline T nv_get_gcd(T a, T b) {
+	T c;
 	while ((c = a % b) != 0)
 		a = b, b = c;
 	return b;

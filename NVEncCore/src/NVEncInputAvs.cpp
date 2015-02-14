@@ -152,7 +152,7 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 		return 1;
 	}
 	
-	int fps_gcd = nv_get_gcd(m_sAVSinfo->fps_numerator, m_sAVSinfo->fps_denominator);
+	uint32_t fps_gcd = nv_get_gcd(m_sAVSinfo->fps_numerator, m_sAVSinfo->fps_denominator);
 	pStatus->m_sData.frameTotal = m_sAVSinfo->num_frames;
 	m_nMaxFrame = m_sAVSinfo->num_frames;
 	inputPrm->width = m_sAVSinfo->width;

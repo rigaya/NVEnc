@@ -24,6 +24,7 @@
 #include "NVEncInput.h"
 #include "NVEncInputRaw.h"
 #include "NVEncInputAvs.h"
+#include "NVEncInputVpy.h"
 #include "helper_nvenc.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
@@ -136,12 +137,17 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 		} else if (0 == _tcsicmp(_T(".avs"), PathFindExtension(inputParam->input.filename.c_str()))) {
 			inputParam->input.type = NV_ENC_INPUT_AVS;
 #endif
+#if VPY_READER
+		} else if (0 == _tcsicmp(_T(".vpy"), PathFindExtension(inputParam->input.filename.c_str()))) {
+			inputParam->input.type = NV_ENC_INPUT_VPY_MT;
+#endif
 		} else {
 			inputParam->input.type = NV_ENC_INPUT_RAW;
 		}
 	}
 
 	InputInfoAvs inputInfoAvs = { 0 };
+	InputInfoVpy inputInfoVpy = { 0 };
 
 	switch (inputParam->input.type) {
 #if AVS_READER
@@ -150,7 +156,16 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 		inputParam->input.otherPrm = &inputInfoAvs;
 		m_pInput = new NVEncInputAvs();
 		break;
-#endif
+#endif //AVS_READER
+#if VPY_READER
+	case NV_ENC_INPUT_VPY:
+	case NV_ENC_INPUT_VPY_MT:
+		inputInfoVpy.interlaced = is_interlaced(inputParam->picStruct);
+		inputInfoVpy.mt = (inputParam->input.type == NV_ENC_INPUT_VPY_MT);
+		inputParam->input.otherPrm = &inputInfoVpy;
+		m_pInput = new NVEncInputVpy();
+		break;
+#endif //VPY_READER
 	case NV_ENC_INPUT_RAW:
 	case NV_ENC_INPUT_Y4M:
 	default:
@@ -165,7 +180,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 	return (ret) ? NV_ENC_ERR_GENERIC : NV_ENC_SUCCESS;
 #else
 	return NV_ENC_ERR_INVALID_CALL;
-#endif
+#endif //RAW_READER
 }
 #pragma warning(pop)
 

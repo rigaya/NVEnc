@@ -26,7 +26,11 @@ enum {
 	NV_ENC_INPUT_AVI,
 #endif
 #if AVS_READER
-	NV_ENC_INPUT_AVS
+	NV_ENC_INPUT_AVS,
+#endif
+#if VPY_READER
+	NV_ENC_INPUT_VPY,
+	NV_ENC_INPUT_VPY_MT,
 #endif
 };
 

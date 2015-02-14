@@ -23,9 +23,11 @@
 #define RAW_READER 0
 #define AVI_READER 0
 #define AVS_READER 0
+#define VPY_READER 0
 #else
 #define RAW_READER 1
 #define AVI_READER 0
 #define AVS_READER 1
+#define VPY_READER 1
 #endif
 

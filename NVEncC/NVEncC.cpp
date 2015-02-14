@@ -83,8 +83,10 @@ static void show_help() {
 #if AVS_READER
 		_T("   --avs                          avsとしてファイルを読み込み\n")
 #endif
-		//_T("   --vpy                          vpyとしてファイルを読み込み\n")
-		//_T("   --vpy-mt                       vpy(mt)としてファイルを読み込み\n")
+#if VPY_READER
+		_T("   --vpy                          vpyとしてファイルを読み込み\n")
+		_T("   --vpy-mt                       vpy(mt)としてファイルを読み込み\n")
+#endif
 		_T("\n")
 		_T("   --input-res <int>x<int>        入力解像度\n")
 		_T("   --crop <int>,<int>,<int>,<int> 左、上、右、下の切り落とし画素数\n")
@@ -347,6 +349,12 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 #if AVS_READER
 		} else if (IS_OPTION("avs")) {
 			conf_set->input.type = NV_ENC_INPUT_AVS;
+#endif
+#if VPY_READER
+		} else if (IS_OPTION("vpy")) {
+			conf_set->input.type = NV_ENC_INPUT_VPY;
+		} else if (IS_OPTION("vpy-mt")) {
+			conf_set->input.type = NV_ENC_INPUT_VPY_MT;
 #endif
 		} else if (IS_OPTION("cqp")) {
 			i_arg++;
