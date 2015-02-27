@@ -48,7 +48,7 @@ DWORD GetExePriority(DWORD set, HANDLE h_aviutl); //実行ファイルに指定�
 AUO_RESULT getLogFilePath(char *log_file_path, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const CONF_GUIEX *conf, const OUTPUT_INFO *oip);
 
 int check_video_ouput(const CONF_GUIEX *conf, const OUTPUT_INFO *oip);
-int check_muxer_to_be_used(const CONF_GUIEX *conf, int video_output_type, BOOL audio_output);
+int check_muxer_to_be_used(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, const char *temp_filename, int video_output_type, BOOL audio_output);
 
 double get_duration(const OUTPUT_INFO *oip, const PRM_ENC *pe);
 

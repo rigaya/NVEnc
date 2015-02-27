@@ -178,7 +178,6 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
 	sys_dat->exstg->load_fn_replace();
 
 	pe->video_out_type = check_video_ouput(conf, oip);
-	pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
 	memcpy(&pe->append, &sys_dat->exstg->s_append, sizeof(FILE_APPENDIX));
 
 	char filename_replace[MAX_PATH_LEN];
@@ -202,6 +201,11 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
 	strcpy_s(filename_replace, _countof(filename_replace), PathFindFileName(oip->savefile));
 	sys_dat->exstg->apply_fn_replace(filename_replace, _countof(filename_replace));
 	PathCombineLong(pe->temp_filename, _countof(pe->temp_filename), pe->temp_filename, filename_replace);
+
+	//ESしか出せないので拡張子を変更
+	change_ext(pe->temp_filename, _countof(pe->temp_filename), (conf->nvenc.codec == NV_ENC_H264) ? ".264" : ".265");
+
+	pe->muxer_to_be_used = check_muxer_to_be_used(conf, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
 	
 	//FAWチェックとオーディオディレイの修正
 	if (conf->aud.faw_check)
@@ -499,27 +503,46 @@ DWORD GetExePriority(DWORD set, HANDLE h_aviutl) {
 		return priority_table[set].value;
 }
 
+int check_video_ouput(const char *filename) {
+	if (check_ext(filename, ".mp4"))  return VIDEO_OUTPUT_MP4;
+	if (check_ext(filename, ".mkv"))  return VIDEO_OUTPUT_MKV;
+	return VIDEO_OUTPUT_RAW;
+}
+
 int check_video_ouput(const CONF_GUIEX *conf, const OUTPUT_INFO *oip) {
 	if ((oip->flag & OUTPUT_INFO_FLAG_VIDEO) && !conf->oth.out_audio_only) {
-		if (check_ext(oip->savefile, ".mp4"))  return VIDEO_OUTPUT_MP4;
-		if (check_ext(oip->savefile, ".mkv"))  return VIDEO_OUTPUT_MKV;
-		return VIDEO_OUTPUT_RAW;
+		return check_video_ouput(oip->savefile);
 	}
 	return VIDEO_OUTPUT_DISABLED;
 }
-#pragma warning( push )
-#pragma warning( disable: 4100 )
-int check_muxer_to_be_used(const CONF_GUIEX *conf, int video_output_type, BOOL audio_output) {
-	if (video_output_type == VIDEO_OUTPUT_MP4 && !conf->mux.disable_mp4ext)
-		return (conf->vid.afs) ? MUXER_TC2MP4 : MUXER_MP4;
-	else if (video_output_type == VIDEO_OUTPUT_MKV && !conf->mux.disable_mkvext)
-		return MUXER_MKV;
-	else if (video_output_type == VIDEO_OUTPUT_MPEG2 && !conf->mux.disable_mpgext)
-		return MUXER_MPG;
-	else
-		return MUXER_DISABLED;
+
+BOOL check_output_has_chapter(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, int muxer_to_be_used) {
+	BOOL has_chapter = FALSE;
+	if (muxer_to_be_used == MUXER_MKV || muxer_to_be_used == MUXER_TC2MP4 || muxer_to_be_used == MUXER_MP4) {
+		const MUXER_CMD_EX *muxer_mode = &sys_dat->exstg->s_mux[muxer_to_be_used].ex_cmd[(muxer_to_be_used == MUXER_MKV) ? conf->mux.mkv_mode : conf->mux.mp4_mode];
+		has_chapter = str_has_char(muxer_mode->chap_file);
+	}
+	return has_chapter;
 }
-#pragma warning( pop )
+
+int check_muxer_to_be_used(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, const char *temp_filename, int video_output_type, BOOL audio_output) {
+	int muxer_to_be_used = MUXER_DISABLED;
+	if (video_output_type == VIDEO_OUTPUT_MP4 && !conf->mux.disable_mp4ext)
+		muxer_to_be_used = (conf->vid.afs) ? MUXER_TC2MP4 : MUXER_MP4;
+	else if (video_output_type == VIDEO_OUTPUT_MKV && !conf->mux.disable_mkvext)
+		muxer_to_be_used = MUXER_MKV;
+	else if (video_output_type == VIDEO_OUTPUT_MPEG2 && !conf->mux.disable_mpgext)
+		muxer_to_be_used = MUXER_MPG;
+	
+	//muxerが必要ないかどうかチェック
+	BOOL no_muxer = TRUE;
+	no_muxer &= !audio_output;
+	no_muxer &= !conf->vid.afs;
+	no_muxer &= video_output_type == check_video_ouput(temp_filename);
+	no_muxer &= !check_output_has_chapter(conf, sys_dat, muxer_to_be_used);
+	return (no_muxer) ? MUXER_DISABLED : muxer_to_be_used;
+}
+
 AUO_RESULT getLogFilePath(char *log_file_path, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const CONF_GUIEX *conf, const OUTPUT_INFO *oip) {
 	AUO_RESULT ret = AUO_RESULT_SUCCESS;
 	guiEx_settings stg(TRUE); //ログウィンドウの保存先設定は最新のものを使用する

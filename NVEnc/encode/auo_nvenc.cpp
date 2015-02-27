@@ -48,7 +48,7 @@ static int calc_input_frame_size(int width, int height, int color_format) {
 	return width * height * COLORFORMATS[color_format].size;
 }
 
-BOOL setup_afsvideo(const OUTPUT_INFO *oip, CONF_GUIEX *conf, PRM_ENC *pe, BOOL auto_afs_disable) {
+BOOL setup_afsvideo(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, CONF_GUIEX *conf, PRM_ENC *pe) {
 	//すでに初期化してある または 必要ない
 	if (pe->afs_init || pe->video_out_type == VIDEO_OUTPUT_DISABLED || !conf->vid.afs)
 		return TRUE;
@@ -59,16 +59,16 @@ BOOL setup_afsvideo(const OUTPUT_INFO *oip, CONF_GUIEX *conf, PRM_ENC *pe, BOOL 
 	if (afs_vbuf_setup((OUTPUT_INFO *)oip, conf->vid.afs, frame_size, COLORFORMATS[color_format].FOURCC)) {
 		pe->afs_init = TRUE;
 		return TRUE;
-	} else if (conf->vid.afs && auto_afs_disable) {
+	} else if (conf->vid.afs && sys_dat->exstg->s_local.auto_afs_disable) {
 		afs_vbuf_release(); //一度解放
 		warning_auto_afs_disable();
 		conf->vid.afs = FALSE;
 		//再度使用するmuxerをチェックする
-		pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
+		pe->muxer_to_be_used = check_muxer_to_be_used(conf, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
 		return TRUE;
 	}
 	//エラー
-	error_afs_setup(conf->vid.afs, auto_afs_disable);
+	error_afs_setup(conf->vid.afs, sys_dat->exstg->s_local.auto_afs_disable);
 	return FALSE;
 }
 
@@ -151,7 +151,7 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 	enable_enc_control(&m_pause, pe->afs_init, FALSE, timeGetTime(), oip->n);
 
 	if (conf->vid.afs) {
-		if (!setup_afsvideo(oip, conf, pe, FALSE)) {
+		if (!setup_afsvideo(oip, info->sys_dat, conf, pe)) {
 			m_inputMes = _T("raw: 自動フィールドシフトの初期化に失敗しました。\n");
 			return 1;
 		}

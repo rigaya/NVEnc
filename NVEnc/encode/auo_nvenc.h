@@ -24,6 +24,7 @@
 
 typedef struct InputInfoAuo {
 	const OUTPUT_INFO *oip;
+	const SYSTEM_DATA *sys_dat;
 	CONF_GUIEX *conf;
 	PRM_ENC *pe;
 	int *jitter;

@@ -156,7 +156,7 @@ BOOL func_output( OUTPUT_INFO *oip )
 	pe.h_p_aviutl = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, GetCurrentProcessId()); //※2 start
 
 	//チェックを行い、エンコード可能ならエンコードを開始する
-	if (check_output(&conf_out, oip, &pe, sys_dat.exstg) && setup_afsvideo(oip, &conf_out, &pe, sys_dat.exstg->s_local.auto_afs_disable)) { //※3 start
+	if (check_output(&conf_out, oip, &pe, sys_dat.exstg) && setup_afsvideo(oip, &sys_dat, &conf_out, &pe)) { //※3 start
 
 		ret |= run_bat_file(&conf_out, oip, &pe, &sys_dat, RUN_BAT_BEFORE);
 

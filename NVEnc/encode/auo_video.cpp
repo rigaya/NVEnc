@@ -158,13 +158,11 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	if (pe->video_out_type == VIDEO_OUTPUT_DISABLED)
 		return AUO_RESULT_SUCCESS;
 
-	//ESしか出せないので拡張子を変更
-	change_ext(pe->temp_filename, _countof(pe->temp_filename), (conf->nvenc.codec == NV_ENC_H264) ? ".264" : ".265");
-
 	InputInfoAuo inputInfoAuo = { 0 };
 	inputInfoAuo.conf = conf;
 	inputInfoAuo.oip = oip;
 	inputInfoAuo.pe = pe;
+	inputInfoAuo.sys_dat = sys_dat;
 	inputInfoAuo.interlaced = is_interlaced(conf->nvenc.pic_struct);
 
 	InEncodeVideoParam encPrm = { 0 };
