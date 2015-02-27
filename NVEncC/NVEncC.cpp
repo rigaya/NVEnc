@@ -218,10 +218,10 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 					option_name = _T("fps");
 					break;
 				case _T('i'):
-					option_name = _T("input-file");
+					option_name = _T("input");
 					break;
 				case _T('o'):
-					option_name = _T("output-file");
+					option_name = _T("output");
 					break;
 				case _T('v'):
 					option_name = _T("version");
@@ -277,10 +277,10 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 		} else if (IS_OPTION("check-features")) {
 			show_nvenc_features();
 			return 1;
-		} else if (IS_OPTION("input-file")) {
+		} else if (IS_OPTION("input")) {
 			i_arg++;
 			conf_set->input.filename = argv[i_arg];
-		} else if (IS_OPTION("output-file")) {
+		} else if (IS_OPTION("output")) {
 			i_arg++;
 			conf_set->outputFilename = argv[i_arg];
 		} else if (IS_OPTION("fps")) {
