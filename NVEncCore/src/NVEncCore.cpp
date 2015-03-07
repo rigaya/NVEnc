@@ -118,8 +118,23 @@ int NVEncCore::NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) {
 	TCHAR *const buffer = (TCHAR*)malloc((len+1) * sizeof(buffer[0])); // _vscprintf doesn't count terminating '\0'
 
 	_vstprintf_s(buffer, len+1, format, args);
+	
+#ifdef UNICODE
+	DWORD mode = 0;
+	bool write_with_wchar = fp == stderr && 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
 
-	_ftprintf(fp, buffer);
+	if (!write_with_wchar) {
+		char *buffer_char = nullptr;
+		//出力先がリダイレクトされるならANSIで
+		if (nullptr != (buffer_char = (char *)calloc(len * 2, sizeof(buffer_char[0])))) {
+			WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, buffer, -1, buffer_char, len * 2, NULL, NULL);
+			fprintf(fp, buffer_char);
+			free(buffer_char);
+		}
+	}
+	if (write_with_wchar) //出力先がコンソールならWCHARで
+#endif
+		_ftprintf(fp, buffer);
 
 	return len;
 }
