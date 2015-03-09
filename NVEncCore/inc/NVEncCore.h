@@ -160,6 +160,9 @@ protected:
 	
 	//既定の出力先に情報をメッセージを出力
 	virtual int NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...);
+	
+	//特定の関数でのエラーを表示
+	void NVPrintFuncError(const TCHAR *funcName, NVENCSTATUS nvStatus);
 
 	//エンコーダへの入力を初期化
 	virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam);

@@ -120,7 +120,7 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 		m_fp = stdin;
 	} else {
 		if (_tfopen_s(&m_fp, inputPrm->filename.c_str(), _T("rb")) || NULL == m_fp) {
-			m_inputMes = _T("raw: 入力ファイルのオープンに失敗しました。\n");
+			m_inputMes = _T("raw: Failed to open input file.\n");
 			return 1;
 		}
 	}
@@ -136,7 +136,7 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 		}
 	}
 	if (NULL == (m_inputBuffer = (uint8_t *)_aligned_malloc(inputPrm->width * inputPrm->height * 3 / 2, 32))) {
-		m_inputMes = _T("raw: 入力用バッファの確保に失敗しました。\n");
+		m_inputMes = _T("raw: Failed to allocate input buffer.\n");
 		return 1;
 	}
 

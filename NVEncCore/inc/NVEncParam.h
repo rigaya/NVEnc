@@ -192,10 +192,21 @@ const CX_DESC list_nvenc_rc_method[] = {
 	{ NULL, NULL }
 };
 
+const CX_DESC list_nvenc_rc_method_ja[] = {
+	{ _T("CQP"),                          NV_ENC_PARAMS_RC_CONSTQP   },
+	{ _T("CBR"),                          NV_ENC_PARAMS_RC_CBR       },
+	{ _T("VBR"),                          NV_ENC_PARAMS_RC_VBR       },
+	//{ _T("VBR_MINQP"),                    NV_ENC_PARAMS_RC_VBR_MINQP },
+	//{ _T("Low Latency 2pass Quality"),    NV_ENC_PARAMS_RC_2_PASS_QUALITY },
+	//{ _T("Low Latency 2pass Frame Size"), NV_ENC_PARAMS_RC_2_PASS_FRAMESIZE_CAP },
+	//{ _T("2pass VBR"),                    NV_ENC_PARAMS_RC_2_PASS_VBR },
+	{ NULL, NULL }
+};
+
 const CX_DESC list_interlaced[] = {
-	{ _T("Progressive"), NV_ENC_PIC_STRUCT_FRAME            },
-	{ _T("Interlaced"),  NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM },
-	//{ _T("bff"),         NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM },
+	{ _T("progressive"), NV_ENC_PIC_STRUCT_FRAME            },
+	{ _T("tff"),         NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM },
+	{ _T("bff"),         NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP },
 	{ NULL, NULL }
 };
 const CX_DESC list_entropy_coding[] = {

@@ -20,11 +20,13 @@
 #endif
 
 #ifdef NVENC_AUO
+#define FOR_AUO    1
 #define RAW_READER 0
 #define AVI_READER 0
 #define AVS_READER 0
 #define VPY_READER 0
 #else
+#define FOR_AUO    0
 #define RAW_READER 1
 #define AVI_READER 0
 #ifdef _M_IX86

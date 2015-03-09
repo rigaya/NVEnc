@@ -8,6 +8,7 @@
 //  -----------------------------------------------------------------------------------------
 
 #include <Windows.h>
+#include <locale.h>
 #include <tchar.h>
 #include <locale.h>
 #include <algorithm>
@@ -17,6 +18,11 @@
 #include "NVEncCore.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
+
+bool check_locale_is_ja() {
+	const WORD LangID_ja_JP = MAKELANGID(LANG_JAPANESE, SUBLANG_JAPANESE_JAPAN);
+	return GetUserDefaultLangID() == LangID_ja_JP;
+}
 
 static void show_version() {
 	static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
@@ -53,7 +59,7 @@ static void print_list_options(FILE *fp, TCHAR *option_name, const CX_DESC *list
 	_ftprintf(fp, _T("\n%s default: %s\n"), indent_space, list[default_index].desc);
 }
 
-static void show_help() {
+static void show_help_ja() {
 	show_version();
 
 	_ftprintf(stdout, _T("使用方法: NVEncC.exe [オプション] -i <入力ファイル名> -o <出力ファイル名>\n"));
@@ -69,6 +75,8 @@ static void show_help() {
 		_T("\n")
 		_T("オプション: \n")
 		_T("-h,-? --help                      ヘルプの表示\n")
+		_T("   --help-ja                      ヘルプの表示(日本語)\n")
+		_T("   --help-en                      ヘルプの表示(英語)\n")
 		_T("-v,--version                      バージョン情報の表示\n")
 		_T("   --check-hw                     NVEncが使用可能かチェック\n")
 		_T("   --check-features               NVEncの使用可能な機能を表示\n")
@@ -144,6 +152,103 @@ static void show_help() {
 			_T("                                    8, 16, 32 を指定可能"));
 }
 
+static void show_help_en() {
+	show_version();
+
+	_ftprintf(stdout, _T("Usage: NVEncC.exe [Options] -i <input file> -o <output file>\n"));
+	_ftprintf(stdout, _T("\n")
+		_T("Input can be %s%sraw YUV, YUV4MPEG2(y4m).\n")
+		_T("When Input is in raw format, fps, input-res is required.\n")
+		_T("\n")
+		_T("Ouput format will be in raw H.264/AVC or H.265/HEVC ES.\n")
+		_T("\n")
+		_T("Example:\n")
+		_T("  NVEncC -i \"<avsfilename>\" -o \"<outfilename>\"\n")
+		_T("  avs2pipemod -y4mp \"<avsfile>\" | NVEncC --y4m -i - -o \"<outfilename>\"\n")
+		_T("\n")
+		_T("Options: \n")
+		_T("-h,-? --help                      print help\n")
+		_T("   --help-ja                      print help in Japanese\n")
+		_T("   --help-en                      print help in English\n")
+		_T("-v,--version                      print version info\n")
+		_T("   --check-hw                     Check for NVEnc\n")
+		_T("   --check-features               Check for NVEnc Features\n")
+		_T("   --check-environment            Check for Environment Info\n")
+		_T("\n")
+		_T("-i,--input <filename>             set input filename\n")
+		_T("-o,--output <filename>            set output filename\n")
+		_T("\n")
+		_T(" Input formats (auto detected from extension of not set)\n")
+		_T("   --raw                          set input as raw format\n")
+		_T("   --y4m                          set input as y4m format\n")
+#if AVI_READER
+		_T("   --avi                          set input as avi format\n")
+#endif
+#if AVS_READER
+		_T("   --avs                          set input as avs format\n")
+#endif
+#if VPY_READER
+		_T("   --vpy                          set input as vpy format\n")
+		_T("   --vpy-mt                       set input as vpy(mt) format\n")
+#endif
+		_T("\n")
+		_T("   --input-res <int>x<int>        set input resolution\n")
+		_T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
+		_T("-f,--fps <int>/<int> or <float>   set framerate\n")
+		_T("\n")
+		_T("-c,--codec <string>               set ouput codec\n")
+		_T("                                    h264 (or avc), h265 (or hevc)\n")
+		_T("   --profile <string>             set codec profile\n")
+		_T("                                    H.264: baseline, main, high(デフォルト)\n")
+		_T("   --level <string>               set codec level\n")
+		_T("   --sar <int>:<int>              set SAR ratio\n")
+		_T("   --dar <int>:<int>              set DAR ratio\n")
+		_T("\n")
+		_T("   --cqp <int> or                 encode in Constant QP mode\n")
+		_T("         <int>:<int>:<int>          Default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
+		_T("   --vbr <int>                    set bitrate for VBR mode (kbps)\n")
+		_T("   --cbr <int>                    set bitrate for CBR mode (kbps)\n")
+		_T("                                    Default: %d kbps\n")
+		_T("\n")
+		_T("   --max-bitrate <int>            set Max Bitrate (kbps) / Default: %d kbps\n")
+		_T("   --gop-len <int>                set GOP Length / Default: %d frames%s")
+		_T("-b,--bframes <int>                set B frames / Default %d フレーム\n")
+		_T("   --ref <int>                    set Ref frames / Default %d フレーム\n")
+		_T("   --mv-precision <string>        set MV Precision / Default: Q-pel\n")
+		_T("                                    Q-pel    (High Quality)\n")
+		_T("                                    half-pel\n")
+		_T("                                    full-pel (Low Quality)n")
+		_T("\n")
+		_T("H.264/AVC\n")
+		_T("   --interlaced <string>          interlaced encoding\n")
+		_T("                                    tff, bff\n")
+		_T("   --cabac                        use CABAC\n")
+		_T("   --cavlc                        use CAVLC (no CABAC)\n")
+		_T("   --(no-)deblock                 enable(disable) deblock filter\n")
+		_T("   --fullrange                    set fullrange\n"),
+		(AVI_READER) ? _T("avi, ") : _T(""),
+		(AVS_READER) ? _T("avs, ") : _T(""),
+		DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
+		DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
+		DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
+		DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
+
+		print_list_options(stdout, _T("--videoformat <string>"), list_videoformat, 0);
+		print_list_options(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
+		print_list_options(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
+		print_list_options(stdout, _T("--transfer <string>"),    list_transfer,    0);
+
+		_ftprintf(stdout, _T("\n")
+			_T("H.265/HEVC\n")
+			_T("   --cu-max <int>                 set max CU size\n")
+			_T("   --cu-min  <int>                set min CU size\n")
+			_T("                                    8, 16, 32 are avaliable"));
+}
+
+static void show_help() {
+	(check_locale_is_ja()) ? show_help_ja() : show_help_en();
+}
+
 static void show_hw() {
 	show_version();
 	
@@ -151,12 +256,12 @@ static void show_hw() {
 	nvParam.createCacheAsync(0);
 	auto nvEncCaps = nvParam.GetCachedNVEncCapability();
 	if (nvEncCaps.size()) {
-		_ftprintf(stdout, _T("使用可能なコーデック\n"));
+		_ftprintf(stdout, _T("Avaliable Codec(s)\n"));
 		for (auto codecNVEncCaps : nvEncCaps) {
 			_ftprintf(stdout, _T("%s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
 		}
 	} else {
-		_ftprintf(stdout, _T("NVEncは使用できません。\n"));
+		_ftprintf(stdout, _T("No NVEnc support.\n"));
 	}
 }
 
@@ -177,9 +282,9 @@ static void show_nvenc_features() {
 
 	_ftprintf(stdout, _T("%s\n"), buf);
 	
-	_ftprintf(stdout, _T("使用可能な各機能の情報を表示します。\n"));
+	_ftprintf(stdout, _T("List of avaiable features.\n"));
 	for (auto codecNVEncCaps : nvEncCaps) {
-		_ftprintf(stdout, _T("コーデック: %s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
+		_ftprintf(stdout, _T("Codec: %s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
 		size_t max_length = 0;
 		std::for_each(codecNVEncCaps.caps.begin(), codecNVEncCaps.caps.end(), [&max_length](const NVEncCap& x) { max_length = (std::max)(max_length, _tcslen(x.name)); });
 		for (auto cap : codecNVEncCaps.caps) {
@@ -197,6 +302,15 @@ static inline BOOL check_range(int value, int min, int max) {
 }
 
 int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int argc, TCHAR **argv) {
+
+	auto invalid_option_value = [](const TCHAR *option_name, const TCHAR *option_value) {
+		_ftprintf(stderr, _T("Invalid value. %s : %s\n"), option_name, option_value);
+	};
+
+	if (argc == 1) {
+		show_help();
+		return 1;
+	}
 
 	for (int i_arg = 1; i_arg < argc; i_arg++) {
 		TCHAR *option_name = nullptr;
@@ -231,13 +345,13 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 					option_name = _T("help");
 					break;
 				default:
-					_ftprintf(stderr, _T("不明なオプションです。 : %s"), argv[i_arg]);
+					_ftprintf(stderr, _T("Unknown Option : %s"), argv[i_arg]);
 					return -1;
 			}
 		}
 
 		if (nullptr == option_name) {
-			_ftprintf(stderr, _T("不明なオプションです。 : %s"), argv[i_arg]);
+			_ftprintf(stderr, _T("Unknown Option : %s"), argv[i_arg]);
 			return -1;
 		}
 
@@ -264,6 +378,12 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 #define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
 		if (IS_OPTION("help")) {
 			show_help();
+			return 1;
+		} else if (IS_OPTION("help-ja")) {
+			show_help_ja();
+			return 1;
+		} else if (IS_OPTION("help-en")) {
+			show_help_en();
 			return 1;
 		} else if (IS_OPTION("version")) {
 			show_version();
@@ -306,7 +426,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 						conf_set->input.rate  /= gcd;
 					}
 				} else  {
-					_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+					invalid_option_value(option_name, argv[i_arg]);
 					return -1;
 				}
 			}
@@ -319,7 +439,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				conf_set->input.width  = a[0];
 				conf_set->input.height = a[1];
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("crop")) {
@@ -329,7 +449,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				|| 4 == _stscanf_s(argv[i_arg], _T("%d:%d:%d:%d"), &a[0], &a[1], &a[2], &a[3])) {
 				memcpy(conf_set->input.crop, a, sizeof(conf_set->input.crop));
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("codec")) {
@@ -338,7 +458,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (get_list_value(list_nvenc_codecs_for_opt, argv[i_arg], &value)) {
 				conf_set->codec = value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("raw")) {
@@ -376,7 +496,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				conf_set->encConfig.rcParams.constQP.qpInterP = a[0];
 				conf_set->encConfig.rcParams.constQP.qpInterB = a[0];
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("vbr")) {
@@ -386,7 +506,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
 				conf_set->encConfig.rcParams.averageBitRate = value * 1000;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("cbr")) {
@@ -397,7 +517,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				conf_set->encConfig.rcParams.averageBitRate = value * 1000;
 				conf_set->encConfig.rcParams.maxBitRate = value * 1000;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("gop-len")) {
@@ -406,7 +526,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
 				conf_set->encConfig.gopLength = value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("bframes")) {
@@ -415,7 +535,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
 				conf_set->encConfig.frameIntervalP = value + 1;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("max-bitrate")) {
@@ -424,7 +544,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
 				conf_set->encConfig.rcParams.maxBitRate = value * 1000;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("vbv-bufsize")) {
@@ -433,7 +553,8 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
 				conf_set->encConfig.rcParams.vbvBufferSize = value * 1000;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("ref")) {
@@ -443,7 +564,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
 				codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("mv-precision")) {
@@ -452,11 +573,18 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (get_list_value(list_mv_presicion, argv[i_arg], &value)) {
 				conf_set->encConfig.mvPrecision = (NV_ENC_MV_PRECISION)value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("interlaced")) {
-			conf_set->picStruct = NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM;
+			i_arg++;
+			int value = 0;
+			if (get_list_value(list_interlaced, argv[i_arg], &value)) {
+				conf_set->picStruct = (NV_ENC_PIC_STRUCT)value;
+			} else {
+				invalid_option_value(option_name, argv[i_arg]);
+				return -1;
+			}
 		} else if (IS_OPTION("cavlc")) {
 			codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
 		} else if (IS_OPTION("cabac")) {
@@ -473,7 +601,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (get_list_value(list_videoformat, argv[i_arg], &value)) {
 				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("colormatrix")) {
@@ -482,7 +610,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (get_list_value(list_colormatrix, argv[i_arg], &value)) {
 				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix = value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("colorprim")) {
@@ -491,7 +619,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (get_list_value(list_colorprim, argv[i_arg], &value)) {
 				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries = value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("transfer")) {
@@ -500,7 +628,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (get_list_value(list_transfer, argv[i_arg], &value)) {
 				codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("level")) {
@@ -520,7 +648,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 					codecPrm[NV_ENC_H264].h264Config.level = value;
 					codecPrm[NV_ENC_HEVC].hevcConfig.level = value;
 				} else {
-					_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+					invalid_option_value(option_name, argv[i_arg]);
 					return -1;
 				}
 			}
@@ -539,7 +667,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				flag = true;
 			}
 			if (!flag) {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("sar") || IS_OPTION("par") || IS_OPTION("dar")) {
@@ -556,7 +684,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				conf_set->par[0] = a[0];
 				conf_set->par[1] = a[1];
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("cu-max")) {
@@ -565,7 +693,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (get_list_value(list_hevc_cu_size, argv[i_arg], &value)) {
 				codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		} else if (IS_OPTION("cu-min")) {
@@ -574,7 +702,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
 				codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)value;
 			} else {
-				_ftprintf(stderr, _T("不正な値が指定されています。 %s : %s\n"), option_name, argv[i_arg]);
+				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
 		}
@@ -583,11 +711,11 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 #undef IS_OPTION
 	//オプションチェック
 	if (0 == conf_set->input.filename.length()) {
-		_ftprintf(stderr, _T("入力ファイルが正しく指定されていません。\n"));
+		_ftprintf(stderr, _T("Input file is not specified.\n"));
 		return -1;
 	}
 	if (0 == conf_set->outputFilename.length()) {
-		_ftprintf(stderr, _T("出力ファイルが正しく指定されていません。\n"));
+		_ftprintf(stderr, _T("Output file is not specified.\n"));
 		return -1;
 	}
 
