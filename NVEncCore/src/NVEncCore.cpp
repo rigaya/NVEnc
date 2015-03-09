@@ -940,6 +940,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 	//解像度の決定
 	m_uEncWidth   = inputParam->input.width  - inputParam->input.crop[0] - inputParam->input.crop[2];
 	m_uEncHeight  = inputParam->input.height - inputParam->input.crop[1] - inputParam->input.crop[3];
+
+	//picStructの設定
+	m_stPicStruct = (inputParam->picStruct == 0) ? NV_ENC_PIC_STRUCT_FRAME : inputParam->picStruct;
 	
 	//制限事項チェック
 	if (inputParam->input.width < 0 && inputParam->input.height < 0) {
@@ -1241,7 +1244,7 @@ NVENCSTATUS NVEncCore::EncodeFrame(int encode_idx) {
     encPicParams.outputBitstream = pEncodeBuffer->stOutputBfr.hBitstreamBuffer;
     encPicParams.completionEvent = pEncodeBuffer->stOutputBfr.hOutputEvent;
     encPicParams.inputTimeStamp = encode_idx;
-    encPicParams.pictureStruct = NV_ENC_PIC_STRUCT_FRAME;
+	encPicParams.pictureStruct = m_stPicStruct;
     //encPicParams.qpDeltaMap = qpDeltaMapArray;
     //encPicParams.qpDeltaMapSize = qpDeltaMapArraySize;
 
