@@ -192,7 +192,7 @@ const CX_DESC list_nvenc_rc_method[] = {
 	{ NULL, NULL }
 };
 
-const CX_DESC list_nvenc_rc_method_ja[] = {
+const CX_DESC list_nvenc_rc_method_en[] = {
 	{ _T("CQP"),                          NV_ENC_PARAMS_RC_CONSTQP   },
 	{ _T("CBR"),                          NV_ENC_PARAMS_RC_CBR       },
 	{ _T("VBR"),                          NV_ENC_PARAMS_RC_VBR       },
