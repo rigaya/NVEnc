@@ -42,28 +42,31 @@ NVEncParam::~NVEncParam() {
 }
 
 int NVEncParam::createCache(int deviceID) {
-	if (!check_if_nvcuda_dll_available())
-		return 1;
+	if (!check_if_nvcuda_dll_available()) {
+		SetEvent(m_hEvCreateCodecCache);
+	} else {
 
-	m_pNVEncCore = new NVEncCore();
+		m_pNVEncCore = new NVEncCore();
 
-	InEncodeVideoParam inputParam = { 0 };
-	inputParam.encConfig = NVEncCore::DefaultParam();
-	inputParam.deviceID = deviceID;
-	if (NV_ENC_SUCCESS != m_pNVEncCore->Initialize(&inputParam))
-		return 1;
+		InEncodeVideoParam inputParam = { 0 };
+		inputParam.encConfig = NVEncCore::DefaultParam();
+		inputParam.deviceID = deviceID;
+		if (NV_ENC_SUCCESS != m_pNVEncCore->Initialize(&inputParam)) {
+			SetEvent(m_hEvCreateCodecCache);
+		} else {
+			m_pNVEncCore->createDeviceCodecList();
+			m_EncodeFeatures = m_pNVEncCore->GetNVEncCapability();
+			m_bH264 = nullptr != GetH264Features(m_EncodeFeatures);
+			m_bHEVC = nullptr != GetHEVCFeatures(m_EncodeFeatures);
+			SetEvent(m_hEvCreateCodecCache);
 
-	m_pNVEncCore->createDeviceCodecList();
-	m_EncodeFeatures = m_pNVEncCore->GetNVEncCapability();
-	m_bH264 = nullptr != GetH264Features(m_EncodeFeatures);
-	m_bHEVC = nullptr != GetHEVCFeatures(m_EncodeFeatures);
-	SetEvent(m_hEvCreateCodecCache);
-
-	m_pNVEncCore->createDeviceFeatureList();
-	m_EncodeFeatures = m_pNVEncCore->GetNVEncCapability();
-	if (nullptr != m_pNVEncCore) {
-		delete m_pNVEncCore;
-		m_pNVEncCore = nullptr;
+			m_pNVEncCore->createDeviceFeatureList();
+			m_EncodeFeatures = m_pNVEncCore->GetNVEncCapability();
+			if (nullptr != m_pNVEncCore) {
+				delete m_pNVEncCore;
+				m_pNVEncCore = nullptr;
+			}
+		}
 	}
 	SetEvent(m_hEvCreateCache);
 	return 0;

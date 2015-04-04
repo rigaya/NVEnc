@@ -277,24 +277,30 @@ static void show_nvenc_features() {
 	getEnviromentInfo(buf, _countof(buf));
 	
 	NVEncParam nvParam;
-	nvParam.createCacheAsync(0);
+	if (nvParam.createCacheAsync(0)) {
+		_ftprintf(stdout, _T("error on checking features.\n"), buf);
+		return;
+	}
 	auto nvEncCaps = nvParam.GetCachedNVEncCapability();
 
 
 	_ftprintf(stdout, _T("%s\n"), buf);
-	
-	_ftprintf(stdout, _T("List of avaiable features.\n"));
-	for (auto codecNVEncCaps : nvEncCaps) {
-		_ftprintf(stdout, _T("Codec: %s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
-		size_t max_length = 0;
-		std::for_each(codecNVEncCaps.caps.begin(), codecNVEncCaps.caps.end(), [&max_length](const NVEncCap& x) { max_length = (std::max)(max_length, _tcslen(x.name)); });
-		for (auto cap : codecNVEncCaps.caps) {
-			_ftprintf(stdout, _T("%s"), cap.name);
-			for (size_t i = _tcslen(cap.name); i <= max_length; i++)
-				_ftprintf(stdout, _T(" "));
-			_ftprintf(stdout, _T("%d\n"), cap.value);
+	if (nvEncCaps.size() == 0) {
+		_ftprintf(stdout, _T("No NVEnc support.\n"));
+	} else {
+		_ftprintf(stdout, _T("List of available features.\n"));
+		for (auto codecNVEncCaps : nvEncCaps) {
+			_ftprintf(stdout, _T("Codec: %s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
+			size_t max_length = 0;
+			std::for_each(codecNVEncCaps.caps.begin(), codecNVEncCaps.caps.end(), [&max_length](const NVEncCap& x) { max_length = (std::max)(max_length, _tcslen(x.name)); });
+			for (auto cap : codecNVEncCaps.caps) {
+				_ftprintf(stdout, _T("%s"), cap.name);
+				for (size_t i = _tcslen(cap.name); i <= max_length; i++)
+					_ftprintf(stdout, _T(" "));
+				_ftprintf(stdout, _T("%d\n"), cap.value);
+			}
+			_ftprintf(stdout, _T("\n"));
 		}
-		_ftprintf(stdout, _T("\n"));
 	}
 }
 
