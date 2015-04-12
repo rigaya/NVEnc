@@ -125,12 +125,14 @@ static void show_help_ja() {
 		_T("                                    Q-pel    … 1/4画素精度 (高精度)\n")
 		_T("                                    half-pel … 1/2画素精度\n")
 		_T("                                    full-pel … 1  画素精度 (低精度)\n")
+		_T("   --vbv-bufsize <int>            VBVバッファサイズ (kbit) / デフォルト 自動\n")
 		_T("\n")
 		_T("H.264/AVC\n")
 		_T("   --interlaced <string>          インタレ保持エンコ\n")
 		_T("                                    tff, bff\n")
 		_T("   --cabac                        CABACを使用する\n")
 		_T("   --cavlc                        CAVLCを使用する\n")
+		_T("   --bluray                       Bluray用出力を行う / デフォルト: オフ\n")
 		_T("   --deblock                      デブロックフィルタを有効にする\n")
 		_T("   --no-deblock                   デブロックフィルタを無効にする\n")
 		_T("   --fullrange                    fullrangeの指定\n"),
@@ -219,12 +221,14 @@ static void show_help_en() {
 		_T("                                    Q-pel    (High Quality)\n")
 		_T("                                    half-pel\n")
 		_T("                                    full-pel (Low Quality)n")
+		_T("   --vbv-bufsize <int>            set vbv buffer size (kbit) / Default: auto\n")
 		_T("\n")
 		_T("H.264/AVC\n")
 		_T("   --interlaced <string>          interlaced encoding\n")
 		_T("                                    tff, bff\n")
 		_T("   --cabac                        use CABAC\n")
 		_T("   --cavlc                        use CAVLC (no CABAC)\n")
+		_T("   --bluray                       for bluray / Default: off\n")
 		_T("   --(no-)deblock                 enable(disable) deblock filter\n")
 		_T("   --fullrange                    set fullrange\n"),
 		(AVI_READER) ? _T("avi, ") : _T(""),
@@ -583,6 +587,15 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 				invalid_option_value(option_name, argv[i_arg]);
 				return -1;
 			}
+		} else if (IS_OPTION("vbv-bufsize")) {
+			i_arg++;
+			int value = 0;
+			if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
+				conf_set->encConfig.rcParams.vbvBufferSize = value * 1000;
+			} else {
+				invalid_option_value(option_name, argv[i_arg]);
+				return -1;
+			}
 		} else if (IS_OPTION("interlaced")) {
 			i_arg++;
 			int value = 0;
@@ -596,6 +609,8 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 			codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
 		} else if (IS_OPTION("cabac")) {
 			codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
+		} else if (IS_OPTION("bluray")) {
+			conf_set->bluray = TRUE;
 		} else if (IS_OPTION("no-deblock")) {
 			codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 1;
 		} else if (IS_OPTION("deblock")) {

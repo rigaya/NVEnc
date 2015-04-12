@@ -101,6 +101,7 @@ typedef struct InEncodeVideoParam {
 	NV_ENC_PIC_STRUCT picStruct;  //フレーム情報(プログレッシブ/インタレ)
 	NV_ENC_CONFIG encConfig;      //エンコード設定
 	int codec;                    //出力コーデック
+	int bluray;                   //bluray出力
 } InEncodeVideoParam;
 
 static inline bool is_interlaced(NV_ENC_PIC_STRUCT pic_struct) {

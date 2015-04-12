@@ -172,6 +172,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	encPrm.deviceID = conf->nvenc.deviceID;
 	encPrm.preset = conf->nvenc.preset;
 	encPrm.picStruct = conf->nvenc.pic_struct;
+	encPrm.bluray = conf->nvenc.bluray;
 	encPrm.inputBuffer = conf->nvenc.inputBuffer;
 	encPrm.input.otherPrm = &inputInfoAuo;
 	encPrm.deviceID = 0;

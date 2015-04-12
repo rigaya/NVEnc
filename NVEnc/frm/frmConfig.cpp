@@ -845,6 +845,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	SetNUValue(fcgNUBframes,           cnf->nvenc.enc_config.frameIntervalP - 1);
 	SetCXIndex(fcgCXQualityPreset,     get_index_from_value(cnf->nvenc.preset, preset_names));
 	SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, cnf->nvenc.enc_config.mvPrecision));
+	SetNUValue(fcgNUVBVBufsize,        cnf->nvenc.enc_config.rcParams.vbvBufferSize / 1000);
 	
 	if (cnf->nvenc.par[0] * cnf->nvenc.par[1] <= 0)
 		cnf->nvenc.par[0] = cnf->nvenc.par[1] = 0;
@@ -858,6 +859,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level,            cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.level));
 	SetCXIndex(fcgCXCodecProfile, get_index_from_value(get_value_from_guid(cnf->nvenc.enc_config.profileGUID, h264_profile_names), h264_profile_names));
 	SetNUValue(fcgNUSlices,       cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.sliceModeData);
+	fcgCBBluray->Checked       = 0 != cnf->nvenc.bluray;
 	fcgCBCABAC->Checked        = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode;
 	fcgCBDeblock->Checked                                          = 0 == cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.disableDeblockingFilterIDC;
 	SetCXIndex(fcgCXVideoFormat,       get_cx_index(list_videoformat,     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat));
@@ -931,6 +933,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->nvenc.enc_config.gopLength = (int)fcgNUGopLength->Value;
 	cnf->nvenc.enc_config.frameIntervalP = (int)fcgNUBframes->Value + 1;
 	cnf->nvenc.enc_config.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
+	cnf->nvenc.enc_config.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
 	cnf->nvenc.preset = preset_names[fcgCXQualityPreset->SelectedIndex].value;
 
 
@@ -949,6 +952,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.sliceModeData = (int)fcgNUSlices->Value;
+	cnf->nvenc.bluray = fcgCBBluray->Checked;
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
 	cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = false == fcgCBDeblock->Checked;
 

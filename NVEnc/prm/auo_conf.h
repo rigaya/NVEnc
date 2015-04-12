@@ -69,6 +69,7 @@ typedef struct CONF_NVENC {
 	int par[2];
 	int codec;
 	NV_ENC_CODEC_CONFIG codecConfig[2];
+	int bluray;
 } CONF_NVENC;
 
 typedef struct {

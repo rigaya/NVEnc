@@ -1021,6 +1021,21 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 			m_stEncConfig.frameIntervalP - 1);
 		return NV_ENC_ERR_UNSUPPORTED_PARAM;
 	}
+	if (inputParam->bluray) {
+		if (inputParam->codec == NV_ENC_HEVC) {
+			NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("HEVCではBluray用出力はサポートされていません。") : _T("Bluray output is not supported for HEVC codec."));
+			return NV_ENC_ERR_UNSUPPORTED_PARAM;
+		}
+		if (inputParam->encConfig.rcParams.rateControlMode != NV_ENC_PARAMS_RC_VBR) {
+			NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("Bluray用出力では、VBRモードを使用してください。") :  _T("Please use VBR mode for bluray output."));
+			return NV_ENC_ERR_UNSUPPORTED_PARAM;
+		}
+		if (!getCapLimit(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
+			error_feature_unsupported(NV_LOG_ERROR, FOR_AUO ? _T("VBVバッファサイズの指定") : _T("Custom VBV Bufsize"));
+			NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("Bluray用出力を行えません。") :  _T("Therfore you cannot output for bluray."));
+			return NV_ENC_ERR_UNSUPPORTED_PARAM;
+		}
+	}
 	if (m_stEncConfig.frameIntervalP - 1 > getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES)) {
 		m_stEncConfig.frameIntervalP = getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES) + 1;
 		NVPrintf(stderr, NV_LOG_WARN, FOR_AUO ? _T("Bフレームの最大数は%dです。\n") : _T("Max B frames are %d frames.\n"), getCapLimit(NV_ENC_CAPS_NUM_MAX_BFRAMES));
@@ -1093,6 +1108,24 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 		//整合性チェック (一般, H.265/HEVC)
 		m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
 	} else if (inputParam->codec == NV_ENC_H264) {
+		//Bluray 互換出力
+		if (inputParam->bluray) {
+			m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputPictureTimingSEI = 1;
+			m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputRecoveryPointSEI = 1;
+			m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputAUD = 1;
+			m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceMode = 3;
+			m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceModeData = 4;
+			m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.level = min(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.level, NV_ENC_LEVEL_H264_41);
+			m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate = min(m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate, 40000 * 1000);
+			if (m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize == 0) {
+				m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize = m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate;
+			}
+			m_stCreateEncodeParams.encodeConfig->rcParams.vbvInitialDelay = m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize / 2;
+			m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate = min(m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate, m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate);
+			m_stCreateEncodeParams.encodeConfig->frameIntervalP = min(m_stCreateEncodeParams.encodeConfig->frameIntervalP, 3+1);
+			m_stCreateEncodeParams.encodeConfig->gopLength = (min(m_stCreateEncodeParams.encodeConfig->gopLength, 30) / m_stCreateEncodeParams.encodeConfig->frameIntervalP) * m_stCreateEncodeParams.encodeConfig->frameIntervalP;
+		}
+
 		//整合性チェック (一般, H.264/AVC)
 		m_stCreateEncodeParams.encodeConfig->frameFieldMode = (inputParam->picStruct == NV_ENC_PIC_STRUCT_FRAME) ? NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME : NV_ENC_PARAMS_FRAME_FIELD_MODE_FIELD;
 		//m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.entropyCodingMode = (m_stEncoderInput[0].profile > 66) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
@@ -1394,13 +1427,13 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 		}
 	};
 
-	auto value_or_auto =[](int value, int value_auto) {
+	auto value_or_auto =[](int value, int value_auto, const TCHAR *unit) {
 		tstring str;
 		if (value == value_auto) {
 			str = _T("auto");
 		} else {
 			TCHAR buf[256];
-			_stprintf_s(buf, _countof(buf), _T("%d"), value);
+			_stprintf_s(buf, _countof(buf), _T("%d %s"), value, unit);
 			str = buf;
 		}
 		return str;
@@ -1445,7 +1478,8 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 			int maxQPB = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpInterB : 51;
 			add_str(NV_LOG_INFO,  _T("QP制御範囲              I:%d-%d  P:%d-%d  B:%d-%d\n"), minQPI, maxQPI, minQPP, maxQPP, minQPB, maxQPB);
 		}
-		add_str(NV_LOG_DEBUG, _T("VBV設定                 BufSize: %s  InitialDelay:%s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize, 0).c_str(), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay, 0).c_str());
+		add_str(NV_LOG_INFO,  _T("VBVバッファサイズ       %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize / 1000,   0, _T("kbit")).c_str());
+		add_str(NV_LOG_DEBUG, _T("VBV initial delay       %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay / 1000, 0, _T("kbit")).c_str());
 	}
 	add_str(NV_LOG_INFO,  _T("GOP長                   %d frames\n"), m_stEncConfig.gopLength);
 	add_str(NV_LOG_INFO,  _T("連続Bフレーム数         %d frames\n"), m_stEncConfig.frameIntervalP - 1);
@@ -1514,7 +1548,8 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 			int maxQPB = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpInterB : 51;
 			add_str(NV_LOG_INFO,  _T("QP range                I:%d-%d  P:%d-%d  B:%d-%d\n"), minQPI, maxQPI, minQPP, maxQPP, minQPB, maxQPB);
 		}
-		add_str(NV_LOG_DEBUG, _T("VBV Settings            BufSize: %s  InitialDelay:%s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize, 0).c_str(), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay, 0).c_str());
+		add_str(NV_LOG_INFO,  _T("VBV buffer size          %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize / 1000,   0, _T("kbit")).c_str());
+		add_str(NV_LOG_DEBUG, _T("VBV initial delay        %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay / 1000, 0, _T("kbit")).c_str());
 	}
 	add_str(NV_LOG_INFO,  _T("GOP length              %d frames\n"), m_stEncConfig.gopLength);
 	add_str(NV_LOG_INFO,  _T("B frames                %d frames\n"), m_stEncConfig.frameIntervalP - 1);
