@@ -199,6 +199,7 @@ BOOL func_output( OUTPUT_INFO *oip )
 BOOL func_config(HWND hwnd, HINSTANCE dll_hinst)
 {
 	init_SYSTEM_DATA(&sys_dat);
+	overwrite_aviutl_ini_name();
 	if (sys_dat.exstg->get_init_success())
 		ShowfrmConfig(&conf, &sys_dat);
 	return TRUE;
@@ -276,6 +277,15 @@ void write_log_auo_enc_time(const char *mes, DWORD time) {
 		(time % (60*60*1000)) / (60*1000), 
 		(time % (60*1000)) / 1000,
 		((time % 1000)) / 100);
+}
+
+void overwrite_aviutl_ini_name() {
+	char ini_file[1024];
+	get_aviutl_dir(ini_file, _countof(ini_file));
+	PathAddBackSlashLong(ini_file);
+	strcat_s(ini_file, _countof(ini_file), "aviutl.ini");
+	WritePrivateProfileString(AUO_NAME, "name", NULL, ini_file);
+	WritePrivateProfileString(AUO_NAME, "name", AUO_FULL_NAME, ini_file);
 }
 
 void overwrite_aviutl_ini_file_filter(int idx) {

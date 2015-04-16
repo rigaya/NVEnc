@@ -149,6 +149,7 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit); //初期化し、デフ�
 //filterがNULLならauoのOUTPUT_PLUGIN_TABLE用のフィルタを書き換える
 void make_file_filter(char *filter, size_t nSize, int default_index);
 
+void overwrite_aviutl_ini_name();
 void overwrite_aviutl_ini_file_filter(int idx);
 
 #endif //_AUO_CONF_H_
