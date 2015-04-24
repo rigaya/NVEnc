@@ -54,6 +54,8 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int ol
 		return ret;
 	if (old_size == sizeof(CONF_GUIEX)) {
 		memcpy(conf_buf, old_data, old_size);
+		if (0 == strcmp(conf_buf->conf_name, CONF_NAME_OLD_2))
+			convert_nvencstgv2_to_nvencstgv3(conf_buf);
 		ret = TRUE;
 	} else {
 		const void *data_table = NULL;
@@ -73,9 +75,12 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int ol
 		}
 		if (data_table == NULL)
 			return ret;
-		if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD)) {
-			convert_nvencstg_to_nvencstgv2(conf_buf, old_data);
+		if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_1)) {
+			convert_nvencstg_to_nvencstgv3(conf_buf, old_data);
 		} else {
+			if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_2))
+				convert_nvencstgv2_to_nvencstgv3((CONF_GUIEX *)old_data);
+
 			BYTE *dst = (BYTE *)conf_buf;
 			BYTE *block = NULL;
 			dst += CONF_HEAD_SIZE;
@@ -103,8 +108,9 @@ int guiEx_config::load_guiex_conf(CONF_GUIEX *conf, const char *stg_file) {
 	//設定ファイルチェック
 	char conf_name[CONF_NAME_BLOCK_LEN + 32];
 	fread(&conf_name, sizeof(char), CONF_NAME_BLOCK_LEN, fp);
-	if (   strcmp(CONF_NAME,     conf_name)
-		&& strcmp(CONF_NAME_OLD, conf_name)) {
+	if (   strcmp(CONF_NAME,       conf_name)
+		&& strcmp(CONF_NAME_OLD_1, conf_name)
+		&& strcmp(CONF_NAME_OLD_2, conf_name)) {
 		fclose(fp);
 		return CONF_ERROR_FILE_OPEN;
 	}
@@ -122,8 +128,8 @@ int guiEx_config::load_guiex_conf(CONF_GUIEX *conf, const char *stg_file) {
 	write_conf_header(conf);
 	
 	//旧設定ファイルから変換
-	if (0 == strcmp(CONF_NAME_OLD, conf_name)) {
-		convert_nvencstg_to_nvencstgv2(conf, dat);
+	if (0 == strcmp(CONF_NAME_OLD_1, conf_name)) {
+		convert_nvencstg_to_nvencstgv3(conf, dat);
 		return 0;
 	}
 
@@ -138,6 +144,9 @@ int guiEx_config::load_guiex_conf(CONF_GUIEX *conf, const char *stg_file) {
 		dst = (BYTE *)conf + conf_block_pointer[i];
 		memcpy(dst, filedat, min(((CONF_GUIEX *)dat)->block_size[i], conf_block_data[i]));
 	}
+
+	if (0 == strcmp(CONF_NAME_OLD_2, conf_name))
+		convert_nvencstgv2_to_nvencstgv3(conf);
 
 	//初期化するかどうかで使うので。
 	conf->size_all = CONF_INITIALIZED;

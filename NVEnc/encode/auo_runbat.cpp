@@ -44,7 +44,7 @@ AUO_RESULT run_bat_file(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PR
 	if (!(conf->oth.run_bat & run_bat_mode))
 		return AUO_RESULT_SUCCESS;
 
-	const char *batfile = (run_bat_mode & RUN_BAT_BEFORE) ? conf->oth.batfile_before : conf->oth.batfile_after;
+	const char *batfile = conf->oth.batfiles[get_run_bat_idx(run_bat_mode)];
 	if (!PathFileExists(batfile)) {
 		warning_no_batfile(batfile); return AUO_RESULT_ERROR;
 	}

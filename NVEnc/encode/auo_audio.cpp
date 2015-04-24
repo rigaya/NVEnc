@@ -26,6 +26,7 @@
 #include "auo_system.h"
 #include "fawcheck.h"
 #include "auo_faw2aac.h"
+#include "auo_runbat.h"
 
 #include "auo_audio_parallel.h"
 #include "auo_encode.h"
@@ -497,6 +498,9 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
 	//wav出力
 	ret |= wav_output(aud_dat, oip, pe, aud_stg->mode[conf->aud.enc_mode].use_8bit, sys_dat->exstg->s_local.audio_buffer_size, aud_stg->dispname, auddir, encoder_priority, aud_stg->disable_log);
 	
+	//音声エンコード前バッチ処理
+	ret |= run_bat_file(conf, oip, pe, sys_dat, RUN_BAT_BEFORE_AUDIO);
+
 	//音声エンコード(filenameが空文字列なら実行しない)
 	if (!use_pipe && str_has_char(aud_stg->filename))
 		for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++)
@@ -507,6 +511,9 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
 		ret |= audio_finish_enc(ret, &aud_dat[i_aud], aud_stg);
 
 	set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
+
+	//音声エンコード後バッチ処理
+	ret |= run_bat_file(conf, oip, pe, sys_dat, RUN_BAT_AFTER_AUDIO);
 
 	return ret;
 }

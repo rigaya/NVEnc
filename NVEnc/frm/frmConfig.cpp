@@ -663,8 +663,10 @@ System::Void frmConfig::SetTXMaxLenAll() {
 	SetTXMaxLen(fcgTXCustomTempDir,      sizeof(sys_dat->exstg->s_local.custom_tmp_dir) - 1);
 	SetTXMaxLen(fcgTXCustomAudioTempDir, sizeof(sys_dat->exstg->s_local.custom_audio_tmp_dir) - 1);
 	SetTXMaxLen(fcgTXMP4BoxTempDir,      sizeof(sys_dat->exstg->s_local.custom_mp4box_tmp_dir) - 1);
-	SetTXMaxLen(fcgTXBatBeforePath,      sizeof(conf->oth.batfile_before) - 1);
-	SetTXMaxLen(fcgTXBatAfterPath,       sizeof(conf->oth.batfile_after) - 1);
+	SetTXMaxLen(fcgTXBatBeforeAudioPath, sizeof(conf->oth.batfile.before_audio) - 1);
+	SetTXMaxLen(fcgTXBatAfterAudioPath,  sizeof(conf->oth.batfile.after_audio) - 1);
+	SetTXMaxLen(fcgTXBatBeforePath,      sizeof(conf->oth.batfile.before_process) - 1);
+	SetTXMaxLen(fcgTXBatAfterPath,       sizeof(conf->oth.batfile.after_process) - 1);
 	fcgTSTSettingsNotes->MaxLength     = sizeof(conf->oth.notes) - 1;
 }
 
@@ -895,6 +897,10 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 		SetCXIndex(fcgCXAudioPriority,       cnf->aud.priority);
 		SetCXIndex(fcgCXAudioTempDir,        cnf->aud.aud_temp_dir);
 		SetCXIndex(fcgCXAudioEncTiming,      cnf->aud.audio_encode_timing);
+		fcgCBRunBatBeforeAudio->Checked    =(cnf->oth.run_bat & RUN_BAT_BEFORE_AUDIO) != 0;
+		fcgCBRunBatAfterAudio->Checked     =(cnf->oth.run_bat & RUN_BAT_AFTER_AUDIO) != 0;
+		fcgTXBatBeforeAudioPath->Text      = String(cnf->oth.batfile.before_audio).ToString();
+		fcgTXBatAfterAudioPath->Text       = String(cnf->oth.batfile.after_audio).ToString();
 
 		//mux
 		fcgCBMP4MuxerExt->Checked          = cnf->mux.disable_mp4ext == 0;
@@ -908,12 +914,12 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 		fcgCBMuxMinimize->Checked          = cnf->mux.minimized != 0;
 		SetCXIndex(fcgCXMuxPriority,         cnf->mux.priority);
 
-		fcgCBRunBatBefore->Checked         =(cnf->oth.run_bat & RUN_BAT_BEFORE) != 0;
-		fcgCBRunBatAfter->Checked          =(cnf->oth.run_bat & RUN_BAT_AFTER) != 0;
-		fcgCBWaitForBatBefore->Checked     =(cnf->oth.dont_wait_bat_fin & RUN_BAT_BEFORE) == 0;
-		fcgCBWaitForBatAfter->Checked      =(cnf->oth.dont_wait_bat_fin & RUN_BAT_AFTER) == 0;
-		fcgTXBatBeforePath->Text           = String(cnf->oth.batfile_before).ToString();
-		fcgTXBatAfterPath->Text            = String(cnf->oth.batfile_after).ToString();
+		fcgCBRunBatBefore->Checked         =(cnf->oth.run_bat & RUN_BAT_BEFORE_PROCESS) != 0;
+		fcgCBRunBatAfter->Checked          =(cnf->oth.run_bat & RUN_BAT_AFTER_PROCESS)  != 0;
+		fcgCBWaitForBatBefore->Checked     =(cnf->oth.dont_wait_bat_fin & RUN_BAT_BEFORE_PROCESS) == 0;
+		fcgCBWaitForBatAfter->Checked      =(cnf->oth.dont_wait_bat_fin & RUN_BAT_AFTER_PROCESS)  == 0;
+		fcgTXBatBeforePath->Text           = String(cnf->oth.batfile.before_process).ToString();
+		fcgTXBatAfterPath->Text            = String(cnf->oth.batfile.after_process).ToString();
 
 		SetfcgTSLSettingsNotes(cnf->oth.notes);
 
@@ -1018,15 +1024,19 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->mux.mpg_mode               = fcgCXMPGCmdEx->SelectedIndex;
 	cnf->mux.minimized              = fcgCBMuxMinimize->Checked;
 	cnf->mux.priority               = fcgCXMuxPriority->SelectedIndex;
-
+	
 	cnf->oth.run_bat                = RUN_BAT_NONE;
-	cnf->oth.run_bat               |= (fcgCBRunBatBefore->Checked) ? RUN_BAT_BEFORE : NULL;
-	cnf->oth.run_bat               |= (fcgCBRunBatAfter->Checked) ? RUN_BAT_AFTER : NULL;
+	cnf->oth.run_bat               |= (fcgCBRunBatBeforeAudio->Checked) ? RUN_BAT_BEFORE_AUDIO   : NULL;
+	cnf->oth.run_bat               |= (fcgCBRunBatAfterAudio->Checked)  ? RUN_BAT_AFTER_AUDIO    : NULL;
+	cnf->oth.run_bat               |= (fcgCBRunBatBefore->Checked)      ? RUN_BAT_BEFORE_PROCESS : NULL;
+	cnf->oth.run_bat               |= (fcgCBRunBatAfter->Checked)       ? RUN_BAT_AFTER_PROCESS  : NULL;
 	cnf->oth.dont_wait_bat_fin      = RUN_BAT_NONE;
-	cnf->oth.dont_wait_bat_fin     |= (!fcgCBWaitForBatBefore->Checked) ? RUN_BAT_BEFORE : NULL;
-	cnf->oth.dont_wait_bat_fin     |= (!fcgCBWaitForBatAfter->Checked) ? RUN_BAT_AFTER : NULL;
-	GetCHARfromString(cnf->oth.batfile_before, sizeof(cnf->oth.batfile_before), fcgTXBatBeforePath->Text);
-	GetCHARfromString(cnf->oth.batfile_after,  sizeof(cnf->oth.batfile_after),  fcgTXBatAfterPath->Text);
+	cnf->oth.dont_wait_bat_fin     |= (!fcgCBWaitForBatBefore->Checked) ? RUN_BAT_BEFORE_PROCESS : NULL;
+	cnf->oth.dont_wait_bat_fin     |= (!fcgCBWaitForBatAfter->Checked)  ? RUN_BAT_AFTER_PROCESS  : NULL;
+	GetCHARfromString(cnf->oth.batfile.before_process, sizeof(cnf->oth.batfile.before_process), fcgTXBatBeforePath->Text);
+	GetCHARfromString(cnf->oth.batfile.after_process,  sizeof(cnf->oth.batfile.after_process),  fcgTXBatAfterPath->Text);
+	GetCHARfromString(cnf->oth.batfile.before_audio, sizeof(cnf->oth.batfile.before_audio), fcgTXBatBeforeAudioPath->Text);
+	GetCHARfromString(cnf->oth.batfile.after_audio,  sizeof(cnf->oth.batfile.after_audio),  fcgTXBatAfterAudioPath->Text);
 }
 
 System::Void frmConfig::GetfcgTSLSettingsNotes(char *notes, int nSize) {
@@ -1177,6 +1187,27 @@ System::Void frmConfig::SetHelpToolTips() {
 		+ L"\n"
 		+ L"この設定はx264guiEx.confに保存され、\n"
 		+ L"バッチ処理ごとの変更はできません。"
+		);
+	//音声バッチファイル実行
+	fcgTTEx->SetToolTip(fcgCBRunBatBeforeAudio, L""
+		+ L"音声エンコード開始前にバッチファイルを実行します。"
+		);
+	fcgTTEx->SetToolTip(fcgCBRunBatAfterAudio, L""
+		+ L"音声エンコード終了後、バッチファイルを実行します。"
+		);
+	fcgTTEx->SetToolTip(fcgBTBatBeforeAudioPath, L""
+		+ L"音声エンコード終了後実行するバッチファイルを指定します。\n"
+		+ L"実際のバッチ実行時には新たに\"<バッチファイル名>_tmp.bat\"を作成、\n"
+		+ L"指定したバッチファイルの内容をコピーし、\n"
+		+ L"さらに特定文字列を置換して実行します。\n"
+		+ L"使用できる置換文字列はreadmeをご覧下さい。"
+		);
+	fcgTTEx->SetToolTip(fcgBTBatAfterAudioPath, L""
+		+ L"音声エンコード終了後実行するバッチファイルを指定します。\n"
+		+ L"実際のバッチ実行時には新たに\"<バッチファイル名>_tmp.bat\"を作成、\n"
+		+ L"指定したバッチファイルの内容をコピーし、\n"
+		+ L"さらに特定文字列を置換して実行します。\n"
+		+ L"使用できる置換文字列はreadmeをご覧下さい。"
 		);
 
 	//muxer
