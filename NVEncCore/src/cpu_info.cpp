@@ -17,15 +17,15 @@
 #include "cpu_info.h"
 
 static int getCPUName(char *buffer, size_t nSize) {
-    int CPUInfo[4] = {-1};
-    __cpuid(CPUInfo, 0x80000000);
-    unsigned int nExIds = CPUInfo[0];
+	int CPUInfo[4] = {-1};
+	__cpuid(CPUInfo, 0x80000000);
+	unsigned int nExIds = CPUInfo[0];
 	if (nSize < 0x40)
 		return 1;
 
 	memset(buffer, 0, 0x40);
-    for (unsigned int i = 0x80000000; i <= nExIds; i++) {
-        __cpuid(CPUInfo, i);
+	for (unsigned int i = 0x80000000; i <= nExIds; i++) {
+		__cpuid(CPUInfo, i);
 		int offset = 0;
 		switch (i) {
 			case 0x80000002: offset =  0; break;
@@ -241,6 +241,18 @@ static unsigned int __stdcall getCPUClockMaxSubFunc(void *arg) {
 	return 0;
 }
 
+//rdtscpを使うと0xc0000096例外 (一般ソフトウェア例外)を発する場合があるらしい
+//そこでそれを検出する
+bool check_rdtscp_available() {
+	__try {
+		UINT dummy;
+		__rdtscp(&dummy);
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+		return false;
+	}
+	return true;
+}
+
 //__rdtscが定格クロックに基づいた値を返すのを利用して、実際の動作周波数を得る
 //やや時間がかかるので注意
 double getCPUMaxTurboClock(unsigned int num_thread) {
@@ -262,6 +274,10 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
 	//rdtscp命令のチェック (Fn:8000_0001:EDX27)
 	__cpuid(CPUInfo, 0x80000001);
 	if (0 == (CPUInfo[3] & (1<<27))) {
+		return defaultClock;
+	}
+	//例外が発生するなら処理を中断する
+	if (!check_rdtscp_available()) {
 		return defaultClock;
 	}
 
