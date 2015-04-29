@@ -65,9 +65,9 @@ protected:
 	int load_avisynth();
 	void release_avisynth();
 
-    AVS_ScriptEnvironment *m_sAVSenv;
-    AVS_Clip *m_sAVSclip;
-    const AVS_VideoInfo *m_sAVSinfo;
+	AVS_ScriptEnvironment *m_sAVSenv;
+	AVS_Clip *m_sAVSclip;
+	const AVS_VideoInfo *m_sAVSinfo;
 	int m_nFrame;
 	int m_nMaxFrame;
 	bool m_bInterlaced;
