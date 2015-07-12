@@ -10,6 +10,10 @@
 #include <stdint.h>
 #include <immintrin.h>
 
+#if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
+static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
+#endif
+
 template<bool use_stream>
 static void __forceinline avx2_memcpy(uint8_t *dst, const uint8_t *src, int size) {
 	if (size < 128) {
