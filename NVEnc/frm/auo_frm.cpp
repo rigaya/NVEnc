@@ -141,10 +141,12 @@ void write_log_exe_mes(char *const msg, DWORD *log_len, const char *exename, LOG
 		*(b+1) = '\0';
 		if ((b = strrchr(mes, '\r', b - mes - 2)) != NULL)
 			mes = b + 1;
-		if (buffer_len == 0) buffer_len = *log_len + strlen(exename) + 3;
-		if (buffer != NULL || NULL != (buffer = (char*)malloc(buffer_len * sizeof(buffer[0])))) {
-			sprintf_s(buffer, buffer_len, "%s: %s", exename, mes);
-			set_window_title(buffer);
+		if (exename) {
+			if (buffer_len == 0) buffer_len = *log_len + strlen(exename) + 3;
+			if (buffer != NULL || NULL != (buffer = (char*)malloc(buffer_len * sizeof(buffer[0])))) {
+				sprintf_s(buffer, buffer_len, "%s: %s", exename, mes);
+				set_window_title(buffer);
+			}
 		}
 		mes = a + 1;
 	}
