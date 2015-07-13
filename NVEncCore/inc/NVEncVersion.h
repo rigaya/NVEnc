@@ -9,9 +9,9 @@
 
 #pragma once
 
-#define VER_FILEVERSION              0,1,8,0
-#define VER_STR_FILEVERSION          "1.08"
-#define VER_STR_FILEVERSION_TCHAR _T("1.08")
+#define VER_FILEVERSION              0,1,9,0
+#define VER_STR_FILEVERSION          "1.09"
+#define VER_STR_FILEVERSION_TCHAR _T("1.09")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")

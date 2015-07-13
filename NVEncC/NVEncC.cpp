@@ -745,8 +745,8 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
 }
 
 int _tmain(int argc, TCHAR **argv) {
-
-	_tsetlocale(LC_ALL, _T("japanese"));
+	if (check_locale_is_ja())
+		_tsetlocale(LC_ALL, _T("japanese"));
 
 	InEncodeVideoParam encPrm = { 0 };
 	NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };

@@ -279,6 +279,8 @@ void guiEx_settings::load_aud() {
 			tmp_mode[j].enc_2pass = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
 			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_convert8bit");
 			tmp_mode[j].use_8bit = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
+			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_use_remuxer");
+			tmp_mode[j].use_remuxer = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
 			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_delay");
 			tmp_mode[j].delay = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
 			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_bitrate");

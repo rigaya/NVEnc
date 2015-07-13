@@ -46,8 +46,8 @@ static const int    DEFAULT_LOG_POS[2]           = { 100, 100 };
 ///ログ表示で使う色                                        R    G    B
 static const int    DEFAULT_LOG_COLOR_BACKGROUND[3] =   {   0,   0,   0 };
 static const int    DEFAULT_LOG_COLOR_TEXT[3][3]    = { { 198, 253, 226 },   //LOG_INFO
-                                                        { 245, 218,  90 },   //LOG_WARNING
-                                                        { 253,  83, 121 } }; //LOG_ERROR
+	                                                    { 245, 218,  90 },   //LOG_WARNING
+	                                                    { 253,  83, 121 } }; //LOG_ERROR
 
 static const BOOL   DEFAULT_FBC_CALC_BITRATE         = 1;
 static const BOOL   DEFAULT_FBC_CALC_TIME_FROM_FRAME = 0;
@@ -143,6 +143,7 @@ typedef struct {
 	int delay;           //エンコード遅延 (音声が映像に対し遅れるsample数)
 	int enc_2pass;       //2passエンコを行う
 	int use_8bit;        //8bitwavを入力する
+	int use_remuxer;     //remuxerが必要
 	char *disp_list;     //表示名のリスト
 	char *cmd_list;      //コマンドラインのリスト
 } AUDIO_ENC_MODE;
