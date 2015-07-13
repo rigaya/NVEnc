@@ -43,66 +43,66 @@ typedef VSCore * (__stdcall *func_vs_getCore)(VSScript *handle);
 typedef const VSAPI * (__stdcall *func_vs_getVSApi)(void);
 
 typedef struct {
-	HMODULE                hVSScriptDLL;
-	func_vs_init           init;
-	func_vs_finalize       finalize;
-	func_vs_evaluateScript evaluateScript;
-	func_vs_evaluateFile   evaluateFile;
-	func_vs_freeScript     freeScript;
-	func_vs_getError       getError;
-	func_vs_getOutput      getOutput;
-	func_vs_clearOutput    clearOutput;
-	func_vs_getCore        getCore;
-	func_vs_getVSApi       getVSApi;
+    HMODULE                hVSScriptDLL;
+    func_vs_init           init;
+    func_vs_finalize       finalize;
+    func_vs_evaluateScript evaluateScript;
+    func_vs_evaluateFile   evaluateFile;
+    func_vs_freeScript     freeScript;
+    func_vs_getError       getError;
+    func_vs_getOutput      getOutput;
+    func_vs_clearOutput    clearOutput;
+    func_vs_getCore        getCore;
+    func_vs_getVSApi       getVSApi;
 } vsscript_t;
 
 typedef struct InputInfoVpy {
-	bool interlaced;
-	bool mt;
+    bool interlaced;
+    bool mt;
 } InputInfoVpy;
 
 class NVEncInputVpy : public NVEncBasicInput {
 public:
-	NVEncInputVpy();
-	~NVEncInputVpy();
+    NVEncInputVpy();
+    ~NVEncInputVpy();
 
-	virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
-	virtual int LoadNextFrame(void *dst, int dst_pitch) override;
-	virtual void Close() override;
-	
-	void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
+    virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
+    virtual int LoadNextFrame(void *dst, int dst_pitch) override;
+    virtual void Close() override;
+    
+    void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
 protected:
-	void release_vapoursynth();
-	int load_vapoursynth();
+    void release_vapoursynth();
+    int load_vapoursynth();
 
-	int initAsyncEvents();
-	void closeAsyncEvents();
-	const VSFrameRef* getFrameFromAsyncBuffer(int n) {
-		WaitForSingleObject(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)], INFINITE);
-		const VSFrameRef* frame = m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)];
-		SetEvent(m_hAsyncEventFrameSetStart[n & (ASYNC_BUFFER_SIZE-1)]);
-		return frame;
-	}
-	const VSFrameRef* m_pAsyncBuffer[ASYNC_BUFFER_SIZE];
-	HANDLE m_hAsyncEventFrameSetFin[ASYNC_BUFFER_SIZE];
-	HANDLE m_hAsyncEventFrameSetStart[ASYNC_BUFFER_SIZE];
+    int initAsyncEvents();
+    void closeAsyncEvents();
+    const VSFrameRef* getFrameFromAsyncBuffer(int n) {
+        WaitForSingleObject(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)], INFINITE);
+        const VSFrameRef* frame = m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)];
+        SetEvent(m_hAsyncEventFrameSetStart[n & (ASYNC_BUFFER_SIZE-1)]);
+        return frame;
+    }
+    const VSFrameRef* m_pAsyncBuffer[ASYNC_BUFFER_SIZE];
+    HANDLE m_hAsyncEventFrameSetFin[ASYNC_BUFFER_SIZE];
+    HANDLE m_hAsyncEventFrameSetStart[ASYNC_BUFFER_SIZE];
 
-	int getRevInfo(const char *vs_version_string);
+    int getRevInfo(const char *vs_version_string);
 
-	bool m_bInterlaced;
+    bool m_bInterlaced;
 
-	bool m_bAbortAsync;
-	uint32_t m_nCopyOfInputFrames;
+    bool m_bAbortAsync;
+    uint32_t m_nCopyOfInputFrames;
 
-	const VSAPI *m_sVSapi;
-	VSScript *m_sVSscript;
-	VSNodeRef *m_sVSnode;
-	int m_nAsyncFrames;
+    const VSAPI *m_sVSapi;
+    VSScript *m_sVSscript;
+    VSNodeRef *m_sVSnode;
+    int m_nAsyncFrames;
 
-	int m_nFrame;
-	int m_nMaxFrame;
+    int m_nFrame;
+    int m_nMaxFrame;
 
-	vsscript_t m_sVS;
+    vsscript_t m_sVS;
 };
 
 #endif //AVS_READER

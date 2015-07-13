@@ -10,19 +10,19 @@
 #ifndef _CONVERT_H_
 #define _CONVERT_H_
 
-typedef	struct {
-	short	y;					//	画素(輝度    )データ (     0 ～ 4096 )
-	short	cb;					//	画素(色差(青))データ ( -2048 ～ 2048 )
-	short	cr;					//	画素(色差(赤))データ ( -2048 ～ 2048 )
-								//	画素データは範囲外に出ていることがあります
-								//	また範囲内に収めなくてもかまいません
+typedef    struct {
+    short    y;                    //    画素(輝度    )データ (     0 ～ 4096 )
+    short    cb;                    //    画素(色差(青))データ ( -2048 ～ 2048 )
+    short    cr;                    //    画素(色差(赤))データ ( -2048 ～ 2048 )
+                                //    画素データは範囲外に出ていることがあります
+                                //    また範囲内に収めなくてもかまいません
 } PIXEL_YC;
 
 typedef struct {
-	int   count;       //planarの枚数。packedなら1
-	BYTE *data[3];     //planarの先頭へのポインタ
-	int   size[3];     //planarのサイズ
-	int   total_size;  //全planarのサイズの総和
+    int   count;       //planarの枚数。packedなら1
+    BYTE *data[3];     //planarの先頭へのポインタ
+    int   size[3];     //planarのサイズ
+    int   total_size;  //全planarのサイズの総和
 } CONVERT_CF_DATA;
 
 //音声16bit->8bit変換
@@ -68,8 +68,8 @@ void convert_yuy2_to_nv12_i_avx2_aligned(void *frame, BYTE *dst_Y, BYTE *dst_C, 
 #define ALIGN32_CONST_ARRAY static const _declspec(align(32))
 
 ALIGN32_CONST_ARRAY BYTE  Array_INTERLACE_WEIGHT[2][32] = { 
-	{1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3},
-	{3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1}
+    {1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3},
+    {3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1}
 };
 #define xC_INTERLACE_WEIGHT(i) _mm_load_si128((__m128i*)Array_INTERLACE_WEIGHT[i])
 

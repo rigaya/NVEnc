@@ -21,17 +21,17 @@
 
 class NVEncInputRaw : public NVEncBasicInput {
 public:
-	NVEncInputRaw();
-	~NVEncInputRaw();
+    NVEncInputRaw();
+    ~NVEncInputRaw();
 
-	virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
-	virtual int LoadNextFrame(void *dst, int dst_pitch) override;
-	virtual void Close() override;
+    virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
+    virtual int LoadNextFrame(void *dst, int dst_pitch) override;
+    virtual void Close() override;
 
 protected:
-	virtual int ParseY4MHeader(char *buf, InputVideoInfo *inputPrm);
-	bool m_bIsY4m = false;
-	uint8_t *m_inputBuffer = NULL;
+    virtual int ParseY4MHeader(char *buf, InputVideoInfo *inputPrm);
+    bool m_bIsY4m = false;
+    uint8_t *m_inputBuffer = NULL;
 };
 
 #endif //RAW_READER

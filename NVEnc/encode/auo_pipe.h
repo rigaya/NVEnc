@@ -14,35 +14,35 @@
 #include <stdio.h>
 
 enum {
-	RP_USE_NO_PIPE = -1,
-	RP_SUCCESS = 0,
-	RP_ERROR_OPEN_PIPE,
-	RP_ERROR_GET_STDIN_FILE_HANDLE,
-	RP_ERROR_CREATE_PROCESS,
+    RP_USE_NO_PIPE = -1,
+    RP_SUCCESS = 0,
+    RP_ERROR_OPEN_PIPE,
+    RP_ERROR_GET_STDIN_FILE_HANDLE,
+    RP_ERROR_CREATE_PROCESS,
 };
 
 enum AUO_PIPE_MODE {
-	AUO_PIPE_DISABLE = 0, 
-	AUO_PIPE_ENABLE,
-	AUO_PIPE_MUXED, //Stderrのモードに使用し、StderrをStdOutに混合する
+    AUO_PIPE_DISABLE = 0, 
+    AUO_PIPE_ENABLE,
+    AUO_PIPE_MUXED, //Stderrのモードに使用し、StderrをStdOutに混合する
 };
 
 const int PIPE_READ_BUF = 2048;
 
 typedef struct {
-	HANDLE h_read;
-	HANDLE h_write;
-	AUO_PIPE_MODE mode;
-	DWORD bufferSize;
+    HANDLE h_read;
+    HANDLE h_write;
+    AUO_PIPE_MODE mode;
+    DWORD bufferSize;
 } PIPE;
 
 typedef struct {
-	PIPE stdIn;
-	PIPE stdOut;
-	PIPE stdErr;
-	FILE *f_stdin;
-	DWORD buf_len;
-	char read_buf[PIPE_READ_BUF];
+    PIPE stdIn;
+    PIPE stdOut;
+    PIPE stdErr;
+    FILE *f_stdin;
+    DWORD buf_len;
+    char read_buf[PIPE_READ_BUF];
 } PIPE_SET;
 
 void InitPipes(PIPE_SET *pipes);

@@ -21,42 +21,42 @@ NVEncBasicInput::NVEncBasicInput() {
 }
 
 NVEncBasicInput::~NVEncBasicInput() {
-	Close();
+    Close();
 }
 
 void NVEncBasicInput::setSurfaceInfo(InputVideoInfo *inputPrm) {
-	m_stSurface.width     = inputPrm->width;
-	m_stSurface.src_pitch = inputPrm->width;
-	m_stSurface.height    = inputPrm->height;
-	memcpy(&m_stSurface.crop, &inputPrm->crop, sizeof(m_stSurface.crop));
+    m_stSurface.width     = inputPrm->width;
+    m_stSurface.src_pitch = inputPrm->width;
+    m_stSurface.height    = inputPrm->height;
+    memcpy(&m_stSurface.crop, &inputPrm->crop, sizeof(m_stSurface.crop));
 }
 
 #pragma warning(push)
 #pragma warning(disable:4100)
 int NVEncBasicInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 
-	return 0;
+    return 0;
 }
 
 int NVEncBasicInput::LoadNextFrame(void *dst, int dst_pitch) {
-	return 0;
+    return 0;
 }
 #pragma warning(pop)
 
 void NVEncBasicInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const InputVideoInfo *inputPrm) {
-	std::basic_stringstream<TCHAR> ss;
+    std::basic_stringstream<TCHAR> ss;
 
-	ss << inputTypeName << _T(" ");
-	ss << _T("(") << inputCSpName << _T(")");
-	ss << _T(" -> ") << outputCSpName;
-	if (convSIMD && _tcslen(convSIMD)) {
-		ss << _T(" [") << convSIMD << _T("]");
-	}
-	ss << _T(", ");
-	ss << inputPrm->width << _T("x") << inputPrm->height << _T(", ");
-	ss << inputPrm->rate << _T("/") << inputPrm->scale << _T(" fps");
+    ss << inputTypeName << _T(" ");
+    ss << _T("(") << inputCSpName << _T(")");
+    ss << _T(" -> ") << outputCSpName;
+    if (convSIMD && _tcslen(convSIMD)) {
+        ss << _T(" [") << convSIMD << _T("]");
+    }
+    ss << _T(", ");
+    ss << inputPrm->width << _T("x") << inputPrm->height << _T(", ");
+    ss << inputPrm->rate << _T("/") << inputPrm->scale << _T(" fps");
 
-	m_inputMes = ss.str();
+    m_inputMes = ss.str();
 }
 
 void NVEncBasicInput::Close() {

@@ -17,22 +17,22 @@
 const int LOG_UPDATE_INTERVAL = 50;
 
 enum {
-	LOG_MORE    = -1,
-	LOG_INFO    = 0,
-	LOG_WARNING = 1,
-	LOG_ERROR   = 2,
+    LOG_MORE    = -1,
+    LOG_INFO    = 0,
+    LOG_WARNING = 1,
+    LOG_ERROR   = 2,
 };
 
 enum {
-	PROGRESSBAR_DISABLED   = 0,
-	PROGRESSBAR_CONTINUOUS = 1,
-	PROGRESSBAR_MARQUEE    = 2,
+    PROGRESSBAR_DISABLED   = 0,
+    PROGRESSBAR_CONTINUOUS = 1,
+    PROGRESSBAR_MARQUEE    = 2,
 };
 
 typedef struct {
-	int max_line; //格納できる最大の行数
-	int idx;      //現在の行数
-	char **lines; //格納している一行
+    int max_line; //格納できる最大の行数
+    int idx;      //現在の行数
+    char **lines; //格納している一行
 } LOG_CACHE;
 
 //設定ウィンドウ

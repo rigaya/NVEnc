@@ -19,14 +19,14 @@ int getCPUInfo(TCHAR *buffer, size_t nSize);
 
 template <size_t size>
 int inline getCPUInfo(TCHAR(&buffer)[size]) {
-	return getCPUInfo(buffer, size);
+    return getCPUInfo(buffer, size);
 }
 
 double getCPUDefaultClock();
 double getCPUMaxTurboClock(unsigned int num_thread);
 
 typedef struct PROCESS_TIME {
-	UINT64 creation, exit, kernel, user;
+    UINT64 creation, exit, kernel, user;
 } PROCESS_TIME;
 
 BOOL GetProcessTime(HANDLE hProcess, PROCESS_TIME *time);

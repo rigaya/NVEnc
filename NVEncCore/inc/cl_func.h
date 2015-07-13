@@ -45,43 +45,43 @@ typedef cl_int(CL_API_CALL* funcClEnqueueReadBuffer) (cl_command_queue command_q
 typedef cl_int(CL_API_CALL* funcClEnqueueWriteBuffer) (cl_command_queue command_queue, cl_mem buffer, cl_bool blocking_write, size_t offset, size_t size, const void *ptr, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 
 typedef struct cl_func_t {
-	HMODULE hdll;
+    HMODULE hdll;
 
-	funcClGetPlatformIDs getPlatformIDs;
-	funcClGetPlatformInfo getPlatformInfo;
-	funcClGetDeviceIDs getDeviceIDs;
-	funcClGetDeviceInfo getDeviceInfo;
+    funcClGetPlatformIDs getPlatformIDs;
+    funcClGetPlatformInfo getPlatformInfo;
+    funcClGetDeviceIDs getDeviceIDs;
+    funcClGetDeviceInfo getDeviceInfo;
 
-	funcClCreateProgramWithSource createProgramWithSource;
-	funcClBuildProgram buildProgram;
-	funcClGetProgramBuildInfo getProgramBuildInfo;
-	funcClReleaseProgram releaseProgram;
+    funcClCreateProgramWithSource createProgramWithSource;
+    funcClBuildProgram buildProgram;
+    funcClGetProgramBuildInfo getProgramBuildInfo;
+    funcClReleaseProgram releaseProgram;
 
-	funcClCreateContext createContext;
-	funcClReleaseContext releaseContext;
-	funcClCreateCommandQueue createCommandQueue;
-	funcClReleaseCommandQueue releaseCommandQueue;
-	funcClCreateBuffer createBuffer;
-	funcClReleaseMemObject releaseMemObject;
+    funcClCreateContext createContext;
+    funcClReleaseContext releaseContext;
+    funcClCreateCommandQueue createCommandQueue;
+    funcClReleaseCommandQueue releaseCommandQueue;
+    funcClCreateBuffer createBuffer;
+    funcClReleaseMemObject releaseMemObject;
 
-	funcClCreateKernel createKernel;
-	funcClReleaseKernel releaseKernel;
-	funcClSetKernelArg setKernelArg;
-	funcClEnqueueTask enqueueTask;
-	funcClEnqueueNDRangeKernel enqueueNDRangeKernel;
+    funcClCreateKernel createKernel;
+    funcClReleaseKernel releaseKernel;
+    funcClSetKernelArg setKernelArg;
+    funcClEnqueueTask enqueueTask;
+    funcClEnqueueNDRangeKernel enqueueNDRangeKernel;
 
-	funcClFinish finish;
-	funcClEnqueueReadBuffer enqueueReadBuffer;
-	funcClEnqueueWriteBuffer enqueueWriteBuffer;
+    funcClFinish finish;
+    funcClEnqueueReadBuffer enqueueReadBuffer;
+    funcClEnqueueWriteBuffer enqueueWriteBuffer;
 } cl_func_t;
 
 typedef struct cl_data_t {
-	cl_platform_id platformID;
-	cl_device_id deviceID;
-	cl_context contextCL;
-	cl_program program;
-	cl_command_queue commands;
-	cl_kernel kernel;
+    cl_platform_id platformID;
+    cl_device_id deviceID;
+    cl_context contextCL;
+    cl_program program;
+    cl_command_queue commands;
+    cl_kernel kernel;
 } cl_data_t;
 
 cl_int cl_get_func(cl_func_t *cl);

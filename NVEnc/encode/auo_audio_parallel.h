@@ -15,10 +15,10 @@
 #include "auo_system.h"
 
 static inline void if_valid_wait_for_single_object(HANDLE he, DWORD dwMilliseconds) {
-	if (he) WaitForSingleObject(he, dwMilliseconds);
+    if (he) WaitForSingleObject(he, dwMilliseconds);
 }
 static inline void if_valid_set_event(HANDLE he) {
-	if (he) SetEvent(he);
+    if (he) SetEvent(he);
 }
 
 void release_audio_parallel_events(PRM_ENC *pe);

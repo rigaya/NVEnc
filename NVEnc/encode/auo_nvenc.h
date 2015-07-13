@@ -23,57 +23,57 @@
 #include "NVEncCore.h"
 
 typedef struct InputInfoAuo {
-	const OUTPUT_INFO *oip;
-	const SYSTEM_DATA *sys_dat;
-	CONF_GUIEX *conf;
-	PRM_ENC *pe;
-	int *jitter;
-	BOOL interlaced;
+    const OUTPUT_INFO *oip;
+    const SYSTEM_DATA *sys_dat;
+    CONF_GUIEX *conf;
+    PRM_ENC *pe;
+    int *jitter;
+    BOOL interlaced;
 } InputInfoAuo;
 
 typedef struct ConvCSPInfo {
-	funcConvertCSP func[2];
-	DWORD SIMD;
+    funcConvertCSP func[2];
+    DWORD SIMD;
 } ConvCSPInfo;
 
 class AuoEncodeStatus : public EncodeStatus
 {
 public:
-	AuoEncodeStatus();
-	~AuoEncodeStatus();
+    AuoEncodeStatus();
+    ~AuoEncodeStatus();
 protected:
-	virtual void UpdateDisplay(const TCHAR *mes) override;
-	virtual void WriteLine(const TCHAR *mes) override;
+    virtual void UpdateDisplay(const TCHAR *mes) override;
+    virtual void WriteLine(const TCHAR *mes) override;
 };
 
 class AuoInput : public NVEncBasicInput
 {
 private:
-	const OUTPUT_INFO *oip;
-	CONF_GUIEX *conf;
-	PRM_ENC *pe;
-	int frames;
-	int *jitter;
-	int m_iFrame;
-	BOOL m_interlaced;
-	uint32_t m_tmLastUpdate;
-	BOOL m_pause;
+    const OUTPUT_INFO *oip;
+    CONF_GUIEX *conf;
+    PRM_ENC *pe;
+    int frames;
+    int *jitter;
+    int m_iFrame;
+    BOOL m_interlaced;
+    uint32_t m_tmLastUpdate;
+    BOOL m_pause;
 public:
-	AuoInput();
-	~AuoInput();
-	virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
-	virtual int LoadNextFrame(void *dst, int dst_pitch) override;
-	virtual void Close() override;
+    AuoInput();
+    ~AuoInput();
+    virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
+    virtual int LoadNextFrame(void *dst, int dst_pitch) override;
+    virtual void Close() override;
 };
 
 class CAuoNvEnc : public NVEncCore
 {
 public:
-	CAuoNvEnc();
-	~CAuoNvEnc();
+    CAuoNvEnc();
+    ~CAuoNvEnc();
 protected:
-	virtual int NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) override;
-	virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam) override;
+    virtual int NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) override;
+    virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam) override;
 };
 
 #endif //_AUO_NVENC_H_

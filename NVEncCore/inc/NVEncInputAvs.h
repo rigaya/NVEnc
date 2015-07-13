@@ -35,44 +35,44 @@ typedef void (__stdcall *func_avs_delete_script_environment) (AVS_ScriptEnvironm
 typedef float (__stdcall *func_avs_get_version)(void);
 
 typedef struct {
-	HMODULE h_avisynth;
-	func_avs_invoke invoke;
-	func_avs_take_clip take_clip;
-	func_avs_release_value release_value;
-	func_avs_create_script_environment create_script_environment;
-	func_avs_get_video_info get_video_info;
-	func_avs_get_frame get_frame;
-	func_avs_release_video_frame release_video_frame;
-	func_avs_release_clip release_clip;
-	func_avs_delete_script_environment delete_script_environment;
-	func_avs_get_version get_version;
+    HMODULE h_avisynth;
+    func_avs_invoke invoke;
+    func_avs_take_clip take_clip;
+    func_avs_release_value release_value;
+    func_avs_create_script_environment create_script_environment;
+    func_avs_get_video_info get_video_info;
+    func_avs_get_frame get_frame;
+    func_avs_release_video_frame release_video_frame;
+    func_avs_release_clip release_clip;
+    func_avs_delete_script_environment delete_script_environment;
+    func_avs_get_version get_version;
 } avs_dll_t;
 
 typedef struct InputInfoAvs {
-	bool interlaced;
+    bool interlaced;
 } InputInfoAvs;
 
 class NVEncInputAvs : public NVEncBasicInput {
 public:
-	NVEncInputAvs();
-	~NVEncInputAvs();
+    NVEncInputAvs();
+    ~NVEncInputAvs();
 
-	virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
-	virtual int LoadNextFrame(void *dst, int dst_pitch) override;
-	virtual void Close() override;
+    virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
+    virtual int LoadNextFrame(void *dst, int dst_pitch) override;
+    virtual void Close() override;
 
 protected:
-	int load_avisynth();
-	void release_avisynth();
+    int load_avisynth();
+    void release_avisynth();
 
-	AVS_ScriptEnvironment *m_sAVSenv;
-	AVS_Clip *m_sAVSclip;
-	const AVS_VideoInfo *m_sAVSinfo;
-	int m_nFrame;
-	int m_nMaxFrame;
-	bool m_bInterlaced;
+    AVS_ScriptEnvironment *m_sAVSenv;
+    AVS_Clip *m_sAVSclip;
+    const AVS_VideoInfo *m_sAVSinfo;
+    int m_nFrame;
+    int m_nMaxFrame;
+    bool m_bInterlaced;
 
-	avs_dll_t m_sAvisynth;
+    avs_dll_t m_sAvisynth;
 };
 
 #endif //AVS_READER

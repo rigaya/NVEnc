@@ -99,88 +99,88 @@ typedef struct _NV_ENC_CONFIG_H264_OLD
 
 
 typedef struct CONF_NVENC_OLD {
-	NV_ENC_CONFIG enc_config;
-	NV_ENC_PIC_STRUCT pic_struct;
-	int preset;
-	int deviceID;
-	int inputBuffer;
-	int par[2];
+    NV_ENC_CONFIG enc_config;
+    NV_ENC_PIC_STRUCT pic_struct;
+    int preset;
+    int deviceID;
+    int inputBuffer;
+    int par[2];
 } CONF_NVENC_OLD;
 
 void guiEx_config::convert_nvencstg_to_nvencstgv3(CONF_GUIEX *conf, const void *dat) {
-	const CONF_GUIEX *old_data = (const CONF_GUIEX *)dat;
-	init_CONF_GUIEX(conf, FALSE);
+    const CONF_GUIEX *old_data = (const CONF_GUIEX *)dat;
+    init_CONF_GUIEX(conf, FALSE);
 
-	//まずそのままコピーするブロックはそうする
+    //まずそのままコピーするブロックはそうする
 #define COPY_BLOCK(block, block_idx) { memcpy(&conf->block, ((BYTE *)old_data) + old_data->block_head_p[block_idx], min(sizeof(conf->block), old_data->block_size[block_idx])); }
-	COPY_BLOCK(nvenc, 0);
-	COPY_BLOCK(vid, 1);
-	COPY_BLOCK(aud, 2);
-	COPY_BLOCK(mux, 3);
-	COPY_BLOCK(oth, 4);
+    COPY_BLOCK(nvenc, 0);
+    COPY_BLOCK(vid, 1);
+    COPY_BLOCK(aud, 2);
+    COPY_BLOCK(mux, 3);
+    COPY_BLOCK(oth, 4);
 #undef COPY_BLOCK
 
-	CONF_NVENC_OLD *old = (CONF_NVENC_OLD *)(((BYTE *)old_data) + old_data->block_head_p[0]);
-	NV_ENC_CONFIG_H264_OLD * h264old = (NV_ENC_CONFIG_H264_OLD *)&old->enc_config.encodeCodecConfig.h264Config;
+    CONF_NVENC_OLD *old = (CONF_NVENC_OLD *)(((BYTE *)old_data) + old_data->block_head_p[0]);
+    NV_ENC_CONFIG_H264_OLD * h264old = (NV_ENC_CONFIG_H264_OLD *)&old->enc_config.encodeCodecConfig.h264Config;
 
-	memset(&conf->nvenc.codecConfig[NV_ENC_H264].h264Config, 0, sizeof(conf->nvenc.codecConfig[NV_ENC_H264].h264Config));
+    memset(&conf->nvenc.codecConfig[NV_ENC_H264].h264Config, 0, sizeof(conf->nvenc.codecConfig[NV_ENC_H264].h264Config));
 #define COPY_H264_STG(name) { conf->nvenc.codecConfig[NV_ENC_H264].h264Config.name = h264old->name; }
-	COPY_H264_STG(enableTemporalSVC);
-	COPY_H264_STG(enableStereoMVC);
-	COPY_H264_STG(hierarchicalPFrames);
-	COPY_H264_STG(hierarchicalBFrames);
-	COPY_H264_STG(outputBufferingPeriodSEI);
-	COPY_H264_STG(outputPictureTimingSEI);
-	COPY_H264_STG(outputAUD);
-	COPY_H264_STG(disableSPSPPS);
-	COPY_H264_STG(outputFramePackingSEI);
-	COPY_H264_STG(outputRecoveryPointSEI);
-	COPY_H264_STG(enableIntraRefresh);
-	COPY_H264_STG(enableConstrainedEncoding);
-	COPY_H264_STG(repeatSPSPPS);
-	COPY_H264_STG(enableVFR);
-	COPY_H264_STG(enableLTR);
-	COPY_H264_STG(reservedBitFields);
-	COPY_H264_STG(level);
-	COPY_H264_STG(idrPeriod);
-	COPY_H264_STG(separateColourPlaneFlag);
-	COPY_H264_STG(disableDeblockingFilterIDC);
-	COPY_H264_STG(numTemporalLayers);
-	COPY_H264_STG(spsId);
-	COPY_H264_STG(ppsId);
-	COPY_H264_STG(adaptiveTransformMode);
-	COPY_H264_STG(fmoMode);
-	COPY_H264_STG(bdirectMode);
-	COPY_H264_STG(entropyCodingMode);
-	COPY_H264_STG(stereoMode);
-	COPY_H264_STG(intraRefreshPeriod);
-	COPY_H264_STG(intraRefreshCnt);
-	COPY_H264_STG(maxNumRefFrames);
-	COPY_H264_STG(sliceMode);
-	COPY_H264_STG(h264VUIParameters);
-	COPY_H264_STG(ltrNumFrames);
-	COPY_H264_STG(ltrTrustMode);
+    COPY_H264_STG(enableTemporalSVC);
+    COPY_H264_STG(enableStereoMVC);
+    COPY_H264_STG(hierarchicalPFrames);
+    COPY_H264_STG(hierarchicalBFrames);
+    COPY_H264_STG(outputBufferingPeriodSEI);
+    COPY_H264_STG(outputPictureTimingSEI);
+    COPY_H264_STG(outputAUD);
+    COPY_H264_STG(disableSPSPPS);
+    COPY_H264_STG(outputFramePackingSEI);
+    COPY_H264_STG(outputRecoveryPointSEI);
+    COPY_H264_STG(enableIntraRefresh);
+    COPY_H264_STG(enableConstrainedEncoding);
+    COPY_H264_STG(repeatSPSPPS);
+    COPY_H264_STG(enableVFR);
+    COPY_H264_STG(enableLTR);
+    COPY_H264_STG(reservedBitFields);
+    COPY_H264_STG(level);
+    COPY_H264_STG(idrPeriod);
+    COPY_H264_STG(separateColourPlaneFlag);
+    COPY_H264_STG(disableDeblockingFilterIDC);
+    COPY_H264_STG(numTemporalLayers);
+    COPY_H264_STG(spsId);
+    COPY_H264_STG(ppsId);
+    COPY_H264_STG(adaptiveTransformMode);
+    COPY_H264_STG(fmoMode);
+    COPY_H264_STG(bdirectMode);
+    COPY_H264_STG(entropyCodingMode);
+    COPY_H264_STG(stereoMode);
+    COPY_H264_STG(intraRefreshPeriod);
+    COPY_H264_STG(intraRefreshCnt);
+    COPY_H264_STG(maxNumRefFrames);
+    COPY_H264_STG(sliceMode);
+    COPY_H264_STG(h264VUIParameters);
+    COPY_H264_STG(ltrNumFrames);
+    COPY_H264_STG(ltrTrustMode);
 
-	convert_nvencstgv2_to_nvencstgv3(conf);
+    convert_nvencstgv2_to_nvencstgv3(conf);
 }
 
 void guiEx_config::convert_nvencstgv2_to_nvencstgv3(CONF_GUIEX *conf) {
-	static const DWORD OLD_FLAG_AFTER  = 0x01;
-	static const DWORD OLD_FLAG_BEFORE = 0x02;
+    static const DWORD OLD_FLAG_AFTER  = 0x01;
+    static const DWORD OLD_FLAG_BEFORE = 0x02;
 
-	char bat_path_before_process[1024];
-	char bat_path_after_process[1024];
-	strcpy_s(bat_path_after_process,  conf->oth.batfiles[0]);
-	strcpy_s(bat_path_before_process, conf->oth.batfiles[2]);
-	
-	DWORD old_run_bat_flags = conf->oth.run_bat;
-	conf->oth.run_bat  = 0x00;
-	conf->oth.run_bat |= (old_run_bat_flags & OLD_FLAG_BEFORE) ? RUN_BAT_BEFORE_PROCESS : 0x00;
-	conf->oth.run_bat |= (old_run_bat_flags & OLD_FLAG_AFTER)  ? RUN_BAT_AFTER_PROCESS  : 0x00;
+    char bat_path_before_process[1024];
+    char bat_path_after_process[1024];
+    strcpy_s(bat_path_after_process,  conf->oth.batfiles[0]);
+    strcpy_s(bat_path_before_process, conf->oth.batfiles[2]);
+    
+    DWORD old_run_bat_flags = conf->oth.run_bat;
+    conf->oth.run_bat  = 0x00;
+    conf->oth.run_bat |= (old_run_bat_flags & OLD_FLAG_BEFORE) ? RUN_BAT_BEFORE_PROCESS : 0x00;
+    conf->oth.run_bat |= (old_run_bat_flags & OLD_FLAG_AFTER)  ? RUN_BAT_AFTER_PROCESS  : 0x00;
 
-	memset(&conf->oth.batfiles[0], 0, sizeof(conf->oth.batfiles));
-	strcpy_s(conf->oth.batfile.before_process, bat_path_before_process);
-	strcpy_s(conf->oth.batfile.after_process,  bat_path_after_process);
-	strcpy_s(conf->conf_name, CONF_NAME_OLD_3);
+    memset(&conf->oth.batfiles[0], 0, sizeof(conf->oth.batfiles));
+    strcpy_s(conf->oth.batfile.before_process, bat_path_before_process);
+    strcpy_s(conf->oth.batfile.after_process,  bat_path_after_process);
+    strcpy_s(conf->conf_name, CONF_NAME_OLD_3);
 }
 
