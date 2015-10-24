@@ -198,19 +198,27 @@ int ParseY4MHeader(char *buf, mfxFrameInfo *info) {
 */
 #include <Windows.h>
 #include <process.h>
-#if (_MSC_VER >= 1800)
-#include <VersionHelpers.h>
-#endif
 
-BOOL nv_check_os_win8_or_later() {
-#if (_MSC_VER >= 1800)
-    return IsWindows8OrGreater();
-#else
-    OSVERSIONINFO osvi = { 0 };
-    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-    GetVersionEx(&osvi);
-    return ((osvi.dwPlatformId == VER_PLATFORM_WIN32_NT) && ((osvi.dwMajorVersion == 6 && osvi.dwMinorVersion >= 2) || osvi.dwMajorVersion > 6));
-#endif
+typedef void (WINAPI *RtlGetVersion_FUNC)(OSVERSIONINFOEXW*);
+
+static int getRealWindowsVersion(DWORD *major, DWORD *minor) {
+    *major = 0;
+    *minor = 0;
+    OSVERSIONINFOEXW osver;
+    HMODULE hModule = NULL;
+    RtlGetVersion_FUNC func = NULL;
+    int ret = 1;
+    if (NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
+        && NULL != (func = (RtlGetVersion_FUNC)GetProcAddress(hModule, "RtlGetVersion"))) {
+        func(&osver);
+        *major = osver.dwMajorVersion;
+        *minor = osver.dwMinorVersion;
+        ret = 0;
+}
+    if (hModule) {
+        FreeLibrary(hModule);
+    }
+    return ret;
 }
 
 const TCHAR *getOSVersion() {
@@ -230,6 +238,9 @@ const TCHAR *getOSVersion() {
         }
         break;
     case VER_PLATFORM_WIN32_NT:
+        if (info.dwMajorVersion == 6) {
+            getRealWindowsVersion(&info.dwMajorVersion, &info.dwMinorVersion);
+        }
         switch (info.dwMajorVersion) {
         case 3:
             switch (info.dwMinorVersion) {
@@ -256,18 +267,6 @@ const TCHAR *getOSVersion() {
             switch (info.dwMinorVersion) {
             case 0:  ptr = _T("Windows Vista"); break;
             case 1:  ptr = _T("Windows 7"); break;
-#if (_MSC_VER >= 1800)
-            default:
-                if (IsWindowsVersionOrGreater(6, 5, 0)) {
-                    ptr = _T("Later than Windows 10");
-                } else if (IsWindowsVersionOrGreater(6, 4, 0)) {
-                    ptr = _T("Windows 10");
-                } else if (IsWindowsVersionOrGreater(6, 3, 0)) {
-                    ptr = _T("Windows 8.1");
-                } else {
-                    ptr = _T("Windows 8");
-                }
-#else
             case 2:  ptr = _T("Windows 8"); break;
             case 3:  ptr = _T("Windows 8.1"); break;
             case 4:  ptr = _T("Windows 10"); break;
@@ -275,12 +274,14 @@ const TCHAR *getOSVersion() {
                 if (5 <= info.dwMinorVersion) {
                     ptr = _T("Later than Windows 10");
                 }
-#endif
                 break;
             }
             break;
+        case 10:
+            ptr = _T("Windows 10");
+            break;
         default:
-            if (7 <= info.dwPlatformId) {
+            if (10 <= info.dwMajorVersion) {
                 ptr = _T("Later than Windows 10");
             }
             break;
