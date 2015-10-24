@@ -118,7 +118,7 @@ static void show_help_ja() {
         _T("                                    デフォルト %d kbps\n")
         _T("\n")
         _T("   --max-bitrate <int>            最大ビットレート(kbps) / デフォルト: %d kbps\n")
-        _T("   --gop-len <int>                GOPのフレーム数 / デフォルト: %d frames%s")
+        _T("   --gop-len <int>                GOPのフレーム数 / デフォルト: %d frames%s\n")
         _T("-b,--bframes <int>                連続Bフレーム数 / デフォルト %d フレーム\n")
         _T("   --ref <int>                    参照距離 / デフォルト %d フレーム\n")
         _T("   --mv-precision <string>        動きベクトル精度 / デフォルト: Q-pel\n")
