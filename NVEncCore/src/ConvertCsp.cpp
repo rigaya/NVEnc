@@ -395,7 +395,6 @@ static const ConvertCSP funcList[] = {
     { NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444, false, { copy_yuv444_to_yuv444_avx2,    copy_yuv444_to_yuv444_avx2    }, AVX2|AVX },
     { NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444, false, { copy_yuv444_to_yuv444_sse2,    copy_yuv444_to_yuv444_sse2    }, SSE2 },
 #endif
-    { NV_ENC_CSP_NA, NV_ENC_CSP_NA, 0, false, 0x0, 0 },
 };
 
 static uint32_t nvenc_get_availableSIMD() {
@@ -427,7 +426,7 @@ static uint32_t nvenc_get_availableSIMD() {
 const ConvertCSP* get_convert_csp_func(NV_ENC_CSP csp_from, NV_ENC_CSP csp_to, bool uv_only) {
     uint32_t availableSIMD = nvenc_get_availableSIMD();
     const ConvertCSP *convert = nullptr;
-    for (int i = 0; funcList[i].func; i++) {
+    for (int i = 0; i < _countof(funcList); i++) {
         if (csp_from != funcList[i].csp_from)
             continue;
         
