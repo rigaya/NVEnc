@@ -92,7 +92,7 @@ inline void nvGetFileSize(HANDLE hInputFile, DWORD *pFilesize)
     if (hInputFile != INVALID_HANDLE_VALUE)
     {
         file_size.LowPart = GetFileSize(hInputFile, (LPDWORD)&file_size.HighPart);
-        printf("[ Input Filesize] : %ld bytes\n", ((LONGLONG) file_size.HighPart << 32) + (LONGLONG)file_size.LowPart);
+        printf("[ Input Filesize] : %I64d bytes\n", ((LONGLONG) file_size.HighPart << 32) + (LONGLONG)file_size.LowPart);
 
         if (pFilesize != NULL) *pFilesize = file_size.LowPart;
     }

@@ -282,7 +282,7 @@ static void show_nvenc_features() {
     
     NVEncParam nvParam;
     if (nvParam.createCacheAsync(0)) {
-        _ftprintf(stdout, _T("error on checking features.\n"), buf);
+        _ftprintf(stdout, _T("error on checking features.\n"));
         return;
     }
     auto nvEncCaps = nvParam.GetCachedNVEncCapability();

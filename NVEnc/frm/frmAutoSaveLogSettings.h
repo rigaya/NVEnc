@@ -233,7 +233,7 @@ namespace NVEnc {
                     sfd->FileName = fileName;
             }
             sfd->Filter = L"ログファイル(*.txt)|*.txt|すべてのファイル(*.*)|*.*";
-            if (sfd->ShowDialog() == Windows::Forms::DialogResult::OK) {
+            if (sfd->ShowDialog() == System::Windows::Forms::DialogResult::OK) {
                 fasTXAutoSaveLog->Text = sfd->FileName;
                 fasTXAutoSaveLog->SelectionStart = fasTXAutoSaveLog->Text->Length;
             }

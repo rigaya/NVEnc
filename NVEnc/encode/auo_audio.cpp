@@ -55,7 +55,7 @@ void auo_faw_check(CONF_AUDIO *aud, const OUTPUT_INFO *oip, PRM_ENC *pe, const g
     if (!(oip->flag & OUTPUT_INFO_FLAG_AUDIO))
         return;
     if (ex_stg->s_aud_faw_index == FAW_INDEX_ERROR) {
-        write_log_auo_line(LOG_WARNING, "FAWCheck : "AUO_NAME_WITHOUT_EXT".iniからのFAWの情報取得に失敗したため、判定を中止しました。");
+        write_log_auo_line(LOG_WARNING, "FAWCheck : " AUO_NAME_WITHOUT_EXT ".iniからのFAWの情報取得に失敗したため、判定を中止しました。");
         return;
     }
     int n = 0;

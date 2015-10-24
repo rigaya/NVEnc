@@ -18,8 +18,8 @@
 #define AUO_NAME             "NVEnc.auo"
 #define AUO_NAME_W          L"NVEnc.auo"
 #define AUO_FULL_NAME        "ägí£ NVEnc èoóÕ"
-#define AUO_VERSION_NAME     "ägí£ NVEnc èoóÕ "AUO_VERSION_STR
-#define AUO_VERSION_INFO     "ägí£ NVEnc èoóÕ "AUO_VERSION_STR" by rigaya"
+#define AUO_VERSION_NAME     "ägí£ NVEnc èoóÕ " AUO_VERSION_STR
+#define AUO_VERSION_INFO     "ägí£ NVEnc èoóÕ " AUO_VERSION_STR " by rigaya"
 #define AUO_EXT_FILTER       "All Support Formats (*.*)\0*.mp4;*.mkv;*.264;*.mp4\0mp4 file (*.mp4)\0*.mp4\0mkv file (*.mkv)\0*.mkv\0raw file (*.264)\0*.264\0"
 
 #ifdef DEBUG
