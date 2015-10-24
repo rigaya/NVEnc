@@ -133,6 +133,7 @@ static void show_help_ja() {
         _T("   --cabac                        CABACを使用する\n")
         _T("   --cavlc                        CAVLCを使用する\n")
         _T("   --bluray                       Bluray用出力を行う / デフォルト: オフ\n")
+        _T("   --lossless                     ロスレス出力を行う / デフォルト: オフ\n")
         _T("   --deblock                      デブロックフィルタを有効にする\n")
         _T("   --no-deblock                   デブロックフィルタを無効にする\n")
         _T("   --fullrange                    fullrangeの指定\n"),
@@ -229,6 +230,7 @@ static void show_help_en() {
         _T("   --cabac                        use CABAC\n")
         _T("   --cavlc                        use CAVLC (no CABAC)\n")
         _T("   --bluray                       for bluray / Default: off\n")
+        _T("   --lossless                     for lossless / Default: off\n")
         _T("   --(no-)deblock                 enable(disable) deblock filter\n")
         _T("   --fullrange                    set fullrange\n"),
         (AVI_READER) ? _T("avi, ") : _T(""),
@@ -611,6 +613,9 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
         } else if (IS_OPTION("bluray")) {
             conf_set->bluray = TRUE;
+        } else if (IS_OPTION("lossless")) {
+            conf_set->lossless = TRUE;
+            conf_set->yuv444 = TRUE;
         } else if (IS_OPTION("no-deblock")) {
             codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 1;
         } else if (IS_OPTION("deblock")) {
@@ -691,6 +696,9 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             if (!flag) {
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
+            }
+            if (0 == memcmp(&conf_set->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid))) {
+                conf_set->yuv444 = TRUE;
             }
         } else if (IS_OPTION("sar") || IS_OPTION("par") || IS_OPTION("dar")) {
             i_arg++;

@@ -102,6 +102,8 @@ typedef struct InEncodeVideoParam {
     NV_ENC_CONFIG encConfig;      //エンコード設定
     int codec;                    //出力コーデック
     int bluray;                   //bluray出力
+    int yuv444;                   //YUV444出力
+    int lossless;                 //ロスレス出力
 } InEncodeVideoParam;
 
 static inline bool is_interlaced(NV_ENC_PIC_STRUCT pic_struct) {
@@ -181,7 +183,7 @@ protected:
     NVENCSTATUS CreateEncoder(const InEncodeVideoParam *inputParam);
 
     //入出力用バッファを確保
-    NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight);
+    NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, bool bYUV444);
 
     //フレームを1枚エンコーダに投入(非同期)
     NVENCSTATUS EncodeFrame(int encode_idx);

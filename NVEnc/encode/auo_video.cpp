@@ -33,6 +33,7 @@
 #include "auo_audio_parallel.h"
 
 #include "auo_nvenc.h"
+#include "NVEncParam.h"
 
 DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *pe) {
     DWORD ret = AUO_RESULT_SUCCESS;
@@ -177,6 +178,15 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     encPrm.input.otherPrm = &inputInfoAuo;
     encPrm.deviceID = 0;
     encPrm.outputFilename = pe->temp_filename;
+    //CQP指定で、QP値が0なら、ロスレスとみなす
+    encPrm.lossless |= encPrm.encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP
+        && encPrm.encConfig.rcParams.constQP.qpIntra == 0
+        && encPrm.encConfig.rcParams.constQP.qpInterP == 0
+        && (encPrm.encConfig.rcParams.constQP.qpInterB == 0
+            || encPrm.encConfig.frameIntervalP - 1 == 0); //Bフレームを使用しない場合
+    encPrm.yuv444 |= encPrm.lossless;
+    //high444が指定されていれば、yuv444出力のフラグを立てる
+    encPrm.yuv444 |= 0 == memcmp(&conf->nvenc.enc_config.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(NV_ENC_H264_PROFILE_HIGH_444_GUID));
     encPrm.inputBuffer = 3;
     memcpy(encPrm.par, conf->nvenc.par, sizeof(encPrm.par));
 

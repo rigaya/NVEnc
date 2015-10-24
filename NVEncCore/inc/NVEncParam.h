@@ -30,6 +30,7 @@ const guid_desc h264_profile_names[] = {
     { NV_ENC_H264_PROFILE_BASELINE_GUID,    _T("baseline"), 66 },
     { NV_ENC_H264_PROFILE_MAIN_GUID,        _T("main"),     77 },
     { NV_ENC_H264_PROFILE_HIGH_GUID,        _T("high"),    100 },
+    { NV_ENC_H264_PROFILE_HIGH_444_GUID,    _T("high444"), 244 },
     //{ NV_ENC_H264_PROFILE_STEREO_GUID,   _T("Stereo"),  128 }
 };
 

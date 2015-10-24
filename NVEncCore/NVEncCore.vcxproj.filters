@@ -66,6 +66,9 @@
     <ClCompile Include="src\NVEncInputVpy.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="src\ConvertCspSSE41.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\ConvertCsp.h">

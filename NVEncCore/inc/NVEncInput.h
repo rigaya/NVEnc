@@ -41,6 +41,7 @@ typedef struct InputVideoInfo {
     int scale;   //フレームレート (分子)
     int rate;    //フレームレート (分母)
     int crop[4]; //入力時切り落とし
+    NV_ENC_CSP csp;    //入力色空間 (NV_ENC_CSP_xxx)
     tstring filename; //入力ファイル名
     void *otherPrm; //その他入力情報
 } InputVideoInfo;

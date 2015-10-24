@@ -46,9 +46,9 @@ int NVEncBasicInput::LoadNextFrame(void *dst, int dst_pitch) {
 void NVEncBasicInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const InputVideoInfo *inputPrm) {
     std::basic_stringstream<TCHAR> ss;
 
-    ss << inputTypeName << _T(" ");
+    ss << inputTypeName;
     ss << _T("(") << inputCSpName << _T(")");
-    ss << _T(" -> ") << outputCSpName;
+    ss << _T("->") << outputCSpName;
     if (convSIMD && _tcslen(convSIMD)) {
         ss << _T(" [") << convSIMD << _T("]");
     }

@@ -20,6 +20,7 @@
 #if AVS_READER
 #pragma warning(push)
 #pragma warning(disable:4244)
+#pragma warning(disable:4456)
 #include "avisynth_c.h" //Avisynth ver 2.5.8 (2.6.0の機能等は不要)
 #pragma warning(pop)
 

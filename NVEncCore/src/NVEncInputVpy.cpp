@@ -202,7 +202,7 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
         return 1;
     }
 
-    if (pfYUV420P8 != vsvideoinfo->format->id) {
+    if (pfNone == vsvideoinfo->format->id) {
         m_inputMes += _T("Invalid colorformat.\n");
         return 1;
     }
@@ -213,7 +213,9 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     } CSPMap;
 
     static const std::vector<CSPMap> valid_csp_list = {
-        { pfYUV420P8, NV_ENC_CSP_YV12, NV_ENC_CSP_NV12 },
+        { pfYUV420P8, NV_ENC_CSP_YV12,   inputPrm->csp },
+        { pfYUV422P8, NV_ENC_CSP_YUV422, inputPrm->csp },
+        { pfYUV444P8, NV_ENC_CSP_YUV444, inputPrm->csp }
     };
 
     for (auto csp : valid_csp_list) {
@@ -295,6 +297,7 @@ int NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
     void *dst_array[3];
     dst_array[0] = dst;
     dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]);
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]); //YUV444出力時
 
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
     m_pConvCSPInfo->func[!!m_bInterlaced](dst_array, src_array, m_stSurface.width, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);

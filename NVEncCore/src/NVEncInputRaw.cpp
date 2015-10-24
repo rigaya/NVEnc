@@ -140,11 +140,16 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
         return 1;
     }
 
-    m_pConvCSPInfo = get_convert_csp_func(NV_ENC_CSP_YV12, NV_ENC_CSP_NV12, false);
+    m_pConvCSPInfo = get_convert_csp_func(NV_ENC_CSP_YV12, inputPrm->csp, false);
+
+    if (nullptr == m_pConvCSPInfo) {
+        m_inputMes += _T("raw/y4m: invalid colorformat.\n");
+        return 1;
+    }
     
     setSurfaceInfo(inputPrm);
     m_stSurface.src_pitch = inputPrm->width;
-    CreateInputInfo((m_bIsY4m) ? _T("y4m") : _T("raw"), _T("yv12"), _T("nv12"), get_simd_str(m_pConvCSPInfo->simd), inputPrm);
+    CreateInputInfo((m_bIsY4m) ? _T("y4m") : _T("raw"), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
 
     return 0;
 }
@@ -182,6 +187,7 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     void *dst_array[3];
     dst_array[0] = dst;
     dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]);
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]); //YUV444出力時
 
     const void *src_array[3];
     src_array[0] = m_inputBuffer;

@@ -17,9 +17,12 @@ enum NV_ENC_CSP {
     NV_ENC_CSP_NV12,
     NV_ENC_CSP_YV12,
     NV_ENC_CSP_YUY2,
+    NV_ENC_CSP_YUV422,
+    NV_ENC_CSP_YUV444,
+    NV_ENC_CSP_YC48,
 };
 
-static const TCHAR *NV_ENC_CSP_NAMES[] = { _T("Invalid"), _T("nv12"), _T("yv12"), _T("yuy2") };
+static const TCHAR *NV_ENC_CSP_NAMES[] = { _T("Invalid"), _T("nv12"), _T("yv12"), _T("yuy2"), _T("yuv422"), _T("yuv444"), _T("yc48") };
 
 typedef struct ConvertCSP {
     NV_ENC_CSP csp_from, csp_to;

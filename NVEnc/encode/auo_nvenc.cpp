@@ -53,7 +53,8 @@ BOOL setup_afsvideo(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, CONF_GUI
     if (pe->afs_init || pe->video_out_type == VIDEO_OUTPUT_DISABLED || !conf->vid.afs)
         return TRUE;
 
-    const int color_format = CF_YUY2;
+    //high444出力ならAviutlからYC48をもらう
+    const int color_format = (0 == memcmp(&conf->nvenc.enc_config.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(NV_ENC_H264_PROFILE_HIGH_444_GUID))) ? CF_YC48 : CF_YUY2;
     const int frame_size = calc_input_frame_size(oip->w, oip->h, color_format);
     //Aviutl(自動フィールドシフト)からの映像入力
     if (afs_vbuf_setup((OUTPUT_INFO *)oip, conf->vid.afs, frame_size, COLORFORMATS[color_format].FOURCC)) {
@@ -146,20 +147,26 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     inputPrm->rate = oip->rate / fps_gcd;
     inputPrm->scale = oip->scale / fps_gcd;
 
-    m_pConvCSPInfo = get_convert_csp_func(NV_ENC_CSP_YUY2, NV_ENC_CSP_NV12, false);
+    //high444出力ならAviutlからYC48をもらう
+    m_pConvCSPInfo = get_convert_csp_func((inputPrm->csp == NV_ENC_CSP_YUV444) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2, inputPrm->csp, false);
+
+    if (nullptr == m_pConvCSPInfo) {
+        m_inputMes += _T("auo: invalid colorformat.\n");
+        return 1;
+    }
 
     enable_enc_control(&m_pause, pe->afs_init, FALSE, timeGetTime(), oip->n);
 
     if (conf->vid.afs) {
         if (!setup_afsvideo(oip, info->sys_dat, conf, pe)) {
-            m_inputMes = _T("raw: 自動フィールドシフトの初期化に失敗しました。\n");
+            m_inputMes = _T("auo: 自動フィールドシフトの初期化に失敗しました。\n");
             return 1;
         }
     }
     
     setSurfaceInfo(inputPrm);
     m_stSurface.src_pitch = inputPrm->width;
-    CreateInputInfo(_T("auo"), _T("yuy2"), (m_interlaced) ? _T("nv12i") : _T("nv12p"), get_simd_str(m_pConvCSPInfo->simd), inputPrm);
+    CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
 
     return 0;
 }
@@ -201,12 +208,18 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
             }
         }
     } else {
-        if ((frame = oip->func_get_video_ex(m_iFrame, COLORFORMATS[CF_YUY2].FOURCC)) == NULL) {
+        //high444出力ならAviutlからYC48をもらう
+        if ((frame = oip->func_get_video_ex(m_iFrame, COLORFORMATS[m_pConvCSPInfo->csp_from == NV_ENC_CSP_YC48 ? CF_YC48 : CF_YUY2].FOURCC)) == NULL) {
             error_afs_get_frame();
             return false;
         }
     }
-    m_pConvCSPInfo->func[!!m_interlaced](&dst, (const void **)&frame, m_stSurface.width, m_stSurface.src_pitch * 2, 0, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
+    void *dst_array[3];
+    dst_array[0] = dst;
+    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * m_stSurface.height;
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * m_stSurface.height; //YUV444出力時
+    int src_pitch = m_stSurface.src_pitch * ((m_pConvCSPInfo->csp_from == NV_ENC_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
+    m_pConvCSPInfo->func[!!m_interlaced](dst_array, (const void **)&frame, m_stSurface.width, src_pitch, 0, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
 
     m_iFrame++;
     if (!(m_iFrame & 7))

@@ -301,6 +301,7 @@
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
+    <ClCompile Include="src\ConvertCspSSE41.cpp" />
     <ClCompile Include="src\ConvertCspSSE2.cpp" />
     <ClCompile Include="src\ConvertCspSSSE3.cpp" />
     <ClCompile Include="src\cpu_info.cpp" />

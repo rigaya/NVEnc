@@ -132,10 +132,10 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     } CSPMap;
 
     static const std::vector<CSPMap> valid_csp_list = {
-        { AVS_CS_YV12,  NV_ENC_CSP_YV12, NV_ENC_CSP_NV12},
-        { AVS_CS_I420,  NV_ENC_CSP_YV12, NV_ENC_CSP_NV12},
-        { AVS_CS_IYUV,  NV_ENC_CSP_YV12, NV_ENC_CSP_NV12},
-        { AVS_CS_YUY2,  NV_ENC_CSP_YUY2, NV_ENC_CSP_NV12},
+        { AVS_CS_YV12,  NV_ENC_CSP_YV12, inputPrm->csp },
+        { AVS_CS_I420,  NV_ENC_CSP_YV12, inputPrm->csp },
+        { AVS_CS_IYUV,  NV_ENC_CSP_YV12, inputPrm->csp },
+        { AVS_CS_YUY2,  NV_ENC_CSP_YUY2, inputPrm->csp },
         //{ AVS_CS_BGR24, MFX_FOURCC_RGB3, MFX_FOURCC_RGB4},
         //{ AVS_CS_BGR32, MFX_FOURCC_RGB4, MFX_FOURCC_RGB4},
     };
@@ -201,6 +201,7 @@ int NVEncInputAvs::LoadNextFrame(void *dst, int dst_pitch) {
     void *dst_array[3];
     dst_array[0] = dst;
     dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]);
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]); //YUV444出力時
 
     const void *src_array[3] = { avs_get_read_ptr_p(frame, AVS_PLANAR_Y), avs_get_read_ptr_p(frame, AVS_PLANAR_U), avs_get_read_ptr_p(frame, AVS_PLANAR_V) };
     //if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {
