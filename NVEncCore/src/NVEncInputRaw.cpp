@@ -77,10 +77,16 @@ int NVEncInputRaw::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
             //    }
             //    break;
             case 'C':
-                if (   0 != _strnicmp(p+1, "420",      strlen("420"))
-                    && 0 != _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
-                    && 0 != _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
-                    && 0 != _strnicmp(p+1, "420paldv", strlen("420paldv"))) {
+                if (   0 == _strnicmp(p+1, "420",      strlen("420"))
+                    || 0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
+                    || 0 == _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
+                    || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))) {
+                    inputPrm->csp = NV_ENC_CSP_YV12;
+                } else if (0 == _strnicmp(p+1, "422", strlen("422"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV422;
+                } else if (0 == _strnicmp(p+1, "444", strlen("444"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444;
+                } else {
                     return 1;
                 }
                 break;
@@ -125,22 +131,42 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
         }
     }
     
+    NV_ENC_CSP inputCsp = NV_ENC_CSP_YV12;
     m_bIsY4m = inputPrm->type == NV_ENC_INPUT_Y4M;
     if (m_bIsY4m) {
         char buf[128] = { 0 };
+        InputVideoInfo videoInfo = { 0 };
         if (fread(buf, 1, strlen("YUV4MPEG2"), m_fp) != strlen("YUV4MPEG2")
             || strcmp(buf, "YUV4MPEG2") != 0
             || !fgets(buf, sizeof(buf), m_fp)
-            || ParseY4MHeader(buf, inputPrm)) {
+            || ParseY4MHeader(buf, &videoInfo)) {
+            m_inputMes +=_T("y4m: failed to parse y4m header.");
             return 1;
         }
+        inputPrm->width = videoInfo.width;
+        inputPrm->height = videoInfo.height;
+        inputPrm->scale = videoInfo.scale;
+        inputPrm->rate = videoInfo.rate;
+        inputCsp = videoInfo.csp;
     }
-    if (NULL == (m_inputBuffer = (uint8_t *)_aligned_malloc(inputPrm->width * inputPrm->height * 3 / 2, 32))) {
+    uint32_t bufferSize = 0;
+    switch (inputCsp) {
+    case NV_ENC_CSP_NV12:
+    case NV_ENC_CSP_YV12:
+        bufferSize = inputPrm->width * inputPrm->height * 3 / 2; break;
+    case NV_ENC_CSP_YUV422:
+        bufferSize = inputPrm->width * inputPrm->height * 2; break;
+    case NV_ENC_CSP_YUV444:
+        bufferSize = inputPrm->width * inputPrm->height * 3; break;
+    default:
+        return 1;
+    }
+    if (NULL == (m_inputBuffer = (uint8_t *)_aligned_malloc(bufferSize, 32))) {
         m_inputMes = _T("raw: Failed to allocate input buffer.\n");
         return 1;
     }
 
-    m_pConvCSPInfo = get_convert_csp_func(NV_ENC_CSP_YV12, inputPrm->csp, false);
+    m_pConvCSPInfo = get_convert_csp_func(inputCsp, inputPrm->csp, false);
 
     if (nullptr == m_pConvCSPInfo) {
         m_inputMes += _T("raw/y4m: invalid colorformat.\n");
@@ -180,7 +206,18 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
             return 1;
     }
 
-    size_t frameSize = m_stSurface.width * m_stSurface.height * 3 / 2;
+    uint32_t frameSize = 0;
+    switch (m_pConvCSPInfo->csp_from) {
+    case NV_ENC_CSP_NV12:
+    case NV_ENC_CSP_YV12:
+        frameSize = m_stSurface.width * m_stSurface.height * 3 / 2; break;
+    case NV_ENC_CSP_YUV422:
+        frameSize = m_stSurface.width * m_stSurface.height * 2; break;
+    case NV_ENC_CSP_YUV444:
+        frameSize = m_stSurface.width * m_stSurface.height * 3; break;
+    default:
+        return 1;
+    }
     if (frameSize != fread(m_inputBuffer, 1, frameSize, m_fp)) {
         return -1;
     }
@@ -192,9 +229,23 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     const void *src_array[3];
     src_array[0] = m_inputBuffer;
     src_array[1] = (uint8_t *)src_array[0] + m_stSurface.src_pitch * m_stSurface.height;
-    src_array[2] = (uint8_t *)src_array[1] + m_stSurface.src_pitch * m_stSurface.height / 4;
+    switch (m_pConvCSPInfo->csp_from) {
+    case NV_ENC_CSP_YV12:
+        src_array[2] = (uint8_t *)src_array[1] + m_stSurface.src_pitch * m_stSurface.height / 4;
+        break;
+    case NV_ENC_CSP_YUV422:
+        src_array[2] = (uint8_t *)src_array[1] + m_stSurface.src_pitch * m_stSurface.height / 2;
+        break;
+    case NV_ENC_CSP_YUV444:
+        src_array[2] = (uint8_t *)src_array[1] + m_stSurface.src_pitch * m_stSurface.height;
+        break;
+    case NV_ENC_CSP_NV12:
+    default:
+        break;
+    }
 
-    m_pConvCSPInfo->func[0](dst_array, src_array, m_stSurface.width, m_stSurface.src_pitch, m_stSurface.src_pitch / 2, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
+    const int src_uv_pitch = (m_pConvCSPInfo->csp_from == NV_ENC_CSP_YUV444) ? m_stSurface.src_pitch : m_stSurface.src_pitch / 2;
+    m_pConvCSPInfo->func[0](dst_array, src_array, m_stSurface.width, m_stSurface.src_pitch, src_uv_pitch, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
 
     m_pStatus->m_sData.frameIn++;
     
