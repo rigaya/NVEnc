@@ -103,6 +103,87 @@ void convert_yuy2_to_nv12_i(void **dst_array, const void **src_array, int width,
     }
 }
 
+void convert_yuv444_to_nv12(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    int crop_left   = crop[0];
+    int crop_up     = crop[1];
+    int crop_right  = crop[2];
+    int crop_bottom = crop[3];
+    //Y成分のコピー
+    if (true) {
+        uint8_t *srcYLine = (uint8_t *)src_array[0] + src_y_pitch_byte * crop_up + crop_left;
+        uint8_t *dstLine = (uint8_t *)dst_array[0];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            memcpy(dstLine, srcYLine, y_width);
+        }
+    }
+    //UV成分のコピー
+    uint8_t *srcULine = (uint8_t *)src_array[1] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    uint8_t *srcVLine = (uint8_t *)src_array[2] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    uint8_t *dstLine = (uint8_t *)dst_array[1];
+    int uv_fin = height - crop_bottom - crop_up;
+    for (int y = 0; y < uv_fin; y += 2, srcULine += src_uv_pitch_byte * 2, srcVLine += src_uv_pitch_byte * 2, dstLine += dst_y_pitch_byte) {
+        uint8_t *srcU = srcULine;
+        uint8_t *srcV = srcVLine;
+        uint8_t *dstC = dstLine;
+        const int x_fin = width - crop_right - crop_left;
+        for (int x = 0; x < x_fin; x += 2, dstC += 2, srcU += 2, srcV += 2) {
+            uint32_t uy0 = srcU[0 * src_uv_pitch_byte];
+            uint32_t uy1 = srcU[1 * src_uv_pitch_byte];
+            uint32_t vy0 = srcV[0 * src_uv_pitch_byte];
+            uint32_t vy1 = srcV[1 * src_uv_pitch_byte];
+            dstC[0] = (uint8_t)((uy0 + uy1 + 1) >> 1);
+            dstC[1] = (uint8_t)((vy0 + vy1 + 1) >> 1);
+        }
+    }
+}
+
+//これも適当。
+void convert_yuv444_to_nv12_i(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    int crop_left   = crop[0];
+    int crop_up     = crop[1];
+    int crop_right  = crop[2];
+    int crop_bottom = crop[3];
+    //Y成分のコピー
+    if (true) {
+        uint8_t *srcYLine = (uint8_t *)src_array[0] + src_y_pitch_byte * crop_up + crop_left;
+        uint8_t *dstLine = (uint8_t *)dst_array[0];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            memcpy(dstLine, srcYLine, y_width);
+        }
+    }
+    //UV成分のコピー
+    uint8_t *srcULine = (uint8_t *)src_array[1] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    uint8_t *srcVLine = (uint8_t *)src_array[2] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    uint8_t *dstLine = (uint8_t *)dst_array[1];
+    int uv_fin = height - crop_bottom - crop_up;
+    for (int y = 0; y < uv_fin; y += 4, srcULine += src_uv_pitch_byte * 4, srcVLine += src_uv_pitch_byte * 4, dstLine += dst_y_pitch_byte * 2) {
+        uint8_t *srcU = srcULine;
+        uint8_t *srcV = srcVLine;
+        uint8_t *dstC = dstLine;
+        const int x_fin = width - crop_right - crop_left;
+        for (int x = 0; x < x_fin; x += 2, dstC += 2, srcU += 2, srcV += 2) {
+            uint32_t uy0 = srcU[0 * src_uv_pitch_byte];
+            uint32_t uy1 = srcU[1 * src_uv_pitch_byte];
+            uint32_t uy2 = srcU[2 * src_uv_pitch_byte];
+            uint32_t uy3 = srcU[3 * src_uv_pitch_byte];
+            uint32_t vy0 = srcV[0 * src_uv_pitch_byte];
+            uint32_t vy1 = srcV[1 * src_uv_pitch_byte];
+            uint32_t vy2 = srcV[2 * src_uv_pitch_byte];
+            uint32_t vy3 = srcV[3 * src_uv_pitch_byte];
+
+            dstC[0 * dst_y_pitch_byte + 0] = (uint8_t)((uy0 * 3 + uy2 * 1 + 2) >> 2);
+            dstC[0 * dst_y_pitch_byte + 1] = (uint8_t)((vy0 * 3 + vy2 * 1 + 2) >> 2);
+
+            dstC[1 * dst_y_pitch_byte + 0] = (uint8_t)((uy1 * 1 + uy3 * 3 + 2) >> 2);
+            dstC[1 * dst_y_pitch_byte + 1] = (uint8_t)((vy1 * 1 + vy3 * 3 + 2) >> 2);
+        }
+    }
+}
+
 static void convert_yuv422_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -392,6 +473,7 @@ static const ConvertCSP funcList[] = {
     { NV_ENC_CSP_YV12,   NV_ENC_CSP_NV12,   false, { convert_yv12_to_nv12_sse2,     convert_yv12_to_nv12_sse2     }, SSE2 },
     { NV_ENC_CSP_YV12,   NV_ENC_CSP_YUV444, false, { convert_yv12_p_to_yuv444,      convert_yv12_i_to_yuv444      }, NONE },
     { NV_ENC_CSP_YUV422, NV_ENC_CSP_YUV444, false, { convert_yuv422_to_yuv444,      convert_yuv422_to_yuv444      }, NONE },
+    { NV_ENC_CSP_YUV444, NV_ENC_CSP_NV12,   false, { convert_yuv444_to_nv12,        convert_yuv444_to_nv12_i      }, NONE },
     { NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444, false, { copy_yuv444_to_yuv444_avx2,    copy_yuv444_to_yuv444_avx2    }, AVX2|AVX },
     { NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444, false, { copy_yuv444_to_yuv444_sse2,    copy_yuv444_to_yuv444_sse2    }, SSE2 },
 #endif
