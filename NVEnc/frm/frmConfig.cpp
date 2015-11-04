@@ -848,6 +848,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXQualityPreset,     get_index_from_value(cnf->nvenc.preset, preset_names));
     SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, cnf->nvenc.enc_config.mvPrecision));
     SetNUValue(fcgNUVBVBufsize,        cnf->nvenc.enc_config.rcParams.vbvBufferSize / 1000);
+    fcgCBAQ->Checked                 = cnf->nvenc.enc_config.rcParams.enableAQ != 0;
     
     if (cnf->nvenc.par[0] * cnf->nvenc.par[1] <= 0)
         cnf->nvenc.par[0] = cnf->nvenc.par[1] = 0;
@@ -941,6 +942,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->nvenc.enc_config.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
     cnf->nvenc.enc_config.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
     cnf->nvenc.preset = preset_names[fcgCXQualityPreset->SelectedIndex].value;
+    cnf->nvenc.enc_config.rcParams.enableAQ = fcgCBAQ->Checked ? 1 : 0;
 
 
     cnf->nvenc.par[0]                = (int)fcgNUAspectRatioX->Value;

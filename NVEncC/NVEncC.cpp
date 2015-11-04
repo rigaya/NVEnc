@@ -121,6 +121,7 @@ static void show_help_ja() {
         _T("   --gop-len <int>                GOPのフレーム数 / デフォルト: %d frames%s\n")
         _T("-b,--bframes <int>                連続Bフレーム数 / デフォルト %d フレーム\n")
         _T("   --ref <int>                    参照距離 / デフォルト %d フレーム\n")
+        _T("   --aq                           適応的量子化(AQ)を有効にする\n")
         _T("   --mv-precision <string>        動きベクトル精度 / デフォルト: Q-pel\n")
         _T("                                    Q-pel    … 1/4画素精度 (高精度)\n")
         _T("                                    half-pel … 1/2画素精度\n")
@@ -203,7 +204,7 @@ static void show_help_en() {
         _T("-c,--codec <string>               set ouput codec\n")
         _T("                                    h264 (or avc), h265 (or hevc)\n")
         _T("   --profile <string>             set codec profile\n")
-        _T("                                    H.264: baseline, main, high(デフォルト)\n")
+        _T("                                    H.264: baseline, main, high(default)\n")
         _T("   --level <string>               set codec level\n")
         _T("   --sar <int>:<int>              set SAR ratio\n")
         _T("   --dar <int>:<int>              set DAR ratio\n")
@@ -216,8 +217,9 @@ static void show_help_en() {
         _T("\n")
         _T("   --max-bitrate <int>            set Max Bitrate (kbps) / Default: %d kbps\n")
         _T("   --gop-len <int>                set GOP Length / Default: %d frames%s")
-        _T("-b,--bframes <int>                set B frames / Default %d フレーム\n")
-        _T("   --ref <int>                    set Ref frames / Default %d フレーム\n")
+        _T("-b,--bframes <int>                set B frames / Default %d frames\n")
+        _T("   --ref <int>                    set Ref frames / Default %d frames\n")
+        _T("   --aq                           enable adaptive quantization\n")
         _T("   --mv-precision <string>        set MV Precision / Default: Q-pel\n")
         _T("                                    Q-pel    (High Quality)\n")
         _T("                                    half-pel\n")
@@ -570,6 +572,10 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
             }
+        } else if (IS_OPTION("aq")) {
+            conf_set->encConfig.rcParams.enableAQ = 1;
+        } else if (IS_OPTION("disable-aq")) {
+            conf_set->encConfig.rcParams.enableAQ = 0;
         } else if (IS_OPTION("ref")) {
             i_arg++;
             int value = 0;

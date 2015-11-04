@@ -1538,6 +1538,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
 
     add_str(NV_LOG_INFO,  _T("参照距離           %d frames\n"), (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
+    add_str(NV_LOG_INFO,  _T("適応的量子化(AQ)   %s\n"), m_stEncConfig.rcParams.enableAQ ? _T("on") : _T("off"));
     add_str(NV_LOG_INFO,  _T("動きベクトル精度   %s\n"), get_desc(list_mv_presicion_ja, m_stEncConfig.mvPrecision));
     if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
         add_str(NV_LOG_DEBUG, _T("スライス数         %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
@@ -1609,6 +1610,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
 
     add_str(NV_LOG_INFO,  _T("Ref frames         %d frames\n"), (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
+    add_str(NV_LOG_INFO,  _T("AQ                 %s\n"), m_stEncConfig.rcParams.enableAQ ? _T("on") : _T("off"));
     add_str(NV_LOG_INFO,  _T("MV Quality         %s\n"), get_desc(list_mv_presicion, m_stEncConfig.mvPrecision));
     if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
         add_str(NV_LOG_DEBUG, _T("Slice number          %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
