@@ -1088,7 +1088,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     int frame_height = m_uEncHeight;
     auto apply_auto_colormatrix = [frame_height](uint32_t& value, const CX_DESC *list) {
         if (COLOR_VALUE_AUTO == value)
-            value = (frame_height >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value;
+            value = list[(frame_height >= HD_HEIGHT_THRESHOLD) ? HD_INDEX : SD_INDEX].value;
     };
 
     apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries,         list_colorprim);
