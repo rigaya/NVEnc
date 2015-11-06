@@ -53,14 +53,14 @@ int NVEncInputRaw::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
                 break;
             case 'A':
                 {
-                    //int sar_x = 0, sar_y = 0;
-                    //if (   (info->AspectRatioW == 0 || info->AspectRatioH == 0)
-                    //    && sscanf_s(p+1, "%d:%d", &sar_x, &sar_y) == 2) {
-                    //        if (sar_x && sar_y) {
-                    //            info->AspectRatioW = (mfxU16)sar_x;
-                    //            info->AspectRatioH = (mfxU16)sar_y;
-                    //        }
-                    //}
+                    int sar_x = 0, sar_y = 0;
+                    if ((inputPrm->sar[0] == 0 || inputPrm->sar[1] == 0)
+                        && sscanf_s(p+1, "%d:%d", &sar_x, &sar_y) == 2) {
+                        if (sar_x && sar_y) {
+                            inputPrm->sar[0] = sar_x;
+                            inputPrm->sar[1] = sar_y;
+                        }
+                    }
                 }
                 break;
             //case 'I':
@@ -147,6 +147,7 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
         inputPrm->height = videoInfo.height;
         inputPrm->scale = videoInfo.scale;
         inputPrm->rate = videoInfo.rate;
+        memcpy(inputPrm->sar, videoInfo.sar, sizeof(videoInfo.sar));
         inputCsp = videoInfo.csp;
     }
     uint32_t bufferSize = 0;

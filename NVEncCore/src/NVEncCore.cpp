@@ -1081,7 +1081,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stEncConfig.gopLength = (int)(inputParam->input.rate / (double)inputParam->input.scale + 0.5) * 10;
     }
     //SAR自動設定
-    std::pair<int, int> par = std::make_pair(inputParam->par[0], inputParam->par[1]);
+    auto par = std::make_pair(inputParam->par[0], inputParam->par[1]);
     adjust_sar(&par.first, &par.second, m_uEncWidth, m_uEncHeight);
 
     //色空間設定自動
@@ -1211,6 +1211,9 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("入力ファイルを開けませんでした。\n") : _T("Failed to open input file.\n"));
         NVPrintf(stderr, NV_LOG_ERROR, m_pInput->getInputMes());
         return nvStatus;
+    }
+    if (inputParam->par[0] == 0 && inputParam->par[1] == 0) {
+        memcpy(inputParam->par, inputParam->input.sar, sizeof(inputParam->par));
     }
 
     //出力ファイルを開く
