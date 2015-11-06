@@ -189,7 +189,7 @@ const CX_DESC list_nvenc_rc_method[] = {
     //{ _T("VBR_MINQP - 下限QP付き可変ビットレート"), NV_ENC_PARAMS_RC_VBR_MINQP },
     //{ _T("Low Latency 2pass Quality"),              NV_ENC_PARAMS_RC_2_PASS_QUALITY },
     //{ _T("Low Latency 2pass Frame Size"),           NV_ENC_PARAMS_RC_2_PASS_FRAMESIZE_CAP },
-    //{ _T("2pass VBR - 可変ビットレート"),           NV_ENC_PARAMS_RC_2_PASS_VBR },
+    { _T("VBR2 - 可変ビットレート"),                NV_ENC_PARAMS_RC_2_PASS_VBR },
     { NULL, NULL }
 };
 
@@ -200,7 +200,7 @@ const CX_DESC list_nvenc_rc_method_en[] = {
     //{ _T("VBR_MINQP"),                    NV_ENC_PARAMS_RC_VBR_MINQP },
     //{ _T("Low Latency 2pass Quality"),    NV_ENC_PARAMS_RC_2_PASS_QUALITY },
     //{ _T("Low Latency 2pass Frame Size"), NV_ENC_PARAMS_RC_2_PASS_FRAMESIZE_CAP },
-    //{ _T("2pass VBR"),                    NV_ENC_PARAMS_RC_2_PASS_VBR },
+    { _T("VBR2"),                         NV_ENC_PARAMS_RC_2_PASS_VBR },
     { NULL, NULL }
 };
 

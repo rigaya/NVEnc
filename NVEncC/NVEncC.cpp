@@ -114,6 +114,7 @@ static void show_help_ja() {
         _T("   --cqp <int> or                 固定量子化量でエンコード\n")
         _T("         <int>:<int>:<int>          デフォルト: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
         _T("   --vbr <int>                    可変ビットレートのビットレート (kbps)\n")
+        _T("   --vbr2 <int>                   可変ビットレート(2)のビットレート (kbps)\n")
         _T("   --cbr <int>                    固定ビットレートのビットレート (kbps)\n")
         _T("                                    デフォルト %d kbps\n")
         _T("\n")
@@ -212,6 +213,7 @@ static void show_help_en() {
         _T("   --cqp <int> or                 encode in Constant QP mode\n")
         _T("         <int>:<int>:<int>          Default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
         _T("   --vbr <int>                    set bitrate for VBR mode (kbps)\n")
+        _T("   --vbr2 <int>                   set bitrate for VBR2 mode (kbps)\n")
         _T("   --cbr <int>                    set bitrate for CBR mode (kbps)\n")
         _T("                                    Default: %d kbps\n")
         _T("\n")
@@ -519,6 +521,16 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             int value = 0;
             if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
                 conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
+                conf_set->encConfig.rcParams.averageBitRate = value * 1000;
+            } else {
+                invalid_option_value(option_name, argv[i_arg]);
+                return -1;
+            }
+        } else if (IS_OPTION("vbr2")) {
+            i_arg++;
+            int value = 0;
+            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
+                conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_2_PASS_VBR;
                 conf_set->encConfig.rcParams.averageBitRate = value * 1000;
             } else {
                 invalid_option_value(option_name, argv[i_arg]);
