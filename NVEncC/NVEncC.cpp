@@ -16,6 +16,7 @@
 #include <cstdio>
 #include "NVEncVersion.h"
 #include "NVEncCore.h"
+#include "NVEncFeature.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
 
@@ -265,9 +266,9 @@ static void show_help() {
 static void show_hw() {
     show_version();
     
-    NVEncParam nvParam;
-    nvParam.createCacheAsync(0);
-    auto nvEncCaps = nvParam.GetCachedNVEncCapability();
+    NVEncFeature nvFeature;
+    nvFeature.createCacheAsync(0);
+    auto nvEncCaps = nvFeature.GetCachedNVEncCapability();
     if (nvEncCaps.size()) {
         _ftprintf(stdout, _T("Avaliable Codec(s)\n"));
         for (auto codecNVEncCaps : nvEncCaps) {
@@ -279,24 +280,19 @@ static void show_hw() {
 }
 
 static void show_environment_info() {
-    TCHAR buf[1024];
-    getEnviromentInfo(buf, _countof(buf));
-    _ftprintf(stderr, _T("%s\n"), buf);
+    _ftprintf(stderr, _T("%s\n"), getEnviromentInfo(false).c_str());
 }
 
 static void show_nvenc_features() {
-    TCHAR buf[1024];
-    getEnviromentInfo(buf, _countof(buf));
-    
-    NVEncParam nvParam;
-    if (nvParam.createCacheAsync(0)) {
+    NVEncFeature nvFeature;
+    if (nvFeature.createCacheAsync(0)) {
         _ftprintf(stdout, _T("error on checking features.\n"));
         return;
     }
-    auto nvEncCaps = nvParam.GetCachedNVEncCapability();
+    auto nvEncCaps = nvFeature.GetCachedNVEncCapability();
 
 
-    _ftprintf(stdout, _T("%s\n"), buf);
+    _ftprintf(stdout, _T("%s\n"), getEnviromentInfo(false).c_str());
     if (nvEncCaps.size() == 0) {
         _ftprintf(stdout, _T("No NVEnc support.\n"));
     } else {

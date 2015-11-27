@@ -12,7 +12,7 @@
 
 #include <Windows.h>
 #include "auo.h"
-#include "NVEncCore.h"
+#include "NVEncParam.h"
 
 
 const int CONF_INITIALIZED = 1;

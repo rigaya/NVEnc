@@ -306,10 +306,12 @@
     <ClCompile Include="src\ConvertCspSSSE3.cpp" />
     <ClCompile Include="src\cpu_info.cpp" />
     <ClCompile Include="src\gpu_info.cpp" />
+    <ClCompile Include="src\NVEncFeature.cpp" />
     <ClCompile Include="src\NVEncInput.cpp" />
     <ClCompile Include="src\NVEncInputAvs.cpp" />
     <ClCompile Include="src\NVEncInputRaw.cpp" />
     <ClCompile Include="src\NVEncInputVpy.cpp" />
+    <ClCompile Include="src\NVEncLog.cpp" />
     <ClCompile Include="src\NvEncoderPerf.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -319,7 +321,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="src\NVEncCore.cpp" />
-    <ClCompile Include="src\NVEncParam.cpp" />
     <ClCompile Include="src\NVEncUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -329,10 +330,12 @@
     <ClInclude Include="inc\ConvertCspSIMD.h" />
     <ClInclude Include="inc\cpu_info.h" />
     <ClInclude Include="inc\gpu_info.h" />
+    <ClInclude Include="inc\NVEncFeature.h" />
     <ClInclude Include="inc\NVEncInput.h" />
     <ClInclude Include="inc\NVEncInputAvs.h" />
     <ClInclude Include="inc\NVEncInputRaw.h" />
     <ClInclude Include="inc\NVEncInputVpy.h" />
+    <ClInclude Include="inc\NVEncLog.h" />
     <ClInclude Include="inc\NvEncoderPerf.h" />
     <ClInclude Include="inc\NVEncCore.h" />
     <ClInclude Include="inc\NVEncParam.h" />

@@ -7,6 +7,8 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
+#include <Windows.h>
+#include <VersionHelpers.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <vector>
@@ -17,6 +19,317 @@
 #include "cpu_info.h"
 #include "gpu_info.h"
 #include "NVEncUtil.h"
+#include "NVEncLog.h"
+
+#pragma warning (push)
+#pragma warning (disable: 4100)
+#if defined(_WIN32) || defined(_WIN64)
+unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage) {
+    uint32_t flags = (codepage == CP_UTF8) ? 0 : WC_NO_BEST_FIT_CHARS;
+    int multibyte_length = WideCharToMultiByte(codepage, flags, wstr, -1, nullptr, 0, nullptr, nullptr);
+    str.resize(multibyte_length, 0);
+    if (0 == WideCharToMultiByte(codepage, flags, wstr, -1, &str[0], multibyte_length, nullptr, nullptr)) {
+        str.clear();
+        return 0;
+    }
+    return multibyte_length;
+}
+#else
+unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage) {
+    auto ic = iconv_open("UTF-8", "wchar_t"); //to, from
+    auto input_len = wcslen(wstr);
+    auto output_len = input_len * 4;
+    str.resize(output_len, 0);
+    char *outbuf = &str[0];
+    iconv(ic, (char **)&wstr, &input_len, &outbuf, &output_len);
+    return output_len;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+std::string wstring_to_string(const wchar_t *wstr, uint32_t codepage) {
+    std::string str;
+    wstring_to_string(wstr, str, codepage);
+    return str;
+}
+
+std::string wstring_to_string(const std::wstring& wstr, uint32_t codepage) {
+    std::string str;
+    wstring_to_string(wstr.c_str(), str, codepage);
+    return str;
+}
+
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage) {
+#if UNICODE
+    return wstring_to_string(tstr, str, codepage);
+#else
+    str = std::string(tstr);
+    return (unsigned int)str.length();
+#endif
+}
+
+std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage) {
+    std::string str;
+    tchar_to_string(tstr, str, codepage);
+    return str;
+}
+
+std::string tchar_to_string(const tstring& tstr, uint32_t codepage) {
+    std::string str;
+    tchar_to_string(tstr.c_str(), str, codepage);
+    return str;
+}
+
+#if defined(_WIN32) || defined(_WIN64)
+unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
+    int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
+    wstr.resize(widechar_length, 0);
+    if (0 == MultiByteToWideChar(codepage, 0, str, -1, &wstr[0], (int)wstr.size())) {
+        wstr.clear();
+        return 0;
+    }
+    return widechar_length;
+}
+#else
+unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
+    auto ic = iconv_open("wchar_t", "UTF-8"); //to, from
+    auto input_len = strlen(str);
+    std::vector<char> buf(input_len + 1);
+    strcpy(buf.data(), str);
+    auto output_len = input_len;
+    wstr.resize(output_len, 0);
+    char *inbuf = buf.data();
+    char *outbuf = (char *)&wstr[0];
+    iconv(ic, &inbuf, &input_len, &outbuf, &output_len);
+    return output_len;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+std::wstring char_to_wstring(const char *str, uint32_t codepage) {
+    std::wstring wstr;
+    char_to_wstring(wstr, str, codepage);
+    return wstr;
+}
+std::wstring char_to_wstring(const std::string& str, uint32_t codepage) {
+    std::wstring wstr;
+    char_to_wstring(wstr, str.c_str(), codepage);
+    return wstr;
+}
+
+unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage) {
+#if UNICODE
+    return char_to_wstring(tstr, str, codepage);
+#else
+    tstr = std::string(str);
+    return (unsigned int)tstr.length();
+#endif
+}
+
+tstring char_to_tstring(const char *str, uint32_t codepage) {
+    tstring tstr;
+    char_to_tstring(tstr, str, codepage);
+    return tstr;
+}
+tstring char_to_tstring(const std::string& str, uint32_t codepage) {
+    tstring tstr;
+    char_to_tstring(tstr, str.c_str(), codepage);
+    return tstr;
+}
+std::string strsprintf(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    const size_t len = _vscprintf(format, args) + 1;
+
+    std::vector<char> buffer(len, 0);
+    vsprintf(buffer.data(), format, args);
+    va_end(args);
+    std::string retStr = std::string(buffer.data());
+    return retStr;
+}
+#if defined(_WIN32) || defined(_WIN64)
+std::wstring strsprintf(const WCHAR* format, ...) {
+    va_list args;
+    va_start(args, format);
+    const size_t len = _vscwprintf(format, args) + 1;
+
+    std::vector<WCHAR> buffer(len, 0);
+    vswprintf(buffer.data(), format, args);
+    va_end(args);
+    std::wstring retStr = std::wstring(buffer.data());
+    return retStr;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+std::string str_replace(std::string str, const std::string& from, const std::string& to) {
+    std::string::size_type pos = 0;
+    while(pos = str.find(from, pos), pos != std::string::npos) {
+        str.replace(pos, from.length(), to);
+        pos += to.length();
+    }
+    return std::move(str);
+}
+
+#if defined(_WIN32) || defined(_WIN64)
+std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to) {
+    std::wstring::size_type pos = 0;
+    while (pos = str.find(from, pos), pos != std::wstring::npos) {
+        str.replace(pos, from.length(), to);
+        pos += to.length();
+    }
+    return std::move(str);
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+#pragma warning (pop)
+
+#if defined(_WIN32) || defined(_WIN64)
+std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim) {
+    std::vector<std::wstring> res;
+    size_t current = 0, found, delimlen = delim.size();
+    while (std::wstring::npos != (found = str.find(delim, current))) {
+        res.push_back(std::wstring(str, current, found - current));
+        current = found + delimlen;
+    }
+    res.push_back(std::wstring(str, current, str.size() - current));
+    return res;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+std::vector<std::string> split(const std::string &str, const std::string &delim) {
+    std::vector<std::string> res;
+    size_t current = 0, found, delimlen = delim.size();
+    while (std::string::npos != (found = str.find(delim, current))) {
+        res.push_back(std::string(str, current, found - current));
+        current = found + delimlen;
+    }
+    res.push_back(std::string(str, current, str.size() - current));
+    return res;
+}
+
+tstring lstrip(const tstring& string, const TCHAR* trim) {
+    auto result = string;
+    auto left = string.find_first_not_of(trim);
+    if (left != std::string::npos) {
+        result = string.substr(left, 0);
+    }
+    return result;
+}
+
+tstring rstrip(const tstring& string, const TCHAR* trim) {
+    auto result = string;
+    auto right = string.find_last_not_of(trim);
+    if (right != std::string::npos) {
+        result = string.substr(0, right);
+    }
+    return result;
+}
+
+tstring trim(const tstring& string, const TCHAR* trim) {
+    auto result = string;
+    auto left = string.find_first_not_of(trim);
+    if (left != std::string::npos) {
+        auto right = string.find_last_not_of(trim);
+        result = string.substr(left, right - left + 1);
+    }
+    return result;
+}
+
+std::string GetFullPath(const char *path) {
+#if defined(_WIN32) || defined(_WIN64)
+    if (PathIsRelativeA(path) == FALSE)
+        return std::string(path);
+#endif //#if defined(_WIN32) || defined(_WIN64)
+    std::vector<char> buffer(strlen(path) + 1024, 0);
+    _fullpath(buffer.data(), path, buffer.size());
+    return std::string(buffer.data());
+}
+#if defined(_WIN32) || defined(_WIN64)
+std::wstring GetFullPath(const WCHAR *path) {
+    if (PathIsRelativeW(path) == FALSE)
+        return std::wstring(path);
+
+    std::vector<WCHAR> buffer(wcslen(path) + 1024, 0);
+    _wfullpath(buffer.data(), path, buffer.size());
+    return std::wstring(buffer.data());
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) {
+    const TCHAR *target = PathFindExtension(filename);
+    if (target) {
+        for (auto ext : ext_list) {
+            if (0 == _tcsicmp(target, char_to_tstring(ext).c_str())) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool get_filesize(const char *filepath, uint64_t *filesize) {
+#if defined(_WIN32) || defined(_WIN64)
+    WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
+    bool ret = (GetFileAttributesExA(filepath, GetFileExInfoStandard, &fd)) ? true : false;
+    *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
+    return ret;
+#else //#if defined(_WIN32) || defined(_WIN64)
+    struct stat stat;
+    FILE *fp = fopen(filepath, "rb");
+    if (fp == NULL || fstat(fileno(fp), &stat)) {
+        *filesize = 0;
+        return 1;
+    }
+    if (fp) {
+        fclose(fp);
+    }
+    *filesize = stat.st_size;
+    return 0;
+#endif //#if defined(_WIN32) || defined(_WIN64)
+}
+
+#if defined(_WIN32) || defined(_WIN64)
+bool get_filesize(const WCHAR *filepath, UINT64 *filesize) {
+    WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
+    bool ret = (GetFileAttributesExW(filepath, GetFileExInfoStandard, &fd)) ? true : false;
+    *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
+    return ret;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+int nv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
+#if defined(_WIN32) || defined(_WIN64)
+    CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
+    static const WORD LOG_COLOR[] = {
+        FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_BLUE, //水色
+        FOREGROUND_INTENSITY | FOREGROUND_GREEN, //緑
+        FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,
+        FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,
+        FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED, //黄色
+        FOREGROUND_INTENSITY | FOREGROUND_RED //赤
+    };
+    if (handle == NULL) {
+        handle = GetStdHandle(STD_ERROR_HANDLE);
+    }
+    if (handle && log_level != NV_LOG_INFO) {
+        GetConsoleScreenBufferInfo(handle, &csbi);
+        SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, NV_LOG_TRACE, NV_LOG_ERROR) - NV_LOG_TRACE] | (csbi.wAttributes & 0x00f0));
+    }
+    int ret = _ftprintf(stderr, mes);
+    if (handle && log_level != NV_LOG_INFO) {
+        SetConsoleTextAttribute(handle, csbi.wAttributes); //元に戻す
+    }
+#else
+    static const char *const LOG_COLOR[] = {
+        "\x1b[36m", //水色
+        "\x1b[32m", //緑
+        "\x1b[39m", //デフォルト
+        "\x1b[39m", //デフォルト
+        "\x1b[33m", //黄色
+        "\x1b[31m", //赤
+    };
+    int ret = _ftprintf(stderr, "%s%s%s", LOG_COLOR[clamp(log_level, NV_LOG_TRACE, NV_LOG_ERROR) - NV_LOG_TRACE], mes, LOG_COLOR[NV_LOG_INFO - NV_LOG_TRACE]);
+#endif //#if defined(_WIN32) || defined(_WIN64)
+    fflush(stderr);
+    return ret;
+}
 
 void adjust_sar(int *sar_w, int *sar_h, int width, int height) {
     int aspect_w = *sar_w;
@@ -196,6 +509,8 @@ int ParseY4MHeader(char *buf, mfxFrameInfo *info) {
     return MFX_ERR_NONE;
 }
 */
+#if defined(_WIN32) || defined(_WIN64)
+
 #include <Windows.h>
 #include <process.h>
 
@@ -208,20 +523,37 @@ static int getRealWindowsVersion(DWORD *major, DWORD *minor) {
     HMODULE hModule = NULL;
     RtlGetVersion_FUNC func = NULL;
     int ret = 1;
-    if (NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
+    if (   NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
         && NULL != (func = (RtlGetVersion_FUNC)GetProcAddress(hModule, "RtlGetVersion"))) {
         func(&osver);
         *major = osver.dwMajorVersion;
         *minor = osver.dwMinorVersion;
         ret = 0;
-}
+    }
     if (hModule) {
         FreeLibrary(hModule);
     }
     return ret;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
-const TCHAR *getOSVersion() {
+BOOL check_OS_Win8orLater() {
+#if defined(_WIN32) || defined(_WIN64)
+#if (_MSC_VER >= 1800)
+    return IsWindows8OrGreater();
+#else
+    OSVERSIONINFO osvi = { 0 };
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+    GetVersionEx(&osvi);
+    return ((osvi.dwPlatformId == VER_PLATFORM_WIN32_NT) && ((osvi.dwMajorVersion == 6 && osvi.dwMinorVersion >= 2) || osvi.dwMajorVersion > 6));
+#endif //(_MSC_VER >= 1800)
+#else //#if defined(_WIN32) || defined(_WIN64)
+    return FALSE;
+#endif //#if defined(_WIN32) || defined(_WIN64)
+}
+
+tstring getOSVersion() {
+#if defined(_WIN32) || defined(_WIN64)
     const TCHAR *ptr = _T("Unknown");
     OSVERSIONINFO info = { 0 };
     info.dwOSVersionInfoSize = sizeof(info);
@@ -290,47 +622,92 @@ const TCHAR *getOSVersion() {
     default:
         break;
     }
-    return ptr;
+    return tstring(ptr);
+#else //#if defined(_WIN32) || defined(_WIN64)
+    std::string str = "";
+    FILE *fp = popen("/usr/bin/lsb_release -a", "r");
+    if (fp != NULL) {
+        char buffer[2048];
+        while (NULL != fgets(buffer, _countof(buffer), fp)) {
+            str += buffer;
+        }
+        pclose(fp);
+        if (str.length() > 0) {
+            auto sep = split(str, "\n");
+            for (auto line : sep) {
+                if (line.find("Description") != std::string::npos) {
+                    std::string::size_type pos = line.find(":");
+                    if (pos == std::string::npos) {
+                        pos = std::string("Description").length();
+                    }
+                    pos++;
+                    str = line.substr(pos);
+                    break;
+                }
+            }
+        }
+    }
+    if (str.length() == 0) {
+        struct utsname buf;
+        uname(&buf);
+        str += buf.sysname;
+        str += " ";
+        str += buf.release;
+    }
+    return char_to_tstring(trim(str));
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
 BOOL nv_is_64bit_os() {
+#if defined(_WIN32) || defined(_WIN64)
     SYSTEM_INFO sinfo = { 0 };
     GetNativeSystemInfo(&sinfo);
     return sinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+#else //#if defined(_WIN32) || defined(_WIN64)
+    struct utsname buf;
+    uname(&buf);
+    return NULL != strstr(buf.machine, "x64")
+        || NULL != strstr(buf.machine, "x86_64")
+        || NULL != strstr(buf.machine, "amd64");
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-UINT64 getPhysicalRamSize(UINT64 *ramUsed) {
+uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
+#if defined(_WIN32) || defined(_WIN64)
     MEMORYSTATUSEX msex ={ 0 };
     msex.dwLength = sizeof(msex);
     GlobalMemoryStatusEx(&msex);
-    if (NULL != ramUsed)
+    if (NULL != ramUsed) {
         *ramUsed = msex.ullTotalPhys - msex.ullAvailPhys;
+    }
     return msex.ullTotalPhys;
+#else //#if defined(_WIN32) || defined(_WIN64)
+    struct sysinfo info;
+    sysinfo(&info);
+    if (NULL != ramUsed) {
+        *ramUsed = info.totalram - info.freeram;
+    }
+    return info.totalram;
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size) {
-    ZeroMemory(buf, sizeof(buf[0]) * buffer_size);
+tstring getEnviromentInfo(bool add_ram_info) {
+    tstring buf;
 
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
 
     TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo("NVIDIA", gpu_info, _countof(gpu_info));
+    getGPUInfo("Intel", gpu_info, _countof(gpu_info));
 
-    UINT64 UsedRamSize = 0;
-    UINT64 totalRamsize = getPhysicalRamSize(&UsedRamSize);
+    uint64_t UsedRamSize = 0;
+    uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
 
-    auto add_tchar_to_buf = [buf, buffer_size](const TCHAR *fmt, ...) {
-        unsigned int buf_length = (unsigned int)_tcslen(buf);
-        va_list args = { 0 };
-        va_start(args, fmt);
-        _vstprintf_s(buf + buf_length, buffer_size - buf_length, fmt, args);
-        va_end(args);
-    };
-
-    add_tchar_to_buf(_T("Environment Info\n"));
-    add_tchar_to_buf(_T("OS : %s (%s)\n"), getOSVersion(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
-    add_tchar_to_buf(_T("CPU: %s\n"), cpu_info);
-    add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
-    add_tchar_to_buf(_T("RAM: Total %d MB / Used %d MB\n"), (UINT)(totalRamsize >> 20), (UINT)(UsedRamSize >> 20));
+    buf += _T("Environment Info\n");
+    buf += strsprintf(_T("OS : %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
+    buf += strsprintf(_T("CPU: %s\n"), cpu_info);
+    add_ram_info = false;
+    buf += strsprintf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
+    buf += strsprintf(_T("GPU: %s\n"), gpu_info);
+    return buf;
 }

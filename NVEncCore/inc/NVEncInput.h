@@ -16,6 +16,7 @@
 #include "NVEncStatus.h"
 #include "NVEncVersion.h"
 #include "ConvertCsp.h"
+#include "NVEncLog.h"
 
 enum {
     NV_ENC_INPUT_UNKNWON = 0,
@@ -59,12 +60,42 @@ public:
     NVEncBasicInput();
     ~NVEncBasicInput();
 
+    virtual void SetNVEncLogPtr(shared_ptr<CNVEncLog> pQSVLog) {
+        m_pPrintMes = pQSVLog;
+    }
+
     virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus);
     virtual int LoadNextFrame(void *dst, int dst_pitch);
     virtual void Close();
 
     const TCHAR *getInputMes() {
-        return m_inputMes.c_str();
+        const TCHAR *mes = m_inputMes.c_str();
+        return (mes) ? mes : _T("");
+    }
+    void AddMessage(int log_level, const tstring& str) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+        auto lines = split(str, _T("\n"));
+        for (const auto& line : lines) {
+            if (line[0] != _T('\0')) {
+                (*m_pPrintMes)(log_level, (m_strReaderName + _T(": ") + line + _T("\n")).c_str());
+            }
+        }
+    }
+    void AddMessage(int log_level, const TCHAR *format, ... ) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+        _vstprintf_s(&buffer[0], len, format, args);
+        va_end(args);
+        AddMessage(log_level, buffer);
     }
 
 protected:
@@ -78,4 +109,6 @@ protected:
     tstring m_inputMes;
     uint32_t m_tmLastUpdate = 0;
     const ConvertCSP *m_pConvCSPInfo = nullptr;
+    shared_ptr<CNVEncLog> m_pPrintMes;  //ログ出力
+    tstring m_strReaderName;
 };

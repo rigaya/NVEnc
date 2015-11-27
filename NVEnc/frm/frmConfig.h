@@ -49,12 +49,12 @@ namespace NVEnc {
         frmConfig(CONF_GUIEX *_conf, const SYSTEM_DATA *_sys_dat)
         {
             try {
-                paramCache = new NVEncParam();
+                featureCache = nvfeature_create();
             } catch (...) {
                 ;
             }
-            if (paramCache)
-                paramCache->createCacheAsync(0);
+            if (featureCache)
+                nvfeature_createCacheAsync(featureCache, 0);
             InitData(_conf, _sys_dat);
             cnf_stgSelected = (CONF_GUIEX *)calloc(1, sizeof(CONF_GUIEX));
             InitializeComponent();
@@ -69,6 +69,10 @@ namespace NVEnc {
         /// </summary>
         ~frmConfig()
         {
+            if (featureCache) {
+                nvfeature_close(featureCache);
+                featureCache = nullptr;
+            }
             if (components)
             {
                 delete components;
@@ -3684,7 +3688,7 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
         String^ StrGPUInfo;
         SetEnvironmentInfoDelegate ^getEnvironmentInfoDelegate;
 
-        NVEncParam *paramCache;
+        nvfeature_t featureCache;
         DataTable^ dataTableNVEncFeaturesH264;
         DataTable^ dataTableNVEncFeaturesHEVC;
         
@@ -4158,11 +4162,11 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
         }
     private:
         System::Void fcgBTQualityStg_Click(System::Object^  sender, System::EventArgs^  e) {
-            if (NULL == paramCache)
+            if (NULL == featureCache)
                 return;
             CONF_GUIEX cnf;
             FrmToConf(&cnf);
-            auto presetList = paramCache->GetCachedNVEncCapability();
+            auto presetList = nvfeature_GetCachedNVEncCapability(featureCache);
             memcpy(&cnf.nvenc.enc_config, &presetList[fcgCXEncCodec->SelectedIndex].presetConfigs[fcgCXQualityPreset->SelectedIndex].presetCfg, sizeof(cnf.nvenc.enc_config));
             if (cnf.nvenc.enc_config.gopLength == UINT32_MAX) {
                 cnf.nvenc.enc_config.gopLength = 0;

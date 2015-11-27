@@ -20,6 +20,10 @@
 #include "frmOtherSettings.h"
 #include "frmBitrateCalculator.h"
 
+#include "cpu_info.h"
+#include "gpu_info.h"
+#include "NVEncUtil.h"
+
 using namespace NVEnc;
 
 /// -------------------------------------------------
@@ -711,7 +715,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 System::Void frmConfig::fcgCodecChanged(System::Object^  sender, System::EventArgs^  e) {
     bool h264_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_H264;
     bool hevc_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_HEVC;
-    if (hevc_mode && !paramCache->HEVCAvailable()) {
+    if (hevc_mode && !nvfeature_HEVCAvailable(featureCache)) {
         h264_mode = true;
         hevc_mode = false;
         fcgCXEncCodec->SelectedIndex = NV_ENC_H264;
@@ -823,9 +827,9 @@ System::Void frmConfig::InitForm() {
     if (str_has_char(sys_dat->exstg->s_local.conf_font.name))
         SetFontFamilyToForm(this, gcnew FontFamily(String(sys_dat->exstg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
     //NVEncが実行できるか
-    fcgPBNVEncLogoEnabled->Visible = paramCache && 0 < paramCache->GetCachedNVEncCapability().size();
+    fcgPBNVEncLogoEnabled->Visible = featureCache && 0 < nvfeature_GetCachedNVEncCapability(featureCache).size();
     //HEVCエンコができるか
-    if (!paramCache->HEVCAvailable()) {
+    if (!nvfeature_HEVCAvailable(featureCache)) {
         fcgCXEncCodec->Items[NV_ENC_HEVC] = L"-------------";
     }
     fcgCXEncCodec->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCodecChanged);
@@ -1410,20 +1414,20 @@ System::Void frmConfig::SetEnvironmentInfo() {
         StrGPUInfo = String(gpu_info).ToString();
     }
     //機能情報
-    if (paramCache && dataTableNVEncFeaturesH264->Rows->Count <= 1) {
-        paramCache->GetCachedNVEncCapability();
+    if (featureCache && dataTableNVEncFeaturesH264->Rows->Count <= 1) {
+        nvfeature_GetCachedNVEncCapability(featureCache);
     }
     if (this->InvokeRequired) {
         SetEnvironmentInfoDelegate^ sl = gcnew SetEnvironmentInfoDelegate(this, &frmConfig::SetEnvironmentInfo);
         this->Invoke(sl);
     } else {
-        fcgLBOSInfo->Text = String(getOSVersion()).ToString() + (is_64bit_os() ? String(L" x64").ToString() : String(L" x86").ToString());
+        fcgLBOSInfo->Text = String(getOSVersion().c_str()).ToString() + (is_64bit_os() ? String(L" x64").ToString() : String(L" x86").ToString());
         fcgLBCPUInfoOnFeatureTab->Text = StrCPUInfo;
         fcgLBGPUInfoOnFeatureTab->Text = StrGPUInfo;
-        if (paramCache) {
-            auto nvencCapabilities = paramCache->GetCachedNVEncCapability();
-            auto hevcFeatures = NVEncParam::GetHEVCFeatures(nvencCapabilities);
-            auto h264Features = NVEncParam::GetH264Features(nvencCapabilities);
+        if (featureCache) {
+            auto nvencCapabilities = nvfeature_GetCachedNVEncCapability(featureCache);
+            auto hevcFeatures = nvfeature_GetHEVCFeatures(nvencCapabilities);
+            auto h264Features = nvfeature_GetH264Features(nvencCapabilities);
             if (nullptr != h264Features) {
                 for (auto cap : h264Features->caps) {
                     DataRow^ drb = dataTableNVEncFeaturesH264->NewRow();

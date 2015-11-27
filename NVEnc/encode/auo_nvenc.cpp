@@ -246,6 +246,11 @@ CAuoNvEnc::~CAuoNvEnc() {
 
 }
 
+NVENCSTATUS CAuoNvEnc::InitLog(const InEncodeVideoParam *inputParam) {
+    m_pNVLog.reset(new CAuoLog(inputParam->logfile.c_str(), inputParam->loglevel));
+    return NV_ENC_SUCCESS;
+}
+
 NVENCSTATUS CAuoNvEnc::InitInput(InEncodeVideoParam *inputParam) {
     m_pStatus = new AuoEncodeStatus();
     m_pInput = new AuoInput();
@@ -255,11 +260,10 @@ NVENCSTATUS CAuoNvEnc::InitInput(InEncodeVideoParam *inputParam) {
     return (ret) ? NV_ENC_ERR_GENERIC : NV_ENC_SUCCESS;
 }
 
-#pragma warning (push)
-#pragma warning (disable:4100)
-int CAuoNvEnc::NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) {
-    if (logLevel < m_nLogLevel)
-        return 0;
+void CAuoLog::operator()(int logLevel, const TCHAR *format, ... ) {
+    if (logLevel < m_nLogLevel) {
+        return;
+    }
 
     logLevel = clamp(logLevel, LOG_INFO, LOG_ERROR);
 
@@ -298,6 +302,4 @@ int CAuoNvEnc::NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) {
 
     free(buffer);
     free(mes_line);
-    return len;
 }
-#pragma warning(pop)

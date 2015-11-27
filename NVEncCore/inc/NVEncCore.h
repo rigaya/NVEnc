@@ -19,6 +19,8 @@
 #include "NVEncUtil.h"
 #include "NVEncStatus.h"
 #include "NVEncoderPerf.h"
+#include "NVEncLog.h"
+#include "NVEncParam.h"
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
@@ -42,13 +44,6 @@ enum {
     NVENC_THREAD_ERROR = 1,
 };
 
-enum {
-    NV_LOG_DEBUG = -1,
-    NV_LOG_INFO  = 0,
-    NV_LOG_WARN  = 1,
-    NV_LOG_ERROR = 2,
-};
-
 #ifdef _M_IX86
 static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI.dll");
 #else
@@ -63,21 +58,6 @@ static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI64.dll");
 typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*); 
 
 bool check_if_nvcuda_dll_available();
-
-typedef struct NVEncCap {
-    int id;            //feature ID
-    const TCHAR *name; //feature名
-    int value;         //featureの制限値
-} NVEncCap;
-
-//指定したIDのfeatureの値を取得する
-static int get_value(int id, const std::vector<NVEncCap>& capList) {
-    for (auto cap_info : capList) {
-        if (cap_info.id == id)
-            return cap_info.value;
-    }
-    return 0;
-}
 
 class NVEncoderGPUInfo
 {
@@ -104,26 +84,9 @@ typedef struct InEncodeVideoParam {
     int bluray;                   //bluray出力
     int yuv444;                   //YUV444出力
     int lossless;                 //ロスレス出力
+    tstring logfile;              //ログ出力先
+    int loglevel;                 //ログ出力レベル
 } InEncodeVideoParam;
-
-static inline bool is_interlaced(NV_ENC_PIC_STRUCT pic_struct) {
-    return pic_struct != NV_ENC_PIC_STRUCT_FRAME;
-}
-
-class NVEncCodecFeature {
-public:
-    GUID codec;                                       //CodecのGUID
-    std::vector<GUID> profiles;                       //ProfileのGUIDリスト
-    std::vector<GUID> presets;                        //PresetのGUIDリスト
-    std::vector<NV_ENC_PRESET_CONFIG> presetConfigs;  //Presetの設定リスト
-    std::vector<NV_ENC_BUFFER_FORMAT> surfaceFmt;     //対応フォーマットのリスト
-    std::vector<NVEncCap> caps;                       //対応Featureデータ
-
-    NVEncCodecFeature(GUID codec = { 0 }) {
-        this->codec = codec;
-    }
-};
-
 
 class NVEncCore {
 public:
@@ -155,20 +118,23 @@ public:
     virtual tstring GetEncodingParamsInfo(int output_level);
 
     //エンコードの設定を表示
-    virtual int PrintEncodingParamsInfo(int output_level);
+    virtual void PrintEncodingParamsInfo(int output_level);
 
 protected:
     //メインメソッド
     NVENCSTATUS SetEncodeCodecList(void *encode);
     
     //既定の出力先に情報をメッセージを出力
-    virtual int NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...);
+    virtual void NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...);
     
     //特定の関数でのエラーを表示
     void NVPrintFuncError(const TCHAR *funcName, NVENCSTATUS nvStatus);
 
     //エンコーダへの入力を初期化
     virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam);
+
+    //ログを初期化
+    virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);
 
     //CUDAインターフェースを初期化
     NVENCSTATUS InitCuda(uint32_t deviceID);
@@ -194,8 +160,11 @@ protected:
     //入出力バッファを解放
     NVENCSTATUS ReleaseIOBuffers();
 
+protected:
     //フレームの出力と集計
     NVENCSTATUS ProcessOutput(const EncodeBuffer *pEncodeBuffer);
+
+    shared_ptr<CNVEncLog>        m_pNVLog;                //ログ出力管理
 
     void                        *m_pDevice;               //デバイスインスタンス
     NV_ENCODE_API_FUNCTION_LIST *m_pEncodeAPI;            //NVEnc APIの関数リスト
@@ -204,7 +173,6 @@ protected:
     NV_ENC_INITIALIZE_PARAMS     m_stCreateEncodeParams;  //エンコーダの初期化パラメータ
     FILE                        *m_fOutput;               //出力先ファイルポインタ
     char                        *m_pOutputBuf;            //出力ファイルバッファ
-    int                          m_nLogLevel;             //ログ出力レベル
 
     NVEncBasicInput             *m_pInput;                //動画入力インスタンス
     EncodeStatus                *m_pStatus;               //エンコードステータス管理

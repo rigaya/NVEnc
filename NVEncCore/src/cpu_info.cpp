@@ -7,13 +7,23 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#include <Windows.h>
 #include <vector>
 #include <string>
+#include <fstream>
 #include <vector>
 #include <algorithm>
-#include <intrin.h>
+#include <thread>
+#include <mutex>
+#include <climits>
+#include <condition_variable>
+#ifdef _MSC_VER
+#include <Windows.h>
 #include <tchar.h>
+#include <intrin.h>
+#else
+#include <x86intrin.h>
+#endif
+#include <emmintrin.h>
 #include "cpu_info.h"
 
 static int getCPUName(char *buffer, size_t nSize) {
@@ -28,11 +38,11 @@ static int getCPUName(char *buffer, size_t nSize) {
         __cpuid(CPUInfo, i);
         int offset = 0;
         switch (i) {
-            case 0x80000002: offset =  0; break;
-            case 0x80000003: offset = 16; break;
-            case 0x80000004: offset = 32; break;
-            default:
-                continue;
+        case 0x80000002: offset =  0; break;
+        case 0x80000003: offset = 16; break;
+        case 0x80000004: offset = 32; break;
+        default:
+            continue;
         }
         memcpy(buffer + offset, CPUInfo, sizeof(CPUInfo)); 
     }
@@ -67,10 +77,12 @@ static int getCPUName(char *buffer, size_t nSize) {
     if (0 < strlen(buffer)) {
         char *last_ptr = buffer + strlen(buffer) - 1;
         if (' ' == *last_ptr)
-            last_ptr = '\0';
+            *last_ptr = '\0';
     }
     return 0;
 }
+
+#if _MSC_VER
 static int getCPUName(wchar_t *buffer, size_t nSize) {
     int ret = 0;
     char *buf = (char *)calloc(nSize, sizeof(char));
@@ -84,6 +96,7 @@ static int getCPUName(wchar_t *buffer, size_t nSize) {
     }
     return ret;
 }
+#endif //#if _MSC_VER
 
 double getCPUDefaultClockFromCPUName() {
     double defaultClock = 0.0;
@@ -99,8 +112,7 @@ double getCPUDefaultClockFromCPUName() {
     return 0.0;
 }
 
-#include <Windows.h>
-#include <process.h>
+#if defined(_WIN32) || defined(_WIN64)
 
 typedef BOOL (WINAPI *LPFN_GLPI)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
 
@@ -113,16 +125,18 @@ static DWORD CountSetBits(ULONG_PTR bitMask) {
     return bitSetCount;
 }
 
-BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core) {
-    *physical_processor_core = 0;
-    *logical_processor_core = 0;
+bool get_cpu_info(cpu_info_t *cpu_info) {
+    if (nullptr == cpu_info)
+        return false;
+
+    memset(cpu_info, 0, sizeof(cpu_info[0]));
 
     LPFN_GLPI glpi = (LPFN_GLPI)GetProcAddress(GetModuleHandle(_T("kernel32")), "GetLogicalProcessorInformation");
-    if (NULL == glpi)
-        return FALSE;
+    if (nullptr == glpi)
+        return false;
 
     DWORD returnLength = 0;
-    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = nullptr;
     while (FALSE == glpi(buffer, &returnLength)) {
         if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
             if (buffer)
@@ -132,34 +146,34 @@ BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_
         }
     }
 
-    DWORD logicalProcessorCount = 0;
-    DWORD numaNodeCount = 0;
-    DWORD processorCoreCount = 0;
-    DWORD processorL1CacheCount = 0;
-    DWORD processorL2CacheCount = 0;
-    DWORD processorL3CacheCount = 0;
     DWORD processorPackageCount = 0;
     PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = buffer;
     for (DWORD byteOffset = 0; byteOffset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= returnLength;
-        byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)) {
+    byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)) {
         switch (ptr->Relationship) {
         case RelationNumaNode:
             // Non-NUMA systems report a single record of this type.
-            numaNodeCount++;
+            cpu_info->nodes++;
             break;
         case RelationProcessorCore:
-            processorCoreCount++;
+            cpu_info->physical_cores++;
             // A hyperthreaded core supplies more than one logical processor.
-            logicalProcessorCount += CountSetBits(ptr->ProcessorMask);
+            cpu_info->logical_cores += CountSetBits(ptr->ProcessorMask);
             break;
 
         case RelationCache:
         {
             // Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
             PCACHE_DESCRIPTOR Cache = &ptr->Cache;
-            processorL1CacheCount += (Cache->Level == 1);
-            processorL2CacheCount += (Cache->Level == 2);
-            processorL3CacheCount += (Cache->Level == 3);
+            if (1 <= Cache->Level && Cache->Level <= _countof(cpu_info->caches)) {
+                cache_info_t *cache = &cpu_info->caches[Cache->Level-1];
+                cache->count++;
+                cache->level = Cache->Level;
+                cache->linesize = Cache->LineSize;
+                cache->size += Cache->Size;
+                cache->associativity = Cache->Associativity;
+                cpu_info->max_cache_level = (std::max)(cpu_info->max_cache_level, cache->level);
+            }
             break;
         }
         case RelationProcessorPackage:
@@ -173,12 +187,50 @@ BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_
         }
         ptr++;
     }
+    if (buffer)
+        free(buffer);
 
-    *physical_processor_core = processorCoreCount;
-    *logical_processor_core = logicalProcessorCount;
-
-    return TRUE;
+    return true;
 }
+
+#else //#if defined(_WIN32) || defined(_WIN64)
+bool get_cpu_info(cpu_info_t *cpu_info) {
+    memset(cpu_info, 0, sizeof(cpu_info[0]));
+    std::ifstream inputFile("/proc/cpuinfo");
+    std::istreambuf_iterator<char> data_begin(inputFile);
+    std::istreambuf_iterator<char> data_end;
+    std::string script_data = std::string(data_begin, data_end);
+    inputFile.close();
+
+    for (auto line : split(script_data, "\n")) {
+        auto pos = line.find("processor");
+        if (pos != std::string::npos) {
+            int i = 0;
+            if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), "%d", &i)) {
+                cpu_info->logical_cores = (std::max)(cpu_info->logical_cores, i + 1u);
+            }
+            continue;
+        }
+        pos = line.find("cpu cores");
+        if (pos != std::string::npos) {
+            int i = 0;
+            if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), "%d", &i)) {
+                cpu_info->physical_cores = (std::max)(cpu_info->physical_cores, (uint32_t)i);
+            }
+            continue;
+        }
+        pos = line.find("pyhisical id");
+        if (pos != std::string::npos) {
+            int i = 0;
+            if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), "%d", &i)) {
+                cpu_info->nodes = (std::max)(cpu_info->nodes, i + 1u);
+            }
+            continue;
+        }
+    }
+    return true;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 const int LOOP_COUNT = 5000;
 const int CLOCKS_FOR_2_INSTRUCTION = 2;
@@ -189,68 +241,64 @@ const int COUNT_OF_REPEAT = 4; //以下のようにCOUNT_OF_REPEAT分マクロ�
     instruction \
     instruction
 
-static UINT64 __fastcall repeatFunc(int *test) {
+static uint64_t __fastcall repeatFunc(uint32_t *test) {
     __m128i x0 = _mm_sub_epi32(_mm_setzero_si128(), _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
     __m128i x1 = _mm_add_epi32(x0, x0);
     //計算結果を強引に使うことで最適化による計算の削除を抑止する
     __m128i x2 = _mm_add_epi32(x1, _mm_set1_epi32(*test));
-    UINT dummy;
-    UINT64 start = __rdtscp(&dummy);
+    uint32_t dummy;
+    uint64_t start = __rdtscp(&dummy);
 
     for (int i = LOOP_COUNT; i; i--) {
         //2重にマクロを使うことでCOUNT_OF_REPEATの2乗分ループ内で実行する
         //これでループカウンタの影響はほぼ無視できるはず
-        //ここでのPXORは依存関係により、1クロックあたり1回に限定される
+        //ここでのPADDD/PXORは依存関係により、1クロックあたり1回に限定される
         REPEAT4(REPEAT4(
-        x0 = _mm_xor_si128(x0, x1);
-        x0 = _mm_xor_si128(x0, x2);))
+            x0 = _mm_xor_si128(x0, x1);
+        x0 = _mm_add_epi32(x0, x2);))
     }
-    
-    UINT64 fin = __rdtscp(&dummy); //終了はrdtscpで受ける
-    
-    //計算結果を強引に使うことで最適化による計算の削除を抑止する
-    x0 = _mm_add_epi32(x0, x1);
-    x0 = _mm_add_epi32(x0, x2);
-    *test = x0.m128i_i32[0];
+
+    uint64_t fin = __rdtscp(&dummy); //終了はrdtscpで受ける
+
+                                     //計算結果を強引に使うことで最適化による計算の削除を抑止する
+    *test = _mm_movemask_epi8(x0);
 
     return fin - start;
 }
 
-static unsigned int __stdcall getCPUClockMaxSubFunc(void *arg) {
-    UINT64 *prm = (UINT64 *)arg;
+typedef struct {
+    bool ready;
+    std::mutex mtx;
+    std::condition_variable cv;
+} THREAD_WAKE;
+
+
+static void getCPUClockMaxSubFunc(uint64_t *ret, int thread_id, THREAD_WAKE *thread_wk) {
     //渡されたスレッドIDからスレッドAffinityを決定
     //特定のコアにスレッドを縛り付ける
-    SetThreadAffinityMask(GetCurrentThread(), 1 << (int)*prm);
+    SetThreadAffinityMask(GetCurrentThread(), 1 << thread_id);
     //高優先度で実行
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
-    int test = 0;
-    UINT64 result = MAXUINT64;
-    
+    {
+        std::unique_lock<std::mutex> uniq_lk(thread_wk->mtx); // ここでロックされる
+        thread_wk->cv.wait(uniq_lk, [&thread_wk] { return thread_wk->ready; });
+    }
+    uint32_t test = 0;
+    uint64_t result = ULLONG_MAX;
+
     for (int j = 0; j < 4; j++) {
         for (int i = 0; i < 800; i++) {
             //連続で大量に行うことでTurboBoostを働かせる
             //何回か行って最速値を使用する
-            result = min(result, repeatFunc(&test));
+            result = (std::min)(result, repeatFunc(&test));
         }
-        Sleep(1); //一度スレッドを休ませて、仕切りなおす (Sleep(0)でもいいかも)
+        //一度スレッドを休ませて、仕切りなおす (Sleep(0)でもいいかも)
+        //testを無意味に使うのは、repeatFunc内の処理を最適化によって削除させないようにするため
+        std::this_thread::sleep_for(std::chrono::milliseconds((test>>31) + 1));
     }
 
-    *prm = result;
-
-    return 0;
-}
-
-//rdtscpを使うと0xc0000096例外 (一般ソフトウェア例外)を発する場合があるらしい
-//そこでそれを検出する
-bool check_rdtscp_available() {
-    __try {
-        UINT dummy;
-        __rdtscp(&dummy);
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return false;
-    }
-    return true;
+    *ret = result;
 }
 
 //__rdtscが定格クロックに基づいた値を返すのを利用して、実際の動作周波数を得る
@@ -276,48 +324,37 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
     if (0 == (CPUInfo[3] & (1<<27))) {
         return defaultClock;
     }
-    //例外が発生するなら処理を中断する
-    if (!check_rdtscp_available()) {
-        return defaultClock;
-    }
 
-    DWORD processorCoreCount = 0, logicalProcessorCount = 0;
-    getProcessorCount(&processorCoreCount, &logicalProcessorCount);
+    cpu_info_t cpu_info;
+    get_cpu_info(&cpu_info);
     //ハーパースレッディングを考慮してスレッドIDを渡す
-    int thread_id_multi = (logicalProcessorCount > processorCoreCount) ? logicalProcessorCount / processorCoreCount : 1;
+    int thread_id_multi = (cpu_info.logical_cores > cpu_info.physical_cores) ? cpu_info.logical_cores / cpu_info.physical_cores : 1;
     //上限は物理プロセッサ数、0なら自動的に物理プロセッサ数に設定
-    num_thread = (0 == num_thread) ? max(1, processorCoreCount - (logicalProcessorCount == processorCoreCount)) : min(num_thread, processorCoreCount);
+    num_thread = (0 == num_thread) ? (std::max)(1u, cpu_info.physical_cores - (cpu_info.logical_cores == cpu_info.physical_cores)) : (std::min)(num_thread, cpu_info.physical_cores);
 
-    std::vector<HANDLE> list_of_threads(num_thread, NULL);
-    std::vector<UINT64> list_of_result(num_thread, 0);
-    DWORD thread_loaded = 0;
+    THREAD_WAKE thread_wake;
+    std::vector<std::thread> list_of_threads(num_thread);
+    std::vector<uint64_t> list_of_result(num_thread, 0);
+    uint32_t thread_loaded = 0;
     for ( ; thread_loaded < num_thread; thread_loaded++) {
-        list_of_result[thread_loaded] = thread_loaded * thread_id_multi; //スレッドIDを渡す
-        list_of_threads[thread_loaded] = (HANDLE)_beginthreadex(NULL, 0, getCPUClockMaxSubFunc, &list_of_result[thread_loaded], CREATE_SUSPENDED, NULL);
-        if (NULL == list_of_threads[thread_loaded]) {
-            break; //失敗したらBreak
-        }
+        list_of_threads[thread_loaded] = std::thread(getCPUClockMaxSubFunc, &list_of_result[thread_loaded], thread_loaded * thread_id_multi, &thread_wake);
     }
-    
-    if (thread_loaded) {
-        for (DWORD i_thread = 0; i_thread < thread_loaded; i_thread++) {
-            ResumeThread(list_of_threads[i_thread]);
-        }
-        WaitForMultipleObjects(thread_loaded, &list_of_threads[0], TRUE, INFINITE);
+
+    { //スレッドを起動
+        std::unique_lock<std::mutex> lock(thread_wake.mtx);
+        thread_wake.ready = true;
+        thread_wake.cv.notify_all();
+    }
+    for (uint32_t i = 0; i < list_of_threads.size(); i++) {
+        list_of_threads[i].join();
     }
 
     if (thread_loaded < num_thread) {
         resultClock = defaultClock;
     } else {
-        UINT64 min_result = *std::min_element(list_of_result.begin(), list_of_result.end());
+        uint64_t min_result = *std::min_element(list_of_result.begin(), list_of_result.end());
         resultClock = (min_result) ? defaultClock * (double)(LOOP_COUNT * COUNT_OF_REPEAT * COUNT_OF_REPEAT * 2) / (double)min_result : defaultClock;
-        resultClock = max(resultClock, defaultClock);
-    }
-
-    for (auto thread : list_of_threads) {
-        if (NULL != thread) {
-            CloseHandle(thread);
-        }
+        resultClock = (std::max)(resultClock, defaultClock);
     }
 
     return resultClock;
@@ -337,7 +374,7 @@ double getCPUDefaultClockOpenCL() {
     char buffer[1024] = { 0 };
     getCPUName(buffer, _countof(buffer));
     const std::vector<const char*> vendorNameList = { "Intel", "NVIDIA", "AMD" };
-    
+
     const char *vendorName = NULL;
     for (auto vendor : vendorNameList) {
         if (cl_check_vendor_name(buffer, vendor)) {
@@ -368,9 +405,8 @@ double getCPUDefaultClock() {
 int getCPUInfo(TCHAR *buffer, size_t nSize) {
     int ret = 0;
     buffer[0] = _T('\0');
-    DWORD processorCoreCount = 0, logicalProcessorCount = 0;
-    if (   getCPUName(buffer, nSize)
-        || FALSE == getProcessorCount(&processorCoreCount, &logicalProcessorCount)) {
+    cpu_info_t cpu_info;
+    if (getCPUName(buffer, nSize) || !get_cpu_info(&cpu_info)) {
         ret = 1;
     } else {
         double defaultClock = getCPUDefaultClockFromCPUName();
@@ -386,30 +422,57 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
             if (maxFrequency / defaultClock > 1.01) {
                 _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [TB: %.2fGHz]"), maxFrequency);
             }
-            _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), processorCoreCount, logicalProcessorCount);
         }
+        _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
     }
     return ret;
 }
 
 BOOL GetProcessTime(HANDLE hProcess, PROCESS_TIME *time) {
+#if defined(_WIN32) || defined(_WIN64)
     SYSTEMTIME systime;
     GetSystemTime(&systime);
     return (NULL != hProcess
         && GetProcessTimes(hProcess, (FILETIME *)&time->creation, (FILETIME *)&time->exit, (FILETIME *)&time->kernel, (FILETIME *)&time->user)
         && (WAIT_OBJECT_0 == WaitForSingleObject(hProcess, 0) || SystemTimeToFileTime(&systime, (FILETIME *)&time->exit)));
+#else //#if defined(_WIN32) || defined(_WIN64)
+    struct tms tm;
+    times(&tm);
+    time->exit = time->creation;
+    time->creation = clock();
+    time->kernel = tm.tms_stime;
+    time->user = tm.tms_utime;
+    return 0;
+#endif //#if defined(_WIN32) || defined(_WIN64)
+}
+
+BOOL GetProcessTime(PROCESS_TIME *time) {
+#if defined(_WIN32) || defined(_WIN64)
+    return GetProcessTime(GetCurrentProcess(), time);
+#else
+    return GetProcessTime(NULL, time);
+#endif
 }
 
 double GetProcessAvgCPUUsage(HANDLE hProcess, PROCESS_TIME *start) {
     PROCESS_TIME current = { 0 };
-    DWORD physicalProcessors = 0, logicalProcessors = 0;
+    cpu_info_t cpu_info;
     double result = 0;
     if (NULL != hProcess
-        && getProcessorCount(&physicalProcessors, &logicalProcessors)
+        && get_cpu_info(&cpu_info)
         && GetProcessTime(hProcess, &current)) {
-        UINT64 current_total_time = current.kernel + current.user;
-        UINT64 start_total_time = (nullptr == start) ? 0 : start->kernel + start->user;
-        result = (current_total_time - start_total_time) * 100.0 / (double)(logicalProcessors * (current.exit - ((nullptr == start) ? current.creation : start->exit)));
+        uint64_t current_total_time = current.kernel + current.user;
+        uint64_t start_total_time = (nullptr == start) ? 0 : start->kernel + start->user;
+        result = (current_total_time - start_total_time) * 100.0 / (double)(cpu_info.logical_cores * (current.exit - ((nullptr == start) ? current.creation : start->exit)));
     }
     return result;
 }
+
+double GetProcessAvgCPUUsage(PROCESS_TIME *start) {
+#if defined(_WIN32) || defined(_WIN64)
+    return GetProcessAvgCPUUsage(GetCurrentProcess(), start);
+#else
+    return GetProcessAvgCPUUsage(NULL, start);
+#endif
+}
+

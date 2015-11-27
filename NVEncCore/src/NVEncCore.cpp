@@ -59,7 +59,7 @@ NVEncoderGPUInfo::NVEncoderGPUInfo() {
             && CUDA_SUCCESS == cuDeviceGetName(gpu_name, _countof(gpu_name), cuDevice)
             && CUDA_SUCCESS == cuDeviceComputeCapability(&SMmajor, &SMminor, currentDevice)
             && (((SMmajor << 4) + SMminor) >= 0x30)) {
-            GPUList.push_back(std::make_pair(currentDevice, to_tchar(gpu_name)));
+            GPUList.push_back(std::make_pair(currentDevice, char_to_tstring(gpu_name)));
         }
     }
 };
@@ -72,7 +72,6 @@ NVEncCore::NVEncCore() {
     m_hinstLib = NULL;
     m_hEncoder = nullptr;
     m_fOutput = nullptr;
-    m_nLogLevel = NV_LOG_INFO;
     m_pStatus = nullptr;
     m_pInput = nullptr;
     m_uEncodeBufferCount = 16;
@@ -107,40 +106,42 @@ NVEncCore::~NVEncCore() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-int NVEncCore::NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) {
-    if (logLevel < m_nLogLevel)
-        return 0;
+void NVEncCore::NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) {
+    if (m_pNVLog.get() == nullptr) {
+        if (logLevel <= NV_LOG_INFO) {
+            return;
+        }
+    } else if (logLevel < m_pNVLog->getLogLevel()) {
+        return;
+    }
 
     va_list args;
     va_start(args, format);
 
-    int len = _vsctprintf(format, args);
-    TCHAR *const buffer = (TCHAR*)malloc((len+1) * sizeof(buffer[0])); // _vscprintf doesn't count terminating '\0'
+    int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    vector<TCHAR> buffer(len, 0);
+    _vstprintf_s(buffer.data(), len, format, args);
+    va_end(args);
 
-    _vstprintf_s(buffer, len+1, format, args);
-    
-#ifdef UNICODE
-    DWORD mode = 0;
-    bool write_with_wchar = fp == stderr && 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
-
-    if (!write_with_wchar) {
-        char *buffer_char = nullptr;
-        //出力先がリダイレクトされるならANSIで
-        if (nullptr != (buffer_char = (char *)calloc(len * 2, sizeof(buffer_char[0])))) {
-            WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, buffer, -1, buffer_char, len * 2, NULL, NULL);
-            fprintf(fp, buffer_char);
-            free(buffer_char);
-        }
+    if (m_pNVLog.get() != nullptr) {
+        (*m_pNVLog)(logLevel, buffer.data());
+    } else {
+        _ftprintf(stderr, _T("%s"), buffer.data());
     }
-    if (write_with_wchar) //出力先がコンソールならWCHARで
-#endif
-        _ftprintf(fp, buffer);
-
-    return len;
 }
 
 void NVEncCore::NVPrintFuncError(const TCHAR *funcName, NVENCSTATUS nvStatus) {
-    NVPrintf(stderr, NV_LOG_ERROR, (FOR_AUO) ? _T("%s() がエラーを返しました。: %d (%s)\n") : _T("Error on %s: %d (%s)\n") , funcName, nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+    NVPrintf(stderr, NV_LOG_ERROR, (FOR_AUO) ? _T("%s() がエラーを返しました。: %d (%s)\n") : _T("Error on %s: %d (%s)\n"), funcName, nvStatus, char_to_tstring(_nvencGetErrorEnum(nvStatus)).c_str());
+}
+
+//ログを初期化
+NVENCSTATUS NVEncCore::InitLog(const InEncodeVideoParam *inputParam) {
+    //ログの初期化
+    m_pNVLog.reset(new CNVEncLog(inputParam->logfile.c_str(), inputParam->loglevel));
+    if (inputParam->logfile.length()) {
+        m_pNVLog->writeFileHeader(inputParam->outputFilename.c_str());
+    }
+    return NV_ENC_SUCCESS;
 }
 
 NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
@@ -197,6 +198,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
 
     m_pStatus = new EncodeStatus();
+    m_pInput->SetNVEncLogPtr(m_pNVLog);
     int ret = m_pInput->Init(&inputParam->input, m_pStatus);
     m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
     m_pStatus->m_nOutputFPSScale = inputParam->input.scale;
@@ -549,6 +551,8 @@ NVENCSTATUS NVEncCore::Deinitialize() {
 
         m_pDevice = NULL;
     }
+
+    m_pNVLog.reset();
 
     return nvStatus;
 }
@@ -1194,7 +1198,7 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
     if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncInitializeEncoder(m_hEncoder, &m_stCreateEncodeParams))) {
         NVPrintf(stderr, NV_LOG_ERROR,
             _T("%s: %d (%s)\n"), FOR_AUO ? _T("エンコーダの初期化に失敗しました。\n") : _T("Failed to Initialize the encoder\n."),
-            nvStatus, to_tchar(_nvencGetErrorEnum(nvStatus)).c_str());
+            nvStatus, char_to_tstring(_nvencGetErrorEnum(nvStatus)).c_str());
         return nvStatus;
     }
 
@@ -1246,6 +1250,8 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
 
 NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+
+    InitLog(inputParam);
 
     if (NULL == m_hinstLib) {
         if (NULL == (m_hinstLib = LoadLibrary(NVENCODE_API_DLL))) {
@@ -1637,6 +1643,6 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     return str;
 }
 
-int NVEncCore::PrintEncodingParamsInfo(int output_level) {
-    return NVPrintf(stderr, NV_LOG_INFO, _T("%s"), GetEncodingParamsInfo(output_level).c_str());
+void NVEncCore::PrintEncodingParamsInfo(int output_level) {
+    NVPrintf(stderr, NV_LOG_INFO, _T("%s"), GetEncodingParamsInfo(output_level).c_str());
 }

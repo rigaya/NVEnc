@@ -10,9 +10,46 @@
 #include <process.h>
 #pragma comment(lib, "winmm.lib")
 #include "NVEncCore.h"
-#include "NVEncParam.h"
+#include "NVEncFeature.h"
+#include "NVEncFeature.h"
 
-NVEncParam::NVEncParam() {
+typedef void* nvfeature_t;
+
+nvfeature_t nvfeature_create() {
+    return new NVEncFeature();
+}
+int nvfeature_createCacheAsync(nvfeature_t obj, int deviceID) {
+    return reinterpret_cast<NVEncFeature *>(obj)->createCacheAsync(deviceID);
+}
+const std::vector<NVEncCodecFeature>& nvfeature_GetCachedNVEncCapability(nvfeature_t obj) {
+    return reinterpret_cast<NVEncFeature *>(obj)->GetCachedNVEncCapability();
+}
+
+//featureリストからHEVCのリストを取得 (HEVC非対応ならnullptr)
+const NVEncCodecFeature *nvfeature_GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures) {
+    return NVEncFeature::GetHEVCFeatures(codecFeatures);
+}
+//featureリストからHEVCのリストを取得 (H.264対応ならnullptr)
+const NVEncCodecFeature *nvfeature_GetH264Features(const std::vector<NVEncCodecFeature>& codecFeatures) {
+    return NVEncFeature::GetH264Features(codecFeatures);
+}
+
+//H.264が使用可能かどうかを取得 (取得できるまで待機)
+bool nvfeature_H264Available(nvfeature_t obj) {
+    return reinterpret_cast<NVEncFeature *>(obj)->H264Available();
+}
+
+//HEVCが使用可能かどうかを取得 (取得できるまで待機)
+bool nvfeature_HEVCAvailable(nvfeature_t obj) {
+    return reinterpret_cast<NVEncFeature *>(obj)->HEVCAvailable();
+}
+
+void nvfeature_close(nvfeature_t obj) {
+    NVEncFeature *ptr = reinterpret_cast<NVEncFeature *>(obj);
+    delete ptr;
+}
+
+NVEncFeature::NVEncFeature() {
     m_pNVEncCore = nullptr;
     m_hThCreateCache = NULL;
     m_hEvCreateCache = NULL;
@@ -21,7 +58,7 @@ NVEncParam::NVEncParam() {
     m_bHEVC = false;
 }
 
-NVEncParam::~NVEncParam() {
+NVEncFeature::~NVEncFeature() {
     if (nullptr != m_pNVEncCore) {
         delete m_pNVEncCore;
         m_pNVEncCore = nullptr;
@@ -41,7 +78,7 @@ NVEncParam::~NVEncParam() {
     }
 }
 
-int NVEncParam::createCache(int deviceID) {
+int NVEncFeature::createCache(int deviceID) {
     if (!check_if_nvcuda_dll_available()) {
         SetEvent(m_hEvCreateCodecCache);
     } else {
@@ -72,15 +109,15 @@ int NVEncParam::createCache(int deviceID) {
     return 0;
 }
 
-unsigned int __stdcall NVEncParam::createCacheLoader(void *prm) {
-    NVEncParam *nvencParam = reinterpret_cast<NVEncParam *>(prm);
+unsigned int __stdcall NVEncFeature::createCacheLoader(void *prm) {
+    NVEncFeature *nvencParam = reinterpret_cast<NVEncFeature *>(prm);
     int deviceID = nvencParam->m_nTargetDeviceID;
     nvencParam->m_nTargetDeviceID = -1;
     nvencParam->createCache(deviceID);
     return 0;
 }
 
-int NVEncParam::createCacheAsync(int deviceID) {
+int NVEncFeature::createCacheAsync(int deviceID) {
     m_nTargetDeviceID = deviceID;
     GetCachedNVEncCapability(); //スレッドが生きていたら終了を待機
     //一度リソース開放
@@ -97,22 +134,22 @@ int NVEncParam::createCacheAsync(int deviceID) {
     return 0;
 }
 
-bool NVEncParam::H264Available() {
+bool NVEncFeature::H264Available() {
     WaitForSingleObject(m_hEvCreateCodecCache, INFINITE);
     return m_bH264;
 }
 
-bool NVEncParam::HEVCAvailable() {
+bool NVEncFeature::HEVCAvailable() {
     WaitForSingleObject(m_hEvCreateCodecCache, INFINITE);
     return m_bHEVC;
 }
 
-const std::vector<NVEncCodecFeature>& NVEncParam::GetCachedNVEncCapability() {
+const std::vector<NVEncCodecFeature>& NVEncFeature::GetCachedNVEncCapability() {
     WaitForSingleObject(m_hEvCreateCache, INFINITE);
     return m_EncodeFeatures;
 }
 
-const NVEncCodecFeature *NVEncParam::GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures) {
+const NVEncCodecFeature *NVEncFeature::GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures) {
     for (uint32_t i = 0; i < codecFeatures.size(); i++) {
         if (0 == memcmp(&codecFeatures[i].codec, &NV_ENC_CODEC_HEVC_GUID, sizeof(GUID))) {
             return &codecFeatures[i];
@@ -120,7 +157,7 @@ const NVEncCodecFeature *NVEncParam::GetHEVCFeatures(const std::vector<NVEncCode
     }
     return nullptr;
 }
-const NVEncCodecFeature *NVEncParam::GetH264Features(const std::vector<NVEncCodecFeature>& codecFeatures) {
+const NVEncCodecFeature *NVEncFeature::GetH264Features(const std::vector<NVEncCodecFeature>& codecFeatures) {
     for (uint32_t i = 0; i < codecFeatures.size(); i++) {
         if (0 == memcmp(&codecFeatures[i].codec, &NV_ENC_CODEC_H264_GUID, sizeof(GUID))) {
             return &codecFeatures[i];

@@ -9,10 +9,22 @@
 
 #pragma once
 
+#include <tchar.h>
 #include <limits.h>
+#include <vector>
 #include "nvEncodeAPI.h"
 #include "NVEncoderPerf.h"
-#include "NVEncCore.h"
+
+using std::vector;
+
+enum {
+    NV_LOG_TRACE = -3,
+    NV_LOG_DEBUG = -2,
+    NV_LOG_MORE  = -1,
+    NV_LOG_INFO  = 0,
+    NV_LOG_WARN  = 1,
+    NV_LOG_ERROR = 2,
+};
 
 typedef struct {
     TCHAR *desc;
@@ -254,6 +266,16 @@ const CX_DESC list_preset_ja[] = {
 };
 #endif
 
+const CX_DESC list_log_level[] = {
+    { _T("trace"), NV_LOG_TRACE },
+    { _T("debug"), NV_LOG_DEBUG },
+    { _T("more"),  NV_LOG_MORE  },
+    { _T("info"),  NV_LOG_INFO  },
+    { _T("warn"),  NV_LOG_WARN  },
+    { _T("error"), NV_LOG_ERROR },
+    { NULL, 0 }
+};
+
 template<size_t count>
 static const TCHAR *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]) {
     for (int i = 0; i < count; i++) {
@@ -350,44 +372,52 @@ static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
     return PARSE_ERROR_FLAG;
 }
 
-class NVEncParam : public NVEncCore
-{
+static inline bool is_interlaced(NV_ENC_PIC_STRUCT pic_struct) {
+    return pic_struct != NV_ENC_PIC_STRUCT_FRAME;
+}
+
+typedef struct NVEncCap {
+    int id;            //feature ID
+    const TCHAR *name; //feature名
+    int value;         //featureの制限値
+} NVEncCap;
+
+//指定したIDのfeatureの値を取得する
+static int get_value(int id, const std::vector<NVEncCap>& capList) {
+    for (auto cap_info : capList) {
+        if (cap_info.id == id)
+            return cap_info.value;
+    }
+    return 0;
+}
+
+class NVEncCodecFeature {
 public:
-    NVEncParam();
-    ~NVEncParam();
+    GUID codec;                                       //CodecのGUID
+    std::vector<GUID> profiles;                       //ProfileのGUIDリスト
+    std::vector<GUID> presets;                        //PresetのGUIDリスト
+    std::vector<NV_ENC_PRESET_CONFIG> presetConfigs;  //Presetの設定リスト
+    std::vector<NV_ENC_BUFFER_FORMAT> surfaceFmt;     //対応フォーマットのリスト
+    std::vector<NVEncCap> caps;                       //対応Featureデータ
 
-    //featureリストの作成を開始 (非同期)
-    int createCacheAsync(int deviceID);
-
-    //featureリストを取得 (取得できるまで待機)
-    const std::vector<NVEncCodecFeature>& GetCachedNVEncCapability();
-    
-    //featureリストからHEVCのリストを取得 (HEVC非対応ならnullptr)
-    static const NVEncCodecFeature *GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures);
-    //featureリストからHEVCのリストを取得 (H.264対応ならnullptr)
-    static const NVEncCodecFeature *GetH264Features(const std::vector<NVEncCodecFeature>& codecFeatures);
-
-    //H.264が使用可能かどうかを取得 (取得できるまで待機)
-    bool H264Available();
-    //HEVCが使用可能かどうかを取得 (取得できるまで待機)
-    bool HEVCAvailable();
-protected:
-    //createCacheを非同期実行するスレッド用
-    static unsigned int __stdcall createCacheLoader(void *prm);
-    //featureの取得を実行
-    int createCache(int deviceID);
-
-    int m_nTargetDeviceID;   //対象デバイスID
-    NVEncCore *m_pNVEncCore; //NVEncCoreのインスタンス (スレッド終了時にdelete)
-
-    HANDLE m_hThCreateCache;      //featureリスト作成用スレッドのハンドル
-    HANDLE m_hEvCreateCache;      //featureリストの作成終了のイベント (ManualReset)
-    HANDLE m_hEvCreateCodecCache; //codecのみのリスト作成終了のイベント (ManualReset)
-    bool m_bH264; //H.264が使用可能かどうか (m_hEvCreateCodecCache後に有効)
-    bool m_bHEVC; //HEVCが使用可能かどうか (m_hEvCreateCodecCache後に有効)
-
-    //featureリスト
-    //コーデックの有無はm_hEvCreateCodecCache後に有効
-    //フルリストはm_hEvCreateCodecCache後に有効
-    std::vector<NVEncCodecFeature> m_EncodeFeatures;
+    NVEncCodecFeature(GUID codec = { 0 }) {
+        this->codec = codec;
+    }
 };
+
+typedef void* nvfeature_t;
+nvfeature_t nvfeature_create();
+int nvfeature_createCacheAsync(nvfeature_t obj, int deviceID);
+const std::vector<NVEncCodecFeature>& nvfeature_GetCachedNVEncCapability(nvfeature_t obj);
+
+//featureリストからHEVCのリストを取得 (HEVC非対応ならnullptr)
+const NVEncCodecFeature *nvfeature_GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures);
+//featureリストからHEVCのリストを取得 (H.264対応ならnullptr)
+const NVEncCodecFeature *nvfeature_GetH264Features(const std::vector<NVEncCodecFeature>& codecFeatures);
+
+//H.264が使用可能かどうかを取得 (取得できるまで待機)
+bool nvfeature_H264Available(nvfeature_t obj);
+//HEVCが使用可能かどうかを取得 (取得できるまで待機)
+bool nvfeature_HEVCAvailable(nvfeature_t obj);
+
+void nvfeature_close(nvfeature_t obj);
