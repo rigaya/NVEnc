@@ -73,6 +73,14 @@ void vector_cat(std::vector<T>& v1, const std::vector<T>& v2) {
         v1.insert(v1.end(), v2.begin(), v2.end());
     }
 }
+template<typename T>
+void vector_cat(std::vector<T>& v1, const T *ptr, size_t nCount) {
+    if (nCount) {
+        size_t currentSize = v1.size();
+        v1.resize(currentSize + nCount);
+        memcpy(v1.data() + currentSize, ptr, sizeof(T) * nCount);
+    }
+}
 
 struct aligned_malloc_deleter {
     void operator()(void* ptr) const {

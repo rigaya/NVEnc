@@ -66,7 +66,7 @@ public:
     NVEncInputVpy();
     ~NVEncInputVpy();
 
-    virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
+    virtual int Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
     virtual int LoadNextFrame(void *dst, int dst_pitch) override;
     virtual void Close() override;
     

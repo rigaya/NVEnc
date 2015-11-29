@@ -87,10 +87,12 @@ public:
 
 typedef struct _EncodeFrameConfig
 {
+    CUdeviceptr  dptr;
     uint8_t  *yuv[3];
     uint32_t stride[3];
     uint32_t width;
     uint32_t height;
+    uint32_t pitch;
 }EncodeFrameConfig;
 
 typedef enum

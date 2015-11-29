@@ -11,6 +11,7 @@
 
 #include <Windows.h>
 #include <stdint.h>
+#include <nvcuvid.h>
 #include "nvEncodeAPI.h"
 #include <tchar.h>
 #include <vector>
@@ -18,9 +19,12 @@
 #include "NVEncInput.h"
 #include "NVEncUtil.h"
 #include "NVEncStatus.h"
-#include "NVEncoderPerf.h"
 #include "NVEncLog.h"
 #include "NVEncParam.h"
+#include "FrameQueue.h"
+#include "CuvidDecode.h"
+
+static const int MAX_DECODE_FRAMES = 16;
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
@@ -130,6 +134,9 @@ protected:
     //特定の関数でのエラーを表示
     void NVPrintFuncError(const TCHAR *funcName, NVENCSTATUS nvStatus);
 
+    //特定の関数でのエラーを表示
+    void NVPrintFuncError(const TCHAR *funcName, CUresult code);
+
     //エンコーダへの入力を初期化
     virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam);
 
@@ -145,6 +152,9 @@ protected:
     //inputParamからエンコーダに渡すパラメータを設定
     NVENCSTATUS SetInputParam(const InEncodeVideoParam *inputParam);
 
+    //デコーダインスタンスを作成
+    NVENCSTATUS CreateDecoder(const InEncodeVideoParam *inputParam);
+
     //エンコーダインスタンスを作成
     NVENCSTATUS CreateEncoder(const InEncodeVideoParam *inputParam);
 
@@ -152,7 +162,12 @@ protected:
     NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, bool bYUV444);
 
     //フレームを1枚エンコーダに投入(非同期)
-    NVENCSTATUS EncodeFrame(int encode_idx);
+    NVENCSTATUS EncodeFrame(uint64_t timestamp);
+
+    //フレームを1枚エンコーダに投入(非同期、トランスコード中継用)
+    NVENCSTATUS EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t timestamp);
+
+    NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t timestamp);
 
     //エンコーダをフラッシュしてストリームを最後まで取り出す
     NVENCSTATUS FlushEncoder();
@@ -166,6 +181,9 @@ protected:
 
     shared_ptr<CNVEncLog>        m_pNVLog;                //ログ出力管理
 
+    CUdevice                     m_device;                //CUDAデバイスインスタンス
+    CUcontext                    m_cuContextCurr;         //CUDAコンテキスト
+    CUvideoctxlock               m_ctxLock;               //CUDAロック
     void                        *m_pDevice;               //デバイスインスタンス
     NV_ENCODE_API_FUNCTION_LIST *m_pEncodeAPI;            //NVEnc APIの関数リスト
     HINSTANCE                    m_hinstLib;              //nvEncodeAPI.dllのモジュールハンドル
@@ -175,29 +193,33 @@ protected:
     char                        *m_pOutputBuf;            //出力ファイルバッファ
 
     NVEncBasicInput             *m_pInput;                //動画入力インスタンス
-    EncodeStatus                *m_pStatus;               //エンコードステータス管理
+    shared_ptr<EncodeStatus>     m_pStatus;               //エンコードステータス管理
     NV_ENC_PIC_STRUCT            m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                m_stEncConfig;           //エンコード設定
 
     GUID                         m_stCodecGUID;           //出力コーデック
     uint32_t                     m_uEncWidth;             //出力縦解像度
     uint32_t                     m_uEncHeight;            //出力横解像度
-
+#if ENABLE_AVCUVID_READER
+    unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
+#endif //#if ENABLE_AVCUVID_READER
     //サブメソッド
-    NVENCSTATUS NvEncOpenEncodeSessionEx(void* device, NV_ENC_DEVICE_TYPE deviceType);
-    NVENCSTATUS NvEncCreateInputBuffer(uint32_t width, uint32_t height, void** inputBuffer, uint32_t isYuv444);
+    NVENCSTATUS NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType);
+    NVENCSTATUS NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, uint32_t isYuv444);
     NVENCSTATUS NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer);
-    NVENCSTATUS NvEncCreateBitstreamBuffer(uint32_t size, void** bitstreamBuffer);
+    NVENCSTATUS NvEncCreateBitstreamBuffer(uint32_t size, void **bitstreamBuffer);
     NVENCSTATUS NvEncDestroyBitstreamBuffer(NV_ENC_OUTPUT_PTR bitstreamBuffer);
-    NVENCSTATUS NvEncLockBitstream(NV_ENC_LOCK_BITSTREAM* lockBitstreamBufferParams);
+    NVENCSTATUS NvEncLockBitstream(NV_ENC_LOCK_BITSTREAM *lockBitstreamBufferParams);
     NVENCSTATUS NvEncUnlockBitstream(NV_ENC_OUTPUT_PTR bitstreamBuffer);
-    NVENCSTATUS NvEncLockInputBuffer(void* inputBuffer, void** bufferDataPtr, uint32_t* pitch);
+    NVENCSTATUS NvEncLockInputBuffer(void *inputBuffer, void **bufferDataPtr, uint32_t *pitch);
     NVENCSTATUS NvEncUnlockInputBuffer(NV_ENC_INPUT_PTR inputBuffer);
-    NVENCSTATUS NvEncGetEncodeStats(NV_ENC_STAT* encodeStats);
-    NVENCSTATUS NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD* sequenceParamPayload);
-    NVENCSTATUS NvEncRegisterAsyncEvent(void** completionEvent);
-    NVENCSTATUS NvEncUnregisterAsyncEvent(void* completionEvent);
-    NVENCSTATUS NvEncMapInputResource(void* registeredResource, void** mappedResource);
+    NVENCSTATUS NvEncGetEncodeStats(NV_ENC_STAT *encodeStats);
+    NVENCSTATUS NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD *sequenceParamPayload);
+    NVENCSTATUS NvEncRegisterAsyncEvent(void **completionEvent);
+    NVENCSTATUS NvEncUnregisterAsyncEvent(void *completionEvent);
+    NVENCSTATUS NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resourceType, void* resourceToRegister, uint32_t width, uint32_t height, uint32_t pitch, void** registeredResource);
+    NVENCSTATUS NvEncUnregisterResource(NV_ENC_REGISTERED_PTR registeredRes);
+    NVENCSTATUS NvEncMapInputResource(void *registeredResource, void **mappedResource);
     NVENCSTATUS NvEncUnmapInputResource(NV_ENC_INPUT_PTR mappedInputBuffer);
     NVENCSTATUS NvEncFlushEncoderQueue(void *hEOSEvent);
     NVENCSTATUS NvEncDestroyEncoder();

@@ -18,22 +18,17 @@
 
 
 NVEncBasicInput::NVEncBasicInput() {
+    m_tmLastUpdate = std::chrono::system_clock::now();
+    memset(&m_sTrimParam, 0, sizeof(m_sTrimParam));
 }
 
 NVEncBasicInput::~NVEncBasicInput() {
     Close();
 }
 
-void NVEncBasicInput::setSurfaceInfo(InputVideoInfo *inputPrm) {
-    m_stSurface.width     = inputPrm->width;
-    m_stSurface.src_pitch = inputPrm->width;
-    m_stSurface.height    = inputPrm->height;
-    memcpy(&m_stSurface.crop, &inputPrm->crop, sizeof(m_stSurface.crop));
-}
-
 #pragma warning(push)
 #pragma warning(disable:4100)
-int NVEncBasicInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
+int NVEncBasicInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
 
     return 0;
 }
@@ -56,8 +51,9 @@ void NVEncBasicInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *i
     ss << inputPrm->width << _T("x") << inputPrm->height << _T(", ");
     ss << inputPrm->rate << _T("/") << inputPrm->scale << _T(" fps");
 
-    m_inputMes = ss.str();
+    m_strInputInfo = ss.str();
 }
 
 void NVEncBasicInput::Close() {
+    m_pEncSatusInfo.reset();
 }

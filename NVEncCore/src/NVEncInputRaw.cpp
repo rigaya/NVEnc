@@ -105,28 +105,27 @@ int NVEncInputRaw::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
 }
 
 NVEncInputRaw::NVEncInputRaw() {
-
+    m_strReaderName = _T("raw");
 }
 
 NVEncInputRaw::~NVEncInputRaw() {
     Close();
 }
 
-int NVEncInputRaw::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
+int NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     Close();
 
-    m_pStatus = pStatus;
+    m_pEncSatusInfo = pStatus;
 
-    if (0 == inputPrm->filename.compare(_T("-"))) {
+    if (0 == _tcscmp(inputPrm->filename, _T("-"))) {
         if (_setmode( _fileno( stdin ), _O_BINARY ) == 1) {
-            m_inputMes = ((m_bIsY4m) ? _T("y4m") : _T("raw"));
-            m_inputMes +=_T(": failed to switch stdin to binary mode.");
+            AddMessage(NV_LOG_ERROR, _T("failed to switch stdin to binary mode."));
             return 1;
         }
         m_fp = stdin;
     } else {
-        if (_tfopen_s(&m_fp, inputPrm->filename.c_str(), _T("rb")) || NULL == m_fp) {
-            m_inputMes = _T("raw: Failed to open input file.\n");
+        if (_tfopen_s(&m_fp, inputPrm->filename, _T("rb")) || NULL == m_fp) {
+            AddMessage(NV_LOG_ERROR, _T("Failed to open input file.\n"));
             return 1;
         }
     }
@@ -134,13 +133,14 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     NV_ENC_CSP inputCsp = NV_ENC_CSP_YV12;
     m_bIsY4m = inputPrm->type == NV_ENC_INPUT_Y4M;
     if (m_bIsY4m) {
+        m_strReaderName = _T("y4m");
         char buf[128] = { 0 };
         InputVideoInfo videoInfo = { 0 };
         if (fread(buf, 1, strlen("YUV4MPEG2"), m_fp) != strlen("YUV4MPEG2")
             || strcmp(buf, "YUV4MPEG2") != 0
             || !fgets(buf, sizeof(buf), m_fp)
             || ParseY4MHeader(buf, &videoInfo)) {
-            m_inputMes +=_T("y4m: failed to parse y4m header.");
+            AddMessage(NV_LOG_ERROR, _T("failed to parse y4m header."));
             return 1;
         }
         inputPrm->width = videoInfo.width;
@@ -163,21 +163,21 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
         return 1;
     }
     if (NULL == (m_inputBuffer = (uint8_t *)_aligned_malloc(bufferSize, 32))) {
-        m_inputMes = _T("raw: Failed to allocate input buffer.\n");
+        AddMessage(NV_LOG_ERROR, _T("raw: Failed to allocate input buffer.\n"));
         return 1;
     }
 
     m_pConvCSPInfo = get_convert_csp_func(inputCsp, inputPrm->csp, false);
 
     if (nullptr == m_pConvCSPInfo) {
-        m_inputMes += _T("raw/y4m: invalid colorformat.\n");
+        AddMessage(NV_LOG_ERROR, _T("raw/y4m: invalid colorformat.\n"));
         return 1;
     }
     
-    setSurfaceInfo(inputPrm);
-    m_stSurface.src_pitch = inputPrm->width;
-    CreateInputInfo((m_bIsY4m) ? _T("y4m") : _T("raw"), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
-
+    memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
+    m_sDecParam.src_pitch = inputPrm->width;
+    CreateInputInfo(m_strReaderName.c_str(), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
+    AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
 }
 
@@ -191,6 +191,7 @@ void NVEncInputRaw::Close() {
         m_inputBuffer = NULL;
     }
     m_bIsY4m = false;
+    m_pEncSatusInfo.reset();
 }
 
 int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
@@ -211,11 +212,11 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     switch (m_pConvCSPInfo->csp_from) {
     case NV_ENC_CSP_NV12:
     case NV_ENC_CSP_YV12:
-        frameSize = m_stSurface.width * m_stSurface.height * 3 / 2; break;
+        frameSize = m_sDecParam.width * m_sDecParam.height * 3 / 2; break;
     case NV_ENC_CSP_YUV422:
-        frameSize = m_stSurface.width * m_stSurface.height * 2; break;
+        frameSize = m_sDecParam.width * m_sDecParam.height * 2; break;
     case NV_ENC_CSP_YUV444:
-        frameSize = m_stSurface.width * m_stSurface.height * 3; break;
+        frameSize = m_sDecParam.width * m_sDecParam.height * 3; break;
     default:
         return 1;
     }
@@ -224,36 +225,36 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     }
     void *dst_array[3];
     dst_array[0] = dst;
-    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]);
-    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]); //YUV444出力時
+    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]);
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]); //YUV444出力時
 
     const void *src_array[3];
     src_array[0] = m_inputBuffer;
-    src_array[1] = (uint8_t *)src_array[0] + m_stSurface.src_pitch * m_stSurface.height;
+    src_array[1] = (uint8_t *)src_array[0] + m_sDecParam.src_pitch * m_sDecParam.height;
     switch (m_pConvCSPInfo->csp_from) {
     case NV_ENC_CSP_YV12:
-        src_array[2] = (uint8_t *)src_array[1] + m_stSurface.src_pitch * m_stSurface.height / 4;
+        src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 4;
         break;
     case NV_ENC_CSP_YUV422:
-        src_array[2] = (uint8_t *)src_array[1] + m_stSurface.src_pitch * m_stSurface.height / 2;
+        src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 2;
         break;
     case NV_ENC_CSP_YUV444:
-        src_array[2] = (uint8_t *)src_array[1] + m_stSurface.src_pitch * m_stSurface.height;
+        src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height;
         break;
     case NV_ENC_CSP_NV12:
     default:
         break;
     }
 
-    const int src_uv_pitch = (m_pConvCSPInfo->csp_from == NV_ENC_CSP_YUV444) ? m_stSurface.src_pitch : m_stSurface.src_pitch / 2;
-    m_pConvCSPInfo->func[0](dst_array, src_array, m_stSurface.width, m_stSurface.src_pitch, src_uv_pitch, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
+    const int src_uv_pitch = (m_pConvCSPInfo->csp_from == NV_ENC_CSP_YUV444) ? m_sDecParam.src_pitch : m_sDecParam.src_pitch / 2;
+    m_pConvCSPInfo->func[0](dst_array, src_array, m_sDecParam.width, m_sDecParam.src_pitch, src_uv_pitch, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
 
-    m_pStatus->m_sData.frameIn++;
-    
-    uint32_t tm = timeGetTime();
-    if (tm - m_tmLastUpdate > 800) {
+    m_pEncSatusInfo->m_sData.frameIn++;
+
+    auto tm = std::chrono::system_clock::now();
+    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
         m_tmLastUpdate = tm;
-        m_pStatus->UpdateDisplay();
+        m_pEncSatusInfo->UpdateDisplay(tm);
     }
 
     return 0;

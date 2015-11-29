@@ -14,11 +14,16 @@
 #include <stdint.h>
 #include <tchar.h>
 #include <string>
+#include <chrono>
+#include <memory>
+#include <algorithm>
 #include <process.h>
 #pragma comment(lib, "winmm.lib")
 #include "nvEncodeAPI.h"
+#include "NVEncLog.h"
 #include "cpu_info.h"
 
+using std::chrono::duration_cast;
 
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
@@ -29,8 +34,8 @@
 
 typedef struct EncodeStatusData {
     uint64_t outFileSize;      //出力ファイルサイズ
-    uint32_t tmStart;          //エンコード開始時刻
-    uint32_t tmLastUpdate;     //最終更新時刻
+    std::chrono::system_clock::time_point tmStart;          //エンコード開始時刻
+    std::chrono::system_clock::time_point tmLastUpdate;     //最終更新時刻
     uint32_t frameTotal;       //入力予定の全フレーム数
     uint32_t frameOut;         //出力したフレーム数
     uint32_t frameOutIDR;      //出力したIDRフレーム
@@ -54,15 +59,20 @@ public:
     EncodeStatus() {
         ZeroMemory(&m_sData, sizeof(m_sData));
 
-        m_sData.tmLastUpdate = timeGetTime();
+        m_sData.tmLastUpdate = std::chrono::system_clock::now();
 
         DWORD mode = 0;
         m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
     }
-    ~EncodeStatus() { };
+    ~EncodeStatus() { m_pNVLog.reset(); };
+
+    virtual void init(shared_ptr<CNVEncLog> pQSVLog) {
+        m_sData.tmLastUpdate = std::chrono::system_clock::now();
+        m_pNVLog = pQSVLog;
+    }
 
     virtual void SetStart() {
-        m_sData.tmStart = timeGetTime();
+        m_sData.tmStart = std::chrono::system_clock::now();
         GetProcessTime(GetCurrentProcess(), &m_sStartTime);
     }
     virtual void AddOutputInfo(const NV_ENC_LOCK_BITSTREAM *bitstream) {
@@ -133,18 +143,25 @@ public:
         }
     }
     virtual void WriteLine(const TCHAR *mes) {
-        _ftprintf(stderr, _T("%s\n"), mes);
+        if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > NV_LOG_INFO) {
+            return;
+        }
+        (*m_pNVLog)(NV_LOG_INFO, _T("%s\n"), mes);
     }
-    virtual void UpdateDisplay() {
-        uint32_t tm = timeGetTime();
-        if (tm - m_sData.tmLastUpdate < 800)
+    virtual void UpdateDisplay(std::chrono::system_clock::time_point tm, double progressPercent = 0.0) {
+        double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_sData.tmStart).count();
+        if (elapsedTime < 800)
             return;
         if (m_sData.frameOut + m_sData.frameDrop) {
             TCHAR mes[256] = { 0 };
-            m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / (double)(tm - m_sData.tmStart);
+            m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
             m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_nOutputFPSRate / (double)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
-            if (0 < m_sData.frameTotal) {
-                uint32_t remaining_time = (uint32_t)((m_sData.frameTotal - (m_sData.frameOut + m_sData.frameDrop)) * 1000.0 / ((m_sData.frameOut + m_sData.frameDrop) * 1000.0 / (double)(tm - m_sData.tmStart)));
+            if (0 < m_sData.frameTotal || progressPercent > 0.0) {
+                if (progressPercent == 0.0) {
+                    progressPercent = (m_sData.frameOut + m_sData.frameDrop) * 100 / (double)m_sData.frameTotal;
+                }
+                progressPercent = (std::min)(progressPercent, 100.0);
+                uint32_t remaining_time = (uint32_t)(elapsedTime * (100.0 - progressPercent) / progressPercent + 0.5);
                 int hh = remaining_time / (60*60*1000);
                 remaining_time -= hh * (60*60*1000);
                 int mm = remaining_time / (60*1000);
@@ -152,7 +169,7 @@ public:
                 int ss = (remaining_time + 500) / 1000;
 
                 int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0.2lf kb/s, remain %d:%02d:%02d  "),
-                    (m_sData.frameOut + m_sData.frameDrop) * 100 / (double)m_sData.frameTotal,
+                    progressPercent,
                     (m_sData.frameOut + m_sData.frameDrop),
                     m_sData.encodeFps,
                     m_sData.bitrateKbps,
@@ -171,17 +188,17 @@ public:
         }
     }
     virtual void writeResult() {
-        uint32_t time_elapsed = timeGetTime() - m_sData.tmStart;
+        auto tm_result = std::chrono::system_clock::now();
+        const auto time_elapsed64 = duration_cast<std::chrono::milliseconds>(tm_result - m_sData.tmStart).count();
 
         TCHAR mes[512] = { 0 };
         for (int i = 0; i < 79; i++)
             mes[i] = ' ';
         WriteLine(mes);
 
-        uint32_t tm = timeGetTime();
-        m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / (double)(tm - m_sData.tmStart);
+        m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / (double)time_elapsed64;
         m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_nOutputFPSRate / (double)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
-        m_sData.tmLastUpdate = tm;
+        m_sData.tmLastUpdate = tm_result;
 
         _stprintf_s(mes, _countof(mes), _T("encoded %d frames, %.2f fps, %.2f kbps, %.2f MB"),
             m_sData.frameOut,
@@ -191,8 +208,8 @@ public:
             );
         WriteLine(mes);
 
-        int hh = time_elapsed / (60*60*1000);
-        time_elapsed -= hh * (60*60*1000);
+        int hh = (int)(time_elapsed64 / (60*60*1000));
+        int time_elapsed = (int)(time_elapsed64 - (hh * (60*60*1000)));
         int mm = time_elapsed / (60*1000);
         time_elapsed -= mm * (60*1000);
         int ss = (time_elapsed + 500) / 1000;
@@ -208,6 +225,7 @@ public:
         WriteFrameTypeResult(_T("frame type B   "), m_sData.frameOutB,   maxCount, m_sData.frameOutBSize, maxFrameSize, (m_sData.frameOutB) ? m_sData.frameOutBQPSum / (double)m_sData.frameOutB : -1);
     }
 public:
+    std::shared_ptr<CNVEncLog> m_pNVLog;
     PROCESS_TIME m_sStartTime;
     EncodeStatusData m_sData;
     uint32_t m_nOutputFPSRate = 0;

@@ -13,6 +13,7 @@
 #include <thread>
 #include <tchar.h>
 #include <cuda.h>
+#include "helper_cuda.h"
 #include "process.h"
 #pragma comment(lib, "winmm.lib")
 #include "nvEncodeAPI.h"
@@ -25,6 +26,7 @@
 #include "NVEncInputRaw.h"
 #include "NVEncInputAvs.h"
 #include "NVEncInputVpy.h"
+#include "avcodec_reader.h"
 #include "helper_nvenc.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
@@ -134,6 +136,10 @@ void NVEncCore::NVPrintFuncError(const TCHAR *funcName, NVENCSTATUS nvStatus) {
     NVPrintf(stderr, NV_LOG_ERROR, (FOR_AUO) ? _T("%s() がエラーを返しました。: %d (%s)\n") : _T("Error on %s: %d (%s)\n"), funcName, nvStatus, char_to_tstring(_nvencGetErrorEnum(nvStatus)).c_str());
 }
 
+void NVEncCore::NVPrintFuncError(const TCHAR *funcName, CUresult code) {
+    NVPrintf(stderr, NV_LOG_ERROR, (FOR_AUO) ? _T("%s() がエラーを返しました。: %d (%s)\n") : _T("Error on %s: %d (%s)\n"), funcName, (int)code, char_to_tstring(_cudaGetErrorEnum(code)).c_str());
+}
+
 //ログを初期化
 NVENCSTATUS NVEncCore::InitLog(const InEncodeVideoParam *inputParam) {
     //ログの初期化
@@ -147,23 +153,49 @@ NVENCSTATUS NVEncCore::InitLog(const InEncodeVideoParam *inputParam) {
 NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #if RAW_READER
     if (inputParam->input.type == NV_ENC_INPUT_UNKNWON) {
-        if (0 == _tcsicmp(_T(".y4m"), PathFindExtension(inputParam->input.filename.c_str()))) {
+        if (check_ext(inputParam->input.filename, { ".y4m" })) {
             inputParam->input.type = NV_ENC_INPUT_Y4M;
 #if AVI_READER
-        } else if (0 == _tcsicmp(_T(".avi"), PathFindExtension(inputParam->input.filename.c_str()))) {
+        } else if (check_ext(inputParam->input.filename, { ".avi" })) {
             inputParam->input.type = NV_ENC_INPUT_AVI;
 #endif
 #if AVS_READER
-        } else if (0 == _tcsicmp(_T(".avs"), PathFindExtension(inputParam->input.filename.c_str()))) {
+        } else if (check_ext(inputParam->input.filename, { ".avs" })) {
             inputParam->input.type = NV_ENC_INPUT_AVS;
 #endif
 #if VPY_READER
-        } else if (0 == _tcsicmp(_T(".vpy"), PathFindExtension(inputParam->input.filename.c_str()))) {
+        } else if (check_ext(inputParam->input.filename, { ".vpy" })) {
             inputParam->input.type = NV_ENC_INPUT_VPY_MT;
+#endif
+#if ENABLE_AVCUVID_READER
+        } else if (check_ext(inputParam->input.filename, { ".mp4", ".m4v", ".mkv", ".mov",
+            ".mts", ".m2ts", ".ts", ".264", ".h264", ".x264", ".avc", ".avc1",
+            ".265", ".h265", ".hevc",
+            ".mpg", ".mpeg", "m2v", ".vob", ".vro", ".flv", ".ogm",
+            ".wmv" })) {
+            inputParam->input.type = NV_ENC_INPUT_AVCUVID;
 #endif
         } else {
             inputParam->input.type = NV_ENC_INPUT_RAW;
         }
+    }
+
+    //Check if selected format is enabled
+    if (inputParam->input.type == NV_ENC_INPUT_AVS && !AVS_READER) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("avs reader not compiled in this binary.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+    if (inputParam->input.type == NV_ENC_INPUT_VPY_MT && !VPY_READER) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("vpy reader not compiled in this binary.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+    if (inputParam->input.type == NV_ENC_INPUT_AVI && !AVI_READER) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+    if (inputParam->input.type == NV_ENC_INPUT_AVCUVID && !ENABLE_AVCUVID_READER) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("avcodec + cuvid reader not compiled in this binary.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     
 #if AVS_READER
@@ -172,12 +204,16 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #if VPY_READER
     InputInfoVpy inputInfoVpy = { 0 };
 #endif
+#if ENABLE_AVCUVID_READER
+    AvcodecReaderPrm inputInfoAVCuvid = { 0 };
+#endif
 
     switch (inputParam->input.type) {
 #if AVS_READER
     case NV_ENC_INPUT_AVS:
         inputInfoAvs.interlaced = is_interlaced(inputParam->picStruct);
         inputParam->input.otherPrm = &inputInfoAvs;
+        NVPrintf(stderr, NV_LOG_DEBUG, _T("avs reader selected.\n"));
         m_pInput = new NVEncInputAvs();
         break;
 #endif //AVS_READER
@@ -187,17 +223,34 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoVpy.interlaced = is_interlaced(inputParam->picStruct);
         inputInfoVpy.mt = (inputParam->input.type == NV_ENC_INPUT_VPY_MT);
         inputParam->input.otherPrm = &inputInfoVpy;
+        NVPrintf(stderr, NV_LOG_DEBUG, _T("vpy reader selected.\n"));
         m_pInput = new NVEncInputVpy();
         break;
 #endif //VPY_READER
+#if ENABLE_AVCUVID_READER
+    case NV_ENC_INPUT_AVCUVID:
+        inputInfoAVCuvid.bReadVideo = true;
+        inputInfoAVCuvid.nReadAudio = 0;
+        inputInfoAVCuvid.bReadSubtitle = false;
+        inputInfoAVCuvid.bReadChapter = false;
+        inputInfoAVCuvid.nTrimCount = 0;
+        inputInfoAVCuvid.pTrimList = nullptr;
+        inputInfoAVCuvid.ctxLock = m_ctxLock;
+        inputParam->input.otherPrm = &inputInfoAVCuvid;
+        NVPrintf(stderr, NV_LOG_DEBUG, _T("avcuvid reader selected.\n"));
+        m_pInput = new CAvcodecReader();
+        break;
+#endif //#if ENABLE_AVCUVID_READER
     case NV_ENC_INPUT_RAW:
     case NV_ENC_INPUT_Y4M:
     default:
+        NVPrintf(stderr, NV_LOG_DEBUG, _T("raw/y4m reader selected.\n"));
         m_pInput = new NVEncInputRaw();
         break;
     }
 
-    m_pStatus = new EncodeStatus();
+    m_pStatus.reset(new EncodeStatus());
+    m_pStatus->init(m_pNVLog);
     m_pInput->SetNVEncLogPtr(m_pNVLog);
     int ret = m_pInput->Init(&inputParam->input, m_pStatus);
     m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
@@ -229,8 +282,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
         return NV_ENC_ERR_INVALID_ENCODERDEVICE;
     }
     
-    CUdevice device;
-    if (CUDA_SUCCESS != (cuResult = cuDeviceGet(&device, deviceID))) {
+    if (CUDA_SUCCESS != (cuResult = cuDeviceGet(&m_device, deviceID))) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("cuDeviceGet error:0x%x\n"), cuResult);
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
@@ -246,20 +298,25 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
 
-    if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), 0, device))) {
+    if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), CU_CTX_SCHED_AUTO, m_device))) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("cuCtxCreate error:0x%x\n"), cuResult);
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     
-    CUcontext cuContextCurr;
-    if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&cuContextCurr))) {
+    if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&m_cuContextCurr))) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x\n"), cuResult);
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
+#if ENABLE_AVCUVID_READER
+    if (CUDA_SUCCESS != (cuResult = cuvidCtxLockCreate(&m_ctxLock, m_cuContextCurr))) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("Failed cuvidCtxLockCreate %d\n"), cuResult);
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+#endif //#if ENABLE_AVCUVID_READER
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void** inputBuffer, uint32_t isYuv444) {
+NVENCSTATUS NVEncCore::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, uint32_t isYuv444) {
     NV_ENC_CREATE_INPUT_BUFFER createInputBufferParams;
     INIT_CONFIG(createInputBufferParams, NV_ENC_CREATE_INPUT_BUFFER);
 
@@ -291,7 +348,7 @@ NVENCSTATUS NVEncCore::NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer) {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::NvEncCreateBitstreamBuffer(uint32_t size, void** bitstreamBuffer) {
+NVENCSTATUS NVEncCore::NvEncCreateBitstreamBuffer(uint32_t size, void **bitstreamBuffer) {
     NV_ENC_CREATE_BITSTREAM_BUFFER createBitstreamBufferParams;
     INIT_CONFIG(createBitstreamBufferParams, NV_ENC_CREATE_BITSTREAM_BUFFER);
 
@@ -321,7 +378,7 @@ NVENCSTATUS NVEncCore::NvEncDestroyBitstreamBuffer(NV_ENC_OUTPUT_PTR bitstreamBu
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::NvEncLockBitstream(NV_ENC_LOCK_BITSTREAM* lockBitstreamBufferParams) {
+NVENCSTATUS NVEncCore::NvEncLockBitstream(NV_ENC_LOCK_BITSTREAM *lockBitstreamBufferParams) {
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, lockBitstreamBufferParams);
     if (nvStatus != NV_ENC_SUCCESS) {
         NVPrintFuncError(_T("nvEncLockBitstream"), nvStatus);
@@ -339,7 +396,7 @@ NVENCSTATUS NVEncCore::NvEncUnlockBitstream(NV_ENC_OUTPUT_PTR bitstreamBuffer) {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::NvEncLockInputBuffer(void* inputBuffer, void** bufferDataPtr, uint32_t* pitch) {
+NVENCSTATUS NVEncCore::NvEncLockInputBuffer(void *inputBuffer, void **bufferDataPtr, uint32_t *pitch) {
     NV_ENC_LOCK_INPUT_BUFFER lockInputBufferParams;
     INIT_CONFIG(lockInputBufferParams, NV_ENC_LOCK_INPUT_BUFFER);
 
@@ -365,7 +422,7 @@ NVENCSTATUS NVEncCore::NvEncUnlockInputBuffer(NV_ENC_INPUT_PTR inputBuffer) {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::NvEncGetEncodeStats(NV_ENC_STAT* encodeStats) {
+NVENCSTATUS NVEncCore::NvEncGetEncodeStats(NV_ENC_STAT *encodeStats) {
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncGetEncodeStats(m_hEncoder, encodeStats);
     if (nvStatus != NV_ENC_SUCCESS) {
         NVPrintFuncError(_T("nvEncGetEncodeStats"), nvStatus);
@@ -375,7 +432,7 @@ NVENCSTATUS NVEncCore::NvEncGetEncodeStats(NV_ENC_STAT* encodeStats) {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD* sequenceParamPayload) {
+NVENCSTATUS NVEncCore::NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD *sequenceParamPayload) {
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncGetSequenceParams(m_hEncoder, sequenceParamPayload);
     if (nvStatus != NV_ENC_SUCCESS) {
         NVPrintFuncError(_T("nvEncGetSequenceParams"), nvStatus);
@@ -385,7 +442,7 @@ NVENCSTATUS NVEncCore::NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD* seq
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::NvEncRegisterAsyncEvent(void** completionEvent) {
+NVENCSTATUS NVEncCore::NvEncRegisterAsyncEvent(void **completionEvent) {
     NV_ENC_EVENT_PARAMS eventParams;
     INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS);
 
@@ -401,7 +458,7 @@ NVENCSTATUS NVEncCore::NvEncRegisterAsyncEvent(void** completionEvent) {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::NvEncUnregisterAsyncEvent(void* completionEvent) {
+NVENCSTATUS NVEncCore::NvEncUnregisterAsyncEvent(void *completionEvent) {
     if (completionEvent) {
         NV_ENC_EVENT_PARAMS eventParams;
         INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS);
@@ -418,7 +475,39 @@ NVENCSTATUS NVEncCore::NvEncUnregisterAsyncEvent(void* completionEvent) {
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::NvEncMapInputResource(void* registeredResource, void** mappedResource) {
+NVENCSTATUS NVEncCore::NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resourceType, void* resourceToRegister, uint32_t width, uint32_t height, uint32_t pitch, void** registeredResource) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    NV_ENC_REGISTER_RESOURCE registerResParams;
+
+    INIT_CONFIG(registerResParams, NV_ENC_REGISTER_RESOURCE);
+
+    registerResParams.resourceType = resourceType;
+    registerResParams.resourceToRegister = resourceToRegister;
+    registerResParams.width = width;
+    registerResParams.height = height;
+    registerResParams.pitch = pitch;
+
+    nvStatus = m_pEncodeAPI->nvEncRegisterResource(m_hEncoder, &registerResParams);
+    if (nvStatus != NV_ENC_SUCCESS) {
+        NVPrintFuncError(_T("nvEncRegisterResource"), nvStatus);
+    }
+
+    *registeredResource = registerResParams.registeredResource;
+
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncUnregisterResource(NV_ENC_REGISTERED_PTR registeredRes) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+
+    nvStatus = m_pEncodeAPI->nvEncUnregisterResource(m_hEncoder, registeredRes);
+    if (nvStatus != NV_ENC_SUCCESS) {
+        NVPrintFuncError(_T("nvEncUnregisterResource"), nvStatus);
+    }
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncCore::NvEncMapInputResource(void *registeredResource, void **mappedResource) {
     NV_ENC_MAP_INPUT_RESOURCE mapInputResParams;
     INIT_CONFIG(mapInputResParams, NV_ENC_MAP_INPUT_RESOURCE);
 
@@ -453,6 +542,7 @@ NVENCSTATUS NVEncCore::NvEncDestroyEncoder() {
     if (m_hEncoder && m_pEncodeAPI) {
         nvStatus = m_pEncodeAPI->nvEncDestroyEncoder(m_hEncoder);
         m_hEncoder = NULL;
+        m_pEncodeAPI = nullptr;
     }
 
     return nvStatus;
@@ -543,6 +633,17 @@ NVENCSTATUS NVEncCore::Deinitialize() {
 
     nvStatus = NvEncDestroyEncoder();
 
+#if ENABLE_AVCUVID_READER
+    m_cuvidDec.reset();
+
+    if (m_ctxLock) {
+        cuvidCtxLockDestroy(m_ctxLock);
+        m_ctxLock = nullptr;
+    }
+#endif //#if ENABLE_AVCUVID_READER
+
+    m_pStatus.reset();
+
     if (m_pDevice) {
         CUresult cuResult = CUDA_SUCCESS;
         cuResult = cuCtxDestroy((CUcontext)m_pDevice);
@@ -562,10 +663,28 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
 
     m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_uEncodeBufferCount);
     for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
-        nvStatus = NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, bYUV444);
-        if (nvStatus != NV_ENC_SUCCESS) {
-            NVPrintf(stderr, NV_LOG_ERROR, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
-            return nvStatus;
+#if ENABLE_AVCUVID_READER
+        if (m_cuvidDec) {
+            cuvidCtxLock(m_ctxLock, 0);
+            auto curesult = cuMemAllocPitch(&m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
+                (size_t *)&m_stEncodeBuffer[i].stInputBfr.uNV12Stride, uInputWidth, uInputHeight * 3 / 2, 16);
+            cuvidCtxUnlock(m_ctxLock, 0);
+            if (curesult != CUDA_SUCCESS) {
+                NVPrintf(stderr, NV_LOG_ERROR, _T("Failed to cuMemAllocPitch, %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+            }
+
+            nvStatus = NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR,
+                (void*)m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
+                uInputWidth, uInputHeight, m_stEncodeBuffer[i].stInputBfr.uNV12Stride,
+                &m_stEncodeBuffer[i].stInputBfr.nvRegisteredResource);
+        } else
+#endif //#if ENABLE_AVCUVID_READER
+        {
+            nvStatus = NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, bYUV444);
+            if (nvStatus != NV_ENC_SUCCESS) {
+                NVPrintf(stderr, NV_LOG_ERROR, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
+                return nvStatus;
+            }
         }
 
         m_stEncodeBuffer[i].stInputBfr.bufferFmt = (bYUV444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
@@ -596,9 +715,21 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
 
 NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
     for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
-        if (m_stEncodeBuffer[i].stInputBfr.hInputSurface) {
-            NvEncDestroyInputBuffer(m_stEncodeBuffer[i].stInputBfr.hInputSurface);
-            m_stEncodeBuffer[i].stInputBfr.hInputSurface = NULL;
+#if ENABLE_AVCUVID_READER
+        if (m_cuvidDec) {
+            if (m_stEncodeBuffer[i].stInputBfr.pNV12devPtr) {
+                cuvidCtxLock(m_ctxLock, 0);
+                cuMemFree(m_stEncodeBuffer[i].stInputBfr.pNV12devPtr);
+                cuvidCtxUnlock(m_ctxLock, 0);
+                m_stEncodeBuffer[i].stInputBfr.pNV12devPtr = NULL;
+            }
+        } else
+#endif //#if ENABLE_AVCUVID_READER
+        {
+            if (m_stEncodeBuffer[i].stInputBfr.hInputSurface) {
+                NvEncDestroyInputBuffer(m_stEncodeBuffer[i].stInputBfr.hInputSurface);
+                m_stEncodeBuffer[i].stInputBfr.hInputSurface = NULL;
+            }
         }
 
         if (m_stEncodeBuffer[i].stOutputBfr.hBitstreamBuffer) {
@@ -642,7 +773,7 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::NvEncOpenEncodeSessionEx(void* device, NV_ENC_DEVICE_TYPE deviceType) {
+NVENCSTATUS NVEncCore::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType) {
     NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS openSessionExParams;
     INIT_CONFIG(openSessionExParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS);
 
@@ -894,6 +1025,20 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
     return false;
 }
 
+NVENCSTATUS NVEncCore::CreateDecoder(const InEncodeVideoParam *inputParam) {
+#if ENABLE_AVCUVID_READER
+    if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
+        m_cuvidDec.reset(new CuvidDecode());
+
+        auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, m_pNVLog);
+        if (result != CUDA_SUCCESS) {
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+    }
+#endif //#if ENABLE_AVCUVID_READER
+    return NV_ENC_SUCCESS;
+}
+
 NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     memcpy(&m_stEncConfig, &inputParam->encConfig, sizeof(m_stEncConfig));
     memcpy(&m_stPicStruct, &inputParam->picStruct, sizeof(m_stPicStruct));
@@ -930,7 +1075,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //}
 
     //バッファサイズ (固定で16として与える)
-    m_uEncodeBufferCount = 16; // inputParam->inputBuffer;
+    m_uEncodeBufferCount = 32; // inputParam->inputBuffer;
     if (m_uEncodeBufferCount > MAX_ENCODE_QUEUE) {
 #if FOR_AUO
         NVPrintf(stderr, NV_LOG_ERROR, _T("入力バッファは多すぎます。: %d フレーム\n"), m_uEncodeBufferCount);
@@ -942,8 +1087,22 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
 
     //解像度の決定
-    m_uEncWidth   = inputParam->input.width  - inputParam->input.crop[0] - inputParam->input.crop[2];
-    m_uEncHeight  = inputParam->input.height - inputParam->input.crop[1] - inputParam->input.crop[3];
+    m_uEncWidth   = inputParam->input.width  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
+    m_uEncHeight  = inputParam->input.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+
+    if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
+#if ENABLE_AVCUVID_READER
+        if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
+            m_uEncWidth  = inputParam->input.dstWidth;
+            m_uEncHeight = inputParam->input.dstHeight;
+        }
+#endif
+        if (m_uEncWidth != inputParam->input.dstWidth || m_uEncHeight != inputParam->input.dstHeight) {
+            NVPrintf(stderr, NV_LOG_ERROR, _T("resizing requires to be used with avcuvid reader.\n"));
+            NVPrintf(stderr, NV_LOG_ERROR, _T(" input %dx%d -> output %dx%d.\n"), m_uEncWidth, m_uEncHeight, inputParam->input.dstWidth, inputParam->input.dstHeight);
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+    }
 
     //picStructの設定
     m_stPicStruct = (inputParam->picStruct == 0) ? NV_ENC_PIC_STRUCT_FRAME : inputParam->picStruct;
@@ -953,12 +1112,12 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("%s: %dx%d\n"), FOR_AUO ? _T("解像度が無効です。") : _T("Invalid resolution."), inputParam->input.width, inputParam->input.height);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (   inputParam->input.width  <= inputParam->input.crop[0] + inputParam->input.crop[2]
-        && inputParam->input.height <= inputParam->input.crop[1] + inputParam->input.crop[3]) {
+    if (   (int)inputParam->input.width  <= inputParam->input.crop.e.left + inputParam->input.crop.e.right
+        && (int)inputParam->input.height <= inputParam->input.crop.e.up   + inputParam->input.crop.e.bottom) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("%s: %dx%d, Crop [%d,%d,%d,%d]\n"),
              FOR_AUO ? _T("Crop値が無効です。") : _T("Invalid crop value."), 
             inputParam->input.width, inputParam->input.height,
-            inputParam->input.crop[0], inputParam->input.crop[1], inputParam->input.crop[2], inputParam->input.crop[3]);
+            inputParam->input.crop.c[0], inputParam->input.crop.c[1], inputParam->input.crop.c[2], inputParam->input.crop.c[3]);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
@@ -971,12 +1130,12 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if ((inputParam->input.crop[0] & 1) || (inputParam->input.crop[2] & 1)
-        || (inputParam->input.crop[1] & height_check_mask) || (inputParam->input.crop[3] & height_check_mask)) {
+    if ((inputParam->input.crop.e.left & 1) || (inputParam->input.crop.e.right & 1)
+        || (inputParam->input.crop.e.up & height_check_mask) || (inputParam->input.crop.e.bottom & height_check_mask)) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("%s: %dx%d, Crop [%d,%d,%d,%d]\n"),
              FOR_AUO ? _T("Crop値が無効です。") : _T("Invalid crop value."), 
             inputParam->input.width, inputParam->input.height,
-            inputParam->input.crop[0], inputParam->input.crop[1], inputParam->input.crop[2], inputParam->input.crop[3]);
+            inputParam->input.crop.c[0], inputParam->input.crop.c[1], inputParam->input.crop.c[2], inputParam->input.crop.c[3]);
         NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("Crop値は2の倍数である必要があります。\n") : _T("Crop value of mod2 required.\n"));
         if (is_interlaced(inputParam->picStruct)) {
             NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("さらに、インタレ保持エンコードでは縦Crop値は4の倍数である必要があります。\n") : _T("For interlaced encoding, mod4 is required for height.\n"));
@@ -1236,6 +1395,11 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
 
+    //必要ならデコーダを作成
+    if (NV_ENC_SUCCESS != (nvStatus = CreateDecoder(inputParam))) {
+        return nvStatus;
+    }
+
     //エンコーダにパラメータを渡し、初期化
     if (NV_ENC_SUCCESS != (nvStatus = CreateEncoder(inputParam))) {
         return nvStatus;
@@ -1305,12 +1469,7 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::EncodeFrame(int encode_idx) {
-    EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
-    if (!pEncodeBuffer) {
-        ProcessOutput(m_EncodeBufferQueue.GetPending());
-        pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
-    }
+NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t timestamp) {
     
     NV_ENC_PIC_PARAMS encPicParams;
     INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
@@ -1321,7 +1480,7 @@ NVENCSTATUS NVEncCore::EncodeFrame(int encode_idx) {
     encPicParams.inputHeight = m_uEncHeight;
     encPicParams.outputBitstream = pEncodeBuffer->stOutputBfr.hBitstreamBuffer;
     encPicParams.completionEvent = pEncodeBuffer->stOutputBfr.hOutputEvent;
-    encPicParams.inputTimeStamp = encode_idx;
+    encPicParams.inputTimeStamp = timestamp;
     encPicParams.pictureStruct = m_stPicStruct;
     //encPicParams.qpDeltaMap = qpDeltaMapArray;
     //encPicParams.qpDeltaMapSize = qpDeltaMapArraySize;
@@ -1356,6 +1515,63 @@ NVENCSTATUS NVEncCore::EncodeFrame(int encode_idx) {
     return NV_ENC_SUCCESS;
 }
 
+NVENCSTATUS NVEncCore::EncodeFrame(uint64_t timestamp) {
+    EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+    if (!pEncodeBuffer) {
+        ProcessOutput(m_EncodeBufferQueue.GetPending());
+        pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+    }
+
+    NvEncEncodeFrame(pEncodeBuffer, timestamp);
+
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t timestamp) {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+#if ENABLE_AVCUVID_READER
+    EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+    if (!pEncodeBuffer) {
+        pEncodeBuffer = m_EncodeBufferQueue.GetPending();
+        ProcessOutput(pEncodeBuffer);
+        NVPrintf(stderr, NV_LOG_TRACE, _T("Output frame %d\n"), m_pStatus->m_sData.frameOut);
+        if (pEncodeBuffer->stInputBfr.hInputSurface) {
+            nvStatus = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
+            pEncodeBuffer->stInputBfr.hInputSurface = NULL;
+        }
+        pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+    }
+
+    // encode width and height
+    unsigned int dwWidth  = pEncodeBuffer->stInputBfr.dwWidth;
+    unsigned int dwHeight = pEncodeBuffer->stInputBfr.dwHeight;
+
+    cuvidCtxLock(m_ctxLock, 0);
+    assert(pEncodeFrame->width == dwWidth && pEncodeFrame->height == dwHeight);
+
+    CUDA_MEMCPY2D memcpy2D  = {0};
+    memcpy2D.srcMemoryType  = CU_MEMORYTYPE_DEVICE;
+    memcpy2D.srcDevice      = pEncodeFrame->dptr;
+    memcpy2D.srcPitch       = pEncodeFrame->pitch;
+    memcpy2D.dstMemoryType  = CU_MEMORYTYPE_DEVICE;
+    memcpy2D.dstDevice      = (CUdeviceptr)pEncodeBuffer->stInputBfr.pNV12devPtr;
+    memcpy2D.dstPitch       = pEncodeBuffer->stInputBfr.uNV12Stride;
+    memcpy2D.WidthInBytes   = dwWidth;
+    memcpy2D.Height         = dwHeight*3/2;
+    cuMemcpy2D(&memcpy2D);
+
+    cuvidCtxUnlock(m_ctxLock, 0);
+
+    nvStatus = NvEncMapInputResource(pEncodeBuffer->stInputBfr.nvRegisteredResource, &pEncodeBuffer->stInputBfr.hInputSurface);
+    if (nvStatus != NV_ENC_SUCCESS) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("Failed to Map input buffer %p\n"), pEncodeBuffer->stInputBfr.hInputSurface);
+        return nvStatus;
+    }
+    NvEncEncodeFrame(pEncodeBuffer, timestamp);
+#endif //#if ENABLE_AVCUVID_READER
+    return nvStatus;
+}
+
 NVENCSTATUS NVEncCore::Encode() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
@@ -1363,17 +1579,82 @@ NVENCSTATUS NVEncCore::Encode() {
 
     int ret = 0;
     const int bufferCount = m_uEncodeBufferCount;
-    for (int iFrame = 0; nvStatus == NV_ENC_SUCCESS; iFrame++) {
-        uint32_t lockedPitch = 0;
-        unsigned char *pInputSurface = nullptr;
-        const int index = iFrame % bufferCount;
-        NvEncLockInputBuffer(m_stEncodeBuffer[index].stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
-        ret = m_pInput->LoadNextFrame(pInputSurface, lockedPitch);
-        NvEncUnlockInputBuffer(m_stEncodeBuffer[index].stInputBfr.hInputSurface);
-        if (ret)
-            break;
-        nvStatus = EncodeFrame(m_pStatus->m_sData.frameIn);
+#if ENABLE_AVCUVID_READER
+    const AVCodecContext *pVideoCtx = nullptr;
+    CAvcodecReader *pReader = dynamic_cast<CAvcodecReader *>(m_pInput);
+    if (pReader != nullptr) {
+        pVideoCtx = pReader->GetInputVideoCodecCtx();
     }
+    auto transcodeFrame = [this]() {
+        if (m_cuvidDec) {
+        }
+    };
+
+    if (m_cuvidDec) {
+        auto th_input = std::thread([this, pVideoCtx](){
+            vector<uint8_t> bitstream;
+            int sts = NVENC_THREAD_RUNNING;
+            for (int i = 0; sts == NVENC_THREAD_RUNNING && !m_cuvidDec->GetError(); i++) {
+                sts = m_pInput->LoadNextFrame(nullptr, 0);
+                int64_t pts;
+                m_pInput->GetNextBitstream(bitstream, &pts);
+                NVPrintf(stderr, NV_LOG_TRACE, _T("Set packet %d\n"), i);
+                m_cuvidDec->DecodePacket(bitstream.data(), bitstream.size(), pts, pVideoCtx->pkt_timebase);
+            }
+            m_cuvidDec->DecodePacket(nullptr, 0, AV_NOPTS_VALUE, pVideoCtx->pkt_timebase);
+        });
+
+        int decodedFrame = 0;
+        while (!m_cuvidDec->GetError()
+            && !(m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
+
+            CUVIDPARSERDISPINFO pInfo;
+            if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
+                CUdeviceptr dMappedFrame = 0;
+                unsigned int pitch;
+                CUVIDPROCPARAMS oVPP = { 0 };
+                oVPP.unpaired_field = 1;
+                oVPP.progressive_frame = 1;
+
+                NVPrintf(stderr, NV_LOG_TRACE, _T("Get decoded frame %d\n"), decodedFrame);
+                cuvidMapVideoFrame(m_cuvidDec->GetDecoder(), pInfo.picture_index, &dMappedFrame, &pitch, &oVPP);
+
+                EncodeFrameConfig stEncodeConfig = { 0 };
+                stEncodeConfig.dptr = dMappedFrame;
+                stEncodeConfig.pitch = pitch;
+                stEncodeConfig.width = m_uEncWidth;
+                stEncodeConfig.height = m_uEncHeight;
+                NVPrintf(stderr, NV_LOG_TRACE, _T("Set frame to encode %d\n"), decodedFrame);
+                EncodeFrame(&stEncodeConfig, pInfo.timestamp);
+
+                cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), dMappedFrame);
+                m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
+
+                decodedFrame++;
+            }
+        }
+        if (th_input.joinable()) {
+            th_input.join();
+        }
+        if (m_cuvidDec->GetError()) {
+            nvStatus = NV_ENC_ERR_GENERIC;
+        }
+    } else
+#endif //#if ENABLE_AVCUVID_READER
+    {
+        for (int iFrame = 0; nvStatus == NV_ENC_SUCCESS; iFrame++) {
+            uint32_t lockedPitch = 0;
+            unsigned char *pInputSurface = nullptr;
+            const int index = iFrame % bufferCount;
+            NvEncLockInputBuffer(m_stEncodeBuffer[index].stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
+            ret = m_pInput->LoadNextFrame(pInputSurface, lockedPitch);
+            NvEncUnlockInputBuffer(m_stEncodeBuffer[index].stInputBfr.hInputSurface);
+            if (ret)
+                break;
+            nvStatus = EncodeFrame(m_pStatus->m_sData.frameIn);
+        }
+    }
+    NVPrintf(stderr, NV_LOG_INFO, _T("\n"));
     if (nvStatus == NV_ENC_SUCCESS) {
         FlushEncoder();
     }
@@ -1498,7 +1779,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
 #if FOR_AUO
     add_str(NV_LOG_ERROR, _T("NVEnc %s (%s), using NVENC API v%d.%d\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
-    add_str(NV_LOG_INFO,  _T("OS バージョン      %s (%s)\n"), getOSVersion(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
+    add_str(NV_LOG_INFO,  _T("OS バージョン      %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
     add_str(NV_LOG_INFO,  _T("CPU                %s\n"), cpu_info);
     add_str(NV_LOG_INFO,  _T("GPU                %s\n"), gpu_info);
     add_str(NV_LOG_ERROR, _T("入力バッファ       %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
@@ -1569,7 +1850,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
 #else
     add_str(NV_LOG_ERROR, _T("NVEnc %s (%s), using NVENC API v%d.%d\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
-    add_str(NV_LOG_INFO,  _T("OS Version         %s (%s)\n"), getOSVersion(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
+    add_str(NV_LOG_INFO,  _T("OS Version         %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
     add_str(NV_LOG_INFO,  _T("CPU                %s\n"), cpu_info);
     add_str(NV_LOG_INFO,  _T("GPU                %s\n"), gpu_info);
     add_str(NV_LOG_ERROR, _T("Input Buffers      %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);

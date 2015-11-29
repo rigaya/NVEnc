@@ -17,6 +17,48 @@
 
 using std::vector;
 
+#pragma warning(push)
+#pragma warning(disable: 4201)
+typedef union sInputCrop {
+    struct {
+        int left, up, right, bottom;
+    } e;
+    int c[4];
+} sInputCrop;
+#pragma warning(pop)
+
+typedef struct {
+    int start, fin;
+} sTrim;
+
+typedef struct {
+    std::vector<sTrim> list;
+    int offset;
+} sTrimParam;
+
+static const int TRIM_MAX = INT_MAX;
+
+static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
+    if (trimList.size() == 0)
+        return true;
+    if (frame < 0)
+        return false;
+    for (auto trim : trimList) {
+        if (trim.start <= frame && frame <= trim.fin) {
+            return true;
+        }
+    }
+    return false;
+}
+
+typedef struct sAudioSelect {
+    int    nAudioSelect;          //選択した音声トラックのリスト 1,2,...(1から連番で指定)
+    TCHAR *pAVAudioEncodeCodec;   //音声エンコードのコーデック
+    int    nAVAudioEncodeBitrate; //音声エンコードに選択した音声トラックのビットレート
+    TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
+    TCHAR *pAudioExtractFormat;   //抽出する音声ファイルのフォーマット
+} sAudioSelect;
+
 enum {
     NV_LOG_TRACE = -3,
     NV_LOG_DEBUG = -2,

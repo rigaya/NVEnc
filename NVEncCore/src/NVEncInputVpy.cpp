@@ -34,8 +34,9 @@ NVEncInputVpy::NVEncInputVpy() {
     
     m_bAbortAsync = false;
     m_nCopyOfInputFrames = 0;
-
     memset(&m_sVS, 0, sizeof(m_sVS));
+
+    m_strReaderName = _T("vpy");
 }
 
 NVEncInputVpy::~NVEncInputVpy() {
@@ -53,7 +54,7 @@ int NVEncInputVpy::load_vapoursynth() {
     release_vapoursynth();
     
     if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(_T("vsscript.dll")))) {
-        m_inputMes += _T("Failed to load vsscript.dll.\n");
+        AddMessage(NV_LOG_ERROR, _T("Failed to load vsscript.dll.\n"));
         return 1;
     }
 
@@ -72,7 +73,7 @@ int NVEncInputVpy::load_vapoursynth() {
 
     for (auto vs_func : vs_func_list) {
         if (NULL == (*(vs_func.first) = GetProcAddress(m_sVS.hVSScriptDLL, vs_func.second))) {
-            m_inputMes += _T("Failed to load vsscript functions.\n");
+            AddMessage(NV_LOG_ERROR, _T("Failed to load vsscript functions.\n"));
             return 1;
         }
     }
@@ -139,10 +140,10 @@ int NVEncInputVpy::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-int NVEncInputVpy::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
+int NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     Close();
 
-    m_pStatus = pStatus;
+    m_pEncSatusInfo = pStatus;
     InputInfoVpy *info = reinterpret_cast<InputInfoVpy *>(inputPrm->otherPrm);
     m_bInterlaced = info->interlaced;
     
@@ -152,7 +153,7 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     //ファイルデータ読み込み
     std::ifstream inputFile(inputPrm->filename);
     if (inputFile.bad()) {
-        m_inputMes += _T("Failed to open vpy file.\n");
+        AddMessage(NV_LOG_ERROR, _T("Failed to open vpy file.\n"));
         return 1;
     }
     std::istreambuf_iterator<char> data_begin(inputFile);
@@ -169,41 +170,34 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
         || NULL == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
         || NULL == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
         || NULL == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
-        m_inputMes += _T("VapourSynth Initialize Error.\n");
+        AddMessage(NV_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
         if (m_sVSscript) {
-#if UNICODE
-            WCHAR buf[1024];
-            MultiByteToWideChar(CP_THREAD_ACP, MB_PRECOMPOSED, m_sVS.getError(m_sVSscript), -1, buf, _countof(buf));
-            m_inputMes += buf;
-#else
-            m_inputMes += m_sVS.getError(m_sVSscript);
-#endif
-            m_inputMes += _T("\n");
+            AddMessage(NV_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
         }
         return 1;
     }
     if (vscoreinfo->api < 3) {
-        m_inputMes += _T("VapourSynth API v3 or later is necessary.\n");
+        AddMessage(NV_LOG_ERROR, _T("VapourSynth API v3 or later is necessary.\n"));
         return 1;
     }
 
     if (vsvideoinfo->height <= 0 || vsvideoinfo->width <= 0) {
-        m_inputMes += _T("Variable resolution is not supported.\n");
+        AddMessage(NV_LOG_ERROR, _T("Variable resolution is not supported.\n"));
         return 1;
     }
 
     if (vsvideoinfo->numFrames == 0) {
-        m_inputMes += _T("Length of input video is unknown.\n");
+        AddMessage(NV_LOG_ERROR, _T("Length of input video is unknown.\n"));
         return 1;
     }
 
     if (!vsvideoinfo->format) {
-        m_inputMes += _T("Variable colorformat is not supported.\n");
+        AddMessage(NV_LOG_ERROR, _T("Variable colorformat is not supported.\n"));
         return 1;
     }
 
     if (pfNone == vsvideoinfo->format->id) {
-        m_inputMes += _T("Invalid colorformat.\n");
+        AddMessage(NV_LOG_ERROR, _T("Invalid colorformat.\n"));
         return 1;
     }
 
@@ -226,12 +220,12 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     }
 
     if (nullptr == m_pConvCSPInfo) {
-        m_inputMes += _T("invalid colorformat.\n");
+        AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
         return 1;
     }
 
     if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
-        m_inputMes += _T("Invalid framerate.\n");
+        AddMessage(NV_LOG_ERROR, _T("Invalid framerate.\n"));
         return 1;
     }
     
@@ -257,10 +251,10 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     if (0 != rev)
         _stprintf_s(rev_info, _countof(rev_info), _T("VapourSynth r%d"), rev);
 
-    setSurfaceInfo(inputPrm);
-    m_stSurface.src_pitch = 0;
+    memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
+    m_sDecParam.src_pitch = 0;
     CreateInputInfo(rev_info, NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
-
+    AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
 }
 
@@ -282,6 +276,7 @@ void NVEncInputVpy::Close() {
     m_sVSscript = NULL;
     m_sVSnode = NULL;
     m_nAsyncFrames = 0;
+    m_pEncSatusInfo.reset();
 }
 
 int NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
@@ -296,22 +291,22 @@ int NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
 
     void *dst_array[3];
     dst_array[0] = dst;
-    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]);
-    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]); //YUV444出力時
+    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]);
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]); //YUV444出力時
 
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
-    m_pConvCSPInfo->func[!!m_bInterlaced](dst_array, src_array, m_stSurface.width, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
+    m_pConvCSPInfo->func[!!m_bInterlaced](dst_array, src_array, m_sDecParam.width, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
     
     m_sVSapi->freeFrame(src_frame);
 
     m_nFrame++;
-    m_pStatus->m_sData.frameIn++;
+    m_pEncSatusInfo->m_sData.frameIn++;
     m_nCopyOfInputFrames = m_nFrame;
-    
-    uint32_t tm = timeGetTime();
-    if (tm - m_tmLastUpdate > 800) {
+
+    auto tm = std::chrono::system_clock::now();
+    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
         m_tmLastUpdate = tm;
-        m_pStatus->UpdateDisplay();
+        m_pEncSatusInfo->UpdateDisplay(tm);
     }
 
     return 0;

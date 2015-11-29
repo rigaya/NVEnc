@@ -9,9 +9,9 @@
 
 #pragma once
 
-#define VER_FILEVERSION              0,1,13,0
-#define VER_STR_FILEVERSION          "1.13"
-#define VER_STR_FILEVERSION_TCHAR _T("1.13")
+#define VER_FILEVERSION              0,2,0,0
+#define VER_STR_FILEVERSION          "2.00β1"
+#define VER_STR_FILEVERSION_TCHAR _T("2.00β1")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -25,11 +25,13 @@
 #define AVI_READER 0
 #define AVS_READER 0
 #define VPY_READER 0
+#define ENABLE_AVCUVID_READER 0
 #else
 #define FOR_AUO    0
 #define RAW_READER 1
 #define AVI_READER 0
 #define AVS_READER 1
 #define VPY_READER 1
+#define ENABLE_AVCUVID_READER 1
 #endif
 

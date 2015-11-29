@@ -26,6 +26,8 @@ NVEncInputAvs::NVEncInputAvs() {
     m_sAVSenv = nullptr;
     m_sAVSclip = nullptr;
     m_sAVSinfo = nullptr;
+    memset(&m_sAvisynth, 0, sizeof(m_sAvisynth));
+    m_strReaderName = _T("avs");
 }
 
 NVEncInputAvs::~NVEncInputAvs() {
@@ -57,54 +59,34 @@ int NVEncInputAvs::load_avisynth() {
     return 0;
 }
 
-int NVEncInputAvs::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
+int NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     Close();
 
-    m_pStatus = pStatus;
+    m_pEncSatusInfo = pStatus;
     InputInfoAvs *info = reinterpret_cast<InputInfoAvs *>(inputPrm->otherPrm);
     m_bInterlaced = info->interlaced;
     
     if (load_avisynth()) {
-        m_inputMes += _T("avisynth: failed to load avisynth.dll.\n");
+        AddMessage(NV_LOG_ERROR, _T("failed to load avisynth.dll.\n"));
         return 1;
     }
 
     if (nullptr == (m_sAVSenv = m_sAvisynth.create_script_environment(AVISYNTH_INTERFACE_VERSION))) {
-        m_inputMes += _T("avisynth: failed to init avisynth enviroment.\n");
+        AddMessage(NV_LOG_ERROR, _T("failed to init avisynth enviroment.\n"));
         return 1;
     }
-#if UNICODE
-    char *filename_char = nullptr;
-    {
-        const uint32_t buffer_length = (uint32_t)(wcslen(inputPrm->filename.c_str()) + 1) * 2;
-        BOOL error = FALSE;
-        if (nullptr == (filename_char = (char *)calloc(buffer_length, sizeof(char)))) {
-            m_inputMes += _T("avisynth: failed to allocate memory for character conversion.\n");
-            return 1;
-        } else if (0 == WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, inputPrm->filename.c_str(), -1, filename_char, buffer_length, NULL, &error) || error) {
-            m_inputMes += _T("avisynth: failed to convert to ansi characters.\n");
-            free(filename_char);
-            return 1;
-        }
+    std::string filename_char;
+    if (0 == tchar_to_string(inputPrm->filename, filename_char)) {
+        AddMessage(NV_LOG_ERROR,  _T("failed to convert to ansi characters.\n"));
+        return 1;
     }
-    fprintf(stderr, "%s\n", filename_char);
-    AVS_Value val_filename = avs_new_value_string(filename_char);
-#else
-    AVS_Value val_filename = avs_new_value_string(inputPrm->filename.c_str());
-#endif
-    AVS_Value val_res = m_sAvisynth.invoke(m_sAVSenv, "Import", val_filename, nullptr);
+    AVS_Value val_filename = avs_new_value_string(filename_char.c_str());
+    AVS_Value val_res = m_sAvisynth.invoke(m_sAVSenv, "Import", val_filename, NULL);
     m_sAvisynth.release_value(val_filename);
     if (!avs_is_clip(val_res)) {
-        m_inputMes += _T("avisynth: invalid clip.\n");
+        AddMessage(NV_LOG_ERROR, _T("invalid clip.\n"));
         if (avs_is_error(val_res)) {
-#if UNICODE
-            WCHAR buf[1024];
-            MultiByteToWideChar(CP_THREAD_ACP, MB_PRECOMPOSED, avs_as_string(val_res), -1, buf, _countof(buf));
-            m_inputMes += buf;
-#else
-            m_inputMes += avs_as_string(val_res);
-#endif
-            m_inputMes += _T("\n");
+            AddMessage(NV_LOG_ERROR, char_to_tstring(avs_as_string(val_res)) + _T("\n"));
         }
         m_sAvisynth.release_value(val_res);
         return 1;
@@ -112,17 +94,13 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     m_sAVSclip = m_sAvisynth.take_clip(val_res, m_sAVSenv);
     m_sAvisynth.release_value(val_res);
 
-#if UNICODE    
-    free(filename_char);
-#endif
-
     if (nullptr == (m_sAVSinfo = m_sAvisynth.get_video_info(m_sAVSclip))) {
-        m_inputMes += _T("avisynth: failed to get avs info.\n");
+        AddMessage(NV_LOG_ERROR, _T("failed to get avs info.\n"));
         return 1;
     }
 
     if (!avs_has_video(m_sAVSinfo)) {
-        m_inputMes += _T("avisynth: avs has no video.\n");
+        AddMessage(NV_LOG_ERROR, _T("avs has no video.\n"));
         return 1;
     }
 
@@ -148,7 +126,7 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     }
 
     if (nullptr == m_pConvCSPInfo) {
-        m_inputMes += _T("avisynth: invalid colorformat.\n");
+        AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
         return 1;
     }
     
@@ -167,10 +145,10 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     }
     m_sAvisynth.release_value(val_version);
 
-    setSurfaceInfo(inputPrm);
-    m_stSurface.src_pitch = 0;
+    memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
+    m_sDecParam.src_pitch = 0;
     CreateInputInfo(avisynth_version, NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
-
+    AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
 }
 
@@ -186,6 +164,7 @@ void NVEncInputAvs::Close() {
     m_sAVSclip = nullptr;
     m_sAVSinfo = nullptr;
     m_nFrame = 0;
+    m_pEncSatusInfo.reset();
 }
 
 int NVEncInputAvs::LoadNextFrame(void *dst, int dst_pitch) {
@@ -200,24 +179,24 @@ int NVEncInputAvs::LoadNextFrame(void *dst, int dst_pitch) {
 
     void *dst_array[3];
     dst_array[0] = dst;
-    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]);
-    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_stSurface.height - m_stSurface.crop[1] - m_stSurface.crop[3]); //YUV444出力時
+    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]);
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]); //YUV444出力時
 
     const void *src_array[3] = { avs_get_read_ptr_p(frame, AVS_PLANAR_Y), avs_get_read_ptr_p(frame, AVS_PLANAR_U), avs_get_read_ptr_p(frame, AVS_PLANAR_V) };
     //if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {
     //    dst_ptr[0] = min(min(pData->R, pData->G), pData->B);
     //}
-    m_pConvCSPInfo->func[!!m_bInterlaced](dst_array, src_array, m_stSurface.width, avs_get_pitch_p(frame, AVS_PLANAR_Y), avs_get_pitch_p(frame, AVS_PLANAR_U), dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
+    m_pConvCSPInfo->func[!!m_bInterlaced](dst_array, src_array, m_sDecParam.width, avs_get_pitch_p(frame, AVS_PLANAR_Y), avs_get_pitch_p(frame, AVS_PLANAR_U), dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
     
     m_sAvisynth.release_video_frame(frame);
 
     m_nFrame++;
-    m_pStatus->m_sData.frameIn++;
-    
-    uint32_t tm = timeGetTime();
-    if (tm - m_tmLastUpdate > 800) {
+    m_pEncSatusInfo->m_sData.frameIn++;
+
+    auto tm = std::chrono::system_clock::now();
+    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
         m_tmLastUpdate = tm;
-        m_pStatus->UpdateDisplay();
+        m_pEncSatusInfo->UpdateDisplay(tm);
     }
 
     return 0;

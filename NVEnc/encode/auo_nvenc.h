@@ -56,12 +56,11 @@ private:
     int *jitter;
     int m_iFrame;
     BOOL m_interlaced;
-    uint32_t m_tmLastUpdate;
     BOOL m_pause;
 public:
     AuoInput();
     ~AuoInput();
-    virtual int Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) override;
+    virtual int Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
     virtual int LoadNextFrame(void *dst, int dst_pitch) override;
     virtual void Close() override;
 };

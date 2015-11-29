@@ -110,7 +110,6 @@ AuoInput::AuoInput() {
     oip = NULL;
     conf = NULL;
     pe = NULL;
-    m_tmLastUpdate = timeGetTime();
     m_pause = FALSE;
 }
 
@@ -127,10 +126,10 @@ void AuoInput::Close() {
     m_iFrame = 0;
     disable_enc_control();
 }
-int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
+int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     Close();
     
-    m_pStatus = pStatus;
+    m_pEncSatusInfo = pStatus;
     auto *info = reinterpret_cast<InputInfoAuo *>(inputPrm->otherPrm);
 
     oip = info->oip;
@@ -151,7 +150,7 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
     m_pConvCSPInfo = get_convert_csp_func((inputPrm->csp == NV_ENC_CSP_YUV444) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2, inputPrm->csp, false);
 
     if (nullptr == m_pConvCSPInfo) {
-        m_inputMes += _T("auo: invalid colorformat.\n");
+        AddMessage(NV_LOG_ERROR, "invalid colorformat.\n");
         return 1;
     }
 
@@ -159,15 +158,15 @@ int AuoInput::Init(InputVideoInfo *inputPrm, EncodeStatus *pStatus) {
 
     if (conf->vid.afs) {
         if (!setup_afsvideo(oip, info->sys_dat, conf, pe)) {
-            m_inputMes = _T("auo: 自動フィールドシフトの初期化に失敗しました。\n");
+            AddMessage(NV_LOG_ERROR, "自動フィールドシフトの初期化に失敗しました。\n");
             return 1;
         }
     }
-    
-    setSurfaceInfo(inputPrm);
-    m_stSurface.src_pitch = inputPrm->width;
-    CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
 
+    memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
+    m_sDecParam.src_pitch = 0;
+    CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
+    AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
 }
 int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
@@ -199,7 +198,7 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
                 break;
             jitter[m_iFrame] = DROP_FRAME_FLAG;
             pe->drop_count++;
-            m_pStatus->m_sData.frameDrop++;
+            m_pEncSatusInfo->m_sData.frameDrop++;
             m_iFrame++;
             if (m_iFrame >= oip->n) {
                 oip->func_rest_time_disp(m_iFrame, oip->n);
@@ -216,23 +215,23 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
     }
     void *dst_array[3];
     dst_array[0] = dst;
-    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * m_stSurface.height;
-    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * m_stSurface.height; //YUV444出力時
-    int src_pitch = m_stSurface.src_pitch * ((m_pConvCSPInfo->csp_from == NV_ENC_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
-    m_pConvCSPInfo->func[!!m_interlaced](dst_array, (const void **)&frame, m_stSurface.width, src_pitch, 0, dst_pitch, m_stSurface.height, m_stSurface.height, m_stSurface.crop);
+    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * m_sDecParam.height;
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * m_sDecParam.height; //YUV444出力時
+    int src_pitch = m_sDecParam.src_pitch * ((m_pConvCSPInfo->csp_from == NV_ENC_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
+    m_pConvCSPInfo->func[!!m_interlaced](dst_array, (const void **)&frame, m_sDecParam.width, src_pitch, 0, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
 
     m_iFrame++;
     if (!(m_iFrame & 7))
         aud_parallel_task(oip, pe);
 
-    m_pStatus->m_sData.frameIn++;
+    m_pEncSatusInfo->m_sData.frameIn++;
 
-    uint32_t tm = timeGetTime();
-    if (tm - m_tmLastUpdate > 800) {
+    auto tm = std::chrono::system_clock::now();
+    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
         m_tmLastUpdate = tm;
         oip->func_rest_time_disp(m_iFrame, oip->n);
         oip->func_update_preview();
-        m_pStatus->UpdateDisplay();
+        m_pEncSatusInfo->UpdateDisplay(tm);
     }
 
     return NVENC_THREAD_RUNNING;
@@ -252,8 +251,10 @@ NVENCSTATUS CAuoNvEnc::InitLog(const InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS CAuoNvEnc::InitInput(InEncodeVideoParam *inputParam) {
-    m_pStatus = new AuoEncodeStatus();
+    m_pStatus.reset(new AuoEncodeStatus());
+    m_pStatus->init(m_pNVLog);
     m_pInput = new AuoInput();
+    m_pInput->SetNVEncLogPtr(m_pNVLog);
     int ret = m_pInput->Init(&inputParam->input, m_pStatus);
     m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
     m_pStatus->m_nOutputFPSScale = inputParam->input.scale;

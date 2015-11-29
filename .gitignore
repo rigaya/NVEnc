@@ -6,6 +6,8 @@
 *.user
 *.sln.docstates
 
+ffmpeg_lgpl/
+
 # Build results
 
 [Dd]ebug/

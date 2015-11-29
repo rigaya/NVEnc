@@ -35,6 +35,7 @@ static void show_version() {
     _ftprintf(stdout, _T("  avi reader: %s\n"), ENABLED_INFO[!!AVI_READER]);
     _ftprintf(stdout, _T("  avs reader: %s\n"), ENABLED_INFO[!!AVS_READER]);
     _ftprintf(stdout, _T("  vpy reader: %s\n"), ENABLED_INFO[!!VPY_READER]);
+    _ftprintf(stdout, _T("  avcuvid reader: %s\n"), ENABLED_INFO[!!ENABLE_AVCUVID_READER]);
     _ftprintf(stdout, _T("\n"));
 }
 
@@ -99,9 +100,13 @@ static void show_help_ja() {
         _T("   --vpy                          vpyとしてファイルを読み込み\n")
         _T("   --vpy-mt                       vpy(mt)としてファイルを読み込み\n")
 #endif
+#if ENABLE_AVCUVID_READER
+        _T("   --avcuvid                      libavformat + cuvidで読み込み\n")
+#endif
         _T("\n")
         _T("   --input-res <int>x<int>        入力解像度\n")
         _T("   --crop <int>,<int>,<int>,<int> 左、上、右、下の切り落とし画素数\n")
+        _T("   --output-res <int>x<int>       出力解像度\n")
         _T("-f,--fps <int>/<int> or <float>   フレームレートの指定\n")
         _T("\n")
         _T("-c,--codec <string>               出力コーデックの指定\n")
@@ -140,7 +145,10 @@ static void show_help_ja() {
         _T("   --lossless                     ロスレス出力を行う / デフォルト: オフ\n")
         _T("   --deblock                      デブロックフィルタを有効にする\n")
         _T("   --no-deblock                   デブロックフィルタを無効にする\n")
-        _T("   --fullrange                    fullrangeの指定\n"),
+        _T("   --fullrange                    fullrangeの指定\n")
+        _T("   --log <string>                 ログファイル名の指定\n")
+        _T("   --log-level <string>           ログレベルの指定 / デフォルト: info\n")
+        _T("                                    debug, info, warn, error\n"),
         (AVI_READER) ? _T("avi, ") : _T(""),
         (AVS_READER) ? _T("avs, ") : _T(""),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
@@ -199,6 +207,9 @@ static void show_help_en() {
         _T("   --vpy                          set input as vpy format\n")
         _T("   --vpy-mt                       set input as vpy(mt) format\n")
 #endif
+#if ENABLE_AVCUVID_READER
+        _T("   --avcuvid                      use libavformat + cuvid\n")
+#endif
         _T("\n")
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
@@ -239,7 +250,10 @@ static void show_help_en() {
         _T("   --bluray                       for bluray / Default: off\n")
         _T("   --lossless                     for lossless / Default: off\n")
         _T("   --(no-)deblock                 enable(disable) deblock filter\n")
-        _T("   --fullrange                    set fullrange\n"),
+        _T("   --fullrange                    set fullrange\n")
+        _T("   --log <string>                 set log file name\n")
+        _T("   --log-level <string>           set log level\n")
+        _T("                                    debug, info(default), warn, error\n"),
         (AVI_READER) ? _T("avi, ") : _T(""),
         (AVS_READER) ? _T("avs, ") : _T(""),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
@@ -414,7 +428,9 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             return 1;
         } else if (IS_OPTION("input")) {
             i_arg++;
-            conf_set->input.filename = argv[i_arg];
+            auto length = _tcslen(argv[i_arg]) + 1;
+            conf_set->input.filename = (TCHAR *)malloc(sizeof(conf_set->input.filename[0]) * length);
+            memcpy(conf_set->input.filename, argv[i_arg], sizeof(conf_set->input.filename[0]) * length);
         } else if (IS_OPTION("output")) {
             i_arg++;
             conf_set->outputFilename = argv[i_arg];
@@ -457,12 +473,24 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
             }
+        } else if (IS_OPTION("output-res")) {
+            i_arg++;
+            int a[2] = { 0 };
+            if (   2 == _stscanf_s(argv[i_arg], _T("%dx%d"), &a[0], &a[1])
+                || 2 == _stscanf_s(argv[i_arg], _T("%d:%d"), &a[0], &a[1])
+                || 2 == _stscanf_s(argv[i_arg], _T("%d,%d"), &a[0], &a[1])) {
+                conf_set->input.dstWidth  = a[0];
+                conf_set->input.dstHeight = a[1];
+            } else {
+                invalid_option_value(option_name, argv[i_arg]);
+                return -1;
+            }
         } else if (IS_OPTION("crop")) {
             i_arg++;
-            int a[4] = { 0 };
-            if (   4 == _stscanf_s(argv[i_arg], _T("%d,%d,%d,%d"), &a[0], &a[1], &a[2], &a[3])
-                || 4 == _stscanf_s(argv[i_arg], _T("%d:%d:%d:%d"), &a[0], &a[1], &a[2], &a[3])) {
-                memcpy(conf_set->input.crop, a, sizeof(conf_set->input.crop));
+            sInputCrop a = { 0 };
+            if (   4 == _stscanf_s(argv[i_arg], _T("%d,%d,%d,%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])
+                || 4 == _stscanf_s(argv[i_arg], _T("%d:%d:%d:%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])) {
+                memcpy(&conf_set->input.crop, &a, sizeof(a));
             } else {
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
@@ -493,6 +521,10 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             conf_set->input.type = NV_ENC_INPUT_VPY;
         } else if (IS_OPTION("vpy-mt")) {
             conf_set->input.type = NV_ENC_INPUT_VPY_MT;
+#endif
+#if ENABLE_AVCUVID_READER
+        } else if (IS_OPTION("avcuvid")) {
+            conf_set->input.type = NV_ENC_INPUT_AVCUVID;
 #endif
         } else if (IS_OPTION("cqp")) {
             i_arg++;
@@ -751,12 +783,24 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
             }
+        } else if (IS_OPTION("log")) {
+            i_arg++;
+            conf_set->logfile = argv[i_arg];
+        } else if (IS_OPTION("log-level")) {
+            i_arg++;
+            int value = 0;
+            if (get_list_value(list_log_level, argv[i_arg], &value)) {
+                conf_set->loglevel = value;
+            } else {
+                invalid_option_value(option_name, argv[i_arg]);
+                return -1;
+            }
         }
     }
 
 #undef IS_OPTION
     //オプションチェック
-    if (0 == conf_set->input.filename.length()) {
+    if (conf_set->input.filename == nullptr || _tcslen(conf_set->input.filename) == 0) {
         _ftprintf(stderr, _T("Input file is not specified.\n"));
         return -1;
     }

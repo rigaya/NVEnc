@@ -22,7 +22,7 @@ const char *CNVEncLog::HTML_FOOTER = "</body>\n</html>\n";
 void CNVEncLog::init(const TCHAR *pLogFile, int log_level) {
     m_pStrLog = pLogFile;
     m_nLogLevel = log_level;
-    if (pLogFile != nullptr) {
+    if (pLogFile != nullptr && _tcslen(pLogFile) > 0) {
         FILE *fp = NULL;
         if (_tfopen_s(&fp, pLogFile, _T("a+")) || fp == NULL) {
             fprintf(stderr, "failed to open log file, log writing disabled.\n");

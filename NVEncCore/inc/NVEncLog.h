@@ -14,7 +14,6 @@
 #include <string>
 #include <mutex>
 #include "NVEncUtil.h"
-#include "NVEncStatus.h"
 #include "NVEncVersion.h"
 #include "ConvertCsp.h"
 #include "NVEncParam.h"
