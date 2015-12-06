@@ -1229,6 +1229,14 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stEncConfig.rcParams.vbvBufferSize = 0;
         error_feature_unsupported(NV_LOG_WARN, FOR_AUO ? _T("VBVバッファサイズの指定") : _T("Custom VBV Bufsize"));
     }
+    if (inputParam->yuv444 || inputParam->lossless) {
+#if ENABLE_AVCUVID_READER
+        if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
+            NVPrintf(stderr, NV_LOG_ERROR, _T("high444 not supported avcuvid reader.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+#endif
+    }
     if (inputParam->lossless) {
         if (inputParam->codec != NV_ENC_H264) {
             NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("lossless出力はH.264エンコード時のみ使用できます。") : _T("lossless output is only for H.264 codec."));
