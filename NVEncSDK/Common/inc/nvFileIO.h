@@ -1,13 +1,13 @@
-﻿///
-// Copyright 1993-2014 NVIDIA Corporation.  All rights reserved.
-//
-// Please refer to the NVIDIA end user license agreement (EULA) associated
-// with this source code for terms and conditions that govern your use of
-// this software. Any use, reproduction, disclosure, or distribution of
-// this software and related documentation outside the terms of the EULA
-// is strictly prohibited.
-//
-////////////////////////////////////////////////////////////////////////////
+﻿/*
+ * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
+ *
+ * Please refer to the NVIDIA end user license agreement (EULA) associated
+ * with this source code for terms and conditions that govern your use of
+ * this software. Any use, reproduction, disclosure, or distribution of
+ * this software and related documentation outside the terms of the EULA
+ * is strictly prohibited.
+ *
+ */
 
 #ifndef NVFILE_IO_H
 #define NVFILE_IO_H
@@ -46,9 +46,6 @@ typedef DWORD             FILE_SIZE;
 typedef unsigned long long  U64;
 typedef unsigned int        U32;
 
-#pragma warning(push)
-#pragma warning(disable:4100)
-
 inline U32 nvSetFilePointer(HANDLE hInputFile, U32 fileOffset, U32 *moveFilePointer, U32 flag)
 {
 #if defined (NV_WINDOWS)
@@ -73,12 +70,12 @@ inline bool nvReadFile(HANDLE hInputFile, void *buf, U32 bytes_to_read, U32 *byt
     ReadFile(hInputFile, buf, bytes_to_read, (LPDWORD)bytes_read, NULL);
     return true;
 #elif defined __linux || defined __APPLE__ || defined __MACOSX
-    U32 num_bytes_read;
-    num_bytes_read = fread(buf, bytes_to_read, 1, (FILE *)hInputFile);
+    U32 elems_read;
+    elems_read = fread(buf, bytes_to_read, 1, (FILE *)hInputFile);
 
     if (bytes_read)
     {
-        *bytes_read = num_bytes_read;
+        *bytes_read = elems_read > 0 ? bytes_to_read : 0;
     }
     return true;
 #endif
@@ -92,7 +89,7 @@ inline void nvGetFileSize(HANDLE hInputFile, DWORD *pFilesize)
     if (hInputFile != INVALID_HANDLE_VALUE)
     {
         file_size.LowPart = GetFileSize(hInputFile, (LPDWORD)&file_size.HighPart);
-        printf("[ Input Filesize] : %I64d bytes\n", ((LONGLONG) file_size.HighPart << 32) + (LONGLONG)file_size.LowPart);
+        printf("[ Input Filesize] : %ld bytes\n", ((LONGLONG) file_size.HighPart << 32) + (LONGLONG)file_size.LowPart);
 
         if (pFilesize != NULL) *pFilesize = file_size.LowPart;
     }
@@ -176,7 +173,5 @@ inline void nvCloseFile(HANDLE hFileHandle)
 #endif
     }
 }
-
-#pragma warning(pop)
 
 #endif

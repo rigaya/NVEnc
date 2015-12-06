@@ -1,15 +1,13 @@
-﻿////////////////////////////////////////////////////////////////////////////
-//
-// Copyright 1993-2014 NVIDIA Corporation.  All rights reserved.
-//
-// Please refer to the NVIDIA end user license agreement (EULA) associated
-// with this source code for terms and conditions that govern your use of
-// this software. Any use, reproduction, disclosure, or distribution of
-// this software and related documentation outside the terms of the EULA
-// is strictly prohibited.
-//
-////////////////////////////////////////////////////////////////////////////
-#pragma once
+﻿/*
+ * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
+ *
+ * Please refer to the NVIDIA end user license agreement (EULA) associated
+ * with this source code for terms and conditions that govern your use of
+ * this software. Any use, reproduction, disclosure, or distribution of
+ * this software and related documentation outside the terms of the EULA
+ * is strictly prohibited.
+ *
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -32,6 +30,11 @@
     #define NVENCAPI
 #endif
 
+#define DEFAULT_I_QFACTOR -0.8f
+#define DEFAULT_B_QFACTOR 1.25f
+#define DEFAULT_I_QOFFSET 0.f
+#define DEFAULT_B_QOFFSET 1.25f
+
 typedef struct _EncodeConfig
 {
     int              width;
@@ -44,6 +47,10 @@ typedef struct _EncodeConfig
     int              vbvSize;
     int              rcMode;
     int              qp;
+    float            i_quant_factor;
+    float            b_quant_factor;
+    float            i_quant_offset;
+    float            b_quant_offset;
     GUID             presetGUID;
     FILE            *fOutput;
     int              codec;
@@ -60,12 +67,13 @@ typedef struct _EncodeConfig
     int              deviceID;
     int              isYuv444;
     char            *qpDeltaMapFile;
-
     char* inputFileName;
     char* outputFileName;
     char* encoderPreset;
     char* inputFilePath;
     char *encCmdFileName;
+    int  enableMEOnly;
+    int  preloadedFrameCount;
 }EncodeConfig;
 
 typedef struct _EncodeInputBuffer
@@ -125,6 +133,16 @@ enum
     NV_ENC_HEVC = 1,
 };
 
+struct MEOnlyConfig
+{
+    unsigned char *yuv[2][3];
+    unsigned int stride[3];
+    unsigned int width;
+    unsigned int height;
+    unsigned int inputFrameIndex;
+    unsigned int referenceFrameIndex;
+};
+
 class CNvHWEncoder
 {
 public:
@@ -161,6 +179,9 @@ public:
     NVENCSTATUS NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer);
     NVENCSTATUS NvEncCreateBitstreamBuffer(uint32_t size, void** bitstreamBuffer);
     NVENCSTATUS NvEncDestroyBitstreamBuffer(NV_ENC_OUTPUT_PTR bitstreamBuffer);
+    NVENCSTATUS NvEncCreateMVBuffer(uint32_t size, void** bitstreamBuffer);
+    NVENCSTATUS NvEncDestroyMVBuffer(NV_ENC_OUTPUT_PTR bitstreamBuffer);
+    NVENCSTATUS NvRunMotionEstimationOnly(EncodeBuffer *pEncodeBuffer[2], MEOnlyConfig *pMEOnly);
     NVENCSTATUS NvEncLockBitstream(NV_ENC_LOCK_BITSTREAM* lockBitstreamBufferParams);
     NVENCSTATUS NvEncUnlockBitstream(NV_ENC_OUTPUT_PTR bitstreamBuffer);
     NVENCSTATUS NvEncLockInputBuffer(void* inputBuffer, void** bufferDataPtr, uint32_t* pitch);

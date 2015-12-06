@@ -1,14 +1,13 @@
-﻿////////////////////////////////////////////////////////////////////////////
-//
-// Copyright 1993-2014 NVIDIA Corporation.  All rights reserved.
-//
-// Please refer to the NVIDIA end user license agreement (EULA) associated
-// with this source code for terms and conditions that govern your use of
-// this software. Any use, reproduction, disclosure, or distribution of
-// this software and related documentation outside the terms of the EULA
-// is strictly prohibited.
-//
-////////////////////////////////////////////////////////////////////////////
+﻿/*
+ * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
+ *
+ * Please refer to the NVIDIA end user license agreement (EULA) associated
+ * with this source code for terms and conditions that govern your use of
+ * this software. Any use, reproduction, disclosure, or distribution of
+ * this software and related documentation outside the terms of the EULA
+ * is strictly prohibited.
+ *
+ */
 
 #include "../inc/NvHWEncoder.h"
 
@@ -192,6 +191,66 @@ NVENCSTATUS CNvHWEncoder::NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer)
         }
     }
 
+    return nvStatus;
+}
+
+NVENCSTATUS CNvHWEncoder::NvEncCreateMVBuffer(uint32_t size, void** bitstreamBuffer)
+{
+    NVENCSTATUS status;
+    NV_ENC_CREATE_MV_BUFFER stAllocMVBuffer;
+    memset(&stAllocMVBuffer, 0, sizeof(stAllocMVBuffer));
+    SET_VER(stAllocMVBuffer, NV_ENC_CREATE_MV_BUFFER);
+    status = m_pEncodeAPI->nvEncCreateMVBuffer(m_hEncoder, &stAllocMVBuffer);
+    if (status != NV_ENC_SUCCESS)
+    {
+        assert(0);
+    }
+    *bitstreamBuffer = stAllocMVBuffer.MVBuffer;
+    return status;
+}
+
+NVENCSTATUS CNvHWEncoder::NvEncDestroyMVBuffer(NV_ENC_OUTPUT_PTR bitstreamBuffer)
+{
+    NVENCSTATUS status;
+    NV_ENC_CREATE_MV_BUFFER stAllocMVBuffer;
+    memset(&stAllocMVBuffer, 0, sizeof(stAllocMVBuffer));
+    SET_VER(stAllocMVBuffer, NV_ENC_CREATE_MV_BUFFER);
+    status = m_pEncodeAPI->nvEncDestroyMVBuffer(m_hEncoder, bitstreamBuffer);
+    if (status != NV_ENC_SUCCESS)
+    {
+        assert(0);
+    }
+    bitstreamBuffer = NULL;
+    return status;
+}
+
+NVENCSTATUS CNvHWEncoder::NvRunMotionEstimationOnly(EncodeBuffer *pEncodeBuffer[2], MEOnlyConfig *pMEOnly)
+{
+    NVENCSTATUS nvStatus;
+    NV_ENC_MEONLY_PARAMS stMEOnlyParams;
+    SET_VER(stMEOnlyParams,NV_ENC_MEONLY_PARAMS);
+    stMEOnlyParams.referenceFrame = pEncodeBuffer[0]->stInputBfr.hInputSurface;
+    stMEOnlyParams.inputBuffer = pEncodeBuffer[1]->stInputBfr.hInputSurface;
+    stMEOnlyParams.bufferFmt = pEncodeBuffer[1]->stInputBfr.bufferFmt;
+    stMEOnlyParams.inputWidth = pEncodeBuffer[1]->stInputBfr.dwWidth;
+    stMEOnlyParams.inputHeight = pEncodeBuffer[1]->stInputBfr.dwHeight;
+    stMEOnlyParams.outputMV = pEncodeBuffer[0]->stOutputBfr.hBitstreamBuffer;
+    nvStatus = m_pEncodeAPI->nvEncRunMotionEstimationOnly(m_hEncoder, &stMEOnlyParams);
+
+    if (m_fOutput)
+    {
+        unsigned int numMBs = ((m_uMaxWidth +15) >> 4) * ((m_uMaxHeight + 15) >> 4);
+        fprintf(m_fOutput,"Motion Vectors for input frame = %d, reference frame = %d\n", pMEOnly->inputFrameIndex, pMEOnly->referenceFrameIndex);
+        NV_ENC_H264_MV_DATA *outputMV = (NV_ENC_H264_MV_DATA *)stMEOnlyParams.outputMV;
+        for (unsigned int i = 0; i < numMBs; i++)
+        {
+            fprintf(m_fOutput, "block = %d, mb_type = %d, partitionType = %d, MV[0].x = %d, MV[0].y = %d, MV[1].x = %d, MV[1].y = %d, MV[2].x = %d, MV[2].y = %d, MV[3].x = %d, MV[3].y = %d, cost=%d ", \
+                i, outputMV[i].mb_type, outputMV[i].partitionType, outputMV[i].MV[0].mvx, outputMV[i].MV[0].mvy, outputMV[i].MV[1].mvx, outputMV[i].MV[1].mvy, \
+                outputMV[i].MV[2].mvx, outputMV[i].MV[2].mvy, outputMV[i].MV[3].mvx, outputMV[i].MV[3].mvy, outputMV[i].MBCost);
+            fprintf(m_fOutput, "\n");
+        }
+        fprintf(m_fOutput, "\n");
+    }
     return nvStatus;
 }
 
@@ -463,6 +522,7 @@ NVENCSTATUS CNvHWEncoder::NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resou
     registerResParams.width = width;
     registerResParams.height = height;
     registerResParams.pitch = pitch;
+    registerResParams.bufferFormat = NV_ENC_BUFFER_FORMAT_NV12_PL;
 
     nvStatus = m_pEncodeAPI->nvEncRegisterResource(m_hEncoder, &registerResParams);
     if (nvStatus != NV_ENC_SUCCESS)
@@ -689,6 +749,12 @@ NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
+    if (pEncCfg->isYuv444 && (pEncCfg->codec == NV_ENC_HEVC))
+    {
+        PRINTERR("444 is not supported with HEVC \n");
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
+
     GUID inputCodecGUID = pEncCfg->codec == NV_ENC_H264 ? NV_ENC_CODEC_H264_GUID : NV_ENC_CODEC_HEVC_GUID;
     nvStatus = ValidateEncodeGUID(inputCodecGUID);
     if (nvStatus != NV_ENC_SUCCESS)
@@ -729,7 +795,7 @@ NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
     nvStatus = m_pEncodeAPI->nvEncGetEncodePresetConfig(m_hEncoder, m_stCreateEncodeParams.encodeGUID, m_stCreateEncodeParams.presetGUID, &stPresetCfg);
     if (nvStatus != NV_ENC_SUCCESS)
     {
-        assert(0);
+        PRINTERR("nvEncGetEncodePresetConfig returned failure");
         return nvStatus;
     }
     memcpy(&m_stEncodeConfig, &stPresetCfg.presetCfg, sizeof(NV_ENC_CONFIG));
@@ -765,6 +831,21 @@ NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
         m_stEncodeConfig.rcParams.constQP.qpInterP = pEncCfg->presetGUID == NV_ENC_PRESET_LOSSLESS_HP_GUID? 0 : pEncCfg->qp;
         m_stEncodeConfig.rcParams.constQP.qpInterB = pEncCfg->presetGUID == NV_ENC_PRESET_LOSSLESS_HP_GUID? 0 : pEncCfg->qp;
         m_stEncodeConfig.rcParams.constQP.qpIntra = pEncCfg->presetGUID == NV_ENC_PRESET_LOSSLESS_HP_GUID? 0 : pEncCfg->qp;
+    }
+
+    // set up initial QP value
+    if (pEncCfg->rcMode == NV_ENC_PARAMS_RC_VBR || pEncCfg->rcMode == NV_ENC_PARAMS_RC_VBR_MINQP ||
+        pEncCfg->rcMode == NV_ENC_PARAMS_RC_2_PASS_VBR) {
+        m_stEncodeConfig.rcParams.enableInitialRCQP = 1;
+        m_stEncodeConfig.rcParams.initialRCQP.qpInterP  = pEncCfg->qp;
+        if(pEncCfg->i_quant_factor != 0.0 && pEncCfg->b_quant_factor != 0.0) {               
+            m_stEncodeConfig.rcParams.initialRCQP.qpIntra = (int)(pEncCfg->qp * FABS(pEncCfg->i_quant_factor) + pEncCfg->i_quant_offset);
+            m_stEncodeConfig.rcParams.initialRCQP.qpInterB = (int)(pEncCfg->qp * FABS(pEncCfg->b_quant_factor) + pEncCfg->b_quant_offset);
+        } else {
+            m_stEncodeConfig.rcParams.initialRCQP.qpIntra = pEncCfg->qp;
+            m_stEncodeConfig.rcParams.initialRCQP.qpInterB = pEncCfg->qp;
+        }
+
     }
 
     if (pEncCfg->isYuv444)
@@ -817,10 +898,40 @@ NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
         m_stEncodeConfig.encodeCodecConfig.hevcConfig.idrPeriod = pEncCfg->gopLength;
     }
 
+    if (pEncCfg->enableMEOnly == 1 || pEncCfg->enableMEOnly == 2)
+    {
+        NV_ENC_CAPS_PARAM stCapsParam;
+        memset(&stCapsParam, 0, sizeof(NV_ENC_CAPS_PARAM));
+        SET_VER(stCapsParam, NV_ENC_CAPS_PARAM);
+        stCapsParam.capsToQuery = NV_ENC_CAPS_SUPPORT_MEONLY_MODE;
+        m_stCreateEncodeParams.enableMEOnlyMode =  true;
+        int meonlyMode = 0;
+        nvStatus = m_pEncodeAPI->nvEncGetEncodeCaps(m_hEncoder, m_stCreateEncodeParams.encodeGUID, &stCapsParam, &meonlyMode);
+        if (nvStatus != NV_ENC_SUCCESS)
+        {
+            PRINTERR("Encode Session Initialization failed");
+            return nvStatus;
+        }
+        else
+        {
+            if (meonlyMode == 1)
+            {
+                printf("NV_ENC_CAPS_SUPPORT_MEONLY_MODE  supported\n");
+            }
+            else
+            {
+                PRINTERR("NV_ENC_CAPS_SUPPORT_MEONLY_MODE not supported\n");
+                return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+            }
+        } 
+    }
+
     nvStatus = m_pEncodeAPI->nvEncInitializeEncoder(m_hEncoder, &m_stCreateEncodeParams);
     if (nvStatus != NV_ENC_SUCCESS)
+    {
+        PRINTERR("Encode Session Initialization failed");
         return nvStatus;
-
+    }
     m_bEncoderInitialized = true;
 
     return nvStatus;
@@ -853,6 +964,8 @@ GUID CNvHWEncoder::GetPresetGUID(char* encoderPreset, int codec)
     }
     else
     {
+        if (encoderPreset)
+            PRINTERR("Unsupported preset guid %s\n", encoderPreset);
         presetGUID = NV_ENC_PRESET_DEFAULT_GUID;
     }
 
@@ -1164,6 +1277,38 @@ NVENCSTATUS CNvHWEncoder::ParseArguments(EncodeConfig *encodeConfig, int argc, c
                 return NV_ENC_ERR_INVALID_PARAM;
             }
         }
+        else if (stricmp(argv[i], "-i_qfactor") == 0)
+        {
+            if (++i >= argc || sscanf(argv[i], "%f", &encodeConfig->i_quant_factor) != 1)
+            {
+                PRINTERR("invalid parameter for %s\n", argv[i - 1]);
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
+        }
+        else if (stricmp(argv[i], "-b_qfactor") == 0)
+        {
+            if (++i >= argc || sscanf(argv[i], "%f", &encodeConfig->b_quant_factor) != 1)
+            {
+                PRINTERR("invalid parameter for %s\n", argv[i - 1]);
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
+        }
+        else if (stricmp(argv[i], "-i_qoffset") == 0)
+        {
+            if (++i >= argc || sscanf(argv[i], "%f", &encodeConfig->i_quant_offset) != 1)
+            {
+                PRINTERR("invalid parameter for %s\n", argv[i - 1]);
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
+        }
+        else if (stricmp(argv[i], "-b_qoffset") == 0)
+        {
+            if (++i >= argc || sscanf(argv[i], "%f", &encodeConfig->b_quant_offset) != 1)
+            {
+                PRINTERR("invalid parameter for %s\n", argv[i - 1]);
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
+        }
         else if (stricmp(argv[i], "-preset") == 0)
         {
             if (++i >= argc)
@@ -1242,7 +1387,7 @@ NVENCSTATUS CNvHWEncoder::ParseArguments(EncodeConfig *encodeConfig, int argc, c
         {
             if (++i >= argc || sscanf(argv[i], "%d", &encodeConfig->isYuv444) != 1)
             {
-                fprintf(stderr, "invalid parameter for %s\n", argv[i - 1]);
+                PRINTERR("invalid parameter for %s\n", argv[i - 1]);
                 return NV_ENC_ERR_INVALID_PARAM;
             }
         }
@@ -1254,6 +1399,32 @@ NVENCSTATUS CNvHWEncoder::ParseArguments(EncodeConfig *encodeConfig, int argc, c
                 return NV_ENC_ERR_INVALID_PARAM;
             }
             encodeConfig->qpDeltaMapFile = argv[i];
+        }
+        else if (stricmp(argv[i], "-meonly") == 0)
+        {
+            if (++i >= argc || sscanf(argv[i], "%d", &encodeConfig->enableMEOnly) != 1)
+            {
+                PRINTERR("invalid parameter for %s\n", argv[i - 1]);
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
+            if (encodeConfig->enableMEOnly != 1 && encodeConfig->enableMEOnly != 2)
+            {
+                PRINTERR("invalid enableMEOnly value = %d (permissive value 1 and 2)\n", encodeConfig->enableMEOnly);
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
+        }
+        else if (stricmp(argv[i], "-preloadedFrameCount") == 0)
+        {
+            if (++i >= argc || sscanf(argv[i], "%d", &encodeConfig->preloadedFrameCount) != 1)
+            {
+                PRINTERR("invalid parameter for %s\n", argv[i - 1]);
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
+            if (encodeConfig->preloadedFrameCount <= 1)
+            {
+                PRINTERR("invalid preloadedFrameQueueSize value = %d (permissive value 2 and above)\n", encodeConfig->preloadedFrameCount);
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
         }
         else if (stricmp(argv[i], "-help") == 0)
         {
