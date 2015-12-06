@@ -1074,7 +1074,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //    return NV_ENC_ERR_UNSUPPORTED_PARAM;
     //}
 
-    //バッファサイズ (固定で16として与える)
+    //バッファサイズ (固定で32として与える)
     m_uEncodeBufferCount = 32; // inputParam->inputBuffer;
     if (m_uEncodeBufferCount > MAX_ENCODE_QUEUE) {
 #if FOR_AUO
