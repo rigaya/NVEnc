@@ -1830,15 +1830,17 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
     auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
 #if FOR_AUO
-    add_str(NV_LOG_ERROR, _T("NVEnc %s (%s), using NVENC API v%d.%d\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
+    add_str(NV_LOG_ERROR, _T("NVEnc %s (%s) [NVENC API v%d.%d]\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
     add_str(NV_LOG_INFO,  _T("OS バージョン      %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
     add_str(NV_LOG_INFO,  _T("CPU                %s\n"), cpu_info);
     add_str(NV_LOG_INFO,  _T("GPU                %s\n"), gpu_info);
     add_str(NV_LOG_ERROR, _T("入力バッファ       %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
     add_str(NV_LOG_ERROR, _T("入力フレーム情報   %s\n"), m_pInput->getInputMes());
+#if ENABLE_AVCUVID_READER
     if (m_cuvidDec && m_cuvidDec->getDeinterlaceMode() != cudaVideoDeinterlaceMode_Weave) {
         add_str(NV_LOG_ERROR, _T("インターレース解除 %s\n"), get_desc(list_deinterlace, m_cuvidDec->getDeinterlaceMode()));
     }
+#endif //#if ENABLE_AVCUVID_READER
     add_str(NV_LOG_ERROR, _T("出力動画情報       %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
         (codec == NV_ENC_H264) ? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
     add_str(NV_LOG_ERROR, _T("                   %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), sar.first, sar.second, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
