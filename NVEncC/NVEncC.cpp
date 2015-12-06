@@ -27,11 +27,7 @@ bool check_locale_is_ja() {
 
 static void show_version() {
     static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
-#ifdef _M_IX86
-    _ftprintf(stdout, _T("NVEncC (x86) %s by rigaya, build %s %s\n"), VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
-#else
-    _ftprintf(stdout, _T("NVEncC (x64) %s by rigaya, build %s %s\n"), VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
-#endif
+    _ftprintf(stdout, _T("NVEncC (%s) %s by rigaya [NVENC API v%d.%d], build %s %s\n"), BUILD_ARCH_STR, VER_STR_FILEVERSION_TCHAR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION, _T(__DATE__), _T(__TIME__));
     _ftprintf(stdout, _T("  avi reader: %s\n"), ENABLED_INFO[!!AVI_READER]);
     _ftprintf(stdout, _T("  avs reader: %s\n"), ENABLED_INFO[!!AVS_READER]);
     _ftprintf(stdout, _T("  vpy reader: %s\n"), ENABLED_INFO[!!VPY_READER]);
