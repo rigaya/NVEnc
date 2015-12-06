@@ -177,19 +177,28 @@ const CX_DESC list_colorprim[] = {
     { _T("bt470bg"),   5  },
     { _T("smpte240m"), 7  },
     { _T("film"),      8  },
+    { _T("bt2020"),    9  },
     { NULL, NULL }
 };
 const CX_DESC list_transfer[] = {
-    { _T("undef"),     2  },
-    { _T("auto"),      COLOR_VALUE_AUTO },
-    { _T("bt709"),     1  },
-    { _T("smpte170m"), 6  },
-    { _T("bt470m"),    4  },
-    { _T("bt470bg"),   5  },
-    { _T("smpte240m"), 7  },
-    { _T("linear"),    8  },
-    { _T("log100"),    9  },
-    { _T("log316"),    10 },
+    { _T("undef"),         2  },
+    { _T("auto"),          COLOR_VALUE_AUTO },
+    { _T("bt709"),         1  },
+    { _T("smpte170m"),     6  },
+    { _T("bt470m"),        4  },
+    { _T("bt470bg"),       5  },
+    { _T("smpte240m"),     7  },
+    { _T("linear"),        8  },
+    { _T("log100"),        9  },
+    { _T("log316"),        10 },
+    { _T("iec61966-2-4"),  11 },
+    { _T("bt1361e"),       12 },
+    { _T("iec61966-2-1"),  13 },
+    { _T("bt2020-10"),     14 },
+    { _T("bt2020-12"),     15 },
+    { _T("smpte-st-2084"), 16 },
+    { _T("smpte-st-428"),  17 },
+    { _T("arib-srd-b67"),  18 },
     { NULL, NULL }
 };
 const CX_DESC list_colormatrix[] = {
@@ -202,6 +211,8 @@ const CX_DESC list_colormatrix[] = {
     { _T("YCgCo"),     8  },
     { _T("fcc"),       4  },
     { _T("GBR"),       0  },
+    { _T("bt2020nc"),  9  },
+    { _T("bt2020c"),   10 },
     { NULL, NULL }
 };
 const CX_DESC list_videoformat[] = {

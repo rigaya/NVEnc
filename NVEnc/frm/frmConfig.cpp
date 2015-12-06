@@ -620,10 +620,14 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXBDirectMode,       list_bdirect);
     setComboBox(fcgCXMVPrecision,       list_mv_presicion);
     setComboBox(fcgCXQualityPreset,     preset_names);
-    setComboBox(fcgCXVideoFormat,       list_videoformat);
-    setComboBox(fcgCXTransfer,          list_transfer);
-    setComboBox(fcgCXColorMatrix,       list_colormatrix);
-    setComboBox(fcgCXColorPrim,         list_colorprim);
+    setComboBox(fcgCXVideoFormatH264,   list_videoformat);
+    setComboBox(fcgCXTransferH264,      list_transfer);
+    setComboBox(fcgCXColorMatrixH264,   list_colormatrix);
+    setComboBox(fcgCXColorPrimH264,     list_colorprim);
+    setComboBox(fcgCXVideoFormatHEVC,   list_videoformat);
+    setComboBox(fcgCXTransferHEVC,      list_transfer);
+    setComboBox(fcgCXColorMatrixHEVC,   list_colormatrix);
+    setComboBox(fcgCXColorPrimHEVC,     list_colorprim);
     setComboBox(fcgCXHEVCTier,          h265_profile_names);
     setComboBox(fxgCXHEVCLevel,         list_hevc_level);
     setComboBox(fcgCXHEVCMaxCUSize,     list_hevc_cu_size);
@@ -869,11 +873,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBBluray->Checked       = 0 != cnf->nvenc.bluray;
     fcgCBCABAC->Checked        = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode;
     fcgCBDeblock->Checked                                          = 0 == cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.disableDeblockingFilterIDC;
-    SetCXIndex(fcgCXVideoFormat,       get_cx_index(list_videoformat,     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat));
-    fcgCBFullrange->Checked                                        = 0 != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag;
-    SetCXIndex(fcgCXTransfer,          get_cx_index(list_transfer,        cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics));
-    SetCXIndex(fcgCXColorMatrix,       get_cx_index(list_colormatrix,     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix));
-    SetCXIndex(fcgCXColorPrim,         get_cx_index(list_colorprim,       cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries));
+    SetCXIndex(fcgCXVideoFormatH264,       get_cx_index(list_videoformat, cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat));
+    fcgCBFullrangeH264->Checked                                    = 0 != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag;
+    SetCXIndex(fcgCXTransferH264,          get_cx_index(list_transfer,    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics));
+    SetCXIndex(fcgCXColorMatrixH264,       get_cx_index(list_colormatrix, cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix));
+    SetCXIndex(fcgCXColorPrimH264,         get_cx_index(list_colorprim,   cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries));
     SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode));
     SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode));
     
@@ -882,6 +886,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.level));
     SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxCUSize));
     SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.minCUSize));
+    SetCXIndex(fcgCXVideoFormatHEVC,       get_cx_index(list_videoformat, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat));
+    fcgCBFullrangeHEVC->Checked                                    = 0 != cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag;
+    SetCXIndex(fcgCXTransferHEVC,          get_cx_index(list_transfer,    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics));
+    SetCXIndex(fcgCXColorMatrixHEVC,       get_cx_index(list_colormatrix, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix));
+    SetCXIndex(fcgCXColorPrimHEVC,         get_cx_index(list_colorprim,   cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries));
 
     //fcgCBShowPerformanceInfo->Checked = (CHECK_PERFORMANCE) ? cnf->vid.vce_ext_prm.show_performance_info != 0 : false;
 
@@ -968,17 +977,17 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = false == fcgCBDeblock->Checked;
 
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag      = fcgCBFullrange->Checked;
-    if (fcgCBFullrange->Checked || fcgCXVideoFormat->SelectedIndex == get_cx_index(list_videoformat, "undef")) {
+    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormatH264->SelectedIndex].value;
+    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag      = fcgCBFullrangeH264->Checked;
+    if (fcgCBFullrangeH264->Checked || fcgCXVideoFormatH264->SelectedIndex == get_cx_index(list_videoformat, "undef")) {
         cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoSignalTypePresentFlag = 1;
     }
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = list_transfer[fcgCXTransfer->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrim->SelectedIndex].value;
-    if (   fcgCXTransfer->SelectedIndex    == get_cx_index(list_transfer,    "undef")
-        || fcgCXColorMatrix->SelectedIndex == get_cx_index(list_colormatrix, "undef")
-        || fcgCXColorPrim->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) {
+    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = list_transfer[fcgCXTransferH264->SelectedIndex].value;
+    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrixH264->SelectedIndex].value;
+    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrimH264->SelectedIndex].value;
+    if (   fcgCXTransferH264->SelectedIndex    == get_cx_index(list_transfer,    "undef")
+        || fcgCXColorMatrixH264->SelectedIndex == get_cx_index(list_colormatrix, "undef")
+        || fcgCXColorPrimH264->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) {
         cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourDescriptionPresentFlag = 1;
     }
 
@@ -989,6 +998,20 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.tier  = h265_profile_names[fcgCXHEVCTier->SelectedIndex].value;
     cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMaxCUSize->SelectedIndex].value;
     cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
+
+    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormatHEVC->SelectedIndex].value;
+    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag      = fcgCBFullrangeHEVC->Checked;
+    if (fcgCBFullrangeH264->Checked || fcgCXVideoFormatH264->SelectedIndex == get_cx_index(list_videoformat, "undef")) {
+        cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag = 1;
+    }
+    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = list_transfer[fcgCXTransferHEVC->SelectedIndex].value;
+    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrixHEVC->SelectedIndex].value;
+    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrimHEVC->SelectedIndex].value;
+    if (   fcgCXTransferHEVC->SelectedIndex    == get_cx_index(list_transfer,    "undef")
+        || fcgCXColorMatrixHEVC->SelectedIndex == get_cx_index(list_colormatrix, "undef")
+        || fcgCXColorPrimHEVC->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) {
+        cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourDescriptionPresentFlag = 1;
+    }
 
     //cnf->vid.vce_ext_prm.show_performance_info = fcgCBShowPerformanceInfo->Checked;
 

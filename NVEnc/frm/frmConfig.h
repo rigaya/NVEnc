@@ -780,17 +780,17 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUBframes;
 private: System::Windows::Forms::Label^  fcgLBBframes;
 
 
-private: System::Windows::Forms::Label^  fcgLBFullrange;
-private: System::Windows::Forms::CheckBox^  fcgCBFullrange;
-private: System::Windows::Forms::ComboBox^  fcgCXVideoFormat;
-private: System::Windows::Forms::Label^  fcgLBVideoFormat;
-private: System::Windows::Forms::GroupBox^  fcggroupBoxColor;
-private: System::Windows::Forms::ComboBox^  fcgCXTransfer;
-private: System::Windows::Forms::ComboBox^  fcgCXColorPrim;
-private: System::Windows::Forms::ComboBox^  fcgCXColorMatrix;
-private: System::Windows::Forms::Label^  fcgLBTransfer;
-private: System::Windows::Forms::Label^  fcgLBColorPrim;
-private: System::Windows::Forms::Label^  fcgLBColorMatrix;
+private: System::Windows::Forms::Label^  fcgLBFullrangeH264;
+private: System::Windows::Forms::CheckBox^  fcgCBFullrangeH264;
+private: System::Windows::Forms::ComboBox^  fcgCXVideoFormatH264;
+private: System::Windows::Forms::Label^  fcgLBVideoFormatH264;
+private: System::Windows::Forms::GroupBox^  fcggroupBoxColorH264;
+private: System::Windows::Forms::ComboBox^  fcgCXTransferH264;
+private: System::Windows::Forms::ComboBox^  fcgCXColorPrimH264;
+private: System::Windows::Forms::ComboBox^  fcgCXColorMatrixH264;
+private: System::Windows::Forms::Label^  fcgLBTransferH264;
+private: System::Windows::Forms::Label^  fcgLBColorPrimH264;
+private: System::Windows::Forms::Label^  fcgLBColorMatrixH264;
 private: System::Windows::Forms::NumericUpDown^  fcgNURefFrames;
 private: System::Windows::Forms::Label^  fcgLBRefFrames;
 private: System::Windows::Forms::ComboBox^  fcgCXBDirectMode;
@@ -899,6 +899,28 @@ private: System::Windows::Forms::ComboBox^  fcgCXAudioPriority;
 private: System::Windows::Forms::Label^  fcgLBAudioPriority;
 private: System::Windows::Forms::CheckBox^  fcgCBAQ;
 private: System::Windows::Forms::Label^  fcgLBAQ;
+private: System::Windows::Forms::Label^  fcgLBFullrangeHEVC;
+private: System::Windows::Forms::CheckBox^  fcgCBFullrangeHEVC;
+
+
+private: System::Windows::Forms::ComboBox^  fcgCXVideoFormatHEVC;
+
+private: System::Windows::Forms::Label^  fcgLBVideoFormatHEVC;
+private: System::Windows::Forms::GroupBox^  fcggroupBoxColorHEVC;
+private: System::Windows::Forms::ComboBox^  fcgCXTransferHEVC;
+private: System::Windows::Forms::ComboBox^  fcgCXColorPrimHEVC;
+private: System::Windows::Forms::ComboBox^  fcgCXColorMatrixHEVC;
+private: System::Windows::Forms::Label^  fcgLBTransferHEVC;
+private: System::Windows::Forms::Label^  fcgLBColorPrimHEVC;
+private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
+
+
+
+
+
+
+
+
 
 
 
@@ -1098,6 +1120,8 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlNVEnc = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBAQ = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgLBAQ = (gcnew System::Windows::Forms::Label());
             this->fcgNUVBVBufsize = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgGroupBoxAspectRatio = (gcnew System::Windows::Forms::GroupBox());
             this->fcgLBAspectRatio = (gcnew System::Windows::Forms::Label());
@@ -1133,6 +1157,9 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgCXEncMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPBNVEncLogoEnabled = (gcnew System::Windows::Forms::PictureBox());
             this->fcgPBNVEncLogoDisabled = (gcnew System::Windows::Forms::PictureBox());
+            this->fcgGroupBoxQulaityStg = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgBTQualityStg = (gcnew System::Windows::Forms::Button());
+            this->fcgCXQualityPreset = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNH264 = (gcnew System::Windows::Forms::Panel());
             this->fcgLBBluray = (gcnew System::Windows::Forms::Label());
             this->fcgCBBluray = (gcnew System::Windows::Forms::CheckBox());
@@ -1148,24 +1175,35 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgCXCodecLevel = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBMVPRecision = (gcnew System::Windows::Forms::Label());
             this->fcgCXMVPrecision = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgLBFullrange = (gcnew System::Windows::Forms::Label());
+            this->fcgLBFullrangeH264 = (gcnew System::Windows::Forms::Label());
             this->fcgCXInterlaced = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgCBFullrange = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBFullrangeH264 = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBSlices = (gcnew System::Windows::Forms::Label());
-            this->fcgCXVideoFormat = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXVideoFormatH264 = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCBDeblock = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBCABAC = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgLBVideoFormat = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVideoFormatH264 = (gcnew System::Windows::Forms::Label());
             this->fcgNUSlices = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcggroupBoxColor = (gcnew System::Windows::Forms::GroupBox());
-            this->fcgCXTransfer = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgCXColorPrim = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgCXColorMatrix = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgLBTransfer = (gcnew System::Windows::Forms::Label());
-            this->fcgLBColorPrim = (gcnew System::Windows::Forms::Label());
-            this->fcgLBColorMatrix = (gcnew System::Windows::Forms::Label());
+            this->fcggroupBoxColorH264 = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgCXTransferH264 = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXColorPrimH264 = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXColorMatrixH264 = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBTransferH264 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBColorPrimH264 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBColorMatrixH264 = (gcnew System::Windows::Forms::Label());
             this->fcgLBCABAC = (gcnew System::Windows::Forms::Label());
             this->fcgPNHEVC = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBFullrangeHEVC = (gcnew System::Windows::Forms::Label());
+            this->fcgCBFullrangeHEVC = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCXVideoFormatHEVC = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBVideoFormatHEVC = (gcnew System::Windows::Forms::Label());
+            this->fcggroupBoxColorHEVC = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgCXTransferHEVC = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXColorPrimHEVC = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXColorMatrixHEVC = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBTransferHEVC = (gcnew System::Windows::Forms::Label());
+            this->fcgLBColorPrimHEVC = (gcnew System::Windows::Forms::Label());
+            this->fcgLBColorMatrixHEVC = (gcnew System::Windows::Forms::Label());
             this->fcgLBHEVCMinCUSize = (gcnew System::Windows::Forms::Label());
             this->fcgCXHEVCMinCUSize = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBHEVCMaxCUSize = (gcnew System::Windows::Forms::Label());
@@ -1174,9 +1212,6 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fxgLBHEVCTier = (gcnew System::Windows::Forms::Label());
             this->fcgCXHEVCTier = (gcnew System::Windows::Forms::ComboBox());
             this->fxgCXHEVCLevel = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgGroupBoxQulaityStg = (gcnew System::Windows::Forms::GroupBox());
-            this->fcgBTQualityStg = (gcnew System::Windows::Forms::Button());
-            this->fcgCXQualityPreset = (gcnew System::Windows::Forms::ComboBox());
             this->tabPageExOpt = (gcnew System::Windows::Forms::TabPage());
             this->fcgCBAuoTcfileout = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBTempDir = (gcnew System::Windows::Forms::Label());
@@ -1237,8 +1272,6 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
-            this->fcgCBAQ = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgLBAQ = (gcnew System::Windows::Forms::Label());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1264,11 +1297,12 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUGopLength))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoEnabled))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoDisabled))->BeginInit();
+            this->fcgGroupBoxQulaityStg->SuspendLayout();
             this->fcgPNH264->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUSlices))->BeginInit();
-            this->fcggroupBoxColor->SuspendLayout();
+            this->fcggroupBoxColorH264->SuspendLayout();
             this->fcgPNHEVC->SuspendLayout();
-            this->fcgGroupBoxQulaityStg->SuspendLayout();
+            this->fcggroupBoxColorHEVC->SuspendLayout();
             this->tabPageExOpt->SuspendLayout();
             this->tabPageNVEncFeatures->SuspendLayout();
             this->fcgTabControlFeatures->SuspendLayout();
@@ -2087,9 +2121,9 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->tabPageVideoEnc->Controls->Add(this->fcgCXEncMode);
             this->tabPageVideoEnc->Controls->Add(this->fcgPBNVEncLogoEnabled);
             this->tabPageVideoEnc->Controls->Add(this->fcgPBNVEncLogoDisabled);
+            this->tabPageVideoEnc->Controls->Add(this->fcgGroupBoxQulaityStg);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNH264);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNHEVC);
-            this->tabPageVideoEnc->Controls->Add(this->fcgGroupBoxQulaityStg);
             this->tabPageVideoEnc->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->tabPageVideoEnc->Location = System::Drawing::Point(4, 24);
@@ -2099,6 +2133,25 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBAQ
+            // 
+            this->fcgCBAQ->AutoSize = true;
+            this->fcgCBAQ->Location = System::Drawing::Point(132, 358);
+            this->fcgCBAQ->Name = L"fcgCBAQ";
+            this->fcgCBAQ->Size = System::Drawing::Size(15, 14);
+            this->fcgCBAQ->TabIndex = 157;
+            this->fcgCBAQ->Tag = L"chValue";
+            this->fcgCBAQ->UseVisualStyleBackColor = true;
+            // 
+            // fcgLBAQ
+            // 
+            this->fcgLBAQ->AutoSize = true;
+            this->fcgLBAQ->Location = System::Drawing::Point(14, 357);
+            this->fcgLBAQ->Name = L"fcgLBAQ";
+            this->fcgLBAQ->Size = System::Drawing::Size(102, 14);
+            this->fcgLBAQ->TabIndex = 158;
+            this->fcgLBAQ->Text = L"適応的量子化 (AQ)";
             // 
             // fcgNUVBVBufsize
             // 
@@ -2450,6 +2503,38 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgPBNVEncLogoDisabled->TabIndex = 149;
             this->fcgPBNVEncLogoDisabled->TabStop = false;
             // 
+            // fcgGroupBoxQulaityStg
+            // 
+            this->fcgGroupBoxQulaityStg->Controls->Add(this->fcgBTQualityStg);
+            this->fcgGroupBoxQulaityStg->Controls->Add(this->fcgCXQualityPreset);
+            this->fcgGroupBoxQulaityStg->Location = System::Drawing::Point(34, 333);
+            this->fcgGroupBoxQulaityStg->Name = L"fcgGroupBoxQulaityStg";
+            this->fcgGroupBoxQulaityStg->Size = System::Drawing::Size(219, 77);
+            this->fcgGroupBoxQulaityStg->TabIndex = 28;
+            this->fcgGroupBoxQulaityStg->TabStop = false;
+            this->fcgGroupBoxQulaityStg->Text = L"品質設定";
+            this->fcgGroupBoxQulaityStg->Visible = false;
+            // 
+            // fcgBTQualityStg
+            // 
+            this->fcgBTQualityStg->Location = System::Drawing::Point(106, 45);
+            this->fcgBTQualityStg->Name = L"fcgBTQualityStg";
+            this->fcgBTQualityStg->Size = System::Drawing::Size(97, 28);
+            this->fcgBTQualityStg->TabIndex = 7;
+            this->fcgBTQualityStg->Text = L"ロードして反映";
+            this->fcgBTQualityStg->UseVisualStyleBackColor = true;
+            this->fcgBTQualityStg->Click += gcnew System::EventHandler(this, &frmConfig::fcgBTQualityStg_Click);
+            // 
+            // fcgCXQualityPreset
+            // 
+            this->fcgCXQualityPreset->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXQualityPreset->FormattingEnabled = true;
+            this->fcgCXQualityPreset->Location = System::Drawing::Point(26, 17);
+            this->fcgCXQualityPreset->Name = L"fcgCXQualityPreset";
+            this->fcgCXQualityPreset->Size = System::Drawing::Size(174, 22);
+            this->fcgCXQualityPreset->TabIndex = 0;
+            this->fcgCXQualityPreset->Tag = L"chValue";
+            // 
             // fcgPNH264
             // 
             this->fcgPNH264->Controls->Add(this->fcgLBBluray);
@@ -2466,16 +2551,16 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgPNH264->Controls->Add(this->fcgCXCodecLevel);
             this->fcgPNH264->Controls->Add(this->fcgLBMVPRecision);
             this->fcgPNH264->Controls->Add(this->fcgCXMVPrecision);
-            this->fcgPNH264->Controls->Add(this->fcgLBFullrange);
+            this->fcgPNH264->Controls->Add(this->fcgLBFullrangeH264);
             this->fcgPNH264->Controls->Add(this->fcgCXInterlaced);
-            this->fcgPNH264->Controls->Add(this->fcgCBFullrange);
+            this->fcgPNH264->Controls->Add(this->fcgCBFullrangeH264);
             this->fcgPNH264->Controls->Add(this->fcgLBSlices);
-            this->fcgPNH264->Controls->Add(this->fcgCXVideoFormat);
+            this->fcgPNH264->Controls->Add(this->fcgCXVideoFormatH264);
             this->fcgPNH264->Controls->Add(this->fcgCBDeblock);
             this->fcgPNH264->Controls->Add(this->fcgCBCABAC);
-            this->fcgPNH264->Controls->Add(this->fcgLBVideoFormat);
+            this->fcgPNH264->Controls->Add(this->fcgLBVideoFormatH264);
             this->fcgPNH264->Controls->Add(this->fcgNUSlices);
-            this->fcgPNH264->Controls->Add(this->fcggroupBoxColor);
+            this->fcgPNH264->Controls->Add(this->fcggroupBoxColorH264);
             this->fcgPNH264->Controls->Add(this->fcgLBCABAC);
             this->fcgPNH264->Location = System::Drawing::Point(341, 31);
             this->fcgPNH264->Name = L"fcgPNH264";
@@ -2614,14 +2699,14 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgCXMVPrecision->TabIndex = 134;
             this->fcgCXMVPrecision->Tag = L"chValue";
             // 
-            // fcgLBFullrange
+            // fcgLBFullrangeH264
             // 
-            this->fcgLBFullrange->AutoSize = true;
-            this->fcgLBFullrange->Location = System::Drawing::Point(18, 317);
-            this->fcgLBFullrange->Name = L"fcgLBFullrange";
-            this->fcgLBFullrange->Size = System::Drawing::Size(55, 14);
-            this->fcgLBFullrange->TabIndex = 145;
-            this->fcgLBFullrange->Text = L"fullrange";
+            this->fcgLBFullrangeH264->AutoSize = true;
+            this->fcgLBFullrangeH264->Location = System::Drawing::Point(18, 317);
+            this->fcgLBFullrangeH264->Name = L"fcgLBFullrangeH264";
+            this->fcgLBFullrangeH264->Size = System::Drawing::Size(55, 14);
+            this->fcgLBFullrangeH264->TabIndex = 145;
+            this->fcgLBFullrangeH264->Text = L"fullrange";
             // 
             // fcgCXInterlaced
             // 
@@ -2633,15 +2718,15 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgCXInterlaced->TabIndex = 20;
             this->fcgCXInterlaced->Tag = L"chValue";
             // 
-            // fcgCBFullrange
+            // fcgCBFullrangeH264
             // 
-            this->fcgCBFullrange->AutoSize = true;
-            this->fcgCBFullrange->Location = System::Drawing::Point(125, 320);
-            this->fcgCBFullrange->Name = L"fcgCBFullrange";
-            this->fcgCBFullrange->Size = System::Drawing::Size(15, 14);
-            this->fcgCBFullrange->TabIndex = 142;
-            this->fcgCBFullrange->Tag = L"chValue";
-            this->fcgCBFullrange->UseVisualStyleBackColor = true;
+            this->fcgCBFullrangeH264->AutoSize = true;
+            this->fcgCBFullrangeH264->Location = System::Drawing::Point(125, 320);
+            this->fcgCBFullrangeH264->Name = L"fcgCBFullrangeH264";
+            this->fcgCBFullrangeH264->Size = System::Drawing::Size(15, 14);
+            this->fcgCBFullrangeH264->TabIndex = 142;
+            this->fcgCBFullrangeH264->Tag = L"chValue";
+            this->fcgCBFullrangeH264->UseVisualStyleBackColor = true;
             // 
             // fcgLBSlices
             // 
@@ -2652,15 +2737,15 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgLBSlices->TabIndex = 103;
             this->fcgLBSlices->Text = L"スライス数";
             // 
-            // fcgCXVideoFormat
+            // fcgCXVideoFormatH264
             // 
-            this->fcgCXVideoFormat->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXVideoFormat->FormattingEnabled = true;
-            this->fcgCXVideoFormat->Location = System::Drawing::Point(125, 290);
-            this->fcgCXVideoFormat->Name = L"fcgCXVideoFormat";
-            this->fcgCXVideoFormat->Size = System::Drawing::Size(121, 22);
-            this->fcgCXVideoFormat->TabIndex = 141;
-            this->fcgCXVideoFormat->Tag = L"chValue";
+            this->fcgCXVideoFormatH264->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVideoFormatH264->FormattingEnabled = true;
+            this->fcgCXVideoFormatH264->Location = System::Drawing::Point(125, 290);
+            this->fcgCXVideoFormatH264->Name = L"fcgCXVideoFormatH264";
+            this->fcgCXVideoFormatH264->Size = System::Drawing::Size(121, 22);
+            this->fcgCXVideoFormatH264->TabIndex = 141;
+            this->fcgCXVideoFormatH264->Tag = L"chValue";
             // 
             // fcgCBDeblock
             // 
@@ -2682,14 +2767,14 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgCBCABAC->Tag = L"chValue";
             this->fcgCBCABAC->UseVisualStyleBackColor = true;
             // 
-            // fcgLBVideoFormat
+            // fcgLBVideoFormatH264
             // 
-            this->fcgLBVideoFormat->AutoSize = true;
-            this->fcgLBVideoFormat->Location = System::Drawing::Point(18, 291);
-            this->fcgLBVideoFormat->Name = L"fcgLBVideoFormat";
-            this->fcgLBVideoFormat->Size = System::Drawing::Size(73, 14);
-            this->fcgLBVideoFormat->TabIndex = 144;
-            this->fcgLBVideoFormat->Text = L"videoformat";
+            this->fcgLBVideoFormatH264->AutoSize = true;
+            this->fcgLBVideoFormatH264->Location = System::Drawing::Point(18, 291);
+            this->fcgLBVideoFormatH264->Name = L"fcgLBVideoFormatH264";
+            this->fcgLBVideoFormatH264->Size = System::Drawing::Size(73, 14);
+            this->fcgLBVideoFormatH264->TabIndex = 144;
+            this->fcgLBVideoFormatH264->Text = L"videoformat";
             // 
             // fcgNUSlices
             // 
@@ -2702,77 +2787,77 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgNUSlices->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             this->fcgNUSlices->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             // 
-            // fcggroupBoxColor
+            // fcggroupBoxColorH264
             // 
-            this->fcggroupBoxColor->Controls->Add(this->fcgCXTransfer);
-            this->fcggroupBoxColor->Controls->Add(this->fcgCXColorPrim);
-            this->fcggroupBoxColor->Controls->Add(this->fcgCXColorMatrix);
-            this->fcggroupBoxColor->Controls->Add(this->fcgLBTransfer);
-            this->fcggroupBoxColor->Controls->Add(this->fcgLBColorPrim);
-            this->fcggroupBoxColor->Controls->Add(this->fcgLBColorMatrix);
-            this->fcggroupBoxColor->Location = System::Drawing::Point(14, 337);
-            this->fcggroupBoxColor->Name = L"fcggroupBoxColor";
-            this->fcggroupBoxColor->Size = System::Drawing::Size(241, 103);
-            this->fcggroupBoxColor->TabIndex = 143;
-            this->fcggroupBoxColor->TabStop = false;
-            this->fcggroupBoxColor->Text = L"色設定";
+            this->fcggroupBoxColorH264->Controls->Add(this->fcgCXTransferH264);
+            this->fcggroupBoxColorH264->Controls->Add(this->fcgCXColorPrimH264);
+            this->fcggroupBoxColorH264->Controls->Add(this->fcgCXColorMatrixH264);
+            this->fcggroupBoxColorH264->Controls->Add(this->fcgLBTransferH264);
+            this->fcggroupBoxColorH264->Controls->Add(this->fcgLBColorPrimH264);
+            this->fcggroupBoxColorH264->Controls->Add(this->fcgLBColorMatrixH264);
+            this->fcggroupBoxColorH264->Location = System::Drawing::Point(14, 337);
+            this->fcggroupBoxColorH264->Name = L"fcggroupBoxColorH264";
+            this->fcggroupBoxColorH264->Size = System::Drawing::Size(241, 103);
+            this->fcggroupBoxColorH264->TabIndex = 143;
+            this->fcggroupBoxColorH264->TabStop = false;
+            this->fcggroupBoxColorH264->Text = L"色設定";
             // 
-            // fcgCXTransfer
+            // fcgCXTransferH264
             // 
-            this->fcgCXTransfer->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXTransfer->FormattingEnabled = true;
-            this->fcgCXTransfer->Location = System::Drawing::Point(111, 72);
-            this->fcgCXTransfer->Name = L"fcgCXTransfer";
-            this->fcgCXTransfer->Size = System::Drawing::Size(121, 22);
-            this->fcgCXTransfer->TabIndex = 2;
-            this->fcgCXTransfer->Tag = L"chValue";
+            this->fcgCXTransferH264->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXTransferH264->FormattingEnabled = true;
+            this->fcgCXTransferH264->Location = System::Drawing::Point(111, 72);
+            this->fcgCXTransferH264->Name = L"fcgCXTransferH264";
+            this->fcgCXTransferH264->Size = System::Drawing::Size(121, 22);
+            this->fcgCXTransferH264->TabIndex = 2;
+            this->fcgCXTransferH264->Tag = L"chValue";
             // 
-            // fcgCXColorPrim
+            // fcgCXColorPrimH264
             // 
-            this->fcgCXColorPrim->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXColorPrim->FormattingEnabled = true;
-            this->fcgCXColorPrim->Location = System::Drawing::Point(111, 44);
-            this->fcgCXColorPrim->Name = L"fcgCXColorPrim";
-            this->fcgCXColorPrim->Size = System::Drawing::Size(121, 22);
-            this->fcgCXColorPrim->TabIndex = 1;
-            this->fcgCXColorPrim->Tag = L"chValue";
+            this->fcgCXColorPrimH264->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXColorPrimH264->FormattingEnabled = true;
+            this->fcgCXColorPrimH264->Location = System::Drawing::Point(111, 44);
+            this->fcgCXColorPrimH264->Name = L"fcgCXColorPrimH264";
+            this->fcgCXColorPrimH264->Size = System::Drawing::Size(121, 22);
+            this->fcgCXColorPrimH264->TabIndex = 1;
+            this->fcgCXColorPrimH264->Tag = L"chValue";
             // 
-            // fcgCXColorMatrix
+            // fcgCXColorMatrixH264
             // 
-            this->fcgCXColorMatrix->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXColorMatrix->FormattingEnabled = true;
-            this->fcgCXColorMatrix->Location = System::Drawing::Point(111, 16);
-            this->fcgCXColorMatrix->Name = L"fcgCXColorMatrix";
-            this->fcgCXColorMatrix->Size = System::Drawing::Size(121, 22);
-            this->fcgCXColorMatrix->TabIndex = 0;
-            this->fcgCXColorMatrix->Tag = L"chValue";
+            this->fcgCXColorMatrixH264->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXColorMatrixH264->FormattingEnabled = true;
+            this->fcgCXColorMatrixH264->Location = System::Drawing::Point(111, 16);
+            this->fcgCXColorMatrixH264->Name = L"fcgCXColorMatrixH264";
+            this->fcgCXColorMatrixH264->Size = System::Drawing::Size(121, 22);
+            this->fcgCXColorMatrixH264->TabIndex = 0;
+            this->fcgCXColorMatrixH264->Tag = L"chValue";
             // 
-            // fcgLBTransfer
+            // fcgLBTransferH264
             // 
-            this->fcgLBTransfer->AutoSize = true;
-            this->fcgLBTransfer->Location = System::Drawing::Point(18, 75);
-            this->fcgLBTransfer->Name = L"fcgLBTransfer";
-            this->fcgLBTransfer->Size = System::Drawing::Size(49, 14);
-            this->fcgLBTransfer->TabIndex = 2;
-            this->fcgLBTransfer->Text = L"transfer";
+            this->fcgLBTransferH264->AutoSize = true;
+            this->fcgLBTransferH264->Location = System::Drawing::Point(18, 75);
+            this->fcgLBTransferH264->Name = L"fcgLBTransferH264";
+            this->fcgLBTransferH264->Size = System::Drawing::Size(49, 14);
+            this->fcgLBTransferH264->TabIndex = 2;
+            this->fcgLBTransferH264->Text = L"transfer";
             // 
-            // fcgLBColorPrim
+            // fcgLBColorPrimH264
             // 
-            this->fcgLBColorPrim->AutoSize = true;
-            this->fcgLBColorPrim->Location = System::Drawing::Point(18, 47);
-            this->fcgLBColorPrim->Name = L"fcgLBColorPrim";
-            this->fcgLBColorPrim->Size = System::Drawing::Size(61, 14);
-            this->fcgLBColorPrim->TabIndex = 1;
-            this->fcgLBColorPrim->Text = L"colorprim";
+            this->fcgLBColorPrimH264->AutoSize = true;
+            this->fcgLBColorPrimH264->Location = System::Drawing::Point(18, 47);
+            this->fcgLBColorPrimH264->Name = L"fcgLBColorPrimH264";
+            this->fcgLBColorPrimH264->Size = System::Drawing::Size(61, 14);
+            this->fcgLBColorPrimH264->TabIndex = 1;
+            this->fcgLBColorPrimH264->Text = L"colorprim";
             // 
-            // fcgLBColorMatrix
+            // fcgLBColorMatrixH264
             // 
-            this->fcgLBColorMatrix->AutoSize = true;
-            this->fcgLBColorMatrix->Location = System::Drawing::Point(18, 19);
-            this->fcgLBColorMatrix->Name = L"fcgLBColorMatrix";
-            this->fcgLBColorMatrix->Size = System::Drawing::Size(70, 14);
-            this->fcgLBColorMatrix->TabIndex = 0;
-            this->fcgLBColorMatrix->Text = L"colormatrix";
+            this->fcgLBColorMatrixH264->AutoSize = true;
+            this->fcgLBColorMatrixH264->Location = System::Drawing::Point(18, 19);
+            this->fcgLBColorMatrixH264->Name = L"fcgLBColorMatrixH264";
+            this->fcgLBColorMatrixH264->Size = System::Drawing::Size(70, 14);
+            this->fcgLBColorMatrixH264->TabIndex = 0;
+            this->fcgLBColorMatrixH264->Text = L"colormatrix";
             // 
             // fcgLBCABAC
             // 
@@ -2785,6 +2870,11 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             // 
             // fcgPNHEVC
             // 
+            this->fcgPNHEVC->Controls->Add(this->fcgLBFullrangeHEVC);
+            this->fcgPNHEVC->Controls->Add(this->fcgCBFullrangeHEVC);
+            this->fcgPNHEVC->Controls->Add(this->fcgCXVideoFormatHEVC);
+            this->fcgPNHEVC->Controls->Add(this->fcgLBVideoFormatHEVC);
+            this->fcgPNHEVC->Controls->Add(this->fcggroupBoxColorHEVC);
             this->fcgPNHEVC->Controls->Add(this->fcgLBHEVCMinCUSize);
             this->fcgPNHEVC->Controls->Add(this->fcgCXHEVCMinCUSize);
             this->fcgPNHEVC->Controls->Add(this->fcgLBHEVCMaxCUSize);
@@ -2797,6 +2887,116 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgPNHEVC->Name = L"fcgPNHEVC";
             this->fcgPNHEVC->Size = System::Drawing::Size(264, 388);
             this->fcgPNHEVC->TabIndex = 153;
+            // 
+            // fcgLBFullrangeHEVC
+            // 
+            this->fcgLBFullrangeHEVC->AutoSize = true;
+            this->fcgLBFullrangeHEVC->Location = System::Drawing::Point(18, 258);
+            this->fcgLBFullrangeHEVC->Name = L"fcgLBFullrangeHEVC";
+            this->fcgLBFullrangeHEVC->Size = System::Drawing::Size(55, 14);
+            this->fcgLBFullrangeHEVC->TabIndex = 154;
+            this->fcgLBFullrangeHEVC->Text = L"fullrange";
+            // 
+            // fcgCBFullrangeHEVC
+            // 
+            this->fcgCBFullrangeHEVC->AutoSize = true;
+            this->fcgCBFullrangeHEVC->Location = System::Drawing::Point(125, 261);
+            this->fcgCBFullrangeHEVC->Name = L"fcgCBFullrangeHEVC";
+            this->fcgCBFullrangeHEVC->Size = System::Drawing::Size(15, 14);
+            this->fcgCBFullrangeHEVC->TabIndex = 151;
+            this->fcgCBFullrangeHEVC->Tag = L"chValue";
+            this->fcgCBFullrangeHEVC->UseVisualStyleBackColor = true;
+            // 
+            // fcgCXVideoFormatHEVC
+            // 
+            this->fcgCXVideoFormatHEVC->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVideoFormatHEVC->FormattingEnabled = true;
+            this->fcgCXVideoFormatHEVC->Location = System::Drawing::Point(125, 231);
+            this->fcgCXVideoFormatHEVC->Name = L"fcgCXVideoFormatHEVC";
+            this->fcgCXVideoFormatHEVC->Size = System::Drawing::Size(121, 22);
+            this->fcgCXVideoFormatHEVC->TabIndex = 150;
+            this->fcgCXVideoFormatHEVC->Tag = L"chValue";
+            // 
+            // fcgLBVideoFormatHEVC
+            // 
+            this->fcgLBVideoFormatHEVC->AutoSize = true;
+            this->fcgLBVideoFormatHEVC->Location = System::Drawing::Point(18, 232);
+            this->fcgLBVideoFormatHEVC->Name = L"fcgLBVideoFormatHEVC";
+            this->fcgLBVideoFormatHEVC->Size = System::Drawing::Size(73, 14);
+            this->fcgLBVideoFormatHEVC->TabIndex = 153;
+            this->fcgLBVideoFormatHEVC->Text = L"videoformat";
+            // 
+            // fcggroupBoxColorHEVC
+            // 
+            this->fcggroupBoxColorHEVC->Controls->Add(this->fcgCXTransferHEVC);
+            this->fcggroupBoxColorHEVC->Controls->Add(this->fcgCXColorPrimHEVC);
+            this->fcggroupBoxColorHEVC->Controls->Add(this->fcgCXColorMatrixHEVC);
+            this->fcggroupBoxColorHEVC->Controls->Add(this->fcgLBTransferHEVC);
+            this->fcggroupBoxColorHEVC->Controls->Add(this->fcgLBColorPrimHEVC);
+            this->fcggroupBoxColorHEVC->Controls->Add(this->fcgLBColorMatrixHEVC);
+            this->fcggroupBoxColorHEVC->Location = System::Drawing::Point(14, 278);
+            this->fcggroupBoxColorHEVC->Name = L"fcggroupBoxColorHEVC";
+            this->fcggroupBoxColorHEVC->Size = System::Drawing::Size(241, 103);
+            this->fcggroupBoxColorHEVC->TabIndex = 152;
+            this->fcggroupBoxColorHEVC->TabStop = false;
+            this->fcggroupBoxColorHEVC->Text = L"色設定";
+            // 
+            // fcgCXTransferHEVC
+            // 
+            this->fcgCXTransferHEVC->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXTransferHEVC->FormattingEnabled = true;
+            this->fcgCXTransferHEVC->Location = System::Drawing::Point(111, 72);
+            this->fcgCXTransferHEVC->Name = L"fcgCXTransferHEVC";
+            this->fcgCXTransferHEVC->Size = System::Drawing::Size(121, 22);
+            this->fcgCXTransferHEVC->TabIndex = 2;
+            this->fcgCXTransferHEVC->Tag = L"chValue";
+            // 
+            // fcgCXColorPrimHEVC
+            // 
+            this->fcgCXColorPrimHEVC->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXColorPrimHEVC->FormattingEnabled = true;
+            this->fcgCXColorPrimHEVC->Location = System::Drawing::Point(111, 44);
+            this->fcgCXColorPrimHEVC->Name = L"fcgCXColorPrimHEVC";
+            this->fcgCXColorPrimHEVC->Size = System::Drawing::Size(121, 22);
+            this->fcgCXColorPrimHEVC->TabIndex = 1;
+            this->fcgCXColorPrimHEVC->Tag = L"chValue";
+            // 
+            // fcgCXColorMatrixHEVC
+            // 
+            this->fcgCXColorMatrixHEVC->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXColorMatrixHEVC->FormattingEnabled = true;
+            this->fcgCXColorMatrixHEVC->Location = System::Drawing::Point(111, 16);
+            this->fcgCXColorMatrixHEVC->Name = L"fcgCXColorMatrixHEVC";
+            this->fcgCXColorMatrixHEVC->Size = System::Drawing::Size(121, 22);
+            this->fcgCXColorMatrixHEVC->TabIndex = 0;
+            this->fcgCXColorMatrixHEVC->Tag = L"chValue";
+            // 
+            // fcgLBTransferHEVC
+            // 
+            this->fcgLBTransferHEVC->AutoSize = true;
+            this->fcgLBTransferHEVC->Location = System::Drawing::Point(18, 75);
+            this->fcgLBTransferHEVC->Name = L"fcgLBTransferHEVC";
+            this->fcgLBTransferHEVC->Size = System::Drawing::Size(49, 14);
+            this->fcgLBTransferHEVC->TabIndex = 2;
+            this->fcgLBTransferHEVC->Text = L"transfer";
+            // 
+            // fcgLBColorPrimHEVC
+            // 
+            this->fcgLBColorPrimHEVC->AutoSize = true;
+            this->fcgLBColorPrimHEVC->Location = System::Drawing::Point(18, 47);
+            this->fcgLBColorPrimHEVC->Name = L"fcgLBColorPrimHEVC";
+            this->fcgLBColorPrimHEVC->Size = System::Drawing::Size(61, 14);
+            this->fcgLBColorPrimHEVC->TabIndex = 1;
+            this->fcgLBColorPrimHEVC->Text = L"colorprim";
+            // 
+            // fcgLBColorMatrixHEVC
+            // 
+            this->fcgLBColorMatrixHEVC->AutoSize = true;
+            this->fcgLBColorMatrixHEVC->Location = System::Drawing::Point(18, 19);
+            this->fcgLBColorMatrixHEVC->Name = L"fcgLBColorMatrixHEVC";
+            this->fcgLBColorMatrixHEVC->Size = System::Drawing::Size(70, 14);
+            this->fcgLBColorMatrixHEVC->TabIndex = 0;
+            this->fcgLBColorMatrixHEVC->Text = L"colormatrix";
             // 
             // fcgLBHEVCMinCUSize
             // 
@@ -2873,38 +3073,6 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fxgCXHEVCLevel->Size = System::Drawing::Size(121, 22);
             this->fxgCXHEVCLevel->TabIndex = 22;
             this->fxgCXHEVCLevel->Tag = L"chValue";
-            // 
-            // fcgGroupBoxQulaityStg
-            // 
-            this->fcgGroupBoxQulaityStg->Controls->Add(this->fcgBTQualityStg);
-            this->fcgGroupBoxQulaityStg->Controls->Add(this->fcgCXQualityPreset);
-            this->fcgGroupBoxQulaityStg->Location = System::Drawing::Point(34, 333);
-            this->fcgGroupBoxQulaityStg->Name = L"fcgGroupBoxQulaityStg";
-            this->fcgGroupBoxQulaityStg->Size = System::Drawing::Size(219, 77);
-            this->fcgGroupBoxQulaityStg->TabIndex = 28;
-            this->fcgGroupBoxQulaityStg->TabStop = false;
-            this->fcgGroupBoxQulaityStg->Text = L"品質設定";
-            this->fcgGroupBoxQulaityStg->Visible = false;
-            // 
-            // fcgBTQualityStg
-            // 
-            this->fcgBTQualityStg->Location = System::Drawing::Point(106, 45);
-            this->fcgBTQualityStg->Name = L"fcgBTQualityStg";
-            this->fcgBTQualityStg->Size = System::Drawing::Size(97, 28);
-            this->fcgBTQualityStg->TabIndex = 7;
-            this->fcgBTQualityStg->Text = L"ロードして反映";
-            this->fcgBTQualityStg->UseVisualStyleBackColor = true;
-            this->fcgBTQualityStg->Click += gcnew System::EventHandler(this, &frmConfig::fcgBTQualityStg_Click);
-            // 
-            // fcgCXQualityPreset
-            // 
-            this->fcgCXQualityPreset->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXQualityPreset->FormattingEnabled = true;
-            this->fcgCXQualityPreset->Location = System::Drawing::Point(26, 17);
-            this->fcgCXQualityPreset->Name = L"fcgCXQualityPreset";
-            this->fcgCXQualityPreset->Size = System::Drawing::Size(174, 22);
-            this->fcgCXQualityPreset->TabIndex = 0;
-            this->fcgCXQualityPreset->Tag = L"chValue";
             // 
             // tabPageExOpt
             // 
@@ -3575,25 +3743,6 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
             // 
-            // fcgCBAQ
-            // 
-            this->fcgCBAQ->AutoSize = true;
-            this->fcgCBAQ->Location = System::Drawing::Point(132, 358);
-            this->fcgCBAQ->Name = L"fcgCBAQ";
-            this->fcgCBAQ->Size = System::Drawing::Size(15, 14);
-            this->fcgCBAQ->TabIndex = 157;
-            this->fcgCBAQ->Tag = L"chValue";
-            this->fcgCBAQ->UseVisualStyleBackColor = true;
-            // 
-            // fcgLBAQ
-            // 
-            this->fcgLBAQ->AutoSize = true;
-            this->fcgLBAQ->Location = System::Drawing::Point(14, 357);
-            this->fcgLBAQ->Name = L"fcgLBAQ";
-            this->fcgLBAQ->Size = System::Drawing::Size(102, 14);
-            this->fcgLBAQ->TabIndex = 158;
-            this->fcgLBAQ->Text = L"適応的量子化 (AQ)";
-            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -3653,14 +3802,16 @@ private: System::Windows::Forms::Label^  fcgLBAQ;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUGopLength))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoEnabled))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgPBNVEncLogoDisabled))->EndInit();
+            this->fcgGroupBoxQulaityStg->ResumeLayout(false);
             this->fcgPNH264->ResumeLayout(false);
             this->fcgPNH264->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUSlices))->EndInit();
-            this->fcggroupBoxColor->ResumeLayout(false);
-            this->fcggroupBoxColor->PerformLayout();
+            this->fcggroupBoxColorH264->ResumeLayout(false);
+            this->fcggroupBoxColorH264->PerformLayout();
             this->fcgPNHEVC->ResumeLayout(false);
             this->fcgPNHEVC->PerformLayout();
-            this->fcgGroupBoxQulaityStg->ResumeLayout(false);
+            this->fcggroupBoxColorHEVC->ResumeLayout(false);
+            this->fcggroupBoxColorHEVC->PerformLayout();
             this->tabPageExOpt->ResumeLayout(false);
             this->tabPageExOpt->PerformLayout();
             this->tabPageNVEncFeatures->ResumeLayout(false);

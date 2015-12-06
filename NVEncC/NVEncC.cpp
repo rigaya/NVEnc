@@ -12,6 +12,7 @@
 #include <tchar.h>
 #include <locale.h>
 #include <algorithm>
+#include <numeric>
 #include <vector>
 #include <cstdio>
 #include "NVEncVersion.h"
@@ -57,6 +58,44 @@ static void print_list_options(FILE *fp, TCHAR *option_name, const CX_DESC *list
     _ftprintf(fp, _T("\n%s default: %s\n"), indent_space, list[default_index].desc);
 }
 
+typedef struct ListData {
+    const TCHAR *name;
+    const CX_DESC *list;
+    int default_index;
+} ListData;
+
+static void PrintMultipleListOptions(FILE *fp, const TCHAR *option_name, const TCHAR *option_desc, const vector<ListData>& listDatas) {
+    const TCHAR *indent_space = _T("                                  ");
+    const int indent_len = (int)_tcslen(indent_space);
+    const int max_len = 79;
+    int print_len = _ftprintf(fp, _T("   %s "), option_name);
+    while (print_len < indent_len)
+        print_len += _ftprintf(fp, _T(" "));
+    _ftprintf(fp, _T("%s\n"), option_desc);
+    const auto data_name_max_len = indent_len + 4 + std::accumulate(listDatas.begin(), listDatas.end(), 0,
+        [](const int max_len, const ListData data) { return (std::max)(max_len, (int)_tcslen(data.name)); });
+
+    for (const auto& data : listDatas) {
+        print_len = _ftprintf(fp, _T("%s- %s: "), indent_space, data.name);
+        while (print_len < data_name_max_len)
+            print_len += _ftprintf(fp, _T(" "));
+        for (int i = 0; data.list[i].desc; i++) {
+            const int desc_len = (int)(_tcslen(data.list[i].desc) + _tcslen(_T(", ")) + ((i == data.default_index) ? _tcslen(_T("(default)")) : 0));
+            if (print_len + desc_len >= max_len) {
+                _ftprintf(fp, _T("\n%s"), indent_space);
+                print_len = indent_len;
+                while (print_len < data_name_max_len)
+                    print_len += _ftprintf(fp, _T(" "));
+            } else {
+                if (i)
+                    print_len += _ftprintf(fp, _T(", "));
+            }
+            print_len += _ftprintf(fp, _T("%s%s"), data.list[i].desc, (i == data.default_index) ? _T("(default)") : _T(""));
+        }
+        _ftprintf(fp, _T("\n"));
+    }
+}
+
 static void show_help_ja() {
     show_version();
 
@@ -99,7 +138,11 @@ static void show_help_ja() {
 #if ENABLE_AVCUVID_READER
         _T("   --avcuvid                      libavformat + cuvidで読み込み\n")
 #endif
-        _T("\n")
+        _T("\n"),
+        (AVI_READER) ? _T("avi, ") : _T(""),
+        (AVS_READER) ? _T("avs, ") : _T(""));
+
+    _ftprintf(stdout, _T("")
         _T("   --input-res <int>x<int>        入力解像度\n")
         _T("   --crop <int>,<int>,<int>,<int> 左、上、右、下の切り落とし画素数\n")
         _T("                                    avcuivid reader使用時は左cropは無効\n")
@@ -109,8 +152,13 @@ static void show_help_ja() {
         _T("-c,--codec <string>               出力コーデックの指定\n")
         _T("                                    h264 (or avc), h265 (or hevc)\n")
         _T("   --profile <string>             プロファイルの指定\n")
-        _T("                                    H.264: baseline, main, high(デフォルト)\n")
-        _T("                                    HEVC : main\n")
+        _T("                                    H.264: baseline, main, high, high444\n")
+        _T("                                    HEVC : main\n"));
+    PrintMultipleListOptions(stdout, _T("--level <string>"), _T("コーデックレベルの指定"),
+        { { _T("H.264"), list_avc_level,   0 },
+          { _T("HEVC"),  list_hevc_level,  0 } 
+    });
+    _ftprintf(stdout, _T("")
         _T("   --level <string>               Levelの指定\n")
         _T("   --sar <int>:<int>              SAR(PAR, 画素比)の指定\n")
         _T("   --dar <int>:<int>              DAR(画面比)の指定\n")
@@ -134,7 +182,21 @@ static void show_help_ja() {
         _T("   --vbv-bufsize <int>            VBVバッファサイズ (kbit) / デフォルト 自動\n")
         _T("   --vpp-deinterlace <string>     インタレ解除を行う(avcuvid使用時のみ)\n")
         _T("                                    none(デフォルト), bob, adaptive\n")
-        _T("\n")
+        _T("   --fullrange                    fullrangeの指定\n"),
+        DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
+        DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
+        DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (自動)") : _T(""),
+        DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
+        print_list_options(stdout, _T("--videoformat <string>"), list_videoformat, 0);
+        print_list_options(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
+        print_list_options(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
+        print_list_options(stdout, _T("--transfer <string>"),    list_transfer,    0);
+    _ftprintf(stdout, _T("\n")
+        _T("   --log <string>                 ログファイル名の指定\n")
+        _T("   --log-level <string>           ログレベルの指定 / デフォルト: info\n")
+        _T("                                    debug, info, warn, error\n"));
+
+    _ftprintf(stdout, _T("\n")
         _T("H.264/AVC\n")
         _T("   --interlaced <string>          インタレ保持エンコ\n")
         _T("                                    tff, bff\n")
@@ -143,22 +205,7 @@ static void show_help_ja() {
         _T("   --bluray                       Bluray用出力を行う / デフォルト: オフ\n")
         _T("   --lossless                     ロスレス出力を行う / デフォルト: オフ\n")
         _T("   --deblock                      デブロックフィルタを有効にする\n")
-        _T("   --no-deblock                   デブロックフィルタを無効にする\n")
-        _T("   --fullrange                    fullrangeの指定\n")
-        _T("   --log <string>                 ログファイル名の指定\n")
-        _T("   --log-level <string>           ログレベルの指定 / デフォルト: info\n")
-        _T("                                    debug, info, warn, error\n"),
-        (AVI_READER) ? _T("avi, ") : _T(""),
-        (AVS_READER) ? _T("avs, ") : _T(""),
-        DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
-        DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
-        DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (自動)") : _T(""),
-        DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
-
-        print_list_options(stdout, _T("--videoformat <string>"), list_videoformat, 0);
-        print_list_options(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
-        print_list_options(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
-        print_list_options(stdout, _T("--transfer <string>"),    list_transfer,    0);
+        _T("   --no-deblock                   デブロックフィルタを無効にする\n"));
 
         _ftprintf(stdout, _T("\n")
             _T("H.265/HEVC\n")
@@ -209,7 +256,10 @@ static void show_help_en() {
 #if ENABLE_AVCUVID_READER
         _T("   --avcuvid                      use libavformat + cuvid\n")
 #endif
-        _T("\n")
+        _T("\n"),
+        (AVI_READER) ? _T("avi, ") : _T(""),
+        (AVS_READER) ? _T("avs, ") : _T(""));
+    _ftprintf(stdout, _T("")
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
         _T("                                    left crop is unavailable with avcuivid reader\n")
@@ -220,8 +270,13 @@ static void show_help_en() {
         _T("                                    h264 (or avc), h265 (or hevc)\n")
         _T("   --profile <string>             set codec profile\n")
         _T("                                    H.264: baseline, main, high(default)\n")
-        _T("                                    HEVC : main\n")
-        _T("   --level <string>               set codec level\n")
+        _T("                                    HEVC : main\n"));
+
+    PrintMultipleListOptions(stdout, _T("--level <string>"), _T("set codec level"),
+        { { _T("H.264"), list_avc_level,   0 },
+          { _T("HEVC"),  list_hevc_level,  0 }
+    });
+    _ftprintf(stdout, _T("")
         _T("   --sar <int>:<int>              set SAR ratio\n")
         _T("   --dar <int>:<int>              set DAR ratio\n")
         _T("\n")
@@ -233,19 +288,32 @@ static void show_help_en() {
         _T("                                    Default: %d kbps\n")
         _T("\n")
         _T("   --max-bitrate <int>            set Max Bitrate (kbps) / Default: %d kbps\n")
-        _T("   --gop-len <int>                set GOP Length / Default: %d frames%s")
+        _T("   --gop-len <int>                set GOP Length / Default: %d frames%s\n")
         _T("-b,--bframes <int>                set B frames / Default %d frames\n")
         _T("   --ref <int>                    set Ref frames / Default %d frames\n")
         _T("   --aq                           enable adaptive quantization\n")
         _T("   --mv-precision <string>        set MV Precision / Default: Q-pel\n")
         _T("                                    Q-pel    (High Quality)\n")
         _T("                                    half-pel\n")
-        _T("                                    full-pel (Low Quality)n")
+        _T("                                    full-pel (Low Quality)\n")
         _T("   --vbv-bufsize <int>            set vbv buffer size (kbit) / Default: auto\n")
         _T("   --vpp-deinterlace <string>     set deinterlace mode / Default: none\n")
         _T("                                    none, bob, adaptive\n")
         _T("                                    available only with avcuvid reader\n")
-        _T("\n")
+        _T("   --fullrange                    set fullrange\n"),
+        DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
+        DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
+        DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
+        DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
+    print_list_options(stdout, _T("--videoformat <string>"), list_videoformat, 0);
+    print_list_options(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
+    print_list_options(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
+    print_list_options(stdout, _T("--transfer <string>"),    list_transfer,    0);
+    _ftprintf(stdout, _T("\n")
+        _T("   --log <string>                 set log file name\n")
+        _T("   --log-level <string>           set log level\n")
+        _T("                                    debug, info(default), warn, error\n"));
+    _ftprintf(stdout, _T("\n")
         _T("H.264/AVC\n")
         _T("   --interlaced <string>          interlaced encoding\n")
         _T("                                    tff, bff\n")
@@ -253,28 +321,13 @@ static void show_help_en() {
         _T("   --cavlc                        use CAVLC (no CABAC)\n")
         _T("   --bluray                       for bluray / Default: off\n")
         _T("   --lossless                     for lossless / Default: off\n")
-        _T("   --(no-)deblock                 enable(disable) deblock filter\n")
-        _T("   --fullrange                    set fullrange\n")
-        _T("   --log <string>                 set log file name\n")
-        _T("   --log-level <string>           set log level\n")
-        _T("                                    debug, info(default), warn, error\n"),
-        (AVI_READER) ? _T("avi, ") : _T(""),
-        (AVS_READER) ? _T("avs, ") : _T(""),
-        DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
-        DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
-        DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
-        DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
+        _T("   --(no-)deblock                 enable(disable) deblock filter\n"));
 
-        print_list_options(stdout, _T("--videoformat <string>"), list_videoformat, 0);
-        print_list_options(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
-        print_list_options(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
-        print_list_options(stdout, _T("--transfer <string>"),    list_transfer,    0);
-
-        _ftprintf(stdout, _T("\n")
-            _T("H.265/HEVC\n")
-            _T("   --cu-max <int>                 set max CU size\n")
-            _T("   --cu-min  <int>                set min CU size\n")
-            _T("                                    8, 16, 32 are avaliable"));
+    _ftprintf(stdout, _T("\n")
+        _T("H.265/HEVC\n")
+        _T("   --cu-max <int>                 set max CU size\n")
+        _T("   --cu-min  <int>                set min CU size\n")
+        _T("                                    8, 16, 32 are avaliable"));
 }
 
 static void show_help() {
@@ -683,11 +736,13 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 0;
         } else if (IS_OPTION("fullrange")) {
             codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag = 1;
+            codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag = 1;
         } else if (IS_OPTION("videoformat")) {
             i_arg++;
             int value = 0;
             if (get_list_value(list_videoformat, argv[i_arg], &value)) {
                 codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
+                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat = value;
             } else {
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
@@ -697,6 +752,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             int value = 0;
             if (get_list_value(list_colormatrix, argv[i_arg], &value)) {
                 codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix = value;
+                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix = value;
             } else {
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
@@ -706,6 +762,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             int value = 0;
             if (get_list_value(list_colorprim, argv[i_arg], &value)) {
                 codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries = value;
+                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries = value;
             } else {
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
@@ -715,6 +772,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             int value = 0;
             if (get_list_value(list_transfer, argv[i_arg], &value)) {
                 codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = value;
+                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = value;
             } else {
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
