@@ -209,6 +209,7 @@ static void show_help_en() {
         _T("\n")
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
+        _T("   --output-res <int>x<int>       set output resolution\n")
         _T("-f,--fps <int>/<int> or <float>   set framerate\n")
         _T("\n")
         _T("-c,--codec <string>               set ouput codec\n")
