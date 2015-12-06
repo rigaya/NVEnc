@@ -33,10 +33,6 @@ extern "C" {
 #include "nvcuvid.h"
 #include "NVEncUtil.h"
 
-#ifndef cudaVideoCodec_HEVC
-#define cudaVideoCodec_HEVC cudaVideoCodec_NumCodecs
-#endif
-
 #if _DEBUG
 #define NV_AV_LOG_LEVEL AV_LOG_WARNING
 #else
@@ -67,6 +63,8 @@ static tstring CodecIdToStr(cudaVideoCodec cuvid_cc) {
     case cudaVideoCodec_MPEG1: return _T("MPEG1");
     case cudaVideoCodec_VC1:   return _T("VC-1");
     case cudaVideoCodec_MPEG4: return _T("MPEG4");
+    case cudaVideoCodec_VP8:   return _T("VP8");
+    case cudaVideoCodec_VP9:   return _T("VP9");
     default: return _T("unknown");
     }
 }
