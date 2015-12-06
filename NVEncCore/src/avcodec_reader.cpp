@@ -857,7 +857,9 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         ////// デコード開始
         CUresult cuResult = CUDA_SUCCESS;
         CuvidDecode cuvidDec;
-        if (CUDA_SUCCESS != (cuResult = cuvidDec.InitDecode(input_prm->ctxLock, inputPrm, m_pPrintMes, true))) {
+        VppParam vpp;
+        vpp.deinterlace = cudaVideoDeinterlaceMode_Weave;
+        if (CUDA_SUCCESS != (cuResult = cuvidDec.InitDecode(input_prm->ctxLock, inputPrm, &vpp, m_pPrintMes, true))) {
             AddMessage(NV_LOG_ERROR, _T("Failed to init deocder.\n"));
             sts = 1;
         } else if (0 != (sts = getFirstFramePosAndFrameRate(&cuvidDec, input_prm->pTrimList, input_prm->nTrimCount))) {

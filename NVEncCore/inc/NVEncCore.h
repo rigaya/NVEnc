@@ -75,6 +75,10 @@ private:
     std::vector<std::pair<uint32_t, tstring>> GPUList;
 };
 
+typedef struct VppParam {
+    cudaVideoDeinterlaceMode deinterlace;
+} VppParam;
+
 typedef struct InEncodeVideoParam {
     InputVideoInfo input;         //入力する動画の情報
     tstring outputFilename;       //出力ファイル名
@@ -90,6 +94,7 @@ typedef struct InEncodeVideoParam {
     int lossless;                 //ロスレス出力
     tstring logfile;              //ログ出力先
     int loglevel;                 //ログ出力レベル
+    VppParam vpp;                 //vpp
 } InEncodeVideoParam;
 
 class NVEncCore {

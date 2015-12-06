@@ -22,13 +22,14 @@
 bool check_if_nvcuvid_dll_available();
 
 struct InputVideoInfo;
+struct VppParam;
 
 class CuvidDecode {
 public:
     CuvidDecode();
     ~CuvidDecode();
 
-    CUresult InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *input, shared_ptr<CNVEncLog> pLog, bool ignoreDynamicFormatChange = false);
+    CUresult InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, bool ignoreDynamicFormatChange = false);
     void CloseDecoder();
     CUresult DecodePacket(uint8_t *data, size_t nSize, int64_t timestamp, AVRational streamtimebase);
     CUresult FlushParser();
@@ -43,6 +44,9 @@ public:
     int DecPictureDecode(CUVIDPICPARAMS* pPicParams);
     int DecVideoSequence(CUVIDEOFORMAT* pFormat);
     int DecPictureDisplay(CUVIDPARSERDISPINFO* pPicParams);
+    cudaVideoDeinterlaceMode getDeinterlaceMode() {
+        return m_deinterlaceMode;
+    }
     FrameQueue *frameQueue() {
         return m_pFrameQueue;
     }
@@ -85,6 +89,7 @@ protected:
     shared_ptr<CNVEncLog>        m_pPrintMes;  //ログ出力
     bool                         m_bIgnoreDynamicFormatChange;
     bool                         m_bError;
+    cudaVideoDeinterlaceMode     m_deinterlaceMode;
 };
 
 #endif //#if ENABLE_AVCUVID_READER

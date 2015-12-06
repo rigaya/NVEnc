@@ -1030,7 +1030,7 @@ NVENCSTATUS NVEncCore::CreateDecoder(const InEncodeVideoParam *inputParam) {
     if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
         m_cuvidDec.reset(new CuvidDecode());
 
-        auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, m_pNVLog);
+        auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, m_pNVLog);
         if (result != CUDA_SUCCESS) {
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
@@ -1106,6 +1106,16 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     //picStructの設定
     m_stPicStruct = (inputParam->picStruct == 0) ? NV_ENC_PIC_STRUCT_FRAME : inputParam->picStruct;
+
+    if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
+#if ENABLE_AVCUVID_READER
+        if (inputParam->input.type != NV_ENC_INPUT_AVCUVID) {
+            NVPrintf(stderr, NV_LOG_ERROR, _T("vpp-deinterlace requires to be used with avcuvid reader.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+#endif
+        m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
+    }
     
     //制限事項チェック
     if (inputParam->input.width < 0 && inputParam->input.height < 0) {
@@ -1127,11 +1137,11 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
-    const int height_check_mask = 1 + 2 * !!is_interlaced(inputParam->picStruct);
+    const int height_check_mask = 1 + 2 * !!is_interlaced(m_stPicStruct);
     if ((m_uEncWidth & 1) || (m_uEncHeight & height_check_mask)) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("%s: %dx%d\n"), FOR_AUO ? _T("解像度が無効です。") : _T("Invalid resolution."), m_uEncWidth, m_uEncHeight);
         NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("縦横の解像度は2の倍数である必要があります。\n") : _T("Relosution of mod2 required.\n"));
-        if (is_interlaced(inputParam->picStruct)) {
+        if (is_interlaced(m_stPicStruct)) {
             NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("さらに、インタレ保持エンコードでは縦解像度は4の倍数である必要があります。\n") : _T("For interlaced encoding, mod4 is required for height.\n"));
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -1143,7 +1153,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             inputParam->input.width, inputParam->input.height,
             inputParam->input.crop.c[0], inputParam->input.crop.c[1], inputParam->input.crop.c[2], inputParam->input.crop.c[3]);
         NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("Crop値は2の倍数である必要があります。\n") : _T("Crop value of mod2 required.\n"));
-        if (is_interlaced(inputParam->picStruct)) {
+        if (is_interlaced(m_stPicStruct)) {
             NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("さらに、インタレ保持エンコードでは縦Crop値は4の倍数である必要があります。\n") : _T("For interlaced encoding, mod4 is required for height.\n"));
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -1161,7 +1171,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         error_resolution_over_limit(nullptr, 0, (NV_ENC_CAPS)0);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    uint32_t heightMod = 16 * (1 + !!is_interlaced(inputParam->picStruct));
+    uint32_t heightMod = 16 * (1 + !!is_interlaced(m_stPicStruct));
     uint32_t targetMB = ((m_uEncWidth + 15) / 16) * ((m_uEncHeight + (heightMod - 1)) / heightMod);
     if (targetMB > (uint32_t)getCapLimit(NV_ENC_CAPS_MB_NUM_MAX)) {
         error_resolution_over_limit(_T("MB"), targetMB, NV_ENC_CAPS_MB_NUM_MAX);
@@ -1177,7 +1187,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         NVPrintf(stderr, log_level, FOR_AUO ? _T("%sはサポートされていません。\n") : _T("%s unsupported.\n"), feature_name);
     };
 
-    if (is_interlaced(inputParam->picStruct) && !getCapLimit(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING)) {
+    if (is_interlaced(m_stPicStruct) && !getCapLimit(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING)) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     if (m_stEncConfig.rcParams.rateControlMode != (m_stEncConfig.rcParams.rateControlMode & getCapLimit(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES))) {
@@ -1285,6 +1295,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     m_stCreateEncodeParams.frameRateNum        = inputParam->input.rate;
     m_stCreateEncodeParams.frameRateDen        = inputParam->input.scale;
+    if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
+        m_stCreateEncodeParams.frameRateNum *= 2;
+    }
     //Fix me add theading model
     m_stCreateEncodeParams.enableEncodeAsync   = true;
     m_stCreateEncodeParams.enablePTD           = true;
@@ -1624,25 +1637,50 @@ NVENCSTATUS NVEncCore::Encode() {
 
             CUVIDPARSERDISPINFO pInfo;
             if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
-                CUdeviceptr dMappedFrame = 0;
-                unsigned int pitch;
+
+                auto encode = [&](CUVIDPROCPARAMS oVPP) {
+                    NVPrintf(stderr, NV_LOG_TRACE, _T("Get decoded frame %d\n"), decodedFrame);
+                    CUdeviceptr dMappedFrame = 0;
+                    unsigned int pitch;
+                    cuvidMapVideoFrame(m_cuvidDec->GetDecoder(), pInfo.picture_index, &dMappedFrame, &pitch, &oVPP);
+
+                    EncodeFrameConfig stEncodeConfig = { 0 };
+                    stEncodeConfig.dptr = dMappedFrame;
+                    stEncodeConfig.pitch = pitch;
+                    stEncodeConfig.width = m_uEncWidth;
+                    stEncodeConfig.height = m_uEncHeight;
+                    NVPrintf(stderr, NV_LOG_TRACE, _T("Set frame to encode %d\n"), decodedFrame);
+                    EncodeFrame(&stEncodeConfig, pInfo.timestamp);
+
+                    cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), dMappedFrame);
+                    m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
+                };
                 CUVIDPROCPARAMS oVPP = { 0 };
-                oVPP.unpaired_field = 1;
-                oVPP.progressive_frame = 1;
+                oVPP.top_field_first = m_stPicStruct != NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
 
-                NVPrintf(stderr, NV_LOG_TRACE, _T("Get decoded frame %d\n"), decodedFrame);
-                cuvidMapVideoFrame(m_cuvidDec->GetDecoder(), pInfo.picture_index, &dMappedFrame, &pitch, &oVPP);
-
-                EncodeFrameConfig stEncodeConfig = { 0 };
-                stEncodeConfig.dptr = dMappedFrame;
-                stEncodeConfig.pitch = pitch;
-                stEncodeConfig.width = m_uEncWidth;
-                stEncodeConfig.height = m_uEncHeight;
-                NVPrintf(stderr, NV_LOG_TRACE, _T("Set frame to encode %d\n"), decodedFrame);
-                EncodeFrame(&stEncodeConfig, pInfo.timestamp);
-
-                cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), dMappedFrame);
-                m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
+                auto deint = m_cuvidDec->getDeinterlaceMode();
+                switch (deint) {
+                case cudaVideoDeinterlaceMode_Weave:
+                    oVPP.unpaired_field = 1;
+                    oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
+                    encode(oVPP);
+                    break;
+                case cudaVideoDeinterlaceMode_Bob:
+                    oVPP.progressive_frame = 0;
+                    oVPP.second_field = 0;
+                    encode(oVPP);
+                    oVPP.second_field = 1;
+                    encode(oVPP);
+                    break;
+                case cudaVideoDeinterlaceMode_Adaptive:
+                    oVPP.progressive_frame = 0;
+                    encode(oVPP);
+                    break;
+                default:
+                    NVPrintf(stderr, NV_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
+                    nvStatus = NV_ENC_ERR_GENERIC;
+                    break;
+                }
 
                 decodedFrame++;
             }
@@ -1798,6 +1836,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(NV_LOG_INFO,  _T("GPU                %s\n"), gpu_info);
     add_str(NV_LOG_ERROR, _T("入力バッファ       %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
     add_str(NV_LOG_ERROR, _T("入力フレーム情報   %s\n"), m_pInput->getInputMes());
+    if (m_cuvidDec && m_cuvidDec->getDeinterlaceMode() != cudaVideoDeinterlaceMode_Weave) {
+        add_str(NV_LOG_ERROR, _T("インターレース解除 %s\n"), get_desc(list_deinterlace, m_cuvidDec->getDeinterlaceMode()));
+    }
     add_str(NV_LOG_ERROR, _T("出力動画情報       %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
         (codec == NV_ENC_H264) ? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
     add_str(NV_LOG_ERROR, _T("                   %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), sar.first, sar.second, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
@@ -1869,6 +1910,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(NV_LOG_INFO,  _T("GPU                %s\n"), gpu_info);
     add_str(NV_LOG_ERROR, _T("Input Buffers      %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
     add_str(NV_LOG_ERROR, _T("Input Info         %s\n"), m_pInput->getInputMes());
+    if (m_cuvidDec && m_cuvidDec->getDeinterlaceMode() != cudaVideoDeinterlaceMode_Weave) {
+        add_str(NV_LOG_ERROR, _T("Deinterlace        %s\n"), get_desc(list_deinterlace, m_cuvidDec->getDeinterlaceMode()));
+    }
     add_str(NV_LOG_ERROR, _T("Output Info        %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
         (codec == NV_ENC_H264) ? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
     add_str(NV_LOG_ERROR, _T("                   %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), sar.first, sar.second, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);

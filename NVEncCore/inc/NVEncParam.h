@@ -12,6 +12,7 @@
 #include <tchar.h>
 #include <limits.h>
 #include <vector>
+#include <cuviddec.h>
 #include "nvEncodeAPI.h"
 #include "NVEncoderPerf.h"
 
@@ -307,6 +308,13 @@ const CX_DESC list_preset_ja[] = {
     { NULL, NULL }
 };
 #endif
+
+const CX_DESC list_deinterlace[] = {
+    { _T("none"),     cudaVideoDeinterlaceMode_Weave    },
+    { _T("bob"),      cudaVideoDeinterlaceMode_Bob      },
+    { _T("adaptive"), cudaVideoDeinterlaceMode_Adaptive },
+    { NULL, 0 }
+};
 
 const CX_DESC list_log_level[] = {
     { _T("trace"), NV_LOG_TRACE },

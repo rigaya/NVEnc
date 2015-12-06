@@ -132,6 +132,8 @@ static void show_help_ja() {
         _T("                                    half-pel … 1/2画素精度\n")
         _T("                                    full-pel … 1  画素精度 (低精度)\n")
         _T("   --vbv-bufsize <int>            VBVバッファサイズ (kbit) / デフォルト 自動\n")
+        _T("   --vpp-deinterlace <string>     インタレ解除を行う(avcuvid使用時のみ)\n")
+        _T("                                    none(デフォルト), bob, adaptive\n")
         _T("\n")
         _T("H.264/AVC\n")
         _T("   --interlaced <string>          インタレ保持エンコ\n")
@@ -240,6 +242,9 @@ static void show_help_en() {
         _T("                                    half-pel\n")
         _T("                                    full-pel (Low Quality)n")
         _T("   --vbv-bufsize <int>            set vbv buffer size (kbit) / Default: auto\n")
+        _T("   --vpp-deinterlace <string>     set deinterlace mode / Default: none\n")
+        _T("                                    none, bob, adaptive\n")
+        _T("                                    available only with avcuvid reader\n")
         _T("\n")
         _T("H.264/AVC\n")
         _T("   --interlaced <string>          interlaced encoding\n")
@@ -645,7 +650,16 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
             }
-        } else if (IS_OPTION("interlaced")) {
+        } else if (IS_OPTION("vpp-deinterlace")) {
+            i_arg++;
+            int value = 0;
+            if (get_list_value(list_deinterlace, argv[i_arg], &value)) {
+                conf_set->vpp.deinterlace = (cudaVideoDeinterlaceMode)value;
+            } else {
+                invalid_option_value(option_name, argv[i_arg]);
+                return -1;
+            }
+        }  else if (IS_OPTION("interlaced")) {
             i_arg++;
             int value = 0;
             if (get_list_value(list_interlaced, argv[i_arg], &value)) {
