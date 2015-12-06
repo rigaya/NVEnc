@@ -1112,6 +1112,12 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("%s: %dx%d\n"), FOR_AUO ? _T("解像度が無効です。") : _T("Invalid resolution."), inputParam->input.width, inputParam->input.height);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+#if ENABLE_AVCUVID_READER
+    if (inputParam->input.crop.e.left > 0 && inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("left crop is unsupported with avcuvid reader.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+#endif
     if (   (int)inputParam->input.width  <= inputParam->input.crop.e.left + inputParam->input.crop.e.right
         && (int)inputParam->input.height <= inputParam->input.crop.e.up   + inputParam->input.crop.e.bottom) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("%s: %dx%d, Crop [%d,%d,%d,%d]\n"),
