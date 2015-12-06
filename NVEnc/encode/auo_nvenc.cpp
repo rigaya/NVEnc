@@ -164,7 +164,7 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     }
 
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
-    m_sDecParam.src_pitch = 0;
+    m_sDecParam.src_pitch = m_sDecParam.width;
     CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
