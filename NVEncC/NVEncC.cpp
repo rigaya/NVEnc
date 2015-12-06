@@ -808,6 +808,9 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
             }
+        } else {
+            _ftprintf(stderr, _T("Invalid option: %s.\n"), option_name);
+            return -1;
         }
     }
 
