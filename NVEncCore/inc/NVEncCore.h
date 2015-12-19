@@ -39,15 +39,6 @@ static const int DEFAULT_QP_B        = 25;
 static const int DEFAULT_AVG_BITRATE = 7500000;
 static const int DEFAULT_MAX_BITRATE = 17500000;
 
-enum {
-    NVENC_THREAD_RUNNING = 0,
-
-    NVENC_THREAD_FINISHED = -1,
-    NVENC_THREAD_ABORT = -2,
-
-    NVENC_THREAD_ERROR = 1,
-};
-
 #ifdef _M_IX86
 static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI.dll");
 #else

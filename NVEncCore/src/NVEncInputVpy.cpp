@@ -302,13 +302,7 @@ int NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
     m_nFrame++;
     m_pEncSatusInfo->m_sData.frameIn++;
     m_nCopyOfInputFrames = m_nFrame;
-
-    auto tm = std::chrono::system_clock::now();
-    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
-        m_tmLastUpdate = tm;
-        m_pEncSatusInfo->UpdateDisplay(tm);
-    }
-
+    m_pEncSatusInfo->UpdateDisplay();
     return 0;
 }
 

@@ -18,7 +18,6 @@
 
 
 NVEncBasicInput::NVEncBasicInput() {
-    m_tmLastUpdate = std::chrono::system_clock::now();
     memset(&m_sTrimParam, 0, sizeof(m_sTrimParam));
 }
 

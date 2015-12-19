@@ -25,12 +25,23 @@
 
 using std::chrono::duration_cast;
 
+static const int UPDATE_INTERVAL = 800;
+
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
 #endif
 #ifndef MAX3
 #define MAX3(a,b,c) (max((a), max((b), (c))))
 #endif
+
+enum {
+    NVENC_THREAD_RUNNING = 0,
+
+    NVENC_THREAD_FINISHED = -1,
+    NVENC_THREAD_ABORT = -2,
+
+    NVENC_THREAD_ERROR = 1,
+};
 
 typedef struct EncodeStatusData {
     uint64_t outFileSize;      //出力ファイルサイズ
@@ -60,13 +71,14 @@ public:
         ZeroMemory(&m_sData, sizeof(m_sData));
 
         m_sData.tmLastUpdate = std::chrono::system_clock::now();
-
+        m_pause = FALSE;
         DWORD mode = 0;
         m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
     }
     ~EncodeStatus() { m_pNVLog.reset(); };
 
     virtual void init(shared_ptr<CNVEncLog> pQSVLog) {
+        m_pause = FALSE;
         m_sData.tmLastUpdate = std::chrono::system_clock::now();
         m_pNVLog = pQSVLog;
     }
@@ -95,7 +107,9 @@ public:
         m_sData.frameOutPQPSum += (0-(NV_ENC_PIC_TYPE_P   == picType)) & frameAvgQP;
         m_sData.frameOutBQPSum += (0-(NV_ENC_PIC_TYPE_B   == picType)) & frameAvgQP;
     }
-    virtual void UpdateDisplay(const TCHAR *mes) {
+#pragma warning(push)
+#pragma warning(disable: 4100)
+    virtual void UpdateDisplay(const TCHAR *mes, double progressPercent = 0.0) {
 #if UNICODE
         char *mes_char = NULL;
         if (!m_bStdErrWriteToConsole) {
@@ -112,6 +126,8 @@ public:
 
         fflush(stderr); //リダイレクトした場合でもすぐ読み取れるようflush
     }
+#pragma warning(pop)
+
     virtual void WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
         if (count) {
             TCHAR mes[512] = { 0 };
@@ -148,10 +164,19 @@ public:
         }
         (*m_pNVLog)(NV_LOG_INFO, _T("%s\n"), mes);
     }
-    virtual void UpdateDisplay(std::chrono::system_clock::time_point tm, double progressPercent = 0.0) {
+    virtual int UpdateDisplay(double progressPercent = 0.0) {
+        if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > NV_LOG_INFO) {
+            return NVENC_THREAD_RUNNING;
+        }
+        if (m_sData.frameOut + m_sData.frameDrop <= 0) {
+            return NVENC_THREAD_RUNNING;
+        }
+        auto tm = std::chrono::system_clock::now();
+        if (duration_cast<std::chrono::milliseconds>(tm - m_sData.tmLastUpdate).count() < UPDATE_INTERVAL) {
+            return NVENC_THREAD_RUNNING;
+        }
+        m_sData.tmLastUpdate = tm;
         double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_sData.tmStart).count();
-        if (elapsedTime < 800)
-            return;
         if (m_sData.frameOut + m_sData.frameDrop) {
             TCHAR mes[256] = { 0 };
             m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
@@ -184,8 +209,8 @@ public:
                     );
             }
             UpdateDisplay(mes);
-            m_sData.tmLastUpdate = tm;
         }
+        return NVENC_THREAD_RUNNING;
     }
     virtual void writeResult() {
         auto tm_result = std::chrono::system_clock::now();
@@ -224,7 +249,14 @@ public:
         WriteFrameTypeResult(_T("frame type P   "), m_sData.frameOutP,   maxCount, m_sData.frameOutPSize, maxFrameSize, (m_sData.frameOutP) ? m_sData.frameOutPQPSum / (double)m_sData.frameOutP : -1);
         WriteFrameTypeResult(_T("frame type B   "), m_sData.frameOutB,   maxCount, m_sData.frameOutBSize, maxFrameSize, (m_sData.frameOutB) ? m_sData.frameOutBQPSum / (double)m_sData.frameOutB : -1);
     }
+#pragma warning(push)
+#pragma warning(disable: 4100)
+    virtual void SetPrivData(void *pPrivateData) {
+
+    }
+#pragma warning(pop)
 public:
+    BOOL m_pause;
     std::shared_ptr<CNVEncLog> m_pNVLog;
     PROCESS_TIME m_sStartTime;
     EncodeStatusData m_sData;

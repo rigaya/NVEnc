@@ -250,13 +250,7 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     m_pConvCSPInfo->func[0](dst_array, src_array, m_sDecParam.width, m_sDecParam.src_pitch, src_uv_pitch, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
 
     m_pEncSatusInfo->m_sData.frameIn++;
-
-    auto tm = std::chrono::system_clock::now();
-    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
-        m_tmLastUpdate = tm;
-        m_pEncSatusInfo->UpdateDisplay(tm);
-    }
-
+    m_pEncSatusInfo->UpdateDisplay();
     return 0;
 }
 

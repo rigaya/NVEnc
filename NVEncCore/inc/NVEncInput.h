@@ -22,8 +22,6 @@
 #include "NVEncParam.h"
 #include <nvcuvid.h>
 
-static const int UPDATE_INTERVAL = 800;
-
 enum {
     NV_ENC_INPUT_UNKNWON = 0,
     NV_ENC_INPUT_AUO = 0,
@@ -116,7 +114,6 @@ protected:
     shared_ptr<EncodeStatus> m_pEncSatusInfo;
     FILE *m_fp = NULL;
     tstring m_strInputInfo;
-    std::chrono::system_clock::time_point m_tmLastUpdate;
     const ConvertCSP *m_pConvCSPInfo = nullptr;
     shared_ptr<CNVEncLog> m_pPrintMes;  //ログ出力
     tstring m_strReaderName;    //読み込みの名前

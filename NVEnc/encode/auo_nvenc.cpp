@@ -83,15 +83,23 @@ void close_afsvideo(PRM_ENC *pe) {
 }
 
 AuoEncodeStatus::AuoEncodeStatus() {
-
+    m_tmLastLogUpdate = m_sData.tmLastUpdate;
+    m_pause = false;
 }
 
 AuoEncodeStatus::~AuoEncodeStatus() {
-
+    m_pause = false;
 }
 
-void AuoEncodeStatus::UpdateDisplay(const TCHAR *mes) {
-    set_log_title_and_progress(mes, (m_sData.frameOut + m_sData.frameDrop) / (double)m_sData.frameTotal);
+void AuoEncodeStatus::UpdateDisplay(const TCHAR *mes, double progressPercent) {
+    set_log_title_and_progress(mes, progressPercent * 0.01);
+    m_auoData.oip->func_rest_time_disp(m_sData.frameOut, m_auoData.oip->n);
+    m_auoData.oip->func_update_preview();
+}
+
+void AuoEncodeStatus::SetPrivData(void *pPrivateData) {
+    m_auoData = *(InputInfoAuo *)pPrivateData;
+    enable_enc_control(&m_pause, m_auoData.pe->afs_init, FALSE, timeGetTime(), m_auoData.oip->n);
 }
 
 void AuoEncodeStatus::WriteLine(const TCHAR *mes) {
@@ -105,12 +113,30 @@ void AuoEncodeStatus::WriteLine(const TCHAR *mes) {
         free(buf);
     }
 }
+int AuoEncodeStatus::UpdateDisplay(double progressPercent) {
+    auto tm = std::chrono::system_clock::now();
+
+    if (m_auoData.oip->func_is_abort())
+        return NVENC_THREAD_ABORT;
+
+    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastLogUpdate).count() >= LOG_UPDATE_INTERVAL) {
+        log_process_events();
+
+        while (m_pause) {
+            Sleep(LOG_UPDATE_INTERVAL);
+            if (m_auoData.oip->func_is_abort())
+                return NVENC_THREAD_ABORT;
+            log_process_events();
+        }
+        m_tmLastLogUpdate = tm;
+    }
+    return EncodeStatus::UpdateDisplay(progressPercent);
+}
 
 AuoInput::AuoInput() {
     oip = NULL;
     conf = NULL;
     pe = NULL;
-    m_pause = FALSE;
 }
 
 AuoInput::~AuoInput() {
@@ -154,8 +180,6 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
         return 1;
     }
 
-    enable_enc_control(&m_pause, pe->afs_init, FALSE, timeGetTime(), oip->n);
-
     if (conf->vid.afs) {
         if (!setup_afsvideo(oip, info->sys_dat, conf, pe)) {
             AddMessage(NV_LOG_ERROR, "自動フィールドシフトの初期化に失敗しました。\n");
@@ -172,13 +196,6 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
 int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
     if (FALSE != (pe->aud_parallel.abort = oip->func_is_abort()))
         return NVENC_THREAD_ABORT;
-
-    while (m_pause) {
-        Sleep(LOG_UPDATE_INTERVAL);
-        if (oip->func_is_abort())
-            return NVENC_THREAD_ABORT;
-        log_process_events();
-    }
 
     if (m_iFrame >= oip->n) {
         oip->func_rest_time_disp(m_iFrame-1, oip->n);
@@ -225,14 +242,7 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
         aud_parallel_task(oip, pe);
 
     m_pEncSatusInfo->m_sData.frameIn++;
-
-    auto tm = std::chrono::system_clock::now();
-    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
-        m_tmLastUpdate = tm;
-        oip->func_rest_time_disp(m_iFrame, oip->n);
-        oip->func_update_preview();
-        m_pEncSatusInfo->UpdateDisplay(tm);
-    }
+    m_pEncSatusInfo->UpdateDisplay();
 
     return NVENC_THREAD_RUNNING;
 }
@@ -252,6 +262,7 @@ NVENCSTATUS CAuoNvEnc::InitLog(const InEncodeVideoParam *inputParam) {
 
 NVENCSTATUS CAuoNvEnc::InitInput(InEncodeVideoParam *inputParam) {
     m_pStatus.reset(new AuoEncodeStatus());
+    m_pStatus->SetPrivData(&inputParam->input.otherPrm);
     m_pStatus->init(m_pNVLog);
     m_pInput = new AuoInput();
     m_pInput->SetNVEncLogPtr(m_pNVLog);

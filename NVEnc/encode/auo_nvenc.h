@@ -42,8 +42,13 @@ public:
     AuoEncodeStatus();
     ~AuoEncodeStatus();
 protected:
-    virtual void UpdateDisplay(const TCHAR *mes) override;
+    virtual void UpdateDisplay(const TCHAR *mes, double progressPercent = 0.0) override;
     virtual void WriteLine(const TCHAR *mes) override;
+    virtual int UpdateDisplay(double progressPercent = 0.0) override;
+    virtual void SetPrivData(void *pPrivateData) override;
+
+    InputInfoAuo m_auoData;
+    std::chrono::system_clock::time_point m_tmLastLogUpdate;
 };
 
 class AuoInput : public NVEncBasicInput

@@ -923,8 +923,6 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         }
         m_strInputInfo += _T("avcodec audio: ") + mes;
     }
-
-    m_tmLastUpdate = std::chrono::system_clock::now();
     return 0;
 }
 #pragma warning(pop)
@@ -1122,7 +1120,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
     addVideoPtsToList({ videoFinPts, videoFinPts, 0 });
     m_Demux.video.frameData.fixed_num = m_Demux.video.frameData.num - 1;
     m_Demux.video.frameData.duration = m_Demux.format.pFormatCtx->duration;
-    m_pEncSatusInfo->UpdateDisplay(std::chrono::system_clock::now(), 100.0);
+    m_pEncSatusInfo->UpdateDisplay(100.0);
     return 1;
 }
 
@@ -1284,15 +1282,7 @@ int CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
     }
     m_Demux.video.nSampleLoadCount++;
     m_pEncSatusInfo->m_sData.frameIn++;
-    auto tm = std::chrono::system_clock::now();
-    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
-        double progressPercent = 0.0;
-        if (m_Demux.format.pFormatCtx->duration) {
-            progressPercent = m_Demux.video.frameData.duration * (m_Demux.video.pCodecCtx->pkt_timebase.num / (double)m_Demux.video.pCodecCtx->pkt_timebase.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
-        }
-        m_tmLastUpdate = tm;
-        m_pEncSatusInfo->UpdateDisplay(tm, progressPercent);
-    }
+    m_pEncSatusInfo->UpdateDisplay();
     return NV_ENC_SUCCESS;
 }
 #pragma warning(pop)

@@ -1027,6 +1027,8 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
     return false;
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::CreateDecoder(const InEncodeVideoParam *inputParam) {
 #if ENABLE_AVCUVID_READER
     if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
@@ -1040,6 +1042,7 @@ NVENCSTATUS NVEncCore::CreateDecoder(const InEncodeVideoParam *inputParam) {
 #endif //#if ENABLE_AVCUVID_READER
     return NV_ENC_SUCCESS;
 }
+#pragma warning(pop)
 
 NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     memcpy(&m_stEncConfig, &inputParam->encConfig, sizeof(m_stEncConfig));
@@ -1581,6 +1584,8 @@ NVENCSTATUS NVEncCore::EncodeFrame(uint64_t timestamp) {
     return NV_ENC_SUCCESS;
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t timestamp) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 #if ENABLE_AVCUVID_READER
@@ -1625,6 +1630,7 @@ NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t tim
 #endif //#if ENABLE_AVCUVID_READER
     return nvStatus;
 }
+#pragma warning(pop)
 
 NVENCSTATUS NVEncCore::Encode() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
