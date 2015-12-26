@@ -1891,8 +1891,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag ? _T(" (lossless)") : _T(""));
     } else {
         add_str(NV_LOG_ERROR, _T("ビットレート       %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
-        if (m_stEncConfig.rcParams.enableInitialRCQP)
-            add_str(NV_LOG_INFO,  _T("初期QP値           I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB);
+        if (m_stEncConfig.rcParams.enableInitialRCQP) {
+            add_str(NV_LOG_INFO,  _T("初期QP値           I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.initialRCQP.qpIntra, m_stEncConfig.rcParams.initialRCQP.qpInterP, m_stEncConfig.rcParams.initialRCQP.qpInterB);
+        }
         if (m_stEncConfig.rcParams.enableMaxQP || m_stEncConfig.rcParams.enableMinQP) {
             int minQPI = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpIntra  :  0;
             int maxQPI = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpIntra  : 51;
@@ -1966,8 +1967,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     } else {
         add_str(NV_LOG_ERROR, _T("\n"));
         add_str(NV_LOG_ERROR, _T("Bitrate            %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
-        if (m_stEncConfig.rcParams.enableInitialRCQP)
-            add_str(NV_LOG_INFO,  _T("Initial QP         I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB);
+        if (m_stEncConfig.rcParams.enableInitialRCQP) {
+            add_str(NV_LOG_INFO,  _T("Initial QP         I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.initialRCQP.qpIntra, m_stEncConfig.rcParams.initialRCQP.qpInterP, m_stEncConfig.rcParams.initialRCQP.qpInterB);
+        }
         if (m_stEncConfig.rcParams.enableMaxQP || m_stEncConfig.rcParams.enableMinQP) {
             int minQPI = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpIntra  :  0;
             int maxQPI = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpIntra  : 51;

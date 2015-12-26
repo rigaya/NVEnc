@@ -171,6 +171,12 @@ static void show_help_ja() {
         _T("                                    デフォルト %d kbps\n")
         _T("\n")
         _T("   --max-bitrate <int>            最大ビットレート(kbps) / デフォルト: %d kbps\n")
+        _T("   --qp-init <int> or             初期QPを設定\n")
+        _T("             <int>:<int>:<int>      デフォルト: 自動\n")
+        _T("   --qp-max <int> or              最大QPを設定\n")
+        _T("            <int>:<int>:<int>       デフォルト: 指定なし\n")
+        _T("   --qp-min <int> or              最小QPを設定\n")
+        _T("             <int>:<int>:<int>      デフォルト: 指定なし\n")
         _T("   --gop-len <int>                GOPのフレーム数 / デフォルト: %d frames%s\n")
         _T("-b,--bframes <int>                連続Bフレーム数 / デフォルト %d フレーム\n")
         _T("   --ref <int>                    参照距離 / デフォルト %d フレーム\n")
@@ -288,6 +294,12 @@ static void show_help_en() {
         _T("                                    Default: %d kbps\n")
         _T("\n")
         _T("   --max-bitrate <int>            set Max Bitrate (kbps) / Default: %d kbps\n")
+        _T("   --qp-init <int> or             set initial QP\n")
+        _T("             <int>:<int>:<int>      Default: auto\n")
+        _T("   --qp-max <int> or              set max QP\n")
+        _T("            <int>:<int>:<int>       Default: unset\n")
+        _T("   --qp-min <int> or              set min QP\n")
+        _T("             <int>:<int>:<int>      Default: unset\n")
         _T("   --gop-len <int>                set GOP Length / Default: %d frames%s\n")
         _T("-b,--bframes <int>                set B frames / Default %d frames\n")
         _T("   --ref <int>                    set Ref frames / Default %d frames\n")
@@ -607,7 +619,7 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             i_arg++;
             int value = 0;
             if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
+                conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_MINQP;
                 conf_set->encConfig.rcParams.averageBitRate = value * 1000;
             } else {
                 invalid_option_value(option_name, argv[i_arg]);
@@ -630,6 +642,37 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
                 conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
                 conf_set->encConfig.rcParams.averageBitRate = value * 1000;
                 conf_set->encConfig.rcParams.maxBitRate = value * 1000;
+            } else {
+                invalid_option_value(option_name, argv[i_arg]);
+                return -1;
+            }
+        } else if (IS_OPTION("qp-init") || IS_OPTION("qp-max") || IS_OPTION("qp-min")) {
+            NV_ENC_QP *ptrQP = nullptr;
+            if (IS_OPTION("qp-init")) {
+                conf_set->encConfig.rcParams.enableInitialRCQP = 1;
+                ptrQP = &conf_set->encConfig.rcParams.initialRCQP;
+            } else if (IS_OPTION("qp-max")) {
+                conf_set->encConfig.rcParams.enableMaxQP = 1;
+                ptrQP = &conf_set->encConfig.rcParams.maxQP;
+            } else if (IS_OPTION("qp-min")) {
+                conf_set->encConfig.rcParams.enableMinQP = 1;
+                ptrQP = &conf_set->encConfig.rcParams.minQP;
+            } else {
+                return -1;
+            }
+            i_arg++;
+            int a[3] = { 0 };
+            if (   3 == _stscanf_s(argv[i_arg], _T("%d:%d:%d"), &a[0], &a[1], &a[2])
+                || 3 == _stscanf_s(argv[i_arg], _T("%d/%d/%d"), &a[0], &a[1], &a[2])
+                || 3 == _stscanf_s(argv[i_arg], _T("%d.%d.%d"), &a[0], &a[1], &a[2])
+                || 3 == _stscanf_s(argv[i_arg], _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
+                ptrQP->qpIntra  = a[0];
+                ptrQP->qpInterP = a[1];
+                ptrQP->qpInterB = a[2];
+            } else if (1 == _stscanf_s(argv[i_arg], _T("%d"), &a[0])) {
+                ptrQP->qpIntra  = a[0];
+                ptrQP->qpInterP = a[0];
+                ptrQP->qpInterB = a[0];
             } else {
                 invalid_option_value(option_name, argv[i_arg]);
                 return -1;
