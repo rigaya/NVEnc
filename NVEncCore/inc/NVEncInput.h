@@ -78,9 +78,8 @@ public:
 
     virtual void Close();
 
-    const TCHAR *getInputMes() {
-        const TCHAR *mes = m_strInputInfo.c_str();
-        return (mes) ? mes : _T("");
+    tstring getInputMes() {
+        return m_strInputInfo;
     }
     void AddMessage(int log_level, const tstring& str) {
         if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {

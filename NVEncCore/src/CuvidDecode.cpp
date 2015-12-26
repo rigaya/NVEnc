@@ -158,6 +158,11 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
     }
     AddMessage(NV_LOG_DEBUG, _T("nvcuvid.dll available\n"));
 
+    if (!ctxLock) {
+        AddMessage(NV_LOG_ERROR, _T("invalid ctxLock.\n"));
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+
     m_ctxLock = ctxLock;
 
     if (nullptr == (m_pFrameQueue = new CUVIDFrameQueue(m_ctxLock))) {
@@ -233,6 +238,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
             return curesult;
         }
     }
+    AddMessage(NV_LOG_DEBUG, _T("DecodePacket: success\n"));
 
     return curesult;
 }
