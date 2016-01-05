@@ -180,6 +180,7 @@ protected:
     CUdevice                     m_device;                //CUDAデバイスインスタンス
     CUcontext                    m_cuContextCurr;         //CUDAコンテキスト
     CUvideoctxlock               m_ctxLock;               //CUDAロック
+    uint32_t                     m_nDeviceId;             //DeviceId
     void                        *m_pDevice;               //デバイスインスタンス
     NV_ENCODE_API_FUNCTION_LIST *m_pEncodeAPI;            //NVEnc APIの関数リスト
     HINSTANCE                    m_hinstLib;              //nvEncodeAPI.dllのモジュールハンドル

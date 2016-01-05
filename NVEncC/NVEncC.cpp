@@ -115,9 +115,14 @@ static void show_help_ja() {
         _T("   --help-ja                      ヘルプの表示(日本語)\n")
         _T("   --help-en                      ヘルプの表示(英語)\n")
         _T("-v,--version                      バージョン情報の表示\n")
-        _T("   --check-hw                     NVEncが使用可能かチェック\n")
-        _T("   --check-features               NVEncの使用可能な機能を表示\n")
+        _T("   --check-device                 利用可能なGPUのDeviceIdを表示\n")
+        _T("   --check-hw [<int>]             指定したDeviceIdでNVEncが使用可能か確認\n")
+        _T("                                    指定のない場合はDeviceId #0\n")
+        _T("   --check-features [<int>]       指定したDeviceIdでNVEncの使用可能な機能を表示\n")
+        _T("                                    指定のない場合はDeviceId #0\n")
         _T("   --check-environment            NVEncの認識している環境情報を表示\n")
+        _T("\n")
+        _T("-d,--device                       NVEncで使用するDeviceIdを指定(デフォルト:0)\n")
         _T("\n")
         _T("-i,--input <filename>             入力ファイル名の指定\n")
         _T("-o,--output <filename>            出力ファイル名の指定\n")
@@ -239,9 +244,14 @@ static void show_help_en() {
         _T("   --help-ja                      print help in Japanese\n")
         _T("   --help-en                      print help in English\n")
         _T("-v,--version                      print version info\n")
-        _T("   --check-hw                     Check for NVEnc\n")
-        _T("   --check-features               Check for NVEnc Features\n")
-        _T("   --check-environment            Check for Environment Info\n")
+        _T("   --check-device                 show DeviceId for GPUs available on system")
+        _T("   --check-hw [<int>]             check NVEnc codecs for specefied DeviceId\n")
+        _T("                                    if unset, will check DeviceId #0\n")
+        _T("   --check-features [<int>]       check for NVEnc Features for specefied DeviceId\n")
+        _T("                                    if unset, will check DeviceId #0\n")
+        _T("   --check-environment            check for Environment Info\n")
+        _T("\n")
+        _T("-d,--device <int>                 set DeviceId used in NVEnc (default:0)\n")
         _T("\n")
         _T("-i,--input <filename>             set input filename\n")
         _T("-o,--output <filename>            set output filename\n")
@@ -346,11 +356,29 @@ static void show_help() {
     (check_locale_is_ja()) ? show_help_ja() : show_help_en();
 }
 
-static void show_hw() {
+static void show_device_list() {
+    if (!check_if_nvcuda_dll_available()) {
+        _ftprintf(stdout, _T("CUDA not available.\n"));
+        return;
+    }
+
+    NVEncoderGPUInfo gpuInfo;
+    auto gpuList = gpuInfo.getGPUList();
+    if (0 == gpuList.size()) {
+        _ftprintf(stdout, _T("No GPU found suitable for NVEnc Encoding.\n"));
+        return;
+    }
+
+    for (uint32_t i = 0; i < gpuList.size(); i++) {
+        _ftprintf(stdout, _T("DeviceId #%d: %s\n"), gpuList[i].first, gpuList[i].second.c_str());
+    }
+}
+
+static void show_hw(int deviceid) {
     show_version();
     
     NVEncFeature nvFeature;
-    nvFeature.createCacheAsync(0);
+    nvFeature.createCacheAsync(deviceid);
     auto nvEncCaps = nvFeature.GetCachedNVEncCapability();
     if (nvEncCaps.size()) {
         _ftprintf(stdout, _T("Avaliable Codec(s)\n"));
@@ -366,9 +394,9 @@ static void show_environment_info() {
     _ftprintf(stderr, _T("%s\n"), getEnviromentInfo(false).c_str());
 }
 
-static void show_nvenc_features() {
+static void show_nvenc_features(int deviceid) {
     NVEncFeature nvFeature;
-    if (nvFeature.createCacheAsync(0)) {
+    if (nvFeature.createCacheAsync(deviceid)) {
         _ftprintf(stdout, _T("error on checking features.\n"));
         return;
     }
@@ -422,6 +450,9 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
                     break;
                 case _T('c'):
                     option_name = _T("codec");
+                    break;
+                case _T('d'):
+                    option_name = _T("device");
                     break;
                 case _T('u'):
                     option_name = _T("quality");
@@ -486,15 +517,48 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
         } else if (IS_OPTION("version")) {
             show_version();
             return 1;
+        } else if (IS_OPTION("check-device")) {
+            show_device_list();
+            return 1;
         } else if (IS_OPTION("check-hw")) {
-            show_hw();
+            int deviceid = 0;
+            if (i_arg + 1 < argc) {
+                i_arg++;
+                int value = 0;
+                if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
+                    deviceid = value;
+                }
+            }
+            show_hw(deviceid);
             return 1;
         } else if (IS_OPTION("check-environment")) {
             show_environment_info();
             return 1;
         } else if (IS_OPTION("check-features")) {
-            show_nvenc_features();
+            int deviceid = 0;
+            if (i_arg + 1 < argc) {
+                i_arg++;
+                int value = 0;
+                if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
+                    deviceid = value;
+                }
+            }
+            show_nvenc_features(deviceid);
             return 1;
+        } else if (IS_OPTION("device")) {
+            int deviceid = -1;
+            if (i_arg + 1 < argc) {
+                i_arg++;
+                int value = 0;
+                if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
+                    deviceid = value;
+                }
+            }
+            if (deviceid < 0) {
+                invalid_option_value(option_name, argv[i_arg]);
+                return -1;
+            }
+            conf_set->deviceID = deviceid;
         } else if (IS_OPTION("input")) {
             i_arg++;
             auto length = _tcslen(argv[i_arg]) + 1;

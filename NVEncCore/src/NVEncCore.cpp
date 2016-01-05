@@ -79,6 +79,7 @@ NVEncCore::NVEncCore() {
     m_uEncodeBufferCount = 16;
     m_pOutputBuf = nullptr;
     m_pDevice = nullptr;
+    m_nDeviceId = 0;
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -270,15 +271,13 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     NVPrintf(stderr, NV_LOG_DEBUG, _T("cuInit: Success.\n"));
-    
+    m_nDeviceId = deviceID;
     int deviceCount = 0;
     if (CUDA_SUCCESS != (cuResult = cuDeviceGetCount(&deviceCount))) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("cuDeviceGetCount error:0x%x\n"), cuResult);
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     NVPrintf(stderr, NV_LOG_DEBUG, _T("cuDeviceGetCount: Success.\n"));
-
-    deviceID = max(0, deviceID);
 
     if (deviceID > (unsigned int)deviceCount - 1) {
         NVPrintf(stderr, NV_LOG_ERROR, _T("Invalid Device Id = %d\n"), deviceID);
@@ -1910,7 +1909,17 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     getCPUInfo(cpu_info, _countof(cpu_info));
 
     TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo("NVIDIA", gpu_info, _countof(gpu_info));
+    {
+        NVEncoderGPUInfo nvencGPUInfo;
+        const auto len = _stprintf_s(gpu_info, _T("#%d: "), m_nDeviceId);
+        if (m_nDeviceId || 0 != getGPUInfo("NVIDIA", gpu_info + len, _countof(gpu_info) - len)) {
+            for (const auto& gpuInfo : nvencGPUInfo.getGPUList()) {
+                if (m_nDeviceId == gpuInfo.first) {
+                    _stprintf_s(gpu_info, _T("#%d: %s"), gpuInfo.first, gpuInfo.second.c_str());
+                }
+            }
+        }
+    }
 
     int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
     auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
