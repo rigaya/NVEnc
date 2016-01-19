@@ -22,6 +22,11 @@ NVEnc 2.xx NVIDIA グラフィックドライバ 358   以降
 無保証です。自己責任で使用してください。  
 NVEncを使用したことによる、いかなる損害・トラブルについても責任を負いません。  
 
+### NVEncのソースコードについて
+・MITライセンスです。  
+・本プログラムは、NVIDA CUDA Samplesをベースに作成されており、サンプルコードを含みます。  
+  This software contains source code provided by NVIDIA Corporation.  
+
 ## 使用出来る主な機能
 ### NVEnc/NVEncC共通
 ・NVENCを使用したエンコード  

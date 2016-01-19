@@ -1,0 +1,130 @@
+-----------------------------------------------------------------------------------------
+    NVEnc by rigaya
+-----------------------------------------------------------------------------------------
+
+The MIT License
+
+Copyright (c) 1999-2016 rigaya
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+------------------------------------------------------------------------------------------
+AviUtlPluginSDK License
+------------------------------------------------------------------------------------------
+
+The MIT License
+
+Copyright (c) 1999-2011 Kenkun
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+------------------------------------------------------------------------------------------
+  NVIDIA CORPORATION CUDA SAMPLES EULA のライセンス規定の準拠表記
+------------------------------------------------------------------------------------------
+
+本プログラムは、NVIDA CUDA Samplesをベースに作成されています。
+すなわちサンプルコードをベースとする派生プログラムであり、サンプルコードを含みます。
+
+"This software contains source code provided by NVIDIA Corporation."
+
+------------------------------------------------------------------------------------------
+  Avisynth 2.5.8 "avisynth_c.h" ライセンス
+------------------------------------------------------------------------------------------
+
+QSVEncCでは、Avisynth 2.5.8の"avisynth_c.h"をインクルードし、
+Avisynth読み込みを行なっています。
+以下に"avisynth_c.h"に書かれているライセンスを示します。
+
+// Avisynth C Interface Version 0.20
+// Copyright 2003 Kevin Atkinson
+
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA, or visit
+// http://www.gnu.org/copyleft/gpl.html .
+//
+// As a special exception, I give you permission to link to the
+// Avisynth C interface with independent modules that communicate with
+// the Avisynth C interface solely through the interfaces defined in
+// avisynth_c.h, regardless of the license terms of these independent
+// modules, and to copy and distribute the resulting combined work
+// under terms of your choice, provided that every copy of the
+// combined work is accompanied by a complete copy of the source code
+// of the Avisynth C interface and Avisynth itself (with the version
+// used to produce the combined work), being distributed under the
+// terms of the GNU General Public License plus this exception.  An
+// independent module is a module which is not derived from or based
+// on Avisynth C Interface, such as 3rd-party filters, import and
+// export plugins, or graphical user interfaces.
+
+------------------------------------------------------------------------------------------
+  VapourSynth ライセンス
+------------------------------------------------------------------------------------------
+QSVEncCでは、"vapoursynth.h""VSScript.h"をインクルードし使用しています。
+またインポートライブラリ"VSScript.lib"も使用しています。
+これらはVapourSynth読み込みのため、ライブラリのアクセス定義として使用するものです。
+以下に"vapoursynth.h"のライセンスを示します。
+
+/*
+* Copyright (c) 2012 Fredrik Mellbin
+*
+* This file is part of VapourSynth.
+*
+* VapourSynth is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation; either
+* version 2.1 of the License, or (at your option) any later version.
+*
+* VapourSynth is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+* Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public
+* License along with VapourSynth; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+*/
+
+------------------------------------------------------------------------------------------
