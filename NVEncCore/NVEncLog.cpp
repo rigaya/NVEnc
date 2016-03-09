@@ -135,7 +135,7 @@ void CNVEncLog::writeFileFooter() {
     (*this)(NV_LOG_INFO, _T("\n\n"));
 }
 
-void CNVEncLog::operator()(int log_level, const TCHAR *format, ...) {
+void CNVEncLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     if (log_level < m_nLogLevel) {
         return;
     }
@@ -157,66 +157,75 @@ void CNVEncLog::operator()(int log_level, const TCHAR *format, ...) {
         return strHtml;
     };
 
+#if defined(_WIN32) || defined(_WIN64)
+    HANDLE hStdErr = GetStdHandle(STD_ERROR_HANDLE);
+#else
+    HANDLE hStdErr = NULL;
+#endif //defined(_WIN32) || defined(_WIN64)
+
+    std::string buffer_char;
+#ifdef UNICODE
+    char *buffer_ptr = NULL;
+    DWORD mode = 0;
+    bool stderr_write_to_console = 0 != GetConsoleMode(hStdErr, &mode); //stderrの出力先がコンソールかどうか
+    if (m_pStrLog || !stderr_write_to_console) {
+        buffer_char = tchar_to_string(buffer, (m_bHtml) ? CP_UTF8 : CP_THREAD_ACP);
+        if (m_bHtml) {
+            buffer_char = convert_to_html(buffer_char);
+        }
+        buffer_ptr = &buffer_char[0];
+    }
+#else
+    const char *buffer_ptr = &buffer[0];
+    if (m_bHtml) {
+        buffer_char = wstring_to_string(char_to_wstring(buffer_ptr), CP_UTF8);
+        if (m_bHtml) {
+            buffer_char = convert_to_html(buffer_char);
+        }
+        buffer_ptr = &buffer_char[0];
+    }
+#endif
+    std::lock_guard<std::mutex> lock(m_mtx);
+    if (m_pStrLog) {
+        FILE *fp_log = NULL;
+        //logはANSI(まあようはShift-JIS)で保存する
+        if (0 == _tfopen_s(&fp_log, m_pStrLog, (m_bHtml) ? _T("rb+") : _T("a")) && fp_log) {
+            if (m_bHtml) {
+                _fseeki64(fp_log, 0, SEEK_END);
+                int64_t pos = _ftelli64(fp_log);
+                _fseeki64(fp_log, 0, SEEK_SET);
+                _fseeki64(fp_log, pos -1 * strlen(HTML_FOOTER), SEEK_CUR);
+            }
+            fwrite(buffer_ptr, 1, strlen(buffer_ptr), fp_log);
+            if (m_bHtml) {
+                fwrite(HTML_FOOTER, 1, strlen(HTML_FOOTER), fp_log);
+            }
+            fclose(fp_log);
+        }
+    }
+    if (!file_only) {
+#ifdef UNICODE
+        if (!stderr_write_to_console) //出力先がリダイレクトされるならANSIで
+            fprintf(stderr, buffer_ptr);
+        if (stderr_write_to_console) //出力先がコンソールならWCHARで
+#endif
+            nv_print_stderr(log_level, buffer, hStdErr);
+    }
+}
+
+void CNVEncLog::write(int log_level, const TCHAR *format, ...) {
+    if (log_level < m_nLogLevel) {
+        return;
+    }
+
     va_list args;
     va_start(args, format);
 
     int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
     tstring buffer(len, 0);
     if (buffer.data() != nullptr) {
-
         _vstprintf_s(&buffer[0], len, format, args); // C4996
-#if defined(_WIN32) || defined(_WIN64)
-        HANDLE hStdErr = GetStdHandle(STD_ERROR_HANDLE);
-#else
-        HANDLE hStdErr = NULL;
-#endif //defined(_WIN32) || defined(_WIN64)
-
-        std::string buffer_char;
-#ifdef UNICODE
-        char *buffer_ptr = NULL;
-        DWORD mode = 0;
-        bool stderr_write_to_console = 0 != GetConsoleMode(hStdErr, &mode); //stderrの出力先がコンソールかどうか
-        if (m_pStrLog || !stderr_write_to_console) {
-            buffer_char = tchar_to_string(buffer, (m_bHtml) ? CP_UTF8 : CP_THREAD_ACP);
-            if (m_bHtml) {
-                buffer_char = convert_to_html(buffer_char);
-            }
-            buffer_ptr = &buffer_char[0];
-        }
-#else
-        char *buffer_ptr = &buffer[0];
-        if (m_bHtml) {
-            buffer_char = wstring_to_string(char_to_wstring(buffer_ptr), CP_UTF8);
-            if (m_bHtml) {
-                buffer_char = convert_to_html(buffer_char);
-            }
-            buffer_ptr = &buffer_char[0];
-        }
-#endif
-        std::lock_guard<std::mutex> lock(m_mtx);
-        if (m_pStrLog) {
-            FILE *fp_log = NULL;
-            //logはANSI(まあようはShift-JIS)で保存する
-            if (0 == _tfopen_s(&fp_log, m_pStrLog, (m_bHtml) ? _T("rb+") : _T("a")) && fp_log) {
-                if (m_bHtml) {
-                    _fseeki64(fp_log, 0, SEEK_END);
-                    int64_t pos = _ftelli64(fp_log);
-                    _fseeki64(fp_log, 0, SEEK_SET);
-                    _fseeki64(fp_log, pos -1 * strlen(HTML_FOOTER), SEEK_CUR);
-                }
-                fwrite(buffer_ptr, 1, strlen(buffer_ptr), fp_log);
-                if (m_bHtml) {
-                    fwrite(HTML_FOOTER, 1, strlen(HTML_FOOTER), fp_log);
-                }
-                fclose(fp_log);
-            }
-        }
-#ifdef UNICODE
-        if (!stderr_write_to_console) //出力先がリダイレクトされるならANSIで
-            fprintf(stderr, buffer_ptr);
-        if (stderr_write_to_console) //出力先がコンソールならWCHARで
-#endif
-            nv_print_stderr(log_level, buffer.data(), hStdErr);
+        write_log(log_level, &buffer[0]);
     }
     va_end(args);
 }

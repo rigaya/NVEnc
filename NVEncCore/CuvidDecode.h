@@ -77,7 +77,7 @@ protected:
         auto lines = split(str, _T("\n"));
         for (const auto& line : lines) {
             if (line[0] != _T('\0')) {
-                (*m_pPrintMes)(log_level, (_T("cuvid: ") + line + _T("\n")).c_str());
+                m_pPrintMes->write(log_level, (_T("cuvid: ") + line + _T("\n")).c_str());
             }
         }
     }

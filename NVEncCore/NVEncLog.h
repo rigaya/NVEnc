@@ -56,5 +56,6 @@ public:
     int getLogLevel() {
         return m_nLogLevel;
     }
-    virtual void operator()(int log_level, const TCHAR *format, ...);
+    virtual void write_log(int log_level, const TCHAR *buffer, bool file_only = false);
+    virtual void write(int log_level, const TCHAR *format, ...);
 };

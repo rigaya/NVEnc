@@ -146,7 +146,7 @@ void NVEncCore::NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...) {
     va_end(args);
 
     if (m_pNVLog.get() != nullptr) {
-        (*m_pNVLog)(logLevel, buffer.data());
+        m_pNVLog->write(logLevel, buffer.data());
     } else {
         _ftprintf(stderr, _T("%s"), buffer.data());
     }
