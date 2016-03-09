@@ -26,6 +26,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#include <numeric>
 #include "NVEncVersion.h"
 
 #if ENABLE_AVCUVID_READER
@@ -263,6 +264,135 @@ tstring getAVFormats(AVQSVFormatType flag) {
     });
 
     return char_to_tstring(formatstr);
+}
+
+std::string getChannelLayoutChar(int channels, uint64_t channel_layout) {
+    char string[1024] = { 0 };
+    av_get_channel_layout_string(string, _countof(string), channels, channel_layout);
+    if (auto ptr = strstr(string, " channel")) {
+        strcpy(ptr, "ch");
+    }
+    if (auto ptr = strstr(string, "channel")) {
+        strcpy(ptr, "ch");
+    }
+    if (0 == _strnicmp(string, "stereo", strlen("stereo"))) {
+        return "2ch";
+    }
+    return string;
+}
+
+tstring getChannelLayoutString(int channels, uint64_t channel_layout) {
+    return char_to_tstring(getChannelLayoutChar(channels, channel_layout));
+}
+
+vector<std::string> getAVProtocolList(int bOutput) {
+    vector<std::string> protocols;
+
+    void *opaque = nullptr;
+    const char *name = nullptr;
+    while (nullptr != (name = avio_enum_protocols(&opaque, bOutput))) {
+        std::string data = name;
+        std::transform(data.begin(), data.end(), data.begin(), ::tolower);
+        protocols.push_back(data);
+    }
+    return protocols;
+}
+
+tstring getAVProtocols() {
+    if (!check_avcodec_dll()) {
+        return error_mes_avcodec_dll_not_found();
+    }
+    av_register_all();
+    avcodec_register_all();
+
+    const auto inputProtocols  = getAVProtocolList(0);
+    const auto outputProtocols = getAVProtocolList(1);
+
+    auto max_len = std::accumulate(inputProtocols.begin(),  inputProtocols.end(), (size_t)0, [](const size_t max_len, const std::string& str) { return (std::max)(max_len, str.length()); });
+    max_len      = std::accumulate(outputProtocols.begin(), outputProtocols.end(), max_len,  [](const size_t max_len, const std::string& str) { return (std::max)(max_len, str.length()); });
+    max_len += 1;
+
+    std::string mes = "input protocols:\n";
+    size_t len = 0;
+    for (const auto& protocols : inputProtocols) {
+        mes += protocols;
+        for (auto i = protocols.length(); i < max_len; i++) {
+            mes += " ";
+        }
+        len += max_len;
+        if (len >= 79 - max_len) {
+            mes += "\n";
+            len = 0;
+        }
+    }
+    mes += "\n\noutput protocols:\n";
+    len = 0;
+    for (const auto& protocols : outputProtocols) {
+        mes += protocols;
+        for (auto i = protocols.length(); i < max_len; i++) {
+            mes += " ";
+        }
+        len += max_len;
+        if (len >= 79 - max_len) {
+            mes += "\n";
+            len = 0;
+        }
+    }
+    return char_to_tstring(mes);
+}
+
+bool usingAVProtocols(std::string filename, int bOutput) {
+    if (!check_avcodec_dll()) {
+        return false;
+    }
+    const auto protocolList = getAVProtocolList(bOutput);
+    const auto pos = filename.find_first_of(':');
+    if (pos != std::string::npos) {
+        std::string check = filename.substr(0, pos);
+        std::transform(check.begin(), check.end(), check.begin(), tolower);
+        if (std::find(protocolList.begin(), protocolList.end(), check) != protocolList.end()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+tstring getAVVersions() {
+    if (!check_avcodec_dll()) {
+        return error_mes_avcodec_dll_not_found();
+    }
+    const uint32_t ver = avutil_version();
+    auto ver2str = [](uint32_t ver) {
+        return strsprintf("%3d.%3d.%4d", (ver >> 16) & 0xff, (ver >> 8) & 0xff, ver & 0xff);
+    };
+    std::string mes;
+    mes  = std::string("ffmpeg     version: ") + std::string(av_version_info()) + "\n";
+    mes += std::string("avutil     version: ") + ver2str(avutil_version()) + "\n";
+    mes += std::string("avcodec    version: ") + ver2str(avcodec_version()) + "\n";
+    mes += std::string("avformat   version: ") + ver2str(avformat_version()) + "\n";
+    mes += std::string("swresample version: ") + ver2str(swresample_version()) + "\n";
+    return char_to_tstring(mes);
+}
+
+static bool avformat_network_initialized = false;
+
+bool avformatNetworkInit() {
+    if (!check_avcodec_dll()) {
+        return false;
+    }
+    if (avformat_network_initialized) {
+        return false;
+    }
+    avformat_network_initialized = true;
+    avformat_network_init();
+    return true;
+}
+
+void avformatNetworkDeinit() {
+    if (avformat_network_initialized) {
+        avformat_network_initialized = false;
+        avformat_network_deinit();
+    }
 }
 
 #endif //ENABLE_AVCODEC_QSV_READER

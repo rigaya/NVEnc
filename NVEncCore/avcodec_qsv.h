@@ -153,6 +153,28 @@ tstring getAVCodecs(AVQSVCodecType flag);
 //利用可能なフォーマットを表示
 tstring getAVFormats(AVQSVFormatType flag);
 
+//チャンネルレイアウトを表示
+std::string getChannelLayoutChar(int channels, uint64_t channel_layout);
+tstring getChannelLayoutString(int channels, uint64_t channel_layout);
+
+//利用可能なプロトコル情報のリストを取得
+vector<std::string> getAVProtocolList(int bOutput);
+
+//利用可能なプロトコル情報を取得
+tstring getAVProtocols();
+
+//protocolを使用
+bool usingAVProtocols(std::string filename, int bOutput);
+
+//avformatのネットワークを初期化する
+bool avformatNetworkInit();
+
+//avformatのネットワークを閉じる
+void avformatNetworkDeinit();
+
+//バージョン情報の取得
+tstring getAVVersions();
+
 #endif //ENABLE_AVCUVID_READER
 
 #endif //_AVCODEC_QSV_H_
