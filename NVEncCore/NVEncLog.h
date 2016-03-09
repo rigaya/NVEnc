@@ -56,6 +56,14 @@ public:
     int getLogLevel() {
         return m_nLogLevel;
     }
+    int setLogLevel(int newLogLevel) {
+        int prevLogLevel = m_nLogLevel;
+        m_nLogLevel = newLogLevel;
+        return prevLogLevel;
+    }
+    bool logFileAvail() {
+        return m_pStrLog != nullptr;
+    }
     virtual void write_log(int log_level, const TCHAR *buffer, bool file_only = false);
     virtual void write(int log_level, const TCHAR *format, ...);
 };
