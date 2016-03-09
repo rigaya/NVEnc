@@ -15,141 +15,141 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\ConvertCsp.cpp">
+    <ClCompile Include="ConvertCsp.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\ConvertCspAVX.cpp">
+    <ClCompile Include="ConvertCspAVX.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\ConvertCspAVX2.cpp">
+    <ClCompile Include="ConvertCspAVX2.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\ConvertCspSSE2.cpp">
+    <ClCompile Include="ConvertCspSSE2.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\ConvertCspSSSE3.cpp">
+    <ClCompile Include="ConvertCspSSSE3.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\cl_func.cpp">
+    <ClCompile Include="cl_func.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\cpu_info.cpp">
+    <ClCompile Include="cpu_info.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\gpu_info.cpp">
+    <ClCompile Include="gpu_info.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="..\NVEncSDK\Common\src\NvHWEncoder.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\NvEncoderPerf.cpp">
+    <ClCompile Include="NvEncoderPerf.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\NVEncCore.cpp">
+    <ClCompile Include="NVEncCore.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\NVEncUtil.cpp">
+    <ClCompile Include="NVEncUtil.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\NVEncInput.cpp">
+    <ClCompile Include="NVEncInput.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\NVEncInputRaw.cpp">
+    <ClCompile Include="NVEncInputRaw.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\NVEncInputAvs.cpp">
+    <ClCompile Include="NVEncInputAvs.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\NVEncInputVpy.cpp">
+    <ClCompile Include="NVEncInputVpy.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\ConvertCspSSE41.cpp">
+    <ClCompile Include="ConvertCspSSE41.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\NVEncLog.cpp">
+    <ClCompile Include="NVEncLog.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\NVEncFeature.cpp">
+    <ClCompile Include="NVEncFeature.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\FrameQueue.cpp">
+    <ClCompile Include="FrameQueue.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\avcodec_qsv.cpp">
+    <ClCompile Include="avcodec_qsv.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\avcodec_reader.cpp">
+    <ClCompile Include="avcodec_reader.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\CuvidDecode.cpp">
+    <ClCompile Include="CuvidDecode.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\ConvertCsp.h">
+    <ClInclude Include="ConvertCsp.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\ConvertCspSIMD.h">
+    <ClInclude Include="ConvertCspSIMD.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\gpu_info.h">
+    <ClInclude Include="gpu_info.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\cl_func.h">
+    <ClInclude Include="cl_func.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\cpu_info.h">
+    <ClInclude Include="cpu_info.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="..\NVEncSDK\Common\inc\nvEncodeAPI.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NvEncoderPerf.h">
+    <ClInclude Include="NvEncoderPerf.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncCore.h">
+    <ClInclude Include="NVEncCore.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncParam.h">
+    <ClInclude Include="NVEncParam.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncUtil.h">
+    <ClInclude Include="NVEncUtil.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncVersion.h">
+    <ClInclude Include="NVEncVersion.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncStatus.h">
+    <ClInclude Include="NVEncStatus.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncInput.h">
+    <ClInclude Include="NVEncInput.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncInputRaw.h">
+    <ClInclude Include="NVEncInputRaw.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncInputAvs.h">
+    <ClInclude Include="NVEncInputAvs.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncInputVpy.h">
+    <ClInclude Include="NVEncInputVpy.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncLog.h">
+    <ClInclude Include="NVEncLog.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\NVEncFeature.h">
+    <ClInclude Include="NVEncFeature.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\FrameQueue.h">
+    <ClInclude Include="FrameQueue.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\avcodec_qsv.h">
+    <ClInclude Include="avcodec_qsv.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\avcodec_reader.h">
+    <ClInclude Include="avcodec_reader.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="inc\CuvidDecode.h">
+    <ClInclude Include="CuvidDecode.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
