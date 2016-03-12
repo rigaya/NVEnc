@@ -97,7 +97,7 @@ NVEncCore::NVEncCore() {
     m_hEncoder = nullptr;
     m_fOutput = nullptr;
     m_pStatus = nullptr;
-    m_pInput = nullptr;
+    m_pFileReader = nullptr;
     m_uEncodeBufferCount = 16;
     m_pOutputBuf = nullptr;
     m_pDevice = nullptr;
@@ -237,7 +237,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAvs.interlaced = is_interlaced(inputParam->picStruct);
         inputParam->input.otherPrm = &inputInfoAvs;
         NVPrintf(stderr, NV_LOG_DEBUG, _T("avs reader selected.\n"));
-        m_pInput = new NVEncInputAvs();
+        m_pFileReader.reset(new NVEncInputAvs());
         break;
 #endif //AVS_READER
 #if VPY_READER
@@ -247,7 +247,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoVpy.mt = (inputParam->input.type == NV_ENC_INPUT_VPY_MT);
         inputParam->input.otherPrm = &inputInfoVpy;
         NVPrintf(stderr, NV_LOG_DEBUG, _T("vpy reader selected.\n"));
-        m_pInput = new NVEncInputVpy();
+        m_pFileReader.reset(new NVEncInputVpy());
         break;
 #endif //VPY_READER
 #if ENABLE_AVCUVID_READER
@@ -261,22 +261,22 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.ctxLock = m_ctxLock;
         inputParam->input.otherPrm = &inputInfoAVCuvid;
         NVPrintf(stderr, NV_LOG_DEBUG, _T("avcuvid reader selected.\n"));
-        m_pInput = new CAvcodecReader();
+        m_pFileReader.reset(new CAvcodecReader());
         break;
 #endif //#if ENABLE_AVCUVID_READER
     case NV_ENC_INPUT_RAW:
     case NV_ENC_INPUT_Y4M:
     default:
         NVPrintf(stderr, NV_LOG_DEBUG, _T("raw/y4m reader selected.\n"));
-        m_pInput = new NVEncInputRaw();
+        m_pFileReader.reset(new NVEncInputRaw());
         break;
     }
     NVPrintf(stderr, NV_LOG_DEBUG, _T("InitInput: input selected : %d.\n"), inputParam->input.type);
 
     m_pStatus.reset(new EncodeStatus());
     m_pStatus->init(m_pNVLog);
-    m_pInput->SetNVEncLogPtr(m_pNVLog);
-    int ret = m_pInput->Init(&inputParam->input, m_pStatus);
+    m_pFileReader->SetNVEncLogPtr(m_pNVLog);
+    int ret = m_pFileReader->Init(&inputParam->input, m_pStatus);
     m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
     m_pStatus->m_nOutputFPSScale = inputParam->input.scale;
     return (ret) ? NV_ENC_ERR_GENERIC : NV_ENC_SUCCESS;
@@ -653,11 +653,8 @@ NVENCSTATUS NVEncCore::Deinitialize() {
         fclose(m_fOutput);
         m_fOutput = NULL;
     }
-    if (m_pInput) {
-        m_pInput->Close();
-        delete m_pInput;
-        m_pInput = nullptr;
-    }
+    m_AudioReaders.clear();
+    m_pFileReader.reset();
 
     ReleaseIOBuffers();
 
@@ -1685,7 +1682,7 @@ NVENCSTATUS NVEncCore::Encode() {
     const int bufferCount = m_uEncodeBufferCount;
 #if ENABLE_AVCUVID_READER
     const AVCodecContext *pVideoCtx = nullptr;
-    CAvcodecReader *pReader = dynamic_cast<CAvcodecReader *>(m_pInput);
+    CAvcodecReader *pReader = dynamic_cast<CAvcodecReader *>(m_pFileReader.get());
     if (pReader != nullptr) {
         pVideoCtx = pReader->GetInputVideoCodecCtx();
     }
@@ -1696,9 +1693,9 @@ NVENCSTATUS NVEncCore::Encode() {
             vector<uint8_t> bitstream;
             int sts = NVENC_THREAD_RUNNING;
             for (int i = 0; sts == NVENC_THREAD_RUNNING && !m_cuvidDec->GetError(); i++) {
-                sts = m_pInput->LoadNextFrame(nullptr, 0);
+                sts = m_pFileReader->LoadNextFrame(nullptr, 0);
                 int64_t pts;
-                m_pInput->GetNextBitstream(bitstream, &pts);
+                m_pFileReader->GetNextBitstream(bitstream, &pts);
                 NVPrintf(stderr, NV_LOG_TRACE, _T("Set packet %d\n"), i);
                 if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(bitstream.data(), bitstream.size(), pts, pVideoCtx->pkt_timebase))) {
                     NVPrintf(stderr, NV_LOG_ERROR, _T("Error in DecodePacket: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
@@ -1793,7 +1790,7 @@ NVENCSTATUS NVEncCore::Encode() {
             unsigned char *pInputSurface = nullptr;
             const int index = iFrame % bufferCount;
             NvEncLockInputBuffer(m_stEncodeBuffer[index].stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
-            ret = m_pInput->LoadNextFrame(pInputSurface, lockedPitch);
+            ret = m_pFileReader->LoadNextFrame(pInputSurface, lockedPitch);
             NvEncUnlockInputBuffer(m_stEncodeBuffer[index].stInputBfr.hInputSurface);
             if (ret)
                 break;
@@ -1813,11 +1810,7 @@ NVENCSTATUS NVEncCore::Encode() {
         fclose(m_fOutput);
         m_fOutput = NULL;
     }
-    if (m_pInput) {
-        m_pInput->Close();
-        delete m_pInput;
-        m_pInput = nullptr;
-    }
+    m_pFileReader.reset();
     m_pStatus->writeResult();
     return nvStatus;
 }

@@ -210,7 +210,8 @@ protected:
     FILE                        *m_fOutput;               //出力先ファイルポインタ
     char                        *m_pOutputBuf;            //出力ファイルバッファ
 
-    NVEncBasicInput             *m_pInput;                //動画入力インスタンス
+    unique_ptr<NVEncBasicInput>  m_pFileReader;           //動画入力インスタンス
+    vector<shared_ptr<NVEncBasicInput>> m_AudioReaders;
     shared_ptr<EncodeStatus>     m_pStatus;               //エンコードステータス管理
     NV_ENC_PIC_STRUCT            m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                m_stEncConfig;           //エンコード設定
