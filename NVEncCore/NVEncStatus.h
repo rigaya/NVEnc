@@ -27,6 +27,8 @@
 
 #pragma once
 
+#define WIN32_MEAN_AND_LEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -154,7 +156,7 @@ public:
             memcpy(mes, header, header_len * sizeof(mes[0]));
             mes_len += header_len;
 
-            for (int i = max(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++)
+            for (int i = std::max(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++)
                 mes[mes_len] = _T(' ');
             mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%u"), count);
 
@@ -167,7 +169,7 @@ public:
                 memcpy(mes + mes_len, TOTAL_SIZE, _tcslen(TOTAL_SIZE) * sizeof(mes[0]));
                 mes_len += (int)_tcslen(TOTAL_SIZE);
 
-                for (int i = max(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++)
+                for (int i = std::max(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++)
                     mes[mes_len] = _T(' ');
 
                 mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%.2f MB"), (double)frameSize / (double)(1024 * 1024));
@@ -180,7 +182,7 @@ public:
         if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > NV_LOG_INFO) {
             return;
         }
-        (*m_pNVLog)(NV_LOG_INFO, _T("%s\n"), mes);
+        m_pNVLog->write(NV_LOG_INFO, _T("%s\n"), mes);
     }
     virtual int UpdateDisplay(double progressPercent = 0.0) {
         if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > NV_LOG_INFO) {
@@ -259,8 +261,8 @@ public:
         _stprintf_s(mes, _countof(mes), _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime));
         WriteLine(mes);
         
-        uint32_t maxCount = MAX3(m_sData.frameOutI, m_sData.frameOutP, m_sData.frameOutB);
-        uint64_t maxFrameSize = MAX3(m_sData.frameOutISize, m_sData.frameOutPSize, m_sData.frameOutBSize);
+        uint32_t maxCount = std::max(m_sData.frameOutI, std::max(m_sData.frameOutP, m_sData.frameOutB));
+        uint64_t maxFrameSize = std::max(m_sData.frameOutISize, std::max(m_sData.frameOutPSize, m_sData.frameOutBSize));
 
         WriteFrameTypeResult(_T("frame type IDR "), m_sData.frameOutIDR, maxCount,                     0, maxFrameSize, -1.0);
         WriteFrameTypeResult(_T("frame type I   "), m_sData.frameOutI,   maxCount, m_sData.frameOutISize, maxFrameSize, (m_sData.frameOutI) ? m_sData.frameOutIQPSum / (double)m_sData.frameOutI : -1);

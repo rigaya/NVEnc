@@ -28,8 +28,8 @@
 
 
 #include <string>
-#include "nvEncodeAPI.h"
 #include "NVEncStatus.h"
+#include "nvEncodeAPI.h"
 #include "NVEncInput.h"
 #include "ConvertCSP.h"
 #include "NVEncCore.h"

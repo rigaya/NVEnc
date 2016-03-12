@@ -26,6 +26,9 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_MEAN_AND_LEAN
+#define NOMINMAX
+#include <Windows.h>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -1374,15 +1377,15 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputAUD = 1;
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceMode = 3;
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceModeData = 4;
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.level = min(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.level, NV_ENC_LEVEL_H264_41);
-            m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate = min(m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate, 40000 * 1000);
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.level = std::min<uint32_t>(m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.level, NV_ENC_LEVEL_H264_41);
+            m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate = std::min<uint32_t>(m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate, 40000 * 1000);
             if (m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize == 0) {
                 m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize = m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate;
             }
             m_stCreateEncodeParams.encodeConfig->rcParams.vbvInitialDelay = m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize / 2;
-            m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate = min(m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate, m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate);
-            m_stCreateEncodeParams.encodeConfig->frameIntervalP = min(m_stCreateEncodeParams.encodeConfig->frameIntervalP, 3+1);
-            m_stCreateEncodeParams.encodeConfig->gopLength = (min(m_stCreateEncodeParams.encodeConfig->gopLength, 30) / m_stCreateEncodeParams.encodeConfig->frameIntervalP) * m_stCreateEncodeParams.encodeConfig->frameIntervalP;
+            m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate = std::min(m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate, m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate);
+            m_stCreateEncodeParams.encodeConfig->frameIntervalP = std::min(m_stCreateEncodeParams.encodeConfig->frameIntervalP, 3+1);
+            m_stCreateEncodeParams.encodeConfig->gopLength = (std::min(m_stCreateEncodeParams.encodeConfig->gopLength, 30u) / m_stCreateEncodeParams.encodeConfig->frameIntervalP) * m_stCreateEncodeParams.encodeConfig->frameIntervalP;
         }
 
         //ロスレス出力

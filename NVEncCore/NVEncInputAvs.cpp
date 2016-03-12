@@ -26,12 +26,10 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include <io.h>
-#include <fcntl.h>
 #include <string>
 #include <sstream>
-#include "nvEncodeAPI.h"
 #include "NVEncStatus.h"
+#include "nvEncodeAPI.h"
 #include "NVEncInput.h"
 #include "ConvertCSP.h"
 #include "NVEncCore.h"

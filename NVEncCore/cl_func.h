@@ -33,7 +33,6 @@
 
 #if ENABLE_OPENCL
 
-#include <Windows.h>
 #include <CL/cl.h>
 
 typedef cl_int (CL_API_CALL* funcClGetPlatformIDs)(cl_uint num_entries, cl_platform_id *platforms, cl_uint *num_platforms);

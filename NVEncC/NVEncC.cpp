@@ -26,6 +26,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_MEAN_AND_LEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <locale.h>
 #include <tchar.h>

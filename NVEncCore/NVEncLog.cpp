@@ -31,8 +31,8 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-#include "nvEncodeAPI.h"
 #include "NVEncLog.h"
+#include "nvEncodeAPI.h"
 #include "NVEncUtil.h"
 #include "NVEncParam.h"
 
@@ -118,21 +118,21 @@ void CNVEncLog::writeFileHeader(const TCHAR *pDstFilename) {
             fileHeader += SEP5;
     }
     fileHeader += _T("\n");
-    (*this)(NV_LOG_INFO, fileHeader.c_str());
+    write(NV_LOG_INFO, fileHeader.c_str());
 
     if (m_nLogLevel <= NV_LOG_DEBUG) {
         TCHAR cpuInfo[256] = { 0 };
         TCHAR gpu_info[1024] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
         getGPUInfo("Intel", gpu_info, _countof(gpu_info));
-        (*this)(NV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
-        (*this)(NV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
-        (*this)(NV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
-        (*this)(NV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+        write(NV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+        write(NV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
+        write(NV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
+        write(NV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
     }
 }
 void CNVEncLog::writeFileFooter() {
-    (*this)(NV_LOG_INFO, _T("\n\n"));
+    write(NV_LOG_INFO, _T("\n\n"));
 }
 
 void CNVEncLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
