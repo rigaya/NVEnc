@@ -74,7 +74,7 @@ void CNVEncLog::writeHtmlHeader() {
             L"<html lang = \"ja\">\n"
             L"<head>\n"
             L"<meta charset = \"UTF-8\">\n"
-            L"<title>QSVEncC Log</title>\n"
+            L"<title>NVEncC Log</title>\n"
             L"<style type=text/css>\n"
             L"   body   { \n"
             L"       background-color: #303030;\n"
@@ -125,7 +125,7 @@ void CNVEncLog::writeFileHeader(const TCHAR *pDstFilename) {
         TCHAR gpu_info[1024] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
         getGPUInfo("Intel", gpu_info, _countof(gpu_info));
-        write(NV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+        write(NV_LOG_DEBUG, _T("NVEnc     %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
         write(NV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
         write(NV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
         write(NV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
