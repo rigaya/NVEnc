@@ -444,88 +444,647 @@ static void show_nvenc_features(int deviceid) {
     }
 }
 
-static inline BOOL check_range(int value, int min, int max) {
-    return (min <= value && value <= max);
+static const TCHAR *short_opt_to_long(TCHAR short_opt) {
+    const TCHAR *option_name = nullptr;
+    switch (short_opt) {
+    case _T('b'):
+        option_name = _T("bframes");
+        break;
+    case _T('c'):
+        option_name = _T("codec");
+        break;
+    case _T('d'):
+        option_name = _T("device");
+        break;
+    case _T('u'):
+        option_name = _T("quality");
+        break;
+    case _T('f'):
+        option_name = _T("fps");
+        break;
+    case _T('i'):
+        option_name = _T("input");
+        break;
+    case _T('o'):
+        option_name = _T("output");
+        break;
+    case _T('v'):
+        option_name = _T("version");
+        break;
+    case _T('h'):
+    case _T('?'):
+        option_name = _T("help");
+        break;
+    default:
+        break;
+    }
+    return option_name;
 }
 
-int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int argc, TCHAR **argv) {
+#define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
 
-    auto invalid_option_value = [](const TCHAR *option_name, const TCHAR *option_value) {
-        _ftprintf(stderr, _T("Invalid value. %s : %s\n"), option_name, option_value);
-    };
+void invalid_option_value(const TCHAR *option_name, const TCHAR *option_value) {
+    _ftprintf(stderr, _T("Invalid value. %s : %s\n"), option_name, option_value);
+};
 
-    if (argc == 1) {
+bool get_list_value(const CX_DESC * list, const TCHAR *chr, int *value) {
+    for (int i = 0; list[i].desc; i++) {
+        if (0 == _tcsicmp(list[i].desc, chr)) {
+            *value = list[i].value;
+            return true;
+        }
+    }
+    return false;
+};
+bool get_list_guid_value(const guid_desc * list, const TCHAR *chr, int *value) {
+    for (int i = 0; list[i].desc; i++) {
+        if (0 == _tcsicmp(list[i].desc, chr)) {
+            *value = list[i].value;
+            return true;
+        }
+    }
+    return false;
+};
+
+struct sArgsData {
+    tstring cachedlevel, cachedprofile;
+    uint32_t nParsedAudioFile = 0;
+    uint32_t nParsedAudioEncode = 0;
+    uint32_t nParsedAudioCopy = 0;
+    uint32_t nParsedAudioBitrate = 0;
+    uint32_t nParsedAudioSamplerate = 0;
+    uint32_t nParsedAudioSplit = 0;
+    uint32_t nTmpInputBuf = 0;
+};
+
+int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, sArgsData *argData) {
+    if (IS_OPTION("device")) {
+        int deviceid = -1;
+        if (i + 1 < nArgNum) {
+            i++;
+            int value = 0;
+            if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+                deviceid = value;
+            }
+        }
+        if (deviceid < 0) {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        pParams->deviceID = deviceid;
+        return 0;
+    }
+    if (IS_OPTION("input")) {
+        i++;
+        auto length = _tcslen(strInput[i]) + 1;
+        pParams->input.filename = (TCHAR *)malloc(sizeof(pParams->input.filename[0]) * length);
+        memcpy(pParams->input.filename, strInput[i], sizeof(pParams->input.filename[0]) * length);
+        return 0;
+    }
+    if (IS_OPTION("output")) {
+        i++;
+        pParams->outputFilename = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("fps")) {
+        i++;
+        int a[2] = { 0 };
+        if (   2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            pParams->input.rate  = a[0];
+            pParams->input.scale = a[1];
+        } else {
+            double d;
+            if (1 == _stscanf_s(strInput[i], _T("%lf"), &d)) {
+                int rate = (int)(d * 1001.0 + 0.5);
+                if (rate % 1000 == 0) {
+                    pParams->input.rate = rate;
+                    pParams->input.scale = 1001;
+                } else {
+                    pParams->input.scale = 100000;
+                    pParams->input.rate = (int)(d * pParams->input.scale + 0.5);
+                    int gcd = nv_get_gcd(pParams->input.rate, pParams->input.scale);
+                    pParams->input.scale /= gcd;
+                    pParams->input.rate  /= gcd;
+                }
+            } else  {
+                invalid_option_value(option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("input-res")) {
+        i++;
+        int a[2] = { 0 };
+        if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            pParams->input.width  = a[0];
+            pParams->input.height = a[1];
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("output-res")) {
+        i++;
+        int a[2] = { 0 };
+        if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            pParams->input.dstWidth  = a[0];
+            pParams->input.dstHeight = a[1];
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("crop")) {
+        i++;
+        sInputCrop a = { 0 };
+        if (   4 == _stscanf_s(strInput[i], _T("%d,%d,%d,%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])
+            || 4 == _stscanf_s(strInput[i], _T("%d:%d:%d:%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])) {
+            memcpy(&pParams->input.crop, &a, sizeof(a));
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("codec")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_nvenc_codecs_for_opt, strInput[i], &value)) {
+            pParams->codec = value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("raw")) {
+        pParams->input.type = NV_ENC_INPUT_RAW;
+        return 0;
+    }
+    if (IS_OPTION("y4m")) {
+        pParams->input.type = NV_ENC_INPUT_Y4M;
+#if AVI_READER
+        return 0;
+    }
+    if (IS_OPTION("avi")) {
+        pParams->input.type = NV_ENC_INPUT_AVI;
+#endif
+#if AVS_READER
+        return 0;
+    }
+    if (IS_OPTION("avs")) {
+        pParams->input.type = NV_ENC_INPUT_AVS;
+#endif
+#if VPY_READER
+        return 0;
+    }
+    if (IS_OPTION("vpy")) {
+        pParams->input.type = NV_ENC_INPUT_VPY;
+        return 0;
+    }
+    if (IS_OPTION("vpy-mt")) {
+        pParams->input.type = NV_ENC_INPUT_VPY_MT;
+#endif
+#if ENABLE_AVCUVID_READER
+        return 0;
+    }
+    if (IS_OPTION("avcuvid")) {
+        pParams->input.type = NV_ENC_INPUT_AVCUVID;
+#endif
+        return 0;
+    }
+    if (IS_OPTION("cqp")) {
+        i++;
+        int a[3] = { 0 };
+        if (   3 == _stscanf_s(strInput[i], _T("%d:%d:%d"), &a[0], &a[1], &a[2])
+            || 3 == _stscanf_s(strInput[i], _T("%d/%d/%d"), &a[0], &a[1], &a[2])
+            || 3 == _stscanf_s(strInput[i], _T("%d.%d.%d"), &a[0], &a[1], &a[2])
+            || 3 == _stscanf_s(strInput[i], _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
+            pParams->encConfig.rcParams.constQP.qpIntra  = a[0];
+            pParams->encConfig.rcParams.constQP.qpInterP = a[1];
+            pParams->encConfig.rcParams.constQP.qpInterB = a[2];
+            return 0;
+        }
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &a[0])) {
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
+            pParams->encConfig.rcParams.constQP.qpIntra  = a[0];
+            pParams->encConfig.rcParams.constQP.qpInterP = a[0];
+            pParams->encConfig.rcParams.constQP.qpInterB = a[0];
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vbr")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_MINQP;
+            pParams->encConfig.rcParams.averageBitRate = value * 1000;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vbr2")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_2_PASS_VBR;
+            pParams->encConfig.rcParams.averageBitRate = value * 1000;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("cbr")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
+            pParams->encConfig.rcParams.averageBitRate = value * 1000;
+            pParams->encConfig.rcParams.maxBitRate = value * 1000;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("qp-init") || IS_OPTION("qp-max") || IS_OPTION("qp-min")) {
+        NV_ENC_QP *ptrQP = nullptr;
+        if (IS_OPTION("qp-init")) {
+            pParams->encConfig.rcParams.enableInitialRCQP = 1;
+            ptrQP = &pParams->encConfig.rcParams.initialRCQP;
+            return 0;
+        }
+        if (IS_OPTION("qp-max")) {
+            pParams->encConfig.rcParams.enableMaxQP = 1;
+            ptrQP = &pParams->encConfig.rcParams.maxQP;
+            return 0;
+        }
+        if (IS_OPTION("qp-min")) {
+            pParams->encConfig.rcParams.enableMinQP = 1;
+            ptrQP = &pParams->encConfig.rcParams.minQP;
+        } else {
+            return -1;
+        }
+        i++;
+        int a[3] = { 0 };
+        if (   3 == _stscanf_s(strInput[i], _T("%d:%d:%d"), &a[0], &a[1], &a[2])
+            || 3 == _stscanf_s(strInput[i], _T("%d/%d/%d"), &a[0], &a[1], &a[2])
+            || 3 == _stscanf_s(strInput[i], _T("%d.%d.%d"), &a[0], &a[1], &a[2])
+            || 3 == _stscanf_s(strInput[i], _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
+            ptrQP->qpIntra  = a[0];
+            ptrQP->qpInterP = a[1];
+            ptrQP->qpInterB = a[2];
+            return 0;
+        }
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &a[0])) {
+            ptrQP->qpIntra  = a[0];
+            ptrQP->qpInterP = a[0];
+            ptrQP->qpInterB = a[0];
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("gop-len")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.gopLength = value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("bframes")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.frameIntervalP = value + 1;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("max-bitrate")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.maxBitRate = value * 1000;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vbv-bufsize")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.vbvBufferSize = value * 1000;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("aq")) {
+        pParams->encConfig.rcParams.enableAQ = 1;
+        return 0;
+    }
+    if (IS_OPTION("disable-aq")) {
+        pParams->encConfig.rcParams.enableAQ = 0;
+        return 0;
+    }
+    if (IS_OPTION("ref")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("mv-precision")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_mv_presicion, strInput[i], &value)) {
+            pParams->encConfig.mvPrecision = (NV_ENC_MV_PRECISION)value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vbv-bufsize")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.vbvBufferSize = value * 1000;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-deinterlace")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_deinterlace, strInput[i], &value)) {
+            pParams->vpp.deinterlace = (cudaVideoDeinterlaceMode)value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+    }  else if (IS_OPTION("interlaced")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_interlaced, strInput[i], &value)) {
+            pParams->picStruct = (NV_ENC_PIC_STRUCT)value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("cavlc")) {
+        codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
+        return 0;
+    }
+    if (IS_OPTION("cabac")) {
+        codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
+        return 0;
+    }
+    if (IS_OPTION("bluray")) {
+        pParams->bluray = TRUE;
+        return 0;
+    }
+    if (IS_OPTION("lossless")) {
+        pParams->lossless = TRUE;
+        pParams->yuv444 = TRUE;
+        return 0;
+    }
+    if (IS_OPTION("no-deblock")) {
+        codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 1;
+        return 0;
+    }
+    if (IS_OPTION("deblock")) {
+        codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 0;
+        return 0;
+    }
+    if (IS_OPTION("fullrange")) {
+        codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag = 1;
+        codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag = 1;
+        return 0;
+    }
+    if (IS_OPTION("videoformat")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_videoformat, strInput[i], &value)) {
+            codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat = value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("colormatrix")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_colormatrix, strInput[i], &value)) {
+            codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix = value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix = value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("colorprim")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_colorprim, strInput[i], &value)) {
+            codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries = value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries = value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("transfer")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_transfer, strInput[i], &value)) {
+            codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("level")) {
+        i++;
+        bool flag = false;
+        int value = 0;
+        if (get_list_value(list_avc_level, strInput[i], &value)) {
+            codecPrm[NV_ENC_H264].h264Config.level = value;
+            flag = true;
+        }
+        if (get_list_value(list_hevc_level, strInput[i], &value)) {
+            codecPrm[NV_ENC_HEVC].hevcConfig.level = value;
+            flag = true;
+        }
+        if (!flag) {
+            if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+                codecPrm[NV_ENC_H264].h264Config.level = value;
+                codecPrm[NV_ENC_HEVC].hevcConfig.level = value;
+            } else {
+                invalid_option_value(option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("profile")) {
+        i++;
+        bool flag = false;
+        GUID zero = { 0 };
+        GUID result_guid = get_guid_from_name(strInput[i], h264_profile_names);
+        if (0 != memcmp(&result_guid, &zero, sizeof(result_guid))) {
+            pParams->encConfig.profileGUID = result_guid;
+            flag = true;
+        }
+        int result = get_value_from_name(strInput[i], h265_profile_names);
+        if (-1 != result) {
+            codecPrm[NV_ENC_HEVC].hevcConfig.tier = result;
+            flag = true;
+        }
+        if (!flag) {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        if (0 == memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid))) {
+            pParams->yuv444 = TRUE;
+        }
+        return 0;
+    }
+    if (IS_OPTION("sar") || IS_OPTION("par") || IS_OPTION("dar")) {
+        i++;
+        int a[2] = { 0 };
+        if (   2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d.%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            if (IS_OPTION("dar")) {
+                a[0] = -a[0];
+                a[1] = -a[1];
+            }
+            pParams->par[0] = a[0];
+            pParams->par[1] = a[1];
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("cu-max")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_hevc_cu_size, strInput[i], &value)) {
+            codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("cu-min")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("log")) {
+        i++;
+        pParams->logfile = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("log-level")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_log_level, strInput[i], &value)) {
+            pParams->loglevel = value;
+        } else {
+            invalid_option_value(option_name, strInput[i]);
+            return -1;
+        }
+    }
+    _ftprintf(stderr, _T("Invalid option: %s.\n"), option_name);
+    return -1;
+}
+
+int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nArgNum, const TCHAR **strInput) {
+
+    if (nArgNum == 1) {
         show_help();
         return 1;
     }
+    sArgsData argsData;
 
-    for (int i_arg = 1; i_arg < argc; i_arg++) {
-        TCHAR *option_name = nullptr;
-        if (argv[i_arg][0] == _T('-')) {
-            switch (argv[i_arg][1]) {
-                case _T('-'):
-                    option_name = &argv[i_arg][2];
-                    break;
-                case _T('b'):
-                    option_name = _T("bframes");
-                    break;
-                case _T('c'):
-                    option_name = _T("codec");
-                    break;
-                case _T('d'):
-                    option_name = _T("device");
-                    break;
-                case _T('u'):
-                    option_name = _T("quality");
-                    break;
-                case _T('f'):
-                    option_name = _T("fps");
-                    break;
-                case _T('i'):
-                    option_name = _T("input");
-                    break;
-                case _T('o'):
-                    option_name = _T("output");
-                    break;
-                case _T('v'):
-                    option_name = _T("version");
-                    break;
-                case _T('h'):
-                case _T('?'):
-                    option_name = _T("help");
-                    break;
-                default:
-                    _ftprintf(stderr, _T("Unknown Option : %s"), argv[i_arg]);
+    for (int i = 1; i < nArgNum; i++) {
+        if (strInput[i] == nullptr) {
+            return -1;
+        }
+        const TCHAR *option_name = nullptr;
+        if (strInput[i][0] == _T('-')) {
+            if (strInput[i][1] == _T('-')) {
+                option_name = &strInput[i][2];
+            } else if (strInput[i][2] == _T('\0')) {
+                if (nullptr == (option_name = short_opt_to_long(strInput[i][1]))) {
+                    _ftprintf(stderr, _T("Unknown Option : %s"), strInput[i]);
                     return -1;
+                }
+            } else {
+                _ftprintf(stderr, _T("Unknown Option : %s"), strInput[i]);
+                return -1;
             }
         }
 
         if (nullptr == option_name) {
-            _ftprintf(stderr, _T("Unknown Option : %s"), argv[i_arg]);
+            _ftprintf(stderr, _T("Unknown Option : %s"), strInput[i]);
             return -1;
         }
 
-        auto get_list_value = [](const CX_DESC * list, const TCHAR *chr, int *value) {
-            for (int i = 0; list[i].desc; i++) {
-                if (0 == _tcsicmp(list[i].desc, chr)) {
-                    *value = list[i].value;
-                    return true;
-                }
-            }
-            return false;
-        };
-        auto get_list_guid_value = [](const guid_desc * list, const TCHAR *chr, int *value) {
-            for (int i = 0; list[i].desc; i++) {
-                if (0 == _tcsicmp(list[i].desc, chr)) {
-                    *value = list[i].value;
-                    return true;
-                }
-            }
-            return false;
-        };
-
-        
-#define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
         if (IS_OPTION("help")) {
             show_help();
             return 1;
@@ -543,10 +1102,10 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             return 1;
         } else if (IS_OPTION("check-hw")) {
             int deviceid = 0;
-            if (i_arg + 1 < argc) {
-                i_arg++;
+            if (i + 1 < nArgNum) {
+                i++;
                 int value = 0;
-                if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
+                if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
                     deviceid = value;
                 }
             }
@@ -557,456 +1116,30 @@ int parse_cmd(InEncodeVideoParam *conf_set, NV_ENC_CODEC_CONFIG *codecPrm, int a
             return 1;
         } else if (IS_OPTION("check-features")) {
             int deviceid = 0;
-            if (i_arg + 1 < argc) {
-                i_arg++;
+            if (i + 1 < nArgNum) {
+                i++;
                 int value = 0;
-                if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
+                if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
                     deviceid = value;
                 }
             }
             show_nvenc_features(deviceid);
             return 1;
-        } else if (IS_OPTION("device")) {
-            int deviceid = -1;
-            if (i_arg + 1 < argc) {
-                i_arg++;
-                int value = 0;
-                if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                    deviceid = value;
-                }
-            }
-            if (deviceid < 0) {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-            conf_set->deviceID = deviceid;
-        } else if (IS_OPTION("input")) {
-            i_arg++;
-            auto length = _tcslen(argv[i_arg]) + 1;
-            conf_set->input.filename = (TCHAR *)malloc(sizeof(conf_set->input.filename[0]) * length);
-            memcpy(conf_set->input.filename, argv[i_arg], sizeof(conf_set->input.filename[0]) * length);
-        } else if (IS_OPTION("output")) {
-            i_arg++;
-            conf_set->outputFilename = argv[i_arg];
-        } else if (IS_OPTION("fps")) {
-            i_arg++;
-            int a[2] = { 0 };
-            if (   2 == _stscanf_s(argv[i_arg], _T("%d/%d"), &a[0], &a[1])
-                || 2 == _stscanf_s(argv[i_arg], _T("%d:%d"), &a[0], &a[1])
-                || 2 == _stscanf_s(argv[i_arg], _T("%d,%d"), &a[0], &a[1])) {
-                conf_set->input.rate  = a[0];
-                conf_set->input.scale = a[1];
-            } else {
-                double d;
-                if (1 == _stscanf_s(argv[i_arg], _T("%lf"), &d)) {
-                    int rate = (int)(d * 1001.0 + 0.5);
-                    if (rate % 1000 == 0) {
-                        conf_set->input.rate = rate;
-                        conf_set->input.scale = 1001;
-                    } else {
-                        conf_set->input.scale = 100000;
-                        conf_set->input.rate = (int)(d * conf_set->input.scale + 0.5);
-                        int gcd = nv_get_gcd(conf_set->input.rate, conf_set->input.scale);
-                        conf_set->input.scale /= gcd;
-                        conf_set->input.rate  /= gcd;
-                    }
-                } else  {
-                    invalid_option_value(option_name, argv[i_arg]);
-                    return -1;
-                }
-            }
-        } else if (IS_OPTION("input-res")) {
-            i_arg++;
-            int a[2] = { 0 };
-            if (   2 == _stscanf_s(argv[i_arg], _T("%dx%d"), &a[0], &a[1])
-                || 2 == _stscanf_s(argv[i_arg], _T("%d:%d"), &a[0], &a[1])
-                || 2 == _stscanf_s(argv[i_arg], _T("%d,%d"), &a[0], &a[1])) {
-                conf_set->input.width  = a[0];
-                conf_set->input.height = a[1];
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("output-res")) {
-            i_arg++;
-            int a[2] = { 0 };
-            if (   2 == _stscanf_s(argv[i_arg], _T("%dx%d"), &a[0], &a[1])
-                || 2 == _stscanf_s(argv[i_arg], _T("%d:%d"), &a[0], &a[1])
-                || 2 == _stscanf_s(argv[i_arg], _T("%d,%d"), &a[0], &a[1])) {
-                conf_set->input.dstWidth  = a[0];
-                conf_set->input.dstHeight = a[1];
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("crop")) {
-            i_arg++;
-            sInputCrop a = { 0 };
-            if (   4 == _stscanf_s(argv[i_arg], _T("%d,%d,%d,%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])
-                || 4 == _stscanf_s(argv[i_arg], _T("%d:%d:%d:%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])) {
-                memcpy(&conf_set->input.crop, &a, sizeof(a));
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("codec")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_nvenc_codecs_for_opt, argv[i_arg], &value)) {
-                conf_set->codec = value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("raw")) {
-            conf_set->input.type = NV_ENC_INPUT_RAW;
-        } else if (IS_OPTION("y4m")) {
-            conf_set->input.type = NV_ENC_INPUT_Y4M;
-#if AVI_READER
-        } else if (IS_OPTION("avi")) {
-            conf_set->input.type = NV_ENC_INPUT_AVI;
-#endif
-#if AVS_READER
-        } else if (IS_OPTION("avs")) {
-            conf_set->input.type = NV_ENC_INPUT_AVS;
-#endif
-#if VPY_READER
-        } else if (IS_OPTION("vpy")) {
-            conf_set->input.type = NV_ENC_INPUT_VPY;
-        } else if (IS_OPTION("vpy-mt")) {
-            conf_set->input.type = NV_ENC_INPUT_VPY_MT;
-#endif
-#if ENABLE_AVCUVID_READER
-        } else if (IS_OPTION("avcuvid")) {
-            conf_set->input.type = NV_ENC_INPUT_AVCUVID;
-#endif
-        } else if (IS_OPTION("cqp")) {
-            i_arg++;
-            int a[3] = { 0 };
-            if (   3 == _stscanf_s(argv[i_arg], _T("%d:%d:%d"), &a[0], &a[1], &a[2])
-                || 3 == _stscanf_s(argv[i_arg], _T("%d/%d/%d"), &a[0], &a[1], &a[2])
-                || 3 == _stscanf_s(argv[i_arg], _T("%d.%d.%d"), &a[0], &a[1], &a[2])
-                || 3 == _stscanf_s(argv[i_arg], _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
-                conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-                conf_set->encConfig.rcParams.constQP.qpIntra  = a[0];
-                conf_set->encConfig.rcParams.constQP.qpInterP = a[1];
-                conf_set->encConfig.rcParams.constQP.qpInterB = a[2];
-            } else if (1 == _stscanf_s(argv[i_arg], _T("%d"), &a[0])) {
-                conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-                conf_set->encConfig.rcParams.constQP.qpIntra  = a[0];
-                conf_set->encConfig.rcParams.constQP.qpInterP = a[0];
-                conf_set->encConfig.rcParams.constQP.qpInterB = a[0];
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("vbr")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_MINQP;
-                conf_set->encConfig.rcParams.averageBitRate = value * 1000;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("vbr2")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_2_PASS_VBR;
-                conf_set->encConfig.rcParams.averageBitRate = value * 1000;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("cbr")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                conf_set->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
-                conf_set->encConfig.rcParams.averageBitRate = value * 1000;
-                conf_set->encConfig.rcParams.maxBitRate = value * 1000;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("qp-init") || IS_OPTION("qp-max") || IS_OPTION("qp-min")) {
-            NV_ENC_QP *ptrQP = nullptr;
-            if (IS_OPTION("qp-init")) {
-                conf_set->encConfig.rcParams.enableInitialRCQP = 1;
-                ptrQP = &conf_set->encConfig.rcParams.initialRCQP;
-            } else if (IS_OPTION("qp-max")) {
-                conf_set->encConfig.rcParams.enableMaxQP = 1;
-                ptrQP = &conf_set->encConfig.rcParams.maxQP;
-            } else if (IS_OPTION("qp-min")) {
-                conf_set->encConfig.rcParams.enableMinQP = 1;
-                ptrQP = &conf_set->encConfig.rcParams.minQP;
-            } else {
-                return -1;
-            }
-            i_arg++;
-            int a[3] = { 0 };
-            if (   3 == _stscanf_s(argv[i_arg], _T("%d:%d:%d"), &a[0], &a[1], &a[2])
-                || 3 == _stscanf_s(argv[i_arg], _T("%d/%d/%d"), &a[0], &a[1], &a[2])
-                || 3 == _stscanf_s(argv[i_arg], _T("%d.%d.%d"), &a[0], &a[1], &a[2])
-                || 3 == _stscanf_s(argv[i_arg], _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
-                ptrQP->qpIntra  = a[0];
-                ptrQP->qpInterP = a[1];
-                ptrQP->qpInterB = a[2];
-            } else if (1 == _stscanf_s(argv[i_arg], _T("%d"), &a[0])) {
-                ptrQP->qpIntra  = a[0];
-                ptrQP->qpInterP = a[0];
-                ptrQP->qpInterB = a[0];
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("gop-len")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                conf_set->encConfig.gopLength = value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("bframes")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                conf_set->encConfig.frameIntervalP = value + 1;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("max-bitrate")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                conf_set->encConfig.rcParams.maxBitRate = value * 1000;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("vbv-bufsize")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                conf_set->encConfig.rcParams.vbvBufferSize = value * 1000;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("aq")) {
-            conf_set->encConfig.rcParams.enableAQ = 1;
-        } else if (IS_OPTION("disable-aq")) {
-            conf_set->encConfig.rcParams.enableAQ = 0;
-        } else if (IS_OPTION("ref")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
-                codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("mv-precision")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_mv_presicion, argv[i_arg], &value)) {
-                conf_set->encConfig.mvPrecision = (NV_ENC_MV_PRECISION)value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("vbv-bufsize")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                conf_set->encConfig.rcParams.vbvBufferSize = value * 1000;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("vpp-deinterlace")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_deinterlace, argv[i_arg], &value)) {
-                conf_set->vpp.deinterlace = (cudaVideoDeinterlaceMode)value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        }  else if (IS_OPTION("interlaced")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_interlaced, argv[i_arg], &value)) {
-                conf_set->picStruct = (NV_ENC_PIC_STRUCT)value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("cavlc")) {
-            codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
-        } else if (IS_OPTION("cabac")) {
-            codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
-        } else if (IS_OPTION("bluray")) {
-            conf_set->bluray = TRUE;
-        } else if (IS_OPTION("lossless")) {
-            conf_set->lossless = TRUE;
-            conf_set->yuv444 = TRUE;
-        } else if (IS_OPTION("no-deblock")) {
-            codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 1;
-        } else if (IS_OPTION("deblock")) {
-            codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 0;
-        } else if (IS_OPTION("fullrange")) {
-            codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag = 1;
-            codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag = 1;
-        } else if (IS_OPTION("videoformat")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_videoformat, argv[i_arg], &value)) {
-                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
-                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat = value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("colormatrix")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_colormatrix, argv[i_arg], &value)) {
-                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix = value;
-                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix = value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("colorprim")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_colorprim, argv[i_arg], &value)) {
-                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries = value;
-                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries = value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("transfer")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_transfer, argv[i_arg], &value)) {
-                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = value;
-                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("level")) {
-            i_arg++;
-            bool flag = false;
-            int value = 0;
-            if (get_list_value(list_avc_level, argv[i_arg], &value)) {
-                codecPrm[NV_ENC_H264].h264Config.level = value;
-                flag = true;
-            }
-            if (get_list_value(list_hevc_level, argv[i_arg], &value)) {
-                codecPrm[NV_ENC_HEVC].hevcConfig.level = value;
-                flag = true;
-            }
-            if (!flag) {
-                if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                    codecPrm[NV_ENC_H264].h264Config.level = value;
-                    codecPrm[NV_ENC_HEVC].hevcConfig.level = value;
-                } else {
-                    invalid_option_value(option_name, argv[i_arg]);
-                    return -1;
-                }
-            }
-        } else if (IS_OPTION("profile")) {
-            i_arg++;
-            bool flag = false;
-            GUID zero = { 0 };
-            GUID result_guid = get_guid_from_name(argv[i_arg], h264_profile_names);
-            if (0 != memcmp(&result_guid, &zero, sizeof(result_guid))) {
-                conf_set->encConfig.profileGUID = result_guid;
-                flag = true;
-            }
-            int result = get_value_from_name(argv[i_arg], h265_profile_names);
-            if (-1 != result) {
-                codecPrm[NV_ENC_HEVC].hevcConfig.tier = result;
-                flag = true;
-            }
-            if (!flag) {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-            if (0 == memcmp(&conf_set->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid))) {
-                conf_set->yuv444 = TRUE;
-            }
-        } else if (IS_OPTION("sar") || IS_OPTION("par") || IS_OPTION("dar")) {
-            i_arg++;
-            int a[2] = { 0 };
-            if (   2 == _stscanf_s(argv[i_arg], _T("%d:%d"), &a[0], &a[1])
-                || 2 == _stscanf_s(argv[i_arg], _T("%d/%d"), &a[0], &a[1])
-                || 2 == _stscanf_s(argv[i_arg], _T("%d.%d"), &a[0], &a[1])
-                || 2 == _stscanf_s(argv[i_arg], _T("%d,%d"), &a[0], &a[1])) {
-                if (IS_OPTION("dar")) {
-                    a[0] = -a[0];
-                    a[1] = -a[1];
-                }
-                conf_set->par[0] = a[0];
-                conf_set->par[1] = a[1];
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("cu-max")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_hevc_cu_size, argv[i_arg], &value)) {
-                codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("cu-min")) {
-            i_arg++;
-            int value = 0;
-            if (1 == _stscanf_s(argv[i_arg], _T("%d"), &value)) {
-                codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
-        } else if (IS_OPTION("log")) {
-            i_arg++;
-            conf_set->logfile = argv[i_arg];
-        } else if (IS_OPTION("log-level")) {
-            i_arg++;
-            int value = 0;
-            if (get_list_value(list_log_level, argv[i_arg], &value)) {
-                conf_set->loglevel = value;
-            } else {
-                invalid_option_value(option_name, argv[i_arg]);
-                return -1;
-            }
         } else {
-            _ftprintf(stderr, _T("Invalid option: %s.\n"), option_name);
-            return -1;
+            auto sts = parse_one_option(option_name, strInput, i, nArgNum, pParams, codecPrm, &argsData);
+            if (sts != 0) {
+                return sts;
+            }
         }
     }
 
 #undef IS_OPTION
     //オプションチェック
-    if (conf_set->input.filename == nullptr || _tcslen(conf_set->input.filename) == 0) {
+    if (pParams->input.filename == nullptr || _tcslen(pParams->input.filename) == 0) {
         _ftprintf(stderr, _T("Input file is not specified.\n"));
         return -1;
     }
-    if (0 == conf_set->outputFilename.length()) {
+    if (0 == pParams->outputFilename.length()) {
         _ftprintf(stderr, _T("Output file is not specified.\n"));
         return -1;
     }
@@ -1027,7 +1160,9 @@ int _tmain(int argc, TCHAR **argv) {
     codecPrm[NV_ENC_H264] = NVEncCore::DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = NVEncCore::DefaultParamHEVC();
 
-    if (parse_cmd(&encPrm, codecPrm, argc, argv)) {
+    vector<const TCHAR *> argvCopy(argv, argv + argc);
+    argvCopy.push_back(_T(""));
+    if (parse_cmd(&encPrm, codecPrm, argc, argvCopy.data())) {
         return 1;
     }
 
