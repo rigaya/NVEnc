@@ -38,6 +38,7 @@
 #include <vector>
 #include <string>
 #include "NVEncInput.h"
+#include "NVEncOutput.h"
 #include "NVEncUtil.h"
 #include "NVEncStatus.h"
 #include "NVEncLog.h"
@@ -157,6 +158,9 @@ protected:
     //エンコーダへの入力を初期化
     virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam);
 
+    //エンコーダへの入力を初期化
+    virtual NVENCSTATUS InitOutput(InEncodeVideoParam *inputParam);
+
     //ログを初期化
     virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);
 
@@ -207,11 +211,10 @@ protected:
     HINSTANCE                    m_hinstLib;              //nvEncodeAPI.dllのモジュールハンドル
     void                        *m_hEncoder;              //エンコーダのインスタンス
     NV_ENC_INITIALIZE_PARAMS     m_stCreateEncodeParams;  //エンコーダの初期化パラメータ
-    FILE                        *m_fOutput;               //出力先ファイルポインタ
-    char                        *m_pOutputBuf;            //出力ファイルバッファ
 
-    unique_ptr<NVEncBasicInput>  m_pFileReader;           //動画入力インスタンス
+    unique_ptr<NVEncBasicInput>  m_pFileReader;           //動画読み込み
     vector<shared_ptr<NVEncBasicInput>> m_AudioReaders;
+    unique_ptr<NVEncOut>         m_pFileWriter;           //動画書き出し
     shared_ptr<EncodeStatus>     m_pStatus;               //エンコードステータス管理
     NV_ENC_PIC_STRUCT            m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                m_stEncConfig;           //エンコード設定

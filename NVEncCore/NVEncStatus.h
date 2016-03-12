@@ -107,7 +107,7 @@ public:
         m_sData.tmStart = std::chrono::system_clock::now();
         GetProcessTime(GetCurrentProcess(), &m_sStartTime);
     }
-    virtual void AddOutputInfo(const NV_ENC_LOCK_BITSTREAM *bitstream) {
+    virtual void SetOutputData(const NV_ENC_LOCK_BITSTREAM *bitstream) {
         const NV_ENC_PIC_TYPE picType = bitstream->pictureType;
         const uint32_t outputBytes = bitstream->bitstreamSizeInBytes;
         const uint32_t frameAvgQP = bitstream->frameAvgQP;

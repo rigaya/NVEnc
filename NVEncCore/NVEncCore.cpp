@@ -95,11 +95,9 @@ NVEncCore::NVEncCore() {
     m_pEncodeAPI = nullptr;
     m_hinstLib = NULL;
     m_hEncoder = nullptr;
-    m_fOutput = nullptr;
     m_pStatus = nullptr;
     m_pFileReader = nullptr;
     m_uEncodeBufferCount = 16;
-    m_pOutputBuf = nullptr;
     m_pDevice = nullptr;
     m_nDeviceId = 0;
 
@@ -121,11 +119,6 @@ NVEncCore::~NVEncCore() {
     if (m_hinstLib) {
         FreeLibrary(m_hinstLib);
         m_hinstLib = NULL;
-    }
-
-    if (m_pOutputBuf) {
-        free(m_pOutputBuf);
-        m_pOutputBuf = nullptr;
     }
 }
 
@@ -285,6 +278,23 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #endif //RAW_READER
 }
 #pragma warning(pop)
+
+NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParam) {
+    int sts = 0;
+    bool stdoutUsed = false;
+    m_pFileWriter.reset(new NVEncOutBitstream());
+    m_pFileWriter->SetNVEncLogPtr(m_pNVLog);
+    CQSVOutRawPrm rawPrm = { 0 };
+    rawPrm.nBufSizeMB = inputParam->nOutputBufSizeMB;
+    sts = m_pFileWriter->Init(inputParam->outputFilename.c_str(), &rawPrm, m_pStatus);
+    if (sts != 0) {
+        NVPrintf(stderr, NV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+        return NV_ENC_ERR_GENERIC;
+    }
+    stdoutUsed = m_pFileWriter->outputStdout();
+    NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+    return NV_ENC_SUCCESS;
+}
 
 NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     CUresult cuResult;
@@ -614,8 +624,7 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
 
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, &lockBitstreamData);
     if (nvStatus == NV_ENC_SUCCESS) {
-        m_pStatus->AddOutputInfo(&lockBitstreamData);
-        fwrite(lockBitstreamData.bitstreamBufferPtr, 1, lockBitstreamData.bitstreamSizeInBytes, m_fOutput);
+        m_pFileWriter->WriteNextFrame(&lockBitstreamData);
         nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
     } else {
         NVPrintFuncError(_T("nvEncLockBitstream"), nvStatus);
@@ -648,13 +657,10 @@ NVENCSTATUS NVEncCore::FlushEncoder() {
 
 NVENCSTATUS NVEncCore::Deinitialize() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    
-    if (m_fOutput) {
-        fclose(m_fOutput);
-        m_fOutput = NULL;
-    }
+
     m_AudioReaders.clear();
     m_pFileReader.reset();
+    m_pFileWriter.reset();
 
     ReleaseIOBuffers();
 
@@ -1469,16 +1475,11 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
 
     //出力ファイルを開く
-    if (_tfopen_s(&m_fOutput, inputParam->outputFilename.c_str(), _T("wb")) || NULL == m_fOutput) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitOutput(inputParam))) {
         NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("出力ファイルのオープンに失敗しました。: \"%s\"\n") : _T("Failed to open output file: \"%s\"\n"), inputParam->outputFilename.c_str());
-        return NV_ENC_ERR_GENERIC;
+        return nvStatus;
     }
-    NVPrintf(stderr, NV_LOG_DEBUG, _T("Open file \"%s\": Success.\n"), inputParam->outputFilename.c_str());
-
-    //出力バッファ
-    if (nullptr != (m_pOutputBuf = (char *)malloc(OUTPUT_BUF_SIZE))) {
-        setvbuf(m_fOutput, m_pOutputBuf, _IOFBF, OUTPUT_BUF_SIZE);
-    }
+    NVPrintf(stderr, NV_LOG_DEBUG, _T("InitOutput: Success.\n"), inputParam->outputFilename.c_str());
     
     //作成したデバイスの情報をfeature取得
     if (NV_ENC_SUCCESS != (nvStatus = createDeviceFeatureList(false))) {
@@ -1806,11 +1807,8 @@ NVENCSTATUS NVEncCore::Encode() {
         }
         NVPrintf(stderr, NV_LOG_DEBUG, _T("Flushed Encoder\n"));
     }
-    if (m_fOutput) {
-        fclose(m_fOutput);
-        m_fOutput = NULL;
-    }
     m_pFileReader.reset();
+    m_pFileWriter.reset();
     m_pStatus->writeResult();
     return nvStatus;
 }

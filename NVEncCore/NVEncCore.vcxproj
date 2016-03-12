@@ -411,6 +411,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="NVEncCore.cpp" />
+    <ClCompile Include="NVEncOutput.cpp" />
     <ClCompile Include="NVEncUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -433,6 +434,7 @@
     <ClInclude Include="NVEncLog.h" />
     <ClInclude Include="NvEncoderPerf.h" />
     <ClInclude Include="NVEncCore.h" />
+    <ClInclude Include="NVEncOutput.h" />
     <ClInclude Include="NVEncParam.h" />
     <ClInclude Include="NVEncStatus.h" />
     <ClInclude Include="NVEncVersion.h" />
