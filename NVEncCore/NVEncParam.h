@@ -416,11 +416,11 @@ static int get_index_from_value(int value, const guid_desc (&desc)[count]) {
     return -1;
 };
 
-static const TCHAR *get_desc(const CX_DESC * list, int v) {
+static const TCHAR *get_chr_from_value(const CX_DESC * list, int v) {
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == v)
             return list[i].desc;
-    return NULL;
+    return _T("unknown");
 }
 
 static int get_cx_index(const CX_DESC * list, int v) {
