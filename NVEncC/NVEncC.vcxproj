@@ -171,10 +171,12 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\NVEncCore\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512;</DisableSpecificWarnings>
+      <MinimalRebuild>false</MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -199,10 +201,12 @@
       <AdditionalIncludeDirectories>..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512;</DisableSpecificWarnings>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MinimalRebuild>false</MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -226,10 +230,12 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512;</DisableSpecificWarnings>
+      <MinimalRebuild>false</MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -254,10 +260,12 @@
       <AdditionalIncludeDirectories>..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512;</DisableSpecificWarnings>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MinimalRebuild>false</MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>

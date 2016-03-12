@@ -187,6 +187,7 @@
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -215,6 +216,7 @@
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -243,6 +245,7 @@
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -271,6 +274,7 @@
       <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;NVENC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

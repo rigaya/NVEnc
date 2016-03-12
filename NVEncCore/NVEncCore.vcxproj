@@ -162,6 +162,8 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -181,6 +183,8 @@
       <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -199,6 +203,8 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -218,6 +224,8 @@
       <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
