@@ -106,6 +106,12 @@ struct aligned_malloc_deleter {
     }
 };
 
+struct malloc_deleter {
+    void operator()(void* ptr) const {
+        free(ptr);
+    }
+};
+
 struct fp_deleter {
     void operator()(FILE* fp) const {
         if (fp) {
@@ -145,6 +151,8 @@ std::wstring strsprintf(const WCHAR* format, ...);
 std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to);
 std::wstring GetFullPath(const WCHAR *path);
 bool get_filesize(const WCHAR *filepath, uint64_t *filesize);
+std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
+bool CreateDirectoryRecursive(const WCHAR *dir);
 #endif
 
 unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
@@ -163,6 +171,10 @@ tstring trim(const tstring& string, const TCHAR* trim = _T(" \t\v\r\n"));
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
 std::string GetFullPath(const char *path);
 bool get_filesize(const char *filepath, uint64_t *filesize);
+std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
+bool CreateDirectoryRecursive(const char *dir);
+
+tstring print_time(double time);
 
 static inline uint16_t readUB16(const void *ptr) {
     uint16_t i = *(uint16_t *)ptr;
@@ -222,6 +234,8 @@ static inline T nv_get_gcd(T a, T b) {
 static inline int nv_get_gcd(std::pair<int, int> int2) {
     return nv_get_gcd(int2.first, int2.second);
 }
+
+size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);
 
 void adjust_sar(int *sar_w, int *sar_h, int width, int height);
 int get_h264_sar_idx(std::pair<int, int>sar);

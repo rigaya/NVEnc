@@ -269,6 +269,90 @@ std::wstring GetFullPath(const WCHAR *path) {
     _wfullpath(buffer.data(), path, buffer.size());
     return std::wstring(buffer.data());
 }
+//ルートディレクトリを取得
+std::string PathGetRoot(const char *path) {
+    auto fullpath = GetFullPath(path);
+    std::vector<char> buffer(fullpath.length() + 1, 0);
+    memcpy(buffer.data(), fullpath.c_str(), fullpath.length() * sizeof(fullpath[0]));
+    PathStripToRootA(buffer.data());
+    return buffer.data();
+}
+std::wstring PathGetRoot(const WCHAR *path) {
+    auto fullpath = GetFullPath(path);
+    std::vector<WCHAR> buffer(fullpath.length() + 1, 0);
+    memcpy(buffer.data(), fullpath.c_str(), fullpath.length() * sizeof(fullpath[0]));
+    PathStripToRootW(buffer.data());
+    return buffer.data();
+}
+
+//パスのルートが存在するかどうか
+static bool PathRootExists(const char *path) {
+    if (path == nullptr)
+        return false;
+    return PathIsDirectoryA(PathGetRoot(path).c_str()) != 0;
+}
+static bool PathRootExists(const WCHAR *path) {
+    if (path == nullptr)
+        return false;
+    return PathIsDirectoryW(PathGetRoot(path).c_str()) != 0;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path) {
+    const char *ptr = path.c_str();
+    const char *qtr = PathFindFileNameA(ptr);
+    if (qtr == ptr) {
+        return std::make_pair(0, path);
+    }
+    std::string newPath = path.substr(0, qtr - ptr - 1);
+    return std::make_pair((int)(path.length() - newPath.length()), newPath);
+}
+#if defined(_WIN32) || defined(_WIN64)
+std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
+    const WCHAR *ptr = path.c_str();
+    WCHAR *qtr = PathFindFileNameW(ptr);
+    if (qtr == ptr) {
+        return std::make_pair(0, path);
+    }
+    std::wstring newPath = path.substr(0, qtr - ptr - 1);
+    return std::make_pair((int)(path.length() - newPath.length()), newPath);
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+//フォルダがあればOK、なければ作成する
+bool CreateDirectoryRecursive(const char *dir) {
+    if (PathIsDirectoryA(dir)) {
+        return true;
+    }
+#if defined(_WIN32) || defined(_WIN64)
+    if (!PathRootExists(dir)) {
+        return false;
+    }
+#endif //#if defined(_WIN32) || defined(_WIN64)
+    auto ret = PathRemoveFileSpecFixed(dir);
+    if (ret.first == 0) {
+        return false;
+    }
+    if (!CreateDirectoryRecursive(ret.second.c_str())) {
+        return false;
+    }
+    return CreateDirectoryA(dir, NULL) != 0;
+}
+#if defined(_WIN32) || defined(_WIN64)
+bool CreateDirectoryRecursive(const WCHAR *dir) {
+    if (PathIsDirectoryW(dir)) {
+        return true;
+    }
+    if (!PathRootExists(dir)) {
+        return false;
+    }
+    auto ret = PathRemoveFileSpecFixed(dir);
+    if (ret.first == 0) {
+        return false;
+    }
+    if (!CreateDirectoryRecursive(ret.second.c_str())) {
+        return false;
+    }
+    return CreateDirectoryW(dir, NULL) != 0;
+}
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) {
@@ -305,13 +389,24 @@ bool get_filesize(const char *filepath, uint64_t *filesize) {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
-bool get_filesize(const WCHAR *filepath, UINT64 *filesize) {
+bool get_filesize(const WCHAR *filepath, uint64_t *filesize) {
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
     bool ret = (GetFileAttributesExW(filepath, GetFileExInfoStandard, &fd)) ? true : false;
     *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
     return ret;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+tstring print_time(double time) {
+    int sec = (int)time;
+    time -= sec;
+    int miniute = (int)(sec / 60);
+    sec -= miniute * 60;
+    int hour = miniute / 60;
+    miniute -= hour * 60;
+    tstring frac = strsprintf(_T("%.3f"), time);
+    return strsprintf(_T("%d:%02d:%02d%s"), hour, miniute, sec, frac.substr(frac.find_first_of(_T("."))).c_str());
+}
 
 int nv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -408,6 +503,25 @@ std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned in
     while ((c = a % b) != 0)
         a = b, b = c;
     return std::make_pair<int, int>(x / b, y / b);
+}
+
+size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
+    *ptr = nullptr;
+    nMinSize = (std::max<size_t>)(nMinSize, 1);
+    //確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
+    while (nSize >= nMinSize) {
+        void *qtr = malloc(nSize);
+        if (qtr != nullptr) {
+            *ptr = qtr;
+            return nSize;
+        }
+        size_t nNextSize = 0;
+        for (size_t i = nMinSize; i < nSize; i<<=1) {
+            nNextSize = i;
+        }
+        nSize = nNextSize;
+    }
+    return 0;
 }
 
 static const std::map<int, std::pair<int, int>> sar_list = {
