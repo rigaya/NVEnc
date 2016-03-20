@@ -153,7 +153,7 @@ tstring getAVCodecs(AVQSVCodecType flag) {
     });
     uint32_t maxNameLength = 0;
     std::for_each(list.begin(), list.end(), [&maxNameLength](const avcodecName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
-    maxNameLength = (std::min)(maxNameLength, 12u);
+    maxNameLength = (std::min)(maxNameLength, 15u);
 
     uint32_t flag_dec = flag & AVQSV_CODEC_DEC;
     uint32_t flag_enc = flag & AVQSV_CODEC_ENC;
@@ -239,7 +239,7 @@ tstring getAVFormats(AVQSVFormatType flag) {
 
     uint32_t maxNameLength = 0;
     std::for_each(list.begin(), list.end(), [&maxNameLength](const avformatName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
-    maxNameLength = (std::min)(maxNameLength, 12u);
+    maxNameLength = (std::min)(maxNameLength, 15u);
 
     uint32_t flag_demux = flag & AVQSV_FORMAT_DEMUX;
     uint32_t flag_mux = flag & AVQSV_FORMAT_MUX;
