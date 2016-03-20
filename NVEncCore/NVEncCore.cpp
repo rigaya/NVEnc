@@ -93,6 +93,7 @@ NVEncoderGPUInfo::~NVEncoderGPUInfo() {
 
 NVEncCore::NVEncCore() {
     m_pEncodeAPI = nullptr;
+    m_ctxLock = NULL;
     m_hinstLib = NULL;
     m_hEncoder = nullptr;
     m_pStatus = nullptr;
