@@ -377,6 +377,63 @@ static void show_help() {
     (check_locale_is_ja()) ? show_help_ja() : show_help_en();
 }
 
+static const TCHAR *short_opt_to_long(TCHAR short_opt) {
+    const TCHAR *option_name = nullptr;
+    switch (short_opt) {
+    case _T('b'):
+        option_name = _T("bframes");
+        break;
+    case _T('c'):
+        option_name = _T("codec");
+        break;
+    case _T('d'):
+        option_name = _T("device");
+        break;
+    case _T('u'):
+        option_name = _T("quality");
+        break;
+    case _T('f'):
+        option_name = _T("fps");
+        break;
+    case _T('i'):
+        option_name = _T("input");
+        break;
+    case _T('o'):
+        option_name = _T("output");
+        break;
+    case _T('v'):
+        option_name = _T("version");
+        break;
+    case _T('h'):
+    case _T('?'):
+        option_name = _T("help");
+        break;
+    default:
+        break;
+    }
+    return option_name;
+}
+
+static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName, const TCHAR *strErrorValue = nullptr) {
+    if (strErrorMessage) {
+        if (strOptionName) {
+            if (strErrorValue) {
+                _ftprintf(stderr, _T("Error: %s \"%s\" for \"--%s\"\n"), strErrorMessage, strErrorValue, strOptionName);
+                if (0 == _tcsnccmp(strErrorValue, _T("--"), _tcslen(_T("--")))
+                    || (strErrorValue[0] == _T('-') && strErrorValue[2] == _T('\0') && short_opt_to_long(strErrorValue[1]) != nullptr)) {
+                    _ftprintf(stderr, _T("       \"--%s\" requires value.\n\n"), strOptionName);
+                }
+            } else {
+                _ftprintf(stderr, _T("Error: %s for --%s\n\n"), strErrorMessage, strOptionName);
+            }
+        } else {
+            _ftprintf(stderr, _T("Error: %s\n\n"), strErrorMessage);
+        }
+    } else {
+        show_help();
+    }
+}
+
 static void show_device_list() {
     if (!check_if_nvcuda_dll_available()) {
         _ftprintf(stdout, _T("CUDA not available.\n"));
@@ -444,48 +501,7 @@ static void show_nvenc_features(int deviceid) {
     }
 }
 
-static const TCHAR *short_opt_to_long(TCHAR short_opt) {
-    const TCHAR *option_name = nullptr;
-    switch (short_opt) {
-    case _T('b'):
-        option_name = _T("bframes");
-        break;
-    case _T('c'):
-        option_name = _T("codec");
-        break;
-    case _T('d'):
-        option_name = _T("device");
-        break;
-    case _T('u'):
-        option_name = _T("quality");
-        break;
-    case _T('f'):
-        option_name = _T("fps");
-        break;
-    case _T('i'):
-        option_name = _T("input");
-        break;
-    case _T('o'):
-        option_name = _T("output");
-        break;
-    case _T('v'):
-        option_name = _T("version");
-        break;
-    case _T('h'):
-    case _T('?'):
-        option_name = _T("help");
-        break;
-    default:
-        break;
-    }
-    return option_name;
-}
-
 #define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
-
-void invalid_option_value(const TCHAR *option_name, const TCHAR *option_value) {
-    _ftprintf(stderr, _T("Invalid value. %s : %s\n"), option_name, option_value);
-};
 
 bool get_list_value(const CX_DESC * list, const TCHAR *chr, int *value) {
     for (int i = 0; list[i].desc; i++) {
@@ -528,7 +544,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             }
         }
         if (deviceid < 0) {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         pParams->deviceID = deviceid;
@@ -569,7 +585,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     pParams->input.rate  /= gcd;
                 }
             } else  {
-                invalid_option_value(option_name, strInput[i]);
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -584,7 +600,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->input.width  = a[0];
             pParams->input.height = a[1];
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -598,7 +614,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->input.dstWidth  = a[0];
             pParams->input.dstHeight = a[1];
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -610,7 +626,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             || 4 == _stscanf_s(strInput[i], _T("%d:%d:%d:%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])) {
             memcpy(&pParams->input.crop, &a, sizeof(a));
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -621,7 +637,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_nvenc_codecs_for_opt, strInput[i], &value)) {
             pParams->codec = value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -681,7 +697,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.constQP.qpInterP = a[0];
             pParams->encConfig.rcParams.constQP.qpInterB = a[0];
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -693,7 +709,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_MINQP;
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -705,7 +721,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_2_PASS_VBR;
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -718,7 +734,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
             pParams->encConfig.rcParams.maxBitRate = value * 1000;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -757,7 +773,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             ptrQP->qpInterP = a[0];
             ptrQP->qpInterB = a[0];
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -768,7 +784,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.gopLength = value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -779,7 +795,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.frameIntervalP = value + 1;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -790,7 +806,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.rcParams.maxBitRate = value * 1000;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -801,8 +817,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.rcParams.vbvBufferSize = value * 1000;
         } else {
-            invalid_option_value(option_name, strInput[i]);
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -822,7 +837,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
             codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -833,7 +848,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_mv_presicion, strInput[i], &value)) {
             pParams->encConfig.mvPrecision = (NV_ENC_MV_PRECISION)value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -844,7 +859,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.rcParams.vbvBufferSize = value * 1000;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -855,7 +870,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_deinterlace, strInput[i], &value)) {
             pParams->vpp.deinterlace = (cudaVideoDeinterlaceMode)value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
     }  else if (IS_OPTION("interlaced")) {
@@ -864,7 +879,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_interlaced, strInput[i], &value)) {
             pParams->picStruct = (NV_ENC_PIC_STRUCT)value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -906,7 +921,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
             codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat = value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -918,7 +933,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix = value;
             codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix = value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -930,7 +945,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries = value;
             codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries = value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -942,7 +957,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = value;
             codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -964,7 +979,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 codecPrm[NV_ENC_H264].h264Config.level = value;
                 codecPrm[NV_ENC_HEVC].hevcConfig.level = value;
             } else {
-                invalid_option_value(option_name, strInput[i]);
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -985,7 +1000,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             flag = true;
         }
         if (!flag) {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         if (0 == memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid))) {
@@ -1007,7 +1022,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->par[0] = a[0];
             pParams->par[1] = a[1];
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1018,7 +1033,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_hevc_cu_size, strInput[i], &value)) {
             codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1029,7 +1044,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1045,9 +1060,89 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_log_level, strInput[i], &value)) {
             pParams->loglevel = value;
         } else {
-            invalid_option_value(option_name, strInput[i]);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("log-framelist"))) {
+        i++;
+        pParams->sFramePosListLog = strInput[i];
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("output-buf"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < 0) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        pParams->nOutputBufSizeMB = (std::min)(value, NV_OUTPUT_BUF_MB_MAX);
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("input-thread"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < -1 || value >= 2) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        pParams->nInputThread = (int8_t)value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
+        pParams->nOutputThread = 0;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("output-thread"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < -1 || value >= 2) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        pParams->nOutputThread = (int8_t)value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-thread"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < -1 || value >= 3) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        pParams->nAudioThread = (int8_t)value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("max-procfps"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < 0) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        pParams->nProcSpeedLimit = (uint16_t)(std::min)(value, (int)UINT16_MAX);
+        return 0;
     }
     _ftprintf(stderr, _T("Invalid option: %s.\n"), option_name);
     return -1;
@@ -1071,36 +1166,41 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
                 option_name = &strInput[i][2];
             } else if (strInput[i][2] == _T('\0')) {
                 if (nullptr == (option_name = short_opt_to_long(strInput[i][1]))) {
-                    _ftprintf(stderr, _T("Unknown Option : %s"), strInput[i]);
+                    PrintHelp(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), NULL);
                     return -1;
                 }
             } else {
-                _ftprintf(stderr, _T("Unknown Option : %s"), strInput[i]);
+                PrintHelp(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), NULL);
                 return -1;
             }
         }
 
         if (nullptr == option_name) {
-            _ftprintf(stderr, _T("Unknown Option : %s"), strInput[i]);
+            PrintHelp(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), NULL);
             return -1;
         }
 
         if (IS_OPTION("help")) {
             show_help();
             return 1;
-        } else if (IS_OPTION("help-ja")) {
+        }
+        if (IS_OPTION("help-ja")) {
             show_help_ja();
             return 1;
-        } else if (IS_OPTION("help-en")) {
+        }
+        if (IS_OPTION("help-en")) {
             show_help_en();
             return 1;
-        } else if (IS_OPTION("version")) {
+        }
+        if (IS_OPTION("version")) {
             show_version();
             return 1;
-        } else if (IS_OPTION("check-device")) {
+        }
+        if (IS_OPTION("check-device")) {
             show_device_list();
             return 1;
-        } else if (IS_OPTION("check-hw")) {
+        }
+        if (IS_OPTION("check-hw")) {
             int deviceid = 0;
             if (i + 1 < nArgNum) {
                 i++;
@@ -1111,10 +1211,12 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
             }
             show_hw(deviceid);
             return 1;
-        } else if (IS_OPTION("check-environment")) {
+        }
+        if (IS_OPTION("check-environment")) {
             show_environment_info();
             return 1;
-        } else if (IS_OPTION("check-features")) {
+        }
+        if (IS_OPTION("check-features")) {
             int deviceid = 0;
             if (i + 1 < nArgNum) {
                 i++;
@@ -1125,11 +1227,36 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
             }
             show_nvenc_features(deviceid);
             return 1;
-        } else {
-            auto sts = parse_one_option(option_name, strInput, i, nArgNum, pParams, codecPrm, &argsData);
-            if (sts != 0) {
-                return sts;
-            }
+        }
+#if ENABLE_AVCUVID_READER
+        if (0 == _tcscmp(option_name, _T("check-avversion"))) {
+            _ftprintf(stdout, _T("%s\n"), getAVVersions().c_str());
+            return 1;
+        }
+        if (0 == _tcscmp(option_name, _T("check-codecs"))) {
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs((AVQSVCodecType)(AVQSV_CODEC_DEC | AVQSV_CODEC_ENC)).c_str());
+            return 1;
+        }
+        if (0 == _tcscmp(option_name, _T("check-encoders"))) {
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_ENC).c_str());
+            return 1;
+        }
+        if (0 == _tcscmp(option_name, _T("check-decoders"))) {
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_DEC).c_str());
+            return 1;
+        }
+        if (0 == _tcscmp(option_name, _T("check-protocols"))) {
+            _ftprintf(stdout, _T("%s\n"), getAVProtocols().c_str());
+            return 1;
+        }
+        if (0 == _tcscmp(option_name, _T("check-formats"))) {
+            _ftprintf(stdout, _T("%s\n"), getAVFormats((AVQSVFormatType)(AVQSV_FORMAT_DEMUX | AVQSV_FORMAT_MUX)).c_str());
+            return 1;
+        }
+#endif //#if ENABLE_AVCUVID_READER
+        auto sts = parse_one_option(option_name, strInput, i, nArgNum, pParams, codecPrm, &argsData);
+        if (sts != 0) {
+            return sts;
         }
     }
 
