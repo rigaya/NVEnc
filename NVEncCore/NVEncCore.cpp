@@ -1310,6 +1310,11 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     //SAR自動設定
     auto par = std::make_pair(inputParam->par[0], inputParam->par[1]);
+    if ((!inputParam->par[0] || !inputParam->par[1]) //SAR比の指定がない
+        && inputParam->input.sar[0] && inputParam->input.sar[1] //入力側からSAR比を取得ずみ
+        && (m_uEncWidth == inputParam->input.width && m_uEncHeight == inputParam->input.height)) {//リサイズは行われない
+        par = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
+    }
     adjust_sar(&par.first, &par.second, m_uEncWidth, m_uEncHeight);
 
     //色空間設定自動
@@ -1471,9 +1476,6 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
     NVPrintf(stderr, NV_LOG_DEBUG, _T("InitInput: Success.\n"));
-    if (inputParam->par[0] == 0 && inputParam->par[1] == 0) {
-        memcpy(inputParam->par, inputParam->input.sar, sizeof(inputParam->par));
-    }
 
     //出力ファイルを開く
     if (NV_ENC_SUCCESS != (nvStatus = InitOutput(inputParam))) {
