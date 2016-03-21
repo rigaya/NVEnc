@@ -1136,9 +1136,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
             m_uEncWidth  = inputParam->input.dstWidth;
             m_uEncHeight = inputParam->input.dstHeight;
-        }
+        } else
 #endif
-        if (m_uEncWidth != inputParam->input.dstWidth || m_uEncHeight != inputParam->input.dstHeight) {
+        if (m_uEncWidth != inputParam->input.width || m_uEncHeight != inputParam->input.height) {
             NVPrintf(stderr, NV_LOG_ERROR, _T("resizing requires to be used with avcuvid reader.\n"));
             NVPrintf(stderr, NV_LOG_ERROR, _T(" input %dx%d -> output %dx%d.\n"), m_uEncWidth, m_uEncHeight, inputParam->input.dstWidth, inputParam->input.dstHeight);
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
