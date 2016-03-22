@@ -446,7 +446,7 @@ int CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTr
             nAvgFramerate64.den = m_Demux.video.pCodecCtx->framerate.den;
         } else if (m_Demux.video.pCodecCtx->pkt_timebase.den > 0
             && m_Demux.video.pCodecCtx->pkt_timebase.num > 0) {
-            nAvgFramerate64.num = m_Demux.video.pCodecCtx->pkt_timebase.den * m_Demux.video.pCodecCtx->ticks_per_frame;
+            nAvgFramerate64.num = m_Demux.video.pCodecCtx->pkt_timebase.den;
             nAvgFramerate64.den = m_Demux.video.pCodecCtx->pkt_timebase.num;
         }
     }
