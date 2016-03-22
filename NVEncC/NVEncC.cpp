@@ -196,7 +196,7 @@ static void show_help_ja() {
         _T("   --cbr <int>                    固定ビットレートのビットレート (kbps)\n")
         _T("                                    デフォルト %d kbps\n")
         _T("\n")
-        _T("   --max-bitrate <int>            最大ビットレート(kbps) / デフォルト: %d kbps\n")
+        _T("   --maxbitrate <int>             最大ビットレート(kbps) / デフォルト: %d kbps\n")
         _T("   --qp-init <int> or             初期QPを設定\n")
         _T("             <int>:<int>:<int>      デフォルト: 自動\n")
         _T("   --qp-max <int> or              最大QPを設定\n")
@@ -324,7 +324,7 @@ static void show_help_en() {
         _T("   --cbr <int>                    set bitrate for CBR mode (kbps)\n")
         _T("                                    Default: %d kbps\n")
         _T("\n")
-        _T("   --max-bitrate <int>            set Max Bitrate (kbps) / Default: %d kbps\n")
+        _T("   --maxbitrate <int>             set Max Bitrate (kbps) / Default: %d kbps\n")
         _T("   --qp-init <int> or             set initial QP\n")
         _T("             <int>:<int>:<int>      Default: auto\n")
         _T("   --qp-max <int> or              set max QP\n")
@@ -800,7 +800,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (IS_OPTION("max-bitrate")) {
+    if (IS_OPTION("max-bitrate") || IS_OPTION("maxbitrate")) {
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
