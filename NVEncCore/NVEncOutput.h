@@ -39,9 +39,112 @@ using std::unique_ptr;
 using std::shared_ptr;
 
 struct nvBitstream {
-    uint8_t *data;
-    uint32_t nSize;
+    uint8_t *Data;
+    uint32_t DataLength;
+    uint32_t MaxLength;
+    uint32_t frameIdx;
+    uint64_t outputTimeStamp;
+    uint64_t outputDuration;
+    NV_ENC_PIC_TYPE pictureType;
+    NV_ENC_PIC_STRUCT pictureStruct;
+    uint32_t frameAvgQP;
 };
+
+static inline void nvBitstreamClear(nvBitstream *pBitstream) {
+    if (pBitstream->Data) {
+        _aligned_free(pBitstream->Data);
+    }
+    memset(pBitstream, 0, sizeof(pBitstream[0]));
+}
+
+static inline void nvBitstreamFreeData(nvBitstream *pBitstream) {
+    if (pBitstream->Data) {
+        _aligned_free(pBitstream->Data);
+    }
+    pBitstream->DataLength = 0;
+    pBitstream->MaxLength = 0;
+}
+
+static inline int nvBitstreamAlloc(nvBitstream *pBitstream, uint32_t nSize) {
+    nvBitstreamFreeData(pBitstream);
+    if (nullptr == (pBitstream->Data = (uint8_t *)_aligned_malloc(nSize, 32))) {
+        return 1;
+    }
+
+    pBitstream->MaxLength = nSize;
+    return 0;
+}
+
+static inline int nvBitstreamInit(nvBitstream *pBitstream, uint32_t nSize) {
+    nvBitstreamClear(pBitstream);
+    return nvBitstreamAlloc(pBitstream, nSize);
+}
+
+static inline int nvBitstreamCopy(nvBitstream *pBitstreamCopy, const nvBitstream *pBitstream) {
+    uint8_t *ptr    = pBitstreamCopy->Data;
+    auto nMaxLength = pBitstreamCopy->MaxLength;
+    if (nMaxLength < pBitstream->DataLength) {
+        nMaxLength = pBitstream->DataLength;
+        auto sts = nvBitstreamAlloc(pBitstreamCopy, nMaxLength);
+        if (sts) return sts;
+        ptr = pBitstreamCopy->Data;
+    }
+    memcpy(pBitstreamCopy, pBitstream, sizeof(pBitstreamCopy[0]));
+    pBitstreamCopy->Data = ptr;
+    pBitstreamCopy->MaxLength = nMaxLength;
+    memcpy(pBitstreamCopy->Data, pBitstream->Data, pBitstream->DataLength);
+    pBitstreamCopy->DataLength = pBitstream->DataLength;
+    return 0;
+}
+
+static inline int nvBitstreamCopy(nvBitstream *pBitstreamCopy, const NV_ENC_LOCK_BITSTREAM *pBitstream) {
+    nvBitstream bitstreamSrc;
+    bitstreamSrc.Data = (uint8_t *)pBitstream->bitstreamBufferPtr;
+    bitstreamSrc.DataLength = pBitstream->bitstreamSizeInBytes;
+    bitstreamSrc.MaxLength = pBitstream->bitstreamSizeInBytes;
+    bitstreamSrc.frameIdx = pBitstream->frameIdx;
+    bitstreamSrc.outputTimeStamp = pBitstream->outputTimeStamp;
+    bitstreamSrc.outputDuration = pBitstream->outputDuration;
+    bitstreamSrc.pictureStruct = pBitstream->pictureStruct;
+    bitstreamSrc.pictureType = pBitstream->pictureType;
+    bitstreamSrc.frameAvgQP = pBitstream->frameAvgQP;
+    return nvBitstreamCopy(pBitstreamCopy, &bitstreamSrc);
+}
+
+static inline int nvBitstreamExtend(nvBitstream *pBitstream, uint32_t nSize) {
+    uint8_t *pData = (uint8_t *)_aligned_malloc(nSize, 32);
+    if (nullptr == pData) {
+        return 1;
+    }
+
+    auto nDataLen = pBitstream->DataLength;
+    if (nDataLen) {
+        memmove(pData, pBitstream->Data, nDataLen);
+    }
+
+    nvBitstreamFreeData(pBitstream);
+
+    pBitstream->Data       = pData;
+    pBitstream->DataLength = nDataLen;
+    pBitstream->MaxLength  = nSize;
+
+    return 0;
+}
+
+static inline int nvBitstreamAppend(nvBitstream *pBitstream, const uint8_t *data, uint32_t size) {
+    int sts = 0;
+    if (data && size) {
+        const uint32_t new_data_length = pBitstream->DataLength + size;
+        if (pBitstream->MaxLength < new_data_length) {
+            if (0 != (sts = nvBitstreamExtend(pBitstream, new_data_length))) {
+                return sts;
+            }
+        }
+        memcpy(pBitstream->Data + pBitstream->DataLength, data, size);
+        pBitstream->DataLength = new_data_length;
+    }
+    return sts;
+}
 
 enum OutputType {
     OUT_TYPE_NONE = 0,
@@ -59,7 +162,7 @@ public:
     }
     virtual int Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) = 0;
 
-    virtual int SetVideoParam(const InputVideoInfo *pVideoPrm) = 0;
+    virtual int SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) = 0;
 
     virtual int WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) = 0;
     virtual int WriteNextFrame(uint8_t *ptr, uint32_t nSize) = 0;
@@ -132,7 +235,7 @@ public:
 
     virtual int Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
 
-    virtual int SetVideoParam(const InputVideoInfo *pVideoPrm) override;
+    virtual int SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) override;
 
     virtual int WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) override;
     virtual int WriteNextFrame(uint8_t *ptr, uint32_t nSize) override;

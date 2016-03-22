@@ -97,8 +97,36 @@ public:
 
     virtual void Close();
 
-    tstring getInputMes() {
-        return m_strInputInfo;
+    void SetTrimParam(const sTrimParam& trim) {
+        m_sTrimParam = trim;
+    }
+
+    const sTrimParam *GetTrimParam() {
+        return &m_sTrimParam;
+    }
+
+    void GetInputCropInfo(sInputCrop *cropInfo) {
+        memcpy(cropInfo, &m_sInputCrop, sizeof(m_sInputCrop));
+    }
+
+    //入力ファイルに存在する音声のトラック数を返す
+    virtual int GetAudioTrackCount() {
+        return 0;
+    }
+
+    //入力ファイルに存在する字幕のトラック数を返す
+    virtual int GetSubtitleTrackCount() {
+        return 0;
+    }
+
+    //デコードするストリームの情報を取得する
+    void GetDecParam(InputVideoInfo *decParam) {
+        memcpy(decParam, &m_sDecParam, sizeof(m_sDecParam));
+    }
+
+    const TCHAR *GetInputMessage() {
+        const TCHAR *mes = m_strInputInfo.c_str();
+        return (mes) ? mes : _T("");
     }
     void AddMessage(int log_level, const tstring& str) {
         if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
@@ -126,8 +154,21 @@ public:
         AddMessage(log_level, buffer);
     }
 
+    //デコードを行う場合のコーデックを返す
+    //行わない場合は0を返す
+    int getInputCodec() {
+        return m_nInputCodec;
+    }
 protected:
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *convSIMD, const TCHAR *outputCSpName, const InputVideoInfo *inputPrm);
+
+    //trim listを参照し、動画の最大フレームインデックスを取得する
+    int getVideoTrimMaxFramIdx() {
+        if (m_sTrimParam.list.size() == 0) {
+            return INT_MAX;
+        }
+        return m_sTrimParam.list[m_sTrimParam.list.size()-1].fin;
+    }
 
     shared_ptr<EncodeStatus> m_pEncSatusInfo;
     FILE *m_fp = NULL;
@@ -136,6 +177,8 @@ protected:
     shared_ptr<CNVEncLog> m_pPrintMes;  //ログ出力
     tstring m_strReaderName;    //読み込みの名前
     InputVideoInfo m_sDecParam; //デコード情報
+    sInputCrop m_sInputCrop;
 
     sTrimParam m_sTrimParam;
+    int m_nInputCodec;
 };

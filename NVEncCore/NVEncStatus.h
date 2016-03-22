@@ -107,10 +107,7 @@ public:
         m_sData.tmStart = std::chrono::system_clock::now();
         GetProcessTime(GetCurrentProcess(), &m_sStartTime);
     }
-    virtual void SetOutputData(const NV_ENC_LOCK_BITSTREAM *bitstream) {
-        const NV_ENC_PIC_TYPE picType = bitstream->pictureType;
-        const uint32_t outputBytes = bitstream->bitstreamSizeInBytes;
-        const uint32_t frameAvgQP = bitstream->frameAvgQP;
+    virtual void SetOutputData(NV_ENC_PIC_TYPE picType, uint32_t outputBytes, uint32_t frameAvgQP) {
         m_sData.outFileSize    += outputBytes;
         m_sData.frameOut       += 1;
         m_sData.frameOutIDR    += (NV_ENC_PIC_TYPE_IDR == picType);
@@ -156,8 +153,9 @@ public:
             memcpy(mes, header, header_len * sizeof(mes[0]));
             mes_len += header_len;
 
-            for (int i = std::max(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++)
+            for (int i = std::max(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++) {
                 mes[mes_len] = _T(' ');
+            }
             mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%u"), count);
 
             if (avgQP >= 0.0) {
@@ -169,8 +167,9 @@ public:
                 memcpy(mes + mes_len, TOTAL_SIZE, _tcslen(TOTAL_SIZE) * sizeof(mes[0]));
                 mes_len += (int)_tcslen(TOTAL_SIZE);
 
-                for (int i = std::max(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++)
+                for (int i = std::max(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++) {
                     mes[mes_len] = _T(' ');
+                }
 
                 mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%.2f MB"), (double)frameSize / (double)(1024 * 1024));
             }

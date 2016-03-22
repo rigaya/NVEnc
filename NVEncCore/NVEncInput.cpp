@@ -38,6 +38,9 @@
 
 NVEncBasicInput::NVEncBasicInput() {
     memset(&m_sTrimParam, 0, sizeof(m_sTrimParam));
+    memset(&m_sInputCrop, 0, sizeof(m_sInputCrop));
+    memset(&m_sDecParam, 0, sizeof(m_sDecParam));
+    m_nInputCodec = 0;
 }
 
 NVEncBasicInput::~NVEncBasicInput() {

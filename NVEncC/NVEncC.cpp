@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <numeric>
 #include <vector>
+#include <set>
 #include <cstdio>
 #include "NVEncVersion.h"
 #include "NVEncCore.h"
@@ -503,6 +504,26 @@ static void show_nvenc_features(int deviceid) {
 
 #define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
 
+static int getAudioTrackIdx(const InEncodeVideoParam* pParams, int iTrack) {
+    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+        if (iTrack == pParams->ppAudioSelectList[i]->nAudioSelect) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int getFreeAudioTrack(const InEncodeVideoParam* pParams) {
+    for (int iTrack = 1;; iTrack++) {
+        if (0 > getAudioTrackIdx(pParams, iTrack)) {
+            return iTrack;
+        }
+    }
+#ifndef _MSC_VER
+    return -1;
+#endif //_MSC_VER
+}
+
 bool get_list_value(const CX_DESC * list, const TCHAR *chr, int *value) {
     for (int i = 0; list[i].desc; i++) {
         if (0 == _tcsicmp(list[i].desc, chr)) {
@@ -676,6 +697,538 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (IS_OPTION("avcuvid")) {
         pParams->input.type = NV_ENC_INPUT_AVCUVID;
 #endif
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("avcuvid-analyze"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        } else if (value < 0) {
+            PrintHelp(strInput[0], _T("avcuvid-analyze requires non-negative value."), option_name);
+            return 1;
+        } else {
+            pParams->nAVDemuxAnalyzeSec = (int)((std::min)(value, USHRT_MAX));
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("trim"))) {
+        i++;
+        auto trim_str_list = split(strInput[i], _T(","));
+        std::vector<sTrim> trim_list;
+        for (auto trim_str : trim_str_list) {
+            sTrim trim;
+            if (2 != _stscanf_s(trim_str.c_str(), _T("%d:%d"), &trim.start, &trim.fin) || (trim.fin > 0 && trim.fin < trim.start)) {
+                PrintHelp(strInput[0], _T("Invalid Value"), option_name);
+                return 1;
+            }
+            if (trim.fin == 0) {
+                trim.fin = TRIM_MAX;
+            } else if (trim.fin < 0) {
+                trim.fin = trim.start - trim.fin - 1;
+            }
+            trim_list.push_back(trim);
+        }
+        if (trim_list.size()) {
+            std::sort(trim_list.begin(), trim_list.end(), [](const sTrim& trimA, const sTrim& trimB) { return trimA.start < trimB.start; });
+            for (int j = (int)trim_list.size() - 2; j >= 0; j--) {
+                if (trim_list[j].fin > trim_list[j+1].start) {
+                    trim_list[j].fin = trim_list[j+1].fin;
+                    trim_list.erase(trim_list.begin() + j+1);
+                }
+            }
+            pParams->nTrimCount = (int)trim_list.size();
+            pParams->pTrimList = (sTrim *)malloc(sizeof(pParams->pTrimList[0]) * trim_list.size());
+            memcpy(pParams->pTrimList, &trim_list[0], sizeof(pParams->pTrimList[0]) * trim_list.size());
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("seek"))) {
+        i++;
+        int ret = 0;
+        int hh = 0, mm = 0;
+        float sec = 0.0f;
+        if (   3 != (ret = _stscanf_s(strInput[i], _T("%d:%d:%f"),    &hh, &mm, &sec))
+            && 2 != (ret = _stscanf_s(strInput[i],    _T("%d:%f"),         &mm, &sec))
+            && 1 != (ret = _stscanf_s(strInput[i],       _T("%f"),              &sec))) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (ret <= 2) {
+            hh = 0;
+        }
+        if (ret <= 1) {
+            mm = 0;
+        }
+        if (hh < 0 || mm < 0 || sec < 0) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        if (hh > 0 && mm >= 60) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        mm += hh * 60;
+        if (mm > 0 && sec >= 60.0f) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        pParams->fSeekSec = sec + mm * 60;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-source"))) {
+        i++;
+        size_t audioSourceLen = _tcslen(strInput[i]) + 1;
+        TCHAR *pAudioSource = (TCHAR *)malloc(sizeof(strInput[i][0]) * audioSourceLen);
+        memcpy(pAudioSource, strInput[i], sizeof(strInput[i][0]) * audioSourceLen);
+        pParams->ppAudioSourceList = (TCHAR **)realloc(pParams->ppAudioSourceList, sizeof(pParams->ppAudioSourceList[0]) * (pParams->nAudioSourceCount + 1));
+        pParams->ppAudioSourceList[pParams->nAudioSourceCount] = pAudioSource;
+        pParams->nAudioSourceCount++;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-file"))) {
+        i++;
+        const TCHAR *ptr = strInput[i];
+        sAudioSelect *pAudioSelect = nullptr;
+        int audioIdx = -1;
+        int trackId = 0;
+        if (_tcschr(ptr, '?') == nullptr || 1 != _stscanf(ptr, _T("%d?"), &trackId)) {
+            //トラック番号を適当に発番する (カウントは1から)
+            trackId = argData->nParsedAudioFile+1;
+            audioIdx = getAudioTrackIdx(pParams, trackId);
+            if (audioIdx < 0 || pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename != nullptr) {
+                trackId = getFreeAudioTrack(pParams);
+                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                pAudioSelect->nAudioSelect = trackId;
+            } else {
+                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+            }
+        } else if (i <= 0) {
+            //トラック番号は1から連番で指定
+            PrintHelp(strInput[0], _T("Invalid track number"), option_name);
+            return 1;
+        } else {
+            audioIdx = getAudioTrackIdx(pParams, trackId);
+            if (audioIdx < 0) {
+                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                pAudioSelect->nAudioSelect = trackId;
+            } else {
+                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+            }
+            ptr = _tcschr(ptr, '?') + 1;
+        }
+        assert(pAudioSelect != nullptr);
+        const TCHAR *qtr = _tcschr(ptr, ':');
+        if (qtr != NULL && !(ptr + 1 == qtr && qtr[1] == _T('\\'))) {
+            pAudioSelect->pAudioExtractFormat = alloc_str(ptr, qtr - ptr);
+            ptr = qtr + 1;
+        }
+        size_t filename_len = _tcslen(ptr);
+        //ファイル名が""でくくられてたら取り除く
+        if (ptr[0] == _T('\"') && ptr[filename_len-1] == _T('\"')) {
+            filename_len -= 2;
+            ptr++;
+        }
+        //ファイル名が重複していないかを確認する
+        for (int j = 0; j < pParams->nAudioSelectCount; j++) {
+            if (pParams->ppAudioSelectList[j]->pAudioExtractFilename != nullptr
+                && 0 == _tcsicmp(pParams->ppAudioSelectList[j]->pAudioExtractFilename, ptr)) {
+                PrintHelp(strInput[0], _T("Same output file name is used more than twice"), option_name);
+                return 1;
+            }
+        }
+
+        if (audioIdx < 0) {
+            audioIdx = pParams->nAudioSelectCount;
+            //新たに要素を追加
+            pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+            pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+            pParams->nAudioSelectCount++;
+        }
+        pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename = alloc_str(ptr);
+        argData->nParsedAudioFile++;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("format"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            pParams->sAVMuxOutputFormat = strInput[i];
+            if (0 != _tcsicmp(strInput[i], _T("raw"))) {
+                pParams->nAVMux |= NVENC_MUX_VIDEO;
+            }
+        }
+        return 0;
+    }
+#if ENABLE_AVCUVID_READER
+    if (   0 == _tcscmp(option_name, _T("audio-copy"))
+        || 0 == _tcscmp(option_name, _T("copy-audio"))) {
+        pParams->nAVMux |= (NVENC_MUX_VIDEO | NVENC_MUX_AUDIO);
+        std::set<int> trackSet; //重複しないよう、setを使う
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            auto trackListStr = split(strInput[i], _T(","));
+            for (auto str : trackListStr) {
+                int iTrack = 0;
+                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
+                    PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return 1;
+                } else {
+                    trackSet.insert(iTrack);
+                }
+            }
+        } else {
+            trackSet.insert(0);
+        }
+
+        for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
+            int trackId = *it;
+            sAudioSelect *pAudioSelect = nullptr;
+            int audioIdx = getAudioTrackIdx(pParams, trackId);
+            if (audioIdx < 0) {
+                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                pAudioSelect->nAudioSelect = trackId;
+            } else {
+                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+            }
+            pAudioSelect->pAVAudioEncodeCodec = alloc_str(AVQSV_CODEC_COPY);
+
+            if (audioIdx < 0) {
+                audioIdx = pParams->nAudioSelectCount;
+                //新たに要素を追加
+                pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                pParams->nAudioSelectCount++;
+            }
+            argData->nParsedAudioCopy++;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-codec"))) {
+        pParams->nAVMux |= (NVENC_MUX_VIDEO | NVENC_MUX_AUDIO);
+        if (i+1 < nArgNum) {
+            const TCHAR *ptr = nullptr;
+            const TCHAR *ptrDelim = nullptr;
+            if (strInput[i+1][0] != _T('-')) {
+                i++;
+                ptrDelim = _tcschr(strInput[i], _T('?'));
+                ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
+            }
+            int trackId = 1;
+            if (ptrDelim == nullptr) {
+                trackId = argData->nParsedAudioEncode+1;
+                int idx = getAudioTrackIdx(pParams, trackId);
+                if (idx >= 0 && pParams->ppAudioSelectList[idx]->pAVAudioEncodeCodec != nullptr) {
+                    trackId = getFreeAudioTrack(pParams);
+                }
+            } else {
+                tstring temp = tstring(strInput[i]).substr(0, ptrDelim - strInput[i]);
+                if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
+                    PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                    return 1;
+                }
+            }
+            sAudioSelect *pAudioSelect = nullptr;
+            int audioIdx = getAudioTrackIdx(pParams, trackId);
+            if (audioIdx < 0) {
+                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                pAudioSelect->nAudioSelect = trackId;
+            } else {
+                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+            }
+            pAudioSelect->pAVAudioEncodeCodec = alloc_str((ptr) ? ptr : AVQSV_CODEC_AUTO);
+
+            if (audioIdx < 0) {
+                audioIdx = pParams->nAudioSelectCount;
+                //新たに要素を追加
+                pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                pParams->nAudioSelectCount++;
+            }
+            argData->nParsedAudioEncode++;
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-bitrate"))) {
+        if (i+1 < nArgNum) {
+            i++;
+            const TCHAR *ptr = _tcschr(strInput[i], _T('?'));
+            int trackId = 1;
+            if (ptr == nullptr) {
+                trackId = argData->nParsedAudioBitrate+1;
+                int idx = getAudioTrackIdx(pParams, trackId);
+                if (idx >= 0 && pParams->ppAudioSelectList[idx]->nAVAudioEncodeBitrate > 0) {
+                    trackId = getFreeAudioTrack(pParams);
+                }
+                ptr = strInput[i];
+            } else {
+                tstring temp = tstring(strInput[i]).substr(0, ptr - strInput[i]);
+                if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
+                    PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                    return 1;
+                }
+                ptr++;
+            }
+            sAudioSelect *pAudioSelect = nullptr;
+            int audioIdx = getAudioTrackIdx(pParams, trackId);
+            if (audioIdx < 0) {
+                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                pAudioSelect->nAudioSelect = trackId;
+            } else {
+                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+            }
+            int bitrate = 0;
+            if (1 != _stscanf(ptr, _T("%d"), &bitrate)) {
+                PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                return 1;
+            }
+            pAudioSelect->nAVAudioEncodeBitrate = bitrate;
+
+            if (audioIdx < 0) {
+                audioIdx = pParams->nAudioSelectCount;
+                //新たに要素を追加
+                pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                pParams->nAudioSelectCount++;
+            }
+            argData->nParsedAudioBitrate++;
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-ignore-decode-error"))) {
+        i++;
+        uint32_t value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->nAudioIgnoreDecodeError = value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-ignore-notrack-error"))) {
+        pParams->bAudioIgnoreNoTrackError = 1;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-samplerate"))) {
+        if (i+1 < nArgNum) {
+            i++;
+            const TCHAR *ptr = _tcschr(strInput[i], _T('?'));
+            int trackId = 1;
+            if (ptr == nullptr) {
+                trackId = argData->nParsedAudioSamplerate+1;
+                int idx = getAudioTrackIdx(pParams, trackId);
+                if (idx >= 0 && pParams->ppAudioSelectList[idx]->nAudioSamplingRate > 0) {
+                    trackId = getFreeAudioTrack(pParams);
+                }
+                ptr = strInput[i];
+            } else {
+                tstring temp = tstring(strInput[i]).substr(0, ptr - strInput[i]);
+                if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
+                    PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                    return 1;
+                }
+                ptr++;
+            }
+            sAudioSelect *pAudioSelect = nullptr;
+            int audioIdx = getAudioTrackIdx(pParams, trackId);
+            if (audioIdx < 0) {
+                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                pAudioSelect->nAudioSelect = trackId;
+            } else {
+                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+            }
+            int bitrate = 0;
+            if (1 != _stscanf(ptr, _T("%d"), &bitrate)) {
+                PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                return 1;
+            }
+            pAudioSelect->nAudioSamplingRate = bitrate;
+
+            if (audioIdx < 0) {
+                audioIdx = pParams->nAudioSelectCount;
+                //新たに要素を追加
+                pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                pParams->nAudioSelectCount++;
+            }
+            argData->nParsedAudioSamplerate++;
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-resampler"))) {
+        i++;
+        int v = 0;
+        if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_resampler, strInput[i]))) {
+            pParams->nAudioResampler = v;
+        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_resampler) - 1) {
+            pParams->nAudioResampler = v;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-stream"))) {
+        if (!check_avcodec_dll()) {
+            _ftprintf(stderr, _T("%s\n--audio-stream could not be used.\n"), error_mes_avcodec_dll_not_found().c_str());
+            return 1;
+        }
+        int trackId = -1;
+        const TCHAR *ptr = nullptr;
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            ptr = _tcschr(strInput[i], _T('?'));
+            if (ptr != nullptr) {
+                tstring temp = tstring(strInput[i]).substr(0, ptr - strInput[i]);
+                if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
+                    PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                    return 1;
+                }
+                ptr++;
+            } else {
+                ptr = strInput[i];
+            }
+        }
+        if (trackId < 0) {
+            trackId = argData->nParsedAudioSplit+1;
+            int idx = getAudioTrackIdx(pParams, trackId);
+            if (idx >= 0 && bSplitChannelsEnabled(pParams->ppAudioSelectList[idx]->pnStreamChannelSelect)) {
+                trackId = getFreeAudioTrack(pParams);
+            }
+        }
+        sAudioSelect *pAudioSelect = nullptr;
+        int audioIdx = getAudioTrackIdx(pParams, trackId);
+        if (audioIdx < 0) {
+            pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+            pAudioSelect->nAudioSelect = trackId;
+        } else {
+            pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+        }
+        if (ptr == nullptr) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        } else {
+            auto streamSelectList = split(tchar_to_string(ptr), ",");
+            if (streamSelectList.size() > _countof(pAudioSelect->pnStreamChannelSelect)) {
+                PrintHelp(strInput[0], _T("Too much streams splitted"), option_name);
+                return 1;
+            }
+            static const char *DELIM = ":";
+            for (uint32_t j = 0; j < streamSelectList.size(); j++) {
+                auto selectPtr = streamSelectList[j].c_str();
+                auto selectDelimPos = strstr(selectPtr, DELIM);
+                if (selectDelimPos == nullptr) {
+                    auto channelLayout = av_get_channel_layout(selectPtr);
+                    pAudioSelect->pnStreamChannelSelect[j] = channelLayout;
+                    pAudioSelect->pnStreamChannelOut[j]    = QSV_CHANNEL_AUTO; //自動
+                } else if (selectPtr == selectDelimPos) {
+                    pAudioSelect->pnStreamChannelSelect[j] = QSV_CHANNEL_AUTO;
+                    pAudioSelect->pnStreamChannelOut[j]    = av_get_channel_layout(selectDelimPos + strlen(DELIM));
+                } else {
+                    pAudioSelect->pnStreamChannelSelect[j] = av_get_channel_layout(streamSelectList[j].substr(0, selectDelimPos - selectPtr).c_str());
+                    pAudioSelect->pnStreamChannelOut[j]    = av_get_channel_layout(selectDelimPos + strlen(DELIM));
+                }
+            }
+        }
+        if (audioIdx < 0) {
+            audioIdx = pParams->nAudioSelectCount;
+            //新たに要素を追加
+            pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+            pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+            pParams->nAudioSelectCount++;
+        }
+        argData->nParsedAudioSplit++;
+        return 0;
+    }
+#endif //#if ENABLE_AVCODEC_QSV_READER
+    if (   0 == _tcscmp(option_name, _T("chapter-copy"))
+        || 0 == _tcscmp(option_name, _T("copy-chapter"))) {
+        pParams->bCopyChapter = TRUE;
+        return 0;
+    }
+#if 0
+    if (0 == _tcscmp(option_name, _T("chapter"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            pParams->pChapterFile = alloc_str(strInput[i]);
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
+        }
+        return 0;
+    }
+#endif
+    if (   0 == _tcscmp(option_name, _T("sub-copy"))
+        || 0 == _tcscmp(option_name, _T("copy-sub"))) {
+        pParams->nAVMux |= (NVENC_MUX_VIDEO | NVENC_MUX_SUBTITLE);
+        std::set<int> trackSet; //重複しないよう、setを使う
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            auto trackListStr = split(strInput[i], _T(","));
+            for (auto str : trackListStr) {
+                int iTrack = 0;
+                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
+                    PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return 1;
+                } else {
+                    trackSet.insert(iTrack);
+                }
+            }
+        } else {
+            trackSet.insert(0);
+        }
+        for (int iTrack = 0; iTrack < pParams->nSubtitleSelectCount; iTrack++) {
+            trackSet.insert(pParams->pSubtitleSelect[iTrack]);
+        }
+        if (pParams->pSubtitleSelect) {
+            free(pParams->pSubtitleSelect);
+        }
+
+        pParams->pSubtitleSelect = (int *)malloc(sizeof(pParams->pSubtitleSelect[0]) * trackSet.size());
+        pParams->nSubtitleSelectCount = (int)trackSet.size();
+        int iTrack = 0;
+        for (auto it = trackSet.begin(); it != trackSet.end(); it++, iTrack++) {
+            pParams->pSubtitleSelect[iTrack] = *it;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("avsync"))) {
+        int value = 0;
+        i++;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avsync, strInput[i]))) {
+            pParams->nAVSyncMode = (NVAVSync)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("mux-option"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            auto ptr = _tcschr(strInput[i], ':');
+            if (ptr == nullptr) {
+                PrintHelp(strInput[0], _T("invalid value"), option_name);
+                return 1;
+            } else {
+                if (pParams->pMuxOpt == nullptr) {
+                    pParams->pMuxOpt = new muxOptList();
+                }
+                pParams->pMuxOpt->push_back(std::make_pair<tstring, tstring>(tstring(strInput[i]).substr(0, ptr - strInput[i]), tstring(ptr+1)));
+            }
+        } else {
+            PrintHelp(strInput[0], _T("invalid option"), option_name);
+            return 1;
+        }
         return 0;
     }
     if (IS_OPTION("cqp")) {
@@ -1299,6 +1852,8 @@ int _tmain(int argc, TCHAR **argv) {
     encPrm.inputBuffer = 16;
     encPrm.picStruct = NV_ENC_PIC_STRUCT_FRAME;
     encPrm.preset = 0;
+    encPrm.nOutputBufSizeMB = DEFAULT_OUTPUT_BUF;
+    encPrm.nAudioIgnoreDecodeError = DEFAULT_IGNORE_DECODE_ERROR;
     codecPrm[NV_ENC_H264] = NVEncCore::DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = NVEncCore::DefaultParamHEVC();
 

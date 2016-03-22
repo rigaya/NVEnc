@@ -128,7 +128,7 @@ int NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_pt
     m_bInited = true;
     return 0;
 }
-int NVEncOutBitstream::SetVideoParam(const InputVideoInfo *pVideoPrm) { return 0; };
+int NVEncOutBitstream::SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) { return 0; };
 #pragma warning(pop)
 int NVEncOutBitstream::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) {
     if (pBitstream == nullptr) {
@@ -142,7 +142,7 @@ int NVEncOutBitstream::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) {
         WRITE_CHECK(nBytesWritten, pBitstream->bitstreamSizeInBytes);
     }
 
-    m_pEncSatusInfo->SetOutputData(pBitstream);
+    m_pEncSatusInfo->SetOutputData(pBitstream->pictureType, pBitstream->bitstreamSizeInBytes, pBitstream->frameAvgQP);
     return 0;
 }
 

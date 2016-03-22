@@ -373,6 +373,7 @@
     <ClCompile Include="avcodec_qsv.cpp" />
     <ClCompile Include="avcodec_qsv_log.cpp" />
     <ClCompile Include="avcodec_reader.cpp" />
+    <ClCompile Include="avcodec_writer.cpp" />
     <ClCompile Include="cl_func.cpp" />
     <ClCompile Include="ConvertCsp.cpp" />
     <ClCompile Include="ConvertCspAVX.cpp">
@@ -419,6 +420,7 @@
     <ClInclude Include="avcodec_qsv.h" />
     <ClInclude Include="avcodec_qsv_log.h" />
     <ClInclude Include="avcodec_reader.h" />
+    <ClInclude Include="avcodec_writer.h" />
     <ClInclude Include="cl_func.h" />
     <ClInclude Include="ConvertCsp.h" />
     <ClInclude Include="ConvertCspSIMD.h" />
@@ -437,8 +439,10 @@
     <ClInclude Include="NVEncOutput.h" />
     <ClInclude Include="NVEncParam.h" />
     <ClInclude Include="NVEncStatus.h" />
+    <ClInclude Include="NVEncThread.h" />
     <ClInclude Include="NVEncVersion.h" />
     <ClInclude Include="NVEncUtil.h" />
+    <ClInclude Include="qsv_queue.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

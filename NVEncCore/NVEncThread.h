@@ -24,35 +24,37 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
+#ifndef __NVENC_THREAD_H__
+#define __NVENC_THREAD_H__
 
-#pragma once
+#include <thread>
+#define WIN32_MEAN_AND_LEAN
+#define NOMINMAX
+#include <Windows.h>
 
-#define VER_FILEVERSION              0,2,0,3
-#define VER_STR_FILEVERSION          "2.00β3"
-#define VER_STR_FILEVERSION_TCHAR _T("2.00β3")
+static void __forceinline sleep_hybrid(int count) {
+    _mm_pause();
+    if ((count & 4095) == 4095) {
+        std::this_thread::sleep_for(std::chrono::milliseconds((count & 65535) == 65535));
+    }
+}
 
-#ifdef _M_IX86
-#define BUILD_ARCH_STR _T("x86")
-#else
-#define BUILD_ARCH_STR _T("x64")
-#endif
+#if defined(_WIN32) || defined(_WIN64)
 
-#define ENABLE_AVCODEC_OUT_THREAD 1
-#define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
+static inline bool CheckThreadAlive(std::thread& thread) {
+    DWORD exit_code = 0;
+    return (0 != GetExitCodeThread(thread.native_handle(), &exit_code)) && exit_code == STILL_ACTIVE;
+}
 
-#ifdef NVENC_AUO
-#define FOR_AUO    1
-#define RAW_READER 0
-#define AVI_READER 0
-#define AVS_READER 0
-#define VPY_READER 0
-#define ENABLE_AVCUVID_READER 0
-#else
-#define FOR_AUO    0
-#define RAW_READER 1
-#define AVI_READER 0
-#define AVS_READER 1
-#define VPY_READER 1
-#define ENABLE_AVCUVID_READER 1
-#endif
+#else //#if defined(_WIN32) || defined(_WIN64)
+#include <pthread.h>
+#include <signal.h>
 
+static inline bool CheckThreadAlive(std::thread& thread) {
+    uint32_t exit_code = 0;
+    return pthread_kill(thread.native_handle(), 0) != ESRCH;
+}
+
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+#endif //__NVENC_THREAD_H__

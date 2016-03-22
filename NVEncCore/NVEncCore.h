@@ -46,6 +46,8 @@
 #include "FrameQueue.h"
 #include "CuvidDecode.h"
 
+using std::vector;
+
 static const int MAX_DECODE_FRAMES = 16;
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
@@ -60,6 +62,8 @@ static const int DEFAULT_QP_P        = 23;
 static const int DEFAULT_QP_B        = 25;
 static const int DEFAULT_AVG_BITRATE = 7500000;
 static const int DEFAULT_MAX_BITRATE = 17500000;
+static const int DEFAULT_OUTPUT_BUF  = 8;
+static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
 #ifdef _M_IX86
 static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI.dll");
@@ -95,6 +99,7 @@ typedef struct VppParam {
 typedef struct InEncodeVideoParam {
     InputVideoInfo input;         //入力する動画の情報
     tstring outputFilename;       //出力ファイル名
+    tstring sAVMuxOutputFormat;   //出力フォーマット
     int preset;                   //出力プリセット
     int deviceID;                 //使用するGPUのID
     int inputBuffer;              //使用されていません
@@ -107,6 +112,30 @@ typedef struct InEncodeVideoParam {
     int lossless;                 //ロスレス出力
     tstring logfile;              //ログ出力先
     int loglevel;                 //ログ出力レベル
+    int nOutputBufSizeMB;         //出力バッファサイズ
+    tstring sFramePosListLog;     //framePosList出力先
+    float fSeekSec;               //指定された秒数分先頭を飛ばす
+    int nSubtitleSelectCount;
+    int *pSubtitleSelect;
+    int nAudioSourceCount;
+    TCHAR **ppAudioSourceList;
+    int nAudioSelectCount; //pAudioSelectの数
+    sAudioSelect **ppAudioSelectList;
+    int nAudioResampler;
+    int nAVDemuxAnalyzeSec;
+    int nAVMux;                       //NVENC_MUX_xxx
+    int nTrimCount;
+    sTrim *pTrimList;
+    bool bCopyChapter;
+    int nOutputThread;
+    int nAudioThread;
+    int nInputThread;
+    bool bAudioIgnoreNoTrackError;
+    int nAudioIgnoreDecodeError;
+    muxOptList *pMuxOpt;
+    tstring sChapterFile;          
+    NVAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
+    int nProcSpeedLimit; //プリデコードする場合の処理速度制限 (0で制限なし)
     VppParam vpp;                 //vpp
 } InEncodeVideoParam;
 
@@ -212,9 +241,11 @@ protected:
     void                        *m_hEncoder;              //エンコーダのインスタンス
     NV_ENC_INITIALIZE_PARAMS     m_stCreateEncodeParams;  //エンコーダの初期化パラメータ
 
-    unique_ptr<NVEncBasicInput>  m_pFileReader;           //動画読み込み
+    const sTrimParam            *m_pTrimParam;
+    shared_ptr<NVEncBasicInput>  m_pFileReader;           //動画読み込み
     vector<shared_ptr<NVEncBasicInput>> m_AudioReaders;
-    unique_ptr<NVEncOut>         m_pFileWriter;           //動画書き出し
+    shared_ptr<NVEncOut>         m_pFileWriter;           //動画書き出し
+    vector<shared_ptr<NVEncOut>> m_pFileWriterListAudio;
     shared_ptr<EncodeStatus>     m_pStatus;               //エンコードステータス管理
     NV_ENC_PIC_STRUCT            m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                m_stEncConfig;           //エンコード設定
@@ -222,6 +253,9 @@ protected:
     GUID                         m_stCodecGUID;           //出力コーデック
     uint32_t                     m_uEncWidth;             //出力縦解像度
     uint32_t                     m_uEncHeight;            //出力横解像度
+
+    NVAVSync                     m_nAVSyncMode;           //映像音声同期設定
+    std::pair<int, int>          m_inputFps;              //入力フレームレート
 #if ENABLE_AVCUVID_READER
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
 #endif //#if ENABLE_AVCUVID_READER

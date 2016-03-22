@@ -51,6 +51,7 @@ extern "C" {
 
 #include "nvcuvid.h"
 #include "NVEncUtil.h"
+#include "NVEncParam.h"
 
 #if _DEBUG
 #define NV_AV_LOG_LEVEL AV_LOG_WARNING
@@ -93,6 +94,10 @@ static const TCHAR *AVQSV_CODEC_COPY = _T("copy");
 
 static const int AVQSV_DEFAULT_AUDIO_BITRATE = 192;
 
+static inline bool av_isvalid_q(AVRational q) {
+    return q.den * q.num != 0;
+}
+
 static inline bool avcodecIsCopy(const TCHAR *codec) {
     return codec == nullptr || 0 == _tcsicmp(codec, AVQSV_CODEC_COPY);
 }
@@ -100,14 +105,14 @@ static inline bool avcodecIsAuto(const TCHAR *codec) {
     return codec != nullptr && 0 == _tcsicmp(codec, AVQSV_CODEC_AUTO);
 }
 
-//AV_LOG_TRACE    56 - QSV_LOG_TRACE -3
-//AV_LOG_DEBUG    48 - QSV_LOG_DEBUG -2
-//AV_LOG_VERBOSE  40 - QSV_LOG_MORE  -1
-//AV_LOG_INFO     32 - QSV_LOG_INFO   0
-//AV_LOG_WARNING  24 - QSV_LOG_WARN   1
-//AV_LOG_ERROR    16 - QSV_LOG_ERROR  2
+//AV_LOG_TRACE    56 - NV_LOG_TRACE -3
+//AV_LOG_DEBUG    48 - NV_LOG_DEBUG -2
+//AV_LOG_VERBOSE  40 - NV_LOG_MORE  -1
+//AV_LOG_INFO     32 - NV_LOG_INFO   0
+//AV_LOG_WARNING  24 - NV_LOG_WARN   1
+//AV_LOG_ERROR    16 - NV_LOG_ERROR  2
 static inline int log_level_av2qsv(int level) {
-    return clamp((AV_LOG_INFO / 8) - (level / 8), QSV_LOG_TRACE, QSV_LOG_ERROR);
+    return clamp((AV_LOG_INFO / 8) - (level / 8), NV_LOG_TRACE, NV_LOG_ERROR);
 }
 
 static inline int log_level_qsv2av(int level) {

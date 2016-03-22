@@ -30,6 +30,7 @@
 #define NOMINMAX
 #include <Windows.h>
 #include <vector>
+#include <map>
 #include <string>
 #include <algorithm>
 #include <thread>
@@ -49,6 +50,7 @@
 #include "NVEncInputAvs.h"
 #include "NVEncInputVpy.h"
 #include "avcodec_reader.h"
+#include "avcodec_writer.h"
 #include "helper_nvenc.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
@@ -168,6 +170,8 @@ NVENCSTATUS NVEncCore::InitLog(const InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
+    int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
+    int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
 #if RAW_READER
     if (inputParam->input.type == NV_ENC_INPUT_UNKNWON) {
         if (check_ext(inputParam->input.filename, { ".y4m" })) {
@@ -247,12 +251,25 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #if ENABLE_AVCUVID_READER
     case NV_ENC_INPUT_AVCUVID:
         inputInfoAVCuvid.bReadVideo = true;
-        inputInfoAVCuvid.nReadAudio = 0;
-        inputInfoAVCuvid.bReadSubtitle = false;
-        inputInfoAVCuvid.bReadChapter = false;
-        inputInfoAVCuvid.nTrimCount = 0;
-        inputInfoAVCuvid.pTrimList = nullptr;
-        inputInfoAVCuvid.ctxLock = m_ctxLock;
+        inputInfoAVCuvid.nReadAudio = inputParam->nAudioSelectCount > 0;
+        inputInfoAVCuvid.bReadSubtitle = inputParam->nSubtitleSelectCount > 0;
+        inputInfoAVCuvid.bReadChapter = !!inputParam->bCopyChapter;
+        inputInfoAVCuvid.nVideoAvgFramerate = std::make_pair(inputParam->input.rate, inputParam->input.scale);
+        inputInfoAVCuvid.nAnalyzeSec = inputParam->nAVDemuxAnalyzeSec;
+        inputInfoAVCuvid.nTrimCount = inputParam->nTrimCount;
+        inputInfoAVCuvid.pTrimList = inputParam->pTrimList;
+        inputInfoAVCuvid.nAudioTrackStart = sourceAudioTrackIdStart;
+        inputInfoAVCuvid.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
+        inputInfoAVCuvid.nAudioSelectCount = inputParam->nAudioSelectCount;
+        inputInfoAVCuvid.ppAudioSelect = inputParam->ppAudioSelectList;
+        inputInfoAVCuvid.nSubtitleSelectCount = inputParam->nSubtitleSelectCount;
+        inputInfoAVCuvid.pSubtitleSelect = inputParam->pSubtitleSelect;
+        inputInfoAVCuvid.nProcSpeedLimit = inputParam->nProcSpeedLimit;
+        inputInfoAVCuvid.nAVSyncMode = inputParam->nAVSyncMode;
+        inputInfoAVCuvid.fSeekSec = inputParam->fSeekSec;
+        inputInfoAVCuvid.pFramePosListLog = inputParam->sFramePosListLog.c_str();
+        inputInfoAVCuvid.nInputThread = inputParam->nInputThread;
+        inputInfoAVCuvid.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
         inputParam->input.otherPrm = &inputInfoAVCuvid;
         NVPrintf(stderr, NV_LOG_DEBUG, _T("avcuvid reader selected.\n"));
         m_pFileReader.reset(new CAvcodecReader());
@@ -271,29 +288,310 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     m_pStatus->init(m_pNVLog);
     m_pFileReader->SetNVEncLogPtr(m_pNVLog);
     int ret = m_pFileReader->Init(&inputParam->input, m_pStatus);
+    if (ret != 0) {
+        NVPrintf(stderr, NV_LOG_ERROR, m_pFileReader->GetInputMessage());
+        return NV_ENC_ERR_GENERIC;
+    }
     m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
     m_pStatus->m_nOutputFPSScale = inputParam->input.scale;
-    return (ret) ? NV_ENC_ERR_GENERIC : NV_ENC_SUCCESS;
+    sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
+    sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
+
+    m_inputFps.first = inputParam->input.rate;
+    m_inputFps.second = inputParam->input.scale;
+
+#if ENABLE_AVCUVID_READER
+    if (inputParam->nAudioSourceCount > 0) {
+
+        for (int i = 0; i < (int)inputParam->nAudioSourceCount; i++) {
+            InputVideoInfo inputInfo = inputParam->input;
+            inputInfo.filename = inputParam->ppAudioSourceList[i];
+
+            AvcodecReaderPrm inputInfoAVAudioReader = { 0 };
+            inputInfoAVAudioReader.bReadVideo = false;
+            inputInfoAVAudioReader.nReadAudio = inputParam->nAudioSourceCount > 0;
+            inputInfoAVAudioReader.bReadSubtitle = false;
+            inputInfoAVAudioReader.bReadChapter = false;
+            inputInfoAVAudioReader.nVideoAvgFramerate = std::make_pair(m_pStatus->m_nOutputFPSRate, m_pStatus->m_nOutputFPSScale);
+            inputInfoAVAudioReader.nAnalyzeSec = inputParam->nAVDemuxAnalyzeSec;
+            inputInfoAVAudioReader.nTrimCount = inputParam->nTrimCount;
+            inputInfoAVAudioReader.pTrimList = inputParam->pTrimList;
+            inputInfoAVAudioReader.nAudioTrackStart = sourceAudioTrackIdStart;
+            inputInfoAVAudioReader.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
+            inputInfoAVAudioReader.nAudioSelectCount = inputParam->nAudioSelectCount;
+            inputInfoAVAudioReader.ppAudioSelect = inputParam->ppAudioSelectList;
+            inputInfoAVAudioReader.nProcSpeedLimit = inputParam->nProcSpeedLimit;
+            inputInfoAVAudioReader.nAVSyncMode = NV_AVSYNC_THROUGH;
+            inputInfoAVAudioReader.fSeekSec = inputParam->fSeekSec;
+            inputInfoAVAudioReader.pFramePosListLog = inputParam->sFramePosListLog.c_str();
+            inputInfoAVAudioReader.nInputThread = 0;
+            inputInfoAVAudioReader.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
+            inputInfo.otherPrm = &inputInfoAVAudioReader;
+
+            unique_ptr<CAvcodecReader> audioReader(new CAvcodecReader());
+            audioReader->SetNVEncLogPtr(m_pNVLog);
+            ret = audioReader->Init(&inputInfo, nullptr);
+            if (ret != 0) {
+                NVPrintf(stderr, NV_LOG_ERROR, audioReader->GetInputMessage());
+                return NV_ENC_ERR_GENERIC;
+            }
+            sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
+            sourceSubtitleTrackIdStart += audioReader->GetSubtitleTrackCount();
+            m_AudioReaders.push_back(std::move(audioReader));
+        }
+    }
+#endif //#if ENABLE_AVCUVID_READER
+
+    if (!m_pFileReader->getInputCodec()
+        && inputParam->nTrimCount > 0) {
+        //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
+        sTrimParam trimParam;
+        trimParam.list = make_vector(inputParam->pTrimList, inputParam->nTrimCount);
+        trimParam.offset = 0;
+        m_pFileReader->SetTrimParam(trimParam);
+    }
+    //trim情報をリーダーから取得する
+    auto trimParam = m_pFileReader->GetTrimParam();
+    m_pTrimParam = (trimParam->list.size()) ? trimParam : nullptr;
+    if (m_pTrimParam) {
+        NVPrintf(stderr, NV_LOG_DEBUG, _T("Input: trim options\n"));
+        for (int i = 0; i < (int)m_pTrimParam->list.size(); i++) {
+            NVPrintf(stderr, NV_LOG_DEBUG, _T("%d-%d "), m_pTrimParam->list[i].start, m_pTrimParam->list[i].fin);
+        }
+        NVPrintf(stderr, NV_LOG_DEBUG, _T(" (offset: %d)\n"), m_pTrimParam->offset);
+    }
+    return NV_ENC_SUCCESS;
 #else
     return NV_ENC_ERR_INVALID_CALL;
 #endif //RAW_READER
 }
 #pragma warning(pop)
 
-NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParam) {
+NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
     int sts = 0;
     bool stdoutUsed = false;
-    m_pFileWriter.reset(new NVEncOutBitstream());
-    m_pFileWriter->SetNVEncLogPtr(m_pNVLog);
-    CQSVOutRawPrm rawPrm = { 0 };
-    rawPrm.nBufSizeMB = inputParam->nOutputBufSizeMB;
-    sts = m_pFileWriter->Init(inputParam->outputFilename.c_str(), &rawPrm, m_pStatus);
-    if (sts != 0) {
-        NVPrintf(stderr, NV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
-        return NV_ENC_ERR_GENERIC;
+#if ENABLE_AVCUVID_READER
+    vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
+    bool useH264ESOutput =
+        ((inputParams->sAVMuxOutputFormat.length() > 0 && 0 == _tcscmp(inputParams->sAVMuxOutputFormat.c_str(), _T("raw")))) //--formatにrawが指定されている
+        || (PathFindExtension(inputParams->outputFilename.c_str()) == nullptr || PathFindExtension(inputParams->outputFilename.c_str())[0] != '.') //拡張子がしない
+        || check_ext(inputParams->outputFilename.c_str(), { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc" }); //特定の拡張子
+    if (!useH264ESOutput) {
+        inputParams->nAVMux |= NVENC_MUX_VIDEO;
     }
-    stdoutUsed = m_pFileWriter->outputStdout();
-    NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+    //if (inputParams->CodecId == MFX_CODEC_RAW) {
+    //    inputParams->nAVMux &= ~NVENC_MUX_VIDEO;
+    //}
+    if (inputParams->nAVMux & NVENC_MUX_VIDEO) {
+        NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
+        m_pFileWriter = std::make_shared<CAvcodecWriter>();
+        AvcodecWriterPrm writerPrm;
+        writerPrm.pOutputFormat = inputParams->sAVMuxOutputFormat.c_str();
+        if (m_pTrimParam) {
+            writerPrm.trimList = m_pTrimParam->list;
+        }
+        writerPrm.vidPrm.encCodecGUID     = m_stCodecGUID;
+        writerPrm.vidPrm.nEncWidth        = m_uEncWidth;
+        writerPrm.vidPrm.nEncHeight       = m_uEncHeight;
+        writerPrm.vidPrm.pEncConfig       = &m_stEncConfig;
+        writerPrm.vidPrm.nPicStruct       = m_stPicStruct;
+        writerPrm.vidPrm.sar              = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
+        writerPrm.vidPrm.outFps           = av_make_q(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
+        writerPrm.vidPrm.bDtsUnavailable  = false;
+        writerPrm.nOutputThread           = inputParams->nOutputThread;
+        writerPrm.nAudioThread            = inputParams->nAudioThread;
+        writerPrm.nBufSizeMB              = inputParams->nOutputBufSizeMB;
+        writerPrm.nAudioResampler         = inputParams->nAudioResampler;
+        writerPrm.nAudioIgnoreDecodeError = inputParams->nAudioIgnoreDecodeError;
+        if (inputParams->pMuxOpt > 0) {
+            writerPrm.vMuxOpt = *inputParams->pMuxOpt;
+        }
+        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
+            //if (inputParams->pChapterFile) {
+            //    //チャプターファイルを読み込む
+            //    if (MFX_ERR_NONE != readChapterFile(inputParams->pChapterFile)) {
+            //        return MFX_ERR_UNKNOWN;
+            //    }
+            //    writerPrm.chapterList.clear();
+            //    for (uint32_t i = 0; i < m_AVChapterFromFile.size(); i++) {
+            //        writerPrm.chapterList.push_back(m_AVChapterFromFile[i].get());
+            //    }
+            //} else {
+                //入力ファイルのチャプターをコピーする
+                writerPrm.chapterList = pAVCodecReader->GetChapterList();
+            //}
+            writerPrm.vidPrm.nInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
+            writerPrm.vidPrm.pInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
+        }
+        if (inputParams->nAVMux & (NVENC_MUX_AUDIO | NVENC_MUX_SUBTITLE)) {
+            NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
+            pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+            bool copyAll = false;
+            for (int i = 0; !copyAll && i < (int)inputParams->nAudioSelectCount; i++) {
+                //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
+                copyAll = (inputParams->ppAudioSelectList[i]->nAudioSelect == 0);
+            }
+            NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (copyAll) ? _T("true") : _T("false"));
+            vector<AVDemuxStream> streamList;
+            if (pAVCodecReader) {
+                streamList = pAVCodecReader->GetInputStreamInfo();
+            }
+            for (const auto& audioReader : m_AudioReaders) {
+                if (audioReader->GetAudioTrackCount()) {
+                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<CAvcodecReader>(audioReader);
+                    if (pAVCodecAudioReader) {
+                        vector_cat(streamList, pAVCodecAudioReader->GetInputStreamInfo());
+                    }
+                    //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
+                    if (pAVCodecReader == nullptr) {
+                        writerPrm.vidPrm.nInputFirstKeyPts = pAVCodecAudioReader->GetVideoFirstKeyPts();
+                        writerPrm.vidPrm.pInputCodecCtx = pAVCodecAudioReader->GetInputVideoCodecCtx();
+                    }
+                }
+            }
+
+            for (auto& stream : streamList) {
+                bool bStreamIsSubtitle = stream.nTrackId < 0;
+                const sAudioSelect *pAudioSelect = nullptr;
+                for (int i = 0; i < (int)inputParams->nAudioSelectCount; i++) {
+                    if (stream.nTrackId == inputParams->ppAudioSelectList[i]->nAudioSelect
+                        && inputParams->ppAudioSelectList[i]->pAudioExtractFilename == nullptr) {
+                        pAudioSelect = inputParams->ppAudioSelectList[i];
+                    }
+                }
+                if (pAudioSelect != nullptr || copyAll || bStreamIsSubtitle) {
+                    streamTrackUsed.push_back(stream.nTrackId);
+                    AVOutputStreamPrm prm;
+                    prm.src = stream;
+                    //pAudioSelect == nullptrは "copyAll" か 字幕ストリーム によるもの
+                    prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
+                    prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
+                    prm.pEncodeCodec = (pAudioSelect == nullptr) ? AVQSV_CODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
+                    NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
+                        (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
+                        stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec);
+                    writerPrm.inputStreamList.push_back(std::move(prm));
+                }
+            }
+        }
+        m_pFileWriter->SetNVEncLogPtr(m_pNVLog);
+        sts = m_pFileWriter->Init(inputParams->outputFilename.c_str(), &writerPrm, m_pStatus);
+        if (sts != 0) {
+            NVPrintf(stderr, NV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+            return NV_ENC_ERR_GENERIC;
+        } else if (inputParams->nAVMux & (NVENC_MUX_AUDIO | NVENC_MUX_SUBTITLE)) {
+            m_pFileWriterListAudio.push_back(m_pFileWriter);
+        }
+        stdoutUsed = m_pFileWriter->outputStdout();
+        NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+
+        uint32_t payload_size = 0;
+        vector<uint8_t> sequence_prm_buffer(NV_MAX_SEQ_HDR_LEN, 0);
+        NV_ENC_SEQUENCE_PARAM_PAYLOAD sequence_prm;
+        INIT_CONFIG(sequence_prm, NV_ENC_SEQUENCE_PARAM_PAYLOAD);
+        sequence_prm.inBufferSize = sequence_prm_buffer.size();
+        sequence_prm.spsppsBuffer = sequence_prm_buffer.data();
+        sequence_prm.outSPSPPSPayloadSize = &payload_size;
+        NvEncGetSequenceParams(&sequence_prm);
+        if (0 != m_pFileWriter->SetVideoParam(&m_stEncConfig, m_stPicStruct, &sequence_prm)) {
+            return NV_ENC_ERR_GENERIC;
+        }
+    } else if (inputParams->nAVMux & (NVENC_MUX_AUDIO | NVENC_MUX_SUBTITLE)) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
+        return NV_ENC_ERR_GENERIC;
+    } else {
+#endif //ENABLE_AVCUVID_READER
+        m_pFileWriter = std::make_shared<NVEncOutBitstream>();
+        m_pFileWriter->SetNVEncLogPtr(m_pNVLog);
+        CQSVOutRawPrm rawPrm = { 0 };
+        rawPrm.nBufSizeMB = inputParams->nOutputBufSizeMB;
+        sts = m_pFileWriter->Init(inputParams->outputFilename.c_str(), &rawPrm, m_pStatus);
+        if (sts != 0) {
+            NVPrintf(stderr, NV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+            return NV_ENC_ERR_GENERIC;
+        }
+        stdoutUsed = m_pFileWriter->outputStdout();
+        NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+#if ENABLE_AVCUVID_READER
+    }
+
+    //音声の抽出
+    if (inputParams->nAudioSelectCount + inputParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
+        NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
+        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        if (inputParams->input.type != NV_ENC_INPUT_AVCUVID || pAVCodecReader == nullptr) {
+            NVPrintf(stderr, NV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
+            return NV_ENC_ERR_GENERIC;
+        } else {
+            auto inutAudioInfoList = pAVCodecReader->GetInputStreamInfo();
+            for (auto& audioTrack : inutAudioInfoList) {
+                bool bTrackAlreadyUsed = false;
+                for (auto usedTrack : streamTrackUsed) {
+                    if (usedTrack == audioTrack.nTrackId) {
+                        bTrackAlreadyUsed = true;
+                        NVPrintf(stderr, NV_LOG_DEBUG, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), audioTrack.nTrackId);
+                        break;
+                    }
+                }
+                if (bTrackAlreadyUsed) {
+                    continue;
+                }
+                const sAudioSelect *pAudioSelect = nullptr;
+                for (int i = 0; i < (int)inputParams->nAudioSelectCount; i++) {
+                    if (audioTrack.nTrackId == inputParams->ppAudioSelectList[i]->nAudioSelect
+                        && inputParams->ppAudioSelectList[i]->pAudioExtractFilename != nullptr) {
+                        pAudioSelect = inputParams->ppAudioSelectList[i];
+                    }
+                }
+                if (pAudioSelect == nullptr) {
+                    NVPrintf(stderr, NV_LOG_ERROR, _T("Audio track #%d is not used anyware, this should not happen.\n"), audioTrack.nTrackId);
+                    return NV_ENC_ERR_GENERIC;
+                }
+                NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
+                    audioTrack.nTrackId, audioTrack.nIndex, pAudioSelect->pAudioExtractFilename, pAudioSelect->pAudioExtractFormat, pAudioSelect->pAVAudioEncodeCodec, pAudioSelect->nAVAudioEncodeBitrate);
+
+                AVOutputStreamPrm prm;
+                prm.src = audioTrack;
+                //pAudioSelect == nullptrは "copyAll" によるもの
+                prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
+                prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
+                prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
+
+                AvcodecWriterPrm writerAudioPrm;
+                writerAudioPrm.nOutputThread   = inputParams->nOutputThread;
+                writerAudioPrm.nAudioThread    = inputParams->nAudioThread;
+                writerAudioPrm.nBufSizeMB      = inputParams->nOutputBufSizeMB;
+                writerAudioPrm.pOutputFormat   = pAudioSelect->pAudioExtractFormat;
+                writerAudioPrm.nAudioIgnoreDecodeError = inputParams->nAudioIgnoreDecodeError;
+                writerAudioPrm.nAudioResampler = inputParams->nAudioResampler;
+                writerAudioPrm.inputStreamList.push_back(prm);
+                if (m_pTrimParam) {
+                    writerAudioPrm.trimList = m_pTrimParam->list;
+                }
+                writerAudioPrm.vidPrm.nInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
+                writerAudioPrm.vidPrm.pInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
+
+                auto pWriter = std::make_shared<CAvcodecWriter>();
+                pWriter->SetNVEncLogPtr(m_pNVLog);
+                sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &writerAudioPrm, m_pStatus);
+                if (sts != 0) {
+                    NVPrintf(stderr, NV_LOG_ERROR, pWriter->GetOutputMessage());
+                    return NV_ENC_ERR_GENERIC;
+                }
+                NVPrintf(stderr, NV_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), audioTrack.nTrackId);
+                bool audioStdout = pWriter->outputStdout();
+                if (stdoutUsed && audioStdout) {
+                    NVPrintf(stderr, NV_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
+                    return NV_ENC_ERR_GENERIC;
+                }
+                stdoutUsed |= audioStdout;
+                m_pFileWriterListAudio.push_back(std::move(pWriter));
+            }
+        }
+    }
+#endif //ENABLE_AVCUVID_READER
     return NV_ENC_SUCCESS;
 }
 
@@ -1468,21 +1766,14 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
     inputParam->input.csp = (inputParam->yuv444 || inputParam->lossless) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
+    m_nAVSyncMode = inputParam->nAVSyncMode;
 
     //入力ファイルを開き、入力情報も取得
     if (NV_ENC_SUCCESS != (nvStatus = InitInput(inputParam))) {
         NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("入力ファイルを開けませんでした。\n") : _T("Failed to open input file.\n"));
-        NVPrintf(stderr, NV_LOG_ERROR, m_pInput->getInputMes().c_str());
         return nvStatus;
     }
     NVPrintf(stderr, NV_LOG_DEBUG, _T("InitInput: Success.\n"));
-
-    //出力ファイルを開く
-    if (NV_ENC_SUCCESS != (nvStatus = InitOutput(inputParam))) {
-        NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("出力ファイルのオープンに失敗しました。: \"%s\"\n") : _T("Failed to open output file: \"%s\"\n"), inputParam->outputFilename.c_str());
-        return nvStatus;
-    }
-    NVPrintf(stderr, NV_LOG_DEBUG, _T("InitOutput: Success.\n"), inputParam->outputFilename.c_str());
     
     //作成したデバイスの情報をfeature取得
     if (NV_ENC_SUCCESS != (nvStatus = createDeviceFeatureList(false))) {
@@ -1507,6 +1798,13 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
     NVPrintf(stderr, NV_LOG_DEBUG, _T("AllocateIOBuffers: Success.\n"));
+
+    //出力ファイルを開く
+    if (NV_ENC_SUCCESS != (nvStatus = InitOutput(inputParam))) {
+        NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("出力ファイルのオープンに失敗しました。: \"%s\"\n") : _T("Failed to open output file: \"%s\"\n"), inputParam->outputFilename.c_str());
+        return nvStatus;
+    }
+    NVPrintf(stderr, NV_LOG_DEBUG, _T("InitOutput: Success.\n"), inputParam->outputFilename.c_str());
     return nvStatus;
 }
 
@@ -1691,6 +1989,54 @@ NVENCSTATUS NVEncCore::Encode() {
         pVideoCtx = pReader->GetInputVideoCodecCtx();
     }
 
+    //streamのindexから必要なwriteへのポインタを返すテーブルを作成
+    std::map<int, shared_ptr<CAvcodecWriter>> pWriterForAudioStreams;
+    for (auto pWriter : m_pFileWriterListAudio) {
+        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(pWriter);
+        if (pAVCodecWriter) {
+            auto trackIdList = pAVCodecWriter->GetStreamTrackIdList();
+            for (auto trackID : trackIdList) {
+                pWriterForAudioStreams[trackID] = pAVCodecWriter;
+            }
+        }
+    }
+
+    auto extract_audio =[&]() {
+        int sts = 0;
+        if (m_pFileWriterListAudio.size()) {
+            auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+            vector<AVPacket> packetList;
+            if (pAVCodecReader != nullptr) {
+                packetList = pAVCodecReader->GetStreamDataPackets();
+            }
+            //音声ファイルリーダーからのトラックを結合する
+            for (const auto& reader : m_AudioReaders) {
+                auto pReader = std::dynamic_pointer_cast<CAvcodecReader>(reader);
+                if (pReader != nullptr) {
+                    vector_cat(packetList, pReader->GetStreamDataPackets());
+                }
+            }
+            //パケットを各Writerに分配する
+            for (uint32_t i = 0; i < packetList.size(); i++) {
+                const int nTrackId = (int16_t)(packetList[i].flags >> 16);
+                if (pWriterForAudioStreams.count(nTrackId)) {
+                    auto pWriter = pWriterForAudioStreams[nTrackId];
+                    if (pWriter == nullptr) {
+                        NVPrintf(stderr, NV_LOG_ERROR, _T("Invalid writer found for audio track %d\n"), nTrackId);
+                        return 1;
+                    }
+                    if (0 != (sts = pWriter->WriteNextPacket(&packetList[i]))) {
+                        return 1;
+                    }
+                } else {
+                    NVPrintf(stderr, NV_LOG_ERROR, _T("Failed to find writer for audio track %d\n"), nTrackId);
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    };
+
     if (m_cuvidDec) {
         auto th_input = std::thread([this, pVideoCtx](){
             CUresult curesult = CUDA_SUCCESS;
@@ -1713,12 +2059,20 @@ NVENCSTATUS NVEncCore::Encode() {
         });
         NVPrintf(stderr, NV_LOG_DEBUG, _T("Started Encode thread\n"));
 
+        int64_t nEstimatedPts = AV_NOPTS_VALUE;
+        const int nFrameDuration = (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pVideoCtx->pkt_timebase);
         int decodedFrame = 0;
+        int encodedFrame = 0;
         while (!m_cuvidDec->GetError()
             && !(m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
 
             CUVIDPARSERDISPINFO pInfo;
             if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
+                int64_t pts = av_rescale_q(pInfo.timestamp, CUVID_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase);
+                if (m_pTrimParam && !frame_inside_range(decodedFrame++, m_pTrimParam->list)) {
+                    m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
+                    continue;
+                }
 
                 auto encode = [&](CUVIDPROCPARAMS oVPP) {
                     CUresult curesult = CUDA_SUCCESS;
@@ -1736,7 +2090,9 @@ NVENCSTATUS NVEncCore::Encode() {
                     stEncodeConfig.width = m_uEncWidth;
                     stEncodeConfig.height = m_uEncHeight;
                     NVPrintf(stderr, NV_LOG_TRACE, _T("Set frame to encode %d\n"), decodedFrame);
+                    pInfo.timestamp = encodedFrame;
                     auto encstatus = EncodeFrame(&stEncodeConfig, pInfo.timestamp);
+                    encodedFrame++;
                     if (NV_ENC_SUCCESS != encstatus) {
                         NVPrintf(stderr, NV_LOG_ERROR, _T("Error EncodeFrame: %d.\n"), encstatus);
                         return encstatus;
@@ -1746,37 +2102,65 @@ NVENCSTATUS NVEncCore::Encode() {
                         NVPrintf(stderr, NV_LOG_ERROR, _T("Error cuvidMapVideoFrame: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
                         return NV_ENC_ERR_GENERIC;
                     }
-                    m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
                     return NV_ENC_SUCCESS;
                 };
                 CUVIDPROCPARAMS oVPP = { 0 };
                 oVPP.top_field_first = m_stPicStruct != NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
 
-                auto deint = m_cuvidDec->getDeinterlaceMode();
-                switch (deint) {
-                case cudaVideoDeinterlaceMode_Weave:
-                    oVPP.unpaired_field = 1;
-                    oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
-                    encode(oVPP);
-                    break;
-                case cudaVideoDeinterlaceMode_Bob:
-                    oVPP.progressive_frame = 0;
-                    oVPP.second_field = 0;
-                    encode(oVPP);
-                    oVPP.second_field = 1;
-                    encode(oVPP);
-                    break;
-                case cudaVideoDeinterlaceMode_Adaptive:
-                    oVPP.progressive_frame = 0;
-                    encode(oVPP);
-                    break;
-                default:
-                    NVPrintf(stderr, NV_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
+                auto encode_frame = [&]() {
+                    auto deint = m_cuvidDec->getDeinterlaceMode();
+                    switch (deint) {
+                    case cudaVideoDeinterlaceMode_Weave:
+                        oVPP.unpaired_field = 1;
+                        oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
+                        encode(oVPP);
+                        break;
+                    case cudaVideoDeinterlaceMode_Bob:
+                        oVPP.progressive_frame = 0;
+                        oVPP.second_field = 0;
+                        encode(oVPP);
+                        oVPP.second_field = 1;
+                        encode(oVPP);
+                        break;
+                    case cudaVideoDeinterlaceMode_Adaptive:
+                        oVPP.progressive_frame = 0;
+                        encode(oVPP);
+                        break;
+                    default:
+                        NVPrintf(stderr, NV_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
+                        nvStatus = NV_ENC_ERR_GENERIC;
+                        break;
+                    }
+                };
+
+                if ((m_nAVSyncMode & NV_AVSYNC_FORCE_CFR) == NV_AVSYNC_FORCE_CFR) {
+                    if (nEstimatedPts == AV_NOPTS_VALUE) {
+                        nEstimatedPts = pts;
+                    }
+                    auto ptsDiff = pts - nEstimatedPts;
+                    nEstimatedPts += nFrameDuration;
+                    if (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
+                        //水増しが必要
+                        encode_frame();
+                        nEstimatedPts += nFrameDuration;
+                        encode_frame();
+                    } else {
+                        if (ptsDiff <= std::min(-1, -1 * nFrameDuration * 3 / 4)) {
+                            //間引きが必要
+                            continue;
+                        } else {
+                            encode_frame();
+                        }
+                    }
+                } else {
+                    encode_frame();
+                }
+
+                if (0 != extract_audio()) {
                     nvStatus = NV_ENC_ERR_GENERIC;
                     break;
                 }
-
-                decodedFrame++;
+                m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
             }
         }
         if (th_input.joinable()) {
@@ -1790,6 +2174,10 @@ NVENCSTATUS NVEncCore::Encode() {
 #endif //#if ENABLE_AVCUVID_READER
     {
         for (int iFrame = 0; nvStatus == NV_ENC_SUCCESS; iFrame++) {
+            if (0 != extract_audio()) {
+                nvStatus = NV_ENC_ERR_GENERIC;
+                break;
+            }
             uint32_t lockedPitch = 0;
             unsigned char *pInputSurface = nullptr;
             const int index = iFrame % bufferCount;
@@ -1798,7 +2186,7 @@ NVENCSTATUS NVEncCore::Encode() {
             NvEncUnlockInputBuffer(m_stEncodeBuffer[index].stInputBfr.hInputSurface);
             if (ret)
                 break;
-            nvStatus = EncodeFrame(m_pStatus->m_sData.frameIn);
+            nvStatus = EncodeFrame(iFrame);
         }
     }
     NVPrintf(stderr, NV_LOG_INFO, _T("\n"));
@@ -1810,8 +2198,8 @@ NVENCSTATUS NVEncCore::Encode() {
         }
         NVPrintf(stderr, NV_LOG_DEBUG, _T("Flushed Encoder\n"));
     }
-    m_pFileReader.reset();
-    m_pFileWriter.reset();
+    m_pFileReader->Close();
+    m_pFileWriter->Close();
     m_pStatus->writeResult();
     return nvStatus;
 }
@@ -1939,106 +2327,68 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 
     int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
     auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
-#if FOR_AUO
-    add_str(NV_LOG_ERROR, _T("NVEnc %s (%s) [NVENC API v%d.%d]\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
-    add_str(NV_LOG_INFO,  _T("OS バージョン      %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
-    add_str(NV_LOG_INFO,  _T("CPU                %s\n"), cpu_info);
-    add_str(NV_LOG_INFO,  _T("GPU                %s\n"), gpu_info);
-    add_str(NV_LOG_ERROR, _T("入力バッファ       %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
-    add_str(NV_LOG_ERROR, _T("入力フレーム情報   %s\n"), m_pInput->getInputMes().c_str());
-#if ENABLE_AVCUVID_READER
-    if (m_cuvidDec && m_cuvidDec->getDeinterlaceMode() != cudaVideoDeinterlaceMode_Weave) {
-        add_str(NV_LOG_ERROR, _T("インターレース解除 %s\n"), get_chr_from_value(list_deinterlace, m_cuvidDec->getDeinterlaceMode()));
-    }
-#endif //#if ENABLE_AVCUVID_READER
-    add_str(NV_LOG_ERROR, _T("出力動画情報       %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
-        (codec == NV_ENC_H264) ? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
-    add_str(NV_LOG_ERROR, _T("                   %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), sar.first, sar.second, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
-    add_str(NV_LOG_DEBUG, _T("Encoder Preset     %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, preset_names));
-    add_str(NV_LOG_ERROR, _T("レート制御モード   %s\n"), get_chr_from_value(list_nvenc_rc_method, m_stEncConfig.rcParams.rateControlMode));
-    if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
-        add_str(NV_LOG_ERROR, _T("CQP値              I:%d  P:%d  B:%d%s\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB,
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag ? _T(" (lossless)") : _T(""));
-    } else {
-        add_str(NV_LOG_ERROR, _T("ビットレート       %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
-        if (m_stEncConfig.rcParams.enableInitialRCQP) {
-            add_str(NV_LOG_INFO,  _T("初期QP値           I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.initialRCQP.qpIntra, m_stEncConfig.rcParams.initialRCQP.qpInterP, m_stEncConfig.rcParams.initialRCQP.qpInterB);
-        }
-        if (m_stEncConfig.rcParams.enableMaxQP || m_stEncConfig.rcParams.enableMinQP) {
-            int minQPI = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpIntra  :  0;
-            int maxQPI = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpIntra  : 51;
-            int minQPP = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpInterP :  0;
-            int maxQPP = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpInterP : 51;
-            int minQPB = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpInterB :  0;
-            int maxQPB = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpInterB : 51;
-            add_str(NV_LOG_INFO,  _T("QP制御範囲         I:%d-%d  P:%d-%d  B:%d-%d\n"), minQPI, maxQPI, minQPP, maxQPP, minQPB, maxQPB);
-        }
-        add_str(NV_LOG_INFO,  _T("VBVバッファサイズ  %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize / 1000,   0, _T("kbit")).c_str());
-        add_str(NV_LOG_DEBUG, _T("VBV initial delay  %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay / 1000, 0, _T("kbit")).c_str());
-    }
-    add_str(NV_LOG_INFO,  _T("GOP長              %d frames\n"), m_stEncConfig.gopLength);
-    add_str(NV_LOG_INFO,  _T("連続Bフレーム数    %d frames\n"), m_stEncConfig.frameIntervalP - 1);
-    if (codec == NV_ENC_H264) {
-        add_str(NV_LOG_DEBUG, _T("出力               "));
-        TCHAR bitstream_info[256] = { 0 };
-        if (m_stEncConfig.encodeCodecConfig.h264Config.outputBufferingPeriodSEI) _tcscat_s(bitstream_info, _countof(bitstream_info), _T("BufferingPeriodSEI,"));
-        if (m_stEncConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("PicTimingSEI,"));
-        if (m_stEncConfig.encodeCodecConfig.h264Config.outputAUD)                _tcscat_s(bitstream_info, _countof(bitstream_info), _T("AUD,"));
-        if (m_stEncConfig.encodeCodecConfig.h264Config.outputFramePackingSEI)    _tcscat_s(bitstream_info, _countof(bitstream_info), _T("FramePackingSEI,"));
-        if (m_stEncConfig.encodeCodecConfig.h264Config.outputRecoveryPointSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("RecoveryPointSEI,"));
-        if (m_stEncConfig.encodeCodecConfig.h264Config.repeatSPSPPS)             _tcscat_s(bitstream_info, _countof(bitstream_info), _T("repeatSPSPPS,"));
-        if (_tcslen(bitstream_info)) {
-            bitstream_info[_tcslen(bitstream_info)-1] = _T('\0');
-        } else {
-            _tcscpy_s(bitstream_info, _countof(bitstream_info), _T("-"));
-        }
-        add_str(NV_LOG_DEBUG, _T("%s\n"), bitstream_info);
-    }
-
-    add_str(NV_LOG_INFO,  _T("参照距離           %d frames\n"), (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
-    add_str(NV_LOG_INFO,  _T("適応的量子化(AQ)   %s\n"), m_stEncConfig.rcParams.enableAQ ? _T("on") : _T("off"));
-    add_str(NV_LOG_INFO,  _T("動きベクトル精度   %s\n"), get_chr_from_value(list_mv_presicion_ja, m_stEncConfig.mvPrecision));
-    if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
-        add_str(NV_LOG_DEBUG, _T("スライス数         %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
-    } else {
-        add_str(NV_LOG_DEBUG, _T("スライス           Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
-    }
-    if (codec == NV_ENC_H264) {
-        add_str(NV_LOG_INFO,  _T("CABAC/deblock      %s / %s\n"), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode), on_off(!m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC));
-        add_str(NV_LOG_DEBUG, _T("階層型 Frames      P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
-        add_str(NV_LOG_DEBUG, _T("可変フレームレート %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableVFR));
-        add_str(NV_LOG_DEBUG, _T("LTR                %s"),   on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableLTR));
-        if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR) {
-            add_str(NV_LOG_DEBUG, _T(", Mode:%d, NumFrames:%d"), m_stEncConfig.encodeCodecConfig.h264Config.ltrTrustMode, m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames);
-        }
-        add_str(NV_LOG_DEBUG, _T("\n"));
-        add_str(NV_LOG_DEBUG, _T("Adaptive Transform %s\n"), get_chr_from_value(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
-        add_str(NV_LOG_DEBUG, _T("FMO                %s\n"), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
-        add_str(NV_LOG_DEBUG, _T("動き予測           %s\n"), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
-    }
-#else
     add_str(NV_LOG_ERROR, _T("NVEnc %s (%s), using NVENC API v%d.%d\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
-    add_str(NV_LOG_INFO,  _T("OS Version         %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
-    add_str(NV_LOG_INFO,  _T("CPU                %s\n"), cpu_info);
-    add_str(NV_LOG_INFO,  _T("GPU                %s\n"), gpu_info);
-    add_str(NV_LOG_ERROR, _T("Input Buffers      %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
-    add_str(NV_LOG_ERROR, _T("Input Info         %s\n"), m_pFileReader->GetInputMessage());
-    if (m_cuvidDec && m_cuvidDec->getDeinterlaceMode() != cudaVideoDeinterlaceMode_Weave) {
-        add_str(NV_LOG_ERROR, _T("Deinterlace        %s\n"), get_chr_from_value(list_deinterlace, m_cuvidDec->getDeinterlaceMode()));
+    add_str(NV_LOG_INFO,  _T("OS Version     %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
+    add_str(NV_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
+    add_str(NV_LOG_INFO,  _T("GPU            %s\n"), gpu_info);
+    add_str(NV_LOG_ERROR, _T("Input Buffers  %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
+    tstring inputMes = m_pFileReader->GetInputMessage();
+    for (const auto& reader : m_AudioReaders) {
+        inputMes += _T("\n") + tstring(reader->GetInputMessage());
     }
-    add_str(NV_LOG_ERROR, _T("Output Info        %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
+    auto inputMesSplitted = split(inputMes, _T("\n"));
+    for (uint32_t i = 0; i < (uint32_t)inputMesSplitted.size(); i++) {
+        add_str(NV_LOG_ERROR, _T("%s%s\n"), (i == 0) ? _T("Input Info     ") : _T("               "), inputMesSplitted[i].c_str());
+    }
+    if (m_cuvidDec && m_cuvidDec->getDeinterlaceMode() != cudaVideoDeinterlaceMode_Weave) {
+        add_str(NV_LOG_ERROR, _T("Deinterlace    %s\n"), get_chr_from_value(list_deinterlace, m_cuvidDec->getDeinterlaceMode()));
+    }
+    if (m_pTrimParam != NULL && m_pTrimParam->list.size()
+        && !(m_pTrimParam->list[0].start == 0 && m_pTrimParam->list[0].fin == TRIM_MAX)) {
+        add_str(NV_LOG_ERROR, _T("%s"), _T("Trim           "));
+        for (auto trim : m_pTrimParam->list) {
+            if (trim.fin == TRIM_MAX) {
+                add_str(NV_LOG_ERROR, _T("%d-fin "), trim.start + m_pTrimParam->offset);
+            } else {
+                add_str(NV_LOG_ERROR, _T("%d-%d "), trim.start + m_pTrimParam->offset, trim.fin + m_pTrimParam->offset);
+            }
+        }
+        add_str(NV_LOG_ERROR, _T("[offset: %d]\n"), m_pTrimParam->offset);
+    }
+    if (m_nAVSyncMode != NV_AVSYNC_THROUGH) {
+        add_str(NV_LOG_ERROR, _T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
+    }
+    add_str(NV_LOG_ERROR, _T("Output Info    %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
         (codec == NV_ENC_H264) ? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
-    add_str(NV_LOG_ERROR, _T("                   %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), sar.first, sar.second, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
-    add_str(NV_LOG_DEBUG, _T("Encoder Preset     %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, preset_names));
-    add_str(NV_LOG_ERROR, _T("Rate Control       %s"), get_chr_from_value(list_nvenc_rc_method_en, m_stEncConfig.rcParams.rateControlMode));
+    add_str(NV_LOG_ERROR, _T("               %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), sar.first, sar.second, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
+    if (m_pFileWriter) {
+        inputMesSplitted = split(m_pFileWriter->GetOutputMessage(), _T("\n"));
+        for (auto mes : inputMesSplitted) {
+            if (mes.length()) {
+                add_str(NV_LOG_ERROR,_T("%s%s\n"), _T("               "), mes.c_str());
+            }
+        }
+    }
+    for (auto pWriter : m_pFileWriterListAudio) {
+        if (pWriter && pWriter != m_pFileWriter) {
+            inputMesSplitted = split(pWriter->GetOutputMessage(), _T("\n"));
+            for (auto mes : inputMesSplitted) {
+                if (mes.length()) {
+                    add_str(NV_LOG_ERROR,_T("%s%s\n"), _T("               "), mes.c_str());
+                }
+            }
+        }
+    }
+    add_str(NV_LOG_DEBUG, _T("Encoder Preset %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, preset_names));
+    add_str(NV_LOG_ERROR, _T("Rate Control   %s"), get_chr_from_value(list_nvenc_rc_method_en, m_stEncConfig.rcParams.rateControlMode));
     if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
         add_str(NV_LOG_ERROR, _T("  I:%d  P:%d  B:%d%s\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB,
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag ? _T(" (lossless)") : _T(""));
     } else {
         add_str(NV_LOG_ERROR, _T("\n"));
-        add_str(NV_LOG_ERROR, _T("Bitrate            %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
+        add_str(NV_LOG_ERROR, _T("Bitrate        %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
         if (m_stEncConfig.rcParams.enableInitialRCQP) {
-            add_str(NV_LOG_INFO,  _T("Initial QP         I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.initialRCQP.qpIntra, m_stEncConfig.rcParams.initialRCQP.qpInterP, m_stEncConfig.rcParams.initialRCQP.qpInterB);
+            add_str(NV_LOG_INFO,  _T("Initial QP     I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.initialRCQP.qpIntra, m_stEncConfig.rcParams.initialRCQP.qpInterP, m_stEncConfig.rcParams.initialRCQP.qpInterB);
         }
         if (m_stEncConfig.rcParams.enableMaxQP || m_stEncConfig.rcParams.enableMinQP) {
             int minQPI = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpIntra  :  0;
@@ -2047,15 +2397,15 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             int maxQPP = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpInterP : 51;
             int minQPB = (m_stEncConfig.rcParams.enableMinQP) ? m_stEncConfig.rcParams.minQP.qpInterB :  0;
             int maxQPB = (m_stEncConfig.rcParams.enableMaxQP) ? m_stEncConfig.rcParams.maxQP.qpInterB : 51;
-            add_str(NV_LOG_INFO,  _T("QP range           I:%d-%d  P:%d-%d  B:%d-%d\n"), minQPI, maxQPI, minQPP, maxQPP, minQPB, maxQPB);
+            add_str(NV_LOG_INFO,  _T("QP range       I:%d-%d  P:%d-%d  B:%d-%d\n"), minQPI, maxQPI, minQPP, maxQPP, minQPB, maxQPB);
         }
-        add_str(NV_LOG_INFO,  _T("VBV buffer size     %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize / 1000,   0, _T("kbit")).c_str());
-        add_str(NV_LOG_DEBUG, _T("VBV initial delay   %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay / 1000, 0, _T("kbit")).c_str());
+        add_str(NV_LOG_INFO,  _T("VBV buf size   %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize / 1000,   0, _T("kbit")).c_str());
+        add_str(NV_LOG_DEBUG, _T("VBV init delay %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay / 1000, 0, _T("kbit")).c_str());
     }
-    add_str(NV_LOG_INFO,  _T("GOP length         %d frames\n"), m_stEncConfig.gopLength);
-    add_str(NV_LOG_INFO,  _T("B frames           %d frames\n"), m_stEncConfig.frameIntervalP - 1);
+    add_str(NV_LOG_INFO,  _T("GOP length     %d frames\n"), m_stEncConfig.gopLength);
+    add_str(NV_LOG_INFO,  _T("B frames       %d frames\n"), m_stEncConfig.frameIntervalP - 1);
     if (codec == NV_ENC_H264) {
-        add_str(NV_LOG_DEBUG, _T("Output             "));
+        add_str(NV_LOG_DEBUG, _T("Output         "));
         TCHAR bitstream_info[256] ={ 0 };
         if (m_stEncConfig.encodeCodecConfig.h264Config.outputBufferingPeriodSEI) _tcscat_s(bitstream_info, _countof(bitstream_info), _T("BufferingPeriodSEI,"));
         if (m_stEncConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI)   _tcscat_s(bitstream_info, _countof(bitstream_info), _T("PicTimingSEI,"));
@@ -2071,28 +2421,27 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(NV_LOG_DEBUG, _T("%s\n"), bitstream_info);
     }
 
-    add_str(NV_LOG_INFO,  _T("Ref frames         %d frames\n"), (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
-    add_str(NV_LOG_INFO,  _T("AQ                 %s\n"), m_stEncConfig.rcParams.enableAQ ? _T("on") : _T("off"));
-    add_str(NV_LOG_INFO,  _T("MV Quality         %s\n"), get_chr_from_value(list_mv_presicion, m_stEncConfig.mvPrecision));
+    add_str(NV_LOG_INFO,  _T("Ref frames     %d frames\n"), (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
+    add_str(NV_LOG_INFO,  _T("AQ             %s\n"), m_stEncConfig.rcParams.enableAQ ? _T("on") : _T("off"));
+    add_str(NV_LOG_INFO,  _T("MV Quality     %s\n"), get_chr_from_value(list_mv_presicion, m_stEncConfig.mvPrecision));
     if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
-        add_str(NV_LOG_DEBUG, _T("Slice number          %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+        add_str(NV_LOG_DEBUG, _T("Slice number      %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
     } else {
-        add_str(NV_LOG_DEBUG, _T("Slice              Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+        add_str(NV_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
     }
     if (codec == NV_ENC_H264) {
-        add_str(NV_LOG_INFO,  _T("CABAC/deblock      %s / %s\n"), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode), on_off(!m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC));
-        add_str(NV_LOG_DEBUG, _T("hierarchy Frames   P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
-        add_str(NV_LOG_DEBUG, _T("Variable FrameRate %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableVFR));
-        add_str(NV_LOG_DEBUG, _T("LTR                %s"),   on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableLTR));
+        add_str(NV_LOG_INFO,  _T("CABAC/deblock  %s / %s\n"), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode), on_off(!m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC));
+        add_str(NV_LOG_DEBUG, _T("hierarchyFrame P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
+        add_str(NV_LOG_DEBUG, _T("VFR            %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableVFR));
+        add_str(NV_LOG_DEBUG, _T("LTR            %s"),   on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableLTR));
         if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR) {
             add_str(NV_LOG_DEBUG, _T(", Mode:%d, NumFrames:%d"), m_stEncConfig.encodeCodecConfig.h264Config.ltrTrustMode, m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames);
         }
         add_str(NV_LOG_DEBUG, _T("\n"));
-        add_str(NV_LOG_DEBUG, _T("Adaptive Transform %s\n"), get_chr_from_value(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
-        add_str(NV_LOG_DEBUG, _T("FMO                %s\n"), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
-        add_str(NV_LOG_DEBUG, _T("MV Mode            %s\n"), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
+        add_str(NV_LOG_DEBUG, _T("Adpt.Transform %s\n"), get_chr_from_value(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
+        add_str(NV_LOG_DEBUG, _T("FMO            %s\n"), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
+        add_str(NV_LOG_DEBUG, _T("MV Mode        %s\n"), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
     }
-#endif
     return str;
 }
 

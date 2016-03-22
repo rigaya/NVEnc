@@ -36,6 +36,24 @@
 
 using std::vector;
 
+enum {
+    NV_LOG_TRACE = -3,
+    NV_LOG_DEBUG = -2,
+    NV_LOG_MORE  = -1,
+    NV_LOG_INFO  = 0,
+    NV_LOG_WARN  = 1,
+    NV_LOG_ERROR = 2,
+};
+
+enum {
+    NV_RESAMPLER_SWR,
+    NV_RESAMPLER_SOXR,
+};
+
+static const int NV_OUTPUT_THREAD_AUTO = -1;
+static const int NV_AUDIO_THREAD_AUTO = -1;
+static const int NV_INPUT_THREAD_AUTO = -1;
+
 #pragma warning(push)
 #pragma warning(disable: 4201)
 typedef union sInputCrop {
@@ -55,7 +73,10 @@ typedef struct {
     int offset;
 } sTrimParam;
 
+typedef  std::vector<std::pair<tstring, tstring>> muxOptList;
+
 static const int TRIM_MAX = INT_MAX;
+static const int TRIM_OVERREAD_FRAMES = 128;
 
 static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
     if (trimList.size() == 0)
@@ -70,22 +91,61 @@ static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimL
     return false;
 }
 
+enum NVAVSync : uint32_t {
+    NV_AVSYNC_THROUGH   = 0x00,
+    NV_AVSYNC_INIT      = 0x01,
+    NV_AVSYNC_CHECK_PTS = 0x02,
+    NV_AVSYNC_VFR       = 0x02,
+    NV_AVSYNC_FORCE_CFR = 0x04 | NV_AVSYNC_CHECK_PTS,
+};
+
+enum {
+    NVENC_MUX_NONE     = 0x00,
+    NVENC_MUX_VIDEO    = 0x01,
+    NVENC_MUX_AUDIO    = 0x02,
+    NVENC_MUX_SUBTITLE = 0x04,
+};
+
+static const uint32_t MAX_SPLIT_CHANNELS = 32;
+static const uint64_t QSV_CHANNEL_AUTO = UINT64_MAX;
+
+template <uint32_t size>
+static bool bSplitChannelsEnabled(uint64_t (&pnStreamChannels)[size]) {
+    bool bEnabled = false;
+    for (uint32_t i = 0; i < size; i++) {
+        bEnabled |= pnStreamChannels[i] != 0;
+    }
+    return bEnabled;
+}
+
+template <uint32_t size>
+static void setSplitChannelAuto(uint64_t (&pnStreamChannels)[size]) {
+    for (uint32_t i = 0; i < size; i++) {
+        pnStreamChannels[i] = ((uint64_t)1) << i;
+    }
+}
+
+template <uint32_t size>
+static bool isSplitChannelAuto(uint64_t (&pnStreamChannels)[size]) {
+    bool isAuto = true;
+    for (uint32_t i = 0; isAuto && i < size; i++) {
+        isAuto &= (pnStreamChannels[i] == (((uint64_t)1) << i));
+    }
+    return isAuto;
+}
+
 typedef struct sAudioSelect {
     int    nAudioSelect;          //選択した音声トラックのリスト 1,2,...(1から連番で指定)
     TCHAR *pAVAudioEncodeCodec;   //音声エンコードのコーデック
     int    nAVAudioEncodeBitrate; //音声エンコードに選択した音声トラックのビットレート
+    int    nAudioSamplingRate;    //サンプリング周波数
     TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
     TCHAR *pAudioExtractFormat;   //抽出する音声ファイルのフォーマット
+    uint64_t pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
 } sAudioSelect;
 
-enum {
-    NV_LOG_TRACE = -3,
-    NV_LOG_DEBUG = -2,
-    NV_LOG_MORE  = -1,
-    NV_LOG_INFO  = 0,
-    NV_LOG_WARN  = 1,
-    NV_LOG_ERROR = 2,
-};
+const int NV_OUTPUT_BUF_MB_MAX = 128;
 
 typedef struct {
     TCHAR *desc;
@@ -356,10 +416,32 @@ const CX_DESC list_log_level[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_avsync[] = {
+    { _T("through"),  NV_AVSYNC_THROUGH   },
+    { _T("forcecfr"), NV_AVSYNC_FORCE_CFR },
+    { NULL, 0 }
+};
+
+const CX_DESC list_resampler[] = {
+    { _T("swr"),  NV_RESAMPLER_SWR  },
+    { _T("soxr"), NV_RESAMPLER_SOXR },
+    { NULL, 0 }
+};
+
 template<size_t count>
 static const TCHAR *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]) {
     for (int i = 0; i < count; i++) {
         if (0 == memcmp(&desc[i].id, &guid, sizeof(GUID))) {
+            return desc[i].desc;
+        }
+    }
+    return _T("Unknown");
+};
+
+template<size_t count>
+static const TCHAR *get_name_from_value(int value, const guid_desc (&desc)[count]) {
+    for (int i = 0; i < count; i++) {
+        if ((int)desc[i].value == value) {
             return desc[i].desc;
         }
     }
