@@ -109,16 +109,20 @@ int CuvidDecode::DecPictureDecode(CUVIDPICPARAMS *pPicParams) {
 int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
     AddMessage(NV_LOG_TRACE, _T("DecVideoSequence\n"));
     if (   (pFormat->codec         != m_videoDecodeCreateInfo.CodecType)
-        || (pFormat->coded_width   != m_videoDecodeCreateInfo.ulWidth)
-        || (pFormat->coded_height  != m_videoDecodeCreateInfo.ulHeight)
         || (pFormat->chroma_format != m_videoDecodeCreateInfo.ChromaFormat)) {
-        AddMessage((m_bIgnoreDynamicFormatChange) ? NV_LOG_DEBUG : NV_LOG_ERROR, _T("dynamic video format changing detected\n"));
+        AddMessage(NV_LOG_ERROR, _T("dynamic video format changing detected\n"));
+        m_bError = true;
+        return 0;
+    }
+    if (   (pFormat->coded_width   != m_videoDecodeCreateInfo.ulWidth)
+        || (pFormat->coded_height  != m_videoDecodeCreateInfo.ulHeight)) {
+        AddMessage(NV_LOG_DEBUG, _T("dynamic video format changing detected\n"));
         m_videoDecodeCreateInfo.CodecType    = pFormat->codec;
         m_videoDecodeCreateInfo.ulWidth      = pFormat->coded_width;
         m_videoDecodeCreateInfo.ulHeight     = pFormat->coded_height;
         m_videoDecodeCreateInfo.ChromaFormat = pFormat->chroma_format;
-        if (!m_bIgnoreDynamicFormatChange) {
-            m_bError = true;
+        if (pFormat->coded_width != m_videoDecodeCreateInfo.ulWidth && pFormat->coded_height != m_videoDecodeCreateInfo.ulHeight) {
+            memcpy(&m_videoDecodeCreateInfo.display_area, &pFormat->display_area, sizeof(pFormat->display_area));
         }
         return 0;
     }
@@ -194,6 +198,10 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
     //init video parser
     memset(&m_videoFormatEx, 0, sizeof(CUVIDEOFORMATEX));
     if (input->codecExtra && input->codecExtraSize) {
+        if (input->codecExtraSize > sizeof(m_videoFormatEx.raw_seqhdr_data)) {
+            AddMessage(NV_LOG_ERROR, _T("Parsed header too large!\n"));
+            return CUDA_ERROR_INVALID_VALUE;
+        }
         memcpy(m_videoFormatEx.raw_seqhdr_data, input->codecExtra, input->codecExtraSize);
         m_videoFormatEx.format.seqhdr_data_length = input->codecExtraSize;
     }
