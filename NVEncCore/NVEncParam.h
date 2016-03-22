@@ -403,6 +403,7 @@ const CX_DESC list_deinterlace[] = {
     { _T("none"),     cudaVideoDeinterlaceMode_Weave    },
     { _T("bob"),      cudaVideoDeinterlaceMode_Bob      },
     { _T("adaptive"), cudaVideoDeinterlaceMode_Adaptive },
+    { _T("normal"),   cudaVideoDeinterlaceMode_Adaptive },
     { NULL, 0 }
 };
 

@@ -174,7 +174,7 @@ static void show_help_ja() {
         _T("   --crop <int>,<int>,<int>,<int> 左、上、右、下の切り落とし画素数\n")
         _T("                                    avcuivid reader使用時は左cropは無効\n")
         _T("   --output-res <int>x<int>       出力解像度\n")
-        _T("-f,--fps <int>/<int> or <float>   フレームレートの指定\n")
+        _T("   --fps <int>/<int> or <float>   フレームレートの指定\n")
         _T("\n")
         _T("-c,--codec <string>               出力コーデックの指定\n")
         _T("                                    h264 (or avc), h265 (or hevc)\n")
@@ -214,7 +214,7 @@ static void show_help_ja() {
         _T("                                    full-pel … 1  画素精度 (低精度)\n")
         _T("   --vbv-bufsize <int>            VBVバッファサイズ (kbit) / デフォルト 自動\n")
         _T("   --vpp-deinterlace <string>     インタレ解除を行う(avcuvid使用時のみ)\n")
-        _T("                                    none(デフォルト), bob, adaptive\n")
+        _T("                                    none(デフォルト), bob, adaptive (normal)\n")
         _T("   --fullrange                    fullrangeの指定\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
@@ -231,6 +231,8 @@ static void show_help_ja() {
 
     _ftprintf(stdout, _T("\n")
         _T("H.264/AVC\n")
+        _T("   --tff                          --interlaced tffと同じ\n")
+        _T("   --bff                          --interlaced bffと同じ\n")
         _T("   --interlaced <string>          インタレ保持エンコ\n")
         _T("                                    tff, bff\n")
         _T("   --cabac                        CABACを使用する\n")
@@ -302,7 +304,7 @@ static void show_help_en() {
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
         _T("                                    left crop is unavailable with avcuivid reader\n")
         _T("   --output-res <int>x<int>       set output resolution\n")
-        _T("-f,--fps <int>/<int> or <float>   set framerate\n")
+        _T("   --fps <int>/<int> or <float>   set framerate\n")
         _T("\n")
         _T("-c,--codec <string>               set ouput codec\n")
         _T("                                    h264 (or avc), h265 (or hevc)\n")
@@ -342,7 +344,7 @@ static void show_help_en() {
         _T("                                    full-pel (Low Quality)\n")
         _T("   --vbv-bufsize <int>            set vbv buffer size (kbit) / Default: auto\n")
         _T("   --vpp-deinterlace <string>     set deinterlace mode / Default: none\n")
-        _T("                                    none, bob, adaptive\n")
+        _T("                                    none, bob, adaptive (normal)\n")
         _T("                                    available only with avcuvid reader\n")
         _T("   --fullrange                    set fullrange\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
@@ -359,6 +361,8 @@ static void show_help_en() {
         _T("                                    debug, info(default), warn, error\n"));
     _ftprintf(stdout, _T("\n")
         _T("H.264/AVC\n")
+        _T("   --tff                          same as --interlaced tff\n")
+        _T("   --bff                          same as --interlaced bff\n")
         _T("   --interlaced <string>          interlaced encoding\n")
         _T("                                    tff, bff\n")
         _T("   --cabac                        use CABAC\n")
@@ -394,13 +398,16 @@ static const TCHAR *short_opt_to_long(TCHAR short_opt) {
         option_name = _T("quality");
         break;
     case _T('f'):
-        option_name = _T("fps");
+        option_name = _T("format");
         break;
     case _T('i'):
         option_name = _T("input");
         break;
     case _T('o'):
         option_name = _T("output");
+        break;
+    case _T('m'):
+        option_name = _T("mux-option");
         break;
     case _T('v'):
         option_name = _T("version");
@@ -1426,7 +1433,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
-    }  else if (IS_OPTION("interlaced")) {
+        return 0;
+    }
+    if (IS_OPTION("tff")) {
+        pParams->picStruct = NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM;
+        return 0;
+    }
+    if (IS_OPTION("bff")) {
+        pParams->picStruct = NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
+        return 0;
+    }
+    if (IS_OPTION("interlaced")) {
         i++;
         int value = 0;
         if (get_list_value(list_interlaced, strInput[i], &value)) {
