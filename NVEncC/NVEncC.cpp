@@ -964,24 +964,39 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("level")) {
         i++;
+        auto getLevel = [](const CX_DESC *desc, const TCHAR *argvstr, int *levelValue) {
+            int value = 0;
+            bool bParsed = false;
+            if (desc != nullptr) {
+                if (PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, argvstr))) {
+                    *levelValue = value;
+                    bParsed = true;
+                } else {
+                    double val_float = 0.0;
+                    if (1 == _stscanf_s(argvstr, _T("%lf"), &val_float)) {
+                        value = (int)(val_float * 10 + 0.5);
+                        if (value == desc[get_cx_index(desc, value)].value) {
+                            *levelValue = value;
+                            bParsed = true;
+                        }
+                    }
+                }
+            }
+            return bParsed;
+        };
         bool flag = false;
         int value = 0;
-        if (get_list_value(list_avc_level, strInput[i], &value)) {
+        if (getLevel(list_avc_level, strInput[i], &value)) {
             codecPrm[NV_ENC_H264].h264Config.level = value;
             flag = true;
         }
-        if (get_list_value(list_hevc_level, strInput[i], &value)) {
+        if (getLevel(list_hevc_level, strInput[i], &value)) {
             codecPrm[NV_ENC_HEVC].hevcConfig.level = value;
             flag = true;
         }
         if (!flag) {
-            if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-                codecPrm[NV_ENC_H264].h264Config.level = value;
-                codecPrm[NV_ENC_HEVC].hevcConfig.level = value;
-            } else {
-                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return -1;
-            }
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
         }
         return 0;
     }
