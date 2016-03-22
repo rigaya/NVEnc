@@ -1382,7 +1382,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     memcpy(&m_stEncConfig, &inputParam->encConfig, sizeof(m_stEncConfig));
     memcpy(&m_stPicStruct, &inputParam->picStruct, sizeof(m_stPicStruct));
     
-    //コーデックの決定とチェック
+    //コーデックの決定とチェックNV_ENC_PIC_PARAMS
     m_stCodecGUID = inputParam->codec == NV_ENC_H264 ? NV_ENC_CODEC_H264_GUID : NV_ENC_CODEC_HEVC_GUID;
     if (nullptr == getCodecFeature(m_stCodecGUID)) {
         NVPrintf(stderr, NV_LOG_ERROR, FOR_AUO ? _T("指定されたコーデックはサポートされていません。\n") : _T("Selected codec is not supported.\n"));
@@ -1720,7 +1720,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
 
         //整合性チェック (一般, H.264/AVC)
-        m_stCreateEncodeParams.encodeConfig->frameFieldMode = (inputParam->picStruct == NV_ENC_PIC_STRUCT_FRAME) ? NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME : NV_ENC_PARAMS_FRAME_FIELD_MODE_FIELD;
+        m_stCreateEncodeParams.encodeConfig->frameFieldMode = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME) ? NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME : NV_ENC_PARAMS_FRAME_FIELD_MODE_FIELD;
         //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.entropyCodingMode = (m_stEncoderInput[0].profile > 66) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
         if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 <= 0) {
