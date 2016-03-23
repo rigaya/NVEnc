@@ -331,6 +331,21 @@ static void show_help() {
     _ftprintf(stdout, _T("")
         _T("   --max-procfps <int>         limit encoding performance to lower resource usage.\n")
         _T("                                 default:0 (no limit)\n"));
+#if ENABLE_AVCODEC_OUT_THREAD
+    _ftprintf(stdout, _T("")
+        _T("   --output-thread <int>        set output thread num\n")
+        _T("                                 -1: auto (= default)\n")
+        _T("                                  0: disable (slow, but less memory usage)\n")
+        _T("                                  1: use one thread\n")
+#if 0
+        _T("   --audio-thread <int>         set audio thread num, available only with output thread\n")
+        _T("                                 -1: auto (= default)\n")
+        _T("                                  0: disable (slow, but less memory usage)\n")
+        _T("                                  1: use one thread\n")
+        _T("                                  2: use two thread\n")
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+#endif //#if ENABLE_AVCODEC_OUT_THREAD
+        );
     _ftprintf(stdout, _T("\n")
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
@@ -1683,7 +1698,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return 1;
         }
-        pParams->nOutputThread = (int8_t)value;
+        pParams->nOutputThread = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-thread"))) {
@@ -1697,7 +1712,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return 1;
         }
-        pParams->nAudioThread = (int8_t)value;
+        pParams->nAudioThread = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("max-procfps"))) {
@@ -1848,6 +1863,9 @@ int _tmain(int argc, TCHAR **argv) {
     encPrm.preset = 0;
     encPrm.nOutputBufSizeMB = DEFAULT_OUTPUT_BUF;
     encPrm.nAudioIgnoreDecodeError = DEFAULT_IGNORE_DECODE_ERROR;
+    encPrm.nOutputThread = NV_OUTPUT_THREAD_AUTO;
+    encPrm.nInputThread = NV_INPUT_THREAD_AUTO;
+    encPrm.nAudioThread = NV_AUDIO_THREAD_AUTO;
     codecPrm[NV_ENC_H264] = NVEncCore::DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = NVEncCore::DefaultParamHEVC();
 

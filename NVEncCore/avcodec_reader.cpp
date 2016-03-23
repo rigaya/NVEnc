@@ -942,6 +942,21 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         }
         AddMessage(NV_LOG_DEBUG, mes);
         m_strInputInfo += mes;
+
+        //スレッド関連初期化
+        m_Demux.thread.bAbortInput = false;
+        m_Demux.thread.nInputThread = (int8_t)input_prm->nInputThread;
+        //if (m_Demux.thread.nInputThread == NV_INPUT_THREAD_AUTO) {
+        //    m_Demux.thread.nInputThread = 0;
+        //}
+        //NVEncではいまのところ、常に無効
+        m_Demux.thread.nInputThread = 0;
+        if (m_Demux.thread.nInputThread) {
+            m_Demux.thread.thInput = std::thread(&CAvcodecReader::ThreadFuncRead, this);
+            //はじめcapacityを無限大にセットしたので、この段階で制限をかける
+            //入力をスレッド化しない場合には、自動的に同期が保たれるので、ここでの制限は必要ない
+            m_Demux.qVideoPkt.set_capacity(256);
+        }
     } else {
         //音声との同期とかに使うので、動画の情報を格納する
         m_Demux.video.nAvgFramerate = av_make_q(input_prm->nVideoAvgFramerate.first, input_prm->nVideoAvgFramerate.second);
