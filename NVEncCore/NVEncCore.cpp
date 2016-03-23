@@ -529,7 +529,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
         vector<uint8_t> sequence_prm_buffer(NV_MAX_SEQ_HDR_LEN, 0);
         NV_ENC_SEQUENCE_PARAM_PAYLOAD sequence_prm;
         INIT_CONFIG(sequence_prm, NV_ENC_SEQUENCE_PARAM_PAYLOAD);
-        sequence_prm.inBufferSize = sequence_prm_buffer.size();
+        sequence_prm.inBufferSize = (int)sequence_prm_buffer.size();
         sequence_prm.spsppsBuffer = sequence_prm_buffer.data();
         sequence_prm.outSPSPPSPayloadSize = &payload_size;
         NvEncGetSequenceParams(&sequence_prm);
