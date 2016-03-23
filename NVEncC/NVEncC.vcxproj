@@ -444,8 +444,14 @@
     <ClCompile Include="NVEncC.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ChapterRW\ChapterRW.vcxproj">
+      <Project>{6a9832b8-fe45-415c-a162-7d07e5e4fa2b}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\NVEncCore\NVEncCore.vcxproj">
       <Project>{1cd1cf80-e971-4a92-93e0-4aea5f4032b5}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\tinyxml2\tinyxml2.vcxproj">
+      <Project>{a34ca86d-6c2b-482f-984e-2687459e65e9}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

@@ -1162,18 +1162,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->bCopyChapter = TRUE;
         return 0;
     }
-#if 0
     if (0 == _tcscmp(option_name, _T("chapter"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
-            pParams->pChapterFile = alloc_str(strInput[i]);
+            pParams->sChapterFile = strInput[i];
         } else {
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return 1;
         }
         return 0;
     }
-#endif
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
         pParams->nAVMux |= (NVENC_MUX_VIDEO | NVENC_MUX_SUBTITLE);

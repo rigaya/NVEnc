@@ -154,6 +154,28 @@ tstring char_to_tstring(const std::string& str, uint32_t codepage) {
     char_to_tstring(tstr, str.c_str(), codepage);
     return tstr;
 }
+
+unsigned int wstring_to_tstring(const WCHAR *wstr, tstring& tstr, uint32_t codepage) {
+#if UNICODE
+    tstr = std::wstring(wstr);
+#else
+    return wstring_to_string(wstr, tstr, codepage);
+#endif
+    return (unsigned int)tstr.length();
+}
+
+tstring wstring_to_tstring(const WCHAR *wstr, uint32_t codepage) {
+    tstring tstr;
+    wstring_to_tstring(wstr, tstr, codepage);
+    return tstr;
+}
+
+tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage) {
+    tstring tstr;
+    wstring_to_tstring(wstr.c_str(), tstr, codepage);
+    return tstr;
+}
+
 std::string strsprintf(const char* format, ...) {
     va_list args;
     va_start(args, format);

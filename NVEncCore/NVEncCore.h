@@ -184,6 +184,9 @@ protected:
     //特定の関数でのエラーを表示
     void NVPrintFuncError(const TCHAR *funcName, CUresult code);
 
+    //チャプターファイルを読み込み
+    NVENCSTATUS readChapterFile(const tstring& chapfile);
+
     //エンコーダへの入力を初期化
     virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam);
 
@@ -249,6 +252,7 @@ protected:
     shared_ptr<EncodeStatus>     m_pStatus;               //エンコードステータス管理
     NV_ENC_PIC_STRUCT            m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                m_stEncConfig;           //エンコード設定
+    vector<unique_ptr<AVChapter>> m_AVChapterFromFile;   //ファイルから読み込んだチャプター
 
     GUID                         m_stCodecGUID;           //出力コーデック
     uint32_t                     m_uEncWidth;             //出力縦解像度
