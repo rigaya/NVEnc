@@ -118,138 +118,7 @@ static void PrintMultipleListOptions(FILE *fp, const TCHAR *option_name, const T
     }
 }
 
-static void show_help_ja() {
-    show_version();
-
-    _ftprintf(stdout, _T("使用方法: NVEncC.exe [オプション] -i <入力ファイル名> -o <出力ファイル名>\n"));
-    _ftprintf(stdout, _T("\n")
-        _T("入力は %s%sraw YUV, YUV4MPEG2(y4m)です。\n")
-        _T("Raw入力時には, fps, input-res の指定も必要です。\n")
-        _T("\n")
-        _T("出力フォーマットは raw H.264/AVC または H.265/HEVC ESです。\n")
-        _T("\n")
-        _T("実行例:\n")
-        _T("  NVEncC -i \"<avsfilename>\" -o \"<outfilename>\"\n")
-        _T("  avs2pipemod -y4mp \"<avsfile>\" | NVEncC --y4m -i - -o \"<outfilename>\"\n")
-        _T("\n")
-        _T("オプション: \n")
-        _T("-h,-? --help                      ヘルプの表示\n")
-        _T("   --help-ja                      ヘルプの表示(日本語)\n")
-        _T("   --help-en                      ヘルプの表示(英語)\n")
-        _T("-v,--version                      バージョン情報の表示\n")
-        _T("   --check-device                 利用可能なGPUのDeviceIdを表示\n")
-        _T("   --check-hw [<int>]             指定したDeviceIdでNVEncが使用可能か確認\n")
-        _T("                                    指定のない場合はDeviceId #0\n")
-        _T("   --check-features [<int>]       指定したDeviceIdでNVEncの使用可能な機能を表示\n")
-        _T("                                    指定のない場合はDeviceId #0\n")
-        _T("   --check-environment            NVEncの認識している環境情報を表示\n")
-        _T("\n")
-        _T("-d,--device                       NVEncで使用するDeviceIdを指定(デフォルト:0)\n")
-        _T("\n")
-        _T("-i,--input <filename>             入力ファイル名の指定\n")
-        _T("-o,--output <filename>            出力ファイル名の指定\n")
-        _T("\n")
-        _T(" 入力フォーマット (指定のない場合、拡張子から自動判定)\n")
-        _T("   --raw                          rawとしてファイルを読み込み\n")
-        _T("   --y4m                          y4mとしてファイルを読み込み\n")
-#if AVI_READER
-        _T("   --avi                          aviとしてファイルを読み込み\n")
-#endif
-#if AVS_READER
-        _T("   --avs                          avsとしてファイルを読み込み\n")
-#endif
-#if VPY_READER
-        _T("   --vpy                          vpyとしてファイルを読み込み\n")
-        _T("   --vpy-mt                       vpy(mt)としてファイルを読み込み\n")
-#endif
-#if ENABLE_AVCUVID_READER
-        _T("   --avcuvid                      libavformat + cuvidで読み込み\n")
-#endif
-        _T("\n"),
-        (AVI_READER) ? _T("avi, ") : _T(""),
-        (AVS_READER) ? _T("avs, ") : _T(""));
-
-    _ftprintf(stdout, _T("")
-        _T("   --input-res <int>x<int>        入力解像度\n")
-        _T("   --crop <int>,<int>,<int>,<int> 左、上、右、下の切り落とし画素数\n")
-        _T("                                    avcuivid reader使用時は左cropは無効\n")
-        _T("   --output-res <int>x<int>       出力解像度\n")
-        _T("   --fps <int>/<int> or <float>   フレームレートの指定\n")
-        _T("\n")
-        _T("-c,--codec <string>               出力コーデックの指定\n")
-        _T("                                    h264 (or avc), h265 (or hevc)\n")
-        _T("   --profile <string>             プロファイルの指定\n")
-        _T("                                    H.264: baseline, main, high, high444\n")
-        _T("                                    HEVC : main\n"));
-    PrintMultipleListOptions(stdout, _T("--level <string>"), _T("コーデックレベルの指定"),
-        { { _T("H.264"), list_avc_level,   0 },
-          { _T("HEVC"),  list_hevc_level,  0 } 
-    });
-    _ftprintf(stdout, _T("")
-        _T("   --level <string>               Levelの指定\n")
-        _T("   --sar <int>:<int>              SAR(PAR, 画素比)の指定\n")
-        _T("   --dar <int>:<int>              DAR(画面比)の指定\n")
-        _T("\n")
-        _T("   --cqp <int> or                 固定量子化量でエンコード\n")
-        _T("         <int>:<int>:<int>          デフォルト: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
-        _T("   --vbr <int>                    可変ビットレートのビットレート (kbps)\n")
-        _T("   --vbr2 <int>                   可変ビットレート(2)のビットレート (kbps)\n")
-        _T("   --cbr <int>                    固定ビットレートのビットレート (kbps)\n")
-        _T("                                    デフォルト %d kbps\n")
-        _T("\n")
-        _T("   --maxbitrate <int>             最大ビットレート(kbps) / デフォルト: %d kbps\n")
-        _T("   --qp-init <int> or             初期QPを設定\n")
-        _T("             <int>:<int>:<int>      デフォルト: 自動\n")
-        _T("   --qp-max <int> or              最大QPを設定\n")
-        _T("            <int>:<int>:<int>       デフォルト: 指定なし\n")
-        _T("   --qp-min <int> or              最小QPを設定\n")
-        _T("             <int>:<int>:<int>      デフォルト: 指定なし\n")
-        _T("   --gop-len <int>                GOPのフレーム数 / デフォルト: %d frames%s\n")
-        _T("-b,--bframes <int>                連続Bフレーム数 / デフォルト %d フレーム\n")
-        _T("   --ref <int>                    参照距離 / デフォルト %d フレーム\n")
-        _T("   --aq                           適応的量子化(AQ)を有効にする\n")
-        _T("   --mv-precision <string>        動きベクトル精度 / デフォルト: Q-pel\n")
-        _T("                                    Q-pel    … 1/4画素精度 (高精度)\n")
-        _T("                                    half-pel … 1/2画素精度\n")
-        _T("                                    full-pel … 1  画素精度 (低精度)\n")
-        _T("   --vbv-bufsize <int>            VBVバッファサイズ (kbit) / デフォルト 自動\n")
-        _T("   --vpp-deinterlace <string>     インタレ解除を行う(avcuvid使用時のみ)\n")
-        _T("                                    none(デフォルト), bob, adaptive (normal)\n")
-        _T("   --fullrange                    fullrangeの指定\n"),
-        DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
-        DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
-        DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (自動)") : _T(""),
-        DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
-        print_list_options(stdout, _T("--videoformat <string>"), list_videoformat, 0);
-        print_list_options(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
-        print_list_options(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
-        print_list_options(stdout, _T("--transfer <string>"),    list_transfer,    0);
-    _ftprintf(stdout, _T("\n")
-        _T("   --log <string>                 ログファイル名の指定\n")
-        _T("   --log-level <string>           ログレベルの指定 / デフォルト: info\n")
-        _T("                                    debug, info, warn, error\n"));
-
-    _ftprintf(stdout, _T("\n")
-        _T("H.264/AVC\n")
-        _T("   --tff                          --interlaced tffと同じ\n")
-        _T("   --bff                          --interlaced bffと同じ\n")
-        _T("   --interlaced <string>          インタレ保持エンコ\n")
-        _T("                                    tff, bff\n")
-        _T("   --cabac                        CABACを使用する\n")
-        _T("   --cavlc                        CAVLCを使用する\n")
-        _T("   --bluray                       Bluray用出力を行う / デフォルト: オフ\n")
-        _T("   --lossless                     ロスレス出力を行う / デフォルト: オフ\n")
-        _T("   --deblock                      デブロックフィルタを有効にする\n")
-        _T("   --no-deblock                   デブロックフィルタを無効にする\n"));
-
-        _ftprintf(stdout, _T("\n")
-            _T("H.265/HEVC\n")
-            _T("   --cu-max <int>                 CUの最大サイズを指定する\n")
-            _T("   --cu-min  <int>                CUの最小サイズを指定する\n")
-            _T("                                    8, 16, 32 を指定可能"));
-}
-
-static void show_help_en() {
+static void show_help() {
     show_version();
 
     _ftprintf(stdout, _T("Usage: NVEncC.exe [Options] -i <input file> -o <output file>\n"));
@@ -261,92 +130,191 @@ static void show_help_en() {
         _T("\n")
         _T("Example:\n")
         _T("  NVEncC -i \"<avsfilename>\" -o \"<outfilename>\"\n")
-        _T("  avs2pipemod -y4mp \"<avsfile>\" | NVEncC --y4m -i - -o \"<outfilename>\"\n")
-        _T("\n")
-        _T("Options: \n")
-        _T("-h,-? --help                      print help\n")
-        _T("   --help-ja                      print help in Japanese\n")
-        _T("   --help-en                      print help in English\n")
-        _T("-v,--version                      print version info\n")
-        _T("   --check-device                 show DeviceId for GPUs available on system")
-        _T("   --check-hw [<int>]             check NVEnc codecs for specefied DeviceId\n")
-        _T("                                    if unset, will check DeviceId #0\n")
-        _T("   --check-features [<int>]       check for NVEnc Features for specefied DeviceId\n")
-        _T("                                    if unset, will check DeviceId #0\n")
-        _T("   --check-environment            check for Environment Info\n")
-        _T("\n")
-        _T("-d,--device <int>                 set DeviceId used in NVEnc (default:0)\n")
-        _T("\n")
-        _T("-i,--input <filename>             set input filename\n")
-        _T("-o,--output <filename>            set output filename\n")
-        _T("\n")
-        _T(" Input formats (auto detected from extension of not set)\n")
-        _T("   --raw                          set input as raw format\n")
-        _T("   --y4m                          set input as y4m format\n")
-#if AVI_READER
-        _T("   --avi                          set input as avi format\n")
-#endif
-#if AVS_READER
-        _T("   --avs                          set input as avs format\n")
-#endif
-#if VPY_READER
-        _T("   --vpy                          set input as vpy format\n")
-        _T("   --vpy-mt                       set input as vpy(mt) format\n")
-#endif
-#if ENABLE_AVCUVID_READER
-        _T("   --avcuvid                      use libavformat + cuvid\n")
-#endif
-        _T("\n"),
+        _T("  avs2pipemod -y4mp \"<avsfile>\" | NVEncC --y4m -i - -o \"<outfilename>\"\n"),
         (AVI_READER) ? _T("avi, ") : _T(""),
         (AVS_READER) ? _T("avs, ") : _T(""));
+    _ftprintf(stdout, _T("\n")
+        _T("Information Options: \n")
+        _T("-h,-? --help                    print help\n")
+        _T("-v,--version                    print version info\n")
+        _T("   --check-device               show DeviceId for GPUs available on system")
+        _T("   --check-hw [<int>]           check NVEnc codecs for specefied DeviceId\n")
+        _T("                                  if unset, will check DeviceId #0\n")
+        _T("   --check-features [<int>]     check for NVEnc Features for specefied DeviceId\n")
+        _T("                                  if unset, will check DeviceId #0\n")
+        _T("   --check-environment          check for Environment Info\n")
+#if ENABLE_AVCUVID_READER
+        _T("   --check-avversion            show dll version\n")
+        _T("   --check-codecs               show codecs available\n")
+        _T("   --check-encoders             show audio encoders available\n")
+        _T("   --check-decoders             show audio decoders available\n")
+        _T("   --check-formats              show in/out formats available\n")
+        _T("   --check-protocols            show in/out protocols available\n")
+#endif
+        _T("\n"));
+    _ftprintf(stdout, _T("\n")
+        _T("Basic Encoding Options: \n")
+        _T("-d,--device <int>               set DeviceId used in NVEnc (default:0)\n")
+        _T("\n")
+        _T("-i,--input <filename>           set input filename\n")
+        _T("-o,--output <filename>          set output filename\n")
+        _T("\n")
+        _T(" Input formats (auto detected from extension of not set)\n")
+        _T("   --raw                        set input as raw format\n")
+        _T("   --y4m                        set input as y4m format\n")
+#if AVI_READER
+        _T("   --avi                        set input as avi format\n")
+#endif
+#if AVS_READER
+        _T("   --avs                        set input as avs format\n")
+#endif
+#if VPY_READER
+        _T("   --vpy                        set input as vpy format\n")
+        _T("   --vpy-mt                     set input as vpy(mt) format\n")
+#endif
+#if ENABLE_AVCUVID_READER
+        _T("   --avcuvid                    use libavformat + cuvid\n")
+        _T("   --avcuvid-analyze <int>      set time (sec) which reader analyze input file.\n")
+        _T("                                 default: 5 (seconds).\n")
+        _T("                                 could be only used with avqsv reader.\n")
+        _T("                                 use if reader fails to detect audio stream.\n")
+        _T("   --audio-source <string>      input extra audio file\n")
+        _T("   --audio-file [<int>?][<string>:]<string>\n")
+        _T("                                extract audio into file.\n")
+        _T("                                 could be only used with avqsv reader.\n")
+        _T("                                 below are optional,\n")
+        _T("                                  in [<int>?], specify track number to extract.\n")
+        _T("                                  in [<string>?], specify output format.\n")
+        _T("   --trim <int>:<int>[,<int>:<int>]...\n")
+        _T("                                trim video for the frame range specified.\n")
+        _T("                                 frame range should not overwrap each other.\n")
+        _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
+        _T("                                skip video for the time specified,\n")
+        _T("                                 seek will be inaccurate but fast.\n")
+        _T("-f,--format <string>            set output format of output file.\n")
+        _T("                                 if format is not specified, output format will\n")
+        _T("                                 be guessed from output file extension.\n")
+        _T("                                 set \"raw\" for H.264/ES output.\n")
+        _T("   --audio-copy [<int>[,...]]   mux audio with video during output.\n")
+        _T("                                 could be only used with\n")
+        _T("                                 avqsv reader and avcodec muxer.\n")
+        _T("                                 by default copies all audio tracks.\n")
+        _T("                                 \"--audio-copy 1,2\" will extract\n")
+        _T("                                 audio track #1 and #2.\n")
+        _T("   --audio-codec [<int>?]<string>\n")
+        _T("                                encode audio to specified format.\n")
+        _T("                                  in [<int>?], specify track number to encode.\n")
+        _T("   --audio-bitrate [<int>?]<int>\n")
+        _T("                                set encode bitrate for audio (kbps).\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --audio-ignore-decode-error <int>  (default: %d)\n")
+        _T("                                set numbers of continuous packets of audio decode\n")
+        _T("                                 error to ignore, replaced by silence.\n")
+        _T("   --audio-ignore-notrack-error ignore error when audio track is unfound.\n")
+        _T("   --audio-samplerate [<int>?]<int>\n")
+        _T("                                set sampling rate for audio (Hz).\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --audio-resampler <string>   set audio resampler.\n")
+        _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
+        _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][..\n")
+        _T("       set audio streams in channels.\n")
+        _T("         in [<int>?], specify track number to split.\n")
+        _T("         in <string1>, set input channels to use from source stream.\n")
+        _T("           if unset, all input channels will be used.\n")
+        _T("         in <string2>, set output channels to mix.\n")
+        _T("           if unset, all input channels will be copied without mixing.\n")
+        _T("       example1: --audio-stream FL,FR\n")
+        _T("         splitting dual mono audio to each stream.\n")
+        _T("       example2: --audio-stream :stereo\n")
+        _T("         mixing input channels to stereo.\n")
+        _T("       example3: --audio-stream 5.1,5.1:stereo\n")
+        _T("         keeping 5.1ch audio and also adding downmixed stereo stream.\n")
+        _T("       usable simbols\n")
+        _T("         mono       = FC\n")
+        _T("         stereo     = FL + FR\n")
+        _T("         2.1        = FL + FR + LFE\n")
+        _T("         3.0        = FL + FR + FC\n")
+        _T("         3.0(back)  = FL + FR + BC\n")
+        _T("         3.1        = FL + FR + FC + LFE\n")
+        _T("         4.0        = FL + FR + FC + BC\n")
+        _T("         quad       = FL + FR + BL + BR\n")
+        _T("         quad(side) = FL + FR + SL + SR\n")
+        _T("         5.0        = FL + FR + FC + SL + SR\n")
+        _T("         5.1        = FL + FR + FC + LFE + SL + SR\n")
+        _T("         6.0        = FL + FR + FC + BC + SL + SR\n")
+        _T("         6.0(front) = FL + FR + FLC + FRC + SL + SR\n")
+        _T("         hexagonal  = FL + FR + FC + BL + BR + BC\n")
+        _T("         6.1        = FL + FR + FC + LFE + BC + SL + SR\n")
+        _T("         6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR\n")
+        _T("         7.0        = FL + FR + FC + BL + BR + SL + SR\n")
+        _T("         7.0(front) = FL + FR + FC + FLC + FRC + SL + SR\n")
+        _T("         7.1        = FL + FR + FC + LFE + BL + BR + SL + SR\n")
+        _T("         7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR\n")
+        _T("   --chapter-copy               copy chapter to output file.\n")
+        _T("   --chapter <string>           set chapter from file specified.\n")
+        _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
+        _T("                                 these could be only used with\n")
+        _T("                                 avqsv reader and avcodec muxer.\n")
+        _T("                                 below are optional,\n")
+        _T("                                  in [<int>?], specify track number to copy.\n")
+        _T("\n")
+        _T("   --avsync <string>            method for AV sync (default: through)\n")
+        _T("                                 through  ... assume cfr, no check but fast\n")
+        _T("                                 forcecfr ... check timestamp and force cfr.\n")
+        _T("-m,--mux-option <string1>:<string2>\n")
+        _T("                                set muxer option name and value.\n")
+        _T("                                 these could be only used with\n")
+        _T("                                 avqsv reader and avcodec muxer.\n"),
+        DEFAULT_IGNORE_DECODE_ERROR);
+#endif
     _ftprintf(stdout, _T("")
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
         _T("                                    left crop is unavailable with avcuivid reader\n")
-        _T("   --output-res <int>x<int>       set output resolution\n")
-        _T("   --fps <int>/<int> or <float>   set framerate\n")
+        _T("   --output-res <int>x<int>     set output resolution\n")
+        _T("   --fps <int>/<int> or <float> set framerate\n")
         _T("\n")
-        _T("-c,--codec <string>               set ouput codec\n")
-        _T("                                    h264 (or avc), h265 (or hevc)\n")
-        _T("   --profile <string>             set codec profile\n")
-        _T("                                    H.264: baseline, main, high(default)\n")
-        _T("                                    HEVC : main\n"));
+        _T("-c,--codec <string>             set ouput codec\n")
+        _T("                                  h264 (or avc), h265 (or hevc)\n")
+        _T("   --profile <string>           set codec profile\n")
+        _T("                                  H.264: baseline, main, high(default)\n")
+        _T("                                  HEVC : main\n"));
 
     PrintMultipleListOptions(stdout, _T("--level <string>"), _T("set codec level"),
         { { _T("H.264"), list_avc_level,   0 },
           { _T("HEVC"),  list_hevc_level,  0 }
     });
     _ftprintf(stdout, _T("")
-        _T("   --sar <int>:<int>              set SAR ratio\n")
-        _T("   --dar <int>:<int>              set DAR ratio\n")
+        _T("   --sar <int>:<int>            set SAR ratio\n")
+        _T("   --dar <int>:<int>            set DAR ratio\n")
         _T("\n")
-        _T("   --cqp <int> or                 encode in Constant QP mode\n")
-        _T("         <int>:<int>:<int>          Default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
-        _T("   --vbr <int>                    set bitrate for VBR mode (kbps)\n")
-        _T("   --vbr2 <int>                   set bitrate for VBR2 mode (kbps)\n")
-        _T("   --cbr <int>                    set bitrate for CBR mode (kbps)\n")
-        _T("                                    Default: %d kbps\n")
+        _T("   --cqp <int> or               encode in Constant QP mode\n")
+        _T("         <int>:<int>:<int>        Default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
+        _T("   --vbr <int>                  set bitrate for VBR mode (kbps)\n")
+        _T("   --vbr2 <int>                 set bitrate for VBR2 mode (kbps)\n")
+        _T("   --cbr <int>                  set bitrate for CBR mode (kbps)\n")
+        _T("                                  Default: %d kbps\n")
         _T("\n")
-        _T("   --maxbitrate <int>             set Max Bitrate (kbps) / Default: %d kbps\n")
-        _T("   --qp-init <int> or             set initial QP\n")
-        _T("             <int>:<int>:<int>      Default: auto\n")
-        _T("   --qp-max <int> or              set max QP\n")
-        _T("            <int>:<int>:<int>       Default: unset\n")
-        _T("   --qp-min <int> or              set min QP\n")
-        _T("             <int>:<int>:<int>      Default: unset\n")
-        _T("   --gop-len <int>                set GOP Length / Default: %d frames%s\n")
-        _T("-b,--bframes <int>                set B frames / Default %d frames\n")
-        _T("   --ref <int>                    set Ref frames / Default %d frames\n")
-        _T("   --aq                           enable adaptive quantization\n")
-        _T("   --mv-precision <string>        set MV Precision / Default: Q-pel\n")
-        _T("                                    Q-pel    (High Quality)\n")
-        _T("                                    half-pel\n")
-        _T("                                    full-pel (Low Quality)\n")
-        _T("   --vbv-bufsize <int>            set vbv buffer size (kbit) / Default: auto\n")
-        _T("   --vpp-deinterlace <string>     set deinterlace mode / Default: none\n")
-        _T("                                    none, bob, adaptive (normal)\n")
-        _T("                                    available only with avcuvid reader\n")
-        _T("   --fullrange                    set fullrange\n"),
+        _T("   --max-bitrate <int>          set Max Bitrate (kbps) / Default: %d kbps\n")
+        _T("   --qp-init <int> or           set initial QP\n")
+        _T("             <int>:<int>:<int>    Default: auto\n")
+        _T("   --qp-max <int> or            set max QP\n")
+        _T("            <int>:<int>:<int>     Default: unset\n")
+        _T("   --qp-min <int> or            set min QP\n")
+        _T("             <int>:<int>:<int>    Default: unset\n")
+        _T("   --gop-len <int>              set GOP Length / Default: %d frames%s\n")
+        _T("-b,--bframes <int>              set B frames / Default %d frames\n")
+        _T("   --ref <int>                  set Ref frames / Default %d frames\n")
+        _T("   --aq                         enable adaptive quantization\n")
+        _T("   --mv-precision <string>      set MV Precision / Default: Q-pel\n")
+        _T("                                  Q-pel    (High Quality)\n")
+        _T("                                  half-pel\n")
+        _T("                                  full-pel (Low Quality)\n")
+        _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / Default: auto\n")
+        _T("   --vpp-deinterlace <string>   set deinterlace mode / Default: none\n")
+        _T("                                  none, bob, adaptive (normal)\n")
+        _T("                                  available only with avcuvid reader\n")
+        _T("   --fullrange                  set fullrange\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
@@ -355,31 +323,36 @@ static void show_help_en() {
     print_list_options(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
     print_list_options(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
     print_list_options(stdout, _T("--transfer <string>"),    list_transfer,    0);
+    _ftprintf(stdout, _T("")
+        _T("   --output-buf <int>           buffer size for output in MByte\n")
+        _T("                                 default %d MB (0-%d)\n"),
+        DEFAULT_OUTPUT_BUF, NV_OUTPUT_BUF_MB_MAX
+        );
+    _ftprintf(stdout, _T("")
+        _T("   --max-procfps <int>         limit encoding performance to lower resource usage.\n")
+        _T("                                 default:0 (no limit)\n"));
     _ftprintf(stdout, _T("\n")
-        _T("   --log <string>                 set log file name\n")
-        _T("   --log-level <string>           set log level\n")
-        _T("                                    debug, info(default), warn, error\n"));
+        _T("   --log <string>               set log file name\n")
+        _T("   --log-level <string>         set log level\n")
+        _T("                                  debug, info(default), warn, error\n")
+        _T("   --log-framelist <string>     output frame info of avcuvid reader to path\n"));
     _ftprintf(stdout, _T("\n")
         _T("H.264/AVC\n")
-        _T("   --tff                          same as --interlaced tff\n")
-        _T("   --bff                          same as --interlaced bff\n")
-        _T("   --interlaced <string>          interlaced encoding\n")
-        _T("                                    tff, bff\n")
-        _T("   --cabac                        use CABAC\n")
-        _T("   --cavlc                        use CAVLC (no CABAC)\n")
-        _T("   --bluray                       for bluray / Default: off\n")
-        _T("   --lossless                     for lossless / Default: off\n")
-        _T("   --(no-)deblock                 enable(disable) deblock filter\n"));
+        _T("   --tff                        same as --interlaced tff\n")
+        _T("   --bff                        same as --interlaced bff\n")
+        _T("   --interlaced <string>        interlaced encoding\n")
+        _T("                                  tff, bff\n")
+        _T("   --cabac                      use CABAC\n")
+        _T("   --cavlc                      use CAVLC (no CABAC)\n")
+        _T("   --bluray                     for bluray / Default: off\n")
+        _T("   --lossless                   for lossless / Default: off\n")
+        _T("   --(no-)deblock               enable(disable) deblock filter\n"));
 
     _ftprintf(stdout, _T("\n")
         _T("H.265/HEVC\n")
-        _T("   --cu-max <int>                 set max CU size\n")
-        _T("   --cu-min  <int>                set min CU size\n")
-        _T("                                    8, 16, 32 are avaliable"));
-}
-
-static void show_help() {
-    (check_locale_is_ja()) ? show_help_ja() : show_help_en();
+        _T("   --cu-max <int>               set max CU size\n")
+        _T("   --cu-min  <int>              set min CU size\n")
+        _T("                                  8, 16, 32 are avaliable"));
 }
 
 static const TCHAR *short_opt_to_long(TCHAR short_opt) {
@@ -1779,14 +1752,6 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
 
         if (IS_OPTION("help")) {
             show_help();
-            return 1;
-        }
-        if (IS_OPTION("help-ja")) {
-            show_help_ja();
-            return 1;
-        }
-        if (IS_OPTION("help-en")) {
-            show_help_en();
             return 1;
         }
         if (IS_OPTION("version")) {
