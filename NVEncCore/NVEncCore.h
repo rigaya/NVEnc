@@ -135,7 +135,7 @@ typedef struct InEncodeVideoParam {
     muxOptList *pMuxOpt;
     tstring sChapterFile;          
     NVAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
-    int nProcSpeedLimit; //プリデコードする場合の処理速度制限 (0で制限なし)
+    int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
     VppParam vpp;                 //vpp
 } InEncodeVideoParam;
 
@@ -254,6 +254,7 @@ protected:
     uint32_t                     m_uEncWidth;             //出力縦解像度
     uint32_t                     m_uEncHeight;            //出力横解像度
 
+    int                          m_nProcSpeedLimit;       //処理速度制限 (0で制限なし)
     NVAVSync                     m_nAVSyncMode;           //映像音声同期設定
     std::pair<int, int>          m_inputFps;              //入力フレームレート
 #if ENABLE_AVCUVID_READER

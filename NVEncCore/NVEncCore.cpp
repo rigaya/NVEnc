@@ -1767,6 +1767,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
 
     inputParam->input.csp = (inputParam->yuv444 || inputParam->lossless) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
     m_nAVSyncMode = inputParam->nAVSyncMode;
+    m_nProcSpeedLimit = inputParam->nProcSpeedLimit;
 
     //入力ファイルを開き、入力情報も取得
     if (NV_ENC_SUCCESS != (nvStatus = InitInput(inputParam))) {
@@ -2059,6 +2060,7 @@ NVENCSTATUS NVEncCore::Encode() {
         });
         NVPrintf(stderr, NV_LOG_DEBUG, _T("Started Encode thread\n"));
 
+        CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
         int64_t nEstimatedPts = AV_NOPTS_VALUE;
         const int nFrameDuration = (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pVideoCtx->pkt_timebase);
         int decodedFrame = 0;
@@ -2075,6 +2077,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
 
                 auto encode = [&](CUVIDPROCPARAMS oVPP) {
+                    speedCtrl.wait();
                     CUresult curesult = CUDA_SUCCESS;
                     NVPrintf(stderr, NV_LOG_TRACE, _T("Get decoded frame %d\n"), decodedFrame);
                     CUdeviceptr dMappedFrame = 0;
@@ -2173,7 +2176,9 @@ NVENCSTATUS NVEncCore::Encode() {
     } else
 #endif //#if ENABLE_AVCUVID_READER
     {
+        CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
         for (int iFrame = 0; nvStatus == NV_ENC_SUCCESS; iFrame++) {
+            speedCtrl.wait();
             if (0 != extract_audio()) {
                 nvStatus = NV_ENC_ERR_GENERIC;
                 break;

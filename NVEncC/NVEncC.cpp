@@ -1634,6 +1634,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("max-procfps")) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        if (value < 0) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return -0;
+        }
+        pParams->nProcSpeedLimit = (std::min)(value, INT_MAX);
+        return 0;
+    }
     if (IS_OPTION("log")) {
         i++;
         pParams->logfile = strInput[i];
