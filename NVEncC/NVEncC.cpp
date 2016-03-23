@@ -32,6 +32,7 @@
 #include <locale.h>
 #include <tchar.h>
 #include <locale.h>
+#include <signal.h>
 #include <algorithm>
 #include <numeric>
 #include <vector>
@@ -1851,6 +1852,22 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
     return 0;
 }
 
+//Ctrl + C ハンドラ
+static bool g_signal_abort = false;
+#pragma warning(push)
+#pragma warning(disable:4100)
+static void sigcatch(int sig) {
+    g_signal_abort = true;
+}
+#pragma warning(pop)
+static int set_signal_handler() {
+    int ret = 0;
+    if (SIG_ERR == signal(SIGINT, sigcatch)) {
+        _ftprintf(stderr, _T("failed to set signal handler.\n"));
+    }
+    return ret;
+}
+
 int _tmain(int argc, TCHAR **argv) {
     if (check_locale_is_ja())
         _tsetlocale(LC_ALL, _T("japanese"));
@@ -1882,6 +1899,8 @@ int _tmain(int argc, TCHAR **argv) {
     NVEncCore nvEnc;
     if (   NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
         && NV_ENC_SUCCESS == nvEnc.InitEncode(&encPrm)) {
+        nvEnc.SetAbortFlagPointer(&g_signal_abort);
+        set_signal_handler();
         nvEnc.PrintEncodingParamsInfo(NV_LOG_INFO);
         ret = (NV_ENC_SUCCESS == nvEnc.Encode()) ? 0 : 1;
     }

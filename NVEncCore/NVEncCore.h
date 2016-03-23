@@ -171,6 +171,9 @@ public:
     //エンコードの設定を表示
     virtual void PrintEncodingParamsInfo(int output_level);
 
+    //ユーザーからの中断を知らせるフラグへのポインタをセット
+    void SetAbortFlagPointer(bool *abortFlag);
+
 protected:
     //メインメソッド
     NVENCSTATUS SetEncodeCodecList(void *encode);
@@ -232,6 +235,7 @@ protected:
     //フレームの出力と集計
     NVENCSTATUS ProcessOutput(const EncodeBuffer *pEncodeBuffer);
 
+    bool                        *m_pAbortByUser;          //ユーザーからの中断指令
     shared_ptr<CNVEncLog>        m_pNVLog;                //ログ出力管理
 
     CUdevice                     m_device;                //CUDAデバイスインスタンス

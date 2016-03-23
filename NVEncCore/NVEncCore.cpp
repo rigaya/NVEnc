@@ -104,6 +104,7 @@ NVEncCore::NVEncCore() {
     m_uEncodeBufferCount = 16;
     m_pDevice = nullptr;
     m_nDeviceId = 0;
+    m_pAbortByUser = nullptr;
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -124,6 +125,10 @@ NVEncCore::~NVEncCore() {
         FreeLibrary(m_hinstLib);
         m_hinstLib = NULL;
     }
+}
+
+void NVEncCore::SetAbortFlagPointer(bool *abortFlag) {
+    m_pAbortByUser = abortFlag;
 }
 
 #pragma warning(push)
@@ -1024,6 +1029,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     }
 
     m_pNVLog.reset();
+    m_pAbortByUser = nullptr;
 
     return nvStatus;
 }
@@ -2077,11 +2083,11 @@ NVENCSTATUS NVEncCore::Encode() {
     };
 
     if (m_cuvidDec) {
-        auto th_input = std::thread([this, pVideoCtx](){
+        auto th_input = std::thread([this, pVideoCtx, &nvStatus](){
             CUresult curesult = CUDA_SUCCESS;
             vector<uint8_t> bitstream;
             int sts = NVENC_THREAD_RUNNING;
-            for (int i = 0; sts == NVENC_THREAD_RUNNING && !m_cuvidDec->GetError(); i++) {
+            for (int i = 0; sts == NVENC_THREAD_RUNNING && nvStatus == NV_ENC_SUCCESS && !m_cuvidDec->GetError(); i++) {
                 sts = m_pFileReader->LoadNextFrame(nullptr, 0);
                 int64_t pts;
                 m_pFileReader->GetNextBitstream(bitstream, &pts);
@@ -2105,6 +2111,10 @@ NVENCSTATUS NVEncCore::Encode() {
         int encodedFrame = 0;
         while (!m_cuvidDec->GetError()
             && !(m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
+            if (m_pAbortByUser && *m_pAbortByUser) {
+                nvStatus = NV_ENC_ERR_ABORT;
+                break;
+            }
 
             CUVIDPARSERDISPINFO pInfo;
             if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
@@ -2149,29 +2159,32 @@ NVENCSTATUS NVEncCore::Encode() {
                 oVPP.top_field_first = m_stPicStruct != NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
 
                 auto encode_frame = [&]() {
+                    NVENCSTATUS status = NV_ENC_SUCCESS;
                     auto deint = m_cuvidDec->getDeinterlaceMode();
                     switch (deint) {
                     case cudaVideoDeinterlaceMode_Weave:
                         oVPP.unpaired_field = 1;
                         oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
-                        encode(oVPP);
+                        status = encode(oVPP);
                         break;
                     case cudaVideoDeinterlaceMode_Bob:
                         oVPP.progressive_frame = 0;
                         oVPP.second_field = 0;
-                        encode(oVPP);
+                        status = encode(oVPP);
+                        if (NV_ENC_SUCCESS != status) return status;
                         oVPP.second_field = 1;
-                        encode(oVPP);
+                        status = encode(oVPP);
                         break;
                     case cudaVideoDeinterlaceMode_Adaptive:
                         oVPP.progressive_frame = 0;
-                        encode(oVPP);
+                        status = encode(oVPP);
                         break;
                     default:
                         NVPrintf(stderr, NV_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
-                        nvStatus = NV_ENC_ERR_GENERIC;
+                        status = NV_ENC_ERR_GENERIC;
                         break;
                     }
+                    return status;
                 };
 
                 if ((m_nAVSyncMode & NV_AVSYNC_FORCE_CFR) == NV_AVSYNC_FORCE_CFR) {
@@ -2182,19 +2195,19 @@ NVENCSTATUS NVEncCore::Encode() {
                     nEstimatedPts += nFrameDuration;
                     if (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
                         //水増しが必要
-                        encode_frame();
+                        if (NV_ENC_SUCCESS != (nvStatus = encode_frame())) break;
                         nEstimatedPts += nFrameDuration;
-                        encode_frame();
+                        if (NV_ENC_SUCCESS != (nvStatus = encode_frame())) break;
                     } else {
                         if (ptsDiff <= std::min(-1, -1 * nFrameDuration * 3 / 4)) {
                             //間引きが必要
                             continue;
                         } else {
-                            encode_frame();
+                            if (NV_ENC_SUCCESS != (nvStatus = encode_frame())) break;
                         }
                     }
                 } else {
-                    encode_frame();
+                    if (NV_ENC_SUCCESS != (nvStatus = encode_frame())) break;
                 }
 
                 if (0 != extract_audio()) {
@@ -2205,6 +2218,14 @@ NVENCSTATUS NVEncCore::Encode() {
             }
         }
         if (th_input.joinable()) {
+            //ここでフレームをすべて吐き出し切らないと、中断時にデコードスレッドが終了しない
+            while (!m_cuvidDec->GetError()
+                && !(m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
+                CUVIDPARSERDISPINFO pInfo;
+                if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
+                    m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
+                }
+            }
             th_input.join();
         }
         NVPrintf(stderr, NV_LOG_DEBUG, _T("Joined Encode thread\n"));
@@ -2216,6 +2237,10 @@ NVENCSTATUS NVEncCore::Encode() {
     {
         CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
         for (int iFrame = 0; nvStatus == NV_ENC_SUCCESS; iFrame++) {
+            if (m_pAbortByUser && *m_pAbortByUser) {
+                nvStatus = NV_ENC_ERR_ABORT;
+                break;
+            }
             speedCtrl.wait();
             if (0 != extract_audio()) {
                 nvStatus = NV_ENC_ERR_GENERIC;
@@ -2232,13 +2257,13 @@ NVENCSTATUS NVEncCore::Encode() {
             nvStatus = EncodeFrame(iFrame);
         }
     }
-    NVPrintf(stderr, NV_LOG_INFO, _T("\n"));
-    if (nvStatus == NV_ENC_SUCCESS) {
-        auto encstatus = FlushEncoder();
-        if (NV_ENC_SUCCESS != encstatus) {
-            NVPrintf(stderr, NV_LOG_ERROR, _T("Error FlushEncoder: %d.\n"), encstatus);
-            return encstatus;
-        }
+    NVPrintf(stderr, NV_LOG_INFO, _T("                                                                         \n"));
+    //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
+    auto encstatus = FlushEncoder();
+    if (nvStatus == NV_ENC_SUCCESS && encstatus != NV_ENC_SUCCESS) {
+        NVPrintf(stderr, NV_LOG_ERROR, _T("Error FlushEncoder: %d.\n"), encstatus);
+        nvStatus = encstatus;
+    } else {
         NVPrintf(stderr, NV_LOG_DEBUG, _T("Flushed Encoder\n"));
     }
     m_pFileReader->Close();

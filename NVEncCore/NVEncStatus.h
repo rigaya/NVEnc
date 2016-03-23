@@ -46,6 +46,7 @@
 using std::chrono::duration_cast;
 
 static const int UPDATE_INTERVAL = 800;
+#define NV_ENC_ERR_ABORT ((NVENCSTATUS)-1)
 
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
