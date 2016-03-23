@@ -256,7 +256,7 @@ public:
         int time_elapsed = (int)(time_elapsed64 - (hh * (60*60*1000)));
         int mm = time_elapsed / (60*1000);
         time_elapsed -= mm * (60*1000);
-        int ss = (time_elapsed + 500) / 1000;
+        int ss = time_elapsed / 1000;
         _stprintf_s(mes, _countof(mes), _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime));
         WriteLine(mes);
         
