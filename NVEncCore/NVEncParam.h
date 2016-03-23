@@ -33,6 +33,7 @@
 #include <cuviddec.h>
 #include "nvEncodeAPI.h"
 #include "NVEncoderPerf.h"
+#include "NVEncUtil.h"
 
 using std::vector;
 

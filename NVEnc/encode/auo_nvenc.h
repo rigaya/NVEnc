@@ -91,7 +91,7 @@ public:
 class CAuoLog : public CNVEncLog {
 public:
     CAuoLog(const TCHAR *pLogFile, int log_level) : CNVEncLog(pLogFile, log_level) { };
-    virtual void operator()(int logLevel, const TCHAR *format, ...) override;
+    virtual void write(int logLevel, const TCHAR *format, ...) override;
 };
 
 class CAuoNvEnc : public NVEncCore

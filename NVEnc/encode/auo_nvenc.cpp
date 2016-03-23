@@ -282,15 +282,15 @@ NVENCSTATUS CAuoNvEnc::InitInput(InEncodeVideoParam *inputParam) {
     m_pStatus.reset(new AuoEncodeStatus());
     m_pStatus->SetPrivData(&inputParam->input.otherPrm);
     m_pStatus->init(m_pNVLog);
-    m_pInput = new AuoInput();
-    m_pInput->SetNVEncLogPtr(m_pNVLog);
-    int ret = m_pInput->Init(&inputParam->input, m_pStatus);
+    m_pFileReader.reset(new AuoInput());
+    m_pFileReader->SetNVEncLogPtr(m_pNVLog);
+    int ret = m_pFileReader->Init(&inputParam->input, m_pStatus);
     m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
     m_pStatus->m_nOutputFPSScale = inputParam->input.scale;
     return (ret) ? NV_ENC_ERR_GENERIC : NV_ENC_SUCCESS;
 }
 
-void CAuoLog::operator()(int logLevel, const TCHAR *format, ... ) {
+void CAuoLog::write(int logLevel, const TCHAR *format, ... ) {
     if (logLevel < m_nLogLevel) {
         return;
     }

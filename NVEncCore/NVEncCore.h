@@ -256,7 +256,9 @@ protected:
     shared_ptr<EncodeStatus>     m_pStatus;               //エンコードステータス管理
     NV_ENC_PIC_STRUCT            m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                m_stEncConfig;           //エンコード設定
+#if ENABLE_AVCUVID_READER
     vector<unique_ptr<AVChapter>> m_AVChapterFromFile;   //ファイルから読み込んだチャプター
+#endif //#if ENABLE_AVCUVID_READER
 
     GUID                         m_stCodecGUID;           //出力コーデック
     uint32_t                     m_uEncWidth;             //出力縦解像度

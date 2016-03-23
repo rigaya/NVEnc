@@ -2242,10 +2242,12 @@ NVENCSTATUS NVEncCore::Encode() {
                 break;
             }
             speedCtrl.wait();
+#if ENABLE_AVCUVID_READER
             if (0 != extract_audio()) {
                 nvStatus = NV_ENC_ERR_GENERIC;
                 break;
             }
+#endif //#if ENABLE_AVCUVID_READER
             uint32_t lockedPitch = 0;
             unsigned char *pInputSurface = nullptr;
             const int index = iFrame % bufferCount;
@@ -2408,9 +2410,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     for (uint32_t i = 0; i < (uint32_t)inputMesSplitted.size(); i++) {
         add_str(NV_LOG_ERROR, _T("%s%s\n"), (i == 0) ? _T("Input Info     ") : _T("               "), inputMesSplitted[i].c_str());
     }
+#if ENABLE_AVCUVID_READER
     if (m_cuvidDec && m_cuvidDec->getDeinterlaceMode() != cudaVideoDeinterlaceMode_Weave) {
         add_str(NV_LOG_ERROR, _T("Deinterlace    %s\n"), get_chr_from_value(list_deinterlace, m_cuvidDec->getDeinterlaceMode()));
     }
+#endif //#if ENABLE_AVCUVID_READER
     if (m_pTrimParam != NULL && m_pTrimParam->list.size()
         && !(m_pTrimParam->list[0].start == 0 && m_pTrimParam->list[0].fin == TRIM_MAX)) {
         add_str(NV_LOG_ERROR, _T("%s"), _T("Trim           "));
