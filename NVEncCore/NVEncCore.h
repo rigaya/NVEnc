@@ -179,7 +179,7 @@ protected:
     NVENCSTATUS SetEncodeCodecList(void *encode);
     
     //既定の出力先に情報をメッセージを出力
-    virtual void NVPrintf(FILE *fp, int logLevel, const TCHAR *format, ...);
+    virtual void PrintMes(int logLevel, const TCHAR *format, ...);
     
     //特定の関数でのエラーを表示
     void NVPrintFuncError(const TCHAR *funcName, NVENCSTATUS nvStatus);
