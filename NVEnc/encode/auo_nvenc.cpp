@@ -280,7 +280,7 @@ NVENCSTATUS CAuoNvEnc::InitLog(const InEncodeVideoParam *inputParam) {
 
 NVENCSTATUS CAuoNvEnc::InitInput(InEncodeVideoParam *inputParam) {
     m_pStatus.reset(new AuoEncodeStatus());
-    m_pStatus->SetPrivData(&inputParam->input.otherPrm);
+    m_pStatus->SetPrivData(inputParam->input.otherPrm);
     m_pStatus->init(m_pNVLog);
     m_pFileReader.reset(new AuoInput());
     m_pFileReader->SetNVEncLogPtr(m_pNVLog);
