@@ -1515,6 +1515,7 @@ int CAvcodecWriter::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pNVEncBitstream)
         copyStream.outputDuration  = pNVEncBitstream->outputDuration;
         copyStream.pictureStruct   = pNVEncBitstream->pictureStruct;
         copyStream.pictureType     = pNVEncBitstream->pictureType;
+        copyStream.frameAvgQP     = pNVEncBitstream->frameAvgQP;
         memcpy(copyStream.Data, pNVEncBitstream->bitstreamBufferPtr, copyStream.DataLength);
         //キューに押し込む
         if (!m_Mux.thread.qVideobitstream.push(copyStream)) {
