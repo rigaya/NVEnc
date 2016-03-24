@@ -184,7 +184,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     inputInfoAuo.sys_dat = sys_dat;
     inputInfoAuo.interlaced = is_interlaced(conf->nvenc.pic_struct);
 
-    InEncodeVideoParam encPrm = { 0 };
+    InEncodeVideoParam encPrm;
     encPrm.codec = conf->nvenc.codec;
     encPrm.encConfig = conf->nvenc.enc_config;
     encPrm.encConfig.encodeCodecConfig = conf->nvenc.codecConfig[conf->nvenc.codec];

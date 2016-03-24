@@ -1872,17 +1872,8 @@ int _tmain(int argc, TCHAR **argv) {
     if (check_locale_is_ja())
         _tsetlocale(LC_ALL, _T("japanese"));
 
-    InEncodeVideoParam encPrm = { 0 };
+    InEncodeVideoParam encPrm;
     NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
-    encPrm.encConfig = NVEncCore::DefaultParam();
-    encPrm.inputBuffer = 16;
-    encPrm.picStruct = NV_ENC_PIC_STRUCT_FRAME;
-    encPrm.preset = 0;
-    encPrm.nOutputBufSizeMB = DEFAULT_OUTPUT_BUF;
-    encPrm.nAudioIgnoreDecodeError = DEFAULT_IGNORE_DECODE_ERROR;
-    encPrm.nOutputThread = NV_OUTPUT_THREAD_AUTO;
-    encPrm.nInputThread = NV_INPUT_THREAD_AUTO;
-    encPrm.nAudioThread = NV_AUDIO_THREAD_AUTO;
     codecPrm[NV_ENC_H264] = NVEncCore::DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = NVEncCore::DefaultParamHEVC();
 

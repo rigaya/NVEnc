@@ -96,7 +96,7 @@ typedef struct VppParam {
     cudaVideoDeinterlaceMode deinterlace;
 } VppParam;
 
-typedef struct InEncodeVideoParam {
+struct InEncodeVideoParam {
     InputVideoInfo input;         //入力する動画の情報
     tstring outputFilename;       //出力ファイル名
     tstring sAVMuxOutputFormat;   //出力フォーマット
@@ -137,7 +137,9 @@ typedef struct InEncodeVideoParam {
     NVAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
     int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
     VppParam vpp;                 //vpp
-} InEncodeVideoParam;
+
+    InEncodeVideoParam();
+};
 
 class NVEncCore {
 public:

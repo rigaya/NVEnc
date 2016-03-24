@@ -104,7 +104,7 @@ int NVEncFeature::createCache(int deviceID) {
 
         m_pNVEncCore = new NVEncCore();
 
-        InEncodeVideoParam inputParam = { 0 };
+        InEncodeVideoParam inputParam;
         inputParam.encConfig = NVEncCore::DefaultParam();
         inputParam.deviceID = deviceID;
         if (NV_ENC_SUCCESS != m_pNVEncCore->Initialize(&inputParam)) {

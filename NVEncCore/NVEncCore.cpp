@@ -91,6 +91,52 @@ NVEncoderGPUInfo::NVEncoderGPUInfo() {
     }
 };
 
+InEncodeVideoParam::InEncodeVideoParam() :
+    input(),
+    outputFilename(),
+    sAVMuxOutputFormat(),
+    preset(0),
+    deviceID(0),
+    inputBuffer(16),
+    par(),
+    picStruct(NV_ENC_PIC_STRUCT_FRAME),
+    encConfig(),
+    codec(0),
+    bluray(0),                   //bluray出力
+    yuv444(0),                   //YUV444出力
+    lossless(0),                 //ロスレス出力
+    logfile(),              //ログ出力先
+    loglevel(NV_LOG_INFO),                 //ログ出力レベル
+    nOutputBufSizeMB(DEFAULT_OUTPUT_BUF),         //出力バッファサイズ
+    sFramePosListLog(),     //framePosList出力先
+    fSeekSec(0.0f),               //指定された秒数分先頭を飛ばす
+    nSubtitleSelectCount(0),
+    pSubtitleSelect(nullptr),
+    nAudioSourceCount(0),
+    ppAudioSourceList(nullptr),
+    nAudioSelectCount(0), //pAudioSelectの数
+    ppAudioSelectList(nullptr),
+    nAudioResampler(NV_RESAMPLER_SWR),
+    nAVDemuxAnalyzeSec(0),
+    nAVMux(NVENC_MUX_NONE),                       //NVENC_MUX_xxx
+    nTrimCount(0),
+    pTrimList(nullptr),
+    bCopyChapter(false),
+    nOutputThread(NV_OUTPUT_THREAD_AUTO),
+    nAudioThread(NV_INPUT_THREAD_AUTO),
+    nInputThread(NV_AUDIO_THREAD_AUTO),
+    bAudioIgnoreNoTrackError(false),
+    nAudioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
+    pMuxOpt(nullptr),
+    sChapterFile(),
+    nAVSyncMode(NV_AVSYNC_THROUGH),     //avsyncの方法 (NV_AVSYNC_xxx)
+    nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
+    vpp() {
+    encConfig = NVEncCore::DefaultParam();
+    memset(&par,       0, sizeof(par));
+    memset(&input,     0, sizeof(input));
+}
+
 NVEncoderGPUInfo::~NVEncoderGPUInfo() {
 };
 
@@ -105,6 +151,7 @@ NVEncCore::NVEncCore() {
     m_pDevice = nullptr;
     m_nDeviceId = 0;
     m_pAbortByUser = nullptr;
+    m_pTrimParam = nullptr;
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -1003,6 +1050,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     m_AudioReaders.clear();
     m_pFileReader.reset();
     m_pFileWriter.reset();
+    m_pFileWriterListAudio.clear();
 
     ReleaseIOBuffers();
 
@@ -1030,6 +1078,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
 
     m_pNVLog.reset();
     m_pAbortByUser = nullptr;
+    m_pTrimParam = nullptr;
 
     return nvStatus;
 }
