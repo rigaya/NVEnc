@@ -1293,7 +1293,7 @@ int CAvcodecWriter::WriteFileHeader(const nvBitstream *pBitstream) {
 
     //QSVEncCでエンコーダしたことを記録してみる
     //これは直接metadetaにセットする
-    sprintf_s(m_Mux.format.metadataStr, "QSVEncC (%s) %s", tchar_to_string(BUILD_ARCH_STR).c_str(), VER_STR_FILEVERSION);
+    sprintf_s(m_Mux.format.metadataStr, "NVEncC (%s) %s", tchar_to_string(BUILD_ARCH_STR).c_str(), VER_STR_FILEVERSION);
     av_dict_set(&m_Mux.format.pFormatCtx->metadata, "encoding_tool", m_Mux.format.metadataStr, 0); //mp4
     //encoderではなく、encoding_toolを使用する。mp4はcomment, titleなどは設定可能, mkvではencode_byも可能
 

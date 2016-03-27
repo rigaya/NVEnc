@@ -27,9 +27,9 @@
 
 #pragma once
 
-#define VER_FILEVERSION              0,2,1,0
-#define VER_STR_FILEVERSION          "2.01"
-#define VER_STR_FILEVERSION_TCHAR _T("2.01")
+#define VER_FILEVERSION              0,2,2,0
+#define VER_STR_FILEVERSION          "2.02"
+#define VER_STR_FILEVERSION_TCHAR _T("2.02")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
