@@ -1590,6 +1590,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    if (inputParam->nAVSyncMode && inputParam->nTrimCount > 0) {
+        PrintMes(NV_LOG_ERROR, _T("avsync forcecfr + trim is not supported.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
     //環境による制限
     auto error_resolution_over_limit = [&](const TCHAR *feature, uint32_t featureValue, NV_ENC_CAPS featureID) {
         const TCHAR *error_mes = FOR_AUO ? _T("解像度が上限を超えています。") : _T("Resolution is over limit.");
