@@ -2265,6 +2265,8 @@ NVENCSTATUS NVEncCore::Encode() {
                     break;
                 }
                 m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
+            } else {
+                m_cuvidDec->frameQueue()->waitForQueueUpdate();
             }
         }
         if (th_input.joinable()) {
