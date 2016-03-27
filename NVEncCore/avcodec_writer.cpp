@@ -1371,6 +1371,7 @@ int CAvcodecWriter::SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_ST
         if (0 != (sts = WriteFileHeader(nullptr))) {
             return sts;
         }
+        m_Mux.format.bFileHeaderWritten = true;
     }
 
     tstring mes = GetWriterMes();
