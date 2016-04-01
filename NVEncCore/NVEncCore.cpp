@@ -278,7 +278,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             inputParam->input.type = NV_ENC_INPUT_VPY_MT;
 #endif
 #if ENABLE_AVCUVID_READER
-        } else if (check_ext(inputParam->input.filename, { ".mp4", ".m4v", ".mkv", ".mov",
+        } else if (usingAVProtocols(tchar_to_string(inputParam->input.filename, CP_UTF8), 0)
+            || check_ext(inputParam->input.filename, { ".mp4", ".m4v", ".mkv", ".mov",
             ".mts", ".m2ts", ".ts", ".264", ".h264", ".x264", ".avc", ".avc1",
             ".265", ".h265", ".hevc",
             ".mpg", ".mpeg", "m2v", ".vob", ".vro", ".flv", ".ogm",
