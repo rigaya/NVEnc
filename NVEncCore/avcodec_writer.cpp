@@ -1579,11 +1579,27 @@ tstring CAvcodecWriter::GetWriterMes() {
             std::string audiostr = (i_stream) ? ", " : "";
             if (audioStream.pOutCodecEncodeCtx) {
                 //入力情報
-                audiostr += strsprintf("%s/%s",
+                audiostr += strsprintf("#%d:%s/%s",
+                    audioStream.nInTrackId,
                     audioStream.pOutCodecDecode->name,
                     getChannelLayoutChar(audioStream.pOutCodecDecodeCtx->channels, audioStream.pOutCodecDecodeCtx->channel_layout).c_str());
                 if (audioStream.pnStreamChannelSelect[audioStream.nInSubStream] != 0) {
                     audiostr += strsprintf(":%s", getChannelLayoutChar(av_get_channel_layout_nb_channels(audioStream.pnStreamChannelSelect[audioStream.nInSubStream]), audioStream.pnStreamChannelSelect[audioStream.nInSubStream]).c_str());
+                }
+                //フィルタ情報
+                if (audioStream.pFilter) {
+                    audiostr += ":";
+                    std::string filter_str;
+                    auto filters = split(tchar_to_string(audioStream.pFilter, CP_UTF8), ",");
+                    for (auto filter : filters) {
+                        size_t pos = 0;
+                        if ((pos = filter.find_first_of('=')) != std::string::npos) {
+                            filter = filter.substr(0, pos);
+                        }
+                        if (filter_str.length()) filter_str += "+";
+                        filter_str += filter;
+                    }
+                    audiostr += filter_str;
                 }
                 //エンコード情報
                 audiostr += strsprintf(" -> %s/%s/%dkbps",
@@ -1599,7 +1615,7 @@ tstring CAvcodecWriter::GetWriterMes() {
     }
     for (const auto& subtitleStream : m_Mux.sub) {
         if (subtitleStream.pStream) {
-            add_mes(std::string((i_stream) ? ", " : "") + strsprintf("sub#%d,", std::abs(subtitleStream.nInTrackId)));
+            add_mes(std::string((i_stream) ? ", " : "") + strsprintf("sub#%d", std::abs(subtitleStream.nInTrackId)));
             i_stream++;
         }
     }
