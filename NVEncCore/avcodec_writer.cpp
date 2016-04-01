@@ -115,6 +115,11 @@ void CAvcodecWriter::CloseAudio(AVMuxAudio *pMuxAudio) {
         AddMessage(NV_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
     }
 
+    //close filter
+    if (pMuxAudio->pFilterGraph) {
+        avfilter_graph_free(&pMuxAudio->pFilterGraph);
+    }
+
     //free packet
     if (pMuxAudio->OutPacket.data) {
         av_packet_unref(&pMuxAudio->OutPacket);
@@ -503,10 +508,112 @@ int CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     return 0;
 }
 
+//音声フィルタの初期化
+int CAvcodecWriter::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt) {
+    //必要ならfilterを初期化
+    if (pMuxAudio->pFilter
+        && (pMuxAudio->nFilterInChannels      != channels
+         || pMuxAudio->nFilterInChannelLayout != channel_layout
+         || pMuxAudio->nFilterInSampleRate    != sample_rate
+         || pMuxAudio->FilterInSampleFmt      != sample_fmt)) {
+        if (pMuxAudio->pFilterGraph) {
+            AVPktMuxData pktData = { 0 };
+            pktData.pMuxAudio = pMuxAudio;
+            pktData.type = MUX_DATA_TYPE_FRAME;
+            pktData.got_result = TRUE;
+            pktData.pFrame = nullptr;
+            //filterをflush
+            AudioFilterFrame(&pktData);
+
+            if (pktData.pFrame) {
+                //取得したフレームを書き出し
+                WriteNextPacketToAudioSubtracks(&pktData);
+            }
+
+            //filterをclose
+            avfilter_graph_free(&pMuxAudio->pFilterGraph);
+        }
+        pMuxAudio->nFilterInChannels      = channels;
+        pMuxAudio->nFilterInChannelLayout = channel_layout;
+        pMuxAudio->nFilterInSampleRate    = sample_rate;
+        pMuxAudio->FilterInSampleFmt      = sample_fmt;
+
+        int ret = 0;
+        pMuxAudio->pFilterGraph = avfilter_graph_alloc();
+        av_opt_set_int(pMuxAudio->pFilterGraph, "threads", 1, 0);
+
+        AVFilterInOut *inputs = nullptr;
+        AVFilterInOut *outputs = nullptr;
+        if (0 > (ret = avfilter_graph_parse2(pMuxAudio->pFilterGraph, tchar_to_string(pMuxAudio->pFilter).c_str(), &inputs, &outputs))) {
+            AddMessage(NV_LOG_ERROR, _T("Failed to parse filter description: %s: \"%s\"\n"), qsv_av_err2str(ret).c_str(), pMuxAudio->pFilter);
+            return 1;
+        }
+        AddMessage(NV_LOG_DEBUG, _T("Parsed filter: %s\n"), pMuxAudio->pFilter);
+
+        const int nOutputCount = !!outputs + (outputs && outputs->next);
+        const int nInputCount = !!inputs  + (inputs  && inputs->next);
+        if (nOutputCount != 1 || nInputCount != 1) {
+            const TCHAR *pFilterCountStr[] = { _T("0"), _T("1"), _T(">1") };
+            AddMessage(NV_LOG_ERROR, _T("filtergraph has %s input(s) and %s output(s).\n"), pFilterCountStr[nInputCount], pFilterCountStr[nOutputCount]);
+            AddMessage(NV_LOG_ERROR, _T("only 1 in -> 1 out filtering is supported.\n"));
+            avfilter_inout_free(&inputs);
+            avfilter_inout_free(&outputs);
+            return 1;
+        }
+
+        const auto args = strsprintf("time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%I64x",
+            pMuxAudio->pOutCodecDecodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecDecodeCtx->pkt_timebase.den,
+            sample_rate, av_get_sample_fmt_name(sample_fmt), channel_layout);
+        const AVFilter *abuffersrc  = avfilter_get_by_name("abuffer");
+        const auto inName = strsprintf("in_track_%d.%d", pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
+        if (0 > (ret = avfilter_graph_create_filter(&pMuxAudio->pFilterBufferSrcCtx, abuffersrc, inName.c_str(), args.c_str(), nullptr, pMuxAudio->pFilterGraph))) {
+            AddMessage(NV_LOG_ERROR, _T("failed to create abuffer: %s.\n"), qsv_av_err2str(ret).c_str());
+            avfilter_inout_free(&inputs);
+            avfilter_inout_free(&outputs);
+            return 1;
+        }
+        if (0 > (ret = avfilter_link(pMuxAudio->pFilterBufferSrcCtx, 0, inputs->filter_ctx, inputs->pad_idx))) {
+            AddMessage(NV_LOG_ERROR, _T("failed to link abuffer: %s.\n"), qsv_av_err2str(ret).c_str());
+            avfilter_inout_free(&inputs);
+            avfilter_inout_free(&outputs);
+            return 1;
+        }
+        avfilter_inout_free(&inputs);
+        AddMessage(NV_LOG_DEBUG, _T("filter linked with src buffer.\n"));
+
+        const AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
+        const auto outName = strsprintf("out_track_%d.%d", pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
+        if (0 > (ret = avfilter_graph_create_filter(&pMuxAudio->pFilterBufferSinkCtx, abuffersink, outName.c_str(), nullptr, nullptr, pMuxAudio->pFilterGraph))) {
+            AddMessage(NV_LOG_ERROR, _T("failed to create abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
+            avfilter_inout_free(&outputs);
+            return 1;
+        }
+        if (0 > (ret = av_opt_set_int(pMuxAudio->pFilterBufferSinkCtx, "all_channel_counts", 1, AV_OPT_SEARCH_CHILDREN))) {
+            AddMessage(NV_LOG_ERROR, _T("failed to set channel counts to abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
+            avfilter_inout_free(&outputs);
+            return 1;
+        }
+        if (0 > (ret = avfilter_link(outputs->filter_ctx, outputs->pad_idx, pMuxAudio->pFilterBufferSinkCtx, 0))) {
+            AddMessage(NV_LOG_ERROR, _T("failed to link abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
+            avfilter_inout_free(&outputs);
+            return 1;
+        }
+        AddMessage(NV_LOG_DEBUG, _T("filter linked with sink buffer.\n"));
+
+        avfilter_inout_free(&outputs);
+        if (0 > (ret = avfilter_graph_config(pMuxAudio->pFilterGraph, nullptr))) {
+            AddMessage(NV_LOG_ERROR, _T("failed to configure filter graph: %s.\n"), qsv_av_err2str(ret).c_str());
+            return 1;
+        }
+        AddMessage(NV_LOG_DEBUG, _T("filter config done, filter ready.\n"));
+    }
+    return 0;
+}
+
 int CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt) {
-    if (   pMuxAudio->nChannels      != channels
-        || pMuxAudio->nSampleRate    != sample_rate
-        || pMuxAudio->sampleFmt      != sample_fmt) {
+    if (   pMuxAudio->nResamplerInChannels      != channels
+        || pMuxAudio->nResamplerInSampleRate    != sample_rate
+        || pMuxAudio->ResamplerInSampleFmt      != sample_fmt) {
         if (pMuxAudio->pSwrContext != nullptr) {
             AVPktMuxData pktData = { 0 };
             pktData.pMuxAudio = pMuxAudio;
@@ -518,10 +625,10 @@ int CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint
             swr_free(&pMuxAudio->pSwrContext);
             AddMessage(NV_LOG_DEBUG, _T("Cleared resampler for track %d.%d\n"), pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
         }
-        pMuxAudio->nChannels      = channels;
-        pMuxAudio->nChannelLayout = channel_layout;
-        pMuxAudio->nSampleRate    = sample_rate;
-        pMuxAudio->sampleFmt      = sample_fmt;
+        pMuxAudio->nResamplerInChannels      = channels;
+        pMuxAudio->nResamplerInChannelLayout = channel_layout;
+        pMuxAudio->nResamplerInSampleRate    = sample_rate;
+        pMuxAudio->ResamplerInSampleFmt      = sample_fmt;
         pMuxAudio->pSwrContext = swr_alloc();
         av_opt_set_int       (pMuxAudio->pSwrContext, "in_channel_count",   channels,       0);
         av_opt_set_int       (pMuxAudio->pSwrContext, "in_channel_layout",  channel_layout, 0);
@@ -622,6 +729,7 @@ int CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAu
     pMuxAudio->nInSubStream = pInputAudio->src.nSubStreamId;
     pMuxAudio->nStreamIndexIn = pInputAudio->src.nIndex;
     pMuxAudio->nLastPtsIn = AV_NOPTS_VALUE;
+    pMuxAudio->pFilter = pInputAudio->pFilter;
     memcpy(pMuxAudio->pnStreamChannelSelect, pInputAudio->src.pnStreamChannelSelect, sizeof(pInputAudio->src.pnStreamChannelSelect));
     memcpy(pMuxAudio->pnStreamChannelOut,    pInputAudio->src.pnStreamChannelOut,    sizeof(pInputAudio->src.pnStreamChannelOut));
 
@@ -740,17 +848,38 @@ int CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAu
             AddMessage(NV_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
             return 1;
         }
-        pMuxAudio->nChannels      = pMuxAudio->pOutCodecEncodeCtx->channels;
-        pMuxAudio->nChannelLayout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
-        pMuxAudio->nSampleRate    = pMuxAudio->pOutCodecEncodeCtx->sample_rate;
-        pMuxAudio->sampleFmt      = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
+        pMuxAudio->nResamplerInChannels      = pMuxAudio->pOutCodecEncodeCtx->channels;
+        pMuxAudio->nResamplerInChannelLayout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
+        pMuxAudio->nResamplerInSampleRate    = pMuxAudio->pOutCodecEncodeCtx->sample_rate;
+        pMuxAudio->ResamplerInSampleFmt      = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
+        //Resamplerに入力される音声のフォーマット
+        auto nResamplerInChannels      = pMuxAudio->pOutCodecDecodeCtx->channels;
+        auto nResamplerInChannelLayout = pMuxAudio->pOutCodecDecodeCtx->channel_layout;
+        auto nResamplerInSampleRate    = pMuxAudio->pOutCodecDecodeCtx->sample_rate;
+        auto ResamplerInSampleFmt      = pMuxAudio->pOutCodecDecodeCtx->sample_fmt;
+        if (pMuxAudio->pFilter) {
+            //フィルタの作成は親ストリームのみ
+            if (pMuxAudio->nInSubStream == 0) {
+                auto sts = InitAudioFilter(pMuxAudio,
+                    pMuxAudio->pOutCodecDecodeCtx->channels,
+                    pMuxAudio->pOutCodecDecodeCtx->channel_layout,
+                    pMuxAudio->pOutCodecDecodeCtx->sample_rate,
+                    pMuxAudio->pOutCodecDecodeCtx->sample_fmt);
+                if (sts != 0) return sts;
+            }
+            //フィルターがあれば、resamplerへの入力は変わるかもしれない
+            nResamplerInChannels      = pMuxAudio->pFilterBufferSinkCtx->inputs[0]->channels;
+            nResamplerInChannelLayout = pMuxAudio->pFilterBufferSinkCtx->inputs[0]->channel_layout;
+            nResamplerInSampleRate    = pMuxAudio->pFilterBufferSinkCtx->inputs[0]->sample_rate;
+            ResamplerInSampleFmt      = (AVSampleFormat)pMuxAudio->pFilterBufferSinkCtx->inputs[0]->format;
+        }
         if ((!codecIDIsPCM(codecId) //PCM系のコーデックに出力するなら、sample_fmtのresampleは不要
-            && pMuxAudio->pOutCodecEncodeCtx->sample_fmt  != pMuxAudio->pOutCodecDecodeCtx->sample_fmt)
-            || pMuxAudio->pOutCodecEncodeCtx->sample_rate != pMuxAudio->pOutCodecDecodeCtx->sample_rate
-            || pMuxAudio->pOutCodecEncodeCtx->channels    != pMuxAudio->pOutCodecDecodeCtx->channels
+            && pMuxAudio->pOutCodecEncodeCtx->sample_fmt  != ResamplerInSampleFmt)
+            || pMuxAudio->pOutCodecEncodeCtx->sample_rate != nResamplerInSampleRate
+            || pMuxAudio->pOutCodecEncodeCtx->channels    != nResamplerInChannels
             || bSplitChannelsEnabled(pMuxAudio->pnStreamChannelSelect)
             || bSplitChannelsEnabled(pMuxAudio->pnStreamChannelOut)) {
-            auto sts = InitAudioResampler(pMuxAudio,pMuxAudio->pOutCodecDecodeCtx->channels, pMuxAudio->pOutCodecDecodeCtx->channel_layout, pMuxAudio->pOutCodecDecodeCtx->sample_rate, pMuxAudio->pOutCodecDecodeCtx->sample_fmt);
+            auto sts = InitAudioResampler(pMuxAudio, nResamplerInChannels, nResamplerInChannelLayout, nResamplerInSampleRate, ResamplerInSampleFmt);
             if (sts != 0) return sts;
         }
     } else if (pMuxAudio->pCodecCtxIn->codec_id == AV_CODEC_ID_AAC && pMuxAudio->pCodecCtxIn->extradata == NULL && m_Mux.video.pStream) {
@@ -1007,6 +1136,12 @@ int CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_pt
     avformatNetworkInit();
     av_log_set_level((m_pPrintMes->getLogLevel() == NV_LOG_DEBUG) ?  AV_LOG_DEBUG : NV_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
+    for (const auto& stream : prm->inputStreamList) {
+        if (stream.pFilter) {
+            avfilter_register_all();
+            break;
+        }
+    }
 
     if (prm->pOutputFormat != nullptr) {
         AddMessage(NV_LOG_DEBUG, _T("output format specified: %s\n"), prm->pOutputFormat);
@@ -1120,8 +1255,13 @@ int CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_pt
                 if (prm->inputStreamList[iStream].src.nSubStreamId > 0) {
                     auto pAudioMuxStream = getAudioStreamData(prm->inputStreamList[iStream].src.nTrackId, 0);
                     if (pAudioMuxStream) {
+                        //デコード情報をコピー
                         m_Mux.audio[iAudioIdx].pOutCodecDecode    = pAudioMuxStream->pOutCodecDecode;
                         m_Mux.audio[iAudioIdx].pOutCodecDecodeCtx = pAudioMuxStream->pOutCodecDecodeCtx;
+                        //フィルタ情報をコピー
+                        m_Mux.audio[iAudioIdx].pFilter              = pAudioMuxStream->pFilter;
+                        m_Mux.audio[iAudioIdx].pFilterBufferSrcCtx  = pAudioMuxStream->pFilterBufferSrcCtx;
+                        m_Mux.audio[iAudioIdx].pFilterBufferSinkCtx = pAudioMuxStream->pFilterBufferSinkCtx;
                     } else {
                         AddMessage(NV_LOG_ERROR, _T("Substream #%d found for track %d, but root stream not found.\n"),
                             prm->inputStreamList[iStream].src.nSubStreamId, prm->inputStreamList[iStream].src.nTrackId);
@@ -1131,6 +1271,13 @@ int CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_pt
                 int sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->nAudioIgnoreDecodeError);
                 if (sts != 0) {
                     return sts;
+                }
+                if (prm->inputStreamList[iStream].src.nSubStreamId > 0) {
+                    //フィルタはデコード結果によって更新されるかもしれない
+                    //そのため、初期化以外ではサブストリームは親ストリームの情報を参照してはならない
+                    m_Mux.audio[iAudioIdx].pFilter = nullptr;
+                    m_Mux.audio[iAudioIdx].pFilterBufferSrcCtx = nullptr;
+                    m_Mux.audio[iAudioIdx].pFilterBufferSinkCtx = nullptr;
                 }
                 AddMessage(NV_LOG_DEBUG, _T("Initialized audio output - #%d: track %d, substream %d.\n"),
                     iAudioIdx, prm->inputStreamList[iStream].src.nTrackId, prm->inputStreamList[iStream].src.nSubStreamId);
@@ -1738,8 +1885,10 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
         pktIn = &pMuxAudio->OutPacket;
         av_packet_copy_props(&pMuxAudio->OutPacket, pkt);
     }
+    //最終的な出力フレーム
     AVFrame *decodedFrame = av_frame_alloc();
     while (!(*got_result) || pktIn->size > 0) {
+        //ひとつのパケットをデコード
         AVFrame *decodedData = av_frame_alloc();
         int len = avcodec_decode_audio4(pMuxAudio->pOutCodecDecodeCtx, decodedData, got_result, pktIn);
         if (len < 0) {
@@ -1751,13 +1900,13 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
             decodedData = nullptr;
             if (pMuxAudio->nDecodeError <= pMuxAudio->nIgnoreDecodeError) {
                 //デコードエラーを無視する場合、入力パケットのサイズ分、無音を挿入する
-                AVRational samplerate = { 1, pMuxAudio->nSampleRate };
+                AVRational samplerate = { 1, pMuxAudio->nResamplerInSampleRate };
                 decodedData                 = av_frame_alloc();
                 decodedData->nb_samples     = (int)av_rescale_q(pktIn->duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
-                decodedData->channels       = pMuxAudio->nChannels;
-                decodedData->channel_layout = pMuxAudio->nChannelLayout;
-                decodedData->sample_rate    = pMuxAudio->nSampleRate;
-                decodedData->format         = pMuxAudio->sampleFmt;
+                decodedData->channels       = pMuxAudio->nResamplerInChannels;
+                decodedData->channel_layout = pMuxAudio->nResamplerInChannelLayout;
+                decodedData->sample_rate    = pMuxAudio->nResamplerInSampleRate;
+                decodedData->format         = pMuxAudio->ResamplerInSampleFmt;
                 av_frame_get_buffer(decodedData, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
                 av_samples_set_silence((uint8_t **)decodedData->data, 0, decodedData->nb_samples, decodedData->channels, (AVSampleFormat)decodedData->format);
 
@@ -1774,6 +1923,7 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
         } else {
             pMuxAudio->nDecodeError = 0;
         }
+        //decodedFrameにすでにデータがあれば、decodedDataのデータを連結する
         if (decodedFrame->nb_samples && decodedData->nb_samples) {
             AVFrame *decodedFrameNew        = av_frame_alloc();
             decodedFrameNew->nb_samples     = decodedFrame->nb_samples + decodedData->nb_samples;
@@ -1814,10 +1964,71 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
     return decodedFrame;
 }
 
+//音声をフィルタ
+int CAvcodecWriter::AudioFilterFrame(AVPktMuxData *pktData) {
+    const bool bFlush = pktData->pFrame == nullptr;
+    AVMuxAudio *pMuxAudio = pktData->pMuxAudio;
+    if (pktData->pMuxAudio->pFilterGraph == nullptr) {
+        return 0;
+    }
+    if (pktData->pFrame != nullptr) {
+        //音声入力フォーマットに変更がないか確認し、もしあればresamplerを再初期化する
+        auto sts = InitAudioFilter(pMuxAudio, pktData->pFrame->channels, pktData->pFrame->channel_layout, pktData->pFrame->sample_rate, (AVSampleFormat)pktData->pFrame->format);
+        if (sts != 0) {
+            m_Mux.format.bStreamError = true;
+            return 1;
+        }
+    }
+    //フィルターチェーンにフレームを追加
+    if (av_buffersrc_add_frame_flags(pMuxAudio->pFilterBufferSrcCtx, pktData->pFrame, AV_BUFFERSRC_FLAG_PUSH) < 0) {
+        AddMessage(NV_LOG_ERROR, _T("failed to feed the audio filtergraph\n"));
+        m_Mux.format.bStreamError = true;
+        av_frame_unref(pktData->pFrame);
+        return 1;
+    }
+    pktData->pFrame = nullptr;
+    const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecDecodeCtx->sample_fmt)
+        * (av_sample_fmt_is_planar(pMuxAudio->pOutCodecDecodeCtx->sample_fmt) ? 1 : pMuxAudio->pOutCodecDecodeCtx->channels);
+    const int channel_loop_count = av_sample_fmt_is_planar(pMuxAudio->pOutCodecDecodeCtx->sample_fmt) ? pMuxAudio->pOutCodecDecodeCtx->channels : 1;
+    for (;;) {
+        AVFrame *pFilteredFrame = av_frame_alloc();
+        int ret = av_buffersink_get_frame_flags(pMuxAudio->pFilterBufferSinkCtx, pFilteredFrame, AV_BUFFERSINK_FLAG_NO_REQUEST );
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        }
+        if (ret < 0) {
+            m_Mux.format.bStreamError = true;
+            av_frame_unref(pFilteredFrame);
+            return 1;
+        }
+        //それまでにたまっているキャッシュがあれば、それを結合する
+        if (pktData->pFrame) {
+            //pktData->pFrameとpFilteredFrameを結合
+            AVFrame *pCombinedFrame = av_frame_alloc();
+            pCombinedFrame->format = pMuxAudio->pOutCodecDecodeCtx->sample_fmt;
+            pCombinedFrame->channel_layout = pMuxAudio->pOutCodecDecodeCtx->channel_layout;
+            pCombinedFrame->nb_samples = pFilteredFrame->nb_samples + pktData->pFrame->nb_samples;
+            av_frame_get_buffer(pCombinedFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+            for (int i = 0; i < channel_loop_count; i++) {
+                uint32_t cachedBytes = pktData->pFrame->nb_samples * bytes_per_sample;
+                memcpy(pCombinedFrame->data[i], pktData->pFrame->data[i], cachedBytes);
+                memcpy(pCombinedFrame->data[i] + cachedBytes, pFilteredFrame->data[i], pFilteredFrame->nb_samples * bytes_per_sample);
+            }
+            //結合し終わっていらないものは破棄
+            av_frame_free(&pktData->pFrame);
+            av_frame_free(&pFilteredFrame);
+            pktData->pFrame = pCombinedFrame;
+        } else {
+            pktData->pFrame = pFilteredFrame;
+        }
+    }
+    return 0;
+}
+
 //音声をresample
 int CAvcodecWriter::AudioResampleFrame(AVMuxAudio *pMuxAudio, AVFrame **frame) {
     if (*frame != nullptr) {
-        //音声入力フィーマットに変更がないか確認し、もしあればresamplerを再初期化する
+        //音声入力フォーマットに変更がないか確認し、もしあればresamplerを再初期化する
         auto sts = InitAudioResampler(pMuxAudio, (*frame)->channels, (*frame)->channel_layout, (*frame)->sample_rate, (AVSampleFormat)((*frame)->format));
         if (sts != 0) {
             m_Mux.format.bStreamError = true;
@@ -1885,7 +2096,6 @@ int CAvcodecWriter::AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVPacket *pEncPkt, c
 
 void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDts) {
     while (pMuxAudio->pOutCodecDecodeCtx && !pMuxAudio->bEncodeError) {
-        int samples = 0;
         int got_result = 0;
         AVPacket pkt = { 0 };
         AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pkt, &got_result);
@@ -1895,13 +2105,30 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDt
             }
             break;
         }
-        if (0 == AudioResampleFrame(pMuxAudio, &decodedFrame)) {
-            samples = AudioEncodeFrame(pMuxAudio, &pkt, decodedFrame, &got_result);
+
+        AVPktMuxData pktData = { 0 };
+        pktData.type = MUX_DATA_TYPE_FRAME;
+        pktData.pFrame = decodedFrame;
+        pktData.pMuxAudio = pMuxAudio;
+
+        //フィルタリングを行う
+        auto sts = AudioFilterFrame(&pktData);
+        if (sts != 0) break;
+
+        if (pktData.pFrame) {
+            WriteNextPacketToAudioSubtracks(&pktData);
         }
-        if (decodedFrame != nullptr) {
-            av_frame_free(&decodedFrame);
+    }
+    if (pMuxAudio->pFilterGraph) {
+        AVPktMuxData pktData = { 0 };
+        pktData.type = MUX_DATA_TYPE_FRAME;
+        pktData.pMuxAudio = pMuxAudio;
+
+        //フィルタリングを行う
+        auto sts = AudioFilterFrame(&pktData);
+        if (sts == 0 && pktData.pFrame) {
+            WriteNextPacketToAudioSubtracks(&pktData);
         }
-        WriteNextPacketProcessed(pMuxAudio, &pkt, samples, pWrittenDts);
     }
     while (pMuxAudio->pSwrContext && !pMuxAudio->bEncodeError) {
         int samples = 0;
@@ -2172,21 +2399,32 @@ int CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
         pktData->type = MUX_DATA_TYPE_FRAME;
         pktData->pFrame = decodedFrame;
 
-        //サブストリームが存在すれば、frameをコピーしてそれぞれに渡す
-        AVMuxAudio *pMuxAudioSubStream = nullptr;
-        for (int iSubStream = 1; nullptr != (pMuxAudioSubStream = getAudioStreamData(pktData->pMuxAudio->nInTrackId, iSubStream)); iSubStream++) {
-            auto pktDataCopy = *pktData;
-            pktDataCopy.pMuxAudio = pMuxAudioSubStream;
-            pktDataCopy.pFrame = (decodedFrame) ? av_frame_clone(decodedFrame) : nullptr;
-            WriteNextPacketAudioFrame(&pktDataCopy);
+        //フィルタリングを行う
+        if (pktData->got_result) {
+            auto sts = AudioFilterFrame(pktData);
+            if (sts != 0) return sts;
         }
-        //親ストリームはここで処理
-        WriteNextPacketAudioFrame(pktData);
+        WriteNextPacketToAudioSubtracks(pktData);
     }
 
     return (m_Mux.format.bStreamError) ? 1 : 0;
 }
 
+//フィルタリング後のパケットをサブトラックに分配する
+int CAvcodecWriter::WriteNextPacketToAudioSubtracks(AVPktMuxData *pktData) {
+    //サブストリームが存在すれば、frameをコピーしてそれぞれに渡す
+    AVMuxAudio *pMuxAudioSubStream = nullptr;
+    for (int iSubStream = 1; nullptr != (pMuxAudioSubStream = getAudioStreamData(pktData->pMuxAudio->nInTrackId, iSubStream)); iSubStream++) {
+        auto pktDataCopy = *pktData;
+        pktDataCopy.pMuxAudio = pMuxAudioSubStream;
+        pktDataCopy.pFrame = (pktData->pFrame) ? av_frame_clone(pktData->pFrame) : nullptr;
+        WriteNextPacketAudioFrame(&pktDataCopy);
+    }
+    //親ストリームはここで処理
+    return WriteNextPacketAudioFrame(pktData);
+}
+
+//フレームをresampleして後段に渡す
 int CAvcodecWriter::WriteNextPacketAudioFrame(AVPktMuxData *pktData) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     const bool bAudEncThread = m_Mux.thread.thAudEncode.joinable();
