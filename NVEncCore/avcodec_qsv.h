@@ -42,11 +42,15 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
 }
 #pragma comment (lib, "avcodec.lib")
 #pragma comment (lib, "avformat.lib")
 #pragma comment (lib, "avutil.lib")
 #pragma comment (lib, "swresample.lib")
+#pragma comment (lib, "avfilter.lib")
 #pragma warning (pop)
 
 #include "nvcuvid.h"
@@ -157,6 +161,9 @@ tstring getAVCodecs(AVQSVCodecType flag);
 
 //利用可能なフォーマットを表示
 tstring getAVFormats(AVQSVFormatType flag);
+
+//利用可能なフィルターを表示
+tstring getAVFilters();
 
 //チャンネルレイアウトを表示
 std::string getChannelLayoutChar(int channels, uint64_t channel_layout);

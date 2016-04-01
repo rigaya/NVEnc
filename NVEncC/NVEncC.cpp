@@ -151,6 +151,7 @@ static void show_help() {
         _T("   --check-decoders             show audio decoders available\n")
         _T("   --check-formats              show in/out formats available\n")
         _T("   --check-protocols            show in/out protocols available\n")
+        _T("   --check-filters              show filters available\n")
 #endif
         _T("\n"));
     _ftprintf(stdout, _T("\n")
@@ -1829,6 +1830,10 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
         }
         if (0 == _tcscmp(option_name, _T("check-formats"))) {
             _ftprintf(stdout, _T("%s\n"), getAVFormats((AVQSVFormatType)(AVQSV_FORMAT_DEMUX | AVQSV_FORMAT_MUX)).c_str());
+            return 1;
+        }
+        if (0 == _tcscmp(option_name, _T("check-filters"))) {
+            _ftprintf(stdout, _T("%s\n"), getAVFilters().c_str());
             return 1;
         }
 #endif //#if ENABLE_AVCUVID_READER

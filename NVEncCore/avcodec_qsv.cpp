@@ -266,6 +266,56 @@ tstring getAVFormats(AVQSVFormatType flag) {
     return char_to_tstring(formatstr);
 }
 
+//利用可能なフィルターを表示
+tstring getAVFilters() {
+    if (!check_avcodec_dll()) {
+        return error_mes_avcodec_dll_not_found();
+    }
+    av_register_all();
+    avfilter_register_all();
+
+    struct avfilterName {
+        int type;
+        const char *name;
+        const char *long_name;
+    };
+
+    vector<avfilterName> list;
+    {
+        const AVFilter *filter = nullptr;
+        while (nullptr != (filter = avfilter_next(filter))) {
+            list.push_back({ filter->flags, filter->name, filter->description });
+        }
+    }
+
+    std::sort(list.begin(), list.end(), [](const avfilterName& x, const avfilterName& y) {
+        int i = 0;
+        for (; x.name[i] && y.name[i]; i++) {
+            if (x.name[i] != y.name[i]) {
+                return x.name[i] < y.name[i];
+            }
+        }
+        return x.name[i] < y.name[i];
+    });
+
+    const auto max_len = std::accumulate(list.begin(),  list.end(), (size_t)0, [](const size_t max_len, const avfilterName& filter) { return (std::max)(max_len, strlen(filter.name)); }) + 1;
+
+    std::string mes = "all filters:\n";
+    size_t len = 0;
+    for (const auto& filter : list) {
+        mes += filter.name;
+        for (auto i = strlen(filter.name); i < max_len; i++) {
+            mes += " ";
+        }
+        len += max_len;
+        if (len >= 79 - max_len) {
+            mes += "\n";
+            len = 0;
+        }
+    }
+    return char_to_tstring(mes);
+}
+
 std::string getChannelLayoutChar(int channels, uint64_t channel_layout) {
     char string[1024] = { 0 };
     av_get_channel_layout_string(string, _countof(string), channels, channel_layout);
