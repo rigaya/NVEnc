@@ -2316,6 +2316,15 @@ NVENCSTATUS NVEncCore::Encode() {
             nvStatus = EncodeFrame(iFrame);
         }
     }
+#if ENABLE_AVCUVID_READER
+    for (const auto& writer : m_pFileWriterListAudio) {
+        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(writer);
+        if (pAVCodecWriter != nullptr) {
+            //エンコーダなどにキャッシュされたパケットを書き出す
+            pAVCodecWriter->WriteNextPacket(nullptr);
+        }
+    }
+#endif //#if ENABLE_AVCUVID_READER
     PrintMes(NV_LOG_INFO, _T("                                                                         \n"));
     //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
     auto encstatus = FlushEncoder();
