@@ -1349,17 +1349,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (IS_OPTION("qp-init")) {
             pParams->encConfig.rcParams.enableInitialRCQP = 1;
             ptrQP = &pParams->encConfig.rcParams.initialRCQP;
-            return 0;
         }
         if (IS_OPTION("qp-max")) {
             pParams->encConfig.rcParams.enableMaxQP = 1;
             ptrQP = &pParams->encConfig.rcParams.maxQP;
-            return 0;
         }
         if (IS_OPTION("qp-min")) {
             pParams->encConfig.rcParams.enableMinQP = 1;
             ptrQP = &pParams->encConfig.rcParams.minQP;
-        } else {
+        }
+        if (ptrQP == nullptr) {
             return -1;
         }
         i++;
@@ -1371,6 +1370,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             ptrQP->qpIntra  = a[0];
             ptrQP->qpInterP = a[1];
             ptrQP->qpInterB = a[2];
+            return 0;
+        }
+        if (   2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d.%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            ptrQP->qpIntra  = a[0];
+            ptrQP->qpInterP = a[1];
+            ptrQP->qpInterB = a[1];
             return 0;
         }
         if (1 == _stscanf_s(strInput[i], _T("%d"), &a[0])) {
