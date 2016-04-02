@@ -1296,6 +1296,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.constQP.qpInterB = a[2];
             return 0;
         }
+        if (   2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d.%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
+            pParams->encConfig.rcParams.constQP.qpIntra  = a[0];
+            pParams->encConfig.rcParams.constQP.qpInterP = a[1];
+            pParams->encConfig.rcParams.constQP.qpInterB = a[1];
+            return 0;
+        }
         if (1 == _stscanf_s(strInput[i], _T("%d"), &a[0])) {
             pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
             pParams->encConfig.rcParams.constQP.qpIntra  = a[0];
