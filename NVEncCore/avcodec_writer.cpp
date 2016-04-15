@@ -1824,12 +1824,17 @@ void CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudi
     //動画とmuxする際に必須
     av_bitstream_filter_close(pMuxAudio->pAACBsfc);
     pMuxAudio->pAACBsfc = av_bitstream_filter_init("aac_adtstoasc");
-    if (0 > av_bitstream_filter_filter(pMuxAudio->pAACBsfc, pMuxAudio->pCodecCtxIn,
-        nullptr, &data, &dataSize, pkt->data, pkt->size, 0)) {
+    auto ret = av_bitstream_filter_filter(pMuxAudio->pAACBsfc, pMuxAudio->pCodecCtxIn,
+        nullptr, &data, &dataSize, pkt->data, pkt->size, 0);
+    //ret >= 0でも、dataSizeが負となる場合がることに注意。
+    if (0 > ret || dataSize < 0) {
         //最初のフレームとかでなければ、エラーを許容し、単に処理しないようにする
         //多くの場合、ここでのエラーはtsなどの最終音声フレームが不完全なことで発生する
         m_Mux.format.bStreamError = (pMuxAudio->nPacketWritten < 1);
         pkt->duration = 0; //書き込み処理が行われないように
+    } else if (ret == 0 && data == nullptr) {
+        pkt->size = 0;
+        pkt->duration = 0;
     } else {
         if (pkt->buf->size < dataSize) {
             av_grow_packet(pkt, dataSize);
