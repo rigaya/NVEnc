@@ -67,11 +67,12 @@ typedef struct InputVideoInfo {
     sInputCrop crop;      //入力時切り落とし
     int sar[2];           //par
     NV_ENC_CSP csp;       //入力色空間 (NV_ENC_CSP_xxx)
-    TCHAR *filename;      //入力ファイル名
-    cudaVideoCodec codec; //入力コーデック (デコード時使用)
-    void *codecExtra;
-    uint32_t codecExtraSize;
-    void *otherPrm; //その他入力情報
+    TCHAR *filename;         //入力ファイル名
+    cudaVideoCodec codec;    //入力コーデック (デコード時使用)
+    void *codecExtra;        //入力コーデックのヘッダー
+    uint32_t codecExtraSize; //入力コーデックのヘッダーの大きさ
+    int cuvidType;           //avcuvidリーダーを使用する際のモード (NV_ENC_AVCUVID_xxx)
+    void *otherPrm;          //その他入力情報
 } InputVideoInfo;
 
 class NVEncBasicInput {

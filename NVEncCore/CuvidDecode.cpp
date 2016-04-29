@@ -249,7 +249,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
     m_videoDecodeCreateInfo.display_area.bottom = (short)(input->crop.e.bottom + input->codedHeight - input->height);
 
     m_videoDecodeCreateInfo.ulNumOutputSurfaces = 1;
-    m_videoDecodeCreateInfo.ulCreationFlags = cudaVideoCreate_PreferCUVID;
+    m_videoDecodeCreateInfo.ulCreationFlags = (input->cuvidType == NV_ENC_AVCUVID_CUDA) ? cudaVideoCreate_PreferCUDA : cudaVideoCreate_PreferCUVID;
     m_videoDecodeCreateInfo.vidLock = m_ctxLock;
     curesult = CreateDecoder();
     cuvidCtxUnlock(m_ctxLock, 0);
@@ -257,7 +257,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
         AddMessage(NV_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
         return curesult;
     }
-    AddMessage(NV_LOG_DEBUG, _T("created decoder\n"));
+    AddMessage(NV_LOG_DEBUG, _T("created decoder (mode: %s)\n"), get_chr_from_value(list_cuvid_mode, input->cuvidType));
 
     if (m_videoFormatEx.raw_seqhdr_data && m_videoFormatEx.format.seqhdr_data_length) {
         if (CUDA_SUCCESS != (curesult = DecodePacket(m_videoFormatEx.raw_seqhdr_data, m_videoFormatEx.format.seqhdr_data_length, AV_NOPTS_VALUE, CUVID_NATIVE_TIMEBASE))) {

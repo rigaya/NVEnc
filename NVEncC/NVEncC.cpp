@@ -175,7 +175,11 @@ static void show_help() {
         _T("   --vpy-mt                     set input as vpy(mt) format\n")
 #endif
 #if ENABLE_AVCUVID_READER
-        _T("   --avcuvid                    use libavformat + cuvid\n")
+        _T("   --avcuvid [<string>]         use libavformat + cuvid for input\n")
+        _T("                                 this enables full hw transcode and resize.\n")
+        _T("                                 avcuvid mode could be set as a  option\n")
+        _T("                                  - native (default)\n")
+        _T("                                  - cuda\n")
         _T("   --avcuvid-analyze <int>      set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avqsv reader.\n")
@@ -697,6 +701,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("avcuvid")) {
         pParams->input.type = NV_ENC_INPUT_AVCUVID;
+        if (strInput[i+1][0] != _T('-')) {
+            i++;
+            int value = 0;
+            if (get_list_value(list_cuvid_mode, strInput[i], &value)) {
+                pParams->input.cuvidType = value;
+            } else {
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
 #endif
         return 0;
     }

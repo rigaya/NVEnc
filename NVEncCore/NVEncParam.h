@@ -107,6 +107,11 @@ enum {
     NVENC_MUX_SUBTITLE = 0x04,
 };
 
+enum {
+    NV_ENC_AVCUVID_NATIVE = 0,
+    NV_ENC_AVCUVID_CUDA,
+};
+
 static const uint32_t MAX_SPLIT_CHANNELS = 32;
 static const uint64_t QSV_CHANNEL_AUTO = UINT64_MAX;
 
@@ -429,6 +434,11 @@ const CX_DESC list_resampler[] = {
     { _T("swr"),  NV_RESAMPLER_SWR  },
     { _T("soxr"), NV_RESAMPLER_SOXR },
     { NULL, 0 }
+};
+
+const CX_DESC list_cuvid_mode[] = {
+    { _T("native"), NV_ENC_AVCUVID_NATIVE },
+    { _T("cuda"),   NV_ENC_AVCUVID_CUDA   },
 };
 
 template<size_t count>
