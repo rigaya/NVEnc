@@ -27,9 +27,9 @@
 
 #pragma once
 
-#define VER_FILEVERSION              0,2,6,0
-#define VER_STR_FILEVERSION          "2.06"
-#define VER_STR_FILEVERSION_TCHAR _T("2.06")
+#define VER_FILEVERSION              0,2,7,0
+#define VER_STR_FILEVERSION          "2.07"
+#define VER_STR_FILEVERSION_TCHAR _T("2.07")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -39,6 +39,8 @@
 
 #define ENABLE_AVCODEC_OUT_THREAD 1
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
+#define ENABLE_CPP_REGEX 1
+#define ENABLE_DTL 1
 
 #ifdef NVENC_AUO
 #define FOR_AUO    1

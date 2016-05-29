@@ -44,41 +44,84 @@
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
 
+#if ENABLE_CPP_REGEX
+#include <regex>
+#endif //#if ENABLE_CPP_REGEX
+#if ENABLE_DTL
+#include <dtl/dtl.hpp>
+#endif //#if ENABLE_DTL
+
 bool check_locale_is_ja() {
     const WORD LangID_ja_JP = MAKELANGID(LANG_JAPANESE, SUBLANG_JAPANESE_JAPAN);
     return GetUserDefaultLangID() == LangID_ja_JP;
 }
 
-static void show_version() {
+static tstring GetNVEncVersion() {
     static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
-    _ftprintf(stdout, _T("NVEncC (%s) %s by rigaya [NVENC API v%d.%d], build %s %s\n"), BUILD_ARCH_STR, VER_STR_FILEVERSION_TCHAR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION, _T(__DATE__), _T(__TIME__));
-    _ftprintf(stdout, _T("  avi reader: %s\n"), ENABLED_INFO[!!AVI_READER]);
-    _ftprintf(stdout, _T("  avs reader: %s\n"), ENABLED_INFO[!!AVS_READER]);
-    _ftprintf(stdout, _T("  vpy reader: %s\n"), ENABLED_INFO[!!VPY_READER]);
-    _ftprintf(stdout, _T("  avcuvid reader: %s\n"), ENABLED_INFO[!!ENABLE_AVCUVID_READER]);
-    _ftprintf(stdout, _T("\n"));
+    tstring version = strsprintf(_T("NVEncC (%s) %s by rigaya [NVENC API v%d.%d], build %s %s\n"), BUILD_ARCH_STR, VER_STR_FILEVERSION_TCHAR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION, _T(__DATE__), _T(__TIME__));
+    version += _T(" reader: raw");
+    if (AVI_READER) version += _T(", avi");
+    if (AVS_READER) version += _T(", avs");
+    if (VPY_READER) version += _T(", vpy");
+    if (ENABLE_AVCUVID_READER) version += strsprintf(_T(", avcuvid [%s]"), getAVQSVSupportedCodecList().c_str());
+    version += _T("\n");
+    return version;
 }
 
+static void show_version() {
+    _ftprintf(stdout, _T("%s"), GetNVEncVersion().c_str());
+}
+
+class CombinationGenerator {
+public:
+    CombinationGenerator(int i) : m_nCombination(i) {
+
+    }
+    void create(vector<int> used) {
+        if ((int)used.size() == m_nCombination) {
+            m_nCombinationList.push_back(used);
+        }
+        for (int i = 0; i < m_nCombination; i++) {
+            if (std::find(used.begin(), used.end(), i) == used.end()) {
+                vector<int> u = used;
+                u.push_back(i);
+                create(u);
+            }
+        }
+    }
+    vector<vector<int>> generate() {
+        vector<int> used;
+        create(used);
+        return m_nCombinationList;
+    };
+    int m_nCombination;
+    vector<vector<int>> m_nCombinationList;
+};
 
 //適当に改行しながら表示する
-static void print_list_options(FILE *fp, TCHAR *option_name, const CX_DESC *list, int default_index) {
-    const TCHAR *indent_space = _T("                                  ");
+static tstring PrintListOptions(const TCHAR *option_name, const CX_DESC *list, int default_index) {
+    const TCHAR *indent_space = _T("                                ");
     const int indent_len = (int)_tcslen(indent_space);
     const int max_len = 77;
-    int print_len = _ftprintf(fp, _T("   %s "), option_name);
-    while (print_len < indent_len)
-         print_len += _ftprintf(stdout, _T(" "));
+    tstring str = strsprintf(_T("   %s "), option_name);
+    while ((int)str.length() < indent_len)
+        str += _T(" ");
+    int line_len = (int)str.length();
     for (int i = 0; list[i].desc; i++) {
-        if (print_len + _tcslen(list[i].desc) + _tcslen(_T(", ")) >= max_len) {
-            _ftprintf(fp, _T("\n%s"), indent_space);
-            print_len = indent_len;
+        if (line_len + _tcslen(list[i].desc) + _tcslen(_T(", ")) >= max_len) {
+            str += strsprintf(_T("\n%s"), indent_space);
+            line_len = indent_len;
         } else {
-            if (i)
-                print_len += _ftprintf(fp, _T(", "));
+            if (i) {
+                str += strsprintf(_T(", "));
+                line_len += 2;
+            }
         }
-        print_len += _ftprintf(fp, _T("%s"), list[i].desc);
+        str += strsprintf(_T("%s"), list[i].desc);
+        line_len += (int)_tcslen(list[i].desc);
     }
-    _ftprintf(fp, _T("\n%s default: %s\n"), indent_space, list[default_index].desc);
+    str += strsprintf(_T("\n%s default: %s\n"), indent_space, list[default_index].desc);
+    return str;
 }
 
 typedef struct ListData {
@@ -87,43 +130,48 @@ typedef struct ListData {
     int default_index;
 } ListData;
 
-static void PrintMultipleListOptions(FILE *fp, const TCHAR *option_name, const TCHAR *option_desc, const vector<ListData>& listDatas) {
-    const TCHAR *indent_space = _T("                                  ");
+static tstring PrintMultipleListOptions(const TCHAR *option_name, const TCHAR *option_desc, const vector<ListData>& listDatas) {
+    tstring str;
+    const TCHAR *indent_space = _T("                                ");
     const int indent_len = (int)_tcslen(indent_space);
     const int max_len = 79;
-    int print_len = _ftprintf(fp, _T("   %s "), option_name);
-    while (print_len < indent_len)
-        print_len += _ftprintf(fp, _T(" "));
-    _ftprintf(fp, _T("%s\n"), option_desc);
+    str += strsprintf(_T("   %s "), option_name);
+    while ((int)str.length() < indent_len) {
+        str += _T(" ");
+    }
+    str += strsprintf(_T("%s\n"), option_desc);
     const auto data_name_max_len = indent_len + 4 + std::accumulate(listDatas.begin(), listDatas.end(), 0,
         [](const int max_len, const ListData data) { return (std::max)(max_len, (int)_tcslen(data.name)); });
 
     for (const auto& data : listDatas) {
-        print_len = _ftprintf(fp, _T("%s- %s: "), indent_space, data.name);
-        while (print_len < data_name_max_len)
-            print_len += _ftprintf(fp, _T(" "));
+        tstring line = strsprintf(_T("%s- %s: "), indent_space, data.name);
+        while ((int)line.length() < data_name_max_len) {
+            line += strsprintf(_T(" "));
+        }
         for (int i = 0; data.list[i].desc; i++) {
             const int desc_len = (int)(_tcslen(data.list[i].desc) + _tcslen(_T(", ")) + ((i == data.default_index) ? _tcslen(_T("(default)")) : 0));
-            if (print_len + desc_len >= max_len) {
-                _ftprintf(fp, _T("\n%s"), indent_space);
-                print_len = indent_len;
-                while (print_len < data_name_max_len)
-                    print_len += _ftprintf(fp, _T(" "));
+            if (line.length() + desc_len >= max_len) {
+                str += line + _T("\n");
+                line = indent_space;
+                while ((int)line.length() < data_name_max_len) {
+                    line += strsprintf(_T(" "));
+                }
             } else {
-                if (i)
-                    print_len += _ftprintf(fp, _T(", "));
+                if (i) {
+                    line += strsprintf(_T(", "));
+                }
             }
-            print_len += _ftprintf(fp, _T("%s%s"), data.list[i].desc, (i == data.default_index) ? _T("(default)") : _T(""));
+            line += strsprintf(_T("%s%s"), data.list[i].desc, (i == data.default_index) ? _T("(default)") : _T(""));
         }
-        _ftprintf(fp, _T("\n"));
+        str += line + _T("\n");
     }
+    return str;
 }
 
-static void show_help() {
-    show_version();
-
-    _ftprintf(stdout, _T("Usage: NVEncC.exe [Options] -i <input file> -o <output file>\n"));
-    _ftprintf(stdout, _T("\n")
+static tstring help() {
+    tstring str;
+    str += strsprintf(_T("Usage: NVEncC.exe [Options] -i <input file> -o <output file>\n"));
+    str += strsprintf(_T("\n")
         _T("Input can be %s%sraw YUV, YUV4MPEG2(y4m).\n")
         _T("When Input is in raw format, fps, input-res is required.\n")
         _T("\n")
@@ -134,7 +182,7 @@ static void show_help() {
         _T("  avs2pipemod -y4mp \"<avsfile>\" | NVEncC --y4m -i - -o \"<outfilename>\"\n"),
         (AVI_READER) ? _T("avi, ") : _T(""),
         (AVS_READER) ? _T("avs, ") : _T(""));
-    _ftprintf(stdout, _T("\n")
+    str += strsprintf(_T("\n")
         _T("Information Options: \n")
         _T("-h,-? --help                    print help\n")
         _T("-v,--version                    print version info\n")
@@ -154,7 +202,7 @@ static void show_help() {
         _T("   --check-filters              show filters available\n")
 #endif
         _T("\n"));
-    _ftprintf(stdout, _T("\n")
+    str += strsprintf(_T("\n")
         _T("Basic Encoding Options: \n")
         _T("-d,--device <int>               set DeviceId used in NVEnc (default:0)\n")
         _T("\n")
@@ -276,7 +324,7 @@ static void show_help() {
         _T("                                 avqsv reader and avcodec muxer.\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
 #endif
-    _ftprintf(stdout, _T("")
+    str += strsprintf(_T("")
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
         _T("                                    left crop is unavailable with avcuivid reader\n")
@@ -289,11 +337,11 @@ static void show_help() {
         _T("                                  H.264: baseline, main, high(default)\n")
         _T("                                  HEVC : main\n"));
 
-    PrintMultipleListOptions(stdout, _T("--level <string>"), _T("set codec level"),
+    str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
         { { _T("H.264"), list_avc_level,   0 },
           { _T("HEVC"),  list_hevc_level,  0 }
     });
-    _ftprintf(stdout, _T("")
+    str += strsprintf(_T("")
         _T("   --sar <int>:<int>            set SAR ratio\n")
         _T("   --dar <int>:<int>            set DAR ratio\n")
         _T("\n")
@@ -328,20 +376,20 @@ static void show_help() {
         DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
         DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
-    print_list_options(stdout, _T("--videoformat <string>"), list_videoformat, 0);
-    print_list_options(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
-    print_list_options(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
-    print_list_options(stdout, _T("--transfer <string>"),    list_transfer,    0);
-    _ftprintf(stdout, _T("")
+    str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
+    str += PrintListOptions(_T("--colormatrix <string>"), list_colormatrix, 0);
+    str += PrintListOptions(_T("--colorprim <string>"),   list_colorprim,   0);
+    str += PrintListOptions(_T("--transfer <string>"),    list_transfer,    0);
+    str += strsprintf(_T("")
         _T("   --output-buf <int>           buffer size for output in MByte\n")
         _T("                                 default %d MB (0-%d)\n"),
         DEFAULT_OUTPUT_BUF, NV_OUTPUT_BUF_MB_MAX
         );
-    _ftprintf(stdout, _T("")
+    str += strsprintf(_T("")
         _T("   --max-procfps <int>         limit encoding performance to lower resource usage.\n")
         _T("                                 default:0 (no limit)\n"));
 #if ENABLE_AVCODEC_OUT_THREAD
-    _ftprintf(stdout, _T("")
+    str += strsprintf(_T("")
         _T("   --output-thread <int>        set output thread num\n")
         _T("                                 -1: auto (= default)\n")
         _T("                                  0: disable (slow, but less memory usage)\n")
@@ -355,12 +403,12 @@ static void show_help() {
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
         );
-    _ftprintf(stdout, _T("\n")
+    str += strsprintf(_T("\n")
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error\n")
         _T("   --log-framelist <string>     output frame info of avcuvid reader to path\n"));
-    _ftprintf(stdout, _T("\n")
+    str += strsprintf(_T("\n")
         _T("H.264/AVC\n")
         _T("   --tff                        same as --interlaced tff\n")
         _T("   --bff                        same as --interlaced bff\n")
@@ -372,11 +420,16 @@ static void show_help() {
         _T("   --lossless                   for lossless / Default: off\n")
         _T("   --(no-)deblock               enable(disable) deblock filter\n"));
 
-    _ftprintf(stdout, _T("\n")
+    str += strsprintf(_T("\n")
         _T("H.265/HEVC\n")
         _T("   --cu-max <int>               set max CU size\n")
         _T("   --cu-min  <int>              set min CU size\n")
         _T("                                  8, 16, 32 are avaliable"));
+    return str;
+}
+
+static void show_help() {
+    _ftprintf(stdout, _T("%s\n"), help().c_str());
 }
 
 static const TCHAR *short_opt_to_long(TCHAR short_opt) {
@@ -419,6 +472,27 @@ static const TCHAR *short_opt_to_long(TCHAR short_opt) {
     return option_name;
 }
 
+#if ENABLE_CPP_REGEX
+static vector<std::string> createOptionList() {
+    vector<std::string> optionList;
+    auto helpLines = split(tchar_to_string(help()), "\n");
+    std::regex re1(R"(^\s{2,6}--([A-Za-z0-9][A-Za-z0-9-_]+)\s+.*)");
+    std::regex re2(R"(^\s{0,3}-[A-Za-z0-9],--([A-Za-z0-9][A-Za-z0-9-_]+)\s+.*)");
+    std::regex re3(R"(^\s{0,3}--\(no-\)([A-Za-z0-9][A-Za-z0-9-_]+)\s+.*)");
+    for (const auto& line : helpLines) {
+        std::smatch match;
+        if (std::regex_match(line, match, re1) && match.size() == 2) {
+            optionList.push_back(match[1]);
+        } else if (std::regex_match(line, match, re2) && match.size() == 2) {
+            optionList.push_back(match[1]);
+        } else if (std::regex_match(line, match, re3) && match.size() == 2) {
+            optionList.push_back(match[1]);
+        }
+    }
+    return optionList;
+}
+#endif //#if ENABLE_CPP_REGEX
+
 static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName, const TCHAR *strErrorValue = nullptr) {
     if (strErrorMessage) {
         if (strOptionName) {
@@ -433,8 +507,49 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             }
         } else {
             _ftprintf(stderr, _T("Error: %s\n\n"), strErrorMessage);
+#if (ENABLE_CPP_REGEX && ENABLE_DTL)
+            if (strErrorValue) {
+                //どのオプション名に近いか検証する
+                auto optList = createOptionList();
+                const auto invalid_opt = tchar_to_string(strErrorValue);
+                //入力文字列を"-"で区切り、その組み合わせをすべて試す
+                const auto invalid_opt_words = split(invalid_opt, "-", true);
+                CombinationGenerator generator((int)invalid_opt_words.size());
+                const auto combinationList = generator.generate();
+                vector<std::pair<std::string, int>> editDistList;
+                for (const auto& opt : optList) {
+                    int nMinEditDist = INT_MAX;
+                    for (const auto& combination : combinationList) {
+                        std::string check_key;
+                        for (auto i : combination) {
+                            if (check_key.length() > 0) {
+                                check_key += "-";
+                            }
+                            check_key += invalid_opt_words[i];
+                        }
+                        dtl::Diff<char, std::string> diff(check_key, opt);
+                        diff.onOnlyEditDistance();
+                        diff.compose();
+                        nMinEditDist = (std::min)(nMinEditDist, (int)diff.getEditDistance());
+                    }
+                    editDistList.push_back(std::make_pair(opt, nMinEditDist));
+                }
+                std::sort(editDistList.begin(), editDistList.end(), [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) {
+                    return b.second > a.second;
+                });
+                const int nMinEditDist = editDistList[0].second;
+                _ftprintf(stderr, _T("Did you mean option(s) below?\n"));
+                for (const auto& editDist : editDistList) {
+                    if (editDist.second != nMinEditDist) {
+                        break;
+                    }
+                    _ftprintf(stderr, _T("  --%s\n"), char_to_tstring(editDist.first).c_str());
+                }
+            }
+#endif //#if ENABLE_DTL
         }
     } else {
+        show_version();
         show_help();
     }
 }
@@ -1820,13 +1935,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nProcSpeedLimit = (uint16_t)(std::min)(value, (int)UINT16_MAX);
         return 0;
     }
-    _ftprintf(stderr, _T("Invalid option: %s.\n"), option_name);
+    tstring mes = _T("Unknown option: --");
+    mes += option_name;
+    PrintHelp(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);
     return -1;
 }
 
 int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nArgNum, const TCHAR **strInput) {
 
     if (nArgNum == 1) {
+        show_version();
         show_help();
         return 1;
     }
@@ -1857,6 +1975,7 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
         }
 
         if (IS_OPTION("help")) {
+            show_version();
             show_help();
             return 1;
         }

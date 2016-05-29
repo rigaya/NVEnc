@@ -222,32 +222,55 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 #pragma warning (pop)
-
 #if defined(_WIN32) || defined(_WIN64)
-std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim) {
+std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim, bool bTrim) {
     std::vector<std::wstring> res;
     size_t current = 0, found, delimlen = delim.size();
     while (std::wstring::npos != (found = str.find(delim, current))) {
-        res.push_back(std::wstring(str, current, found - current));
+        auto segment = std::wstring(str, current, found - current);
+        if (bTrim) {
+            segment = trim(segment);
+        }
+        if (!bTrim || segment.length()) {
+            res.push_back(segment);
+        }
         current = found + delimlen;
     }
-    res.push_back(std::wstring(str, current, str.size() - current));
+    auto segment = std::wstring(str, current, str.size() - current);
+    if (bTrim) {
+        segment = trim(segment);
+    }
+    if (!bTrim || segment.length()) {
+        res.push_back(std::wstring(segment.c_str()));
+    }
     return res;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-std::vector<std::string> split(const std::string &str, const std::string &delim) {
+std::vector<std::string> split(const std::string &str, const std::string &delim, bool bTrim) {
     std::vector<std::string> res;
     size_t current = 0, found, delimlen = delim.size();
     while (std::string::npos != (found = str.find(delim, current))) {
-        res.push_back(std::string(str, current, found - current));
+        auto segment = std::string(str, current, found - current);
+        if (bTrim) {
+            segment = trim(segment);
+        }
+        if (!bTrim || segment.length()) {
+            res.push_back(segment);
+        }
         current = found + delimlen;
     }
-    res.push_back(std::string(str, current, str.size() - current));
+    auto segment = std::string(str, current, str.size() - current);
+    if (bTrim) {
+        segment = trim(segment);
+    }
+    if (!bTrim || segment.length()) {
+        res.push_back(std::string(segment.c_str()));
+    }
     return res;
 }
 
-tstring lstrip(const tstring& string, const TCHAR* trim) {
+std::string lstrip(const std::string& string, const char* trim) {
     auto result = string;
     auto left = string.find_first_not_of(trim);
     if (left != std::string::npos) {
@@ -256,7 +279,7 @@ tstring lstrip(const tstring& string, const TCHAR* trim) {
     return result;
 }
 
-tstring rstrip(const tstring& string, const TCHAR* trim) {
+std::string rstrip(const std::string& string, const char* trim) {
     auto result = string;
     auto right = string.find_last_not_of(trim);
     if (right != std::string::npos) {
@@ -265,7 +288,7 @@ tstring rstrip(const tstring& string, const TCHAR* trim) {
     return result;
 }
 
-tstring trim(const tstring& string, const TCHAR* trim) {
+std::string trim(const std::string& string, const char* trim) {
     auto result = string;
     auto left = string.find_first_not_of(trim);
     if (left != std::string::npos) {
@@ -274,6 +297,35 @@ tstring trim(const tstring& string, const TCHAR* trim) {
     }
     return result;
 }
+
+std::wstring lstrip(const std::wstring& string, const WCHAR* trim) {
+    auto result = string;
+    auto left = string.find_first_not_of(trim);
+    if (left != std::string::npos) {
+        result = string.substr(left, 0);
+    }
+    return result;
+}
+
+std::wstring rstrip(const std::wstring& string, const WCHAR* trim) {
+    auto result = string;
+    auto right = string.find_last_not_of(trim);
+    if (right != std::string::npos) {
+        result = string.substr(0, right);
+    }
+    return result;
+}
+
+std::wstring trim(const std::wstring& string, const WCHAR* trim) {
+    auto result = string;
+    auto left = string.find_first_not_of(trim);
+    if (left != std::string::npos) {
+        auto right = string.find_last_not_of(trim);
+        result = string.substr(left, right - left + 1);
+    }
+    return result;
+}
+
 
 std::string GetFullPath(const char *path) {
 #if defined(_WIN32) || defined(_WIN64)

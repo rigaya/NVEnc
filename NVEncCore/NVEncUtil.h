@@ -167,11 +167,14 @@ unsigned int wstring_to_tstring(const WCHAR *wstr, tstring& tstr, uint32_t codep
 tstring wstring_to_tstring(const WCHAR *wstr, uint32_t codepage = CP_THREAD_ACP);
 tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage = CP_THREAD_ACP);
 std::string strsprintf(const char* format, ...);
-std::vector<tstring> split(const tstring &str, const tstring &delim);
-std::vector<std::string> split(const std::string &str, const std::string &delim);
-tstring lstrip(const tstring& string, const TCHAR* trim = _T(" \t\v\r\n"));
-tstring rstrip(const tstring& string, const TCHAR* trim = _T(" \t\v\r\n"));
-tstring trim(const tstring& string, const TCHAR* trim = _T(" \t\v\r\n"));
+std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim, bool bTrim = false);
+std::vector<std::string> split(const std::string &str, const std::string &delim, bool bTrim = false);
+std::string lstrip(const std::string& string, const char* trim = " \t\v\r\n");
+std::string rstrip(const std::string& string, const char* trim = " \t\v\r\n");
+std::string trim(const std::string& string, const char* trim = " \t\v\r\n");
+std::wstring lstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
+std::wstring rstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
+std::wstring trim(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
 std::string GetFullPath(const char *path);
