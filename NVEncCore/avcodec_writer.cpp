@@ -1388,9 +1388,9 @@ int CAvcodecWriter::SetSPSPPSToExtraData(const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pS
             m_Mux.video.pCodecCtx->extradata_size = pSequenceParam->outSPSPPSPayloadSize[0];
             m_Mux.video.pCodecCtx->extradata = (uint8_t *)av_malloc(m_Mux.video.pCodecCtx->extradata_size);
             memcpy(m_Mux.video.pCodecCtx->extradata, pSequenceParam->spsppsBuffer, m_Mux.video.pCodecCtx->extradata_size);
-            AddMessage(NV_LOG_DEBUG, _T("copied video header from QSV encoder.\n"));
+            AddMessage(NV_LOG_DEBUG, _T("copied video header from NVENC encoder.\n"));
         } else {
-            AddMessage(NV_LOG_ERROR, _T("failed to get video header from QSV encoder.\n"));
+            AddMessage(NV_LOG_ERROR, _T("failed to get video header from NVENC encoder.\n"));
             return 1;
         }
     }
