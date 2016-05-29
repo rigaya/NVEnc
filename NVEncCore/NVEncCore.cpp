@@ -30,6 +30,7 @@
 #define NOMINMAX
 #include <Windows.h>
 #include <vector>
+#include <array>
 #include <map>
 #include <string>
 #include <algorithm>
@@ -1645,7 +1646,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("HEVCではBluray用出力はサポートされていません。\n") : _T("Bluray output is not supported for HEVC codec.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
-        if (inputParam->encConfig.rcParams.rateControlMode != NV_ENC_PARAMS_RC_VBR) {
+        const auto VBR_RC_LIST = make_array<NV_ENC_PARAMS_RC_MODE>(NV_ENC_PARAMS_RC_VBR, NV_ENC_PARAMS_RC_VBR_MINQP, NV_ENC_PARAMS_RC_2_PASS_VBR, NV_ENC_PARAMS_RC_CBR, NV_ENC_PARAMS_RC_CBR2);
+        if (std::find(VBR_RC_LIST.begin(), VBR_RC_LIST.end(), inputParam->encConfig.rcParams.rateControlMode) == VBR_RC_LIST.end()) {
             PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("Bluray用出力では、VBRモードを使用してください。\n") :  _T("Please use VBR mode for bluray output.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
