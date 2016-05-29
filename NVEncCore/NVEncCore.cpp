@@ -1636,22 +1636,22 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     if (m_stEncConfig.frameIntervalP < 0) {
         PrintMes(NV_LOG_ERROR, _T("%s: %d\n"),
-            FOR_AUO ? _T("Bフレーム設定が無効です。正の値を使用してください。") : _T("B frame settings are invalid. Please use a number > 0."),
+            FOR_AUO ? _T("Bフレーム設定が無効です。正の値を使用してください。\n") : _T("B frame settings are invalid. Please use a number > 0.\n"),
             m_stEncConfig.frameIntervalP - 1);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     if (inputParam->bluray) {
         if (inputParam->codec == NV_ENC_HEVC) {
-            PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("HEVCではBluray用出力はサポートされていません。") : _T("Bluray output is not supported for HEVC codec."));
+            PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("HEVCではBluray用出力はサポートされていません。\n") : _T("Bluray output is not supported for HEVC codec.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
         if (inputParam->encConfig.rcParams.rateControlMode != NV_ENC_PARAMS_RC_VBR) {
-            PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("Bluray用出力では、VBRモードを使用してください。") :  _T("Please use VBR mode for bluray output."));
+            PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("Bluray用出力では、VBRモードを使用してください。\n") :  _T("Please use VBR mode for bluray output.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
         if (!getCapLimit(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE)) {
             error_feature_unsupported(NV_LOG_ERROR, FOR_AUO ? _T("VBVバッファサイズの指定") : _T("Custom VBV Bufsize"));
-            PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("Bluray用出力を行えません。") :  _T("Therfore you cannot output for bluray."));
+            PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("Bluray用出力を行えません。\n") :  _T("Therfore you cannot output for bluray.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
     }
@@ -1695,7 +1695,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     if (inputParam->lossless) {
         if (inputParam->codec != NV_ENC_H264) {
-            PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("lossless出力はH.264エンコード時のみ使用できます。") : _T("lossless output is only for H.264 codec."));
+            PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("lossless出力はH.264エンコード時のみ使用できます。\n") : _T("lossless output is only for H.264 codec.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
         if (!getCapLimit(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE)) {
