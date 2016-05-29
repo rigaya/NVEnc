@@ -36,7 +36,7 @@
 #include <climits>
 #include <condition_variable>
 #ifdef _MSC_VER
-#define WIN32_MEAN_AND_LEAN
+#define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
 #include <tchar.h>
