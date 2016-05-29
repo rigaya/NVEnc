@@ -260,9 +260,7 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
         aud_parallel_task(oip, pe);
 
     m_pEncSatusInfo->m_sData.frameIn++;
-    m_pEncSatusInfo->UpdateDisplay();
-
-    return NVENC_THREAD_RUNNING;
+    return m_pEncSatusInfo->UpdateDisplay();
 }
 
 CAuoNvEnc::CAuoNvEnc() {
