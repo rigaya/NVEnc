@@ -1571,7 +1571,7 @@ tstring CAvcodecWriter::GetWriterMes() {
     };
 
     if (m_Mux.video.pStream) {
-        add_mes(strsprintf("%s", avcodec_get_name(m_Mux.video.pStream->codec->codec_id), m_Mux.video.pStream->codec->width, m_Mux.video.pStream->codec->height));
+        add_mes(avcodec_get_name(m_Mux.video.pStream->codec->codec_id));
         i_stream++;
     }
     for (const auto& audioStream : m_Mux.audio) {
