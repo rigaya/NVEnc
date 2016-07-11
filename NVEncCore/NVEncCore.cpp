@@ -2584,6 +2584,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(NV_LOG_DEBUG, _T("FMO            %s\n"), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
         add_str(NV_LOG_DEBUG, _T("MV Mode        %s\n"), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
     }
+    if (codec == NV_ENC_HEVC) {
+        add_str(NV_LOG_INFO, _T("CU max / min   %s / %s\n"),
+            get_chr_from_value(list_hevc_cu_size, m_stEncConfig.encodeCodecConfig.hevcConfig.maxCUSize),
+            get_chr_from_value(list_hevc_cu_size, m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize));
+    }
     return str;
 }
 
