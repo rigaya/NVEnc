@@ -1818,7 +1818,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (IS_OPTION("cu-min")) {
         i++;
         int value = 0;
-        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+        if (get_list_value(list_hevc_cu_size, strInput[i], &value)) {
             codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
