@@ -564,6 +564,8 @@ typedef struct AVDemuxer {
 typedef struct AvcodecReaderPrm {
     uint8_t        memType;                 //使用するメモリの種類
     bool           bReadVideo;              //映像の読み込みを行うかどうか
+    int            nVideoTrack;             //動画トラックの選択
+    int            nVideoStreamId;          //動画StreamIdの選択
     uint32_t       nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
     bool           bReadSubtitle;           //字幕の読み込みを行うかどうか
     bool           bReadChapter;            //チャプターの読み込みを行うかどうか
@@ -638,7 +640,8 @@ private:
     cudaVideoCodec getCuvidcc(uint32_t id);
 
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
-    vector<int> getStreamIndex(AVMediaType type);
+    //動画ストリーム以外は、vidStreamIdに近いstreamIDのものの順番にソートする
+    vector<int> getStreamIndex(AVMediaType type, const vector<int> *pVidStreamIndex = nullptr);
 
     //VC-1のスタートコードの確認
     bool vc1StartCodeExists(uint8_t *ptr);

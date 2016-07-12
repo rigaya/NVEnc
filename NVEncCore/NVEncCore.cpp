@@ -342,6 +342,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #if ENABLE_AVCUVID_READER
     case NV_ENC_INPUT_AVCUVID:
         inputInfoAVCuvid.bReadVideo = true;
+        inputInfoAVCuvid.nVideoTrack = inputParam->nVideoTrack;
+        inputInfoAVCuvid.nVideoStreamId = inputParam->nVideoStreamId;
         inputInfoAVCuvid.nReadAudio = inputParam->nAudioSelectCount > 0;
         inputInfoAVCuvid.bReadSubtitle = inputParam->nSubtitleSelectCount > 0;
         inputInfoAVCuvid.bReadChapter = !!inputParam->bCopyChapter;

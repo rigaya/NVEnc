@@ -124,6 +124,8 @@ struct InEncodeVideoParam {
     int nAudioResampler;
     int nAVDemuxAnalyzeSec;
     int nAVMux;                       //NVENC_MUX_xxx
+    int nVideoTrack;
+    int nVideoStreamId;
     int nTrimCount;
     sTrim *pTrimList;
     bool bCopyChapter;

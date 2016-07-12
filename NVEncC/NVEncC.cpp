@@ -232,6 +232,14 @@ static tstring help() {
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avqsv reader.\n")
         _T("                                 use if reader fails to detect audio stream.\n")
+        _T("   --video-track <int>          set video track to encode in track id\n")
+        _T("                                 1 (default)  highest resolution video track\n")
+        _T("                                 2            next high resolution video track\n")
+        _T("                                   ... \n")
+        _T("                                 -1           lowest resolution video track\n")
+        _T("                                 -2           next low resolution video track\n")
+        _T("                                   ... \n")
+        _T("   --video-streamid <int>       set video track to encode in stream id\n")
         _T("   --audio-source <string>      input extra audio file\n")
         _T("   --audio-file [<int>?][<string>:]<string>\n")
         _T("                                extract audio into file.\n")
@@ -829,7 +837,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
 #endif
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("avcuvid-analyze"))) {
+    if (IS_OPTION("avcuvid-analyze")) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
@@ -841,6 +849,30 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         } else {
             pParams->nAVDemuxAnalyzeSec = (int)((std::min)(value, USHRT_MAX));
         }
+        return 0;
+    }
+    if (IS_OPTION("video-track")) {
+        i++;
+        int v = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (v == 0) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->nVideoTrack = v;
+        return 0;
+    }
+    if (IS_OPTION("video-streamid")) {
+        i++;
+        int v = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%i"), &v)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->nVideoStreamId = v;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("trim"))) {
