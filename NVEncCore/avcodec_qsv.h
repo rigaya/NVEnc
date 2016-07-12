@@ -87,8 +87,8 @@ static tstring CodecIdToStr(cudaVideoCodec cuvid_cc) {
     case cudaVideoCodec_MPEG1: return _T("MPEG1");
     case cudaVideoCodec_VC1:   return _T("VC-1");
     case cudaVideoCodec_MPEG4: return _T("MPEG4");
-    case cudaVideoCodec_VP8:   return _T("VP8");
-    case cudaVideoCodec_VP9:   return _T("VP9");
+    //case cudaVideoCodec_VP8:   return _T("VP8");
+    //case cudaVideoCodec_VP9:   return _T("VP9");
     default: return _T("unknown");
     }
 }
