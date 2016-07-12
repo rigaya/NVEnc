@@ -160,6 +160,8 @@ bool CreateDirectoryRecursive(const WCHAR *dir);
 unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
 std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
 std::string tchar_to_string(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
+std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
+std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
 unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage = CP_THREAD_ACP);
 tstring char_to_tstring(const char *str, uint32_t codepage = CP_THREAD_ACP);
 tstring char_to_tstring(const std::string& str, uint32_t codepage = CP_THREAD_ACP);
