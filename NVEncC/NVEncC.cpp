@@ -1888,9 +1888,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("log-framelist"))) {
+    if (IS_OPTION("log-framelist")) {
         i++;
         pParams->sFramePosListLog = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("log-mux-ts")) {
+        i++;
+        pParams->pMuxVidTsLogFile = _tcsdup(strInput[i]);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("output-buf"))) {

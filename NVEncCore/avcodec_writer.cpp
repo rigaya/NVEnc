@@ -136,6 +136,9 @@ void CAvcodecWriter::CloseAudio(AVMuxAudio *pMuxAudio) {
 }
 
 void CAvcodecWriter::CloseVideo(AVMuxVideo *pMuxVideo) {
+    if (m_Mux.video.fpTsLogFile) {
+        fclose(m_Mux.video.fpTsLogFile);
+    }
     memset(pMuxVideo, 0, sizeof(pMuxVideo[0]));
     AddMessage(NV_LOG_DEBUG, _T("Closed video.\n"));
 }
@@ -502,6 +505,22 @@ int CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     m_Mux.video.bDtsUnavailable   = prm->vidPrm.bDtsUnavailable;
     m_Mux.video.nInputFirstKeyPts = prm->vidPrm.nInputFirstKeyPts;
     m_Mux.video.pInputCodecCtx    = prm->vidPrm.pInputCodecCtx;
+
+    if (prm->pMuxVidTsLogFile) {
+        if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->pMuxVidTsLogFile, _T("a"))) {
+            AddMessage(NV_LOG_WARN, _T("failed to open mux timestamp log file: \"%s\""), prm->pMuxVidTsLogFile);
+            m_Mux.video.fpTsLogFile = NULL;
+        } else {
+            AddMessage(NV_LOG_DEBUG, _T("Opened mux timestamp log file: \"%s\""), prm->pMuxVidTsLogFile);
+            tstring strFileHeadSep;
+            for (int i = 0; i < 78; i++) {
+                strFileHeadSep += _T("-");
+            }
+            _ftprintf(m_Mux.video.fpTsLogFile, strFileHeadSep.c_str());
+            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), m_Mux.format.pFilename);
+            _ftprintf(m_Mux.video.fpTsLogFile, strFileHeadSep.c_str());
+        }
+    }
 
     AddMessage(NV_LOG_DEBUG, _T("output video stream timebase: %d/%d\n"), m_Mux.video.pStream->time_base.num, m_Mux.video.pStream->time_base.den);
     AddMessage(NV_LOG_DEBUG, _T("bDtsUnavailable: %s\n"), (m_Mux.video.bDtsUnavailable) ? _T("on") : _T("off"));
@@ -1147,6 +1166,7 @@ int CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_pt
         AddMessage(NV_LOG_DEBUG, _T("output format specified: %s\n"), prm->pOutputFormat);
     }
     AddMessage(NV_LOG_DEBUG, _T("output filename: \"%s\"\n"), strFileName);
+    m_Mux.format.pFilename = strFileName;
     if (NULL == (m_Mux.format.pOutputFmt = av_guess_format((prm->pOutputFormat) ? tchar_to_string(prm->pOutputFormat).c_str() : NULL, filename.c_str(), NULL))) {
         AddMessage(NV_LOG_ERROR,
             _T("failed to assume format from output filename.\n")
@@ -1734,11 +1754,16 @@ int CAvcodecWriter::WriteNextFrameInternal(nvBitstream *pBitstream, int64_t *pWr
             pkt.dts = av_rescale_q(m_Mux.video.nFpsBaseNextDts, fpsTimebase, streamTimebase);
             m_Mux.video.nFpsBaseNextDts++;
         }
+        const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
         *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, CUVID_NATIVE_TIMEBASE);
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
 
         frameSize -= bytesToWrite;
         nDataOffsetByte += bytesToWrite;
+        if (m_Mux.video.fpTsLogFile) {
+            const TCHAR *pFrameTypeStr = (pBitstream->pictureType == NV_ENC_PIC_TYPE_IDR || pBitstream->pictureType == NV_ENC_PIC_TYPE_I) ? _T("I") : ((pBitstream->pictureType == NV_ENC_PIC_TYPE_P) ? _T("P") : _T("B"));
+            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20I64d, %20I64d, %20I64d, %20I64d, %d, %7d\n"), pFrameTypeStr, pBitstream->outputTimeStamp, 0llu, pts, dts, (int)duration, bytesToWrite);
+        }
     }
     m_pEncSatusInfo->SetOutputData(pBitstream->pictureType, pBitstream->DataLength, pBitstream->frameAvgQP);
 #if ENABLE_AVCODEC_OUT_THREAD

@@ -135,7 +135,8 @@ struct InEncodeVideoParam {
     bool bAudioIgnoreNoTrackError;
     int nAudioIgnoreDecodeError;
     muxOptList *pMuxOpt;
-    tstring sChapterFile;          
+    tstring sChapterFile;
+    TCHAR *pMuxVidTsLogFile;
     NVAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
     int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
     VppParam vpp;                 //vpp

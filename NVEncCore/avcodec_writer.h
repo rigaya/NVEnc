@@ -45,6 +45,7 @@ using std::vector;
 static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 
 typedef struct AVMuxFormat {
+    const TCHAR          *pFilename;            //出力ファイル名
     AVFormatContext      *pFormatCtx;           //出力ファイルのformatContext
     char                  metadataStr[256];     //出力ファイルのエンコーダ名
     AVOutputFormat       *pOutputFmt;           //出力ファイルのoutputFormat
@@ -74,6 +75,7 @@ typedef struct AVMuxVideo {
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     bool                  bIsPAFF;              //出力映像がPAFFである
     int                   nBframeDelay;         //Bフレームによる遅延
+    FILE                 *fpTsLogFile;          //mux timestampログファイル
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
@@ -240,6 +242,7 @@ struct AvcodecWriterPrm {
     int                          nOutputThread;           //出力スレッド数
     int                          nAudioThread;            //音声処理スレッド数
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
+    const TCHAR                 *pMuxVidTsLogFile;        //mux timestampログファイル
 
     AvcodecWriterPrm() :
         pInputFormatMetadata(nullptr),
@@ -252,7 +255,8 @@ struct AvcodecWriterPrm {
         nBufSizeMB(0),
         nOutputThread(0),
         nAudioThread(0),
-        vMuxOpt() {
+        vMuxOpt(),
+        pMuxVidTsLogFile(nullptr) {
         memset(&vidPrm, 0, sizeof(vidPrm));
     }
 };

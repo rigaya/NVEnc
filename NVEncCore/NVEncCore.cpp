@@ -120,6 +120,8 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nAudioResampler(NV_RESAMPLER_SWR),
     nAVDemuxAnalyzeSec(0),
     nAVMux(NVENC_MUX_NONE),                       //NVENC_MUX_xxx
+    nVideoTrack(0),
+    nVideoStreamId(0),
     nTrimCount(0),
     pTrimList(nullptr),
     bCopyChapter(false),
@@ -130,6 +132,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nAudioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     pMuxOpt(nullptr),
     sChapterFile(),
+    pMuxVidTsLogFile(nullptr),
     nAVSyncMode(NV_AVSYNC_THROUGH),     //avsyncの方法 (NV_AVSYNC_xxx)
     nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
     vpp() {
@@ -496,6 +499,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
         writerPrm.nBufSizeMB              = inputParams->nOutputBufSizeMB;
         writerPrm.nAudioResampler         = inputParams->nAudioResampler;
         writerPrm.nAudioIgnoreDecodeError = inputParams->nAudioIgnoreDecodeError;
+        writerPrm.pMuxVidTsLogFile        = inputParams->pMuxVidTsLogFile;
         if (inputParams->pMuxOpt > 0) {
             writerPrm.vMuxOpt = *inputParams->pMuxOpt;
         }
