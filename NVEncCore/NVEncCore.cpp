@@ -270,6 +270,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     if (inputParam->input.type == NV_ENC_INPUT_UNKNWON) {
         if (check_ext(inputParam->input.filename, { ".y4m" })) {
             inputParam->input.type = NV_ENC_INPUT_Y4M;
+        } else if (check_ext(inputParam->input.filename, { ".yuv" })) {
+            inputParam->input.type = NV_ENC_INPUT_RAW;
 #if AVI_READER
         } else if (check_ext(inputParam->input.filename, { ".avi" })) {
             inputParam->input.type = NV_ENC_INPUT_AVI;
@@ -282,17 +284,12 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         } else if (check_ext(inputParam->input.filename, { ".vpy" })) {
             inputParam->input.type = NV_ENC_INPUT_VPY_MT;
 #endif
-#if ENABLE_AVCUVID_READER
-        } else if (usingAVProtocols(tchar_to_string(inputParam->input.filename, CP_UTF8), 0)
-            || check_ext(inputParam->input.filename, { ".mp4", ".m4v", ".mkv", ".mov",
-            ".mts", ".m2ts", ".ts", ".264", ".h264", ".x264", ".avc", ".avc1",
-            ".265", ".h265", ".hevc",
-            ".mpg", ".mpeg", "m2v", ".vob", ".vro", ".flv", ".ogm",
-            ".wmv" })) {
-            inputParam->input.type = NV_ENC_INPUT_AVCUVID;
-#endif
         } else {
+#if ENABLE_AVCUVID_READER
+            inputParam->input.type = NV_ENC_INPUT_AVANY;
+#else
             inputParam->input.type = NV_ENC_INPUT_RAW;
+#endif
         }
     }
 
@@ -311,6 +308,10 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
     if (inputParam->input.type == NV_ENC_INPUT_AVCUVID && !ENABLE_AVCUVID_READER) {
         PrintMes(NV_LOG_ERROR, _T("avcodec + cuvid reader not compiled in this binary.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+    if (inputParam->input.type == NV_ENC_INPUT_AVSW && !ENABLE_AVCUVID_READER) {
+        PrintMes(NV_LOG_ERROR, _T("avsw reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     
@@ -345,8 +346,11 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #endif //VPY_READER
 #if ENABLE_AVCUVID_READER
     case NV_ENC_INPUT_AVCUVID:
+    case NV_ENC_INPUT_AVSW:
+    case NV_ENC_INPUT_AVANY:
         inputInfoAVCuvid.pInputFormat = inputParam->pAVInputFormat;
         inputInfoAVCuvid.bReadVideo = true;
+        inputInfoAVCuvid.nVideoDecodeSW = decodeModeFromInputFmtType(inputParam->input.type);
         inputInfoAVCuvid.nVideoTrack = inputParam->nVideoTrack;
         inputInfoAVCuvid.nVideoStreamId = inputParam->nVideoStreamId;
         inputInfoAVCuvid.nReadAudio = inputParam->nAudioSelectCount > 0;
@@ -622,7 +626,10 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
     if (inputParams->nAudioSelectCount + inputParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(NV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
-        if (inputParams->input.type != NV_ENC_INPUT_AVCUVID || pAVCodecReader == nullptr) {
+        if (inputParams->input.type != NV_ENC_INPUT_AVCUVID
+            || inputParams->input.type != NV_ENC_INPUT_AVSW
+            || inputParams->input.type != NV_ENC_INPUT_AVANY
+            || pAVCodecReader == nullptr) {
             PrintMes(NV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
             return NV_ENC_ERR_GENERIC;
         } else {
@@ -1469,7 +1476,7 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
 #pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::CreateDecoder(const InEncodeVideoParam *inputParam) {
 #if ENABLE_AVCUVID_READER
-    if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
+    if (m_pFileReader->getInputCodec()) {
         m_cuvidDec.reset(new CuvidDecode());
 
         auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, m_pNVLog);
@@ -1536,7 +1543,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
 #if ENABLE_AVCUVID_READER
-        if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
+        if (m_pFileReader->getInputCodec()) {
             m_uEncWidth  = inputParam->input.dstWidth;
             m_uEncHeight = inputParam->input.dstHeight;
         } else
@@ -1553,7 +1560,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
 #if ENABLE_AVCUVID_READER
-        if (inputParam->input.type != NV_ENC_INPUT_AVCUVID) {
+        if (m_pFileReader->getInputCodec()) {
             PrintMes(NV_LOG_ERROR, _T("vpp-deinterlace requires to be used with avcuvid reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
@@ -1567,7 +1574,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 #if ENABLE_AVCUVID_READER
-    if (inputParam->input.crop.e.left > 0 && inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
+    if (inputParam->input.crop.e.left > 0 && m_pFileReader->getInputCodec()) {
         PrintMes(NV_LOG_ERROR, _T("left crop is unsupported with avcuvid reader.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -1697,7 +1704,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     if (inputParam->yuv444 || inputParam->lossless) {
 #if ENABLE_AVCUVID_READER
-        if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
+        if (inputParam->input.type == NV_ENC_INPUT_AVCUVID
+            || inputParam->input.type == NV_ENC_INPUT_AVSW
+            || inputParam->input.type == NV_ENC_INPUT_AVANY) {
             PrintMes(NV_LOG_ERROR, _T("high444 not supported avcuvid reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
