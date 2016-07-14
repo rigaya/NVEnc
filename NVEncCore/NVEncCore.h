@@ -137,6 +137,7 @@ struct InEncodeVideoParam {
     muxOptList *pMuxOpt;
     tstring sChapterFile;
     TCHAR *pMuxVidTsLogFile;
+    TCHAR *pAVInputFormat;
     NVAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
     int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
     VppParam vpp;                 //vpp

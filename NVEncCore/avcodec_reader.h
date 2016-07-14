@@ -721,6 +721,7 @@ typedef struct AVDemuxer {
 
 typedef struct AvcodecReaderPrm {
     uint8_t        memType;                 //使用するメモリの種類
+    const TCHAR   *pInputFormat;            //入力フォーマット
     bool           bReadVideo;              //映像の読み込みを行うかどうか
     int            nVideoTrack;             //動画トラックの選択
     int            nVideoStreamId;          //動画StreamIdの選択

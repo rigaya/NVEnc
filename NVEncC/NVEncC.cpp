@@ -253,7 +253,9 @@ static tstring help() {
         _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
         _T("                                skip video for the time specified,\n")
         _T("                                 seek will be inaccurate but fast.\n")
-        _T("-f,--format <string>            set output format of output file.\n")
+        _T("   --input-format <string>      set input format of input file.\n")
+        _T("                                 this requires use of avcuvid/avsw reader.\n")
+        _T("-f,--output-format <string>     set output format of output file.\n")
         _T("                                 if format is not specified, output format will\n")
         _T("                                 be guessed from output file extension.\n")
         _T("                                 set \"raw\" for H.264/ES output.\n")
@@ -456,7 +458,7 @@ static const TCHAR *short_opt_to_long(TCHAR short_opt) {
         option_name = _T("quality");
         break;
     case _T('f'):
-        option_name = _T("format");
+        option_name = _T("output-format");
         break;
     case _T('i'):
         option_name = _T("input");
@@ -1012,13 +1014,23 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         argData->nParsedAudioFile++;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("format"))) {
+    if (   0 == _tcscmp(option_name, _T("format"))
+        || 0 == _tcscmp(option_name, _T("output-format"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
             pParams->sAVMuxOutputFormat = strInput[i];
             if (0 != _tcsicmp(strInput[i], _T("raw"))) {
                 pParams->nAVMux |= NVENC_MUX_VIDEO;
             }
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("input-format"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            pParams->pAVInputFormat = _tcsdup(strInput[i]);
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
         }
         return 0;
     }

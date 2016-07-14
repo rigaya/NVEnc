@@ -651,8 +651,16 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
     }
     //ts向けの設定
     av_dict_set(&m_Demux.format.pFormatOptions, "scan_all_pmts", "1", 0);
+    //入力フォーマットが指定されていれば、それを渡す
+    AVInputFormat *pInFormat = nullptr;
+    if (input_prm->pInputFormat) {
+        if (nullptr == (pInFormat = av_find_input_format(tchar_to_string(input_prm->pInputFormat).c_str()))) {
+            AddMessage(NV_LOG_ERROR, _T("Unknown Input format: %s.\n"), input_prm->pInputFormat);
+            return 1;
+        }
+    }
     //ファイルのオープン
-    if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), nullptr, &m_Demux.format.pFormatOptions)) {
+    if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), pInFormat, &m_Demux.format.pFormatOptions)) {
         AddMessage(NV_LOG_ERROR, _T("error opening file: \"%s\"\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
         return 1; // Couldn't open file
     }

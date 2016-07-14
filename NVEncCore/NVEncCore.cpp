@@ -133,6 +133,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     pMuxOpt(nullptr),
     sChapterFile(),
     pMuxVidTsLogFile(nullptr),
+    pAVInputFormat(nullptr),
     nAVSyncMode(NV_AVSYNC_THROUGH),     //avsyncの方法 (NV_AVSYNC_xxx)
     nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
     vpp() {
@@ -344,6 +345,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #endif //VPY_READER
 #if ENABLE_AVCUVID_READER
     case NV_ENC_INPUT_AVCUVID:
+        inputInfoAVCuvid.pInputFormat = inputParam->pAVInputFormat;
         inputInfoAVCuvid.bReadVideo = true;
         inputInfoAVCuvid.nVideoTrack = inputParam->nVideoTrack;
         inputInfoAVCuvid.nVideoStreamId = inputParam->nVideoStreamId;
