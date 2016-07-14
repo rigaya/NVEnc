@@ -260,10 +260,6 @@ void CAvcodecWriter::Close() {
     AddMessage(NV_LOG_DEBUG, _T("Closed.\n"));
 }
 
-tstring CAvcodecWriter::errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
-    return mes + tstring(_T(" for ")) + char_to_tstring(avcodec_get_name(targetCodec)) + tstring(_T(".\n"));
-};
-
 AVCodecID CAvcodecWriter::getAVCodecId(cudaVideoCodec cuvid_cc) {
     for (int i = 0; i < _countof(CUVID_DECODE_LIST); i++)
         if (CUVID_DECODE_LIST[i].cuvid_cc == cuvid_cc)

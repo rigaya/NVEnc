@@ -123,6 +123,10 @@ static inline int log_level_qsv2av(int level) {
     return clamp(AV_LOG_INFO - level * 8, AV_LOG_QUIET, AV_LOG_TRACE);
 }
 
+static tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
+    return mes + tstring(_T(" for ")) + char_to_tstring(avcodec_get_name(targetCodec)) + tstring(_T(".\n"));
+};
+
 static const AVRational CUVID_NATIVE_TIMEBASE = { 1, 10000000 };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
     _T("avcodec-57.dll"), _T("avformat-57.dll"), _T("avutil-55.dll"), _T("swresample-2.dll")

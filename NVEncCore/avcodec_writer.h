@@ -339,9 +339,6 @@ private:
     //NVEncのコーデックFourccからAVCodecのCodecIDを返す
     AVCodecID getAVCodecId(cudaVideoCodec cuvid_cc);
 
-    //"<mes> for codec"型のエラーメッセージを作成する  
-    tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec);
-
     //AAC音声にBitstreamフィルターを適用する
     void applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);
 
