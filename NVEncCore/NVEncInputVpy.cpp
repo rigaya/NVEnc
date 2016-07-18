@@ -233,12 +233,12 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
 
     for (auto csp : valid_csp_list) {
         if (csp.fmtID == vsvideoinfo->format->id) {
-            m_pConvCSPInfo = get_convert_csp_func(csp.in, csp.out, false);
+            m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
             break;
         }
     }
 
-    if (nullptr == m_pConvCSPInfo) {
+    if (nullptr == m_sConvert) {
         AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
         return 1;
     }
@@ -272,7 +272,7 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
 
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = 0;
-    CreateInputInfo(rev_info, NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
+    CreateInputInfo(rev_info, NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
 }
@@ -314,7 +314,7 @@ int NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
     dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]); //YUV444出力時
 
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
-    m_pConvCSPInfo->func[!!m_bInterlaced](dst_array, src_array, m_sDecParam.width, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+    m_sConvert->func[!!m_bInterlaced](dst_array, src_array, m_sDecParam.width, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
     
     m_sVSapi->freeFrame(src_frame);
 

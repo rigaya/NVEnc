@@ -51,6 +51,8 @@ enum {
     NV_ENC_INPUT_VPY,
     NV_ENC_INPUT_VPY_MT,
     NV_ENC_INPUT_AVCUVID,
+    NV_ENC_INPUT_AVSW,
+    NV_ENC_INPUT_AVANY,
 };
 
 typedef struct InputVideoInfo {
@@ -174,7 +176,7 @@ protected:
     shared_ptr<EncodeStatus> m_pEncSatusInfo;
     FILE *m_fp = NULL;
     tstring m_strInputInfo;
-    const ConvertCSP *m_pConvCSPInfo = nullptr;
+    const ConvertCSP *m_sConvert = nullptr;
     shared_ptr<CNVEncLog> m_pPrintMes;  //ログ出力
     tstring m_strReaderName;    //読み込みの名前
     InputVideoInfo m_sDecParam; //デコード情報

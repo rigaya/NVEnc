@@ -228,14 +228,23 @@ static tstring help() {
         _T("                                 avcuvid mode could be set as a  option\n")
         _T("                                  - native (default)\n")
         _T("                                  - cuda\n")
-        _T("   --avcuvid-analyze <int>      set time (sec) which reader analyze input file.\n")
+        _T("   --avsw                       set input to use avcodec + sw deocder\n")
+        _T("   --input-analyze <int>       set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
-        _T("                                 could be only used with avqsv reader.\n")
+        _T("                                 could be only used with avcuvid/avsw reader.\n")
         _T("                                 use if reader fails to detect audio stream.\n")
+        _T("   --video-track <int>          set video track to encode in track id\n")
+        _T("                                 1 (default)  highest resolution video track\n")
+        _T("                                 2            next high resolution video track\n")
+        _T("                                   ... \n")
+        _T("                                 -1           lowest resolution video track\n")
+        _T("                                 -2           next low resolution video track\n")
+        _T("                                   ... \n")
+        _T("   --video-streamid <int>       set video track to encode in stream id\n")
         _T("   --audio-source <string>      input extra audio file\n")
         _T("   --audio-file [<int>?][<string>:]<string>\n")
         _T("                                extract audio into file.\n")
-        _T("                                 could be only used with avqsv reader.\n")
+        _T("                                 could be only used with avcuvid/avsw reader.\n")
         _T("                                 below are optional,\n")
         _T("                                  in [<int>?], specify track number to extract.\n")
         _T("                                  in [<string>?], specify output format.\n")
@@ -245,13 +254,15 @@ static tstring help() {
         _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
         _T("                                skip video for the time specified,\n")
         _T("                                 seek will be inaccurate but fast.\n")
-        _T("-f,--format <string>            set output format of output file.\n")
+        _T("   --input-format <string>      set input format of input file.\n")
+        _T("                                 this requires use of avcuvid/avsw reader.\n")
+        _T("-f,--output-format <string>     set output format of output file.\n")
         _T("                                 if format is not specified, output format will\n")
         _T("                                 be guessed from output file extension.\n")
         _T("                                 set \"raw\" for H.264/ES output.\n")
         _T("   --audio-copy [<int>[,...]]   mux audio with video during output.\n")
         _T("                                 could be only used with\n")
-        _T("                                 avqsv reader and avcodec muxer.\n")
+        _T("                                 avcuvid/avsw reader and avcodec muxer.\n")
         _T("                                 by default copies all audio tracks.\n")
         _T("                                 \"--audio-copy 1,2\" will extract\n")
         _T("                                 audio track #1 and #2.\n")
@@ -311,7 +322,7 @@ static tstring help() {
         _T("   --chapter <string>           set chapter from file specified.\n")
         _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
         _T("                                 these could be only used with\n")
-        _T("                                 avqsv reader and avcodec muxer.\n")
+        _T("                                 avcuvid/avsw reader and avcodec muxer.\n")
         _T("                                 below are optional,\n")
         _T("                                  in [<int>?], specify track number to copy.\n")
         _T("\n")
@@ -321,7 +332,7 @@ static tstring help() {
         _T("-m,--mux-option <string1>:<string2>\n")
         _T("                                set muxer option name and value.\n")
         _T("                                 these could be only used with\n")
-        _T("                                 avqsv reader and avcodec muxer.\n"),
+        _T("                                 avcuvid/avsw reader and avcodec muxer.\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
 #endif
     str += strsprintf(_T("")
@@ -448,7 +459,7 @@ static const TCHAR *short_opt_to_long(TCHAR short_opt) {
         option_name = _T("quality");
         break;
     case _T('f'):
-        option_name = _T("format");
+        option_name = _T("output-format");
         break;
     case _T('i'):
         option_name = _T("input");
@@ -829,18 +840,47 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
 #endif
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("avcuvid-analyze"))) {
+    if (IS_OPTION("avsw")) {
+        pParams->input.type = NV_ENC_INPUT_AVSW;
+        return 0;
+    }
+    if (   IS_OPTION("input-analyze")
+        || IS_OPTION("avcuvid-analyze")) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         } else if (value < 0) {
-            PrintHelp(strInput[0], _T("avcuvid-analyze requires non-negative value."), option_name);
+            PrintHelp(strInput[0], _T("input-analyze requires non-negative value."), option_name);
             return 1;
         } else {
             pParams->nAVDemuxAnalyzeSec = (int)((std::min)(value, USHRT_MAX));
         }
+        return 0;
+    }
+    if (IS_OPTION("video-track")) {
+        i++;
+        int v = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (v == 0) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->nVideoTrack = v;
+        return 0;
+    }
+    if (IS_OPTION("video-streamid")) {
+        i++;
+        int v = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%i"), &v)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->nVideoStreamId = v;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("trim"))) {
@@ -980,13 +1020,23 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         argData->nParsedAudioFile++;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("format"))) {
+    if (   0 == _tcscmp(option_name, _T("format"))
+        || 0 == _tcscmp(option_name, _T("output-format"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
             pParams->sAVMuxOutputFormat = strInput[i];
             if (0 != _tcsicmp(strInput[i], _T("raw"))) {
                 pParams->nAVMux |= NVENC_MUX_VIDEO;
             }
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("input-format"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            pParams->pAVInputFormat = _tcsdup(strInput[i]);
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return 1;
         }
         return 0;
     }
@@ -1818,7 +1868,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (IS_OPTION("cu-min")) {
         i++;
         int value = 0;
-        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+        if (get_list_value(list_hevc_cu_size, strInput[i], &value)) {
             codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
@@ -1856,9 +1906,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("log-framelist"))) {
+    if (IS_OPTION("log-framelist")) {
         i++;
         pParams->sFramePosListLog = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("log-mux-ts")) {
+        i++;
+        pParams->pMuxVidTsLogFile = _tcsdup(strInput[i]);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("output-buf"))) {

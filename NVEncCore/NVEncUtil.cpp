@@ -46,6 +46,10 @@
 #pragma warning (disable: 4100)
 #if defined(_WIN32) || defined(_WIN64)
 unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage) {
+    if (wstr == nullptr) {
+        str = "";
+        return 0;
+    }
     uint32_t flags = (codepage == CP_UTF8) ? 0 : WC_NO_BEST_FIT_CHARS;
     int multibyte_length = WideCharToMultiByte(codepage, flags, wstr, -1, nullptr, 0, nullptr, nullptr);
     str.resize(multibyte_length, 0);
@@ -57,6 +61,10 @@ unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t c
 }
 #else
 unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage) {
+    if (wstr == nullptr) {
+        str = "";
+        return 0;
+    }
     auto ic = iconv_open("UTF-8", "wchar_t"); //to, from
     auto input_len = wcslen(wstr);
     auto output_len = input_len * 4;
@@ -68,6 +76,9 @@ unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t c
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 std::string wstring_to_string(const wchar_t *wstr, uint32_t codepage) {
+    if (wstr == nullptr) {
+        return "";
+    }
     std::string str;
     wstring_to_string(wstr, str, codepage);
     return str;
@@ -83,12 +94,15 @@ unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codep
 #if UNICODE
     return wstring_to_string(tstr, str, codepage);
 #else
-    str = std::string(tstr);
+    str = (tstr) ? std::string(tstr) : "";
     return (unsigned int)str.length();
 #endif
 }
 
 std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage) {
+    if (tstr == nullptr) {
+        return "";
+    }
     std::string str;
     tchar_to_string(tstr, str, codepage);
     return str;
@@ -100,8 +114,27 @@ std::string tchar_to_string(const tstring& tstr, uint32_t codepage) {
     return str;
 }
 
+std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage) {
+#if UNICODE
+    return std::wstring(tstr);
+#else
+    return char_to_wstring(tstr, codepage);
+#endif
+}
+
+std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage) {
+    if (tstr == nullptr) {
+        return L"";
+    }
+    return tchar_to_wstring(tstring(tstr), codepage);
+}
+
 #if defined(_WIN32) || defined(_WIN64)
 unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
+    if (str == nullptr) {
+        wstr = L"";
+        return 0;
+    }
     int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
     wstr.resize(widechar_length, 0);
     if (0 == MultiByteToWideChar(codepage, 0, str, -1, &wstr[0], (int)wstr.size())) {
@@ -112,6 +145,10 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
 }
 #else
 unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
+    if (str == nullptr) {
+        wstr = L"";
+        return 0;
+    }
     auto ic = iconv_open("wchar_t", "UTF-8"); //to, from
     auto input_len = strlen(str);
     std::vector<char> buf(input_len + 1);
@@ -125,6 +162,9 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 std::wstring char_to_wstring(const char *str, uint32_t codepage) {
+    if (str == nullptr) {
+        return L"";
+    }
     std::wstring wstr;
     char_to_wstring(wstr, str, codepage);
     return wstr;
@@ -139,12 +179,15 @@ unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage) 
 #if UNICODE
     return char_to_wstring(tstr, str, codepage);
 #else
-    tstr = std::string(str);
+    tstr = (str) ? std::string(str) : _T("");
     return (unsigned int)tstr.length();
 #endif
 }
 
 tstring char_to_tstring(const char *str, uint32_t codepage) {
+    if (str == nullptr) {
+        return _T("");
+    }
     tstring tstr;
     char_to_tstring(tstr, str, codepage);
     return tstr;
@@ -177,6 +220,9 @@ tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage) {
 }
 
 std::string strsprintf(const char* format, ...) {
+    if (format == nullptr) {
+        return "";
+    }
     va_list args;
     va_start(args, format);
     const size_t len = _vscprintf(format, args) + 1;
@@ -189,6 +235,9 @@ std::string strsprintf(const char* format, ...) {
 }
 #if defined(_WIN32) || defined(_WIN64)
 std::wstring strsprintf(const WCHAR* format, ...) {
+    if (format == nullptr) {
+        return L"";
+    }
     va_list args;
     va_start(args, format);
     const size_t len = _vscwprintf(format, args) + 1;

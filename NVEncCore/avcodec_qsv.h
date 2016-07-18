@@ -38,6 +38,7 @@
 extern "C" {
 #include <libavutil/avutil.h>
 #include <libavutil/error.h>
+#include <libavutil/frame.h>
 #include <libavutil/opt.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -87,8 +88,8 @@ static tstring CodecIdToStr(cudaVideoCodec cuvid_cc) {
     case cudaVideoCodec_MPEG1: return _T("MPEG1");
     case cudaVideoCodec_VC1:   return _T("VC-1");
     case cudaVideoCodec_MPEG4: return _T("MPEG4");
-    case cudaVideoCodec_VP8:   return _T("VP8");
-    case cudaVideoCodec_VP9:   return _T("VP9");
+    //case cudaVideoCodec_VP8:   return _T("VP8");
+    //case cudaVideoCodec_VP9:   return _T("VP9");
     default: return _T("unknown");
     }
 }
@@ -122,6 +123,10 @@ static inline int log_level_av2qsv(int level) {
 static inline int log_level_qsv2av(int level) {
     return clamp(AV_LOG_INFO - level * 8, AV_LOG_QUIET, AV_LOG_TRACE);
 }
+
+static tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
+    return mes + tstring(_T(" for ")) + char_to_tstring(avcodec_get_name(targetCodec)) + tstring(_T(".\n"));
+};
 
 static const AVRational CUVID_NATIVE_TIMEBASE = { 1, 10000000 };
 static const TCHAR *AVCODEC_DLL_NAME[] = {

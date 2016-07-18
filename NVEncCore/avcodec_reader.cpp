@@ -30,6 +30,7 @@
 #include <io.h>
 #include <algorithm>
 #include <numeric>
+#include <map>
 #include <cctype>
 #include <cmath>
 #include <climits>
@@ -164,13 +165,56 @@ cudaVideoCodec CAvcodecReader::getCuvidcc(uint32_t id) {
     return cudaVideoCodec_NumCodecs;
 }
 
-vector<int> CAvcodecReader::getStreamIndex(AVMediaType type) {
+vector<int> CAvcodecReader::getStreamIndex(AVMediaType type, const vector<int> *pVidStreamIndex) {
     vector<int> streams;
     const int n_streams = m_Demux.format.pFormatCtx->nb_streams;
     for (int i = 0; i < n_streams; i++) {
         if (m_Demux.format.pFormatCtx->streams[i]->codec->codec_type == type) {
             streams.push_back(i);
         }
+    }
+    if (type == AVMEDIA_TYPE_VIDEO) {
+        std::sort(streams.begin(), streams.end(), [pFormatCtx = m_Demux.format.pFormatCtx](int streamIdA, int streamIdB) {
+            auto pStreamA = pFormatCtx->streams[streamIdA];
+            auto pStreamB = pFormatCtx->streams[streamIdB];
+            if (pStreamA->codec == nullptr) {
+                return false;
+            }
+            if (pStreamB->codec == nullptr) {
+                return true;
+            }
+            const int resA = pStreamA->codec->width * pStreamA->codec->height;
+            const int resB = pStreamB->codec->width * pStreamB->codec->height;
+            return (resA > resB);
+        });
+    } else if (pVidStreamIndex && pVidStreamIndex->size()) {
+        auto mostNearestVidStreamId = [pFormatCtx = m_Demux.format.pFormatCtx, pVidStreamIndex](int streamId) {
+            auto ret = std::make_pair(0, UINT32_MAX);
+            for (uint32_t i = 0; i < pVidStreamIndex->size(); i++) {
+                uint32_t diff = (uint32_t)(streamId - pFormatCtx->streams[(*pVidStreamIndex)[i]]->id);
+                if (diff < ret.second) {
+                    ret.second = diff;
+                    ret.first = i;
+                }
+            }
+            return ret;
+        };
+        std::sort(streams.begin(), streams.end(), [pFormatCtx = m_Demux.format.pFormatCtx, pVidStreamIndex, mostNearestVidStreamId](int streamIdA, int streamIdB) {
+            if (pFormatCtx->streams[streamIdA]->codec == nullptr) {
+                return false;
+            }
+            if (pFormatCtx->streams[streamIdB]->codec == nullptr) {
+                return true;
+            }
+            auto pStreamIdA = pFormatCtx->streams[streamIdA]->id;
+            auto pStreamIdB = pFormatCtx->streams[streamIdB]->id;
+            auto nearestVidA = mostNearestVidStreamId(pStreamIdA);
+            auto nearestVidB = mostNearestVidStreamId(pStreamIdB);
+            if (nearestVidA.first == nearestVidB.first) {
+                return nearestVidA.second < nearestVidB.second;
+            }
+            return nearestVidA.first < nearestVidB.first;
+        });
     }
     return std::move(streams);
 }
@@ -608,8 +652,16 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
     }
     //ts向けの設定
     av_dict_set(&m_Demux.format.pFormatOptions, "scan_all_pmts", "1", 0);
+    //入力フォーマットが指定されていれば、それを渡す
+    AVInputFormat *pInFormat = nullptr;
+    if (input_prm->pInputFormat) {
+        if (nullptr == (pInFormat = av_find_input_format(tchar_to_string(input_prm->pInputFormat).c_str()))) {
+            AddMessage(NV_LOG_ERROR, _T("Unknown Input format: %s.\n"), input_prm->pInputFormat);
+            return 1;
+        }
+    }
     //ファイルのオープン
-    if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), nullptr, &m_Demux.format.pFormatOptions)) {
+    if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), pInFormat, &m_Demux.format.pFormatOptions)) {
         AddMessage(NV_LOG_ERROR, _T("error opening file: \"%s\"\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
         return 1; // Couldn't open file
     }
@@ -636,11 +688,52 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
     m_Demux.qVideoPkt.set_keep_length(AVQSV_FRAME_MAX_REORDER);
     m_Demux.qStreamPktL2.init(4096);
 
+    //動画ストリームを探す
+    //動画ストリームは動画を処理しなかったとしても同期のため必要
+    auto videoStreams = getStreamIndex(AVMEDIA_TYPE_VIDEO);
+    if (videoStreams.size()) {
+        if (input_prm->nVideoTrack) {
+            if (videoStreams.size() < (uint32_t)std::abs(input_prm->nVideoTrack)) {
+                AddMessage(NV_LOG_ERROR, _T("track %d was selected for video, but input only contains %d video tracks.\n"), input_prm->nVideoTrack, videoStreams.size());
+                return 1;
+            } else if (input_prm->nVideoTrack < 0) {
+                //逆順に並べ替え
+                std::reverse(videoStreams.begin(), videoStreams.end());
+            }
+            m_Demux.video.nIndex = videoStreams[std::abs(input_prm->nVideoTrack)-1];
+        } else if (input_prm->nVideoStreamId) {
+            auto streamIndexFound = std::find_if(videoStreams.begin(), videoStreams.end(), [pFormatCtx = m_Demux.format.pFormatCtx, nSearchId = input_prm->nVideoStreamId](int nStreamIndex) {
+                return (pFormatCtx->streams[nStreamIndex]->id == nSearchId);
+            });
+            if (streamIndexFound == videoStreams.end()) {
+                AddMessage(NV_LOG_ERROR, _T("stream id %d (0x%x) not found in video tracks.\n"), input_prm->nVideoStreamId, input_prm->nVideoStreamId);
+                return 1;
+            }
+            m_Demux.video.nIndex = *streamIndexFound;
+        } else {
+            m_Demux.video.nIndex = videoStreams[0];
+        }
+        auto selectedStream = std::find(videoStreams.begin(), videoStreams.end(), m_Demux.video.nIndex);
+        if (selectedStream == videoStreams.end()) {
+            AddMessage(NV_LOG_ERROR, _T("video stream lost!\n"));
+            return 1;
+        }
+        //もし、選択された動画ストリームが先頭にないのなら、先頭に入れ替える
+        if (selectedStream != videoStreams.begin()) {
+            int nSelectedStreamIndex = *selectedStream;
+            videoStreams.erase(selectedStream);
+            videoStreams.insert(videoStreams.begin(), nSelectedStreamIndex);
+        }
+        AddMessage(NV_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
+
+        m_Demux.video.pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
+    }
+
     //音声ストリームを探す
     if (input_prm->nReadAudio || input_prm->bReadSubtitle) {
         vector<int> mediaStreams;
         if (input_prm->nReadAudio) {
-            auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO);
+            auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO, &videoStreams);
             if (audioStreams.size() == 0) {
                 AddMessage(NV_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
                 return 1;
@@ -649,7 +742,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             vector_cat(mediaStreams, audioStreams);
         }
         if (input_prm->bReadSubtitle) {
-            auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE);
+            auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE, &videoStreams);
             if (subStreams.size() == 0) {
                 AddMessage(NV_LOG_ERROR, _T("--sub-copy is set, but no subtitle stream found.\n"));
                 return 1;
@@ -745,16 +838,6 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         m_Demux.chapter = make_vector((const AVChapter **)m_Demux.format.pFormatCtx->chapters, m_Demux.format.pFormatCtx->nb_chapters);
     }
 
-    //動画ストリームを探す
-    //動画ストリームは動画を処理しなかったとしても同期のため必要
-    auto videoStreams = getStreamIndex(AVMEDIA_TYPE_VIDEO);
-    if (videoStreams.size()) {
-        m_Demux.video.nIndex = videoStreams[0];
-        AddMessage(NV_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
-
-        m_Demux.video.pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
-    }
-
     //動画処理の初期化を行う
     if (input_prm->bReadVideo) {
         if (m_Demux.video.pCodecCtx == nullptr) {
@@ -769,19 +852,24 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
 
         memset(&m_sDecParam, 0, sizeof(m_sDecParam));
 
-        if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pCodecCtx->codec_id))) {
-            AddMessage(NV_LOG_ERROR, _T("codec "));
-            if (m_Demux.video.pCodecCtx->codec && m_Demux.video.pCodecCtx->codec->name) {
-                AddMessage(NV_LOG_ERROR, char_to_tstring(m_Demux.video.pCodecCtx->codec->name) + _T(" "));
+        bool bDecodecCUVID = false;
+        if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) {
+            if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pCodecCtx->codec_id))
+                //wmv3はAdvanced Profile (3)のみの対応
+                || m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pCodecCtx->profile != 3) {
+                if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_CUVID) {
+                    //avcuvidが指定されている場合にはエラー終了する
+                    AddMessage(NV_LOG_ERROR, _T("codec "));
+                    if (m_Demux.video.pCodecCtx->codec && m_Demux.video.pCodecCtx->codec->name) {
+                        AddMessage(NV_LOG_ERROR, char_to_tstring(m_Demux.video.pCodecCtx->codec->name) + _T(" "));
+                    }
+                    AddMessage(NV_LOG_ERROR, _T("unable to decode by cuvid.\n"));
+                    return 1;
+                }
+            } else {
+                bDecodecCUVID = true;
+                AddMessage(NV_LOG_DEBUG, _T("can be decoded by cuvid.\n"));
             }
-            AddMessage(NV_LOG_ERROR, _T("unable to decode by cuvid.\n"));
-            return 1;
-        }
-        AddMessage(NV_LOG_DEBUG, _T("can be decoded by cuvid.\n"));
-        //wmv3はAdvanced Profile (3)のみの対応
-        if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pCodecCtx->profile != 3) {
-            AddMessage(NV_LOG_ERROR, _T("unable to decode by cuvid.\n"));
-            return 1;
         }
 
         m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
@@ -807,7 +895,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 m_Demux.video.bUseHEVCmp42AnnexB = true;
                 AddMessage(NV_LOG_DEBUG, _T("enabled HEVCmp42AnnexB filter.\n"));
             }
-        } else if (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0) {
+        } else if (bDecodecCUVID && (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0)) {
             AddMessage(NV_LOG_ERROR, _T("video header not extracted by libavcodec.\n"));
             return 1;
         }
@@ -844,11 +932,13 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         }
 
         //parserはseek後に初期化すること
-        if (nullptr == (m_Demux.video.pParserCtx = av_parser_init(m_Demux.video.pCodecCtx->codec_id))) {
+        m_Demux.video.pParserCtx = av_parser_init(m_Demux.video.pCodecCtx->codec_id);
+        if (m_Demux.video.pParserCtx) {
+            m_Demux.video.pParserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+        } else if (bDecodecCUVID) {
             AddMessage(NV_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(m_Demux.video.pCodecCtx->codec->name).c_str());
             return 1;
         }
-        m_Demux.video.pParserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
 
         if (0 != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount))) {
             AddMessage(NV_LOG_ERROR, _T("failed to get first frame position.\n"));
@@ -933,9 +1023,66 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         const auto aspectRatio = m_Demux.video.pCodecCtx->sample_aspect_ratio;
         const bool bAspectRatioUnknown = aspectRatio.num * aspectRatio.den <= 0;
 
+        if (!bDecodecCUVID) {
+            if (nullptr == (m_Demux.video.pCodec = avcodec_find_decoder(m_Demux.video.pCodecCtx->codec_id))) {
+                AddMessage(NV_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.pCodecCtx->codec_id).c_str());
+                return 1;
+            }
+            cpu_info_t cpu_info;
+            if (get_cpu_info(&cpu_info)) {
+                m_Demux.video.pCodecCtx->thread_count = cpu_info.logical_cores;
+            }
+            if (0 > (ret = avcodec_open2(m_Demux.video.pCodecCtx, m_Demux.video.pCodec, nullptr))) {
+                AddMessage(NV_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+                return 1;
+            }
+            const std::map<AVPixelFormat, NV_ENC_CSP> CSP_CONV = {
+                { AV_PIX_FMT_YUV420P,     NV_ENC_CSP_YV12 },
+                { AV_PIX_FMT_YUVJ420P,    NV_ENC_CSP_YV12 },
+                { AV_PIX_FMT_NV12,        NV_ENC_CSP_NV12 },
+                { AV_PIX_FMT_NV21,        NV_ENC_CSP_NV12 },
+                { AV_PIX_FMT_YUV422P,     NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUVJ422P,    NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUYV422,     NV_ENC_CSP_YUY2 },
+                { AV_PIX_FMT_UYVY422,     NV_ENC_CSP_NA },
+                { AV_PIX_FMT_NV16,        NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV444P,     NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUVJ444P,    NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV420P16LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV420P14LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV420P12LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV420P10LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV420P9LE,  NV_ENC_CSP_NA },
+                { AV_PIX_FMT_NV20LE,      NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV422P16LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV422P14LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV422P12LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV422P10LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV444P16LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV444P14LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV444P12LE, NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV444P10LE, NV_ENC_CSP_NA }
+            };
+            const std::map<int, NV_ENC_CSP> CSP_CONV_CUDA = {
+                {cudaVideoSurfaceFormat_NV12 , NV_ENC_CSP_NV12 }
+            };
+            auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtx->pix_fmt);
+            if (pixCspConv == CSP_CONV.end()
+                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, CSP_CONV_CUDA.at(pixfmtData->fourcc), false))) {
+                AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
+                return 1;
+            }
+            if (nullptr == (m_Demux.video.pFrame = av_frame_alloc())) {
+                AddMessage(NV_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
+                return 1;
+            }
+        }
+
         memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
         m_sDecParam.src_pitch = 0;
-        tstring mes = strsprintf(_T("avcuvid: %s, %dx%d, %d/%d fps"), CodecIdToStr(inputPrm->codec).c_str(),
+        tstring mes = strsprintf(_T("%s: %s, %dx%d, %d/%d fps"),
+            (m_Demux.video.pCodec) ? _T("avsw") : _T("avcuvid"),
+            (m_Demux.video.pCodec) ? char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id)).c_str() : CodecIdToStr(inputPrm->codec).c_str(),
             inputPrm->width, inputPrm->height, inputPrm->rate, inputPrm->scale);
         if (input_prm->fSeekSec > 0.0f) {
             mes += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
@@ -945,7 +1092,8 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
 
         //スレッド関連初期化
         m_Demux.thread.bAbortInput = false;
-        m_Demux.thread.nInputThread = (int8_t)input_prm->nInputThread;
+        auto nPrmInputThread = input_prm->nInputThread;
+        m_Demux.thread.nInputThread = ((nPrmInputThread == NV_INPUT_THREAD_AUTO) | (m_Demux.video.pCodec != nullptr)) ? 0 : (int8_t)nPrmInputThread;
         //if (m_Demux.thread.nInputThread == NV_INPUT_THREAD_AUTO) {
         //    m_Demux.thread.nInputThread = 0;
         //}
@@ -1392,9 +1540,55 @@ int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
 #pragma warning(push)
 #pragma warning(disable:4100)
 int CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
-    if (m_Demux.qVideoPkt.size() == 0) {
-        //m_Demux.qVideoPkt.size() == 0となるのは、最後まで読み込んだときか、中断した時しかありえない
-        return NVENC_THREAD_ERROR; //ファイルの終わりに到達
+    if (m_Demux.video.pCodec) {
+        //動画のデコードを行う
+        int got_frame = 0;
+        while (!got_frame) {
+            AVPacket pkt;
+            av_init_packet(&pkt);
+            if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
+                && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
+                if (0 == getSample(&pkt)) {
+                    m_Demux.qVideoPkt.push(pkt);
+                }
+            }
+
+            bool bGetPacket = false;
+            for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_and_pop_no_lock(&pkt)) && m_Demux.qVideoPkt.size() > 0; i++) {
+                m_Demux.qVideoPkt.wait_for_push();
+            }
+            if (!bGetPacket) {
+                pkt.data = nullptr;
+                pkt.size = 0;
+            }
+            int ret = avcodec_decode_video2(m_Demux.video.pCodecCtx, m_Demux.video.pFrame, &got_frame, &pkt);
+            av_packet_unref(&pkt);
+            if (ret < 0) {
+                AddMessage(NV_LOG_ERROR, _T("failed to decode video: %s.\n"), qsv_av_err2str(ret).c_str());
+                return NVENC_THREAD_ERROR;
+            }
+            if (!bGetPacket && !got_frame) {
+                //最後まで読み込んだ
+                return NVENC_THREAD_ERROR;
+            }
+        }
+        //フレームデータをコピー
+
+        void *dst_array[3];
+        dst_array[0] = dst;
+        dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]);
+        dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]); //YUV444出力時
+
+        bool m_bInterlaced;
+        m_sConvert->func[!!m_Demux.video.pFrame->interlaced_frame](dst_array, (const void **)m_Demux.video.pFrame->data, m_sDecParam.width, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+        if (got_frame) {
+            av_frame_unref(m_Demux.video.pFrame);
+        }
+    } else {
+        if (m_Demux.qVideoPkt.size() == 0) {
+            //m_Demux.qVideoPkt.size() == 0となるのは、最後まで読み込んだときか、中断した時しかありえない
+            return NVENC_THREAD_ERROR; //ファイルの終わりに到達
+        }
     }
     double progressPercent = 0.0;
     if (m_Demux.format.pFormatCtx->duration) {

@@ -137,12 +137,12 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
 
     for (auto csp : valid_csp_list) {
         if (csp.fmtID == m_sAVSinfo->pixel_type) {
-            m_pConvCSPInfo = get_convert_csp_func(csp.in, csp.out, false);
+            m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
             break;
         }
     }
 
-    if (nullptr == m_pConvCSPInfo) {
+    if (nullptr == m_sConvert) {
         AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
         return 1;
     }
@@ -164,7 +164,7 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
 
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = 0;
-    CreateInputInfo(avisynth_version, NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
+    CreateInputInfo(avisynth_version, NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
 }
@@ -203,7 +203,7 @@ int NVEncInputAvs::LoadNextFrame(void *dst, int dst_pitch) {
     //if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {
     //    dst_ptr[0] = min(min(pData->R, pData->G), pData->B);
     //}
-    m_pConvCSPInfo->func[!!m_bInterlaced](dst_array, src_array, m_sDecParam.width, avs_get_pitch_p(frame, AVS_PLANAR_Y), avs_get_pitch_p(frame, AVS_PLANAR_U), dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+    m_sConvert->func[!!m_bInterlaced](dst_array, src_array, m_sDecParam.width, avs_get_pitch_p(frame, AVS_PLANAR_Y), avs_get_pitch_p(frame, AVS_PLANAR_U), dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
     
     m_sAvisynth.release_video_frame(frame);
 

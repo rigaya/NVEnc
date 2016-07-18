@@ -186,16 +186,16 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
         return 1;
     }
 
-    m_pConvCSPInfo = get_convert_csp_func(inputCsp, inputPrm->csp, false);
+    m_sConvert = get_convert_csp_func(inputCsp, inputPrm->csp, false);
 
-    if (nullptr == m_pConvCSPInfo) {
+    if (nullptr == m_sConvert) {
         AddMessage(NV_LOG_ERROR, _T("raw/y4m: invalid colorformat.\n"));
         return 1;
     }
     
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = inputPrm->width;
-    CreateInputInfo(m_strReaderName.c_str(), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
+    CreateInputInfo(m_strReaderName.c_str(), NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
 }
@@ -228,7 +228,7 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     }
 
     uint32_t frameSize = 0;
-    switch (m_pConvCSPInfo->csp_from) {
+    switch (m_sConvert->csp_from) {
     case NV_ENC_CSP_NV12:
     case NV_ENC_CSP_YV12:
         frameSize = m_sDecParam.width * m_sDecParam.height * 3 / 2; break;
@@ -250,7 +250,7 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     const void *src_array[3];
     src_array[0] = m_inputBuffer;
     src_array[1] = (uint8_t *)src_array[0] + m_sDecParam.src_pitch * m_sDecParam.height;
-    switch (m_pConvCSPInfo->csp_from) {
+    switch (m_sConvert->csp_from) {
     case NV_ENC_CSP_YV12:
         src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 4;
         break;
@@ -265,8 +265,8 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
         break;
     }
 
-    const int src_uv_pitch = (m_pConvCSPInfo->csp_from == NV_ENC_CSP_YUV444) ? m_sDecParam.src_pitch : m_sDecParam.src_pitch / 2;
-    m_pConvCSPInfo->func[0](dst_array, src_array, m_sDecParam.width, m_sDecParam.src_pitch, src_uv_pitch, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+    const int src_uv_pitch = (m_sConvert->csp_from == NV_ENC_CSP_YUV444) ? m_sDecParam.src_pitch : m_sDecParam.src_pitch / 2;
+    m_sConvert->func[0](dst_array, src_array, m_sDecParam.width, m_sDecParam.src_pitch, src_uv_pitch, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
 
     m_pEncSatusInfo->m_sData.frameIn++;
     m_pEncSatusInfo->UpdateDisplay();
