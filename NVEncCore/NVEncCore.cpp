@@ -50,6 +50,7 @@
 #include "NVEncInputRaw.h"
 #include "NVEncInputAvs.h"
 #include "NVEncInputVpy.h"
+#include "NVEncFilter.h"
 #include "avcodec_reader.h"
 #include "avcodec_writer.h"
 #include "helper_nvenc.h"
@@ -1056,6 +1057,8 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     m_pFileWriter.reset();
     m_pFileWriterListAudio.clear();
 
+    m_vpFilters.clear();
+
     ReleaseIOBuffers();
 
     nvStatus = NvEncDestroyEncoder();
@@ -1459,7 +1462,7 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-NVENCSTATUS NVEncCore::CreateDecoder(const InEncodeVideoParam *inputParam) {
+NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 #if ENABLE_AVCUVID_READER
     if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
         m_cuvidDec.reset(new CuvidDecode());
@@ -1523,20 +1526,24 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
 
     //解像度の決定
-    m_uEncWidth   = inputParam->input.width  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
-    m_uEncHeight  = inputParam->input.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+    //この段階では、フィルタを使用した場合は解像度を変更しないものとする
+    m_uEncWidth  = (m_pLastFilterParam) ? m_pLastFilterParam->nOutWidth  : inputParam->input.width  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
+    m_uEncHeight = (m_pLastFilterParam) ? m_pLastFilterParam->nOutHeight : inputParam->input.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
 
-    if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
+    //この段階では、フィルタを使用した場合は解像度を変更しないものとする
+    if (!m_pLastFilterParam) {
+        if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
 #if ENABLE_AVCUVID_READER
-        if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
-            m_uEncWidth  = inputParam->input.dstWidth;
-            m_uEncHeight = inputParam->input.dstHeight;
-        } else
+            if (inputParam->input.type == NV_ENC_INPUT_AVCUVID) {
+                m_uEncWidth  = inputParam->input.dstWidth;
+                m_uEncHeight = inputParam->input.dstHeight;
+            } else
 #endif
-        if (m_uEncWidth != inputParam->input.width || m_uEncHeight != inputParam->input.height) {
-            PrintMes(NV_LOG_ERROR, _T("resizing requires to be used with avcuvid reader.\n"));
-            PrintMes(NV_LOG_ERROR, _T(" input %dx%d -> output %dx%d.\n"), m_uEncWidth, m_uEncHeight, inputParam->input.dstWidth, inputParam->input.dstHeight);
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+                if (m_uEncWidth != inputParam->input.width || m_uEncHeight != inputParam->input.height) {
+                    PrintMes(NV_LOG_ERROR, _T("resizing requires to be used with avcuvid reader.\n"));
+                    PrintMes(NV_LOG_ERROR, _T(" input %dx%d -> output %dx%d.\n"), m_uEncWidth, m_uEncHeight, inputParam->input.dstWidth, inputParam->input.dstHeight);
+                    return NV_ENC_ERR_UNSUPPORTED_PARAM;
+                }
         }
     }
 
@@ -1865,6 +1872,24 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
     return nvStatus;
 }
 
+NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
+    if (m_pFileReader->getInputCodec() && cropEnabled(inputParam->input.crop)) {
+        unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCrop());
+        shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
+        param->crop = inputParam->input.crop;
+        param->nInWidth = inputParam->input.width;
+        param->nInHeight = inputParam->input.height;
+        param->bOutOverwrite = false;
+        auto sts = filterCrop->init(param, m_pNVLog);
+        if (sts != NV_ENC_SUCCESS) {
+            return sts;
+        }
+        m_vpFilters.push_back(std::move(filterCrop));
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+    }
+    return NV_ENC_SUCCESS;
+}
+
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
@@ -1886,10 +1911,16 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(NV_LOG_DEBUG, _T("createDeviceFeatureList: Success.\n"));
 
     //必要ならデコーダを作成
-    if (NV_ENC_SUCCESS != (nvStatus = CreateDecoder(inputParam))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitDecoder(inputParam))) {
         return nvStatus;
     }
-    PrintMes(NV_LOG_DEBUG, _T("CreateDecoder: Success.\n"));
+    PrintMes(NV_LOG_DEBUG, _T("InitDecoder: Success.\n"));
+
+    //必要ならフィルターを作成
+    if (NV_ENC_SUCCESS != (nvStatus = InitFilters(inputParam))) {
+        return nvStatus;
+    }
+    PrintMes(NV_LOG_DEBUG, _T("InitFilters: Success.\n"));
 
     //エンコーダにパラメータを渡し、初期化
     if (NV_ENC_SUCCESS != (nvStatus = CreateEncoder(inputParam))) {

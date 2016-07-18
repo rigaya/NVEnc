@@ -39,6 +39,8 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>NVEncCore</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <CudaToolkitCustomDir>
+    </CudaToolkitCustomDir>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -95,6 +97,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 8.0.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -172,6 +175,14 @@
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <CudaCompile>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+    </CudaCompile>
+    <CudaCompile>
+      <GenerateLineInfo>true</GenerateLineInfo>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
@@ -193,6 +204,17 @@
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <CudaCompile>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+    </CudaCompile>
+    <CudaCompile>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaCompile>
+    <CudaCompile>
+      <GenerateLineInfo>true</GenerateLineInfo>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -213,6 +235,13 @@
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <GenerateLineInfo>true</GenerateLineInfo>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <ClCompile>
@@ -234,6 +263,14 @@
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <GPUDebugInfo>true</GPUDebugInfo>
+      <GenerateLineInfo>true</GenerateLineInfo>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -265,6 +302,10 @@
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <CudaCompile>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -295,6 +336,11 @@
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
     <ClCompile>
@@ -327,6 +373,10 @@
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <CudaCompile>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
     <ClCompile>
@@ -358,6 +408,11 @@
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\NVEncSDK\Common\src\NvHWEncoder.cpp">
@@ -396,6 +451,7 @@
     <ClCompile Include="FrameQueue.cpp" />
     <ClCompile Include="gpu_info.cpp" />
     <ClCompile Include="NVEncFeature.cpp" />
+    <ClCompile Include="NVEncFilter.cpp" />
     <ClCompile Include="NVEncInput.cpp" />
     <ClCompile Include="NVEncInputAvs.cpp" />
     <ClCompile Include="NVEncInputRaw.cpp" />
@@ -429,6 +485,7 @@
     <ClInclude Include="FrameQueue.h" />
     <ClInclude Include="gpu_info.h" />
     <ClInclude Include="NVEncFeature.h" />
+    <ClInclude Include="NVEncFilter.h" />
     <ClInclude Include="NVEncInput.h" />
     <ClInclude Include="NVEncInputAvs.h" />
     <ClInclude Include="NVEncInputRaw.h" />
@@ -444,7 +501,20 @@
     <ClInclude Include="NVEncUtil.h" />
     <ClInclude Include="qsv_queue.h" />
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="NVEncFilterCrop.cu">
+      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+    </CudaCompile>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 8.0.targets" />
   </ImportGroup>
 </Project>

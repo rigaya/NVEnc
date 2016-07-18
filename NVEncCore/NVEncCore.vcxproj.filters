@@ -93,6 +93,9 @@
     <ClCompile Include="NVEncOutput.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="NVEncFilter.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ConvertCsp.h">
@@ -176,5 +179,13 @@
     <ClInclude Include="qsv_queue.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilter.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="NVEncFilterCrop.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>
