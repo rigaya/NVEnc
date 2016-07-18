@@ -45,7 +45,7 @@
 #include "NVEncParam.h"
 #include "FrameQueue.h"
 #include "CuvidDecode.h"
-#include "NVEncFilter"
+#include "NVEncFilter.h"
 
 using std::vector;
 
