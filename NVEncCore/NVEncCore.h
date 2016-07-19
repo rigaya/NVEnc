@@ -63,6 +63,7 @@ static const int DEFAULT_QP_B        = 25;
 static const int DEFAULT_AVG_BITRATE = 7500000;
 static const int DEFAULT_MAX_BITRATE = 17500000;
 static const int DEFAULT_OUTPUT_BUF  = 8;
+static const int DEFAULT_LOOKAHEAD   = 16;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
 #ifdef _M_IX86
@@ -221,7 +222,7 @@ protected:
     NVENCSTATUS CreateEncoder(const InEncodeVideoParam *inputParam);
 
     //入出力用バッファを確保
-    NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, bool bYUV444);
+    NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat);
 
     //フレームを1枚エンコーダに投入(非同期)
     NVENCSTATUS EncodeFrame(uint64_t timestamp);
@@ -278,7 +279,7 @@ protected:
 #endif //#if ENABLE_AVCUVID_READER
     //サブメソッド
     NVENCSTATUS NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType);
-    NVENCSTATUS NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, uint32_t isYuv444);
+    NVENCSTATUS NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, NV_ENC_BUFFER_FORMAT inputFormat);
     NVENCSTATUS NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer);
     NVENCSTATUS NvEncCreateBitstreamBuffer(uint32_t size, void **bitstreamBuffer);
     NVENCSTATUS NvEncDestroyBitstreamBuffer(NV_ENC_OUTPUT_PTR bitstreamBuffer);

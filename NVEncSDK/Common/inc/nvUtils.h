@@ -13,11 +13,7 @@
 #define NVUTILS_H
 
 #include "nvCPUOPSys.h"
-#pragma warning(push)
-#pragma warning(disable: 4100)
-#pragma warning(disable: 4477)
 #include "nvFileIO.h"
-#pragma warning(pop)
 
 #if defined (NV_WINDOWS)
 #include <windows.h>

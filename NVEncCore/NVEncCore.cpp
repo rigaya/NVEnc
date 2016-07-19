@@ -764,14 +764,14 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, uint32_t isYuv444) {
+NVENCSTATUS NVEncCore::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, NV_ENC_BUFFER_FORMAT inputFormat) {
     NV_ENC_CREATE_INPUT_BUFFER createInputBufferParams;
     INIT_CONFIG(createInputBufferParams, NV_ENC_CREATE_INPUT_BUFFER);
 
     createInputBufferParams.width = width;
     createInputBufferParams.height = height;
     createInputBufferParams.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
-    createInputBufferParams.bufferFmt = isYuv444 ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
+    createInputBufferParams.bufferFmt = inputFormat;
 
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncCreateInputBuffer(m_hEncoder, &createInputBufferParams);
     if (nvStatus != NV_ENC_SUCCESS) {
@@ -1102,7 +1102,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, bool bYUV444) {
+NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
     m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_uEncodeBufferCount);
@@ -1124,14 +1124,14 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         } else
 #endif //#if ENABLE_AVCUVID_READER
         {
-            nvStatus = NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, bYUV444);
+            nvStatus = NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, inputFormat);
             if (nvStatus != NV_ENC_SUCCESS) {
                 PrintMes(NV_LOG_ERROR, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
                 return nvStatus;
             }
         }
 
-        m_stEncodeBuffer[i].stInputBfr.bufferFmt = (bYUV444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
+        m_stEncodeBuffer[i].stInputBfr.bufferFmt = inputFormat;
         m_stEncodeBuffer[i].stInputBfr.dwWidth = uInputWidth;
         m_stEncodeBuffer[i].stInputBfr.dwHeight = uInputHeight;
 
@@ -1915,7 +1915,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(NV_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
     
     //入出力用メモリ確保
-    if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, inputParam->yuv444 || inputParam->lossless))) {
+    if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, inputParam->yuv444 || inputParam->lossless ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL))) {
         return nvStatus;
     }
     PrintMes(NV_LOG_DEBUG, _T("AllocateIOBuffers: Success.\n"));

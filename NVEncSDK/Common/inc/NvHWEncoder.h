@@ -16,7 +16,11 @@
 #include <cuda.h>
 
 #include "nvEncodeAPI.h"
+#pragma warning(push)
+#pragma warning(disable: 4100)
+#pragma warning(disable: 4477)
 #include "nvUtils.h"
+#pragma warning(pop)
 
 #define SET_VER(configStruct, type) {configStruct.version = type##_VER;}
 
@@ -65,7 +69,7 @@ typedef struct _EncodeConfig
     int              numB;
     int              pictureStruct;
     int              deviceID;
-    int              isYuv444;
+    NV_ENC_BUFFER_FORMAT inputFormat;
     char            *qpDeltaMapFile;
     char* inputFileName;
     char* outputFileName;
@@ -73,7 +77,9 @@ typedef struct _EncodeConfig
     char* inputFilePath;
     char *encCmdFileName;
     int  enableMEOnly;
+    int  enableAsyncMode;
     int  preloadedFrameCount;
+    int  enableTemporalAQ;
 }EncodeConfig;
 
 typedef struct _EncodeInputBuffer
@@ -106,6 +112,14 @@ typedef struct _EncodeBuffer
     EncodeOutputBuffer      stOutputBfr;
     EncodeInputBuffer       stInputBfr;
 }EncodeBuffer;
+
+typedef struct _MotionEstimationBuffer
+{
+    EncodeOutputBuffer      stOutputBfr;
+    EncodeInputBuffer       stInputBfr[2];
+    unsigned int            inputFrameIndex;
+    unsigned int            referenceFrameIndex;
+}MotionEstimationBuffer;
 
 typedef struct _NvEncPictureCommand
 {
@@ -175,13 +189,13 @@ public:
     NVENCSTATUS NvEncGetEncodePresetCount(GUID encodeGUID, uint32_t* encodePresetGUIDCount);
     NVENCSTATUS NvEncGetEncodePresetGUIDs(GUID encodeGUID, GUID* presetGUIDs, uint32_t guidArraySize, uint32_t* encodePresetGUIDCount);
     NVENCSTATUS NvEncGetEncodePresetConfig(GUID encodeGUID, GUID  presetGUID, NV_ENC_PRESET_CONFIG* presetConfig);
-    NVENCSTATUS NvEncCreateInputBuffer(uint32_t width, uint32_t height, void** inputBuffer, uint32_t isYuv444);
+    NVENCSTATUS NvEncCreateInputBuffer(uint32_t width, uint32_t height, void** inputBuffer, NV_ENC_BUFFER_FORMAT inputFormat);
     NVENCSTATUS NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer);
     NVENCSTATUS NvEncCreateBitstreamBuffer(uint32_t size, void** bitstreamBuffer);
     NVENCSTATUS NvEncDestroyBitstreamBuffer(NV_ENC_OUTPUT_PTR bitstreamBuffer);
     NVENCSTATUS NvEncCreateMVBuffer(uint32_t size, void** bitstreamBuffer);
     NVENCSTATUS NvEncDestroyMVBuffer(NV_ENC_OUTPUT_PTR bitstreamBuffer);
-    NVENCSTATUS NvRunMotionEstimationOnly(EncodeBuffer *pEncodeBuffer[2], MEOnlyConfig *pMEOnly);
+    NVENCSTATUS NvRunMotionEstimationOnly(MotionEstimationBuffer *pMEBuffer, MEOnlyConfig *pMEOnly);
     NVENCSTATUS NvEncLockBitstream(NV_ENC_LOCK_BITSTREAM* lockBitstreamBufferParams);
     NVENCSTATUS NvEncUnlockBitstream(NV_ENC_OUTPUT_PTR bitstreamBuffer);
     NVENCSTATUS NvEncLockInputBuffer(void* inputBuffer, void** bufferDataPtr, uint32_t* pitch);
@@ -208,9 +222,10 @@ public:
                                                                           uint32_t width, uint32_t height,
                                                                           NV_ENC_PIC_STRUCT ePicStruct = NV_ENC_PIC_STRUCT_FRAME,
                                                                           int8_t *qpDeltaMapArray = NULL, uint32_t qpDeltaMapArraySize = 0);
-    NVENCSTATUS                                          CreateEncoder(const EncodeConfig *pEncCfg);
+    NVENCSTATUS                                          CreateEncoder(EncodeConfig *pEncCfg);
     GUID                                                 GetPresetGUID(char* encoderPreset, int codec);
     NVENCSTATUS                                          ProcessOutput(const EncodeBuffer *pEncodeBuffer);
+    NVENCSTATUS                                          ProcessMVOutput(const MotionEstimationBuffer *pEncodeBuffer);
     NVENCSTATUS                                          FlushEncoder();
     NVENCSTATUS                                          ValidateEncodeGUID(GUID inputCodecGuid);
     NVENCSTATUS                                          ValidatePresetGUID(GUID presetCodecGuid, GUID inputCodecGuid);
