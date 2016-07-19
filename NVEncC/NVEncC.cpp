@@ -363,6 +363,7 @@ static tstring help() {
         _T("   --cbr <int>                  set bitrate for CBR mode (kbps)\n")
         _T("                                  Default: %d kbps\n")
         _T("\n")
+        _T("   --vbr-quality <int>          set target quality for VBR mode (0-51, 0 = auto)\n")
         _T("   --max-bitrate <int>          set Max Bitrate (kbps) / Default: %d kbps\n")
         _T("   --qp-init <int> or           set initial QP\n")
         _T("             <int>:<int>:<int>    Default: auto\n")
@@ -370,10 +371,19 @@ static tstring help() {
         _T("            <int>:<int>:<int>     Default: unset\n")
         _T("   --qp-min <int> or            set min QP\n")
         _T("             <int>:<int>:<int>    Default: unset\n")
+        _T("   --lookahead <int>            enable lookahead and set lookahead depth (1-32)\n")
+        _T("                                  Default: %d frames%s\n")
         _T("   --gop-len <int>              set GOP Length / Default: %d frames%s\n")
+        _T("   --strict-gop                 avoid GOP len fluctuation\n")
+        _T("   --no-i-apdat                 disable adapt. I frame insertion on lookahead mode\n")
+        _T("   --no-b-apdat                 disable adapt. B frame insertion on lookahead mode\n")
+        _T("                                  Default: off%s\n")
         _T("-b,--bframes <int>              set B frames / Default %d frames\n")
         _T("   --ref <int>                  set Ref frames / Default %d frames\n")
-        _T("   --aq                         enable adaptive quantization\n")
+        _T("   --aq                         enable spatial adaptive quantization\n")
+        _T("   --aq-temporal                enable temporal adaptive quantization (FOR H.264 ONLY)\n")
+        _T("   --aq-strength <int>          set aq strength (weak 1 - 16 strong)\n")
+        _T("                                  FOR H.264 ONLY, Default: auto(= 0)\n")
         _T("   --mv-precision <string>      set MV Precision / Default: Q-pel\n")
         _T("                                  Q-pel    (High Quality)\n")
         _T("                                  half-pel\n")
@@ -385,6 +395,7 @@ static tstring help() {
         _T("   --fullrange                  set fullrange\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
+        DEFAULT_LOOKAHEAD,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
         DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
     str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
@@ -1533,6 +1544,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("vbr-quality")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.targetQuality = (uint16_t)clamp(value, 0, 51);
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
     if (IS_OPTION("qp-init") || IS_OPTION("qp-max") || IS_OPTION("qp-min")) {
         NV_ENC_QP *ptrQP = nullptr;
         if (IS_OPTION("qp-init")) {
@@ -1591,6 +1613,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("strict-gop")) {
+        pParams->encConfig.rcParams.strictGOPTarget = 1;
+        return 0;
+    }
     if (IS_OPTION("bframes")) {
         i++;
         int value = 0;
@@ -1613,6 +1639,26 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("lookahead")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.enableLookahead = 1;
+            pParams->encConfig.rcParams.lookaheadDepth = (uint16_t)clamp(value, 0, 32);
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("no-i-adapt")) {
+        pParams->encConfig.rcParams.disableIadapt = 1;
+        return 0;
+    }
+    if (IS_OPTION("no-b-adapt")) {
+        pParams->encConfig.rcParams.disableBadapt = 1;
+        return 0;
+    }
     if (IS_OPTION("vbv-bufsize")) {
         i++;
         int value = 0;
@@ -1626,6 +1672,21 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("aq")) {
         pParams->encConfig.rcParams.enableAQ = 1;
+        return 0;
+    }
+    if (IS_OPTION("aq-temporal")) {
+        pParams->encConfig.rcParams.enableTemporalAQ = 1;
+        return 0;
+    }
+    if (IS_OPTION("aq-strength")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.aqStrength = clamp(value, 0, 16);
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
         return 0;
     }
     if (IS_OPTION("disable-aq")) {

@@ -2432,6 +2432,7 @@ NV_ENC_CONFIG NVEncCore::DefaultParam() {
     config.rcParams.constQP.qpInterB      = DEFAULT_QP_B;
     config.rcParams.constQP.qpInterP      = DEFAULT_QP_P;
     config.rcParams.constQP.qpIntra       = DEFAUTL_QP_I;
+    config.rcParams.lookaheadDepth        = DEFAULT_LOOKAHEAD;
 
     config.rcParams.vbvBufferSize         = 0;
     config.rcParams.vbvInitialDelay       = 0;
@@ -2564,6 +2565,20 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(NV_LOG_INFO,  _T("VBV buf size   %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize / 1000,   0, _T("kbit")).c_str());
         add_str(NV_LOG_DEBUG, _T("VBV init delay %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay / 1000, 0, _T("kbit")).c_str());
     }
+    tstring strLookahead = _T("Lookahead      ");
+    if (m_stEncConfig.rcParams.enableLookahead) {
+        strLookahead += strsprintf(_T("on, %d frames"), m_stEncConfig.rcParams.lookaheadDepth);
+        if (!m_stEncConfig.rcParams.disableBadapt || !m_stEncConfig.rcParams.disableIadapt) {
+            strLookahead += _T(", Adaptive ");
+            if (!m_stEncConfig.rcParams.disableIadapt) strLookahead += _T("I");
+            if (!m_stEncConfig.rcParams.disableBadapt && !m_stEncConfig.rcParams.disableIadapt) strLookahead += _T(", ");
+            if (!m_stEncConfig.rcParams.disableIadapt) strLookahead += _T("B");
+            strLookahead += _T(" Insert");
+        }
+    } else {
+        strLookahead += _T("off");
+    }
+    add_str(NV_LOG_INFO,  _T("%s\n"), strLookahead.c_str());
     add_str(NV_LOG_INFO,  _T("GOP length     %d frames\n"), m_stEncConfig.gopLength);
     add_str(NV_LOG_INFO,  _T("B frames       %d frames\n"), m_stEncConfig.frameIntervalP - 1);
     if (codec == NV_ENC_H264) {
@@ -2584,7 +2599,23 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
 
     add_str(NV_LOG_INFO,  _T("Ref frames     %d frames\n"), (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
-    add_str(NV_LOG_INFO,  _T("AQ             %s\n"), m_stEncConfig.rcParams.enableAQ ? _T("on") : _T("off"));
+    
+    tstring strAQ;
+    if (m_stEncConfig.rcParams.enableAQ || m_stEncConfig.rcParams.enableTemporalAQ) {
+        strAQ = _T("on");
+        if (codec == NV_ENC_H264) {
+            strAQ += _T("(");
+            if (m_stEncConfig.rcParams.enableAQ)         strAQ += _T("spatial");
+            if (m_stEncConfig.rcParams.enableAQ && m_stEncConfig.rcParams.enableTemporalAQ) strAQ += _T(", ");
+            if (m_stEncConfig.rcParams.enableTemporalAQ) strAQ += _T("temporal");
+            strAQ += _T(", strength ");
+            strAQ += (m_stEncConfig.rcParams.aqStrength == 0) ? _T("auto") : strsprintf(_T("%d"), m_stEncConfig.rcParams.aqStrength);
+            strAQ += _T(")");
+        }
+    } else {
+        strAQ = _T("off");
+    }
+    add_str(NV_LOG_INFO,  _T("AQ             %s\n"), strAQ.c_str());
     add_str(NV_LOG_INFO,  _T("MV Quality     %s\n"), get_chr_from_value(list_mv_presicion, m_stEncConfig.mvPrecision));
     if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
         add_str(NV_LOG_DEBUG, _T("Slice number      %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
