@@ -1659,6 +1659,17 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stEncConfig.frameIntervalP - 1);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    if (m_stEncConfig.rcParams.enableLookahead && !getCapLimit(NV_ENC_CAPS_SUPPORT_LOOKAHEAD)) {
+        error_feature_unsupported(NV_LOG_WARN, _T("Lookahead"));
+        m_stEncConfig.rcParams.enableLookahead = 0;
+        m_stEncConfig.rcParams.lookaheadDepth = 0;
+        m_stEncConfig.rcParams.disableBadapt = 0;
+        m_stEncConfig.rcParams.disableIadapt = 0;
+    }
+    if (m_stEncConfig.rcParams.enableTemporalAQ && !getCapLimit(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ)) {
+        error_feature_unsupported(NV_LOG_WARN, _T("Temporal AQ"));
+        m_stEncConfig.rcParams.enableTemporalAQ = 0;
+    }
     if (inputParam->bluray) {
         if (inputParam->codec == NV_ENC_HEVC) {
             PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("HEVCではBluray用出力はサポートされていません。\n") : _T("Bluray output is not supported for HEVC codec.\n"));
