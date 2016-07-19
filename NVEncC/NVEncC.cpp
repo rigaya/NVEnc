@@ -842,7 +842,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("avcuvid")) {
         pParams->input.type = NV_ENC_INPUT_AVCUVID;
-        if (strInput[i+1][0] != _T('-')) {
+        if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
             i++;
             int value = 0;
             if (get_list_value(list_cuvid_mode, strInput[i], &value)) {
