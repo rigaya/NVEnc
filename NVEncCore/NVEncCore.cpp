@@ -1381,6 +1381,9 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCode
     add_cap_info(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE,      false, _T("Lossless"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_SAO,                  false, _T("SAO"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_MEONLY_MODE,          false, _T("Me Only Mode"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD,            false, _T("Lookahead"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ,          false, _T("AQ (temporal)"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE,         false, _T("10bit depth"));
     return nvStatus;
 }
 
