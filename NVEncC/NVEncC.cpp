@@ -382,7 +382,7 @@ static tstring help() {
         _T("   --ref <int>                  set Ref frames / Default %d frames\n")
         _T("   --aq                         enable spatial adaptive quantization\n")
         _T("   --aq-temporal                enable temporal adaptive quantization (FOR H.264 ONLY)\n")
-        _T("   --aq-strength <int>          set aq strength (weak 1 - 16 strong)\n")
+        _T("   --aq-strength <int>          set aq strength (weak 1 - 15 strong)\n")
         _T("                                  FOR H.264 ONLY, Default: auto(= 0)\n")
         _T("   --mv-precision <string>      set MV Precision / Default: Q-pel\n")
         _T("                                  Q-pel    (High Quality)\n")
@@ -446,7 +446,10 @@ static tstring help() {
         _T("H.265/HEVC\n")
         _T("   --cu-max <int>               set max CU size\n")
         _T("   --cu-min  <int>              set min CU size\n")
-        _T("                                  8, 16, 32 are avaliable"));
+        _T("                                  8, 16, 32 are avaliable\n")
+        _T("    warning: it is not recommended to use --cu-max or --cu-min,\n")
+        _T("             leaving it auto will enhance video quality.\n")
+    );
     return str;
 }
 
@@ -1682,7 +1685,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.aqStrength = clamp(value, 0, 16);
+            pParams->encConfig.rcParams.aqStrength = clamp(value, 0, 15);
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
