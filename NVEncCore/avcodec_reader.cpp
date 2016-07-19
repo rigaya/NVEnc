@@ -875,6 +875,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
 
         //情報を格納
+        m_nInputCodec         = m_sDecParam.codec;
         inputPrm->codec       = m_sDecParam.codec;
         inputPrm->width       = m_Demux.video.pCodecCtx->width;
         inputPrm->height      = m_Demux.video.pCodecCtx->height;
