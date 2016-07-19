@@ -389,6 +389,20 @@ const CX_DESC list_adapt_transform[] = {
     { _T("enabled"),  NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE     },
     { NULL, NULL }
 };
+
+enum : uint32_t {
+    NV_ENC_AQ_DISABLED = 0x00,
+    NV_ENC_AQ_SPATIAL  = 0x01,
+    NV_ENC_AQ_TEMPORAL = 0x02,
+    NV_ENC_AQ_BOTH     = NV_ENC_AQ_SPATIAL | NV_ENC_AQ_TEMPORAL,
+};
+const CX_DESC list_aq[] = {
+    { _T("disabled"), NV_ENC_AQ_DISABLED },
+    { _T("spatial"),  NV_ENC_AQ_SPATIAL },
+    { _T("temporal"), NV_ENC_AQ_TEMPORAL },
+    { _T("both"),     NV_ENC_AQ_BOTH },
+    { NULL, NULL }
+};
 #if 0
 const CX_DESC list_preset[] = {
     { _T("fast"),    NV_ENC_PRESET_HP      },

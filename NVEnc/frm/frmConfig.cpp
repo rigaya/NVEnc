@@ -650,6 +650,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fxgCXHEVCLevel,         list_hevc_level);
     setComboBox(fcgCXHEVCMaxCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXHEVCMinCUSize,     list_hevc_cu_size);
+    setComboBox(fcgCXAQ,                list_aq);
 
     setComboBox(fcgCXAudioTempDir,  list_audtempdir);
     setComboBox(fcgCXMP4BoxTempDir, list_mp4boxtempdir);
@@ -873,8 +874,13 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUBframes,           cnf->nvenc.enc_config.frameIntervalP - 1);
     SetCXIndex(fcgCXQualityPreset,     get_index_from_value(cnf->nvenc.preset, preset_names));
     SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, cnf->nvenc.enc_config.mvPrecision));
-    SetNUValue(fcgNUVBVBufsize,        cnf->nvenc.enc_config.rcParams.vbvBufferSize / 1000);
-    fcgCBAQ->Checked                 = cnf->nvenc.enc_config.rcParams.enableAQ != 0;
+    SetNUValue(fcgNUVBVBufsize, cnf->nvenc.enc_config.rcParams.vbvBufferSize / 1000);
+    SetNUValue(fcgNULookaheadDepth,   (cnf->nvenc.enc_config.rcParams.enableLookahead) ? cnf->nvenc.enc_config.rcParams.lookaheadDepth : 0);
+    uint32_t nAQ = 0;
+    nAQ |= cnf->nvenc.enc_config.rcParams.enableAQ ? NV_ENC_AQ_SPATIAL : 0x00;
+    nAQ |= cnf->nvenc.enc_config.rcParams.enableTemporalAQ ? NV_ENC_AQ_TEMPORAL : 0x00;
+    SetCXIndex(fcgCXAQ,                get_cx_index(list_aq, nAQ));
+    SetNUValue(fcgNUAQStrength,        cnf->nvenc.enc_config.rcParams.aqStrength);
     
     if (cnf->nvenc.par[0] * cnf->nvenc.par[1] <= 0)
         cnf->nvenc.par[0] = cnf->nvenc.par[1] = 0;
@@ -973,7 +979,19 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->nvenc.enc_config.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
     cnf->nvenc.enc_config.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
     cnf->nvenc.preset = preset_names[fcgCXQualityPreset->SelectedIndex].value;
-    cnf->nvenc.enc_config.rcParams.enableAQ = fcgCBAQ->Checked ? 1 : 0;
+
+    int nLookaheadDepth = (int)fcgNULookaheadDepth->Value;
+    if (nLookaheadDepth) {
+        cnf->nvenc.enc_config.rcParams.enableLookahead = 1;
+        cnf->nvenc.enc_config.rcParams.lookaheadDepth = (uint16_t)clamp(nLookaheadDepth, 0, 32);
+    } else {
+        cnf->nvenc.enc_config.rcParams.enableLookahead = 0;
+        cnf->nvenc.enc_config.rcParams.lookaheadDepth = 0;
+    }
+    uint32_t nAQ = list_aq[fcgCXAQ->SelectedIndex].value;
+    cnf->nvenc.enc_config.rcParams.enableAQ         = (nAQ & NV_ENC_AQ_SPATIAL)  ? 1 : 0;
+    cnf->nvenc.enc_config.rcParams.enableTemporalAQ = (nAQ & NV_ENC_AQ_TEMPORAL) ? 1 : 0;
+    cnf->nvenc.enc_config.rcParams.aqStrength = (uint32_t)clamp(fcgNUAQStrength->Value, 0, 15);
 
 
     cnf->nvenc.par[0]                = (int)fcgNUAspectRatioX->Value;

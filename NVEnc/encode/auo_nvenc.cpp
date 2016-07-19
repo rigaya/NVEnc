@@ -191,9 +191,9 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     inputPrm->scale = oip->scale / fps_gcd;
 
     //high444出力ならAviutlからYC48をもらう
-    m_pConvCSPInfo = get_convert_csp_func((inputPrm->csp == NV_ENC_CSP_YUV444) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2, inputPrm->csp, false);
+    m_sConvert = get_convert_csp_func((inputPrm->csp == NV_ENC_CSP_YUV444) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2, inputPrm->csp, false);
 
-    if (nullptr == m_pConvCSPInfo) {
+    if (nullptr == m_sConvert) {
         AddMessage(NV_LOG_ERROR, "invalid colorformat.\n");
         return 1;
     }
@@ -207,7 +207,7 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
 
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = m_sDecParam.width;
-    CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
+    CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
 }
@@ -243,7 +243,7 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
         }
     } else {
         //high444出力ならAviutlからYC48をもらう
-        if ((frame = oip->func_get_video_ex(m_iFrame, COLORFORMATS[m_pConvCSPInfo->csp_from == NV_ENC_CSP_YC48 ? CF_YC48 : CF_YUY2].FOURCC)) == NULL) {
+        if ((frame = oip->func_get_video_ex(m_iFrame, COLORFORMATS[m_sConvert->csp_from == NV_ENC_CSP_YC48 ? CF_YC48 : CF_YUY2].FOURCC)) == NULL) {
             error_afs_get_frame();
             return false;
         }
@@ -252,8 +252,8 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
     dst_array[0] = dst;
     dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * m_sDecParam.height;
     dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * m_sDecParam.height; //YUV444出力時
-    int src_pitch = m_sDecParam.src_pitch * ((m_pConvCSPInfo->csp_from == NV_ENC_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
-    m_pConvCSPInfo->func[!!m_interlaced](dst_array, (const void **)&frame, m_sDecParam.width, src_pitch, 0, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+    int src_pitch = m_sDecParam.src_pitch * ((m_sConvert->csp_from == NV_ENC_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
+    m_sConvert->func[!!m_interlaced](dst_array, (const void **)&frame, m_sDecParam.width, src_pitch, 0, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
 
     m_iFrame++;
     if (!(m_iFrame & 7))
