@@ -380,6 +380,7 @@ static tstring help() {
         _T("                                  Default: off%s\n")
         _T("-b,--bframes <int>              set B frames / Default %d frames\n")
         _T("   --ref <int>                  set Ref frames / Default %d frames\n")
+        _T("   --enable-ltr                 enable LTR (Long Term Reference pictures)\n")
         _T("   --aq                         enable spatial adaptive quantization\n")
         _T("   --aq-temporal                enable temporal adaptive quantization (FOR H.264 ONLY)\n")
         _T("   --aq-strength <int>          set aq strength (weak 1 - 15 strong)\n")
@@ -1706,6 +1707,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        return 0;
+    }
+    if (IS_OPTION("enable-ltr")) {
+        codecPrm[NV_ENC_H264].hevcConfig.enableLTR = 1;
+        codecPrm[NV_ENC_H264].hevcConfig.ltrNumFrames = 0;
+        codecPrm[NV_ENC_H264].hevcConfig.ltrTrustMode = 1;
+        codecPrm[NV_ENC_HEVC].hevcConfig.enableLTR = 1;
+        codecPrm[NV_ENC_HEVC].hevcConfig.ltrNumFrames = 0;
+        codecPrm[NV_ENC_HEVC].hevcConfig.ltrTrustMode = 1;
         return 0;
     }
     if (IS_OPTION("mv-precision")) {
