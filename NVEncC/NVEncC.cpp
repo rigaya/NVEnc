@@ -345,8 +345,8 @@ static tstring help() {
         _T("-c,--codec <string>             set ouput codec\n")
         _T("                                  h264 (or avc), h265 (or hevc)\n")
         _T("   --profile <string>           set codec profile\n")
-        _T("                                  H.264: baseline, main, high(default)\n")
-        _T("                                  HEVC : main\n"));
+        _T("                                  H.264: baseline, main, high(default), high444\n")
+        _T("                                  HEVC : main, main10, main444\n"));
 
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
         { { _T("H.264"), list_avc_level,   0 },
@@ -1904,7 +1904,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
-        if (0 == memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid))) {
+        if (   0 == memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid))
+            || codecPrm[NV_ENC_HEVC].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN444) {
             pParams->yuv444 = TRUE;
         }
         return 0;
