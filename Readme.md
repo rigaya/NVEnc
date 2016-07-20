@@ -13,15 +13,19 @@ NVEncC.exe … 上記のコマンドライン版です。
 
 ## 基本動作環境  
 Windows 7, 8, 8.1, 10 (x86/x64)  
-Aviutl 0.99g4 以降  
+Aviutl 0.99g4 以降 (NVEnc.auo)  
 NVEncが載ったハードウェア  
   NVIDIA製 GPU GeForce Kepler世代以降 (GT/GTX 6xx 以降)  
   ※GT 63x, 62x等はFermi世代のリネームであるため非対応なものがあります。  
-NVEnc 0.xx NVIDIA グラフィックドライバ 334.89以降  
-NVEnc 1.xx NVIDIA グラフィックドライバ 347.09以降  
-NVEnc 2.xx NVIDIA グラフィックドライバ 358   以降  
 
-## NVEncCのオプション  
+|NVEncのバージョン|必要なグラフィックドライバのバージョン|
+|:--------------|:----------------------------------|
+|NVEnc 0.00 以降 | NVIDIA グラフィックドライバ 334.89以降 |
+|NVEnc 1.00 以降 | NVIDIA グラフィックドライバ 347.09以降 |
+|NVEnc 2.00 以降 | NVIDIA グラフィックドライバ 358   以降 |
+|NVEnc 2.08 以降 | NVIDIA グラフィックドライバ 368.69以降 |
+
+## NVEncCの使用方法とオプション  
 [NVEncCのオプションの説明＞＞](http://rigaya34589.blog135.fc2.com/blog-entry-739.html)  
 
 ## NVEnc 使用にあたっての注意事項  
