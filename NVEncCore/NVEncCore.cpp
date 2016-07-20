@@ -1558,6 +1558,15 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
     }
 
+    if (inputParam->input.rate <= 0 || inputParam->input.scale <= 0) {
+        if (inputParam->input.type == NV_ENC_INPUT_RAW) {
+            PrintMes(NV_LOG_ERROR, _T("Please set fps when using raw input.\n"));
+        } else {
+            PrintMes(NV_LOG_ERROR, _T("Invalid fps: %d/%d.\n"), inputParam->input.rate, inputParam->input.scale);
+        }
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+
     //picStructの設定
     m_stPicStruct = (inputParam->picStruct == 0) ? NV_ENC_PIC_STRUCT_FRAME : inputParam->picStruct;
 
