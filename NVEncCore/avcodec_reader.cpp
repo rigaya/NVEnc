@@ -1084,16 +1084,19 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
 
         memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
         m_sDecParam.src_pitch = 0;
-        tstring mes = strsprintf(_T("%s: %s, %dx%d, %d/%d fps"),
-            (m_Demux.video.pCodec) ? _T("avsw") : _T("avcuvid"),
-            (m_Demux.video.pCodec) ? char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id)).c_str() : CodecIdToStr(inputPrm->codec).c_str(),
-            inputPrm->width, inputPrm->height, inputPrm->rate, inputPrm->scale);
-        if (input_prm->fSeekSec > 0.0f) {
-            mes += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
+        if (bDecodecCUVID) {
+            tstring mes = strsprintf(_T("avcuvid: %s, %dx%d, %d/%d fps"),
+                CodecIdToStr(inputPrm->codec).c_str(),
+                inputPrm->width, inputPrm->height, inputPrm->rate, inputPrm->scale);
+            if (input_prm->fSeekSec > 0.0f) {
+                mes += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
+            }
+            AddMessage(NV_LOG_DEBUG, mes);
+            m_strInputInfo += mes;
+        } else {
+            CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id))).c_str(),
+                NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
         }
-        AddMessage(NV_LOG_DEBUG, mes);
-        m_strInputInfo += mes;
-
         //スレッド関連初期化
         m_Demux.thread.bAbortInput = false;
         auto nPrmInputThread = input_prm->nInputThread;
