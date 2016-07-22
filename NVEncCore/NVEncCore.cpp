@@ -1741,9 +1741,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     if (inputParam->yuv444 || inputParam->lossless) {
 #if ENABLE_AVCUVID_READER
-        if (inputParam->input.type == NV_ENC_INPUT_AVCUVID
-            || inputParam->input.type == NV_ENC_INPUT_AVSW
-            || inputParam->input.type == NV_ENC_INPUT_AVANY) {
+        if (m_pFileReader->inputCodecIsValid()) {
             PrintMes(NV_LOG_ERROR, _T("high444 not supported avcuvid reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
