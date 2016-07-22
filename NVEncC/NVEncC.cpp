@@ -353,6 +353,7 @@ static tstring help() {
           { _T("HEVC"),  list_hevc_level,  0 }
     });
     str += strsprintf(_T("")
+        _T("   --output-depth <int>         set output bit depth ( 8(default), 10 )")
         _T("   --sar <int>:<int>            set SAR ratio\n")
         _T("   --dar <int>:<int>            set DAR ratio\n")
         _T("\n")
@@ -1907,6 +1908,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (   0 == memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid))
             || codecPrm[NV_ENC_HEVC].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN444) {
             pParams->yuv444 = TRUE;
+        }
+        if (codecPrm[NV_ENC_HEVC].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN10) {
+            codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = 2;
+        }
+        return 0;
+    }
+    if (IS_OPTION("output-depth")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = clamp(value - 8, 0, 4);
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
         }
         return 0;
     }

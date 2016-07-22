@@ -1509,6 +1509,15 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         //m_stEncConfig.profileGUIDはデフォルトではH.264のプロファイル情報
         //HEVCのプロファイル情報は、m_stEncConfig.encodeCodecConfig.hevcConfig.tierに保存されている
         m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.hevcConfig.tier, h265_profile_names);
+        static const uint32_t CHECK_TIER[] = {
+            NV_ENC_TIER_HEVC_MAIN, NV_ENC_TIER_HEVC_MAIN10, NV_ENC_TIER_HEVC_MAIN444
+        };
+        for (int i = 0; i < _countof(CHECK_TIER); i++) {
+            if (m_stEncConfig.encodeCodecConfig.hevcConfig.tier == CHECK_TIER[i]) {
+                m_stEncConfig.encodeCodecConfig.hevcConfig.tier = NV_ENC_TIER_HEVC_MAIN;
+                break;
+            }
+        }
     }
     if (!checkProfileSupported(m_stEncConfig.profileGUID)) {
         PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("指定されたプロファイルはサポートされていません。\n") : _T("Selected profile is not supported.\n"));
@@ -1814,6 +1823,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
             m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
         }
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) {
+            m_stCreateEncodeParams.encodeConfig->profileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
+        }
         //整合性チェック (HEVC VUI)
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.overscanInfoPresentFlag =
             (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.overscanInfo) ? 1 : 0;
@@ -1923,7 +1935,15 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
-    inputParam->input.csp = (inputParam->yuv444 || inputParam->lossless) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
+    if (inputParam->lossless) {
+        inputParam->yuv444 = TRUE;
+    }
+    const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+    if (bOutputHighBitDepth) {
+        inputParam->input.csp = (inputParam->yuv444) ? NV_ENC_CSP_YUV444_10 : NV_ENC_CSP_P010;
+    } else {
+        inputParam->input.csp = (inputParam->yuv444) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
+    }
     m_nAVSyncMode = inputParam->nAVSyncMode;
     m_nProcSpeedLimit = inputParam->nProcSpeedLimit;
 
@@ -1953,7 +1973,14 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(NV_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
     
     //入出力用メモリ確保
-    if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, inputParam->yuv444 || inputParam->lossless ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL))) {
+    NV_ENC_BUFFER_FORMAT encBufferFormat;
+    if (bOutputHighBitDepth) {
+        encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_10BIT : NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
+    } else {
+        encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
+    }
+    m_nAVSyncMode = inputParam->nAVSyncMode;
+    if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, encBufferFormat))) {
         return nvStatus;
     }
     PrintMes(NV_LOG_DEBUG, _T("AllocateIOBuffers: Success.\n"));
