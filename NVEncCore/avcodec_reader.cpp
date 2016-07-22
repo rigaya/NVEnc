@@ -30,6 +30,7 @@
 #include <io.h>
 #include <algorithm>
 #include <numeric>
+#include <array>
 #include <map>
 #include <cctype>
 #include <cmath>
@@ -855,7 +856,11 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
 
         bool bDecodecCUVID = false;
         if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) {
-            if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pCodecCtx->codec_id))
+            const auto USE_SW_CSP = make_array<NV_ENC_CSP>(NV_ENC_CSP_P010, NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_10);
+            if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_CUVID
+                && std::find(USE_SW_CSP.begin(), USE_SW_CSP.end(), inputPrm->csp) != USE_SW_CSP.end()) {
+                AddMessage(NV_LOG_WARN, _T("for YUV 4:4:4 or 10bit encoding switching to sw deocde mode.\n"));
+            } else if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pCodecCtx->codec_id))
                 //wmv3はAdvanced Profile (3)のみの対応
                 || m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pCodecCtx->profile != 3) {
                 if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_CUVID) {
