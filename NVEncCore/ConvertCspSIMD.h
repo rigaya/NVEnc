@@ -293,6 +293,70 @@ static void __forceinline convert_yv12_to_nv12_simd(void **dst, const void **src
     }
 }
 
+template<bool uv_only>
+static void convert_yv12_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    //Y成分のコピー
+    if (!uv_only) {
+        uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * crop_up + crop_left;
+        uint8_t *dstLine  = (uint8_t *)dst[0];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            uint16_t *dst_ptr = (uint16_t *)dstLine;
+            uint8_t *src_ptr = srcYLine;
+            uint8_t *src_ptr_fin = src_ptr + y_width;
+            __m128i x0, x1;
+            for (; src_ptr < src_ptr_fin; dst_ptr += 16, src_ptr += 16) {
+                x1 = _mm_loadu_si128((const __m128i *)src_ptr);
+                x0 = _mm_unpacklo_epi8(_mm_setzero_si128(), x1);
+                x1 = _mm_unpackhi_epi8(_mm_setzero_si128(), x1);
+                x0 = _mm_add_epi16(x0, _mm_set1_epi16(2 << 6));
+                x1 = _mm_add_epi16(x1, _mm_set1_epi16(2 << 6));
+                _mm_storeu_si128((__m128i *)(dst_ptr + 0), x0);
+                _mm_storeu_si128((__m128i *)(dst_ptr + 8), x1);
+            }
+        }
+    }
+    //UV成分のコピー
+    uint8_t *srcULine = (uint8_t *)src[1] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    uint8_t *srcVLine = (uint8_t *)src[2] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    uint8_t *dstLine  = (uint8_t *)dst[1];
+    const int uv_fin = (height - crop_bottom) >> 1;
+    for (int y = crop_up >> 1; y < uv_fin; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
+        const int x_fin = width - crop_right;
+        uint8_t *src_u_ptr = srcULine;
+        uint8_t *src_v_ptr = srcVLine;
+        uint16_t *dst_ptr = (uint16_t *)dstLine;
+        uint16_t *dst_ptr_fin = dst_ptr + x_fin;
+        __m128i x0, x1, x2, x3;
+        for (; dst_ptr < dst_ptr_fin; src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 32) {
+            x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
+            x2 = _mm_loadu_si128((const __m128i *)src_v_ptr);
+            x1 = _mm_unpacklo_epi8(x0, x2);
+            x3 = _mm_unpackhi_epi8(x0, x2);
+
+            x0 = _mm_unpacklo_epi8(_mm_setzero_si128(), x1);
+            x1 = _mm_unpackhi_epi8(_mm_setzero_si128(), x1);
+            x0 = _mm_add_epi16(x0, _mm_set1_epi16(2 << 6));
+            x1 = _mm_add_epi16(x1, _mm_set1_epi16(2 << 6));
+
+            x2 = _mm_unpacklo_epi8(_mm_setzero_si128(), x3);
+            x3 = _mm_unpackhi_epi8(_mm_setzero_si128(), x3);
+            x2 = _mm_add_epi16(x2, _mm_set1_epi16(2 << 6));
+            x3 = _mm_add_epi16(x3, _mm_set1_epi16(2 << 6));
+
+            _mm_storeu_si128((__m128i *)(dst_ptr +  0), x0);
+            _mm_storeu_si128((__m128i *)(dst_ptr +  8), x1);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 16), x2);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 24), x3);
+        }
+    }
+}
+
 static void __forceinline copy_yuv444_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
