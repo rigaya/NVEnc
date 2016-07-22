@@ -851,6 +851,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         }
 
         memset(&m_sDecParam, 0, sizeof(m_sDecParam));
+        m_sDecParam.codec = cudaVideoCodec_NumCodecs;
 
         bool bDecodecCUVID = false;
         if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) {

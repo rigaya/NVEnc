@@ -444,7 +444,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
 #endif //#if ENABLE_AVCUVID_READER
 
-    if (!m_pFileReader->getInputCodec()
+    if (!m_pFileReader->inputCodecIsValid()
         && inputParam->nTrimCount > 0) {
         //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
         sTrimParam trimParam;
@@ -1479,7 +1479,7 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
 #pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::CreateDecoder(const InEncodeVideoParam *inputParam) {
 #if ENABLE_AVCUVID_READER
-    if (m_pFileReader->getInputCodec()) {
+    if (m_pFileReader->inputCodecIsValid()) {
         m_cuvidDec.reset(new CuvidDecode());
 
         auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, m_pNVLog);
@@ -1556,7 +1556,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
 #if ENABLE_AVCUVID_READER
-        if (m_pFileReader->getInputCodec()) {
+        if (m_pFileReader->inputCodecIsValid()) {
             m_uEncWidth  = inputParam->input.dstWidth;
             m_uEncHeight = inputParam->input.dstHeight;
         } else
@@ -1582,7 +1582,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
 #if ENABLE_AVCUVID_READER
-        if (m_pFileReader->getInputCodec()) {
+        if (m_pFileReader->inputCodecIsValid()) {
             PrintMes(NV_LOG_ERROR, _T("vpp-deinterlace requires to be used with avcuvid reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
@@ -1596,7 +1596,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 #if ENABLE_AVCUVID_READER
-    if (inputParam->input.crop.e.left > 0 && m_pFileReader->getInputCodec()) {
+    if (inputParam->input.crop.e.left > 0 && m_pFileReader->inputCodecIsValid()) {
         PrintMes(NV_LOG_ERROR, _T("left crop is unsupported with avcuvid reader.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
