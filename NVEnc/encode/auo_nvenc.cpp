@@ -191,7 +191,7 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     inputPrm->scale = oip->scale / fps_gcd;
 
     //high444出力ならAviutlからYC48をもらう
-    m_sConvert = get_convert_csp_func((inputPrm->csp == NV_ENC_CSP_YUV444) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2, inputPrm->csp, false);
+    m_sConvert = get_convert_csp_func((inputPrm->csp == NV_ENC_CSP_YUV444 || inputPrm->csp == NV_ENC_CSP_P010 || inputPrm->csp == NV_ENC_CSP_YUV444_10) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2, inputPrm->csp, false);
 
     if (nullptr == m_sConvert) {
         AddMessage(NV_LOG_ERROR, "invalid colorformat.\n");

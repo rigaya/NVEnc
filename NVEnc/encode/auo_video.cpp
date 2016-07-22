@@ -204,7 +204,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             || encPrm.encConfig.frameIntervalP - 1 == 0); //Bフレームを使用しない場合
     encPrm.yuv444 |= encPrm.lossless;
     //high444が指定されていれば、yuv444出力のフラグを立てる
-    encPrm.yuv444 |= 0 == memcmp(&conf->nvenc.enc_config.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(NV_ENC_H264_PROFILE_HIGH_444_GUID));
+    encPrm.yuv444 |= conf->nvenc.codec == NV_ENC_H264 && 0 == memcmp(&conf->nvenc.enc_config.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(NV_ENC_H264_PROFILE_HIGH_444_GUID));
+    encPrm.yuv444 |= conf->nvenc.codec == NV_ENC_HEVC && encPrm.encConfig.encodeCodecConfig.hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN444;
+    if (conf->nvenc.codec == NV_ENC_HEVC) {
+        encPrm.encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 =
+            (encPrm.encConfig.encodeCodecConfig.hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN10) ? 2 : 0;
+    }
     encPrm.inputBuffer = 3;
     memcpy(encPrm.par, conf->nvenc.par, sizeof(encPrm.par));
 
