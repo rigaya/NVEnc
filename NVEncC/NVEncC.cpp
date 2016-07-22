@@ -353,7 +353,7 @@ static tstring help() {
           { _T("HEVC"),  list_hevc_level,  0 }
     });
     str += strsprintf(_T("")
-        _T("   --output-depth <int>         set output bit depth ( 8(default), 10 )")
+        _T("   --output-depth <int>         set output bit depth ( 8(default), 10 )\n")
         _T("   --sar <int>:<int>            set SAR ratio\n")
         _T("   --dar <int>:<int>            set DAR ratio\n")
         _T("\n")
