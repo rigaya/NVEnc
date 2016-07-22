@@ -1509,6 +1509,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         //m_stEncConfig.profileGUIDはデフォルトではH.264のプロファイル情報
         //HEVCのプロファイル情報は、m_stEncConfig.encodeCodecConfig.hevcConfig.tierに保存されている
         m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.hevcConfig.tier, h265_profile_names);
+        //NV_ENC_TIER_HEVC_MAIN10, NV_ENC_TIER_HEVC_MAIN444は独自拡張なので、エンコーダにはNV_ENC_TIER_HEVC_MAINとして渡す
         static const uint32_t CHECK_TIER[] = {
             NV_ENC_TIER_HEVC_MAIN, NV_ENC_TIER_HEVC_MAIN10, NV_ENC_TIER_HEVC_MAIN444
         };
