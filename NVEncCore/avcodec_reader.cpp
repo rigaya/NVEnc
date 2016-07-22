@@ -982,42 +982,42 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             AVPixelFormat pix_fmt;
             uint16_t bit_depth;
             uint16_t chroma_format;
-            int fourcc;
+            NV_ENC_CSP output_csp;
         };
 
         static const pixfmtInfo pixfmtDataList[] = {
-            { AV_PIX_FMT_YUV420P,      8, cudaVideoChromaFormat_420, cudaVideoSurfaceFormat_NV12 },
-            { AV_PIX_FMT_YUVJ420P,     8, cudaVideoChromaFormat_420, cudaVideoSurfaceFormat_NV12 },
-            { AV_PIX_FMT_NV12,         8, cudaVideoChromaFormat_420, cudaVideoSurfaceFormat_NV12 },
-            { AV_PIX_FMT_NV21,         8, cudaVideoChromaFormat_420, cudaVideoSurfaceFormat_NV12 },
-            { AV_PIX_FMT_YUV422P,      8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUVJ422P,     8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUYV422,      8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_UYVY422,      8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_NV16,         8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV444P,      8, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUVJ444P,     8, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUV420P16LE, 16, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV420P14LE, 14, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV420P12LE, 12, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV420P10LE, 10, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV420P9LE,   9, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_NV20LE,      10, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV422P16LE, 16, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV422P14LE, 14, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV422P12LE, 12, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV422P10LE, 10, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV444P16LE, 16, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUV444P14LE, 14, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUV444P12LE, 12, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUV444P10LE, 10, cudaVideoChromaFormat_444, -1 }
+            { AV_PIX_FMT_YUV420P,      8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_YUVJ420P,     8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_NV12,         8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_NV21,         8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_YUV422P,      8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUVJ422P,     8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUYV422,      8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_UYVY422,      8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_NV16,         8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV444P,      8, cudaVideoChromaFormat_444, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUVJ444P,     8, cudaVideoChromaFormat_444, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV420P16LE, 16, cudaVideoChromaFormat_420, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV420P14LE, 14, cudaVideoChromaFormat_420, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV420P12LE, 12, cudaVideoChromaFormat_420, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV420P10LE, 10, cudaVideoChromaFormat_420, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV420P9LE,   9, cudaVideoChromaFormat_420, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_NV20LE,      10, cudaVideoChromaFormat_420, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P16LE, 16, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P14LE, 14, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P12LE, 12, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P10LE, 10, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV444P16LE, 16, cudaVideoChromaFormat_444, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV444P14LE, 14, cudaVideoChromaFormat_444, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV444P12LE, 12, cudaVideoChromaFormat_444, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV444P10LE, 10, cudaVideoChromaFormat_444, NV_ENC_CSP_NA }
         };
 
         const auto pixfmt = m_Demux.video.pCodecCtx->pix_fmt;
         const auto pixfmtData = std::find_if(pixfmtDataList, pixfmtDataList + _countof(pixfmtDataList), [pixfmt](const pixfmtInfo& tableData) {
             return tableData.pix_fmt == pixfmt;
         });
-        if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->fourcc < 0) {
+        if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->output_csp == NV_ENC_CSP_NA) {
             AddMessage(NV_LOG_DEBUG, _T("Invalid pixel format from input file.\n"));
             return 1;
         }
@@ -1065,12 +1065,9 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 { AV_PIX_FMT_YUV444P12LE, NV_ENC_CSP_NA },
                 { AV_PIX_FMT_YUV444P10LE, NV_ENC_CSP_NA }
             };
-            const std::map<int, NV_ENC_CSP> CSP_CONV_CUDA = {
-                {cudaVideoSurfaceFormat_NV12 , NV_ENC_CSP_NV12 }
-            };
             auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtx->pix_fmt);
             if (pixCspConv == CSP_CONV.end()
-                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, CSP_CONV_CUDA.at(pixfmtData->fourcc), false))) {
+                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, inputPrm->csp, false))) {
                 AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
                 return 1;
             }
