@@ -1631,6 +1631,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    if (inputParam->nTrimCount > 0 && !m_pFileReader->inputCodecIsValid()) {
+        PrintMes(NV_LOG_ERROR, _T("trim is supported only with avcuvid reader.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
     if (inputParam->nAVSyncMode && inputParam->nTrimCount > 0) {
         PrintMes(NV_LOG_ERROR, _T("avsync forcecfr + trim is not supported.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
