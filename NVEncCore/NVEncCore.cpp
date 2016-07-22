@@ -1765,6 +1765,11 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             PrintMes(NV_LOG_WARN, _T("it is not recommended to use --cu-max or --cu-min, leaving it auto will enhance video quality.\n"));
         }
     }
+    const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+    if (bOutputHighBitDepth && m_pFileReader->inputCodecIsValid()) {
+        PrintMes(NV_LOG_ERROR, _T("10bit depth encoding is not supported with avcuvid reader.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
     //自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {
         m_stEncConfig.gopLength = (int)(inputParam->input.rate / (double)inputParam->input.scale + 0.5) * 10;
