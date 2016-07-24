@@ -190,7 +190,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     encPrm.encConfig.encodeCodecConfig = conf->nvenc.codecConfig[conf->nvenc.codec];
     encPrm.deviceID = conf->nvenc.deviceID;
     encPrm.preset = conf->nvenc.preset;
-    encPrm.picStruct = conf->nvenc.pic_struct;
+    encPrm.picStruct = (encPrm.codec == NV_ENC_HEVC) ? NV_ENC_PIC_STRUCT_FRAME : conf->nvenc.pic_struct;
     encPrm.bluray = conf->nvenc.bluray;
     encPrm.inputBuffer = conf->nvenc.inputBuffer;
     encPrm.input.otherPrm = &inputInfoAuo;
