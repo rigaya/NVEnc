@@ -228,7 +228,7 @@ public:
                     m_sData.bitrateKbps
                     );
             }
-            UpdateDisplay(mes);
+            UpdateDisplay(mes, progressPercent);
         }
         return NVENC_THREAD_RUNNING;
     }
