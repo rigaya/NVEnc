@@ -62,7 +62,7 @@ static inline void extend_array_size(VideoFrameData *dataset) {
 CAvcodecReader::CAvcodecReader() {
     memset(&m_Demux.format, 0, sizeof(m_Demux.format));
     memset(&m_Demux.video,  0, sizeof(m_Demux.video));
-    m_strReaderName = _T("avcuvid");
+    m_strReaderName = _T("avcuvid/avsw");
 }
 
 CAvcodecReader::~CAvcodecReader() {
@@ -591,6 +591,14 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
     m_pEncSatusInfo = pStatus;
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)inputPrm->otherPrm;
 
+    if (input_prm->bReadVideo) {
+        if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_ANY) {
+            m_strReaderName = (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) ? _T("avcuvid") : _T("avsw");
+        }
+    } else {
+        m_strReaderName = _T("avsw");
+    }
+
     m_Demux.video.bReadVideo = input_prm->bReadVideo;
     if (input_prm->bReadVideo) {
         m_pEncSatusInfo = pStatus;
@@ -877,6 +885,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 AddMessage(NV_LOG_DEBUG, _T("can be decoded by cuvid.\n"));
             }
         }
+        m_strReaderName = (bDecodecCUVID) ? _T("avcuvid") : _T("avsw");
 
         m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
 
