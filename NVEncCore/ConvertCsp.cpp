@@ -54,16 +54,26 @@ void convert_yv12_to_p010_avx2(void **dst, const void **src, int width, int src_
 void convert_yv12_to_p010_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_to_p010_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
+void convert_yv12_16_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_16_to_nv12_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yv12_14_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_14_to_nv12_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yv12_12_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_12_to_nv12_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yv12_10_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_10_to_nv12_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yv12_09_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_09_to_nv12_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
+void convert_yv12_16_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_16_to_p010_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yv12_14_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_14_to_p010_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yv12_12_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_12_to_p010_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yv12_10_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_10_to_p010_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yv12_09_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_09_to_p010_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
 void copy_yuv444_to_yuv444_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
@@ -572,15 +582,25 @@ static const ConvertCSP funcList[] = {
     { NV_ENC_CSP_YV12,    NV_ENC_CSP_P010,   false, { convert_yv12_to_p010_avx,      convert_yv12_to_p010_avx      }, AVX },
     { NV_ENC_CSP_YV12,    NV_ENC_CSP_P010,   false, { convert_yv12_to_p010_sse2,     convert_yv12_to_p010_sse2     }, SSE2 },
     { NV_ENC_CSP_YV12,    NV_ENC_CSP_P010,   false, { convert_yv12_to_p010,          convert_yv12_to_p010          }, NONE },
+    { NV_ENC_CSP_YV12_16, NV_ENC_CSP_NV12,   false, { convert_yv12_16_to_nv12_avx2,  convert_yv12_16_to_nv12_avx2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_16, NV_ENC_CSP_NV12,   false, { convert_yv12_16_to_nv12_sse2,  convert_yv12_16_to_nv12_sse2  }, SSE2 },
+    { NV_ENC_CSP_YV12_14, NV_ENC_CSP_NV12,   false, { convert_yv12_14_to_nv12_avx2,  convert_yv12_14_to_nv12_avx2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_14, NV_ENC_CSP_NV12,   false, { convert_yv12_14_to_nv12_sse2,  convert_yv12_14_to_nv12_sse2  }, SSE2 },
+    { NV_ENC_CSP_YV12_12, NV_ENC_CSP_NV12,   false, { convert_yv12_12_to_nv12_avx2,  convert_yv12_12_to_nv12_avx2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_12, NV_ENC_CSP_NV12,   false, { convert_yv12_12_to_nv12_sse2,  convert_yv12_12_to_nv12_sse2  }, SSE2 },
+    { NV_ENC_CSP_YV12_10, NV_ENC_CSP_NV12,   false, { convert_yv12_10_to_nv12_avx2,  convert_yv12_10_to_nv12_avx2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_10, NV_ENC_CSP_NV12,   false, { convert_yv12_10_to_nv12_sse2,  convert_yv12_10_to_nv12_sse2  }, SSE2 },
+    { NV_ENC_CSP_YV12_09, NV_ENC_CSP_NV12,   false, { convert_yv12_09_to_nv12_avx2,  convert_yv12_09_to_nv12_avx2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_09, NV_ENC_CSP_NV12,   false, { convert_yv12_09_to_nv12_sse2,  convert_yv12_09_to_nv12_sse2  }, SSE2 },
+    { NV_ENC_CSP_YV12_16, NV_ENC_CSP_P010,   false, { convert_yv12_16_to_p010_avx2,  convert_yv12_16_to_p010_avx2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_16, NV_ENC_CSP_P010,   false, { convert_yv12_16_to_p010_sse2,  convert_yv12_16_to_p010_sse2  }, SSE2 },
+    { NV_ENC_CSP_YV12_14, NV_ENC_CSP_P010,   false, { convert_yv12_14_to_p010_avx2,  convert_yv12_14_to_p010_avx2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_14, NV_ENC_CSP_P010,   false, { convert_yv12_14_to_p010_sse2,  convert_yv12_14_to_p010_sse2  }, SSE2 },
+    { NV_ENC_CSP_YV12_12, NV_ENC_CSP_P010,   false, { convert_yv12_12_to_p010_avx2,  convert_yv12_12_to_p010_avx2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_12, NV_ENC_CSP_P010,   false, { convert_yv12_12_to_p010_sse2,  convert_yv12_12_to_p010_sse2  }, SSE2 },
+    { NV_ENC_CSP_YV12_10, NV_ENC_CSP_P010,   false, { convert_yv12_10_to_p010_sse2,  convert_yv12_10_to_p010_sse2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_10, NV_ENC_CSP_P010,   false, { convert_yv12_10_to_p010_sse2,  convert_yv12_10_to_p010_sse2  }, SSE2 },
+    { NV_ENC_CSP_YV12_09, NV_ENC_CSP_P010,   false, { convert_yv12_09_to_p010_avx2,  convert_yv12_09_to_p010_avx2  }, AVX2|AVX },
     { NV_ENC_CSP_YV12_09, NV_ENC_CSP_P010,   false, { convert_yv12_09_to_p010_sse2,  convert_yv12_09_to_p010_sse2  }, SSE2 },
     { NV_ENC_CSP_YUV422,  NV_ENC_CSP_YUV444, false, { convert_yuv422_to_yuv444,      convert_yuv422_to_yuv444      }, NONE },
     { NV_ENC_CSP_YUV444,  NV_ENC_CSP_NV12,   false, { convert_yuv444_to_nv12,        convert_yuv444_to_nv12_i      }, NONE },
