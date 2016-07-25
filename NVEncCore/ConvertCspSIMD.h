@@ -443,7 +443,7 @@ static void __forceinline convert_yv12_high_to_p010_simd(void **dst, const void 
                 uint16_t *src_ptr = srcYLine;
                 uint16_t *dst_ptr = dstLine;
                 for (int x = 0; x < y_width; x += 8, dst_ptr += 8, src_ptr += 8) {
-                    __m128i x0 = _mm_load_si128((const __m128i *)src_ptr);
+                    __m128i x0 = _mm_loadu_si128((const __m128i *)src_ptr);
                     x0 = _mm_slli_epi16(x0, 16 - in_bit_depth);
                     _mm_storeu_si128((__m128i *)dst_ptr, x0);
                 }
