@@ -90,6 +90,7 @@ void convert_yuv444_10_to_yuv444_16_sse2(void **dst, const void **src, int width
 void convert_yuv444_09_to_yuv444_16_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yuv444_09_to_yuv444_16_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
+void convert_yuv444_to_yuv444_16_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yuv444_to_yuv444_16_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
 void convert_yuv444_16_to_yuv444_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
@@ -651,6 +652,7 @@ static const ConvertCSP funcList[] = {
     { NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_16, false, { convert_yuv444_10_to_yuv444_16_sse2, convert_yuv444_10_to_yuv444_16_sse2 }, SSE2 },
     { NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_16, false, { convert_yuv444_09_to_yuv444_16_avx2, convert_yuv444_09_to_yuv444_16_avx2 }, AVX2|AVX },
     { NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_16, false, { convert_yuv444_09_to_yuv444_16_sse2, convert_yuv444_09_to_yuv444_16_sse2 }, SSE2 },
+    { NV_ENC_CSP_YUV444,    NV_ENC_CSP_YUV444_16, false, { convert_yuv444_to_yuv444_16_avx2,    convert_yuv444_to_yuv444_16_avx2    }, AVX2|AVX },
     { NV_ENC_CSP_YUV444,    NV_ENC_CSP_YUV444_16, false, { convert_yuv444_to_yuv444_16_sse2,    convert_yuv444_to_yuv444_16_sse2    }, SSE2 },
     { NV_ENC_CSP_YUV444_16, NV_ENC_CSP_YUV444,    false, { convert_yuv444_16_to_yuv444_avx2,    convert_yuv444_16_to_yuv444_avx2    }, AVX2|AVX },
     { NV_ENC_CSP_YUV444_16, NV_ENC_CSP_YUV444,    false, { convert_yuv444_16_to_yuv444_sse2,    convert_yuv444_16_to_yuv444_sse2    }, SSE2 },

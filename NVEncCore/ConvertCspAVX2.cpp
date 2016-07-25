@@ -580,6 +580,33 @@ void convert_yuv444_09_to_yuv444_16_avx2(void **dst, const void **src, int width
     convert_yuv444_high_to_yuv444_16_avx2_base<9>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
 }
 
+void convert_yuv444_to_yuv444_16_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    for (int i = 0; i < 3; i++) {
+        uint8_t *srcYLine = (uint8_t *)src[i] + src_y_pitch_byte * crop_up + crop_left;
+        uint16_t *dstLine = (uint16_t *)dst[i];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch) {
+            uint8_t *src_ptr = srcYLine;
+            uint16_t *dst_ptr = dstLine;
+            for (int x = 0; x < y_width; x += 32, dst_ptr += 32, src_ptr += 32) {
+                __m256i y0, y1;
+                y0 = _mm256_loadu_si256((const __m256i *)src_ptr);
+                y0 = _mm256_permute4x64_epi64(y0, _MM_SHUFFLE(3,1,2,0));
+                y1 = _mm256_unpackhi_epi8(_mm256_setzero_si256(), y0);
+                y0 = _mm256_unpacklo_epi8(_mm256_setzero_si256(), y0);
+                _mm256_storeu_si256((__m256i *)(dst_ptr +  0), y0);
+                _mm256_storeu_si256((__m256i *)(dst_ptr + 16), y1);
+            }
+        }
+    }
+}
+
 template<int in_bit_depth>
 static void __forceinline convert_yuv444_high_to_yuv444_avx2_base(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
