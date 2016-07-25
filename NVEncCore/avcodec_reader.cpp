@@ -864,7 +864,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
 
         bool bDecodecCUVID = false;
         if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) {
-            const auto USE_SW_CSP = make_array<NV_ENC_CSP>(NV_ENC_CSP_P010, NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_10);
+            const auto USE_SW_CSP = make_array<NV_ENC_CSP>(NV_ENC_CSP_P010, NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_16);
             if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_CUVID
                 && std::find(USE_SW_CSP.begin(), USE_SW_CSP.end(), inputPrm->csp) != USE_SW_CSP.end()) {
                 AddMessage(NV_LOG_WARN, _T("for YUV 4:4:4 or 10bit encoding switching to sw deocde mode.\n"));
@@ -1021,10 +1021,11 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             { AV_PIX_FMT_YUV422P14LE, 14, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
             { AV_PIX_FMT_YUV422P12LE, 12, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
             { AV_PIX_FMT_YUV422P10LE, 10, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV444P16LE, 16, cudaVideoChromaFormat_444, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV444P14LE, 14, cudaVideoChromaFormat_444, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV444P12LE, 12, cudaVideoChromaFormat_444, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV444P10LE, 10, cudaVideoChromaFormat_444, NV_ENC_CSP_NA }
+            { AV_PIX_FMT_YUV444P16LE, 16, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P14LE, 14, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P12LE, 12, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P10LE, 10, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P9LE,   9, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 }
         };
 
         const auto pixfmt = m_Demux.video.pCodecCtx->pix_fmt;
@@ -1074,10 +1075,11 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 { AV_PIX_FMT_YUV422P14LE, NV_ENC_CSP_NA },
                 { AV_PIX_FMT_YUV422P12LE, NV_ENC_CSP_NA },
                 { AV_PIX_FMT_YUV422P10LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P16LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P14LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P12LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P10LE, NV_ENC_CSP_NA }
+                { AV_PIX_FMT_YUV444P16LE, NV_ENC_CSP_YUV444_16 },
+                { AV_PIX_FMT_YUV444P14LE, NV_ENC_CSP_YUV444_14 },
+                { AV_PIX_FMT_YUV444P12LE, NV_ENC_CSP_YUV444_12 },
+                { AV_PIX_FMT_YUV444P10LE, NV_ENC_CSP_YUV444_10 },
+                { AV_PIX_FMT_YUV444P9LE,  NV_ENC_CSP_YUV444_09 }
             };
             auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtx->pix_fmt);
             if (pixCspConv == CSP_CONV.end()

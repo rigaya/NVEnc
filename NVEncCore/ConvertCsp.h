@@ -44,7 +44,11 @@ enum NV_ENC_CSP {
     NV_ENC_CSP_YV12_14,
     NV_ENC_CSP_YV12_16,
     NV_ENC_CSP_P010,
+    NV_ENC_CSP_YUV444_09,
     NV_ENC_CSP_YUV444_10,
+    NV_ENC_CSP_YUV444_12,
+    NV_ENC_CSP_YUV444_14,
+    NV_ENC_CSP_YUV444_16,
     NV_ENC_CSP_YC48,
 };
 
@@ -61,7 +65,11 @@ static const TCHAR *NV_ENC_CSP_NAMES[] = {
     _T("yv12(14bit)"),
     _T("yv12(16bit)"),
     _T("p010"),
+    _T("yuv444(9bit)"),
     _T("yuv444(10bit)"),
+    _T("yuv444(12bit)"),
+    _T("yuv444(14bit)"),
+    _T("yuv444(16bit)"),
     _T("yc48")
 };
 

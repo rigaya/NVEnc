@@ -211,7 +211,7 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     inputPrm->scale = oip->scale / fps_gcd;
 
     //high444出力ならAviutlからYC48をもらう
-    const NV_ENC_CSP input_csp = (inputPrm->csp == NV_ENC_CSP_YUV444 || inputPrm->csp == NV_ENC_CSP_P010 || inputPrm->csp == NV_ENC_CSP_YUV444_10) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2;
+    const NV_ENC_CSP input_csp = (inputPrm->csp == NV_ENC_CSP_YUV444 || inputPrm->csp == NV_ENC_CSP_P010 || inputPrm->csp == NV_ENC_CSP_YUV444_16) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2;
     m_sConvert = get_convert_csp_func(input_csp, inputPrm->csp, false);
 
     if (nullptr == m_sConvert) {

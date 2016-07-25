@@ -1948,7 +1948,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
     if (bOutputHighBitDepth) {
-        inputParam->input.csp = (inputParam->yuv444) ? NV_ENC_CSP_YUV444_10 : NV_ENC_CSP_P010;
+        inputParam->input.csp = (inputParam->yuv444) ? NV_ENC_CSP_YUV444_16 : NV_ENC_CSP_P010;
     } else {
         inputParam->input.csp = (inputParam->yuv444) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
     }

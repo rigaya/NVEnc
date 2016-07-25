@@ -496,6 +496,36 @@ static void __forceinline copy_yuv444_to_yuv444(void **dst, const void **src, in
     }
 }
 
+template<int in_bit_depth>
+static void __forceinline convert_yuv444_high_to_yuv444_16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte >> 1;
+    const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    for (int i = 0; i < 3; i++) {
+        uint16_t *srcYLine = (uint16_t *)src[i] + src_y_pitch * crop_up + crop_left;
+        uint16_t *dstLine = (uint16_t *)dst[i];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
+            if (in_bit_depth == 16) {
+                memcpy_sse((uint8_t *)dstLine, (uint8_t *)srcYLine, y_width * sizeof(uint16_t));
+            } else {
+                uint16_t *src_ptr = srcYLine;
+                uint16_t *dst_ptr = dstLine;
+                for (int x = 0; x < y_width; x += 8, dst_ptr += 8, src_ptr += 8) {
+                    __m128i x0 = _mm_loadu_si128((const __m128i *)src_ptr);
+                    x0 = _mm_slli_epi16(x0, 16 - in_bit_depth);
+                    _mm_storeu_si128((__m128i *)dst_ptr, x0);
+                }
+            }
+        }
+    }
+}
+
 typedef    struct {
     short    y;                    //    画素(輝度    )データ (     0 ～ 4096 )
     short    cb;                    //    画素(色差(青))データ ( -2048 ～ 2048 )
