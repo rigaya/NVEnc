@@ -625,6 +625,26 @@ static __forceinline __m256i convert_uv_range_from_yc48_420i(__m256i y0, __m256i
     return y0;
 }
 
+static __forceinline void gather_y_u_v_from_yc48(__m256i& y0, __m256i& y1, __m256i& y2) {
+    __m256i y3, y4, y5;
+    const int MASK_INT = 0x40 + 0x08 + 0x01;
+    y3 = _mm256_blend_epi32(y0, y1, 0xf0);                    // 384, 0
+    y4 = _mm256_permute2x128_si256(y0, y2, (0x02<<4) + 0x01); // 512, 128
+    y5 = _mm256_blend_epi32(y1, y2, 0xf0);                    // 640, 256
+
+    y0 = _mm256_blend_epi16(y5, y3, MASK_INT);
+    y1 = _mm256_blend_epi16(y4, y5, MASK_INT);
+    y2 = _mm256_blend_epi16(y3, y4, MASK_INT);
+
+    y0 = _mm256_blend_epi16(y0, y4, MASK_INT<<1);
+    y1 = _mm256_blend_epi16(y1, y3, MASK_INT<<1);
+    y2 = _mm256_blend_epi16(y2, y5, MASK_INT<<1);
+
+    y0 = _mm256_shuffle_epi8(y0, yC_SUFFLE_YCP_Y);
+    y1 = _mm256_shuffle_epi8(y1, _mm256_alignr_epi8(yC_SUFFLE_YCP_Y, yC_SUFFLE_YCP_Y, 6));
+    y2 = _mm256_shuffle_epi8(y2, _mm256_alignr_epi8(yC_SUFFLE_YCP_Y, yC_SUFFLE_YCP_Y, 12));
+}
+
 void convert_yc48_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     int x, y;
     short *dst_Y = (short *)dst[0];
@@ -703,6 +723,30 @@ void convert_yc48_to_p010_i_avx2(void **dst, const void **src, int width, int sr
                 _mm256_storeu_si256((__m256i *)(C + x), convert_uv_range_from_yc48_420i(y0, y2, _mm256_set1_epi16(UV_OFFSET_x1), yC_UV_L_MA_16_420I(i), yC_UV_L_MA_16_420I((i+1)&0x01), UV_L_RSH_16_420I, yC_YCC, yC_pw_one));
             }
         }
+    }
+    _mm256_zeroupper();
+}
+
+void convert_yc48_to_yuv444_16bit_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    short *Y = (short *)dst[0];
+    short *U = (short *)dst[1];
+    short *V = (short *)dst[2];
+    short *pixel = (short *)src[0];
+    short *ycp;
+    short *const ycp_fin = (short *)pixel + width * height * 3;
+    const __m256i yC_pw_one = _mm256_set1_epi16(1);
+    const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
+    __m256i y1, y2, y3;
+    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 48, Y += 16, U += 16, V += 16) {
+        y1 = _mm256_loadu_si256((__m256i *)(ycp +  0));
+        y2 = _mm256_loadu_si256((__m256i *)(ycp + 16));
+        y3 = _mm256_loadu_si256((__m256i *)(ycp + 32));
+
+        gather_y_u_v_from_yc48(y1, y2, y3);
+
+        _mm256_storeu_si256((__m256i *)Y, convert_y_range_from_yc48( y1,                                   yC_Y_L_MA_16,      Y_L_RSH_16,     yC_YCC, yC_pw_one));
+        _mm256_storeu_si256((__m256i *)U, convert_uv_range_from_yc48(y2, _mm256_set1_epi16(UV_OFFSET_x1), yC_UV_L_MA_16_444, UV_L_RSH_16_444, yC_YCC, yC_pw_one));
+        _mm256_storeu_si256((__m256i *)V, convert_uv_range_from_yc48(y3, _mm256_set1_epi16(UV_OFFSET_x1), yC_UV_L_MA_16_444, UV_L_RSH_16_444, yC_YCC, yC_pw_one));
     }
     _mm256_zeroupper();
 }

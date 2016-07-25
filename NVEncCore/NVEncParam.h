@@ -396,6 +396,11 @@ const CX_DESC list_adapt_transform[] = {
     { _T("enabled"),  NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE     },
     { NULL, NULL }
 };
+const CX_DESC list_bitdepth[] = {
+    { _T("8bit"),    0 },
+    { _T("10bit"),   2 },
+    { NULL, NULL }
+};
 
 enum : uint32_t {
     NV_ENC_AQ_DISABLED = 0x00,

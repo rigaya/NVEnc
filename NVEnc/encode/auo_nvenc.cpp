@@ -80,7 +80,8 @@ std::tuple<bool, bool, bool> get_enc_mode_flags(const CONF_NVENC *nvenc) {
     yuv444 |= nvenc->codec == NV_ENC_HEVC && nvenc->codecConfig[nvenc->codec].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN444;
     bool high10 = false;
     if (nvenc->codec == NV_ENC_HEVC) {
-        high10 = (nvenc->codecConfig[nvenc->codec].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN10);
+        high10 |= (nvenc->codecConfig[nvenc->codec].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN10);
+        high10 |= (nvenc->codecConfig[nvenc->codec].hevcConfig.pixelBitDepthMinus8 > 0);
     }
     return std::make_tuple(lossless, yuv444, high10);
 }

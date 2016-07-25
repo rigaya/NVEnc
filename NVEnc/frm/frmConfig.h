@@ -940,6 +940,8 @@ private: System::Windows::Forms::Label^  fcgLBAQStrength;
 private: System::Windows::Forms::ComboBox^  fcgCXAQ;
 
 private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
+private: System::Windows::Forms::Label^  fcgLBHEVCOutBitDepth;
+private: System::Windows::Forms::ComboBox^  fcgCXHEVCOutBitDepth;
 
 
 
@@ -1147,6 +1149,13 @@ private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlNVEnc = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgLBLookaheadDisable = (gcnew System::Windows::Forms::Label());
+            this->fcgNULookaheadDepth = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBAQStrengthAuto = (gcnew System::Windows::Forms::Label());
+            this->fcgNUAQStrength = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBAQStrength = (gcnew System::Windows::Forms::Label());
+            this->fcgCXAQ = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBLookaheadDepth = (gcnew System::Windows::Forms::Label());
             this->fcgLBAQ = (gcnew System::Windows::Forms::Label());
             this->fcgNUVBVBufsize = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgGroupBoxAspectRatio = (gcnew System::Windows::Forms::GroupBox());
@@ -1298,13 +1307,8 @@ private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
-            this->fcgLBLookaheadDepth = (gcnew System::Windows::Forms::Label());
-            this->fcgCXAQ = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgNUAQStrength = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgLBAQStrength = (gcnew System::Windows::Forms::Label());
-            this->fcgLBAQStrengthAuto = (gcnew System::Windows::Forms::Label());
-            this->fcgNULookaheadDepth = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgLBLookaheadDisable = (gcnew System::Windows::Forms::Label());
+            this->fcgLBHEVCOutBitDepth = (gcnew System::Windows::Forms::Label());
+            this->fcgCXHEVCOutBitDepth = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1314,6 +1318,8 @@ private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
             this->fcgtabPageBat->SuspendLayout();
             this->fcgtabControlNVEnc->SuspendLayout();
             this->tabPageVideoEnc->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAQStrength))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVBVBufsize))->BeginInit();
             this->fcgGroupBoxAspectRatio->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioY))->BeginInit();
@@ -1348,8 +1354,6 @@ private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
             this->fcgtabPageAudioMain->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAQStrength))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->BeginInit();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
@@ -2175,6 +2179,72 @@ private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
             // 
+            // fcgLBLookaheadDisable
+            // 
+            this->fcgLBLookaheadDisable->AutoSize = true;
+            this->fcgLBLookaheadDisable->Location = System::Drawing::Point(215, 326);
+            this->fcgLBLookaheadDisable->Name = L"fcgLBLookaheadDisable";
+            this->fcgLBLookaheadDisable->Size = System::Drawing::Size(66, 14);
+            this->fcgLBLookaheadDisable->TabIndex = 165;
+            this->fcgLBLookaheadDisable->Text = L"※\"0\"で無効";
+            // 
+            // fcgNULookaheadDepth
+            // 
+            this->fcgNULookaheadDepth->Location = System::Drawing::Point(132, 324);
+            this->fcgNULookaheadDepth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 32, 0, 0, 0 });
+            this->fcgNULookaheadDepth->Name = L"fcgNULookaheadDepth";
+            this->fcgNULookaheadDepth->Size = System::Drawing::Size(77, 21);
+            this->fcgNULookaheadDepth->TabIndex = 164;
+            this->fcgNULookaheadDepth->Tag = L"chValue";
+            this->fcgNULookaheadDepth->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgLBAQStrengthAuto
+            // 
+            this->fcgLBAQStrengthAuto->AutoSize = true;
+            this->fcgLBAQStrengthAuto->Location = System::Drawing::Point(215, 381);
+            this->fcgLBAQStrengthAuto->Name = L"fcgLBAQStrengthAuto";
+            this->fcgLBAQStrengthAuto->Size = System::Drawing::Size(66, 14);
+            this->fcgLBAQStrengthAuto->TabIndex = 163;
+            this->fcgLBAQStrengthAuto->Text = L"※\"0\"で自動";
+            // 
+            // fcgNUAQStrength
+            // 
+            this->fcgNUAQStrength->Location = System::Drawing::Point(132, 379);
+            this->fcgNUAQStrength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 15, 0, 0, 0 });
+            this->fcgNUAQStrength->Name = L"fcgNUAQStrength";
+            this->fcgNUAQStrength->Size = System::Drawing::Size(77, 21);
+            this->fcgNUAQStrength->TabIndex = 161;
+            this->fcgNUAQStrength->Tag = L"chValue";
+            this->fcgNUAQStrength->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgLBAQStrength
+            // 
+            this->fcgLBAQStrength->AutoSize = true;
+            this->fcgLBAQStrength->Location = System::Drawing::Point(14, 381);
+            this->fcgLBAQStrength->Name = L"fcgLBAQStrength";
+            this->fcgLBAQStrength->Size = System::Drawing::Size(71, 14);
+            this->fcgLBAQStrength->TabIndex = 162;
+            this->fcgLBAQStrength->Text = L"AQ strength";
+            // 
+            // fcgCXAQ
+            // 
+            this->fcgCXAQ->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXAQ->FormattingEnabled = true;
+            this->fcgCXAQ->Location = System::Drawing::Point(132, 350);
+            this->fcgCXAQ->Name = L"fcgCXAQ";
+            this->fcgCXAQ->Size = System::Drawing::Size(122, 22);
+            this->fcgCXAQ->TabIndex = 4;
+            this->fcgCXAQ->Tag = L"chValue";
+            // 
+            // fcgLBLookaheadDepth
+            // 
+            this->fcgLBLookaheadDepth->AutoSize = true;
+            this->fcgLBLookaheadDepth->Location = System::Drawing::Point(14, 326);
+            this->fcgLBLookaheadDepth->Name = L"fcgLBLookaheadDepth";
+            this->fcgLBLookaheadDepth->Size = System::Drawing::Size(100, 14);
+            this->fcgLBLookaheadDepth->TabIndex = 160;
+            this->fcgLBLookaheadDepth->Text = L"Lookahead depth";
+            // 
             // fcgLBAQ
             // 
             this->fcgLBAQ->AutoSize = true;
@@ -2901,6 +2971,8 @@ private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
             // 
             // fcgPNHEVC
             // 
+            this->fcgPNHEVC->Controls->Add(this->fcgLBHEVCOutBitDepth);
+            this->fcgPNHEVC->Controls->Add(this->fcgCXHEVCOutBitDepth);
             this->fcgPNHEVC->Controls->Add(this->fcgLBFullrangeHEVC);
             this->fcgPNHEVC->Controls->Add(this->fcgCBFullrangeHEVC);
             this->fcgPNHEVC->Controls->Add(this->fcgCXVideoFormatHEVC);
@@ -3774,71 +3846,24 @@ private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
             // 
-            // fcgLBLookaheadDepth
+            // fcgLBHEVCOutBitDepth
             // 
-            this->fcgLBLookaheadDepth->AutoSize = true;
-            this->fcgLBLookaheadDepth->Location = System::Drawing::Point(14, 326);
-            this->fcgLBLookaheadDepth->Name = L"fcgLBLookaheadDepth";
-            this->fcgLBLookaheadDepth->Size = System::Drawing::Size(100, 14);
-            this->fcgLBLookaheadDepth->TabIndex = 160;
-            this->fcgLBLookaheadDepth->Text = L"Lookahead depth";
+            this->fcgLBHEVCOutBitDepth->AutoSize = true;
+            this->fcgLBHEVCOutBitDepth->Location = System::Drawing::Point(17, 10);
+            this->fcgLBHEVCOutBitDepth->Name = L"fcgLBHEVCOutBitDepth";
+            this->fcgLBHEVCOutBitDepth->Size = System::Drawing::Size(73, 14);
+            this->fcgLBHEVCOutBitDepth->TabIndex = 156;
+            this->fcgLBHEVCOutBitDepth->Text = L"出力ビット深度";
             // 
-            // fcgCXAQ
+            // fcgCXHEVCOutBitDepth
             // 
-            this->fcgCXAQ->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXAQ->FormattingEnabled = true;
-            this->fcgCXAQ->Location = System::Drawing::Point(132, 350);
-            this->fcgCXAQ->Name = L"fcgCXAQ";
-            this->fcgCXAQ->Size = System::Drawing::Size(122, 22);
-            this->fcgCXAQ->TabIndex = 4;
-            this->fcgCXAQ->Tag = L"chValue";
-            // 
-            // fcgNUAQStrength
-            // 
-            this->fcgNUAQStrength->Location = System::Drawing::Point(132, 379);
-            this->fcgNUAQStrength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 15, 0, 0, 0 });
-            this->fcgNUAQStrength->Name = L"fcgNUAQStrength";
-            this->fcgNUAQStrength->Size = System::Drawing::Size(77, 21);
-            this->fcgNUAQStrength->TabIndex = 161;
-            this->fcgNUAQStrength->Tag = L"chValue";
-            this->fcgNUAQStrength->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            // 
-            // fcgLBAQStrength
-            // 
-            this->fcgLBAQStrength->AutoSize = true;
-            this->fcgLBAQStrength->Location = System::Drawing::Point(14, 381);
-            this->fcgLBAQStrength->Name = L"fcgLBAQStrength";
-            this->fcgLBAQStrength->Size = System::Drawing::Size(71, 14);
-            this->fcgLBAQStrength->TabIndex = 162;
-            this->fcgLBAQStrength->Text = L"AQ strength";
-            // 
-            // fcgLBAQStrengthAuto
-            // 
-            this->fcgLBAQStrengthAuto->AutoSize = true;
-            this->fcgLBAQStrengthAuto->Location = System::Drawing::Point(215, 381);
-            this->fcgLBAQStrengthAuto->Name = L"fcgLBAQStrengthAuto";
-            this->fcgLBAQStrengthAuto->Size = System::Drawing::Size(66, 14);
-            this->fcgLBAQStrengthAuto->TabIndex = 163;
-            this->fcgLBAQStrengthAuto->Text = L"※\"0\"で自動";
-            // 
-            // fcgNULookaheadDepth
-            // 
-            this->fcgNULookaheadDepth->Location = System::Drawing::Point(132, 324);
-            this->fcgNULookaheadDepth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 32, 0, 0, 0 });
-            this->fcgNULookaheadDepth->Name = L"fcgNULookaheadDepth";
-            this->fcgNULookaheadDepth->Size = System::Drawing::Size(77, 21);
-            this->fcgNULookaheadDepth->TabIndex = 164;
-            this->fcgNULookaheadDepth->Tag = L"chValue";
-            this->fcgNULookaheadDepth->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            // 
-            // fcgLBLookaheadDisable
-            // 
-            this->fcgLBLookaheadDisable->AutoSize = true;
-            this->fcgLBLookaheadDisable->Location = System::Drawing::Point(215, 326);
-            this->fcgLBLookaheadDisable->Name = L"fcgLBLookaheadDisable";
-            this->fcgLBLookaheadDisable->Size = System::Drawing::Size(66, 14);
-            this->fcgLBLookaheadDisable->TabIndex = 165;
-            this->fcgLBLookaheadDisable->Text = L"※\"0\"で無効";
+            this->fcgCXHEVCOutBitDepth->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXHEVCOutBitDepth->FormattingEnabled = true;
+            this->fcgCXHEVCOutBitDepth->Location = System::Drawing::Point(126, 7);
+            this->fcgCXHEVCOutBitDepth->Name = L"fcgCXHEVCOutBitDepth";
+            this->fcgCXHEVCOutBitDepth->Size = System::Drawing::Size(121, 22);
+            this->fcgCXHEVCOutBitDepth->TabIndex = 155;
+            this->fcgCXHEVCOutBitDepth->Tag = L"chValue";
             // 
             // frmConfig
             // 
@@ -3880,6 +3905,8 @@ private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
             this->fcgtabControlNVEnc->ResumeLayout(false);
             this->tabPageVideoEnc->ResumeLayout(false);
             this->tabPageVideoEnc->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAQStrength))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVBVBufsize))->EndInit();
             this->fcgGroupBoxAspectRatio->ResumeLayout(false);
             this->fcgGroupBoxAspectRatio->PerformLayout();
@@ -3925,8 +3952,6 @@ private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAQStrength))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->EndInit();
             this->ResumeLayout(false);
             this->PerformLayout();
 

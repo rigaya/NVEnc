@@ -650,6 +650,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fxgCXHEVCLevel,         list_hevc_level);
     setComboBox(fcgCXHEVCMaxCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXHEVCMinCUSize,     list_hevc_cu_size);
+    setComboBox(fcgCXHEVCOutBitDepth,   list_bitdepth);
     setComboBox(fcgCXAQ,                list_aq);
 
     setComboBox(fcgCXAudioTempDir,  list_audtempdir);
@@ -906,6 +907,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode));
     
     //HEVC
+    SetCXIndex(fcgCXHEVCOutBitDepth,       get_cx_index(list_bitdepth, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8));
     SetCXIndex(fcgCXHEVCTier,      get_index_from_value(cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.tier, h265_profile_names));
     SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.level));
     SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxCUSize));
@@ -1028,7 +1030,8 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     }
 
     //HEVC
-    
+
+    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = list_bitdepth[fcgCXHEVCOutBitDepth->SelectedIndex].value;
     cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = (int)fcgNURefFrames->Value;
     cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.level = list_hevc_level[fxgCXHEVCLevel->SelectedIndex].value;
     cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.tier  = h265_profile_names[fcgCXHEVCTier->SelectedIndex].value;

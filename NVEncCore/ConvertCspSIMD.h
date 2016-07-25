@@ -848,6 +848,28 @@ static void __forceinline convert_yc48_to_yuv444_simd(void **dst, const void **s
     }
 }
 
+template <bool aligned_store>
+static __forceinline void convert_yc48_to_yuv444_16bit_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    short *Y = (short *)dst[0];
+    short *U = (short *)dst[1];
+    short *V = (short *)dst[2];
+    short *pixel = (short *)src[0];
+    short *ycp;
+    short *const ycp_fin = (short *)pixel + width * height * 3;
+    const __m128i xC_pw_one = _mm_set1_epi16(1);
+    const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
+    __m128i x1, x2, x3;
+    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 24, Y += 8, U += 8, V += 8) {
+        x1 = _mm_loadu_si128((__m128i *)(ycp +  0));
+        x2 = _mm_loadu_si128((__m128i *)(ycp +  8));
+        x3 = _mm_loadu_si128((__m128i *)(ycp + 16));
+        gather_y_u_v_from_yc48(x1, x2, x3);
+        _mm_store_switch_si128((__m128i *)Y, convert_y_range_from_yc48( x1,                                xC_Y_L_MA_16,      Y_L_RSH_16,     xC_YCC, xC_pw_one));
+        _mm_store_switch_si128((__m128i *)U, convert_uv_range_from_yc48(x2, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_444, UV_L_RSH_16_444, xC_YCC, xC_pw_one));
+        _mm_store_switch_si128((__m128i *)V, convert_uv_range_from_yc48(x3, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_444, UV_L_RSH_16_444, xC_YCC, xC_pw_one));
+    }
+}
+
 #pragma warning (pop)
 
 #endif //_CONVERT_CSP_H_

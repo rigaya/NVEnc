@@ -100,6 +100,12 @@ void convert_yc48_to_p010_i_avx(void **dst, const void **src, int width, int src
 void convert_yc48_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yc48_to_p010_i_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
+void convert_yc48_to_yuv444_16bit_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yc48_to_yuv444_16bit_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yc48_to_yuv444_16bit_sse41(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yc48_to_yuv444_16bit_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yc48_to_yuv444_16bit_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+
 //適当。
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -579,6 +585,11 @@ static const ConvertCSP funcList[] = {
     { NV_ENC_CSP_YC48,      NV_ENC_CSP_P010,      false, { convert_yc48_to_p010_sse41,          convert_yc48_to_p010_i_sse41        }, SSE41|SSSE3|SSE2 },
     { NV_ENC_CSP_YC48,      NV_ENC_CSP_P010,      false, { convert_yc48_to_p010_ssse3,          convert_yc48_to_p010_i_ssse3        }, SSSE3|SSE2 },
     { NV_ENC_CSP_YC48,      NV_ENC_CSP_P010,      false, { convert_yc48_to_p010_sse2,           convert_yc48_to_p010_i_sse2         }, SSE2 },
+    { NV_ENC_CSP_YC48,      NV_ENC_CSP_YUV444_16, false, { convert_yc48_to_yuv444_16bit_avx2,   convert_yc48_to_yuv444_16bit_avx2   }, AVX2 },
+    { NV_ENC_CSP_YC48,      NV_ENC_CSP_YUV444_16, false, { convert_yc48_to_yuv444_16bit_avx,    convert_yc48_to_yuv444_16bit_avx    }, AVX },
+    { NV_ENC_CSP_YC48,      NV_ENC_CSP_YUV444_16, false, { convert_yc48_to_yuv444_16bit_sse41,  convert_yc48_to_yuv444_16bit_sse41  }, SSE41|SSSE3|SSE2 },
+    { NV_ENC_CSP_YC48,      NV_ENC_CSP_YUV444_16, false, { convert_yc48_to_yuv444_16bit_ssse3,  convert_yc48_to_yuv444_16bit_ssse3  }, SSSE3|SSE2 },
+    { NV_ENC_CSP_YC48,      NV_ENC_CSP_YUV444_16, false, { convert_yc48_to_yuv444_16bit_sse2,   convert_yc48_to_yuv444_16bit_sse2   }, SSE2 },
 #else
     { NV_ENC_CSP_YV12,      NV_ENC_CSP_NV12,      false, { convert_yv12_to_nv12_avx2,           convert_yv12_to_nv12_avx2           }, AVX2|AVX },
     { NV_ENC_CSP_YV12,      NV_ENC_CSP_NV12,      false, { convert_yv12_to_nv12_avx,            convert_yv12_to_nv12_avx            }, AVX },
