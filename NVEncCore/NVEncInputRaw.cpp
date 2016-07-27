@@ -106,13 +106,23 @@ int NVEncInputRaw::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
                     inputPrm->csp = NV_ENC_CSP_YV12_14;
                 }  else if (0 == _strnicmp(p+1, "420p16", strlen("420p16"))) {
                     inputPrm->csp = NV_ENC_CSP_YV12_16;
-                } else if (0 == _strnicmp(p+1, "420",      strlen("420"))
-                        || 0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
+                } else if (0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
                         || 0 == _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
-                        || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))) {
+                        || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))
+                        || 0 == _strnicmp(p+1, "420",      strlen("420"))) {
                     inputPrm->csp = NV_ENC_CSP_YV12;
                 } else if (0 == _strnicmp(p+1, "422", strlen("422"))) {
                     inputPrm->csp = NV_ENC_CSP_YUV422;
+                } else if (0 == _strnicmp(p+1, "444p9", strlen("444p9"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_09;
+                } else if (0 == _strnicmp(p+1, "444p10", strlen("444p10"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_10;
+                } else if (0 == _strnicmp(p+1, "444p12", strlen("444p12"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_12;
+                } else if (0 == _strnicmp(p+1, "444p14", strlen("444p14"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_14;
+                } else if (0 == _strnicmp(p+1, "444p16", strlen("444p16"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_16;
                 } else if (0 == _strnicmp(p+1, "444", strlen("444"))) {
                     inputPrm->csp = NV_ENC_CSP_YUV444;
                 } else {
@@ -199,6 +209,13 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
     case NV_ENC_CSP_YUV444:
         src_pitch = inputPrm->width;
         bufferSize = inputPrm->width * inputPrm->height * 3; break;
+    case NV_ENC_CSP_YUV444_09:
+    case NV_ENC_CSP_YUV444_10:
+    case NV_ENC_CSP_YUV444_12:
+    case NV_ENC_CSP_YUV444_14:
+    case NV_ENC_CSP_YUV444_16:
+        src_pitch = inputPrm->width * 2;
+        bufferSize = inputPrm->width * inputPrm->height * 6; break;
     default:
         AddMessage(NV_LOG_ERROR, _T("Unknown color foramt.\n"));
         return 1;
@@ -264,6 +281,12 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     case NV_ENC_CSP_YV12_14:
     case NV_ENC_CSP_YV12_16:
         frameSize = m_sDecParam.width * m_sDecParam.height * 3; break;
+    case NV_ENC_CSP_YUV444_09:
+    case NV_ENC_CSP_YUV444_10:
+    case NV_ENC_CSP_YUV444_12:
+    case NV_ENC_CSP_YUV444_14:
+    case NV_ENC_CSP_YUV444_16:
+        frameSize = m_sDecParam.width * m_sDecParam.height * 6; break;
     default:
         AddMessage(NV_LOG_ERROR, _T("Unknown color foramt.\n"));
         return 1;
@@ -292,6 +315,11 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
         src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 2;
         break;
     case NV_ENC_CSP_YUV444:
+    case NV_ENC_CSP_YUV444_09:
+    case NV_ENC_CSP_YUV444_10:
+    case NV_ENC_CSP_YUV444_12:
+    case NV_ENC_CSP_YUV444_14:
+    case NV_ENC_CSP_YUV444_16:
         src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height;
         break;
     case NV_ENC_CSP_NV12:
