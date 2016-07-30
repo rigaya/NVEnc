@@ -81,6 +81,17 @@ bool checkAvcodecLicense() {
     return (check(avutil_license()) && check(avcodec_license()) && check(avformat_license()));
 }
 
+//NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
+AVFieldOrder nv_field_order(NV_ENC_PIC_STRUCT nPicStruct) {
+    if (nPicStruct == NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM) {
+        return AV_FIELD_TT;
+    }
+    if (nPicStruct & NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP) {
+        return AV_FIELD_BB;
+    }
+    return AV_FIELD_PROGRESSIVE;
+}
+
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret) {
     char mes[256];

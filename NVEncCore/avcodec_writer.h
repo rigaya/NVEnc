@@ -347,6 +347,7 @@ private:
 
     //extradataをコピーする
     void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
+    void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
     
     //映像の初期化
     int InitVideo(const AvcodecWriterPrm *prm);
