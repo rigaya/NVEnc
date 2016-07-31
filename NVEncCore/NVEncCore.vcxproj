@@ -415,16 +415,6 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\NVEncSDK\Common\src\NvHWEncoder.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="avcodec_qsv.cpp" />
     <ClCompile Include="avcodec_qsv_log.cpp" />
     <ClCompile Include="avcodec_reader.cpp" />
@@ -457,16 +447,6 @@
     <ClCompile Include="NVEncInputRaw.cpp" />
     <ClCompile Include="NVEncInputVpy.cpp" />
     <ClCompile Include="NVEncLog.cpp" />
-    <ClCompile Include="NvEncoderPerf.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="NVEncCore.cpp" />
     <ClCompile Include="NVEncOutput.cpp" />
     <ClCompile Include="NVEncUtil.cpp" />

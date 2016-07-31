@@ -178,9 +178,16 @@ const guid_desc h264_profile_names[] = {
     //{ NV_ENC_H264_PROFILE_STEREO_GUID,   _T("Stereo"),  128 }
 };
 
+enum {
+    NV_ENC_TIER_HEVC_MAIN10 = NV_ENC_TIER_HEVC_HIGH+1,
+    NV_ENC_TIER_HEVC_MAIN444,
+};
+
 const guid_desc h265_profile_names[] = {
     //{ NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, _T("auto"),                     0 },
-    { NV_ENC_HEVC_PROFILE_MAIN_GUID,        _T("main"), NV_ENC_TIER_HEVC_MAIN },
+    { NV_ENC_HEVC_PROFILE_MAIN_GUID,        _T("main"),    NV_ENC_TIER_HEVC_MAIN },
+    { NV_ENC_HEVC_PROFILE_MAIN10_GUID,      _T("main10"),  NV_ENC_TIER_HEVC_MAIN10 },
+    { NV_ENC_HEVC_PROFILE_FREXT_GUID,       _T("main444"), NV_ENC_TIER_HEVC_MAIN444 },
     //{ NV_ENC_HEVC_PROFILE_HIGH_GUID, _T("High"), NV_ENC_TIER_HEVC_HIGH },
 };
 
@@ -391,6 +398,25 @@ const CX_DESC list_adapt_transform[] = {
     { _T("auto"),     NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT },
     { _T("disabled"), NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE    },
     { _T("enabled"),  NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE     },
+    { NULL, NULL }
+};
+const CX_DESC list_bitdepth[] = {
+    { _T("8bit"),    0 },
+    { _T("10bit"),   2 },
+    { NULL, NULL }
+};
+
+enum : uint32_t {
+    NV_ENC_AQ_DISABLED = 0x00,
+    NV_ENC_AQ_SPATIAL  = 0x01,
+    NV_ENC_AQ_TEMPORAL = 0x02,
+    NV_ENC_AQ_BOTH     = NV_ENC_AQ_SPATIAL | NV_ENC_AQ_TEMPORAL,
+};
+const CX_DESC list_aq[] = {
+    { _T("disabled"), NV_ENC_AQ_DISABLED },
+    { _T("spatial"),  NV_ENC_AQ_SPATIAL },
+    { _T("temporal"), NV_ENC_AQ_TEMPORAL },
+    { _T("both"),     NV_ENC_AQ_BOTH },
     { NULL, NULL }
 };
 #if 0

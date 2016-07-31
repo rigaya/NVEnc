@@ -66,13 +66,34 @@ static int calc_input_frame_size(int width, int height, int color_format) {
     return width * height * COLORFORMATS[color_format].size;
 }
 
+std::tuple<bool, bool, bool> get_enc_mode_flags(const CONF_NVENC *nvenc) {
+    bool lossless = false;
+    //CQP指定で、QP値が0なら、ロスレスとみなす
+    lossless |= nvenc->enc_config.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP
+        && nvenc->enc_config.rcParams.constQP.qpIntra == 0
+        && nvenc->enc_config.rcParams.constQP.qpInterP == 0
+        && (nvenc->enc_config.rcParams.constQP.qpInterB == 0
+            || nvenc->enc_config.frameIntervalP - 1 == 0); //Bフレームを使用しない場合
+    bool yuv444 = lossless;
+    //high444が指定されていれば、yuv444出力のフラグを立てる
+    yuv444 |= nvenc->codec == NV_ENC_H264 && 0 == memcmp(&nvenc->enc_config.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(NV_ENC_H264_PROFILE_HIGH_444_GUID));
+    yuv444 |= nvenc->codec == NV_ENC_HEVC && nvenc->codecConfig[nvenc->codec].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN444;
+    bool high10 = false;
+    if (nvenc->codec == NV_ENC_HEVC) {
+        high10 |= (nvenc->codecConfig[nvenc->codec].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN10);
+        high10 |= (nvenc->codecConfig[nvenc->codec].hevcConfig.pixelBitDepthMinus8 > 0);
+    }
+    return std::make_tuple(lossless, yuv444, high10);
+}
+
 BOOL setup_afsvideo(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, CONF_GUIEX *conf, PRM_ENC *pe) {
     //すでに初期化してある または 必要ない
     if (pe->afs_init || pe->video_out_type == VIDEO_OUTPUT_DISABLED || !conf->vid.afs)
         return TRUE;
 
-    //high444出力ならAviutlからYC48をもらう
-    const int color_format = (0 == memcmp(&conf->nvenc.enc_config.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(NV_ENC_H264_PROFILE_HIGH_444_GUID))) ? CF_YC48 : CF_YUY2;
+    //high444出力, 10bit出力ならAviutlからYC48をもらう
+    const auto enc_mode_flags = get_enc_mode_flags(&conf->nvenc);
+    const int color_format = (std::get<1>(enc_mode_flags) || std::get<2>(enc_mode_flags)) ? CF_YC48 : CF_YUY2;
     const int frame_size = calc_input_frame_size(oip->w, oip->h, color_format);
     //Aviutl(自動フィールドシフト)からの映像入力
     if (afs_vbuf_setup((OUTPUT_INFO *)oip, conf->vid.afs, frame_size, COLORFORMATS[color_format].FOURCC)) {
@@ -191,9 +212,10 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     inputPrm->scale = oip->scale / fps_gcd;
 
     //high444出力ならAviutlからYC48をもらう
-    m_pConvCSPInfo = get_convert_csp_func((inputPrm->csp == NV_ENC_CSP_YUV444) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2, inputPrm->csp, false);
+    const NV_ENC_CSP input_csp = (inputPrm->csp == NV_ENC_CSP_YUV444 || inputPrm->csp == NV_ENC_CSP_P010 || inputPrm->csp == NV_ENC_CSP_YUV444_16) ? NV_ENC_CSP_YC48 : NV_ENC_CSP_YUY2;
+    m_sConvert = get_convert_csp_func(input_csp, inputPrm->csp, false);
 
-    if (nullptr == m_pConvCSPInfo) {
+    if (nullptr == m_sConvert) {
         AddMessage(NV_LOG_ERROR, "invalid colorformat.\n");
         return 1;
     }
@@ -207,7 +229,7 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
 
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = m_sDecParam.width;
-    CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_from], NV_ENC_CSP_NAMES[m_pConvCSPInfo->csp_to], get_simd_str(m_pConvCSPInfo->simd), inputPrm);
+    CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
 }
@@ -243,7 +265,7 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
         }
     } else {
         //high444出力ならAviutlからYC48をもらう
-        if ((frame = oip->func_get_video_ex(m_iFrame, COLORFORMATS[m_pConvCSPInfo->csp_from == NV_ENC_CSP_YC48 ? CF_YC48 : CF_YUY2].FOURCC)) == NULL) {
+        if ((frame = oip->func_get_video_ex(m_iFrame, COLORFORMATS[m_sConvert->csp_from == NV_ENC_CSP_YC48 ? CF_YC48 : CF_YUY2].FOURCC)) == NULL) {
             error_afs_get_frame();
             return false;
         }
@@ -252,8 +274,8 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
     dst_array[0] = dst;
     dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * m_sDecParam.height;
     dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * m_sDecParam.height; //YUV444出力時
-    int src_pitch = m_sDecParam.src_pitch * ((m_pConvCSPInfo->csp_from == NV_ENC_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
-    m_pConvCSPInfo->func[!!m_interlaced](dst_array, (const void **)&frame, m_sDecParam.width, src_pitch, 0, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+    int src_pitch = m_sDecParam.src_pitch * ((m_sConvert->csp_from == NV_ENC_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
+    m_sConvert->func[!!m_interlaced](dst_array, (const void **)&frame, m_sDecParam.width, src_pitch, 0, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
 
     m_iFrame++;
     if (!(m_iFrame & 7))

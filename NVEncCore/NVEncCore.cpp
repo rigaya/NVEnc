@@ -445,7 +445,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
 #endif //#if ENABLE_AVCUVID_READER
 
-    if (!m_pFileReader->getInputCodec()
+    if (!m_pFileReader->inputCodecIsValid()
         && inputParam->nTrimCount > 0) {
         //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
         sTrimParam trimParam;
@@ -765,14 +765,14 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, uint32_t isYuv444) {
+NVENCSTATUS NVEncCore::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, NV_ENC_BUFFER_FORMAT inputFormat) {
     NV_ENC_CREATE_INPUT_BUFFER createInputBufferParams;
     INIT_CONFIG(createInputBufferParams, NV_ENC_CREATE_INPUT_BUFFER);
 
     createInputBufferParams.width = width;
     createInputBufferParams.height = height;
     createInputBufferParams.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
-    createInputBufferParams.bufferFmt = isYuv444 ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
+    createInputBufferParams.bufferFmt = inputFormat;
 
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncCreateInputBuffer(m_hEncoder, &createInputBufferParams);
     if (nvStatus != NV_ENC_SUCCESS) {
@@ -1105,7 +1105,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, bool bYUV444) {
+NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
     m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_uEncodeBufferCount);
@@ -1127,14 +1127,14 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         } else
 #endif //#if ENABLE_AVCUVID_READER
         {
-            nvStatus = NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, bYUV444);
+            nvStatus = NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, inputFormat);
             if (nvStatus != NV_ENC_SUCCESS) {
                 PrintMes(NV_LOG_ERROR, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
                 return nvStatus;
             }
         }
 
-        m_stEncodeBuffer[i].stInputBfr.bufferFmt = (bYUV444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
+        m_stEncodeBuffer[i].stInputBfr.bufferFmt = inputFormat;
         m_stEncodeBuffer[i].stInputBfr.dwWidth = uInputWidth;
         m_stEncodeBuffer[i].stInputBfr.dwHeight = uInputHeight;
 
@@ -1384,6 +1384,9 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCode
     add_cap_info(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE,      false, _T("Lossless"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_SAO,                  false, _T("SAO"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_MEONLY_MODE,          false, _T("Me Only Mode"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD,            false, _T("Lookahead"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ,          false, _T("AQ (temporal)"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE,         false, _T("10bit depth"));
     return nvStatus;
 }
 
@@ -1479,7 +1482,7 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
 #pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 #if ENABLE_AVCUVID_READER
-    if (m_pFileReader->getInputCodec()) {
+    if (m_pFileReader->inputCodecIsValid()) {
         m_cuvidDec.reset(new CuvidDecode());
 
         auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, m_pNVLog);
@@ -1509,6 +1512,16 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         //m_stEncConfig.profileGUIDはデフォルトではH.264のプロファイル情報
         //HEVCのプロファイル情報は、m_stEncConfig.encodeCodecConfig.hevcConfig.tierに保存されている
         m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.hevcConfig.tier, h265_profile_names);
+        //NV_ENC_TIER_HEVC_MAIN10, NV_ENC_TIER_HEVC_MAIN444は独自拡張なので、エンコーダにはNV_ENC_TIER_HEVC_MAINとして渡す
+        static const uint32_t CHECK_TIER[] = {
+            NV_ENC_TIER_HEVC_MAIN, NV_ENC_TIER_HEVC_MAIN10, NV_ENC_TIER_HEVC_MAIN444
+        };
+        for (int i = 0; i < _countof(CHECK_TIER); i++) {
+            if (m_stEncConfig.encodeCodecConfig.hevcConfig.tier == CHECK_TIER[i]) {
+                m_stEncConfig.encodeCodecConfig.hevcConfig.tier = NV_ENC_TIER_HEVC_MAIN;
+                break;
+            }
+        }
     }
     if (!checkProfileSupported(m_stEncConfig.profileGUID)) {
         PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("指定されたプロファイルはサポートされていません。\n") : _T("Selected profile is not supported.\n"));
@@ -1549,7 +1562,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     if (!m_pLastFilterParam) {
         if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
 #if ENABLE_AVCUVID_READER
-            if (m_pFileReader->getInputCodec()) {
+            if (m_pFileReader->inputCodecIsValid()) {
                 m_uEncWidth  = inputParam->input.dstWidth;
                 m_uEncHeight = inputParam->input.dstHeight;
             } else
@@ -1562,12 +1575,21 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
     }
 
+    if (inputParam->input.rate <= 0 || inputParam->input.scale <= 0) {
+        if (inputParam->input.type == NV_ENC_INPUT_RAW) {
+            PrintMes(NV_LOG_ERROR, _T("Please set fps when using raw input.\n"));
+        } else {
+            PrintMes(NV_LOG_ERROR, _T("Invalid fps: %d/%d.\n"), inputParam->input.rate, inputParam->input.scale);
+        }
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+
     //picStructの設定
     m_stPicStruct = (inputParam->picStruct == 0) ? NV_ENC_PIC_STRUCT_FRAME : inputParam->picStruct;
 
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
 #if ENABLE_AVCUVID_READER
-        if (m_pFileReader->getInputCodec()) {
+        if (m_pFileReader->inputCodecIsValid()) {
             PrintMes(NV_LOG_ERROR, _T("vpp-deinterlace requires to be used with avcuvid reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
@@ -1581,7 +1603,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 #if ENABLE_AVCUVID_READER
-    if (inputParam->input.crop.e.left > 0 && m_pFileReader->getInputCodec()) {
+    if (inputParam->input.crop.e.left > 0 && m_pFileReader->inputCodecIsValid()) {
         PrintMes(NV_LOG_ERROR, _T("left crop is unsupported with avcuvid reader.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -1614,6 +1636,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         if (is_interlaced(m_stPicStruct)) {
             PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("さらに、インタレ保持エンコードでは縦Crop値は4の倍数である必要があります。\n") : _T("For interlaced encoding, mod4 is required for height.\n"));
         }
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+    if (inputParam->nTrimCount > 0 && !m_pFileReader->inputCodecIsValid()) {
+        PrintMes(NV_LOG_ERROR, _T("trim is supported only with avcuvid reader.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     if (inputParam->nAVSyncMode && inputParam->nTrimCount > 0) {
@@ -1663,6 +1689,17 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stEncConfig.frameIntervalP - 1);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    if (m_stEncConfig.rcParams.enableLookahead && !getCapLimit(NV_ENC_CAPS_SUPPORT_LOOKAHEAD)) {
+        error_feature_unsupported(NV_LOG_WARN, _T("Lookahead"));
+        m_stEncConfig.rcParams.enableLookahead = 0;
+        m_stEncConfig.rcParams.lookaheadDepth = 0;
+        m_stEncConfig.rcParams.disableBadapt = 0;
+        m_stEncConfig.rcParams.disableIadapt = 0;
+    }
+    if (m_stEncConfig.rcParams.enableTemporalAQ && !getCapLimit(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ)) {
+        error_feature_unsupported(NV_LOG_WARN, _T("Temporal AQ"));
+        m_stEncConfig.rcParams.enableTemporalAQ = 0;
+    }
     if (inputParam->bluray) {
         if (inputParam->codec == NV_ENC_HEVC) {
             PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("HEVCではBluray用出力はサポートされていません。\n") : _T("Bluray output is not supported for HEVC codec.\n"));
@@ -1711,9 +1748,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     if (inputParam->yuv444 || inputParam->lossless) {
 #if ENABLE_AVCUVID_READER
-        if (inputParam->input.type == NV_ENC_INPUT_AVCUVID
-            || inputParam->input.type == NV_ENC_INPUT_AVSW
-            || inputParam->input.type == NV_ENC_INPUT_AVANY) {
+        if (m_pFileReader->inputCodecIsValid()) {
             PrintMes(NV_LOG_ERROR, _T("high444 not supported avcuvid reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
@@ -1729,9 +1764,28 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
     }
+    if (inputParam->codec == NV_ENC_HEVC) {
+        if (   ( m_stEncConfig.encodeCodecConfig.hevcConfig.maxCUSize != NV_ENC_HEVC_CUSIZE_AUTOSELECT
+              && m_stEncConfig.encodeCodecConfig.hevcConfig.maxCUSize != NV_ENC_HEVC_CUSIZE_32x32)
+            || ( m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize != NV_ENC_HEVC_CUSIZE_AUTOSELECT
+              && m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize != NV_ENC_HEVC_CUSIZE_8x8)) {
+            PrintMes(NV_LOG_WARN, _T("it is not recommended to use --cu-max or --cu-min, leaving it auto will enhance video quality.\n"));
+        }
+    }
+    const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+    if (bOutputHighBitDepth && m_pFileReader->inputCodecIsValid()) {
+        PrintMes(NV_LOG_ERROR, _T("10bit depth encoding is not supported with avcuvid reader.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
     //自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {
         m_stEncConfig.gopLength = (int)(inputParam->input.rate / (double)inputParam->input.scale + 0.5) * 10;
+    }
+    if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR && m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames == 0) {
+        m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames = m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames;
+    }
+    if (m_stEncConfig.encodeCodecConfig.hevcConfig.enableLTR && m_stEncConfig.encodeCodecConfig.hevcConfig.ltrNumFrames == 0) {
+        m_stEncConfig.encodeCodecConfig.hevcConfig.ltrNumFrames = m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB;
     }
     //SAR自動設定
     auto par = std::make_pair(inputParam->par[0], inputParam->par[1]);
@@ -1782,6 +1836,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         if (inputParam->yuv444 || inputParam->lossless) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 3;
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
+            m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
+        }
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) {
+            m_stCreateEncodeParams.encodeConfig->profileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
         }
         //整合性チェック (HEVC VUI)
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.overscanInfoPresentFlag =
@@ -1890,7 +1948,7 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
-    if (m_pFileReader->getInputCodec() && cropEnabled(inputParam->input.crop)) {
+    if (m_pFileReader->inputCodecIsValid() && cropEnabled(inputParam->input.crop)) {
         unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
         param->crop = inputParam->input.crop;
@@ -1910,7 +1968,15 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
-    inputParam->input.csp = (inputParam->yuv444 || inputParam->lossless) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
+    if (inputParam->lossless) {
+        inputParam->yuv444 = TRUE;
+    }
+    const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+    if (bOutputHighBitDepth) {
+        inputParam->input.csp = (inputParam->yuv444) ? NV_ENC_CSP_YUV444_16 : NV_ENC_CSP_P010;
+    } else {
+        inputParam->input.csp = (inputParam->yuv444) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
+    }
     m_nAVSyncMode = inputParam->nAVSyncMode;
     m_nProcSpeedLimit = inputParam->nProcSpeedLimit;
 
@@ -1946,7 +2012,14 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(NV_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
     
     //入出力用メモリ確保
-    if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, inputParam->yuv444 || inputParam->lossless))) {
+    NV_ENC_BUFFER_FORMAT encBufferFormat;
+    if (bOutputHighBitDepth) {
+        encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_10BIT : NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
+    } else {
+        encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
+    }
+    m_nAVSyncMode = inputParam->nAVSyncMode;
+    if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, encBufferFormat))) {
         return nvStatus;
     }
     PrintMes(NV_LOG_DEBUG, _T("AllocateIOBuffers: Success.\n"));
@@ -2460,6 +2533,7 @@ NV_ENC_CONFIG NVEncCore::DefaultParam() {
     config.rcParams.constQP.qpInterB      = DEFAULT_QP_B;
     config.rcParams.constQP.qpInterP      = DEFAULT_QP_P;
     config.rcParams.constQP.qpIntra       = DEFAUTL_QP_I;
+    config.rcParams.lookaheadDepth        = DEFAULT_LOOKAHEAD;
 
     config.rcParams.vbvBufferSize         = 0;
     config.rcParams.vbvInitialDelay       = 0;
@@ -2548,8 +2622,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     if (m_nAVSyncMode != NV_AVSYNC_THROUGH) {
         add_str(NV_LOG_ERROR, _T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     }
-    add_str(NV_LOG_ERROR, _T("Output Info    %s %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
-        (codec == NV_ENC_H264) ? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names));
+    add_str(NV_LOG_ERROR, _T("Output Info    %s %s%s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
+        (codec == NV_ENC_H264) ? get_name_from_guid(m_stEncConfig.profileGUID, h264_profile_names) : get_name_from_guid(m_stEncConfig.profileGUID, h265_profile_names),
+        (codec == NV_ENC_HEVC && 0 == memcmp(&NV_ENC_HEVC_PROFILE_FREXT_GUID, &m_stEncConfig.profileGUID, sizeof(GUID)) && m_stEncConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) ? _T(" 10bit") : _T(""));
     add_str(NV_LOG_ERROR, _T("               %dx%d%s %d:%d %.3ffps (%d/%dfps)\n"), m_uEncWidth, m_uEncHeight, (m_stEncConfig.frameFieldMode != NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME) ? _T("i") : _T("p"), sar.first, sar.second, m_stCreateEncodeParams.frameRateNum / (double)m_stCreateEncodeParams.frameRateDen, m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
     if (m_pFileWriter) {
         inputMesSplitted = split(m_pFileWriter->GetOutputMessage(), _T("\n"));
@@ -2592,6 +2667,20 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(NV_LOG_INFO,  _T("VBV buf size   %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize / 1000,   0, _T("kbit")).c_str());
         add_str(NV_LOG_DEBUG, _T("VBV init delay %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay / 1000, 0, _T("kbit")).c_str());
     }
+    tstring strLookahead = _T("Lookahead      ");
+    if (m_stEncConfig.rcParams.enableLookahead) {
+        strLookahead += strsprintf(_T("on, %d frames"), m_stEncConfig.rcParams.lookaheadDepth);
+        if (!m_stEncConfig.rcParams.disableBadapt || !m_stEncConfig.rcParams.disableIadapt) {
+            strLookahead += _T(", Adaptive ");
+            if (!m_stEncConfig.rcParams.disableIadapt) strLookahead += _T("I");
+            if (!m_stEncConfig.rcParams.disableBadapt && !m_stEncConfig.rcParams.disableIadapt) strLookahead += _T(", ");
+            if (!m_stEncConfig.rcParams.disableIadapt) strLookahead += _T("B");
+            strLookahead += _T(" Insert");
+        }
+    } else {
+        strLookahead += _T("off");
+    }
+    add_str(NV_LOG_INFO,  _T("%s\n"), strLookahead.c_str());
     add_str(NV_LOG_INFO,  _T("GOP length     %d frames\n"), m_stEncConfig.gopLength);
     add_str(NV_LOG_INFO,  _T("B frames       %d frames\n"), m_stEncConfig.frameIntervalP - 1);
     if (codec == NV_ENC_H264) {
@@ -2611,8 +2700,28 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(NV_LOG_DEBUG, _T("%s\n"), bitstream_info);
     }
 
-    add_str(NV_LOG_INFO,  _T("Ref frames     %d frames\n"), (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
-    add_str(NV_LOG_INFO,  _T("AQ             %s\n"), m_stEncConfig.rcParams.enableAQ ? _T("on") : _T("off"));
+    const bool bEnableLTR = (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.enableLTR : m_stEncConfig.encodeCodecConfig.hevcConfig.enableLTR;
+    tstring strRef = strsprintf(_T("%d frames, LTR: %s"),
+        (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
+        (bEnableLTR) ? _T("on") : _T("off"));
+    add_str(NV_LOG_INFO,  _T("Ref frames     %s\n"), strRef.c_str());
+    
+    tstring strAQ;
+    if (m_stEncConfig.rcParams.enableAQ || m_stEncConfig.rcParams.enableTemporalAQ) {
+        strAQ = _T("on");
+        if (codec == NV_ENC_H264) {
+            strAQ += _T("(");
+            if (m_stEncConfig.rcParams.enableAQ)         strAQ += _T("spatial");
+            if (m_stEncConfig.rcParams.enableAQ && m_stEncConfig.rcParams.enableTemporalAQ) strAQ += _T(", ");
+            if (m_stEncConfig.rcParams.enableTemporalAQ) strAQ += _T("temporal");
+            strAQ += _T(", strength ");
+            strAQ += (m_stEncConfig.rcParams.aqStrength == 0) ? _T("auto") : strsprintf(_T("%d"), m_stEncConfig.rcParams.aqStrength);
+            strAQ += _T(")");
+        }
+    } else {
+        strAQ = _T("off");
+    }
+    add_str(NV_LOG_INFO,  _T("AQ             %s\n"), strAQ.c_str());
     add_str(NV_LOG_INFO,  _T("MV Quality     %s\n"), get_chr_from_value(list_mv_presicion, m_stEncConfig.mvPrecision));
     if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
         add_str(NV_LOG_DEBUG, _T("Slice number      %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);

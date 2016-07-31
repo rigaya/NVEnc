@@ -30,6 +30,7 @@
 #include <io.h>
 #include <algorithm>
 #include <numeric>
+#include <array>
 #include <map>
 #include <cctype>
 #include <cmath>
@@ -61,7 +62,7 @@ static inline void extend_array_size(VideoFrameData *dataset) {
 CAvcodecReader::CAvcodecReader() {
     memset(&m_Demux.format, 0, sizeof(m_Demux.format));
     memset(&m_Demux.video,  0, sizeof(m_Demux.video));
-    m_strReaderName = _T("avcuvid");
+    m_strReaderName = _T("avcuvid/avsw");
 }
 
 CAvcodecReader::~CAvcodecReader() {
@@ -590,6 +591,14 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
     m_pEncSatusInfo = pStatus;
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)inputPrm->otherPrm;
 
+    if (input_prm->bReadVideo) {
+        if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_ANY) {
+            m_strReaderName = (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) ? _T("avcuvid") : _T("avsw");
+        }
+    } else {
+        m_strReaderName = _T("avsw");
+    }
+
     m_Demux.video.bReadVideo = input_prm->bReadVideo;
     if (input_prm->bReadVideo) {
         m_pEncSatusInfo = pStatus;
@@ -851,10 +860,15 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         }
 
         memset(&m_sDecParam, 0, sizeof(m_sDecParam));
+        m_sDecParam.codec = cudaVideoCodec_NumCodecs;
 
         bool bDecodecCUVID = false;
         if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) {
-            if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pCodecCtx->codec_id))
+            const auto USE_SW_CSP = make_array<NV_ENC_CSP>(NV_ENC_CSP_P010, NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_16);
+            if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_CUVID
+                && std::find(USE_SW_CSP.begin(), USE_SW_CSP.end(), inputPrm->csp) != USE_SW_CSP.end()) {
+                AddMessage(NV_LOG_WARN, _T("for YUV 4:4:4 or 10bit encoding switching to sw deocde mode.\n"));
+            } else if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pCodecCtx->codec_id))
                 //wmv3はAdvanced Profile (3)のみの対応
                 || m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pCodecCtx->profile != 3) {
                 if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_CUVID) {
@@ -871,10 +885,12 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 AddMessage(NV_LOG_DEBUG, _T("can be decoded by cuvid.\n"));
             }
         }
+        m_strReaderName = (bDecodecCUVID) ? _T("avcuvid") : _T("avsw");
 
         m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
 
         //情報を格納
+        m_nInputCodec         = m_sDecParam.codec;
         inputPrm->codec       = m_sDecParam.codec;
         inputPrm->width       = m_Demux.video.pCodecCtx->width;
         inputPrm->height      = m_Demux.video.pCodecCtx->height;
@@ -980,42 +996,43 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             AVPixelFormat pix_fmt;
             uint16_t bit_depth;
             uint16_t chroma_format;
-            int fourcc;
+            NV_ENC_CSP output_csp;
         };
 
         static const pixfmtInfo pixfmtDataList[] = {
-            { AV_PIX_FMT_YUV420P,      8, cudaVideoChromaFormat_420, cudaVideoSurfaceFormat_NV12 },
-            { AV_PIX_FMT_YUVJ420P,     8, cudaVideoChromaFormat_420, cudaVideoSurfaceFormat_NV12 },
-            { AV_PIX_FMT_NV12,         8, cudaVideoChromaFormat_420, cudaVideoSurfaceFormat_NV12 },
-            { AV_PIX_FMT_NV21,         8, cudaVideoChromaFormat_420, cudaVideoSurfaceFormat_NV12 },
-            { AV_PIX_FMT_YUV422P,      8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUVJ422P,     8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUYV422,      8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_UYVY422,      8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_NV16,         8, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV444P,      8, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUVJ444P,     8, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUV420P16LE, 16, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV420P14LE, 14, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV420P12LE, 12, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV420P10LE, 10, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV420P9LE,   9, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_NV20LE,      10, cudaVideoChromaFormat_420, -1 },
-            { AV_PIX_FMT_YUV422P16LE, 16, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV422P14LE, 14, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV422P12LE, 12, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV422P10LE, 10, cudaVideoChromaFormat_422, -1 },
-            { AV_PIX_FMT_YUV444P16LE, 16, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUV444P14LE, 14, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUV444P12LE, 12, cudaVideoChromaFormat_444, -1 },
-            { AV_PIX_FMT_YUV444P10LE, 10, cudaVideoChromaFormat_444, -1 }
+            { AV_PIX_FMT_YUV420P,      8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_YUVJ420P,     8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_NV12,         8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_NV21,         8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_YUV422P,      8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUVJ422P,     8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUYV422,      8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_UYVY422,      8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_NV16,         8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV444P,      8, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444 },
+            { AV_PIX_FMT_YUVJ444P,     8, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444 },
+            { AV_PIX_FMT_YUV420P16LE, 16, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV420P14LE, 14, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV420P12LE, 12, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV420P10LE, 10, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV420P9LE,   9, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
+            { AV_PIX_FMT_NV20LE,      10, cudaVideoChromaFormat_420, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P16LE, 16, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P14LE, 14, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P12LE, 12, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P10LE, 10, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV444P16LE, 16, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P14LE, 14, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P12LE, 12, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P10LE, 10, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P9LE,   9, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 }
         };
 
         const auto pixfmt = m_Demux.video.pCodecCtx->pix_fmt;
         const auto pixfmtData = std::find_if(pixfmtDataList, pixfmtDataList + _countof(pixfmtDataList), [pixfmt](const pixfmtInfo& tableData) {
             return tableData.pix_fmt == pixfmt;
         });
-        if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->fourcc < 0) {
+        if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->output_csp == NV_ENC_CSP_NA) {
             AddMessage(NV_LOG_DEBUG, _T("Invalid pixel format from input file.\n"));
             return 1;
         }
@@ -1046,29 +1063,27 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 { AV_PIX_FMT_YUYV422,     NV_ENC_CSP_YUY2 },
                 { AV_PIX_FMT_UYVY422,     NV_ENC_CSP_NA },
                 { AV_PIX_FMT_NV16,        NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P,     NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUVJ444P,    NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV420P16LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV420P14LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV420P12LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV420P10LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV420P9LE,  NV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV444P,     NV_ENC_CSP_YUV444 },
+                { AV_PIX_FMT_YUVJ444P,    NV_ENC_CSP_YUV444 },
+                { AV_PIX_FMT_YUV420P16LE, NV_ENC_CSP_YV12_16 },
+                { AV_PIX_FMT_YUV420P14LE, NV_ENC_CSP_YV12_14 },
+                { AV_PIX_FMT_YUV420P12LE, NV_ENC_CSP_YV12_12 },
+                { AV_PIX_FMT_YUV420P10LE, NV_ENC_CSP_YV12_10 },
+                { AV_PIX_FMT_YUV420P9LE,  NV_ENC_CSP_YV12_09 },
                 { AV_PIX_FMT_NV20LE,      NV_ENC_CSP_NA },
                 { AV_PIX_FMT_YUV422P16LE, NV_ENC_CSP_NA },
                 { AV_PIX_FMT_YUV422P14LE, NV_ENC_CSP_NA },
                 { AV_PIX_FMT_YUV422P12LE, NV_ENC_CSP_NA },
                 { AV_PIX_FMT_YUV422P10LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P16LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P14LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P12LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P10LE, NV_ENC_CSP_NA }
-            };
-            const std::map<int, NV_ENC_CSP> CSP_CONV_CUDA = {
-                {cudaVideoSurfaceFormat_NV12 , NV_ENC_CSP_NV12 }
+                { AV_PIX_FMT_YUV444P16LE, NV_ENC_CSP_YUV444_16 },
+                { AV_PIX_FMT_YUV444P14LE, NV_ENC_CSP_YUV444_14 },
+                { AV_PIX_FMT_YUV444P12LE, NV_ENC_CSP_YUV444_12 },
+                { AV_PIX_FMT_YUV444P10LE, NV_ENC_CSP_YUV444_10 },
+                { AV_PIX_FMT_YUV444P9LE,  NV_ENC_CSP_YUV444_09 }
             };
             auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtx->pix_fmt);
             if (pixCspConv == CSP_CONV.end()
-                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, CSP_CONV_CUDA.at(pixfmtData->fourcc), false))) {
+                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, inputPrm->csp, false))) {
                 AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
                 return 1;
             }
@@ -1080,16 +1095,19 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
 
         memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
         m_sDecParam.src_pitch = 0;
-        tstring mes = strsprintf(_T("%s: %s, %dx%d, %d/%d fps"),
-            (m_Demux.video.pCodec) ? _T("avsw") : _T("avcuvid"),
-            (m_Demux.video.pCodec) ? char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id)).c_str() : CodecIdToStr(inputPrm->codec).c_str(),
-            inputPrm->width, inputPrm->height, inputPrm->rate, inputPrm->scale);
-        if (input_prm->fSeekSec > 0.0f) {
-            mes += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
+        if (bDecodecCUVID) {
+            tstring mes = strsprintf(_T("avcuvid: %s, %dx%d, %d/%d fps"),
+                CodecIdToStr(inputPrm->codec).c_str(),
+                inputPrm->width, inputPrm->height, inputPrm->rate, inputPrm->scale);
+            if (input_prm->fSeekSec > 0.0f) {
+                mes += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
+            }
+            AddMessage(NV_LOG_DEBUG, mes);
+            m_strInputInfo += mes;
+        } else {
+            CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id))).c_str(),
+                NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
         }
-        AddMessage(NV_LOG_DEBUG, mes);
-        m_strInputInfo += mes;
-
         //スレッド関連初期化
         m_Demux.thread.bAbortInput = false;
         auto nPrmInputThread = input_prm->nInputThread;
@@ -1526,6 +1544,12 @@ int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
             av_bitstream_filter_filter(m_Demux.video.pH264Bsfc, m_Demux.video.pCodecCtx, nullptr, &dummy, &dummy_size, nullptr, 0, 0);
             std::swap(m_Demux.video.pExtradata,     m_Demux.video.pCodecCtx->extradata);
             std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
+            av_bitstream_filter_close(m_Demux.video.pH264Bsfc);
+            if (NULL == (m_Demux.video.pH264Bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
+                AddMessage(NV_LOG_ERROR, _T("failed to init h264_mp4toannexb.\n"));
+                return 1;
+            }
+            AddMessage(NV_LOG_DEBUG, _T("initialized h264_mp4toannexb filter.\n"));
         } else if (m_nInputCodec == cudaVideoCodec_VC1) {
             int lengthFix = (0 == strcmp(m_Demux.format.pFormatCtx->iformat->name, "mpegts")) ? 0 : -1;
             vc1FixHeader(lengthFix);

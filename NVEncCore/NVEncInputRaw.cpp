@@ -96,13 +96,33 @@ int NVEncInputRaw::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
             //    }
             //    break;
             case 'C':
-                if (   0 == _strnicmp(p+1, "420",      strlen("420"))
-                    || 0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
-                    || 0 == _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
-                    || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))) {
+                if (0 == _strnicmp(p+1, "420p9", strlen("420p9"))) {
+                    inputPrm->csp = NV_ENC_CSP_YV12_09;
+                } else if (0 == _strnicmp(p+1, "420p10", strlen("420p10"))) {
+                    inputPrm->csp = NV_ENC_CSP_YV12_10;
+                } else if (0 == _strnicmp(p+1, "420p12", strlen("420p12"))) {
+                    inputPrm->csp = NV_ENC_CSP_YV12_12;
+                }  else if (0 == _strnicmp(p+1, "420p14", strlen("420p14"))) {
+                    inputPrm->csp = NV_ENC_CSP_YV12_14;
+                }  else if (0 == _strnicmp(p+1, "420p16", strlen("420p16"))) {
+                    inputPrm->csp = NV_ENC_CSP_YV12_16;
+                } else if (0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
+                        || 0 == _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
+                        || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))
+                        || 0 == _strnicmp(p+1, "420",      strlen("420"))) {
                     inputPrm->csp = NV_ENC_CSP_YV12;
                 } else if (0 == _strnicmp(p+1, "422", strlen("422"))) {
                     inputPrm->csp = NV_ENC_CSP_YUV422;
+                } else if (0 == _strnicmp(p+1, "444p9", strlen("444p9"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_09;
+                } else if (0 == _strnicmp(p+1, "444p10", strlen("444p10"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_10;
+                } else if (0 == _strnicmp(p+1, "444p12", strlen("444p12"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_12;
+                } else if (0 == _strnicmp(p+1, "444p14", strlen("444p14"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_14;
+                } else if (0 == _strnicmp(p+1, "444p16", strlen("444p16"))) {
+                    inputPrm->csp = NV_ENC_CSP_YUV444_16;
                 } else if (0 == _strnicmp(p+1, "444", strlen("444"))) {
                     inputPrm->csp = NV_ENC_CSP_YUV444;
                 } else {
@@ -170,15 +190,34 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
         inputCsp = videoInfo.csp;
     }
     uint32_t bufferSize = 0;
+    uint32_t src_pitch = 0;
     switch (inputCsp) {
     case NV_ENC_CSP_NV12:
     case NV_ENC_CSP_YV12:
+        src_pitch = inputPrm->width;
         bufferSize = inputPrm->width * inputPrm->height * 3 / 2; break;
+    case NV_ENC_CSP_YV12_09:
+    case NV_ENC_CSP_YV12_10:
+    case NV_ENC_CSP_YV12_12:
+    case NV_ENC_CSP_YV12_14:
+    case NV_ENC_CSP_YV12_16:
+        src_pitch = inputPrm->width * 2;
+        bufferSize = inputPrm->width * inputPrm->height * 3; break;
     case NV_ENC_CSP_YUV422:
+        src_pitch = inputPrm->width;
         bufferSize = inputPrm->width * inputPrm->height * 2; break;
     case NV_ENC_CSP_YUV444:
+        src_pitch = inputPrm->width;
         bufferSize = inputPrm->width * inputPrm->height * 3; break;
+    case NV_ENC_CSP_YUV444_09:
+    case NV_ENC_CSP_YUV444_10:
+    case NV_ENC_CSP_YUV444_12:
+    case NV_ENC_CSP_YUV444_14:
+    case NV_ENC_CSP_YUV444_16:
+        src_pitch = inputPrm->width * 2;
+        bufferSize = inputPrm->width * inputPrm->height * 6; break;
     default:
+        AddMessage(NV_LOG_ERROR, _T("Unknown color foramt.\n"));
         return 1;
     }
     if (NULL == (m_inputBuffer = (uint8_t *)_aligned_malloc(bufferSize, 32))) {
@@ -194,7 +233,7 @@ int NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
     }
     
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
-    m_sDecParam.src_pitch = inputPrm->width;
+    m_sDecParam.src_pitch = src_pitch;
     CreateInputInfo(m_strReaderName.c_str(), NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
     return 0;
@@ -236,7 +275,20 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
         frameSize = m_sDecParam.width * m_sDecParam.height * 2; break;
     case NV_ENC_CSP_YUV444:
         frameSize = m_sDecParam.width * m_sDecParam.height * 3; break;
+    case NV_ENC_CSP_YV12_09:
+    case NV_ENC_CSP_YV12_10:
+    case NV_ENC_CSP_YV12_12:
+    case NV_ENC_CSP_YV12_14:
+    case NV_ENC_CSP_YV12_16:
+        frameSize = m_sDecParam.width * m_sDecParam.height * 3; break;
+    case NV_ENC_CSP_YUV444_09:
+    case NV_ENC_CSP_YUV444_10:
+    case NV_ENC_CSP_YUV444_12:
+    case NV_ENC_CSP_YUV444_14:
+    case NV_ENC_CSP_YUV444_16:
+        frameSize = m_sDecParam.width * m_sDecParam.height * 6; break;
     default:
+        AddMessage(NV_LOG_ERROR, _T("Unknown color foramt.\n"));
         return 1;
     }
     if (frameSize != fread(m_inputBuffer, 1, frameSize, m_fp)) {
@@ -252,12 +304,22 @@ int NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     src_array[1] = (uint8_t *)src_array[0] + m_sDecParam.src_pitch * m_sDecParam.height;
     switch (m_sConvert->csp_from) {
     case NV_ENC_CSP_YV12:
+    case NV_ENC_CSP_YV12_09:
+    case NV_ENC_CSP_YV12_10:
+    case NV_ENC_CSP_YV12_12:
+    case NV_ENC_CSP_YV12_14:
+    case NV_ENC_CSP_YV12_16:
         src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 4;
         break;
     case NV_ENC_CSP_YUV422:
         src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 2;
         break;
     case NV_ENC_CSP_YUV444:
+    case NV_ENC_CSP_YUV444_09:
+    case NV_ENC_CSP_YUV444_10:
+    case NV_ENC_CSP_YUV444_12:
+    case NV_ENC_CSP_YUV444_14:
+    case NV_ENC_CSP_YUV444_16:
         src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height;
         break;
     case NV_ENC_CSP_NV12:

@@ -915,7 +915,7 @@ private: System::Windows::Forms::Label^  fcgLBBatBeforeAudioPath;
 private: System::Windows::Forms::CheckBox^  fcgCBRunBatBeforeAudio;
 private: System::Windows::Forms::ComboBox^  fcgCXAudioPriority;
 private: System::Windows::Forms::Label^  fcgLBAudioPriority;
-private: System::Windows::Forms::CheckBox^  fcgCBAQ;
+
 private: System::Windows::Forms::Label^  fcgLBAQ;
 private: System::Windows::Forms::Label^  fcgLBFullrangeHEVC;
 private: System::Windows::Forms::CheckBox^  fcgCBFullrangeHEVC;
@@ -931,6 +931,17 @@ private: System::Windows::Forms::ComboBox^  fcgCXColorMatrixHEVC;
 private: System::Windows::Forms::Label^  fcgLBTransferHEVC;
 private: System::Windows::Forms::Label^  fcgLBColorPrimHEVC;
 private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
+private: System::Windows::Forms::Label^  fcgLBLookaheadDisable;
+private: System::Windows::Forms::NumericUpDown^  fcgNULookaheadDepth;
+
+private: System::Windows::Forms::Label^  fcgLBAQStrengthAuto;
+private: System::Windows::Forms::NumericUpDown^  fcgNUAQStrength;
+private: System::Windows::Forms::Label^  fcgLBAQStrength;
+private: System::Windows::Forms::ComboBox^  fcgCXAQ;
+
+private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
+private: System::Windows::Forms::Label^  fcgLBHEVCOutBitDepth;
+private: System::Windows::Forms::ComboBox^  fcgCXHEVCOutBitDepth;
 
 
 
@@ -1138,7 +1149,13 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlNVEnc = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
-            this->fcgCBAQ = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgLBLookaheadDisable = (gcnew System::Windows::Forms::Label());
+            this->fcgNULookaheadDepth = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBAQStrengthAuto = (gcnew System::Windows::Forms::Label());
+            this->fcgNUAQStrength = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBAQStrength = (gcnew System::Windows::Forms::Label());
+            this->fcgCXAQ = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBLookaheadDepth = (gcnew System::Windows::Forms::Label());
             this->fcgLBAQ = (gcnew System::Windows::Forms::Label());
             this->fcgNUVBVBufsize = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgGroupBoxAspectRatio = (gcnew System::Windows::Forms::GroupBox());
@@ -1290,6 +1307,8 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
+            this->fcgLBHEVCOutBitDepth = (gcnew System::Windows::Forms::Label());
+            this->fcgCXHEVCOutBitDepth = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1299,6 +1318,8 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgtabPageBat->SuspendLayout();
             this->fcgtabControlNVEnc->SuspendLayout();
             this->tabPageVideoEnc->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAQStrength))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVBVBufsize))->BeginInit();
             this->fcgGroupBoxAspectRatio->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioY))->BeginInit();
@@ -2118,7 +2139,13 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // 
             // tabPageVideoEnc
             // 
-            this->tabPageVideoEnc->Controls->Add(this->fcgCBAQ);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBLookaheadDisable);
+            this->tabPageVideoEnc->Controls->Add(this->fcgNULookaheadDepth);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBAQStrengthAuto);
+            this->tabPageVideoEnc->Controls->Add(this->fcgNUAQStrength);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBAQStrength);
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXAQ);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBLookaheadDepth);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBAQ);
             this->tabPageVideoEnc->Controls->Add(this->fcgNUVBVBufsize);
             this->tabPageVideoEnc->Controls->Add(this->fcgGroupBoxAspectRatio);
@@ -2152,20 +2179,76 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
             // 
-            // fcgCBAQ
+            // fcgLBLookaheadDisable
             // 
-            this->fcgCBAQ->AutoSize = true;
-            this->fcgCBAQ->Location = System::Drawing::Point(132, 358);
-            this->fcgCBAQ->Name = L"fcgCBAQ";
-            this->fcgCBAQ->Size = System::Drawing::Size(15, 14);
-            this->fcgCBAQ->TabIndex = 157;
-            this->fcgCBAQ->Tag = L"chValue";
-            this->fcgCBAQ->UseVisualStyleBackColor = true;
+            this->fcgLBLookaheadDisable->AutoSize = true;
+            this->fcgLBLookaheadDisable->Location = System::Drawing::Point(215, 326);
+            this->fcgLBLookaheadDisable->Name = L"fcgLBLookaheadDisable";
+            this->fcgLBLookaheadDisable->Size = System::Drawing::Size(66, 14);
+            this->fcgLBLookaheadDisable->TabIndex = 165;
+            this->fcgLBLookaheadDisable->Text = L"※\"0\"で無効";
+            // 
+            // fcgNULookaheadDepth
+            // 
+            this->fcgNULookaheadDepth->Location = System::Drawing::Point(132, 324);
+            this->fcgNULookaheadDepth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 32, 0, 0, 0 });
+            this->fcgNULookaheadDepth->Name = L"fcgNULookaheadDepth";
+            this->fcgNULookaheadDepth->Size = System::Drawing::Size(77, 21);
+            this->fcgNULookaheadDepth->TabIndex = 164;
+            this->fcgNULookaheadDepth->Tag = L"chValue";
+            this->fcgNULookaheadDepth->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgLBAQStrengthAuto
+            // 
+            this->fcgLBAQStrengthAuto->AutoSize = true;
+            this->fcgLBAQStrengthAuto->Location = System::Drawing::Point(215, 381);
+            this->fcgLBAQStrengthAuto->Name = L"fcgLBAQStrengthAuto";
+            this->fcgLBAQStrengthAuto->Size = System::Drawing::Size(66, 14);
+            this->fcgLBAQStrengthAuto->TabIndex = 163;
+            this->fcgLBAQStrengthAuto->Text = L"※\"0\"で自動";
+            // 
+            // fcgNUAQStrength
+            // 
+            this->fcgNUAQStrength->Location = System::Drawing::Point(132, 379);
+            this->fcgNUAQStrength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 15, 0, 0, 0 });
+            this->fcgNUAQStrength->Name = L"fcgNUAQStrength";
+            this->fcgNUAQStrength->Size = System::Drawing::Size(77, 21);
+            this->fcgNUAQStrength->TabIndex = 161;
+            this->fcgNUAQStrength->Tag = L"chValue";
+            this->fcgNUAQStrength->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgLBAQStrength
+            // 
+            this->fcgLBAQStrength->AutoSize = true;
+            this->fcgLBAQStrength->Location = System::Drawing::Point(14, 381);
+            this->fcgLBAQStrength->Name = L"fcgLBAQStrength";
+            this->fcgLBAQStrength->Size = System::Drawing::Size(71, 14);
+            this->fcgLBAQStrength->TabIndex = 162;
+            this->fcgLBAQStrength->Text = L"AQ strength";
+            // 
+            // fcgCXAQ
+            // 
+            this->fcgCXAQ->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXAQ->FormattingEnabled = true;
+            this->fcgCXAQ->Location = System::Drawing::Point(132, 350);
+            this->fcgCXAQ->Name = L"fcgCXAQ";
+            this->fcgCXAQ->Size = System::Drawing::Size(122, 22);
+            this->fcgCXAQ->TabIndex = 4;
+            this->fcgCXAQ->Tag = L"chValue";
+            // 
+            // fcgLBLookaheadDepth
+            // 
+            this->fcgLBLookaheadDepth->AutoSize = true;
+            this->fcgLBLookaheadDepth->Location = System::Drawing::Point(14, 326);
+            this->fcgLBLookaheadDepth->Name = L"fcgLBLookaheadDepth";
+            this->fcgLBLookaheadDepth->Size = System::Drawing::Size(100, 14);
+            this->fcgLBLookaheadDepth->TabIndex = 160;
+            this->fcgLBLookaheadDepth->Text = L"Lookahead depth";
             // 
             // fcgLBAQ
             // 
             this->fcgLBAQ->AutoSize = true;
-            this->fcgLBAQ->Location = System::Drawing::Point(14, 357);
+            this->fcgLBAQ->Location = System::Drawing::Point(14, 353);
             this->fcgLBAQ->Name = L"fcgLBAQ";
             this->fcgLBAQ->Size = System::Drawing::Size(102, 14);
             this->fcgLBAQ->TabIndex = 158;
@@ -2174,7 +2257,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // fcgNUVBVBufsize
             // 
             this->fcgNUVBVBufsize->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 500, 0, 0, 0 });
-            this->fcgNUVBVBufsize->Location = System::Drawing::Point(132, 323);
+            this->fcgNUVBVBufsize->Location = System::Drawing::Point(132, 298);
             this->fcgNUVBVBufsize->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 128000, 0, 0, 0 });
             this->fcgNUVBVBufsize->Name = L"fcgNUVBVBufsize";
             this->fcgNUVBVBufsize->Size = System::Drawing::Size(77, 21);
@@ -2188,9 +2271,9 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgGroupBoxAspectRatio->Controls->Add(this->fcgNUAspectRatioY);
             this->fcgGroupBoxAspectRatio->Controls->Add(this->fcgNUAspectRatioX);
             this->fcgGroupBoxAspectRatio->Controls->Add(this->fcgCXAspectRatio);
-            this->fcgGroupBoxAspectRatio->Location = System::Drawing::Point(12, 387);
+            this->fcgGroupBoxAspectRatio->Location = System::Drawing::Point(12, 400);
             this->fcgGroupBoxAspectRatio->Name = L"fcgGroupBoxAspectRatio";
-            this->fcgGroupBoxAspectRatio->Size = System::Drawing::Size(241, 82);
+            this->fcgGroupBoxAspectRatio->Size = System::Drawing::Size(241, 76);
             this->fcgGroupBoxAspectRatio->TabIndex = 27;
             this->fcgGroupBoxAspectRatio->TabStop = false;
             this->fcgGroupBoxAspectRatio->Text = L"アスペクト比";
@@ -2198,7 +2281,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // fcgLBAspectRatio
             // 
             this->fcgLBAspectRatio->AutoSize = true;
-            this->fcgLBAspectRatio->Location = System::Drawing::Point(131, 54);
+            this->fcgLBAspectRatio->Location = System::Drawing::Point(131, 47);
             this->fcgLBAspectRatio->Name = L"fcgLBAspectRatio";
             this->fcgLBAspectRatio->Size = System::Drawing::Size(12, 14);
             this->fcgLBAspectRatio->TabIndex = 3;
@@ -2206,7 +2289,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // 
             // fcgNUAspectRatioY
             // 
-            this->fcgNUAspectRatioY->Location = System::Drawing::Point(149, 52);
+            this->fcgNUAspectRatioY->Location = System::Drawing::Point(149, 45);
             this->fcgNUAspectRatioY->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUAspectRatioY->Name = L"fcgNUAspectRatioY";
             this->fcgNUAspectRatioY->Size = System::Drawing::Size(60, 21);
@@ -2216,7 +2299,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // 
             // fcgNUAspectRatioX
             // 
-            this->fcgNUAspectRatioX->Location = System::Drawing::Point(65, 52);
+            this->fcgNUAspectRatioX->Location = System::Drawing::Point(65, 45);
             this->fcgNUAspectRatioX->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUAspectRatioX->Name = L"fcgNUAspectRatioX";
             this->fcgNUAspectRatioX->Size = System::Drawing::Size(60, 21);
@@ -2228,7 +2311,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // 
             this->fcgCXAspectRatio->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXAspectRatio->FormattingEnabled = true;
-            this->fcgCXAspectRatio->Location = System::Drawing::Point(26, 20);
+            this->fcgCXAspectRatio->Location = System::Drawing::Point(26, 18);
             this->fcgCXAspectRatio->Name = L"fcgCXAspectRatio";
             this->fcgCXAspectRatio->Size = System::Drawing::Size(197, 22);
             this->fcgCXAspectRatio->TabIndex = 0;
@@ -2237,7 +2320,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // fcgLBVBVBufsize
             // 
             this->fcgLBVBVBufsize->AutoSize = true;
-            this->fcgLBVBVBufsize->Location = System::Drawing::Point(14, 324);
+            this->fcgLBVBVBufsize->Location = System::Drawing::Point(14, 299);
             this->fcgLBVBVBufsize->Name = L"fcgLBVBVBufsize";
             this->fcgLBVBVBufsize->Size = System::Drawing::Size(84, 14);
             this->fcgLBVBVBufsize->TabIndex = 156;
@@ -2257,7 +2340,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // label1
             // 
             this->label1->AutoSize = true;
-            this->label1->Location = System::Drawing::Point(13, 90);
+            this->label1->Location = System::Drawing::Point(13, 88);
             this->label1->Name = L"label1";
             this->label1->Size = System::Drawing::Size(51, 14);
             this->label1->TabIndex = 151;
@@ -2268,7 +2351,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgCXEncCodec->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXEncCodec->FormattingEnabled = true;
             this->fcgCXEncCodec->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXEncCodec->Location = System::Drawing::Point(81, 87);
+            this->fcgCXEncCodec->Location = System::Drawing::Point(81, 85);
             this->fcgCXEncCodec->Name = L"fcgCXEncCodec";
             this->fcgCXEncCodec->Size = System::Drawing::Size(160, 22);
             this->fcgCXEncCodec->TabIndex = 150;
@@ -2277,7 +2360,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // 
             // fcgNURefFrames
             // 
-            this->fcgNURefFrames->Location = System::Drawing::Point(132, 293);
+            this->fcgNURefFrames->Location = System::Drawing::Point(132, 273);
             this->fcgNURefFrames->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNURefFrames->Name = L"fcgNURefFrames";
             this->fcgNURefFrames->Size = System::Drawing::Size(77, 21);
@@ -2288,7 +2371,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // fcgLBRefFrames
             // 
             this->fcgLBRefFrames->AutoSize = true;
-            this->fcgLBRefFrames->Location = System::Drawing::Point(13, 295);
+            this->fcgLBRefFrames->Location = System::Drawing::Point(13, 275);
             this->fcgLBRefFrames->Name = L"fcgLBRefFrames";
             this->fcgLBRefFrames->Size = System::Drawing::Size(51, 14);
             this->fcgLBRefFrames->TabIndex = 140;
@@ -2296,7 +2379,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // 
             // fcgNUBframes
             // 
-            this->fcgNUBframes->Location = System::Drawing::Point(132, 266);
+            this->fcgNUBframes->Location = System::Drawing::Point(132, 248);
             this->fcgNUBframes->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNUBframes->Name = L"fcgNUBframes";
             this->fcgNUBframes->Size = System::Drawing::Size(77, 21);
@@ -2307,7 +2390,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // fcgLBBframes
             // 
             this->fcgLBBframes->AutoSize = true;
-            this->fcgLBBframes->Location = System::Drawing::Point(14, 269);
+            this->fcgLBBframes->Location = System::Drawing::Point(14, 251);
             this->fcgLBBframes->Name = L"fcgLBBframes";
             this->fcgLBBframes->Size = System::Drawing::Size(58, 14);
             this->fcgLBBframes->TabIndex = 133;
@@ -2321,7 +2404,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgPNBitrate->Controls->Add(this->fcgNUMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxBitrate2);
-            this->fcgPNBitrate->Location = System::Drawing::Point(8, 151);
+            this->fcgPNBitrate->Location = System::Drawing::Point(8, 140);
             this->fcgPNBitrate->Name = L"fcgPNBitrate";
             this->fcgPNBitrate->Size = System::Drawing::Size(289, 54);
             this->fcgPNBitrate->TabIndex = 114;
@@ -2390,7 +2473,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgPNQP->Controls->Add(this->fcgNUQPB);
             this->fcgPNQP->Controls->Add(this->fcgLBQPP);
             this->fcgPNQP->Controls->Add(this->fcgLBQPB);
-            this->fcgPNQP->Location = System::Drawing::Point(8, 151);
+            this->fcgPNQP->Location = System::Drawing::Point(8, 140);
             this->fcgPNQP->Name = L"fcgPNQP";
             this->fcgPNQP->Size = System::Drawing::Size(289, 79);
             this->fcgPNQP->TabIndex = 113;
@@ -2455,7 +2538,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // fcgLBGOPLengthAuto
             // 
             this->fcgLBGOPLengthAuto->AutoSize = true;
-            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 241);
+            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 226);
             this->fcgLBGOPLengthAuto->Name = L"fcgLBGOPLengthAuto";
             this->fcgLBGOPLengthAuto->Size = System::Drawing::Size(66, 14);
             this->fcgLBGOPLengthAuto->TabIndex = 101;
@@ -2463,7 +2546,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // 
             // fcgNUGopLength
             // 
-            this->fcgNUGopLength->Location = System::Drawing::Point(132, 238);
+            this->fcgNUGopLength->Location = System::Drawing::Point(132, 223);
             this->fcgNUGopLength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 120000, 0, 0, 0 });
             this->fcgNUGopLength->Name = L"fcgNUGopLength";
             this->fcgNUGopLength->Size = System::Drawing::Size(77, 21);
@@ -2474,7 +2557,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // fcgLBGOPLength
             // 
             this->fcgLBGOPLength->AutoSize = true;
-            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 241);
+            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 226);
             this->fcgLBGOPLength->Name = L"fcgLBGOPLength";
             this->fcgLBGOPLength->Size = System::Drawing::Size(41, 14);
             this->fcgLBGOPLength->TabIndex = 85;
@@ -2483,7 +2566,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // fcgLBEncMode
             // 
             this->fcgLBEncMode->AutoSize = true;
-            this->fcgLBEncMode->Location = System::Drawing::Point(13, 122);
+            this->fcgLBEncMode->Location = System::Drawing::Point(13, 116);
             this->fcgLBEncMode->Name = L"fcgLBEncMode";
             this->fcgLBEncMode->Size = System::Drawing::Size(32, 14);
             this->fcgLBEncMode->TabIndex = 79;
@@ -2494,7 +2577,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgCXEncMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXEncMode->FormattingEnabled = true;
             this->fcgCXEncMode->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXEncMode->Location = System::Drawing::Point(81, 119);
+            this->fcgCXEncMode->Location = System::Drawing::Point(81, 113);
             this->fcgCXEncMode->Name = L"fcgCXEncMode";
             this->fcgCXEncMode->Size = System::Drawing::Size(160, 22);
             this->fcgCXEncMode->TabIndex = 4;
@@ -2525,7 +2608,7 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // 
             this->fcgGroupBoxQulaityStg->Controls->Add(this->fcgBTQualityStg);
             this->fcgGroupBoxQulaityStg->Controls->Add(this->fcgCXQualityPreset);
-            this->fcgGroupBoxQulaityStg->Location = System::Drawing::Point(34, 333);
+            this->fcgGroupBoxQulaityStg->Location = System::Drawing::Point(66, 398);
             this->fcgGroupBoxQulaityStg->Name = L"fcgGroupBoxQulaityStg";
             this->fcgGroupBoxQulaityStg->Size = System::Drawing::Size(219, 77);
             this->fcgGroupBoxQulaityStg->TabIndex = 28;
@@ -2888,6 +2971,8 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             // 
             // fcgPNHEVC
             // 
+            this->fcgPNHEVC->Controls->Add(this->fcgLBHEVCOutBitDepth);
+            this->fcgPNHEVC->Controls->Add(this->fcgCXHEVCOutBitDepth);
             this->fcgPNHEVC->Controls->Add(this->fcgLBFullrangeHEVC);
             this->fcgPNHEVC->Controls->Add(this->fcgCBFullrangeHEVC);
             this->fcgPNHEVC->Controls->Add(this->fcgCXVideoFormatHEVC);
@@ -3761,6 +3846,25 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
             // 
+            // fcgLBHEVCOutBitDepth
+            // 
+            this->fcgLBHEVCOutBitDepth->AutoSize = true;
+            this->fcgLBHEVCOutBitDepth->Location = System::Drawing::Point(17, 10);
+            this->fcgLBHEVCOutBitDepth->Name = L"fcgLBHEVCOutBitDepth";
+            this->fcgLBHEVCOutBitDepth->Size = System::Drawing::Size(73, 14);
+            this->fcgLBHEVCOutBitDepth->TabIndex = 156;
+            this->fcgLBHEVCOutBitDepth->Text = L"出力ビット深度";
+            // 
+            // fcgCXHEVCOutBitDepth
+            // 
+            this->fcgCXHEVCOutBitDepth->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXHEVCOutBitDepth->FormattingEnabled = true;
+            this->fcgCXHEVCOutBitDepth->Location = System::Drawing::Point(126, 7);
+            this->fcgCXHEVCOutBitDepth->Name = L"fcgCXHEVCOutBitDepth";
+            this->fcgCXHEVCOutBitDepth->Size = System::Drawing::Size(121, 22);
+            this->fcgCXHEVCOutBitDepth->TabIndex = 155;
+            this->fcgCXHEVCOutBitDepth->Tag = L"chValue";
+            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -3801,6 +3905,8 @@ private: System::Windows::Forms::Label^  fcgLBColorMatrixHEVC;
             this->fcgtabControlNVEnc->ResumeLayout(false);
             this->tabPageVideoEnc->ResumeLayout(false);
             this->tabPageVideoEnc->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAQStrength))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVBVBufsize))->EndInit();
             this->fcgGroupBoxAspectRatio->ResumeLayout(false);
             this->fcgGroupBoxAspectRatio->PerformLayout();

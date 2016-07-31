@@ -157,10 +157,9 @@ public:
         AddMessage(log_level, buffer);
     }
 
-    //デコードを行う場合のコーデックを返す
-    //行わない場合は0を返す
-    int getInputCodec() {
-        return m_nInputCodec;
+    //デコードを行うかどうかを返す
+    bool inputCodecIsValid() {
+        return m_nInputCodec != cudaVideoCodec_NumCodecs;
     }
 protected:
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *convSIMD, const TCHAR *outputCSpName, const InputVideoInfo *inputPrm);

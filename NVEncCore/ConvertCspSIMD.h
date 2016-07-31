@@ -293,6 +293,193 @@ static void __forceinline convert_yv12_to_nv12_simd(void **dst, const void **src
     }
 }
 
+template<bool uv_only>
+static void convert_yv12_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    //Y成分のコピー
+    if (!uv_only) {
+        uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * crop_up + crop_left;
+        uint8_t *dstLine  = (uint8_t *)dst[0];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            uint16_t *dst_ptr = (uint16_t *)dstLine;
+            uint8_t *src_ptr = srcYLine;
+            uint8_t *src_ptr_fin = src_ptr + y_width;
+            __m128i x0, x1;
+            for (; src_ptr < src_ptr_fin; dst_ptr += 16, src_ptr += 16) {
+                x1 = _mm_loadu_si128((const __m128i *)src_ptr);
+                x0 = _mm_unpacklo_epi8(_mm_setzero_si128(), x1);
+                x1 = _mm_unpackhi_epi8(_mm_setzero_si128(), x1);
+                x0 = _mm_add_epi16(x0, _mm_set1_epi16(2 << 6));
+                x1 = _mm_add_epi16(x1, _mm_set1_epi16(2 << 6));
+                _mm_storeu_si128((__m128i *)(dst_ptr + 0), x0);
+                _mm_storeu_si128((__m128i *)(dst_ptr + 8), x1);
+            }
+        }
+    }
+    //UV成分のコピー
+    uint8_t *srcULine = (uint8_t *)src[1] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    uint8_t *srcVLine = (uint8_t *)src[2] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    uint8_t *dstLine  = (uint8_t *)dst[1];
+    const int uv_fin = (height - crop_bottom) >> 1;
+    for (int y = crop_up >> 1; y < uv_fin; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
+        const int x_fin = width - crop_right;
+        uint8_t *src_u_ptr = srcULine;
+        uint8_t *src_v_ptr = srcVLine;
+        uint16_t *dst_ptr = (uint16_t *)dstLine;
+        uint16_t *dst_ptr_fin = dst_ptr + x_fin;
+        __m128i x0, x1, x2, x3;
+        for (; dst_ptr < dst_ptr_fin; src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 32) {
+            x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
+            x2 = _mm_loadu_si128((const __m128i *)src_v_ptr);
+            x1 = _mm_unpacklo_epi8(x0, x2);
+            x3 = _mm_unpackhi_epi8(x0, x2);
+
+            x0 = _mm_unpacklo_epi8(_mm_setzero_si128(), x1);
+            x1 = _mm_unpackhi_epi8(_mm_setzero_si128(), x1);
+            x0 = _mm_add_epi16(x0, _mm_set1_epi16(2 << 6));
+            x1 = _mm_add_epi16(x1, _mm_set1_epi16(2 << 6));
+
+            x2 = _mm_unpacklo_epi8(_mm_setzero_si128(), x3);
+            x3 = _mm_unpackhi_epi8(_mm_setzero_si128(), x3);
+            x2 = _mm_add_epi16(x2, _mm_set1_epi16(2 << 6));
+            x3 = _mm_add_epi16(x3, _mm_set1_epi16(2 << 6));
+
+            _mm_storeu_si128((__m128i *)(dst_ptr +  0), x0);
+            _mm_storeu_si128((__m128i *)(dst_ptr +  8), x1);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 16), x2);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 24), x3);
+        }
+    }
+}
+
+template<int in_bit_depth, bool uv_only>
+static void convert_yv12_high_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte >> 1;
+    //Y成分のコピー
+    if (!uv_only) {
+        uint16_t *srcYLine = (uint16_t *)src[0] + src_y_pitch * crop_up + crop_left;
+        uint8_t *dstLine  = (uint8_t *)dst[0];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch_byte) {
+            uint8_t *dst_ptr = dstLine;
+            uint16_t *src_ptr = srcYLine;
+            uint16_t *src_ptr_fin = src_ptr + y_width;
+            __m128i x0, x1;
+            for (; src_ptr < src_ptr_fin; dst_ptr += 16, src_ptr += 16) {
+                x0 = _mm_loadu_si128((const __m128i *)(src_ptr + 0));
+                x1 = _mm_loadu_si128((const __m128i *)(src_ptr + 8));
+
+                x0 = _mm_srli_epi16(x0, in_bit_depth - 8);
+                x1 = _mm_srli_epi16(x1, in_bit_depth - 8);
+
+                x0 = _mm_packus_epi16(x0, x1);
+
+                _mm_storeu_si128((__m128i *)(dst_ptr + 0), x0);
+            }
+        }
+    }
+    //UV成分のコピー
+    const int src_uv_pitch = src_uv_pitch_byte >> 1;
+    uint16_t *srcULine = (uint16_t *)src[1] + (((src_uv_pitch * crop_up) + crop_left) >> 1);
+    uint16_t *srcVLine = (uint16_t *)src[2] + (((src_uv_pitch * crop_up) + crop_left) >> 1);
+    uint8_t *dstLine  = (uint8_t *)dst[1];
+    const int uv_fin = (height - crop_bottom) >> 1;
+    for (int y = crop_up >> 1; y < uv_fin; y++, srcULine += src_uv_pitch, srcVLine += src_uv_pitch, dstLine += dst_y_pitch_byte) {
+        const int x_fin = width - crop_right;
+        uint16_t *src_u_ptr = srcULine;
+        uint16_t *src_v_ptr = srcVLine;
+        uint8_t *dst_ptr = dstLine;
+        uint8_t *dst_ptr_fin = dst_ptr + x_fin;
+        __m128i x0, x1;
+        for (; dst_ptr < dst_ptr_fin; src_u_ptr += 8, src_v_ptr += 8, dst_ptr += 16) {
+            x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
+            x1 = _mm_loadu_si128((const __m128i *)src_v_ptr);
+
+            x0 = _mm_srli_epi16(x0, in_bit_depth - 8);
+            x1 = _mm_slli_epi16(x1, 16 - in_bit_depth);
+            const __m128i xMaskHighByte = _mm_slli_epi16(_mm_cmpeq_epi8(_mm_setzero_si128(), _mm_setzero_si128()), 8);
+            x1 = _mm_and_si128(x1, xMaskHighByte);
+
+            x0 = _mm_or_si128(x0, x1);
+
+            _mm_storeu_si128((__m128i *)(dst_ptr +  0), x0);
+        }
+    }
+}
+
+#pragma warning (push)
+#pragma warning (disable: 4100)
+#pragma warning (disable: 4127)
+template<int in_bit_depth, bool uv_only>
+static void __forceinline convert_yv12_high_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte >> 1;
+    const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    //Y成分のコピー
+    if (!uv_only) {
+        uint16_t *srcYLine = (uint16_t *)src[0] + src_y_pitch * crop_up + crop_left;
+        uint16_t *dstLine = (uint16_t *)dst[0];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
+            if (in_bit_depth == 16) {
+                memcpy_sse((uint8_t *)dstLine, (uint8_t *)srcYLine, y_width * sizeof(uint16_t));
+            } else {
+                uint16_t *src_ptr = srcYLine;
+                uint16_t *dst_ptr = dstLine;
+                for (int x = 0; x < y_width; x += 8, dst_ptr += 8, src_ptr += 8) {
+                    __m128i x0 = _mm_loadu_si128((const __m128i *)src_ptr);
+                    x0 = _mm_slli_epi16(x0, 16 - in_bit_depth);
+                    _mm_storeu_si128((__m128i *)dst_ptr, x0);
+                }
+            }
+        }
+    }
+    //UV成分のコピー
+    const int src_uv_pitch = src_uv_pitch_byte >> 1;
+    uint16_t *srcULine = (uint16_t *)src[1] + (((src_uv_pitch * crop_up) + crop_left) >> 1);
+    uint16_t *srcVLine = (uint16_t *)src[2] + (((src_uv_pitch * crop_up) + crop_left) >> 1);
+    uint16_t *dstLine = (uint16_t *)dst[1];
+    const int uv_fin = (height - crop_bottom) >> 1;
+    for (int y = crop_up >> 1; y < uv_fin; y++, srcULine += src_uv_pitch, srcVLine += src_uv_pitch, dstLine += dst_y_pitch) {
+        const int x_fin = width - crop_right;
+        uint16_t *src_u_ptr = srcULine;
+        uint16_t *src_v_ptr = srcVLine;
+        uint16_t *dst_ptr = dstLine;
+        __m128i x0, x1, x2;
+        for (int x = crop_left; x < x_fin; x += 16, src_u_ptr += 8, src_v_ptr += 8, dst_ptr += 16) {
+            x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
+            x1 = _mm_loadu_si128((const __m128i *)src_v_ptr);
+
+            if (in_bit_depth < 16) {
+                x0 = _mm_slli_epi16(x0, 16 - in_bit_depth);
+                x1 = _mm_slli_epi16(x1, 16 - in_bit_depth);
+            }
+
+            x2 = _mm_unpackhi_epi16(x0, x1);
+            x0 = _mm_unpacklo_epi16(x0, x1);
+
+            _mm_storeu_si128((__m128i *)(dst_ptr + 0), x0);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 8), x2);
+        }
+    }
+}
+
 static void __forceinline copy_yuv444_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -305,6 +492,90 @@ static void __forceinline copy_yuv444_to_yuv444(void **dst, const void **src, in
         const int y_width = width - crop_right - crop_left;
         for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
             memcpy_sse(dstLine, srcYLine, y_width);
+        }
+    }
+}
+
+static void __forceinline convert_yuv444_to_yuv444_16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    for (int i = 0; i < 3; i++) {
+        uint8_t *srcYLine = (uint8_t *)src[i] + src_y_pitch_byte * crop_up + crop_left;
+        uint16_t *dstLine = (uint16_t *)dst[i];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch) {
+            uint8_t *src_ptr = srcYLine;
+            uint16_t *dst_ptr = dstLine;
+            for (int x = 0; x < y_width; x += 16, dst_ptr += 16, src_ptr += 16) {
+                __m128i x0, x1;
+                x0 = _mm_loadu_si128((const __m128i *)src_ptr);
+                x1 = _mm_unpackhi_epi8(_mm_setzero_si128(), x0);
+                x0 = _mm_unpacklo_epi8(_mm_setzero_si128(), x0);
+                _mm_storeu_si128((__m128i *)(dst_ptr + 0), x0);
+                _mm_storeu_si128((__m128i *)(dst_ptr + 8), x1);
+            }
+        }
+    }
+}
+
+template<int in_bit_depth>
+static void __forceinline convert_yuv444_high_to_yuv444_16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte >> 1;
+    const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    for (int i = 0; i < 3; i++) {
+        uint16_t *srcYLine = (uint16_t *)src[i] + src_y_pitch * crop_up + crop_left;
+        uint16_t *dstLine = (uint16_t *)dst[i];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
+            if (in_bit_depth == 16) {
+                memcpy_sse((uint8_t *)dstLine, (uint8_t *)srcYLine, y_width * sizeof(uint16_t));
+            } else {
+                uint16_t *src_ptr = srcYLine;
+                uint16_t *dst_ptr = dstLine;
+                for (int x = 0; x < y_width; x += 8, dst_ptr += 8, src_ptr += 8) {
+                    __m128i x0 = _mm_loadu_si128((const __m128i *)src_ptr);
+                    x0 = _mm_slli_epi16(x0, 16 - in_bit_depth);
+                    _mm_storeu_si128((__m128i *)dst_ptr, x0);
+                }
+            }
+        }
+    }
+}
+
+template<int in_bit_depth>
+static void __forceinline convert_yuv444_high_to_yuv444_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte >> 1;
+    for (int i = 0; i < 3; i++) {
+        uint16_t *srcYLine = (uint16_t *)src[i] + src_y_pitch * crop_up + crop_left;
+        uint8_t *dstLine = (uint8_t *)dst[i];
+        const int y_fin = height - crop_bottom;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch_byte) {
+            uint16_t *src_ptr = srcYLine;
+            uint8_t *dst_ptr = dstLine;
+            for (int x = 0; x < y_width; x += 16, dst_ptr += 16, src_ptr += 16) {
+                __m128i x0 = _mm_loadu_si128((const __m128i *)(src_ptr + 0));
+                __m128i x1 = _mm_loadu_si128((const __m128i *)(src_ptr + 8));
+                x0 = _mm_srli_epi16(x0, in_bit_depth - 8);
+                x1 = _mm_srli_epi16(x1, in_bit_depth - 8);
+                x0 = _mm_packus_epi16(x0, x1);
+                _mm_storeu_si128((__m128i *)dst_ptr, x0);
+            }
         }
     }
 }
@@ -331,6 +602,41 @@ typedef struct {
 #include "convert_const.h"
 
 
+
+static __forceinline void gather_y_uv_from_yc48(__m128i& x0, __m128i& x1, __m128i x2) {
+#if USE_SSE41
+    __m128i x3;
+    const int MASK_INT_Y  = 0x80 + 0x10 + 0x02;
+    const int MASK_INT_UV = 0x40 + 0x20 + 0x01;
+    x3 = _mm_blend_epi16(x0, x1, MASK_INT_Y);
+    x3 = _mm_blend_epi16(x3, x2, MASK_INT_Y>>2);
+
+    x1 = _mm_blend_epi16(x0, x1, MASK_INT_UV);
+    x1 = _mm_blend_epi16(x1, x2, MASK_INT_UV>>2);
+    x1 = _mm_alignr_epi8_simd(x1, x1, 2);
+    x1 = _mm_shuffle_epi32(x1, _MM_SHUFFLE(1,2,3,0));//UV1行目
+
+    x0 = _mm_shuffle_epi8(x3, xC_SUFFLE_YCP_Y);
+#else
+    __m128i x3;
+    x3 = select_by_mask(x0, x1, xC_MASK_YCP2Y(0));
+    x3 = select_by_mask(x3, x2, xC_MASK_YCP2Y(1));
+
+    x1 = select_by_mask(x0, x1, xC_MASK_YCP2UV(0));
+    x1 = select_by_mask(x1, x2, xC_MASK_YCP2UV(1));
+    x1 = _mm_alignr_epi8_simd(x1, x1, 2);
+    x1 = _mm_shuffle_epi32(x1, _MM_SHUFFLE(1,2,3,0));
+#if USE_SSSE3
+    x0 = _mm_shuffle_epi8(x3, xC_SUFFLE_YCP_Y);
+#else
+    x0 = _mm_shuffle_epi32(  x3, _MM_SHUFFLE(3,1,2,0));
+    x0 = _mm_shufflehi_epi16(x0, _MM_SHUFFLE(1,2,3,0));
+    x0 = _mm_shuffle_epi32(  x0, _MM_SHUFFLE(1,2,3,0));
+    x0 = _mm_shufflelo_epi16(x0, _MM_SHUFFLE(1,2,3,0));
+    x0 = _mm_shufflehi_epi16(x0, _MM_SHUFFLE(3,0,1,2));
+#endif //USE_SSSE3
+#endif //USE_SSE41
+}
 
 static __forceinline __m128i convert_y_range_from_yc48(__m128i x0, const __m128i& xC_Y_MA_16, int Y_RSH_16, const __m128i& xC_YCC, const __m128i& xC_pw_one) {
     __m128i x7;
@@ -370,6 +676,37 @@ static __forceinline __m128i convert_uv_range_from_yc48(__m128i x0, const __m128
     x0 = _mm_add_epi16(x0, xC_UV_OFFSET_x1);
 
     return convert_uv_range_after_adding_offset(x0, xC_UV_MA_16, UV_RSH_16, xC_YCC, xC_pw_one);
+}
+static __forceinline __m128i convert_uv_range_from_yc48_yuv420p(__m128i x0, __m128i x1, const __m128i& xC_UV_OFFSET_x2, const __m128i& xC_UV_MA_16, int UV_RSH_16, const __m128i& xC_YCC, const __m128i& xC_pw_one) {
+    x0 = _mm_add_epi16(x0, x1);
+    x0 = _mm_add_epi16(x0, xC_UV_OFFSET_x2);
+
+    return convert_uv_range_after_adding_offset(x0, xC_UV_MA_16, UV_RSH_16, xC_YCC, xC_pw_one);
+}
+static __forceinline __m128i convert_uv_range_from_yc48_420i(__m128i x0, __m128i x1, const __m128i& xC_UV_OFFSET_x1, const __m128i& xC_UV_MA_16_0, const __m128i& xC_UV_MA_16_1, int UV_RSH_16, const __m128i& xC_YCC, const __m128i& xC_pw_one) {
+    __m128i x2, x3, x6, x7;
+    x0 = _mm_add_epi16(x0, xC_UV_OFFSET_x1);
+    x1 = _mm_add_epi16(x1, xC_UV_OFFSET_x1);
+
+    x7 = _mm_unpackhi_epi16(x0, xC_pw_one);
+    x6 = _mm_unpacklo_epi16(x0, xC_pw_one);
+    x3 = _mm_unpackhi_epi16(x1, xC_pw_one);
+    x2 = _mm_unpacklo_epi16(x1, xC_pw_one);
+
+    x6 = _mm_madd_epi16(x6, xC_UV_MA_16_0);
+    x7 = _mm_madd_epi16(x7, xC_UV_MA_16_0);
+    x2 = _mm_madd_epi16(x2, xC_UV_MA_16_1);
+    x3 = _mm_madd_epi16(x3, xC_UV_MA_16_1);
+    x0 = _mm_add_epi32(x6, x2);
+    x7 = _mm_add_epi32(x7, x3);
+    x0 = _mm_srai_epi32(x0, UV_RSH_16);
+    x7 = _mm_srai_epi32(x7, UV_RSH_16);
+    x0 = _mm_add_epi32(x0, xC_YCC);
+    x7 = _mm_add_epi32(x7, xC_YCC);
+
+    x0 = _mm_packus_epi32_simd(x0, x7);
+
+    return x0;
 }
 
 static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m128i& x2) {
@@ -436,6 +773,86 @@ static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m12
 }
 
 template <bool aligned_store>
+static __forceinline void convert_yc48_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    int x, y;
+    short *dst_Y = (short *)dst[0];
+    short *dst_C = (short *)((uint8_t *)dst[0] + dst_y_pitch_byte * dst_height);
+    const void  *pixel = src[0];
+    const short *ycp, *ycpw;
+    short *Y = NULL, *C = NULL;
+    const __m128i xC_pw_one = _mm_set1_epi16(1);
+    const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
+    const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    __m128i x0, x1, x2, x3;
+    for (y = 0; y < height; y += 2) {
+        ycp = (short*)pixel + width * y * 3;
+        ycpw= ycp + width*3;
+        Y   = dst_Y + dst_y_pitch * y;
+        C   = dst_C + dst_y_pitch * y / 2;
+        for (x = 0; x < width; x += 8, ycp += 24, ycpw += 24) {
+            x1 = _mm_loadu_si128((__m128i *)(ycp +  0));
+            x2 = _mm_loadu_si128((__m128i *)(ycp +  8));
+            x3 = _mm_loadu_si128((__m128i *)(ycp + 16));
+            _mm_prefetch((const char *)ycpw, _MM_HINT_T1);
+            gather_y_uv_from_yc48(x1, x2, x3);
+            x0 = x2;
+
+            _mm_store_switch_si128((__m128i *)(Y + x), convert_y_range_from_yc48(x1, xC_Y_L_MA_16, Y_L_RSH_16, xC_YCC, xC_pw_one));
+
+            x1 = _mm_loadu_si128((__m128i *)(ycpw +  0));
+            x2 = _mm_loadu_si128((__m128i *)(ycpw +  8));
+            x3 = _mm_loadu_si128((__m128i *)(ycpw + 16));
+            gather_y_uv_from_yc48(x1, x2, x3);
+
+            _mm_store_switch_si128((__m128i *)(Y + x + dst_y_pitch), convert_y_range_from_yc48(x1, xC_Y_L_MA_16, Y_L_RSH_16, xC_YCC, xC_pw_one));
+
+            x0 = convert_uv_range_from_yc48_yuv420p(x0, x2, _mm_set1_epi16(UV_OFFSET_x2), xC_UV_L_MA_16_420P, UV_L_RSH_16_420P, xC_YCC, xC_pw_one);
+
+            _mm_store_switch_si128((__m128i *)(C + x), x0);
+        }
+    }
+}
+
+template <bool aligned_store>
+static __forceinline void convert_yc48_to_p010_i_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    int x, y, i;
+    short *dst_Y = (short *)dst[0];
+    short *dst_C = (short *)((uint8_t *)dst[0] + dst_y_pitch_byte * dst_height);
+    const void  *pixel = src[0];
+    const short *ycp, *ycpw;
+    short *Y = nullptr, *C = nullptr;
+    const __m128i xC_pw_one = _mm_set1_epi16(1);
+    const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
+    const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    __m128i x0, x1, x2, x3;
+    for (y = 0; y < height; y += 4) {
+        for (i = 0; i < 2; i++) {
+            ycp = (short*)pixel + width * (y + i) * 3;
+            ycpw= ycp + width*2*3;
+            Y   = dst_Y + dst_y_pitch * (y + i);
+            C   = dst_C + dst_y_pitch * (y + i*2) / 2;
+            for (x = 0; x < width; x += 8, ycp += 24, ycpw += 24) {
+                x1 = _mm_loadu_si128((__m128i *)(ycp +  0));
+                x2 = _mm_loadu_si128((__m128i *)(ycp +  8));
+                x3 = _mm_loadu_si128((__m128i *)(ycp + 16));
+                _mm_prefetch((const char *)ycpw, _MM_HINT_T1);
+                gather_y_uv_from_yc48(x1, x2, x3);
+                x0 = x2;
+                _mm_store_switch_si128((__m128i *)(Y + x), convert_y_range_from_yc48(x1, xC_Y_L_MA_16, Y_L_RSH_16, xC_YCC, xC_pw_one));
+
+                x1 = _mm_loadu_si128((__m128i *)(ycpw +  0));
+                x2 = _mm_loadu_si128((__m128i *)(ycpw +  8));
+                x3 = _mm_loadu_si128((__m128i *)(ycpw + 16));
+                gather_y_uv_from_yc48(x1, x2, x3);
+                _mm_store_switch_si128((__m128i *)(Y + x + dst_y_pitch*2), convert_y_range_from_yc48(x1, xC_Y_L_MA_16, Y_L_RSH_16, xC_YCC, xC_pw_one));
+
+                _mm_store_switch_si128((__m128i *)(C + x), convert_uv_range_from_yc48_420i(x0, x2, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_420I(i), xC_UV_L_MA_16_420I((i+1)&0x01), UV_L_RSH_16_420I, xC_YCC, xC_pw_one));
+            }
+        }
+    }
+}
+
+template <bool aligned_store>
 static void __forceinline convert_yc48_to_yuv444_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     uint8_t *YLine   = (uint8_t *)dst[0];
     uint8_t *ULine   = (uint8_t *)dst[1];
@@ -482,6 +899,28 @@ static void __forceinline convert_yc48_to_yuv444_simd(void **dst, const void **s
             _mm_store_switch_si128((__m128i*)U, xU);
             _mm_store_switch_si128((__m128i*)V, xV);
         }
+    }
+}
+
+template <bool aligned_store>
+static __forceinline void convert_yc48_to_yuv444_16bit_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    short *Y = (short *)dst[0];
+    short *U = (short *)dst[1];
+    short *V = (short *)dst[2];
+    short *pixel = (short *)src[0];
+    short *ycp;
+    short *const ycp_fin = (short *)pixel + width * height * 3;
+    const __m128i xC_pw_one = _mm_set1_epi16(1);
+    const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
+    __m128i x1, x2, x3;
+    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 24, Y += 8, U += 8, V += 8) {
+        x1 = _mm_loadu_si128((__m128i *)(ycp +  0));
+        x2 = _mm_loadu_si128((__m128i *)(ycp +  8));
+        x3 = _mm_loadu_si128((__m128i *)(ycp + 16));
+        gather_y_u_v_from_yc48(x1, x2, x3);
+        _mm_store_switch_si128((__m128i *)Y, convert_y_range_from_yc48( x1,                                xC_Y_L_MA_16,      Y_L_RSH_16,     xC_YCC, xC_pw_one));
+        _mm_store_switch_si128((__m128i *)U, convert_uv_range_from_yc48(x2, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_444, UV_L_RSH_16_444, xC_YCC, xC_pw_one));
+        _mm_store_switch_si128((__m128i *)V, convert_uv_range_from_yc48(x3, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_444, UV_L_RSH_16_444, xC_YCC, xC_pw_one));
     }
 }
 

@@ -38,10 +38,40 @@ enum NV_ENC_CSP {
     NV_ENC_CSP_YUY2,
     NV_ENC_CSP_YUV422,
     NV_ENC_CSP_YUV444,
+    NV_ENC_CSP_YV12_09,
+    NV_ENC_CSP_YV12_10,
+    NV_ENC_CSP_YV12_12,
+    NV_ENC_CSP_YV12_14,
+    NV_ENC_CSP_YV12_16,
+    NV_ENC_CSP_P010,
+    NV_ENC_CSP_YUV444_09,
+    NV_ENC_CSP_YUV444_10,
+    NV_ENC_CSP_YUV444_12,
+    NV_ENC_CSP_YUV444_14,
+    NV_ENC_CSP_YUV444_16,
     NV_ENC_CSP_YC48,
 };
 
-static const TCHAR *NV_ENC_CSP_NAMES[] = { _T("Invalid"), _T("nv12"), _T("yv12"), _T("yuy2"), _T("yuv422"), _T("yuv444"), _T("yc48") };
+static const TCHAR *NV_ENC_CSP_NAMES[] = {
+    _T("Invalid"),
+    _T("nv12"),
+    _T("yv12"),
+    _T("yuy2"),
+    _T("yuv422"),
+    _T("yuv444"),
+    _T("yv12(9bit)"),
+    _T("yv12(10bit)"),
+    _T("yv12(12bit)"),
+    _T("yv12(14bit)"),
+    _T("yv12(16bit)"),
+    _T("p010"),
+    _T("yuv444(9bit)"),
+    _T("yuv444(10bit)"),
+    _T("yuv444(12bit)"),
+    _T("yuv444(14bit)"),
+    _T("yuv444(16bit)"),
+    _T("yc48")
+};
 
 typedef struct ConvertCSP {
     NV_ENC_CSP csp_from, csp_to;

@@ -40,6 +40,8 @@
 #include "NVEncInput.h"
 #include "NVEncCore.h"
 
+std::tuple<bool, bool, bool> get_enc_mode_flags(const CONF_NVENC *nvenc);
+
 typedef struct InputInfoAuo {
     const OUTPUT_INFO *oip;
     const SYSTEM_DATA *sys_dat;

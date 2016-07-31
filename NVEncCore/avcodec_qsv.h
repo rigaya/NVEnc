@@ -158,6 +158,9 @@ tstring error_mes_avcodec_dll_not_found();
 //avcodecのライセンスがLGPLであるかどうかを確認
 bool checkAvcodecLicense();
 
+//NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
+AVFieldOrder nv_field_order(NV_ENC_PIC_STRUCT nPicStruct);
+
 //avqsvでサポートされている動画コーデックを表示
 tstring getAVQSVSupportedCodecList();
 

@@ -154,7 +154,7 @@ NVENCSTATUS CNvHWEncoder::NvEncGetEncodePresetConfig(GUID encodeGUID, GUID  pres
     return nvStatus;
 }
 
-NVENCSTATUS CNvHWEncoder::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void** inputBuffer, uint32_t isYuv444)
+NVENCSTATUS CNvHWEncoder::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void** inputBuffer, NV_ENC_BUFFER_FORMAT inputFormat)
 {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     NV_ENC_CREATE_INPUT_BUFFER createInputBufferParams;
@@ -165,7 +165,7 @@ NVENCSTATUS CNvHWEncoder::NvEncCreateInputBuffer(uint32_t width, uint32_t height
     createInputBufferParams.width = width;
     createInputBufferParams.height = height;
     createInputBufferParams.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
-    createInputBufferParams.bufferFmt = isYuv444 ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
+    createInputBufferParams.bufferFmt = inputFormat;
 
     nvStatus = m_pEncodeAPI->nvEncCreateInputBuffer(m_hEncoder, &createInputBufferParams);
     if (nvStatus != NV_ENC_SUCCESS)
@@ -205,7 +205,7 @@ NVENCSTATUS CNvHWEncoder::NvEncCreateMVBuffer(uint32_t size, void** bitstreamBuf
     {
         assert(0);
     }
-    *bitstreamBuffer = stAllocMVBuffer.MVBuffer;
+    *bitstreamBuffer = stAllocMVBuffer.mvBuffer;
     return status;
 }
 
@@ -224,33 +224,19 @@ NVENCSTATUS CNvHWEncoder::NvEncDestroyMVBuffer(NV_ENC_OUTPUT_PTR bitstreamBuffer
     return status;
 }
 
-NVENCSTATUS CNvHWEncoder::NvRunMotionEstimationOnly(EncodeBuffer *pEncodeBuffer[2], MEOnlyConfig *pMEOnly)
+NVENCSTATUS CNvHWEncoder::NvRunMotionEstimationOnly(MotionEstimationBuffer *pMEBuffer, MEOnlyConfig *pMEOnly)
 {
     NVENCSTATUS nvStatus;
     NV_ENC_MEONLY_PARAMS stMEOnlyParams;
     SET_VER(stMEOnlyParams,NV_ENC_MEONLY_PARAMS);
-    stMEOnlyParams.referenceFrame = pEncodeBuffer[0]->stInputBfr.hInputSurface;
-    stMEOnlyParams.inputBuffer = pEncodeBuffer[1]->stInputBfr.hInputSurface;
-    stMEOnlyParams.bufferFmt = pEncodeBuffer[1]->stInputBfr.bufferFmt;
-    stMEOnlyParams.inputWidth = pEncodeBuffer[1]->stInputBfr.dwWidth;
-    stMEOnlyParams.inputHeight = pEncodeBuffer[1]->stInputBfr.dwHeight;
-    stMEOnlyParams.outputMV = pEncodeBuffer[0]->stOutputBfr.hBitstreamBuffer;
+    stMEOnlyParams.referenceFrame = pMEBuffer->stInputBfr[0].hInputSurface;
+    stMEOnlyParams.inputBuffer = pMEBuffer->stInputBfr[1].hInputSurface;
+    stMEOnlyParams.bufferFmt = pMEBuffer->stInputBfr[1].bufferFmt;
+    stMEOnlyParams.inputWidth = pMEBuffer->stInputBfr[1].dwWidth;
+    stMEOnlyParams.inputHeight = pMEBuffer->stInputBfr[1].dwHeight;
+    stMEOnlyParams.mvBuffer = pMEBuffer->stOutputBfr.hBitstreamBuffer;
+    stMEOnlyParams.completionEvent = pMEBuffer->stOutputBfr.hOutputEvent;
     nvStatus = m_pEncodeAPI->nvEncRunMotionEstimationOnly(m_hEncoder, &stMEOnlyParams);
-
-    if (m_fOutput)
-    {
-        unsigned int numMBs = ((m_uMaxWidth +15) >> 4) * ((m_uMaxHeight + 15) >> 4);
-        fprintf(m_fOutput,"Motion Vectors for input frame = %d, reference frame = %d\n", pMEOnly->inputFrameIndex, pMEOnly->referenceFrameIndex);
-        NV_ENC_H264_MV_DATA *outputMV = (NV_ENC_H264_MV_DATA *)stMEOnlyParams.outputMV;
-        for (unsigned int i = 0; i < numMBs; i++)
-        {
-            fprintf(m_fOutput, "block = %d, mb_type = %d, partitionType = %d, MV[0].x = %d, MV[0].y = %d, MV[1].x = %d, MV[1].y = %d, MV[2].x = %d, MV[2].y = %d, MV[3].x = %d, MV[3].y = %d, cost=%d ", \
-                i, outputMV[i].mb_type, outputMV[i].partitionType, outputMV[i].MV[0].mvx, outputMV[i].MV[0].mvy, outputMV[i].MV[1].mvx, outputMV[i].MV[1].mvy, \
-                outputMV[i].MV[2].mvx, outputMV[i].MV[2].mvy, outputMV[i].MV[3].mvx, outputMV[i].MV[3].mvy, outputMV[i].MBCost);
-            fprintf(m_fOutput, "\n");
-        }
-        fprintf(m_fOutput, "\n");
-    }
     return nvStatus;
 }
 
@@ -497,7 +483,6 @@ NVENCSTATUS CNvHWEncoder::NvEncOpenEncodeSessionEx(void* device, NV_ENC_DEVICE_T
 
     openSessionExParams.device = device;
     openSessionExParams.deviceType = deviceType;
-    openSessionExParams.reserved = NULL;
     openSessionExParams.apiVersion = NVENCAPI_VERSION;
 
     nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder);
@@ -723,7 +708,7 @@ NVENCSTATUS CNvHWEncoder::ValidatePresetGUID(GUID inputPresetGuid, GUID inputCod
         return NV_ENC_ERR_INVALID_PARAM;
 }
 
-NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
+NVENCSTATUS CNvHWEncoder::CreateEncoder(EncodeConfig *pEncCfg)
 {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
@@ -749,9 +734,9 @@ NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
-    if (pEncCfg->isYuv444 && (pEncCfg->codec == NV_ENC_HEVC))
+    if ((pEncCfg->inputFormat == NV_ENC_BUFFER_FORMAT_YUV420_10BIT || pEncCfg->inputFormat == NV_ENC_BUFFER_FORMAT_YUV444_10BIT) && (pEncCfg->codec == NV_ENC_H264))
     {
-        PRINTERR("444 is not supported with HEVC \n");
+        PRINTERR("10 bit is not supported with H264 \n");
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
@@ -774,11 +759,8 @@ NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
     m_stCreateEncodeParams.darHeight = pEncCfg->height;
     m_stCreateEncodeParams.frameRateNum = pEncCfg->fps;
     m_stCreateEncodeParams.frameRateDen = 1;
-#if defined(NV_WINDOWS)
-    m_stCreateEncodeParams.enableEncodeAsync = 1;
-#else
     m_stCreateEncodeParams.enableEncodeAsync = 0;
-#endif
+
     m_stCreateEncodeParams.enablePTD = 1;
     m_stCreateEncodeParams.reportSliceOffsets = 0;
     m_stCreateEncodeParams.enableSubFrameWrite = 0;
@@ -848,13 +830,28 @@ NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
 
     }
 
-    if (pEncCfg->isYuv444)
+    if (pEncCfg->inputFormat == NV_ENC_BUFFER_FORMAT_YUV444 || pEncCfg->inputFormat == NV_ENC_BUFFER_FORMAT_YUV444_10BIT)
     {
-        m_stEncodeConfig.encodeCodecConfig.h264Config.chromaFormatIDC = 3;
+        if (pEncCfg->codec == NV_ENC_HEVC) {
+            m_stEncodeConfig.encodeCodecConfig.hevcConfig.chromaFormatIDC = 3;
+        } else {
+            m_stEncodeConfig.encodeCodecConfig.h264Config.chromaFormatIDC = 3;
+        }
     }
     else
     {
-        m_stEncodeConfig.encodeCodecConfig.h264Config.chromaFormatIDC = 1;
+        if (pEncCfg->codec == NV_ENC_HEVC) {
+            m_stEncodeConfig.encodeCodecConfig.hevcConfig.chromaFormatIDC = 1;
+        } else {
+            m_stEncodeConfig.encodeCodecConfig.h264Config.chromaFormatIDC = 1;
+        }
+    }
+
+    if (pEncCfg->inputFormat == NV_ENC_BUFFER_FORMAT_YUV420_10BIT || pEncCfg->inputFormat == NV_ENC_BUFFER_FORMAT_YUV444_10BIT)
+    {
+        if (pEncCfg->codec == NV_ENC_HEVC) {
+            m_stEncodeConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 = 2;
+        }
     }
 
     if (pEncCfg->intraRefreshEnableFlag)
@@ -898,11 +895,20 @@ NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
         m_stEncodeConfig.encodeCodecConfig.hevcConfig.idrPeriod = pEncCfg->gopLength;
     }
 
+    NV_ENC_CAPS_PARAM stCapsParam;
+    int asyncMode = 0;
+    memset(&stCapsParam, 0, sizeof(NV_ENC_CAPS_PARAM));
+    SET_VER(stCapsParam, NV_ENC_CAPS_PARAM);
+
+    stCapsParam.capsToQuery = NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT;
+    m_pEncodeAPI->nvEncGetEncodeCaps(m_hEncoder, m_stCreateEncodeParams.encodeGUID, &stCapsParam, &asyncMode);
+    m_stCreateEncodeParams.enableEncodeAsync = asyncMode;
+
+    pEncCfg->enableAsyncMode = asyncMode;
+
     if (pEncCfg->enableMEOnly == 1 || pEncCfg->enableMEOnly == 2)
     {
-        NV_ENC_CAPS_PARAM stCapsParam;
-        memset(&stCapsParam, 0, sizeof(NV_ENC_CAPS_PARAM));
-        SET_VER(stCapsParam, NV_ENC_CAPS_PARAM);
+
         stCapsParam.capsToQuery = NV_ENC_CAPS_SUPPORT_MEONLY_MODE;
         m_stCreateEncodeParams.enableMEOnlyMode =  true;
         int meonlyMode = 0;
@@ -924,6 +930,33 @@ NVENCSTATUS CNvHWEncoder::CreateEncoder(const EncodeConfig *pEncCfg)
                 return NV_ENC_ERR_UNSUPPORTED_DEVICE;
             }
         } 
+    }
+
+    if (pEncCfg->enableTemporalAQ == 1)
+    {
+        NV_ENC_CAPS_PARAM stCapsParam;
+        memset(&stCapsParam, 0, sizeof(NV_ENC_CAPS_PARAM));
+        SET_VER(stCapsParam, NV_ENC_CAPS_PARAM);
+        stCapsParam.capsToQuery = NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ;
+        int temporalAQSupported = 0;
+        nvStatus = m_pEncodeAPI->nvEncGetEncodeCaps(m_hEncoder, m_stCreateEncodeParams.encodeGUID, &stCapsParam, &temporalAQSupported);
+        if (nvStatus != NV_ENC_SUCCESS)
+        {
+            PRINTERR("Encode Session Initialization failed");
+            return nvStatus;
+        }
+        else
+        {
+            if (temporalAQSupported == 1)
+            {
+                m_stEncodeConfig.rcParams.enableTemporalAQ = 1;
+            }
+            else
+            {
+                PRINTERR("NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ not supported\n");
+                return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+            }
+        }
     }
 
     nvStatus = m_pEncodeAPI->nvEncInitializeEncoder(m_hEncoder, &m_stCreateEncodeParams);
@@ -1015,6 +1048,87 @@ NVENCSTATUS CNvHWEncoder::ProcessOutput(const EncodeBuffer *pEncodeBuffer)
     {
         fwrite(lockBitstreamData.bitstreamBufferPtr, 1, lockBitstreamData.bitstreamSizeInBytes, m_fOutput);
         nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
+    }
+    else
+    {
+        PRINTERR("lock bitstream function failed \n");
+    }
+
+    return nvStatus;
+}
+
+NVENCSTATUS CNvHWEncoder::ProcessMVOutput(const MotionEstimationBuffer *pMEBuffer)
+{
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+
+    if (pMEBuffer->stOutputBfr.hBitstreamBuffer == NULL && pMEBuffer->stOutputBfr.bEOSFlag == FALSE)
+    {
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
+
+    if (pMEBuffer->stOutputBfr.bWaitOnEvent == TRUE)
+    {
+        if (!pMEBuffer->stOutputBfr.hOutputEvent)
+        {
+            return NV_ENC_ERR_INVALID_PARAM;
+        }
+#if defined(NV_WINDOWS)
+        WaitForSingleObject(pMEBuffer->stOutputBfr.hOutputEvent, INFINITE);
+#endif
+    }
+
+    if (pMEBuffer->stOutputBfr.bEOSFlag)
+        return NV_ENC_SUCCESS;
+
+    nvStatus = NV_ENC_SUCCESS;
+    NV_ENC_LOCK_BITSTREAM lockBitstreamData;
+    memset(&lockBitstreamData, 0, sizeof(lockBitstreamData));
+    SET_VER(lockBitstreamData, NV_ENC_LOCK_BITSTREAM);
+    lockBitstreamData.outputBitstream = pMEBuffer->stOutputBfr.hBitstreamBuffer;
+    lockBitstreamData.doNotWait = false;
+
+    nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, &lockBitstreamData);
+    if (nvStatus == NV_ENC_SUCCESS)
+    {
+        if (codecGUID == NV_ENC_CODEC_H264_GUID)
+        {
+            unsigned int numMBs = ((m_uMaxWidth + 15) >> 4) * ((m_uMaxHeight + 15) >> 4);
+            fprintf(m_fOutput, "Motion Vectors for input frame = %d, reference frame = %d\n", pMEBuffer->inputFrameIndex, pMEBuffer->referenceFrameIndex);
+            fprintf(m_fOutput, "block, mb_type, partitionType, "
+                "MV[0].x, MV[0].y, MV[1].x, MV[1].y, MV[2].x, MV[2].y, MV[3].x, MV[3].y, cost\n");
+            NV_ENC_H264_MV_DATA *outputMV = (NV_ENC_H264_MV_DATA *)lockBitstreamData.bitstreamBufferPtr;
+            for (unsigned int i = 0; i < numMBs; i++)
+            {
+                fprintf(m_fOutput, "%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", \
+                    i, outputMV[i].mbType, outputMV[i].partitionType, \
+                    outputMV[i].mv[0].mvx, outputMV[i].mv[0].mvy, outputMV[i].mv[1].mvx, outputMV[i].mv[1].mvy, \
+                    outputMV[i].mv[2].mvx, outputMV[i].mv[2].mvy, outputMV[i].mv[3].mvx, outputMV[i].mv[3].mvy, outputMV[i].mbCost);
+            }
+            fprintf(m_fOutput, "\n");
+        }
+        else
+        {
+            unsigned int numCTBs = ((m_uMaxWidth + 31) >> 5) * ((m_uMaxHeight + 31) >> 5);
+            fprintf(m_fOutput, "Motion Vectors for input frame = %d, reference frame = %d\n", pMEBuffer->inputFrameIndex, pMEBuffer->referenceFrameIndex);
+            NV_ENC_HEVC_MV_DATA *outputMV = (NV_ENC_HEVC_MV_DATA *)lockBitstreamData.bitstreamBufferPtr;
+            fprintf(m_fOutput, "ctb, cuType, cuSize, partitionMode, "
+                "MV[0].x, MV[0].y, MV[1].x, MV[1].y, MV[2].x, MV[2].y, MV[3].x, MV[3].y\n");
+            bool lastCUInCTB = false;
+            for (unsigned int i = 0; i < numCTBs; i++)
+            {
+                do
+                {
+                    lastCUInCTB = outputMV->lastCUInCTB ? true : false;
+                    fprintf(m_fOutput, "%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", \
+                        i, outputMV->cuType, outputMV->cuSize, outputMV->partitionMode, \
+                        outputMV->mv[0].mvx, outputMV->mv[0].mvy, outputMV->mv[1].mvx, outputMV->mv[1].mvy, \
+                        outputMV->mv[2].mvx, outputMV->mv[2].mvy, outputMV->mv[3].mvx, outputMV->mv[3].mvy);
+                    outputMV += 1;
+                } while (!lastCUInCTB);
+            }
+            fprintf(m_fOutput, "\n");
+        }
+        nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pMEBuffer->stOutputBfr.hBitstreamBuffer);
     }
     else
     {
@@ -1383,13 +1497,16 @@ NVENCSTATUS CNvHWEncoder::ParseArguments(EncodeConfig *encodeConfig, int argc, c
                 return NV_ENC_ERR_INVALID_PARAM;
             }
         }
-        else if (stricmp(argv[i], "-yuv444") == 0)
+        else if (stricmp(argv[i], "-inputFormat") == 0)
         {
-            if (++i >= argc || sscanf(argv[i], "%d", &encodeConfig->isYuv444) != 1)
+            int inputFormatIndex = 0;
+            NV_ENC_BUFFER_FORMAT aFormatTable[] = { NV_ENC_BUFFER_FORMAT_NV12, NV_ENC_BUFFER_FORMAT_YUV444, NV_ENC_BUFFER_FORMAT_YUV420_10BIT, NV_ENC_BUFFER_FORMAT_YUV444_10BIT };
+            if (++i >= argc || sscanf(argv[i], "%d", &inputFormatIndex) != 1 || inputFormatIndex < 0 || inputFormatIndex >= (sizeof(aFormatTable) / sizeof(aFormatTable[0])))
             {
                 PRINTERR("invalid parameter for %s\n", argv[i - 1]);
                 return NV_ENC_ERR_INVALID_PARAM;
             }
+            encodeConfig->inputFormat = aFormatTable[inputFormatIndex];
         }
         else if (stricmp(argv[i], "-qpDeltaMapFile") == 0)
         {
@@ -1423,6 +1540,14 @@ NVENCSTATUS CNvHWEncoder::ParseArguments(EncodeConfig *encodeConfig, int argc, c
             if (encodeConfig->preloadedFrameCount <= 1)
             {
                 PRINTERR("invalid preloadedFrameQueueSize value = %d (permissive value 2 and above)\n", encodeConfig->preloadedFrameCount);
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
+        }
+        else if (stricmp(argv[i], "-temporalAQ") == 0)
+        {
+            if (++i >= argc || sscanf(argv[i], "%d", &encodeConfig->enableTemporalAQ) != 1)
+            {
+                PRINTERR("invalid parameter for %s\n", argv[i - 1]);
                 return NV_ENC_ERR_INVALID_PARAM;
             }
         }
