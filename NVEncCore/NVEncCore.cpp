@@ -1621,7 +1621,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
 #if ENABLE_AVCUVID_READER
-        if (m_pFileReader->inputCodecIsValid()) {
+        if (!m_pFileReader->inputCodecIsValid()) {
             PrintMes(NV_LOG_ERROR, _T("vpp-deinterlace requires to be used with avcuvid reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
