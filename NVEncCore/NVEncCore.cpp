@@ -2415,8 +2415,6 @@ NVENCSTATUS NVEncCore::Encode2() {
             }
         }
 
-        CCtxAutoLock ctxAutoLock(m_ctxLock);
-
         if (CUDA_SUCCESS != (curesult = cuvidCtxLock(m_ctxLock, 0))) {
             PrintMes(NV_LOG_ERROR, _T("Error cuvidCtxLock: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
             return NV_ENC_ERR_GENERIC;
