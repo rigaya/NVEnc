@@ -66,6 +66,9 @@ static const int DEFAULT_OUTPUT_BUF  = 8;
 static const int DEFAULT_LOOKAHEAD   = 16;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
+static const int CHECK_PTS_MAX_INSERT_FRAMES = 8;
+static const int MAX_FILTER_OUTPUT = 2;
+
 #ifdef _M_IX86
 static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI.dll");
 #else
@@ -168,6 +171,7 @@ public:
 
     //エンコードを実行
     virtual NVENCSTATUS Encode();
+    virtual NVENCSTATUS Encode2();
 
     //エンコーダのClose・リソース開放
     virtual NVENCSTATUS Deinitialize();

@@ -36,7 +36,13 @@
 #include <algorithm>
 #include <thread>
 #include <tchar.h>
+#pragma warning(push)
+#pragma warning(disable: 4819)
+//ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。
+//データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
 #include <cuda.h>
+#include <cuda_runtime.h>
+#pragma warning(pop)
 #include "helper_cuda.h"
 #include "process.h"
 #pragma comment(lib, "winmm.lib")
@@ -56,6 +62,39 @@
 #include "chapter_rw.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
+#pragma comment(lib, "cudart.lib")
+
+class FrameBufferDataIn {
+public:
+    shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
+    CUVIDPROCPARAMS m_oVPP;
+    FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, CUVIDPROCPARAMS oVPP) : m_pInfo(), m_oVPP() {
+        m_pInfo = pInfo;
+        m_oVPP = oVPP;
+    };
+    ~FrameBufferDataIn() {
+        m_pInfo.reset();
+    }
+};
+
+class FrameBufferDataEnc {
+public:
+    shared_ptr<void> m_dMappedFrame;
+    NV_ENC_CSP m_csp;
+    uint64_t m_timestamp;
+    EncodeBuffer *m_pEncodeBuffer;
+    cudaEvent_t *m_pEvent;
+    FrameBufferDataEnc(shared_ptr<void> dMappedFrame, NV_ENC_CSP csp, uint64_t timestamp, EncodeBuffer *pEncodeBuffer, cudaEvent_t *pEvent) {
+        m_dMappedFrame = dMappedFrame;
+        m_csp = csp;
+        m_timestamp = timestamp;
+        m_pEncodeBuffer = pEncodeBuffer;
+        m_pEvent = pEvent;
+    };
+    ~FrameBufferDataEnc() {
+        m_dMappedFrame.reset();
+    }
+};
 
 bool check_if_nvcuda_dll_available() {
     //check for nvcuda.dll
@@ -2169,8 +2208,341 @@ NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t tim
 }
 #pragma warning(pop)
 
+NVENCSTATUS NVEncCore::Encode2() {
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    const int nPipelineDepth = 1;
+    m_pStatus->SetStart();
+
+    const int nEventCount = nPipelineDepth + CHECK_PTS_MAX_INSERT_FRAMES + 1 + MAX_FILTER_OUTPUT;
+    vector<cudaEvent_t> vEncStartEvents(2);
+    for (uint32_t i = 0; i < vEncStartEvents.size(); i++) {
+        auto cudaret = cudaEventCreate(&vEncStartEvents[i]);
+        if (cudaret != CUDA_SUCCESS) {
+            PrintMes(NV_LOG_ERROR, _T("Error cudaEventCreate: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+    }
+    vector<HANDLE> vDecMapFinEvents(2);
+    for (uint32_t i = 0; i < vDecMapFinEvents.size(); i++) {
+        if (NULL == (vDecMapFinEvents[i] = CreateEvent(NULL, FALSE, FALSE, NULL))) {
+            PrintMes(NV_LOG_ERROR, _T("Failed to CreateEvent.\n"));
+            return NV_ENC_ERR_GENERIC;
+        }
+    }
+
+
+#if ENABLE_AVCUVID_READER
+    const AVCodecContext *pVideoCtx = nullptr;
+    CAvcodecReader *pReader = dynamic_cast<CAvcodecReader *>(m_pFileReader.get());
+    if (pReader != nullptr) {
+        pVideoCtx = pReader->GetInputVideoCodecCtx();
+    }
+
+    //streamのindexから必要なwriteへのポインタを返すテーブルを作成
+    std::map<int, shared_ptr<CAvcodecWriter>> pWriterForAudioStreams;
+    for (auto pWriter : m_pFileWriterListAudio) {
+        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(pWriter);
+        if (pAVCodecWriter) {
+            auto trackIdList = pAVCodecWriter->GetStreamTrackIdList();
+            for (auto trackID : trackIdList) {
+                pWriterForAudioStreams[trackID] = pAVCodecWriter;
+            }
+        }
+    }
+
+    auto extract_audio =[&]() {
+        int sts = 0;
+        if (m_pFileWriterListAudio.size()) {
+            auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+            vector<AVPacket> packetList;
+            if (pAVCodecReader != nullptr) {
+                packetList = pAVCodecReader->GetStreamDataPackets();
+            }
+            //音声ファイルリーダーからのトラックを結合する
+            for (const auto& reader : m_AudioReaders) {
+                auto pReader = std::dynamic_pointer_cast<CAvcodecReader>(reader);
+                if (pReader != nullptr) {
+                    vector_cat(packetList, pReader->GetStreamDataPackets());
+                }
+            }
+            //パケットを各Writerに分配する
+            for (uint32_t i = 0; i < packetList.size(); i++) {
+                const int nTrackId = (int16_t)(packetList[i].flags >> 16);
+                if (pWriterForAudioStreams.count(nTrackId)) {
+                    auto pWriter = pWriterForAudioStreams[nTrackId];
+                    if (pWriter == nullptr) {
+                        PrintMes(NV_LOG_ERROR, _T("Invalid writer found for audio track %d\n"), nTrackId);
+                        return 1;
+                    }
+                    if (0 != (sts = pWriter->WriteNextPacket(&packetList[i]))) {
+                        return 1;
+                    }
+                } else {
+                    PrintMes(NV_LOG_ERROR, _T("Failed to find writer for audio track %d\n"), nTrackId);
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    };
+
+#endif
+    std::thread th_input;
+    if (m_cuvidDec) {
+        th_input = std::thread([this, pVideoCtx, &nvStatus]() {
+            CUresult curesult = CUDA_SUCCESS;
+            vector<uint8_t> bitstream;
+            int sts = NVENC_THREAD_RUNNING;
+            for (int i = 0; sts == NVENC_THREAD_RUNNING && nvStatus == NV_ENC_SUCCESS && !m_cuvidDec->GetError(); i++) {
+                sts = m_pFileReader->LoadNextFrame(nullptr, 0);
+                int64_t pts;
+                m_pFileReader->GetNextBitstream(bitstream, &pts);
+                PrintMes(NV_LOG_TRACE, _T("Set packet %d\n"), i);
+                if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(bitstream.data(), bitstream.size(), pts, pVideoCtx->pkt_timebase))) {
+                    PrintMes(NV_LOG_ERROR, _T("Error in DecodePacket: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+                    return curesult;
+                }
+            }
+            if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(nullptr, 0, AV_NOPTS_VALUE, pVideoCtx->pkt_timebase))) {
+                PrintMes(NV_LOG_ERROR, _T("Error in DecodePacketFin: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+            }
+            return curesult;
+        });
+        PrintMes(NV_LOG_DEBUG, _T("Started Encode thread\n"));
+    }
+
+    CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
+
+    int64_t nEstimatedPts = AV_NOPTS_VALUE;
+    const int nFrameDuration = (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pVideoCtx->pkt_timebase);
+    int decodedFrame = 0;
+    int encodedFrame = 0;
+
+    auto add_dec_vpp_param = [&](shared_ptr<CUVIDPARSERDISPINFO> pInfo, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
+        NVENCSTATUS status = NV_ENC_SUCCESS;
+        auto deint = m_cuvidDec->getDeinterlaceMode();
+        CUVIDPROCPARAMS oVPP = { 0 };
+        oVPP.top_field_first = m_stPicStruct != NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
+        switch (deint) {
+        case cudaVideoDeinterlaceMode_Weave:
+            oVPP.unpaired_field = 1;
+            oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
+            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInfo, oVPP))));
+            break;
+        case cudaVideoDeinterlaceMode_Bob:
+            oVPP.progressive_frame = 0;
+            oVPP.second_field = 0;
+            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInfo, oVPP))));
+            oVPP.second_field = 1;
+            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInfo, oVPP))));
+            break;
+        case cudaVideoDeinterlaceMode_Adaptive:
+            oVPP.progressive_frame = 0;
+            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInfo, oVPP))));
+            break;
+        default:
+            PrintMes(NV_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
+            break;
+        }
+        return;
+    };
+
+    auto check_pts = [&](shared_ptr<CUVIDPARSERDISPINFO> pInfo) {
+        vector<unique_ptr<FrameBufferDataIn>> decFrames;
+        int64_t pts = av_rescale_q(pInfo->timestamp, CUVID_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase);
+        if ((m_nAVSyncMode & NV_AVSYNC_FORCE_CFR) == NV_AVSYNC_FORCE_CFR) {
+            if (nEstimatedPts == AV_NOPTS_VALUE) {
+                nEstimatedPts = pts;
+            }
+            if (std::abs(pts - nEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nFrameDuration) {
+                //timestampに一定以上の差があればそれを無視する
+                nEstimatedPts = pts;
+                PrintMes(NV_LOG_WARN, _T("Big Gap was found between 2 frames, avsync might be corrupted.\n"));
+            }
+            auto ptsDiff = pts - nEstimatedPts;
+            if (ptsDiff <= std::min(-1, -1 * nFrameDuration * 3 / 4)) {
+                //間引きが必要
+                return decFrames;
+            }
+            while (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
+                //水増しが必要
+                add_dec_vpp_param(pInfo, decFrames);
+                nEstimatedPts += nFrameDuration;
+                ptsDiff = pts - nEstimatedPts;
+            }
+        } else {
+            if (nEstimatedPts == AV_NOPTS_VALUE) {
+                nEstimatedPts = 0;
+            }
+        }
+        add_dec_vpp_param(pInfo, decFrames);
+        nEstimatedPts += nFrameDuration;
+        return std::move(decFrames);
+    };
+
+    auto filter_frame = [&](int& nFilterFrame, unique_ptr<FrameBufferDataIn>& inframe, deque<unique_ptr<FrameBufferDataEnc>>& dqEncFrames) {
+        CUresult curesult = CUDA_SUCCESS;
+        CUdeviceptr dMappedFrame = 0;
+        unsigned int pitch;
+        if (nFilterFrame > 0) {
+            WaitForSingleObject(vDecMapFinEvents[(nFilterFrame - 1) % vDecMapFinEvents.size()], INFINITE);
+        }
+        if (CUDA_SUCCESS != (curesult = cuvidMapVideoFrame(m_cuvidDec->GetDecoder(), inframe->m_pInfo->picture_index, &dMappedFrame, &pitch, &inframe->m_oVPP))) {
+            PrintMes(NV_LOG_ERROR, _T("Error cuvidMapVideoFrame: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+        auto& heUnmapFin = vDecMapFinEvents[nFilterFrame % vDecMapFinEvents.size()];
+        shared_ptr<void> mappedFrame((void *)dMappedFrame, [&](void *ptr) {
+            cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
+            SetEvent(heUnmapFin);
+        });
+        //フィルタリングするならここ
+
+        //エンコードバッファを取得してコピー
+        EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+        if (!pEncodeBuffer) {
+            pEncodeBuffer = m_EncodeBufferQueue.GetPending();
+            ProcessOutput(pEncodeBuffer);
+            PrintMes(NV_LOG_TRACE, _T("Output frame %d\n"), m_pStatus->m_sData.frameOut);
+            if (pEncodeBuffer->stInputBfr.hInputSurface) {
+                nvStatus = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
+                pEncodeBuffer->stInputBfr.hInputSurface = nullptr;
+            }
+            pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+            if (!pEncodeBuffer) {
+                PrintMes(NV_LOG_ERROR, _T("Error get enc buffer from queue.\n"));
+                return NV_ENC_ERR_GENERIC;
+            }
+        }
+
+        CCtxAutoLock ctxAutoLock(m_ctxLock);
+
+        if (CUDA_SUCCESS != (curesult = cuvidCtxLock(m_ctxLock, 0))) {
+            PrintMes(NV_LOG_ERROR, _T("Error cuvidCtxLock: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+
+        auto cudaret = cudaMemcpy2DAsync((void *)pEncodeBuffer->stInputBfr.pNV12devPtr, pEncodeBuffer->stInputBfr.uNV12Stride,
+            (void *)dMappedFrame, pitch, m_uEncWidth, m_uEncHeight*3/2, cudaMemcpyDeviceToDevice);
+        if (cudaret != cudaSuccess) {
+            PrintMes(NV_LOG_ERROR, _T("Error cudaMemcpy2DAsync: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+        if (CUDA_SUCCESS != (curesult = cuvidCtxUnlock(m_ctxLock, 0))) {
+            PrintMes(NV_LOG_ERROR, _T("Error cuvidCtxUnlock: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+        auto& cudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()];
+        if (cudaSuccess != (cudaret = cudaEventRecord(cudaEvent))) {
+            PrintMes(NV_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+        unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(mappedFrame, NV_ENC_CSP_NV12, inframe->m_pInfo->timestamp, pEncodeBuffer, &cudaEvent));
+        dqEncFrames.push_back(std::move(frameEnc));
+        return NV_ENC_SUCCESS;
+    };
+
+    auto send_encoder = [&](int& nEncodeFrame, unique_ptr<FrameBufferDataEnc>& encFrame) {
+        cudaEventSynchronize(*encFrame->m_pEvent);
+        EncodeBuffer *pEncodeBuffer = encFrame->m_pEncodeBuffer;
+        nvStatus = NvEncMapInputResource(pEncodeBuffer->stInputBfr.nvRegisteredResource, &pEncodeBuffer->stInputBfr.hInputSurface);
+        if (nvStatus != NV_ENC_SUCCESS) {
+            PrintMes(NV_LOG_ERROR, _T("Failed to Map input buffer %p\n"), pEncodeBuffer->stInputBfr.hInputSurface);
+            return nvStatus;
+        }
+        return NvEncEncodeFrame(pEncodeBuffer, nEncodeFrame++);
+    };
+
+    deque<unique_ptr<FrameBufferDataIn>> dqInFrames;
+    deque<unique_ptr<FrameBufferDataEnc>> dqEncFrames;
+    for (int nInputFrame = 0, nFilterFrame = 0, nEncodeFrame = 0; ; ) {
+        if (m_pAbortByUser && *m_pAbortByUser) {
+            nvStatus = NV_ENC_ERR_ABORT;
+            break;
+        }
+        speedCtrl.wait();
+#if ENABLE_AVCUVID_READER
+        if (0 != extract_audio()) {
+            nvStatus = NV_ENC_ERR_GENERIC;
+            break;
+        }
+#endif //#if ENABLE_AVCUVID_READER
+
+        //デコード
+        if (m_cuvidDec->GetError()
+            || (m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
+            break;
+        }
+        unique_ptr<CUVIDPARSERDISPINFO> dispInfo(new CUVIDPARSERDISPINFO());
+        if (m_cuvidDec->frameQueue()->dequeue(dispInfo.get())) {
+            shared_ptr<CUVIDPARSERDISPINFO> pInfo(dispInfo.release(), [&](CUVIDPARSERDISPINFO *ptr) {
+                m_cuvidDec->frameQueue()->releaseFrame(ptr);
+                delete ptr; 
+            });
+            //trim反映
+            if (m_pTrimParam && !frame_inside_range(nInputFrame++, m_pTrimParam->list)) {
+                pInfo.reset();
+                continue;
+            }
+            auto decFrames = check_pts(pInfo);
+            for (auto idf = decFrames.begin(); idf != decFrames.end(); idf++) {
+                dqInFrames.push_back(std::move(*idf));
+            }
+            while (dqInFrames.size()) {
+                auto& inframe = dqInFrames.front();
+                filter_frame(nFilterFrame, inframe, dqEncFrames);
+                dqInFrames.pop_front();
+                while (dqEncFrames.size()) {
+                    auto& encframe = dqEncFrames.front();
+                    send_encoder(nEncodeFrame, encframe);
+                    dqEncFrames.pop_front();
+                }
+            }
+        } else {
+            m_cuvidDec->frameQueue()->waitForQueueUpdate();
+        }
+    }
+
+    if (th_input.joinable()) {
+        //ここでフレームをすべて吐き出し切らないと、中断時にデコードスレッドが終了しない
+        while (!m_cuvidDec->GetError()
+            && !(m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
+            CUVIDPARSERDISPINFO pInfo;
+            if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
+                m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
+            }
+        }
+        th_input.join();
+    }
+#if ENABLE_AVCUVID_READER
+    for (const auto& writer : m_pFileWriterListAudio) {
+        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(writer);
+        if (pAVCodecWriter != nullptr) {
+            //エンコーダなどにキャッシュされたパケットを書き出す
+            pAVCodecWriter->WriteNextPacket(nullptr);
+        }
+    }
+#endif //#if ENABLE_AVCUVID_READER
+    PrintMes(NV_LOG_INFO, _T("                                                                         \n"));
+    //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
+    auto encstatus = FlushEncoder();
+    if (nvStatus == NV_ENC_SUCCESS && encstatus != NV_ENC_SUCCESS) {
+        PrintMes(NV_LOG_ERROR, _T("Error FlushEncoder: %d.\n"), encstatus);
+        nvStatus = encstatus;
+    } else {
+        PrintMes(NV_LOG_DEBUG, _T("Flushed Encoder\n"));
+    }
+    m_pFileReader->Close();
+    m_pFileWriter->Close();
+    m_pStatus->writeResult();
+    return NV_ENC_SUCCESS;
+}
+
 NVENCSTATUS NVEncCore::Encode() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    if (m_cuvidDec) {
+        return Encode2();
+    }
 
     m_pStatus->SetStart();
 
