@@ -42,6 +42,8 @@ using std::vector;
 
 #define USE_CUSTOM_IO 1
 
+#define USE_AVCODECPAR 0
+
 static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 
 typedef struct AVMuxFormat {
@@ -347,7 +349,9 @@ private:
 
     //extradataをコピーする
     void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
+#if USE_AVCODECPAR
     void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
+#endif
     
     //映像の初期化
     int InitVideo(const AvcodecWriterPrm *prm);

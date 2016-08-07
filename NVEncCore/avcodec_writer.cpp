@@ -39,8 +39,6 @@
 #include "avcodec_writer.h"
 #include "avcodec_qsv_log.h"
 
-#define USE_AVCODECPAR 1
-
 #if ENABLE_AVCUVID_READER
 #if USE_CUSTOM_IO
 static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
@@ -353,6 +351,7 @@ void CAvcodecWriter::SetExtraData(AVCodecContext *codecCtx, const uint8_t *data,
     memcpy(codecCtx->extradata, data, size);
 };
 
+#if USE_AVCODECPAR
 void CAvcodecWriter::SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size) {
     if (data == nullptr || size == 0)
         return;
@@ -362,6 +361,7 @@ void CAvcodecWriter::SetExtraData(AVCodecParameters *pCodecParam, const uint8_t 
     pCodecParam->extradata      = (uint8_t *)av_malloc(pCodecParam->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
     memcpy(pCodecParam->extradata, data, size);
 };
+#endif //USE_AVCODECPAR
 
 //音声のchannel_layoutを自動選択する
 uint64_t CAvcodecWriter::AutoSelectChannelLayout(const uint64_t *pChannelLayout, const AVCodecContext *pSrcAudioCtx) {
