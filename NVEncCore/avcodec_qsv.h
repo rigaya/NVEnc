@@ -35,6 +35,7 @@
 
 #pragma warning (push)
 #pragma warning (disable: 4244)
+#pragma warning (disable: 4819)
 extern "C" {
 #include <libavutil/avutil.h>
 #include <libavutil/error.h>
