@@ -66,6 +66,10 @@ static const int DEFAULT_OUTPUT_BUF  = 8;
 static const int DEFAULT_LOOKAHEAD   = 16;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
+static const int PIPELINE_DEPTH = 1;
+static const int CHECK_PTS_MAX_INSERT_FRAMES = 8;
+static const int MAX_FILTER_OUTPUT = 2;
+
 #ifdef _M_IX86
 static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI.dll");
 #else
@@ -80,6 +84,19 @@ static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI64.dll");
 typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*); 
 
 bool check_if_nvcuda_dll_available();
+
+struct FrameInfo {
+    void *ptr;
+    NV_ENC_CSP csp;
+    int width, height, pitch;
+    uint64_t timestamp;
+};
+
+struct FrameInfoExtra {
+    int width_byte, height_total, frame_size;
+};
+
+FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
 
 class NVEncoderGPUInfo
 {
@@ -222,7 +239,7 @@ protected:
     NVENCSTATUS CreateEncoder(const InEncodeVideoParam *inputParam);
 
     //入出力用バッファを確保
-    NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat);
+    NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const InputVideoInfo *pInputInfo);
 
     //フレームを1枚エンコーダに投入(非同期)
     NVENCSTATUS EncodeFrame(uint64_t timestamp);
@@ -254,6 +271,8 @@ protected:
     HINSTANCE                    m_hinstLib;              //nvEncodeAPI.dllのモジュールハンドル
     void                        *m_hEncoder;              //エンコーダのインスタンス
     NV_ENC_INITIALIZE_PARAMS     m_stCreateEncodeParams;  //エンコーダの初期化パラメータ
+
+    vector<FrameInfo>            m_inputHostBuffer;
 
     const sTrimParam            *m_pTrimParam;
     shared_ptr<NVEncBasicInput>  m_pFileReader;           //動画読み込み
@@ -291,7 +310,7 @@ protected:
     NVENCSTATUS NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD *sequenceParamPayload);
     NVENCSTATUS NvEncRegisterAsyncEvent(void **completionEvent);
     NVENCSTATUS NvEncUnregisterAsyncEvent(void *completionEvent);
-    NVENCSTATUS NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resourceType, void* resourceToRegister, uint32_t width, uint32_t height, uint32_t pitch, void** registeredResource);
+    NVENCSTATUS NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resourceType, void* resourceToRegister, uint32_t width, uint32_t height, uint32_t pitch, NV_ENC_BUFFER_FORMAT inputFormat, void** registeredResource);
     NVENCSTATUS NvEncUnregisterResource(NV_ENC_REGISTERED_PTR registeredRes);
     NVENCSTATUS NvEncMapInputResource(void *registeredResource, void **mappedResource);
     NVENCSTATUS NvEncUnmapInputResource(NV_ENC_INPUT_PTR mappedInputBuffer);
