@@ -32,6 +32,7 @@
 #include <vector>
 #include <array>
 #include <map>
+#include <deque>
 #include <string>
 #include <algorithm>
 #include <thread>
@@ -64,17 +65,125 @@
 #pragma comment(lib, "shlwapi.lib")
 #pragma comment(lib, "cudart.lib")
 
+using std::deque;
+
+FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
+    FrameInfoExtra exinfo = { 0 };
+    switch (pFrameInfo->csp) {
+    case NV_ENC_CSP_NV12:
+        exinfo.width_byte = pFrameInfo->width;
+        exinfo.height_total = pFrameInfo->height * 3 / 2;
+        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3 / 2;
+        break;
+    case NV_ENC_CSP_YV12:
+        exinfo.width_byte = pFrameInfo->width;
+        exinfo.height_total = pFrameInfo->height * 3 / 2;
+        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3 / 2;
+        break;
+    case NV_ENC_CSP_YUY2:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = pFrameInfo->height;
+        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 2;
+        break;
+    case NV_ENC_CSP_YUV422:
+        exinfo.width_byte = pFrameInfo->width;
+        exinfo.height_total = pFrameInfo->height * 2;
+        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 2;
+        break;
+    case NV_ENC_CSP_YUV444:
+        exinfo.width_byte = pFrameInfo->width;
+        exinfo.height_total = pFrameInfo->height * 3;
+        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3;
+        break;
+    case NV_ENC_CSP_YV12_09:
+    case NV_ENC_CSP_YV12_10:
+    case NV_ENC_CSP_YV12_12:
+    case NV_ENC_CSP_YV12_14:
+    case NV_ENC_CSP_YV12_16:
+    case NV_ENC_CSP_P010:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = pFrameInfo->height * 3 / 2;
+        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3;
+        break;
+    case NV_ENC_CSP_YUV444_09:
+    case NV_ENC_CSP_YUV444_10:
+    case NV_ENC_CSP_YUV444_12:
+    case NV_ENC_CSP_YUV444_14:
+    case NV_ENC_CSP_YUV444_16:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = pFrameInfo->height * 3;
+        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 6;
+        break;
+    case NV_ENC_CSP_YC48:
+        exinfo.width_byte = pFrameInfo->width * 6;
+        exinfo.height_total = pFrameInfo->height;
+        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 6;
+        break;
+    default:
+        break;
+    }
+    return exinfo;
+}
+
 class FrameBufferDataIn {
 public:
-    shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
-    CUVIDPROCPARAMS m_oVPP;
-    FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, CUVIDPROCPARAMS oVPP) : m_pInfo(), m_oVPP() {
-        m_pInfo = pInfo;
-        m_oVPP = oVPP;
+    FrameBufferDataIn() : m_pInfo(), m_oVPP(), m_hostFrame(), m_bInputHost() {
+
+    };
+    FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP) : m_pInfo(), m_oVPP(), m_hostFrame(), m_bInputHost(false) {
+        setCuvidInfo(pInfo, oVPP);
+    };
+    FrameBufferDataIn(const FrameInfo* pHostFrame) : m_pInfo(), m_oVPP(), m_hostFrame(), m_bInputHost(true) {
+        m_hostFrame = *pHostFrame;
+        memset(&m_oVPP, 0, sizeof(m_oVPP));
     };
     ~FrameBufferDataIn() {
         m_pInfo.reset();
     }
+    void setHostFrameInfo(const FrameInfo* pHostFrame) {
+        m_pInfo.reset();
+        memset(&m_oVPP, 0, sizeof(m_oVPP));
+        m_hostFrame = *pHostFrame;
+        m_bInputHost = true;
+    }
+    void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo) {
+        m_pInfo = pInfo;
+        memset(&m_oVPP, 0, sizeof(m_oVPP));
+        memset(&m_hostFrame, 0, sizeof(m_hostFrame));
+        m_bInputHost = false;
+    }
+    void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP) {
+        m_pInfo = pInfo;
+        m_oVPP = oVPP;
+        memset(&m_hostFrame, 0, sizeof(m_hostFrame));
+        m_bInputHost = false;
+    }
+    shared_ptr<CUVIDPARSERDISPINFO> getCuvidInfo() {
+        return m_pInfo;
+    }
+    CUVIDPROCPARAMS getVppInfo() {
+        return m_oVPP;
+    }
+    void resetCuvidInfo() {
+        m_pInfo.reset();
+    }
+    int64_t getTimeStamp() const {
+        if (m_bInputHost) {
+            return m_hostFrame.timestamp;
+        }
+        return m_pInfo ? m_pInfo->timestamp : 0;
+    }
+    bool inputIsHost() const {
+        return m_bInputHost;
+    }
+    FrameInfo getFrameInfo() const {
+        return m_hostFrame;
+    }
+private:
+    shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
+    CUVIDPROCPARAMS m_oVPP;
+    FrameInfo m_hostFrame;
+    bool m_bInputHost;
 };
 
 class FrameBufferDataEnc {
@@ -84,12 +193,12 @@ public:
     uint64_t m_timestamp;
     EncodeBuffer *m_pEncodeBuffer;
     cudaEvent_t *m_pEvent;
-    FrameBufferDataEnc(shared_ptr<void> dMappedFrame, NV_ENC_CSP csp, uint64_t timestamp, EncodeBuffer *pEncodeBuffer, cudaEvent_t *pEvent) {
+    FrameBufferDataEnc(shared_ptr<void> dMappedFrame, NV_ENC_CSP csp, uint64_t timestamp, EncodeBuffer *pEncodeBuffer) {
         m_dMappedFrame = dMappedFrame;
         m_csp = csp;
         m_timestamp = timestamp;
         m_pEncodeBuffer = pEncodeBuffer;
-        m_pEvent = pEvent;
+        m_pEvent = nullptr;
     };
     ~FrameBufferDataEnc() {
         m_dMappedFrame.reset();
@@ -786,14 +895,14 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(NV_LOG_DEBUG, _T("cuCtxCreate: Success.\n"));
-    
+
+#if ENABLE_AVCUVID_READER
     if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&m_cuContextCurr))) {
         PrintMes(NV_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x\n"), cuResult);
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(NV_LOG_DEBUG, _T("cuCtxPopCurrent: Success.\n"));
 
-#if ENABLE_AVCUVID_READER
     if (CUDA_SUCCESS != (cuResult = cuvidCtxLockCreate(&m_ctxLock, m_cuContextCurr))) {
         PrintMes(NV_LOG_ERROR, _T("Failed cuvidCtxLockCreate %d\n"), cuResult);
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
@@ -962,7 +1071,7 @@ NVENCSTATUS NVEncCore::NvEncUnregisterAsyncEvent(void *completionEvent) {
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resourceType, void* resourceToRegister, uint32_t width, uint32_t height, uint32_t pitch, void** registeredResource) {
+NVENCSTATUS NVEncCore::NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resourceType, void* resourceToRegister, uint32_t width, uint32_t height, uint32_t pitch, NV_ENC_BUFFER_FORMAT inputFormat, void** registeredResource) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     NV_ENC_REGISTER_RESOURCE registerResParams;
 
@@ -973,6 +1082,7 @@ NVENCSTATUS NVEncCore::NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resource
     registerResParams.width = width;
     registerResParams.height = height;
     registerResParams.pitch = pitch;
+    registerResParams.bufferFormat = inputFormat;
 
     nvStatus = m_pEncodeAPI->nvEncRegisterResource(m_hEncoder, &registerResParams);
     if (nvStatus != NV_ENC_SUCCESS) {
@@ -1141,33 +1251,62 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat) {
+NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const InputVideoInfo *pInputInfo) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
     m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_uEncodeBufferCount);
+    uint32_t uInputWidthByte = 0;
+    uint32_t uInputHeightTotal = 0;
+    switch (inputFormat) {
+    case NV_ENC_BUFFER_FORMAT_UNDEFINED: /**< Undefined buffer format */
+    case NV_ENC_BUFFER_FORMAT_YV12:      /**< Planar YUV [Y plane followed by V and U planes] */
+    case NV_ENC_BUFFER_FORMAT_IYUV:      /**< Planar YUV [Y plane followed by U and V planes] */
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    case NV_ENC_BUFFER_FORMAT_YUV444:    /**< Planar YUV [Y plane followed by U and V planes] */
+        uInputWidthByte = uInputWidth;
+        uInputHeightTotal = uInputHeight * 3;
+        break;
+    case NV_ENC_BUFFER_FORMAT_YUV420_10BIT: /**< 10 bit Semi-Planar YUV [Y plane followed by interleaved UV plane]. Each pixel of size 2 bytes. Most Significant 10 bits contain pixel data. */
+        uInputWidthByte = uInputWidth * 2;
+        uInputHeightTotal = uInputHeight * 3 / 2;
+        break;
+    case NV_ENC_BUFFER_FORMAT_YUV444_10BIT: /**< 10 bit Planar YUV444 [Y plane followed by U and V planes]. Each pixel of size 2 bytes. Most Significant 10 bits contain pixel data.  */
+        uInputWidthByte = uInputWidth * 2;
+        uInputHeightTotal = uInputHeight * 3;
+        break;
+    case NV_ENC_BUFFER_FORMAT_ARGB:    /**< 8 bit Packed A8R8G8B8 */
+    case NV_ENC_BUFFER_FORMAT_ARGB10:  /**< 10 bit Packed A2R10G10B10. Each pixel of size 2 bytes. Most Significant 10 bits contain pixel data.  */
+    case NV_ENC_BUFFER_FORMAT_AYUV:    /**< 8 bit Packed A8Y8U8V8 */
+    case NV_ENC_BUFFER_FORMAT_ABGR:    /**< 8 bit Packed A8B8G8R8 */
+    case NV_ENC_BUFFER_FORMAT_ABGR10:  /**< 10 bit Packed A2B10G10R10. Each pixel of size 2 bytes. Most Significant 10 bits contain pixel data.  */
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    case NV_ENC_BUFFER_FORMAT_NV12:    /**< Semi-Planar YUV [Y plane followed by interleaved UV plane] */
+        uInputWidthByte = uInputWidth;
+        uInputHeightTotal = uInputHeight * 3 / 2;
+        break;
+    default:
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
     for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
 #if ENABLE_AVCUVID_READER
-        if (m_cuvidDec) {
-            cuvidCtxLock(m_ctxLock, 0);
-            auto curesult = cuMemAllocPitch(&m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
-                (size_t *)&m_stEncodeBuffer[i].stInputBfr.uNV12Stride, uInputWidth, uInputHeight * 3 / 2, 16);
-            cuvidCtxUnlock(m_ctxLock, 0);
-            if (curesult != CUDA_SUCCESS) {
-                PrintMes(NV_LOG_ERROR, _T("Failed to cuMemAllocPitch, %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
-            }
-
-            nvStatus = NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR,
-                (void*)m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
-                uInputWidth, uInputHeight, m_stEncodeBuffer[i].stInputBfr.uNV12Stride,
-                &m_stEncodeBuffer[i].stInputBfr.nvRegisteredResource);
-        } else
+        cuvidCtxLock(m_ctxLock, 0);
 #endif //#if ENABLE_AVCUVID_READER
-        {
-            nvStatus = NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, inputFormat);
-            if (nvStatus != NV_ENC_SUCCESS) {
-                PrintMes(NV_LOG_ERROR, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
-                return nvStatus;
-            }
+        auto cudaerr = cudaMallocPitch((void **)&m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
+            (size_t *)&m_stEncodeBuffer[i].stInputBfr.uNV12Stride, uInputWidthByte, uInputHeightTotal);
+#if ENABLE_AVCUVID_READER
+        cuvidCtxUnlock(m_ctxLock, 0);
+#endif //#if ENABLE_AVCUVID_READER
+        if (cudaerr != cudaSuccess) {
+            PrintMes(NV_LOG_ERROR, _T("Failed to cuMemAllocPitch, %d (%s)\n"), cudaerr, char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
+            return NV_ENC_ERR_OUT_OF_MEMORY;
+        }
+
+        if (NV_ENC_SUCCESS != (nvStatus = NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR,
+            (void*)m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
+            uInputWidth, uInputHeight, m_stEncodeBuffer[i].stInputBfr.uNV12Stride, inputFormat,
+            &m_stEncodeBuffer[i].stInputBfr.nvRegisteredResource))) {
+            PrintMes(NV_LOG_ERROR, _T("Failed to register input device memory.\n"));
+            return nvStatus;
         }
 
         m_stEncodeBuffer[i].stInputBfr.bufferFmt = inputFormat;
@@ -1187,6 +1326,59 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         m_stEncodeBuffer[i].stOutputBfr.bWaitOnEvent = true;
     }
 
+#if ENABLE_AVCUVID_READER
+    if (!m_cuvidDec) {
+#else
+    {
+#endif //#if ENABLE_AVCUVID_READER
+        m_inputHostBuffer.resize(PIPELINE_DEPTH);
+        int bufWidth  = pInputInfo->width  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
+        int bufHeight = pInputInfo->height - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
+        int bufPitch  = (bufWidth + 31) & (~31);
+        int bufSize = 0;
+        switch (pInputInfo->csp) {
+        case NV_ENC_CSP_NV12:
+        case NV_ENC_CSP_YV12:
+            bufSize = bufPitch * bufHeight * 3 / 2; break;
+        case NV_ENC_CSP_P010:
+        case NV_ENC_CSP_YV12_09:
+        case NV_ENC_CSP_YV12_10:
+        case NV_ENC_CSP_YV12_12:
+        case NV_ENC_CSP_YV12_14:
+        case NV_ENC_CSP_YV12_16:
+            bufSize = bufPitch * bufHeight * 3; break;
+        case NV_ENC_CSP_YUY2:
+        case NV_ENC_CSP_YUV422:
+            bufSize = bufPitch * bufHeight * 2; break;
+        case NV_ENC_CSP_YUV444:
+            bufSize = bufPitch * bufHeight * 3; break;
+        case NV_ENC_CSP_YUV444_09:
+        case NV_ENC_CSP_YUV444_10:
+        case NV_ENC_CSP_YUV444_12:
+        case NV_ENC_CSP_YUV444_14:
+        case NV_ENC_CSP_YUV444_16:
+            bufSize = bufPitch * bufHeight * 6; break;
+        default:
+            PrintMes(NV_LOG_ERROR, _T("Unsupported csp at AllocateIOBuffers.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+        for (uint32_t i = 0; i < m_inputHostBuffer.size(); i++) {
+            m_inputHostBuffer[i].width = bufWidth;
+            m_inputHostBuffer[i].height = bufHeight;
+            m_inputHostBuffer[i].pitch = bufPitch;
+            m_inputHostBuffer[i].csp = pInputInfo->csp;
+
+#if ENABLE_AVCUVID_READER
+            CCtxAutoLock ctxLock(m_ctxLock);
+#endif //#if ENABLE_AVCUVID_READER
+            auto cudaret = cudaMallocHost(&m_inputHostBuffer[i].ptr, bufSize);
+            if (cudaret != cudaSuccess) {
+                PrintMes(NV_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+                return NV_ENC_ERR_GENERIC;
+            }
+        }
+    }
+
     m_stEOSOutputBfr.bEOSFlag = TRUE;
 
     nvStatus = NvEncRegisterAsyncEvent(&m_stEOSOutputBfr.hOutputEvent);
@@ -1198,21 +1390,15 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
 
 NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
     for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
+        if (m_stEncodeBuffer[i].stInputBfr.pNV12devPtr) {
 #if ENABLE_AVCUVID_READER
-        if (m_cuvidDec) {
-            if (m_stEncodeBuffer[i].stInputBfr.pNV12devPtr) {
-                cuvidCtxLock(m_ctxLock, 0);
-                cuMemFree(m_stEncodeBuffer[i].stInputBfr.pNV12devPtr);
-                cuvidCtxUnlock(m_ctxLock, 0);
-                m_stEncodeBuffer[i].stInputBfr.pNV12devPtr = NULL;
-            }
-        } else
+            cuvidCtxLock(m_ctxLock, 0);
 #endif //#if ENABLE_AVCUVID_READER
-        {
-            if (m_stEncodeBuffer[i].stInputBfr.hInputSurface) {
-                NvEncDestroyInputBuffer(m_stEncodeBuffer[i].stInputBfr.hInputSurface);
-                m_stEncodeBuffer[i].stInputBfr.hInputSurface = NULL;
-            }
+            cuMemFree(m_stEncodeBuffer[i].stInputBfr.pNV12devPtr);
+#if ENABLE_AVCUVID_READER
+            cuvidCtxUnlock(m_ctxLock, 0);
+#endif //#if ENABLE_AVCUVID_READER
+            m_stEncodeBuffer[i].stInputBfr.pNV12devPtr = NULL;
         }
 
         if (m_stEncodeBuffer[i].stOutputBfr.hBitstreamBuffer) {
@@ -1670,10 +1856,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->nTrimCount > 0 && !m_pFileReader->inputCodecIsValid()) {
-        PrintMes(NV_LOG_ERROR, _T("trim is supported only with avcuvid reader.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
-    }
     if (inputParam->nAVSyncMode && inputParam->nTrimCount > 0) {
         PrintMes(NV_LOG_ERROR, _T("avsync forcecfr + trim is not supported.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -2027,7 +2209,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
     }
     m_nAVSyncMode = inputParam->nAVSyncMode;
-    if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, encBufferFormat))) {
+    if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, encBufferFormat, &inputParam->input))) {
         return nvStatus;
     }
     PrintMes(NV_LOG_DEBUG, _T("AllocateIOBuffers: Success.\n"));
@@ -2208,13 +2390,14 @@ NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t tim
 }
 #pragma warning(pop)
 
-NVENCSTATUS NVEncCore::Encode2() {
+#if 1
+NVENCSTATUS NVEncCore::Encode() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    const int nPipelineDepth = 1;
+    const int nPipelineDepth = PIPELINE_DEPTH;
     m_pStatus->SetStart();
 
     const int nEventCount = nPipelineDepth + CHECK_PTS_MAX_INSERT_FRAMES + 1 + MAX_FILTER_OUTPUT;
-    vector<cudaEvent_t> vEncStartEvents(2);
+    vector<cudaEvent_t> vEncStartEvents(nEventCount);
     for (uint32_t i = 0; i < vEncStartEvents.size(); i++) {
         auto cudaret = cudaEventCreate(&vEncStartEvents[i]);
         if (cudaret != CUDA_SUCCESS) {
@@ -2222,14 +2405,13 @@ NVENCSTATUS NVEncCore::Encode2() {
             return NV_ENC_ERR_GENERIC;
         }
     }
-    vector<HANDLE> vDecMapFinEvents(2);
+    vector<HANDLE> vDecMapFinEvents(nEventCount);
     for (uint32_t i = 0; i < vDecMapFinEvents.size(); i++) {
         if (NULL == (vDecMapFinEvents[i] = CreateEvent(NULL, FALSE, FALSE, NULL))) {
             PrintMes(NV_LOG_ERROR, _T("Failed to CreateEvent.\n"));
             return NV_ENC_ERR_GENERIC;
         }
     }
-
 
 #if ENABLE_AVCUVID_READER
     const AVCodecContext *pVideoCtx = nullptr;
@@ -2286,7 +2468,6 @@ NVENCSTATUS NVEncCore::Encode2() {
         return 0;
     };
 
-#endif
     std::thread th_input;
     if (m_cuvidDec) {
         th_input = std::thread([this, pVideoCtx, &nvStatus]() {
@@ -2311,45 +2492,51 @@ NVENCSTATUS NVEncCore::Encode2() {
         PrintMes(NV_LOG_DEBUG, _T("Started Encode thread\n"));
     }
 
-    CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
-
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
     const int nFrameDuration = (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pVideoCtx->pkt_timebase);
-    int decodedFrame = 0;
-    int encodedFrame = 0;
+#endif //#if ENABLE_AVCUVID_READER
 
-    auto add_dec_vpp_param = [&](shared_ptr<CUVIDPARSERDISPINFO> pInfo, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
-        NVENCSTATUS status = NV_ENC_SUCCESS;
-        auto deint = m_cuvidDec->getDeinterlaceMode();
-        CUVIDPROCPARAMS oVPP = { 0 };
-        oVPP.top_field_first = m_stPicStruct != NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
-        switch (deint) {
-        case cudaVideoDeinterlaceMode_Weave:
-            oVPP.unpaired_field = 1;
-            oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
-            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInfo, oVPP))));
-            break;
-        case cudaVideoDeinterlaceMode_Bob:
-            oVPP.progressive_frame = 0;
-            oVPP.second_field = 0;
-            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInfo, oVPP))));
-            oVPP.second_field = 1;
-            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInfo, oVPP))));
-            break;
-        case cudaVideoDeinterlaceMode_Adaptive:
-            oVPP.progressive_frame = 0;
-            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInfo, oVPP))));
-            break;
-        default:
-            PrintMes(NV_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
-            break;
+    auto add_dec_vpp_param = [&](FrameBufferDataIn* pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
+        if (pInputFrame->inputIsHost()) {
+            auto frameInfo = pInputFrame->getFrameInfo();
+            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(&frameInfo))));
         }
+#if ENABLE_AVCUVID_READER
+        else {
+            NVENCSTATUS status = NV_ENC_SUCCESS;
+            auto deint = m_cuvidDec->getDeinterlaceMode();
+            CUVIDPROCPARAMS oVPP ={ 0 };
+            oVPP.top_field_first = m_stPicStruct != NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
+            switch (deint) {
+            case cudaVideoDeinterlaceMode_Weave:
+                oVPP.unpaired_field = 1;
+                oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP))));
+                break;
+            case cudaVideoDeinterlaceMode_Bob:
+                oVPP.progressive_frame = 0;
+                oVPP.second_field = 0;
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP))));
+                oVPP.second_field = 1;
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP))));
+                break;
+            case cudaVideoDeinterlaceMode_Adaptive:
+                oVPP.progressive_frame = 0;
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP))));
+                break;
+            default:
+                PrintMes(NV_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
+                break;
+            }
+        }
+#endif //#if ENABLE_AVCUVID_READER
         return;
     };
 
-    auto check_pts = [&](shared_ptr<CUVIDPARSERDISPINFO> pInfo) {
+    auto check_pts = [&](FrameBufferDataIn *pInputFrame) {
         vector<unique_ptr<FrameBufferDataIn>> decFrames;
-        int64_t pts = av_rescale_q(pInfo->timestamp, CUVID_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase);
+#if ENABLE_AVCUVID_READER
+        int64_t pts = av_rescale_q(pInputFrame->getTimeStamp(), CUVID_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase);
         if ((m_nAVSyncMode & NV_AVSYNC_FORCE_CFR) == NV_AVSYNC_FORCE_CFR) {
             if (nEstimatedPts == AV_NOPTS_VALUE) {
                 nEstimatedPts = pts;
@@ -2366,7 +2553,7 @@ NVENCSTATUS NVEncCore::Encode2() {
             }
             while (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
                 //水増しが必要
-                add_dec_vpp_param(pInfo, decFrames);
+                add_dec_vpp_param(pInputFrame, decFrames);
                 nEstimatedPts += nFrameDuration;
                 ptsDiff = pts - nEstimatedPts;
             }
@@ -2375,27 +2562,48 @@ NVENCSTATUS NVEncCore::Encode2() {
                 nEstimatedPts = 0;
             }
         }
-        add_dec_vpp_param(pInfo, decFrames);
         nEstimatedPts += nFrameDuration;
+#endif //#if ENABLE_AVCUVID_READER
+        add_dec_vpp_param(pInputFrame, decFrames);
         return std::move(decFrames);
     };
 
     auto filter_frame = [&](int& nFilterFrame, unique_ptr<FrameBufferDataIn>& inframe, deque<unique_ptr<FrameBufferDataEnc>>& dqEncFrames) {
         CUresult curesult = CUDA_SUCCESS;
-        CUdeviceptr dMappedFrame = 0;
-        unsigned int pitch;
         if (nFilterFrame > 0) {
             WaitForSingleObject(vDecMapFinEvents[(nFilterFrame - 1) % vDecMapFinEvents.size()], INFINITE);
         }
-        if (CUDA_SUCCESS != (curesult = cuvidMapVideoFrame(m_cuvidDec->GetDecoder(), inframe->m_pInfo->picture_index, &dMappedFrame, &pitch, &inframe->m_oVPP))) {
-            PrintMes(NV_LOG_ERROR, _T("Error cuvidMapVideoFrame: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
-            return NV_ENC_ERR_GENERIC;
-        }
+
+        cudaMemcpyKind memcpyKind = cudaMemcpyDeviceToDevice;
+        FrameInfo frameInfo = { 0 };
+        shared_ptr<void> deviceFrame;
         auto& heUnmapFin = vDecMapFinEvents[nFilterFrame % vDecMapFinEvents.size()];
-        shared_ptr<void> mappedFrame((void *)dMappedFrame, [&](void *ptr) {
-            cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
-            SetEvent(heUnmapFin);
-        });
+        if (inframe->inputIsHost()) {
+            memcpyKind = cudaMemcpyHostToDevice;
+            frameInfo = inframe->getFrameInfo();
+            deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
+                //このメモリはm_inputHostBufferのメモリであり、使いまわすため、解放しない
+                SetEvent(heUnmapFin);
+            });
+        }
+#if ENABLE_AVCUVID_READER
+        else {
+            CUdeviceptr dMappedFrame = 0;
+            memcpyKind = cudaMemcpyDeviceToDevice;
+            auto vppinfo = inframe->getVppInfo();
+            uint32_t pitch = 0;
+            if (CUDA_SUCCESS != (curesult = cuvidMapVideoFrame(m_cuvidDec->GetDecoder(), inframe->getCuvidInfo()->picture_index, &dMappedFrame, &pitch, &vppinfo))) {
+                PrintMes(NV_LOG_ERROR, _T("Error cuvidMapVideoFrame: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+                return NV_ENC_ERR_GENERIC;
+            }
+            frameInfo = inframe->getFrameInfo();
+            frameInfo.pitch = pitch;
+            deviceFrame = shared_ptr<void>((void *)dMappedFrame, [&](void *ptr) {
+                cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
+                SetEvent(heUnmapFin);
+            });
+        }
+#endif //#if ENABLE_AVCUVID_READER
         //フィルタリングするならここ
 
         //エンコードバッファを取得してコピー
@@ -2414,34 +2622,38 @@ NVENCSTATUS NVEncCore::Encode2() {
                 return NV_ENC_ERR_GENERIC;
             }
         }
-
+#if ENABLE_AVCUVID_READER
         if (CUDA_SUCCESS != (curesult = cuvidCtxLock(m_ctxLock, 0))) {
             PrintMes(NV_LOG_ERROR, _T("Error cuvidCtxLock: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
             return NV_ENC_ERR_GENERIC;
         }
+#endif //#if ENABLE_AVCUVID_READER
 
-        auto cudaret = cudaMemcpy2DAsync((void *)pEncodeBuffer->stInputBfr.pNV12devPtr, pEncodeBuffer->stInputBfr.uNV12Stride,
-            (void *)dMappedFrame, pitch, m_uEncWidth, m_uEncHeight*3/2, cudaMemcpyDeviceToDevice);
+        auto frameInfoEx = getFrameInfoExtra(&frameInfo);
+        auto cudaret = cudaMemcpy2D((void *)pEncodeBuffer->stInputBfr.pNV12devPtr, pEncodeBuffer->stInputBfr.uNV12Stride,
+            (void *)deviceFrame.get(), frameInfo.pitch, frameInfoEx.width_byte, frameInfoEx.height_total, memcpyKind);
         if (cudaret != cudaSuccess) {
             PrintMes(NV_LOG_ERROR, _T("Error cudaMemcpy2DAsync: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
             return NV_ENC_ERR_GENERIC;
         }
+#if ENABLE_AVCUVID_READER
         if (CUDA_SUCCESS != (curesult = cuvidCtxUnlock(m_ctxLock, 0))) {
             PrintMes(NV_LOG_ERROR, _T("Error cuvidCtxUnlock: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
             return NV_ENC_ERR_GENERIC;
         }
-        auto& cudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()];
-        if (cudaSuccess != (cudaret = cudaEventRecord(cudaEvent))) {
-            PrintMes(NV_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
-            return NV_ENC_ERR_GENERIC;
-        }
-        unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(mappedFrame, NV_ENC_CSP_NV12, inframe->m_pInfo->timestamp, pEncodeBuffer, &cudaEvent));
+#endif //#if ENABLE_AVCUVID_READER
+        //auto& cudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()];
+        //if (cudaSuccess != (cudaret = cudaEventRecord(cudaEvent))) {
+        //    PrintMes(NV_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+        //    return NV_ENC_ERR_GENERIC;
+        //}
+        unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(deviceFrame, NV_ENC_CSP_NV12, inframe->getTimeStamp(), pEncodeBuffer/*, &cudaEvent*/));
         dqEncFrames.push_back(std::move(frameEnc));
         return NV_ENC_SUCCESS;
     };
 
     auto send_encoder = [&](int& nEncodeFrame, unique_ptr<FrameBufferDataEnc>& encFrame) {
-        cudaEventSynchronize(*encFrame->m_pEvent);
+        if (encFrame->m_pEvent) cudaEventSynchronize(*encFrame->m_pEvent);
         EncodeBuffer *pEncodeBuffer = encFrame->m_pEncodeBuffer;
         nvStatus = NvEncMapInputResource(pEncodeBuffer->stInputBfr.nvRegisteredResource, &pEncodeBuffer->stInputBfr.hInputSurface);
         if (nvStatus != NV_ENC_SUCCESS) {
@@ -2451,6 +2663,8 @@ NVENCSTATUS NVEncCore::Encode2() {
         return NvEncEncodeFrame(pEncodeBuffer, nEncodeFrame++);
     };
 
+
+    CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
     deque<unique_ptr<FrameBufferDataIn>> dqInFrames;
     deque<unique_ptr<FrameBufferDataEnc>> dqEncFrames;
     for (int nInputFrame = 0, nFilterFrame = 0, nEncodeFrame = 0; ; ) {
@@ -2467,52 +2681,70 @@ NVENCSTATUS NVEncCore::Encode2() {
 #endif //#if ENABLE_AVCUVID_READER
 
         //デコード
-        if (m_cuvidDec->GetError()
-            || (m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
-            break;
-        }
-        unique_ptr<CUVIDPARSERDISPINFO> dispInfo(new CUVIDPARSERDISPINFO());
-        if (m_cuvidDec->frameQueue()->dequeue(dispInfo.get())) {
-            shared_ptr<CUVIDPARSERDISPINFO> pInfo(dispInfo.release(), [&](CUVIDPARSERDISPINFO *ptr) {
-                m_cuvidDec->frameQueue()->releaseFrame(ptr);
-                delete ptr; 
-            });
-            //trim反映
-            if (m_pTrimParam && !frame_inside_range(nInputFrame++, m_pTrimParam->list)) {
-                pInfo.reset();
+        FrameBufferDataIn inputFrame;
+#if ENABLE_AVCUVID_READER
+        if (m_cuvidDec) {
+            if (m_cuvidDec->GetError()
+                || (m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
+                break;
+            }
+            CUVIDPARSERDISPINFO dispInfo = { 0 };
+            if (!m_cuvidDec->frameQueue()->dequeue(&dispInfo)) {
+                m_cuvidDec->frameQueue()->waitForQueueUpdate();
                 continue;
             }
-            auto decFrames = check_pts(pInfo);
-            for (auto idf = decFrames.begin(); idf != decFrames.end(); idf++) {
-                dqInFrames.push_back(std::move(*idf));
+            inputFrame.setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
+                m_cuvidDec->frameQueue()->releaseFrame(ptr);
+                delete ptr; 
+            }));
+        } else
+#endif //#if ENABLE_AVCUVID_READER
+        if (m_inputHostBuffer.size()) {
+            auto inputFrameBuf = m_inputHostBuffer[nInputFrame % m_inputHostBuffer.size()];
+            if (m_pFileReader->LoadNextFrame(inputFrameBuf.ptr, inputFrameBuf.pitch)) {
+                break;
             }
-            while (dqInFrames.size()) {
-                auto& inframe = dqInFrames.front();
-                filter_frame(nFilterFrame, inframe, dqEncFrames);
-                dqInFrames.pop_front();
-                while (dqEncFrames.size()) {
-                    auto& encframe = dqEncFrames.front();
-                    send_encoder(nEncodeFrame, encframe);
-                    dqEncFrames.pop_front();
-                }
-            }
+            inputFrame.setHostFrameInfo(&inputFrameBuf);
         } else {
-            m_cuvidDec->frameQueue()->waitForQueueUpdate();
+            PrintMes(NV_LOG_ERROR, _T("Unexpected error at Encode().\n"));
+            return NV_ENC_ERR_GENERIC;
+        }
+        //trim反映
+        if (m_pTrimParam && !frame_inside_range(nInputFrame++, m_pTrimParam->list)) {
+            continue;
+        }
+        auto decFrames = check_pts(&inputFrame);
+        inputFrame.resetCuvidInfo();
+
+        for (auto idf = decFrames.begin(); idf != decFrames.end(); idf++) {
+            dqInFrames.push_back(std::move(*idf));
+        }
+        while (dqInFrames.size()) {
+            auto& inframe = dqInFrames.front();
+            filter_frame(nFilterFrame, inframe, dqEncFrames);
+            dqInFrames.pop_front();
+            while (dqEncFrames.size()) {
+                auto& encframe = dqEncFrames.front();
+                send_encoder(nEncodeFrame, encframe);
+                dqEncFrames.pop_front();
+            }
         }
     }
 
+#if ENABLE_AVCUVID_READER
     if (th_input.joinable()) {
         //ここでフレームをすべて吐き出し切らないと、中断時にデコードスレッドが終了しない
-        while (!m_cuvidDec->GetError()
-            && !(m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
-            CUVIDPARSERDISPINFO pInfo;
-            if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
-                m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
+        if (m_cuvidDec) {
+            while (!m_cuvidDec->GetError()
+                && !(m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
+                CUVIDPARSERDISPINFO pInfo;
+                if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
+                    m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
+                }
             }
         }
         th_input.join();
     }
-#if ENABLE_AVCUVID_READER
     for (const auto& writer : m_pFileWriterListAudio) {
         auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(writer);
         if (pAVCodecWriter != nullptr) {
@@ -2535,10 +2767,10 @@ NVENCSTATUS NVEncCore::Encode2() {
     m_pStatus->writeResult();
     return NV_ENC_SUCCESS;
 }
-
+#else
 NVENCSTATUS NVEncCore::Encode() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    if (m_cuvidDec) {
+    if (m_cuvidDec || m_inputHostBuffer.size() > 0) {
         return Encode2();
     }
 
@@ -2803,6 +3035,7 @@ NVENCSTATUS NVEncCore::Encode() {
     m_pStatus->writeResult();
     return nvStatus;
 }
+#endif
 
 NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamH264() {
     NV_ENC_CODEC_CONFIG config = { 0 };
