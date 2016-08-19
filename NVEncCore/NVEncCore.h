@@ -45,6 +45,7 @@
 #include "NVEncParam.h"
 #include "FrameQueue.h"
 #include "CuvidDecode.h"
+#include "NVEncFilter.h"
 
 using std::vector;
 
@@ -233,7 +234,10 @@ protected:
     NVENCSTATUS SetInputParam(const InEncodeVideoParam *inputParam);
 
     //デコーダインスタンスを作成
-    NVENCSTATUS CreateDecoder(const InEncodeVideoParam *inputParam);
+    NVENCSTATUS InitDecoder(const InEncodeVideoParam *inputParam);
+
+    //デコーダインスタンスを作成
+    NVENCSTATUS InitFilters(const InEncodeVideoParam *inputParam);
 
     //エンコーダインスタンスを作成
     NVENCSTATUS CreateEncoder(const InEncodeVideoParam *inputParam);
@@ -285,6 +289,9 @@ protected:
 #if ENABLE_AVCUVID_READER
     vector<unique_ptr<AVChapter>> m_AVChapterFromFile;   //ファイルから読み込んだチャプター
 #endif //#if ENABLE_AVCUVID_READER
+
+    vector<unique_ptr<NVEncFilter>> m_vpFilters;
+    shared_ptr<NVEncFilterParam> m_pLastFilterParam;
 
     GUID                         m_stCodecGUID;           //出力コーデック
     uint32_t                     m_uEncWidth;             //出力縦解像度
