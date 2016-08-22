@@ -29,6 +29,8 @@
 #ifndef _CONVERT_CSP_H_
 #define _CONVERT_CSP_H_
 
+#include <tchar.h>
+
 typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
 enum NV_ENC_CSP {
