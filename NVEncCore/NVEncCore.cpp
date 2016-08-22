@@ -68,64 +68,6 @@
 
 using std::deque;
 
-FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
-    FrameInfoExtra exinfo = { 0 };
-    switch (pFrameInfo->csp) {
-    case NV_ENC_CSP_NV12:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 3 / 2;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3 / 2;
-        break;
-    case NV_ENC_CSP_YV12:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 3 / 2;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3 / 2;
-        break;
-    case NV_ENC_CSP_YUY2:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 2;
-        break;
-    case NV_ENC_CSP_YUV422:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 2;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 2;
-        break;
-    case NV_ENC_CSP_YUV444:
-        exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 3;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3;
-        break;
-    case NV_ENC_CSP_YV12_09:
-    case NV_ENC_CSP_YV12_10:
-    case NV_ENC_CSP_YV12_12:
-    case NV_ENC_CSP_YV12_14:
-    case NV_ENC_CSP_YV12_16:
-    case NV_ENC_CSP_P010:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 3 / 2;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3;
-        break;
-    case NV_ENC_CSP_YUV444_09:
-    case NV_ENC_CSP_YUV444_10:
-    case NV_ENC_CSP_YUV444_12:
-    case NV_ENC_CSP_YUV444_14:
-    case NV_ENC_CSP_YUV444_16:
-        exinfo.width_byte = pFrameInfo->width * 2;
-        exinfo.height_total = pFrameInfo->height * 3;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 6;
-        break;
-    case NV_ENC_CSP_YC48:
-        exinfo.width_byte = pFrameInfo->width * 6;
-        exinfo.height_total = pFrameInfo->height;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 6;
-        break;
-    default:
-        break;
-    }
-    return exinfo;
-}
-
 class FrameBufferDataIn {
 public:
     FrameBufferDataIn() : m_pInfo(), m_oVPP(), m_hostFrame(), m_bInputHost() {

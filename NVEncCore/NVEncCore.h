@@ -46,6 +46,7 @@
 #include "FrameQueue.h"
 #include "CuvidDecode.h"
 #include "NVEncFilter.h"
+#include "NVEncFrameInfo.h"
 
 using std::vector;
 
@@ -85,19 +86,6 @@ static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI64.dll");
 typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*); 
 
 bool check_if_nvcuda_dll_available();
-
-struct FrameInfo {
-    void *ptr;
-    NV_ENC_CSP csp;
-    int width, height, pitch;
-    uint64_t timestamp;
-};
-
-struct FrameInfoExtra {
-    int width_byte, height_total, frame_size;
-};
-
-FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
 
 class NVEncoderGPUInfo
 {

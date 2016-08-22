@@ -35,6 +35,8 @@
 #include "NVEncLog.h"
 #include "FrameQueue.h"
 #include "avcodec_qsv.h"
+#include "NVEncFrameInfo.h"
+
 
 #if ENABLE_AVCUVID_READER
 

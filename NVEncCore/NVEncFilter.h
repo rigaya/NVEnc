@@ -44,6 +44,7 @@
 #include "NVEncUtil.h"
 #include "NVEncLog.h"
 #include "ConvertCsp.h"
+#include "NVEncFrameInfo.h"
 
 #pragma comment(lib, "cudart.lib")
 
