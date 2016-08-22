@@ -56,67 +56,55 @@ static inline int divCeil(int value, int radix) {
 
 class NVEncFilterParam {
 public:
-    int nInWidth;
-    int nInHeight;
-    int nInPitch;
-    int nOutWidth;
-    int nOutHeight;
-    int nOutPitch;
+    FrameInfo frameIn;
+    FrameInfo frameOut;
     bool bOutOverwrite;
 
-    NVEncFilterParam() : nInWidth(0), nInHeight(0), nOutWidth(0), nOutHeight(0), bOutOverwrite(false) {};
+    NVEncFilterParam() : frameIn({ 0 }), frameOut({ 0 }), bOutOverwrite(false) {};
     virtual ~NVEncFilterParam() {};
 };
 
 struct CUFrameBuf {
-    uint8_t *ptr;
-    int pitch;
-    int width;
-    int height;
-    NV_ENC_CSP csp;
+    FrameInfo frame;
     cudaEvent_t event;
 
     CUFrameBuf()
-        : ptr(0), pitch(0), width(0), height(0), csp(NV_ENC_CSP_NA), event() {
+        : frame({ 0 }), event() {
         cudaEventCreate(&event);
     };
-    CUFrameBuf(uint8_t *_ptr, int _pitch, int _width, int _height, NV_ENC_CSP _csp = NV_ENC_CSP_NV12)
-        : ptr(0), pitch(0), width(0), height(0), csp(NV_ENC_CSP_NA), event() {
-        ptr = _ptr;
-        pitch = _pitch;
-        width = _width;
-        height = _height;
-        csp = _csp;
+    CUFrameBuf(uint8_t *ptr, int pitch, int width, int height, NV_ENC_CSP csp = NV_ENC_CSP_NV12)
+        : frame({ 0 }), event() {
+        frame.ptr = ptr;
+        frame.pitch = pitch;
+        frame.width = width;
+        frame.height = height;
+        frame.csp = csp;
         cudaEventCreate(&event);
     };
-    CUFrameBuf(int _width, int _height, NV_ENC_CSP _csp) 
-        : ptr(0), pitch(0), width(0), height(0), csp(NV_ENC_CSP_NA), event() {
-        ptr = nullptr;
-        width = _width;
-        height = _height;
-        csp = _csp;
+    CUFrameBuf(const FrameInfo& _info) 
+        : frame(_info), event() {
         cudaEventCreate(&event);
     };
     cudaError_t alloc() {
-        if (ptr) {
-            cudaFree(ptr);
+        if (frame.ptr) {
+            cudaFree(frame.ptr);
         }
         size_t memPitch = 0;
         cudaError_t ret = cudaSuccess;
-        switch (csp) {
+        switch (frame.csp) {
         case NV_ENC_CSP_NV12:
-            ret = cudaMallocPitch(&ptr, &memPitch, width, height * 3 / 2);
+            ret = cudaMallocPitch(&frame.ptr, &memPitch, frame.width, frame.height * 3 / 2);
             break;
         default:
             ret = cudaErrorNotSupported;
             break;
         }
-        pitch = (int)memPitch;
+        frame.pitch = (int)memPitch;
         return ret;
     }
     ~CUFrameBuf() {
-        if (ptr) {
-            cudaFree(ptr);
+        if (frame.ptr) {
+            cudaFree(frame.ptr);
         }
         cudaEventDestroy(event);
     }
@@ -130,7 +118,7 @@ public:
         return m_sFilterName;
     }
     virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) = 0;
-    virtual NVENCSTATUS filter(const CUFrameBuf *pInputFrame, CUFrameBuf **ppOutputFrames, int *pOutputFrameNum) = 0;
+    virtual NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;
 protected:
     virtual void close() = 0;
 
@@ -162,7 +150,7 @@ protected:
         va_end(args);
         AddMessage(log_level, buffer);
     }
-    cudaError_t AllocFrameBuf(int width, int height, NV_ENC_CSP csp, int frames);
+    cudaError_t AllocFrameBuf(const FrameInfo& frame, int frames);
 
     tstring m_sFilterName;
     tstring m_sFilterInfo;
@@ -178,12 +166,12 @@ public:
     virtual ~NVEncFilterParamCrop() {};
 };
 
-class NVEncFilterCrop : public NVEncFilter {
+class NVEncFilterCspCrop : public NVEncFilter {
 public:
-    NVEncFilterCrop();
-    virtual ~NVEncFilterCrop();
+    NVEncFilterCspCrop();
+    virtual ~NVEncFilterCspCrop();
     virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
-    virtual NVENCSTATUS filter(const CUFrameBuf *pInputFrame, CUFrameBuf **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
 protected:
     virtual void close() override;
 

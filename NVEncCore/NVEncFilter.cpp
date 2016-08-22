@@ -36,9 +36,9 @@ NVEncFilter::~NVEncFilter() {
     m_pFrameBuf.clear();
 }
 
-cudaError_t NVEncFilter::AllocFrameBuf(int width, int height, NV_ENC_CSP csp, int frames) {
+cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
     for (int i = 0; i < frames; i++) {
-        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(width, height, csp));
+        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(frame));
         auto ret = uptr->alloc();
         if (ret != cudaSuccess) {
             m_pFrameBuf.clear();

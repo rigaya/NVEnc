@@ -37,6 +37,11 @@
 #include "avcodec_qsv.h"
 #include "NVEncFrameInfo.h"
 
+#if ENABLE_AVCUVID_READER
+#define NVEncCtxAutoLock(x) CCtxAutoLock x
+#else
+#define NVEncCtxAutoLock(x)
+#endif
 
 #if ENABLE_AVCUVID_READER
 

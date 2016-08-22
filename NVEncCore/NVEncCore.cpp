@@ -70,35 +70,35 @@ using std::deque;
 
 class FrameBufferDataIn {
 public:
-    FrameBufferDataIn() : m_pInfo(), m_oVPP(), m_hostFrame(), m_bInputHost() {
+    FrameBufferDataIn() : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost() {
 
     };
-    FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP) : m_pInfo(), m_oVPP(), m_hostFrame(), m_bInputHost(false) {
-        setCuvidInfo(pInfo, oVPP);
+    FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(false) {
+        setCuvidInfo(pInfo, oVPP, frameInfo);
     };
-    FrameBufferDataIn(const FrameInfo* pHostFrame) : m_pInfo(), m_oVPP(), m_hostFrame(), m_bInputHost(true) {
-        m_hostFrame = *pHostFrame;
+    FrameBufferDataIn(const FrameInfo* pHostFrame) : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(true) {
+        m_frameInfo = *pHostFrame;
         memset(&m_oVPP, 0, sizeof(m_oVPP));
     };
     ~FrameBufferDataIn() {
         m_pInfo.reset();
     }
-    void setHostFrameInfo(const FrameInfo* pHostFrame) {
+    void setHostFrameInfo(const FrameInfo& frameInfo) {
         m_pInfo.reset();
         memset(&m_oVPP, 0, sizeof(m_oVPP));
-        m_hostFrame = *pHostFrame;
+        m_frameInfo = frameInfo;
         m_bInputHost = true;
     }
-    void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo) {
+    void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const FrameInfo& frameInfo) {
         m_pInfo = pInfo;
         memset(&m_oVPP, 0, sizeof(m_oVPP));
-        memset(&m_hostFrame, 0, sizeof(m_hostFrame));
+        m_frameInfo = frameInfo;
         m_bInputHost = false;
     }
-    void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP) {
+    void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) {
         m_pInfo = pInfo;
         m_oVPP = oVPP;
-        memset(&m_hostFrame, 0, sizeof(m_hostFrame));
+        m_frameInfo = frameInfo;
         m_bInputHost = false;
     }
     shared_ptr<CUVIDPARSERDISPINFO> getCuvidInfo() {
@@ -112,7 +112,7 @@ public:
     }
     int64_t getTimeStamp() const {
         if (m_bInputHost) {
-            return m_hostFrame.timestamp;
+            return m_frameInfo.timestamp;
         }
         return m_pInfo ? m_pInfo->timestamp : 0;
     }
@@ -120,12 +120,12 @@ public:
         return m_bInputHost;
     }
     FrameInfo getFrameInfo() const {
-        return m_hostFrame;
+        return m_frameInfo;
     }
 private:
     shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
     CUVIDPROCPARAMS m_oVPP;
-    FrameInfo m_hostFrame;
+    FrameInfo m_frameInfo;
     bool m_bInputHost;
 };
 
@@ -272,6 +272,16 @@ NVEncCore::~NVEncCore() {
 
 void NVEncCore::SetAbortFlagPointer(bool *abortFlag) {
     m_pAbortByUser = abortFlag;
+}
+
+//エンコーダが出力使用する色空間を入力パラメータをもとに取得
+NV_ENC_CSP NVEncCore::GetEncoderCSP(const InEncodeVideoParam *inputParam) {
+    const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+    if (bOutputHighBitDepth) {
+        return (inputParam->yuv444) ? NV_ENC_CSP_YUV444_16 : NV_ENC_CSP_P010;
+    } else {
+        return (inputParam->yuv444) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
+    }
 }
 
 #pragma warning(push)
@@ -1722,8 +1732,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     //解像度の決定
     //この段階では、フィルタを使用した場合は解像度を変更しないものとする
-    m_uEncWidth  = (m_pLastFilterParam) ? m_pLastFilterParam->nOutWidth  : inputParam->input.width  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
-    m_uEncHeight = (m_pLastFilterParam) ? m_pLastFilterParam->nOutHeight : inputParam->input.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+    m_uEncWidth  = (m_pLastFilterParam) ? m_pLastFilterParam->frameOut.width  : inputParam->input.width  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
+    m_uEncHeight = (m_pLastFilterParam) ? m_pLastFilterParam->frameOut.height : inputParam->input.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
 
     //この段階では、フィルタを使用した場合は解像度を変更しないものとする
     if (!m_pLastFilterParam) {
@@ -2111,13 +2121,16 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
-    if (m_pFileReader->inputCodecIsValid() && cropEnabled(inputParam->input.crop)) {
-        unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCrop());
+    if (cropEnabled(inputParam->input.crop)) {
+        unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
         param->crop = inputParam->input.crop;
-        param->nInWidth = inputParam->input.width;
-        param->nInHeight = inputParam->input.height;
+        param->frameIn.width = inputParam->input.width;
+        param->frameIn.height = inputParam->input.height;
+        param->frameIn.csp = inputParam->input.csp;
+        param->frameOut.csp = GetEncoderCSP(inputParam);
         param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_ctxLock));
         auto sts = filterCrop->init(param, m_pNVLog);
         if (sts != NV_ENC_SUCCESS) {
             return sts;
@@ -2484,18 +2497,18 @@ NVENCSTATUS NVEncCore::Encode() {
             case cudaVideoDeinterlaceMode_Weave:
                 oVPP.unpaired_field = 1;
                 oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP))));
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
                 break;
             case cudaVideoDeinterlaceMode_Bob:
                 oVPP.progressive_frame = 0;
                 oVPP.second_field = 0;
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP))));
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
                 oVPP.second_field = 1;
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP))));
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
                 break;
             case cudaVideoDeinterlaceMode_Adaptive:
                 oVPP.progressive_frame = 0;
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP))));
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
                 break;
             default:
                 PrintMes(NV_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
@@ -2571,13 +2584,26 @@ NVENCSTATUS NVEncCore::Encode() {
             }
             frameInfo = inframe->getFrameInfo();
             frameInfo.pitch = pitch;
-            deviceFrame = shared_ptr<void>((void *)dMappedFrame, [&](void *ptr) {
+            frameInfo.ptr = (void *)dMappedFrame;
+            deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
                 cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
                 SetEvent(heUnmapFin);
             });
         }
 #endif //#if ENABLE_AVCUVID_READER
         //フィルタリングするならここ
+        //現在は1in 1outのみの実装
+        for (auto& filter : m_vpFilters) {
+            NVEncCtxAutoLock(ctxlock(m_ctxLock));
+            int nOutFrames = 0;
+            FrameInfo *outInfo[16] = { 0 };
+            filter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
+            if (nOutFrames != 1) {
+                PrintMes(NV_LOG_ERROR, _T("Currently only simple filters are supported.\n"));
+                return NV_ENC_ERR_UNIMPLEMENTED;
+            }
+            frameInfo = *(outInfo[0]);
+        }
 
         //エンコードバッファを取得してコピー
         EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
@@ -2604,7 +2630,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
         auto frameInfoEx = getFrameInfoExtra(&frameInfo);
         auto cudaret = cudaMemcpy2D((void *)pEncodeBuffer->stInputBfr.pNV12devPtr, pEncodeBuffer->stInputBfr.uNV12Stride,
-            (void *)deviceFrame.get(), frameInfo.pitch, frameInfoEx.width_byte, frameInfoEx.height_total, memcpyKind);
+            frameInfo.ptr, frameInfo.pitch, frameInfoEx.width_byte, frameInfoEx.height_total, memcpyKind);
         if (cudaret != cudaSuccess) {
             PrintMes(NV_LOG_ERROR, _T("Error cudaMemcpy2DAsync: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
             return NV_ENC_ERR_GENERIC;
@@ -2669,7 +2695,7 @@ NVENCSTATUS NVEncCore::Encode() {
             inputFrame.setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
                 m_cuvidDec->frameQueue()->releaseFrame(ptr);
                 delete ptr; 
-            }));
+            }), m_cuvidDec->GetDecFrameInfo());
         } else
 #endif //#if ENABLE_AVCUVID_READER
         if (m_inputHostBuffer.size()) {
@@ -2677,7 +2703,7 @@ NVENCSTATUS NVEncCore::Encode() {
             if (m_pFileReader->LoadNextFrame(inputFrameBuf.ptr, inputFrameBuf.pitch)) {
                 break;
             }
-            inputFrame.setHostFrameInfo(&inputFrameBuf);
+            inputFrame.setHostFrameInfo(inputFrameBuf);
         } else {
             PrintMes(NV_LOG_ERROR, _T("Unexpected error at Encode().\n"));
             return NV_ENC_ERR_GENERIC;
