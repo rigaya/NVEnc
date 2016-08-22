@@ -58,6 +58,7 @@ public:
     void* GetDecoder() { return m_videoDecoder; };
 
     CUVIDDECODECREATEINFO GetDecodeInfo() { return m_videoDecodeCreateInfo; };
+    FrameInfo GetDecFrameInfo();
 
     bool GetError() { return m_bError; };
 

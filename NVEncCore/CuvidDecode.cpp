@@ -316,4 +316,15 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
     return result;
 }
 
+FrameInfo CuvidDecode::GetDecFrameInfo() {
+    FrameInfo frame;
+    frame.ptr = nullptr;
+    frame.csp = NV_ENC_CSP_NV12;
+    frame.width = m_videoDecodeCreateInfo.ulWidth;
+    frame.height = m_videoDecodeCreateInfo.ulHeight;
+    frame.pitch = 0; //この段階では取得できない、cuvidMapVideoFrameで取得
+    frame.timestamp = (uint64_t)AV_NOPTS_VALUE;
+    return frame;
+}
+
 #endif // #if ENABLE_AVCUVID_READER
