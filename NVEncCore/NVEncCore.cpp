@@ -2489,7 +2489,6 @@ NVENCSTATUS NVEncCore::Encode() {
         }
 #if ENABLE_AVCUVID_READER
         else {
-            NVENCSTATUS status = NV_ENC_SUCCESS;
             auto deint = m_cuvidDec->getDeinterlaceMode();
             CUVIDPROCPARAMS oVPP ={ 0 };
             oVPP.top_field_first = m_stPicStruct != NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
@@ -2568,6 +2567,7 @@ NVENCSTATUS NVEncCore::Encode() {
             memcpyKind = cudaMemcpyHostToDevice;
             frameInfo = inframe->getFrameInfo();
             deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
+                ptr = ptr;
                 //このメモリはm_inputHostBufferのメモリであり、使いまわすため、解放しない
                 SetEvent(heUnmapFin);
             });
