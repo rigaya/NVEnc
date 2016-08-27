@@ -87,6 +87,7 @@ NVENCSTATUS NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared
     }
 
     if (CUDA_SUCCESS != AllocFrameBuf(pCropParam->frameOut, 2)) {
+        AddMessage(NV_LOG_ERROR, _T("failed to allocate memory.\n"));
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
     pCropParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
