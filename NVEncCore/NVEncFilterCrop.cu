@@ -58,7 +58,7 @@ __global__ void kernel_crop_nv12_nv12(T *__restrict__ dst, const T *__restrict__
 #include "NVEncFilter.h"
 
 NVEncFilterCspCrop::NVEncFilterCspCrop() {
-    m_sFilterName = _T("crop");
+    m_sFilterName = _T("copy/cspconv/crop");
 }
 
 NVEncFilterCspCrop::~NVEncFilterCspCrop() {
@@ -73,6 +73,18 @@ NVENCSTATUS NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared
         AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
+    //フィルタ名の調整
+    m_sFilterName = _T("");
+    if (cropEnabled(pCropParam->crop)) {
+        m_sFilterName += _T("crop");
+    }
+    if (pCropParam->frameOut.csp == pCropParam->frameIn.csp) {
+        m_sFilterName += (m_sFilterName.length()) ? _T("/cspconv") : _T("cspconv");
+    }
+    if (m_sFilterName.length() == 0) {
+        m_sFilterName += _T("copy");
+    }
+    //パラメータチェック
     for (int i = 0; i < _countof(pCropParam->crop.c); i++) {
         if ((pCropParam->crop.c[i] & 1) != 0) {
             AddMessage(NV_LOG_ERROR, _T("crop should be divided by 2.\n"));
@@ -111,15 +123,54 @@ NVENCSTATUS NVEncFilterCspCrop::filter(const FrameInfo *pInputFrame, FrameInfo *
     NVENCSTATUS sts = NV_ENC_SUCCESS;
 
     *pOutputFrameNum = 1;
-    auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
-    ppOutputFrames[0] = &pOutFrame->frame;
-    m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
-    if (m_filterParam.frameOut.csp == NV_ENC_CSP_NV12) {
-        dim3 blockSize(32, 4);
-        dim3 gridSize(divCeil(m_filterParam.frameOut.width, blockSize.x), divCeil(m_filterParam.frameOut.height, blockSize.y));
-        kernel_crop_nv12_nv12<uint8_t><<<gridSize, blockSize>>>((uint8_t *)pOutFrame->frame.ptr, (uint8_t *)pInputFrame->ptr, pInputFrame->pitch);
+    if (ppOutputFrames[0] == nullptr) {
+        auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+        ppOutputFrames[0] = &pOutFrame->frame;
+        m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+    }
+    const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    if (m_filterParam.frameOut.csp == m_filterParam.frameIn.csp) {
+#if 1
+        const auto frameOutInfoEx = getFrameInfoExtra(&m_filterParam.frameOut);
+        if (!cropEnabled(m_filterParam.crop)) {
+            //cropがなければ、一度に転送可能
+            cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
+                (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
+                frameOutInfoEx.width_byte, frameOutInfoEx.height_total, memcpyKind);
+        } else {
+            if (m_filterParam.frameOut.csp == NV_ENC_CSP_NV12) {
+                //Y
+                cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
+                    (uint8_t *)pInputFrame->ptr + m_filterParam.crop.e.left + m_filterParam.crop.e.up * pInputFrame->pitch,
+                    pInputFrame->pitch,
+                    frameOutInfoEx.width_byte, m_filterParam.frameOut.height, memcpyKind);
+                //UV
+                cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr + ppOutputFrames[0]->pitch * m_filterParam.frameOut.height, ppOutputFrames[0]->pitch,
+                    (uint8_t *)pInputFrame->ptr
+                    + pInputFrame->height * pInputFrame->pitch
+                    + m_filterParam.crop.e.left + (m_filterParam.crop.e.up >> 1) * pInputFrame->pitch,
+                    pInputFrame->pitch,
+                    frameOutInfoEx.width_byte, m_filterParam.frameOut.height >> 1, memcpyKind);
+            } else {
+                AddMessage(NV_LOG_ERROR, _T("unsupported output csp with crop.\n"));
+                return NV_ENC_ERR_UNIMPLEMENTED;
+            }
+        }
+#else
+        if (m_filterParam.frameOut.csp == NV_ENC_CSP_NV12) {
+            dim3 blockSize(32, 4);
+            dim3 gridSize(divCeil(m_filterParam.frameOut.width, blockSize.x), divCeil(m_filterParam.frameOut.height, blockSize.y));
+            kernel_crop_nv12_nv12<uint8_t><<<gridSize, blockSize>>>((uint8_t *)ppOutputFrames[0]->ptr, (uint8_t *)pInputFrame->ptr, pInputFrame->pitch);
+        } else {
+            AddMessage(NV_LOG_ERROR, _T("unsupported output csp.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+#endif
+    } else if (memcpyKind != cudaMemcpyDeviceToDevice) {
+        AddMessage(NV_LOG_ERROR, _T("converting csp while copying from host to device is not supported.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
     } else {
-        AddMessage(NV_LOG_ERROR, _T("unsupported output csp.\n"));
+        //色空間変換
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
     return sts;

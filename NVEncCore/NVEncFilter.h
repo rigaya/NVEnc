@@ -54,6 +54,14 @@ static inline int divCeil(int value, int radix) {
     return (value + radix - 1) / radix;
 }
 
+static inline cudaMemcpyKind getCudaMemcpyKind(bool inputDevice, bool outputDevice) {
+    if (inputDevice) {
+        return (outputDevice) ? cudaMemcpyDeviceToDevice : cudaMemcpyDeviceToHost;
+    } else {
+        return (outputDevice) ? cudaMemcpyHostToDevice : cudaMemcpyHostToHost;
+    }
+}
+
 class NVEncFilterParam {
 public:
     FrameInfo frameIn;
@@ -79,6 +87,7 @@ struct CUFrameBuf {
         frame.width = width;
         frame.height = height;
         frame.csp = csp;
+        frame.deivce_mem = true;
         cudaEventCreate(&event);
     };
     CUFrameBuf(const FrameInfo& _info) 
@@ -91,13 +100,11 @@ struct CUFrameBuf {
         }
         size_t memPitch = 0;
         cudaError_t ret = cudaSuccess;
-        switch (frame.csp) {
-        case NV_ENC_CSP_NV12:
-            ret = cudaMallocPitch(&frame.ptr, &memPitch, frame.width, frame.height * 3 / 2);
-            break;
-        default:
+        const auto infoEx = getFrameInfoExtra(&frame);
+        if (infoEx.width_byte) {
+            ret = cudaMallocPitch(&frame.ptr, &memPitch, infoEx.width_byte, infoEx.height_total);
+        } else {
             ret = cudaErrorNotSupported;
-            break;
         }
         frame.pitch = (int)memPitch;
         return ret;

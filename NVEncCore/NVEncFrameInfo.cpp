@@ -36,37 +36,34 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
     case NV_ENC_CSP_NV12:
         exinfo.width_byte = pFrameInfo->width;
         exinfo.height_total = pFrameInfo->height * 3 / 2;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3 / 2;
         break;
     case NV_ENC_CSP_YV12:
         exinfo.width_byte = pFrameInfo->width;
-        exinfo.height_total = pFrameInfo->height * 3 / 2;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3 / 2;
+        exinfo.height_total = (pFrameInfo->deivce_mem) ? pFrameInfo->height * 2 : pFrameInfo->height * 3 / 2;
         break;
     case NV_ENC_CSP_YUY2:
         exinfo.width_byte = pFrameInfo->width * 2;
         exinfo.height_total = pFrameInfo->height;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 2;
         break;
     case NV_ENC_CSP_YUV422:
         exinfo.width_byte = pFrameInfo->width;
         exinfo.height_total = pFrameInfo->height * 2;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 2;
         break;
     case NV_ENC_CSP_YUV444:
         exinfo.width_byte = pFrameInfo->width;
         exinfo.height_total = pFrameInfo->height * 3;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3;
         break;
     case NV_ENC_CSP_YV12_09:
     case NV_ENC_CSP_YV12_10:
     case NV_ENC_CSP_YV12_12:
     case NV_ENC_CSP_YV12_14:
     case NV_ENC_CSP_YV12_16:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = (pFrameInfo->deivce_mem) ? pFrameInfo->height * 2 : pFrameInfo->height * 3 / 2;
+        break;
     case NV_ENC_CSP_P010:
         exinfo.width_byte = pFrameInfo->width * 2;
         exinfo.height_total = pFrameInfo->height * 3 / 2;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 3;
         break;
     case NV_ENC_CSP_YUV444_09:
     case NV_ENC_CSP_YUV444_10:
@@ -75,15 +72,14 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
     case NV_ENC_CSP_YUV444_16:
         exinfo.width_byte = pFrameInfo->width * 2;
         exinfo.height_total = pFrameInfo->height * 3;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 6;
         break;
     case NV_ENC_CSP_YC48:
         exinfo.width_byte = pFrameInfo->width * 6;
         exinfo.height_total = pFrameInfo->height;
-        exinfo.frame_size = pFrameInfo->pitch * pFrameInfo->height * 6;
         break;
     default:
         break;
     }
+    exinfo.frame_size = pFrameInfo->pitch * exinfo.height_total;
     return exinfo;
 }

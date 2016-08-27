@@ -324,6 +324,7 @@ FrameInfo CuvidDecode::GetDecFrameInfo() {
     frame.height = m_videoDecodeCreateInfo.ulHeight;
     frame.pitch = 0; //この段階では取得できない、cuvidMapVideoFrameで取得
     frame.timestamp = (uint64_t)AV_NOPTS_VALUE;
+    frame.deivce_mem = true;
     return frame;
 }
 
