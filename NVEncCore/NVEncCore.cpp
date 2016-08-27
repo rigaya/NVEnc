@@ -2121,23 +2121,80 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
-    if (cropEnabled(inputParam->input.crop)) {
-        unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
-        shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
-        param->crop = inputParam->input.crop;
-        param->frameIn.width = inputParam->input.width;
-        param->frameIn.height = inputParam->input.height;
-        param->frameIn.csp = inputParam->input.csp;
-        param->frameOut.csp = GetEncoderCSP(inputParam);
-        param->bOutOverwrite = false;
-        NVEncCtxAutoLock(cxtlock(m_ctxLock));
-        auto sts = filterCrop->init(param, m_pNVLog);
-        if (sts != NV_ENC_SUCCESS) {
-            return sts;
-        }
-        m_vpFilters.push_back(std::move(filterCrop));
-        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+    FrameInfo inputFrame = { 0 };
+    inputFrame.width = inputParam->input.width;
+    inputFrame.height = inputParam->input.height;
+    inputFrame.csp = inputParam->input.csp;
+    //avcuivd読み以外では読み込み時にcropが適用される
+    if (!m_pFileReader->inputCodecIsValid()) {
+        inputFrame.width -= inputParam->input.crop.e.left + inputParam->input.crop.e.right;
+        inputFrame.height -= inputParam->input.crop.e.bottom + inputParam->input.crop.e.up;
     }
+
+    m_uEncWidth  = inputParam->input.width  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
+    m_uEncHeight = inputParam->input.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+
+    bool bResizeRequired = false;
+    if (   inputParam->input.dstWidth
+        && inputParam->input.dstHeight
+        && (inputParam->input.dstWidth != m_uEncWidth || inputParam->input.dstHeight != m_uEncHeight)) {
+        m_uEncWidth = inputParam->input.dstWidth;
+        m_uEncHeight = inputParam->input.dstHeight;
+        bResizeRequired = true;
+    }
+    //フィルタが必要
+    if (bResizeRequired
+        // || フィルタが必要
+        ) {
+        //cropが必要ならただちに適用する
+        //また、NV12ならYV12に変換する必要がある
+        if (inputFrame.csp == NV_ENC_CSP_NV12 || cropEnabled(inputParam->input.crop)) {
+            unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
+            shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
+            //avcuivd読みでは読み込み時にcropが適用されるないためここでcropを適用する必要がある
+            if (cropEnabled(inputParam->input.crop) && m_pFileReader->inputCodecIsValid()) {
+                param->crop = inputParam->input.crop;
+            }
+            param->frameIn = inputFrame;
+            param->frameOut.csp = (param->frameIn.csp == NV_ENC_CSP_NV12) ? NV_ENC_CSP_YV12 : param->frameIn.csp;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filterCrop->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filterCrop));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
+        //実装予定: delogo
+        //実装予定: ノイズ除去
+        //実装予定: リサイズ
+        if (bResizeRequired) {
+        }
+        //実装予定: エッジ調整
+    }
+    //最後のフィルタ
+    unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
+    shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
+    //avcuivd読みでは読み込み時にcropが適用されるないため
+    //ここまでフィルタが使われていなければ、ここでcropを適用する必要がある
+    if (m_vpFilters.size() == 0 && cropEnabled(inputParam->input.crop) && m_pFileReader->inputCodecIsValid()) {
+        param->crop = inputParam->input.crop;
+    }
+    param->frameIn = inputFrame;
+    param->frameOut.csp = GetEncoderCSP(inputParam);
+    param->bOutOverwrite = false;
+    NVEncCtxAutoLock(cxtlock(m_ctxLock));
+    auto sts = filterCrop->init(param, m_pNVLog);
+    if (sts != NV_ENC_SUCCESS) {
+        return sts;
+    }
+    m_vpFilters.push_back(std::move(filterCrop));
+    m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
     return NV_ENC_SUCCESS;
 }
 
@@ -2593,11 +2650,11 @@ NVENCSTATUS NVEncCore::Encode() {
 #endif //#if ENABLE_AVCUVID_READER
         //フィルタリングするならここ
         //現在は1in 1outのみの実装
-        for (auto& filter : m_vpFilters) {
+        for (uint32_t ifilter = 0; ifilter < m_vpFilters.size() - 1; ifilter++) {
             NVEncCtxAutoLock(ctxlock(m_ctxLock));
             int nOutFrames = 0;
             FrameInfo *outInfo[16] = { 0 };
-            filter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
+            m_vpFilters[ifilter]->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
             if (nOutFrames != 1) {
                 PrintMes(NV_LOG_ERROR, _T("Currently only simple filters are supported.\n"));
                 return NV_ENC_ERR_UNIMPLEMENTED;
@@ -2605,7 +2662,7 @@ NVENCSTATUS NVEncCore::Encode() {
             frameInfo = *(outInfo[0]);
         }
 
-        //エンコードバッファを取得してコピー
+        //エンコードバッファを取得
         EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
         if (!pEncodeBuffer) {
             pEncodeBuffer = m_EncodeBufferQueue.GetPending();
@@ -2621,26 +2678,27 @@ NVENCSTATUS NVEncCore::Encode() {
                 return NV_ENC_ERR_GENERIC;
             }
         }
-#if ENABLE_AVCUVID_READER
-        if (CUDA_SUCCESS != (curesult = cuvidCtxLock(m_ctxLock, 0))) {
-            PrintMes(NV_LOG_ERROR, _T("Error cuvidCtxLock: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
-            return NV_ENC_ERR_GENERIC;
+        //エンコードバッファにコピー
+        {
+            NVEncCtxAutoLock(ctxlock(m_ctxLock));
+            auto& lastFilter = m_vpFilters[m_vpFilters.size()-1];
+            //最後のフィルタはNVEncFilterCspCropでなければならない
+            if (typeid(*lastFilter.get()) != typeid(NVEncFilterCspCrop)) {
+                PrintMes(NV_LOG_ERROR, _T("Last filter setting invalid.\n"));
+                return NV_ENC_ERR_GENERIC;
+            }
+            int nOutFrames = 0;
+            FrameInfo *outInfo[16] = { 0 };
+            //エンコードバッファの情報を設定１
+            FrameInfo encFrameInfo = { 0 };
+            encFrameInfo.ptr = (void *)pEncodeBuffer->stInputBfr.pNV12devPtr;
+            encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
+            encFrameInfo.deivce_mem = true;
+            //エンコードバッファのポインタを渡す
+            outInfo[0] = &encFrameInfo;
+            lastFilter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
+            cudaThreadSynchronize();
         }
-#endif //#if ENABLE_AVCUVID_READER
-
-        auto frameInfoEx = getFrameInfoExtra(&frameInfo);
-        auto cudaret = cudaMemcpy2D((void *)pEncodeBuffer->stInputBfr.pNV12devPtr, pEncodeBuffer->stInputBfr.uNV12Stride,
-            frameInfo.ptr, frameInfo.pitch, frameInfoEx.width_byte, frameInfoEx.height_total, memcpyKind);
-        if (cudaret != cudaSuccess) {
-            PrintMes(NV_LOG_ERROR, _T("Error cudaMemcpy2DAsync: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
-            return NV_ENC_ERR_GENERIC;
-        }
-#if ENABLE_AVCUVID_READER
-        if (CUDA_SUCCESS != (curesult = cuvidCtxUnlock(m_ctxLock, 0))) {
-            PrintMes(NV_LOG_ERROR, _T("Error cuvidCtxUnlock: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
-            return NV_ENC_ERR_GENERIC;
-        }
-#endif //#if ENABLE_AVCUVID_READER
         //auto& cudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()];
         //if (cudaSuccess != (cudaret = cudaEventRecord(cudaEvent))) {
         //    PrintMes(NV_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
