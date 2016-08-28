@@ -2165,7 +2165,11 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     //avcuvid読みではデコード直後にリサイズが可能
     //ただし、左cropがある場合は、使用せず、通常のリサイズフィルタを使用する
-    if (bResizeRequired && m_pFileReader->inputCodecIsValid() && inputParam->input.crop.e.left == 0) {
+    if (bResizeRequired
+        && m_pFileReader->inputCodecIsValid() //avcuvid読み
+        && inputParam->input.crop.e.left == 0 //左cropがない
+        && inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED //デフォルトの補間方法
+        ) {
         inputFrame.width  = inputParam->input.dstWidth;
         inputFrame.height = inputParam->input.dstHeight;
         bResizeRequired = false;
@@ -2238,7 +2242,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 #else
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterResize());
             shared_ptr<NVEncFilterParamResize> param(new NVEncFilterParamResize());
-            param->interp = NPPI_INTER_LANCZOS;
+            param->interp = (inputParam->vpp.resizeInterp != NPPI_INTER_UNDEFINED) ? inputParam->vpp.resizeInterp : NPPI_INTER_LANCZOS;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->frameOut.width = m_uEncWidth;

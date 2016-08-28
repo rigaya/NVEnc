@@ -101,6 +101,7 @@ private:
 
 typedef struct VppParam {
     cudaVideoDeinterlaceMode deinterlace;
+    NppiInterpolationMode    resizeInterp;
 } VppParam;
 
 struct InEncodeVideoParam {

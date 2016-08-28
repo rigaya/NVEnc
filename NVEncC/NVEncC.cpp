@@ -393,18 +393,19 @@ static tstring help() {
         _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / Default: auto\n")
         _T("   --vpp-deinterlace <string>   set deinterlace mode / Default: none\n")
         _T("                                  none, bob, adaptive (normal)\n")
-        _T("                                  available only with avcuvid reader\n")
-        _T("   --fullrange                  set fullrange\n"),
+        _T("                                  available only with avcuvid reader\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
         DEFAULT_LOOKAHEAD,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
         DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
+    str += PrintListOptions(_T("--vpp-resize <string>"),  list_nppi_resize, 0);
     str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
     str += PrintListOptions(_T("--colormatrix <string>"), list_colormatrix, 0);
     str += PrintListOptions(_T("--colorprim <string>"),   list_colorprim,   0);
     str += PrintListOptions(_T("--transfer <string>"),    list_transfer,    0);
     str += strsprintf(_T("")
+        _T("   --fullrange                  set fullrange\n")
         _T("   --output-buf <int>           buffer size for output in MByte\n")
         _T("                                 default %d MB (0-%d)\n"),
         DEFAULT_OUTPUT_BUF, NV_OUTPUT_BUF_MB_MAX
@@ -1746,6 +1747,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int value = 0;
         if (get_list_value(list_deinterlace, strInput[i], &value)) {
             pParams->vpp.deinterlace = (cudaVideoDeinterlaceMode)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-resize")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_nppi_resize, strInput[i], &value)) {
+            pParams->vpp.resizeInterp = (NppiInterpolationMode)value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
