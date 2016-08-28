@@ -2154,6 +2154,8 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (!m_pFileReader->inputCodecIsValid()) {
         inputFrame.width -= inputParam->input.crop.e.left + inputParam->input.crop.e.right;
         inputFrame.height -= inputParam->input.crop.e.bottom + inputParam->input.crop.e.up;
+    } else {
+        inputFrame.deivce_mem = true;
     }
 
     m_uEncWidth  = inputParam->input.width  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
