@@ -148,6 +148,25 @@ public:
     }
 };
 
+static NV_ENC_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
+    switch (enc_buffer_format) {
+    case NV_ENC_BUFFER_FORMAT_NV12:
+        return NV_ENC_CSP_NV12;
+    case NV_ENC_BUFFER_FORMAT_YV12:
+    case NV_ENC_BUFFER_FORMAT_IYUV:
+        return NV_ENC_CSP_YV12;
+    case NV_ENC_BUFFER_FORMAT_YUV444:
+        return NV_ENC_CSP_YUV444;
+    case NV_ENC_BUFFER_FORMAT_YUV420_10BIT:
+        return NV_ENC_CSP_P010;
+    case NV_ENC_BUFFER_FORMAT_YUV444_10BIT:
+        return NV_ENC_CSP_YUV444_16;
+    case NV_ENC_BUFFER_FORMAT_UNDEFINED:
+    default:
+        return NV_ENC_CSP_NA;
+    }
+}
+
 bool check_if_nvcuda_dll_available() {
     //check for nvcuda.dll
     HMODULE hModule = LoadLibrary(_T("nvcuda.dll"));
@@ -2729,7 +2748,10 @@ NVENCSTATUS NVEncCore::Encode() {
             FrameInfo encFrameInfo = { 0 };
             encFrameInfo.ptr = (void *)pEncodeBuffer->stInputBfr.pNV12devPtr;
             encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
+            encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
+            encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
             encFrameInfo.deivce_mem = true;
+            encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
             //エンコードバッファのポインタを渡す
             outInfo[0] = &encFrameInfo;
             lastFilter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
