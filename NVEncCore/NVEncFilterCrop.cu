@@ -299,27 +299,45 @@ NVENCSTATUS NVEncFilterCspCrop::filter(const FrameInfo *pInputFrame, FrameInfo *
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (m_filterParam.frameOut.csp == m_filterParam.frameIn.csp) {
+        auto cudaMemcpyErrMes = [&](cudaError_t cudaerr, const TCHAR *mes) {
+            AddMessage(NV_LOG_ERROR, _T("error at %s (filter(%s)): %s.\n"),
+                mes, NV_ENC_CSP_NAMES[pInputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        };
 #if 1
         const auto frameOutInfoEx = getFrameInfoExtra(&m_filterParam.frameOut);
         if (!cropEnabled(m_filterParam.crop)) {
             //cropがなければ、一度に転送可能
-            cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
+            auto cudaerr = cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
                 (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
                 frameOutInfoEx.width_byte, frameOutInfoEx.height_total, memcpyKind);
+            if (cudaerr != cudaSuccess) {
+                cudaMemcpyErrMes(cudaerr, _T("cudaMemcpy2DAll"));
+                return NV_ENC_ERR_INVALID_CALL;
+            };
         } else {
             if (m_filterParam.frameOut.csp == NV_ENC_CSP_NV12) {
+                cudaError_t cudaerr;
                 //Y
-                cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
+                cudaerr = cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
                     (uint8_t *)pInputFrame->ptr + m_filterParam.crop.e.left + m_filterParam.crop.e.up * pInputFrame->pitch,
                     pInputFrame->pitch,
                     frameOutInfoEx.width_byte, m_filterParam.frameOut.height, memcpyKind);
+                if (cudaerr != cudaSuccess) {
+                    cudaMemcpyErrMes(cudaerr, _T("cudaMemcpy2D_Y"));
+                    return NV_ENC_ERR_INVALID_CALL;
+                };
                 //UV
-                cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr + ppOutputFrames[0]->pitch * m_filterParam.frameOut.height, ppOutputFrames[0]->pitch,
+                cudaerr = cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr + ppOutputFrames[0]->pitch * m_filterParam.frameOut.height, ppOutputFrames[0]->pitch,
                     (uint8_t *)pInputFrame->ptr
                     + pInputFrame->height * pInputFrame->pitch
                     + m_filterParam.crop.e.left + (m_filterParam.crop.e.up >> 1) * pInputFrame->pitch,
                     pInputFrame->pitch,
                     frameOutInfoEx.width_byte, m_filterParam.frameOut.height >> 1, memcpyKind);
+                if (cudaerr != cudaSuccess) {
+                    cudaMemcpyErrMes(cudaerr, _T("cudaMemcpy2D_UV"));
+                    return NV_ENC_ERR_INVALID_CALL;
+                };
             } else {
                 AddMessage(NV_LOG_ERROR, _T("unsupported output csp with crop.\n"));
                 return NV_ENC_ERR_UNIMPLEMENTED;
