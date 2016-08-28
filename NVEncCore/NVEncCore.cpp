@@ -2242,6 +2242,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     param->frameIn = inputFrame;
     param->frameOut.csp = GetEncoderCSP(inputParam);
+    param->frameOut.deivce_mem = true;
     param->bOutOverwrite = false;
     NVEncCtxAutoLock(cxtlock(m_ctxLock));
     auto sts = filterCrop->init(param, m_pNVLog);
