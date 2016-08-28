@@ -2152,9 +2152,28 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (bResizeRequired
         // || フィルタが必要
         ) {
-        //cropが必要ならただちに適用する
-        //また、NV12ならYV12に変換する必要がある
-        if (inputFrame.csp == NV_ENC_CSP_NV12 || cropEnabled(inputParam->input.crop)) {
+        //swデコードならGPUに上げる必要がある
+        if (!m_pFileReader->inputCodecIsValid()) {
+            unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
+            shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
+            param->frameIn = inputFrame;
+            param->frameOut.csp = param->frameIn.csp;
+            param->frameOut.deivce_mem = true;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filterCrop->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filterCrop));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
+        if (inputFrame.csp == NV_ENC_CSP_NV12 || inputFrame.csp == NV_ENC_CSP_P010 //NV12ならYV12に変換する必要がある
+            || (cropEnabled(inputParam->input.crop) && m_pFileReader->inputCodecIsValid())) { //cropが必要ならただちに適用する
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
             //avcuivd読みでは読み込み時にcropが適用されるないためここでcropを適用する必要がある
@@ -2162,7 +2181,18 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->crop = inputParam->input.crop;
             }
             param->frameIn = inputFrame;
-            param->frameOut.csp = (param->frameIn.csp == NV_ENC_CSP_NV12) ? NV_ENC_CSP_YV12 : param->frameIn.csp;
+            switch (param->frameIn.csp) {
+            case NV_ENC_CSP_NV12:
+                param->frameOut.csp = NV_ENC_CSP_YV12;
+                break;
+            case NV_ENC_CSP_P010:
+                param->frameOut.csp = NV_ENC_CSP_YV12_16;
+                break;
+            default:
+                param->frameOut.csp = param->frameIn.csp;
+                break;
+            }
+            param->frameOut.deivce_mem = true;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterCrop->init(param, m_pNVLog);
