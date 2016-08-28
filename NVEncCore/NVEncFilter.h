@@ -145,12 +145,12 @@ public:
     }
     virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) = 0;
     virtual NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;
-protected:
-    virtual void close() = 0;
-
     const tstring GetInputMessage() {
         return m_sFilterInfo;
     }
+protected:
+    virtual void close() = 0;
+
     void AddMessage(int log_level, const tstring& str) {
         if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
             return;
