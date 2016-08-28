@@ -62,6 +62,25 @@ static inline cudaMemcpyKind getCudaMemcpyKind(bool inputDevice, bool outputDevi
     }
 }
 
+static const TCHAR *getCudaMemcpyKindStr(cudaMemcpyKind kind) {
+    switch (kind) {
+    case cudaMemcpyDeviceToDevice:
+        return _T("copyDtoD");
+    case cudaMemcpyDeviceToHost:
+        return _T("copyDtoH");
+    case cudaMemcpyHostToDevice:
+        return _T("copyHtoD");
+    case cudaMemcpyHostToHost:
+        return _T("copyHtoH");
+    default:
+        return _T("copyUnknown");
+    }
+}
+
+static const TCHAR *getCudaMemcpyKindStr(bool inputDevice, bool outputDevice) {
+    return getCudaMemcpyKindStr(getCudaMemcpyKind(inputDevice, outputDevice));
+}
+
 class NVEncFilterParam {
 public:
     FrameInfo frameIn;
@@ -180,6 +199,9 @@ public:
     virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
     virtual NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
 protected:
+    NVENCSTATUS convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    NVENCSTATUS convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    NVENCSTATUS convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
 
     NVEncFilterParamCrop m_filterParam;
