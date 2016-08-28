@@ -1289,11 +1289,12 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         m_inputHostBuffer.resize(PIPELINE_DEPTH);
         int bufWidth  = pInputInfo->width  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
         int bufHeight = pInputInfo->height - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
-        int bufPitch  = (bufWidth + 31) & (~31);
+        int bufPitch = 0;
         int bufSize = 0;
         switch (pInputInfo->csp) {
         case NV_ENC_CSP_NV12:
         case NV_ENC_CSP_YV12:
+            bufPitch  = (bufWidth + 31) & (~31);
             bufSize = bufPitch * bufHeight * 3 / 2; break;
         case NV_ENC_CSP_P010:
         case NV_ENC_CSP_YV12_09:
@@ -1301,18 +1302,22 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         case NV_ENC_CSP_YV12_12:
         case NV_ENC_CSP_YV12_14:
         case NV_ENC_CSP_YV12_16:
-            bufSize = bufPitch * bufHeight * 3; break;
+            bufPitch = (bufWidth * 2 + 31) & (~31);
+            bufSize = bufPitch * bufHeight * 3 / 2; break;
         case NV_ENC_CSP_YUY2:
         case NV_ENC_CSP_YUV422:
+            bufPitch  = (bufWidth + 31) & (~31);
             bufSize = bufPitch * bufHeight * 2; break;
         case NV_ENC_CSP_YUV444:
+            bufPitch  = (bufWidth + 31) & (~31);
             bufSize = bufPitch * bufHeight * 3; break;
         case NV_ENC_CSP_YUV444_09:
         case NV_ENC_CSP_YUV444_10:
         case NV_ENC_CSP_YUV444_12:
         case NV_ENC_CSP_YUV444_14:
         case NV_ENC_CSP_YUV444_16:
-            bufSize = bufPitch * bufHeight * 6; break;
+            bufPitch = (bufWidth * 2 + 31) & (~31);
+            bufSize = bufPitch * bufHeight * 3; break;
         default:
             PrintMes(NV_LOG_ERROR, _T("Unsupported csp at AllocateIOBuffers.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -1322,6 +1327,7 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
             m_inputHostBuffer[i].height = bufHeight;
             m_inputHostBuffer[i].pitch = bufPitch;
             m_inputHostBuffer[i].csp = pInputInfo->csp;
+            m_inputHostBuffer[i].deivce_mem = false;
 
 #if ENABLE_AVCUVID_READER
             CCtxAutoLock ctxLock(m_ctxLock);
