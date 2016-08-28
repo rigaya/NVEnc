@@ -2392,6 +2392,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t ti
     encPicParams.bufferFmt = pEncodeBuffer->stInputBfr.bufferFmt;
     encPicParams.inputWidth = m_uEncWidth;
     encPicParams.inputHeight = m_uEncHeight;
+    encPicParams.inputPitch = pEncodeBuffer->stInputBfr.uNV12Stride;
     encPicParams.outputBitstream = pEncodeBuffer->stOutputBfr.hBitstreamBuffer;
     encPicParams.completionEvent = pEncodeBuffer->stOutputBfr.hOutputEvent;
     encPicParams.inputTimeStamp = timestamp;
