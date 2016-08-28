@@ -39,7 +39,11 @@
 #pragma warning (pop)
 #include <memory>
 #include <vector>
-#include "cuda.h"
+#include <cuda.h>
+#pragma warning (push)
+#pragma warning (disable: 4819)
+#include <npp.h>
+#pragma warning (pop)
 #include "helper_cuda.h"
 #include "NVEncUtil.h"
 #include "NVEncLog.h"
@@ -47,11 +51,30 @@
 #include "NVEncFrameInfo.h"
 
 #pragma comment(lib, "cudart.lib")
+#ifndef _M_IX86
+#pragma comment(lib, "nppi.lib")
+#endif
 
 using std::vector;
 
 static inline int divCeil(int value, int radix) {
     return (value + radix - 1) / radix;
+}
+
+static NppiSize nppisize(const FrameInfo *pFrame) {
+    NppiSize size;
+    size.width = pFrame->width;
+    size.height = pFrame->height;
+    return size;
+}
+
+static NppiRect nppiroi(const FrameInfo *pFrame) {
+    NppiRect rect;
+    rect.x = 0;
+    rect.y = 0;
+    rect.width = pFrame->width;
+    rect.height = pFrame->height;
+    return rect;
 }
 
 static inline cudaMemcpyKind getCudaMemcpyKind(bool inputDevice, bool outputDevice) {
@@ -205,4 +228,24 @@ protected:
     virtual void close() override;
 
     NVEncFilterParamCrop m_filterParam;
+};
+
+class NVEncFilterParamResize : public NVEncFilterParam {
+public:
+    NppiInterpolationMode interp;
+    virtual ~NVEncFilterParamResize() {};
+};
+
+class NVEncFilterResize : public NVEncFilter {
+public:
+    NVEncFilterResize();
+    virtual ~NVEncFilterResize();
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+    virtual NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+protected:
+    NVENCSTATUS resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    NVENCSTATUS resizeYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    virtual void close() override;
+
+    NVEncFilterParamResize m_filterParam;
 };

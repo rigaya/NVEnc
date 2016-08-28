@@ -31,6 +31,10 @@
 #include <limits.h>
 #include <vector>
 #include <cuviddec.h>
+#pragma warning (push)
+#pragma warning (disable: 4819)
+#include <npp.h>
+#pragma warning (pop)
 #include "nvEncodeAPI.h"
 #include "NVEncoderPerf.h"
 #include "NVEncUtil.h"
@@ -442,6 +446,19 @@ const CX_DESC list_deinterlace[] = {
     { _T("adaptive"), cudaVideoDeinterlaceMode_Adaptive },
     { _T("normal"),   cudaVideoDeinterlaceMode_Adaptive },
     { NULL, 0 }
+};
+
+const CX_DESC list_nppi_resize[] = {
+    { _T("default"),       NPPI_INTER_UNDEFINED },
+    { _T("nn"),            NPPI_INTER_NN },
+    { _T("linear"),        NPPI_INTER_LINEAR },
+    { _T("cubic"),         NPPI_INTER_CUBIC },
+    { _T("cubic_bspline"), NPPI_INTER_CUBIC2P_BSPLINE },
+    { _T("cubic_catmull"), NPPI_INTER_CUBIC2P_CATMULLROM },
+    { _T("cubic_b05c03"),  NPPI_INTER_CUBIC2P_B05C03 },
+    { _T("super"),         NPPI_INTER_SUPER },
+    { _T("lanczons2"),     NPPI_INTER_LANCZOS },
+    { _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
 };
 
 const CX_DESC list_log_level[] = {

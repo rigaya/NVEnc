@@ -1804,12 +1804,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         PrintMes(NV_LOG_ERROR, _T("%s: %dx%d\n"), FOR_AUO ? _T("解像度が無効です。") : _T("Invalid resolution."), inputParam->input.width, inputParam->input.height);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-#if ENABLE_AVCUVID_READER
-    if (inputParam->input.crop.e.left > 0 && m_pFileReader->inputCodecIsValid()) {
-        PrintMes(NV_LOG_ERROR, _T("left crop is unsupported with avcuvid reader.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
-    }
-#endif
     if (   (int)inputParam->input.width  <= inputParam->input.crop.e.left + inputParam->input.crop.e.right
         && (int)inputParam->input.height <= inputParam->input.crop.e.up   + inputParam->input.crop.e.bottom) {
         PrintMes(NV_LOG_ERROR, _T("%s: %dx%d, Crop [%d,%d,%d,%d]\n"),
@@ -2169,6 +2163,13 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         m_uEncHeight = inputParam->input.dstHeight;
         bResizeRequired = true;
     }
+    //avcuvid読みではデコード直後にリサイズが可能
+    //ただし、左cropがある場合は、使用せず、通常のリサイズフィルタを使用する
+    if (bResizeRequired && m_pFileReader->inputCodecIsValid() && inputParam->input.crop.e.left == 0) {
+        inputFrame.width  = inputParam->input.dstWidth;
+        inputFrame.height = inputParam->input.dstHeight;
+        bResizeRequired = false;
+    }
     //フィルタが必要
     if (bResizeRequired
         // || フィルタが必要
@@ -2231,6 +2232,30 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         //実装予定: ノイズ除去
         //実装予定: リサイズ
         if (bResizeRequired) {
+#if _M_IX86
+            PrintMes(NV_LOG_ERROR, _T("resize filter not supported in x86.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+#else
+            unique_ptr<NVEncFilter> filterCrop(new NVEncFilterResize());
+            shared_ptr<NVEncFilterParamResize> param(new NVEncFilterParamResize());
+            param->interp = NPPI_INTER_LANCZOS;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->frameOut.width = m_uEncWidth;
+            param->frameOut.height = m_uEncHeight;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filterCrop->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filterCrop));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+#endif
         }
         //実装予定: エッジ調整
     }

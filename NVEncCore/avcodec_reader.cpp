@@ -1544,12 +1544,12 @@ int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
             av_bitstream_filter_filter(m_Demux.video.pH264Bsfc, m_Demux.video.pCodecCtx, nullptr, &dummy, &dummy_size, nullptr, 0, 0);
             std::swap(m_Demux.video.pExtradata,     m_Demux.video.pCodecCtx->extradata);
             std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
-            //av_bitstream_filter_close(m_Demux.video.pH264Bsfc);
-            //if (NULL == (m_Demux.video.pH264Bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
-            //    AddMessage(NV_LOG_ERROR, _T("failed to init h264_mp4toannexb.\n"));
-            //    return 1;
-            //}
-            //AddMessage(NV_LOG_DEBUG, _T("initialized h264_mp4toannexb filter.\n"));
+            av_bitstream_filter_close(m_Demux.video.pH264Bsfc);
+            if (NULL == (m_Demux.video.pH264Bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
+                AddMessage(NV_LOG_ERROR, _T("failed to init h264_mp4toannexb.\n"));
+                return 1;
+            }
+            AddMessage(NV_LOG_DEBUG, _T("initialized h264_mp4toannexb filter.\n"));
         } else if (m_nInputCodec == cudaVideoCodec_VC1) {
             int lengthFix = (0 == strcmp(m_Demux.format.pFormatCtx->iformat->name, "mpegts")) ? 0 : -1;
             vc1FixHeader(lengthFix);
