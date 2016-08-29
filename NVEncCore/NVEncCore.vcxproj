@@ -179,10 +179,11 @@
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
     </CudaCompile>
     <CudaCompile>
-      <GenerateLineInfo>true</GenerateLineInfo>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
     </CudaCompile>
+    <CudaLink />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
@@ -207,14 +208,13 @@
     <CudaCompile>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
     </CudaCompile>
+    <CudaCompile />
     <CudaCompile>
-      <GPUDebugInfo>true</GPUDebugInfo>
-    </CudaCompile>
-    <CudaCompile>
-      <GenerateLineInfo>true</GenerateLineInfo>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
     </CudaCompile>
+    <CudaLink />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -238,10 +238,11 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
-      <GenerateLineInfo>true</GenerateLineInfo>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
     </CudaCompile>
+    <CudaLink />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <ClCompile>
@@ -266,11 +267,11 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
-      <GPUDebugInfo>true</GPUDebugInfo>
-      <GenerateLineInfo>true</GenerateLineInfo>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
     </CudaCompile>
+    <CudaLink />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -305,7 +306,9 @@
     <CudaCompile>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
     </CudaCompile>
+    <CudaLink />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -340,7 +343,9 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
     </CudaCompile>
+    <CudaLink />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
     <ClCompile>
@@ -376,7 +381,9 @@
     <CudaCompile>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
     </CudaCompile>
+    <CudaLink />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
     <ClCompile>
@@ -412,7 +419,9 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
     </CudaCompile>
+    <CudaLink />
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="avcodec_qsv.cpp" />
