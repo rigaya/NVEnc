@@ -48,6 +48,12 @@ union NV_ENC_CSP_2 {
     };
 };
 
+#define BIT_DEPTH_CONV(x) (TypeOut)((out_bit_depth == in_bit_depth) \
+    ? (x) \
+    : ((out_bit_depth > in_bit_depth) \
+        ? ((x) << (out_bit_depth - in_bit_depth)) \
+        : ((x) >> (in_bit_depth - out_bit_depth))))
+
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 __global__ void kernel_crop_nv12_nv12(TypeOut *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     const TypeIn *__restrict__ pSrc, const int srcPitch, const int srcHeight, const int offsetX, const int offsetY) {
@@ -79,16 +85,8 @@ __global__ void kernel_crop_uv_nv12_yv12(uint8_t *__restrict__ pDstU, uint8_t *_
         const TypeIn *ptr_src = (const TypeIn *)(pSrc  + isrc);
         TypeOut *ptr_dst_u = (TypeOut *)(pDstU + idst);
         TypeOut *ptr_dst_v = (TypeOut *)(pDstV + idst);
-        if (out_bit_depth == in_bit_depth) {
-            ptr_dst_u[0] = ptr_src[0];
-            ptr_dst_v[0] = ptr_src[1];
-        } else if (out_bit_depth > in_bit_depth) {
-            ptr_dst_u[0] = ptr_src[0] << (out_bit_depth - in_bit_depth);
-            ptr_dst_v[0] = ptr_src[1] << (out_bit_depth - in_bit_depth);
-        } else {
-            ptr_dst_u[0] = ptr_src[0] >> (in_bit_depth - out_bit_depth);
-            ptr_dst_v[0] = ptr_src[1] >> (in_bit_depth - out_bit_depth);
-        }
+        ptr_dst_u[0] = BIT_DEPTH_CONV(ptr_src[0]);
+        ptr_dst_v[0] = BIT_DEPTH_CONV(ptr_src[1]);
     }
 }
 
@@ -115,16 +113,8 @@ __global__ void kernel_crop_uv_yv12_nv12(uint8_t *__restrict__ pDst, const int d
         const TypeIn *ptr_src_u = (const TypeIn *)(pSrcU + isrc);
         const TypeIn *ptr_src_v = (const TypeIn *)(pSrcV + isrc);
         TypeOut *ptr_dst = (TypeOut *)(pDst + idst);
-        if (out_bit_depth == in_bit_depth) {
-            ptr_dst[0] = ptr_src_u[0];
-            ptr_dst[1] = ptr_src_v[0];
-        } else if (out_bit_depth > in_bit_depth) {
-            ptr_dst[0] = ptr_src_u[0] << (out_bit_depth - in_bit_depth);
-            ptr_dst[1] = ptr_src_v[0] << (out_bit_depth - in_bit_depth);
-        } else {
-            ptr_dst[0] = ptr_src_u[0] >> (in_bit_depth - out_bit_depth);
-            ptr_dst[1] = ptr_src_v[0] >> (in_bit_depth - out_bit_depth);
-        }
+        ptr_dst[0] = BIT_DEPTH_CONV(ptr_src_u[0]);
+        ptr_dst[1] = BIT_DEPTH_CONV(ptr_src_v[0]);
     }
 }
 
