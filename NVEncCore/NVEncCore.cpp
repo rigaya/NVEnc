@@ -122,6 +122,9 @@ public:
     FrameInfo getFrameInfo() const {
         return m_frameInfo;
     }
+    void setInterlaceFlag(bool flag) {
+        m_frameInfo.interlaced = flag;
+    }
 private:
     shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
     CUVIDPROCPARAMS m_oVPP;
@@ -2627,7 +2630,7 @@ NVENCSTATUS NVEncCore::Encode() {
     const int nFrameDuration = (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pVideoCtx->pkt_timebase);
 #endif //#if ENABLE_AVCUVID_READER
 
-    auto add_dec_vpp_param = [&](FrameBufferDataIn* pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
+    auto add_dec_vpp_param = [&](FrameBufferDataIn *pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
         if (pInputFrame->inputIsHost()) {
             auto frameInfo = pInputFrame->getFrameInfo();
             vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(&frameInfo))));
@@ -2644,6 +2647,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
                 break;
             case cudaVideoDeinterlaceMode_Bob:
+                pInputFrame->setInterlaceFlag(false);
                 oVPP.progressive_frame = 0;
                 oVPP.second_field = 0;
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
@@ -2651,6 +2655,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
                 break;
             case cudaVideoDeinterlaceMode_Adaptive:
+                pInputFrame->setInterlaceFlag(false);
                 oVPP.progressive_frame = 0;
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
                 break;
@@ -2845,6 +2850,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 m_cuvidDec->frameQueue()->releaseFrame(ptr);
                 delete ptr; 
             }), m_cuvidDec->GetDecFrameInfo());
+            inputFrame.setInterlaceFlag(!dispInfo.progressive_frame);
         } else
 #endif //#if ENABLE_AVCUVID_READER
         if (m_inputHostBuffer.size()) {
@@ -2853,6 +2859,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 break;
             }
             inputFrame.setHostFrameInfo(inputFrameBuf);
+            inputFrame.setInterlaceFlag(is_interlaced(m_stPicStruct));
         } else {
             PrintMes(NV_LOG_ERROR, _T("Unexpected error at Encode().\n"));
             return NV_ENC_ERR_GENERIC;

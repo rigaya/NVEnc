@@ -298,6 +298,7 @@ NVENCSTATUS NVEncFilterCspCrop::filter(const FrameInfo *pInputFrame, FrameInfo *
         m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
+    ppOutputFrames[0]->interlaced = pInputFrame->interlaced;
     if (m_filterParam.frameOut.csp == m_filterParam.frameIn.csp) {
         auto cudaMemcpyErrMes = [&](cudaError_t cudaerr, const TCHAR *mes) {
             AddMessage(NV_LOG_ERROR, _T("error at %s (filter(%s)): %s.\n"),

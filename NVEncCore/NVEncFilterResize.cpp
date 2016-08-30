@@ -162,7 +162,7 @@ NVENCSTATUS NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const Frame
     return NV_ENC_SUCCESS;
 }
 
-NVEncFilterResize::NVEncFilterResize() {
+NVEncFilterResize::NVEncFilterResize() : m_filterParam(), m_bInterlacedWarn(false) {
     m_sFilterName = _T("resize");
 }
 
@@ -209,6 +209,16 @@ NVENCSTATUS NVEncFilterResize::filter(const FrameInfo *pInputFrame, FrameInfo **
         ppOutputFrames[0] = &pOutFrame->frame;
         m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
     }
+    ppOutputFrames[0]->interlaced = pInputFrame->interlaced;
+    if (pInputFrame->interlaced && !m_bInterlacedWarn) {
+        AddMessage(NV_LOG_WARN, _T("Interlaced resize is not supported, resizing as progressive.\n"));
+        AddMessage(NV_LOG_WARN, _T("This should result in poor quality.\n"));
+        m_bInterlacedWarn = true;
+    }
+    if (pInputFrame->interlaced) {
+        AddMessage(NV_LOG_ERROR, _T("only supported on device memory.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(NV_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -234,4 +244,5 @@ NVENCSTATUS NVEncFilterResize::filter(const FrameInfo *pInputFrame, FrameInfo **
 
 void NVEncFilterResize::close() {
     m_pFrameBuf.clear();
+    m_bInterlacedWarn = false;
 }

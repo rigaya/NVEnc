@@ -37,6 +37,7 @@ struct FrameInfo {
     int width, height, pitch;
     uint64_t timestamp;
     bool deivce_mem;
+    bool interlaced;
 };
 
 struct FrameInfoExtra {

@@ -248,4 +248,5 @@ protected:
     virtual void close() override;
 
     NVEncFilterParamResize m_filterParam;
+    bool m_bInterlacedWarn;
 };
