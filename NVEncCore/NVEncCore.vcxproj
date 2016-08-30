@@ -182,6 +182,7 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
   </ItemDefinitionGroup>
@@ -213,6 +214,7 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
   </ItemDefinitionGroup>
@@ -241,6 +243,7 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
   </ItemDefinitionGroup>
@@ -270,6 +273,7 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
   </ItemDefinitionGroup>
@@ -307,6 +311,7 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
   </ItemDefinitionGroup>
@@ -344,6 +349,7 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
   </ItemDefinitionGroup>
@@ -382,6 +388,7 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
   </ItemDefinitionGroup>
@@ -420,6 +427,7 @@
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
   </ItemDefinitionGroup>
