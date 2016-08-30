@@ -882,6 +882,8 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 }
             } else {
                 bDecodecCUVID = true;
+                //cuvidデコード時は、NV12のみ使用される
+                inputPrm->csp = NV_ENC_CSP_NV12;
                 AddMessage(NV_LOG_DEBUG, _T("can be decoded by cuvid.\n"));
             }
         }
