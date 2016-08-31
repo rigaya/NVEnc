@@ -1941,14 +1941,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stEncConfig.rcParams.vbvBufferSize = 0;
         error_feature_unsupported(NV_LOG_WARN, FOR_AUO ? _T("VBVバッファサイズの指定") : _T("Custom VBV Bufsize"));
     }
-    if (inputParam->yuv444 || inputParam->lossless) {
-#if ENABLE_AVCUVID_READER
-        if (m_pFileReader->inputCodecIsValid()) {
-            PrintMes(NV_LOG_ERROR, _T("high444 not supported avcuvid reader.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
-        }
-#endif
-    }
     if (inputParam->lossless) {
         if (inputParam->codec != NV_ENC_H264) {
             PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("lossless出力はH.264エンコード時のみ使用できます。\n") : _T("lossless output is only for H.264 codec.\n"));
@@ -1966,11 +1958,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
               && m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize != NV_ENC_HEVC_CUSIZE_8x8)) {
             PrintMes(NV_LOG_WARN, _T("it is not recommended to use --cu-max or --cu-min, leaving it auto will enhance video quality.\n"));
         }
-    }
-    const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
-    if (bOutputHighBitDepth && m_pFileReader->inputCodecIsValid()) {
-        PrintMes(NV_LOG_ERROR, _T("10bit depth encoding is not supported with avcuvid reader.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     //自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {

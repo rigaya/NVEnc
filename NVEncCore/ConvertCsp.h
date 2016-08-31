@@ -75,6 +75,27 @@ static const TCHAR *NV_ENC_CSP_NAMES[] = {
     _T("yc48")
 };
 
+static const int NV_ENC_CSP_BIT_DEPTH[] = {
+     0, //NV_ENC_CSP_NA
+     8, //NV_ENC_CSP_NV12
+     8, //NV_ENC_CSP_YV12
+     8, //NV_ENC_CSP_YUY2 
+     8, //NV_ENC_CSP_YUV422
+     8, //NV_ENC_CSP_YUV444
+     9, //NV_ENC_CSP_YV12_09
+    10,
+    12,
+    14,
+    16, //NV_ENC_CSP_YV12_16
+    16, //NV_ENC_CSP_P010
+     9, //NV_ENC_CSP_YUV444_09
+    10,
+    12,
+    14,
+    16, //NV_ENC_CSP_YUV444_16
+    10, //NV_ENC_CSP_YC48
+};
+
 typedef struct ConvertCSP {
     NV_ENC_CSP csp_from, csp_to;
     bool uv_only;
