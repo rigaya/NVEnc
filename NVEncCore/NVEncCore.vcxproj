@@ -459,6 +459,7 @@
     <ClCompile Include="gpu_info.cpp" />
     <ClCompile Include="NVEncFeature.cpp" />
     <ClCompile Include="NVEncFilter.cpp" />
+    <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
     <ClCompile Include="NVEncFilterResize.cpp" />
     <ClCompile Include="NVEncFrameInfo.cpp" />
     <ClCompile Include="NVEncInput.cpp" />

@@ -461,6 +461,13 @@ const CX_DESC list_nppi_resize[] = {
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
 };
 
+const CX_DESC list_nppi_gauss[] = {
+    { _T("disabled"), 0 },
+    { _T("3"), NPP_MASK_SIZE_3_X_3 },
+    { _T("5"), NPP_MASK_SIZE_5_X_5 },
+    { _T("7"), NPP_MASK_SIZE_7_X_7 },
+};
+
 const CX_DESC list_log_level[] = {
     { _T("trace"), NV_LOG_TRACE },
     { _T("debug"), NV_LOG_DEBUG },

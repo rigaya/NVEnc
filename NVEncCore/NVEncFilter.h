@@ -267,3 +267,25 @@ protected:
     NVEncFilterParamResize m_filterParam;
     bool m_bInterlacedWarn;
 };
+
+
+class NVEncFilterParamGaussDenoise : public NVEncFilterParam {
+public:
+    NppiMaskSize masksize;
+    virtual ~NVEncFilterParamGaussDenoise() {};
+};
+
+class NVEncFilterDenoiseGauss : public NVEncFilter {
+public:
+    NVEncFilterDenoiseGauss();
+    virtual ~NVEncFilterDenoiseGauss();
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    NVENCSTATUS denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    NVENCSTATUS denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    virtual void close() override;
+
+    NVEncFilterParamGaussDenoise m_filterParam;
+    bool m_bInterlacedWarn;
+};

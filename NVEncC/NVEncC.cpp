@@ -399,7 +399,8 @@ static tstring help() {
         DEFAULT_LOOKAHEAD,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
         DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
-    str += PrintListOptions(_T("--vpp-resize <string>"),  list_nppi_resize, 0);
+    str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
+    str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
         _T("   --vpp-perf-monitor           check duration of each filter.\n")
         _T("                                  may decrease overall transcode performance.\n"));
@@ -1761,6 +1762,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int value = 0;
         if (get_list_value(list_nppi_resize, strInput[i], &value)) {
             pParams->vpp.resizeInterp = (NppiInterpolationMode)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-gauss")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_nppi_gauss, strInput[i], &value)) {
+            pParams->vpp.gaussMaskSize = (NppiMaskSize)value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
