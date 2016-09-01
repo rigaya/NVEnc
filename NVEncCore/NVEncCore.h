@@ -100,6 +100,7 @@ private:
 };
 
 typedef struct VppParam {
+    bool bCheckPerformance;
     cudaVideoDeinterlaceMode deinterlace;
     NppiInterpolationMode    resizeInterp;
 } VppParam;

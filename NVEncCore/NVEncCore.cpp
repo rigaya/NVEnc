@@ -32,6 +32,7 @@
 #include <vector>
 #include <array>
 #include <map>
+#include <numeric>
 #include <deque>
 #include <string>
 #include <algorithm>
@@ -2272,6 +2273,10 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     m_vpFilters.push_back(std::move(filterCrop));
     m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+    //パフォーマンスチェックを行うかどうか
+    for (auto& filter : m_vpFilters) {
+        filter->CheckPerformance(inputParam->vpp.bCheckPerformance);
+    }
     return NV_ENC_SUCCESS;
 }
 
@@ -2907,6 +2912,26 @@ NVENCSTATUS NVEncCore::Encode() {
     m_pFileReader->Close();
     m_pFileWriter->Close();
     m_pStatus->writeResult();
+    vector<std::pair<tstring, double>> filter_result;
+    for (auto& filter : m_vpFilters) {
+        auto avgtime = filter->GetAvgTimeElapsed();
+        if (avgtime > 0.0) {
+            filter_result.push_back({ filter->name(), avgtime });
+        }
+    }
+    if (filter_result.size()) {
+        PrintMes(NV_LOG_INFO, _T("\nVpp Filter Performance\n"));
+        const auto max_len = std::accumulate(filter_result.begin(), filter_result.end(), 0u, [](uint32_t max_length, std::pair<tstring, double> info) {
+            return std::max(max_length, (uint32_t)info.first.length());
+        });
+        for (const auto& info : filter_result) {
+            tstring str = info.first + _T(":");
+            for (uint32_t i = (uint32_t)info.first.length(); i < max_len; i++) {
+                str += _T(" ");
+            }
+            PrintMes(NV_LOG_INFO, _T("%s %7.1f us\n"), str.c_str(), info.second * 1000.0);
+        }
+    }
     return NV_ENC_SUCCESS;
 }
 #else

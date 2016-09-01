@@ -400,6 +400,9 @@ static tstring help() {
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
         DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
     str += PrintListOptions(_T("--vpp-resize <string>"),  list_nppi_resize, 0);
+    str += strsprintf(_T("")
+        _T("   --vpp-perf-monitor           check duration of each filter.\n")
+        _T("                                  may decrease overall transcode performance.\n"));
     str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
     str += PrintListOptions(_T("--colormatrix <string>"), list_colormatrix, 0);
     str += PrintListOptions(_T("--colorprim <string>"),   list_colorprim,   0);
@@ -1762,6 +1765,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        return 0;
+    }
+    if (IS_OPTION("vpp-perf-monitor")) {
+        pParams->vpp.bCheckPerformance = true;
+        return 0;
+    }
+    if (IS_OPTION("no-vpp-perf-monitor")) {
+        pParams->vpp.bCheckPerformance = false;
         return 0;
     }
     if (IS_OPTION("tff")) {

@@ -200,7 +200,7 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
     return sts;
 }
 
-NVENCSTATUS NVEncFilterResize::filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
 
     *pOutputFrameNum = 1;

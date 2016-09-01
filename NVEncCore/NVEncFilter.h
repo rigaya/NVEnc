@@ -57,6 +57,13 @@
 
 using std::vector;
 
+struct cudaevent_deleter {
+    void operator()(cudaEvent_t *pEvent) const {
+        cudaEventDestroy(*pEvent);
+        delete pEvent;
+    }
+};
+
 static inline int divCeil(int value, int radix) {
     return (value + radix - 1) / radix;
 }
@@ -167,11 +174,14 @@ public:
         return m_sFilterName;
     }
     virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) = 0;
-    virtual NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;
+    NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum);
     const tstring GetInputMessage() {
         return m_sFilterInfo;
     }
+    void CheckPerformance(bool flag);
+    double GetAvgTimeElapsed();
 protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;
     virtual void close() = 0;
 
     void AddMessage(int log_level, const tstring& str) {
@@ -206,6 +216,12 @@ protected:
     shared_ptr<CNVEncLog> m_pPrintMes;  //ログ出力
     vector<unique_ptr<CUFrameBuf>> m_pFrameBuf;
     int m_nFrameIdx;
+private:
+    bool m_bCheckPerformance;
+    unique_ptr<cudaEvent_t, cudaevent_deleter> m_peFilterStart;
+    unique_ptr<cudaEvent_t, cudaevent_deleter> m_peFilterFin;
+    double m_dFilterTimeMs;
+    int m_nFilterRunCount;
 };
 
 class NVEncFilterParamCrop : public NVEncFilterParam {
@@ -220,8 +236,8 @@ public:
     NVEncFilterCspCrop();
     virtual ~NVEncFilterCspCrop();
     virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
-    virtual NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
 protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     NVENCSTATUS convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     NVENCSTATUS convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     NVENCSTATUS convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
@@ -242,8 +258,8 @@ public:
     NVEncFilterResize();
     virtual ~NVEncFilterResize();
     virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
-    virtual NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
 protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     NVENCSTATUS resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     NVENCSTATUS resizeYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;

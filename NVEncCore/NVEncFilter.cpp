@@ -28,12 +28,16 @@
 
 #include "NVEncFilter.h"
 
-NVEncFilter::NVEncFilter() : m_sFilterName(), m_sFilterInfo(), m_pPrintMes(), m_pFrameBuf(), m_nFrameIdx(0) {
+NVEncFilter::NVEncFilter() :
+    m_sFilterName(), m_sFilterInfo(), m_pPrintMes(), m_pFrameBuf(), m_nFrameIdx(0),
+    m_bCheckPerformance(false), m_peFilterStart(), m_peFilterFin(), m_dFilterTimeMs(0.0), m_nFilterRunCount(0) {
 
 }
 
 NVEncFilter::~NVEncFilter() {
     m_pFrameBuf.clear();
+    m_peFilterStart.reset();
+    m_peFilterFin.reset();
 }
 
 cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
@@ -48,4 +52,49 @@ cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
     }
     m_nFrameIdx = 0;
     return cudaSuccess;
+}
+
+NVENCSTATUS NVEncFilter::filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    if (m_bCheckPerformance) {
+        cudaEventRecord(*m_peFilterStart.get());
+    }
+    const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum);
+    if (m_bCheckPerformance) {
+        cudaEventRecord(*m_peFilterFin.get());
+        cudaEventSynchronize(*m_peFilterFin.get());
+        float time_ms = 0.0f;
+        cudaEventElapsedTime(&time_ms, *m_peFilterStart.get(), *m_peFilterFin.get());
+        m_dFilterTimeMs += time_ms;
+        m_nFilterRunCount++;
+    }
+    return ret;
+}
+
+void NVEncFilter::CheckPerformance(bool flag) {
+    if (flag == m_bCheckPerformance) {
+        return;
+    }
+    m_bCheckPerformance = flag;
+    if (!m_bCheckPerformance) {
+        m_peFilterStart.reset();
+        m_peFilterFin.reset();
+    } else {
+        auto deleter = [](cudaEvent_t *pEvent) {
+            cudaEventDestroy(*pEvent);
+            delete pEvent;
+        };
+        m_peFilterStart = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
+        m_peFilterFin = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
+        cudaEventCreate(m_peFilterStart.get());
+        cudaEventCreate(m_peFilterFin.get());
+        m_dFilterTimeMs = 0.0;
+        m_nFilterRunCount = 0;
+    }
+}
+
+double NVEncFilter::GetAvgTimeElapsed() {
+    if (!m_bCheckPerformance) {
+        return 0.0;
+    }
+    return m_dFilterTimeMs / (double)m_nFilterRunCount;
 }
