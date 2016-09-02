@@ -461,6 +461,7 @@
     <ClCompile Include="NVEncFilter.cpp" />
     <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
     <ClCompile Include="NVEncFilterResize.cpp" />
+    <ClCompile Include="NVEncFilterUnsharp.cpp" />
     <ClCompile Include="NVEncFrameInfo.cpp" />
     <ClCompile Include="NVEncInput.cpp" />
     <ClCompile Include="NVEncInputAvs.cpp" />

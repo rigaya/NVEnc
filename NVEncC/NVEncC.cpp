@@ -1779,6 +1779,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-unsharp")) {
+        pParams->vpp.unsharp.bEnable = true;
+        return 0;
+    }
     if (IS_OPTION("vpp-perf-monitor")) {
         pParams->vpp.bCheckPerformance = true;
         return 0;

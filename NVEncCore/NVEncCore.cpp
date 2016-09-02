@@ -2168,6 +2168,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     //フィルタが必要
     if (bResizeRequired
         || inputParam->vpp.gaussMaskSize > 0
+        || inputParam->vpp.unsharp.bEnable
         ) {
         //swデコードならGPUに上げる必要がある
         if (!m_pFileReader->inputCodecIsValid()) {
@@ -2277,6 +2278,33 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 #endif
         }
         //実装予定: エッジ調整
+        if (inputParam->vpp.unsharp.bEnable > 0) {
+#if _M_IX86
+            PrintMes(NV_LOG_ERROR, _T("unsharp filter not supported in x86.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+#else
+            unique_ptr<NVEncFilter> filterUnsharp(new NVEncFilterUnsharp());
+            shared_ptr<NVEncFilterParamUnsharp> param(new NVEncFilterParamUnsharp());
+            param->radius = inputParam->vpp.unsharp.radius;
+            param->sigma = inputParam->vpp.unsharp.sigma;
+            param->weight = inputParam->vpp.unsharp.weight;
+            param->threshold = inputParam->vpp.unsharp.threshold;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filterUnsharp->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filterUnsharp));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+#endif
+        }
     }
     //最後のフィルタ
     unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());

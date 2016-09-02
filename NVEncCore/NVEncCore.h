@@ -104,6 +104,14 @@ typedef struct VppParam {
     cudaVideoDeinterlaceMode deinterlace;
     NppiInterpolationMode    resizeInterp;
     NppiMaskSize             gaussMaskSize;
+
+    struct {
+        bool  bEnable;
+        float radius;
+        float sigma;
+        float weight;
+        float threshold;
+    } unsharp;
 } VppParam;
 
 struct InEncodeVideoParam {

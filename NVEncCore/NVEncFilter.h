@@ -166,6 +166,38 @@ struct CUFrameBuf {
     }
 };
 
+struct CUMemBuf {
+    void *ptr;
+    size_t nSize;
+
+    CUMemBuf() : ptr(nullptr), nSize(0) {
+
+    };
+    CUMemBuf(void *_ptr, size_t _nSize) : ptr(_ptr), nSize(_nSize) {
+
+    };
+    CUMemBuf(size_t _nSize) : ptr(nullptr), nSize(_nSize) {
+
+    }
+    cudaError_t alloc() {
+        if (ptr) {
+            cudaFree(ptr);
+        }
+        cudaError_t ret = cudaSuccess;
+        if (nSize > 0) {
+            ret = cudaMalloc(&ptr, nSize);
+        } else {
+            ret = cudaErrorNotSupported;
+        }
+        return ret;
+    }
+    ~CUMemBuf() {
+        if (ptr) {
+            cudaFree(ptr);
+        }
+    }
+};
+
 class NVEncFilter {
 public:
     NVEncFilter();
@@ -288,4 +320,32 @@ protected:
 
     NVEncFilterParamGaussDenoise m_filterParam;
     bool m_bInterlacedWarn;
+};
+
+
+
+class NVEncFilterParamUnsharp : public NVEncFilterParam {
+public:
+    float radius;
+    float sigma;
+    float weight;
+    float threshold;
+    virtual ~NVEncFilterParamUnsharp() {};
+};
+
+class NVEncFilterUnsharp : public NVEncFilter {
+public:
+    NVEncFilterUnsharp();
+    virtual ~NVEncFilterUnsharp();
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    cudaError_t AllocScratch(int nScratchSize);
+    NVENCSTATUS unsharpYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pScratch);
+    NVENCSTATUS unsharpYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pScratch);
+    virtual void close() override;
+
+    NVEncFilterParamUnsharp m_filterParam;
+    bool m_bInterlacedWarn;
+    vector<unique_ptr<CUMemBuf>> m_pScratchBuf;
 };
