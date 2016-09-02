@@ -184,8 +184,9 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
-    if (CUDA_SUCCESS != AllocFrameBuf(pResizeParam->frameOut, 2)) {
-        AddMessage(NV_LOG_ERROR, _T("failed to allocate memory.\n"));
+    auto cudaerr = AllocFrameBuf(pResizeParam->frameOut, 2);
+    if (cudaerr != CUDA_SUCCESS) {
+        AddMessage(NV_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
     pResizeParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;

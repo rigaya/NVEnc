@@ -184,8 +184,9 @@ NVENCSTATUS NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, s
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
-    if (CUDA_SUCCESS != AllocFrameBuf(pGaussParam->frameOut, 2)) {
-        AddMessage(NV_LOG_ERROR, _T("failed to allocate memory.\n"));
+    auto cudaerr = AllocFrameBuf(pGaussParam->frameOut, 2);
+    if (cudaerr != CUDA_SUCCESS) {
+        AddMessage(NV_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
     pGaussParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
