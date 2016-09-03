@@ -213,10 +213,6 @@ NVENCSTATUS NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, Fr
         AddMessage(NV_LOG_WARN, _T("This should result in poor quality.\n"));
         m_bInterlacedWarn = true;
     }
-    if (pInputFrame->interlaced) {
-        AddMessage(NV_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
-    }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(NV_LOG_ERROR, _T("only supported on device memory.\n"));
