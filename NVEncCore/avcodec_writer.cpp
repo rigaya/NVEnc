@@ -125,7 +125,7 @@ void CAvcodecWriter::CloseAudio(AVMuxAudio *pMuxAudio) {
         av_packet_unref(&pMuxAudio->OutPacket);
     }
     if (pMuxAudio->pAACBsfc) {
-        av_bitstream_filter_close(pMuxAudio->pAACBsfc);
+        av_bsf_free(&pMuxAudio->pAACBsfc);
     }
     if (pMuxAudio->pCodecCtxIn) {
         avcodec_free_context(&pMuxAudio->pCodecCtxIn);
@@ -935,16 +935,42 @@ int CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAu
         }
     } else if (pMuxAudio->pCodecCtxIn->codec_id == AV_CODEC_ID_AAC && pMuxAudio->pCodecCtxIn->extradata == NULL && m_Mux.video.pStream) {
         AddMessage(NV_LOG_DEBUG, _T("start initialize aac_adtstoasc filter...\n"));
-        if (NULL == (pMuxAudio->pAACBsfc = av_bitstream_filter_init("aac_adtstoasc"))) {
-            AddMessage(NV_LOG_ERROR, _T("failed to open bitstream filter for AAC audio.\n"));
+        auto filter = av_bsf_get_by_name("aac_adtstoasc");
+        if (filter == nullptr) {
+            AddMessage(NV_LOG_ERROR, _T("failed to find aac_adtstoasc.\n"));
+            return 1;
+        }
+        int ret = 0;
+        if (0 > (ret = av_bsf_alloc(filter, &pMuxAudio->pAACBsfc))) {
+            AddMessage(NV_LOG_ERROR, _T("failed to allocate memory for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+            return 1;
+        }
+        if (0 > (ret = avcodec_parameters_from_context(pMuxAudio->pAACBsfc->par_in, pMuxAudio->pCodecCtxIn))) {
+            AddMessage(NV_LOG_ERROR, _T("failed to set parameter for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+            return 1;
+        }
+        pMuxAudio->pAACBsfc->time_base_in = pMuxAudio->pCodecCtxIn->time_base;
+        if (0 > (ret = av_bsf_init(pMuxAudio->pAACBsfc))) {
+            AddMessage(NV_LOG_ERROR, _T("failed to init aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
             return 1;
         }
         if (pInputAudio->src.pktSample.data) {
             //mkvではavformat_write_headerまでにAVCodecContextにextradataをセットしておく必要がある
-            AVPacket *audpkt = &pInputAudio->src.pktSample;
-            if (0 > av_bitstream_filter_filter(pMuxAudio->pAACBsfc, pMuxAudio->pCodecCtxIn, NULL, &audpkt->data, &audpkt->size, audpkt->data, audpkt->size, 0)) {
-                AddMessage(NV_LOG_ERROR, _T("failed to run bitstream filter for AAC audio.\n"));
-                return 1;
+            for (AVPacket *inpkt = av_packet_clone(&pInputAudio->src.pktSample); 0 == av_bsf_send_packet(pMuxAudio->pAACBsfc, inpkt); inpkt = nullptr) {
+                AVPacket outpkt = { 0 };
+                av_init_packet(&outpkt);
+                ret = av_bsf_receive_packet(pMuxAudio->pAACBsfc, &outpkt);
+                if (ret == 0) {
+                    if (pMuxAudio->pAACBsfc->par_out->extradata) {
+                        SetExtraData(pMuxAudio->pCodecCtxIn, pMuxAudio->pAACBsfc->par_out->extradata, pMuxAudio->pAACBsfc->par_out->extradata_size);
+                    }
+                    break;
+                }
+                if (ret != AVERROR(EAGAIN) && !(inpkt && ret == AVERROR_EOF)) {
+                    AddMessage(NV_LOG_ERROR, _T("failed to run aac_adtstoasc.\n"));
+                    return 1;
+                }
+                av_packet_unref(&outpkt);
             }
             AddMessage(NV_LOG_DEBUG, _T("successfully attached packet sample from AAC\n."));
         }
@@ -1928,33 +1954,49 @@ AVMuxSub *CAvcodecWriter::getSubPacketStreamData(const AVPacket *pkt) {
     return NULL;
 }
 
-void CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio) {
-    uint8_t *data = NULL;
-    int dataSize = 0;
+int CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio) {
+    int ret = 0;
     //毎回bitstream filterを初期化して、extradataに新しいヘッダを供給する
     //動画とmuxする際に必須
-    av_bitstream_filter_close(pMuxAudio->pAACBsfc);
-    pMuxAudio->pAACBsfc = av_bitstream_filter_init("aac_adtstoasc");
-    auto ret = av_bitstream_filter_filter(pMuxAudio->pAACBsfc, pMuxAudio->pCodecCtxIn,
-        nullptr, &data, &dataSize, pkt->data, pkt->size, 0);
-    //ret >= 0でも、dataSizeが負となる場合がることに注意。
-    if (0 > ret || dataSize < 0) {
-        //最初のフレームとかでなければ、エラーを許容し、単に処理しないようにする
-        //多くの場合、ここでのエラーはtsなどの最終音声フレームが不完全なことで発生する
-        m_Mux.format.bStreamError = (pMuxAudio->nPacketWritten < 1);
-        pkt->duration = 0; //書き込み処理が行われないように
-    } else if (ret == 0 && data == nullptr) {
+    av_bsf_free(&pMuxAudio->pAACBsfc);
+    auto filter = av_bsf_get_by_name("aac_adtstoasc");
+    if (filter == nullptr) {
+        AddMessage(NV_LOG_ERROR, _T("failed to find aac_adtstoasc.\n"));
+        return 1;
+    }
+    if (0 > (ret = av_bsf_alloc(filter, &pMuxAudio->pAACBsfc))) {
+        AddMessage(NV_LOG_ERROR, _T("failed to allocate memory for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+        return 1;
+    }
+    if (0 > (ret = avcodec_parameters_from_context(pMuxAudio->pAACBsfc->par_in, pMuxAudio->pCodecCtxIn))) {
+        AddMessage(NV_LOG_ERROR, _T("failed to set parameter for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+        return 1;
+    }
+    pMuxAudio->pAACBsfc->time_base_in = pMuxAudio->pCodecCtxIn->time_base;
+    if (0 > (ret = av_bsf_init(pMuxAudio->pAACBsfc))) {
+        AddMessage(NV_LOG_ERROR, _T("failed to init aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+        return 1;
+    }
+    if (0 > (ret = av_bsf_send_packet(pMuxAudio->pAACBsfc, pkt))) {
+        av_packet_unref(pkt);
+        AddMessage(NV_LOG_ERROR, _T("failed to send packet to aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
+        return 1;
+    }
+    ret = av_bsf_receive_packet(pMuxAudio->pAACBsfc, pkt);
+    if (ret == AVERROR(EAGAIN)) {
         pkt->size = 0;
         pkt->duration = 0;
-    } else {
-        if (pkt->buf->size < dataSize) {
-            av_grow_packet(pkt, dataSize);
+    } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
+        //最初のフレームとかでなければ、エラーを許容し、単に処理しないようにする
+        //多くの場合、ここでのエラーはtsなどの最終音声フレームが不完全なことで発生する
+        if (pMuxAudio->nPacketWritten < 1) {
+            m_Mux.format.bStreamError = true;
+            AddMessage(NV_LOG_ERROR, _T("failed to run aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
+            return 1;
         }
-        if (pkt->data != data) {
-            memmove(pkt->data, data, dataSize);
-        }
-        pkt->size = dataSize;
+        pkt->duration = 0; //書き込み処理が行われないように
     }
+    return 0;
 }
 
 //音声/字幕パケットを実際に書き出す
@@ -2483,9 +2525,9 @@ int CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
     
     AVRational samplerate = { 1, pMuxAudio->pCodecCtxIn->sample_rate };
     if (pMuxAudio->pAACBsfc) {
-        applyBitstreamFilterAAC(&pktData->pkt, pMuxAudio);
+        auto sts = applyBitstreamFilterAAC(&pktData->pkt, pMuxAudio);
         //pktData->pkt.durationの場合はなにもせず終了する
-        if (pktData->pkt.duration == 0) {
+        if (sts || pktData->pkt.duration == 0) {
             av_packet_unref(&pktData->pkt);
             return (m_Mux.format.bStreamError) ? 1 : 0;
         }
