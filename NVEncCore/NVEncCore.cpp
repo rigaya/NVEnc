@@ -2278,7 +2278,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 #endif
         }
         //実装予定: エッジ調整
-        if (inputParam->vpp.unsharp.bEnable > 0) {
+        if (inputParam->vpp.unsharp.bEnable) {
 #if _M_IX86
             PrintMes(NV_LOG_ERROR, _T("unsharp filter not supported in x86.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
