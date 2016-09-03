@@ -99,7 +99,7 @@ void CAvcodecReader::CloseVideo(AVDemuxVideo *pVideo) {
     }
     //close bitstreamfilter
     if (pVideo->pH264Bsfc) {
-        av_bitstream_filter_close(pVideo->pH264Bsfc);
+        av_bsf_free(&pVideo->pH264Bsfc);
     }
     
     if (pVideo->pExtradata) {
@@ -900,8 +900,22 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         //必要ならbitstream filterを初期化
         if (m_Demux.video.pCodecCtx->extradata && m_Demux.video.pCodecCtx->extradata[0] == 1) {
             if (m_sDecParam.codec == cudaVideoCodec_H264) {
-                if (NULL == (m_Demux.video.pH264Bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
-                    AddMessage(NV_LOG_ERROR, _T("failed to init h264_mp4toannexb.\n"));
+                auto filter = av_bsf_get_by_name("h264_mp4toannexb");
+                if (filter == nullptr) {
+                    AddMessage(NV_LOG_ERROR, _T("failed to find h264_mp4toannexb.\n"));
+                    return 1;
+                }
+                if (0 > (ret = av_bsf_alloc(filter, &m_Demux.video.pH264Bsfc))) {
+                    AddMessage(NV_LOG_ERROR, _T("failed to allocate memory for h264_mp4toannexb: %s.\n"), qsv_av_err2str(ret).c_str());
+                    return 1;
+                }
+                if (0 > (ret = avcodec_parameters_from_context(m_Demux.video.pH264Bsfc->par_in, m_Demux.video.pCodecCtx))) {
+                    AddMessage(NV_LOG_ERROR, _T("failed to set parameter for h264_mp4toannexb: %s.\n"), qsv_av_err2str(ret).c_str());
+                    return 1;
+                }
+                m_Demux.video.pH264Bsfc->time_base_in = m_Demux.video.pCodecCtx->time_base;
+                if (0 > (ret = av_bsf_init(m_Demux.video.pH264Bsfc))) {
+                    AddMessage(NV_LOG_ERROR, _T("failed to init h264_mp4toannexb: %s.\n"), qsv_av_err2str(ret).c_str());
                     return 1;
                 }
                 AddMessage(NV_LOG_DEBUG, _T("initialized h264_mp4toannexb filter.\n"));
@@ -1258,20 +1272,19 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
         && m_Demux.frames.fixedNum() - TRIM_OVERREAD_FRAMES < getVideoTrimMaxFramIdx()) {
         if (pkt->stream_index == m_Demux.video.nIndex) {
             if (m_Demux.video.pH264Bsfc) {
-                uint8_t *data = nullptr;
-                int dataSize = 0;
-                std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
-                std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
-                av_bitstream_filter_filter(m_Demux.video.pH264Bsfc, m_Demux.video.pCodecCtx, nullptr,
-                    &data, &dataSize, pkt->data, pkt->size, 0);
-                std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
-                std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
-                AVPacket pktProp;
-                av_init_packet(&pktProp);
-                av_packet_copy_props(&pktProp, pkt);
-                av_packet_unref(pkt); //メモリ解放を忘れない
-                av_packet_copy_props(pkt, &pktProp);
-                av_packet_from_data(pkt, data, dataSize);
+                auto ret = av_bsf_send_packet(m_Demux.video.pH264Bsfc, pkt);
+                if (ret < 0) {
+                    av_packet_unref(pkt);
+                    AddMessage(NV_LOG_ERROR, _T("failed to send packet to h264_mp4toannexb bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
+                    return 1;
+                }
+                ret = av_bsf_receive_packet(m_Demux.video.pH264Bsfc, pkt);
+                if (ret == AVERROR(EAGAIN)) {
+                    continue; //もっとpacketを送らないとダメ
+                } else if (ret < 0 && ret != AVERROR_EOF) {
+                    AddMessage(NV_LOG_ERROR, _T("failed to run h264_mp4toannexb bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
+                    return 1;
+                }
             }
             if (m_Demux.video.bUseHEVCmp42AnnexB) {
                 hevcMp42Annexb(pkt);
@@ -1535,19 +1548,46 @@ int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
         if (m_Demux.video.bUseHEVCmp42AnnexB) {
             hevcMp42Annexb(NULL);
         } else if (m_Demux.video.pH264Bsfc && m_Demux.video.pExtradata[0] == 1) {
-            uint8_t *dummy = NULL;
-            int dummy_size = 0;
-            std::swap(m_Demux.video.pExtradata,     m_Demux.video.pCodecCtx->extradata);
-            std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
-            av_bitstream_filter_filter(m_Demux.video.pH264Bsfc, m_Demux.video.pCodecCtx, nullptr, &dummy, &dummy_size, nullptr, 0, 0);
-            std::swap(m_Demux.video.pExtradata,     m_Demux.video.pCodecCtx->extradata);
-            std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
-            av_bitstream_filter_close(m_Demux.video.pH264Bsfc);
-            if (NULL == (m_Demux.video.pH264Bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
-                AddMessage(NV_LOG_ERROR, _T("failed to init h264_mp4toannexb.\n"));
+            int ret = 0;
+            auto pBsf = av_bsf_get_by_name("h264_mp4toannexb");
+            if (pBsf == nullptr) {
+                AddMessage(NV_LOG_ERROR, _T("failed find h264_mp4toannexb.\n"));
                 return 1;
             }
-            AddMessage(NV_LOG_DEBUG, _T("initialized h264_mp4toannexb filter.\n"));
+            AVBSFContext *pBsfCtx = nullptr;
+            if (0 > (ret = av_bsf_alloc(pBsf, &pBsfCtx))) {
+                AddMessage(NV_LOG_ERROR, _T("failed alloc memory for h264_mp4toannexb: %s.\n"), qsv_av_err2str(ret).c_str());
+                return 1;
+            }
+            if (0 > (ret = avcodec_parameters_from_context(pBsfCtx->par_in, m_Demux.video.pCodecCtx))) {
+                AddMessage(NV_LOG_ERROR, _T("failed alloc get param for h264_mp4toannexb: %s.\n"), qsv_av_err2str(ret).c_str());
+                return 1;
+            }
+            if (0 > (ret = av_bsf_init(pBsfCtx))) {
+                AddMessage(NV_LOG_ERROR, _T("failed init h264_mp4toannexb: %s.\n"), qsv_av_err2str(ret).c_str());
+                return 1;
+            }
+            uint8_t IDR[] = { 0x00, 0x00, 0x00, 0x01, 0x65 };
+            AVPacket pkt = { 0 };
+            av_init_packet(&pkt);
+            pkt.data = IDR;
+            pkt.size = sizeof(IDR);
+            for (AVPacket *inpkt = &pkt; 0 == av_bsf_send_packet(pBsfCtx, inpkt); inpkt = nullptr) {
+                ret = av_bsf_receive_packet(pBsfCtx, &pkt);
+                if (ret == 0)
+                    break;
+                if (ret != AVERROR(EAGAIN) && !(inpkt && ret == AVERROR_EOF)) {
+                    AddMessage(NV_LOG_ERROR, _T("failed to run h264_mp4toannexb.\n"));
+                    return 1;
+                }
+            }
+            av_bsf_free(&pBsfCtx);
+            if (m_Demux.video.nExtradataSize < pkt.size) {
+                m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
+            }
+            memcpy(m_Demux.video.pExtradata, pkt.data, pkt.size);
+            m_Demux.video.nExtradataSize = pkt.size;
+            av_packet_unref(&pkt);
         } else if (m_nInputCodec == cudaVideoCodec_VC1) {
             int lengthFix = (0 == strcmp(m_Demux.format.pFormatCtx->iformat->name, "mpegts")) ? 0 : -1;
             vc1FixHeader(lengthFix);
