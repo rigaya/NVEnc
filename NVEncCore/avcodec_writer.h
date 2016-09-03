@@ -42,7 +42,7 @@ using std::vector;
 
 #define USE_CUSTOM_IO 1
 
-#define USE_AVCODECPAR 0
+#define USE_AVCODECPAR 1
 
 static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 
