@@ -206,7 +206,7 @@ public:
         return m_sFilterName;
     }
     virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) = 0;
-    NVENCSTATUS filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum);
+    NVENCSTATUS filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum);
     const tstring GetInputMessage() {
         return m_sFilterInfo;
     }
@@ -248,6 +248,8 @@ protected:
     shared_ptr<CNVEncLog> m_pPrintMes;  //ログ出力
     vector<unique_ptr<CUFrameBuf>> m_pFrameBuf;
     int m_nFrameIdx;
+protected:
+    shared_ptr<NVEncFilterParam> m_pParam;
 private:
     bool m_bCheckPerformance;
     unique_ptr<cudaEvent_t, cudaevent_deleter> m_peFilterStart;
@@ -275,8 +277,6 @@ protected:
     NVENCSTATUS convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     NVENCSTATUS convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
-
-    NVEncFilterParamCrop m_filterParam;
 };
 
 class NVEncFilterParamResize : public NVEncFilterParam {
@@ -296,7 +296,6 @@ protected:
     NVENCSTATUS resizeYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
 
-    NVEncFilterParamResize m_filterParam;
     bool m_bInterlacedWarn;
 };
 
@@ -317,8 +316,6 @@ protected:
     NVENCSTATUS denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     NVENCSTATUS denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
-
-    NVEncFilterParamGaussDenoise m_filterParam;
     bool m_bInterlacedWarn;
 };
 
@@ -345,7 +342,6 @@ protected:
     NVENCSTATUS unsharpYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pScratch);
     virtual void close() override;
 
-    NVEncFilterParamUnsharp m_filterParam;
     bool m_bInterlacedWarn;
     vector<unique_ptr<CUMemBuf>> m_pScratchBuf;
 };

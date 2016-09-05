@@ -81,20 +81,25 @@ static NppStatus resize_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFra
 
 NVENCSTATUS NVEncFilterResize::resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
-    if (m_filterParam.frameOut.csp != m_filterParam.frameIn.csp) {
+    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(NV_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    auto pResizeParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(m_pParam);
+    if (!pResizeParam) {
+        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
     const auto supportedCspYV12High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
     NppStatus nppsts = NPP_SUCCESS;
-    if (m_filterParam.frameIn.csp == NV_ENC_CSP_YV12) {
-        nppsts = resize_yv12<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_C1R, m_filterParam.interp);
+    if (m_pParam->frameIn.csp == NV_ENC_CSP_YV12) {
+        nppsts = resize_yv12<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_C1R, pResizeParam->interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(NV_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
             sts = NV_ENC_ERR_GENERIC;
         }
-    } else if (std::find(supportedCspYV12High.begin(), supportedCspYV12High.end(), m_filterParam.frameIn.csp) != supportedCspYV12High.end()) {
-        nppsts = resize_yv12<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_C1R, m_filterParam.interp);
+    } else if (std::find(supportedCspYV12High.begin(), supportedCspYV12High.end(), m_pParam->frameIn.csp) != supportedCspYV12High.end()) {
+        nppsts = resize_yv12<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_C1R, pResizeParam->interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(NV_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
             sts = NV_ENC_ERR_GENERIC;
@@ -137,20 +142,25 @@ static NppStatus resize_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputF
 
 NVENCSTATUS NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
-    if (m_filterParam.frameOut.csp != m_filterParam.frameIn.csp) {
+    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(NV_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    auto pResizeParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(m_pParam);
+    if (!pResizeParam) {
+        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
     const auto supportedCspYUV444High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
     NppStatus nppsts = NPP_SUCCESS;
-    if (m_filterParam.frameIn.csp == NV_ENC_CSP_YUV444) {
-        nppsts = resize_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_P3R, m_filterParam.interp);
+    if (m_pParam->frameIn.csp == NV_ENC_CSP_YUV444) {
+        nppsts = resize_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_P3R, pResizeParam->interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(NV_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
             sts = NV_ENC_ERR_GENERIC;
         }
-    } else if (std::find(supportedCspYUV444High.begin(), supportedCspYUV444High.end(), m_filterParam.frameIn.csp) != supportedCspYUV444High.end()) {
-        nppsts = resize_yuv444<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_P3R, m_filterParam.interp);
+    } else if (std::find(supportedCspYUV444High.begin(), supportedCspYUV444High.end(), m_pParam->frameIn.csp) != supportedCspYUV444High.end()) {
+        nppsts = resize_yuv444<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_P3R, pResizeParam->interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(NV_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
             sts = NV_ENC_ERR_GENERIC;
@@ -162,7 +172,7 @@ NVENCSTATUS NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const Frame
     return NV_ENC_SUCCESS;
 }
 
-NVEncFilterResize::NVEncFilterResize() : m_filterParam(), m_bInterlacedWarn(false) {
+NVEncFilterResize::NVEncFilterResize() : m_bInterlacedWarn(false) {
     m_sFilterName = _T("resize");
 }
 
@@ -197,7 +207,7 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
         pResizeParam->frameOut.width, pResizeParam->frameOut.height);
 
     //コピーを保存
-    m_filterParam = *(pResizeParam.get());
+    m_pParam = pResizeParam;
     return sts;
 }
 
@@ -221,16 +231,16 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
         AddMessage(NV_LOG_ERROR, _T("only supported on device memory.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (m_filterParam.frameOut.csp != m_filterParam.frameIn.csp) {
+    if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(NV_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     const auto supportedCspYV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12, NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
     const auto supportedCspYUV444 = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
 
-    if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), m_filterParam.frameIn.csp) != supportedCspYV12.end()) {
+    if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), m_pParam->frameIn.csp) != supportedCspYV12.end()) {
         sts = resizeYV12(ppOutputFrames[0], pInputFrame);
-    } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), m_filterParam.frameIn.csp) != supportedCspYUV444.end()) {
+    } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), m_pParam->frameIn.csp) != supportedCspYUV444.end()) {
         sts = resizeYUV444(ppOutputFrames[0], pInputFrame);
     } else {
         AddMessage(NV_LOG_ERROR, _T("unsupported csp.\n"));

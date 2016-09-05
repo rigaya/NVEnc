@@ -30,6 +30,7 @@
 
 NVEncFilter::NVEncFilter() :
     m_sFilterName(), m_sFilterInfo(), m_pPrintMes(), m_pFrameBuf(), m_nFrameIdx(0),
+    m_pParam(),
     m_bCheckPerformance(false), m_peFilterStart(), m_peFilterFin(), m_dFilterTimeMs(0.0), m_nFilterRunCount(0) {
 
 }
@@ -38,6 +39,7 @@ NVEncFilter::~NVEncFilter() {
     m_pFrameBuf.clear();
     m_peFilterStart.reset();
     m_peFilterFin.reset();
+    m_pParam.reset();
 }
 
 cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
@@ -54,9 +56,13 @@ cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
     return cudaSuccess;
 }
 
-NVENCSTATUS NVEncFilter::filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     if (m_bCheckPerformance) {
         cudaEventRecord(*m_peFilterStart.get());
+    }
+    if (m_pParam && m_pParam->bOutOverwrite && ppOutputFrames && ppOutputFrames[0] == nullptr) {
+        ppOutputFrames[0] = pInputFrame;
+        *pOutputFrameNum = 1;
     }
     const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum);
     if (m_bCheckPerformance) {
