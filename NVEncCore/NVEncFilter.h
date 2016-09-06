@@ -139,6 +139,16 @@ struct CUFrameBuf {
         frame.deivce_mem = true;
         cudaEventCreate(&event);
     };
+    CUFrameBuf(int width, int height, NV_ENC_CSP csp = NV_ENC_CSP_NV12)
+        : frame({ 0 }), event() {
+        frame.ptr = nullptr;
+        frame.pitch = 0;
+        frame.width = width;
+        frame.height = height;
+        frame.csp = csp;
+        frame.deivce_mem = true;
+        cudaEventCreate(&event);
+    };
     CUFrameBuf(const FrameInfo& _info) 
         : frame(_info), event() {
         cudaEventCreate(&event);

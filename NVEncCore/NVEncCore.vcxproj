@@ -457,6 +457,7 @@
     <ClCompile Include="CuvidDecode.cpp" />
     <ClCompile Include="FrameQueue.cpp" />
     <ClCompile Include="gpu_info.cpp" />
+    <ClCompile Include="logo.cpp" />
     <ClCompile Include="NVEncFeature.cpp" />
     <ClCompile Include="NVEncFilter.cpp" />
     <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
@@ -485,8 +486,10 @@
     <ClInclude Include="CuvidDecode.h" />
     <ClInclude Include="FrameQueue.h" />
     <ClInclude Include="gpu_info.h" />
+    <ClInclude Include="logo.h" />
     <ClInclude Include="NVEncFeature.h" />
     <ClInclude Include="NVEncFilter.h" />
+    <ClInclude Include="NVEncFilterDelogo.h" />
     <ClInclude Include="NVEncFrameInfo.h" />
     <ClInclude Include="NVEncInput.h" />
     <ClInclude Include="NVEncInputAvs.h" />
@@ -514,6 +517,7 @@
       <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
     </CudaCompile>
+    <CudaCompile Include="NVEncFilterDelogo.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

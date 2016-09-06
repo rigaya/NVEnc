@@ -402,6 +402,14 @@ static tstring help() {
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
+        _T("   --vpp-delogo <string>        set delogo file path\n")
+        _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
+        _T("                                 or logo index starting from 1.\n")
+        _T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
+        _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
+        _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
+        _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
+        _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
         _T("   --vpp-perf-monitor           check duration of each filter.\n")
         _T("                                  may decrease overall transcode performance.\n"));
     str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
@@ -1783,6 +1791,71 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->vpp.unsharp.bEnable = true;
         return 0;
     }
+    if (IS_OPTION("vpp-delogo")
+        || IS_OPTION("vpp-delogo-file")) {
+        i++;
+        pParams->vpp.delogo.pFilePath = _tcsdup(strInput[i]);
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-select")) {
+        i++;
+        pParams->vpp.delogo.pSelect = _tcsdup(strInput[i]);
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-pos")) {
+        i++;
+        int posOffsetX, posOffsetY;
+        if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &posOffsetX, &posOffsetY)
+            && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &posOffsetX, &posOffsetY)
+            && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &posOffsetX, &posOffsetY)
+            && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &posOffsetX, &posOffsetY)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        pParams->vpp.delogo.nPosOffsetX = posOffsetX;
+        pParams->vpp.delogo.nPosOffsetY = posOffsetY;
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-depth")) {
+        i++;
+        int depth;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &depth)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        pParams->vpp.delogo.nDepth = depth;
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-y")) {
+        i++;
+        int value;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        pParams->vpp.delogo.nYOffset = value;
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-cb")) {
+        i++;
+        int value;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        pParams->vpp.delogo.nCbOffset = value;
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-cr")) {
+        i++;
+        int value;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        pParams->vpp.delogo.nCrOffset = value;
+        return 0;
+    }
     if (IS_OPTION("vpp-perf-monitor")) {
         pParams->vpp.bCheckPerformance = true;
         return 0;
@@ -2270,6 +2343,8 @@ int _tmain(int argc, TCHAR **argv) {
         _tsetlocale(LC_ALL, _T("japanese"));
 
     InEncodeVideoParam encPrm;
+    encPrm.vpp.delogo.nDepth = 128;
+
     NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
     codecPrm[NV_ENC_H264] = NVEncCore::DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = NVEncCore::DefaultParamHEVC();

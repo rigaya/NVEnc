@@ -112,6 +112,17 @@ typedef struct VppParam {
         float weight;
         float threshold;
     } unsharp;
+
+    struct {
+        TCHAR *pFilePath; //ロゴファイル名へのポインタ
+        TCHAR *pSelect; //選択するロゴ
+        int    nPosOffsetX;
+        int    nPosOffsetY;
+        int    nDepth;
+        int    nYOffset;
+        int    nCbOffset;
+        int    nCrOffset;
+    } delogo;
 } VppParam;
 
 struct InEncodeVideoParam {

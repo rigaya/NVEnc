@@ -59,6 +59,7 @@
 #include "NVEncInputAvs.h"
 #include "NVEncInputVpy.h"
 #include "NVEncFilter.h"
+#include "NVEncFilterDelogo.h"
 #include "avcodec_reader.h"
 #include "avcodec_writer.h"
 #include "helper_nvenc.h"
@@ -2167,6 +2168,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     //フィルタが必要
     if (bResizeRequired
+        || inputParam->vpp.delogo.pFilePath
         || inputParam->vpp.gaussMaskSize > 0
         || inputParam->vpp.unsharp.bEnable
         ) {
@@ -2224,7 +2226,34 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
         }
-        //実装予定: delogo
+        //delogo
+        if (inputParam->vpp.delogo.pFilePath) {
+            unique_ptr<NVEncFilter> filterGauss(new NVEncFilterDelogo());
+            shared_ptr<NVEncFilterParamDelogo> param(new NVEncFilterParamDelogo());
+            param->inputFileName = inputParam->input.filename;
+            param->logoFilePath  = inputParam->vpp.delogo.pFilePath;
+            param->logoSelect    = inputParam->vpp.delogo.pSelect;
+            param->depth         = (short)inputParam->vpp.delogo.nDepth;
+            param->posX          = (short)inputParam->vpp.delogo.nPosOffsetX;
+            param->posY          = (short)inputParam->vpp.delogo.nPosOffsetY;
+            param->Y             = (short)inputParam->vpp.delogo.nYOffset;
+            param->Cb            = (short)inputParam->vpp.delogo.nCbOffset;
+            param->Cr            = (short)inputParam->vpp.delogo.nCrOffset;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->bOutOverwrite = true;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filterGauss->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filterGauss));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
         //実装予定: ノイズ除去
         if (inputParam->vpp.gaussMaskSize > 0) {
 #if _M_IX86
