@@ -55,6 +55,7 @@ enum {
     NV_RESAMPLER_SOXR,
 };
 
+static const int   FILTER_DEFAULT_DELOGO_DEPTH = 128;
 static const int NV_OUTPUT_THREAD_AUTO = -1;
 static const int NV_AUDIO_THREAD_AUTO = -1;
 static const int NV_INPUT_THREAD_AUTO = -1;
@@ -619,6 +620,34 @@ static int get_value(int id, const std::vector<NVEncCap>& capList) {
     }
     return 0;
 }
+
+struct VppParam {
+    bool bCheckPerformance;
+    cudaVideoDeinterlaceMode deinterlace;
+    NppiInterpolationMode    resizeInterp;
+    NppiMaskSize             gaussMaskSize;
+
+    struct {
+        bool  bEnable;
+        float radius;
+        float sigma;
+        float weight;
+        float threshold;
+    } unsharp;
+
+    struct {
+        TCHAR *pFilePath; //ロゴファイル名へのポインタ
+        TCHAR *pSelect; //選択するロゴ
+        int    nPosOffsetX;
+        int    nPosOffsetY;
+        int    nDepth;
+        int    nYOffset;
+        int    nCbOffset;
+        int    nCrOffset;
+    } delogo;
+
+    VppParam();
+};
 
 class NVEncCodecFeature {
 public:

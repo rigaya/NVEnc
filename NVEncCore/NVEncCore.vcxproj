@@ -471,6 +471,7 @@
     <ClCompile Include="NVEncLog.cpp" />
     <ClCompile Include="NVEncCore.cpp" />
     <ClCompile Include="NVEncOutput.cpp" />
+    <ClCompile Include="NVEncParam.cpp" />
     <ClCompile Include="NVEncUtil.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -99,32 +99,6 @@ private:
     std::vector<std::pair<uint32_t, tstring>> GPUList;
 };
 
-typedef struct VppParam {
-    bool bCheckPerformance;
-    cudaVideoDeinterlaceMode deinterlace;
-    NppiInterpolationMode    resizeInterp;
-    NppiMaskSize             gaussMaskSize;
-
-    struct {
-        bool  bEnable;
-        float radius;
-        float sigma;
-        float weight;
-        float threshold;
-    } unsharp;
-
-    struct {
-        TCHAR *pFilePath; //ロゴファイル名へのポインタ
-        TCHAR *pSelect; //選択するロゴ
-        int    nPosOffsetX;
-        int    nPosOffsetY;
-        int    nDepth;
-        int    nYOffset;
-        int    nCbOffset;
-        int    nCrOffset;
-    } delogo;
-} VppParam;
-
 struct InEncodeVideoParam {
     InputVideoInfo input;         //入力する動画の情報
     tstring outputFilename;       //出力ファイル名

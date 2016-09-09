@@ -2343,8 +2343,6 @@ int _tmain(int argc, TCHAR **argv) {
         _tsetlocale(LC_ALL, _T("japanese"));
 
     InEncodeVideoParam encPrm;
-    encPrm.vpp.delogo.nDepth = 128;
-
     NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
     codecPrm[NV_ENC_H264] = NVEncCore::DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = NVEncCore::DefaultParamHEVC();

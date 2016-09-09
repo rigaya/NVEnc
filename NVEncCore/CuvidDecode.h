@@ -48,7 +48,6 @@
 bool check_if_nvcuvid_dll_available();
 
 struct InputVideoInfo;
-struct VppParam;
 
 class CuvidDecode {
 public:

@@ -543,7 +543,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
     if (pDelogoParam->posX || pDelogoParam->posY) {
         str += strsprintf(", pos=%d:%d", pDelogoParam->posX, pDelogoParam->posY);
     }
-    if (pDelogoParam->depth != 128) {
+    if (pDelogoParam->depth != FILTER_DEFAULT_DELOGO_DEPTH) {
         str += strsprintf(", dpth=%d", pDelogoParam->depth);
     }
     if (pDelogoParam->Y || pDelogoParam->Cb || pDelogoParam->Cr) {
