@@ -402,6 +402,18 @@ static tstring help() {
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
+        _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]")
+        _T("     enable denoise filter by K-nearest neighbor.\n")
+        _T("    params\n")
+        _T("      radius=<int>              set radius of knn (default=%d)\n")
+        _T("      strength=<float>          set strength of knn (default=%.2f, 0.0-1.0)\n")
+        _T("      lerp=<float>              set balance of orig and blended pixel (default=%.2f)\n")
+        _T("                                  lower value results strong denoise.\n")
+        _T("      th_lerp=<float>           set threshold for detecting edge (default=%.2f, 0.0-1.0)\n")
+        _T("                                  higher value will preserve edge.\n"),
+        FILTER_DEFAULT_KNN_RADIUS, FILTER_DEFAULT_KNN_STRENGTH, FILTER_DEFAULT_KNN_LERPC,
+        FILTER_DEFAULT_KNN_LERPC_THRESHOLD);
+    str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
         _T("                                 or logo index starting from 1.\n")
@@ -1854,6 +1866,73 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return -1;
         }
         pParams->vpp.delogo.nCrOffset = value;
+        return 0;
+    }
+    if (IS_OPTION("vpp-knn")) {
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            pParams->vpp.knn.radius = FILTER_DEFAULT_KNN_RADIUS;
+            return 0;
+        }
+        i++;
+        int radius = FILTER_DEFAULT_KNN_RADIUS;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &radius)) {
+            for (const auto& param : split(strInput[i], _T(","))) {
+                auto pos = param.find_first_of(_T("="));
+                if (pos != std::string::npos) {
+                    auto param_arg = param.substr(0, pos);
+                    auto param_val = param.substr(pos+1);
+                    std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                    if (param_arg == _T("radius")) {
+                        try {
+                            pParams->vpp.knn.radius = std::stoi(param_val);
+                        } catch (...) {
+                            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            return -1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("strength")) {
+                        try {
+                            pParams->vpp.knn.strength = std::stof(param_val);
+                        } catch (...) {
+                            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            return -1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("lerp")) {
+                        try {
+                            pParams->vpp.knn.lerpC = std::stof(param_val);
+                        } catch (...) {
+                            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            return -1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("th_weight")) {
+                        try {
+                            pParams->vpp.knn.weight_threshold = std::stof(param_val);
+                        } catch (...) {
+                            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            return -1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("th_lerp")) {
+                        try {
+                            pParams->vpp.knn.lerp_threshold = std::stof(param_val);
+                        } catch (...) {
+                            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            return -1;
+                        }
+                        continue;
+                    }
+                    PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return -1;
+                }
+            }
+        }
+        pParams->vpp.knn.radius = radius;
         return 0;
     }
     if (IS_OPTION("vpp-perf-monitor")) {

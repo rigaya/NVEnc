@@ -60,6 +60,7 @@
 #include "NVEncInputVpy.h"
 #include "NVEncFilter.h"
 #include "NVEncFilterDelogo.h"
+#include "NVEncFilterDenoiseKnn.h"
 #include "avcodec_reader.h"
 #include "avcodec_writer.h"
 #include "helper_nvenc.h"
@@ -2171,6 +2172,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.delogo.pFilePath
         || inputParam->vpp.gaussMaskSize > 0
         || inputParam->vpp.unsharp.bEnable
+        || inputParam->vpp.knn.enable
         ) {
         //swデコードならGPUに上げる必要がある
         if (!m_pFileReader->inputCodecIsValid()) {
@@ -2228,7 +2230,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
         //delogo
         if (inputParam->vpp.delogo.pFilePath) {
-            unique_ptr<NVEncFilter> filterGauss(new NVEncFilterDelogo());
+            unique_ptr<NVEncFilter> filter(new NVEncFilterDelogo());
             shared_ptr<NVEncFilterParamDelogo> param(new NVEncFilterParamDelogo());
             param->inputFileName = inputParam->input.filename;
             param->logoFilePath  = inputParam->vpp.delogo.pFilePath;
@@ -2243,18 +2245,38 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut = inputFrame;
             param->bOutOverwrite = true;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
-            auto sts = filterGauss->init(param, m_pNVLog);
+            auto sts = filter->init(param, m_pNVLog);
             if (sts != NV_ENC_SUCCESS) {
                 return sts;
             }
             //フィルタチェーンに追加
-            m_vpFilters.push_back(std::move(filterGauss));
+            m_vpFilters.push_back(std::move(filter));
             //パラメータ情報を更新
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
         }
-        //実装予定: ノイズ除去
+        //ノイズ除去 (knn)
+        if (inputParam->vpp.knn.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterDenoiseKnn());
+            shared_ptr<NVEncFilterParamDenoiseKnn> param(new NVEncFilterParamDenoiseKnn());
+            param->knn = inputParam->vpp.knn;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
+        //ノイズ除去
         if (inputParam->vpp.gaussMaskSize > 0) {
 #if _M_IX86
             PrintMes(NV_LOG_ERROR, _T("gauss denoise filter not supported in x86.\n"));
@@ -2279,7 +2301,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             inputFrame = param->frameOut;
 #endif
         }
-        //実装予定: リサイズ
+        //リサイズ
         if (bResizeRequired) {
 #if _M_IX86
             PrintMes(NV_LOG_ERROR, _T("resize filter not supported in x86.\n"));

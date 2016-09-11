@@ -1,6 +1,7 @@
 ﻿// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
+//
 // The MIT License
 //
 // Copyright (c) 2014-2016 rigaya
@@ -24,35 +25,28 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-
+#include <array>
+#include "ConvertCsp.h"
+#include "NVEncFilterDenoiseKnn.h"
 #include "NVEncParam.h"
+#pragma warning (push)
+#pragma warning (disable: 4819)
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#pragma warning (pop)
 
-using std::vector;
+#define SRC_TEXTURE g_texImageU16
 
-VppKnn::VppKnn() :
-    enable(false),
-    radius(FILTER_DEFAULT_KNN_RADIUS),
-    strength(FILTER_DEFAULT_KNN_STRENGTH),
-    lerpC(FILTER_DEFAULT_KNN_LERPC),
-    weight_threshold(FILTER_DEFAULT_KNN_WEIGHT_THRESHOLD),
-    lerp_threshold(FILTER_DEFAULT_KNN_LERPC_THRESHOLD) {
+texture<uint16_t, cudaTextureType2D, cudaReadModeElementType> SRC_TEXTURE;
+
+#include "NVEncFilterDenoiseKnn.cuh"
+
+cudaError_t denoise_yv12_u16(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+    int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold) {
+    return denoise_yv12<uint16_t, 16>(pOutputFrame, pInputFrame, radius, strength, lerpC, weight_threshold, lerp_threshold);
 }
 
-VppParam::VppParam() :
-    bCheckPerformance(false),
-    deinterlace(cudaVideoDeinterlaceMode_Weave),
-    resizeInterp(NPPI_INTER_UNDEFINED),
-    gaussMaskSize((NppiMaskSize)0),
-    unsharp(),
-    delogo(),
-    knn() {
-    unsharp.bEnable = false;
-    delogo.pFilePath = nullptr;
-    delogo.pSelect = nullptr;
-    delogo.nPosOffsetX = 0;
-    delogo.nPosOffsetY = 0;
-    delogo.nDepth = FILTER_DEFAULT_DELOGO_DEPTH;
-    delogo.nYOffset = 0;
-    delogo.nCbOffset = 0;
-    delogo.nCrOffset = 0;
+cudaError_t denoise_yuv444_u16(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+    int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold) {
+    return denoise_yuv444<uint16_t, 16>(pOutputFrame, pInputFrame, radius, strength, lerpC, weight_threshold, lerp_threshold);
 }

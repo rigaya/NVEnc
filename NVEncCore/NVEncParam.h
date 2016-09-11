@@ -56,6 +56,12 @@ enum {
 };
 
 static const int   FILTER_DEFAULT_DELOGO_DEPTH = 128;
+static const int   FILTER_DEFAULT_KNN_RADIUS = 3;
+static const float FILTER_DEFAULT_KNN_STRENGTH = 0.08f;
+static const float FILTER_DEFAULT_KNN_LERPC = 0.20f;
+static const float FILTER_DEFAULT_KNN_WEIGHT_THRESHOLD = 0.01f;
+static const float FILTER_DEFAULT_KNN_LERPC_THRESHOLD = 0.80f;
+
 static const int NV_OUTPUT_THREAD_AUTO = -1;
 static const int NV_AUDIO_THREAD_AUTO = -1;
 static const int NV_INPUT_THREAD_AUTO = -1;
@@ -621,6 +627,17 @@ static int get_value(int id, const std::vector<NVEncCap>& capList) {
     return 0;
 }
 
+struct VppKnn {
+    bool  enable;
+    int   radius;
+    float strength;
+    float lerpC;
+    float weight_threshold;
+    float lerp_threshold;
+
+    VppKnn();
+};
+
 struct VppParam {
     bool bCheckPerformance;
     cudaVideoDeinterlaceMode deinterlace;
@@ -645,6 +662,8 @@ struct VppParam {
         int    nCbOffset;
         int    nCrOffset;
     } delogo;
+
+    VppKnn knn;
 
     VppParam();
 };

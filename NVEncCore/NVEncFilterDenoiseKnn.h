@@ -1,6 +1,7 @@
 ﻿// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
+//
 // The MIT License
 //
 // Copyright (c) 2014-2016 rigaya
@@ -25,34 +26,33 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#pragma once
+
+#include "NVEncFilter.h"
 #include "NVEncParam.h"
+#include "logo.h"
 
-using std::vector;
+class NVEncFilterParamDenoiseKnn : public NVEncFilterParam {
+public:
+    VppKnn knn;
 
-VppKnn::VppKnn() :
-    enable(false),
-    radius(FILTER_DEFAULT_KNN_RADIUS),
-    strength(FILTER_DEFAULT_KNN_STRENGTH),
-    lerpC(FILTER_DEFAULT_KNN_LERPC),
-    weight_threshold(FILTER_DEFAULT_KNN_WEIGHT_THRESHOLD),
-    lerp_threshold(FILTER_DEFAULT_KNN_LERPC_THRESHOLD) {
-}
+    NVEncFilterParamDenoiseKnn() : knn() {
 
-VppParam::VppParam() :
-    bCheckPerformance(false),
-    deinterlace(cudaVideoDeinterlaceMode_Weave),
-    resizeInterp(NPPI_INTER_UNDEFINED),
-    gaussMaskSize((NppiMaskSize)0),
-    unsharp(),
-    delogo(),
-    knn() {
-    unsharp.bEnable = false;
-    delogo.pFilePath = nullptr;
-    delogo.pSelect = nullptr;
-    delogo.nPosOffsetX = 0;
-    delogo.nPosOffsetY = 0;
-    delogo.nDepth = FILTER_DEFAULT_DELOGO_DEPTH;
-    delogo.nYOffset = 0;
-    delogo.nCbOffset = 0;
-    delogo.nCrOffset = 0;
-}
+    };
+    virtual ~NVEncFilterParamDenoiseKnn() {};
+};
+
+class NVEncFilterDenoiseKnn : public NVEncFilter {
+public:
+    NVEncFilterDenoiseKnn();
+    virtual ~NVEncFilterDenoiseKnn();
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual void close() override;
+
+    NVENCSTATUS denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    NVENCSTATUS denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+
+    bool m_bInterlacedWarn;
+};
