@@ -1,6 +1,7 @@
 ﻿// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
+//
 // The MIT License
 //
 // Copyright (c) 2014-2016 rigaya
@@ -25,44 +26,33 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#pragma once
+
+#include "NVEncFilter.h"
 #include "NVEncParam.h"
+#include "logo.h"
 
-using std::vector;
+class NVEncFilterParamDenoisePmd : public NVEncFilterParam {
+public:
+    VppPmd pmd;
 
-VppKnn::VppKnn() :
-    enable(false),
-    radius(FILTER_DEFAULT_KNN_RADIUS),
-    strength(FILTER_DEFAULT_KNN_STRENGTH),
-    lerpC(FILTER_DEFAULT_KNN_LERPC),
-    weight_threshold(FILTER_DEFAULT_KNN_WEIGHT_THRESHOLD),
-    lerp_threshold(FILTER_DEFAULT_KNN_LERPC_THRESHOLD) {
-}
+    NVEncFilterParamDenoisePmd() : pmd() {
 
-VppPmd::VppPmd() :
-    enable(false),
-    strength(FILTER_DEFAULT_PMD_STRENGTH),
-    threshold(FILTER_DEFAULT_PMD_THRESHOLD),
-    applyCount(FILTER_DEFAULT_PMD_APPLY_COUNT),
-    useExp(FILTER_DEFAULT_PMD_USE_EXP) {
+    };
+    virtual ~NVEncFilterParamDenoisePmd() {};
+};
 
-}
+class NVEncFilterDenoisePmd : public NVEncFilter {
+public:
+    NVEncFilterDenoisePmd();
+    virtual ~NVEncFilterDenoisePmd();
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual void close() override;
 
-VppParam::VppParam() :
-    bCheckPerformance(false),
-    deinterlace(cudaVideoDeinterlaceMode_Weave),
-    resizeInterp(NPPI_INTER_UNDEFINED),
-    gaussMaskSize((NppiMaskSize)0),
-    unsharp(),
-    delogo(),
-    knn(),
-    pmd() {
-    unsharp.bEnable = false;
-    delogo.pFilePath = nullptr;
-    delogo.pSelect = nullptr;
-    delogo.nPosOffsetX = 0;
-    delogo.nPosOffsetY = 0;
-    delogo.nDepth = FILTER_DEFAULT_DELOGO_DEPTH;
-    delogo.nYOffset = 0;
-    delogo.nCbOffset = 0;
-    delogo.nCrOffset = 0;
-}
+    NVENCSTATUS denoise(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame);
+
+    bool m_bInterlacedWarn;
+    CUFrameBuf m_Gauss;
+};

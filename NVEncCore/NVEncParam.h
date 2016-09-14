@@ -61,6 +61,10 @@ static const float FILTER_DEFAULT_KNN_STRENGTH = 0.08f;
 static const float FILTER_DEFAULT_KNN_LERPC = 0.20f;
 static const float FILTER_DEFAULT_KNN_WEIGHT_THRESHOLD = 0.01f;
 static const float FILTER_DEFAULT_KNN_LERPC_THRESHOLD = 0.80f;
+static const float FILTER_DEFAULT_PMD_STRENGTH = 100.0f;
+static const float FILTER_DEFAULT_PMD_THRESHOLD = 100.0f;
+static const int   FILTER_DEFAULT_PMD_APPLY_COUNT = 2;
+static const bool  FILTER_DEFAULT_PMD_USE_EXP = true;
 
 static const int NV_OUTPUT_THREAD_AUTO = -1;
 static const int NV_AUDIO_THREAD_AUTO = -1;
@@ -638,6 +642,16 @@ struct VppKnn {
     VppKnn();
 };
 
+struct VppPmd {
+    bool  enable;
+    float strength;
+    float threshold;
+    int   applyCount;
+    bool  useExp;
+
+    VppPmd();
+};
+
 struct VppParam {
     bool bCheckPerformance;
     cudaVideoDeinterlaceMode deinterlace;
@@ -664,6 +678,7 @@ struct VppParam {
     } delogo;
 
     VppKnn knn;
+    VppPmd pmd;
 
     VppParam();
 };

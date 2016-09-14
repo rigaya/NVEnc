@@ -61,6 +61,7 @@
 #include "NVEncFilter.h"
 #include "NVEncFilterDelogo.h"
 #include "NVEncFilterDenoiseKnn.h"
+#include "NVEncFilterDenoisePmd.h"
 #include "avcodec_reader.h"
 #include "avcodec_writer.h"
 #include "helper_nvenc.h"
@@ -2173,6 +2174,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.gaussMaskSize > 0
         || inputParam->vpp.unsharp.bEnable
         || inputParam->vpp.knn.enable
+        || inputParam->vpp.pmd.enable
         ) {
         //swデコードならGPUに上げる必要がある
         if (!m_pFileReader->inputCodecIsValid()) {
@@ -2261,6 +2263,26 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterDenoiseKnn());
             shared_ptr<NVEncFilterParamDenoiseKnn> param(new NVEncFilterParamDenoiseKnn());
             param->knn = inputParam->vpp.knn;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
+        //ノイズ除去 (pmd)
+        if (inputParam->vpp.pmd.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterDenoisePmd());
+            shared_ptr<NVEncFilterParamDenoisePmd> param(new NVEncFilterParamDenoisePmd());
+            param->pmd = inputParam->vpp.pmd;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->bOutOverwrite = false;

@@ -414,6 +414,15 @@ static tstring help() {
         FILTER_DEFAULT_KNN_RADIUS, FILTER_DEFAULT_KNN_STRENGTH, FILTER_DEFAULT_KNN_LERPC,
         FILTER_DEFAULT_KNN_LERPC_THRESHOLD);
     str += strsprintf(_T("")
+        _T("   --vpp-pmd [<param1>=<value>][,<param2>=<value>][...]")
+        _T("     enable denoise filter by pmd.\n")
+        _T("    params\n")
+        _T("      apply_count=<int>         set count to apply pmd denoise (default=%d)\n")
+        _T("      strength=<float>          set strength of pmd (default=%.2f, 0.0-100.0)\n")
+        _T("      threshold=<float>         set threshold of pmd (default=%.2f, 0.0-255.0)\n")
+        _T("                                  lower value will preserve edge.\n"),
+        FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
+    str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
         _T("                                 or logo index starting from 1.\n")
@@ -1933,6 +1942,60 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             }
         }
         pParams->vpp.knn.radius = radius;
+        return 0;
+    }
+    if (IS_OPTION("vpp-pmd")) {
+        pParams->vpp.pmd.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("apply_count")) {
+                    try {
+                        pParams->vpp.pmd.applyCount = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("strength")) {
+                    try {
+                        pParams->vpp.pmd.strength = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("threshold")) {
+                    try {
+                        pParams->vpp.pmd.threshold = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("useexp")) {
+                    try {
+                        pParams->vpp.pmd.useExp = std::stoi(param_val) != 0;
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
         return 0;
     }
     if (IS_OPTION("vpp-perf-monitor")) {
