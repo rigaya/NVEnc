@@ -291,7 +291,7 @@ protected:
 
 class NVEncFilterParamResize : public NVEncFilterParam {
 public:
-    NppiInterpolationMode interp;
+    int interp;
     virtual ~NVEncFilterParamResize() {};
 };
 

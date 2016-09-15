@@ -2325,18 +2325,20 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
         //リサイズ
         if (bResizeRequired) {
-#if _M_IX86
-            PrintMes(NV_LOG_ERROR, _T("resize filter not supported in x86.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
-#else
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterResize());
             shared_ptr<NVEncFilterParamResize> param(new NVEncFilterParamResize());
-            param->interp = (inputParam->vpp.resizeInterp != NPPI_INTER_UNDEFINED) ? inputParam->vpp.resizeInterp : NPPI_INTER_LANCZOS;
+            param->interp = (inputParam->vpp.resizeInterp != NPPI_INTER_UNDEFINED) ? inputParam->vpp.resizeInterp : RESIZE_CUDA_TEXTURE_BILINEAR;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->frameOut.width = m_uEncWidth;
             param->frameOut.height = m_uEncHeight;
             param->bOutOverwrite = false;
+#if _M_IX86
+            if (param->interp <= NPPI_INTER_MAX) {
+                param->interp = RESIZE_CUDA_TEXTURE_BILINEAR;
+                PrintMes(NV_LOG_WARN, _T("npp resize filters not supported in x86, switching to %s.\n"), get_chr_from_value(list_nppi_resize, param->interp));
+            }
+#endif
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterCrop->init(param, m_pNVLog);
             if (sts != NV_ENC_SUCCESS) {
@@ -2348,7 +2350,6 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
-#endif
         }
         //実装予定: エッジ調整
         if (inputParam->vpp.unsharp.bEnable) {

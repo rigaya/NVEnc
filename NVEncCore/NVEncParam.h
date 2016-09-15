@@ -459,10 +459,15 @@ const CX_DESC list_deinterlace[] = {
     { NULL, 0 }
 };
 
+enum {
+    NPPI_INTER_MAX = NPPI_INTER_LANCZOS3_ADVANCED,
+    RESIZE_CUDA_TEXTURE_BILINEAR,
+};
+
 const CX_DESC list_nppi_resize[] = {
     { _T("default"),       NPPI_INTER_UNDEFINED },
     { _T("nn"),            NPPI_INTER_NN },
-    { _T("linear"),        NPPI_INTER_LINEAR },
+    { _T("npp_linear"),    NPPI_INTER_LINEAR },
     { _T("cubic"),         NPPI_INTER_CUBIC },
     { _T("cubic_bspline"), NPPI_INTER_CUBIC2P_BSPLINE },
     { _T("cubic_catmull"), NPPI_INTER_CUBIC2P_CATMULLROM },
@@ -470,6 +475,7 @@ const CX_DESC list_nppi_resize[] = {
     { _T("super"),         NPPI_INTER_SUPER },
     { _T("lanczons"),      NPPI_INTER_LANCZOS },
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
+    { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
 };
 
 const CX_DESC list_nppi_gauss[] = {
@@ -655,7 +661,7 @@ struct VppPmd {
 struct VppParam {
     bool bCheckPerformance;
     cudaVideoDeinterlaceMode deinterlace;
-    NppiInterpolationMode    resizeInterp;
+    int                      resizeInterp;
     NppiMaskSize             gaussMaskSize;
 
     struct {

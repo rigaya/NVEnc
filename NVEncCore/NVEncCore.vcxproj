@@ -496,6 +496,7 @@
     <ClInclude Include="NVEncFilterDenoiseKnn.h" />
     <ClInclude Include="NVEncFilterDenoisePmd.cuh" />
     <ClInclude Include="NVEncFilterDenoisePmd.h" />
+    <ClInclude Include="NVEncFilterResize.cuh" />
     <ClInclude Include="NVEncFrameInfo.h" />
     <ClInclude Include="NVEncInput.h" />
     <ClInclude Include="NVEncInputAvs.h" />
@@ -531,6 +532,8 @@
     <CudaCompile Include="NVEncFilterDenoiseKnnU16.cu" />
     <CudaCompile Include="NVEncFilterDenoisePmdU16.cu" />
     <CudaCompile Include="NVEncFilterDenoisePmdU8.cu" />
+    <CudaCompile Include="NVEncFilterResizeU16.cu" />
+    <CudaCompile Include="NVEncFilterResizeU8.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
