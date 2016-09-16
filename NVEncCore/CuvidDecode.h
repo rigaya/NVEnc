@@ -54,7 +54,7 @@ public:
     CuvidDecode();
     ~CuvidDecode();
 
-    CUresult InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, bool ignoreDynamicFormatChange = false);
+    CUresult InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, bool bCuvidResize, bool ignoreDynamicFormatChange = false);
     void CloseDecoder();
     CUresult DecodePacket(uint8_t *data, size_t nSize, int64_t timestamp, AVRational streamtimebase);
     CUresult FlushParser();

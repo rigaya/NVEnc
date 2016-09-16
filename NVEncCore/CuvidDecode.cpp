@@ -167,7 +167,7 @@ CUresult CuvidDecode::CreateDecoder() {
     return curesult;
 }
 
-CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, bool ignoreDynamicFormatChange) {
+CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, bool bCuvidResize, bool ignoreDynamicFormatChange) {
     //初期化
     CloseDecoder();
 
@@ -235,7 +235,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
     m_videoDecodeCreateInfo.OutputFormat = cudaVideoSurfaceFormat_NV12;
     m_videoDecodeCreateInfo.DeinterlaceMode = vpp->deinterlace;
 
-    if (input->dstWidth > 0 && input->dstHeight > 0) {
+    if (input->dstWidth > 0 && input->dstHeight > 0 && bCuvidResize) {
         m_videoDecodeCreateInfo.ulTargetWidth  = input->dstWidth;
         m_videoDecodeCreateInfo.ulTargetHeight = input->dstHeight;
     } else {

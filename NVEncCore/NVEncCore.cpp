@@ -1687,6 +1687,16 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
     return false;
 }
 
+bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
+    return inputParam->input.crop.e.left == 0 //左cropがない
+        && inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED //デフォルトの補間方法
+        && !(  inputParam->vpp.delogo.pFilePath
+            || inputParam->vpp.gaussMaskSize > 0
+            || inputParam->vpp.unsharp.bEnable
+            || inputParam->vpp.knn.enable
+            || inputParam->vpp.pmd.enable);
+}
+
 #pragma warning(push)
 #pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
@@ -1694,7 +1704,7 @@ NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
     if (m_pFileReader->inputCodecIsValid()) {
         m_cuvidDec.reset(new CuvidDecode());
 
-        auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, m_pNVLog);
+        auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, m_pNVLog, enableCuvidResize(inputParam));
         if (result != CUDA_SUCCESS) {
             PrintMes(NV_LOG_ERROR, _T("failed to init decoder.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -2158,12 +2168,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         bResizeRequired = true;
     }
     //avcuvid読みではデコード直後にリサイズが可能
-    //ただし、左cropがある場合は、使用せず、通常のリサイズフィルタを使用する
-    if (bResizeRequired
-        && m_pFileReader->inputCodecIsValid() //avcuvid読み
-        && inputParam->input.crop.e.left == 0 //左cropがない
-        && inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED //デフォルトの補間方法
-        ) {
+    if (bResizeRequired && m_pFileReader->inputCodecIsValid() && enableCuvidResize(inputParam)) {
         inputFrame.width  = inputParam->input.dstWidth;
         inputFrame.height = inputParam->input.dstHeight;
         bResizeRequired = false;

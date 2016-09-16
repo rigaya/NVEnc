@@ -249,6 +249,9 @@ protected:
     //フレームの出力と集計
     NVENCSTATUS ProcessOutput(const EncodeBuffer *pEncodeBuffer);
 
+    //cuvidでのリサイズを有効にするか
+    bool enableCuvidResize(const InEncodeVideoParam *inputParam);
+
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
     shared_ptr<CNVEncLog>        m_pNVLog;                //ログ出力管理
 
