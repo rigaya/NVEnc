@@ -1878,6 +1878,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("vpp-knn")) {
+        pParams->vpp.knn.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
             pParams->vpp.knn.radius = FILTER_DEFAULT_KNN_RADIUS;
             return 0;
@@ -1940,8 +1941,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     return -1;
                 }
             }
+        } else {
+            pParams->vpp.knn.radius = radius;
         }
-        pParams->vpp.knn.radius = radius;
         return 0;
     }
     if (IS_OPTION("vpp-pmd")) {
