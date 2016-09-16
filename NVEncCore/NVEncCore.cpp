@@ -2327,7 +2327,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         if (bResizeRequired) {
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterResize());
             shared_ptr<NVEncFilterParamResize> param(new NVEncFilterParamResize());
-            param->interp = (inputParam->vpp.resizeInterp != NPPI_INTER_UNDEFINED) ? inputParam->vpp.resizeInterp : RESIZE_CUDA_TEXTURE_BILINEAR;
+            param->interp = (inputParam->vpp.resizeInterp != NPPI_INTER_UNDEFINED) ? inputParam->vpp.resizeInterp : RESIZE_CUDA_SPLINE36;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->frameOut.width = m_uEncWidth;
@@ -2335,7 +2335,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
 #if _M_IX86
             if (param->interp <= NPPI_INTER_MAX) {
-                param->interp = RESIZE_CUDA_TEXTURE_BILINEAR;
+                param->interp = RESIZE_CUDA_SPLINE36;
                 PrintMes(NV_LOG_WARN, _T("npp resize filters not supported in x86, switching to %s.\n"), get_chr_from_value(list_nppi_resize, param->interp));
             }
 #endif

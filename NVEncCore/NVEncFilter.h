@@ -307,6 +307,7 @@ protected:
     virtual void close() override;
 
     bool m_bInterlacedWarn;
+    CUMemBuf m_weightSpline36;
 };
 
 

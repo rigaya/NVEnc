@@ -462,6 +462,7 @@ const CX_DESC list_deinterlace[] = {
 enum {
     NPPI_INTER_MAX = NPPI_INTER_LANCZOS3_ADVANCED,
     RESIZE_CUDA_TEXTURE_BILINEAR,
+    RESIZE_CUDA_SPLINE36,
 };
 
 const CX_DESC list_nppi_resize[] = {
@@ -476,6 +477,7 @@ const CX_DESC list_nppi_resize[] = {
     { _T("lanczons"),      NPPI_INTER_LANCZOS },
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
     { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
+    { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
 };
 
 const CX_DESC list_nppi_gauss[] = {
