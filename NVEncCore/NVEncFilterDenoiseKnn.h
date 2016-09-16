@@ -50,9 +50,5 @@ public:
 protected:
     virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     virtual void close() override;
-
-    NVENCSTATUS denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    NVENCSTATUS denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-
     bool m_bInterlacedWarn;
 };

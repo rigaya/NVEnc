@@ -496,7 +496,6 @@
     <ClInclude Include="NVEncFeature.h" />
     <ClInclude Include="NVEncFilter.h" />
     <ClInclude Include="NVEncFilterDelogo.h" />
-    <ClInclude Include="NVEncFilterDenoiseKnn.cuh" />
     <ClInclude Include="NVEncFilterDenoiseKnn.h" />
     <ClInclude Include="NVEncFilterDenoisePmd.h" />
     <ClInclude Include="NVEncFrameInfo.h" />
@@ -527,11 +526,9 @@
       <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterDelogo.cu" />
-    <ClCompile Include="NVEncFilterDenoiseKnn.cpp">
+    <CudaCompile Include="NVEncFilterDenoiseKnn.cu">
       <FileType>Document</FileType>
-    </ClCompile>
-    <CudaCompile Include="NVEncFilterDenoiseKnnU8.cu" />
-    <CudaCompile Include="NVEncFilterDenoiseKnnU16.cu" />
+    </CudaCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -102,9 +102,6 @@
     <ClCompile Include="logo.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="NVEncFilterDenoiseKnn.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="NVEncParam.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -112,6 +109,9 @@
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="NVEncFilterDenoisePmd.cu">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="NVEncFilterDenoiseKnn.cu">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
@@ -212,9 +212,6 @@
     <ClInclude Include="NVEncFilterDenoiseKnn.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="NVEncFilterDenoiseKnn.cuh">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="NVEncFilterDenoisePmd.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -224,12 +221,6 @@
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterDelogo.cu">
-      <Filter>ソース ファイル</Filter>
-    </CudaCompile>
-    <CudaCompile Include="NVEncFilterDenoiseKnnU8.cu">
-      <Filter>ソース ファイル</Filter>
-    </CudaCompile>
-    <CudaCompile Include="NVEncFilterDenoiseKnnU16.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
   </ItemGroup>
