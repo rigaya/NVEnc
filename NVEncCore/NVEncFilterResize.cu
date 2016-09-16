@@ -485,7 +485,7 @@ static NppStatus resize_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFra
         (T *)((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 3 / 2),
         pOutputFrame->pitch, dstRect,
         factorX, factorY, 0.0, 0.0, interpMode);
-    return NPP_SUCCESS;
+    return sts;
 }
 
 NVENCSTATUS NVEncFilterResize::resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
@@ -518,7 +518,7 @@ NVENCSTATUS NVEncFilterResize::resizeYV12(FrameInfo *pOutputFrame, const FrameIn
         AddMessage(NV_LOG_ERROR, _T("unsupported csp.\n"));
         sts = NV_ENC_ERR_UNIMPLEMENTED;
     }
-    return NV_ENC_SUCCESS;
+    return sts;
 }
 
 template<typename T, typename Tfunc>
@@ -580,7 +580,7 @@ NVENCSTATUS NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const Frame
         AddMessage(NV_LOG_ERROR, _T("unsupported csp.\n"));
         sts = NV_ENC_ERR_UNIMPLEMENTED;
     }
-    return NV_ENC_SUCCESS;
+    return sts;
 }
 
 NVEncFilterResize::NVEncFilterResize() : m_bInterlacedWarn(false) {
