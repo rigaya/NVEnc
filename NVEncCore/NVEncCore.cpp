@@ -753,11 +753,11 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
     if (inputParams->nAudioSelectCount + inputParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(NV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
-        if (inputParams->input.type != NV_ENC_INPUT_AVCUVID
-            || inputParams->input.type != NV_ENC_INPUT_AVSW
-            || inputParams->input.type != NV_ENC_INPUT_AVANY
+        if ((inputParams->input.type != NV_ENC_INPUT_AVCUVID
+            && inputParams->input.type != NV_ENC_INPUT_AVSW
+            && inputParams->input.type != NV_ENC_INPUT_AVANY)
             || pAVCodecReader == nullptr) {
-            PrintMes(NV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
+            PrintMes(NV_LOG_ERROR, _T("Audio output is only supported with transcoding (avcuvid reader).\n"));
             return NV_ENC_ERR_GENERIC;
         } else {
             auto inutAudioInfoList = pAVCodecReader->GetInputStreamInfo();
