@@ -51,7 +51,7 @@ static __device__ float pmd(float x, float strength2, float inv_threshold2) {
 
 template<typename Type, int bit_depth>
 __global__ void kernel_create_gauss(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight, cudaTextureObject_t tGauss) {
-    static const float weight[5] ={ 1.0f / 16.0f, 4.0f / 16.0f, 6.0f / 16.0f, 4.0f / 16.0f, 1.0f / 16.0f };
+    static const float weight[5] = { 1.0f / 16.0f, 4.0f / 16.0f, 6.0f / 16.0f, 4.0f / 16.0f, 1.0f / 16.0f };
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
     if (ix < dstWidth && iy < dstHeight) {
@@ -107,7 +107,7 @@ __global__ void kernel_denoise_pmd(uint8_t *__restrict__ pDst, const int dstPitc
 }
 
 template<typename Type, int bit_depth, bool useExp>
-cudaError_t denoise_knn(uint8_t *pDst[2], uint8_t *pGauss, const int dstPitch, const int dstWidth, const int dstHeight,
+cudaError_t denoise_pmd(uint8_t *pDst[2], uint8_t *pGauss, const int dstPitch, const int dstWidth, const int dstHeight,
     uint8_t *pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
     int loop_count, const float strength, const float threshold) {
     const float range = 4.0f;
@@ -204,7 +204,7 @@ static cudaError_t denoise_yv12(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, c
     pDst[0] = (uint8_t *)pOutputFrame[0]->ptr;
     pDst[1] = (uint8_t *)pOutputFrame[1]->ptr;
     //Y
-    auto cudaerr = denoise_knn<Type, bit_depth, useExp>(
+    auto cudaerr = denoise_pmd<Type, bit_depth, useExp>(
         pDst,
         (uint8_t *)pGauss->ptr,
         pOutputFrame[0]->pitch, pOutputFrame[0]->width, pOutputFrame[0]->height,
@@ -217,7 +217,7 @@ static cudaError_t denoise_yv12(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, c
     //U
     pDst[0] = (uint8_t *)pOutputFrame[0]->ptr + pOutputFrame[0]->pitch * pOutputFrame[0]->height;
     pDst[1] = (uint8_t *)pOutputFrame[1]->ptr + pOutputFrame[1]->pitch * pOutputFrame[1]->height;
-    cudaerr = denoise_knn<Type, bit_depth, useExp>(
+    cudaerr = denoise_pmd<Type, bit_depth, useExp>(
         pDst,
         (uint8_t *)pGauss->ptr + pGauss->pitch * pGauss->height,
         pOutputFrame[0]->pitch, pOutputFrame[0]->width >> 1, pOutputFrame[0]->height >> 1,
@@ -230,7 +230,7 @@ static cudaError_t denoise_yv12(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, c
     //V
     pDst[0] = (uint8_t *)pOutputFrame[0]->ptr + pOutputFrame[0]->pitch * pOutputFrame[0]->height * 3 / 2;
     pDst[1] = (uint8_t *)pOutputFrame[1]->ptr + pOutputFrame[1]->pitch * pOutputFrame[1]->height * 3 / 2;
-    cudaerr = denoise_knn<Type, bit_depth, useExp>(
+    cudaerr = denoise_pmd<Type, bit_depth, useExp>(
         pDst,
         (uint8_t *)pGauss->ptr + pGauss->pitch * pGauss->height * 3 / 2,
         pOutputFrame[0]->pitch, pOutputFrame[0]->width >> 1, pOutputFrame[0]->height >> 1,
@@ -250,7 +250,7 @@ static cudaError_t denoise_yuv444(FrameInfo *pOutputFrame[2], FrameInfo *pGauss,
     pDst[0] = (uint8_t *)pOutputFrame[0]->ptr;
     pDst[1] = (uint8_t *)pOutputFrame[1]->ptr;
     //Y
-    auto cudaerr = denoise_knn<Type, bit_depth, useExp>(
+    auto cudaerr = denoise_pmd<Type, bit_depth, useExp>(
         pDst,
         (uint8_t *)pGauss->ptr,
         pOutputFrame[0]->pitch, pOutputFrame[0]->width, pOutputFrame[0]->height,
@@ -263,7 +263,7 @@ static cudaError_t denoise_yuv444(FrameInfo *pOutputFrame[2], FrameInfo *pGauss,
     //U
     pDst[0] = (uint8_t *)pOutputFrame[0]->ptr + pOutputFrame[0]->pitch * pOutputFrame[0]->height;
     pDst[1] = (uint8_t *)pOutputFrame[1]->ptr + pOutputFrame[1]->pitch * pOutputFrame[1]->height;
-    cudaerr = denoise_knn<Type, bit_depth, useExp>(
+    cudaerr = denoise_pmd<Type, bit_depth, useExp>(
         pDst,
         (uint8_t *)pGauss->ptr + pGauss->pitch * pGauss->height,
         pOutputFrame[0]->pitch, pOutputFrame[0]->width, pOutputFrame[0]->height,
@@ -276,7 +276,7 @@ static cudaError_t denoise_yuv444(FrameInfo *pOutputFrame[2], FrameInfo *pGauss,
     //V
     pDst[0] = (uint8_t *)pOutputFrame[0]->ptr + pOutputFrame[0]->pitch * pOutputFrame[0]->height * 2;
     pDst[1] = (uint8_t *)pOutputFrame[1]->ptr + pOutputFrame[1]->pitch * pOutputFrame[1]->height * 2;
-    cudaerr = denoise_knn<Type, bit_depth, useExp>(
+    cudaerr = denoise_pmd<Type, bit_depth, useExp>(
         pDst,
         (uint8_t *)pGauss->ptr + pGauss->pitch * pGauss->height * 2,
         pOutputFrame[0]->pitch, pOutputFrame[0]->width, pOutputFrame[0]->height,
