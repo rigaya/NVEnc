@@ -2943,7 +2943,7 @@ NVENCSTATUS NVEncCore::Encode() {
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
     deque<unique_ptr<FrameBufferDataIn>> dqInFrames;
     deque<unique_ptr<FrameBufferDataEnc>> dqEncFrames;
-    for (int nInputFrame = 0, nFilterFrame = 0, nEncodeFrame = 0; ; ) {
+    for (int nInputFrame = 0, nFilterFrame = 0, nEncodeFrame = 0; nvStatus == NV_ENC_SUCCESS; ) {
         if (m_pAbortByUser && *m_pAbortByUser) {
             nvStatus = NV_ENC_ERR_ABORT;
             break;
@@ -2997,13 +2997,17 @@ NVENCSTATUS NVEncCore::Encode() {
         for (auto idf = decFrames.begin(); idf != decFrames.end(); idf++) {
             dqInFrames.push_back(std::move(*idf));
         }
-        while (dqInFrames.size()) {
+        while (dqInFrames.size() && nvStatus == NV_ENC_SUCCESS) {
             auto& inframe = dqInFrames.front();
-            filter_frame(nFilterFrame, inframe, dqEncFrames);
+            if (NV_ENC_SUCCESS != (nvStatus = filter_frame(nFilterFrame, inframe, dqEncFrames))) {
+                break;
+            }
             dqInFrames.pop_front();
             while (dqEncFrames.size()) {
                 auto& encframe = dqEncFrames.front();
-                send_encoder(nEncodeFrame, encframe);
+                if (NV_ENC_SUCCESS != (nvStatus = send_encoder(nEncodeFrame, encframe))) {
+                    break;
+                }
                 dqEncFrames.pop_front();
             }
         }
