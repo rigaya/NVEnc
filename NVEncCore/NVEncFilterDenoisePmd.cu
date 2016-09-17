@@ -86,11 +86,11 @@ __global__ void kernel_denoise_pmd(uint8_t *__restrict__ pDst, const int dstPitc
         float clryp = tex2D<Type>(tSrc, x+0, y+1);
         float clrxm = tex2D<Type>(tSrc, x-1, y+0);
         float clrxp = tex2D<Type>(tSrc, x+1, y+0);
-        float grf   = tex2D<float>(tGrf, x+0, y+0);
-        float grfym = tex2D<float>(tGrf, x+0, y-1);
-        float grfyp = tex2D<float>(tGrf, x+0, y+1);
-        float grfxm = tex2D<float>(tGrf, x-1, y+0);
-        float grfxp = tex2D<float>(tGrf, x+1, y+0);
+        float grf   = tex2D<Type>(tGrf, x+0, y+0);
+        float grfym = tex2D<Type>(tGrf, x+0, y-1);
+        float grfyp = tex2D<Type>(tGrf, x+0, y+1);
+        float grfxm = tex2D<Type>(tGrf, x-1, y+0);
+        float grfxp = tex2D<Type>(tGrf, x+1, y+0);
         clr += (useExp)
             ? (clrym - clr) * pmd_exp(grfym - grf, strength2, inv_threshold2)
             + (clryp - clr) * pmd_exp(grfyp - grf, strength2, inv_threshold2)
