@@ -489,6 +489,10 @@ static NppStatus resize_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFra
 }
 
 NVENCSTATUS NVEncFilterResize::resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+#if _M_IX86
+    AddMessage(NV_LOG_ERROR, _T("npp filter not supported on x86.\n"));
+    return NV_ENC_ERR_UNSUPPORTED_PARAM;
+#else
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(NV_LOG_ERROR, _T("csp does not match.\n"));
@@ -519,6 +523,7 @@ NVENCSTATUS NVEncFilterResize::resizeYV12(FrameInfo *pOutputFrame, const FrameIn
         sts = NV_ENC_ERR_UNIMPLEMENTED;
     }
     return sts;
+#endif
 }
 
 template<typename T, typename Tfunc>
@@ -551,6 +556,10 @@ static NppStatus resize_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputF
 }
 
 NVENCSTATUS NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+#if _M_IX86
+    AddMessage(NV_LOG_ERROR, _T("npp filter not supported on x86.\n"));
+    return NV_ENC_ERR_UNSUPPORTED_PARAM;
+#else
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(NV_LOG_ERROR, _T("csp does not match.\n"));
@@ -581,6 +590,7 @@ NVENCSTATUS NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const Frame
         sts = NV_ENC_ERR_UNIMPLEMENTED;
     }
     return sts;
+#endif
 }
 
 NVEncFilterResize::NVEncFilterResize() : m_bInterlacedWarn(false) {
