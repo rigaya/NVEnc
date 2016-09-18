@@ -285,7 +285,7 @@ NVENCSTATUS NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, sha
         AddMessage(NV_LOG_ERROR, _T("Invalid parameter.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
-    if (pKnnParam->knn.radius < 0) {
+    if (pKnnParam->knn.radius <= 0) {
         AddMessage(NV_LOG_ERROR, _T("radius must be a positive value.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
