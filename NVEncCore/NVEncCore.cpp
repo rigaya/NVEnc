@@ -2763,12 +2763,13 @@ NVENCSTATUS NVEncCore::Encode() {
 #if ENABLE_AVCUVID_READER
         else {
             auto deint = m_cuvidDec->getDeinterlaceMode();
-            CUVIDPROCPARAMS oVPP ={ 0 };
+            CUVIDPROCPARAMS oVPP = { 0 };
             oVPP.top_field_first = m_stPicStruct != NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
             switch (deint) {
             case cudaVideoDeinterlaceMode_Weave:
-                oVPP.unpaired_field = 1;
                 oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
+                oVPP.unpaired_field = oVPP.progressive_frame;
+                pInputFrame->setInterlaceFlag(m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME);
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
                 break;
             case cudaVideoDeinterlaceMode_Bob:
