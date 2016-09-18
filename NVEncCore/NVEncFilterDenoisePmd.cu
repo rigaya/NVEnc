@@ -50,7 +50,7 @@ static __device__ float pmd(float x, float strength2, float inv_threshold2) {
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_create_gauss(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight, cudaTextureObject_t tGauss) {
+__global__ void kernel_create_gauss(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight, cudaTextureObject_t texSrc) {
     static const float weight[5] = { 1.0f / 16.0f, 4.0f / 16.0f, 6.0f / 16.0f, 4.0f / 16.0f, 1.0f / 16.0f };
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -62,7 +62,7 @@ __global__ void kernel_create_gauss(uint8_t *__restrict__ pDst, const int dstPit
             float sum_line = 0.0f;
             #pragma unroll
             for (int i = 0; i < 5; i++) {
-                sum_line += (float)tex2D<Type>(tGauss, x + (float)i, y + (float)j) * weight[i];
+                sum_line += (float)tex2D<Type>(texSrc, x + (float)i, y + (float)j) * weight[i];
             }
             sum += sum_line * weight[j];
         }
@@ -314,7 +314,7 @@ NVENCSTATUS NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo
         { NV_ENC_CSP_YV12_12,   pmd_func(denoise_yv12<uint16_t, 12, true>,   denoise_yv12<uint16_t, 12, false>) },
         { NV_ENC_CSP_YV12_14,   pmd_func(denoise_yv12<uint16_t, 14, true>,   denoise_yv12<uint16_t, 14, false>) },
         { NV_ENC_CSP_YV12_16,   pmd_func(denoise_yv12<uint16_t, 16, true>,   denoise_yv12<uint16_t, 16, false>) },
-        { NV_ENC_CSP_YUV444,    pmd_func(denoise_yuv444<uint8_t,   8, true>, denoise_yuv444<uint8_t,   8, false>)  },
+        { NV_ENC_CSP_YUV444,    pmd_func(denoise_yuv444<uint8_t,   8, true>, denoise_yuv444<uint8_t,   8, false>) },
         { NV_ENC_CSP_YUV444_10, pmd_func(denoise_yuv444<uint16_t, 10, true>, denoise_yuv444<uint16_t, 10, false>) },
         { NV_ENC_CSP_YUV444_12, pmd_func(denoise_yuv444<uint16_t, 12, true>, denoise_yuv444<uint16_t, 12, false>) },
         { NV_ENC_CSP_YUV444_14, pmd_func(denoise_yuv444<uint16_t, 14, true>, denoise_yuv444<uint16_t, 14, false>) },
