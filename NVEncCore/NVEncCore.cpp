@@ -68,7 +68,6 @@
 #include "chapter_rw.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
-#pragma comment(lib, "cudart.lib")
 
 using std::deque;
 

@@ -50,7 +50,7 @@
 #include "ConvertCsp.h"
 #include "NVEncFrameInfo.h"
 
-#pragma comment(lib, "cudart.lib")
+#pragma comment(lib, "cudart_static.lib")
 #ifndef _M_IX86
 #pragma comment(lib, "nppi.lib")
 #endif
