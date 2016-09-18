@@ -2201,7 +2201,9 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
         }
+        const auto encCsp = GetEncoderCSP(inputParam);
         if (inputFrame.csp == NV_ENC_CSP_NV12 || inputFrame.csp == NV_ENC_CSP_P010 //NV12ならYV12に変換する必要がある
+            || encCsp != inputFrame.csp
             || (cropEnabled(inputParam->input.crop) && m_pFileReader->inputCodecIsValid())) { //cropが必要ならただちに適用する
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
@@ -2210,7 +2212,8 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->crop = inputParam->input.crop;
             }
             param->frameIn = inputFrame;
-            switch (param->frameIn.csp) {
+            param->frameOut.csp = encCsp;
+            switch (param->frameOut.csp) {
             case NV_ENC_CSP_NV12:
                 param->frameOut.csp = NV_ENC_CSP_YV12;
                 break;
@@ -2218,7 +2221,6 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->frameOut.csp = NV_ENC_CSP_YV12_16;
                 break;
             default:
-                param->frameOut.csp = param->frameIn.csp;
                 break;
             }
             param->frameOut.deivce_mem = true;
