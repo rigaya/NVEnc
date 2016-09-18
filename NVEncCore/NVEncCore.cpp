@@ -2752,7 +2752,7 @@ NVENCSTATUS NVEncCore::Encode() {
     }
 
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
-    const int nFrameDuration = (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pVideoCtx->pkt_timebase);
+    const int nFrameDuration = (pVideoCtx) ? (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pVideoCtx->pkt_timebase) : 1;
 #endif //#if ENABLE_AVCUVID_READER
 
     auto add_dec_vpp_param = [&](FrameBufferDataIn *pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
@@ -2796,7 +2796,7 @@ NVENCSTATUS NVEncCore::Encode() {
     auto check_pts = [&](FrameBufferDataIn *pInputFrame) {
         vector<unique_ptr<FrameBufferDataIn>> decFrames;
 #if ENABLE_AVCUVID_READER
-        int64_t pts = av_rescale_q(pInputFrame->getTimeStamp(), CUVID_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase);
+        int64_t pts = (pVideoCtx) ? av_rescale_q(pInputFrame->getTimeStamp(), CUVID_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase) : nEstimatedPts;
         if ((m_nAVSyncMode & NV_AVSYNC_FORCE_CFR) == NV_AVSYNC_FORCE_CFR) {
             if (nEstimatedPts == AV_NOPTS_VALUE) {
                 nEstimatedPts = pts;
