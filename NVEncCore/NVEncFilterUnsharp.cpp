@@ -209,6 +209,10 @@ NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared
         AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
+    if (!check_if_nppi_dll_available()) {
+        AddMessage(NV_LOG_ERROR, _T("vpp-unsharp requires \"%s\", not available on your system.\n"), NPPI_DLL_NAME);
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
     //パラメータチェック
     if (pUnsharpParam->frameOut.height <= 0 || pUnsharpParam->frameOut.width <= 0) {
         AddMessage(NV_LOG_ERROR, _T("Invalid parameter.\n"));

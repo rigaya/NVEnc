@@ -188,6 +188,10 @@ NVENCSTATUS NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, s
         AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
+    if (!check_if_nppi_dll_available()) {
+        AddMessage(NV_LOG_ERROR, _T("vpp-gauss requires \"%s\", not available on your system.\n"), NPPI_DLL_NAME);
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
     //パラメータチェック
     if (pGaussParam->frameOut.height <= 0 || pGaussParam->frameOut.width <= 0) {
         AddMessage(NV_LOG_ERROR, _T("Invalid parameter.\n"));

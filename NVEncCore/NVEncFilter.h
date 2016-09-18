@@ -55,6 +55,9 @@
 #pragma comment(lib, "nppi.lib")
 #endif
 
+static const TCHAR *NPPI_DLL_NAME = _T("nppi64_80.dll");
+bool check_if_nppi_dll_available();
+
 using std::vector;
 
 struct cudaevent_deleter {

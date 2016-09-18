@@ -609,6 +609,12 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
         AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
+    if (pResizeParam->interp <= NPPI_INTER_MAX && !check_if_nppi_dll_available()) {
+        AddMessage(NV_LOG_WARN, _T("--vpp-resize %s requires \"%s\", not available on your system.\n"), get_chr_from_value(list_nppi_resize, pResizeParam->interp), NPPI_DLL_NAME);
+        pResizeParam->interp = RESIZE_CUDA_SPLINE36;
+        AddMessage(NV_LOG_WARN, _T("switching to %s."), get_chr_from_value(list_nppi_resize, pResizeParam->interp));
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
     //パラメータチェック
     if (pResizeParam->frameOut.height <= 0 || pResizeParam->frameOut.width <= 0) {
         AddMessage(NV_LOG_ERROR, _T("Invalid parameter.\n"));

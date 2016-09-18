@@ -104,3 +104,11 @@ double NVEncFilter::GetAvgTimeElapsed() {
     }
     return m_dFilterTimeMs / (double)m_nFilterRunCount;
 }
+
+bool check_if_nppi_dll_available() {
+    HMODULE hModule = LoadLibrary(NPPI_DLL_NAME);
+    if (hModule == NULL)
+        return false;
+    FreeLibrary(hModule);
+    return true;
+}
