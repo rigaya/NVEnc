@@ -66,8 +66,8 @@ __global__ void kernel_create_gauss(uint8_t *__restrict__ pDst, const int dstPit
             }
             sum += sum_line * weight[j];
         }
-        pDst += dstPitch * iy + ix * sizeof(Type);
-        pDst[0] = (Type)(sum + 0.5f);
+        Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+        ptr[0] = (Type)(sum + 0.5f);
     }
 }
 
@@ -101,8 +101,8 @@ __global__ void kernel_denoise_pmd(uint8_t *__restrict__ pDst, const int dstPitc
             + (clrxm - clr) * pmd(grfxm - grf, strength2, inv_threshold2)
             + (clrxp - clr) * pmd(grfxp - grf, strength2, inv_threshold2);
 
-        pDst += dstPitch * iy + ix * sizeof(Type);
-        pDst[0] = (Type)(clamp(clr + 0.5f, 0.0f, (float)(1<<bit_depth)-0.1f));
+        Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+        ptr[0] = (Type)(clamp(clr + 0.5f, 0.0f, (float)(1<<bit_depth)-0.1f));
     }
 }
 
