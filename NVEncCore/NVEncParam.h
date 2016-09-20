@@ -225,6 +225,7 @@ const CX_DESC list_nvenc_codecs_for_opt[] = {
     { _T("avc"),  NV_ENC_H264 },
     { _T("hevc"), NV_ENC_HEVC },
     { _T("h265"), NV_ENC_HEVC },
+    { NULL, NULL }
 };
 
 const CX_DESC list_avc_level[] = { 
@@ -342,6 +343,7 @@ const CX_DESC nvenc_interface_names[] = {
     { _T("DirectX9"),  NV_ENC_DX9  },
     { _T("DirectX10"), NV_ENC_DX10 },
     { _T("DirectX11"), NV_ENC_DX11 },
+    { NULL, NULL }
 };
 
 const CX_DESC list_mv_presicion[] = {
@@ -478,6 +480,7 @@ const CX_DESC list_nppi_resize[] = {
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
     { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
     { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
+    { NULL, NULL }
 };
 
 const CX_DESC list_nppi_gauss[] = {
@@ -485,6 +488,7 @@ const CX_DESC list_nppi_gauss[] = {
     { _T("3"), NPP_MASK_SIZE_3_X_3 },
     { _T("5"), NPP_MASK_SIZE_5_X_5 },
     { _T("7"), NPP_MASK_SIZE_7_X_7 },
+    { NULL, NULL }
 };
 
 const CX_DESC list_log_level[] = {
@@ -512,6 +516,7 @@ const CX_DESC list_resampler[] = {
 const CX_DESC list_cuvid_mode[] = {
     { _T("native"), NV_ENC_AVCUVID_NATIVE },
     { _T("cuda"),   NV_ENC_AVCUVID_CUDA   },
+    { NULL, NULL }
 };
 
 template<size_t count>
