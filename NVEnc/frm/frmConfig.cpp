@@ -652,6 +652,8 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXHEVCMinCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXHEVCOutBitDepth,   list_bitdepth);
     setComboBox(fcgCXAQ,                list_aq);
+    setComboBox(fcgCXVppResizeAlg,      list_nppi_resize);
+    setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
 
     setComboBox(fcgCXAudioTempDir,  list_audtempdir);
     setComboBox(fcgCXMP4BoxTempDir, list_mp4boxtempdir);
@@ -731,6 +733,10 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgNUMaxkbps->Enabled = cbr_vbr_mode;
     fcgLBMaxkbps->Enabled = cbr_vbr_mode;
     fcgLBMaxBitrate2->Enabled = cbr_vbr_mode;
+
+    fcggroupBoxResize->Enabled = fcgCBVppResize->Checked;
+    fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
+    fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
 
     this->ResumeLayout();
     this->PerformLayout();
@@ -925,6 +931,25 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBAFS->Checked                  = cnf->vid.afs != 0; 
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
 
+        fcgCBVppPerfMonitor->Checked   = cnf->vpp.perf_monitor != 0;
+        fcgCBVppResize->Checked        = cnf->vpp.resize_enable != 0;
+        SetNUValue(fcgNUVppResizeWidth,  cnf->vpp.resize_width);
+        SetNUValue(fcgNUVppResizeHeight, cnf->vpp.resize_height);
+        SetCXIndex(fcgCXVppResizeAlg,    get_cx_index(list_nppi_resize, cnf->vpp.resize_interp));
+        int dnoise_idx = 0;
+        if (cnf->vpp.knn.enable) {
+            dnoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
+        } else if (cnf->vpp.pmd.enable) {
+            dnoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
+        }
+        SetCXIndex(fcgCXVppDenoiseMethod, dnoise_idx);
+        SetNUValue(fcgNUVppDenoiseKnnRadius,     cnf->vpp.knn.radius);
+        SetNUValue(fcgNUVppDenoiseKnnStrength,   cnf->vpp.knn.strength);
+        SetNUValue(fcgNUVppDenoiseKnnThreshold,  cnf->vpp.knn.lerp_threshold);
+        SetNUValue(fcgNUVppDenoisePmdApplyCount, cnf->vpp.pmd.applyCount);
+        SetNUValue(fcgNUVppDenoisePmdStrength,   cnf->vpp.pmd.strength);
+        SetNUValue(fcgNUVppDenoisePmdThreshold,  cnf->vpp.pmd.threshold);
+
         //音声
         fcgCBAudioOnly->Checked            = cnf->oth.out_audio_only != 0;
         fcgCBFAWCheck->Checked             = cnf->aud.faw_check != 0;
@@ -1067,6 +1092,20 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->oth.temp_dir               = fcgCXTempDir->SelectedIndex;
     cnf->vid.afs                    = fcgCBAFS->Checked;
     cnf->vid.auo_tcfile_out         = fcgCBAuoTcfileout->Checked;
+
+    cnf->vpp.perf_monitor           = fcgCBVppPerfMonitor->Checked;
+    cnf->vpp.resize_enable          = fcgCBVppResize->Checked;
+    cnf->vpp.resize_width           = (int)fcgNUVppResizeWidth->Value;
+    cnf->vpp.resize_height          = (int)fcgNUVppResizeHeight->Value;
+    cnf->vpp.resize_interp          = list_nppi_resize[fcgCXVppResizeAlg->SelectedIndex].value;
+    cnf->vpp.knn.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn"));
+    cnf->vpp.knn.radius             = (int)fcgNUVppDenoiseKnnRadius->Value;
+    cnf->vpp.knn.strength           = (float)fcgNUVppDenoiseKnnStrength->Value;
+    cnf->vpp.knn.lerp_threshold     = (float)fcgNUVppDenoiseKnnThreshold->Value;
+    cnf->vpp.pmd.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd"));
+    cnf->vpp.pmd.applyCount         = (int)fcgNUVppDenoisePmdApplyCount->Value;
+    cnf->vpp.pmd.strength           = (float)fcgNUVppDenoisePmdStrength->Value;
+    cnf->vpp.pmd.threshold          = (float)fcgNUVppDenoisePmdThreshold->Value;
 
     //音声部
     cnf->aud.encoder                = fcgCXAudioEncoder->SelectedIndex;

@@ -61,7 +61,7 @@ static const char *const CONF_NAME_OLD_3 = "NVEnc ConfigFile v3";
 static const char *const CONF_NAME       = CONF_NAME_OLD_3;
 const int CONF_NAME_BLOCK_LEN            = 32;
 const int CONF_BLOCK_MAX                 = 32;
-const int CONF_BLOCK_COUNT               = 6; //最大 CONF_BLOCK_MAXまで
+const int CONF_BLOCK_COUNT               = 7; //最大 CONF_BLOCK_MAXまで
 const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
 
 enum {
@@ -99,6 +99,16 @@ typedef struct CONF_NVENC {
     NV_ENC_CODEC_CONFIG codecConfig[2];
     int bluray;
 } CONF_NVENC;
+
+typedef struct {
+    BOOL perf_monitor;
+    BOOL resize_enable;
+    int resize_interp;
+    int resize_width;
+    int resize_height;
+    VppKnn knn;
+    VppPmd pmd;
+} CONF_VPP;
 
 typedef struct {
     BOOL afs;                      //自動フィールドシフトの使用
@@ -162,6 +172,7 @@ typedef struct {
     CONF_AUDIO  aud;                             //音声についての設定
     CONF_MUX    mux;                             //muxについての設定
     CONF_OTHER  oth;                             //その他の設定
+    CONF_VPP    vpp;                             //vppについての設定
 } CONF_GUIEX;
 
 class guiEx_config {

@@ -275,6 +275,11 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     conf->nvenc.pic_struct = NV_ENC_PIC_STRUCT_FRAME;
     conf->nvenc.preset = 0;
     conf->size_all = CONF_INITIALIZED;
+    conf->vpp.resize_width = 1280;
+    conf->vpp.resize_height = 720;
+    conf->vpp.resize_interp = RESIZE_CUDA_SPLINE36;
+    conf->vpp.knn = VppKnn();
+    conf->vpp.pmd = VppPmd();
 }
 #pragma warning( pop )
 void write_log_auo_line_fmt(int log_type_index, const char *format, ... ) {
