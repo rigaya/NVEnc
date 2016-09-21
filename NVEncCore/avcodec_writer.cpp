@@ -1173,7 +1173,10 @@ int CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSub
 #endif
         }
     }
-    pMuxSub->pStream->time_base              = srcCodecCtx->time_base;
+    //字幕のtimebaseをmp4/mov系の際は動画にそろえるように
+    //よくわからないエラーが発生することがある
+    const AVRational vid_pkt_timebase = (m_Mux.video.pCodecCtx) ? m_Mux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Mux.video.nFPS);
+    pMuxSub->pStream->time_base              = (codecId == AV_CODEC_ID_MOV_TEXT) ? vid_pkt_timebase : srcCodecCtx->time_base;
     pMuxSub->pStream->start_time             = 0;
 #if USE_AVCODECPAR
     pMuxSub->pStream->codecpar->width        = srcCodecCtx->width;
