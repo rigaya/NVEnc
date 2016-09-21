@@ -102,7 +102,7 @@ void run_delogo(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_
 
 NVENCSTATUS NVEncFilterDelogo::delogoY(FrameInfo *pFrame) {
     //Y
-    std::map<NV_ENC_CSP, void(*)(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv)> delogo_y_list = {
+    static const std::map<NV_ENC_CSP, void(*)(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv)> delogo_y_list = {
         { NV_ENC_CSP_YV12,      run_delogo<uint8_t,   8, true> },
         { NV_ENC_CSP_YV12_16,   run_delogo<uint16_t, 16, true> },
         { NV_ENC_CSP_YV12_14,   run_delogo<uint16_t, 14, true> },
@@ -118,7 +118,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoY(FrameInfo *pFrame) {
         { NV_ENC_CSP_YUV444_10, run_delogo<uint16_t, 10, true> },
         { NV_ENC_CSP_YUV444_09, run_delogo<uint16_t,  9, true> },
     };
-    delogo_y_list[pFrame->csp](pFrame, &m_sProcessData[LOGO__Y], LOGO__Y);
+    delogo_y_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__Y], LOGO__Y);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
@@ -133,7 +133,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
     const auto supportedCspYV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12, NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
     //const auto supportedCspYUV444 = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
     //UV
-    std::map<NV_ENC_CSP, void (*)(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv)> delogo_uv_list = {
+    static const std::map<NV_ENC_CSP, void (*)(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv)> delogo_uv_list = {
         { NV_ENC_CSP_YV12,    run_delogo<uint8_t,   8, false> },
         { NV_ENC_CSP_YV12_16, run_delogo<uint16_t, 16, false> },
         { NV_ENC_CSP_YV12_14, run_delogo<uint16_t, 14, false> },
@@ -149,7 +149,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
     }
     if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pFrame->csp) != supportedCspYV12.end()) {
         //YV12
-        delogo_uv_list[pFrame->csp](pFrame, &m_sProcessData[LOGO__U], LOGO__U);
+        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__U], LOGO__U);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
@@ -157,7 +157,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         }
-        delogo_uv_list[pFrame->csp](pFrame, &m_sProcessData[LOGO__V], LOGO__V);
+        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__V], LOGO__V);
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
@@ -167,7 +167,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
         }
     } else {
         //NV12
-        delogo_uv_list[pFrame->csp](pFrame, &m_sProcessData[LOGO_UV], LOGO_UV);
+        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO_UV], LOGO_UV);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),

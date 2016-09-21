@@ -110,7 +110,7 @@ void crop_uv(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInput
 
 NVENCSTATUS NVEncFilterCspCrop::convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
 #define CONV_DEPTH_TO_FROM(to, from) ((to) << 8 | (from))
-    std::map<int, void (*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop)> crop_y_list = {
+    static const std::map<int, void (*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop)> crop_y_list = {
         { CONV_DEPTH_TO_FROM(16,  8), crop_y<uint16_t, 16, uint8_t,   8> },
         { CONV_DEPTH_TO_FROM(14,  8), crop_y<uint16_t, 14, uint8_t,   8> },
         { CONV_DEPTH_TO_FROM(12,  8), crop_y<uint16_t, 12, uint8_t,   8> },
@@ -137,7 +137,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertYBitDepth(FrameInfo *pOutputFrame, const 
         AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
-    crop_y_list[bit_depth_conv](pOutputFrame, pInputFrame, &pCropParam->crop);
+    crop_y_list.at(bit_depth_conv)(pOutputFrame, pInputFrame, &pCropParam->crop);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         AddMessage(NV_LOG_ERROR, _T("error at convertYBitDepth(%s -> %s): %s.\n"),
@@ -370,7 +370,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, cons
     }
 
     //UV
-    std::map<uint64_t, void (*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop)> convert_from_nv12_list = {
+    static const std::map<uint64_t, void (*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop)> convert_from_nv12_list = {
         { NV_ENC_CSP_2(NV_ENC_CSP_NV12, NV_ENC_CSP_YV12   ).i,   crop_uv_nv12_yv12<uint8_t,   8, uint8_t,   8> },
         { NV_ENC_CSP_2(NV_ENC_CSP_NV12, NV_ENC_CSP_YV12_16).i,   crop_uv_nv12_yv12<uint16_t, 16, uint8_t,   8> },
         { NV_ENC_CSP_2(NV_ENC_CSP_NV12, NV_ENC_CSP_YV12_14).i,   crop_uv_nv12_yv12<uint16_t, 14, uint8_t,   8> },
@@ -402,7 +402,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, cons
         AddMessage(NV_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
-    convert_from_nv12_list[cspconv.i](pOutputFrame, pInputFrame, &pCropParam->crop);
+    convert_from_nv12_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         AddMessage(NV_LOG_ERROR, _T("error at convert_from_nv12_list(%s -> %s): %s.\n"),
@@ -438,7 +438,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, cons
     }
 
     //UV
-    std::map<uint64_t, void (*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop)> crop_uv_yv12_nv12_list = {
+    static const std::map<uint64_t, void (*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop)> crop_uv_yv12_nv12_list = {
         { NV_ENC_CSP_2(NV_ENC_CSP_YV12,    NV_ENC_CSP_NV12).i, crop_uv_yv12_nv12<uint8_t,   8, uint8_t,   8> },
         { NV_ENC_CSP_2(NV_ENC_CSP_YV12_16, NV_ENC_CSP_P010).i, crop_uv_yv12_nv12<uint16_t, 16, uint16_t, 16> },
         { NV_ENC_CSP_2(NV_ENC_CSP_YV12_14, NV_ENC_CSP_P010).i, crop_uv_yv12_nv12<uint16_t, 14, uint16_t, 16> },
@@ -451,7 +451,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, cons
         AddMessage(NV_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
-    crop_uv_yv12_nv12_list[cspconv.i](pOutputFrame, pInputFrame, &pCropParam->crop);
+    crop_uv_yv12_nv12_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         AddMessage(NV_LOG_ERROR, _T("error at crop_uv_nv12_yv12_list(%s -> %s): %s.\n"),
@@ -608,9 +608,9 @@ NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameIn
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     } else {
         //色空間変換
-        const auto supportedCspNV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_NV12, NV_ENC_CSP_P010);
-        const auto supportedCspYV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12, NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
-        const auto supportedCspYUV444 = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
+        static const auto supportedCspNV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_NV12, NV_ENC_CSP_P010);
+        static const auto supportedCspYV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12, NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
+        static const auto supportedCspYUV444 = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
         if (std::find(supportedCspNV12.begin(), supportedCspNV12.end(), pCropParam->frameIn.csp) != supportedCspNV12.end()) {
             sts = convertCspFromNV12(ppOutputFrames[0], pInputFrame);
         } else if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pCropParam->frameIn.csp) != supportedCspYV12.end()) {
