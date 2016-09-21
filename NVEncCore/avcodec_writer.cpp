@@ -1992,13 +1992,21 @@ int CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio
     } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
         //最初のフレームとかでなければ、エラーを許容し、単に処理しないようにする
         //多くの場合、ここでのエラーはtsなどの最終音声フレームが不完全なことで発生する
-        if (pMuxAudio->nPacketWritten < 1) {
-            m_Mux.format.bStreamError = true;
-            AddMessage(NV_LOG_ERROR, _T("failed to run aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
-            return 1;
+        //先頭から連続30回エラーとなった場合はおかしいのでエラー終了するようにする
+        if (pMuxAudio->nPacketWritten == 0) {
+            pMuxAudio->nAACBsfErrorFromStart++;
+            static int AACBSFFILTER_ERROR_THRESHOLD = 30;
+            if (pMuxAudio->nAACBsfErrorFromStart > AACBSFFILTER_ERROR_THRESHOLD) {
+                m_Mux.format.bStreamError = true;
+                AddMessage(NV_LOG_ERROR, _T("failed to run aac_adtstoasc bitstream filter for %d times: %s.\n"), AACBSFFILTER_ERROR_THRESHOLD, qsv_av_err2str(ret).c_str());
+                return 1;
+            }
         }
+        AddMessage(NV_LOG_WARN, _T("failed to run aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
         pkt->duration = 0; //書き込み処理が行われないように
+        return -1;
     }
+    pMuxAudio->nAACBsfErrorFromStart = 0;
     return 0;
 }
 
@@ -2524,17 +2532,39 @@ int CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
         return 1;
     }
 
-    pMuxAudio->nPacketWritten++;
-    
+    //AACBsfでのエラーを無音挿入で回避する(音声エンコード時のみ)
+    bool bSetSilenceDueToAACBsfError = false;
     AVRational samplerate = { 1, pMuxAudio->pCodecCtxIn->sample_rate };
+    //このパケットのサンプル数
+    const int nSamples = (int)av_rescale_q(pktData->pkt.duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
     if (pMuxAudio->pAACBsfc) {
         auto sts = applyBitstreamFilterAAC(&pktData->pkt, pMuxAudio);
-        //pktData->pkt.durationの場合はなにもせず終了する
-        if (sts || pktData->pkt.duration == 0) {
+        //bitstream filterを正常に起動できなかった
+        if (sts > 0) {
+            m_Mux.format.bStreamError = true;
+            return 1;
+        }
+        //pktData->pkt.duration == 0 の場合はなにもせず終了する
+        if (pktData->pkt.duration == 0) {
             av_packet_unref(&pktData->pkt);
-            return (m_Mux.format.bStreamError) ? 1 : 0;
+            //特にエラーでなければそのまま終了
+            if (sts == 0) {
+                return 0;
+            }
+            //先頭でエラーが出た場合は音声のDelayを増やすことで同期を保つ
+            if (pMuxAudio->nPacketWritten == 0) {
+                pMuxAudio->nDelaySamplesOfAudio += nSamples;
+                return (m_Mux.format.bStreamError) ? 1 : 0;
+            }
+            //音声エンコードしない場合はどうしようもないので終了
+            if (!pMuxAudio->pOutCodecDecodeCtx || m_Mux.format.bStreamError) {
+                return (m_Mux.format.bStreamError) ? 1 : 0;
+            }
+            //音声エンコードの場合は無音挿入で時間をかせぐ
+            bSetSilenceDueToAACBsfError = true;
         }
     }
+    pMuxAudio->nPacketWritten++;
     auto writeOrSetNextPacketAudioProcessed = [this](AVPktMuxData *pktData) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.thAudProcess.joinable()) {
@@ -2569,9 +2599,23 @@ int CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
         pMuxAudio->nLastPtsIn = pktData->pkt.pts;
         writeOrSetNextPacketAudioProcessed(pktData);
     } else if (!(pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError) && !pMuxAudio->bEncodeError) {
-        AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pktData->pkt, &pktData->got_result);
-        if (pktData->pkt.data != nullptr) {
-            av_packet_unref(&pktData->pkt);
+        AVFrame *decodedFrame = nullptr;
+        if (bSetSilenceDueToAACBsfError) {
+            //無音挿入
+            decodedFrame = av_frame_alloc();
+            decodedFrame                 = av_frame_alloc();
+            decodedFrame->nb_samples     = nSamples;
+            decodedFrame->channels       = pMuxAudio->nResamplerInChannels;
+            decodedFrame->channel_layout = pMuxAudio->nResamplerInChannelLayout;
+            decodedFrame->sample_rate    = pMuxAudio->nResamplerInSampleRate;
+            decodedFrame->format         = pMuxAudio->ResamplerInSampleFmt;
+            av_frame_get_buffer(decodedFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+            av_samples_set_silence((uint8_t **)decodedFrame->data, 0, decodedFrame->nb_samples, decodedFrame->channels, (AVSampleFormat)decodedFrame->format);
+        } else {
+            decodedFrame = AudioDecodePacket(pMuxAudio, &pktData->pkt, &pktData->got_result);
+            if (pktData->pkt.data != nullptr) {
+                av_packet_unref(&pktData->pkt);
+            }
         }
         pktData->type = MUX_DATA_TYPE_FRAME;
         pktData->pFrame = decodedFrame;

@@ -129,6 +129,7 @@ typedef struct AVMuxAudio {
 
     //AACの変換用
     AVBSFContext         *pAACBsfc;             //必要なら使用するbitstreamfilter
+    int                   nAACBsfErrorFromStart; //開始直後からのbitstream filter errorの数
 
     int                   nOutputSamples;       //出力音声の出力済みsample数
     int64_t               nLastPtsIn;           //入力音声の前パケットのpts
