@@ -3052,8 +3052,8 @@ NVENCSTATUS NVEncCore::Encode() {
     } else {
         PrintMes(NV_LOG_DEBUG, _T("Flushed Encoder\n"));
     }
-    m_pFileReader->Close();
     m_pFileWriter->Close();
+    m_pFileReader->Close();
     m_pStatus->writeResult();
     vector<std::pair<tstring, double>> filter_result;
     for (auto& filter : m_vpFilters) {
