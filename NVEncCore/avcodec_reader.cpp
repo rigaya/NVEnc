@@ -867,7 +867,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pCodecCtx->codec_id))
                 //wmv3はAdvanced Profile (3)のみの対応
                 || m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pCodecCtx->profile != 3) {
-                if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_CUVID) {
+                if (input_prm->nVideoDecodeSW == AV_DECODE_MODE_CUVID) {
                     //avcuvidが指定されている場合にはエラー終了する
                     AddMessage(NV_LOG_ERROR, _T("codec "));
                     if (m_Demux.video.pCodecCtx->codec && m_Demux.video.pCodecCtx->codec->name) {
