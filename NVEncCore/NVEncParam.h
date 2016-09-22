@@ -477,7 +477,7 @@ const CX_DESC list_nppi_resize[] = {
     { _T("cubic_catmull"), NPPI_INTER_CUBIC2P_CATMULLROM },
     { _T("cubic_b05c03"),  NPPI_INTER_CUBIC2P_B05C03 },
     { _T("super"),         NPPI_INTER_SUPER },
-    { _T("lanczons"),      NPPI_INTER_LANCZOS },
+    { _T("lanczos"),       NPPI_INTER_LANCZOS },
 #endif
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
     { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
