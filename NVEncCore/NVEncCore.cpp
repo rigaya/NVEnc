@@ -3075,7 +3075,7 @@ NVENCSTATUS NVEncCore::Encode() {
             PrintMes(NV_LOG_INFO, _T("%s %7.1f us\n"), str.c_str(), info.second * 1000.0);
         }
     }
-    return NV_ENC_SUCCESS;
+    return nvStatus;
 }
 #else
 NVENCSTATUS NVEncCore::Encode() {
