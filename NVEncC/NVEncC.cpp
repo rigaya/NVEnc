@@ -1784,6 +1784,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        if (pParams->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave
+            && pParams->picStruct == NV_ENC_PIC_STRUCT_FRAME) {
+            pParams->picStruct = NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM;
+        }
         return 0;
     }
     if (IS_OPTION("vpp-resize")) {
