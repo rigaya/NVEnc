@@ -2911,6 +2911,8 @@ int CAvcodecWriter::WriteThreadFunc() {
     }
     //メインループを抜けたことを通知する
     SetEvent(m_Mux.thread.heEventClosingOutput);
+    m_Mux.thread.qAudioPacketOut.set_keep_length(0);
+    m_Mux.thread.qVideobitstream.set_keep_length(0);
     bAudioExists = !m_Mux.thread.qAudioPacketOut.empty();
     bVideoExists = !m_Mux.thread.qVideobitstream.empty();
     //まずは映像と音声の同期をとって出力するためのループ
@@ -2927,6 +2929,8 @@ int CAvcodecWriter::WriteThreadFunc() {
             && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream))) {
             WriteNextFrameInternal(&bitstream, &videoDts);
         }
+        bAudioExists = !m_Mux.thread.qAudioPacketOut.empty();
+        bVideoExists = !m_Mux.thread.qVideobitstream.empty();
     }
     { //音声を書き出す
         AVPktMuxData pktData = { 0 };
