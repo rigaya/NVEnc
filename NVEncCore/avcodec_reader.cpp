@@ -885,6 +885,11 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         }
         m_strReaderName = (bDecodecCUVID) ? _T("avcuvid") : _T("avsw");
 
+        //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
+        if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_HEVC) {
+            m_Demux.video.pCodecCtx->log_level_offset = AV_LOG_ERROR;
+        }
+
         m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
 
         //情報を格納
