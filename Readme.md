@@ -64,8 +64,17 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
   - H.264/AVC
 - avs, vpy, y4m, rawなど各種形式に対応
 - GPUを使用した高速フィルタリング
+  - cuvid内蔵のhw処理
    - リサイズ
    - インタレ解除 (normal / bob / it)
+  - CUDAによるGPUフィルタリング
+   - delogo
+   - リサイズ  
+     bilinear,spline36に加え、x64版ではnppライブラリによる各種アルゴリズムが利用可
+   - ノイズ除去
+     - knn (K-nearest neighbor)
+     - pmd (正則化pmd法)
+     - gauss (nppライブラリ、x64版のみ)
 
 ### NVEncのソースコードについて
 - MITライセンスです。
