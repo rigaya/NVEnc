@@ -86,7 +86,7 @@ AVFieldOrder nv_field_order(NV_ENC_PIC_STRUCT nPicStruct) {
     if (nPicStruct == NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM) {
         return AV_FIELD_TT;
     }
-    if (nPicStruct & NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP) {
+    if (nPicStruct == NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP) {
         return AV_FIELD_BB;
     }
     return AV_FIELD_PROGRESSIVE;
