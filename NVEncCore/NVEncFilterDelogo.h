@@ -78,9 +78,10 @@ public:
     short posX, posY; //位置オフセット
     short depth;      //透明度深度
     short Y, Cb, Cr;  //(輝度・色差)オフセット
+    int mode;
 
     NVEncFilterParamDelogo() : inputFileName(nullptr), logoFilePath(nullptr), logoSelect(nullptr),
-        posX(0), posY(0), depth(128), Y(0), Cb(0), Cr(0) {
+        posX(0), posY(0), depth(128), Y(0), Cb(0), Cr(0), mode(DELOGO_MODE_REMOVE) {
 
     };
     virtual ~NVEncFilterParamDelogo() {};

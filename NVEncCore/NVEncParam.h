@@ -55,6 +55,11 @@ enum {
     NV_RESAMPLER_SOXR,
 };
 
+enum {
+    DELOGO_MODE_REMOVE = 0,
+    DELOGO_MODE_ADD,
+};
+
 static const int   FILTER_DEFAULT_DELOGO_DEPTH = 128;
 static const int   FILTER_DEFAULT_KNN_RADIUS = 3;
 static const float FILTER_DEFAULT_KNN_STRENGTH = 0.08f;
@@ -698,6 +703,7 @@ struct VppParam {
         int    nYOffset;
         int    nCbOffset;
         int    nCrOffset;
+        int    nMode;
     } delogo;
 
     VppKnn knn;

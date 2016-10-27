@@ -75,7 +75,39 @@ __global__ void kernel_delogo(
 }
 
 template<typename Type, int bit_depth, bool target_y>
-void run_delogo(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv) {
+__global__ void kernel_delogo_add(
+    uint8_t *__restrict__ pFrame, const int framePitch, const int width, const int height,
+    uint8_t *__restrict__ pLogo, const int logo_pitch, const int logo_x, const int logo_y, const int logo_width, const int logo_height, const float logo_depth_mul_fade) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    const float nv12_2_yc48_mul = (target_y) ? 1197.0f / (1<<(bit_depth-2)) : 4681.0f / (1<<bit_depth);
+    const float nv12_2_yc48_sub = (target_y) ? 299.0f : 599332.0f / 256.0f;
+    const float yc48_2_nv12_mul = (target_y) ?   219.0f / (1<<(20-bit_depth)) :    14.0f / (1<<(16-bit_depth));
+    const float yc48_2_nv12_add = (target_y) ? 65919.0f / (1<<(20-bit_depth)) : 32900.0f / (1<<(16-bit_depth));
+    if (x < logo_width && y < logo_height && (x + logo_x) < width && (y + logo_y) < height) {
+        //ロゴ情報取り出し
+        const int16x2_t logo_data = *(int16x2_t *)(&pLogo[y * logo_pitch + x * sizeof(int16x2_t)]);
+        float logo_dp = (float)logo_data.x;
+        float logo    = (float)logo_data.y;
+
+        logo_dp = (logo_dp * logo_depth_mul_fade) * (1.0f / (float)(128 * LOGO_FADE_MAX));
+
+        //画素データ取り出し
+        pFrame += (y + logo_y) * framePitch + (x + logo_x) * sizeof(Type);
+        float pixel_yuv = pFrame[0];
+
+        //nv12->yc48
+        float pixel_yc48 = pixel_yuv * nv12_2_yc48_mul - nv12_2_yc48_sub;
+
+        //ロゴ付加
+        float yc = (pixel_yc48 * ((float)LOGO_MAX_DP - logo_dp) + logo * logo_dp) * (1.0f / (float)LOGO_MAX_DP);
+
+        pFrame[0] = (Type)clamp((yc * yc48_2_nv12_mul + yc48_2_nv12_add + 0.5f), 0.0f, (float)(1<<bit_depth)-0.1f);
+    }
+}
+
+template<typename Type, int bit_depth, bool target_y>
+void run_delogo(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv, int mode) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pDelego->width, blockSize.x), divCeil(pDelego->height, blockSize.y));
     uint8_t *dptr = (uint8_t *)pFrame->ptr;
@@ -91,18 +123,28 @@ void run_delogo(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_
     default:
         break;
     }
-    kernel_delogo<Type, bit_depth, target_y><<<gridSize, blockSize>>>(
-        dptr,
-        pFrame->pitch,
-        pFrame->width,
-        (target_y) ? pFrame->height : (pFrame->height>>1),
-        (uint8_t *)pDelego->pDevLogo->frame.ptr, pDelego->pDevLogo->frame.pitch,
-        pDelego->i_start, pDelego->j_start, pDelego->width, pDelego->height, (float)pDelego->depth * pDelego->fade);
+    if (mode == DELOGO_MODE_ADD) {
+        kernel_delogo_add<Type, bit_depth, target_y><<<gridSize, blockSize>>>(
+            dptr,
+            pFrame->pitch,
+            pFrame->width,
+            (target_y) ? pFrame->height : (pFrame->height>>1),
+            (uint8_t *)pDelego->pDevLogo->frame.ptr, pDelego->pDevLogo->frame.pitch,
+            pDelego->i_start, pDelego->j_start, pDelego->width, pDelego->height, (float)pDelego->depth * pDelego->fade);
+    } else {
+        kernel_delogo<Type, bit_depth, target_y><<<gridSize, blockSize>>>(
+            dptr,
+            pFrame->pitch,
+            pFrame->width,
+            (target_y) ? pFrame->height : (pFrame->height>>1),
+            (uint8_t *)pDelego->pDevLogo->frame.ptr, pDelego->pDevLogo->frame.pitch,
+            pDelego->i_start, pDelego->j_start, pDelego->width, pDelego->height, (float)pDelego->depth * pDelego->fade);
+    }
 }
 
 NVENCSTATUS NVEncFilterDelogo::delogoY(FrameInfo *pFrame) {
     //Y
-    static const std::map<NV_ENC_CSP, void(*)(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv)> delogo_y_list = {
+    static const std::map<NV_ENC_CSP, void(*)(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv, int mode)> delogo_y_list = {
         { NV_ENC_CSP_YV12,      run_delogo<uint8_t,   8, true> },
         { NV_ENC_CSP_YV12_16,   run_delogo<uint16_t, 16, true> },
         { NV_ENC_CSP_YV12_14,   run_delogo<uint16_t, 14, true> },
@@ -118,7 +160,12 @@ NVENCSTATUS NVEncFilterDelogo::delogoY(FrameInfo *pFrame) {
         { NV_ENC_CSP_YUV444_10, run_delogo<uint16_t, 10, true> },
         { NV_ENC_CSP_YUV444_09, run_delogo<uint16_t,  9, true> },
     };
-    delogo_y_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__Y], LOGO__Y);
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    if (!pDelogoParam) {
+        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
+    delogo_y_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__Y], LOGO__Y, pDelogoParam->mode);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
@@ -133,7 +180,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
     const auto supportedCspYV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12, NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
     //const auto supportedCspYUV444 = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
     //UV
-    static const std::map<NV_ENC_CSP, void (*)(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv)> delogo_uv_list = {
+    static const std::map<NV_ENC_CSP, void (*)(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, int target_yuv, int mode)> delogo_uv_list = {
         { NV_ENC_CSP_YV12,    run_delogo<uint8_t,   8, false> },
         { NV_ENC_CSP_YV12_16, run_delogo<uint16_t, 16, false> },
         { NV_ENC_CSP_YV12_14, run_delogo<uint16_t, 14, false> },
@@ -143,13 +190,18 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
         { NV_ENC_CSP_NV12,    run_delogo<uint8_t,   8, false> },
         { NV_ENC_CSP_P010,    run_delogo<uint16_t, 16, false> },
     };
+    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
+    if (!pDelogoParam) {
+        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
     if (delogo_uv_list.count(pFrame->csp) == 0) {
         AddMessage(NV_LOG_ERROR, _T("unsupported csp for delogo: %s.\n"), NV_ENC_CSP_NAMES[pFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
     if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pFrame->csp) != supportedCspYV12.end()) {
         //YV12
-        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__U], LOGO__U);
+        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__U], LOGO__U, pDelogoParam->mode);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
@@ -157,7 +209,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         }
-        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__V], LOGO__V);
+        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__V], LOGO__V, pDelogoParam->mode);
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
@@ -167,7 +219,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
         }
     } else {
         //NV12
-        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO_UV], LOGO_UV);
+        delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO_UV], LOGO_UV, pDelogoParam->mode);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
@@ -540,6 +592,14 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
 
     //フィルタ情報の調整
     std::string str = "";
+    switch (pDelogoParam->mode) {
+    case DELOGO_MODE_ADD:
+        str += ", add";
+        break;
+    case DELOGO_MODE_REMOVE:
+    default:
+        break;
+    }
     if (pDelogoParam->posX || pDelogoParam->posY) {
         str += strsprintf(", pos=%d:%d", pDelogoParam->posX, pDelogoParam->posY);
     }

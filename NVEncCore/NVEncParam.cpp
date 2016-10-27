@@ -65,4 +65,5 @@ VppParam::VppParam() :
     delogo.nYOffset = 0;
     delogo.nCbOffset = 0;
     delogo.nCrOffset = 0;
+    delogo.nMode = DELOGO_MODE_REMOVE;
 }

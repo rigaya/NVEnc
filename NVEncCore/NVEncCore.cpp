@@ -2255,6 +2255,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->Y             = (short)inputParam->vpp.delogo.nYOffset;
             param->Cb            = (short)inputParam->vpp.delogo.nCbOffset;
             param->Cr            = (short)inputParam->vpp.delogo.nCrOffset;
+            param->mode          = inputParam->vpp.delogo.nMode;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->bOutOverwrite = true;

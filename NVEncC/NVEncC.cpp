@@ -1828,6 +1828,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->vpp.delogo.pSelect = _tcsdup(strInput[i]);
         return 0;
     }
+    if (IS_OPTION("vpp-delogo-add")) {
+        pParams->vpp.delogo.nMode = DELOGO_MODE_ADD;
+        return 0;
+    }
     if (IS_OPTION("vpp-delogo-pos")) {
         i++;
         int posOffsetX, posOffsetY;
