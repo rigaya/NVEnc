@@ -1268,25 +1268,34 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
+        if (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME) {
 #if ENABLE_AVCUVID_READER
-        cuvidCtxLock(m_ctxLock, 0);
+            cuvidCtxLock(m_ctxLock, 0);
 #endif //#if ENABLE_AVCUVID_READER
-        auto cudaerr = cudaMallocPitch((void **)&m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
-            (size_t *)&m_stEncodeBuffer[i].stInputBfr.uNV12Stride, uInputWidthByte, uInputHeightTotal);
+            auto cudaerr = cudaMallocPitch((void **)&m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
+                (size_t *)&m_stEncodeBuffer[i].stInputBfr.uNV12Stride, uInputWidthByte, uInputHeightTotal);
 #if ENABLE_AVCUVID_READER
-        cuvidCtxUnlock(m_ctxLock, 0);
+            cuvidCtxUnlock(m_ctxLock, 0);
 #endif //#if ENABLE_AVCUVID_READER
-        if (cudaerr != cudaSuccess) {
-            PrintMes(NV_LOG_ERROR, _T("Failed to cuMemAllocPitch, %d (%s)\n"), cudaerr, char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
-        }
+            if (cudaerr != cudaSuccess) {
+                PrintMes(NV_LOG_ERROR, _T("Failed to cuMemAllocPitch, %d (%s)\n"), cudaerr, char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
+                return NV_ENC_ERR_OUT_OF_MEMORY;
+            }
 
-        if (NV_ENC_SUCCESS != (nvStatus = NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR,
-            (void*)m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
-            uInputWidth, uInputHeight, m_stEncodeBuffer[i].stInputBfr.uNV12Stride, inputFormat,
-            &m_stEncodeBuffer[i].stInputBfr.nvRegisteredResource))) {
-            PrintMes(NV_LOG_ERROR, _T("Failed to register input device memory.\n"));
-            return nvStatus;
+            if (NV_ENC_SUCCESS != (nvStatus = NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR,
+                (void*)m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
+                uInputWidth, uInputHeight, m_stEncodeBuffer[i].stInputBfr.uNV12Stride, inputFormat,
+                &m_stEncodeBuffer[i].stInputBfr.nvRegisteredResource))) {
+                PrintMes(NV_LOG_ERROR, _T("Failed to register input device memory.\n"));
+                return nvStatus;
+            }
+        } else {
+            //インタレ保持の場合は、NvEncCreateInputBuffer経由でフレームを渡さないと正常にエンコードできない
+            nvStatus = NvEncCreateInputBuffer(uInputWidth, uInputHeight, &m_stEncodeBuffer[i].stInputBfr.hInputSurface, inputFormat);
+            if (nvStatus != NV_ENC_SUCCESS) {
+                PrintMes(NV_LOG_ERROR, _T("Failed to allocate Input Buffer, Please reduce MAX_FRAMES_TO_PRELOAD\n"));
+                return nvStatus;
+            }
         }
 
         m_stEncodeBuffer[i].stInputBfr.bufferFmt = inputFormat;
@@ -1385,6 +1394,12 @@ NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
             cuvidCtxUnlock(m_ctxLock, 0);
 #endif //#if ENABLE_AVCUVID_READER
             m_stEncodeBuffer[i].stInputBfr.pNV12devPtr = NULL;
+        } else {
+            //インタレ保持の場合にはこちらを使用
+            if (m_stEncodeBuffer[i].stInputBfr.hInputSurface) {
+                NvEncDestroyInputBuffer(m_stEncodeBuffer[i].stInputBfr.hInputSurface);
+                m_stEncodeBuffer[i].stInputBfr.hInputSurface = NULL;
+            }
         }
 
         if (m_stEncodeBuffer[i].stOutputBfr.hBitstreamBuffer) {
@@ -2774,7 +2789,7 @@ NVENCSTATUS NVEncCore::Encode() {
             switch (deint) {
             case cudaVideoDeinterlaceMode_Weave:
                 oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
-                oVPP.unpaired_field = oVPP.progressive_frame;
+                oVPP.unpaired_field = 1;// oVPP.progressive_frame;
                 pInputFrame->setInterlaceFlag(m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME);
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
                 break;
@@ -2893,9 +2908,11 @@ NVENCSTATUS NVEncCore::Encode() {
             pEncodeBuffer = m_EncodeBufferQueue.GetPending();
             ProcessOutput(pEncodeBuffer);
             PrintMes(NV_LOG_TRACE, _T("Output frame %d\n"), m_pStatus->m_sData.frameOut);
-            if (pEncodeBuffer->stInputBfr.hInputSurface) {
-                nvStatus = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
-                pEncodeBuffer->stInputBfr.hInputSurface = nullptr;
+            if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
+                if (pEncodeBuffer->stInputBfr.hInputSurface) {
+                    nvStatus = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
+                    pEncodeBuffer->stInputBfr.hInputSurface = nullptr;
+                }
             }
             pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
             if (!pEncodeBuffer) {
@@ -2916,16 +2933,32 @@ NVENCSTATUS NVEncCore::Encode() {
             FrameInfo *outInfo[16] = { 0 };
             //エンコードバッファの情報を設定１
             FrameInfo encFrameInfo = { 0 };
-            encFrameInfo.ptr = (void *)pEncodeBuffer->stInputBfr.pNV12devPtr;
-            encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
-            encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
-            encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
-            encFrameInfo.deivce_mem = true;
-            encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
+            if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
+                encFrameInfo.ptr = (void *)pEncodeBuffer->stInputBfr.pNV12devPtr;
+                encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
+                encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
+                encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
+                encFrameInfo.deivce_mem = true;
+                encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
+            } else {
+                //インタレ保持の場合は、NvEncCreateInputBuffer経由でフレームを渡さないと正常にエンコードできない
+                uint32_t lockedPitch = 0;
+                unsigned char *pInputSurface = nullptr;
+                NvEncLockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
+                encFrameInfo.ptr = (void *)pInputSurface;
+                encFrameInfo.pitch = lockedPitch;
+                encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
+                encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
+                encFrameInfo.deivce_mem = false; //CPU側にフレームデータを戻す
+                encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
+            }
             //エンコードバッファのポインタを渡す
             outInfo[0] = &encFrameInfo;
             lastFilter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
             cudaThreadSynchronize();
+            if (!pEncodeBuffer->stInputBfr.pNV12devPtr) {
+                NvEncUnlockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface);
+            }
         }
         //auto& cudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()];
         //if (cudaSuccess != (cudaret = cudaEventRecord(cudaEvent))) {
@@ -2940,10 +2973,12 @@ NVENCSTATUS NVEncCore::Encode() {
     auto send_encoder = [&](int& nEncodeFrame, unique_ptr<FrameBufferDataEnc>& encFrame) {
         if (encFrame->m_pEvent) cudaEventSynchronize(*encFrame->m_pEvent);
         EncodeBuffer *pEncodeBuffer = encFrame->m_pEncodeBuffer;
-        nvStatus = NvEncMapInputResource(pEncodeBuffer->stInputBfr.nvRegisteredResource, &pEncodeBuffer->stInputBfr.hInputSurface);
-        if (nvStatus != NV_ENC_SUCCESS) {
-            PrintMes(NV_LOG_ERROR, _T("Failed to Map input buffer %p\n"), pEncodeBuffer->stInputBfr.hInputSurface);
-            return nvStatus;
+        if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
+            nvStatus = NvEncMapInputResource(pEncodeBuffer->stInputBfr.nvRegisteredResource, &pEncodeBuffer->stInputBfr.hInputSurface);
+            if (nvStatus != NV_ENC_SUCCESS) {
+                PrintMes(NV_LOG_ERROR, _T("Failed to Map input buffer %p\n"), pEncodeBuffer->stInputBfr.hInputSurface);
+                return nvStatus;
+            }
         }
         return NvEncEncodeFrame(pEncodeBuffer, nEncodeFrame++);
     };
