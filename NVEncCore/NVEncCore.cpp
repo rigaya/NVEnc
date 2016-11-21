@@ -857,7 +857,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     PrintMes(NV_LOG_DEBUG, _T("cuDeviceGet: Success.\n"));
     
     int SMminor = 0, SMmajor = 0;
-    if (CUDA_SUCCESS != (cuDeviceComputeCapability(&SMmajor, &SMminor, deviceID))) {
+    if (CUDA_SUCCESS != (cuDeviceComputeCapability(&SMmajor, &SMminor, m_device))) {
         PrintMes(NV_LOG_ERROR, _T("cuDeviceComputeCapability error:0x%x\n"), cuResult);
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
