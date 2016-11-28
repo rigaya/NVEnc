@@ -108,7 +108,7 @@ typedef void* NV_ENC_OUTPUT_PTR;            /**< NVENCODE API output buffer*/
 typedef void* NV_ENC_REGISTERED_PTR;        /**< A Resource that has been registered with NVENCODE API*/
 
 #define NVENCAPI_MAJOR_VERSION 7
-#define NVENCAPI_MINOR_VERSION 0
+#define NVENCAPI_MINOR_VERSION 1
 
 #define NVENCAPI_VERSION (NVENCAPI_MAJOR_VERSION | (NVENCAPI_MINOR_VERSION << 24))
 
@@ -251,13 +251,16 @@ typedef enum _NV_ENC_PARAMS_RC_MODE
     NV_ENC_PARAMS_RC_CONSTQP                = 0x0,       /**< Constant QP mode */
     NV_ENC_PARAMS_RC_VBR                    = 0x1,       /**< Variable bitrate mode */
     NV_ENC_PARAMS_RC_CBR                    = 0x2,       /**< Constant bitrate mode */
-    NV_ENC_PARAMS_RC_VBR_MINQP              = 0x4,       /**< Variable bitrate mode with MinQP */
-    NV_ENC_PARAMS_RC_2_PASS_QUALITY         = 0x8,       /**< Multi pass encoding optimized for image quality and works only with low latency mode */
-    NV_ENC_PARAMS_RC_2_PASS_FRAMESIZE_CAP   = 0x10,      /**< Multi pass encoding optimized for maintaining frame size and works only with low latency mode */
-    NV_ENC_PARAMS_RC_2_PASS_VBR             = 0x20       /**< Multi pass VBR */
+    NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ        = 0x8,       /**< low-delay CBR, high quality */
+    NV_ENC_PARAMS_RC_CBR_HQ                 = 0x10,      /**< CBR, high quality (slower) */
+    NV_ENC_PARAMS_RC_VBR_HQ                 = 0x20       /**< VBR, high quality (slower) */
 } NV_ENC_PARAMS_RC_MODE;
 
-#define NV_ENC_PARAMS_RC_CBR2   NV_ENC_PARAMS_RC_CBR    /**< Deprecated */
+#define NV_ENC_PARAMS_RC_VBR_MINQP              (NV_ENC_PARAMS_RC_MODE)0x4          /**< Deprecated */
+#define NV_ENC_PARAMS_RC_2_PASS_QUALITY         NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ    /**< Deprecated */
+#define NV_ENC_PARAMS_RC_2_PASS_FRAMESIZE_CAP   NV_ENC_PARAMS_RC_CBR_HQ             /**< Deprecated */
+#define NV_ENC_PARAMS_RC_2_PASS_VBR             NV_ENC_PARAMS_RC_VBR_HQ             /**< Deprecated */
+#define NV_ENC_PARAMS_RC_CBR2                   NV_ENC_PARAMS_RC_CBR                /**< Deprecated */
 
 /**
  * Input picture structure
@@ -1152,7 +1155,8 @@ typedef struct _NV_ENC_CONFIG_H264
     uint32_t hierarchicalPFrames       :1;                          /**< [in]: Set to 1 to enable hierarchical PFrames */
     uint32_t hierarchicalBFrames       :1;                          /**< [in]: Set to 1 to enable hierarchical BFrames */
     uint32_t outputBufferingPeriodSEI  :1;                          /**< [in]: Set to 1 to write SEI buffering period syntax in the bitstream */
-    uint32_t outputPictureTimingSEI    :1;                          /**< [in]: Set to 1 to write SEI picture timing syntax in the bitstream */ 
+    uint32_t outputPictureTimingSEI    :1;                          /**< [in]: Set to 1 to write SEI picture timing syntax in the bitstream.  When set for following rateControlMode : NV_ENC_PARAMS_RC_CBR, NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ,
+                                                                               NV_ENC_PARAMS_RC_CBR_HQ, filler data is inserted if needed to achieve hrd bitrate */ 
     uint32_t outputAUD                 :1;                          /**< [in]: Set to 1 to write access unit delimiter syntax in bitstream */
     uint32_t disableSPSPPS             :1;                          /**< [in]: Set to 1 to disable writing of Sequence and Picture parameter info in bitstream */
     uint32_t outputFramePackingSEI     :1;                          /**< [in]: Set to 1 to enable writing of frame packing arrangement SEI messages to bitstream */
@@ -1263,14 +1267,46 @@ typedef struct _NV_ENC_CONFIG_HEVC
 } NV_ENC_CONFIG_HEVC;
 
 /**
+ * \struct _NV_ENC_CONFIG_H264_MEONLY
+ * H264 encoder configuration parameters for ME only Mode
+ * 
+ */
+typedef struct _NV_ENC_CONFIG_H264_MEONLY
+{
+    uint32_t disablePartition16x16 :1;                          /**< [in]: Disable MotionEstimation on 16x16 blocks*/
+    uint32_t disablePartition8x16  :1;                          /**< [in]: Disable MotionEstimation on 8x16 blocks*/
+    uint32_t disablePartition16x8  :1;                          /**< [in]: Disable MotionEstimation on 16x8 blocks*/
+    uint32_t disablePartition8x8   :1;                          /**< [in]: Disable MotionEstimation on 8x8 blocks*/
+    uint32_t disableIntraSearch    :1;                          /**< [in]: Disable Intra search during MotionEstimation*/
+    uint32_t bStereoEnable         :1;                          /**< [in]: Enable Stereo Mode for Motion Estimation where each view is independently executed*/
+    uint32_t reserved              :26;                         /**< [in]: Reserved and must be set to 0 */
+    uint32_t reserved1 [255];                                   /**< [in]: Reserved and must be set to 0 */
+    void*    reserved2[64];                                     /**< [in]: Reserved and must be set to NULL */
+} NV_ENC_CONFIG_H264_MEONLY;
+
+
+/**
+ * \struct _NV_ENC_CONFIG_HEVC_MEONLY
+ * HEVC encoder configuration parameters for ME only Mode
+ * 
+ */
+typedef struct _NV_ENC_CONFIG_HEVC_MEONLY
+{
+    uint32_t reserved [256];                                   /**< [in]: Reserved and must be set to 0 */
+    void*    reserved1[64];                                     /**< [in]: Reserved and must be set to NULL */
+} NV_ENC_CONFIG_HEVC_MEONLY;
+
+/**
  * \struct _NV_ENC_CODEC_CONFIG
  * Codec-specific encoder configuration parameters to be set during initialization.
  */
 typedef union _NV_ENC_CODEC_CONFIG
 {
-    NV_ENC_CONFIG_H264      h264Config;                  /**< [in]: Specifies the H.264-specific encoder configuration. */
-    NV_ENC_CONFIG_HEVC      hevcConfig;                  /**< [in]: Specifies the HEVC-specific encoder configuration. */
-    uint32_t                reserved[256];               /**< [in]: Reserved and must be set to 0 */
+    NV_ENC_CONFIG_H264        h264Config;                /**< [in]: Specifies the H.264-specific encoder configuration. */
+    NV_ENC_CONFIG_HEVC        hevcConfig;                /**< [in]: Specifies the HEVC-specific encoder configuration. */
+    NV_ENC_CONFIG_H264_MEONLY h264MeOnlyConfig;          /**< [in]: Specifies the H.264-specific ME only encoder configuration. */
+    NV_ENC_CONFIG_HEVC_MEONLY hevcMeOnlyConfig;          /**< [in]: Specifies the HEVC-specific ME only encoder configuration. */
+    uint32_t                reserved[320];               /**< [in]: Reserved and must be set to 0 */
 } NV_ENC_CODEC_CONFIG;
 
 
@@ -1541,12 +1577,14 @@ typedef struct _NV_ENC_MEONLY_PARAMS
     void*                   completionEvent;                    /**< [in]: Specifies an event to be signalled on completion of motion estimation 
                                                                            of this Frame [only if operating in Asynchronous mode]. 
                                                                            Each output buffer should be associated with a distinct event pointer. */
-    uint32_t                reserved1[252];                     /**< [in]: Reserved and must be set to 0 */
+    uint32_t                viewID;                              /**< [in]: Specifies left,right viewID if NV_ENC_CONFIG_H264_MEONLY::bStereoEnable is set.
+                                                                            viewID can be 0,1 if bStereoEnable is set, 0 otherwise. */
+    uint32_t                reserved1[251];                     /**< [in]: Reserved and must be set to 0 */
     void*                   reserved2[60];                      /**< [in]: Reserved and must be set to NULL */
 } NV_ENC_MEONLY_PARAMS;
 
 /** NV_ENC_MEONLY_PARAMS struct version*/
-#define NV_ENC_MEONLY_PARAMS_VER NVENCAPI_STRUCT_VERSION(2)
+#define NV_ENC_MEONLY_PARAMS_VER NVENCAPI_STRUCT_VERSION(3)
 
 
 /**
@@ -2888,8 +2926,6 @@ NVENCSTATUS NVENCAPI NvEncOpenEncodeSessionEx                   (NV_ENC_OPEN_ENC
  * 
  * Registers a resource with the Nvidia Video Encoder Interface for book keeping.
  * The client is expected to pass the registered resource handle as well, while calling ::NvEncMapInputResource API.
- * This API is not implemented for the DirectX Interface.
- * DirectX based clients need not change their implementation.
  *
  * \param [in] encoder
  *   Pointer to the NVEncodeAPI interface.
@@ -2921,8 +2957,6 @@ NVENCSTATUS NVENCAPI NvEncRegisterResource                      (void* encoder, 
  * Unregisters a resource previously registered with the Nvidia Video Encoder Interface.
  * The client is expected to unregister any resource that it has registered with the 
  * Nvidia Video Encoder Interface before destroying the resource.
- * This API is not implemented for the DirectX Interface.
- * DirectX based clients need not change their implementation.
  *
  * \param [in] encoder
  *   Pointer to the NVEncodeAPI interface.
