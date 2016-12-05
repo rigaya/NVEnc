@@ -109,9 +109,10 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
     //空き容量を取得できていなければ、チェックを終了する
     if (expected_filesize <= 0)
         return AUO_RESULT_SUCCESS;
-    //一時ファイルが指定されていないときにはカレントディレクトリのあるドライブ(muxerのあるドライブ)に一時ファイルが作られる
+    //mp4boxの場合、一時ファイルが指定されていないときには
+    //カレントディレクトリのあるドライブ(muxerのあるドライブ)に一時ファイルが作られる
     //その一時フォルダのドライブについて検証
-    if (!conf->mux.mp4_temp_dir || ret == AUO_RESULT_WARNING) {
+    if ((!conf->mux.mp4_temp_dir || ret == AUO_RESULT_WARNING) && stristr(mux_stg->filename, "mp4box")) {
         char muxer_root[MAX_PATH_LEN];
         //ドライブの空き容量取得
         ULARGE_INTEGER muxer_drive_avail_space = { 0 };
