@@ -2021,9 +2021,12 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             value = list[(frame_height >= HD_HEIGHT_THRESHOLD) ? HD_INDEX : SD_INDEX].value;
     };
     //最大ビットレート自動
-    if (m_stEncConfig.rcParams.maxBitRate == 0) {
+    if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP) {
+        //CQPモードでは、最大ビットレートの指定は不要
+        m_stEncConfig.rcParams.maxBitRate = 0;
+    } else if (m_stEncConfig.rcParams.maxBitRate == 0) {
         //指定されたビットレートの1.5倍は最大ビットレートを確保する
-        const int prefered_bitrate_kbps = (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP) ? 0 : m_stEncConfig.rcParams.averageBitRate * 3 / 2 / 1000;
+        const int prefered_bitrate_kbps = m_stEncConfig.rcParams.averageBitRate * 3 / 2 / 1000;
         if (inputParam->codec == NV_ENC_H264) {
             const int profile = get_value_from_guid(m_stEncConfig.profileGUID, h264_profile_names);
             int level = m_stEncConfig.encodeCodecConfig.h264Config.level;
