@@ -2853,6 +2853,14 @@ int CAvcodecWriter::WriteThreadFunc() {
         do {
             if (!m_Mux.format.bFileHeaderWritten) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                //ヘッダー取得前に音声キューのサイズが足りず、エンコードが進まなくなってしまうことがある
+                //キューのcapcityを増やすことでこれを回避する
+                auto type = (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT;
+                auto& qAudio = (type == AUD_QUEUE_OUT) ? m_Mux.thread.qAudioPacketOut : m_Mux.thread.qAudioFrameEncode;
+                const auto nQueueCapacity = qAudio.capacity();
+                if (qAudio.size() >= nQueueCapacity) {
+                    qAudio.set_capacity(nQueueCapacity * 3 / 2);
+                }
                 break;
             }
             //映像・音声の同期待ちが必要な場合、falseとなってループから抜けるよう、ここでfalseに設定する
