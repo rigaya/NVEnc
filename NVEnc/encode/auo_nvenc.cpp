@@ -249,7 +249,7 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
         for (;;) {
             if ((frame = afs_get_video((OUTPUT_INFO *)oip, m_iFrame, &drop, &jitter[m_iFrame + 1])) == NULL) {
                 error_afs_get_frame();
-                return false;
+                return NVENC_THREAD_ERROR;
             }
             if (!drop)
                 break;
@@ -260,14 +260,14 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
             if (m_iFrame >= oip->n) {
                 oip->func_rest_time_disp(m_iFrame, oip->n);
                 release_audio_parallel_events(pe);
-                return false;
+                return NVENC_THREAD_FINISHED;
             }
         }
     } else {
         //high444出力ならAviutlからYC48をもらう
         if ((frame = oip->func_get_video_ex(m_iFrame, COLORFORMATS[m_sConvert->csp_from == NV_ENC_CSP_YC48 ? CF_YC48 : CF_YUY2].FOURCC)) == NULL) {
             error_afs_get_frame();
-            return false;
+            return NVENC_THREAD_ERROR;
         }
     }
     void *dst_array[3];
