@@ -360,8 +360,9 @@ static tstring help() {
         _T("   --cqp <int> or               encode in Constant QP mode\n")
         _T("         <int>:<int>:<int>        Default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
         _T("   --vbr <int>                  set bitrate for VBR mode (kbps)\n")
-        _T("   --vbr2 <int>                 set bitrate for VBR2 mode (kbps)\n")
+        _T("   --vbrhq <int>                set bitrate for VBR (High Quality) mode (kbps)\n")
         _T("   --cbr <int>                  set bitrate for CBR mode (kbps)\n")
+        _T("   --cbrhq <int>                set bitrate for CBR (High Quality) mode (kbps)\n")
         _T("                                  Default: %d kbps\n")
         _T("\n")
         _T("   --vbr-quality <int>          set target quality for VBR mode (0-51, 0 = auto)\n")
@@ -1551,7 +1552,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_MINQP;
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
@@ -1559,11 +1560,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (IS_OPTION("vbr2")) {
+    if (IS_OPTION("vbrhq") || IS_OPTION("vbr2")) {
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_2_PASS_VBR;
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_HQ;
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
@@ -1576,6 +1577,19 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
+            pParams->encConfig.rcParams.averageBitRate = value * 1000;
+            pParams->encConfig.rcParams.maxBitRate = value * 1000;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("cbrhq")) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR_HQ;
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
             pParams->encConfig.rcParams.maxBitRate = value * 1000;
         } else {
