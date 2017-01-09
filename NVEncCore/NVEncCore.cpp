@@ -2052,7 +2052,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             //なぜかぎりぎりを指定するとエラー終了するので、すこし減らす
             m_stEncConfig.rcParams.maxBitRate = get_hevc_max_bitrate(level, high_tier) * 960;
         } else {
-            m_stEncConfig.rcParams.maxBitRate = 17500 * 1000;
+            m_stEncConfig.rcParams.maxBitRate = DEFAULT_MAX_BITRATE;
         }
     }
 
@@ -3480,7 +3480,7 @@ NV_ENC_CONFIG NVEncCore::DefaultParam() {
     config.monoChromeEncoding             = 0;
     config.rcParams.version               = NV_ENC_RC_PARAMS_VER;
     config.rcParams.averageBitRate        = DEFAULT_AVG_BITRATE;
-    config.rcParams.maxBitRate            = DEFAULT_MAX_BITRATE;
+    config.rcParams.maxBitRate            = 0;
     config.rcParams.enableInitialRCQP     = 1;
     config.rcParams.initialRCQP.qpInterB  = DEFAULT_QP_B;
     config.rcParams.initialRCQP.qpInterP  = DEFAULT_QP_P;
