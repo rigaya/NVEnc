@@ -712,7 +712,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 
     int vce_rc_method = list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
     bool cqp_mode = (vce_rc_method == NV_ENC_PARAMS_RC_CONSTQP);
-    bool cbr_vbr_mode = (vce_rc_method == NV_ENC_PARAMS_RC_CBR || vce_rc_method == NV_ENC_PARAMS_RC_VBR || vce_rc_method == NV_ENC_PARAMS_RC_2_PASS_VBR);
+    bool cbr_vbr_mode = (vce_rc_method == NV_ENC_PARAMS_RC_CBR || vce_rc_method == NV_ENC_PARAMS_RC_CBR_HQ || vce_rc_method == NV_ENC_PARAMS_RC_VBR || vce_rc_method == NV_ENC_PARAMS_RC_VBR_HQ);
 
     this->SuspendLayout();
     
