@@ -365,7 +365,7 @@ static tstring help() {
         _T("                                  Default: %d kbps\n")
         _T("\n")
         _T("   --vbr-quality <int>          set target quality for VBR mode (0-51, 0 = auto)\n")
-        _T("   --max-bitrate <int>          set Max Bitrate (kbps) / Default: %d kbps\n")
+        _T("   --max-bitrate <int>          set Max Bitrate (kbps)\n")
         _T("   --qp-init <int> or           set initial QP\n")
         _T("             <int>:<int>:<int>    Default: auto\n")
         _T("   --qp-max <int> or            set max QP\n")
@@ -395,7 +395,7 @@ static tstring help() {
         _T("                                  none, bob, adaptive (normal)\n")
         _T("                                  available only with avcuvid reader\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
-        DEFAULT_AVG_BITRATE / 1000, DEFAULT_MAX_BITRATE / 1000,
+        DEFAULT_AVG_BITRATE / 1000,
         DEFAULT_LOOKAHEAD,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
         DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);

@@ -66,6 +66,8 @@
 #include "avcodec_writer.h"
 #include "helper_nvenc.h"
 #include "chapter_rw.h"
+#include "h264_level.h"
+#include "hevc_level.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
 
@@ -2018,6 +2020,38 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         if (COLOR_VALUE_AUTO == value)
             value = list[(frame_height >= HD_HEIGHT_THRESHOLD) ? HD_INDEX : SD_INDEX].value;
     };
+    //最大ビットレート自動
+    if (m_stEncConfig.rcParams.maxBitRate == 0) {
+        //指定されたビットレートの1.5倍は最大ビットレートを確保する
+        const int prefered_bitrate_kbps = (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP) ? 0 : m_stEncConfig.rcParams.averageBitRate * 3 / 2 / 1000;
+        if (inputParam->codec == NV_ENC_H264) {
+            const int profile = get_value_from_guid(m_stEncConfig.profileGUID, h264_profile_names);
+            int level = m_stEncConfig.encodeCodecConfig.h264Config.level;
+            if (level == 0) {
+                level = calc_h264_auto_level(m_uEncWidth, m_uEncHeight, m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames, is_interlaced(m_stPicStruct),
+                    inputParam->input.rate, inputParam->input.scale, profile, prefered_bitrate_kbps, m_stEncConfig.rcParams.vbvBufferSize / 1000);
+            }
+            int max_bitrate_kbps = 0, vbv_bufsize_kbps = 0;
+            get_h264_vbv_value(&max_bitrate_kbps, &vbv_bufsize_kbps, level, profile);
+            if (profile >= 100) {
+                //なぜかhigh profileではぎりぎりを指定するとエラー終了するので、すこし減らす
+                max_bitrate_kbps = (int)(max_bitrate_kbps * 0.96 + 0.5);
+                vbv_bufsize_kbps = (int)(vbv_bufsize_kbps * 0.96 + 0.5);
+            }
+            m_stEncConfig.rcParams.maxBitRate = max_bitrate_kbps * 1000;
+        } else if (inputParam->codec == NV_ENC_HEVC) {
+            const bool high_tier = m_stEncConfig.encodeCodecConfig.hevcConfig.tier == NV_ENC_TIER_HEVC_HIGH;
+            int level = m_stEncConfig.encodeCodecConfig.hevcConfig.level;
+            if (level == 0) {
+                level = calc_hevc_auto_level(m_uEncWidth, m_uEncHeight, //m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
+                    inputParam->input.rate, inputParam->input.scale, high_tier, prefered_bitrate_kbps);
+            }
+            //なぜかぎりぎりを指定するとエラー終了するので、すこし減らす
+            m_stEncConfig.rcParams.maxBitRate = get_hevc_max_bitrate(level, high_tier) * 960;
+        } else {
+            m_stEncConfig.rcParams.maxBitRate = 17500 * 1000;
+        }
+    }
 
     apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries,         list_colorprim);
     apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer);
