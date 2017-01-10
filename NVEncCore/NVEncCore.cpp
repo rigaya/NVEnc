@@ -1977,15 +1977,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stEncConfig.rcParams.vbvBufferSize = 0;
         error_feature_unsupported(NV_LOG_WARN, FOR_AUO ? _T("VBVバッファサイズの指定") : _T("Custom VBV Bufsize"));
     }
-    if (inputParam->lossless) {
-        if (inputParam->codec != NV_ENC_H264) {
-            PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("lossless出力はH.264エンコード時のみ使用できます。\n") : _T("lossless output is only for H.264 codec.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
-        }
-        if (!getCapLimit(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE)) {
-            error_feature_unsupported(NV_LOG_ERROR, _T("lossless"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
-        }
+    if (inputParam->lossless && !getCapLimit(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE)) {
+        error_feature_unsupported(NV_LOG_ERROR, _T("lossless"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     if (inputParam->codec == NV_ENC_HEVC) {
         if (   ( m_stEncConfig.encodeCodecConfig.hevcConfig.maxCUSize != NV_ENC_HEVC_CUSIZE_AUTOSELECT
@@ -2082,6 +2076,24 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
     m_stCreateEncodeParams.presetGUID          = preset_names[inputParam->preset].id;
 
+    //ロスレス出力
+    if (inputParam->lossless) {
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag = 1;
+        m_stCreateEncodeParams.encodeConfig->rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
+        m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterB = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpIntra = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpInterP = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpInterB = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.enableMinQP = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.enableMaxQP = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpIntra = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpInterP = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpInterB = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpIntra = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterP = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterB = 0;
+    }
+
     if (inputParam->codec == NV_ENC_HEVC) {
         //整合性チェック (一般, H.265/HEVC)
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
@@ -2131,24 +2143,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate = std::min(m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate, m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate);
             m_stCreateEncodeParams.encodeConfig->frameIntervalP = std::min(m_stCreateEncodeParams.encodeConfig->frameIntervalP, 3+1);
             m_stCreateEncodeParams.encodeConfig->gopLength = (std::min(m_stCreateEncodeParams.encodeConfig->gopLength, 30u) / m_stCreateEncodeParams.encodeConfig->frameIntervalP) * m_stCreateEncodeParams.encodeConfig->frameIntervalP;
-        }
-
-        //ロスレス出力
-        if (inputParam->lossless) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag = 1;
-            m_stCreateEncodeParams.encodeConfig->rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-            m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterB = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpIntra = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpInterP = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpInterB = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.enableMinQP = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.enableMaxQP = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpIntra = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpInterP = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpInterB = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpIntra = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterP = 0;
-            m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterB = 0;
         }
         //YUV444出力
         if (inputParam->yuv444 || inputParam->lossless) {
