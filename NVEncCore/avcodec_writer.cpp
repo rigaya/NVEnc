@@ -2602,7 +2602,6 @@ int CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
         AVFrame *decodedFrame = nullptr;
         if (bSetSilenceDueToAACBsfError) {
             //無音挿入
-            decodedFrame = av_frame_alloc();
             decodedFrame                 = av_frame_alloc();
             decodedFrame->nb_samples     = nSamples;
             decodedFrame->channels       = pMuxAudio->nResamplerInChannels;
