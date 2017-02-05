@@ -678,7 +678,7 @@ typedef struct AVDemuxVideo {
     uint32_t                  nStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES, 等)
     int                       nRFFEstimate;          //動画がRFFの可能性がある
     bool                      bGotFirstKeyframe;     //動画の最初のキーフレームを取得済み
-    AVBSFContext             *pH264Bsfc;             //必要なら使用するbitstreamfilter
+    AVBSFContext             *pBsfcCtx;             //必要なら使用するbitstreamfilter
     uint8_t                  *pExtradata;            //動画のヘッダ情報
     int                       nExtradataSize;        //動画のヘッダサイズ
     AVRational                nAvgFramerate;         //動画のフレームレート
