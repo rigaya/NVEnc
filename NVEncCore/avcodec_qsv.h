@@ -72,8 +72,8 @@ typedef struct CuvidCodec {
 
 //QSVでデコード可能なコーデックのリスト
 static const CuvidCodec CUVID_DECODE_LIST[] = { 
-    { AV_CODEC_ID_H264,       cudaVideoCodec_H264   },
-    //{ AV_CODEC_ID_HEVC,       cudaVideoCodec_HEVC  },
+    { AV_CODEC_ID_H264,       cudaVideoCodec_H264  },
+    { AV_CODEC_ID_HEVC,       cudaVideoCodec_HEVC  },
     { AV_CODEC_ID_MPEG1VIDEO, cudaVideoCodec_MPEG1 },
     { AV_CODEC_ID_MPEG2VIDEO, cudaVideoCodec_MPEG2 },
     //{ AV_CODEC_ID_VC1,        cudaVideoCodec_VC1   },
