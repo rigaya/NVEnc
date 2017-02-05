@@ -939,7 +939,9 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             //    m_Demux.video.bUseHEVCmp42AnnexB = true;
             //    AddMessage(NV_LOG_DEBUG, _T("enabled HEVCmp42AnnexB filter.\n"));
             }
-        } else if (bDecodecCUVID && (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0)) {
+        } else if (bDecodecCUVID
+            && (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0)
+            && (m_sDecParam.codec != cudaVideoCodec_VP8 && m_sDecParam.codec != cudaVideoCodec_VP9)) {
             AddMessage(NV_LOG_ERROR, _T("video header not extracted by libavcodec.\n"));
             return 1;
         }
