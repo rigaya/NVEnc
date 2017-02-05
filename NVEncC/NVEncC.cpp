@@ -58,7 +58,11 @@ bool check_locale_is_ja() {
 
 static tstring GetNVEncVersion() {
     static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
-    tstring version = strsprintf(_T("NVEncC (%s) %s by rigaya [NVENC API v%d.%d], build %s %s\n"), BUILD_ARCH_STR, VER_STR_FILEVERSION_TCHAR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION, _T(__DATE__), _T(__TIME__));
+    tstring version = strsprintf(_T("NVEncC (%s) %s by rigaya [NVENC API v%d.%d, CUDA %d.%d], %s %s\n"),
+        BUILD_ARCH_STR, VER_STR_FILEVERSION_TCHAR,
+        NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
+        CUDA_VERSION / 1000, (CUDA_VERSION % 1000) / 10,
+        _T(__DATE__), _T(__TIME__));
     version += _T(" reader: raw");
     if (AVI_READER) version += _T(", avi");
     if (AVS_READER) version += _T(", avs");
