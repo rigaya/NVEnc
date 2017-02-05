@@ -225,51 +225,6 @@ bool CAvcodecReader::vc1StartCodeExists(uint8_t *ptr) {
     return check_range_unsigned(code, 0x010A, 0x010F) || check_range_unsigned(code, 0x011B, 0x011F);
 }
 
-void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
-    static const uint8_t SC[] = { 0, 0, 0, 1 };
-    const uint8_t *ptr, *ptr_fin;
-    if (pkt == NULL) {
-        m_hevcMp42AnnexbBuffer.reserve(m_Demux.video.nExtradataSize + 128);
-        ptr = m_Demux.video.pExtradata;
-        ptr_fin = ptr + m_Demux.video.nExtradataSize;
-        ptr += 0x16;
-    } else {
-        m_hevcMp42AnnexbBuffer.reserve(pkt->size + 128);
-        ptr = pkt->data;
-        ptr_fin = ptr + pkt->size;
-    }
-    const int numOfArrays = *ptr;
-    ptr += !!numOfArrays;
-
-    while (ptr + 6 < ptr_fin) {
-        ptr += !!numOfArrays;
-        const int count = readUB16(ptr); ptr += 2;
-        int units = (numOfArrays) ? count : 1;
-        for (int i = (std::max)(1, units); i; i--) {
-            uint32_t size = readUB16(ptr); ptr += 2;
-            uint32_t uppper = count << 16;
-            size += (numOfArrays) ? 0 : uppper;
-            m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), SC, SC+4);
-            m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), ptr, ptr+size); ptr += size;
-        }
-    }
-    if (pkt) {
-        if (pkt->buf->size < (int)m_hevcMp42AnnexbBuffer.size()) {
-            av_grow_packet(pkt, (int)m_hevcMp42AnnexbBuffer.size());
-        }
-        memcpy(pkt->data, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
-        pkt->size = (int)m_hevcMp42AnnexbBuffer.size();
-    } else {
-        if (m_Demux.video.pExtradata) {
-            av_free(m_Demux.video.pExtradata);
-        }
-        m_Demux.video.pExtradata = (uint8_t *)av_malloc(m_hevcMp42AnnexbBuffer.size());
-        m_Demux.video.nExtradataSize = (int)m_hevcMp42AnnexbBuffer.size();
-        memcpy(m_Demux.video.pExtradata, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
-    }
-    m_hevcMp42AnnexbBuffer.clear();
-}
-
 void CAvcodecReader::vc1FixHeader(int nLengthFix) {
     if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3) {
         m_Demux.video.nExtradataSize += nLengthFix;
@@ -935,9 +890,6 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                     return 1;
                 }
                 AddMessage(NV_LOG_DEBUG, _T("initialized %s filter.\n"), char_to_tstring(filter->name).c_str());
-            //} else if (m_sDecParam.codec == cudaVideoCodec_HEVC) {
-            //    m_Demux.video.bUseHEVCmp42AnnexB = true;
-            //    AddMessage(NV_LOG_DEBUG, _T("enabled HEVCmp42AnnexB filter.\n"));
             }
         } else if (bDecodecCUVID
             && (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0)
@@ -1308,9 +1260,6 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
                     return 1;
                 }
             }
-            if (m_Demux.video.bUseHEVCmp42AnnexB) {
-                hevcMp42Annexb(pkt);
-            }
             if (m_nInputCodec == cudaVideoCodec_VC1) {
                 vc1AddFrameHeader(pkt);
             }
@@ -1341,14 +1290,14 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
                 pos.poc = AVQSV_POC_INVALID;
                 pos.flags = (uint8_t)pkt->flags;
                 if (m_Demux.video.pParserCtx) {
-                    if (m_Demux.video.pBsfcCtx || m_Demux.video.bUseHEVCmp42AnnexB) {
+                    if (m_Demux.video.pBsfcCtx) {
                         std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
                         std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
                     }
                     uint8_t *dummy = nullptr;
                     int dummy_size = 0;
                     av_parser_parse2(m_Demux.video.pParserCtx, m_Demux.video.pCodecCtx, &dummy, &dummy_size, pkt->data, pkt->size, pkt->pts, pkt->dts, pkt->pos);
-                    if (m_Demux.video.pBsfcCtx || m_Demux.video.bUseHEVCmp42AnnexB) {
+                    if (m_Demux.video.pBsfcCtx) {
                         std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
                         std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
                     }
@@ -1567,9 +1516,7 @@ int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
         memcpy(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata, m_Demux.video.nExtradataSize);
         memset(m_Demux.video.pExtradata + m_Demux.video.nExtradataSize, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 
-        if (m_Demux.video.bUseHEVCmp42AnnexB) {
-            hevcMp42Annexb(NULL);
-        } else if (m_Demux.video.pBsfcCtx && m_Demux.video.pExtradata[0] == 1) {
+        if (m_Demux.video.pBsfcCtx && m_Demux.video.pExtradata[0] == 1) {
             int ret = 0;
             auto pBsf = av_bsf_get_by_name(m_Demux.video.pBsfcCtx->filter->name);
             if (pBsf == nullptr) {
