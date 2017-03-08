@@ -362,7 +362,7 @@ const CX_DESC nvenc_interface_names[] = {
 };
 
 const CX_DESC list_mv_presicion[] = {
-    //{ _T("auto"),     NV_ENC_MV_PRECISION_DEFAULT     },
+    { _T("auto"),     NV_ENC_MV_PRECISION_DEFAULT     },
     { _T("full-pel"), NV_ENC_MV_PRECISION_FULL_PEL    },
     { _T("half-pel"), NV_ENC_MV_PRECISION_HALF_PEL    },
     { _T("Q-pel"),    NV_ENC_MV_PRECISION_QUARTER_PEL },
@@ -370,7 +370,7 @@ const CX_DESC list_mv_presicion[] = {
 };
 
 const CX_DESC list_mv_presicion_ja[] = {
-    //{ _T("自動"),        NV_ENC_MV_PRECISION_DEFAULT     },
+    { _T("自動"),        NV_ENC_MV_PRECISION_DEFAULT     },
     { _T("1画素精度"),   NV_ENC_MV_PRECISION_FULL_PEL    },
     { _T("1/2画素精度"), NV_ENC_MV_PRECISION_HALF_PEL    },
     { _T("1/4画素精度"), NV_ENC_MV_PRECISION_QUARTER_PEL },
@@ -409,7 +409,7 @@ const CX_DESC list_entropy_coding[] = {
 };
 
 const CX_DESC list_bdirect[] = {
-    //{ _T("auto"),     NV_ENC_H264_BDIRECT_MODE_AUTOSELECT },
+    { _T("auto"),     NV_ENC_H264_BDIRECT_MODE_AUTOSELECT },
     { _T("disabled"), NV_ENC_H264_BDIRECT_MODE_DISABLE    },
     { _T("temporal"), NV_ENC_H264_BDIRECT_MODE_TEMPORAL   },
     { _T("spatial"),  NV_ENC_H264_BDIRECT_MODE_SPATIAL    },

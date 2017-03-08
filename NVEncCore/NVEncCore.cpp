@@ -3427,8 +3427,8 @@ NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamH264() {
     config.h264Config.sliceMode                  = 3;
     config.h264Config.sliceModeData              = DEFAULT_NUM_SLICES;
     config.h264Config.maxNumRefFrames            = DEFAULT_REF_FRAMES;
-    config.h264Config.bdirectMode                = (DEFAULT_B_FRAMES > 0) ? NV_ENC_H264_BDIRECT_MODE_SPATIAL : NV_ENC_H264_BDIRECT_MODE_DISABLE;
-    config.h264Config.adaptiveTransformMode      = NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE;
+    config.h264Config.bdirectMode                = NV_ENC_H264_BDIRECT_MODE_AUTOSELECT;
+    config.h264Config.adaptiveTransformMode      = NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT;
     config.h264Config.entropyCodingMode          = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
 
     config.h264Config.h264VUIParameters.overscanInfo = 0;
@@ -3471,7 +3471,7 @@ NV_ENC_CONFIG NVEncCore::DefaultParam() {
     config.rcParams.rateControlMode       = NV_ENC_PARAMS_RC_CONSTQP;
     //config.encodeCodecConfig.h264Config.level;
     config.frameIntervalP                 = DEFAULT_B_FRAMES + 1;
-    config.mvPrecision                    = NV_ENC_MV_PRECISION_QUARTER_PEL;
+    config.mvPrecision                    = NV_ENC_MV_PRECISION_DEFAULT;
     config.monoChromeEncoding             = 0;
     config.rcParams.version               = NV_ENC_RC_PARAMS_VER;
     config.rcParams.averageBitRate        = DEFAULT_AVG_BITRATE;
