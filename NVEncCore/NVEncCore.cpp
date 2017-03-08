@@ -3678,30 +3678,30 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         strAQ = _T("off");
     }
     add_str(NV_LOG_INFO,  _T("AQ             %s\n"), strAQ.c_str());
-    add_str(NV_LOG_INFO,  _T("MV Quality     %s\n"), get_chr_from_value(list_mv_presicion, m_stEncConfig.mvPrecision));
     if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
         add_str(NV_LOG_DEBUG, _T("Slice number      %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
     } else {
         add_str(NV_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
-    }
-    if (codec == NV_ENC_H264) {
-        add_str(NV_LOG_INFO,  _T("CABAC/deblock  %s / %s\n"), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode), on_off(!m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC));
-        add_str(NV_LOG_DEBUG, _T("hierarchyFrame P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
-        add_str(NV_LOG_DEBUG, _T("VFR            %s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableVFR));
-        add_str(NV_LOG_DEBUG, _T("LTR            %s"),   on_off(m_stEncConfig.encodeCodecConfig.h264Config.enableLTR));
-        if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR) {
-            add_str(NV_LOG_DEBUG, _T(", Mode:%d, NumFrames:%d"), m_stEncConfig.encodeCodecConfig.h264Config.ltrTrustMode, m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames);
-        }
-        add_str(NV_LOG_DEBUG, _T("\n"));
-        add_str(NV_LOG_DEBUG, _T("Adpt.Transform %s\n"), get_chr_from_value(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
-        add_str(NV_LOG_DEBUG, _T("FMO            %s\n"), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
-        add_str(NV_LOG_DEBUG, _T("MV Mode        %s\n"), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
     }
     if (codec == NV_ENC_HEVC) {
         add_str(NV_LOG_INFO, _T("CU max / min   %s / %s\n"),
             get_chr_from_value(list_hevc_cu_size, m_stEncConfig.encodeCodecConfig.hevcConfig.maxCUSize),
             get_chr_from_value(list_hevc_cu_size, m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize));
     }
+    add_str(NV_LOG_INFO, _T("Others         "));
+    add_str(NV_LOG_INFO, _T("mv:%s "), get_chr_from_value(list_mv_presicion, m_stEncConfig.mvPrecision));
+    if (codec == NV_ENC_H264) {
+        add_str(NV_LOG_INFO, _T("%s "), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));
+        add_str(NV_LOG_INFO, (m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC == 0) ? _T("deblock ") : _T("no_deblock "));
+        add_str(NV_LOG_DEBUG, _T("hierarchyFrame P:%s  B:%s\n"), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalPFrames), on_off(m_stEncConfig.encodeCodecConfig.h264Config.hierarchicalBFrames));
+        add_str(NV_LOG_DEBUG, m_stEncConfig.encodeCodecConfig.h264Config.enableVFR ? _T("VFR ") : _T(""));
+        add_str(NV_LOG_INFO,  _T("adapt-transform:%s "), get_chr_from_value(list_adapt_transform, m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode));
+        add_str(NV_LOG_DEBUG, _T("fmo:%s "), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
+        if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 > 0) {
+            add_str(NV_LOG_INFO, _T("bdirect:%s "), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
+        }
+    }
+    add_str(NV_LOG_INFO, _T("\n"));
     return str;
 }
 
