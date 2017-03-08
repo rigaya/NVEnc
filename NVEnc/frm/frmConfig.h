@@ -2801,9 +2801,9 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             this->fcgCXBDirectMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXBDirectMode->FormattingEnabled = true;
-            this->fcgCXBDirectMode->Location = System::Drawing::Point(123, 252);
+            this->fcgCXBDirectMode->Location = System::Drawing::Point(125, 252);
             this->fcgCXBDirectMode->Name = L"fcgCXBDirectMode";
-            this->fcgCXBDirectMode->Size = System::Drawing::Size(124, 22);
+            this->fcgCXBDirectMode->Size = System::Drawing::Size(122, 22);
             this->fcgCXBDirectMode->TabIndex = 138;
             this->fcgCXBDirectMode->Tag = L"chValue";
             // 
