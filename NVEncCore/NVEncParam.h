@@ -211,14 +211,24 @@ const guid_desc h265_profile_names[] = {
     //{ NV_ENC_HEVC_PROFILE_HIGH_GUID, _T("High"), NV_ENC_TIER_HEVC_HIGH },
 };
 
-const guid_desc preset_names[] = {
-    { NV_ENC_PRESET_DEFAULT_GUID,              _T("Default Preset"),                           0 },
-    { NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID,  _T("Low Latancy Default Preset"),               1 },
-    { NV_ENC_PRESET_HP_GUID,                   _T("High Performance (HP) Preset"),             2 },
-    { NV_ENC_PRESET_HQ_GUID,                   _T("High Quality (HQ) Preset"),                 3 },
-    { NV_ENC_PRESET_BD_GUID,                   _T("Blue Ray Preset"),                          4 },
-    { NV_ENC_PRESET_LOW_LATENCY_HQ_GUID,       _T("Low Latancy High Quality (HQ) Preset"),     5 },
-    { NV_ENC_PRESET_LOW_LATENCY_HP_GUID,       _T("Low Latancy High Performance (HP) Preset"), 6 }
+enum {
+    NVENC_PRESET_DEFAULT = 0,
+    NVENC_PRESET_HP,
+    NVENC_PRESET_HQ,
+    NVENC_PRESET_BD,
+    NVENC_PRESET_LL,
+    NVENC_PRESET_LL_HP,
+    NVENC_PRESET_LL_HQ
+};
+
+const guid_desc list_nvenc_preset_names[] = {
+    { NV_ENC_PRESET_DEFAULT_GUID,              _T("default"),                 NVENC_PRESET_DEFAULT },
+    { NV_ENC_PRESET_HP_GUID,                   _T("performance"),             NVENC_PRESET_HP },
+    { NV_ENC_PRESET_HQ_GUID,                   _T("quality"),                 NVENC_PRESET_HQ },
+    //{ NV_ENC_PRESET_BD_GUID,                   _T("bluray"),                  NVENC_PRESET_BD },
+    { NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID,  _T("lowlatency"),              NVENC_PRESET_LL },
+    { NV_ENC_PRESET_LOW_LATENCY_HP_GUID,       _T("lowlatency-performance"),  NVENC_PRESET_LL_HP },
+    { NV_ENC_PRESET_LOW_LATENCY_HQ_GUID,       _T("lowlatency-quality"),      NVENC_PRESET_LL_HQ },
 };
 
 const guid_desc list_nvenc_codecs[] = {

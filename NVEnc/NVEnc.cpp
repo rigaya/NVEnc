@@ -273,7 +273,7 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     conf->nvenc.codecConfig[NV_ENC_H264] = NVEncCore::DefaultParamH264();
     conf->nvenc.codecConfig[NV_ENC_HEVC] = NVEncCore::DefaultParamHEVC();
     conf->nvenc.pic_struct = NV_ENC_PIC_STRUCT_FRAME;
-    conf->nvenc.preset = 0;
+    conf->nvenc.preset = NVENC_PRESET_DEFAULT;
     conf->nvenc.enc_config.rcParams.maxBitRate = DEFAULT_MAX_BITRATE; //NVEnc.auoではデフォルト値としてセットする
     conf->size_all = CONF_INITIALIZED;
     conf->vpp.resize_width = 1280;

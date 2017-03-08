@@ -369,6 +369,9 @@ static tstring help() {
         _T("   --cbrhq <int>                set bitrate for CBR (High Quality) mode (kbps)\n")
         _T("                                  Default: %d kbps\n")
         _T("\n")
+        _T("   --preset <string>            set encoder preset\n")
+        _T("                                  default, performance, quality\n")
+        _T("\n")
         _T("   --vbr-quality <int>          set target quality for VBR mode (0-51, 0 = auto)\n")
         _T("   --max-bitrate <int>          set Max Bitrate (kbps)\n")
         _T("   --qp-init <int> or           set initial QP\n")
@@ -755,6 +758,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return -1;
         }
         pParams->deviceID = deviceid;
+        return 0;
+    }
+    if (IS_OPTION("preset")) {
+        i++;
+        int value = get_value_from_name(strInput[i], list_nvenc_preset_names);
+        if (value >= 0) {
+            pParams->preset = value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
         return 0;
     }
     if (IS_OPTION("input")) {

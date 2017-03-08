@@ -1770,7 +1770,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
 
     //プリセットのチェック
-    if (!checkPresetSupported(get_guid_from_value(inputParam->preset, preset_names))) {
+    if (!checkPresetSupported(get_guid_from_value(inputParam->preset, list_nvenc_preset_names))) {
         PrintMes(NV_LOG_ERROR, FOR_AUO ? _T("指定されたプリセットはサポートされていません。\n") : _T("Selected preset is not supported.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -2074,7 +2074,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.enableEncodeAsync   = true;
     m_stCreateEncodeParams.enablePTD           = true;
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
-    m_stCreateEncodeParams.presetGUID          = preset_names[inputParam->preset].id;
+    m_stCreateEncodeParams.presetGUID          = list_nvenc_preset_names[inputParam->preset].id;
 
     //ロスレス出力
     if (inputParam->lossless) {
@@ -3600,7 +3600,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             }
         }
     }
-    add_str(NV_LOG_DEBUG, _T("Encoder Preset %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, preset_names));
+    add_str(NV_LOG_INFO,  _T("Encoder Preset %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, list_nvenc_preset_names));
     add_str(NV_LOG_ERROR, _T("Rate Control   %s"), get_chr_from_value(list_nvenc_rc_method_en, m_stEncConfig.rcParams.rateControlMode));
     if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
         add_str(NV_LOG_ERROR, _T("  I:%d  P:%d  B:%d%s\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB,
