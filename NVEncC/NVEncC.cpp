@@ -390,7 +390,7 @@ static tstring help() {
         _T("-b,--bframes <int>              set B frames / Default %d frames\n")
         _T("   --ref <int>                  set Ref frames / Default %d frames\n")
         _T("   --enable-ltr                 enable LTR (Long Term Reference pictures, HEVC only)\n")
-        _T("   --aq                         enable spatial adaptive quantization\n")
+        _T("   --(no-)aq                    enable spatial adaptive quantization\n")
         _T("   --aq-temporal                enable temporal adaptive quantization (FOR H.264 ONLY)\n")
         _T("   --aq-strength <int>          set aq strength (weak 1 - 15 strong)\n")
         _T("                                  FOR H.264 ONLY, Default: auto(= 0)\n")
@@ -1761,7 +1761,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (IS_OPTION("disable-aq")) {
+    if (IS_OPTION("disable-aq")
+        || IS_OPTION("no-aq")) {
         pParams->encConfig.rcParams.enableAQ = 0;
         return 0;
     }
