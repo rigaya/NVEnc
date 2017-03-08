@@ -394,10 +394,14 @@ static tstring help() {
         _T("   --aq-temporal                enable temporal adaptive quantization (FOR H.264 ONLY)\n")
         _T("   --aq-strength <int>          set aq strength (weak 1 - 15 strong)\n")
         _T("                                  FOR H.264 ONLY, Default: auto(= 0)\n")
-        _T("   --mv-precision <string>      set MV Precision / Default: Q-pel\n")
-        _T("                                  Q-pel    (High Quality)\n")
-        _T("                                  half-pel\n")
-        _T("                                  full-pel (Low Quality)\n")
+        _T("   --direct <string>            set H.264 BDirect mode\n")
+        _T("                                  auto(default), none, spatial, temporal\n")
+        _T("   --(no-)adapt-transform       set H.264 adaptive transform mode (default = auto)\n")
+        _T("   --mv-precision <string>      set MV Precision / Default: auto\n")
+        _T("                                  auto,\n")
+        _T("                                  Q-pel(High Quality),\n")
+        _T("                                  half-pel,\n")
+        _T("                                  full-pel(Low Quality, not recommended)\n")
         _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / Default: auto\n")
         _T("   --vpp-deinterlace <string>   set deinterlace mode / Default: none\n")
         _T("                                  none, bob, adaptive (normal)\n")
@@ -1764,6 +1768,25 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (IS_OPTION("disable-aq")
         || IS_OPTION("no-aq")) {
         pParams->encConfig.rcParams.enableAQ = 0;
+        return 0;
+    }
+    if (IS_OPTION("direct")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_bdirect, strInput[i], &value)) {
+            codecPrm[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("adapt-transform")) {
+        codecPrm[NV_ENC_H264].h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE;
+        return 0;
+    }
+    if (IS_OPTION("no-adapt-transform")) {
+        codecPrm[NV_ENC_H264].h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
         return 0;
     }
     if (IS_OPTION("ref")) {
