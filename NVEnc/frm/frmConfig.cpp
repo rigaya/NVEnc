@@ -637,7 +637,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXAdaptiveTransform, list_adapt_transform);
     setComboBox(fcgCXBDirectMode,       list_bdirect);
     setComboBox(fcgCXMVPrecision,       list_mv_presicion);
-    setComboBox(fcgCXQualityPreset,     preset_names);
+    setComboBox(fcgCXQualityPreset,     list_nvenc_preset_names);
     setComboBox(fcgCXVideoFormatH264,   list_videoformat);
     setComboBox(fcgCXTransferH264,      list_transfer);
     setComboBox(fcgCXColorMatrixH264,   list_colormatrix);
@@ -879,7 +879,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUQPB,               cnf->nvenc.enc_config.rcParams.constQP.qpInterB);
     SetNUValue(fcgNUGopLength,         cnf->nvenc.enc_config.gopLength);
     SetNUValue(fcgNUBframes,           cnf->nvenc.enc_config.frameIntervalP - 1);
-    SetCXIndex(fcgCXQualityPreset,     get_index_from_value(cnf->nvenc.preset, preset_names));
+    SetCXIndex(fcgCXQualityPreset,     get_index_from_value(cnf->nvenc.preset, list_nvenc_preset_names));
     SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, cnf->nvenc.enc_config.mvPrecision));
     SetNUValue(fcgNUVBVBufsize, cnf->nvenc.enc_config.rcParams.vbvBufferSize / 1000);
     SetNUValue(fcgNULookaheadDepth,   (cnf->nvenc.enc_config.rcParams.enableLookahead) ? cnf->nvenc.enc_config.rcParams.lookaheadDepth : 0);
@@ -1005,7 +1005,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->nvenc.enc_config.frameIntervalP = (int)fcgNUBframes->Value + 1;
     cnf->nvenc.enc_config.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
     cnf->nvenc.enc_config.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
-    cnf->nvenc.preset = preset_names[fcgCXQualityPreset->SelectedIndex].value;
+    cnf->nvenc.preset = list_nvenc_preset_names[fcgCXQualityPreset->SelectedIndex].value;
 
     int nLookaheadDepth = (int)fcgNULookaheadDepth->Value;
     if (nLookaheadDepth) {
