@@ -1593,23 +1593,42 @@ int CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
             }
 
             bool bGetPacket = false;
-            for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_and_pop_no_lock(&pkt)) && m_Demux.qVideoPkt.size() > 0; i++) {
+            for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_no_lock(&pkt)) && m_Demux.qVideoPkt.size() > 0; i++) {
                 m_Demux.qVideoPkt.wait_for_push();
             }
             if (!bGetPacket) {
+                //flushするためのパケット
                 pkt.data = nullptr;
                 pkt.size = 0;
             }
-            int ret = avcodec_decode_video2(m_Demux.video.pCodecCtx, m_Demux.video.pFrame, &got_frame, &pkt);
-            av_packet_unref(&pkt);
-            if (ret < 0) {
-                AddMessage(NV_LOG_ERROR, _T("failed to decode video: %s.\n"), qsv_av_err2str(ret).c_str());
+            int ret = avcodec_send_packet(m_Demux.video.pCodecCtx, &pkt);
+            //AVERROR(EAGAIN) -> パケットを送る前に受け取る必要がある
+            //パケットが受け取られていないのでpopしない
+            if (ret != AVERROR(EAGAIN)) {
+                m_Demux.qVideoPkt.pop();
+                av_packet_unref(&pkt);
+            }
+            if (ret == AVERROR_EOF) { //これ以上パケットを送れない
+                AddMessage(NV_LOG_ERROR, _T("failed to send packet to video decoder, already flushed: %s.\n"), qsv_av_err2str(ret).c_str());
                 return NVENC_THREAD_ERROR;
             }
-            if (!bGetPacket && !got_frame) {
+            if (ret < 0 && ret != AVERROR(EAGAIN)) {
+                AddMessage(NV_LOG_ERROR, _T("failed to send packet to video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
+                return NVENC_THREAD_ERROR;
+            }
+            ret = avcodec_receive_frame(m_Demux.video.pCodecCtx, m_Demux.video.pFrame);
+            if (ret == AVERROR(EAGAIN)) { //もっとパケットを送る必要がある
+                continue;
+            }
+            if (ret == AVERROR_EOF) {
                 //最後まで読み込んだ
                 return NVENC_THREAD_ERROR;
             }
+            if (ret < 0) {
+                AddMessage(NV_LOG_ERROR, _T("failed to receive frame from video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
+                return NVENC_THREAD_ERROR;
+            }
+            got_frame = TRUE;
         }
         //フレームデータをコピー
 
