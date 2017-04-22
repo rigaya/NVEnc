@@ -97,7 +97,6 @@ typedef struct AVMuxAudio {
     uint32_t              nIgnoreDecodeError;   //デコード時に連続して発生したエラー回数がこの閾値を以下なら無視し、無音に置き換える
     uint32_t              nDecodeError;         //デコード処理中に連続してエラーが発生した回数
     bool                  bEncodeError;         //エンコード処理中にエラーが発生
-    AVPacket              OutPacket;            //変換用の音声バッファ
 
     //filter
     int                   nFilterInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
@@ -397,7 +396,7 @@ private:
     void AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDts);
 
     //音声をデコード
-    AVFrame *AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket *pkt, int *got_result);
+    AVFrame *AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pkt);
 
     //音声をresample
     int AudioResampleFrame(AVMuxAudio *pMuxAudio, AVFrame **frame);

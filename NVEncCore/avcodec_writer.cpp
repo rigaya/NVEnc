@@ -120,10 +120,6 @@ void CAvcodecWriter::CloseAudio(AVMuxAudio *pMuxAudio) {
         avfilter_graph_free(&pMuxAudio->pFilterGraph);
     }
 
-    //free packet
-    if (pMuxAudio->OutPacket.data) {
-        av_packet_unref(&pMuxAudio->OutPacket);
-    }
     if (pMuxAudio->pAACBsfc) {
         av_bsf_free(&pMuxAudio->pAACBsfc);
     }
@@ -823,8 +819,6 @@ int CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAu
                 char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecDecodeCtx->sample_fmt)).c_str(),
                 pMuxAudio->pOutCodecDecodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecDecodeCtx->pkt_timebase.den);
         }
-        av_new_packet(&pMuxAudio->OutPacket, 512 * 1024);
-        pMuxAudio->OutPacket.size = 0;
 
         if (codecId != AV_CODEC_ID_NONE) {
             //PCM encoder
@@ -2054,68 +2048,94 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVPktMuxData *pktData) {
     return WriteNextPacketProcessed(pktData->pMuxAudio, &pktData->pkt, pktData->samples, &pktData->dts);
 }
 
-AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket *pkt, int *got_result) {
-    *got_result = FALSE;
+AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pkt) {
     if (pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError) {
         return nullptr;
     }
-    const AVPacket *pktIn = pkt;
-    if (pMuxAudio->OutPacket.size != 0) {
-        int currentSize = pMuxAudio->OutPacket.size;
-        if (pMuxAudio->OutPacket.buf->size < currentSize + pkt->size) {
-            av_grow_packet(&pMuxAudio->OutPacket, currentSize + pkt->size);
-        }
-        memcpy(pMuxAudio->OutPacket.data + currentSize, pkt->data, pkt->size);
-        pMuxAudio->OutPacket.size = currentSize + pkt->size;
-        pktIn = &pMuxAudio->OutPacket;
-        av_packet_copy_props(&pMuxAudio->OutPacket, pkt);
-    }
+    AVPacket pktInInfo;
+    av_packet_copy_props(&pktInInfo, pkt);
+
+    bool sent_packet = false;
+
     //最終的な出力フレーム
-    AVFrame *decodedFrame = av_frame_alloc();
-    while (!(*got_result) || pktIn->size > 0) {
-        //ひとつのパケットをデコード
-        AVFrame *decodedData = av_frame_alloc();
-        int len = avcodec_decode_audio4(pMuxAudio->pOutCodecDecodeCtx, decodedData, got_result, pktIn);
-        if (len < 0) {
-            pMuxAudio->nDecodeError++;
-            AddMessage(NV_LOG_WARN, _T("avcodec writer: failed to decode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(len).c_str());
-            if (decodedData) {
-                av_frame_free(&decodedData);
+    AVFrame *decodedFrame = nullptr;
+    int recv_ret = 0;
+    for (;;) {
+        AVFrame *receivedData = nullptr;
+
+        int send_ret = 0;
+        //必ず一度はパケットを送る
+        if (!sent_packet || pkt->size > 0) {
+            sent_packet = true;
+            //ひとつのパケットをデコーダに送る
+            send_ret = avcodec_send_packet(pMuxAudio->pOutCodecDecodeCtx, pkt);
+            //AVERROR(EAGAIN) -> パケットを送る前に受け取る必要がある (パケットが受け取られていないので解放しない)
+            if (send_ret != AVERROR(EAGAIN)) {
+                av_packet_unref(pkt);
             }
-            decodedData = nullptr;
+            if (send_ret == AVERROR_EOF) {
+                if (decodedFrame) {
+                    av_frame_free(&decodedFrame);
+                }
+                AddMessage(NV_LOG_ERROR, _T("avcodec writer: failed to send packet to audio decoder, already flushed.\n"));
+                m_Mux.format.bStreamError = true;
+                break;
+            }
+        }
+        if (send_ret < 0 && send_ret != AVERROR(EAGAIN)) {
+            pMuxAudio->nDecodeError++;
+        } else {
+            receivedData = av_frame_alloc();
+            recv_ret = avcodec_receive_frame(pMuxAudio->pOutCodecDecodeCtx, receivedData);
+            if (recv_ret == AVERROR(EAGAIN)   //もっとパケットを送る必要がある
+                || recv_ret == AVERROR_EOF) { //最後まで読み込んだ
+                break;
+            }
+            if (recv_ret < 0) {
+                AddMessage(NV_LOG_ERROR, _T("failed to receive frame from audio decoder: %s.\n"), qsv_av_err2str(recv_ret).c_str());
+                pMuxAudio->nDecodeError++;
+            } else {
+                pMuxAudio->nDecodeError = 0;
+            }
+        }
+
+        if (pMuxAudio->nDecodeError) {
+            if (receivedData) {
+                av_frame_free(&receivedData);
+            }
             if (pMuxAudio->nDecodeError <= pMuxAudio->nIgnoreDecodeError) {
                 //デコードエラーを無視する場合、入力パケットのサイズ分、無音を挿入する
-                AVRational samplerate = { 1, pMuxAudio->nResamplerInSampleRate };
-                decodedData                 = av_frame_alloc();
-                decodedData->nb_samples     = (int)av_rescale_q(pktIn->duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
-                decodedData->channels       = pMuxAudio->nResamplerInChannels;
-                decodedData->channel_layout = pMuxAudio->nResamplerInChannelLayout;
-                decodedData->sample_rate    = pMuxAudio->nResamplerInSampleRate;
-                decodedData->format         = pMuxAudio->ResamplerInSampleFmt;
-                av_frame_get_buffer(decodedData, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
-                av_samples_set_silence((uint8_t **)decodedData->data, 0, decodedData->nb_samples, decodedData->channels, (AVSampleFormat)decodedData->format);
-
-                len = pktIn->size;
+                AVRational samplerate ={ 1, pMuxAudio->nResamplerInSampleRate };
+                receivedData                 = av_frame_alloc();
+                receivedData->nb_samples     = (int)av_rescale_q(pktInInfo.duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
+                receivedData->channels       = pMuxAudio->nResamplerInChannels;
+                receivedData->channel_layout = pMuxAudio->nResamplerInChannelLayout;
+                receivedData->sample_rate    = pMuxAudio->nResamplerInSampleRate;
+                receivedData->format         = pMuxAudio->ResamplerInSampleFmt;
+                av_frame_get_buffer(receivedData, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+                av_samples_set_silence((uint8_t **)receivedData->data, 0, receivedData->nb_samples, receivedData->channels, (AVSampleFormat)receivedData->format);
             } else {
                 AddMessage(NV_LOG_ERROR, _T("avcodec writer: failed to decode audio #%d for %d times.\n"), pMuxAudio->nInTrackId, pMuxAudio->nDecodeError);
                 if (decodedFrame) {
                     av_frame_free(&decodedFrame);
                 }
-                decodedFrame = nullptr;
                 m_Mux.format.bStreamError = true;
                 break;
             }
-        } else {
-            pMuxAudio->nDecodeError = 0;
         }
-        //decodedFrameにすでにデータがあれば、decodedDataのデータを連結する
-        if (decodedFrame->nb_samples && decodedData->nb_samples) {
+        if (decodedFrame == nullptr || decodedFrame->nb_samples == 0) {
+            if (decodedFrame) {
+                av_frame_free(&decodedFrame);
+            }
+            decodedFrame = receivedData;
+        } else if (decodedFrame->nb_samples && receivedData->nb_samples) {
+            //decodedFrameにすでにデータがあれば、decodedDataのデータを連結する
             AVFrame *decodedFrameNew        = av_frame_alloc();
-            decodedFrameNew->nb_samples     = decodedFrame->nb_samples + decodedData->nb_samples;
-            decodedFrameNew->channels       = decodedData->channels;
-            decodedFrameNew->channel_layout = decodedData->channel_layout;
-            decodedFrameNew->sample_rate    = decodedData->sample_rate;
-            decodedFrameNew->format         = decodedData->format;
+            decodedFrameNew->nb_samples     = decodedFrame->nb_samples + receivedData->nb_samples;
+            decodedFrameNew->channels       = receivedData->channels;
+            decodedFrameNew->channel_layout = receivedData->channel_layout;
+            decodedFrameNew->sample_rate    = receivedData->sample_rate;
+            decodedFrameNew->format         = receivedData->format;
             av_frame_get_buffer(decodedFrameNew, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
             const int bytes_per_sample = av_get_bytes_per_sample((AVSampleFormat)decodedFrameNew->format)
                 * (av_sample_fmt_is_planar((AVSampleFormat)decodedFrameNew->format) ? 1 : decodedFrameNew->channels);
@@ -2124,28 +2144,16 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
                 if (decodedFrame->nb_samples > 0) {
                     memcpy(decodedFrameNew->data[i], decodedFrame->data[i], decodedFrame->nb_samples * bytes_per_sample);
                 }
-                if (decodedData->nb_samples > 0) {
+                if (receivedData->nb_samples > 0) {
                     memcpy(decodedFrameNew->data[i] + decodedFrame->nb_samples * bytes_per_sample,
-                        decodedData->data[i], decodedData->nb_samples * bytes_per_sample);
+                        receivedData->data[i], receivedData->nb_samples * bytes_per_sample);
                 }
             }
+            av_frame_free(&receivedData);
             av_frame_free(&decodedFrame);
             decodedFrame = decodedFrameNew;
-        } else if (decodedData->nb_samples) {
-            av_frame_free(&decodedFrame);
-            decodedFrame = decodedData;
-        }
-        if (pktIn->size != len) {
-            int newLen = pktIn->size - len;
-            memmove(pMuxAudio->OutPacket.data, pktIn->data + len, newLen);
-            pMuxAudio->OutPacket.size = newLen;
-            pktIn = &pMuxAudio->OutPacket;
-        } else {
-            pMuxAudio->OutPacket.size = 0;
-            break;
         }
     }
-    *got_result = decodedFrame && decodedFrame->nb_samples > 0;
     return decodedFrame;
 }
 
@@ -2281,10 +2289,9 @@ int CAvcodecWriter::AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVPacket *pEncPkt, c
 
 void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDts) {
     while (pMuxAudio->pOutCodecDecodeCtx && !pMuxAudio->bEncodeError) {
-        int got_result = 0;
         AVPacket pkt = { 0 };
-        AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pkt, &got_result);
-        if (!got_result && (decodedFrame != nullptr || pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError)) {
+        AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pkt);
+        if (decodedFrame == nullptr || decodedFrame->nb_samples == 0) {
             if (decodedFrame != nullptr) {
                 av_frame_free(&decodedFrame);
             }
@@ -2294,6 +2301,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDt
         AVPktMuxData pktData = { 0 };
         pktData.type = MUX_DATA_TYPE_FRAME;
         pktData.pFrame = decodedFrame;
+        pktData.got_result = TRUE;
         pktData.pMuxAudio = pMuxAudio;
 
         //フィルタリングを行う
@@ -2611,13 +2619,11 @@ int CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
             av_frame_get_buffer(decodedFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
             av_samples_set_silence((uint8_t **)decodedFrame->data, 0, decodedFrame->nb_samples, decodedFrame->channels, (AVSampleFormat)decodedFrame->format);
         } else {
-            decodedFrame = AudioDecodePacket(pMuxAudio, &pktData->pkt, &pktData->got_result);
-            if (pktData->pkt.data != nullptr) {
-                av_packet_unref(&pktData->pkt);
-            }
+            decodedFrame = AudioDecodePacket(pMuxAudio, &pktData->pkt);
         }
         pktData->type = MUX_DATA_TYPE_FRAME;
         pktData->pFrame = decodedFrame;
+        pktData->got_result = decodedFrame && decodedFrame->nb_samples > 0;
 
         //フィルタリングを行う
         if (pktData->got_result) {
