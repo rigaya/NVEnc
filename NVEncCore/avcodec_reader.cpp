@@ -170,7 +170,7 @@ vector<int> CAvcodecReader::getStreamIndex(AVMediaType type, const vector<int> *
     vector<int> streams;
     const int n_streams = m_Demux.format.pFormatCtx->nb_streams;
     for (int i = 0; i < n_streams; i++) {
-        if (m_Demux.format.pFormatCtx->streams[i]->codec->codec_type == type) {
+        if (m_Demux.format.pFormatCtx->streams[i]->codecpar->codec_type == type) {
             streams.push_back(i);
         }
     }
@@ -178,14 +178,14 @@ vector<int> CAvcodecReader::getStreamIndex(AVMediaType type, const vector<int> *
         std::sort(streams.begin(), streams.end(), [pFormatCtx = m_Demux.format.pFormatCtx](int streamIdA, int streamIdB) {
             auto pStreamA = pFormatCtx->streams[streamIdA];
             auto pStreamB = pFormatCtx->streams[streamIdB];
-            if (pStreamA->codec == nullptr) {
+            if (pStreamA->codecpar == nullptr) {
                 return false;
             }
-            if (pStreamB->codec == nullptr) {
+            if (pStreamB->codecpar == nullptr) {
                 return true;
             }
-            const int resA = pStreamA->codec->width * pStreamA->codec->height;
-            const int resB = pStreamB->codec->width * pStreamB->codec->height;
+            const int resA = pStreamA->codecpar->width * pStreamA->codecpar->height;
+            const int resB = pStreamB->codecpar->width * pStreamB->codecpar->height;
             return (resA > resB);
         });
     } else if (pVidStreamIndex && pVidStreamIndex->size()) {
@@ -201,10 +201,10 @@ vector<int> CAvcodecReader::getStreamIndex(AVMediaType type, const vector<int> *
             return ret;
         };
         std::sort(streams.begin(), streams.end(), [pFormatCtx = m_Demux.format.pFormatCtx, pVidStreamIndex, mostNearestVidStreamId](int streamIdA, int streamIdB) {
-            if (pFormatCtx->streams[streamIdA]->codec == nullptr) {
+            if (pFormatCtx->streams[streamIdA]->codecpar == nullptr) {
                 return false;
             }
-            if (pFormatCtx->streams[streamIdB]->codec == nullptr) {
+            if (pFormatCtx->streams[streamIdB]->codecpar == nullptr) {
                 return true;
             }
             auto pStreamIdA = pFormatCtx->streams[streamIdA]->id;
@@ -716,7 +716,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             vector_cat(mediaStreams, subStreams);
         }
         for (int iTrack = 0; iTrack < (int)mediaStreams.size(); iTrack++) {
-            const AVCodecID codecId = m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codec->codec_id;
+            const AVCodecID codecId = m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codecpar->codec_id;
             bool useStream = false;
             sAudioSelect *pAudioSelect = nullptr; //トラックに対応するsAudioSelect (字幕ストリームの場合はnullptrのまま)
             if (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId)) {
@@ -743,7 +743,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 //pnStreamChannelsはchannelの存在しない不要なビットまで立っているのをここで修正
                 if (pAudioSelect //字幕ストリームの場合は無視
                     && isSplitChannelAuto(pAudioSelect->pnStreamChannelSelect)) {
-                    const uint64_t channel_layout_mask = UINT64_MAX >> (sizeof(channel_layout_mask) * 8 - m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codec->channels);
+                    const uint64_t channel_layout_mask = UINT64_MAX >> (sizeof(channel_layout_mask) * 8 - m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codecpar->channels);
                     for (uint32_t iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
                         pAudioSelect->pnStreamChannelSelect[iSubStream] &= channel_layout_mask;
                     }
@@ -914,8 +914,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         if (input_prm->fSeekSec > 0.0f) {
             AVPacket firstpkt;
             getSample(&firstpkt); //現在のtimestampを取得する
-            const auto pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
-            const auto seek_time = av_rescale_q(1, av_d2q((double)input_prm->fSeekSec, 1<<24), pCodecCtx->pkt_timebase);
+            const auto seek_time = av_rescale_q(1, av_d2q((double)input_prm->fSeekSec, 1<<24), m_Demux.video.pCodecCtx->pkt_timebase);
             int seek_ret = av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, firstpkt.pts + seek_time, 0);
             if (0 > seek_ret) {
                 seek_ret = av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, firstpkt.pts + seek_time, AVSEEK_FLAG_ANY);
@@ -1421,7 +1420,7 @@ void CAvcodecReader::GetAudioDataPacketsWhenNoVideoRead() {
                                                                                                                                                             //動画に映像がない場合、
                                                                                                                                                             //およそ1フレーム分のパケットを取得する
         while (av_read_frame(m_Demux.format.pFormatCtx, &pkt) >= 0) {
-            if (m_Demux.format.pFormatCtx->streams[pkt.stream_index]->codec->codec_type != AVMEDIA_TYPE_AUDIO) {
+            if (m_Demux.format.pFormatCtx->streams[pkt.stream_index]->codecpar->codec_type != AVMEDIA_TYPE_AUDIO) {
                 av_packet_unref(&pkt);
             } else {
                 AVDemuxStream *pStream = getPacketStreamData(&pkt);

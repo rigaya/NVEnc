@@ -1700,7 +1700,7 @@ tstring CAvcodecWriter::GetWriterMes() {
     };
 
     if (m_Mux.video.pStream) {
-        add_mes(avcodec_get_name(m_Mux.video.pStream->codec->codec_id));
+        add_mes(avcodec_get_name(m_Mux.video.pStream->codecpar->codec_id));
         i_stream++;
     }
     for (const auto& audioStream : m_Mux.audio) {
