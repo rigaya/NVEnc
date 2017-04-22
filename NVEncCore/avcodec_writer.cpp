@@ -2048,6 +2048,11 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVPktMuxData *pktData) {
     return WriteNextPacketProcessed(pktData->pMuxAudio, &pktData->pkt, pktData->samples, &pktData->dts);
 }
 
+void CAvcodecWriter::WriteNextPacketProcessed(AVPktMuxData *pktData, int64_t *pWrittenDts) {
+    WriteNextPacketProcessed(pktData->pMuxAudio, &pktData->pkt, pktData->samples, &pktData->dts);
+    *pWrittenDts = pktData->dts;
+}
+
 AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pkt) {
     if (pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError) {
         return nullptr;
@@ -2273,18 +2278,37 @@ int CAvcodecWriter::AudioResampleFrame(AVMuxAudio *pMuxAudio, AVFrame **frame) {
 }
 
 //音声をエンコード
-int CAvcodecWriter::AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVPacket *pEncPkt, const AVFrame *frame, int *got_result) {
-    memset(pEncPkt, 0, sizeof(pEncPkt[0])); //av_init_packetでsizeなどは初期化されないので0をセット
-    av_init_packet(pEncPkt);
-    int samples = 0;
-    int ret = avcodec_encode_audio2(pMuxAudio->pOutCodecEncodeCtx, pEncPkt, frame, got_result);
-    if (ret < 0) {
-        AddMessage(NV_LOG_WARN, _T("avcodec writer: failed to encode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(ret).c_str());
-        pMuxAudio->bEncodeError = true;
-    } else if (*got_result) {
-        samples = (int)av_rescale_q(pEncPkt->duration, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase, { 1, pMuxAudio->pCodecCtxIn->sample_rate });
+vector<AVPktMuxData> CAvcodecWriter::AudioEncodeFrame(AVMuxAudio *pMuxAudio, const AVFrame *frame) {
+    vector<AVPktMuxData> encPktDatas;
+
+    int ret = avcodec_send_frame(pMuxAudio->pOutCodecEncodeCtx, frame);
+    if (ret == AVERROR_EOF) {
+        return encPktDatas;
     }
-    return samples;
+    if (ret < 0) {
+        AddMessage(NV_LOG_WARN, _T("avcodec writer: failed to send frame to audio encoder #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(ret).c_str());
+        pMuxAudio->bEncodeError = true;
+        return encPktDatas;
+    }
+
+    AVPktMuxData pktData;
+    memset(&pktData.pkt, 0, sizeof(pktData.pkt)); //av_init_packetでsizeなどは初期化されないので0をセット
+    pktData.type = MUX_DATA_TYPE_PACKET;
+    pktData.pMuxAudio = pMuxAudio;
+    while (ret >= 0) {
+        av_init_packet(&pktData.pkt);
+        ret = avcodec_receive_packet(pMuxAudio->pOutCodecEncodeCtx, &pktData.pkt);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        } else if (ret < 0) {
+            AddMessage(NV_LOG_WARN, _T("avcodec writer: failed to encode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(ret).c_str());
+            pMuxAudio->bEncodeError = true;
+        }
+        pktData.samples = (int)av_rescale_q(pktData.pkt.duration, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase, { 1, pMuxAudio->pCodecCtxIn->sample_rate });
+        pktData.dts = pktData.pkt.dts;
+        encPktDatas.push_back(pktData);
+    }
+    return encPktDatas;
 }
 
 void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDts) {
@@ -2324,23 +2348,25 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDt
         }
     }
     while (pMuxAudio->pSwrContext && !pMuxAudio->bEncodeError) {
-        int samples = 0;
-        int got_result = 0;
-        AVPacket pkt = { 0 };
         AVFrame *decodedFrame = nullptr;
         if (0 != AudioResampleFrame(pMuxAudio, &decodedFrame) || decodedFrame == nullptr) {
             break;
         }
-        samples = AudioEncodeFrame(pMuxAudio, &pkt, decodedFrame, &got_result);
-        WriteNextPacketProcessed(pMuxAudio, &pkt, samples, pWrittenDts);
+        auto encPktDatas = AudioEncodeFrame(pMuxAudio, decodedFrame);
+        for (auto& pktMux : encPktDatas) {
+            WriteNextPacketProcessed(&pktMux, pWrittenDts);
+        }
     }
     while (pMuxAudio->pOutCodecEncodeCtx) {
-        int got_result = 0;
-        AVPacket pkt = { 0 };
-        int samples = AudioEncodeFrame(pMuxAudio, &pkt, nullptr, &got_result);
-        if (samples == 0 || pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError)
+        auto encPktDatas = AudioEncodeFrame(pMuxAudio, nullptr);
+        if (encPktDatas.size() == 0) {
             break;
-        WriteNextPacketProcessed(pMuxAudio, &pkt, samples, pWrittenDts);
+        }
+        if (pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError)
+            break;
+        for (auto& pktMux : encPktDatas) {
+            WriteNextPacketProcessed(&pktMux, pWrittenDts);
+        }
     }
 }
 
@@ -2754,21 +2780,21 @@ int CAvcodecWriter::WriteNextAudioFrame(AVPktMuxData *pktData) {
         //音声エンコードスレッドが存在しない場合、ここにAVPacketは流れてこないはず
         return 1;
     }
-    int got_result = 0;
-    pktData->samples = AudioEncodeFrame(pktData->pMuxAudio, &pktData->pkt, pktData->pFrame, &got_result);
+    auto encPktDatas = AudioEncodeFrame(pktData->pMuxAudio, pktData->pFrame);
     av_frame_free(&pktData->pFrame);
-    pktData->type = MUX_DATA_TYPE_PACKET;
-    if (got_result && pktData->samples) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudProcess.joinable()) {
-            AddAudQueue(pktData, AUD_QUEUE_OUT);
-        } else {
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-            WriteNextPacketProcessed(pktData);
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    if (m_Mux.thread.thAudProcess.joinable()) {
+        for (auto& pktMux : encPktDatas) {
+            AddAudQueue(&pktMux, AUD_QUEUE_OUT);
         }
+    } else {
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+        for (auto& pktMux : encPktDatas) {
+            WriteNextPacketProcessed(&pktMux);
+        }
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     }
+#endif
     return (m_Mux.format.bStreamError) ? 1 : 0;
 }
 
