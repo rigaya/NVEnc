@@ -670,15 +670,16 @@ typedef struct AVDemuxVideo {
     //pCodecCtxのチェックだけでは読み込むかどうか判定できないので、
     //実際に使用するかどうかはこのフラグをチェックする
     bool                      bReadVideo;
-    AVCodecContext           *pCodecCtx;             //動画のcodecContext, 動画を読み込むかどうかの判定には使用しないこと (bReadVideoを使用)
-    AVCodec                  *pCodec;                //動画のデコーダ (使用しない場合はnullptr)
+    const AVStream           *pStream;               //動画のStream, 動画を読み込むかどうかの判定には使用しないこと (bReadVideoを使用)
+    const AVCodec            *pCodecDecode;          //動画のデコーダ (使用しない場合はnullptr)
+    AVCodecContext           *pCodecCtxDecode;       //動画のデコーダ (使用しない場合はnullptr)
     AVFrame                  *pFrame;                //動画デコード用のフレーム
     int                       nIndex;                //動画のストリームID
     int64_t                   nStreamFirstKeyPts;    //動画ファイルの最初のpts
     uint32_t                  nStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES, 等)
     int                       nRFFEstimate;          //動画がRFFの可能性がある
     bool                      bGotFirstKeyframe;     //動画の最初のキーフレームを取得済み
-    AVBSFContext             *pBsfcCtx;             //必要なら使用するbitstreamfilter
+    AVBSFContext             *pBsfcCtx;              //必要なら使用するbitstreamfilter
     uint8_t                  *pExtradata;            //動画のヘッダ情報
     int                       nExtradataSize;        //動画のヘッダサイズ
     AVRational                nAvgFramerate;         //動画のフレームレート
@@ -686,6 +687,7 @@ typedef struct AVDemuxVideo {
     uint32_t                  nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
 
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
+    AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
 } AVDemuxVideo;
 
 typedef struct AVDemuxStream {

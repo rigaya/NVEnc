@@ -226,13 +226,13 @@ bool CAvcodecReader::vc1StartCodeExists(uint8_t *ptr) {
 }
 
 void CAvcodecReader::vc1FixHeader(int nLengthFix) {
-    if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3) {
+    if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_WMV3) {
         m_Demux.video.nExtradataSize += nLengthFix;
         uint32_t datasize = m_Demux.video.nExtradataSize;
         vector<uint8_t> buffer(20 + datasize, 0);
         uint32_t header = 0xC5000000;
-        uint32_t width = m_Demux.video.pCodecCtx->width;
-        uint32_t height = m_Demux.video.pCodecCtx->height;
+        uint32_t width = m_Demux.video.pStream->codecpar->width;
+        uint32_t height = m_Demux.video.pStream->codecpar->height;
         uint8_t *dataPtr = m_Demux.video.pExtradata - nLengthFix;
         memcpy(buffer.data() +  0, &header, sizeof(header));
         memcpy(buffer.data() +  4, &datasize, sizeof(datasize));
@@ -250,7 +250,7 @@ void CAvcodecReader::vc1FixHeader(int nLengthFix) {
 
 void CAvcodecReader::vc1AddFrameHeader(AVPacket *pkt) {
     uint32_t size = pkt->size;
-    if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3) {
+    if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_WMV3) {
         av_grow_packet(pkt, 8);
         memmove(pkt->data + 8, pkt->data, size);
         memcpy(pkt->data, &size, sizeof(size));
@@ -264,18 +264,18 @@ void CAvcodecReader::vc1AddFrameHeader(AVPacket *pkt) {
 }
 
 int CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount) {
-    AVRational fpsDecoder = m_Demux.video.pCodecCtx->framerate;
+    AVRational fpsDecoder = m_Demux.video.pStream->avg_frame_rate;
     const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
     //timebaseが60で割り切れない場合には、ptsが完全には割り切れない値である場合があり、より多くのフレーム数を解析する必要がある
-    int maxCheckFrames = (m_Demux.format.nAnalyzeSec == 0) ? ((m_Demux.video.pCodecCtx->pkt_timebase.den >= 1000 && m_Demux.video.pCodecCtx->pkt_timebase.den % 60) ? 128 : 48) : 7200;
+    int maxCheckFrames = (m_Demux.format.nAnalyzeSec == 0) ? ((m_Demux.video.pStream->time_base.den >= 1000 && m_Demux.video.pStream->time_base.den % 60) ? 128 : 48) : 7200;
     int maxCheckSec = (m_Demux.format.nAnalyzeSec == 0) ? INT_MAX : m_Demux.format.nAnalyzeSec;
     AddMessage(NV_LOG_DEBUG, _T("fps decoder invalid: %s\n"), fpsDecoderInvalid ? _T("true") : _T("false"));
 
     AVPacket pkt;
     av_init_packet(&pkt);
 
-    const bool bCheckDuration = m_Demux.video.pCodecCtx->pkt_timebase.num * m_Demux.video.pCodecCtx->pkt_timebase.den > 0;
-    const double timebase = (bCheckDuration) ? m_Demux.video.pCodecCtx->pkt_timebase.num / (double)m_Demux.video.pCodecCtx->pkt_timebase.den : 1.0;
+    const bool bCheckDuration = m_Demux.video.pStream->time_base.num * m_Demux.video.pStream->time_base.den > 0;
+    const double timebase = (bCheckDuration) ? m_Demux.video.pStream->time_base.num / (double)m_Demux.video.pStream->time_base.den : 1.0;
     m_Demux.video.nStreamFirstKeyPts = 0;
     int i_samples = 0;
     std::vector<int> frameDurationList;
@@ -317,8 +317,8 @@ int CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTr
 #endif
         //ここまで集めたデータでpts, pocを確定させる
         double dEstFrameDurationByFpsDecoder = 0.0;
-        if (av_isvalid_q(fpsDecoder) && av_isvalid_q(m_Demux.video.pCodecCtx->pkt_timebase)) {
-            dEstFrameDurationByFpsDecoder = av_q2d(av_inv_q(fpsDecoder)) * av_q2d(av_inv_q(m_Demux.video.pCodecCtx->pkt_timebase));
+        if (av_isvalid_q(fpsDecoder) && av_isvalid_q(m_Demux.video.pStream->time_base)) {
+            dEstFrameDurationByFpsDecoder = av_q2d(av_inv_q(fpsDecoder)) * av_q2d(av_inv_q(m_Demux.video.pStream->time_base));
         }
         m_Demux.frames.checkPtsStatus(dEstFrameDurationByFpsDecoder);
 
@@ -357,7 +357,7 @@ int CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTr
         //多い順にソートする
         std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
 
-        AddMessage(NV_LOG_DEBUG, _T("stream timebase %d/%d\n"), m_Demux.video.pCodecCtx->time_base.num, m_Demux.video.pCodecCtx->time_base.den);
+        AddMessage(NV_LOG_DEBUG, _T("stream timebase %d/%d\n"), m_Demux.video.pStream->time_base.num, m_Demux.video.pStream->time_base.den);
         AddMessage(NV_LOG_DEBUG, _T("decoder fps     %d/%d\n"), fpsDecoder.num, fpsDecoder.den);
         AddMessage(NV_LOG_DEBUG, _T("duration histgram of %d frames\n"), durationHistgram.size());
         for (const auto& sample : durationHistgram) {
@@ -396,16 +396,16 @@ int CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTr
         //std::accumulateの初期値に"(uint64_t)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
         //大きすぎるtimebaseの時に必要
         double avgDuration = std::accumulate(frameDurationList.begin(), frameDurationList.end(), (uint64_t)0, [this](const uint64_t sum, const int& duration) { return sum + duration; }) / (double)(frameDurationList.size());
-        double avgFps = m_Demux.video.pCodecCtx->pkt_timebase.den / (double)(avgDuration * m_Demux.video.pCodecCtx->pkt_timebase.num);
+        double avgFps = m_Demux.video.pStream->time_base.den / (double)(avgDuration * m_Demux.video.pStream->time_base.num);
         double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.05 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
         if (mostPopularDuration.second / (double)frameDurationList.size() > 0.95 && std::abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
             avgDuration = mostPopularDuration.first;
             AddMessage(NV_LOG_DEBUG, _T("using popular duration...\n"));
         }
         //durationから求めた平均fpsを計算する
-        const uint64_t mul = (uint64_t)ceil(1001.0 / m_Demux.video.pCodecCtx->pkt_timebase.num);
-        estimatedAvgFps.num = (uint64_t)(m_Demux.video.pCodecCtx->pkt_timebase.den / avgDuration * (double)m_Demux.video.pCodecCtx->pkt_timebase.num * mul + 0.5);
-        estimatedAvgFps.den = (uint64_t)m_Demux.video.pCodecCtx->pkt_timebase.num * mul;
+        const uint64_t mul = (uint64_t)ceil(1001.0 / m_Demux.video.pStream->time_base.num);
+        estimatedAvgFps.num = (uint64_t)(m_Demux.video.pStream->time_base.den / avgDuration * (double)m_Demux.video.pStream->time_base.num * mul + 0.5);
+        estimatedAvgFps.den = (uint64_t)m_Demux.video.pStream->time_base.num * mul;
 
         AddMessage(NV_LOG_DEBUG, _T("fps mul:         %d\n"),    mul);
         AddMessage(NV_LOG_DEBUG, _T("raw avgDuration: %lf\n"),   avgDuration);
@@ -436,18 +436,18 @@ int CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTr
 
     //フレームレートが2000fpsを超えることは考えにくいので、誤判定
     //ほかのなにか使えそうな値で代用する
+    const auto codec_timebase = av_stream_get_codec_timebase(m_Demux.video.pStream);
     if (nAvgFramerate64.num / (double)nAvgFramerate64.den > 2000.0) {
         if (fpsDecoder.den > 0 && fpsDecoder.num > 0) {
             nAvgFramerate64.num = fpsDecoder.num;
             nAvgFramerate64.den = fpsDecoder.den;
-        } else if (m_Demux.video.pCodecCtx->framerate.den > 0
-            && m_Demux.video.pCodecCtx->framerate.num > 0) {
-            nAvgFramerate64.num = m_Demux.video.pCodecCtx->framerate.num;
-            nAvgFramerate64.den = m_Demux.video.pCodecCtx->framerate.den;
-        } else if (m_Demux.video.pCodecCtx->pkt_timebase.den > 0
-            && m_Demux.video.pCodecCtx->pkt_timebase.num > 0) {
-            nAvgFramerate64.num = m_Demux.video.pCodecCtx->pkt_timebase.den;
-            nAvgFramerate64.den = m_Demux.video.pCodecCtx->pkt_timebase.num;
+        } else if (codec_timebase.den > 0
+            && codec_timebase.num > 0) {
+            const AVCodec *pCodec = avcodec_find_decoder(m_Demux.video.pStream->codecpar->codec_id);
+            AVCodecContext *pCodecCtx = avcodec_alloc_context3(pCodec);
+            nAvgFramerate64.num = codec_timebase.den * pCodecCtx->ticks_per_frame;
+            nAvgFramerate64.den = codec_timebase.num;
+            avcodec_free_context(&pCodecCtx);
         }
     }
 
@@ -690,7 +690,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         }
         AddMessage(NV_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
 
-        m_Demux.video.pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
+        m_Demux.video.pStream = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex];
     }
 
     //音声ストリームを探す
@@ -805,10 +805,15 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
 
     //動画処理の初期化を行う
     if (input_prm->bReadVideo) {
-        if (m_Demux.video.pCodecCtx == nullptr) {
+        if (m_Demux.video.pStream == nullptr) {
             AddMessage(NV_LOG_ERROR, _T("unable to find video stream.\n"));
             return 1;
         }
+        AddMessage(NV_LOG_DEBUG, _T("use video stream #%d for input, codec %s, stream time_base %d/%d, codec_timebase %d/%d.\n"),
+            m_Demux.video.pStream->index,
+            char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(),
+            m_Demux.video.pStream->time_base.num, m_Demux.video.pStream->time_base.den,
+            av_stream_get_codec_timebase(m_Demux.video.pStream).num, av_stream_get_codec_timebase(m_Demux.video.pStream).den);
 
         m_sFramePosListLog.clear();
         if (input_prm->pFramePosListLog) {
@@ -820,16 +825,13 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
 
         bool bDecodecCUVID = false;
         if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) {
-            if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pCodecCtx->codec_id))
+            if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pStream->codecpar->codec_id))
                 //wmv3はAdvanced Profile (3)のみの対応
-                || m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pCodecCtx->profile != 3) {
+                || m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pStream->codecpar->profile != 3) {
                 if (input_prm->nVideoDecodeSW == AV_DECODE_MODE_CUVID) {
                     //avcuvidが指定されている場合にはエラー終了する
-                    AddMessage(NV_LOG_ERROR, _T("codec "));
-                    if (m_Demux.video.pCodecCtx->codec && m_Demux.video.pCodecCtx->codec->name) {
-                        AddMessage(NV_LOG_ERROR, char_to_tstring(m_Demux.video.pCodecCtx->codec->name) + _T(" "));
-                    }
-                    AddMessage(NV_LOG_ERROR, _T("unable to decode by cuvid.\n"));
+                    AddMessage(NV_LOG_ERROR, _T("codec %s unable to decode by cuvid.\n"),
+                        char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str());
                     return 1;
                 }
             } else {
@@ -842,24 +844,32 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         m_strReaderName = (bDecodecCUVID) ? _T("avcuvid") : _T("avsw");
 
         //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
-        if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_HEVC) {
-            m_Demux.video.pCodecCtx->log_level_offset = AV_LOG_ERROR;
+        if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+            AVDictionary *pDict = nullptr;
+            av_dict_set_int(&pDict, "log_level_offset", AV_LOG_ERROR, 0);
+            if (0 > (ret = av_opt_set_dict(m_Demux.video.pStream->codec, &pDict))) {
+                AddMessage(NV_LOG_WARN, _T("failed to set log_level_offset for HEVC codec reader.\n"));
+            } else {
+                AddMessage(NV_LOG_ERROR, _T("set log_level_offset for HEVC codec reader.\n"));
+            }
+            av_dict_free(&pDict);
         }
+
 
         m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
 
         //情報を格納
         m_nInputCodec         = m_sDecParam.codec;
         inputPrm->codec       = m_sDecParam.codec;
-        inputPrm->width       = m_Demux.video.pCodecCtx->width;
-        inputPrm->height      = m_Demux.video.pCodecCtx->height;
-        inputPrm->codedWidth  = m_Demux.video.pCodecCtx->coded_width;
-        inputPrm->codedHeight = m_Demux.video.pCodecCtx->coded_height;
-        inputPrm->sar[0]      = m_Demux.video.pCodecCtx->sample_aspect_ratio.num;
-        inputPrm->sar[1]      = m_Demux.video.pCodecCtx->sample_aspect_ratio.den;
+        inputPrm->width       = m_Demux.video.pStream->codecpar->width;
+        inputPrm->height      = m_Demux.video.pStream->codecpar->height;
+        inputPrm->codedWidth  = m_Demux.video.pStream->codec->coded_width;
+        inputPrm->codedHeight = m_Demux.video.pStream->codec->coded_height;
+        inputPrm->sar[0]      = m_Demux.video.pStream->codecpar->sample_aspect_ratio.num;
+        inputPrm->sar[1]      = m_Demux.video.pStream->codecpar->sample_aspect_ratio.den;
 
         //必要ならbitstream filterを初期化
-        if (m_Demux.video.pCodecCtx->extradata && m_Demux.video.pCodecCtx->extradata[0] == 1) {
+        if (m_Demux.video.pStream->codecpar->extradata && m_Demux.video.pStream->codecpar->extradata[0] == 1) {
             if (m_sDecParam.codec == cudaVideoCodec_H264 || m_sDecParam.codec == cudaVideoCodec_HEVC) {
                 const char *filtername = nullptr;
                 switch (m_sDecParam.codec) {
@@ -880,11 +890,11 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                     AddMessage(NV_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return 1;
                 }
-                if (0 > (ret = avcodec_parameters_from_context(m_Demux.video.pBsfcCtx->par_in, m_Demux.video.pCodecCtx))) {
+                if (0 > (ret = avcodec_parameters_copy(m_Demux.video.pBsfcCtx->par_in, m_Demux.video.pStream->codecpar))) {
                     AddMessage(NV_LOG_ERROR, _T("failed to set parameter for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return 1;
                 }
-                m_Demux.video.pBsfcCtx->time_base_in = m_Demux.video.pCodecCtx->time_base;
+                m_Demux.video.pBsfcCtx->time_base_in = m_Demux.video.pStream->time_base;
                 if (0 > (ret = av_bsf_init(m_Demux.video.pBsfcCtx))) {
                     AddMessage(NV_LOG_ERROR, _T("failed to init %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return 1;
@@ -892,14 +902,14 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 AddMessage(NV_LOG_DEBUG, _T("initialized %s filter.\n"), char_to_tstring(filter->name).c_str());
             }
         } else if (bDecodecCUVID
-            && (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0)
+            && (m_Demux.video.pStream->codecpar->extradata == NULL && m_Demux.video.pStream->codecpar->extradata_size == 0)
             && (m_sDecParam.codec != cudaVideoCodec_VP8 && m_sDecParam.codec != cudaVideoCodec_VP9)) {
             AddMessage(NV_LOG_ERROR, _T("video header not extracted by libavcodec.\n"));
             return 1;
         }
-        if (m_Demux.video.pCodecCtx->extradata_size) {
-            inputPrm->codecExtra = m_Demux.video.pCodecCtx->extradata;
-            inputPrm->codecExtraSize = m_Demux.video.pCodecCtx->extradata_size;
+        if (m_Demux.video.pStream->codecpar->extradata_size) {
+            inputPrm->codecExtra = m_Demux.video.pStream->codecpar->extradata;
+            inputPrm->codecExtraSize = m_Demux.video.pStream->codecpar->extradata_size;
         }
 
         AddMessage(NV_LOG_DEBUG, _T("start predecode.\n"));
@@ -914,7 +924,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         if (input_prm->fSeekSec > 0.0f) {
             AVPacket firstpkt;
             getSample(&firstpkt); //現在のtimestampを取得する
-            const auto seek_time = av_rescale_q(1, av_d2q((double)input_prm->fSeekSec, 1<<24), m_Demux.video.pCodecCtx->pkt_timebase);
+            const auto seek_time = av_rescale_q(1, av_d2q((double)input_prm->fSeekSec, 1<<24), m_Demux.video.pStream->time_base);
             int seek_ret = av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, firstpkt.pts + seek_time, 0);
             if (0 > seek_ret) {
                 seek_ret = av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, firstpkt.pts + seek_time, AVSEEK_FLAG_ANY);
@@ -929,11 +939,25 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         }
 
         //parserはseek後に初期化すること
-        m_Demux.video.pParserCtx = av_parser_init(m_Demux.video.pCodecCtx->codec_id);
+        m_Demux.video.pParserCtx = av_parser_init(m_Demux.video.pStream->codecpar->codec_id);
         if (m_Demux.video.pParserCtx) {
             m_Demux.video.pParserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+            if (nullptr == (m_Demux.video.pCodecCtxParser = avcodec_alloc_context3(avcodec_find_decoder(m_Demux.video.pStream->codecpar->codec_id)))) {
+                AddMessage(NV_LOG_ERROR, _T("failed to allocate context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
+                return 1;
+            }
+            if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.pCodecCtxParser, m_Demux.video.pStream->codecpar))) {
+                AddMessage(NV_LOG_ERROR, _T("failed to set codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
+                return 1;
+            }
+            m_Demux.video.pCodecCtxParser->time_base = av_stream_get_codec_timebase(m_Demux.video.pStream);
+            m_Demux.video.pCodecCtxParser->pkt_timebase = m_Demux.video.pStream->time_base;
+            AddMessage(NV_LOG_ERROR, _T("initialized %s codec context for parser: time_base: %d/%d, pkt_timebase: %d/%d.\n"),
+                char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(),
+                m_Demux.video.pCodecCtxParser->time_base.num, m_Demux.video.pCodecCtxParser->time_base.den,
+                m_Demux.video.pCodecCtxParser->pkt_timebase.num, m_Demux.video.pCodecCtxParser->pkt_timebase.den);
         } else if (bDecodecCUVID) {
-            AddMessage(NV_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(m_Demux.video.pCodecCtx->codec->name).c_str());
+            AddMessage(NV_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str());
             return 1;
         }
 
@@ -1009,7 +1033,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             { AV_PIX_FMT_YUV444P9LE,   9, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 }
         };
 
-        const auto pixfmt = m_Demux.video.pCodecCtx->pix_fmt;
+        const auto pixfmt = (AVPixelFormat)m_Demux.video.pStream->codecpar->format;
         const auto pixfmtData = std::find_if(pixfmtDataList, pixfmtDataList + _countof(pixfmtDataList), [pixfmt](const pixfmtInfo& tableData) {
             return tableData.pix_fmt == pixfmt;
         });
@@ -1018,20 +1042,33 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             return 1;
         }
 
-        const auto aspectRatio = m_Demux.video.pCodecCtx->sample_aspect_ratio;
+        const auto aspectRatio = m_Demux.video.pStream->sample_aspect_ratio;
         const bool bAspectRatioUnknown = aspectRatio.num * aspectRatio.den <= 0;
 
         if (!bDecodecCUVID) {
-            if (nullptr == (m_Demux.video.pCodec = avcodec_find_decoder(m_Demux.video.pCodecCtx->codec_id))) {
-                AddMessage(NV_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.pCodecCtx->codec_id).c_str());
+            if (nullptr == (m_Demux.video.pCodecDecode = avcodec_find_decoder(m_Demux.video.pStream->codecpar->codec_id))) {
+                AddMessage(NV_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.pStream->codecpar->codec_id).c_str());
+                return 1;
+            }
+            if (nullptr == (m_Demux.video.pCodecCtxDecode = avcodec_alloc_context3(m_Demux.video.pCodecDecode))) {
+                AddMessage(NV_LOG_ERROR, errorMesForCodec(_T("Failed to allocate decoder"), m_Demux.video.pStream->codecpar->codec_id).c_str());
                 return 1;
             }
             cpu_info_t cpu_info;
             if (get_cpu_info(&cpu_info)) {
-                m_Demux.video.pCodecCtx->thread_count = cpu_info.logical_cores;
+                AVDictionary *pDict = nullptr;
+                av_dict_set_int(&pDict, "threads", cpu_info.logical_cores, 0);
+                if (0 > (ret = av_opt_set_dict(m_Demux.video.pCodecCtxDecode, &pDict))) {
+                    AddMessage(NV_LOG_ERROR, _T("Failed to set threads for decode (codec: %s): %s\n"),
+                        char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+                    return 1;
+                }
+                av_dict_free(&pDict);
             }
-            if (0 > (ret = avcodec_open2(m_Demux.video.pCodecCtx, m_Demux.video.pCodec, nullptr))) {
-                AddMessage(NV_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+            m_Demux.video.pCodecCtxDecode->time_base = av_stream_get_codec_timebase(m_Demux.video.pStream);
+            m_Demux.video.pCodecCtxDecode->pkt_timebase = m_Demux.video.pStream->time_base;
+            if (0 > (ret = avcodec_open2(m_Demux.video.pCodecCtxDecode, m_Demux.video.pCodecDecode, nullptr))) {
+                AddMessage(NV_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                 return 1;
             }
             const std::map<AVPixelFormat, NV_ENC_CSP> CSP_CONV = {
@@ -1062,7 +1099,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
                 { AV_PIX_FMT_YUV444P10LE, NV_ENC_CSP_YUV444_10 },
                 { AV_PIX_FMT_YUV444P9LE,  NV_ENC_CSP_YUV444_09 }
             };
-            auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtx->pix_fmt);
+            auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtxDecode->pix_fmt);
             if (pixCspConv == CSP_CONV.end()
                 || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, inputPrm->csp, false))) {
                 AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
@@ -1086,7 +1123,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             AddMessage(NV_LOG_DEBUG, mes);
             m_strInputInfo += mes;
         } else {
-            CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id))).c_str(),
+            CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id))).c_str(),
                 NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
             if (input_prm->fSeekSec > 0.0f) {
                 m_strInputInfo += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
@@ -1096,7 +1133,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
         //スレッド関連初期化
         m_Demux.thread.bAbortInput = false;
         auto nPrmInputThread = input_prm->nInputThread;
-        m_Demux.thread.nInputThread = ((nPrmInputThread == NV_INPUT_THREAD_AUTO) | (m_Demux.video.pCodec != nullptr)) ? 0 : (int8_t)nPrmInputThread;
+        m_Demux.thread.nInputThread = ((nPrmInputThread == NV_INPUT_THREAD_AUTO) | (m_Demux.video.pCodecDecode != nullptr)) ? 0 : (int8_t)nPrmInputThread;
         //if (m_Demux.thread.nInputThread == NV_INPUT_THREAD_AUTO) {
         //    m_Demux.thread.nInputThread = 0;
         //}
@@ -1116,7 +1153,7 @@ int CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pSta
             m_sTrimParam.list = vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);
         }
 
-        if (m_Demux.video.pCodecCtx) {
+        if (m_Demux.video.pStream) {
             //動画の最初のフレームを取得しておく
             AVPacket pkt;
             av_init_packet(&pkt);
@@ -1161,7 +1198,7 @@ int64_t CAvcodecReader::GetVideoFirstKeyPts() {
 
 int CAvcodecReader::getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart) {
     const int framePosCount = m_Demux.frames.frameNum();
-    const AVRational vid_pkt_timebase = (m_Demux.video.pCodecCtx) ? m_Demux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Demux.video.nAvgFramerate);
+    const AVRational vid_pkt_timebase = (m_Demux.video.pStream) ? m_Demux.video.pStream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
     for (int i = (std::max)(0, iStart); i < framePosCount; i++) {
         //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
         if (0 > av_compare_ts(pts, timebase, m_Demux.frames.list(i).pts, vid_pkt_timebase)) {
@@ -1172,7 +1209,7 @@ int CAvcodecReader::getVideoFrameIdx(int64_t pts, AVRational timebase, int iStar
 }
 
 int64_t CAvcodecReader::convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *pStream) {
-    const AVRational vid_pkt_timebase = (m_Demux.video.pCodecCtx) ? m_Demux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Demux.video.nAvgFramerate);
+    const AVRational vid_pkt_timebase = (m_Demux.video.pStream) ? m_Demux.video.pStream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
     return av_rescale_q(pts, vid_pkt_timebase, pStream->pCodecCtx->pkt_timebase);
 }
 
@@ -1290,15 +1327,15 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
                 pos.flags = (uint8_t)pkt->flags;
                 if (m_Demux.video.pParserCtx) {
                     if (m_Demux.video.pBsfcCtx) {
-                        std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
-                        std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
+                        std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtxParser->extradata);
+                        std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtxParser->extradata_size);
                     }
                     uint8_t *dummy = nullptr;
                     int dummy_size = 0;
-                    av_parser_parse2(m_Demux.video.pParserCtx, m_Demux.video.pCodecCtx, &dummy, &dummy_size, pkt->data, pkt->size, pkt->pts, pkt->dts, pkt->pos);
+                    av_parser_parse2(m_Demux.video.pParserCtx, m_Demux.video.pCodecCtxParser, &dummy, &dummy_size, pkt->data, pkt->size, pkt->pts, pkt->dts, pkt->pos);
                     if (m_Demux.video.pBsfcCtx) {
-                        std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
-                        std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
+                        std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtxParser->extradata);
+                        std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtxParser->extradata_size);
                     }
                     pos.pict_type = (uint8_t)(std::max)(m_Demux.video.pParserCtx->pict_type, 0);
                     switch (m_Demux.video.pParserCtx->picture_structure) {
@@ -1406,7 +1443,7 @@ void CAvcodecReader::GetAudioDataPacketsWhenNoVideoRead() {
 
     AVPacket pkt;
     av_init_packet(&pkt);
-    if (m_Demux.video.pCodecCtx) {
+    if (m_Demux.video.pStream) {
         //動画に映像がある場合、getSampleを呼んで1フレーム分の音声データをm_Demux.qStreamPktL1に取得する
         //同時に映像フレームをロードし、ロードしたptsデータを突っ込む
         if (!getSample(&pkt)) {
@@ -1460,7 +1497,7 @@ const AVDictionary *CAvcodecReader::GetInputFormatMetadata() {
 }
 
 const AVCodecContext *CAvcodecReader::GetInputVideoCodecCtx() {
-    return m_Demux.video.pCodecCtx;
+    return m_Demux.video.pStream->codec;
 }
 
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
@@ -1470,7 +1507,7 @@ void CAvcodecReader::CheckAndMoveStreamPacketList() {
         return;
     }
     //出力するパケットを選択する
-    const AVRational vid_pkt_timebase = (m_Demux.video.pCodecCtx) ? m_Demux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Demux.video.nAvgFramerate);
+    const AVRational vid_pkt_timebase = (m_Demux.video.pStream) ? m_Demux.video.pStream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
     while (!m_Demux.qStreamPktL1.empty()) {
         auto pkt = m_Demux.qStreamPktL1.front();
         AVDemuxStream *pStream = getPacketStreamData(&pkt);
@@ -1508,11 +1545,11 @@ vector<AVDemuxStream> CAvcodecReader::GetInputStreamInfo() {
 
 int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
     if (m_Demux.video.pExtradata == nullptr) {
-        m_Demux.video.nExtradataSize = m_Demux.video.pCodecCtx->extradata_size;
+        m_Demux.video.nExtradataSize = m_Demux.video.pStream->codecpar->extradata_size;
         //ここでav_mallocを使用しないと正常に動作しない
-        m_Demux.video.pExtradata = (uint8_t *)av_malloc(m_Demux.video.pCodecCtx->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
+        m_Demux.video.pExtradata = (uint8_t *)av_malloc(m_Demux.video.pStream->codecpar->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
         //ヘッダのデータをコピーしておく
-        memcpy(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata, m_Demux.video.nExtradataSize);
+        memcpy(m_Demux.video.pExtradata, m_Demux.video.pStream->codecpar->extradata, m_Demux.video.nExtradataSize);
         memset(m_Demux.video.pExtradata + m_Demux.video.nExtradataSize, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 
         if (m_Demux.video.pBsfcCtx && m_Demux.video.pExtradata[0] == 1) {
@@ -1527,8 +1564,8 @@ int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
                 AddMessage(NV_LOG_ERROR, _T("failed alloc memory for %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
                 return 1;
             }
-            if (0 > (ret = avcodec_parameters_from_context(pBsfCtx->par_in, m_Demux.video.pCodecCtx))) {
-                AddMessage(NV_LOG_ERROR, _T("failed alloc get param for %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
+            if (0 > (ret = avcodec_parameters_copy(pBsfCtx->par_in, m_Demux.video.pStream->codecpar))) {
+                AddMessage(NV_LOG_ERROR, _T("failed to copy param for %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
                 return 1;
             }
             if (0 > (ret = av_bsf_init(pBsfCtx))) {
@@ -1539,7 +1576,7 @@ int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
             uint8_t HEVC_IDR[] = { 0x00, 0x00, 0x00, 0x01, 19<<1 };
             AVPacket pkt = { 0 };
             av_init_packet(&pkt);
-            switch (m_Demux.video.pCodecCtx->codec_id) {
+            switch (m_Demux.video.pStream->codecpar->codec_id) {
             case AV_CODEC_ID_H264: pkt.data = H264_IDR; pkt.size = sizeof(H264_IDR); break;
             case AV_CODEC_ID_HEVC: pkt.data = HEVC_IDR; pkt.size = sizeof(HEVC_IDR); break;
             default: break;
@@ -1559,7 +1596,7 @@ int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
             }
             av_bsf_free(&pBsfCtx);
             if (m_Demux.video.nExtradataSize < pkt.size) {
-                m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
+                m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, m_Demux.video.pStream->codecpar->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
             }
             memcpy(m_Demux.video.pExtradata, pkt.data, pkt.size);
             m_Demux.video.nExtradataSize = pkt.size;
@@ -1578,7 +1615,7 @@ int CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
 #pragma warning(push)
 #pragma warning(disable:4100)
 int CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
-    if (m_Demux.video.pCodec) {
+    if (m_Demux.video.pCodecDecode) {
         //動画のデコードを行う
         int got_frame = 0;
         while (!got_frame) {
@@ -1600,7 +1637,7 @@ int CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
                 pkt.data = nullptr;
                 pkt.size = 0;
             }
-            int ret = avcodec_send_packet(m_Demux.video.pCodecCtx, &pkt);
+            int ret = avcodec_send_packet(m_Demux.video.pCodecCtxDecode, &pkt);
             //AVERROR(EAGAIN) -> パケットを送る前に受け取る必要がある
             //パケットが受け取られていないのでpopしない
             if (ret != AVERROR(EAGAIN)) {
@@ -1615,7 +1652,7 @@ int CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
                 AddMessage(NV_LOG_ERROR, _T("failed to send packet to video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
                 return NVENC_THREAD_ERROR;
             }
-            ret = avcodec_receive_frame(m_Demux.video.pCodecCtx, m_Demux.video.pFrame);
+            ret = avcodec_receive_frame(m_Demux.video.pCodecCtxDecode, m_Demux.video.pFrame);
             if (ret == AVERROR(EAGAIN)) { //もっとパケットを送る必要がある
                 continue;
             }
@@ -1649,7 +1686,7 @@ int CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
     }
     double progressPercent = 0.0;
     if (m_Demux.format.pFormatCtx->duration) {
-        progressPercent = m_Demux.frames.duration() * (m_Demux.video.pCodecCtx->pkt_timebase.num / (double)m_Demux.video.pCodecCtx->pkt_timebase.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
+        progressPercent = m_Demux.frames.duration() * (m_Demux.video.pStream->time_base.num / (double)m_Demux.video.pStream->time_base.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
     }
     m_pEncSatusInfo->m_sData.frameIn++;
     m_pEncSatusInfo->UpdateDisplay(progressPercent);
