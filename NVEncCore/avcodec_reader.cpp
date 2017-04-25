@@ -1496,8 +1496,8 @@ const AVDictionary *CAvcodecReader::GetInputFormatMetadata() {
     return m_Demux.format.pFormatCtx->metadata;
 }
 
-const AVCodecContext *CAvcodecReader::GetInputVideoCodecCtx() {
-    return m_Demux.video.pStream->codec;
+const AVStream *CAvcodecReader::GetInputVideoStream() {
+    return m_Demux.video.pStream;
 }
 
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、

@@ -655,7 +655,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
                 writerPrm.chapterList = pAVCodecReader->GetChapterList();
             }
             writerPrm.vidPrm.nInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
-            writerPrm.vidPrm.pInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
+            writerPrm.vidPrm.pInputStream = pAVCodecReader->GetInputVideoStream();
         }
         if (inputParams->nAVMux & (NVENC_MUX_AUDIO | NVENC_MUX_SUBTITLE)) {
             PrintMes(NV_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
@@ -679,7 +679,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
                     //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
                     if (pAVCodecReader == nullptr) {
                         writerPrm.vidPrm.nInputFirstKeyPts = pAVCodecAudioReader->GetVideoFirstKeyPts();
-                        writerPrm.vidPrm.pInputCodecCtx = pAVCodecAudioReader->GetInputVideoCodecCtx();
+                        writerPrm.vidPrm.pInputStream = pAVCodecAudioReader->GetInputVideoStream();
                     }
                 }
             }
@@ -808,7 +808,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
                     writerAudioPrm.trimList = m_pTrimParam->list;
                 }
                 writerAudioPrm.vidPrm.nInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
-                writerAudioPrm.vidPrm.pInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
+                writerAudioPrm.vidPrm.pInputStream = pAVCodecReader->GetInputVideoStream();
 
                 auto pWriter = std::make_shared<CAvcodecWriter>();
                 pWriter->SetNVEncLogPtr(m_pNVLog);
@@ -2726,10 +2726,10 @@ NVENCSTATUS NVEncCore::Encode() {
     }
 
 #if ENABLE_AVCUVID_READER
-    const AVCodecContext *pVideoCtx = nullptr;
+    const AVStream *pStreamIn = nullptr;
     CAvcodecReader *pReader = dynamic_cast<CAvcodecReader *>(m_pFileReader.get());
     if (pReader != nullptr) {
-        pVideoCtx = pReader->GetInputVideoCodecCtx();
+        pStreamIn = pReader->GetInputVideoStream();
     }
 
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
@@ -2782,7 +2782,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
     std::thread th_input;
     if (m_cuvidDec) {
-        th_input = std::thread([this, pVideoCtx, &nvStatus]() {
+        th_input = std::thread([this, pStreamIn, &nvStatus]() {
             CUresult curesult = CUDA_SUCCESS;
             vector<uint8_t> bitstream;
             int sts = NVENC_THREAD_RUNNING;
@@ -2791,12 +2791,12 @@ NVENCSTATUS NVEncCore::Encode() {
                 int64_t pts;
                 m_pFileReader->GetNextBitstream(bitstream, &pts);
                 PrintMes(NV_LOG_TRACE, _T("Set packet %d\n"), i);
-                if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(bitstream.data(), bitstream.size(), pts, pVideoCtx->pkt_timebase))) {
+                if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(bitstream.data(), bitstream.size(), pts, pStreamIn->time_base))) {
                     PrintMes(NV_LOG_ERROR, _T("Error in DecodePacket: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
                     return curesult;
                 }
             }
-            if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(nullptr, 0, AV_NOPTS_VALUE, pVideoCtx->pkt_timebase))) {
+            if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(nullptr, 0, AV_NOPTS_VALUE, pStreamIn->time_base))) {
                 PrintMes(NV_LOG_ERROR, _T("Error in DecodePacketFin: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
             }
             return curesult;
@@ -2805,7 +2805,7 @@ NVENCSTATUS NVEncCore::Encode() {
     }
 
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
-    const int nFrameDuration = (pVideoCtx) ? (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pVideoCtx->pkt_timebase) : 1;
+    const int nFrameDuration = (pStreamIn) ? (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pStreamIn->time_base) : 1;
 #endif //#if ENABLE_AVCUVID_READER
 
     auto add_dec_vpp_param = [&](FrameBufferDataIn *pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
@@ -2850,7 +2850,7 @@ NVENCSTATUS NVEncCore::Encode() {
     auto check_pts = [&](FrameBufferDataIn *pInputFrame) {
         vector<unique_ptr<FrameBufferDataIn>> decFrames;
 #if ENABLE_AVCUVID_READER
-        int64_t pts = (pVideoCtx) ? av_rescale_q(pInputFrame->getTimeStamp(), CUVID_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase) : nEstimatedPts;
+        int64_t pts = (pStreamIn) ? av_rescale_q(pInputFrame->getTimeStamp(), CUVID_NATIVE_TIMEBASE, pStreamIn->time_base) : nEstimatedPts;
         if ((m_nAVSyncMode & NV_AVSYNC_FORCE_CFR) == NV_AVSYNC_FORCE_CFR) {
             if (nEstimatedPts == AV_NOPTS_VALUE) {
                 nEstimatedPts = pts;

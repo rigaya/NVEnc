@@ -532,7 +532,7 @@ int CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
 
     m_Mux.video.bDtsUnavailable   = prm->vidPrm.bDtsUnavailable;
     m_Mux.video.nInputFirstKeyPts = prm->vidPrm.nInputFirstKeyPts;
-    m_Mux.video.pInputCodecCtx    = prm->vidPrm.pInputCodecCtx;
+    m_Mux.video.pStreamIn    = prm->vidPrm.pInputStream;
 
     if (prm->pMuxVidTsLogFile) {
         if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->pMuxVidTsLogFile, _T("a"))) {
@@ -2432,7 +2432,7 @@ int CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt) {
 int CAvcodecWriter::SubtitleWritePacket(AVPacket *pkt) {
     //字幕を処理する
     const AVMuxSub *pMuxSub = getSubPacketStreamData(pkt);
-    const AVRational vid_pkt_timebase = (m_Mux.video.pInputCodecCtx) ? m_Mux.video.pInputCodecCtx->pkt_timebase : av_inv_q(m_Mux.video.nFPS);
+    const AVRational vid_pkt_timebase = (m_Mux.video.pStreamIn) ? m_Mux.video.pStreamIn->time_base : av_inv_q(m_Mux.video.nFPS);
     const int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstKeyPts, vid_pkt_timebase, pMuxSub->pCodecCtxIn->pkt_timebase);
     //ptsが存在しない場合はないものとすると、AdjustTimestampTrimmedの結果がAV_NOPTS_VALUEとなるのは、
     //Trimによりカットされたときのみ

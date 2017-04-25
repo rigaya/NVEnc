@@ -790,7 +790,7 @@ public:
     const AVDictionary *GetInputFormatMetadata();
 
     //動画の入力情報を取得する
-    const AVCodecContext *GetInputVideoCodecCtx();
+    const AVStream *GetInputVideoStream();
     
     //音声・字幕パケットの配列を取得する
     vector<AVPacket> GetStreamDataPackets();
