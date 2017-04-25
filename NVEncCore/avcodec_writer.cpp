@@ -1331,8 +1331,11 @@ int CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_pt
         }
         AddMessage(NV_LOG_DEBUG, _T("allocated internal buffer %d MB.\n"), m_Mux.format.nAVOutBufferSize / (1024 * 1024));
         CreateDirectoryRecursive(PathRemoveFileSpecFixed(strFileName).second.c_str());
-        errno_t error;
-        if (0 != (error = _tfopen_s(&m_Mux.format.fpOutput, strFileName, _T("wb"))) || m_Mux.format.fpOutput == NULL) {
+
+        //"movflags:faststart"にするには、共有モードで開けるようにする必要がある
+        m_Mux.format.fpOutput = _tfsopen(strFileName, _T("wb"), _SH_DENYWR);
+        if (m_Mux.format.fpOutput == NULL) {
+            errno_t error = errno;
             AddMessage(NV_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (prm->vidPrm.pEncConfig) ? _T("") : _T("audio "), strFileName, _tcserror(error));
             return 1; // Couldn't open file
         }
@@ -1576,9 +1579,16 @@ int CAvcodecWriter::WriteFileHeader(const nvBitstream *pBitstream) {
     //mp4のmajor_brandをisonからmp42に変更
     //これはmetadataではなく、avformat_write_headerのoptionsに渡す
     //この差ははっきり言って謎
-    if (m_Mux.video.pStream && 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")) {
-        av_dict_set(&m_Mux.format.pHeaderOptions, "brand", "mp42", 0);
-        AddMessage(NV_LOG_DEBUG, _T("set format brand \"mp42\".\n"));
+    if (m_Mux.video.pStream) {
+        if (0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")
+         || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mov")) {
+            av_dict_set(&m_Mux.format.pHeaderOptions, "brand", "mp42", 0);
+            AddMessage(NV_LOG_DEBUG, _T("set format brand \"mp42\".\n"));
+
+            //moovを先頭に
+            av_dict_set(&m_Mux.format.pHeaderOptions, "movflags", "faststart", 0);
+            AddMessage(NV_LOG_DEBUG, _T("set faststart.\n"));
+        }
     }
 
     //なんらかの問題があると、ここでよく死ぬ
