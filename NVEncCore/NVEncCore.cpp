@@ -434,7 +434,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         PrintMes(NV_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->input.type == NV_ENC_INPUT_AVCUVID && !ENABLE_AVCUVID_READER) {
+    if (inputParam->input.type == NV_ENC_INPUT_AVHW && !ENABLE_AVCUVID_READER) {
         PrintMes(NV_LOG_ERROR, _T("avcodec + cuvid reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -473,7 +473,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         break;
 #endif //VPY_READER
 #if ENABLE_AVCUVID_READER
-    case NV_ENC_INPUT_AVCUVID:
+    case NV_ENC_INPUT_AVHW:
     case NV_ENC_INPUT_AVSW:
     case NV_ENC_INPUT_AVANY:
         inputInfoAVCuvid.pInputFormat = inputParam->pAVInputFormat;
@@ -754,7 +754,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
     if (inputParams->nAudioSelectCount + inputParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(NV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
-        if ((inputParams->input.type != NV_ENC_INPUT_AVCUVID
+        if ((inputParams->input.type != NV_ENC_INPUT_AVHW
             && inputParams->input.type != NV_ENC_INPUT_AVSW
             && inputParams->input.type != NV_ENC_INPUT_AVANY)
             || pAVCodecReader == nullptr) {
