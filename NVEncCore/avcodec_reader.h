@@ -694,7 +694,6 @@ typedef struct AVDemuxStream {
     int                       nIndex;                 //音声・字幕のストリームID (libavのストリームID)
     int                       nTrackId;               //音声のトラックID (QSVEncC独自, 1,2,3,...)、字幕は0
     int                       nSubStreamId;           //通常は0、音声のチャンネルを分離する際に複製として作成
-    AVCodecContext           *pCodecCtx;              //音声・字幕のcodecContext
     AVStream                 *pStream;                //音声・字幕のストリーム
     int                       nLastVidIndex;          //音声の直前の相当する動画の位置
     int64_t                   nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
