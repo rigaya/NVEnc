@@ -70,7 +70,7 @@ typedef struct AVMuxVideo {
     AVCodec              *pCodec;               //出力映像のCodec
     AVCodecContext       *pCodecCtx;            //出力映像のCodecContext
     AVRational            nFPS;                 //出力映像のフレームレート
-    AVStream             *pStream;              //出力ファイルの映像ストリーム
+    AVStream             *pStreamOut;           //出力ファイルの映像ストリーム
     bool                  bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
     const AVCodecContext *pInputCodecCtx;       //入力映像のコーデック情報
     int64_t               nInputFirstKeyPts;    //入力映像の最初のpts
@@ -86,7 +86,7 @@ typedef struct AVMuxAudio {
     AVCodecContext       *pCodecCtxIn;          //入力音声のCodecContextのコピー
     int                   nStreamIndexIn;       //入力音声のStreamのindex
     int                   nDelaySamplesOfAudio; //入力音声の遅延 (pkt_timebase基準)
-    AVStream             *pStream;              //出力ファイルの音声ストリーム
+    AVStream             *pStreamOut;           //出力ファイルの音声ストリーム
     int                   nPacketWritten;       //出力したパケットの数
 
     //変換用
@@ -139,7 +139,7 @@ typedef struct AVMuxSub {
     int                   nInTrackId;           //ソースファイルの入力トラック番号
     AVCodecContext       *pCodecCtxIn;          //入力字幕のCodecContextのコピー
     int                   nStreamIndexIn;       //入力字幕のStreamのindex
-    AVStream             *pStream;              //出力ファイルの字幕ストリーム
+    AVStream             *pStreamOut;           //出力ファイルの字幕ストリーム
 
     //変換用
     AVCodec              *pOutCodecDecode;      //変換する元のコーデック

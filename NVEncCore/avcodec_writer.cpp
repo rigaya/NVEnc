@@ -460,27 +460,27 @@ int CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
         AddMessage(NV_LOG_ERROR, _T("failed to codec for video.\n"));
         return 1;
     }
-    if (NULL == (m_Mux.video.pStream = avformat_new_stream(m_Mux.format.pFormatCtx, m_Mux.video.pCodec))) {
+    if (NULL == (m_Mux.video.pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, m_Mux.video.pCodec))) {
         AddMessage(NV_LOG_ERROR, _T("failed to create new stream for video.\n"));
         return 1;
     }
     m_Mux.video.nFPS = prm->vidPrm.outFps;
     AddMessage(NV_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), m_Mux.video.nFPS.num, m_Mux.video.nFPS.den);
 
-    m_Mux.video.pCodecCtx = m_Mux.video.pStream->codec;
+    m_Mux.video.pCodecCtx = m_Mux.video.pStreamOut->codec;
 #if USE_AVCODECPAR
-    m_Mux.video.pStream->codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
-    m_Mux.video.pStream->codecpar->codec_id                = m_Mux.format.pFormatCtx->video_codec_id;
-    m_Mux.video.pStream->codecpar->width                   = prm->vidPrm.nEncWidth;
-    m_Mux.video.pStream->codecpar->height                  = prm->vidPrm.nEncHeight;
-    m_Mux.video.pStream->codecpar->format                  = AV_PIX_FMT_YUV420P;
-    m_Mux.video.pStream->codecpar->level                   = (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_H264) ? prm->vidPrm.pEncConfig->encodeCodecConfig.h264Config.level : prm->vidPrm.pEncConfig->encodeCodecConfig.hevcConfig.level;
-    m_Mux.video.pStream->codecpar->profile                 = (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_H264) ? get_value_from_guid(prm->vidPrm.pEncConfig->profileGUID, h264_profile_names) : get_value_from_guid(prm->vidPrm.pEncConfig->profileGUID, h265_profile_names);
-    m_Mux.video.pStream->codecpar->sample_aspect_ratio.num = prm->vidPrm.sar.first;
-    m_Mux.video.pStream->codecpar->sample_aspect_ratio.den = prm->vidPrm.sar.second;
-    m_Mux.video.pStream->codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
-    m_Mux.video.pStream->codecpar->field_order             = nv_field_order(prm->vidPrm.nPicStruct);
-    m_Mux.video.pStream->codecpar->video_delay             = ((prm->vidPrm.pEncConfig->frameIntervalP - 2) > 0) + (((prm->vidPrm.pEncConfig->frameIntervalP - 2) > 2));
+    m_Mux.video.pStreamOut->codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
+    m_Mux.video.pStreamOut->codecpar->codec_id                = m_Mux.format.pFormatCtx->video_codec_id;
+    m_Mux.video.pStreamOut->codecpar->width                   = prm->vidPrm.nEncWidth;
+    m_Mux.video.pStreamOut->codecpar->height                  = prm->vidPrm.nEncHeight;
+    m_Mux.video.pStreamOut->codecpar->format                  = AV_PIX_FMT_YUV420P;
+    m_Mux.video.pStreamOut->codecpar->level                   = (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_H264) ? prm->vidPrm.pEncConfig->encodeCodecConfig.h264Config.level : prm->vidPrm.pEncConfig->encodeCodecConfig.hevcConfig.level;
+    m_Mux.video.pStreamOut->codecpar->profile                 = (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_H264) ? get_value_from_guid(prm->vidPrm.pEncConfig->profileGUID, h264_profile_names) : get_value_from_guid(prm->vidPrm.pEncConfig->profileGUID, h265_profile_names);
+    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.num = prm->vidPrm.sar.first;
+    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.den = prm->vidPrm.sar.second;
+    m_Mux.video.pStreamOut->codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
+    m_Mux.video.pStreamOut->codecpar->field_order             = nv_field_order(prm->vidPrm.nPicStruct);
+    m_Mux.video.pStreamOut->codecpar->video_delay             = ((prm->vidPrm.pEncConfig->frameIntervalP - 2) > 0) + (((prm->vidPrm.pEncConfig->frameIntervalP - 2) > 2));
 #else
     m_Mux.video.pCodecCtx->codec_id                = m_Mux.format.pFormatCtx->video_codec_id;
     m_Mux.video.pCodecCtx->width                   = prm->vidPrm.nEncWidth;
@@ -498,14 +498,14 @@ int CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     m_Mux.video.pCodecCtx->sample_aspect_ratio.num = prm->vidPrm.sar.first;
     m_Mux.video.pCodecCtx->sample_aspect_ratio.den = prm->vidPrm.sar.second;
 #endif //#if USE_AVCODECPAR
-    m_Mux.video.pStream->sample_aspect_ratio.num   = prm->vidPrm.sar.first; //mkvではこちらの指定も必要
-    m_Mux.video.pStream->sample_aspect_ratio.den   = prm->vidPrm.sar.second;
+    m_Mux.video.pStreamOut->sample_aspect_ratio.num   = prm->vidPrm.sar.first; //mkvではこちらの指定も必要
+    m_Mux.video.pStreamOut->sample_aspect_ratio.den   = prm->vidPrm.sar.second;
     if (prm->vidPrm.videoSignalInfo.colourDescriptionPresentFlag) {
 #if USE_AVCODECPAR
-        m_Mux.video.pStream->codecpar->color_space         = (AVColorSpace)prm->vidPrm.videoSignalInfo.colourMatrix;
-        m_Mux.video.pStream->codecpar->color_primaries     = (AVColorPrimaries)prm->vidPrm.videoSignalInfo.colourPrimaries;
-        m_Mux.video.pStream->codecpar->color_range         = (AVColorRange)(prm->vidPrm.videoSignalInfo.videoFullRangeFlag ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
-        m_Mux.video.pStream->codecpar->color_trc           = (AVColorTransferCharacteristic)prm->vidPrm.videoSignalInfo.transferCharacteristics;
+        m_Mux.video.pStreamOut->codecpar->color_space         = (AVColorSpace)prm->vidPrm.videoSignalInfo.colourMatrix;
+        m_Mux.video.pStreamOut->codecpar->color_primaries     = (AVColorPrimaries)prm->vidPrm.videoSignalInfo.colourPrimaries;
+        m_Mux.video.pStreamOut->codecpar->color_range         = (AVColorRange)(prm->vidPrm.videoSignalInfo.videoFullRangeFlag ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
+        m_Mux.video.pStreamOut->codecpar->color_trc           = (AVColorTransferCharacteristic)prm->vidPrm.videoSignalInfo.transferCharacteristics;
 #else
         m_Mux.video.pCodecCtx->colorspace          = (AVColorSpace)prm->vidPrm.videoSignalInfo.colourMatrix;
         m_Mux.video.pCodecCtx->color_primaries     = (AVColorPrimaries)prm->vidPrm.videoSignalInfo.colourPrimaries;
@@ -519,16 +519,16 @@ int CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     }
     AddMessage(NV_LOG_DEBUG, _T("opened video avcodec\n"));
 
-    m_Mux.video.pStream->time_base = av_inv_q(m_Mux.video.nFPS);
+    m_Mux.video.pStreamOut->time_base = av_inv_q(m_Mux.video.nFPS);
     if (m_Mux.format.bIsMatroska) {
-        m_Mux.video.pStream->time_base = av_make_q(1, 1000);
+        m_Mux.video.pStreamOut->time_base = av_make_q(1, 1000);
     }
 #if !USE_AVCODECPAR
     m_Mux.video.pStream->codec->pkt_timebase = m_Mux.video.pStream->time_base;
     m_Mux.video.pStream->codec->time_base    = m_Mux.video.pStream->time_base;
     m_Mux.video.pStream->codec->framerate    = m_Mux.video.nFPS;
 #endif
-    m_Mux.video.pStream->start_time          = 0;
+    m_Mux.video.pStreamOut->start_time          = 0;
 
     m_Mux.video.bDtsUnavailable   = prm->vidPrm.bDtsUnavailable;
     m_Mux.video.nInputFirstKeyPts = prm->vidPrm.nInputFirstKeyPts;
@@ -550,7 +550,7 @@ int CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
         }
     }
 
-    AddMessage(NV_LOG_DEBUG, _T("output video stream timebase: %d/%d\n"), m_Mux.video.pStream->time_base.num, m_Mux.video.pStream->time_base.den);
+    AddMessage(NV_LOG_DEBUG, _T("output video stream timebase: %d/%d\n"), m_Mux.video.pStreamOut->time_base.num, m_Mux.video.pStreamOut->time_base.den);
     AddMessage(NV_LOG_DEBUG, _T("bDtsUnavailable: %s\n"), (m_Mux.video.bDtsUnavailable) ? _T("on") : _T("off"));
     return 0;
 }
@@ -766,7 +766,7 @@ int CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAu
     AddMessage(NV_LOG_DEBUG, _T("output stream index %d, trackId %d.%d, delay %d, \n"), pInputAudio->src.nIndex, pInputAudio->src.nTrackId, pInputAudio->src.nSubStreamId, pMuxAudio->nDelaySamplesOfAudio);
     AddMessage(NV_LOG_DEBUG, _T("samplerate %d, stream pkt_timebase %d/%d\n"), pMuxAudio->pCodecCtxIn->sample_rate, pMuxAudio->pCodecCtxIn->pkt_timebase.num, pMuxAudio->pCodecCtxIn->pkt_timebase.den);
 
-    if (NULL == (pMuxAudio->pStream = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
+    if (NULL == (pMuxAudio->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
         AddMessage(NV_LOG_ERROR, _T("failed to create new stream for audio.\n"));
         return 1;
     }
@@ -927,7 +927,7 @@ int CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAu
             auto sts = InitAudioResampler(pMuxAudio, nResamplerInChannels, nResamplerInChannelLayout, nResamplerInSampleRate, ResamplerInSampleFmt);
             if (sts != 0) return sts;
         }
-    } else if (pMuxAudio->pCodecCtxIn->codec_id == AV_CODEC_ID_AAC && pMuxAudio->pCodecCtxIn->extradata == NULL && m_Mux.video.pStream) {
+    } else if (pMuxAudio->pCodecCtxIn->codec_id == AV_CODEC_ID_AAC && pMuxAudio->pCodecCtxIn->extradata == NULL && m_Mux.video.pStreamOut) {
         AddMessage(NV_LOG_DEBUG, _T("start initialize aac_adtstoasc filter...\n"));
         auto filter = av_bsf_get_by_name("aac_adtstoasc");
         if (filter == nullptr) {
@@ -977,14 +977,14 @@ int CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAu
     //avcodec_copy_context(pMuxAudio->pStream->codec, srcCodecCtx);
     const AVCodecContext *srcCodecCtx = (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx : pInputAudio->src.pCodecCtx;
 #if USE_AVCODECPAR
-    pMuxAudio->pStream->codecpar->codec_type      = srcCodecCtx->codec_type;
-    pMuxAudio->pStream->codecpar->codec_id        = srcCodecCtx->codec_id;
-    pMuxAudio->pStream->codecpar->frame_size      = srcCodecCtx->frame_size;
-    pMuxAudio->pStream->codecpar->channels        = srcCodecCtx->channels;
-    pMuxAudio->pStream->codecpar->channel_layout  = srcCodecCtx->channel_layout;
-    pMuxAudio->pStream->codecpar->sample_rate     = srcCodecCtx->sample_rate;
-    pMuxAudio->pStream->codecpar->format          = srcCodecCtx->sample_fmt;
-    pMuxAudio->pStream->codecpar->block_align     = srcCodecCtx->block_align;
+    pMuxAudio->pStreamOut->codecpar->codec_type      = srcCodecCtx->codec_type;
+    pMuxAudio->pStreamOut->codecpar->codec_id        = srcCodecCtx->codec_id;
+    pMuxAudio->pStreamOut->codecpar->frame_size      = srcCodecCtx->frame_size;
+    pMuxAudio->pStreamOut->codecpar->channels        = srcCodecCtx->channels;
+    pMuxAudio->pStreamOut->codecpar->channel_layout  = srcCodecCtx->channel_layout;
+    pMuxAudio->pStreamOut->codecpar->sample_rate     = srcCodecCtx->sample_rate;
+    pMuxAudio->pStreamOut->codecpar->format          = srcCodecCtx->sample_fmt;
+    pMuxAudio->pStreamOut->codecpar->block_align     = srcCodecCtx->block_align;
 #else
     pMuxAudio->pStream->codec->codec_type      = srcCodecCtx->codec_type;
     pMuxAudio->pStream->codec->codec_id        = srcCodecCtx->codec_id;
@@ -999,7 +999,7 @@ int CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAu
     if (srcCodecCtx->extradata_size) {
         AddMessage(NV_LOG_DEBUG, _T("set extradata from stream codec...\n"));
 #if USE_AVCODECPAR
-        SetExtraData(pMuxAudio->pStream->codecpar, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
+        SetExtraData(pMuxAudio->pStreamOut->codecpar, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
 #else
         SetExtraData(pMuxAudio->pStream->codec, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
 #endif //USE_AVCODECPAR
@@ -1009,35 +1009,35 @@ int CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAu
         //意味不明なエラーメッセージが表示される
         AddMessage(NV_LOG_DEBUG, _T("set extradata from original packet...\n"));
 #if USE_AVCODECPAR
-        SetExtraData(pMuxAudio->pStream->codecpar, pMuxAudio->pCodecCtxIn->extradata, pMuxAudio->pCodecCtxIn->extradata_size);
+        SetExtraData(pMuxAudio->pStreamOut->codecpar, pMuxAudio->pCodecCtxIn->extradata, pMuxAudio->pCodecCtxIn->extradata_size);
 #else
         SetExtraData(pMuxAudio->pStream->codec, pMuxAudio->pCodecCtxIn->extradata, pMuxAudio->pCodecCtxIn->extradata_size);
 #endif //USE_AVCODECPAR
     }
 #if USE_AVCODECPAR
-    pMuxAudio->pStream->time_base = av_make_q(1, pMuxAudio->pStream->codecpar->sample_rate);
+    pMuxAudio->pStreamOut->time_base = av_make_q(1, pMuxAudio->pStreamOut->codecpar->sample_rate);
 #else
     pMuxAudio->pStream->time_base = av_make_q(1, pMuxAudio->pStream->codec->sample_rate);
     pMuxAudio->pStream->codec->time_base = pMuxAudio->pStream->time_base;
 #endif
-    if (m_Mux.video.pStream) {
-        pMuxAudio->pStream->start_time = (int)av_rescale_q(pInputAudio->src.nDelayOfStream, pMuxAudio->pCodecCtxIn->pkt_timebase, pMuxAudio->pStream->time_base);
-        pMuxAudio->nDelaySamplesOfAudio = (int)pMuxAudio->pStream->start_time;
-        pMuxAudio->nLastPtsOut = pMuxAudio->pStream->start_time;
+    if (m_Mux.video.pStreamOut) {
+        pMuxAudio->pStreamOut->start_time = (int)av_rescale_q(pInputAudio->src.nDelayOfStream, pMuxAudio->pCodecCtxIn->pkt_timebase, pMuxAudio->pStreamOut->time_base);
+        pMuxAudio->nDelaySamplesOfAudio = (int)pMuxAudio->pStreamOut->start_time;
+        pMuxAudio->nLastPtsOut = pMuxAudio->pStreamOut->start_time;
 
         AddMessage(NV_LOG_DEBUG, _T("delay      %6d (timabase %d/%d)\n"), pInputAudio->src.nDelayOfStream, pMuxAudio->pCodecCtxIn->pkt_timebase.num, pMuxAudio->pCodecCtxIn->pkt_timebase.den);
-        AddMessage(NV_LOG_DEBUG, _T("start_time %6d (timabase %d/%d)\n"), pMuxAudio->pStream->start_time,  pMuxAudio->pStream->codec->time_base.num, pMuxAudio->pStream->codec->time_base.den);
+        AddMessage(NV_LOG_DEBUG, _T("start_time %6d (timabase %d/%d)\n"), pMuxAudio->pStreamOut->start_time,  pMuxAudio->pStreamOut->codec->time_base.num, pMuxAudio->pStreamOut->codec->time_base.den);
     }
 
     if (pInputAudio->src.pStream->metadata) {
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputAudio->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
-            av_dict_set(&pMuxAudio->pStream->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
+            av_dict_set(&pMuxAudio->pStreamOut->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
             AddMessage(NV_LOG_DEBUG, _T("Copy Audio Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
         }
         auto language_data = av_dict_get(pInputAudio->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
         if (language_data) {
-            av_dict_set(&pMuxAudio->pStream->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
+            av_dict_set(&pMuxAudio->pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
             AddMessage(NV_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
         }
     }
@@ -1049,7 +1049,7 @@ int CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSub
     AddMessage(NV_LOG_DEBUG, _T("output stream index %d, pkt_timebase %d/%d, trackId %d\n"),
         pInputSubtitle->src.nIndex, pInputSubtitle->src.pCodecCtx->pkt_timebase.num, pInputSubtitle->src.pCodecCtx->pkt_timebase.den, pInputSubtitle->src.nTrackId);
 
-    if (NULL == (pMuxSub->pStream = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
+    if (NULL == (pMuxSub->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
         AddMessage(NV_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
         return 1;
     }
@@ -1136,7 +1136,7 @@ int CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSub
             AddMessage(NV_LOG_ERROR, _T("failed to allocate buffer memory for subtitle encoding.\n"));
             return 1;
         }
-        pMuxSub->pStream->codec->codec = pMuxSub->pOutCodecEncodeCtx->codec;
+        pMuxSub->pStreamOut->codec->codec = pMuxSub->pOutCodecEncodeCtx->codec;
     }
 
     pMuxSub->nInTrackId     = pInputSubtitle->src.nTrackId;
@@ -1144,24 +1144,24 @@ int CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSub
     pMuxSub->pCodecCtxIn    = pInputSubtitle->src.pCodecCtx;
 
     const AVCodecContext *srcCodecCtx = (pMuxSub->pOutCodecEncodeCtx) ? pMuxSub->pOutCodecEncodeCtx : pMuxSub->pCodecCtxIn;
-    avcodec_get_context_defaults3(pMuxSub->pStream->codec, NULL);
-    copy_subtitle_header(pMuxSub->pStream->codec, srcCodecCtx);
+    avcodec_get_context_defaults3(pMuxSub->pStreamOut->codec, NULL);
+    copy_subtitle_header(pMuxSub->pStreamOut->codec, srcCodecCtx);
 #if USE_AVCODECPAR
-    SetExtraData(pMuxSub->pStream->codecpar, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
-    pMuxSub->pStream->codecpar->codec_type   = srcCodecCtx->codec_type;
-    pMuxSub->pStream->codecpar->codec_id     = srcCodecCtx->codec_id;
+    SetExtraData(pMuxSub->pStreamOut->codecpar, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
+    pMuxSub->pStreamOut->codecpar->codec_type   = srcCodecCtx->codec_type;
+    pMuxSub->pStreamOut->codecpar->codec_id     = srcCodecCtx->codec_id;
 #else
     SetExtraData(pMuxSub->pStream->codec,    srcCodecCtx->extradata, srcCodecCtx->extradata_size);
     pMuxSub->pStream->codec->codec_type      = srcCodecCtx->codec_type;
     pMuxSub->pStream->codec->codec_id        = srcCodecCtx->codec_id;
 #endif //#if USE_AVCODECPAR
-    if (!pMuxSub->pStream->codec->codec_tag) {
+    if (!pMuxSub->pStreamOut->codec->codec_tag) {
         uint32_t codec_tag = 0;
         if (!m_Mux.format.pFormatCtx->oformat->codec_tag
             || av_codec_get_id(m_Mux.format.pFormatCtx->oformat->codec_tag, srcCodecCtx->codec_tag) == srcCodecCtx->codec_id
             || !av_codec_get_tag2(m_Mux.format.pFormatCtx->oformat->codec_tag, srcCodecCtx->codec_id, &codec_tag)) {
 #if USE_AVCODECPAR
-            pMuxSub->pStream->codecpar->codec_tag = srcCodecCtx->codec_tag;
+            pMuxSub->pStreamOut->codecpar->codec_tag = srcCodecCtx->codec_tag;
 #else
             pMuxSub->pStream->codec->codec_tag    = srcCodecCtx->codec_tag;
 #endif
@@ -1170,11 +1170,11 @@ int CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSub
     //字幕のtimebaseをmp4/mov系の際は動画にそろえるように
     //よくわからないエラーが発生することがある
     const AVRational vid_pkt_timebase = (m_Mux.video.pCodecCtx) ? m_Mux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Mux.video.nFPS);
-    pMuxSub->pStream->time_base              = (codecId == AV_CODEC_ID_MOV_TEXT) ? vid_pkt_timebase : srcCodecCtx->time_base;
-    pMuxSub->pStream->start_time             = 0;
+    pMuxSub->pStreamOut->time_base              = (codecId == AV_CODEC_ID_MOV_TEXT) ? vid_pkt_timebase : srcCodecCtx->time_base;
+    pMuxSub->pStreamOut->start_time             = 0;
 #if USE_AVCODECPAR
-    pMuxSub->pStream->codecpar->width        = srcCodecCtx->width;
-    pMuxSub->pStream->codecpar->height       = srcCodecCtx->height;
+    pMuxSub->pStreamOut->codecpar->width        = srcCodecCtx->width;
+    pMuxSub->pStreamOut->codecpar->height       = srcCodecCtx->height;
 #else
     pMuxSub->pStream->codec->width           = srcCodecCtx->width;
     pMuxSub->pStream->codec->height          = srcCodecCtx->height;
@@ -1183,17 +1183,17 @@ int CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSub
 #endif //#if USE_AVCODECPAR
 
     if (pInputSubtitle->src.nTrackId == -1) {
-        pMuxSub->pStream->disposition |= AV_DISPOSITION_DEFAULT;
+        pMuxSub->pStreamOut->disposition |= AV_DISPOSITION_DEFAULT;
     }
     if (pInputSubtitle->src.pStream->metadata) {
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputSubtitle->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
-            av_dict_set(&pMuxSub->pStream->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
+            av_dict_set(&pMuxSub->pStreamOut->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
             AddMessage(NV_LOG_DEBUG, _T("Copy Subtitle Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
         }
         auto language_data = av_dict_get(pInputSubtitle->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
         if (language_data) {
-            av_dict_set(&pMuxSub->pStream->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
+            av_dict_set(&pMuxSub->pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
             AddMessage(NV_LOG_DEBUG, _T("Set Subtitle language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
         }
     }
@@ -1421,12 +1421,12 @@ int CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_pt
     
     sprintf_s(m_Mux.format.pFormatCtx->filename, filename.c_str());
     if (m_Mux.format.pOutputFmt->flags & AVFMT_GLOBALHEADER) {
-        if (m_Mux.video.pStream) { m_Mux.video.pStream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
+        if (m_Mux.video.pStreamOut) { m_Mux.video.pStreamOut->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
         for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            if (m_Mux.audio[i].pStream) { m_Mux.audio[i].pStream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
+            if (m_Mux.audio[i].pStreamOut) { m_Mux.audio[i].pStreamOut->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
         }
         for (uint32_t i = 0; i < m_Mux.sub.size(); i++) {
-            if (m_Mux.sub[i].pStream) { m_Mux.sub[i].pStream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
+            if (m_Mux.sub[i].pStreamOut) { m_Mux.sub[i].pStreamOut->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
         }
     }
 
@@ -1448,7 +1448,7 @@ int CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_pt
 
     m_pEncSatusInfo = pEncSatusInfo;
     //音声のみの出力を行う場合、SetVideoParamは呼ばれないので、ここで最後まで初期化をすませてしまう
-    if (!m_Mux.video.pStream) {
+    if (!m_Mux.video.pStreamOut) {
         return SetVideoParam(nullptr, NV_ENC_PIC_STRUCT_FRAME, nullptr);
     }
 #if ENABLE_AVCODEC_OUT_THREAD
@@ -1499,12 +1499,12 @@ int CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_pt
 
 int CAvcodecWriter::SetSPSPPSToExtraData(const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) {
     //SPS/PPSをセット
-    if (m_Mux.video.pStream && pSequenceParam) {
+    if (m_Mux.video.pStreamOut && pSequenceParam) {
         if (pSequenceParam->spsppsBuffer && pSequenceParam->outSPSPPSPayloadSize) {
 #if USE_AVCODECPAR
-            m_Mux.video.pStream->codecpar->extradata_size = pSequenceParam->outSPSPPSPayloadSize[0];
-            m_Mux.video.pStream->codecpar->extradata = (uint8_t *)av_malloc(m_Mux.video.pStream->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-            memcpy(m_Mux.video.pStream->codecpar->extradata, pSequenceParam->spsppsBuffer, m_Mux.video.pStream->codecpar->extradata_size);
+            m_Mux.video.pStreamOut->codecpar->extradata_size = pSequenceParam->outSPSPPSPayloadSize[0];
+            m_Mux.video.pStreamOut->codecpar->extradata = (uint8_t *)av_malloc(m_Mux.video.pStreamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+            memcpy(m_Mux.video.pStreamOut->codecpar->extradata, pSequenceParam->spsppsBuffer, m_Mux.video.pStreamOut->codecpar->extradata_size);
 #else
             m_Mux.video.pCodecCtx->extradata_size = pSequenceParam->outSPSPPSPayloadSize[0];
             m_Mux.video.pCodecCtx->extradata = (uint8_t *)av_malloc(m_Mux.video.pCodecCtx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
@@ -1543,12 +1543,12 @@ int CAvcodecWriter::AddHEVCHeaderToExtraData(const nvBitstream *pBitstream) {
     if (vps_start_ptr) {
 #if USE_AVCODECPAR
         const uint32_t vps_length = (uint32_t)(vps_fin_ptr - vps_start_ptr);
-        uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pStream->codecpar->extradata_size + vps_length + AV_INPUT_BUFFER_PADDING_SIZE);
+        uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pStreamOut->codecpar->extradata_size + vps_length + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(new_ptr, vps_start_ptr, vps_length);
-        memcpy(new_ptr + vps_length, m_Mux.video.pStream->codecpar->extradata, m_Mux.video.pStream->codecpar->extradata_size);
-        m_Mux.video.pStream->codecpar->extradata_size += vps_length;
-        av_free(m_Mux.video.pStream->codecpar->extradata);
-        m_Mux.video.pStream->codecpar->extradata = new_ptr;
+        memcpy(new_ptr + vps_length, m_Mux.video.pStreamOut->codecpar->extradata, m_Mux.video.pStreamOut->codecpar->extradata_size);
+        m_Mux.video.pStreamOut->codecpar->extradata_size += vps_length;
+        av_free(m_Mux.video.pStreamOut->codecpar->extradata);
+        m_Mux.video.pStreamOut->codecpar->extradata = new_ptr;
 #else
         const uint32_t vps_length = (uint32_t)(vps_fin_ptr - vps_start_ptr);
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pCodecCtx->extradata_size + vps_length + AV_INPUT_BUFFER_PADDING_SIZE);
@@ -1579,7 +1579,7 @@ int CAvcodecWriter::WriteFileHeader(const nvBitstream *pBitstream) {
     //mp4のmajor_brandをisonからmp42に変更
     //これはmetadataではなく、avformat_write_headerのoptionsに渡す
     //この差ははっきり言って謎
-    if (m_Mux.video.pStream) {
+    if (m_Mux.video.pStreamOut) {
         if (0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")
          || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mov")) {
             av_dict_set(&m_Mux.format.pHeaderOptions, "brand", "mp42", 0);
@@ -1625,7 +1625,7 @@ int CAvcodecWriter::WriteFileHeader(const nvBitstream *pBitstream) {
 
     //API v1.6以下でdtsがQSVが提供されない場合、自前で計算する必要がある
     //API v1.6ではB-pyramidが存在しないので、Bフレームがあるかないかだけ考慮するればよい
-    if (m_Mux.video.pStream) {
+    if (m_Mux.video.pStreamOut) {
         if (m_Mux.video.bDtsUnavailable) {
             m_Mux.video.nFpsBaseNextDts = (0 - m_Mux.video.nBframeDelay) * (1 + m_Mux.video.bIsPAFF);
             AddMessage(NV_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
@@ -1709,12 +1709,12 @@ tstring CAvcodecWriter::GetWriterMes() {
         mes += str;
     };
 
-    if (m_Mux.video.pStream) {
-        add_mes(avcodec_get_name(m_Mux.video.pStream->codecpar->codec_id));
+    if (m_Mux.video.pStreamOut) {
+        add_mes(avcodec_get_name(m_Mux.video.pStreamOut->codecpar->codec_id));
         i_stream++;
     }
     for (const auto& audioStream : m_Mux.audio) {
-        if (audioStream.pStream) {
+        if (audioStream.pStreamOut) {
             std::string audiostr = (i_stream) ? ", " : "";
             if (audioStream.pOutCodecEncodeCtx) {
                 //入力情報
@@ -1753,7 +1753,7 @@ tstring CAvcodecWriter::GetWriterMes() {
         }
     }
     for (const auto& subtitleStream : m_Mux.sub) {
-        if (subtitleStream.pStream) {
+        if (subtitleStream.pStreamOut) {
             add_mes(std::string((i_stream) ? ", " : "") + strsprintf("sub#%d", std::abs(subtitleStream.nInTrackId)));
             i_stream++;
         }
@@ -1859,8 +1859,8 @@ int CAvcodecWriter::WriteNextFrameInternal(nvBitstream *pBitstream, int64_t *pWr
         pkt.size = bytesToWrite;
 
         const AVRational fpsTimebase = av_div_q({1, 1 + bIsPAFF}, m_Mux.video.nFPS);
-        const AVRational streamTimebase = m_Mux.video.pStream->codec->pkt_timebase;
-        pkt.stream_index = m_Mux.video.pStream->index;
+        const AVRational streamTimebase = m_Mux.video.pStreamOut->codec->pkt_timebase;
+        pkt.stream_index = m_Mux.video.pStreamOut->index;
         pkt.flags        = isIDR;
         pkt.duration     = (int)av_rescale_q(1, fpsTimebase, streamTimebase);
         pkt.pts          = av_rescale_q(pBitstream->outputTimeStamp * (1 + bIsPAFF), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
@@ -2031,15 +2031,15 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *p
     AVRational samplerate = { 1, (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx->sample_rate : pMuxAudio->pCodecCtxIn->sample_rate };
     if (samples) {
         //durationについて、sample数から出力ストリームのtimebaseに変更する
-        pkt->stream_index = pMuxAudio->pStream->index;
+        pkt->stream_index = pMuxAudio->pStreamOut->index;
         pkt->flags        = AV_PKT_FLAG_KEY; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
-        pkt->dts          = av_rescale_q(pMuxAudio->nOutputSamples + pMuxAudio->nDelaySamplesOfAudio, samplerate, pMuxAudio->pStream->time_base);
+        pkt->dts          = av_rescale_q(pMuxAudio->nOutputSamples + pMuxAudio->nDelaySamplesOfAudio, samplerate, pMuxAudio->pStreamOut->time_base);
         pkt->pts          = pkt->dts;
-        pkt->duration     = (int)av_rescale_q(samples, samplerate, pMuxAudio->pStream->time_base);
+        pkt->duration     = (int)av_rescale_q(samples, samplerate, pMuxAudio->pStreamOut->time_base);
         if (pkt->duration == 0)
             pkt->duration = (int)(pkt->pts - pMuxAudio->nLastPtsOut);
         pMuxAudio->nLastPtsOut = pkt->pts;
-        *pWrittenDts = av_rescale_q(pkt->dts, pMuxAudio->pStream->time_base, CUVID_NATIVE_TIMEBASE);
+        *pWrittenDts = av_rescale_q(pkt->dts, pMuxAudio->pStreamOut->time_base, CUVID_NATIVE_TIMEBASE);
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
         pMuxAudio->nOutputSamples += samples;
     } else {
@@ -2416,10 +2416,10 @@ int CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt) {
         AVPacket pktOut;
         av_init_packet(&pktOut);
         pktOut.data = pMuxSub->pBuf;
-        pktOut.stream_index = pMuxSub->pStream->index;
+        pktOut.stream_index = pMuxSub->pStreamOut->index;
         pktOut.size = sub_out_size;
-        pktOut.duration = (int)av_rescale_q(sub.end_display_time, av_make_q(1, 1000), pMuxSub->pStream->time_base);
-        pktOut.pts  = av_rescale_q(sub.pts, av_make_q(1, AV_TIME_BASE), pMuxSub->pStream->time_base);
+        pktOut.duration = (int)av_rescale_q(sub.end_display_time, av_make_q(1, 1000), pMuxSub->pStreamOut->time_base);
+        pktOut.pts  = av_rescale_q(sub.pts, av_make_q(1, AV_TIME_BASE), pMuxSub->pStreamOut->time_base);
         if (pMuxSub->pOutCodecEncodeCtx->codec_id == AV_CODEC_ID_DVB_SUBTITLE) {
             pktOut.pts += 90 * ((i == 0) ? sub.start_display_time : sub.end_display_time);
         }
@@ -2437,17 +2437,17 @@ int CAvcodecWriter::SubtitleWritePacket(AVPacket *pkt) {
     //ptsが存在しない場合はないものとすると、AdjustTimestampTrimmedの結果がAV_NOPTS_VALUEとなるのは、
     //Trimによりカットされたときのみ
     const int64_t pts_orig = pkt->pts;
-    if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts - pts_adjust), pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStream->time_base, false))) {
+    if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts - pts_adjust), pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStreamOut->time_base, false))) {
         if (pMuxSub->pOutCodecEncodeCtx) {
             return SubtitleTranscode(pMuxSub, pkt);
         }
         //dts側にもpts側に加えたのと同じ分だけの補正をかける
-        pkt->dts = pkt->dts + (av_rescale_q(pkt->pts, pMuxSub->pStream->time_base, pMuxSub->pCodecCtxIn->pkt_timebase) - pts_orig);
+        pkt->dts = pkt->dts + (av_rescale_q(pkt->pts, pMuxSub->pStreamOut->time_base, pMuxSub->pCodecCtxIn->pkt_timebase) - pts_orig);
         //timescaleの変換を行い、負の値をとらないようにする
-        pkt->dts = std::max(INT64_C(0), av_rescale_q(pkt->dts, pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStream->time_base));
+        pkt->dts = std::max(INT64_C(0), av_rescale_q(pkt->dts, pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStreamOut->time_base));
         pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
-        pkt->duration = (int)av_rescale_q(pkt->duration, pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStream->time_base);
-        pkt->stream_index = pMuxSub->pStream->index;
+        pkt->duration = (int)av_rescale_q(pkt->duration, pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStreamOut->time_base);
+        pkt->stream_index = pMuxSub->pStreamOut->index;
         pkt->pos = -1;
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
     }
