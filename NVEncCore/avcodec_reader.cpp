@@ -1340,16 +1340,16 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
                     pos.pict_type = (uint8_t)(std::max)(m_Demux.video.pParserCtx->pict_type, 0);
                     switch (m_Demux.video.pParserCtx->picture_structure) {
                         //フィールドとして符号化されている
-                    case AV_PICTURE_STRUCTURE_TOP_FIELD:    pos.pic_struct = AVQSV_PICSTRUCT_FIELD_TOP; break;
-                    case AV_PICTURE_STRUCTURE_BOTTOM_FIELD: pos.pic_struct = AVQSV_PICSTRUCT_FIELD_BOTTOM; break;
+                    case AV_PICTURE_STRUCTURE_TOP_FIELD:    pos.pic_struct = RGY_PICSTRUCT_FIELD_TOP; break;
+                    case AV_PICTURE_STRUCTURE_BOTTOM_FIELD: pos.pic_struct = RGY_PICSTRUCT_FIELD_BOTTOM; break;
                         //フレームとして符号化されている
                     default:
                         switch (m_Demux.video.pParserCtx->field_order) {
                         case AV_FIELD_TT:
-                        case AV_FIELD_TB: pos.pic_struct = AVQSV_PICSTRUCT_FRAME_TFF; break;
+                        case AV_FIELD_TB: pos.pic_struct = RGY_PICSTRUCT_FRAME_TFF; break;
                         case AV_FIELD_BT:
-                        case AV_FIELD_BB: pos.pic_struct = AVQSV_PICSTRUCT_FRAME_BFF; break;
-                        default:          pos.pic_struct = AVQSV_PICSTRUCT_FRAME;     break;
+                        case AV_FIELD_BB: pos.pic_struct = RGY_PICSTRUCT_FRAME_BFF; break;
+                        default:          pos.pic_struct = RGY_PICSTRUCT_FRAME;     break;
                         }
                     }
                     pos.repeat_pict = (uint8_t)m_Demux.video.pParserCtx->repeat_pict;
