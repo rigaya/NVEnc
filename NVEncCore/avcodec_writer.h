@@ -269,15 +269,15 @@ public:
     CAvcodecWriter();
     virtual ~CAvcodecWriter();
 
-    virtual int Init(const TCHAR *strFileName, const void *option, shared_ptr<EncodeStatus> pEncSatusInfo) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *option, shared_ptr<EncodeStatus> pEncSatusInfo) override;
 
-    virtual int SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) override;
+    virtual RGY_ERR SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) override;
 
-    virtual int WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pNVEncBitstream) override;
+    virtual RGY_ERR WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pNVEncBitstream) override;
 
-    virtual int WriteNextFrame(uint8_t *ptr, uint32_t nSize) override;
+    virtual RGY_ERR WriteNextFrame(uint8_t *ptr, uint32_t nSize) override;
 
-    virtual int WriteNextPacket(AVPacket *pkt);
+    virtual RGY_ERR WriteNextPacket(AVPacket *pkt);
 
     virtual vector<int> GetStreamTrackIdList();
 
@@ -294,16 +294,16 @@ public:
     HANDLE getThreadHandleAudEncode();
 private:
     //別のスレッドで実行する場合のスレッド関数 (出力)
-    int WriteThreadFunc();
+    RGY_ERR WriteThreadFunc();
 
     //別のスレッドで実行する場合のスレッド関数 (音声処理)
-    int ThreadFuncAudThread();
+    RGY_ERR ThreadFuncAudThread();
 
     //別のスレッドで実行する場合のスレッド関数 (音声エンコード処理)
-    int ThreadFuncAudEncodeThread();
+    RGY_ERR ThreadFuncAudEncodeThread();
 
     //音声出力キューに追加 (音声処理スレッドが有効な場合のみ有効)
-    int AddAudQueue(AVPktMuxData *pktData, int type);
+    RGY_ERR AddAudQueue(AVPktMuxData *pktData, int type);
 
     //AVPktMuxDataを初期化する
     AVPktMuxData pktMuxData(const AVPacket *pkt);
@@ -312,25 +312,25 @@ private:
     AVPktMuxData pktMuxData(AVFrame *pFrame);
 
     //WriteNextFrameの本体
-    int WriteNextFrameInternal(nvBitstream *pBitstream, int64_t *pWrittenDts);
+    RGY_ERR WriteNextFrameInternal(nvBitstream *pBitstream, int64_t *pWrittenDts);
 
     //WriteNextPacketの本体
-    int WriteNextPacketInternal(AVPktMuxData *pktData);
+    RGY_ERR WriteNextPacketInternal(AVPktMuxData *pktData);
 
     //WriteNextPacketの音声処理部分(デコード/thAudEncodeがなければエンコードも担当)
-    int WriteNextPacketAudio(AVPktMuxData *pktData);
+    RGY_ERR WriteNextPacketAudio(AVPktMuxData *pktData);
 
     //WriteNextPacketの音声処理部分(エンコード)
-    int WriteNextPacketAudioFrame(AVPktMuxData *pktData);
+    RGY_ERR WriteNextPacketAudioFrame(AVPktMuxData *pktData);
 
     //フィルタリング後のパケットをサブトラックに分配する
-    int WriteNextPacketToAudioSubtracks(AVPktMuxData *pktData);
+    RGY_ERR WriteNextPacketToAudioSubtracks(AVPktMuxData *pktData);
 
     //音声フレームをエンコード
-    int WriteNextAudioFrame(AVPktMuxData *pktData);
+    RGY_ERR WriteNextAudioFrame(AVPktMuxData *pktData);
 
     //音声のフィルタリングを実行
-    int AudioFilterFrame(AVPktMuxData *pktData);
+    RGY_ERR AudioFilterFrame(AVPktMuxData *pktData);
 
     //CodecIDがPCM系かどうか判定
     bool codecIDIsPCM(AVCodecID targetCodec);
@@ -342,7 +342,7 @@ private:
     AVCodecID getAVCodecId(cudaVideoCodec cuvid_cc);
 
     //AAC音声にBitstreamフィルターを適用する
-    int applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);
+    RGY_ERR applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);
 
     //H.264ストリームからPAFFのフィールドの長さを返す
     uint32_t getH264PAFFFieldLength(uint8_t *ptr, uint32_t size, int *isIDR);
@@ -354,22 +354,22 @@ private:
 #endif
     
     //映像の初期化
-    int InitVideo(const AvcodecWriterPrm *prm);
+    RGY_ERR InitVideo(const AvcodecWriterPrm *prm);
 
     //音声フィルタの初期化
-    int InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
+    RGY_ERR InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
-    int InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
+    RGY_ERR InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
-    int InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError);
+    RGY_ERR InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError);
 
     //字幕の初期化
-    int InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
+    RGY_ERR InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
 
     //チャプターをコピー
-    int SetChapters(const vector<const AVChapter *>& chapterList);
+    RGY_ERR SetChapters(const vector<const AVChapter *>& chapterList);
 
     //メッセージを作成
     tstring GetWriterMes();
@@ -405,10 +405,10 @@ private:
     vector<AVPktMuxData> AudioEncodeFrame(AVMuxAudio *pMuxAudio, const AVFrame *frame);
 
     //字幕パケットを書き出す
-    int SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt);
+    RGY_ERR SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt);
 
     //字幕パケットを書き出す
-    int SubtitleWritePacket(AVPacket *pkt);
+    RGY_ERR SubtitleWritePacket(AVPacket *pkt);
 
     //パケットを実際に書き出す
     void WriteNextPacketProcessed(AVPktMuxData *pktData);
@@ -420,13 +420,13 @@ private:
     void WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts);
 
     //extradataに動画のヘッダーをセットする
-    int SetSPSPPSToExtraData(const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam);
+    RGY_ERR SetSPSPPSToExtraData(const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam);
 
     //extradataにHEVCのヘッダーを追加する
-    int AddHEVCHeaderToExtraData(const nvBitstream *pBitstream);
+    RGY_ERR AddHEVCHeaderToExtraData(const nvBitstream *pBitstream);
 
     //ファイルヘッダーを書き出す
-    int WriteFileHeader(const nvBitstream *pBitstream);
+    RGY_ERR WriteFileHeader(const nvBitstream *pBitstream);
 
     //タイムスタンプをTrimなどを考慮しつつ計算しなおす
     //nTimeInがTrimで切り取られる領域の場合

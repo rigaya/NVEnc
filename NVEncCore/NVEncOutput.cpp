@@ -27,12 +27,6 @@
 // ------------------------------------------------------------------------------------------
 #include "NVEncOutput.h"
 
-#define WRITE_CHECK(writtenBytes, expected) { \
-    if (writtenBytes != expected) { \
-        AddMessage(NV_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\n")); \
-        return 1; \
-    } }
-
 NVEncOut::NVEncOut() :
     m_pEncSatusInfo(),
     m_fDest(),
@@ -83,11 +77,11 @@ NVEncOutBitstream::~NVEncOutBitstream() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-int NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
+RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
     CQSVOutRawPrm *rawPrm = (CQSVOutRawPrm *)prm;
     if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
         AddMessage(NV_LOG_ERROR, _T("output filename not set.\n"));
-        return 1;
+        return RGY_ERR_UNDEFINED_BEHAVIOR;
     }
 
     Close();
@@ -108,7 +102,7 @@ int NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_pt
             int error = _tfopen_s(&fp, strFileName, _T("wb+"));
             if (error != 0 || fp == NULL) {
                 AddMessage(NV_LOG_ERROR, _T("failed to open output file \"%s\": %s\n"), strFileName, _tcserror(error));
-                return 1;
+                return RGY_ERR_FILE_OPEN;
             }
             m_fDest.reset(fp);
             AddMessage(NV_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
@@ -126,29 +120,32 @@ int NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_pt
         }
     }
     m_bInited = true;
-    return 0;
+    return RGY_ERR_NONE;
 }
-int NVEncOutBitstream::SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) { return 0; };
+RGY_ERR NVEncOutBitstream::SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) { return RGY_ERR_NONE; };
 #pragma warning(pop)
-int NVEncOutBitstream::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) {
+RGY_ERR NVEncOutBitstream::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) {
     if (pBitstream == nullptr) {
         AddMessage(NV_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
-        return 1;
+        return RGY_ERR_UNDEFINED_BEHAVIOR;
     }
 
     uint32_t nBytesWritten = 0;
     if (!m_bNoOutput) {
         nBytesWritten = (uint32_t)fwrite(pBitstream->bitstreamBufferPtr, 1, pBitstream->bitstreamSizeInBytes, m_fDest.get());
-        WRITE_CHECK(nBytesWritten, pBitstream->bitstreamSizeInBytes);
+        if (nBytesWritten != pBitstream->bitstreamSizeInBytes) {
+            AddMessage(NV_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\n"));
+            return RGY_ERR_UNKNOWN;
+        }
     }
 
     m_pEncSatusInfo->SetOutputData(pBitstream->pictureType, pBitstream->bitstreamSizeInBytes, pBitstream->frameAvgQP);
-    return 0;
+    return RGY_ERR_NONE;
 }
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-int NVEncOutBitstream::WriteNextFrame(uint8_t *ptr, uint32_t nSize) {
-    return 1;
+RGY_ERR NVEncOutBitstream::WriteNextFrame(uint8_t *ptr, uint32_t nSize) {
+    return RGY_ERR_UNSUPPORTED;
 }
 #pragma warning(pop)

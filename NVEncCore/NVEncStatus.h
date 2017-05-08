@@ -42,6 +42,7 @@
 #include "nvEncodeAPI.h"
 #include "NVEncLog.h"
 #include "cpu_info.h"
+#include "rgy_err.h"
 
 using std::chrono::duration_cast;
 
@@ -184,16 +185,16 @@ public:
         }
         m_pNVLog->write(NV_LOG_INFO, _T("%s\n"), mes);
     }
-    virtual int UpdateDisplay(double progressPercent = 0.0) {
+    virtual RGY_ERR UpdateDisplay(double progressPercent = 0.0) {
         if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > NV_LOG_INFO) {
-            return NVENC_THREAD_RUNNING;
+            return RGY_ERR_NONE;
         }
         if (m_sData.frameOut + m_sData.frameDrop <= 0) {
-            return NVENC_THREAD_RUNNING;
+            return RGY_ERR_NONE;
         }
         auto tm = std::chrono::system_clock::now();
         if (duration_cast<std::chrono::milliseconds>(tm - m_sData.tmLastUpdate).count() < UPDATE_INTERVAL) {
-            return NVENC_THREAD_RUNNING;
+            return RGY_ERR_NONE;
         }
         m_sData.tmLastUpdate = tm;
         double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_sData.tmStart).count();
@@ -230,7 +231,7 @@ public:
             }
             UpdateDisplay(mes, progressPercent);
         }
-        return NVENC_THREAD_RUNNING;
+        return RGY_ERR_NONE;
     }
     virtual void writeResult() {
         auto tm_result = std::chrono::system_clock::now();

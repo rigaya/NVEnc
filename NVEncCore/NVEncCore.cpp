@@ -2785,8 +2785,8 @@ NVENCSTATUS NVEncCore::Encode() {
         th_input = std::thread([this, pStreamIn, &nvStatus]() {
             CUresult curesult = CUDA_SUCCESS;
             vector<uint8_t> bitstream;
-            int sts = NVENC_THREAD_RUNNING;
-            for (int i = 0; sts == NVENC_THREAD_RUNNING && nvStatus == NV_ENC_SUCCESS && !m_cuvidDec->GetError(); i++) {
+            RGY_ERR sts = RGY_ERR_NONE;
+            for (int i = 0; sts == RGY_ERR_NONE && nvStatus == NV_ENC_SUCCESS && !m_cuvidDec->GetError(); i++) {
                 sts = m_pFileReader->LoadNextFrame(nullptr, 0);
                 int64_t pts;
                 m_pFileReader->GetNextBitstream(bitstream, &pts);
@@ -3054,7 +3054,7 @@ NVENCSTATUS NVEncCore::Encode() {
 #endif //#if ENABLE_AVCUVID_READER
         if (m_inputHostBuffer.size()) {
             auto inputFrameBuf = m_inputHostBuffer[nInputFrame % m_inputHostBuffer.size()];
-            if (m_pFileReader->LoadNextFrame(inputFrameBuf.ptr, inputFrameBuf.pitch)) {
+            if (m_pFileReader->LoadNextFrame(inputFrameBuf.ptr, inputFrameBuf.pitch) != RGY_ERR_NONE) {
                 break;
             }
             inputFrame.setHostFrameInfo(inputFrameBuf);

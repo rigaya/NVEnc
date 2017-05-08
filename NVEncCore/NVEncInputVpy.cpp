@@ -159,7 +159,7 @@ int NVEncInputVpy::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-int NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
+RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     Close();
 
     m_pEncSatusInfo = pStatus;
@@ -167,13 +167,13 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
     m_bInterlaced = info->interlaced;
     
     if (load_vapoursynth()) {
-        return 1;
+        return RGY_ERR_NULL_PTR;
     }
     //ファイルデータ読み込み
     std::ifstream inputFile(inputPrm->filename);
     if (inputFile.bad()) {
         AddMessage(NV_LOG_ERROR, _T("Failed to open vpy file.\n"));
-        return 1;
+        return RGY_ERR_FILE_OPEN;
     }
     std::istreambuf_iterator<char> data_begin(inputFile);
     std::istreambuf_iterator<char> data_end;
@@ -193,31 +193,31 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
         if (m_sVSscript) {
             AddMessage(NV_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
         }
-        return 1;
+        return RGY_ERR_NULL_PTR;
     }
     if (vscoreinfo->api < 3) {
         AddMessage(NV_LOG_ERROR, _T("VapourSynth API v3 or later is necessary.\n"));
-        return 1;
+        return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (vsvideoinfo->height <= 0 || vsvideoinfo->width <= 0) {
         AddMessage(NV_LOG_ERROR, _T("Variable resolution is not supported.\n"));
-        return 1;
+        return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (vsvideoinfo->numFrames == 0) {
         AddMessage(NV_LOG_ERROR, _T("Length of input video is unknown.\n"));
-        return 1;
+        return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (!vsvideoinfo->format) {
         AddMessage(NV_LOG_ERROR, _T("Variable colorformat is not supported.\n"));
-        return 1;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (pfNone == vsvideoinfo->format->id) {
         AddMessage(NV_LOG_ERROR, _T("Invalid colorformat.\n"));
-        return 1;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     typedef struct CSPMap {
@@ -244,12 +244,12 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
 
     if (nullptr == m_sConvert) {
         AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
-        return 1;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
         AddMessage(NV_LOG_ERROR, _T("Invalid framerate.\n"));
-        return 1;
+        return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
     
     int64_t fps_gcd = nv_get_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
@@ -278,7 +278,7 @@ int NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
     m_sDecParam.src_pitch = 0;
     CreateInputInfo(rev_info, NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
-    return 0;
+    return RGY_ERR_NONE;
 }
 
 void NVEncInputVpy::Close() {
@@ -302,14 +302,14 @@ void NVEncInputVpy::Close() {
     m_pEncSatusInfo.reset();
 }
 
-int NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
+RGY_ERR NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
     if (m_nFrame >= m_nMaxFrame) {
-        return NVENC_THREAD_FINISHED;
+        return RGY_ERR_MORE_DATA;
     }
 
     const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_nFrame);
     if (NULL == src_frame) {
-        return NVENC_THREAD_ERROR;
+        return RGY_ERR_MORE_DATA;
     }
 
     void *dst_array[3];
@@ -325,8 +325,7 @@ int NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
     m_nFrame++;
     m_pEncSatusInfo->m_sData.frameIn++;
     m_nCopyOfInputFrames = m_nFrame;
-    m_pEncSatusInfo->UpdateDisplay();
-    return 0;
+    return m_pEncSatusInfo->UpdateDisplay();
 }
 
 #endif //VPY_READER

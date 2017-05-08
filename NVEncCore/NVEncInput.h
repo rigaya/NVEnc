@@ -40,6 +40,7 @@
 #include "NVEncLog.h"
 #include "NVEncParam.h"
 #include <nvcuvid.h>
+#include "rgy_err.h"
 
 enum {
     NV_ENC_INPUT_UNKNWON = 0,
@@ -86,16 +87,16 @@ public:
         m_pPrintMes = pNVLog;
     }
 
-    virtual int Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus);
-    virtual int LoadNextFrame(void *dst, int dst_pitch);
+    virtual RGY_ERR Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus);
+    virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch);
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
     //動画ストリームの1フレーム分のデータをbitstreamに追加する
-    virtual int GetNextBitstream(vector<uint8_t>& bitstream, int64_t *dts) { return 0; };
+    virtual RGY_ERR GetNextBitstream(vector<uint8_t>& bitstream, int64_t *dts) { return RGY_ERR_NONE; };
 
     //ストリームのヘッダ部分を取得する
-    virtual int GetHeader(vector<uint8_t>& bitstream) { return 0; };
+    virtual RGY_ERR GetHeader(vector<uint8_t>& bitstream) { return RGY_ERR_NONE; };
 #pragma warning(pop)
 
     virtual void Close();

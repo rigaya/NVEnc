@@ -49,13 +49,12 @@ NVEncBasicInput::~NVEncBasicInput() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-int NVEncBasicInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
-
-    return 0;
+RGY_ERR NVEncBasicInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
+    return RGY_ERR_NONE;
 }
 
-int NVEncBasicInput::LoadNextFrame(void *dst, int dst_pitch) {
-    return 0;
+RGY_ERR NVEncBasicInput::LoadNextFrame(void *dst, int dst_pitch) {
+    return RGY_ERR_NONE;
 }
 #pragma warning(pop)
 

@@ -42,8 +42,8 @@ public:
     NVEncInputRaw();
     ~NVEncInputRaw();
 
-    virtual int Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
-    virtual int LoadNextFrame(void *dst, int dst_pitch) override;
+    virtual RGY_ERR Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
+    virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) override;
     virtual void Close() override;
 
 protected:

@@ -76,26 +76,26 @@ int NVEncInputAvs::load_avisynth() {
     return 0;
 }
 
-int NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
+RGY_ERR NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     Close();
 
     m_pEncSatusInfo = pStatus;
     InputInfoAvs *info = reinterpret_cast<InputInfoAvs *>(inputPrm->otherPrm);
     m_bInterlaced = info->interlaced;
     
-    if (load_avisynth()) {
+    if (load_avisynth() != RGY_ERR_NONE) {
         AddMessage(NV_LOG_ERROR, _T("failed to load avisynth.dll.\n"));
-        return 1;
+        return RGY_ERR_INVALID_HANDLE;
     }
 
     if (nullptr == (m_sAVSenv = m_sAvisynth.create_script_environment(AVISYNTH_INTERFACE_VERSION))) {
         AddMessage(NV_LOG_ERROR, _T("failed to init avisynth enviroment.\n"));
-        return 1;
+        return RGY_ERR_INVALID_HANDLE;
     }
     std::string filename_char;
     if (0 == tchar_to_string(inputPrm->filename, filename_char)) {
         AddMessage(NV_LOG_ERROR,  _T("failed to convert to ansi characters.\n"));
-        return 1;
+        return RGY_ERR_UNSUPPORTED;
     }
     AVS_Value val_filename = avs_new_value_string(filename_char.c_str());
     AVS_Value val_res = m_sAvisynth.invoke(m_sAVSenv, "Import", val_filename, NULL);
@@ -106,19 +106,19 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
             AddMessage(NV_LOG_ERROR, char_to_tstring(avs_as_string(val_res)) + _T("\n"));
         }
         m_sAvisynth.release_value(val_res);
-        return 1;
+        return RGY_ERR_INVALID_HANDLE;
     }
     m_sAVSclip = m_sAvisynth.take_clip(val_res, m_sAVSenv);
     m_sAvisynth.release_value(val_res);
 
     if (nullptr == (m_sAVSinfo = m_sAvisynth.get_video_info(m_sAVSclip))) {
         AddMessage(NV_LOG_ERROR, _T("failed to get avs info.\n"));
-        return 1;
+        return RGY_ERR_INVALID_HANDLE;
     }
 
     if (!avs_has_video(m_sAVSinfo)) {
         AddMessage(NV_LOG_ERROR, _T("avs has no video.\n"));
-        return 1;
+        return RGY_ERR_INVALID_HANDLE;
     }
 
     typedef struct CSPMap {
@@ -144,7 +144,7 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
 
     if (nullptr == m_sConvert) {
         AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
-        return 1;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     
     uint32_t fps_gcd = nv_get_gcd(m_sAVSinfo->fps_numerator, m_sAVSinfo->fps_denominator);
@@ -166,7 +166,7 @@ int NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStat
     m_sDecParam.src_pitch = 0;
     CreateInputInfo(avisynth_version, NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
-    return 0;
+    return RGY_ERR_NONE;
 }
 
 void NVEncInputAvs::Close() {
@@ -184,14 +184,14 @@ void NVEncInputAvs::Close() {
     m_pEncSatusInfo.reset();
 }
 
-int NVEncInputAvs::LoadNextFrame(void *dst, int dst_pitch) {
+RGY_ERR NVEncInputAvs::LoadNextFrame(void *dst, int dst_pitch) {
     if (m_nFrame >= m_nMaxFrame) {
-        return NVENC_THREAD_FINISHED;
+        return RGY_ERR_MORE_DATA;
     }
 
     AVS_VideoFrame *frame = m_sAvisynth.get_frame(m_sAVSclip, m_nFrame);
     if (frame == nullptr) {
-        return NVENC_THREAD_ERROR;
+        return RGY_ERR_MORE_DATA;
     }
 
     void *dst_array[3];
@@ -209,8 +209,7 @@ int NVEncInputAvs::LoadNextFrame(void *dst, int dst_pitch) {
 
     m_nFrame++;
     m_pEncSatusInfo->m_sData.frameIn++;
-    m_pEncSatusInfo->UpdateDisplay();
-    return 0;
+    return m_pEncSatusInfo->UpdateDisplay();
 }
 
 #endif

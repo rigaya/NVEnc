@@ -160,12 +160,12 @@ public:
     virtual void SetNVEncLogPtr(shared_ptr<CNVEncLog> pLog) {
         m_pPrintMes = pLog;
     }
-    virtual int Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) = 0;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) = 0;
 
-    virtual int SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) = 0;
+    virtual RGY_ERR SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) = 0;
 
-    virtual int WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) = 0;
-    virtual int WriteNextFrame(uint8_t *ptr, uint32_t nSize) = 0;
+    virtual RGY_ERR WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) = 0;
+    virtual RGY_ERR WriteNextFrame(uint8_t *ptr, uint32_t nSize) = 0;
     virtual void Close();
 
     virtual bool outputStdout() {
@@ -233,10 +233,10 @@ public:
     NVEncOutBitstream();
     virtual ~NVEncOutBitstream();
 
-    virtual int Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
 
-    virtual int SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) override;
+    virtual RGY_ERR SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) override;
 
-    virtual int WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) override;
-    virtual int WriteNextFrame(uint8_t *ptr, uint32_t nSize) override;
+    virtual RGY_ERR WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) override;
+    virtual RGY_ERR WriteNextFrame(uint8_t *ptr, uint32_t nSize) override;
 };

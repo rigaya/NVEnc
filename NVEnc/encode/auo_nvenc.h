@@ -64,7 +64,7 @@ public:
 protected:
     virtual void UpdateDisplay(const TCHAR *mes, double progressPercent = 0.0) override;
     virtual void WriteLine(const TCHAR *mes) override;
-    virtual int UpdateDisplay(double progressPercent = 0.0) override;
+    virtual RGY_ERR UpdateDisplay(double progressPercent = 0.0) override;
     virtual void SetPrivData(void *pPrivateData) override;
 
     InputInfoAuo m_auoData;
@@ -85,8 +85,8 @@ private:
 public:
     AuoInput();
     ~AuoInput();
-    virtual int Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
-    virtual int LoadNextFrame(void *dst, int dst_pitch) override;
+    virtual RGY_ERR Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
+    virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) override;
     virtual void Close() override;
 };
 

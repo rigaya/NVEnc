@@ -152,11 +152,11 @@ void AuoEncodeStatus::WriteLine(const TCHAR *mes) {
         free(buf);
     }
 }
-int AuoEncodeStatus::UpdateDisplay(double progressPercent) {
+RGY_ERR AuoEncodeStatus::UpdateDisplay(double progressPercent) {
     auto tm = std::chrono::system_clock::now();
 
     if (m_auoData.oip->func_is_abort())
-        return NVENC_THREAD_ABORT;
+        return RGY_ERR_ABORTED;
 
     if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastLogUpdate).count() >= LOG_UPDATE_INTERVAL) {
         log_process_events();
@@ -164,7 +164,7 @@ int AuoEncodeStatus::UpdateDisplay(double progressPercent) {
         while (m_pause) {
             Sleep(LOG_UPDATE_INTERVAL);
             if (m_auoData.oip->func_is_abort())
-                return NVENC_THREAD_ABORT;
+                return RGY_ERR_ABORTED;
             log_process_events();
         }
         m_tmLastLogUpdate = tm;
@@ -191,7 +191,7 @@ void AuoInput::Close() {
     m_iFrame = 0;
     disable_enc_control();
 }
-int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
+RGY_ERR AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     Close();
     
     m_pEncSatusInfo = pStatus;
@@ -217,13 +217,13 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
 
     if (nullptr == m_sConvert) {
         AddMessage(NV_LOG_ERROR, "invalid colorformat.\n");
-        return 1;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (conf->vid.afs) {
         if (!setup_afsvideo(oip, info->sys_dat, conf, pe)) {
             AddMessage(NV_LOG_ERROR, "自動フィールドシフトの初期化に失敗しました。\n");
-            return 1;
+            return RGY_ERR_UNKNOWN;
         }
     }
 
@@ -231,16 +231,16 @@ int AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
     m_sDecParam.src_pitch = m_sDecParam.width;
     CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(NV_LOG_DEBUG, m_strInputInfo);
-    return 0;
+    return RGY_ERR_NONE;
 }
-int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
+RGY_ERR AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
     if (FALSE != (pe->aud_parallel.abort = oip->func_is_abort()))
-        return NVENC_THREAD_ABORT;
+        return RGY_ERR_ABORTED;
 
     if (m_iFrame >= oip->n) {
         oip->func_rest_time_disp(m_iFrame-1, oip->n);
         release_audio_parallel_events(pe);
-        return NVENC_THREAD_FINISHED;
+        return RGY_ERR_MORE_DATA;
     }
 
     void *frame = NULL;
@@ -249,7 +249,7 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
         for (;;) {
             if ((frame = afs_get_video((OUTPUT_INFO *)oip, m_iFrame, &drop, &jitter[m_iFrame + 1])) == NULL) {
                 error_afs_get_frame();
-                return NVENC_THREAD_ERROR;
+                return RGY_ERR_UNKNOWN;
             }
             if (!drop)
                 break;
@@ -260,14 +260,14 @@ int AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
             if (m_iFrame >= oip->n) {
                 oip->func_rest_time_disp(m_iFrame, oip->n);
                 release_audio_parallel_events(pe);
-                return NVENC_THREAD_FINISHED;
+                return RGY_ERR_MORE_DATA;
             }
         }
     } else {
         //high444出力ならAviutlからYC48をもらう
         if ((frame = oip->func_get_video_ex(m_iFrame, COLORFORMATS[m_sConvert->csp_from == NV_ENC_CSP_YC48 ? CF_YC48 : CF_YUY2].FOURCC)) == NULL) {
             error_afs_get_frame();
-            return NVENC_THREAD_ERROR;
+            return RGY_ERR_UNKNOWN;
         }
     }
     void *dst_array[3];

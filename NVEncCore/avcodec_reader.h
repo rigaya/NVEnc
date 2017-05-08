@@ -771,19 +771,19 @@ public:
     CAvcodecReader();
     virtual ~CAvcodecReader();
 
-    virtual int Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
+    virtual RGY_ERR Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
 
     virtual void Close();
 
     //動画ストリームの1フレーム分のデータをm_sPacketに格納する
     //m_sPacketからの取得はGetNextBitstreamで行う
-    virtual int LoadNextFrame(void *dst, int dst_pitch) override;
+    virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) override;
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する
-    virtual int GetNextBitstream(vector<uint8_t>& bitstream, int64_t *pts) override;
+    virtual RGY_ERR GetNextBitstream(vector<uint8_t>& bitstream, int64_t *pts) override;
 
     //ストリームのヘッダ部分を取得する
-    virtual int GetHeader(vector<uint8_t>& bitstream) override;
+    virtual RGY_ERR GetHeader(vector<uint8_t>& bitstream) override;
 
     //入力ファイルのグローバルメタデータを取得する
     const AVDictionary *GetInputFormatMetadata();
@@ -833,7 +833,7 @@ private:
     AVDemuxStream *getPacketStreamData(const AVPacket *pkt);
 
     //bitstreamにpktの内容を追加する
-    int setToMfxBitstream(vector<uint8_t>& bitstream, AVPacket *pkt);
+    RGY_ERR setToMfxBitstream(vector<uint8_t>& bitstream, AVPacket *pkt);
 
     //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
     //必要ならqStreamPktL2に移し、不要ならパケットを開放する
@@ -845,10 +845,10 @@ private:
     //QSVでデコードした際の最初のフレームのptsを取得する
     //さらに、平均フレームレートを推定する
     //fpsDecoderはdecoderの推定したfps
-    int getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount);
+    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount);
 
     //読み込みスレッド関数
-    int ThreadFuncRead();
+    RGY_ERR ThreadFuncRead();
 
     //指定したptsとtimebaseから、該当する動画フレームを取得する
     int getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart);
