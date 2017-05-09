@@ -170,11 +170,13 @@ RGY_ERR NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     }
     
     NV_ENC_CSP inputCsp = NV_ENC_CSP_YV12;
-    m_bIsY4m = inputPrm->type == NV_ENC_INPUT_Y4M;
+    m_bIsY4m = inputPrm->type == RGY_INPUT_FMT_Y4M;
     if (m_bIsY4m) {
         m_strReaderName = _T("y4m");
         char buf[128] = { 0 };
-        InputVideoInfo videoInfo = { 0 };
+        InputVideoInfo videoInfo;
+        memset(&videoInfo, 0, sizeof(videoInfo));
+
         if (fread(buf, 1, strlen("YUV4MPEG2"), m_fp) != strlen("YUV4MPEG2")
             || strcmp(buf, "YUV4MPEG2") != 0
             || !fgets(buf, sizeof(buf), m_fp)

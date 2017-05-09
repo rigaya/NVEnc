@@ -868,38 +868,38 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("raw")) {
-        pParams->input.type = NV_ENC_INPUT_RAW;
+        pParams->input.type = RGY_INPUT_FMT_RAW;
         return 0;
     }
     if (IS_OPTION("y4m")) {
-        pParams->input.type = NV_ENC_INPUT_Y4M;
+        pParams->input.type = RGY_INPUT_FMT_Y4M;
 #if AVI_READER
         return 0;
     }
     if (IS_OPTION("avi")) {
-        pParams->input.type = NV_ENC_INPUT_AVI;
+        pParams->input.type = RGY_INPUT_FMT_AVI;
 #endif
 #if AVS_READER
         return 0;
     }
     if (IS_OPTION("avs")) {
-        pParams->input.type = NV_ENC_INPUT_AVS;
+        pParams->input.type = RGY_INPUT_FMT_AVS;
 #endif
 #if VPY_READER
         return 0;
     }
     if (IS_OPTION("vpy")) {
-        pParams->input.type = NV_ENC_INPUT_VPY;
+        pParams->input.type = RGY_INPUT_FMT_VPY;
         return 0;
     }
     if (IS_OPTION("vpy-mt")) {
-        pParams->input.type = NV_ENC_INPUT_VPY_MT;
+        pParams->input.type = RGY_INPUT_FMT_VPY_MT;
 #endif
 #if ENABLE_AVCUVID_READER
         return 0;
     }
     if (IS_OPTION("avcuvid")) {
-        pParams->input.type = NV_ENC_INPUT_AVHW;
+        pParams->input.type = RGY_INPUT_FMT_AVHW;
         if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
             i++;
             int value = 0;
@@ -914,7 +914,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("avsw")) {
-        pParams->input.type = NV_ENC_INPUT_AVSW;
+        pParams->input.type = RGY_INPUT_FMT_AVSW;
         return 0;
     }
     if (   IS_OPTION("input-analyze")

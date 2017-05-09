@@ -42,22 +42,22 @@
 #include <nvcuvid.h>
 #include "rgy_err.h"
 
-enum {
-    NV_ENC_INPUT_UNKNWON = 0,
-    NV_ENC_INPUT_AUO = 0,
-    NV_ENC_INPUT_RAW,
-    NV_ENC_INPUT_Y4M,
-    NV_ENC_INPUT_AVI,
-    NV_ENC_INPUT_AVS,
-    NV_ENC_INPUT_VPY,
-    NV_ENC_INPUT_VPY_MT,
-    NV_ENC_INPUT_AVHW,
-    NV_ENC_INPUT_AVSW,
-    NV_ENC_INPUT_AVANY,
+enum RGY_INPUT_FMT {
+    RGY_INPUT_FMT_UNKNWON = 0,
+    RGY_INPUT_FMT_AUO = 0,
+    RGY_INPUT_FMT_RAW,
+    RGY_INPUT_FMT_Y4M,
+    RGY_INPUT_FMT_AVI,
+    RGY_INPUT_FMT_AVS,
+    RGY_INPUT_FMT_VPY,
+    RGY_INPUT_FMT_VPY_MT,
+    RGY_INPUT_FMT_AVHW,
+    RGY_INPUT_FMT_AVSW,
+    RGY_INPUT_FMT_AVANY,
 };
 
 typedef struct InputVideoInfo {
-    int type;             //種類 (NV_ENC_INPUT_xxx)
+    RGY_INPUT_FMT type;   //種類 (RGY_INPUT_FMT_xxx)
     uint32_t width;       //横解像度
     uint32_t height;      //縦解像度
     uint32_t src_pitch;
@@ -77,6 +77,8 @@ typedef struct InputVideoInfo {
     int cuvidType;           //avcuvidリーダーを使用する際のモード (NV_ENC_AVCUVID_xxx)
     void *otherPrm;          //その他入力情報
 } InputVideoInfo;
+
+static_assert(std::is_pod<InputVideoInfo>::value == true, "InputVideoInfo is POD");
 
 class NVEncBasicInput {
 public:

@@ -395,50 +395,50 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
     int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
 #if RAW_READER
-    if (inputParam->input.type == NV_ENC_INPUT_UNKNWON) {
+    if (inputParam->input.type == RGY_INPUT_FMT_UNKNWON) {
         if (check_ext(inputParam->input.filename, { ".y4m" })) {
-            inputParam->input.type = NV_ENC_INPUT_Y4M;
+            inputParam->input.type = RGY_INPUT_FMT_Y4M;
         } else if (check_ext(inputParam->input.filename, { ".yuv" })) {
-            inputParam->input.type = NV_ENC_INPUT_RAW;
+            inputParam->input.type = RGY_INPUT_FMT_RAW;
 #if AVI_READER
         } else if (check_ext(inputParam->input.filename, { ".avi" })) {
-            inputParam->input.type = NV_ENC_INPUT_AVI;
+            inputParam->input.type = RGY_INPUT_FMT_AVI;
 #endif
 #if AVS_READER
         } else if (check_ext(inputParam->input.filename, { ".avs" })) {
-            inputParam->input.type = NV_ENC_INPUT_AVS;
+            inputParam->input.type = RGY_INPUT_FMT_AVS;
 #endif
 #if VPY_READER
         } else if (check_ext(inputParam->input.filename, { ".vpy" })) {
-            inputParam->input.type = NV_ENC_INPUT_VPY_MT;
+            inputParam->input.type = RGY_INPUT_FMT_VPY_MT;
 #endif
         } else {
 #if ENABLE_AVCUVID_READER
-            inputParam->input.type = NV_ENC_INPUT_AVANY;
+            inputParam->input.type = RGY_INPUT_FMT_AVANY;
 #else
-            inputParam->input.type = NV_ENC_INPUT_RAW;
+            inputParam->input.type = RGY_INPUT_FMT_RAW;
 #endif
         }
     }
 
     //Check if selected format is enabled
-    if (inputParam->input.type == NV_ENC_INPUT_AVS && !AVS_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_AVS && !AVS_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avs reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->input.type == NV_ENC_INPUT_VPY_MT && !VPY_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_VPY_MT && !VPY_READER) {
         PrintMes(RGY_LOG_ERROR, _T("vpy reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->input.type == NV_ENC_INPUT_AVI && !AVI_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_AVI && !AVI_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->input.type == NV_ENC_INPUT_AVHW && !ENABLE_AVCUVID_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_AVHW && !ENABLE_AVCUVID_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avcodec + cuvid reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->input.type == NV_ENC_INPUT_AVSW && !ENABLE_AVCUVID_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_AVSW && !ENABLE_AVCUVID_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avsw reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -455,7 +455,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 
     switch (inputParam->input.type) {
 #if AVS_READER
-    case NV_ENC_INPUT_AVS:
+    case RGY_INPUT_FMT_AVS:
         inputInfoAvs.interlaced = is_interlaced(inputParam->picStruct);
         inputParam->input.otherPrm = &inputInfoAvs;
         PrintMes(RGY_LOG_DEBUG, _T("avs reader selected.\n"));
@@ -463,19 +463,19 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         break;
 #endif //AVS_READER
 #if VPY_READER
-    case NV_ENC_INPUT_VPY:
-    case NV_ENC_INPUT_VPY_MT:
+    case RGY_INPUT_FMT_VPY:
+    case RGY_INPUT_FMT_VPY_MT:
         inputInfoVpy.interlaced = is_interlaced(inputParam->picStruct);
-        inputInfoVpy.mt = (inputParam->input.type == NV_ENC_INPUT_VPY_MT);
+        inputInfoVpy.mt = (inputParam->input.type == RGY_INPUT_FMT_VPY_MT);
         inputParam->input.otherPrm = &inputInfoVpy;
         PrintMes(RGY_LOG_DEBUG, _T("vpy reader selected.\n"));
         m_pFileReader.reset(new NVEncInputVpy());
         break;
 #endif //VPY_READER
 #if ENABLE_AVCUVID_READER
-    case NV_ENC_INPUT_AVHW:
-    case NV_ENC_INPUT_AVSW:
-    case NV_ENC_INPUT_AVANY:
+    case RGY_INPUT_FMT_AVHW:
+    case RGY_INPUT_FMT_AVSW:
+    case RGY_INPUT_FMT_AVANY:
         inputInfoAVCuvid.pInputFormat = inputParam->pAVInputFormat;
         inputInfoAVCuvid.bReadVideo = true;
         inputInfoAVCuvid.nVideoDecodeSW = decodeModeFromInputFmtType(inputParam->input.type);
@@ -505,8 +505,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         m_pFileReader.reset(new CAvcodecReader());
         break;
 #endif //#if ENABLE_AVCUVID_READER
-    case NV_ENC_INPUT_RAW:
-    case NV_ENC_INPUT_Y4M:
+    case RGY_INPUT_FMT_RAW:
+    case RGY_INPUT_FMT_Y4M:
     default:
         PrintMes(RGY_LOG_DEBUG, _T("raw/y4m reader selected.\n"));
         m_pFileReader.reset(new NVEncInputRaw());
@@ -754,9 +754,9 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
     if (inputParams->nAudioSelectCount + inputParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
-        if ((inputParams->input.type != NV_ENC_INPUT_AVHW
-            && inputParams->input.type != NV_ENC_INPUT_AVSW
-            && inputParams->input.type != NV_ENC_INPUT_AVANY)
+        if ((inputParams->input.type != RGY_INPUT_FMT_AVHW
+            && inputParams->input.type != RGY_INPUT_FMT_AVSW
+            && inputParams->input.type != RGY_INPUT_FMT_AVANY)
             || pAVCodecReader == nullptr) {
             PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avcuvid reader).\n"));
             return NV_ENC_ERR_GENERIC;
@@ -1817,7 +1817,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
 
     if (inputParam->input.rate <= 0 || inputParam->input.scale <= 0) {
-        if (inputParam->input.type == NV_ENC_INPUT_RAW) {
+        if (inputParam->input.type == RGY_INPUT_FMT_RAW) {
             PrintMes(RGY_LOG_ERROR, _T("Please set fps when using raw input.\n"));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Invalid fps: %d/%d.\n"), inputParam->input.rate, inputParam->input.scale);
