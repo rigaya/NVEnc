@@ -123,14 +123,14 @@ RGY_ERR NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
 
     typedef struct CSPMap {
         int fmtID;
-        NV_ENC_CSP in, out;
+        RGY_CSP in, out;
     } CSPMap;
 
     static const std::vector<CSPMap> valid_csp_list = {
-        { AVS_CS_YV12,  NV_ENC_CSP_YV12, inputPrm->csp },
-        { AVS_CS_I420,  NV_ENC_CSP_YV12, inputPrm->csp },
-        { AVS_CS_IYUV,  NV_ENC_CSP_YV12, inputPrm->csp },
-        { AVS_CS_YUY2,  NV_ENC_CSP_YUY2, inputPrm->csp },
+        { AVS_CS_YV12,  RGY_CSP_YV12, inputPrm->csp },
+        { AVS_CS_I420,  RGY_CSP_YV12, inputPrm->csp },
+        { AVS_CS_IYUV,  RGY_CSP_YV12, inputPrm->csp },
+        { AVS_CS_YUY2,  RGY_CSP_YUY2, inputPrm->csp },
         //{ AVS_CS_BGR24, MFX_FOURCC_RGB3, MFX_FOURCC_RGB4},
         //{ AVS_CS_BGR32, MFX_FOURCC_RGB4, MFX_FOURCC_RGB4},
     };
@@ -164,7 +164,7 @@ RGY_ERR NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
 
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = 0;
-    CreateInputInfo(avisynth_version, NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
+    CreateInputInfo(avisynth_version, RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     return RGY_ERR_NONE;
 }

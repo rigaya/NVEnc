@@ -97,34 +97,34 @@ int NVEncInputRaw::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
             //    break;
             case 'C':
                 if (0 == _strnicmp(p+1, "420p9", strlen("420p9"))) {
-                    inputPrm->csp = NV_ENC_CSP_YV12_09;
+                    inputPrm->csp = RGY_CSP_YV12_09;
                 } else if (0 == _strnicmp(p+1, "420p10", strlen("420p10"))) {
-                    inputPrm->csp = NV_ENC_CSP_YV12_10;
+                    inputPrm->csp = RGY_CSP_YV12_10;
                 } else if (0 == _strnicmp(p+1, "420p12", strlen("420p12"))) {
-                    inputPrm->csp = NV_ENC_CSP_YV12_12;
+                    inputPrm->csp = RGY_CSP_YV12_12;
                 }  else if (0 == _strnicmp(p+1, "420p14", strlen("420p14"))) {
-                    inputPrm->csp = NV_ENC_CSP_YV12_14;
+                    inputPrm->csp = RGY_CSP_YV12_14;
                 }  else if (0 == _strnicmp(p+1, "420p16", strlen("420p16"))) {
-                    inputPrm->csp = NV_ENC_CSP_YV12_16;
+                    inputPrm->csp = RGY_CSP_YV12_16;
                 } else if (0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
                         || 0 == _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
                         || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))
                         || 0 == _strnicmp(p+1, "420",      strlen("420"))) {
-                    inputPrm->csp = NV_ENC_CSP_YV12;
+                    inputPrm->csp = RGY_CSP_YV12;
                 } else if (0 == _strnicmp(p+1, "422", strlen("422"))) {
-                    inputPrm->csp = NV_ENC_CSP_YUV422;
+                    inputPrm->csp = RGY_CSP_YUV422;
                 } else if (0 == _strnicmp(p+1, "444p9", strlen("444p9"))) {
-                    inputPrm->csp = NV_ENC_CSP_YUV444_09;
+                    inputPrm->csp = RGY_CSP_YUV444_09;
                 } else if (0 == _strnicmp(p+1, "444p10", strlen("444p10"))) {
-                    inputPrm->csp = NV_ENC_CSP_YUV444_10;
+                    inputPrm->csp = RGY_CSP_YUV444_10;
                 } else if (0 == _strnicmp(p+1, "444p12", strlen("444p12"))) {
-                    inputPrm->csp = NV_ENC_CSP_YUV444_12;
+                    inputPrm->csp = RGY_CSP_YUV444_12;
                 } else if (0 == _strnicmp(p+1, "444p14", strlen("444p14"))) {
-                    inputPrm->csp = NV_ENC_CSP_YUV444_14;
+                    inputPrm->csp = RGY_CSP_YUV444_14;
                 } else if (0 == _strnicmp(p+1, "444p16", strlen("444p16"))) {
-                    inputPrm->csp = NV_ENC_CSP_YUV444_16;
+                    inputPrm->csp = RGY_CSP_YUV444_16;
                 } else if (0 == _strnicmp(p+1, "444", strlen("444"))) {
-                    inputPrm->csp = NV_ENC_CSP_YUV444;
+                    inputPrm->csp = RGY_CSP_YUV444;
                 } else {
                     return 1;
                 }
@@ -169,7 +169,7 @@ RGY_ERR NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
         }
     }
     
-    NV_ENC_CSP inputCsp = NV_ENC_CSP_YV12;
+    RGY_CSP inputCsp = RGY_CSP_YV12;
     m_bIsY4m = inputPrm->type == RGY_INPUT_FMT_Y4M;
     if (m_bIsY4m) {
         m_strReaderName = _T("y4m");
@@ -194,28 +194,28 @@ RGY_ERR NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     uint32_t bufferSize = 0;
     uint32_t src_pitch = 0;
     switch (inputCsp) {
-    case NV_ENC_CSP_NV12:
-    case NV_ENC_CSP_YV12:
+    case RGY_CSP_NV12:
+    case RGY_CSP_YV12:
         src_pitch = inputPrm->width;
         bufferSize = inputPrm->width * inputPrm->height * 3 / 2; break;
-    case NV_ENC_CSP_YV12_09:
-    case NV_ENC_CSP_YV12_10:
-    case NV_ENC_CSP_YV12_12:
-    case NV_ENC_CSP_YV12_14:
-    case NV_ENC_CSP_YV12_16:
+    case RGY_CSP_YV12_09:
+    case RGY_CSP_YV12_10:
+    case RGY_CSP_YV12_12:
+    case RGY_CSP_YV12_14:
+    case RGY_CSP_YV12_16:
         src_pitch = inputPrm->width * 2;
         bufferSize = inputPrm->width * inputPrm->height * 3; break;
-    case NV_ENC_CSP_YUV422:
+    case RGY_CSP_YUV422:
         src_pitch = inputPrm->width;
         bufferSize = inputPrm->width * inputPrm->height * 2; break;
-    case NV_ENC_CSP_YUV444:
+    case RGY_CSP_YUV444:
         src_pitch = inputPrm->width;
         bufferSize = inputPrm->width * inputPrm->height * 3; break;
-    case NV_ENC_CSP_YUV444_09:
-    case NV_ENC_CSP_YUV444_10:
-    case NV_ENC_CSP_YUV444_12:
-    case NV_ENC_CSP_YUV444_14:
-    case NV_ENC_CSP_YUV444_16:
+    case RGY_CSP_YUV444_09:
+    case RGY_CSP_YUV444_10:
+    case RGY_CSP_YUV444_12:
+    case RGY_CSP_YUV444_14:
+    case RGY_CSP_YUV444_16:
         src_pitch = inputPrm->width * 2;
         bufferSize = inputPrm->width * inputPrm->height * 6; break;
     default:
@@ -236,7 +236,7 @@ RGY_ERR NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = src_pitch;
-    CreateInputInfo(m_strReaderName.c_str(), NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
+    CreateInputInfo(m_strReaderName.c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     return RGY_ERR_NONE;
 }
@@ -270,24 +270,24 @@ RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
 
     uint32_t frameSize = 0;
     switch (m_sConvert->csp_from) {
-    case NV_ENC_CSP_NV12:
-    case NV_ENC_CSP_YV12:
+    case RGY_CSP_NV12:
+    case RGY_CSP_YV12:
         frameSize = m_sDecParam.width * m_sDecParam.height * 3 / 2; break;
-    case NV_ENC_CSP_YUV422:
+    case RGY_CSP_YUV422:
         frameSize = m_sDecParam.width * m_sDecParam.height * 2; break;
-    case NV_ENC_CSP_YUV444:
+    case RGY_CSP_YUV444:
         frameSize = m_sDecParam.width * m_sDecParam.height * 3; break;
-    case NV_ENC_CSP_YV12_09:
-    case NV_ENC_CSP_YV12_10:
-    case NV_ENC_CSP_YV12_12:
-    case NV_ENC_CSP_YV12_14:
-    case NV_ENC_CSP_YV12_16:
+    case RGY_CSP_YV12_09:
+    case RGY_CSP_YV12_10:
+    case RGY_CSP_YV12_12:
+    case RGY_CSP_YV12_14:
+    case RGY_CSP_YV12_16:
         frameSize = m_sDecParam.width * m_sDecParam.height * 3; break;
-    case NV_ENC_CSP_YUV444_09:
-    case NV_ENC_CSP_YUV444_10:
-    case NV_ENC_CSP_YUV444_12:
-    case NV_ENC_CSP_YUV444_14:
-    case NV_ENC_CSP_YUV444_16:
+    case RGY_CSP_YUV444_09:
+    case RGY_CSP_YUV444_10:
+    case RGY_CSP_YUV444_12:
+    case RGY_CSP_YUV444_14:
+    case RGY_CSP_YUV444_16:
         frameSize = m_sDecParam.width * m_sDecParam.height * 6; break;
     default:
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
@@ -305,31 +305,31 @@ RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     src_array[0] = m_inputBuffer;
     src_array[1] = (uint8_t *)src_array[0] + m_sDecParam.src_pitch * m_sDecParam.height;
     switch (m_sConvert->csp_from) {
-    case NV_ENC_CSP_YV12:
-    case NV_ENC_CSP_YV12_09:
-    case NV_ENC_CSP_YV12_10:
-    case NV_ENC_CSP_YV12_12:
-    case NV_ENC_CSP_YV12_14:
-    case NV_ENC_CSP_YV12_16:
+    case RGY_CSP_YV12:
+    case RGY_CSP_YV12_09:
+    case RGY_CSP_YV12_10:
+    case RGY_CSP_YV12_12:
+    case RGY_CSP_YV12_14:
+    case RGY_CSP_YV12_16:
         src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 4;
         break;
-    case NV_ENC_CSP_YUV422:
+    case RGY_CSP_YUV422:
         src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 2;
         break;
-    case NV_ENC_CSP_YUV444:
-    case NV_ENC_CSP_YUV444_09:
-    case NV_ENC_CSP_YUV444_10:
-    case NV_ENC_CSP_YUV444_12:
-    case NV_ENC_CSP_YUV444_14:
-    case NV_ENC_CSP_YUV444_16:
+    case RGY_CSP_YUV444:
+    case RGY_CSP_YUV444_09:
+    case RGY_CSP_YUV444_10:
+    case RGY_CSP_YUV444_12:
+    case RGY_CSP_YUV444_14:
+    case RGY_CSP_YUV444_16:
         src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height;
         break;
-    case NV_ENC_CSP_NV12:
+    case RGY_CSP_NV12:
     default:
         break;
     }
 
-    const int src_uv_pitch = (m_sConvert->csp_from == NV_ENC_CSP_YUV444) ? m_sDecParam.src_pitch : m_sDecParam.src_pitch / 2;
+    const int src_uv_pitch = (m_sConvert->csp_from == RGY_CSP_YUV444) ? m_sDecParam.src_pitch : m_sDecParam.src_pitch / 2;
     m_sConvert->func[0](dst_array, src_array, m_sDecParam.width, m_sDecParam.src_pitch, src_uv_pitch, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
 
     m_pEncSatusInfo->m_sData.frameIn++;

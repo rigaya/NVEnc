@@ -85,9 +85,9 @@ NVENCSTATUS NVEncFilterDenoiseGauss::denoiseYV12(FrameInfo *pOutputFrame, const 
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
-    const auto supportedCspYV12High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
+    const auto supportedCspYV12High = make_array<RGY_CSP>(RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     NppStatus nppsts = NPP_SUCCESS;
-    if (pGaussParam->frameIn.csp == NV_ENC_CSP_YV12) {
+    if (pGaussParam->frameIn.csp == RGY_CSP_YV12) {
         nppsts = denoise_yv12<Npp8u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_8u_C1R, pGaussParam->masksize);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
@@ -151,9 +151,9 @@ NVENCSTATUS NVEncFilterDenoiseGauss::denoiseYUV444(FrameInfo *pOutputFrame, cons
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
-    const auto supportedCspYUV444High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
+    const auto supportedCspYUV444High = make_array<RGY_CSP>(RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
     NppStatus nppsts = NPP_SUCCESS;
-    if (pGaussParam->frameIn.csp == NV_ENC_CSP_YUV444) {
+    if (pGaussParam->frameIn.csp == RGY_CSP_YUV444) {
         nppsts = denoise_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_8u_C1R, pGaussParam->masksize);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
@@ -235,8 +235,8 @@ NVENCSTATUS NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, Fr
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    const auto supportedCspYV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12, NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
-    const auto supportedCspYUV444 = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
+    const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
+    const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
 
     if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), m_pParam->frameIn.csp) != supportedCspYV12.end()) {
         sts = denoiseYV12(ppOutputFrames[0], pInputFrame);

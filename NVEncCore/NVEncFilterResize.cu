@@ -504,9 +504,9 @@ NVENCSTATUS NVEncFilterResize::resizeYV12(FrameInfo *pOutputFrame, const FrameIn
         return NV_ENC_ERR_INVALID_PARAM;
     }
     const auto interp = (NppiInterpolationMode)pResizeParam->interp;
-    static const auto supportedCspYV12High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
+    static const auto supportedCspYV12High = make_array<RGY_CSP>(RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     NppStatus nppsts = NPP_SUCCESS;
-    if (m_pParam->frameIn.csp == NV_ENC_CSP_YV12) {
+    if (m_pParam->frameIn.csp == RGY_CSP_YV12) {
         nppsts = resize_yv12<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_C1R, interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
@@ -571,9 +571,9 @@ NVENCSTATUS NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const Frame
         return NV_ENC_ERR_INVALID_PARAM;
     }
     const auto interp = (NppiInterpolationMode)pResizeParam->interp;
-    static const auto supportedCspYUV444High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
+    static const auto supportedCspYUV444High = make_array<RGY_CSP>(RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
     NppStatus nppsts = NPP_SUCCESS;
-    if (m_pParam->frameIn.csp == NV_ENC_CSP_YUV444) {
+    if (m_pParam->frameIn.csp == RGY_CSP_YUV444) {
         nppsts = resize_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_P3R, interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
@@ -680,8 +680,8 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    static const auto supportedCspYV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12, NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
-    static const auto supportedCspYUV444 = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
+    static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
+    static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
 
     auto pResizeParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(m_pParam);
     if (!pResizeParam) {
@@ -709,27 +709,27 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
                 return interp == RESIZE_CUDA_TEXTURE_BILINEAR ? bilinear : spline36;
             }
         };
-        static const std::map<NV_ENC_CSP, resizeFunc> resize_list = {
-            { NV_ENC_CSP_YV12,      resizeFunc(resize_texture_bilinear_yv12<uint8_t,  8>,    resize_spline36_yv12<uint8_t,   8>)   },
-            { NV_ENC_CSP_YV12_10,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 10>,   resize_spline36_yv12<uint16_t, 10>)   },
-            { NV_ENC_CSP_YV12_12,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 12>,   resize_spline36_yv12<uint16_t, 12>)   },
-            { NV_ENC_CSP_YV12_14,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 14>,   resize_spline36_yv12<uint16_t, 14>)   },
-            { NV_ENC_CSP_YV12_16,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 16>,   resize_spline36_yv12<uint16_t, 16>)   },
-            { NV_ENC_CSP_YUV444,    resizeFunc(resize_texture_bilinear_yuv444<uint8_t,   8>, resize_spline36_yuv444<uint8_t,   8>) },
-            { NV_ENC_CSP_YUV444_10, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 10>, resize_spline36_yuv444<uint16_t, 10>) },
-            { NV_ENC_CSP_YUV444_12, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 12>, resize_spline36_yuv444<uint16_t, 12>) },
-            { NV_ENC_CSP_YUV444_14, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 14>, resize_spline36_yuv444<uint16_t, 14>) },
-            { NV_ENC_CSP_YUV444_16, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 16>, resize_spline36_yuv444<uint16_t, 16>) },
+        static const std::map<RGY_CSP, resizeFunc> resize_list = {
+            { RGY_CSP_YV12,      resizeFunc(resize_texture_bilinear_yv12<uint8_t,  8>,    resize_spline36_yv12<uint8_t,   8>)   },
+            { RGY_CSP_YV12_10,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 10>,   resize_spline36_yv12<uint16_t, 10>)   },
+            { RGY_CSP_YV12_12,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 12>,   resize_spline36_yv12<uint16_t, 12>)   },
+            { RGY_CSP_YV12_14,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 14>,   resize_spline36_yv12<uint16_t, 14>)   },
+            { RGY_CSP_YV12_16,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 16>,   resize_spline36_yv12<uint16_t, 16>)   },
+            { RGY_CSP_YUV444,    resizeFunc(resize_texture_bilinear_yuv444<uint8_t,   8>, resize_spline36_yuv444<uint8_t,   8>) },
+            { RGY_CSP_YUV444_10, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 10>, resize_spline36_yuv444<uint16_t, 10>) },
+            { RGY_CSP_YUV444_12, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 12>, resize_spline36_yuv444<uint16_t, 12>) },
+            { RGY_CSP_YUV444_14, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 14>, resize_spline36_yuv444<uint16_t, 14>) },
+            { RGY_CSP_YUV444_16, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 16>, resize_spline36_yuv444<uint16_t, 16>) },
         };
         if (resize_list.count(pInputFrame->csp) == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp]);
+            AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
         resize_list.at(pInputFrame->csp).func(pResizeParam->interp)(ppOutputFrames[0], pInputFrame, (float *)m_weightSpline36.ptr);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
-                NV_ENC_CSP_NAMES[pInputFrame->csp],
+                RGY_CSP_NAMES[pInputFrame->csp],
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         }

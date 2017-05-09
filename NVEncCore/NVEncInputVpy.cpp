@@ -222,17 +222,17 @@ RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
 
     typedef struct CSPMap {
         int fmtID;
-        NV_ENC_CSP in, out;
+        RGY_CSP in, out;
     } CSPMap;
 
     static const std::vector<CSPMap> valid_csp_list = {
-        { pfYUV420P8,  NV_ENC_CSP_YV12,      inputPrm->csp },
-        { pfYUV420P10, NV_ENC_CSP_YV12_10,   inputPrm->csp },
-        { pfYUV420P16, NV_ENC_CSP_YV12_16,   inputPrm->csp },
-        { pfYUV422P8,  NV_ENC_CSP_YUV422,    inputPrm->csp },
-        { pfYUV444P8,  NV_ENC_CSP_YUV444,    inputPrm->csp },
-        { pfYUV444P10, NV_ENC_CSP_YUV444_10, inputPrm->csp },
-        { pfYUV444P16, NV_ENC_CSP_YUV444_16, inputPrm->csp },
+        { pfYUV420P8,  RGY_CSP_YV12,      inputPrm->csp },
+        { pfYUV420P10, RGY_CSP_YV12_10,   inputPrm->csp },
+        { pfYUV420P16, RGY_CSP_YV12_16,   inputPrm->csp },
+        { pfYUV422P8,  RGY_CSP_YUV422,    inputPrm->csp },
+        { pfYUV444P8,  RGY_CSP_YUV444,    inputPrm->csp },
+        { pfYUV444P10, RGY_CSP_YUV444_10, inputPrm->csp },
+        { pfYUV444P16, RGY_CSP_YUV444_16, inputPrm->csp },
     };
 
     for (auto csp : valid_csp_list) {
@@ -276,7 +276,7 @@ RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
 
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = 0;
-    CreateInputInfo(rev_info, NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
+    CreateInputInfo(rev_info, RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     return RGY_ERR_NONE;
 }

@@ -33,7 +33,7 @@
 
 struct FrameInfo {
     void *ptr;
-    NV_ENC_CSP csp;
+    RGY_CSP csp;
     int width, height, pitch;
     uint64_t timestamp;
     bool deivce_mem;

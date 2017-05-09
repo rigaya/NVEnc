@@ -140,11 +140,11 @@ private:
 class FrameBufferDataEnc {
 public:
     shared_ptr<void> m_dMappedFrame;
-    NV_ENC_CSP m_csp;
+    RGY_CSP m_csp;
     uint64_t m_timestamp;
     EncodeBuffer *m_pEncodeBuffer;
     cudaEvent_t *m_pEvent;
-    FrameBufferDataEnc(shared_ptr<void> dMappedFrame, NV_ENC_CSP csp, uint64_t timestamp, EncodeBuffer *pEncodeBuffer) {
+    FrameBufferDataEnc(shared_ptr<void> dMappedFrame, RGY_CSP csp, uint64_t timestamp, EncodeBuffer *pEncodeBuffer) {
         m_dMappedFrame = dMappedFrame;
         m_csp = csp;
         m_timestamp = timestamp;
@@ -156,22 +156,22 @@ public:
     }
 };
 
-static NV_ENC_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
+static RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
     switch (enc_buffer_format) {
     case NV_ENC_BUFFER_FORMAT_NV12:
-        return NV_ENC_CSP_NV12;
+        return RGY_CSP_NV12;
     case NV_ENC_BUFFER_FORMAT_YV12:
     case NV_ENC_BUFFER_FORMAT_IYUV:
-        return NV_ENC_CSP_YV12;
+        return RGY_CSP_YV12;
     case NV_ENC_BUFFER_FORMAT_YUV444:
-        return NV_ENC_CSP_YUV444;
+        return RGY_CSP_YUV444;
     case NV_ENC_BUFFER_FORMAT_YUV420_10BIT:
-        return NV_ENC_CSP_P010;
+        return RGY_CSP_P010;
     case NV_ENC_BUFFER_FORMAT_YUV444_10BIT:
-        return NV_ENC_CSP_YUV444_16;
+        return RGY_CSP_YUV444_16;
     case NV_ENC_BUFFER_FORMAT_UNDEFINED:
     default:
-        return NV_ENC_CSP_NA;
+        return RGY_CSP_NA;
     }
 }
 
@@ -302,12 +302,12 @@ void NVEncCore::SetAbortFlagPointer(bool *abortFlag) {
 }
 
 //エンコーダが出力使用する色空間を入力パラメータをもとに取得
-NV_ENC_CSP NVEncCore::GetEncoderCSP(const InEncodeVideoParam *inputParam) {
+RGY_CSP NVEncCore::GetEncoderCSP(const InEncodeVideoParam *inputParam) {
     const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
     if (bOutputHighBitDepth) {
-        return (inputParam->yuv444) ? NV_ENC_CSP_YUV444_16 : NV_ENC_CSP_P010;
+        return (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
     } else {
-        return (inputParam->yuv444) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
+        return (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
     }
 }
 
@@ -1328,30 +1328,30 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         int bufPitch = 0;
         int bufSize = 0;
         switch (pInputInfo->csp) {
-        case NV_ENC_CSP_NV12:
-        case NV_ENC_CSP_YV12:
+        case RGY_CSP_NV12:
+        case RGY_CSP_YV12:
             bufPitch  = (bufWidth + 31) & (~31);
             bufSize = bufPitch * bufHeight * 3 / 2; break;
-        case NV_ENC_CSP_P010:
-        case NV_ENC_CSP_YV12_09:
-        case NV_ENC_CSP_YV12_10:
-        case NV_ENC_CSP_YV12_12:
-        case NV_ENC_CSP_YV12_14:
-        case NV_ENC_CSP_YV12_16:
+        case RGY_CSP_P010:
+        case RGY_CSP_YV12_09:
+        case RGY_CSP_YV12_10:
+        case RGY_CSP_YV12_12:
+        case RGY_CSP_YV12_14:
+        case RGY_CSP_YV12_16:
             bufPitch = (bufWidth * 2 + 31) & (~31);
             bufSize = bufPitch * bufHeight * 3 / 2; break;
-        case NV_ENC_CSP_YUY2:
-        case NV_ENC_CSP_YUV422:
+        case RGY_CSP_YUY2:
+        case RGY_CSP_YUV422:
             bufPitch  = (bufWidth + 31) & (~31);
             bufSize = bufPitch * bufHeight * 2; break;
-        case NV_ENC_CSP_YUV444:
+        case RGY_CSP_YUV444:
             bufPitch  = (bufWidth + 31) & (~31);
             bufSize = bufPitch * bufHeight * 3; break;
-        case NV_ENC_CSP_YUV444_09:
-        case NV_ENC_CSP_YUV444_10:
-        case NV_ENC_CSP_YUV444_12:
-        case NV_ENC_CSP_YUV444_14:
-        case NV_ENC_CSP_YUV444_16:
+        case RGY_CSP_YUV444_09:
+        case RGY_CSP_YUV444_10:
+        case RGY_CSP_YUV444_12:
+        case RGY_CSP_YUV444_14:
+        case RGY_CSP_YUV444_16:
             bufPitch = (bufWidth * 2 + 31) & (~31);
             bufSize = bufPitch * bufHeight * 3; break;
         default:
@@ -2254,7 +2254,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             inputFrame = param->frameOut;
         }
         const auto encCsp = GetEncoderCSP(inputParam);
-        if (inputFrame.csp == NV_ENC_CSP_NV12 || inputFrame.csp == NV_ENC_CSP_P010 //NV12ならYV12に変換する必要がある
+        if (inputFrame.csp == RGY_CSP_NV12 || inputFrame.csp == RGY_CSP_P010 //NV12ならYV12に変換する必要がある
             || encCsp != inputFrame.csp
             || (cropEnabled(inputParam->input.crop) && m_pFileReader->inputCodecIsValid())) { //cropが必要ならただちに適用する
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
@@ -2266,11 +2266,11 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameIn = inputFrame;
             param->frameOut.csp = encCsp;
             switch (param->frameOut.csp) {
-            case NV_ENC_CSP_NV12:
-                param->frameOut.csp = NV_ENC_CSP_YV12;
+            case RGY_CSP_NV12:
+                param->frameOut.csp = RGY_CSP_YV12;
                 break;
-            case NV_ENC_CSP_P010:
-                param->frameOut.csp = NV_ENC_CSP_YV12_16;
+            case RGY_CSP_P010:
+                param->frameOut.csp = RGY_CSP_YV12_16;
                 break;
             default:
                 break;
@@ -2474,9 +2474,9 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
     if (bOutputHighBitDepth) {
-        inputParam->input.csp = (inputParam->yuv444) ? NV_ENC_CSP_YUV444_16 : NV_ENC_CSP_P010;
+        inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
     } else {
-        inputParam->input.csp = (inputParam->yuv444) ? NV_ENC_CSP_YUV444 : NV_ENC_CSP_NV12;
+        inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
     }
     m_nAVSyncMode = inputParam->nAVSyncMode;
     m_nProcSpeedLimit = inputParam->nProcSpeedLimit;
@@ -2997,7 +2997,7 @@ NVENCSTATUS NVEncCore::Encode() {
         //    PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
         //    return NV_ENC_ERR_GENERIC;
         //}
-        unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(deviceFrame, NV_ENC_CSP_NV12, inframe->getTimeStamp(), pEncodeBuffer/*, &cudaEvent*/));
+        unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(deviceFrame, RGY_CSP_NV12, inframe->getTimeStamp(), pEncodeBuffer/*, &cudaEvent*/));
         dqEncFrames.push_back(std::move(frameEnc));
         return NV_ENC_SUCCESS;
     };

@@ -836,7 +836,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             } else {
                 bDecodecCUVID = true;
                 //cuvidデコード時は、NV12のみ使用される
-                inputPrm->csp = NV_ENC_CSP_NV12;
+                inputPrm->csp = RGY_CSP_NV12;
                 AddMessage(RGY_LOG_DEBUG, _T("can be decoded by cuvid.\n"));
             }
         }
@@ -1001,43 +1001,43 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             AVPixelFormat pix_fmt;
             uint16_t bit_depth;
             uint16_t chroma_format;
-            NV_ENC_CSP output_csp;
+            RGY_CSP output_csp;
         };
 
         static const pixfmtInfo pixfmtDataList[] = {
-            { AV_PIX_FMT_YUV420P,      8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
-            { AV_PIX_FMT_YUVJ420P,     8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
-            { AV_PIX_FMT_NV12,         8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
-            { AV_PIX_FMT_NV21,         8, cudaVideoChromaFormat_420, NV_ENC_CSP_NV12 },
-            { AV_PIX_FMT_YUV422P,      8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUVJ422P,     8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUYV422,      8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_UYVY422,      8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_NV16,         8, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV444P,      8, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444 },
-            { AV_PIX_FMT_YUVJ444P,     8, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444 },
-            { AV_PIX_FMT_YUV420P16LE, 16, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
-            { AV_PIX_FMT_YUV420P14LE, 14, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
-            { AV_PIX_FMT_YUV420P12LE, 12, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
-            { AV_PIX_FMT_YUV420P10LE, 10, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
-            { AV_PIX_FMT_YUV420P9LE,   9, cudaVideoChromaFormat_420, NV_ENC_CSP_P010 },
-            { AV_PIX_FMT_NV20LE,      10, cudaVideoChromaFormat_420, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV422P16LE, 16, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV422P14LE, 14, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV422P12LE, 12, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV422P10LE, 10, cudaVideoChromaFormat_422, NV_ENC_CSP_NA },
-            { AV_PIX_FMT_YUV444P16LE, 16, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P14LE, 14, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P12LE, 12, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P10LE, 10, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P9LE,   9, cudaVideoChromaFormat_444, NV_ENC_CSP_YUV444_16 }
+            { AV_PIX_FMT_YUV420P,      8, cudaVideoChromaFormat_420, RGY_CSP_NV12 },
+            { AV_PIX_FMT_YUVJ420P,     8, cudaVideoChromaFormat_420, RGY_CSP_NV12 },
+            { AV_PIX_FMT_NV12,         8, cudaVideoChromaFormat_420, RGY_CSP_NV12 },
+            { AV_PIX_FMT_NV21,         8, cudaVideoChromaFormat_420, RGY_CSP_NV12 },
+            { AV_PIX_FMT_YUV422P,      8, cudaVideoChromaFormat_422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUVJ422P,     8, cudaVideoChromaFormat_422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUYV422,      8, cudaVideoChromaFormat_422, RGY_CSP_NA },
+            { AV_PIX_FMT_UYVY422,      8, cudaVideoChromaFormat_422, RGY_CSP_NA },
+            { AV_PIX_FMT_NV16,         8, cudaVideoChromaFormat_422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV444P,      8, cudaVideoChromaFormat_444, RGY_CSP_YUV444 },
+            { AV_PIX_FMT_YUVJ444P,     8, cudaVideoChromaFormat_444, RGY_CSP_YUV444 },
+            { AV_PIX_FMT_YUV420P16LE, 16, cudaVideoChromaFormat_420, RGY_CSP_P010 },
+            { AV_PIX_FMT_YUV420P14LE, 14, cudaVideoChromaFormat_420, RGY_CSP_P010 },
+            { AV_PIX_FMT_YUV420P12LE, 12, cudaVideoChromaFormat_420, RGY_CSP_P010 },
+            { AV_PIX_FMT_YUV420P10LE, 10, cudaVideoChromaFormat_420, RGY_CSP_P010 },
+            { AV_PIX_FMT_YUV420P9LE,   9, cudaVideoChromaFormat_420, RGY_CSP_P010 },
+            { AV_PIX_FMT_NV20LE,      10, cudaVideoChromaFormat_420, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P16LE, 16, cudaVideoChromaFormat_422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P14LE, 14, cudaVideoChromaFormat_422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P12LE, 12, cudaVideoChromaFormat_422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P10LE, 10, cudaVideoChromaFormat_422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV444P16LE, 16, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P14LE, 14, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P12LE, 12, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P10LE, 10, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P9LE,   9, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 }
         };
 
         const auto pixfmt = (AVPixelFormat)m_Demux.video.pStream->codecpar->format;
         const auto pixfmtData = std::find_if(pixfmtDataList, pixfmtDataList + _countof(pixfmtDataList), [pixfmt](const pixfmtInfo& tableData) {
             return tableData.pix_fmt == pixfmt;
         });
-        if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->output_csp == NV_ENC_CSP_NA) {
+        if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->output_csp == RGY_CSP_NA) {
             AddMessage(RGY_LOG_DEBUG, _T("Invalid pixel format from input file.\n"));
             return RGY_ERR_INVALID_COLOR_FORMAT;
         }
@@ -1071,33 +1071,33 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                 AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNSUPPORTED;
             }
-            const std::map<AVPixelFormat, NV_ENC_CSP> CSP_CONV = {
-                { AV_PIX_FMT_YUV420P,     NV_ENC_CSP_YV12 },
-                { AV_PIX_FMT_YUVJ420P,    NV_ENC_CSP_YV12 },
-                { AV_PIX_FMT_NV12,        NV_ENC_CSP_NV12 },
-                { AV_PIX_FMT_NV21,        NV_ENC_CSP_NV12 },
-                { AV_PIX_FMT_YUV422P,     NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUVJ422P,    NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUYV422,     NV_ENC_CSP_YUY2 },
-                { AV_PIX_FMT_UYVY422,     NV_ENC_CSP_NA },
-                { AV_PIX_FMT_NV16,        NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P,     NV_ENC_CSP_YUV444 },
-                { AV_PIX_FMT_YUVJ444P,    NV_ENC_CSP_YUV444 },
-                { AV_PIX_FMT_YUV420P16LE, NV_ENC_CSP_YV12_16 },
-                { AV_PIX_FMT_YUV420P14LE, NV_ENC_CSP_YV12_14 },
-                { AV_PIX_FMT_YUV420P12LE, NV_ENC_CSP_YV12_12 },
-                { AV_PIX_FMT_YUV420P10LE, NV_ENC_CSP_YV12_10 },
-                { AV_PIX_FMT_YUV420P9LE,  NV_ENC_CSP_YV12_09 },
-                { AV_PIX_FMT_NV20LE,      NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV422P16LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV422P14LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV422P12LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV422P10LE, NV_ENC_CSP_NA },
-                { AV_PIX_FMT_YUV444P16LE, NV_ENC_CSP_YUV444_16 },
-                { AV_PIX_FMT_YUV444P14LE, NV_ENC_CSP_YUV444_14 },
-                { AV_PIX_FMT_YUV444P12LE, NV_ENC_CSP_YUV444_12 },
-                { AV_PIX_FMT_YUV444P10LE, NV_ENC_CSP_YUV444_10 },
-                { AV_PIX_FMT_YUV444P9LE,  NV_ENC_CSP_YUV444_09 }
+            const std::map<AVPixelFormat, RGY_CSP> CSP_CONV = {
+                { AV_PIX_FMT_YUV420P,     RGY_CSP_YV12 },
+                { AV_PIX_FMT_YUVJ420P,    RGY_CSP_YV12 },
+                { AV_PIX_FMT_NV12,        RGY_CSP_NV12 },
+                { AV_PIX_FMT_NV21,        RGY_CSP_NV12 },
+                { AV_PIX_FMT_YUV422P,     RGY_CSP_NA },
+                { AV_PIX_FMT_YUVJ422P,    RGY_CSP_NA },
+                { AV_PIX_FMT_YUYV422,     RGY_CSP_YUY2 },
+                { AV_PIX_FMT_UYVY422,     RGY_CSP_NA },
+                { AV_PIX_FMT_NV16,        RGY_CSP_NA },
+                { AV_PIX_FMT_YUV444P,     RGY_CSP_YUV444 },
+                { AV_PIX_FMT_YUVJ444P,    RGY_CSP_YUV444 },
+                { AV_PIX_FMT_YUV420P16LE, RGY_CSP_YV12_16 },
+                { AV_PIX_FMT_YUV420P14LE, RGY_CSP_YV12_14 },
+                { AV_PIX_FMT_YUV420P12LE, RGY_CSP_YV12_12 },
+                { AV_PIX_FMT_YUV420P10LE, RGY_CSP_YV12_10 },
+                { AV_PIX_FMT_YUV420P9LE,  RGY_CSP_YV12_09 },
+                { AV_PIX_FMT_NV20LE,      RGY_CSP_NA },
+                { AV_PIX_FMT_YUV422P16LE, RGY_CSP_NA },
+                { AV_PIX_FMT_YUV422P14LE, RGY_CSP_NA },
+                { AV_PIX_FMT_YUV422P12LE, RGY_CSP_NA },
+                { AV_PIX_FMT_YUV422P10LE, RGY_CSP_NA },
+                { AV_PIX_FMT_YUV444P16LE, RGY_CSP_YUV444_16 },
+                { AV_PIX_FMT_YUV444P14LE, RGY_CSP_YUV444_14 },
+                { AV_PIX_FMT_YUV444P12LE, RGY_CSP_YUV444_12 },
+                { AV_PIX_FMT_YUV444P10LE, RGY_CSP_YUV444_10 },
+                { AV_PIX_FMT_YUV444P9LE,  RGY_CSP_YUV444_09 }
             };
             auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtxDecode->pix_fmt);
             if (pixCspConv == CSP_CONV.end()
@@ -1124,7 +1124,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             m_strInputInfo += mes;
         } else {
             CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id))).c_str(),
-                NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
+                RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
             if (input_prm->fSeekSec > 0.0f) {
                 m_strInputInfo += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
             }

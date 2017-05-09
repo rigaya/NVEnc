@@ -89,9 +89,9 @@ NVENCSTATUS NVEncFilterUnsharp::unsharpYV12(FrameInfo *pOutputFrame, const Frame
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
-    static const auto supportedCspYV12High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
+    static const auto supportedCspYV12High = make_array<RGY_CSP>(RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     NppStatus nppsts = NPP_SUCCESS;
-    if (m_pParam->frameIn.csp == NV_ENC_CSP_YV12) {
+    if (m_pParam->frameIn.csp == RGY_CSP_YV12) {
         nppsts = unsharp_yv12<Npp8u>(pOutputFrame, pInputFrame, pScratch, nppiFilterUnsharpBorder_8u_C1R, pUnsharpParam->radius, pUnsharpParam->sigma, pUnsharpParam->weight, pUnsharpParam->threshold);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
@@ -158,9 +158,9 @@ NVENCSTATUS NVEncFilterUnsharp::unsharpYUV444(FrameInfo *pOutputFrame, const Fra
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
-    static const auto supportedCspYUV444High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
+    static const auto supportedCspYUV444High = make_array<RGY_CSP>(RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
     NppStatus nppsts = NPP_SUCCESS;
-    if (m_pParam->frameIn.csp == NV_ENC_CSP_YUV444) {
+    if (m_pParam->frameIn.csp == RGY_CSP_YUV444) {
         nppsts = unsharp_yuv444<Npp8u>(pOutputFrame, pInputFrame, pScratch, nppiFilterUnsharpBorder_8u_C1R, pUnsharpParam->radius, pUnsharpParam->sigma, pUnsharpParam->weight, pUnsharpParam->threshold);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
@@ -272,8 +272,8 @@ NVENCSTATUS NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameIn
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    static const auto supportedCspYV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12, NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
-    static const auto supportedCspYUV444 = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444, NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
+    static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
+    static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
 
     if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), m_pParam->frameIn.csp) != supportedCspYV12.end()) {
         sts = unsharpYV12(ppOutputFrames[0], pInputFrame, pScratch);

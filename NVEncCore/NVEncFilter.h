@@ -132,7 +132,7 @@ struct CUFrameBuf {
         : frame({ 0 }), event() {
         cudaEventCreate(&event);
     };
-    CUFrameBuf(uint8_t *ptr, int pitch, int width, int height, NV_ENC_CSP csp = NV_ENC_CSP_NV12)
+    CUFrameBuf(uint8_t *ptr, int pitch, int width, int height, RGY_CSP csp = RGY_CSP_NV12)
         : frame({ 0 }), event() {
         frame.ptr = ptr;
         frame.pitch = pitch;
@@ -142,7 +142,7 @@ struct CUFrameBuf {
         frame.deivce_mem = true;
         cudaEventCreate(&event);
     };
-    CUFrameBuf(int width, int height, NV_ENC_CSP csp = NV_ENC_CSP_NV12)
+    CUFrameBuf(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
         : frame({ 0 }), event() {
         frame.ptr = nullptr;
         frame.pitch = 0;

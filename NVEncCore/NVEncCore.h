@@ -188,7 +188,7 @@ protected:
     NVENCSTATUS SetEncodeCodecList(void *encode);
 
     //エンコーダが出力使用する色空間を入力パラメータをもとに取得
-    NV_ENC_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
+    RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
     
     //既定の出力先に情報をメッセージを出力
     virtual void PrintMes(int logLevel, const TCHAR *format, ...);

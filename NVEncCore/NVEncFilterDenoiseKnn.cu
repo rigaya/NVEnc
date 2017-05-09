@@ -354,29 +354,29 @@ NVENCSTATUS NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, Fram
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
-    static const std::map<NV_ENC_CSP, decltype(denoise_yv12<uint8_t, 8>)*> denoise_list = {
-        { NV_ENC_CSP_YV12,      denoise_yv12<uint8_t,   8> },
-        { NV_ENC_CSP_YV12_09,   denoise_yv12<uint16_t,  9> },
-        { NV_ENC_CSP_YV12_10,   denoise_yv12<uint16_t, 10> },
-        { NV_ENC_CSP_YV12_12,   denoise_yv12<uint16_t, 12> },
-        { NV_ENC_CSP_YV12_14,   denoise_yv12<uint16_t, 14> },
-        { NV_ENC_CSP_YV12_16,   denoise_yv12<uint16_t, 16> },
-        { NV_ENC_CSP_YUV444,    denoise_yuv444<uint8_t,   8> },
-        { NV_ENC_CSP_YUV444_09, denoise_yuv444<uint16_t,  9> },
-        { NV_ENC_CSP_YUV444_10, denoise_yuv444<uint16_t, 10> },
-        { NV_ENC_CSP_YUV444_12, denoise_yuv444<uint16_t, 12> },
-        { NV_ENC_CSP_YUV444_14, denoise_yuv444<uint16_t, 14> },
-        { NV_ENC_CSP_YUV444_16, denoise_yuv444<uint16_t, 16> },
+    static const std::map<RGY_CSP, decltype(denoise_yv12<uint8_t, 8>)*> denoise_list = {
+        { RGY_CSP_YV12,      denoise_yv12<uint8_t,   8> },
+        { RGY_CSP_YV12_09,   denoise_yv12<uint16_t,  9> },
+        { RGY_CSP_YV12_10,   denoise_yv12<uint16_t, 10> },
+        { RGY_CSP_YV12_12,   denoise_yv12<uint16_t, 12> },
+        { RGY_CSP_YV12_14,   denoise_yv12<uint16_t, 14> },
+        { RGY_CSP_YV12_16,   denoise_yv12<uint16_t, 16> },
+        { RGY_CSP_YUV444,    denoise_yuv444<uint8_t,   8> },
+        { RGY_CSP_YUV444_09, denoise_yuv444<uint16_t,  9> },
+        { RGY_CSP_YUV444_10, denoise_yuv444<uint16_t, 10> },
+        { RGY_CSP_YUV444_12, denoise_yuv444<uint16_t, 12> },
+        { RGY_CSP_YUV444_14, denoise_yuv444<uint16_t, 14> },
+        { RGY_CSP_YUV444_16, denoise_yuv444<uint16_t, 16> },
     };
     if (denoise_list.count(pInputFrame->csp) == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp]);
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
     denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pKnnParam->knn.radius, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
-            NV_ENC_CSP_NAMES[pInputFrame->csp],
+            RGY_CSP_NAMES[pInputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
     }

@@ -308,20 +308,20 @@ NVENCSTATUS NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo
         };
     };
 
-    static const std::map<NV_ENC_CSP, pmd_func> denoise_func_list = {
-        { NV_ENC_CSP_YV12,      pmd_func(denoise_yv12<uint8_t,   8, true>,   denoise_yv12<uint8_t,   8, false>) },
-        { NV_ENC_CSP_YV12_10,   pmd_func(denoise_yv12<uint16_t, 10, true>,   denoise_yv12<uint16_t, 10, false>) },
-        { NV_ENC_CSP_YV12_12,   pmd_func(denoise_yv12<uint16_t, 12, true>,   denoise_yv12<uint16_t, 12, false>) },
-        { NV_ENC_CSP_YV12_14,   pmd_func(denoise_yv12<uint16_t, 14, true>,   denoise_yv12<uint16_t, 14, false>) },
-        { NV_ENC_CSP_YV12_16,   pmd_func(denoise_yv12<uint16_t, 16, true>,   denoise_yv12<uint16_t, 16, false>) },
-        { NV_ENC_CSP_YUV444,    pmd_func(denoise_yuv444<uint8_t,   8, true>, denoise_yuv444<uint8_t,   8, false>) },
-        { NV_ENC_CSP_YUV444_10, pmd_func(denoise_yuv444<uint16_t, 10, true>, denoise_yuv444<uint16_t, 10, false>) },
-        { NV_ENC_CSP_YUV444_12, pmd_func(denoise_yuv444<uint16_t, 12, true>, denoise_yuv444<uint16_t, 12, false>) },
-        { NV_ENC_CSP_YUV444_14, pmd_func(denoise_yuv444<uint16_t, 14, true>, denoise_yuv444<uint16_t, 14, false>) },
-        { NV_ENC_CSP_YUV444_16, pmd_func(denoise_yuv444<uint16_t, 16, true>, denoise_yuv444<uint16_t, 16, false>) },
+    static const std::map<RGY_CSP, pmd_func> denoise_func_list = {
+        { RGY_CSP_YV12,      pmd_func(denoise_yv12<uint8_t,   8, true>,   denoise_yv12<uint8_t,   8, false>) },
+        { RGY_CSP_YV12_10,   pmd_func(denoise_yv12<uint16_t, 10, true>,   denoise_yv12<uint16_t, 10, false>) },
+        { RGY_CSP_YV12_12,   pmd_func(denoise_yv12<uint16_t, 12, true>,   denoise_yv12<uint16_t, 12, false>) },
+        { RGY_CSP_YV12_14,   pmd_func(denoise_yv12<uint16_t, 14, true>,   denoise_yv12<uint16_t, 14, false>) },
+        { RGY_CSP_YV12_16,   pmd_func(denoise_yv12<uint16_t, 16, true>,   denoise_yv12<uint16_t, 16, false>) },
+        { RGY_CSP_YUV444,    pmd_func(denoise_yuv444<uint8_t,   8, true>, denoise_yuv444<uint8_t,   8, false>) },
+        { RGY_CSP_YUV444_10, pmd_func(denoise_yuv444<uint16_t, 10, true>, denoise_yuv444<uint16_t, 10, false>) },
+        { RGY_CSP_YUV444_12, pmd_func(denoise_yuv444<uint16_t, 12, true>, denoise_yuv444<uint16_t, 12, false>) },
+        { RGY_CSP_YUV444_14, pmd_func(denoise_yuv444<uint16_t, 14, true>, denoise_yuv444<uint16_t, 14, false>) },
+        { RGY_CSP_YUV444_16, pmd_func(denoise_yuv444<uint16_t, 16, true>, denoise_yuv444<uint16_t, 16, false>) },
     };
     if (denoise_func_list.count(pPmdParam->frameIn.csp) == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("unsupported csp for denoise(pmd): %s\n"), NV_ENC_CSP_NAMES[pPmdParam->frameIn.csp]);
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp for denoise(pmd): %s\n"), RGY_CSP_NAMES[pPmdParam->frameIn.csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
     auto cudaerr = denoise_func_list.at(pPmdParam->frameIn.csp).func[!!pPmdParam->pmd.useExp](pOutputFrame, pGauss, pInputFrame, pPmdParam->pmd.applyCount, pPmdParam->pmd.strength, pPmdParam->pmd.threshold);

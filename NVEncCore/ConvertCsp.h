@@ -33,28 +33,28 @@
 
 typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
-enum NV_ENC_CSP {
-    NV_ENC_CSP_NA,
-    NV_ENC_CSP_NV12,
-    NV_ENC_CSP_YV12,
-    NV_ENC_CSP_YUY2,
-    NV_ENC_CSP_YUV422,
-    NV_ENC_CSP_YUV444,
-    NV_ENC_CSP_YV12_09,
-    NV_ENC_CSP_YV12_10,
-    NV_ENC_CSP_YV12_12,
-    NV_ENC_CSP_YV12_14,
-    NV_ENC_CSP_YV12_16,
-    NV_ENC_CSP_P010,
-    NV_ENC_CSP_YUV444_09,
-    NV_ENC_CSP_YUV444_10,
-    NV_ENC_CSP_YUV444_12,
-    NV_ENC_CSP_YUV444_14,
-    NV_ENC_CSP_YUV444_16,
-    NV_ENC_CSP_YC48,
+enum RGY_CSP {
+    RGY_CSP_NA,
+    RGY_CSP_NV12,
+    RGY_CSP_YV12,
+    RGY_CSP_YUY2,
+    RGY_CSP_YUV422,
+    RGY_CSP_YUV444,
+    RGY_CSP_YV12_09,
+    RGY_CSP_YV12_10,
+    RGY_CSP_YV12_12,
+    RGY_CSP_YV12_14,
+    RGY_CSP_YV12_16,
+    RGY_CSP_P010,
+    RGY_CSP_YUV444_09,
+    RGY_CSP_YUV444_10,
+    RGY_CSP_YUV444_12,
+    RGY_CSP_YUV444_14,
+    RGY_CSP_YUV444_16,
+    RGY_CSP_YC48,
 };
 
-static const TCHAR *NV_ENC_CSP_NAMES[] = {
+static const TCHAR *RGY_CSP_NAMES[] = {
     _T("Invalid"),
     _T("nv12"),
     _T("yv12"),
@@ -75,35 +75,35 @@ static const TCHAR *NV_ENC_CSP_NAMES[] = {
     _T("yc48")
 };
 
-static const int NV_ENC_CSP_BIT_DEPTH[] = {
-     0, //NV_ENC_CSP_NA
-     8, //NV_ENC_CSP_NV12
-     8, //NV_ENC_CSP_YV12
-     8, //NV_ENC_CSP_YUY2 
-     8, //NV_ENC_CSP_YUV422
-     8, //NV_ENC_CSP_YUV444
-     9, //NV_ENC_CSP_YV12_09
+static const int RGY_CSP_BIT_DEPTH[] = {
+     0, //RGY_CSP_NA
+     8, //RGY_CSP_NV12
+     8, //RGY_CSP_YV12
+     8, //RGY_CSP_YUY2 
+     8, //RGY_CSP_YUV422
+     8, //RGY_CSP_YUV444
+     9, //RGY_CSP_YV12_09
     10,
     12,
     14,
-    16, //NV_ENC_CSP_YV12_16
-    16, //NV_ENC_CSP_P010
-     9, //NV_ENC_CSP_YUV444_09
+    16, //RGY_CSP_YV12_16
+    16, //RGY_CSP_P010
+     9, //RGY_CSP_YUV444_09
     10,
     12,
     14,
-    16, //NV_ENC_CSP_YUV444_16
-    10, //NV_ENC_CSP_YC48
+    16, //RGY_CSP_YUV444_16
+    10, //RGY_CSP_YC48
 };
 
 typedef struct ConvertCSP {
-    NV_ENC_CSP csp_from, csp_to;
+    RGY_CSP csp_from, csp_to;
     bool uv_only;
     funcConvertCSP func[2];
     unsigned int simd;
 } ConvertCSP;
 
-const ConvertCSP *get_convert_csp_func(NV_ENC_CSP csp_from, NV_ENC_CSP csp_to, bool uv_only);
+const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only);
 const TCHAR *get_simd_str(unsigned int simd);
 
 #endif //_CONVERT_CSP_H_

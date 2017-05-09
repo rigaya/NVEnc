@@ -69,7 +69,7 @@ typedef struct InputVideoInfo {
     int rate;             //フレームレート (分母)
     sInputCrop crop;      //入力時切り落とし
     int sar[2];           //par
-    NV_ENC_CSP csp;       //入力色空間 (NV_ENC_CSP_xxx)
+    RGY_CSP csp;       //入力色空間 (RGY_CSP_xxx)
     TCHAR *filename;         //入力ファイル名
     cudaVideoCodec codec;    //入力コーデック (デコード時使用)
     void *codecExtra;        //入力コーデックのヘッダー
