@@ -42,12 +42,12 @@
 using std::vector;
 
 enum {
-    NV_LOG_TRACE = -3,
-    NV_LOG_DEBUG = -2,
-    NV_LOG_MORE  = -1,
-    NV_LOG_INFO  = 0,
-    NV_LOG_WARN  = 1,
-    NV_LOG_ERROR = 2,
+    RGY_LOG_TRACE = -3,
+    RGY_LOG_DEBUG = -2,
+    RGY_LOG_MORE  = -1,
+    RGY_LOG_INFO  = 0,
+    RGY_LOG_WARN  = 1,
+    RGY_LOG_ERROR = 2,
 };
 
 enum {
@@ -513,12 +513,12 @@ const CX_DESC list_nppi_gauss[] = {
 };
 
 const CX_DESC list_log_level[] = {
-    { _T("trace"), NV_LOG_TRACE },
-    { _T("debug"), NV_LOG_DEBUG },
-    { _T("more"),  NV_LOG_MORE  },
-    { _T("info"),  NV_LOG_INFO  },
-    { _T("warn"),  NV_LOG_WARN  },
-    { _T("error"), NV_LOG_ERROR },
+    { _T("trace"), RGY_LOG_TRACE },
+    { _T("debug"), RGY_LOG_DEBUG },
+    { _T("more"),  RGY_LOG_MORE  },
+    { _T("info"),  RGY_LOG_INFO  },
+    { _T("warn"),  RGY_LOG_WARN  },
+    { _T("error"), RGY_LOG_ERROR },
     { NULL, 0 }
 };
 

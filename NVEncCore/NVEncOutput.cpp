@@ -49,10 +49,10 @@ NVEncOut::~NVEncOut() {
 }
 
 void NVEncOut::Close() {
-    AddMessage(NV_LOG_DEBUG, _T("Closing...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     if (m_fDest) {
         m_fDest.reset();
-        AddMessage(NV_LOG_DEBUG, _T("Closed file pointer.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
     }
     m_pOutputBuffer.reset();
     m_pReadBuffer.reset();
@@ -63,7 +63,7 @@ void NVEncOut::Close() {
     m_bInited = false;
     m_bSourceHWMem = false;
     m_bY4mHeaderWritten = false;
-    AddMessage(NV_LOG_DEBUG, _T("Closed.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
     m_pPrintMes.reset();
 }
 
@@ -80,7 +80,7 @@ NVEncOutBitstream::~NVEncOutBitstream() {
 RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
     CQSVOutRawPrm *rawPrm = (CQSVOutRawPrm *)prm;
     if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
-        AddMessage(NV_LOG_ERROR, _T("output filename not set.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("output filename not set.\n"));
         return RGY_ERR_UNDEFINED_BEHAVIOR;
     }
 
@@ -90,22 +90,22 @@ RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, share
 
     if (rawPrm->bBenchmark) {
         m_bNoOutput = true;
-        AddMessage(NV_LOG_DEBUG, _T("no output for benchmark mode.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("no output for benchmark mode.\n"));
     } else {
         if (_tcscmp(strFileName, _T("-")) == 0) {
             m_fDest.reset(stdout);
             m_bOutputIsStdout = true;
-            AddMessage(NV_LOG_DEBUG, _T("using stdout\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("using stdout\n"));
         } else {
             CreateDirectoryRecursive(PathRemoveFileSpecFixed(strFileName).second.c_str());
             FILE *fp = NULL;
             int error = _tfopen_s(&fp, strFileName, _T("wb+"));
             if (error != 0 || fp == NULL) {
-                AddMessage(NV_LOG_ERROR, _T("failed to open output file \"%s\": %s\n"), strFileName, _tcserror(error));
+                AddMessage(RGY_LOG_ERROR, _T("failed to open output file \"%s\": %s\n"), strFileName, _tcserror(error));
                 return RGY_ERR_FILE_OPEN;
             }
             m_fDest.reset(fp);
-            AddMessage(NV_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
+            AddMessage(RGY_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
 
             int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, NV_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
             if (bufferSizeByte) {
@@ -114,7 +114,7 @@ RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, share
                 if (bufferSizeByte) {
                     m_pOutputBuffer.reset((char*)ptr);
                     setvbuf(m_fDest.get(), m_pOutputBuffer.get(), _IOFBF, bufferSizeByte);
-                    AddMessage(NV_LOG_DEBUG, _T("Added %d MB output buffer.\n"), bufferSizeByte / (1024 * 1024));
+                    AddMessage(RGY_LOG_DEBUG, _T("Added %d MB output buffer.\n"), bufferSizeByte / (1024 * 1024));
                 }
             }
         }
@@ -126,7 +126,7 @@ RGY_ERR NVEncOutBitstream::SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC
 #pragma warning(pop)
 RGY_ERR NVEncOutBitstream::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) {
     if (pBitstream == nullptr) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
         return RGY_ERR_UNDEFINED_BEHAVIOR;
     }
 
@@ -134,7 +134,7 @@ RGY_ERR NVEncOutBitstream::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstrea
     if (!m_bNoOutput) {
         nBytesWritten = (uint32_t)fwrite(pBitstream->bitstreamBufferPtr, 1, pBitstream->bitstreamSizeInBytes, m_fDest.get());
         if (nBytesWritten != pBitstream->bitstreamSizeInBytes) {
-            AddMessage(NV_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\n"));
             return RGY_ERR_UNKNOWN;
         }
     }

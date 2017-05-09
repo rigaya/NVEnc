@@ -81,12 +81,12 @@ static NppStatus unsharp_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFr
 NVENCSTATUS NVEncFilterUnsharp::unsharpYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pScratch) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
-        AddMessage(NV_LOG_ERROR, _T("csp does not match.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     auto pUnsharpParam = std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(m_pParam);
     if (!pUnsharpParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     static const auto supportedCspYV12High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
@@ -94,17 +94,17 @@ NVENCSTATUS NVEncFilterUnsharp::unsharpYV12(FrameInfo *pOutputFrame, const Frame
     if (m_pParam->frameIn.csp == NV_ENC_CSP_YV12) {
         nppsts = unsharp_yv12<Npp8u>(pOutputFrame, pInputFrame, pScratch, nppiFilterUnsharpBorder_8u_C1R, pUnsharpParam->radius, pUnsharpParam->sigma, pUnsharpParam->weight, pUnsharpParam->threshold);
         if (nppsts != NPP_SUCCESS) {
-            AddMessage(NV_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
             sts = NV_ENC_ERR_GENERIC;
         }
     } else if (std::find(supportedCspYV12High.begin(), supportedCspYV12High.end(), m_pParam->frameIn.csp) != supportedCspYV12High.end()) {
         nppsts = unsharp_yv12<Npp16u>(pOutputFrame, pInputFrame, pScratch, nppiFilterUnsharpBorder_16u_C1R, pUnsharpParam->radius, pUnsharpParam->sigma, pUnsharpParam->weight, pUnsharpParam->threshold);
         if (nppsts != NPP_SUCCESS) {
-            AddMessage(NV_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
             sts = NV_ENC_ERR_GENERIC;
         }
     } else {
-        AddMessage(NV_LOG_ERROR, _T("unsupported csp.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
         sts = NV_ENC_ERR_UNIMPLEMENTED;
     }
     return NV_ENC_SUCCESS;
@@ -150,12 +150,12 @@ static NppStatus unsharp_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInput
 NVENCSTATUS NVEncFilterUnsharp::unsharpYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pScratch) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
-        AddMessage(NV_LOG_ERROR, _T("csp does not match.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     auto pUnsharpParam = std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(m_pParam);
     if (!pUnsharpParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     static const auto supportedCspYUV444High = make_array<NV_ENC_CSP>(NV_ENC_CSP_YUV444_09, NV_ENC_CSP_YUV444_10, NV_ENC_CSP_YUV444_12, NV_ENC_CSP_YUV444_14, NV_ENC_CSP_YUV444_16);
@@ -163,17 +163,17 @@ NVENCSTATUS NVEncFilterUnsharp::unsharpYUV444(FrameInfo *pOutputFrame, const Fra
     if (m_pParam->frameIn.csp == NV_ENC_CSP_YUV444) {
         nppsts = unsharp_yuv444<Npp8u>(pOutputFrame, pInputFrame, pScratch, nppiFilterUnsharpBorder_8u_C1R, pUnsharpParam->radius, pUnsharpParam->sigma, pUnsharpParam->weight, pUnsharpParam->threshold);
         if (nppsts != NPP_SUCCESS) {
-            AddMessage(NV_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
             sts = NV_ENC_ERR_GENERIC;
         }
     } else if (std::find(supportedCspYUV444High.begin(), supportedCspYUV444High.end(), m_pParam->frameIn.csp) != supportedCspYUV444High.end()) {
         nppsts = unsharp_yuv444<Npp16u>(pOutputFrame, pInputFrame, pScratch, nppiFilterUnsharpBorder_16u_C1R, pUnsharpParam->radius, pUnsharpParam->sigma, pUnsharpParam->weight, pUnsharpParam->threshold);
         if (nppsts != NPP_SUCCESS) {
-            AddMessage(NV_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
             sts = NV_ENC_ERR_GENERIC;
         }
     } else {
-        AddMessage(NV_LOG_ERROR, _T("unsupported csp.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
         sts = NV_ENC_ERR_UNIMPLEMENTED;
     }
     return NV_ENC_SUCCESS;
@@ -206,22 +206,22 @@ NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared
     m_pPrintMes = pPrintMes;
     auto pUnsharpParam = std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(pParam);
     if (!pUnsharpParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     if (!check_if_nppi_dll_available()) {
-        AddMessage(NV_LOG_ERROR, _T("vpp-unsharp requires \"%s\", not available on your system.\n"), NPPI_DLL_NAME);
+        AddMessage(RGY_LOG_ERROR, _T("vpp-unsharp requires \"%s\", not available on your system.\n"), NPPI_DLL_NAME);
         return NV_ENC_ERR_INVALID_PARAM;
     }
     //パラメータチェック
     if (pUnsharpParam->frameOut.height <= 0 || pUnsharpParam->frameOut.width <= 0) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
     auto cudaerr = AllocFrameBuf(pUnsharpParam->frameOut, 2);
     if (cudaerr != CUDA_SUCCESS) {
-        AddMessage(NV_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
     pUnsharpParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
@@ -229,12 +229,12 @@ NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared
     int nBufferSize = 0;
     auto nppsts = nppiFilterUnsharpGetBufferSize_8u_C1R(pUnsharpParam->radius, pUnsharpParam->sigma, &nBufferSize);
     if (nppsts != NPP_SUCCESS) {
-        AddMessage(NV_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to unsharp: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
         sts = NV_ENC_ERR_GENERIC;
     }
     cudaerr = AllocScratch(nBufferSize);
     if (cudaerr != CUDA_SUCCESS) {
-        AddMessage(NV_LOG_ERROR, _T("failed to allocate scratch memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate scratch memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
 
@@ -259,17 +259,17 @@ NVENCSTATUS NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameIn
     }
     ppOutputFrames[0]->interlaced = pInputFrame->interlaced;
     if (pInputFrame->interlaced && !m_bInterlacedWarn) {
-        AddMessage(NV_LOG_WARN, _T("Interlaced unsharp is not supported, unsharp as progressive.\n"));
-        AddMessage(NV_LOG_WARN, _T("This should result in poor quality.\n"));
+        AddMessage(RGY_LOG_WARN, _T("Interlaced unsharp is not supported, unsharp as progressive.\n"));
+        AddMessage(RGY_LOG_WARN, _T("This should result in poor quality.\n"));
         m_bInterlacedWarn = true;
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
-        AddMessage(NV_LOG_ERROR, _T("only supported on device memory.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
-        AddMessage(NV_LOG_ERROR, _T("csp does not match.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     static const auto supportedCspYV12   = make_array<NV_ENC_CSP>(NV_ENC_CSP_YV12, NV_ENC_CSP_YV12_09, NV_ENC_CSP_YV12_10, NV_ENC_CSP_YV12_12, NV_ENC_CSP_YV12_14, NV_ENC_CSP_YV12_16);
@@ -280,7 +280,7 @@ NVENCSTATUS NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameIn
     } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), m_pParam->frameIn.csp) != supportedCspYUV444.end()) {
         sts = unsharpYUV444(ppOutputFrames[0], pInputFrame, pScratch);
     } else {
-        AddMessage(NV_LOG_ERROR, _T("unsupported csp.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
         sts = NV_ENC_ERR_UNIMPLEMENTED;
     }
     return sts;

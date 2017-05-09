@@ -158,13 +158,13 @@ RGY_ERR NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
 
     if (0 == _tcscmp(inputPrm->filename, _T("-"))) {
         if (_setmode( _fileno( stdin ), _O_BINARY ) == 1) {
-            AddMessage(NV_LOG_ERROR, _T("failed to switch stdin to binary mode."));
+            AddMessage(RGY_LOG_ERROR, _T("failed to switch stdin to binary mode."));
             return RGY_ERR_UNKNOWN;
         }
         m_fp = stdin;
     } else {
         if (_tfopen_s(&m_fp, inputPrm->filename, _T("rb")) || NULL == m_fp) {
-            AddMessage(NV_LOG_ERROR, _T("Failed to open input file.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to open input file.\n"));
             return RGY_ERR_FILE_OPEN;
         }
     }
@@ -179,7 +179,7 @@ RGY_ERR NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
             || strcmp(buf, "YUV4MPEG2") != 0
             || !fgets(buf, sizeof(buf), m_fp)
             || ParseY4MHeader(buf, &videoInfo)) {
-            AddMessage(NV_LOG_ERROR, _T("failed to parse y4m header."));
+            AddMessage(RGY_LOG_ERROR, _T("failed to parse y4m header."));
             return RGY_ERR_INVALID_FORMAT;
         }
         inputPrm->width = videoInfo.width;
@@ -217,25 +217,25 @@ RGY_ERR NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
         src_pitch = inputPrm->width * 2;
         bufferSize = inputPrm->width * inputPrm->height * 6; break;
     default:
-        AddMessage(NV_LOG_ERROR, _T("Unknown color foramt.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     if (NULL == (m_inputBuffer = (uint8_t *)_aligned_malloc(bufferSize, 32))) {
-        AddMessage(NV_LOG_ERROR, _T("raw: Failed to allocate input buffer.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("raw: Failed to allocate input buffer.\n"));
         return RGY_ERR_NULL_PTR;
     }
 
     m_sConvert = get_convert_csp_func(inputCsp, inputPrm->csp, false);
 
     if (nullptr == m_sConvert) {
-        AddMessage(NV_LOG_ERROR, _T("raw/y4m: invalid colorformat.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("raw/y4m: invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = src_pitch;
     CreateInputInfo(m_strReaderName.c_str(), NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
-    AddMessage(NV_LOG_DEBUG, m_strInputInfo);
+    AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     return RGY_ERR_NONE;
 }
 
@@ -288,7 +288,7 @@ RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     case NV_ENC_CSP_YUV444_16:
         frameSize = m_sDecParam.width * m_sDecParam.height * 6; break;
     default:
-        AddMessage(NV_LOG_ERROR, _T("Unknown color foramt.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     if (frameSize != fread(m_inputBuffer, 1, frameSize, m_fp)) {

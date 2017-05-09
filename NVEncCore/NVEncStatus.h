@@ -180,13 +180,13 @@ public:
         }
     }
     virtual void WriteLine(const TCHAR *mes) {
-        if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > NV_LOG_INFO) {
+        if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > RGY_LOG_INFO) {
             return;
         }
-        m_pNVLog->write(NV_LOG_INFO, _T("%s\n"), mes);
+        m_pNVLog->write(RGY_LOG_INFO, _T("%s\n"), mes);
     }
     virtual RGY_ERR UpdateDisplay(double progressPercent = 0.0) {
-        if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > NV_LOG_INFO) {
+        if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > RGY_LOG_INFO) {
             return RGY_ERR_NONE;
         }
         if (m_sData.frameOut + m_sData.frameDrop <= 0) {

@@ -162,13 +162,13 @@ NVENCSTATUS NVEncFilterDelogo::delogoY(FrameInfo *pFrame) {
     };
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
     if (!pDelogoParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     delogo_y_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__Y], LOGO__Y, pDelogoParam->mode);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
             NV_ENC_CSP_NAMES[pFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
@@ -192,11 +192,11 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
     };
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
     if (!pDelogoParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     if (delogo_uv_list.count(pFrame->csp) == 0) {
-        AddMessage(NV_LOG_ERROR, _T("unsupported csp for delogo: %s.\n"), NV_ENC_CSP_NAMES[pFrame->csp]);
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp for delogo: %s.\n"), NV_ENC_CSP_NAMES[pFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
     if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pFrame->csp) != supportedCspYV12.end()) {
@@ -204,7 +204,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
         delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__U], LOGO__U, pDelogoParam->mode);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
-            AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
                 NV_ENC_CSP_NAMES[pFrame->csp],
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
@@ -212,7 +212,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
         delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__V], LOGO__V, pDelogoParam->mode);
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
-            AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
                 NV_ENC_CSP_NAMES[pFrame->csp],
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
@@ -222,7 +222,7 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
         delogo_uv_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO_UV], LOGO_UV, pDelogoParam->mode);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
-            AddMessage(NV_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
                 NV_ENC_CSP_NAMES[pFrame->csp],
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
@@ -245,7 +245,7 @@ int NVEncFilterDelogo::readLogoFile() {
 
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
     if (!pDelogoParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     if (pDelogoParam->logoFilePath == nullptr) {
@@ -256,17 +256,17 @@ int NVEncFilterDelogo::readLogoFile() {
     };
     unique_ptr<FILE, decltype(file_deleter)> fp(_tfopen(pDelogoParam->logoFilePath, _T("rb")), file_deleter);
     if (fp.get() == NULL) {
-        AddMessage(NV_LOG_ERROR, _T("could not open logo file \"%s\".\n"), pDelogoParam->logoFilePath);
+        AddMessage(RGY_LOG_ERROR, _T("could not open logo file \"%s\".\n"), pDelogoParam->logoFilePath);
         return 1;
     }
     // ファイルヘッダ取得
     int logo_header_ver = 0;
     LOGO_FILE_HEADER logo_file_header ={ 0 };
     if (sizeof(logo_file_header) != fread(&logo_file_header, 1, sizeof(logo_file_header), fp.get())) {
-        AddMessage(NV_LOG_ERROR, _T("invalid logo file.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("invalid logo file.\n"));
         sts = 1;
     } else if (0 == (logo_header_ver = get_logo_file_header_ver(&logo_file_header))) {
-        AddMessage(NV_LOG_ERROR, _T("invalid logo file.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("invalid logo file.\n"));
         sts = 1;
     } else {
         const size_t logo_header_size = (logo_header_ver == 2) ? sizeof(LOGO_HEADER) : sizeof(LOGO_HEADER_OLD);
@@ -276,7 +276,7 @@ int NVEncFilterDelogo::readLogoFile() {
         for (int i = 0; i < logonum; i++) {
             memset(&m_sLogoDataList[i], 0, sizeof(m_sLogoDataList[i]));
             if (logo_header_size != fread(&m_sLogoDataList[i].header, 1, logo_header_size, fp.get())) {
-                AddMessage(NV_LOG_ERROR, _T("invalid logo file.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("invalid logo file.\n"));
                 sts = 1;
                 break;
             }
@@ -290,7 +290,7 @@ int NVEncFilterDelogo::readLogoFile() {
             m_sLogoDataList[i].logoPixel.resize(logoPixelBytes / sizeof(m_sLogoDataList[i].logoPixel[0]), { 0 });
 
             if (logoPixelBytes != (int)fread(m_sLogoDataList[i].logoPixel.data(), 1, logoPixelBytes, fp.get())) {
-                AddMessage(NV_LOG_ERROR, _T("invalid logo file.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("invalid logo file.\n"));
                 sts = 1;
                 break;
             }
@@ -321,8 +321,8 @@ int NVEncFilterDelogo::getLogoIdx(const std::string& logoName) {
 int NVEncFilterDelogo::selectLogo(const TCHAR *selectStr) {
     if (selectStr == nullptr) {
         if (m_sLogoDataList.size() > 1) {
-            AddMessage(NV_LOG_ERROR, _T("--vpp-delogo-select option is required to select logo from logo pack.\n"));
-            AddMessage(NV_LOG_ERROR, char_to_tstring(logoNameList()));
+            AddMessage(RGY_LOG_ERROR, _T("--vpp-delogo-select option is required to select logo from logo pack.\n"));
+            AddMessage(RGY_LOG_ERROR, char_to_tstring(logoNameList()));
             return LOGO_AUTO_SELECT_INVALID;
         }
         return 0;
@@ -348,7 +348,7 @@ int NVEncFilterDelogo::selectLogo(const TCHAR *selectStr) {
     //自動ロゴ選択ファイルか?
     std::string logoName = GetFullPath(tchar_to_string(selectStr).c_str());
     if (!PathFileExists(selectStr)) {
-        AddMessage(NV_LOG_ERROR,
+        AddMessage(RGY_LOG_ERROR,
             _T("--vpp-delogo-select option has invalid param.\n")
             _T("Please set logo name or logo index (starting from 1),\n")
             _T("or auto select file.\n"));
@@ -363,7 +363,7 @@ int NVEncFilterDelogo::selectLogo(const TCHAR *selectStr) {
             break;
     }
     if (count == 0) {
-        AddMessage(NV_LOG_ERROR, _T("could not find any key to auto select from \"%s\".\n"), selectStr);
+        AddMessage(RGY_LOG_ERROR, _T("could not find any key to auto select from \"%s\".\n"), selectStr);
         return LOGO_AUTO_SELECT_INVALID;
     }
     std::vector<LOGO_SELECT_KEY> logoAutoSelectKeys;
@@ -382,7 +382,7 @@ int NVEncFilterDelogo::selectLogo(const TCHAR *selectStr) {
     }
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
     if (!pDelogoParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     for (const auto& selectKey : logoAutoSelectKeys) {
@@ -399,12 +399,12 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
     m_pPrintMes = pPrintMes;
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(pParam);
     if (!pDelogoParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     //delogoは常に元のフレームを書き換え
     if (!pDelogoParam->bOutOverwrite) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid param, delogo will overwrite input frame.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid param, delogo will overwrite input frame.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     pDelogoParam->frameOut = pDelogoParam->frameIn;
@@ -417,11 +417,11 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
     if (0 > (m_nLogoIdx = selectLogo(pDelogoParam->logoSelect))) {
         if (m_nLogoIdx == LOGO_AUTO_SELECT_NOHIT) {
-            AddMessage(NV_LOG_ERROR, _T("no logo was selected by auto select \"%s\".\n"), pDelogoParam->logoSelect);
+            AddMessage(RGY_LOG_ERROR, _T("no logo was selected by auto select \"%s\".\n"), pDelogoParam->logoSelect);
             return NV_ENC_ERR_INVALID_PARAM;
         } else {
-            AddMessage(NV_LOG_ERROR, _T("could not select logo by \"%s\".\n"), pDelogoParam->logoSelect);
-            AddMessage(NV_LOG_ERROR, char_to_tstring(logoNameList()));
+            AddMessage(RGY_LOG_ERROR, _T("could not select logo by \"%s\".\n"), pDelogoParam->logoSelect);
+            AddMessage(RGY_LOG_ERROR, char_to_tstring(logoNameList()));
             return NV_ENC_ERR_INVALID_PARAM;
         }
     }
@@ -478,8 +478,8 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
     m_sProcessData[LOGO__V].height  = m_sProcessData[LOGO__U].height;
 
     if (logoData.header.x >= frameWidth || logoData.header.y >= frameHeight) {
-        AddMessage(NV_LOG_ERROR, _T("\"%s\" was not included in frame size %dx%d.\ndelogo disabled.\n"), pDelogoParam->logoSelect, frameWidth, frameHeight);
-        AddMessage(NV_LOG_ERROR, _T("logo pos x=%d, y=%d, including pos offset value %d:%d.\n"), logoData.header.x, logoData.header.y, pDelogoParam->posX, pDelogoParam->posY);
+        AddMessage(RGY_LOG_ERROR, _T("\"%s\" was not included in frame size %dx%d.\ndelogo disabled.\n"), pDelogoParam->logoSelect, frameWidth, frameHeight);
+        AddMessage(RGY_LOG_ERROR, _T("logo pos x=%d, y=%d, including pos offset value %d:%d.\n"), logoData.header.x, logoData.header.y, pDelogoParam->posX, pDelogoParam->posY);
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
@@ -573,7 +573,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
         auto cudaerr = uptr->alloc();
         if (cudaerr != cudaSuccess) {
             m_pFrameBuf.clear();
-            AddMessage(NV_LOG_ERROR, _T("failed to allocate memory for logo data %d: %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for logo data %d: %s.\n"),
                 i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_OUT_OF_MEMORY;
         }
@@ -583,7 +583,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             (void *)m_sProcessData[i].pLogoPtr.get(), m_sProcessData[i].width * sizeof(int16x2_t),
             m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height, cudaMemcpyHostToDevice);
         if (cudaerr != cudaSuccess) {
-            AddMessage(NV_LOG_ERROR, _T("error at sending logo data %d cudaMemcpy2D(%s): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at sending logo data %d cudaMemcpy2D(%s): %s.\n"),
                 i,
                 getCudaMemcpyKindStr(cudaMemcpyHostToDevice),
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
@@ -619,20 +619,20 @@ NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInf
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
-        AddMessage(NV_LOG_ERROR, _T("ppOutputFrames[0] must be set.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("ppOutputFrames[0] must be set.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     if (!ppOutputFrames[0]->deivce_mem) {
-        AddMessage(NV_LOG_ERROR, _T("only supported on device memory.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     const auto memcpyKind = getCudaMemcpyKind(ppOutputFrames[0]->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
-        AddMessage(NV_LOG_ERROR, _T("only supported on device memory.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
-        AddMessage(NV_LOG_ERROR, _T("csp does not match.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 

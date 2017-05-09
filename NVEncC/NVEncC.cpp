@@ -2571,7 +2571,7 @@ int _tmain(int argc, TCHAR **argv) {
         && NV_ENC_SUCCESS == nvEnc.InitEncode(&encPrm)) {
         nvEnc.SetAbortFlagPointer(&g_signal_abort);
         set_signal_handler();
-        nvEnc.PrintEncodingParamsInfo(NV_LOG_INFO);
+        nvEnc.PrintEncodingParamsInfo(RGY_LOG_INFO);
         ret = (NV_ENC_SUCCESS == nvEnc.Encode()) ? 0 : 1;
     }
 #if ENABLE_AVCUVID_READER

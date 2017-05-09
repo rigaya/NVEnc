@@ -118,21 +118,21 @@ void CNVEncLog::writeFileHeader(const TCHAR *pDstFilename) {
             fileHeader += SEP5;
     }
     fileHeader += _T("\n");
-    write(NV_LOG_INFO, fileHeader.c_str());
+    write(RGY_LOG_INFO, fileHeader.c_str());
 
-    if (m_nLogLevel <= NV_LOG_DEBUG) {
+    if (m_nLogLevel <= RGY_LOG_DEBUG) {
         TCHAR cpuInfo[256] = { 0 };
         TCHAR gpu_info[1024] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
         getGPUInfo("Intel", gpu_info, _countof(gpu_info));
-        write(NV_LOG_DEBUG, _T("NVEnc     %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
-        write(NV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
-        write(NV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
-        write(NV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+        write(RGY_LOG_DEBUG, _T("NVEnc     %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+        write(RGY_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
+        write(RGY_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
+        write(RGY_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
     }
 }
 void CNVEncLog::writeFileFooter() {
-    write(NV_LOG_INFO, _T("\n\n"));
+    write(RGY_LOG_INFO, _T("\n\n"));
 }
 
 void CNVEncLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
@@ -150,7 +150,7 @@ void CNVEncLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
 
         std::string strHtml;
         for (uint32_t i = 0; i < strLines.size() - 1; i++) {
-            strHtml += strsprintf("<div class=\"%s\">", tchar_to_string(list_log_level[log_level - NV_LOG_TRACE].desc).c_str());
+            strHtml += strsprintf("<div class=\"%s\">", tchar_to_string(list_log_level[log_level - RGY_LOG_TRACE].desc).c_str());
             strHtml += strLines[i];
             strHtml += "</div>\n";
         }

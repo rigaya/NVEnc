@@ -75,7 +75,7 @@ void CAvcodecReader::CloseThread() {
         m_Demux.qVideoPkt.set_capacity(SIZE_MAX);
         m_Demux.qVideoPkt.set_keep_length(0);
         m_Demux.thread.thInput.join();
-        AddMessage(NV_LOG_DEBUG, _T("Closed Input thread.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed Input thread.\n"));
     }
     m_Demux.thread.bAbortInput = false;
 }
@@ -84,7 +84,7 @@ void CAvcodecReader::CloseFormat(AVDemuxFormat *pFormat) {
     //close video file
     if (pFormat->pFormatCtx) {
         avformat_close_input(&pFormat->pFormatCtx);
-        AddMessage(NV_LOG_DEBUG, _T("Closed avformat context.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed avformat context.\n"));
     }
     if (m_Demux.format.pFormatOptions) {
         av_dict_free(&m_Demux.format.pFormatOptions);
@@ -119,7 +119,7 @@ void CAvcodecReader::CloseStream(AVDemuxStream *pStream) {
 }
 
 void CAvcodecReader::Close() {
-    AddMessage(NV_LOG_DEBUG, _T("Closing...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     //リソースの解放
     CloseThread();
     m_Demux.qVideoPkt.close([](AVPacket *pkt) { av_packet_unref(pkt); });
@@ -128,13 +128,13 @@ void CAvcodecReader::Close() {
     }
     m_Demux.qStreamPktL1.clear();
     m_Demux.qStreamPktL2.close([](AVPacket *pkt) { av_packet_unref(pkt); });
-    AddMessage(NV_LOG_DEBUG, _T("Cleared Stream Packet Buffer.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Cleared Stream Packet Buffer.\n"));
 
     CloseFormat(&m_Demux.format);
-    CloseVideo(&m_Demux.video);   AddMessage(NV_LOG_DEBUG, _T("Closed video.\n"));
+    CloseVideo(&m_Demux.video);   AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
     for (int i = 0; i < (int)m_Demux.stream.size(); i++) {
         CloseStream(&m_Demux.stream[i]);
-        AddMessage(NV_LOG_DEBUG, _T("Cleared Stream #%d.\n"), i);
+        AddMessage(RGY_LOG_DEBUG, _T("Cleared Stream #%d.\n"), i);
     }
     m_Demux.stream.clear();
     m_Demux.chapter.clear();
@@ -156,7 +156,7 @@ void CAvcodecReader::Close() {
     m_Demux.frames.clear();
 
     memset(&m_sDecParam, 0, sizeof(m_sDecParam));
-    AddMessage(NV_LOG_DEBUG, _T("Closed.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
 cudaVideoCodec CAvcodecReader::getCuvidcc(uint32_t id) {
@@ -269,7 +269,7 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
     //timebaseが60で割り切れない場合には、ptsが完全には割り切れない値である場合があり、より多くのフレーム数を解析する必要がある
     int maxCheckFrames = (m_Demux.format.nAnalyzeSec == 0) ? ((m_Demux.video.pStream->time_base.den >= 1000 && m_Demux.video.pStream->time_base.den % 60) ? 128 : 48) : 7200;
     int maxCheckSec = (m_Demux.format.nAnalyzeSec == 0) ? INT_MAX : m_Demux.format.nAnalyzeSec;
-    AddMessage(NV_LOG_DEBUG, _T("fps decoder invalid: %s\n"), fpsDecoderInvalid ? _T("true") : _T("false"));
+    AddMessage(RGY_LOG_DEBUG, _T("fps decoder invalid: %s\n"), fpsDecoderInvalid ? _T("true") : _T("false"));
 
     AVPacket pkt;
     av_init_packet(&pkt);
@@ -323,8 +323,8 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
         m_Demux.frames.checkPtsStatus(dEstFrameDurationByFpsDecoder);
 
         const int nFramesToCheck = m_Demux.frames.fixedNum();
-        AddMessage(NV_LOG_DEBUG, _T("read %d packets.\n"), m_Demux.frames.frameNum());
-        AddMessage(NV_LOG_DEBUG, _T("checking %d frame samples.\n"), nFramesToCheck);
+        AddMessage(RGY_LOG_DEBUG, _T("read %d packets.\n"), m_Demux.frames.frameNum());
+        AddMessage(RGY_LOG_DEBUG, _T("checking %d frame samples.\n"), nFramesToCheck);
 
         frameDurationList.reserve(nFramesToCheck);
 
@@ -357,11 +357,11 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
         //多い順にソートする
         std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
 
-        AddMessage(NV_LOG_DEBUG, _T("stream timebase %d/%d\n"), m_Demux.video.pStream->time_base.num, m_Demux.video.pStream->time_base.den);
-        AddMessage(NV_LOG_DEBUG, _T("decoder fps     %d/%d\n"), fpsDecoder.num, fpsDecoder.den);
-        AddMessage(NV_LOG_DEBUG, _T("duration histgram of %d frames\n"), durationHistgram.size());
+        AddMessage(RGY_LOG_DEBUG, _T("stream timebase %d/%d\n"), m_Demux.video.pStream->time_base.num, m_Demux.video.pStream->time_base.den);
+        AddMessage(RGY_LOG_DEBUG, _T("decoder fps     %d/%d\n"), fpsDecoder.num, fpsDecoder.den);
+        AddMessage(RGY_LOG_DEBUG, _T("duration histgram of %d frames\n"), durationHistgram.size());
         for (const auto& sample : durationHistgram) {
-            AddMessage(NV_LOG_DEBUG, _T("%3d [%3d frames]\n"), sample.first, sample.second);
+            AddMessage(RGY_LOG_DEBUG, _T("%3d [%3d frames]\n"), sample.first, sample.second);
         }
 
         //ここでやめてよいか判定する
@@ -400,16 +400,16 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
         double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.05 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
         if (mostPopularDuration.second / (double)frameDurationList.size() > 0.95 && std::abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
             avgDuration = mostPopularDuration.first;
-            AddMessage(NV_LOG_DEBUG, _T("using popular duration...\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("using popular duration...\n"));
         }
         //durationから求めた平均fpsを計算する
         const uint64_t mul = (uint64_t)ceil(1001.0 / m_Demux.video.pStream->time_base.num);
         estimatedAvgFps.num = (uint64_t)(m_Demux.video.pStream->time_base.den / avgDuration * (double)m_Demux.video.pStream->time_base.num * mul + 0.5);
         estimatedAvgFps.den = (uint64_t)m_Demux.video.pStream->time_base.num * mul;
 
-        AddMessage(NV_LOG_DEBUG, _T("fps mul:         %d\n"),    mul);
-        AddMessage(NV_LOG_DEBUG, _T("raw avgDuration: %lf\n"),   avgDuration);
-        AddMessage(NV_LOG_DEBUG, _T("estimatedAvgFps: %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
+        AddMessage(RGY_LOG_DEBUG, _T("fps mul:         %d\n"),    mul);
+        AddMessage(RGY_LOG_DEBUG, _T("raw avgDuration: %lf\n"),   avgDuration);
+        AddMessage(RGY_LOG_DEBUG, _T("estimatedAvgFps: %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
     }
 
     if (m_Demux.video.nStreamPtsInvalid & RGY_PTS_ALL_INVALID) {
@@ -423,7 +423,7 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
             double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
             //2フレーム分程度がもたらす誤差があっても許容する
             if (std::abs(dFpsDecoder / dEstimatedAvgFps - 1.0) < (2.0 / frameDurationList.size())) {
-                AddMessage(NV_LOG_DEBUG, _T("use decoder fps...\n"));
+                AddMessage(RGY_LOG_DEBUG, _T("use decoder fps...\n"));
                 nAvgFramerate64 = fpsDecoder64;
             } else {
                 double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
@@ -432,7 +432,7 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
             }
         }
     }
-    AddMessage(NV_LOG_DEBUG, _T("final AvgFps (raw64): %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
+    AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (raw64): %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
 
     //フレームレートが2000fpsを超えることは考えにくいので、誤判定
     //ほかのなにか使えそうな値で代用する
@@ -455,7 +455,7 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
     nAvgFramerate64.num /= fps_gcd;
     nAvgFramerate64.den /= fps_gcd;
     m_Demux.video.nAvgFramerate = av_make_q((int)nAvgFramerate64.num, (int)nAvgFramerate64.den);
-    AddMessage(NV_LOG_DEBUG, _T("final AvgFps (gcd): %d/%d\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
+    AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (gcd): %d/%d\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
 
     //近似値であれば、分母1001/分母1に合わせる
     double fps = m_Demux.video.nAvgFramerate.num / (double)m_Demux.video.nAvgFramerate.den;
@@ -472,18 +472,18 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
             m_Demux.video.nAvgFramerate.den = 1;
         }
     }
-    AddMessage(NV_LOG_DEBUG, _T("final AvgFps (round): %d/%d\n\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
+    AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (round): %d/%d\n\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
 
     auto trimList = make_vector(pTrimList, nTrimCount);
     //出力時の音声・字幕解析用に1パケットコピーしておく
     if (m_Demux.qStreamPktL1.size()) { //この時点ではまだすべての音声パケットがL1にある
         if (m_Demux.qStreamPktL2.size() > 0) {
-            AddMessage(NV_LOG_ERROR, _T("qStreamPktL2 > 0, this is internal error.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("qStreamPktL2 > 0, this is internal error.\n"));
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
         for (auto streamInfo = m_Demux.stream.begin(); streamInfo != m_Demux.stream.end(); streamInfo++) {
             if (avcodec_get_type(streamInfo->pStream->codecpar->codec_id) == AVMEDIA_TYPE_AUDIO) {
-                AddMessage(NV_LOG_DEBUG, _T("checking for stream #%d\n"), streamInfo->nIndex);
+                AddMessage(RGY_LOG_DEBUG, _T("checking for stream #%d\n"), streamInfo->nIndex);
                 const AVPacket *pkt1 = nullptr; //最初のパケット
                 const AVPacket *pkt2 = nullptr; //2番目のパケット
                 //それで見つからなかったら、L1キューを探す
@@ -504,8 +504,8 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
                     } else {
                         //その音声の属する動画フレーム番号
                         const int vidIndex = getVideoFrameIdx(pkt1->pts, streamInfo->pStream->time_base, 0);
-                        AddMessage(NV_LOG_DEBUG, _T("audio track %d first pts: %I64d\n"), streamInfo->nTrackId, pkt1->pts);
-                        AddMessage(NV_LOG_DEBUG, _T("      first pts videoIdx: %d\n"), vidIndex);
+                        AddMessage(RGY_LOG_DEBUG, _T("audio track %d first pts: %I64d\n"), streamInfo->nTrackId, pkt1->pts);
+                        AddMessage(RGY_LOG_DEBUG, _T("      first pts videoIdx: %d\n"), vidIndex);
                         if (vidIndex >= 0) {
                             //音声の遅れているフレーム数分のdurationを足し上げる
                             int delayOfStream = (frame_inside_range(vidIndex, trimList)) ? (int)(pkt1->pts - m_Demux.frames.list(vidIndex).pts) : 0;
@@ -515,21 +515,21 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
                                 }
                             }
                             streamInfo->nDelayOfStream = delayOfStream;
-                            AddMessage(NV_LOG_DEBUG, _T("audio track %d delay: %d (timebase=%d/%d)\n"),
+                            AddMessage(RGY_LOG_DEBUG, _T("audio track %d delay: %d (timebase=%d/%d)\n"),
                                 streamInfo->nIndex, streamInfo->nTrackId,
                                 streamInfo->nDelayOfStream, streamInfo->pStream->time_base.num, streamInfo->pStream->time_base.den);
                         }
                     }
                 } else {
                     //音声の最初のサンプルを取得できていない
-                    AddMessage(NV_LOG_WARN, _T("failed to find stream #%d in preread.\n"), streamInfo->nIndex);
+                    AddMessage(RGY_LOG_WARN, _T("failed to find stream #%d in preread.\n"), streamInfo->nIndex);
                     streamInfo = m_Demux.stream.erase(streamInfo) - 1;
                 }
             }
         }
         if (m_Demux.stream.size() == 0) {
             //音声・字幕の最初のサンプルを取得できていないため、音声がすべてなくなってしまった
-            AddMessage(NV_LOG_ERROR, _T("failed to find audio/subtitle stream in preread.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to find audio/subtitle stream in preread.\n"));
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
     }
@@ -561,7 +561,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
     memset(&m_sInputCrop, 0, sizeof(m_sInputCrop));
 
     if (!check_avcodec_dll()) {
-        AddMessage(NV_LOG_ERROR, error_mes_avcodec_dll_not_found());
+        AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
         return RGY_ERR_NULL_PTR;
     }
 
@@ -579,19 +579,19 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
         if (input_prm->ppAudioSelect[i]->pAudioExtractFilename) {
             audioLog += tstring(_T("filename \"")) + input_prm->ppAudioSelect[i]->pAudioExtractFilename + tstring(_T("\""));
         }
-        AddMessage(NV_LOG_DEBUG, audioLog);
+        AddMessage(RGY_LOG_DEBUG, audioLog);
     }
 
     av_register_all();
     avcodec_register_all();
     avformatNetworkInit();
-    av_log_set_level((m_pPrintMes->getLogLevel() == NV_LOG_DEBUG) ?  AV_LOG_DEBUG : NV_AV_LOG_LEVEL);
+    av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : NV_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
 
     int ret = 0;
     std::string filename_char;
     if (0 == tchar_to_string(inputPrm->filename, filename_char, CP_UTF8)) {
-        AddMessage(NV_LOG_ERROR, _T("failed to convert filename to utf-8 characters.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to convert filename to utf-8 characters.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     m_Demux.format.bIsPipe = (0 == strcmp(filename_char.c_str(), "-")) || filename_char.c_str() == strstr(filename_char.c_str(), R"(\\.\pipe\)");
@@ -599,19 +599,19 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
     m_Demux.format.nAnalyzeSec = input_prm->nAnalyzeSec;
     if (m_Demux.format.nAnalyzeSec) {
         if (0 != (ret = av_opt_set_int(m_Demux.format.pFormatCtx, "probesize", m_Demux.format.nAnalyzeSec * AV_TIME_BASE, 0))) {
-            AddMessage(NV_LOG_ERROR, _T("failed to set probesize to %d sec: error %d\n"), m_Demux.format.nAnalyzeSec, ret);
+            AddMessage(RGY_LOG_ERROR, _T("failed to set probesize to %d sec: error %d\n"), m_Demux.format.nAnalyzeSec, ret);
         } else {
-            AddMessage(NV_LOG_DEBUG, _T("set probesize: %d sec\n"), m_Demux.format.nAnalyzeSec);
+            AddMessage(RGY_LOG_DEBUG, _T("set probesize: %d sec\n"), m_Demux.format.nAnalyzeSec);
         }
     }
     if (0 == strcmp(filename_char.c_str(), "-")) {
 #if defined(_WIN32) || defined(_WIN64)
         if (_setmode(_fileno(stdin), _O_BINARY) < 0) {
-            AddMessage(NV_LOG_ERROR, _T("failed to switch stdin to binary mode.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to switch stdin to binary mode.\n"));
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-        AddMessage(NV_LOG_DEBUG, _T("input source set to stdin.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("input source set to stdin.\n"));
         filename_char = "pipe:0";
     }
     //ts向けの設定
@@ -620,29 +620,29 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
     AVInputFormat *pInFormat = nullptr;
     if (input_prm->pInputFormat) {
         if (nullptr == (pInFormat = av_find_input_format(tchar_to_string(input_prm->pInputFormat).c_str()))) {
-            AddMessage(NV_LOG_ERROR, _T("Unknown Input format: %s.\n"), input_prm->pInputFormat);
+            AddMessage(RGY_LOG_ERROR, _T("Unknown Input format: %s.\n"), input_prm->pInputFormat);
             return RGY_ERR_INVALID_FORMAT;
         }
     }
     //ファイルのオープン
     if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), pInFormat, &m_Demux.format.pFormatOptions)) {
-        AddMessage(NV_LOG_ERROR, _T("error opening file: \"%s\"\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("error opening file: \"%s\"\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
         return RGY_ERR_FILE_OPEN; // Couldn't open file
     }
-    AddMessage(NV_LOG_DEBUG, _T("opened file \"%s\".\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
+    AddMessage(RGY_LOG_DEBUG, _T("opened file \"%s\".\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
 
     if (m_Demux.format.nAnalyzeSec) {
         if (0 != (ret = av_opt_set_int(m_Demux.format.pFormatCtx, "analyzeduration", m_Demux.format.nAnalyzeSec * AV_TIME_BASE, 0))) {
-            AddMessage(NV_LOG_ERROR, _T("failed to set analyzeduration to %d sec, error %d\n"), m_Demux.format.nAnalyzeSec, ret);
+            AddMessage(RGY_LOG_ERROR, _T("failed to set analyzeduration to %d sec, error %d\n"), m_Demux.format.nAnalyzeSec, ret);
         } else {
-            AddMessage(NV_LOG_DEBUG, _T("set analyzeduration: %d sec\n"), m_Demux.format.nAnalyzeSec);
+            AddMessage(RGY_LOG_DEBUG, _T("set analyzeduration: %d sec\n"), m_Demux.format.nAnalyzeSec);
         }
     }
     if (avformat_find_stream_info(m_Demux.format.pFormatCtx, nullptr) < 0) {
-        AddMessage(NV_LOG_ERROR, _T("error finding stream information.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("error finding stream information.\n"));
         return RGY_ERR_UNKNOWN; // Couldn't find stream information
     }
-    AddMessage(NV_LOG_DEBUG, _T("got stream information.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("got stream information.\n"));
     av_dump_format(m_Demux.format.pFormatCtx, 0, filename_char.c_str(), 0);
     //dump_format(dec.pFormatCtx, 0, argv[1], 0);
 
@@ -658,7 +658,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
     if (videoStreams.size()) {
         if (input_prm->nVideoTrack) {
             if (videoStreams.size() < (uint32_t)std::abs(input_prm->nVideoTrack)) {
-                AddMessage(NV_LOG_ERROR, _T("track %d was selected for video, but input only contains %d video tracks.\n"), input_prm->nVideoTrack, videoStreams.size());
+                AddMessage(RGY_LOG_ERROR, _T("track %d was selected for video, but input only contains %d video tracks.\n"), input_prm->nVideoTrack, videoStreams.size());
                 return RGY_ERR_INVALID_VIDEO_PARAM;
             } else if (input_prm->nVideoTrack < 0) {
                 //逆順に並べ替え
@@ -670,7 +670,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                 return (pFormatCtx->streams[nStreamIndex]->id == nSearchId);
             });
             if (streamIndexFound == videoStreams.end()) {
-                AddMessage(NV_LOG_ERROR, _T("stream id %d (0x%x) not found in video tracks.\n"), input_prm->nVideoStreamId, input_prm->nVideoStreamId);
+                AddMessage(RGY_LOG_ERROR, _T("stream id %d (0x%x) not found in video tracks.\n"), input_prm->nVideoStreamId, input_prm->nVideoStreamId);
                 return RGY_ERR_INVALID_VIDEO_PARAM;
             }
             m_Demux.video.nIndex = *streamIndexFound;
@@ -679,7 +679,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
         }
         auto selectedStream = std::find(videoStreams.begin(), videoStreams.end(), m_Demux.video.nIndex);
         if (selectedStream == videoStreams.end()) {
-            AddMessage(NV_LOG_ERROR, _T("video stream lost!\n"));
+            AddMessage(RGY_LOG_ERROR, _T("video stream lost!\n"));
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
         //もし、選択された動画ストリームが先頭にないのなら、先頭に入れ替える
@@ -688,7 +688,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             videoStreams.erase(selectedStream);
             videoStreams.insert(videoStreams.begin(), nSelectedStreamIndex);
         }
-        AddMessage(NV_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
+        AddMessage(RGY_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
 
         m_Demux.video.pStream = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex];
     }
@@ -700,7 +700,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO, &videoStreams);
             //他のファイルから音声を読み込む場合もあるので、ここでチェックはできない
             //if (audioStreams.size() == 0) {
-            //    AddMessage(NV_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
+            //    AddMessage(RGY_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
             //    return RGY_ERR_NOT_FOUND;
             //}
             m_Demux.format.nAudioTracks = (int)audioStreams.size();
@@ -709,7 +709,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
         if (input_prm->bReadSubtitle) {
             auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE, &videoStreams);
             if (subStreams.size() == 0) {
-                AddMessage(NV_LOG_ERROR, _T("--sub-copy is set, but no subtitle stream found.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("--sub-copy is set, but no subtitle stream found.\n"));
                 return RGY_ERR_NOT_FOUND;
             }
             m_Demux.format.nSubtitleTracks = (int)subStreams.size();
@@ -770,7 +770,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                         memcpy(stream.pnStreamChannelOut,    pAudioSelect->pnStreamChannelOut,    sizeof(stream.pnStreamChannelOut));
                     }
                     m_Demux.stream.push_back(stream);
-                    AddMessage(NV_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d\n"),
+                    AddMessage(RGY_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d\n"),
                         get_media_type_string(codecId).c_str(),
                         stream.nIndex, stream.nTrackId, stream.nSubStreamId, char_to_tstring(avcodec_get_name(codecId)).c_str(),
                         stream.pStream->codecpar->frame_size, stream.pStream->time_base.num, stream.pStream->time_base.den);
@@ -789,7 +789,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                     }
                 }
                 if (!audioFound) {
-                    AddMessage(input_prm->bAudioIgnoreNoTrackError ? NV_LOG_WARN : NV_LOG_ERROR, _T("could not find audio track #%d\n"), input_prm->ppAudioSelect[i]->nAudioSelect);
+                    AddMessage(input_prm->bAudioIgnoreNoTrackError ? RGY_LOG_WARN : RGY_LOG_ERROR, _T("could not find audio track #%d\n"), input_prm->ppAudioSelect[i]->nAudioSelect);
                     if (!input_prm->bAudioIgnoreNoTrackError) {
                         return RGY_ERR_INVALID_AUDIO_PARAM;
                     }
@@ -805,10 +805,10 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
     //動画処理の初期化を行う
     if (input_prm->bReadVideo) {
         if (m_Demux.video.pStream == nullptr) {
-            AddMessage(NV_LOG_ERROR, _T("unable to find video stream.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("unable to find video stream.\n"));
             return RGY_ERR_NOT_FOUND;
         }
-        AddMessage(NV_LOG_DEBUG, _T("use video stream #%d for input, codec %s, stream time_base %d/%d, codec_timebase %d/%d.\n"),
+        AddMessage(RGY_LOG_DEBUG, _T("use video stream #%d for input, codec %s, stream time_base %d/%d, codec_timebase %d/%d.\n"),
             m_Demux.video.pStream->index,
             char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(),
             m_Demux.video.pStream->time_base.num, m_Demux.video.pStream->time_base.den,
@@ -829,7 +829,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                 || m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pStream->codecpar->profile != 3) {
                 if (input_prm->nVideoDecodeSW == AV_DECODE_MODE_CUVID) {
                     //avcuvidが指定されている場合にはエラー終了する
-                    AddMessage(NV_LOG_ERROR, _T("codec %s unable to decode by cuvid.\n"),
+                    AddMessage(RGY_LOG_ERROR, _T("codec %s unable to decode by cuvid.\n"),
                         char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str());
                     return RGY_ERR_INVALID_CODEC;
                 }
@@ -837,7 +837,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                 bDecodecCUVID = true;
                 //cuvidデコード時は、NV12のみ使用される
                 inputPrm->csp = NV_ENC_CSP_NV12;
-                AddMessage(NV_LOG_DEBUG, _T("can be decoded by cuvid.\n"));
+                AddMessage(RGY_LOG_DEBUG, _T("can be decoded by cuvid.\n"));
             }
         }
         m_strReaderName = (bDecodecCUVID) ? _T("avcuvid") : _T("avsw");
@@ -847,9 +847,9 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             AVDictionary *pDict = nullptr;
             av_dict_set_int(&pDict, "log_level_offset", AV_LOG_ERROR, 0);
             if (0 > (ret = av_opt_set_dict(m_Demux.video.pStream->codec, &pDict))) {
-                AddMessage(NV_LOG_WARN, _T("failed to set log_level_offset for HEVC codec reader.\n"));
+                AddMessage(RGY_LOG_WARN, _T("failed to set log_level_offset for HEVC codec reader.\n"));
             } else {
-                AddMessage(NV_LOG_ERROR, _T("set log_level_offset for HEVC codec reader.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("set log_level_offset for HEVC codec reader.\n"));
             }
             av_dict_free(&pDict);
         }
@@ -877,34 +877,34 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                 default: break;
                 }
                 if (filtername == nullptr) {
-                    AddMessage(NV_LOG_ERROR, _T("failed to set bitstream filter.\n"));
+                    AddMessage(RGY_LOG_ERROR, _T("failed to set bitstream filter.\n"));
                     return RGY_ERR_NOT_FOUND;
                 }
                 auto filter = av_bsf_get_by_name(filtername);
                 if (filter == nullptr) {
-                    AddMessage(NV_LOG_ERROR, _T("failed to find %s.\n"), char_to_tstring(filtername).c_str());
+                    AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), char_to_tstring(filtername).c_str());
                     return RGY_ERR_NOT_FOUND;
                 }
                 if (0 > (ret = av_bsf_alloc(filter, &m_Demux.video.pBsfcCtx))) {
-                    AddMessage(NV_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_NULL_PTR;
                 }
                 m_Demux.video.pBsfcCtx->time_base_in = av_stream_get_codec_timebase(m_Demux.video.pStream);
                 if (0 > (ret = avcodec_parameters_copy(m_Demux.video.pBsfcCtx->par_in, m_Demux.video.pStream->codecpar))) {
-                    AddMessage(NV_LOG_ERROR, _T("failed to set parameter for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                    AddMessage(RGY_LOG_ERROR, _T("failed to set parameter for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_NULL_PTR;
                 }
                 m_Demux.video.pBsfcCtx->time_base_in = m_Demux.video.pStream->time_base;
                 if (0 > (ret = av_bsf_init(m_Demux.video.pBsfcCtx))) {
-                    AddMessage(NV_LOG_ERROR, _T("failed to init %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                    AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_NULL_PTR;
                 }
-                AddMessage(NV_LOG_DEBUG, _T("initialized %s filter.\n"), char_to_tstring(filter->name).c_str());
+                AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter.\n"), char_to_tstring(filter->name).c_str());
             }
         } else if (bDecodecCUVID
             && (m_Demux.video.pStream->codecpar->extradata == NULL && m_Demux.video.pStream->codecpar->extradata_size == 0)
             && (m_sDecParam.codec != cudaVideoCodec_VP8 && m_sDecParam.codec != cudaVideoCodec_VP9)) {
-            AddMessage(NV_LOG_ERROR, _T("video header not extracted by libavcodec.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("video header not extracted by libavcodec.\n"));
             return RGY_ERR_UNKNOWN;
         }
         if (m_Demux.video.pStream->codecpar->extradata_size) {
@@ -912,13 +912,13 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             inputPrm->codecExtraSize = m_Demux.video.pStream->codecpar->extradata_size;
         }
 
-        AddMessage(NV_LOG_DEBUG, _T("start predecode.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("start predecode.\n"));
 
         //ヘッダーの取得を確認する
         RGY_ERR sts = RGY_ERR_NONE;
         vector<uint8_t> bitstream = { 0 };
         if (0 != (sts = GetHeader(bitstream))) {
-            AddMessage(NV_LOG_ERROR, _T("failed to get header.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to get header.\n"));
             return sts;
         }
         if (input_prm->fSeekSec > 0.0f) {
@@ -931,7 +931,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             }
             av_packet_unref(&firstpkt);
             if (0 > seek_ret) {
-                AddMessage(NV_LOG_ERROR, _T("failed to seek %s.\n"), print_time(input_prm->fSeekSec).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to seek %s.\n"), print_time(input_prm->fSeekSec).c_str());
                 return RGY_ERR_UNKNOWN;
             }
             //seekのために行ったgetSampleの結果は破棄する
@@ -943,26 +943,26 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
         if (m_Demux.video.pParserCtx) {
             m_Demux.video.pParserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
             if (nullptr == (m_Demux.video.pCodecCtxParser = avcodec_alloc_context3(avcodec_find_decoder(m_Demux.video.pStream->codecpar->codec_id)))) {
-                AddMessage(NV_LOG_ERROR, _T("failed to allocate context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_NULL_PTR;
             }
             if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.pCodecCtxParser, m_Demux.video.pStream->codecpar))) {
-                AddMessage(NV_LOG_ERROR, _T("failed to set codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to set codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
             m_Demux.video.pCodecCtxParser->time_base = av_stream_get_codec_timebase(m_Demux.video.pStream);
             m_Demux.video.pCodecCtxParser->pkt_timebase = m_Demux.video.pStream->time_base;
-            AddMessage(NV_LOG_ERROR, _T("initialized %s codec context for parser: time_base: %d/%d, pkt_timebase: %d/%d.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("initialized %s codec context for parser: time_base: %d/%d, pkt_timebase: %d/%d.\n"),
                 char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(),
                 m_Demux.video.pCodecCtxParser->time_base.num, m_Demux.video.pCodecCtxParser->time_base.den,
                 m_Demux.video.pCodecCtxParser->pkt_timebase.num, m_Demux.video.pCodecCtxParser->pkt_timebase.den);
         } else if (bDecodecCUVID) {
-            AddMessage(NV_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str());
             return RGY_ERR_NULL_PTR;
         }
 
         if (0 != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount))) {
-            AddMessage(NV_LOG_ERROR, _T("failed to get first frame position.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to get first frame position.\n"));
             return sts;
         }
 
@@ -985,7 +985,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             if (m_sTrimParam.list.size() == 0) {
                 m_sTrimParam.list.push_back({ 0, TRIM_MAX });
             }
-            AddMessage(NV_LOG_DEBUG, _T("adjust trim by offset %d.\n"), m_sTrimParam.offset);
+            AddMessage(RGY_LOG_DEBUG, _T("adjust trim by offset %d.\n"), m_sTrimParam.offset);
         }
 
         //あらかじめfpsが指定されていればそれを採用する
@@ -1038,7 +1038,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             return tableData.pix_fmt == pixfmt;
         });
         if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->output_csp == NV_ENC_CSP_NA) {
-            AddMessage(NV_LOG_DEBUG, _T("Invalid pixel format from input file.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("Invalid pixel format from input file.\n"));
             return RGY_ERR_INVALID_COLOR_FORMAT;
         }
 
@@ -1047,11 +1047,11 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
 
         if (!bDecodecCUVID) {
             if (nullptr == (m_Demux.video.pCodecDecode = avcodec_find_decoder(m_Demux.video.pStream->codecpar->codec_id))) {
-                AddMessage(NV_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.pStream->codecpar->codec_id).c_str());
+                AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.pStream->codecpar->codec_id).c_str());
                 return RGY_ERR_NOT_FOUND;
             }
             if (nullptr == (m_Demux.video.pCodecCtxDecode = avcodec_alloc_context3(m_Demux.video.pCodecDecode))) {
-                AddMessage(NV_LOG_ERROR, errorMesForCodec(_T("Failed to allocate decoder"), m_Demux.video.pStream->codecpar->codec_id).c_str());
+                AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to allocate decoder"), m_Demux.video.pStream->codecpar->codec_id).c_str());
                 return RGY_ERR_NULL_PTR;
             }
             cpu_info_t cpu_info;
@@ -1059,7 +1059,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                 AVDictionary *pDict = nullptr;
                 av_dict_set_int(&pDict, "threads", cpu_info.logical_cores, 0);
                 if (0 > (ret = av_opt_set_dict(m_Demux.video.pCodecCtxDecode, &pDict))) {
-                    AddMessage(NV_LOG_ERROR, _T("Failed to set threads for decode (codec: %s): %s\n"),
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to set threads for decode (codec: %s): %s\n"),
                         char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
@@ -1068,7 +1068,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             m_Demux.video.pCodecCtxDecode->time_base = av_stream_get_codec_timebase(m_Demux.video.pStream);
             m_Demux.video.pCodecCtxDecode->pkt_timebase = m_Demux.video.pStream->time_base;
             if (0 > (ret = avcodec_open2(m_Demux.video.pCodecCtxDecode, m_Demux.video.pCodecDecode, nullptr))) {
-                AddMessage(NV_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNSUPPORTED;
             }
             const std::map<AVPixelFormat, NV_ENC_CSP> CSP_CONV = {
@@ -1102,11 +1102,11 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtxDecode->pix_fmt);
             if (pixCspConv == CSP_CONV.end()
                 || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, inputPrm->csp, false))) {
-                AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
             if (nullptr == (m_Demux.video.pFrame = av_frame_alloc())) {
-                AddMessage(NV_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
                 return RGY_ERR_NULL_PTR;
             }
         }
@@ -1120,7 +1120,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             if (input_prm->fSeekSec > 0.0f) {
                 mes += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
             }
-            AddMessage(NV_LOG_DEBUG, mes);
+            AddMessage(RGY_LOG_DEBUG, mes);
             m_strInputInfo += mes;
         } else {
             CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id))).c_str(),
@@ -1128,7 +1128,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             if (input_prm->fSeekSec > 0.0f) {
                 m_strInputInfo += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
             }
-            AddMessage(NV_LOG_DEBUG, m_strInputInfo);
+            AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
         }
         //スレッド関連初期化
         m_Demux.thread.bAbortInput = false;
@@ -1171,7 +1171,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             if (mes.length()) mes += _T(", ");
             tstring codec_name = char_to_tstring(avcodec_get_name(stream.pStream->codecpar->codec_id));
             mes += codec_name;
-            AddMessage(NV_LOG_DEBUG, _T("avcodec %s: %s from %s\n"),
+            AddMessage(RGY_LOG_DEBUG, _T("avcodec %s: %s from %s\n"),
                 get_media_type_string(stream.pStream->codecpar->codec_id).c_str(), codec_name.c_str(), inputPrm->filename);
         }
         m_strInputInfo += _T("avcodec audio: ") + mes;
@@ -1285,14 +1285,14 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
                 auto ret = av_bsf_send_packet(m_Demux.video.pBsfcCtx, pkt);
                 if (ret < 0) {
                     av_packet_unref(pkt);
-                    AddMessage(NV_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), char_to_tstring(m_Demux.video.pBsfcCtx->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                    AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), char_to_tstring(m_Demux.video.pBsfcCtx->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return 1;
                 }
                 ret = av_bsf_receive_packet(m_Demux.video.pBsfcCtx, pkt);
                 if (ret == AVERROR(EAGAIN)) {
                     continue; //もっとpacketを送らないとダメ
                 } else if (ret < 0 && ret != AVERROR_EOF) {
-                    AddMessage(NV_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"), char_to_tstring(m_Demux.video.pBsfcCtx->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                    AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"), char_to_tstring(m_Demux.video.pBsfcCtx->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return 1;
                 }
             }
@@ -1556,20 +1556,20 @@ RGY_ERR CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
             int ret = 0;
             auto pBsf = av_bsf_get_by_name(m_Demux.video.pBsfcCtx->filter->name);
             if (pBsf == nullptr) {
-                AddMessage(NV_LOG_ERROR, _T("failed find %s.\n"), char_to_tstring(m_Demux.video.pBsfcCtx->filter->name).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed find %s.\n"), char_to_tstring(m_Demux.video.pBsfcCtx->filter->name).c_str());
                 return RGY_ERR_NOT_FOUND;
             }
             AVBSFContext *pBsfCtx = nullptr;
             if (0 > (ret = av_bsf_alloc(pBsf, &pBsfCtx))) {
-                AddMessage(NV_LOG_ERROR, _T("failed alloc memory for %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed alloc memory for %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_NULL_PTR;
             }
             if (0 > (ret = avcodec_parameters_copy(pBsfCtx->par_in, m_Demux.video.pStream->codecpar))) {
-                AddMessage(NV_LOG_ERROR, _T("failed to copy param for %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy param for %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
             if (0 > (ret = av_bsf_init(pBsfCtx))) {
-                AddMessage(NV_LOG_ERROR, _T("failed init %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed init %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
             uint8_t H264_IDR[] = { 0x00, 0x00, 0x00, 0x01, 0x65 };
@@ -1582,7 +1582,7 @@ RGY_ERR CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
             default: break;
             }
             if (pkt.data == nullptr) {
-                AddMessage(NV_LOG_ERROR, _T("invalid codec to run %s.\n"), char_to_tstring(pBsf->name).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("invalid codec to run %s.\n"), char_to_tstring(pBsf->name).c_str());
                 return RGY_ERR_NOT_FOUND;
             }
             for (AVPacket *inpkt = &pkt; 0 == av_bsf_send_packet(pBsfCtx, inpkt); inpkt = nullptr) {
@@ -1590,7 +1590,7 @@ RGY_ERR CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
                 if (ret == 0)
                     break;
                 if (ret != AVERROR(EAGAIN) && !(inpkt && ret == AVERROR_EOF)) {
-                    AddMessage(NV_LOG_ERROR, _T("failed to run %s.\n"), char_to_tstring(pBsf->name).c_str());
+                    AddMessage(RGY_LOG_ERROR, _T("failed to run %s.\n"), char_to_tstring(pBsf->name).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
             }
@@ -1645,11 +1645,11 @@ RGY_ERR CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
                 av_packet_unref(&pkt);
             }
             if (ret == AVERROR_EOF) { //これ以上パケットを送れない
-                AddMessage(NV_LOG_ERROR, _T("failed to send packet to video decoder, already flushed: %s.\n"), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to send packet to video decoder, already flushed: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
             if (ret < 0 && ret != AVERROR(EAGAIN)) {
-                AddMessage(NV_LOG_ERROR, _T("failed to send packet to video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to send packet to video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
             ret = avcodec_receive_frame(m_Demux.video.pCodecCtxDecode, m_Demux.video.pFrame);
@@ -1661,7 +1661,7 @@ RGY_ERR CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
                 return RGY_ERR_MORE_DATA;
             }
             if (ret < 0) {
-                AddMessage(NV_LOG_ERROR, _T("failed to receive frame from video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to receive frame from video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
             got_frame = TRUE;

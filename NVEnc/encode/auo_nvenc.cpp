@@ -216,13 +216,13 @@ RGY_ERR AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatu
     m_sConvert = get_convert_csp_func(input_csp, inputPrm->csp, false);
 
     if (nullptr == m_sConvert) {
-        AddMessage(NV_LOG_ERROR, "invalid colorformat.\n");
+        AddMessage(RGY_LOG_ERROR, "invalid colorformat.\n");
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (conf->vid.afs) {
         if (!setup_afsvideo(oip, info->sys_dat, conf, pe)) {
-            AddMessage(NV_LOG_ERROR, "自動フィールドシフトの初期化に失敗しました。\n");
+            AddMessage(RGY_LOG_ERROR, "自動フィールドシフトの初期化に失敗しました。\n");
             return RGY_ERR_UNKNOWN;
         }
     }
@@ -230,7 +230,7 @@ RGY_ERR AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatu
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = m_sDecParam.width;
     CreateInputInfo(_T("auo"), NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
-    AddMessage(NV_LOG_DEBUG, m_strInputInfo);
+    AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     return RGY_ERR_NONE;
 }
 RGY_ERR AuoInput::LoadNextFrame(void *dst, int dst_pitch) {

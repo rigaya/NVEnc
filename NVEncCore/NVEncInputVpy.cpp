@@ -73,7 +73,7 @@ int NVEncInputVpy::load_vapoursynth() {
     release_vapoursynth();
     
     if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(_T("vsscript.dll")))) {
-        AddMessage(NV_LOG_ERROR, _T("Failed to load vsscript.dll.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Failed to load vsscript.dll.\n"));
         return 1;
     }
 
@@ -92,7 +92,7 @@ int NVEncInputVpy::load_vapoursynth() {
 
     for (auto vs_func : vs_func_list) {
         if (NULL == (*(vs_func.first) = GetProcAddress(m_sVS.hVSScriptDLL, vs_func.second))) {
-            AddMessage(NV_LOG_ERROR, _T("Failed to load vsscript functions.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to load vsscript functions.\n"));
             return 1;
         }
     }
@@ -172,7 +172,7 @@ RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     //ファイルデータ読み込み
     std::ifstream inputFile(inputPrm->filename);
     if (inputFile.bad()) {
-        AddMessage(NV_LOG_ERROR, _T("Failed to open vpy file.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Failed to open vpy file.\n"));
         return RGY_ERR_FILE_OPEN;
     }
     std::istreambuf_iterator<char> data_begin(inputFile);
@@ -189,34 +189,34 @@ RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
         || NULL == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
         || NULL == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
         || NULL == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
-        AddMessage(NV_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
         if (m_sVSscript) {
-            AddMessage(NV_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
+            AddMessage(RGY_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
         }
         return RGY_ERR_NULL_PTR;
     }
     if (vscoreinfo->api < 3) {
-        AddMessage(NV_LOG_ERROR, _T("VapourSynth API v3 or later is necessary.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("VapourSynth API v3 or later is necessary.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (vsvideoinfo->height <= 0 || vsvideoinfo->width <= 0) {
-        AddMessage(NV_LOG_ERROR, _T("Variable resolution is not supported.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Variable resolution is not supported.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (vsvideoinfo->numFrames == 0) {
-        AddMessage(NV_LOG_ERROR, _T("Length of input video is unknown.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Length of input video is unknown.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (!vsvideoinfo->format) {
-        AddMessage(NV_LOG_ERROR, _T("Variable colorformat is not supported.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Variable colorformat is not supported.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (pfNone == vsvideoinfo->format->id) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid colorformat.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
@@ -243,12 +243,12 @@ RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     }
 
     if (nullptr == m_sConvert) {
-        AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid framerate.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid framerate.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
     
@@ -277,7 +277,7 @@ RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = 0;
     CreateInputInfo(rev_info, NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
-    AddMessage(NV_LOG_DEBUG, m_strInputInfo);
+    AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     return RGY_ERR_NONE;
 }
 

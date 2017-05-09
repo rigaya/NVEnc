@@ -84,26 +84,26 @@ RGY_ERR NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     m_bInterlaced = info->interlaced;
     
     if (load_avisynth() != RGY_ERR_NONE) {
-        AddMessage(NV_LOG_ERROR, _T("failed to load avisynth.dll.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to load avisynth.dll.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
 
     if (nullptr == (m_sAVSenv = m_sAvisynth.create_script_environment(AVISYNTH_INTERFACE_VERSION))) {
-        AddMessage(NV_LOG_ERROR, _T("failed to init avisynth enviroment.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to init avisynth enviroment.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
     std::string filename_char;
     if (0 == tchar_to_string(inputPrm->filename, filename_char)) {
-        AddMessage(NV_LOG_ERROR,  _T("failed to convert to ansi characters.\n"));
+        AddMessage(RGY_LOG_ERROR,  _T("failed to convert to ansi characters.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     AVS_Value val_filename = avs_new_value_string(filename_char.c_str());
     AVS_Value val_res = m_sAvisynth.invoke(m_sAVSenv, "Import", val_filename, NULL);
     m_sAvisynth.release_value(val_filename);
     if (!avs_is_clip(val_res)) {
-        AddMessage(NV_LOG_ERROR, _T("invalid clip.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("invalid clip.\n"));
         if (avs_is_error(val_res)) {
-            AddMessage(NV_LOG_ERROR, char_to_tstring(avs_as_string(val_res)) + _T("\n"));
+            AddMessage(RGY_LOG_ERROR, char_to_tstring(avs_as_string(val_res)) + _T("\n"));
         }
         m_sAvisynth.release_value(val_res);
         return RGY_ERR_INVALID_HANDLE;
@@ -112,12 +112,12 @@ RGY_ERR NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     m_sAvisynth.release_value(val_res);
 
     if (nullptr == (m_sAVSinfo = m_sAvisynth.get_video_info(m_sAVSclip))) {
-        AddMessage(NV_LOG_ERROR, _T("failed to get avs info.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to get avs info.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
 
     if (!avs_has_video(m_sAVSinfo)) {
-        AddMessage(NV_LOG_ERROR, _T("avs has no video.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("avs has no video.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
 
@@ -143,7 +143,7 @@ RGY_ERR NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     }
 
     if (nullptr == m_sConvert) {
-        AddMessage(NV_LOG_ERROR, _T("invalid colorformat.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     
@@ -165,7 +165,7 @@ RGY_ERR NVEncInputAvs::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
     memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
     m_sDecParam.src_pitch = 0;
     CreateInputInfo(avisynth_version, NV_ENC_CSP_NAMES[m_sConvert->csp_from], NV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
-    AddMessage(NV_LOG_DEBUG, m_strInputInfo);
+    AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     return RGY_ERR_NONE;
 }
 

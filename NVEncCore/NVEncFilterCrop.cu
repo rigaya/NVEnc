@@ -128,19 +128,19 @@ NVENCSTATUS NVEncFilterCspCrop::convertYBitDepth(FrameInfo *pOutputFrame, const 
     };
     const auto bit_depth_conv = CONV_DEPTH_TO_FROM(NV_ENC_CSP_BIT_DEPTH[pOutputFrame->csp], NV_ENC_CSP_BIT_DEPTH[pInputFrame->csp]);
     if (crop_y_list.count(bit_depth_conv) == 0) {
-        AddMessage(NV_LOG_ERROR, _T("unsupported bit depth conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
+        AddMessage(RGY_LOG_ERROR, _T("unsupported bit depth conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
 #undef CONV_DEPTH_TO_FROM
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     crop_y_list.at(bit_depth_conv)(pOutputFrame, pInputFrame, &pCropParam->crop);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        AddMessage(NV_LOG_ERROR, _T("error at convertYBitDepth(%s -> %s): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at convertYBitDepth(%s -> %s): %s.\n"),
             NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
@@ -347,7 +347,7 @@ void crop_uv_yv12_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, co
 NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
@@ -358,7 +358,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, cons
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice);
         if (cudaerr != cudaSuccess) {
-            AddMessage(NV_LOG_ERROR, _T("error at cudaMemcpy2D (convertCspFromNV12(%s -> %s)): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2D (convertCspFromNV12(%s -> %s)): %s.\n"),
                 NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         }
@@ -399,13 +399,13 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, cons
     };
     const auto cspconv = NV_ENC_CSP_2(pInputFrame->csp, pOutputFrame->csp);
     if (convert_from_nv12_list.count(cspconv.i) == 0) {
-        AddMessage(NV_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
     convert_from_nv12_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        AddMessage(NV_LOG_ERROR, _T("error at convert_from_nv12_list(%s -> %s): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at convert_from_nv12_list(%s -> %s): %s.\n"),
             NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
@@ -415,7 +415,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, cons
 NVENCSTATUS NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     const auto frameOutInfoEx = getFrameInfoExtra(&pCropParam->frameOut);
@@ -426,7 +426,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, cons
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pCropParam->frameOut.height, cudaMemcpyDeviceToDevice);
         if (cudaerr != cudaSuccess) {
-            AddMessage(NV_LOG_ERROR, _T("error at cudaMemcpy2D (convertCspFromYV12(%s -> %s)): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2D (convertCspFromYV12(%s -> %s)): %s.\n"),
                 NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         }
@@ -448,13 +448,13 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, cons
     };
     const auto cspconv = NV_ENC_CSP_2(pInputFrame->csp, pOutputFrame->csp);
     if (crop_uv_yv12_nv12_list.count(cspconv.i) == 0) {
-        AddMessage(NV_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
     crop_uv_yv12_nv12_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        AddMessage(NV_LOG_ERROR, _T("error at crop_uv_nv12_yv12_list(%s -> %s): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at crop_uv_nv12_yv12_list(%s -> %s): %s.\n"),
             NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
@@ -463,7 +463,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, cons
 
 }
 NVENCSTATUS NVEncFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
-    AddMessage(NV_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
+    AddMessage(RGY_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), NV_ENC_CSP_NAMES[pInputFrame->csp], NV_ENC_CSP_NAMES[pOutputFrame->csp]);
     return NV_ENC_ERR_UNIMPLEMENTED;
 }
 
@@ -480,7 +480,7 @@ NVENCSTATUS NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared
     m_pPrintMes = pPrintMes;
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(pParam);
     if (!pCropParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     //フィルタ名の調整
@@ -497,20 +497,20 @@ NVENCSTATUS NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared
     //パラメータチェック
     for (int i = 0; i < _countof(pCropParam->crop.c); i++) {
         if ((pCropParam->crop.c[i] & 1) != 0) {
-            AddMessage(NV_LOG_ERROR, _T("crop should be divided by 2.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("crop should be divided by 2.\n"));
             return NV_ENC_ERR_INVALID_PARAM;
         }
     }
     pCropParam->frameOut.height = pCropParam->frameIn.height - pCropParam->crop.e.bottom - pCropParam->crop.e.up;
     pCropParam->frameOut.width = pCropParam->frameIn.width - pCropParam->crop.e.left - pCropParam->crop.e.right;
     if (pCropParam->frameOut.height <= 0 || pCropParam->frameOut.width <= 0) {
-        AddMessage(NV_LOG_ERROR, _T("crop size is too big.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("crop size is too big.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
     auto cudaerr = AllocFrameBuf(pCropParam->frameOut, 2);
     if (cudaerr != CUDA_SUCCESS) {
-        AddMessage(NV_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
     pCropParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
@@ -543,14 +543,14 @@ NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameIn
     }
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
-        AddMessage(NV_LOG_ERROR, _T("Invalid parameter type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     ppOutputFrames[0]->interlaced = pInputFrame->interlaced;
     if (m_pParam->frameOut.csp == m_pParam->frameIn.csp) {
         auto cudaMemcpyErrMes = [&](cudaError_t cudaerr, const TCHAR *mes) {
-            AddMessage(NV_LOG_ERROR, _T("error at %s (filter(%s)): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at %s (filter(%s)): %s.\n"),
                 mes, NV_ENC_CSP_NAMES[pInputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         };
@@ -589,7 +589,7 @@ NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameIn
                     return NV_ENC_ERR_INVALID_CALL;
                 };
             } else {
-                AddMessage(NV_LOG_ERROR, _T("unsupported output csp with crop.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("unsupported output csp with crop.\n"));
                 return NV_ENC_ERR_UNIMPLEMENTED;
             }
         }
@@ -599,12 +599,12 @@ NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameIn
             dim3 gridSize(divCeil(pCropParam->frameOut.width, blockSize.x), divCeil(pCropParam->frameOut.height, blockSize.y));
             kernel_crop_nv12_nv12<uint8_t><<<gridSize, blockSize>>>((uint8_t *)ppOutputFrames[0]->ptr, (uint8_t *)pInputFrame->ptr, pInputFrame->pitch);
         } else {
-            AddMessage(NV_LOG_ERROR, _T("unsupported output csp.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("unsupported output csp.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
 #endif
     } else if (memcpyKind != cudaMemcpyDeviceToDevice) {
-        AddMessage(NV_LOG_ERROR, _T("converting csp while copying from host to device is not supported.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("converting csp while copying from host to device is not supported.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     } else {
         //色空間変換
@@ -618,7 +618,7 @@ NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameIn
         } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), pCropParam->frameIn.csp) != supportedCspYUV444.end()) {
             sts = convertCspFromYUV444(ppOutputFrames[0], pInputFrame);
         } else {
-            AddMessage(NV_LOG_ERROR, _T("converting csp from %s is not supported.\n"), NV_ENC_CSP_NAMES[pCropParam->frameIn.csp]);
+            AddMessage(RGY_LOG_ERROR, _T("converting csp from %s is not supported.\n"), NV_ENC_CSP_NAMES[pCropParam->frameIn.csp]);
             sts = NV_ENC_ERR_UNIMPLEMENTED;
         }
     }

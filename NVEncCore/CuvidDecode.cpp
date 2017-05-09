@@ -78,7 +78,7 @@ int CuvidDecode::DecVideoData(CUVIDSOURCEDATAPACKET *pPacket) {
     __try {
         curesult = cuvidParseVideoData(m_videoParser, pPacket);
     } __except(1) {
-        AddMessage(NV_LOG_ERROR, _T("cuvidParseVideoData error\n"));
+        AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
     //cuvidCtxUnlock(m_ctxLock, 0);
@@ -89,14 +89,14 @@ int CuvidDecode::DecVideoData(CUVIDSOURCEDATAPACKET *pPacket) {
 }
 
 int CuvidDecode::DecPictureDecode(CUVIDPICPARAMS *pPicParams) {
-    AddMessage(NV_LOG_TRACE, _T("DecPictureDecode idx: %d\n"), pPicParams->CurrPicIdx);
+    AddMessage(RGY_LOG_TRACE, _T("DecPictureDecode idx: %d\n"), pPicParams->CurrPicIdx);
     m_pFrameQueue->waitUntilFrameAvailable(pPicParams->CurrPicIdx);
     CUresult curesult = CUDA_SUCCESS;
     //cuvidCtxLock(m_ctxLock, 0);
     __try {
         curesult = cuvidDecodePicture(m_videoDecoder, pPicParams);
     } __except(1) {
-        AddMessage(NV_LOG_ERROR, _T("cuvidDecodePicture error\n"));
+        AddMessage(RGY_LOG_ERROR, _T("cuvidDecodePicture error\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
     //cuvidCtxUnlock(m_ctxLock, 0);
@@ -107,16 +107,16 @@ int CuvidDecode::DecPictureDecode(CUVIDPICPARAMS *pPicParams) {
 }
 
 int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
-    AddMessage(NV_LOG_TRACE, _T("DecVideoSequence\n"));
+    AddMessage(RGY_LOG_TRACE, _T("DecVideoSequence\n"));
     if (   (pFormat->codec         != m_videoDecodeCreateInfo.CodecType)
         || (pFormat->chroma_format != m_videoDecodeCreateInfo.ChromaFormat)) {
-        AddMessage(NV_LOG_ERROR, _T("dynamic video format changing detected\n"));
+        AddMessage(RGY_LOG_ERROR, _T("dynamic video format changing detected\n"));
         m_bError = true;
         return 0;
     }
     if (   (pFormat->coded_width   != m_videoDecodeCreateInfo.ulWidth)
         || (pFormat->coded_height  != m_videoDecodeCreateInfo.ulHeight)) {
-        AddMessage(NV_LOG_DEBUG, _T("dynamic video format changing detected\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("dynamic video format changing detected\n"));
         m_videoDecodeCreateInfo.CodecType    = pFormat->codec;
         m_videoDecodeCreateInfo.ulWidth      = pFormat->coded_width;
         m_videoDecodeCreateInfo.ulHeight     = pFormat->coded_height;
@@ -130,7 +130,7 @@ int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
 }
 
 int CuvidDecode::DecPictureDisplay(CUVIDPARSERDISPINFO *pPicParams) {
-    AddMessage(NV_LOG_TRACE, _T("DecPictureDisplay idx: %d, %I64d\n"), pPicParams->picture_index, pPicParams->timestamp);
+    AddMessage(RGY_LOG_TRACE, _T("DecPictureDisplay idx: %d, %I64d\n"), pPicParams->picture_index, pPicParams->timestamp);
     m_pFrameQueue->enqueue(pPicParams);
     m_decodedFrames++;
 
@@ -161,7 +161,7 @@ CUresult CuvidDecode::CreateDecoder() {
     __try {
         curesult = cuvidCreateDecoder(&m_videoDecoder, &m_videoDecodeCreateInfo);
     } __except (1) {
-        AddMessage(NV_LOG_ERROR, _T("cuvidCreateDecoder error\n"));
+        AddMessage(RGY_LOG_ERROR, _T("cuvidCreateDecoder error\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
     return curesult;
@@ -176,30 +176,30 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
     m_deinterlaceMode = vpp->deinterlace;
 
     if (!check_if_nvcuvid_dll_available()) {
-        AddMessage(NV_LOG_ERROR, _T("nvcuvid.dll does not exist.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("nvcuvid.dll does not exist.\n"));
         return CUDA_ERROR_NOT_FOUND;
     }
-    AddMessage(NV_LOG_DEBUG, _T("nvcuvid.dll available\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("nvcuvid.dll available\n"));
 
     if (!ctxLock) {
-        AddMessage(NV_LOG_ERROR, _T("invalid ctxLock.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("invalid ctxLock.\n"));
         return CUDA_ERROR_INVALID_VALUE;
     }
 
     m_ctxLock = ctxLock;
 
     if (nullptr == (m_pFrameQueue = new CUVIDFrameQueue(m_ctxLock))) {
-        AddMessage(NV_LOG_ERROR, _T("Failed to alloc frame queue for decoder.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Failed to alloc frame queue for decoder.\n"));
         return CUDA_ERROR_OUT_OF_MEMORY;
     }
     m_pFrameQueue->init(input->width, input->height);
-    AddMessage(NV_LOG_DEBUG, _T("created frame queue\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("created frame queue\n"));
 
     //init video parser
     memset(&m_videoFormatEx, 0, sizeof(CUVIDEOFORMATEX));
     if (input->codecExtra && input->codecExtraSize) {
         if (input->codecExtraSize > sizeof(m_videoFormatEx.raw_seqhdr_data)) {
-            AddMessage(NV_LOG_ERROR, _T("Parsed header too large!\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Parsed header too large!\n"));
             return CUDA_ERROR_INVALID_VALUE;
         }
         memcpy(m_videoFormatEx.raw_seqhdr_data, input->codecExtra, input->codecExtraSize);
@@ -219,10 +219,10 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
 
     CUresult curesult = CUDA_SUCCESS;
     if (CUDA_SUCCESS != (curesult = cuvidCreateVideoParser(&m_videoParser, &oVideoParserParameters))) {
-        AddMessage(NV_LOG_ERROR, _T("Failed cuvidCreateVideoParser %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateVideoParser %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
         return curesult;
     }
-    AddMessage(NV_LOG_DEBUG, _T("created video parser\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("created video parser\n"));
 
     cuvidCtxLock(m_ctxLock, 0);
     memset(&m_videoDecodeCreateInfo, 0, sizeof(CUVIDDECODECREATEINFO));
@@ -254,18 +254,18 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
     curesult = CreateDecoder();
     cuvidCtxUnlock(m_ctxLock, 0);
     if (CUDA_SUCCESS != curesult) {
-        AddMessage(NV_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
         return curesult;
     }
-    AddMessage(NV_LOG_DEBUG, _T("created decoder (mode: %s)\n"), get_chr_from_value(list_cuvid_mode, input->cuvidType));
+    AddMessage(RGY_LOG_DEBUG, _T("created decoder (mode: %s)\n"), get_chr_from_value(list_cuvid_mode, input->cuvidType));
 
     if (m_videoFormatEx.raw_seqhdr_data && m_videoFormatEx.format.seqhdr_data_length) {
         if (CUDA_SUCCESS != (curesult = DecodePacket(m_videoFormatEx.raw_seqhdr_data, m_videoFormatEx.format.seqhdr_data_length, AV_NOPTS_VALUE, CUVID_NATIVE_TIMEBASE))) {
-            AddMessage(NV_LOG_ERROR, _T("Failed to decode header %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("Failed to decode header %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
             return curesult;
         }
     }
-    AddMessage(NV_LOG_DEBUG, _T("DecodePacket: success\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("DecodePacket: success\n"));
 
     return curesult;
 }
@@ -281,7 +281,7 @@ CUresult CuvidDecode::FlushParser() {
     __try {
         result = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
     } __except (1) {
-        AddMessage(NV_LOG_ERROR, _T("cuvidParseVideoData error\n"));
+        AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         result = CUDA_ERROR_UNKNOWN;
     }
     //cuvidCtxUnlock(m_ctxLock, 0);
@@ -309,7 +309,7 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
     __try {
         result = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
     } __except (1) {
-        AddMessage(NV_LOG_ERROR, _T("cuvidParseVideoData error\n"));
+        AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         result = CUDA_ERROR_UNKNOWN;
     }
     //cuvidCtxUnlock(m_ctxLock, 0);

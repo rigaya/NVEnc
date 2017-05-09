@@ -116,14 +116,14 @@ static inline bool avcodecIsAuto(const TCHAR *codec) {
     return codec != nullptr && 0 == _tcsicmp(codec, AVQSV_CODEC_AUTO);
 }
 
-//AV_LOG_TRACE    56 - NV_LOG_TRACE -3
-//AV_LOG_DEBUG    48 - NV_LOG_DEBUG -2
-//AV_LOG_VERBOSE  40 - NV_LOG_MORE  -1
-//AV_LOG_INFO     32 - NV_LOG_INFO   0
-//AV_LOG_WARNING  24 - NV_LOG_WARN   1
-//AV_LOG_ERROR    16 - NV_LOG_ERROR  2
+//AV_LOG_TRACE    56 - RGY_LOG_TRACE -3
+//AV_LOG_DEBUG    48 - RGY_LOG_DEBUG -2
+//AV_LOG_VERBOSE  40 - RGY_LOG_MORE  -1
+//AV_LOG_INFO     32 - RGY_LOG_INFO   0
+//AV_LOG_WARNING  24 - RGY_LOG_WARN   1
+//AV_LOG_ERROR    16 - RGY_LOG_ERROR  2
 static inline int log_level_av2qsv(int level) {
-    return clamp((AV_LOG_INFO / 8) - (level / 8), NV_LOG_TRACE, NV_LOG_ERROR);
+    return clamp((AV_LOG_INFO / 8) - (level / 8), RGY_LOG_TRACE, RGY_LOG_ERROR);
 }
 
 static inline int log_level_qsv2av(int level) {

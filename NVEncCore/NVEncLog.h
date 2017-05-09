@@ -38,18 +38,18 @@
 
 class CNVEncLog {
 protected:
-    int m_nLogLevel = NV_LOG_INFO;
+    int m_nLogLevel = RGY_LOG_INFO;
     const TCHAR *m_pStrLog = nullptr;
     bool m_bHtml = false;
     std::mutex m_mtx;
     static const char *HTML_FOOTER;
 public:
-    CNVEncLog(const TCHAR *pLogFile, int log_level = NV_LOG_INFO) {
+    CNVEncLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO) {
         init(pLogFile, log_level);
     };
     virtual ~CNVEncLog() {
     };
-    void init(const TCHAR *pLogFile, int log_level = NV_LOG_INFO);
+    void init(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO);
     void writeHtmlHeader();
     void writeFileHeader(const TCHAR *pDstFilename);
     void writeFileFooter();
