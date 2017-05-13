@@ -39,7 +39,7 @@
 #include <tchar.h>
 #include "cpu_info.h"
 #include "gpu_info.h"
-#include "NVEncUtil.h"
+#include "rgy_util.h"
 #include "NVEncLog.h"
 
 #pragma warning (push)
@@ -490,6 +490,10 @@ bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) 
         }
     }
     return false;
+}
+
+bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list) {
+    return check_ext(filename.c_str(), ext_list);
 }
 
 bool get_filesize(const char *filepath, uint64_t *filesize) {

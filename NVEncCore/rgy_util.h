@@ -233,16 +233,37 @@ static tstring fourccToStr(uint32_t nFourCC) {
 }
 
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
+bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list);
+
 
 template<typename T>
-static inline T nv_get_gcd(T a, T b) {
+static inline T rgy_gcd(T a, T b) {
+    static_assert(std::is_integral<T>::value, "rgy_gcd is defined only for integer.");
+    if (a == 0) return b;
+    if (b == 0) return a;
     T c;
     while ((c = a % b) != 0)
         a = b, b = c;
     return b;
 }
-static inline int nv_get_gcd(std::pair<int, int> int2) {
-    return nv_get_gcd(int2.first, int2.second);
+
+template<typename T>
+static inline int rgy_gcd(std::pair<T, T> int2) {
+    return rgy_gcd(int2.first, int2.second);
+}
+
+template<typename T>
+static inline void rgy_reduce(T& a, T& b) {
+    static_assert(std::is_integral<T>::value, "rgy_reduce is defined only for integer.");
+    if (a == 0 || b == 0) return;
+    T gcd = rgy_gcd(a, b);
+    a /= gcd;
+    b /= gcd;
+}
+
+template<typename T>
+static inline void rgy_reduce(std::pair<T, T>& int2) {
+    rgy_reduce(int2.first, int2.second);
 }
 
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);

@@ -464,6 +464,7 @@
     <ClCompile Include="NVEncFilter.cpp" />
     <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
     <ClCompile Include="rgy_err.cpp" />
+    <ClCompile Include="rgy_util.cpp" />
     <CudaCompile Include="NVEncFilterDenoisePmd.cu">
       <FileType>CppCode</FileType>
     </CudaCompile>
@@ -480,7 +481,6 @@
     <ClCompile Include="NVEncCore.cpp" />
     <ClCompile Include="NVEncOutput.cpp" />
     <ClCompile Include="NVEncParam.cpp" />
-    <ClCompile Include="NVEncUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\NVEncSDK\Common\inc\nvEncodeAPI.h" />
@@ -516,9 +516,9 @@
     <ClInclude Include="NVEncStatus.h" />
     <ClInclude Include="NVEncThread.h" />
     <ClInclude Include="NVEncVersion.h" />
-    <ClInclude Include="NVEncUtil.h" />
     <ClInclude Include="qsv_queue.h" />
     <ClInclude Include="rgy_err.h" />
+    <ClInclude Include="rgy_util.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="NVEncFilterCrop.cu">
