@@ -65,10 +65,23 @@
 
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, cudaVideoCodec);
 MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, cudaVideoChromaFormat);
+MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, NV_ENC_BUFFER_FORMAT);
+MAP_PAIR_0_1_PROTO(codec_guid, rgy, RGY_CODEC, enc, GUID);
+MAP_PAIR_0_1_PROTO(codec_guid_profile, rgy, RGY_CODEC_DATA, enc, GUID);
 
 NV_ENC_PIC_STRUCT picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct);
 RGY_PICSTRUCT picstruct_enc_to_rgy(NV_ENC_PIC_STRUCT picstruct);
 
 RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format);
+
+VideoInfo videooutputinfo(
+    const GUID& encCodecGUID,
+    NV_ENC_BUFFER_FORMAT buffer_fmt,
+    int nEncWidth,
+    int nEncHeight,
+    const NV_ENC_CONFIG *pEncConfig,
+    NV_ENC_PIC_STRUCT nPicStruct,
+    std::pair<int, int> sar,
+    std::pair<int, int> outFps);
 
 #endif //__NVENC_UTIL_H__

@@ -81,12 +81,12 @@ bool checkAvcodecLicense() {
     return (check(avutil_license()) && check(avcodec_license()) && check(avformat_license()));
 }
 
-//NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
-AVFieldOrder nv_field_order(NV_ENC_PIC_STRUCT nPicStruct) {
-    if (nPicStruct == NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM) {
+//mfxFrameInfoから、AVFieldOrderを返す
+AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct) {
+    if (picstruct & RGY_PICSTRUCT_TFF) {
         return AV_FIELD_TT;
     }
-    if (nPicStruct == NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP) {
+    if (picstruct & RGY_PICSTRUCT_BFF) {
         return AV_FIELD_BB;
     }
     return AV_FIELD_PROGRESSIVE;
@@ -455,5 +455,36 @@ void avformatNetworkDeinit() {
         avformat_network_deinit();
     }
 }
+
+static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>(
+    std::make_pair(AV_PIX_FMT_YUV420P, RGY_CSP_YV12),
+    std::make_pair(AV_PIX_FMT_YUVJ420P, RGY_CSP_YV12),
+    std::make_pair(AV_PIX_FMT_NV12, RGY_CSP_NV12),
+    std::make_pair(AV_PIX_FMT_NV21, RGY_CSP_NV12),
+    std::make_pair(AV_PIX_FMT_YUV422P, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUVJ422P, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUYV422, RGY_CSP_YUY2),
+    std::make_pair(AV_PIX_FMT_UYVY422, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_NV16, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUV444P, RGY_CSP_YUV444),
+    std::make_pair(AV_PIX_FMT_YUVJ444P, RGY_CSP_YUV444),
+    std::make_pair(AV_PIX_FMT_YUV420P16LE, RGY_CSP_YV12_16),
+    std::make_pair(AV_PIX_FMT_YUV420P14LE, RGY_CSP_YV12_14),
+    std::make_pair(AV_PIX_FMT_YUV420P12LE, RGY_CSP_YV12_12),
+    std::make_pair(AV_PIX_FMT_YUV420P10LE, RGY_CSP_YV12_10),
+    std::make_pair(AV_PIX_FMT_YUV420P9LE, RGY_CSP_YV12_09),
+    std::make_pair(AV_PIX_FMT_NV20LE, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUV422P16LE, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUV422P14LE, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUV422P12LE, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUV422P10LE, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUV444P16LE, RGY_CSP_YUV444_16),
+    std::make_pair(AV_PIX_FMT_YUV444P14LE, RGY_CSP_YUV444_14),
+    std::make_pair(AV_PIX_FMT_YUV444P12LE, RGY_CSP_YUV444_12),
+    std::make_pair(AV_PIX_FMT_YUV444P10LE, RGY_CSP_YUV444_10),
+    std::make_pair(AV_PIX_FMT_YUV444P9LE, RGY_CSP_YUV444_09)
+    );
+
+MAP_PAIR_0_1(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP, CSP_PIXFMT_RGY, AV_PIX_FMT_NONE, RGY_CSP_NA);
 
 #endif //ENABLE_AVCODEC_QSV_READER

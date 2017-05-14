@@ -234,10 +234,14 @@ struct AVOutputVideoPrm {
 struct AvcodecWriterPrm {
     const AVDictionary          *pInputFormatMetadata;    //入力ファイルのグローバルメタデータ
     const TCHAR                 *pOutputFormat;           //出力のフォーマット
-    AVOutputVideoPrm             vidPrm;                  //出力映像の情報
+    VideoInfo                    outputVideoInfo;         //出力映像の情報
+    bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
+    const AVStream              *pVideoInputStream;       //入力映像のストリーム
+    int64_t                      nVideoInputFirstKeyPts;  //入力映像の最初のpts
     vector<sTrim>                trimList;                //Trimする動画フレームの領域のリスト
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
+    bool                         bChapterNoTrim;          //チャプターにtrimを反映しない
     int                          nAudioResampler;         //音声のresamplerの選択
     uint32_t                     nAudioIgnoreDecodeError; //音声デコード時に発生したエラーを無視して、無音に置き換える
     int                          nBufSizeMB;              //出力バッファサイズ
@@ -249,9 +253,14 @@ struct AvcodecWriterPrm {
     AvcodecWriterPrm() :
         pInputFormatMetadata(nullptr),
         pOutputFormat(nullptr),
-        vidPrm(),
+        outputVideoInfo(),
+        bVideoDtsUnavailable(),
+        pVideoInputStream(nullptr),
+        nVideoInputFirstKeyPts(0),
         trimList(),
         inputStreamList(),
+        chapterList(),
+        bChapterNoTrim(false),
         nAudioResampler(0),
         nAudioIgnoreDecodeError(0),
         nBufSizeMB(0),
@@ -259,7 +268,7 @@ struct AvcodecWriterPrm {
         nAudioThread(0),
         vMuxOpt(),
         pMuxVidTsLogFile(nullptr) {
-        memset(&vidPrm, 0, sizeof(vidPrm));
+        memset(&outputVideoInfo, 0, sizeof(outputVideoInfo));
     }
 };
 

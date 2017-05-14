@@ -567,7 +567,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 }
 #pragma warning(pop)
 
-NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
+NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FORMAT encBufferFormat) {
     int sts = 0;
     bool stdoutUsed = false;
 #if ENABLE_AVCUVID_READER
@@ -590,14 +590,12 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
         if (m_pTrimParam) {
             writerPrm.trimList = m_pTrimParam->list;
         }
-        writerPrm.vidPrm.encCodecGUID     = m_stCodecGUID;
-        writerPrm.vidPrm.nEncWidth        = m_uEncWidth;
-        writerPrm.vidPrm.nEncHeight       = m_uEncHeight;
-        writerPrm.vidPrm.pEncConfig       = &m_stEncConfig;
-        writerPrm.vidPrm.nPicStruct       = m_stPicStruct;
-        writerPrm.vidPrm.sar              = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
-        writerPrm.vidPrm.outFps           = av_make_q(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen);
-        writerPrm.vidPrm.bDtsUnavailable  = false;
+        writerPrm.outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
+            m_uEncWidth, m_uEncHeight,
+            &m_stEncConfig, m_stPicStruct,
+            get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight),
+            std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
+        writerPrm.bVideoDtsUnavailable    = false;
         writerPrm.nOutputThread           = inputParams->nOutputThread;
         writerPrm.nAudioThread            = inputParams->nAudioThread;
         writerPrm.nBufSizeMB              = inputParams->nOutputBufSizeMB;
@@ -624,8 +622,8 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
                 //入力ファイルのチャプターをコピーする
                 writerPrm.chapterList = pAVCodecReader->GetChapterList();
             }
-            writerPrm.vidPrm.nInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
-            writerPrm.vidPrm.pInputStream = pAVCodecReader->GetInputVideoStream();
+            writerPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
+            writerPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
         }
         if (inputParams->nAVMux & (NVENC_MUX_AUDIO | NVENC_MUX_SUBTITLE)) {
             PrintMes(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
@@ -648,8 +646,8 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
                     }
                     //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
                     if (pAVCodecReader == nullptr) {
-                        writerPrm.vidPrm.nInputFirstKeyPts = pAVCodecAudioReader->GetVideoFirstKeyPts();
-                        writerPrm.vidPrm.pInputStream = pAVCodecAudioReader->GetInputVideoStream();
+                        writerPrm.nVideoInputFirstKeyPts = pAVCodecAudioReader->GetVideoFirstKeyPts();
+                        writerPrm.pVideoInputStream = pAVCodecAudioReader->GetInputVideoStream();
                     }
                 }
             }
@@ -777,8 +775,8 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams) {
                 if (m_pTrimParam) {
                     writerAudioPrm.trimList = m_pTrimParam->list;
                 }
-                writerAudioPrm.vidPrm.nInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
-                writerAudioPrm.vidPrm.pInputStream = pAVCodecReader->GetInputVideoStream();
+                writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
+                writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
 
                 auto pWriter = std::make_shared<CAvcodecWriter>();
                 pWriter->SetNVEncLogPtr(m_pNVLog);
@@ -2495,7 +2493,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("AllocateIOBuffers: Success.\n"));
 
     //出力ファイルを開く
-    if (NV_ENC_SUCCESS != (nvStatus = InitOutput(inputParam))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitOutput(inputParam, encBufferFormat))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("出力ファイルのオープンに失敗しました。: \"%s\"\n") : _T("Failed to open output file: \"%s\"\n"), inputParam->outputFilename.c_str());
         return nvStatus;
     }

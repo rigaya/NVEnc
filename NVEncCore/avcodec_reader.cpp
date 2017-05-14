@@ -1058,46 +1058,14 @@ RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, co
                 return RGY_ERR_UNSUPPORTED;
             }
 
-            const RGY_CSP prefered_csp = (m_inputVideoInfo.csp != RGY_CSP_NA) ? m_inputVideoInfo.csp : RGY_CSP_NV12;
-
-            static const auto CSP_CONV = make_array<std::pair<AVPixelFormat, RGY_CSP>>(
-                std::make_pair(AV_PIX_FMT_YUV420P,     RGY_CSP_YV12),
-                std::make_pair(AV_PIX_FMT_YUVJ420P,    RGY_CSP_YV12),
-                std::make_pair(AV_PIX_FMT_NV12,        RGY_CSP_NV12),
-                std::make_pair(AV_PIX_FMT_NV21,        RGY_CSP_NV12),
-                std::make_pair(AV_PIX_FMT_YUV422P,     RGY_CSP_NA),
-                std::make_pair(AV_PIX_FMT_YUVJ422P,    RGY_CSP_NA),
-                std::make_pair(AV_PIX_FMT_YUYV422,     RGY_CSP_YUY2),
-                std::make_pair(AV_PIX_FMT_UYVY422,     RGY_CSP_NA),
-                std::make_pair(AV_PIX_FMT_NV16,        RGY_CSP_NA),
-                std::make_pair(AV_PIX_FMT_YUV444P,     RGY_CSP_YUV444),
-                std::make_pair(AV_PIX_FMT_YUVJ444P,    RGY_CSP_YUV444),
-                std::make_pair(AV_PIX_FMT_YUV420P16LE, RGY_CSP_YV12_16),
-                std::make_pair(AV_PIX_FMT_YUV420P14LE, RGY_CSP_YV12_14),
-                std::make_pair(AV_PIX_FMT_YUV420P12LE, RGY_CSP_YV12_12),
-                std::make_pair(AV_PIX_FMT_YUV420P10LE, RGY_CSP_YV12_10),
-                std::make_pair(AV_PIX_FMT_YUV420P9LE,  RGY_CSP_YV12_09),
-                std::make_pair(AV_PIX_FMT_NV20LE,      RGY_CSP_NA),
-                std::make_pair(AV_PIX_FMT_YUV422P16LE, RGY_CSP_NA),
-                std::make_pair(AV_PIX_FMT_YUV422P14LE, RGY_CSP_NA),
-                std::make_pair(AV_PIX_FMT_YUV422P12LE, RGY_CSP_NA),
-                std::make_pair(AV_PIX_FMT_YUV422P10LE, RGY_CSP_NA),
-                std::make_pair(AV_PIX_FMT_YUV444P16LE, RGY_CSP_YUV444_16),
-                std::make_pair(AV_PIX_FMT_YUV444P14LE, RGY_CSP_YUV444_14),
-                std::make_pair(AV_PIX_FMT_YUV444P12LE, RGY_CSP_YUV444_12),
-                std::make_pair(AV_PIX_FMT_YUV444P10LE, RGY_CSP_YUV444_10),
-                std::make_pair(AV_PIX_FMT_YUV444P9LE,  RGY_CSP_YUV444_09)
-            );
-            const auto pixCspConv = std::find_if(CSP_CONV.begin(), CSP_CONV.end(), [pix_fmt = m_Demux.video.pCodecCtxDecode->pix_fmt](decltype(CSP_CONV[0])& a) {
-                return a.first == pix_fmt;
-            });
-            if (pixCspConv == CSP_CONV.end()
-                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, prefered_csp, false))) {
+            const auto pixCspConv = csp_avpixfmt_to_rgy(m_Demux.video.pCodecCtxDecode->pix_fmt);
+            if (pixCspConv == RGY_CSP_NA
+                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv, pixfmtData->output_csp, false))) {
                 AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
-            m_InputCsp = pixCspConv->second;
-            m_inputVideoInfo.csp = prefered_csp;
+            m_InputCsp = pixCspConv;
+            m_inputVideoInfo.csp = pixfmtData->output_csp;
             if (nullptr == (m_Demux.video.pFrame = av_frame_alloc())) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
                 return RGY_ERR_NULL_PTR;

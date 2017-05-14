@@ -52,6 +52,8 @@ enum RGY_CSP {
     RGY_CSP_YUV444_12,
     RGY_CSP_YUV444_14,
     RGY_CSP_YUV444_16,
+    RGY_CSP_RGB3,
+    RGY_CSP_RGB4,
     RGY_CSP_YC48,
 };
 

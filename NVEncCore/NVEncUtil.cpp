@@ -41,6 +41,27 @@ static const auto RGY_CODEC_TO_NVENC = make_array<std::pair<RGY_CODEC, cudaVideo
 
 MAP_PAIR_0_1(codec, rgy, RGY_CODEC, enc, cudaVideoCodec, RGY_CODEC_TO_NVENC, RGY_CODEC_UNKNOWN, cudaVideoCodec_NumCodecs);
 
+static const GUID GUID_EMPTY = { 0 };
+
+static const auto RGY_CODEC_TO_GUID = make_array<std::pair<RGY_CODEC, GUID>>(
+    std::make_pair(RGY_CODEC_H264, NV_ENC_CODEC_H264_GUID),
+    std::make_pair(RGY_CODEC_HEVC, NV_ENC_CODEC_HEVC_GUID)
+    );
+
+MAP_PAIR_0_1(codec_guid, rgy, RGY_CODEC, enc, GUID, RGY_CODEC_TO_GUID, RGY_CODEC_UNKNOWN, GUID_EMPTY);
+
+static const auto RGY_CODEC_PROFILE_TO_GUID = make_array<std::pair<RGY_CODEC_DATA, GUID>>(
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 77),  NV_ENC_H264_PROFILE_BASELINE_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 88),  NV_ENC_H264_PROFILE_MAIN_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 100), NV_ENC_H264_PROFILE_HIGH_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 144), NV_ENC_H264_PROFILE_HIGH_444_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 1),   NV_ENC_HEVC_PROFILE_MAIN_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 2),   NV_ENC_HEVC_PROFILE_MAIN10_GUID),
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 3),   NV_ENC_HEVC_PROFILE_FREXT_GUID)
+    );
+
+MAP_PAIR_0_1(codec_guid_profile, rgy, RGY_CODEC_DATA, enc, GUID, RGY_CODEC_PROFILE_TO_GUID, RGY_CODEC_DATA(), GUID_EMPTY);
+
 static const auto RGY_CHROMAFMT_TO_NVENC = make_array<std::pair<RGY_CHROMAFMT, cudaVideoChromaFormat>>(
     std::make_pair(RGY_CHROMAFMT_MONOCHROME, cudaVideoChromaFormat_Monochrome),
     std::make_pair(RGY_CHROMAFMT_YUV420,     cudaVideoChromaFormat_420),
@@ -50,10 +71,43 @@ static const auto RGY_CHROMAFMT_TO_NVENC = make_array<std::pair<RGY_CHROMAFMT, c
 
 MAP_PAIR_0_1(chromafmt, rgy, RGY_CHROMAFMT, enc, cudaVideoChromaFormat, RGY_CHROMAFMT_TO_NVENC, RGY_CHROMAFMT_UNKNOWN, cudaVideoChromaFormat_Monochrome);
 
+static const auto RGY_CSP_TO_NVENC = make_array<std::pair<RGY_CSP, NV_ENC_BUFFER_FORMAT>>(
+    std::make_pair(RGY_CSP_NA,        NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_NV12,      NV_ENC_BUFFER_FORMAT_NV12),
+    std::make_pair(RGY_CSP_YV12,      NV_ENC_BUFFER_FORMAT_YV12),
+    std::make_pair(RGY_CSP_YUY2,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YUV422,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YUV444,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YV12_09,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YV12_10,   NV_ENC_BUFFER_FORMAT_YUV420_10BIT),
+    std::make_pair(RGY_CSP_YV12_12,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YV12_14,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YV12_16,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_P010,      NV_ENC_BUFFER_FORMAT_YUV420_10BIT),
+    std::make_pair(RGY_CSP_YUV444_09, NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YUV444_10, NV_ENC_BUFFER_FORMAT_YUV444_10BIT),
+    std::make_pair(RGY_CSP_YUV444_12, NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YUV444_14, NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YUV444_16, NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_RGB3,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_RGB4,      NV_ENC_BUFFER_FORMAT_ARGB),
+    std::make_pair(RGY_CSP_YC48,      NV_ENC_BUFFER_FORMAT_UNDEFINED)
+    );
+
+MAP_PAIR_0_1(csp, rgy, RGY_CSP, enc, NV_ENC_BUFFER_FORMAT, RGY_CSP_TO_NVENC, RGY_CSP_NA, NV_ENC_BUFFER_FORMAT_UNDEFINED);
+
+__declspec(noinline)
 NV_ENC_PIC_STRUCT picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct) {
     if (picstruct & RGY_PICSTRUCT_TFF) return NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM;
     if (picstruct & RGY_PICSTRUCT_BFF) return NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
     return NV_ENC_PIC_STRUCT_FRAME;
+}
+
+__declspec(noinline)
+RGY_PICSTRUCT picstruct_enc_to_rgy(NV_ENC_PIC_STRUCT picstruct) {
+    if (picstruct == NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM) return RGY_PICSTRUCT_TFF;
+    if (picstruct == NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP) return RGY_PICSTRUCT_BFF;
+    return RGY_PICSTRUCT_FRAME;
 }
 
 RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
@@ -73,4 +127,43 @@ RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
     default:
         return RGY_CSP_NA;
     }
+}
+
+__declspec(noinline)
+VideoInfo videooutputinfo(
+    const GUID& encCodecGUID,
+    NV_ENC_BUFFER_FORMAT buffer_fmt,
+    int nEncWidth,
+    int nEncHeight,
+    const NV_ENC_CONFIG *pEncConfig,
+    NV_ENC_PIC_STRUCT nPicStruct,
+    std::pair<int, int> sar,
+    std::pair<int, int> outFps) {
+
+    VideoInfo info;
+    memset(&info, 0, sizeof(info));
+    info.codec = codec_guid_enc_to_rgy(encCodecGUID);
+    info.codecLevel = (info.codec == RGY_CODEC_H264) ? pEncConfig->encodeCodecConfig.h264Config.level : pEncConfig->encodeCodecConfig.hevcConfig.level;
+    info.codecProfile = codec_guid_profile_enc_to_rgy(pEncConfig->profileGUID).codecProfile;
+    info.videoDelay = ((pEncConfig->frameIntervalP - 2) > 0) + (((pEncConfig->frameIntervalP - 2) > 2));
+    info.dstWidth = nEncWidth;
+    info.dstHeight = nEncHeight;
+    info.fpsN = outFps.first;
+    info.fpsD = outFps.second;
+    info.sar[0] = sar.first;
+    info.sar[1] = sar.second;
+    info.picstruct = picstruct_enc_to_rgy(nPicStruct);
+    info.csp = csp_enc_to_rgy(buffer_fmt);
+
+    const NV_ENC_CONFIG_H264_VUI_PARAMETERS& videoSignalInfo = (info.codec == RGY_CODEC_H264)
+        ? pEncConfig->encodeCodecConfig.h264Config.h264VUIParameters
+        : pEncConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters;
+
+    info.vui.descriptpresent = videoSignalInfo.colourDescriptionPresentFlag;
+    info.vui.colorprim = videoSignalInfo.colourPrimaries;
+    info.vui.matrix = videoSignalInfo.colourMatrix;
+    info.vui.transfer = videoSignalInfo.transferCharacteristics;
+    info.vui.fullrange = videoSignalInfo.videoFullRangeFlag;
+    info.vui.format = videoSignalInfo.videoFormat;
+    return info;
 }

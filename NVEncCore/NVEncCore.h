@@ -206,7 +206,7 @@ protected:
     virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam);
 
     //エンコーダへの入力を初期化
-    virtual NVENCSTATUS InitOutput(InEncodeVideoParam *inputParam);
+    virtual NVENCSTATUS InitOutput(InEncodeVideoParam *inputParam, NV_ENC_BUFFER_FORMAT encBufferFormat);
 
     //ログを初期化
     virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);

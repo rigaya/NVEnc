@@ -132,6 +132,9 @@ enum AVQSVFormatType : uint32_t {
     AVQSV_FORMAT_MUX   = 0x02,
 };
 
+//NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
+AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct);
+
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret);
 
@@ -146,9 +149,6 @@ tstring error_mes_avcodec_dll_not_found();
 
 //avcodecのライセンスがLGPLであるかどうかを確認
 bool checkAvcodecLicense();
-
-//NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
-AVFieldOrder nv_field_order(NV_ENC_PIC_STRUCT nPicStruct);
 
 //avqsvでサポートされている動画コーデックを表示
 tstring getHWSupportedCodecList();
@@ -183,6 +183,8 @@ void avformatNetworkDeinit();
 
 //バージョン情報の取得
 tstring getAVVersions();
+
+MAP_PAIR_0_1_PROTO(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP);
 
 #endif //ENABLE_AVCUVID_READER
 

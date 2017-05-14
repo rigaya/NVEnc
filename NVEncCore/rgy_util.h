@@ -40,6 +40,7 @@
 #include <memory>
 #include <string>
 
+#include "ConvertCsp.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
 
@@ -373,6 +374,140 @@ static tstring CodecToStr(RGY_CODEC codec) {
     default: return _T("unknown");
     }
 }
+
+struct RGY_CODEC_DATA {
+    RGY_CODEC codec;
+    int codecProfile;
+
+    RGY_CODEC_DATA() : codec(RGY_CODEC_UNKNOWN), codecProfile(0) {}
+    RGY_CODEC_DATA(RGY_CODEC _codec, int profile) : codec(_codec), codecProfile(profile) {}
+
+    bool operator<(const RGY_CODEC_DATA& right) const {
+        return codec == right.codec ? codec < right.codec : codecProfile < right.codecProfile;
+    }
+    bool operator==(const RGY_CODEC_DATA& right) const {
+        return codec == right.codec && codecProfile == right.codecProfile;
+    }
+};
+
+enum RGY_INPUT_FMT {
+    RGY_INPUT_FMT_AUTO = 0,
+    RGY_INPUT_FMT_AUO = 0,
+    RGY_INPUT_FMT_RAW,
+    RGY_INPUT_FMT_Y4M,
+    RGY_INPUT_FMT_AVI,
+    RGY_INPUT_FMT_AVS,
+    RGY_INPUT_FMT_VPY,
+    RGY_INPUT_FMT_VPY_MT,
+    RGY_INPUT_FMT_AVHW,
+    RGY_INPUT_FMT_AVSW,
+    RGY_INPUT_FMT_AVANY,
+};
+
+#pragma warning(push)
+#pragma warning(disable: 4201)
+typedef union sInputCrop {
+    struct {
+        int left, up, right, bottom;
+    } e;
+    int c[4];
+} sInputCrop;
+#pragma warning(pop)
+
+static inline bool cropEnabled(const sInputCrop& crop) {
+    return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
+}
+
+struct VideoVUIInfo {
+    int descriptpresent;
+    int colorprim;
+    int matrix;
+    int transfer;
+    int format;
+    int fullrange;
+};
+
+struct VideoInfo {
+    //[ i    ] 入力モジュールに渡す際にセットする
+    //[    i ] 入力モジュールによってセットされる
+    //[ o    ] 出力モジュールに渡す際にセットする
+
+    //[ i (i)] 種類 (RGY_INPUT_FMT_xxx)
+    //  i      使用する入力モジュールの種類
+    //     i   変更があれば
+    RGY_INPUT_FMT type;
+
+    //[(i) i ] 入力横解像度
+    uint32_t srcWidth;
+
+    //[(i) i ] 入力縦解像度
+    uint32_t srcHeight;
+
+    //[(i)(i)] 入力ピッチ 0なら入力横解像度に同じ
+    uint32_t srcPitch;
+
+    uint32_t codedWidth;     //[   (i)] 
+    uint32_t codedHeight;    //[   (i)]
+
+    //[      ] 出力解像度
+    uint32_t dstWidth;
+
+    //[      ] 出力解像度
+    uint32_t dstHeight;
+
+    //[      ] 出力解像度
+    uint32_t dstPitch;
+
+    //[    i ] 入力の取得した総フレーム数 (不明なら0)
+    int frames;
+
+    //[   (i)] 右shiftすべきビット数
+    int shift;
+
+    //[   (i)] 入力の取得したフレームレート (分子)
+    int fpsN;
+
+    //[   (i)] 入力の取得したフレームレート (分母)
+    int fpsD;
+
+    //[ i    ] 入力時切り落とし
+    sInputCrop crop;
+
+    //[   (i)] 入力の取得したアスペクト比
+    int sar[2];
+
+    //[(i) i ] 入力色空間 (RGY_CSP_xxx)
+    //  i      取得したい色空間をセット
+    //     i   入力の取得する色空間
+    RGY_CSP csp;
+
+    //[(i)(i)] RGY_PICSTRUCT_xxx
+    //  i      ユーザー指定の設定をセット
+    //     i   入力の取得した値、あるいはそのまま
+    RGY_PICSTRUCT picstruct;
+
+    //[    i ] 入力コーデック (デコード時使用)
+    //     i   HWデコード時セット
+    RGY_CODEC codec;
+
+    //[      ] 入力コーデックのヘッダー
+    void *codecExtra;
+
+    //[      ] 入力コーデックのヘッダーの大きさ
+    uint32_t codecExtraSize;
+
+    //[      ] 入力コーデックのレベル
+    int codecLevel;
+
+    //[      ] 入力コーデックのプロファイル
+    int codecProfile;
+
+    //[      ] 入力コーデックの遅延
+    int videoDelay;
+
+    //[      ] 入力コーデックのVUI情報
+    VideoVUIInfo vui;
+};
 
 struct nal_info {
     const uint8_t *ptr;
