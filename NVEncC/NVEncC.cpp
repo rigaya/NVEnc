@@ -67,7 +67,7 @@ static tstring GetNVEncVersion() {
     if (AVI_READER) version += _T(", avi");
     if (AVS_READER) version += _T(", avs");
     if (VPY_READER) version += _T(", vpy");
-    if (ENABLE_AVCUVID_READER) version += strsprintf(_T(", avcuvid [%s]"), getAVQSVSupportedCodecList().c_str());
+    if (ENABLE_AVCUVID_READER) version += strsprintf(_T(", avcuvid [%s]"), getHWSupportedCodecList().c_str());
     version += _T("\n");
     return version;
 }
@@ -567,6 +567,8 @@ static vector<std::string> createOptionList() {
 #endif //#if ENABLE_CPP_REGEX
 
 static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName, const TCHAR *strErrorValue = nullptr) {
+    UNREFERENCED_PARAMETER(strAppName);
+
     if (strErrorMessage) {
         if (strOptionName) {
             if (strErrorValue) {
@@ -777,9 +779,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("input")) {
         i++;
-        auto length = _tcslen(strInput[i]) + 1;
-        pParams->input.filename = (TCHAR *)malloc(sizeof(pParams->input.filename[0]) * length);
-        memcpy(pParams->input.filename, strInput[i], sizeof(pParams->input.filename[0]) * length);
+        pParams->inputFilename = strInput[i];
         return 0;
     }
     if (IS_OPTION("output")) {
@@ -793,21 +793,19 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (   2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
             || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
             || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            pParams->input.rate  = a[0];
-            pParams->input.scale = a[1];
+            pParams->input.fpsN = a[0];
+            pParams->input.fpsD = a[1];
         } else {
             double d;
             if (1 == _stscanf_s(strInput[i], _T("%lf"), &d)) {
                 int rate = (int)(d * 1001.0 + 0.5);
                 if (rate % 1000 == 0) {
-                    pParams->input.rate = rate;
-                    pParams->input.scale = 1001;
+                    pParams->input.fpsN = rate;
+                    pParams->input.fpsD = 1001;
                 } else {
-                    pParams->input.scale = 100000;
-                    pParams->input.rate = (int)(d * pParams->input.scale + 0.5);
-                    int gcd = nv_get_gcd(pParams->input.rate, pParams->input.scale);
-                    pParams->input.scale /= gcd;
-                    pParams->input.rate  /= gcd;
+                    pParams->input.fpsD = 100000;
+                    pParams->input.fpsN = (int)(d * pParams->input.fpsD + 0.5);
+                    rgy_reduce(pParams->input.fpsN, pParams->input.fpsD);
                 }
             } else  {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
@@ -822,8 +820,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
             || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
             || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            pParams->input.width  = a[0];
-            pParams->input.height = a[1];
+            pParams->input.srcWidth  = a[0];
+            pParams->input.srcHeight = a[1];
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
@@ -904,7 +902,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             i++;
             int value = 0;
             if (get_list_value(list_cuvid_mode, strInput[i], &value)) {
-                pParams->input.cuvidType = value;
+                pParams->nHWDecType = value;
             } else {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
@@ -1842,8 +1840,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return -1;
         }
         if (pParams->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave
-            && pParams->picStruct == NV_ENC_PIC_STRUCT_FRAME) {
-            pParams->picStruct = NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM;
+            && pParams->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
+            pParams->input.picstruct = RGY_PICSTRUCT_FRAME_TFF;
         }
         return 0;
     }
@@ -2074,18 +2072,18 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("tff")) {
-        pParams->picStruct = NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM;
+        pParams->input.picstruct = RGY_PICSTRUCT_FRAME_TFF;
         return 0;
     }
     if (IS_OPTION("bff")) {
-        pParams->picStruct = NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
+        pParams->input.picstruct = RGY_PICSTRUCT_FRAME_BFF;
         return 0;
     }
     if (IS_OPTION("interlaced")) {
         i++;
         int value = 0;
         if (get_list_value(list_interlaced, strInput[i], &value)) {
-            pParams->picStruct = (NV_ENC_PIC_STRUCT)value;
+            pParams->input.picstruct = (RGY_PICSTRUCT)value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
@@ -2519,7 +2517,7 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
 
 #undef IS_OPTION
     //オプションチェック
-    if (pParams->input.filename == nullptr || _tcslen(pParams->input.filename) == 0) {
+    if (0 == pParams->inputFilename.length()) {
         _ftprintf(stderr, _T("Input file is not specified.\n"));
         return -1;
     }

@@ -42,14 +42,18 @@ public:
     NVEncInputRaw();
     ~NVEncInputRaw();
 
-    virtual RGY_ERR Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) override;
     virtual void Close() override;
 
 protected:
-    virtual int ParseY4MHeader(char *buf, InputVideoInfo *inputPrm);
-    bool m_bIsY4m = false;
-    uint8_t *m_inputBuffer = NULL;
+    RGY_ERR ParseY4MHeader(char *buf, VideoInfo *inputPrm);
+
+    bool m_by4m;
+    FILE *m_fSource;
+
+    uint32_t m_nBufSize;
+    shared_ptr<uint8_t> m_pBuffer;
 };
 
 #endif //RAW_READER

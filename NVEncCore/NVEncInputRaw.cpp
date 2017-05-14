@@ -38,112 +38,115 @@
 
 #if RAW_READER
 
-int NVEncInputRaw::ParseY4MHeader(char *buf, InputVideoInfo *inputPrm) {
-    char *p, *q = NULL;
-    for (p = buf; (p = strtok_s(p, " ", &q)) != NULL; ) {
+RGY_ERR NVEncInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
+    char *p, *q = nullptr;
+
+    for (p = buf; (p = strtok_s(p, " ", &q)) != nullptr; ) {
         switch (*p) {
-            case 'W':
-                {
-                    char *eptr = NULL;
-                    int w = strtol(p+1, &eptr, 10);
-                    if (*eptr == '\0' && w)
-                        inputPrm->width = w;
+        case 'W':
+        {
+            char *eptr = nullptr;
+            int w = strtol(p+1, &eptr, 10);
+            if (*eptr == '\0' && w)
+                pInfo->srcWidth = w;
+        }
+        break;
+        case 'H':
+        {
+            char *eptr = nullptr;
+            int h = strtol(p+1, &eptr, 10);
+            if (*eptr == '\0' && h)
+                pInfo->srcHeight = h;
+        }
+        break;
+        case 'F':
+        {
+            int rate = 0, scale = 0;
+            if ((pInfo->fpsN == 0 || pInfo->fpsD == 0)
+                && sscanf_s(p+1, "%d:%d", &rate, &scale) == 2) {
+                if (rate && scale) {
+                    pInfo->fpsN = rate;
+                    pInfo->fpsD = scale;
                 }
+            }
+        }
+        break;
+        case 'A':
+        {
+            int sar_x = 0, sar_y = 0;
+            if ((pInfo->sar[0] == 0 || pInfo->sar[1] == 0)
+                && sscanf_s(p+1, "%d:%d", &sar_x, &sar_y) == 2) {
+                if (sar_x && sar_y) {
+                    pInfo->sar[0] = sar_x;
+                    pInfo->sar[1] = sar_y;
+                }
+            }
+        }
+        break;
+        case 'I':
+            switch (*(p+1)) {
+            case 'b':
+                pInfo->picstruct = RGY_PICSTRUCT_TFF;
                 break;
-            case 'H':
-                {
-                    char *eptr = NULL;
-                    int h = strtol(p+1, &eptr, 10);
-                    if (*eptr == '\0' && h)
-                        inputPrm->height = h;
-                }
-                break;
-            case 'F':
-                {
-                    int rate = 0, scale = 0;
-                    if (   (inputPrm->scale == 0 || inputPrm->rate == 0)
-                        && sscanf_s(p+1, "%d:%d", &rate, &scale) == 2) {
-                            if (rate && scale) {
-                                inputPrm->rate = rate;
-                                inputPrm->scale = scale;
-                            }
-                    }
-                }
-                break;
-            case 'A':
-                {
-                    int sar_x = 0, sar_y = 0;
-                    if ((inputPrm->sar[0] == 0 || inputPrm->sar[1] == 0)
-                        && sscanf_s(p+1, "%d:%d", &sar_x, &sar_y) == 2) {
-                        if (sar_x && sar_y) {
-                            inputPrm->sar[0] = sar_x;
-                            inputPrm->sar[1] = sar_y;
-                        }
-                    }
-                }
-                break;
-            //case 'I':
-            //    switch (*(p+1)) {
-            //case 'b':
-            //    info->PicStruct = MFX_PICSTRUCT_FIELD_BFF;
-            //    break;
-            //case 't':
-            //case 'm':
-            //    info->PicStruct = MFX_PICSTRUCT_FIELD_TFF;
-            //    break;
-            //default:
-            //    break;
-            //    }
-            //    break;
-            case 'C':
-                if (0 == _strnicmp(p+1, "420p9", strlen("420p9"))) {
-                    inputPrm->csp = RGY_CSP_YV12_09;
-                } else if (0 == _strnicmp(p+1, "420p10", strlen("420p10"))) {
-                    inputPrm->csp = RGY_CSP_YV12_10;
-                } else if (0 == _strnicmp(p+1, "420p12", strlen("420p12"))) {
-                    inputPrm->csp = RGY_CSP_YV12_12;
-                }  else if (0 == _strnicmp(p+1, "420p14", strlen("420p14"))) {
-                    inputPrm->csp = RGY_CSP_YV12_14;
-                }  else if (0 == _strnicmp(p+1, "420p16", strlen("420p16"))) {
-                    inputPrm->csp = RGY_CSP_YV12_16;
-                } else if (0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
-                        || 0 == _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
-                        || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))
-                        || 0 == _strnicmp(p+1, "420",      strlen("420"))) {
-                    inputPrm->csp = RGY_CSP_YV12;
-                } else if (0 == _strnicmp(p+1, "422", strlen("422"))) {
-                    inputPrm->csp = RGY_CSP_YUV422;
-                } else if (0 == _strnicmp(p+1, "444p9", strlen("444p9"))) {
-                    inputPrm->csp = RGY_CSP_YUV444_09;
-                } else if (0 == _strnicmp(p+1, "444p10", strlen("444p10"))) {
-                    inputPrm->csp = RGY_CSP_YUV444_10;
-                } else if (0 == _strnicmp(p+1, "444p12", strlen("444p12"))) {
-                    inputPrm->csp = RGY_CSP_YUV444_12;
-                } else if (0 == _strnicmp(p+1, "444p14", strlen("444p14"))) {
-                    inputPrm->csp = RGY_CSP_YUV444_14;
-                } else if (0 == _strnicmp(p+1, "444p16", strlen("444p16"))) {
-                    inputPrm->csp = RGY_CSP_YUV444_16;
-                } else if (0 == _strnicmp(p+1, "444", strlen("444"))) {
-                    inputPrm->csp = RGY_CSP_YUV444;
-                } else {
-                    return 1;
-                }
+            case 't':
+            case 'm':
+                pInfo->picstruct = RGY_PICSTRUCT_FRAME;
                 break;
             default:
                 break;
+            }
+            break;
+        case 'C':
+            if (0 == _strnicmp(p+1, "420p9", strlen("420p9"))) {
+                pInfo->csp = RGY_CSP_YV12_09;
+            } else if (0 == _strnicmp(p+1, "420p10", strlen("420p10"))) {
+                pInfo->csp = RGY_CSP_YV12_10;
+            } else if (0 == _strnicmp(p+1, "420p12", strlen("420p12"))) {
+                pInfo->csp = RGY_CSP_YV12_12;
+            }  else if (0 == _strnicmp(p+1, "420p14", strlen("420p14"))) {
+                pInfo->csp = RGY_CSP_YV12_14;
+            }  else if (0 == _strnicmp(p+1, "420p16", strlen("420p16"))) {
+                pInfo->csp = RGY_CSP_YV12_16;
+            } else if (0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
+                    || 0 == _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
+                    || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))
+                    || 0 == _strnicmp(p+1, "420",      strlen("420"))) {
+                pInfo->csp = RGY_CSP_YV12;
+            } else if (0 == _strnicmp(p+1, "422", strlen("422"))) {
+                pInfo->csp = RGY_CSP_YUV422;
+            } else if (0 == _strnicmp(p+1, "444p9", strlen("444p9"))) {
+                pInfo->csp = RGY_CSP_YUV444_09;
+            } else if (0 == _strnicmp(p+1, "444p10", strlen("444p10"))) {
+                pInfo->csp = RGY_CSP_YUV444_10;
+            } else if (0 == _strnicmp(p+1, "444p12", strlen("444p12"))) {
+                pInfo->csp = RGY_CSP_YUV444_12;
+            } else if (0 == _strnicmp(p+1, "444p14", strlen("444p14"))) {
+                pInfo->csp = RGY_CSP_YUV444_14;
+            } else if (0 == _strnicmp(p+1, "444p16", strlen("444p16"))) {
+                pInfo->csp = RGY_CSP_YUV444_16;
+            } else if (0 == _strnicmp(p+1, "444", strlen("444"))) {
+                pInfo->csp = RGY_CSP_YUV444;
+            } else {
+                return RGY_ERR_INVALID_COLOR_FORMAT;
+            }
+            break;
+        default:
+            break;
         }
-        p = NULL;
+        p = nullptr;
     }
-    if (inputPrm->rate > 0 && inputPrm->scale > 0) {
-        int fps_gcd = nv_get_gcd(inputPrm->rate, inputPrm->scale);
-        inputPrm->rate  /= fps_gcd;
-        inputPrm->scale /= fps_gcd;
+    if (pInfo->fpsN > 0 && pInfo->fpsD > 0) {
+        rgy_reduce(pInfo->fpsN, pInfo->fpsD);
     }
-
-    return 0;
+    pInfo->srcPitch = pInfo->srcWidth;
+    return RGY_ERR_NONE;
 }
 
-NVEncInputRaw::NVEncInputRaw() {
+NVEncInputRaw::NVEncInputRaw() :
+    m_by4m(false),
+    m_fSource(NULL),
+    m_nBufSize(0),
+    m_pBuffer() {
     m_strReaderName = _T("raw");
 }
 
@@ -151,119 +154,128 @@ NVEncInputRaw::~NVEncInputRaw() {
     Close();
 }
 
-RGY_ERR NVEncInputRaw::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
+RGY_ERR NVEncInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
+    UNREFERENCED_PARAMETER(prm);
+
     Close();
 
-    m_pEncSatusInfo = pStatus;
+    m_pEncSatusInfo = pEncSatusInfo;
+    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
-    if (0 == _tcscmp(inputPrm->filename, _T("-"))) {
-        if (_setmode( _fileno( stdin ), _O_BINARY ) == 1) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to switch stdin to binary mode."));
-            return RGY_ERR_UNKNOWN;
-        }
-        m_fp = stdin;
+    m_strReaderName = (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw");
+
+    bool use_stdin = _tcscmp(strFileName, _T("-")) == 0;
+    if (use_stdin) {
+        m_fSource = stdin;
+        AddMessage(RGY_LOG_DEBUG, _T("output to stdout.\n"));
     } else {
-        if (_tfopen_s(&m_fp, inputPrm->filename, _T("rb")) || NULL == m_fp) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to open input file.\n"));
+        int error = 0;
+        if (0 != (error = _tfopen_s(&m_fSource, strFileName, _T("rb"))) || m_fSource == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to open file \"%s\": %s.\n"), strFileName, _tcserror(error));
             return RGY_ERR_FILE_OPEN;
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("Opened file: \"%s\".\n"), strFileName);
         }
     }
     
-    RGY_CSP inputCsp = RGY_CSP_YV12;
-    m_bIsY4m = inputPrm->type == RGY_INPUT_FMT_Y4M;
-    if (m_bIsY4m) {
-        m_strReaderName = _T("y4m");
+    const auto nOutputCSP = m_inputVideoInfo.csp;
+    m_InputCsp = RGY_CSP_YV12;
+    if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         char buf[128] = { 0 };
-        InputVideoInfo videoInfo;
-        memset(&videoInfo, 0, sizeof(videoInfo));
-
-        if (fread(buf, 1, strlen("YUV4MPEG2"), m_fp) != strlen("YUV4MPEG2")
+        if (fread(buf, 1, strlen("YUV4MPEG2"), m_fSource) != strlen("YUV4MPEG2")
             || strcmp(buf, "YUV4MPEG2") != 0
-            || !fgets(buf, sizeof(buf), m_fp)
-            || ParseY4MHeader(buf, &videoInfo)) {
+            || !fgets(buf, sizeof(buf), m_fSource)
+            || RGY_ERR_NONE != ParseY4MHeader(buf, &m_inputVideoInfo)) {
             AddMessage(RGY_LOG_ERROR, _T("failed to parse y4m header."));
             return RGY_ERR_INVALID_FORMAT;
         }
-        inputPrm->width = videoInfo.width;
-        inputPrm->height = videoInfo.height;
-        inputPrm->scale = videoInfo.scale;
-        inputPrm->rate = videoInfo.rate;
-        memcpy(inputPrm->sar, videoInfo.sar, sizeof(videoInfo.sar));
-        inputCsp = videoInfo.csp;
+        m_InputCsp = m_inputVideoInfo.csp;
     }
+    m_inputVideoInfo.csp = nOutputCSP;
+
     uint32_t bufferSize = 0;
     uint32_t src_pitch = 0;
-    switch (inputCsp) {
+    switch (m_InputCsp) {
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
-        src_pitch = inputPrm->width;
-        bufferSize = inputPrm->width * inputPrm->height * 3 / 2; break;
+        src_pitch = m_inputVideoInfo.srcPitch;
+        bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2;
+        break;
     case RGY_CSP_YV12_09:
     case RGY_CSP_YV12_10:
     case RGY_CSP_YV12_12:
     case RGY_CSP_YV12_14:
     case RGY_CSP_YV12_16:
-        src_pitch = inputPrm->width * 2;
-        bufferSize = inputPrm->width * inputPrm->height * 3; break;
+        src_pitch = m_inputVideoInfo.srcPitch * 2;
+        bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
+        break;
     case RGY_CSP_YUV422:
-        src_pitch = inputPrm->width;
-        bufferSize = inputPrm->width * inputPrm->height * 2; break;
+        src_pitch = m_inputVideoInfo.srcPitch;
+        bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2;
+        break;
     case RGY_CSP_YUV444:
-        src_pitch = inputPrm->width;
-        bufferSize = inputPrm->width * inputPrm->height * 3; break;
+        src_pitch = m_inputVideoInfo.srcPitch;
+        bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
+        break;
     case RGY_CSP_YUV444_09:
     case RGY_CSP_YUV444_10:
     case RGY_CSP_YUV444_12:
     case RGY_CSP_YUV444_14:
     case RGY_CSP_YUV444_16:
-        src_pitch = inputPrm->width * 2;
-        bufferSize = inputPrm->width * inputPrm->height * 6; break;
+        src_pitch = m_inputVideoInfo.srcPitch * 2;
+        bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 6;
+        break;
     default:
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    if (NULL == (m_inputBuffer = (uint8_t *)_aligned_malloc(bufferSize, 32))) {
-        AddMessage(RGY_LOG_ERROR, _T("raw: Failed to allocate input buffer.\n"));
+    m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(bufferSize, 32), aligned_malloc_deleter());
+    if (!m_pBuffer) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate input buffer.\n"));
         return RGY_ERR_NULL_PTR;
     }
 
-    m_sConvert = get_convert_csp_func(inputCsp, inputPrm->csp, false);
+    m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
+    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? 16 - RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] : 0;
 
     if (nullptr == m_sConvert) {
         AddMessage(RGY_LOG_ERROR, _T("raw/y4m: invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    
-    memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
-    m_sDecParam.src_pitch = src_pitch;
-    CreateInputInfo(m_strReaderName.c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
+
+    CreateInputInfo(m_strReaderName.c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
+    *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
 
 void NVEncInputRaw::Close() {
-    if (m_fp) {
-        fclose(m_fp);
-        m_fp = NULL;
+    if (m_fSource) {
+        fclose(m_fSource);
+        m_fSource = NULL;
     }
-    if (m_inputBuffer) {
-        _aligned_free(m_inputBuffer);
-        m_inputBuffer = NULL;
-    }
-    m_bIsY4m = false;
-    m_pEncSatusInfo.reset();
+    m_pBuffer.reset();
+    m_nBufSize = 0;
+
+    NVEncBasicInput::Close();
 }
 
 RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
 
-    if (m_bIsY4m) {
+    //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
+    //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
+    if (getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         BYTE y4m_buf[8] = { 0 };
-        if (fread(y4m_buf, 1, strlen("FRAME"), m_fp) != strlen("FRAME"))
+        if (fread(y4m_buf, 1, strlen("FRAME"), m_fSource) != strlen("FRAME"))
             return RGY_ERR_MORE_DATA;
         if (memcmp(y4m_buf, "FRAME", strlen("FRAME")) != NULL)
             return RGY_ERR_MORE_DATA;
         int i;
-        for (i = 0; fgetc(m_fp) != '\n'; i++)
+        for (i = 0; fgetc(m_fSource) != '\n'; i++)
         if (i >= 64)
             return RGY_ERR_MORE_DATA;
     }
@@ -272,38 +284,38 @@ RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     switch (m_sConvert->csp_from) {
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
-        frameSize = m_sDecParam.width * m_sDecParam.height * 3 / 2; break;
+        frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2; break;
     case RGY_CSP_YUV422:
-        frameSize = m_sDecParam.width * m_sDecParam.height * 2; break;
+        frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2; break;
     case RGY_CSP_YUV444:
-        frameSize = m_sDecParam.width * m_sDecParam.height * 3; break;
+        frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3; break;
     case RGY_CSP_YV12_09:
     case RGY_CSP_YV12_10:
     case RGY_CSP_YV12_12:
     case RGY_CSP_YV12_14:
     case RGY_CSP_YV12_16:
-        frameSize = m_sDecParam.width * m_sDecParam.height * 3; break;
+        frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3; break;
     case RGY_CSP_YUV444_09:
     case RGY_CSP_YUV444_10:
     case RGY_CSP_YUV444_12:
     case RGY_CSP_YUV444_14:
     case RGY_CSP_YUV444_16:
-        frameSize = m_sDecParam.width * m_sDecParam.height * 6; break;
+        frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 6; break;
     default:
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    if (frameSize != fread(m_inputBuffer, 1, frameSize, m_fp)) {
+    if (frameSize != fread(m_pBuffer.get(), 1, frameSize, m_fSource)) {
         return RGY_ERR_MORE_DATA;
     }
     void *dst_array[3];
     dst_array[0] = dst;
-    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]);
-    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]); //YUV444出力時
+    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]);
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]); //YUV444出力時
 
     const void *src_array[3];
-    src_array[0] = m_inputBuffer;
-    src_array[1] = (uint8_t *)src_array[0] + m_sDecParam.src_pitch * m_sDecParam.height;
+    src_array[0] = m_pBuffer.get();
+    src_array[1] = (uint8_t *)src_array[0] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight;
     switch (m_sConvert->csp_from) {
     case RGY_CSP_YV12:
     case RGY_CSP_YV12_09:
@@ -311,10 +323,10 @@ RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     case RGY_CSP_YV12_12:
     case RGY_CSP_YV12_14:
     case RGY_CSP_YV12_16:
-        src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 4;
+        src_array[2] = (uint8_t *)src_array[1] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight / 4;
         break;
     case RGY_CSP_YUV422:
-        src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height / 2;
+        src_array[2] = (uint8_t *)src_array[1] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight / 2;
         break;
     case RGY_CSP_YUV444:
     case RGY_CSP_YUV444_09:
@@ -322,15 +334,17 @@ RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     case RGY_CSP_YUV444_12:
     case RGY_CSP_YUV444_14:
     case RGY_CSP_YUV444_16:
-        src_array[2] = (uint8_t *)src_array[1] + m_sDecParam.src_pitch * m_sDecParam.height;
+        src_array[2] = (uint8_t *)src_array[1] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight;
         break;
     case RGY_CSP_NV12:
     default:
         break;
     }
 
-    const int src_uv_pitch = (m_sConvert->csp_from == RGY_CSP_YUV444) ? m_sDecParam.src_pitch : m_sDecParam.src_pitch / 2;
-    m_sConvert->func[0](dst_array, src_array, m_sDecParam.width, m_sDecParam.src_pitch, src_uv_pitch, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+    const int src_uv_pitch = (m_sConvert->csp_from == RGY_CSP_YUV444) ? m_inputVideoInfo.srcPitch : m_inputVideoInfo.srcPitch / 2;
+    m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
+        dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
+        src_uv_pitch, dst_pitch, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     m_pEncSatusInfo->m_sData.frameIn++;
     return m_pEncSatusInfo->UpdateDisplay();

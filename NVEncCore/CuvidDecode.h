@@ -47,14 +47,14 @@
 
 bool check_if_nvcuvid_dll_available();
 
-struct InputVideoInfo;
+struct VideoInfo;
 
 class CuvidDecode {
 public:
     CuvidDecode();
     ~CuvidDecode();
 
-    CUresult InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, bool bCuvidResize, bool ignoreDynamicFormatChange = false);
+    CUresult InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, int nDecType, bool bCuvidResize, bool ignoreDynamicFormatChange = false);
     void CloseDecoder();
     CUresult DecodePacket(uint8_t *data, size_t nSize, int64_t timestamp, AVRational streamtimebase);
     CUresult FlushParser();

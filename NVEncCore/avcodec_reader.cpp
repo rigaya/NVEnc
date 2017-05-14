@@ -51,6 +51,8 @@
 #include "helper_cuda.h"
 #include "avcodec_qsv_log.h"
 
+cudaVideoCodec toENCCodec(RGY_CODEC codec);
+
 static inline void extend_array_size(VideoFrameData *dataset) {
     static int default_capacity = 8 * 1024;
     int current_cap = dataset->capacity;
@@ -155,15 +157,15 @@ void CAvcodecReader::Close() {
     }
     m_Demux.frames.clear();
 
-    memset(&m_sDecParam, 0, sizeof(m_sDecParam));
+    memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-cudaVideoCodec CAvcodecReader::getCuvidcc(uint32_t id) {
-    for (int i = 0; i < _countof(CUVID_DECODE_LIST); i++)
-        if (CUVID_DECODE_LIST[i].codec_id == id)
-            return CUVID_DECODE_LIST[i].cuvid_cc;
-    return cudaVideoCodec_NumCodecs;
+RGY_CODEC CAvcodecReader::checkHWDecoderAvailable(AVCodecID id) {
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
+        if (HW_DECODE_LIST[i].avcodec_id == id)
+            return HW_DECODE_LIST[i].rgy_codec;
+    return RGY_CODEC_UNKNOWN;
 }
 
 vector<int> CAvcodecReader::getStreamIndex(AVMediaType type, const vector<int> *pVidStreamIndex) {
@@ -451,9 +453,7 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
         }
     }
 
-    const uint64_t fps_gcd = nv_get_gcd(nAvgFramerate64.num, nAvgFramerate64.den);
-    nAvgFramerate64.num /= fps_gcd;
-    nAvgFramerate64.den /= fps_gcd;
+    rgy_reduce(nAvgFramerate64.num, nAvgFramerate64.den);
     m_Demux.video.nAvgFramerate = av_make_q((int)nAvgFramerate64.num, (int)nAvgFramerate64.den);
     AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (gcd): %d/%d\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
 
@@ -539,16 +539,15 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
+RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
 
     Close();
 
-    m_pEncSatusInfo = pStatus;
-    const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)inputPrm->otherPrm;
+    const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)prm;
 
     if (input_prm->bReadVideo) {
-        if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_ANY) {
-            m_strReaderName = (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) ? _T("avcuvid") : _T("avsw");
+        if (pInputInfo->type != RGY_INPUT_FMT_AVANY) {
+            m_strReaderName = (pInputInfo->type != RGY_INPUT_FMT_AVSW) ? _T("avcuvid") : _T("avsw");
         }
     } else {
         m_strReaderName = _T("avsw");
@@ -556,9 +555,11 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
 
     m_Demux.video.bReadVideo = input_prm->bReadVideo;
     if (input_prm->bReadVideo) {
-        m_pEncSatusInfo = pStatus;
+        m_pEncSatusInfo = pEncSatusInfo;
+        memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
+    } else {
+        memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
     }
-    memset(&m_sInputCrop, 0, sizeof(m_sInputCrop));
 
     if (!check_avcodec_dll()) {
         AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
@@ -590,7 +591,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
 
     int ret = 0;
     std::string filename_char;
-    if (0 == tchar_to_string(inputPrm->filename, filename_char, CP_UTF8)) {
+    if (0 == tchar_to_string(strFileName, filename_char, CP_UTF8)) {
         AddMessage(RGY_LOG_ERROR, _T("failed to convert filename to utf-8 characters.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
@@ -819,28 +820,26 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             m_sFramePosListLog = input_prm->pFramePosListLog;
         }
 
-        memset(&m_sDecParam, 0, sizeof(m_sDecParam));
-        m_sDecParam.codec = cudaVideoCodec_NumCodecs;
-
-        bool bDecodecCUVID = false;
-        if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) {
-            if (cudaVideoCodec_NumCodecs == (m_sDecParam.codec = getCuvidcc(m_Demux.video.pStream->codecpar->codec_id))
+        bool bDecodecHW = false;
+        if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
+            if (RGY_CODEC_UNKNOWN == (m_inputVideoInfo.codec = checkHWDecoderAvailable(m_Demux.video.pStream->codecpar->codec_id))
                 //wmv3はAdvanced Profile (3)のみの対応
                 || m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pStream->codecpar->profile != 3) {
-                if (input_prm->nVideoDecodeSW == AV_DECODE_MODE_CUVID) {
-                    //avcuvidが指定されている場合にはエラー終了する
+                if (m_inputVideoInfo.type == RGY_INPUT_FMT_AVHW) {
+                    //HWデコードが指定されている場合にはエラー終了する
                     AddMessage(RGY_LOG_ERROR, _T("codec %s unable to decode by cuvid.\n"),
                         char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str());
                     return RGY_ERR_INVALID_CODEC;
                 }
             } else {
-                bDecodecCUVID = true;
+                bDecodecHW = true;
                 //cuvidデコード時は、NV12のみ使用される
-                inputPrm->csp = RGY_CSP_NV12;
+                m_inputVideoInfo.csp = RGY_CSP_NV12;
                 AddMessage(RGY_LOG_DEBUG, _T("can be decoded by cuvid.\n"));
             }
         }
-        m_strReaderName = (bDecodecCUVID) ? _T("avcuvid") : _T("avsw");
+        m_strReaderName = (bDecodecHW) ? _T("avcuvid") : _T("avsw");
+        m_inputVideoInfo.type = (bDecodecHW) ? RGY_INPUT_FMT_AVHW : RGY_INPUT_FMT_AVSW;
 
         //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
         if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
@@ -854,26 +853,14 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             av_dict_free(&pDict);
         }
 
-
-        m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
-
-        //情報を格納
-        m_nInputCodec         = m_sDecParam.codec;
-        inputPrm->codec       = m_sDecParam.codec;
-        inputPrm->width       = m_Demux.video.pStream->codecpar->width;
-        inputPrm->height      = m_Demux.video.pStream->codecpar->height;
-        inputPrm->codedWidth  = m_Demux.video.pStream->codec->coded_width;
-        inputPrm->codedHeight = m_Demux.video.pStream->codec->coded_height;
-        inputPrm->sar[0]      = m_Demux.video.pStream->codecpar->sample_aspect_ratio.num;
-        inputPrm->sar[1]      = m_Demux.video.pStream->codecpar->sample_aspect_ratio.den;
-
         //必要ならbitstream filterを初期化
         if (m_Demux.video.pStream->codecpar->extradata && m_Demux.video.pStream->codecpar->extradata[0] == 1) {
-            if (m_sDecParam.codec == cudaVideoCodec_H264 || m_sDecParam.codec == cudaVideoCodec_HEVC) {
+            if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_H264 ||
+                m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
                 const char *filtername = nullptr;
-                switch (m_sDecParam.codec) {
-                case cudaVideoCodec_H264: filtername = "h264_mp4toannexb"; break;
-                case cudaVideoCodec_HEVC: filtername = "hevc_mp4toannexb"; break;
+                switch (m_Demux.video.pStream->codecpar->codec_id) {
+                case AV_CODEC_ID_H264: filtername = "h264_mp4toannexb"; break;
+                case AV_CODEC_ID_HEVC: filtername = "hevc_mp4toannexb"; break;
                 default: break;
                 }
                 if (filtername == nullptr) {
@@ -901,15 +888,17 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                 }
                 AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter.\n"), char_to_tstring(filter->name).c_str());
             }
-        } else if (bDecodecCUVID
-            && (m_Demux.video.pStream->codecpar->extradata == NULL && m_Demux.video.pStream->codecpar->extradata_size == 0)
-            && (m_sDecParam.codec != cudaVideoCodec_VP8 && m_sDecParam.codec != cudaVideoCodec_VP9)) {
+        //HWデコードする場合には、ヘッダーが必要
+        } else if (bDecodecHW
+            && (m_inputVideoInfo.codec != RGY_CODEC_VP8 && m_inputVideoInfo.codec != RGY_CODEC_VP9)
+            && m_Demux.video.pStream->codecpar->extradata == nullptr
+            && m_Demux.video.pStream->codecpar->extradata_size == 0) {
             AddMessage(RGY_LOG_ERROR, _T("video header not extracted by libavcodec.\n"));
             return RGY_ERR_UNKNOWN;
         }
         if (m_Demux.video.pStream->codecpar->extradata_size) {
-            inputPrm->codecExtra = m_Demux.video.pStream->codecpar->extradata;
-            inputPrm->codecExtraSize = m_Demux.video.pStream->codecpar->extradata_size;
+            m_inputVideoInfo.codecExtra = m_Demux.video.pStream->codecpar->extradata;
+            m_inputVideoInfo.codecExtraSize = m_Demux.video.pStream->codecpar->extradata_size;
         }
 
         AddMessage(RGY_LOG_DEBUG, _T("start predecode.\n"));
@@ -952,11 +941,11 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             }
             m_Demux.video.pCodecCtxParser->time_base = av_stream_get_codec_timebase(m_Demux.video.pStream);
             m_Demux.video.pCodecCtxParser->pkt_timebase = m_Demux.video.pStream->time_base;
-            AddMessage(RGY_LOG_ERROR, _T("initialized %s codec context for parser: time_base: %d/%d, pkt_timebase: %d/%d.\n"),
+            AddMessage(RGY_LOG_DEBUG, _T("initialized %s codec context for parser: time_base: %d/%d, pkt_timebase: %d/%d.\n"),
                 char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(),
                 m_Demux.video.pCodecCtxParser->time_base.num, m_Demux.video.pCodecCtxParser->time_base.den,
                 m_Demux.video.pCodecCtxParser->pkt_timebase.num, m_Demux.video.pCodecCtxParser->pkt_timebase.den);
-        } else if (bDecodecCUVID) {
+        } else if (bDecodecHW) {
             AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str());
             return RGY_ERR_NULL_PTR;
         }
@@ -993,44 +982,41 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             m_Demux.video.nAvgFramerate.num = input_prm->nVideoAvgFramerate.first;
             m_Demux.video.nAvgFramerate.den = input_prm->nVideoAvgFramerate.second;
         }
-        //getFirstFramePosAndFrameRateをもとにfpsを決定
-        inputPrm->rate = m_Demux.video.nAvgFramerate.num;
-        inputPrm->scale = m_Demux.video.nAvgFramerate.den;
 
         struct pixfmtInfo {
             AVPixelFormat pix_fmt;
             uint16_t bit_depth;
-            uint16_t chroma_format;
+            RGY_CHROMAFMT chroma_format;
             RGY_CSP output_csp;
         };
 
         static const pixfmtInfo pixfmtDataList[] = {
-            { AV_PIX_FMT_YUV420P,      8, cudaVideoChromaFormat_420, RGY_CSP_NV12 },
-            { AV_PIX_FMT_YUVJ420P,     8, cudaVideoChromaFormat_420, RGY_CSP_NV12 },
-            { AV_PIX_FMT_NV12,         8, cudaVideoChromaFormat_420, RGY_CSP_NV12 },
-            { AV_PIX_FMT_NV21,         8, cudaVideoChromaFormat_420, RGY_CSP_NV12 },
-            { AV_PIX_FMT_YUV422P,      8, cudaVideoChromaFormat_422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUVJ422P,     8, cudaVideoChromaFormat_422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUYV422,      8, cudaVideoChromaFormat_422, RGY_CSP_NA },
-            { AV_PIX_FMT_UYVY422,      8, cudaVideoChromaFormat_422, RGY_CSP_NA },
-            { AV_PIX_FMT_NV16,         8, cudaVideoChromaFormat_422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV444P,      8, cudaVideoChromaFormat_444, RGY_CSP_YUV444 },
-            { AV_PIX_FMT_YUVJ444P,     8, cudaVideoChromaFormat_444, RGY_CSP_YUV444 },
-            { AV_PIX_FMT_YUV420P16LE, 16, cudaVideoChromaFormat_420, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV420P14LE, 14, cudaVideoChromaFormat_420, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV420P12LE, 12, cudaVideoChromaFormat_420, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV420P10LE, 10, cudaVideoChromaFormat_420, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV420P9LE,   9, cudaVideoChromaFormat_420, RGY_CSP_P010 },
-            { AV_PIX_FMT_NV20LE,      10, cudaVideoChromaFormat_420, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV422P16LE, 16, cudaVideoChromaFormat_422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV422P14LE, 14, cudaVideoChromaFormat_422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV422P12LE, 12, cudaVideoChromaFormat_422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV422P10LE, 10, cudaVideoChromaFormat_422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV444P16LE, 16, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P14LE, 14, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P12LE, 12, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P10LE, 10, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 },
-            { AV_PIX_FMT_YUV444P9LE,   9, cudaVideoChromaFormat_444, RGY_CSP_YUV444_16 }
+            { AV_PIX_FMT_YUV420P,      8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
+            { AV_PIX_FMT_YUVJ420P,     8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
+            { AV_PIX_FMT_NV12,         8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
+            { AV_PIX_FMT_NV21,         8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
+            { AV_PIX_FMT_YUV422P,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUVJ422P,     8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUYV422,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_UYVY422,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_NV16,         8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV444P,      8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
+            { AV_PIX_FMT_YUVJ444P,     8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
+            { AV_PIX_FMT_YUV420P16LE, 16, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+            { AV_PIX_FMT_YUV420P14LE, 14, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+            { AV_PIX_FMT_YUV420P12LE, 12, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+            { AV_PIX_FMT_YUV420P10LE, 10, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+            { AV_PIX_FMT_YUV420P9LE,   9, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
+            { AV_PIX_FMT_NV20LE,      10, RGY_CHROMAFMT_YUV420, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P16LE, 16, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P14LE, 14, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P12LE, 12, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P10LE, 10, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV444P16LE, 16, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P14LE, 14, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P12LE, 12, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P10LE, 10, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
+            { AV_PIX_FMT_YUV444P9LE,   9, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 }
         };
 
         const auto pixfmt = (AVPixelFormat)m_Demux.video.pStream->codecpar->format;
@@ -1045,7 +1031,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
         const auto aspectRatio = m_Demux.video.pStream->sample_aspect_ratio;
         const bool bAspectRatioUnknown = aspectRatio.num * aspectRatio.den <= 0;
 
-        if (!bDecodecCUVID) {
+        if (!bDecodecHW) {
             if (nullptr == (m_Demux.video.pCodecDecode = avcodec_find_decoder(m_Demux.video.pStream->codecpar->codec_id))) {
                 AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.pStream->codecpar->codec_id).c_str());
                 return RGY_ERR_NOT_FOUND;
@@ -1071,52 +1057,73 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
                 AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNSUPPORTED;
             }
-            const std::map<AVPixelFormat, RGY_CSP> CSP_CONV = {
-                { AV_PIX_FMT_YUV420P,     RGY_CSP_YV12 },
-                { AV_PIX_FMT_YUVJ420P,    RGY_CSP_YV12 },
-                { AV_PIX_FMT_NV12,        RGY_CSP_NV12 },
-                { AV_PIX_FMT_NV21,        RGY_CSP_NV12 },
-                { AV_PIX_FMT_YUV422P,     RGY_CSP_NA },
-                { AV_PIX_FMT_YUVJ422P,    RGY_CSP_NA },
-                { AV_PIX_FMT_YUYV422,     RGY_CSP_YUY2 },
-                { AV_PIX_FMT_UYVY422,     RGY_CSP_NA },
-                { AV_PIX_FMT_NV16,        RGY_CSP_NA },
-                { AV_PIX_FMT_YUV444P,     RGY_CSP_YUV444 },
-                { AV_PIX_FMT_YUVJ444P,    RGY_CSP_YUV444 },
-                { AV_PIX_FMT_YUV420P16LE, RGY_CSP_YV12_16 },
-                { AV_PIX_FMT_YUV420P14LE, RGY_CSP_YV12_14 },
-                { AV_PIX_FMT_YUV420P12LE, RGY_CSP_YV12_12 },
-                { AV_PIX_FMT_YUV420P10LE, RGY_CSP_YV12_10 },
-                { AV_PIX_FMT_YUV420P9LE,  RGY_CSP_YV12_09 },
-                { AV_PIX_FMT_NV20LE,      RGY_CSP_NA },
-                { AV_PIX_FMT_YUV422P16LE, RGY_CSP_NA },
-                { AV_PIX_FMT_YUV422P14LE, RGY_CSP_NA },
-                { AV_PIX_FMT_YUV422P12LE, RGY_CSP_NA },
-                { AV_PIX_FMT_YUV422P10LE, RGY_CSP_NA },
-                { AV_PIX_FMT_YUV444P16LE, RGY_CSP_YUV444_16 },
-                { AV_PIX_FMT_YUV444P14LE, RGY_CSP_YUV444_14 },
-                { AV_PIX_FMT_YUV444P12LE, RGY_CSP_YUV444_12 },
-                { AV_PIX_FMT_YUV444P10LE, RGY_CSP_YUV444_10 },
-                { AV_PIX_FMT_YUV444P9LE,  RGY_CSP_YUV444_09 }
-            };
-            auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtxDecode->pix_fmt);
+
+            const RGY_CSP prefered_csp = (m_inputVideoInfo.csp != RGY_CSP_NA) ? m_inputVideoInfo.csp : RGY_CSP_NV12;
+
+            static const auto CSP_CONV = make_array<std::pair<AVPixelFormat, RGY_CSP>>(
+                std::make_pair(AV_PIX_FMT_YUV420P,     RGY_CSP_YV12),
+                std::make_pair(AV_PIX_FMT_YUVJ420P,    RGY_CSP_YV12),
+                std::make_pair(AV_PIX_FMT_NV12,        RGY_CSP_NV12),
+                std::make_pair(AV_PIX_FMT_NV21,        RGY_CSP_NV12),
+                std::make_pair(AV_PIX_FMT_YUV422P,     RGY_CSP_NA),
+                std::make_pair(AV_PIX_FMT_YUVJ422P,    RGY_CSP_NA),
+                std::make_pair(AV_PIX_FMT_YUYV422,     RGY_CSP_YUY2),
+                std::make_pair(AV_PIX_FMT_UYVY422,     RGY_CSP_NA),
+                std::make_pair(AV_PIX_FMT_NV16,        RGY_CSP_NA),
+                std::make_pair(AV_PIX_FMT_YUV444P,     RGY_CSP_YUV444),
+                std::make_pair(AV_PIX_FMT_YUVJ444P,    RGY_CSP_YUV444),
+                std::make_pair(AV_PIX_FMT_YUV420P16LE, RGY_CSP_YV12_16),
+                std::make_pair(AV_PIX_FMT_YUV420P14LE, RGY_CSP_YV12_14),
+                std::make_pair(AV_PIX_FMT_YUV420P12LE, RGY_CSP_YV12_12),
+                std::make_pair(AV_PIX_FMT_YUV420P10LE, RGY_CSP_YV12_10),
+                std::make_pair(AV_PIX_FMT_YUV420P9LE,  RGY_CSP_YV12_09),
+                std::make_pair(AV_PIX_FMT_NV20LE,      RGY_CSP_NA),
+                std::make_pair(AV_PIX_FMT_YUV422P16LE, RGY_CSP_NA),
+                std::make_pair(AV_PIX_FMT_YUV422P14LE, RGY_CSP_NA),
+                std::make_pair(AV_PIX_FMT_YUV422P12LE, RGY_CSP_NA),
+                std::make_pair(AV_PIX_FMT_YUV422P10LE, RGY_CSP_NA),
+                std::make_pair(AV_PIX_FMT_YUV444P16LE, RGY_CSP_YUV444_16),
+                std::make_pair(AV_PIX_FMT_YUV444P14LE, RGY_CSP_YUV444_14),
+                std::make_pair(AV_PIX_FMT_YUV444P12LE, RGY_CSP_YUV444_12),
+                std::make_pair(AV_PIX_FMT_YUV444P10LE, RGY_CSP_YUV444_10),
+                std::make_pair(AV_PIX_FMT_YUV444P9LE,  RGY_CSP_YUV444_09)
+            );
+            const auto pixCspConv = std::find_if(CSP_CONV.begin(), CSP_CONV.end(), [pix_fmt = m_Demux.video.pCodecCtxDecode->pix_fmt](decltype(CSP_CONV[0])& a) {
+                return a.first == pix_fmt;
+            });
             if (pixCspConv == CSP_CONV.end()
-                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, inputPrm->csp, false))) {
+                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, prefered_csp, false))) {
                 AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
+            m_InputCsp = pixCspConv->second;
+            m_inputVideoInfo.csp = prefered_csp;
             if (nullptr == (m_Demux.video.pFrame = av_frame_alloc())) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
                 return RGY_ERR_NULL_PTR;
             }
         }
 
-        memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
-        m_sDecParam.src_pitch = 0;
-        if (bDecodecCUVID) {
+        m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
+
+        //情報を格納
+        m_inputVideoInfo.srcWidth    = m_Demux.video.pStream->codecpar->width;
+        m_inputVideoInfo.srcHeight   = m_Demux.video.pStream->codecpar->height;
+        m_inputVideoInfo.codedWidth  = m_Demux.video.pStream->codec->coded_width;
+        m_inputVideoInfo.codedHeight = m_Demux.video.pStream->codec->coded_height;
+        m_inputVideoInfo.sar[0]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.pStream->codecpar->sample_aspect_ratio.num;
+        m_inputVideoInfo.sar[1]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.pStream->codecpar->sample_aspect_ratio.den;
+        m_inputVideoInfo.shift       = (pixfmtData->output_csp == RGY_CSP_P010) ? 16 - pixfmtData->bit_depth : 0;
+        m_inputVideoInfo.picstruct   = m_Demux.frames.getVideoPicStruct();
+        m_inputVideoInfo.frames      = 0;
+        //getFirstFramePosAndFrameRateをもとにfpsを決定
+        m_inputVideoInfo.fpsN        = m_Demux.video.nAvgFramerate.num;
+        m_inputVideoInfo.fpsD        = m_Demux.video.nAvgFramerate.den;
+
+        if (bDecodecHW) {
             tstring mes = strsprintf(_T("avcuvid: %s, %dx%d, %d/%d fps"),
-                CodecIdToStr(inputPrm->codec).c_str(),
-                inputPrm->width, inputPrm->height, inputPrm->rate, inputPrm->scale);
+                CodecToStr(m_inputVideoInfo.codec).c_str(),
+                m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
             if (input_prm->fSeekSec > 0.0f) {
                 mes += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
             }
@@ -1124,12 +1131,17 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             m_strInputInfo += mes;
         } else {
             CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id))).c_str(),
-                RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
+                RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
             if (input_prm->fSeekSec > 0.0f) {
                 m_strInputInfo += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
             }
             AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
         }
+        AddMessage(RGY_LOG_DEBUG, _T("sar %d:%d, shift %d\n"),
+            m_inputVideoInfo.sar[0], m_inputVideoInfo.sar[1], m_inputVideoInfo.shift);
+
+        *pInputInfo = m_inputVideoInfo;
+
         //スレッド関連初期化
         m_Demux.thread.bAbortInput = false;
         auto nPrmInputThread = input_prm->nInputThread;
@@ -1172,7 +1184,7 @@ RGY_ERR CAvcodecReader::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> 
             tstring codec_name = char_to_tstring(avcodec_get_name(stream.pStream->codecpar->codec_id));
             mes += codec_name;
             AddMessage(RGY_LOG_DEBUG, _T("avcodec %s: %s from %s\n"),
-                get_media_type_string(stream.pStream->codecpar->codec_id).c_str(), codec_name.c_str(), inputPrm->filename);
+                get_media_type_string(stream.pStream->codecpar->codec_id).c_str(), codec_name.c_str(), strFileName);
         }
         m_strInputInfo += _T("avcodec audio: ") + mes;
     }
@@ -1296,7 +1308,7 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
                     return 1;
                 }
             }
-            if (m_nInputCodec == cudaVideoCodec_VC1) {
+            if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_VC1) {
                 vc1AddFrameHeader(pkt);
             }
             //最初のキーフレームを取得するまではスキップする
@@ -1601,10 +1613,11 @@ RGY_ERR CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
             memcpy(m_Demux.video.pExtradata, pkt.data, pkt.size);
             m_Demux.video.nExtradataSize = pkt.size;
             av_packet_unref(&pkt);
-        } else if (m_nInputCodec == cudaVideoCodec_VC1) {
+        } else if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_VC1) {
             int lengthFix = (0 == strcmp(m_Demux.format.pFormatCtx->iformat->name, "mpegts")) ? 0 : -1;
             vc1FixHeader(lengthFix);
         }
+        AddMessage(RGY_LOG_DEBUG, _T("GetHeader: %d bytes.\n"), m_Demux.video.nExtradataSize);
     }
     
     bitstream.resize(m_Demux.video.nExtradataSize);
@@ -1670,11 +1683,13 @@ RGY_ERR CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
 
         void *dst_array[3];
         dst_array[0] = dst;
-        dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]);
-        dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]); //YUV444出力時
+        dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]);
+        dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]); //YUV444出力時
 
-        bool m_bInterlaced;
-        m_sConvert->func[!!m_Demux.video.pFrame->interlaced_frame](dst_array, (const void **)m_Demux.video.pFrame->data, m_sDecParam.width, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+        m_sConvert->func[m_Demux.video.pFrame->interlaced_frame != 0](
+            dst_array, (const void **)m_Demux.video.pFrame->data,
+            m_inputVideoInfo.srcWidth, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], dst_pitch,
+            m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
         if (got_frame) {
             av_frame_unref(m_Demux.video.pFrame);
         }

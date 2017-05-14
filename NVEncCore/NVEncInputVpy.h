@@ -74,17 +74,12 @@ typedef struct {
     func_vs_getVSApi       getVSApi;
 } vsscript_t;
 
-typedef struct InputInfoVpy {
-    bool interlaced;
-    bool mt;
-} InputInfoVpy;
-
 class NVEncInputVpy : public NVEncBasicInput {
 public:
     NVEncInputVpy();
     ~NVEncInputVpy();
 
-    virtual RGY_ERR Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) override;
     virtual void Close() override;
     
@@ -116,9 +111,6 @@ protected:
     VSScript *m_sVSscript;
     VSNodeRef *m_sVSnode;
     int m_nAsyncFrames;
-
-    int m_nFrame;
-    int m_nMaxFrame;
 
     vsscript_t m_sVS;
 };

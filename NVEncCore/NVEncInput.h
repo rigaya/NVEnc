@@ -41,9 +41,10 @@
 #include "NVEncParam.h"
 #include <nvcuvid.h>
 #include "rgy_err.h"
+#include "rgy_util.h"
 
 enum RGY_INPUT_FMT {
-    RGY_INPUT_FMT_UNKNWON = 0,
+    RGY_INPUT_FMT_AUTO = 0,
     RGY_INPUT_FMT_AUO = 0,
     RGY_INPUT_FMT_RAW,
     RGY_INPUT_FMT_Y4M,
@@ -56,29 +57,78 @@ enum RGY_INPUT_FMT {
     RGY_INPUT_FMT_AVANY,
 };
 
-typedef struct InputVideoInfo {
-    RGY_INPUT_FMT type;   //種類 (RGY_INPUT_FMT_xxx)
-    uint32_t width;       //横解像度
-    uint32_t height;      //縦解像度
-    uint32_t src_pitch;
-    uint32_t codedWidth;
-    uint32_t codedHeight;
-    uint32_t dstWidth;    //出力解像度
-    uint32_t dstHeight;   //出力解像度
-    int scale;            //フレームレート (分子)
-    int rate;             //フレームレート (分母)
-    sInputCrop crop;      //入力時切り落とし
-    int sar[2];           //par
-    RGY_CSP csp;       //入力色空間 (RGY_CSP_xxx)
-    TCHAR *filename;         //入力ファイル名
-    cudaVideoCodec codec;    //入力コーデック (デコード時使用)
-    void *codecExtra;        //入力コーデックのヘッダー
-    uint32_t codecExtraSize; //入力コーデックのヘッダーの大きさ
-    int cuvidType;           //avcuvidリーダーを使用する際のモード (NV_ENC_AVCUVID_xxx)
-    void *otherPrm;          //その他入力情報
-} InputVideoInfo;
+struct VideoInfo {
+    //[ i    ] 入力モジュールに渡す際にセットする
+    //[    i ] 入力モジュールによってセットされる
+    //[ o    ] 出力モジュールに渡す際にセットする
 
-static_assert(std::is_pod<InputVideoInfo>::value == true, "InputVideoInfo is POD");
+    //[ i (i)] 種類 (RGY_INPUT_FMT_xxx)
+    //  i      使用する入力モジュールの種類
+    //     i   変更があれば
+    RGY_INPUT_FMT type;
+
+    //[(i) i ] 入力横解像度
+    uint32_t srcWidth;
+
+    //[(i) i ] 入力縦解像度
+    uint32_t srcHeight;
+
+    //[(i)(i)] 入力ピッチ 0なら入力横解像度に同じ
+    uint32_t srcPitch;
+
+    uint32_t codedWidth;     //[   (i)] 
+    uint32_t codedHeight;    //[   (i)]
+
+    //[      ] 出力解像度
+    uint32_t dstWidth;
+
+    //[      ] 出力解像度
+    uint32_t dstHeight;
+
+    //[      ] 出力解像度
+    uint32_t dstPitch;
+
+    //[    i ] 入力の取得した総フレーム数 (不明なら0)
+    int frames;
+
+    //[   (i)] 右shiftすべきビット数
+    int shift;
+
+    //[   (i)] 入力の取得したフレームレート (分子)
+    int fpsN;
+
+    //[   (i)] 入力の取得したフレームレート (分母)
+    int fpsD;
+
+    //[ i    ] 入力時切り落とし
+    sInputCrop crop;
+
+    //[   (i)] 入力の取得したアスペクト比
+    int sar[2];
+
+    //[(i) i ] 入力色空間 (RGY_CSP_xxx)
+    //  i      取得したい色空間をセット
+    //     i   入力の取得する色空間
+    RGY_CSP csp;
+
+    //[(i)(i)] RGY_PICSTRUCT_xxx
+    //  i      ユーザー指定の設定をセット
+    //     i   入力の取得した値、あるいはそのまま
+    RGY_PICSTRUCT picstruct;
+
+    //[    i ] 入力コーデック (デコード時使用)
+    //     i   HWデコード時セット
+    RGY_CODEC codec;
+
+    //[      ] 入力コーデックのヘッダー
+    void *codecExtra;
+
+    //[      ] 入力コーデックのヘッダーの大きさ
+    uint32_t codecExtraSize;
+};
+
+
+static_assert(std::is_pod<VideoInfo>::value == true, "VideoInfo is POD");
 
 class NVEncBasicInput {
 public:
@@ -89,8 +139,8 @@ public:
         m_pPrintMes = pNVLog;
     }
 
-    virtual RGY_ERR Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus);
-    virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch);
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) = 0;
+    virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) = 0;
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
@@ -111,10 +161,6 @@ public:
         return &m_sTrimParam;
     }
 
-    void GetInputCropInfo(sInputCrop *cropInfo) {
-        memcpy(cropInfo, &m_sInputCrop, sizeof(m_sInputCrop));
-    }
-
     //入力ファイルに存在する音声のトラック数を返す
     virtual int GetAudioTrackCount() {
         return 0;
@@ -125,9 +171,11 @@ public:
         return 0;
     }
 
-    //デコードするストリームの情報を取得する
-    void GetDecParam(InputVideoInfo *decParam) {
-        memcpy(decParam, &m_sDecParam, sizeof(m_sDecParam));
+    sInputCrop GetInputCropInfo() {
+        return m_inputVideoInfo.crop;
+    }
+    VideoInfo GetInputFrameInfo() {
+        return m_inputVideoInfo;
     }
 
     const TCHAR *GetInputMessage() {
@@ -160,12 +208,13 @@ public:
         AddMessage(log_level, buffer);
     }
 
-    //デコードを行うかどうかを返す
-    bool inputCodecIsValid() {
-        return m_nInputCodec != cudaVideoCodec_NumCodecs;
+    //HWデコードを行う場合のコーデックを返す
+    //行わない場合はRGY_CODEC_UNKNOWNを返す
+    RGY_CODEC getInputCodec() {
+        return m_inputVideoInfo.codec;
     }
 protected:
-    virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *convSIMD, const TCHAR *outputCSpName, const InputVideoInfo *inputPrm);
+    virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *convSIMD, const TCHAR *outputCSpName, const VideoInfo *inputPrm);
 
     //trim listを参照し、動画の最大フレームインデックスを取得する
     int getVideoTrimMaxFramIdx() {
@@ -175,15 +224,14 @@ protected:
         return m_sTrimParam.list[m_sTrimParam.list.size()-1].fin;
     }
 
+    VideoInfo m_inputVideoInfo;
+    RGY_CSP m_InputCsp;
+    const ConvertCSP *m_sConvert;
     shared_ptr<EncodeStatus> m_pEncSatusInfo;
-    FILE *m_fp = NULL;
-    tstring m_strInputInfo;
-    const ConvertCSP *m_sConvert = nullptr;
     shared_ptr<CNVEncLog> m_pPrintMes;  //ログ出力
+
+    tstring m_strInputInfo;
     tstring m_strReaderName;    //読み込みの名前
-    InputVideoInfo m_sDecParam; //デコード情報
-    sInputCrop m_sInputCrop;
 
     sTrimParam m_sTrimParam;
-    int m_nInputCodec;
 };

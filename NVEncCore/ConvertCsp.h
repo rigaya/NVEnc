@@ -29,6 +29,7 @@
 #ifndef _CONVERT_CSP_H_
 #define _CONVERT_CSP_H_
 
+#include <cstdint>
 #include <tchar.h>
 
 typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
@@ -95,6 +96,70 @@ static const int RGY_CSP_BIT_DEPTH[] = {
     16, //RGY_CSP_YUV444_16
     10, //RGY_CSP_YC48
 };
+
+enum RGY_CHROMAFMT {
+    RGY_CHROMAFMT_UNKNOWN = 0,
+    RGY_CHROMAFMT_MONOCHROME = 0,
+    RGY_CHROMAFMT_YUV420,
+    RGY_CHROMAFMT_YUV422,
+    RGY_CHROMAFMT_YUV444,
+    RGY_CHROMAFMT_RGB,
+};
+
+static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
+    RGY_CHROMAFMT_UNKNOWN, //RGY_CSP_NA
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_NV12
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_YV12
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_YUY2 
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_YUV422
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_YV12_09
+    RGY_CHROMAFMT_YUV420,
+    RGY_CHROMAFMT_YUV420,
+    RGY_CHROMAFMT_YUV420,
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_YV12_16
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_P010
+    RGY_CHROMAFMT_YUV420, //RGY_CSP_P210
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_09
+    RGY_CHROMAFMT_YUV444,
+    RGY_CHROMAFMT_YUV444,
+    RGY_CHROMAFMT_YUV444,
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_16
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YC48
+};
+
+enum RGY_PICSTRUCT : uint32_t {
+    RGY_PICSTRUCT_UNKNOWN      = 0x00,
+    RGY_PICSTRUCT_FRAME        = 0x01, //フレームとして符号化されている
+    RGY_PICSTRUCT_FIELD        = 0x02, //フィールドとして符号化されている
+    RGY_PICSTRUCT_TFF          = 0x04,
+    RGY_PICSTRUCT_BFF          = 0x08,
+    RGY_PICSTRUCT_INTERLACED   = 0x00 | RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF,   //インタレ
+    RGY_PICSTRUCT_FRAME_TFF    = 0x00 | RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (TFF)
+    RGY_PICSTRUCT_FRAME_BFF    = 0x00 | RGY_PICSTRUCT_BFF | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (BFF)
+    RGY_PICSTRUCT_FIELD_TOP    = 0x00 | RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_FIELD, //フィールドとして符号化されている (Topフィールド)
+    RGY_PICSTRUCT_FIELD_BOTTOM = 0x00 | RGY_PICSTRUCT_BFF | RGY_PICSTRUCT_FIELD, //フィールドとして符号化されている (Bottomフィールド)
+};
+
+static RGY_PICSTRUCT operator|(RGY_PICSTRUCT a, RGY_PICSTRUCT b) {
+    return (RGY_PICSTRUCT)((uint8_t)a | (uint8_t)b);
+}
+
+static RGY_PICSTRUCT operator|=(RGY_PICSTRUCT& a, RGY_PICSTRUCT b) {
+    a = a | b;
+    return a;
+}
+
+static RGY_PICSTRUCT operator&(RGY_PICSTRUCT a, RGY_PICSTRUCT b) {
+    return (RGY_PICSTRUCT)((uint8_t)a & (uint8_t)b);
+}
+
+static RGY_PICSTRUCT operator&=(RGY_PICSTRUCT& a, RGY_PICSTRUCT b) {
+    a = (RGY_PICSTRUCT)((uint8_t)a & (uint8_t)b);
+    return a;
+}
 
 typedef struct ConvertCSP {
     RGY_CSP csp_from, csp_to;

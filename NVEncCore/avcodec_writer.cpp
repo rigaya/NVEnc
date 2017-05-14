@@ -252,10 +252,10 @@ void CAvcodecWriter::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-AVCodecID CAvcodecWriter::getAVCodecId(cudaVideoCodec cuvid_cc) {
-    for (int i = 0; i < _countof(CUVID_DECODE_LIST); i++)
-        if (CUVID_DECODE_LIST[i].cuvid_cc == cuvid_cc)
-            return (AVCodecID)CUVID_DECODE_LIST[i].codec_id;
+AVCodecID CAvcodecWriter::getAVCodecId(RGY_CODEC codec) {
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
+        if (HW_DECODE_LIST[i].rgy_codec == codec)
+            return HW_DECODE_LIST[i].avcodec_id;
     return AV_CODEC_ID_NONE;
 }
 bool CAvcodecWriter::codecIDIsPCM(AVCodecID targetCodec) {

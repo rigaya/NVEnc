@@ -338,8 +338,8 @@ private:
     //PCMのコーデックがwav出力時に変換を必要とするかを判定する
     AVCodecID PCMRequiresConversion(const AVCodecParameters *pCodecParm);
 
-    //NVEncのコーデックFourccからAVCodecのCodecIDを返す
-    AVCodecID getAVCodecId(cudaVideoCodec cuvid_cc);
+    //RGY_CODECのcodecからAVCodecのCodecIDを返す
+    AVCodecID getAVCodecId(RGY_CODEC codec);
 
     //AAC音声にBitstreamフィルターを適用する
     RGY_ERR applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);

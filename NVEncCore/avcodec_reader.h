@@ -85,35 +85,6 @@ static RGYPtsStatus operator&=(RGYPtsStatus& a, RGYPtsStatus b) {
     return a;
 }
 
-enum RGYPicstruct : uint8_t {
-    RGY_PICSTRUCT_UNKNOWN      = 0x00,
-    RGY_PICSTRUCT_FRAME        = 0x01,                         //フレームとして符号化されている
-    RGY_PICSTRUCT_FRAME_TFF    = 0x02 | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (TFF)
-    RGY_PICSTRUCT_FRAME_BFF    = 0x04 | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (BFF)
-    RGY_PICSTRUCT_FIELD        = 0x08,                         //フィールドとして符号化されている
-    RGY_PICSTRUCT_FIELD_TOP    = RGY_PICSTRUCT_FIELD,        //フィールドとして符号化されている (Topフィールド)
-    RGY_PICSTRUCT_FIELD_BOTTOM = 0x10 | RGY_PICSTRUCT_FIELD, //フィールドとして符号化されている (Bottomフィールド)
-    RGY_PICSTRUCT_INTERLACED   = ((uint8_t)RGY_PICSTRUCT_FRAME_TFF | (uint8_t)RGY_PICSTRUCT_FRAME_BFF | (uint8_t)RGY_PICSTRUCT_FIELD_TOP | (uint8_t)RGY_PICSTRUCT_FIELD_BOTTOM) & ~RGY_PICSTRUCT_FRAME, //インタレ
-};
-
-static RGYPicstruct operator|(RGYPicstruct a, RGYPicstruct b) {
-    return (RGYPicstruct)((uint8_t)a | (uint8_t)b);
-}
-
-static RGYPicstruct operator|=(RGYPicstruct& a, RGYPicstruct b) {
-    a = a | b;
-    return a;
-}
-
-static RGYPicstruct operator&(RGYPicstruct a, RGYPicstruct b) {
-    return (RGYPicstruct)((uint8_t)a & (uint8_t)b);
-}
-
-static RGYPicstruct operator&=(RGYPicstruct& a, RGYPicstruct b) {
-    a = (RGYPicstruct)((uint8_t)a & (uint8_t)b);
-    return a;
-}
-
 //フレームの位置情報と長さを格納する
 typedef struct FramePos {
     int64_t pts;  //pts
@@ -122,7 +93,7 @@ typedef struct FramePos {
     int duration2; //ペアフィールドの表示時間
     int poc; //出力時のフレーム番号
     uint8_t flags;    //flags (キーフレームならAV_PKT_FLAG_KEY)
-    RGYPicstruct pic_struct; //RGY_PICSTRUCT_xxx
+    uint8_t pic_struct; //RGY_PICSTRUCT_xxx
     uint8_t repeat_pict; //通常は1, RFFなら2+
     uint8_t pict_type; //I,P,Bフレーム
 } FramePos;
@@ -136,7 +107,7 @@ typedef struct FramePos {
 static FramePos framePos(int64_t pts, int64_t dts,
     int duration, int duration2 = 0,
     int poc = AVQSV_POC_INVALID,
-    uint8_t flags = 0, RGYPicstruct pic_struct = RGY_PICSTRUCT_FRAME, uint8_t repeat_pict = 0, uint8_t pict_type = 0) {
+    uint8_t flags = 0, uint8_t pic_struct = RGY_PICSTRUCT_FRAME, uint8_t repeat_pict = 0, uint8_t pict_type = 0) {
     FramePos pos;
     pos.pts = pts;
     pos.dts = dts;
@@ -471,16 +442,15 @@ public:
             m_nPtsWrapArroundThreshold = (uint32_t)clamp((int64_t)(std::max)((uint32_t)(pts1 - pts0), (uint32_t)(m_dFrameDuration + 0.5)) * 360, 360, (int64_t)0xFFFFFFFF);
         }
     }
-    int getMfxPicStruct() {
-        const uint8_t bottomFeildMask = (RGY_PICSTRUCT_FRAME_BFF | RGY_PICSTRUCT_FIELD_BOTTOM) & (~RGY_PICSTRUCT_FIELD) & ~(RGY_PICSTRUCT_FRAME);
+    RGY_PICSTRUCT getVideoPicStruct() {
         const int nListSize = (int)m_list.size();
         for (int i = 0; i < nListSize; i++) {
             auto pic_struct = m_list[i].data.pic_struct;
             if (pic_struct & RGY_PICSTRUCT_INTERLACED) {
-                return (pic_struct & bottomFeildMask) ? NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP : NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM;
+                return (RGY_PICSTRUCT)(pic_struct & RGY_PICSTRUCT_INTERLACED);
             }
         }
-        return NV_ENC_PIC_STRUCT_FRAME;
+        return RGY_PICSTRUCT_FRAME;
     }
 protected:
     //ptsでソート
@@ -721,26 +691,10 @@ typedef struct AVDemuxer {
     CQueueSPSP<AVPacket>     qStreamPktL2;
 } AVDemuxer;
 
-enum AVDecodeMode {
-    AV_DECODE_MODE_ANY = 0,
-    AV_DECODE_MODE_CUVID,
-    AV_DECODE_MODE_SW
-};
-
-static AVDecodeMode decodeModeFromInputFmtType(int inputFmt) {
-    switch (inputFmt) {
-    case RGY_INPUT_FMT_AVHW: return AV_DECODE_MODE_CUVID;
-    case RGY_INPUT_FMT_AVSW:    return AV_DECODE_MODE_SW;
-    case RGY_INPUT_FMT_AVANY:
-    default: return AV_DECODE_MODE_ANY;
-    }
-}
-
 typedef struct AvcodecReaderPrm {
     uint8_t        memType;                 //使用するメモリの種類
     const TCHAR   *pInputFormat;            //入力フォーマット
     bool           bReadVideo;              //映像の読み込みを行うかどうか
-    AVDecodeMode   nVideoDecodeSW;          //動画をデコードするか
     int            nVideoTrack;             //動画トラックの選択
     int            nVideoStreamId;          //動画StreamIdの選択
     uint32_t       nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
@@ -771,7 +725,7 @@ public:
     CAvcodecReader();
     virtual ~CAvcodecReader();
 
-    virtual RGY_ERR Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
 
     virtual void Close();
 
@@ -813,8 +767,8 @@ public:
     HANDLE getThreadHandleInput();
 
 private:
-    //avcodecのコーデックIDからcuvidのコーデックのcodec idを取得
-    cudaVideoCodec getCuvidcc(uint32_t id);
+    //avcodecのコーデックIDからHWデコード可能ならRGY_CODECを返す
+    RGY_CODEC checkHWDecoderAvailable(AVCodecID id);
 
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
     //動画ストリーム以外は、vidStreamIdに近いstreamIDのものの順番にソートする

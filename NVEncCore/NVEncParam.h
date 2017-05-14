@@ -37,18 +37,10 @@
 #pragma warning (pop)
 #include "nvEncodeAPI.h"
 #include "NVEncoderPerf.h"
-#include "NVEncUtil.h"
+#include "rgy_util.h"
+#include "ConvertCsp.h"
 
 using std::vector;
-
-enum {
-    RGY_LOG_TRACE = -3,
-    RGY_LOG_DEBUG = -2,
-    RGY_LOG_MORE  = -1,
-    RGY_LOG_INFO  = 0,
-    RGY_LOG_WARN  = 1,
-    RGY_LOG_ERROR = 2,
-};
 
 enum {
     NV_RESAMPLER_SWR,
@@ -396,9 +388,9 @@ const CX_DESC list_nvenc_rc_method_en[] = {
 };
 
 const CX_DESC list_interlaced[] = {
-    { _T("progressive"), NV_ENC_PIC_STRUCT_FRAME            },
-    { _T("tff"),         NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM },
-    { _T("bff"),         NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP },
+    { _T("progressive"), RGY_PICSTRUCT_FRAME     },
+    { _T("tff"),         RGY_PICSTRUCT_FRAME_TFF },
+    { _T("bff"),         RGY_PICSTRUCT_FRAME_BFF },
     { NULL, NULL }
 };
 const CX_DESC list_entropy_coding[] = {

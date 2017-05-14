@@ -71,6 +71,7 @@
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
 
+
 using std::deque;
 
 class FrameBufferDataIn {
@@ -156,25 +157,6 @@ public:
     }
 };
 
-static RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
-    switch (enc_buffer_format) {
-    case NV_ENC_BUFFER_FORMAT_NV12:
-        return RGY_CSP_NV12;
-    case NV_ENC_BUFFER_FORMAT_YV12:
-    case NV_ENC_BUFFER_FORMAT_IYUV:
-        return RGY_CSP_YV12;
-    case NV_ENC_BUFFER_FORMAT_YUV444:
-        return RGY_CSP_YUV444;
-    case NV_ENC_BUFFER_FORMAT_YUV420_10BIT:
-        return RGY_CSP_P010;
-    case NV_ENC_BUFFER_FORMAT_YUV444_10BIT:
-        return RGY_CSP_YUV444_16;
-    case NV_ENC_BUFFER_FORMAT_UNDEFINED:
-    default:
-        return RGY_CSP_NA;
-    }
-}
-
 bool check_if_nvcuda_dll_available() {
     //check for nvcuda.dll
     HMODULE hModule = LoadLibrary(_T("nvcuda.dll"));
@@ -212,13 +194,12 @@ NVEncoderGPUInfo::NVEncoderGPUInfo() {
 
 InEncodeVideoParam::InEncodeVideoParam() :
     input(),
+    inputFilename(),
     outputFilename(),
     sAVMuxOutputFormat(),
     preset(0),
     deviceID(0),
-    inputBuffer(16),
     par(),
-    picStruct(NV_ENC_PIC_STRUCT_FRAME),
     encConfig(),
     codec(0),
     bluray(0),                   //bluray出力
@@ -394,22 +375,23 @@ NVENCSTATUS NVEncCore::readChapterFile(const tstring& chapfile) {
 NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
     int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
+
 #if RAW_READER
-    if (inputParam->input.type == RGY_INPUT_FMT_UNKNWON) {
-        if (check_ext(inputParam->input.filename, { ".y4m" })) {
+    if (inputParam->input.type == RGY_INPUT_FMT_AUTO) {
+        if (check_ext(inputParam->inputFilename, { ".y4m" })) {
             inputParam->input.type = RGY_INPUT_FMT_Y4M;
-        } else if (check_ext(inputParam->input.filename, { ".yuv" })) {
+        } else if (check_ext(inputParam->inputFilename, { ".yuv" })) {
             inputParam->input.type = RGY_INPUT_FMT_RAW;
 #if AVI_READER
-        } else if (check_ext(inputParam->input.filename, { ".avi" })) {
+        } else if (check_ext(inputParam->inputFilename, { ".avi" })) {
             inputParam->input.type = RGY_INPUT_FMT_AVI;
 #endif
 #if AVS_READER
-        } else if (check_ext(inputParam->input.filename, { ".avs" })) {
+        } else if (check_ext(inputParam->inputFilename, { ".avs" })) {
             inputParam->input.type = RGY_INPUT_FMT_AVS;
 #endif
 #if VPY_READER
-        } else if (check_ext(inputParam->input.filename, { ".vpy" })) {
+        } else if (check_ext(inputParam->inputFilename, { ".vpy" })) {
             inputParam->input.type = RGY_INPUT_FMT_VPY_MT;
 #endif
         } else {
@@ -442,22 +424,15 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         PrintMes(RGY_LOG_ERROR, _T("avsw reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    
-#if AVS_READER
-    InputInfoAvs inputInfoAvs = { 0 };
-#endif
-#if VPY_READER
-    InputInfoVpy inputInfoVpy = { 0 };
-#endif
+
 #if ENABLE_AVCUVID_READER
     AvcodecReaderPrm inputInfoAVCuvid = { 0 };
 #endif
+    void *pInputPrm = nullptr;
 
     switch (inputParam->input.type) {
 #if AVS_READER
     case RGY_INPUT_FMT_AVS:
-        inputInfoAvs.interlaced = is_interlaced(inputParam->picStruct);
-        inputParam->input.otherPrm = &inputInfoAvs;
         PrintMes(RGY_LOG_DEBUG, _T("avs reader selected.\n"));
         m_pFileReader.reset(new NVEncInputAvs());
         break;
@@ -465,9 +440,6 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #if VPY_READER
     case RGY_INPUT_FMT_VPY:
     case RGY_INPUT_FMT_VPY_MT:
-        inputInfoVpy.interlaced = is_interlaced(inputParam->picStruct);
-        inputInfoVpy.mt = (inputParam->input.type == RGY_INPUT_FMT_VPY_MT);
-        inputParam->input.otherPrm = &inputInfoVpy;
         PrintMes(RGY_LOG_DEBUG, _T("vpy reader selected.\n"));
         m_pFileReader.reset(new NVEncInputVpy());
         break;
@@ -478,13 +450,12 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     case RGY_INPUT_FMT_AVANY:
         inputInfoAVCuvid.pInputFormat = inputParam->pAVInputFormat;
         inputInfoAVCuvid.bReadVideo = true;
-        inputInfoAVCuvid.nVideoDecodeSW = decodeModeFromInputFmtType(inputParam->input.type);
         inputInfoAVCuvid.nVideoTrack = inputParam->nVideoTrack;
         inputInfoAVCuvid.nVideoStreamId = inputParam->nVideoStreamId;
         inputInfoAVCuvid.nReadAudio = inputParam->nAudioSelectCount > 0;
         inputInfoAVCuvid.bReadSubtitle = inputParam->nSubtitleSelectCount > 0;
         inputInfoAVCuvid.bReadChapter = !!inputParam->bCopyChapter;
-        inputInfoAVCuvid.nVideoAvgFramerate = std::make_pair(inputParam->input.rate, inputParam->input.scale);
+        inputInfoAVCuvid.nVideoAvgFramerate = std::make_pair(inputParam->input.fpsN, inputParam->input.fpsD);
         inputInfoAVCuvid.nAnalyzeSec = inputParam->nAVDemuxAnalyzeSec;
         inputInfoAVCuvid.nTrimCount = inputParam->nTrimCount;
         inputInfoAVCuvid.pTrimList = inputParam->pTrimList;
@@ -500,7 +471,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.pFramePosListLog = inputParam->sFramePosListLog.c_str();
         inputInfoAVCuvid.nInputThread = inputParam->nInputThread;
         inputInfoAVCuvid.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
-        inputParam->input.otherPrm = &inputInfoAVCuvid;
+        pInputPrm = &inputInfoAVCuvid;
         PrintMes(RGY_LOG_DEBUG, _T("avcuvid reader selected.\n"));
         m_pFileReader.reset(new CAvcodecReader());
         break;
@@ -517,25 +488,25 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     m_pStatus.reset(new EncodeStatus());
     m_pStatus->init(m_pNVLog);
     m_pFileReader->SetNVEncLogPtr(m_pNVLog);
-    int ret = m_pFileReader->Init(&inputParam->input, m_pStatus);
+    int ret = m_pFileReader->Init(inputParam->inputFilename.c_str(), &inputParam->input, pInputPrm, m_pStatus);
     if (ret != 0) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
         return NV_ENC_ERR_GENERIC;
     }
-    m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
-    m_pStatus->m_nOutputFPSScale = inputParam->input.scale;
+    m_pStatus->m_sData.frameTotal = inputParam->input.frames;
+    m_pStatus->m_nOutputFPSRate = inputParam->input.fpsN;
+    m_pStatus->m_nOutputFPSScale = inputParam->input.fpsD;
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
 
-    m_inputFps.first = inputParam->input.rate;
-    m_inputFps.second = inputParam->input.scale;
+    m_inputFps.first = inputParam->input.fpsN;
+    m_inputFps.second = inputParam->input.fpsD;
 
 #if ENABLE_AVCUVID_READER
     if (inputParam->nAudioSourceCount > 0) {
 
         for (int i = 0; i < (int)inputParam->nAudioSourceCount; i++) {
-            InputVideoInfo inputInfo = inputParam->input;
-            inputInfo.filename = inputParam->ppAudioSourceList[i];
+            VideoInfo inputInfo = inputParam->input;
 
             AvcodecReaderPrm inputInfoAVAudioReader = { 0 };
             inputInfoAVAudioReader.bReadVideo = false;
@@ -556,11 +527,10 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             inputInfoAVAudioReader.pFramePosListLog = inputParam->sFramePosListLog.c_str();
             inputInfoAVAudioReader.nInputThread = 0;
             inputInfoAVAudioReader.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
-            inputInfo.otherPrm = &inputInfoAVAudioReader;
 
             unique_ptr<CAvcodecReader> audioReader(new CAvcodecReader());
             audioReader->SetNVEncLogPtr(m_pNVLog);
-            ret = audioReader->Init(&inputInfo, nullptr);
+            ret = audioReader->Init(inputParam->ppAudioSourceList[i], &inputInfo, &inputInfoAVAudioReader, nullptr);
             if (ret != 0) {
                 PrintMes(RGY_LOG_ERROR, audioReader->GetInputMessage());
                 return NV_ENC_ERR_GENERIC;
@@ -572,7 +542,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
 #endif //#if ENABLE_AVCUVID_READER
 
-    if (!m_pFileReader->inputCodecIsValid()
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN
         && inputParam->nTrimCount > 0) {
         //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
         sTrimParam trimParam;
@@ -1233,7 +1203,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const InputVideoInfo *pInputInfo) {
+NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const VideoInfo *pInputInfo) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
     m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_uEncodeBufferCount);
@@ -1323,8 +1293,8 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
     {
 #endif //#if ENABLE_AVCUVID_READER
         m_inputHostBuffer.resize(PIPELINE_DEPTH);
-        int bufWidth  = pInputInfo->width  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
-        int bufHeight = pInputInfo->height - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
+        int bufWidth  = pInputInfo->srcWidth  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
+        int bufHeight = pInputInfo->srcHeight - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
         int bufPitch = 0;
         int bufSize = 0;
         switch (pInputInfo->csp) {
@@ -1723,10 +1693,10 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
 #pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 #if ENABLE_AVCUVID_READER
-    if (m_pFileReader->inputCodecIsValid()) {
+    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         m_cuvidDec.reset(new CuvidDecode());
 
-        auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, m_pNVLog, enableCuvidResize(inputParam));
+        auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, m_pNVLog, inputParam->nHWDecType, enableCuvidResize(inputParam));
         if (result != CUDA_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init decoder.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -1739,7 +1709,6 @@ NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 
 NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     memcpy(&m_stEncConfig, &inputParam->encConfig, sizeof(m_stEncConfig));
-    memcpy(&m_stPicStruct, &inputParam->picStruct, sizeof(m_stPicStruct));
     
     //コーデックの決定とチェックNV_ENC_PIC_PARAMS
     m_stCodecGUID = inputParam->codec == NV_ENC_H264 ? NV_ENC_CODEC_H264_GUID : NV_ENC_CODEC_HEVC_GUID;
@@ -1796,19 +1765,19 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     //解像度の決定
     //この段階では、フィルタを使用した場合は解像度を変更しないものとする
-    m_uEncWidth  = (m_pLastFilterParam) ? m_pLastFilterParam->frameOut.width  : inputParam->input.width  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
-    m_uEncHeight = (m_pLastFilterParam) ? m_pLastFilterParam->frameOut.height : inputParam->input.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+    m_uEncWidth  = (m_pLastFilterParam) ? m_pLastFilterParam->frameOut.width  : inputParam->input.srcWidth  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
+    m_uEncHeight = (m_pLastFilterParam) ? m_pLastFilterParam->frameOut.height : inputParam->input.srcHeight - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
 
     //この段階では、フィルタを使用した場合は解像度を変更しないものとする
     if (!m_pLastFilterParam) {
         if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
 #if ENABLE_AVCUVID_READER
-            if (m_pFileReader->inputCodecIsValid()) {
+            if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
                 m_uEncWidth  = inputParam->input.dstWidth;
                 m_uEncHeight = inputParam->input.dstHeight;
             } else
 #endif
-            if (m_uEncWidth != inputParam->input.width || m_uEncHeight != inputParam->input.height) {
+            if (m_uEncWidth != inputParam->input.srcWidth || m_uEncHeight != inputParam->input.srcHeight) {
                 PrintMes(RGY_LOG_ERROR, _T("resizing requires to be used with avcuvid reader.\n"));
                 PrintMes(RGY_LOG_ERROR, _T(" input %dx%d -> output %dx%d.\n"), m_uEncWidth, m_uEncHeight, inputParam->input.dstWidth, inputParam->input.dstHeight);
                 return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -1816,21 +1785,21 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
     }
 
-    if (inputParam->input.rate <= 0 || inputParam->input.scale <= 0) {
+    if (inputParam->input.fpsN <= 0 || inputParam->input.fpsD <= 0) {
         if (inputParam->input.type == RGY_INPUT_FMT_RAW) {
             PrintMes(RGY_LOG_ERROR, _T("Please set fps when using raw input.\n"));
         } else {
-            PrintMes(RGY_LOG_ERROR, _T("Invalid fps: %d/%d.\n"), inputParam->input.rate, inputParam->input.scale);
+            PrintMes(RGY_LOG_ERROR, _T("Invalid fps: %d/%d.\n"), inputParam->input.fpsN, inputParam->input.fpsD);
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
     //picStructの設定
-    m_stPicStruct = (inputParam->picStruct == 0) ? NV_ENC_PIC_STRUCT_FRAME : inputParam->picStruct;
+    m_stPicStruct = picstruct_rgy_to_enc(inputParam->input.picstruct);
 
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
 #if ENABLE_AVCUVID_READER
-        if (!m_pFileReader->inputCodecIsValid()) {
+        if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-deinterlace requires to be used with avcuvid reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
@@ -1839,15 +1808,15 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     
     //制限事項チェック
-    if (inputParam->input.width < 0 && inputParam->input.height < 0) {
-        PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d\n"), FOR_AUO ? _T("解像度が無効です。") : _T("Invalid resolution."), inputParam->input.width, inputParam->input.height);
+    if (inputParam->input.srcWidth < 0 && inputParam->input.srcHeight < 0) {
+        PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d\n"), FOR_AUO ? _T("解像度が無効です。") : _T("Invalid resolution."), inputParam->input.srcWidth, inputParam->input.srcHeight);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (   (int)inputParam->input.width  <= inputParam->input.crop.e.left + inputParam->input.crop.e.right
-        && (int)inputParam->input.height <= inputParam->input.crop.e.up   + inputParam->input.crop.e.bottom) {
+    if (   (int)inputParam->input.srcWidth  <= inputParam->input.crop.e.left + inputParam->input.crop.e.right
+        && (int)inputParam->input.srcHeight <= inputParam->input.crop.e.up   + inputParam->input.crop.e.bottom) {
         PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d, Crop [%d,%d,%d,%d]\n"),
              FOR_AUO ? _T("Crop値が無効です。") : _T("Invalid crop value."), 
-            inputParam->input.width, inputParam->input.height,
+            inputParam->input.srcWidth, inputParam->input.srcHeight,
             inputParam->input.crop.c[0], inputParam->input.crop.c[1], inputParam->input.crop.c[2], inputParam->input.crop.c[3]);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -1865,7 +1834,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         || (inputParam->input.crop.e.up & height_check_mask) || (inputParam->input.crop.e.bottom & height_check_mask)) {
         PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d, Crop [%d,%d,%d,%d]\n"),
              FOR_AUO ? _T("Crop値が無効です。") : _T("Invalid crop value."), 
-            inputParam->input.width, inputParam->input.height,
+            inputParam->input.srcWidth, inputParam->input.srcHeight,
             inputParam->input.crop.c[0], inputParam->input.crop.c[1], inputParam->input.crop.c[2], inputParam->input.crop.c[3]);
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Crop値は2の倍数である必要があります。\n") : _T("Crop value of mod2 required.\n"));
         if (is_interlaced(m_stPicStruct)) {
@@ -1991,7 +1960,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     //自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {
-        m_stEncConfig.gopLength = (int)(inputParam->input.rate / (double)inputParam->input.scale + 0.5) * 10;
+        m_stEncConfig.gopLength = (int)(inputParam->input.fpsN / (double)inputParam->input.fpsD + 0.5) * 10;
     }
     if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR && m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames == 0) {
         m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames = m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames;
@@ -2003,7 +1972,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     auto par = std::make_pair(inputParam->par[0], inputParam->par[1]);
     if ((!inputParam->par[0] || !inputParam->par[1]) //SAR比の指定がない
         && inputParam->input.sar[0] && inputParam->input.sar[1] //入力側からSAR比を取得ずみ
-        && (m_uEncWidth == inputParam->input.width && m_uEncHeight == inputParam->input.height)) {//リサイズは行われない
+        && (m_uEncWidth == inputParam->input.srcWidth && m_uEncHeight == inputParam->input.srcHeight)) {//リサイズは行われない
         par = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
     }
     adjust_sar(&par.first, &par.second, m_uEncWidth, m_uEncHeight);
@@ -2026,7 +1995,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             int level = m_stEncConfig.encodeCodecConfig.h264Config.level;
             if (level == 0) {
                 level = calc_h264_auto_level(m_uEncWidth, m_uEncHeight, m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames, is_interlaced(m_stPicStruct),
-                    inputParam->input.rate, inputParam->input.scale, profile, prefered_bitrate_kbps, m_stEncConfig.rcParams.vbvBufferSize / 1000);
+                    inputParam->input.fpsN, inputParam->input.fpsD, profile, prefered_bitrate_kbps, m_stEncConfig.rcParams.vbvBufferSize / 1000);
             }
             int max_bitrate_kbps = 0, vbv_bufsize_kbps = 0;
             get_h264_vbv_value(&max_bitrate_kbps, &vbv_bufsize_kbps, level, profile);
@@ -2041,7 +2010,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             int level = m_stEncConfig.encodeCodecConfig.hevcConfig.level;
             if (level == 0) {
                 level = calc_hevc_auto_level(m_uEncWidth, m_uEncHeight, //m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
-                    inputParam->input.rate, inputParam->input.scale, high_tier, prefered_bitrate_kbps);
+                    inputParam->input.fpsN, inputParam->input.fpsD, high_tier, prefered_bitrate_kbps);
             }
             //なぜかぎりぎりを指定するとエラー終了するので、すこし減らす
             m_stEncConfig.rcParams.maxBitRate = get_hevc_max_bitrate(level, high_tier) * 960;
@@ -2065,8 +2034,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.maxEncodeHeight     = m_uEncHeight;
     m_stCreateEncodeParams.maxEncodeWidth      = m_uEncWidth;
 
-    m_stCreateEncodeParams.frameRateNum        = inputParam->input.rate;
-    m_stCreateEncodeParams.frameRateDen        = inputParam->input.scale;
+    m_stCreateEncodeParams.frameRateNum        = inputParam->input.fpsN;
+    m_stCreateEncodeParams.frameRateDen        = inputParam->input.fpsD;
     if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
         m_stCreateEncodeParams.frameRateNum *= 2;
     }
@@ -2197,19 +2166,19 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
 
 NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     FrameInfo inputFrame = { 0 };
-    inputFrame.width = inputParam->input.width;
-    inputFrame.height = inputParam->input.height;
+    inputFrame.width = inputParam->input.srcWidth;
+    inputFrame.height = inputParam->input.srcHeight;
     inputFrame.csp = inputParam->input.csp;
     //avcuivd読み以外では読み込み時にcropが適用される
-    if (!m_pFileReader->inputCodecIsValid()) {
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
         inputFrame.width -= inputParam->input.crop.e.left + inputParam->input.crop.e.right;
         inputFrame.height -= inputParam->input.crop.e.bottom + inputParam->input.crop.e.up;
     } else {
         inputFrame.deivce_mem = true;
     }
 
-    m_uEncWidth  = inputParam->input.width  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
-    m_uEncHeight = inputParam->input.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+    m_uEncWidth  = inputParam->input.srcWidth  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
+    m_uEncHeight = inputParam->input.srcHeight - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
 
     bool bResizeRequired = false;
     if (   inputParam->input.dstWidth
@@ -2220,7 +2189,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         bResizeRequired = true;
     }
     //avcuvid読みではデコード直後にリサイズが可能
-    if (bResizeRequired && m_pFileReader->inputCodecIsValid() && enableCuvidResize(inputParam)) {
+    if (bResizeRequired && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN && enableCuvidResize(inputParam)) {
         inputFrame.width  = inputParam->input.dstWidth;
         inputFrame.height = inputParam->input.dstHeight;
         bResizeRequired = false;
@@ -2234,7 +2203,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.pmd.enable
         ) {
         //swデコードならGPUに上げる必要がある
-        if (!m_pFileReader->inputCodecIsValid()) {
+        if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
             param->frameIn = inputFrame;
@@ -2256,11 +2225,11 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         const auto encCsp = GetEncoderCSP(inputParam);
         if (inputFrame.csp == RGY_CSP_NV12 || inputFrame.csp == RGY_CSP_P010 //NV12ならYV12に変換する必要がある
             || encCsp != inputFrame.csp
-            || (cropEnabled(inputParam->input.crop) && m_pFileReader->inputCodecIsValid())) { //cropが必要ならただちに適用する
+            || (cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN)) { //cropが必要ならただちに適用する
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
             //avcuivd読みでは読み込み時にcropが適用されるないためここでcropを適用する必要がある
-            if (cropEnabled(inputParam->input.crop) && m_pFileReader->inputCodecIsValid()) {
+            if (cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
                 param->crop = inputParam->input.crop;
             }
             param->frameIn = inputFrame;
@@ -2293,7 +2262,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         if (inputParam->vpp.delogo.pFilePath) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterDelogo());
             shared_ptr<NVEncFilterParamDelogo> param(new NVEncFilterParamDelogo());
-            param->inputFileName = inputParam->input.filename;
+            param->inputFileName = inputParam->inputFilename.c_str();
             param->logoFilePath  = inputParam->vpp.delogo.pFilePath;
             param->logoSelect    = inputParam->vpp.delogo.pSelect;
             param->depth         = (short)inputParam->vpp.delogo.nDepth;
@@ -2445,7 +2414,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
     //avcuivd読みでは読み込み時にcropが適用されるないため
     //ここまでフィルタが使われていなければ、ここでcropを適用する必要がある
-    if (m_vpFilters.size() == 0 && cropEnabled(inputParam->input.crop) && m_pFileReader->inputCodecIsValid()) {
+    if (m_vpFilters.size() == 0 && cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         param->crop = inputParam->input.crop;
     }
     param->frameIn = inputFrame;

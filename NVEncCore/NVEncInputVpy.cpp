@@ -40,21 +40,21 @@
 #include <map>
 #include <fstream>
 
-NVEncInputVpy::NVEncInputVpy() {
-    m_sVSapi = NULL;
-    m_sVSscript = NULL;
-    m_sVSnode = NULL;
-    m_nAsyncFrames = 0;
-    m_nMaxFrame = 0;
-    m_nFrame = 0;
+NVEncInputVpy::NVEncInputVpy() :
+    m_pAsyncBuffer(),
+    m_hAsyncEventFrameSetFin(),
+    m_hAsyncEventFrameSetStart(),
+    m_bAbortAsync(false),
+    m_nCopyOfInputFrames(0),
+    m_sVSapi(nullptr),
+    m_sVSscript(nullptr),
+    m_sVSnode(nullptr),
+    m_nAsyncFrames(0),
+    m_sVS() {
     memset(m_pAsyncBuffer, 0, sizeof(m_pAsyncBuffer));
-    memset(m_hAsyncEventFrameSetFin,   0, sizeof(m_hAsyncEventFrameSetFin));
+    memset(m_hAsyncEventFrameSetFin, 0, sizeof(m_hAsyncEventFrameSetFin));
     memset(m_hAsyncEventFrameSetStart, 0, sizeof(m_hAsyncEventFrameSetStart));
-    
-    m_bAbortAsync = false;
-    m_nCopyOfInputFrames = 0;
     memset(&m_sVS, 0, sizeof(m_sVS));
-
     m_strReaderName = _T("vpy");
 }
 
@@ -63,17 +63,27 @@ NVEncInputVpy::~NVEncInputVpy() {
 }
 
 void NVEncInputVpy::release_vapoursynth() {
-    if (m_sVS.hVSScriptDLL)
+    if (m_sVS.hVSScriptDLL) {
+#if defined(_WIN32) || defined(_WIN64)
         FreeLibrary(m_sVS.hVSScriptDLL);
+#else
+        dlclose(m_sVS.hVSScriptDLL);
+#endif
+    }
 
     memset(&m_sVS, 0, sizeof(m_sVS));
 }
 
 int NVEncInputVpy::load_vapoursynth() {
     release_vapoursynth();
-    
-    if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(_T("vsscript.dll")))) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to load vsscript.dll.\n"));
+#if defined(_WIN32) || defined(_WIN64)
+    const TCHAR *vsscript_dll_name = _T("vsscript.dll");
+    if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(vsscript_dll_name))) {
+#else
+    const TCHAR *vsscript_dll_name = _T("libvapoursynth-script.so");
+    if (NULL == (m_sVS.hVSScriptDLL = dlopen(vsscript_dll_name, RTLD_LAZY))) {
+#endif
+        AddMessage(RGY_LOG_ERROR, _T("Failed to load %s.\n"), vsscript_dll_name);
         return 1;
     }
 
@@ -136,7 +146,7 @@ void NVEncInputVpy::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
     m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)] = f;
     SetEvent(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)]);
 
-    if (m_nAsyncFrames < m_nMaxFrame && !m_bAbortAsync) {
+    if (m_nAsyncFrames < m_inputVideoInfo.frames && !m_bAbortAsync) {
         m_sVSapi->getFrameAsync(m_nAsyncFrames, m_sVSnode, frameDoneCallback, this);
         m_nAsyncFrames++;
     }
@@ -159,36 +169,38 @@ int NVEncInputVpy::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
+RGY_ERR NVEncInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
+    UNREFERENCED_PARAMETER(prm);
+
     Close();
 
-    m_pEncSatusInfo = pStatus;
-    InputInfoVpy *info = reinterpret_cast<InputInfoVpy *>(inputPrm->otherPrm);
-    m_bInterlaced = info->interlaced;
+    m_pEncSatusInfo = pEncSatusInfo;
+    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
     
     if (load_vapoursynth()) {
         return RGY_ERR_NULL_PTR;
     }
     //ファイルデータ読み込み
-    std::ifstream inputFile(inputPrm->filename);
+    std::ifstream inputFile(strFileName);
     if (inputFile.bad()) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to open vpy file.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Failed to open vpy file \"%s\".\n"), strFileName);
         return RGY_ERR_FILE_OPEN;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("Opened file \"%s\""), strFileName);
     std::istreambuf_iterator<char> data_begin(inputFile);
     std::istreambuf_iterator<char> data_end;
     std::string script_data = std::string(data_begin, data_end);
     inputFile.close();
 
-    const VSVideoInfo *vsvideoinfo = NULL;
-    const VSCoreInfo *vscoreinfo = NULL;
+    const VSVideoInfo *vsvideoinfo = nullptr;
+    const VSCoreInfo *vscoreinfo = nullptr;
     if (   !m_sVS.init()
         || initAsyncEvents()
-        || NULL == (m_sVSapi = m_sVS.getVSApi())
-        || m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), NULL, efSetWorkingDir)
-        || NULL == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
-        || NULL == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
-        || NULL == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
+        || nullptr == (m_sVSapi = m_sVS.getVSApi())
+        || m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), nullptr, efSetWorkingDir)
+        || nullptr == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
+        || nullptr == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
+        || nullptr == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
         AddMessage(RGY_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
         if (m_sVSscript) {
             AddMessage(RGY_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
@@ -220,29 +232,33 @@ RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
+    const RGY_CSP prefered_csp = (m_inputVideoInfo.csp != RGY_CSP_NA) ? m_inputVideoInfo.csp : RGY_CSP_NV12;
+
     typedef struct CSPMap {
         int fmtID;
         RGY_CSP in, out;
     } CSPMap;
 
-    static const std::vector<CSPMap> valid_csp_list = {
-        { pfYUV420P8,  RGY_CSP_YV12,      inputPrm->csp },
-        { pfYUV420P10, RGY_CSP_YV12_10,   inputPrm->csp },
-        { pfYUV420P16, RGY_CSP_YV12_16,   inputPrm->csp },
-        { pfYUV422P8,  RGY_CSP_YUV422,    inputPrm->csp },
-        { pfYUV444P8,  RGY_CSP_YUV444,    inputPrm->csp },
-        { pfYUV444P10, RGY_CSP_YUV444_10, inputPrm->csp },
-        { pfYUV444P16, RGY_CSP_YUV444_16, inputPrm->csp },
+    const std::vector<CSPMap> valid_csp_list = {
+        { pfYUV420P8,  RGY_CSP_YV12,      prefered_csp },
+        { pfYUV420P10, RGY_CSP_YV12_10,   prefered_csp },
+        { pfYUV420P16, RGY_CSP_YV12_16,   prefered_csp },
+        { pfYUV422P8,  RGY_CSP_YUV422,    prefered_csp },
+        { pfYUV444P8,  RGY_CSP_YUV444,    prefered_csp },
+        { pfYUV444P10, RGY_CSP_YUV444_10, prefered_csp },
+        { pfYUV444P16, RGY_CSP_YUV444_16, prefered_csp },
     };
 
     for (auto csp : valid_csp_list) {
         if (csp.fmtID == vsvideoinfo->format->id) {
+            m_InputCsp = csp.in;
+            m_inputVideoInfo.csp = csp.out;
             m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
             break;
         }
     }
 
-    if (nullptr == m_sConvert) {
+    if (m_sConvert == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
@@ -252,36 +268,42 @@ RGY_ERR NVEncInputVpy::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> p
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
     
-    int64_t fps_gcd = nv_get_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
-    pStatus->m_sData.frameTotal = vsvideoinfo->numFrames;
-    m_nMaxFrame = vsvideoinfo->numFrames;
-    inputPrm->width = vsvideoinfo->width;
-    inputPrm->height = vsvideoinfo->height;
-    inputPrm->rate = (int)(vsvideoinfo->fpsNum / fps_gcd);
-    inputPrm->scale = (int)(vsvideoinfo->fpsDen / fps_gcd);
+    const auto fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
+    m_inputVideoInfo.srcWidth = vsvideoinfo->width;
+    m_inputVideoInfo.srcHeight = vsvideoinfo->height;
+    m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
+    m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
+    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? 16 - RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] : 0;
+    m_inputVideoInfo.frames = vsvideoinfo->numFrames;
 
     m_nAsyncFrames = vsvideoinfo->numFrames;
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo->numThreads);
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, ASYNC_BUFFER_SIZE-1);
-    if (!info->mt)
+    if (m_inputVideoInfo.type != RGY_INPUT_FMT_VPY_MT) {
         m_nAsyncFrames = 1;
+    }
 
-    for (int i = 0; i < m_nAsyncFrames; i++)
+    for (int i = 0; i < m_nAsyncFrames; i++) {
         m_sVSapi->getFrameAsync(i, m_sVSnode, frameDoneCallback, this);
+    }
     
-    TCHAR rev_info[128] = { 0 };
-    int rev = getRevInfo(vscoreinfo->versionString);
-    if (0 != rev)
-        _stprintf_s(rev_info, _countof(rev_info), _T("VapourSynth r%d"), rev);
+    tstring vs_ver = _T("VapourSynth");
+    if (m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) {
+        vs_ver += _T("MT");
+    }
+    const int rev = getRevInfo(vscoreinfo->versionString);
+    if (0 != rev) {
+        vs_ver += strsprintf(_T(" r%d"), rev);
+    }
 
-    memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
-    m_sDecParam.src_pitch = 0;
-    CreateInputInfo(rev_info, RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
+    CreateInputInfo(vs_ver.c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
+    *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
 
 void NVEncInputVpy::Close() {
+    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     closeAsyncEvents();
     if (m_sVSapi && m_sVSnode)
         m_sVSapi->freeNode(m_sVSnode);
@@ -295,36 +317,41 @@ void NVEncInputVpy::Close() {
     m_bAbortAsync = false;
     m_nCopyOfInputFrames = 0;
 
-    m_sVSapi = NULL;
-    m_sVSscript = NULL;
-    m_sVSnode = NULL;
+    m_sVSapi = nullptr;
+    m_sVSscript = nullptr;
+    m_sVSnode = nullptr;
     m_nAsyncFrames = 0;
     m_pEncSatusInfo.reset();
+    AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
 RGY_ERR NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
-    if (m_nFrame >= m_nMaxFrame) {
+    if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
+        //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
+        //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
+        || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 
-    const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_nFrame);
-    if (NULL == src_frame) {
+    const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_pEncSatusInfo->m_sData.frameIn);
+    if (src_frame == nullptr) {
         return RGY_ERR_MORE_DATA;
     }
 
     void *dst_array[3];
     dst_array[0] = dst;
-    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]);
-    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_sDecParam.height - m_sDecParam.crop.c[1] - m_sDecParam.crop.c[3]); //YUV444出力時
+    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]);
+    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]); //YUV444出力時
 
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
-    m_sConvert->func[!!m_bInterlaced](dst_array, src_array, m_sDecParam.width, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+    m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
+        dst_array, src_array, m_inputVideoInfo.srcWidth,
+        m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), dst_pitch, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
     
     m_sVSapi->freeFrame(src_frame);
 
-    m_nFrame++;
     m_pEncSatusInfo->m_sData.frameIn++;
-    m_nCopyOfInputFrames = m_nFrame;
+    m_nCopyOfInputFrames = m_pEncSatusInfo->m_sData.frameIn;
     return m_pEncSatusInfo->UpdateDisplay();
 }
 

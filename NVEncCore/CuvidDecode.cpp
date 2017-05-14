@@ -29,6 +29,7 @@
 #include "NVEncCore.h"
 #include "CuvidDecode.h"
 #include "helper_cuda.h"
+#include "NVEncUtil.h"
 #if ENABLE_AVCUVID_READER
 
 bool check_if_nvcuvid_dll_available() {
@@ -167,7 +168,7 @@ CUresult CuvidDecode::CreateDecoder() {
     return curesult;
 }
 
-CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, bool bCuvidResize, bool ignoreDynamicFormatChange) {
+CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, int nDecType, bool bCuvidResize, bool ignoreDynamicFormatChange) {
     //初期化
     CloseDecoder();
 
@@ -192,7 +193,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
         AddMessage(RGY_LOG_ERROR, _T("Failed to alloc frame queue for decoder.\n"));
         return CUDA_ERROR_OUT_OF_MEMORY;
     }
-    m_pFrameQueue->init(input->width, input->height);
+    m_pFrameQueue->init(input->srcWidth, input->srcHeight);
     AddMessage(RGY_LOG_DEBUG, _T("created frame queue\n"));
 
     //init video parser
@@ -208,7 +209,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
 
     CUVIDPARSERPARAMS oVideoParserParameters;
     memset(&oVideoParserParameters, 0, sizeof(CUVIDPARSERPARAMS));
-    oVideoParserParameters.CodecType              = input->codec;
+    oVideoParserParameters.CodecType              = codec_rgy_to_enc(input->codec);
     oVideoParserParameters.ulMaxNumDecodeSurfaces = FrameQueue::cnMaximumSize;
     oVideoParserParameters.ulMaxDisplayDelay      = 1;
     oVideoParserParameters.pUserData              = this;
@@ -226,9 +227,9 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
 
     cuvidCtxLock(m_ctxLock, 0);
     memset(&m_videoDecodeCreateInfo, 0, sizeof(CUVIDDECODECREATEINFO));
-    m_videoDecodeCreateInfo.CodecType = input->codec;
-    m_videoDecodeCreateInfo.ulWidth   = input->codedWidth  ? input->codedWidth  : input->width;
-    m_videoDecodeCreateInfo.ulHeight  = input->codedHeight ? input->codedHeight : input->height;
+    m_videoDecodeCreateInfo.CodecType = codec_rgy_to_enc(input->codec);
+    m_videoDecodeCreateInfo.ulWidth   = input->codedWidth  ? input->codedWidth  : input->srcWidth;
+    m_videoDecodeCreateInfo.ulHeight  = input->codedHeight ? input->codedHeight : input->srcHeight;
     m_videoDecodeCreateInfo.ulNumDecodeSurfaces = FrameQueue::cnMaximumSize;
 
     m_videoDecodeCreateInfo.ChromaFormat = cudaVideoChromaFormat_420;
@@ -239,17 +240,17 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
         m_videoDecodeCreateInfo.ulTargetWidth  = input->dstWidth;
         m_videoDecodeCreateInfo.ulTargetHeight = input->dstHeight;
     } else {
-        m_videoDecodeCreateInfo.ulTargetWidth  = input->width;
-        m_videoDecodeCreateInfo.ulTargetHeight = input->height;
+        m_videoDecodeCreateInfo.ulTargetWidth  = input->srcWidth;
+        m_videoDecodeCreateInfo.ulTargetHeight = input->srcHeight;
     }
 
     m_videoDecodeCreateInfo.display_area.left   = (short)input->crop.e.left;
     m_videoDecodeCreateInfo.display_area.top    = (short)input->crop.e.up;
-    m_videoDecodeCreateInfo.display_area.right  = (short)(input->crop.e.right  + input->codedWidth  - input->width);
-    m_videoDecodeCreateInfo.display_area.bottom = (short)(input->crop.e.bottom + input->codedHeight - input->height);
+    m_videoDecodeCreateInfo.display_area.right  = (short)(input->crop.e.right  + input->codedWidth  - input->srcWidth);
+    m_videoDecodeCreateInfo.display_area.bottom = (short)(input->crop.e.bottom + input->codedHeight - input->srcHeight);
 
     m_videoDecodeCreateInfo.ulNumOutputSurfaces = 1;
-    m_videoDecodeCreateInfo.ulCreationFlags = (input->cuvidType == NV_ENC_AVCUVID_CUDA) ? cudaVideoCreate_PreferCUDA : cudaVideoCreate_PreferCUVID;
+    m_videoDecodeCreateInfo.ulCreationFlags = (nDecType == NV_ENC_AVCUVID_CUDA) ? cudaVideoCreate_PreferCUDA : cudaVideoCreate_PreferCUVID;
     m_videoDecodeCreateInfo.vidLock = m_ctxLock;
     curesult = CreateDecoder();
     cuvidCtxUnlock(m_ctxLock, 0);
@@ -257,7 +258,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const InputVideoInfo *i
         AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
         return curesult;
     }
-    AddMessage(RGY_LOG_DEBUG, _T("created decoder (mode: %s)\n"), get_chr_from_value(list_cuvid_mode, input->cuvidType));
+    AddMessage(RGY_LOG_DEBUG, _T("created decoder (mode: %s)\n"), get_chr_from_value(list_cuvid_mode, nDecType));
 
     if (m_videoFormatEx.raw_seqhdr_data && m_videoFormatEx.format.seqhdr_data_length) {
         if (CUDA_SUCCESS != (curesult = DecodePacket(m_videoFormatEx.raw_seqhdr_data, m_videoFormatEx.format.seqhdr_data_length, AV_NOPTS_VALUE, CUVID_NATIVE_TIMEBASE))) {

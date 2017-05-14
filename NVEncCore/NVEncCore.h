@@ -100,14 +100,14 @@ private:
 };
 
 struct InEncodeVideoParam {
-    InputVideoInfo input;         //入力する動画の情報
+    VideoInfo input;         //入力する動画の情報
+    tstring inputFilename;        //入力ファイル名
     tstring outputFilename;       //出力ファイル名
     tstring sAVMuxOutputFormat;   //出力フォーマット
     int preset;                   //出力プリセット
     int deviceID;                 //使用するGPUのID
-    int inputBuffer;              //使用されていません
+    int nHWDecType;               //
     int par[2];                   //使用されていません
-    NV_ENC_PIC_STRUCT picStruct;  //フレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG encConfig;      //エンコード設定
     int codec;                    //出力コーデック
     int bluray;                   //bluray出力
@@ -230,7 +230,7 @@ protected:
     NVENCSTATUS CreateEncoder(const InEncodeVideoParam *inputParam);
 
     //入出力用バッファを確保
-    NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const InputVideoInfo *pInputInfo);
+    NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const VideoInfo *pInputInfo);
 
     //フレームを1枚エンコーダに投入(非同期)
     NVENCSTATUS EncodeFrame(uint64_t timestamp);

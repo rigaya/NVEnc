@@ -463,6 +463,7 @@
     <ClCompile Include="NVEncFeature.cpp" />
     <ClCompile Include="NVEncFilter.cpp" />
     <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
+    <ClCompile Include="NVEncUtil.cpp" />
     <ClCompile Include="rgy_err.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <CudaCompile Include="NVEncFilterDenoisePmd.cu">
@@ -515,6 +516,7 @@
     <ClInclude Include="NVEncParam.h" />
     <ClInclude Include="NVEncStatus.h" />
     <ClInclude Include="NVEncThread.h" />
+    <ClInclude Include="NVEncUtil.h" />
     <ClInclude Include="NVEncVersion.h" />
     <ClInclude Include="qsv_queue.h" />
     <ClInclude Include="rgy_err.h" />

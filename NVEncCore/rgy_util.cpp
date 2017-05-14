@@ -685,9 +685,7 @@ std::pair<int, int> get_h264_sar(int idx) {
 int get_h264_sar_idx(std::pair<int, int> sar) {
 
     if (0 != sar.first && 0 != sar.second) {
-        const int gcd = nv_get_gcd(sar);
-        sar.first  /= gcd;
-        sar.second /= gcd;
+        rgy_reduce(sar);
     }
 
     for (auto i_sar : sar_list) {

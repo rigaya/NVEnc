@@ -26,6 +26,8 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_UTIL_H__
+#define __RGY_UTIL_H__
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -335,6 +337,43 @@ static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
 
 const int MAX_FILENAME_LEN = 1024;
 
+enum {
+    RGY_LOG_TRACE = -3,
+    RGY_LOG_DEBUG = -2,
+    RGY_LOG_MORE  = -1,
+    RGY_LOG_INFO  = 0,
+    RGY_LOG_WARN  = 1,
+    RGY_LOG_ERROR = 2,
+};
+
+enum RGY_CODEC {
+    RGY_CODEC_UNKNOWN = 0,
+    RGY_CODEC_H264,
+    RGY_CODEC_HEVC,
+    RGY_CODEC_MPEG1,
+    RGY_CODEC_MPEG2,
+    RGY_CODEC_MPEG4,
+    RGY_CODEC_VP8,
+    RGY_CODEC_VP9,
+    RGY_CODEC_VC1,
+
+    RGY_CODEC_NUM,
+};
+
+static tstring CodecToStr(RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_H264:  return _T("H.264/AVC");
+    case RGY_CODEC_HEVC:  return _T("H.265/HEVC");
+    case RGY_CODEC_MPEG2: return _T("MPEG2");
+    case RGY_CODEC_MPEG1: return _T("MPEG1");
+    case RGY_CODEC_VC1:   return _T("VC-1");
+    case RGY_CODEC_MPEG4: return _T("MPEG4");
+    case RGY_CODEC_VP8:   return _T("VP8");
+    case RGY_CODEC_VP9:   return _T("VP9");
+    default: return _T("unknown");
+    }
+}
+
 struct nal_info {
     const uint8_t *ptr;
     uint8_t type;
@@ -421,3 +460,5 @@ static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, uint32_t s
     }
     return nal_list;
 }
+
+#endif //__RGY_UTIL_H__

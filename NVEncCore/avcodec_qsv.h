@@ -65,40 +65,23 @@ extern "C" {
 #define NV_AV_LOG_LEVEL AV_LOG_ERROR
 #endif
 
-typedef struct CuvidCodec {
-    uint32_t codec_id;   //avcodecのコーデックID
-    cudaVideoCodec cuvid_cc; //QSVのfourcc
+typedef struct CodecMap {
+    AVCodecID avcodec_id;   //avcodecのコーデックID
+    RGY_CODEC rgy_codec; //QSVのfourcc
 } CuvidCodec;
 
-#define cudaVideoCodec_VP8 (cudaVideoCodec)(cudaVideoCodec_HEVC+1)
-#define cudaVideoCodec_VP9 (cudaVideoCodec)(cudaVideoCodec_HEVC+2)
-
 //QSVでデコード可能なコーデックのリスト
-static const CuvidCodec CUVID_DECODE_LIST[] = { 
-    { AV_CODEC_ID_H264,       cudaVideoCodec_H264  },
-    { AV_CODEC_ID_HEVC,       cudaVideoCodec_HEVC  },
-    { AV_CODEC_ID_MPEG1VIDEO, cudaVideoCodec_MPEG1 },
-    { AV_CODEC_ID_MPEG2VIDEO, cudaVideoCodec_MPEG2 },
-    { AV_CODEC_ID_VP8,        cudaVideoCodec_VP8 },
-    { AV_CODEC_ID_VP9,        cudaVideoCodec_VP9 },
-    //{ AV_CODEC_ID_VC1,        cudaVideoCodec_VC1   },
-    //{ AV_CODEC_ID_WMV3,       cudaVideoCodec_VC1   },
-    //{ AV_CODEC_ID_MPEG4,      cudaVideoCodec_MPEG4   },
+static const CuvidCodec HW_DECODE_LIST[] = {
+    { AV_CODEC_ID_H264,       RGY_CODEC_H264 },
+    { AV_CODEC_ID_HEVC,       RGY_CODEC_HEVC },
+    { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
+    { AV_CODEC_ID_MPEG2VIDEO, RGY_CODEC_MPEG2 },
+    { AV_CODEC_ID_VP8,        RGY_CODEC_VP8 },
+    { AV_CODEC_ID_VP9,        RGY_CODEC_VP9 },
+    //{ AV_CODEC_ID_VC1,        RGY_CODEC_VC1   },
+    //{ AV_CODEC_ID_WMV3,       RGY_CODEC_VC1   },
+    //{ AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4   },
 };
-
-static tstring CodecIdToStr(cudaVideoCodec cuvid_cc) {
-    switch ((int)cuvid_cc) {
-    case cudaVideoCodec_H264:  return _T("H.264/AVC");
-    case cudaVideoCodec_HEVC:  return _T("H.265/HEVC");
-    case cudaVideoCodec_MPEG2: return _T("MPEG2");
-    case cudaVideoCodec_MPEG1: return _T("MPEG1");
-    case cudaVideoCodec_VC1:   return _T("VC-1");
-    case cudaVideoCodec_MPEG4: return _T("MPEG4");
-    case cudaVideoCodec_VP8:   return _T("VP8");
-    case cudaVideoCodec_VP9:   return _T("VP9");
-    default: return _T("unknown");
-    }
-}
 
 static const TCHAR *AVQSV_CODEC_AUTO = _T("auto");
 static const TCHAR *AVQSV_CODEC_COPY = _T("copy");
@@ -168,7 +151,7 @@ bool checkAvcodecLicense();
 AVFieldOrder nv_field_order(NV_ENC_PIC_STRUCT nPicStruct);
 
 //avqsvでサポートされている動画コーデックを表示
-tstring getAVQSVSupportedCodecList();
+tstring getHWSupportedCodecList();
 
 //利用可能な音声エンコーダ/デコーダを表示
 tstring getAVCodecs(AVQSVCodecType flag);
