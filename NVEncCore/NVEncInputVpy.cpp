@@ -325,7 +325,7 @@ void NVEncInputVpy::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-RGY_ERR NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
+RGY_ERR NVEncInputVpy::LoadNextFrame(RGYFrame *pSurface) {
     if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
@@ -339,14 +339,12 @@ RGY_ERR NVEncInputVpy::LoadNextFrame(void *dst, int dst_pitch) {
     }
 
     void *dst_array[3];
-    dst_array[0] = dst;
-    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]);
-    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]); //YUV444出力時
+    pSurface->ptrArray(dst_array);
 
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, src_array, m_inputVideoInfo.srcWidth,
-        m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), dst_pitch, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+        m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
     
     m_sVSapi->freeFrame(src_frame);
 

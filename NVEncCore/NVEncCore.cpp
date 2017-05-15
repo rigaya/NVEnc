@@ -2754,7 +2754,7 @@ NVENCSTATUS NVEncCore::Encode() {
             RGYBitstream bitstream = RGYBitstreamInit();
             RGY_ERR sts = RGY_ERR_NONE;
             for (int i = 0; sts == RGY_ERR_NONE && nvStatus == NV_ENC_SUCCESS && !m_cuvidDec->GetError(); i++) {
-                sts = m_pFileReader->LoadNextFrame(nullptr, 0);
+                sts = m_pFileReader->LoadNextFrame(nullptr);
                 m_pFileReader->GetNextBitstream(&bitstream);
                 PrintMes(RGY_LOG_TRACE, _T("Set packet %d\n"), i);
                 if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(bitstream.bufptr() + bitstream.offset(), bitstream.size(), bitstream.pts(), pStreamIn->time_base))) {
@@ -2879,7 +2879,7 @@ NVENCSTATUS NVEncCore::Encode() {
             }
             frameInfo = inframe->getFrameInfo();
             frameInfo.pitch = pitch;
-            frameInfo.ptr = (void *)dMappedFrame;
+            frameInfo.ptr = (uint8_t *)dMappedFrame;
             deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
                 cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
                 SetEvent(heUnmapFin);
@@ -2932,7 +2932,7 @@ NVENCSTATUS NVEncCore::Encode() {
             //エンコードバッファの情報を設定１
             FrameInfo encFrameInfo = { 0 };
             if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
-                encFrameInfo.ptr = (void *)pEncodeBuffer->stInputBfr.pNV12devPtr;
+                encFrameInfo.ptr = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
                 encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
                 encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                 encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
@@ -2943,7 +2943,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 uint32_t lockedPitch = 0;
                 unsigned char *pInputSurface = nullptr;
                 NvEncLockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
-                encFrameInfo.ptr = (void *)pInputSurface;
+                encFrameInfo.ptr = (uint8_t *)pInputSurface;
                 encFrameInfo.pitch = lockedPitch;
                 encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
                 encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
@@ -3020,7 +3020,8 @@ NVENCSTATUS NVEncCore::Encode() {
 #endif //#if ENABLE_AVCUVID_READER
         if (m_inputHostBuffer.size()) {
             auto inputFrameBuf = m_inputHostBuffer[nInputFrame % m_inputHostBuffer.size()];
-            if (m_pFileReader->LoadNextFrame(inputFrameBuf.ptr, inputFrameBuf.pitch) != RGY_ERR_NONE) {
+            RGYFrame frame = RGYFrameInit(inputFrameBuf);
+            if (m_pFileReader->LoadNextFrame(&frame) != RGY_ERR_NONE) {
                 break;
             }
             inputFrame.setHostFrameInfo(inputFrameBuf);

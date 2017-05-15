@@ -173,4 +173,19 @@ typedef struct ConvertCSP {
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only);
 const TCHAR *get_simd_str(unsigned int simd);
 
+struct FrameInfo {
+    uint8_t *ptr;
+    RGY_CSP csp;
+    int width, height, pitch;
+    uint64_t timestamp;
+    bool deivce_mem;
+    bool interlaced;
+};
+
+struct FrameInfoExtra {
+    int width_byte, height_total, frame_size;
+};
+
+FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
+
 #endif //_CONVERT_CSP_H_

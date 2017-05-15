@@ -235,12 +235,73 @@ public:
     }
 };
 
-RGYBitstream RGYBitstreamInit() {
+static inline RGYBitstream RGYBitstreamInit() {
     RGYBitstream bitstream;
     memset(&bitstream, 0, sizeof(bitstream));
     return bitstream;
 }
 
 static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be POD type.");
+
+
+struct RGYFrame {
+private:
+    FrameInfo info;
+public:
+    void set(const FrameInfo& frameinfo) {
+        info = frameinfo;
+    }
+    void set(uint8_t *ptr, int width, int height, int pitch, RGY_CSP csp, int64_t timestamp = 0) {
+        info.ptr = ptr;
+        info.width = width;
+        info.height = height;
+        info.pitch = pitch;
+        info.csp = csp;
+        info.timestamp = timestamp;
+    }
+    void ptrArray(void *array[3]) {
+        array[0] = info.ptr;
+        array[1] = info.ptr + info.pitch * info.height;
+        array[2] = info.ptr + info.pitch * info.height * 2;
+    }
+    uint8_t *ptrY() {
+        return info.ptr;
+    }
+    uint8_t *ptrUV() {
+        return info.ptr + info.pitch * info.height;
+    }
+    uint8_t *ptrU() {
+        return info.ptr + info.pitch * info.height;
+    }
+    uint8_t *ptrV() {
+        return info.ptr + info.pitch * info.height * 2;
+    }
+    uint8_t *ptrRGB() {
+        return info.ptr;
+    }
+    uint32_t pitch() {
+        return info.pitch;
+    }
+    uint64_t timestamp() {
+        return info.timestamp;
+    }
+    void setTimestamp(uint64_t frame_timestamp) {
+        info.timestamp = frame_timestamp;
+    }
+};
+
+static inline RGYFrame RGYFrameInit() {
+    RGYFrame frame;
+    memset(&frame, 0, sizeof(frame));
+    return frame;
+}
+
+static inline RGYFrame RGYFrameInit(const FrameInfo& frameinfo) {
+    RGYFrame frame;
+    frame.set(frameinfo);
+    return frame;
+}
+
+static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
 
 #endif //__NVENC_UTIL_H__

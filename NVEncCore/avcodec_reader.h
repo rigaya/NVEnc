@@ -724,7 +724,7 @@ public:
 
     //動画ストリームの1フレーム分のデータをm_sPacketに格納する
     //m_sPacketからの取得はGetNextBitstreamで行う
-    virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) override;
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する
     virtual RGY_ERR GetNextBitstream(RGYBitstream *pBitstream) override;

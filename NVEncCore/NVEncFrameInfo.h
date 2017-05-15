@@ -30,18 +30,3 @@
 
 #include <cstdint>
 #include "ConvertCsp.h"
-
-struct FrameInfo {
-    void *ptr;
-    RGY_CSP csp;
-    int width, height, pitch;
-    uint64_t timestamp;
-    bool deivce_mem;
-    bool interlaced;
-};
-
-struct FrameInfoExtra {
-    int width_byte, height_total, frame_size;
-};
-
-FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);

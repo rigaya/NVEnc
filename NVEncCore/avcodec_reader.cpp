@@ -1620,7 +1620,7 @@ RGY_ERR CAvcodecReader::GetHeader(RGYBitstream *pBitstream) {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-RGY_ERR CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
+RGY_ERR CAvcodecReader::LoadNextFrame(RGYFrame *pSurface) {
     if (m_Demux.video.pCodecDecode) {
         //動画のデコードを行う
         int got_frame = 0;
@@ -1675,13 +1675,11 @@ RGY_ERR CAvcodecReader::LoadNextFrame(void *dst, int dst_pitch) {
         //フレームデータをコピー
 
         void *dst_array[3];
-        dst_array[0] = dst;
-        dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]);
-        dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]); //YUV444出力時
+        pSurface->ptrArray(dst_array);
 
         m_sConvert->func[m_Demux.video.pFrame->interlaced_frame != 0](
             dst_array, (const void **)m_Demux.video.pFrame->data,
-            m_inputVideoInfo.srcWidth, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], dst_pitch,
+            m_inputVideoInfo.srcWidth, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], pSurface->pitch(),
             m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
         if (got_frame) {
             av_frame_unref(m_Demux.video.pFrame);

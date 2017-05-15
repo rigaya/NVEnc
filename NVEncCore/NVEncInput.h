@@ -55,7 +55,7 @@ public:
     }
 
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) = 0;
-    virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) = 0;
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) = 0;
 
 #pragma warning(push)
 #pragma warning(disable: 4100)

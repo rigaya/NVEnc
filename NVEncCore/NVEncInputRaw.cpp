@@ -260,7 +260,7 @@ void NVEncInputRaw::Close() {
     NVEncBasicInput::Close();
 }
 
-RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
+RGY_ERR NVEncInputRaw::LoadNextFrame(RGYFrame *pSurface) {
 
     //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
     //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
@@ -309,9 +309,7 @@ RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
         return RGY_ERR_MORE_DATA;
     }
     void *dst_array[3];
-    dst_array[0] = dst;
-    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]);
-    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * (m_inputVideoInfo.srcHeight - m_inputVideoInfo.crop.c[1] - m_inputVideoInfo.crop.c[3]); //YUV444出力時
+    pSurface->ptrArray(dst_array);
 
     const void *src_array[3];
     src_array[0] = m_pBuffer.get();
@@ -344,7 +342,7 @@ RGY_ERR NVEncInputRaw::LoadNextFrame(void *dst, int dst_pitch) {
     const int src_uv_pitch = (m_sConvert->csp_from == RGY_CSP_YUV444) ? m_inputVideoInfo.srcPitch : m_inputVideoInfo.srcPitch / 2;
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
-        src_uv_pitch, dst_pitch, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+        src_uv_pitch, pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     m_pEncSatusInfo->m_sData.frameIn++;
     return m_pEncSatusInfo->UpdateDisplay();
