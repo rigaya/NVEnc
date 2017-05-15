@@ -233,7 +233,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     sChapterFile(),
     pMuxVidTsLogFile(nullptr),
     pAVInputFormat(nullptr),
-    nAVSyncMode(NV_AVSYNC_THROUGH),     //avsyncの方法 (NV_AVSYNC_xxx)
+    nAVSyncMode(RGY_AVSYNC_THROUGH),     //avsyncの方法 (RGY_AVSYNC_xxx)
     nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
     vpp() {
     encConfig = NVEncCore::DefaultParam();
@@ -522,7 +522,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             inputInfoAVAudioReader.nAudioSelectCount = inputParam->nAudioSelectCount;
             inputInfoAVAudioReader.ppAudioSelect = inputParam->ppAudioSelectList;
             inputInfoAVAudioReader.nProcSpeedLimit = inputParam->nProcSpeedLimit;
-            inputInfoAVAudioReader.nAVSyncMode = NV_AVSYNC_THROUGH;
+            inputInfoAVAudioReader.nAVSyncMode = RGY_AVSYNC_THROUGH;
             inputInfoAVAudioReader.fSeekSec = inputParam->fSeekSec;
             inputInfoAVAudioReader.pFramePosListLog = inputParam->sFramePosListLog.c_str();
             inputInfoAVAudioReader.nInputThread = 0;
@@ -2751,14 +2751,13 @@ NVENCSTATUS NVEncCore::Encode() {
     if (m_cuvidDec) {
         th_input = std::thread([this, pStreamIn, &nvStatus]() {
             CUresult curesult = CUDA_SUCCESS;
-            vector<uint8_t> bitstream;
+            RGYBitstream bitstream = RGYBitstreamInit();
             RGY_ERR sts = RGY_ERR_NONE;
             for (int i = 0; sts == RGY_ERR_NONE && nvStatus == NV_ENC_SUCCESS && !m_cuvidDec->GetError(); i++) {
                 sts = m_pFileReader->LoadNextFrame(nullptr, 0);
-                int64_t pts;
-                m_pFileReader->GetNextBitstream(bitstream, &pts);
+                m_pFileReader->GetNextBitstream(&bitstream);
                 PrintMes(RGY_LOG_TRACE, _T("Set packet %d\n"), i);
-                if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(bitstream.data(), bitstream.size(), pts, pStreamIn->time_base))) {
+                if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(bitstream.bufptr() + bitstream.offset(), bitstream.size(), bitstream.pts(), pStreamIn->time_base))) {
                     PrintMes(RGY_LOG_ERROR, _T("Error in DecodePacket: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
                     return curesult;
                 }
@@ -2818,7 +2817,7 @@ NVENCSTATUS NVEncCore::Encode() {
         vector<unique_ptr<FrameBufferDataIn>> decFrames;
 #if ENABLE_AVCUVID_READER
         int64_t pts = (pStreamIn) ? av_rescale_q(pInputFrame->getTimeStamp(), CUVID_NATIVE_TIMEBASE, pStreamIn->time_base) : nEstimatedPts;
-        if ((m_nAVSyncMode & NV_AVSYNC_FORCE_CFR) == NV_AVSYNC_FORCE_CFR) {
+        if ((m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) == RGY_AVSYNC_FORCE_CFR) {
             if (nEstimatedPts == AV_NOPTS_VALUE) {
                 nEstimatedPts = pts;
             }
@@ -3536,7 +3535,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         }
         add_str(RGY_LOG_ERROR, _T("[offset: %d]\n"), m_pTrimParam->offset);
     }
-    if (m_nAVSyncMode != NV_AVSYNC_THROUGH) {
+    if (m_nAVSyncMode != RGY_AVSYNC_THROUGH) {
         add_str(RGY_LOG_ERROR, _T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     }
     tstring vppFilterMes;

@@ -141,7 +141,7 @@ struct InEncodeVideoParam {
     tstring sChapterFile;
     TCHAR *pMuxVidTsLogFile;
     TCHAR *pAVInputFormat;
-    NVAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
+    RGYAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
     int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
     VppParam vpp;                 //vpp
 
@@ -287,7 +287,7 @@ protected:
     uint32_t                     m_uEncHeight;            //出力横解像度
 
     int                          m_nProcSpeedLimit;       //処理速度制限 (0で制限なし)
-    NVAVSync                     m_nAVSyncMode;           //映像音声同期設定
+    RGYAVSync                     m_nAVSyncMode;           //映像音声同期設定
     std::pair<int, int>          m_inputFps;              //入力フレームレート
 #if ENABLE_AVCUVID_READER
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード

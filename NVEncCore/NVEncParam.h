@@ -94,12 +94,12 @@ static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimL
     return false;
 }
 
-enum NVAVSync : uint32_t {
-    NV_AVSYNC_THROUGH   = 0x00,
-    NV_AVSYNC_INIT      = 0x01,
-    NV_AVSYNC_CHECK_PTS = 0x02,
-    NV_AVSYNC_VFR       = 0x02,
-    NV_AVSYNC_FORCE_CFR = 0x04 | NV_AVSYNC_CHECK_PTS,
+enum RGYAVSync : uint32_t {
+    RGY_AVSYNC_THROUGH   = 0x00,
+    RGY_AVSYNC_INIT      = 0x01,
+    RGY_AVSYNC_CHECK_PTS = 0x02,
+    RGY_AVSYNC_VFR       = 0x02,
+    RGY_AVSYNC_FORCE_CFR = 0x04 | RGY_AVSYNC_CHECK_PTS,
 };
 
 enum {
@@ -501,8 +501,8 @@ const CX_DESC list_log_level[] = {
 };
 
 const CX_DESC list_avsync[] = {
-    { _T("through"),  NV_AVSYNC_THROUGH   },
-    { _T("forcecfr"), NV_AVSYNC_FORCE_CFR },
+    { _T("through"),  RGY_AVSYNC_THROUGH   },
+    { _T("forcecfr"), RGY_AVSYNC_FORCE_CFR },
     { NULL, 0 }
 };
 

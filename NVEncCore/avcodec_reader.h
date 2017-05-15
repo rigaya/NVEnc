@@ -46,15 +46,8 @@ using std::pair;
 using std::deque;
 
 static const uint32_t AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
-static const uint32_t AVQSV_FRAME_MAX_REORDER = 16;
-static const int AVQSV_POC_INVALID = -1;
-
-enum {
-    AVQSV_AUDIO_NONE         = 0x00,
-    AVQSV_AUDIO_MUX          = 0x01,
-    AVQSV_AUDIO_COPY_TO_FILE = 0x02,
-};
-
+static const uint32_t AV_FRAME_MAX_REORDER = 16;
+static const int FRAMEPOS_POC_INVALID = -1;
 
 enum RGYPtsStatus : uint32_t {
     RGY_PTS_UNKNOWN           = 0x00,
@@ -106,7 +99,7 @@ typedef struct FramePos {
 
 static FramePos framePos(int64_t pts, int64_t dts,
     int duration, int duration2 = 0,
-    int poc = AVQSV_POC_INVALID,
+    int poc = FRAMEPOS_POC_INVALID,
     uint8_t flags = 0, uint8_t pic_struct = RGY_PICSTRUCT_FRAME, uint8_t repeat_pict = 0, uint8_t pict_type = 0) {
     FramePos pos;
     pos.pts = pts;
@@ -262,7 +255,7 @@ public:
             m_nFirstKeyframePts = m_list[nIndex].data.pts;
         }
         //m_nStreamPtsStatusがRGY_PTS_UNKNOWNの場合には、ソートなどは行わない
-        if (m_bInputFin || (m_nStreamPtsStatus && nListSize - m_nNextFixNumIndex > (int)AVQSV_FRAME_MAX_REORDER)) {
+        if (m_bInputFin || (m_nStreamPtsStatus && nListSize - m_nNextFixNumIndex > (int)AV_FRAME_MAX_REORDER)) {
             //ptsでソート
             sortPts(m_nNextFixNumIndex, nListSize - m_nNextFixNumIndex);
             setPocAndFix(nListSize);
@@ -307,7 +300,7 @@ public:
         }
         //エラー
         FramePos pos = { 0 };
-        pos.poc = AVQSV_POC_INVALID;
+        pos.poc = FRAMEPOS_POC_INVALID;
         DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request: %8d, invalid, list size: %d\n"), poc, (int)m_list.size()));
         return pos;
     }
@@ -520,10 +513,10 @@ protected:
             && m_list[index+1].data.pts - m_list[index].data.pts <= (std::min)(m_list[index+1].data.duration / 10, 1)
             && m_list[index+1].data.dts - m_list[index].data.dts <= (std::min)(m_list[index+1].data.duration / 10, 1)) {
             //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
-            m_list[index].data.poc = AVQSV_POC_INVALID;
+            m_list[index].data.poc = FRAMEPOS_POC_INVALID;
         } else if (m_list[index].data.pic_struct & RGY_PICSTRUCT_FIELD) {
-            if (index > 0 && (m_list[index-1].data.poc != AVQSV_POC_INVALID && (m_list[index-1].data.pic_struct & RGY_PICSTRUCT_FIELD))) {
-                m_list[index].data.poc = AVQSV_POC_INVALID;
+            if (index > 0 && (m_list[index-1].data.poc != FRAMEPOS_POC_INVALID && (m_list[index-1].data.pic_struct & RGY_PICSTRUCT_FIELD))) {
+                m_list[index].data.poc = FRAMEPOS_POC_INVALID;
                 m_list[index-1].data.duration2 = m_list[index].data.duration;
             } else {
                 m_list[index].data.poc = m_nLastPoc++;
@@ -573,8 +566,8 @@ protected:
     //pocを確定させる
     void setPocAndFix(int nSortedSize) {
         //ソートによりptsが確定している範囲
-        //本来はnSortedSize - (int)AVQSV_FRAME_MAX_REORDERでよいが、durationを確定させるためにはさらにもう一枚必要になる
-        int nSortFixedSize = nSortedSize - (int)AVQSV_FRAME_MAX_REORDER - 1;
+        //本来はnSortedSize - (int)AV_FRAME_MAX_REORDERでよいが、durationを確定させるためにはさらにもう一枚必要になる
+        int nSortFixedSize = nSortedSize - (int)AV_FRAME_MAX_REORDER - 1;
         m_nNextFixNumIndex += m_nPAFFRewind;
         for (; m_nNextFixNumIndex < nSortFixedSize; m_nNextFixNumIndex++) {
             if (m_list[m_nNextFixNumIndex].data.pts < m_nFirstKeyframePts //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
@@ -594,7 +587,7 @@ protected:
         //setPocでduration2が埋まるのを待つ必要がある
         if (m_nNextFixNumIndex > 0
             && (m_list[m_nNextFixNumIndex-1].data.pic_struct & RGY_PICSTRUCT_FIELD)
-            && m_list[m_nNextFixNumIndex-1].data.poc != AVQSV_POC_INVALID) {
+            && m_list[m_nNextFixNumIndex-1].data.poc != FRAMEPOS_POC_INVALID) {
             m_nNextFixNumIndex--;
             m_nPAFFRewind = 1;
         }
@@ -631,7 +624,7 @@ typedef struct AVDemuxFormat {
     uint32_t                  nPreReadBufferIdx;     //先読みバッファの読み込み履歴
     int                       nAudioTracks;          //存在する音声のトラック数
     int                       nSubtitleTracks;       //存在する字幕のトラック数
-    NVAVSync                  nAVSyncMode;           //音声・映像同期モード
+    RGYAVSync                 nAVSyncMode;           //音声・映像同期モード
     AVDictionary             *pFormatOptions;        //avformat_open_inputに渡すオプション       
 } AVDemuxFormat;
 
@@ -711,7 +704,7 @@ typedef struct AvcodecReaderPrm {
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
     const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
-    NVAVSync       nAVSyncMode;             //音声・映像同期モード
+    RGYAVSync       nAVSyncMode;             //音声・映像同期モード
     float          fSeekSec;                //指定された秒数分先頭を飛ばす
     const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
     int            nInputThread;            //入力スレッドを有効にする
@@ -734,10 +727,13 @@ public:
     virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) override;
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する
-    virtual RGY_ERR GetNextBitstream(vector<uint8_t>& bitstream, int64_t *pts) override;
+    virtual RGY_ERR GetNextBitstream(RGYBitstream *pBitstream) override;
+
+    //動画ストリームの1フレーム分のデータをbitstreamに追加する
+    virtual RGY_ERR GetNextBitstreamNoDelete(RGYBitstream *pBitstream) override;
 
     //ストリームのヘッダ部分を取得する
-    virtual RGY_ERR GetHeader(vector<uint8_t>& bitstream) override;
+    virtual RGY_ERR GetHeader(RGYBitstream *pBitstream) override;
 
     //入力ファイルのグローバルメタデータを取得する
     const AVDictionary *GetInputFormatMetadata();
@@ -785,9 +781,6 @@ private:
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVDemuxStream *getPacketStreamData(const AVPacket *pkt);
-
-    //bitstreamにpktの内容を追加する
-    RGY_ERR setToMfxBitstream(vector<uint8_t>& bitstream, AVPacket *pkt);
 
     //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
     //必要ならqStreamPktL2に移し、不要ならパケットを開放する

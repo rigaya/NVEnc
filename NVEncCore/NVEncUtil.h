@@ -35,6 +35,7 @@
 #include "cuviddec.h"
 #include "ConvertCsp.h"
 #include "rgy_util.h"
+#include "rgy_err.h"
 
 #ifndef cudaVideoCodec_VP8
 #define cudaVideoCodec_VP8 (cudaVideoCodec)(cudaVideoCodec_HEVC+1)
@@ -83,5 +84,163 @@ VideoInfo videooutputinfo(
     NV_ENC_PIC_STRUCT nPicStruct,
     std::pair<int, int> sar,
     std::pair<int, int> outFps);
+
+
+struct RGYBitstream {
+private:
+    uint8_t *dataptr;
+    uint32_t dataLength;
+    uint32_t dataOffset;
+    uint32_t maxLength;
+    int64_t  dataDts;
+    int64_t  dataPts;
+
+public:
+    uint8_t *bufptr() const {
+        return dataptr;
+    }
+
+    const uint8_t *data() const {
+        return dataptr + dataOffset;
+    }
+
+    uint32_t size() const {
+        return dataLength;
+    }
+
+    uint32_t offset() const {
+        return dataOffset;
+    }
+
+    uint32_t bufsize() const {
+        return maxLength;
+    }
+
+    int64_t pts() const {
+        return dataPts;
+    }
+
+    void setPts(int64_t pts) {
+        dataPts = pts;
+    }
+
+    int64_t dts() const {
+        return dataDts;
+    }
+
+    void setDts(int64_t dts) {
+        dataDts = dts;
+    }
+
+    void clear() {
+        if (dataptr) {
+            _aligned_free(dataptr);
+        }
+        dataptr = nullptr;
+        dataLength = 0;
+        dataOffset = 0;
+        maxLength = 0;
+    }
+
+    RGY_ERR init(uint32_t nSize) {
+        clear();
+
+        if (nSize > 0) {
+            if (nullptr == (dataptr = (uint8_t *)_aligned_malloc(nSize, 32))) {
+                return RGY_ERR_NULL_PTR;
+            }
+
+            maxLength = nSize;
+        }
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR set(const uint8_t *setData, uint32_t setSize) {
+        if (setData == nullptr || setSize == 0) {
+            return RGY_ERR_MORE_BITSTREAM;
+        }
+        if (maxLength < setSize) {
+            clear();
+            auto sts = init(setSize);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        dataLength = setSize;
+        dataOffset = 0;
+        memcpy(dataptr, setData, setSize);
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR set(const uint8_t *setData, uint32_t setSize, int64_t dts, int64_t pts) {
+        auto sts = set(setData, setSize);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        dataDts = dts;
+        dataPts = pts;
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR copy(const RGYBitstream *pBitstream) {
+        auto sts = set(pBitstream->data(), pBitstream->size());
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR changeSize(uint32_t nNewSize) {
+        uint8_t *pData = (uint8_t *)_aligned_malloc(nNewSize, 32);
+        if (pData == nullptr) {
+            return RGY_ERR_NULL_PTR;
+        }
+
+        auto nDataLen = dataLength;
+        if (dataLength) {
+            memcpy(pData, dataptr + dataOffset, (std::min)(nDataLen, nNewSize));
+        }
+        clear();
+
+        dataptr       = pData;
+        dataOffset = 0;
+        dataLength = nDataLen;
+        maxLength  = nNewSize;
+
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR append(const uint8_t *appendData, uint32_t appendSize) {
+        if (appendData && appendSize > 0) {
+            const uint32_t new_data_length = appendSize + dataLength;
+            if (maxLength < new_data_length) {
+                auto sts = changeSize(new_data_length);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+
+            if (maxLength < new_data_length + dataOffset) {
+                memmove(dataptr, dataptr + dataOffset, dataLength);
+                dataOffset = 0;
+            }
+            memcpy(dataptr + dataLength + dataOffset, appendData, appendSize);
+            dataLength = new_data_length;
+        }
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR append(RGYBitstream *pBitstream) {
+        return append(pBitstream->data(), pBitstream->size());
+    }
+};
+
+RGYBitstream RGYBitstreamInit() {
+    RGYBitstream bitstream;
+    memset(&bitstream, 0, sizeof(bitstream));
+    return bitstream;
+}
+
+static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be POD type.");
 
 #endif //__NVENC_UTIL_H__

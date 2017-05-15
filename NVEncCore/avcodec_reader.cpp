@@ -337,7 +337,7 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
                 m_Demux.frames.list(i).duration, m_Demux.frames.list(i).duration2,
                 m_Demux.frames.list(i).repeat_pict);
 #endif
-            if (m_Demux.frames.list(i).poc != AVQSV_POC_INVALID) {
+            if (m_Demux.frames.list(i).poc != FRAMEPOS_POC_INVALID) {
                 int duration = m_Demux.frames.list(i).duration + m_Demux.frames.list(i).duration2;
                 //RFF用の補正
                 if (m_Demux.frames.list(i).repeat_pict > 1) {
@@ -650,7 +650,7 @@ RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, co
     //キュー関連初期化
     //getFirstFramePosAndFrameRateで大量にパケットを突っ込む可能性があるので、この段階ではcapacityは無限大にしておく
     m_Demux.qVideoPkt.init(4096, SIZE_MAX, 4);
-    m_Demux.qVideoPkt.set_keep_length(AVQSV_FRAME_MAX_REORDER);
+    m_Demux.qVideoPkt.set_keep_length(AV_FRAME_MAX_REORDER);
     m_Demux.qStreamPktL2.init(4096);
 
     //動画ストリームを探す
@@ -905,8 +905,8 @@ RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, co
 
         //ヘッダーの取得を確認する
         RGY_ERR sts = RGY_ERR_NONE;
-        vector<uint8_t> bitstream = { 0 };
-        if (0 != (sts = GetHeader(bitstream))) {
+        RGYBitstream bitstream = RGYBitstreamInit();
+        if (0 != (sts = GetHeader(&bitstream))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to get header.\n"));
             return sts;
         }
@@ -1303,7 +1303,7 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
                 pos.dts = pkt->dts;
                 pos.duration = (int)pkt->duration;
                 pos.duration2 = 0;
-                pos.poc = AVQSV_POC_INVALID;
+                pos.poc = FRAMEPOS_POC_INVALID;
                 pos.flags = (uint8_t)pkt->flags;
                 if (m_Demux.video.pParserCtx) {
                     if (m_Demux.video.pBsfcCtx) {
@@ -1382,18 +1382,8 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
     return 1;
 }
 
-RGY_ERR CAvcodecReader::setToMfxBitstream(vector<uint8_t>& bitstream, AVPacket *pkt) {
-    RGY_ERR sts = RGY_ERR_NONE;
-    if (pkt->data) {
-        bitstream.resize(pkt->size);
-        memcpy(bitstream.data(), pkt->data, pkt->size);
-    } else {
-        sts = RGY_ERR_MORE_BITSTREAM;
-    }
-    return sts;
-}
-
-RGY_ERR CAvcodecReader::GetNextBitstream(vector<uint8_t>& bitstream, int64_t *pts) {
+//動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
+RGY_ERR CAvcodecReader::GetNextBitstream(RGYBitstream *pBitstream) {
     AVPacket pkt;
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
         && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
@@ -1408,9 +1398,35 @@ RGY_ERR CAvcodecReader::GetNextBitstream(vector<uint8_t>& bitstream, int64_t *pt
     }
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
-        sts = setToMfxBitstream(bitstream, &pkt);
-        if (pts) {
-            *pts = ((m_Demux.format.nAVSyncMode & NV_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
+        if (pkt.data) {
+            auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
+            sts = pBitstream->set(pkt.data, pkt.size, pkt.dts, pts);
+        }
+        av_packet_unref(&pkt);
+        m_Demux.video.nSampleGetCount++;
+    }
+    return sts;
+}
+
+//動画ストリームの1フレーム分のデータをbitstreamに追加する
+RGY_ERR CAvcodecReader::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
+    AVPacket pkt;
+    if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
+        && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
+        if (0 == getSample(&pkt)) {
+            m_Demux.qVideoPkt.push(pkt);
+        }
+    }
+
+    bool bGetPacket = false;
+    for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_no_lock(&pkt)) && m_Demux.qVideoPkt.size() > 0; i++) {
+        sleep_hybrid(i);
+    }
+    RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
+    if (bGetPacket) {
+        if (pkt.data) {
+            auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
+            sts = pBitstream->set(pkt.data, pkt.size, pkt.dts, pts);
         }
         av_packet_unref(&pkt);
         m_Demux.video.nSampleGetCount++;
@@ -1523,7 +1539,17 @@ vector<AVDemuxStream> CAvcodecReader::GetInputStreamInfo() {
     return vector<AVDemuxStream>(m_Demux.stream.begin(), m_Demux.stream.end());
 }
 
-RGY_ERR CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
+RGY_ERR CAvcodecReader::GetHeader(RGYBitstream *pBitstream) {
+    if (pBitstream == nullptr) {
+        return RGY_ERR_NULL_PTR;
+    }
+    if (pBitstream->bufptr() == nullptr) {
+        auto sts = pBitstream->init(AVCODEC_READER_INPUT_BUF_SIZE);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+
     if (m_Demux.video.pExtradata == nullptr) {
         m_Demux.video.nExtradataSize = m_Demux.video.pStream->codecpar->extradata_size;
         //ここでav_mallocを使用しないと正常に動作しない
@@ -1587,9 +1613,8 @@ RGY_ERR CAvcodecReader::GetHeader(vector<uint8_t>& bitstream) {
         }
         AddMessage(RGY_LOG_DEBUG, _T("GetHeader: %d bytes.\n"), m_Demux.video.nExtradataSize);
     }
-    
-    bitstream.resize(m_Demux.video.nExtradataSize);
-    memcpy(bitstream.data(), m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
+
+    pBitstream->set(m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
     return RGY_ERR_NONE;
 }
 

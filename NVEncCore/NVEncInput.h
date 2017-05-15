@@ -59,11 +59,20 @@ public:
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-    //動画ストリームの1フレーム分のデータをbitstreamに追加する
-    virtual RGY_ERR GetNextBitstream(vector<uint8_t>& bitstream, int64_t *dts) { return RGY_ERR_NONE; };
+    //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
+    virtual RGY_ERR GetNextBitstream(RGYBitstream *pBitstream) {
+        return RGY_ERR_NONE;
+    }
+
+    //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
+    virtual RGY_ERR GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
+        return RGY_ERR_NONE;
+    }
 
     //ストリームのヘッダ部分を取得する
-    virtual RGY_ERR GetHeader(vector<uint8_t>& bitstream) { return RGY_ERR_NONE; };
+    virtual RGY_ERR GetHeader(RGYBitstream *pBitstream) {
+        return RGY_ERR_NONE;
+    }
 #pragma warning(pop)
 
     virtual void Close();

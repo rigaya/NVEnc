@@ -1508,7 +1508,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int value = 0;
         i++;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avsync, strInput[i]))) {
-            pParams->nAVSyncMode = (NVAVSync)value;
+            pParams->nAVSyncMode = (RGYAVSync)value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
