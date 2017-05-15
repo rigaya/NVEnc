@@ -40,7 +40,7 @@
 #include <process.h>
 #pragma comment(lib, "winmm.lib")
 #include "nvEncodeAPI.h"
-#include "NVEncLog.h"
+#include "rgy_log.h"
 #include "cpu_info.h"
 #include "rgy_err.h"
 

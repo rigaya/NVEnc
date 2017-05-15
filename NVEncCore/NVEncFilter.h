@@ -46,7 +46,7 @@
 #pragma warning (pop)
 #include "helper_cuda.h"
 #include "NVEncUtil.h"
-#include "NVEncLog.h"
+#include "rgy_log.h"
 #include "ConvertCsp.h"
 #include "NVEncFrameInfo.h"
 

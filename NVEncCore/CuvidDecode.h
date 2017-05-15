@@ -32,7 +32,7 @@
 
 #include <cuda.h>
 #include <nvcuvid.h>
-#include "NVEncLog.h"
+#include "rgy_log.h"
 #include "FrameQueue.h"
 #include "avcodec_qsv.h"
 #include "NVEncFrameInfo.h"

@@ -31,7 +31,7 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-#include "NVEncLog.h"
+#include "rgy_log.h"
 #include "nvEncodeAPI.h"
 #include "NVEncUtil.h"
 #include "NVEncParam.h"

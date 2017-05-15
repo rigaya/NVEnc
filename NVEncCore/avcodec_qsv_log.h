@@ -29,7 +29,7 @@
 #define _AVCODEC_QSV_LOG_H_
 
 #include "NVEncVersion.h"
-#include "NVEncLog.h"
+#include "rgy_log.h"
 
 #if ENABLE_AVCUVID_READER
 

@@ -40,7 +40,7 @@
 #include "cpu_info.h"
 #include "gpu_info.h"
 #include "rgy_util.h"
-#include "NVEncLog.h"
+#include "rgy_log.h"
 
 #pragma warning (push)
 #pragma warning (disable: 4100)

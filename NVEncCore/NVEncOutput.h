@@ -33,7 +33,7 @@
 #include <vector>
 #include "NVEncUtil.h"
 #include "NVEncInput.h"
-#include "NVEncLog.h"
+#include "rgy_log.h"
 
 using std::unique_ptr;
 using std::shared_ptr;

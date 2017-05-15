@@ -41,7 +41,7 @@
 #include "NVEncOutput.h"
 #include "NVEncUtil.h"
 #include "NVEncStatus.h"
-#include "NVEncLog.h"
+#include "rgy_log.h"
 #include "NVEncParam.h"
 #include "FrameQueue.h"
 #include "CuvidDecode.h"

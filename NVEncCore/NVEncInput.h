@@ -37,7 +37,7 @@
 #include "NVEncStatus.h"
 #include "NVEncVersion.h"
 #include "ConvertCsp.h"
-#include "NVEncLog.h"
+#include "rgy_log.h"
 #include "NVEncParam.h"
 #include <nvcuvid.h>
 #include "rgy_err.h"
