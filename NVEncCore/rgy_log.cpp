@@ -36,9 +36,9 @@
 #include "NVEncUtil.h"
 #include "NVEncParam.h"
 
-const char *CNVEncLog::HTML_FOOTER = "</body>\n</html>\n";
+const char *RGYLog::HTML_FOOTER = "</body>\n</html>\n";
 
-void CNVEncLog::init(const TCHAR *pLogFile, int log_level) {
+void RGYLog::init(const TCHAR *pLogFile, int log_level) {
     m_pStrLog = pLogFile;
     m_nLogLevel = log_level;
     if (pLogFile != nullptr && _tcslen(pLogFile) > 0) {
@@ -66,7 +66,7 @@ void CNVEncLog::init(const TCHAR *pLogFile, int log_level) {
     }
 };
 
-void CNVEncLog::writeHtmlHeader() {
+void RGYLog::writeHtmlHeader() {
     FILE *fp = _tfopen(m_pStrLog, _T("wb"));
     if (fp) {
         std::wstring header =
@@ -99,7 +99,7 @@ void CNVEncLog::writeHtmlHeader() {
         fclose(fp);
     }
 }
-void CNVEncLog::writeFileHeader(const TCHAR *pDstFilename) {
+void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
     tstring fileHeader;
     int dstFilenameLen = (int)_tcslen(pDstFilename);
     static const TCHAR *const SEP5 = _T("-----");
@@ -131,11 +131,11 @@ void CNVEncLog::writeFileHeader(const TCHAR *pDstFilename) {
         write(RGY_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
     }
 }
-void CNVEncLog::writeFileFooter() {
+void RGYLog::writeFileFooter() {
     write(RGY_LOG_INFO, _T("\n\n"));
 }
 
-void CNVEncLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
+void RGYLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     if (log_level < m_nLogLevel) {
         return;
     }
@@ -213,7 +213,7 @@ void CNVEncLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     }
 }
 
-void CNVEncLog::write(int log_level, const TCHAR *format, ...) {
+void RGYLog::write(int log_level, const TCHAR *format, ...) {
     if (log_level < m_nLogLevel) {
         return;
     }

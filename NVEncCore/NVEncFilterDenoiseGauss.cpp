@@ -180,7 +180,7 @@ NVEncFilterDenoiseGauss::~NVEncFilterDenoiseGauss() {
     close();
 }
 
-NVENCSTATUS NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) {
+NVENCSTATUS NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     m_pPrintMes = pPrintMes;
     auto pGaussParam = std::dynamic_pointer_cast<NVEncFilterParamGaussDenoise>(pParam);

@@ -33,7 +33,7 @@
 #include <atomic>
 #include "avcodec_qsv_log.h"
 
-static std::weak_ptr<CNVEncLog> g_pQSVLog;
+static std::weak_ptr<RGYLog> g_pQSVLog;
 static int print_prefix = 1;
 static std::atomic<bool> g_bSetCustomLog(false);
 
@@ -49,7 +49,7 @@ static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list v
     av_log_default_callback(ptr, level, fmt, vl);
 }
 
-void av_qsv_log_set(std::shared_ptr<CNVEncLog>& pQSVLog) {
+void av_qsv_log_set(std::shared_ptr<RGYLog>& pQSVLog) {
     g_pQSVLog = pQSVLog;
     g_bSetCustomLog = true;
     av_log_set_callback(av_qsv_log_callback);

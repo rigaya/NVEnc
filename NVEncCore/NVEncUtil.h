@@ -241,8 +241,9 @@ static inline RGYBitstream RGYBitstreamInit() {
     return bitstream;
 }
 
+#ifndef __CUDACC__
 static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be POD type.");
-
+#endif
 
 struct RGYFrame {
 private:
@@ -302,6 +303,8 @@ static inline RGYFrame RGYFrameInit(const FrameInfo& frameinfo) {
     return frame;
 }
 
+#ifndef __CUDACC__
 static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
+#endif
 
 #endif //__NVENC_UTIL_H__

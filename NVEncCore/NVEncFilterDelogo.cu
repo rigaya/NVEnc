@@ -394,7 +394,7 @@ int NVEncFilterDelogo::selectLogo(const TCHAR *selectStr) {
     return LOGO_AUTO_SELECT_NOHIT;
 }
 
-NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) {
+NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     m_pPrintMes = pPrintMes;
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(pParam);

@@ -35,7 +35,7 @@
 
 #include "avcodec_qsv.h"
 
-void av_qsv_log_set(std::shared_ptr<CNVEncLog>& pQSVLog);
+void av_qsv_log_set(std::shared_ptr<RGYLog>& pQSVLog);
 void av_qsv_log_free();
 
 #endif //ENABLE_AVCUVID_READER

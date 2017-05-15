@@ -90,9 +90,9 @@ public:
     virtual void Close() override;
 };
 
-class CAuoLog : public CNVEncLog {
+class CAuoLog : public RGYLog {
 public:
-    CAuoLog(const TCHAR *pLogFile, int log_level) : CNVEncLog(pLogFile, log_level) { };
+    CAuoLog(const TCHAR *pLogFile, int log_level) : RGYLog(pLogFile, log_level) { };
     virtual void write(int logLevel, const TCHAR *format, ...) override;
 };
 

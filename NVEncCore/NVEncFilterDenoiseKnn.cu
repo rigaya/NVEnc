@@ -272,7 +272,7 @@ NVEncFilterDenoiseKnn::~NVEncFilterDenoiseKnn() {
     close();
 }
 
-NVENCSTATUS NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) {
+NVENCSTATUS NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     m_pPrintMes = pPrintMes;
     auto pKnnParam = std::dynamic_pointer_cast<NVEncFilterParamDenoiseKnn>(pParam);

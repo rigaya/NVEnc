@@ -601,7 +601,7 @@ NVEncFilterResize::~NVEncFilterResize() {
     close();
 }
 
-NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) {
+NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     m_pPrintMes = pPrintMes;
     auto pResizeParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(pParam);

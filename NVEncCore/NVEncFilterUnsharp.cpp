@@ -201,7 +201,7 @@ cudaError_t NVEncFilterUnsharp::AllocScratch(int nScratchSize) {
     return cudaSuccess;
 }
 
-NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) {
+NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     m_pPrintMes = pPrintMes;
     auto pUnsharpParam = std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(pParam);

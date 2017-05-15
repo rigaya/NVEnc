@@ -168,7 +168,7 @@ CUresult CuvidDecode::CreateDecoder() {
     return curesult;
 }
 
-CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, shared_ptr<CNVEncLog> pLog, int nDecType, bool bCuvidResize, bool ignoreDynamicFormatChange) {
+CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool ignoreDynamicFormatChange) {
     //初期化
     CloseDecoder();
 

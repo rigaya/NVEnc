@@ -46,7 +46,7 @@ class NVEncFilterDenoiseKnn : public NVEncFilter {
 public:
     NVEncFilterDenoiseKnn();
     virtual ~NVEncFilterDenoiseKnn();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     virtual void close() override;

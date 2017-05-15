@@ -218,7 +218,7 @@ public:
     tstring name() {
         return m_sFilterName;
     }
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) = 0;
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) = 0;
     NVENCSTATUS filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum);
     const tstring GetInputMessage() {
         return m_sFilterInfo;
@@ -258,7 +258,7 @@ protected:
 
     tstring m_sFilterName;
     tstring m_sFilterInfo;
-    shared_ptr<CNVEncLog> m_pPrintMes;  //ログ出力
+    shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
     vector<unique_ptr<CUFrameBuf>> m_pFrameBuf;
     int m_nFrameIdx;
 protected:
@@ -282,7 +282,7 @@ class NVEncFilterCspCrop : public NVEncFilter {
 public:
     NVEncFilterCspCrop();
     virtual ~NVEncFilterCspCrop();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     NVENCSTATUS convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
@@ -302,7 +302,7 @@ class NVEncFilterResize : public NVEncFilter {
 public:
     NVEncFilterResize();
     virtual ~NVEncFilterResize();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     NVENCSTATUS resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
@@ -324,7 +324,7 @@ class NVEncFilterDenoiseGauss : public NVEncFilter {
 public:
     NVEncFilterDenoiseGauss();
     virtual ~NVEncFilterDenoiseGauss();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     NVENCSTATUS denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
@@ -348,7 +348,7 @@ class NVEncFilterUnsharp : public NVEncFilter {
 public:
     NVEncFilterUnsharp();
     virtual ~NVEncFilterUnsharp();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) override;
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     cudaError_t AllocScratch(int nScratchSize);

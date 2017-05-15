@@ -329,7 +329,7 @@ void NVEncCore::NVPrintFuncError(const TCHAR *funcName, CUresult code) {
 //ログを初期化
 NVENCSTATUS NVEncCore::InitLog(const InEncodeVideoParam *inputParam) {
     //ログの初期化
-    m_pNVLog.reset(new CNVEncLog(inputParam->logfile.c_str(), inputParam->loglevel));
+    m_pNVLog.reset(new RGYLog(inputParam->logfile.c_str(), inputParam->loglevel));
     if (inputParam->logfile.length()) {
         m_pNVLog->writeFileHeader(inputParam->outputFilename.c_str());
     }

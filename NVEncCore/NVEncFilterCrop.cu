@@ -475,7 +475,7 @@ NVEncFilterCspCrop::~NVEncFilterCspCrop() {
     close();
 }
 
-NVENCSTATUS NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<CNVEncLog> pPrintMes) {
+NVENCSTATUS NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     m_pPrintMes = pPrintMes;
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(pParam);

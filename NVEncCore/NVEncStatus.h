@@ -99,7 +99,7 @@ public:
     }
     ~EncodeStatus() { m_pNVLog.reset(); };
 
-    virtual void init(shared_ptr<CNVEncLog> pQSVLog) {
+    virtual void init(shared_ptr<RGYLog> pQSVLog) {
         m_pause = FALSE;
         m_sData.tmLastUpdate = std::chrono::system_clock::now();
         m_pNVLog = pQSVLog;
@@ -278,7 +278,7 @@ public:
 #pragma warning(pop)
 public:
     BOOL m_pause;
-    std::shared_ptr<CNVEncLog> m_pNVLog;
+    std::shared_ptr<RGYLog> m_pNVLog;
     PROCESS_TIME m_sStartTime;
     EncodeStatusData m_sData;
     uint32_t m_nOutputFPSRate = 0;

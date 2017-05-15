@@ -50,7 +50,7 @@ public:
     NVEncBasicInput();
     ~NVEncBasicInput();
 
-    virtual void SetNVEncLogPtr(shared_ptr<CNVEncLog> pNVLog) {
+    virtual void SetNVEncLogPtr(shared_ptr<RGYLog> pNVLog) {
         m_pPrintMes = pNVLog;
     }
 
@@ -152,7 +152,7 @@ protected:
     RGY_CSP m_InputCsp;
     const ConvertCSP *m_sConvert;
     shared_ptr<EncodeStatus> m_pEncSatusInfo;
-    shared_ptr<CNVEncLog> m_pPrintMes;  //ログ出力
+    shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
 
     tstring m_strInputInfo;
     tstring m_strReaderName;    //読み込みの名前

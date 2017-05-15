@@ -36,7 +36,7 @@
 #include "ConvertCsp.h"
 #include "NVEncParam.h"
 
-class CNVEncLog {
+class RGYLog {
 protected:
     int m_nLogLevel = RGY_LOG_INFO;
     const TCHAR *m_pStrLog = nullptr;
@@ -44,10 +44,10 @@ protected:
     std::mutex m_mtx;
     static const char *HTML_FOOTER;
 public:
-    CNVEncLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO) {
+    RGYLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO) {
         init(pLogFile, log_level);
     };
-    virtual ~CNVEncLog() {
+    virtual ~RGYLog() {
     };
     void init(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO);
     void writeHtmlHeader();
