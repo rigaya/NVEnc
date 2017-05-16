@@ -28,7 +28,7 @@
 
 #include <string>
 #include <sstream>
-#include "NVEncStatus.h"
+#include "rgy_status.h"
 #include "nvEncodeAPI.h"
 #include "NVEncInput.h"
 #include "ConvertCSP.h"

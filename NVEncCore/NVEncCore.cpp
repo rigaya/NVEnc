@@ -51,7 +51,7 @@
 #include "nvEncodeAPI.h"
 #include "NVEncCore.h"
 #include "NVEncVersion.h"
-#include "NVEncStatus.h"
+#include "rgy_status.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
 #include "NVEncInput.h"

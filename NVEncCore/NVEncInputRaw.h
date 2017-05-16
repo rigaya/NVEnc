@@ -31,7 +31,7 @@
 #include <tchar.h>
 #include <string>
 #include "NVEncUtil.h"
-#include "NVEncStatus.h"
+#include "rgy_status.h"
 #include "NVEncVersion.h"
 #include "NVEncInput.h"
 

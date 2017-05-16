@@ -513,13 +513,13 @@
     <ClInclude Include="NVEncCore.h" />
     <ClInclude Include="NVEncOutput.h" />
     <ClInclude Include="NVEncParam.h" />
-    <ClInclude Include="NVEncStatus.h" />
     <ClInclude Include="NVEncThread.h" />
     <ClInclude Include="NVEncUtil.h" />
     <ClInclude Include="NVEncVersion.h" />
     <ClInclude Include="qsv_queue.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_log.h" />
+    <ClInclude Include="rgy_status.h" />
     <ClInclude Include="rgy_util.h" />
   </ItemGroup>
   <ItemGroup>

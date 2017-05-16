@@ -40,7 +40,7 @@
 #include "NVEncInput.h"
 #include "NVEncOutput.h"
 #include "NVEncUtil.h"
-#include "NVEncStatus.h"
+#include "rgy_status.h"
 #include "rgy_log.h"
 #include "NVEncParam.h"
 #include "FrameQueue.h"

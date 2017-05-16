@@ -39,7 +39,7 @@
 #include "CuvidDecode.h"
 #include "NVEncParam.h"
 #include "NVEncInput.h"
-#include "NVEncStatus.h"
+#include "rgy_status.h"
 
 using std::vector;
 using std::pair;

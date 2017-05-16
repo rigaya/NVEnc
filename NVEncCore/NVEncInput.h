@@ -34,7 +34,7 @@
 #include <vector>
 #include <chrono>
 #include "NVEncUtil.h"
-#include "NVEncStatus.h"
+#include "rgy_status.h"
 #include "NVEncVersion.h"
 #include "ConvertCsp.h"
 #include "rgy_log.h"
