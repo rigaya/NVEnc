@@ -139,7 +139,7 @@ RGY_ERR NVEncOutBitstream::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstrea
         }
     }
 
-    m_pEncSatusInfo->SetOutputData(pBitstream->pictureType, pBitstream->bitstreamSizeInBytes, pBitstream->frameAvgQP);
+    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(pBitstream->pictureType), pBitstream->bitstreamSizeInBytes, pBitstream->frameAvgQP);
     return RGY_ERR_NONE;
 }
 

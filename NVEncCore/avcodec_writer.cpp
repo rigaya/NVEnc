@@ -1812,7 +1812,7 @@ RGY_ERR CAvcodecWriter::WriteNextFrameInternal(nvBitstream *pBitstream, int64_t 
             _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20I64d, %20I64d, %20I64d, %20I64d, %d, %7d\n"), pFrameTypeStr, pBitstream->outputTimeStamp, 0llu, pts, dts, (int)duration, bytesToWrite);
         }
     }
-    m_pEncSatusInfo->SetOutputData(pBitstream->pictureType, pBitstream->DataLength, pBitstream->frameAvgQP);
+    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(pBitstream->pictureType), pBitstream->DataLength, pBitstream->frameAvgQP);
 #if ENABLE_AVCODEC_OUT_THREAD
     //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
     if (m_Mux.thread.thOutput.joinable() && m_Mux.format.bFileHeaderWritten) {

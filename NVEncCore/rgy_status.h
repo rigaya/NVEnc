@@ -26,6 +26,8 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_STATUS_H__
+#define __RGY_STATUS_H__
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -39,7 +41,6 @@
 #include <algorithm>
 #include <process.h>
 #pragma comment(lib, "winmm.lib")
-#include "nvEncodeAPI.h"
 #include "rgy_log.h"
 #include "cpu_info.h"
 #include "rgy_err.h"
@@ -55,15 +56,6 @@ static const int UPDATE_INTERVAL = 800;
 #ifndef MAX3
 #define MAX3(a,b,c) (max((a), max((b), (c))))
 #endif
-
-enum {
-    NVENC_THREAD_RUNNING = 0,
-
-    NVENC_THREAD_FINISHED = -1,
-    NVENC_THREAD_ABORT = -2,
-
-    NVENC_THREAD_ERROR = 1,
-};
 
 typedef struct EncodeStatusData {
     uint64_t outFileSize;      //出力ファイルサイズ
@@ -109,22 +101,22 @@ public:
         m_sData.tmStart = std::chrono::system_clock::now();
         GetProcessTime(GetCurrentProcess(), &m_sStartTime);
     }
-    virtual void SetOutputData(NV_ENC_PIC_TYPE picType, uint32_t outputBytes, uint32_t frameAvgQP) {
+    virtual void SetOutputData(RGY_FRAMETYPE picType, uint32_t outputBytes, uint32_t frameAvgQP) {
         m_sData.outFileSize    += outputBytes;
         m_sData.frameOut       += 1;
-        m_sData.frameOutIDR    += (NV_ENC_PIC_TYPE_IDR == picType);
-        m_sData.frameOutI      += (NV_ENC_PIC_TYPE_IDR == picType);
-        m_sData.frameOutI      += (NV_ENC_PIC_TYPE_I   == picType);
-        m_sData.frameOutP      += (NV_ENC_PIC_TYPE_P   == picType);
-        m_sData.frameOutB      += (NV_ENC_PIC_TYPE_B   == picType);
-        m_sData.frameOutISize  += (0-(NV_ENC_PIC_TYPE_IDR == picType)) & outputBytes;
-        m_sData.frameOutISize  += (0-(NV_ENC_PIC_TYPE_I   == picType)) & outputBytes;
-        m_sData.frameOutPSize  += (0-(NV_ENC_PIC_TYPE_P   == picType)) & outputBytes;
-        m_sData.frameOutBSize  += (0-(NV_ENC_PIC_TYPE_B   == picType)) & outputBytes;
-        m_sData.frameOutIQPSum += (0-(NV_ENC_PIC_TYPE_IDR == picType)) & frameAvgQP;
-        m_sData.frameOutIQPSum += (0-(NV_ENC_PIC_TYPE_I   == picType)) & frameAvgQP;
-        m_sData.frameOutPQPSum += (0-(NV_ENC_PIC_TYPE_P   == picType)) & frameAvgQP;
-        m_sData.frameOutBQPSum += (0-(NV_ENC_PIC_TYPE_B   == picType)) & frameAvgQP;
+        m_sData.frameOutIDR    += (picType & RGY_FRAMETYPE_IDR) >> 7;
+        m_sData.frameOutI      += (picType & RGY_FRAMETYPE_IDR) >> 7;
+        m_sData.frameOutI      += (picType & RGY_FRAMETYPE_I);
+        m_sData.frameOutP      += (picType & RGY_FRAMETYPE_P) >> 1;
+        m_sData.frameOutB      += (picType & RGY_FRAMETYPE_I) >> 2;
+        m_sData.frameOutISize  += (0-((picType & RGY_FRAMETYPE_IDR) >> 7)) & outputBytes;
+        m_sData.frameOutISize  += (0- (picType & RGY_FRAMETYPE_I))         & outputBytes;
+        m_sData.frameOutPSize  += (0-((picType & RGY_FRAMETYPE_P)   >> 1)) & outputBytes;
+        m_sData.frameOutBSize  += (0-((picType & RGY_FRAMETYPE_I)   >> 2)) & outputBytes;
+        m_sData.frameOutIQPSum += (0-((picType & RGY_FRAMETYPE_IDR) >> 7)) & frameAvgQP;
+        m_sData.frameOutIQPSum += (0- (picType & RGY_FRAMETYPE_I))         & frameAvgQP;
+        m_sData.frameOutPQPSum += (0-((picType & RGY_FRAMETYPE_P)   >> 1)) & frameAvgQP;
+        m_sData.frameOutBQPSum += (0-((picType & RGY_FRAMETYPE_I)   >> 2)) & frameAvgQP;
     }
 #pragma warning(push)
 #pragma warning(disable: 4100)
@@ -163,7 +155,7 @@ public:
             if (avgQP >= 0.0) {
                 mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T(",  avgQP  %4.2f"), avgQP);
             }
-            
+
             if (frameSize > 0) {
                 const TCHAR *TOTAL_SIZE = _T(",  total size  ");
                 memcpy(mes + mes_len, TOTAL_SIZE, _tcslen(TOTAL_SIZE) * sizeof(mes[0]));
@@ -219,15 +211,15 @@ public:
                     (m_sData.frameOut + m_sData.frameDrop),
                     m_sData.encodeFps,
                     m_sData.bitrateKbps,
-                    hh, mm, ss );
+                    hh, mm, ss);
                 if (m_sData.frameDrop)
                     _stprintf_s(mes + len - 2, _countof(mes) - len + 2, _T(", afs drop %d/%d  "), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
             } else {
-                _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %0.2lf kbps  "), 
+                _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %0.2lf kbps  "),
                     (m_sData.frameOut + m_sData.frameDrop),
                     m_sData.encodeFps,
                     m_sData.bitrateKbps
-                    );
+                );
             }
             UpdateDisplay(mes, progressPercent);
         }
@@ -251,7 +243,7 @@ public:
             m_sData.encodeFps,
             m_sData.bitrateKbps,
             (double)m_sData.outFileSize / (double)(1024 * 1024)
-            );
+        );
         WriteLine(mes);
 
         int hh = (int)(time_elapsed64 / (60*60*1000));
@@ -261,14 +253,14 @@ public:
         int ss = time_elapsed / 1000;
         _stprintf_s(mes, _countof(mes), _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime));
         WriteLine(mes);
-        
+
         uint32_t maxCount = (std::max)(m_sData.frameOutI, (std::max)(m_sData.frameOutP, m_sData.frameOutB));
         uint64_t maxFrameSize = (std::max)(m_sData.frameOutISize, (std::max)(m_sData.frameOutPSize, m_sData.frameOutBSize));
 
-        WriteFrameTypeResult(_T("frame type IDR "), m_sData.frameOutIDR, maxCount,                     0, maxFrameSize, -1.0);
-        WriteFrameTypeResult(_T("frame type I   "), m_sData.frameOutI,   maxCount, m_sData.frameOutISize, maxFrameSize, (m_sData.frameOutI) ? m_sData.frameOutIQPSum / (double)m_sData.frameOutI : -1);
-        WriteFrameTypeResult(_T("frame type P   "), m_sData.frameOutP,   maxCount, m_sData.frameOutPSize, maxFrameSize, (m_sData.frameOutP) ? m_sData.frameOutPQPSum / (double)m_sData.frameOutP : -1);
-        WriteFrameTypeResult(_T("frame type B   "), m_sData.frameOutB,   maxCount, m_sData.frameOutBSize, maxFrameSize, (m_sData.frameOutB) ? m_sData.frameOutBQPSum / (double)m_sData.frameOutB : -1);
+        WriteFrameTypeResult(_T("frame type IDR "), m_sData.frameOutIDR, maxCount, 0, maxFrameSize, -1.0);
+        WriteFrameTypeResult(_T("frame type I   "), m_sData.frameOutI, maxCount, m_sData.frameOutISize, maxFrameSize, (m_sData.frameOutI) ? m_sData.frameOutIQPSum / (double)m_sData.frameOutI : -1);
+        WriteFrameTypeResult(_T("frame type P   "), m_sData.frameOutP, maxCount, m_sData.frameOutPSize, maxFrameSize, (m_sData.frameOutP) ? m_sData.frameOutPQPSum / (double)m_sData.frameOutP : -1);
+        WriteFrameTypeResult(_T("frame type B   "), m_sData.frameOutB, maxCount, m_sData.frameOutBSize, maxFrameSize, (m_sData.frameOutB) ? m_sData.frameOutBQPSum / (double)m_sData.frameOutB : -1);
     }
 #pragma warning(push)
 #pragma warning(disable: 4100)
@@ -333,3 +325,5 @@ private:
     std::chrono::microseconds m_tmThreshold;
     std::chrono::high_resolution_clock::time_point m_tmLastCheck;
 };
+
+#endif //__RGY_STATUS_H__

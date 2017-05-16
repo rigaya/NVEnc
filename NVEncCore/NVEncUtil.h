@@ -307,4 +307,13 @@ static inline RGYFrame RGYFrameInit(const FrameInfo& frameinfo) {
 static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
 #endif
 
+static inline RGY_FRAMETYPE frametype_enc_to_rgy(const NV_ENC_PIC_TYPE frametype) {
+    RGY_FRAMETYPE type = RGY_FRAMETYPE_UNKNOWN;
+    type |=  (NV_ENC_PIC_TYPE_IDR == frametype) ? RGY_FRAMETYPE_IDR : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (NV_ENC_PIC_TYPE_I   == frametype) ? RGY_FRAMETYPE_I   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (NV_ENC_PIC_TYPE_P   == frametype) ? RGY_FRAMETYPE_P   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (NV_ENC_PIC_TYPE_B   == frametype) ? RGY_FRAMETYPE_B   : RGY_FRAMETYPE_UNKNOWN;
+    return type;
+}
+
 #endif //__NVENC_UTIL_H__
