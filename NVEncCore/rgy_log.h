@@ -26,15 +26,15 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_LOG_H__
+#define __RGY_LOG_H__
 
 #include <stdio.h>
 #include <tchar.h>
 #include <string>
 #include <mutex>
-#include "NVEncUtil.h"
-#include "NVEncVersion.h"
-#include "ConvertCsp.h"
-#include "NVEncParam.h"
+#include "rgy_tchar.h"
+#include "rgy_util.h"
 
 class RGYLog {
 protected:
@@ -67,3 +67,5 @@ public:
     virtual void write_log(int log_level, const TCHAR *buffer, bool file_only = false);
     virtual void write(int log_level, const TCHAR *format, ...);
 };
+
+#endif //__RGY_LOG_H__

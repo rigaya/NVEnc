@@ -189,12 +189,12 @@ typedef struct AVMuxThread {
     HANDLE                       heEventClosingAudProcess;  //音声処理スレッドが停止処理を開始したことを通知する
     HANDLE                       heEventPktAddedAudEncode;  //キューのいずれかにデータが追加されたことを通知する
     HANDLE                       heEventClosingAudEncode;   //音声処理スレッドが停止処理を開始したことを通知する
-    CQueueSPSP<nvBitstream, 64>  qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
-    CQueueSPSP<nvBitstream, 64>  qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
-    CQueueSPSP<nvBitstream, 64>  qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
-    CQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
-    CQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
-    CQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
+    RGYQueueSPSP<nvBitstream, 64>  qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
+    RGYQueueSPSP<nvBitstream, 64>  qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
+    RGYQueueSPSP<nvBitstream, 64>  qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
+    RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
+    RGYQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
+    RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
 } AVMuxThread;
 #endif
 

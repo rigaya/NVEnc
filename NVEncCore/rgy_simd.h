@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2014-2016 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,8 +25,8 @@
 //
 // -------------------------------------------------------------------------------------------
 
-#ifndef _QSV_SIMD_H_
-#define _QSV_SIMD_H_
+#ifndef __RGY_SIMD_H__
+#define __RGY_SIMD_H__
 
 #ifndef _MSC_VER
 #ifndef __forceinline
@@ -51,4 +51,4 @@ enum {
 
 unsigned int get_availableSIMD();
 
-#endif //_QSV_SIMD_H_
+#endif //__RGY_SIMD_H__

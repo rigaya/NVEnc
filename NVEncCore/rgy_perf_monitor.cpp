@@ -413,7 +413,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 
     if (m_nSelectOutputPlot) {
 #if defined(_WIN32) || defined(_WIN64)
-        m_pProcess = std::unique_ptr<CPipeProcess>(new CPipeProcessWin());
+        m_pProcess = std::unique_ptr<RGYPipeProcess>(new RGYPipeProcessWin());
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
         TCHAR tempDir[1024] = { 0 };
         TCHAR tempPath[1024] = { 0 };
@@ -423,7 +423,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         m_sPywPath = tempPath;
         uint32_t priority = NORMAL_PRIORITY_CLASS;
 #else
-        m_pProcess = std::unique_ptr<CPipeProcess>(new CPipeProcessLinux());
+        m_pProcess = std::unique_ptr<RGYPipeProcess>(new CPipeProcessLinux());
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
         m_sPywPath = tstring(_T("/tmp/")) + strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), (int)getpid());
         uint32_t priority = 0;
@@ -462,7 +462,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
                 m_nSelectOutputPlot = 0;
 #if defined(_WIN32) || defined(_WIN64)
             } else {
-                WaitForInputIdle(dynamic_cast<CPipeProcessWin *>(m_pProcess.get())->getProcessInfo().hProcess, INFINITE);
+                WaitForInputIdle(dynamic_cast<RGYPipeProcessWin *>(m_pProcess.get())->getProcessInfo().hProcess, INFINITE);
 #endif
             }
         }

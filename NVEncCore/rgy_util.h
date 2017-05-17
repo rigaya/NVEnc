@@ -454,6 +454,25 @@ static inline bool cropEnabled(const sInputCrop& crop) {
     return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
 }
 
+typedef struct {
+    TCHAR *desc;
+    int value;
+} CX_DESC;
+
+const CX_DESC list_empty[] = {
+    { NULL, 0 }
+};
+
+const CX_DESC list_log_level[] = {
+    { _T("trace"), RGY_LOG_TRACE },
+    { _T("debug"), RGY_LOG_DEBUG },
+    { _T("more"),  RGY_LOG_MORE  },
+    { _T("info"),  RGY_LOG_INFO  },
+    { _T("warn"),  RGY_LOG_WARN  },
+    { _T("error"), RGY_LOG_ERROR },
+    { NULL, 0 }
+};
+
 struct VideoVUIInfo {
     int descriptpresent;
     int colorprim;

@@ -33,20 +33,20 @@
 #include "rgy_pipe.h"
 #include "rgy_util.h"
 
-CPipeProcessWin::CPipeProcessWin() {
+RGYPipeProcessWin::RGYPipeProcessWin() {
     memset(&m_pi, 0, sizeof(m_pi));
 }
 
-CPipeProcessWin::~CPipeProcessWin() {
+RGYPipeProcessWin::~RGYPipeProcessWin() {
 
 }
 
-void CPipeProcessWin::init() {
+void RGYPipeProcessWin::init() {
     close();
 }
 
 
-int CPipeProcessWin::startPipes(ProcessPipe *pipes) {
+int RGYPipeProcessWin::startPipes(ProcessPipe *pipes) {
     SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
     if (pipes->stdOut.mode) {
         if (!CreatePipe(&pipes->stdOut.h_read, &pipes->stdOut.h_write, &sa, pipes->stdOut.bufferSize) ||
@@ -69,7 +69,7 @@ int CPipeProcessWin::startPipes(ProcessPipe *pipes) {
     return 0;
 }
 
-int CPipeProcessWin::run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) {
+int RGYPipeProcessWin::run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) {
     BOOL Inherit = FALSE;
     DWORD flag = priority;
     STARTUPINFO si;
@@ -129,11 +129,11 @@ int CPipeProcessWin::run(const std::vector<const TCHAR *>& args, const TCHAR *ex
     return ret;
 }
 
-const PROCESS_INFORMATION& CPipeProcessWin::getProcessInfo() {
+const PROCESS_INFORMATION& RGYPipeProcessWin::getProcessInfo() {
     return m_pi;
 }
 
-void CPipeProcessWin::close() {
+void RGYPipeProcessWin::close() {
     if (m_pi.hProcess) {
         CloseHandle(m_pi.hProcess);
     }
@@ -143,7 +143,7 @@ void CPipeProcessWin::close() {
     memset(&m_pi, 0, sizeof(m_pi));
 }
 
-bool CPipeProcessWin::processAlive() {
+bool RGYPipeProcessWin::processAlive() {
     return WAIT_OBJECT_0 == WaitForSingleObject(m_phandle, 0);
 }
 #endif //defined(_WIN32) || defined(_WIN64)

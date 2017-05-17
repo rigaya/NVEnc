@@ -25,8 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __QSV_EVENT_H__
-#define __QSV_EVENT_H__
+#ifndef __RGY_EVENT_H__
+#define __RGY_EVENT_H__
 
 #include <cstdint>
 #include <climits>
@@ -58,4 +58,4 @@ uint32_t WaitForMultipleObjects(uint32_t count, HANDLE *pev, int dummy, uint32_t
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-#endif //__QSV_EVENT_H__
+#endif //__RGY_EVENT_H__

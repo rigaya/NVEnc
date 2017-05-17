@@ -34,7 +34,7 @@
 #define RGY_ERR_AMF 0
 #define RGY_ERR_NV  1
 
-#include <tchar.h>
+#include "rgy_tchar.h"
 #if RGY_ERR_QSV
 #include "mfxDefs.h"
 #endif

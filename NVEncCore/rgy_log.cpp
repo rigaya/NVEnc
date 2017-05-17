@@ -26,15 +26,9 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include <io.h>
-#include <fcntl.h>
-#include <string>
-#include <sstream>
 #include <algorithm>
 #include "rgy_log.h"
-#include "nvEncodeAPI.h"
-#include "NVEncUtil.h"
-#include "NVEncParam.h"
+#include "NVEncVersion.h"
 
 const char *RGYLog::HTML_FOOTER = "</body>\n</html>\n";
 

@@ -253,7 +253,7 @@ protected:
     PerfInfo m_info[2];
     std::thread m_thCheck;
     std::unique_ptr<void, handle_deleter> m_thMainThread;
-    std::unique_ptr<CPipeProcess> m_pProcess;
+    std::unique_ptr<RGYPipeProcess> m_pProcess;
     ProcessPipe m_pipes;
     HANDLE m_thEncThread;
     HANDLE m_thInThread;

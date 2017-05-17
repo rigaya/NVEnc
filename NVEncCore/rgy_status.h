@@ -29,18 +29,14 @@
 #ifndef __RGY_STATUS_H__
 #define __RGY_STATUS_H__
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 #include <stdio.h>
 #include <stdint.h>
-#include <tchar.h>
 #include <string>
 #include <chrono>
 #include <memory>
 #include <algorithm>
-#include <process.h>
-#pragma comment(lib, "winmm.lib")
 #include "rgy_log.h"
 #include "cpu_info.h"
 #include "rgy_err.h"

@@ -31,21 +31,21 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <sys/wait.h>
-#include "qsv_pipe.h"
+#include "rgy_pipe.h"
 
-CPipeProcessLinux::CPipeProcessLinux() {
+RGYPipeProcessLinux::RGYPipeProcessLinux() {
 }
 
-CPipeProcessLinux::~CPipeProcessLinux() {
+RGYPipeProcessLinux::~RGYPipeProcessLinux() {
 
 }
 
-void CPipeProcessLinux::init() {
+void RGYPipeProcessLinux::init() {
     close();
 }
 
 
-int CPipeProcessLinux::startPipes(ProcessPipe *pipes) {
+int RGYPipeProcessLinux::startPipes(ProcessPipe *pipes) {
     if (pipes->stdOut.mode) {
         if (-1 == (pipe((int *)&pipes->stdOut.h_read)))
             return 1;
@@ -62,7 +62,7 @@ int CPipeProcessLinux::startPipes(ProcessPipe *pipes) {
     return 0;
 }
 
-int CPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) {
+int RGYPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) {
     startPipes(pipes);
 
     m_phandle = fork();
@@ -95,10 +95,10 @@ int CPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR *
     return 0;
 }
 
-void CPipeProcessLinux::close() {
+void RGYPipeProcessLinux::close() {
 }
 
-bool CPipeProcessLinux::processAlive() {
+bool RGYPipeProcessLinux::processAlive() {
     int status = 0;
     return 0 == waitpid(m_phandle, &status, WNOHANG);
 }

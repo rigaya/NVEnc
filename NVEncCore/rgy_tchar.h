@@ -25,8 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __QSV_TCHAR_H__
-#define __QSV_TCHAR_H__
+#ifndef __RGY_TCHAR_H__
+#define __RGY_TCHAR_H__
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <tchar.h>
@@ -77,4 +77,4 @@ static inline char *_tcscpy_s(TCHAR *dst, size_t size, const TCHAR *src) {
     return strcpy(dst, src);
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-#endif // __QSV_TCHAR_H__
+#endif // __RGY_TCHAR_H__

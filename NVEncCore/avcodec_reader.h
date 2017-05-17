@@ -594,7 +594,7 @@ protected:
     }
 protected:
     double m_dFrameDuration; //CFRを仮定する際のフレーム長 (RGY_PTS_ALL_INVALID, RGY_PTS_NONKEY_INVALID, RGY_PTS_NONKEY_INVALID時有効)
-    CQueueSPSP<FramePos, 1> m_list; //内部データサイズとFramePosのデータサイズを一致させるため、alignを1に設定
+    RGYQueueSPSP<FramePos, 1> m_list; //内部データサイズとFramePosのデータサイズを一致させるため、alignを1に設定
     int m_nNextFixNumIndex; //次にptsを確定させるフレームのインデックス
     bool m_bInputFin; //入力が終了したことを示すフラグ
     int64_t m_nDuration; //m_nDurationNumのフレーム数分のdurationの総和
@@ -679,9 +679,9 @@ typedef struct AVDemuxer {
     vector<AVDemuxStream>    stream;
     vector<const AVChapter*> chapter;
     AVDemuxThread            thread;
-    CQueueSPSP<AVPacket>     qVideoPkt;
+    RGYQueueSPSP<AVPacket>     qVideoPkt;
     deque<AVPacket>          qStreamPktL1;
-    CQueueSPSP<AVPacket>     qStreamPktL2;
+    RGYQueueSPSP<AVPacket>     qStreamPktL2;
 } AVDemuxer;
 
 typedef struct AvcodecReaderPrm {

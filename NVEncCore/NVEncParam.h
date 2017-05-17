@@ -157,11 +157,6 @@ typedef struct sAudioSelect {
 const int NV_OUTPUT_BUF_MB_MAX = 128;
 
 typedef struct {
-    TCHAR *desc;
-    int value;
-} CX_DESC;
-
-typedef struct {
     GUID id;
     TCHAR *desc;
     unsigned int value;
@@ -488,16 +483,6 @@ const CX_DESC list_nppi_gauss[] = {
     { _T("5"), NPP_MASK_SIZE_5_X_5 },
     { _T("7"), NPP_MASK_SIZE_7_X_7 },
     { NULL, NULL }
-};
-
-const CX_DESC list_log_level[] = {
-    { _T("trace"), RGY_LOG_TRACE },
-    { _T("debug"), RGY_LOG_DEBUG },
-    { _T("more"),  RGY_LOG_MORE  },
-    { _T("info"),  RGY_LOG_INFO  },
-    { _T("warn"),  RGY_LOG_WARN  },
-    { _T("error"), RGY_LOG_ERROR },
-    { NULL, 0 }
 };
 
 const CX_DESC list_avsync[] = {

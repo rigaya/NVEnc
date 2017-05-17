@@ -23,16 +23,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
-#ifndef __NVENC_THREAD_H__
-#define __NVENC_THREAD_H__
+// --------------------------------------------------------------------------------------------
+
+#ifndef __RGY_THREAD_H__
+#define __RGY_THREAD_H__
 
 #include <thread>
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
+#include "rgy_osdep.h"
 
-static void __forceinline sleep_hybrid(int count) {
+static void RGY_FORCEINLINE sleep_hybrid(int count) {
     _mm_pause();
     if ((count & 4095) == 4095) {
         std::this_thread::sleep_for(std::chrono::milliseconds((count & 65535) == 65535));
@@ -40,6 +39,7 @@ static void __forceinline sleep_hybrid(int count) {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
+#include <Windows.h>
 
 static inline bool CheckThreadAlive(std::thread& thread) {
     DWORD exit_code = 0;
@@ -57,4 +57,4 @@ static inline bool CheckThreadAlive(std::thread& thread) {
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-#endif //__NVENC_THREAD_H__
+#endif //__RGY_THREAD_H__

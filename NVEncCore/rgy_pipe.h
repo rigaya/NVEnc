@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2014-2016 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,8 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef _QSV_PIPE_H_
-#define _QSV_PIPE_H_
+#ifndef __RGY_PIPE_H__
+#define __RGY_PIPE_H__
 
 #include <cstdint>
 #include <cstdio>
@@ -66,10 +66,10 @@ typedef struct {
     char read_buf[QSV_PIPE_READ_BUF];
 } ProcessPipe;
 
-class CPipeProcess {
+class RGYPipeProcess {
 public:
-    CPipeProcess() : m_phandle(0) { };
-    virtual ~CPipeProcess() { };
+    RGYPipeProcess() : m_phandle(0) {};
+    virtual ~RGYPipeProcess() {};
 
     virtual void init() = 0;
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) = 0;
@@ -81,10 +81,10 @@ protected:
 };
 
 #if defined(_WIN32) || defined(_WIN64)
-class CPipeProcessWin : public CPipeProcess {
+class RGYPipeProcessWin : public RGYPipeProcess {
 public:
-    CPipeProcessWin();
-    virtual ~CPipeProcessWin();
+    RGYPipeProcessWin();
+    virtual ~RGYPipeProcessWin();
 
     virtual void init() override;
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
@@ -96,10 +96,10 @@ protected:
     PROCESS_INFORMATION m_pi;
 };
 #else
-class CPipeProcessLinux : public CPipeProcess {
+class RGYPipeProcessLinux : public RGYPipeProcess {
 public:
-    CPipeProcessLinux();
-    virtual ~CPipeProcessLinux();
+    RGYPipeProcessLinux();
+    virtual ~RGYPipeProcessLinux();
 
     virtual void init() override;
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
@@ -110,4 +110,4 @@ protected:
 };
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-#endif //_QSV_PIPE_H_
+#endif //__RGY_PIPE_H__
