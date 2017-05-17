@@ -31,7 +31,7 @@
 #include "avcodec_qsv.h"
 
 #if ENABLE_AVCUVID_READER
-#include "qsv_queue.h"
+#include "rgy_queue.h"
 #include "NVEncParam.h"
 #include <mutex>
 #include <chrono>

@@ -47,7 +47,7 @@
 
 #if ENABLE_AVCUVID_READER
 #include "NVEncCore.h"
-#include "NVEncThread.h"
+#include "rgy_thread.h"
 #include "helper_cuda.h"
 #include "avcodec_qsv_log.h"
 

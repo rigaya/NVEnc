@@ -466,10 +466,12 @@
     <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
     <ClCompile Include="NVEncUtil.cpp" />
     <ClCompile Include="rgy_err.cpp" />
+    <ClCompile Include="rgy_event.cpp" />
     <ClCompile Include="rgy_log.cpp" />
     <ClCompile Include="rgy_perf_monitor.cpp" />
     <ClCompile Include="rgy_pipe.cpp" />
     <ClCompile Include="rgy_pipe_linux.cpp" />
+    <ClCompile Include="rgy_simd.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <CudaCompile Include="NVEncFilterDenoisePmd.cu">
       <FileType>CppCode</FileType>
@@ -518,17 +520,19 @@
     <ClInclude Include="NVEncCore.h" />
     <ClInclude Include="NVEncOutput.h" />
     <ClInclude Include="NVEncParam.h" />
-    <ClInclude Include="NVEncThread.h" />
     <ClInclude Include="NVEncUtil.h" />
     <ClInclude Include="NVEncVersion.h" />
-    <ClInclude Include="qsv_queue.h" />
     <ClInclude Include="rgy_err.h" />
+    <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_log.h" />
     <ClInclude Include="rgy_osdep.h" />
     <ClInclude Include="rgy_perf_monitor.h" />
     <ClInclude Include="rgy_pipe.h" />
+    <ClInclude Include="rgy_queue.h" />
+    <ClInclude Include="rgy_simd.h" />
     <ClInclude Include="rgy_status.h" />
     <ClInclude Include="rgy_tchar.h" />
+    <ClInclude Include="rgy_thread.h" />
     <ClInclude Include="rgy_util.h" />
   </ItemGroup>
   <ItemGroup>
