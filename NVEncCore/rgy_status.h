@@ -44,11 +44,12 @@
 #include "rgy_log.h"
 #include "cpu_info.h"
 #include "rgy_err.h"
+#include "rgy_perf_monitor.h"
+#include "gpuz_info.h"
 
 using std::chrono::duration_cast;
 
 static const int UPDATE_INTERVAL = 800;
-#define NV_ENC_ERR_ABORT ((NVENCSTATUS)-1)
 
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
@@ -58,9 +59,9 @@ static const int UPDATE_INTERVAL = 800;
 #endif
 
 typedef struct EncodeStatusData {
+    uint32_t outputFPSRate;
+    uint32_t outputFPSScale;
     uint64_t outFileSize;      //出力ファイルサイズ
-    std::chrono::system_clock::time_point tmStart;          //エンコード開始時刻
-    std::chrono::system_clock::time_point tmLastUpdate;     //最終更新時刻
     uint32_t frameTotal;       //入力予定の全フレーム数
     uint32_t frameOut;         //出力したフレーム数
     uint32_t frameOutIDR;      //出力したIDRフレーム
@@ -77,6 +78,12 @@ typedef struct EncodeStatusData {
     uint32_t frameDrop;        //ドロップしたフレーム数
     double encodeFps;          //エンコード速度
     double bitrateKbps;        //ビットレート
+    double CPUUsagePercent;
+    int    GPUInfoCountSuccess;
+    int    GPUInfoCountFail;
+    double GPULoadPercentTotal;
+    double MFXLoadPercentTotal;
+    double GPUClockTotal;
 } EncodeStatusData;
 
 class EncodeStatus {
@@ -84,24 +91,34 @@ public:
     EncodeStatus() {
         ZeroMemory(&m_sData, sizeof(m_sData));
 
-        m_sData.tmLastUpdate = std::chrono::system_clock::now();
-        m_pause = FALSE;
+        m_tmLastUpdate = std::chrono::system_clock::now();
+        m_pause = false;
         DWORD mode = 0;
         m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
     }
-    ~EncodeStatus() { m_pNVLog.reset(); };
-
-    virtual void init(shared_ptr<RGYLog> pQSVLog) {
-        m_pause = FALSE;
-        m_sData.tmLastUpdate = std::chrono::system_clock::now();
-        m_pNVLog = pQSVLog;
+    ~EncodeStatus() {
+        m_pRGYLog.reset();
+        m_pPerfMonitor.reset();
     }
 
-    virtual void SetStart() {
-        m_sData.tmStart = std::chrono::system_clock::now();
+    virtual void Init(uint32_t outputFPSRate, uint32_t outputFPSScale, uint32_t totalOutputFrames, shared_ptr<RGYLog> pRGYLog, shared_ptr<CPerfMonitor> pPerfMonitor) {
+        m_pause = false;
+        m_pRGYLog = pRGYLog;
+        m_pPerfMonitor = pPerfMonitor;
+        m_sData.outputFPSRate = outputFPSRate;
+        m_sData.outputFPSScale = outputFPSScale;
+        m_sData.frameTotal = totalOutputFrames;
+#if defined(_WIN32) || defined(_WIN64)
+        DWORD mode = 0;
+        m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
+#endif //#if defined(_WIN32) || defined(_WIN64)
+    }
+
+    void SetStart() {
+        m_tmStart = std::chrono::system_clock::now();
         GetProcessTime(GetCurrentProcess(), &m_sStartTime);
     }
-    virtual void SetOutputData(RGY_FRAMETYPE picType, uint32_t outputBytes, uint32_t frameAvgQP) {
+    void SetOutputData(RGY_FRAMETYPE picType, uint32_t outputBytes, uint32_t frameAvgQP) {
         m_sData.outFileSize    += outputBytes;
         m_sData.frameOut       += 1;
         m_sData.frameOutIDR    += (picType & RGY_FRAMETYPE_IDR) >> 7;
@@ -121,6 +138,9 @@ public:
 #pragma warning(push)
 #pragma warning(disable: 4100)
     virtual void UpdateDisplay(const TCHAR *mes, double progressPercent = 0.0) {
+        if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+            return;
+        }
 #if UNICODE
         char *mes_char = NULL;
         if (!m_bStdErrWriteToConsole) {
@@ -139,9 +159,122 @@ public:
     }
 #pragma warning(pop)
 
-    virtual void WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
+    RGY_ERR UpdateDisplay(double progressPercent = 0.0) {
+        if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+            return RGY_ERR_NONE;
+        }
+        if (m_sData.frameOut + m_sData.frameDrop <= 0) {
+            return RGY_ERR_NONE;
+        }
+        auto tm = std::chrono::system_clock::now();
+        if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() < UPDATE_INTERVAL) {
+            return RGY_ERR_NONE;
+        }
+        m_tmLastUpdate = tm;
+
+        bool bMFXUsage = false;
+        bool bGPUUsage = false;
+        int mfxusage = 0;
+        int gpuusage = 0;
+#if defined(_WIN32) || defined(_WIN64)
+#if ENABLE_METRIC_FRAMEWORK
+        QSVGPUInfo info ={ 0 };
+        bMFXUsage = m_pPerfMonitor && m_pPerfMonitor->GetQSVInfo(&info);
+        bGPUUsage = bMFXUsage;
+        if (bMFXUsage) {
+            m_sData.nGPUInfoCountSuccess++;
+            m_sData.fGPULoadPercentTotal += info.dEULoad;
+            m_sData.fMFXLoadPercentTotal += info.dMFXLoad;
+            gpuusage = (int)info.dEULoad;
+            mfxusage = (int)info.dMFXLoad;
+        } else {
+#endif //#if ENABLE_METRIC_FRAMEWORK
+            GPUZ_SH_MEM gpu_info ={ 0 };
+            if (0 == get_gpuz_info(&gpu_info)) {
+                bGPUUsage = true;
+                m_sData.GPUInfoCountSuccess++;
+                m_sData.GPULoadPercentTotal += gpu_load(&gpu_info);
+                m_sData.GPUClockTotal += gpu_core_clock(&gpu_info);
+                gpuusage = (int)gpu_load(&gpu_info);
+            } else {
+                m_sData.GPUInfoCountFail++;
+            }
+#if ENABLE_METRIC_FRAMEWORK
+        }
+#endif //#if ENABLE_METRIC_FRAMEWORK
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+        double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
+        if (m_sData.frameOut + m_sData.frameDrop) {
+            TCHAR mes[256] ={ 0 };
+            m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
+            m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
+            if (0 < m_sData.frameTotal || progressPercent > 0.0) {
+                if (progressPercent == 0.0) {
+                    progressPercent = (m_sData.frameOut + m_sData.frameDrop) * 100 / (double)m_sData.frameTotal;
+                }
+                progressPercent = (std::min)(progressPercent, 100.0);
+                uint32_t remaining_time = (uint32_t)(elapsedTime * (100.0 - progressPercent) / progressPercent + 0.5);
+                int hh = remaining_time / (60*60*1000);
+                remaining_time -= hh * (60*60*1000);
+                int mm = remaining_time / (60*1000);
+                remaining_time -= mm * (60*1000);
+                int ss = (remaining_time + 500) / 1000;
+
+                int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %d kb/s, remain %d:%02d:%02d  "),
+                    progressPercent,
+                    (m_sData.frameOut + m_sData.frameDrop),
+                    m_sData.encodeFps,
+                    (int)(m_sData.bitrateKbps + 0.5),
+                    hh, mm, ss);
+                if (m_sData.frameDrop) {
+                    len += _stprintf_s(mes + len, _countof(mes) - len, _T(", afs drop %d/%d  "), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
+                } else if (bGPUUsage) {
+                    len += _stprintf_s(mes + len, _countof(mes) - len, _T(", EU %d%%"), gpuusage);
+                    if (bMFXUsage) {
+                        len += _stprintf_s(mes + len, _countof(mes) - len, _T(", MFX %d%%"), mfxusage);
+                    }
+                }
+                for (; len < 79; len++) {
+                    mes[len] = _T(' ');
+                }
+                mes[len] = _T('\0');
+            } else {
+                int len = _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %d kbps"),
+                    (m_sData.frameOut + m_sData.frameDrop),
+                    m_sData.encodeFps,
+                    (int)(m_sData.bitrateKbps + 0.5)
+                );
+                if (bGPUUsage) {
+                    len += _stprintf_s(mes + len, _countof(mes) - len, _T(", EU %d%%"), gpuusage);
+                    if (bMFXUsage) {
+                        len += _stprintf_s(mes + len, _countof(mes) - len, _T(", MFX %d%%"), mfxusage);
+                    }
+                }
+                for (; len < 79; len++) {
+                    mes[len] = _T(' ');
+                }
+                mes[len] = _T('\0');
+            }
+            UpdateDisplay(mes, progressPercent);
+        }
+        return RGY_ERR_NONE;
+    }
+    virtual void WriteLine(const TCHAR *mes) {
+        if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+            return;
+        }
+        m_pRGYLog->write(RGY_LOG_INFO, _T("%s\n"), mes);
+    }
+    virtual void WriteLineDirect(TCHAR *mes) {
+        if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+            return;
+        }
+        m_pRGYLog->write_log(RGY_LOG_INFO, mes);
+    }
+    void WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
         if (count) {
-            TCHAR mes[512] = { 0 };
+            TCHAR mes[512] ={ 0 };
             int mes_len = 0;
             const int header_len = (int)_tcslen(header);
             memcpy(mes, header, header_len * sizeof(mes[0]));
@@ -171,72 +304,20 @@ public:
             WriteLine(mes);
         }
     }
-    virtual void WriteLine(const TCHAR *mes) {
-        if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > RGY_LOG_INFO) {
-            return;
-        }
-        m_pNVLog->write(RGY_LOG_INFO, _T("%s\n"), mes);
-    }
-    virtual RGY_ERR UpdateDisplay(double progressPercent = 0.0) {
-        if (m_pNVLog != nullptr && m_pNVLog->getLogLevel() > RGY_LOG_INFO) {
-            return RGY_ERR_NONE;
-        }
-        if (m_sData.frameOut + m_sData.frameDrop <= 0) {
-            return RGY_ERR_NONE;
-        }
-        auto tm = std::chrono::system_clock::now();
-        if (duration_cast<std::chrono::milliseconds>(tm - m_sData.tmLastUpdate).count() < UPDATE_INTERVAL) {
-            return RGY_ERR_NONE;
-        }
-        m_sData.tmLastUpdate = tm;
-        double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_sData.tmStart).count();
-        if (m_sData.frameOut + m_sData.frameDrop) {
-            TCHAR mes[256] = { 0 };
-            m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
-            m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_nOutputFPSRate / (double)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
-            if (0 < m_sData.frameTotal || progressPercent > 0.0) {
-                if (progressPercent == 0.0) {
-                    progressPercent = (m_sData.frameOut + m_sData.frameDrop) * 100 / (double)m_sData.frameTotal;
-                }
-                progressPercent = (std::min)(progressPercent, 100.0);
-                uint32_t remaining_time = (uint32_t)(elapsedTime * (100.0 - progressPercent) / progressPercent + 0.5);
-                int hh = remaining_time / (60*60*1000);
-                remaining_time -= hh * (60*60*1000);
-                int mm = remaining_time / (60*1000);
-                remaining_time -= mm * (60*1000);
-                int ss = (remaining_time + 500) / 1000;
-
-                int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0.2lf kb/s, remain %d:%02d:%02d  "),
-                    progressPercent,
-                    (m_sData.frameOut + m_sData.frameDrop),
-                    m_sData.encodeFps,
-                    m_sData.bitrateKbps,
-                    hh, mm, ss);
-                if (m_sData.frameDrop)
-                    _stprintf_s(mes + len - 2, _countof(mes) - len + 2, _T(", afs drop %d/%d  "), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
-            } else {
-                _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %0.2lf kbps  "),
-                    (m_sData.frameOut + m_sData.frameDrop),
-                    m_sData.encodeFps,
-                    m_sData.bitrateKbps
-                );
-            }
-            UpdateDisplay(mes, progressPercent);
-        }
-        return RGY_ERR_NONE;
-    }
-    virtual void writeResult() {
+    void WriteResults() {
         auto tm_result = std::chrono::system_clock::now();
-        const auto time_elapsed64 = duration_cast<std::chrono::milliseconds>(tm_result - m_sData.tmStart).count();
+        const auto time_elapsed64 = std::chrono::duration_cast<std::chrono::milliseconds>(tm_result - m_tmStart).count();
+        m_sData.encodeFps = m_sData.frameOut * 1000.0 / (double)time_elapsed64;
+        m_sData.bitrateKbps = (double)(m_sData.outFileSize * 8) *  (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / (1000.0 * m_sData.frameOut);
 
-        TCHAR mes[512] = { 0 };
+        TCHAR mes[512] ={ 0 };
         for (int i = 0; i < 79; i++)
             mes[i] = ' ';
         WriteLine(mes);
 
         m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / (double)time_elapsed64;
-        m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_nOutputFPSRate / (double)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
-        m_sData.tmLastUpdate = tm_result;
+        m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
+        m_tmLastUpdate = tm_result;
 
         _stprintf_s(mes, _countof(mes), _T("encoded %d frames, %.2f fps, %.2f kbps, %.2f MB"),
             m_sData.frameOut,
@@ -251,16 +332,42 @@ public:
         int mm = time_elapsed / (60*1000);
         time_elapsed -= mm * (60*1000);
         int ss = time_elapsed / 1000;
-        _stprintf_s(mes, _countof(mes), _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime));
-        WriteLine(mes);
+#if defined(_WIN32) || defined(_WIN64)
+        m_sData.CPUUsagePercent = GetProcessAvgCPUUsage(&m_sStartTime);
+        if (m_sData.GPUInfoCountSuccess > m_sData.GPUInfoCountFail) {
+            double gpu_load = m_sData.GPULoadPercentTotal / m_sData.GPUInfoCountSuccess;
+            if (m_sData.MFXLoadPercentTotal > 0) {
+                double mfx_load = m_sData.MFXLoadPercentTotal / m_sData.GPUInfoCountSuccess;
+                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.2f%%, EU: %.2f%%, MFX: %.2f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, mfx_load);
+            } else {
+                int gpu_clock_avg = (int)(m_sData.GPUClockTotal / m_sData.GPUInfoCountSuccess + 0.5);
+                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.2f%%, EU: %.2f%%, GPUClockAvg: %dMHz\n"), hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, gpu_clock_avg);
+            }
+        } else {
+            _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.2f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent);
+        }
+#else
+        _stprintf_s(mes, _T("encode time %d:%02d:%02d\n"), hh, mm, ss);
+#endif
+        WriteLineDirect(mes);
 
         uint32_t maxCount = (std::max)(m_sData.frameOutI, (std::max)(m_sData.frameOutP, m_sData.frameOutB));
         uint64_t maxFrameSize = (std::max)(m_sData.frameOutISize, (std::max)(m_sData.frameOutPSize, m_sData.frameOutBSize));
 
         WriteFrameTypeResult(_T("frame type IDR "), m_sData.frameOutIDR, maxCount, 0, maxFrameSize, -1.0);
-        WriteFrameTypeResult(_T("frame type I   "), m_sData.frameOutI, maxCount, m_sData.frameOutISize, maxFrameSize, (m_sData.frameOutI) ? m_sData.frameOutIQPSum / (double)m_sData.frameOutI : -1);
-        WriteFrameTypeResult(_T("frame type P   "), m_sData.frameOutP, maxCount, m_sData.frameOutPSize, maxFrameSize, (m_sData.frameOutP) ? m_sData.frameOutPQPSum / (double)m_sData.frameOutP : -1);
-        WriteFrameTypeResult(_T("frame type B   "), m_sData.frameOutB, maxCount, m_sData.frameOutBSize, maxFrameSize, (m_sData.frameOutB) ? m_sData.frameOutBQPSum / (double)m_sData.frameOutB : -1);
+        WriteFrameTypeResult(_T("frame type I   "), m_sData.frameOutI, maxCount, m_sData.frameOutISize, maxFrameSize, (m_sData.frameOutI && m_sData.frameOutIQPSum) ? m_sData.frameOutIQPSum / (double)m_sData.frameOutI : -1);
+        WriteFrameTypeResult(_T("frame type P   "), m_sData.frameOutP, maxCount, m_sData.frameOutPSize, maxFrameSize, (m_sData.frameOutP && m_sData.frameOutPQPSum) ? m_sData.frameOutPQPSum / (double)m_sData.frameOutP : -1);
+        WriteFrameTypeResult(_T("frame type B   "), m_sData.frameOutB, maxCount, m_sData.frameOutBSize, maxFrameSize, (m_sData.frameOutB && m_sData.frameOutBQPSum) ? m_sData.frameOutBQPSum / (double)m_sData.frameOutB : -1);
+    }
+    int64_t getStartTimeMicroSec() {
+#if defined(_WIN32) || defined(_WIN64)
+        return m_sStartTime.creation / 10;
+#else
+        return (int)(m_sStartTime.creation * (double)(1e6 / CLOCKS_PER_SEC) + 0.5);
+#endif
+    }
+    bool getEncStarted() {
+        return m_bEncStarted;
     }
 #pragma warning(push)
 #pragma warning(disable: 4100)
@@ -268,14 +375,20 @@ public:
 
     }
 #pragma warning(pop)
+    EncodeStatusData GetEncodeData() {
+        return m_sData;
+    }
 public:
-    BOOL m_pause;
-    std::shared_ptr<RGYLog> m_pNVLog;
-    PROCESS_TIME m_sStartTime;
     EncodeStatusData m_sData;
-    uint32_t m_nOutputFPSRate = 0;
-    uint32_t m_nOutputFPSScale = 0;
+protected:
+    bool m_pause;
+    shared_ptr<RGYLog> m_pRGYLog;
+    shared_ptr<CPerfMonitor> m_pPerfMonitor;
+    PROCESS_TIME m_sStartTime;
+    std::chrono::system_clock::time_point m_tmStart;          //エンコード開始時刻
+    std::chrono::system_clock::time_point m_tmLastUpdate;     //最終更新時刻
     bool m_bStdErrWriteToConsole;
+    bool m_bEncStarted;
 };
 
 class CProcSpeedControl {

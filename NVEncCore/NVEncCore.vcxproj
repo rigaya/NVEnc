@@ -456,6 +456,7 @@
     <ClCompile Include="cpu_info.cpp" />
     <ClCompile Include="CuvidDecode.cpp" />
     <ClCompile Include="FrameQueue.cpp" />
+    <ClCompile Include="gpuz_info.cpp" />
     <ClCompile Include="gpu_info.cpp" />
     <ClCompile Include="h264_level.cpp" />
     <ClCompile Include="hevc_level.cpp" />
@@ -466,6 +467,9 @@
     <ClCompile Include="NVEncUtil.cpp" />
     <ClCompile Include="rgy_err.cpp" />
     <ClCompile Include="rgy_log.cpp" />
+    <ClCompile Include="rgy_perf_monitor.cpp" />
+    <ClCompile Include="rgy_pipe.cpp" />
+    <ClCompile Include="rgy_pipe_linux.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <CudaCompile Include="NVEncFilterDenoisePmd.cu">
       <FileType>CppCode</FileType>
@@ -495,6 +499,7 @@
     <ClInclude Include="cpu_info.h" />
     <ClInclude Include="CuvidDecode.h" />
     <ClInclude Include="FrameQueue.h" />
+    <ClInclude Include="gpuz_info.h" />
     <ClInclude Include="gpu_info.h" />
     <ClInclude Include="h264_level.h" />
     <ClInclude Include="hevc_level.h" />
@@ -519,7 +524,11 @@
     <ClInclude Include="qsv_queue.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_log.h" />
+    <ClInclude Include="rgy_osdep.h" />
+    <ClInclude Include="rgy_perf_monitor.h" />
+    <ClInclude Include="rgy_pipe.h" />
     <ClInclude Include="rgy_status.h" />
+    <ClInclude Include="rgy_tchar.h" />
     <ClInclude Include="rgy_util.h" />
   </ItemGroup>
   <ItemGroup>

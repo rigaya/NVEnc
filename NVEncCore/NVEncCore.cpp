@@ -486,16 +486,13 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: input selected : %d.\n"), inputParam->input.type);
 
     m_pStatus.reset(new EncodeStatus());
-    m_pStatus->init(m_pNVLog);
+    m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, nullptr);
     m_pFileReader->SetNVEncLogPtr(m_pNVLog);
     int ret = m_pFileReader->Init(inputParam->inputFilename.c_str(), &inputParam->input, pInputPrm, m_pStatus);
     if (ret != 0) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
         return NV_ENC_ERR_GENERIC;
     }
-    m_pStatus->m_sData.frameTotal = inputParam->input.frames;
-    m_pStatus->m_nOutputFPSRate = inputParam->input.fpsN;
-    m_pStatus->m_nOutputFPSScale = inputParam->input.fpsD;
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
 
@@ -513,7 +510,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             inputInfoAVAudioReader.nReadAudio = inputParam->nAudioSourceCount > 0;
             inputInfoAVAudioReader.bReadSubtitle = false;
             inputInfoAVAudioReader.bReadChapter = false;
-            inputInfoAVAudioReader.nVideoAvgFramerate = std::make_pair(m_pStatus->m_nOutputFPSRate, m_pStatus->m_nOutputFPSScale);
+            inputInfoAVAudioReader.nVideoAvgFramerate = std::make_pair(m_pStatus->m_sData.outputFPSRate, m_pStatus->m_sData.outputFPSScale);
             inputInfoAVAudioReader.nAnalyzeSec = inputParam->nAVDemuxAnalyzeSec;
             inputInfoAVAudioReader.nTrimCount = inputParam->nTrimCount;
             inputInfoAVAudioReader.pTrimList = inputParam->pTrimList;
@@ -2982,6 +2979,7 @@ NVENCSTATUS NVEncCore::Encode() {
     };
 
 
+#define NV_ENC_ERR_ABORT ((NVENCSTATUS)-1)
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
     deque<unique_ptr<FrameBufferDataIn>> dqInFrames;
     deque<unique_ptr<FrameBufferDataEnc>> dqEncFrames;
@@ -3089,7 +3087,7 @@ NVENCSTATUS NVEncCore::Encode() {
     }
     m_pFileWriter->Close();
     m_pFileReader->Close();
-    m_pStatus->writeResult();
+    m_pStatus->WriteResults();
     vector<std::pair<tstring, double>> filter_result;
     for (auto& filter : m_vpFilters) {
         auto avgtime = filter->GetAvgTimeElapsed();
