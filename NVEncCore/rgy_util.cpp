@@ -26,21 +26,23 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include <VersionHelpers.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <vector>
-#include <map>
+#include <numeric>
+#include <memory>
 #include <sstream>
 #include <algorithm>
-#include <tchar.h>
-#include "cpu_info.h"
-#include "gpu_info.h"
+#include <type_traits>
+#ifndef _MSC_VER
+#include <sys/sysinfo.h>
+#include <sys/utsname.h>
+#include <sys/wait.h>
+#include <iconv.h>
+#endif
 #include "rgy_util.h"
-#include "rgy_log.h"
+#include "rgy_tchar.h"
+#include "rgy_osdep.h"
+#include "ram_speed.h"
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -496,7 +498,7 @@ bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list
     return check_ext(filename.c_str(), ext_list);
 }
 
-bool get_filesize(const char *filepath, uint64_t *filesize) {
+bool rgy_get_filesize(const char *filepath, uint64_t *filesize) {
 #if defined(_WIN32) || defined(_WIN64)
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
     bool ret = (GetFileAttributesExA(filepath, GetFileExInfoStandard, &fd)) ? true : false;
@@ -518,7 +520,7 @@ bool get_filesize(const char *filepath, uint64_t *filesize) {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
-bool get_filesize(const WCHAR *filepath, uint64_t *filesize) {
+bool rgy_get_filesize(const WCHAR *filepath, uint64_t *filesize) {
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
     bool ret = (GetFileAttributesExW(filepath, GetFileExInfoStandard, &fd)) ? true : false;
     *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
@@ -537,7 +539,7 @@ tstring print_time(double time) {
     return strsprintf(_T("%d:%02d:%02d%s"), hour, miniute, sec, frac.substr(frac.find_first_of(_T("."))).c_str());
 }
 
-int nv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
+int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
 #if defined(_WIN32) || defined(_WIN64)
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     static const WORD LOG_COLOR[] = {
@@ -575,6 +577,302 @@ int nv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
     return ret;
 }
 
+size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
+    *ptr = nullptr;
+    nMinSize = (std::max<size_t>)(nMinSize, 1);
+    //確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
+    while (nSize >= nMinSize) {
+        void *qtr = malloc(nSize);
+        if (qtr != nullptr) {
+            *ptr = qtr;
+            return nSize;
+        }
+        size_t nNextSize = 0;
+        for (size_t i = nMinSize; i < nSize; i<<=1) {
+            nNextSize = i;
+        }
+        nSize = nNextSize;
+    }
+    return 0;
+}
+
+#if defined(_WIN32) || defined(_WIN64)
+
+#include <Windows.h>
+#include <process.h>
+#include <VersionHelpers.h>
+
+typedef void (WINAPI *RtlGetVersion_FUNC)(OSVERSIONINFOEXW*);
+
+static int getRealWindowsVersion(OSVERSIONINFOEXW *osinfo) {
+    OSVERSIONINFOEXW osver ={ 0 };
+    osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
+    HMODULE hModule = NULL;
+    RtlGetVersion_FUNC func = NULL;
+    int ret = 1;
+    if (NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
+        && NULL != (func = (RtlGetVersion_FUNC)GetProcAddress(hModule, "RtlGetVersion"))) {
+        func(&osver);
+        memcpy(osinfo, &osver, sizeof(osver));
+        ret = 0;
+    }
+    if (hModule) {
+        FreeLibrary(hModule);
+    }
+    return ret;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+BOOL check_OS_Win8orLater() {
+#if defined(_WIN32) || defined(_WIN64)
+#if (_MSC_VER >= 1800)
+    return IsWindows8OrGreater();
+#else
+    OSVERSIONINFO osvi = { 0 };
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+    GetVersionEx(&osvi);
+    return ((osvi.dwPlatformId == VER_PLATFORM_WIN32_NT) && ((osvi.dwMajorVersion == 6 && osvi.dwMinorVersion >= 2) || osvi.dwMajorVersion > 6));
+#endif //(_MSC_VER >= 1800)
+#else //#if defined(_WIN32) || defined(_WIN64)
+    return FALSE;
+#endif //#if defined(_WIN32) || defined(_WIN64)
+}
+
+#if defined(_WIN32) || defined(_WIN64)
+tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
+    const TCHAR *ptr = _T("Unknown");
+    OSVERSIONINFOW info ={ 0 };
+    OSVERSIONINFOEXW infoex ={ 0 };
+    info.dwOSVersionInfoSize = sizeof(info);
+    infoex.dwOSVersionInfoSize = sizeof(infoex);
+    GetVersionExW(&info);
+    switch (info.dwPlatformId) {
+    case VER_PLATFORM_WIN32_WINDOWS:
+        if (4 <= info.dwMajorVersion) {
+            switch (info.dwMinorVersion) {
+            case 0:  ptr = _T("Windows 95"); break;
+            case 10: ptr = _T("Windows 98"); break;
+            case 90: ptr = _T("Windows Me"); break;
+            default: break;
+            }
+        }
+        break;
+    case VER_PLATFORM_WIN32_NT:
+        if (info.dwMajorVersion >= 6 || (info.dwMajorVersion == 5 && info.dwMinorVersion >= 2)) {
+            GetVersionExW((OSVERSIONINFOW *)&infoex);
+        } else {
+            memcpy(&infoex, &info, sizeof(info));
+        }
+        if (info.dwMajorVersion == 6) {
+            getRealWindowsVersion(&infoex);
+        }
+        if (osinfo) {
+            memcpy(osinfo, &infoex, sizeof(infoex));
+        }
+        switch (infoex.dwMajorVersion) {
+        case 3:
+            switch (infoex.dwMinorVersion) {
+            case 0:  ptr = _T("Windows NT 3"); break;
+            case 1:  ptr = _T("Windows NT 3.1"); break;
+            case 5:  ptr = _T("Windows NT 3.5"); break;
+            case 51: ptr = _T("Windows NT 3.51"); break;
+            default: break;
+            }
+            break;
+        case 4:
+            if (0 == infoex.dwMinorVersion)
+                ptr = _T("Windows NT 4.0");
+            break;
+        case 5:
+            switch (infoex.dwMinorVersion) {
+            case 0:  ptr = _T("Windows 2000"); break;
+            case 1:  ptr = _T("Windows XP"); break;
+            case 2:  ptr = _T("Windows Server 2003"); break;
+            default: break;
+            }
+            break;
+        case 6:
+            switch (infoex.dwMinorVersion) {
+            case 0:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows Vista") : _T("Windows Server 2008");    break;
+            case 1:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 7")     : _T("Windows Server 2008 R2"); break;
+            case 2:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 8")     : _T("Windows Server 2012");    break;
+            case 3:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 8.1")   : _T("Windows Server 2012 R2"); break;
+            case 4:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 10")    : _T("Windows Server 2016");    break;
+            default:
+                if (5 <= infoex.dwMinorVersion) {
+                    ptr = _T("Later than Windows 10");
+                }
+                break;
+            }
+            break;
+        case 10:
+            ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 10") : _T("Windows Server 2016"); break;
+        default:
+            if (10 <= infoex.dwMajorVersion) {
+                ptr = _T("Later than Windows 10");
+            }
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+    return tstring(ptr);
+#else //#if defined(_WIN32) || defined(_WIN64)
+tstring getOSVersion() {
+    std::string str = "";
+    FILE *fp = popen("/usr/bin/lsb_release -a", "r");
+    if (fp != NULL) {
+        char buffer[2048];
+        while (NULL != fgets(buffer, _countof(buffer), fp)) {
+            str += buffer;
+        }
+        pclose(fp);
+        if (str.length() > 0) {
+            auto sep = split(str, "\n");
+            for (auto line : sep) {
+                if (line.find("Description") != std::string::npos) {
+                    std::string::size_type pos = line.find(":");
+                    if (pos == std::string::npos) {
+                        pos = std::string("Description").length();
+                    }
+                    pos++;
+                    str = line.substr(pos);
+                    break;
+                }
+            }
+        }
+    }
+    if (str.length() == 0) {
+        struct utsname buf;
+        uname(&buf);
+        str += buf.sysname;
+        str += " ";
+        str += buf.release;
+    }
+    return char_to_tstring(trim(str));
+#endif //#if defined(_WIN32) || defined(_WIN64)
+}
+
+BOOL rgy_is_64bit_os() {
+#if defined(_WIN32) || defined(_WIN64)
+    SYSTEM_INFO sinfo = { 0 };
+    GetNativeSystemInfo(&sinfo);
+    return sinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+#else //#if defined(_WIN32) || defined(_WIN64)
+    struct utsname buf;
+    uname(&buf);
+    return NULL != strstr(buf.machine, "x64")
+        || NULL != strstr(buf.machine, "x86_64")
+        || NULL != strstr(buf.machine, "amd64");
+#endif //#if defined(_WIN32) || defined(_WIN64)
+}
+
+uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
+#if defined(_WIN32) || defined(_WIN64)
+    MEMORYSTATUSEX msex ={ 0 };
+    msex.dwLength = sizeof(msex);
+    GlobalMemoryStatusEx(&msex);
+    if (NULL != ramUsed) {
+        *ramUsed = msex.ullTotalPhys - msex.ullAvailPhys;
+    }
+    return msex.ullTotalPhys;
+#else //#if defined(_WIN32) || defined(_WIN64)
+    struct sysinfo info;
+    sysinfo(&info);
+    if (NULL != ramUsed) {
+        *ramUsed = info.totalram - info.freeram;
+    }
+    return info.totalram;
+#endif //#if defined(_WIN32) || defined(_WIN64)
+}
+
+tstring getEnviromentInfo(bool add_ram_info) {
+    tstring buf;
+
+    TCHAR cpu_info[1024] ={ 0 };
+    getCPUInfo(cpu_info, _countof(cpu_info));
+
+    TCHAR gpu_info[1024] ={ 0 };
+    getGPUInfo("Intel", gpu_info, _countof(gpu_info));
+
+    uint64_t UsedRamSize = 0;
+    uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
+
+    buf += _T("Environment Info\n");
+    buf += strsprintf(_T("OS : %s (%s)\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
+    buf += strsprintf(_T("CPU: %s\n"), cpu_info);
+    if (add_ram_info) {
+        cpu_info_t cpuinfo;
+        get_cpu_info(&cpuinfo);
+        auto write_rw_speed = [&](const TCHAR *type, int test_size) {
+            if (test_size) {
+                auto ram_read_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_READ);
+                auto ram_write_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_WRITE);
+                double max_read  = *std::max_element(ram_read_speed_list.begin(), ram_read_speed_list.end())  * (1.0 / 1024.0);
+                double max_write = *std::max_element(ram_write_speed_list.begin(), ram_write_speed_list.end()) * (1.0 / 1024.0);
+                buf += strsprintf(_T("%s: Read:%7.2fGB/s, Write:%7.2fGB/s\n"), type, max_read, max_write);
+            }
+            return test_size > 0;
+        };
+        add_ram_info = false;
+        add_ram_info |= write_rw_speed(_T("L1 "), cpuinfo.caches[0].size / 1024 / 8);
+        add_ram_info |= write_rw_speed(_T("L2 "), cpuinfo.caches[1].size / 1024 / 2);
+        add_ram_info |= write_rw_speed(_T("L3 "), cpuinfo.caches[2].size / 1024 / 2);
+        add_ram_info |= write_rw_speed(_T("RAM"), (cpuinfo.max_cache_level) ? cpuinfo.caches[cpuinfo.max_cache_level-1].size / 1024 * 8 : 96 * 1024);
+    }
+    buf += strsprintf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
+    buf += strsprintf(_T("GPU: %s\n"), gpu_info);
+    return buf;
+}
+
+struct sar_option_t {
+    int key;
+    int sar[2];
+};
+
+static const sar_option_t SAR_LIST[] = {
+    {  0, {  0,  0 } },
+    {  1, {  1,  1 } },
+    {  2, { 12, 11 } },
+    {  3, { 10, 11 } },
+    {  4, { 16, 11 } },
+    {  5, { 40, 33 } },
+    {  6, { 24, 11 } },
+    {  7, { 20, 11 } },
+    {  8, { 32, 11 } },
+    {  9, { 80, 33 } },
+    { 10, { 18, 11 } },
+    { 11, { 15, 11 } },
+    { 12, { 64, 33 } },
+    { 13, {160, 99 } },
+    { 14, {  4,  3 } },
+    { 15, {  3,  2 } },
+    { 16, {  2,  1 } }
+};
+
+std::pair<int, int> get_h264_sar(int idx) {
+    for (int i = 0; i < _countof(SAR_LIST); i++) {
+        if (SAR_LIST[i].key == idx)
+            return std::make_pair(SAR_LIST[i].sar[0], SAR_LIST[i].sar[1]);
+    }
+    return std::make_pair(0, 0);
+}
+
+int get_h264_sar_idx(std::pair<int, int> sar) {
+
+    if (0 != sar.first && 0 != sar.second) {
+        rgy_reduce(sar);
+    }
+
+    for (int i = 0; i < _countof(SAR_LIST); i++) {
+        if (SAR_LIST[i].sar[0] == sar.first && SAR_LIST[i].sar[1] == sar.second) {
+            return SAR_LIST[i].key;
+        }
+    }
+    return -1;
+}
+
 void adjust_sar(int *sar_w, int *sar_h, int width, int height) {
     int aspect_w = *sar_w;
     int aspect_h = *sar_h;
@@ -597,7 +895,7 @@ void adjust_sar(int *sar_w, int *sar_h, int width, int height) {
             *sar_w = x / b;
             *sar_h = y / b;
         } else {
-             *sar_w = *sar_h = 1;
+            *sar_w = *sar_h = 1;
         }
     } else {
         //sarも一応gcdをとっておく
@@ -635,340 +933,17 @@ std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned in
     return std::make_pair<int, int>(x / b, y / b);
 }
 
-size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
-    *ptr = nullptr;
-    nMinSize = (std::max<size_t>)(nMinSize, 1);
-    //確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
-    while (nSize >= nMinSize) {
-        void *qtr = malloc(nSize);
-        if (qtr != nullptr) {
-            *ptr = qtr;
-            return nSize;
-        }
-        size_t nNextSize = 0;
-        for (size_t i = nMinSize; i < nSize; i<<=1) {
-            nNextSize = i;
-        }
-        nSize = nNextSize;
-    }
-    return 0;
-}
+#include "rgy_simd.h"
+#include <immintrin.h>
 
-static const std::map<int, std::pair<int, int>> sar_list = {
-    {  0, {  0,  0 } },
-    {  1, {  1,  1 } },
-    {  2, { 12, 11 } },
-    {  3, { 10, 11 } },
-    {  4, { 16, 11 } },
-    {  5, { 40, 33 } },
-    {  6, { 24, 11 } },
-    {  7, { 20, 11 } },
-    {  8, { 32, 11 } },
-    {  9, { 80, 33 } },
-    { 10, { 18, 11 } },
-    { 11, { 15, 11 } },
-    { 12, { 64, 33 } },
-    { 13, {160, 99 } },
-    { 14, {  4,  3 } },
-    { 15, {  3,  2 } },
-    { 16, {  2,  1 } }
-};
-
-std::pair<int, int> get_h264_sar(int idx) {
-    for (auto i_sar : sar_list) {
-        if (i_sar.first == idx)
-            return i_sar.second;
-    }
-    return std::make_pair(0, 0);
-}
-
-int get_h264_sar_idx(std::pair<int, int> sar) {
-
-    if (0 != sar.first && 0 != sar.second) {
-        rgy_reduce(sar);
-    }
-
-    for (auto i_sar : sar_list) {
-        if (i_sar.second == sar)
-            return i_sar.first;
-    }
-    return -1;
-}
-
-/*
-int ParseY4MHeader(char *buf, mfxFrameInfo *info) {
-    char *p, *q = NULL;
-    memset(info, 0, sizeof(mfxFrameInfo));
-    for (p = buf; (p = strtok_s(p, " ", &q)) != NULL; ) {
-        switch (*p) {
-            case 'W':
-                {
-                    char *eptr = NULL;
-                    int w = strtol(p+1, &eptr, 10);
-                    if (*eptr == '\0' && w)
-                        info->Width = (mfxU16)w;
-                }
-                break;
-            case 'H':
-                {
-                    char *eptr = NULL;
-                    int h = strtol(p+1, &eptr, 10);
-                    if (*eptr == '\0' && h)
-                        info->Height = (mfxU16)h;
-                }
-                break;
-            case 'F':
-                {
-                    int rate = 0, scale = 0;
-                    if (   (info->FrameRateExtN == 0 || info->FrameRateExtD == 0)
-                        && sscanf_s(p+1, "%d:%d", &rate, &scale) == 2) {
-                            if (rate && scale) {
-                                info->FrameRateExtN = rate;
-                                info->FrameRateExtD = scale;
-                            }
-                    }
-                }
-                break;
-            case 'A':
-                {
-                    int sar_x = 0, sar_y = 0;
-                    if (   (info->AspectRatioW == 0 || info->AspectRatioH == 0)
-                        && sscanf_s(p+1, "%d:%d", &sar_x, &sar_y) == 2) {
-                            if (sar_x && sar_y) {
-                                info->AspectRatioW = (mfxU16)sar_x;
-                                info->AspectRatioH = (mfxU16)sar_y;
-                            }
-                    }
-                }
-                break;
-            case 'I':
-                switch (*(p+1)) {
-            case 'b':
-                info->PicStruct = MFX_PICSTRUCT_FIELD_BFF;
-                break;
-            case 't':
-            case 'm':
-                info->PicStruct = MFX_PICSTRUCT_FIELD_TFF;
-                break;
-            default:
-                break;
-                }
-                break;
-            case 'C':
-                if (   0 != _strnicmp(p+1, "420",      strlen("420"))
-                    && 0 != _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
-                    && 0 != _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
-                    && 0 != _strnicmp(p+1, "420paldv", strlen("420paldv"))) {
-                    return MFX_PRINT_OPTION_ERR;
-                }
-                break;
-            default:
-                break;
-        }
-        p = NULL;
-    }
-    return MFX_ERR_NONE;
-}
-*/
-#if defined(_WIN32) || defined(_WIN64)
-
-#include <Windows.h>
-#include <process.h>
-
-typedef void (WINAPI *RtlGetVersion_FUNC)(OSVERSIONINFOEXW*);
-
-static int getRealWindowsVersion(DWORD *major, DWORD *minor) {
-    *major = 0;
-    *minor = 0;
-    OSVERSIONINFOEXW osver;
-    HMODULE hModule = NULL;
-    RtlGetVersion_FUNC func = NULL;
+RGY_NOINLINE int rgy_avx_dummy_if_avail(int bAVXAvail) {
     int ret = 1;
-    if (   NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
-        && NULL != (func = (RtlGetVersion_FUNC)GetProcAddress(hModule, "RtlGetVersion"))) {
-        func(&osver);
-        *major = osver.dwMajorVersion;
-        *minor = osver.dwMinorVersion;
-        ret = 0;
+    if (bAVXAvail) {
+        return ret;
     }
-    if (hModule) {
-        FreeLibrary(hModule);
-    }
+    __m256 y0 = _mm256_castsi256_ps(_mm256_castsi128_si256(_mm_cvtsi32_si128(bAVXAvail)));
+    y0 = _mm256_xor_ps(y0, y0);
+    ret = _mm_cvtsi128_si32(_mm256_castsi256_si128(_mm256_castps_si256(y0)));
+    _mm256_zeroupper();
     return ret;
-}
-#endif //#if defined(_WIN32) || defined(_WIN64)
-
-BOOL check_OS_Win8orLater() {
-#if defined(_WIN32) || defined(_WIN64)
-#if (_MSC_VER >= 1800)
-    return IsWindows8OrGreater();
-#else
-    OSVERSIONINFO osvi = { 0 };
-    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-    GetVersionEx(&osvi);
-    return ((osvi.dwPlatformId == VER_PLATFORM_WIN32_NT) && ((osvi.dwMajorVersion == 6 && osvi.dwMinorVersion >= 2) || osvi.dwMajorVersion > 6));
-#endif //(_MSC_VER >= 1800)
-#else //#if defined(_WIN32) || defined(_WIN64)
-    return FALSE;
-#endif //#if defined(_WIN32) || defined(_WIN64)
-}
-
-tstring getOSVersion() {
-#if defined(_WIN32) || defined(_WIN64)
-    const TCHAR *ptr = _T("Unknown");
-    OSVERSIONINFO info = { 0 };
-    info.dwOSVersionInfoSize = sizeof(info);
-    GetVersionEx(&info);
-    switch (info.dwPlatformId) {
-    case VER_PLATFORM_WIN32_WINDOWS:
-        if (4 <= info.dwMajorVersion) {
-            switch (info.dwMinorVersion) {
-            case 0:  ptr = _T("Windows 95"); break;
-            case 10: ptr = _T("Windows 98"); break;
-            case 90: ptr = _T("Windows Me"); break;
-            default: break;
-            }
-        }
-        break;
-    case VER_PLATFORM_WIN32_NT:
-        if (info.dwMajorVersion == 6) {
-            getRealWindowsVersion(&info.dwMajorVersion, &info.dwMinorVersion);
-        }
-        switch (info.dwMajorVersion) {
-        case 3:
-            switch (info.dwMinorVersion) {
-            case 0:  ptr = _T("Windows NT 3"); break;
-            case 1:  ptr = _T("Windows NT 3.1"); break;
-            case 5:  ptr = _T("Windows NT 3.5"); break;
-            case 51: ptr = _T("Windows NT 3.51"); break;
-            default: break;
-            }
-            break;
-        case 4:
-            if (0 == info.dwMinorVersion)
-                ptr = _T("Windows NT 4.0");
-            break;
-        case 5:
-            switch (info.dwMinorVersion) {
-            case 0:  ptr = _T("Windows 2000"); break;
-            case 1:  ptr = _T("Windows XP"); break;
-            case 2:  ptr = _T("Windows Server 2003"); break;
-            default: break;
-            }
-            break;
-        case 6:
-            switch (info.dwMinorVersion) {
-            case 0:  ptr = _T("Windows Vista"); break;
-            case 1:  ptr = _T("Windows 7"); break;
-            case 2:  ptr = _T("Windows 8"); break;
-            case 3:  ptr = _T("Windows 8.1"); break;
-            case 4:  ptr = _T("Windows 10"); break;
-            default:
-                if (5 <= info.dwMinorVersion) {
-                    ptr = _T("Later than Windows 10");
-                }
-                break;
-            }
-            break;
-        case 10:
-            ptr = _T("Windows 10");
-            break;
-        default:
-            if (10 <= info.dwMajorVersion) {
-                ptr = _T("Later than Windows 10");
-            }
-            break;
-        }
-        break;
-    default:
-        break;
-    }
-    return tstring(ptr);
-#else //#if defined(_WIN32) || defined(_WIN64)
-    std::string str = "";
-    FILE *fp = popen("/usr/bin/lsb_release -a", "r");
-    if (fp != NULL) {
-        char buffer[2048];
-        while (NULL != fgets(buffer, _countof(buffer), fp)) {
-            str += buffer;
-        }
-        pclose(fp);
-        if (str.length() > 0) {
-            auto sep = split(str, "\n");
-            for (auto line : sep) {
-                if (line.find("Description") != std::string::npos) {
-                    std::string::size_type pos = line.find(":");
-                    if (pos == std::string::npos) {
-                        pos = std::string("Description").length();
-                    }
-                    pos++;
-                    str = line.substr(pos);
-                    break;
-                }
-            }
-        }
-    }
-    if (str.length() == 0) {
-        struct utsname buf;
-        uname(&buf);
-        str += buf.sysname;
-        str += " ";
-        str += buf.release;
-    }
-    return char_to_tstring(trim(str));
-#endif //#if defined(_WIN32) || defined(_WIN64)
-}
-
-BOOL nv_is_64bit_os() {
-#if defined(_WIN32) || defined(_WIN64)
-    SYSTEM_INFO sinfo = { 0 };
-    GetNativeSystemInfo(&sinfo);
-    return sinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
-#else //#if defined(_WIN32) || defined(_WIN64)
-    struct utsname buf;
-    uname(&buf);
-    return NULL != strstr(buf.machine, "x64")
-        || NULL != strstr(buf.machine, "x86_64")
-        || NULL != strstr(buf.machine, "amd64");
-#endif //#if defined(_WIN32) || defined(_WIN64)
-}
-
-uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
-#if defined(_WIN32) || defined(_WIN64)
-    MEMORYSTATUSEX msex ={ 0 };
-    msex.dwLength = sizeof(msex);
-    GlobalMemoryStatusEx(&msex);
-    if (NULL != ramUsed) {
-        *ramUsed = msex.ullTotalPhys - msex.ullAvailPhys;
-    }
-    return msex.ullTotalPhys;
-#else //#if defined(_WIN32) || defined(_WIN64)
-    struct sysinfo info;
-    sysinfo(&info);
-    if (NULL != ramUsed) {
-        *ramUsed = info.totalram - info.freeram;
-    }
-    return info.totalram;
-#endif //#if defined(_WIN32) || defined(_WIN64)
-}
-
-tstring getEnviromentInfo(bool add_ram_info) {
-    tstring buf;
-
-    TCHAR cpu_info[1024] = { 0 };
-    getCPUInfo(cpu_info, _countof(cpu_info));
-
-    TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo("Intel", gpu_info, _countof(gpu_info));
-
-    uint64_t UsedRamSize = 0;
-    uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
-
-    buf += _T("Environment Info\n");
-    buf += strsprintf(_T("OS : %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
-    buf += strsprintf(_T("CPU: %s\n"), cpu_info);
-    add_ram_info = false;
-    buf += strsprintf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
-    buf += strsprintf(_T("GPU: %s\n"), gpu_info);
-    return buf;
 }

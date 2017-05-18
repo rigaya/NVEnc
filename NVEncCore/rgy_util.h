@@ -29,20 +29,22 @@
 #ifndef __RGY_UTIL_H__
 #define __RGY_UTIL_H__
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include <tchar.h>
-#include <shlwapi.h>
+#include "rgy_tchar.h"
 #include <emmintrin.h>
+#if defined(_WIN32) || defined(_WIN64)
+#include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
+#endif
 #include <vector>
 #include <memory>
 #include <string>
-
-#include "ConvertCsp.h"
+#include <chrono>
+#include <memory>
+#include <type_traits>
+#include "rgy_osdep.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
+#include "ConvertCsp.h"
 
 typedef std::basic_string<TCHAR> tstring;
 using std::vector;
@@ -59,6 +61,15 @@ using std::unique_ptr;
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
+
+#define ALIGN(x,align) (((x)+((align)-1))&(~((align)-1)))
+#define ALIGN16(x) (((x)+15)&(~15))
+#define ALIGN32(x) (((x)+31)&(~31))
+
+typedef long long lls;
+typedef unsigned long long llu;
+
+#define RGY_MEMSET_ZERO(x) { memset(&(x), 0, sizeof(x)); }
 
 template<typename T, size_t size>
 std::vector<T> make_vector(T(&ptr)[size]) {
@@ -104,6 +115,14 @@ void vector_cat(std::vector<T>& v1, const T *ptr, size_t nCount) {
         memcpy(v1.data() + currentSize, ptr, sizeof(T) * nCount);
     }
 }
+template<typename T>
+static void rgy_free(T& ptr) {
+    static_assert(std::is_pointer<T>::value == true, "T should be pointer");
+    if (ptr) {
+        free(ptr);
+        ptr = nullptr;
+    }
+}
 
 struct aligned_malloc_deleter {
     void operator()(void* ptr) const {
@@ -135,110 +154,6 @@ struct handle_deleter {
     }
 };
 
-#if UNICODE
-#define to_tstring to_wstring
-#else
-#define to_tstring to_string
-#endif
-
-typedef std::basic_string<TCHAR> tstring;
-typedef std::basic_stringstream<TCHAR> TStringStream;
-
-unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
-std::string wstring_to_string(const wchar_t *wstr, uint32_t codepage = CP_THREAD_ACP);
-std::string wstring_to_string(const std::wstring& wstr, uint32_t codepage = CP_THREAD_ACP);
-unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage = CP_THREAD_ACP);
-std::wstring char_to_wstring(const char *str, uint32_t = CP_THREAD_ACP);
-std::wstring char_to_wstring(const std::string& str, uint32_t codepage = CP_THREAD_ACP);
-#if defined(_WIN32) || defined(_WIN64)
-std::wstring strsprintf(const WCHAR* format, ...);
-
-std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to);
-std::wstring GetFullPath(const WCHAR *path);
-bool get_filesize(const WCHAR *filepath, uint64_t *filesize);
-std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
-bool CreateDirectoryRecursive(const WCHAR *dir);
-#endif
-
-unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
-std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
-std::string tchar_to_string(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
-std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
-std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
-unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage = CP_THREAD_ACP);
-tstring char_to_tstring(const char *str, uint32_t codepage = CP_THREAD_ACP);
-tstring char_to_tstring(const std::string& str, uint32_t codepage = CP_THREAD_ACP);
-unsigned int wstring_to_tstring(const WCHAR *wstr, tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
-tstring wstring_to_tstring(const WCHAR *wstr, uint32_t codepage = CP_THREAD_ACP);
-tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage = CP_THREAD_ACP);
-std::string strsprintf(const char* format, ...);
-std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim, bool bTrim = false);
-std::vector<std::string> split(const std::string &str, const std::string &delim, bool bTrim = false);
-std::string lstrip(const std::string& string, const char* trim = " \t\v\r\n");
-std::string rstrip(const std::string& string, const char* trim = " \t\v\r\n");
-std::string trim(const std::string& string, const char* trim = " \t\v\r\n");
-std::wstring lstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
-std::wstring rstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
-std::wstring trim(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
-
-std::string str_replace(std::string str, const std::string& from, const std::string& to);
-std::string GetFullPath(const char *path);
-bool get_filesize(const char *filepath, uint64_t *filesize);
-std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
-bool CreateDirectoryRecursive(const char *dir);
-
-tstring print_time(double time);
-
-static inline uint16_t readUB16(const void *ptr) {
-    uint16_t i = *(uint16_t *)ptr;
-    return (i >> 8) | (i << 8);
-}
-
-static inline uint32_t readUB32(const void *ptr) {
-    uint32_t i = *(uint32_t *)ptr;
-    return (i >> 24) | ((i & 0xff0000) >> 8) | ((i & 0xff00) << 8) | ((i & 0xff) << 24);
-}
-
-static inline uint32_t check_range_unsigned(uint32_t value, uint32_t min, uint32_t max) {
-    return (value - min) <= (max - min);
-}
-
-static int popcnt32(uint32_t bits) {
-    bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
-    bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
-    bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
-    bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
-    return (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
-}
-
-static TCHAR *alloc_str(const TCHAR *str, size_t length = 0) {
-    const size_t count = (length) ? length : _tcslen(str);
-    TCHAR *ptr = (TCHAR *)calloc(count + 1, sizeof(str[0]));
-    memcpy(ptr, str, sizeof(str[0]) * count);
-    return ptr;
-}
-
-template<typename type>
-static std::basic_string<type> repeatStr(std::basic_string<type> str, int count) {
-    std::basic_string<type> ret;
-    for (int i = 0; i < count; i++) {
-        ret += str;
-    }
-    return ret;
-}
-
-static tstring fourccToStr(uint32_t nFourCC) {
-    tstring fcc;
-    for (int i = 0; i < 4; i++) {
-        fcc.push_back((TCHAR)*(i + (char*)&nFourCC));
-    }
-    return fcc;
-}
-
-bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
-bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list);
-
-
 template<typename T>
 static inline T rgy_gcd(T a, T b) {
     static_assert(std::is_integral<T>::value, "rgy_gcd is defined only for integer.");
@@ -269,33 +184,128 @@ static inline void rgy_reduce(std::pair<T, T>& int2) {
     rgy_reduce(int2.first, int2.second);
 }
 
-size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);
+#if UNICODE
+#define to_tstring to_wstring
+#else
+#define to_tstring to_string
+#endif
 
-void adjust_sar(int *sar_w, int *sar_h, int width, int height);
-int get_h264_sar_idx(std::pair<int, int>sar);
-std::pair<int, int> get_h264_sar(int idx);
+typedef std::basic_string<TCHAR> tstring;
+typedef std::basic_stringstream<TCHAR> TStringStream;
 
-double getCPUMaxTurboClock(DWORD num_thread = 1); //やや時間がかかるので注意 (～1/4秒)
-int getCPUInfo(TCHAR *buffer, size_t nSize); //やや時間がかかるので注意 (～1/4秒)
-double getCPUDefaultClock();
-tstring getOSVersion();
-UINT64 getPhysicalRamSize(UINT64 *ramUsed);
-tstring getEnviromentInfo(bool add_ram_info);
+unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
+std::string wstring_to_string(const wchar_t *wstr, uint32_t codepage = CP_THREAD_ACP);
+std::string wstring_to_string(const std::wstring& wstr, uint32_t codepage = CP_THREAD_ACP);
+unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage = CP_THREAD_ACP);
+std::wstring char_to_wstring(const char *str, uint32_t = CP_THREAD_ACP);
+std::wstring char_to_wstring(const std::string& str, uint32_t codepage = CP_THREAD_ACP);
+#if defined(_WIN32) || defined(_WIN64)
+std::wstring strsprintf(const WCHAR* format, ...);
 
-void adjust_sar(int *sar_w, int *sar_h, int width, int height);
-void get_dar_pixels(unsigned int* width, unsigned int* height, int sar_w, int sar_h);
-std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned int darWidth, unsigned int darHeight);
+std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to);
+std::wstring GetFullPath(const WCHAR *path);
+bool rgy_get_filesize(const WCHAR *filepath, uint64_t *filesize);
+std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
+bool CreateDirectoryRecursive(const WCHAR *dir);
+#endif
+
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
+std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
+std::string tchar_to_string(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
+std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
+std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
+unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage = CP_THREAD_ACP);
+tstring char_to_tstring(const char *str, uint32_t codepage = CP_THREAD_ACP);
+tstring char_to_tstring(const std::string& str, uint32_t codepage = CP_THREAD_ACP);
+unsigned int wstring_to_tstring(const WCHAR *wstr, tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
+tstring wstring_to_tstring(const WCHAR *wstr, uint32_t codepage = CP_THREAD_ACP);
+tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage = CP_THREAD_ACP);
+std::string strsprintf(const char* format, ...);
+std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim, bool bTrim = false);
+std::vector<std::string> split(const std::string &str, const std::string &delim, bool bTrim = false);
+std::string lstrip(const std::string& string, const char* trim = " \t\v\r\n");
+std::string rstrip(const std::string& string, const char* trim = " \t\v\r\n");
+std::string trim(const std::string& string, const char* trim = " \t\v\r\n");
+std::wstring lstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
+std::wstring rstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
+std::wstring trim(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
+
+std::string str_replace(std::string str, const std::string& from, const std::string& to);
+std::string GetFullPath(const char *path);
+bool rgy_get_filesize(const char *filepath, uint64_t *filesize);
+std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
+bool CreateDirectoryRecursive(const char *dir);
+
+tstring print_time(double time);
+
+static inline uint16_t readUB16(const void *ptr) {
+    uint16_t i = *(uint16_t *)ptr;
+    return (i >> 8) | (i << 8);
+}
+
+static inline uint32_t readUB32(const void *ptr) {
+    uint32_t i = *(uint32_t *)ptr;
+    return (i >> 24) | ((i & 0xff0000) >> 8) | ((i & 0xff00) << 8) | ((i & 0xff) << 24);
+}
+
+static inline uint32_t check_range_unsigned(uint32_t value, uint32_t min, uint32_t max) {
+    return (value - min) <= (max - min);
+}
+
+static inline uint32_t popcnt32(uint32_t bits) {
+    bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
+    bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
+    bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
+    bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
+    return (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
+}
+
+static inline uint32_t popcnt64(uint64_t bits) {
+    bits = (bits & 0x5555555555555555) + (bits >> 1 & 0x5555555555555555);
+    bits = (bits & 0x3333333333333333) + (bits >> 2 & 0x3333333333333333);
+    bits = (bits & 0x0f0f0f0f0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f0f0f0f0f);
+    bits = (bits & 0x00ff00ff00ff00ff) + (bits >> 8 & 0x00ff00ff00ff00ff);
+    bits = (bits & 0x0000ffff0000ffff) + (bits >>16 & 0x0000ffff0000ffff);
+    bits = (bits & 0x00000000ffffffff) + (bits >>32 & 0x00000000ffffffff);
+    return (uint32_t)bits;
+}
+
+template<typename type>
+static std::basic_string<type> repeatStr(std::basic_string<type> str, int count) {
+    std::basic_string<type> ret;
+    for (int i = 0; i < count; i++) {
+        ret += str;
+    }
+    return ret;
+}
+
+static tstring fourccToStr(uint32_t nFourCC) {
+    tstring fcc;
+    for (int i = 0; i < 4; i++) {
+        fcc.push_back((TCHAR)*(i + (char*)&nFourCC));
+    }
+    return fcc;
+}
+
+bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
+bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list);
 
 //拡張子が一致するか確認する
 static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
     return (_tcsicmp(PathFindExtension(filename), ext) == NULL) ? TRUE : FALSE;
 }
 
-int nv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle);
+int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
-BOOL nv_check_os_win8_or_later();
+#if defined(_WIN32) || defined(_WIN64)
+tstring getOSVersion(OSVERSIONINFOEXW *osinfo = nullptr);
+#else
+tstring getOSVersion();
+#endif
+uint64_t getPhysicalRamSize(uint64_t *ramUsed);
+tstring getEnviromentInfo(bool add_ram_info);
 
-BOOL nv_is_64bit_os();
+BOOL rgy_is_64bit_os();
 
 //mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info);
 
@@ -335,6 +345,9 @@ static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
     _mm_storeu_ps((float*)(dst_tmp + 32), x2);
     _mm_storeu_ps((float*)(dst_tmp + 48), x3);
 }
+
+//確保できなかったら、サイズを小さくして再度確保を試みる (最終的にnMinSizeも確保できなかったら諦める)
+size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);
 
 const int MAX_FILENAME_LEN = 1024;
 
@@ -564,6 +577,12 @@ struct VideoInfo {
     VideoVUIInfo vui;
 };
 
+void get_dar_pixels(unsigned int* width, unsigned int* height, int sar_w, int sar_h);
+std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned int darWidth, unsigned int darHeight);
+void adjust_sar(int *sar_w, int *sar_h, int width, int height);
+int get_h264_sar_idx(std::pair<int, int>sar);
+std::pair<int, int> get_h264_sar(int idx);
+
 struct nal_info {
     const uint8_t *ptr;
     uint8_t type;
@@ -650,5 +669,7 @@ static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, uint32_t s
     }
     return nal_list;
 }
+
+int rgy_avx_dummy_if_avail(int bAVXAvail);
 
 #endif //__RGY_UTIL_H__

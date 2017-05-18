@@ -465,6 +465,7 @@
     <ClCompile Include="NVEncFilter.cpp" />
     <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
     <ClCompile Include="NVEncUtil.cpp" />
+    <ClCompile Include="ram_speed.cpp" />
     <ClCompile Include="rgy_err.cpp" />
     <ClCompile Include="rgy_event.cpp" />
     <ClCompile Include="rgy_log.cpp" />
@@ -522,6 +523,7 @@
     <ClInclude Include="NVEncParam.h" />
     <ClInclude Include="NVEncUtil.h" />
     <ClInclude Include="NVEncVersion.h" />
+    <ClInclude Include="ram_speed.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_log.h" />
@@ -550,6 +552,38 @@
     <CudaCompile Include="NVEncFilterDenoiseKnn.cu">
       <FileType>Document</FileType>
     </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="ram_speed_x64.asm">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="ram_speed_x86.asm">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

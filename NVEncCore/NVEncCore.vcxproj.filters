@@ -135,6 +135,9 @@
     <ClCompile Include="rgy_simd.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="ram_speed.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ConvertCsp.h">
@@ -269,6 +272,9 @@
     <ClInclude Include="rgy_thread.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="ram_speed.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="NVEncFilterCrop.cu">
@@ -286,5 +292,13 @@
     <CudaCompile Include="NVEncFilterResize.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ram_speed_x64.asm">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="ram_speed_x86.asm">
+      <Filter>ソース ファイル</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -120,7 +120,7 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
         getCPUInfo(cpuInfo, _countof(cpuInfo));
         getGPUInfo("Intel", gpu_info, _countof(gpu_info));
         write(RGY_LOG_DEBUG, _T("NVEnc     %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
-        write(RGY_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), nv_is_64bit_os() ? _T("x64") : _T("x86"));
+        write(RGY_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
         write(RGY_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
         write(RGY_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
     }
@@ -203,7 +203,7 @@ void RGYLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
             fprintf(stderr, buffer_ptr);
         if (stderr_write_to_console) //出力先がコンソールならWCHARで
 #endif
-            nv_print_stderr(log_level, buffer, hStdErr);
+            rgy_print_stderr(log_level, buffer, hStdErr);
     }
 }
 

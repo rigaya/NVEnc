@@ -1063,7 +1063,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         assert(pAudioSelect != nullptr);
         const TCHAR *qtr = _tcschr(ptr, ':');
         if (qtr != NULL && !(ptr + 1 == qtr && qtr[1] == _T('\\'))) {
-            pAudioSelect->pAudioExtractFormat = alloc_str(ptr, qtr - ptr);
+            pAudioSelect->pAudioExtractFormat = _tcsdup(ptr);
             ptr = qtr + 1;
         }
         size_t filename_len = _tcslen(ptr);
@@ -1088,7 +1088,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
             pParams->nAudioSelectCount++;
         }
-        pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename = alloc_str(ptr);
+        pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename = _tcsdup(ptr);
         argData->nParsedAudioFile++;
         return 0;
     }
@@ -1143,7 +1143,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
-            pAudioSelect->pAVAudioEncodeCodec = alloc_str(AVQSV_CODEC_COPY);
+            pAudioSelect->pAVAudioEncodeCodec = _tcsdup(AVQSV_CODEC_COPY);
 
             if (audioIdx < 0) {
                 audioIdx = pParams->nAudioSelectCount;
@@ -1188,7 +1188,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
-            pAudioSelect->pAVAudioEncodeCodec = alloc_str((ptr) ? ptr : AVQSV_CODEC_AUTO);
+            pAudioSelect->pAVAudioEncodeCodec = _tcsdup((ptr) ? ptr : AVQSV_CODEC_AUTO);
 
             if (audioIdx < 0) {
                 audioIdx = pParams->nAudioSelectCount;
