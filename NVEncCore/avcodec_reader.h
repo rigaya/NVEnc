@@ -28,7 +28,7 @@
 #ifndef _AVCODEC_READER_H_
 #define _AVCODEC_READER_H_
 
-#include "avcodec_qsv.h"
+#include "rgy_avutil.h"
 
 #if ENABLE_AVCUVID_READER
 #include "rgy_queue.h"

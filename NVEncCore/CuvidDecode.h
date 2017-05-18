@@ -34,7 +34,7 @@
 #include <nvcuvid.h>
 #include "rgy_log.h"
 #include "FrameQueue.h"
-#include "avcodec_qsv.h"
+#include "rgy_avutil.h"
 #include "NVEncFrameInfo.h"
 
 #if ENABLE_AVCUVID_READER

@@ -31,7 +31,7 @@
 
 #if ENABLE_AVCUVID_READER
 
-#include "avcodec_qsv.h"
+#include "rgy_avutil.h"
 
 //必要なavcodecのdllがそろっているかを確認
 bool check_avcodec_dll() {

@@ -432,8 +432,6 @@
     <CudaLink />
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="avcodec_qsv.cpp" />
-    <ClCompile Include="avcodec_qsv_log.cpp" />
     <ClCompile Include="avcodec_reader.cpp" />
     <ClCompile Include="avcodec_writer.cpp" />
     <ClCompile Include="cl_func.cpp" />
@@ -466,6 +464,8 @@
     <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
     <ClCompile Include="NVEncUtil.cpp" />
     <ClCompile Include="ram_speed.cpp" />
+    <ClCompile Include="rgy_avlog.cpp" />
+    <ClCompile Include="rgy_avutil.cpp" />
     <ClCompile Include="rgy_err.cpp" />
     <ClCompile Include="rgy_event.cpp" />
     <ClCompile Include="rgy_log.cpp" />
@@ -492,8 +492,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\NVEncSDK\Common\inc\nvEncodeAPI.h" />
-    <ClInclude Include="avcodec_qsv.h" />
-    <ClInclude Include="avcodec_qsv_log.h" />
     <ClInclude Include="avcodec_reader.h" />
     <ClInclude Include="avcodec_writer.h" />
     <ClInclude Include="cl_func.h" />
@@ -524,6 +522,8 @@
     <ClInclude Include="NVEncUtil.h" />
     <ClInclude Include="NVEncVersion.h" />
     <ClInclude Include="ram_speed.h" />
+    <ClInclude Include="rgy_avlog.h" />
+    <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_log.h" />

@@ -49,7 +49,7 @@
 #include "NVEncCore.h"
 #include "rgy_thread.h"
 #include "helper_cuda.h"
-#include "avcodec_qsv_log.h"
+#include "rgy_avlog.h"
 
 cudaVideoCodec toENCCodec(RGY_CODEC codec);
 

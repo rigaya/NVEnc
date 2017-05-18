@@ -34,7 +34,7 @@
 #include <thread>
 #include <atomic>
 #include <cstdint>
-#include "avcodec_qsv.h"
+#include "rgy_avutil.h"
 #include "avcodec_reader.h"
 #include "NVEncOutput.h"
 

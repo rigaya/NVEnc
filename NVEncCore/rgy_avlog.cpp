@@ -25,19 +25,42 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-#ifndef _AVCODEC_QSV_LOG_H_
-#define _AVCODEC_QSV_LOG_H_
 
+#include <memory>
 #include "NVEncVersion.h"
-#include "rgy_log.h"
 
 #if ENABLE_AVCUVID_READER
+#include <atomic>
+#include "rgy_avlog.h"
 
-#include "avcodec_qsv.h"
+static std::weak_ptr<RGYLog> g_pQSVLog;
+static int print_prefix = 1;
+static std::atomic<bool> g_bSetCustomLog(false);
 
-void av_qsv_log_set(std::shared_ptr<RGYLog>& pQSVLog);
-void av_qsv_log_free();
+static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
+    if (auto pQSVLog = g_pQSVLog.lock()) {
+        const int qsv_log_level = log_level_av2qsv(level);
+        if (qsv_log_level >= pQSVLog->getLogLevel() && pQSVLog->logFileAvail()) {
+            char mes[4096];
+            av_log_format_line(ptr, level, fmt, vl, mes, sizeof(mes), &print_prefix);
+            pQSVLog->write_log(qsv_log_level, char_to_tstring(mes, CP_UTF8).c_str(), true);
+        }
+    }
+    av_log_default_callback(ptr, level, fmt, vl);
+}
+
+void av_qsv_log_set(std::shared_ptr<RGYLog>& pQSVLog) {
+    g_pQSVLog = pQSVLog;
+    g_bSetCustomLog = true;
+    av_log_set_callback(av_qsv_log_callback);
+}
+
+void av_qsv_log_free() {
+    if (g_bSetCustomLog) {
+        g_bSetCustomLog = false;
+        av_log_set_callback(av_log_default_callback);
+        g_pQSVLog.reset();
+    }
+}
 
 #endif //ENABLE_AVCUVID_READER
-
-#endif //_AVCODEC_QSV_LOG_H_

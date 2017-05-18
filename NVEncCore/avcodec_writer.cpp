@@ -37,7 +37,7 @@
 #include <memory>
 #include "NVEncUtil.h"
 #include "avcodec_writer.h"
-#include "avcodec_qsv_log.h"
+#include "rgy_avlog.h"
 
 #if ENABLE_AVCUVID_READER
 #if USE_CUSTOM_IO
