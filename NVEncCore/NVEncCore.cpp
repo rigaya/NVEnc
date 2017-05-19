@@ -50,7 +50,7 @@
 #pragma comment(lib, "winmm.lib")
 #include "nvEncodeAPI.h"
 #include "NVEncCore.h"
-#include "NVEncVersion.h"
+#include "rgy_config.h"
 #include "rgy_status.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"

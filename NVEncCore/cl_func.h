@@ -29,7 +29,7 @@
 #ifndef _CL_FUNC_H_
 #define _CL_FUNC_H_
 
-#define ENABLE_OPENCL 1
+#include "rgy_version.h"
 
 #if ENABLE_OPENCL
 

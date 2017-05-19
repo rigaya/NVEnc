@@ -32,7 +32,7 @@
 #include <string>
 #include "NVEncUtil.h"
 #include "rgy_status.h"
-#include "NVEncVersion.h"
+#include "rgy_version.h"
 #include "NVEncInput.h"
 
 #if VPY_READER

@@ -28,7 +28,7 @@
 #ifndef _AUO_VERSION_H_
 #define _AUO_VERSION_H_
 
-#include "NVEncVersion.h"
+#include "rgy_version.h"
 
 #define AUO_VERSION          VER_FILEVERSION
 #define AUO_VERSION_STR      VER_STR_FILEVERSION

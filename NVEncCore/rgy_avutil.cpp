@@ -27,7 +27,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <numeric>
-#include "NVEncVersion.h"
+#include "rgy_version.h"
 
 #if ENABLE_AVSW_READER
 

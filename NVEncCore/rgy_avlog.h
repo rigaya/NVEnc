@@ -28,7 +28,7 @@
 #ifndef __RGY_AVLOG_H__
 #define __RGY_AVLOG_H__
 
-#include "NVEncVersion.h"
+#include "rgy_version.h"
 #include "rgy_log.h"
 
 #if ENABLE_AVSW_READER

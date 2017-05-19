@@ -10,7 +10,7 @@
 #ifndef _QSVENCC_VERSION_H_
 #define _QSVENCC_VERSION_H_
 
-#include "NVEncVersion.h"
+#include "rgy_version.h"
 
 #ifdef DEBUG
 #define VER_DEBUG   VS_FF_DEBUG

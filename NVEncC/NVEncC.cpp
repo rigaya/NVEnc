@@ -38,7 +38,7 @@
 #include <vector>
 #include <set>
 #include <cstdio>
-#include "NVEncVersion.h"
+#include "rgy_config.h"
 #include "NVEncCore.h"
 #include "NVEncFeature.h"
 #include "NVEncParam.h"

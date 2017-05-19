@@ -28,7 +28,7 @@
 #ifndef _AVCODEC_WRITER_H_
 #define _AVCODEC_WRITER_H_
 
-#include "NVEncVersion.h"
+#include "rgy_version.h"
 
 #if ENABLE_AVSW_READER
 #include <thread>

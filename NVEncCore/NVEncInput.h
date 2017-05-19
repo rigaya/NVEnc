@@ -35,7 +35,7 @@
 #include <chrono>
 #include "NVEncUtil.h"
 #include "rgy_status.h"
-#include "NVEncVersion.h"
+#include "rgy_version.h"
 #include "ConvertCsp.h"
 #include "rgy_log.h"
 #include "NVEncParam.h"

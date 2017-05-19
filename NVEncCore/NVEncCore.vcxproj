@@ -520,7 +520,6 @@
     <ClInclude Include="NVEncOutput.h" />
     <ClInclude Include="NVEncParam.h" />
     <ClInclude Include="NVEncUtil.h" />
-    <ClInclude Include="NVEncVersion.h" />
     <ClInclude Include="ram_speed.h" />
     <ClInclude Include="rgy_avlog.h" />
     <ClInclude Include="rgy_avutil.h" />
@@ -536,6 +535,7 @@
     <ClInclude Include="rgy_tchar.h" />
     <ClInclude Include="rgy_thread.h" />
     <ClInclude Include="rgy_util.h" />
+    <ClInclude Include="rgy_version.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="NVEncFilterCrop.cu">

@@ -28,7 +28,7 @@
 
 #include <algorithm>
 #include "rgy_log.h"
-#include "NVEncVersion.h"
+#include "rgy_version.h"
 
 const char *RGYLog::HTML_FOOTER = "</body>\n</html>\n";
 

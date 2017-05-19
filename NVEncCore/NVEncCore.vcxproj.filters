@@ -167,9 +167,6 @@
     <ClInclude Include="NVEncParam.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="NVEncVersion.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="NVEncInput.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -275,6 +272,9 @@
     <ClInclude Include="rgy_avutil.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_version.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="NVEncFilterCrop.cu">
@@ -294,11 +294,11 @@
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="ram_speed_x64.asm">
+    <CustomBuild Include="ram_speed_x64.asm">
       <Filter>ソース ファイル</Filter>
-    </None>
-    <None Include="ram_speed_x86.asm">
+    </CustomBuild>
+    <CustomBuild Include="ram_speed_x86.asm">
       <Filter>ソース ファイル</Filter>
-    </None>
+    </CustomBuild>
   </ItemGroup>
 </Project>
