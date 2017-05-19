@@ -36,6 +36,7 @@ void RGYLog::init(const TCHAR *pLogFile, int log_level) {
     m_pStrLog = pLogFile;
     m_nLogLevel = log_level;
     if (pLogFile != nullptr && _tcslen(pLogFile) > 0) {
+        CreateDirectoryRecursive(PathRemoveFileSpecFixed(pLogFile).second.c_str());
         FILE *fp = NULL;
         if (_tfopen_s(&fp, pLogFile, _T("a+")) || fp == NULL) {
             fprintf(stderr, "failed to open log file, log writing disabled.\n");
@@ -61,8 +62,8 @@ void RGYLog::init(const TCHAR *pLogFile, int log_level) {
 };
 
 void RGYLog::writeHtmlHeader() {
-    FILE *fp = _tfopen(m_pStrLog, _T("wb"));
-    if (fp) {
+    FILE *fp = NULL;
+    if (_tfopen_s(&fp, m_pStrLog, _T("wb"))) {
         std::wstring header =
             L"<!DOCTYPE html>\n"
             L"<html lang = \"ja\">\n"
@@ -207,6 +208,49 @@ void RGYLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     }
 }
 
+void RGYLog::write(int log_level, const WCHAR *format, va_list args) {
+    if (log_level < m_nLogLevel) {
+        return;
+    }
+
+    int len = _vscwprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    std::vector<WCHAR> buffer(len, 0);
+    if (buffer.data() != nullptr) {
+        vswprintf_s(buffer.data(), len, format, args); // C4996
+        write_log(log_level, wstring_to_tstring(buffer.data()).c_str());
+    }
+    va_end(args);
+}
+
+void RGYLog::write(int log_level, const char *format, va_list args, uint32_t codepage) {
+    if (log_level < m_nLogLevel) {
+        return;
+    }
+
+    int len = _vscprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    std::vector<char> buffer(len, 0);
+    if (buffer.data() != nullptr) {
+        vsprintf_s(buffer.data(), len, format, args); // C4996
+        write_log(log_level, char_to_tstring(buffer.data(), codepage).c_str());
+    }
+    va_end(args);
+}
+
+void RGYLog::write_line(int log_level, const char *format, va_list args, uint32_t codepage) {
+    if (log_level < m_nLogLevel) {
+        return;
+    }
+
+    int len = _vscprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    std::vector<char> buffer(len, 0);
+    if (buffer.data() != nullptr) {
+        vsprintf_s(buffer.data(), len, format, args); // C4996
+        tstring str = char_to_tstring(buffer.data(), codepage) + tstring(_T("\n"));
+        write_log(log_level, str.c_str());
+    }
+    va_end(args);
+}
+
 void RGYLog::write(int log_level, const TCHAR *format, ...) {
     if (log_level < m_nLogLevel) {
         return;
@@ -216,10 +260,10 @@ void RGYLog::write(int log_level, const TCHAR *format, ...) {
     va_start(args, format);
 
     int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
-    tstring buffer(len, 0);
+    std::vector<TCHAR> buffer(len, 0);
     if (buffer.data() != nullptr) {
-        _vstprintf_s(&buffer[0], len, format, args); // C4996
-        write_log(log_level, &buffer[0]);
+        _vstprintf_s(buffer.data(), len, format, args); // C4996
+        write_log(log_level, buffer.data());
     }
     va_end(args);
 }

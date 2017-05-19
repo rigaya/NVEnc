@@ -67,7 +67,7 @@ static tstring GetNVEncVersion() {
     if (AVI_READER) version += _T(", avi");
     if (AVS_READER) version += _T(", avs");
     if (VPY_READER) version += _T(", vpy");
-    if (ENABLE_AVCUVID_READER) version += strsprintf(_T(", avcuvid [%s]"), getHWSupportedCodecList().c_str());
+    if (ENABLE_AVSW_READER) version += strsprintf(_T(", avcuvid [%s]"), getHWSupportedCodecList().c_str());
     version += _T("\n");
     return version;
 }
@@ -196,7 +196,7 @@ static tstring help() {
         _T("   --check-features [<int>]     check for NVEnc Features for specefied DeviceId\n")
         _T("                                  if unset, will check DeviceId #0\n")
         _T("   --check-environment          check for Environment Info\n")
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         _T("   --check-avversion            show dll version\n")
         _T("   --check-codecs               show codecs available\n")
         _T("   --check-encoders             show audio encoders available\n")
@@ -226,7 +226,7 @@ static tstring help() {
         _T("   --vpy                        set input as vpy format\n")
         _T("   --vpy-mt                     set input as vpy(mt) format\n")
 #endif
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         _T("   --avcuvid [<string>]         use libavformat + cuvid for input\n")
         _T("                                 this enables full hw transcode and resize.\n")
         _T("                                 avcuvid mode could be set as a  option\n")
@@ -893,7 +893,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (IS_OPTION("vpy-mt")) {
         pParams->input.type = RGY_INPUT_FMT_VPY_MT;
 #endif
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         return 0;
     }
     if (IS_OPTION("avcuvid")) {
@@ -1112,7 +1112,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     if (   0 == _tcscmp(option_name, _T("audio-copy"))
         || 0 == _tcscmp(option_name, _T("copy-audio"))) {
         pParams->nAVMux |= (NVENC_MUX_VIDEO | NVENC_MUX_AUDIO);
@@ -2479,7 +2479,7 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
             show_nvenc_features(deviceid);
             return 1;
         }
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         if (0 == _tcscmp(option_name, _T("check-avversion"))) {
             _ftprintf(stdout, _T("%s\n"), getAVVersions().c_str());
             return 1;
@@ -2508,7 +2508,7 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
             _ftprintf(stdout, _T("%s\n"), getAVFilters().c_str());
             return 1;
         }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
         auto sts = parse_one_option(option_name, strInput, i, nArgNum, pParams, codecPrm, &argsData);
         if (sts != 0) {
             return sts;
@@ -2572,7 +2572,7 @@ int _tmain(int argc, TCHAR **argv) {
         nvEnc.PrintEncodingParamsInfo(RGY_LOG_INFO);
         ret = (NV_ENC_SUCCESS == nvEnc.Encode()) ? 0 : 1;
     }
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     avformatNetworkDeinit();
 #endif //#if ENABLE_AVCODEC_QSV_READER
     return ret;

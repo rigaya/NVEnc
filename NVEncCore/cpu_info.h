@@ -30,10 +30,8 @@
 #define _CPU_INFO_H_
 
 #include <stdint.h>
-#include <tchar.h>
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
+#include "rgy_tchar.h"
+#include "rgy_osdep.h"
 
 typedef struct cache_info_t {
     uint32_t count;
@@ -53,6 +51,7 @@ typedef struct {
 } cpu_info_t;
 
 
+int getCPUName(char *buffer, size_t nSize);
 bool get_cpu_info(cpu_info_t *cpu_info);
 
 int getCPUInfo(TCHAR *buffer, size_t nSize);

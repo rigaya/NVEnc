@@ -337,7 +337,7 @@ NVENCSTATUS NVEncCore::InitLog(const InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS NVEncCore::readChapterFile(const tstring& chapfile) {
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     ChapterRW chapter;
     auto err = chapter.read_file(chapfile.c_str(), CODE_PAGE_UNSET, 0.0);
     if (err != AUO_CHAP_ERR_NONE) {
@@ -395,7 +395,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             inputParam->input.type = RGY_INPUT_FMT_VPY_MT;
 #endif
         } else {
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
             inputParam->input.type = RGY_INPUT_FMT_AVANY;
 #else
             inputParam->input.type = RGY_INPUT_FMT_RAW;
@@ -416,16 +416,16 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         PrintMes(RGY_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->input.type == RGY_INPUT_FMT_AVHW && !ENABLE_AVCUVID_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_AVHW && !ENABLE_AVSW_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avcodec + cuvid reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->input.type == RGY_INPUT_FMT_AVSW && !ENABLE_AVCUVID_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_AVSW && !ENABLE_AVSW_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avsw reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     AvcodecReaderPrm inputInfoAVCuvid = { 0 };
 #endif
     void *pInputPrm = nullptr;
@@ -444,7 +444,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         m_pFileReader.reset(new NVEncInputVpy());
         break;
 #endif //VPY_READER
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     case RGY_INPUT_FMT_AVHW:
     case RGY_INPUT_FMT_AVSW:
     case RGY_INPUT_FMT_AVANY:
@@ -475,7 +475,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         PrintMes(RGY_LOG_DEBUG, _T("avcuvid reader selected.\n"));
         m_pFileReader.reset(new CAvcodecReader());
         break;
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
     case RGY_INPUT_FMT_RAW:
     case RGY_INPUT_FMT_Y4M:
     default:
@@ -499,7 +499,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     m_inputFps.first = inputParam->input.fpsN;
     m_inputFps.second = inputParam->input.fpsD;
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     if (inputParam->nAudioSourceCount > 0) {
 
         for (int i = 0; i < (int)inputParam->nAudioSourceCount; i++) {
@@ -537,7 +537,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             m_AudioReaders.push_back(std::move(audioReader));
         }
     }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
 
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN
         && inputParam->nTrimCount > 0) {
@@ -567,7 +567,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FORMAT encBufferFormat) {
     int sts = 0;
     bool stdoutUsed = false;
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =
         ((inputParams->sAVMuxOutputFormat.length() > 0 && 0 == _tcscmp(inputParams->sAVMuxOutputFormat.c_str(), _T("raw")))) //--formatにrawが指定されている
@@ -700,7 +700,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         PrintMes(RGY_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
         return NV_ENC_ERR_GENERIC;
     } else {
-#endif //ENABLE_AVCUVID_READER
+#endif //ENABLE_AVSW_READER
         m_pFileWriter = std::make_shared<NVEncOutBitstream>();
         m_pFileWriter->SetNVEncLogPtr(m_pNVLog);
         CQSVOutRawPrm rawPrm = { 0 };
@@ -712,7 +712,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         }
         stdoutUsed = m_pFileWriter->outputStdout();
         PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     }
 
     //音声の抽出
@@ -793,7 +793,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
             }
         }
     }
-#endif //ENABLE_AVCUVID_READER
+#endif //ENABLE_AVSW_READER
     return NV_ENC_SUCCESS;
 }
 
@@ -841,7 +841,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuCtxCreate: Success.\n"));
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&m_cuContextCurr))) {
         PrintMes(RGY_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x\n"), cuResult);
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
@@ -853,7 +853,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuvidCtxLockCreate: Success.\n"));
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
     return NV_ENC_SUCCESS;
 }
 
@@ -1171,14 +1171,14 @@ NVENCSTATUS NVEncCore::Deinitialize() {
 
     nvStatus = NvEncDestroyEncoder();
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     m_cuvidDec.reset();
 
     if (m_ctxLock) {
         cuvidCtxLockDestroy(m_ctxLock);
         m_ctxLock = nullptr;
     }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
 
     m_pStatus.reset();
 
@@ -1236,14 +1236,14 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
     }
     for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
         if (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME) {
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
             cuvidCtxLock(m_ctxLock, 0);
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
             auto cudaerr = cudaMallocPitch((void **)&m_stEncodeBuffer[i].stInputBfr.pNV12devPtr,
                 (size_t *)&m_stEncodeBuffer[i].stInputBfr.uNV12Stride, uInputWidthByte, uInputHeightTotal);
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
             cuvidCtxUnlock(m_ctxLock, 0);
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
             if (cudaerr != cudaSuccess) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to cuMemAllocPitch, %d (%s)\n"), cudaerr, char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
                 return NV_ENC_ERR_OUT_OF_MEMORY;
@@ -1282,11 +1282,11 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         m_stEncodeBuffer[i].stOutputBfr.bWaitOnEvent = true;
     }
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     if (!m_cuvidDec) {
 #else
     {
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
         m_inputHostBuffer.resize(PIPELINE_DEPTH);
         int bufWidth  = pInputInfo->srcWidth  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
         int bufHeight = pInputInfo->srcHeight - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
@@ -1330,9 +1330,9 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
             m_inputHostBuffer[i].csp = pInputInfo->csp;
             m_inputHostBuffer[i].deivce_mem = false;
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
             CCtxAutoLock ctxLock(m_ctxLock);
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
             auto cudaret = cudaMallocHost(&m_inputHostBuffer[i].ptr, bufSize);
             if (cudaret != cudaSuccess) {
                 PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
@@ -1353,13 +1353,13 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
 NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
     for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
         if (m_stEncodeBuffer[i].stInputBfr.pNV12devPtr) {
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
             cuvidCtxLock(m_ctxLock, 0);
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
             cuMemFree(m_stEncodeBuffer[i].stInputBfr.pNV12devPtr);
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
             cuvidCtxUnlock(m_ctxLock, 0);
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
             m_stEncodeBuffer[i].stInputBfr.pNV12devPtr = NULL;
         } else {
             //インタレ保持の場合にはこちらを使用
@@ -1687,7 +1687,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
 #pragma warning(push)
 #pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         m_cuvidDec.reset(new CuvidDecode());
 
@@ -1697,7 +1697,7 @@ NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
     }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
     return NV_ENC_SUCCESS;
 }
 #pragma warning(pop)
@@ -1766,7 +1766,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //この段階では、フィルタを使用した場合は解像度を変更しないものとする
     if (!m_pLastFilterParam) {
         if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
             if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
                 m_uEncWidth  = inputParam->input.dstWidth;
                 m_uEncHeight = inputParam->input.dstHeight;
@@ -1793,7 +1793,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stPicStruct = picstruct_rgy_to_enc(inputParam->input.picstruct);
 
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-deinterlace requires to be used with avcuvid reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -2622,7 +2622,7 @@ NVENCSTATUS NVEncCore::EncodeFrame(uint64_t timestamp) {
 #pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t timestamp) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
     if (!pEncodeBuffer) {
         pEncodeBuffer = m_EncodeBufferQueue.GetPending();
@@ -2661,7 +2661,7 @@ NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t tim
         return nvStatus;
     }
     NvEncEncodeFrame(pEncodeBuffer, timestamp);
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
     return nvStatus;
 }
 #pragma warning(pop)
@@ -2689,7 +2689,7 @@ NVENCSTATUS NVEncCore::Encode() {
         }
     }
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     const AVStream *pStreamIn = nullptr;
     CAvcodecReader *pReader = dynamic_cast<CAvcodecReader *>(m_pFileReader.get());
     if (pReader != nullptr) {
@@ -2769,14 +2769,14 @@ NVENCSTATUS NVEncCore::Encode() {
 
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
     const int nFrameDuration = (pStreamIn) ? (int)av_rescale_q(1, av_make_q(m_inputFps.second, m_inputFps.first), pStreamIn->time_base) : 1;
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
 
     auto add_dec_vpp_param = [&](FrameBufferDataIn *pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
         if (pInputFrame->inputIsHost()) {
             auto frameInfo = pInputFrame->getFrameInfo();
             vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(&frameInfo))));
         }
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         else {
             auto deint = m_cuvidDec->getDeinterlaceMode();
             CUVIDPROCPARAMS oVPP = { 0 };
@@ -2806,13 +2806,13 @@ NVENCSTATUS NVEncCore::Encode() {
                 break;
             }
         }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
         return;
     };
 
     auto check_pts = [&](FrameBufferDataIn *pInputFrame) {
         vector<unique_ptr<FrameBufferDataIn>> decFrames;
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         int64_t pts = (pStreamIn) ? av_rescale_q(pInputFrame->getTimeStamp(), CUVID_NATIVE_TIMEBASE, pStreamIn->time_base) : nEstimatedPts;
         if ((m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) == RGY_AVSYNC_FORCE_CFR) {
             if (nEstimatedPts == AV_NOPTS_VALUE) {
@@ -2840,7 +2840,7 @@ NVENCSTATUS NVEncCore::Encode() {
             }
         }
         nEstimatedPts += nFrameDuration;
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
         add_dec_vpp_param(pInputFrame, decFrames);
         return std::move(decFrames);
     };
@@ -2864,7 +2864,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 SetEvent(heUnmapFin);
             });
         }
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         else {
             CUdeviceptr dMappedFrame = 0;
             memcpyKind = cudaMemcpyDeviceToDevice;
@@ -2882,7 +2882,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 SetEvent(heUnmapFin);
             });
         }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
         //フィルタリングするならここ
         //現在は1in 1outのみの実装
         for (uint32_t ifilter = 0; ifilter < m_vpFilters.size() - 1; ifilter++) {
@@ -2989,16 +2989,16 @@ NVENCSTATUS NVEncCore::Encode() {
             break;
         }
         speedCtrl.wait();
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         if (0 != extract_audio()) {
             nvStatus = NV_ENC_ERR_GENERIC;
             break;
         }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
 
         //デコード
         FrameBufferDataIn inputFrame;
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
         if (m_cuvidDec) {
             if (m_cuvidDec->GetError()
                 || (m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
@@ -3015,7 +3015,7 @@ NVENCSTATUS NVEncCore::Encode() {
             }), m_cuvidDec->GetDecFrameInfo());
             inputFrame.setInterlaceFlag(!dispInfo.progressive_frame);
         } else
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
         if (m_inputHostBuffer.size()) {
             auto inputFrameBuf = m_inputHostBuffer[nInputFrame % m_inputHostBuffer.size()];
             RGYFrame frame = RGYFrameInit(inputFrameBuf);
@@ -3054,7 +3054,7 @@ NVENCSTATUS NVEncCore::Encode() {
         }
     }
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     if (th_input.joinable()) {
         //ここでフレームをすべて吐き出し切らないと、中断時にデコードスレッドが終了しない
         if (m_cuvidDec) {
@@ -3075,7 +3075,7 @@ NVENCSTATUS NVEncCore::Encode() {
             pAVCodecWriter->WriteNextPacket(nullptr);
         }
     }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
     PrintMes(RGY_LOG_INFO, _T("                                                                         \n"));
     //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
     auto encstatus = FlushEncoder();
@@ -3121,7 +3121,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
     int ret = 0;
     const int bufferCount = m_uEncodeBufferCount;
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     const AVCodecContext *pVideoCtx = nullptr;
     CAvcodecReader *pReader = dynamic_cast<CAvcodecReader *>(m_pFileReader.get());
     if (pReader != nullptr) {
@@ -3329,7 +3329,7 @@ NVENCSTATUS NVEncCore::Encode() {
             nvStatus = NV_ENC_ERR_GENERIC;
         }
     } else
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
     {
         CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
         for (int iFrame = 0; nvStatus == NV_ENC_SUCCESS; iFrame++) {
@@ -3338,12 +3338,12 @@ NVENCSTATUS NVEncCore::Encode() {
                 break;
             }
             speedCtrl.wait();
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
             if (0 != extract_audio()) {
                 nvStatus = NV_ENC_ERR_GENERIC;
                 break;
             }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
             uint32_t lockedPitch = 0;
             unsigned char *pInputSurface = nullptr;
             const int index = iFrame % bufferCount;
@@ -3355,7 +3355,7 @@ NVENCSTATUS NVEncCore::Encode() {
             nvStatus = EncodeFrame(iFrame);
         }
     }
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     for (const auto& writer : m_pFileWriterListAudio) {
         auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(writer);
         if (pAVCodecWriter != nullptr) {
@@ -3363,7 +3363,7 @@ NVENCSTATUS NVEncCore::Encode() {
             pAVCodecWriter->WriteNextPacket(nullptr);
         }
     }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
     PrintMes(RGY_LOG_INFO, _T("                                                                         \n"));
     //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
     auto encstatus = FlushEncoder();
@@ -3517,11 +3517,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     for (uint32_t i = 0; i < (uint32_t)inputMesSplitted.size(); i++) {
         add_str(RGY_LOG_ERROR, _T("%s%s\n"), (i == 0) ? _T("Input Info     ") : _T("               "), inputMesSplitted[i].c_str());
     }
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     if (m_cuvidDec && m_cuvidDec->getDeinterlaceMode() != cudaVideoDeinterlaceMode_Weave) {
         add_str(RGY_LOG_ERROR, _T("Deinterlace    %s\n"), get_chr_from_value(list_deinterlace, m_cuvidDec->getDeinterlaceMode()));
     }
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
     if (m_pTrimParam != NULL && m_pTrimParam->list.size()
         && !(m_pTrimParam->list[0].start == 0 && m_pTrimParam->list[0].fin == TRIM_MAX)) {
         add_str(RGY_LOG_ERROR, _T("%s"), _T("Trim           "));

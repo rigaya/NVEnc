@@ -30,7 +30,7 @@
 
 #include "rgy_avutil.h"
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
 #include "rgy_queue.h"
 #include "NVEncParam.h"
 #include <mutex>
@@ -819,6 +819,6 @@ private:
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
 };
 
-#endif //ENABLE_AVCUVID_READER
+#endif //ENABLE_AVSW_READER
 
 #endif //_AVCODEC_READER_H_

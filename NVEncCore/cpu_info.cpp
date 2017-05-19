@@ -24,7 +24,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
 
 #include <vector>
 #include <string>
@@ -35,19 +35,18 @@
 #include <mutex>
 #include <climits>
 #include <condition_variable>
+#include "rgy_tchar.h"
 #ifdef _MSC_VER
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include <tchar.h>
 #include <intrin.h>
 #else
 #include <x86intrin.h>
 #endif
 #include <emmintrin.h>
+#include "rgy_osdep.h"
+#include "rgy_util.h"
 #include "cpu_info.h"
 
-static int getCPUName(char *buffer, size_t nSize) {
+int getCPUName(char *buffer, size_t nSize) {
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x80000000);
     unsigned int nExIds = CPUInfo[0];
@@ -59,11 +58,11 @@ static int getCPUName(char *buffer, size_t nSize) {
         __cpuid(CPUInfo, i);
         int offset = 0;
         switch (i) {
-        case 0x80000002: offset =  0; break;
-        case 0x80000003: offset = 16; break;
-        case 0x80000004: offset = 32; break;
-        default:
-            continue;
+            case 0x80000002: offset =  0; break;
+            case 0x80000003: offset = 16; break;
+            case 0x80000004: offset = 32; break;
+            default:
+                continue;
         }
         memcpy(buffer + offset, CPUInfo, sizeof(CPUInfo)); 
     }
@@ -170,7 +169,7 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
     DWORD processorPackageCount = 0;
     PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = buffer;
     for (DWORD byteOffset = 0; byteOffset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= returnLength;
-    byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)) {
+        byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)) {
         switch (ptr->Relationship) {
         case RelationNumaNode:
             // Non-NUMA systems report a single record of this type.
@@ -275,13 +274,13 @@ static uint64_t __fastcall repeatFunc(uint32_t *test) {
         //これでループカウンタの影響はほぼ無視できるはず
         //ここでのPADDD/PXORは依存関係により、1クロックあたり1回に限定される
         REPEAT4(REPEAT4(
-            x0 = _mm_xor_si128(x0, x1);
+        x0 = _mm_xor_si128(x0, x1);
         x0 = _mm_add_epi32(x0, x2);))
     }
 
     uint64_t fin = __rdtscp(&dummy); //終了はrdtscpで受ける
 
-                                     //計算結果を強引に使うことで最適化による計算の削除を抑止する
+    //計算結果を強引に使うことで最適化による計算の削除を抑止する
     *test = _mm_movemask_epi8(x0);
 
     return fin - start;
@@ -297,7 +296,7 @@ typedef struct {
 static void getCPUClockMaxSubFunc(uint64_t *ret, int thread_id, THREAD_WAKE *thread_wk) {
     //渡されたスレッドIDからスレッドAffinityを決定
     //特定のコアにスレッドを縛り付ける
-    SetThreadAffinityMask(GetCurrentThread(), 1 << thread_id);
+    SetThreadAffinityMask(GetCurrentThread(), (size_t)1 << thread_id);
     //高優先度で実行
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 

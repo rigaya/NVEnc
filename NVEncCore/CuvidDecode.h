@@ -37,13 +37,13 @@
 #include "rgy_avutil.h"
 #include "NVEncFrameInfo.h"
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
 #define NVEncCtxAutoLock(x) CCtxAutoLock x
 #else
 #define NVEncCtxAutoLock(x)
 #endif
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
 
 bool check_if_nvcuvid_dll_available();
 
@@ -118,6 +118,6 @@ protected:
     cudaVideoDeinterlaceMode     m_deinterlaceMode;
 };
 
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
 
 #endif //__CUVID_DECODE_H__

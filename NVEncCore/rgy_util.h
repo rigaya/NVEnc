@@ -36,7 +36,7 @@
 #pragma comment(lib, "shlwapi.lib")
 #endif
 #include <vector>
-#include <memory>
+#include <array>
 #include <string>
 #include <chrono>
 #include <memory>
@@ -48,8 +48,8 @@
 
 typedef std::basic_string<TCHAR> tstring;
 using std::vector;
-using std::shared_ptr;
 using std::unique_ptr;
+using std::shared_ptr;
 
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
@@ -82,12 +82,12 @@ std::vector<T> make_vector(const T(&ptr)[size]) {
 template<typename T0, typename T1>
 std::vector<T0> make_vector(const T0 *ptr, T1 size) {
     static_assert(std::is_integral<T1>::value == true, "T1 should be integral");
-    return std::vector<T0>(ptr, ptr + size);
+    return (ptr && size) ? std::vector<T0>(ptr, ptr + size) : std::vector<T0>();
 }
 template<typename T0, typename T1>
 std::vector<T0> make_vector(T0 *ptr, T1 size) {
     static_assert(std::is_integral<T1>::value == true, "T1 should be integral");
-    return std::vector<T0>(ptr, ptr + size);
+    return (ptr && size) ? std::vector<T0>(ptr, ptr + size) : std::vector<T0>();
 }
 template<typename T, typename ...Args>
 constexpr std::array<T, sizeof...(Args)> make_array(Args&&... args) {
@@ -102,7 +102,7 @@ constexpr std::size_t array_size(T(&)[N]) {
     return N;
 }
 template<typename T>
-void vector_cat(std::vector<T>& v1, const std::vector<T>& v2) {
+void vector_cat(vector<T>& v1, const vector<T>& v2) {
     if (v2.size()) {
         v1.insert(v1.end(), v2.begin(), v2.end());
     }
@@ -139,6 +139,7 @@ struct malloc_deleter {
 struct fp_deleter {
     void operator()(FILE* fp) const {
         if (fp) {
+            fflush(fp);
             fclose(fp);
         }
     }
@@ -206,14 +207,16 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
 std::wstring GetFullPath(const WCHAR *path);
 bool rgy_get_filesize(const WCHAR *filepath, uint64_t *filesize);
 std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
+std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename);
+std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const WCHAR *dir);
 #endif
 
+std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
+std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
 unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
 std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
 std::string tchar_to_string(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
-std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
-std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
 unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage = CP_THREAD_ACP);
 tstring char_to_tstring(const char *str, uint32_t codepage = CP_THREAD_ACP);
 tstring char_to_tstring(const std::string& str, uint32_t codepage = CP_THREAD_ACP);
@@ -292,7 +295,7 @@ bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list
 
 //拡張子が一致するか確認する
 static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
-    return (_tcsicmp(PathFindExtension(filename), ext) == NULL) ? TRUE : FALSE;
+    return (_tcsicmp(PathFindExtension(filename), ext) == 0) ? TRUE : FALSE;
 }
 
 int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
@@ -302,14 +305,13 @@ tstring getOSVersion(OSVERSIONINFOEXW *osinfo = nullptr);
 #else
 tstring getOSVersion();
 #endif
-uint64_t getPhysicalRamSize(uint64_t *ramUsed);
-tstring getEnviromentInfo(bool add_ram_info);
-
 BOOL rgy_is_64bit_os();
+uint64_t getPhysicalRamSize(uint64_t *ramUsed);
+tstring getEnviromentInfo(bool add_ram_info = true);
 
-//mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info);
+BOOL check_OS_Win8orLater();
 
-static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
+static void RGY_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
     if (size < 64) {
         memcpy(dst, src, size);
         return;
@@ -358,6 +360,7 @@ enum {
     RGY_LOG_INFO  = 0,
     RGY_LOG_WARN  = 1,
     RGY_LOG_ERROR = 2,
+    RGY_LOG_QUIET = 3,
 };
 
 enum RGY_FRAMETYPE : uint32_t {
@@ -467,10 +470,15 @@ static inline bool cropEnabled(const sInputCrop& crop) {
     return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
 }
 
-typedef struct {
-    TCHAR *desc;
+typedef struct CX_DESC {
+    const TCHAR *desc;
     int value;
 } CX_DESC;
+
+typedef struct FEATURE_DESC {
+    const TCHAR *desc;
+    uint64_t value;
+} FEATURE_DESC;
 
 const CX_DESC list_empty[] = {
     { NULL, 0 }
@@ -517,7 +525,7 @@ struct VideoInfo {
     uint32_t codedWidth;     //[   (i)] 
     uint32_t codedHeight;    //[   (i)]
 
-    //[      ] 出力解像度
+                             //[      ] 出力解像度
     uint32_t dstWidth;
 
     //[      ] 出力解像度

@@ -202,7 +202,7 @@ public:
 
         double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
         if (m_sData.frameOut + m_sData.frameDrop) {
-            TCHAR mes[256] ={ 0 };
+            TCHAR mes[256] = { 0 };
             m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
             m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
             if (0 < m_sData.frameTotal || progressPercent > 0.0) {
@@ -270,7 +270,7 @@ public:
     }
     void WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
         if (count) {
-            TCHAR mes[512] ={ 0 };
+            TCHAR mes[512] = { 0 };
             int mes_len = 0;
             const int header_len = (int)_tcslen(header);
             memcpy(mes, header, header_len * sizeof(mes[0]));
@@ -306,7 +306,7 @@ public:
         m_sData.encodeFps = m_sData.frameOut * 1000.0 / (double)time_elapsed64;
         m_sData.bitrateKbps = (double)(m_sData.outFileSize * 8) *  (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / (1000.0 * m_sData.frameOut);
 
-        TCHAR mes[512] ={ 0 };
+        TCHAR mes[512] = { 0 };
         for (int i = 0; i < 79; i++)
             mes[i] = ' ';
         WriteLine(mes);

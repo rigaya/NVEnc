@@ -45,7 +45,7 @@
 #include "sample_utils.h"
 #endif //#if LIBVA_SUPPORT
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
 #include "NVEncCore.h"
 #include "rgy_thread.h"
 #include "helper_cuda.h"
@@ -1713,4 +1713,4 @@ RGY_ERR CAvcodecReader::ThreadFuncRead() {
     }
     return RGY_ERR_NONE;
 }
-#endif //ENABLE_AVCUVID_READER
+#endif //ENABLE_AVSW_READER

@@ -26,16 +26,15 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include <tchar.h>
+#include "rgy_tchar.h"
 #include <string>
 #include <vector>
 #include <random>
 #include <future>
 #include <algorithm>
 #include "cl_func.h"
+#include "rgy_osdep.h"
+#include "rgy_util.h"
 
 #if ENABLE_OPENCL
 
@@ -79,8 +78,8 @@ static cl_int cl_create_kernel(cl_data_t *cl_data, const cl_func_t *cl) {
 
 static cl_int cl_calc(const cl_data_t *cl_data, const cl_func_t *cl) {
     using namespace std;
-    const int LOOKAROUND = 12;
-    const int BUFFER_X = 3072;
+    const int LOOKAROUND = 10;
+    const int BUFFER_X = 1024 * 8;
     const int BUFFER_Y = 1024;
     const size_t BUFFER_BYTE_SIZE = BUFFER_X * BUFFER_Y * sizeof(float);
     cl_int ret = CL_SUCCESS;

@@ -29,7 +29,7 @@
 #include <numeric>
 #include "NVEncVersion.h"
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
 
 #include "rgy_avutil.h"
 

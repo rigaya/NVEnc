@@ -68,8 +68,8 @@ typedef struct {
 
 class RGYPipeProcess {
 public:
-    RGYPipeProcess() : m_phandle(0) {};
-    virtual ~RGYPipeProcess() {};
+    RGYPipeProcess() : m_phandle(0) { };
+    virtual ~RGYPipeProcess() { };
 
     virtual void init() = 0;
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) = 0;

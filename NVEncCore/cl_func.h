@@ -34,6 +34,7 @@
 #if ENABLE_OPENCL
 
 #include <CL/cl.h>
+#include "rgy_osdep.h"
 
 typedef cl_int (CL_API_CALL* funcClGetPlatformIDs)(cl_uint num_entries, cl_platform_id *platforms, cl_uint *num_platforms);
 typedef cl_int (CL_API_CALL* funcClGetPlatformInfo) (cl_platform_id platform, cl_platform_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);

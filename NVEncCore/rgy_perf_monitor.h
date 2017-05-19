@@ -25,8 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __PERF_MONITOR_H__
-#define __PERF_MONITOR_H__
+#ifndef __RGY_PERF_MONITOR_H__
+#define __RGY_PERF_MONITOR_H__
 
 #include <thread>
 #include <cstdint>
@@ -285,4 +285,4 @@ protected:
 };
 
 
-#endif //#ifndef __PERF_MONITOR_H__
+#endif //#ifndef __RGY_PERF_MONITOR_H__

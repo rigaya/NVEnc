@@ -29,7 +29,7 @@
 #ifndef _GPU_INFO_H_
 #define _GPU_INFO_H_
 
-#include <tchar.h>
+#include "rgy_tchar.h"
 
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only = false);
 

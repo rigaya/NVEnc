@@ -30,7 +30,7 @@
 #include "CuvidDecode.h"
 #include "helper_cuda.h"
 #include "NVEncUtil.h"
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
 
 bool check_if_nvcuvid_dll_available() {
     //check for nvcuvid.dll
@@ -329,4 +329,4 @@ FrameInfo CuvidDecode::GetDecFrameInfo() {
     return frame;
 }
 
-#endif // #if ENABLE_AVCUVID_READER
+#endif // #if ENABLE_AVSW_READER

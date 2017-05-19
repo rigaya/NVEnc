@@ -68,11 +68,13 @@ unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t c
         return 0;
     }
     auto ic = iconv_open("UTF-8", "wchar_t"); //to, from
-    auto input_len = wcslen(wstr);
-    auto output_len = input_len * 4;
-    str.resize(output_len, 0);
-    char *outbuf = &str[0];
+    auto input_len = wcslen(wstr) * 2;
+    auto output_len = input_len * 6;
+    std::vector<char> buf(output_len, 0);
+    char *outbuf = buf.data();
     iconv(ic, (char **)&wstr, &input_len, &outbuf, &output_len);
+    iconv_close(ic);
+    str = buf.data();
     return output_len;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -110,12 +112,6 @@ std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage) {
     return str;
 }
 
-std::string tchar_to_string(const tstring& tstr, uint32_t codepage) {
-    std::string str;
-    tchar_to_string(tstr.c_str(), str, codepage);
-    return str;
-}
-
 std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage) {
 #if UNICODE
     return std::wstring(tstr);
@@ -129,6 +125,40 @@ std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage) {
         return L"";
     }
     return tchar_to_wstring(tstring(tstr), codepage);
+}
+
+std::string tchar_to_string(const tstring& tstr, uint32_t codepage) {
+    std::string str;
+    tchar_to_string(tstr.c_str(), str, codepage);
+    return str;
+}
+
+unsigned int wstring_to_tstring(const WCHAR *wstr, tstring& tstr, uint32_t codepage) {
+    if (wstr == nullptr) {
+        tstr = _T("");
+        return 0;
+    }
+#if UNICODE
+    tstr = std::wstring(wstr);
+#else
+    return wstring_to_string(wstr, tstr, codepage);
+#endif
+    return (unsigned int)tstr.length();
+}
+
+tstring wstring_to_tstring(const WCHAR *wstr, uint32_t codepage) {
+    if (wstr == nullptr) {
+        return _T("");
+    }
+    tstring tstr;
+    wstring_to_tstring(wstr, tstr, codepage);
+    return tstr;
+}
+
+tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage) {
+    tstring tstr;
+    wstring_to_tstring(wstr.c_str(), tstr, codepage);
+    return tstr;
 }
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -152,15 +182,20 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
         return 0;
     }
     auto ic = iconv_open("wchar_t", "UTF-8"); //to, from
+    if ((int64_t)ic == -1) {
+        fprintf(stderr, "iconv_error\n");
+    }
     auto input_len = strlen(str);
     std::vector<char> buf(input_len + 1);
     strcpy(buf.data(), str);
-    auto output_len = input_len;
-    wstr.resize(output_len, 0);
+    auto output_len = (input_len + 1) * 8;
+    std::vector<char> bufout(output_len, 0);
     char *inbuf = buf.data();
-    char *outbuf = (char *)&wstr[0];
+    char *outbuf = bufout.data();
     iconv(ic, &inbuf, &input_len, &outbuf, &output_len);
-    return output_len;
+    iconv_close(ic);
+    wstr = std::wstring((WCHAR *)bufout.data());
+    return wstr.length();
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 std::wstring char_to_wstring(const char *str, uint32_t codepage) {
@@ -199,28 +234,6 @@ tstring char_to_tstring(const std::string& str, uint32_t codepage) {
     char_to_tstring(tstr, str.c_str(), codepage);
     return tstr;
 }
-
-unsigned int wstring_to_tstring(const WCHAR *wstr, tstring& tstr, uint32_t codepage) {
-#if UNICODE
-    tstr = std::wstring(wstr);
-#else
-    return wstring_to_string(wstr, tstr, codepage);
-#endif
-    return (unsigned int)tstr.length();
-}
-
-tstring wstring_to_tstring(const WCHAR *wstr, uint32_t codepage) {
-    tstring tstr;
-    wstring_to_tstring(wstr, tstr, codepage);
-    return tstr;
-}
-
-tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage) {
-    tstring tstr;
-    wstring_to_tstring(wstr.c_str(), tstr, codepage);
-    return tstr;
-}
-
 std::string strsprintf(const char* format, ...) {
     if (format == nullptr) {
         return "";
@@ -443,6 +456,16 @@ std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
     std::wstring newPath = path.substr(0, qtr - ptr - 1);
     return std::make_pair((int)(path.length() - newPath.length()), newPath);
 }
+std::string PathCombineS(const std::string& dir, const std::string& filename) {
+    std::vector<char> buffer(dir.length() + filename.length() + 128, '\0');
+    PathCombineA(buffer.data(), dir.c_str(), filename.c_str());
+    return std::string(buffer.data());
+}
+std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename) {
+    std::vector<WCHAR> buffer(dir.length() + filename.length() + 128, '\0');
+    PathCombineW(buffer.data(), dir.c_str(), filename.c_str());
+    return std::wstring(buffer.data());
+}
 #endif //#if defined(_WIN32) || defined(_WIN64)
 //フォルダがあればOK、なければ作成する
 bool CreateDirectoryRecursive(const char *dir) {
@@ -605,12 +628,12 @@ size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
 typedef void (WINAPI *RtlGetVersion_FUNC)(OSVERSIONINFOEXW*);
 
 static int getRealWindowsVersion(OSVERSIONINFOEXW *osinfo) {
-    OSVERSIONINFOEXW osver ={ 0 };
+    OSVERSIONINFOEXW osver = { 0 };
     osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
     HMODULE hModule = NULL;
     RtlGetVersion_FUNC func = NULL;
     int ret = 1;
-    if (NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
+    if (   NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
         && NULL != (func = (RtlGetVersion_FUNC)GetProcAddress(hModule, "RtlGetVersion"))) {
         func(&osver);
         memcpy(osinfo, &osver, sizeof(osver));
@@ -641,8 +664,8 @@ BOOL check_OS_Win8orLater() {
 #if defined(_WIN32) || defined(_WIN64)
 tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
     const TCHAR *ptr = _T("Unknown");
-    OSVERSIONINFOW info ={ 0 };
-    OSVERSIONINFOEXW infoex ={ 0 };
+    OSVERSIONINFOW info = { 0 };
+    OSVERSIONINFOEXW infoex = { 0 };
     info.dwOSVersionInfoSize = sizeof(info);
     infoex.dwOSVersionInfoSize = sizeof(infoex);
     GetVersionExW(&info);
@@ -790,10 +813,10 @@ uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
 tstring getEnviromentInfo(bool add_ram_info) {
     tstring buf;
 
-    TCHAR cpu_info[1024] ={ 0 };
+    TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
 
-    TCHAR gpu_info[1024] ={ 0 };
+    TCHAR gpu_info[1024] = { 0 };
     getGPUInfo("Intel", gpu_info, _countof(gpu_info));
 
     uint64_t UsedRamSize = 0;

@@ -275,9 +275,9 @@ protected:
     shared_ptr<EncodeStatus>     m_pStatus;               //エンコードステータス管理
     NV_ENC_PIC_STRUCT            m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                m_stEncConfig;           //エンコード設定
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     vector<unique_ptr<AVChapter>> m_AVChapterFromFile;   //ファイルから読み込んだチャプター
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;
     shared_ptr<NVEncFilterParam> m_pLastFilterParam;
@@ -289,9 +289,9 @@ protected:
     int                          m_nProcSpeedLimit;       //処理速度制限 (0で制限なし)
     RGYAVSync                     m_nAVSyncMode;           //映像音声同期設定
     std::pair<int, int>          m_inputFps;              //入力フレームレート
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
-#endif //#if ENABLE_AVCUVID_READER
+#endif //#if ENABLE_AVSW_READER
     //サブメソッド
     NVENCSTATUS NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType);
     NVENCSTATUS NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, NV_ENC_BUFFER_FORMAT inputFormat);

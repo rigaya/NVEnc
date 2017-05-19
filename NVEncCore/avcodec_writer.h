@@ -30,7 +30,7 @@
 
 #include "NVEncVersion.h"
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
 #include <thread>
 #include <atomic>
 #include <cstdint>
@@ -453,6 +453,6 @@ private:
     vector<AVPktMuxData> m_AudPktBufFileHead; //ファイルヘッダを書く前にやってきた音声パケットのバッファ
 };
 
-#endif //ENABLE_AVCUVID_READER
+#endif //ENABLE_AVSW_READER
 
 #endif //_AVCODEC_WRITER_H_

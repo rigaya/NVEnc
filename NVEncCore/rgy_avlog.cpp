@@ -29,8 +29,9 @@
 #include <memory>
 #include "NVEncVersion.h"
 
-#if ENABLE_AVCUVID_READER
+#if ENABLE_AVSW_READER
 #include <atomic>
+#include "rgy_log.h"
 #include "rgy_avlog.h"
 
 static std::weak_ptr<RGYLog> g_pQSVLog;
@@ -63,4 +64,4 @@ void av_qsv_log_free() {
     }
 }
 
-#endif //ENABLE_AVCUVID_READER
+#endif //ENABLE_AVSW_READER
