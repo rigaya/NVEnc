@@ -42,11 +42,11 @@ public:
     NVEncInputRaw();
     ~NVEncInputRaw();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 
 protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
     RGY_ERR ParseY4MHeader(char *buf, VideoInfo *inputPrm);
 
     bool m_by4m;

@@ -539,10 +539,7 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
-
-    Close();
-
+RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)prm;
 
     if (input_prm->bReadVideo) {
@@ -555,7 +552,6 @@ RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, co
 
     m_Demux.video.bReadVideo = input_prm->bReadVideo;
     if (input_prm->bReadVideo) {
-        m_pEncSatusInfo = pEncSatusInfo;
         memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
     } else {
         memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));

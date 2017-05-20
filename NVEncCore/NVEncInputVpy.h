@@ -78,13 +78,12 @@ class NVEncInputVpy : public NVEncBasicInput {
 public:
     NVEncInputVpy();
     ~NVEncInputVpy();
-
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
     
     void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
 protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
     void release_vapoursynth();
     int load_vapoursynth();
 

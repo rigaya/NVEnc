@@ -169,12 +169,8 @@ int NVEncInputVpy::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-RGY_ERR NVEncInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
+RGY_ERR NVEncInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
-
-    Close();
-
-    m_pEncSatusInfo = pEncSatusInfo;
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
     
     if (load_vapoursynth()) {

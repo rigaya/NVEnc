@@ -74,6 +74,12 @@ private:
     uint32_t maxLength;
     int64_t  dataDts;
     int64_t  dataPts;
+    uint32_t dataFlag;
+    uint32_t dataAvgQP;
+    RGY_FRAMETYPE dataFrametype;
+    RGY_PICSTRUCT dataPicstruct;
+    int dataFrameIdx;
+    int64_t dataDuration;
 
 public:
     uint8_t *bufptr() const {
@@ -84,12 +90,64 @@ public:
         return dataptr + dataOffset;
     }
 
+    uint32_t dataflag() const {
+        return dataFlag;
+    }
+
+    void setDataflag(uint32_t flag) {
+        dataFlag = flag;
+    }
+
+    RGY_FRAMETYPE frametype() const {
+        return dataFrametype;
+    }
+
+    void setFrametype(RGY_FRAMETYPE type) {
+        dataFrametype = type;
+    }
+
+    RGY_PICSTRUCT picstruct() const {
+        return dataPicstruct;
+    }
+
+    void setPicstruct(RGY_PICSTRUCT picstruct) {
+        dataPicstruct = picstruct;
+    }
+
+    int64_t duration() {
+        return dataDuration;
+    }
+
+    void setDuration(int64_t duration) {
+        dataDuration = duration;
+    }
+
+    int frameIdx() {
+        return dataFrameIdx;
+    }
+
+    void setFrameIdx(int frameIdx) {
+        dataFrameIdx = frameIdx;
+    }
+
     uint32_t size() const {
         return dataLength;
     }
 
+    void setSize(uint32_t size) {
+        dataLength = size;
+    }
+
     uint32_t offset() const {
         return dataOffset;
+    }
+
+    void addOffset(uint32_t add) {
+        dataOffset += add;
+    }
+
+    void setOffset(uint32_t offset) {
+        dataOffset = offset;
     }
 
     uint32_t bufsize() const {
@@ -110,6 +168,14 @@ public:
 
     void setDts(int64_t dts) {
         dataDts = dts;
+    }
+
+    uint32_t avgQP() {
+        return dataAvgQP;
+    }
+
+    void setAvgQP(uint32_t avgQP) {
+        dataAvgQP = avgQP;
     }
 
     void clear() {
@@ -294,6 +360,18 @@ static inline RGY_FRAMETYPE frametype_enc_to_rgy(const NV_ENC_PIC_TYPE frametype
     type |=  (NV_ENC_PIC_TYPE_P   == frametype) ? RGY_FRAMETYPE_P   : RGY_FRAMETYPE_UNKNOWN;
     type |=  (NV_ENC_PIC_TYPE_B   == frametype) ? RGY_FRAMETYPE_B   : RGY_FRAMETYPE_UNKNOWN;
     return type;
+}
+
+static inline RGYBitstream RGYBitstreamInit(const NV_ENC_LOCK_BITSTREAM& nv_bitstream) {
+    RGYBitstream bitstream;
+    memset(&bitstream, 0, sizeof(bitstream));
+    bitstream.set((const uint8_t *)nv_bitstream.bitstreamBufferPtr, nv_bitstream.bitstreamSizeInBytes, (int64_t)nv_bitstream.outputTimeStamp, (int64_t)0);
+    bitstream.setAvgQP(nv_bitstream.frameAvgQP);
+    bitstream.setFrametype(frametype_enc_to_rgy(nv_bitstream.pictureType));
+    bitstream.setPicstruct(picstruct_enc_to_rgy(nv_bitstream.pictureStruct));
+    bitstream.setFrameIdx(nv_bitstream.frameIdx);
+    bitstream.setDuration(nv_bitstream.outputDuration);
+    return bitstream;
 }
 
 #endif //__NVENC_UTIL_H__

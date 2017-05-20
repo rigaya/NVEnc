@@ -487,8 +487,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 
     m_pStatus.reset(new EncodeStatus());
     m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, nullptr);
-    m_pFileReader->SetNVEncLogPtr(m_pNVLog);
-    int ret = m_pFileReader->Init(inputParam->inputFilename.c_str(), &inputParam->input, pInputPrm, m_pStatus);
+    int ret = m_pFileReader->Init(inputParam->inputFilename.c_str(), &inputParam->input, pInputPrm, m_pNVLog, m_pStatus);
     if (ret != 0) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
         return NV_ENC_ERR_GENERIC;
@@ -525,9 +524,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             inputInfoAVAudioReader.nInputThread = 0;
             inputInfoAVAudioReader.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
 
-            unique_ptr<CAvcodecReader> audioReader(new CAvcodecReader());
-            audioReader->SetNVEncLogPtr(m_pNVLog);
-            ret = audioReader->Init(inputParam->ppAudioSourceList[i], &inputInfo, &inputInfoAVAudioReader, nullptr);
+            shared_ptr<NVEncBasicInput> audioReader(new CAvcodecReader());
+            ret = audioReader->Init(inputParam->ppAudioSourceList[i], &inputInfo, &inputInfoAVAudioReader, m_pNVLog, nullptr);
             if (ret != 0) {
                 PrintMes(RGY_LOG_ERROR, audioReader->GetInputMessage());
                 return NV_ENC_ERR_GENERIC;
@@ -579,6 +577,11 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->nAVMux &= ~NVENC_MUX_VIDEO;
     //}
+    const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
+        m_uEncWidth, m_uEncHeight,
+        &m_stEncConfig, m_stPicStruct,
+        get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight),
+        std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
     if (inputParams->nAVMux & NVENC_MUX_VIDEO) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
         m_pFileWriter = std::make_shared<CAvcodecWriter>();
@@ -587,11 +590,6 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         if (m_pTrimParam) {
             writerPrm.trimList = m_pTrimParam->list;
         }
-        writerPrm.outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
-            m_uEncWidth, m_uEncHeight,
-            &m_stEncConfig, m_stPicStruct,
-            get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight),
-            std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
         writerPrm.bVideoDtsUnavailable    = false;
         writerPrm.nOutputThread           = inputParams->nOutputThread;
         writerPrm.nAudioThread            = inputParams->nAudioThread;
@@ -674,8 +672,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                 }
             }
         }
-        m_pFileWriter->SetNVEncLogPtr(m_pNVLog);
-        sts = m_pFileWriter->Init(inputParams->outputFilename.c_str(), &writerPrm, m_pStatus);
+        sts = m_pFileWriter->Init(inputParams->outputFilename.c_str(), &outputVideoInfo, &writerPrm, m_pNVLog, m_pStatus);
         if (sts != 0) {
             PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
             return NV_ENC_ERR_GENERIC;
@@ -684,28 +681,15 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         }
         stdoutUsed = m_pFileWriter->outputStdout();
         PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-
-        uint32_t payload_size = 0;
-        vector<uint8_t> sequence_prm_buffer(NV_MAX_SEQ_HDR_LEN, 0);
-        NV_ENC_SEQUENCE_PARAM_PAYLOAD sequence_prm;
-        INIT_CONFIG(sequence_prm, NV_ENC_SEQUENCE_PARAM_PAYLOAD);
-        sequence_prm.inBufferSize = (int)sequence_prm_buffer.size();
-        sequence_prm.spsppsBuffer = sequence_prm_buffer.data();
-        sequence_prm.outSPSPPSPayloadSize = &payload_size;
-        NvEncGetSequenceParams(&sequence_prm);
-        if (0 != m_pFileWriter->SetVideoParam(&m_stEncConfig, m_stPicStruct, &sequence_prm)) {
-            return NV_ENC_ERR_GENERIC;
-        }
     } else if (inputParams->nAVMux & (NVENC_MUX_AUDIO | NVENC_MUX_SUBTITLE)) {
         PrintMes(RGY_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
         return NV_ENC_ERR_GENERIC;
     } else {
 #endif //ENABLE_AVSW_READER
         m_pFileWriter = std::make_shared<NVEncOutBitstream>();
-        m_pFileWriter->SetNVEncLogPtr(m_pNVLog);
         CQSVOutRawPrm rawPrm = { 0 };
         rawPrm.nBufSizeMB = inputParams->nOutputBufSizeMB;
-        sts = m_pFileWriter->Init(inputParams->outputFilename.c_str(), &rawPrm, m_pStatus);
+        sts = m_pFileWriter->Init(inputParams->outputFilename.c_str(), &outputVideoInfo, &rawPrm, m_pNVLog, m_pStatus);
         if (sts != 0) {
             PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
             return NV_ENC_ERR_GENERIC;
@@ -775,9 +759,8 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                 writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
 
-                auto pWriter = std::make_shared<CAvcodecWriter>();
-                pWriter->SetNVEncLogPtr(m_pNVLog);
-                sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &writerAudioPrm, m_pStatus);
+                shared_ptr<NVEncOut> pWriter = std::make_shared<CAvcodecWriter>();
+                sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &outputVideoInfo, &writerAudioPrm, m_pNVLog, m_pStatus);
                 if (sts != 0) {
                     PrintMes(RGY_LOG_ERROR, pWriter->GetOutputMessage());
                     return NV_ENC_ERR_GENERIC;
@@ -1126,8 +1109,9 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
 
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, &lockBitstreamData);
     if (nvStatus == NV_ENC_SUCCESS) {
-        m_pFileWriter->WriteNextFrame(&lockBitstreamData);
+        RGYBitstream bitstream = RGYBitstreamInit(lockBitstreamData);
         nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
+        m_pFileWriter->WriteNextFrame(&bitstream);
     } else {
         NVPrintFuncError(_T("nvEncLockBitstream"), nvStatus);
         return nvStatus;

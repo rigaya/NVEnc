@@ -70,4 +70,5 @@ void NVEncBasicInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *i
 
 void NVEncBasicInput::Close() {
     m_pEncSatusInfo.reset();
+    m_pPrintMes.reset();
 }

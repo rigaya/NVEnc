@@ -50,11 +50,13 @@ public:
     NVEncBasicInput();
     ~NVEncBasicInput();
 
-    virtual void SetNVEncLogPtr(shared_ptr<RGYLog> pNVLog) {
-        m_pPrintMes = pNVLog;
-    }
+    RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<RGYLog> pLog, shared_ptr<EncodeStatus> pEncSatusInfo) {
+        Close();
+        m_pPrintMes = pLog;
+        m_pEncSatusInfo = pEncSatusInfo;
+        return Init(strFileName, pInputInfo, prm);
+    };
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) = 0;
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) = 0;
 
 #pragma warning(push)
@@ -138,6 +140,7 @@ public:
         return m_inputVideoInfo.codec;
     }
 protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) = 0;
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *convSIMD, const TCHAR *outputCSpName, const VideoInfo *inputPrm);
 
     //trim listを参照し、動画の最大フレームインデックスを取得する

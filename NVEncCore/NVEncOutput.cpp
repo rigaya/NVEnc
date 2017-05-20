@@ -27,6 +27,12 @@
 // ------------------------------------------------------------------------------------------
 #include "NVEncOutput.h"
 
+#define WRITE_CHECK(writtenBytes, expected) { \
+    if (writtenBytes != expected) { \
+        AddMessage(RGY_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\n")); \
+        return RGY_ERR_UNDEFINED_BEHAVIOR; \
+    } }
+
 NVEncOut::NVEncOut() :
     m_pEncSatusInfo(),
     m_fDest(),
@@ -75,18 +81,13 @@ NVEncOutBitstream::NVEncOutBitstream() {
 NVEncOutBitstream::~NVEncOutBitstream() {
 }
 
-#pragma warning(push)
-#pragma warning(disable:4100)
-RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
+RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) {
+    UNREFERENCED_PARAMETER(pOutputInfo);
     CQSVOutRawPrm *rawPrm = (CQSVOutRawPrm *)prm;
     if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("output filename not set.\n"));
         return RGY_ERR_UNDEFINED_BEHAVIOR;
     }
-
-    Close();
-
-    m_pEncSatusInfo = pEncSatusInfo;
 
     if (rawPrm->bBenchmark) {
         m_bNoOutput = true;
@@ -122,30 +123,26 @@ RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const void *prm, share
     m_bInited = true;
     return RGY_ERR_NONE;
 }
-RGY_ERR NVEncOutBitstream::SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) { return RGY_ERR_NONE; };
-#pragma warning(pop)
-RGY_ERR NVEncOutBitstream::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pBitstream) {
+
+RGY_ERR NVEncOutBitstream::WriteNextFrame(RGYBitstream *pBitstream) {
     if (pBitstream == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
-        return RGY_ERR_UNDEFINED_BEHAVIOR;
+        return RGY_ERR_NULL_PTR;
     }
 
     uint32_t nBytesWritten = 0;
     if (!m_bNoOutput) {
-        nBytesWritten = (uint32_t)fwrite(pBitstream->bitstreamBufferPtr, 1, pBitstream->bitstreamSizeInBytes, m_fDest.get());
-        if (nBytesWritten != pBitstream->bitstreamSizeInBytes) {
-            AddMessage(RGY_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\n"));
-            return RGY_ERR_UNKNOWN;
-        }
+        nBytesWritten = (uint32_t)fwrite(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+        WRITE_CHECK(nBytesWritten, pBitstream->size());
     }
 
-    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(pBitstream->pictureType), pBitstream->bitstreamSizeInBytes, pBitstream->frameAvgQP);
+    m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), 0);
+    pBitstream->setSize(0);
+
     return RGY_ERR_NONE;
 }
 
-#pragma warning(push)
-#pragma warning(disable: 4100)
-RGY_ERR NVEncOutBitstream::WriteNextFrame(uint8_t *ptr, uint32_t nSize) {
+RGY_ERR NVEncOutBitstream::WriteNextFrame(RGYFrame *pSurface) {
+    UNREFERENCED_PARAMETER(pSurface);
     return RGY_ERR_UNSUPPORTED;
 }
-#pragma warning(pop)

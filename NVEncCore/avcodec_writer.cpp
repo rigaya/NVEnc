@@ -176,8 +176,8 @@ void CAvcodecWriter::CloseQueues() {
     m_Mux.thread.bThAudProcessAbort = true;
     m_Mux.thread.bAbortOutput = true;
     m_Mux.thread.qVideobitstream.close();
-    m_Mux.thread.qVideobitstreamFreeI.close([](nvBitstream *bitstream) { nvBitstreamClear(bitstream); });
-    m_Mux.thread.qVideobitstreamFreePB.close([](nvBitstream *bitstream) { nvBitstreamClear(bitstream); });
+    m_Mux.thread.qVideobitstreamFreeI.close([](RGYBitstream *pBitstream) { pBitstream->clear(); });
+    m_Mux.thread.qVideobitstreamFreePB.close([](RGYBitstream *pBitstream) { pBitstream->clear(); });
     m_Mux.thread.qAudioPacketOut.close();
     m_Mux.thread.qAudioFrameEncode.close();
     m_Mux.thread.qAudioPacketProcess.close();
@@ -441,8 +441,8 @@ AVSampleFormat CAvcodecWriter::AutoSelectSampleFmt(const AVSampleFormat *pSample
     return pSamplefmtList[0];
 }
 
-RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
-    m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(prm->outputVideoInfo.codec);
+RGY_ERR CAvcodecWriter::InitVideo(const VideoInfo *pVideoOutputInfo, const AvcodecWriterPrm *prm) {
+    m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(pVideoOutputInfo->codec);
     if (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to find codec id for video.\n"));
         return RGY_ERR_INVALID_CODEC;
@@ -456,29 +456,29 @@ RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
         AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for video.\n"));
         return RGY_ERR_NULL_PTR;
     }
-    m_Mux.video.nFPS = av_make_q(prm->outputVideoInfo.fpsN, prm->outputVideoInfo.fpsD);
+    m_Mux.video.nFPS = av_make_q(pVideoOutputInfo->fpsN, pVideoOutputInfo->fpsD);
     AddMessage(RGY_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), m_Mux.video.nFPS.num, m_Mux.video.nFPS.den);
 
     m_Mux.video.pCodecCtx = m_Mux.video.pStreamOut->codec;
     m_Mux.video.pStreamOut->codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
     m_Mux.video.pStreamOut->codecpar->codec_id                = m_Mux.format.pFormatCtx->video_codec_id;
-    m_Mux.video.pStreamOut->codecpar->width                   = prm->outputVideoInfo.dstWidth;
-    m_Mux.video.pStreamOut->codecpar->height                  = prm->outputVideoInfo.dstHeight;
-    m_Mux.video.pStreamOut->codecpar->format                  = csp_rgy_to_avpixfmt(prm->outputVideoInfo.csp);
-    m_Mux.video.pStreamOut->codecpar->level                   = prm->outputVideoInfo.codecLevel;
-    m_Mux.video.pStreamOut->codecpar->profile                 = prm->outputVideoInfo.codecProfile;
-    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.num = prm->outputVideoInfo.sar[0];
-    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.den = prm->outputVideoInfo.sar[1];
+    m_Mux.video.pStreamOut->codecpar->width                   = pVideoOutputInfo->dstWidth;
+    m_Mux.video.pStreamOut->codecpar->height                  = pVideoOutputInfo->dstHeight;
+    m_Mux.video.pStreamOut->codecpar->format                  = csp_rgy_to_avpixfmt(pVideoOutputInfo->csp);
+    m_Mux.video.pStreamOut->codecpar->level                   = pVideoOutputInfo->codecLevel;
+    m_Mux.video.pStreamOut->codecpar->profile                 = pVideoOutputInfo->codecProfile;
+    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.num = pVideoOutputInfo->sar[0];
+    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.den = pVideoOutputInfo->sar[1];
     m_Mux.video.pStreamOut->codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
-    m_Mux.video.pStreamOut->codecpar->field_order             = picstrcut_rgy_to_avfieldorder(prm->outputVideoInfo.picstruct);
-    m_Mux.video.pStreamOut->codecpar->video_delay             = prm->outputVideoInfo.videoDelay;
-    m_Mux.video.pStreamOut->sample_aspect_ratio.num           = prm->outputVideoInfo.sar[0]; //mkvではこちらの指定も必要
-    m_Mux.video.pStreamOut->sample_aspect_ratio.den           = prm->outputVideoInfo.sar[1];
-    if (prm->outputVideoInfo.vui.descriptpresent) {
-        m_Mux.video.pStreamOut->codecpar->color_space         = (AVColorSpace)prm->outputVideoInfo.vui.matrix;
-        m_Mux.video.pStreamOut->codecpar->color_primaries     = (AVColorPrimaries)prm->outputVideoInfo.vui.colorprim;
-        m_Mux.video.pStreamOut->codecpar->color_range         = (AVColorRange)(prm->outputVideoInfo.vui.fullrange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
-        m_Mux.video.pStreamOut->codecpar->color_trc           = (AVColorTransferCharacteristic)prm->outputVideoInfo.vui.transfer;
+    m_Mux.video.pStreamOut->codecpar->field_order             = picstrcut_rgy_to_avfieldorder(pVideoOutputInfo->picstruct);
+    m_Mux.video.pStreamOut->codecpar->video_delay             = pVideoOutputInfo->videoDelay;
+    m_Mux.video.pStreamOut->sample_aspect_ratio.num           = pVideoOutputInfo->sar[0]; //mkvではこちらの指定も必要
+    m_Mux.video.pStreamOut->sample_aspect_ratio.den           = pVideoOutputInfo->sar[1];
+    if (pVideoOutputInfo->vui.descriptpresent) {
+        m_Mux.video.pStreamOut->codecpar->color_space         = (AVColorSpace)pVideoOutputInfo->vui.matrix;
+        m_Mux.video.pStreamOut->codecpar->color_primaries     = (AVColorPrimaries)pVideoOutputInfo->vui.colorprim;
+        m_Mux.video.pStreamOut->codecpar->color_range         = (AVColorRange)(pVideoOutputInfo->vui.fullrange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
+        m_Mux.video.pStreamOut->codecpar->color_trc           = (AVColorTransferCharacteristic)pVideoOutputInfo->vui.transfer;
     }
     if (0 > avcodec_open2(m_Mux.video.pCodecCtx, m_Mux.video.pCodec, NULL)) {
         AddMessage(RGY_LOG_ERROR, _T("failed to open codec for video.\n"));
@@ -1156,7 +1156,7 @@ RGY_ERR CAvcodecWriter::SetChapters(const vector<const AVChapter *>& pChapterLis
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_ptr<EncodeStatus> pEncSatusInfo) {
+RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *option) {
     m_Mux.format.bStreamError = true;
     AvcodecWriterPrm *prm = (AvcodecWriterPrm *)option;
 
@@ -1191,7 +1191,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
     if (NULL == (m_Mux.format.pOutputFmt = av_guess_format((prm->pOutputFormat) ? tchar_to_string(prm->pOutputFormat).c_str() : NULL, filename.c_str(), NULL))) {
         AddMessage(RGY_LOG_ERROR,
             _T("failed to assume format from output filename.\n")
-            _T("please set proper extension for output file, or specify format using option %s.\n"), (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) ? _T("--format") : _T("--audio-file <format>:<filename>"));
+            _T("please set proper extension for output file, or specify format using option %s.\n"), (pVideoOutputInfo) ? _T("--format") : _T("--audio-file <format>:<filename>"));
         if (prm->pOutputFormat != nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("Please use --check-formats to check available formats.\n"));
         }
@@ -1240,12 +1240,12 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
         if (m_Mux.format.nOutputBufferSize == 0) {
             //出力バッファが0とされている場合、libavformat用の内部バッファも量を減らす
             m_Mux.format.nAVOutBufferSize = 128 * 1024;
-            if (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
+            if (pVideoOutputInfo) {
                 m_Mux.format.nAVOutBufferSize *= 4;
             }
         } else {
             m_Mux.format.nAVOutBufferSize = 1024 * 1024;
-            if (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
+            if (pVideoOutputInfo) {
                 m_Mux.format.nAVOutBufferSize *= 8;
             } else {
                 //動画を出力しない(音声のみの場合)場合、バッファを減らす
@@ -1264,7 +1264,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
         m_Mux.format.fpOutput = _tfsopen(strFileName, _T("wb"), _SH_DENYWR);
         if (m_Mux.format.fpOutput == NULL) {
             errno_t error = errno;
-            AddMessage(RGY_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) ? _T("") : _T("audio "), strFileName, _tcserror(error));
+            AddMessage(RGY_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (pVideoOutputInfo) ? _T("") : _T("audio "), strFileName, _tcserror(error));
             return RGY_ERR_FILE_OPEN; // Couldn't open file
         }
         if (0 < (m_Mux.format.nOutputBufferSize = (uint32_t)malloc_degeneracy((void **)&m_Mux.format.pOutputBuffer, m_Mux.format.nOutputBufferSize, 1024 * 1024))) {
@@ -1280,8 +1280,8 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
 
     m_Mux.trim = prm->trimList;
 
-    if (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
-        RGY_ERR sts = InitVideo(prm);
+    if (pVideoOutputInfo) {
+        RGY_ERR sts = InitVideo(pVideoOutputInfo, prm);
         if (sts != 0) {
             return sts;
         }
@@ -1374,11 +1374,11 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
         AddMessage(RGY_LOG_DEBUG, _T("set mux opt: %s = %s.\n"), muxOpt.first.c_str(), muxOpt.second.c_str());
     }
 
-    m_pEncSatusInfo = pEncSatusInfo;
-    //音声のみの出力を行う場合、SetVideoParamは呼ばれないので、ここで最後まで初期化をすませてしまう
-    if (!m_Mux.video.pStreamOut) {
-        return SetVideoParam(nullptr, NV_ENC_PIC_STRUCT_FRAME, nullptr);
-    }
+    tstring mes = GetWriterMes();
+    AddMessage(RGY_LOG_DEBUG, mes);
+    m_strOutputInfo += mes;
+    m_Mux.format.bStreamError = false;
+
 #if ENABLE_AVCODEC_OUT_THREAD
     //スレッドの使用数を設定
     if (prm->nOutputThread == NV_OUTPUT_THREAD_AUTO) {
@@ -1422,85 +1422,71 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
     }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
+    m_bInited = true;
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CAvcodecWriter::SetSPSPPSToExtraData(const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) {
-    //SPS/PPSをセット
-    if (m_Mux.video.pStreamOut && pSequenceParam) {
-        if (pSequenceParam->spsppsBuffer && pSequenceParam->outSPSPPSPayloadSize) {
-#if USE_AVCODECPAR
-            m_Mux.video.pStreamOut->codecpar->extradata_size = pSequenceParam->outSPSPPSPayloadSize[0];
-            m_Mux.video.pStreamOut->codecpar->extradata = (uint8_t *)av_malloc(m_Mux.video.pStreamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-            memcpy(m_Mux.video.pStreamOut->codecpar->extradata, pSequenceParam->spsppsBuffer, m_Mux.video.pStreamOut->codecpar->extradata_size);
-#else
-            m_Mux.video.pCodecCtx->extradata_size = pSequenceParam->outSPSPPSPayloadSize[0];
-            m_Mux.video.pCodecCtx->extradata = (uint8_t *)av_malloc(m_Mux.video.pCodecCtx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-            memcpy(m_Mux.video.pCodecCtx->extradata, pSequenceParam->spsppsBuffer, m_Mux.video.pCodecCtx->extradata_size);
-#endif //USE_AVCODECPAR
-            AddMessage(RGY_LOG_DEBUG, _T("copied video header from NVENC encoder.\n"));
-        } else {
-            AddMessage(RGY_LOG_ERROR, _T("failed to get video header from NVENC encoder.\n"));
-            return RGY_ERR_UNKNOWN;
-        }
+RGY_ERR CAvcodecWriter::AddH264HeaderToExtraData(const RGYBitstream *pBitstream) {
+    std::vector<nal_info> nal_list = parse_nal_unit_h264(pBitstream->data(), pBitstream->size());
+    const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
+    const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
+    const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
+    if (header_check) {
+        m_Mux.video.pStreamOut->codecpar->extradata_size = h264_sps_nal->size + h264_pps_nal->size;
+        uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pStreamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        memcpy(new_ptr, h264_sps_nal->ptr, h264_sps_nal->size);
+        memcpy(new_ptr + h264_sps_nal->size, h264_pps_nal->ptr, h264_pps_nal->size);
+        if (m_Mux.video.pStreamOut->codecpar->extradata) {
+            av_free(m_Mux.video.pStreamOut->codecpar->extradata);
     }
+        m_Mux.video.pStreamOut->codecpar->extradata = new_ptr;
+}
     return RGY_ERR_NONE;
 }
 
 //extradataにHEVCのヘッダーを追加する
-RGY_ERR CAvcodecWriter::AddHEVCHeaderToExtraData(const nvBitstream *pBitstream) {
-    uint8_t *ptr = pBitstream->Data;
-    uint8_t *vps_start_ptr = nullptr;
-    uint8_t *vps_fin_ptr = nullptr;
-    const int i_fin = pBitstream->DataLength - 3;
-    for (int i = 0; i < i_fin; i++) {
-        if (ptr[i+0] == 0 && ptr[i+1] == 0 && ptr[i+2] == 1) {
-            uint8_t nalu_type = (ptr[i+3] & 0x7f) >> 1;
-            if (nalu_type == 32 && vps_start_ptr == nullptr) {
-                vps_start_ptr = ptr + i - (i > 0 && ptr[i-1] == 0);
-                i += 3;
-            } else if (nalu_type != 32 && vps_start_ptr && vps_fin_ptr == nullptr) {
-                vps_fin_ptr = ptr + i - (i > 0 && ptr[i-1] == 0);
-                break;
-            }
+RGY_ERR CAvcodecWriter::AddHEVCHeaderToExtraData(const RGYBitstream *pBitstream) {
+    std::vector<nal_info> nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+    const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+    const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+    const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+    const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
+    if (header_check) {
+        m_Mux.video.pStreamOut->codecpar->extradata_size = hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size;
+        uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pStreamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        memcpy(new_ptr, hevc_vps_nal->ptr, hevc_vps_nal->size);
+        memcpy(new_ptr + hevc_vps_nal->size, hevc_sps_nal->ptr, hevc_sps_nal->size);
+        memcpy(new_ptr + hevc_vps_nal->size + hevc_sps_nal->size, hevc_pps_nal->ptr, hevc_pps_nal->size);
+        if (m_Mux.video.pStreamOut->codecpar->extradata) {
+            av_free(m_Mux.video.pStreamOut->codecpar->extradata);
         }
-    }
-    if (vps_fin_ptr == nullptr) {
-        vps_fin_ptr = ptr + pBitstream->DataLength;
-    }
-    if (vps_start_ptr) {
-#if USE_AVCODECPAR
-        const uint32_t vps_length = (uint32_t)(vps_fin_ptr - vps_start_ptr);
-        uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pStreamOut->codecpar->extradata_size + vps_length + AV_INPUT_BUFFER_PADDING_SIZE);
-        memcpy(new_ptr, vps_start_ptr, vps_length);
-        memcpy(new_ptr + vps_length, m_Mux.video.pStreamOut->codecpar->extradata, m_Mux.video.pStreamOut->codecpar->extradata_size);
-        m_Mux.video.pStreamOut->codecpar->extradata_size += vps_length;
-        av_free(m_Mux.video.pStreamOut->codecpar->extradata);
         m_Mux.video.pStreamOut->codecpar->extradata = new_ptr;
-#else
-        const uint32_t vps_length = (uint32_t)(vps_fin_ptr - vps_start_ptr);
-        uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pCodecCtx->extradata_size + vps_length + AV_INPUT_BUFFER_PADDING_SIZE);
-        memcpy(new_ptr, vps_start_ptr, vps_length);
-        memcpy(new_ptr + vps_length, m_Mux.video.pCodecCtx->extradata, m_Mux.video.pCodecCtx->extradata_size);
-        m_Mux.video.pCodecCtx->extradata_size += vps_length;
-        av_free(m_Mux.video.pCodecCtx->extradata);
-        m_Mux.video.pCodecCtx->extradata = new_ptr;
-#endif //USE_AVCODECPAR
     }
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CAvcodecWriter::WriteFileHeader(const nvBitstream *pBitstream) {
-    if ((m_Mux.video.pCodecCtx && m_Mux.video.pCodecCtx->codec_id == AV_CODEC_ID_HEVC) && pBitstream) {
-        RGY_ERR sts = AddHEVCHeaderToExtraData(pBitstream);
-        if (sts != 0) {
+RGY_ERR CAvcodecWriter::WriteFileHeader(const RGYBitstream *pBitstream) {
+    if (m_Mux.video.pCodecCtx && pBitstream) {
+        RGY_ERR sts = RGY_ERR_NONE;
+        switch (m_Mux.video.pCodecCtx->codec_id) {
+        case AV_CODEC_ID_H264:
+            sts = AddH264HeaderToExtraData(pBitstream);
+            break;
+        case AV_CODEC_ID_HEVC:
+            sts = AddHEVCHeaderToExtraData(pBitstream);
+            break;
+        default:
+            break;
+        }
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to parse %s header.\n"), char_to_tstring(avcodec_get_name(m_Mux.video.pCodecCtx->codec_id)).c_str());
             return sts;
         }
     }
 
     //QSVEncCでエンコーダしたことを記録してみる
     //これは直接metadetaにセットする
-    sprintf_s(m_Mux.format.metadataStr, "NVEncC (%s) %s", tchar_to_string(BUILD_ARCH_STR).c_str(), VER_STR_FILEVERSION);
+    sprintf_s(m_Mux.format.metadataStr, ENCODER_NAME " (%s) %s", tchar_to_string(BUILD_ARCH_STR).c_str(), VER_STR_FILEVERSION);
     av_dict_set(&m_Mux.format.pFormatCtx->metadata, "encoding_tool", m_Mux.format.metadataStr, 0); //mp4
     //encoderではなく、encoding_toolを使用する。mp4はcomment, titleなどは設定可能, mkvではencode_byも可能
 
@@ -1559,42 +1545,6 @@ RGY_ERR CAvcodecWriter::WriteFileHeader(const nvBitstream *pBitstream) {
             AddMessage(RGY_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
         }
     }
-    return RGY_ERR_NONE;
-}
-
-RGY_ERR CAvcodecWriter::SetVideoParam(const NV_ENC_CONFIG *pEncConfig, NV_ENC_PIC_STRUCT pic_struct, const NV_ENC_SEQUENCE_PARAM_PAYLOAD *pSequenceParam) {
-    RGY_ERR sts = RGY_ERR_NONE;
-    if (pEncConfig) {
-        sts = SetSPSPPSToExtraData(pSequenceParam);
-        if (sts != 0) {
-            return sts;
-        }
-        m_Mux.video.bIsPAFF = 0 != is_interlaced(pic_struct);
-        if (m_Mux.video.bIsPAFF) {
-            AddMessage(RGY_LOG_DEBUG, _T("output is PAFF.\n"));
-        }
-        m_Mux.video.nBframeDelay = pEncConfig->frameIntervalP >= 2;
-        if (m_Mux.video.nBframeDelay > 0 && m_Mux.video.pCodecCtx->codec_id == AV_CODEC_ID_H264) {
-            m_Mux.video.nBframeDelay += pEncConfig->encodeCodecConfig.h264Config.hierarchicalBFrames > 0;
-        }
-    }
-    //NVENCではdtsは得られない
-    m_Mux.video.bDtsUnavailable = true;
-
-    if (m_Mux.video.pCodecCtx == nullptr || m_Mux.video.pCodecCtx->codec_id != AV_CODEC_ID_HEVC) {
-        if (0 != (sts = WriteFileHeader(nullptr))) {
-            return sts;
-        }
-        m_Mux.format.bFileHeaderWritten = true;
-    }
-
-    tstring mes = GetWriterMes();
-    AddMessage(RGY_LOG_DEBUG, mes);
-    m_strOutputInfo += mes;
-    m_Mux.format.bStreamError = false;
-
-    m_bInited = true;
-
     return RGY_ERR_NONE;
 }
 
@@ -1699,7 +1649,7 @@ tstring CAvcodecWriter::GetWriterMes() {
     return char_to_tstring(mes.c_str());
 }
 
-uint32_t CAvcodecWriter::getH264PAFFFieldLength(uint8_t *ptr, uint32_t size, int *isIDR) {
+uint32_t CAvcodecWriter::getH264PAFFFieldLength(const uint8_t *ptr, uint32_t size, int *isIDR) {
     int sliceNalu = 0;
     *isIDR = 0;
     uint8_t a = ptr[0], b = ptr[1], c = ptr[2], d = 0;
@@ -1718,34 +1668,34 @@ uint32_t CAvcodecWriter::getH264PAFFFieldLength(uint8_t *ptr, uint32_t size, int
     return size;
 }
 
-RGY_ERR CAvcodecWriter::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pNVEncBitstream) {
+RGY_ERR CAvcodecWriter::WriteNextFrame(RGYBitstream *pBitstream) {
 #if ENABLE_AVCODEC_OUT_THREAD
     //最初のヘッダーを書いたパケットは出力スレッドでなくエンコードスレッドが出力する
     //出力スレッドは、このパケットがヘッダーを書き終わり、m_Mux.format.bFileHeaderWrittenフラグが立った時点で動き出す
     if (m_Mux.thread.thOutput.joinable() && m_Mux.format.bFileHeaderWritten) {
-        nvBitstream copyStream = { 0 };
-        bool bFrameI = (pNVEncBitstream->pictureType == NV_ENC_PIC_TYPE_I) != 0;
-        bool bFrameP = (pNVEncBitstream->pictureType == NV_ENC_PIC_TYPE_P) != 0;
+        RGYBitstream copyStream;
+        bool bFrameI = (pBitstream->frametype() & RGY_FRAMETYPE_I) != 0;
+        bool bFrameP = (pBitstream->frametype() & RGY_FRAMETYPE_P) != 0;
         //IフレームかPBフレームかでサイズが大きく違うため、空きのmfxBistreamは異なるキューで管理する
         auto& qVideoQueueFree = (bFrameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
         //空いているmfxBistreamを取り出す
-        if (!qVideoQueueFree.front_copy_and_pop_no_lock(&copyStream) || copyStream.MaxLength < pNVEncBitstream->bitstreamSizeInBytes) {
+        if (!qVideoQueueFree.front_copy_and_pop_no_lock(&copyStream) || copyStream.bufsize() < pBitstream->size()) {
             //空いているmfxBistreamがない、あるいはそのバッファサイズが小さい場合は、領域を取り直す
-            if (0 != nvBitstreamInit(&copyStream, pNVEncBitstream->bitstreamSizeInBytes * ((bFrameI | bFrameP) ? 2 : 8))) {
+            if (RGY_ERR_NONE != copyStream.init(pBitstream->size() * ((bFrameI | bFrameP) ? 2 : 8))) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for video bitstream output buffer.\n"));
                 m_Mux.format.bStreamError = true;
                 return RGY_ERR_MEMORY_ALLOC;
             }
         }
         //必要な情報をコピー
-        copyStream.DataLength      = pNVEncBitstream->bitstreamSizeInBytes;
-        copyStream.frameIdx        = pNVEncBitstream->frameIdx;
-        copyStream.outputTimeStamp = pNVEncBitstream->outputTimeStamp;
-        copyStream.outputDuration  = pNVEncBitstream->outputDuration;
-        copyStream.pictureStruct   = pNVEncBitstream->pictureStruct;
-        copyStream.pictureType     = pNVEncBitstream->pictureType;
-        copyStream.frameAvgQP     = pNVEncBitstream->frameAvgQP;
-        memcpy(copyStream.Data, pNVEncBitstream->bitstreamBufferPtr, copyStream.DataLength);
+        copyStream.setDataflag(pBitstream->dataflag());
+        copyStream.setPts(pBitstream->pts());
+        copyStream.setDts(pBitstream->dts());
+        copyStream.setFrametype(pBitstream->frametype());
+        copyStream.setSize(pBitstream->size());
+        copyStream.setAvgQP(pBitstream->avgQP());
+        copyStream.setOffset(0);
+        memcpy(copyStream.bufptr(), pBitstream->data(), copyStream.size());
         //キューに押し込む
         if (!m_Mux.thread.qVideobitstream.push(copyStream)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for video bitstream queue.\n"));
@@ -1755,20 +1705,20 @@ RGY_ERR CAvcodecWriter::WriteNextFrame(const NV_ENC_LOCK_BITSTREAM *pNVEncBitstr
         return (m_Mux.format.bStreamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 #endif
-    nvBitstream bitstream = { 0 };
-    if (nvBitstreamCopy(&bitstream, pNVEncBitstream)) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for bitstream copy.\n"));
-        m_Mux.format.bStreamError = true;
-        return RGY_ERR_MEMORY_ALLOC;
-    }
     int64_t dts = 0;
-    return WriteNextFrameInternal(&bitstream, &dts);
+    return WriteNextFrameInternal(pBitstream, &dts);
 }
 
-RGY_ERR CAvcodecWriter::WriteNextFrameInternal(nvBitstream *pBitstream, int64_t *pWrittenDts) {
+RGY_ERR CAvcodecWriter::WriteNextFrameInternal(RGYBitstream *pBitstream, int64_t *pWrittenDts) {
     if (!m_Mux.format.bFileHeaderWritten) {
-        //NVENCではdtsは得られない
+#if ENCODER_QSV
+        //HEVCエンコードでは、DecodeTimeStampが正しく設定されない
+        if (pBitstream->dts() < 0) {
+            m_Mux.video.bDtsUnavailable = true;
+        }
+#else
         m_Mux.video.bDtsUnavailable = true;
+#endif
         RGY_ERR sts = WriteFileHeader(pBitstream);
         if (sts != 0) {
             return sts;
@@ -1777,13 +1727,13 @@ RGY_ERR CAvcodecWriter::WriteNextFrameInternal(nvBitstream *pBitstream, int64_t 
 
     uint32_t nDataOffsetByte = 0;
     const int bIsPAFF = !!m_Mux.video.bIsPAFF;
-    for (uint32_t i = 0, frameSize = pBitstream->DataLength; frameSize > 0; i++) {
-        int isIDR = pBitstream->pictureType == NV_ENC_PIC_TYPE_IDR;
-        const uint32_t bytesToWrite = (bIsPAFF) ? getH264PAFFFieldLength(pBitstream->Data + nDataOffsetByte, frameSize, &isIDR) : frameSize;
+    for (uint32_t i = 0, frameSize = pBitstream->size(); frameSize > 0; i++) {
+        int isIDR = pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I) ? 1 : 0;
+        const uint32_t bytesToWrite = (bIsPAFF) ? getH264PAFFFieldLength(pBitstream->data(), frameSize, &isIDR) : frameSize;
         AVPacket pkt = { 0 };
         av_init_packet(&pkt);
         av_new_packet(&pkt, bytesToWrite);
-        memcpy(pkt.data, pBitstream->Data + nDataOffsetByte, bytesToWrite);
+        memcpy(pkt.data, pBitstream->data(), bytesToWrite);
         pkt.size = bytesToWrite;
 
         const AVRational fpsTimebase = av_div_q({1, 1 + bIsPAFF}, m_Mux.video.nFPS);
@@ -1791,12 +1741,9 @@ RGY_ERR CAvcodecWriter::WriteNextFrameInternal(nvBitstream *pBitstream, int64_t 
         pkt.stream_index = m_Mux.video.pStreamOut->index;
         pkt.flags        = isIDR;
         pkt.duration     = (int)av_rescale_q(1, fpsTimebase, streamTimebase);
-        pkt.pts          = av_rescale_q(pBitstream->outputTimeStamp * (1 + bIsPAFF), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
+        pkt.pts          = av_rescale_q(pBitstream->pts() * (1 + bIsPAFF), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
         if (!m_Mux.video.bDtsUnavailable) {
-            AddMessage(RGY_LOG_ERROR, _T("dts from encode is not supported.\n"));
-            m_Mux.format.bStreamError = true;
-            return RGY_ERR_MEMORY_ALLOC;
-            //pkt.dts = av_rescale_q(av_rescale_q(pBitstream->DecodeTimeStamp, HW_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
+            pkt.pts          = av_rescale_q(av_rescale_q(pBitstream->pts(), HW_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
         } else {
             pkt.dts = av_rescale_q(m_Mux.video.nFpsBaseNextDts, fpsTimebase, streamTimebase);
             m_Mux.video.nFpsBaseNextDts++;
@@ -1808,20 +1755,22 @@ RGY_ERR CAvcodecWriter::WriteNextFrameInternal(nvBitstream *pBitstream, int64_t 
         frameSize -= bytesToWrite;
         nDataOffsetByte += bytesToWrite;
         if (m_Mux.video.fpTsLogFile) {
-            const TCHAR *pFrameTypeStr = (pBitstream->pictureType == NV_ENC_PIC_TYPE_IDR || pBitstream->pictureType == NV_ENC_PIC_TYPE_I) ? _T("I") : ((pBitstream->pictureType == NV_ENC_PIC_TYPE_P) ? _T("P") : _T("B"));
-            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20I64d, %20I64d, %20I64d, %20I64d, %d, %7d\n"), pFrameTypeStr, pBitstream->outputTimeStamp, 0llu, pts, dts, (int)duration, bytesToWrite);
+            const uint32_t frameType = pBitstream->frametype() >> (i<<3);
+            const TCHAR *pFrameTypeStr = (isIDR) ? _T("I") : (((frameType & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
+            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20I64d, %20I64d, %20I64d, %20I64d, %d, %7d\n"), pFrameTypeStr, (lls)pBitstream->pts(), (lls)pBitstream->dts(), pts, dts, (int)duration, bytesToWrite);
         }
     }
-    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(pBitstream->pictureType), pBitstream->DataLength, pBitstream->frameAvgQP);
+    m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), pBitstream->avgQP());
 #if ENABLE_AVCODEC_OUT_THREAD
     //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
     if (m_Mux.thread.thOutput.joinable() && m_Mux.format.bFileHeaderWritten) {
         //確保したメモリ領域を使いまわすためにスタックに格納
-        auto& qVideoQueueFree = (pBitstream->pictureType == NV_ENC_PIC_TYPE_IDR || pBitstream->pictureType == NV_ENC_PIC_TYPE_I) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
+        auto& qVideoQueueFree = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
         qVideoQueueFree.push(*pBitstream);
     } else {
 #endif
-        pBitstream->DataLength = 0;
+        pBitstream->setSize(0);
+        pBitstream->setOffset(0);
 #if ENABLE_AVCODEC_OUT_THREAD
     }
 #endif
@@ -1831,12 +1780,10 @@ RGY_ERR CAvcodecWriter::WriteNextFrameInternal(nvBitstream *pBitstream, int64_t 
     return (m_Mux.format.bStreamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-#pragma warning(push)
-#pragma warning(disable: 4100)
-RGY_ERR CAvcodecWriter::WriteNextFrame(uint8_t *ptr, uint32_t nSize) {
+RGY_ERR CAvcodecWriter::WriteNextFrame(RGYFrame *pSurface) {
+    UNREFERENCED_PARAMETER(pSurface);
     return RGY_ERR_UNSUPPORTED;
 }
-#pragma warning(pop)
 
 vector<int> CAvcodecWriter::GetStreamTrackIdList() {
     vector<int> streamTrackId;
@@ -2843,7 +2790,7 @@ RGY_ERR CAvcodecWriter::WriteThreadFunc() {
                 audioDts = (std::max)(audioDts, pktData.dts);
                 nWaitAudio = 0;
             }
-            nvBitstream bitstream = { 0 };
+            RGYBitstream bitstream = RGYBitstreamInit();
             while ((audioDts < 0 || videoDts <= audioDts + dtsThreshold)
                 && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream))) {
                 WriteNextFrameInternal(&bitstream, &videoDts);
@@ -2901,7 +2848,7 @@ RGY_ERR CAvcodecWriter::WriteThreadFunc() {
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData);
             audioDts = (std::max)(audioDts, pktData.dts);
         }
-        nvBitstream bitstream = { 0 };
+        RGYBitstream bitstream = RGYBitstreamInit();
         while (videoDts <= audioDts + dtsThreshold
             && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream))) {
             WriteNextFrameInternal(&bitstream, &videoDts);
@@ -2917,7 +2864,7 @@ RGY_ERR CAvcodecWriter::WriteThreadFunc() {
         }
     }
     { //動画を書き出す
-        nvBitstream bitstream = { 0 };
+        RGYBitstream bitstream = RGYBitstreamInit();
         while (m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream)) {
             WriteNextFrameInternal(&bitstream, &videoDts);
         }

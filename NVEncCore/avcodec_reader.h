@@ -718,8 +718,6 @@ public:
     CAvcodecReader();
     virtual ~CAvcodecReader();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
-
     virtual void Close();
 
     //動画ストリームの1フレーム分のデータをm_sPacketに格納する
@@ -762,7 +760,9 @@ public:
     //入力スレッドのハンドルを取得する
     HANDLE getThreadHandleInput();
 
-private:
+protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
+
     //avcodecのコーデックIDからHWデコード可能ならRGY_CODECを返す
     RGY_CODEC checkHWDecoderAvailable(AVCodecID id);
 
