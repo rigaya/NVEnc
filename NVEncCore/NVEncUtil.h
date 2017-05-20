@@ -44,26 +44,6 @@
 #define cudaVideoCodec_VP9 (cudaVideoCodec)(cudaVideoCodec_HEVC+2)
 #endif
 
-#define MAP_PAIR_0_1(prefix, name0, type0, name1, type1, map_pair, default0, default1) \
-    __declspec(noinline) \
-    type1 prefix ## _ ## name0 ## _to_ ## name1(type0 var0) {\
-        auto ret = std::find_if(map_pair.begin(), map_pair.end(), [var0](std::pair<type0, type1> a) { \
-            return a.first == var0; \
-        }); \
-        return (ret == map_pair.end()) ? default1 : ret->second; \
-    } \
-    __declspec(noinline)  \
-    type0 prefix ## _ ## name1 ## _to_ ## name0(type1 var1) {\
-        auto ret = std::find_if(map_pair.begin(), map_pair.end(), [var1](std::pair<type0, type1> a) { \
-            return a.second == var1; \
-        }); \
-        return (ret == map_pair.end()) ? default0 : ret->first; \
-    }
-
-#define MAP_PAIR_0_1_PROTO(prefix, name0, type0, name1, type1) \
-    type1 prefix ## _ ## name0 ## _to_ ## name1(type0 var0); \
-    type0 prefix ## _ ## name1 ## _to_ ## name0(type1 var1);
-
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, cudaVideoCodec);
 MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, cudaVideoChromaFormat);
 MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, NV_ENC_BUFFER_FORMAT);

@@ -50,7 +50,7 @@
 #pragma comment(lib, "winmm.lib")
 #include "nvEncodeAPI.h"
 #include "NVEncCore.h"
-#include "rgy_config.h"
+#include "rgy_version.h"
 #include "rgy_status.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
@@ -376,21 +376,21 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
     int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
 
-#if RAW_READER
+#if ENABLE_RAW_READER
     if (inputParam->input.type == RGY_INPUT_FMT_AUTO) {
         if (check_ext(inputParam->inputFilename, { ".y4m" })) {
             inputParam->input.type = RGY_INPUT_FMT_Y4M;
         } else if (check_ext(inputParam->inputFilename, { ".yuv" })) {
             inputParam->input.type = RGY_INPUT_FMT_RAW;
-#if AVI_READER
+#if ENABLE_AVI_READER
         } else if (check_ext(inputParam->inputFilename, { ".avi" })) {
             inputParam->input.type = RGY_INPUT_FMT_AVI;
 #endif
-#if AVS_READER
+#if ENABLE_AVISYNTH_READER
         } else if (check_ext(inputParam->inputFilename, { ".avs" })) {
             inputParam->input.type = RGY_INPUT_FMT_AVS;
 #endif
-#if VPY_READER
+#if ENABLE_VAPOURSYNTH_READER
         } else if (check_ext(inputParam->inputFilename, { ".vpy" })) {
             inputParam->input.type = RGY_INPUT_FMT_VPY_MT;
 #endif
@@ -404,15 +404,15 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
 
     //Check if selected format is enabled
-    if (inputParam->input.type == RGY_INPUT_FMT_AVS && !AVS_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_AVS && !ENABLE_AVISYNTH_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avs reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->input.type == RGY_INPUT_FMT_VPY_MT && !VPY_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_VPY_MT && !ENABLE_VAPOURSYNTH_READER) {
         PrintMes(RGY_LOG_ERROR, _T("vpy reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->input.type == RGY_INPUT_FMT_AVI && !AVI_READER) {
+    if (inputParam->input.type == RGY_INPUT_FMT_AVI && !ENABLE_AVI_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -431,19 +431,19 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     void *pInputPrm = nullptr;
 
     switch (inputParam->input.type) {
-#if AVS_READER
+#if ENABLE_AVISYNTH_READER
     case RGY_INPUT_FMT_AVS:
         PrintMes(RGY_LOG_DEBUG, _T("avs reader selected.\n"));
         m_pFileReader.reset(new NVEncInputAvs());
         break;
-#endif //AVS_READER
-#if VPY_READER
+#endif //ENABLE_AVISYNTH_READER
+#if ENABLE_VAPOURSYNTH_READER
     case RGY_INPUT_FMT_VPY:
     case RGY_INPUT_FMT_VPY_MT:
         PrintMes(RGY_LOG_DEBUG, _T("vpy reader selected.\n"));
         m_pFileReader.reset(new NVEncInputVpy());
         break;
-#endif //VPY_READER
+#endif //ENABLE_VAPOURSYNTH_READER
 #if ENABLE_AVSW_READER
     case RGY_INPUT_FMT_AVHW:
     case RGY_INPUT_FMT_AVSW:
@@ -560,7 +560,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     return NV_ENC_SUCCESS;
 #else
     return NV_ENC_ERR_INVALID_CALL;
-#endif //RAW_READER
+#endif //ENABLE_RAW_READER
 }
 #pragma warning(pop)
 
@@ -665,7 +665,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                     //pAudioSelect == nullptrは "copyAll" か 字幕ストリーム によるもの
                     prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
                     prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
-                    prm.pEncodeCodec = (pAudioSelect == nullptr) ? AVQSV_CODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
+                    prm.pEncodeCodec = (pAudioSelect == nullptr) ? RGY_AVCODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
                     prm.pFilter = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAudioFilter;
                     PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
@@ -2813,7 +2813,7 @@ NVENCSTATUS NVEncCore::Encode() {
     auto check_pts = [&](FrameBufferDataIn *pInputFrame) {
         vector<unique_ptr<FrameBufferDataIn>> decFrames;
 #if ENABLE_AVSW_READER
-        int64_t pts = (pStreamIn) ? av_rescale_q(pInputFrame->getTimeStamp(), CUVID_NATIVE_TIMEBASE, pStreamIn->time_base) : nEstimatedPts;
+        int64_t pts = (pStreamIn) ? av_rescale_q(pInputFrame->getTimeStamp(), HW_NATIVE_TIMEBASE, pStreamIn->time_base) : nEstimatedPts;
         if ((m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) == RGY_AVSYNC_FORCE_CFR) {
             if (nEstimatedPts == AV_NOPTS_VALUE) {
                 nEstimatedPts = pts;
@@ -3212,7 +3212,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
             CUVIDPARSERDISPINFO pInfo;
             if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
-                int64_t pts = av_rescale_q(pInfo.timestamp, CUVID_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase);
+                int64_t pts = av_rescale_q(pInfo.timestamp, HW_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase);
                 if (m_pTrimParam && !frame_inside_range(decodedFrame++, m_pTrimParam->list)) {
                     m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
                     continue;

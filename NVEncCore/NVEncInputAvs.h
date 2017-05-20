@@ -36,7 +36,7 @@
 #include "rgy_version.h"
 #include "NVEncInput.h"
 
-#if AVS_READER
+#if ENABLE_AVISYNTH_READER
 #pragma warning(push)
 #pragma warning(disable:4244)
 #pragma warning(disable:4456)
@@ -89,4 +89,4 @@ protected:
     avs_dll_t m_sAvisynth;
 };
 
-#endif //AVS_READER
+#endif //ENABLE_AVISYNTH_READER

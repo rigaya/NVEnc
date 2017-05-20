@@ -36,7 +36,7 @@
 #include "ConvertCSP.h"
 #include "NVEncInputRaw.h"
 
-#if RAW_READER
+#if ENABLE_RAW_READER
 
 RGY_ERR NVEncInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
     char *p, *q = nullptr;

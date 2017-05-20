@@ -28,7 +28,7 @@
 
 #include "rgy_err.h"
 
-#if RGY_ERR_QSV
+#if ENCODER_QSV
 struct RGYErrMapMFX {
     RGY_ERR rgy;
     mfxStatus mfx;
@@ -94,9 +94,58 @@ RGY_ERR err_to_rgy(mfxStatus err) {
     });
     return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
 }
-#endif //#if RGY_ERR_QSV
+#endif //#if ENCODER_QSV
 
-#if RGY_ERR_AMF
+#if ENCODER_NVENC
+struct RGYErrMapNV {
+    RGY_ERR rgy;
+    NVENCSTATUS nv;
+};
+
+static const RGYErrMapNV ERR_MAP_NV[] = {
+    { RGY_ERR_NONE, NV_ENC_SUCCESS },
+    { RGY_ERR_UNKNOWN, NV_ENC_ERR_GENERIC },
+    { RGY_ERR_ACCESS_DENIED, NV_ENC_ERR_INCOMPATIBLE_CLIENT_KEY },
+    { RGY_ERR_INVALID_PARAM, NV_ENC_ERR_INVALID_EVENT },
+    { RGY_ERR_INVALID_PARAM, NV_ENC_ERR_INVALID_PARAM },
+    { RGY_ERR_INVALID_PARAM, NV_ENC_ERR_UNSUPPORTED_PARAM },
+    { RGY_ERR_NOT_ENOUGH_BUFFER, NV_ENC_ERR_NOT_ENOUGH_BUFFER },
+    { RGY_ERR_NULL_PTR, NV_ENC_ERR_INVALID_PTR },
+    { RGY_ERR_NULL_PTR, NV_ENC_ERR_OUT_OF_MEMORY },
+    { RGY_ERR_UNSUPPORTED, NV_ENC_ERR_UNIMPLEMENTED },
+    { RGY_ERR_UNSUPPORTED, NV_ENC_ERR_UNSUPPORTED_DEVICE },
+    { RGY_ERR_UNSUPPORTED, NV_ENC_ERR_INVALID_CALL },
+    { RGY_WRN_DEVICE_BUSY, NV_ENC_ERR_LOCK_BUSY },
+    { RGY_WRN_DEVICE_BUSY, NV_ENC_ERR_ENCODER_BUSY },
+    { RGY_ERR_NO_DEVICE, NV_ENC_ERR_NO_ENCODE_DEVICE },
+    { RGY_ERR_NOT_INITIALIZED, NV_ENC_ERR_ENCODER_NOT_INITIALIZED },
+    { RGY_ERR_INVALID_VERSION, NV_ENC_ERR_INVALID_VERSION },
+    { RGY_ERR_INVALID_DEVICE, NV_ENC_ERR_INVALID_ENCODERDEVICE },
+    { RGY_ERR_INVALID_DEVICE, NV_ENC_ERR_INVALID_DEVICE },
+    { RGY_ERR_NO_DEVICE, NV_ENC_ERR_DEVICE_NOT_EXIST },
+    { RGY_ERR_MORE_DATA, NV_ENC_ERR_NEED_MORE_INPUT },
+    { RGY_ERR_MAP_FAILED, NV_ENC_ERR_MAP_FAILED, }
+};
+
+NVENCSTATUS err_to_nv(RGY_ERR err) {
+    const RGYErrMapNV *ERR_MAP_FIN = (const RGYErrMapNV *)ERR_MAP_NV + _countof(ERR_MAP_NV);
+    auto ret = std::find_if((const RGYErrMapNV *)ERR_MAP_NV, ERR_MAP_FIN, [err](const RGYErrMapNV map) {
+        return map.rgy == err;
+    });
+    return (ret == ERR_MAP_FIN) ? NV_ENC_ERR_GENERIC : ret->nv;
+}
+
+RGY_ERR err_to_rgy(NVENCSTATUS err) {
+    const RGYErrMapNV *ERR_MAP_FIN = (const RGYErrMapNV *)ERR_MAP_NV + _countof(ERR_MAP_NV);
+    auto ret = std::find_if((const RGYErrMapNV *)ERR_MAP_NV, ERR_MAP_FIN, [err](const RGYErrMapNV map) {
+        return map.nv == err;
+    });
+    return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
+}
+
+#endif //#if ENCODER_NVENC
+
+#if ENCODER_VCEENC
 struct RGYErrMapAMF {
     RGYErr rgy;
     AMF_ERR amf;
@@ -152,57 +201,7 @@ RGYErr err_to_rgy(AMF_ERR err) {
     });
     return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
 }
-#endif //#if RGY_ERR_AMF
-
-
-#if RGY_ERR_NV
-struct RGYErrMapNV {
-    RGY_ERR rgy;
-    NVENCSTATUS nv;
-};
-
-static const RGYErrMapNV ERR_MAP_NV[] = {
-    { RGY_ERR_NONE, NV_ENC_SUCCESS },
-    { RGY_ERR_UNKNOWN, NV_ENC_ERR_GENERIC },
-    { RGY_ERR_ACCESS_DENIED, NV_ENC_ERR_INCOMPATIBLE_CLIENT_KEY },
-    { RGY_ERR_INVALID_PARAM, NV_ENC_ERR_INVALID_EVENT },
-    { RGY_ERR_INVALID_PARAM, NV_ENC_ERR_INVALID_PARAM },
-    { RGY_ERR_INVALID_PARAM, NV_ENC_ERR_UNSUPPORTED_PARAM },
-    { RGY_ERR_NOT_ENOUGH_BUFFER, NV_ENC_ERR_NOT_ENOUGH_BUFFER },
-    { RGY_ERR_NULL_PTR, NV_ENC_ERR_INVALID_PTR },
-    { RGY_ERR_NULL_PTR, NV_ENC_ERR_OUT_OF_MEMORY },
-    { RGY_ERR_UNSUPPORTED, NV_ENC_ERR_UNIMPLEMENTED },
-    { RGY_ERR_UNSUPPORTED, NV_ENC_ERR_UNSUPPORTED_DEVICE },
-    { RGY_ERR_UNSUPPORTED, NV_ENC_ERR_INVALID_CALL },
-    { RGY_WRN_DEVICE_BUSY, NV_ENC_ERR_LOCK_BUSY },
-    { RGY_WRN_DEVICE_BUSY, NV_ENC_ERR_ENCODER_BUSY },
-    { RGY_ERR_NO_DEVICE, NV_ENC_ERR_NO_ENCODE_DEVICE },
-    { RGY_ERR_NOT_INITIALIZED, NV_ENC_ERR_ENCODER_NOT_INITIALIZED },
-    { RGY_ERR_INVALID_VERSION, NV_ENC_ERR_INVALID_VERSION },
-    { RGY_ERR_INVALID_DEVICE, NV_ENC_ERR_INVALID_ENCODERDEVICE },
-    { RGY_ERR_INVALID_DEVICE, NV_ENC_ERR_INVALID_DEVICE },
-    { RGY_ERR_NO_DEVICE, NV_ENC_ERR_DEVICE_NOT_EXIST },
-    { RGY_ERR_MORE_DATA, NV_ENC_ERR_NEED_MORE_INPUT },
-    { RGY_ERR_MAP_FAILED, NV_ENC_ERR_MAP_FAILED, }
-};
-
-NVENCSTATUS err_to_nv(RGY_ERR err) {
-    const RGYErrMapNV *ERR_MAP_FIN = (const RGYErrMapNV *)ERR_MAP_NV + _countof(ERR_MAP_NV);
-    auto ret = std::find_if((const RGYErrMapNV *)ERR_MAP_NV, ERR_MAP_FIN, [err](const RGYErrMapNV map) {
-        return map.rgy == err;
-    });
-    return (ret == ERR_MAP_FIN) ? NV_ENC_ERR_GENERIC : ret->nv;
-}
-
-RGY_ERR err_to_rgy(NVENCSTATUS err) {
-    const RGYErrMapNV *ERR_MAP_FIN = (const RGYErrMapNV *)ERR_MAP_NV + _countof(ERR_MAP_NV);
-    auto ret = std::find_if((const RGYErrMapNV *)ERR_MAP_NV, ERR_MAP_FIN, [err](const RGYErrMapNV map) {
-        return map.nv == err;
-    });
-    return (ret == ERR_MAP_FIN) ? RGY_ERR_UNKNOWN : ret->rgy;
-}
-
-#endif //#if RGY_ERR_NV
+#endif //#if ENCODER_VCEENC
 
 const TCHAR *get_err_mes(RGY_ERR sts) {
     switch (sts) {

@@ -26,6 +26,8 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_CONFIG_H__
+#define __RGY_CONFIG_H__
 
 #define VER_FILEVERSION              0,3,8,0
 #define VER_STR_FILEVERSION          "3.08"
@@ -37,24 +39,42 @@
 #define BUILD_ARCH_STR _T("x64")
 #endif
 
+static const int HW_TIMEBASE = 100000;
+
+#if _UNICODE
+const wchar_t *get_encoder_version();
+#else
+const char *get_encoder_version();
+#endif
+
+#define ENCODER_QSV    0
+#define ENCODER_NVENC  1
+#define ENCODER_VCEENC 0
+
+#define ENABLE_OPENCL 1
+
 #define ENABLE_AVCODEC_OUT_THREAD 1
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 
 #ifdef NVENC_AUO
-#define FOR_AUO    1
-#define RAW_READER 0
-#define AVI_READER 0
-#define AVS_READER 0
-#define VPY_READER 0
+#define ENCODER_NAME  "NVEnc"
+#define AUO_NAME      "NVEnc.auo"
+#define FOR_AUO                   1
+#define ENABLE_RAW_READER         0
+#define ENABLE_AVI_READER         0
+#define ENABLE_AVISYNTH_READER    0
+#define ENABLE_VAPOURSYNTH_READER 0
 #define ENABLE_AVSW_READER 0
 #else
-#define FOR_AUO    0
-#define RAW_READER 1
-#define AVI_READER 0
-#define AVS_READER 1
-#define VPY_READER 1
-#define ENABLE_AVSW_READER 1
+#define ENCODER_NAME "NVEncC"
+#define FOR_AUO                   0
+#define ENABLE_RAW_READER         1
+#define ENABLE_AVI_READER         0
+#define ENABLE_AVISYNTH_READER    1
+#define ENABLE_VAPOURSYNTH_READER 1
+#define ENABLE_AVSW_READER        1
 #endif
 
+#endif //__RGY_CONFIG_H__

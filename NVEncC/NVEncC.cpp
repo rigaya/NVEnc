@@ -38,7 +38,7 @@
 #include <vector>
 #include <set>
 #include <cstdio>
-#include "rgy_config.h"
+#include "rgy_version.h"
 #include "NVEncCore.h"
 #include "NVEncFeature.h"
 #include "NVEncParam.h"
@@ -64,10 +64,10 @@ static tstring GetNVEncVersion() {
         CUDA_VERSION / 1000, (CUDA_VERSION % 1000) / 10,
         _T(__DATE__), _T(__TIME__));
     version += _T(" reader: raw");
-    if (AVI_READER) version += _T(", avi");
-    if (AVS_READER) version += _T(", avs");
-    if (VPY_READER) version += _T(", vpy");
-    if (ENABLE_AVSW_READER) version += strsprintf(_T(", avcuvid [%s]"), getHWSupportedCodecList().c_str());
+    if (ENABLE_AVI_READER) version += _T(", avi");
+    if (ENABLE_AVISYNTH_READER) version += _T(", avs");
+    if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
+    if (ENABLE_AVSW_READER) version += strsprintf(_T(", avcuvid [%s]"), getHWDecSupportedCodecList().c_str());
     version += _T("\n");
     return version;
 }
@@ -184,8 +184,8 @@ static tstring help() {
         _T("Example:\n")
         _T("  NVEncC -i \"<avsfilename>\" -o \"<outfilename>\"\n")
         _T("  avs2pipemod -y4mp \"<avsfile>\" | NVEncC --y4m -i - -o \"<outfilename>\"\n"),
-        (AVI_READER) ? _T("avi, ") : _T(""),
-        (AVS_READER) ? _T("avs, ") : _T(""));
+        (ENABLE_AVI_READER) ? _T("avi, ") : _T(""),
+        (ENABLE_AVISYNTH_READER) ? _T("avs, ") : _T(""));
     str += strsprintf(_T("\n")
         _T("Information Options: \n")
         _T("-h,-? --help                    print help\n")
@@ -216,13 +216,13 @@ static tstring help() {
         _T(" Input formats (auto detected from extension of not set)\n")
         _T("   --raw                        set input as raw format\n")
         _T("   --y4m                        set input as y4m format\n")
-#if AVI_READER
+#if ENABLE_AVI_READER
         _T("   --avi                        set input as avi format\n")
 #endif
-#if AVS_READER
+#if ENABLE_AVISYNTH_READER
         _T("   --avs                        set input as avs format\n")
 #endif
-#if VPY_READER
+#if ENABLE_VAPOURSYNTH_READER
         _T("   --vpy                        set input as vpy format\n")
         _T("   --vpy-mt                     set input as vpy(mt) format\n")
 #endif
@@ -871,19 +871,19 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("y4m")) {
         pParams->input.type = RGY_INPUT_FMT_Y4M;
-#if AVI_READER
+#if ENABLE_AVI_READER
         return 0;
     }
     if (IS_OPTION("avi")) {
         pParams->input.type = RGY_INPUT_FMT_AVI;
 #endif
-#if AVS_READER
+#if ENABLE_AVISYNTH_READER
         return 0;
     }
     if (IS_OPTION("avs")) {
         pParams->input.type = RGY_INPUT_FMT_AVS;
 #endif
-#if VPY_READER
+#if ENABLE_VAPOURSYNTH_READER
         return 0;
     }
     if (IS_OPTION("vpy")) {
@@ -1143,7 +1143,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
-            pAudioSelect->pAVAudioEncodeCodec = _tcsdup(AVQSV_CODEC_COPY);
+            pAudioSelect->pAVAudioEncodeCodec = _tcsdup(RGY_AVCODEC_COPY);
 
             if (audioIdx < 0) {
                 audioIdx = pParams->nAudioSelectCount;
@@ -1188,7 +1188,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
-            pAudioSelect->pAVAudioEncodeCodec = _tcsdup((ptr) ? ptr : AVQSV_CODEC_AUTO);
+            pAudioSelect->pAVAudioEncodeCodec = _tcsdup((ptr) ? ptr : RGY_AVCODEC_AUTO);
 
             if (audioIdx < 0) {
                 audioIdx = pParams->nAudioSelectCount;
@@ -2485,15 +2485,15 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
             return 1;
         }
         if (0 == _tcscmp(option_name, _T("check-codecs"))) {
-            _ftprintf(stdout, _T("%s\n"), getAVCodecs((AVQSVCodecType)(AVQSV_CODEC_DEC | AVQSV_CODEC_ENC)).c_str());
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_DEC | RGY_AVCODEC_ENC)).c_str());
             return 1;
         }
         if (0 == _tcscmp(option_name, _T("check-encoders"))) {
-            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_ENC).c_str());
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(RGY_AVCODEC_ENC).c_str());
             return 1;
         }
         if (0 == _tcscmp(option_name, _T("check-decoders"))) {
-            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_DEC).c_str());
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(RGY_AVCODEC_DEC).c_str());
             return 1;
         }
         if (0 == _tcscmp(option_name, _T("check-protocols"))) {
@@ -2501,7 +2501,7 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
             return 1;
         }
         if (0 == _tcscmp(option_name, _T("check-formats"))) {
-            _ftprintf(stdout, _T("%s\n"), getAVFormats((AVQSVFormatType)(AVQSV_FORMAT_DEMUX | AVQSV_FORMAT_MUX)).c_str());
+            _ftprintf(stdout, _T("%s\n"), getAVFormats((RGYAVFormatType)(RGY_AVFORMAT_DEMUX | RGY_AVFORMAT_MUX)).c_str());
             return 1;
         }
         if (0 == _tcscmp(option_name, _T("check-filters"))) {

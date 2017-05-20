@@ -66,6 +66,26 @@ using std::shared_ptr;
 #define ALIGN16(x) (((x)+15)&(~15))
 #define ALIGN32(x) (((x)+31)&(~31))
 
+#define MAP_PAIR_0_1_PROTO(prefix, name0, type0, name1, type1) \
+    type1 prefix ## _ ## name0 ## _to_ ## name1(type0 var0); \
+    type0 prefix ## _ ## name1 ## _to_ ## name0(type1 var1);
+
+#define MAP_PAIR_0_1(prefix, name0, type0, name1, type1, map_pair, default0, default1) \
+    __declspec(noinline) \
+    type1 prefix ## _ ## name0 ## _to_ ## name1(type0 var0) {\
+        auto ret = std::find_if(map_pair.begin(), map_pair.end(), [var0](std::pair<type0, type1> a) { \
+            return a.first == var0; \
+        }); \
+        return (ret == map_pair.end()) ? default1 : ret->second; \
+    } \
+    __declspec(noinline)  \
+    type0 prefix ## _ ## name1 ## _to_ ## name0(type1 var1) {\
+        auto ret = std::find_if(map_pair.begin(), map_pair.end(), [var1](std::pair<type0, type1> a) { \
+            return a.second == var1; \
+        }); \
+        return (ret == map_pair.end()) ? default0 : ret->first; \
+    }
+
 typedef long long lls;
 typedef unsigned long long llu;
 

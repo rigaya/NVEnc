@@ -786,7 +786,7 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
                 AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), codecId));
                 return RGY_ERR_INVALID_CODEC;
             }
-            pInputAudio->pEncodeCodec = AVQSV_CODEC_COPY;
+            pInputAudio->pEncodeCodec = RGY_AVCODEC_COPY;
         } else {
             if (avcodecIsAuto(pInputAudio->pEncodeCodec)) {
                 //エンコーダを探す (自動)
@@ -1174,7 +1174,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
     av_register_all();
     avcodec_register_all();
     avformatNetworkInit();
-    av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : NV_AV_LOG_LEVEL);
+    av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
     for (const auto& stream : prm->inputStreamList) {
         if (stream.pFilter) {
@@ -1796,13 +1796,13 @@ RGY_ERR CAvcodecWriter::WriteNextFrameInternal(nvBitstream *pBitstream, int64_t 
             AddMessage(RGY_LOG_ERROR, _T("dts from encode is not supported.\n"));
             m_Mux.format.bStreamError = true;
             return RGY_ERR_MEMORY_ALLOC;
-            //pkt.dts = av_rescale_q(av_rescale_q(pBitstream->DecodeTimeStamp, CUVID_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
+            //pkt.dts = av_rescale_q(av_rescale_q(pBitstream->DecodeTimeStamp, HW_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
         } else {
             pkt.dts = av_rescale_q(m_Mux.video.nFpsBaseNextDts, fpsTimebase, streamTimebase);
             m_Mux.video.nFpsBaseNextDts++;
         }
         const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
-        *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, CUVID_NATIVE_TIMEBASE);
+        *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, HW_NATIVE_TIMEBASE);
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
 
         frameSize -= bytesToWrite;
@@ -1946,7 +1946,7 @@ RGY_ERR CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxA
 // pMuxAudio ... [i]  pktに対応するストリーム情報
 // pkt       ... [io] 書き出す音声/字幕パケット この関数でデータはav_interleaved_write_frameに渡されるか解放される
 // samples   ... [i]  pktのsamples数 音声処理時のみ有効 / 字幕の際は0を渡すべき
-// dts       ... [o]  書き出したパケットの最終的なdtsをCUVID_NATIVE_TIMEBASEで返す
+// dts       ... [o]  書き出したパケットの最終的なdtsをHW_NATIVE_TIMEBASEで返す
 void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts) {
     if (pkt == nullptr || pkt->buf == nullptr) {
         for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
@@ -1967,7 +1967,7 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *p
         if (pkt->duration == 0)
             pkt->duration = (int)(pkt->pts - pMuxAudio->nLastPtsOut);
         pMuxAudio->nLastPtsOut = pkt->pts;
-        *pWrittenDts = av_rescale_q(pkt->dts, pMuxAudio->pStreamOut->time_base, CUVID_NATIVE_TIMEBASE);
+        *pWrittenDts = av_rescale_q(pkt->dts, pMuxAudio->pStreamOut->time_base, HW_NATIVE_TIMEBASE);
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
         pMuxAudio->nOutputSamples += samples;
     } else {
@@ -1981,7 +1981,7 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *p
 // pktData->pMuxAudio ... [i]  pktに対応するストリーム情報
 // &pktData->pkt      ... [io] 書き出す音声/字幕パケット この関数でデータはav_interleaved_write_frameに渡されるか解放される
 // pktData->samples   ... [i]  pktのsamples数 音声処理時のみ有効 / 字幕の際は0を渡すべき
-// &pktData->dts      ... [o]  書き出したパケットの最終的なdtsをCUVID_NATIVE_TIMEBASEで返す
+// &pktData->dts      ... [o]  書き出したパケットの最終的なdtsをHW_NATIVE_TIMEBASEで返す
 void CAvcodecWriter::WriteNextPacketProcessed(AVPktMuxData *pktData) {
     return WriteNextPacketProcessed(pktData->pMuxAudio, &pktData->pkt, pktData->samples, &pktData->dts);
 }
@@ -2804,7 +2804,7 @@ RGY_ERR CAvcodecWriter::WriteThreadFunc() {
     bool bAudioExists = false;
     bool bVideoExists = false;
     const auto fpsTimebase = av_inv_q(m_Mux.video.nFPS);
-    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(4, fpsTimebase, CUVID_NATIVE_TIMEBASE), CUVID_NATIVE_TIMEBASE.den / 4);
+    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(4, fpsTimebase, HW_NATIVE_TIMEBASE), HW_NATIVE_TIMEBASE.den / 4);
     WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, INFINITE);
     //bThAudProcessは出力開始した後で取得する(この前だとまだ起動していないことがある)
     const bool bThAudProcess = m_Mux.thread.thAudProcess.joinable();

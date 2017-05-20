@@ -261,7 +261,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     AddMessage(RGY_LOG_DEBUG, _T("created decoder (mode: %s)\n"), get_chr_from_value(list_cuvid_mode, nDecType));
 
     if (m_videoFormatEx.raw_seqhdr_data && m_videoFormatEx.format.seqhdr_data_length) {
-        if (CUDA_SUCCESS != (curesult = DecodePacket(m_videoFormatEx.raw_seqhdr_data, m_videoFormatEx.format.seqhdr_data_length, AV_NOPTS_VALUE, CUVID_NATIVE_TIMEBASE))) {
+        if (CUDA_SUCCESS != (curesult = DecodePacket(m_videoFormatEx.raw_seqhdr_data, m_videoFormatEx.format.seqhdr_data_length, AV_NOPTS_VALUE, HW_NATIVE_TIMEBASE))) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to decode header %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
             return curesult;
         }
@@ -303,7 +303,7 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
 
     if (timestamp != AV_NOPTS_VALUE) {
         pCuvidPacket.flags     |= CUVID_PKT_TIMESTAMP;
-        pCuvidPacket.timestamp  = av_rescale_q(timestamp, streamtimebase, CUVID_NATIVE_TIMEBASE);
+        pCuvidPacket.timestamp  = av_rescale_q(timestamp, streamtimebase, HW_NATIVE_TIMEBASE);
     }
 
     //cuvidCtxLock(m_ctxLock, 0);

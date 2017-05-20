@@ -574,7 +574,7 @@ RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, co
             audioLog += tstring(_T("format ")) + input_prm->ppAudioSelect[i]->pAudioExtractFormat;
         }
         if (input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec != nullptr
-            && 0 != _tcscmp(input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec, AVQSV_CODEC_COPY)) {
+            && 0 != _tcscmp(input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec, RGY_AVCODEC_COPY)) {
             audioLog += strsprintf(_T("bitrate %d"), input_prm->ppAudioSelect[i]->nAVAudioEncodeBitrate);
         }
         if (input_prm->ppAudioSelect[i]->pAudioExtractFilename) {
@@ -586,7 +586,7 @@ RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, co
     av_register_all();
     avcodec_register_all();
     avformatNetworkInit();
-    av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : NV_AV_LOG_LEVEL);
+    av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
 
     int ret = 0;

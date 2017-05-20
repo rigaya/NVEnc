@@ -45,6 +45,9 @@
 #include "rgy_osdep.h"
 #include "rgy_util.h"
 #include "cpu_info.h"
+#if ENCODER_QSV
+#include "qsv_query.h"
+#endif
 
 int getCPUName(char *buffer, size_t nSize) {
     int CPUInfo[4] = {-1};
@@ -444,6 +447,12 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
             }
         }
         _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
+#if ENCODER_QSV
+        int cpuGen = getCPUGen();
+        if (cpuGen) {
+            _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" <%s>"), CPU_GEN_STR[cpuGen]);
+        }
+#endif
     }
     return ret;
 }

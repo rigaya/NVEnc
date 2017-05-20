@@ -30,6 +30,7 @@
 
 #include "NVEncFilter.h"
 #include "logo.h"
+#include "NVEncParam.h"
 
 struct ProcessDataDelogo {
     unique_ptr<int16_t, aligned_malloc_deleter> pLogoPtr;

@@ -32,10 +32,10 @@
 #include <string>
 #include "NVEncUtil.h"
 #include "rgy_status.h"
-#include "rgy_config.h"
+#include "rgy_version.h"
 #include "NVEncInput.h"
 
-#if RAW_READER
+#if ENABLE_RAW_READER
 
 class NVEncInputRaw : public NVEncBasicInput {
 public:
@@ -56,4 +56,4 @@ protected:
     shared_ptr<uint8_t> m_pBuffer;
 };
 
-#endif //RAW_READER
+#endif //ENABLE_RAW_READER

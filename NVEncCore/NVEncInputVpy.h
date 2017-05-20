@@ -35,7 +35,7 @@
 #include "rgy_version.h"
 #include "NVEncInput.h"
 
-#if VPY_READER
+#if ENABLE_VAPOURSYNTH_READER
 #include "vapoursynth.h"
 #include "VSScript.h"
 
@@ -115,4 +115,4 @@ protected:
     vsscript_t m_sVS;
 };
 
-#endif //AVS_READER
+#endif //ENABLE_AVISYNTH_READER

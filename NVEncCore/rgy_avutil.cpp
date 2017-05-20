@@ -105,7 +105,7 @@ tstring get_media_type_string(AVCodecID codecId) {
 }
 
 //avqsvでサポートされている動画コーデックを表示
-tstring getHWSupportedCodecList() {
+tstring getHWDecSupportedCodecList() {
     tstring codecs;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         if (i == 0 || HW_DECODE_LIST[i-1].rgy_codec != HW_DECODE_LIST[i].rgy_codec) {
@@ -117,7 +117,7 @@ tstring getHWSupportedCodecList() {
 }
 
 //利用可能な音声エンコーダ/デコーダを表示
-tstring getAVCodecs(AVQSVCodecType flag) {
+tstring getAVCodecs(RGYAVCodecType flag) {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
@@ -138,16 +138,16 @@ tstring getAVCodecs(AVQSVCodecType flag) {
             bool alreadyExists = false;
             for (uint32_t i = 0; i < list.size(); i++) {
                 if (0 == strcmp(list[i].name, codec->name)) {
-                    list[i].type |= codec->decode ? AVQSV_CODEC_DEC : 0x00;
-                    list[i].type |= codec->encode2 ? AVQSV_CODEC_ENC : 0x00;
+                    list[i].type |= codec->decode ? RGY_AVCODEC_DEC : 0x00;
+                    list[i].type |= codec->encode2 ? RGY_AVCODEC_ENC : 0x00;
                     alreadyExists = true;
                     break;
                 }
             }
             if (!alreadyExists) {
                 uint32_t type = 0x00;
-                type |= codec->decode ? AVQSV_CODEC_DEC : 0x00;
-                type |= codec->encode2 ? AVQSV_CODEC_ENC : 0x00;
+                type |= codec->decode ? RGY_AVCODEC_DEC : 0x00;
+                type |= codec->encode2 ? RGY_AVCODEC_ENC : 0x00;
                 list.push_back({ type, codec->name, codec->long_name });
             }
         }
@@ -166,8 +166,8 @@ tstring getAVCodecs(AVQSVCodecType flag) {
     std::for_each(list.begin(), list.end(), [&maxNameLength](const avcodecName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
     maxNameLength = (std::min)(maxNameLength, 15u);
 
-    uint32_t flag_dec = flag & AVQSV_CODEC_DEC;
-    uint32_t flag_enc = flag & AVQSV_CODEC_ENC;
+    uint32_t flag_dec = flag & RGY_AVCODEC_DEC;
+    uint32_t flag_enc = flag & RGY_AVCODEC_ENC;
     int flagCount = popcnt32(flag);
 
     std::string codecstr = (flagCount > 1) ? "D-: Decode\n-E: Encode\n---------------------\n" : "";
@@ -192,7 +192,7 @@ tstring getAVCodecs(AVQSVCodecType flag) {
 }
 
 //利用可能なフォーマットを表示
-tstring getAVFormats(AVQSVFormatType flag) {
+tstring getAVFormats(RGYAVFormatType flag) {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
@@ -213,13 +213,13 @@ tstring getAVFormats(AVQSVFormatType flag) {
         bool alreadyExists = false;
         for (uint32_t i = 0; i < list.size(); i++) {
             if (0 == strcmp(list[i].name, iformat->name)) {
-                list[i].type |= AVQSV_FORMAT_DEMUX;
+                list[i].type |= RGY_AVFORMAT_DEMUX;
                 alreadyExists = true;
                 break;
             }
         }
         if (!alreadyExists) {
-            list.push_back({ AVQSV_FORMAT_DEMUX, iformat->name, iformat->long_name });
+            list.push_back({ RGY_AVFORMAT_DEMUX, iformat->name, iformat->long_name });
         }
     }
     
@@ -228,13 +228,13 @@ tstring getAVFormats(AVQSVFormatType flag) {
         bool alreadyExists = false;
         for (uint32_t i = 0; i < list.size(); i++) {
             if (0 == strcmp(list[i].name, oformat->name)) {
-                list[i].type |= AVQSV_FORMAT_MUX;
+                list[i].type |= RGY_AVFORMAT_MUX;
                 alreadyExists = true;
                 break;
             }
         }
         if (!alreadyExists) {
-            list.push_back({ AVQSV_FORMAT_MUX, oformat->name, oformat->long_name });
+            list.push_back({ RGY_AVFORMAT_MUX, oformat->name, oformat->long_name });
         }
     }
 
@@ -252,8 +252,8 @@ tstring getAVFormats(AVQSVFormatType flag) {
     std::for_each(list.begin(), list.end(), [&maxNameLength](const avformatName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
     maxNameLength = (std::min)(maxNameLength, 15u);
 
-    uint32_t flag_demux = flag & AVQSV_FORMAT_DEMUX;
-    uint32_t flag_mux = flag & AVQSV_FORMAT_MUX;
+    uint32_t flag_demux = flag & RGY_AVFORMAT_DEMUX;
+    uint32_t flag_mux = flag & RGY_AVFORMAT_MUX;
     int flagCount = popcnt32(flag);
 
     std::string formatstr = (flagCount > 1) ? "D-: Demux\n-M: Mux\n---------------------\n" : "";
@@ -431,6 +431,7 @@ tstring getAVVersions() {
     mes += std::string("avutil     version: ") + ver2str(avutil_version()) + "\n";
     mes += std::string("avcodec    version: ") + ver2str(avcodec_version()) + "\n";
     mes += std::string("avformat   version: ") + ver2str(avformat_version()) + "\n";
+    mes += std::string("avfilter   version: ") + ver2str(avfilter_version()) + "\n";
     mes += std::string("swresample version: ") + ver2str(swresample_version()) + "\n";
     return char_to_tstring(mes);
 }
@@ -457,23 +458,23 @@ void avformatNetworkDeinit() {
 }
 
 static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>(
-    std::make_pair(AV_PIX_FMT_YUV420P, RGY_CSP_YV12),
-    std::make_pair(AV_PIX_FMT_YUVJ420P, RGY_CSP_YV12),
-    std::make_pair(AV_PIX_FMT_NV12, RGY_CSP_NV12),
-    std::make_pair(AV_PIX_FMT_NV21, RGY_CSP_NV12),
-    std::make_pair(AV_PIX_FMT_YUV422P, RGY_CSP_NA),
-    std::make_pair(AV_PIX_FMT_YUVJ422P, RGY_CSP_NA),
-    std::make_pair(AV_PIX_FMT_YUYV422, RGY_CSP_YUY2),
-    std::make_pair(AV_PIX_FMT_UYVY422, RGY_CSP_NA),
-    std::make_pair(AV_PIX_FMT_NV16, RGY_CSP_NA),
-    std::make_pair(AV_PIX_FMT_YUV444P, RGY_CSP_YUV444),
-    std::make_pair(AV_PIX_FMT_YUVJ444P, RGY_CSP_YUV444),
+    std::make_pair(AV_PIX_FMT_YUV420P,     RGY_CSP_YV12),
+    std::make_pair(AV_PIX_FMT_YUVJ420P,    RGY_CSP_YV12),
+    std::make_pair(AV_PIX_FMT_NV12,        RGY_CSP_NV12),
+    std::make_pair(AV_PIX_FMT_NV21,        RGY_CSP_NV12),
+    std::make_pair(AV_PIX_FMT_YUV422P,     RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUVJ422P,    RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUYV422,     RGY_CSP_YUY2),
+    std::make_pair(AV_PIX_FMT_UYVY422,     RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_NV16,        RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUV444P,     RGY_CSP_YUV444),
+    std::make_pair(AV_PIX_FMT_YUVJ444P,    RGY_CSP_YUV444),
     std::make_pair(AV_PIX_FMT_YUV420P16LE, RGY_CSP_YV12_16),
     std::make_pair(AV_PIX_FMT_YUV420P14LE, RGY_CSP_YV12_14),
     std::make_pair(AV_PIX_FMT_YUV420P12LE, RGY_CSP_YV12_12),
     std::make_pair(AV_PIX_FMT_YUV420P10LE, RGY_CSP_YV12_10),
-    std::make_pair(AV_PIX_FMT_YUV420P9LE, RGY_CSP_YV12_09),
-    std::make_pair(AV_PIX_FMT_NV20LE, RGY_CSP_NA),
+    std::make_pair(AV_PIX_FMT_YUV420P9LE,  RGY_CSP_YV12_09),
+    std::make_pair(AV_PIX_FMT_NV20LE,      RGY_CSP_NA),
     std::make_pair(AV_PIX_FMT_YUV422P16LE, RGY_CSP_NA),
     std::make_pair(AV_PIX_FMT_YUV422P14LE, RGY_CSP_NA),
     std::make_pair(AV_PIX_FMT_YUV422P12LE, RGY_CSP_NA),
@@ -482,9 +483,9 @@ static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>
     std::make_pair(AV_PIX_FMT_YUV444P14LE, RGY_CSP_YUV444_14),
     std::make_pair(AV_PIX_FMT_YUV444P12LE, RGY_CSP_YUV444_12),
     std::make_pair(AV_PIX_FMT_YUV444P10LE, RGY_CSP_YUV444_10),
-    std::make_pair(AV_PIX_FMT_YUV444P9LE, RGY_CSP_YUV444_09)
-    );
+    std::make_pair(AV_PIX_FMT_YUV444P9LE,  RGY_CSP_YUV444_09)
+);
 
 MAP_PAIR_0_1(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP, CSP_PIXFMT_RGY, AV_PIX_FMT_NONE, RGY_CSP_NA);
 
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER

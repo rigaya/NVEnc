@@ -30,18 +30,15 @@
 #ifndef __RGY_ERR_H__
 #define __RGY_ERR_H__
 
-#define RGY_ERR_QSV 0
-#define RGY_ERR_AMF 0
-#define RGY_ERR_NV  1
-
+#include "rgy_version.h"
 #include "rgy_tchar.h"
-#if RGY_ERR_QSV
+#if ENCODER_QSV
 #include "mfxDefs.h"
 #endif
-#if RGY_ERR_AMF
-#endif
-#if RGY_ERR_NV
+#if ENCODER_NVENC
 #include "nvEncodeAPI.h"
+#endif
+#if ENCODER_VCEENC
 #endif
 
 #include <algorithm>
@@ -105,21 +102,20 @@ enum RGY_ERR {
     RGY_ERR_MORE_DATA_SUBMIT_TASK       = -10000,
 };
 
-#if RGY_ERR_QSV
+#if ENCODER_QSV
 mfxStatus err_to_mfx(RGY_ERR err);
 RGY_ERR err_to_rgy(mfxStatus err);
-#endif //#if RGY_ERR_QSV
+#endif //#if ENCODER_QSV
 
-#if RGY_ERR_AMF
-AMF_ERR err_to_amf(RGYErr err);
-RGYErr err_to_rgy(AMF_ERR err);
-#endif //#if RGY_ERR_AMF
-
-
-#if RGY_ERR_NV
+#if ENCODER_NVENC
 NVENCSTATUS err_to_nv(RGY_ERR err);
 RGY_ERR err_to_rgy(NVENCSTATUS err);
-#endif //#if RGY_ERR_NV
+#endif //#if ENCODER_NVENC
+
+#if ENCODER_VCEENC
+AMF_ERR err_to_amf(RGYErr err);
+RGYErr err_to_rgy(AMF_ERR err);
+#endif //#if ENCODER_VCEENC
 
 const TCHAR *get_err_mes(RGY_ERR sts);
 

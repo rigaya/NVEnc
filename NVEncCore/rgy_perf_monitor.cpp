@@ -214,8 +214,8 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
 #if defined(_WIN32) || defined(_WIN64)
     HRSRC hResource = NULL;
     HGLOBAL hResourceData = NULL;
-#if QSVENC_AUO
-    HMODULE hModule = GetModuleHandleA(QSV_AUO_NAME);
+#if BUILD_AUO
+    HMODULE hModule = GetModuleHandleA(AUO_NAME);
 #else
     HMODULE hModule = GetModuleHandleA(NULL);
 #endif

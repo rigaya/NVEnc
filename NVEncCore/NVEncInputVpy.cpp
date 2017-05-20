@@ -34,7 +34,7 @@
 #include "ConvertCSP.h"
 #include "NVEncCore.h"
 #include "NVEncInputVpy.h"
-#if VPY_READER
+#if ENABLE_VAPOURSYNTH_READER
 #include <algorithm>
 #include <sstream>
 #include <map>
@@ -353,4 +353,4 @@ RGY_ERR NVEncInputVpy::LoadNextFrame(RGYFrame *pSurface) {
     return m_pEncSatusInfo->UpdateDisplay();
 }
 
-#endif //VPY_READER
+#endif //ENABLE_VAPOURSYNTH_READER

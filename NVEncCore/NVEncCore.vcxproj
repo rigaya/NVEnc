@@ -162,7 +162,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>NVENC_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>BUILD_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ChapterRW;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -185,6 +185,15 @@
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
@@ -217,6 +226,15 @@
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -246,6 +264,15 @@
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <ClCompile>
@@ -276,6 +303,15 @@
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -285,7 +321,7 @@
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NVENC_AUO;NVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>BUILD_AUO;NVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ChapterRW;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
@@ -314,6 +350,15 @@
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -352,6 +397,15 @@
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
     <ClCompile>
@@ -391,6 +445,15 @@
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
     <ClCompile>
@@ -430,6 +493,15 @@
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
     </CudaCompile>
     <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="avcodec_reader.cpp" />
@@ -474,6 +546,7 @@
     <ClCompile Include="rgy_pipe_linux.cpp" />
     <ClCompile Include="rgy_simd.cpp" />
     <ClCompile Include="rgy_util.cpp" />
+    <ClCompile Include="rgy_version.cpp" />
     <CudaCompile Include="NVEncFilterDenoisePmd.cu">
       <FileType>CppCode</FileType>
     </CudaCompile>

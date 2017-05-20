@@ -55,23 +55,21 @@ extern "C" {
 #pragma comment (lib, "avfilter.lib")
 #pragma warning (pop)
 
-#include "nvcuvid.h"
-#include "NVEncUtil.h"
-#include "NVEncParam.h"
+#include "rgy_util.h"
 
 #if _DEBUG
-#define NV_AV_LOG_LEVEL AV_LOG_WARNING
+#define RGY_AV_LOG_LEVEL AV_LOG_WARNING
 #else
-#define NV_AV_LOG_LEVEL AV_LOG_ERROR
+#define RGY_AV_LOG_LEVEL AV_LOG_ERROR
 #endif
 
 typedef struct CodecMap {
     AVCodecID avcodec_id;   //avcodecのコーデックID
     RGY_CODEC rgy_codec; //QSVのfourcc
-} CuvidCodec;
+} CodecMap;
 
 //QSVでデコード可能なコーデックのリスト
-static const CuvidCodec HW_DECODE_LIST[] = {
+static const CodecMap HW_DECODE_LIST[] ={
     { AV_CODEC_ID_H264,       RGY_CODEC_H264 },
     { AV_CODEC_ID_HEVC,       RGY_CODEC_HEVC },
     { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
@@ -83,8 +81,8 @@ static const CuvidCodec HW_DECODE_LIST[] = {
     //{ AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4   },
 };
 
-static const TCHAR *AVQSV_CODEC_AUTO = _T("auto");
-static const TCHAR *AVQSV_CODEC_COPY = _T("copy");
+static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");
+static const TCHAR *RGY_AVCODEC_COPY = _T("copy");
 
 static const int AVQSV_DEFAULT_AUDIO_BITRATE = 192;
 
@@ -93,10 +91,10 @@ static inline bool av_isvalid_q(AVRational q) {
 }
 
 static inline bool avcodecIsCopy(const TCHAR *codec) {
-    return codec == nullptr || 0 == _tcsicmp(codec, AVQSV_CODEC_COPY);
+    return codec == nullptr || 0 == _tcsicmp(codec, RGY_AVCODEC_COPY);
 }
 static inline bool avcodecIsAuto(const TCHAR *codec) {
-    return codec != nullptr && 0 == _tcsicmp(codec, AVQSV_CODEC_AUTO);
+    return codec != nullptr && 0 == _tcsicmp(codec, RGY_AVCODEC_AUTO);
 }
 
 //AV_LOG_TRACE    56 - RGY_LOG_TRACE -3
@@ -105,31 +103,32 @@ static inline bool avcodecIsAuto(const TCHAR *codec) {
 //AV_LOG_INFO     32 - RGY_LOG_INFO   0
 //AV_LOG_WARNING  24 - RGY_LOG_WARN   1
 //AV_LOG_ERROR    16 - RGY_LOG_ERROR  2
-static inline int log_level_av2qsv(int level) {
+static inline int log_level_av2rgy(int level) {
     return clamp((AV_LOG_INFO / 8) - (level / 8), RGY_LOG_TRACE, RGY_LOG_ERROR);
 }
 
-static inline int log_level_qsv2av(int level) {
+static inline int log_level_rgy2av(int level) {
     return clamp(AV_LOG_INFO - level * 8, AV_LOG_QUIET, AV_LOG_TRACE);
 }
 
+//"<mes> for codec"型のエラーメッセージを作成する  
 static tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
     return mes + tstring(_T(" for ")) + char_to_tstring(avcodec_get_name(targetCodec)) + tstring(_T(".\n"));
 };
 
-static const AVRational CUVID_NATIVE_TIMEBASE = { 1, 10000000 };
+static const AVRational HW_NATIVE_TIMEBASE = { 1, HW_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
-    _T("avcodec-57.dll"), _T("avformat-57.dll"), _T("avutil-55.dll"), _T("swresample-2.dll")
+    _T("avcodec-57.dll"), _T("avformat-57.dll"), _T("avutil-55.dll"), _T("avfilter-6.dll"), _T("swresample-2.dll")
 };
 
-enum AVQSVCodecType : uint32_t {
-    AVQSV_CODEC_DEC = 0x01,
-    AVQSV_CODEC_ENC = 0x02,
+enum RGYAVCodecType : uint32_t {
+    RGY_AVCODEC_DEC = 0x01,
+    RGY_AVCODEC_ENC = 0x02,
 };
 
-enum AVQSVFormatType : uint32_t {
-    AVQSV_FORMAT_DEMUX = 0x01,
-    AVQSV_FORMAT_MUX   = 0x02,
+enum RGYAVFormatType : uint32_t {
+    RGY_AVFORMAT_DEMUX = 0x01,
+    RGY_AVFORMAT_MUX   = 0x02,
 };
 
 //NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
@@ -151,13 +150,13 @@ tstring error_mes_avcodec_dll_not_found();
 bool checkAvcodecLicense();
 
 //avqsvでサポートされている動画コーデックを表示
-tstring getHWSupportedCodecList();
+tstring getHWDecSupportedCodecList();
 
 //利用可能な音声エンコーダ/デコーダを表示
-tstring getAVCodecs(AVQSVCodecType flag);
+tstring getAVCodecs(RGYAVCodecType flag);
 
 //利用可能なフォーマットを表示
-tstring getAVFormats(AVQSVFormatType flag);
+tstring getAVFormats(RGYAVFormatType flag);
 
 //利用可能なフィルターを表示
 tstring getAVFilters();

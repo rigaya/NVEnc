@@ -35,7 +35,7 @@
 #include "NVEncCore.h"
 #include "NVEncInputAvs.h"
 
-#if AVS_READER
+#if ENABLE_AVISYNTH_READER
 
 NVEncInputAvs::NVEncInputAvs() :
     m_sAVSenv(nullptr),
