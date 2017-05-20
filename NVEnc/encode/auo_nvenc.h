@@ -37,7 +37,7 @@
 #include "auo_system.h"
 
 #include "convertCSP.h"
-#include "NVEncInput.h"
+#include "rgy_input.h"
 #include "NVEncCore.h"
 
 std::tuple<bool, bool, bool> get_enc_mode_flags(const CONF_NVENC *nvenc);

@@ -37,8 +37,8 @@
 #include <tchar.h>
 #include <vector>
 #include <string>
-#include "NVEncInput.h"
-#include "NVEncOutput.h"
+#include "rgy_input.h"
+#include "rgy_output.h"
 #include "NVEncUtil.h"
 #include "rgy_status.h"
 #include "rgy_log.h"

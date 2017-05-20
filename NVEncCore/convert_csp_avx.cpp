@@ -30,7 +30,7 @@
 #define USE_SSSE3 1
 #define USE_SSE41 1
 
-#include "ConvertCSPSIMD.h"
+#include "convert_csp_simd.h"
 
 #if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
 static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");

@@ -38,7 +38,7 @@
 #include "nvEncodeAPI.h"
 #include "NVEncoderPerf.h"
 #include "rgy_util.h"
-#include "ConvertCsp.h"
+#include "convert_csp.h"
 
 using std::vector;
 

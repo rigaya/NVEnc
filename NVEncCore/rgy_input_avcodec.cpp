@@ -36,7 +36,7 @@
 #include <cmath>
 #include <climits>
 #include <memory>
-#include "avcodec_reader.h"
+#include "rgy_input_ffmpeg.h"
 
 #ifdef LIBVA_SUPPORT
 #include "hw_device.h"

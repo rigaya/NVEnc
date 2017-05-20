@@ -25,7 +25,7 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-#include "NVEncOutput.h"
+#include "rgy_output.h"
 
 #define WRITE_CHECK(writtenBytes, expected) { \
     if (writtenBytes != expected) { \

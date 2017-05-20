@@ -44,7 +44,7 @@
 #include "rgy_osdep.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
-#include "ConvertCsp.h"
+#include "convert_csp.h"
 
 typedef std::basic_string<TCHAR> tstring;
 using std::vector;

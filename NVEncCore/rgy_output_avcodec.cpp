@@ -36,7 +36,7 @@
 #include <cmath>
 #include <memory>
 #include "NVEncUtil.h"
-#include "avcodec_writer.h"
+#include "rgy_output_ffmpeg.h"
 #include "rgy_avlog.h"
 
 #if ENABLE_AVSW_READER

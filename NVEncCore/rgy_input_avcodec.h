@@ -38,7 +38,7 @@
 #include <deque>
 #include "CuvidDecode.h"
 #include "NVEncParam.h"
-#include "NVEncInput.h"
+#include "rgy_input.h"
 #include "rgy_status.h"
 
 using std::vector;

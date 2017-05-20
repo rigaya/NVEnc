@@ -28,7 +28,7 @@
 
 #include <array>
 #include <map>
-#include "ConvertCsp.h"
+#include "convert_csp.h"
 #include "NVEncFilterDenoisePmd.h"
 #include "NVEncParam.h"
 #pragma warning (push)

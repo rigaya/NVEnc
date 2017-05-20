@@ -30,10 +30,10 @@
 #include <string>
 #include "rgy_status.h"
 #include "nvEncodeAPI.h"
-#include "NVEncInput.h"
-#include "ConvertCSP.h"
+#include "rgy_input.h"
+#include "convert_csp.h"
 #include "NVEncCore.h"
-#include "NVEncInputVpy.h"
+#include "rgy_input_vpy.h"
 #if ENABLE_VAPOURSYNTH_READER
 #include <algorithm>
 #include <sstream>

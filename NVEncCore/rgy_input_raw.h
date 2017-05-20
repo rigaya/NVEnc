@@ -33,7 +33,7 @@
 #include "NVEncUtil.h"
 #include "rgy_status.h"
 #include "rgy_version.h"
-#include "NVEncInput.h"
+#include "rgy_input.h"
 
 #if ENABLE_RAW_READER
 

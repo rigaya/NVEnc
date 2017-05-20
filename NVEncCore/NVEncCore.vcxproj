@@ -504,25 +504,13 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="avcodec_reader.cpp" />
-    <ClCompile Include="avcodec_writer.cpp" />
     <ClCompile Include="cl_func.cpp" />
-    <ClCompile Include="ConvertCsp.cpp" />
-    <ClCompile Include="ConvertCspAVX.cpp">
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-    </ClCompile>
-    <ClCompile Include="ConvertCspAVX2.cpp">
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-    </ClCompile>
-    <ClCompile Include="ConvertCspSSE41.cpp" />
-    <ClCompile Include="ConvertCspSSE2.cpp" />
-    <ClCompile Include="ConvertCspSSSE3.cpp" />
+    <ClCompile Include="convert_csp.cpp" />
+    <ClCompile Include="convert_csp_avx.cpp" />
+    <ClCompile Include="convert_csp_avx2.cpp" />
+    <ClCompile Include="convert_csp_sse2.cpp" />
+    <ClCompile Include="convert_csp_sse41.cpp" />
+    <ClCompile Include="convert_csp_ssse3.cpp" />
     <ClCompile Include="cpu_info.cpp" />
     <ClCompile Include="CuvidDecode.cpp" />
     <ClCompile Include="FrameQueue.cpp" />
@@ -540,7 +528,14 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="rgy_avutil.cpp" />
     <ClCompile Include="rgy_err.cpp" />
     <ClCompile Include="rgy_event.cpp" />
+    <ClCompile Include="rgy_input.cpp" />
+    <ClCompile Include="rgy_input_avcodec.cpp" />
+    <ClCompile Include="rgy_input_avs.cpp" />
+    <ClCompile Include="rgy_input_raw.cpp" />
+    <ClCompile Include="rgy_input_vpy.cpp" />
     <ClCompile Include="rgy_log.cpp" />
+    <ClCompile Include="rgy_output.cpp" />
+    <ClCompile Include="rgy_output_avcodec.cpp" />
     <ClCompile Include="rgy_perf_monitor.cpp" />
     <ClCompile Include="rgy_pipe.cpp" />
     <ClCompile Include="rgy_pipe_linux.cpp" />
@@ -555,21 +550,15 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     </CudaCompile>
     <ClCompile Include="NVEncFilterUnsharp.cpp" />
     <ClCompile Include="NVEncFrameInfo.cpp" />
-    <ClCompile Include="NVEncInput.cpp" />
-    <ClCompile Include="NVEncInputAvs.cpp" />
-    <ClCompile Include="NVEncInputRaw.cpp" />
-    <ClCompile Include="NVEncInputVpy.cpp" />
     <ClCompile Include="NVEncCore.cpp" />
-    <ClCompile Include="NVEncOutput.cpp" />
     <ClCompile Include="NVEncParam.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\NVEncSDK\Common\inc\nvEncodeAPI.h" />
-    <ClInclude Include="avcodec_reader.h" />
-    <ClInclude Include="avcodec_writer.h" />
     <ClInclude Include="cl_func.h" />
-    <ClInclude Include="ConvertCsp.h" />
-    <ClInclude Include="ConvertCspSIMD.h" />
+    <ClInclude Include="convert_const.h" />
+    <ClInclude Include="convert_csp.h" />
+    <ClInclude Include="convert_csp_simd.h" />
     <ClInclude Include="cpu_info.h" />
     <ClInclude Include="CuvidDecode.h" />
     <ClInclude Include="FrameQueue.h" />
@@ -584,13 +573,8 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="NVEncFilterDenoiseKnn.h" />
     <ClInclude Include="NVEncFilterDenoisePmd.h" />
     <ClInclude Include="NVEncFrameInfo.h" />
-    <ClInclude Include="NVEncInput.h" />
-    <ClInclude Include="NVEncInputAvs.h" />
-    <ClInclude Include="NVEncInputRaw.h" />
-    <ClInclude Include="NVEncInputVpy.h" />
     <ClInclude Include="NvEncoderPerf.h" />
     <ClInclude Include="NVEncCore.h" />
-    <ClInclude Include="NVEncOutput.h" />
     <ClInclude Include="NVEncParam.h" />
     <ClInclude Include="NVEncUtil.h" />
     <ClInclude Include="ram_speed.h" />
@@ -598,8 +582,15 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_event.h" />
+    <ClInclude Include="rgy_input.h" />
+    <ClInclude Include="rgy_input_avcodec.h" />
+    <ClInclude Include="rgy_input_avs.h" />
+    <ClInclude Include="rgy_input_raw.h" />
+    <ClInclude Include="rgy_input_vpy.h" />
     <ClInclude Include="rgy_log.h" />
     <ClInclude Include="rgy_osdep.h" />
+    <ClInclude Include="rgy_output.h" />
+    <ClInclude Include="rgy_output_avcodec.h" />
     <ClInclude Include="rgy_perf_monitor.h" />
     <ClInclude Include="rgy_pipe.h" />
     <ClInclude Include="rgy_queue.h" />

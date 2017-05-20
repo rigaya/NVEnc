@@ -26,49 +26,28 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include <io.h>
-#include <fcntl.h>
-#include <string>
-#include <sstream>
-#include "rgy_status.h"
-#include "nvEncodeAPI.h"
-#include "NVEncInput.h"
-#include "ConvertCSP.h"
+#define USE_SSE2  1
+#define USE_SSSE3 1
+#define USE_SSE41 1
 
-NVEncBasicInput::NVEncBasicInput() :
-    m_inputVideoInfo(),
-    m_InputCsp(RGY_CSP_NA),
-    m_sConvert(nullptr),
-    m_pEncSatusInfo(), 
-    m_pPrintMes(),
-    m_strInputInfo(),
-    m_strReaderName(_T("unknown")),
-    m_sTrimParam() {
-    memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
-    memset(&m_sTrimParam, 0, sizeof(m_sTrimParam));
+#include "convert_csp_simd.h"
+
+#pragma warning (push)
+#pragma warning (disable: 4100)
+
+void convert_yc48_to_p010_sse41(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    convert_yc48_to_p010_simd<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
 }
 
-NVEncBasicInput::~NVEncBasicInput() {
-    Close();
+void convert_yc48_to_p010_i_sse41(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    convert_yc48_to_p010_i_simd<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
 }
 
-void NVEncBasicInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm) {
-    std::basic_stringstream<TCHAR> ss;
-
-    ss << inputTypeName;
-    ss << _T("(") << inputCSpName << _T(")");
-    ss << _T("->") << outputCSpName;
-    if (convSIMD && _tcslen(convSIMD)) {
-        ss << _T(" [") << convSIMD << _T("]");
-    }
-    ss << _T(", ");
-    ss << inputPrm->srcWidth << _T("x") << inputPrm->srcHeight << _T(", ");
-    ss << inputPrm->fpsN << _T("/") << inputPrm->fpsD << _T(" fps");
-
-    m_strInputInfo = ss.str();
+void convert_yc48_to_yuv444_sse41(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    convert_yc48_to_yuv444_simd<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
 }
 
-void NVEncBasicInput::Close() {
-    m_pEncSatusInfo.reset();
-    m_pPrintMes.reset();
+void convert_yc48_to_yuv444_16bit_sse41(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    convert_yc48_to_yuv444_16bit_simd<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
 }
+#pragma warning (pop)

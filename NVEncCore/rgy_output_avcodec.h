@@ -35,8 +35,8 @@
 #include <atomic>
 #include <cstdint>
 #include "rgy_avutil.h"
-#include "avcodec_reader.h"
-#include "NVEncOutput.h"
+#include "rgy_input_ffmpeg.h"
+#include "rgy_output.h"
 
 using std::vector;
 

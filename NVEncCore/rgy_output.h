@@ -32,7 +32,7 @@
 #include <memory>
 #include <vector>
 #include "NVEncUtil.h"
-#include "NVEncInput.h"
+#include "rgy_input.h"
 #include "rgy_log.h"
 
 using std::unique_ptr;

@@ -30,7 +30,7 @@
 #define USE_SSSE3 0
 #define USE_SSE41 0
 
-#include "ConvertCSPSIMD.h"
+#include "convert_csp_simd.h"
 
 #pragma warning (push)
 #pragma warning (disable: 4100)

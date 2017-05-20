@@ -30,10 +30,10 @@
 #include <sstream>
 #include "rgy_status.h"
 #include "nvEncodeAPI.h"
-#include "NVEncInput.h"
-#include "ConvertCSP.h"
+#include "rgy_input.h"
+#include "convert_csp.h"
 #include "NVEncCore.h"
-#include "NVEncInputAvs.h"
+#include "rgy_input_avs.h"
 
 #if ENABLE_AVISYNTH_READER
 

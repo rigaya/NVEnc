@@ -30,7 +30,7 @@
 #include <algorithm>
 #include <vector>
 #include <tchar.h>
-#include "ConvertCSP.h"
+#include "convert_csp.h"
 
 void convert_yuy2_to_nv12(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yuy2_to_nv12_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);

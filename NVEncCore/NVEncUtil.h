@@ -33,7 +33,7 @@
 #include <array>
 #include "nvEncodeAPI.h"
 #include "cuviddec.h"
-#include "ConvertCsp.h"
+#include "convert_csp.h"
 #include "rgy_util.h"
 #include "rgy_err.h"
 

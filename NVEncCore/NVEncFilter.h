@@ -47,7 +47,7 @@
 #include "helper_cuda.h"
 #include "NVEncUtil.h"
 #include "rgy_log.h"
-#include "ConvertCsp.h"
+#include "convert_csp.h"
 #include "NVEncFrameInfo.h"
 
 #pragma comment(lib, "cudart_static.lib")

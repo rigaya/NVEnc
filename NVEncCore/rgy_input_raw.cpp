@@ -32,9 +32,9 @@
 #include <sstream>
 #include "rgy_status.h"
 #include "nvEncodeAPI.h"
-#include "NVEncInput.h"
-#include "ConvertCSP.h"
-#include "NVEncInputRaw.h"
+#include "rgy_input.h"
+#include "convert_csp.h"
+#include "rgy_input_raw.h"
 
 #if ENABLE_RAW_READER
 

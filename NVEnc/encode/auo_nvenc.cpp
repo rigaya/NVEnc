@@ -57,7 +57,7 @@
 #include "auo_audio_parallel.h"
 
 #include "auo_nvenc.h"
-#include "ConvertCSP.h"
+#include "convert_csp.h"
 
 AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe);
 
