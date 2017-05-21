@@ -33,7 +33,7 @@
         return RGY_ERR_UNDEFINED_BEHAVIOR; \
     } }
 
-NVEncOut::NVEncOut() :
+RGYOutput::RGYOutput() :
     m_pEncSatusInfo(),
     m_fDest(),
     m_bOutputIsStdout(false),
@@ -44,27 +44,31 @@ NVEncOut::NVEncOut() :
     m_bY4mHeaderWritten(false),
     m_strWriterName(),
     m_strOutputInfo(),
+    m_VideoOutputInfo(),
     m_pPrintMes(),
     m_pOutputBuffer(),
     m_pReadBuffer(),
     m_pUVBuffer() {
+    memset(&m_VideoOutputInfo, 0, sizeof(m_VideoOutputInfo));
 }
 
-NVEncOut::~NVEncOut() {
+RGYOutput::~RGYOutput() {
+    m_pEncSatusInfo.reset();
+    m_pPrintMes.reset();
     Close();
 }
 
-void NVEncOut::Close() {
+void RGYOutput::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     if (m_fDest) {
         m_fDest.reset();
         AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
     }
+    m_pEncSatusInfo.reset();
     m_pOutputBuffer.reset();
     m_pReadBuffer.reset();
     m_pUVBuffer.reset();
 
-    m_pEncSatusInfo.reset();
     m_bNoOutput = false;
     m_bInited = false;
     m_bSourceHWMem = false;
@@ -73,20 +77,20 @@ void NVEncOut::Close() {
     m_pPrintMes.reset();
 }
 
-NVEncOutBitstream::NVEncOutBitstream() {
+RGYOutputRaw::RGYOutputRaw() {
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
 
-NVEncOutBitstream::~NVEncOutBitstream() {
+RGYOutputRaw::~RGYOutputRaw() {
 }
 
-RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) {
-    UNREFERENCED_PARAMETER(pOutputInfo);
-    CQSVOutRawPrm *rawPrm = (CQSVOutRawPrm *)prm;
+RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
+    UNREFERENCED_PARAMETER(pVideoOutputInfo);
+    RGYOutputRawPrm *rawPrm = (RGYOutputRawPrm *)prm;
     if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("output filename not set.\n"));
-        return RGY_ERR_UNDEFINED_BEHAVIOR;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     if (rawPrm->bBenchmark) {
@@ -108,7 +112,7 @@ RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const VideoInfo *pOutp
             m_fDest.reset(fp);
             AddMessage(RGY_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
 
-            int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, NV_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
+            int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, RGY_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
             if (bufferSizeByte) {
                 void *ptr = nullptr;
                 bufferSizeByte = (int)malloc_degeneracy(&ptr, bufferSizeByte, 1024 * 1024);
@@ -124,7 +128,7 @@ RGY_ERR NVEncOutBitstream::Init(const TCHAR *strFileName, const VideoInfo *pOutp
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncOutBitstream::WriteNextFrame(RGYBitstream *pBitstream) {
+RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
     if (pBitstream == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
         return RGY_ERR_NULL_PTR;
@@ -142,7 +146,7 @@ RGY_ERR NVEncOutBitstream::WriteNextFrame(RGYBitstream *pBitstream) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncOutBitstream::WriteNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYOutputRaw::WriteNextFrame(RGYFrame *pSurface) {
     UNREFERENCED_PARAMETER(pSurface);
     return RGY_ERR_UNSUPPORTED;
 }

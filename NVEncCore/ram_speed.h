@@ -26,6 +26,9 @@
 // --------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RAM_SPEED_H__
+#define __RAM_SPEED_H__
+
 #include <vector>
 
 enum {
@@ -37,3 +40,5 @@ enum {
 double ram_speed_mt(int check_size_kilobytes, int mode, int thread_n);
 
 std::vector<double> ram_speed_mt_list(int check_size_kilobytes, int mode, bool logical_core = false);
+
+#endif //__RAM_SPEED_H__

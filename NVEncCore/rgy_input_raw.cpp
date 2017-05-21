@@ -26,19 +26,12 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include <io.h>
-#include <fcntl.h>
-#include <string>
 #include <sstream>
-#include "rgy_status.h"
-#include "nvEncodeAPI.h"
-#include "rgy_input.h"
-#include "convert_csp.h"
 #include "rgy_input_raw.h"
 
 #if ENABLE_RAW_READER
 
-RGY_ERR NVEncInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
+RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
     char *p, *q = nullptr;
 
     for (p = buf; (p = strtok_s(p, " ", &q)) != nullptr; ) {
@@ -103,9 +96,9 @@ RGY_ERR NVEncInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
                 pInfo->csp = RGY_CSP_YV12_10;
             } else if (0 == _strnicmp(p+1, "420p12", strlen("420p12"))) {
                 pInfo->csp = RGY_CSP_YV12_12;
-            }  else if (0 == _strnicmp(p+1, "420p14", strlen("420p14"))) {
+            } else if (0 == _strnicmp(p+1, "420p14", strlen("420p14"))) {
                 pInfo->csp = RGY_CSP_YV12_14;
-            }  else if (0 == _strnicmp(p+1, "420p16", strlen("420p16"))) {
+            } else if (0 == _strnicmp(p+1, "420p16", strlen("420p16"))) {
                 pInfo->csp = RGY_CSP_YV12_16;
             } else if (0 == _strnicmp(p+1, "420mpeg2", strlen("420mpeg2"))
                     || 0 == _strnicmp(p+1, "420jpeg",  strlen("420jpeg"))
@@ -142,19 +135,28 @@ RGY_ERR NVEncInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
     return RGY_ERR_NONE;
 }
 
-NVEncInputRaw::NVEncInputRaw() :
-    m_by4m(false),
+RGYInputRaw::RGYInputRaw() :
     m_fSource(NULL),
     m_nBufSize(0),
     m_pBuffer() {
     m_strReaderName = _T("raw");
 }
 
-NVEncInputRaw::~NVEncInputRaw() {
+RGYInputRaw::~RGYInputRaw() {
     Close();
 }
 
-RGY_ERR NVEncInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
+void RGYInputRaw::Close() {
+    if (m_fSource) {
+        fclose(m_fSource);
+        m_fSource = NULL;
+    }
+    m_pBuffer.reset();
+    m_nBufSize = 0;
+    RGYInput::Close();
+}
+
+RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
@@ -173,10 +175,11 @@ RGY_ERR NVEncInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, con
             AddMessage(RGY_LOG_DEBUG, _T("Opened file: \"%s\".\n"), strFileName);
         }
     }
-    
+
     const auto nOutputCSP = m_inputVideoInfo.csp;
     m_InputCsp = RGY_CSP_YV12;
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
+        //read y4m header
         char buf[128] = { 0 };
         if (fread(buf, 1, strlen("YUV4MPEG2"), m_fSource) != strlen("YUV4MPEG2")
             || strcmp(buf, "YUV4MPEG2") != 0
@@ -245,19 +248,7 @@ RGY_ERR NVEncInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, con
     return RGY_ERR_NONE;
 }
 
-void NVEncInputRaw::Close() {
-    if (m_fSource) {
-        fclose(m_fSource);
-        m_fSource = NULL;
-    }
-    m_pBuffer.reset();
-    m_nBufSize = 0;
-
-    NVEncBasicInput::Close();
-}
-
-RGY_ERR NVEncInputRaw::LoadNextFrame(RGYFrame *pSurface) {
-
+RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
     //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
     if (getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
@@ -272,8 +263,8 @@ RGY_ERR NVEncInputRaw::LoadNextFrame(RGYFrame *pSurface) {
             return RGY_ERR_MORE_DATA;
         int i;
         for (i = 0; fgetc(m_fSource) != '\n'; i++)
-        if (i >= 64)
-            return RGY_ERR_MORE_DATA;
+            if (i >= 64)
+                return RGY_ERR_MORE_DATA;
     }
 
     uint32_t frameSize = 0;

@@ -453,7 +453,7 @@ static tstring help() {
         _T("   --fullrange                  set fullrange\n")
         _T("   --output-buf <int>           buffer size for output in MByte\n")
         _T("                                 default %d MB (0-%d)\n"),
-        DEFAULT_OUTPUT_BUF, NV_OUTPUT_BUF_MB_MAX
+        DEFAULT_OUTPUT_BUF, RGY_OUTPUT_BUF_MB_MAX
         );
     str += strsprintf(_T("")
         _T("   --max-procfps <int>         limit encoding performance to lower resource usage.\n")
@@ -1020,7 +1020,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (0 == _tcscmp(option_name, _T("audio-source"))) {
         i++;
-        pParams->nAVMux |= (NVENC_MUX_VIDEO | NVENC_MUX_AUDIO);
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         size_t audioSourceLen = _tcslen(strInput[i]) + 1;
         TCHAR *pAudioSource = (TCHAR *)malloc(sizeof(strInput[i][0]) * audioSourceLen);
         memcpy(pAudioSource, strInput[i], sizeof(strInput[i][0]) * audioSourceLen);
@@ -1098,7 +1098,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             i++;
             pParams->sAVMuxOutputFormat = strInput[i];
             if (0 != _tcsicmp(strInput[i], _T("raw"))) {
-                pParams->nAVMux |= NVENC_MUX_VIDEO;
+                pParams->nAVMux |= RGY_MUX_VIDEO;
             }
         }
         return 0;
@@ -1115,7 +1115,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
 #if ENABLE_AVSW_READER
     if (   0 == _tcscmp(option_name, _T("audio-copy"))
         || 0 == _tcscmp(option_name, _T("copy-audio"))) {
-        pParams->nAVMux |= (NVENC_MUX_VIDEO | NVENC_MUX_AUDIO);
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         std::set<int> trackSet; //重複しないよう、setを使う
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
@@ -1157,7 +1157,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-codec"))) {
-        pParams->nAVMux |= (NVENC_MUX_VIDEO | NVENC_MUX_AUDIO);
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         if (i+1 < nArgNum) {
             const TCHAR *ptr = nullptr;
             const TCHAR *ptrDelim = nullptr;
@@ -1381,9 +1381,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 if (selectDelimPos == nullptr) {
                     auto channelLayout = av_get_channel_layout(selectPtr);
                     pAudioSelect->pnStreamChannelSelect[j] = channelLayout;
-                    pAudioSelect->pnStreamChannelOut[j]    = QSV_CHANNEL_AUTO; //自動
+                    pAudioSelect->pnStreamChannelOut[j]    = RGY_CHANNEL_AUTO; //自動
                 } else if (selectPtr == selectDelimPos) {
-                    pAudioSelect->pnStreamChannelSelect[j] = QSV_CHANNEL_AUTO;
+                    pAudioSelect->pnStreamChannelSelect[j] = RGY_CHANNEL_AUTO;
                     pAudioSelect->pnStreamChannelOut[j]    = av_get_channel_layout(selectDelimPos + strlen(DELIM));
                 } else {
                     pAudioSelect->pnStreamChannelSelect[j] = av_get_channel_layout(streamSelectList[j].substr(0, selectDelimPos - selectPtr).c_str());
@@ -1472,7 +1472,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
-        pParams->nAVMux |= (NVENC_MUX_VIDEO | NVENC_MUX_SUBTITLE);
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         std::set<int> trackSet; //重複しないよう、setを使う
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
@@ -2336,7 +2336,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return 1;
         }
-        pParams->nOutputBufSizeMB = (std::min)(value, NV_OUTPUT_BUF_MB_MAX);
+        pParams->nOutputBufSizeMB = (std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("input-thread"))) {

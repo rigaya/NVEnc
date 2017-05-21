@@ -897,7 +897,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
     //H.264
     SetNUValue(fcgNURefFrames,         cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.maxNumRefFrames);
-    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, cnf->nvenc.pic_struct));
+    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, picstruct_enc_to_rgy(cnf->nvenc.pic_struct)));
     SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level,            cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.level));
     SetCXIndex(fcgCXCodecProfile, get_index_from_value(get_value_from_guid(cnf->nvenc.enc_config.profileGUID, h264_profile_names), h264_profile_names));
     SetNUValue(fcgNUSlices,       cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.sliceModeData);
@@ -1031,7 +1031,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     //H.264
     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.maxNumRefFrames = (int)fcgNURefFrames->Value;
-    cnf->nvenc.pic_struct = (NV_ENC_PIC_STRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
+    cnf->nvenc.pic_struct = picstruct_rgy_to_enc((RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value);
     cnf->nvenc.enc_config.profileGUID = get_guid_from_value(h264_profile_names[fcgCXCodecProfile->SelectedIndex].value, h264_profile_names);
     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;
     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;

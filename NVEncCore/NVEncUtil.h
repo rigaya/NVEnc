@@ -365,7 +365,7 @@ static inline RGY_FRAMETYPE frametype_enc_to_rgy(const NV_ENC_PIC_TYPE frametype
 static inline RGYBitstream RGYBitstreamInit(const NV_ENC_LOCK_BITSTREAM& nv_bitstream) {
     RGYBitstream bitstream;
     memset(&bitstream, 0, sizeof(bitstream));
-    bitstream.set((const uint8_t *)nv_bitstream.bitstreamBufferPtr, nv_bitstream.bitstreamSizeInBytes, (int64_t)nv_bitstream.outputTimeStamp, (int64_t)0);
+    bitstream.set((const uint8_t *)nv_bitstream.bitstreamBufferPtr, nv_bitstream.bitstreamSizeInBytes, (int64_t)0, (int64_t)nv_bitstream.outputTimeStamp);
     bitstream.setAvgQP(nv_bitstream.frameAvgQP);
     bitstream.setFrametype(frametype_enc_to_rgy(nv_bitstream.pictureType));
     bitstream.setPicstruct(picstruct_enc_to_rgy(nv_bitstream.pictureStruct));

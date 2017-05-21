@@ -25,9 +25,12 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-#ifndef _AVCODEC_WRITER_H_
-#define _AVCODEC_WRITER_H_
 
+#pragma once
+#ifndef __RGY_OUTPUT_AVCODEC_H__
+#define __RGY_OUTPUT_AVCODEC_H__
+
+#include "rgy_queue.h"
 #include "rgy_version.h"
 
 #if ENABLE_AVSW_READER
@@ -35,14 +38,15 @@
 #include <atomic>
 #include <cstdint>
 #include "rgy_avutil.h"
-#include "rgy_input_ffmpeg.h"
+#include "rgy_input_avcodec.h"
 #include "rgy_output.h"
+#include "rgy_perf_monitor.h"
+#include "rgy_util.h"
+#include "NVEncUtil.h"
 
 using std::vector;
 
 #define USE_CUSTOM_IO 1
-
-#define USE_AVCODECPAR 1
 
 static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 
@@ -75,8 +79,6 @@ typedef struct AVMuxVideo {
     const AVStream       *pStreamIn;            //入力映像のストリーム
     int64_t               nInputFirstKeyPts;    //入力映像の最初のpts
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
-    bool                  bIsPAFF;              //出力映像がPAFFである
-    int                   nBframeDelay;         //Bフレームによる遅延
     FILE                 *fpTsLogFile;          //mux timestampログファイル
 } AVMuxVideo;
 
@@ -110,10 +112,10 @@ typedef struct AVMuxAudio {
     AVFilterGraph        *pFilterGraph;
 
     //現在の音声のフォーマット
-    int                   nResamplerInChannels;            //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    uint64_t              nResamplerInChannelLayout;       //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    int                   nResamplerInSampleRate;          //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    AVSampleFormat        ResamplerInSampleFmt;            //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    int                   nResamplerInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    uint64_t              nResamplerInChannelLayout; //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    int                   nResamplerInSampleRate;    //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    AVSampleFormat        ResamplerInSampleFmt;      //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     
     //resampler
     int                   nAudioResampler;      //resamplerの選択 (QSV_RESAMPLER_xxx)
@@ -195,6 +197,7 @@ typedef struct AVMuxThread {
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
+    PerfQueueInfo                 *pQueueInfo;                //キューの情報を格納する構造体
 } AVMuxThread;
 #endif
 
@@ -217,20 +220,6 @@ typedef struct AVOutputStreamPrm {
     const TCHAR  *pFilter;       //音声フィルタ
 } AVOutputStreamPrm;
 
-struct AVOutputVideoPrm {
-    GUID                         encCodecGUID;
-    int                          nEncWidth;
-    int                          nEncHeight;
-    const NV_ENC_CONFIG         *pEncConfig;
-    NV_ENC_PIC_STRUCT            nPicStruct;
-    std::pair<int, int>          sar;
-    AVRational                   outFps;
-    NV_ENC_CONFIG_H264_VUI_PARAMETERS videoSignalInfo; //出力映像の情報
-    bool                         bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
-    const AVStream              *pInputStream;         //入力映像のストリーム
-    int64_t                      nInputFirstKeyPts;    //入力映像の最初のpts
-};
-
 struct AvcodecWriterPrm {
     const AVDictionary          *pInputFormatMetadata;    //入力ファイルのグローバルメタデータ
     const TCHAR                 *pOutputFormat;           //出力のフォーマット
@@ -247,6 +236,7 @@ struct AvcodecWriterPrm {
     int                          nOutputThread;           //出力スレッド数
     int                          nAudioThread;            //音声処理スレッド数
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
+    PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
     const TCHAR                 *pMuxVidTsLogFile;        //mux timestampログファイル
 
     AvcodecWriterPrm() :
@@ -265,15 +255,16 @@ struct AvcodecWriterPrm {
         nOutputThread(0),
         nAudioThread(0),
         vMuxOpt(),
+        pQueueInfo(nullptr),
         pMuxVidTsLogFile(nullptr) {
     }
 };
 
-class CAvcodecWriter : public NVEncOut
+class RGYOutputAvcodec : public RGYOutput
 {
 public:
-    CAvcodecWriter();
-    virtual ~CAvcodecWriter();
+    RGYOutputAvcodec();
+    virtual ~RGYOutputAvcodec();
 
     virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) override;
 
@@ -282,6 +273,8 @@ public:
     virtual RGY_ERR WriteNextPacket(AVPacket *pkt);
 
     virtual vector<int> GetStreamTrackIdList();
+
+    virtual void WaitFin() override;
 
     virtual void Close() override;
 
@@ -361,7 +354,7 @@ protected:
     //音声フィルタの初期化
     RGY_ERR InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
-    //音声の初期化
+    //音声リサンプラの初期化
     RGY_ERR InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
@@ -371,7 +364,7 @@ protected:
     RGY_ERR InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
 
     //チャプターをコピー
-    RGY_ERR SetChapters(const vector<const AVChapter *>& chapterList);
+    RGY_ERR SetChapters(const vector<const AVChapter *>& chapterList, bool bChapterNoTrim);
 
     //メッセージを作成
     tstring GetWriterMes();
@@ -448,4 +441,4 @@ protected:
 
 #endif //ENABLE_AVSW_READER
 
-#endif //_AVCODEC_WRITER_H_
+#endif //__RGY_OUTPUT_AVCODEC_H__

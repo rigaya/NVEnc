@@ -26,13 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-
-#include <string>
-#include "rgy_status.h"
-#include "nvEncodeAPI.h"
-#include "rgy_input.h"
-#include "convert_csp.h"
-#include "NVEncCore.h"
 #include "rgy_input_vpy.h"
 #if ENABLE_VAPOURSYNTH_READER
 #include <algorithm>
@@ -40,7 +33,7 @@
 #include <map>
 #include <fstream>
 
-NVEncInputVpy::NVEncInputVpy() :
+RGYInputVpy::RGYInputVpy() :
     m_pAsyncBuffer(),
     m_hAsyncEventFrameSetFin(),
     m_hAsyncEventFrameSetStart(),
@@ -52,17 +45,17 @@ NVEncInputVpy::NVEncInputVpy() :
     m_nAsyncFrames(0),
     m_sVS() {
     memset(m_pAsyncBuffer, 0, sizeof(m_pAsyncBuffer));
-    memset(m_hAsyncEventFrameSetFin, 0, sizeof(m_hAsyncEventFrameSetFin));
+    memset(m_hAsyncEventFrameSetFin,   0, sizeof(m_hAsyncEventFrameSetFin));
     memset(m_hAsyncEventFrameSetStart, 0, sizeof(m_hAsyncEventFrameSetStart));
     memset(&m_sVS, 0, sizeof(m_sVS));
     m_strReaderName = _T("vpy");
 }
 
-NVEncInputVpy::~NVEncInputVpy() {
+RGYInputVpy::~RGYInputVpy() {
     Close();
 }
 
-void NVEncInputVpy::release_vapoursynth() {
+void RGYInputVpy::release_vapoursynth() {
     if (m_sVS.hVSScriptDLL) {
 #if defined(_WIN32) || defined(_WIN64)
         FreeLibrary(m_sVS.hVSScriptDLL);
@@ -74,7 +67,7 @@ void NVEncInputVpy::release_vapoursynth() {
     memset(&m_sVS, 0, sizeof(m_sVS));
 }
 
-int NVEncInputVpy::load_vapoursynth() {
+int RGYInputVpy::load_vapoursynth() {
     release_vapoursynth();
 #if defined(_WIN32) || defined(_WIN64)
     const TCHAR *vsscript_dll_name = _T("vsscript.dll");
@@ -101,7 +94,7 @@ int NVEncInputVpy::load_vapoursynth() {
     };
 
     for (auto vs_func : vs_func_list) {
-        if (NULL == (*(vs_func.first) = GetProcAddress(m_sVS.hVSScriptDLL, vs_func.second))) {
+        if (NULL == (*(vs_func.first) = RGY_GET_PROC_ADDRESS(m_sVS.hVSScriptDLL, vs_func.second))) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to load vsscript functions.\n"));
             return 1;
         }
@@ -109,7 +102,7 @@ int NVEncInputVpy::load_vapoursynth() {
     return 0;
 }
 
-int NVEncInputVpy::initAsyncEvents() {
+int RGYInputVpy::initAsyncEvents() {
     for (int i = 0; i < _countof(m_hAsyncEventFrameSetFin); i++) {
         if (   NULL == (m_hAsyncEventFrameSetFin[i]   = CreateEvent(NULL, FALSE, FALSE, NULL))
             || NULL == (m_hAsyncEventFrameSetStart[i] = CreateEvent(NULL, FALSE, TRUE,  NULL)))
@@ -117,7 +110,7 @@ int NVEncInputVpy::initAsyncEvents() {
     }
     return 0;
 }
-void NVEncInputVpy::closeAsyncEvents() {
+void RGYInputVpy::closeAsyncEvents() {
     m_bAbortAsync = true;
     for (int i_frame = m_nCopyOfInputFrames; i_frame < m_nAsyncFrames; i_frame++) {
         if (m_hAsyncEventFrameSetFin[i_frame & (ASYNC_BUFFER_SIZE-1)])
@@ -125,9 +118,9 @@ void NVEncInputVpy::closeAsyncEvents() {
     }
     for (int i = 0; i < _countof(m_hAsyncEventFrameSetFin); i++) {
         if (m_hAsyncEventFrameSetFin[i])
-            CloseHandle(m_hAsyncEventFrameSetFin[i]);
+            CloseEvent(m_hAsyncEventFrameSetFin[i]);
         if (m_hAsyncEventFrameSetStart[i])
-            CloseHandle(m_hAsyncEventFrameSetStart[i]);
+            CloseEvent(m_hAsyncEventFrameSetStart[i]);
     }
     memset(m_hAsyncEventFrameSetFin,   0, sizeof(m_hAsyncEventFrameSetFin));
     memset(m_hAsyncEventFrameSetStart, 0, sizeof(m_hAsyncEventFrameSetStart));
@@ -136,12 +129,12 @@ void NVEncInputVpy::closeAsyncEvents() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-void VS_CC frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg) {
-    reinterpret_cast<NVEncInputVpy*>(userData)->setFrameToAsyncBuffer(n, f);
+void __stdcall frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg) {
+    reinterpret_cast<RGYInputVpy*>(userData)->setFrameToAsyncBuffer(n, f);
 }
 #pragma warning(pop)
 
-void NVEncInputVpy::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
+void RGYInputVpy::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
     WaitForSingleObject(m_hAsyncEventFrameSetStart[n & (ASYNC_BUFFER_SIZE-1)], INFINITE);
     m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)] = f;
     SetEvent(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)]);
@@ -152,7 +145,7 @@ void NVEncInputVpy::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
     }
 }
 
-int NVEncInputVpy::getRevInfo(const char *vsVersionString) {
+int RGYInputVpy::getRevInfo(const char *vsVersionString) {
     char *api_info = NULL;
     char buf[1024];
     strcpy_s(buf, _countof(buf), vsVersionString);
@@ -169,7 +162,7 @@ int NVEncInputVpy::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-RGY_ERR NVEncInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
+RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
     
@@ -263,7 +256,7 @@ RGY_ERR NVEncInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, con
         AddMessage(RGY_LOG_ERROR, _T("Invalid framerate.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    
+
     const auto fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
     m_inputVideoInfo.srcWidth = vsvideoinfo->width;
     m_inputVideoInfo.srcHeight = vsvideoinfo->height;
@@ -282,7 +275,7 @@ RGY_ERR NVEncInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, con
     for (int i = 0; i < m_nAsyncFrames; i++) {
         m_sVSapi->getFrameAsync(i, m_sVSnode, frameDoneCallback, this);
     }
-    
+
     tstring vs_ver = _T("VapourSynth");
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) {
         vs_ver += _T("MT");
@@ -298,7 +291,7 @@ RGY_ERR NVEncInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, con
     return RGY_ERR_NONE;
 }
 
-void NVEncInputVpy::Close() {
+void RGYInputVpy::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     closeAsyncEvents();
     if (m_sVSapi && m_sVSnode)
@@ -309,7 +302,7 @@ void NVEncInputVpy::Close() {
         m_sVS.finalize();
 
     release_vapoursynth();
-    
+
     m_bAbortAsync = false;
     m_nCopyOfInputFrames = 0;
 
@@ -321,7 +314,7 @@ void NVEncInputVpy::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-RGY_ERR NVEncInputVpy::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputVpy::LoadNextFrame(RGYFrame *pSurface) {
     if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
@@ -336,16 +329,17 @@ RGY_ERR NVEncInputVpy::LoadNextFrame(RGYFrame *pSurface) {
 
     void *dst_array[3];
     pSurface->ptrArray(dst_array);
-
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
-        dst_array, src_array, m_inputVideoInfo.srcWidth,
-        m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
-    
+        dst_array, src_array,
+        m_inputVideoInfo.srcWidth, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1),
+        pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+
     m_sVSapi->freeFrame(src_frame);
 
     m_pEncSatusInfo->m_sData.frameIn++;
     m_nCopyOfInputFrames = m_pEncSatusInfo->m_sData.frameIn;
+
     return m_pEncSatusInfo->UpdateDisplay();
 }
 

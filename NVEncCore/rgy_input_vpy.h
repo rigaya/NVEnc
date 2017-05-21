@@ -26,20 +26,17 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_INPUT_VPY_H__
+#define __RGY_INPUT_VPY_H__
 
-#include <stdio.h>
-#include <tchar.h>
-#include <string>
-#include "NVEncUtil.h"
-#include "rgy_status.h"
 #include "rgy_version.h"
-#include "rgy_input.h"
-
 #if ENABLE_VAPOURSYNTH_READER
-#include "vapoursynth.h"
+#include "rgy_osdep.h"
+#include "rgy_input.h"
+#include "VapourSynth.h"
 #include "VSScript.h"
 
-const int ASYNC_BUFFER_2N = 6;
+const int ASYNC_BUFFER_2N = 7;
 const int ASYNC_BUFFER_SIZE = 1<<ASYNC_BUFFER_2N;
 
 #if _M_IX86
@@ -74,24 +71,25 @@ typedef struct {
     func_vs_getVSApi       getVSApi;
 } vsscript_t;
 
-class NVEncInputVpy : public NVEncBasicInput {
+class RGYInputVpy : public RGYInput {
 public:
-    NVEncInputVpy();
-    ~NVEncInputVpy();
+    RGYInputVpy();
+    virtual ~RGYInputVpy();
+
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
-    
+
     void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
+
     void release_vapoursynth();
     int load_vapoursynth();
-
     int initAsyncEvents();
     void closeAsyncEvents();
     const VSFrameRef* getFrameFromAsyncBuffer(int n) {
         WaitForSingleObject(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)], INFINITE);
-        const VSFrameRef* frame = m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)];
+        const VSFrameRef *frame = m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)];
         SetEvent(m_hAsyncEventFrameSetStart[n & (ASYNC_BUFFER_SIZE-1)]);
         return frame;
     }
@@ -100,8 +98,6 @@ protected:
     HANDLE m_hAsyncEventFrameSetStart[ASYNC_BUFFER_SIZE];
 
     int getRevInfo(const char *vs_version_string);
-
-    bool m_bInterlaced;
 
     bool m_bAbortAsync;
     uint32_t m_nCopyOfInputFrames;
@@ -114,4 +110,6 @@ protected:
     vsscript_t m_sVS;
 };
 
-#endif //ENABLE_AVISYNTH_READER
+#endif //ENABLE_VAPOURSYNTH_READER
+
+#endif //__RGY_INPUT_VPY_H__

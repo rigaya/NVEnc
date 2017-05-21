@@ -27,28 +27,24 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_INPUT_H__
+#define __RGY_INPUT_H__
 
-#include <stdio.h>
-#include <tchar.h>
-#include <string>
-#include <vector>
-#include <chrono>
-#include "NVEncUtil.h"
-#include "rgy_status.h"
-#include "rgy_version.h"
-#include "convert_csp.h"
+#include <memory>
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 #include "rgy_log.h"
-#include "NVEncParam.h"
-#include <nvcuvid.h>
+#include "rgy_event.h"
+#include "rgy_status.h"
+#include "convert_csp.h"
 #include "rgy_err.h"
 #include "rgy_util.h"
+#include "NVEncUtil.h"
 
-static_assert(std::is_pod<VideoInfo>::value == true, "VideoInfo is POD");
-
-class NVEncBasicInput {
+class RGYInput {
 public:
-    NVEncBasicInput();
-    ~NVEncBasicInput();
+    RGYInput();
+    virtual ~RGYInput();
 
     RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<RGYLog> pLog, shared_ptr<EncodeStatus> pEncSatusInfo) {
         Close();
@@ -83,8 +79,15 @@ public:
         m_sTrimParam = trim;
     }
 
-    const sTrimParam *GetTrimParam() {
+    sTrimParam *GetTrimParam() {
         return &m_sTrimParam;
+    }
+
+    sInputCrop GetInputCropInfo() {
+        return m_inputVideoInfo.crop;
+    }
+    VideoInfo GetInputFrameInfo() {
+        return m_inputVideoInfo;
     }
 
     //入力ファイルに存在する音声のトラック数を返す
@@ -96,14 +99,6 @@ public:
     virtual int GetSubtitleTrackCount() {
         return 0;
     }
-
-    sInputCrop GetInputCropInfo() {
-        return m_inputVideoInfo.crop;
-    }
-    VideoInfo GetInputFrameInfo() {
-        return m_inputVideoInfo;
-    }
-
     const TCHAR *GetInputMessage() {
         const TCHAR *mes = m_strInputInfo.c_str();
         return (mes) ? mes : _T("");
@@ -141,7 +136,7 @@ public:
     }
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) = 0;
-    virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *convSIMD, const TCHAR *outputCSpName, const VideoInfo *inputPrm);
+    virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm);
 
     //trim listを参照し、動画の最大フレームインデックスを取得する
     int getVideoTrimMaxFramIdx() {
@@ -151,10 +146,12 @@ protected:
         return m_sTrimParam.list[m_sTrimParam.list.size()-1].fin;
     }
 
+    shared_ptr<EncodeStatus> m_pEncSatusInfo;
+
     VideoInfo m_inputVideoInfo;
+
     RGY_CSP m_InputCsp;
     const ConvertCSP *m_sConvert;
-    shared_ptr<EncodeStatus> m_pEncSatusInfo;
     shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
 
     tstring m_strInputInfo;
@@ -162,3 +159,6 @@ protected:
 
     sTrimParam m_sTrimParam;
 };
+
+#endif //__RGY_INPUT_H__
+

@@ -69,7 +69,6 @@ static const int DEFAULT_LOOKAHEAD   = 16;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
 static const int PIPELINE_DEPTH = 1;
-static const int CHECK_PTS_MAX_INSERT_FRAMES = 8;
 static const int MAX_FILTER_OUTPUT = 2;
 
 #ifdef _M_IX86
@@ -126,7 +125,7 @@ struct InEncodeVideoParam {
     sAudioSelect **ppAudioSelectList;
     int nAudioResampler;
     int nAVDemuxAnalyzeSec;
-    int nAVMux;                       //NVENC_MUX_xxx
+    int nAVMux;                       //RGY_MUX_xxx
     int nVideoTrack;
     int nVideoStreamId;
     int nTrimCount;
@@ -268,10 +267,10 @@ protected:
     vector<FrameInfo>            m_inputHostBuffer;
 
     const sTrimParam            *m_pTrimParam;
-    shared_ptr<NVEncBasicInput>  m_pFileReader;           //動画読み込み
-    vector<shared_ptr<NVEncBasicInput>> m_AudioReaders;
-    shared_ptr<NVEncOut>         m_pFileWriter;           //動画書き出し
-    vector<shared_ptr<NVEncOut>> m_pFileWriterListAudio;
+    shared_ptr<RGYInput>  m_pFileReader;           //動画読み込み
+    vector<shared_ptr<RGYInput>> m_AudioReaders;
+    shared_ptr<RGYOutput>         m_pFileWriter;           //動画書き出し
+    vector<shared_ptr<RGYOutput>> m_pFileWriterListAudio;
     shared_ptr<EncodeStatus>     m_pStatus;               //エンコードステータス管理
     NV_ENC_PIC_STRUCT            m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                m_stEncConfig;           //エンコード設定

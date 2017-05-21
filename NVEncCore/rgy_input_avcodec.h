@@ -25,21 +25,23 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-#ifndef _AVCODEC_READER_H_
-#define _AVCODEC_READER_H_
 
-#include "rgy_avutil.h"
+#pragma once
+#ifndef __RGY_INPUT_AVCODEC_H__
+#define __RGY_INPUT_AVCODEC_H__
+
+#include "rgy_input.h"
+#include "rgy_version.h"
 
 #if ENABLE_AVSW_READER
+#include "rgy_avutil.h"
 #include "rgy_queue.h"
-#include "NVEncParam.h"
-#include <mutex>
-#include <chrono>
+#include "rgy_perf_monitor.h"
+#include "convert_csp.h"
 #include <deque>
-#include "CuvidDecode.h"
-#include "NVEncParam.h"
-#include "rgy_input.h"
-#include "rgy_status.h"
+#include <atomic>
+#include <thread>
+#include <cassert>
 
 using std::vector;
 using std::pair;
@@ -92,9 +94,9 @@ typedef struct FramePos {
 } FramePos;
 
 #if _DEBUG
-#define DEBUG_FRMAE_COPY(x) { if (m_fpDebugCopyFrameData) { (x); } }
+#define DEBUG_FRAME_COPY(x) { if (m_fpDebugCopyFrameData) { (x); } }
 #else
-#define DEBUG_FRMAE_COPY(x)
+#define DEBUG_FRAME_COPY(x)
 #endif
 
 static FramePos framePos(int64_t pts, int64_t dts,
@@ -163,7 +165,6 @@ public:
 #pragma warning(pop)
     //filenameに情報をcsv形式で出力する
     int printList(const TCHAR *filename) {
-#if !defined(__GNUC__)
         const int nList = (int)m_list.size();
         if (nList == 0) {
             return 0;
@@ -177,14 +178,13 @@ public:
         }
         fprintf(fp, "pts,dts,duration,duration2,poc,flags,pic_struct,repeat_pict,pict_type\r\n");
         for (int i = 0; i < nList; i++) {
-            fprintf(fp, "%I64d,%I64d,%d,%d,%d,%d,%d,%d,%d\r\n",
-                m_list[i].data.pts, m_list[i].data.dts,
+            fprintf(fp, "%lld,%lld,%d,%d,%d,%d,%d,%d,%d\r\n",
+                (lls)m_list[i].data.pts, (lls)m_list[i].data.dts,
                 m_list[i].data.duration, m_list[i].data.duration2,
                 m_list[i].data.poc,
                 (int)m_list[i].data.flags, (int)m_list[i].data.pic_struct, (int)m_list[i].data.repeat_pict, (int)m_list[i].data.pict_type);
         }
         fclose(fp);
-#endif
         return 0;
     }
     //indexの位置への参照を返す
@@ -272,7 +272,7 @@ public:
             }
             if (pos.poc == poc) {
                 *lastIndex = index;
-                DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d, pts: %I64d\n"), poc, index, pos.pts));
+                DEBUG_FRAME_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d, pts: %lld\n"), poc, index, (lls)pos.pts));
                 return pos;
             }
             if (m_bInputFin && pos.poc == -1) {
@@ -294,14 +294,14 @@ public:
                 int64_t pts1 = pos_tmp.pts;
                 int nFrameDuration = (int)(pts1 - pts0);
                 pos.pts = nLastPts + (poc - nLastPoc) * nFrameDuration;
-                DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d [invalid], estimated pts: %I64d\n"), poc, index, pos.pts));
+                DEBUG_FRAME_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d [invalid], estimated pts: %lld\n"), poc, index, (lls)pos.pts));
                 return pos;
             }
         }
         //エラー
         FramePos pos = { 0 };
         pos.poc = FRAMEPOS_POC_INVALID;
-        DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request: %8d, invalid, list size: %d\n"), poc, (int)m_list.size()));
+        DEBUG_FRAME_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request: %8d, invalid, list size: %d\n"), poc, (int)m_list.size()));
         return pos;
     }
     //入力が終了した際に使用し、内部状態を変更する
@@ -572,7 +572,7 @@ protected:
         for (; m_nNextFixNumIndex < nSortFixedSize; m_nNextFixNumIndex++) {
             if (m_list[m_nNextFixNumIndex].data.pts < m_nFirstKeyframePts //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
                 && m_nNextFixNumIndex <= 16) { //wrap arroundの場合は除く
-                                               //これはフレームリストから取り除く
+                //これはフレームリストから取り除く
                 m_list.pop();
                 m_nNextFixNumIndex--;
                 nSortFixedSize--;
@@ -629,9 +629,9 @@ typedef struct AVDemuxFormat {
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
-    //動画は音声のみ抽出する場合でも同期のため参照することがあり、
-    //pCodecCtxのチェックだけでは読み込むかどうか判定できないので、
-    //実際に使用するかどうかはこのフラグをチェックする
+                                                     //動画は音声のみ抽出する場合でも同期のため参照することがあり、
+                                                     //pCodecCtxのチェックだけでは読み込むかどうか判定できないので、
+                                                     //実際に使用するかどうかはこのフラグをチェックする
     bool                      bReadVideo;
     const AVStream           *pStream;               //動画のStream, 動画を読み込むかどうかの判定には使用しないこと (bReadVideoを使用)
     const AVCodec            *pCodecDecode;          //動画のデコーダ (使用しない場合はnullptr)
@@ -670,6 +670,7 @@ typedef struct AVDemuxThread {
     int8_t                       nInputThread;       //入力スレッドを使用する
     std::atomic<bool>            bAbortInput;        //読み込みスレッドに停止を通知する
     std::thread                  thInput;            //読み込みスレッド
+    PerfQueueInfo               *pQueueInfo;         //キューの情報を格納する構造体
 } AVDemuxThread;
 
 typedef struct AVDemuxer {
@@ -703,31 +704,33 @@ typedef struct AvcodecReaderPrm {
     sAudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
     const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
+    RGYAVSync      nAVSyncMode;             //音声・映像同期モード
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
-    RGYAVSync       nAVSyncMode;             //音声・映像同期モード
     float          fSeekSec;                //指定された秒数分先頭を飛ばす
     const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
+    const TCHAR   *pLogCopyFrameData;       //frame情報copy関数のログ出力先 (デバッグ用)
     int            nInputThread;            //入力スレッドを有効にする
     bool           bAudioIgnoreNoTrackError; //音声が見つからなかった場合のエラーを無視する
+    PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
 } AvcodecReaderPrm;
 
 
-class CAvcodecReader : public NVEncBasicInput
+class RGYInputAvcodec : public RGYInput
 {
 public:
-    CAvcodecReader();
-    virtual ~CAvcodecReader();
+    RGYInputAvcodec();
+    virtual ~RGYInputAvcodec();
 
-    virtual void Close();
+    virtual void Close() override;
 
     //動画ストリームの1フレーム分のデータをm_sPacketに格納する
     //m_sPacketからの取得はGetNextBitstreamで行う
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
 
-    //動画ストリームの1フレーム分のデータをbitstreamに追加する
+    //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
     virtual RGY_ERR GetNextBitstream(RGYBitstream *pBitstream) override;
 
-    //動画ストリームの1フレーム分のデータをbitstreamに追加する
+    //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
     virtual RGY_ERR GetNextBitstreamNoDelete(RGYBitstream *pBitstream) override;
 
     //ストリームのヘッダ部分を取得する
@@ -747,6 +750,9 @@ public:
 
     //チャプターリストを取得する
     vector<const AVChapter *> GetChapterList();
+
+    //フレーム情報構造へのポインタを返す
+    FramePosList *GetFramePosList();
 
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;
@@ -821,4 +827,4 @@ protected:
 
 #endif //ENABLE_AVSW_READER
 
-#endif //_AVCODEC_READER_H_
+#endif //__RGY_INPUT_AVCODEC_H__

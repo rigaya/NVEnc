@@ -26,20 +26,14 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include <io.h>
-#include <fcntl.h>
-#include <string>
 #include <sstream>
-#include "rgy_status.h"
-#include "nvEncodeAPI.h"
 #include "rgy_input.h"
-#include "convert_csp.h"
 
-NVEncBasicInput::NVEncBasicInput() :
+RGYInput::RGYInput() :
     m_inputVideoInfo(),
     m_InputCsp(RGY_CSP_NA),
     m_sConvert(nullptr),
-    m_pEncSatusInfo(), 
+    m_pEncSatusInfo(),
     m_pPrintMes(),
     m_strInputInfo(),
     m_strReaderName(_T("unknown")),
@@ -48,11 +42,25 @@ NVEncBasicInput::NVEncBasicInput() :
     memset(&m_sTrimParam, 0, sizeof(m_sTrimParam));
 }
 
-NVEncBasicInput::~NVEncBasicInput() {
+RGYInput::~RGYInput() {
     Close();
 }
 
-void NVEncBasicInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm) {
+void RGYInput::Close() {
+    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
+
+    m_pEncSatusInfo.reset();
+    m_sConvert = nullptr;
+
+    m_strInputInfo.empty();
+
+    m_sTrimParam.list.clear();
+    m_sTrimParam.offset = 0;
+    AddMessage(RGY_LOG_DEBUG, _T("Close...\n"));
+    m_pPrintMes.reset();
+}
+
+void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm) {
     std::basic_stringstream<TCHAR> ss;
 
     ss << inputTypeName;
@@ -66,9 +74,4 @@ void NVEncBasicInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *i
     ss << inputPrm->fpsN << _T("/") << inputPrm->fpsD << _T(" fps");
 
     m_strInputInfo = ss.str();
-}
-
-void NVEncBasicInput::Close() {
-    m_pEncSatusInfo.reset();
-    m_pPrintMes.reset();
 }

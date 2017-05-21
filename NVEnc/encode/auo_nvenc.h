@@ -71,7 +71,7 @@ protected:
     std::chrono::system_clock::time_point m_tmLastLogUpdate;
 };
 
-class AuoInput : public NVEncBasicInput
+class AuoInput : public RGYInput
 {
 private:
     const OUTPUT_INFO *oip;

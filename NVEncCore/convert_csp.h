@@ -135,9 +135,9 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
 enum RGY_PICSTRUCT : uint32_t {
     RGY_PICSTRUCT_UNKNOWN      = 0x00,
     RGY_PICSTRUCT_FRAME        = 0x01, //フレームとして符号化されている
-    RGY_PICSTRUCT_FIELD        = 0x02, //フィールドとして符号化されている
-    RGY_PICSTRUCT_TFF          = 0x04,
-    RGY_PICSTRUCT_BFF          = 0x08,
+    RGY_PICSTRUCT_TFF          = 0x02,
+    RGY_PICSTRUCT_BFF          = 0x04,
+    RGY_PICSTRUCT_FIELD        = 0x08, //フィールドとして符号化されている
     RGY_PICSTRUCT_INTERLACED   = 0x00 | RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF,   //インタレ
     RGY_PICSTRUCT_FRAME_TFF    = 0x00 | RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (TFF)
     RGY_PICSTRUCT_FRAME_BFF    = 0x00 | RGY_PICSTRUCT_BFF | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (BFF)

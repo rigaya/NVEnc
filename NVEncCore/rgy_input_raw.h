@@ -26,30 +26,25 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_INPUT_RAW_H__
+#define __RGY_INPUT_RAW_H__
 
-#include <stdio.h>
-#include <tchar.h>
-#include <string>
-#include "NVEncUtil.h"
-#include "rgy_status.h"
-#include "rgy_version.h"
 #include "rgy_input.h"
 
 #if ENABLE_RAW_READER
 
-class NVEncInputRaw : public NVEncBasicInput {
+class RGYInputRaw : public RGYInput {
 public:
-    NVEncInputRaw();
-    ~NVEncInputRaw();
+    RGYInputRaw();
+    ~RGYInputRaw();
 
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
-    RGY_ERR ParseY4MHeader(char *buf, VideoInfo *inputPrm);
+    RGY_ERR ParseY4MHeader(char *buf, VideoInfo *pInfo);
 
-    bool m_by4m;
     FILE *m_fSource;
 
     uint32_t m_nBufSize;
@@ -57,3 +52,5 @@ protected:
 };
 
 #endif //ENABLE_RAW_READER
+
+#endif //__RGY_INPUT_RAW_H__

@@ -26,18 +26,16 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include <string>
-#include <sstream>
-#include "rgy_status.h"
-#include "nvEncodeAPI.h"
-#include "rgy_input.h"
-#include "convert_csp.h"
-#include "NVEncCore.h"
 #include "rgy_input_avs.h"
-
 #if ENABLE_AVISYNTH_READER
 
-NVEncInputAvs::NVEncInputAvs() :
+#if defined(_WIN32) || defined(_WIN64)
+static const TCHAR *avisynth_dll_name = _T("avisynth.dll");
+#else
+static const TCHAR *avisynth_dll_name = _T("libavxsynth.so");
+#endif
+
+RGYInputAvs::RGYInputAvs() :
     m_sAVSenv(nullptr),
     m_sAVSclip(nullptr),
     m_sAVSinfo(nullptr),
@@ -46,41 +44,49 @@ NVEncInputAvs::NVEncInputAvs() :
     m_strReaderName = _T("avs");
 }
 
-NVEncInputAvs::~NVEncInputAvs() {
+RGYInputAvs::~RGYInputAvs() {
     Close();
 }
 
-void NVEncInputAvs::release_avisynth() {
+void RGYInputAvs::release_avisynth() {
     if (m_sAvisynth.h_avisynth)
+#if defined(_WIN32) || defined(_WIN64)
         FreeLibrary(m_sAvisynth.h_avisynth);
+#else
+        dlclose(m_sAvisynth.h_avisynth);
+#endif
 
     memset(&m_sAvisynth, 0, sizeof(m_sAvisynth));
 }
 
-RGY_ERR NVEncInputAvs::load_avisynth() {
+RGY_ERR RGYInputAvs::load_avisynth() {
     release_avisynth();
 
-    if (   nullptr == (m_sAvisynth.h_avisynth = (HMODULE)LoadLibrary(_T("avisynth.dll")))
-        || nullptr == (m_sAvisynth.invoke = (func_avs_invoke)GetProcAddress(m_sAvisynth.h_avisynth, "avs_invoke"))
-        || nullptr == (m_sAvisynth.take_clip = (func_avs_take_clip)GetProcAddress(m_sAvisynth.h_avisynth, "avs_take_clip"))
-        || nullptr == (m_sAvisynth.create_script_environment = (func_avs_create_script_environment)GetProcAddress(m_sAvisynth.h_avisynth, "avs_create_script_environment"))
-        || nullptr == (m_sAvisynth.delete_script_environment = (func_avs_delete_script_environment)GetProcAddress(m_sAvisynth.h_avisynth, "avs_delete_script_environment"))
-        || nullptr == (m_sAvisynth.get_frame = (func_avs_get_frame)GetProcAddress(m_sAvisynth.h_avisynth, "avs_get_frame"))
-        || nullptr == (m_sAvisynth.get_version = (func_avs_get_version)GetProcAddress(m_sAvisynth.h_avisynth, "avs_get_version"))
-        || nullptr == (m_sAvisynth.get_video_info = (func_avs_get_video_info)GetProcAddress(m_sAvisynth.h_avisynth, "avs_get_video_info"))
-        || nullptr == (m_sAvisynth.release_clip = (func_avs_release_clip)GetProcAddress(m_sAvisynth.h_avisynth, "avs_release_clip"))
-        || nullptr == (m_sAvisynth.release_value = (func_avs_release_value)GetProcAddress(m_sAvisynth.h_avisynth, "avs_release_value"))
-        || nullptr == (m_sAvisynth.release_video_frame = (func_avs_release_video_frame)GetProcAddress(m_sAvisynth.h_avisynth, "avs_release_video_frame")))
+#if defined(_WIN32) || defined(_WIN64)
+    if (   nullptr == (m_sAvisynth.h_avisynth = (HMODULE)LoadLibrary(avisynth_dll_name))
+#else
+    if (   nullptr == (m_sAvisynth.h_avisynth = dlopen(avisynth_dll_name, RTLD_LAZY))
+#endif
+        || nullptr == (m_sAvisynth.invoke = (func_avs_invoke)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_invoke"))
+        || nullptr == (m_sAvisynth.take_clip = (func_avs_take_clip)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_take_clip"))
+        || nullptr == (m_sAvisynth.create_script_environment = (func_avs_create_script_environment)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_create_script_environment"))
+        || nullptr == (m_sAvisynth.delete_script_environment = (func_avs_delete_script_environment)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_delete_script_environment"))
+        || nullptr == (m_sAvisynth.get_frame = (func_avs_get_frame)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_get_frame"))
+        || nullptr == (m_sAvisynth.get_version = (func_avs_get_version)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_get_version"))
+        || nullptr == (m_sAvisynth.get_video_info = (func_avs_get_video_info)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_get_video_info"))
+        || nullptr == (m_sAvisynth.release_clip = (func_avs_release_clip)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_release_clip"))
+        || nullptr == (m_sAvisynth.release_value = (func_avs_release_value)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_release_value"))
+        || nullptr == (m_sAvisynth.release_video_frame = (func_avs_release_video_frame)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_release_video_frame")))
         return RGY_ERR_INVALID_HANDLE;
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
+RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
-    
+
     if (load_avisynth() != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to load avisynth.dll.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to load %s.\n"), avisynth_dll_name);
         return RGY_ERR_INVALID_HANDLE;
     }
 
@@ -96,6 +102,7 @@ RGY_ERR NVEncInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, con
     AVS_Value val_filename = avs_new_value_string(filename_char.c_str());
     AVS_Value val_res = m_sAvisynth.invoke(m_sAVSenv, "Import", val_filename, nullptr);
     m_sAvisynth.release_value(val_filename);
+    AddMessage(RGY_LOG_DEBUG,  _T("opened avs file: \"%s\"\n"), char_to_tstring(filename_char).c_str());
     if (!avs_is_clip(val_res)) {
         AddMessage(RGY_LOG_ERROR, _T("invalid clip.\n"));
         if (avs_is_error(val_res)) {
@@ -120,16 +127,20 @@ RGY_ERR NVEncInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, con
 
     const RGY_CSP prefered_csp = (m_inputVideoInfo.csp != RGY_CSP_NA) ? m_inputVideoInfo.csp : RGY_CSP_NV12;
 
-    typedef struct CSPMap {
+    struct CSPMap {
         int fmtID;
         RGY_CSP in, out;
-    } CSPMap;
+    };
 
     const std::vector<CSPMap> valid_csp_list = {
         { AVS_CS_YV12,  RGY_CSP_YV12, prefered_csp },
         { AVS_CS_I420,  RGY_CSP_YV12, prefered_csp },
         { AVS_CS_IYUV,  RGY_CSP_YV12, prefered_csp },
         { AVS_CS_YUY2,  RGY_CSP_YUY2, prefered_csp },
+#if ENCODER_QSV
+        { AVS_CS_BGR24, RGY_CSP_RGB3, RGY_CSP_RGB4 },
+        { AVS_CS_BGR32, RGY_CSP_RGB4, RGY_CSP_RGB4 },
+#endif
     };
 
     m_InputCsp = RGY_CSP_NA;
@@ -146,11 +157,11 @@ RGY_ERR NVEncInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, con
         AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    
+
     m_inputVideoInfo.srcWidth = m_sAVSinfo->width;
     m_inputVideoInfo.srcHeight = m_sAVSinfo->height;
     m_inputVideoInfo.fpsN = m_sAVSinfo->fps_numerator;
-    m_inputVideoInfo.fpsD = m_sAVSinfo->fps_denominator ;
+    m_inputVideoInfo.fpsD = m_sAVSinfo->fps_denominator;
     m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? 16 - RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] : 0;
     m_inputVideoInfo.frames = m_sAVSinfo->num_frames;
     rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
@@ -168,7 +179,7 @@ RGY_ERR NVEncInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, con
     return RGY_ERR_NONE;
 }
 
-void NVEncInputAvs::Close() {
+void RGYInputAvs::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     if (m_sAVSclip)
         m_sAvisynth.release_clip(m_sAVSclip);
@@ -184,7 +195,7 @@ void NVEncInputAvs::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-RGY_ERR NVEncInputAvs::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputAvs::LoadNextFrame(RGYFrame *pSurface) {
     if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
@@ -199,7 +210,6 @@ RGY_ERR NVEncInputAvs::LoadNextFrame(RGYFrame *pSurface) {
 
     void *dst_array[3];
     pSurface->ptrArray(dst_array);
-
     const void *src_array[3] = { avs_get_read_ptr_p(frame, AVS_PLANAR_Y), avs_get_read_ptr_p(frame, AVS_PLANAR_U), avs_get_read_ptr_p(frame, AVS_PLANAR_V) };
     if (m_sConvert->csp_to == RGY_CSP_RGB4) {
         dst_array[0] = pSurface->ptrRGB();
@@ -215,4 +225,4 @@ RGY_ERR NVEncInputAvs::LoadNextFrame(RGYFrame *pSurface) {
     return m_pEncSatusInfo->UpdateDisplay();
 }
 
-#endif
+#endif //ENABLE_AVISYNTH_READER

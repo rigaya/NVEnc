@@ -25,6 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#pragma once
 #ifndef __RGY_OSDEP_H__
 #define __RGY_OSDEP_H__
 
@@ -44,7 +45,7 @@
 #include <io.h>
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
-#define QSV_GET_PROC_ADDRESS GetProcAddress
+#define RGY_GET_PROC_ADDRESS GetProcAddress
 
 #else //#if defined(_WIN32) || defined(_WIN64)
 #include <sys/stat.h>
@@ -72,7 +73,7 @@ typedef void* HANDLE;
 typedef void* HMODULE;
 typedef int errno_t;
 
-#define QSV_GET_PROC_ADDRESS dlsym
+#define RGY_GET_PROC_ADDRESS dlsym
 
 static uint32_t CP_THREAD_ACP = 0;
 static uint32_t CP_UTF8 = 0;

@@ -27,20 +27,21 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_INPUT_AVS_H__
+#define __RGY_INPUT_AVS_H__
 
-#include <stdio.h>
-#include <tchar.h>
-#include <string>
-#include "NVEncUtil.h"
-#include "rgy_status.h"
 #include "rgy_version.h"
-#include "rgy_input.h"
-
 #if ENABLE_AVISYNTH_READER
 #pragma warning(push)
 #pragma warning(disable:4244)
 #pragma warning(disable:4456)
+#if defined(_WIN32) || defined(_WIN64)
 #include "avisynth_c.h" //Avisynth ver 2.5.8 (2.6.0の機能等は不要)
+#else
+#include "avxsynth_c.h"
+#endif
+#include "rgy_osdep.h"
+#include "rgy_input.h"
 #pragma warning(pop)
 
 typedef AVS_Value (__stdcall *func_avs_invoke)(AVS_ScriptEnvironment *scriptEnv, const char *name, AVS_Value args, const char** arg_names);
@@ -68,10 +69,10 @@ typedef struct {
     func_avs_get_version get_version;
 } avs_dll_t;
 
-class NVEncInputAvs : public NVEncBasicInput {
+class RGYInputAvs : public RGYInput {
 public:
-    NVEncInputAvs();
-    ~NVEncInputAvs();
+    RGYInputAvs();
+    virtual ~RGYInputAvs();
 
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
@@ -84,9 +85,10 @@ protected:
     AVS_ScriptEnvironment *m_sAVSenv;
     AVS_Clip *m_sAVSclip;
     const AVS_VideoInfo *m_sAVSinfo;
-    bool m_bInterlaced;
 
     avs_dll_t m_sAvisynth;
 };
 
 #endif //ENABLE_AVISYNTH_READER
+
+#endif //__RGY_INPUT_AVS_H__

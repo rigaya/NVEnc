@@ -27,13 +27,16 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_OUTPUT_H__
+#define __RGY_OUTPUT_H__
 
-#include <tchar.h>
 #include <memory>
 #include <vector>
-#include "NVEncUtil.h"
-#include "rgy_input.h"
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 #include "rgy_log.h"
+#include "rgy_status.h"
+#include "NVEncUtil.h"
 
 using std::unique_ptr;
 using std::shared_ptr;
@@ -44,10 +47,10 @@ enum OutputType {
     OUT_TYPE_SURFACE
 };
 
-class NVEncOut {
+class RGYOutput {
 public:
-    NVEncOut();
-    virtual ~NVEncOut();
+    RGYOutput();
+    virtual ~RGYOutput();
 
     RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm, shared_ptr<RGYLog> pLog, shared_ptr<EncodeStatus> pEncSatusInfo) {
         Close();
@@ -123,19 +126,21 @@ protected:
     unique_ptr<uint8_t, aligned_malloc_deleter> m_pUVBuffer;
 };
 
-struct CQSVOutRawPrm {
+struct RGYOutputRawPrm {
     bool bBenchmark;
     int nBufSizeMB;
 };
 
-class NVEncOutBitstream : public NVEncOut {
+class RGYOutputRaw : public RGYOutput {
 public:
 
-    NVEncOutBitstream();
-    virtual ~NVEncOutBitstream();
+    RGYOutputRaw();
+    virtual ~RGYOutputRaw();
 
     virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) override;
     virtual RGY_ERR WriteNextFrame(RGYFrame *pSurface) override;
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
 };
+
+#endif //__RGY_OUTPUT_H__

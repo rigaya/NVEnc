@@ -69,6 +69,7 @@ const char *get_encoder_version();
 #define ENABLE_AVSW_READER 0
 #else
 #define ENCODER_NAME "NVEncC"
+#define DECODER_NAME "cuvid"
 #define FOR_AUO                   0
 #define ENABLE_RAW_READER         1
 #define ENABLE_AVI_READER         0

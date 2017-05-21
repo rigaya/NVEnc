@@ -217,7 +217,7 @@ public:
                 remaining_time -= mm * (60*1000);
                 int ss = (remaining_time + 500) / 1000;
 
-                int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %d kb/s, remain %d:%02d:%02d  "),
+                int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %d kb/s, remain %d:%02d:%02d"),
                     progressPercent,
                     (m_sData.frameOut + m_sData.frameDrop),
                     m_sData.encodeFps,

@@ -62,8 +62,9 @@
 #include "NVEncFilterDelogo.h"
 #include "NVEncFilterDenoiseKnn.h"
 #include "NVEncFilterDenoisePmd.h"
-#include "rgy_input_ffmpeg.h"
-#include "rgy_output_ffmpeg.h"
+#include "rgy_input_avcodec.h"
+#include "rgy_output.h"
+#include "rgy_output_avcodec.h"
 #include "helper_nvenc.h"
 #include "chapter_rw.h"
 #include "h264_level.h"
@@ -216,17 +217,17 @@ InEncodeVideoParam::InEncodeVideoParam() :
     ppAudioSourceList(nullptr),
     nAudioSelectCount(0), //pAudioSelectの数
     ppAudioSelectList(nullptr),
-    nAudioResampler(NV_RESAMPLER_SWR),
+    nAudioResampler(RGY_RESAMPLER_SWR),
     nAVDemuxAnalyzeSec(0),
-    nAVMux(NVENC_MUX_NONE),                       //NVENC_MUX_xxx
+    nAVMux(RGY_MUX_NONE),                       //RGY_MUX_xxx
     nVideoTrack(0),
     nVideoStreamId(0),
     nTrimCount(0),
     pTrimList(nullptr),
     bCopyChapter(false),
-    nOutputThread(NV_OUTPUT_THREAD_AUTO),
-    nAudioThread(NV_INPUT_THREAD_AUTO),
-    nInputThread(NV_AUDIO_THREAD_AUTO),
+    nOutputThread(RGY_OUTPUT_THREAD_AUTO),
+    nAudioThread(RGY_INPUT_THREAD_AUTO),
+    nInputThread(RGY_AUDIO_THREAD_AUTO),
     bAudioIgnoreNoTrackError(false),
     nAudioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     pMuxOpt(nullptr),
@@ -434,14 +435,14 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #if ENABLE_AVISYNTH_READER
     case RGY_INPUT_FMT_AVS:
         PrintMes(RGY_LOG_DEBUG, _T("avs reader selected.\n"));
-        m_pFileReader.reset(new NVEncInputAvs());
+        m_pFileReader.reset(new RGYInputAvs());
         break;
 #endif //ENABLE_AVISYNTH_READER
 #if ENABLE_VAPOURSYNTH_READER
     case RGY_INPUT_FMT_VPY:
     case RGY_INPUT_FMT_VPY_MT:
         PrintMes(RGY_LOG_DEBUG, _T("vpy reader selected.\n"));
-        m_pFileReader.reset(new NVEncInputVpy());
+        m_pFileReader.reset(new RGYInputVpy());
         break;
 #endif //ENABLE_VAPOURSYNTH_READER
 #if ENABLE_AVSW_READER
@@ -473,20 +474,19 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
         pInputPrm = &inputInfoAVCuvid;
         PrintMes(RGY_LOG_DEBUG, _T("avcuvid reader selected.\n"));
-        m_pFileReader.reset(new CAvcodecReader());
+        m_pFileReader.reset(new RGYInputAvcodec());
         break;
 #endif //#if ENABLE_AVSW_READER
     case RGY_INPUT_FMT_RAW:
     case RGY_INPUT_FMT_Y4M:
     default:
         PrintMes(RGY_LOG_DEBUG, _T("raw/y4m reader selected.\n"));
-        m_pFileReader.reset(new NVEncInputRaw());
+        m_pFileReader.reset(new RGYInputRaw());
         break;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: input selected : %d.\n"), inputParam->input.type);
 
     m_pStatus.reset(new EncodeStatus());
-    m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, nullptr);
     int ret = m_pFileReader->Init(inputParam->inputFilename.c_str(), &inputParam->input, pInputPrm, m_pNVLog, m_pStatus);
     if (ret != 0) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
@@ -497,6 +497,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 
     m_inputFps.first = inputParam->input.fpsN;
     m_inputFps.second = inputParam->input.fpsD;
+    m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, nullptr);
 
 #if ENABLE_AVSW_READER
     if (inputParam->nAudioSourceCount > 0) {
@@ -524,7 +525,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             inputInfoAVAudioReader.nInputThread = 0;
             inputInfoAVAudioReader.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
 
-            shared_ptr<NVEncBasicInput> audioReader(new CAvcodecReader());
+            shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
             ret = audioReader->Init(inputParam->ppAudioSourceList[i], &inputInfo, &inputInfoAVAudioReader, m_pNVLog, nullptr);
             if (ret != 0) {
                 PrintMes(RGY_LOG_ERROR, audioReader->GetInputMessage());
@@ -572,19 +573,19 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         || (PathFindExtension(inputParams->outputFilename.c_str()) == nullptr || PathFindExtension(inputParams->outputFilename.c_str())[0] != '.') //拡張子がしない
         || check_ext(inputParams->outputFilename.c_str(), { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc" }); //特定の拡張子
     if (!useH264ESOutput) {
-        inputParams->nAVMux |= NVENC_MUX_VIDEO;
+        inputParams->nAVMux |= RGY_MUX_VIDEO;
     }
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
-    //    inputParams->nAVMux &= ~NVENC_MUX_VIDEO;
+    //    inputParams->nAVMux &= ~RGY_MUX_VIDEO;
     //}
     const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
         m_uEncWidth, m_uEncHeight,
         &m_stEncConfig, m_stPicStruct,
         get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight),
         std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
-    if (inputParams->nAVMux & NVENC_MUX_VIDEO) {
+    if (inputParams->nAVMux & RGY_MUX_VIDEO) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
-        m_pFileWriter = std::make_shared<CAvcodecWriter>();
+        m_pFileWriter = std::make_shared<RGYOutputAvcodec>();
         AvcodecWriterPrm writerPrm;
         writerPrm.pOutputFormat = inputParams->sAVMuxOutputFormat.c_str();
         if (m_pTrimParam) {
@@ -600,7 +601,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         if (inputParams->pMuxOpt > 0) {
             writerPrm.vMuxOpt = *inputParams->pMuxOpt;
         }
-        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
             if (inputParams->sChapterFile.length() > 0) {
@@ -620,9 +621,9 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
             writerPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
             writerPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
         }
-        if (inputParams->nAVMux & (NVENC_MUX_AUDIO | NVENC_MUX_SUBTITLE)) {
+        if (inputParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             PrintMes(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
-            pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+            pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             bool copyAll = false;
             for (int i = 0; !copyAll && i < (int)inputParams->nAudioSelectCount; i++) {
                 //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
@@ -635,7 +636,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
             }
             for (const auto& audioReader : m_AudioReaders) {
                 if (audioReader->GetAudioTrackCount()) {
-                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<CAvcodecReader>(audioReader);
+                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<RGYInputAvcodec>(audioReader);
                     if (pAVCodecAudioReader) {
                         vector_cat(streamList, pAVCodecAudioReader->GetInputStreamInfo());
                     }
@@ -676,18 +677,18 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         if (sts != 0) {
             PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
             return NV_ENC_ERR_GENERIC;
-        } else if (inputParams->nAVMux & (NVENC_MUX_AUDIO | NVENC_MUX_SUBTITLE)) {
+        } else if (inputParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             m_pFileWriterListAudio.push_back(m_pFileWriter);
         }
         stdoutUsed = m_pFileWriter->outputStdout();
         PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-    } else if (inputParams->nAVMux & (NVENC_MUX_AUDIO | NVENC_MUX_SUBTITLE)) {
+    } else if (inputParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
         PrintMes(RGY_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
         return NV_ENC_ERR_GENERIC;
     } else {
 #endif //ENABLE_AVSW_READER
-        m_pFileWriter = std::make_shared<NVEncOutBitstream>();
-        CQSVOutRawPrm rawPrm = { 0 };
+        m_pFileWriter = std::make_shared<RGYOutputRaw>();
+        RGYOutputRawPrm rawPrm = { 0 };
         rawPrm.nBufSizeMB = inputParams->nOutputBufSizeMB;
         sts = m_pFileWriter->Init(inputParams->outputFilename.c_str(), &outputVideoInfo, &rawPrm, m_pNVLog, m_pStatus);
         if (sts != 0) {
@@ -702,7 +703,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     //音声の抽出
     if (inputParams->nAudioSelectCount + inputParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
-        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if ((inputParams->input.type != RGY_INPUT_FMT_AVHW
             && inputParams->input.type != RGY_INPUT_FMT_AVSW
             && inputParams->input.type != RGY_INPUT_FMT_AVANY)
@@ -759,7 +760,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                 writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
 
-                shared_ptr<NVEncOut> pWriter = std::make_shared<CAvcodecWriter>();
+                shared_ptr<RGYOutput> pWriter = std::make_shared<RGYOutputAvcodec>();
                 sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &outputVideoInfo, &writerAudioPrm, m_pNVLog, m_pStatus);
                 if (sts != 0) {
                     PrintMes(RGY_LOG_ERROR, pWriter->GetOutputMessage());
@@ -2675,15 +2676,15 @@ NVENCSTATUS NVEncCore::Encode() {
 
 #if ENABLE_AVSW_READER
     const AVStream *pStreamIn = nullptr;
-    CAvcodecReader *pReader = dynamic_cast<CAvcodecReader *>(m_pFileReader.get());
+    RGYInputAvcodec *pReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
     if (pReader != nullptr) {
         pStreamIn = pReader->GetInputVideoStream();
     }
 
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
-    std::map<int, shared_ptr<CAvcodecWriter>> pWriterForAudioStreams;
+    std::map<int, shared_ptr<RGYOutputAvcodec>> pWriterForAudioStreams;
     for (auto pWriter : m_pFileWriterListAudio) {
-        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(pWriter);
+        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(pWriter);
         if (pAVCodecWriter) {
             auto trackIdList = pAVCodecWriter->GetStreamTrackIdList();
             for (auto trackID : trackIdList) {
@@ -2695,14 +2696,14 @@ NVENCSTATUS NVEncCore::Encode() {
     auto extract_audio =[&]() {
         int sts = 0;
         if (m_pFileWriterListAudio.size()) {
-            auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+            auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             vector<AVPacket> packetList;
             if (pAVCodecReader != nullptr) {
                 packetList = pAVCodecReader->GetStreamDataPackets();
             }
             //音声ファイルリーダーからのトラックを結合する
             for (const auto& reader : m_AudioReaders) {
-                auto pReader = std::dynamic_pointer_cast<CAvcodecReader>(reader);
+                auto pReader = std::dynamic_pointer_cast<RGYInputAvcodec>(reader);
                 if (pReader != nullptr) {
                     vector_cat(packetList, pReader->GetStreamDataPackets());
                 }
@@ -3053,7 +3054,7 @@ NVENCSTATUS NVEncCore::Encode() {
         th_input.join();
     }
     for (const auto& writer : m_pFileWriterListAudio) {
-        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(writer);
+        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(writer);
         if (pAVCodecWriter != nullptr) {
             //エンコーダなどにキャッシュされたパケットを書き出す
             pAVCodecWriter->WriteNextPacket(nullptr);
@@ -3107,15 +3108,15 @@ NVENCSTATUS NVEncCore::Encode() {
     const int bufferCount = m_uEncodeBufferCount;
 #if ENABLE_AVSW_READER
     const AVCodecContext *pVideoCtx = nullptr;
-    CAvcodecReader *pReader = dynamic_cast<CAvcodecReader *>(m_pFileReader.get());
+    RGYInputAvcodec *pReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
     if (pReader != nullptr) {
         pVideoCtx = pReader->GetInputVideoCodecCtx();
     }
 
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
-    std::map<int, shared_ptr<CAvcodecWriter>> pWriterForAudioStreams;
+    std::map<int, shared_ptr<RGYOutputAvcodec>> pWriterForAudioStreams;
     for (auto pWriter : m_pFileWriterListAudio) {
-        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(pWriter);
+        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(pWriter);
         if (pAVCodecWriter) {
             auto trackIdList = pAVCodecWriter->GetStreamTrackIdList();
             for (auto trackID : trackIdList) {
@@ -3127,14 +3128,14 @@ NVENCSTATUS NVEncCore::Encode() {
     auto extract_audio =[&]() {
         int sts = 0;
         if (m_pFileWriterListAudio.size()) {
-            auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+            auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             vector<AVPacket> packetList;
             if (pAVCodecReader != nullptr) {
                 packetList = pAVCodecReader->GetStreamDataPackets();
             }
             //音声ファイルリーダーからのトラックを結合する
             for (const auto& reader : m_AudioReaders) {
-                auto pReader = std::dynamic_pointer_cast<CAvcodecReader>(reader);
+                auto pReader = std::dynamic_pointer_cast<RGYInputAvcodec>(reader);
                 if (pReader != nullptr) {
                     vector_cat(packetList, pReader->GetStreamDataPackets());
                 }
@@ -3341,7 +3342,7 @@ NVENCSTATUS NVEncCore::Encode() {
     }
 #if ENABLE_AVSW_READER
     for (const auto& writer : m_pFileWriterListAudio) {
-        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(writer);
+        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(writer);
         if (pAVCodecWriter != nullptr) {
             //エンコーダなどにキャッシュされたパケットを書き出す
             pAVCodecWriter->WriteNextPacket(nullptr);

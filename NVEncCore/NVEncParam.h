@@ -42,16 +42,6 @@
 
 using std::vector;
 
-enum {
-    NV_RESAMPLER_SWR,
-    NV_RESAMPLER_SOXR,
-};
-
-enum {
-    DELOGO_MODE_REMOVE = 0,
-    DELOGO_MODE_ADD,
-};
-
 static const int   FILTER_DEFAULT_DELOGO_DEPTH = 128;
 static const int   FILTER_DEFAULT_KNN_RADIUS = 3;
 static const float FILTER_DEFAULT_KNN_STRENGTH = 0.08f;
@@ -63,98 +53,10 @@ static const float FILTER_DEFAULT_PMD_THRESHOLD = 100.0f;
 static const int   FILTER_DEFAULT_PMD_APPLY_COUNT = 2;
 static const bool  FILTER_DEFAULT_PMD_USE_EXP = true;
 
-static const int NV_OUTPUT_THREAD_AUTO = -1;
-static const int NV_AUDIO_THREAD_AUTO = -1;
-static const int NV_INPUT_THREAD_AUTO = -1;
-
-typedef struct {
-    int start, fin;
-} sTrim;
-
-typedef struct {
-    std::vector<sTrim> list;
-    int offset;
-} sTrimParam;
-
-typedef  std::vector<std::pair<tstring, tstring>> muxOptList;
-
-static const int TRIM_MAX = INT_MAX;
-static const int TRIM_OVERREAD_FRAMES = 128;
-
-static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
-    if (trimList.size() == 0)
-        return true;
-    if (frame < 0)
-        return false;
-    for (auto trim : trimList) {
-        if (trim.start <= frame && frame <= trim.fin) {
-            return true;
-        }
-    }
-    return false;
-}
-
-enum RGYAVSync : uint32_t {
-    RGY_AVSYNC_THROUGH   = 0x00,
-    RGY_AVSYNC_INIT      = 0x01,
-    RGY_AVSYNC_CHECK_PTS = 0x02,
-    RGY_AVSYNC_VFR       = 0x02,
-    RGY_AVSYNC_FORCE_CFR = 0x04 | RGY_AVSYNC_CHECK_PTS,
-};
-
-enum {
-    NVENC_MUX_NONE     = 0x00,
-    NVENC_MUX_VIDEO    = 0x01,
-    NVENC_MUX_AUDIO    = 0x02,
-    NVENC_MUX_SUBTITLE = 0x04,
-};
-
 enum {
     NV_ENC_AVCUVID_NATIVE = 0,
     NV_ENC_AVCUVID_CUDA,
 };
-
-static const uint32_t MAX_SPLIT_CHANNELS = 32;
-static const uint64_t QSV_CHANNEL_AUTO = UINT64_MAX;
-
-template <uint32_t size>
-static bool bSplitChannelsEnabled(uint64_t (&pnStreamChannels)[size]) {
-    bool bEnabled = false;
-    for (uint32_t i = 0; i < size; i++) {
-        bEnabled |= pnStreamChannels[i] != 0;
-    }
-    return bEnabled;
-}
-
-template <uint32_t size>
-static void setSplitChannelAuto(uint64_t (&pnStreamChannels)[size]) {
-    for (uint32_t i = 0; i < size; i++) {
-        pnStreamChannels[i] = ((uint64_t)1) << i;
-    }
-}
-
-template <uint32_t size>
-static bool isSplitChannelAuto(uint64_t (&pnStreamChannels)[size]) {
-    bool isAuto = true;
-    for (uint32_t i = 0; isAuto && i < size; i++) {
-        isAuto &= (pnStreamChannels[i] == (((uint64_t)1) << i));
-    }
-    return isAuto;
-}
-
-typedef struct sAudioSelect {
-    int    nAudioSelect;          //選択した音声トラックのリスト 1,2,...(1から連番で指定)
-    TCHAR *pAVAudioEncodeCodec;   //音声エンコードのコーデック
-    int    nAVAudioEncodeBitrate; //音声エンコードに選択した音声トラックのビットレート
-    int    nAudioSamplingRate;    //サンプリング周波数
-    TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
-    TCHAR *pAudioExtractFormat;   //抽出する音声ファイルのフォーマット
-    TCHAR *pAudioFilter; //音声フィルタ
-    uint64_t pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
-    uint64_t pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
-} sAudioSelect;
-
-const int NV_OUTPUT_BUF_MB_MAX = 128;
 
 typedef struct {
     GUID id;
@@ -367,13 +269,6 @@ const CX_DESC list_nvenc_rc_method_en[] = {
     { _T("VBRHQ"),                        NV_ENC_PARAMS_RC_VBR_HQ    },
     { NULL, NULL }
 };
-
-const CX_DESC list_interlaced[] = {
-    { _T("progressive"), RGY_PICSTRUCT_FRAME     },
-    { _T("tff"),         RGY_PICSTRUCT_FRAME_TFF },
-    { _T("bff"),         RGY_PICSTRUCT_FRAME_BFF },
-    { NULL, NULL }
-};
 const CX_DESC list_entropy_coding[] = {
     //{ _T("auto"),  NV_ENC_H264_ENTROPY_CODING_MODE_AUTOSELECT },
     { _T("cabac"), NV_ENC_H264_ENTROPY_CODING_MODE_CABAC      },
@@ -485,18 +380,6 @@ const CX_DESC list_nppi_gauss[] = {
     { NULL, NULL }
 };
 
-const CX_DESC list_avsync[] = {
-    { _T("through"),  RGY_AVSYNC_THROUGH   },
-    { _T("forcecfr"), RGY_AVSYNC_FORCE_CFR },
-    { NULL, 0 }
-};
-
-const CX_DESC list_resampler[] = {
-    { _T("swr"),  NV_RESAMPLER_SWR  },
-    { _T("soxr"), NV_RESAMPLER_SOXR },
-    { NULL, 0 }
-};
-
 const CX_DESC list_cuvid_mode[] = {
     { _T("native"), NV_ENC_AVCUVID_NATIVE },
     { _T("cuda"),   NV_ENC_AVCUVID_CUDA   },
@@ -572,42 +455,6 @@ static int get_index_from_value(int value, const guid_desc (&desc)[count]) {
     }
     return -1;
 };
-
-static const TCHAR *get_chr_from_value(const CX_DESC * list, int v) {
-    for (int i = 0; list[i].desc; i++)
-        if (list[i].value == v)
-            return list[i].desc;
-    return _T("unknown");
-}
-
-static int get_cx_index(const CX_DESC * list, int v) {
-    for (int i = 0; list[i].desc; i++)
-        if (list[i].value == v)
-            return i;
-    return 0;
-}
-
-static int get_cx_index(const CX_DESC * list, const TCHAR *chr) {
-    for (int i = 0; list[i].desc; i++)
-        if (0 == _tcscmp(list[i].desc, chr))
-            return i;
-    return 0;
-}
-
-static int get_cx_value(const CX_DESC * list, const TCHAR *chr) {
-    for (int i = 0; list[i].desc; i++)
-        if (0 == _tcscmp(list[i].desc, chr))
-            return list[i].value;
-    return 0;
-}
-
-static int PARSE_ERROR_FLAG = INT_MIN;
-static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
-    for (int i = 0; list[i].desc; i++)
-        if (_tcsicmp(list[i].desc, chr) == 0)
-            return list[i].value;
-    return PARSE_ERROR_FLAG;
-}
 
 static inline bool is_interlaced(NV_ENC_PIC_STRUCT pic_struct) {
     return pic_struct != NV_ENC_PIC_STRUCT_FRAME;
