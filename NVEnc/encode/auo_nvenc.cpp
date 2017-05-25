@@ -122,7 +122,6 @@ void close_afsvideo(PRM_ENC *pe) {
 }
 
 AuoEncodeStatus::AuoEncodeStatus() {
-    m_tmLastLogUpdate = m_sData.tmLastUpdate;
     m_pause = false;
 }
 
@@ -138,7 +137,8 @@ void AuoEncodeStatus::UpdateDisplay(const TCHAR *mes, double progressPercent) {
 
 void AuoEncodeStatus::SetPrivData(void *pPrivateData) {
     m_auoData = *(InputInfoAuo *)pPrivateData;
-    enable_enc_control(&m_pause, m_auoData.pe->afs_init, FALSE, timeGetTime(), m_auoData.oip->n);
+    BOOL pause = m_pause ? 1 : 0;
+    enable_enc_control(&pause, m_auoData.pe->afs_init, FALSE, timeGetTime(), m_auoData.oip->n);
 }
 
 void AuoEncodeStatus::WriteLine(const TCHAR *mes) {
@@ -191,31 +191,28 @@ void AuoInput::Close() {
     m_iFrame = 0;
     disable_enc_control();
 }
-RGY_ERR AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) {
-    Close();
-    
-    m_pEncSatusInfo = pStatus;
-    auto *info = reinterpret_cast<InputInfoAuo *>(inputPrm->otherPrm);
+RGY_ERR AuoInput::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
+    auto *info = (const InputInfoAuo *)(prm);
+    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
     oip = info->oip;
     conf = info->conf;
     pe = info->pe;
     jitter = info->jitter;
-    m_interlaced = info->interlaced;
 
-    int fps_gcd = nv_get_gcd(oip->rate, oip->scale);
-
-    pStatus->m_sData.frameTotal = oip->n;
-    inputPrm->width = oip->w;
-    inputPrm->height = oip->h;
-    inputPrm->rate = oip->rate / fps_gcd;
-    inputPrm->scale = oip->scale / fps_gcd;
+    m_inputVideoInfo.frames = oip->n;
+    m_inputVideoInfo.srcWidth = oip->w;
+    m_inputVideoInfo.srcHeight = oip->h;
+    m_inputVideoInfo.fpsN = oip->rate;
+    m_inputVideoInfo.fpsD = oip->scale;
+    m_inputVideoInfo.srcPitch = oip->w;
+    rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 
     //high444出力ならAviutlからYC48をもらう
-    const RGY_CSP input_csp = (inputPrm->csp == RGY_CSP_YUV444 || inputPrm->csp == RGY_CSP_P010 || inputPrm->csp == RGY_CSP_YUV444_16) ? RGY_CSP_YC48 : RGY_CSP_YUY2;
-    m_sConvert = get_convert_csp_func(input_csp, inputPrm->csp, false);
+    const RGY_CSP input_csp = (m_inputVideoInfo.csp == RGY_CSP_YUV444 || m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_YUV444_16) ? RGY_CSP_YC48 : RGY_CSP_YUY2;
+    m_sConvert = get_convert_csp_func(input_csp, m_inputVideoInfo.csp, false);
 
-    if (nullptr == m_sConvert) {
+    if (m_sConvert == nullptr) {
         AddMessage(RGY_LOG_ERROR, "invalid colorformat.\n");
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
@@ -226,14 +223,12 @@ RGY_ERR AuoInput::Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatu
             return RGY_ERR_UNKNOWN;
         }
     }
-
-    memcpy(&m_sDecParam, inputPrm, sizeof(m_sDecParam));
-    m_sDecParam.src_pitch = m_sDecParam.width;
-    CreateInputInfo(_T("auo"), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), inputPrm);
+    CreateInputInfo(_T("auo"), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
+    *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
-RGY_ERR AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
+RGY_ERR AuoInput::LoadNextFrame(RGYFrame *pSurface) {
     if (FALSE != (pe->aud_parallel.abort = oip->func_is_abort()))
         return RGY_ERR_ABORTED;
 
@@ -271,11 +266,11 @@ RGY_ERR AuoInput::LoadNextFrame(void *dst, int dst_pitch) {
         }
     }
     void *dst_array[3];
-    dst_array[0] = dst;
-    dst_array[1] = (uint8_t *)dst_array[0] + dst_pitch * m_sDecParam.height;
-    dst_array[2] = (uint8_t *)dst_array[1] + dst_pitch * m_sDecParam.height; //YUV444出力時
-    int src_pitch = m_sDecParam.src_pitch * ((m_sConvert->csp_from == RGY_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
-    m_sConvert->func[!!m_interlaced](dst_array, (const void **)&frame, m_sDecParam.width, src_pitch, 0, dst_pitch, m_sDecParam.height, m_sDecParam.height, m_sDecParam.crop.c);
+    pSurface->ptrArray(dst_array);
+    int src_pitch = m_inputVideoInfo.srcPitch * ((m_sConvert->csp_from == RGY_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
+    m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
+        dst_array, (const void **)&frame, m_inputVideoInfo.srcWidth, src_pitch, 0,
+        pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     m_iFrame++;
     if (!(m_iFrame & 7))
@@ -300,13 +295,15 @@ NVENCSTATUS CAuoNvEnc::InitLog(const InEncodeVideoParam *inputParam) {
 
 NVENCSTATUS CAuoNvEnc::InitInput(InEncodeVideoParam *inputParam) {
     m_pStatus.reset(new AuoEncodeStatus());
-    m_pStatus->SetPrivData(inputParam->input.otherPrm);
-    m_pStatus->init(m_pNVLog);
+    m_pStatus->SetPrivData(inputParam->pPrivatePrm);
     m_pFileReader.reset(new AuoInput());
-    m_pFileReader->SetNVEncLogPtr(m_pNVLog);
-    int ret = m_pFileReader->Init(&inputParam->input, m_pStatus);
-    m_pStatus->m_nOutputFPSRate = inputParam->input.rate;
-    m_pStatus->m_nOutputFPSScale = inputParam->input.scale;
+
+    int ret = m_pFileReader->Init(nullptr, &inputParam->input, inputParam->pPrivatePrm, m_pNVLog, m_pStatus);
+
+    m_inputFps.first = inputParam->input.fpsN;
+    m_inputFps.second = inputParam->input.fpsD;
+    m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, nullptr);
+
     return (ret) ? NV_ENC_ERR_GENERIC : NV_ENC_SUCCESS;
 }
 

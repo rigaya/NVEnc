@@ -187,13 +187,13 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     InEncodeVideoParam encPrm;
     encPrm.codec = conf->nvenc.codec;
     encPrm.encConfig = conf->nvenc.enc_config;
-    encPrm.encConfig.encodeCodecConfig = conf->nvenc.codecConfig[conf->nvenc.codec];
+    encPrm.encConfig.encodeCodecConfig = conf->nvenc.codecConfig[encPrm.codec];
     encPrm.deviceID = conf->nvenc.deviceID;
     encPrm.preset = conf->nvenc.preset;
-    encPrm.picStruct = (encPrm.codec == NV_ENC_HEVC) ? NV_ENC_PIC_STRUCT_FRAME : conf->nvenc.pic_struct;
+    encPrm.input.picstruct = picstruct_enc_to_rgy((encPrm.codec == NV_ENC_HEVC) ? NV_ENC_PIC_STRUCT_FRAME : conf->nvenc.pic_struct);
     encPrm.bluray = conf->nvenc.bluray;
-    encPrm.inputBuffer = conf->nvenc.inputBuffer;
-    encPrm.input.otherPrm = &inputInfoAuo;
+    //encPrm.inputBuffer = conf->nvenc.inputBuffer;
+    encPrm.pPrivatePrm = &inputInfoAuo;
     encPrm.deviceID = 0;
     encPrm.outputFilename = pe->temp_filename;
     if (conf->vpp.resize_enable) {
@@ -208,7 +208,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     encPrm.lossless = std::get<0>(enc_mode_flags);
     encPrm.yuv444 = std::get<1>(enc_mode_flags);
     encPrm.encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 = std::get<2>(enc_mode_flags) ? 2 : 0;
-    encPrm.inputBuffer = 3;
+    //encPrm.inputBuffer = 3;
     memcpy(encPrm.par, conf->nvenc.par, sizeof(encPrm.par));
 
     if (!check_if_nvcuda_dll_available()) {
@@ -226,7 +226,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     int *jitter = NULL;
     
-    if (conf->vid.afs && is_interlaced(encPrm.picStruct)) {
+    if (conf->vid.afs && is_interlaced(conf->nvenc.pic_struct)) {
         ret |= AUO_RESULT_ERROR; error_afs_interlace_stg();
     } else if (conf->vid.afs && NULL == (inputInfoAuo.jitter = jitter = (int *)calloc(oip->n + 1, sizeof(int)))) {
         ret |= AUO_RESULT_ERROR; error_malloc_tc();

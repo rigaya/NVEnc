@@ -486,6 +486,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: input selected : %d.\n"), inputParam->input.type);
 
+    VideoInfo inputParamCopy = inputParam->input;
     m_pStatus.reset(new EncodeStatus());
     int ret = m_pFileReader->Init(inputParam->inputFilename.c_str(), &inputParam->input, pInputPrm, m_pNVLog, m_pStatus);
     if (ret != 0) {
@@ -494,6 +495,20 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
+
+    //ユーザー指定のオプションを必要に応じて復元する
+    if (inputParamCopy.picstruct != RGY_PICSTRUCT_UNKNOWN) {
+        inputParam->input.picstruct = inputParamCopy.picstruct;
+    }
+    if (inputParamCopy.fpsN * inputParamCopy.fpsD > 0) {
+        inputParam->input.fpsN = inputParamCopy.fpsN;
+        inputParam->input.fpsD = inputParamCopy.fpsD;
+    }
+    if (inputParamCopy.sar[0] * inputParamCopy.sar[1] > 0) {
+        inputParam->input.sar[0] = inputParamCopy.sar[0];
+        inputParam->input.sar[1] = inputParamCopy.sar[1];
+    }
+
 
     m_inputFps.first = inputParam->input.fpsN;
     m_inputFps.second = inputParam->input.fpsD;
@@ -566,6 +581,11 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FORMAT encBufferFormat) {
     int sts = 0;
     bool stdoutUsed = false;
+    const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
+        m_uEncWidth, m_uEncHeight,
+        &m_stEncConfig, m_stPicStruct,
+        get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight),
+        std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
 #if ENABLE_AVSW_READER
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =
@@ -578,11 +598,6 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->nAVMux &= ~RGY_MUX_VIDEO;
     //}
-    const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
-        m_uEncWidth, m_uEncHeight,
-        &m_stEncConfig, m_stPicStruct,
-        get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight),
-        std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
     if (inputParams->nAVMux & RGY_MUX_VIDEO) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
         m_pFileWriter = std::make_shared<RGYOutputAvcodec>();

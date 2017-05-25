@@ -155,7 +155,7 @@ public:
     }
 #pragma warning(pop)
 
-    RGY_ERR UpdateDisplay(double progressPercent = 0.0) {
+    virtual RGY_ERR UpdateDisplay(double progressPercent = 0.0) {
         if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
             return RGY_ERR_NONE;
         }

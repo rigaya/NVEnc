@@ -36,7 +36,7 @@
 #include "auo_conf.h"
 #include "auo_system.h"
 
-#include "convertCSP.h"
+#include "convert_csp.h"
 #include "rgy_input.h"
 #include "NVEncCore.h"
 
@@ -85,8 +85,8 @@ private:
 public:
     AuoInput();
     ~AuoInput();
-    virtual RGY_ERR Init(InputVideoInfo *inputPrm, shared_ptr<EncodeStatus> pStatus) override;
-    virtual RGY_ERR LoadNextFrame(void *dst, int dst_pitch) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 };
 
