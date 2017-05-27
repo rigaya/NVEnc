@@ -1688,8 +1688,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *pBitstream) {
         //空いているmfxBistreamを取り出す
         if (!qVideoQueueFree.front_copy_and_pop_no_lock(&copyStream) || copyStream.bufsize() < pBitstream->size()) {
             //空いているmfxBistreamがない、あるいはそのバッファサイズが小さい場合は、領域を取り直す
-            if (RGY_ERR_NONE != copyStream.init(pBitstream->size() * ((bFrameI | bFrameP) ? 2 : 8))) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for video bitstream output buffer.\n"));
+            const uint32_t allocate_bytes = pBitstream->size() * ((bFrameI | bFrameP) ? 2 : 8);
+            if (RGY_ERR_NONE != copyStream.init(allocate_bytes)) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for video bitstream output buffer, %sB.\n"), allocate_bytes);
                 m_Mux.format.bStreamError = true;
                 return RGY_ERR_MEMORY_ALLOC;
             }
