@@ -497,9 +497,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
 
     //ユーザー指定のオプションを必要に応じて復元する
-    if (inputParamCopy.picstruct != RGY_PICSTRUCT_UNKNOWN) {
-        inputParam->input.picstruct = inputParamCopy.picstruct;
-    }
+    inputParam->input.picstruct = inputParamCopy.picstruct;
     if (inputParamCopy.fpsN * inputParamCopy.fpsD > 0) {
         inputParam->input.fpsN = inputParamCopy.fpsN;
         inputParam->input.fpsD = inputParamCopy.fpsD;
