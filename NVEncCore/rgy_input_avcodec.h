@@ -769,6 +769,8 @@ public:
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
 
+    void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
+
     //avcodecのコーデックIDからHWデコード可能ならRGY_CODECを返す
     RGY_CODEC checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt);
 

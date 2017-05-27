@@ -164,6 +164,16 @@ void RGYInputAvcodec::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
+void RGYInputAvcodec::SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size) {
+    if (data == nullptr || size == 0)
+        return;
+    if (pCodecParam->extradata)
+        av_free(pCodecParam->extradata);
+    pCodecParam->extradata_size = size;
+    pCodecParam->extradata      = (uint8_t *)av_malloc(pCodecParam->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+    memcpy(pCodecParam->extradata, data, size);
+};
+
 RGY_CODEC RGYInputAvcodec::checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt) {
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         if (HW_DECODE_LIST[i].avcodec_id == id) {
@@ -866,7 +876,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         }
 
         //必要ならbitstream filterを初期化
-        if (bDecodecHW && m_Demux.video.pStream->codecpar->extradata && m_Demux.video.pStream->codecpar->extradata[0] == 1) {
+        if (m_Demux.video.pStream->codecpar->extradata && m_Demux.video.pStream->codecpar->extradata[0] == 1) {
             if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_H264 ||
                 m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
                 const char *filtername = nullptr;
@@ -950,7 +960,17 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_NULL_PTR;
             }
-            if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.pCodecCtxParser, m_Demux.video.pStream->codecpar))) {
+            unique_ptr_custom<AVCodecParameters> codecParamCopy(avcodec_parameters_alloc(), [](AVCodecParameters *pCodecPar) {
+                avcodec_parameters_free(&pCodecPar);
+            });
+            if (0 > (ret = avcodec_parameters_copy(codecParamCopy.get(), m_Demux.video.pStream->codecpar))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            if (m_Demux.video.pBsfcCtx) {
+                SetExtraData(codecParamCopy.get(), m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
+            }
+            if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.pCodecCtxParser, codecParamCopy.get()))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to set codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
@@ -1060,7 +1080,17 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to allocate decoder"), m_Demux.video.pStream->codecpar->codec_id).c_str());
                 return RGY_ERR_NULL_PTR;
             }
-            if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.pCodecCtxDecode, m_Demux.video.pStream->codecpar))) {
+            unique_ptr_custom<AVCodecParameters> codecParamCopy(avcodec_parameters_alloc(), [](AVCodecParameters *pCodecPar) {
+                avcodec_parameters_free(&pCodecPar);
+            });
+            if (0 > (ret = avcodec_parameters_copy(codecParamCopy.get(), m_Demux.video.pStream->codecpar))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            if (m_Demux.video.pBsfcCtx) {
+                SetExtraData(codecParamCopy.get(), m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
+            }
+            if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.pCodecCtxDecode, codecParamCopy.get()))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to set codec param to context for decoder: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
@@ -1334,17 +1364,9 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
                 pos.poc = FRAMEPOS_POC_INVALID;
                 pos.flags = (uint8_t)pkt->flags;
                 if (m_Demux.video.pParserCtx) {
-                    if (m_Demux.video.pBsfcCtx) {
-                        std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtxParser->extradata);
-                        std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtxParser->extradata_size);
-                    }
                     uint8_t *dummy = nullptr;
                     int dummy_size = 0;
                     av_parser_parse2(m_Demux.video.pParserCtx, m_Demux.video.pCodecCtxParser, &dummy, &dummy_size, pkt->data, pkt->size, pkt->pts, pkt->dts, pkt->pos);
-                    if (m_Demux.video.pBsfcCtx) {
-                        std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtxParser->extradata);
-                        std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtxParser->extradata_size);
-                    }
                     pos.pict_type = (uint8_t)(std::max)(m_Demux.video.pParserCtx->pict_type, 0);
                     switch (m_Demux.video.pParserCtx->picture_structure) {
                     //フィールドとして符号化されている

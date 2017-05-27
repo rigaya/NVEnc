@@ -40,6 +40,7 @@
 #include <string>
 #include <chrono>
 #include <memory>
+#include <functional>
 #include <type_traits>
 #include "rgy_osdep.h"
 #include "cpu_info.h"
@@ -143,6 +144,9 @@ static void rgy_free(T& ptr) {
         ptr = nullptr;
     }
 }
+
+template<typename T>
+using unique_ptr_custom = std::unique_ptr<T, std::function<void(T*)>>;
 
 struct aligned_malloc_deleter {
     void operator()(void* ptr) const {
