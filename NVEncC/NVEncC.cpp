@@ -2184,6 +2184,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         if (value == desc[get_cx_index(desc, value)].value) {
                             *levelValue = value;
                             bParsed = true;
+                        } else {
+                            value = (int)(val_float + 0.5);
+                            if (value == desc[get_cx_index(desc, value)].value) {
+                                *levelValue = value;
+                                bParsed = true;
+                            }
                         }
                     }
                 }
