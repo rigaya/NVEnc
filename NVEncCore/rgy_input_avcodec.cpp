@@ -1631,7 +1631,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
                 m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, m_Demux.video.pStream->codecpar->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
             }
             memcpy(m_Demux.video.pExtradata, pkt.data, pkt.size);
-            AddMessage(RGY_LOG_DEBUG, _T("GetHeader: changed %d bytes -> %d bytes by h264_mp4toannexb.\n"), m_Demux.video.nExtradataSize, pkt.size);
+            AddMessage(RGY_LOG_DEBUG, _T("GetHeader: changed %d bytes -> %d bytes by %s.\n"), m_Demux.video.nExtradataSize, pkt.size, char_to_tstring(pBsf->name).c_str());
             m_Demux.video.nExtradataSize = pkt.size;
             av_packet_unref(&pkt);
         } else if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_VC1) {
