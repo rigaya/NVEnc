@@ -1428,7 +1428,7 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
     if (bGetPacket) {
         if (pkt.data) {
             auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
-            sts = pBitstream->set(pkt.data, pkt.size, pkt.dts, pts);
+            sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
         }
         av_packet_unref(&pkt);
         m_Demux.video.nSampleGetCount++;
@@ -1454,7 +1454,7 @@ RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
     if (bGetPacket) {
         if (pkt.data) {
             auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
-            sts = pBitstream->set(pkt.data, pkt.size, pkt.dts, pts);
+            sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
         }
     }
     return sts;
@@ -1641,7 +1641,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
         AddMessage(RGY_LOG_DEBUG, _T("GetHeader: %d bytes.\n"), m_Demux.video.nExtradataSize);
     }
 
-    pBitstream->set(m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
+    pBitstream->copy(m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
     return RGY_ERR_NONE;
 }
 

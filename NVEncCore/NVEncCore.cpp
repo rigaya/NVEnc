@@ -1126,8 +1126,8 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, &lockBitstreamData);
     if (nvStatus == NV_ENC_SUCCESS) {
         RGYBitstream bitstream = RGYBitstreamInit(lockBitstreamData);
-        nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
         m_pFileWriter->WriteNextFrame(&bitstream);
+        nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
     } else {
         NVPrintFuncError(_T("nvEncLockBitstream"), nvStatus);
         return nvStatus;

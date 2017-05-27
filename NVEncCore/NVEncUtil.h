@@ -179,7 +179,7 @@ public:
     }
 
     void clear() {
-        if (dataptr) {
+        if (dataptr && maxLength) {
             _aligned_free(dataptr);
         }
         dataptr = nullptr;
@@ -201,7 +201,7 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR set(const uint8_t *setData, uint32_t setSize) {
+    RGY_ERR copy(const uint8_t *setData, uint32_t setSize) {
         if (setData == nullptr || setSize == 0) {
             return RGY_ERR_MORE_BITSTREAM;
         }
@@ -218,8 +218,27 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR set(const uint8_t *setData, uint32_t setSize, int64_t dts, int64_t pts) {
-        auto sts = set(setData, setSize);
+    RGY_ERR copy(const uint8_t *setData, uint32_t setSize, int64_t dts, int64_t pts) {
+        auto sts = copy(setData, setSize);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        dataDts = dts;
+        dataPts = pts;
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR ref(uint8_t *refData, uint32_t refSize) {
+        clear();
+        dataptr = refData;
+        dataLength = refSize;
+        dataOffset = 0;
+        maxLength = 0;
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR ref(uint8_t *refData, uint32_t refSize, int64_t dts, int64_t pts) {
+        auto sts = ref(refData, refSize);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -229,7 +248,7 @@ public:
     }
 
     RGY_ERR copy(const RGYBitstream *pBitstream) {
-        auto sts = set(pBitstream->data(), pBitstream->size());
+        auto sts = copy(pBitstream->data(), pBitstream->size());
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -355,17 +374,17 @@ static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type
 
 static inline RGY_FRAMETYPE frametype_enc_to_rgy(const NV_ENC_PIC_TYPE frametype) {
     RGY_FRAMETYPE type = RGY_FRAMETYPE_UNKNOWN;
-    type |=  (NV_ENC_PIC_TYPE_IDR == frametype) ? RGY_FRAMETYPE_IDR : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (NV_ENC_PIC_TYPE_I   == frametype) ? RGY_FRAMETYPE_I   : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (NV_ENC_PIC_TYPE_P   == frametype) ? RGY_FRAMETYPE_P   : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (NV_ENC_PIC_TYPE_B   == frametype) ? RGY_FRAMETYPE_B   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (frametype == NV_ENC_PIC_TYPE_IDR) ? RGY_FRAMETYPE_IDR : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (frametype == NV_ENC_PIC_TYPE_I  ) ? RGY_FRAMETYPE_I   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (frametype == NV_ENC_PIC_TYPE_P  ) ? RGY_FRAMETYPE_P   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (frametype == NV_ENC_PIC_TYPE_B  ) ? RGY_FRAMETYPE_B   : RGY_FRAMETYPE_UNKNOWN;
     return type;
 }
 
 static inline RGYBitstream RGYBitstreamInit(const NV_ENC_LOCK_BITSTREAM& nv_bitstream) {
     RGYBitstream bitstream;
     memset(&bitstream, 0, sizeof(bitstream));
-    bitstream.set((const uint8_t *)nv_bitstream.bitstreamBufferPtr, nv_bitstream.bitstreamSizeInBytes, (int64_t)0, (int64_t)nv_bitstream.outputTimeStamp);
+    bitstream.ref((uint8_t *)nv_bitstream.bitstreamBufferPtr, nv_bitstream.bitstreamSizeInBytes, (int64_t)0, (int64_t)nv_bitstream.outputTimeStamp);
     bitstream.setAvgQP(nv_bitstream.frameAvgQP);
     bitstream.setFrametype(frametype_enc_to_rgy(nv_bitstream.pictureType));
     bitstream.setPicstruct(picstruct_enc_to_rgy(nv_bitstream.pictureStruct));
