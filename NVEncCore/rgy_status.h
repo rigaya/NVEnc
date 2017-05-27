@@ -121,15 +121,15 @@ public:
         m_sData.frameOutI      += (picType & RGY_FRAMETYPE_IDR) >> 7;
         m_sData.frameOutI      += (picType & RGY_FRAMETYPE_I);
         m_sData.frameOutP      += (picType & RGY_FRAMETYPE_P) >> 1;
-        m_sData.frameOutB      += (picType & RGY_FRAMETYPE_I) >> 2;
+        m_sData.frameOutB      += (picType & RGY_FRAMETYPE_B) >> 2;
         m_sData.frameOutISize  += (0-((picType & RGY_FRAMETYPE_IDR) >> 7)) & outputBytes;
         m_sData.frameOutISize  += (0- (picType & RGY_FRAMETYPE_I))         & outputBytes;
         m_sData.frameOutPSize  += (0-((picType & RGY_FRAMETYPE_P)   >> 1)) & outputBytes;
-        m_sData.frameOutBSize  += (0-((picType & RGY_FRAMETYPE_I)   >> 2)) & outputBytes;
+        m_sData.frameOutBSize  += (0-((picType & RGY_FRAMETYPE_B)   >> 2)) & outputBytes;
         m_sData.frameOutIQPSum += (0-((picType & RGY_FRAMETYPE_IDR) >> 7)) & frameAvgQP;
         m_sData.frameOutIQPSum += (0- (picType & RGY_FRAMETYPE_I))         & frameAvgQP;
         m_sData.frameOutPQPSum += (0-((picType & RGY_FRAMETYPE_P)   >> 1)) & frameAvgQP;
-        m_sData.frameOutBQPSum += (0-((picType & RGY_FRAMETYPE_I)   >> 2)) & frameAvgQP;
+        m_sData.frameOutBQPSum += (0-((picType & RGY_FRAMETYPE_B)   >> 2)) & frameAvgQP;
     }
 #pragma warning(push)
 #pragma warning(disable: 4100)
