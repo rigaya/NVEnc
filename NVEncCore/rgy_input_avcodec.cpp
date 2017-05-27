@@ -1166,8 +1166,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
 
         //スレッド関連初期化
         m_Demux.thread.bAbortInput = false;
-        auto nPrmInputThread = input_prm->nInputThread;
 #if ENCODER_QSV
+        auto nPrmInputThread = input_prm->nInputThread;
         m_Demux.thread.nInputThread = ((nPrmInputThread == RGY_INPUT_THREAD_AUTO) | (m_Demux.video.pStream != nullptr)) ? 0 : nPrmInputThread;
 #else
         //NVEncではいまのところ、常に無効

@@ -87,7 +87,7 @@ static const CodecMap HW_DECODE_LIST[] = {
     //{ AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4   },
 };
 
-static const AVPixelFormat HW_DECODE_PIXFMT_LIST[] ={
+static const AVPixelFormat HW_DECODE_PIXFMT_LIST[] = {
     AV_PIX_FMT_YUV420P,
     AV_PIX_FMT_YUVJ420P,
     AV_PIX_FMT_NV12,

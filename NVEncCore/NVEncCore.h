@@ -99,7 +99,7 @@ private:
 };
 
 struct InEncodeVideoParam {
-    VideoInfo input;         //入力する動画の情報
+    VideoInfo input;              //入力する動画の情報
     tstring inputFilename;        //入力ファイル名
     tstring outputFilename;       //出力ファイル名
     tstring sAVMuxOutputFormat;   //出力フォーマット
