@@ -64,6 +64,7 @@ NVEncを使用したことによる、いかなる損害・トラブルについ
   - MPEG1
   - MPEG2
   - H.264/AVC
+  - HEVC
 - avs, vpy, y4m, rawなど各種形式に対応
 - GPUを使用した高速フィルタリング
   - cuvid内蔵のhw処理
