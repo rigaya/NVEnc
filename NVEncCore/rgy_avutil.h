@@ -71,16 +71,29 @@ typedef struct CodecMap {
 } CodecMap;
 
 //QSVでデコード可能なコーデックのリスト
-static const CodecMap HW_DECODE_LIST[] ={
+static const CodecMap HW_DECODE_LIST[] = {
     { AV_CODEC_ID_H264,       RGY_CODEC_H264 },
     { AV_CODEC_ID_HEVC,       RGY_CODEC_HEVC },
-    { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
     { AV_CODEC_ID_MPEG2VIDEO, RGY_CODEC_MPEG2 },
     { AV_CODEC_ID_VP8,        RGY_CODEC_VP8 },
     { AV_CODEC_ID_VP9,        RGY_CODEC_VP9 },
-    //{ AV_CODEC_ID_VC1,        RGY_CODEC_VC1   },
+#if ENCODER_QSV
+    { AV_CODEC_ID_VC1,        RGY_CODEC_VC1 },
+#endif
+#if ENCODER_NVENC
+    { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
+#endif
     //{ AV_CODEC_ID_WMV3,       RGY_CODEC_VC1   },
     //{ AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4   },
+};
+
+static const AVPixelFormat HW_DECODE_PIXFMT_LIST[] ={
+    AV_PIX_FMT_YUV420P,
+    AV_PIX_FMT_YUVJ420P,
+    AV_PIX_FMT_NV12,
+#if ENCODER_QSV
+    AV_PIX_FMT_YUV420P10LE,
+#endif
 };
 
 static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");

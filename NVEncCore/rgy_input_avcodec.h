@@ -770,7 +770,7 @@ protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
 
     //avcodecのコーデックIDからHWデコード可能ならRGY_CODECを返す
-    RGY_CODEC checkHWDecoderAvailable(AVCodecID id);
+    RGY_CODEC checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt);
 
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
     //動画ストリーム以外は、vidStreamIdに近いstreamIDのものの順番にソートする

@@ -164,10 +164,16 @@ void RGYInputAvcodec::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-RGY_CODEC RGYInputAvcodec::checkHWDecoderAvailable(AVCodecID id) {
-    for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
-        if (HW_DECODE_LIST[i].avcodec_id == id)
-            return HW_DECODE_LIST[i].rgy_codec;
+RGY_CODEC RGYInputAvcodec::checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt) {
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
+        if (HW_DECODE_LIST[i].avcodec_id == id) {
+            if (std::end(HW_DECODE_PIXFMT_LIST)
+                != std::find(std::begin(HW_DECODE_PIXFMT_LIST), std::end(HW_DECODE_PIXFMT_LIST), pixfmt)) {
+                return HW_DECODE_LIST[i].rgy_codec;
+            }
+            return RGY_CODEC_UNKNOWN;
+        }
+    }
     return RGY_CODEC_UNKNOWN;
 }
 
@@ -826,7 +832,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
 
         bool bDecodecHW = false;
         if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
-            if (RGY_CODEC_UNKNOWN == (m_inputVideoInfo.codec = checkHWDecoderAvailable(m_Demux.video.pStream->codecpar->codec_id))
+            if (RGY_CODEC_UNKNOWN == (m_inputVideoInfo.codec = checkHWDecoderAvailable(m_Demux.video.pStream->codecpar->codec_id, (AVPixelFormat)m_Demux.video.pStream->codecpar->format))
                 //wmv3はAdvanced Profile (3)のみの対応
                 || (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pStream->codecpar->profile != 3)) {
                 if (m_inputVideoInfo.type == RGY_INPUT_FMT_AVHW) {
