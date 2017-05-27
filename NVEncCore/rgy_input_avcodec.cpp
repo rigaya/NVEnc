@@ -1678,10 +1678,8 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
                 av_packet_unref(&pkt);
             }
             if (ret == AVERROR_EOF) { //これ以上パケットを送れない
-                AddMessage(RGY_LOG_ERROR, _T("failed to send packet to video decoder, already flushed: %s.\n"), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNDEFINED_BEHAVIOR;
-            }
-            if (ret < 0 && ret != AVERROR(EAGAIN)) {
+                AddMessage(RGY_LOG_DEBUG, _T("failed to send packet to video decoder, already flushed: %s.\n"), qsv_av_err2str(ret).c_str());
+            } else if (ret < 0 && ret != AVERROR(EAGAIN)) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to send packet to video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
