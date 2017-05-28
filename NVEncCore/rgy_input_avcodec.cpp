@@ -1117,12 +1117,11 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
 
             const auto pixCspConv = csp_avpixfmt_to_rgy(m_Demux.video.pCodecCtxDecode->pix_fmt);
             if (pixCspConv == RGY_CSP_NA
-                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv, pixfmtData->output_csp, false))) {
+                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv, m_inputVideoInfo.csp, false))) {
                 AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
             m_InputCsp = pixCspConv;
-            m_inputVideoInfo.csp = pixfmtData->output_csp;
             if (nullptr == (m_Demux.video.pFrame = av_frame_alloc())) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
                 return RGY_ERR_NULL_PTR;
