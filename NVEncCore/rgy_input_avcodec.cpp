@@ -928,10 +928,13 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         //ヘッダーの取得を確認する
         RGY_ERR sts = RGY_ERR_NONE;
         RGYBitstream bitstream = RGYBitstreamInit();
-        if (m_Demux.video.pStream->codecpar->extradata
-            && RGY_ERR_NONE != (sts = GetHeader(&bitstream))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to get header.\n"));
-            return sts;
+        if (m_Demux.video.pStream->codecpar->extradata) {
+            if (RGY_ERR_NONE != (sts = GetHeader(&bitstream))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to get header.\n"));
+                return sts;
+            }
+            m_inputVideoInfo.codecExtra = m_Demux.video.pExtradata;
+            m_inputVideoInfo.codecExtraSize = m_Demux.video.nExtradataSize;
         }
         if (input_prm->fSeekSec > 0.0f) {
             AVPacket firstpkt;
