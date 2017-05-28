@@ -2914,7 +2914,11 @@ NVENCSTATUS NVEncCore::Encode() {
             NVEncCtxAutoLock(ctxlock(m_ctxLock));
             int nOutFrames = 0;
             FrameInfo *outInfo[16] = { 0 };
-            m_vpFilters[ifilter]->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
+            auto sts_filter = m_vpFilters[ifilter]->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
+            if (sts_filter != NV_ENC_SUCCESS) {
+                PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
+                return sts_filter;
+            }
             if (nOutFrames != 1) {
                 PrintMes(RGY_LOG_ERROR, _T("Currently only simple filters are supported.\n"));
                 return NV_ENC_ERR_UNIMPLEMENTED;
@@ -2974,7 +2978,11 @@ NVENCSTATUS NVEncCore::Encode() {
             }
             //エンコードバッファのポインタを渡す
             outInfo[0] = &encFrameInfo;
-            lastFilter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
+            auto sts_filter = lastFilter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
+            if (sts_filter != NV_ENC_SUCCESS) {
+                PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
+                return sts_filter;
+            }
             cudaThreadSynchronize();
             if (!pEncodeBuffer->stInputBfr.pNV12devPtr) {
                 NvEncUnlockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface);
