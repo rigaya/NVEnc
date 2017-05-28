@@ -2403,24 +2403,51 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
     }
     //最後のフィルタ
-    unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
-    shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
-    //avcuivd読みでは読み込み時にcropが適用されるないため
-    //ここまでフィルタが使われていなければ、ここでcropを適用する必要がある
-    if (m_vpFilters.size() == 0 && cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-        param->crop = inputParam->input.crop;
+    {
+        unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
+        shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
+        //avcuivd読みでは読み込み時にcropが適用されるないため
+        //ここまでフィルタが使われていなければ、ここでcropを適用する必要がある
+        if (m_vpFilters.size() == 0 && cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
+            param->crop = inputParam->input.crop;
+        }
+        param->frameIn = inputFrame;
+        param->frameOut.csp = GetEncoderCSP(inputParam);
+        //インタレ保持であれば、CPU側にフレームを戻す必要がある
+        //色空間が同じなら、ここでやってしまう
+        param->frameOut.deivce_mem = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && param->frameIn.csp == param->frameOut.csp) ? false : true;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_ctxLock));
+        auto sts = filterCrop->init(param, m_pNVLog);
+        if (sts != NV_ENC_SUCCESS) {
+            return sts;
+        }
+        m_vpFilters.push_back(std::move(filterCrop));
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
     }
-    param->frameIn = inputFrame;
-    param->frameOut.csp = GetEncoderCSP(inputParam);
-    param->frameOut.deivce_mem = true;
-    param->bOutOverwrite = false;
-    NVEncCtxAutoLock(cxtlock(m_ctxLock));
-    auto sts = filterCrop->init(param, m_pNVLog);
-    if (sts != NV_ENC_SUCCESS) {
-        return sts;
+
+    //インタレ保持の場合は、CPU側に戻す必要がある
+    if (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && m_pLastFilterParam->frameOut.deivce_mem) {
+        unique_ptr<NVEncFilter> filterCopyDtoH(new NVEncFilterCspCrop());
+        shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->frameOut.deivce_mem = false;
+        param->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_ctxLock));
+        auto sts = filterCopyDtoH->init(param, m_pNVLog);
+        if (sts != NV_ENC_SUCCESS) {
+            return sts;
+        }
+        //フィルタチェーンに追加
+        m_vpFilters.push_back(std::move(filterCopyDtoH));
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
     }
-    m_vpFilters.push_back(std::move(filterCrop));
-    m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
     //パフォーマンスチェックを行うかどうか
     for (auto& filter : m_vpFilters) {
         filter->CheckPerformance(inputParam->vpp.bCheckPerformance);
