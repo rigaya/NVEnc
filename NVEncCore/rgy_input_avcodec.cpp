@@ -1661,8 +1661,46 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
             vc1FixHeader(lengthFix);
         }
         AddMessage(RGY_LOG_DEBUG, _T("GetHeader: %d bytes.\n"), m_Demux.video.nExtradataSize);
-    }
 
+        //抽出されたextradataが大きすぎる場合、適当に縮める
+        //NVEncのデコーダが受け取れるヘッダは1024byteまで
+        if (m_Demux.video.nExtradataSize > 1024) {
+            if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_H264) {
+                std::vector<nal_info> nal_list = parse_nal_unit_h264(m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
+                const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
+                const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
+                const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
+                if (header_check) {
+                    m_Demux.video.nExtradataSize = h264_sps_nal->size + h264_pps_nal->size;
+                    uint8_t *new_ptr = (uint8_t *)av_malloc(m_Demux.video.nExtradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
+                    memcpy(new_ptr, h264_sps_nal->ptr, h264_sps_nal->size);
+                    memcpy(new_ptr + h264_sps_nal->size, h264_pps_nal->ptr, h264_pps_nal->size);
+                    if (m_Demux.video.pExtradata) {
+                        av_free(m_Demux.video.pExtradata);
+                    }
+                    m_Demux.video.pExtradata = new_ptr;
+                }
+            } else if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+                std::vector<nal_info> nal_list = parse_nal_unit_hevc(m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
+                const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+                const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+                const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+                const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
+                if (header_check) {
+                    m_Demux.video.nExtradataSize = hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size;
+                    uint8_t *new_ptr = (uint8_t *)av_malloc(m_Demux.video.nExtradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
+                    memcpy(new_ptr, hevc_vps_nal->ptr, hevc_vps_nal->size);
+                    memcpy(new_ptr + hevc_vps_nal->size, hevc_sps_nal->ptr, hevc_sps_nal->size);
+                    memcpy(new_ptr + hevc_vps_nal->size + hevc_sps_nal->size, hevc_pps_nal->ptr, hevc_pps_nal->size);
+                    if (m_Demux.video.pExtradata) {
+                        av_free(m_Demux.video.pExtradata);
+                    }
+                    m_Demux.video.pExtradata = new_ptr;
+                }
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("GetHeader: shrinked header to %d bytes.\n"), m_Demux.video.nExtradataSize);
+        }
+    }
     pBitstream->copy(m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
     return RGY_ERR_NONE;
 }
