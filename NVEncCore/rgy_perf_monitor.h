@@ -80,6 +80,7 @@ enum : int {
     PERF_MONITOR_QUEUE_AUD_IN  = 0x00400000,
     PERF_MONITOR_QUEUE_AUD_OUT = 0x00800000,
     PERF_MONITOR_MFX_LOAD      = 0x01000000,
+    PERF_MONITOR_VE_LOAD       = 0x02000000,
     PERF_MONITOR_ALL         = (int)UINT_MAX,
 };
 
@@ -106,12 +107,13 @@ static const CX_DESC list_pref_monitor[] = {
     { _T("bitrate"),     PERF_MONITOR_BITRATE },
     { _T("bitrate_avg"), PERF_MONITOR_BITRATE_AVG },
     { _T("frame_out"),   PERF_MONITOR_FRAME_OUT },
-    { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_GPU_CLOCK },
+    { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_VE_LOAD | PERF_MONITOR_GPU_CLOCK },
     { _T("gpu_load"),    PERF_MONITOR_GPU_LOAD },
     { _T("gpu_clock"),   PERF_MONITOR_GPU_CLOCK },
 #if ENABLE_METRIC_FRAMEWORK
     { _T("mfx"),         PERF_MONITOR_MFX_LOAD },
 #endif
+    { _T("ve"),          PERF_MONITOR_VE_LOAD },
     { _T("queue"),       PERF_MONITOR_QUEUE_VID_IN | PERF_MONITOR_QUEUE_VID_OUT | PERF_MONITOR_QUEUE_AUD_IN | PERF_MONITOR_QUEUE_AUD_OUT },
     { nullptr, 0 }
 };
@@ -162,6 +164,8 @@ struct PerfInfo {
     double  gpu_clock;
 
     double  mfx_load_percent;
+
+    double  ve_load_percent;
 };
 
 struct PerfOutputInfo {

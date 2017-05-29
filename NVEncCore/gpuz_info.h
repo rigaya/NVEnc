@@ -60,6 +60,7 @@ struct GPUZ_SH_MEM {
 int get_gpuz_info(GPUZ_SH_MEM *data);
 double gpu_core_clock(GPUZ_SH_MEM *data);
 double gpu_load(GPUZ_SH_MEM *data);
+double video_engine_load(GPUZ_SH_MEM *data, bool *pbVideoEngineUsage);
 
 #endif //#if (defined(_WIN32) || defined(_WIN64))
 

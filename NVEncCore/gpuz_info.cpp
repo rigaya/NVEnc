@@ -84,4 +84,15 @@ double gpu_load(GPUZ_SH_MEM *data) {
     return 0.0;
 }
 
+double video_engine_load(GPUZ_SH_MEM *data, bool *pbVideoEngineUsage) {
+    for (int i = 0; i < MAX_RECORDS; i++) {
+        if (wcsistr(data->sensors[i].name, L"Video Engine Load")) {
+            if (pbVideoEngineUsage) *pbVideoEngineUsage = true;
+            return data->sensors[i].value;
+        }
+    }
+    if (pbVideoEngineUsage) *pbVideoEngineUsage = false;
+    return 0.0;
+}
+
 #endif //#if (defined(_WIN32) || defined(_WIN64))

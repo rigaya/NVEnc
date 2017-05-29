@@ -278,6 +278,9 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     if (nSelect & PERF_MONITOR_MFX_LOAD) {
         str += ",mfx load (%)";
     }
+    if (nSelect & PERF_MONITOR_VE_LOAD) {
+        str += ",video engine load (%)";
+    }
     if (nSelect & PERF_MONITOR_QUEUE_VID_IN) {
         str += ",queue vid in";
     }
@@ -563,10 +566,12 @@ void CPerfMonitor::check() {
 #endif //#if ENABLE_METRIC_FRAMEWORK
         pInfoNew->gpu_clock = 0.0;
         pInfoNew->gpu_load_percent = 0.0;
+        pInfoNew->ve_load_percent = 0.0;
         GPUZ_SH_MEM gpu_info = { 0 };
         if (0 == get_gpuz_info(&gpu_info)) {
             pInfoNew->gpu_info_valid = TRUE;
             pInfoNew->gpu_load_percent = gpu_load(&gpu_info);
+            pInfoNew->ve_load_percent = video_engine_load(&gpu_info, nullptr);
             pInfoNew->gpu_clock = gpu_core_clock(&gpu_info);
         }
 #if ENABLE_METRIC_FRAMEWORK
@@ -783,6 +788,9 @@ void CPerfMonitor::write(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_MFX_LOAD) {
         str += strsprintf(",%lf", pInfo->mfx_load_percent);
+    }
+    if (nSelect & PERF_MONITOR_VE_LOAD) {
+        str += strsprintf(",%lf", pInfo->ve_load_percent);
     }
     if (nSelect & PERF_MONITOR_QUEUE_VID_IN) {
         str += strsprintf(",%d", (int)m_QueueInfo.usage_vid_in);
