@@ -1103,10 +1103,7 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
             pMuxSub->pStreamOut->codecpar->codec_tag = srcCodecParam->codec_tag;
         }
     }
-    //字幕のtimebaseをmp4/mov系の際は動画にそろえるように
-    //よくわからないエラーが発生することがある
-    const AVRational vid_pkt_timebase = (m_Mux.video.pCodecCtx) ? m_Mux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Mux.video.nFPS);
-    pMuxSub->pStreamOut->time_base              = (codecId == AV_CODEC_ID_MOV_TEXT) ? vid_pkt_timebase : pMuxSub->pStreamIn->time_base;
+    pMuxSub->pStreamOut->time_base              = pMuxSub->pStreamIn->time_base;
     pMuxSub->pStreamOut->start_time             = 0;
     pMuxSub->pStreamOut->codecpar->width        = srcCodecParam->width;
     pMuxSub->pStreamOut->codecpar->height       = srcCodecParam->height;
