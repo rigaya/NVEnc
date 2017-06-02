@@ -1145,7 +1145,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         m_inputVideoInfo.fpsD        = m_Demux.video.nAvgFramerate.den;
 
         if (bDecodecHW) {
-            tstring mes = strsprintf(_T("avcuvid: %s, %dx%d, %d/%d fps"),
+            tstring mes = strsprintf(_T("av" DECODER_NAME ": %s, %dx%d, %d/%d fps"),
                 CodecToStr(m_inputVideoInfo.codec).c_str(),
                 m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
             if (input_prm->fSeekSec > 0.0f) {
