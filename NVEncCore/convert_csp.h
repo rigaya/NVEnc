@@ -1,10 +1,10 @@
 ﻿// -----------------------------------------------------------------------------------------
-// NVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 //
 // The MIT License
 //
-// Copyright (c) 2014-2016 rigaya
+// Copyright (c) 2011-2016 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@
 #define _CONVERT_CSP_H_
 
 #include <cstdint>
-#include <tchar.h>
+#include "rgy_tchar.h"
 
 typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
@@ -47,6 +47,7 @@ enum RGY_CSP {
     RGY_CSP_YV12_14,
     RGY_CSP_YV12_16,
     RGY_CSP_P010,
+    RGY_CSP_P210,
     RGY_CSP_YUV444_09,
     RGY_CSP_YUV444_10,
     RGY_CSP_YUV444_12,
@@ -70,11 +71,14 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yv12(14bit)"),
     _T("yv12(16bit)"),
     _T("p010"),
+    _T("p210"),
     _T("yuv444(9bit)"),
     _T("yuv444(10bit)"),
     _T("yuv444(12bit)"),
     _T("yuv444(14bit)"),
     _T("yuv444(16bit)"),
+    _T("rgb3"),
+    _T("rgb4"),
     _T("yc48")
 };
 
@@ -91,11 +95,14 @@ static const int RGY_CSP_BIT_DEPTH[] = {
     14,
     16, //RGY_CSP_YV12_16
     16, //RGY_CSP_P010
+    16, //RGY_CSP_P210
      9, //RGY_CSP_YUV444_09
     10,
     12,
     14,
     16, //RGY_CSP_YUV444_16
+     8, //RGY_CSP_RGB3
+     8, //RGY_CSP_RGB4
     10, //RGY_CSP_YC48
 };
 

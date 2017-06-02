@@ -94,7 +94,7 @@ static const int UV_L_YCC_8       = 16;
 static const int UV_L_YCC_10      = UV_L_YCC_8<<2;
 static const int UV_L_YCC_16      = UV_L_YCC_8<<8;
 
-#define ALIGN32_CONST_ARRAY static const _declspec(align(32))
+#define ALIGN32_CONST_ARRAY alignas(32) static const
 
 ALIGN32_CONST_ARRAY short Array_Y_L_MA_8[16]        = { Y_L_MUL,  Y_L_ADD_8,       Y_L_MUL,   Y_L_ADD_8,        Y_L_MUL,  Y_L_ADD_8,        Y_L_MUL,  Y_L_ADD_8,       Y_L_MUL,  Y_L_ADD_8,       Y_L_MUL,   Y_L_ADD_8,        Y_L_MUL,  Y_L_ADD_8,        Y_L_MUL,  Y_L_ADD_8       };
 ALIGN32_CONST_ARRAY short Array_UV_L_MA_8_420P[16]  = {UV_L_MUL, UV_L_ADD_8_420P, UV_L_MUL,  UV_L_ADD_8_420P,  UV_L_MUL, UV_L_ADD_8_420P,  UV_L_MUL, UV_L_ADD_8_420P, UV_L_MUL, UV_L_ADD_8_420P, UV_L_MUL,  UV_L_ADD_8_420P,  UV_L_MUL, UV_L_ADD_8_420P,  UV_L_MUL, UV_L_ADD_8_420P  };
@@ -133,7 +133,7 @@ ALIGN32_CONST_ARRAY uint8_t  Array_SUFFLE_YCP_C[16] = {
 //    {1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3},
 //    {3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1}
 //};
-#ifdef _INCLUDED_IMM //AVX2
+#if USE_AVX2
 
 #define yC_Y_L_MA_8           _mm256_load_si256((__m256i*) Array_Y_L_MA_8)
 #define yC_UV_L_MA_8_420P     _mm256_load_si256((__m256i*)Array_UV_L_MA_8_420P)
@@ -171,6 +171,6 @@ ALIGN32_CONST_ARRAY uint8_t  Array_SUFFLE_YCP_C[16] = {
 #define xC_MASK_YCP2UV(i)      _mm_load_si128((__m128i*)Array_MASK_YCP2UV[i])
 #define xC_SUFFLE_YCP_Y        _mm_load_si128((__m128i*)Array_SUFFLE_YCP_Y)
 
-#endif //_INCLUDED_IMM
+#endif //#if USE_AVX2
 
 #endif //_CONVERT_CONST_H_
