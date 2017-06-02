@@ -923,7 +923,7 @@ static const ConvertCSP funcList[] = {
     { RGY_CSP_YV12_14,   RGY_CSP_P010,      false, { convert_yv12_14_to_p010_sse2,        convert_yv12_14_to_p010_sse2        }, SSE2 },
     { RGY_CSP_YV12_12,   RGY_CSP_P010,      false, { convert_yv12_12_to_p010_avx2,        convert_yv12_12_to_p010_avx2        }, AVX2|AVX },
     { RGY_CSP_YV12_12,   RGY_CSP_P010,      false, { convert_yv12_12_to_p010_sse2,        convert_yv12_12_to_p010_sse2        }, SSE2 },
-    { RGY_CSP_YV12_10,   RGY_CSP_P010,      false, { convert_yv12_10_to_p010_sse2,        convert_yv12_10_to_p010_sse2        }, AVX2|AVX },
+    { RGY_CSP_YV12_10,   RGY_CSP_P010,      false, { convert_yv12_10_to_p010_avx2,        convert_yv12_10_to_p010_avx2        }, AVX2|AVX },
     { RGY_CSP_YV12_10,   RGY_CSP_P010,      false, { convert_yv12_10_to_p010_sse2,        convert_yv12_10_to_p010_sse2        }, SSE2 },
     { RGY_CSP_YV12_09,   RGY_CSP_P010,      false, { convert_yv12_09_to_p010_avx2,        convert_yv12_09_to_p010_avx2        }, AVX2|AVX },
     { RGY_CSP_YV12_09,   RGY_CSP_P010,      false, { convert_yv12_09_to_p010_sse2,        convert_yv12_09_to_p010_sse2        }, SSE2 },
