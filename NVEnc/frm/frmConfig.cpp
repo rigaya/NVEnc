@@ -718,6 +718,8 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     
     fcgPNHEVC->Visible = hevc_mode;
     fcgPNH264->Visible = h264_mode;
+    fcgPNHEVCDetail->Visible = hevc_mode;
+    fcgPNH264Detail->Visible = h264_mode;
 
     fcgPNQP->Visible = cqp_mode;
     fcgNUQPI->Enabled = cqp_mode;
@@ -816,7 +818,13 @@ System::Void frmConfig::AdjustLocation() {
     }
 }
 
+std::vector<std::pair<uint32_t, tstring>> get_gpu_list();
+
 System::Void frmConfig::InitForm() {
+    fcgCXDevice->Items->Clear();
+    for (auto& gpu : get_gpu_list()) {
+        fcgCXDevice->Items->Add(String(gpu.second.c_str()).ToString());
+    }
     //CPU情報の取得
     SetupFeatureTable();
     getEnvironmentInfoDelegate = gcnew SetEnvironmentInfoDelegate(this, &frmConfig::SetEnvironmentInfo);
@@ -894,6 +902,22 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXAspectRatio, (cnf->nvenc.par[0] < 0));
     SetNUValue(fcgNUAspectRatioX, abs(cnf->nvenc.par[0]));
     SetNUValue(fcgNUAspectRatioY, abs(cnf->nvenc.par[1]));
+
+    SetCXIndex(fcgCXDevice, cnf->nvenc.deviceID);
+
+    //QPDetail
+    fcgCBQPMin->Checked = cnf->nvenc.enc_config.rcParams.enableMinQP != 0;
+    fcgCBQPMax->Checked = cnf->nvenc.enc_config.rcParams.enableMaxQP != 0;
+    fcgCBQPInit->Checked = cnf->nvenc.enc_config.rcParams.enableInitialRCQP != 0;
+    SetNUValue(fcgNUQPMinI, cnf->nvenc.enc_config.rcParams.minQP.qpIntra);
+    SetNUValue(fcgNUQPMinP, cnf->nvenc.enc_config.rcParams.minQP.qpInterP);
+    SetNUValue(fcgNUQPMinB, cnf->nvenc.enc_config.rcParams.minQP.qpInterB);
+    SetNUValue(fcgNUQPMaxI, cnf->nvenc.enc_config.rcParams.maxQP.qpIntra);
+    SetNUValue(fcgNUQPMaxP, cnf->nvenc.enc_config.rcParams.maxQP.qpInterP);
+    SetNUValue(fcgNUQPMaxB, cnf->nvenc.enc_config.rcParams.maxQP.qpInterB);
+    SetNUValue(fcgNUQPInitI, cnf->nvenc.enc_config.rcParams.initialRCQP.qpIntra);
+    SetNUValue(fcgNUQPInitP, cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterP);
+    SetNUValue(fcgNUQPInitB, cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterB);
 
     //H.264
     SetNUValue(fcgNURefFrames,         cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.maxNumRefFrames);
@@ -1027,6 +1051,22 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         cnf->nvenc.par[0] *= -1;
         cnf->nvenc.par[1] *= -1;
     }
+
+    cnf->nvenc.deviceID = (int)fcgCXDevice->SelectedIndex;
+
+    //QPDetail
+    cnf->nvenc.enc_config.rcParams.enableMinQP = (fcgCBQPMin->Checked) ? 1 : 0;
+    cnf->nvenc.enc_config.rcParams.enableMaxQP = (fcgCBQPMax->Checked) ? 1 : 0;
+    cnf->nvenc.enc_config.rcParams.enableInitialRCQP = (fcgCBQPInit->Checked) ? 1 : 0;
+    cnf->nvenc.enc_config.rcParams.minQP.qpIntra  = (int)fcgNUQPMinI->Value;
+    cnf->nvenc.enc_config.rcParams.minQP.qpInterP = (int)fcgNUQPMinP->Value;
+    cnf->nvenc.enc_config.rcParams.minQP.qpInterB = (int)fcgNUQPMinB->Value;
+    cnf->nvenc.enc_config.rcParams.maxQP.qpIntra  = (int)fcgNUQPMaxI->Value;
+    cnf->nvenc.enc_config.rcParams.maxQP.qpInterP = (int)fcgNUQPMaxP->Value;
+    cnf->nvenc.enc_config.rcParams.maxQP.qpInterB = (int)fcgNUQPMaxB->Value;
+    cnf->nvenc.enc_config.rcParams.initialRCQP.qpIntra  = (int)fcgNUQPInitI->Value;
+    cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterP = (int)fcgNUQPInitP->Value;
+    cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterB = (int)fcgNUQPInitB->Value;
 
     //H.264
     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
@@ -1501,6 +1541,8 @@ System::Void frmConfig::SetupFeatureTable() {
     fcgDGVFeaturesHEVC->DataSource = dataTableNVEncFeaturesHEVC; //テーブルをバインド
 }
 
+std::vector<std::pair<uint32_t, tstring>> get_gpu_list();
+
 System::Void frmConfig::SetEnvironmentInfo() {
     //CPU名
     if (nullptr == StrCPUInfo || StrCPUInfo->Length <= 0) {
@@ -1514,6 +1556,7 @@ System::Void frmConfig::SetEnvironmentInfo() {
         getGPUInfo("NVIDIA", gpu_info, _countof(gpu_info));
         StrGPUInfo = String(gpu_info).ToString();
     }
+
     //機能情報
     if (featureCache && dataTableNVEncFeaturesH264->Rows->Count <= 1) {
         nvfeature_GetCachedNVEncCapability(featureCache);

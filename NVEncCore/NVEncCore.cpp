@@ -193,6 +193,11 @@ NVEncoderGPUInfo::NVEncoderGPUInfo() {
     }
 };
 
+std::vector<std::pair<uint32_t, tstring>> get_gpu_list() {
+    NVEncoderGPUInfo gpuinfo;
+    return gpuinfo.getGPUList();
+}
+
 InEncodeVideoParam::InEncodeVideoParam() :
     input(),
     inputFilename(),
