@@ -3483,6 +3483,9 @@ NV_ENC_CONFIG NVEncCore::DefaultParam() {
     config.rcParams.initialRCQP.qpInterB  = DEFAULT_QP_B;
     config.rcParams.initialRCQP.qpInterP  = DEFAULT_QP_P;
     config.rcParams.initialRCQP.qpIntra   = DEFAUTL_QP_I;
+    config.rcParams.maxQP.qpInterB        = 51;
+    config.rcParams.maxQP.qpInterP        = 51;
+    config.rcParams.maxQP.qpIntra         = 51;
     config.rcParams.constQP.qpInterB      = DEFAULT_QP_B;
     config.rcParams.constQP.qpInterP      = DEFAULT_QP_P;
     config.rcParams.constQP.qpIntra       = DEFAUTL_QP_I;
