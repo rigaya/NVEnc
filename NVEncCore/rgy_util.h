@@ -784,7 +784,7 @@ const CX_DESC list_resampler[] = {
 };
 
 #if ENCODER_QSV == 0
-const CX_DESC list_interlaced_rgy[] = {
+const CX_DESC list_interlaced[] = {
     { _T("progressive"), RGY_PICSTRUCT_FRAME     },
     { _T("tff"),         RGY_PICSTRUCT_FRAME_TFF },
     { _T("bff"),         RGY_PICSTRUCT_FRAME_BFF },
