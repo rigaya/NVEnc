@@ -112,8 +112,8 @@ int RGYInputVpy::initAsyncEvents() {
 void RGYInputVpy::closeAsyncEvents() {
     m_bAbortAsync = true;
     for (int i_frame = m_nCopyOfInputFrames; i_frame < m_nAsyncFrames; i_frame++) {
-        if (m_hAsyncEventFrameSetFin[i_frame & (ASYNC_BUFFER_SIZE-1)])
-            WaitForSingleObject(m_hAsyncEventFrameSetFin[i_frame & (ASYNC_BUFFER_SIZE-1)], INFINITE);
+        const VSFrameRef *src_frame = getFrameFromAsyncBuffer(i_frame);
+        m_sVSapi->freeFrame(src_frame);
     }
     for (int i = 0; i < _countof(m_hAsyncEventFrameSetFin); i++) {
         if (m_hAsyncEventFrameSetFin[i])
