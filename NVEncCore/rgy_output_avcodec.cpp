@@ -1508,11 +1508,13 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *pBitstream) {
     if (0 > (ret = avformat_write_header(m_Mux.format.pFormatCtx, &m_Mux.format.pHeaderOptions))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to write header for output file: %s\n"), qsv_av_err2str(ret).c_str());
         if (m_Mux.format.pHeaderOptions) av_dict_free(&m_Mux.format.pHeaderOptions);
+        m_Mux.format.bStreamError = true;
         return RGY_ERR_UNKNOWN;
     }
     //不正なオプションを渡していないかチェック
     for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(m_Mux.format.pHeaderOptions, "", t, AV_DICT_IGNORE_SUFFIX));) {
         AddMessage(RGY_LOG_ERROR, _T("Unknown option to muxer: ") + char_to_tstring(t->key) + _T("\n"));
+        m_Mux.format.bStreamError = true;
         return RGY_ERR_INVALID_PARAM;
     }
     if (m_Mux.format.pHeaderOptions) {
