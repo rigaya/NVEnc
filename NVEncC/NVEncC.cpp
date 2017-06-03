@@ -387,7 +387,8 @@ static tstring help() {
         _T("   --no-i-adapt                 disable adapt. I frame insertion on lookahead mode\n")
         _T("   --no-b-adapt                 disable adapt. B frame insertion on lookahead mode\n")
         _T("                                  Default: off\n")
-        _T("-b,--bframes <int>              set B frames / Default %d frames\n")
+        _T("-b,--bframes <int>              set number of consecutive B frames\n")
+        _T("                                  Default: H.264 - %d frames, HEVC - %d frames\n")
         _T("   --ref <int>                  set Ref frames / Default %d frames\n")
         _T("   --enable-ltr                 enable LTR (Long Term Reference pictures, HEVC only)\n")
         _T("   --(no-)aq                    enable spatial adaptive quantization\n")
@@ -410,7 +411,7 @@ static tstring help() {
         DEFAULT_AVG_BITRATE / 1000,
         DEFAULT_LOOKAHEAD,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
-        DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
+        DEFAULT_B_FRAMES_H264, DEFAULT_B_FRAMES_HEVC, DEFAULT_REF_FRAMES);
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
@@ -747,6 +748,7 @@ struct sArgsData {
     uint32_t nParsedAudioSplit = 0;
     uint32_t nParsedAudioFilter = 0;
     uint32_t nTmpInputBuf = 0;
+    int nBframes = -1;
 };
 
 int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, sArgsData *argData) {
@@ -1695,7 +1697,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.frameIntervalP = value + 1;
+            argData->nBframes = value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
@@ -2531,6 +2533,23 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
         _ftprintf(stderr, _T("Output file is not specified.\n"));
         return -1;
     }
+    //Bフレームの設定
+    if (argsData.nBframes < 0) {
+        //特に指定されていない場合はデフォルト値を反映する
+        switch (pParams->codec) {
+        case NV_ENC_H264:
+            argsData.nBframes = DEFAULT_B_FRAMES_H264;
+            break;
+        case NV_ENC_HEVC:
+            argsData.nBframes = DEFAULT_B_FRAMES_HEVC;
+            break;
+        default:
+            _ftprintf(stderr, _T("Unknown Output codec.\n"));
+            return -1;
+            break;
+        }
+    }
+    pParams->encConfig.frameIntervalP = argsData.nBframes + 1;
 
     return 0;
 }

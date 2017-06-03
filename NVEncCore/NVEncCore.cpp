@@ -3481,7 +3481,7 @@ NV_ENC_CONFIG NVEncCore::DefaultParam() {
     config.gopLength                      = DEFAULT_GOP_LENGTH;
     config.rcParams.rateControlMode       = NV_ENC_PARAMS_RC_CONSTQP;
     //config.encodeCodecConfig.h264Config.level;
-    config.frameIntervalP                 = DEFAULT_B_FRAMES + 1;
+    config.frameIntervalP                 = DEFAULT_B_FRAMES_H264 + 1;
     config.mvPrecision                    = NV_ENC_MV_PRECISION_DEFAULT;
     config.monoChromeEncoding             = 0;
     config.rcParams.version               = NV_ENC_RC_PARAMS_VER;
