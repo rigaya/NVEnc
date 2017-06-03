@@ -26,7 +26,6 @@
 // ------------------------------------------------------------------------------------------
 
 #include <fcntl.h>
-#include <io.h>
 #include <algorithm>
 #include <numeric>
 #include <array>

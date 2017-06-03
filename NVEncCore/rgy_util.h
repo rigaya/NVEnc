@@ -40,12 +40,17 @@
 #include <string>
 #include <chrono>
 #include <memory>
+#include <climits>
 #include <functional>
 #include <type_traits>
 #include "rgy_osdep.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
 #include "convert_csp.h"
+
+#ifndef UNREFERENCED_PARAMETER
+#define UNREFERENCED_PARAMETER(x)
+#endif
 
 typedef std::basic_string<TCHAR> tstring;
 using std::vector;
@@ -72,14 +77,14 @@ using std::shared_ptr;
     type0 prefix ## _ ## name1 ## _to_ ## name0(type1 var1);
 
 #define MAP_PAIR_0_1(prefix, name0, type0, name1, type1, map_pair, default0, default1) \
-    __declspec(noinline) \
+    RGY_NOINLINE \
     type1 prefix ## _ ## name0 ## _to_ ## name1(type0 var0) {\
         auto ret = std::find_if(map_pair.begin(), map_pair.end(), [var0](std::pair<type0, type1> a) { \
             return a.first == var0; \
         }); \
         return (ret == map_pair.end()) ? default1 : ret->second; \
     } \
-    __declspec(noinline)  \
+    RGY_NOINLINE  \
     type0 prefix ## _ ## name1 ## _to_ ## name0(type1 var1) {\
         auto ret = std::find_if(map_pair.begin(), map_pair.end(), [var1](std::pair<type0, type1> a) { \
             return a.second == var1; \
@@ -340,32 +345,32 @@ static void RGY_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int siz
         memcpy(dst, src, size);
         return;
     }
-    BYTE *dst_fin = dst + size;
-    BYTE *dst_aligned_fin = (BYTE *)(((size_t)(dst_fin + 15) & ~15) - 64);
+    uint8_t *dst_fin = dst + size;
+    uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)(dst_fin + 15) & ~15) - 64);
     __m128 x0, x1, x2, x3;
     const int start_align_diff = (int)((size_t)dst & 15);
     if (start_align_diff) {
-        x0 = _mm_loadu_ps((float*)src);
+        x0 = _mm_loadu_ps((const float*)src);
         _mm_storeu_ps((float*)dst, x0);
         dst += 16 - start_align_diff;
         src += 16 - start_align_diff;
     }
     for ( ; dst < dst_aligned_fin; dst += 64, src += 64) {
-        x0 = _mm_loadu_ps((float*)(src +  0));
-        x1 = _mm_loadu_ps((float*)(src + 16));
-        x2 = _mm_loadu_ps((float*)(src + 32));
-        x3 = _mm_loadu_ps((float*)(src + 48));
+        x0 = _mm_loadu_ps((const float*)(src +  0));
+        x1 = _mm_loadu_ps((const float*)(src + 16));
+        x2 = _mm_loadu_ps((const float*)(src + 32));
+        x3 = _mm_loadu_ps((const float*)(src + 48));
         _mm_store_ps((float*)(dst +  0), x0);
         _mm_store_ps((float*)(dst + 16), x1);
         _mm_store_ps((float*)(dst + 32), x2);
         _mm_store_ps((float*)(dst + 48), x3);
     }
-    BYTE *dst_tmp = dst_fin - 64;
+    uint8_t *dst_tmp = dst_fin - 64;
     src -= (dst - dst_tmp);
-    x0 = _mm_loadu_ps((float*)(src +  0));
-    x1 = _mm_loadu_ps((float*)(src + 16));
-    x2 = _mm_loadu_ps((float*)(src + 32));
-    x3 = _mm_loadu_ps((float*)(src + 48));
+    x0 = _mm_loadu_ps((const float*)(src +  0));
+    x1 = _mm_loadu_ps((const float*)(src + 16));
+    x2 = _mm_loadu_ps((const float*)(src + 32));
+    x3 = _mm_loadu_ps((const float*)(src + 48));
     _mm_storeu_ps((float*)(dst_tmp +  0), x0);
     _mm_storeu_ps((float*)(dst_tmp + 16), x1);
     _mm_storeu_ps((float*)(dst_tmp + 32), x2);
@@ -660,7 +665,7 @@ typedef struct {
     int offset;
 } sTrimParam;
 
-typedef  std::vector<std::pair<tstring, tstring>> muxOptList;
+typedef std::vector<std::pair<tstring, tstring>> muxOptList;
 
 static const int TRIM_MAX = INT_MAX;
 static const int TRIM_OVERREAD_FRAMES = 128;
@@ -779,11 +784,11 @@ const CX_DESC list_resampler[] = {
 };
 
 #if ENCODER_QSV == 0
-const CX_DESC list_interlaced[] = {
+const CX_DESC list_interlaced_rgy[] = {
     { _T("progressive"), RGY_PICSTRUCT_FRAME     },
     { _T("tff"),         RGY_PICSTRUCT_FRAME_TFF },
     { _T("bff"),         RGY_PICSTRUCT_FRAME_BFF },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 #endif
 

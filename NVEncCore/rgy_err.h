@@ -32,7 +32,7 @@
 #include "rgy_version.h"
 #include "rgy_tchar.h"
 #if ENCODER_QSV
-#include "mfxDefs.h"
+#include "mfxdefs.h"
 #endif
 #if ENCODER_NVENC
 #include "nvEncodeAPI.h"

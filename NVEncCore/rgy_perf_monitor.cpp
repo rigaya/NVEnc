@@ -38,6 +38,7 @@
 #include "cpu_info.h"
 #include "rgy_osdep.h"
 #include "rgy_util.h"
+#include "rgy_pipe.h"
 #include "gpuz_info.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <psapi.h>
@@ -426,7 +427,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         m_sPywPath = tempPath;
         uint32_t priority = NORMAL_PRIORITY_CLASS;
 #else
-        m_pProcess = std::unique_ptr<RGYPipeProcess>(new CPipeProcessLinux());
+        m_pProcess = std::unique_ptr<RGYPipeProcess>(new RGYPipeProcessLinux());
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
         m_sPywPath = tstring(_T("/tmp/")) + strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), (int)getpid());
         uint32_t priority = 0;
@@ -438,11 +439,11 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #else
         int ret = 0;
         if (0 > (ret = system((sPythonPath + " --version > /dev/null 2>&1").c_str()))) {
-            m_pRGYLog->write(RGY_LOG_WARN, _T("Failed to run \"%s\". \n")
+            m_pQSVLog->write(RGY_LOG_WARN, _T("Failed to run \"%s\". \n")
                 _T("--perf-monitor-plot requires python3.x, please set python3 path by \"--python\".\n"), sPythonPath.c_str());
             m_nSelectOutputPlot = 0;
         } else if (0 > (ret = system((sPythonPath + " -c \"print 'test'\" > /dev/null 2>&1").c_str())) || WEXITSTATUS(ret) == 0) {
-            m_pRGYLog->write(RGY_LOG_WARN, _T("\"%s\" is not python3.x.\n")
+            m_pQSVLog->write(RGY_LOG_WARN, _T("\"%s\" is not python3.x.\n")
                     _T("--perf-monitor-plot requires python3.x, please set python3 path by \"--python\".\n"), sPythonPath.c_str());
             m_nSelectOutputPlot = 0;
         }
