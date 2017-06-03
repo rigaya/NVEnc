@@ -2180,6 +2180,12 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     m_uEncWidth  = inputParam->input.srcWidth  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
     m_uEncHeight = inputParam->input.srcHeight - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
 
+    //picStructの設定
+    m_stPicStruct = picstruct_rgy_to_enc(inputParam->input.picstruct);
+    if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
+        m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
+    }
+
     bool bResizeRequired = false;
     if (   inputParam->input.dstWidth
         && inputParam->input.dstHeight
