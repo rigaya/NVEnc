@@ -29,10 +29,10 @@
 #include "rgy_input.h"
 
 RGYInput::RGYInput() :
+    m_pEncSatusInfo(),
     m_inputVideoInfo(),
     m_InputCsp(RGY_CSP_NA),
     m_sConvert(nullptr),
-    m_pEncSatusInfo(),
     m_pPrintMes(),
     m_strInputInfo(),
     m_strReaderName(_T("unknown")),
