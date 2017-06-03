@@ -205,6 +205,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     sAVMuxOutputFormat(),
     preset(0),
     deviceID(0),
+    nHWDecType(0),
     par(),
     encConfig(),
     codec(0),
@@ -241,7 +242,8 @@ InEncodeVideoParam::InEncodeVideoParam() :
     pAVInputFormat(nullptr),
     nAVSyncMode(RGY_AVSYNC_THROUGH),     //avsyncの方法 (RGY_AVSYNC_xxx)
     nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
-    vpp() {
+    vpp(),
+    pPrivatePrm(nullptr) {
     encConfig = NVEncCore::DefaultParam();
     memset(&par,       0, sizeof(par));
     memset(&input,     0, sizeof(input));
