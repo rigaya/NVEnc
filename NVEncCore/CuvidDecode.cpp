@@ -32,6 +32,8 @@
 #include "NVEncUtil.h"
 #if ENABLE_AVSW_READER
 
+static const int cudaVideoSurfaceFormat_P010 = 1;
+
 bool check_if_nvcuvid_dll_available() {
     //check for nvcuvid.dll
     HMODULE hModule = LoadLibrary(_T("nvcuvid.dll"));
@@ -283,7 +285,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     m_videoDecodeCreateInfo.ulNumDecodeSurfaces = FrameQueue::cnMaximumSize;
 
     m_videoDecodeCreateInfo.ChromaFormat = cudaVideoChromaFormat_420;
-    m_videoDecodeCreateInfo.OutputFormat = cudaVideoSurfaceFormat_NV12;
+    m_videoDecodeCreateInfo.OutputFormat = (input->csp == RGY_CSP_P010) ? (cudaVideoSurfaceFormat)cudaVideoSurfaceFormat_P010 : cudaVideoSurfaceFormat_NV12;;
     m_videoDecodeCreateInfo.DeinterlaceMode = vpp->deinterlace;
 
     if (m_videoInfo.dstWidth > 0 && m_videoInfo.dstHeight > 0) {
@@ -377,7 +379,7 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
 FrameInfo CuvidDecode::GetDecFrameInfo() {
     FrameInfo frame;
     frame.ptr = nullptr;
-    frame.csp = RGY_CSP_NV12;
+    frame.csp = m_videoInfo.csp;
     frame.width = m_videoDecodeCreateInfo.ulTargetWidth;
     frame.height = m_videoDecodeCreateInfo.ulTargetHeight;
     frame.pitch = 0; //この段階では取得できない、cuvidMapVideoFrameで取得

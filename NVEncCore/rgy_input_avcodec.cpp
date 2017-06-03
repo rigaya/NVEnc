@@ -852,10 +852,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 }
             } else {
                 bDecodecHW = true;
-#if ENCODER_NVENC
-                //cuvidデコード時は、NV12のみ使用される
-                m_inputVideoInfo.csp = RGY_CSP_NV12;
-#endif
                 AddMessage(RGY_LOG_DEBUG, _T("can be decoded by %s.\n"), _T(DECODER_NAME));
             }
         }
