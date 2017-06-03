@@ -1721,7 +1721,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     if (!m_Mux.format.bFileHeaderWritten) {
 #if ENCODER_QSV
         //HEVCエンコードでは、DecodeTimeStampが正しく設定されない
-        if (pBitstream->dts() < 0) {
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && pBitstream->dts() == MFX_TIMESTAMP_UNKNOWN) {
             m_Mux.video.bDtsUnavailable = true;
         }
 #else
