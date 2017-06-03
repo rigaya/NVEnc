@@ -64,7 +64,7 @@ static int CUDAAPI HandlePictureDisplay(void *pUserData, CUVIDPARSERDISPINFO *pP
 
 CuvidDecode::CuvidDecode() :
     m_pFrameQueue(nullptr), m_decodedFrames(0), m_videoParser(nullptr), m_videoDecoder(nullptr),
-    m_ctxLock(nullptr), m_pPrintMes(), m_bIgnoreDynamicFormatChange(false), m_bError(false) {
+    m_ctxLock(nullptr), m_pPrintMes(), m_bIgnoreDynamicFormatChange(false), m_bError(false), m_videoInfo(), m_nDecType(0) {
     memset(&m_videoDecodeCreateInfo, 0, sizeof(m_videoDecodeCreateInfo));
     memset(&m_videoFormatEx, 0, sizeof(m_videoFormatEx));
 }
@@ -111,9 +111,11 @@ int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
     AddMessage(RGY_LOG_TRACE, _T("DecVideoSequence\n"));
     if (   (pFormat->codec         != m_videoDecodeCreateInfo.CodecType)
         || (pFormat->chroma_format != m_videoDecodeCreateInfo.ChromaFormat)) {
-        AddMessage(RGY_LOG_ERROR, _T("dynamic video format changing detected\n"));
-        m_bError = true;
-        return 0;
+        if (m_videoDecodeCreateInfo.CodecType == cudaVideoCodec_NV12) {
+            AddMessage(RGY_LOG_WARN, _T("dynamic video format changing detected\n"));
+        }
+        CreateDecoder(pFormat);
+        return 1;
     }
     if (   (pFormat->coded_width   != m_videoDecodeCreateInfo.ulWidth)
         || (pFormat->coded_height  != m_videoDecodeCreateInfo.ulHeight)) {
@@ -168,10 +170,58 @@ CUresult CuvidDecode::CreateDecoder() {
     return curesult;
 }
 
+
+CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
+    if (m_videoDecoder) {
+        cuvidDestroyDecoder(m_videoDecoder);
+        m_videoDecoder = nullptr;
+    }
+
+    m_videoDecodeCreateInfo.CodecType = pFormat->codec;
+    m_videoDecodeCreateInfo.ChromaFormat = pFormat->chroma_format;
+    m_videoDecodeCreateInfo.ulWidth   = pFormat->coded_width;
+    m_videoDecodeCreateInfo.ulHeight  = pFormat->coded_height;
+    m_videoDecodeCreateInfo.Reserved1[0] = (RGY_CSP_BIT_DEPTH[m_videoInfo.csp] - m_videoInfo.shift) - 8;
+
+    if (m_videoInfo.dstWidth > 0 && m_videoInfo.dstHeight > 0) {
+        m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.dstWidth;
+        m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.dstHeight;
+    } else {
+        m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.srcWidth;
+        m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.srcHeight;
+    }
+    m_videoDecodeCreateInfo.target_rect.left = 0;
+    m_videoDecodeCreateInfo.target_rect.top = 0;
+    m_videoDecodeCreateInfo.target_rect.right = (short)m_videoDecodeCreateInfo.ulTargetWidth;
+    m_videoDecodeCreateInfo.target_rect.bottom = (short)m_videoDecodeCreateInfo.ulTargetHeight;
+
+    m_videoDecodeCreateInfo.display_area.left   = (short)(pFormat->display_area.left + m_videoInfo.crop.e.left);
+    m_videoDecodeCreateInfo.display_area.top    = (short)(pFormat->display_area.top + m_videoInfo.crop.e.up);
+    m_videoDecodeCreateInfo.display_area.right  = (short)(pFormat->display_area.right - m_videoInfo.crop.e.right);
+    m_videoDecodeCreateInfo.display_area.bottom = (short)(pFormat->display_area.bottom - m_videoInfo.crop.e.bottom);
+
+    cuvidCtxLock(m_ctxLock, 0);
+    m_videoDecodeCreateInfo.CodecType = pFormat->codec;
+    CUresult curesult = CreateDecoder();
+    cuvidCtxUnlock(m_ctxLock, 0);
+    if (CUDA_SUCCESS != curesult) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+        return curesult;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("created decoder (mode: %s)\n"), get_chr_from_value(list_cuvid_mode, m_nDecType));
+    return curesult;
+}
+
 CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool ignoreDynamicFormatChange) {
     //初期化
     CloseDecoder();
 
+    m_videoInfo = *input;
+    if (!bCuvidResize) {
+        m_videoInfo.dstWidth = 0;
+        m_videoInfo.dstHeight = 0;
+    }
+    m_nDecType = nDecType;
     m_pPrintMes = pLog;
     m_bIgnoreDynamicFormatChange = ignoreDynamicFormatChange;
     m_deinterlaceMode = vpp->deinterlace;
@@ -227,7 +277,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
 
     cuvidCtxLock(m_ctxLock, 0);
     memset(&m_videoDecodeCreateInfo, 0, sizeof(CUVIDDECODECREATEINFO));
-    m_videoDecodeCreateInfo.CodecType = codec_rgy_to_enc(input->codec);
+    m_videoDecodeCreateInfo.CodecType = cudaVideoCodec_NV12; // codec_rgy_to_enc(input->codec);
     m_videoDecodeCreateInfo.ulWidth   = input->codedWidth  ? input->codedWidth  : input->srcWidth;
     m_videoDecodeCreateInfo.ulHeight  = input->codedHeight ? input->codedHeight : input->srcHeight;
     m_videoDecodeCreateInfo.ulNumDecodeSurfaces = FrameQueue::cnMaximumSize;
@@ -236,24 +286,24 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     m_videoDecodeCreateInfo.OutputFormat = cudaVideoSurfaceFormat_NV12;
     m_videoDecodeCreateInfo.DeinterlaceMode = vpp->deinterlace;
 
-    if (input->dstWidth > 0 && input->dstHeight > 0 && bCuvidResize) {
-        m_videoDecodeCreateInfo.ulTargetWidth  = input->dstWidth;
-        m_videoDecodeCreateInfo.ulTargetHeight = input->dstHeight;
+    if (m_videoInfo.dstWidth > 0 && m_videoInfo.dstHeight > 0) {
+        m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.dstWidth;
+        m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.dstHeight;
     } else {
-        m_videoDecodeCreateInfo.ulTargetWidth  = input->srcWidth;
-        m_videoDecodeCreateInfo.ulTargetHeight = input->srcHeight;
+        m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.srcWidth;
+        m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.srcHeight;
     }
 
     m_videoDecodeCreateInfo.display_area.left   = (short)input->crop.e.left;
     m_videoDecodeCreateInfo.display_area.top    = (short)input->crop.e.up;
-    m_videoDecodeCreateInfo.display_area.right  = (short)(input->crop.e.right  + input->codedWidth  - input->srcWidth);
-    m_videoDecodeCreateInfo.display_area.bottom = (short)(input->crop.e.bottom + input->codedHeight - input->srcHeight);
+    m_videoDecodeCreateInfo.display_area.right  = (short)(input->srcWidth - input->crop.e.right);
+    m_videoDecodeCreateInfo.display_area.bottom = (short)(input->srcHeight - input->crop.e.bottom);
 
     m_videoDecodeCreateInfo.ulNumOutputSurfaces = 1;
     m_videoDecodeCreateInfo.ulCreationFlags = (nDecType == NV_ENC_AVCUVID_CUDA) ? cudaVideoCreate_PreferCUDA : cudaVideoCreate_PreferCUVID;
     m_videoDecodeCreateInfo.vidLock = m_ctxLock;
-    curesult = CreateDecoder();
-    cuvidCtxUnlock(m_ctxLock, 0);
+#if 0
+    CUresult curesult = CreateDecoder();
     if (CUDA_SUCCESS != curesult) {
         AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
         return curesult;
@@ -266,8 +316,15 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
             return curesult;
         }
     }
+#else
+    CUVIDSOURCEDATAPACKET pCuvidPacket;
+    memset(&pCuvidPacket, 0, sizeof(pCuvidPacket));
+    pCuvidPacket.payload = m_videoFormatEx.raw_seqhdr_data;
+    pCuvidPacket.payload_size = m_videoFormatEx.format.seqhdr_data_length;
+    curesult = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
+#endif
+    cuvidCtxUnlock(m_ctxLock, 0);
     AddMessage(RGY_LOG_DEBUG, _T("DecodePacket: success\n"));
-
     return curesult;
 }
 

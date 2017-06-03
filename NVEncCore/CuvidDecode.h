@@ -104,6 +104,7 @@ protected:
     }
 
     CUresult CreateDecoder();
+    CUresult CreateDecoder(CUVIDEOFORMAT *pFormat);
 
     FrameQueue                  *m_pFrameQueue;
     int                          m_decodedFrames;
@@ -112,10 +113,12 @@ protected:
     CUvideoctxlock               m_ctxLock;
     CUVIDDECODECREATEINFO        m_videoDecodeCreateInfo;
     CUVIDEOFORMATEX              m_videoFormatEx;
-    shared_ptr<RGYLog>        m_pPrintMes;  //ログ出力
+    shared_ptr<RGYLog>           m_pPrintMes;  //ログ出力
     bool                         m_bIgnoreDynamicFormatChange;
     bool                         m_bError;
     cudaVideoDeinterlaceMode     m_deinterlaceMode;
+    VideoInfo                    m_videoInfo;
+    int                          m_nDecType;
 };
 
 #endif //#if ENABLE_AVSW_READER
