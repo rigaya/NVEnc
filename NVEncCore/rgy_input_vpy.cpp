@@ -261,7 +261,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo.srcHeight = vsvideoinfo->height;
     m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
     m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
-    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? 16 - RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] : 0;
+    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? m_inputVideoInfo.shift : 0;
     m_inputVideoInfo.frames = vsvideoinfo->numFrames;
 
     m_nAsyncFrames = vsvideoinfo->numFrames;
