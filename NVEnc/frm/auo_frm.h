@@ -67,7 +67,7 @@ void set_log_title_and_progress(const char * chr, double progress);
 void write_log_auo_line(int log_type_index, const char *chr, bool from_utf8 = false);
 void write_log_line(int log_type_index, const char *chr, bool from_utf8 = false);
 void flush_audio_log();
-void enable_enc_control(BOOL *enc_pause, BOOL afs, BOOL add_progress, DWORD start_time, int _total_frame);
+void enable_enc_control(bool *enc_pause, BOOL afs, BOOL add_progress, DWORD start_time, int _total_frame);
 void disable_enc_control();
 void set_prevent_log_close(BOOL prevent);
 void auto_save_log_file(const char *log_filepath);

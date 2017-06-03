@@ -131,14 +131,13 @@ AuoEncodeStatus::~AuoEncodeStatus() {
 
 void AuoEncodeStatus::UpdateDisplay(const TCHAR *mes, double progressPercent) {
     set_log_title_and_progress(mes, progressPercent * 0.01);
-    m_auoData.oip->func_rest_time_disp(m_sData.frameOut, m_auoData.oip->n);
+    m_auoData.oip->func_rest_time_disp(m_sData.frameOut + m_sData.frameDrop, m_auoData.oip->n);
     m_auoData.oip->func_update_preview();
 }
 
 void AuoEncodeStatus::SetPrivData(void *pPrivateData) {
     m_auoData = *(InputInfoAuo *)pPrivateData;
-    BOOL pause = m_pause ? 1 : 0;
-    enable_enc_control(&pause, m_auoData.pe->afs_init, FALSE, timeGetTime(), m_auoData.oip->n);
+    enable_enc_control(&m_pause, m_auoData.pe->afs_init, FALSE, timeGetTime(), m_auoData.oip->n);
 }
 
 void AuoEncodeStatus::WriteLine(const TCHAR *mes) {
