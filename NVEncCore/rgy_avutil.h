@@ -1,10 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// NVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
-//
 // The MIT License
 //
-// Copyright (c) 2014-2016 rigaya
+// Copyright (c) 2011-2016 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -78,7 +77,7 @@ static const CodecMap HW_DECODE_LIST[] = {
     { AV_CODEC_ID_VP8,        RGY_CODEC_VP8 },
     { AV_CODEC_ID_VP9,        RGY_CODEC_VP9 },
 #if ENCODER_QSV
-    { AV_CODEC_ID_VC1,        RGY_CODEC_VC1 },
+    { AV_CODEC_ID_VC1,        RGY_CODEC_VC1   },
 #endif
 #if ENCODER_NVENC
     { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
