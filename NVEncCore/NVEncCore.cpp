@@ -3448,8 +3448,8 @@ NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamHEVC() {
 
     config.hevcConfig.level = NV_ENC_LEVEL_AUTOSELECT;
     config.hevcConfig.tier  = NV_ENC_TIER_HEVC_MAIN;
-    config.hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_8x8;
-    config.hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_32x32;
+    config.hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
+    config.hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
     config.hevcConfig.sliceMode = 0;
     config.hevcConfig.sliceModeData = 0;
     config.hevcConfig.maxNumRefFramesInDPB = DEFAULT_REF_FRAMES;
