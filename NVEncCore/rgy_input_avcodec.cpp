@@ -1450,11 +1450,18 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
         if (pkt.data) {
+#if ENCODER_QSV
+            sts = pBitstream->append(pkt.data, pkt.size);
+            pBitstream->setDataflag(0);
+            pBitstream->setPts(0);
+#else
             auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
             sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
+#endif
         }
         av_packet_unref(&pkt);
         m_Demux.video.nSampleGetCount++;
+        m_pEncSatusInfo->m_sData.frameIn++;
     }
     return sts;
 }
@@ -1476,8 +1483,14 @@ RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
         if (pkt.data) {
+#if ENCODER_QSV
+            pBitstream->setDataflag(0);
+            pBitstream->setPts(0);
+            sts = pBitstream->append(pkt.data, pkt.size);
+#else
             auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
             sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
+#endif
         }
     }
     return sts;
@@ -1759,10 +1772,8 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
             got_frame = TRUE;
         }
         //フレームデータをコピー
-
         void *dst_array[3];
         pSurface->ptrArray(dst_array);
-
         m_sConvert->func[m_Demux.video.pFrame->interlaced_frame != 0](
             dst_array, (const void **)m_Demux.video.pFrame->data,
             m_inputVideoInfo.srcWidth, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], pSurface->pitch(),
@@ -1770,6 +1781,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (got_frame) {
             av_frame_unref(m_Demux.video.pFrame);
         }
+        m_pEncSatusInfo->m_sData.frameIn++;
     } else {
         if (m_Demux.qVideoPkt.size() == 0) {
             //m_Demux.qVideoPkt.size() == 0となるのは、最後まで読み込んだときか、中断した時しかありえない
@@ -1777,7 +1789,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         }
     }
     //進捗表示
-    m_pEncSatusInfo->m_sData.frameIn++;
     double progressPercent = 0.0;
     if (m_Demux.format.pFormatCtx->duration) {
         progressPercent = m_Demux.frames.duration() * (m_Demux.video.pStream->time_base.num / (double)m_Demux.video.pStream->time_base.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
