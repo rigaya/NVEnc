@@ -845,8 +845,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 || (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pStream->codecpar->profile != 3)) {
                 if (m_inputVideoInfo.type == RGY_INPUT_FMT_AVHW) {
                     //HWデコードが指定されている場合にはエラー終了する
-                    AddMessage(RGY_LOG_ERROR, _T("codec %s unable to decode by %s.\n"),
-                        char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(), DECODER_NAME);
+                    AddMessage(RGY_LOG_ERROR, _T("codec %s(%s) unable to decode by " DECODER_NAME ".\n"),
+                        char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(),
+                        char_to_tstring(av_get_pix_fmt_name((AVPixelFormat)m_Demux.video.pStream->codecpar->format)).c_str());
                     return RGY_ERR_INVALID_CODEC;
                 }
             } else {
@@ -855,7 +856,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 //cuvidデコード時は、NV12のみ使用される
                 m_inputVideoInfo.csp = RGY_CSP_NV12;
 #endif
-                AddMessage(RGY_LOG_DEBUG, _T("can be decoded by %s.\n"), DECODER_NAME);
+                AddMessage(RGY_LOG_DEBUG, _T("can be decoded by %s.\n"), _T(DECODER_NAME));
             }
         }
         m_strReaderName = (bDecodecHW) ? _T("av" DECODER_NAME) : _T("avsw");
