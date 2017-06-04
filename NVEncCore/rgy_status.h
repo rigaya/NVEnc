@@ -209,7 +209,7 @@ public:
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
         double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
-        if (m_sData.frameOut + m_sData.frameDrop) {
+        if (m_sData.frameOut + m_sData.frameDrop >= 30) {
             TCHAR mes[256] = { 0 };
             m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
             m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
@@ -247,7 +247,7 @@ public:
                 }
                 mes[len] = _T('\0');
             } else {
-                int len = _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %d kbps"),
+                int len = _stprintf_s(mes, _countof(mes), _T("%d frames: %.2lf fps, %d kbps"),
                     (m_sData.frameOut + m_sData.frameDrop),
                     m_sData.encodeFps,
                     (int)(m_sData.bitrateKbps + 0.5)
