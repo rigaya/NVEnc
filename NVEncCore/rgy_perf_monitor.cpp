@@ -203,7 +203,7 @@ void CPerfMonitor::clear() {
         m_pipes.f_stdin = NULL;
     }
     m_pProcess.reset();
-    m_pQSVLog.reset();
+    m_pRGYLog.reset();
 }
 
 int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
@@ -332,9 +332,9 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
 int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     int interval, int nSelectOutputLog, int nSelectOutputPlot,
     std::unique_ptr<void, handle_deleter> thMainThread,
-    std::shared_ptr<RGYLog> pQSVLog) {
+    std::shared_ptr<RGYLog> pRGYLog) {
     clear();
-    m_pQSVLog = pQSVLog;
+    m_pRGYLog = pRGYLog;
 
     m_nCreateTime100ns = (int64_t)(clock() * (1e7 / CLOCKS_PER_SEC) + 0.5);
     m_sMonitorFilename = filename;
@@ -347,8 +347,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     if (!m_fpLog && m_sMonitorFilename.length() > 0) {
         m_fpLog = std::unique_ptr<FILE, fp_deleter>(_tfopen(m_sMonitorFilename.c_str(), _T("a")));
         if (!m_fpLog) {
-            m_pQSVLog->write(RGY_LOG_WARN, _T("Failed to open performance monitor log file: %s\n"), m_sMonitorFilename.c_str());
-            m_pQSVLog->write(RGY_LOG_WARN, _T("performance monitoring disabled.\n"));
+            m_pRGYLog->write(RGY_LOG_WARN, _T("Failed to open performance monitor log file: %s\n"), m_sMonitorFilename.c_str());
+            m_pRGYLog->write(RGY_LOG_WARN, _T("performance monitoring disabled.\n"));
             return 1;
         }
     }
@@ -358,29 +358,29 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_pLoader = ExtensionLoader::Create();
     //m_pLoader->AddSearchPath(loadPath.c_str());
     if (m_pLoader->Load("DefaultManager") == 0) {
-        pQSVLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load DefaultManager\n"));
+        pRGYLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load DefaultManager\n"));
     } else if (m_pLoader->CommitExtensions() == 0) {
     //} else if (m_pLoader->Load("LogPublisher") == 0) {
-        //pQSVLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load LogPublisher\n"));
+        //pRGYLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load LogPublisher\n"));
     //下記のようにLoadAllでもよいが非常に重い
     //} else if (m_pLoader->LoadAll() == 0) {
-        //pQSVLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load Metric dlls\n"));
+        //pRGYLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load Metric dlls\n"));
     //mfxの使用率をとるには下記の2つが必要
     } else if (m_pLoader->Load("MediaPerfPublisher") == 0) {
-        pQSVLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load MediaPerfPublisher\n"));
+        pRGYLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load MediaPerfPublisher\n"));
     } else if (m_pLoader->Load("RenderPerfPublisher") == 0) {
-        pQSVLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load RenderPerfPublisher\n"));
+        pRGYLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load RenderPerfPublisher\n"));
     //以下でGPU平均使用率などがとれるはずだが・・・
     //} else if (m_pLoader->Load("GfxDrvSampledPublisher") == 0) {
-        //pQSVLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load GfxDrvSampledPublisher\n"));
+        //pRGYLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to load GfxDrvSampledPublisher\n"));
     } else if (m_pLoader->CommitExtensions() == 0) {
-        //pQSVLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to CommitExtensions\n"));
+        //pRGYLog->write(RGY_LOG_DEBUG, _T("PerfMonitor: Failed to CommitExtensions\n"));
     } else {
         //定義した情報の受け取り口を登録
         m_pLoader->AddExtension("CQSVConsumer", &m_Consumer);
         m_pManager.reset(GM_GET_DEFAULT_CLIENT_MANAGER(m_pLoader));
         if (m_pManager == nullptr) {
-            pQSVLog->write(RGY_LOG_WARN, _T("No default Client Manager available\n"));
+            pRGYLog->write(RGY_LOG_WARN, _T("No default Client Manager available\n"));
         } else {
             RegistrySearcher regsearcher(m_pManager.get(), RESOURCE_TYPE_METRIC, PAYLOAD_TYPE_ANY, 0);
             std::map<MetricHandle, std::string> validMetrics;
@@ -394,15 +394,15 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
             for (auto metric = validMetrics.cbegin(); metric != validMetrics.cend(); metric++) {
                 GM_STATUS status = m_pManager->SubscribeMetric(m_Consumer.GetHandle(), metric->first);
                 if (GM_STATUS_SUCCESS != status) {
-                    pQSVLog->write(RGY_LOG_WARN, _T("Failure to subscribe %s metric: %d.\n"), char_to_tstring(metric->second).c_str(), status);
+                    pRGYLog->write(RGY_LOG_WARN, _T("Failure to subscribe %s metric: %d.\n"), char_to_tstring(metric->second).c_str(), status);
                 } else {
-                    pQSVLog->write(RGY_LOG_DEBUG, _T("subscribed %s metric\n"), char_to_tstring(metric->second).c_str());
+                    pRGYLog->write(RGY_LOG_DEBUG, _T("subscribed %s metric\n"), char_to_tstring(metric->second).c_str());
                     subscribedMetrics[metric->first] = metric->second;
                 }
             }
             m_Consumer.AddMetrics(subscribedMetrics);
             if (subscribedMetrics.size() != _countof(METRIC_NAMES)) {
-                pQSVLog->write(RGY_LOG_DEBUG, _T("metrics was not fully load, disable metric framework features.\n"));
+                pRGYLog->write(RGY_LOG_DEBUG, _T("metrics was not fully load, disable metric framework features.\n"));
                 if (m_pManager) {
                     const auto metricsUsed = m_Consumer.getMetricUsed();
                     for (auto metric = metricsUsed.cbegin(); metric != metricsUsed.cend(); metric++) {
@@ -439,18 +439,18 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #else
         int ret = 0;
         if (0 > (ret = system((sPythonPath + " --version > /dev/null 2>&1").c_str()))) {
-            m_pQSVLog->write(RGY_LOG_WARN, _T("Failed to run \"%s\". \n")
+            m_pRGYLog->write(RGY_LOG_WARN, _T("Failed to run \"%s\". \n")
                 _T("--perf-monitor-plot requires python3.x, please set python3 path by \"--python\".\n"), sPythonPath.c_str());
             m_nSelectOutputPlot = 0;
         } else if (0 > (ret = system((sPythonPath + " -c \"print 'test'\" > /dev/null 2>&1").c_str())) || WEXITSTATUS(ret) == 0) {
-            m_pQSVLog->write(RGY_LOG_WARN, _T("\"%s\" is not python3.x.\n")
+            m_pRGYLog->write(RGY_LOG_WARN, _T("\"%s\" is not python3.x.\n")
                     _T("--perf-monitor-plot requires python3.x, please set python3 path by \"--python\".\n"), sPythonPath.c_str());
             m_nSelectOutputPlot = 0;
         }
 #endif
         if (createPerfMpnitorPyw(m_sPywPath.c_str())) {
-            m_pQSVLog->write(RGY_LOG_WARN, _T("Failed to create file qsvencc_perf_monitor.pyw for performance monitor plot.\n"));
-            m_pQSVLog->write(RGY_LOG_WARN, _T("performance monitor plot disabled.\n"));
+            m_pRGYLog->write(RGY_LOG_WARN, _T("Failed to create file qsvencc_perf_monitor.pyw for performance monitor plot.\n"));
+            m_pRGYLog->write(RGY_LOG_WARN, _T("performance monitor plot disabled.\n"));
             m_nSelectOutputPlot = 0;
         } else {
             tstring sInterval = strsprintf(_T("%d"), interval);
@@ -461,8 +461,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
             args.push_back(sInterval.c_str());
             args.push_back(nullptr);
             if (m_pProcess->run(args, nullptr, &m_pipes, priority, false, false)) {
-                m_pQSVLog->write(RGY_LOG_WARN, _T("Failed to run performance monitor plot.\n"));
-                m_pQSVLog->write(RGY_LOG_WARN, _T("performance monitor plot disabled.\n"));
+                m_pRGYLog->write(RGY_LOG_WARN, _T("Failed to run performance monitor plot.\n"));
+                m_pRGYLog->write(RGY_LOG_WARN, _T("performance monitor plot disabled.\n"));
                 m_nSelectOutputPlot = 0;
 #if defined(_WIN32) || defined(_WIN64)
             } else {
@@ -491,8 +491,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_nSelectOutputLog &= m_nSelectCheck;
     m_nSelectOutputPlot &= m_nSelectCheck;
 
-    pQSVLog->write(RGY_LOG_DEBUG, _T("Performace Monitor: %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputLog).c_str());
-    pQSVLog->write(RGY_LOG_DEBUG, _T("Performace Plot   : %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputPlot).c_str());
+    pRGYLog->write(RGY_LOG_DEBUG, _T("Performace Monitor: %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputLog).c_str());
+    pRGYLog->write(RGY_LOG_DEBUG, _T("Performace Plot   : %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputPlot).c_str());
 
     write_header(m_fpLog.get(),   m_nSelectOutputLog);
     write_header(m_pipes.f_stdin, m_nSelectOutputPlot);
@@ -855,7 +855,7 @@ void CPerfMonitor::run() {
             }
             m_pipes.f_stdin = NULL;
             if (m_nSelectOutputPlot) {
-                m_pQSVLog->write(RGY_LOG_WARN, _T("Error occured running python for perf-monitor-plot.\n"));
+                m_pRGYLog->write(RGY_LOG_WARN, _T("Error occured running python for perf-monitor-plot.\n"));
                 m_nSelectOutputPlot = 0;
             }
         }
