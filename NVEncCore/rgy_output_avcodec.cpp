@@ -453,7 +453,6 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.nFPS = av_make_q(pVideoOutputInfo->fpsN, pVideoOutputInfo->fpsD);
     AddMessage(RGY_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), m_Mux.video.nFPS.num, m_Mux.video.nFPS.den);
 
-    m_Mux.video.pCodecCtx = m_Mux.video.pStreamOut->codec;
     m_Mux.video.pStreamOut->codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
     m_Mux.video.pStreamOut->codecpar->codec_id                = m_Mux.format.pFormatCtx->video_codec_id;
     m_Mux.video.pStreamOut->codecpar->width                   = pVideoOutputInfo->dstWidth;
@@ -474,7 +473,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
         m_Mux.video.pStreamOut->codecpar->color_range         = (AVColorRange)(pVideoOutputInfo->vui.fullrange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
         m_Mux.video.pStreamOut->codecpar->color_trc           = (AVColorTransferCharacteristic)pVideoOutputInfo->vui.transfer;
     }
-    if (0 > avcodec_open2(m_Mux.video.pCodecCtx, m_Mux.video.pCodec, NULL)) {
+    if (0 > avcodec_open2(m_Mux.video.pStreamOut->codec, m_Mux.video.pCodec, NULL)) {
         AddMessage(RGY_LOG_ERROR, _T("failed to open codec %s for video.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.pFormatCtx->video_codec_id)).c_str());
         return RGY_ERR_NULL_PTR;
     }
@@ -1464,9 +1463,9 @@ RGY_ERR RGYOutputAvcodec::AddHEVCHeaderToExtraData(const RGYBitstream *pBitstrea
 }
 
 RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *pBitstream) {
-    if (m_Mux.video.pCodecCtx && pBitstream) {
+    if (m_Mux.video.pStreamOut && pBitstream) {
         RGY_ERR sts = RGY_ERR_NONE;
-        switch (m_Mux.video.pCodecCtx->codec_id) {
+        switch (m_Mux.video.pStreamOut->codecpar->codec_id) {
         case AV_CODEC_ID_H264:
             sts = AddH264HeaderToExtraData(pBitstream);
             break;
@@ -1477,7 +1476,7 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *pBitstream) {
             break;
         }
         if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to parse %s header.\n"), char_to_tstring(avcodec_get_name(m_Mux.video.pCodecCtx->codec_id)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to parse %s header.\n"), char_to_tstring(avcodec_get_name(m_Mux.video.pStreamOut->codecpar->codec_id)).c_str());
             return sts;
         }
     }
@@ -2757,7 +2756,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
     const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.qAudioPacketOut.capacity()) - nWaitThreshold;
     //現在のdts、"-1"は無視することを映像と音声の同期を行う必要がないことを意味する
     int64_t audioDts = (m_Mux.audio.size()) ? -1 : INT64_MAX;
-    int64_t videoDts = (m_Mux.video.pCodecCtx) ? -1 : INT64_MAX;
+    int64_t videoDts = (m_Mux.video.pStreamOut) ? -1 : INT64_MAX;
     //キューにデータが存在するか
     bool bAudioExists = false;
     bool bVideoExists = false;

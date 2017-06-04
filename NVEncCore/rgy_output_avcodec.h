@@ -71,7 +71,6 @@ typedef struct AVMuxFormat {
 
 typedef struct AVMuxVideo {
     AVCodec              *pCodec;               //出力映像のCodec
-    AVCodecContext       *pCodecCtx;            //出力映像のCodecContext
     AVRational            nFPS;                 //出力映像のフレームレート
     AVStream             *pStreamOut;           //出力ファイルの映像ストリーム
     bool                  bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
