@@ -626,16 +626,19 @@ size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
 
 typedef void (WINAPI *RtlGetVersion_FUNC)(OSVERSIONINFOEXW*);
 
-static int getRealWindowsVersion(OSVERSIONINFOEXW *osinfo) {
-    OSVERSIONINFOEXW osver = { 0 };
-    osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
+static int getRealWindowsVersion(DWORD *major, DWORD *minor, DWORD *build) {
+    *major = 0;
+    *minor = 0;
+    OSVERSIONINFOEXW osver;
     HMODULE hModule = NULL;
     RtlGetVersion_FUNC func = NULL;
     int ret = 1;
     if (   NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
         && NULL != (func = (RtlGetVersion_FUNC)GetProcAddress(hModule, "RtlGetVersion"))) {
         func(&osver);
-        memcpy(osinfo, &osver, sizeof(osver));
+        *major = osver.dwMajorVersion;
+        *minor = osver.dwMinorVersion;
+        *build = osver.dwBuildNumber;
         ret = 0;
     }
     if (hModule) {
@@ -686,7 +689,7 @@ tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
             memcpy(&infoex, &info, sizeof(info));
         }
         if (info.dwMajorVersion == 6) {
-            getRealWindowsVersion(&infoex);
+            getRealWindowsVersion(&infoex.dwMajorVersion, &infoex.dwMinorVersion, &infoex.dwBuildNumber);
         }
         if (osinfo) {
             memcpy(osinfo, &infoex, sizeof(infoex));
@@ -821,8 +824,15 @@ tstring getEnviromentInfo(bool add_ram_info) {
     uint64_t UsedRamSize = 0;
     uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
 
+
     buf += _T("Environment Info\n");
-    buf += strsprintf(_T("OS : %s (%s)\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
+#if defined(_WIN32) || defined(_WIN64)
+    OSVERSIONINFOEXW osversioninfo = { 0 };
+    tstring osversionstr = getOSVersion(&osversioninfo);
+    buf += strsprintf(_T("OS : %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+#else
+    buf += strsprintf(_T("OS : %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
+#endif
     buf += strsprintf(_T("CPU: %s\n"), cpu_info);
     if (add_ram_info) {
         cpu_info_t cpuinfo;

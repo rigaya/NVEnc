@@ -1565,7 +1565,9 @@ System::Void frmConfig::SetEnvironmentInfo() {
         SetEnvironmentInfoDelegate^ sl = gcnew SetEnvironmentInfoDelegate(this, &frmConfig::SetEnvironmentInfo);
         this->Invoke(sl);
     } else {
-        fcgLBOSInfo->Text = String(getOSVersion().c_str()).ToString() + (is_64bit_os() ? String(L" x64").ToString() : String(L" x86").ToString());
+        OSVERSIONINFOEXW osversioninfo = { 0 };
+        tstring osversionstr = getOSVersion(&osversioninfo);
+        fcgLBOSInfo->Text = String(getOSVersion().c_str()).ToString() + (is_64bit_os() ? String(L" x64 ").ToString() : String(L" x86 ").ToString() + osversioninfo.dwBuildNumber.ToString());
         fcgLBCPUInfoOnFeatureTab->Text = StrCPUInfo;
         fcgLBGPUInfoOnFeatureTab->Text = StrGPUInfo;
         if (featureCache) {
