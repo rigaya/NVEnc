@@ -408,7 +408,7 @@ protected:
 class CProcSpeedControl {
 public:
     CProcSpeedControl(uint32_t maxProcessPerSec, uint32_t checkInterval = 4) :
-        m_nCount(0),
+        m_nCountLast(0),
         m_nCheckInterval(checkInterval),
         m_bEnable(true),
         m_tmThreshold(std::chrono::microseconds(1)),
@@ -422,13 +422,15 @@ public:
         m_tmThreshold = (maxProcessPerSec != 0) ? std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::seconds(1)) / maxProcessPerSec : std::chrono::microseconds(1);
     }
     void reset() {
-        m_nCount = 0;
+        m_nCountLast = 0;
         m_tmLastCheck = std::chrono::high_resolution_clock::now();
     }
     bool wait() {
+        return wait(m_nCountLast + 1);
+    };
+    bool wait(uint32_t nCount) {
         bool ret = false;
-        m_nCount++;
-        if (m_bEnable && m_nCount % m_nCheckInterval == 0) {
+        if (m_bEnable && m_nCountLast != nCount && nCount % m_nCheckInterval == 0) {
             auto tmNow = std::chrono::high_resolution_clock::now();
             //前回のチェックからこのくらい経っているとよい
             auto tmInterval = m_tmThreshold * m_nCheckInterval;
@@ -443,10 +445,11 @@ public:
                 m_tmLastCheck = tmNow;
             }
         }
+        m_nCountLast = nCount;
         return ret;
-    };
+    }
 private:
-    uint32_t m_nCount;
+    uint32_t m_nCountLast;
     uint32_t m_nCheckInterval;
     bool m_bEnable;
     std::chrono::microseconds m_tmThreshold;
