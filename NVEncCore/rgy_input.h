@@ -88,6 +88,9 @@ public:
     VideoInfo GetInputFrameInfo() {
         return m_inputVideoInfo;
     }
+    void SetInputFrames(int frames) {
+        m_inputVideoInfo.frames = frames;
+    }
 
     //入力ファイルに存在する音声のトラック数を返す
     virtual int GetAudioTrackCount() {

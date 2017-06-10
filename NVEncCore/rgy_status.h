@@ -181,9 +181,9 @@ public:
         bMFXUsage = m_pPerfMonitor && m_pPerfMonitor->GetQSVInfo(&info);
         bGPUUsage = bMFXUsage;
         if (bMFXUsage) {
-            m_sData.nGPUInfoCountSuccess++;
-            m_sData.fGPULoadPercentTotal += info.dEULoad;
-            m_sData.fMFXLoadPercentTotal += info.dMFXLoad;
+            m_sData.GPUInfoCountSuccess++;
+            m_sData.GPULoadPercentTotal += info.dEULoad;
+            m_sData.MFXLoadPercentTotal += info.dMFXLoad;
             gpuusage = (int)info.dEULoad;
             mfxusage = (int)info.dMFXLoad;
         } else {

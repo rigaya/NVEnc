@@ -1427,9 +1427,11 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
     //m_Demux.frames.finをしたので、ここで実行すれば、qAudioPktL1のデータがすべてqAudioPktL2に移される
     CheckAndMoveStreamPacketList();
     //音声のみ読み込みの場合はm_pEncSatusInfoはnullptrなので、nullチェックを行う
+#if !FOR_AUO //auoでここからUpdateDisplay()してしまうと、メインスレッド以外からのGUI更新となり、例外で落ちる
     if (m_pEncSatusInfo) {
         m_pEncSatusInfo->UpdateDisplay(100.0);
     }
+#endif
     return 1;
 }
 
