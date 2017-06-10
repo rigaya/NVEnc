@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
+ * Copyright 1993-2017 NVIDIA Corporation.  All rights reserved.
  *
  * Please refer to the NVIDIA end user license agreement (EULA) associated
  * with this source code for terms and conditions that govern your use of
@@ -34,7 +34,7 @@
     #define NVENCAPI
 #endif
 
-#define DEFAULT_I_QFACTOR -0.8f
+#define DEFAULT_I_QFACTOR 0.8f
 #define DEFAULT_B_QFACTOR 1.25f
 #define DEFAULT_I_QOFFSET 0.f
 #define DEFAULT_B_QOFFSET 1.25f
@@ -70,16 +70,19 @@ typedef struct _EncodeConfig
     int              pictureStruct;
     int              deviceID;
     NV_ENC_BUFFER_FORMAT inputFormat;
+    int              generateQpDeltaMap;
     char            *qpDeltaMapFile;
     char* inputFileName;
     char* outputFileName;
+    char* externalHintInputFile;
     char* encoderPreset;
     char* inputFilePath;
-    char *encCmdFileName;
-    int  enableMEOnly;
-    int  enableAsyncMode;
-    int  preloadedFrameCount;
-    int  enableTemporalAQ;
+    char* encCmdFileName;
+    int   enableMEOnly;
+    int   enableAsyncMode;
+    int   preloadedFrameCount;
+    int   enableTemporalAQ;
+    int   enableExternalMEHint;
 }EncodeConfig;
 
 typedef struct _EncodeInputBuffer
@@ -93,6 +96,7 @@ typedef struct _EncodeInputBuffer
     uint32_t          uNV12Stride;
     CUdeviceptr       pNV12TempdevPtr;
     uint32_t          uNV12TempStride;
+    uint32_t          dwTex;
     void*             nvRegisteredResource;
     NV_ENC_INPUT_PTR  hInputSurface;
     NV_ENC_BUFFER_FORMAT bufferFmt;
@@ -209,7 +213,10 @@ public:
     NVENCSTATUS NvEncDestroyEncoder();
     NVENCSTATUS NvEncInvalidateRefFrames(const NvEncPictureCommand *pEncPicCommand);
     NVENCSTATUS NvEncOpenEncodeSessionEx(void* device, NV_ENC_DEVICE_TYPE deviceType);
-    NVENCSTATUS NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resourceType, void* resourceToRegister, uint32_t width, uint32_t height, uint32_t pitch, void** registeredResource);
+    NVENCSTATUS NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resourceType, void* resourceToRegister,
+                                      uint32_t width, uint32_t height, uint32_t pitch,
+                                      void** registeredResource,
+                                      NV_ENC_BUFFER_FORMAT bufFormat = NV_ENC_BUFFER_FORMAT_NV12);
     NVENCSTATUS NvEncUnregisterResource(NV_ENC_REGISTERED_PTR registeredRes);
     NVENCSTATUS NvEncReconfigureEncoder(const NvEncPictureCommand *pEncPicCommand);
     NVENCSTATUS NvEncFlushEncoderQueue(void *hEOSEvent);
@@ -221,7 +228,8 @@ public:
     NVENCSTATUS                                          NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, NvEncPictureCommand *encPicCommand,
                                                                           uint32_t width, uint32_t height,
                                                                           NV_ENC_PIC_STRUCT ePicStruct = NV_ENC_PIC_STRUCT_FRAME,
-                                                                          int8_t *qpDeltaMapArray = NULL, uint32_t qpDeltaMapArraySize = 0);
+                                                                          int8_t *qpDeltaMapArray = NULL, uint32_t qpDeltaMapArraySize = 0, NVENC_EXTERNAL_ME_HINT *meExternalHints = NULL, 
+                                                                          NVENC_EXTERNAL_ME_HINT_COUNTS_PER_BLOCKTYPE *meHintCountsPerBlock = NULL);
     NVENCSTATUS                                          CreateEncoder(EncodeConfig *pEncCfg);
     GUID                                                 GetPresetGUID(char* encoderPreset, int codec);
     NVENCSTATUS                                          ProcessOutput(const EncodeBuffer *pEncodeBuffer);
@@ -233,3 +241,4 @@ public:
 };
 
 typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*); 
+
