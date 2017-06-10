@@ -548,6 +548,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="rgy_event.cpp" />
     <ClCompile Include="rgy_input.cpp" />
     <ClCompile Include="rgy_input_avcodec.cpp" />
+    <ClCompile Include="rgy_input_avi.cpp" />
     <ClCompile Include="rgy_input_avs.cpp" />
     <ClCompile Include="rgy_input_raw.cpp" />
     <ClCompile Include="rgy_input_vpy.cpp" />
@@ -602,6 +603,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_input.h" />
     <ClInclude Include="rgy_input_avcodec.h" />
+    <ClInclude Include="rgy_input_avi.h" />
     <ClInclude Include="rgy_input_avs.h" />
     <ClInclude Include="rgy_input_raw.h" />
     <ClInclude Include="rgy_input_vpy.h" />

@@ -53,6 +53,7 @@
 #include "rgy_status.h"
 #include "rgy_input.h"
 #include "rgy_input_raw.h"
+#include "rgy_input_avi.h"
 #include "rgy_input_avs.h"
 #include "rgy_input_vpy.h"
 #include "rgy_input_avcodec.h"
@@ -440,6 +441,12 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     void *pInputPrm = nullptr;
 
     switch (inputParam->input.type) {
+#if ENABLE_AVI_READER
+    case RGY_INPUT_FMT_AVI:
+        PrintMes(RGY_LOG_DEBUG, _T("avi reader selected.\n"));
+        m_pFileReader.reset(new RGYInputAvi());
+        break;
+#endif //ENABLE_AVI_READER
 #if ENABLE_AVISYNTH_READER
     case RGY_INPUT_FMT_AVS:
         PrintMes(RGY_LOG_DEBUG, _T("avs reader selected.\n"));

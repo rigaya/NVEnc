@@ -26,56 +26,36 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
-#ifndef __RGY_CONFIG_H__
-#define __RGY_CONFIG_H__
+#ifndef __RGY_INPUT_AVI_H__
+#define __RGY_INPUT_AVI_H__
 
-#define VER_FILEVERSION              0,3,8,0
-#define VER_STR_FILEVERSION          "3.08"
-#define VER_STR_FILEVERSION_TCHAR _T("3.08")
+#include "rgy_version.h"
+#if ENABLE_AVI_READER
+#include <Windows.h>
+#include <vfw.h>
+#pragma comment(lib, "vfw32.lib")
+#include "rgy_input.h"
 
-#ifdef _M_IX86
-#define BUILD_ARCH_STR _T("x86")
-#else
-#define BUILD_ARCH_STR _T("x64")
-#endif
+class RGYInputAvi : public RGYInput
+{
+public:
+    RGYInputAvi();
+    virtual ~RGYInputAvi();
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
+    virtual void Close() override;
+protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
 
-static const int HW_TIMEBASE = 100000;
+    PAVIFILE m_pAviFile;
+    PAVISTREAM m_pAviStream;
+    PGETFRAME m_pGetFrame;
+    LPBITMAPINFOHEADER m_pBitmapInfoHeader;
+    int m_nYPitchMultiplizer;
 
-#if _UNICODE
-const wchar_t *get_encoder_version();
-#else
-const char *get_encoder_version();
-#endif
+    uint32_t m_nBufSize;
+    shared_ptr<uint8_t> m_pBuffer;
+};
 
-#define ENCODER_QSV    0
-#define ENCODER_NVENC  1
-#define ENCODER_VCEENC 0
+#endif //ENABLE_AVI_READER
 
-#define ENABLE_OPENCL 1
-
-#define ENABLE_AVCODEC_OUT_THREAD 1
-#define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
-#define ENABLE_CPP_REGEX 1
-#define ENABLE_DTL 1
-
-#ifdef NVENC_AUO
-#define ENCODER_NAME  "NVEnc"
-#define AUO_NAME      "NVEnc.auo"
-#define FOR_AUO                   1
-#define ENABLE_RAW_READER         0
-#define ENABLE_AVI_READER         0
-#define ENABLE_AVISYNTH_READER    0
-#define ENABLE_VAPOURSYNTH_READER 0
-#define ENABLE_AVSW_READER 0
-#else
-#define ENCODER_NAME "NVEncC"
-#define DECODER_NAME "cuvid"
-#define FOR_AUO                   0
-#define ENABLE_RAW_READER         1
-#define ENABLE_AVI_READER         1
-#define ENABLE_AVISYNTH_READER    1
-#define ENABLE_VAPOURSYNTH_READER 1
-#define ENABLE_AVSW_READER        1
-#endif
-
-#endif //__RGY_CONFIG_H__
+#endif //__RGY_INPUT_AVI_H__
