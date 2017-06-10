@@ -896,6 +896,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     nAQ |= cnf->nvenc.enc_config.rcParams.enableTemporalAQ ? NV_ENC_AQ_TEMPORAL : 0x00;
     SetCXIndex(fcgCXAQ,                get_cx_index(list_aq, nAQ));
     SetNUValue(fcgNUAQStrength,        cnf->nvenc.enc_config.rcParams.aqStrength);
+    fcgCBWeightP->Checked            = cnf->nvenc.weightp != 0;
     
     if (cnf->nvenc.par[0] * cnf->nvenc.par[1] <= 0)
         cnf->nvenc.par[0] = cnf->nvenc.par[1] = 0;
@@ -1043,6 +1044,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->nvenc.enc_config.rcParams.enableAQ         = (nAQ & NV_ENC_AQ_SPATIAL)  ? 1 : 0;
     cnf->nvenc.enc_config.rcParams.enableTemporalAQ = (nAQ & NV_ENC_AQ_TEMPORAL) ? 1 : 0;
     cnf->nvenc.enc_config.rcParams.aqStrength = (uint32_t)clamp(fcgNUAQStrength->Value, 0, 15);
+    cnf->nvenc.weightp                        = (fcgCBWeightP->Checked) ? 1 : 0;
 
 
     cnf->nvenc.par[0]                = (int)fcgNUAspectRatioX->Value;

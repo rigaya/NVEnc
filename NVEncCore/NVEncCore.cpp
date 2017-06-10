@@ -243,6 +243,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nAVSyncMode(RGY_AVSYNC_THROUGH),     //avsyncの方法 (RGY_AVSYNC_xxx)
     nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
     vpp(),
+    bWeightP(false),
     pPrivatePrm(nullptr) {
     encConfig = NVEncCore::DefaultParam();
     memset(&par,       0, sizeof(par));
@@ -2041,6 +2042,13 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.frameRateDen        = inputParam->input.fpsD;
     if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
         m_stCreateEncodeParams.frameRateNum *= 2;
+    }
+    if (inputParam->bWeightP) {
+        if (!getCapLimit(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION)) {
+            error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction"));
+        } else {
+            m_stCreateEncodeParams.enableWeightedPrediction = 1;
+        }
     }
     //Fix me add theading model
     m_stCreateEncodeParams.enableEncodeAsync   = true;
