@@ -2901,7 +2901,6 @@ NVENCSTATUS NVEncCore::Encode() {
     };
 
     auto filter_frame = [&](int& nFilterFrame, unique_ptr<FrameBufferDataIn>& inframe, deque<unique_ptr<FrameBufferDataEnc>>& dqEncFrames) {
-        CUresult curesult = CUDA_SUCCESS;
         if (nFilterFrame > 0) {
             WaitForSingleObject(vDecMapFinEvents[(nFilterFrame - 1) % vDecMapFinEvents.size()], INFINITE);
         }
@@ -2921,6 +2920,7 @@ NVENCSTATUS NVEncCore::Encode() {
         }
 #if ENABLE_AVSW_READER
         else {
+            CUresult curesult = CUDA_SUCCESS;
             CUdeviceptr dMappedFrame = 0;
             memcpyKind = cudaMemcpyDeviceToDevice;
             auto vppinfo = inframe->getVppInfo();
