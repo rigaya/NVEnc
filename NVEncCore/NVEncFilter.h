@@ -285,6 +285,7 @@ protected:
     NVENCSTATUS convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     NVENCSTATUS convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     NVENCSTATUS convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    NVENCSTATUS convertCspFromRGB(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     NVENCSTATUS convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
 };

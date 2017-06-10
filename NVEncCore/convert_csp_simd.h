@@ -364,6 +364,20 @@ static void __forceinline convert_rgb3_to_rgb4_simd(void **dst, const void **src
 }
 #endif
 
+static void __forceinline convert_rgb3_to_rgb3_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    uint8_t *srcLine = (uint8_t *)src[0] + src_y_pitch_byte * (height - crop_up - 1) + crop_left * 3;
+    uint8_t *dstLine = (uint8_t *)dst[0];
+    const int y_fin = height - crop_bottom - crop_up;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_fin; y++, dstLine += dst_y_pitch_byte, srcLine -= src_y_pitch_byte) {
+        memcpy_sse(dstLine, srcLine, y_width * 3);
+    }
+}
+
 static void __forceinline convert_rgb4_to_rgb4_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];

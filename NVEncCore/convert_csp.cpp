@@ -63,6 +63,8 @@ void convert_rgb4_to_rgb4_sse2(void **dst, const void **src, int width, int src_
 void convert_rgb4_to_rgb4_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_rgb4_to_rgb4_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
+void convert_rgb3_to_rgb3_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+
 void convert_yv12_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_to_p010_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yv12_to_p010_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
@@ -921,7 +923,7 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX2( RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_avx2,     convert_yv12_to_nv12_avx2,     AVX2|AVX)
     FUNC_AVX(  RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_avx,      convert_yv12_to_nv12_avx,      AVX )
     FUNC_SSE(  RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_sse2,     convert_yv12_to_nv12_sse2,     SSE2 )
-    FUNC_SSE(  RGY_CSP_YV12,      RGY_CSP_YUV444,    false,  convert_yv12_p_to_yuv444,            convert_yv12_i_to_yuv444,             NONE )
+    FUNC_SSE(  RGY_CSP_YV12, RGY_CSP_YUV444, false, convert_yv12_p_to_yuv444,    convert_yv12_i_to_yuv444,      NONE )
     FUNC_AVX2( RGY_CSP_YV12, RGY_CSP_NV12, true,  convert_uv_yv12_to_nv12_avx2,  convert_uv_yv12_to_nv12_avx2,  AVX2|AVX )
     FUNC_AVX(  RGY_CSP_YV12, RGY_CSP_NV12, true,  convert_uv_yv12_to_nv12_avx,   convert_uv_yv12_to_nv12_avx,   AVX )
     FUNC_SSE(  RGY_CSP_YV12, RGY_CSP_NV12, true,  convert_uv_yv12_to_nv12_sse2,  convert_uv_yv12_to_nv12_sse2,  SSE2 )
@@ -931,6 +933,7 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX2( RGY_CSP_RGB4, RGY_CSP_RGB4, false, convert_rgb4_to_rgb4_avx2,     convert_rgb4_to_rgb4_avx2,     AVX2|AVX )
     FUNC_AVX(  RGY_CSP_RGB4, RGY_CSP_RGB4, false, convert_rgb4_to_rgb4_avx,      convert_rgb4_to_rgb4_avx,      AVX )
     FUNC_SSE(  RGY_CSP_RGB4, RGY_CSP_RGB4, false, convert_rgb4_to_rgb4_sse2,     convert_rgb4_to_rgb4_sse2,     SSE2 )
+    FUNC_SSE(  RGY_CSP_RGB3, RGY_CSP_RGB3, false, convert_rgb3_to_rgb3_sse2,     convert_rgb3_to_rgb3_sse2,     SSE2 )
  
     FUNC_AVX2( RGY_CSP_YV12,      RGY_CSP_P010,      false, convert_yv12_to_p010_avx2,           convert_yv12_to_p010_avx2,    AVX2|AVX )
     FUNC_AVX(  RGY_CSP_YV12,      RGY_CSP_P010,      false, convert_yv12_to_p010_avx,            convert_yv12_to_p010_avx,     AVX )

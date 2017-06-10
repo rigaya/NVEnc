@@ -1338,6 +1338,12 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         case RGY_CSP_YUV444_16:
             bufPitch = (bufWidth * 2 + 31) & (~31);
             bufSize = bufPitch * bufHeight * 3; break;
+        case RGY_CSP_RGB3:
+            bufPitch = (bufWidth * 3 + 3) & (~3);
+            bufSize = bufPitch * bufHeight; break;
+        case RGY_CSP_RGB4:
+            bufPitch = bufWidth * 4;
+            bufSize = bufPitch * bufHeight; break;
         default:
             PrintMes(RGY_LOG_ERROR, _T("Unsupported csp at AllocateIOBuffers.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -2441,9 +2447,30 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     //最後のフィルタ
     {
+        //もし入力がCPUメモリで色空間が違うなら、一度そのままGPUに転送する必要がある
+        if (inputFrame.deivce_mem == false && inputFrame.csp != GetEncoderCSP(inputParam)) {
+            unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
+            shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
+            param->frameIn = inputFrame;
+            param->frameOut.csp = param->frameIn.csp;
+            //インタレ保持であれば、CPU側にフレームを戻す必要がある
+            //色空間が同じなら、ここでやってしまう
+            param->frameOut.deivce_mem = true;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filterCrop->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            m_vpFilters.push_back(std::move(filterCrop));
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
+        const bool bDeviceMemFinal = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && inputFrame.csp == GetEncoderCSP(inputParam)) ? false : true;
         unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
-        //avcuivd読みでは読み込み時にcropが適用されるないため
+        //avcuivd読みでは読み込み時にcropが適用されないため
         //ここまでフィルタが使われていなければ、ここでcropを適用する必要がある
         if (m_vpFilters.size() == 0 && cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
             param->crop = inputParam->input.crop;
@@ -2452,7 +2479,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         param->frameOut.csp = GetEncoderCSP(inputParam);
         //インタレ保持であれば、CPU側にフレームを戻す必要がある
         //色空間が同じなら、ここでやってしまう
-        param->frameOut.deivce_mem = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && param->frameIn.csp == param->frameOut.csp) ? false : true;
+        param->frameOut.deivce_mem = bDeviceMemFinal;
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_ctxLock));
         auto sts = filterCrop->init(param, m_pNVLog);
