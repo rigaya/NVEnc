@@ -36,14 +36,11 @@
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include <cuda_runtime.h>
+#include <npp.h>
+#include <cuda.h>
 #pragma warning (pop)
 #include <memory>
 #include <vector>
-#include <cuda.h>
-#pragma warning (push)
-#pragma warning (disable: 4819)
-#include <npp.h>
-#pragma warning (pop)
 #include "helper_cuda.h"
 #include "NVEncUtil.h"
 #include "rgy_log.h"

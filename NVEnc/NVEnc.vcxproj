@@ -134,50 +134,50 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <TargetExt>.auo</TargetExt>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <TargetExt>.auo</TargetExt>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <TargetExt>.auo</TargetExt>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <LinkIncremental>true</LinkIncremental>
     <TargetExt>.auo</TargetExt>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <TargetExt>.auo</TargetExt>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <TargetExt>.auo</TargetExt>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <TargetExt>.auo</TargetExt>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
     <LinkIncremental>false</LinkIncremental>
     <TargetExt>.auo</TargetExt>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -207,6 +207,10 @@
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
@@ -236,6 +240,10 @@
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -265,6 +273,10 @@
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <ClCompile>
@@ -294,6 +306,10 @@
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -334,6 +350,10 @@
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -374,6 +394,10 @@
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
     <ClCompile>
@@ -413,6 +437,10 @@
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
     <ClCompile>
@@ -452,6 +480,10 @@
       <AdditionalIncludeDirectories>.;prm;encode;frm;..\NVEncCore;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;</AdditionalIncludeDirectories>
       <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="encode\auo_audio.cpp">
@@ -833,6 +865,9 @@
   <ItemGroup>
     <ProjectReference Include="..\NVEncCore\NVEncCore.vcxproj">
       <Project>{1cd1cf80-e971-4a92-93e0-4aea5f4032b5}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\NVEncSDK\NVEncSDK.vcxproj">
+      <Project>{c1cf32c5-a001-42aa-8f6a-b1a697ea8d5b}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

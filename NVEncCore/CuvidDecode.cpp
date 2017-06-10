@@ -32,8 +32,6 @@
 #include "NVEncUtil.h"
 #if ENABLE_AVSW_READER
 
-static const int cudaVideoSurfaceFormat_P010 = 1;
-
 bool check_if_nvcuvid_dll_available() {
     //check for nvcuvid.dll
     HMODULE hModule = LoadLibrary(_T("nvcuvid.dll"));
@@ -113,8 +111,8 @@ int CuvidDecode::DecVideoSequence(CUVIDEOFORMAT *pFormat) {
     AddMessage(RGY_LOG_TRACE, _T("DecVideoSequence\n"));
     if (   (pFormat->codec         != m_videoDecodeCreateInfo.CodecType)
         || (pFormat->chroma_format != m_videoDecodeCreateInfo.ChromaFormat)) {
-        if (m_videoDecodeCreateInfo.CodecType == cudaVideoCodec_NV12) {
-            AddMessage(RGY_LOG_WARN, _T("dynamic video format changing detected\n"));
+        if (m_videoDecodeCreateInfo.CodecType != cudaVideoCodec_NumCodecs) {
+            AddMessage(RGY_LOG_DEBUG, _T("dynamic video format changing detected\n"));
         }
         CreateDecoder(pFormat);
         return 1;
@@ -183,7 +181,7 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
     m_videoDecodeCreateInfo.ChromaFormat = pFormat->chroma_format;
     m_videoDecodeCreateInfo.ulWidth   = pFormat->coded_width;
     m_videoDecodeCreateInfo.ulHeight  = pFormat->coded_height;
-    m_videoDecodeCreateInfo.Reserved1[0] = (RGY_CSP_BIT_DEPTH[m_videoInfo.csp] - m_videoInfo.shift) - 8;
+    m_videoDecodeCreateInfo.bitDepthMinus8 = (RGY_CSP_BIT_DEPTH[m_videoInfo.csp] - m_videoInfo.shift) - 8;
 
     if (m_videoInfo.dstWidth > 0 && m_videoInfo.dstHeight > 0) {
         m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.dstWidth;
@@ -285,7 +283,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     m_videoDecodeCreateInfo.ulNumDecodeSurfaces = FrameQueue::cnMaximumSize;
 
     m_videoDecodeCreateInfo.ChromaFormat = cudaVideoChromaFormat_420;
-    m_videoDecodeCreateInfo.OutputFormat = (input->csp == RGY_CSP_P010) ? (cudaVideoSurfaceFormat)cudaVideoSurfaceFormat_P010 : cudaVideoSurfaceFormat_NV12;;
+    m_videoDecodeCreateInfo.OutputFormat = (input->csp == RGY_CSP_P010) ? cudaVideoSurfaceFormat_P016 : cudaVideoSurfaceFormat_NV12;
     m_videoDecodeCreateInfo.DeinterlaceMode = vpp->deinterlace;
 
     if (m_videoInfo.dstWidth > 0 && m_videoInfo.dstHeight > 0) {

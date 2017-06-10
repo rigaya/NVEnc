@@ -11,7 +11,10 @@
  *
  */
 
-#include <nvcuvid.h>
+#pragma warning(push)
+#pragma warning(disable: 4201)
+#include "dynlink_nvcuvid.h"
+#pragma warning(pop)
 
 #ifdef _WIN32
   #include <windows.h>

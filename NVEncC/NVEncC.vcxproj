@@ -124,44 +124,44 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>..\_build\$(ProjectName)\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <TargetName>$(ProjectName)64</TargetName>
-    <IntDir>$(OutDir)obj\</IntDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -178,8 +178,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
-      <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>nvcuda.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -191,6 +191,10 @@
     <Manifest>
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
@@ -208,8 +212,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
-      <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>nvcuda.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -221,6 +225,10 @@
     <Manifest>
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -237,8 +245,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
-      <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>nvcuda.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -250,6 +258,10 @@
     <Manifest>
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <ClCompile>
@@ -267,8 +279,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
-      <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>nvcuda.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -280,6 +292,10 @@
     <Manifest>
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -307,8 +323,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>nvcuda.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -320,6 +336,10 @@
     <Manifest>
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -346,8 +366,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>nvcuda.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -359,6 +379,10 @@
     <Manifest>
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
     <ClCompile>
@@ -387,8 +411,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>nvcuda.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -400,6 +424,10 @@
     <Manifest>
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
     <ClCompile>
@@ -427,8 +455,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>cuda.lib;nvcuvid.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nvcuvid.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>nvcuda.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -440,6 +468,10 @@
     <Manifest>
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="NVEncC.cpp" />
@@ -450,6 +482,9 @@
     </ProjectReference>
     <ProjectReference Include="..\NVEncCore\NVEncCore.vcxproj">
       <Project>{1cd1cf80-e971-4a92-93e0-4aea5f4032b5}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\NVEncSDK\NVEncSDK.vcxproj">
+      <Project>{c1cf32c5-a001-42aa-8f6a-b1a697ea8d5b}</Project>
     </ProjectReference>
     <ProjectReference Include="..\tinyxml2\tinyxml2.vcxproj">
       <Project>{a34ca86d-6c2b-482f-984e-2687459e65e9}</Project>

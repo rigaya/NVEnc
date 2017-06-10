@@ -30,9 +30,10 @@
 #include <tchar.h>
 #include <limits.h>
 #include <vector>
-#include <cuviddec.h>
 #pragma warning (push)
 #pragma warning (disable: 4819)
+#pragma warning (disable: 4201)
+#include "dynlink_cuviddec.h"
 #include <npp.h>
 #pragma warning (pop)
 #include "nvEncodeAPI.h"

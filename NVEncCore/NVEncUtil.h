@@ -32,7 +32,10 @@
 #include <utility>
 #include <array>
 #include "nvEncodeAPI.h"
-#include "cuviddec.h"
+#pragma warning (push)
+#pragma warning (disable: 4201)
+#include "dynlink_cuviddec.h"
+#pragma warning (pop)
 #include "convert_csp.h"
 #include "rgy_util.h"
 #include "rgy_err.h"

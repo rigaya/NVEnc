@@ -45,28 +45,28 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #pragma warning(pop)
-#include "helper_cuda.h"
 #include "process.h"
 #pragma comment(lib, "winmm.lib")
 #include "nvEncodeAPI.h"
 #include "NVEncCore.h"
 #include "rgy_version.h"
 #include "rgy_status.h"
-#include "NVEncParam.h"
-#include "NVEncUtil.h"
 #include "rgy_input.h"
 #include "rgy_input_raw.h"
 #include "rgy_input_avs.h"
 #include "rgy_input_vpy.h"
+#include "rgy_input_avcodec.h"
+#include "rgy_output.h"
+#include "rgy_output_avcodec.h"
+#include "NVEncParam.h"
+#include "NVEncUtil.h"
 #include "NVEncFilter.h"
 #include "NVEncFilterDelogo.h"
 #include "NVEncFilterDenoiseKnn.h"
 #include "NVEncFilterDenoisePmd.h"
-#include "rgy_input_avcodec.h"
-#include "rgy_output.h"
-#include "rgy_output_avcodec.h"
-#include "helper_nvenc.h"
 #include "chapter_rw.h"
+#include "helper_cuda.h"
+#include "helper_nvenc.h"
 #include "h264_level.h"
 #include "hevc_level.h"
 #include "shlwapi.h"
@@ -852,6 +852,12 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuCtxPopCurrent: Success.\n"));
+
+    if (CUDA_SUCCESS != (cuResult = cuvidInit(0))) {
+        PrintMes(RGY_LOG_ERROR, _T("cuvidInit error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+        return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("cuvidInit: Success.\n"));
 
     if (CUDA_SUCCESS != (cuResult = cuvidCtxLockCreate(&m_ctxLock, m_cuContextCurr))) {
         PrintMes(RGY_LOG_ERROR, _T("Failed cuvidCtxLockCreate %d\n"), cuResult);

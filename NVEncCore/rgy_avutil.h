@@ -92,6 +92,9 @@ static const AVPixelFormat HW_DECODE_PIXFMT_LIST[] = {
     AV_PIX_FMT_YUVJ420P,
     AV_PIX_FMT_NV12,
     AV_PIX_FMT_YUV420P10LE,
+#if ENCODER_NVENC
+    AV_PIX_FMT_YUV420P12LE,
+#endif
 };
 
 static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");

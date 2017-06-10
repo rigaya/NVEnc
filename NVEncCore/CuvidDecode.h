@@ -31,10 +31,13 @@
 #define __CUVID_DECODE_H__
 
 #include <cuda.h>
-#include <nvcuvid.h>
+#pragma warning(push)
+#pragma warning(disable: 4201)
+#include "dynlink_nvcuvid.h"
+#pragma warning(pop)
 #include "rgy_log.h"
-#include "FrameQueue.h"
 #include "rgy_avutil.h"
+#include "FrameQueue.h"
 #include "NVEncFrameInfo.h"
 
 #if ENABLE_AVSW_READER

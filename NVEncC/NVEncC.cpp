@@ -1629,7 +1629,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.targetQuality = (uint16_t)clamp(value, 0, 51);
+            pParams->encConfig.rcParams.targetQuality = (uint8_t)clamp(value, 0, 51);
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
