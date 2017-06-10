@@ -666,7 +666,7 @@ typedef struct AVDemuxStream {
 } AVDemuxStream;
 
 typedef struct AVDemuxThread {
-    int8_t                       nInputThread;       //入力スレッドを使用する
+    int                          nInputThread;       //入力スレッドを使用する
     std::atomic<bool>            bAbortInput;        //読み込みスレッドに停止を通知する
     std::thread                  thInput;            //読み込みスレッド
     PerfQueueInfo               *pQueueInfo;         //キューの情報を格納する構造体
