@@ -688,9 +688,14 @@ static void show_nvenc_features(int deviceid) {
             std::for_each(codecNVEncCaps.caps.begin(), codecNVEncCaps.caps.end(), [&max_length](const NVEncCap& x) { max_length = (std::max)(max_length, _tcslen(x.name)); });
             for (auto cap : codecNVEncCaps.caps) {
                 _ftprintf(stdout, _T("%s"), cap.name);
-                for (size_t i = _tcslen(cap.name); i <= max_length; i++)
+                for (size_t i = _tcslen(cap.name); i <= max_length; i++) {
                     _ftprintf(stdout, _T(" "));
-                _ftprintf(stdout, _T("%d\n"), cap.value);
+                }
+                if (cap.isBool) {
+                    _ftprintf(stdout, cap.value ? _T("yes\n") : _T("no\n"));
+                } else {
+                    _ftprintf(stdout, _T("%d\n"), cap.value);
+                }
             }
             _ftprintf(stdout, _T("\n"));
         }

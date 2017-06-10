@@ -1498,7 +1498,7 @@ NVENCSTATUS NVEncCore::setCodecPresetList(void *hEncoder, NVEncCodecFeature& cod
             INIT_CONFIG(codecFeature.presetConfigs[i], NV_ENC_PRESET_CONFIG);
             SET_VER(codecFeature.presetConfigs[i].presetCfg, NV_ENC_CONFIG);
             if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetConfig(hEncoder, codecFeature.codec, codecFeature.presets[i], &codecFeature.presetConfigs[i]))) {
-        NVPrintFuncError(_T("nvEncGetEncodePresetConfig"), nvStatus);
+                NVPrintFuncError(_T("nvEncGetEncodePresetConfig"), nvStatus);
                 return nvStatus;
             }
         }
@@ -1526,7 +1526,7 @@ NVENCSTATUS NVEncCore::setInputFormatList(void *hEncoder, NVEncCodecFeature& cod
 NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCodecFeature& codecFeature) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     bool check_h264 = get_value_from_guid(codecFeature.codec, list_nvenc_codecs) == NV_ENC_H264;
-    auto add_cap_info = [&](NV_ENC_CAPS cap_id, bool for_h264_only, const TCHAR *cap_name) {
+    auto add_cap_info = [&](NV_ENC_CAPS cap_id, bool for_h264_only, bool is_boolean, const TCHAR *cap_name) {
         if (!(!check_h264 && for_h264_only)) {
             NV_ENC_CAPS_PARAM param;
             INIT_CONFIG(param, NV_ENC_CAPS_PARAM);
@@ -1534,8 +1534,9 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCode
             int value = 0;
             NVENCSTATUS result = m_pEncodeAPI->nvEncGetEncodeCaps(hEncoder, codecFeature.codec, &param, &value);
             if (NV_ENC_SUCCESS == result) {
-                NVEncCap cap ={ 0 };
+                NVEncCap cap = { 0 };
                 cap.id = cap_id;
+                cap.isBool = is_boolean;
                 cap.name = cap_name;
                 cap.value = value;
                 codecFeature.caps.push_back(cap);
@@ -1545,43 +1546,45 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCode
         }
     };
 
-    add_cap_info(NV_ENC_CAPS_NUM_MAX_BFRAMES,              false, _T("Max Bframes"));
-    add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  false, _T("RC Modes"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       false, _T("Field Encoding"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_MONOCHROME,           false, _T("MonoChrome"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_FMO,                  true,  _T("FMO"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_QPELMV,               false, _T("Quater-Pel MV"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_BDIRECT_MODE,         false, _T("B Direct Mode"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_CABAC,                true,  _T("CABAC"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM,   true,  _T("Adaptive Transform"));
-    add_cap_info(NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS,      false, _T("Max Temporal Layers"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_PFRAMES, false, _T("Hierarchial P Frames"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_BFRAMES, false, _T("Hierarchial B Frames"));
-    add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    false, _T("Max Level"));
-    add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    false, _T("Min Level"));
-    add_cap_info(NV_ENC_CAPS_SEPARATE_COLOUR_PLANE,        false, _T("4:4:4"));
-    add_cap_info(NV_ENC_CAPS_WIDTH_MAX,                    false, _T("Max Width"));
-    add_cap_info(NV_ENC_CAPS_HEIGHT_MAX,                   false, _T("Max Height"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_RES_CHANGE,       false, _T("Dynamic Resolution Change"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE,   false, _T("Dynamic Bitrate Change"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_FORCE_CONSTQP,    false, _T("Forced constant QP"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_RCMODE_CHANGE,    false, _T("Dynamic RC Mode Change"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_SUBFRAME_READBACK,    false, _T("Subframe Readback"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_CONSTRAINED_ENCODING, false, _T("Constrained Encoding"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_INTRA_REFRESH,        false, _T("Intra Refresh"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE,  false, _T("Custom VBV Bufsize"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_DYNAMIC_SLICE_MODE,   false, _T("Dynamic Slice Mode"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_REF_PIC_INVALIDATION, false, _T("Ref Pic Invalidiation"));
-    add_cap_info(NV_ENC_CAPS_PREPROC_SUPPORT,              false, _T("PreProcess"));
-    add_cap_info(NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT,         false, _T("Async Encoding"));
-    add_cap_info(NV_ENC_CAPS_MB_NUM_MAX,                   false, _T("Max MBs"));
-    add_cap_info(NV_ENC_CAPS_MB_PER_SEC_MAX,               false, _T("MAX MB per sec"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE,      false, _T("Lossless"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_SAO,                  false, _T("SAO"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_MEONLY_MODE,          false, _T("Me Only Mode"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD,            false, _T("Lookahead"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ,          false, _T("AQ (temporal)"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE,         false, _T("10bit depth"));
+    add_cap_info(NV_ENC_CAPS_NUM_MAX_BFRAMES,              false, false, _T("Max Bframes"));
+    add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  false, false, _T("RC Modes"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       false, true,  _T("Field Encoding"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_MONOCHROME,           false, true,  _T("MonoChrome"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_FMO,                  true,  true,  _T("FMO"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_QPELMV,               false, true,  _T("Quater-Pel MV"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_BDIRECT_MODE,         false, true,  _T("B Direct Mode"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_CABAC,                true,  true,  _T("CABAC"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM,   true,  true,  _T("Adaptive Transform"));
+    add_cap_info(NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS,      false, false, _T("Max Temporal Layers"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_PFRAMES, false, true,  _T("Hierarchial P Frames"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_BFRAMES, false, true,  _T("Hierarchial B Frames"));
+    add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    false, false, _T("Max Level"));
+    add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    false, false, _T("Min Level"));
+    add_cap_info(NV_ENC_CAPS_SEPARATE_COLOUR_PLANE,        false, true,  _T("4:4:4"));
+    add_cap_info(NV_ENC_CAPS_WIDTH_MAX,                    false, false, _T("Max Width"));
+    add_cap_info(NV_ENC_CAPS_HEIGHT_MAX,                   false, false, _T("Max Height"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_RES_CHANGE,       false, true,  _T("Dynamic Resolution Change"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE,   false, true,  _T("Dynamic Bitrate Change"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_FORCE_CONSTQP,    false, true,  _T("Forced constant QP"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_RCMODE_CHANGE,    false, true,  _T("Dynamic RC Mode Change"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_SUBFRAME_READBACK,    false, true,  _T("Subframe Readback"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_CONSTRAINED_ENCODING, false, true,  _T("Constrained Encoding"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_INTRA_REFRESH,        false, true,  _T("Intra Refresh"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_CUSTOM_VBV_BUF_SIZE,  false, true,  _T("Custom VBV Bufsize"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_DYNAMIC_SLICE_MODE,   false, true,  _T("Dynamic Slice Mode"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_REF_PIC_INVALIDATION, false, true,  _T("Ref Pic Invalidiation"));
+    add_cap_info(NV_ENC_CAPS_PREPROC_SUPPORT,              false, true,  _T("PreProcess"));
+    add_cap_info(NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT,         false, true,  _T("Async Encoding"));
+    add_cap_info(NV_ENC_CAPS_MB_NUM_MAX,                   false, false, _T("Max MBs"));
+    add_cap_info(NV_ENC_CAPS_MB_PER_SEC_MAX,               false, false, _T("MAX MB per sec"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE,      false, true,  _T("Lossless"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_SAO,                  false, true,  _T("SAO"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_MEONLY_MODE,          false, true,  _T("Me Only Mode"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD,            false, true,  _T("Lookahead"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ,          false, true,  _T("AQ (temporal)"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION,  false, true,  _T("Weighted Prediction"));
+    add_cap_info(NV_ENC_CAPS_NUM_MAX_LTR_FRAMES,           false, false, _T("Max LTR Frames"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE,         false, true,  _T("10bit depth"));
     return nvStatus;
 }
 

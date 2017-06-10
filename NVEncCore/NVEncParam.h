@@ -463,6 +463,7 @@ static inline bool is_interlaced(NV_ENC_PIC_STRUCT pic_struct) {
 typedef struct NVEncCap {
     int id;            //feature ID
     const TCHAR *name; //feature名
+    bool isBool;       //値がtrue/falseの値
     int value;         //featureの制限値
 } NVEncCap;
 
