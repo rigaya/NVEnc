@@ -805,14 +805,14 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
 NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     CUresult cuResult;
     if (CUDA_SUCCESS != (cuResult = cuInit(0))) {
-        PrintMes(RGY_LOG_ERROR, _T("cuInit error:0x%x\n"), cuResult);
+        PrintMes(RGY_LOG_ERROR, _T("cuInit error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuInit: Success.\n"));
     m_nDeviceId = deviceID;
     int deviceCount = 0;
     if (CUDA_SUCCESS != (cuResult = cuDeviceGetCount(&deviceCount))) {
-        PrintMes(RGY_LOG_ERROR, _T("cuDeviceGetCount error:0x%x\n"), cuResult);
+        PrintMes(RGY_LOG_ERROR, _T("cuDeviceGetCount error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGetCount: Success.\n"));
@@ -823,14 +823,14 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     }
     
     if (CUDA_SUCCESS != (cuResult = cuDeviceGet(&m_device, deviceID))) {
-        PrintMes(RGY_LOG_ERROR, _T("cuDeviceGet error:0x%x\n"), cuResult);
+        PrintMes(RGY_LOG_ERROR, _T("cuDeviceGet error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGet: Success.\n"));
     
     int SMminor = 0, SMmajor = 0;
     if (CUDA_SUCCESS != (cuDeviceComputeCapability(&SMmajor, &SMminor, m_device))) {
-        PrintMes(RGY_LOG_ERROR, _T("cuDeviceComputeCapability error:0x%x\n"), cuResult);
+        PrintMes(RGY_LOG_ERROR, _T("cuDeviceComputeCapability error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
 
@@ -841,14 +841,14 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     PrintMes(RGY_LOG_DEBUG, _T("NVENC capabilities: OK.\n"));
 
     if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), CU_CTX_SCHED_AUTO, m_device))) {
-        PrintMes(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x\n"), cuResult);
+        PrintMes(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuCtxCreate: Success.\n"));
 
 #if ENABLE_AVSW_READER
     if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&m_cuContextCurr))) {
-        PrintMes(RGY_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x\n"), cuResult);
+        PrintMes(RGY_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuCtxPopCurrent: Success.\n"));
@@ -860,7 +860,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     PrintMes(RGY_LOG_DEBUG, _T("cuvidInit: Success.\n"));
 
     if (CUDA_SUCCESS != (cuResult = cuvidCtxLockCreate(&m_ctxLock, m_cuContextCurr))) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed cuvidCtxLockCreate %d\n"), cuResult);
+        PrintMes(RGY_LOG_ERROR, _T("Failed cuvidCtxLockCreate: 0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuvidCtxLockCreate: Success.\n"));
