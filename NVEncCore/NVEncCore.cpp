@@ -3549,6 +3549,8 @@ NV_ENC_CONFIG NVEncCore::DefaultParam() {
     config.rcParams.constQP.qpInterP      = DEFAULT_QP_P;
     config.rcParams.constQP.qpIntra       = DEFAUTL_QP_I;
     config.rcParams.lookaheadDepth        = DEFAULT_LOOKAHEAD;
+    config.rcParams.targetQuality         = 0; //auto
+    config.rcParams.targetQualityLSB      = 0;
 
     config.rcParams.vbvBufferSize         = 0;
     config.rcParams.vbvInitialDelay       = 0;

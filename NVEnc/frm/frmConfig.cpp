@@ -885,6 +885,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUQPI,               cnf->nvenc.enc_config.rcParams.constQP.qpIntra);
     SetNUValue(fcgNUQPP,               cnf->nvenc.enc_config.rcParams.constQP.qpInterP);
     SetNUValue(fcgNUQPB,               cnf->nvenc.enc_config.rcParams.constQP.qpInterB);
+    SetNUValue(fcgNUVBRTragetQuality,  Decimal(cnf->nvenc.enc_config.rcParams.targetQuality + cnf->nvenc.enc_config.rcParams.targetQualityLSB / 256.0));
     SetNUValue(fcgNUGopLength,         cnf->nvenc.enc_config.gopLength);
     SetNUValue(fcgNUBframes,           cnf->nvenc.enc_config.frameIntervalP - 1);
     SetCXIndex(fcgCXQualityPreset,     get_index_from_value(cnf->nvenc.preset, list_nvenc_preset_names));
@@ -1027,6 +1028,10 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->nvenc.enc_config.rcParams.constQP.qpInterP = (int)fcgNUQPP->Value;
     cnf->nvenc.enc_config.rcParams.constQP.qpInterB = (int)fcgNUQPB->Value;
     cnf->nvenc.enc_config.gopLength = (int)fcgNUGopLength->Value;
+    const double targetQualityDouble = (double)fcgNUVBRTragetQuality->Value;
+    const int targetQualityInt = (int)targetQualityDouble;
+    cnf->nvenc.enc_config.rcParams.targetQuality = (uint8_t)targetQualityInt;
+    cnf->nvenc.enc_config.rcParams.targetQualityLSB = (uint8_t)clamp(((targetQualityDouble - targetQualityInt) * 256.0), 0, 255);
     cnf->nvenc.enc_config.frameIntervalP = (int)fcgNUBframes->Value + 1;
     cnf->nvenc.enc_config.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
     cnf->nvenc.enc_config.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
