@@ -3677,6 +3677,12 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     } else {
         add_str(RGY_LOG_ERROR, _T("\n"));
         add_str(RGY_LOG_ERROR, _T("Bitrate        %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
+        if (m_stEncConfig.rcParams.targetQuality) {
+            double targetQuality = m_stEncConfig.rcParams.targetQuality + m_stEncConfig.rcParams.targetQualityLSB / 256.0;
+            add_str(RGY_LOG_ERROR, _T("Target Quality %.2f\n"), targetQuality);
+        } else {
+            add_str(RGY_LOG_ERROR, _T("Target Quality auto\n"));
+        }
         if (m_stEncConfig.rcParams.enableInitialRCQP) {
             add_str(RGY_LOG_INFO,  _T("Initial QP     I:%d  P:%d  B:%d\n"), m_stEncConfig.rcParams.initialRCQP.qpIntra, m_stEncConfig.rcParams.initialRCQP.qpInterP, m_stEncConfig.rcParams.initialRCQP.qpInterB);
         }
