@@ -372,7 +372,7 @@ static tstring help() {
         _T("   --preset <string>            set encoder preset\n")
         _T("                                  default, performance, quality\n")
         _T("\n")
-        _T("   --vbr-quality <int>          set target quality for VBR mode (0-51, 0 = auto)\n")
+        _T("   --vbr-quality <float>        set target quality for VBR mode (0.0-51.0, 0 = auto)\n")
         _T("   --max-bitrate <int>          set Max Bitrate (kbps)\n")
         _T("   --qp-init <int> or           set initial QP\n")
         _T("             <int>:<int>:<int>    Default: auto\n")
@@ -1627,9 +1627,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("vbr-quality")) {
         i++;
-        int value = 0;
-        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->encConfig.rcParams.targetQuality = (uint8_t)clamp(value, 0, 51);
+        double value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%lf"), &value)) {
+            value = (std::max)(0.0, value);
+            int value_int = (int)value;
+            pParams->encConfig.rcParams.targetQuality = (uint8_t)clamp(value_int, 0, 51);
+            pParams->encConfig.rcParams.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
