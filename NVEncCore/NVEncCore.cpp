@@ -2065,6 +2065,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     if (inputParam->bWeightP) {
         if (!getCapLimit(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION)) {
             error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction"));
+        } else if (m_stEncConfig.frameIntervalP - 1 > 0) {
+            error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction with B frames"));
         } else {
             m_stCreateEncodeParams.enableWeightedPrediction = 1;
         }
