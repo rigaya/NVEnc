@@ -3118,7 +3118,9 @@ NVENCSTATUS NVEncCore::Encode() {
         if (m_inputHostBuffer.size()) {
             auto inputFrameBuf = m_inputHostBuffer[nInputFrame % m_inputHostBuffer.size()];
             RGYFrame frame = RGYFrameInit(inputFrameBuf);
-            if (m_pFileReader->LoadNextFrame(&frame) != RGY_ERR_NONE) {
+            auto rgy_err = m_pFileReader->LoadNextFrame(&frame);
+            if (rgy_err != RGY_ERR_NONE) {
+                nvStatus = (rgy_err == RGY_ERR_ABORTED) ? NV_ENC_ERR_ABORT : NV_ENC_ERR_GENERIC;
                 break;
             }
             inputFrame.setHostFrameInfo(inputFrameBuf);
