@@ -123,11 +123,10 @@ void convert_yuy2_to_nv12_avx2(void **dst_array, const void **src_array, int wid
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
-    void *dst = dst_array[0];
     const void *src = src_array[0];
     uint8_t *srcLine = (uint8_t *)src + src_y_pitch_byte * crop_up + crop_left;
-    uint8_t *dstYLine = (uint8_t *)dst;
-    uint8_t *dstCLine = dstYLine + dst_y_pitch_byte * dst_height;
+    uint8_t *dstYLine = (uint8_t *)dst_array[0];
+    uint8_t *dstCLine = (uint8_t *)dst_array[1];
     const int y_fin = height - crop_bottom - crop_up;
     for (int y = 0; y < y_fin; y += 2) {
         uint8_t *p = srcLine;
@@ -187,11 +186,10 @@ void convert_yuy2_to_nv12_i_avx2(void **dst_array, const void **src_array, int w
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
-    void *dst = dst_array[0];
     const void *src = src_array[0];
     uint8_t *srcLine = (uint8_t *)src + src_y_pitch_byte * crop_up + crop_left;
-    uint8_t *dstYLine = (uint8_t *)dst;
-    uint8_t *dstCLine = dstYLine + dst_y_pitch_byte * dst_height;
+    uint8_t *dstYLine = (uint8_t *)dst_array[0];
+    uint8_t *dstCLine = (uint8_t *)dst_array[1];
     const int y_fin = height - crop_bottom - crop_up;
     for (int y = 0; y < y_fin; y += 4) {
         for (int i = 0; i < 2; i++) {
