@@ -3775,6 +3775,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 > 0) {
             add_str(RGY_LOG_INFO, _T("bdirect:%s "), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
         }
+        if (m_stCreateEncodeParams.enableWeightedPrediction) {
+            add_str(RGY_LOG_INFO, _T("weightp "));
+        }
     }
     add_str(RGY_LOG_INFO, _T("\n"));
     return str;
