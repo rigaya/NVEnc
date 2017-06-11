@@ -234,7 +234,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     }
 
     m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
-    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? 16 - RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] : 0;
+    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010 && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
 
     if (nullptr == m_sConvert) {
         AddMessage(RGY_LOG_ERROR, _T("raw/y4m: invalid colorformat.\n"));
