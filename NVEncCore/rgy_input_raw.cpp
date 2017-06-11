@@ -130,7 +130,7 @@ RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
     if (pInfo->fpsN > 0 && pInfo->fpsD > 0) {
         rgy_reduce(pInfo->fpsN, pInfo->fpsD);
     }
-    pInfo->srcPitch = pInfo->srcWidth;
+    pInfo->srcPitch = pInfo->srcWidth * ((RGY_CSP_BIT_DEPTH[pInfo->csp]) ? 2 : 1);
     return RGY_ERR_NONE;
 }
 
