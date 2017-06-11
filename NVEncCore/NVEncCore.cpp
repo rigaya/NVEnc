@@ -3120,7 +3120,9 @@ NVENCSTATUS NVEncCore::Encode() {
             RGYFrame frame = RGYFrameInit(inputFrameBuf);
             auto rgy_err = m_pFileReader->LoadNextFrame(&frame);
             if (rgy_err != RGY_ERR_NONE) {
-                nvStatus = (rgy_err == RGY_ERR_ABORTED) ? NV_ENC_ERR_ABORT : NV_ENC_ERR_GENERIC;
+                if (rgy_err != RGY_ERR_MORE_DATA) { //RGY_ERR_MORE_DATAは読み込みの正常終了を示す
+                    nvStatus = err_to_nv(rgy_err);
+                }
                 break;
             }
             inputFrame.setHostFrameInfo(inputFrameBuf);
