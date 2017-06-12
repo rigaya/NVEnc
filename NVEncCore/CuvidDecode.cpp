@@ -303,7 +303,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     m_videoDecodeCreateInfo.ulCreationFlags = (nDecType == NV_ENC_AVCUVID_CUDA) ? cudaVideoCreate_PreferCUDA : cudaVideoCreate_PreferCUVID;
     m_videoDecodeCreateInfo.vidLock = m_ctxLock;
 #if 0
-    CUresult curesult = CreateDecoder();
+    curesult = CreateDecoder();
     if (CUDA_SUCCESS != curesult) {
         AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
         return curesult;
@@ -317,11 +317,13 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
         }
     }
 #else
-    CUVIDSOURCEDATAPACKET pCuvidPacket;
-    memset(&pCuvidPacket, 0, sizeof(pCuvidPacket));
-    pCuvidPacket.payload = m_videoFormatEx.raw_seqhdr_data;
-    pCuvidPacket.payload_size = m_videoFormatEx.format.seqhdr_data_length;
-    curesult = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
+    if (m_videoFormatEx.format.seqhdr_data_length > 0) {
+        CUVIDSOURCEDATAPACKET pCuvidPacket;
+        memset(&pCuvidPacket, 0, sizeof(pCuvidPacket));
+        pCuvidPacket.payload = m_videoFormatEx.raw_seqhdr_data;
+        pCuvidPacket.payload_size = m_videoFormatEx.format.seqhdr_data_length;
+        curesult = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
+    }
 #endif
     cuvidCtxUnlock(m_ctxLock, 0);
     AddMessage(RGY_LOG_DEBUG, _T("DecodePacket: success\n"));
