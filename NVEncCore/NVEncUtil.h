@@ -40,13 +40,6 @@
 #include "rgy_util.h"
 #include "rgy_err.h"
 
-#ifndef cudaVideoCodec_VP8
-#define cudaVideoCodec_VP8 (cudaVideoCodec)(cudaVideoCodec_HEVC+1)
-#endif
-#ifndef cudaVideoCodec_VP9
-#define cudaVideoCodec_VP9 (cudaVideoCodec)(cudaVideoCodec_HEVC+2)
-#endif
-
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, cudaVideoCodec);
 MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, cudaVideoChromaFormat);
 MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, NV_ENC_BUFFER_FORMAT);
