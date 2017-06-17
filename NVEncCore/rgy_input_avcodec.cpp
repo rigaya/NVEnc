@@ -1038,12 +1038,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             { AV_PIX_FMT_YUVJ420P,     8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
             { AV_PIX_FMT_NV12,         8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
             { AV_PIX_FMT_NV21,         8, RGY_CHROMAFMT_YUV420, RGY_CSP_NV12 },
-            { AV_PIX_FMT_YUV422P,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV16 },
             { AV_PIX_FMT_YUVJ422P,     8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUYV422,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUYV422,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_YUY2 },
             { AV_PIX_FMT_UYVY422,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
-            { AV_PIX_FMT_NV16,         8, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV444P,      8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
+            { AV_PIX_FMT_NV16,         8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV16 },
+            { AV_PIX_FMT_YUV444P,      8, RGY_CHROMAFMT_YUV444, RGY_CSP_NV12 },
             { AV_PIX_FMT_YUVJ444P,     8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
             { AV_PIX_FMT_YUV420P16LE, 16, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
             { AV_PIX_FMT_YUV420P14LE, 14, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
@@ -1051,10 +1051,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             { AV_PIX_FMT_YUV420P10LE, 10, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
             { AV_PIX_FMT_YUV420P9LE,   9, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
             { AV_PIX_FMT_NV20LE,      10, RGY_CHROMAFMT_YUV420, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV422P16LE, 16, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV422P14LE, 14, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV422P12LE, 12, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
-            { AV_PIX_FMT_YUV422P10LE, 10, RGY_CHROMAFMT_YUV422, RGY_CSP_NA },
+            { AV_PIX_FMT_YUV422P16LE, 16, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
+            { AV_PIX_FMT_YUV422P14LE, 14, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
+            { AV_PIX_FMT_YUV422P12LE, 12, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
+            { AV_PIX_FMT_YUV422P10LE, 10, RGY_CHROMAFMT_YUV422, RGY_CSP_P210 },
             { AV_PIX_FMT_YUV444P16LE, 16, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
             { AV_PIX_FMT_YUV444P14LE, 14, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
             { AV_PIX_FMT_YUV444P12LE, 12, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444_16 },
@@ -1120,6 +1120,14 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             const auto pixCspConv = csp_avpixfmt_to_rgy(m_Demux.video.pCodecCtxDecode->pix_fmt);
             //出力フォーマットへの直接変換を持たないものは、pixfmtDataListに従う
             switch (pixCspConv) {
+            case RGY_CSP_NV16:
+            case RGY_CSP_YUV422:
+            case RGY_CSP_YUV422_09:
+            case RGY_CSP_YUV422_10:
+            case RGY_CSP_YUV422_12:
+            case RGY_CSP_YUV422_14:
+            case RGY_CSP_YUV422_16:
+            case RGY_CSP_P210:
             case RGY_CSP_RGB24:
             case RGY_CSP_RGB32:
                 m_inputVideoInfo.csp = pixfmtData->output_csp;
@@ -1134,14 +1142,15 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
             m_InputCsp = pixCspConv;
-            m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? 16 - pixfmtData->bit_depth : 0;
+            m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) ? m_inputVideoInfo.shift : 0;
             if (nullptr == (m_Demux.video.pFrame = av_frame_alloc())) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
                 return RGY_ERR_NULL_PTR;
             }
         } else {
+            //HWデコードの場合は、色変換がかからないので、入力フォーマットがそのまま出力フォーマットとなる
             m_inputVideoInfo.csp = pixfmtData->output_csp;
-            m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? 16 - pixfmtData->bit_depth : 0;
+            m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) ? 16 - pixfmtData->bit_depth : 0;
         }
 
         m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
@@ -1153,7 +1162,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         m_inputVideoInfo.codedHeight = m_Demux.video.pStream->codec->coded_height;
         m_inputVideoInfo.sar[0]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.pStream->codecpar->sample_aspect_ratio.num;
         m_inputVideoInfo.sar[1]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.pStream->codecpar->sample_aspect_ratio.den;
-        m_inputVideoInfo.shift       = (m_inputVideoInfo.csp == RGY_CSP_P010 && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
+        m_inputVideoInfo.shift       = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
         m_inputVideoInfo.picstruct   = m_Demux.frames.getVideoPicStruct();
         m_inputVideoInfo.frames      = 0;
         //getFirstFramePosAndFrameRateをもとにfpsを決定

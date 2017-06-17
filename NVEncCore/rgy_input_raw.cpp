@@ -104,6 +104,16 @@ RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
                     || 0 == _strnicmp(p+1, "420paldv", strlen("420paldv"))
                     || 0 == _strnicmp(p+1, "420",      strlen("420"))) {
                 pInfo->csp = RGY_CSP_YV12;
+            } else if (0 == _strnicmp(p+1, "422p9", strlen("422p9"))) {
+                pInfo->csp = RGY_CSP_YUV422_09;
+            } else if (0 == _strnicmp(p+1, "422p10", strlen("422p10"))) {
+                pInfo->csp = RGY_CSP_YUV422_10;
+            } else if (0 == _strnicmp(p+1, "422p12", strlen("422p12"))) {
+                pInfo->csp = RGY_CSP_YUV422_12;
+            } else if (0 == _strnicmp(p+1, "422p14", strlen("422p14"))) {
+                pInfo->csp = RGY_CSP_YUV422_14;
+            } else if (0 == _strnicmp(p+1, "422p16", strlen("422p16"))) {
+                pInfo->csp = RGY_CSP_YUV422_16;
             } else if (0 == _strnicmp(p+1, "422", strlen("422"))) {
                 pInfo->csp = RGY_CSP_YUV422;
             } else if (0 == _strnicmp(p+1, "444p9", strlen("444p9"))) {
@@ -210,6 +220,20 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YUV422:
         src_pitch = m_inputVideoInfo.srcPitch;
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2;
+        //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでNV16に変換する
+        m_inputVideoInfo.csp = RGY_CSP_NV16;
+        break;
+    case RGY_CSP_YUV422_09:
+    case RGY_CSP_YUV422_10:
+    case RGY_CSP_YUV422_12:
+    case RGY_CSP_YUV422_14:
+    case RGY_CSP_YUV422_16:
+        src_pitch = m_inputVideoInfo.srcPitch * 2;
+        bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 4;
+        //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでP210に変換する
+        m_inputVideoInfo.csp = RGY_CSP_P210;
+        //m_inputVideoInfo.shiftも出力フォーマットに対応する値でなく入力フォーマットに対するものに
+        m_inputVideoInfo.shift = 16 - RGY_CSP_BIT_DEPTH[m_InputCsp];
         break;
     case RGY_CSP_YUV444:
         src_pitch = m_inputVideoInfo.srcPitch;
@@ -234,10 +258,11 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     }
 
     m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
-    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010 && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
+    m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
 
     if (nullptr == m_sConvert) {
-        AddMessage(RGY_LOG_ERROR, _T("raw/y4m: invalid colorformat.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("raw/y4m: color conversion not supported: %s -> %s.\n"),
+            RGY_CSP_NAMES[m_InputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
@@ -281,6 +306,12 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     case RGY_CSP_YV12_14:
     case RGY_CSP_YV12_16:
         frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3; break;
+    case RGY_CSP_YUV422_09:
+    case RGY_CSP_YUV422_10:
+    case RGY_CSP_YUV422_12:
+    case RGY_CSP_YUV422_14:
+    case RGY_CSP_YUV422_16:
+        frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 4; break;
     case RGY_CSP_YUV444_09:
     case RGY_CSP_YUV444_10:
     case RGY_CSP_YUV444_12:
@@ -294,6 +325,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     if (frameSize != fread(m_pBuffer.get(), 1, frameSize, m_fSource)) {
         return RGY_ERR_MORE_DATA;
     }
+
     void *dst_array[3];
     pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
 
@@ -310,6 +342,11 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         src_array[2] = (uint8_t *)src_array[1] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight / 4;
         break;
     case RGY_CSP_YUV422:
+    case RGY_CSP_YUV422_09:
+    case RGY_CSP_YUV422_10:
+    case RGY_CSP_YUV422_12:
+    case RGY_CSP_YUV422_14:
+    case RGY_CSP_YUV422_16:
         src_array[2] = (uint8_t *)src_array[1] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight / 2;
         break;
     case RGY_CSP_YUV444:

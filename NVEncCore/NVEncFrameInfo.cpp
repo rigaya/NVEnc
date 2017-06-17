@@ -49,6 +49,10 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
         exinfo.width_byte = pFrameInfo->width;
         exinfo.height_total = pFrameInfo->height * 2;
         break;
+    case RGY_CSP_NV16:
+        exinfo.width_byte = pFrameInfo->width;
+        exinfo.height_total = pFrameInfo->height * 2;
+        break;
     case RGY_CSP_YUV444:
         exinfo.width_byte = pFrameInfo->width;
         exinfo.height_total = pFrameInfo->height * 3;
@@ -64,6 +68,18 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
     case RGY_CSP_P010:
         exinfo.width_byte = pFrameInfo->width * 2;
         exinfo.height_total = pFrameInfo->height * 3 / 2;
+        break;
+    case RGY_CSP_YUV422_09:
+    case RGY_CSP_YUV422_10:
+    case RGY_CSP_YUV422_12:
+    case RGY_CSP_YUV422_14:
+    case RGY_CSP_YUV422_16:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = pFrameInfo->height * 3;
+        break;
+    case RGY_CSP_P210:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = pFrameInfo->height * 2;
         break;
     case RGY_CSP_YUV444_09:
     case RGY_CSP_YUV444_10:

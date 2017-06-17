@@ -326,6 +326,43 @@ static void __forceinline convert_yv12_to_yv12_simd(void **dst, const void **src
     }
 }
 
+static void __forceinline convert_yuv422_to_nv16_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    //Y成分のコピー
+    uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * crop_up + crop_left;
+    uint8_t *dstLine = (uint8_t *)dst[0];
+    const int y_fin = height - crop_bottom;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+        memcpy_sse(dstLine, srcYLine, y_width);
+    }
+    //UV成分のコピー
+    uint8_t *srcULine = (uint8_t *)src[1] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    uint8_t *srcVLine = (uint8_t *)src[2] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+    dstLine = (uint8_t *)dst[1];
+    const int uv_fin = height - crop_bottom;
+    for (int y = crop_up; y < uv_fin; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
+        const int x_fin = width - crop_right;
+        uint8_t *src_u_ptr = srcULine;
+        uint8_t *src_v_ptr = srcVLine;
+        uint8_t *dst_ptr = dstLine;
+        __m128i x0, x1, x2;
+        for (int x = crop_left; x < x_fin; x += 32, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 32) {
+            x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
+            x1 = _mm_loadu_si128((const __m128i *)src_v_ptr);
+
+            x2 = _mm_unpackhi_epi8(x0, x1);
+            x0 = _mm_unpacklo_epi8(x0, x1);
+
+            _mm_storeu_si128((__m128i *)(dst_ptr +  0), x0);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 16), x2);
+        }
+    }
+}
+
 #if USE_SSSE3
 static void __forceinline convert_rgb24_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
@@ -620,6 +657,63 @@ static void __forceinline convert_yv12_high_to_p010_simd(void **dst, const void 
     uint16_t *dstLine = (uint16_t *)dst[1];
     const int uv_fin = (height - crop_bottom) >> 1;
     for (int y = crop_up >> 1; y < uv_fin; y++, srcULine += src_uv_pitch, srcVLine += src_uv_pitch, dstLine += dst_y_pitch) {
+        const int x_fin = width - crop_right;
+        uint16_t *src_u_ptr = srcULine;
+        uint16_t *src_v_ptr = srcVLine;
+        uint16_t *dst_ptr = dstLine;
+        __m128i x0, x1, x2;
+        for (int x = crop_left; x < x_fin; x += 16, src_u_ptr += 8, src_v_ptr += 8, dst_ptr += 16) {
+            x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
+            x1 = _mm_loadu_si128((const __m128i *)src_v_ptr);
+
+            if (in_bit_depth < 16) {
+                x0 = _mm_slli_epi16(x0, 16 - in_bit_depth);
+                x1 = _mm_slli_epi16(x1, 16 - in_bit_depth);
+            }
+
+            x2 = _mm_unpackhi_epi16(x0, x1);
+            x0 = _mm_unpacklo_epi16(x0, x1);
+
+            _mm_storeu_si128((__m128i *)(dst_ptr + 0), x0);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 8), x2);
+        }
+    }
+}
+
+template<int in_bit_depth>
+static void __forceinline convert_yuv422_high_to_p210_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte >> 1;
+    const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    //Y成分のコピー
+    uint16_t *srcYLine = (uint16_t *)src[0] + src_y_pitch * crop_up + crop_left;
+    uint16_t *dstLine = (uint16_t *)dst[0];
+    const int y_fin = height - crop_bottom;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
+        if (in_bit_depth == 16) {
+            memcpy_sse((uint8_t *)dstLine, (uint8_t *)srcYLine, y_width * sizeof(uint16_t));
+        } else {
+            uint16_t *src_ptr = srcYLine;
+            uint16_t *dst_ptr = dstLine;
+            for (int x = 0; x < y_width; x += 8, dst_ptr += 8, src_ptr += 8) {
+                __m128i x0 = _mm_loadu_si128((const __m128i *)src_ptr);
+                x0 = _mm_slli_epi16(x0, 16 - in_bit_depth);
+                _mm_storeu_si128((__m128i *)dst_ptr, x0);
+            }
+        }
+    }
+    //UV成分のコピー
+    const int src_uv_pitch = src_uv_pitch_byte >> 1;
+    uint16_t *srcULine = (uint16_t *)src[1] + (((src_uv_pitch * crop_up) + crop_left) >> 1);
+    uint16_t *srcVLine = (uint16_t *)src[2] + (((src_uv_pitch * crop_up) + crop_left) >> 1);
+    dstLine = (uint16_t *)dst[1];
+    const int uv_fin = height - crop_bottom;
+    for (int y = crop_up; y < uv_fin; y++, srcULine += src_uv_pitch, srcVLine += src_uv_pitch, dstLine += dst_y_pitch) {
         const int x_fin = width - crop_right;
         uint16_t *src_u_ptr = srcULine;
         uint16_t *src_v_ptr = srcVLine;

@@ -39,6 +39,7 @@ enum RGY_CSP {
     RGY_CSP_YV12,
     RGY_CSP_YUY2,
     RGY_CSP_YUV422,
+    RGY_CSP_NV16,
     RGY_CSP_YUV444,
     RGY_CSP_YV12_09,
     RGY_CSP_YV12_10,
@@ -46,6 +47,11 @@ enum RGY_CSP {
     RGY_CSP_YV12_14,
     RGY_CSP_YV12_16,
     RGY_CSP_P010,
+    RGY_CSP_YUV422_09,
+    RGY_CSP_YUV422_10,
+    RGY_CSP_YUV422_12,
+    RGY_CSP_YUV422_14,
+    RGY_CSP_YUV422_16,
     RGY_CSP_P210,
     RGY_CSP_YUV444_09,
     RGY_CSP_YUV444_10,
@@ -65,6 +71,7 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yv12"),
     _T("yuy2"),
     _T("yuv422"),
+    _T("nv16"),
     _T("yuv444"),
     _T("yv12(9bit)"),
     _T("yv12(10bit)"),
@@ -72,6 +79,11 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yv12(14bit)"),
     _T("yv12(16bit)"),
     _T("p010"),
+    _T("yuv422(9bit)"),
+    _T("yuv422(10bit)"),
+    _T("yuv422(12bit)"),
+    _T("yuv422(14bit)"),
+    _T("yuv422(16bit)"),
     _T("p210"),
     _T("yuv444(9bit)"),
     _T("yuv444(10bit)"),
@@ -91,6 +103,7 @@ static const int RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_YV12
      8, //RGY_CSP_YUY2
      8, //RGY_CSP_YUV422
+     8, //RGY_CSP_NV16
      8, //RGY_CSP_YUV444
      9, //RGY_CSP_YV12_09
     10,
@@ -98,6 +111,11 @@ static const int RGY_CSP_BIT_DEPTH[] = {
     14,
     16, //RGY_CSP_YV12_16
     16, //RGY_CSP_P010
+     9, //RGY_CSP_YUV422_09
+    10,
+    12,
+    14,
+    16, //RGY_CSP_YUV422_16
     16, //RGY_CSP_P210
      9, //RGY_CSP_YUV444_09
     10,
@@ -126,6 +144,7 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV420, //RGY_CSP_YV12
     RGY_CHROMAFMT_YUV422, //RGY_CSP_YUY2 
     RGY_CHROMAFMT_YUV422, //RGY_CSP_YUV422
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_NV16
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444
     RGY_CHROMAFMT_YUV420, //RGY_CSP_YV12_09
     RGY_CHROMAFMT_YUV420,
@@ -133,6 +152,11 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV420,
     RGY_CHROMAFMT_YUV420, //RGY_CSP_YV12_16
     RGY_CHROMAFMT_YUV420, //RGY_CSP_P010
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_YUV444_09
+    RGY_CHROMAFMT_YUV422,
+    RGY_CHROMAFMT_YUV422,
+    RGY_CHROMAFMT_YUV422,
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_YUV444_16
     RGY_CHROMAFMT_YUV420, //RGY_CSP_P210
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_09
     RGY_CHROMAFMT_YUV444,

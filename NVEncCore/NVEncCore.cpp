@@ -1338,9 +1338,18 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         case RGY_CSP_YV12_16:
             bufPitch = (bufWidth * 2 + 31) & (~31);
             bufSize = bufPitch * bufHeight * 3 / 2; break;
+        case RGY_CSP_NV16:
         case RGY_CSP_YUY2:
         case RGY_CSP_YUV422:
             bufPitch  = (bufWidth + 31) & (~31);
+            bufSize = bufPitch * bufHeight * 2; break;
+        case RGY_CSP_P210:
+        case RGY_CSP_YUV422_09:
+        case RGY_CSP_YUV422_10:
+        case RGY_CSP_YUV422_12:
+        case RGY_CSP_YUV422_14:
+        case RGY_CSP_YUV422_16:
+            bufPitch = (bufWidth * 2 + 31) & (~31);
             bufSize = bufPitch * bufHeight * 2; break;
         case RGY_CSP_YUV444:
             bufPitch  = (bufWidth + 31) & (~31);
@@ -3098,7 +3107,8 @@ NVENCSTATUS NVEncCore::Encode() {
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
     deque<unique_ptr<FrameBufferDataIn>> dqInFrames;
     deque<unique_ptr<FrameBufferDataEnc>> dqEncFrames;
-    for (int nInputFrame = 0, nFilterFrame = 0, nEncodeFrame = 0; nvStatus == NV_ENC_SUCCESS; ) {
+    int nEncodeFrame = 0;
+    for (int nInputFrame = 0, nFilterFrame = 0; nvStatus == NV_ENC_SUCCESS; ) {
         if (m_pAbortByUser && *m_pAbortByUser) {
             nvStatus = NV_ENC_ERR_ABORT;
             break;
@@ -3197,12 +3207,15 @@ NVENCSTATUS NVEncCore::Encode() {
 #endif //#if ENABLE_AVSW_READER
     PrintMes(RGY_LOG_INFO, _T("                                                                         \n"));
     //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
-    auto encstatus = FlushEncoder();
-    if (nvStatus == NV_ENC_SUCCESS && encstatus != NV_ENC_SUCCESS) {
-        PrintMes(RGY_LOG_ERROR, _T("Error FlushEncoder: %d.\n"), encstatus);
-        nvStatus = encstatus;
-    } else {
-        PrintMes(RGY_LOG_DEBUG, _T("Flushed Encoder\n"));
+    auto encstatus = nvStatus;
+    if (nEncodeFrame > 0 || nvStatus == NV_ENC_SUCCESS) {
+        encstatus = FlushEncoder();
+        if (encstatus != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("Error FlushEncoder: %d.\n"), encstatus);
+            nvStatus = encstatus;
+        } else {
+            PrintMes(RGY_LOG_DEBUG, _T("Flushed Encoder\n"));
+        }
     }
     m_pFileWriter->Close();
     m_pFileReader->Close();

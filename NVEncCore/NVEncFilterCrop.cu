@@ -60,6 +60,12 @@ union RGY_CSP_2 {
         ? ((x) * (float)(1 << (out_bit_depth - in_bit_depth))) \
         : ((x) * (float)(1.0f / (1 << (in_bit_depth - out_bit_depth))))))
 
+#define BIT_DEPTH_CONV_AVG(a, b) (TypeOut)((out_bit_depth == in_bit_depth + 1) \
+    ? ((int)(a) + (int)(b) + 1) \
+    : ((out_bit_depth > in_bit_depth + 1) \
+        ? (((int)(a) + (int)(b) + 1) << (out_bit_depth - in_bit_depth - 1)) \
+        : (((int)(a) + (int)(b) + (1 << (in_bit_depth - out_bit_depth))) >> (in_bit_depth + 1 - out_bit_depth))))
+
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 __global__ void kernel_crop_nv12_nv12(TypeOut *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     const TypeIn *__restrict__ pSrc, const int srcPitch, const int srcHeight, const int offsetX, const int offsetY) {
@@ -348,6 +354,112 @@ void crop_uv_yv12_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, co
     kernel_crop_uv_yv12_nv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
         ptrC, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
         ptrU, ptrV, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+__global__ void kernel_crop_uv_nv16_yuv444(uint8_t *__restrict__ pDstU, uint8_t *__restrict__ pDstV, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrc, const int srcPitch, const int offsetX, const int offsetY) {
+    //横方向拡張
+    int uv_x_nv16 = blockIdx.x * blockDim.x + threadIdx.x;
+    int uv_y      = blockIdx.y * blockDim.y + threadIdx.y;
+    if (uv_x_nv16 < (dstWidth >> 1) && uv_y < dstHeight) {
+        int idst = uv_y * dstPitch + (uv_x_nv16 << 1) * sizeof(TypeOut); //YUV444
+        int isrc_x = (uv_x_nv16 + (offsetX >> 1));
+        int isrc = (uv_y + offsetY) * srcPitch + isrc_x * 2 * sizeof(TypeIn); //NV16
+        struct TypeIn2 { TypeIn a, b; };
+        const TypeIn2 *ptr_src = (const TypeIn2 *)(pSrc + isrc); //u,v 2要素ロード
+        TypeIn2 src0 = ptr_src[0];
+        TypeIn2 src1 = (isrc_x + 1 < (dstWidth >> 1)) ? ptr_src[1] : src0; //隣のu,v 2要素ロード
+        TypeOut *ptr_dst_u = (TypeOut *)(pDstU + idst);
+        TypeOut *ptr_dst_v = (TypeOut *)(pDstV + idst);
+        struct TypeOut2 { TypeOut a, b; };
+        TypeOut2 dst_u = { BIT_DEPTH_CONV(src0.a), BIT_DEPTH_CONV_AVG(src0.a, src1.b) };
+        TypeOut2 dst_v = { BIT_DEPTH_CONV(src0.b), BIT_DEPTH_CONV_AVG(src0.b, src1.b) };
+        *(TypeOut2 *)ptr_dst_u = dst_u;
+        *(TypeOut2 *)ptr_dst_v = dst_v;
+    }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+void crop_uv_nv16_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop) {
+    dim3 blockSize(32, 4);
+    dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
+    uint8_t *ptrU = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
+    uint8_t *ptrV = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 2;
+    const uint8_t *ptrC = (const uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
+    kernel_crop_uv_nv16_yuv444<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
+        ptrU, ptrV, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+        ptrC, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+__global__ void kernel_crop_uv_nv16_yv12_p(uint8_t *__restrict__ pDstU, uint8_t *__restrict__ pDstV, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrc, const int srcPitch, const int offsetX, const int offsetY) {
+    int uv_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int uv_y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (uv_x < (dstWidth >> 1) && uv_y < (dstHeight >> 1)) {
+        int idst = uv_y * dstPitch + uv_x * sizeof(TypeOut); //yv12
+        int isrc_y_nv16 = (uv_y << 1) + offsetY;
+        int isrc = isrc_y_nv16 * srcPitch + (uv_x + (offsetX >> 1)) * 2 * sizeof(TypeIn); //nv16
+
+        struct TypeIn2 { TypeIn a, b; };
+        const TypeIn2 *ptr_src_0 = (const TypeIn2 *)(pSrc + isrc +        0);
+        const TypeIn2 *ptr_src_1 = (const TypeIn2 *)(pSrc + isrc + srcPitch);
+        TypeIn2 src0 = *ptr_src_0; //u,v 2要素ロード
+        TypeIn2 src1 = *ptr_src_1; //下のu,v 2要素ロード
+
+        TypeOut *ptr_dst_u = (TypeOut *)(pDstU + idst);
+        TypeOut *ptr_dst_v = (TypeOut *)(pDstV + idst);
+
+        ptr_dst_u[0] = BIT_DEPTH_CONV_AVG(src0.a, src1.a);
+        ptr_dst_v[0] = BIT_DEPTH_CONV_AVG(src0.b, src1.b);
+    }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+void crop_uv_nv16_yv12_p(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop) {
+    dim3 blockSize(32, 4);
+    dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
+    uint8_t *ptrU = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
+    uint8_t *ptrV = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 3 / 2;
+    const uint8_t *ptrC = (const uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
+    kernel_crop_uv_nv16_yv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
+        ptrU, ptrV, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+        ptrC, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+__global__ void kernel_crop_uv_nv16_nv12_p(uint8_t *__restrict__ pDstC, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrc, const int srcPitch, const int offsetX, const int offsetY) {
+    int uv_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int uv_y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (uv_x < (dstWidth >> 1) && uv_y < (dstHeight >> 1)) {
+        int idst = uv_y * dstPitch + uv_x * sizeof(TypeOut) * 2; //nv12
+        int isrc_y_nv16 = (uv_y << 1) + offsetY;
+        int isrc = isrc_y_nv16 * srcPitch + (uv_x + (offsetX >> 1)) * sizeof(TypeIn) * 2; //nv16
+
+        struct TypeIn2 { TypeIn a, b; };
+        const TypeIn2 *ptr_src_0 = (const TypeIn2 *)(pSrc + isrc +        0); 
+        const TypeIn2 *ptr_src_1 = (const TypeIn2 *)(pSrc + isrc + srcPitch);
+        TypeIn2 src0 = *ptr_src_0; //u,v 2要素ロード
+        TypeIn2 src1 = *ptr_src_1; //下のu,v 2要素ロード
+
+        struct TypeOut2 { TypeOut a, b; };
+        TypeOut2 dst = { BIT_DEPTH_CONV_AVG(src0.a, src1.a), BIT_DEPTH_CONV_AVG(src0.b, src1.b) };
+
+        *(TypeOut2 *)(pDstC + idst) = dst;
+    }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+void crop_uv_nv16_nv12_p(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop) {
+    dim3 blockSize(32, 4);
+    dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
+    uint8_t *ptrDstC = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
+    const uint8_t *ptrSrcC = (const uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
+    kernel_crop_uv_nv16_nv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
+        ptrDstC, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+        ptrSrcC, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
 }
 
 static __device__ float3 rgb_2_yuv(float3 rgb) {
@@ -781,6 +893,81 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, cons
     return NV_ENC_SUCCESS;
 
 }
+
+NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV16(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
+    if (!pCropParam) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
+    const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
+    //Y
+    if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
+        auto cudaerr = cudaMemcpy2D((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
+            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
+            pInputFrame->pitch,
+            frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice);
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2D (convertCspFromNV16(%s -> %s)): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
+    } else {
+        auto ret = convertYBitDepth(pOutputFrame, pInputFrame);
+        if (ret != NV_ENC_SUCCESS) {
+            return ret;
+        }
+    }
+
+    //UV
+    static const std::map<uint64_t, void(*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop)> convert_from_nv16_list = {
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12).i,      crop_uv_nv16_yv12_p<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_16).i,   crop_uv_nv16_yv12_p<uint16_t, 16, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_14).i,   crop_uv_nv16_yv12_p<uint16_t, 14, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_12).i,   crop_uv_nv16_yv12_p<uint16_t, 12, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_10).i,   crop_uv_nv16_yv12_p<uint16_t, 10, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_09).i,   crop_uv_nv16_yv12_p<uint16_t,  9, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YV12_16).i,   crop_uv_nv16_yv12_p<uint16_t, 16, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YV12_14).i,   crop_uv_nv16_yv12_p<uint16_t, 14, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YV12_12).i,   crop_uv_nv16_yv12_p<uint16_t, 12, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YV12_10).i,   crop_uv_nv16_yv12_p<uint16_t, 10, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YV12_09).i,   crop_uv_nv16_yv12_p<uint16_t,  9, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_NV12).i,      crop_uv_nv16_nv12_p<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_P010).i,      crop_uv_nv16_nv12_p<uint16_t, 16, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_NV12).i,      crop_uv_nv16_nv12_p<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_P010).i,      crop_uv_nv16_nv12_p<uint16_t, 16, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YUV444).i,    crop_uv_nv16_yuv444<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YUV444_16).i, crop_uv_nv16_yuv444<uint16_t, 16, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YUV444_14).i, crop_uv_nv16_yuv444<uint16_t, 14, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YUV444_12).i, crop_uv_nv16_yuv444<uint16_t, 12, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YUV444_10).i, crop_uv_nv16_yuv444<uint16_t, 10, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YUV444_09).i, crop_uv_nv16_yuv444<uint16_t,  9, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YUV444).i,    crop_uv_nv16_yuv444<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YUV444_16).i, crop_uv_nv16_yuv444<uint16_t, 16, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YUV444_14).i, crop_uv_nv16_yuv444<uint16_t, 14, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YUV444_12).i, crop_uv_nv16_yuv444<uint16_t, 12, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YUV444_10).i, crop_uv_nv16_yuv444<uint16_t, 10, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YUV444_09).i, crop_uv_nv16_yuv444<uint16_t,  9, uint16_t, 16> },
+    };
+    if (pInputFrame->interlaced && RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported interlaced csp conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
+        return NV_ENC_ERR_UNIMPLEMENTED;
+    }
+    const auto cspconv = RGY_CSP_2(pInputFrame->csp, pOutputFrame->csp);
+    if (convert_from_nv16_list.count(cspconv.i) == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
+        return NV_ENC_ERR_UNIMPLEMENTED;
+    }
+    convert_from_nv16_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop);
+    auto cudaerr = cudaGetLastError();
+    if (cudaerr != cudaSuccess) {
+        AddMessage(RGY_LOG_ERROR, _T("error at convert_from_nv16_list(%s -> %s): %s.\n"),
+            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
+            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        return NV_ENC_ERR_INVALID_CALL;
+    }
+    return NV_ENC_SUCCESS;
+}
 NVENCSTATUS NVEncFilterCspCrop::convertCspFromRGB(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
@@ -983,12 +1170,15 @@ NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameIn
         //色空間変換
         static const auto supportedCspNV12   = make_array<RGY_CSP>(RGY_CSP_NV12, RGY_CSP_P010);
         static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
+        static const auto supportedCspNV16   = make_array<RGY_CSP>(RGY_CSP_NV16, RGY_CSP_P210);
         static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
         static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32);
         if (std::find(supportedCspNV12.begin(), supportedCspNV12.end(), pCropParam->frameIn.csp) != supportedCspNV12.end()) {
             sts = convertCspFromNV12(ppOutputFrames[0], pInputFrame);
         } else if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pCropParam->frameIn.csp) != supportedCspYV12.end()) {
             sts = convertCspFromYV12(ppOutputFrames[0], pInputFrame);
+        } else if (std::find(supportedCspNV16.begin(), supportedCspNV16.end(), pCropParam->frameIn.csp) != supportedCspNV16.end()) {
+            sts = convertCspFromNV16(ppOutputFrames[0], pInputFrame);
         } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), pCropParam->frameIn.csp) != supportedCspYUV444.end()) {
             sts = convertCspFromYUV444(ppOutputFrames[0], pInputFrame);
         } else if (std::find(supportedCspRGB.begin(), supportedCspRGB.end(), pCropParam->frameIn.csp) != supportedCspRGB.end()) {

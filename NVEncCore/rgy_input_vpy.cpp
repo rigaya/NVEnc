@@ -231,7 +231,9 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         { pfYUV420P8,  RGY_CSP_YV12,      prefered_csp },
         { pfYUV420P10, RGY_CSP_YV12_10,   prefered_csp },
         { pfYUV420P16, RGY_CSP_YV12_16,   prefered_csp },
-        { pfYUV422P8,  RGY_CSP_YUV422,    prefered_csp },
+        { pfYUV422P8,  RGY_CSP_YUV422,    RGY_CSP_NV16 },
+        { pfYUV422P10, RGY_CSP_YUV422_10, RGY_CSP_P210 },
+        { pfYUV422P10, RGY_CSP_YUV422_16, RGY_CSP_P210 },
         { pfYUV444P8,  RGY_CSP_YUV444,    prefered_csp },
         { pfYUV444P10, RGY_CSP_YUV444_10, prefered_csp },
         { pfYUV444P16, RGY_CSP_YUV444_16, prefered_csp },
@@ -251,6 +253,13 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
+    if (m_inputVideoInfo.csp != prefered_csp) {
+        //yuv422読み込みなどは、出力フォーマットへの直接変換を持たないのでNV16/P210などに変換する
+        //その際、m_inputVideoInfo.shiftは、出力フォーマットに対応する値ではなく、
+        //入力フォーマットに対応する値とする必要がある
+        m_inputVideoInfo.shift = (RGY_CSP_BIT_DEPTH[m_InputCsp] > 8) ? 16 - RGY_CSP_BIT_DEPTH[m_InputCsp] : 0;
+    }
+
     if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid framerate.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
@@ -261,7 +270,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo.srcHeight = vsvideoinfo->height;
     m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
     m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
-    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? m_inputVideoInfo.shift : 0;
+    m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
     m_inputVideoInfo.frames = vsvideoinfo->numFrames;
 
     m_nAsyncFrames = vsvideoinfo->numFrames;

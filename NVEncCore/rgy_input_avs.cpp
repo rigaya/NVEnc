@@ -159,7 +159,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo.srcHeight = m_sAVSinfo->height;
     m_inputVideoInfo.fpsN = m_sAVSinfo->fps_numerator;
     m_inputVideoInfo.fpsD = m_sAVSinfo->fps_denominator;
-    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010 && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
+    m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
     m_inputVideoInfo.frames = m_sAVSinfo->num_frames;
     rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 

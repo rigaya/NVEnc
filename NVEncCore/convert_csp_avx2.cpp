@@ -986,7 +986,7 @@ void convert_yc48_to_p010_avx2(void **dst, const void **src, int width, int src_
 void convert_yc48_to_p010_i_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     int x, y, i;
     short *dst_Y = (short *)dst[0];
-    short *dst_C = (short *)((uint8_t *)dst[0] + dst_y_pitch_byte * dst_height);
+    short *dst_C = (short *)dst[1];
     const void  *pixel = src[0];
     const short *ycp, *ycpw;
     short *Y = NULL, *C = NULL;
