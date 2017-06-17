@@ -295,7 +295,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         return RGY_ERR_MORE_DATA;
     }
     void *dst_array[3];
-    pSurface->ptrArray(dst_array);
+    pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
 
     const void *src_array[3];
     src_array[0] = m_pBuffer.get();

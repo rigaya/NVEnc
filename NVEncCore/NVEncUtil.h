@@ -321,7 +321,8 @@ public:
         info.csp = csp;
         info.timestamp = timestamp;
     }
-    void ptrArray(void *array[3]) {
+    void ptrArray(void *array[3], bool bRGB) {
+        UNREFERENCED_PARAMETER(bRGB);
         array[0] = info.ptr;
         array[1] = info.ptr + info.pitch * info.height;
         array[2] = info.ptr + info.pitch * info.height * 2;

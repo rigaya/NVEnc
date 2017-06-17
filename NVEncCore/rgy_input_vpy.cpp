@@ -327,7 +327,7 @@ RGY_ERR RGYInputVpy::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array);
+    pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, src_array,

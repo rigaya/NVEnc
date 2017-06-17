@@ -89,8 +89,10 @@ static const auto RGY_CSP_TO_NVENC = make_array<std::pair<RGY_CSP, NV_ENC_BUFFER
     std::make_pair(RGY_CSP_YUV444_12, NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV444_14, NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV444_16, NV_ENC_BUFFER_FORMAT_UNDEFINED),
-    std::make_pair(RGY_CSP_RGB3,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
-    std::make_pair(RGY_CSP_RGB4,      NV_ENC_BUFFER_FORMAT_ARGB),
+    std::make_pair(RGY_CSP_RGB24R,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_RGB32R,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_RGB24,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_RGB32,     NV_ENC_BUFFER_FORMAT_ARGB),
     std::make_pair(RGY_CSP_YC48,      NV_ENC_BUFFER_FORMAT_UNDEFINED)
     );
 
@@ -123,6 +125,8 @@ RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
         return RGY_CSP_P010;
     case NV_ENC_BUFFER_FORMAT_YUV444_10BIT:
         return RGY_CSP_YUV444_16;
+    case NV_ENC_BUFFER_FORMAT_ARGB:
+        return RGY_CSP_RGB32;
     case NV_ENC_BUFFER_FORMAT_UNDEFINED:
     default:
         return RGY_CSP_NA;

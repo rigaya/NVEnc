@@ -117,7 +117,7 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 continue;
             }
             if (bih[i].biCompression == BI_RGB) {
-                m_InputCsp = (bih[i].biBitCount == 24) ? RGY_CSP_RGB3 : RGY_CSP_RGB4;
+                m_InputCsp = (bih[i].biBitCount == 24) ? RGY_CSP_RGB24R : RGY_CSP_RGB32R;
             } else {
                 m_InputCsp = codec_fcc_to_rgy(bih[i].biCompression);
                 if (m_InputCsp == RGY_CSP_NA) {
@@ -140,27 +140,29 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 return RGY_ERR_MORE_DATA;
             }
 
-            m_InputCsp = (bmpInfoHeader->biBitCount == 24) ? RGY_CSP_RGB3 : RGY_CSP_RGB4;
+            m_InputCsp = (bmpInfoHeader->biBitCount == 24) ? RGY_CSP_RGB24R : RGY_CSP_RGB32R;
         }
     }
 
     switch (m_InputCsp) {
-    case RGY_CSP_YUY2: m_nYPitchMultiplizer = 2; break;
-    case RGY_CSP_RGB3: m_nYPitchMultiplizer = 3; break;
-    case RGY_CSP_RGB4: m_nYPitchMultiplizer = 4; break;
+    case RGY_CSP_YUY2:   m_nYPitchMultiplizer = 2; break;
+    case RGY_CSP_RGB24R: m_nYPitchMultiplizer = 3; break;
+    case RGY_CSP_RGB32R: m_nYPitchMultiplizer = 4; break;
     case RGY_CSP_YV12:
     default: m_nYPitchMultiplizer = 1; break;
     }
 
-    if (   m_InputCsp == RGY_CSP_RGB4
-        || m_InputCsp == RGY_CSP_RGB3) {
-        m_inputVideoInfo.csp = (ENCODER_NVENC) ? m_InputCsp : RGY_CSP_RGB4;
+    if (m_InputCsp == RGY_CSP_RGB32R) {
+        m_inputVideoInfo.csp = RGY_CSP_RGB32;
+    } else if (m_InputCsp == RGY_CSP_RGB24R) {
+        m_inputVideoInfo.csp = (ENCODER_NVENC) ? RGY_CSP_RGB24 : RGY_CSP_RGB32;
     } else {
         m_inputVideoInfo.csp = RGY_CSP_NV12;
     }
     m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
     if (m_sConvert == nullptr) {
-        AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
+            RGY_CSP_NAMES[m_InputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     CreateInputInfo(tstring(_T("avi: ") + strFcc).c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
@@ -225,11 +227,8 @@ RGY_ERR RGYInputAvi::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array);
+    pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
     const void *src_array[3] = { ptr_src, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 5 / 4, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight };
-    if (RGY_CSP_RGB4 == m_sConvert->csp_to) {
-        dst_array[0] = pSurface->ptrRGB();
-    }
 
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, src_array,

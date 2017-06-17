@@ -290,7 +290,47 @@ void convert_uv_yv12_to_nv12_avx2(void **dst, const void **src, int width, int s
 #pragma warning (push)
 #pragma warning (disable: 4127)
 #pragma warning (disable: 4100)
-void convert_rgb3_to_rgb4_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+void convert_rgb24_to_rgb32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    uint8_t *dstLine = (uint8_t *)dst[0];
+    alignas(32) const char MASK_RGB3_TO_RGB4[] ={
+        0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1,
+        0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1
+    };
+    __m256i yMask = _mm256_load_si256((__m256i*)MASK_RGB3_TO_RGB4);
+    for (int y = crop_up; y < height - crop_bottom; y++, dstLine += dst_y_pitch_byte) {
+        uint8_t *ptr_src = (uint8_t *)src[0] + (src_y_pitch_byte * y) + crop_left * 3;
+        uint8_t *ptr_dst = dstLine;
+        int x = 0, x_fin = width - crop_left - crop_right - 32;
+        for (; x < x_fin; x += 32, ptr_dst += 128, ptr_src += 96) {
+            __m256i y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(ptr_src+48)), _mm_loadu_si128((__m128i*)(ptr_src+ 0))); //384,   0
+            __m256i y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(ptr_src+64)), _mm_loadu_si128((__m128i*)(ptr_src+16))); //512, 128
+            __m256i y2 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(ptr_src+80)), _mm_loadu_si128((__m128i*)(ptr_src+32))); //640, 256
+            __m256i y3 = _mm256_srli_si256(y2, 4);
+            y3 = _mm256_shuffle_epi8(y3, yMask); // 896, 384
+            y2 = _mm256_alignr_epi8(y2, y1, 8);
+            y2 = _mm256_shuffle_epi8(y2, yMask); // 768, 256
+            y1 = _mm256_alignr_epi8(y1, y0, 12);
+            y1 = _mm256_shuffle_epi8(y1, yMask); // 640, 128
+            y0 = _mm256_shuffle_epi8(y0, yMask); // 512,   0
+            _mm256_storeu_si256((__m256i*)(ptr_dst +  0), _mm256_permute2x128_si256(y0, y1, (2<<4) | 0)); // 128,   0
+            _mm256_storeu_si256((__m256i*)(ptr_dst + 32), _mm256_permute2x128_si256(y2, y3, (2<<4) | 0)); // 384, 256
+            _mm256_storeu_si256((__m256i*)(ptr_dst + 64), _mm256_permute2x128_si256(y0, y1, (3<<4) | 1)); // 640, 512
+            _mm256_storeu_si256((__m256i*)(ptr_dst + 96), _mm256_permute2x128_si256(y2, y3, (3<<4) | 1)); // 896, 768
+        }
+        x_fin = width - crop_left - crop_right;
+        for (; x < x_fin; x++, ptr_dst += 4, ptr_src += 3) {
+            *(int *)ptr_dst = *(int *)ptr_src;
+            ptr_dst[3] = 0;
+        }
+    }
+    _mm256_zeroupper();
+}
+
+void convert_rgb24r_to_rgb32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -330,7 +370,22 @@ void convert_rgb3_to_rgb4_avx2(void **dst, const void **src, int width, int src_
     _mm256_zeroupper();
 }
 
-void convert_rgb4_to_rgb4_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+void convert_rgb32_to_rgb32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    uint8_t *srcLine = (uint8_t *)src[0] + src_y_pitch_byte * crop_up + crop_left * 4;
+    uint8_t *dstLine = (uint8_t *)dst[0];
+    const int y_fin = height - crop_bottom - crop_up;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_fin; y++, dstLine += dst_y_pitch_byte, srcLine += src_y_pitch_byte) {
+        avx2_memcpy<false>(dstLine, srcLine, y_width * 4);
+    }
+    _mm256_zeroupper();
+}
+
+void convert_rgb32r_to_rgb32_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -341,6 +396,36 @@ void convert_rgb4_to_rgb4_avx2(void **dst, const void **src, int width, int src_
     const int y_width = width - crop_right - crop_left;
     for (int y = 0; y < y_fin; y++, dstLine += dst_y_pitch_byte, srcLine -= src_y_pitch_byte) {
         avx2_memcpy<false>(dstLine, srcLine, y_width * 4);
+    }
+    _mm256_zeroupper();
+}
+
+void convert_rgb24_to_rgb24_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    uint8_t *srcLine = (uint8_t *)src[0] + src_y_pitch_byte * crop_up + crop_left * 3;
+    uint8_t *dstLine = (uint8_t *)dst[0];
+    const int y_fin = height - crop_bottom - crop_up;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_fin; y++, dstLine += dst_y_pitch_byte, srcLine += src_y_pitch_byte) {
+        avx2_memcpy<false>(dstLine, srcLine, y_width * 3);
+    }
+    _mm256_zeroupper();
+}
+
+void convert_rgb24r_to_rgb24_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    uint8_t *srcLine = (uint8_t *)src[0] + src_y_pitch_byte * (height - crop_up - 1) + crop_left * 3;
+    uint8_t *dstLine = (uint8_t *)dst[0];
+    const int y_fin = height - crop_bottom - crop_up;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_fin; y++, dstLine += dst_y_pitch_byte, srcLine -= src_y_pitch_byte) {
+        avx2_memcpy<false>(dstLine, srcLine, y_width * 3);
     }
     _mm256_zeroupper();
 }

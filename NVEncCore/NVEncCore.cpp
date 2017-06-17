@@ -1352,10 +1352,12 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         case RGY_CSP_YUV444_16:
             bufPitch = (bufWidth * 2 + 31) & (~31);
             bufSize = bufPitch * bufHeight * 3; break;
-        case RGY_CSP_RGB3:
+        case RGY_CSP_RGB24:
+        case RGY_CSP_RGB24R:
             bufPitch = (bufWidth * 3 + 3) & (~3);
             bufSize = bufPitch * bufHeight; break;
-        case RGY_CSP_RGB4:
+        case RGY_CSP_RGB32:
+        case RGY_CSP_RGB32R:
             bufPitch = bufWidth * 4;
             bufSize = bufPitch * bufHeight; break;
         default:

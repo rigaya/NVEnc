@@ -790,34 +790,34 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromRGB(FrameInfo *pOutputFrame, const
     const auto frameOutInfoEx = getFrameInfoExtra(&pCropParam->frameOut);
 
     static const std::map<uint64_t, void(*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop)> convert_from_rgb_list = {
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YUV444).i,    crop_rgb3_yuv444<uint8_t,   8, uint8_t,   8> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YUV444_09).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t,  9> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YUV444_10).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t, 10> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YUV444_12).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t, 12> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YUV444_14).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t, 14> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YUV444_16).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t, 16> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YV12).i,      crop_rgb3_yv12<uint8_t,   8, uint8_t,   8> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YV12_09).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t,  9> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YV12_10).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t, 10> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YV12_12).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t, 12> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YV12_14).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t, 14> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_YV12_16).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t, 16> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_NV12).i,      crop_rgb3_nv12<uint8_t,   8, uint8_t,   8> },
-        { RGY_CSP_2(RGY_CSP_RGB3, RGY_CSP_P010).i,      crop_rgb3_nv12<uint8_t,   8, uint16_t, 16> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YUV444).i,    crop_rgb4_yuv444<uint8_t,   8, uint8_t,   8> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YUV444_09).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t,  9> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YUV444_10).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t, 10> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YUV444_12).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t, 12> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YUV444_14).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t, 14> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YUV444_16).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t, 16> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YV12).i,      crop_rgb4_yv12<uint8_t,   8, uint8_t,   8> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YV12_09).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t,  9> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YV12_10).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t, 10> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YV12_12).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t, 12> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YV12_14).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t, 14> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_YV12_16).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t, 16> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_NV12).i,      crop_rgb4_nv12<uint8_t,   8, uint8_t,   8> },
-        { RGY_CSP_2(RGY_CSP_RGB4, RGY_CSP_P010).i,      crop_rgb4_nv12<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YUV444).i,    crop_rgb3_yuv444<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YUV444_09).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t,  9> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YUV444_10).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t, 10> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YUV444_12).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t, 12> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YUV444_14).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t, 14> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YUV444_16).i, crop_rgb3_yuv444<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YV12).i,      crop_rgb3_yv12<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YV12_09).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t,  9> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YV12_10).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t, 10> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YV12_12).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t, 12> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YV12_14).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t, 14> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YV12_16).i,   crop_rgb3_yv12<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_NV12).i,      crop_rgb3_nv12<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_P010).i,      crop_rgb3_nv12<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YUV444).i,    crop_rgb4_yuv444<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YUV444_09).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t,  9> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YUV444_10).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t, 10> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YUV444_12).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t, 12> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YUV444_14).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t, 14> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YUV444_16).i, crop_rgb4_yuv444<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YV12).i,      crop_rgb4_yv12<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YV12_09).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t,  9> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YV12_10).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t, 10> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YV12_12).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t, 12> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YV12_14).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t, 14> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_YV12_16).i,   crop_rgb4_yv12<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_NV12).i,      crop_rgb4_nv12<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_RGB32, RGY_CSP_P010).i,      crop_rgb4_nv12<uint8_t,   8, uint16_t, 16> },
     };
     const auto cspconv = RGY_CSP_2(pInputFrame->csp, pOutputFrame->csp);
     if (convert_from_rgb_list.count(cspconv.i) == 0) {
@@ -984,7 +984,7 @@ NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameIn
         static const auto supportedCspNV12   = make_array<RGY_CSP>(RGY_CSP_NV12, RGY_CSP_P010);
         static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
         static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-        static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB3, RGY_CSP_RGB4);
+        static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32);
         if (std::find(supportedCspNV12.begin(), supportedCspNV12.end(), pCropParam->frameIn.csp) != supportedCspNV12.end()) {
             sts = convertCspFromNV12(ppOutputFrames[0], pInputFrame);
         } else if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pCropParam->frameIn.csp) != supportedCspYV12.end()) {

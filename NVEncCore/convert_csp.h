@@ -34,7 +34,7 @@
 typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
 enum RGY_CSP {
-    RGY_CSP_NA,
+    RGY_CSP_NA = 0,
     RGY_CSP_NV12,
     RGY_CSP_YV12,
     RGY_CSP_YUY2,
@@ -52,8 +52,10 @@ enum RGY_CSP {
     RGY_CSP_YUV444_12,
     RGY_CSP_YUV444_14,
     RGY_CSP_YUV444_16,
-    RGY_CSP_RGB3,
-    RGY_CSP_RGB4,
+    RGY_CSP_RGB24R,
+    RGY_CSP_RGB32R,
+    RGY_CSP_RGB24,
+    RGY_CSP_RGB32,
     RGY_CSP_YC48,
 };
 
@@ -76,8 +78,10 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yuv444(12bit)"),
     _T("yuv444(14bit)"),
     _T("yuv444(16bit)"),
-    _T("rgb3"),
-    _T("rgb4"),
+    _T("rgb24r"),
+    _T("rgb32r"),
+    _T("rgb24"),
+    _T("rgb32"),
     _T("yc48")
 };
 
@@ -85,7 +89,7 @@ static const int RGY_CSP_BIT_DEPTH[] = {
      0, //RGY_CSP_NA
      8, //RGY_CSP_NV12
      8, //RGY_CSP_YV12
-     8, //RGY_CSP_YUY2 
+     8, //RGY_CSP_YUY2
      8, //RGY_CSP_YUV422
      8, //RGY_CSP_YUV444
      9, //RGY_CSP_YV12_09
@@ -100,8 +104,10 @@ static const int RGY_CSP_BIT_DEPTH[] = {
     12,
     14,
     16, //RGY_CSP_YUV444_16
-     8, //RGY_CSP_RGB3
-     8, //RGY_CSP_RGB4
+     8, //RGY_CSP_RGB24R
+     8, //RGY_CSP_RGB32R
+     8, //RGY_CSP_RGB24
+     8, //RGY_CSP_RGB32
     10, //RGY_CSP_YC48
 };
 
@@ -133,6 +139,8 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_16
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YC48

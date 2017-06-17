@@ -136,10 +136,8 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         { AVS_CS_I420,  RGY_CSP_YV12, prefered_csp },
         { AVS_CS_IYUV,  RGY_CSP_YV12, prefered_csp },
         { AVS_CS_YUY2,  RGY_CSP_YUY2, prefered_csp },
-#if ENCODER_QSV
-        { AVS_CS_BGR24, RGY_CSP_RGB3, RGY_CSP_RGB4 },
-        { AVS_CS_BGR32, RGY_CSP_RGB4, RGY_CSP_RGB4 },
-#endif
+        { AVS_CS_BGR24, RGY_CSP_RGB24R, RGY_CSP_RGB32 },
+        { AVS_CS_BGR32, RGY_CSP_RGB32R, RGY_CSP_RGB32 },
     };
 
     m_InputCsp = RGY_CSP_NA;
@@ -208,11 +206,9 @@ RGY_ERR RGYInputAvs::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array);
+    pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
     const void *src_array[3] = { avs_get_read_ptr_p(frame, AVS_PLANAR_Y), avs_get_read_ptr_p(frame, AVS_PLANAR_U), avs_get_read_ptr_p(frame, AVS_PLANAR_V) };
-    if (m_sConvert->csp_to == RGY_CSP_RGB4) {
-        dst_array[0] = pSurface->ptrRGB();
-    }
+
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, src_array,
         m_inputVideoInfo.srcWidth, avs_get_pitch_p(frame, AVS_PLANAR_Y), avs_get_pitch_p(frame, AVS_PLANAR_U),
