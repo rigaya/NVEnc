@@ -711,6 +711,7 @@ typedef struct AvcodecReaderPrm {
     int            nInputThread;            //入力スレッドを有効にする
     bool           bAudioIgnoreNoTrackError; //音声が見つからなかった場合のエラーを無視する
     PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
+    const CodecCsp *pHWDecCodecCsp;           //HWデコーダのサポートするコーデックと色空間
 } AvcodecReaderPrm;
 
 
@@ -771,7 +772,7 @@ protected:
     void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
 
     //avcodecのコーデックIDからHWデコード可能ならRGY_CODECを返す
-    RGY_CODEC checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt);
+    RGY_CODEC checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt, const CodecCsp *pHWDecCodecCsp);
 
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
     //動画ストリーム以外は、vidStreamIdに近いstreamIDのものの順番にソートする

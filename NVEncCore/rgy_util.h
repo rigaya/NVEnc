@@ -41,6 +41,7 @@
 #include <chrono>
 #include <memory>
 #include <climits>
+#include <map>
 #include <functional>
 #include <type_traits>
 #include "rgy_osdep.h"
@@ -664,6 +665,8 @@ typedef struct {
     std::vector<sTrim> list;
     int offset;
 } sTrimParam;
+
+typedef std::map<RGY_CODEC, vector<RGY_CSP>> CodecCsp;
 
 typedef std::vector<std::pair<tstring, tstring>> muxOptList;
 

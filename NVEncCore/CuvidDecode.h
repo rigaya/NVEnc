@@ -36,6 +36,7 @@
 #include "dynlink_nvcuvid.h"
 #pragma warning(pop)
 #include "rgy_log.h"
+#include "rgy_util.h"
 #include "rgy_avutil.h"
 #include "FrameQueue.h"
 #include "NVEncFrameInfo.h"
@@ -49,6 +50,7 @@
 #if ENABLE_AVSW_READER
 
 bool check_if_nvcuvid_dll_available();
+CodecCsp getHWDecCodecCsp();
 
 struct VideoInfo;
 

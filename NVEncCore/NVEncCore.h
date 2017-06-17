@@ -290,6 +290,7 @@ protected:
     RGYAVSync                     m_nAVSyncMode;           //映像音声同期設定
     std::pair<int, int>          m_inputFps;              //入力フレームレート
 #if ENABLE_AVSW_READER
+    CodecCsp                     m_cuvidCodecCsp;         //デコードでサポートされる色空間
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
 #endif //#if ENABLE_AVSW_READER
     //サブメソッド

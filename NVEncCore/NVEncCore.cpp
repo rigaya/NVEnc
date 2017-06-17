@@ -437,6 +437,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 
 #if ENABLE_AVSW_READER
     AvcodecReaderPrm inputInfoAVCuvid = { 0 };
+    CodecCsp HWDecCodecCsp;
 #endif
     void *pInputPrm = nullptr;
 
@@ -487,6 +488,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.pFramePosListLog = inputParam->sFramePosListLog.c_str();
         inputInfoAVCuvid.nInputThread = inputParam->nInputThread;
         inputInfoAVCuvid.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
+        inputInfoAVCuvid.pHWDecCodecCsp = &m_cuvidCodecCsp;
         pInputPrm = &inputInfoAVCuvid;
         PrintMes(RGY_LOG_DEBUG, _T("avcuvid reader selected.\n"));
         m_pFileReader.reset(new RGYInputAvcodec());
@@ -871,6 +873,18 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuvidCtxLockCreate: Success.\n"));
+
+    if (CUDA_SUCCESS != (cuResult = cuCtxPushCurrent(m_cuContextCurr))) {
+        PrintMes(RGY_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+
+    m_cuvidCodecCsp = getHWDecCodecCsp();
+
+    if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&m_cuContextCurr))) {
+        PrintMes(RGY_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
 #endif //#if ENABLE_AVSW_READER
     return NV_ENC_SUCCESS;
 }

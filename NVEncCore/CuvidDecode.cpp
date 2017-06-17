@@ -41,6 +41,56 @@ bool check_if_nvcuvid_dll_available() {
     return true;
 }
 
+CodecCsp getHWDecCodecCsp() {
+
+    CUVIDDECODECAPS caps_test;
+    memset(&caps_test, 0, sizeof(caps_test));
+
+    static const auto test_target = make_array<RGY_CSP>(
+        RGY_CSP_NV12,
+        RGY_CSP_YV12,
+        RGY_CSP_YV12_09,
+        RGY_CSP_YV12_10,
+        RGY_CSP_YV12_12,
+        RGY_CSP_YV12_14,
+        RGY_CSP_YV12_16,
+        RGY_CSP_YUV444,
+        RGY_CSP_YUV444_09,
+        RGY_CSP_YUV444_10,
+        RGY_CSP_YUV444_12,
+        RGY_CSP_YUV444_14,
+        RGY_CSP_YUV444_16
+        );
+
+    CodecCsp HWDecCodecCsp;
+
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
+        std::vector<RGY_CSP> supported_csp;
+        caps_test.eCodecType = codec_rgy_to_enc(HW_DECODE_LIST[i].rgy_codec);
+        for (auto csp : test_target) {
+            caps_test.nBitDepthMinus8 = RGY_CSP_BIT_DEPTH[csp] - 8;
+            caps_test.eChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[csp]);
+            auto ret = cuvidGetDecoderCaps(&caps_test);
+            if (ret == CUDA_SUCCESS && caps_test.bIsSupported) {
+                supported_csp.push_back(csp);
+            }
+        }
+        if (supported_csp.size() > 0) {
+            HWDecCodecCsp[HW_DECODE_LIST[i].rgy_codec] = supported_csp;
+        }
+    }
+
+    //もし、なんらかの原因で正常に取得されていなければ、
+    //基本的なコーデックはデコード可能だと返す
+    std::vector<RGY_CODEC> basic_codec_list = { RGY_CODEC_H264, RGY_CODEC_MPEG2, RGY_CODEC_MPEG1 };
+    std::vector<RGY_CSP> basic_csp_list = { RGY_CSP_NV12, RGY_CSP_YV12 };
+    for (auto codec : basic_codec_list) {
+        if (HWDecCodecCsp.count(codec) == 0) {
+            HWDecCodecCsp[codec] = basic_csp_list;
+        }
+    }
+    return HWDecCodecCsp;
+}
 
 static int CUDAAPI HandleVideoData(void *pUserData, CUVIDSOURCEDATAPACKET *pPacket) {
     assert(pUserData);
