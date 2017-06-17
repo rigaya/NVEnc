@@ -751,19 +751,16 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
                 AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), pInputAudio->src.pStream->codecpar->codec_id));
                 return RGY_ERR_NULL_PTR;
             }
-            //設定されていない必須情報があれば設定する
-#define COPY_IF_ZERO(dst, src) { if ((dst)==0) (dst)=(src); }
-            COPY_IF_ZERO(pMuxAudio->pOutCodecDecodeCtx->sample_rate,         pInputAudio->src.pStream->codecpar->sample_rate);
-            COPY_IF_ZERO(pMuxAudio->pOutCodecDecodeCtx->channels,            pInputAudio->src.pStream->codecpar->channels);
-            COPY_IF_ZERO(pMuxAudio->pOutCodecDecodeCtx->channel_layout,      pInputAudio->src.pStream->codecpar->channel_layout);
-            COPY_IF_ZERO(pMuxAudio->pOutCodecDecodeCtx->bits_per_raw_sample, pInputAudio->src.pStream->codecpar->bits_per_raw_sample);
-#undef COPY_IF_ZERO
+            int ret;
+            if (0 > (ret = avcodec_parameters_to_context(pMuxAudio->pOutCodecDecodeCtx, pInputAudio->src.pStream->codecpar))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s\n"),
+                    char_to_tstring(avcodec_get_name(pInputAudio->src.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+            }
             pMuxAudio->pOutCodecDecodeCtx->pkt_timebase = pInputAudio->src.pStream->time_base;
             SetExtraData(pMuxAudio->pOutCodecDecodeCtx, pInputAudio->src.pStream->codecpar->extradata, pInputAudio->src.pStream->codecpar->extradata_size);
             if (nullptr != strstr(pMuxAudio->pOutCodecDecode->name, "wma")) {
                 pMuxAudio->pOutCodecDecodeCtx->block_align = pInputAudio->src.pStream->codecpar->block_align;
             }
-            int ret;
             if (0 > (ret = avcodec_open2(pMuxAudio->pOutCodecDecodeCtx, pMuxAudio->pOutCodecDecode, NULL))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
                     char_to_tstring(avcodec_get_name(pInputAudio->src.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
