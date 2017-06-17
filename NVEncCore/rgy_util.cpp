@@ -950,9 +950,9 @@ void get_dar_pixels(unsigned int* width, unsigned int* height, int sar_w, int sa
             a = b, b = c;
         x /= b;
         y /= b;
-        c = ((y + h - 1) / h) * h;
-        *width  = x * c;
-        *height = y * c;
+        const double ratio = (sar_w >= sar_h) ? h / (double)y : w / (double)x;
+        *width  = (int)(x * ratio + 0.5);
+        *height = (int)(y * ratio + 0.5);
     }
 }
 
