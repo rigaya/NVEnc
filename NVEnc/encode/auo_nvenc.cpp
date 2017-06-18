@@ -265,7 +265,7 @@ RGY_ERR AuoInput::LoadNextFrame(RGYFrame *pSurface) {
         }
     }
     void *dst_array[3];
-    pSurface->ptrArray(dst_array);
+    pSurface->ptrArray(dst_array, false);
     int src_pitch = m_inputVideoInfo.srcPitch * ((m_sConvert->csp_from == RGY_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, (const void **)&frame, m_inputVideoInfo.srcWidth, src_pitch, 0,
