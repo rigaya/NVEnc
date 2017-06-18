@@ -3643,7 +3643,8 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     tstring osversionstr = getOSVersion(&osversioninfo);
     int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
     auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
-    add_str(RGY_LOG_ERROR, _T("NVEnc %s (%s), using NVENC API v%d.%d\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
+    add_str(RGY_LOG_ERROR, _T("%s\n"), get_encoder_version());
+    add_str(RGY_LOG_ERROR, _T("NVENC API      v%d.%d\n"), NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
     add_str(RGY_LOG_INFO,  _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
     add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info);
