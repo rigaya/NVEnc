@@ -1974,8 +1974,7 @@ AVFrame *RGYOutputAvcodec::AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pk
                 if (decodedFrame) {
                     av_frame_free(&decodedFrame);
                 }
-                AddMessage(RGY_LOG_ERROR, _T("avcodec writer: failed to send packet to audio decoder, already flushed.\n"));
-                m_Mux.format.bStreamError = true;
+                AddMessage(RGY_LOG_DEBUG, _T("avcodec writer: failed to send packet to audio decoder, already flushed.\n"));
                 break;
             }
         }
