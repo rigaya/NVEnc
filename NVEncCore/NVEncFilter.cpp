@@ -57,8 +57,12 @@ cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
 }
 
 NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    cudaError_t cudaerr = cudaSuccess;
     if (m_bCheckPerformance) {
-        cudaEventRecord(*m_peFilterStart.get());
+        cudaerr = cudaEventRecord(*m_peFilterStart.get());
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventRecord(m_peFilterStart): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        }
     }
     if (m_pParam && m_pParam->bOutOverwrite && ppOutputFrames && ppOutputFrames[0] == nullptr) {
         ppOutputFrames[0] = pInputFrame;
@@ -66,10 +70,19 @@ NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFram
     }
     const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum);
     if (m_bCheckPerformance) {
-        cudaEventRecord(*m_peFilterFin.get());
-        cudaEventSynchronize(*m_peFilterFin.get());
+        cudaerr = cudaEventRecord(*m_peFilterFin.get());
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventRecord(m_peFilterFin): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        }
+        cudaerr = cudaEventSynchronize(*m_peFilterFin.get());
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventSynchronize(m_peFilterFin): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        }
         float time_ms = 0.0f;
-        cudaEventElapsedTime(&time_ms, *m_peFilterStart.get(), *m_peFilterFin.get());
+        cudaerr = cudaEventElapsedTime(&time_ms, *m_peFilterStart.get(), *m_peFilterFin.get());
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventElapsedTime(m_peFilterStart - m_peFilterFin): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        }
         m_dFilterTimeMs += time_ms;
         m_nFilterRunCount++;
     }
@@ -91,8 +104,17 @@ void NVEncFilter::CheckPerformance(bool flag) {
         };
         m_peFilterStart = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         m_peFilterFin = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-        cudaEventCreate(m_peFilterStart.get());
-        cudaEventCreate(m_peFilterFin.get());
+        auto cudaerr = cudaEventCreate(m_peFilterStart.get());
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventCreate(m_peFilterStart): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreate(m_peFilterStart)\n"));
+
+        cudaerr = cudaEventCreate(m_peFilterFin.get());
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed cudaEventCreate(m_peFilterFin): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreate(m_peFilterFin)\n"));
         m_dFilterTimeMs = 0.0;
         m_nFilterRunCount = 0;
     }
