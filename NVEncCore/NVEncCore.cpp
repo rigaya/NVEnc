@@ -2540,8 +2540,11 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame = param->frameOut;
     }
     //パフォーマンスチェックを行うかどうか
-    for (auto& filter : m_vpFilters) {
-        filter->CheckPerformance(inputParam->vpp.bCheckPerformance);
+    {
+        NVEncCtxAutoLock(cxtlock(m_ctxLock));
+        for (auto& filter : m_vpFilters) {
+            filter->CheckPerformance(inputParam->vpp.bCheckPerformance);
+        }
     }
     return NV_ENC_SUCCESS;
 }
