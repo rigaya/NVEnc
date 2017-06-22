@@ -1052,7 +1052,8 @@ NVENCSTATUS NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared
         m_sFilterName += (m_sFilterName.length()) ? _T("/cspconv") : _T("cspconv");
     }
     if (m_sFilterName.length() == 0) {
-        m_sFilterName += _T("copy");
+        const auto memcpyKind = getCudaMemcpyKind(pParam->frameIn.deivce_mem, pParam->frameOut.deivce_mem);
+        m_sFilterName += getCudaMemcpyKindStr(memcpyKind);
     }
     //パラメータチェック
     for (int i = 0; i < _countof(pCropParam->crop.c); i++) {
