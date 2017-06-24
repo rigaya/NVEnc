@@ -65,6 +65,7 @@
 #include "NVEncFilterDelogo.h"
 #include "NVEncFilterDenoiseKnn.h"
 #include "NVEncFilterDenoisePmd.h"
+#include "NVEncFilterDeband.h"
 #include "chapter_rw.h"
 #include "helper_cuda.h"
 #include "helper_nvenc.h"
@@ -1198,8 +1199,10 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     m_pFileWriter.reset();
     m_pFileWriterListAudio.clear();
 
-    m_vpFilters.clear();
-
+    {
+        NVEncCtxAutoLock(ctxlock(m_ctxLock));
+        m_vpFilters.clear();
+    }
     ReleaseIOBuffers();
 
     nvStatus = NvEncDestroyEncoder();
@@ -1227,7 +1230,8 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     m_pNVLog.reset();
     m_pAbortByUser = nullptr;
     m_pTrimParam = nullptr;
-
+    //すべてのエラーをflush - 次回に影響しないように
+    auto cudaerr = cudaGetLastError();
     return nvStatus;
 }
 
@@ -2264,6 +2268,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.unsharp.bEnable
         || inputParam->vpp.knn.enable
         || inputParam->vpp.pmd.enable
+        || inputParam->vpp.deband.enable
         ) {
         //swデコードならGPUに上げる必要がある
         if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -2470,6 +2475,26 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
 #endif
+        }
+        //deband
+        if (inputParam->vpp.deband.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterDeband());
+            shared_ptr<NVEncFilterParamDeband> param(new NVEncFilterParamDeband());
+            param->deband = inputParam->vpp.deband;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
         }
     }
     //最後のフィルタ

@@ -416,7 +416,7 @@ static tstring help() {
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
-        _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]")
+        _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by K-nearest neighbor.\n")
         _T("    params\n")
         _T("      radius=<int>              set radius of knn (default=%d)\n")
@@ -428,7 +428,7 @@ static tstring help() {
         FILTER_DEFAULT_KNN_RADIUS, FILTER_DEFAULT_KNN_STRENGTH, FILTER_DEFAULT_KNN_LERPC,
         FILTER_DEFAULT_KNN_LERPC_THRESHOLD);
     str += strsprintf(_T("")
-        _T("   --vpp-pmd [<param1>=<value>][,<param2>=<value>][...]")
+        _T("   --vpp-pmd [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by pmd.\n")
         _T("    params\n")
         _T("      apply_count=<int>         set count to apply pmd denoise (default=%d)\n")
@@ -436,6 +436,28 @@ static tstring help() {
         _T("      threshold=<float>         set threshold of pmd (default=%.2f, 0.0-255.0)\n")
         _T("                                  lower value will preserve edge.\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
+    str += strsprintf(_T("")
+        _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable deband filter.\n")
+        _T("    params\n")
+        _T("      range=<int>               set range (default=%d, 0-127)\n")
+        _T("      sample=<int>              set sample (default=%d, 0-2)\n")
+        _T("      thre=<int>                set threshold for y, cb & cr\n")
+        _T("      thre_y=<int>              set threshold for y (default=%d, 0-31)\n")
+        _T("      thre_cb=<int>             set threshold for cb (default=%d, 0-31)\n")
+        _T("      thre_cr=<int>             set threshold for cr (default=%d, 0-31)\n")
+        _T("      dither=<int>              set strength of dither for y, cb & cr\n")
+        _T("      dither_y=<int>            set strength of dither for y (default=%d, 0-31)\n")
+        _T("      dither_c=<int>            set strength of dither for cb/cr (default=%d, 0-31)\n")
+        _T("      seed=<int>                set rand seed (default=%d)\n")
+        _T("      blurfirst                 blurfirst (default=%s)\n")
+        _T("      rand_each_frame           generate rand for each frame (default=%s)\n"),
+        FILTER_DEFAULT_DEBAND_RANGE, FILTER_DEFAULT_DEBAND_MODE,
+        FILTER_DEFAULT_DEBAND_THRE_Y, FILTER_DEFAULT_DEBAND_THRE_CB, FILTER_DEFAULT_DEBAND_THRE_CR,
+        FILTER_DEFAULT_DEBAND_DITHER_Y, FILTER_DEFAULT_DEBAND_DITHER_C,
+        FILTER_DEFAULT_DEBAND_SEED,
+        FILTER_DEFAULT_DEBAND_BLUR_FIRST ? _T("on") : _T("off"),
+        FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME ? _T("on") : _T("off"));
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
@@ -2065,6 +2087,127 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
+            }
+        }
+        return 0;
+    }
+
+    if (IS_OPTION("vpp-deband")) {
+        pParams->vpp.deband.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("range")) {
+                    try {
+                        pParams->vpp.deband.range = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre")) {
+                    try {
+                        pParams->vpp.deband.threY = std::stoi(param_val);
+                        pParams->vpp.deband.threCb = pParams->vpp.deband.threY;
+                        pParams->vpp.deband.threCr = pParams->vpp.deband.threY;
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_y")) {
+                    try {
+                        pParams->vpp.deband.threY = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_cb")) {
+                    try {
+                        pParams->vpp.deband.threCb = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_cr")) {
+                    try {
+                        pParams->vpp.deband.threCr = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("dither")) {
+                    try {
+                        pParams->vpp.deband.ditherY = std::stoi(param_val);
+                        pParams->vpp.deband.ditherC = pParams->vpp.deband.ditherY;
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("dither_y")) {
+                    try {
+                        pParams->vpp.deband.ditherY = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("dither_c")) {
+                    try {
+                        pParams->vpp.deband.ditherC = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sample")) {
+                    try {
+                        pParams->vpp.deband.sample = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("seed")) {
+                    try {
+                        pParams->vpp.deband.seed = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                if (param == _T("blurfirst")) {
+                    pParams->vpp.deband.blurFirst = true;
+                    continue;
+                }
+                if (param == _T("rand_each_frame")) {
+                    pParams->vpp.deband.randEachFrame = true;
+                    continue;
+                }
             }
         }
         return 0;

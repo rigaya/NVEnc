@@ -53,6 +53,16 @@ static const float FILTER_DEFAULT_PMD_STRENGTH = 100.0f;
 static const float FILTER_DEFAULT_PMD_THRESHOLD = 100.0f;
 static const int   FILTER_DEFAULT_PMD_APPLY_COUNT = 2;
 static const bool  FILTER_DEFAULT_PMD_USE_EXP = true;
+static const int   FILTER_DEFAULT_DEBAND_RANGE = 15;
+static const int   FILTER_DEFAULT_DEBAND_THRE_Y = 15;
+static const int   FILTER_DEFAULT_DEBAND_THRE_CB = 15;
+static const int   FILTER_DEFAULT_DEBAND_THRE_CR = 15;
+static const int   FILTER_DEFAULT_DEBAND_DITHER_Y = 15;
+static const int   FILTER_DEFAULT_DEBAND_DITHER_C = 15;
+static const int   FILTER_DEFAULT_DEBAND_MODE = 1;
+static const int   FILTER_DEFAULT_DEBAND_SEED = 1234;
+static const bool  FILTER_DEFAULT_DEBAND_BLUR_FIRST = false;
+static const bool  FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME = false;
 
 enum {
     NV_ENC_AVCUVID_NATIVE = 0,
@@ -373,6 +383,13 @@ const CX_DESC list_vpp_denoise[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_vpp_deband[] ={
+    { _T("0 - 1点参照"),  0 },
+    { _T("1 - 2点参照"),  1 },
+    { _T("2 - 4点参照"),  2 },
+    { NULL, NULL }
+};
+
 const CX_DESC list_nppi_gauss[] = {
     { _T("disabled"), 0 },
     { _T("3"), NPP_MASK_SIZE_3_X_3 },
@@ -498,6 +515,22 @@ struct VppPmd {
     VppPmd();
 };
 
+struct VppDeband {
+    bool enable;
+    int range;
+    int threY;
+    int threCb;
+    int threCr;
+    int ditherY;
+    int ditherC;
+    int sample;
+    int seed;
+    bool blurFirst;
+    bool randEachFrame;
+
+    VppDeband();
+};
+
 struct VppParam {
     bool bCheckPerformance;
     cudaVideoDeinterlaceMode deinterlace;
@@ -526,6 +559,7 @@ struct VppParam {
 
     VppKnn knn;
     VppPmd pmd;
+    VppDeband deband;
 
     VppParam();
 };

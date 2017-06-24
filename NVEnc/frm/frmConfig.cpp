@@ -654,6 +654,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXAQ,                list_aq);
     setComboBox(fcgCXVppResizeAlg,      list_nppi_resize);
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
+    setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
 
     setComboBox(fcgCXAudioTempDir,  list_audtempdir);
     setComboBox(fcgCXMP4BoxTempDir, list_mp4boxtempdir);
@@ -739,6 +740,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcggroupBoxResize->Enabled = fcgCBVppResize->Checked;
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
+    fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
 
     this->ResumeLayout();
     this->PerformLayout();
@@ -975,6 +977,16 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoisePmdApplyCount, cnf->vpp.pmd.applyCount);
         SetNUValue(fcgNUVppDenoisePmdStrength,   cnf->vpp.pmd.strength);
         SetNUValue(fcgNUVppDenoisePmdThreshold,  cnf->vpp.pmd.threshold);
+        fcgCBVppDebandEnable->Checked          = cnf->vpp.deband.enable;
+        SetNUValue(fcgNUVppDebandRange,          cnf->vpp.deband.range);
+        SetNUValue(fcgNUVppDebandThreY,          cnf->vpp.deband.threY);
+        SetNUValue(fcgNUVppDebandThreCb,         cnf->vpp.deband.threCb);
+        SetNUValue(fcgNUVppDebandThreCr,         cnf->vpp.deband.threCr);
+        SetNUValue(fcgNUVppDebandDitherY,        cnf->vpp.deband.ditherY);
+        SetNUValue(fcgNUVppDebandDitherC,        cnf->vpp.deband.ditherC);
+        SetCXIndex(fcgCXVppDebandSample,         cnf->vpp.deband.sample);
+        fcgCBVppDebandBlurFirst->Checked       = cnf->vpp.deband.blurFirst;
+        fcgCBVppDebandRandEachFrame->Checked   = cnf->vpp.deband.randEachFrame;
 
         //音声
         fcgCBAudioOnly->Checked            = cnf->oth.out_audio_only != 0;
@@ -1153,6 +1165,16 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vpp.pmd.applyCount         = (int)fcgNUVppDenoisePmdApplyCount->Value;
     cnf->vpp.pmd.strength           = (float)fcgNUVppDenoisePmdStrength->Value;
     cnf->vpp.pmd.threshold          = (float)fcgNUVppDenoisePmdThreshold->Value;
+    cnf->vpp.deband.enable          = fcgCBVppDebandEnable->Checked;
+    cnf->vpp.deband.range           = (int)fcgNUVppDebandRange->Value;
+    cnf->vpp.deband.threY           = (int)fcgNUVppDebandThreY->Value;
+    cnf->vpp.deband.threCb          = (int)fcgNUVppDebandThreCb->Value;
+    cnf->vpp.deband.threCr          = (int)fcgNUVppDebandThreCr->Value;
+    cnf->vpp.deband.ditherY         = (int)fcgNUVppDebandDitherY->Value;
+    cnf->vpp.deband.ditherC         = (int)fcgNUVppDebandDitherC->Value;
+    cnf->vpp.deband.sample            = fcgCXVppDebandSample->SelectedIndex;
+    cnf->vpp.deband.blurFirst       = fcgCBVppDebandBlurFirst->Checked;
+    cnf->vpp.deband.randEachFrame   = fcgCBVppDebandRandEachFrame->Checked;
 
     //音声部
     cnf->aud.encoder                = fcgCXAudioEncoder->SelectedIndex;

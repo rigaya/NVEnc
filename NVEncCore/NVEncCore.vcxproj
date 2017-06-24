@@ -561,6 +561,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="rgy_simd.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <ClCompile Include="rgy_version.cpp" />
+    <CudaCompile Include="NVEncFilterDeband.cu" />
     <CudaCompile Include="NVEncFilterDenoisePmd.cu">
       <FileType>CppCode</FileType>
     </CudaCompile>
@@ -588,6 +589,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="logo.h" />
     <ClInclude Include="NVEncFeature.h" />
     <ClInclude Include="NVEncFilter.h" />
+    <ClInclude Include="NVEncFilterDeband.h" />
     <ClInclude Include="NVEncFilterDelogo.h" />
     <ClInclude Include="NVEncFilterDenoiseKnn.h" />
     <ClInclude Include="NVEncFilterDenoisePmd.h" />

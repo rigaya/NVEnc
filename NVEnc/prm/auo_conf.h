@@ -109,6 +109,7 @@ typedef struct {
     int resize_height;
     VppKnn knn;
     VppPmd pmd;
+    VppDeband deband;
 } CONF_VPP;
 
 typedef struct {

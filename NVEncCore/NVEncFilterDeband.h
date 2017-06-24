@@ -1,9 +1,10 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc/NVEnc by rigaya
+// NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
+//
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2014-2016 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,56 +27,33 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
-#ifndef __RGY_CONFIG_H__
-#define __RGY_CONFIG_H__
 
-#define VER_FILEVERSION              0,3,13,0
-#define VER_STR_FILEVERSION          "3.13"
-#define VER_STR_FILEVERSION_TCHAR _T("3.13")
+#include "NVEncFilter.h"
+#include "NVEncParam.h"
+#include "logo.h"
 
-#ifdef _M_IX86
-#define BUILD_ARCH_STR _T("x86")
-#else
-#define BUILD_ARCH_STR _T("x64")
-#endif
+class NVEncFilterParamDeband : public NVEncFilterParam {
+public:
+    VppDeband deband;
 
-static const int HW_TIMEBASE = 100000;
+    NVEncFilterParamDeband() : deband() {
 
-#if _UNICODE
-const wchar_t *get_encoder_version();
-#else
-const char *get_encoder_version();
-#endif
+    };
+    virtual ~NVEncFilterParamDeband() {};
+};
 
-#define ENCODER_QSV    0
-#define ENCODER_NVENC  1
-#define ENCODER_VCEENC 0
+class NVEncFilterDeband : public NVEncFilter {
+public:
+    NVEncFilterDeband();
+    virtual ~NVEncFilterDeband();
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual void close() override;
 
-#define ENABLE_OPENCL 1
+    NVENCSTATUS deband(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
 
-#define ENABLE_AVCODEC_OUT_THREAD 1
-#define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
-#define ENABLE_CPP_REGEX 1
-#define ENABLE_DTL 1
-
-#ifdef NVENC_AUO
-#define ENCODER_NAME  "NVEnc"
-#define AUO_NAME      "NVEnc.auo"
-#define FOR_AUO                   1
-#define ENABLE_RAW_READER         0
-#define ENABLE_AVI_READER         0
-#define ENABLE_AVISYNTH_READER    0
-#define ENABLE_VAPOURSYNTH_READER 0
-#define ENABLE_AVSW_READER 0
-#else
-#define ENCODER_NAME "NVEncC"
-#define DECODER_NAME "cuvid"
-#define FOR_AUO                   0
-#define ENABLE_RAW_READER         1
-#define ENABLE_AVI_READER         1
-#define ENABLE_AVISYNTH_READER    1
-#define ENABLE_VAPOURSYNTH_READER 1
-#define ENABLE_AVSW_READER        1
-#endif
-
-#endif //__RGY_CONFIG_H__
+    CUFrameBuf m_RandY;
+    CUFrameBuf m_RandUV;
+    CUMemBuf m_RandState;
+};

@@ -47,6 +47,22 @@ VppPmd::VppPmd() :
 
 }
 
+VppDeband::VppDeband() :
+    enable(false),
+    range(FILTER_DEFAULT_DEBAND_RANGE),
+    threY(FILTER_DEFAULT_DEBAND_THRE_Y),
+    threCb(FILTER_DEFAULT_DEBAND_THRE_CB),
+    threCr(FILTER_DEFAULT_DEBAND_THRE_CR),
+    ditherY(FILTER_DEFAULT_DEBAND_DITHER_Y),
+    ditherC(FILTER_DEFAULT_DEBAND_DITHER_C),
+    sample(FILTER_DEFAULT_DEBAND_MODE),
+    seed(FILTER_DEFAULT_DEBAND_SEED),
+    blurFirst(FILTER_DEFAULT_DEBAND_BLUR_FIRST),
+    randEachFrame(FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME) {
+
+}
+
+
 VppParam::VppParam() :
     bCheckPerformance(false),
     deinterlace(cudaVideoDeinterlaceMode_Weave),
@@ -55,7 +71,8 @@ VppParam::VppParam() :
     unsharp(),
     delogo(),
     knn(),
-    pmd() {
+    pmd(),
+    deband() {
     unsharp.bEnable = false;
     delogo.pFilePath = nullptr;
     delogo.pSelect = nullptr;

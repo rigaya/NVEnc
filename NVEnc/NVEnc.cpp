@@ -281,6 +281,7 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     conf->vpp.resize_interp = RESIZE_CUDA_SPLINE36;
     conf->vpp.knn = VppKnn();
     conf->vpp.pmd = VppPmd();
+    conf->vpp.deband = VppDeband();
 }
 #pragma warning( pop )
 void write_log_auo_line_fmt(int log_type_index, const char *format, ... ) {

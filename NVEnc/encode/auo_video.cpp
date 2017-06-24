@@ -205,6 +205,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     encPrm.vpp.bCheckPerformance = conf->vpp.perf_monitor != 0;
     encPrm.vpp.knn = conf->vpp.knn;
     encPrm.vpp.pmd = conf->vpp.pmd;
+    encPrm.vpp.deband = conf->vpp.deband;
     const auto enc_mode_flags = get_enc_mode_flags(&conf->nvenc);
     encPrm.lossless = std::get<0>(enc_mode_flags);
     encPrm.yuv444 = std::get<1>(enc_mode_flags);

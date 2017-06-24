@@ -124,7 +124,7 @@ public:
 struct CUFrameBuf {
     FrameInfo frame;
     cudaEvent_t event;
-
+    CUFrameBuf(const CUFrameBuf &) = delete;
     CUFrameBuf()
         : frame({ 0 }), event() {
         cudaEventCreate(&event);
@@ -168,11 +168,18 @@ struct CUFrameBuf {
         frame.pitch = (int)memPitch;
         return ret;
     }
-    ~CUFrameBuf() {
+    void clear() {
         if (frame.ptr) {
             cudaFree(frame.ptr);
+            frame.ptr = nullptr;
         }
-        cudaEventDestroy(event);
+        if (event) {
+            cudaEventDestroy(event);
+            event = nullptr;
+        }
+    }
+    ~CUFrameBuf() {
+        clear();
     }
 };
 
@@ -201,10 +208,15 @@ struct CUMemBuf {
         }
         return ret;
     }
-    ~CUMemBuf() {
+    void clear() {
         if (ptr) {
             cudaFree(ptr);
+            ptr = nullptr;
         }
+        nSize = 0;
+    }
+    ~CUMemBuf() {
+        clear();
     }
 };
 
