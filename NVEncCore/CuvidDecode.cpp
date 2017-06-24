@@ -237,8 +237,8 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
         m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.dstWidth;
         m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.dstHeight;
     } else {
-        m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.srcWidth;
-        m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.srcHeight;
+        m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.srcWidth - m_videoInfo.crop.e.right - m_videoInfo.crop.e.left;
+        m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.srcHeight - m_videoInfo.crop.e.up - m_videoInfo.crop.e.bottom;
     }
     m_videoDecodeCreateInfo.target_rect.left = 0;
     m_videoDecodeCreateInfo.target_rect.top = 0;
@@ -340,8 +340,8 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
         m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.dstWidth;
         m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.dstHeight;
     } else {
-        m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.srcWidth;
-        m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.srcHeight;
+        m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.srcWidth - input->crop.e.right - input->crop.e.left;
+        m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.srcHeight - input->crop.e.up - input->crop.e.bottom;
     }
 
     m_videoDecodeCreateInfo.display_area.left   = (short)input->crop.e.left;

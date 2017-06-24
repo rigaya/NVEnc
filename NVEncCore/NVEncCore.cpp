@@ -2230,11 +2230,9 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     inputFrame.width = inputParam->input.srcWidth;
     inputFrame.height = inputParam->input.srcHeight;
     inputFrame.csp = inputParam->input.csp;
-    //avcuivd読み以外では読み込み時にcropが適用される
-    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
-        inputFrame.width -= inputParam->input.crop.e.left + inputParam->input.crop.e.right;
-        inputFrame.height -= inputParam->input.crop.e.bottom + inputParam->input.crop.e.up;
-    } else {
+    inputFrame.width -= inputParam->input.crop.e.left + inputParam->input.crop.e.right;
+    inputFrame.height -= inputParam->input.crop.e.bottom + inputParam->input.crop.e.up;
+    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         inputFrame.deivce_mem = true;
     }
 
@@ -2522,11 +2520,6 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         const bool bDeviceMemFinal = (m_stPicStruct != NV_ENC_PIC_STRUCT_FRAME && inputFrame.csp == GetEncoderCSP(inputParam)) ? false : true;
         unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
-        //avcuivd読みでは読み込み時にcropが適用されないため
-        //ここまでフィルタが使われていなければ、ここでcropを適用する必要がある
-        if (m_vpFilters.size() == 0 && cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-            param->crop = inputParam->input.crop;
-        }
         param->frameIn = inputFrame;
         param->frameOut.csp = GetEncoderCSP(inputParam);
         //インタレ保持であれば、CPU側にフレームを戻す必要がある
