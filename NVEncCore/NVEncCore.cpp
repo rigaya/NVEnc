@@ -850,7 +850,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("NVENC capabilities: OK.\n"));
 
-    if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), CU_CTX_SCHED_AUTO, m_device))) {
+    if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), CU_CTX_SCHED_BLOCKING_SYNC, m_device))) {
         PrintMes(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
