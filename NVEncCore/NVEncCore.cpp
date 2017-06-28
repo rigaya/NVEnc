@@ -3133,7 +3133,7 @@ NVENCSTATUS NVEncCore::Encode() {
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
     deque<unique_ptr<FrameBufferDataIn>> dqInFrames;
     deque<unique_ptr<FrameBufferDataEnc>> dqEncFrames;
-    int nEncodeFrame = 0;
+    int nEncodeFrames = 0;
     for (int nInputFrame = 0, nFilterFrame = 0; nvStatus == NV_ENC_SUCCESS; ) {
         if (m_pAbortByUser && *m_pAbortByUser) {
             nvStatus = NV_ENC_ERR_ABORT;
@@ -3201,7 +3201,7 @@ NVENCSTATUS NVEncCore::Encode() {
             dqInFrames.pop_front();
             while (dqEncFrames.size()) {
                 auto& encframe = dqEncFrames.front();
-                if (NV_ENC_SUCCESS != (nvStatus = send_encoder(nEncodeFrame, encframe))) {
+                if (NV_ENC_SUCCESS != (nvStatus = send_encoder(nEncodeFrames, encframe))) {
                     break;
                 }
                 dqEncFrames.pop_front();
@@ -3234,7 +3234,7 @@ NVENCSTATUS NVEncCore::Encode() {
     PrintMes(RGY_LOG_INFO, _T("                                                                         \n"));
     //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
     auto encstatus = nvStatus;
-    if (nEncodeFrame > 0 || nvStatus == NV_ENC_SUCCESS) {
+    if (nEncodeFrames > 0 || nvStatus == NV_ENC_SUCCESS) {
         encstatus = FlushEncoder();
         if (encstatus != NV_ENC_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("Error FlushEncoder: %d.\n"), encstatus);
