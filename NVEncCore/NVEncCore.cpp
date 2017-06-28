@@ -3101,9 +3101,6 @@ NVENCSTATUS NVEncCore::Encode() {
                 return sts_filter;
             }
             cudaThreadSynchronize();
-            if (!pEncodeBuffer->stInputBfr.pNV12devPtr) {
-                NvEncUnlockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface);
-            }
         }
         //auto& cudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()];
         //if (cudaSuccess != (cudaret = cudaEventRecord(cudaEvent))) {
@@ -3124,6 +3121,8 @@ NVENCSTATUS NVEncCore::Encode() {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to Map input buffer %p\n"), pEncodeBuffer->stInputBfr.hInputSurface);
                 return nvStatus;
             }
+        } else {
+            NvEncUnlockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface);
         }
         return NvEncEncodeFrame(pEncodeBuffer, nEncodeFrame++);
     };
