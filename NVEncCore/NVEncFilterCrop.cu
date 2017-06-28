@@ -784,12 +784,12 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, cons
     const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
     //Y
     if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
-        auto cudaerr = cudaMemcpy2D((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
+        auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
             (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice);
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2D (convertCspFromNV12(%s -> %s)): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync (convertCspFromNV12(%s -> %s)): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         }
@@ -852,12 +852,12 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, cons
     const auto frameOutInfoEx = getFrameInfoExtra(&pCropParam->frameOut);
     //Y
     if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
-        auto cudaerr = cudaMemcpy2D((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
+        auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
             (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pCropParam->frameOut.height, cudaMemcpyDeviceToDevice);
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2D (convertCspFromYV12(%s -> %s)): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync (convertCspFromYV12(%s -> %s)): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         }
@@ -903,12 +903,12 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV16(FrameInfo *pOutputFrame, cons
     const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
     //Y
     if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
-        auto cudaerr = cudaMemcpy2D((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
+        auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
             (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice);
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2D (convertCspFromNV16(%s -> %s)): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync (convertCspFromNV16(%s -> %s)): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         }
@@ -1119,34 +1119,34 @@ NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameIn
         const auto frameOutInfoEx = getFrameInfoExtra(ppOutputFrames[0]);
         if (!cropEnabled(pCropParam->crop)) {
             //cropがなければ、一度に転送可能
-            auto cudaerr = cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
+            auto cudaerr = cudaMemcpy2DAsync((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
                 (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
                 frameOutInfoEx.width_byte, frameOutInfoEx.height_total, memcpyKind);
             if (cudaerr != cudaSuccess) {
-                cudaMemcpyErrMes(cudaerr, _T("cudaMemcpy2DAll"));
+                cudaMemcpyErrMes(cudaerr, _T("cudaMemcpy2DAsyncAll"));
                 return NV_ENC_ERR_INVALID_CALL;
             };
         } else {
             if (pCropParam->frameOut.csp == RGY_CSP_NV12) {
                 cudaError_t cudaerr;
                 //Y
-                cudaerr = cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
+                cudaerr = cudaMemcpy2DAsync((uint8_t *)ppOutputFrames[0]->ptr, ppOutputFrames[0]->pitch,
                     (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
                     pInputFrame->pitch,
                     frameOutInfoEx.width_byte, pCropParam->frameOut.height, memcpyKind);
                 if (cudaerr != cudaSuccess) {
-                    cudaMemcpyErrMes(cudaerr, _T("cudaMemcpy2D_Y"));
+                    cudaMemcpyErrMes(cudaerr, _T("cudaMemcpy2DAsync_Y"));
                     return NV_ENC_ERR_INVALID_CALL;
                 };
                 //UV
-                cudaerr = cudaMemcpy2D((uint8_t *)ppOutputFrames[0]->ptr + ppOutputFrames[0]->pitch * ppOutputFrames[0]->height, ppOutputFrames[0]->pitch,
+                cudaerr = cudaMemcpy2DAsync((uint8_t *)ppOutputFrames[0]->ptr + ppOutputFrames[0]->pitch * ppOutputFrames[0]->height, ppOutputFrames[0]->pitch,
                     (uint8_t *)pInputFrame->ptr
                     + pInputFrame->height * pInputFrame->pitch
                     + pCropParam->crop.e.left + (pCropParam->crop.e.up >> 1) * pInputFrame->pitch,
                     pInputFrame->pitch,
                     frameOutInfoEx.width_byte, pCropParam->frameOut.height >> 1, memcpyKind);
                 if (cudaerr != cudaSuccess) {
-                    cudaMemcpyErrMes(cudaerr, _T("cudaMemcpy2D_UV"));
+                    cudaMemcpyErrMes(cudaerr, _T("cudaMemcpy2DAsync_UV"));
                     return NV_ENC_ERR_INVALID_CALL;
                 };
             } else {

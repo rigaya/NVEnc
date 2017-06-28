@@ -579,11 +579,11 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
         }
         m_sProcessData[i].pDevLogo = std::move(uptr);
         //ロゴデータをGPUに転送
-        cudaerr = cudaMemcpy2D(m_sProcessData[i].pDevLogo->frame.ptr, m_sProcessData[i].pDevLogo->frame.pitch,
+        cudaerr = cudaMemcpy2DAsync(m_sProcessData[i].pDevLogo->frame.ptr, m_sProcessData[i].pDevLogo->frame.pitch,
             (void *)m_sProcessData[i].pLogoPtr.get(), m_sProcessData[i].width * sizeof(int16x2_t),
             m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height, cudaMemcpyHostToDevice);
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("error at sending logo data %d cudaMemcpy2D(%s): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at sending logo data %d cudaMemcpy2DAsync(%s): %s.\n"),
                 i,
                 getCudaMemcpyKindStr(cudaMemcpyHostToDevice),
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
