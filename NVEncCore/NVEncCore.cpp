@@ -1232,6 +1232,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     m_pTrimParam = nullptr;
     //すべてのエラーをflush - 次回に影響しないように
     auto cudaerr = cudaGetLastError();
+    UNREFERENCED_PARAMETER(cudaerr);
     return nvStatus;
 }
 
