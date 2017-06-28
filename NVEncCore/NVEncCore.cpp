@@ -1222,7 +1222,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
         CUresult cuResult = CUDA_SUCCESS;
         cuResult = cuCtxDestroy((CUcontext)m_pDevice);
         if (cuResult != CUDA_SUCCESS)
-            PrintMes(RGY_LOG_ERROR, _T("cuCtxDestroy error:0x%x\n"), cuResult);
+            PrintMes(RGY_LOG_ERROR, _T("cuCtxDestroy error:0x%x: %s\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
 
         m_pDevice = NULL;
     }
@@ -2768,6 +2768,10 @@ NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t tim
         PrintMes(RGY_LOG_TRACE, _T("Output frame %d\n"), m_pStatus->m_sData.frameOut);
         if (pEncodeBuffer->stInputBfr.hInputSurface) {
             nvStatus = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
+            if (nvStatus != NV_ENC_SUCCESS) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to Unmap input buffer %p: %s\n"), pEncodeBuffer->stInputBfr.hInputSurface, char_to_tstring(_nvencGetErrorEnum(nvStatus)).c_str());
+                return nvStatus;
+            }
             pEncodeBuffer->stInputBfr.hInputSurface = NULL;
         }
         pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
@@ -2795,7 +2799,7 @@ NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t tim
 
     nvStatus = NvEncMapInputResource(pEncodeBuffer->stInputBfr.nvRegisteredResource, &pEncodeBuffer->stInputBfr.hInputSurface);
     if (nvStatus != NV_ENC_SUCCESS) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to Map input buffer %p\n"), pEncodeBuffer->stInputBfr.hInputSurface);
+        PrintMes(RGY_LOG_ERROR, _T("Failed to Map input buffer %p: %s\n"), pEncodeBuffer->stInputBfr.hInputSurface, char_to_tstring(_nvencGetErrorEnum(nvStatus)).c_str());
         return nvStatus;
     }
     NvEncEncodeFrame(pEncodeBuffer, timestamp);
