@@ -381,7 +381,7 @@ static tstring help() {
         _T("            <int>:<int>:<int>     Default: unset\n")
         _T("   --qp-min <int> or            set min QP\n")
         _T("             <int>:<int>:<int>    Default: unset\n")
-        _T("   --gop-len <int>              set GOP Length / Default: %d frames\n")
+        _T("   --gop-len <int>              set GOP Length / Default: %d frames%s\n")
         _T("   --lookahead <int>            enable lookahead and set lookahead depth (1-32)\n")
         _T("                                  Default: %d frames\n")
         _T("   --strict-gop                 avoid GOP len fluctuation\n")
@@ -410,8 +410,8 @@ static tstring help() {
         _T("                                  available only with avcuvid reader\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000,
-        DEFAULT_LOOKAHEAD,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
+        DEFAULT_LOOKAHEAD,
         DEFAULT_B_FRAMES_H264, DEFAULT_B_FRAMES_HEVC, DEFAULT_REF_FRAMES);
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
