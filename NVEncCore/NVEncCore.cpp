@@ -2823,13 +2823,6 @@ NVENCSTATUS NVEncCore::Encode() {
             return NV_ENC_ERR_GENERIC;
         }
     }
-    vector<HANDLE> vDecMapFinEvents(nEventCount);
-    for (uint32_t i = 0; i < vDecMapFinEvents.size(); i++) {
-        if (NULL == (vDecMapFinEvents[i] = CreateEvent(NULL, FALSE, FALSE, NULL))) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to CreateEvent.\n"));
-            return NV_ENC_ERR_GENERIC;
-        }
-    }
 
 #if ENABLE_AVSW_READER
     const AVStream *pStreamIn = nullptr;
@@ -2988,21 +2981,15 @@ NVENCSTATUS NVEncCore::Encode() {
     };
 
     auto filter_frame = [&](int& nFilterFrame, unique_ptr<FrameBufferDataIn>& inframe, deque<unique_ptr<FrameBufferDataEnc>>& dqEncFrames) {
-        if (nFilterFrame > 0) {
-            WaitForSingleObject(vDecMapFinEvents[(nFilterFrame - 1) % vDecMapFinEvents.size()], INFINITE);
-        }
-
         cudaMemcpyKind memcpyKind = cudaMemcpyDeviceToDevice;
         FrameInfo frameInfo = { 0 };
         shared_ptr<void> deviceFrame;
-        auto& heUnmapFin = vDecMapFinEvents[nFilterFrame % vDecMapFinEvents.size()];
         if (inframe->inputIsHost()) {
             memcpyKind = cudaMemcpyHostToDevice;
             frameInfo = inframe->getFrameInfo();
             deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
                 ptr = ptr;
                 //このメモリはm_inputHostBufferのメモリであり、使いまわすため、解放しない
-                SetEvent(heUnmapFin);
             });
         }
 #if ENABLE_AVSW_READER
@@ -3021,7 +3008,6 @@ NVENCSTATUS NVEncCore::Encode() {
             frameInfo.ptr = (uint8_t *)dMappedFrame;
             deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
                 cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
-                SetEvent(heUnmapFin);
             });
         }
 #endif //#if ENABLE_AVSW_READER
