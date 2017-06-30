@@ -2815,9 +2815,10 @@ NVENCSTATUS NVEncCore::Encode() {
     m_pStatus->SetStart();
 
     const int nEventCount = nPipelineDepth + CHECK_PTS_MAX_INSERT_FRAMES + 1 + MAX_FILTER_OUTPUT;
-    vector<cudaEvent_t> vEncStartEvents(nEventCount);
+    vector<unique_ptr<cudaEvent_t, cudaevent_deleter>> vEncStartEvents(nEventCount);
     for (uint32_t i = 0; i < vEncStartEvents.size(); i++) {
-        auto cudaret = cudaEventCreate(&vEncStartEvents[i]);
+        vEncStartEvents[i] = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
+        auto cudaret = cudaEventCreate(vEncStartEvents[i].get());
         if (cudaret != CUDA_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("Error cudaEventCreate: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
             return NV_ENC_ERR_GENERIC;
