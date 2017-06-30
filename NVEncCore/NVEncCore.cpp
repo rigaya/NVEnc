@@ -148,12 +148,12 @@ public:
     uint64_t m_timestamp;
     EncodeBuffer *m_pEncodeBuffer;
     cudaEvent_t *m_pEvent;
-    FrameBufferDataEnc(shared_ptr<void> dMappedFrame, RGY_CSP csp, uint64_t timestamp, EncodeBuffer *pEncodeBuffer) {
-        m_dMappedFrame = dMappedFrame;
-        m_csp = csp;
-        m_timestamp = timestamp;
-        m_pEncodeBuffer = pEncodeBuffer;
-        m_pEvent = nullptr;
+    FrameBufferDataEnc(shared_ptr<void> dMappedFrame, RGY_CSP csp, uint64_t timestamp, EncodeBuffer *pEncodeBuffer, cudaEvent_t *pEvent) :
+        m_dMappedFrame(dMappedFrame),
+        m_csp(csp),
+        m_timestamp(timestamp),
+        m_pEncodeBuffer(pEncodeBuffer),
+        m_pEvent(pEvent) {
     };
     ~FrameBufferDataEnc() {
         m_dMappedFrame.reset();
@@ -3087,14 +3087,14 @@ NVENCSTATUS NVEncCore::Encode() {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
                 return sts_filter;
             }
-            cudaThreadSynchronize();
         }
-        //auto& cudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()];
-        //if (cudaSuccess != (cudaret = cudaEventRecord(cudaEvent))) {
-        //    PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
-        //    return NV_ENC_ERR_GENERIC;
-        //}
-        unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(deviceFrame, RGY_CSP_NV12, inframe->getTimeStamp(), pEncodeBuffer/*, &cudaEvent*/));
+        auto pCudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()].get();
+        auto cudaret = cudaEventRecord(*pCudaEvent);
+        if (cudaret != cudaSuccess) {
+            PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+        unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(deviceFrame, RGY_CSP_NV12, inframe->getTimeStamp(), pEncodeBuffer, pCudaEvent));
         dqEncFrames.push_back(std::move(frameEnc));
         return NV_ENC_SUCCESS;
     };
