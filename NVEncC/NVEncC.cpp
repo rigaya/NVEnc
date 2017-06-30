@@ -63,7 +63,7 @@ static tstring GetNVEncVersion() {
     version += _T("\n");
     version += strsprintf(_T("  [NVENC API v%d.%d, CUDA %d.%d]\n"),
         NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
-        CUDA_VERSION / 1000, (CUDA_VERSION % 1000) / 10);
+        CUDART_VERSION / 1000, (CUDART_VERSION % 1000) / 10);
     version += _T(" reader: raw");
     if (ENABLE_AVI_READER) version += _T(", avi");
     if (ENABLE_AVISYNTH_READER) version += _T(", avs");
