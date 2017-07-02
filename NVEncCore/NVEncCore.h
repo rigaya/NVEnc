@@ -143,6 +143,9 @@ struct InEncodeVideoParam {
     int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
     VppParam vpp;                 //vpp
     bool bWeightP;
+    int64_t nPerfMonitorSelect;
+    int64_t nPerfMonitorSelectMatplot;
+    int     nPerfMonitorInterval;
     void *pPrivatePrm;
 
     InEncodeVideoParam();
@@ -253,7 +256,7 @@ protected:
     bool enableCuvidResize(const InEncodeVideoParam *inputParam);
 
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
-    shared_ptr<RGYLog>        m_pNVLog;                //ログ出力管理
+    shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
 
     CUdevice                     m_device;                //CUDAデバイスインスタンス
     CUcontext                    m_cuContextCurr;         //CUDAコンテキスト
@@ -267,20 +270,21 @@ protected:
 
     vector<FrameInfo>            m_inputHostBuffer;
 
-    const sTrimParam            *m_pTrimParam;
-    shared_ptr<RGYInput>  m_pFileReader;           //動画読み込み
-    vector<shared_ptr<RGYInput>> m_AudioReaders;
+    const sTrimParam             *m_pTrimParam;
+    shared_ptr<RGYInput>          m_pFileReader;           //動画読み込み
+    vector<shared_ptr<RGYInput>>  m_AudioReaders;
     shared_ptr<RGYOutput>         m_pFileWriter;           //動画書き出し
     vector<shared_ptr<RGYOutput>> m_pFileWriterListAudio;
-    shared_ptr<EncodeStatus>     m_pStatus;               //エンコードステータス管理
-    NV_ENC_PIC_STRUCT            m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
-    NV_ENC_CONFIG                m_stEncConfig;           //エンコード設定
+    shared_ptr<EncodeStatus>      m_pStatus;               //エンコードステータス管理
+    shared_ptr<CPerfMonitor>      m_pPerfMonitor;
+    NV_ENC_PIC_STRUCT             m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
+    NV_ENC_CONFIG                 m_stEncConfig;           //エンコード設定
 #if ENABLE_AVSW_READER
     vector<unique_ptr<AVChapter>> m_AVChapterFromFile;   //ファイルから読み込んだチャプター
 #endif //#if ENABLE_AVSW_READER
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;
-    shared_ptr<NVEncFilterParam> m_pLastFilterParam;
+    shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
 
     GUID                         m_stCodecGUID;           //出力コーデック
     uint32_t                     m_uEncWidth;             //出力縦解像度

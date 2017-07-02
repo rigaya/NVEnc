@@ -404,15 +404,43 @@ static tstring help() {
         _T("                                  Q-pel(High Quality),\n")
         _T("                                  half-pel,\n")
         _T("                                  full-pel(Low Quality, not recommended)\n")
-        _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / Default: auto\n")
-        _T("   --vpp-deinterlace <string>   set deinterlace mode / Default: none\n")
-        _T("                                  none, bob, adaptive (normal)\n")
-        _T("                                  available only with avcuvid reader\n"),
+        _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / Default: auto\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
         DEFAULT_LOOKAHEAD,
         DEFAULT_B_FRAMES_H264, DEFAULT_B_FRAMES_HEVC, DEFAULT_REF_FRAMES);
+
+    str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
+    str += PrintListOptions(_T("--colormatrix <string>"), list_colormatrix, 0);
+    str += PrintListOptions(_T("--colorprim <string>"), list_colorprim, 0);
+    str += PrintListOptions(_T("--transfer <string>"), list_transfer, 0);
+    str += strsprintf(_T("")
+        _T("   --fullrange                  set fullrange\n"));
+
+    str += strsprintf(_T("\n")
+        _T("H.264/AVC\n")
+        _T("   --tff                        same as --interlaced tff\n")
+        _T("   --bff                        same as --interlaced bff\n")
+        _T("   --interlaced <string>        interlaced encoding\n")
+        _T("                                  tff, bff\n")
+        _T("   --cabac                      use CABAC\n")
+        _T("   --cavlc                      use CAVLC (no CABAC)\n")
+        _T("   --bluray                     for bluray / Default: off\n")
+        _T("   --lossless                   for lossless / Default: off\n")
+        _T("   --(no-)deblock               enable(disable) deblock filter\n"));
+
+    str += strsprintf(_T("\n")
+        _T("H.265/HEVC\n")
+        _T("   --cu-max <int>               set max CU size\n")
+        _T("   --cu-min  <int>              set min CU size\n")
+        _T("                                  8, 16, 32 are avaliable\n")
+        _T("    warning: it is not recommended to use --cu-max or --cu-min,\n")
+        _T("             leaving it auto will enhance video quality.\n"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-deinterlace <string>   set deinterlace mode / Default: none\n")
+        _T("                                  none, bob, adaptive (normal)\n")
+        _T("                                  available only with avcuvid reader\n"));
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
@@ -469,12 +497,7 @@ static tstring help() {
         _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
         _T("   --vpp-perf-monitor           check duration of each filter.\n")
         _T("                                  may decrease overall transcode performance.\n"));
-    str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
-    str += PrintListOptions(_T("--colormatrix <string>"), list_colormatrix, 0);
-    str += PrintListOptions(_T("--colorprim <string>"),   list_colorprim,   0);
-    str += PrintListOptions(_T("--transfer <string>"),    list_transfer,    0);
-    str += strsprintf(_T("")
-        _T("   --fullrange                  set fullrange\n")
+    str += strsprintf(_T("\n")
         _T("   --output-buf <int>           buffer size for output in MByte\n")
         _T("                                 default %d MB (0-%d)\n"),
         DEFAULT_OUTPUT_BUF, RGY_OUTPUT_BUF_MB_MAX
@@ -502,26 +525,45 @@ static tstring help() {
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error\n")
         _T("   --log-framelist <string>     output frame info of avcuvid reader to path\n"));
-    str += strsprintf(_T("\n")
-        _T("H.264/AVC\n")
-        _T("   --tff                        same as --interlaced tff\n")
-        _T("   --bff                        same as --interlaced bff\n")
-        _T("   --interlaced <string>        interlaced encoding\n")
-        _T("                                  tff, bff\n")
-        _T("   --cabac                      use CABAC\n")
-        _T("   --cavlc                      use CAVLC (no CABAC)\n")
-        _T("   --bluray                     for bluray / Default: off\n")
-        _T("   --lossless                   for lossless / Default: off\n")
-        _T("   --(no-)deblock               enable(disable) deblock filter\n"));
 
     str += strsprintf(_T("\n")
-        _T("H.265/HEVC\n")
-        _T("   --cu-max <int>               set max CU size\n")
-        _T("   --cu-min  <int>              set min CU size\n")
-        _T("                                  8, 16, 32 are avaliable\n")
-        _T("    warning: it is not recommended to use --cu-max or --cu-min,\n")
-        _T("             leaving it auto will enhance video quality.\n")
-    );
+        _T("   --perf-monitor [<string>][,<string>]...\n")
+        _T("       check performance info of encoder and output to log file\n")
+        _T("       select counter from below, default = all\n")
+        _T("                                 \n")
+        _T("     counters for perf-monitor\n")
+        _T("                                 all          ... monitor all info\n")
+        _T("                                 cpu_total    ... cpu total usage (%%)\n")
+        _T("                                 cpu_kernel   ... cpu kernel usage (%%)\n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 cpu_main     ... cpu main thread usage (%%)\n")
+        _T("                                 cpu_enc      ... cpu encode thread usage (%%)\n")
+        _T("                                 cpu_in       ... cpu input thread usage (%%)\n")
+        _T("                                 cpu_out      ... cpu output thread usage (%%)\n")
+        _T("                                 cpu_aud_proc ... cpu aud proc thread usage (%%)\n")
+        _T("                                 cpu_aud_enc  ... cpu aud enc thread usage (%%)\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 cpu          ... monitor all cpu info\n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 gpu_load    ... gpu usage (%%)\n")
+        _T("                                 gpu_clock   ... gpu avg clock (%%)\n")
+        _T("                                 gpu         ... monitor all gpu info\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 queue       ... queue usage\n")
+        _T("                                 mem_private ... private memory (MB)\n")
+        _T("                                 mem_virtual ... virtual memory (MB)\n")
+        _T("                                 mem         ... monitor all memory info\n")
+        _T("                                 io_read     ... io read  (MB/s)\n")
+        _T("                                 io_write    ... io write (MB/s)\n")
+        _T("                                 io          ... monitor all io info\n")
+        _T("                                 fps         ... encode speed (fps)\n")
+        _T("                                 fps_avg     ... encode avg. speed (fps)\n")
+        _T("                                 bitrate     ... encode bitrate (kbps)\n")
+        _T("                                 bitrate_avg ... encode avg. bitrate (kbps)\n")
+        _T("                                 frame_out   ... written_frames\n")
+        _T("                                 \n")
+        _T("   --perf-monitor-interval <int> set perf monitor check interval (millisec)\n")
+        _T("                                 default 500, must be 50 or more\n"));
     return str;
 }
 
@@ -2552,6 +2594,33 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return 1;
         }
         pParams->nProcSpeedLimit = (uint16_t)(std::min)(value, (int)UINT16_MAX);
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("perf-monitor"))) {
+        if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
+            pParams->nPerfMonitorSelect = (int)PERF_MONITOR_ALL;
+        } else {
+            i++;
+            auto items = split(strInput[i], _T(","));
+            for (const auto& item : items) {
+                int value = 0;
+                if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_pref_monitor, item.c_str()))) {
+                    PrintHelp(item.c_str(), _T("Unknown value"), option_name);
+                    return 1;
+                }
+                pParams->nPerfMonitorSelect |= value;
+            }
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("perf-monitor-interval"))) {
+        i++;
+        int v;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->nPerfMonitorInterval = std::max(50, v);
         return 0;
     }
     tstring mes = _T("Unknown option: --");

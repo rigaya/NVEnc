@@ -74,6 +74,7 @@
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
 
+const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 
 using std::deque;
 
@@ -246,6 +247,9 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
     vpp(),
     bWeightP(false),
+    nPerfMonitorSelect(0),
+    nPerfMonitorSelectMatplot(0),
+    nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
     pPrivatePrm(nullptr) {
     encConfig = NVEncCore::DefaultParam();
     memset(&par,       0, sizeof(par));
@@ -489,6 +493,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.pFramePosListLog = inputParam->sFramePosListLog.c_str();
         inputInfoAVCuvid.nInputThread = inputParam->nInputThread;
         inputInfoAVCuvid.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
+        inputInfoAVCuvid.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.pHWDecCodecCsp = &m_cuvidCodecCsp;
         pInputPrm = &inputInfoAVCuvid;
         PrintMes(RGY_LOG_DEBUG, _T("avcuvid reader selected.\n"));
@@ -529,6 +534,10 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     m_inputFps.first = inputParam->input.fpsN;
     m_inputFps.second = inputParam->input.fpsD;
     m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, nullptr);
+
+    if (inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot) {
+        m_pPerfMonitor->SetEncStatus(m_pStatus);
+    }
 
 #if ENABLE_AVSW_READER
     if (inputParam->nAudioSourceCount > 0) {
@@ -628,6 +637,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         writerPrm.nBufSizeMB              = inputParams->nOutputBufSizeMB;
         writerPrm.nAudioResampler         = inputParams->nAudioResampler;
         writerPrm.nAudioIgnoreDecodeError = inputParams->nAudioIgnoreDecodeError;
+        writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         writerPrm.pMuxVidTsLogFile        = inputParams->pMuxVidTsLogFile;
         if (inputParams->pMuxOpt > 0) {
             writerPrm.vMuxOpt = *inputParams->pMuxOpt;
@@ -1226,6 +1236,9 @@ NVENCSTATUS NVEncCore::Deinitialize() {
 
         m_pDevice = NULL;
     }
+
+    PrintMes(RGY_LOG_DEBUG, _T("Closing perf monitor...\n"));
+    m_pPerfMonitor.reset();
 
     m_pNVLog.reset();
     m_pAbortByUser = nullptr;
@@ -2690,6 +2703,25 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitDevice: Success.\n"));
 
+    if (true) {
+        m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
+        tstring perfMonLog;
+        if (inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot) {
+            perfMonLog = inputParam->outputFilename + _T("_perf.csv");
+        }
+        if (m_pPerfMonitor->init(perfMonLog.c_str(), _T(""), inputParam->nPerfMonitorInterval,
+            (int)inputParam->nPerfMonitorSelect, (int)inputParam->nPerfMonitorSelectMatplot,
+#if defined(_WIN32) || defined(_WIN64)
+            std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()),
+#else
+            nullptr,
+#endif
+            m_pNVLog)) {
+            PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
+            m_pPerfMonitor.reset();
+        }
+    }
+
     if (NV_ENC_SUCCESS != (nvStatus = NvEncOpenEncodeSessionEx(m_pDevice, NV_ENC_DEVICE_TYPE_CUDA))) {
         return nvStatus;
     }
@@ -2901,6 +2933,24 @@ NVENCSTATUS NVEncCore::Encode() {
             return curesult;
         });
         PrintMes(RGY_LOG_DEBUG, _T("Started Encode thread\n"));
+    }
+
+    if (m_pPerfMonitor) {
+        HANDLE thOutput = NULL;
+        HANDLE thInput = NULL;
+        HANDLE thAudProc = NULL;
+        HANDLE thAudEnc = NULL;
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            thInput = pAVCodecReader->getThreadHandleInput();
+        }
+        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(m_pFileWriter);
+        if (pAVCodecWriter != nullptr) {
+            thOutput = pAVCodecWriter->getThreadHandleOutput();
+            thAudProc = pAVCodecWriter->getThreadHandleAudProcess();
+            thAudEnc = pAVCodecWriter->getThreadHandleAudEncode();
+        }
+        m_pPerfMonitor->SetThreadHandles((HANDLE)(th_input.native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
 
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
