@@ -21,7 +21,7 @@
 
 #include "../common/inc/NvHWEncoder.h"
 
-#define MAX_ENCODE_QUEUE 32
+#define MAX_ENCODE_QUEUE 64
 
 #define SET_VER(configStruct, type) {configStruct.version = type##_VER;}
 

@@ -80,24 +80,32 @@ using std::deque;
 
 class FrameBufferDataIn {
 public:
-    FrameBufferDataIn() : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost() {
+    FrameBufferDataIn() : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(), m_heTransferFin(NULL) {
 
     };
-    FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(false) {
+    FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(false), m_heTransferFin(NULL) {
         setCuvidInfo(pInfo, oVPP, frameInfo);
     };
-    FrameBufferDataIn(const FrameInfo* pHostFrame) : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(true) {
-        m_frameInfo = *pHostFrame;
-        memset(&m_oVPP, 0, sizeof(m_oVPP));
+    FrameBufferDataIn(const FrameBufferDataIn& obj) :
+        m_pInfo(obj.m_pInfo),
+        m_oVPP(obj.m_oVPP),
+        m_frameInfo(obj.m_frameInfo),
+        m_bInputHost(obj.m_bInputHost),
+        m_heTransferFin(obj.m_heTransferFin) {
     };
     ~FrameBufferDataIn() {
+        m_heTransferFin.reset();
         m_pInfo.reset();
     }
-    void setHostFrameInfo(const FrameInfo& frameInfo) {
+    void setHostFrameInfo(
+        const FrameInfo& frameInfo, //入力フレームへのポインタと情報
+        shared_ptr<void> heTransferFin //入力フレームに関連付けられたイベント、このフレームが不要になったらSetする
+    ) {
         m_pInfo.reset();
         memset(&m_oVPP, 0, sizeof(m_oVPP));
         m_frameInfo = frameInfo;
         m_bInputHost = true;
+        m_heTransferFin = heTransferFin;
     }
     void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const FrameInfo& frameInfo) {
         m_pInfo = pInfo;
@@ -139,25 +147,23 @@ private:
     shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
     CUVIDPROCPARAMS m_oVPP;
     FrameInfo m_frameInfo;
-    bool m_bInputHost;
+    bool m_bInputHost;      //入力フレームへのポインタと情報
+    shared_ptr<void> m_heTransferFin; //入力フレームに関連付けられたイベント、このフレームが不要になったらSetする
 };
 
 class FrameBufferDataEnc {
 public:
-    shared_ptr<void> m_dMappedFrame;
     RGY_CSP m_csp;
     uint64_t m_timestamp;
     EncodeBuffer *m_pEncodeBuffer;
     cudaEvent_t *m_pEvent;
-    FrameBufferDataEnc(shared_ptr<void> dMappedFrame, RGY_CSP csp, uint64_t timestamp, EncodeBuffer *pEncodeBuffer, cudaEvent_t *pEvent) :
-        m_dMappedFrame(dMappedFrame),
+    FrameBufferDataEnc(RGY_CSP csp, uint64_t timestamp, EncodeBuffer *pEncodeBuffer, cudaEvent_t *pEvent) :
         m_csp(csp),
         m_timestamp(timestamp),
         m_pEncodeBuffer(pEncodeBuffer),
         m_pEvent(pEvent) {
     };
     ~FrameBufferDataEnc() {
-        m_dMappedFrame.reset();
     }
 };
 
@@ -1392,16 +1398,17 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
         for (uint32_t i = 0; i < m_inputHostBuffer.size(); i++) {
-            m_inputHostBuffer[i].width = bufWidth;
-            m_inputHostBuffer[i].height = bufHeight;
-            m_inputHostBuffer[i].pitch = bufPitch;
-            m_inputHostBuffer[i].csp = pInputInfo->csp;
-            m_inputHostBuffer[i].deivce_mem = false;
+            m_inputHostBuffer[i].frameInfo.width = bufWidth;
+            m_inputHostBuffer[i].frameInfo.height = bufHeight;
+            m_inputHostBuffer[i].frameInfo.pitch = bufPitch;
+            m_inputHostBuffer[i].frameInfo.csp = pInputInfo->csp;
+            m_inputHostBuffer[i].frameInfo.deivce_mem = false;
+            m_inputHostBuffer[i].heTransferFin = unique_ptr<void, handle_deleter>(CreateEvent(NULL, FALSE, TRUE, NULL), handle_deleter());
 
 #if ENABLE_AVSW_READER
             CCtxAutoLock ctxLock(m_ctxLock);
 #endif //#if ENABLE_AVSW_READER
-            auto cudaret = cudaMallocHost(&m_inputHostBuffer[i].ptr, bufSize);
+            auto cudaret = cudaMallocHost(&m_inputHostBuffer[i].frameInfo.ptr, bufSize);
             if (cudaret != cudaSuccess) {
                 PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
                 return NV_ENC_ERR_GENERIC;
@@ -1817,8 +1824,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //    return NV_ENC_ERR_UNSUPPORTED_PARAM;
     //}
 
-    //バッファサイズ (固定で32として与える)
-    m_uEncodeBufferCount = 32; // inputParam->inputBuffer;
+    //バッファサイズ (固定で32 + PIPELINE_DEPTHとして与える)
+    //PIPELINE_DEPTH分拡張しないと、バッファ不足でエンコードが止まってしまう
+    m_uEncodeBufferCount = 32 + PIPELINE_DEPTH; // inputParam->inputBuffer;
     if (m_uEncodeBufferCount > MAX_ENCODE_QUEUE) {
 #if FOR_AUO
         PrintMes(RGY_LOG_ERROR, _T("入力バッファは多すぎます。: %d フレーム\n"), m_uEncodeBufferCount);
@@ -2847,19 +2855,68 @@ NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t tim
 #if 1
 NVENCSTATUS NVEncCore::Encode() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    const int nPipelineDepth = PIPELINE_DEPTH;
+    const uint32_t nPipelineDepth = PIPELINE_DEPTH;
     m_pStatus->SetStart();
 
     const int nEventCount = nPipelineDepth + CHECK_PTS_MAX_INSERT_FRAMES + 1 + MAX_FILTER_OUTPUT;
+
+    //エンコードを開始してもよいかを示すcueventの入れ物
+    //FrameBufferDataEncに関連付けて使用する
     vector<unique_ptr<cudaEvent_t, cudaevent_deleter>> vEncStartEvents(nEventCount);
     for (uint32_t i = 0; i < vEncStartEvents.size(); i++) {
+        //ctxlockした状態でcudaEventCreateを行わないと、イベントは正常に動作しない
+        NVEncCtxAutoLock(ctxlock(m_ctxLock));
         vEncStartEvents[i] = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-        auto cudaret = cudaEventCreate(vEncStartEvents[i].get());
+        auto cudaret = cudaEventCreateWithFlags(vEncStartEvents[i].get(), cudaEventBlockingSync | cudaEventDisableTiming);
         if (cudaret != CUDA_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("Error cudaEventCreate: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
             return NV_ENC_ERR_GENERIC;
         }
     }
+
+    //入力フレームの転送管理用のイベント FrameTransferDataで使用する
+    vector<unique_ptr<cudaEvent_t, cudaevent_deleter>> vInFrameTransferFin(std::max(nPipelineDepth, (uint32_t)m_inputHostBuffer.size()));
+    for (uint32_t i = 0; i < vInFrameTransferFin.size(); i++) {
+        //ctxlockした状態でcudaEventCreateを行わないと、イベントは正常に動作しない
+        NVEncCtxAutoLock(ctxlock(m_ctxLock));
+        vInFrameTransferFin[i] = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
+        auto cudaret = cudaEventCreateWithFlags(vInFrameTransferFin[i].get(), cudaEventBlockingSync | cudaEventDisableTiming);
+        if (cudaret != CUDA_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("Error cudaEventCreate: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+    }
+
+    //入力フレームの最初の転送に関連するリソースを管理するデータ構造
+    struct FrameTransferData {
+        cudaEvent_t *eventFin; //転送終了後セットされるイベント (vInFrameTransferFinのものを使用)
+        unique_ptr<FrameBufferDataIn> frameData; //入力フレームデータ
+        shared_ptr<void> deviceFrame; //入力フレーム(cuvidのmap->unmap用)
+    };
+    //入力フレームの最初の転送に関連するリソースを管理するキュー
+    //転送中のフレームに関するデータを積んでおく
+    //転送を行うたびに、キューにeventとともにデータが追加される
+    //転送が終了するとeventFinがセットされるので、キューからデータを削除する
+    //shared_ptrなどの参照が0になればデストラクタが呼ばれ、リソースが自動的に解放される
+    deque<FrameTransferData> dqFrameTransferData;
+
+    //eventFinのセットを待って、キューからデータを削除する
+    //nPipelineDepth以上キューに積まれていたら、eventのセットを強制的に待機する
+    auto check_inframe_transfer = [&dqFrameTransferData](const uint32_t nPipelineDepth) {
+        const auto queueLength = dqFrameTransferData.size();
+        cudaError_t cuerr = cudaSuccess;
+        if (queueLength > 0) {
+            auto cuevent = *dqFrameTransferData.front().eventFin;
+            if (cudaSuccess == (cuerr = (queueLength >= nPipelineDepth) ? cudaEventSynchronize(cuevent) : cudaEventQuery(cuevent))) {
+                dqFrameTransferData.pop_front();
+            }
+            if (cuerr == cudaErrorNotReady) {
+                //queueLength < nPipelineDepthならcudaErrorNotReadyがあり得る
+                cuerr = cudaSuccess;
+            }
+        }
+        return cuerr;
+    };
 
 #if ENABLE_AVSW_READER
     const AVStream *pStreamIn = nullptr;
@@ -2963,8 +3020,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
     auto add_dec_vpp_param = [&](FrameBufferDataIn *pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
         if (pInputFrame->inputIsHost()) {
-            auto frameInfo = pInputFrame->getFrameInfo();
-            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(&frameInfo))));
+            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(*pInputFrame))));
         }
 #if ENABLE_AVSW_READER
         else {
@@ -3035,10 +3091,29 @@ NVENCSTATUS NVEncCore::Encode() {
         return std::move(decFrames);
     };
 
+    auto add_frame_transfer_data = [&](cudaEvent_t *pCudaEvent, unique_ptr<FrameBufferDataIn>& inframe, shared_ptr<void>& deviceFrame) {
+        //最初のフィルタ(転送)が終了したことを示すイベント
+        //ctxlockのロック外で行う必要があるよう
+        auto cudaret = cudaEventRecord(*pCudaEvent);
+        if (cudaret != cudaSuccess) {
+            PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord [add_frame_transfer_data]: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+
+        //関連するリソースに関する参照を移して、キューに積む
+        FrameTransferData transferData;
+        transferData.eventFin = pCudaEvent; //転送終了のイベント
+        transferData.frameData = std::move(inframe); //入力バッファへの参照
+        transferData.deviceFrame = std::move(deviceFrame); //cuvidのmap->unmap
+        dqFrameTransferData.push_back(std::move(transferData));
+        return NV_ENC_SUCCESS;
+    };
+
     auto filter_frame = [&](int& nFilterFrame, unique_ptr<FrameBufferDataIn>& inframe, deque<unique_ptr<FrameBufferDataEnc>>& dqEncFrames) {
         cudaMemcpyKind memcpyKind = cudaMemcpyDeviceToDevice;
         FrameInfo frameInfo = { 0 };
         shared_ptr<void> deviceFrame;
+        const auto timestamp = inframe->getTimeStamp();
         if (inframe->inputIsHost()) {
             memcpyKind = cudaMemcpyHostToDevice;
             frameInfo = inframe->getFrameInfo();
@@ -3049,6 +3124,14 @@ NVENCSTATUS NVEncCore::Encode() {
         }
 #if ENABLE_AVSW_READER
         else {
+            //ここで前のフレームの転送を必ず待機する
+            //ここで待機しないと、vpp-deinterlace bobのときに同一フレームに対する
+            //cuvidMapVideoFrameが2連続で発生してしまい、エラーになってしまう
+            auto cuerr = check_inframe_transfer(1);
+            if (cuerr != cudaSuccess) {
+                PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
+                return NV_ENC_ERR_GENERIC;
+            }
             CUresult curesult = CUDA_SUCCESS;
             CUdeviceptr dMappedFrame = 0;
             memcpyKind = cudaMemcpyDeviceToDevice;
@@ -3082,6 +3165,10 @@ NVENCSTATUS NVEncCore::Encode() {
                 return NV_ENC_ERR_UNIMPLEMENTED;
             }
             frameInfo = *(outInfo[0]);
+            if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
+                auto pCudaEvent = vInFrameTransferFin[nFilterFrame % vInFrameTransferFin.size()].get();
+                add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
+            }
         }
 
         //エンコードバッファを取得
@@ -3092,7 +3179,11 @@ NVENCSTATUS NVEncCore::Encode() {
             PrintMes(RGY_LOG_TRACE, _T("Output frame %d\n"), m_pStatus->m_sData.frameOut);
             if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
                 if (pEncodeBuffer->stInputBfr.hInputSurface) {
-                    nvStatus = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
+                    auto nvencret = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
+                    if (nvencret != NV_ENC_SUCCESS) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to Unmap input buffer %p: %s\n"), pEncodeBuffer->stInputBfr.hInputSurface, char_to_tstring(_nvencGetErrorEnum(nvencret)).c_str());
+                        return nvencret;
+                    }
                     pEncodeBuffer->stInputBfr.hInputSurface = nullptr;
                 }
             }
@@ -3103,6 +3194,8 @@ NVENCSTATUS NVEncCore::Encode() {
             }
         }
         //エンコードバッファにコピー
+        //エンコード直前のバッファまで転送を完了し、そのフレームのエンコードを開始できることを示すイベント
+        //ここでnFilterFrameをインクリメントする
         {
             NVEncCtxAutoLock(ctxlock(m_ctxLock));
             auto& lastFilter = m_vpFilters[m_vpFilters.size()-1];
@@ -3141,33 +3234,37 @@ NVENCSTATUS NVEncCore::Encode() {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
                 return sts_filter;
             }
+            auto pCudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()].get();
+            auto cudaret = cudaEventRecord(*pCudaEvent);
+            if (cudaret != cudaSuccess) {
+                PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+                return NV_ENC_ERR_GENERIC;
+            }
+            if (m_vpFilters.size() == 1) {
+                //フィルタの数が1のときは、ここが最初(かつ最後)のフィルタであり、転送フィルタである
+                add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
+            }
+            unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(RGY_CSP_NV12, timestamp, pEncodeBuffer, pCudaEvent));
+            dqEncFrames.push_back(std::move(frameEnc));
         }
-        auto pCudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()].get();
-        auto cudaret = cudaEventRecord(*pCudaEvent);
-        if (cudaret != cudaSuccess) {
-            PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
-            return NV_ENC_ERR_GENERIC;
-        }
-        unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(deviceFrame, RGY_CSP_NV12, inframe->getTimeStamp(), pEncodeBuffer, pCudaEvent));
-        dqEncFrames.push_back(std::move(frameEnc));
         return NV_ENC_SUCCESS;
     };
 
     auto send_encoder = [&](int& nEncodeFrame, unique_ptr<FrameBufferDataEnc>& encFrame) {
-        if (encFrame->m_pEvent) cudaEventSynchronize(*encFrame->m_pEvent);
+        //エンコーダ用のバッファまで転送が終了するのを待機
+        if (encFrame->m_pEvent) { cudaEventSynchronize(*encFrame->m_pEvent); }
         EncodeBuffer *pEncodeBuffer = encFrame->m_pEncodeBuffer;
         if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
-            nvStatus = NvEncMapInputResource(pEncodeBuffer->stInputBfr.nvRegisteredResource, &pEncodeBuffer->stInputBfr.hInputSurface);
-            if (nvStatus != NV_ENC_SUCCESS) {
+            auto nvencret = NvEncMapInputResource(pEncodeBuffer->stInputBfr.nvRegisteredResource, &pEncodeBuffer->stInputBfr.hInputSurface);
+            if (nvencret != NV_ENC_SUCCESS) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to Map input buffer %p\n"), pEncodeBuffer->stInputBfr.hInputSurface);
-                return nvStatus;
+                return nvencret;
             }
         } else {
             NvEncUnlockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface);
         }
         return NvEncEncodeFrame(pEncodeBuffer, nEncodeFrame++);
     };
-
 
 #define NV_ENC_ERR_ABORT ((NVENCSTATUS)-1)
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
@@ -3187,6 +3284,13 @@ NVENCSTATUS NVEncCore::Encode() {
         }
 #endif //#if ENABLE_AVSW_READER
 
+        //転送の終了状況を確認、可能ならリソースの開放を行う
+        auto cuerr = check_inframe_transfer(nPipelineDepth);
+        if (cuerr != cudaSuccess) {
+            PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+
         //デコード
         FrameBufferDataIn inputFrame;
 #if ENABLE_AVSW_READER
@@ -3197,6 +3301,12 @@ NVENCSTATUS NVEncCore::Encode() {
             }
             CUVIDPARSERDISPINFO dispInfo = { 0 };
             if (!m_cuvidDec->frameQueue()->dequeue(&dispInfo)) {
+                //転送の終了状況を確認、可能ならリソースの開放を行う
+                cuerr = check_inframe_transfer(nPipelineDepth);
+                if (cuerr != cudaSuccess) {
+                    PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
+                    return NV_ENC_ERR_GENERIC;
+                }
                 m_cuvidDec->frameQueue()->waitForQueueUpdate();
                 continue;
             }
@@ -3208,8 +3318,18 @@ NVENCSTATUS NVEncCore::Encode() {
         } else
 #endif //#if ENABLE_AVSW_READER
         if (m_inputHostBuffer.size()) {
-            auto inputFrameBuf = m_inputHostBuffer[nInputFrame % m_inputHostBuffer.size()];
-            RGYFrame frame = RGYFrameInit(inputFrameBuf);
+            auto& inputFrameBuf = m_inputHostBuffer[nInputFrame % m_inputHostBuffer.size()];
+            if (inputFrameBuf.heTransferFin) {
+                //対象バッファの転送が終了しているかを確認
+                while (WaitForSingleObject(inputFrameBuf.heTransferFin.get(), 0) == WAIT_TIMEOUT) {
+                    cuerr = check_inframe_transfer(nPipelineDepth);
+                    if (cuerr != cudaSuccess) {
+                        PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
+                        return NV_ENC_ERR_GENERIC;
+                    }
+                }
+            }
+            RGYFrame frame = RGYFrameInit(inputFrameBuf.frameInfo);
             auto rgy_err = m_pFileReader->LoadNextFrame(&frame);
             if (rgy_err != RGY_ERR_NONE) {
                 if (rgy_err != RGY_ERR_MORE_DATA) { //RGY_ERR_MORE_DATAは読み込みの正常終了を示す
@@ -3217,7 +3337,10 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
                 break;
             }
-            inputFrame.setHostFrameInfo(inputFrameBuf);
+            auto heTransferFin = shared_ptr<void>(inputFrameBuf.heTransferFin.get(), [&](void *ptr) {
+                SetEvent((HANDLE)ptr);
+            });
+            inputFrame.setHostFrameInfo(inputFrameBuf.frameInfo, heTransferFin);
             inputFrame.setInterlaceFlag(is_interlaced(m_stPicStruct));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unexpected error at Encode().\n"));
@@ -3239,7 +3362,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 break;
             }
             dqInFrames.pop_front();
-            while (dqEncFrames.size()) {
+            while (dqEncFrames.size() >= nPipelineDepth) {
                 auto& encframe = dqEncFrames.front();
                 if (NV_ENC_SUCCESS != (nvStatus = send_encoder(nEncodeFrames, encframe))) {
                     break;
@@ -3247,6 +3370,24 @@ NVENCSTATUS NVEncCore::Encode() {
                 dqEncFrames.pop_front();
             }
         }
+    }
+    //すべての転送を終了させる
+    while (dqFrameTransferData.size()) {
+        auto cuerr = check_inframe_transfer(1);
+        if (cuerr != cudaSuccess) {
+            PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+    }
+    //エンコードバッファのフレームをすべて転送
+    while (dqEncFrames.size()) {
+        auto& encframe = dqEncFrames.front();
+        auto nvStatusFlush = send_encoder(nEncodeFrames, encframe);
+        if (nvStatusFlush != NV_ENC_SUCCESS) {
+            nvStatus = nvStatusFlush;
+            break;
+        }
+        dqEncFrames.pop_front();
     }
 
 #if ENABLE_AVSW_READER

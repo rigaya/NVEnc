@@ -67,7 +67,7 @@ static const int DEFAULT_OUTPUT_BUF  = 8;
 static const int DEFAULT_LOOKAHEAD   = 16;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
-static const int PIPELINE_DEPTH = 1;
+static const uint32_t PIPELINE_DEPTH = 4;
 static const int MAX_FILTER_OUTPUT = 2;
 
 #ifdef _M_IX86
@@ -81,9 +81,14 @@ static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI64.dll");
 #define SET_VER(configStruct, type) { (configStruct).version = type##_VER; }
 #endif
 
-typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*); 
+typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*);
 
 bool check_if_nvcuda_dll_available();
+
+struct InputFrameBufInfo {
+    FrameInfo frameInfo; //入力フレームへのポインタと情報
+    std::unique_ptr<void, handle_deleter> heTransferFin; //入力フレームに関連付けられたイベント、このフレームが不要になったらSetする
+};
 
 class NVEncoderGPUInfo
 {
@@ -268,7 +273,7 @@ protected:
     void                        *m_hEncoder;              //エンコーダのインスタンス
     NV_ENC_INITIALIZE_PARAMS     m_stCreateEncodeParams;  //エンコーダの初期化パラメータ
 
-    vector<FrameInfo>            m_inputHostBuffer;
+    vector<InputFrameBufInfo>    m_inputHostBuffer;
 
     const sTrimParam             *m_pTrimParam;
     shared_ptr<RGYInput>          m_pFileReader;           //動画読み込み
