@@ -533,7 +533,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 
     m_inputFps.first = inputParam->input.fpsN;
     m_inputFps.second = inputParam->input.fpsD;
-    m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, nullptr);
+    m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, m_pPerfMonitor);
 
     if (inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot) {
         m_pPerfMonitor->SetEncStatus(m_pStatus);
@@ -837,12 +837,12 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGetCount: Success.\n"));
 
-    if (deviceID > (unsigned int)deviceCount - 1) {
-        PrintMes(RGY_LOG_ERROR, _T("Invalid Device Id = %d\n"), deviceID);
+    if (m_nDeviceId > (unsigned int)deviceCount - 1) {
+        PrintMes(RGY_LOG_ERROR, _T("Invalid Device Id = %d\n"), m_nDeviceId);
         return NV_ENC_ERR_INVALID_ENCODERDEVICE;
     }
     
-    if (CUDA_SUCCESS != (cuResult = cuDeviceGet(&m_device, deviceID))) {
+    if (CUDA_SUCCESS != (cuResult = cuDeviceGet(&m_device, m_nDeviceId))) {
         PrintMes(RGY_LOG_ERROR, _T("cuDeviceGet error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
@@ -855,7 +855,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     }
 
     if (((SMmajor << 4) + SMminor) < 0x30) {
-        PrintMes(RGY_LOG_ERROR, _T("GPU %d does not have NVENC capabilities exiting\n"), deviceID);
+        PrintMes(RGY_LOG_ERROR, _T("GPU %d does not have NVENC capabilities exiting\n"), m_nDeviceId);
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("NVENC capabilities: OK.\n"));
@@ -2709,6 +2709,10 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
         if (inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot) {
             perfMonLog = inputParam->outputFilename + _T("_perf.csv");
         }
+        CPerfMonitorPrm perfMonitorPrm = { 0 };
+#if ENABLE_NVML
+        perfMonitorPrm.deviceId = m_nDeviceId;
+#endif
         if (m_pPerfMonitor->init(perfMonLog.c_str(), _T(""), inputParam->nPerfMonitorInterval,
             (int)inputParam->nPerfMonitorSelect, (int)inputParam->nPerfMonitorSelectMatplot,
 #if defined(_WIN32) || defined(_WIN64)
@@ -2716,7 +2720,7 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
 #else
             nullptr,
 #endif
-            m_pNVLog)) {
+            m_pNVLog, &perfMonitorPrm)) {
             PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
             m_pPerfMonitor.reset();
         }

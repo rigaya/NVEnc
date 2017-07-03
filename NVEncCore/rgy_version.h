@@ -58,6 +58,12 @@ const char *get_encoder_version();
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 
+#ifdef _M_IX86
+#define ENABLE_NVML 0
+#else
+#define ENABLE_NVML 1
+#endif
+
 #ifdef NVENC_AUO
 #define ENCODER_NAME  "NVEnc"
 #define AUO_NAME      "NVEnc.auo"

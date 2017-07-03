@@ -80,7 +80,9 @@ typedef struct EncodeStatusData {
     int    GPUInfoCountFail;
     double GPULoadPercentTotal;
     double MFXLoadPercentTotal;
-    double VideoEngineLoadPercentTotal;
+    double VEELoadPercentTotal;
+    double VEDLoadPercentTotal;
+    double VEClockTotal;
     double GPUClockTotal;
 } EncodeStatusData;
 
@@ -169,43 +171,56 @@ public:
         }
         m_tmLastUpdate = tm;
 
-        bool bMFXUsage = false;
         bool bVideoEngineUsage = false;
         bool bGPUUsage = false;
-        int mfxusage = 0;
+        int gpuencoder_usage = 0;
         int gpuusage = 0;
-        int videoengine_usage = 0;
 #if defined(_WIN32) || defined(_WIN64)
 #if ENABLE_METRIC_FRAMEWORK
         QSVGPUInfo info = { 0 };
-        bMFXUsage = m_pPerfMonitor && m_pPerfMonitor->GetQSVInfo(&info);
-        bGPUUsage = bMFXUsage;
-        if (bMFXUsage) {
+        bVideoEngineUsage = m_pPerfMonitor && m_pPerfMonitor->GetQSVInfo(&info);
+        bGPUUsage = bVideoEngineUsage;
+        if (bVideoEngineUsage) {
             m_sData.GPUInfoCountSuccess++;
             m_sData.GPULoadPercentTotal += info.dEULoad;
             m_sData.MFXLoadPercentTotal += info.dMFXLoad;
             gpuusage = (int)info.dEULoad;
-            mfxusage = (int)info.dMFXLoad;
+            gpuencoder_usage = (int)info.dMFXLoad;
         } else {
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+        NVMLMonitorInfo info = { 0 };
+        bVideoEngineUsage = m_pPerfMonitor && m_pPerfMonitor->GetNVMLInfo(&info);
+        bGPUUsage = bVideoEngineUsage;
+        if (bVideoEngineUsage) {
+            m_sData.GPUInfoCountSuccess++;
+            m_sData.GPULoadPercentTotal += info.dGPULoad;
+            m_sData.VEELoadPercentTotal += info.dVEELoad;
+            m_sData.VEDLoadPercentTotal += info.dVEELoad;
+            m_sData.GPUClockTotal += info.dGPUFreq;
+            m_sData.VEClockTotal += info.dVEFreq;
+            gpuusage = (int)info.dGPULoad;
+            gpuencoder_usage = (int)info.dVEELoad;
+        } else {
+#endif //#if ENABLE_NVML
             GPUZ_SH_MEM gpu_info = { 0 };
             if (0 == get_gpuz_info(&gpu_info)) {
                 const double gpu_usage = gpu_load(&gpu_info);
-                const double ve_usage = video_engine_load(&gpu_info, &bVideoEngineUsage);;
+                const double ve_usage = video_engine_load(&gpu_info, &bVideoEngineUsage);
 
                 bGPUUsage = true;
                 m_sData.GPUInfoCountSuccess++;
                 m_sData.GPULoadPercentTotal += gpu_usage;
                 m_sData.GPUClockTotal += gpu_core_clock(&gpu_info);
-                m_sData.VideoEngineLoadPercentTotal += ve_usage;
+                m_sData.VEELoadPercentTotal += ve_usage;
                 gpuusage = (int)(gpu_usage + 0.5);
-                videoengine_usage = (int)(ve_usage + 0.5);
+                gpuencoder_usage = (int)(ve_usage + 0.5);
             } else {
                 m_sData.GPUInfoCountFail++;
             }
-#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
         }
-#endif //#if ENABLE_METRIC_FRAMEWORK
+#endif //#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
         double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
@@ -236,10 +251,7 @@ public:
                 } else if (bGPUUsage) {
                     len += _stprintf_s(mes + len, _countof(mes) - len, _T(", GPU %d%%"), gpuusage);
                     if (bVideoEngineUsage) {
-                        len += _stprintf_s(mes + len, _countof(mes) - len, _T(", VE %d%%"), videoengine_usage);
-                    }
-                    if (bMFXUsage) {
-                        len += _stprintf_s(mes + len, _countof(mes) - len, _T(", MFX %d%%"), mfxusage);
+                        len += _stprintf_s(mes + len, _countof(mes) - len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
                     }
                 }
                 for (; len < 79; len++) {
@@ -255,10 +267,7 @@ public:
                 if (bGPUUsage) {
                     len += _stprintf_s(mes + len, _countof(mes) - len, _T(", GPU %d%%"), gpuusage);
                     if (bVideoEngineUsage) {
-                        len += _stprintf_s(mes + len, _countof(mes) - len, _T(", VE %d%%"), videoengine_usage);
-                    }
-                    if (bMFXUsage) {
-                        len += _stprintf_s(mes + len, _countof(mes) - len, _T(", MFX %d%%"), mfxusage);
+                        len += _stprintf_s(mes + len, _countof(mes) - len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
                     }
                 }
                 for (; len < 79; len++) {
@@ -348,17 +357,25 @@ public:
             double gpu_load = m_sData.GPULoadPercentTotal / m_sData.GPUInfoCountSuccess;
             if (m_sData.MFXLoadPercentTotal > 0) {
                 double mfx_load = m_sData.MFXLoadPercentTotal / m_sData.GPUInfoCountSuccess;
-                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.2f%%, GPU: %.2f%%, MFX: %.2f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, mfx_load);
-            } else if (m_sData.VideoEngineLoadPercentTotal > 0.0) {
-                double ve_load = m_sData.VideoEngineLoadPercentTotal / m_sData.GPUInfoCountSuccess;
+                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.1f%%, GPU: %.1f%%, MFX: %.1f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, mfx_load);
+            } else if (m_sData.VEELoadPercentTotal > 0.0) {
+                double vee_load = m_sData.VEELoadPercentTotal / m_sData.GPUInfoCountSuccess;
+                //double ved_load = m_sData.VEDLoadPercentTotal / m_sData.GPUInfoCountSuccess;
                 int gpu_clock_avg = (int)(m_sData.GPUClockTotal / m_sData.GPUInfoCountSuccess + 0.5);
-                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.2f%%, GPU: %.2f%%, VE: %.2f%%, GPUClockAvg: %dMHz\n"), hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, ve_load, gpu_clock_avg);
+#if ENABLE_NVML
+                int ve_clock_avg = (int)(m_sData.VEClockTotal / m_sData.GPUInfoCountSuccess + 0.5);
+                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.1f%%, GPU: %.1f%%, VE: %.1f%%, GPUClock: %dMHz, VEClock: %dMHz\n"),
+                    hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, vee_load, gpu_clock_avg, ve_clock_avg);
+#else
+                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.1f%%, GPU: %.1f%%, VE: %.1f%%, GPUClock: %dMHz\n"),
+                    hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, vee_load, gpu_clock_avg);
+#endif
             } else {
                 int gpu_clock_avg = (int)(m_sData.GPUClockTotal / m_sData.GPUInfoCountSuccess + 0.5);
-                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.2f%%, GPU: %.2f%%, GPUClockAvg: %dMHz\n"), hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, gpu_clock_avg);
+                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.1f%%, GPU: %.1f%%, GPUClock: %dMHz\n"), hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, gpu_clock_avg);
             }
         } else {
-            _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.2f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent);
+            _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.1f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent);
         }
 #else
         _stprintf_s(mes, _T("encode time %d:%02d:%02d\n"), hh, mm, ss);

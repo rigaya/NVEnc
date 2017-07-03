@@ -132,6 +132,100 @@ void CQSVConsumer::AddMetrics(const std::map<MetricHandle, std::string>& metrics
 
 #endif //#if ENABLE_METRIC_FRAMEWORK
 
+#if ENABLE_NVML
+nvmlReturn_t NVMLMonitor::LoadDll() {
+    if (m_hDll) {
+        CloseHandle(m_hDll);
+    }
+    m_hDll = LoadLibrary(NVML_DLL_PATH);
+    if (m_hDll == NULL) {
+        return NVML_ERROR_NOT_FOUND;
+    }
+#define LOAD_NVML_FUNC(x) { \
+    if ( NULL == (m_func.f_ ## x = (pf ## x)GetProcAddress(m_hDll, #x )) ) { \
+        memset(&m_func, 0, sizeof(m_func)); \
+        return NVML_ERROR_NOT_FOUND; \
+    } \
+}
+    LOAD_NVML_FUNC(nvmlInit);
+    LOAD_NVML_FUNC(nvmlShutdown);
+    LOAD_NVML_FUNC(nvmlErrorString);
+    LOAD_NVML_FUNC(nvmlDeviceGetCount);
+    LOAD_NVML_FUNC(nvmlDeviceGetHandleByIndex);
+    LOAD_NVML_FUNC(nvmlDeviceGetUtilizationRates);
+    LOAD_NVML_FUNC(nvmlDeviceGetEncoderUtilization);
+    LOAD_NVML_FUNC(nvmlDeviceGetDecoderUtilization);
+    LOAD_NVML_FUNC(nvmlDeviceGetMemoryInfo);
+    LOAD_NVML_FUNC(nvmlDeviceGetClockInfo);
+
+    return NVML_SUCCESS;
+
+#undef LOAD_NVML_FUNC
+}
+
+nvmlReturn_t NVMLMonitor::Init(int deviceId) {
+    auto ret = LoadDll();
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    ret = m_func.f_nvmlInit();
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    ret = m_func.f_nvmlDeviceGetHandleByIndex(deviceId, &m_device);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    return NVML_SUCCESS;
+}
+
+nvmlReturn_t NVMLMonitor::getData(NVMLMonitorInfo *info) {
+    info->bDataValid = false;
+    if (m_hDll == NULL || m_func.f_nvmlInit == NULL || m_device == NULL) {
+        return NVML_ERROR_FUNCTION_NOT_FOUND;
+    }
+    nvmlUtilization_t utilData;
+    auto ret = m_func.f_nvmlDeviceGetUtilizationRates(m_device, &utilData);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->dGPULoad = utilData.gpu;
+    uint32_t value, sample;
+    ret = m_func.f_nvmlDeviceGetEncoderUtilization(m_device, &value, &sample);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->dVEELoad = value;
+    ret = m_func.f_nvmlDeviceGetDecoderUtilization(m_device, &value, &sample);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->dVEDLoad = value;
+    ret = m_func.f_nvmlDeviceGetClockInfo(m_device, NVML_CLOCK_GRAPHICS, &value);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->dGPUFreq = value;
+    ret = m_func.f_nvmlDeviceGetClockInfo(m_device, NVML_CLOCK_VIDEO, &value);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->dVEFreq = value;
+    info->bDataValid = true;
+    return ret;
+}
+
+void NVMLMonitor::Close() {
+    if (m_func.f_nvmlShutdown) {
+        m_func.f_nvmlShutdown();
+    }
+    if (m_hDll) {
+        FreeLibrary(m_hDll);
+    }
+    memset(&m_func, 0, sizeof(m_func));
+}
+#endif
+
 tstring CPerfMonitor::SelectedCounters(int select) {
     if (select == 0) {
         return _T("none");
@@ -279,8 +373,14 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     if (nSelect & PERF_MONITOR_MFX_LOAD) {
         str += ",mfx load (%)";
     }
-    if (nSelect & PERF_MONITOR_VE_LOAD) {
-        str += ",video engine load (%)";
+    if (nSelect & PERF_MONITOR_VEE_LOAD) {
+        str += ",video encoder load (%)";
+    }
+    if (nSelect & PERF_MONITOR_VED_LOAD) {
+        str += ",video decoder load (%)";
+    }
+    if (nSelect & PERF_MONITOR_VE_CLOCK) {
+        str += ",video engine clock (MHz)";
     }
     if (nSelect & PERF_MONITOR_QUEUE_VID_IN) {
         str += ",queue vid in";
@@ -332,7 +432,7 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
 int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     int interval, int nSelectOutputLog, int nSelectOutputPlot,
     std::unique_ptr<void, handle_deleter> thMainThread,
-    std::shared_ptr<RGYLog> pRGYLog) {
+    std::shared_ptr<RGYLog> pRGYLog, CPerfMonitorPrm *prm) {
     clear();
     m_pRGYLog = pRGYLog;
 
@@ -414,6 +514,16 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         }
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+    auto nvml_ret = m_nvmlMonitor.Init(prm->deviceId);
+    if (nvml_ret != NVML_SUCCESS) {
+        pRGYLog->write(RGY_LOG_INFO, _T("Failed to start NVML Monitoring.\n"));
+    } else {
+        pRGYLog->write(RGY_LOG_DEBUG, _T("Eanble NVML Monitoring\n"));
+    }
+#else
+    UNREFERENCED_PARAMETER(prm);
+#endif //#if ENABLE_NVML
 
     if (m_nSelectOutputPlot) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -487,6 +597,17 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_nSelectCheck &= (~PERF_MONITOR_GPU_LOAD);
     m_nSelectCheck &= (~PERF_MONITOR_MFX_LOAD);
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+#if ENCODER_QSV
+    m_nSelectCheck &= (~PERF_MONITOR_VED_LOAD);
+    m_nSelectCheck &= (~PERF_MONITOR_VEE_LOAD);
+    m_nSelectCheck &= (~PERF_MONITOR_VE_CLOCK);
+#endif
+#if ENCODER_NVENC
+    m_nSelectCheck &= (~PERF_MONITOR_MFX_LOAD);
+    //うまくとれてなさそう
+    m_nSelectCheck &= (~PERF_MONITOR_VED_LOAD);
+#endif
 
     m_nSelectOutputLog &= m_nSelectCheck;
     m_nSelectOutputPlot &= m_nSelectCheck;
@@ -565,19 +686,37 @@ void CPerfMonitor::check() {
         pInfoNew->gpu_clock = qsvinfo.dGPUFreq;
     } else {
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+    pInfoNew->gpu_info_valid   = FALSE;
+    pInfoNew->gpu_clock = 0.0;
+    pInfoNew->gpu_load_percent = 0.0;
+    pInfoNew->ve_clock = 0.0;
+    pInfoNew->vee_load_percent = 0.0;
+    pInfoNew->ved_load_percent = 0.0;
+    if (m_nvmlMonitor.getData(&m_nvmlInfo) == NVML_SUCCESS) {
+        pInfoNew->gpu_info_valid   = TRUE;
+        pInfoNew->gpu_clock        = m_nvmlInfo.dGPUFreq;
+        pInfoNew->gpu_load_percent = m_nvmlInfo.dGPULoad;
+        pInfoNew->ve_clock         = m_nvmlInfo.dVEFreq;
+        pInfoNew->vee_load_percent = m_nvmlInfo.dVEELoad;
+        pInfoNew->ved_load_percent = m_nvmlInfo.dVEDLoad;
+    } else {
+#endif //#if ENABLE_NVML
         pInfoNew->gpu_clock = 0.0;
         pInfoNew->gpu_load_percent = 0.0;
-        pInfoNew->ve_load_percent = 0.0;
+        pInfoNew->ve_clock = 0.0;
+        pInfoNew->vee_load_percent = 0.0;
+        pInfoNew->ved_load_percent = 0.0;
         GPUZ_SH_MEM gpu_info = { 0 };
         if (0 == get_gpuz_info(&gpu_info)) {
             pInfoNew->gpu_info_valid = TRUE;
             pInfoNew->gpu_load_percent = gpu_load(&gpu_info);
-            pInfoNew->ve_load_percent = video_engine_load(&gpu_info, nullptr);
+            pInfoNew->vee_load_percent = video_engine_load(&gpu_info, nullptr);
             pInfoNew->gpu_clock = gpu_core_clock(&gpu_info);
         }
-#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
     }
-#endif //#if ENABLE_METRIC_FRAMEWORK
+#endif //#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
 #else
     struct rusage usage = { 0 };
     getrusage(RUSAGE_SELF, &usage);
@@ -790,8 +929,14 @@ void CPerfMonitor::write(FILE *fp, int nSelect) {
     if (nSelect & PERF_MONITOR_MFX_LOAD) {
         str += strsprintf(",%lf", pInfo->mfx_load_percent);
     }
-    if (nSelect & PERF_MONITOR_VE_LOAD) {
-        str += strsprintf(",%lf", pInfo->ve_load_percent);
+    if (nSelect & PERF_MONITOR_VEE_LOAD) {
+        str += strsprintf(",%lf", pInfo->vee_load_percent);
+    }
+    if (nSelect & PERF_MONITOR_VED_LOAD) {
+        str += strsprintf(",%lf", pInfo->ved_load_percent);
+    }
+    if (nSelect & PERF_MONITOR_VE_CLOCK) {
+        str += strsprintf(",%lf", pInfo->ve_clock);
     }
     if (nSelect & PERF_MONITOR_QUEUE_VID_IN) {
         str += strsprintf(",%d", (int)m_QueueInfo.usage_vid_in);
