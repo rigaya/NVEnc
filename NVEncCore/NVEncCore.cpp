@@ -2713,15 +2713,16 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
 
     if (true) {
         m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
+        const bool bLogOutput = inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot;
         tstring perfMonLog;
-        if (inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot) {
+        if (bLogOutput) {
             perfMonLog = inputParam->outputFilename + _T("_perf.csv");
         }
         CPerfMonitorPrm perfMonitorPrm = { 0 };
 #if ENABLE_NVML
         perfMonitorPrm.deviceId = m_nDeviceId;
 #endif
-        if (m_pPerfMonitor->init(perfMonLog.c_str(), _T(""), inputParam->nPerfMonitorInterval,
+        if (m_pPerfMonitor->init(perfMonLog.c_str(), _T(""), (bLogOutput) ? inputParam->nPerfMonitorInterval : 1000,
             (int)inputParam->nPerfMonitorSelect, (int)inputParam->nPerfMonitorSelectMatplot,
 #if defined(_WIN32) || defined(_WIN64)
             std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()),
