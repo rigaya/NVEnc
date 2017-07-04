@@ -58,6 +58,8 @@ const char *get_encoder_version();
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 
+#define ENABLE_NVTX 0
+
 #ifdef _M_IX86
 #define ENABLE_NVML 0
 #else

@@ -78,6 +78,29 @@ const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 
 using std::deque;
 
+#if ENABLE_NVTX
+#include "nvToolsExt.h"
+#ifdef _M_IX86
+#pragma comment(lib, "nvToolsExt32_1.lib")
+#else
+#pragma comment(lib, "nvToolsExt64_1.lib")
+#endif
+
+class NvtxTracer {
+public:
+    NvtxTracer(const char *name) {
+        nvtxRangePushA(name);
+    }
+    ~NvtxTracer() {
+        nvtxRangePop();
+    }
+};
+#define NVTXRANGE(name) NvtxTracer nvtx ## name( #name );
+#else
+#define NVTXRANGE(name)
+#endif
+
+
 class FrameBufferDataIn {
 public:
     FrameBufferDataIn() : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(), m_heTransferFin(NULL) {
@@ -1162,12 +1185,14 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
         if (!pEncodeBuffer->stOutputBfr.hOutputEvent) {
             return NV_ENC_ERR_INVALID_PARAM;
         }
+        NVTXRANGE(ProcessOutputWait);
         WaitForSingleObject(pEncodeBuffer->stOutputBfr.hOutputEvent, INFINITE);
     }
 
     if (pEncodeBuffer->stOutputBfr.bEOSFlag)
         return NV_ENC_SUCCESS;
 
+    NVTXRANGE(ProcessOutput);
     NV_ENC_LOCK_BITSTREAM lockBitstreamData;
     INIT_CONFIG(lockBitstreamData, NV_ENC_LOCK_BITSTREAM);
     lockBitstreamData.outputBitstream = pEncodeBuffer->stOutputBfr.hBitstreamBuffer;
@@ -3330,6 +3355,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     }
                 }
             }
+            NVTXRANGE(LoadNextFrame);
             RGYFrame frame = RGYFrameInit(inputFrameBuf.frameInfo);
             auto rgy_err = m_pFileReader->LoadNextFrame(&frame);
             if (rgy_err != RGY_ERR_NONE) {
