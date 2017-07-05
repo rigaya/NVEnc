@@ -67,6 +67,8 @@ static const int DEFAULT_OUTPUT_BUF  = 8;
 static const int DEFAULT_LOOKAHEAD   = 16;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
+static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_BLOCKING_SYNC;
+
 static const uint32_t PIPELINE_DEPTH = 4;
 static const int MAX_FILTER_OUTPUT = 2;
 
@@ -151,6 +153,7 @@ struct InEncodeVideoParam {
     int64_t nPerfMonitorSelect;
     int64_t nPerfMonitorSelectMatplot;
     int     nPerfMonitorInterval;
+    int     nCudaSchedule;
     void *pPrivatePrm;
 
     InEncodeVideoParam();
@@ -220,7 +223,7 @@ protected:
     virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);
 
     //CUDAインターフェースを初期化
-    NVENCSTATUS InitCuda(uint32_t deviceID);
+    NVENCSTATUS InitCuda(uint32_t deviceID, int cudaSchedule);
 
     //エンコードデバイスを初期化
     NVENCSTATUS InitDevice(const InEncodeVideoParam *inputParam);
@@ -263,6 +266,7 @@ protected:
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
     shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
 
+    CUctx_flags                  m_cudaSchedule;          //CUDAのスケジュール
     CUdevice                     m_device;                //CUDAデバイスインスタンス
     CUcontext                    m_cuContextCurr;         //CUDAコンテキスト
     CUvideoctxlock               m_ctxLock;               //CUDAロック

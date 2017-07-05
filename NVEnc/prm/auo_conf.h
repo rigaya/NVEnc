@@ -99,10 +99,12 @@ typedef struct CONF_NVENC {
     NV_ENC_CODEC_CONFIG codecConfig[2];
     int bluray;
     int weightp;
+    int perf_monitor;
+    int cuda_schedule;
 } CONF_NVENC;
 
 typedef struct {
-    BOOL perf_monitor;
+    BOOL vpp_perf_monitor;
     BOOL resize_enable;
     int resize_interp;
     int resize_width;

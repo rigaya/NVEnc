@@ -497,11 +497,19 @@ static tstring help() {
         _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
         _T("   --vpp-perf-monitor           check duration of each filter.\n")
         _T("                                  may decrease overall transcode performance.\n"));
+    str += strsprintf(_T("")
+        _T("   --cuda-schedule <string>     set cuda schedule mode (default: sync).\n")
+        _T("       auto  : let cuda driver to decide\n")
+        _T("       spin  : CPU will spin when waiting GPU tasks,\n")
+        _T("               will provide highest performance but with high CPU utilization.\n")
+        _T("       yield : CPU will yield when waiting GPU tasks.\n")
+        _T("       sync  : CPU will sleep when waiting GPU tasks, performance might drop slightly,\n")
+        _T("               while CPU utilization will be lower, especially on HW decode mode.\n"));
     str += strsprintf(_T("\n")
         _T("   --output-buf <int>           buffer size for output in MByte\n")
         _T("                                 default %d MB (0-%d)\n"),
         DEFAULT_OUTPUT_BUF, RGY_OUTPUT_BUF_MB_MAX
-        );
+    );
     str += strsprintf(_T("")
         _T("   --max-procfps <int>         limit encoding performance to lower resource usage.\n")
         _T("                                 default:0 (no limit)\n"));
@@ -548,8 +556,12 @@ static tstring help() {
         _T("                                 gpu_load    ... gpu usage (%%)\n")
         _T("                                 gpu_clock   ... gpu avg clock\n")
         _T("                                 vee_load    ... gpu video encoder usage (%%)\n")
+#if 0 && ENABLE_NVML
         _T("                                 ved_load    ... gpu video decoder usage (%%)\n")
+#endif
+#if ENABLE_NVML
         _T("                                 ve_clock    ... gpu video engine clock\n")
+#endif
         _T("                                 gpu         ... monitor all gpu info\n")
 #endif //#if defined(_WIN32) || defined(_WIN64)
         _T("                                 queue       ... queue usage\n")
@@ -2479,6 +2491,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int value = 0;
         if (get_list_value(list_hevc_cu_size, strInput[i], &value)) {
             codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("cuda-schedule")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_cuda_schedule, strInput[i], &value)) {
+            pParams->nCudaSchedule = value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;

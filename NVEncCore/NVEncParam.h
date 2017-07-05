@@ -404,6 +404,14 @@ const CX_DESC list_cuvid_mode[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_cuda_schedule[] = {
+    { _T("auto"),  CU_CTX_SCHED_AUTO },
+    { _T("spin"),  CU_CTX_SCHED_SPIN },
+    { _T("yield"), CU_CTX_SCHED_YIELD },
+    { _T("sync"),  CU_CTX_SCHED_BLOCKING_SYNC },
+    { NULL, NULL }
+};
+
 template<size_t count>
 static const TCHAR *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]) {
     for (int i = 0; i < count; i++) {

@@ -279,6 +279,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nPerfMonitorSelect(0),
     nPerfMonitorSelectMatplot(0),
     nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
+    nCudaSchedule(DEFAULT_CUDA_SCHEDULE),
     pPrivatePrm(nullptr) {
     encConfig = NVEncCore::DefaultParam();
     memset(&par,       0, sizeof(par));
@@ -851,7 +852,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
+NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID, int cudaSchedule) {
     CUresult cuResult;
     if (CUDA_SUCCESS != (cuResult = cuInit(0))) {
         PrintMes(RGY_LOG_ERROR, _T("cuInit error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
@@ -889,7 +890,8 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("NVENC capabilities: OK.\n"));
 
-    if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), CU_CTX_SCHED_BLOCKING_SYNC, m_device))) {
+    m_cudaSchedule = (CUctx_flags)(cudaSchedule & CU_CTX_SCHED_MASK);
+    if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), m_cudaSchedule, m_device))) {
         PrintMes(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
@@ -1503,7 +1505,7 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
     }
 
     NVENCSTATUS nvStatus;
-    if (NV_ENC_SUCCESS != (nvStatus = InitCuda(inputParam->deviceID))) {
+    if (NV_ENC_SUCCESS != (nvStatus = InitCuda(inputParam->deviceID, inputParam->nCudaSchedule))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Cudaの初期化に失敗しました。\n") : _T("Failed to initialize CUDA.\n"));
         return nvStatus;
     }
@@ -2886,6 +2888,8 @@ NVENCSTATUS NVEncCore::Encode() {
 
     const int nEventCount = nPipelineDepth + CHECK_PTS_MAX_INSERT_FRAMES + 1 + MAX_FILTER_OUTPUT;
 
+    const int cudaEventFlags = (m_cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : cudaEventDefault;
+
     //エンコードを開始してもよいかを示すcueventの入れ物
     //FrameBufferDataEncに関連付けて使用する
     vector<unique_ptr<cudaEvent_t, cudaevent_deleter>> vEncStartEvents(nEventCount);
@@ -2893,7 +2897,7 @@ NVENCSTATUS NVEncCore::Encode() {
         //ctxlockした状態でcudaEventCreateを行わないと、イベントは正常に動作しない
         NVEncCtxAutoLock(ctxlock(m_ctxLock));
         vEncStartEvents[i] = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-        auto cudaret = cudaEventCreateWithFlags(vEncStartEvents[i].get(), cudaEventBlockingSync | cudaEventDisableTiming);
+        auto cudaret = cudaEventCreateWithFlags(vEncStartEvents[i].get(), cudaEventFlags | cudaEventDisableTiming);
         if (cudaret != CUDA_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("Error cudaEventCreate: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
             return NV_ENC_ERR_GENERIC;
@@ -2906,7 +2910,7 @@ NVENCSTATUS NVEncCore::Encode() {
         //ctxlockした状態でcudaEventCreateを行わないと、イベントは正常に動作しない
         NVEncCtxAutoLock(ctxlock(m_ctxLock));
         vInFrameTransferFin[i] = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-        auto cudaret = cudaEventCreateWithFlags(vInFrameTransferFin[i].get(), cudaEventBlockingSync | cudaEventDisableTiming);
+        auto cudaret = cudaEventCreateWithFlags(vInFrameTransferFin[i].get(), cudaEventFlags | cudaEventDisableTiming);
         if (cudaret != CUDA_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("Error cudaEventCreate: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
             return NV_ENC_ERR_GENERIC;

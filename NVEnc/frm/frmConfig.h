@@ -1092,6 +1092,9 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDebandThreY;
 
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppDebandRange;
 private: System::Windows::Forms::CheckBox^  fcgCBVppDebandEnable;
+private: System::Windows::Forms::Label^  fcgLBCudaSchdule;
+private: System::Windows::Forms::ComboBox^  fcgCXCudaSchdule;
+private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
 
 
 
@@ -1539,6 +1542,9 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppDebandEnable;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
+            this->fcgCBPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgLBCudaSchdule = (gcnew System::Windows::Forms::Label());
+            this->fcgCXCudaSchdule = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -3325,6 +3331,9 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppDebandEnable;
             // 
             // tabPageVideoDetail
             // 
+            this->tabPageVideoDetail->Controls->Add(this->fcgLBCudaSchdule);
+            this->tabPageVideoDetail->Controls->Add(this->fcgCXCudaSchdule);
+            this->tabPageVideoDetail->Controls->Add(this->fcgCBPerfMonitor);
             this->tabPageVideoDetail->Controls->Add(this->fcgGroupBoxQulaityStg);
             this->tabPageVideoDetail->Controls->Add(this->groupBoxQPDetail);
             this->tabPageVideoDetail->Controls->Add(this->fcgLBDevice);
@@ -3394,7 +3403,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppDebandEnable;
             this->groupBoxQPDetail->Controls->Add(this->label7);
             this->groupBoxQPDetail->Controls->Add(this->fcgNUQPMaxP);
             this->groupBoxQPDetail->Controls->Add(this->fcgNUQPMaxI);
-            this->groupBoxQPDetail->Location = System::Drawing::Point(13, 91);
+            this->groupBoxQPDetail->Location = System::Drawing::Point(14, 119);
             this->groupBoxQPDetail->Name = L"groupBoxQPDetail";
             this->groupBoxQPDetail->Size = System::Drawing::Size(285, 138);
             this->groupBoxQPDetail->TabIndex = 10;
@@ -3627,7 +3636,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppDebandEnable;
             // fcgLBSlices
             // 
             this->fcgLBSlices->AutoSize = true;
-            this->fcgLBSlices->Location = System::Drawing::Point(20, 57);
+            this->fcgLBSlices->Location = System::Drawing::Point(21, 85);
             this->fcgLBSlices->Name = L"fcgLBSlices";
             this->fcgLBSlices->Size = System::Drawing::Size(54, 15);
             this->fcgLBSlices->TabIndex = 155;
@@ -3635,7 +3644,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppDebandEnable;
             // 
             // fcgNUSlices
             // 
-            this->fcgNUSlices->Location = System::Drawing::Point(129, 55);
+            this->fcgNUSlices->Location = System::Drawing::Point(130, 83);
             this->fcgNUSlices->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUSlices->Name = L"fcgNUSlices";
             this->fcgNUSlices->Size = System::Drawing::Size(70, 23);
@@ -4944,6 +4953,36 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppDebandEnable;
             this->fcgLBAudioPriority->Size = System::Drawing::Size(62, 14);
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
+            // 
+            // fcgCBPerfMonitor
+            // 
+            this->fcgCBPerfMonitor->AutoSize = true;
+            this->fcgCBPerfMonitor->Location = System::Drawing::Point(23, 284);
+            this->fcgCBPerfMonitor->Name = L"fcgCBPerfMonitor";
+            this->fcgCBPerfMonitor->Size = System::Drawing::Size(131, 19);
+            this->fcgCBPerfMonitor->TabIndex = 159;
+            this->fcgCBPerfMonitor->Tag = L"chValue";
+            this->fcgCBPerfMonitor->Text = L"パフォーマンスログ出力";
+            this->fcgCBPerfMonitor->UseVisualStyleBackColor = true;
+            // 
+            // fcgLBCudaSchdule
+            // 
+            this->fcgLBCudaSchdule->AutoSize = true;
+            this->fcgLBCudaSchdule->Location = System::Drawing::Point(20, 54);
+            this->fcgLBCudaSchdule->Name = L"fcgLBCudaSchdule";
+            this->fcgLBCudaSchdule->Size = System::Drawing::Size(97, 15);
+            this->fcgLBCudaSchdule->TabIndex = 161;
+            this->fcgLBCudaSchdule->Text = L"CUDAスケジュール";
+            // 
+            // fcgCXCudaSchdule
+            // 
+            this->fcgCXCudaSchdule->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXCudaSchdule->FormattingEnabled = true;
+            this->fcgCXCudaSchdule->Location = System::Drawing::Point(129, 51);
+            this->fcgCXCudaSchdule->Name = L"fcgCXCudaSchdule";
+            this->fcgCXCudaSchdule->Size = System::Drawing::Size(179, 23);
+            this->fcgCXCudaSchdule->TabIndex = 160;
+            this->fcgCXCudaSchdule->Tag = L"chValue";
             // 
             // frmConfig
             // 

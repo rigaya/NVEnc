@@ -195,14 +195,16 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     encPrm.bWeightP = conf->nvenc.weightp != 0;
     //encPrm.inputBuffer = conf->nvenc.inputBuffer;
     encPrm.pPrivatePrm = &inputInfoAuo;
-    encPrm.deviceID = 0;
+    encPrm.deviceID = conf->nvenc.deviceID;
+    encPrm.nCudaSchedule = conf->nvenc.cuda_schedule;
+    encPrm.nPerfMonitorSelect = (conf->nvenc.perf_monitor) ? (int)PERF_MONITOR_ALL : 0;
     encPrm.outputFilename = pe->temp_filename;
     if (conf->vpp.resize_enable) {
         encPrm.vpp.resizeInterp = conf->vpp.resize_interp;
         encPrm.input.dstWidth = conf->vpp.resize_width;
         encPrm.input.dstHeight = conf->vpp.resize_height;
     }
-    encPrm.vpp.bCheckPerformance = conf->vpp.perf_monitor != 0;
+    encPrm.vpp.bCheckPerformance = conf->vpp.vpp_perf_monitor != 0;
     encPrm.vpp.knn = conf->vpp.knn;
     encPrm.vpp.pmd = conf->vpp.pmd;
     encPrm.vpp.deband = conf->vpp.deband;

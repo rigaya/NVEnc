@@ -652,6 +652,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXHEVCMinCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXHEVCOutBitDepth,   list_bitdepth);
     setComboBox(fcgCXAQ,                list_aq);
+    setComboBox(fcgCXCudaSchdule,       list_cuda_schedule);
     setComboBox(fcgCXVppResizeAlg,      list_nppi_resize);
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
@@ -907,7 +908,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUAspectRatioX, abs(cnf->nvenc.par[0]));
     SetNUValue(fcgNUAspectRatioY, abs(cnf->nvenc.par[1]));
 
-    SetCXIndex(fcgCXDevice, cnf->nvenc.deviceID);
+    SetCXIndex(fcgCXDevice,      cnf->nvenc.deviceID);
+    SetCXIndex(fcgCXCudaSchdule, cnf->nvenc.cuda_schedule);
+    fcgCBPerfMonitor->Checked = 0 != cnf->nvenc.perf_monitor;
 
     //QPDetail
     fcgCBQPMin->Checked = cnf->nvenc.enc_config.rcParams.enableMinQP != 0;
@@ -959,7 +962,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBAFS->Checked                  = cnf->vid.afs != 0; 
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
 
-        fcgCBVppPerfMonitor->Checked   = cnf->vpp.perf_monitor != 0;
+        fcgCBVppPerfMonitor->Checked   = cnf->vpp.vpp_perf_monitor != 0;
         fcgCBVppResize->Checked        = cnf->vpp.resize_enable != 0;
         SetNUValue(fcgNUVppResizeWidth,  cnf->vpp.resize_width);
         SetNUValue(fcgNUVppResizeHeight, cnf->vpp.resize_height);
@@ -1072,6 +1075,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     }
 
     cnf->nvenc.deviceID = (int)fcgCXDevice->SelectedIndex;
+    cnf->nvenc.cuda_schedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
 
     //QPDetail
     cnf->nvenc.enc_config.rcParams.enableMinQP = (fcgCBQPMin->Checked) ? 1 : 0;
@@ -1086,6 +1090,8 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->nvenc.enc_config.rcParams.initialRCQP.qpIntra  = (int)fcgNUQPInitI->Value;
     cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterP = (int)fcgNUQPInitP->Value;
     cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterB = (int)fcgNUQPInitB->Value;
+
+    cnf->nvenc.perf_monitor = fcgCBPerfMonitor->Checked;
 
     //H.264
     cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
@@ -1152,7 +1158,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vid.afs                    = fcgCBAFS->Checked;
     cnf->vid.auo_tcfile_out         = fcgCBAuoTcfileout->Checked;
 
-    cnf->vpp.perf_monitor           = fcgCBVppPerfMonitor->Checked;
+    cnf->vpp.vpp_perf_monitor       = fcgCBVppPerfMonitor->Checked;
     cnf->vpp.resize_enable          = fcgCBVppResize->Checked;
     cnf->vpp.resize_width           = (int)fcgNUVppResizeWidth->Value;
     cnf->vpp.resize_height          = (int)fcgNUVppResizeHeight->Value;

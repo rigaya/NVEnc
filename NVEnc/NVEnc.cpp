@@ -275,6 +275,7 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     conf->nvenc.pic_struct = NV_ENC_PIC_STRUCT_FRAME;
     conf->nvenc.preset = NVENC_PRESET_DEFAULT;
     conf->nvenc.enc_config.rcParams.maxBitRate = DEFAULT_MAX_BITRATE; //NVEnc.auoではデフォルト値としてセットする
+    conf->nvenc.cuda_schedule = DEFAULT_CUDA_SCHEDULE;
     conf->size_all = CONF_INITIALIZED;
     conf->vpp.resize_width = 1280;
     conf->vpp.resize_height = 720;
