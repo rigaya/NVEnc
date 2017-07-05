@@ -891,6 +891,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID, int cudaSchedule) {
     PrintMes(RGY_LOG_DEBUG, _T("NVENC capabilities: OK.\n"));
 
     m_cudaSchedule = (CUctx_flags)(cudaSchedule & CU_CTX_SCHED_MASK);
+    PrintMes(RGY_LOG_DEBUG, _T("using cuda schdule mode: %s.\n"), get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
     if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), m_cudaSchedule, m_device))) {
         PrintMes(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
@@ -3877,15 +3878,20 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         }
     }
 
+    int cudaDriverVersion = 0;
+    cuDriverGetVersion(&cudaDriverVersion);
+
     OSVERSIONINFOEXW osversioninfo = { 0 };
     tstring osversionstr = getOSVersion(&osversioninfo);
     int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
     auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
     add_str(RGY_LOG_ERROR, _T("%s\n"), get_encoder_version());
-    add_str(RGY_LOG_ERROR, _T("NVENC API      v%d.%d\n"), NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION);
     add_str(RGY_LOG_INFO,  _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
     add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info);
+    add_str(RGY_LOG_INFO,  _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
+        NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
+        cudaDriverVersion / 1000, (cudaDriverVersion % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
     add_str(RGY_LOG_ERROR, _T("Input Buffers  %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
     tstring inputMes = m_pFileReader->GetInputMessage();
     for (const auto& reader : m_AudioReaders) {
