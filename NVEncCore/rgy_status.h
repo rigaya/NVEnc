@@ -248,7 +248,8 @@ public:
                     hh, mm, ss);
                 if (m_sData.frameDrop) {
                     len += _stprintf_s(mes + len, _countof(mes) - len, _T(", afs drop %d/%d  "), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
-                } else if (bGPUUsage) {
+                }
+                if (bGPUUsage) {
                     len += _stprintf_s(mes + len, _countof(mes) - len, _T(", GPU %d%%"), gpuusage);
                     if (bVideoEngineUsage) {
                         len += _stprintf_s(mes + len, _countof(mes) - len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
