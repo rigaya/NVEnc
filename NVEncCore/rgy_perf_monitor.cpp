@@ -251,6 +251,11 @@ CPerfMonitor::CPerfMonitor() {
 #if ENABLE_METRIC_FRAMEWORK
     m_pManager = nullptr;
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+    memset(&m_nvmlInfo, 0, sizeof(m_nvmlInfo));
+#endif
+    memset(&m_GPUZInfo, 0, sizeof(m_GPUZInfo));
+    m_bGPUZInfoValid = false;
 
     cpu_info_t cpu_info;
     get_cpu_info(&cpu_info);
@@ -676,6 +681,7 @@ void CPerfMonitor::check() {
     const double time_diff_inv = 1.0 / (pInfoNew->time_us - pInfoOld->time_us);
 
     //GPU情報
+    m_bGPUZInfoValid = false;
     pInfoNew->gpu_info_valid = FALSE;
 #if ENABLE_METRIC_FRAMEWORK
     QSVGPUInfo qsvinfo = { 0 };
@@ -707,12 +713,13 @@ void CPerfMonitor::check() {
         pInfoNew->ve_clock = 0.0;
         pInfoNew->vee_load_percent = 0.0;
         pInfoNew->ved_load_percent = 0.0;
-        GPUZ_SH_MEM gpu_info = { 0 };
-        if (0 == get_gpuz_info(&gpu_info)) {
+        memset(&m_GPUZInfo, 0, sizeof(m_GPUZInfo));
+        if (0 == get_gpuz_info(&m_GPUZInfo)) {
+            m_bGPUZInfoValid = true;
             pInfoNew->gpu_info_valid = TRUE;
-            pInfoNew->gpu_load_percent = gpu_load(&gpu_info);
-            pInfoNew->vee_load_percent = video_engine_load(&gpu_info, nullptr);
-            pInfoNew->gpu_clock = gpu_core_clock(&gpu_info);
+            pInfoNew->gpu_load_percent = gpu_load(&m_GPUZInfo);
+            pInfoNew->vee_load_percent = video_engine_load(&m_GPUZInfo, nullptr);
+            pInfoNew->gpu_clock = gpu_core_clock(&m_GPUZInfo);
         }
 #if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
     }

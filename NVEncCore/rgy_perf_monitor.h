@@ -38,6 +38,7 @@
 #include "rgy_util.h"
 #include "rgy_pipe.h"
 #include "rgy_log.h"
+#include "gpuz_info.h"
 
 #if ENABLE_METRIC_FRAMEWORK
 #pragma warning(push)
@@ -321,6 +322,10 @@ public:
         return m_nvmlInfo.bDataValid;
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
+    bool GetGPUZInfo(GPUZ_SH_MEM *info) {
+        memcpy(info, &m_GPUZInfo, sizeof(m_GPUZInfo));
+        return m_bGPUZInfoValid;
+    }
 
     void clear();
 protected:
@@ -372,6 +377,8 @@ protected:
     NVMLMonitor m_nvmlMonitor;
     NVMLMonitorInfo m_nvmlInfo;
 #endif //#if ENABLE_NVML
+    GPUZ_SH_MEM m_GPUZInfo;
+    bool m_bGPUZInfoValid;
 };
 
 
