@@ -64,6 +64,11 @@ NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFram
             AddMessage(RGY_LOG_ERROR, _T("failed cudaEventRecord(m_peFilterStart): %s.\n"), char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         }
     }
+
+    if (pInputFrame == nullptr) {
+        *pOutputFrameNum = 0;
+        ppOutputFrames[0] = nullptr;
+    }
     if (m_pParam && m_pParam->bOutOverwrite && ppOutputFrames && ppOutputFrames[0] == nullptr) {
         ppOutputFrames[0] = pInputFrame;
         *pOutputFrameNum = 1;

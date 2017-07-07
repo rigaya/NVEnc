@@ -3213,46 +3213,48 @@ NVENCSTATUS NVEncCore::Encode() {
         return NV_ENC_SUCCESS;
     };
 
-    auto filter_frame = [&](int& nFilterFrame, unique_ptr<FrameBufferDataIn>& inframe, deque<unique_ptr<FrameBufferDataEnc>>& dqEncFrames) {
+    auto filter_frame = [&](int& nFilterFrame, unique_ptr<FrameBufferDataIn>& inframe, deque<unique_ptr<FrameBufferDataEnc>>& dqEncFrames, bool& bDrain) {
         cudaMemcpyKind memcpyKind = cudaMemcpyDeviceToDevice;
         FrameInfo frameInfo = { 0 };
         shared_ptr<void> deviceFrame;
-        const auto timestamp = inframe->getTimeStamp();
-        if (inframe->inputIsHost()) {
-            memcpyKind = cudaMemcpyHostToDevice;
-            frameInfo = inframe->getFrameInfo();
-            deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
-                ptr = ptr;
-                //このメモリはm_inputHostBufferのメモリであり、使いまわすため、解放しない
-            });
-        }
+        const auto timestamp = inframe->getTimeStamp(); //TODO: 遅延フレームを伴うフィルタの場合、これは正しくない
+        if (!bDrain) {
+            if (inframe->inputIsHost()) {
+                memcpyKind = cudaMemcpyHostToDevice;
+                frameInfo = inframe->getFrameInfo();
+                deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
+                    ptr = ptr;
+                    //このメモリはm_inputHostBufferのメモリであり、使いまわすため、解放しない
+                });
+            }
 #if ENABLE_AVSW_READER
-        else {
-            //ここで前のフレームの転送を必ず待機する
-            //ここで待機しないと、vpp-deinterlace bobのときに同一フレームに対する
-            //cuvidMapVideoFrameが2連続で発生してしまい、エラーになってしまう
-            auto cuerr = check_inframe_transfer(1);
-            if (cuerr != cudaSuccess) {
-                PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
-                return NV_ENC_ERR_GENERIC;
+            else {
+                //ここで前のフレームの転送を必ず待機する
+                //ここで待機しないと、vpp-deinterlace bobのときに同一フレームに対する
+                //cuvidMapVideoFrameが2連続で発生してしまい、エラーになってしまう
+                auto cuerr = check_inframe_transfer(1);
+                if (cuerr != cudaSuccess) {
+                    PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
+                    return NV_ENC_ERR_GENERIC;
+                }
+                CUresult curesult = CUDA_SUCCESS;
+                CUdeviceptr dMappedFrame = 0;
+                memcpyKind = cudaMemcpyDeviceToDevice;
+                auto vppinfo = inframe->getVppInfo();
+                uint32_t pitch = 0;
+                if (CUDA_SUCCESS != (curesult = cuvidMapVideoFrame(m_cuvidDec->GetDecoder(), inframe->getCuvidInfo()->picture_index, &dMappedFrame, &pitch, &vppinfo))) {
+                    PrintMes(RGY_LOG_ERROR, _T("Error cuvidMapVideoFrame: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+                    return NV_ENC_ERR_GENERIC;
+                }
+                frameInfo = inframe->getFrameInfo();
+                frameInfo.pitch = pitch;
+                frameInfo.ptr = (uint8_t *)dMappedFrame;
+                deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
+                    cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
+                });
             }
-            CUresult curesult = CUDA_SUCCESS;
-            CUdeviceptr dMappedFrame = 0;
-            memcpyKind = cudaMemcpyDeviceToDevice;
-            auto vppinfo = inframe->getVppInfo();
-            uint32_t pitch = 0;
-            if (CUDA_SUCCESS != (curesult = cuvidMapVideoFrame(m_cuvidDec->GetDecoder(), inframe->getCuvidInfo()->picture_index, &dMappedFrame, &pitch, &vppinfo))) {
-                PrintMes(RGY_LOG_ERROR, _T("Error cuvidMapVideoFrame: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
-                return NV_ENC_ERR_GENERIC;
-            }
-            frameInfo = inframe->getFrameInfo();
-            frameInfo.pitch = pitch;
-            frameInfo.ptr = (uint8_t *)dMappedFrame;
-            deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
-                cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
-            });
-        }
 #endif //#if ENABLE_AVSW_READER
+        }
         //フィルタリングするならここ
         //現在は1in 1outのみの実装
         for (uint32_t ifilter = 0; ifilter < m_vpFilters.size() - 1; ifilter++) {
@@ -3264,15 +3266,23 @@ NVENCSTATUS NVEncCore::Encode() {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
                 return sts_filter;
             }
-            if (nOutFrames != 1) {
+            if (nOutFrames > 1) {
                 PrintMes(RGY_LOG_ERROR, _T("Currently only simple filters are supported.\n"));
                 return NV_ENC_ERR_UNIMPLEMENTED;
             }
+            if (nOutFrames == 0) {
+                if (bDrain) continue;
+                return NV_ENC_SUCCESS;
+            }
+            bDrain = false; //途中でフレームが出てきたら、drain完了していない
             frameInfo = *(outInfo[0]);
             if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
                 auto pCudaEvent = vInFrameTransferFin[nFilterFrame % vInFrameTransferFin.size()].get();
                 add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
             }
+        }
+        if (bDrain) {
+            return NV_ENC_SUCCESS; //最後までbDrain = trueなら、drain完了
         }
 
         //エンコードバッファを取得
@@ -3371,11 +3381,14 @@ NVENCSTATUS NVEncCore::Encode() {
     };
 
 #define NV_ENC_ERR_ABORT ((NVENCSTATUS)-1)
+    unique_ptr<FrameBufferDataIn> dummyFrame;
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
     deque<unique_ptr<FrameBufferDataIn>> dqInFrames;
     deque<unique_ptr<FrameBufferDataEnc>> dqEncFrames;
     int nEncodeFrames = 0;
-    for (int nInputFrame = 0, nFilterFrame = 0; nvStatus == NV_ENC_SUCCESS; ) {
+    bool bInputEmpty = false;
+    bool bFilterEmpty = false;
+    for (int nInputFrame = 0, nFilterFrame = 0; nvStatus == NV_ENC_SUCCESS && !bInputEmpty && !bFilterEmpty; ) {
         if (m_pAbortByUser && *m_pAbortByUser) {
             nvStatus = NV_ENC_ERR_ABORT;
             break;
@@ -3401,7 +3414,7 @@ NVENCSTATUS NVEncCore::Encode() {
         if (m_cuvidDec) {
             if (m_cuvidDec->GetError()
                 || (m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
-                break;
+                bInputEmpty = true;
             }
             CUVIDPARSERDISPINFO dispInfo = { 0 };
             if (!m_cuvidDec->frameQueue()->dequeue(&dispInfo)) {
@@ -3440,7 +3453,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 if (rgy_err != RGY_ERR_MORE_DATA) { //RGY_ERR_MORE_DATAは読み込みの正常終了を示す
                     nvStatus = err_to_nv(rgy_err);
                 }
-                break;
+                bInputEmpty = true;
             }
             auto heTransferFin = shared_ptr<void>(inputFrameBuf.heTransferFin.get(), [&](void *ptr) {
                 SetEvent((HANDLE)ptr);
@@ -3461,11 +3474,13 @@ NVENCSTATUS NVEncCore::Encode() {
         for (auto idf = decFrames.begin(); idf != decFrames.end(); idf++) {
             dqInFrames.push_back(std::move(*idf));
         }
-        while (dqInFrames.size() && nvStatus == NV_ENC_SUCCESS) {
-            auto& inframe = dqInFrames.front();
-            if (NV_ENC_SUCCESS != (nvStatus = filter_frame(nFilterFrame, inframe, dqEncFrames))) {
+        while ((dqInFrames.size() || !bFilterEmpty) && nvStatus == NV_ENC_SUCCESS) {
+            bool bDrain = (dqInFrames.size()) ? false : bInputEmpty;
+            auto& inframe = (dqInFrames.size()) ? dqInFrames.front() : dummyFrame;
+            if (NV_ENC_SUCCESS != (nvStatus = filter_frame(nFilterFrame, inframe, dqEncFrames, bDrain))) {
                 break;
             }
+            bFilterEmpty = bDrain;
             dqInFrames.pop_front();
             while (dqEncFrames.size() >= nPipelineDepth) {
                 auto& encframe = dqEncFrames.front();

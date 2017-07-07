@@ -614,6 +614,10 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
 }
 
 NVENCSTATUS NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+
+    if (pInputFrame == nullptr) {
+        return NV_ENC_SUCCESS;
+    }
     auto pDebandParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_pParam);
     if (!pDebandParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));

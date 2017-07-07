@@ -387,6 +387,10 @@ NVENCSTATUS NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, sha
 }
 
 NVENCSTATUS NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+
+    if (pInputFrame == nullptr) {
+        return NV_ENC_SUCCESS;
+    }
     auto pPmdParam = std::dynamic_pointer_cast<NVEncFilterParamDenoisePmd>(m_pParam);
     if (!pPmdParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));

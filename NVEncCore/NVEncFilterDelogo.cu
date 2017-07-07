@@ -617,6 +617,10 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
 NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
 
+    if (pInputFrame == nullptr) {
+        return sts;
+    }
+
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("ppOutputFrames[0] must be set.\n"));

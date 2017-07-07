@@ -248,6 +248,10 @@ NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared
 
 NVENCSTATUS NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
+    if (pInputFrame == nullptr) {
+        return sts;
+    }
+
 
     *pOutputFrameNum = 1;
     CUMemBuf *pScratch = nullptr;
