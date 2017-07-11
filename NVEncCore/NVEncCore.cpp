@@ -853,7 +853,43 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
 }
 
 NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID, int cudaSchedule) {
+    //ひとまず、これまでのすべてのエラーをflush
+    auto cudaerr = cudaGetLastError();
+    UNREFERENCED_PARAMETER(cudaerr);
+
+    TCHAR cpu_info[1024] = { 0 };
+    getCPUInfo(cpu_info, _countof(cpu_info));
+
+    TCHAR gpu_info[1024] = { 0 };
+    {
+        NVEncoderGPUInfo nvencGPUInfo;
+        const auto len = _stprintf_s(gpu_info, _T("#%d: "), m_nDeviceId);
+        if (m_nDeviceId || 0 != getGPUInfo("NVIDIA", gpu_info + len, _countof(gpu_info) - len)) {
+            for (const auto& gpuInfo : nvencGPUInfo.getGPUList()) {
+                if (m_nDeviceId == gpuInfo.first) {
+                    _stprintf_s(gpu_info, _T("#%d: %s"), gpuInfo.first, gpuInfo.second.c_str());
+                }
+            }
+        }
+    }
+
     CUresult cuResult;
+    int cudaDriverVersion = 0;
+    if (CUDA_SUCCESS != (cuResult = cuDriverGetVersion(&cudaDriverVersion))) {
+        PrintMes(RGY_LOG_ERROR, _T("cuDriverGetVersion error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+
+    OSVERSIONINFOEXW osversioninfo = { 0 };
+    tstring osversionstr = getOSVersion(&osversioninfo);
+    PrintMes(RGY_LOG_DEBUG, _T("%s\n"), get_encoder_version());
+    PrintMes(RGY_LOG_DEBUG, _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+    PrintMes(RGY_LOG_DEBUG, _T("CPU            %s\n"), cpu_info);
+    PrintMes(RGY_LOG_DEBUG, _T("GPU            %s\n"), gpu_info);
+    PrintMes(RGY_LOG_DEBUG, _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
+        NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
+        cudaDriverVersion / 1000, (cudaDriverVersion % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
+
     if (CUDA_SUCCESS != (cuResult = cuInit(0))) {
         PrintMes(RGY_LOG_ERROR, _T("cuInit error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
@@ -876,13 +912,14 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID, int cudaSchedule) {
         PrintMes(RGY_LOG_ERROR, _T("cuDeviceGet error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGet: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGet: ID:%d.\n"), m_nDeviceId);
     
     int SMminor = 0, SMmajor = 0;
     if (CUDA_SUCCESS != (cuDeviceComputeCapability(&SMmajor, &SMminor, m_device))) {
         PrintMes(RGY_LOG_ERROR, _T("cuDeviceComputeCapability error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("cuDeviceComputeCapability: Success: %d.%d.\n"), SMmajor, SMminor);
 
     if (((SMmajor << 4) + SMminor) < 0x30) {
         PrintMes(RGY_LOG_ERROR, _T("GPU %d does not have NVENC capabilities exiting\n"), m_nDeviceId);
@@ -893,8 +930,17 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID, int cudaSchedule) {
     m_cudaSchedule = (CUctx_flags)(cudaSchedule & CU_CTX_SCHED_MASK);
     PrintMes(RGY_LOG_DEBUG, _T("using cuda schdule mode: %s.\n"), get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
     if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), m_cudaSchedule, m_device))) {
-        PrintMes(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
-        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+        if (m_cudaSchedule != 0) {
+            PrintMes(RGY_LOG_WARN, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+            PrintMes(RGY_LOG_WARN, _T("retry cuCtxCreate with auto scheduling mode.\n"));
+            if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), 0, m_device))) {
+                PrintMes(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+                return NV_ENC_ERR_NO_ENCODE_DEVICE;
+            }
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+            return NV_ENC_ERR_NO_ENCODE_DEVICE;
+        }
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuCtxCreate: Success.\n"));
 
