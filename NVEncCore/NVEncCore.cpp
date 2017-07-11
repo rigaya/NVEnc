@@ -1243,7 +1243,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     m_pFileWriter.reset();
     m_pFileWriterListAudio.clear();
 
-    {
+    if (m_vpFilters.size()) {
         NVEncCtxAutoLock(ctxlock(m_ctxLock));
         m_vpFilters.clear();
     }
