@@ -191,7 +191,7 @@ static tstring help() {
         _T("Information Options: \n")
         _T("-h,-? --help                    print help\n")
         _T("-v,--version                    print version info\n")
-        _T("   --check-device               show DeviceId for GPUs available on system")
+        _T("   --check-device               show DeviceId for GPUs available on system\n")
         _T("   --check-hw [<int>]           check NVEnc codecs for specefied DeviceId\n")
         _T("                                  if unset, will check DeviceId #0\n")
         _T("   --check-features [<int>]     check for NVEnc Features for specefied DeviceId\n")
