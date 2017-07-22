@@ -57,6 +57,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - H.264 Level / Profileの指定
 - 最大ビットレート等の指定
 - 最大GOP長の指定
+- ロスレス出力 (YUV444)
 
 ### NVEnc.auo
 - 音声エンコード
@@ -79,6 +80,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
    - delogo
    - リサイズ  
      bilinear,spline36に加え、x64版ではnppライブラリによる各種アルゴリズムが利用可
+   - バンディング低減
    - ノイズ除去
      - knn (K-nearest neighbor)
      - pmd (正則化pmd法)
