@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <sstream>
+#include <fcntl.h>
 #include "rgy_input_raw.h"
 
 #if ENABLE_RAW_READER
@@ -174,6 +175,12 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     bool use_stdin = _tcscmp(strFileName, _T("-")) == 0;
     if (use_stdin) {
         m_fSource = stdin;
+#if defined(_WIN32) || defined(_WIN64)
+        if (_setmode(_fileno(stdin), _O_BINARY) < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to switch stdin to binary mode.\n"));
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
+#endif //#if defined(_WIN32) || defined(_WIN64)
         AddMessage(RGY_LOG_DEBUG, _T("output to stdout.\n"));
     } else {
         int error = 0;
@@ -251,6 +258,8 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("%dx%d, pitch:%d, bufferSize:%d.\n"), m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, src_pitch, bufferSize);
+
     m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(bufferSize, 32), aligned_malloc_deleter());
     if (!m_pBuffer) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate input buffer.\n"));
@@ -281,14 +290,21 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
 
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         uint8_t y4m_buf[8] = { 0 };
-        if (fread(y4m_buf, 1, strlen("FRAME"), m_fSource) != strlen("FRAME"))
+        if (fread(y4m_buf, 1, strlen("FRAME"), m_fSource) != strlen("FRAME")) {
+            AddMessage(RGY_LOG_DEBUG, _T("header1: finish.\n"));
             return RGY_ERR_MORE_DATA;
-        if (memcmp(y4m_buf, "FRAME", strlen("FRAME")) != 0)
+        }
+        if (memcmp(y4m_buf, "FRAME", strlen("FRAME")) != 0) {
+            AddMessage(RGY_LOG_DEBUG, _T("header2: finish.\n"));
             return RGY_ERR_MORE_DATA;
+        }
         int i;
-        for (i = 0; fgetc(m_fSource) != '\n'; i++)
-            if (i >= 64)
+        for (i = 0; fgetc(m_fSource) != '\n'; i++) {
+            if (i >= 64) {
+                AddMessage(RGY_LOG_DEBUG, _T("header3: finish.\n"));
                 return RGY_ERR_MORE_DATA;
+            }
+        }
     }
 
     uint32_t frameSize = 0;
@@ -323,6 +339,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     if (frameSize != fread(m_pBuffer.get(), 1, frameSize, m_fSource)) {
+        AddMessage(RGY_LOG_DEBUG, _T("fread: finish: %d.\n"), frameSize);
         return RGY_ERR_MORE_DATA;
     }
 

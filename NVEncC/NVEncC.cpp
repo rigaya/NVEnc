@@ -33,6 +33,7 @@
 #include <tchar.h>
 #include <locale.h>
 #include <signal.h>
+#include <fcntl.h>
 #include <algorithm>
 #include <numeric>
 #include <vector>
@@ -2813,8 +2814,11 @@ static int set_signal_handler() {
 }
 
 int _tmain(int argc, TCHAR **argv) {
-    if (check_locale_is_ja())
-        _tsetlocale(LC_ALL, _T("japanese"));
+#if defined(_WIN32) || defined(_WIN64)
+    if (check_locale_is_ja()) {
+        _tsetlocale(LC_ALL, _T("Japanese"));
+    }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
     InEncodeVideoParam encPrm;
     NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
@@ -2826,6 +2830,24 @@ int _tmain(int argc, TCHAR **argv) {
     if (parse_cmd(&encPrm, codecPrm, argc, argvCopy.data())) {
         return 1;
     }
+
+#if defined(_WIN32) || defined(_WIN64)
+    //set stdin to binary mode when using pipe input
+    if (_tcscmp(encPrm.inputFilename.c_str(), _T("-")) == NULL) {
+        if (_setmode(_fileno(stdin), _O_BINARY) == 1) {
+            PrintHelp(argv[0], _T("failed to switch stdin to binary mode."), NULL);
+            return 1;
+        }
+    }
+
+    //set stdout to binary mode when using pipe output
+    if (_tcscmp(encPrm.outputFilename.c_str(), _T("-")) == NULL) {
+        if (_setmode(_fileno(stdout), _O_BINARY) == 1) {
+            PrintHelp(argv[0], _T("failed to switch stdout to binary mode."), NULL);
+            return 1;
+        }
+    }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
     encPrm.encConfig.encodeCodecConfig = codecPrm[encPrm.codec];
 
