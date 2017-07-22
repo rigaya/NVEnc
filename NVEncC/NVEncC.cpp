@@ -351,7 +351,8 @@ static tstring help() {
         _T("                                  h264 (or avc), h265 (or hevc)\n")
         _T("   --profile <string>           set codec profile\n")
         _T("                                  H.264: baseline, main, high(default), high444\n")
-        _T("                                  HEVC : main, main10, main444\n"));
+        _T("                                  HEVC : main, main10, main444\n")
+        _T("   --lossless                   for lossless (YUV444 only) / Default: off\n"));
 
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
         { { _T("H.264"), list_avc_level,   0 },
@@ -427,7 +428,6 @@ static tstring help() {
         _T("   --cabac                      use CABAC\n")
         _T("   --cavlc                      use CAVLC (no CABAC)\n")
         _T("   --bluray                     for bluray / Default: off\n")
-        _T("   --lossless                   for lossless (YUV444 only) / Default: off\n")
         _T("   --(no-)deblock               enable(disable) deblock filter\n"));
 
     str += strsprintf(_T("\n")
