@@ -75,7 +75,7 @@ includeパスに含まれるよう、Visual Studio設定した後、ビルドし
 
 ビルドしたいものに合わせて、構成を選択してください。
 
-||Debug用構成|Release用構成|
-|:--------------|:----------------------------------|
+|              |Debug用構成|Release用構成|
+|:---------------------|:------|:--------|
 |NVEnc.auo (win32のみ) | Debug | Release |
 |NVEncC(64).exe | DebugStatic | RelStatic |

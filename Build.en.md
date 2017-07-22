@@ -73,7 +73,7 @@ After preparations are done, open NVEnc.sln, and set headers below in the includ
 
 Finally, start build of NVEnc by Visual Studio.
 
-||For Debug build|For Release build|
-|:--------------|:----------------------------------|
+|  |For Debug build|For Release build|
+|:--------------|:--------------|:--------|
 |NVEnc.auo (win32 only) | Debug | Release |
 |NVEncC(64).exe | DebugStatic | RelStatic |
