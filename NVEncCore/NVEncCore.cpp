@@ -873,6 +873,33 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID, int cudaSchedule) {
         }
     }
 
+    int nv_driver_version = INT_MAX;
+#if ENABLE_NVML
+    {
+        int version = 0;
+        NVMLMonitor nvml_monitor;
+        if (NVML_SUCCESS == nvml_monitor.Init(m_nDeviceId)
+            && NVML_SUCCESS == nvml_monitor.getDriverVersionx1000(nv_driver_version)) {
+            nv_driver_version = version;
+        }
+    }
+#endif //#if ENABLE_NVML
+    if (nv_driver_version == INT_MAX) {
+        TCHAR buffer[1024];
+        if (0 == getGPUInfo("NVIDIA", buffer, _countof(buffer), true)) {
+            try {
+                nv_driver_version = (int)(std::stod(buffer) * 1000.0 + 0.5);
+            } catch (...) {
+            }
+        }
+    }
+    if (nv_driver_version < NV_DRIVER_VER_MIN) {
+        PrintMes(RGY_LOG_ERROR, _T("Insufficient NVIDIA driver version, Required %d.%d, Installed %d.%d\n"),
+            NV_DRIVER_VER_MIN / 1000, (NV_DRIVER_VER_MIN % 1000) / 10,
+            nv_driver_version / 1000, (nv_driver_version % 1000) / 10);
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+    }
+
     CUresult cuResult;
     int cudaDriverVersion = 0;
     if (CUDA_SUCCESS != (cuResult = cuDriverGetVersion(&cudaDriverVersion))) {

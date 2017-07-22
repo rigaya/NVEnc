@@ -157,6 +157,8 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
     LOAD_NVML_FUNC(nvmlDeviceGetDecoderUtilization);
     LOAD_NVML_FUNC(nvmlDeviceGetMemoryInfo);
     LOAD_NVML_FUNC(nvmlDeviceGetClockInfo);
+    LOAD_NVML_FUNC(nvmlSystemGetDriverVersion);
+    LOAD_NVML_FUNC(nvmlSystemGetNVMLVersion);
 
     return NVML_SUCCESS;
 
@@ -213,6 +215,23 @@ nvmlReturn_t NVMLMonitor::getData(NVMLMonitorInfo *info) {
     info->dVEFreq = value;
     info->bDataValid = true;
     return ret;
+}
+
+nvmlReturn_t NVMLMonitor::getDriverVersionx1000(int& ver) {
+    ver = 0;
+
+    char buffer[1024];
+    auto ret = m_func.f_nvmlSystemGetDriverVersion(buffer, _countof(buffer));
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    try {
+        double d = std::stod(buffer);
+        ver = (int)(d * 1000.0 + 0.5);
+    } catch (...) {
+        return NVML_ERROR_UNKNOWN;
+    }
+    return NVML_SUCCESS;
 }
 
 void NVMLMonitor::Close() {

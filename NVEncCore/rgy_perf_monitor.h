@@ -244,6 +244,8 @@ NVML_FUNCPTR(nvmlDeviceGetEncoderUtilization);
 NVML_FUNCPTR(nvmlDeviceGetDecoderUtilization);
 NVML_FUNCPTR(nvmlDeviceGetMemoryInfo);
 NVML_FUNCPTR(nvmlDeviceGetClockInfo);
+NVML_FUNCPTR(nvmlSystemGetDriverVersion);
+NVML_FUNCPTR(nvmlSystemGetNVMLVersion);
 
 #undef NVML_FUNCPTR
 
@@ -260,6 +262,8 @@ struct NVMLFuncList {
     NVML_FUNC(nvmlDeviceGetDecoderUtilization)
     NVML_FUNC(nvmlDeviceGetMemoryInfo)
     NVML_FUNC(nvmlDeviceGetClockInfo)
+    NVML_FUNC(nvmlSystemGetDriverVersion)
+    NVML_FUNC(nvmlSystemGetNVMLVersion)
 };
 #undef NVML_FUNC
 
@@ -287,6 +291,7 @@ public:
     }
     nvmlReturn_t Init(int deviceId);
     nvmlReturn_t getData(NVMLMonitorInfo *info);
+    nvmlReturn_t getDriverVersionx1000(int& ver);
 };
 #endif //#if ENABLE_NVML
 

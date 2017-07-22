@@ -66,6 +66,8 @@ const char *get_encoder_version();
 #define ENABLE_NVML 1
 #endif
 
+#define NV_DRIVER_VER_MIN 378660
+
 #ifdef NVENC_AUO
 #define ENCODER_NAME  "NVEnc"
 #define AUO_NAME      "NVEnc.auo"
