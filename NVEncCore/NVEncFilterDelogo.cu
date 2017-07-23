@@ -62,15 +62,15 @@ __global__ void kernel_delogo(
 
         //画素データ取り出し
         pFrame += (y + logo_y) * framePitch + (x + logo_x) * sizeof(Type);
-        float pixel_yuv = pFrame[0];
+        Type pixel_yuv = *(Type *)pFrame;
 
         //nv12->yc48
-        float pixel_yc48 = pixel_yuv * nv12_2_yc48_mul - nv12_2_yc48_sub;
+        float pixel_yc48 = (float)pixel_yuv * nv12_2_yc48_mul - nv12_2_yc48_sub;
 
         //ロゴ除去
         float yc = (pixel_yc48 * (float)LOGO_MAX_DP - logo * logo_dp + ((float)LOGO_MAX_DP - logo_dp) * 0.5f) * __frcp_rn((float)LOGO_MAX_DP - logo_dp);
 
-        pFrame[0] = (Type)clamp((yc * yc48_2_nv12_mul + yc48_2_nv12_add + 0.5f), 0.0f, (float)(1<<bit_depth)-0.1f);
+        *(Type *)pFrame = (Type)clamp((yc * yc48_2_nv12_mul + yc48_2_nv12_add + 0.5f), 0.0f, (float)(1<<bit_depth)-0.1f);
     }
 }
 
@@ -94,15 +94,15 @@ __global__ void kernel_delogo_add(
 
         //画素データ取り出し
         pFrame += (y + logo_y) * framePitch + (x + logo_x) * sizeof(Type);
-        float pixel_yuv = pFrame[0];
+        Type pixel_yuv = *(Type *)pFrame;
 
         //nv12->yc48
-        float pixel_yc48 = pixel_yuv * nv12_2_yc48_mul - nv12_2_yc48_sub;
+        float pixel_yc48 = (float)pixel_yuv * nv12_2_yc48_mul - nv12_2_yc48_sub;
 
         //ロゴ付加
         float yc = (pixel_yc48 * ((float)LOGO_MAX_DP - logo_dp) + logo * logo_dp) * (1.0f / (float)LOGO_MAX_DP);
 
-        pFrame[0] = (Type)clamp((yc * yc48_2_nv12_mul + yc48_2_nv12_add + 0.5f), 0.0f, (float)(1<<bit_depth)-0.1f);
+        *(Type *)pFrame = (Type)clamp((yc * yc48_2_nv12_mul + yc48_2_nv12_add + 0.5f), 0.0f, (float)(1<<bit_depth)-0.1f);
     }
 }
 
