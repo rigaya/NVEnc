@@ -209,11 +209,9 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo.csp = nOutputCSP;
 
     uint32_t bufferSize = 0;
-    uint32_t src_pitch = 0;
     switch (m_InputCsp) {
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
-        src_pitch = m_inputVideoInfo.srcPitch;
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2;
         break;
     case RGY_CSP_YV12_09:
@@ -221,11 +219,9 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YV12_12:
     case RGY_CSP_YV12_14:
     case RGY_CSP_YV12_16:
-        src_pitch = m_inputVideoInfo.srcPitch * 2;
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
         break;
     case RGY_CSP_YUV422:
-        src_pitch = m_inputVideoInfo.srcPitch;
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2;
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでNV16に変換する
         m_inputVideoInfo.csp = RGY_CSP_NV16;
@@ -235,7 +231,6 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YUV422_12:
     case RGY_CSP_YUV422_14:
     case RGY_CSP_YUV422_16:
-        src_pitch = m_inputVideoInfo.srcPitch * 2;
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 4;
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでP210に変換する
         m_inputVideoInfo.csp = RGY_CSP_P210;
@@ -243,7 +238,6 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         m_inputVideoInfo.shift = 16 - RGY_CSP_BIT_DEPTH[m_InputCsp];
         break;
     case RGY_CSP_YUV444:
-        src_pitch = m_inputVideoInfo.srcPitch;
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
         break;
     case RGY_CSP_YUV444_09:
@@ -251,14 +245,13 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YUV444_12:
     case RGY_CSP_YUV444_14:
     case RGY_CSP_YUV444_16:
-        src_pitch = m_inputVideoInfo.srcPitch * 2;
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 6;
         break;
     default:
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    AddMessage(RGY_LOG_DEBUG, _T("%dx%d, pitch:%d, bufferSize:%d.\n"), m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, src_pitch, bufferSize);
+    AddMessage(RGY_LOG_DEBUG, _T("%dx%d, pitch:%d, bufferSize:%d.\n"), m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcPitch, bufferSize);
 
     m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(bufferSize, 32), aligned_malloc_deleter());
     if (!m_pBuffer) {
@@ -379,7 +372,20 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         break;
     }
 
-    const int src_uv_pitch = (m_sConvert->csp_from == RGY_CSP_YUV444) ? m_inputVideoInfo.srcPitch : m_inputVideoInfo.srcPitch / 2;
+    int src_uv_pitch = m_inputVideoInfo.srcPitch;
+    switch (RGY_CSP_CHROMA_FORMAT[m_sConvert->csp_from]) {
+    case RGY_CHROMAFMT_YUV422:
+        src_uv_pitch >>= 1;
+        break;
+    case RGY_CHROMAFMT_YUV444:
+        break;
+    case RGY_CHROMAFMT_RGB:
+        break;
+    case RGY_CHROMAFMT_YUV420:
+    default:
+        src_uv_pitch >>= 1;
+        break;
+    }
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
         src_uv_pitch, pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
