@@ -879,7 +879,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID, int cudaSchedule) {
         int version = 0;
         NVMLMonitor nvml_monitor;
         if (NVML_SUCCESS == nvml_monitor.Init(m_nDeviceId)
-            && NVML_SUCCESS == nvml_monitor.getDriverVersionx1000(nv_driver_version)) {
+            && NVML_SUCCESS == nvml_monitor.getDriverVersionx1000(version)) {
             nv_driver_version = version;
         }
     }
@@ -893,7 +893,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID, int cudaSchedule) {
             }
         }
     }
-    if (nv_driver_version < NV_DRIVER_VER_MIN) {
+    if (0 < nv_driver_version && nv_driver_version < NV_DRIVER_VER_MIN) {
         PrintMes(RGY_LOG_ERROR, _T("Insufficient NVIDIA driver version, Required %d.%d, Installed %d.%d\n"),
             NV_DRIVER_VER_MIN / 1000, (NV_DRIVER_VER_MIN % 1000) / 10,
             nv_driver_version / 1000, (nv_driver_version % 1000) / 10);
