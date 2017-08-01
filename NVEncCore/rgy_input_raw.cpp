@@ -205,6 +205,8 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             return RGY_ERR_INVALID_FORMAT;
         }
         m_InputCsp = m_inputVideoInfo.csp;
+    } else {
+        m_inputVideoInfo.srcPitch = m_inputVideoInfo.srcWidth;
     }
     m_inputVideoInfo.csp = nOutputCSP;
 
