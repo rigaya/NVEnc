@@ -151,6 +151,7 @@ cudaError_t afsScanCache::alloc(const FrameInfo& frameInfo) {
     for (int i = 0; i < _countof(m_scanArray); i++) {
         initcache(i);
         m_scanArray[i].map.frame = frameInfo;
+        m_scanArray[i].map.frame.csp = RGY_CSP_NV12;
         auto ret = m_scanArray[i].map.alloc();
         if (ret != cudaSuccess) {
             m_scanArray[i].map.clear();
@@ -195,6 +196,7 @@ cudaError_t afsStripeCache::alloc(const FrameInfo& frameInfo) {
     for (int i = 0; i < _countof(m_stripeArray); i++) {
         initcache(i);
         m_stripeArray[i].map.frame = frameInfo;
+        m_stripeArray[i].map.frame.csp = RGY_CSP_NV12;
         auto ret = m_stripeArray[i].map.alloc();
         if (ret != cudaSuccess) {
             m_stripeArray[i].map.clear();

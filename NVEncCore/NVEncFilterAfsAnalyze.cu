@@ -494,7 +494,7 @@ cudaError_t textureCreate(cudaTextureObject_t& tex, cudaTextureFilterMode filter
 template<typename Type, typename Type4, int bit_depth, bool tb_order, bool yuv420>
 cudaError_t run_analyze_stripe(uint8_t *dst,
     uint8_t *p0, uint8_t *p1,
-    const int srcWidth, const int srcPitch, const int srcHeight,
+    const int srcWidth, const int srcPitch, const int srcHeight, const int dstPitch,
     CUMemBufPair *count_motion,
     const VppAfs *pAfsPrm, cudaStream_t stream) {
     auto cudaerr = cudaSuccess;
@@ -552,7 +552,7 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
 
     //YC48 -> yuv420/yuv444(bit_depth)へのスケーリング
     //色差はcudaReadModeNormalizedFloatをつ開くので、そのぶんのスケーリングも必要
-    const float thre_mul = (224.0f / 4096.0f) * (1.0f / (1 << (sizeof(Type) * 8)));
+    const float thre_mul = (224.0f / (float)(4096 >> (bit_depth - 8))) * (1.0f / (1 << (sizeof(Type) * 8)));
     const float thre_shift_yuvf   = std::max(0.0f, pAfsPrm->thre_shift * thre_mul);
     const float thre_deint_yuvf   = std::max(0.0f, pAfsPrm->thre_deint * thre_mul);
     const float thre_Cmotion_yuvf = std::max(0.0f, pAfsPrm->thre_Cmotion * thre_mul);
@@ -561,7 +561,7 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
         (uint32_t *)dst, (int *)count_motion->ptrDevice,
         texP0Y, texP0U0, texP0U1, texP0V0, texP0V1,
         texP1Y, texP1U0, texP1U1, texP1V0, texP1V1,
-        divCeil(srcWidth, 4), srcPitch / sizeof(uint32_t), srcHeight,
+        divCeil(srcWidth, 4), dstPitch / sizeof(uint32_t), srcHeight,
         thre_Ymotion_yuv, thre_deint_yuv, thre_shift_yuv,
         thre_Cmotion_yuvf, thre_deint_yuvf, thre_shift_yuvf,
         scan_left, scan_top, scan_width, scan_height);
@@ -605,7 +605,7 @@ cudaError_t NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_S
         return cudaErrorNotSupported;
     }
     auto cudaerr = analyze_stripe_func_list.at(pAfsParam->frameIn.csp).func[!!pAfsParam->afs.tb_order](
-        sp->map.frame.ptr, p0->frame.ptr, p1->frame.ptr, p1->frame.width, p1->frame.pitch, p1->frame.height,
+        sp->map.frame.ptr, p0->frame.ptr, p1->frame.ptr, p1->frame.width, p1->frame.pitch, p1->frame.height, sp->map.frame.pitch,
         count_motion, &pAfsParam->afs, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
