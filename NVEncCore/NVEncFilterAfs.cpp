@@ -818,6 +818,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
                 ppOutputFrames[0] = &pOutFrame->frame;
                 m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
             }
+            pOutFrame->frame.picstruct = RGY_PICSTRUCT_FRAME;
             pOutFrame->frame.duration = rational_rescale(afs_duration, pAfsParam->inFps.inv() * rgy_rational<int>(1,4), pAfsParam->outTimebase);
             pOutFrame->frame.timestamp = m_nPts;
             m_nPts += pOutFrame->frame.duration;
