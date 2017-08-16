@@ -66,6 +66,12 @@ union RGY_CSP_2 {
         ? (((int)(a) + (int)(b) + 1) << (out_bit_depth - in_bit_depth - 1)) \
         : (((int)(a) + (int)(b) + (1 << (in_bit_depth - out_bit_depth))) >> (in_bit_depth + 1 - out_bit_depth))))
 
+#define BIT_DEPTH_CONV_3x1_AVG(a, b) (TypeOut)((out_bit_depth == in_bit_depth + 2) \
+    ? ((int)(a) * 3 + (int)(b) + 2) \
+    : ((out_bit_depth > in_bit_depth + 2) \
+        ? (((int)(a) * 3 + (int)(b) + 2) << (out_bit_depth - in_bit_depth - 2)) \
+        : (((int)(a) * 3 + (int)(b) + (2 << (in_bit_depth - out_bit_depth))) >> (in_bit_depth + 2 - out_bit_depth))))
+
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 __global__ void kernel_crop_nv12_nv12(TypeOut *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     const TypeIn *__restrict__ pSrc, const int srcPitch, const int srcHeight, const int offsetX, const int offsetY) {
@@ -460,6 +466,75 @@ void crop_uv_nv16_nv12_p(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, 
     kernel_crop_uv_nv16_nv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
         ptrDstC, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
         ptrSrcC, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+__global__ void kernel_crop_uv_yuv444_nv12_p(uint8_t *__restrict__ pDstC, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrcU, const uint8_t *__restrict__ pSrcV, const int srcPitch, const int offsetX, const int offsetY) {
+    int uv_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int uv_y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (uv_x < (dstWidth >> 1) && uv_y < (dstHeight >> 1)) {
+        int idst = uv_y * dstPitch + uv_x * sizeof(TypeOut) * 2; //nv12
+        int isrc_y_yuv444 = (uv_y << 1) + offsetY;
+        int isrc = isrc_y_yuv444 * srcPitch + (uv_x + (offsetX >> 1)) * sizeof(TypeIn) * 2; //yuv444
+
+        const TypeIn src_u0 = *(const TypeIn *)(pSrcU + isrc +        0);
+        const TypeIn src_u1 = *(const TypeIn *)(pSrcU + isrc + srcPitch);
+        const TypeIn src_v0 = *(const TypeIn *)(pSrcV + isrc +        0);
+        const TypeIn src_v1 = *(const TypeIn *)(pSrcV + isrc + srcPitch);
+
+        struct TypeOut2 { TypeOut a, b; };
+        TypeOut2 dst = { BIT_DEPTH_CONV_AVG(src_u0, src_u1), BIT_DEPTH_CONV_AVG(src_v0, src_v1) };
+
+        *(TypeOut2 *)(pDstC + idst) = dst;
+    }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+__global__ void kernel_crop_uv_yuv444_nv12_i(uint8_t *__restrict__ pDstC, const int dstPitch, const int dstWidth, const int dstHeight,
+    const uint8_t *__restrict__ pSrcU, const uint8_t *__restrict__ pSrcV, const int srcPitch, const int offsetX, const int offsetY) {
+    int uv_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int uv_y = blockIdx.y * blockDim.y + threadIdx.y;
+    if (uv_x < (dstWidth >> 1) && uv_y < (dstHeight >> 2)) {
+        int idst = uv_y * dstPitch + uv_x * sizeof(TypeOut) * 2; //nv12
+        int isrc_y_yuv444 = (uv_y << 2) + offsetY;
+        int isrc = isrc_y_yuv444 * srcPitch + (uv_x + (offsetX >> 1)) * sizeof(TypeIn) * 2; //yuv444
+
+        const TypeIn src_u0 = *(const TypeIn *)(pSrcU + isrc + srcPitch * 0);
+        const TypeIn src_u1 = *(const TypeIn *)(pSrcU + isrc + srcPitch * 1);
+        const TypeIn src_u2 = *(const TypeIn *)(pSrcU + isrc + srcPitch * 2);
+        const TypeIn src_u3 = *(const TypeIn *)(pSrcU + isrc + srcPitch * 3);
+        const TypeIn src_v0 = *(const TypeIn *)(pSrcV + isrc + srcPitch * 0);
+        const TypeIn src_v1 = *(const TypeIn *)(pSrcV + isrc + srcPitch * 1);
+        const TypeIn src_v2 = *(const TypeIn *)(pSrcV + isrc + srcPitch * 2);
+        const TypeIn src_v3 = *(const TypeIn *)(pSrcV + isrc + srcPitch * 3);
+
+        struct TypeOut2 { TypeOut a, b; };
+        TypeOut2 dst0 = { BIT_DEPTH_CONV_3x1_AVG(src_u0, src_u2), BIT_DEPTH_CONV_3x1_AVG(src_v0, src_v2) };
+        TypeOut2 dst1 = { BIT_DEPTH_CONV_3x1_AVG(src_u3, src_u1), BIT_DEPTH_CONV_3x1_AVG(src_v3, src_v1) };
+
+        *(TypeOut2 *)(pDstC + idst +        0) = dst0;
+        *(TypeOut2 *)(pDstC + idst + dstPitch) = dst1;
+    }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+void crop_uv_yuv444_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop) {
+    const uint8_t *ptrU = (const uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
+    const uint8_t *ptrV = (const uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 3 / 2;
+    uint8_t *ptrC = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
+    dim3 blockSize(32, 4);
+    if (interlaced(*pInputFrame)) {
+        dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 2, blockSize.y));
+        kernel_crop_uv_yuv444_nv12_i<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
+            ptrC, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+            ptrU, ptrV, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
+    } else {
+        dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
+        kernel_crop_uv_yuv444_nv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
+            ptrC, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+            ptrU, ptrV, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
+    }
 }
 
 static __device__ float3 rgb_2_yuv(float3 rgb) {
@@ -968,6 +1043,63 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV16(FrameInfo *pOutputFrame, cons
     }
     return NV_ENC_SUCCESS;
 }
+
+NVENCSTATUS NVEncFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+    auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
+    if (!pCropParam) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
+    const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
+    //Y
+    if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
+        auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
+            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
+            pInputFrame->pitch,
+            frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice);
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync (convertCspFromYUV444(%s -> %s)): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
+    } else {
+        auto ret = convertYBitDepth(pOutputFrame, pInputFrame);
+        if (ret != NV_ENC_SUCCESS) {
+            return ret;
+        }
+    }
+
+    //UV
+    static const std::map<uint64_t, void(*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop)> convert_from_yuv444_list = {
+        { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_NV12).i, crop_uv_yuv444_nv12<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_P010).i, crop_uv_yuv444_nv12<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_09, RGY_CSP_NV12).i, crop_uv_yuv444_nv12<uint16_t,  9, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_09, RGY_CSP_P010).i, crop_uv_yuv444_nv12<uint16_t,  9, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_10, RGY_CSP_NV12).i, crop_uv_yuv444_nv12<uint16_t, 10, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_10, RGY_CSP_P010).i, crop_uv_yuv444_nv12<uint16_t, 10, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_12, RGY_CSP_NV12).i, crop_uv_yuv444_nv12<uint16_t, 12, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_12, RGY_CSP_P010).i, crop_uv_yuv444_nv12<uint16_t, 12, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_14, RGY_CSP_NV12).i, crop_uv_yuv444_nv12<uint16_t, 14, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_14, RGY_CSP_P010).i, crop_uv_yuv444_nv12<uint16_t, 14, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_NV12).i, crop_uv_yuv444_nv12<uint16_t, 16, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_P010).i, crop_uv_yuv444_nv12<uint16_t, 16, uint16_t, 16> },
+    };
+    const auto cspconv = RGY_CSP_2(pInputFrame->csp, pOutputFrame->csp);
+    if (convert_from_yuv444_list.count(cspconv.i) == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
+        return NV_ENC_ERR_UNIMPLEMENTED;
+    }
+    convert_from_yuv444_list.at(cspconv.i)(pOutputFrame, pInputFrame, &pCropParam->crop);
+    auto cudaerr = cudaGetLastError();
+    if (cudaerr != cudaSuccess) {
+        AddMessage(RGY_LOG_ERROR, _T("error at convert_from_yuv444(%s -> %s): %s.\n"),
+            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp],
+            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        return NV_ENC_ERR_INVALID_CALL;
+    }
+    return NV_ENC_SUCCESS;
+}
+
 NVENCSTATUS NVEncFilterCspCrop::convertCspFromRGB(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
@@ -1020,11 +1152,6 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromRGB(FrameInfo *pOutputFrame, const
         return NV_ENC_ERR_INVALID_CALL;
     }
     return NV_ENC_SUCCESS;
-}
-
-NVENCSTATUS NVEncFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
-    AddMessage(RGY_LOG_ERROR, _T("unsupported csp conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
-    return NV_ENC_ERR_UNIMPLEMENTED;
 }
 
 NVEncFilterCspCrop::NVEncFilterCspCrop() {
