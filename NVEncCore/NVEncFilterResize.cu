@@ -658,7 +658,7 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
 
 NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
-    if (pInputFrame == nullptr) {
+    if (pInputFrame->ptr == nullptr) {
         return sts;
     }
 
@@ -668,8 +668,8 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
         ppOutputFrames[0] = &pOutFrame->frame;
         m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
     }
-    ppOutputFrames[0]->interlaced = pInputFrame->interlaced;
-    if (pInputFrame->interlaced && !m_bInterlacedWarn) {
+    ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
+    if (interlaced(*pInputFrame) && !m_bInterlacedWarn) {
         AddMessage(RGY_LOG_WARN, _T("Interlaced resize is not supported, resizing as progressive.\n"));
         AddMessage(RGY_LOG_WARN, _T("This should result in poor quality.\n"));
         m_bInterlacedWarn = true;

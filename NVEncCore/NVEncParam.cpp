@@ -72,7 +72,8 @@ VppParam::VppParam() :
     delogo(),
     knn(),
     pmd(),
-    deband() {
+    deband(),
+    afs() {
     unsharp.bEnable = false;
     delogo.pFilePath = nullptr;
     delogo.pSelect = nullptr;
@@ -84,3 +85,65 @@ VppParam::VppParam() :
     delogo.nCrOffset = 0;
     delogo.nMode = DELOGO_MODE_REMOVE;
 }
+
+VppAfs::VppAfs() :
+    enable(false),
+    tb_order(FILTER_DEFAULT_AFS_TB_ORDER),
+    clip(scan_clip(FILTER_DEFAULT_AFS_CLIP_TB, FILTER_DEFAULT_AFS_CLIP_TB, FILTER_DEFAULT_AFS_CLIP_LR, FILTER_DEFAULT_AFS_CLIP_LR)),
+    method_switch(FILTER_DEFAULT_AFS_METHOD_SWITCH),
+    coeff_shift(FILTER_DEFAULT_AFS_COEFF_SHIFT),
+    thre_shift(FILTER_DEFAULT_AFS_THRE_SHIFT),
+    thre_deint(FILTER_DEFAULT_AFS_THRE_DEINT),
+    thre_Ymotion(FILTER_DEFAULT_AFS_THRE_YMOTION),
+    thre_Cmotion(FILTER_DEFAULT_AFS_THRE_CMOTION),
+    analyze(FILTER_DEFAULT_AFS_ANALYZE),
+    shift(FILTER_DEFAULT_AFS_SHIFT),
+    drop(FILTER_DEFAULT_AFS_DROP),
+    smooth(FILTER_DEFAULT_AFS_SMOOTH),
+    force24(FILTER_DEFAULT_AFS_FORCE24),
+    tune(FILTER_DEFAULT_AFS_TUNE) {
+    check();
+}
+
+VppAfs::VppAfs(bool _enable,
+    int _tb_order,
+    AFS_SCAN_CLIP _clip,
+    int _method_watershed,
+    int _coeff_shift,
+    int _thre_shift,
+    int _thre_deint,
+    int _thre_Ymotion,
+    int _thre_Cmotion,
+    int _analyze,
+    bool _shift,
+    bool _drop,
+    bool _smooth,
+    bool _force24,
+    bool _tune) :
+    enable(_enable),
+    tb_order(_tb_order),
+    clip(_clip),
+    method_switch(_method_watershed),
+    coeff_shift(_coeff_shift),
+    thre_shift(_thre_shift),
+    thre_deint(_thre_deint),
+    thre_Ymotion(_thre_Ymotion),
+    thre_Cmotion(_thre_Cmotion),
+    analyze(_analyze),
+    shift(_shift),
+    drop(_drop),
+    smooth(_smooth),
+    force24(_force24),
+    tune(_tune) {
+    check();
+}
+
+void VppAfs::check() {
+    if (!shift) {
+        method_switch = 0;
+        coeff_shift = 0;
+    }
+    drop &= shift;
+    smooth &= drop;
+}
+

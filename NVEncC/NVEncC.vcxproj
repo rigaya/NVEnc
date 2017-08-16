@@ -195,6 +195,18 @@
       <Command>
       </Command>
     </PostBuildEvent>
+    <CudaCompile>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+    </CudaCompile>
+    <CudaCompile>
+      <GenerateLineInfo>true</GenerateLineInfo>
+    </CudaCompile>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
@@ -229,6 +241,21 @@
       <Command>
       </Command>
     </PostBuildEvent>
+    <CudaCompile>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+    </CudaCompile>
+    <CudaCompile>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaCompile>
+    <CudaCompile>
+      <GenerateLineInfo>true</GenerateLineInfo>
+    </CudaCompile>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -262,6 +289,18 @@
       <Command>
       </Command>
     </PostBuildEvent>
+    <CudaCompile>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+    </CudaCompile>
+    <CudaCompile>
+      <GenerateLineInfo>true</GenerateLineInfo>
+    </CudaCompile>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <ClCompile>
@@ -296,6 +335,21 @@
       <Command>
       </Command>
     </PostBuildEvent>
+    <CudaCompile>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+    </CudaCompile>
+    <CudaCompile>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaCompile>
+    <CudaCompile>
+      <GenerateLineInfo>true</GenerateLineInfo>
+    </CudaCompile>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>

@@ -127,6 +127,7 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *pMuxVideo) {
     if (m_Mux.video.fpTsLogFile) {
         fclose(m_Mux.video.fpTsLogFile);
     }
+    m_Mux.video.timestampList.clear();
     memset(pMuxVideo, 0, sizeof(pMuxVideo[0]));
     AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
 }
@@ -479,7 +480,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     }
     AddMessage(RGY_LOG_DEBUG, _T("opened video avcodec\n"));
 
-    m_Mux.video.pStreamOut->time_base = av_inv_q(m_Mux.video.nFPS);
+    m_Mux.video.rBitstreamTimebase    = (av_isvalid_q(prm->rBitstreamTimebase)) ? prm->rBitstreamTimebase : HW_NATIVE_TIMEBASE;
+    m_Mux.video.pStreamOut->time_base = (av_isvalid_q(prm->rBitstreamTimebase)) ? prm->rBitstreamTimebase : av_inv_q(m_Mux.video.nFPS);
     if (m_Mux.format.bIsMatroska) {
         m_Mux.video.pStreamOut->time_base = av_make_q(1, 1000);
     }
@@ -490,6 +492,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.bDtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.nInputFirstKeyPts = prm->nVideoInputFirstKeyPts;
     m_Mux.video.pStreamIn         = prm->pVideoInputStream;
+
+    m_Mux.video.timestampList.clear();
 
     if (prm->pMuxVidTsLogFile) {
         if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->pMuxVidTsLogFile, _T("a"))) {
@@ -1539,6 +1543,13 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *pBitstream) {
         if (m_Mux.video.bDtsUnavailable) {
             m_Mux.video.nFpsBaseNextDts = (0 - m_VideoOutputInfo.videoDelay * ((m_VideoOutputInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 2 : 1));
             AddMessage(RGY_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
+
+            const int bIsPAFF = (m_VideoOutputInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0;
+            const AVRational fpsTimebase = av_div_q({ 1, 1 + bIsPAFF }, m_Mux.video.nFPS);
+            const AVRational streamTimebase = m_Mux.video.pStreamOut->codec->pkt_timebase;
+            for (int i = m_Mux.video.nFpsBaseNextDts; i < 0; i++) {
+                m_Mux.video.timestampList.add(av_rescale_q(i, fpsTimebase, streamTimebase));
+            }
         }
     }
     return RGY_ERR_NONE;
@@ -1693,6 +1704,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *pBitstream) {
         copyStream.setDataflag(pBitstream->dataflag());
         copyStream.setPts(pBitstream->pts());
         copyStream.setDts(pBitstream->dts());
+        copyStream.setDuration(pBitstream->duration());
         copyStream.setFrametype(pBitstream->frametype());
         copyStream.setSize(pBitstream->size());
         copyStream.setAvgQP(pBitstream->avgQP());
@@ -1743,17 +1755,24 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         const AVRational streamTimebase = m_Mux.video.pStreamOut->codec->pkt_timebase;
         pkt.stream_index = m_Mux.video.pStreamOut->index;
         pkt.flags        = isIDR;
-        pkt.duration     = (int)av_rescale_q(1, fpsTimebase, streamTimebase);
 #if ENCODER_NVENC
-        pkt.pts          = av_rescale_q(pBitstream->pts() * (1 + bIsPAFF), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
+        pkt.duration     = pBitstream->duration() * (i + 1) / (1 + bIsPAFF);
+        pkt.pts          = pBitstream->pts() + i * pkt.duration;
+        if (av_cmp_q(m_Mux.video.rBitstreamTimebase, streamTimebase) != 0) {
+            pkt.duration = av_rescale_q(pkt.duration, m_Mux.video.rBitstreamTimebase, streamTimebase);
+            pkt.pts      = av_rescale_q(pkt.pts, m_Mux.video.rBitstreamTimebase, streamTimebase);
+        }
 #else
+        pkt.duration     = (int)av_rescale_q(1, fpsTimebase, streamTimebase);
         pkt.pts          = av_rescale_q(av_rescale_q(pBitstream->pts(), HW_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
 #endif
         if (!m_Mux.video.bDtsUnavailable) {
             pkt.dts = av_rescale_q(av_rescale_q(pBitstream->dts(), HW_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
         } else {
-            pkt.dts = av_rescale_q(m_Mux.video.nFpsBaseNextDts, fpsTimebase, streamTimebase);
-            m_Mux.video.nFpsBaseNextDts++;
+            m_Mux.video.timestampList.add(pkt.pts);
+            pkt.dts = m_Mux.video.timestampList.get_min_pts();
+            //av_rescale_q(m_Mux.video.nFpsBaseNextDts, fpsTimebase, streamTimebase);
+            //m_Mux.video.nFpsBaseNextDts++;
         }
         const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
         *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, HW_NATIVE_TIMEBASE);

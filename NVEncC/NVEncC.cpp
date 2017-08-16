@@ -488,6 +488,37 @@ static tstring help() {
         FILTER_DEFAULT_DEBAND_BLUR_FIRST ? _T("on") : _T("off"),
         FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME ? _T("on") : _T("off"));
     str += strsprintf(_T("")
+        _T("   --vpp-afs [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable auto field shift deinterlacer\n")
+        _T("    params        Aviutlでのパラメータ名\n")
+        _T("      top=<int>           (上)               range to scan (default=%d)\n")
+        _T("      bottom=<int>        (下)               range to scan (default=%d)\n")
+        _T("      left=<int>          (左)               range to scan (default=%d)\n")
+        _T("      right=<int>         (右)               range to scan (default=%d)\n")
+        _T("      method_switch=<int> (切替点)           (default=%d, 0-256)\n")
+        _T("      coeff_shift=<int>   (判定比)           (default=%d, 0-256)\n")
+        _T("      thre_shift=<int>    (縞(シフト))       stripe(shift) threshold (default=%d, 0-1024)\n")
+        _T("      thre_deint=<int>    (縞(解除))         stripe(deint) threshold (default=%d, 0-1024)\n")
+        _T("      thre_motion_y=<int> (Y動き)            Y motion threshold (default=%d, 0-1024)\n")
+        _T("      thre_motion_c=<int> (C動き)            C motion threshold (default=%d, 0-1024)\n")
+        _T("      analyze=<int>       (解除Lv)           set analyze mode   (default=%d, 0-4\n")
+        _T("      shift=<bool>        (フィールドシフト) enable field shift (default=%s)\n")
+        _T("      drop=<bool>         (ドロップ)         enable frame drop  (default=%s)\n")
+        _T("      smooth=<bool>       (スムージング)     enable smoothing   (default=%s)\n")
+        _T("      24fps=<bool>        (24fps化)          force 30fps->24fps (default=%s)\n")
+        _T("      tune=<bool>         (調整モード)       show scan result   (default=%s)\n"),
+        FILTER_DEFAULT_AFS_CLIP_TB, FILTER_DEFAULT_AFS_CLIP_TB,
+        FILTER_DEFAULT_AFS_CLIP_LR, FILTER_DEFAULT_AFS_CLIP_LR,
+        FILTER_DEFAULT_AFS_METHOD_SWITCH, FILTER_DEFAULT_AFS_COEFF_SHIFT,
+        FILTER_DEFAULT_AFS_THRE_SHIFT, FILTER_DEFAULT_AFS_THRE_DEINT,
+        FILTER_DEFAULT_AFS_THRE_YMOTION, FILTER_DEFAULT_AFS_THRE_CMOTION,
+        FILTER_DEFAULT_AFS_ANALYZE,
+        FILTER_DEFAULT_AFS_SHIFT   ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_DROP    ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_SMOOTH  ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_FORCE24 ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"));
+    str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
         _T("                                 or logo index starting from 1.\n")
@@ -2266,6 +2297,169 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     pParams->vpp.deband.randEachFrame = true;
                     continue;
                 }
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-afs")) {
+        pParams->vpp.afs.enable = true;
+
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("top")) {
+                    try {
+                        pParams->vpp.afs.clip.top = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("bottom")) {
+                    try {
+                        pParams->vpp.afs.clip.bottom = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("left")) {
+                    try {
+                        pParams->vpp.afs.clip.left = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("right")) {
+                    try {
+                        pParams->vpp.afs.clip.right = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("method_switch")) {
+                    try {
+                        pParams->vpp.afs.method_switch = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("coeff_shift")) {
+                    try {
+                        pParams->vpp.afs.coeff_shift = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_shift")) {
+                    try {
+                        pParams->vpp.afs.thre_shift = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_deint")) {
+                    try {
+                        pParams->vpp.afs.thre_deint = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_motion_y")) {
+                    try {
+                        pParams->vpp.afs.thre_Ymotion = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thre_motion_c")) {
+                    try {
+                        pParams->vpp.afs.thre_Cmotion = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("analyze")) {
+                    try {
+                        pParams->vpp.afs.analyze = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("shift")) {
+                    pParams->vpp.afs.shift = (param_val == _T("true"));
+                    continue;
+                }
+                if (param_arg == _T("drop")) {
+                    pParams->vpp.afs.drop = (param_val == _T("true"));
+                    continue;
+                }
+                if (param_arg == _T("smooth")) {
+                    pParams->vpp.afs.smooth = (param_val == _T("true"));
+                    continue;
+                }
+                if (param_arg == _T("24fps")) {
+                    pParams->vpp.afs.force24 = (param_val == _T("true"));
+                    continue;
+                }
+                if (param_arg == _T("tune")) {
+                    pParams->vpp.afs.tune = (param_val == _T("true"));
+                    continue;
+                }
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                if (param == _T("shift")) {
+                    pParams->vpp.afs.shift = true;
+                    continue;
+                }
+                if (param == _T("drop")) {
+                    pParams->vpp.afs.drop = true;
+                    continue;
+                }
+                if (param == _T("smooth")) {
+                    pParams->vpp.afs.smooth = true;
+                    continue;
+                }
+                if (param == _T("24fps")) {
+                    pParams->vpp.afs.force24 = true;
+                    continue;
+                }
+                if (param == _T("tune")) {
+                    pParams->vpp.afs.tune = true;
+                    continue;
+                }
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
             }
         }
         return 0;

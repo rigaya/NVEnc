@@ -64,6 +64,22 @@ static const int   FILTER_DEFAULT_DEBAND_SEED = 1234;
 static const bool  FILTER_DEFAULT_DEBAND_BLUR_FIRST = false;
 static const bool  FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME = false;
 
+static const int   FILTER_DEFAULT_AFS_CLIP_TB = 16;
+static const int   FILTER_DEFAULT_AFS_CLIP_LR = 32;
+static const int   FILTER_DEFAULT_AFS_TB_ORDER = 0;
+static const int   FILTER_DEFAULT_AFS_METHOD_SWITCH = 0;
+static const int   FILTER_DEFAULT_AFS_COEFF_SHIFT = 192;
+static const int   FILTER_DEFAULT_AFS_THRE_SHIFT = 128;
+static const int   FILTER_DEFAULT_AFS_THRE_DEINT = 64;
+static const int   FILTER_DEFAULT_AFS_THRE_YMOTION = 128;
+static const int   FILTER_DEFAULT_AFS_THRE_CMOTION = 256;
+static const int   FILTER_DEFAULT_AFS_ANALYZE = 3;
+static const bool  FILTER_DEFAULT_AFS_SHIFT = true;
+static const bool  FILTER_DEFAULT_AFS_DROP = false;
+static const bool  FILTER_DEFAULT_AFS_SMOOTH = false;
+static const bool  FILTER_DEFAULT_AFS_FORCE24 = false;
+static const bool  FILTER_DEFAULT_AFS_TUNE = false;
+
 enum {
     NV_ENC_AVCUVID_NATIVE = 0,
     NV_ENC_AVCUVID_CUDA,
@@ -539,6 +555,57 @@ struct VppDeband {
     VppDeband();
 };
 
+typedef struct {
+    int top, bottom, left, right;
+} AFS_SCAN_CLIP;
+
+static inline AFS_SCAN_CLIP scan_clip(int top, int bottom, int left, int right) {
+    AFS_SCAN_CLIP clip;
+    clip.top = top;
+    clip.bottom = bottom;
+    clip.left = left;
+    clip.right = right;
+    return clip;
+}
+
+struct VppAfs {
+    bool enable;
+    int tb_order;
+    AFS_SCAN_CLIP clip;    //上下左右
+    int method_switch;     //切替点
+    int coeff_shift;       //判定比
+    int thre_shift;        //縞(ｼﾌﾄ)
+    int thre_deint;        //縞(解除)
+    int thre_Ymotion;      //Y動き
+    int thre_Cmotion;      //C動き
+    int analyze;           //解除Lv
+    bool shift;            //フィールドシフト
+    bool drop;             //間引き
+    bool smooth;           //スムージング
+    bool force24;          //24fps化
+    bool tune;             //調整モード
+
+    VppAfs();
+    VppAfs(bool _enable,
+        int _tb_order,
+        AFS_SCAN_CLIP _clip,
+        int _method_watershed,
+        int _coeff_shift,
+        int _thre_shift,
+        int _thre_deint,
+        int _thre_Ymotion,
+        int _thre_Cmotion,
+        int _analyze,
+        bool _shift,
+        bool _drop,
+        bool _smooth,
+        bool _force24,
+        bool _tune);
+
+    void check();
+};
+
+
 struct VppParam {
     bool bCheckPerformance;
     cudaVideoDeinterlaceMode deinterlace;
@@ -568,6 +635,7 @@ struct VppParam {
     VppKnn knn;
     VppPmd pmd;
     VppDeband deband;
+    VppAfs afs;
 
     VppParam();
 };

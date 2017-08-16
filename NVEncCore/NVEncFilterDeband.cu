@@ -334,7 +334,7 @@ cudaError_t deband_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, F
         (uint8_t *)pInputFrame->ptr,
         pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
         (uint8_t *)pRandY->ptr, pRandY->pitch,
-        true, range, ditherY, threY, pInputFrame->interlaced);
+        true, range, ditherY, threY, interlaced(*pInputFrame));
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -345,7 +345,7 @@ cudaError_t deband_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, F
         (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height,
         pInputFrame->pitch, pInputFrame->width >> 1, pInputFrame->height >> 1,
         (uint8_t *)pRandUV->ptr, pRandUV->pitch,
-        true, range, ditherC, threCb, pInputFrame->interlaced);
+        true, range, ditherC, threCb, interlaced(*pInputFrame));
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -357,7 +357,7 @@ cudaError_t deband_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, F
         (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 3 / 2,
         pInputFrame->pitch, pInputFrame->width >> 1, pInputFrame->height >> 1,
         (uint8_t *)pRandUV->ptr, pRandUV->pitch,
-        true, range, ditherC, threCr, pInputFrame->interlaced);
+        true, range, ditherC, threCr, interlaced(*pInputFrame));
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -389,7 +389,7 @@ static cudaError_t deband_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInpu
         (uint8_t *)pInputFrame->ptr,
         pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
         (uint8_t *)pRandY->ptr, pRandY->pitch,
-        false, range, ditherY, threY, pInputFrame->interlaced);
+        false, range, ditherY, threY, interlaced(*pInputFrame));
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -400,7 +400,7 @@ static cudaError_t deband_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInpu
         (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height,
         pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
         (uint8_t *)pRandUV->ptr, pRandUV->pitch,
-        false, range, ditherC, threCb, pInputFrame->interlaced);
+        false, range, ditherC, threCb, interlaced(*pInputFrame));
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -412,7 +412,7 @@ static cudaError_t deband_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInpu
         (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 2,
         pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
         (uint8_t *)pRandUV->ptr, pRandUV->pitch,
-        false, range, ditherC, threCr, pInputFrame->interlaced);
+        false, range, ditherC, threCr, interlaced(*pInputFrame));
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -615,7 +615,7 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
 
 NVENCSTATUS NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
 
-    if (pInputFrame == nullptr) {
+    if (pInputFrame->ptr == nullptr) {
         return NV_ENC_SUCCESS;
     }
     auto pDebandParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_pParam);

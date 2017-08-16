@@ -317,7 +317,7 @@ void crop_uv_nv12_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, 
     uint8_t *ptrU = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
     uint8_t *ptrV = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 2;
     const uint8_t *ptrC = (const uint8_t  *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
-    if (pInputFrame->interlaced) {
+    if (interlaced(*pInputFrame)) {
         kernel_crop_uv_nv12_yuv444_i<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
             ptrU, ptrV, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
             ptrC, pInputFrame->pitch, pInputFrame->width, pInputFrame->height, pCrop->e.left, pCrop->e.up);
@@ -949,7 +949,7 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromNV16(FrameInfo *pOutputFrame, cons
         { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YUV444_10).i, crop_uv_nv16_yuv444<uint16_t, 10, uint16_t, 16> },
         { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YUV444_09).i, crop_uv_nv16_yuv444<uint16_t,  9, uint16_t, 16> },
     };
-    if (pInputFrame->interlaced && RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) {
+    if (interlaced(*pInputFrame) && RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported interlaced csp conversion: %s -> %s.\n"), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;
     }
@@ -1096,7 +1096,7 @@ NVENCSTATUS NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared
 NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
 
-    if (pInputFrame == nullptr) {
+    if (pInputFrame->ptr == nullptr) {
         return sts;
     }
 
@@ -1112,7 +1112,7 @@ NVENCSTATUS NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameIn
         return NV_ENC_ERR_INVALID_PARAM;
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
-    ppOutputFrames[0]->interlaced = pInputFrame->interlaced;
+    ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     if (m_pParam->frameOut.csp == m_pParam->frameIn.csp) {
         auto cudaMemcpyErrMes = [&](cudaError_t cudaerr, const TCHAR *mes) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (filter(%s)): %s.\n"),

@@ -175,14 +175,14 @@
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
-    <CudaCompile>
-      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
-    </CudaCompile>
+    <CudaCompile />
     <CudaCompile>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <GenerateLineInfo>true</GenerateLineInfo>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -194,6 +194,12 @@ echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
 fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
@@ -215,15 +221,16 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <Lib>
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
-    <CudaCompile>
-      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
-    </CudaCompile>
+    <CudaCompile />
     <CudaCompile />
     <CudaCompile>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <GPUDebugInfo>true</GPUDebugInfo>
+      <GenerateLineInfo>true</GenerateLineInfo>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -235,6 +242,12 @@ echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
 fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -257,11 +270,12 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <GenerateLineInfo>true</GenerateLineInfo>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -273,6 +287,12 @@ echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
 fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <ClCompile>
@@ -296,11 +316,13 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
       <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <GPUDebugInfo>true</GPUDebugInfo>
+      <GenerateLineInfo>true</GenerateLineInfo>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -312,6 +334,12 @@ echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
 fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -561,6 +589,11 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="rgy_simd.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <ClCompile Include="rgy_version.cpp" />
+    <CudaCompile Include="NVEncFilterAfs.cpp" />
+    <CudaCompile Include="NVEncFilterAfsAnalyze.cu" />
+    <CudaCompile Include="NVEncFilterAfsFilter.cu" />
+    <CudaCompile Include="NVEncFilterAfsMerge.cu" />
+    <CudaCompile Include="NVEncFilterAfsSynthesize.cu" />
     <CudaCompile Include="NVEncFilterDeband.cu" />
     <CudaCompile Include="NVEncFilterDenoisePmd.cu">
       <FileType>CppCode</FileType>
@@ -575,6 +608,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\NVEncSDK\Common\inc\nvEncodeAPI.h" />
+    <ClInclude Include="afs.h" />
     <ClInclude Include="cl_func.h" />
     <ClInclude Include="convert_const.h" />
     <ClInclude Include="convert_csp.h" />
@@ -589,6 +623,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="logo.h" />
     <ClInclude Include="NVEncFeature.h" />
     <ClInclude Include="NVEncFilter.h" />
+    <ClInclude Include="NVEncFilterAfs.h" />
     <ClInclude Include="NVEncFilterDeband.h" />
     <ClInclude Include="NVEncFilterDelogo.h" />
     <ClInclude Include="NVEncFilterDenoiseKnn.h" />

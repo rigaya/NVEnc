@@ -49,6 +49,40 @@ using std::vector;
 
 static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 
+struct AVMuxTimestamp {
+    int64_t timestamp_list[4];
+
+    void add(int64_t timestamp) {
+        for (int idx = 0; idx < _countof(timestamp_list); idx++) {
+            if (timestamp_list[idx] == AV_NOPTS_VALUE) {
+                timestamp_list[idx] = timestamp; //空きエントリに格納
+                break;
+            }
+        }
+    }
+    int64_t get_min_pts() {
+        int64_t min_pts = std::numeric_limits<int64_t>::max();
+        int idx = -1;
+        for (int i = 0; i < _countof(timestamp_list); i++) {
+            if (timestamp_list[i] != AV_NOPTS_VALUE) {
+                //空きエントリ以外の最小のptsを探す
+                if (timestamp_list[i] < min_pts) {
+                    min_pts = timestamp_list[i];
+                    idx = i;
+                }
+            }
+        }
+        //使ったtimestampは空きエントリにする
+        timestamp_list[idx] = AV_NOPTS_VALUE;
+        return min_pts;
+    }
+    void clear() {
+        for (int i = 0; i < _countof(timestamp_list); i++) {
+            timestamp_list[i] = AV_NOPTS_VALUE; //空きエントリ
+        }
+    }
+};
+
 typedef struct AVMuxFormat {
     const TCHAR          *pFilename;            //出力ファイル名
     AVFormatContext      *pFormatCtx;           //出力ファイルのformatContext
@@ -76,6 +110,8 @@ typedef struct AVMuxVideo {
     bool                  bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
     const AVStream       *pStreamIn;            //入力映像のストリーム
     int64_t               nInputFirstKeyPts;    //入力映像の最初のpts
+    AVRational            rBitstreamTimebase;   //エンコーダのtimebase
+    AVMuxTimestamp        timestampList;        //エンコーダから渡されたtimestampリスト
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     FILE                 *fpTsLogFile;          //mux timestampログファイル
 } AVMuxVideo;
@@ -223,6 +259,7 @@ struct AvcodecWriterPrm {
     const TCHAR                 *pOutputFormat;           //出力のフォーマット
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
     const AVStream              *pVideoInputStream;       //入力映像のストリーム
+    AVRational                   rBitstreamTimebase;      //エンコーダのtimebase
     int64_t                      nVideoInputFirstKeyPts;  //入力映像の最初のpts
     vector<sTrim>                trimList;                //Trimする動画フレームの領域のリスト
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
@@ -242,6 +279,7 @@ struct AvcodecWriterPrm {
         pOutputFormat(nullptr),
         bVideoDtsUnavailable(),
         pVideoInputStream(nullptr),
+        rBitstreamTimebase(av_make_q(0, 1)),
         nVideoInputFirstKeyPts(0),
         trimList(),
         inputStreamList(),

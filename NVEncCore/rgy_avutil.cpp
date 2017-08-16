@@ -32,6 +32,10 @@
 
 #include "rgy_avutil.h"
 
+int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to) {
+    return av_rescale_q(v, av_make_q(from), av_make_q(to));
+}
+
 //必要なavcodecのdllがそろっているかを確認
 bool check_avcodec_dll() {
 #if defined(_WIN32) || defined(_WIN64)

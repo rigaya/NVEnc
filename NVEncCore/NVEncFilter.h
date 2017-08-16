@@ -64,6 +64,19 @@ struct cudaevent_deleter {
     }
 };
 
+struct cudastream_deleter {
+    void operator()(cudaStream_t *pStream) const {
+        cudaStreamDestroy(*pStream);
+        delete pStream;
+    }
+};
+
+struct cudahost_deleter {
+    void operator()(void *ptr) const {
+        cudaFreeHost(ptr);
+    }
+};
+
 static inline int divCeil(int value, int radix) {
     return (value + radix - 1) / radix;
 }
@@ -220,6 +233,64 @@ struct CUMemBuf {
     }
 };
 
+struct CUMemBufPair {
+    void *ptrDevice;
+    void *ptrHost;
+    size_t nSize;
+
+    CUMemBufPair() : ptrDevice(nullptr), ptrHost(nullptr), nSize(0) {
+
+    };
+    CUMemBufPair(size_t _nSize) : ptrDevice(nullptr), ptrHost(nullptr), nSize(_nSize) {
+
+    }
+    cudaError_t alloc() {
+        if (ptrDevice) {
+            cudaFree(ptrDevice);
+        }
+        cudaError_t ret = cudaSuccess;
+        if (nSize > 0) {
+            ret = cudaMalloc(&ptrDevice, nSize);
+            if (ret == cudaSuccess) {
+                ret = cudaMallocHost(&ptrHost, nSize);
+            }
+        } else {
+            ret = cudaErrorNotSupported;
+        }
+        return ret;
+    }
+    cudaError_t alloc(size_t _nSize) {
+        nSize = _nSize;
+        return alloc();
+    }
+    cudaError_t copyDtoHAsync(cudaStream_t stream = 0) {
+        return cudaMemcpyAsync(ptrHost, ptrDevice, nSize, cudaMemcpyDeviceToHost, stream);
+    }
+    cudaError_t copyDtoH() {
+        return cudaMemcpy(ptrHost, ptrDevice, nSize, cudaMemcpyDeviceToHost);
+    }
+    cudaError_t copyHtoDAsync(cudaStream_t stream = 0) {
+        return cudaMemcpyAsync(ptrHost, ptrDevice, nSize, cudaMemcpyHostToDevice, stream);
+    }
+    cudaError_t copyHtoD() {
+        return cudaMemcpy(ptrHost, ptrDevice, nSize, cudaMemcpyHostToDevice);
+    }
+    void clear() {
+        if (ptrDevice) {
+            cudaFree(ptrDevice);
+            ptrDevice = nullptr;
+        }
+        if (ptrHost) {
+            cudaFreeHost(ptrHost);
+            ptrDevice = nullptr;
+        }
+        nSize = 0;
+    }
+    ~CUMemBufPair() {
+        clear();
+    }
+};
+
 class NVEncFilter {
 public:
     NVEncFilter();
@@ -272,6 +343,7 @@ protected:
     int m_nFrameIdx;
 protected:
     shared_ptr<NVEncFilterParam> m_pParam;
+    bool m_bTimestampPathThrough;
 private:
     bool m_bCheckPerformance;
     unique_ptr<cudaEvent_t, cudaevent_deleter> m_peFilterStart;

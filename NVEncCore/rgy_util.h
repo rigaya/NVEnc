@@ -42,6 +42,7 @@
 #include <memory>
 #include <climits>
 #include <map>
+#include <sstream>
 #include <functional>
 #include <type_traits>
 #include "rgy_osdep.h"
@@ -197,8 +198,24 @@ static inline T rgy_gcd(T a, T b) {
 }
 
 template<typename T>
-static inline int rgy_gcd(std::pair<T, T> int2) {
+static inline T rgy_gcd(std::pair<T, T> int2) {
     return rgy_gcd(int2.first, int2.second);
+}
+
+template<typename T>
+static inline T rgy_lcm(T a, T b) {
+    static_assert(std::is_integral<T>::value, "rgy_lcm is defined only for integer.");
+    if (a == 0) return 0;
+    if (b == 0) return 0;
+    T gcd = rgy_gcd(a, b);
+    a /= gcd;
+    b /= gcd;
+    return a * b * gcd;
+}
+
+template<typename T>
+static inline T rgy_lcm(std::pair<T, T> int2) {
+    return rgy_lcm(int2.first, int2.second);
 }
 
 template<typename T>
@@ -214,6 +231,187 @@ template<typename T>
 static inline void rgy_reduce(std::pair<T, T>& int2) {
     rgy_reduce(int2.first, int2.second);
 }
+
+template<typename T>
+class rgy_rational {
+    static_assert(std::is_integral<T>::value, "rgy_rational is defined only for integer.");
+private:
+    T num, den;
+public:
+    rgy_rational() : num(0), den(1) {}
+    rgy_rational(T _num, T _den) : num(_num), den(_den) { reduce(); }
+    rgy_rational(const rgy_rational<T>& r) : num(r.num), den(r.den) { reduce(); }
+    rgy_rational<T>& operator=(const rgy_rational<T> &r) { num = r.num; den = r.den; reduce(); return *this; }
+    bool is_valid() const { return den != 0; };
+    T n() const {
+        return this->num;
+    }
+    T d() const {
+        return this->den;
+    }
+    void reduce() {
+        if (den == 0) {
+            return;
+        }
+        rgy_reduce(num, den);
+        if (den < 0) {
+            num = -num;
+            den = -den;
+        }
+    }
+    rgy_rational<T> inv() const {
+        rgy_rational<T> tmp(den, num);
+        if (tmp.den == 0) {
+            tmp.den = 0;
+            tmp.num = 0;
+        } else if (tmp.den < 0) {
+            tmp.num = -tmp.num;
+            tmp.den = -tmp.den;
+        }
+        return tmp;
+    }
+
+    rgy_rational<T> operator+ () {
+        return *this;
+    }
+    rgy_rational<T> operator- () {
+        return rgy_rational<T>(-1 * this->num, this->den);
+    }
+
+    rgy_rational<T>& operator+= (const rgy_rational<T>& r) {
+        if (r.den == 0 || den == 0) {
+            den = 0;
+            num = 0;
+            return *this;
+        }
+
+        T gcd0 = rgy_gcd(den, r.den);
+        den /= gcd0;
+        T tmp = r.den / gcd0;
+        num = num * tmp + r.num * den;
+        T gcd1 = rgy_gcd(num, gcd0);
+        num /= gcd1;
+        tmp = r.den / gcd1;
+        den *= tmp;
+
+        return *this;
+    }
+    rgy_rational<T>& operator-= (const rgy_rational<T>& r) {
+        rgy_rational<T> tmp(r);
+        tmp.num *= -1;
+        *this += tmp;
+        return *this;
+    }
+    rgy_rational<T>& operator*= (const rgy_rational<T>& r) {
+        if (r.den == 0 || den == 0) {
+            den = 0;
+            num = 0;
+            return *this;
+        }
+        T gcd0 = rgy_gcd(num, r.den);
+        T gcd1 = rgy_gcd(den, r.num);
+        T a0 = num / gcd0;
+        T a1 = r.num / gcd1;
+        T b0 = den / gcd1;
+        T b1 = r.den / gcd0;
+        num = a0 * a1;
+        den = b0 * b1;
+
+        if (den < 0) {
+            num = -num;
+            den = -den;
+        }
+        return *this;
+    }
+    rgy_rational<T>& operator/= (const rgy_rational<T>& r) {
+        *this *= r.inv();
+        return *this;
+    }
+
+    rgy_rational<T>& operator+= (const T& i) {
+        num += i * den;
+        return *this;
+    }
+    rgy_rational<T>& operator-= (const T& i) {
+        num -= i * den;
+        return *this;
+    }
+    rgy_rational<T>& operator*= (const T& i) {
+        T gcd = rgy_gcd(i, den);
+        num *= i / gcd;
+        den /= gcd;
+        return *this;
+    }
+    rgy_rational<T>& operator/= (const T& i) {
+        if (i == 0) {
+            num = 0;
+            den = 0;
+        } else if (num != 0) {
+            T gcd = rgy_gcd(num, i);
+            num /= gcd;
+            den *= i / gcd;
+            if (den < 0) {
+                num = -num;
+                den = -den;
+            }
+        }
+        return *this;
+    }
+
+    template<typename Arg>
+    rgy_rational<T> operator + (const Arg& a) {
+        rgy_rational<T> t(*this);
+        t += a;
+        return t;
+    }
+    template<typename Arg>
+    rgy_rational<T> operator - (const Arg& a) {
+        rgy_rational<T> t(*this);
+        t -= a;
+        return t;
+    }
+    template<typename Arg>
+    rgy_rational<T> operator * (const Arg& a) {
+        rgy_rational<T> t(*this);
+        t *= a;
+        return t;
+    }
+    template<typename Arg>
+    rgy_rational<T> operator / (const Arg& a) {
+        rgy_rational<T> t(*this);
+        t /= a;
+        return t;
+    }
+    const rgy_rational<T>& operator++() { num += den; return *this; }
+    const rgy_rational<T>& operator--() { num -= den; return *this; }
+
+    bool operator== (const rgy_rational<T>& r) const {
+        return ((num == r.num) && (den == r.den));
+    }
+    bool operator!= (const rgy_rational<T>& r) const {
+        return ((num != r.num) || (den != r.den));
+    }
+
+    std::string print() const {
+        std::stringstream ss;
+        ss << num << "/" << den;
+        return ss.str();
+    }
+
+    std::wstring printw() const {
+        std::wstringstream ss;
+        ss << num << "/" << den;
+        return ss.str();
+    }
+
+    tstring printt() const {
+#if _UNICODE
+        return printw();
+#else
+        return print();
+#endif
+    }
+};
 
 #if UNICODE
 #define to_tstring to_wstring

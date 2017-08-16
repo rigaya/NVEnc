@@ -105,6 +105,13 @@ static const int AVQSV_DEFAULT_AUDIO_BITRATE = 192;
 static inline bool av_isvalid_q(AVRational q) {
     return q.den * q.num != 0;
 }
+template<typename T>
+static inline AVRational av_make_q(rgy_rational<T> r) {
+    return av_make_q(r.n(), r.d());
+}
+static rgy_rational<int> to_rgy(AVRational r) {
+    return rgy_rational<int>(r.num, r.den);
+}
 
 static inline bool avcodecIsCopy(const TCHAR *codec) {
     return codec == nullptr || 0 == _tcsicmp(codec, RGY_AVCODEC_COPY);

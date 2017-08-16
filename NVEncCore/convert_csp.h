@@ -215,14 +215,19 @@ struct FrameInfo {
     uint8_t *ptr;
     RGY_CSP csp;
     int width, height, pitch;
-    uint64_t timestamp;
+    int64_t timestamp;
+    int64_t duration;
     bool deivce_mem;
-    bool interlaced;
+    RGY_PICSTRUCT picstruct;
 };
 
 struct FrameInfoExtra {
     int width_byte, height_total, frame_size;
 };
+
+static bool interlaced(const FrameInfo& FrameInfo) {
+    return (FrameInfo.picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
+}
 
 FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
 

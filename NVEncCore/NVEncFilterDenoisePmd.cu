@@ -388,7 +388,7 @@ NVENCSTATUS NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, sha
 
 NVENCSTATUS NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
 
-    if (pInputFrame == nullptr) {
+    if (pInputFrame->ptr == nullptr) {
         return NV_ENC_SUCCESS;
     }
     auto pPmdParam = std::dynamic_pointer_cast<NVEncFilterParamDenoisePmd>(m_pParam);
@@ -404,8 +404,8 @@ NVENCSTATUS NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, Fram
     };
 
     ppOutputFrames[0] = pOutputFrame[final_dst_index(pPmdParam->pmd.applyCount)];
-    ppOutputFrames[0]->interlaced = pInputFrame->interlaced;
-    if (pInputFrame->interlaced && !m_bInterlacedWarn) {
+    ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
+    if (interlaced(*pInputFrame) && !m_bInterlacedWarn) {
         AddMessage(RGY_LOG_WARN, _T("Interlaced denoise is not supported, denoise as progressive.\n"));
         AddMessage(RGY_LOG_WARN, _T("This should result in poor quality.\n"));
         m_bInterlacedWarn = true;

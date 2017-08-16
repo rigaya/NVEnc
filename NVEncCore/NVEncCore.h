@@ -244,12 +244,12 @@ protected:
     NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const VideoInfo *pInputInfo);
 
     //フレームを1枚エンコーダに投入(非同期)
-    NVENCSTATUS EncodeFrame(uint64_t timestamp);
+    //NVENCSTATUS EncodeFrame(uint64_t timestamp);
 
     //フレームを1枚エンコーダに投入(非同期、トランスコード中継用)
-    NVENCSTATUS EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t timestamp);
+    NVENCSTATUS EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t timestamp, uint64_t duration);
 
-    NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t timestamp);
+    NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t timestamp, uint64_t duration);
 
     //エンコーダをフラッシュしてストリームを最後まで取り出す
     NVENCSTATUS FlushEncoder();
@@ -300,8 +300,9 @@ protected:
     uint32_t                     m_uEncHeight;            //出力横解像度
 
     int                          m_nProcSpeedLimit;       //処理速度制限 (0で制限なし)
-    RGYAVSync                     m_nAVSyncMode;           //映像音声同期設定
-    std::pair<int, int>          m_inputFps;              //入力フレームレート
+    RGYAVSync                    m_nAVSyncMode;           //映像音声同期設定
+    rgy_rational<int>            m_inputFps;              //入力フレームレート
+    rgy_rational<int>            m_outputTimebase;        //出力のtimebase
 #if ENABLE_AVSW_READER
     CodecCsp                     m_cuvidCodecCsp;         //デコードでサポートされる色空間
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
