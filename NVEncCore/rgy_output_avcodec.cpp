@@ -485,9 +485,12 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     if (m_Mux.format.bIsMatroska) {
         m_Mux.video.pStreamOut->time_base = av_make_q(1, 1000);
     }
+
+#if !ENCODER_NVENC
     if (pVideoOutputInfo->picstruct & RGY_PICSTRUCT_INTERLACED) {
         m_Mux.video.pStreamOut->time_base.den *= 2;
     }
+#endif
     m_Mux.video.pStreamOut->start_time          = 0;
     m_Mux.video.bDtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.nInputFirstKeyPts = prm->nVideoInputFirstKeyPts;
@@ -1756,7 +1759,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         pkt.stream_index = m_Mux.video.pStreamOut->index;
         pkt.flags        = isIDR;
 #if ENCODER_NVENC
-        pkt.duration     = pBitstream->duration() * (i + 1) / (1 + bIsPAFF);
+        pkt.duration     = pBitstream->duration() / (1 + bIsPAFF);
         pkt.pts          = pBitstream->pts() + i * pkt.duration;
         if (av_cmp_q(m_Mux.video.rBitstreamTimebase, streamTimebase) != 0) {
             pkt.duration = av_rescale_q(pkt.duration, m_Mux.video.rBitstreamTimebase, streamTimebase);
@@ -1775,7 +1778,11 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
             //m_Mux.video.nFpsBaseNextDts++;
         }
         const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
+#if ENCODER_NVENC
+        *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, m_Mux.video.rBitstreamTimebase);
+#else
         *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, HW_NATIVE_TIMEBASE);
+#endif
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
 
         frameSize -= bytesToWrite;

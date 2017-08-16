@@ -572,6 +572,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     m_outputTimebase = rgy_rational<int>(1, inputParam->input.fpsN);
     if (inputParam->vpp.afs.enable && inputParam->vpp.afs.shift) {
         m_outputTimebase *= rgy_rational<int>(1, 4);
+    } else if (inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
+        m_outputTimebase *= rgy_rational<int>(1, 2);
     }
     m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, m_pPerfMonitor);
 
