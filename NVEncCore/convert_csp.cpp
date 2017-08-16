@@ -697,72 +697,54 @@ static void __forceinline convert_yv12_i_to_yuv444_c(void **dst, const void **sr
             Tout *dstC = dstLine;
             Tin *srcP = srcCLine;
             const int x_fin = width - crop_right - crop_left;
-            if (y <= 1) {
-                for (int x = 0; x < x_fin; x += 2, dstC += 2, srcP++) {
-                    int cy0x0 = srcP[0*src_uv_pitch + 0];
-                    int cy2x0 = srcP[1*src_uv_pitch + 0];
-                    int cy4x0 = srcP[0*src_uv_pitch + 0];
-                    int cy6x0 = srcP[1*src_uv_pitch + 0];
-                    int cy0x1 = srcP[0*src_uv_pitch + 1];
-                    int cy2x1 = srcP[1*src_uv_pitch + 1];
-                    int cy4x1 = srcP[0*src_uv_pitch + 1];
-                    int cy6x1 = srcP[1*src_uv_pitch + 1];
 
-                    int cy1x0 = (cy0x0 * 1 + cy4x0 * 7 + 4);
-                    int cy3x0 = (cy2x0 * 3 + cy6x0 * 5 + 4);
-                    int cy1x1 = (cy0x1 * 1 + cy4x1 * 7 + 4);
-                    int cy3x1 = (cy2x1 * 3 + cy6x1 * 5 + 4);
-                    CHANGE_BIT_DEPTH_4(cy1x0, cy3x0, cy1x1, cy3x1, 3);
+            int y_m2 = (y >= 4) ? -2 : 0;
+            int y_m1 = (y >= 2) ? -1 : 1;
+            int y_p1 = (y < uv_fin - 2) ? 1 : -1;
+            int y_p2 = (y < uv_fin - 4) ? 2 :  0;
+            int y_p3 = (y < uv_fin - 6) ? 3 : ((y < uv_fin - 2) ? 1 : -1);
 
-                    dstC[0*dst_y_pitch   + 0] = (Tout)cy1x0;
-                    dstC[0*dst_y_pitch   + 1] = (Tout)((cy1x0 + cy1x1 + 1) >> 1);
-                    dstC[1*dst_y_pitch   + 0] = (Tout)cy3x0;
-                    dstC[1*dst_y_pitch   + 1] = (Tout)((cy3x0 + cy3x1 + 1) >> 1);
-                }
-            } else if (y >= height-4) {
-                for (int x = 0; x < x_fin; x += 2, dstC += 2, srcP++) {
-                    int cy0x0 = srcP[-2*src_uv_pitch + 0];
-                    int cy2x0 = srcP[-1*src_uv_pitch + 0];
-                    int cy4x0 = srcP[ 0*src_uv_pitch + 0];
-                    int cy6x0 = srcP[-1*src_uv_pitch + 0];
-                    int cy0x1 = srcP[-2*src_uv_pitch + 1];
-                    int cy2x1 = srcP[-1*src_uv_pitch + 1];
-                    int cy4x1 = srcP[ 0*src_uv_pitch + 1];
-                    int cy6x1 = srcP[-1*src_uv_pitch + 1];
+            int sy0x0 = srcP[y_m2*src_uv_pitch + 0];
+            int sy1x0 = srcP[y_m1*src_uv_pitch + 0];
+            int sy2x0 = srcP[   0*src_uv_pitch + 0];
+            int sy3x0 = srcP[y_p1*src_uv_pitch + 0];
+            int sy4x0 = srcP[y_p2*src_uv_pitch + 0];
+            int sy5x0 = srcP[y_p3*src_uv_pitch + 0];
 
-                    int cy1x0 = (cy0x0 * 1 + cy4x0 * 7 + 4);
-                    int cy3x0 = (cy2x0 * 3 + cy6x0 * 5 + 4);
-                    int cy1x1 = (cy0x1 * 1 + cy4x1 * 7 + 4);
-                    int cy3x1 = (cy2x1 * 3 + cy6x1 * 5 + 4);
-                    CHANGE_BIT_DEPTH_4(cy1x0, cy3x0, cy1x1, cy3x1, 3);
+            int cy0x0 = (sy0x0 * 1 + sy2x0 * 7 + 4);
+            int cy1x0 = (sy1x0 * 3 + sy3x0 * 5 + 4);
+            int cy2x0 = (sy2x0 * 5 + sy4x0 * 3 + 4);
+            int cy3x0 = (sy3x0 * 7 + sy5x0 * 1 + 4);
+            CHANGE_BIT_DEPTH_4(cy0x0, cy1x0, cy2x0, cy3x0, 3);
 
-                    dstC[0*dst_y_pitch   + 0] = (Tout)cy1x0;
-                    dstC[0*dst_y_pitch   + 1] = (Tout)((cy1x0 + cy1x1 + 1) >> 1);
-                    dstC[1*dst_y_pitch   + 0] = (Tout)cy3x0;
-                    dstC[1*dst_y_pitch   + 1] = (Tout)((cy3x0 + cy3x1 + 1) >> 1);
-                }
-            } else {
-                for (int x = 0; x < x_fin; x += 2, dstC += 2, srcP++) {
-                    int cy0x0 = srcP[-2*src_uv_pitch + 0];
-                    int cy2x0 = srcP[-1*src_uv_pitch + 0];
-                    int cy4x0 = srcP[ 0*src_uv_pitch + 0];
-                    int cy6x0 = srcP[ 1*src_uv_pitch + 0];
-                    int cy0x1 = srcP[-2*src_uv_pitch + 1];
-                    int cy2x1 = srcP[-1*src_uv_pitch + 1];
-                    int cy4x1 = srcP[ 0*src_uv_pitch + 1];
-                    int cy6x1 = srcP[ 1*src_uv_pitch + 1];
+            for (int x = 0; x < x_fin; x += 2, dstC += 2, srcP++) {
+                int cxplus = (x + 2 < x_fin);
+                int sy0x1 = srcP[y_m2*src_uv_pitch + cxplus];
+                int sy1x1 = srcP[y_m1*src_uv_pitch + cxplus];
+                int sy2x1 = srcP[   0*src_uv_pitch + cxplus];
+                int sy3x1 = srcP[y_p1*src_uv_pitch + cxplus];
+                int sy4x1 = srcP[y_p2*src_uv_pitch + cxplus];
+                int sy5x1 = srcP[y_p3*src_uv_pitch + cxplus];
 
-                    int cy1x0 = (cy0x0 * 1 + cy4x0 * 7 + 4);
-                    int cy3x0 = (cy2x0 * 3 + cy6x0 * 5 + 4);
-                    int cy1x1 = (cy0x1 * 1 + cy4x1 * 7 + 4);
-                    int cy3x1 = (cy2x1 * 3 + cy6x1 * 5 + 4);
-                    CHANGE_BIT_DEPTH_4(cy1x0, cy3x0, cy1x1, cy3x1, 3);
+                int cy0x1 = (sy0x1 * 1 + sy2x1 * 7 + 4);
+                int cy1x1 = (sy1x1 * 3 + sy3x1 * 5 + 4);
+                int cy2x1 = (sy2x1 * 5 + sy4x1 * 3 + 4);
+                int cy3x1 = (sy3x1 * 7 + sy5x1 * 1 + 4);
+                CHANGE_BIT_DEPTH_4(cy0x1, cy1x1, cy2x1, cy3x1, 3);
 
-                    dstC[0*dst_y_pitch   + 0] = (Tout)cy1x0;
-                    dstC[0*dst_y_pitch   + 1] = (Tout)((cy1x0 + cy1x1 + 1) >> 1);
-                    dstC[1*dst_y_pitch   + 0] = (Tout)cy3x0;
-                    dstC[1*dst_y_pitch   + 1] = (Tout)((cy3x0 + cy3x1 + 1) >> 1);
-                }
+                dstC[0*dst_y_pitch   + 0] = (Tout)cy0x0;
+                dstC[0*dst_y_pitch   + 1] = (Tout)((cy0x0 + cy0x1 + 1) >> 1);
+                dstC[1*dst_y_pitch   + 0] = (Tout)cy1x0;
+                dstC[1*dst_y_pitch   + 1] = (Tout)((cy1x0 + cy1x1 + 1) >> 1);
+                dstC[2*dst_y_pitch   + 0] = (Tout)cy2x0;
+                dstC[2*dst_y_pitch   + 1] = (Tout)((cy2x0 + cy2x1 + 1) >> 1);
+                dstC[3*dst_y_pitch   + 0] = (Tout)cy3x0;
+                dstC[3*dst_y_pitch   + 1] = (Tout)((cy3x0 + cy3x1 + 1) >> 1);
+
+                cy0x0 = cy0x1;
+                cy1x0 = cy1x1;
+                cy2x0 = cy2x1;
+                cy3x0 = cy3x1;
             }
         }
     }
