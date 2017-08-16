@@ -364,17 +364,17 @@ __global__ void kernel_afs_analyze_12(
     int *__restrict__ ptr_count,
     cudaTextureObject_t src_p0y,
     cudaTextureObject_t src_p0u0,
-    cudaTextureObject_t src_p0u1,
+    cudaTextureObject_t src_p0u1, //yuv444では使用されない
     cudaTextureObject_t src_p0v0,
-    cudaTextureObject_t src_p0v1,
+    cudaTextureObject_t src_p0v1, //yuv444では使用されない
     cudaTextureObject_t src_p1y,
     cudaTextureObject_t src_p1u0,
-    cudaTextureObject_t src_p1u1,
+    cudaTextureObject_t src_p1u1, //yuv444では使用されない
     cudaTextureObject_t src_p1v0,
-    cudaTextureObject_t src_p1v1,
+    cudaTextureObject_t src_p1v1, //yuv444では使用されない
     const int width_int, const int si_pitch_int, const int h,
     const uint32_t thre_Ymotion, const uint32_t thre_deint, const uint32_t thre_shift,
-    const float thre_Cmotionf, const float thre_deintf, const float thre_shiftf,
+    const uint32_t thre_Cmotion, const float thre_Cmotionf, const float thre_deintf, const float thre_shiftf,
     const uint32_t scan_left, const uint32_t scan_top, const uint32_t scan_width, const uint32_t scan_height) {
 
     __shared__ uint32_t shared[SHARED_INT_X * SHARED_Y * 4]; //int単位でアクセスする
@@ -386,8 +386,10 @@ __global__ void kernel_afs_analyze_12(
     const int imgy_block_fin = min(h, ((gidy + 1) * BLOCK_LOOP_Y) * BLOCK_Y); //opencl版を変更、ループでインクリメントする必要もない
     uint32_t motion_count = 0;
 
-#define CALL_ANALYZE_Y(p0, p1, y_offset)                 analyze_y<Type4, tb_order>((p0), (p1), (imgx), (imgy+(y_offset)), thre_Ymotion,  thre_deint,  thre_shift)
-#define CALL_ANALYZE_C(p0_0, p0_1, p1_0, p1_1, y_offset) analyze_c<Type4, tb_order>((p0_0), (p0_1), (p1_0), (p1_1), (imgx), (imgy+(y_offset)), thre_Cmotionf, thre_deintf, thre_shiftf)
+#define CALL_ANALYZE_Y(p0, p1, y_offset) analyze_y<Type4, tb_order>((p0), (p1), (imgx), (imgy+(y_offset)), thre_Ymotion,  thre_deint,  thre_shift)
+#define CALL_ANALYZE_C(p0_0, p0_1, p1_0, p1_1, y_offset) \
+    (yuv420) ? analyze_c<Type4, tb_order>((p0_0), (p0_1), (p1_0), (p1_1), (imgx), (imgy+(y_offset)), thre_Cmotionf, thre_deintf, thre_shiftf) \
+             : analyze_y<Type4, tb_order>((p0_0), (p1_0), (imgx), (imgy+(y_offset)), thre_Cmotion, thre_deint, thre_shift)
 
     uint32_t *ptr_shared = shared + shared_int_idx(lx,0,0);
     ptr_dst += (imgy-4) * si_pitch_int + imgx;
@@ -499,21 +501,37 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
     const VppAfs *pAfsPrm, cudaStream_t stream) {
     auto cudaerr = cudaSuccess;
 
-    cudaTextureObject_t texP0Y, texP1Y;
+    cudaTextureObject_t texP0Y = 0;
+    cudaTextureObject_t texP1Y = 0;
     if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0Y, cudaFilterModePoint, cudaReadModeElementType, p0, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
     if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1Y, cudaFilterModePoint, cudaReadModeElementType, p1, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
 
-    cudaTextureObject_t texP0U0, texP0U1, texP0V0, texP0V1, texP1U0, texP1U1, texP1V0, texP1V1;
-    if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight,         srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-    if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight * 5 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-    if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight * 6 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-    if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight * 7 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-    if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight,         srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-    if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight * 5 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-    if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight * 6 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-    if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight * 7 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+    cudaTextureObject_t texP0U0 = 0;
+    cudaTextureObject_t texP0U1 = 0; //yuv444では使用されない
+    cudaTextureObject_t texP0V0 = 0;
+    cudaTextureObject_t texP0V1 = 0; //yuv444では使用されない
+    cudaTextureObject_t texP1U0 = 0;
+    cudaTextureObject_t texP1U1 = 0; //yuv444では使用されない
+    cudaTextureObject_t texP1V0 = 0;
+    cudaTextureObject_t texP1V1 = 0; //yuv444では使用されない
+    if (yuv420) {
+        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight,         srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight * 5 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight * 6 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight * 7 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight,         srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight * 5 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight * 6 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight * 7 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+    } else {
+        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0U0, cudaFilterModePoint, cudaReadModeElementType, p0 + srcPitch * srcHeight,     srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0V0, cudaFilterModePoint, cudaReadModeElementType, p0 + srcPitch * srcHeight * 2, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1U0, cudaFilterModePoint, cudaReadModeElementType, p1 + srcPitch * srcHeight,     srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1V0, cudaFilterModePoint, cudaReadModeElementType, p1 + srcPitch * srcHeight * 2, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
+    }
 
     dim3 blockSize(BLOCK_INT_X, BLOCK_Y);
+    //横方向は1スレッドで4pixel処理する
     dim3 gridSize(divCeil(srcWidth, blockSize.x * 4), divCeil(srcHeight, blockSize.y * BLOCK_LOOP_Y));
 
     const uint32_t grid_count = gridSize.x * gridSize.y;
@@ -524,7 +542,7 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
             return cudaerr;
         }
     }
-    //opencl版を変更、横方向は1/4にする必要がある
+    //opencl版を変更、横方向は1スレッドで4pixel処理するため、1/4にする必要がある
     const uint32_t scan_left   = pAfsPrm->clip.left >> 2;
     const uint32_t scan_width  = (srcWidth - pAfsPrm->clip.left - pAfsPrm->clip.right) >> 2;
     const uint32_t scan_top    = pAfsPrm->clip.top;
@@ -538,14 +556,17 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
     uint32_t thre_shift_yuv   = (uint32_t)clamp((pAfsPrm->thre_shift   * 219 +  383)>>thre_rsft, 0, thre_max);
     uint32_t thre_deint_yuv   = (uint32_t)clamp((pAfsPrm->thre_deint   * 219 +  383)>>thre_rsft, 0, thre_max);
     uint32_t thre_Ymotion_yuv = (uint32_t)clamp((pAfsPrm->thre_Ymotion * 219 +  383)>>thre_rsft, 0, thre_max);
+    uint32_t thre_Cmotion_yuv = (uint32_t)clamp((pAfsPrm->thre_Cmotion * 224 + 2112)>>thre_rsft, 0, thre_max);
     if (sizeof(Type) == 1) {
         thre_shift_yuv   = u8x4(thre_shift_yuv);
         thre_deint_yuv   = u8x4(thre_deint_yuv);
         thre_Ymotion_yuv = u8x4(thre_Ymotion_yuv);
+        thre_Cmotion_yuv = u8x4(thre_Cmotion_yuv);
     } else if (sizeof(Type) == 2) {
         thre_shift_yuv   = u16x2(thre_shift_yuv);
         thre_deint_yuv   = u16x2(thre_deint_yuv);
         thre_Ymotion_yuv = u16x2(thre_Ymotion_yuv);
+        thre_Cmotion_yuv = u16x2(thre_Cmotion_yuv);
     } else {
         return cudaErrorUnknown;
     }
@@ -563,7 +584,7 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
         texP1Y, texP1U0, texP1U1, texP1V0, texP1V1,
         divCeil(srcWidth, 4), dstPitch / sizeof(uint32_t), srcHeight,
         thre_Ymotion_yuv, thre_deint_yuv, thre_shift_yuv,
-        thre_Cmotion_yuvf, thre_deint_yuvf, thre_shift_yuvf,
+        thre_Cmotion_yuv, thre_Cmotion_yuvf, thre_deint_yuvf, thre_shift_yuvf,
         scan_left, scan_top, scan_width, scan_height);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -573,13 +594,15 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
     cudaDestroyTextureObject(texP0Y);
     cudaDestroyTextureObject(texP1Y);
     cudaDestroyTextureObject(texP0U0);
-    cudaDestroyTextureObject(texP0U1);
     cudaDestroyTextureObject(texP0V0);
-    cudaDestroyTextureObject(texP0V1);
     cudaDestroyTextureObject(texP1U0);
-    cudaDestroyTextureObject(texP1U1);
     cudaDestroyTextureObject(texP1V0);
-    cudaDestroyTextureObject(texP1V1);
+    if (yuv420) {
+        cudaDestroyTextureObject(texP0U1);
+        cudaDestroyTextureObject(texP0V1);
+        cudaDestroyTextureObject(texP1U1);
+        cudaDestroyTextureObject(texP1V1);
+    }
     return cudaGetLastError();
 }
 
@@ -594,14 +617,15 @@ cudaError_t NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_S
 
     static const std::map<RGY_CSP, analyze_func> analyze_stripe_func_list = {
         { RGY_CSP_YV12,      analyze_func(run_analyze_stripe<uint8_t,  uint32_t, 8, false, true>,   run_analyze_stripe<uint8_t,  uint32_t, 8, true, true>) },
-        { RGY_CSP_YV12_16,   analyze_func(run_analyze_stripe<uint16_t, uint2,   16, false, true>,   run_analyze_stripe<uint16_t, uint2,   16, true, true>) }
+        { RGY_CSP_YV12_16,   analyze_func(run_analyze_stripe<uint16_t, uint2,   16, false, true>,   run_analyze_stripe<uint16_t, uint2,   16, true, true>) },
+        { RGY_CSP_YUV444,    analyze_func(run_analyze_stripe<uint8_t,  uint32_t, 8, false, false>,  run_analyze_stripe<uint8_t,  uint32_t, 8, true, false>) },
     };
     if (p1->frame.pitch % sizeof(int) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("frame pitch must be mod4\n"));
         return cudaErrorNotSupported;
     }
     if (analyze_stripe_func_list.count(pAfsParam->frameIn.csp) == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("unsupported csp for denoise(pmd): %s\n"), RGY_CSP_NAMES[pAfsParam->frameIn.csp]);
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp for afs_analyze_stripe: %s\n"), RGY_CSP_NAMES[pAfsParam->frameIn.csp]);
         return cudaErrorNotSupported;
     }
     auto cudaerr = analyze_stripe_func_list.at(pAfsParam->frameIn.csp).func[!!pAfsParam->afs.tb_order](

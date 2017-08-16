@@ -497,6 +497,26 @@ void proc_uv(
 #undef PREREAD_Y
 }
 
+template<typename Type8, int mode>
+__inline__ __device__
+void set_y_h_pos(const int imgx, const int y_h_center,  int height, const int src_pitch, int& y_h1_pos, int& y_h2_pos, int& y_h3_pos, int& y_h4_pos, int& y_h5_pos, int& y_h6_pos, int& y_h7_pos, int& y_h8_pos) {
+    if (mode == 4) {
+        y_h4_pos = y_h_center * src_pitch + imgx * sizeof(Type8);
+        y_h3_pos = y_h4_pos + ((y_h_center - 1 >= 0) ? -src_pitch : src_pitch);
+        y_h2_pos = y_h3_pos + ((y_h_center - 2 >= 0) ? -src_pitch : src_pitch);
+        y_h1_pos = y_h2_pos + ((y_h_center - 3 >= 0) ? -src_pitch : src_pitch);
+        y_h5_pos = y_h4_pos + ((y_h_center < height - 1) ? src_pitch : -src_pitch);
+        y_h6_pos = y_h5_pos + ((y_h_center < height - 2) ? src_pitch : -src_pitch);
+        y_h7_pos = y_h6_pos + ((y_h_center < height - 3) ? src_pitch : -src_pitch);
+        y_h8_pos = y_h7_pos + ((y_h_center < height - 4) ? src_pitch : -src_pitch);
+    } else {
+        y_h2_pos = y_h_center * src_pitch + imgx * sizeof(Type8);
+        y_h1_pos = y_h2_pos + ((y_h_center - 1 >= 0) ? -src_pitch : src_pitch);
+        y_h3_pos = y_h2_pos + ((y_h_center < height - 1) ? src_pitch : -src_pitch);
+        y_h4_pos = y_h3_pos + ((y_h_center < height - 2) ? src_pitch : -src_pitch);
+    }
+}
+
 template<typename Type, typename Type4, typename Type8, int mode>
 __global__ void kernel_synthesize_mode_1234_yuv420(
     uint8_t *__restrict__ dst,
@@ -523,42 +543,73 @@ __global__ void kernel_synthesize_mode_1234_yuv420(
     if (imgx * 8 < width && imgy < (height >> 1)) {
         //y
         const int y_h_center = imgy << 1;
+
         int y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos;
-        if (mode == 4) {
-            y_h4_pos = y_h_center * src_pitch + imgx * sizeof(Type8);
-            y_h3_pos = y_h4_pos + ((y_h_center - 1 >= 0) ? -src_pitch : src_pitch);
-            y_h2_pos = y_h3_pos + ((y_h_center - 2 >= 0) ? -src_pitch : src_pitch);
-            y_h1_pos = y_h2_pos + ((y_h_center - 3 >= 0) ? -src_pitch : src_pitch);
-            y_h5_pos = y_h4_pos + ((y_h_center < height - 1) ? src_pitch : -src_pitch);
-            y_h6_pos = y_h5_pos + ((y_h_center < height - 2) ? src_pitch : -src_pitch);
-            y_h7_pos = y_h6_pos + ((y_h_center < height - 3) ? src_pitch : -src_pitch);
-            y_h8_pos = y_h7_pos + ((y_h_center < height - 4) ? src_pitch : -src_pitch);
-        } else {
-            y_h2_pos = y_h_center * src_pitch + imgx * sizeof(Type8);
-            y_h1_pos = y_h2_pos + ((y_h_center - 1 >= 0) ? -src_pitch : src_pitch);
-            y_h3_pos = y_h2_pos + ((y_h_center < height - 1) ? src_pitch : -src_pitch);
-            y_h4_pos = y_h3_pos + ((y_h_center < height - 2) ? src_pitch : -src_pitch);
-        };
+        set_y_h_pos<Type8, mode>(imgx, y_h_center, height, src_pitch, y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos);
+
         uint8_t *dst_y       = dst +  y_h_center * dst_pitch + imgx * sizeof(Type8);
         const uint8_t *sip_y = sip + (y_h_center * sip_pitch + imgx * sizeof(uint8_t) * 8);
         proc_y<Type8, mode>(dst_y +         0, p0, p1, sip_y +         0, tb_order + 0, status, y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos);
         proc_y<Type8, mode>(dst_y + dst_pitch, p0, p1, sip_y + sip_pitch, tb_order + 1, status, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos);
     }
-    //u
-    const int uv_pos_dst = imgy * dst_pitch + imgx * sizeof(Type4);
-    const int u_pos_dst = dst_yu_plane_offset + uv_pos_dst;
-    Type4 *dst_u = (Type4 *)(dst + u_pos_dst);
-    proc_uv<Type, Type4, mode>(dst_u, src_u0_0, src_u0_1, src_u1_0, src_u1_1, sip, sip_pitch, width, height, imgx, imgy,
-        lx, ly, tb_order, status);
+    {
+        //u
+        const int uv_pos_dst = imgy * dst_pitch + imgx * sizeof(Type4);
+        const int u_pos_dst = dst_yu_plane_offset + uv_pos_dst;
+        Type4 *dst_u = (Type4 *)(dst + u_pos_dst);
+        proc_uv<Type, Type4, mode>(dst_u, src_u0_0, src_u0_1, src_u1_0, src_u1_1, sip, sip_pitch, width, height, imgx, imgy,
+            lx, ly, tb_order, status);
 
-    //v
-    Type4 *dst_v = (Type4 *)((uint8_t *)dst_u + dst_uv_plane_offset);
-    proc_uv<Type, Type4, mode>(dst_v, src_v0_0, src_v0_1, src_v1_0, src_v1_1, sip, sip_pitch, width, height, imgx, imgy,
-        lx, ly, tb_order, status);
+        //v
+        Type4 *dst_v = (Type4 *)((uint8_t *)dst_u + dst_uv_plane_offset);
+        proc_uv<Type, Type4, mode>(dst_v, src_v0_0, src_v0_1, src_v1_0, src_v1_1, sip, sip_pitch, width, height, imgx, imgy,
+            lx, ly, tb_order, status);
+    }
 }
 
-template<typename Type4, typename Type8>
-__global__ void kernel_synthesize_mode_0_yuv420(
+template<typename Type, typename Type4, typename Type8, int mode>
+__global__ void kernel_synthesize_mode_1234_yuv444(
+    uint8_t *__restrict__ dst,
+    const uint8_t *__restrict__ p0,
+    const uint8_t *__restrict__ p1,
+    const uint8_t *__restrict__ sip,
+    const int width, const int height,
+    const int src_pitch, const int dst_pitch, const int sip_pitch,
+    int dst_yu_plane_offset, int dst_uv_plane_offset,
+    const int tb_order, const uint8_t status) {
+    const int lx = threadIdx.x; //スレッド数=SYN_BLOCK_INT_X
+    const int ly = threadIdx.y; //スレッド数=SYN_BLOCK_Y
+    const int imgx = blockIdx.x * SYN_BLOCK_INT_X /*blockDim.x*/ + lx; //グローバルスレッドID x
+    const int imgy = blockIdx.y * SYN_BLOCK_Y     /*blockDim.y*/ + ly; //グローバルスレッドID y
+
+    if (imgx * 8 < width && imgy < (height >> 1)) {
+        //y
+        const int y_h_center = imgy << 1;
+
+        int y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos;
+        set_y_h_pos<Type8, mode>(imgx, y_h_center, height, src_pitch, y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos);
+
+        uint8_t *dst_y       = dst +  y_h_center * dst_pitch + imgx * sizeof(Type8);
+        const uint8_t *sip_y = sip + (y_h_center * sip_pitch + imgx * sizeof(uint8_t) * 8);
+        proc_y<Type8, mode>(dst_y +         0, p0, p1, sip_y +         0, tb_order + 0, status, y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos);
+        proc_y<Type8, mode>(dst_y + dst_pitch, p0, p1, sip_y + sip_pitch, tb_order + 1, status, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos);
+
+        uint8_t *dst_u = dst_y + dst_yu_plane_offset;
+        uint8_t *dst_v = dst_u + dst_uv_plane_offset;
+        p0 += dst_yu_plane_offset;
+        p1 += dst_yu_plane_offset;
+        proc_y<Type8, mode>(dst_u +         0, p0, p1, sip_y +         0, tb_order + 0, status, y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos);
+        proc_y<Type8, mode>(dst_u + dst_pitch, p0, p1, sip_y + sip_pitch, tb_order + 1, status, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos);
+
+        p0 += dst_uv_plane_offset;
+        p1 += dst_uv_plane_offset;
+        proc_y<Type8, mode>(dst_v +         0, p0, p1, sip_y +         0, tb_order + 0, status, y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos);
+        proc_y<Type8, mode>(dst_v + dst_pitch, p0, p1, sip_y + sip_pitch, tb_order + 1, status, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos);
+    }
+}
+
+template<typename Type4, typename Type8, bool yuv420>
+__global__ void kernel_synthesize_mode_0(
     uint8_t *__restrict__ dst,
     const uint8_t *__restrict__ p0,
     const uint8_t *__restrict__ p1,
@@ -574,20 +625,40 @@ __global__ void kernel_synthesize_mode_0_yuv420(
 
     if (imgx * 8 < width) {
         const uint8_t *src = (is_latter_field(ly, tb_order) & (status & AFS_FLAG_SHIFT0)) ? p1 : p0;
-        //y
-        const int y_line = (blockIdx.y * SYN_BLOCK_Y * 2) + ly;
-        Type8       *dst_y = (Type8 *)(dst + y_line * dst_pitch + imgx * sizeof(Type8));
-        const Type8 *src_y = (const Type8 *)(src + y_line * src_pitch + imgx * sizeof(Type8));
-        if (y_line < height) {
-            dst_y[0] = src_y[0];
-        }
-        if (y_line + SYN_BLOCK_Y < height) {
-            dst_y = (Type8 *)((uint8_t *)dst_y + dst_pitch * SYN_BLOCK_Y);
-            src_y = (Type8 *)((uint8_t *)src_y + src_pitch * SYN_BLOCK_Y);
-            dst_y[0] = src_y[0];
+        {
+            //y
+            const int y_line = (blockIdx.y * SYN_BLOCK_Y * 2) + ly;
+            Type8       *dst_y = (      Type8 *)(dst + y_line * dst_pitch + imgx * sizeof(Type8));
+            const Type8 *src_y = (const Type8 *)(src + y_line * src_pitch + imgx * sizeof(Type8));
+            Type8       *dst_u, *dst_v;
+            const Type8 *src_u, *src_v;
+            if (y_line < height) {
+                dst_y[0] = src_y[0];
+                if (!yuv420) {
+                    dst_u = (      Type8 *)((      uint8_t *)dst_y + dst_yu_plane_offset);
+                    dst_v = (      Type8 *)((      uint8_t *)dst_u + dst_uv_plane_offset);
+                    src_u = (const Type8 *)((const uint8_t *)src_y + src_yu_plane_offset);
+                    src_v = (const Type8 *)((const uint8_t *)src_u + src_uv_plane_offset);
+                    dst_u[0] = src_u[0];
+                    dst_v[0] = src_v[0];
+                }
+            }
+            if (y_line + SYN_BLOCK_Y < height) {
+                dst_y = (      Type8 *)((      uint8_t *)dst_y + dst_pitch * SYN_BLOCK_Y);
+                src_y = (const Type8 *)((const uint8_t *)src_y + src_pitch * SYN_BLOCK_Y);
+                dst_y[0] = src_y[0];
+                if (!yuv420) {
+                    dst_u = (      Type8 *)((      uint8_t *)dst_u + dst_pitch * SYN_BLOCK_Y);
+                    src_u = (const Type8 *)((const uint8_t *)src_u + src_pitch * SYN_BLOCK_Y);
+                    dst_v = (      Type8 *)((      uint8_t *)dst_v + dst_pitch * SYN_BLOCK_Y);
+                    src_v = (const Type8 *)((const uint8_t *)src_v + src_pitch * SYN_BLOCK_Y);
+                    dst_u[0] = src_u[0];
+                    dst_v[0] = src_v[0];
+                }
+            }
         }
 
-        if ((imgy << 1) < height) {
+        if (yuv420 && ((imgy << 1) < height)) {
             //u
             const int uv_pos_dst = imgy                    * dst_pitch + imgx * sizeof(Type4);
             const int uv_pos_src = yuv420c_h(imgy, height) * src_pitch + imgx * sizeof(Type4);
@@ -637,7 +708,7 @@ int synthesize_mode_tune_select_color(const uint8_t sip, const uint8_t status) {
     return ret;
 }
 
-template<typename Type, typename Type2>
+template<typename Type, typename Type2, bool yuv420>
 __global__ void kernel_synthesize_mode_tune(
     uint8_t *__restrict__ dst,
     const uint8_t *__restrict__ sip,
@@ -661,8 +732,6 @@ __global__ void kernel_synthesize_mode_tune(
     if (imgy_x < width && imgy_y < height) {
         sip                 += imgy_y * sip_pitch + imgy_x * sizeof(uint8_t);
         uint8_t *dst_y = dst + imgy_y * dst_pitch + imgy_x * sizeof(Type);
-        uint8_t *dst_u = dst + imgc_y * dst_pitch + imgc_x * sizeof(Type) + dst_yu_plane_offset;
-        uint8_t *dst_v = (uint8_t *)dst_u + dst_uv_plane_offset;
 
         uchar2 sip2 = *(uchar2 *)sip;
         const int c00 = synthesize_mode_tune_select_color(sip2.x, status);
@@ -679,8 +748,31 @@ __global__ void kernel_synthesize_mode_tune(
         dst_y2.y = (Type)(YUY2_COLOR[c11][0] << (bit_depth - 8));
         *(Type2 *)(dst_y + dst_pitch) = dst_y2;
 
-        *(Type *)dst_u = (Type)(((YUY2_COLOR[c00][1] + YUY2_COLOR[c01][1] + YUY2_COLOR[c10][1] + YUY2_COLOR[c11][1] + 2) << (bit_depth - 8)) >> 2);
-        *(Type *)dst_v = (Type)(((YUY2_COLOR[c00][2] + YUY2_COLOR[c01][2] + YUY2_COLOR[c10][2] + YUY2_COLOR[c11][2] + 2) << (bit_depth - 8)) >> 2);
+        if (yuv420) {
+            uint8_t *dst_u = dst + imgc_y * dst_pitch + imgc_x * sizeof(Type) + dst_yu_plane_offset;
+            uint8_t *dst_v = (uint8_t *)dst_u + dst_uv_plane_offset;
+            *(Type *)dst_u = (Type)(((YUY2_COLOR[c00][1] + YUY2_COLOR[c01][1] + YUY2_COLOR[c10][1] + YUY2_COLOR[c11][1] + 2) << (bit_depth - 8)) >> 2);
+            *(Type *)dst_v = (Type)(((YUY2_COLOR[c00][2] + YUY2_COLOR[c01][2] + YUY2_COLOR[c10][2] + YUY2_COLOR[c11][2] + 2) << (bit_depth - 8)) >> 2);
+        } else {
+            uint8_t *dst_u = dst_y + dst_yu_plane_offset;
+            uint8_t *dst_v = dst_u + dst_uv_plane_offset;
+
+            Type2 dst_u2;
+            dst_u2.x = (Type)(YUY2_COLOR[c00][1] << (bit_depth - 8));
+            dst_u2.y = (Type)(YUY2_COLOR[c01][1] << (bit_depth - 8));
+            *(Type2 *)dst_u = dst_u2;
+            dst_u2.x = (Type)(YUY2_COLOR[c10][1] << (bit_depth - 8));
+            dst_u2.y = (Type)(YUY2_COLOR[c11][1] << (bit_depth - 8));
+            *(Type2 *)(dst_u + dst_pitch) = dst_u2;
+
+            Type2 dst_v2;
+            dst_v2.x = (Type)(YUY2_COLOR[c00][2] << (bit_depth - 8));
+            dst_v2.y = (Type)(YUY2_COLOR[c01][2] << (bit_depth - 8));
+            *(Type2 *)dst_v = dst_v2;
+            dst_v2.x = (Type)(YUY2_COLOR[c10][2] << (bit_depth - 8));
+            dst_v2.y = (Type)(YUY2_COLOR[c11][2] << (bit_depth - 8));
+            *(Type2 *)(dst_v + dst_pitch) = dst_v2;
+        }
     }
 }
 
@@ -706,7 +798,7 @@ cudaError_t textureCreate(cudaTextureObject_t& tex, cudaTextureFilterMode filter
     return cudaCreateTextureObject(&tex, &resDesc, &texDesc, nullptr);
 }
 
-template<typename Type, typename Type2, typename Type4, typename Type8, int mode>
+template<typename Type, typename Type2, typename Type4, typename Type8, int mode, bool yuv420>
 cudaError_t run_synthesize(uint8_t *dst,
     uint8_t *p0, uint8_t *p1, uint8_t *sip,
     const int width, const int height,
@@ -716,15 +808,15 @@ cudaError_t run_synthesize(uint8_t *dst,
     auto cudaerr = cudaSuccess;
 
     const int dst_yu_plane_offset = dstPitch * height;
-    const int dst_uv_plane_offset = dstPitch * height >> 1;
+    const int dst_uv_plane_offset = dstPitch * height >> ((yuv420) ? 1 : 0);
     const int src_yu_plane_offset = srcPitch * height;
-    const int src_uv_plane_offset = srcPitch * height >> 1;
+    const int src_uv_plane_offset = srcPitch * height >> ((yuv420) ? 1 : 0);
     
     if (mode < 0) {
         const dim3 blockSize(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
         const dim3 gridSize(divCeil(width, blockSize.x * 2), divCeil(height, blockSize.y * 2));
 
-        kernel_synthesize_mode_tune<Type, Type2><<<gridSize, blockSize, 0, stream>>>(
+        kernel_synthesize_mode_tune<Type, Type2, yuv420><<<gridSize, blockSize, 0, stream>>>(
             dst, sip,
             width, height, dstPitch, sipPitch,
             dst_yu_plane_offset, dst_uv_plane_offset, RGY_CSP_BIT_DEPTH[csp],
@@ -733,64 +825,68 @@ cudaError_t run_synthesize(uint8_t *dst,
         const dim3 blockSize(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
         const dim3 gridSize(divCeil(width, blockSize.x * 8), divCeil(height, blockSize.y * 2));
     
-        kernel_synthesize_mode_0_yuv420<Type4, Type8><<<gridSize, blockSize, 0, stream>>>(
+        kernel_synthesize_mode_0<Type4, Type8, yuv420><<<gridSize, blockSize, 0, stream>>>(
             dst, p0, p1,
             width, height, srcPitch, dstPitch,
             src_yu_plane_offset, src_uv_plane_offset,
             dst_yu_plane_offset, dst_uv_plane_offset,
             tb_order, status);
-        cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
-        }
     } else {
         const dim3 blockSize(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
         const dim3 gridSize(divCeil(width, blockSize.x * 8), divCeil(height, blockSize.y * 2));
-    
-        cudaTextureObject_t texP0U0, texP0U1, texP0V0, texP0V1, texP1U0, texP1U1, texP1V0, texP1V1;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height,         srcPitch, width >> 1, height >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height * 5 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height * 6 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height * 7 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height,         srcPitch, width >> 1, height >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height * 5 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height * 6 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height * 7 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
 
-        kernel_synthesize_mode_1234_yuv420<Type, Type4, Type8, mode><<<gridSize, blockSize, 0, stream>>>(
-            dst, p0, p1, sip,
-            texP0U0, texP0U1, texP1U0, texP1U1,
-            texP0V0, texP0V1, texP1V0, texP1V1,
-            width, height, srcPitch, dstPitch, sipPitch,
-            dst_yu_plane_offset, dst_uv_plane_offset,
-            tb_order, status);
-        cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        if (yuv420) {
+            cudaTextureObject_t texP0U0, texP0U1, texP0V0, texP0V1, texP1U0, texP1U1, texP1V0,texP1V1;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height,         srcPitch, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height * 5 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height * 6 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height * 7 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height,         srcPitch, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height * 5 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height * 6 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height * 7 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
+
+            kernel_synthesize_mode_1234_yuv420<Type, Type4, Type8, mode><<<gridSize, blockSize, 0, stream>>>(
+                dst, p0, p1, sip,
+                texP0U0, texP0U1, texP1U0, texP1U1,
+                texP0V0, texP0V1, texP1V0, texP1V1,
+                width, height, srcPitch, dstPitch, sipPitch,
+                dst_yu_plane_offset, dst_uv_plane_offset,
+                tb_order, status);
+            cudaerr = cudaGetLastError();
+            if (cudaerr != cudaSuccess) {
+                return cudaerr;
+            }
+
+            cudaDestroyTextureObject(texP0U0);
+            cudaDestroyTextureObject(texP0U1);
+            cudaDestroyTextureObject(texP0V0);
+            cudaDestroyTextureObject(texP0V1);
+            cudaDestroyTextureObject(texP1U0);
+            cudaDestroyTextureObject(texP1U1);
+            cudaDestroyTextureObject(texP1V0);
+            cudaDestroyTextureObject(texP1V1);
+        } else {
+            kernel_synthesize_mode_1234_yuv444<Type, Type4, Type8, mode><<<gridSize, blockSize, 0, stream>>>(
+                dst, p0, p1, sip,
+                width, height, srcPitch, dstPitch, sipPitch,
+                dst_yu_plane_offset, dst_uv_plane_offset,
+                tb_order, status);
         }
-
-        cudaDestroyTextureObject(texP0U0);
-        cudaDestroyTextureObject(texP0U1);
-        cudaDestroyTextureObject(texP0V0);
-        cudaDestroyTextureObject(texP0V1);
-        cudaDestroyTextureObject(texP1U0);
-        cudaDestroyTextureObject(texP1U1);
-        cudaDestroyTextureObject(texP1V0);
-        cudaDestroyTextureObject(texP1V1);
     }
     return cudaGetLastError();
 }
 
 cudaError_t NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream) {
     struct synthesize_func {
-        decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2, 3>)* func[6];
+        decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2, 3, true>)* func[6];
         synthesize_func(
-            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2, -1>)* mode_tune,
-            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  0>)* mode_0,
-            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  1>)* mode_1,
-            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  2>)* mode_2,
-            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  3>)* mode_3,
-            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  4>)* mode_4) {
+            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2, -1, true>)* mode_tune,
+            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  0, true>)* mode_0,
+            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  1, true>)* mode_1,
+            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  2, true>)* mode_2,
+            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  3, true>)* mode_3,
+            decltype(run_synthesize<uint8_t, uchar2, uint32_t, uint2,  4, true>)* mode_4) {
             func[0] = mode_tune;
             func[1] = mode_0;
             func[2] = mode_1;
@@ -802,22 +898,29 @@ cudaError_t NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf 
 
     static const std::map<RGY_CSP, synthesize_func> synthesize_func_list = {
         { RGY_CSP_YV12, synthesize_func(
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2, -1>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  0>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  1>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  2>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  3>,
-            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  4>) },
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2, -1, true>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  0, true>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  1, true>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  2, true>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  3, true>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  4, true>) },
         { RGY_CSP_YV12_16, synthesize_func(
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4, -1>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  0>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  1>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  2>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  3>,
-            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  4>) }
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4, -1, true>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  0, true>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  1, true>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  2, true>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  3, true>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  4, true>) },
+        { RGY_CSP_YUV444, synthesize_func(
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2, -1, false>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  0, false>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  1, false>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  2, false>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  3, false>,
+            run_synthesize<uint8_t, uchar2, uint32_t, uint2,  4, false>) },
     };
     if (synthesize_func_list.count(pAfsPrm->frameIn.csp) == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("unsupported csp for denoise(pmd): %s\n"), RGY_CSP_NAMES[pAfsPrm->frameIn.csp]);
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp for afs_synthesize: %s\n"), RGY_CSP_NAMES[pAfsPrm->frameIn.csp]);
         return cudaErrorNotSupported;
     }
     int mode = pAfsPrm->afs.analyze;
