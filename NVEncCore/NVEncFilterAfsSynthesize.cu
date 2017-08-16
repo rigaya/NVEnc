@@ -918,6 +918,13 @@ cudaError_t NVEncFilterAfs::synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf 
             run_synthesize<uint8_t, uchar2, uint32_t, uint2,  2, false>,
             run_synthesize<uint8_t, uchar2, uint32_t, uint2,  3, false>,
             run_synthesize<uint8_t, uchar2, uint32_t, uint2,  4, false>) },
+        { RGY_CSP_YUV444_16, synthesize_func(
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4, -1, false>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  0, false>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  1, false>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  2, false>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  3, false>,
+            run_synthesize<uint16_t, ushort2, uint64_t, uint4,  4, false>) }
     };
     if (synthesize_func_list.count(pAfsPrm->frameIn.csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for afs_synthesize: %s\n"), RGY_CSP_NAMES[pAfsPrm->frameIn.csp]);

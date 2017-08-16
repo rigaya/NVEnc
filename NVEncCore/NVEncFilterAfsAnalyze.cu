@@ -616,9 +616,10 @@ cudaError_t NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_S
     };
 
     static const std::map<RGY_CSP, analyze_func> analyze_stripe_func_list = {
-        { RGY_CSP_YV12,      analyze_func(run_analyze_stripe<uint8_t,  uint32_t, 8, false, true>,   run_analyze_stripe<uint8_t,  uint32_t, 8, true, true>) },
-        { RGY_CSP_YV12_16,   analyze_func(run_analyze_stripe<uint16_t, uint2,   16, false, true>,   run_analyze_stripe<uint16_t, uint2,   16, true, true>) },
+        { RGY_CSP_YV12,      analyze_func(run_analyze_stripe<uint8_t,  uint32_t, 8, false, true>,   run_analyze_stripe<uint8_t,  uint32_t, 8, true, true>)  },
+        { RGY_CSP_YV12_16,   analyze_func(run_analyze_stripe<uint16_t, uint2,   16, false, true>,   run_analyze_stripe<uint16_t, uint2,   16, true, true>)  },
         { RGY_CSP_YUV444,    analyze_func(run_analyze_stripe<uint8_t,  uint32_t, 8, false, false>,  run_analyze_stripe<uint8_t,  uint32_t, 8, true, false>) },
+        { RGY_CSP_YUV444_16, analyze_func(run_analyze_stripe<uint16_t, uint2,   16, false, false>,  run_analyze_stripe<uint16_t, uint2,   16, true, false>) },
     };
     if (p1->frame.pitch % sizeof(int) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("frame pitch must be mod4\n"));
