@@ -3448,6 +3448,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 || (m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
                 bInputEmpty = true;
             }
+            if (!bInputEmpty) {
             CUVIDPARSERDISPINFO dispInfo = { 0 };
             if (!m_cuvidDec->frameQueue()->dequeue(&dispInfo)) {
                 //転送の終了状況を確認、可能ならリソースの開放を行う
@@ -3464,6 +3465,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 delete ptr; 
             }), m_cuvidDec->GetDecFrameInfo());
             inputFrame.setInterlaceFlag(m_stPicStruct);
+            }
         } else
 #endif //#if ENABLE_AVSW_READER
         if (m_inputHostBuffer.size()) {
