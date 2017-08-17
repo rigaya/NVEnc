@@ -291,6 +291,37 @@ struct CUMemBufPair {
     }
 };
 
+enum FILTER_PATHTHROUGH_FRAMEINFO : uint32_t {
+    FILTER_PATHTHROUGH_NONE      = 0x00u,
+    FILTER_PATHTHROUGH_TIMESTAMP = 0x01u,
+    FILTER_PATHTHROUGH_FLAGS     = 0x02u,
+    FILTER_PATHTHROUGH_PICSTRUCT = 0x04u,
+
+    FILTER_PATHTHROUGH_ALL       = 0x07u,
+};
+
+static FILTER_PATHTHROUGH_FRAMEINFO operator|(FILTER_PATHTHROUGH_FRAMEINFO a, FILTER_PATHTHROUGH_FRAMEINFO b) {
+    return (FILTER_PATHTHROUGH_FRAMEINFO)((uint32_t)a | (uint32_t)b);
+}
+
+static FILTER_PATHTHROUGH_FRAMEINFO operator|=(FILTER_PATHTHROUGH_FRAMEINFO& a, FILTER_PATHTHROUGH_FRAMEINFO b) {
+    a = a | b;
+    return a;
+}
+
+static FILTER_PATHTHROUGH_FRAMEINFO operator&(FILTER_PATHTHROUGH_FRAMEINFO a, FILTER_PATHTHROUGH_FRAMEINFO b) {
+    return (FILTER_PATHTHROUGH_FRAMEINFO)((uint32_t)a & (uint32_t)b);
+}
+
+static FILTER_PATHTHROUGH_FRAMEINFO operator&=(FILTER_PATHTHROUGH_FRAMEINFO& a, FILTER_PATHTHROUGH_FRAMEINFO b) {
+    a = a & b;
+    return a;
+}
+
+static FILTER_PATHTHROUGH_FRAMEINFO operator~(FILTER_PATHTHROUGH_FRAMEINFO a) {
+    return (FILTER_PATHTHROUGH_FRAMEINFO)(~((uint32_t)a));
+}
+
 class NVEncFilter {
 public:
     NVEncFilter();
@@ -343,7 +374,7 @@ protected:
     int m_nFrameIdx;
 protected:
     shared_ptr<NVEncFilterParam> m_pParam;
-    bool m_bTimestampPathThrough;
+    FILTER_PATHTHROUGH_FRAMEINFO m_nPathThrough;
 private:
     bool m_bCheckPerformance;
     unique_ptr<cudaEvent_t, cudaevent_deleter> m_peFilterStart;

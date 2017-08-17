@@ -519,6 +519,8 @@ static tstring help() {
         FILTER_DEFAULT_AFS_FORCE24 ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"));
     str += strsprintf(_T("")
+        _T("   --vpp-rff                    apply rff flag\n"));
+    str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
         _T("                                 or logo index starting from 1.\n")
@@ -2462,6 +2464,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 return -1;
             }
         }
+        return 0;
+    }
+    if (IS_OPTION("vpp-rff")) {
+        pParams->vpp.rff = true;
         return 0;
     }
     if (IS_OPTION("vpp-perf-monitor")) {

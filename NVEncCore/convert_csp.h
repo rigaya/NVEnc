@@ -197,7 +197,7 @@ static RGY_PICSTRUCT operator&(RGY_PICSTRUCT a, RGY_PICSTRUCT b) {
 }
 
 static RGY_PICSTRUCT operator&=(RGY_PICSTRUCT& a, RGY_PICSTRUCT b) {
-    a = (RGY_PICSTRUCT)((uint8_t)a & (uint8_t)b);
+    a = a & b;
     return a;
 }
 
@@ -211,6 +211,36 @@ typedef struct ConvertCSP {
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only);
 const TCHAR *get_simd_str(unsigned int simd);
 
+enum RGY_FRAME_FLAGS : uint64_t {
+    RGY_FRAME_FLAG_NONE     = 0x00u,
+    RGY_FRAME_FLAG_RFF      = 0x01u,
+    RGY_FRAME_FLAG_RFF_COPY = 0x02u,
+    RGY_FRAME_FLAG_RFF_TFF  = 0x04u,
+    RGY_FRAME_FLAG_RFF_BFF  = 0x08u,
+};
+
+static RGY_FRAME_FLAGS operator|(RGY_FRAME_FLAGS a, RGY_FRAME_FLAGS b) {
+    return (RGY_FRAME_FLAGS)((uint64_t)a | (uint64_t)b);
+}
+
+static RGY_FRAME_FLAGS operator|=(RGY_FRAME_FLAGS& a, RGY_FRAME_FLAGS b) {
+    a = a | b;
+    return a;
+}
+
+static RGY_FRAME_FLAGS operator&(RGY_FRAME_FLAGS a, RGY_FRAME_FLAGS b) {
+    return (RGY_FRAME_FLAGS)((uint64_t)a & (uint64_t)b);
+}
+
+static RGY_FRAME_FLAGS operator&=(RGY_FRAME_FLAGS& a, RGY_FRAME_FLAGS b) {
+    a = a & b;
+    return a;
+}
+
+static RGY_FRAME_FLAGS operator~(RGY_FRAME_FLAGS a) {
+    return (RGY_FRAME_FLAGS)(~((uint64_t)a));
+}
+
 struct FrameInfo {
     uint8_t *ptr;
     RGY_CSP csp;
@@ -219,6 +249,7 @@ struct FrameInfo {
     int64_t duration;
     bool deivce_mem;
     RGY_PICSTRUCT picstruct;
+    RGY_FRAME_FLAGS flags;
 };
 
 struct FrameInfoExtra {

@@ -67,6 +67,11 @@ cudaError_t afsSourceCache::alloc(const FrameInfo& frameInfo) {
 cudaError_t afsSourceCache::add(const FrameInfo *pInputFrame, cudaStream_t stream) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
+    pDstFrame->frame.flags     = pInputFrame->flags;
+    pDstFrame->frame.picstruct = pInputFrame->picstruct;
+    pDstFrame->frame.timestamp = pInputFrame->timestamp;
+    pDstFrame->frame.duration  = pInputFrame->duration;
+
     const auto frameOutInfoEx = getFrameInfoExtra(pInputFrame);
     static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
@@ -466,7 +471,7 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     pAfsParam->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
     m_nFrame = 0;
     m_nPts = 0;
-    m_bTimestampPathThrough = false;
+    m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS));
 
 #define ON_OFF(b) ((b) ? _T("on") : _T("off"))
     m_sFilterInfo = strsprintf(
@@ -818,6 +823,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
                 ppOutputFrames[0] = &pOutFrame->frame;
                 m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
             }
+            pOutFrame->frame.flags = m_source.get(m_nFrame)->frame.flags & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_BFF | RGY_FRAME_FLAG_RFF_TFF));
             pOutFrame->frame.picstruct = RGY_PICSTRUCT_FRAME;
             pOutFrame->frame.duration = rational_rescale(afs_duration, pAfsParam->inFps.inv() * rgy_rational<int>(1,4), pAfsParam->outTimebase);
             pOutFrame->frame.timestamp = m_nPts;

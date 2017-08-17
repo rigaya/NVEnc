@@ -67,6 +67,7 @@
 #include "NVEncFilterDenoisePmd.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterAfs.h"
+#include "NVEncFilterRff.h"
 #include "chapter_rw.h"
 #include "helper_cuda.h"
 #include "helper_nvenc.h"
@@ -138,10 +139,8 @@ public:
         m_bInputHost = false;
     }
     void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) {
-        m_pInfo = pInfo;
+        setCuvidInfo(pInfo, frameInfo);
         m_oVPP = oVPP;
-        m_frameInfo = frameInfo;
-        m_bInputHost = false;
     }
     shared_ptr<CUVIDPARSERDISPINFO> getCuvidInfo() {
         return m_pInfo;
@@ -164,12 +163,8 @@ public:
     FrameInfo getFrameInfo() const {
         return m_frameInfo;
     }
-    void setInterlaceFlag(NV_ENC_PIC_STRUCT nv_picstruct) {
-        switch (nv_picstruct) {
-        case NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM: m_frameInfo.picstruct = RGY_PICSTRUCT_FRAME_TFF; break;
-        case NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP: m_frameInfo.picstruct = RGY_PICSTRUCT_FRAME_BFF; break;
-        default: m_frameInfo.picstruct = RGY_PICSTRUCT_FRAME; break;
-        }
+    void setInterlaceFlag(RGY_PICSTRUCT picstruct) {
+        m_frameInfo.picstruct = picstruct;
     }
 private:
     shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
@@ -2399,6 +2394,25 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame.height = inputParam->input.dstHeight;
         bResizeRequired = false;
     }
+    //vpp-rffの制約事項
+    if (inputParam->vpp.rff) {
+        if (!m_cuvidDec) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rff can only be used with hw decoder.\n"));
+            return NV_ENC_ERR_UNIMPLEMENTED;
+        }
+        if (m_pTrimParam) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
+            return NV_ENC_ERR_UNIMPLEMENTED;
+        }
+        if (m_nAVSyncMode != RGY_AVSYNC_THROUGH) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with avsync.\n"));
+            return NV_ENC_ERR_UNIMPLEMENTED;
+        }
+        if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-deint.\n"));
+            return NV_ENC_ERR_UNIMPLEMENTED;
+        }
+    }
     //フィルタが必要
     if (bResizeRequired
         || inputParam->vpp.delogo.pFilePath
@@ -2408,6 +2422,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.pmd.enable
         || inputParam->vpp.deband.enable
         || inputParam->vpp.afs.enable
+        || inputParam->vpp.rff
         ) {
         //swデコードならGPUに上げる必要がある
         if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -2460,6 +2475,27 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             }
             //フィルタチェーンに追加
             m_vpFilters.push_back(std::move(filterCrop));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
+        //rff
+        if (inputParam->vpp.rff) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterRff());
+            shared_ptr<NVEncFilterParamRff> param(new NVEncFilterParamRff());
+            param->frameIn  = inputFrame;
+            param->frameOut = inputFrame;
+            param->inFps    = m_inputFps;
+            param->timebase = m_outputTimebase;
+            param->bOutOverwrite = true;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
             //パラメータ情報を更新
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
@@ -2994,6 +3030,11 @@ NVENCSTATUS NVEncCore::Encode() {
 
     const int cudaEventFlags = (m_cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : cudaEventDefault;
 
+    //vpp-rffが使用されているか
+    const bool vpp_rff = std::find_if(m_vpFilters.begin(), m_vpFilters.end(),
+        [](unique_ptr<NVEncFilter>& filter) { return typeid(*filter) == typeid(NVEncFilterRff); }
+    ) != m_vpFilters.end();
+
     //エンコードを開始してもよいかを示すcueventの入れ物
     //FrameBufferDataEncに関連付けて使用する
     vector<unique_ptr<cudaEvent_t, cudaevent_deleter>> vEncStartEvents(nEventCount);
@@ -3152,6 +3193,8 @@ NVENCSTATUS NVEncCore::Encode() {
     const int nStreamInFrameDuration = (pStreamIn) ? (int)av_rescale_q(1, av_make_q(m_inputFps), pStreamIn->time_base) : 1;
 #endif //#if ENABLE_AVSW_READER
 
+    int dec_vpp_rff_sts = 0;
+
     auto add_dec_vpp_param = [&](FrameBufferDataIn *pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
         if (pInputFrame->inputIsHost()) {
             vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(*pInputFrame))));
@@ -3159,27 +3202,46 @@ NVENCSTATUS NVEncCore::Encode() {
 #if ENABLE_AVSW_READER
         else {
             auto deint = m_cuvidDec->getDeinterlaceMode();
+            auto frameinfo = pInputFrame->getFrameInfo();
             CUVIDPROCPARAMS oVPP = { 0 };
-            oVPP.top_field_first = m_stPicStruct != NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
+            oVPP.top_field_first = pInputFrame->getCuvidInfo()->top_field_first;
             switch (deint) {
             case cudaVideoDeinterlaceMode_Weave:
-                oVPP.progressive_frame = (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME);
-                oVPP.unpaired_field = 1;// oVPP.progressive_frame;
-                pInputFrame->setInterlaceFlag(m_stPicStruct);
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
+                oVPP.progressive_frame = pInputFrame->getCuvidInfo()->progressive_frame;
+                oVPP.unpaired_field = 0;// oVPP.progressive_frame;
+
+                //frameinfo.picstructの決定
+                frameinfo.picstruct = (oVPP.progressive_frame) ? RGY_PICSTRUCT_FRAME : ((oVPP.top_field_first) ? RGY_PICSTRUCT_FRAME_TFF : RGY_PICSTRUCT_FRAME_BFF);
+                //RFFに関するフラグを念のためクリア
+                frameinfo.flags &= (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
+                //RFFフラグの有無
+                if (pInputFrame->getCuvidInfo()->repeat_first_field) {
+                    frameinfo.flags |= RGY_FRAME_FLAG_RFF;
+                }
+                //TFFかBFFか
+                frameinfo.flags |= (oVPP.top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+
+                if (vpp_rff && (frameinfo.flags & RGY_FRAME_FLAG_RFF)) {
+                    if (dec_vpp_rff_sts) {
+                        frameinfo.flags |= RGY_FRAME_FLAG_RFF_COPY;
+                        vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                    }
+                    dec_vpp_rff_sts ^= 1; //反転
+                }
                 break;
             case cudaVideoDeinterlaceMode_Bob:
-                pInputFrame->setInterlaceFlag(NV_ENC_PIC_STRUCT_FRAME);
+                pInputFrame->setInterlaceFlag(RGY_PICSTRUCT_FRAME);
                 oVPP.progressive_frame = 0;
                 oVPP.second_field = 0;
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
                 oVPP.second_field = 1;
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
                 break;
             case cudaVideoDeinterlaceMode_Adaptive:
-                pInputFrame->setInterlaceFlag(NV_ENC_PIC_STRUCT_FRAME);
+                pInputFrame->setInterlaceFlag(RGY_PICSTRUCT_FRAME);
                 oVPP.progressive_frame = 0;
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, pInputFrame->getFrameInfo()))));
+                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
                 break;
             default:
                 PrintMes(RGY_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
@@ -3301,13 +3363,13 @@ NVENCSTATUS NVEncCore::Encode() {
                 PrintMes(RGY_LOG_ERROR, _T("Currently only simple filters are supported.\n"));
                 return NV_ENC_ERR_UNIMPLEMENTED;
             }
-            if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
-                auto pCudaEvent = vInFrameTransferFin[nFilterFrame % vInFrameTransferFin.size()].get();
-                add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
-            }
             if (nOutFrames == 0) {
                 if (bDrain) continue;
                 return NV_ENC_SUCCESS;
+            }
+            if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
+                auto pCudaEvent = vInFrameTransferFin[nFilterFrame % vInFrameTransferFin.size()].get();
+                add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
             }
             bDrain = false; //途中でフレームが出てきたら、drain完了していない
             frameInfo = *(outInfo[0]);
@@ -3449,22 +3511,22 @@ NVENCSTATUS NVEncCore::Encode() {
                 bInputEmpty = true;
             }
             if (!bInputEmpty) {
-            CUVIDPARSERDISPINFO dispInfo = { 0 };
-            if (!m_cuvidDec->frameQueue()->dequeue(&dispInfo)) {
-                //転送の終了状況を確認、可能ならリソースの開放を行う
-                cuerr = check_inframe_transfer(nPipelineDepth);
-                if (cuerr != cudaSuccess) {
-                    PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
-                    return NV_ENC_ERR_GENERIC;
+                CUVIDPARSERDISPINFO dispInfo = { 0 };
+                if (!m_cuvidDec->frameQueue()->dequeue(&dispInfo)) {
+                    //転送の終了状況を確認、可能ならリソースの開放を行う
+                    cuerr = check_inframe_transfer(nPipelineDepth);
+                    if (cuerr != cudaSuccess) {
+                        PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
+                        return NV_ENC_ERR_GENERIC;
+                    }
+                    m_cuvidDec->frameQueue()->waitForQueueUpdate();
+                    continue;
                 }
-                m_cuvidDec->frameQueue()->waitForQueueUpdate();
-                continue;
-            }
-            inputFrame.setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
-                m_cuvidDec->frameQueue()->releaseFrame(ptr);
-                delete ptr; 
-            }), m_cuvidDec->GetDecFrameInfo());
-            inputFrame.setInterlaceFlag(m_stPicStruct);
+                inputFrame.setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO>(new CUVIDPARSERDISPINFO(dispInfo), [&](CUVIDPARSERDISPINFO *ptr) {
+                    m_cuvidDec->frameQueue()->releaseFrame(ptr);
+                    delete ptr;
+                }), m_cuvidDec->GetDecFrameInfo());
+                inputFrame.setInterlaceFlag(picstruct_enc_to_rgy(m_stPicStruct));
             }
         } else
 #endif //#if ENABLE_AVSW_READER
@@ -3493,7 +3555,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 SetEvent((HANDLE)ptr);
             });
             inputFrame.setHostFrameInfo(inputFrameBuf.frameInfo, heTransferFin);
-            inputFrame.setInterlaceFlag(m_stPicStruct);
+            inputFrame.setInterlaceFlag(picstruct_enc_to_rgy(m_stPicStruct));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unexpected error at Encode().\n"));
             return NV_ENC_ERR_GENERIC;

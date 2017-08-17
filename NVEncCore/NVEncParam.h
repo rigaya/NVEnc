@@ -636,6 +636,7 @@ struct VppParam {
     VppPmd pmd;
     VppDeband deband;
     VppAfs afs;
+    bool rff;
 
     VppParam();
 };

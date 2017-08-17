@@ -73,7 +73,8 @@ VppParam::VppParam() :
     knn(),
     pmd(),
     deband(),
-    afs() {
+    afs(),
+    rff(false) {
     unsharp.bEnable = false;
     delogo.pFilePath = nullptr;
     delogo.pSelect = nullptr;

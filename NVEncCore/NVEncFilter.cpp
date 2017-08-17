@@ -31,7 +31,7 @@
 NVEncFilter::NVEncFilter() :
     m_sFilterName(), m_sFilterInfo(), m_pPrintMes(), m_pFrameBuf(), m_nFrameIdx(0),
     m_pParam(),
-    m_bTimestampPathThrough(true), m_bCheckPerformance(false),
+    m_nPathThrough(FILTER_PATHTHROUGH_ALL), m_bCheckPerformance(false),
     m_peFilterStart(), m_peFilterFin(), m_dFilterTimeMs(0.0), m_nFilterRunCount(0) {
 
 }
@@ -70,18 +70,29 @@ NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFram
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
     }
-    if (m_pParam && m_pParam->bOutOverwrite && ppOutputFrames && ppOutputFrames[0] == nullptr) {
+    if (m_pParam
+        && m_pParam->bOutOverwrite
+        && pInputFrame != nullptr && pInputFrame->ptr != nullptr
+        && ppOutputFrames != nullptr && ppOutputFrames[0] == nullptr) {
         ppOutputFrames[0] = pInputFrame;
         *pOutputFrameNum = 1;
     }
     const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum);
-    if (m_bTimestampPathThrough && *pOutputFrameNum != 0) {
-        if (*pOutputFrameNum > 1) {
-            AddMessage(RGY_LOG_ERROR, _T("timestamp path through can only be applied to 1-in/1-out filter.\n"));
-            return NV_ENC_ERR_INVALID_CALL;
+    const int nOutFrame = *pOutputFrameNum;
+    if (!m_pParam->bOutOverwrite && nOutFrame > 0) {
+        if (m_nPathThrough & FILTER_PATHTHROUGH_TIMESTAMP) {
+            if (nOutFrame != 1) {
+                AddMessage(RGY_LOG_ERROR, _T("timestamp path through can only be applied to 1-in/1-out filter.\n"));
+                return NV_ENC_ERR_INVALID_CALL;
+            } else {
+                ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
+                ppOutputFrames[0]->duration  = pInputFrame->duration;
+            }
         }
-        ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
-        ppOutputFrames[0]->duration  = pInputFrame->duration;
+        for (int i = 0; i < nOutFrame; i++) {
+            if (m_nPathThrough & FILTER_PATHTHROUGH_FLAGS)     ppOutputFrames[i]->flags     = pInputFrame->flags;
+            if (m_nPathThrough & FILTER_PATHTHROUGH_PICSTRUCT) ppOutputFrames[i]->picstruct = pInputFrame->picstruct;
+        }
     }
     if (m_bCheckPerformance) {
         cudaerr = cudaEventRecord(*m_peFilterFin.get());
