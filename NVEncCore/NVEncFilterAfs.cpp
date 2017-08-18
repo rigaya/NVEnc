@@ -31,6 +31,7 @@
 #include "convert_csp.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncParam.h"
+#include "afs_stg.h"
 #pragma warning (push)
 
 static void afs_get_motion_count_simd(int *motion_count, const uint8_t *ptr, const AFS_SCAN_CLIP *clip, int pitch, int scan_w, int scan_h, int tb_order);
@@ -363,6 +364,159 @@ NVEncFilterAfs::NVEncFilterAfs() :
 
 NVEncFilterAfs::~NVEncFilterAfs() {
     close();
+}
+
+void NVEncFilterAfs::set_preset(VppAfs *pVppAfs, int preset) {
+    switch (preset) {
+    case AFS_PRESET_DEFAULT: //デフォルト
+        pVppAfs->method_switch = FILTER_DEFAULT_AFS_METHOD_SWITCH;
+        pVppAfs->coeff_shift   = FILTER_DEFAULT_AFS_COEFF_SHIFT;
+        pVppAfs->thre_shift    = FILTER_DEFAULT_AFS_THRE_SHIFT;
+        pVppAfs->thre_deint    = FILTER_DEFAULT_AFS_THRE_DEINT;
+        pVppAfs->thre_Ymotion  = FILTER_DEFAULT_AFS_THRE_YMOTION;
+        pVppAfs->thre_Cmotion  = FILTER_DEFAULT_AFS_THRE_CMOTION;
+        pVppAfs->analyze       = FILTER_DEFAULT_AFS_ANALYZE;
+        pVppAfs->shift         = FILTER_DEFAULT_AFS_SHIFT;
+        pVppAfs->drop          = FILTER_DEFAULT_AFS_DROP;
+        pVppAfs->smooth        = FILTER_DEFAULT_AFS_SMOOTH;
+        pVppAfs->force24       = FILTER_DEFAULT_AFS_FORCE24;
+        pVppAfs->tune          = FILTER_DEFAULT_AFS_TUNE;
+        break;
+    case AFS_PRESET_TRIPLE: //動き重視
+        pVppAfs->method_switch = 0;
+        pVppAfs->coeff_shift   = 192;
+        pVppAfs->thre_shift    = 128;
+        pVppAfs->thre_deint    = 64;
+        pVppAfs->thre_Ymotion  = 128;
+        pVppAfs->thre_Cmotion  = 256;
+        pVppAfs->analyze       = 1;
+        pVppAfs->shift         = false;
+        pVppAfs->drop          = false;
+        pVppAfs->smooth        = false;
+        pVppAfs->force24       = false;
+        pVppAfs->tune          = false;
+        break;
+    case AFS_PRESET_DOUBLE://二重化
+        pVppAfs->method_switch = 0;
+        pVppAfs->coeff_shift   = 192;
+        pVppAfs->thre_shift    = 128;
+        pVppAfs->thre_deint    = 64;
+        pVppAfs->thre_Ymotion  = 128;
+        pVppAfs->thre_Cmotion  = 256;
+        pVppAfs->analyze       = 2;
+        pVppAfs->shift         = true;
+        pVppAfs->drop          = true;
+        pVppAfs->smooth        = true;
+        pVppAfs->force24       = false;
+        pVppAfs->tune          = false;
+        break;
+    case AFS_PRESET_ANIME: //映画/アニメ
+        pVppAfs->method_switch = 64;
+        pVppAfs->coeff_shift   = 128;
+        pVppAfs->thre_shift    = 128;
+        pVppAfs->thre_deint    = 64;
+        pVppAfs->thre_Ymotion  = 128;
+        pVppAfs->thre_Cmotion  = 256;
+        pVppAfs->analyze       = 3;
+        pVppAfs->shift         = true;
+        pVppAfs->drop          = true;
+        pVppAfs->smooth        = true;
+        pVppAfs->force24       = false;
+        pVppAfs->tune          = false;
+        break;
+    case AFS_PRESET_MIN_AFTERIMG:      //残像最小化
+        pVppAfs->method_switch = 0;
+        pVppAfs->coeff_shift   = 192;
+        pVppAfs->thre_shift    = 128;
+        pVppAfs->thre_deint    = 64;
+        pVppAfs->thre_Ymotion  = 128;
+        pVppAfs->thre_Cmotion  = 256;
+        pVppAfs->analyze       = 4;
+        pVppAfs->shift         = true;
+        pVppAfs->drop          = true;
+        pVppAfs->smooth        = true;
+        pVppAfs->force24       = false;
+        pVppAfs->tune          = false;
+        break;
+    case AFS_PRESET_FORCE24_SD:        //24fps固定
+        pVppAfs->method_switch = 64;
+        pVppAfs->coeff_shift   = 128;
+        pVppAfs->thre_shift    = 128;
+        pVppAfs->thre_deint    = 64;
+        pVppAfs->thre_Ymotion  = 128;
+        pVppAfs->thre_Cmotion  = 256;
+        pVppAfs->analyze       = 3;
+        pVppAfs->shift         = true;
+        pVppAfs->drop          = true;
+        pVppAfs->smooth        = false;
+        pVppAfs->force24       = true;
+        pVppAfs->tune          = false;
+        break;
+    case AFS_PRESET_FORCE24_HD:        //24fps固定 (HD)
+        pVppAfs->method_switch = 92;
+        pVppAfs->coeff_shift   = 192;
+        pVppAfs->thre_shift    = 448;
+        pVppAfs->thre_deint    = 48;
+        pVppAfs->thre_Ymotion  = 112;
+        pVppAfs->thre_Cmotion  = 224;
+        pVppAfs->analyze       = 3;
+        pVppAfs->shift         = true;
+        pVppAfs->drop          = true;
+        pVppAfs->smooth        = true;
+        pVppAfs->force24       = true;
+        pVppAfs->tune          = false;
+        break;
+    case AFS_PRESET_FORCE30:           //30fps固定
+        pVppAfs->method_switch = 92;
+        pVppAfs->coeff_shift   = 192;
+        pVppAfs->thre_shift    = 448;
+        pVppAfs->thre_deint    = 48;
+        pVppAfs->thre_Ymotion  = 112;
+        pVppAfs->thre_Cmotion  = 224;
+        pVppAfs->analyze       = 3;
+        pVppAfs->shift         = false;
+        pVppAfs->drop          = false;
+        pVppAfs->smooth        = false;
+        pVppAfs->force24       = false;
+        pVppAfs->tune          = false;
+        break;
+    default:
+        break;
+    }
+}
+int NVEncFilterAfs::read_afs_inifile(VppAfs *pVppAfs, const TCHAR *inifile) {
+    if (!PathFileExists(inifile)) {
+        return 1;
+    }
+    const auto filename = tchar_to_string(inifile).c_str();
+    const auto section = AFS_STG_SECTION;
+
+    pVppAfs->clip.top      = GetPrivateProfileIntA(section, AFS_STG_UP,               pVppAfs->clip.top,      filename);
+    pVppAfs->clip.bottom   = GetPrivateProfileIntA(section, AFS_STG_BOTTOM,           pVppAfs->clip.bottom,   filename);
+    pVppAfs->clip.left     = GetPrivateProfileIntA(section, AFS_STG_LEFT,             pVppAfs->clip.left,     filename);
+    pVppAfs->clip.right    = GetPrivateProfileIntA(section, AFS_STG_RIGHT,            pVppAfs->clip.right,    filename);
+    pVppAfs->method_switch = GetPrivateProfileIntA(section, AFS_STG_METHOD_WATERSHED, pVppAfs->method_switch, filename);
+    pVppAfs->coeff_shift   = GetPrivateProfileIntA(section, AFS_STG_COEFF_SHIFT,      pVppAfs->coeff_shift,   filename);
+    pVppAfs->thre_shift    = GetPrivateProfileIntA(section, AFS_STG_THRE_SHIFT,       pVppAfs->thre_shift,    filename);
+    pVppAfs->thre_deint    = GetPrivateProfileIntA(section, AFS_STG_THRE_DEINT,       pVppAfs->thre_deint,    filename);
+    pVppAfs->thre_Ymotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_Y_MOTION,    pVppAfs->thre_Ymotion,  filename);
+    pVppAfs->thre_Cmotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_C_MOTION,    pVppAfs->thre_Cmotion,  filename);
+    pVppAfs->analyze       = GetPrivateProfileIntA(section, AFS_STG_MODE,             pVppAfs->analyze,       filename);
+
+    pVppAfs->shift    = 0 != GetPrivateProfileIntA(section, AFS_STG_FIELD_SHIFT,      pVppAfs->shift,         filename);
+    pVppAfs->drop     = 0 != GetPrivateProfileIntA(section, AFS_STG_DROP,             pVppAfs->drop,          filename);
+    pVppAfs->smooth   = 0 != GetPrivateProfileIntA(section, AFS_STG_SMOOTH,           pVppAfs->smooth,        filename);
+    pVppAfs->force24  = 0 != GetPrivateProfileIntA(section, AFS_STG_FORCE24,          pVppAfs->force24,       filename);
+    // GetPrivateProfileIntA(section, AFS_STG_DETECT_SC, fp->check[4], filename);
+    pVppAfs->tune     = 0 != GetPrivateProfileIntA(section, AFS_STG_TUNE_MODE,         pVppAfs->tune,          filename);
+    // GetPrivateProfileIntA(section, AFS_STG_LOG_SAVE, fp->check[6], filename);
+    // GetPrivateProfileIntA(section, AFS_STG_TRACE_MODE, fp->check[7], filename);
+    // GetPrivateProfileIntA(section, AFS_STG_REPLAY_MODE, fp->check[8], filename);
+    // GetPrivateProfileIntA(section, AFS_STG_YUY2UPSAMPLE, fp->check[9], filename);
+    // GetPrivateProfileIntA(section, AFS_STG_THROUGH_MODE, fp->check[10], filename);
+
+    // GetPrivateProfileIntA(section, AFS_STG_PROC_MODE, g_afs.ex_data.proc_mode, filename);
+    return 0;
 }
 
 NVENCSTATUS NVEncFilterAfs::check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam) {

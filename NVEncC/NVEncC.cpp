@@ -44,6 +44,7 @@
 #include "NVEncFeature.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
+#include "NVEncFilterAfs.h"
 
 #if ENABLE_CPP_REGEX
 #include <regex>
@@ -491,6 +492,14 @@ static tstring help() {
         _T("   --vpp-afs [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable auto field shift deinterlacer\n")
         _T("    params        Aviutlでのパラメータ名\n")
+        _T("      preset=<string>\n")
+        _T("          default, triple, double, anime, cinema, min_afterimg,\n")
+        _T("          force24, force24_sd, force30\n")
+        _T("      ini=<string>\n")
+        _T("          read setting from ini file specified (output of afs.auf)\n")
+        _T("\n")
+        _T("      !! parameters from preset & ini will be overrided by user settings below !!\n")
+        _T("\n")
         _T("      top=<int>           (上)               range to scan (default=%d)\n")
         _T("      bottom=<int>        (下)               range to scan (default=%d)\n")
         _T("      left=<int>          (左)               range to scan (default=%d)\n")
@@ -2312,7 +2321,37 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return 0;
         }
         i++;
-        for (const auto& param : split(strInput[i], _T(","))) {
+        const auto param_list = split(strInput[i], _T(","));
+        for (const auto& param : param_list) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("ini")) {
+                    if (NVEncFilterAfs::read_afs_inifile(&pParams->vpp.afs, param_val.c_str())) {
+                        PrintHelp(strInput[0], _T("ini file does not exist."), option_name, strInput[i]);
+                        return -1;
+                    }
+                }
+                if (param_arg == _T("preset")) {
+                    try {
+                        int value = 0;
+                        if (get_list_value(list_afs_preset, param_val.c_str(), &value)) {
+                            NVEncFilterAfs::set_preset(&pParams->vpp.afs, value);
+                        } else {
+                            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            return -1;
+                        }
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+            }
+        }
+        for (const auto& param : param_list) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
@@ -2435,6 +2474,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("tune")) {
                     pParams->vpp.afs.tune = (param_val == _T("true"));
+                    continue;
+                }
+                if (param_arg == _T("ini")) {
+                    continue;
+                }
+                if (param_arg == _T("preset")) {
                     continue;
                 }
                 PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);

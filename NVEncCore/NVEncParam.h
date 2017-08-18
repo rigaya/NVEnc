@@ -605,6 +605,31 @@ struct VppAfs {
     void check();
 };
 
+enum {
+    AFS_PRESET_DEFAULT = 0,
+    AFS_PRESET_TRIPLE,        //動き重視
+    AFS_PRESET_DOUBLE,        //二重化
+    AFS_PRESET_ANIME,                     //映画/アニメ
+    AFS_PRESET_CINEMA = AFS_PRESET_ANIME, //映画/アニメ
+    AFS_PRESET_MIN_AFTERIMG,              //残像最小化
+    AFS_PRESET_FORCE24_SD,                //24fps固定
+    AFS_PRESET_FORCE24_HD,                //24fps固定 (HD)
+    AFS_PRESET_FORCE30,                   //30fps固定
+};
+
+const CX_DESC list_afs_preset[] = {
+    { _T("default"),      AFS_PRESET_DEFAULT },
+    { _T("triple"),       AFS_PRESET_TRIPLE },
+    { _T("double"),       AFS_PRESET_DOUBLE },
+    { _T("anime/cinema"), AFS_PRESET_ANIME },
+    { _T("anime"),        AFS_PRESET_ANIME },
+    { _T("cinema"),       AFS_PRESET_CINEMA },
+    { _T("min_afterimg"), AFS_PRESET_MIN_AFTERIMG },
+    { _T("force24"),      AFS_PRESET_FORCE24_HD },
+    { _T("force24_sd"),   AFS_PRESET_FORCE24_SD },
+    { _T("force30"),      AFS_PRESET_FORCE30 },
+    { NULL, NULL }
+};
 
 struct VppParam {
     bool bCheckPerformance;

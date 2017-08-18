@@ -204,6 +204,8 @@ public:
     NVEncFilterAfs();
     virtual ~NVEncFilterAfs();
     virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    static void set_preset(VppAfs *pVppAfs, int preset);
+    static int read_afs_inifile(VppAfs *pVppAfs, const TCHAR *inifile);
 protected:
     virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     virtual void close() override;
