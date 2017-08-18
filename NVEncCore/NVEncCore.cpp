@@ -1868,7 +1868,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.gaussMaskSize > 0
             || inputParam->vpp.unsharp.bEnable
             || inputParam->vpp.knn.enable
-            || inputParam->vpp.pmd.enable);
+            || inputParam->vpp.pmd.enable
+            || inputParam->vpp.afs.enable);
 }
 
 #pragma warning(push)
