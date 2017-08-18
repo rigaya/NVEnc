@@ -424,14 +424,19 @@ __global__ void kernel_crop_uv_nv16_yv12_p(uint8_t *__restrict__ pDstU, uint8_t 
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 void crop_uv_nv16_yv12_p(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop) {
-    dim3 blockSize(32, 4);
-    dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
-    uint8_t *ptrU = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
-    uint8_t *ptrV = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 3 / 2;
-    const uint8_t *ptrC = (const uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
-    kernel_crop_uv_nv16_yv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
-        ptrU, ptrV, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        ptrC, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
+    if (interlaced(*pInputFrame)) {
+        fprintf(stderr, "interlaced yuv422 -> yuv420 is not supported.\n");
+        exit(1);
+    } else {
+        dim3 blockSize(32, 4);
+        dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
+        uint8_t *ptrU = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
+        uint8_t *ptrV = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 3 / 2;
+        const uint8_t *ptrC = (const uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
+        kernel_crop_uv_nv16_yv12_p<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
+            ptrU, ptrV, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
+            ptrC, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
+    }
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
