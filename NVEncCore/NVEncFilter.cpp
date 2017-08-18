@@ -71,9 +71,9 @@ NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFram
         ppOutputFrames[0] = nullptr;
     }
     if (m_pParam
-        && m_pParam->bOutOverwrite
-        && pInputFrame != nullptr && pInputFrame->ptr != nullptr
-        && ppOutputFrames != nullptr && ppOutputFrames[0] == nullptr) {
+        && m_pParam->bOutOverwrite //上書きか?
+        && pInputFrame != nullptr && pInputFrame->ptr != nullptr //入力が存在するか?
+        && ppOutputFrames != nullptr && ppOutputFrames[0] == nullptr) { //出力先がセット可能か?
         ppOutputFrames[0] = pInputFrame;
         *pOutputFrameNum = 1;
     }
