@@ -302,23 +302,26 @@ Flags generate_flags(int ly, int idepth, uint32_t *__restrict__ ptr_shared) {
     Flags dat0, dat1;
 
     //sharedメモリはあらかじめ-4もデータを作ってあるので、問題なく使用可能
-    dat1 = ptr_shared[shared_int_idx(0, ly-3, idepth)];
+    dat1 = ptr_shared[shared_int_idx(0, ly+0, idepth)];
     Flags count_shift = dat1 & u8x4(non_shift_shift | shift_shift);
-
-    dat0 = ptr_shared[shared_int_idx(0, ly-2, idepth)];
-    count_flags_skip(dat0, dat1, count_deint, count_shift);
-
-    dat1 = ptr_shared[shared_int_idx(0, ly-1, idepth)];
-    count_flags(dat1, dat0, count_deint, count_shift);
-
-    dat0 = ptr_shared[shared_int_idx(0, ly+0, idepth)];
-    count_flags(dat0, dat1, count_deint, count_shift);
 
     //      7       6         5        4        3        2        1       0
     // | motion  |         non-shift        | motion  |          shift          |
     // |  shift  |  sign  |  shift |  deint |  flag   | sign  |  shift |  deint |
     //motion 0x8888 -> 0x4444 とするため右シフト 
-    Flags flag0 = (dat0 & u8x4(motion_flag | motion_shift)) >> 1; //motion flag / motion shift
+    //opencl版を変更、motionは+0の位置を見る
+    Flags flag0 = (dat1 & u8x4(motion_flag | motion_shift)) >> 1; //motion flag / motion shift
+
+    //opencl版を変更、shiftは+0, +1, +2, +3の位置を見る
+    dat0 = ptr_shared[shared_int_idx(0, ly+1, idepth)];
+    count_flags_skip(dat0, dat1, count_deint, count_shift);
+
+    dat1 = ptr_shared[shared_int_idx(0, ly+2, idepth)];
+    count_flags(dat1, dat0, count_deint, count_shift);
+
+    dat0 = ptr_shared[shared_int_idx(0, ly+3, idepth)];
+    count_flags(dat0, dat1, count_deint, count_shift);
+
     //nonshift deint - countbit:654 / setbit 0x01
     //if ((count_deint & (0x70u << 0)) > (2u<<(4+ 0))) flag0 |= 0x01u<< 0; //nonshift deint(0)
     //if ((count_deint & (0x70u << 8)) > (2u<<(4+ 8))) flag1 |= 0x01u<< 8; //nonshift deint(1)
@@ -397,22 +400,22 @@ __global__ void kernel_afs_analyze_12(
     //前の4ライン分、計算しておく
     //sharedの SHARED_Y-4 ～ SHARED_Y-1 を埋める
     if (ly < 4) {
-        //opencl版を変更、offsetはly-4ではなく-4
-        ptr_shared[shared_int_idx(0, -4+ly, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, -4);
-        ptr_shared[shared_int_idx(0, -4+ly, 1)] = CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, -4);
-        ptr_shared[shared_int_idx(0, -4+ly, 2)] = CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, -4);
+        //opencl版を変更、offsetはly-4ではなく0
+        //正方向に4行先読みする
+        ptr_shared[shared_int_idx(0, ly, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 0);
+        ptr_shared[shared_int_idx(0, ly, 1)] = CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, 0);
+        ptr_shared[shared_int_idx(0, ly, 2)] = CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, 0);
     }
-    //sharedの SHARED_Y-4 ～ SHARED_Y-1 を埋める
-    ptr_shared[shared_int_idx(0, ly+BLOCK_Y, 3)] = 0;
 
     for (int iloop = 0; iloop <= BLOCK_LOOP_Y; iloop++,
         ptr_dst += BLOCK_Y * si_pitch_int, imgy += BLOCK_Y,
         ly += BLOCK_Y
     ) {
         { //差分情報を計算
-            ptr_shared[shared_int_idx(0, ly, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 0);
-            ptr_shared[shared_int_idx(0, ly, 1)] = CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, 0);
-            ptr_shared[shared_int_idx(0, ly, 2)] = CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, 0);
+          //opencl版を変更、+4の位置を処理
+            ptr_shared[shared_int_idx(0, ly+4, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 4);
+            ptr_shared[shared_int_idx(0, ly+4, 1)] = CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, 4);
+            ptr_shared[shared_int_idx(0, ly+4, 2)] = CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, 4);
             __syncthreads();
         }
         Flags mask1;
