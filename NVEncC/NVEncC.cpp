@@ -494,7 +494,7 @@ static tstring help() {
         _T("    params        Aviutlでのパラメータ名\n")
         _T("      preset=<string>\n")
         _T("          default, triple, double, anime, cinema, min_afterimg,\n")
-        _T("          force24, force24_sd, force30\n")
+        _T("          24fps, 24fps_sd, 30fps\n")
         _T("      ini=<string>\n")
         _T("          read setting from ini file specified (output of afs.auf)\n")
         _T("\n")

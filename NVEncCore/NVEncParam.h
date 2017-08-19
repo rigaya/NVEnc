@@ -625,9 +625,9 @@ const CX_DESC list_afs_preset[] = {
     { _T("anime"),        AFS_PRESET_ANIME },
     { _T("cinema"),       AFS_PRESET_CINEMA },
     { _T("min_afterimg"), AFS_PRESET_MIN_AFTERIMG },
-    { _T("force24"),      AFS_PRESET_FORCE24_HD },
-    { _T("force24_sd"),   AFS_PRESET_FORCE24_SD },
-    { _T("force30"),      AFS_PRESET_FORCE30 },
+    { _T("24fps"),        AFS_PRESET_FORCE24_HD },
+    { _T("24fps_sd"),     AFS_PRESET_FORCE24_SD },
+    { _T("30fps"),        AFS_PRESET_FORCE30 },
     { NULL, NULL }
 };
 
