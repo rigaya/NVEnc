@@ -109,7 +109,7 @@ public:
 
     };
     FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(false), m_heTransferFin(NULL) {
-        setCuvidInfo(pInfo, oVPP, frameInfo);
+        setInfo(pInfo, oVPP, frameInfo);
     };
     FrameBufferDataIn(const FrameBufferDataIn& obj) :
         m_pInfo(obj.m_pInfo),
@@ -135,11 +135,25 @@ public:
     void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const FrameInfo& frameInfo) {
         m_pInfo = pInfo;
         memset(&m_oVPP, 0, sizeof(m_oVPP));
+
         m_frameInfo = frameInfo;
+        //frameinfo.picstructの決定
+        m_frameInfo.picstruct = (pInfo->progressive_frame) ? RGY_PICSTRUCT_FRAME : ((pInfo->top_field_first) ? RGY_PICSTRUCT_FRAME_TFF : RGY_PICSTRUCT_FRAME_BFF);
+        //RFFに関するフラグを念のためクリア
+        m_frameInfo.flags = RGY_FRAME_FLAG_NONE;
+        //RFFフラグの有無
+        if (pInfo->repeat_first_field) {
+            m_frameInfo.flags |= RGY_FRAME_FLAG_RFF;
+        }
+        //TFFかBFFか
+        m_frameInfo.flags |= (pInfo->top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
+        m_frameInfo.duration = 0;
+        m_frameInfo.timestamp = pInfo->timestamp;
         m_bInputHost = false;
     }
-    void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) {
-        setCuvidInfo(pInfo, frameInfo);
+    void setInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) {
+        m_pInfo = pInfo;
+        m_frameInfo = frameInfo;
         m_oVPP = oVPP;
     }
     shared_ptr<CUVIDPARSERDISPINFO> getCuvidInfo() {
@@ -152,10 +166,16 @@ public:
         m_pInfo.reset();
     }
     int64_t getTimeStamp() const {
-        if (m_bInputHost) {
-            return m_frameInfo.timestamp;
-        }
-        return m_pInfo ? m_pInfo->timestamp : 0;
+        return m_frameInfo.timestamp;
+    }
+    void setTimeStamp(int64_t timestamp) {
+        m_frameInfo.timestamp = timestamp;
+    }
+    int64_t getDuration() const {
+        return m_frameInfo.duration;
+    }
+    void setDuration(int64_t duration) {
+        m_frameInfo.duration = duration;
     }
     bool inputIsHost() const {
         return m_bInputHost;
@@ -520,7 +540,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.nSubtitleSelectCount = inputParam->nSubtitleSelectCount;
         inputInfoAVCuvid.pSubtitleSelect = inputParam->pSubtitleSelect;
         inputInfoAVCuvid.nProcSpeedLimit = inputParam->nProcSpeedLimit;
-        inputInfoAVCuvid.nAVSyncMode = inputParam->nAVSyncMode;
+        inputInfoAVCuvid.nAVSyncMode = RGY_AVSYNC_THROUGH;
         inputInfoAVCuvid.fSeekSec = inputParam->fSeekSec;
         inputInfoAVCuvid.pFramePosListLog = inputParam->sFramePosListLog.c_str();
         inputInfoAVCuvid.nInputThread = inputParam->nInputThread;
@@ -562,14 +582,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputParam->input.sar[1] = inputParamCopy.sar[1];
     }
 
-
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
-    m_outputTimebase = rgy_rational<int>(1, inputParam->input.fpsN);
-    if (inputParam->vpp.afs.enable && inputParam->vpp.afs.shift) {
-        m_outputTimebase *= rgy_rational<int>(1, 4);
-    } else if (inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
-        m_outputTimebase *= rgy_rational<int>(1, 2);
-    }
+    m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
     m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, m_pPerfMonitor);
 
     if (inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot) {
@@ -3110,6 +3124,15 @@ NVENCSTATUS NVEncCore::Encode() {
     if (pReader != nullptr) {
         pStreamIn = pReader->GetInputVideoStream();
     }
+    //cuvidデコード時は、timebaseの分子はかならず1
+    const auto srcTimebase = (pStreamIn) ? rgy_rational<int>((m_cuvidDec) ? 1 : pStreamIn->time_base.num, pStreamIn->time_base.den) : rgy_rational<int>();
+
+    if (pStreamIn) {
+        if ((m_nAVSyncMode & RGY_AVSYNC_VFR) && 0 != (pReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL))) {
+            PrintMes(RGY_LOG_WARN, _T("timestamp not acquired successfully from input steram, avsync vfr will be disabled.\n"));
+            m_nAVSyncMode &= (~RGY_AVSYNC_VFR);
+        }
+    }
 
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
     std::map<int, shared_ptr<RGYOutputAvcodec>> pWriterForAudioStreams;
@@ -3200,56 +3223,69 @@ NVENCSTATUS NVEncCore::Encode() {
         m_pPerfMonitor->SetThreadHandles((HANDLE)(th_input.native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
 
-    int64_t nStreamInEstimatedPts = AV_NOPTS_VALUE;
-    const int nStreamInFrameDuration = (pStreamIn) ? (int)av_rescale_q(1, av_make_q(m_inputFps), pStreamIn->time_base) : 1;
+    int64_t nOutFirstPts = AV_NOPTS_VALUE; //入力のptsに対する補正 (スケール: m_outputTimebase)
+    int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: m_outputTimebase)
+    const int64_t nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
 #endif //#if ENABLE_AVSW_READER
 
-    int dec_vpp_rff_sts = 0;
+    int dec_vpp_rff_sts = 0; //rffの展開状態を示すフラグ
 
-    auto add_dec_vpp_param = [&](FrameBufferDataIn *pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams) {
+    auto add_dec_vpp_param = [&](FrameBufferDataIn *pInputFrame, vector<unique_ptr<FrameBufferDataIn>>& vppParams, int64_t outPts, int64_t outDuration) {
         if (pInputFrame->inputIsHost()) {
+            pInputFrame->setTimeStamp(outPts);
+            pInputFrame->setDuration(outDuration);
             vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(*pInputFrame))));
         }
 #if ENABLE_AVSW_READER
         else {
             auto deint = m_cuvidDec->getDeinterlaceMode();
             auto frameinfo = pInputFrame->getFrameInfo();
+            frameinfo.timestamp = outPts;
+            frameinfo.duration = outDuration;
             CUVIDPROCPARAMS oVPP = { 0 };
             oVPP.top_field_first = pInputFrame->getCuvidInfo()->top_field_first;
             switch (deint) {
             case cudaVideoDeinterlaceMode_Weave:
                 oVPP.progressive_frame = pInputFrame->getCuvidInfo()->progressive_frame;
                 oVPP.unpaired_field = 0;// oVPP.progressive_frame;
-
-                //frameinfo.picstructの決定
-                frameinfo.picstruct = (oVPP.progressive_frame) ? RGY_PICSTRUCT_FRAME : ((oVPP.top_field_first) ? RGY_PICSTRUCT_FRAME_TFF : RGY_PICSTRUCT_FRAME_BFF);
-                //RFFに関するフラグを念のためクリア
-                frameinfo.flags &= (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
-                //RFFフラグの有無
-                if (pInputFrame->getCuvidInfo()->repeat_first_field) {
-                    frameinfo.flags |= RGY_FRAME_FLAG_RFF;
+                if (vpp_rff) {
+                    //rffを展開する場合、時間を補正する
+                    if (frameinfo.flags & RGY_FRAME_FLAG_RFF) {
+                        frameinfo.duration = (frameinfo.duration * 2) / 3;
+                    }
+                    if (dec_vpp_rff_sts) { //rff展開中の場合、ptsを1フィールド戻す
+                        frameinfo.timestamp -= frameinfo.duration / 2;
+                    }
                 }
-                //TFFかBFFか
-                frameinfo.flags |= (oVPP.top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                //PrintMes(RGY_LOG_INFO, _T("pts: %lld, duration %lld\n"), (lls)frameinfo.timestamp, (lls)frameinfo.duration);
 
                 if (vpp_rff && (frameinfo.flags & RGY_FRAME_FLAG_RFF)) {
                     if (dec_vpp_rff_sts) {
                         frameinfo.flags |= RGY_FRAME_FLAG_RFF_COPY;
+                        //rffを展開する場合、時間を補正する
+                        frameinfo.timestamp += frameinfo.duration;
                         vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                        //PrintMes(RGY_LOG_INFO, _T("pts: %lld, duration %lld\n"), (lls)frameinfo.timestamp, (lls)frameinfo.duration);
                     }
                     dec_vpp_rff_sts ^= 1; //反転
                 }
                 break;
             case cudaVideoDeinterlaceMode_Bob:
+                //RFFに関するフラグを念のためクリア
+                frameinfo.flags &= (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
                 pInputFrame->setInterlaceFlag(RGY_PICSTRUCT_FRAME);
                 oVPP.progressive_frame = 0;
                 oVPP.second_field = 0;
+                frameinfo.duration >>= 1;
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
                 oVPP.second_field = 1;
+                frameinfo.timestamp += frameinfo.duration;
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
                 break;
             case cudaVideoDeinterlaceMode_Adaptive:
+                //RFFに関するフラグを念のためクリア
+                frameinfo.flags &= (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
                 pInputFrame->setInterlaceFlag(RGY_PICSTRUCT_FRAME);
                 oVPP.progressive_frame = 0;
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
@@ -3263,38 +3299,69 @@ NVENCSTATUS NVEncCore::Encode() {
         return;
     };
 
+    uint32_t nInputFramePosIdx = UINT32_MAX;
     auto check_pts = [&](FrameBufferDataIn *pInputFrame) {
         vector<unique_ptr<FrameBufferDataIn>> decFrames;
 #if ENABLE_AVSW_READER
-        int64_t pts = (pStreamIn) ? av_rescale_q(pInputFrame->getTimeStamp(), HW_NATIVE_TIMEBASE, pStreamIn->time_base) : nStreamInEstimatedPts;
-        if ((m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) == RGY_AVSYNC_FORCE_CFR) {
-            if (nStreamInEstimatedPts == AV_NOPTS_VALUE) {
-                nStreamInEstimatedPts = pts;
+        int64_t outPtsSource = nOutEstimatedPts;
+        if (nOutFirstPts == AV_NOPTS_VALUE) {
+            nOutFirstPts = outPtsSource; //最初のpts
+        }
+        //最初のptsを0に修正
+        outPtsSource -= nOutFirstPts;
+        int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration
+        if (pStreamIn
+            && ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff)) {
+            //CFR仮定ではなく、オリジナルの時間を見る
+            outPtsSource = (pStreamIn) ? rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase) : nOutEstimatedPts;
+            if (nOutFirstPts == AV_NOPTS_VALUE) {
+                nOutFirstPts = outPtsSource; //最初のpts
             }
-            if (std::abs(pts - nStreamInEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nStreamInFrameDuration) {
+            //最初のptsを0に修正
+            outPtsSource -= nOutFirstPts;
+            if (std::abs(outPtsSource - nOutEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nOutFrameDuration) {
                 //timestampに一定以上の差があればそれを無視する
-                nStreamInEstimatedPts = pts;
-                PrintMes(RGY_LOG_WARN, _T("Big Gap was found between 2 frames, avsync might be corrupted.\n"));
+                nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
+                outPtsSource = nOutEstimatedPts;
             }
-            auto ptsDiff = pts - nStreamInEstimatedPts;
-            if (ptsDiff <= std::min(-1, -1 * nStreamInFrameDuration * 3 / 4)) {
+            auto ptsDiff = outPtsSource - nOutEstimatedPts;
+            if (ptsDiff <= std::min<int64_t>(-1, -1 * nOutFrameDuration * 7 / 8)) {
                 //間引きが必要
                 return decFrames;
             }
-            while (ptsDiff >= std::max(1, nStreamInFrameDuration * 3 / 4)) {
-                //水増しが必要
-                add_dec_vpp_param(pInputFrame, decFrames);
-                nStreamInEstimatedPts += nStreamInFrameDuration;
-                ptsDiff = pts - nStreamInEstimatedPts;
-            }
-        } else {
-            if (nStreamInEstimatedPts == AV_NOPTS_VALUE) {
-                nStreamInEstimatedPts = 0;
+            //cuvidデコード時は、timebaseの分子はかならず1なので、pStreamIn->time_baseとズレているかもしれないのでオリジナルを計算
+            const auto orig_pts = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, to_rgy(pStreamIn->time_base));
+            //ptsからフレーム情報を取得する
+            const auto framePos = pReader->GetFramePosList()->findpts(orig_pts, &nInputFramePosIdx);
+            if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0) {
+                //有効な値ならオリジナルのdurationを使用する
+                outDuration = rational_rescale(framePos.duration, to_rgy(pStreamIn->time_base), m_outputTimebase);
             }
         }
-        nStreamInEstimatedPts += nStreamInFrameDuration;
+        if ((m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) == RGY_AVSYNC_FORCE_CFR) {
+            if (std::abs(outPtsSource - nOutEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nOutFrameDuration) {
+                //timestampに一定以上の差があればそれを無視する
+                nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
+                outPtsSource = nOutEstimatedPts;
+                PrintMes(RGY_LOG_WARN, _T("Big Gap was found between 2 frames, avsync might be corrupted.\n"));
+            }
+            auto ptsDiff = outPtsSource - nOutEstimatedPts;
+            if (ptsDiff <= std::min<int64_t>(-1, -1 * nOutFrameDuration * 7 / 8)) {
+                //間引きが必要
+                return decFrames;
+            }
+            while (ptsDiff >= std::max<int64_t>(1, nOutFrameDuration * 7 / 8)) {
+                //水増しが必要
+                add_dec_vpp_param(pInputFrame, decFrames, nOutEstimatedPts, outDuration);
+                nOutEstimatedPts += nOutFrameDuration;
+                ptsDiff = outPtsSource - nOutEstimatedPts;
+            }
+            outPtsSource = nOutEstimatedPts;
+        }
+        //次のフレームのptsの予想
+        nOutEstimatedPts += outDuration;
 #endif //#if ENABLE_AVSW_READER
-        add_dec_vpp_param(pInputFrame, decFrames);
+        add_dec_vpp_param(pInputFrame, decFrames, outPtsSource, outDuration);
         return std::move(decFrames);
     };
 
@@ -3357,8 +3424,6 @@ NVENCSTATUS NVEncCore::Encode() {
             }
 #endif //#if ENABLE_AVSW_READER
         }
-        frameInfo.duration  = rational_rescale(1, m_inputFps.inv(), m_outputTimebase);
-        frameInfo.timestamp = rational_rescale(nFilterFrame, m_inputFps.inv(), m_outputTimebase);
         //フィルタリングするならここ
         //現在は1in 1outのみの実装
         for (uint32_t ifilter = 0; ifilter < m_vpFilters.size() - 1; ifilter++) {
@@ -3537,7 +3602,6 @@ NVENCSTATUS NVEncCore::Encode() {
                     m_cuvidDec->frameQueue()->releaseFrame(ptr);
                     delete ptr;
                 }), m_cuvidDec->GetDecFrameInfo());
-                inputFrame.setInterlaceFlag(picstruct_enc_to_rgy(m_stPicStruct));
             }
         } else
 #endif //#if ENABLE_AVSW_READER

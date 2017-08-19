@@ -65,6 +65,7 @@ NVENCSTATUS NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     }
 
     m_nFieldBufUsed = -1;
+    m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT));
 
     m_sFilterInfo = strsprintf(_T("rff"));
     m_pParam = pParam;

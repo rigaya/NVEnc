@@ -908,6 +908,28 @@ enum RGYAVSync : uint32_t {
     RGY_AVSYNC_FORCE_CFR = 0x04 | RGY_AVSYNC_CHECK_PTS,
 };
 
+static RGYAVSync operator|(RGYAVSync a, RGYAVSync b) {
+    return (RGYAVSync)((uint32_t)a | (uint32_t)b);
+}
+
+static RGYAVSync operator|=(RGYAVSync& a, RGYAVSync b) {
+    a = a | b;
+    return a;
+}
+
+static RGYAVSync operator&(RGYAVSync a, RGYAVSync b) {
+    return (RGYAVSync)((uint32_t)a & (uint32_t)b);
+}
+
+static RGYAVSync operator&=(RGYAVSync& a, RGYAVSync b) {
+    a = a & b;
+    return a;
+}
+
+static RGYAVSync operator~(RGYAVSync a) {
+    return (RGYAVSync)(~(uint32_t)a);
+}
+
 static const int CHECK_PTS_MAX_INSERT_FRAMES = 8;
 
 enum {

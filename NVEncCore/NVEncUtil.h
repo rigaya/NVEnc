@@ -351,6 +351,12 @@ public:
     void setTimestamp(uint64_t frame_timestamp) {
         info.timestamp = frame_timestamp;
     }
+    int64_t duration() {
+        return info.duration;
+    }
+    void setDuration(int64_t frame_duration) {
+        info.duration = frame_duration;
+    }
 };
 
 static inline RGYFrame RGYFrameInit() {

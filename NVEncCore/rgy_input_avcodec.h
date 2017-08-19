@@ -241,6 +241,41 @@ public:
     RGYPtsStatus getStreamPtsStatus() const {
         return m_nStreamPtsStatus;
     }
+    FramePos findpts(int64_t pts, uint32_t *lastIndex) {
+        FramePos pos_last = { 0 };
+        for (uint32_t index = *lastIndex + 1; ; index++) {
+            FramePos pos;
+            if (!m_list.copy(&pos, index)) {
+                break;
+            }
+            if (pts == pos.pts) {
+                *lastIndex = index;
+                return pos;
+            }
+            pos_last = pos;
+        }
+        //最初から探索
+        for (uint32_t index = 0; ; index++) {
+            FramePos pos;
+            if (!m_list.copy(&pos, index)) {
+                break;
+            }
+            if (pts == pos.pts) {
+                *lastIndex = index;
+                return pos;
+            }
+            //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
+            if (pts < pos.pts) {
+                *lastIndex = index-1;
+                return pos_last;
+            }
+            pos_last = pos;
+        }
+        //エラー
+        FramePos poserr = { 0 };
+        poserr.poc = FRAMEPOS_POC_INVALID;
+        return poserr;
+    }
     //FramePosを追加し、内部状態を変更する
     void add(const FramePos& pos) {
         m_list.push(pos);

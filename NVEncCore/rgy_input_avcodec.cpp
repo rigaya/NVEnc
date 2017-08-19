@@ -1264,10 +1264,22 @@ FramePosList *RGYInputAvcodec::GetFramePosList() {
 int RGYInputAvcodec::getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart) {
     const int framePosCount = m_Demux.frames.frameNum();
     const AVRational vid_pkt_timebase = (m_Demux.video.pStream) ? m_Demux.video.pStream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
-    for (int i = (std::max)(0, iStart); i < framePosCount; i++) {
-        //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
-        if (0 > av_compare_ts(pts, timebase, m_Demux.frames.list(i).pts, vid_pkt_timebase)) {
-            return i - 1;
+    if (av_cmp_q(timebase, vid_pkt_timebase) == 0) {
+        for (int i = (std::max)(0, iStart); i < framePosCount; i++) {
+            if (pts == m_Demux.frames.list(i).pts) {
+                return i;
+            }
+            //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
+            if (pts < m_Demux.frames.list(i).pts) {
+                return i-1;
+            }
+        }
+    } else {
+        for (int i = (std::max)(0, iStart); i < framePosCount; i++) {
+            //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
+            if (av_compare_ts(pts, timebase, m_Demux.frames.list(i).pts, vid_pkt_timebase) < 0) {
+                return i - 1;
+            }
         }
     }
     return framePosCount;
@@ -1483,7 +1495,7 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
             pBitstream->setDataflag(0);
             pBitstream->setPts(0);
 #else
-            auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
+            auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
             sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
 #endif
         }
@@ -1516,7 +1528,7 @@ RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
             pBitstream->setPts(0);
             sts = pBitstream->append(pkt.data, pkt.size);
 #else
-            auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
+            auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
             sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
 #endif
         }
@@ -1799,6 +1811,8 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
             }
             got_frame = TRUE;
         }
+        pSurface->setTimestamp(m_Demux.video.pFrame->pts);
+        pSurface->setDuration(m_Demux.video.pFrame->pkt_duration);
         //フレームデータをコピー
         void *dst_array[3];
         pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
