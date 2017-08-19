@@ -1876,10 +1876,20 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
 #pragma warning(disable: 4100)
 NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 #if ENABLE_AVSW_READER
+    const AVStream *pStreamIn = nullptr;
+    RGYInputAvcodec *pReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
+    if (pReader != nullptr) {
+        pStreamIn = pReader->GetInputVideoStream();
+    }
+    if (pStreamIn == nullptr) {
+        PrintMes(RGY_LOG_ERROR, _T("failed to get stream info when initializing cuvid decoder.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         m_cuvidDec.reset(new CuvidDecode());
 
-        auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, m_pNVLog, inputParam->nHWDecType, enableCuvidResize(inputParam));
+        auto result = m_cuvidDec->InitDecode(m_ctxLock, &inputParam->input, &inputParam->vpp, pStreamIn->time_base, m_pNVLog, inputParam->nHWDecType, enableCuvidResize(inputParam));
         if (result != CUDA_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init decoder.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;

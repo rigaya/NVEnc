@@ -262,7 +262,7 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
     return curesult;
 }
 
-CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool ignoreDynamicFormatChange) {
+CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool ignoreDynamicFormatChange) {
     //初期化
     CloseDecoder();
 
@@ -306,10 +306,15 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
         memcpy(m_videoFormatEx.raw_seqhdr_data, input->codecExtra, input->codecExtraSize);
         m_videoFormatEx.format.seqhdr_data_length = input->codecExtraSize;
     }
+    if (!av_isvalid_q(streamtimebase)) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid stream timebase %d/%d\n"), streamtimebase.num, streamtimebase.den);
+        return CUDA_ERROR_INVALID_VALUE;
+    }
 
     CUVIDPARSERPARAMS oVideoParserParameters;
     memset(&oVideoParserParameters, 0, sizeof(CUVIDPARSERPARAMS));
     oVideoParserParameters.CodecType              = codec_rgy_to_enc(input->codec);
+    oVideoParserParameters.ulClockRate            = streamtimebase.den;
     oVideoParserParameters.ulMaxNumDecodeSurfaces = FrameQueue::cnMaximumSize;
     oVideoParserParameters.ulMaxDisplayDelay      = 1;
     oVideoParserParameters.pUserData              = this;
@@ -410,9 +415,9 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
     pCuvidPacket.payload_size = (uint32_t)nSize;
     CUresult result = CUDA_SUCCESS;
 
-    if (timestamp != AV_NOPTS_VALUE) {
+    if (timestamp != AV_NOPTS_VALUE && av_isvalid_q(streamtimebase)) {
         pCuvidPacket.flags     |= CUVID_PKT_TIMESTAMP;
-        pCuvidPacket.timestamp  = av_rescale_q(timestamp, streamtimebase, HW_NATIVE_TIMEBASE);
+        pCuvidPacket.timestamp  = timestamp * streamtimebase.num;
     }
 
     //cuvidCtxLock(m_ctxLock, 0);
