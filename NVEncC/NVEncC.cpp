@@ -354,7 +354,7 @@ static tstring help() {
         _T("   --profile <string>           set codec profile\n")
         _T("                                  H.264: baseline, main, high(default), high444\n")
         _T("                                  HEVC : main, main10, main444\n")
-        _T("   --lossless                   for lossless (YUV444 only) / Default: off\n"));
+        _T("   --lossless                   for lossless (YUV444 only) / default: off\n"));
 
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
         { { _T("H.264"), list_avc_level,   0 },
@@ -366,48 +366,49 @@ static tstring help() {
         _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
         _T("\n")
         _T("   --cqp <int> or               encode in Constant QP mode\n")
-        _T("         <int>:<int>:<int>        Default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
+        _T("         <int>:<int>:<int>        default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
         _T("   --vbr <int>                  set bitrate for VBR mode (kbps)\n")
         _T("   --vbrhq <int>                set bitrate for VBR (High Quality) mode (kbps)\n")
         _T("   --cbr <int>                  set bitrate for CBR mode (kbps)\n")
         _T("   --cbrhq <int>                set bitrate for CBR (High Quality) mode (kbps)\n")
-        _T("                                  Default: %d kbps\n")
+        _T("                                  default: %d kbps\n")
         _T("\n")
         _T("   --preset <string>            set encoder preset\n")
         _T("                                  default, performance, quality\n")
         _T("\n")
-        _T("   --vbr-quality <float>        set target quality for VBR mode (0.0-51.0, 0 = auto)\n")
+        _T("   --vbr-quality <float>        target quality for VBR mode (0-51, 0=auto)\n")
         _T("   --max-bitrate <int>          set Max Bitrate (kbps)\n")
         _T("   --qp-init <int> or           set initial QP\n")
-        _T("             <int>:<int>:<int>    Default: auto\n")
+        _T("             <int>:<int>:<int>    default: auto\n")
         _T("   --qp-max <int> or            set max QP\n")
-        _T("            <int>:<int>:<int>     Default: unset\n")
+        _T("            <int>:<int>:<int>     default: unset\n")
         _T("   --qp-min <int> or            set min QP\n")
-        _T("             <int>:<int>:<int>    Default: unset\n")
-        _T("   --gop-len <int>              set GOP Length / Default: %d frames%s\n")
+        _T("             <int>:<int>:<int>    default: unset\n")
+        _T("   --gop-len <int>              set GOP Length / default: %d frames%s\n")
         _T("   --lookahead <int>            enable lookahead and set lookahead depth (1-32)\n")
-        _T("                                  Default: %d frames\n")
+        _T("                                  default: %d frames\n")
         _T("   --strict-gop                 avoid GOP len fluctuation\n")
-        _T("   --no-i-adapt                 disable adapt. I frame insertion on lookahead mode\n")
-        _T("   --no-b-adapt                 disable adapt. B frame insertion on lookahead mode\n")
-        _T("                                  Default: off\n")
+        _T("   --no-i-adapt                 disable adapt. I frame insertion\n")
+        _T("   --no-b-adapt                 disable adapt. B frame insertion\n")
+        _T("                                  for lookahead mode only, default: off\n")
         _T("-b,--bframes <int>              set number of consecutive B frames\n")
-        _T("                                  Default: H.264 - %d frames, HEVC - %d frames\n")
-        _T("   --ref <int>                  set Ref frames / Default %d frames\n")
+        _T("                                  default: H.264 - %d frames, HEVC - %d frames\n")
+        _T("   --ref <int>                  set Ref frames / default %d frames\n")
         _T("   --weightp                    enable weighted prediction for P frame\n")
         _T("   --(no-)aq                    enable spatial adaptive quantization\n")
-        _T("   --aq-temporal                enable temporal adaptive quantization (FOR H.264 ONLY)\n")
+        _T("   --aq-temporal                enable temporal adaptive quantization\n")
+        _T("                                  FOR H.264 ONLY\n")
         _T("   --aq-strength <int>          set aq strength (weak 1 - 15 strong)\n")
-        _T("                                  FOR H.264 ONLY, Default: auto(= 0)\n")
+        _T("                                  FOR H.264 ONLY, default: 0 = auto\n")
         _T("   --direct <string>            set H.264 B Direct mode\n")
         _T("                                  auto(default), none, spatial, temporal\n")
-        _T("   --(no-)adapt-transform       set H.264 adaptive transform mode (default = auto)\n")
-        _T("   --mv-precision <string>      set MV Precision / Default: auto\n")
+        _T("   --(no-)adapt-transform       set H.264 adaptive transform mode (default=auto)\n")
+        _T("   --mv-precision <string>      set MV Precision / default: auto\n")
         _T("                                  auto,\n")
-        _T("                                  Q-pel(High Quality),\n")
+        _T("                                  Q-pel (High Quality),\n")
         _T("                                  half-pel,\n")
-        _T("                                  full-pel(Low Quality, not recommended)\n")
-        _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / Default: auto\n"),
+        _T("                                  full-pel (Low Quality, not recommended)\n")
+        _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
@@ -429,7 +430,7 @@ static tstring help() {
         _T("                                  tff, bff\n")
         _T("   --cabac                      use CABAC\n")
         _T("   --cavlc                      use CAVLC (no CABAC)\n")
-        _T("   --bluray                     for bluray / Default: off\n")
+        _T("   --bluray                     for bluray / default: off\n")
         _T("   --(no-)deblock               enable(disable) deblock filter\n"));
 
     str += strsprintf(_T("\n")
@@ -440,7 +441,7 @@ static tstring help() {
         _T("    warning: it is not recommended to use --cu-max or --cu-min,\n")
         _T("             leaving it auto will enhance video quality.\n"));
     str += strsprintf(_T("\n")
-        _T("   --vpp-deinterlace <string>   set deinterlace mode / Default: none\n")
+        _T("   --vpp-deinterlace <string>   set deinterlace mode / default: none\n")
         _T("                                  none, bob, adaptive (normal)\n")
         _T("                                  available only with avcuvid reader\n"));
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
@@ -449,37 +450,37 @@ static tstring help() {
         _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by K-nearest neighbor.\n")
         _T("    params\n")
-        _T("      radius=<int>              set radius of knn (default=%d)\n")
-        _T("      strength=<float>          set strength of knn (default=%.2f, 0.0-1.0)\n")
-        _T("      lerp=<float>              set balance of orig and blended pixel (default=%.2f)\n")
+        _T("      radius=<int>              radius of knn (default=%d)\n")
+        _T("      strength=<float>          strength of knn (default=%.2f, 0.0-1.0)\n")
+        _T("      lerp=<float>              balance of orig & blended pixel (default=%.2f)\n")
         _T("                                  lower value results strong denoise.\n")
-        _T("      th_lerp=<float>           set threshold for detecting edge (default=%.2f, 0.0-1.0)\n")
+        _T("      th_lerp=<float>           edge detect threshold (default=%.2f, 0.0-1.0)\n")
         _T("                                  higher value will preserve edge.\n"),
         FILTER_DEFAULT_KNN_RADIUS, FILTER_DEFAULT_KNN_STRENGTH, FILTER_DEFAULT_KNN_LERPC,
         FILTER_DEFAULT_KNN_LERPC_THRESHOLD);
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("   --vpp-pmd [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by pmd.\n")
         _T("    params\n")
-        _T("      apply_count=<int>         set count to apply pmd denoise (default=%d)\n")
-        _T("      strength=<float>          set strength of pmd (default=%.2f, 0.0-100.0)\n")
-        _T("      threshold=<float>         set threshold of pmd (default=%.2f, 0.0-255.0)\n")
+        _T("      apply_count=<int>         count to apply pmd denoise (default=%d)\n")
+        _T("      strength=<float>          strength of pmd (default=%.2f, 0.0-100.0)\n")
+        _T("      threshold=<float>         threshold of pmd (default=%.2f, 0.0-255.0)\n")
         _T("                                  lower value will preserve edge.\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable deband filter.\n")
         _T("    params\n")
-        _T("      range=<int>               set range (default=%d, 0-127)\n")
-        _T("      sample=<int>              set sample (default=%d, 0-2)\n")
-        _T("      thre=<int>                set threshold for y, cb & cr\n")
-        _T("      thre_y=<int>              set threshold for y (default=%d, 0-31)\n")
-        _T("      thre_cb=<int>             set threshold for cb (default=%d, 0-31)\n")
-        _T("      thre_cr=<int>             set threshold for cr (default=%d, 0-31)\n")
-        _T("      dither=<int>              set strength of dither for y, cb & cr\n")
-        _T("      dither_y=<int>            set strength of dither for y (default=%d, 0-31)\n")
-        _T("      dither_c=<int>            set strength of dither for cb/cr (default=%d, 0-31)\n")
-        _T("      seed=<int>                set rand seed (default=%d)\n")
+        _T("      range=<int>               range (default=%d, 0-127)\n")
+        _T("      sample=<int>              sample (default=%d, 0-2)\n")
+        _T("      thre=<int>                threshold for y, cb & cr\n")
+        _T("      thre_y=<int>              threshold for y (default=%d, 0-31)\n")
+        _T("      thre_cb=<int>             threshold for cb (default=%d, 0-31)\n")
+        _T("      thre_cr=<int>             threshold for cr (default=%d, 0-31)\n")
+        _T("      dither=<int>              strength of dither for y, cb & cr\n")
+        _T("      dither_y=<int>            strength of dither for y (default=%d, 0-31)\n")
+        _T("      dither_c=<int>            strength of dither for cb/cr (default=%d, 0-31)\n")
+        _T("      seed=<int>                rand seed (default=%d)\n")
         _T("      blurfirst                 blurfirst (default=%s)\n")
         _T("      rand_each_frame           generate rand for each frame (default=%s)\n"),
         FILTER_DEFAULT_DEBAND_RANGE, FILTER_DEFAULT_DEBAND_MODE,
@@ -491,31 +492,32 @@ static tstring help() {
     str += strsprintf(_T("")
         _T("   --vpp-afs [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable auto field shift deinterlacer\n")
-        _T("    params        Aviutlでのパラメータ名\n")
+        _T("    params\n")
         _T("      preset=<string>\n")
         _T("          default, triple, double, anime, cinema, min_afterimg,\n")
         _T("          24fps, 24fps_sd, 30fps\n")
         _T("      ini=<string>\n")
         _T("          read setting from ini file specified (output of afs.auf)\n")
         _T("\n")
-        _T("      !! parameters from preset & ini will be overrided by user settings below !!\n")
+        _T("      !! params from preset & ini will be overrided by user settings below !!\n")
         _T("\n")
-        _T("      top=<int>           (上)               range to scan (default=%d)\n")
-        _T("      bottom=<int>        (下)               range to scan (default=%d)\n")
-        _T("      left=<int>          (左)               range to scan (default=%d)\n")
-        _T("      right=<int>         (右)               range to scan (default=%d)\n")
-        _T("      method_switch=<int> (切替点)           (default=%d, 0-256)\n")
-        _T("      coeff_shift=<int>   (判定比)           (default=%d, 0-256)\n")
-        _T("      thre_shift=<int>    (縞(シフト))       stripe(shift) threshold (default=%d, 0-1024)\n")
-        _T("      thre_deint=<int>    (縞(解除))         stripe(deint) threshold (default=%d, 0-1024)\n")
-        _T("      thre_motion_y=<int> (Y動き)            Y motion threshold (default=%d, 0-1024)\n")
-        _T("      thre_motion_c=<int> (C動き)            C motion threshold (default=%d, 0-1024)\n")
-        _T("      analyze=<int>       (解除Lv)           set analyze mode   (default=%d, 0-4\n")
-        _T("      shift=<bool>        (フィールドシフト) enable field shift (default=%s)\n")
-        _T("      drop=<bool>         (ドロップ)         enable frame drop  (default=%s)\n")
-        _T("      smooth=<bool>       (スムージング)     enable smoothing   (default=%s)\n")
-        _T("      24fps=<bool>        (24fps化)          force 30fps->24fps (default=%s)\n")
-        _T("      tune=<bool>         (調整モード)       show scan result   (default=%s)\n"),
+        _T("                   Aviutlでのパラメータ名\n")
+        _T("      top=<int>           (上)         clip range to scan (default=%d)\n")
+        _T("      bottom=<int>        (下)         clip range to scan (default=%d)\n")
+        _T("      left=<int>          (左)         clip range to scan (default=%d)\n")
+        _T("      right=<int>         (右)         clip range to scan (default=%d)\n")
+        _T("      method_switch=<int> (切替点)     (default=%d, 0-256)\n")
+        _T("      coeff_shift=<int>   (判定比)     (default=%d, 0-256)\n")
+        _T("      thre_shift=<int>    (縞(シフト)) stripe(shift)thres (default=%d, 0-1024)\n")
+        _T("      thre_deint=<int>    (縞(解除))   stripe(deint)thres (default=%d, 0-1024)\n")
+        _T("      thre_motion_y=<int> (Y動き)      Y motion threshold (default=%d, 0-1024)\n")
+        _T("      thre_motion_c=<int> (C動き)      C motion threshold (default=%d, 0-1024)\n")
+        _T("      analyze=<int>       (解除Lv)     set analyze mode   (default=%d, 0-4\n")
+        _T("      shift=<bool>  (フィールドシフト) enable field shift (default=%s)\n")
+        _T("      drop=<bool>   (ドロップ)         enable frame drop  (default=%s)\n")
+        _T("      smooth=<bool> (スムージング)     enable smoothing   (default=%s)\n")
+        _T("      24fps=<bool>  (24fps化)          force 30fps->24fps (default=%s)\n")
+        _T("      tune=<bool>   (調整モード)       show scan result   (default=%s)\n"),
         FILTER_DEFAULT_AFS_CLIP_TB, FILTER_DEFAULT_AFS_CLIP_TB,
         FILTER_DEFAULT_AFS_CLIP_LR, FILTER_DEFAULT_AFS_CLIP_LR,
         FILTER_DEFAULT_AFS_METHOD_SWITCH, FILTER_DEFAULT_AFS_COEFF_SHIFT,
@@ -527,7 +529,7 @@ static tstring help() {
         FILTER_DEFAULT_AFS_SMOOTH  ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_FORCE24 ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"));
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("   --vpp-rff                    apply rff flag\n"));
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
@@ -537,7 +539,9 @@ static tstring help() {
         _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
         _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
         _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
-        _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
+        _T("   --vpp-delogo-cr <int>        set delogo cr param\n"),
+        FILTER_DEFAULT_DELOGO_DEPTH);
+    str += strsprintf(_T("")
         _T("   --vpp-perf-monitor           check duration of each filter.\n")
         _T("                                  may decrease overall transcode performance.\n"));
     str += strsprintf(_T("")
@@ -546,15 +550,16 @@ static tstring help() {
         _T("       spin  : CPU will spin when waiting GPU tasks,\n")
         _T("               will provide highest performance but with high CPU utilization.\n")
         _T("       yield : CPU will yield when waiting GPU tasks.\n")
-        _T("       sync  : CPU will sleep when waiting GPU tasks, performance might drop slightly,\n")
-        _T("               while CPU utilization will be lower, especially on HW decode mode.\n"));
+        _T("       sync  : CPU will sleep when waiting GPU tasks, performance might\n")
+        _T("                drop slightly, while CPU utilization will be lower,\n")
+        _T("                especially on HW decode mode.\n"));
     str += strsprintf(_T("\n")
         _T("   --output-buf <int>           buffer size for output in MByte\n")
         _T("                                 default %d MB (0-%d)\n"),
         DEFAULT_OUTPUT_BUF, RGY_OUTPUT_BUF_MB_MAX
     );
     str += strsprintf(_T("")
-        _T("   --max-procfps <int>         limit encoding performance to lower resource usage.\n")
+        _T("   --max-procfps <int>         limit encoding speed for lower utilization.\n")
         _T("                                 default:0 (no limit)\n"));
 #if ENABLE_AVCODEC_OUT_THREAD
     str += strsprintf(_T("")
