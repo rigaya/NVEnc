@@ -263,6 +263,12 @@ protected:
     //cuvidでのリサイズを有効にするか
     bool enableCuvidResize(const InEncodeVideoParam *inputParam);
 
+    //vpp-rffが使用されているか
+    bool VppRffEnabled();
+
+    //vpp-afsのrffが使用されているか
+    bool VppAfsRffAware();
+
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
     shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
 

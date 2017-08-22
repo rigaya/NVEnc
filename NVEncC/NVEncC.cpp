@@ -517,7 +517,8 @@ static tstring help() {
         _T("      drop=<bool>   (ドロップ)         enable frame drop  (default=%s)\n")
         _T("      smooth=<bool> (スムージング)     enable smoothing   (default=%s)\n")
         _T("      24fps=<bool>  (24fps化)          force 30fps->24fps (default=%s)\n")
-        _T("      tune=<bool>   (調整モード)       show scan result   (default=%s)\n"),
+        _T("      tune=<bool>   (調整モード)       show scan result   (default=%s)\n")
+        _T("      rff=<bool>                       rff flag aware     (default=%s)\n"),
         FILTER_DEFAULT_AFS_CLIP_TB, FILTER_DEFAULT_AFS_CLIP_TB,
         FILTER_DEFAULT_AFS_CLIP_LR, FILTER_DEFAULT_AFS_CLIP_LR,
         FILTER_DEFAULT_AFS_METHOD_SWITCH, FILTER_DEFAULT_AFS_COEFF_SHIFT,
@@ -528,7 +529,8 @@ static tstring help() {
         FILTER_DEFAULT_AFS_DROP    ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_SMOOTH  ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_FORCE24 ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"));
+        FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_RFF     ? _T("on") : _T("off"));
     str += strsprintf(_T("\n")
         _T("   --vpp-rff                    apply rff flag\n"));
     str += strsprintf(_T("")
@@ -2479,6 +2481,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("tune")) {
                     pParams->vpp.afs.tune = (param_val == _T("true"));
+                    continue;
+                }
+                if (param_arg == _T("rff")) {
+                    pParams->vpp.afs.rff = (param_val == _T("true"));
                     continue;
                 }
                 if (param_arg == _T("ini")) {

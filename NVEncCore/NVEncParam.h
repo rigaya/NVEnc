@@ -79,6 +79,7 @@ static const bool  FILTER_DEFAULT_AFS_DROP = false;
 static const bool  FILTER_DEFAULT_AFS_SMOOTH = false;
 static const bool  FILTER_DEFAULT_AFS_FORCE24 = false;
 static const bool  FILTER_DEFAULT_AFS_TUNE = false;
+static const bool  FILTER_DEFAULT_AFS_RFF = false;
 
 enum {
     NV_ENC_AVCUVID_NATIVE = 0,
@@ -584,23 +585,9 @@ struct VppAfs {
     bool smooth;           //スムージング
     bool force24;          //24fps化
     bool tune;             //調整モード
+    bool rff;              //rffフラグを認識して調整
 
     VppAfs();
-    VppAfs(bool _enable,
-        int _tb_order,
-        AFS_SCAN_CLIP _clip,
-        int _method_watershed,
-        int _coeff_shift,
-        int _thre_shift,
-        int _thre_deint,
-        int _thre_Ymotion,
-        int _thre_Cmotion,
-        int _analyze,
-        bool _shift,
-        bool _drop,
-        bool _smooth,
-        bool _force24,
-        bool _tune);
 
     void check();
 };

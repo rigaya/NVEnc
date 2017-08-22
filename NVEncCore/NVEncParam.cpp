@@ -102,40 +102,8 @@ VppAfs::VppAfs() :
     drop(FILTER_DEFAULT_AFS_DROP),
     smooth(FILTER_DEFAULT_AFS_SMOOTH),
     force24(FILTER_DEFAULT_AFS_FORCE24),
-    tune(FILTER_DEFAULT_AFS_TUNE) {
-    check();
-}
-
-VppAfs::VppAfs(bool _enable,
-    int _tb_order,
-    AFS_SCAN_CLIP _clip,
-    int _method_watershed,
-    int _coeff_shift,
-    int _thre_shift,
-    int _thre_deint,
-    int _thre_Ymotion,
-    int _thre_Cmotion,
-    int _analyze,
-    bool _shift,
-    bool _drop,
-    bool _smooth,
-    bool _force24,
-    bool _tune) :
-    enable(_enable),
-    tb_order(_tb_order),
-    clip(_clip),
-    method_switch(_method_watershed),
-    coeff_shift(_coeff_shift),
-    thre_shift(_thre_shift),
-    thre_deint(_thre_deint),
-    thre_Ymotion(_thre_Ymotion),
-    thre_Cmotion(_thre_Cmotion),
-    analyze(_analyze),
-    shift(_shift),
-    drop(_drop),
-    smooth(_smooth),
-    force24(_force24),
-    tune(_tune) {
+    tune(FILTER_DEFAULT_AFS_TUNE),
+    rff(FILTER_DEFAULT_AFS_RFF) {
     check();
 }
 

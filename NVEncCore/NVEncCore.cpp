@@ -142,7 +142,7 @@ public:
         //RFFに関するフラグを念のためクリア
         m_frameInfo.flags = RGY_FRAME_FLAG_NONE;
         //RFFフラグの有無
-        if (pInfo->repeat_first_field) {
+        if (pInfo->repeat_first_field == 1) {
             m_frameInfo.flags |= RGY_FRAME_FLAG_RFF;
         }
         //TFFかBFFか
@@ -2792,6 +2792,27 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     return NV_ENC_SUCCESS;
 }
 
+bool NVEncCore::VppRffEnabled() {
+    return std::find_if(m_vpFilters.begin(), m_vpFilters.end(),
+        [](unique_ptr<NVEncFilter>& filter) { return typeid(*filter) == typeid(NVEncFilterRff); }
+    ) != m_vpFilters.end();
+}
+
+bool NVEncCore::VppAfsRffAware() {
+    //vpp-afsのrffが使用されているか
+    const auto& vpp_afs_filter = std::find_if(m_vpFilters.begin(), m_vpFilters.end(),
+        [](unique_ptr<NVEncFilter>& filter) { return typeid(*filter) == typeid(NVEncFilterAfs); }
+    );
+    bool vpp_afs_rff_aware = false;
+    if (vpp_afs_filter != m_vpFilters.end()) {
+        auto afs_prm = reinterpret_cast<const NVEncFilterParamAfs *>(vpp_afs_filter->get()->GetFilterParam());
+        if (afs_prm != nullptr) {
+            vpp_afs_rff_aware = afs_prm->afs.rff;
+        }
+    }
+    return vpp_afs_rff_aware;
+}
+
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
@@ -3055,10 +3076,11 @@ NVENCSTATUS NVEncCore::Encode() {
 
     const int cudaEventFlags = (m_cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : cudaEventDefault;
 
+    //vpp-afsのrffが使用されているか
+    const bool vpp_afs_rff_aware = VppAfsRffAware();
+
     //vpp-rffが使用されているか
-    const bool vpp_rff = std::find_if(m_vpFilters.begin(), m_vpFilters.end(),
-        [](unique_ptr<NVEncFilter>& filter) { return typeid(*filter) == typeid(NVEncFilterRff); }
-    ) != m_vpFilters.end();
+    const bool vpp_rff = VppRffEnabled();
 
     //エンコードを開始してもよいかを示すcueventの入れ物
     //FrameBufferDataEncに関連付けて使用する
@@ -3258,7 +3280,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     }
                 }
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
-                //PrintMes(RGY_LOG_INFO, _T("pts: %lld, duration %lld\n"), (lls)frameinfo.timestamp, (lls)frameinfo.duration);
+                //PrintMes(RGY_LOG_INFO, _T("pts: %lld, duration %lld, progressive:%d, rff:%d\n"), (lls)frameinfo.timestamp, (lls)frameinfo.duration, oVPP.progressive_frame, (frameinfo.flags & RGY_FRAME_FLAG_RFF) ? 1 : 0);
 
                 if (vpp_rff && (frameinfo.flags & RGY_FRAME_FLAG_RFF)) {
                     if (dec_vpp_rff_sts) {
@@ -3311,7 +3333,7 @@ NVENCSTATUS NVEncCore::Encode() {
         outPtsSource -= nOutFirstPts;
         int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration
         if (pStreamIn
-            && ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff)) {
+            && ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware)) {
             //CFR仮定ではなく、オリジナルの時間を見る
             outPtsSource = (pStreamIn) ? rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase) : nOutEstimatedPts;
             if (nOutFirstPts == AV_NOPTS_VALUE) {

@@ -42,7 +42,9 @@
 #define AFS_FLAG_FRAME_DROP  0x10
 #define AFS_FLAG_SMOOTHING   0x20
 #define AFS_FLAG_FORCE24     0x40
-#define AFS_FLAG_ERROR       0x80
+//#define AFS_FLAG_ERROR       0x80
+#define AFS_FLAG_PROGRESSIVE 0x80
+#define AFS_FLAG_RFF         0x10
 #define AFS_MASK_SHIFT0      0xfe
 #define AFS_MASK_SHIFT1      0xfd
 #define AFS_MASK_SHIFT2      0xfb
@@ -177,6 +179,13 @@ protected:
     int m_buf_size;
 };
 
+struct afsFrameTs {
+    int64_t pos;
+    int64_t orig_pts;
+    RGY_PICSTRUCT picstruct;
+    int iframe;
+};
+
 class afsStreamStatus {
 public:
     static const int64_t AFS_SSTS_DROP  = -1;
@@ -185,7 +194,7 @@ public:
     ~afsStreamStatus() { };
 
     void init(uint8_t status, int drop24);
-    int set_status(int iframe, uint8_t status, int drop24);
+    int set_status(int iframe, uint8_t status, int drop24, int64_t orig_pts);
     int64_t get_duration(int64_t iframe);
 private:
     bool m_initialized;
@@ -194,9 +203,10 @@ private:
     int m_phase24;
     int m_position24;
     int m_prev_jitter;
+    int m_prev_rff_smooth;
     uint8_t m_prev_status;
     int64_t m_set_frame;
-    int64_t m_pos[16];
+    afsFrameTs m_pos[16];
 };
 
 class NVEncFilterAfs : public NVEncFilter {
@@ -224,6 +234,7 @@ protected:
     cudaError_t analyze_frame(int iframe, const NVEncFilterParamAfs *pAfsPrm, int reverse[4], int assume_shift[4], int result_stat[4]);
 
     cudaError_t synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
+    cudaError_t copy_frame(CUFrameBuf *pOut, CUFrameBuf *p0, cudaStream_t stream);
 
     unique_ptr<cudaStream_t, cudastream_deleter> m_stream;
     int m_nFrame;

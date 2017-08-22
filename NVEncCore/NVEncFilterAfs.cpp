@@ -242,6 +242,7 @@ afsStreamStatus::afsStreamStatus() :
     m_phase24(0),
     m_position24(0),
     m_prev_jitter(0),
+    m_prev_rff_smooth(0),
     m_prev_status(0),
     m_set_frame(-1),
     m_pos() {
@@ -251,6 +252,7 @@ void afsStreamStatus::init(uint8_t status, int drop24) {
     m_prev_status = status;
     m_prev_jitter = 0;
     m_additional_jitter = 0;
+    m_prev_rff_smooth = 0;
     m_phase24 = 4;
     m_position24 = 0;
     if (drop24 ||
@@ -268,10 +270,14 @@ void afsStreamStatus::init(uint8_t status, int drop24) {
     m_initialized = true;
 }
 
-int afsStreamStatus::set_status(int iframe, uint8_t status, int drop24) {
+int afsStreamStatus::set_status(int iframe, uint8_t status, int drop24, int64_t orig_pts) {
+    afsFrameTs *const frameTs = &m_pos[iframe & 15];
+#define ISRFF(x) (((x) & (AFS_FLAG_PROGRESSIVE | AFS_FLAG_RFF)) == (AFS_FLAG_PROGRESSIVE | AFS_FLAG_RFF))
+    frameTs->iframe = iframe;
+    frameTs->orig_pts = orig_pts;
     if (!m_initialized) {
         init(status, 0);
-        m_pos[0] = 0;
+        frameTs->pos = orig_pts;
         m_set_frame = iframe;
         return 0;
     }
@@ -280,54 +286,89 @@ int afsStreamStatus::set_status(int iframe, uint8_t status, int drop24) {
     }
     m_set_frame = iframe;
 
-    int drop, pull_drop, quarter_jitter;
+    int pull_drop = 0;
+    int quarter_jitter = 0;
+    int rff_smooth = 0;
+    if (status & AFS_FLAG_PROGRESSIVE) {
+        if (status & (AFS_FLAG_FORCE24 | AFS_FLAG_SMOOTHING)) {
+            if (!m_prev_rff_smooth) {
+                if (ISRFF(m_prev_status)) rff_smooth = -1;
+                else if ((m_prev_status & AFS_FLAG_PROGRESSIVE) && ISRFF(status)) rff_smooth = 1;
+            }
+            quarter_jitter = rff_smooth;
+        }
+        pull_drop = 0;
+        m_additional_jitter = 0;
+        drop24 = 0;
+    } else {
+        if (status & AFS_FLAG_SHIFT0) {
+            quarter_jitter = -2;
+        } else if (m_prev_status & AFS_FLAG_SHIFT0) {
+            quarter_jitter = (status & AFS_FLAG_SMOOTHING) ? -1 : -2;
+        } else {
+            quarter_jitter = 0;
+        }
+        quarter_jitter += ((status & AFS_FLAG_SMOOTHING) || m_additional_jitter != -1) ? m_additional_jitter : -2;
 
-    if (status & AFS_FLAG_SHIFT0)
-        quarter_jitter = -2;
-    else if (m_prev_status & AFS_FLAG_SHIFT0)
-        quarter_jitter = (status & AFS_FLAG_SMOOTHING) ? -1 : -2;
-    else
-        quarter_jitter = 0;
-    quarter_jitter += ((status & AFS_FLAG_SMOOTHING) || m_additional_jitter != -1) ? m_additional_jitter : -2;
+        if (status & (AFS_FLAG_FORCE24 | AFS_FLAG_SMOOTHING)) {
+            if (!m_prev_rff_smooth) {
+                if (ISRFF(m_prev_status)) rff_smooth = -1;
+                else if ((m_prev_status & AFS_FLAG_PROGRESSIVE) && ISRFF(status)) rff_smooth = 1;
+            }
+        }
+        quarter_jitter += rff_smooth;
+        m_position24 += rff_smooth;
 
-    pull_drop = (status & AFS_FLAG_FRAME_DROP)
-        && !((m_prev_status|status) & AFS_FLAG_SHIFT0)
-        && (status & AFS_FLAG_SHIFT1);
-    m_additional_jitter = pull_drop ? -1 : 0;
+        pull_drop = (status & AFS_FLAG_FRAME_DROP)
+            && !((m_prev_status|status) & AFS_FLAG_SHIFT0)
+            && (status & AFS_FLAG_SHIFT1);
+        m_additional_jitter = pull_drop ? -1 : 0;
 
-    drop24 = drop24 ||
-        (!(status & AFS_FLAG_SHIFT0) &&
-        (status & AFS_FLAG_SHIFT1) &&
-            (status & AFS_FLAG_SHIFT2));
+        drop24 = drop24 ||
+            (!(status & AFS_FLAG_SHIFT0) &&
+              (status & AFS_FLAG_SHIFT1) &&
+              (status & AFS_FLAG_SHIFT2));
+    }
+
     if (drop24) m_phase24 = (m_position24 + 100) % 5;
     drop24 = 0;
     if (m_position24 >= m_phase24 &&
         ((m_position24 + 100) % 5 == m_phase24 ||
-        (m_position24 +  99) % 5 == m_phase24)) {
+         (m_position24 +  99) % 5 == m_phase24)) {
         m_position24 -= 5;
         drop24 = 1;
     }
 
     if (status & AFS_FLAG_FORCE24) {
         pull_drop = drop24;
-        quarter_jitter = m_position24++;
-    } else {
+        if (status & AFS_FLAG_PROGRESSIVE) {
+            quarter_jitter += m_position24;
+        } else {
+            quarter_jitter = m_position24++;
+        }
+    } else if (!(status & AFS_FLAG_PROGRESSIVE)) {
         m_phase24 -= m_position24 + 1;
         m_position24 = 0;
     }
-    drop = (quarter_jitter - m_prev_jitter < ((status & AFS_FLAG_FRAME_DROP) ? 0 : -3));
+    int drop_thre = (status & AFS_FLAG_FRAME_DROP) ? 0 : -3;
+    if (!(status & AFS_FLAG_PROGRESSIVE) && ISRFF(m_prev_status)) {
+        //rffからの切替時はなるべくdropさせない
+        drop_thre = -3;
+    }
+    int drop = (quarter_jitter - m_prev_jitter < drop_thre);
 
     m_quarter_jitter = quarter_jitter;
+    m_prev_rff_smooth = rff_smooth;
     m_prev_status = status;
 
     drop |= pull_drop;
     if (drop) {
         m_prev_jitter -= 4;
         m_quarter_jitter = 0;
-        m_pos[iframe & 15] = AFS_SSTS_DROP; //drop
+        frameTs->pos = AFS_SSTS_DROP; //drop
     } else {
         m_prev_jitter = m_quarter_jitter;
-        m_pos[iframe & 15] = (int64_t)iframe * 4 + m_quarter_jitter;
+        frameTs->pos = frameTs->orig_pts + m_quarter_jitter;
     }
     return 0;
 }
@@ -336,14 +377,18 @@ int64_t afsStreamStatus::get_duration(int64_t iframe) {
     if (m_set_frame < iframe + 2) {
         return AFS_SSTS_ERROR;
     }
-    auto iframe_pos = m_pos[(iframe + 0) & 15];
+    auto iframe_pos = m_pos[(iframe + 0) & 15].pos;
     if (iframe_pos < 0) {
         return AFS_SSTS_DROP;
     }
-    auto next_pos = m_pos[(iframe + 1) & 15];
+    auto next_pos = m_pos[(iframe + 1) & 15].pos;
     if (next_pos < 0) {
         //iframe + 1がdropならその先のフレームを参照
-        next_pos = m_pos[(iframe + 2) & 15];
+        next_pos = m_pos[(iframe + 2) & 15].pos;
+    }
+    if (next_pos < 0) {
+        //iframe + 1がdropならその先のフレームを参照
+        next_pos = m_pos[(iframe + 3) & 15].pos;
     }
     return next_pos - iframe_pos;
 }
@@ -632,12 +677,12 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         _T("afs: clip(T %d, B %d, L %d, R %d), switch %d, coeff_shift %d\n")
         _T("                    thre(shift %d, deint %d, Ymotion %d, Cmotion %d)\n")
         _T("                    analyze %d, shift %s, drop %s, smooth %s, force24 %s\n")
-        _T("                    tune %s, tb_order %d(%s)"),
+        _T("                    tune %s, tb_order %d(%s), rff %s"),
         pAfsParam->afs.clip.top, pAfsParam->afs.clip.bottom , pAfsParam->afs.clip.left, pAfsParam->afs.clip.right,
         pAfsParam->afs.method_switch, pAfsParam->afs.coeff_shift,
         pAfsParam->afs.thre_shift, pAfsParam->afs.thre_deint, pAfsParam->afs.thre_Ymotion, pAfsParam->afs.thre_Cmotion,
         pAfsParam->afs.analyze, ON_OFF(pAfsParam->afs.shift), ON_OFF(pAfsParam->afs.drop), ON_OFF(pAfsParam->afs.smooth), ON_OFF(pAfsParam->afs.force24),
-        ON_OFF(pAfsParam->afs.tune), pAfsParam->afs.tb_order, pAfsParam->afs.tb_order ? _T("tff") : _T("bff"));
+        ON_OFF(pAfsParam->afs.tune), pAfsParam->afs.tb_order, pAfsParam->afs.tb_order ? _T("tff") : _T("bff"), ON_OFF(pAfsParam->afs.rff));
 #undef ON_OFF
     m_pParam = pParam;
     return sts;
@@ -867,8 +912,13 @@ cudaError_t NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs 
         status |= (result_stat[3] & 1) ? AFS_FLAG_SHIFT3 : 0;
     if (reverse[3]) status ^= AFS_FLAG_SHIFT3;
 
+    const auto& frameinfo = m_source.get(iframe)->frame;
+    if (!interlaced(frameinfo)) {
+        status |= AFS_FLAG_PROGRESSIVE;
+        if (frameinfo.flags & RGY_FRAME_FLAG_RFF) status |= AFS_FLAG_RFF;
+    }
     if (pAfsPrm->afs.drop) {
-        status |= AFS_FLAG_FRAME_DROP;
+        if (interlaced(frameinfo)) status |= AFS_FLAG_FRAME_DROP;
         if (pAfsPrm->afs.smooth) status |= AFS_FLAG_SMOOTHING;
     }
     if (pAfsPrm->afs.force24) status |= AFS_FLAG_FORCE24;
@@ -931,13 +981,14 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             return NV_ENC_ERR_INVALID_CALL;
         }
     }
+    static const int preread_len = 3;
     //十分な数のフレームがたまった、あるいはdrainモードならフレームを出力
-    if (iframe >= 7 || pInputFrame == nullptr) {
+    if (iframe >= (5+preread_len) || pInputFrame == nullptr) {
         int reverse[4] = { 0 }, assume_shift[4] = { 0 }, result_stat[4] = { 0 };
 
-        //m_streamsts.get_durationを呼ぶには、2フレーム先までstatusをセットする必要がある
-        //そのため、analyze_frameを使って、2フレーム先までstatusを計算しておく
-        for (int i = 2; i >= 0; i--) {
+        //m_streamsts.get_durationを呼ぶには、3フレーム先までstatusをセットする必要がある
+        //そのため、analyze_frameを使って、3フレーム先までstatusを計算しておく
+        for (int i = preread_len; i >= 0; i--) {
             //ここでは、これまで発行したanalyze_frameの結果からstatusの更新を行う(analyze_frameの内部で行われる)
             auto cudaerr = analyze_frame(m_nFrame + i, pAfsParam.get(), reverse, assume_shift, result_stat);
             if (cudaerr != cudaSuccess) {
@@ -949,15 +1000,16 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
 
         if (m_nFrame == 0) {
             //m_nFrame == 0のときは、下記がセットされていない
-            if (   m_streamsts.set_status(0, m_status[0], 0) != 0
-                || m_streamsts.set_status(1, m_status[1], 0) != 0) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(0-1).\n"));
-                return NV_ENC_ERR_INVALID_CALL;
+            for (int i = 0; i < preread_len; i++) {
+                if (m_streamsts.set_status(i, m_status[i], i, m_source.get(i)->frame.timestamp) != 0) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(%d).\n"), i);
+                    return NV_ENC_ERR_INVALID_CALL;
+                }
             }
         }
-        //m_streamsts.get_durationを呼ぶには、2フレーム先までstatusをセットする必要がある
-        if (m_streamsts.set_status(m_nFrame+2, m_status[m_nFrame+2], 0) != 0) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(%d).\n"), m_nFrame+2);
+        //m_streamsts.get_durationを呼ぶには、3フレーム先までstatusをセットする必要がある
+        if (m_streamsts.set_status(m_nFrame+preread_len, m_status[m_nFrame+preread_len], 0, m_source.get(m_nFrame+preread_len)->frame.timestamp) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(%d).\n"), m_nFrame+preread_len);
             return NV_ENC_ERR_INVALID_CALL;
         }
         const auto afs_duration = m_streamsts.get_duration(m_nFrame);
@@ -988,13 +1040,17 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             cudaError_t cudaerr = cudaSuccess;
             auto sip_filtered = m_stripe.filter(m_nFrame, pAfsParam->afs.analyze, cudaStreamDefault, &cudaerr);
             if (sip_filtered == nullptr || cudaerr != CUDA_SUCCESS) {
-                AddMessage(RGY_LOG_ERROR, _T("failed m_stripe.filter(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - 7, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed m_stripe.filter(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                 return NV_ENC_ERR_INVALID_CALL;
             }
 
-            cudaerr = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, pAfsParam.get(), cudaStreamDefault);
+            if (interlaced(m_source.get(m_nFrame)->frame)) {
+                cudaerr = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, pAfsParam.get(), cudaStreamDefault);
+            } else {
+                cudaerr = copy_frame(pOutFrame, m_source.get(m_nFrame), cudaStreamDefault);
+            }
             if (cudaerr != cudaSuccess) {
-                AddMessage(RGY_LOG_ERROR, _T("error on synthesize(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - 7, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("error on synthesize(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                 return NV_ENC_ERR_INVALID_CALL;
             }
         }
@@ -1006,6 +1062,74 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
         ppOutputFrames[0] = nullptr;
     }
     return sts;
+}
+
+cudaError_t NVEncFilterAfs::copy_frame(CUFrameBuf *pOut, CUFrameBuf *p0, cudaStream_t stream) {
+    const auto frameOutInfoEx = getFrameInfoExtra(&p0->frame);
+    static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
+    static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
+    auto cudaerr = cudaSuccess;
+    if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), p0->frame.csp) != supportedCspYV12.end()) {
+        //Y
+        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr, pOut->frame.pitch,
+            (uint8_t *)p0->frame.ptr, p0->frame.pitch,
+            frameOutInfoEx.width_byte, pOut->frame.height, cudaMemcpyDeviceToDevice, stream);
+        if (cudaerr != cudaSuccess) return cudaerr;
+
+        //Uフィールド
+        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height + 0),
+            pOut->frame.pitch * 2, //偶数ラインの展開
+            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height,
+            p0->frame.pitch,
+            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
+        if (cudaerr != cudaSuccess) return cudaerr;
+
+        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height + 1),
+            pOut->frame.pitch * 2, //奇数ラインの展開
+            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height * 5 / 4,
+            p0->frame.pitch,
+            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
+        if (cudaerr != cudaSuccess) return cudaerr;
+
+        //Vフィールド
+        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height * 3 / 2 + 0),
+            pOut->frame.pitch * 2, //偶数ラインの展開
+            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height * 6 / 4,
+            p0->frame.pitch,
+            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
+        if (cudaerr != cudaSuccess) return cudaerr;
+
+        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height * 3 / 2 + 1),
+            pOut->frame.pitch * 2, //奇数ラインの展開
+            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height * 7 / 4,
+            p0->frame.pitch,
+            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
+        if (cudaerr != cudaSuccess) return cudaerr;
+
+    } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), p0->frame.csp) != supportedCspYUV444.end()) {
+        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr, pOut->frame.pitch,
+            (uint8_t *)p0->frame.ptr, p0->frame.pitch,
+            frameOutInfoEx.width_byte, frameOutInfoEx.height_total, cudaMemcpyDeviceToDevice, stream);
+    } else {
+        cudaerr = cudaErrorNotSupported;
+    }
+    return cudaerr;
+}
+
+int NVEncFilterAfs::open_timecode(tstring tc_filename) {
+    FILE *fp = NULL;
+    if (_tfopen_s(&fp, tc_filename.c_str(), _T("w"))) {
+        return 1;
+    }
+    m_fpTimecode = unique_ptr<FILE, fp_deleter>(fp, fp_deleter());
+    fprintf(m_fpTimecode.get(), "# timecode format v2\n");
+    return 0;
+}
+
+void NVEncFilterAfs::write_timecode(int64_t pts, const rgy_rational<int>& timebase) {
+    if (pts > 0) {
+        fprintf(m_fpTimecode.get(), "%.6lf\n", pts * timebase.d());
+    }
 }
 
 void NVEncFilterAfs::close() {

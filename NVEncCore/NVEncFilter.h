@@ -334,6 +334,9 @@ public:
     const tstring GetInputMessage() {
         return m_sFilterInfo;
     }
+    const NVEncFilterParam *GetFilterParam() {
+        return m_pParam.get();
+    }
     void CheckPerformance(bool flag);
     double GetAvgTimeElapsed();
 protected:
