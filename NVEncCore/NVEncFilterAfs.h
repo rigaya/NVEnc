@@ -68,8 +68,9 @@ public:
     VppAfs afs;
     rgy_rational<int> inFps;
     rgy_rational<int> outTimebase;
+    tstring outFilename;
 
-    NVEncFilterParamAfs() : afs(), inFps(), outTimebase() {
+    NVEncFilterParamAfs() : afs(), inFps(), outTimebase(), outFilename() {
 
     };
     virtual ~NVEncFilterParamAfs() {};
@@ -236,6 +237,9 @@ protected:
     cudaError_t synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     cudaError_t copy_frame(CUFrameBuf *pOut, CUFrameBuf *p0, cudaStream_t stream);
 
+    int open_timecode(tstring tc_filename);
+    void write_timecode(int64_t pts, const rgy_rational<int>& timebase);
+
     unique_ptr<cudaStream_t, cudastream_deleter> m_stream;
     int m_nFrame;
     int64_t m_nPts;
@@ -247,4 +251,5 @@ protected:
     afsStreamStatus m_streamsts;
     CUMemBufPair    m_count_motion;
     CUMemBufPair    m_count_stripe;
+    unique_ptr<FILE, fp_deleter> m_fpTimecode;
 };

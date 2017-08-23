@@ -103,7 +103,8 @@ VppAfs::VppAfs() :
     smooth(FILTER_DEFAULT_AFS_SMOOTH),
     force24(FILTER_DEFAULT_AFS_FORCE24),
     tune(FILTER_DEFAULT_AFS_TUNE),
-    rff(FILTER_DEFAULT_AFS_RFF) {
+    rff(FILTER_DEFAULT_AFS_RFF),
+    timecode(FILTER_DEFAULT_AFS_TIMECODE) {
     check();
 }
 

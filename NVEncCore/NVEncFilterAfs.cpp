@@ -403,7 +403,8 @@ NVEncFilterAfs::NVEncFilterAfs() :
     m_status(),
     m_streamsts(),
     m_count_motion(),
-    m_count_stripe() {
+    m_count_stripe(),
+    m_fpTimecode() {
     m_sFilterName = _T("afs");
 }
 
@@ -672,17 +673,26 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     m_nPts = 0;
     m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS));
 
+    if (pAfsParam->afs.timecode) {
+        const tstring tc_filename = pAfsParam->outFilename + _T(".timecode.txt");
+        if (open_timecode(tc_filename)) {
+            errno_t error = errno;
+            AddMessage(RGY_LOG_ERROR, _T("failed to open timecode file \"%s\": %s.\n"), tc_filename.c_str(), _tcserror(error));
+            return NV_ENC_ERR_GENERIC; // Couldn't open file
+        }
+    }
+
 #define ON_OFF(b) ((b) ? _T("on") : _T("off"))
     m_sFilterInfo = strsprintf(
         _T("afs: clip(T %d, B %d, L %d, R %d), switch %d, coeff_shift %d\n")
         _T("                    thre(shift %d, deint %d, Ymotion %d, Cmotion %d)\n")
         _T("                    analyze %d, shift %s, drop %s, smooth %s, force24 %s\n")
-        _T("                    tune %s, tb_order %d(%s), rff %s"),
+        _T("                    tune %s, tb_order %d(%s), rff %s, timecode %s"),
         pAfsParam->afs.clip.top, pAfsParam->afs.clip.bottom , pAfsParam->afs.clip.left, pAfsParam->afs.clip.right,
         pAfsParam->afs.method_switch, pAfsParam->afs.coeff_shift,
         pAfsParam->afs.thre_shift, pAfsParam->afs.thre_deint, pAfsParam->afs.thre_Ymotion, pAfsParam->afs.thre_Cmotion,
         pAfsParam->afs.analyze, ON_OFF(pAfsParam->afs.shift), ON_OFF(pAfsParam->afs.drop), ON_OFF(pAfsParam->afs.smooth), ON_OFF(pAfsParam->afs.force24),
-        ON_OFF(pAfsParam->afs.tune), pAfsParam->afs.tb_order, pAfsParam->afs.tb_order ? _T("tff") : _T("bff"), ON_OFF(pAfsParam->afs.rff));
+        ON_OFF(pAfsParam->afs.tune), pAfsParam->afs.tb_order, pAfsParam->afs.tb_order ? _T("tff") : _T("bff"), ON_OFF(pAfsParam->afs.rff), ON_OFF(pAfsParam->afs.timecode));
 #undef ON_OFF
     m_pParam = pParam;
     return sts;
@@ -1035,6 +1045,10 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             pOutFrame->frame.timestamp = m_nPts;
             m_nPts += pOutFrame->frame.duration;
 
+            if (pAfsParam->afs.timecode) {
+                write_timecode(m_nPts, pAfsParam->outTimebase);
+            }
+
             //出力するフレームを作成
             get_stripe_info(m_nFrame, 1, pAfsParam.get());
             cudaError_t cudaerr = cudaSuccess;
@@ -1128,7 +1142,7 @@ int NVEncFilterAfs::open_timecode(tstring tc_filename) {
 
 void NVEncFilterAfs::write_timecode(int64_t pts, const rgy_rational<int>& timebase) {
     if (pts > 0) {
-        fprintf(m_fpTimecode.get(), "%.6lf\n", pts * timebase.d());
+        fprintf(m_fpTimecode.get(), "%.6lf\n", pts * timebase.qdouble() * 1000.0);
     }
 }
 
@@ -1142,6 +1156,7 @@ void NVEncFilterAfs::close() {
     m_status.clear();
     m_count_motion.clear();
     m_count_stripe.clear();
+    m_fpTimecode.reset();
 }
 
 static inline BOOL is_latter_field(int pos_y, int tb_order) {

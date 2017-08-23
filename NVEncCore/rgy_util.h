@@ -249,6 +249,12 @@ public:
     T d() const {
         return this->den;
     }
+    float qfloat() const {
+        return (float)qdouble();
+    }
+    double qdouble() const {
+        return (double)num / (double)den;
+    }
     void reduce() {
         if (den == 0) {
             return;
