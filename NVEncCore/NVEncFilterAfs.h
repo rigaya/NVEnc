@@ -63,6 +63,8 @@
 #define AFS_OFFSET_STARTFRM  0x000C
 #define AFS_OFFSET_STATUSPTR 0x0010
 
+#define ISRFF(x) (((x) & (AFS_FLAG_PROGRESSIVE | AFS_FLAG_RFF)) == (AFS_FLAG_PROGRESSIVE | AFS_FLAG_RFF))
+
 class NVEncFilterParamAfs : public NVEncFilterParam {
 public:
     VppAfs afs;
@@ -192,12 +194,15 @@ public:
     static const int64_t AFS_SSTS_DROP  = -1;
     static const int64_t AFS_SSTS_ERROR = -2;
     afsStreamStatus();
-    ~afsStreamStatus() { };
+    ~afsStreamStatus();
 
+    int open_log(const tstring& log_filename);
     void init(uint8_t status, int drop24);
     int set_status(int iframe, uint8_t status, int drop24, int64_t orig_pts);
     int64_t get_duration(int64_t iframe);
 private:
+    void write_log(const afsFrameTs *const frameTs);
+
     bool m_initialized;
     int m_quarter_jitter;
     int m_additional_jitter;
@@ -208,6 +213,7 @@ private:
     uint8_t m_prev_status;
     int64_t m_set_frame;
     afsFrameTs m_pos[16];
+    unique_ptr<FILE, fp_deleter> m_fpLog;
 };
 
 class NVEncFilterAfs : public NVEncFilter {
@@ -239,6 +245,9 @@ protected:
 
     int open_timecode(tstring tc_filename);
     void write_timecode(int64_t pts, const rgy_rational<int>& timebase);
+
+    int open_log(tstring log_filename);
+    void write_log(int64_t pts, const rgy_rational<int>& timebase);
 
     unique_ptr<cudaStream_t, cudastream_deleter> m_stream;
     int m_nFrame;

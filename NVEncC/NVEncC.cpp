@@ -519,7 +519,8 @@ static tstring help() {
         _T("      24fps=<bool>  (24fps化)          force 30fps->24fps (default=%s)\n")
         _T("      tune=<bool>   (調整モード)       show scan result   (default=%s)\n")
         _T("      rff=<bool>                       rff flag aware     (default=%s)\n")
-        _T("      timecode=<bool>                  output timecode    (default=%s)\n"),
+        _T("      timecode=<bool>                  output timecode    (default=%s)\n")
+        _T("      log=<bool>                       output log         (default=%s)\n"),
         FILTER_DEFAULT_AFS_CLIP_TB, FILTER_DEFAULT_AFS_CLIP_TB,
         FILTER_DEFAULT_AFS_CLIP_LR, FILTER_DEFAULT_AFS_CLIP_LR,
         FILTER_DEFAULT_AFS_METHOD_SWITCH, FILTER_DEFAULT_AFS_COEFF_SHIFT,
@@ -532,7 +533,8 @@ static tstring help() {
         FILTER_DEFAULT_AFS_FORCE24 ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_RFF     ? _T("on") : _T("off"),
-        FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"));
+        FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
+        FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
     str += strsprintf(_T("\n")
         _T("   --vpp-rff                    apply rff flag\n"));
     str += strsprintf(_T("")
@@ -2306,6 +2308,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
+                if (param_arg == _T("blurfirst")) {
+                    pParams->vpp.deband.blurFirst = (param_val == _T("true")) || (param_val == _T("on"));
+                    continue;
+                }
+                if (param_arg == _T("rand_each_frame")) {
+                    pParams->vpp.deband.randEachFrame = (param_val == _T("true")) || (param_val == _T("on"));
+                    continue;
+                }
                 PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
@@ -2466,31 +2476,35 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     continue;
                 }
                 if (param_arg == _T("shift")) {
-                    pParams->vpp.afs.shift = (param_val == _T("true"));
+                    pParams->vpp.afs.shift = (param_val == _T("true")) || (param_val == _T("on"));
                     continue;
                 }
                 if (param_arg == _T("drop")) {
-                    pParams->vpp.afs.drop = (param_val == _T("true"));
+                    pParams->vpp.afs.drop = (param_val == _T("true")) || (param_val == _T("on"));
                     continue;
                 }
                 if (param_arg == _T("smooth")) {
-                    pParams->vpp.afs.smooth = (param_val == _T("true"));
+                    pParams->vpp.afs.smooth = (param_val == _T("true")) || (param_val == _T("on"));
                     continue;
                 }
                 if (param_arg == _T("24fps")) {
-                    pParams->vpp.afs.force24 = (param_val == _T("true"));
+                    pParams->vpp.afs.force24 = (param_val == _T("true")) || (param_val == _T("on"));
                     continue;
                 }
                 if (param_arg == _T("tune")) {
-                    pParams->vpp.afs.tune = (param_val == _T("true"));
+                    pParams->vpp.afs.tune = (param_val == _T("true")) || (param_val == _T("on"));
                     continue;
                 }
                 if (param_arg == _T("rff")) {
-                    pParams->vpp.afs.rff = (param_val == _T("true"));
+                    pParams->vpp.afs.rff = (param_val == _T("true")) || (param_val == _T("on"));
                     continue;
                 }
                 if (param_arg == _T("timecode")) {
-                    pParams->vpp.afs.timecode = (param_val == _T("true"));
+                    pParams->vpp.afs.timecode = (param_val == _T("true")) || (param_val == _T("on"));
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    pParams->vpp.afs.log = (param_val == _T("true")) || (param_val == _T("on"));
                     continue;
                 }
                 if (param_arg == _T("ini")) {

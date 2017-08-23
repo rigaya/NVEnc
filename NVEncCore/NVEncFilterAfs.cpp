@@ -245,8 +245,13 @@ afsStreamStatus::afsStreamStatus() :
     m_prev_rff_smooth(0),
     m_prev_status(0),
     m_set_frame(-1),
-    m_pos() {
+    m_pos(),
+    m_fpLog() {
 };
+
+afsStreamStatus::~afsStreamStatus() {
+    m_fpLog.reset();
+}
 
 void afsStreamStatus::init(uint8_t status, int drop24) {
     m_prev_status = status;
@@ -270,15 +275,43 @@ void afsStreamStatus::init(uint8_t status, int drop24) {
     m_initialized = true;
 }
 
+int afsStreamStatus::open_log(const tstring& log_filename) {
+    FILE *fp = NULL;
+    if (_tfopen_s(&fp, log_filename.c_str(), _T("w"))) {
+        return 1;
+    }
+    m_fpLog = unique_ptr<FILE, fp_deleter>(fp, fp_deleter());
+    fprintf(m_fpLog.get(), " iframe,  sts,       ,        pos,   orig_pts, q_jit, prevjit, pos24, phase24, rff_smooth\n");
+    return 0;
+}
+
+void afsStreamStatus::write_log(const afsFrameTs *const frameTs) {
+    if (!m_fpLog) {
+        return;
+    }
+    fprintf(m_fpLog.get(), "%7d, 0x%2x, %s%s%s%s%s%s, %10lld, %10lld, %3d, %3d, %3d, %3d, %3d\n",
+        frameTs->iframe,
+        m_prev_status,
+        m_prev_status & AFS_FLAG_PROGRESSIVE ? "p" : "i",
+        ISRFF(m_prev_status) ? "r" : "-",
+        (((m_prev_status & AFS_FLAG_PROGRESSIVE) ? 0 : m_prev_status) & AFS_FLAG_SHIFT0) ? "0" : "-",
+        (((m_prev_status & AFS_FLAG_PROGRESSIVE) ? 0 : m_prev_status) & AFS_FLAG_SHIFT1) ? "1" : "-",
+        (((m_prev_status & AFS_FLAG_PROGRESSIVE) ? 0 : m_prev_status) & AFS_FLAG_SHIFT2) ? "2" : "-",
+        (((m_prev_status & AFS_FLAG_PROGRESSIVE) ? 0 : m_prev_status) & AFS_FLAG_SHIFT3) ? "3" : "-",
+        frameTs->pos, frameTs->orig_pts,
+        m_quarter_jitter, m_prev_jitter, m_position24, m_phase24, m_prev_rff_smooth);
+    return;
+}
+
 int afsStreamStatus::set_status(int iframe, uint8_t status, int drop24, int64_t orig_pts) {
     afsFrameTs *const frameTs = &m_pos[iframe & 15];
-#define ISRFF(x) (((x) & (AFS_FLAG_PROGRESSIVE | AFS_FLAG_RFF)) == (AFS_FLAG_PROGRESSIVE | AFS_FLAG_RFF))
     frameTs->iframe = iframe;
     frameTs->orig_pts = orig_pts;
     if (!m_initialized) {
         init(status, 0);
         frameTs->pos = orig_pts;
         m_set_frame = iframe;
+        write_log(frameTs);
         return 0;
     }
     if (iframe > m_set_frame + 1) {
@@ -370,6 +403,7 @@ int afsStreamStatus::set_status(int iframe, uint8_t status, int drop24, int64_t 
         m_prev_jitter = m_quarter_jitter;
         frameTs->pos = frameTs->orig_pts + m_quarter_jitter;
     }
+    write_log(frameTs);
     return 0;
 }
 
@@ -682,17 +716,26 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         }
     }
 
+    if (pAfsParam->afs.log) {
+        const tstring log_filename = pAfsParam->outFilename + _T(".afslog.csv");
+        if (m_streamsts.open_log(log_filename)) {
+            errno_t error = errno;
+            AddMessage(RGY_LOG_ERROR, _T("failed to open timecode file \"%s\": %s.\n"), log_filename.c_str(), _tcserror(error));
+            return NV_ENC_ERR_GENERIC; // Couldn't open file
+        }
+    }
+
 #define ON_OFF(b) ((b) ? _T("on") : _T("off"))
     m_sFilterInfo = strsprintf(
         _T("afs: clip(T %d, B %d, L %d, R %d), switch %d, coeff_shift %d\n")
         _T("                    thre(shift %d, deint %d, Ymotion %d, Cmotion %d)\n")
         _T("                    analyze %d, shift %s, drop %s, smooth %s, force24 %s\n")
-        _T("                    tune %s, tb_order %d(%s), rff %s, timecode %s"),
+        _T("                    tune %s, tb_order %d(%s), rff %s, timecode %s, log %s"),
         pAfsParam->afs.clip.top, pAfsParam->afs.clip.bottom , pAfsParam->afs.clip.left, pAfsParam->afs.clip.right,
         pAfsParam->afs.method_switch, pAfsParam->afs.coeff_shift,
         pAfsParam->afs.thre_shift, pAfsParam->afs.thre_deint, pAfsParam->afs.thre_Ymotion, pAfsParam->afs.thre_Cmotion,
         pAfsParam->afs.analyze, ON_OFF(pAfsParam->afs.shift), ON_OFF(pAfsParam->afs.drop), ON_OFF(pAfsParam->afs.smooth), ON_OFF(pAfsParam->afs.force24),
-        ON_OFF(pAfsParam->afs.tune), pAfsParam->afs.tb_order, pAfsParam->afs.tb_order ? _T("tff") : _T("bff"), ON_OFF(pAfsParam->afs.rff), ON_OFF(pAfsParam->afs.timecode));
+        ON_OFF(pAfsParam->afs.tune), pAfsParam->afs.tb_order, pAfsParam->afs.tb_order ? _T("tff") : _T("bff"), ON_OFF(pAfsParam->afs.rff), ON_OFF(pAfsParam->afs.timecode), ON_OFF(pAfsParam->afs.log));
 #undef ON_OFF
     m_pParam = pParam;
     return sts;
@@ -1039,15 +1082,16 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
                 ppOutputFrames[0] = &pOutFrame->frame;
                 m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
             }
+
+            if (pAfsParam->afs.timecode) {
+                write_timecode(m_nPts, pAfsParam->outTimebase);
+            }
+
             pOutFrame->frame.flags = m_source.get(m_nFrame)->frame.flags & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_BFF | RGY_FRAME_FLAG_RFF_TFF));
             pOutFrame->frame.picstruct = RGY_PICSTRUCT_FRAME;
             pOutFrame->frame.duration = rational_rescale(afs_duration, pAfsParam->inFps.inv() * rgy_rational<int>(1,4), pAfsParam->outTimebase);
             pOutFrame->frame.timestamp = m_nPts;
             m_nPts += pOutFrame->frame.duration;
-
-            if (pAfsParam->afs.timecode) {
-                write_timecode(m_nPts, pAfsParam->outTimebase);
-            }
 
             //出力するフレームを作成
             get_stripe_info(m_nFrame, 1, pAfsParam.get());

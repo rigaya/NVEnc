@@ -81,6 +81,7 @@ static const bool  FILTER_DEFAULT_AFS_FORCE24 = false;
 static const bool  FILTER_DEFAULT_AFS_TUNE = false;
 static const bool  FILTER_DEFAULT_AFS_RFF = false;
 static const bool  FILTER_DEFAULT_AFS_TIMECODE = false;
+static const bool  FILTER_DEFAULT_AFS_LOG = false;
 
 enum {
     NV_ENC_AVCUVID_NATIVE = 0,
@@ -588,6 +589,7 @@ struct VppAfs {
     bool tune;             //調整モード
     bool rff;              //rffフラグを認識して調整
     bool timecode;         //timecode出力
+    bool log;              //log出力
 
     VppAfs();
 

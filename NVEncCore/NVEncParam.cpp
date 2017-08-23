@@ -104,7 +104,8 @@ VppAfs::VppAfs() :
     force24(FILTER_DEFAULT_AFS_FORCE24),
     tune(FILTER_DEFAULT_AFS_TUNE),
     rff(FILTER_DEFAULT_AFS_RFF),
-    timecode(FILTER_DEFAULT_AFS_TIMECODE) {
+    timecode(FILTER_DEFAULT_AFS_TIMECODE),
+    log(FILTER_DEFAULT_AFS_LOG) {
     check();
 }
 
