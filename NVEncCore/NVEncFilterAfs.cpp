@@ -1185,7 +1185,7 @@ int NVEncFilterAfs::open_timecode(tstring tc_filename) {
 }
 
 void NVEncFilterAfs::write_timecode(int64_t pts, const rgy_rational<int>& timebase) {
-    if (pts > 0) {
+    if (pts >= 0) {
         fprintf(m_fpTimecode.get(), "%.6lf\n", pts * timebase.qdouble() * 1000.0);
     }
 }
