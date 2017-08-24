@@ -591,6 +591,38 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
 
 #if ENABLE_AVSW_READER
+    if ((m_nAVSyncMode & RGY_AVSYNC_VFR) || inputParam->vpp.rff) {
+        tstring err_target;
+        if (m_nAVSyncMode & RGY_AVSYNC_VFR) err_target += _T("avsync vfr, ");
+        if (inputParam->vpp.rff)            err_target += _T("vpp-rff, ");
+        err_target = err_target.substr(0, err_target.length()-2);
+
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+        if (pAVCodecReader) {
+            //timestampになんらかの問題がある場合、vpp-rffとavsync vfrは使用できない
+            const auto timestamp_status = pAVCodecReader->GetFramePosList()->getStreamPtsStatus();
+            if ((timestamp_status & (~RGY_PTS_NORMAL)) != 0) {
+
+                tstring err_sts;
+                if (timestamp_status & RGY_PTS_SOMETIMES_INVALID) err_sts += _T("SOMETIMES_INVALID, "); //時折、無効なptsを得る
+                if (timestamp_status & RGY_PTS_HALF_INVALID)      err_sts += _T("HALF_INVALID, "); //PAFFなため、半分のフレームのptsやdtsが無効
+                if (timestamp_status & RGY_PTS_ALL_INVALID)       err_sts += _T("ALL_INVALID, "); //すべてのフレームのptsやdtsが無効
+                if (timestamp_status & RGY_PTS_NONKEY_INVALID)    err_sts += _T("NONKEY_INVALID, "); //キーフレーム以外のフレームのptsやdtsが無効
+                if (timestamp_status & RGY_PTS_DUPLICATE)         err_sts += _T("PTS_DUPLICATE, "); //重複するpts/dtsが存在する
+                if (timestamp_status & RGY_DTS_SOMETIMES_INVALID) err_sts += _T("DTS_SOMETIMES_INVALID, "); //時折、無効なdtsを得る
+                err_sts = err_sts.substr(0, err_sts.length()-2);
+
+                PrintMes(RGY_LOG_ERROR, _T("timestamp not acquired successfully from input steram, %s cannot be used. \n  [0x%x] %s\n"),
+                    err_target.c_str(), (uint32_t)timestamp_status, err_sts.c_str());
+                return NV_ENC_ERR_GENERIC;
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("timestamp check: 0x%x\n"), timestamp_status);
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("%s can only be used with avhw /avsw reader.\n"), err_target.c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
+    }
+
     if (inputParam->nAudioSourceCount > 0) {
 
         for (int i = 0; i < (int)inputParam->nAudioSourceCount; i++) {
@@ -3150,13 +3182,6 @@ NVENCSTATUS NVEncCore::Encode() {
     }
     //cuvidデコード時は、timebaseの分子はかならず1
     const auto srcTimebase = (pStreamIn) ? rgy_rational<int>((m_cuvidDec) ? 1 : pStreamIn->time_base.num, pStreamIn->time_base.den) : rgy_rational<int>();
-
-    if (pStreamIn) {
-        if ((m_nAVSyncMode & RGY_AVSYNC_VFR) && 0 != (pReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL))) {
-            PrintMes(RGY_LOG_WARN, _T("timestamp not acquired successfully from input steram, avsync vfr will be disabled.\n"));
-            m_nAVSyncMode &= (~RGY_AVSYNC_VFR);
-        }
-    }
 
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
     std::map<int, shared_ptr<RGYOutputAvcodec>> pWriterForAudioStreams;
