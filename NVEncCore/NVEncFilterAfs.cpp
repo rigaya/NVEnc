@@ -719,7 +719,7 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS));
 
     if (pAfsParam->afs.timecode) {
-        const tstring tc_filename = pAfsParam->outFilename + _T(".timecode.txt");
+        const tstring tc_filename = PathRemoveExtensionS(pAfsParam->outFilename) + _T(".timecode.txt");
         if (open_timecode(tc_filename)) {
             errno_t error = errno;
             AddMessage(RGY_LOG_ERROR, _T("failed to open timecode file \"%s\": %s.\n"), tc_filename.c_str(), _tcserror(error));
@@ -729,7 +729,7 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     }
 
     if (pAfsParam->afs.log) {
-        const tstring log_filename = pAfsParam->outFilename + _T(".afslog.csv");
+        const tstring log_filename = PathRemoveExtensionS(pAfsParam->outFilename) + _T(".afslog.csv");
         if (m_streamsts.open_log(log_filename)) {
             errno_t error = errno;
             AddMessage(RGY_LOG_ERROR, _T("failed to open afs log file \"%s\": %s.\n"), log_filename.c_str(), _tcserror(error));

@@ -441,6 +441,7 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
 std::wstring GetFullPath(const WCHAR *path);
 bool rgy_get_filesize(const WCHAR *filepath, uint64_t *filesize);
 std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
+std::wstring PathRemoveExtensionS(const std::wstring& path);
 std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename);
 std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const WCHAR *dir);
@@ -471,6 +472,7 @@ std::string str_replace(std::string str, const std::string& from, const std::str
 std::string GetFullPath(const char *path);
 bool rgy_get_filesize(const char *filepath, uint64_t *filesize);
 std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
+std::string PathRemoveExtensionS(const std::string& path);
 bool CreateDirectoryRecursive(const char *dir);
 
 tstring print_time(double time);

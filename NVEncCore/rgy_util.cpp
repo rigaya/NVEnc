@@ -455,6 +455,24 @@ std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
     std::wstring newPath = path.substr(0, qtr - ptr - 1);
     return std::make_pair((int)(path.length() - newPath.length()), newPath);
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
+std::string PathRemoveExtensionS(const std::string& path) {
+    const char *ptr = path.c_str();
+    const char *qtr = PathFindExtensionA(ptr);
+    if (qtr == ptr || qtr == nullptr) {
+        return path;
+    }
+    return path.substr(0, qtr - ptr);
+}
+#if defined(_WIN32) || defined(_WIN64)
+std::wstring PathRemoveExtensionS(const std::wstring& path) {
+    const WCHAR *ptr = path.c_str();
+    WCHAR *qtr = PathFindExtensionW(ptr);
+    if (qtr == ptr || qtr == nullptr) {
+        return path;
+    }
+    return path.substr(0, qtr - ptr);
+}
 std::string PathCombineS(const std::string& dir, const std::string& filename) {
     std::vector<char> buffer(dir.length() + filename.length() + 128, '\0');
     PathCombineA(buffer.data(), dir.c_str(), filename.c_str());
