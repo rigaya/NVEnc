@@ -294,7 +294,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     sChapterFile(),
     pMuxVidTsLogFile(nullptr),
     pAVInputFormat(nullptr),
-    nAVSyncMode(RGY_AVSYNC_THROUGH),     //avsyncの方法 (RGY_AVSYNC_xxx)
+    nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
     nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
     vpp(),
     bWeightP(false),
@@ -540,7 +540,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.nSubtitleSelectCount = inputParam->nSubtitleSelectCount;
         inputInfoAVCuvid.pSubtitleSelect = inputParam->pSubtitleSelect;
         inputInfoAVCuvid.nProcSpeedLimit = inputParam->nProcSpeedLimit;
-        inputInfoAVCuvid.nAVSyncMode = RGY_AVSYNC_THROUGH;
+        inputInfoAVCuvid.nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.fSeekSec = inputParam->fSeekSec;
         inputInfoAVCuvid.pFramePosListLog = inputParam->sFramePosListLog.c_str();
         inputInfoAVCuvid.nInputThread = inputParam->nInputThread;
@@ -642,7 +642,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             inputInfoAVAudioReader.nAudioSelectCount = inputParam->nAudioSelectCount;
             inputInfoAVAudioReader.ppAudioSelect = inputParam->ppAudioSelectList;
             inputInfoAVAudioReader.nProcSpeedLimit = inputParam->nProcSpeedLimit;
-            inputInfoAVAudioReader.nAVSyncMode = RGY_AVSYNC_THROUGH;
+            inputInfoAVAudioReader.nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
             inputInfoAVAudioReader.fSeekSec = inputParam->fSeekSec;
             inputInfoAVAudioReader.pFramePosListLog = inputParam->sFramePosListLog.c_str();
             inputInfoAVAudioReader.nInputThread = 0;
@@ -2471,7 +2471,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
-        if (m_nAVSyncMode != RGY_AVSYNC_THROUGH) {
+        if (m_nAVSyncMode != RGY_AVSYNC_ASSUME_CFR) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with avsync.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
@@ -4251,7 +4251,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         }
         add_str(RGY_LOG_ERROR, _T("[offset: %d]\n"), m_pTrimParam->offset);
     }
-    if (m_nAVSyncMode != RGY_AVSYNC_THROUGH) {
+    if (m_nAVSyncMode != RGY_AVSYNC_ASSUME_CFR) {
         add_str(RGY_LOG_ERROR, _T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     }
     tstring vppFilterMes;

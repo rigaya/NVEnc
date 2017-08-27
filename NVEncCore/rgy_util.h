@@ -909,11 +909,11 @@ static bool inline rearrange_trim_list(int frame, int offset, std::vector<sTrim>
 }
 
 enum RGYAVSync : uint32_t {
-    RGY_AVSYNC_THROUGH   = 0x00,
-    RGY_AVSYNC_INIT      = 0x01,
-    RGY_AVSYNC_CHECK_PTS = 0x02,
-    RGY_AVSYNC_VFR       = 0x02,
-    RGY_AVSYNC_FORCE_CFR = 0x04 | RGY_AVSYNC_CHECK_PTS,
+    RGY_AVSYNC_ASSUME_CFR = 0x00,
+    RGY_AVSYNC_INIT       = 0x01,
+    RGY_AVSYNC_CHECK_PTS  = 0x02,
+    RGY_AVSYNC_VFR        = 0x02,
+    RGY_AVSYNC_FORCE_CFR  = 0x04 | RGY_AVSYNC_CHECK_PTS,
 };
 
 static RGYAVSync operator|(RGYAVSync a, RGYAVSync b) {
@@ -1003,7 +1003,8 @@ const CX_DESC list_log_level[] = {
 };
 
 const CX_DESC list_avsync[] = {
-    { _T("through"),  RGY_AVSYNC_THROUGH   },
+    { _T("cfr"),      RGY_AVSYNC_ASSUME_CFR   },
+    { _T("vfr"),      RGY_AVSYNC_VFR       },
     { _T("forcecfr"), RGY_AVSYNC_FORCE_CFR },
     { NULL, 0 }
 };
