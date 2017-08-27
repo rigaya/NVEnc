@@ -536,7 +536,7 @@ static tstring help() {
         FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
     str += strsprintf(_T("\n")
-        _T("   --vpp-rff                    apply rff flag\n"));
+        _T("   --vpp-rff                    apply rff flag, with avcuvid reader only.\n"));
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
