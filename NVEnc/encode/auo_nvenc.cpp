@@ -207,6 +207,10 @@ RGY_ERR AuoInput::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const vo
     m_inputVideoInfo.srcPitch = oip->w;
     rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 
+    if (conf->vpp.afs.enable) {
+        m_inputVideoInfo.csp = (RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+    }
+
     //high444出力ならAviutlからYC48をもらう
     const RGY_CSP input_csp = (m_inputVideoInfo.csp == RGY_CSP_YUV444 || m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_YUV444_16) ? RGY_CSP_YC48 : RGY_CSP_YUY2;
     m_sConvert = get_convert_csp_func(input_csp, m_inputVideoInfo.csp, false);
@@ -299,8 +303,8 @@ NVENCSTATUS CAuoNvEnc::InitInput(InEncodeVideoParam *inputParam) {
 
     int ret = m_pFileReader->Init(nullptr, &inputParam->input, inputParam->pPrivatePrm, m_pNVLog, m_pStatus);
 
-    m_inputFps.first = inputParam->input.fpsN;
-    m_inputFps.second = inputParam->input.fpsD;
+    m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
+    m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
     m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, nullptr);
 
     return (ret) ? NV_ENC_ERR_GENERIC : NV_ENC_SUCCESS;

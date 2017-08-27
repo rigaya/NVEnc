@@ -656,6 +656,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppResizeAlg,      list_nppi_resize);
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
+    setComboBox(fcgCXVppAfsAnalyze,     list_vpp_afs_analyze);
 
     setComboBox(fcgCXAudioTempDir,  list_audtempdir);
     setComboBox(fcgCXMP4BoxTempDir, list_mp4boxtempdir);
@@ -742,6 +743,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
     fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
+    fcggroupBoxVppAfs->Enabled = fcCBVppAfsEnable->Checked;
 
     this->ResumeLayout();
     this->PerformLayout();
@@ -990,6 +992,23 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXVppDebandSample,         cnf->vpp.deband.sample);
         fcgCBVppDebandBlurFirst->Checked       = cnf->vpp.deband.blurFirst;
         fcgCBVppDebandRandEachFrame->Checked   = cnf->vpp.deband.randEachFrame;
+        SetNUValue(fcgNUVppAfsUp,                cnf->vpp.afs.clip.top);
+        SetNUValue(fcgNUVppAfsBottom,            cnf->vpp.afs.clip.bottom);
+        SetNUValue(fcgNUVppAfsLeft,              cnf->vpp.afs.clip.left);
+        SetNUValue(fcgNUVppAfsRight,             cnf->vpp.afs.clip.right);
+        SetNUValue(fcgNUVppAfsMethodSwitch,      cnf->vpp.afs.method_switch);
+        SetNUValue(fcgNUVppAfsCoeffShift,        cnf->vpp.afs.coeff_shift);
+        SetNUValue(fcgNUVppAfsThreShift,         cnf->vpp.afs.thre_shift);
+        SetNUValue(fcgNUVppAfsThreDeint,         cnf->vpp.afs.thre_deint);
+        SetNUValue(fcgNUVppAfsThreYMotion,       cnf->vpp.afs.thre_Ymotion);
+        SetNUValue(fcgNUVppAfsThreCMotion,       cnf->vpp.afs.thre_Cmotion);
+        SetCXIndex(fcgCXVppAfsAnalyze,           cnf->vpp.afs.analyze);
+        fcCBVppAfsEnable->Checked              = cnf->vpp.afs.enable != 0;
+        fcgCBVppAfsShift->Checked              = cnf->vpp.afs.shift != 0;
+        fcgCBVppAfsDrop->Checked               = cnf->vpp.afs.drop != 0;
+        fcgCBVppAfsSmooth->Checked             = cnf->vpp.afs.smooth != 0;
+        fcgCBVppAfs24fps->Checked              = cnf->vpp.afs.force24 != 0;
+        fcgCBVppAfsTune->Checked               = cnf->vpp.afs.tune != 0;
 
         //音声
         fcgCBAudioOnly->Checked            = cnf->oth.out_audio_only != 0;
@@ -1181,6 +1200,24 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vpp.deband.sample            = fcgCXVppDebandSample->SelectedIndex;
     cnf->vpp.deband.blurFirst       = fcgCBVppDebandBlurFirst->Checked;
     cnf->vpp.deband.randEachFrame   = fcgCBVppDebandRandEachFrame->Checked;
+
+    cnf->vpp.afs.clip.top           = (int)fcgNUVppAfsUp->Value;
+    cnf->vpp.afs.clip.bottom        = (int)fcgNUVppAfsBottom->Value;
+    cnf->vpp.afs.clip.left          = (int)fcgNUVppAfsLeft->Value;
+    cnf->vpp.afs.clip.right         = (int)fcgNUVppAfsRight->Value;
+    cnf->vpp.afs.method_switch      = (int)fcgNUVppAfsMethodSwitch->Value;
+    cnf->vpp.afs.coeff_shift        = (int)fcgNUVppAfsCoeffShift->Value;
+    cnf->vpp.afs.thre_shift         = (int)fcgNUVppAfsThreShift->Value;
+    cnf->vpp.afs.thre_deint         = (int)fcgNUVppAfsThreDeint->Value;
+    cnf->vpp.afs.thre_Ymotion       = (int)fcgNUVppAfsThreYMotion->Value;
+    cnf->vpp.afs.thre_Cmotion       = (int)fcgNUVppAfsThreCMotion->Value;
+    cnf->vpp.afs.analyze            = fcgCXVppAfsAnalyze->SelectedIndex;
+    cnf->vpp.afs.enable             = fcCBVppAfsEnable->Checked;
+    cnf->vpp.afs.shift              = fcgCBVppAfsShift->Checked;
+    cnf->vpp.afs.drop               = fcgCBVppAfsDrop->Checked;
+    cnf->vpp.afs.smooth             = fcgCBVppAfsSmooth->Checked;
+    cnf->vpp.afs.force24            = fcgCBVppAfs24fps->Checked;
+    cnf->vpp.afs.tune               = fcgCBVppAfsTune->Checked;
 
     //音声部
     cnf->aud.encoder                = fcgCXAudioEncoder->SelectedIndex;

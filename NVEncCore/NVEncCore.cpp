@@ -2508,8 +2508,16 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             inputFrame = param->frameOut;
         }
         const auto encCsp = GetEncoderCSP(inputParam);
-        if (inputFrame.csp == RGY_CSP_NV12 || inputFrame.csp == RGY_CSP_P010 //NV12ならYV12に変換する必要がある
-            || encCsp != inputFrame.csp
+        auto filterCsp = encCsp;
+        switch (filterCsp) {
+        case RGY_CSP_NV12: filterCsp = RGY_CSP_YV12; break;
+        case RGY_CSP_P010: filterCsp = RGY_CSP_YV12_16; break;
+        default: break;
+        }
+        if (inputParam->vpp.afs.enable && RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_YUV444) {
+            filterCsp = (RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+        }
+        if (filterCsp != inputFrame.csp
             || (cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN)) { //cropが必要ならただちに適用する
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
@@ -3283,11 +3291,10 @@ NVENCSTATUS NVEncCore::Encode() {
         }
         m_pPerfMonitor->SetThreadHandles((HANDLE)(th_input.native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
-
-    int64_t nOutFirstPts = AV_NOPTS_VALUE; //入力のptsに対する補正 (スケール: m_outputTimebase)
+    int64_t nOutFirstPts = -1; //入力のptsに対する補正 (スケール: m_outputTimebase)
+#endif //#if ENABLE_AVSW_READER
     int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: m_outputTimebase)
     const int64_t nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
-#endif //#if ENABLE_AVSW_READER
 
     int dec_vpp_rff_sts = 0; //rffの展開状態を示すフラグ
 
@@ -3363,14 +3370,14 @@ NVENCSTATUS NVEncCore::Encode() {
     uint32_t nInputFramePosIdx = UINT32_MAX;
     auto check_pts = [&](FrameBufferDataIn *pInputFrame) {
         vector<unique_ptr<FrameBufferDataIn>> decFrames;
-#if ENABLE_AVSW_READER
         int64_t outPtsSource = nOutEstimatedPts;
-        if (nOutFirstPts == AV_NOPTS_VALUE) {
+        int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration
+#if ENABLE_AVSW_READER
+        if (nOutFirstPts == -1) {
             nOutFirstPts = outPtsSource; //最初のpts
         }
         //最初のptsを0に修正
         outPtsSource -= nOutFirstPts;
-        int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration
         if (pStreamIn
             && ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware)) {
             //CFR仮定ではなく、オリジナルの時間を見る
@@ -3419,9 +3426,9 @@ NVENCSTATUS NVEncCore::Encode() {
             }
             outPtsSource = nOutEstimatedPts;
         }
+#endif //#if ENABLE_AVSW_READER
         //次のフレームのptsの予想
         nOutEstimatedPts += outDuration;
-#endif //#if ENABLE_AVSW_READER
         add_dec_vpp_param(pInputFrame, decFrames, outPtsSource, outDuration);
         return std::move(decFrames);
     };

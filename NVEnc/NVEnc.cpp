@@ -283,6 +283,7 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     conf->vpp.knn = VppKnn();
     conf->vpp.pmd = VppPmd();
     conf->vpp.deband = VppDeband();
+    conf->vpp.afs = VppAfs();
 }
 #pragma warning( pop )
 void write_log_auo_line_fmt(int log_type_index, const char *format, ... ) {

@@ -1095,6 +1095,63 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppDebandEnable;
 private: System::Windows::Forms::Label^  fcgLBCudaSchdule;
 private: System::Windows::Forms::ComboBox^  fcgCXCudaSchdule;
 private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
+private: System::Windows::Forms::GroupBox^  fcggroupBoxVppAfs;
+private: System::Windows::Forms::TrackBar^  fcgTBVppAfsThreCMotion;
+
+private: System::Windows::Forms::Label^  fcgLBVppAfsThreCMotion;
+private: System::Windows::Forms::TrackBar^  fcgTBVppAfsThreYMotion;
+
+
+private: System::Windows::Forms::Label^  fcgLBVppAfsThreYmotion;
+private: System::Windows::Forms::TrackBar^  fcgTBVppAfsThreDeint;
+
+
+private: System::Windows::Forms::Label^  fcgLBVppAfsThreDeint;
+private: System::Windows::Forms::TrackBar^  fcgTBVppAfsThreShift;
+
+
+private: System::Windows::Forms::Label^  fcgLBVppAfsThreShift;
+private: System::Windows::Forms::TrackBar^  fcgTBVppAfsCoeffShift;
+
+
+private: System::Windows::Forms::Label^  fcgLBVppAfsCoeffShift;
+
+private: System::Windows::Forms::Label^  label20;
+private: System::Windows::Forms::Label^  label19;
+private: System::Windows::Forms::Label^  label4;
+private: System::Windows::Forms::Label^  fcgLBVppAfsUp;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsRight;
+
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsLeft;
+
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsBottom;
+
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsUp;
+private: System::Windows::Forms::TrackBar^  fcgTBVppAfsMethodSwitch;
+
+
+private: System::Windows::Forms::CheckBox^  fcgCBVppAfs24fps;
+private: System::Windows::Forms::CheckBox^  fcgCBVppAfsTune;
+private: System::Windows::Forms::CheckBox^  fcgCBVppAfsSmooth;
+private: System::Windows::Forms::CheckBox^  fcgCBVppAfsDrop;
+private: System::Windows::Forms::CheckBox^  fcgCBVppAfsShift;
+private: System::Windows::Forms::Label^  fcgLBVppAfsAnalyze;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsThreCMotion;
+
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsThreShift;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsThreDeint;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsThreYMotion;
+
+
+
+private: System::Windows::Forms::Label^  fcgLBVppAfsMethodSwitch;
+private: System::Windows::Forms::ComboBox^  fcgCXVppAfsAnalyze;
+
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsCoeffShift;
+
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsMethodSwitch;
+
+private: System::Windows::Forms::CheckBox^  fcCBVppAfsEnable;
 
 
 
@@ -1393,6 +1450,9 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcgLBQPP = (gcnew System::Windows::Forms::Label());
             this->fcgLBQPB = (gcnew System::Windows::Forms::Label());
             this->tabPageVideoDetail = (gcnew System::Windows::Forms::TabPage());
+            this->fcgLBCudaSchdule = (gcnew System::Windows::Forms::Label());
+            this->fcgCXCudaSchdule = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCBPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
             this->fcgGroupBoxQulaityStg = (gcnew System::Windows::Forms::GroupBox());
             this->fcgBTQualityStg = (gcnew System::Windows::Forms::Button());
             this->fcgCXQualityPreset = (gcnew System::Windows::Forms::ComboBox());
@@ -1440,6 +1500,41 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcgCXHEVCMaxCUSize = (gcnew System::Windows::Forms::ComboBox());
             this->tabPageExOpt = (gcnew System::Windows::Forms::TabPage());
             this->fcggroupBoxVpp = (gcnew System::Windows::Forms::GroupBox());
+            this->fcCBVppAfsEnable = (gcnew System::Windows::Forms::CheckBox());
+            this->fcggroupBoxVppAfs = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgTBVppAfsThreCMotion = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgLBVppAfsThreCMotion = (gcnew System::Windows::Forms::Label());
+            this->fcgTBVppAfsThreYMotion = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgLBVppAfsThreYmotion = (gcnew System::Windows::Forms::Label());
+            this->fcgTBVppAfsThreDeint = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgLBVppAfsThreDeint = (gcnew System::Windows::Forms::Label());
+            this->fcgTBVppAfsThreShift = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgLBVppAfsThreShift = (gcnew System::Windows::Forms::Label());
+            this->fcgTBVppAfsCoeffShift = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgLBVppAfsCoeffShift = (gcnew System::Windows::Forms::Label());
+            this->label20 = (gcnew System::Windows::Forms::Label());
+            this->label19 = (gcnew System::Windows::Forms::Label());
+            this->label4 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppAfsUp = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppAfsRight = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppAfsLeft = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppAfsBottom = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppAfsUp = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgTBVppAfsMethodSwitch = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgCBVppAfs24fps = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBVppAfsTune = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBVppAfsSmooth = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBVppAfsDrop = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBVppAfsShift = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgLBVppAfsAnalyze = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppAfsThreCMotion = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppAfsThreShift = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppAfsThreDeint = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppAfsThreYMotion = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBVppAfsMethodSwitch = (gcnew System::Windows::Forms::Label());
+            this->fcgCXVppAfsAnalyze = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgNUVppAfsCoeffShift = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppAfsMethodSwitch = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgCBVppDebandEnable = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxVppDeband = (gcnew System::Windows::Forms::GroupBox());
             this->fcgCBVppDebandRandEachFrame = (gcnew System::Windows::Forms::CheckBox());
@@ -1460,7 +1555,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcgCXVppDebandSample = (gcnew System::Windows::Forms::ComboBox());
             this->fcgNUVppDebandThreY = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppDebandRange = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgCBVppPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxVppDenoise = (gcnew System::Windows::Forms::GroupBox());
             this->fcgPNVppDenoiseKnn = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppDenoiseKnnThreshold = (gcnew System::Windows::Forms::Label());
@@ -1485,6 +1579,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcgNUVppResizeWidth = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgCBAuoTcfileout = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBTempDir = (gcnew System::Windows::Forms::Label());
+            this->fcgCBVppPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
             this->fcgBTCustomTempDir = (gcnew System::Windows::Forms::Button());
             this->fcgTXCustomTempDir = (gcnew System::Windows::Forms::TextBox());
             this->fcgCXTempDir = (gcnew System::Windows::Forms::ComboBox());
@@ -1542,9 +1637,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
-            this->fcgCBPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgLBCudaSchdule = (gcnew System::Windows::Forms::Label());
-            this->fcgCXCudaSchdule = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1594,6 +1686,23 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcgPNHEVCDetail->SuspendLayout();
             this->tabPageExOpt->SuspendLayout();
             this->fcggroupBoxVpp->SuspendLayout();
+            this->fcggroupBoxVppAfs->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreCMotion))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreYMotion))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreDeint))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreShift))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsCoeffShift))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsRight))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsLeft))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsBottom))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsUp))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsMethodSwitch))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsThreCMotion))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsThreShift))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsThreDeint))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsThreYMotion))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsCoeffShift))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsMethodSwitch))->BeginInit();
             this->fcggroupBoxVppDeband->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandDitherC))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandDitherY))->BeginInit();
@@ -3349,6 +3458,36 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->tabPageVideoDetail->Text = L"詳細設定";
             this->tabPageVideoDetail->UseVisualStyleBackColor = true;
             // 
+            // fcgLBCudaSchdule
+            // 
+            this->fcgLBCudaSchdule->AutoSize = true;
+            this->fcgLBCudaSchdule->Location = System::Drawing::Point(20, 54);
+            this->fcgLBCudaSchdule->Name = L"fcgLBCudaSchdule";
+            this->fcgLBCudaSchdule->Size = System::Drawing::Size(97, 15);
+            this->fcgLBCudaSchdule->TabIndex = 161;
+            this->fcgLBCudaSchdule->Text = L"CUDAスケジュール";
+            // 
+            // fcgCXCudaSchdule
+            // 
+            this->fcgCXCudaSchdule->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXCudaSchdule->FormattingEnabled = true;
+            this->fcgCXCudaSchdule->Location = System::Drawing::Point(129, 51);
+            this->fcgCXCudaSchdule->Name = L"fcgCXCudaSchdule";
+            this->fcgCXCudaSchdule->Size = System::Drawing::Size(179, 23);
+            this->fcgCXCudaSchdule->TabIndex = 160;
+            this->fcgCXCudaSchdule->Tag = L"chValue";
+            // 
+            // fcgCBPerfMonitor
+            // 
+            this->fcgCBPerfMonitor->AutoSize = true;
+            this->fcgCBPerfMonitor->Location = System::Drawing::Point(23, 284);
+            this->fcgCBPerfMonitor->Name = L"fcgCBPerfMonitor";
+            this->fcgCBPerfMonitor->Size = System::Drawing::Size(131, 19);
+            this->fcgCBPerfMonitor->TabIndex = 159;
+            this->fcgCBPerfMonitor->Tag = L"chValue";
+            this->fcgCBPerfMonitor->Text = L"パフォーマンスログ出力";
+            this->fcgCBPerfMonitor->UseVisualStyleBackColor = true;
+            // 
             // fcgGroupBoxQulaityStg
             // 
             this->fcgGroupBoxQulaityStg->Controls->Add(this->fcgBTQualityStg);
@@ -3819,6 +3958,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->tabPageExOpt->Controls->Add(this->fcggroupBoxVpp);
             this->tabPageExOpt->Controls->Add(this->fcgCBAuoTcfileout);
             this->tabPageExOpt->Controls->Add(this->fcgLBTempDir);
+            this->tabPageExOpt->Controls->Add(this->fcgCBVppPerfMonitor);
             this->tabPageExOpt->Controls->Add(this->fcgBTCustomTempDir);
             this->tabPageExOpt->Controls->Add(this->fcgTXCustomTempDir);
             this->tabPageExOpt->Controls->Add(this->fcgCXTempDir);
@@ -3833,23 +3973,417 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcggroupBoxVpp
             // 
+            this->fcggroupBoxVpp->Controls->Add(this->fcCBVppAfsEnable);
+            this->fcggroupBoxVpp->Controls->Add(this->fcggroupBoxVppAfs);
             this->fcggroupBoxVpp->Controls->Add(this->fcgCBVppDebandEnable);
             this->fcggroupBoxVpp->Controls->Add(this->fcggroupBoxVppDeband);
-            this->fcggroupBoxVpp->Controls->Add(this->fcgCBVppPerfMonitor);
             this->fcggroupBoxVpp->Controls->Add(this->fcggroupBoxVppDenoise);
             this->fcggroupBoxVpp->Controls->Add(this->fcgCBVppResize);
             this->fcggroupBoxVpp->Controls->Add(this->fcggroupBoxResize);
-            this->fcggroupBoxVpp->Location = System::Drawing::Point(9, 106);
+            this->fcggroupBoxVpp->Location = System::Drawing::Point(9, 67);
             this->fcggroupBoxVpp->Name = L"fcggroupBoxVpp";
-            this->fcggroupBoxVpp->Size = System::Drawing::Size(592, 369);
+            this->fcggroupBoxVpp->Size = System::Drawing::Size(592, 408);
             this->fcggroupBoxVpp->TabIndex = 10;
             this->fcggroupBoxVpp->TabStop = false;
             this->fcggroupBoxVpp->Text = L"ビデオフィルタ";
             // 
+            // fcCBVppAfsEnable
+            // 
+            this->fcCBVppAfsEnable->AutoSize = true;
+            this->fcCBVppAfsEnable->Location = System::Drawing::Point(352, 17);
+            this->fcCBVppAfsEnable->Name = L"fcCBVppAfsEnable";
+            this->fcCBVppAfsEnable->Size = System::Drawing::Size(111, 18);
+            this->fcCBVppAfsEnable->TabIndex = 8;
+            this->fcCBVppAfsEnable->Tag = L"chValue";
+            this->fcCBVppAfsEnable->Text = L"自動フィールドシフト";
+            this->fcCBVppAfsEnable->UseVisualStyleBackColor = true;
+            this->fcCBVppAfsEnable->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+            // 
+            // fcggroupBoxVppAfs
+            // 
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgTBVppAfsThreCMotion);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgLBVppAfsThreCMotion);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgTBVppAfsThreYMotion);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgLBVppAfsThreYmotion);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgTBVppAfsThreDeint);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgLBVppAfsThreDeint);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgTBVppAfsThreShift);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgLBVppAfsThreShift);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgTBVppAfsCoeffShift);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgLBVppAfsCoeffShift);
+            this->fcggroupBoxVppAfs->Controls->Add(this->label20);
+            this->fcggroupBoxVppAfs->Controls->Add(this->label19);
+            this->fcggroupBoxVppAfs->Controls->Add(this->label4);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgLBVppAfsUp);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsRight);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsLeft);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsBottom);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsUp);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgTBVppAfsMethodSwitch);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgCBVppAfs24fps);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgCBVppAfsTune);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgCBVppAfsSmooth);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgCBVppAfsDrop);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgCBVppAfsShift);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgLBVppAfsAnalyze);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsThreCMotion);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsThreShift);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsThreDeint);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsThreYMotion);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgLBVppAfsMethodSwitch);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgCXVppAfsAnalyze);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsCoeffShift);
+            this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsMethodSwitch);
+            this->fcggroupBoxVppAfs->Location = System::Drawing::Point(340, 19);
+            this->fcggroupBoxVppAfs->Name = L"fcggroupBoxVppAfs";
+            this->fcggroupBoxVppAfs->Size = System::Drawing::Size(246, 383);
+            this->fcggroupBoxVppAfs->TabIndex = 7;
+            this->fcggroupBoxVppAfs->TabStop = false;
+            // 
+            // fcgTBVppAfsThreCMotion
+            // 
+            this->fcgTBVppAfsThreCMotion->AutoSize = false;
+            this->fcgTBVppAfsThreCMotion->Location = System::Drawing::Point(61, 199);
+            this->fcgTBVppAfsThreCMotion->Maximum = 1024;
+            this->fcgTBVppAfsThreCMotion->Name = L"fcgTBVppAfsThreCMotion";
+            this->fcgTBVppAfsThreCMotion->Size = System::Drawing::Size(115, 18);
+            this->fcgTBVppAfsThreCMotion->TabIndex = 100;
+            this->fcgTBVppAfsThreCMotion->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppAfsThreCMotion->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppAfsScroll);
+            // 
+            // fcgLBVppAfsThreCMotion
+            // 
+            this->fcgLBVppAfsThreCMotion->AutoSize = true;
+            this->fcgLBVppAfsThreCMotion->Location = System::Drawing::Point(10, 199);
+            this->fcgLBVppAfsThreCMotion->Name = L"fcgLBVppAfsThreCMotion";
+            this->fcgLBVppAfsThreCMotion->Size = System::Drawing::Size(33, 14);
+            this->fcgLBVppAfsThreCMotion->TabIndex = 99;
+            this->fcgLBVppAfsThreCMotion->Text = L"C動き";
+            // 
+            // fcgTBVppAfsThreYMotion
+            // 
+            this->fcgTBVppAfsThreYMotion->AutoSize = false;
+            this->fcgTBVppAfsThreYMotion->Location = System::Drawing::Point(61, 174);
+            this->fcgTBVppAfsThreYMotion->Maximum = 1024;
+            this->fcgTBVppAfsThreYMotion->Name = L"fcgTBVppAfsThreYMotion";
+            this->fcgTBVppAfsThreYMotion->Size = System::Drawing::Size(115, 18);
+            this->fcgTBVppAfsThreYMotion->TabIndex = 98;
+            this->fcgTBVppAfsThreYMotion->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppAfsThreYMotion->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppAfsScroll);
+            // 
+            // fcgLBVppAfsThreYmotion
+            // 
+            this->fcgLBVppAfsThreYmotion->AutoSize = true;
+            this->fcgLBVppAfsThreYmotion->Location = System::Drawing::Point(10, 174);
+            this->fcgLBVppAfsThreYmotion->Name = L"fcgLBVppAfsThreYmotion";
+            this->fcgLBVppAfsThreYmotion->Size = System::Drawing::Size(33, 14);
+            this->fcgLBVppAfsThreYmotion->TabIndex = 97;
+            this->fcgLBVppAfsThreYmotion->Text = L"Y動き";
+            // 
+            // fcgTBVppAfsThreDeint
+            // 
+            this->fcgTBVppAfsThreDeint->AutoSize = false;
+            this->fcgTBVppAfsThreDeint->Location = System::Drawing::Point(61, 149);
+            this->fcgTBVppAfsThreDeint->Maximum = 1024;
+            this->fcgTBVppAfsThreDeint->Name = L"fcgTBVppAfsThreDeint";
+            this->fcgTBVppAfsThreDeint->Size = System::Drawing::Size(115, 18);
+            this->fcgTBVppAfsThreDeint->TabIndex = 96;
+            this->fcgTBVppAfsThreDeint->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppAfsThreDeint->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppAfsScroll);
+            // 
+            // fcgLBVppAfsThreDeint
+            // 
+            this->fcgLBVppAfsThreDeint->AutoSize = true;
+            this->fcgLBVppAfsThreDeint->Location = System::Drawing::Point(10, 149);
+            this->fcgLBVppAfsThreDeint->Name = L"fcgLBVppAfsThreDeint";
+            this->fcgLBVppAfsThreDeint->Size = System::Drawing::Size(50, 14);
+            this->fcgLBVppAfsThreDeint->TabIndex = 95;
+            this->fcgLBVppAfsThreDeint->Text = L"縞(解除)";
+            // 
+            // fcgTBVppAfsThreShift
+            // 
+            this->fcgTBVppAfsThreShift->AutoSize = false;
+            this->fcgTBVppAfsThreShift->Location = System::Drawing::Point(61, 124);
+            this->fcgTBVppAfsThreShift->Maximum = 1024;
+            this->fcgTBVppAfsThreShift->Name = L"fcgTBVppAfsThreShift";
+            this->fcgTBVppAfsThreShift->Size = System::Drawing::Size(115, 18);
+            this->fcgTBVppAfsThreShift->TabIndex = 94;
+            this->fcgTBVppAfsThreShift->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppAfsThreShift->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppAfsScroll);
+            // 
+            // fcgLBVppAfsThreShift
+            // 
+            this->fcgLBVppAfsThreShift->AutoSize = true;
+            this->fcgLBVppAfsThreShift->Location = System::Drawing::Point(10, 124);
+            this->fcgLBVppAfsThreShift->Name = L"fcgLBVppAfsThreShift";
+            this->fcgLBVppAfsThreShift->Size = System::Drawing::Size(46, 14);
+            this->fcgLBVppAfsThreShift->TabIndex = 93;
+            this->fcgLBVppAfsThreShift->Text = L"縞(ｼﾌﾄ)";
+            // 
+            // fcgTBVppAfsCoeffShift
+            // 
+            this->fcgTBVppAfsCoeffShift->AutoSize = false;
+            this->fcgTBVppAfsCoeffShift->Location = System::Drawing::Point(61, 99);
+            this->fcgTBVppAfsCoeffShift->Maximum = 256;
+            this->fcgTBVppAfsCoeffShift->Name = L"fcgTBVppAfsCoeffShift";
+            this->fcgTBVppAfsCoeffShift->Size = System::Drawing::Size(115, 18);
+            this->fcgTBVppAfsCoeffShift->TabIndex = 92;
+            this->fcgTBVppAfsCoeffShift->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppAfsCoeffShift->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppAfsScroll);
+            // 
+            // fcgLBVppAfsCoeffShift
+            // 
+            this->fcgLBVppAfsCoeffShift->AutoSize = true;
+            this->fcgLBVppAfsCoeffShift->Location = System::Drawing::Point(10, 99);
+            this->fcgLBVppAfsCoeffShift->Name = L"fcgLBVppAfsCoeffShift";
+            this->fcgLBVppAfsCoeffShift->Size = System::Drawing::Size(40, 14);
+            this->fcgLBVppAfsCoeffShift->TabIndex = 91;
+            this->fcgLBVppAfsCoeffShift->Text = L"判定比";
+            // 
+            // label20
+            // 
+            this->label20->AutoSize = true;
+            this->label20->Location = System::Drawing::Point(164, 49);
+            this->label20->Name = L"label20";
+            this->label20->Size = System::Drawing::Size(18, 14);
+            this->label20->TabIndex = 90;
+            this->label20->Text = L"右";
+            // 
+            // label19
+            // 
+            this->label19->AutoSize = true;
+            this->label19->Location = System::Drawing::Point(58, 49);
+            this->label19->Name = L"label19";
+            this->label19->Size = System::Drawing::Size(18, 14);
+            this->label19->TabIndex = 89;
+            this->label19->Text = L"左";
+            // 
+            // label4
+            // 
+            this->label4->AutoSize = true;
+            this->label4->Location = System::Drawing::Point(164, 23);
+            this->label4->Name = L"label4";
+            this->label4->Size = System::Drawing::Size(18, 14);
+            this->label4->TabIndex = 88;
+            this->label4->Text = L"下";
+            // 
+            // fcgLBVppAfsUp
+            // 
+            this->fcgLBVppAfsUp->AutoSize = true;
+            this->fcgLBVppAfsUp->Location = System::Drawing::Point(58, 23);
+            this->fcgLBVppAfsUp->Name = L"fcgLBVppAfsUp";
+            this->fcgLBVppAfsUp->Size = System::Drawing::Size(18, 14);
+            this->fcgLBVppAfsUp->TabIndex = 87;
+            this->fcgLBVppAfsUp->Text = L"上";
+            // 
+            // fcgNUVppAfsRight
+            // 
+            this->fcgNUVppAfsRight->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8, 0, 0, 0 });
+            this->fcgNUVppAfsRight->Location = System::Drawing::Point(182, 47);
+            this->fcgNUVppAfsRight->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8192, 0, 0, 0 });
+            this->fcgNUVppAfsRight->Name = L"fcgNUVppAfsRight";
+            this->fcgNUVppAfsRight->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsRight->TabIndex = 86;
+            this->fcgNUVppAfsRight->Tag = L"chValue";
+            this->fcgNUVppAfsRight->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgNUVppAfsLeft
+            // 
+            this->fcgNUVppAfsLeft->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8, 0, 0, 0 });
+            this->fcgNUVppAfsLeft->Location = System::Drawing::Point(78, 47);
+            this->fcgNUVppAfsLeft->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8192, 0, 0, 0 });
+            this->fcgNUVppAfsLeft->Name = L"fcgNUVppAfsLeft";
+            this->fcgNUVppAfsLeft->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsLeft->TabIndex = 85;
+            this->fcgNUVppAfsLeft->Tag = L"chValue";
+            this->fcgNUVppAfsLeft->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgNUVppAfsBottom
+            // 
+            this->fcgNUVppAfsBottom->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8, 0, 0, 0 });
+            this->fcgNUVppAfsBottom->Location = System::Drawing::Point(182, 21);
+            this->fcgNUVppAfsBottom->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 4096, 0, 0, 0 });
+            this->fcgNUVppAfsBottom->Name = L"fcgNUVppAfsBottom";
+            this->fcgNUVppAfsBottom->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsBottom->TabIndex = 84;
+            this->fcgNUVppAfsBottom->Tag = L"chValue";
+            this->fcgNUVppAfsBottom->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgNUVppAfsUp
+            // 
+            this->fcgNUVppAfsUp->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8, 0, 0, 0 });
+            this->fcgNUVppAfsUp->Location = System::Drawing::Point(78, 21);
+            this->fcgNUVppAfsUp->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 4096, 0, 0, 0 });
+            this->fcgNUVppAfsUp->Name = L"fcgNUVppAfsUp";
+            this->fcgNUVppAfsUp->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsUp->TabIndex = 83;
+            this->fcgNUVppAfsUp->Tag = L"chValue";
+            this->fcgNUVppAfsUp->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgTBVppAfsMethodSwitch
+            // 
+            this->fcgTBVppAfsMethodSwitch->AutoSize = false;
+            this->fcgTBVppAfsMethodSwitch->Location = System::Drawing::Point(61, 74);
+            this->fcgTBVppAfsMethodSwitch->Maximum = 256;
+            this->fcgTBVppAfsMethodSwitch->Name = L"fcgTBVppAfsMethodSwitch";
+            this->fcgTBVppAfsMethodSwitch->Size = System::Drawing::Size(115, 18);
+            this->fcgTBVppAfsMethodSwitch->TabIndex = 82;
+            this->fcgTBVppAfsMethodSwitch->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppAfsMethodSwitch->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppAfsScroll);
+            // 
+            // fcgCBVppAfs24fps
+            // 
+            this->fcgCBVppAfs24fps->AutoSize = true;
+            this->fcgCBVppAfs24fps->Location = System::Drawing::Point(12, 326);
+            this->fcgCBVppAfs24fps->Name = L"fcgCBVppAfs24fps";
+            this->fcgCBVppAfs24fps->Size = System::Drawing::Size(67, 18);
+            this->fcgCBVppAfs24fps->TabIndex = 81;
+            this->fcgCBVppAfs24fps->Tag = L"chValue";
+            this->fcgCBVppAfs24fps->Text = L"24fps化";
+            this->fcgCBVppAfs24fps->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBVppAfsTune
+            // 
+            this->fcgCBVppAfsTune->AutoSize = true;
+            this->fcgCBVppAfsTune->Location = System::Drawing::Point(12, 350);
+            this->fcgCBVppAfsTune->Name = L"fcgCBVppAfsTune";
+            this->fcgCBVppAfsTune->Size = System::Drawing::Size(73, 18);
+            this->fcgCBVppAfsTune->TabIndex = 80;
+            this->fcgCBVppAfsTune->Tag = L"chValue";
+            this->fcgCBVppAfsTune->Text = L"調整モード";
+            this->fcgCBVppAfsTune->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBVppAfsSmooth
+            // 
+            this->fcgCBVppAfsSmooth->AutoSize = true;
+            this->fcgCBVppAfsSmooth->Location = System::Drawing::Point(12, 302);
+            this->fcgCBVppAfsSmooth->Name = L"fcgCBVppAfsSmooth";
+            this->fcgCBVppAfsSmooth->Size = System::Drawing::Size(77, 18);
+            this->fcgCBVppAfsSmooth->TabIndex = 79;
+            this->fcgCBVppAfsSmooth->Tag = L"chValue";
+            this->fcgCBVppAfsSmooth->Text = L"スムージング";
+            this->fcgCBVppAfsSmooth->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBVppAfsDrop
+            // 
+            this->fcgCBVppAfsDrop->AutoSize = true;
+            this->fcgCBVppAfsDrop->Location = System::Drawing::Point(12, 278);
+            this->fcgCBVppAfsDrop->Name = L"fcgCBVppAfsDrop";
+            this->fcgCBVppAfsDrop->Size = System::Drawing::Size(56, 18);
+            this->fcgCBVppAfsDrop->TabIndex = 78;
+            this->fcgCBVppAfsDrop->Tag = L"chValue";
+            this->fcgCBVppAfsDrop->Text = L"間引き";
+            this->fcgCBVppAfsDrop->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBVppAfsShift
+            // 
+            this->fcgCBVppAfsShift->AutoSize = true;
+            this->fcgCBVppAfsShift->Location = System::Drawing::Point(12, 254);
+            this->fcgCBVppAfsShift->Name = L"fcgCBVppAfsShift";
+            this->fcgCBVppAfsShift->Size = System::Drawing::Size(89, 18);
+            this->fcgCBVppAfsShift->TabIndex = 77;
+            this->fcgCBVppAfsShift->Tag = L"chValue";
+            this->fcgCBVppAfsShift->Text = L"フィールドシフト";
+            this->fcgCBVppAfsShift->UseVisualStyleBackColor = true;
+            // 
+            // fcgLBVppAfsAnalyze
+            // 
+            this->fcgLBVppAfsAnalyze->AutoSize = true;
+            this->fcgLBVppAfsAnalyze->Location = System::Drawing::Point(10, 228);
+            this->fcgLBVppAfsAnalyze->Name = L"fcgLBVppAfsAnalyze";
+            this->fcgLBVppAfsAnalyze->Size = System::Drawing::Size(41, 14);
+            this->fcgLBVppAfsAnalyze->TabIndex = 76;
+            this->fcgLBVppAfsAnalyze->Text = L"解除Lv";
+            // 
+            // fcgNUVppAfsThreCMotion
+            // 
+            this->fcgNUVppAfsThreCMotion->Location = System::Drawing::Point(182, 199);
+            this->fcgNUVppAfsThreCMotion->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1024, 0, 0, 0 });
+            this->fcgNUVppAfsThreCMotion->Name = L"fcgNUVppAfsThreCMotion";
+            this->fcgNUVppAfsThreCMotion->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsThreCMotion->TabIndex = 69;
+            this->fcgNUVppAfsThreCMotion->Tag = L"chValue";
+            this->fcgNUVppAfsThreCMotion->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppAfsThreCMotion->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppAfsValueChanged);
+            // 
+            // fcgNUVppAfsThreShift
+            // 
+            this->fcgNUVppAfsThreShift->Location = System::Drawing::Point(182, 124);
+            this->fcgNUVppAfsThreShift->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1024, 0, 0, 0 });
+            this->fcgNUVppAfsThreShift->Name = L"fcgNUVppAfsThreShift";
+            this->fcgNUVppAfsThreShift->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsThreShift->TabIndex = 68;
+            this->fcgNUVppAfsThreShift->Tag = L"chValue";
+            this->fcgNUVppAfsThreShift->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppAfsThreShift->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppAfsValueChanged);
+            // 
+            // fcgNUVppAfsThreDeint
+            // 
+            this->fcgNUVppAfsThreDeint->Location = System::Drawing::Point(182, 149);
+            this->fcgNUVppAfsThreDeint->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1024, 0, 0, 0 });
+            this->fcgNUVppAfsThreDeint->Name = L"fcgNUVppAfsThreDeint";
+            this->fcgNUVppAfsThreDeint->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsThreDeint->TabIndex = 67;
+            this->fcgNUVppAfsThreDeint->Tag = L"chValue";
+            this->fcgNUVppAfsThreDeint->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppAfsThreDeint->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppAfsValueChanged);
+            // 
+            // fcgNUVppAfsThreYMotion
+            // 
+            this->fcgNUVppAfsThreYMotion->Location = System::Drawing::Point(182, 174);
+            this->fcgNUVppAfsThreYMotion->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1024, 0, 0, 0 });
+            this->fcgNUVppAfsThreYMotion->Name = L"fcgNUVppAfsThreYMotion";
+            this->fcgNUVppAfsThreYMotion->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsThreYMotion->TabIndex = 66;
+            this->fcgNUVppAfsThreYMotion->Tag = L"chValue";
+            this->fcgNUVppAfsThreYMotion->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppAfsThreYMotion->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppAfsValueChanged);
+            // 
+            // fcgLBVppAfsMethodSwitch
+            // 
+            this->fcgLBVppAfsMethodSwitch->AutoSize = true;
+            this->fcgLBVppAfsMethodSwitch->Location = System::Drawing::Point(10, 74);
+            this->fcgLBVppAfsMethodSwitch->Name = L"fcgLBVppAfsMethodSwitch";
+            this->fcgLBVppAfsMethodSwitch->Size = System::Drawing::Size(40, 14);
+            this->fcgLBVppAfsMethodSwitch->TabIndex = 65;
+            this->fcgLBVppAfsMethodSwitch->Text = L"切替点";
+            // 
+            // fcgCXVppAfsAnalyze
+            // 
+            this->fcgCXVppAfsAnalyze->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppAfsAnalyze->FormattingEnabled = true;
+            this->fcgCXVppAfsAnalyze->Location = System::Drawing::Point(61, 225);
+            this->fcgCXVppAfsAnalyze->Name = L"fcgCXVppAfsAnalyze";
+            this->fcgCXVppAfsAnalyze->Size = System::Drawing::Size(181, 22);
+            this->fcgCXVppAfsAnalyze->TabIndex = 63;
+            this->fcgCXVppAfsAnalyze->Tag = L"chValue";
+            // 
+            // fcgNUVppAfsCoeffShift
+            // 
+            this->fcgNUVppAfsCoeffShift->Location = System::Drawing::Point(182, 99);
+            this->fcgNUVppAfsCoeffShift->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 256, 0, 0, 0 });
+            this->fcgNUVppAfsCoeffShift->Name = L"fcgNUVppAfsCoeffShift";
+            this->fcgNUVppAfsCoeffShift->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsCoeffShift->TabIndex = 5;
+            this->fcgNUVppAfsCoeffShift->Tag = L"chValue";
+            this->fcgNUVppAfsCoeffShift->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppAfsCoeffShift->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppAfsValueChanged);
+            // 
+            // fcgNUVppAfsMethodSwitch
+            // 
+            this->fcgNUVppAfsMethodSwitch->Location = System::Drawing::Point(182, 74);
+            this->fcgNUVppAfsMethodSwitch->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 256, 0, 0, 0 });
+            this->fcgNUVppAfsMethodSwitch->Name = L"fcgNUVppAfsMethodSwitch";
+            this->fcgNUVppAfsMethodSwitch->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppAfsMethodSwitch->TabIndex = 4;
+            this->fcgNUVppAfsMethodSwitch->Tag = L"chValue";
+            this->fcgNUVppAfsMethodSwitch->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppAfsMethodSwitch->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppAfsValueChanged);
+            // 
             // fcgCBVppDebandEnable
             // 
             this->fcgCBVppDebandEnable->AutoSize = true;
-            this->fcgCBVppDebandEnable->Location = System::Drawing::Point(280, 29);
+            this->fcgCBVppDebandEnable->Location = System::Drawing::Point(20, 251);
             this->fcgCBVppDebandEnable->Name = L"fcgCBVppDebandEnable";
             this->fcgCBVppDebandEnable->Size = System::Drawing::Size(96, 18);
             this->fcgCBVppDebandEnable->TabIndex = 6;
@@ -3878,16 +4412,16 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcggroupBoxVppDeband->Controls->Add(this->fcgCXVppDebandSample);
             this->fcggroupBoxVppDeband->Controls->Add(this->fcgNUVppDebandThreY);
             this->fcggroupBoxVppDeband->Controls->Add(this->fcgNUVppDebandRange);
-            this->fcggroupBoxVppDeband->Location = System::Drawing::Point(266, 29);
+            this->fcggroupBoxVppDeband->Location = System::Drawing::Point(11, 250);
             this->fcggroupBoxVppDeband->Name = L"fcggroupBoxVppDeband";
-            this->fcggroupBoxVppDeband->Size = System::Drawing::Size(320, 176);
+            this->fcggroupBoxVppDeband->Size = System::Drawing::Size(320, 152);
             this->fcggroupBoxVppDeband->TabIndex = 5;
             this->fcggroupBoxVppDeband->TabStop = false;
             // 
             // fcgCBVppDebandRandEachFrame
             // 
             this->fcgCBVppDebandRandEachFrame->AutoSize = true;
-            this->fcgCBVppDebandRandEachFrame->Location = System::Drawing::Point(145, 147);
+            this->fcgCBVppDebandRandEachFrame->Location = System::Drawing::Point(165, 124);
             this->fcgCBVppDebandRandEachFrame->Name = L"fcgCBVppDebandRandEachFrame";
             this->fcgCBVppDebandRandEachFrame->Size = System::Drawing::Size(122, 18);
             this->fcgCBVppDebandRandEachFrame->TabIndex = 78;
@@ -3898,7 +4432,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgCBVppDebandBlurFirst
             // 
             this->fcgCBVppDebandBlurFirst->AutoSize = true;
-            this->fcgCBVppDebandBlurFirst->Location = System::Drawing::Point(16, 147);
+            this->fcgCBVppDebandBlurFirst->Location = System::Drawing::Point(16, 124);
             this->fcgCBVppDebandBlurFirst->Name = L"fcgCBVppDebandBlurFirst";
             this->fcgCBVppDebandBlurFirst->Size = System::Drawing::Size(101, 18);
             this->fcgCBVppDebandBlurFirst->TabIndex = 77;
@@ -3909,7 +4443,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppDebandSample
             // 
             this->fcgLBVppDebandSample->AutoSize = true;
-            this->fcgLBVppDebandSample->Location = System::Drawing::Point(13, 114);
+            this->fcgLBVppDebandSample->Location = System::Drawing::Point(13, 97);
             this->fcgLBVppDebandSample->Name = L"fcgLBVppDebandSample";
             this->fcgLBVppDebandSample->Size = System::Drawing::Size(45, 14);
             this->fcgLBVppDebandSample->TabIndex = 76;
@@ -3918,7 +4452,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppDebandDitherC
             // 
             this->fcgLBVppDebandDitherC->AutoSize = true;
-            this->fcgLBVppDebandDitherC->Location = System::Drawing::Point(147, 82);
+            this->fcgLBVppDebandDitherC->Location = System::Drawing::Point(147, 72);
             this->fcgLBVppDebandDitherC->Name = L"fcgLBVppDebandDitherC";
             this->fcgLBVppDebandDitherC->Size = System::Drawing::Size(14, 14);
             this->fcgLBVppDebandDitherC->TabIndex = 75;
@@ -3927,7 +4461,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppDebandDitherY
             // 
             this->fcgLBVppDebandDitherY->AutoSize = true;
-            this->fcgLBVppDebandDitherY->Location = System::Drawing::Point(57, 82);
+            this->fcgLBVppDebandDitherY->Location = System::Drawing::Point(57, 72);
             this->fcgLBVppDebandDitherY->Name = L"fcgLBVppDebandDitherY";
             this->fcgLBVppDebandDitherY->Size = System::Drawing::Size(14, 14);
             this->fcgLBVppDebandDitherY->TabIndex = 74;
@@ -3936,7 +4470,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppDebandDither
             // 
             this->fcgLBVppDebandDither->AutoSize = true;
-            this->fcgLBVppDebandDither->Location = System::Drawing::Point(13, 82);
+            this->fcgLBVppDebandDither->Location = System::Drawing::Point(13, 72);
             this->fcgLBVppDebandDither->Name = L"fcgLBVppDebandDither";
             this->fcgLBVppDebandDither->Size = System::Drawing::Size(39, 14);
             this->fcgLBVppDebandDither->TabIndex = 73;
@@ -3945,7 +4479,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppDebandThreCr
             // 
             this->fcgLBVppDebandThreCr->AutoSize = true;
-            this->fcgLBVppDebandThreCr->Location = System::Drawing::Point(233, 56);
+            this->fcgLBVppDebandThreCr->Location = System::Drawing::Point(233, 49);
             this->fcgLBVppDebandThreCr->Name = L"fcgLBVppDebandThreCr";
             this->fcgLBVppDebandThreCr->Size = System::Drawing::Size(19, 14);
             this->fcgLBVppDebandThreCr->TabIndex = 72;
@@ -3954,7 +4488,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppDebandThreCb
             // 
             this->fcgLBVppDebandThreCb->AutoSize = true;
-            this->fcgLBVppDebandThreCb->Location = System::Drawing::Point(142, 56);
+            this->fcgLBVppDebandThreCb->Location = System::Drawing::Point(142, 49);
             this->fcgLBVppDebandThreCb->Name = L"fcgLBVppDebandThreCb";
             this->fcgLBVppDebandThreCb->Size = System::Drawing::Size(21, 14);
             this->fcgLBVppDebandThreCb->TabIndex = 71;
@@ -3963,7 +4497,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppDebandThreY
             // 
             this->fcgLBVppDebandThreY->AutoSize = true;
-            this->fcgLBVppDebandThreY->Location = System::Drawing::Point(57, 55);
+            this->fcgLBVppDebandThreY->Location = System::Drawing::Point(57, 48);
             this->fcgLBVppDebandThreY->Name = L"fcgLBVppDebandThreY";
             this->fcgLBVppDebandThreY->Size = System::Drawing::Size(14, 14);
             this->fcgLBVppDebandThreY->TabIndex = 70;
@@ -3971,7 +4505,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcgNUVppDebandDitherC
             // 
-            this->fcgNUVppDebandDitherC->Location = System::Drawing::Point(165, 80);
+            this->fcgNUVppDebandDitherC->Location = System::Drawing::Point(165, 70);
             this->fcgNUVppDebandDitherC->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandDitherC->Name = L"fcgNUVppDebandDitherC";
             this->fcgNUVppDebandDitherC->Size = System::Drawing::Size(60, 21);
@@ -3981,7 +4515,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcgNUVppDebandDitherY
             // 
-            this->fcgNUVppDebandDitherY->Location = System::Drawing::Point(76, 80);
+            this->fcgNUVppDebandDitherY->Location = System::Drawing::Point(76, 70);
             this->fcgNUVppDebandDitherY->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandDitherY->Name = L"fcgNUVppDebandDitherY";
             this->fcgNUVppDebandDitherY->Size = System::Drawing::Size(60, 21);
@@ -3991,7 +4525,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcgNUVppDebandThreCr
             // 
-            this->fcgNUVppDebandThreCr->Location = System::Drawing::Point(254, 53);
+            this->fcgNUVppDebandThreCr->Location = System::Drawing::Point(254, 46);
             this->fcgNUVppDebandThreCr->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandThreCr->Name = L"fcgNUVppDebandThreCr";
             this->fcgNUVppDebandThreCr->Size = System::Drawing::Size(60, 21);
@@ -4001,7 +4535,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcgNUVppDebandThreCb
             // 
-            this->fcgNUVppDebandThreCb->Location = System::Drawing::Point(164, 53);
+            this->fcgNUVppDebandThreCb->Location = System::Drawing::Point(164, 46);
             this->fcgNUVppDebandThreCb->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandThreCb->Name = L"fcgNUVppDebandThreCb";
             this->fcgNUVppDebandThreCb->Size = System::Drawing::Size(60, 21);
@@ -4012,7 +4546,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppDebandThreshold
             // 
             this->fcgLBVppDebandThreshold->AutoSize = true;
-            this->fcgLBVppDebandThreshold->Location = System::Drawing::Point(13, 55);
+            this->fcgLBVppDebandThreshold->Location = System::Drawing::Point(13, 48);
             this->fcgLBVppDebandThreshold->Name = L"fcgLBVppDebandThreshold";
             this->fcgLBVppDebandThreshold->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppDebandThreshold->TabIndex = 65;
@@ -4021,7 +4555,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppDebandRange
             // 
             this->fcgLBVppDebandRange->AutoSize = true;
-            this->fcgLBVppDebandRange->Location = System::Drawing::Point(13, 27);
+            this->fcgLBVppDebandRange->Location = System::Drawing::Point(13, 23);
             this->fcgLBVppDebandRange->Name = L"fcgLBVppDebandRange";
             this->fcgLBVppDebandRange->Size = System::Drawing::Size(38, 14);
             this->fcgLBVppDebandRange->TabIndex = 64;
@@ -4031,7 +4565,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             this->fcgCXVppDebandSample->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVppDebandSample->FormattingEnabled = true;
-            this->fcgCXVppDebandSample->Location = System::Drawing::Point(76, 111);
+            this->fcgCXVppDebandSample->Location = System::Drawing::Point(76, 94);
             this->fcgCXVppDebandSample->Name = L"fcgCXVppDebandSample";
             this->fcgCXVppDebandSample->Size = System::Drawing::Size(148, 22);
             this->fcgCXVppDebandSample->TabIndex = 63;
@@ -4039,7 +4573,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcgNUVppDebandThreY
             // 
-            this->fcgNUVppDebandThreY->Location = System::Drawing::Point(76, 53);
+            this->fcgNUVppDebandThreY->Location = System::Drawing::Point(76, 46);
             this->fcgNUVppDebandThreY->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandThreY->Name = L"fcgNUVppDebandThreY";
             this->fcgNUVppDebandThreY->Size = System::Drawing::Size(60, 21);
@@ -4049,7 +4583,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcgNUVppDebandRange
             // 
-            this->fcgNUVppDebandRange->Location = System::Drawing::Point(76, 25);
+            this->fcgNUVppDebandRange->Location = System::Drawing::Point(76, 21);
             this->fcgNUVppDebandRange->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 127, 0, 0, 0 });
             this->fcgNUVppDebandRange->Name = L"fcgNUVppDebandRange";
             this->fcgNUVppDebandRange->Size = System::Drawing::Size(60, 21);
@@ -4057,23 +4591,12 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcgNUVppDebandRange->Tag = L"chValue";
             this->fcgNUVppDebandRange->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             // 
-            // fcgCBVppPerfMonitor
-            // 
-            this->fcgCBVppPerfMonitor->AutoSize = true;
-            this->fcgCBVppPerfMonitor->Location = System::Drawing::Point(18, 336);
-            this->fcgCBVppPerfMonitor->Name = L"fcgCBVppPerfMonitor";
-            this->fcgCBVppPerfMonitor->Size = System::Drawing::Size(112, 18);
-            this->fcgCBVppPerfMonitor->TabIndex = 3;
-            this->fcgCBVppPerfMonitor->Tag = L"chValue";
-            this->fcgCBVppPerfMonitor->Text = L"パフォーマンスチェック";
-            this->fcgCBVppPerfMonitor->UseVisualStyleBackColor = true;
-            // 
             // fcggroupBoxVppDenoise
             // 
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseKnn);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoisePmd);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgCXVppDenoiseMethod);
-            this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(18, 136);
+            this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(11, 104);
             this->fcggroupBoxVppDenoise->Name = L"fcggroupBoxVppDenoise";
             this->fcggroupBoxVppDenoise->Size = System::Drawing::Size(235, 141);
             this->fcggroupBoxVppDenoise->TabIndex = 2;
@@ -4241,7 +4764,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgCBVppResize
             // 
             this->fcgCBVppResize->AutoSize = true;
-            this->fcgCBVppResize->Location = System::Drawing::Point(27, 29);
+            this->fcgCBVppResize->Location = System::Drawing::Point(19, 19);
             this->fcgCBVppResize->Name = L"fcgCBVppResize";
             this->fcgCBVppResize->Size = System::Drawing::Size(58, 18);
             this->fcgCBVppResize->TabIndex = 0;
@@ -4256,9 +4779,9 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcggroupBoxResize->Controls->Add(this->fcgLBVppResize);
             this->fcggroupBoxResize->Controls->Add(this->fcgNUVppResizeHeight);
             this->fcggroupBoxResize->Controls->Add(this->fcgNUVppResizeWidth);
-            this->fcggroupBoxResize->Location = System::Drawing::Point(18, 29);
+            this->fcggroupBoxResize->Location = System::Drawing::Point(11, 19);
             this->fcggroupBoxResize->Name = L"fcggroupBoxResize";
-            this->fcggroupBoxResize->Size = System::Drawing::Size(235, 89);
+            this->fcggroupBoxResize->Size = System::Drawing::Size(235, 79);
             this->fcggroupBoxResize->TabIndex = 0;
             this->fcggroupBoxResize->TabStop = false;
             // 
@@ -4266,7 +4789,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             this->fcgCXVppResizeAlg->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVppResizeAlg->FormattingEnabled = true;
-            this->fcgCXVppResizeAlg->Location = System::Drawing::Point(48, 52);
+            this->fcgCXVppResizeAlg->Location = System::Drawing::Point(48, 46);
             this->fcgCXVppResizeAlg->Name = L"fcgCXVppResizeAlg";
             this->fcgCXVppResizeAlg->Size = System::Drawing::Size(144, 22);
             this->fcgCXVppResizeAlg->TabIndex = 63;
@@ -4275,7 +4798,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBVppResize
             // 
             this->fcgLBVppResize->AutoSize = true;
-            this->fcgLBVppResize->Location = System::Drawing::Point(114, 25);
+            this->fcgLBVppResize->Location = System::Drawing::Point(114, 22);
             this->fcgLBVppResize->Name = L"fcgLBVppResize";
             this->fcgLBVppResize->Size = System::Drawing::Size(13, 14);
             this->fcgLBVppResize->TabIndex = 6;
@@ -4283,7 +4806,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcgNUVppResizeHeight
             // 
-            this->fcgNUVppResizeHeight->Location = System::Drawing::Point(132, 23);
+            this->fcgNUVppResizeHeight->Location = System::Drawing::Point(132, 20);
             this->fcgNUVppResizeHeight->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUVppResizeHeight->Name = L"fcgNUVppResizeHeight";
             this->fcgNUVppResizeHeight->Size = System::Drawing::Size(60, 21);
@@ -4293,7 +4816,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcgNUVppResizeWidth
             // 
-            this->fcgNUVppResizeWidth->Location = System::Drawing::Point(48, 23);
+            this->fcgNUVppResizeWidth->Location = System::Drawing::Point(48, 20);
             this->fcgNUVppResizeWidth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUVppResizeWidth->Name = L"fcgNUVppResizeWidth";
             this->fcgNUVppResizeWidth->Size = System::Drawing::Size(60, 21);
@@ -4304,7 +4827,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgCBAuoTcfileout
             // 
             this->fcgCBAuoTcfileout->AutoSize = true;
-            this->fcgCBAuoTcfileout->Location = System::Drawing::Point(346, 49);
+            this->fcgCBAuoTcfileout->Location = System::Drawing::Point(475, 37);
             this->fcgCBAuoTcfileout->Name = L"fcgCBAuoTcfileout";
             this->fcgCBAuoTcfileout->Size = System::Drawing::Size(98, 18);
             this->fcgCBAuoTcfileout->TabIndex = 5;
@@ -4315,15 +4838,26 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // fcgLBTempDir
             // 
             this->fcgLBTempDir->AutoSize = true;
-            this->fcgLBTempDir->Location = System::Drawing::Point(15, 9);
+            this->fcgLBTempDir->Location = System::Drawing::Point(15, 14);
             this->fcgLBTempDir->Name = L"fcgLBTempDir";
             this->fcgLBTempDir->Size = System::Drawing::Size(60, 14);
             this->fcgLBTempDir->TabIndex = 67;
             this->fcgLBTempDir->Text = L"一時フォルダ";
             // 
+            // fcgCBVppPerfMonitor
+            // 
+            this->fcgCBVppPerfMonitor->AutoSize = true;
+            this->fcgCBVppPerfMonitor->Location = System::Drawing::Point(475, 14);
+            this->fcgCBVppPerfMonitor->Name = L"fcgCBVppPerfMonitor";
+            this->fcgCBVppPerfMonitor->Size = System::Drawing::Size(112, 18);
+            this->fcgCBVppPerfMonitor->TabIndex = 3;
+            this->fcgCBVppPerfMonitor->Tag = L"chValue";
+            this->fcgCBVppPerfMonitor->Text = L"パフォーマンスチェック";
+            this->fcgCBVppPerfMonitor->UseVisualStyleBackColor = true;
+            // 
             // fcgBTCustomTempDir
             // 
-            this->fcgBTCustomTempDir->Location = System::Drawing::Point(215, 62);
+            this->fcgBTCustomTempDir->Location = System::Drawing::Point(278, 38);
             this->fcgBTCustomTempDir->Name = L"fcgBTCustomTempDir";
             this->fcgBTCustomTempDir->Size = System::Drawing::Size(29, 23);
             this->fcgBTCustomTempDir->TabIndex = 2;
@@ -4333,7 +4867,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             // fcgTXCustomTempDir
             // 
-            this->fcgTXCustomTempDir->Location = System::Drawing::Point(30, 63);
+            this->fcgTXCustomTempDir->Location = System::Drawing::Point(93, 39);
             this->fcgTXCustomTempDir->Name = L"fcgTXCustomTempDir";
             this->fcgTXCustomTempDir->Size = System::Drawing::Size(182, 21);
             this->fcgTXCustomTempDir->TabIndex = 1;
@@ -4344,7 +4878,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             // 
             this->fcgCXTempDir->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXTempDir->FormattingEnabled = true;
-            this->fcgCXTempDir->Location = System::Drawing::Point(18, 35);
+            this->fcgCXTempDir->Location = System::Drawing::Point(81, 11);
             this->fcgCXTempDir->Name = L"fcgCXTempDir";
             this->fcgCXTempDir->Size = System::Drawing::Size(209, 22);
             this->fcgCXTempDir->TabIndex = 0;
@@ -4954,36 +5488,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
             // 
-            // fcgCBPerfMonitor
-            // 
-            this->fcgCBPerfMonitor->AutoSize = true;
-            this->fcgCBPerfMonitor->Location = System::Drawing::Point(23, 284);
-            this->fcgCBPerfMonitor->Name = L"fcgCBPerfMonitor";
-            this->fcgCBPerfMonitor->Size = System::Drawing::Size(131, 19);
-            this->fcgCBPerfMonitor->TabIndex = 159;
-            this->fcgCBPerfMonitor->Tag = L"chValue";
-            this->fcgCBPerfMonitor->Text = L"パフォーマンスログ出力";
-            this->fcgCBPerfMonitor->UseVisualStyleBackColor = true;
-            // 
-            // fcgLBCudaSchdule
-            // 
-            this->fcgLBCudaSchdule->AutoSize = true;
-            this->fcgLBCudaSchdule->Location = System::Drawing::Point(20, 54);
-            this->fcgLBCudaSchdule->Name = L"fcgLBCudaSchdule";
-            this->fcgLBCudaSchdule->Size = System::Drawing::Size(97, 15);
-            this->fcgLBCudaSchdule->TabIndex = 161;
-            this->fcgLBCudaSchdule->Text = L"CUDAスケジュール";
-            // 
-            // fcgCXCudaSchdule
-            // 
-            this->fcgCXCudaSchdule->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXCudaSchdule->FormattingEnabled = true;
-            this->fcgCXCudaSchdule->Location = System::Drawing::Point(129, 51);
-            this->fcgCXCudaSchdule->Name = L"fcgCXCudaSchdule";
-            this->fcgCXCudaSchdule->Size = System::Drawing::Size(179, 23);
-            this->fcgCXCudaSchdule->TabIndex = 160;
-            this->fcgCXCudaSchdule->Tag = L"chValue";
-            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -5077,6 +5581,24 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             this->tabPageExOpt->PerformLayout();
             this->fcggroupBoxVpp->ResumeLayout(false);
             this->fcggroupBoxVpp->PerformLayout();
+            this->fcggroupBoxVppAfs->ResumeLayout(false);
+            this->fcggroupBoxVppAfs->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreCMotion))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreYMotion))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreDeint))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreShift))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsCoeffShift))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsRight))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsLeft))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsBottom))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsUp))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsMethodSwitch))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsThreCMotion))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsThreShift))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsThreDeint))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsThreYMotion))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsCoeffShift))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppAfsMethodSwitch))->EndInit();
             this->fcggroupBoxVppDeband->ResumeLayout(false);
             this->fcggroupBoxVppDeband->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDebandDitherC))->EndInit();
@@ -5616,5 +6138,45 @@ private: System::Windows::Forms::CheckBox^  fcgCBPerfMonitor;
             //cnf.nvenc.enc_config.encodeCodecConfig.hevcConfig.sliceModeData = 0;
             ConfToFrm(&cnf);
         }
-    };
+    private:
+        System::Void fcgTBVppAfsScroll(System::Object^  sender, System::EventArgs^  e) {
+            System::Windows::Forms::TrackBar^ senderTB = dynamic_cast<System::Windows::Forms::TrackBar^>(sender);
+            if (senderTB == nullptr) return;
+
+            array<TrackBarNU>^ targetList = {
+                { fcgTBVppAfsMethodSwitch, fcgNUVppAfsMethodSwitch },
+                { fcgTBVppAfsCoeffShift,   fcgNUVppAfsCoeffShift },
+                { fcgTBVppAfsThreShift,    fcgNUVppAfsThreShift },
+                { fcgTBVppAfsThreDeint,    fcgNUVppAfsThreDeint },
+                { fcgTBVppAfsThreYMotion, fcgNUVppAfsThreYMotion },
+                { fcgTBVppAfsThreCMotion, fcgNUVppAfsThreCMotion }
+            };
+            for (int i = 0; i < targetList->Length; i++) {
+                if (NULL == String::Compare(senderTB->Name, targetList[i].TB->Name)) {
+                    SetNUValue(targetList[i].NU, senderTB->Value);
+                    return;
+                }
+            }
+        }
+    private:
+        System::Void fcgNUVppAfsValueChanged(System::Object^  sender, System::EventArgs^  e) {
+            System::Windows::Forms::NumericUpDown^ senderNU = dynamic_cast<System::Windows::Forms::NumericUpDown^>(sender);
+            if (senderNU == nullptr) return;
+
+            array<TrackBarNU>^ targetList = {
+                { fcgTBVppAfsMethodSwitch, fcgNUVppAfsMethodSwitch },
+                { fcgTBVppAfsCoeffShift,   fcgNUVppAfsCoeffShift },
+                { fcgTBVppAfsThreShift,    fcgNUVppAfsThreShift },
+                { fcgTBVppAfsThreDeint,    fcgNUVppAfsThreDeint },
+                { fcgTBVppAfsThreYMotion,  fcgNUVppAfsThreYMotion },
+                { fcgTBVppAfsThreCMotion,  fcgNUVppAfsThreCMotion }
+            };
+            for (int i = 0; i < targetList->Length; i++) {
+                if (NULL == String::Compare(senderNU->Name, targetList[i].NU->Name)) {
+                    targetList[i].TB->Value = (int)senderNU->Value;
+                    return;
+                }
+            }
+        }
+};
 }

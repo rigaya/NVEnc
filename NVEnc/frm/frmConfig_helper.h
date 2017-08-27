@@ -77,6 +77,11 @@ namespace NVEnc {
         String^ Path;
         const char* args;
     };
+
+    value struct TrackBarNU {
+        TrackBar^ TB;
+        NumericUpDown^ NU;
+    };
     /*
     ref class NVEncParamCache
     {
@@ -182,6 +187,15 @@ const WCHAR * const audio_enc_timing_desc[] = {
     L"後",
     L"前",
     L"同時",
+    NULL
+};
+
+static const WCHAR * const list_vpp_afs_analyze[] = {
+    L"0 - 解除なし",
+    L"1 - フィールド三重化",
+    L"2 - 縞検出二重化",
+    L"3 - 動き検出二重化",
+    L"4 - 動き検出補間",
     NULL
 };
 

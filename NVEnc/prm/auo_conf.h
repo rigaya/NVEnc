@@ -112,6 +112,7 @@ typedef struct {
     VppKnn knn;
     VppPmd pmd;
     VppDeband deband;
+    VppAfs afs;
 } CONF_VPP;
 
 typedef struct {

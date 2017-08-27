@@ -208,6 +208,15 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     encPrm.vpp.knn = conf->vpp.knn;
     encPrm.vpp.pmd = conf->vpp.pmd;
     encPrm.vpp.deband = conf->vpp.deband;
+    encPrm.vpp.afs = conf->vpp.afs;
+    if (encPrm.vpp.afs.enable) {
+        encPrm.vpp.afs.timecode = true;
+    }
+    if (conf->vid.afs && conf->vpp.afs.enable) {
+        write_log_auo_line(LOG_ERROR, "Aviutlの自動フィールドシフトとNVEnc Vppの自動フィールドシフトは併用できません。");
+        write_log_auo_line(LOG_ERROR, "どちらかを選択してからやり直してください。");
+        return AUO_RESULT_ERROR;
+    }
     const auto enc_mode_flags = get_enc_mode_flags(&conf->nvenc);
     encPrm.lossless = std::get<0>(enc_mode_flags);
     encPrm.yuv444 = std::get<1>(enc_mode_flags);

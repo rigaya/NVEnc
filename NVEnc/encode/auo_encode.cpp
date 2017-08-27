@@ -491,7 +491,7 @@ AUO_RESULT move_temporary_files(const CONF_GUIEX *conf, const PRM_ENC *pe, const
     //qpファイル
     move_temp_file(pe->append.qp,   pe->temp_filename, oip->savefile, ret, TRUE, "qp", FALSE);
     //tcファイル
-    BOOL erase_tc = conf->vid.afs && !conf->vid.auo_tcfile_out && pe->muxer_to_be_used != MUXER_DISABLED;
+    BOOL erase_tc = (conf->vid.afs || conf->vpp.afs.enable) && !conf->vid.auo_tcfile_out && pe->muxer_to_be_used != MUXER_DISABLED;
     move_temp_file(pe->append.tc,   pe->temp_filename, oip->savefile, ret, erase_tc, "タイムコード", FALSE);
     //チャプターファイル
     if (pe->muxer_to_be_used >= 0 && sys_dat->exstg->s_local.auto_del_chap) {
@@ -546,7 +546,7 @@ BOOL check_output_has_chapter(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat
 int check_muxer_to_be_used(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, const char *temp_filename, int video_output_type, BOOL audio_output) {
     int muxer_to_be_used = MUXER_DISABLED;
     if (video_output_type == VIDEO_OUTPUT_MP4 && !conf->mux.disable_mp4ext)
-        muxer_to_be_used = (conf->vid.afs) ? MUXER_TC2MP4 : MUXER_MP4;
+        muxer_to_be_used = (conf->vid.afs || conf->vpp.afs.enable) ? MUXER_TC2MP4 : MUXER_MP4;
     else if (video_output_type == VIDEO_OUTPUT_MKV && !conf->mux.disable_mkvext)
         muxer_to_be_used = MUXER_MKV;
     else if (video_output_type == VIDEO_OUTPUT_MPEG2 && !conf->mux.disable_mpgext)
@@ -556,6 +556,7 @@ int check_muxer_to_be_used(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, c
     BOOL no_muxer = TRUE;
     no_muxer &= !audio_output;
     no_muxer &= !conf->vid.afs;
+    no_muxer &= !conf->vpp.afs.enable;
     no_muxer &= video_output_type == check_video_ouput(temp_filename);
     no_muxer &= !check_output_has_chapter(conf, sys_dat, muxer_to_be_used);
     return (no_muxer) ? MUXER_DISABLED : muxer_to_be_used;
