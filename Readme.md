@@ -75,7 +75,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - GPUを使用した高速フィルタリング
   - cuvid内蔵のhw処理
    - リサイズ
-   - インタレ解除 (normal / bob / it)
+   - インタレ解除 (normal / bob)
   - CUDAによるGPUフィルタリング
    - delogo
    - リサイズ  
