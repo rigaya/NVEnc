@@ -93,7 +93,8 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - 本ソフトウェアでは、
   [ffmpeg](https://ffmpeg.org/),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
-  [dtl](https://github.com/cubicdaiya/dtl)を使用しています。  
+  [dtl](https://github.com/cubicdaiya/dtl),
+  [ttmath](http://www.ttmath.org/)を使用しています。  
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、NVEnc_license.txtをご覧ください。
 
 ### ソースの構成

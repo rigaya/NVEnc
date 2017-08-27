@@ -177,3 +177,27 @@ VideoInfo videooutputinfo(
     info.vui.format = videoSignalInfo.videoFormat;
     return info;
 }
+
+#if !ENABLE_AVSW_READER
+#define TTMATH_NOASM
+#include "ttmath/ttmath.h"
+
+int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to) {
+    auto mul = rgy_rational<int64_t>((int64_t)from.n() * (int64_t)to.d(), (int64_t)from.d() * (int64_t)to.n());
+
+#if _M_IX86
+#define RESCALE_INT_SIZE 4
+#else
+#define RESCALE_INT_SIZE 2
+#endif
+    ttmath::Int<RESCALE_INT_SIZE> tmp1 = v;
+    tmp1 *= mul.n();
+    ttmath::Int<RESCALE_INT_SIZE> tmp2 = mul.d();
+
+    tmp1 = (tmp1 + tmp2 - 1) / tmp2;
+    int64_t ret;
+    tmp1.ToInt(ret);
+    return ret;
+}
+
+#endif

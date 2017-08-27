@@ -396,12 +396,6 @@ static inline RGYBitstream RGYBitstreamInit(const NV_ENC_LOCK_BITSTREAM& nv_bits
     return bitstream;
 }
 
-#if ENABLE_AVSW_READER
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
-#else
-static inline int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to) {
-static_assert(false, "not implemented.");
-}
 
-#endif
 #endif //__NVENC_UTIL_H__
