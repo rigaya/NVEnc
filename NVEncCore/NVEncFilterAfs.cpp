@@ -1115,7 +1115,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
                 return NV_ENC_ERR_INVALID_CALL;
             }
 
-            if (interlaced(m_source.get(m_nFrame)->frame)) {
+            if (interlaced(m_source.get(m_nFrame)->frame) || pAfsParam->afs.tune) {
                 cudaerr = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, pAfsParam.get(), cudaStreamDefault);
             } else {
                 cudaerr = copy_frame(pOutFrame, m_source.get(m_nFrame), cudaStreamDefault);
