@@ -1557,6 +1557,10 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
             m_inputHostBuffer[i].frameInfo.height = bufHeight;
             m_inputHostBuffer[i].frameInfo.pitch = bufPitch;
             m_inputHostBuffer[i].frameInfo.csp = pInputInfo->csp;
+            m_inputHostBuffer[i].frameInfo.picstruct = pInputInfo->picstruct;
+            m_inputHostBuffer[i].frameInfo.flags = RGY_FRAME_FLAG_NONE;
+            m_inputHostBuffer[i].frameInfo.duration = 0;
+            m_inputHostBuffer[i].frameInfo.timestamp = 0;
             m_inputHostBuffer[i].frameInfo.deivce_mem = false;
             m_inputHostBuffer[i].heTransferFin = unique_ptr<void, handle_deleter>(CreateEvent(NULL, FALSE, TRUE, NULL), handle_deleter());
 
@@ -3687,7 +3691,6 @@ NVENCSTATUS NVEncCore::Encode() {
                 SetEvent((HANDLE)ptr);
             });
             inputFrame.setHostFrameInfo(inputFrameBuf.frameInfo, heTransferFin);
-            inputFrame.setInterlaceFlag(picstruct_enc_to_rgy(m_stPicStruct));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unexpected error at Encode().\n"));
             return NV_ENC_ERR_GENERIC;
