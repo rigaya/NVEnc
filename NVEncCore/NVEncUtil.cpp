@@ -113,8 +113,8 @@ NV_ENC_PIC_STRUCT picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct) {
 
 __declspec(noinline)
 RGY_PICSTRUCT picstruct_enc_to_rgy(NV_ENC_PIC_STRUCT picstruct) {
-    if (picstruct == NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM) return RGY_PICSTRUCT_TFF;
-    if (picstruct == NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP) return RGY_PICSTRUCT_BFF;
+    if (picstruct == NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM) return RGY_PICSTRUCT_FRAME_TFF;
+    if (picstruct == NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP) return RGY_PICSTRUCT_FRAME_BFF;
     return RGY_PICSTRUCT_FRAME;
 }
 
