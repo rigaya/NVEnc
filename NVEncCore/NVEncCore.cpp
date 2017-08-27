@@ -2453,20 +2453,22 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     //vpp-rffの制約事項
     if (inputParam->vpp.rff) {
+#if ENABLE_AVSW_READER
         if (!m_cuvidDec) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff can only be used with hw decoder.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
+        if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-deint.\n"));
+            return NV_ENC_ERR_UNIMPLEMENTED;
+        }
+#endif //#if ENABLE_AVSW_READER
         if (m_pTrimParam) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
         if (m_nAVSyncMode != RGY_AVSYNC_THROUGH) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with avsync.\n"));
-            return NV_ENC_ERR_UNIMPLEMENTED;
-        }
-        if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
-            PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-deint.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
     }
@@ -2597,7 +2599,9 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             shared_ptr<NVEncFilterParamAfs> param(new NVEncFilterParamAfs());
             param->afs = inputParam->vpp.afs;
             param->afs.tb_order = (inputParam->input.picstruct & RGY_PICSTRUCT_TFF) != 0;
+#if ENABLE_AVSW_READER
             param->afs.timecode |= typeid(m_pFileWriter) != typeid(RGYOutputAvcodec);
+#endif
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->inFps = m_inputFps;
