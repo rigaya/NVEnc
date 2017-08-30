@@ -437,7 +437,7 @@ __global__ void kernel_afs_analyze_12(
             mask7 = ptr_shared[shared_int_idx(0, ly-4, 3)];
             mask1 &= u8x4(0x30);
             mask4 |= mask5 | mask6;
-            mask4 &= u8x4(0x30);
+            mask4 &= u8x4(0x33); //opencl版を変更、ここは0x30でなく0x33
             mask1 |= mask4 | mask7;
             if (imgx < width_int && (imgy - 4) < imgy_block_fin && ly - 4 >= 0) {
                 //motion_countの実行
