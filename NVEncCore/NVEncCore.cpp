@@ -2049,10 +2049,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
 #endif
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable && inputParam->vpp.afs.shift) {
+    } else if (inputParam->vpp.afs.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
-    
+
     //制限事項チェック
     if (inputParam->input.srcWidth < 0 && inputParam->input.srcHeight < 0) {
         PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d\n"), FOR_AUO ? _T("解像度が無効です。") : _T("Invalid resolution."), inputParam->input.srcWidth, inputParam->input.srcHeight);
