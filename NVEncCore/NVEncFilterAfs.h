@@ -73,8 +73,9 @@ public:
     rgy_rational<int> inFps;
     rgy_rational<int> outTimebase;
     tstring outFilename;
+    CUctx_flags cudaSchedule;
 
-    NVEncFilterParamAfs() : afs(), inFps(), outTimebase(), outFilename() {
+    NVEncFilterParamAfs() : afs(), inFps(), outTimebase(), outFilename(), cudaSchedule(CU_CTX_SCHED_BLOCKING_SYNC) {
 
     };
     virtual ~NVEncFilterParamAfs() {};

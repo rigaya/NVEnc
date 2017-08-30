@@ -1009,7 +1009,7 @@ NVENCSTATUS NVEncCore::InitCuda(uint32_t deviceID, int cudaSchedule) {
     PrintMes(RGY_LOG_DEBUG, _T("NVENC capabilities: OK.\n"));
 
     m_cudaSchedule = (CUctx_flags)(cudaSchedule & CU_CTX_SCHED_MASK);
-    PrintMes(RGY_LOG_DEBUG, _T("using cuda schdule mode: %s.\n"), get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
+    PrintMes(RGY_LOG_DEBUG, _T("using cuda schedule mode: %s.\n"), get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
     if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext*)(&m_pDevice), m_cudaSchedule, m_device))) {
         if (m_cudaSchedule != 0) {
             PrintMes(RGY_LOG_WARN, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
@@ -2611,6 +2611,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->inFps = m_inputFps;
             param->outTimebase = m_outputTimebase;
             param->outFilename = inputParam->outputFilename;
+            param->cudaSchedule = m_cudaSchedule;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);

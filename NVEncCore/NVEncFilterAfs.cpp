@@ -740,20 +740,22 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
 
+    const uint32_t cudaEventFlags = (pAfsParam->cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : 0;
+
     m_eventSrcAdd = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-    if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventSrcAdd.get(), cudaEventDisableTiming | cudaEventBlockingSync))) {
+    if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventSrcAdd.get(), cudaEventFlags | cudaEventDisableTiming))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
 
     m_eventScanFrame = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-    if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventScanFrame.get(), cudaEventDisableTiming | cudaEventBlockingSync))) {
+    if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventScanFrame.get(), cudaEventFlags | cudaEventDisableTiming))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
 
     m_eventMergeScan = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-    if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventMergeScan.get(), cudaEventDisableTiming | cudaEventBlockingSync))) {
+    if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventMergeScan.get(), cudaEventFlags | cudaEventDisableTiming))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
