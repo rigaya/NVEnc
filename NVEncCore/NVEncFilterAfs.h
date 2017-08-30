@@ -31,9 +31,11 @@
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
 
+static const int STREAM_OPT = 1;
+
 #define AFS_SOURCE_CACHE_NUM 16
 #define AFS_SCAN_CACHE_NUM   16
-#define AFS_STRIPE_CACHE_NUM  8
+#define AFS_STRIPE_CACHE_NUM 16
 
 #define AFS_FLAG_SHIFT0      0x01
 #define AFS_FLAG_SHIFT1      0x02
@@ -105,6 +107,7 @@ struct AFS_SCAN_DATA {
     int status, frame, mode, tb_order, thre_shift, thre_deint, thre_Ymotion, thre_Cmotion;
     AFS_SCAN_CLIP clip;
     int ff_motion, lf_motion;
+    unique_ptr<cudaEvent_t, cudaevent_deleter> cuevent;
 };
 
 class afsScanCache {
@@ -112,6 +115,7 @@ public:
     afsScanCache();
     ~afsScanCache();
 
+    void clearcache(int iframe);
     void initcache(int iframe);
 
     cudaError_t alloc(const FrameInfo& frameInfo);
@@ -128,6 +132,8 @@ protected:
 struct AFS_STRIPE_DATA {
     CUFrameBuf map;
     int status, frame, count0, count1;
+    unique_ptr<cudaEvent_t, cudaevent_deleter> cuevent;
+    CUMemBufPair buf_count_stripe;
 };
 
 class afsStripeCache {
@@ -135,6 +141,7 @@ public:
     afsStripeCache();
     ~afsStripeCache();
 
+    void clearcache(int iframe);
     void initcache(int iframe);
     void expire(int iframe);
 
@@ -230,7 +237,7 @@ protected:
 
     cudaError_t analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_DATA *sp, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     bool scan_frame_result_cached(int iframe, const VppAfs *pAfsPrm);
-    cudaError_t scan_frame(int iframe, int force, const NVEncFilterParamAfs *pAfsPrm);
+    cudaError_t scan_frame(int iframe, int force, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     cudaError_t count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip);
 
     cudaError_t merge_scan(AFS_STRIPE_DATA *sp, AFS_SCAN_DATA *sp0, AFS_SCAN_DATA *sp1, CUMemBufPair *count_stripe, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
@@ -249,7 +256,11 @@ protected:
     int open_log(tstring log_filename);
     void write_log(int64_t pts, const rgy_rational<int>& timebase);
 
-    unique_ptr<cudaStream_t, cudastream_deleter> m_stream;
+    unique_ptr<cudaStream_t, cudastream_deleter> m_streamAnalyze;
+    unique_ptr<cudaStream_t, cudastream_deleter> m_streamCopy;
+    unique_ptr<cudaEvent_t, cudaevent_deleter> m_eventSrcAdd;
+    unique_ptr<cudaEvent_t, cudaevent_deleter> m_eventScanFrame;
+    unique_ptr<cudaEvent_t, cudaevent_deleter> m_eventMergeScan;
     int m_nFrame;
     int64_t m_nPts;
 
@@ -259,6 +270,5 @@ protected:
     afsStatus       m_status;
     afsStreamStatus m_streamsts;
     CUMemBufPair    m_count_motion;
-    CUMemBufPair    m_count_stripe;
     unique_ptr<FILE, fp_deleter> m_fpTimecode;
 };
