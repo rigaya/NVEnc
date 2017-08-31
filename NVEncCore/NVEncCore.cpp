@@ -1906,6 +1906,7 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
 }
 
 bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
+    const bool interlacedEncode = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable));
     return
         //cuvidのcropでは、左cropが正常に反映されない
         inputParam->input.crop.e.left == 0
@@ -1913,6 +1914,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
         && inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED
         //deinterlace bobとリサイズを有効にすると色成分が正常に出力されない場合がある
         && inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Bob
+        //インタレ保持でない (インタレ保持リサイズをするにはCUDAで行う必要がある)
+        && !interlacedEncode
         //フィルタ処理が必要
         && !(  inputParam->vpp.delogo.pFilePath
             || inputParam->vpp.gaussMaskSize > 0

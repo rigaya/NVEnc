@@ -397,18 +397,28 @@ NVENCSTATUS NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, Fram
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
+    const int out_idx = final_dst_index(pPmdParam->pmd.applyCount);
+
     *pOutputFrameNum = 1;
     FrameInfo *pOutputFrame[2] = {
         &m_pFrameBuf[(m_nFrameIdx++) % m_pFrameBuf.size()].get()->frame,
         &m_pFrameBuf[(m_nFrameIdx++) % m_pFrameBuf.size()].get()->frame,
     };
-
-    ppOutputFrames[0] = pOutputFrame[final_dst_index(pPmdParam->pmd.applyCount)];
-    ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    if (interlaced(*pInputFrame) && !m_bInterlacedWarn) {
-        AddMessage(RGY_LOG_WARN, _T("Interlaced denoise is not supported, denoise as progressive.\n"));
-        AddMessage(RGY_LOG_WARN, _T("This should result in poor quality.\n"));
-        m_bInterlacedWarn = true;
+    bool frame_swapped = false;
+    if (ppOutputFrames[0] != nullptr) {
+        //filter_as_interlaced_pair()の時の処理
+        frame_swapped = true;
+        pOutputFrame[out_idx] = ppOutputFrames[0];
+        pOutputFrame[(out_idx + 1) & 1]->width     = pOutputFrame[out_idx]->width;
+        pOutputFrame[(out_idx + 1) & 1]->height    = pOutputFrame[out_idx]->height;
+        pOutputFrame[(out_idx + 1) & 1]->csp       = pOutputFrame[out_idx]->csp;
+        pOutputFrame[(out_idx + 1) & 1]->picstruct = pOutputFrame[out_idx]->picstruct;
+        pOutputFrame[(out_idx + 1) & 1]->flags     = pOutputFrame[out_idx]->flags;
+    } else {
+        ppOutputFrames[0] = pOutputFrame[out_idx];
+    }
+    if (interlaced(*pInputFrame)) {
+        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
@@ -420,7 +430,16 @@ NVENCSTATUS NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, Fram
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
-    return denoise(pOutputFrame, &m_Gauss.frame, pInputFrame);
+    auto ret = denoise(pOutputFrame, &m_Gauss.frame, pInputFrame);
+    if (frame_swapped) {
+        //filter_as_interlaced_pair()の時の処理
+        pOutputFrame[out_idx]->width     = pOutputFrame[(out_idx + 1) & 1]->width;
+        pOutputFrame[out_idx]->height    = pOutputFrame[(out_idx + 1) & 1]->height;
+        pOutputFrame[out_idx]->csp       = pOutputFrame[(out_idx + 1) & 1]->csp;
+        pOutputFrame[out_idx]->picstruct = pOutputFrame[(out_idx + 1) & 1]->picstruct;
+        pOutputFrame[out_idx]->flags     = pOutputFrame[(out_idx + 1) & 1]->flags;
+    }
+    return ret;
 }
 
 void NVEncFilterDenoisePmd::close() {

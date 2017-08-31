@@ -262,10 +262,8 @@ NVENCSTATUS NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameIn
         m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
-    if (interlaced(*pInputFrame) && !m_bInterlacedWarn) {
-        AddMessage(RGY_LOG_WARN, _T("Interlaced unsharp is not supported, unsharp as progressive.\n"));
-        AddMessage(RGY_LOG_WARN, _T("This should result in poor quality.\n"));
-        m_bInterlacedWarn = true;
+    if (interlaced(*pInputFrame)) {
+        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     }
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {

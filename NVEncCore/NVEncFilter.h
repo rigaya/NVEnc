@@ -340,6 +340,7 @@ public:
     void CheckPerformance(bool flag);
     double GetAvgTimeElapsed();
 protected:
+    NVENCSTATUS filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream);
     virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;
     virtual void close() = 0;
 
@@ -375,7 +376,8 @@ protected:
     shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
     vector<unique_ptr<CUFrameBuf>> m_pFrameBuf;
     int m_nFrameIdx;
-protected:
+    unique_ptr<CUFrameBuf> m_pFieldPairIn;
+    unique_ptr<CUFrameBuf> m_pFieldPairOut;
     shared_ptr<NVEncFilterParam> m_pParam;
     FILTER_PATHTHROUGH_FRAMEINFO m_nPathThrough;
 private:

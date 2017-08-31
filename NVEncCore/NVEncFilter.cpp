@@ -30,6 +30,7 @@
 
 NVEncFilter::NVEncFilter() :
     m_sFilterName(), m_sFilterInfo(), m_pPrintMes(), m_pFrameBuf(), m_nFrameIdx(0),
+    m_pFieldPairIn(), m_pFieldPairOut(),
     m_pParam(),
     m_nPathThrough(FILTER_PATHTHROUGH_ALL), m_bCheckPerformance(false),
     m_peFilterStart(), m_peFilterFin(), m_dFilterTimeMs(0.0), m_nFilterRunCount(0) {
@@ -38,6 +39,8 @@ NVEncFilter::NVEncFilter() :
 
 NVEncFilter::~NVEncFilter() {
     m_pFrameBuf.clear();
+    m_pFieldPairIn.reset();
+    m_pFieldPairOut.reset();
     m_peFilterStart.reset();
     m_peFilterFin.reset();
     m_pParam.reset();
@@ -112,6 +115,65 @@ NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFram
         m_nFilterRunCount++;
     }
     return ret;
+}
+
+NVENCSTATUS NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream) {
+    if (!m_pFieldPairIn) {
+        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(*pInputFrame));
+        uptr->frame.ptr = nullptr;
+        uptr->frame.pitch = 0;
+        uptr->frame.height >>= 1;
+        uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
+        uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
+        auto ret = uptr->alloc();
+        if (ret != cudaSuccess) {
+            m_pFrameBuf.clear();
+            return NV_ENC_ERR_OUT_OF_MEMORY;
+        }
+        m_pFieldPairIn = std::move(uptr);
+    }
+    if (!m_pFieldPairOut) {
+        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(*pOutputFrame));
+        uptr->frame.ptr = nullptr;
+        uptr->frame.pitch = 0;
+        uptr->frame.height >>= 1;
+        uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
+        uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
+        auto ret = uptr->alloc();
+        if (ret != cudaSuccess) {
+            m_pFrameBuf.clear();
+            return NV_ENC_ERR_OUT_OF_MEMORY;
+        }
+        m_pFieldPairOut = std::move(uptr);
+    }
+    const auto inputFrameInfoEx = getFrameInfoExtra(pInputFrame);
+    const auto outputFrameInfoEx = getFrameInfoExtra(pOutputFrame);
+
+    for (int i = 0; i < 2; i++) {
+        auto cudaerr = cudaMemcpy2DAsync(m_pFieldPairIn->frame.ptr, m_pFieldPairIn->frame.pitch,
+            pInputFrame->ptr + pInputFrame->pitch * i, pInputFrame->pitch * 2,
+            inputFrameInfoEx.width_byte, inputFrameInfoEx.height_total >> 1,
+            cudaMemcpyDeviceToDevice, stream);
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to seprate field(0): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
+        int nFieldOut = 0;
+        auto pFieldOut = &m_pFieldPairOut->frame;
+        auto err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut);
+        if (err != NV_ENC_SUCCESS) {
+            return err;
+        }
+        cudaerr = cudaMemcpy2DAsync(pOutputFrame->ptr + pOutputFrame->pitch * i, pOutputFrame->pitch * 2,
+            pFieldOut->ptr, pFieldOut->pitch,
+            outputFrameInfoEx.width_byte, outputFrameInfoEx.height_total >> 1,
+            cudaMemcpyDeviceToDevice, stream);
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to merge field(1): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
+    }
+    return NV_ENC_SUCCESS;
 }
 
 void NVEncFilter::CheckPerformance(bool flag) {
