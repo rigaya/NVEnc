@@ -30,6 +30,8 @@ static const char *const AFS_STG_REPLAY_MODE      = "replay_mode";
 static const char *const AFS_STG_YUY2UPSAMPLE     = "yuy2upsample";
 static const char *const AFS_STG_THROUGH_MODE     = "through_mode";
 static const char *const AFS_STG_PROC_MODE        = "proc_mode";
+static const char *const AFS_STG_RFF              = "rff";
+static const char *const AFS_STG_LOG              = "log";
 
 #define AFS_STG_SECTION   "AFS_STG"
 #define AFSVF_STG_SECTION "AFSVF_STG"

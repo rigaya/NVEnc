@@ -589,34 +589,36 @@ int NVEncFilterAfs::read_afs_inifile(VppAfs *pVppAfs, const TCHAR *inifile) {
     if (!PathFileExists(inifile)) {
         return 1;
     }
-    const auto filename = tchar_to_string(inifile).c_str();
+    const auto filename = tchar_to_string(inifile);
     const auto section = AFS_STG_SECTION;
 
-    pVppAfs->clip.top      = GetPrivateProfileIntA(section, AFS_STG_UP,               pVppAfs->clip.top,      filename);
-    pVppAfs->clip.bottom   = GetPrivateProfileIntA(section, AFS_STG_BOTTOM,           pVppAfs->clip.bottom,   filename);
-    pVppAfs->clip.left     = GetPrivateProfileIntA(section, AFS_STG_LEFT,             pVppAfs->clip.left,     filename);
-    pVppAfs->clip.right    = GetPrivateProfileIntA(section, AFS_STG_RIGHT,            pVppAfs->clip.right,    filename);
-    pVppAfs->method_switch = GetPrivateProfileIntA(section, AFS_STG_METHOD_WATERSHED, pVppAfs->method_switch, filename);
-    pVppAfs->coeff_shift   = GetPrivateProfileIntA(section, AFS_STG_COEFF_SHIFT,      pVppAfs->coeff_shift,   filename);
-    pVppAfs->thre_shift    = GetPrivateProfileIntA(section, AFS_STG_THRE_SHIFT,       pVppAfs->thre_shift,    filename);
-    pVppAfs->thre_deint    = GetPrivateProfileIntA(section, AFS_STG_THRE_DEINT,       pVppAfs->thre_deint,    filename);
-    pVppAfs->thre_Ymotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_Y_MOTION,    pVppAfs->thre_Ymotion,  filename);
-    pVppAfs->thre_Cmotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_C_MOTION,    pVppAfs->thre_Cmotion,  filename);
-    pVppAfs->analyze       = GetPrivateProfileIntA(section, AFS_STG_MODE,             pVppAfs->analyze,       filename);
+    pVppAfs->clip.top      = GetPrivateProfileIntA(section, AFS_STG_UP,               pVppAfs->clip.top,      filename.c_str());
+    pVppAfs->clip.bottom   = GetPrivateProfileIntA(section, AFS_STG_BOTTOM,           pVppAfs->clip.bottom,   filename.c_str());
+    pVppAfs->clip.left     = GetPrivateProfileIntA(section, AFS_STG_LEFT,             pVppAfs->clip.left,     filename.c_str());
+    pVppAfs->clip.right    = GetPrivateProfileIntA(section, AFS_STG_RIGHT,            pVppAfs->clip.right,    filename.c_str());
+    pVppAfs->method_switch = GetPrivateProfileIntA(section, AFS_STG_METHOD_WATERSHED, pVppAfs->method_switch, filename.c_str());
+    pVppAfs->coeff_shift   = GetPrivateProfileIntA(section, AFS_STG_COEFF_SHIFT,      pVppAfs->coeff_shift,   filename.c_str());
+    pVppAfs->thre_shift    = GetPrivateProfileIntA(section, AFS_STG_THRE_SHIFT,       pVppAfs->thre_shift,    filename.c_str());
+    pVppAfs->thre_deint    = GetPrivateProfileIntA(section, AFS_STG_THRE_DEINT,       pVppAfs->thre_deint,    filename.c_str());
+    pVppAfs->thre_Ymotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_Y_MOTION,    pVppAfs->thre_Ymotion,  filename.c_str());
+    pVppAfs->thre_Cmotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_C_MOTION,    pVppAfs->thre_Cmotion,  filename.c_str());
+    pVppAfs->analyze       = GetPrivateProfileIntA(section, AFS_STG_MODE,             pVppAfs->analyze,       filename.c_str());
 
-    pVppAfs->shift    = 0 != GetPrivateProfileIntA(section, AFS_STG_FIELD_SHIFT,      pVppAfs->shift,         filename);
-    pVppAfs->drop     = 0 != GetPrivateProfileIntA(section, AFS_STG_DROP,             pVppAfs->drop,          filename);
-    pVppAfs->smooth   = 0 != GetPrivateProfileIntA(section, AFS_STG_SMOOTH,           pVppAfs->smooth,        filename);
-    pVppAfs->force24  = 0 != GetPrivateProfileIntA(section, AFS_STG_FORCE24,          pVppAfs->force24,       filename);
-    // GetPrivateProfileIntA(section, AFS_STG_DETECT_SC, fp->check[4], filename);
-    pVppAfs->tune     = 0 != GetPrivateProfileIntA(section, AFS_STG_TUNE_MODE,         pVppAfs->tune,          filename);
-    // GetPrivateProfileIntA(section, AFS_STG_LOG_SAVE, fp->check[6], filename);
-    // GetPrivateProfileIntA(section, AFS_STG_TRACE_MODE, fp->check[7], filename);
-    // GetPrivateProfileIntA(section, AFS_STG_REPLAY_MODE, fp->check[8], filename);
-    // GetPrivateProfileIntA(section, AFS_STG_YUY2UPSAMPLE, fp->check[9], filename);
-    // GetPrivateProfileIntA(section, AFS_STG_THROUGH_MODE, fp->check[10], filename);
+    pVppAfs->shift    = 0 != GetPrivateProfileIntA(section, AFS_STG_FIELD_SHIFT,      pVppAfs->shift,         filename.c_str());
+    pVppAfs->drop     = 0 != GetPrivateProfileIntA(section, AFS_STG_DROP,             pVppAfs->drop,          filename.c_str());
+    pVppAfs->smooth   = 0 != GetPrivateProfileIntA(section, AFS_STG_SMOOTH,           pVppAfs->smooth,        filename.c_str());
+    pVppAfs->force24  = 0 != GetPrivateProfileIntA(section, AFS_STG_FORCE24,          pVppAfs->force24,       filename.c_str());
+    pVppAfs->rff      = 0 != GetPrivateProfileIntA(section, AFS_STG_RFF,              pVppAfs->rff,           filename.c_str());
+    pVppAfs->log      = 0 != GetPrivateProfileIntA(section, AFS_STG_LOG,              pVppAfs->log,           filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_DETECT_SC, fp->check[4], filename.c_str());
+    pVppAfs->tune     = 0 != GetPrivateProfileIntA(section, AFS_STG_TUNE_MODE,         pVppAfs->tune,          filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_LOG_SAVE, fp->check[6], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_TRACE_MODE, fp->check[7], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_REPLAY_MODE, fp->check[8], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_YUY2UPSAMPLE, fp->check[9], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_THROUGH_MODE, fp->check[10], filename.c_str());
 
-    // GetPrivateProfileIntA(section, AFS_STG_PROC_MODE, g_afs.ex_data.proc_mode, filename);
+    // GetPrivateProfileIntA(section, AFS_STG_PROC_MODE, g_afs.ex_data.proc_mode, filename.c_str());
     return 0;
 }
 
