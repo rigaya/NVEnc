@@ -676,7 +676,7 @@ NVENCSTATUS NVEncFilterAfs::check_param(shared_ptr<NVEncFilterParamAfs> pAfsPara
         return NV_ENC_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.analyze < 0 || pAfsParam->afs.analyze > 5) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (analyze).\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (level).\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
     if (!pAfsParam->afs.shift) {
@@ -791,7 +791,7 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     m_sFilterInfo = strsprintf(
         _T("afs: clip(T %d, B %d, L %d, R %d), switch %d, coeff_shift %d\n")
         _T("                    thre(shift %d, deint %d, Ymotion %d, Cmotion %d)\n")
-        _T("                    analyze %d, shift %s, drop %s, smooth %s, force24 %s\n")
+        _T("                    level %d, shift %s, drop %s, smooth %s, force24 %s\n")
         _T("                    tune %s, tb_order %d(%s), rff %s, timecode %s, log %s"),
         pAfsParam->afs.clip.top, pAfsParam->afs.clip.bottom , pAfsParam->afs.clip.left, pAfsParam->afs.clip.right,
         pAfsParam->afs.method_switch, pAfsParam->afs.coeff_shift,

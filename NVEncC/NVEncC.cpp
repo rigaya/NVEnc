@@ -512,7 +512,7 @@ static tstring help() {
         _T("      thre_deint=<int>    (縞(解除))   stripe(deint)thres (default=%d, 0-1024)\n")
         _T("      thre_motion_y=<int> (Y動き)      Y motion threshold (default=%d, 0-1024)\n")
         _T("      thre_motion_c=<int> (C動き)      C motion threshold (default=%d, 0-1024)\n")
-        _T("      analyze=<int>       (解除Lv)     set analyze mode   (default=%d, 0-4\n")
+        _T("      level=<int>         (解除Lv)     set deint level    (default=%d, 0-4\n")
         _T("      shift=<bool>  (フィールドシフト) enable field shift (default=%s)\n")
         _T("      drop=<bool>   (ドロップ)         enable frame drop  (default=%s)\n")
         _T("      smooth=<bool> (スムージング)     enable smoothing   (default=%s)\n")
@@ -2466,7 +2466,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
-                if (param_arg == _T("analyze")) {
+                if (param_arg == _T("level")) {
                     try {
                         pParams->vpp.afs.analyze = std::stoi(param_val);
                     } catch (...) {
