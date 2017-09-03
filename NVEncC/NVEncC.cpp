@@ -2340,7 +2340,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return 0;
         }
         i++;
-        const auto param_list = split(strInput[i], _T(","));
+        vector<tstring> param_list;
+        bool flag_comma = false;
+        const TCHAR *pstr = strInput[i];
+        const TCHAR *qstr = strInput[i];
+        for (; *pstr; pstr++) {
+            if (*pstr == _T('\"')) {
+                flag_comma ^= true;
+            }
+            if (!flag_comma && *pstr == _T(',')) {
+                param_list.push_back(tstring(qstr, pstr - qstr));
+                qstr = pstr+1;
+            }
+        }
+        param_list.push_back(tstring(qstr, pstr - qstr));
         for (const auto& param : param_list) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
