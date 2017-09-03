@@ -615,7 +615,7 @@ static void __forceinline convert_yv12_high_to_p010_avx2_base(void **dst, const 
                 uint16_t *src_ptr = srcYLine;
                 uint16_t *dst_ptr = dstLine;
                 for (int x = 0; x < y_width; x += 8, dst_ptr += 8, src_ptr += 8) {
-                    __m256i y0 = _mm256_load_si256((const __m256i *)src_ptr);
+                    __m256i y0 = _mm256_loadu_si256((const __m256i *)src_ptr);
                     y0 = _mm256_slli_epi16(y0, 16 - in_bit_depth);
                     _mm256_storeu_si256((__m256i *)dst_ptr, y0);
                 }
