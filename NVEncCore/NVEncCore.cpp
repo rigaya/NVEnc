@@ -3369,20 +3369,18 @@ NVENCSTATUS NVEncCore::Encode() {
         int64_t outPtsSource = nOutEstimatedPts;
         int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration
 #if ENABLE_AVSW_READER
+        if (pStreamIn && (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR) || vpp_rff || vpp_afs_rff_aware)) {
+            //CFR仮定ではなく、オリジナルの時間を見る
+            outPtsSource = (pStreamIn) ? rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase) : nOutEstimatedPts;
+        }
         if (nOutFirstPts == -1) {
             nOutFirstPts = outPtsSource; //最初のpts
         }
         //最初のptsを0に修正
         outPtsSource -= nOutFirstPts;
+
         if (pStreamIn
-            && ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware)) {
-            //CFR仮定ではなく、オリジナルの時間を見る
-            outPtsSource = (pStreamIn) ? rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase) : nOutEstimatedPts;
-            if (nOutFirstPts == AV_NOPTS_VALUE) {
-                nOutFirstPts = outPtsSource; //最初のpts
-            }
-            //最初のptsを0に修正
-            outPtsSource -= nOutFirstPts;
+            && (m_nAVSyncMode & RGY_AVSYNC_VFR || vpp_rff || vpp_afs_rff_aware)) {
             if (std::abs(outPtsSource - nOutEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nOutFrameDuration) {
                 //timestampに一定以上の差があればそれを無視する
                 nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
@@ -3397,7 +3395,7 @@ NVENCSTATUS NVEncCore::Encode() {
             const auto orig_pts = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, to_rgy(pStreamIn->time_base));
             //ptsからフレーム情報を取得する
             const auto framePos = pReader->GetFramePosList()->findpts(orig_pts, &nInputFramePosIdx);
-            if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0) {
+            if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0 && (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) == 0) {
                 //有効な値ならオリジナルのdurationを使用する
                 outDuration = rational_rescale(framePos.duration, to_rgy(pStreamIn->time_base), m_outputTimebase);
             }
