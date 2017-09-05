@@ -2466,6 +2466,10 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
 #endif //#if ENABLE_AVSW_READER
+        if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-deinterlace.\n"));
+            return NV_ENC_ERR_UNIMPLEMENTED;
+        }
         if (m_pTrimParam) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
