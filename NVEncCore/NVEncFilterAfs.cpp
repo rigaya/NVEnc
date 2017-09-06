@@ -643,9 +643,17 @@ NVENCSTATUS NVEncFilterAfs::check_param(shared_ptr<NVEncFilterParamAfs> pAfsPara
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.left).\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
+    if (pAfsParam->afs.clip.left % 4 != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("parameter \"left\" rounded to multiple of 4.\n"));
+        pAfsParam->afs.clip.left = (pAfsParam->afs.clip.left + 2) & ~3;
+    }
     if (pAfsParam->afs.clip.right < 0 || pAfsParam->afs.clip.right >= pAfsParam->frameOut.width) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.right).\n"));
         return NV_ENC_ERR_INVALID_PARAM;
+    }
+    if (pAfsParam->afs.clip.right % 4 != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("parameter \"right\" rounded to multiple of 4.\n"));
+        pAfsParam->afs.clip.right = (pAfsParam->afs.clip.right + 2) & ~3;
     }
     if (pAfsParam->afs.clip.left + pAfsParam->afs.clip.right >= pAfsParam->frameOut.width) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.left + clip.right).\n"));

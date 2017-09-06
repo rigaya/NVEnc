@@ -506,6 +506,7 @@ static tstring help() {
         _T("      bottom=<int>        (下)         clip range to scan (default=%d)\n")
         _T("      left=<int>          (左)         clip range to scan (default=%d)\n")
         _T("      right=<int>         (右)         clip range to scan (default=%d)\n")
+        _T("                                        left & right must be muitiple of 4\n")
         _T("      method_switch=<int> (切替点)     (default=%d, 0-256)\n")
         _T("      coeff_shift=<int>   (判定比)     (default=%d, 0-256)\n")
         _T("      thre_shift=<int>    (縞(シフト)) stripe(shift)thres (default=%d, 0-1024)\n")
