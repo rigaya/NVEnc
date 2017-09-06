@@ -70,7 +70,7 @@ static tstring GetNVEncVersion() {
     if (ENABLE_AVI_READER) version += _T(", avi");
     if (ENABLE_AVISYNTH_READER) version += _T(", avs");
     if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
-    if (ENABLE_AVSW_READER) version += strsprintf(_T(", avcuvid [%s]"), getHWDecSupportedCodecList().c_str());
+    if (ENABLE_AVSW_READER) version += strsprintf(_T(", avhw [%s]"), getHWDecSupportedCodecList().c_str());
     version += _T("\n");
     return version;
 }
@@ -230,15 +230,15 @@ static tstring help() {
         _T("   --vpy-mt                     set input as vpy(mt) format\n")
 #endif
 #if ENABLE_AVSW_READER
-        _T("   --avcuvid [<string>]         use libavformat + cuvid for input\n")
+        _T("   --avhw [<string>]           use libavformat + cuvid for input\n")
         _T("                                 this enables full hw transcode and resize.\n")
-        _T("                                 avcuvid mode could be set as a  option\n")
+        _T("                                 avhw mode could be set as a  option\n")
         _T("                                  - native (default)\n")
         _T("                                  - cuda\n")
         _T("   --avsw                       set input to use avcodec + sw decoder\n")
         _T("   --input-analyze <int>       set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
-        _T("                                 could be only used with avcuvid/avsw reader.\n")
+        _T("                                 could be only used with avhw/avsw reader.\n")
         _T("                                 use if reader fails to detect audio stream.\n")
         _T("   --video-track <int>          set video track to encode in track id\n")
         _T("                                 1 (default)  highest resolution video track\n")
@@ -251,7 +251,7 @@ static tstring help() {
         _T("   --audio-source <string>      input extra audio file\n")
         _T("   --audio-file [<int>?][<string>:]<string>\n")
         _T("                                extract audio into file.\n")
-        _T("                                 could be only used with avcuvid/avsw reader.\n")
+        _T("                                 could be only used with avhw/avsw reader.\n")
         _T("                                 below are optional,\n")
         _T("                                  in [<int>?], specify track number to extract.\n")
         _T("                                  in [<string>?], specify output format.\n")
@@ -262,14 +262,14 @@ static tstring help() {
         _T("                                skip video for the time specified,\n")
         _T("                                 seek will be inaccurate but fast.\n")
         _T("   --input-format <string>      set input format of input file.\n")
-        _T("                                 this requires use of avcuvid/avsw reader.\n")
+        _T("                                 this requires use of avhw/avsw reader.\n")
         _T("-f,--output-format <string>     set output format of output file.\n")
         _T("                                 if format is not specified, output format will\n")
         _T("                                 be guessed from output file extension.\n")
         _T("                                 set \"raw\" for H.264/ES output.\n")
         _T("   --audio-copy [<int>[,...]]   mux audio with video during output.\n")
         _T("                                 could be only used with\n")
-        _T("                                 avcuvid/avsw reader and avcodec muxer.\n")
+        _T("                                 avhw/avsw reader and avcodec muxer.\n")
         _T("                                 by default copies all audio tracks.\n")
         _T("                                 \"--audio-copy 1,2\" will extract\n")
         _T("                                 audio track #1 and #2.\n")
@@ -329,7 +329,7 @@ static tstring help() {
         _T("   --chapter <string>           set chapter from file specified.\n")
         _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
         _T("                                 these could be only used with\n")
-        _T("                                 avcuvid/avsw reader and avcodec muxer.\n")
+        _T("                                 avhw/avsw reader and avcodec muxer.\n")
         _T("                                 below are optional,\n")
         _T("                                  in [<int>?], specify track number to copy.\n")
         _T("\n")
@@ -339,13 +339,13 @@ static tstring help() {
         _T("-m,--mux-option <string1>:<string2>\n")
         _T("                                set muxer option name and value.\n")
         _T("                                 these could be only used with\n")
-        _T("                                 avcuvid/avsw reader and avcodec muxer.\n"),
+        _T("                                 avhw/avsw reader and avcodec muxer.\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
 #endif
     str += strsprintf(_T("")
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
-        _T("                                    left crop is unavailable with avcuvid reader\n")
+        _T("                                    left crop is unavailable with avhw reader\n")
         _T("   --output-res <int>x<int>     set output resolution\n")
         _T("   --fps <int>/<int> or <float> set framerate\n")
         _T("\n")
@@ -443,7 +443,7 @@ static tstring help() {
     str += strsprintf(_T("\n")
         _T("   --vpp-deinterlace <string>   set deinterlace mode / default: none\n")
         _T("                                  none, bob, adaptive (normal)\n")
-        _T("                                  available only with avcuvid reader\n"));
+        _T("                                  available only with avhw reader\n"));
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
@@ -537,7 +537,7 @@ static tstring help() {
         FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
     str += strsprintf(_T("\n")
-        _T("   --vpp-rff                    apply rff flag, with avcuvid reader only.\n"));
+        _T("   --vpp-rff                    apply rff flag, with avhw reader only.\n"));
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
@@ -587,7 +587,7 @@ static tstring help() {
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error\n")
-        _T("   --log-framelist <string>     output frame info of avcuvid reader to path\n"));
+        _T("   --log-framelist <string>     output frame info of avhw reader to path\n"));
 
     str += strsprintf(_T("\n")
         _T("   --perf-monitor [<string>][,<string>]...\n")
@@ -1038,7 +1038,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
 #if ENABLE_AVSW_READER
         return 0;
     }
-    if (IS_OPTION("avcuvid")) {
+    if (IS_OPTION("avcuvid")
+        || IS_OPTION("avhw")) {
         pParams->input.type = RGY_INPUT_FMT_AVHW;
         if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
             i++;

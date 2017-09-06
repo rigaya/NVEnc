@@ -548,7 +548,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.pHWDecCodecCsp = &m_cuvidCodecCsp;
         pInputPrm = &inputInfoAVCuvid;
-        PrintMes(RGY_LOG_DEBUG, _T("avcuvid reader selected.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         m_pFileReader.reset(new RGYInputAvcodec());
         break;
 #endif //#if ENABLE_AVSW_READER
@@ -833,7 +833,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
             && inputParams->input.type != RGY_INPUT_FMT_AVSW
             && inputParams->input.type != RGY_INPUT_FMT_AVANY)
             || pAVCodecReader == nullptr) {
-            PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avcuvid reader).\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avhw reader).\n"));
             return NV_ENC_ERR_GENERIC;
         } else {
             auto inutAudioInfoList = pAVCodecReader->GetInputStreamInfo();
@@ -2025,7 +2025,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             } else
 #endif
             if (m_uEncWidth != inputParam->input.srcWidth || m_uEncHeight != inputParam->input.srcHeight) {
-                PrintMes(RGY_LOG_ERROR, _T("resizing requires to be used with avcuvid reader.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("resizing requires to be used with avhw reader.\n"));
                 PrintMes(RGY_LOG_ERROR, _T(" input %dx%d -> output %dx%d.\n"), m_uEncWidth, m_uEncHeight, inputParam->input.dstWidth, inputParam->input.dstHeight);
                 return NV_ENC_ERR_UNSUPPORTED_PARAM;
             }
@@ -2047,7 +2047,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
 #if ENABLE_AVSW_READER
         if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
-            PrintMes(RGY_LOG_ERROR, _T("vpp-deinterlace requires to be used with avcuvid reader.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vpp-deinterlace requires to be used with avhw reader.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
 #endif
@@ -2452,7 +2452,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         m_uEncHeight = inputParam->input.dstHeight;
         bResizeRequired = true;
     }
-    //avcuvid読みではデコード直後にリサイズが可能
+    //avhw読みではデコード直後にリサイズが可能
     if (bResizeRequired && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN && enableCuvidResize(inputParam)) {
         inputFrame.width  = inputParam->input.dstWidth;
         inputFrame.height = inputParam->input.dstHeight;
