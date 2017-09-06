@@ -2610,9 +2610,6 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             shared_ptr<NVEncFilterParamAfs> param(new NVEncFilterParamAfs());
             param->afs = inputParam->vpp.afs;
             param->afs.tb_order = (inputParam->input.picstruct & RGY_PICSTRUCT_TFF) != 0;
-#if ENABLE_AVSW_READER
-            param->afs.timecode |= typeid(m_pFileWriter) != typeid(RGYOutputAvcodec);
-#endif
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->inFps = m_inputFps;
