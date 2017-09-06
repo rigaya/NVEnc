@@ -302,25 +302,25 @@ Flags generate_flags(int ly, int idepth, uint32_t *__restrict__ ptr_shared) {
     Flags dat0, dat1;
 
     //sharedメモリはあらかじめ-4もデータを作ってあるので、問題なく使用可能
-    dat1 = ptr_shared[shared_int_idx(0, ly+0, idepth)];
+    dat1 = ptr_shared[shared_int_idx(0, ly-3, idepth)];
     Flags count_shift = dat1 & u8x4(non_shift_shift | shift_shift);
+
+    //opencl版を変更、shiftは+0, +1, +2, +3の位置を見る
+    dat0 = ptr_shared[shared_int_idx(0, ly-2, idepth)];
+    count_flags_skip(dat0, dat1, count_deint, count_shift);
+
+    dat1 = ptr_shared[shared_int_idx(0, ly-1, idepth)];
+    count_flags(dat1, dat0, count_deint, count_shift);
+
+    dat0 = ptr_shared[shared_int_idx(0, ly+0, idepth)];
+    count_flags(dat0, dat1, count_deint, count_shift);
 
     //      7       6         5        4        3        2        1       0
     // | motion  |         non-shift        | motion  |          shift          |
     // |  shift  |  sign  |  shift |  deint |  flag   | sign  |  shift |  deint |
     //motion 0x8888 -> 0x4444 とするため右シフト 
     //opencl版を変更、motionは+0の位置を見る
-    Flags flag0 = (dat1 & u8x4(motion_flag | motion_shift)) >> 1; //motion flag / motion shift
-
-    //opencl版を変更、shiftは+0, +1, +2, +3の位置を見る
-    dat0 = ptr_shared[shared_int_idx(0, ly+1, idepth)];
-    count_flags_skip(dat0, dat1, count_deint, count_shift);
-
-    dat1 = ptr_shared[shared_int_idx(0, ly+2, idepth)];
-    count_flags(dat1, dat0, count_deint, count_shift);
-
-    dat0 = ptr_shared[shared_int_idx(0, ly+3, idepth)];
-    count_flags(dat0, dat1, count_deint, count_shift);
+    Flags flag0 = (dat0 & u8x4(motion_flag | motion_shift)) >> 1; //motion flag / motion shift
 
     //nonshift deint - countbit:654 / setbit 0x01
     //if ((count_deint & (0x70u << 0)) > (2u<<(4+ 0))) flag0 |= 0x01u<< 0; //nonshift deint(0)
@@ -380,7 +380,7 @@ __global__ void kernel_afs_analyze_12(
     const uint32_t thre_Cmotion, const float thre_Cmotionf, const float thre_deintf, const float thre_shiftf,
     const uint32_t scan_left, const uint32_t scan_top, const uint32_t scan_width, const uint32_t scan_height) {
 
-    __shared__ uint32_t shared[SHARED_INT_X * SHARED_Y * 4]; //int単位でアクセスする
+    __shared__ uint32_t shared[SHARED_INT_X * SHARED_Y * 5]; //int単位でアクセスする
     const int lx = threadIdx.x; //スレッド数=BLOCK_INT_X
     int ly = threadIdx.y; //スレッド数=BLOCK_Y
     const int gidy = blockIdx.y; //グループID
