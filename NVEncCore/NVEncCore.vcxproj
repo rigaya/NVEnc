@@ -183,6 +183,7 @@
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -228,6 +229,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -273,6 +275,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -320,6 +323,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <GPUDebugInfo>true</GPUDebugInfo>
       <GenerateLineInfo>true</GenerateLineInfo>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -373,6 +377,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -420,6 +425,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -468,6 +474,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -516,6 +523,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
