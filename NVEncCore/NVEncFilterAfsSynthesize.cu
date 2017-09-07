@@ -72,22 +72,20 @@ int yuv420c_h(int y, const int height_y) {
 }
 
 __device__ __inline__
-uint32_t deint(int src1, int src3, int src4, int src5, int src7, uint32_t flag, uint32_t mask) {
+uint32_t deint(int src1, int src3, int src4, int src5, int src7, uint32_t flag, uint32_t mask, int max) {
     const int tmp2 = src1 + src7;
     const int tmp3 = src3 + src5;
-    //const int tmp = (tmp3 - ((tmp2 - tmp3) << 3) + 1) >> 1;
-    //(9 * tmp3 - 8 * tmp2) * 0.5
-    const int tmp = __hadd(tmp3, (tmp2 - tmp3));
+    //const int tmp = (tmp3 - ((tmp2 - tmp3) >> 3) + 1) >> 1;
+    const int tmp = clamp(__rhadd(tmp3, (tmp3 - tmp2) >> 3), 0, max);
     return (uint32_t)(((flag & mask) == 0) ? tmp : src4);
 }
 
 __device__ __inline__
 float deint(float src1, float src3, float src4, float src5, float src7, uint32_t flag, uint32_t mask) {
-    //const int tmp2 = src1 + src7;
-    //const int tmp3 = src3 + src5;
-    //const int tmp = (tmp3 - ((tmp2 - tmp3) << 3) + 1) >> 1;
-    //(9 * tmp3 - 8 * tmp2) * 0.5
-    const float tmp = 4.5f * (src3 + src5) - 4.0f * (src1 + src7);
+    //const float tmp2 = src1 + src7;
+    //const float tmp3 = src3 + src5;
+    //const float tmp = (tmp3 - ((tmp2 - tmp3) * 0.125f)) * 0.5f;
+    const float tmp = (src3 + src5) * 0.5625f - (src1 + src7) * 0.0625f;
     return (((flag & mask) == 0) ? tmp : src4);
 }
 
@@ -125,17 +123,17 @@ float mie_spot(float src1, float src2, float src3, float src4, float src_spot) {
 
 __device__ __inline__
 uint32_t deint4(uint32_t src1, uint32_t src3, uint32_t src4, uint32_t src5, uint32_t src7, uint32_t flag, uint32_t mask) {
-    uint32_t p0 = deint((int)(src1 & 0x000000ff), (int)(src3 & 0x000000ff), (int)(src4 & 0x000000ff), (int)(src5 & 0x000000ff), (int)(src7 & 0x000000ff), flag & 0x000000ff, mask);
-    uint32_t p1 = deint((int)(src1 & 0x0000ff00), (int)(src3 & 0x0000ff00), (int)(src4 & 0x0000ff00), (int)(src5 & 0x0000ff00), (int)(src7 & 0x0000ff00), flag & 0x0000ff00, mask) & 0x0000ff00;
-    uint32_t p2 = deint((int)(src1 & 0x00ff0000), (int)(src3 & 0x00ff0000), (int)(src4 & 0x00ff0000), (int)(src5 & 0x00ff0000), (int)(src7 & 0x00ff0000), flag & 0x00ff0000, mask) & 0x00ff0000;
-    uint32_t p3 = deint((int)(src1 >> 24),        (int)(src3 >> 24),        (int)(src4 >> 24),        (int)(src5 >> 24),        (int)(src7 >> 24),        flag >> 24,        mask) << 24;
+    uint32_t p0 = deint((int)(src1 & 0x000000ff),       (int)(src3 & 0x000000ff),       (int)(src4 & 0x000000ff),       (int)(src5 & 0x000000ff),       (int)(src7 & 0x000000ff),       flag & 0x000000ff, mask, 0xff);
+    uint32_t p1 = deint((int)(src1 & 0x0000ff00) >>  8, (int)(src3 & 0x0000ff00) >>  8, (int)(src4 & 0x0000ff00) >>  8, (int)(src5 & 0x0000ff00) >>  8, (int)(src7 & 0x0000ff00) >>  8, flag & 0x0000ff00, mask, 0xff) <<  8;
+    uint32_t p2 = deint((int)(src1 & 0x00ff0000) >> 16, (int)(src3 & 0x00ff0000) >> 16, (int)(src4 & 0x00ff0000) >> 16, (int)(src5 & 0x00ff0000) >> 16, (int)(src7 & 0x00ff0000) >> 16, flag & 0x00ff0000, mask, 0xff) << 16;
+    uint32_t p3 = deint((int)(src1 >> 24),              (int)(src3 >> 24),              (int)(src4 >> 24),              (int)(src5 >> 24),              (int)(src7 >> 24),              flag >> 24,        mask, 0xff) << 24;
     return p0 | p1 | p2 | p3;
 }
 
 __device__ __inline__
 uint32_t deint2(uint32_t src1, uint32_t src3, uint32_t src4, uint32_t src5, uint32_t src7, uint32_t flag, uint32_t mask) {
-    uint32_t p0 = deint((int)(src1 & 0x0000ffff), (int)(src3 & 0x0000ffff), (int)(src4 & 0x0000ffff), (int)(src5 & 0x0000ffff), (int)(src7 & 0x0000ffff), flag & 0x000000ff, mask);
-    uint32_t p1 = deint((int)(src1 >> 16), (int)(src3 >> 16), (int)(src4 >> 16), (int)(src5 >> 16), (int)(src7 >> 16), flag & 0x0000ff00, mask) << 16;
+    uint32_t p0 = deint((int)(src1 & 0x0000ffff), (int)(src3 & 0x0000ffff), (int)(src4 & 0x0000ffff), (int)(src5 & 0x0000ffff), (int)(src7 & 0x0000ffff), flag & 0x000000ff, mask, 0x0000ffff);
+    uint32_t p1 = deint((int)(src1 >> 16), (int)(src3 >> 16), (int)(src4 >> 16), (int)(src5 >> 16), (int)(src7 >> 16), flag & 0x0000ff00, mask, 0x0000ffff) << 16;
     return p0 | p1;
 }
 
