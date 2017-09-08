@@ -18,7 +18,7 @@ NVEncC --avcuvid -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 
 #### avcuvid読み込み(cuvidデコード使用)の例 (インタレ保持)
 ```Batchfile
-NVEncC --avcuvid --interlaced tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
+NVEncC --avcuvid --interlace tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
 
 #### avs(Avisynth)の例 (avsやvpyはvfw経由でも読み込み可能です)

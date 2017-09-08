@@ -424,9 +424,9 @@ static tstring help() {
 
     str += strsprintf(_T("\n")
         _T("H.264/AVC\n")
-        _T("   --tff                        same as --interlaced tff\n")
-        _T("   --bff                        same as --interlaced bff\n")
-        _T("   --interlaced <string>        interlaced encoding\n")
+        _T("   --tff                        same as --interlace tff\n")
+        _T("   --bff                        same as --interlace bff\n")
+        _T("   --interlace <string>         set input as interlaced\n")
         _T("                                  tff, bff\n")
         _T("   --cabac                      use CABAC\n")
         _T("   --cavlc                      use CAVLC (no CABAC)\n")
@@ -2577,7 +2577,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->input.picstruct = RGY_PICSTRUCT_FRAME_BFF;
         return 0;
     }
-    if (IS_OPTION("interlaced")) {
+    if (IS_OPTION("interlace") || IS_OPTION("interlaced")) {
         i++;
         int value = 0;
         if (get_list_value(list_interlaced, strInput[i], &value)) {

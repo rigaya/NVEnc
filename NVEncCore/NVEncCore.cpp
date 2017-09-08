@@ -2603,7 +2603,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         //afs
         if (inputParam->vpp.afs.enable) {
             if ((inputParam->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
-                PrintMes(RGY_LOG_ERROR, _T("Please set interlace field order (tff/bff) for vpp-afs.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-afs.\n"));
                 return NV_ENC_ERR_INVALID_PARAM;
             }
             unique_ptr<NVEncFilter> filter(new NVEncFilterAfs());
