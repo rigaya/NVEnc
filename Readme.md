@@ -28,7 +28,7 @@ NVEncが載ったハードウェア
 |NVEnc 3.08 以降 | NVIDIA グラフィックドライバ 378.66以降 |
 
 ## NVEncCの使用方法とオプション  
-[NVEncCのオプションの説明＞＞](http://rigaya34589.blog135.fc2.com/blog-entry-739.html)  
+NVEncCのオプションの説明 ([blog](http://rigaya34589.blog135.fc2.com/blog-entry-739.html), [github](./NVEncC_Options.md)) 
 
 ## NVEnc 使用にあたっての注意事項  
 無保証です。自己責任で使用してください。   
@@ -77,6 +77,8 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
    - リサイズ
    - インタレ解除 (normal / bob)
   - CUDAによるGPUフィルタリング
+   - rff (rffフラグの適用)
+   - afs (自動フィールドシフト)
    - delogo
    - リサイズ  
      bilinear,spline36に加え、x64版ではnppライブラリによる各種アルゴリズムが利用可
