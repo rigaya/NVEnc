@@ -2470,7 +2470,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-deinterlace.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
-        if (m_pTrimParam) {
+        if (trim_active(m_pTrimParam)) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
         }

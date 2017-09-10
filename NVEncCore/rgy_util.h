@@ -879,6 +879,19 @@ typedef std::vector<std::pair<tstring, tstring>> muxOptList;
 static const int TRIM_MAX = INT_MAX;
 static const int TRIM_OVERREAD_FRAMES = 128;
 
+static bool inline trim_active(const sTrimParam *pTrim) {
+    if (pTrim == nullptr) {
+        return false;
+    }
+    if (pTrim->list.size() == 0) {
+        return false;
+    }
+    if (pTrim->list[0].start == 0 && pTrim->list[0].fin == TRIM_MAX) {
+        return false;
+    }
+    return true;
+}
+
 static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
     if (trimList.size() == 0)
         return true;
