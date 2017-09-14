@@ -270,7 +270,7 @@ int shared_int_idx(int x, int y, int dep) {
 __inline__ __device__
 void count_flags_skip(Flags dat0, Flags dat1, Flags& count_deint, Flags& count_shift) {
     Flags deint, shift, mask;
-    mask = (dat0 ^ dat1) & u8x4(non_shift_sign  | shift_sign);  //opencl版を変更、xorしてからマスク
+    mask = (dat0 ^ dat1) & u8x4(non_shift_sign  | shift_sign);
     deint = dat0         & u8x4(non_shift_deint | shift_deint);
     shift = dat0         & u8x4(non_shift_shift | shift_shift);
     mask >>= 1;
@@ -285,7 +285,7 @@ void count_flags_skip(Flags dat0, Flags dat1, Flags& count_deint, Flags& count_s
 __inline__ __device__
 void count_flags(Flags dat0, Flags dat1, Flags& count_deint, Flags& count_shift) {
     Flags deint, shift, mask;
-    mask = (dat0 ^ dat1) & u8x4(non_shift_sign  | shift_sign); //opencl版を変更、xorしてからマスク
+    mask = (dat0 ^ dat1) & u8x4(non_shift_sign  | shift_sign);
     deint = dat0         & u8x4(non_shift_deint | shift_deint);
     shift = dat0         & u8x4(non_shift_shift | shift_shift);
     mask |= (mask << 1);
@@ -305,7 +305,6 @@ Flags generate_flags(int ly, int idepth, uint32_t *__restrict__ ptr_shared) {
     dat1 = ptr_shared[shared_int_idx(0, ly-3, idepth)];
     Flags count_shift = dat1 & u8x4(non_shift_shift | shift_shift);
 
-    //opencl版を変更、shiftは+0, +1, +2, +3の位置を見る
     dat0 = ptr_shared[shared_int_idx(0, ly-2, idepth)];
     count_flags_skip(dat0, dat1, count_deint, count_shift);
 
@@ -318,8 +317,7 @@ Flags generate_flags(int ly, int idepth, uint32_t *__restrict__ ptr_shared) {
     //      7       6         5        4        3        2        1       0
     // | motion  |         non-shift        | motion  |          shift          |
     // |  shift  |  sign  |  shift |  deint |  flag   | sign  |  shift |  deint |
-    //motion 0x8888 -> 0x4444 とするため右シフト 
-    //opencl版を変更、motionは+0の位置を見る
+    //motion 0x8888 -> 0x4444 とするため右シフト
     Flags flag0 = (dat0 & u8x4(motion_flag | motion_shift)) >> 1; //motion flag / motion shift
 
     //nonshift deint - countbit:654 / setbit 0x01
@@ -386,7 +384,7 @@ __global__ void kernel_afs_analyze_12(
     const int gidy = blockIdx.y; //グループID
     const int imgx = blockIdx.x * BLOCK_INT_X /*blockDim.x*/ + threadIdx.x;
     int imgy = (gidy * BLOCK_LOOP_Y * BLOCK_Y + ly);
-    const int imgy_block_fin = min(h, ((gidy + 1) * BLOCK_LOOP_Y) * BLOCK_Y); //opencl版を変更、ループでインクリメントする必要もない
+    const int imgy_block_fin = min(h, ((gidy + 1) * BLOCK_LOOP_Y) * BLOCK_Y);
     uint32_t motion_count = 0;
 
 #define CALL_ANALYZE_Y(p0, p1, y_offset) analyze_y<Type4, tb_order>((p0), (p1), (imgx), (imgy+(y_offset)), thre_Ymotion,  thre_deint,  thre_shift)
@@ -400,7 +398,6 @@ __global__ void kernel_afs_analyze_12(
     //前の4ライン分、計算しておく
     //sharedの SHARED_Y-4 ～ SHARED_Y-1 を埋める
     if (ly < 4) {
-        //opencl版を変更、offsetはly-4ではなく0
         //正方向に4行先読みする
         ptr_shared[shared_int_idx(0, ly, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 0);
         ptr_shared[shared_int_idx(0, ly, 1)] = CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, 0);
@@ -412,7 +409,6 @@ __global__ void kernel_afs_analyze_12(
         ly += BLOCK_Y
     ) {
         { //差分情報を計算
-          //opencl版を変更、+4の位置を処理
             ptr_shared[shared_int_idx(0, ly+4, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 4);
             ptr_shared[shared_int_idx(0, ly+4, 1)] = CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, 4);
             ptr_shared[shared_int_idx(0, ly+4, 2)] = CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, 4);
@@ -437,7 +433,7 @@ __global__ void kernel_afs_analyze_12(
             mask7 = ptr_shared[shared_int_idx(0, ly-4, 3)];
             mask1 &= u8x4(0x30);
             mask4 |= mask5 | mask6;
-            mask4 &= u8x4(0x33); //opencl版を変更、ここは0x30でなく0x33
+            mask4 &= u8x4(0x33);
             mask1 |= mask4 | mask7;
             if (imgx < width_int && (imgy - 4) < imgy_block_fin && ly - 4 >= 0) {
                 //motion_countの実行
