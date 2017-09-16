@@ -111,8 +111,12 @@ dllのバージョンを表示
 ## エンコードの基本的なオプション
 
 #### -d, --device &lt;int&gt;
-NVEncで使用するDeviceIdを指定する。(デフォルト:0)
-使用できるデバイスは、[--check-device](#--check-device)で確認してください。
+NVEncで使用するDeviceIdを指定する。使用できるデバイスは、[--check-device](#--check-device)で確認してください。
+
+デフォルトは自動。  
+複数利用可能なGPUがある場合、指定したエンコードオプションや入力ファイルのコーデック、
+Video Engine使用率、GPU使用率、GPUの世代、GPUのコア数などを考慮して自動的に使用するGPUを選択する。
+
 
 #### -c, --codec &lt;string&gt;
 エンコードするコーデックの指定
