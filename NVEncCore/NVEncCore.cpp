@@ -1907,10 +1907,8 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
 bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
     const bool interlacedEncode = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable));
     return
-        //cuvidのcropでは、左cropが正常に反映されない
-        inputParam->input.crop.e.left == 0
          //デフォルトの補間方法
-        && inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED
+        inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED
         //deinterlace bobとリサイズを有効にすると色成分が正常に出力されない場合がある
         && inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Bob
         //インタレ保持でない (インタレ保持リサイズをするにはCUDAで行う必要がある)
@@ -2524,10 +2522,6 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             || (cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN)) { //cropが必要ならただちに適用する
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
-            //avcuivd読みでは読み込み時にcropが適用されるないためここでcropを適用する必要がある
-            if (cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-                param->crop = inputParam->input.crop;
-            }
             param->frameIn = inputFrame;
             param->frameOut.csp = encCsp;
             switch (param->frameOut.csp) {
