@@ -52,6 +52,7 @@
 #include "nvml.h"
 #define NVML_DLL_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvml.dll)")
 #endif
+#define NVSMI_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvidia-smi.exe)")
 
 #ifndef HANDLE
 typedef void * HANDLE;
@@ -231,6 +232,15 @@ private:
 };
 #endif //#if ENABLE_METRIC_FRAMEWORK
 
+struct NVMLMonitorInfo {
+    bool bDataValid;
+    double dGPULoad;
+    double dGPUFreq;
+    double dVEELoad;
+    double dVEDLoad;
+    double dVEFreq;
+};
+
 #if ENABLE_NVML
 #define NVML_FUNCPTR(x) typedef decltype(x)* pf ## x;
 
@@ -267,15 +277,6 @@ struct NVMLFuncList {
 };
 #undef NVML_FUNC
 
-struct NVMLMonitorInfo {
-    bool bDataValid;
-    double dGPULoad;
-    double dGPUFreq;
-    double dVEELoad;
-    double dVEDLoad;
-    double dVEFreq;
-};
-
 class NVMLMonitor {
 private:
     HMODULE m_hDll;
@@ -293,7 +294,17 @@ public:
     nvmlReturn_t getData(NVMLMonitorInfo *info);
     nvmlReturn_t getDriverVersionx1000(int& ver);
 };
+
 #endif //#if ENABLE_NVML
+
+class NVSMIInfo {
+private:
+    std::string m_NVSMIOut;
+public:
+    NVSMIInfo() {};
+    ~NVSMIInfo() {};
+    int getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid);
+};
 
 struct CPerfMonitorPrm {
 #if ENABLE_NVML

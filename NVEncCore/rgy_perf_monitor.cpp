@@ -248,6 +248,77 @@ void NVMLMonitor::Close() {
 }
 #endif
 
+int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
+    memset(info, 0, sizeof(info[0]));
+
+    RGYPipeProcessWin process;
+    ProcessPipe pipes = { 0 };
+    pipes.stdOut.mode = PIPE_MODE_ENABLE;
+    std::vector<const TCHAR *> args;
+    args.push_back(NVSMI_PATH);
+    args.push_back(_T("-q"));
+    if (process.run(args, nullptr, &pipes, NORMAL_PRIORITY_CLASS, true, true)) {
+        return 1;
+    }
+    if (m_NVSMIOut.length() == 0) {
+        auto read_from_pipe = [&]() {
+            DWORD pipe_read = 0;
+            if (!PeekNamedPipe(pipes.stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
+                return -1;
+            if (pipe_read) {
+                char read_buf[1024] = { 0 };
+                ReadFile(pipes.stdOut.h_read, read_buf, sizeof(read_buf) - 1, &pipe_read, NULL);
+                m_NVSMIOut += read_buf;
+            }
+            return (int)pipe_read;
+        };
+
+        while (WAIT_TIMEOUT == WaitForSingleObject(process.getProcessInfo().hProcess, 10)) {
+            read_from_pipe();
+        }
+        for (;;) {
+            if (read_from_pipe() <= 0) {
+                break;
+            }
+        }
+        std::transform(m_NVSMIOut.cbegin(), m_NVSMIOut.cend(), m_NVSMIOut.begin(), tolower);
+    }
+    if (m_NVSMIOut.length() == 0) {
+        return 1;
+    }
+    const auto gpu_info_list = split(m_NVSMIOut, "\ngpu ");
+    for (const auto& gpu_str : gpu_info_list) {
+        if (gpu_str.substr(0, gpu_str.find("\n")).find(gpu_pcibusid) != std::string::npos) {
+            //対象のGPU
+            auto pos_utilization = gpu_str.find("utilization");
+            if (pos_utilization != std::string::npos) {
+                auto pos_gpu = gpu_str.find("gpu", pos_utilization);
+                if (pos_gpu != std::string::npos) {
+                    auto str_gpu = trim(gpu_str.substr(pos_gpu, gpu_str.find("\n", pos_gpu) - pos_gpu));
+                    if (str_gpu.length() > 0) {
+                        sscanf_s(str_gpu.c_str(), "gpu : %lf %%", &info->dGPULoad);
+                    }
+                }
+                auto pos_enc = gpu_str.find("encoder", pos_utilization);
+                if (pos_enc != std::string::npos) {
+                    auto str_enc = trim(gpu_str.substr(pos_enc, gpu_str.find("\n", pos_enc) - pos_enc));
+                    if (str_enc.length() > 0) {
+                        sscanf_s(str_enc.c_str(), "encoder : %lf %%", &info->dVEELoad);
+                    }
+                }
+                auto pos_dec = gpu_str.find("decoder", pos_utilization);
+                if (pos_dec != std::string::npos) {
+                    auto str_dec = trim(gpu_str.substr(pos_dec, gpu_str.find("\n", pos_dec) - pos_dec));
+                    if (str_dec.length() > 0) {
+                        sscanf_s(str_dec.c_str(), "decoder : %lf %%", &info->dVEDLoad);
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 tstring CPerfMonitor::SelectedCounters(int select) {
     if (select == 0) {
         return _T("none");
