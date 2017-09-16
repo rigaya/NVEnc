@@ -139,7 +139,10 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
     }
     m_hDll = LoadLibrary(NVML_DLL_PATH);
     if (m_hDll == NULL) {
-        return NVML_ERROR_NOT_FOUND;
+        m_hDll = LoadLibrary(_T("nvml.dll"));
+        if (m_hDll == NULL) {
+            return NVML_ERROR_NOT_FOUND;
+        }
     }
 #define LOAD_NVML_FUNC(x) { \
     if ( NULL == (m_func.f_ ## x = (pf ## x)GetProcAddress(m_hDll, #x )) ) { \
@@ -151,7 +154,7 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
     LOAD_NVML_FUNC(nvmlShutdown);
     LOAD_NVML_FUNC(nvmlErrorString);
     LOAD_NVML_FUNC(nvmlDeviceGetCount);
-    LOAD_NVML_FUNC(nvmlDeviceGetHandleByIndex);
+    LOAD_NVML_FUNC(nvmlDeviceGetHandleByPciBusId);
     LOAD_NVML_FUNC(nvmlDeviceGetUtilizationRates);
     LOAD_NVML_FUNC(nvmlDeviceGetEncoderUtilization);
     LOAD_NVML_FUNC(nvmlDeviceGetDecoderUtilization);
@@ -165,7 +168,7 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
 #undef LOAD_NVML_FUNC
 }
 
-nvmlReturn_t NVMLMonitor::Init(int deviceId) {
+nvmlReturn_t NVMLMonitor::Init(const std::string& pciBusId) {
     auto ret = LoadDll();
     if (ret != NVML_SUCCESS) {
         return ret;
@@ -174,7 +177,7 @@ nvmlReturn_t NVMLMonitor::Init(int deviceId) {
     if (ret != NVML_SUCCESS) {
         return ret;
     }
-    ret = m_func.f_nvmlDeviceGetHandleByIndex(deviceId, &m_device);
+    ret = m_func.f_nvmlDeviceGetHandleByPciBusId(pciBusId.c_str(), &m_device);
     if (ret != NVML_SUCCESS) {
         return ret;
     }
@@ -539,7 +542,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
-    auto nvml_ret = m_nvmlMonitor.Init(prm->deviceId);
+    auto nvml_ret = m_nvmlMonitor.Init(prm->pciBusId);
     if (nvml_ret != NVML_SUCCESS) {
         pRGYLog->write(RGY_LOG_INFO, _T("Failed to start NVML Monitoring.\n"));
     } else {

@@ -42,6 +42,7 @@
 #include <memory>
 #include <climits>
 #include <map>
+#include <list>
 #include <sstream>
 #include <functional>
 #include <type_traits>
@@ -873,6 +874,7 @@ typedef struct {
 } sTrimParam;
 
 typedef std::map<RGY_CODEC, vector<RGY_CSP>> CodecCsp;
+typedef std::vector<std::pair<int, CodecCsp>> DeviceCodecCsp;
 
 typedef std::vector<std::pair<tstring, tstring>> muxOptList;
 

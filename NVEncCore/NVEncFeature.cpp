@@ -107,7 +107,8 @@ int NVEncFeature::createCache(int deviceID) {
         InEncodeVideoParam inputParam;
         inputParam.encConfig = NVEncCore::DefaultParam();
         inputParam.deviceID = deviceID;
-        if (NV_ENC_SUCCESS != m_pNVEncCore->Initialize(&inputParam)) {
+        if (   NV_ENC_SUCCESS != m_pNVEncCore->Initialize(&inputParam)
+            || NV_ENC_SUCCESS != m_pNVEncCore->InitDevice(&inputParam)) {
             SetEvent(m_hEvCreateCodecCache);
         } else {
             m_pNVEncCore->createDeviceCodecList();

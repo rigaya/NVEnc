@@ -685,6 +685,8 @@ typedef struct AVDemuxVideo {
 
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
     AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
+
+    int                       nHWDecodeDeviceId;     //HWデコードする場合の
 } AVDemuxVideo;
 
 typedef struct AVDemuxStream {
@@ -746,7 +748,7 @@ typedef struct AvcodecReaderPrm {
     int            nInputThread;            //入力スレッドを有効にする
     bool           bAudioIgnoreNoTrackError; //音声が見つからなかった場合のエラーを無視する
     PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
-    const CodecCsp *pHWDecCodecCsp;           //HWデコーダのサポートするコーデックと色空間
+    DeviceCodecCsp *pHWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
 } AvcodecReaderPrm;
 
 
@@ -797,6 +799,9 @@ public:
 
     //動画の最初のフレームのptsを取得する
     int64_t GetVideoFirstKeyPts();
+
+    //入力に使用する予定のdeviceIDを取得する
+    int GetHWDecDeviceID();
 
     //入力スレッドのハンドルを取得する
     HANDLE getThreadHandleInput();

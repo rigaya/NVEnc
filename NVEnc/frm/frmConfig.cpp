@@ -823,12 +823,13 @@ System::Void frmConfig::AdjustLocation() {
     }
 }
 
-std::vector<std::pair<uint32_t, tstring>> get_gpu_list();
+std::vector<NVGPUInfo> get_gpu_list();
 
 System::Void frmConfig::InitForm() {
     fcgCXDevice->Items->Clear();
+    fcgCXDevice->Items->Add(String(_T("Auto")).ToString());
     for (auto& gpu : get_gpu_list()) {
-        fcgCXDevice->Items->Add(String(gpu.second.c_str()).ToString());
+        fcgCXDevice->Items->Add(String(gpu.name.c_str()).ToString());
     }
     //CPU情報の取得
     SetupFeatureTable();
@@ -910,7 +911,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUAspectRatioX, abs(cnf->nvenc.par[0]));
     SetNUValue(fcgNUAspectRatioY, abs(cnf->nvenc.par[1]));
 
-    SetCXIndex(fcgCXDevice,      cnf->nvenc.deviceID);
+    SetCXIndex(fcgCXDevice,      cnf->nvenc.deviceID+1);
     SetCXIndex(fcgCXCudaSchdule, cnf->nvenc.cuda_schedule);
     fcgCBPerfMonitor->Checked = 0 != cnf->nvenc.perf_monitor;
 
@@ -1093,7 +1094,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         cnf->nvenc.par[1] *= -1;
     }
 
-    cnf->nvenc.deviceID = (int)fcgCXDevice->SelectedIndex;
+    cnf->nvenc.deviceID = (int)fcgCXDevice->SelectedIndex-1;
     cnf->nvenc.cuda_schedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
 
     //QPDetail
@@ -1612,8 +1613,6 @@ System::Void frmConfig::SetupFeatureTable() {
     fcgDGVFeaturesH264->DataSource = dataTableNVEncFeaturesH264; //テーブルをバインド
     fcgDGVFeaturesHEVC->DataSource = dataTableNVEncFeaturesHEVC; //テーブルをバインド
 }
-
-std::vector<std::pair<uint32_t, tstring>> get_gpu_list();
 
 System::Void frmConfig::SetEnvironmentInfo() {
     //CPU名

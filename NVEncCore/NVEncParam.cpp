@@ -29,6 +29,22 @@
 
 using std::vector;
 
+tstring get_codec_profile_name_from_guid(RGY_CODEC codec, const GUID& codecProfileGUID) {
+    switch (codec) {
+    case RGY_CODEC_H264: return get_name_from_guid(codecProfileGUID, h264_profile_names);
+    case RGY_CODEC_HEVC: return get_name_from_guid(codecProfileGUID, h265_profile_names);
+    default: return _T("Unknown codec.\n");
+    }
+}
+
+tstring get_codec_level_name(RGY_CODEC codec, int level) {
+    switch (codec) {
+    case RGY_CODEC_H264: return get_chr_from_value(list_avc_level, level);
+    case RGY_CODEC_HEVC: return get_chr_from_value(list_hevc_level, level);
+    default: return _T("Unknown codec.\n");
+    }
+}
+
 VppKnn::VppKnn() :
     enable(false),
     radius(FILTER_DEFAULT_KNN_RADIUS),

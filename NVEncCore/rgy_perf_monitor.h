@@ -238,7 +238,7 @@ NVML_FUNCPTR(nvmlInit);
 NVML_FUNCPTR(nvmlShutdown);
 NVML_FUNCPTR(nvmlErrorString);
 NVML_FUNCPTR(nvmlDeviceGetCount);
-NVML_FUNCPTR(nvmlDeviceGetHandleByIndex);
+NVML_FUNCPTR(nvmlDeviceGetHandleByPciBusId);
 NVML_FUNCPTR(nvmlDeviceGetUtilizationRates);
 NVML_FUNCPTR(nvmlDeviceGetEncoderUtilization);
 NVML_FUNCPTR(nvmlDeviceGetDecoderUtilization);
@@ -256,7 +256,7 @@ struct NVMLFuncList {
     NVML_FUNC(nvmlShutdown)
     NVML_FUNC(nvmlErrorString)
     NVML_FUNC(nvmlDeviceGetCount)
-    NVML_FUNC(nvmlDeviceGetHandleByIndex)
+    NVML_FUNC(nvmlDeviceGetHandleByPciBusId)
     NVML_FUNC(nvmlDeviceGetUtilizationRates)
     NVML_FUNC(nvmlDeviceGetEncoderUtilization)
     NVML_FUNC(nvmlDeviceGetDecoderUtilization)
@@ -289,7 +289,7 @@ public:
     ~NVMLMonitor() {
         Close();
     }
-    nvmlReturn_t Init(int deviceId);
+    nvmlReturn_t Init(const std::string& pciBusId);
     nvmlReturn_t getData(NVMLMonitorInfo *info);
     nvmlReturn_t getDriverVersionx1000(int& ver);
 };
@@ -297,7 +297,7 @@ public:
 
 struct CPerfMonitorPrm {
 #if ENABLE_NVML
-    int deviceId;
+    const char *pciBusId;
 #endif
     char reserved[256];
 };

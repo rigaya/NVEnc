@@ -671,10 +671,26 @@ public:
     }
 };
 
+struct NVGPUInfo {
+    int id;                 //CUDA device id
+    std::string pciBusId;   //PCI Bus ID
+    tstring name;           //GPU名
+    std::pair<int, int> compute_capability;
+    int nv_driver_version;   //1000倍
+    int cuda_driver_version; //1000倍
+    int cuda_cores;          //CUDAコア数
+    int clock_rate;          //基本動作周波数(Hz)
+    CodecCsp cuvid_csp;      //デコード機能
+    vector<NVEncCodecFeature> nvenc_codec_features; //エンコード機能
+};
+
 typedef void* nvfeature_t;
 nvfeature_t nvfeature_create();
 int nvfeature_createCacheAsync(nvfeature_t obj, int deviceID);
 const std::vector<NVEncCodecFeature>& nvfeature_GetCachedNVEncCapability(nvfeature_t obj);
+
+tstring get_codec_profile_name_from_guid(RGY_CODEC codec, const GUID& codecProfileGUID);
+tstring get_codec_level_name(RGY_CODEC codec, int level);
 
 //featureリストからHEVCのリストを取得 (HEVC非対応ならnullptr)
 const NVEncCodecFeature *nvfeature_GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures);

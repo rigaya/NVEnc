@@ -35,6 +35,7 @@
 #include "nvEncodeAPI.h"
 #include <tchar.h>
 #include <vector>
+#include <list>
 #include <string>
 #include "rgy_input.h"
 #include "rgy_output.h"
@@ -95,13 +96,13 @@ struct InputFrameBufInfo {
 class NVEncoderGPUInfo
 {
 public:
-    NVEncoderGPUInfo();
+    NVEncoderGPUInfo(int deviceId, bool getFeatures);
     ~NVEncoderGPUInfo();
-    const std::vector<std::pair<uint32_t, tstring>> getGPUList() {
+    const std::list<NVGPUInfo> getGPUList() {
         return GPUList;
     }
 private:
-    std::vector<std::pair<uint32_t, tstring>> GPUList;
+    std::list<NVGPUInfo> GPUList;
 };
 
 struct InEncodeVideoParam {
@@ -176,6 +177,9 @@ public:
     //CUDAインターフェース・デバイスの初期化
     virtual NVENCSTATUS Initialize(InEncodeVideoParam *inputParam);
 
+    //デバイスの初期化
+    virtual NVENCSTATUS InitDevice(const InEncodeVideoParam *inputParam);
+
     //エンコードの初期化 (デバイスの初期化(Initialize())後に行うこと)
     virtual NVENCSTATUS InitEncode(InEncodeVideoParam *inputParam);
 
@@ -222,11 +226,14 @@ protected:
     //ログを初期化
     virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);
 
-    //CUDAインターフェースを初期化
-    NVENCSTATUS InitCuda(uint32_t deviceID, int cudaSchedule);
+    //GPUListのGPUが必要なエンコードを行えるかチェック
+    NVENCSTATUS CheckGPUListByEncoder(const InEncodeVideoParam *inputParam);
 
-    //エンコードデバイスを初期化
-    NVENCSTATUS InitDevice(const InEncodeVideoParam *inputParam);
+    //GPUを自動的に選択する
+    NVENCSTATUS GPUAutoSelect(const InEncodeVideoParam *inputParam);
+
+    //CUDAインターフェースを初期化
+    NVENCSTATUS InitCuda(int cudaSchedule);
 
     //inputParamからエンコーダに渡すパラメータを設定
     NVENCSTATUS SetInputParam(const InEncodeVideoParam *inputParam);
@@ -269,6 +276,8 @@ protected:
     //vpp-afsのrffが使用されているか
     bool VppAfsRffAware();
 
+    std::list<NVGPUInfo>         m_GPUList;               //GPUのリスト
+
     bool                        *m_pAbortByUser;          //ユーザーからの中断指令
     shared_ptr<RGYLog>           m_pNVLog;                //ログ出力管理
 
@@ -276,7 +285,7 @@ protected:
     CUdevice                     m_device;                //CUDAデバイスインスタンス
     CUcontext                    m_cuContextCurr;         //CUDAコンテキスト
     CUvideoctxlock               m_ctxLock;               //CUDAロック
-    uint32_t                     m_nDeviceId;             //DeviceId
+    int                          m_nDeviceId;             //DeviceId
     void                        *m_pDevice;               //デバイスインスタンス
     NV_ENCODE_API_FUNCTION_LIST *m_pEncodeAPI;            //NVEnc APIの関数リスト
     HINSTANCE                    m_hinstLib;              //nvEncodeAPI.dllのモジュールハンドル
@@ -310,7 +319,6 @@ protected:
     rgy_rational<int>            m_inputFps;              //入力フレームレート
     rgy_rational<int>            m_outputTimebase;        //出力のtimebase
 #if ENABLE_AVSW_READER
-    CodecCsp                     m_cuvidCodecCsp;         //デコードでサポートされる色空間
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
 #endif //#if ENABLE_AVSW_READER
     //サブメソッド

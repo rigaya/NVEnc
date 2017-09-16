@@ -211,7 +211,8 @@ static tstring help() {
         _T("\n"));
     str += strsprintf(_T("\n")
         _T("Basic Encoding Options: \n")
-        _T("-d,--device <int>               set DeviceId used in NVEnc (default:0)\n")
+        _T("-d,--device <int>               set DeviceId used in NVEnc (default:-1 as auto)\n")
+        _T("                                  use --check-device to show device ids.\n")
         _T("\n")
         _T("-i,--input <filename>           set input filename\n")
         _T("-o,--output <filename>          set output filename\n")
@@ -771,15 +772,15 @@ static void show_device_list() {
         return;
     }
 
-    NVEncoderGPUInfo gpuInfo;
+    NVEncoderGPUInfo gpuInfo(-1, false);
     auto gpuList = gpuInfo.getGPUList();
     if (0 == gpuList.size()) {
         _ftprintf(stdout, _T("No GPU found suitable for NVEnc Encoding.\n"));
         return;
     }
 
-    for (uint32_t i = 0; i < gpuList.size(); i++) {
-        _ftprintf(stdout, _T("DeviceId #%d: %s\n"), gpuList[i].first, gpuList[i].second.c_str());
+    for (const auto& gpu : gpuList) {
+        _ftprintf(stdout, _T("DeviceId #%d: %s\n"), gpu.id, gpu.name.c_str());
     }
 }
 
