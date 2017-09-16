@@ -346,13 +346,23 @@ DAR比 (画面アスペクト比) の指定。
 フルレンジYUVとしてエンコードする。
 
 #### --videoformat &lt;string&gt;
-  `undef, ntsc, component, pal, secam, mac`
+```
+  undef, ntsc, component, pal, secam, mac
+```
 #### --colormatrix &lt;string&gt;
-  `undef, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR`
+```
+  undef, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+```
 #### --colorprim &lt;string&gt;
-  `undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, film`
+```
+  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+```
 #### --transfer &lt;string&gt;
-  `undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear, log100, log316`  
+```
+  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
+```  
 各種フラグの設定。
 
 #### --cabac [H.264のみ]

@@ -229,8 +229,8 @@ const CX_DESC list_transfer[] = {
     { _T("iec61966-2-1"),  13 },
     { _T("bt2020-10"),     14 },
     { _T("bt2020-12"),     15 },
-    { _T("smpte-st-2084"), 16 },
-    { _T("smpte-st-428"),  17 },
+    { _T("smpte2084"),     16 },
+    { _T("smpte428"),      17 },
     { _T("arib-srd-b67"),  18 },
     { NULL, NULL }
 };
