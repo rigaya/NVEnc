@@ -788,11 +788,40 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 - radius=&lt;int&gt; (default=3, 1-9)  
   輪郭・ディテール検出の範囲。より大きな値とすることで、より広い範囲のディテールに反応して強調をかけるようになる。
 
-- weight=&lt;float&gt; (default=0.5)  
+- weight=&lt;float&gt; (default=0.5, 0-10)  
   輪郭・ディテール強調の強さ。より大きな値とすることで、強く強調がかかる。
 
-- threshold=&lt;float&gt;  (default=10.0)  
+- threshold=&lt;float&gt;  (default=10.0, 0-255)  
   輪郭・ディテール検出の閾値。閾値以上の差異がある画素に対して、輪郭強調を行う。
+
+```
+例: やや強め
+--vpp-unsharp weight=1.0
+```
+
+#### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+エッジレベル調整フィルタ。輪郭強調用のフィルタ。
+
+**パラメータ**
+- strength=&lt;float&gt; (default=5.0, -31 - 31)  
+  輪郭強調の強さ。より大きな値とすることで、より広い範囲のディテールに反応して強調をかけるようになる。
+
+- threshold=&lt;float&gt;  (default=20.0, 0 - 255)  
+  輪郭強調を行わないようにするノイズの閾値。より大きな値ほど大きな輝度の変化をノイズとして扱うようになる。
+
+- black=&lt;float&gt;  (default=0.0, 0-31)  
+  輪郭の黒い部分について、より黒くシュートさせて輪郭を強調するようにする。
+
+- white=&lt;float&gt;  (default=0.0, 0-31)  
+  輪郭の白く部分について、より白くシュートさせて輪郭を強調するようにする。
+
+```
+例: やや強め(Aviutl版のデフォルト)
+--vpp-edgelevel strength=10.0,threshold=16.0,black=0,white=0
+
+例: 輪郭の黒い部分を気持ち強める
+--vpp-edgelevel strength=5.0,threshold=24.0,black=6.0
+```
 
 #### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 

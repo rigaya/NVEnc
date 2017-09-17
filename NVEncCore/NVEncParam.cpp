@@ -46,11 +46,19 @@ tstring get_codec_level_name(RGY_CODEC codec, int level) {
 }
 
 VppUnsharp::VppUnsharp() :
-    bEnable(false),
+    enable(false),
     radius(FILTER_DEFAULT_UNSHARP_RADIUS),
     weight(FILTER_DEFAULT_UNSHARP_WEIGHT),
     threshold(FILTER_DEFAULT_UNSHARP_THRESHOLD) {
 
+}
+
+VppEdgelevel::VppEdgelevel() :
+    enable(false),
+    strength(FILTER_DEFAULT_EDGELEVEL_STRENGTH),
+    threshold(FILTER_DEFAULT_EDGELEVEL_THRESHOLD),
+    black(FILTER_DEFAULT_EDGELEVEL_BLACK),
+    white(FILTER_DEFAULT_EDGELEVEL_WHITE) {
 }
 
 VppKnn::VppKnn() :
@@ -93,13 +101,13 @@ VppParam::VppParam() :
     resizeInterp(NPPI_INTER_UNDEFINED),
     gaussMaskSize((NppiMaskSize)0),
     unsharp(),
+    edgelevel(),
     delogo(),
     knn(),
     pmd(),
     deband(),
     afs(),
     rff(false) {
-    unsharp.bEnable = false;
     delogo.pFilePath = nullptr;
     delogo.pSelect = nullptr;
     delogo.nPosOffsetX = 0;

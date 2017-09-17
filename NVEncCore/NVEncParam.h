@@ -47,6 +47,10 @@ static const int   FILTER_DEFAULT_DELOGO_DEPTH = 128;
 static const int   FILTER_DEFAULT_UNSHARP_RADIUS = 3;
 static const float FILTER_DEFAULT_UNSHARP_WEIGHT = 0.5f;
 static const float FILTER_DEFAULT_UNSHARP_THRESHOLD = 10.0f;
+static const float FILTER_DEFAULT_EDGELEVEL_STRENGTH = 5.0f;
+static const float FILTER_DEFAULT_EDGELEVEL_THRESHOLD = 20.0f;
+static const float FILTER_DEFAULT_EDGELEVEL_BLACK = 0.0f;
+static const float FILTER_DEFAULT_EDGELEVEL_WHITE = 0.0f;
 static const int   FILTER_DEFAULT_KNN_RADIUS = 3;
 static const float FILTER_DEFAULT_KNN_STRENGTH = 0.08f;
 static const float FILTER_DEFAULT_KNN_LERPC = 0.20f;
@@ -525,12 +529,22 @@ static int get_value(int id, const std::vector<NVEncCap>& capList) {
 }
 
 struct VppUnsharp {
-    bool  bEnable;
+    bool  enable;
     int   radius;
     float weight;
     float threshold;
 
     VppUnsharp();
+};
+
+struct VppEdgelevel {
+    bool  enable;
+    float strength;
+    float threshold;
+    float black;
+    float white;
+
+    VppEdgelevel();
 };
 
 struct VppKnn {
@@ -653,6 +667,7 @@ struct VppParam {
     } delogo;
 
     VppUnsharp unsharp;
+    VppEdgelevel edgelevel;
     VppKnn knn;
     VppPmd pmd;
     VppDeband deband;

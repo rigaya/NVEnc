@@ -477,6 +477,17 @@ static tstring help() {
         _T("      threshold=<float>         min brightness change to be sharpened (default=%.2f, 0-255)\n"),
         FILTER_DEFAULT_UNSHARP_RADIUS, FILTER_DEFAULT_UNSHARP_WEIGHT, FILTER_DEFAULT_UNSHARP_THRESHOLD);
     str += strsprintf(_T("\n")
+        _T("   --vpp-edgelevel [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     edgelevel filter to enhance edge.\n")
+        _T("    params\n")
+        _T("      strength=<float>          strength (default=%d, -31 - 31)\n")
+        _T("      threshold=<float>         threshold to ignore noise (default=%.1f, 0-255)\n")
+        _T("      black=<float>             allow edge to be darker on edge enhancement\n")
+        _T("                                  (default=%.1f, 0-31)\n")
+        _T("      white=<float>             allow edge to be brighter on edge enhancement\n")
+        _T("                                  (default=%.1f, 0-31)\n"),
+        FILTER_DEFAULT_EDGELEVEL_STRENGTH, FILTER_DEFAULT_EDGELEVEL_THRESHOLD, FILTER_DEFAULT_EDGELEVEL_BLACK, FILTER_DEFAULT_EDGELEVEL_WHITE);
+    str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable deband filter.\n")
         _T("    params\n")
@@ -2018,7 +2029,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("vpp-unsharp")) {
-        pParams->vpp.unsharp.bEnable = true;
+        pParams->vpp.unsharp.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
             pParams->vpp.unsharp.radius = FILTER_DEFAULT_UNSHARP_RADIUS;
             return 0;
@@ -2051,6 +2062,60 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 if (param_arg == _T("threshold")) {
                     try {
                         pParams->vpp.unsharp.threshold = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-edgelevel")) {
+        pParams->vpp.edgelevel.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("strength")) {
+                    try {
+                        pParams->vpp.edgelevel.strength = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("threshold")) {
+                    try {
+                        pParams->vpp.edgelevel.threshold = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("black")) {
+                    try {
+                        pParams->vpp.edgelevel.black = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("white")) {
+                    try {
+                        pParams->vpp.edgelevel.white = std::stof(param_val);
                     } catch (...) {
                         PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;

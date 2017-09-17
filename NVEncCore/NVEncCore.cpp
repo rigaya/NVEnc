@@ -69,6 +69,7 @@
 #include "NVEncFilterAfs.h"
 #include "NVEncFilterRff.h"
 #include "NVEncFilterUnsharp.h"
+#include "NVEncFilterEdgelevel.h"
 #include "NVEncFeature.h"
 #include "chapter_rw.h"
 #include "helper_cuda.h"
@@ -1917,7 +1918,6 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
         //フィルタ処理が必要
         && !(  inputParam->vpp.delogo.pFilePath
             || inputParam->vpp.gaussMaskSize > 0
-            || inputParam->vpp.unsharp.bEnable
             || inputParam->vpp.knn.enable
             || inputParam->vpp.pmd.enable
             || inputParam->vpp.afs.enable);
@@ -2482,10 +2482,11 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (bResizeRequired
         || inputParam->vpp.delogo.pFilePath
         || inputParam->vpp.gaussMaskSize > 0
-        || inputParam->vpp.unsharp.bEnable
+        || inputParam->vpp.unsharp.enable
         || inputParam->vpp.knn.enable
         || inputParam->vpp.pmd.enable
         || inputParam->vpp.deband.enable
+        || inputParam->vpp.edgelevel.enable
         || inputParam->vpp.afs.enable
         || inputParam->vpp.rff
         ) {
@@ -2738,6 +2739,26 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             }
             //フィルタチェーンに追加
             m_vpFilters.push_back(std::move(filterUnsharp));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
+        //edgelevel
+        if (inputParam->vpp.edgelevel.enable) {
+            unique_ptr<NVEncFilter> filterEdgelevel(new NVEncFilterEdgelevel());
+            shared_ptr<NVEncFilterParamEdgelevel> param(new NVEncFilterParamEdgelevel());
+            param->edgelevel = inputParam->vpp.edgelevel;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filterEdgelevel->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filterEdgelevel));
             //パラメータ情報を更新
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
