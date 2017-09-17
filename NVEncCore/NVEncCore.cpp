@@ -3095,7 +3095,6 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return gpuinfo.id == device_id;
     });
     if (true) {
-        m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
         const bool bLogOutput = inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot;
         tstring perfMonLog;
         if (bLogOutput) {
@@ -3190,6 +3189,8 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_DEVICE;
     }
     m_nDeviceId = inputParam->deviceID;
+    //入力などにも渡すため、まずはインスタンスを作っておく必要がある
+    m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
     return nvStatus;
 }
 
