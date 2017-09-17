@@ -2880,7 +2880,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     //エンコーダの対応をチェック
-    for (auto gpu = m_GPUList.begin(); gpu != m_GPUList.end(); gpu++) {
+    for (auto gpu = m_GPUList.begin(); gpu != m_GPUList.end(); ) {
         //コーデックのチェック
         const auto codec = std::find_if(gpu->nvenc_codec_features.begin(), gpu->nvenc_codec_features.end(), [rgy_codec](const NVEncCodecFeature& codec) {
             return codec.codec == codec_guid_rgy_to_enc(rgy_codec);
@@ -2889,7 +2889,6 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
             PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) cannot encode codec %s, dropped from list.\n"),
                 gpu->id, gpu->name.c_str(), CodecToStr(rgy_codec).c_str());
             gpu = m_GPUList.erase(gpu);
-            gpu--;
             continue;
         }
         //プロファイルのチェック
@@ -2919,17 +2918,16 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
                 CodecToStr(rgy_codec).c_str(),
                 get_codec_profile_name_from_guid(rgy_codec, codecProfileGUID).c_str());
             gpu = m_GPUList.erase(gpu);
-            gpu--;
             continue;
         }
         if (   (inputParam->lossless && !get_value(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE, codec->caps))
             || (inputParam->yuv444 && !get_value(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE, codec->caps))
             || (inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0 && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps))) {
             gpu = m_GPUList.erase(gpu);
-            gpu--;
             continue;
         }
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) available for encode.\n"), gpu->id, gpu->name.c_str());
+        gpu++;
     }
     return NV_ENC_SUCCESS;
 }
