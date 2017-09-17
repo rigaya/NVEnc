@@ -716,9 +716,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     write_header(m_fpLog.get(),   m_nSelectOutputLog);
     write_header(m_pipes.f_stdin, m_nSelectOutputPlot);
 
-    if ((m_nSelectOutputLog || m_nSelectOutputPlot) && (m_fpLog || m_pipes.f_stdin)) {
-        m_thCheck = std::thread(loader, this);
-    }
+    m_thCheck = std::thread(loader, this);
     return 0;
 }
 
