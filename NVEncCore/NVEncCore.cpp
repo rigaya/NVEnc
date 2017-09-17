@@ -2721,12 +2721,8 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
         }
-        //実装予定: エッジ調整
-        if (inputParam->vpp.unsharp.bEnable) {
-#if _M_IX86
-            PrintMes(RGY_LOG_ERROR, _T("unsharp filter not supported in x86.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
-#else
+        //unsharp
+        if (inputParam->vpp.unsharp.enable) {
             unique_ptr<NVEncFilter> filterUnsharp(new NVEncFilterUnsharp());
             shared_ptr<NVEncFilterParamUnsharp> param(new NVEncFilterParamUnsharp());
             param->unsharp.radius = inputParam->vpp.unsharp.radius;
@@ -2746,7 +2742,6 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
-#endif
         }
         //deband
         if (inputParam->vpp.deband.enable) {
