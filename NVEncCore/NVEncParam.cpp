@@ -45,6 +45,14 @@ tstring get_codec_level_name(RGY_CODEC codec, int level) {
     }
 }
 
+VppUnsharp::VppUnsharp() :
+    bEnable(false),
+    radius(FILTER_DEFAULT_UNSHARP_RADIUS),
+    weight(FILTER_DEFAULT_UNSHARP_WEIGHT),
+    threshold(FILTER_DEFAULT_UNSHARP_THRESHOLD) {
+
+}
+
 VppKnn::VppKnn() :
     enable(false),
     radius(FILTER_DEFAULT_KNN_RADIUS),

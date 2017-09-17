@@ -44,6 +44,9 @@
 using std::vector;
 
 static const int   FILTER_DEFAULT_DELOGO_DEPTH = 128;
+static const int   FILTER_DEFAULT_UNSHARP_RADIUS = 3;
+static const float FILTER_DEFAULT_UNSHARP_WEIGHT = 0.5f;
+static const float FILTER_DEFAULT_UNSHARP_THRESHOLD = 10.0f;
 static const int   FILTER_DEFAULT_KNN_RADIUS = 3;
 static const float FILTER_DEFAULT_KNN_STRENGTH = 0.08f;
 static const float FILTER_DEFAULT_KNN_LERPC = 0.20f;
@@ -521,6 +524,15 @@ static int get_value(int id, const std::vector<NVEncCap>& capList) {
     return 0;
 }
 
+struct VppUnsharp {
+    bool  bEnable;
+    int   radius;
+    float weight;
+    float threshold;
+
+    VppUnsharp();
+};
+
 struct VppKnn {
     bool  enable;
     int   radius;
@@ -629,14 +641,6 @@ struct VppParam {
     NppiMaskSize             gaussMaskSize;
 
     struct {
-        bool  bEnable;
-        float radius;
-        float sigma;
-        float weight;
-        float threshold;
-    } unsharp;
-
-    struct {
         TCHAR *pFilePath; //ロゴファイル名へのポインタ
         TCHAR *pSelect; //選択するロゴ
         int    nPosOffsetX;
@@ -648,6 +652,7 @@ struct VppParam {
         int    nMode;
     } delogo;
 
+    VppUnsharp unsharp;
     VppKnn knn;
     VppPmd pmd;
     VppDeband deband;

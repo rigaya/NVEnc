@@ -469,6 +469,14 @@ static tstring help() {
         _T("                                  lower value will preserve edge.\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
     str += strsprintf(_T("\n")
+        _T("   --vpp-unsharp [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable unsharp filter.\n")
+        _T("    params\n")
+        _T("      radius=<int>              filter range for edge detection (default=%d)\n")
+        _T("      weight=<float>            strength of filter (default=%.2f)\n")
+        _T("      threshold=<float>         min brightness change to be sharpened (default=%.2f)\n"),
+        FILTER_DEFAULT_UNSHARP_RADIUS, FILTER_DEFAULT_UNSHARP_WEIGHT, FILTER_DEFAULT_UNSHARP_THRESHOLD);
+    str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable deband filter.\n")
         _T("    params\n")
@@ -2011,6 +2019,48 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("vpp-unsharp")) {
         pParams->vpp.unsharp.bEnable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            pParams->vpp.unsharp.radius = FILTER_DEFAULT_UNSHARP_RADIUS;
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("radius")) {
+                    try {
+                        pParams->vpp.unsharp.radius = std::stoi(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("weight")) {
+                    try {
+                        pParams->vpp.unsharp.weight = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("threshold")) {
+                    try {
+                        pParams->vpp.unsharp.threshold = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
         return 0;
     }
     if (IS_OPTION("vpp-delogo")

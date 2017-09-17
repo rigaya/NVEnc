@@ -68,6 +68,7 @@
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncFilterRff.h"
+#include "NVEncFilterUnsharp.h"
 #include "NVEncFeature.h"
 #include "chapter_rw.h"
 #include "helper_cuda.h"
@@ -2728,10 +2729,9 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 #else
             unique_ptr<NVEncFilter> filterUnsharp(new NVEncFilterUnsharp());
             shared_ptr<NVEncFilterParamUnsharp> param(new NVEncFilterParamUnsharp());
-            param->radius = inputParam->vpp.unsharp.radius;
-            param->sigma = inputParam->vpp.unsharp.sigma;
-            param->weight = inputParam->vpp.unsharp.weight;
-            param->threshold = inputParam->vpp.unsharp.threshold;
+            param->unsharp.radius = inputParam->vpp.unsharp.radius;
+            param->unsharp.weight = inputParam->vpp.unsharp.weight;
+            param->unsharp.threshold = inputParam->vpp.unsharp.threshold;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->bOutOverwrite = false;

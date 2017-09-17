@@ -451,30 +451,3 @@ protected:
     virtual void close() override;
     bool m_bInterlacedWarn;
 };
-
-
-
-class NVEncFilterParamUnsharp : public NVEncFilterParam {
-public:
-    float radius;
-    float sigma;
-    float weight;
-    float threshold;
-    virtual ~NVEncFilterParamUnsharp() {};
-};
-
-class NVEncFilterUnsharp : public NVEncFilter {
-public:
-    NVEncFilterUnsharp();
-    virtual ~NVEncFilterUnsharp();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
-protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
-    cudaError_t AllocScratch(int nScratchSize);
-    NVENCSTATUS unsharpYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pScratch);
-    NVENCSTATUS unsharpYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pScratch);
-    virtual void close() override;
-
-    bool m_bInterlacedWarn;
-    vector<unique_ptr<CUMemBuf>> m_pScratchBuf;
-};

@@ -781,6 +781,19 @@ log=0
 nppi64_80.dll導入が必要で、x64版のみ使用可。
 適用サイズを指定してガウスフィルタをかける。サイズは3,5,7のどれか。
 
+#### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
+
+**パラメータ**
+- radius=&lt;int&gt; (default=3, 1-9)  
+  輪郭・ディテール検出の範囲。より大きな値とすることで、より広い範囲のディテールに反応して強調をかけるようになる。
+
+- weight=&lt;float&gt; (default=0.5)  
+  輪郭・ディテール強調の強さ。より大きな値とすることで、強く強調がかかる。
+
+- threshold=&lt;float&gt;  (default=10.0)  
+  輪郭・ディテール検出の閾値。閾値以上の差異がある画素に対して、輪郭強調を行う。
+
 #### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **パラメータ**

@@ -607,10 +607,10 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <CudaCompile Include="NVEncFilterResize.cu">
       <FileType>CppCode</FileType>
     </CudaCompile>
-    <ClCompile Include="NVEncFilterUnsharp.cpp" />
     <ClCompile Include="NVEncFrameInfo.cpp" />
     <ClCompile Include="NVEncCore.cpp" />
     <ClCompile Include="NVEncParam.cpp" />
+    <CudaCompile Include="NVEncFilterUnsharp.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\NVEncSDK\Common\inc\nvEncodeAPI.h" />
@@ -635,6 +635,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="NVEncFilterDenoiseKnn.h" />
     <ClInclude Include="NVEncFilterDenoisePmd.h" />
     <ClInclude Include="NVEncFilterRff.h" />
+    <ClInclude Include="NVEncFilterUnsharp.h" />
     <ClInclude Include="NVEncFrameInfo.h" />
     <ClInclude Include="NvEncoderPerf.h" />
     <ClInclude Include="NVEncCore.h" />
