@@ -301,8 +301,16 @@ NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared
         return NV_ENC_ERR_INVALID_PARAM;
     }
     if (pUnsharpParam->unsharp.radius < 1 && pUnsharpParam->unsharp.radius > UNSHARP_RADIUS_MAX) {
-        AddMessage(RGY_LOG_ERROR, _T("radius must be in range of 1-%d.\n"), UNSHARP_RADIUS_MAX);
+        AddMessage(RGY_LOG_WARN, _T("radius must be in range of 1-%d.\n"), UNSHARP_RADIUS_MAX);
         pUnsharpParam->unsharp.radius = clamp(pUnsharpParam->unsharp.radius, 1, UNSHARP_RADIUS_MAX);
+    }
+    if (pUnsharpParam->unsharp.weight < 0.0f || 10.0f < pUnsharpParam->unsharp.weight) {
+        pUnsharpParam->unsharp.weight = clamp(pUnsharpParam->unsharp.weight, 0.0f, 10.0f);
+        AddMessage(RGY_LOG_WARN, _T("weight should be in range of %.1f - %.1f.\n"), 0.0f, 10.0f);
+    }
+    if (pUnsharpParam->unsharp.threshold < 0.0f || 255.0f < pUnsharpParam->unsharp.threshold) {
+        pUnsharpParam->unsharp.threshold = clamp(pUnsharpParam->unsharp.threshold, 0.0f, 255.0f);
+        AddMessage(RGY_LOG_WARN, _T("threshold should be in range of %.1f - %.1f.\n"), 0.0f, 255.0f);
     }
 
     auto cudaerr = AllocFrameBuf(pUnsharpParam->frameOut, 1);

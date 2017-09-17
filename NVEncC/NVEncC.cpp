@@ -472,9 +472,9 @@ static tstring help() {
         _T("   --vpp-unsharp [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable unsharp filter.\n")
         _T("    params\n")
-        _T("      radius=<int>              filter range for edge detection (default=%d)\n")
-        _T("      weight=<float>            strength of filter (default=%.2f)\n")
-        _T("      threshold=<float>         min brightness change to be sharpened (default=%.2f)\n"),
+        _T("      radius=<int>              filter range for edge detection (default=%d, 1-9)\n")
+        _T("      weight=<float>            strength of filter (default=%.2f, 0-10)\n")
+        _T("      threshold=<float>         min brightness change to be sharpened (default=%.2f, 0-255)\n"),
         FILTER_DEFAULT_UNSHARP_RADIUS, FILTER_DEFAULT_UNSHARP_WEIGHT, FILTER_DEFAULT_UNSHARP_THRESHOLD);
     str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
