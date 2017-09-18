@@ -409,6 +409,13 @@ const CX_DESC list_vpp_denoise[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_vpp_detail_enahance[] = {
+    { _T("none"),       0 },
+    { _T("unsharp"),    1 },
+    { _T("edgelevel"),  2 },
+    { NULL, NULL }
+};
+
 const CX_DESC list_vpp_deband[] ={
     { _T("0 - 1点参照"),  0 },
     { _T("1 - 2点参照"),  1 },

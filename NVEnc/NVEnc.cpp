@@ -269,6 +269,7 @@ void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     ZeroMemory(conf, sizeof(CONF_GUIEX));
     guiEx_config::write_conf_header(conf);
+    conf->nvenc.deviceID = -1;
     conf->nvenc.enc_config = NVEncCore::DefaultParam();
     conf->nvenc.codecConfig[NV_ENC_H264] = NVEncCore::DefaultParamH264();
     conf->nvenc.codecConfig[NV_ENC_HEVC] = NVEncCore::DefaultParamHEVC();
@@ -284,6 +285,8 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     conf->vpp.pmd = VppPmd();
     conf->vpp.deband = VppDeband();
     conf->vpp.afs = VppAfs();
+    conf->vpp.unsharp = VppUnsharp();
+    conf->vpp.edgelevel = VppEdgelevel();
 }
 #pragma warning( pop )
 void write_log_auo_line_fmt(int log_type_index, const char *format, ... ) {

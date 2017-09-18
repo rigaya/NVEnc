@@ -113,6 +113,8 @@ typedef struct {
     VppPmd pmd;
     VppDeband deband;
     VppAfs afs;
+    VppUnsharp unsharp;
+    VppEdgelevel edgelevel;
 } CONF_VPP;
 
 typedef struct {

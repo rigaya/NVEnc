@@ -655,6 +655,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXCudaSchdule,       list_cuda_schedule);
     setComboBox(fcgCXVppResizeAlg,      list_nppi_resize);
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
+    setComboBox(fcgCXVppDetailEnhance,  list_vpp_detail_enahance);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
     setComboBox(fcgCXVppAfsAnalyze,     list_vpp_afs_analyze);
 
@@ -742,6 +743,8 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcggroupBoxResize->Enabled = fcgCBVppResize->Checked;
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
+    fcgPNVppUnsharp->Visible    = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
+    fcgPNVppEdgelevel->Visible  = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
     fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
     fcggroupBoxVppAfs->Enabled = fcCBVppAfsEnable->Checked;
 
@@ -823,7 +826,7 @@ System::Void frmConfig::AdjustLocation() {
     }
 }
 
-std::vector<NVGPUInfo> get_gpu_list();
+std::list<NVGPUInfo> get_gpu_list();
 
 System::Void frmConfig::InitForm() {
     fcgCXDevice->Items->Clear();
@@ -911,7 +914,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUAspectRatioX, abs(cnf->nvenc.par[0]));
     SetNUValue(fcgNUAspectRatioY, abs(cnf->nvenc.par[1]));
 
-    SetCXIndex(fcgCXDevice,      cnf->nvenc.deviceID+1);
+    SetCXIndex(fcgCXDevice,      cnf->nvenc.deviceID+1); //先頭は"Auto"なので+1
     SetCXIndex(fcgCXCudaSchdule, cnf->nvenc.cuda_schedule);
     fcgCBPerfMonitor->Checked = 0 != cnf->nvenc.perf_monitor;
 
@@ -976,7 +979,16 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         } else if (cnf->vpp.pmd.enable) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
         }
-        SetCXIndex(fcgCXVppDenoiseMethod, dnoise_idx);
+        SetCXIndex(fcgCXVppDenoiseMethod,        dnoise_idx);
+
+        int detail_enahance_idx = 0;
+        if (cnf->vpp.unsharp.enable) {
+            detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
+        } else if (cnf->vpp.edgelevel.enable) {
+            detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("edgelevel"));
+        }
+        SetCXIndex(fcgCXVppDetailEnhance, detail_enahance_idx);
+
         SetNUValue(fcgNUVppDenoiseKnnRadius,     cnf->vpp.knn.radius);
         SetNUValue(fcgNUVppDenoiseKnnStrength,   cnf->vpp.knn.strength);
         SetNUValue(fcgNUVppDenoiseKnnThreshold,  cnf->vpp.knn.lerp_threshold);
@@ -993,6 +1005,13 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXVppDebandSample,         cnf->vpp.deband.sample);
         fcgCBVppDebandBlurFirst->Checked       = cnf->vpp.deband.blurFirst;
         fcgCBVppDebandRandEachFrame->Checked   = cnf->vpp.deband.randEachFrame;
+        SetNUValue(fcgNUVppUnsharpRadius,        cnf->vpp.unsharp.radius);
+        SetNUValue(fcgNUVppUnsharpWeight,        cnf->vpp.unsharp.weight);
+        SetNUValue(fcgNUVppUnsharpThreshold,     cnf->vpp.unsharp.threshold);
+        SetNUValue(fcgNUVppEdgelevelStrength,    cnf->vpp.edgelevel.strength);
+        SetNUValue(fcgNUVppEdgelevelThreshold,   cnf->vpp.edgelevel.threshold);
+        SetNUValue(fcgNUVppEdgelevelBlack,       cnf->vpp.edgelevel.black);
+        SetNUValue(fcgNUVppEdgelevelWhite,       cnf->vpp.edgelevel.white);
         SetNUValue(fcgNUVppAfsUp,                cnf->vpp.afs.clip.top);
         SetNUValue(fcgNUVppAfsBottom,            cnf->vpp.afs.clip.bottom);
         SetNUValue(fcgNUVppAfsLeft,              cnf->vpp.afs.clip.left);
@@ -1094,7 +1113,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         cnf->nvenc.par[1] *= -1;
     }
 
-    cnf->nvenc.deviceID = (int)fcgCXDevice->SelectedIndex-1;
+    cnf->nvenc.deviceID = (int)fcgCXDevice->SelectedIndex-1; //先頭は"Auto"なので-1
     cnf->nvenc.cuda_schedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
 
     //QPDetail
@@ -1179,18 +1198,33 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vid.auo_tcfile_out         = fcgCBAuoTcfileout->Checked;
 
     cnf->vpp.vpp_perf_monitor       = fcgCBVppPerfMonitor->Checked;
+
     cnf->vpp.resize_enable          = fcgCBVppResize->Checked;
     cnf->vpp.resize_width           = (int)fcgNUVppResizeWidth->Value;
     cnf->vpp.resize_height          = (int)fcgNUVppResizeHeight->Value;
     cnf->vpp.resize_interp          = list_nppi_resize[fcgCXVppResizeAlg->SelectedIndex].value;
+
     cnf->vpp.knn.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn"));
     cnf->vpp.knn.radius             = (int)fcgNUVppDenoiseKnnRadius->Value;
     cnf->vpp.knn.strength           = (float)fcgNUVppDenoiseKnnStrength->Value;
     cnf->vpp.knn.lerp_threshold     = (float)fcgNUVppDenoiseKnnThreshold->Value;
+
     cnf->vpp.pmd.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd"));
     cnf->vpp.pmd.applyCount         = (int)fcgNUVppDenoisePmdApplyCount->Value;
     cnf->vpp.pmd.strength           = (float)fcgNUVppDenoisePmdStrength->Value;
     cnf->vpp.pmd.threshold          = (float)fcgNUVppDenoisePmdThreshold->Value;
+
+    cnf->vpp.unsharp.enable         = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
+    cnf->vpp.unsharp.radius         = (int)fcgNUVppUnsharpRadius->Value;
+    cnf->vpp.unsharp.weight         = (float)fcgNUVppUnsharpWeight->Value;
+    cnf->vpp.unsharp.threshold      = (float)fcgNUVppUnsharpThreshold->Value;
+
+    cnf->vpp.edgelevel.enable       = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel"));
+    cnf->vpp.edgelevel.strength     = (float)fcgNUVppEdgelevelStrength->Value;
+    cnf->vpp.edgelevel.threshold    = (float)fcgNUVppEdgelevelThreshold->Value;
+    cnf->vpp.edgelevel.black        = (float)fcgNUVppEdgelevelBlack->Value;
+    cnf->vpp.edgelevel.white        = (float)fcgNUVppEdgelevelWhite->Value;
+
     cnf->vpp.deband.enable          = fcgCBVppDebandEnable->Checked;
     cnf->vpp.deband.range           = (int)fcgNUVppDebandRange->Value;
     cnf->vpp.deband.threY           = (int)fcgNUVppDebandThreY->Value;
@@ -1202,6 +1236,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vpp.deband.blurFirst       = fcgCBVppDebandBlurFirst->Checked;
     cnf->vpp.deband.randEachFrame   = fcgCBVppDebandRandEachFrame->Checked;
 
+    cnf->vpp.afs.enable             = fcCBVppAfsEnable->Checked;
     cnf->vpp.afs.clip.top           = (int)fcgNUVppAfsUp->Value;
     cnf->vpp.afs.clip.bottom        = (int)fcgNUVppAfsBottom->Value;
     cnf->vpp.afs.clip.left          = (int)fcgNUVppAfsLeft->Value;
@@ -1213,7 +1248,6 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vpp.afs.thre_Ymotion       = (int)fcgNUVppAfsThreYMotion->Value;
     cnf->vpp.afs.thre_Cmotion       = (int)fcgNUVppAfsThreCMotion->Value;
     cnf->vpp.afs.analyze            = fcgCXVppAfsAnalyze->SelectedIndex;
-    cnf->vpp.afs.enable             = fcCBVppAfsEnable->Checked;
     cnf->vpp.afs.shift              = fcgCBVppAfsShift->Checked;
     cnf->vpp.afs.drop               = fcgCBVppAfsDrop->Checked;
     cnf->vpp.afs.smooth             = fcgCBVppAfsSmooth->Checked;

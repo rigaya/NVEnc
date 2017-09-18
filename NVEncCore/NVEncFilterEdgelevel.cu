@@ -323,7 +323,7 @@ NVENCSTATUS NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shar
     }
     pEdgelevelParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_sFilterInfo = strsprintf(_T("edgelevel: strength %d, threshold %.1f, black %.1f, white %.1f"),
+    m_sFilterInfo = strsprintf(_T("edgelevel: strength %.1f, threshold %.1f, black %.1f, white %.1f"),
         pEdgelevelParam->edgelevel.strength, pEdgelevelParam->edgelevel.threshold, pEdgelevelParam->edgelevel.black, pEdgelevelParam->edgelevel.white);
 
     //コピーを保存
