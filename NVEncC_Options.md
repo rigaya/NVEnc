@@ -111,11 +111,21 @@ dllのバージョンを表示
 ## エンコードの基本的なオプション
 
 #### -d, --device &lt;int&gt;
-NVEncで使用するDeviceIdを指定する。使用できるデバイスは、[--check-device](#--check-device)で確認してください。
+NVEncで使用するDeviceIdを指定する。使用できるデバイスは、[--check-device](#--check-device)で確認できる。
 
-デフォルトは自動。  
-複数利用可能なGPUがある場合、指定したエンコードオプションや入力ファイルのコーデック、
-Video Engine使用率、GPU使用率、GPUの世代、GPUのコア数などを考慮して自動的に使用するGPUを選択する。
+デフォルトは自動。複数利用可能なGPUがある場合、自動的に使用するGPUを選択する。
+
+判断基準は  
+- 指定のエンコードが可能かどうか
+- --avhwが指定されていれば入力ファイルのHWデコードが可能かどうか
+- Video Engineの使用率が低い方
+- GPUの使用率が低い方
+- GPUの世代が新しい方
+- GPUのコア数が多い方
+
+Video Engineの使用率とGPUの使用率の取得には、x64版はNVMLライブラリ、x86版はnvidia-smi.exeを実行して取得している。
+
+nvidia-smi.exeは通常ドライバと一緒に"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe"にインストールされている。
 
 
 #### -c, --codec &lt;string&gt;
