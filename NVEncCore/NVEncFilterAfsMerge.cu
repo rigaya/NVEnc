@@ -168,7 +168,7 @@ cudaError_t run_merge_scan(uint8_t *dst,
     dim3 blockSize(MERGE_BLOCK_INT_X, MERGE_BLOCK_Y);
     dim3 gridSize(divCeil(srcWidth, blockSize.x * sizeof(Type)), divCeil(srcHeight, blockSize.y * MERGE_BLOCK_LOOP_Y));
 
-    const int grid_count = gridSize.x * gridSize.y;
+    const auto grid_count = gridSize.x * gridSize.y;
     if (count_stripe->nSize < grid_count) {
         count_stripe->clear();
         cudaerr = count_stripe->alloc(grid_count * sizeof(int));
