@@ -292,11 +292,13 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
                 gpu.cuda_driver_version = -1;
             }
 
+#if ENABLE_AVSW_READER
             CUcontext cuctx;
             if (CUDA_SUCCESS == (cuResult = cuCtxCreate((CUcontext*)(&cuctx), 0, cuDevice))) {
                 gpu.cuvid_csp = getHWDecCodecCsp();
                 cuCtxDestroy(cuctx);
             }
+#endif
 
             if (getFeatures) {
                 gpu.nvenc_codec_features = nvFeature->GetCachedNVEncCapability();
@@ -3083,6 +3085,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
     if (m_GPUList.size() > 1 && m_nDeviceId < 0) {
+#if ENABLE_AVSW_READER
         RGYInputAvcodec *pReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
         if (pReader != nullptr) {
             m_nDeviceId = pReader->GetHWDecDeviceID();
@@ -3095,6 +3098,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
                 PrintMes(RGY_LOG_DEBUG, _T("reader has not selected device.\n"));
             }
         }
+#endif
         if (m_nDeviceId < 0) {
             m_nDeviceId = m_GPUList.front().id;
             PrintMes(RGY_LOG_DEBUG, _T("device #%d (%s) selected.\n"), m_GPUList.front().id, m_GPUList.front().name.c_str());
