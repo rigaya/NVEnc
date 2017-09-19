@@ -1767,10 +1767,10 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         }
 #else
         pkt.duration     = (int)av_rescale_q(1, fpsTimebase, streamTimebase);
-        pkt.pts          = av_rescale_q(av_rescale_q(pBitstream->pts(), HW_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
+        pkt.pts          = av_rescale_q(av_rescale_q(pBitstream->pts(), m_Mux.video.rBitstreamTimebase, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
 #endif
         if (!m_Mux.video.bDtsUnavailable) {
-            pkt.dts = av_rescale_q(av_rescale_q(pBitstream->dts(), HW_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
+            pkt.dts = av_rescale_q(av_rescale_q(pBitstream->dts(), m_Mux.video.rBitstreamTimebase, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
         } else {
             m_Mux.video.timestampList.add(pkt.pts);
             pkt.dts = m_Mux.video.timestampList.get_min_pts();
@@ -1778,11 +1778,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
             //m_Mux.video.nFpsBaseNextDts++;
         }
         const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
-#if ENCODER_NVENC
         *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, m_Mux.video.rBitstreamTimebase);
-#else
-        *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, HW_NATIVE_TIMEBASE);
-#endif
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
 
         frameSize -= bytesToWrite;
