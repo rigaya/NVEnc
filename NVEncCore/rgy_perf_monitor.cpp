@@ -216,6 +216,14 @@ nvmlReturn_t NVMLMonitor::getData(NVMLMonitorInfo *info) {
         return ret;
     }
     info->dVEFreq = value;
+    nvmlMemory_t mem;
+    ret = m_func.f_nvmlDeviceGetMemoryInfo(m_device, &mem);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->nMemFree = mem.free;
+    info->nMemUsage = mem.used;
+    info->nMemMax = mem.total;
     info->bDataValid = true;
     return ret;
 }
@@ -311,6 +319,57 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
                     auto str_dec = trim(gpu_str.substr(pos_dec, gpu_str.find("\n", pos_dec) - pos_dec));
                     if (str_dec.length() > 0) {
                         sscanf_s(str_dec.c_str(), "decoder : %lf %%", &info->dVEDLoad);
+                    }
+                }
+            }
+            auto pos_mem_usage = gpu_str.find("fb memory usage");
+            if (pos_mem_usage != std::string::npos) {
+                auto pos_total = gpu_str.find("total", pos_mem_usage);
+                if (pos_total != std::string::npos) {
+                    auto str_total = trim(gpu_str.substr(pos_total, gpu_str.find("\n", pos_total) - pos_total));
+                    if (str_total.length() > 0) {
+                        int value = 0;
+                        if (       1 == sscanf_s(str_total.c_str(), "total : %d k", &value)) {
+                            info->nMemMax = value * (int64_t)1024;
+                        } else if (1 == sscanf_s(str_total.c_str(), "total : %d m", &value)) {
+                            info->nMemMax = value * (int64_t)(1024 * 1024);
+                        } else if (1 == sscanf_s(str_total.c_str(), "total : %d g", &value)) {
+                            info->nMemMax = value * (int64_t)(1024 * 1024 * 1024);
+                        } else {
+                            info->nMemMax = 0;
+                        }
+                    }
+                }
+                auto pos_used = gpu_str.find("used", pos_mem_usage);
+                if (pos_used != std::string::npos) {
+                    auto str_used = trim(gpu_str.substr(pos_used, gpu_str.find("\n", pos_used) - pos_used));
+                    if (str_used.length() > 0) {
+                        int value = 0;
+                        if (       1 == sscanf_s(str_used.c_str(), "used : %d k", &value)) {
+                            info->nMemUsage = value * (int64_t)1024;
+                        } else if (1 == sscanf_s(str_used.c_str(), "used : %d m", &value)) {
+                            info->nMemUsage = value * (int64_t)(1024 * 1024);
+                        } else if (1 == sscanf_s(str_used.c_str(), "used : %d g", &value)) {
+                            info->nMemUsage = value * (int64_t)(1024 * 1024 * 1024);
+                        } else {
+                            info->nMemUsage = 0;
+                        }
+                    }
+                }
+                auto pos_free = gpu_str.find("free", pos_mem_usage);
+                if (pos_free != std::string::npos) {
+                    auto str_free = trim(gpu_str.substr(pos_free, gpu_str.find("\n", pos_free) - pos_free));
+                    if (str_free.length() > 0) {
+                        int value = 0;
+                        if (       1 == sscanf_s(str_free.c_str(), "free : %df k", &value)) {
+                            info->nMemFree = value * (int64_t)1024;
+                        } else if (1 == sscanf_s(str_free.c_str(), "free : %d m", &value)) {
+                            info->nMemFree = value * (int64_t)(1024 * 1024);
+                        } else if (1 == sscanf_s(str_free.c_str(), "free : %d g", &value)) {
+                            info->nMemFree = value * (int64_t)(1024 * 1024 * 1024);
+                        } else {
+                            info->nMemFree = 0;
+                        }
                     }
                 }
             }

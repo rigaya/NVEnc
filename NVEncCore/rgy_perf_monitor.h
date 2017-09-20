@@ -239,6 +239,9 @@ struct NVMLMonitorInfo {
     double dVEELoad;
     double dVEDLoad;
     double dVEFreq;
+    int64_t nMemFree;
+    int64_t nMemUsage;
+    int64_t nMemMax;
 };
 
 #if ENABLE_NVML
