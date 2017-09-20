@@ -686,7 +686,7 @@ typedef struct AVDemuxVideo {
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
     AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
 
-    int                       nHWDecodeDeviceId;     //HWデコードする場合の
+    int                       nHWDecodeDeviceId;     //HWデコードする場合に選択したデバイス
 } AVDemuxVideo;
 
 typedef struct AVDemuxStream {
