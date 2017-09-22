@@ -28,7 +28,7 @@ NVEncが載ったハードウェア
 |NVEnc 3.08 以降 | NVIDIA グラフィックドライバ 378.66以降 |
 
 ## NVEncCの使用方法とオプション  
-NVEncCのオプションの説明 ([blog](http://rigaya34589.blog135.fc2.com/blog-entry-739.html), [github](./NVEncC_Options.md)) 
+NVEncCのオプションの説明 ([blog](http://rigaya34589.blog135.fc2.com/blog-entry-739.html), [github](./NVEncC_Options.ja.md)) 
 
 ## NVEnc 使用にあたっての注意事項  
 無保証です。自己責任で使用してください。   
@@ -101,6 +101,8 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   [dtl](https://github.com/cubicdaiya/dtl),
   [ttmath](http://www.ttmath.org/)を使用しています。  
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、NVEnc_license.txtをご覧ください。
+
+  ビルド方法については[こちら](./Build.ja.md)
 
 ### ソースの構成
 Windows ... VCビルド  
