@@ -31,14 +31,14 @@ NVEncC -i "<avsfile>" -o "<outfilename.264>"
 avs2pipemod -y4mp "<avsfile>" | NVEncC --y4m -i - -o "<outfilename.264>"
 ```
 
-#### avs2pipemodからy4mでパイプ渡し。同様にffmpegからパイプ渡し、なども可能。
+#### ffmpegからパイプ渡し
 
 ```Batchfile
 ffmpeg -y -i "<ソース動画>" -an -pix_fmt yuv420p -f yuv4mpegpipe - | NVEncC --y4m -i - -o "<outfilename.264>"
 ```
 
 
-raw H.264/ESのmux
+#### raw H.264/ESのmux
 H.264/ESで出力し、mp4に格納したり、AAC音声とmuxする場合には、L-SMASHを使って、
 
 ```Batchfile
@@ -64,9 +64,10 @@ remuxer.exe -i "<video mp4file>" -i "<m4a(ALAC in mp4)file>" -o "<muxed mp4 file
 引数なしの場合は単体で効果を発揮。
 
 引数のタイプは
-&lt;int&gt;　　 整数で指定
-&lt;float&gt;　小数点で指定
-&lt;string&gt; 文字列で指定
+- なし
+- <int>　　 整数で指定
+- <float>　小数点で指定
+- <string> 文字列で指定
 
 引数の [ ] 内は、省略可能です。
 
@@ -120,7 +121,7 @@ NVEncで使用するDeviceIdを指定する。使用できるデバイスは、[
 - --avhwが指定されていれば入力ファイルのHWデコードが可能かどうか
 - Video Engineの使用率が低い方
 - GPUの使用率が低い方
-- GPUの世代が新しい方
+- GPUの世代が新しい方 (Compute Capabilityで判定)
 - GPUのコア数が多い方
 
 Video Engineの使用率とGPUの使用率の取得には、x64版はNVMLライブラリ、x86版はnvidia-smi.exeを実行して取得している。
@@ -133,11 +134,11 @@ nvidia-smi.exeは通常ドライバと一緒に"C:\Program Files\NVIDIA Corporat
  - h264 (デフォルト)
  - hevc
 
-#### -i, --input <filename>
-入力ファイル名の設定、"-"でパイプ入力
-
-#### -o, --output <filename>
+#### -o, --output &lt;string&gt;
 出力ファイル名の表示、"-"でパイプ出力
+
+#### -i, --input &lt;string&gt;
+入力ファイル名の設定、"-"でパイプ入力
 
 NVEncの入力方法は下の表のとおり。入力フォーマットをしてしない場合は、拡張子で自動的に判定される。
 
@@ -145,7 +146,7 @@ NVEncの入力方法は下の表のとおり。入力フォーマットをして
 |:---|:---|          
 | Avisynthリーダー    | avs |
 | VapourSynthリーダー | vpy |
-| Aviリーダー         | avi |
+| aviリーダー         | avi |
 | y4mリーダー         | y4m |
 | rawリーダー         | yuv |
 | avhw/avswリーダー | それ以外 |
@@ -180,11 +181,11 @@ NVEncの入力方法は下の表のとおり。入力フォーマットをして
 入力ファイルをVapourSynthで読み込む。
 
 #### --avsw
-avcodec + sw decoderを使用して読み込む。
+avformat + sw decoderを使用して読み込む。
 ffmpegの対応するほとんどのコーデックを読み込み可能。
 
 #### --avhw [&lt;string&gt;]
-avcodec + cuvid decoderを使用して読み込む。
+avformat + cuvid decoderを使用して読み込む。
 デコードからエンコードまでを一貫してGPUで行うため高速。
 
 オプションでcuvid使用時にデコーダのモードを指定できるが、通常は特に指定せずに"--avhw"のみで問題ない。
@@ -204,9 +205,9 @@ avcodec + cuvid decoderを使用して読み込む。
 | WMV3/WMV9  | × |
 
 #### --interlace &lt;string&gt;
-入力フレームがインターレースかどうかと、そのフィールドオーダーを設定する。
+**入力**フレームがインターレースかどうかと、そのフィールドオーダーを設定する。
 
---vpp-deinterlaceによりNVEncC内でのインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
+--vpp-deinterlace / --vpp-afs によりNVEncC内でインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
 
 - none ... プログレッシブ
 - tff ... トップフィールドファースト
@@ -295,7 +296,7 @@ lookahead有効時の適応的なBフレーム挿入を無効化する。
 最大GOP長。lookaheadオフでは、この値が常に使用される。(可変ではない)
 
 #### -b, --bframes &lt;int&gt;
-連続Bフレーム数。現状では、ここで決めたBフレーム数が必ず連続する。(可変ではない)
+連続Bフレーム数。
 
 #### --ref &lt;int&gt;
 参照距離を設定する。NVEncではあまり増やしても品質は向上しない。
@@ -328,9 +329,6 @@ H.264のadaptive transform modeを有効(無効)にする。
 - Q-pel    ... 1/4画素精度 (高精度)
 - half-pel ... 1/2画素精度
 - full-pel ... 1 画素精度 (低精度)
-
-#### --output-depth &lt;int&gt; (8 or 10)
-出力ビット深度を指定する。(10bitはHEVCのみ)
 
 #### --level &lt;string&gt;
 エンコードするコーデックのLevelを指定する。指定しない場合は自動的に決定される。
@@ -433,7 +431,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 例: トラック番号#1,#2を抽出
 --audio-copy 1,2
 ```
-#### --audio-codec [[&lt;int&gt;]&lt;string&gt;]
+#### --audio-codec [[&lt;int&gt;?]&lt;string&gt;]
 音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-encoders)で確認できる。
 
 [&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
@@ -442,7 +440,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 例2: --audio-codec 2?aac       (音声の第2トラックをaacに変換)
 ```
 
-#### --audio-bitrate [&lt;int&gt;]&lt;int&gt;
+#### --audio-bitrate [&lt;int&gt;?]&lt;int&gt;
 音声をエンコードする際のビットレートをkbpsで指定する。
 
 [&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
@@ -451,9 +449,9 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
 ```
 
-#### --audio-stream [&lt;int&gt;]&lt;string&gt;
+#### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]
 音声チャンネルの分離・統合などを行う。
---audio-streamが指定された音声トラックは常にエンコードされる。
+--audio-streamが指定された音声トラックは常にエンコードされる。(コピー不可)
 ,(カンマ)で区切ることで、入力の同じトラックから複数のトラックを生成できる。
 
 ##### 書式
@@ -500,7 +498,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
 ```
 
-#### --audio-samplerate [&lt;int&gt;]&lt;int&gt;
+#### --audio-samplerate [&lt;int&gt;?]&lt;int&gt;
 音声のサンプリング周波数をHzで指定する。
 [&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
 ```
@@ -513,7 +511,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 - swr  ... swresampler (デフォルト)
 - soxr ... sox resampler (libsoxr)
 
-#### --audio-file [&lt;int&gt;][&lt;string&gt;]&lt;string&gt;
+#### --audio-file [&lt;int&gt;][&lt;string&gt;?]&lt;string&gt;
 指定したパスに音声を抽出する。出力フォーマットは出力拡張子から自動的に決定する。avhw/avswリーダー使用時のみ有効。
 
 [&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
@@ -528,7 +526,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 --audio-file 2?adts:"test_out2"  
 ```
 
-#### --audio-filter [&lt;int&gt;]&lt;string&gt;
+#### --audio-filter [&lt;int&gt;?]&lt;string&gt;
 音声に音声フィルタを適用する。適用可能なフィルタは[こちら](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters)。
 
 
@@ -569,7 +567,7 @@ nero形式とapple形式に対応する。--chapter-copyとは併用できない
 ```
 
 #### -m, --mux-options &lt;string1&gt;:&lt;string2&gt;
-mux時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの名前を指定する。
+mux時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
 ```
 例: HLS用の出力
@@ -594,12 +592,12 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 - adaptive ... normalと同じ
 - bob ... 60i→60pインタレ解除。
 
-24fps化(Inverse Telecine)は存在しないので、--vpp-afsを使用する。
+avhwを使用していないがインタレ解除を行いたい場合や、24fps化(Inverse Telecine)を行いたい場合は、--vpp-afsを使用する。
 
 #### --vpp-rff
 Repeat Field Flagを反映して、フレームを再構築する。rffによる音ズレ問題が解消できる。--avhw使用時のみ有効。
 
-rff=1の場合のみの対応。また、--trim, --vpp-deinterlaceとは併用できない。
+rff=1の場合のみの対応。(rff > 1には対応しない) また、--trim, --vpp-deinterlaceとは併用できない。
 
 #### --vpp-afs [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 自動フィールドシフトによるインタレ解除を行う。
@@ -611,24 +609,24 @@ rff=1の場合のみの対応。また、--trim, --vpp-deinterlaceとは併用�
 - right=&lt;int&gt;         (右)  
   判定に使用する領域から除外する範囲の指定。NVEncでは、"左"と"右"は4の倍数である必要がある。
 
-- method_switch=&lt;int&gt; (切替点)  
+- method_switch=&lt;int&gt; (切替点)  (0-256)  
   切替点が大きいほど、新方式の判定になりやすい(0で常に新方式判定off)
 
-- coeff_shift=&lt;int&gt;   (判定比)  
+- coeff_shift=&lt;int&gt;   (判定比)  (0-256)  
   判定比率が小さいほど、フィールドをシフトしにくい(0で常にシフト判定off)
 
-- thre_shift=&lt;int&gt;    (縞(シフト))  
+- thre_shift=&lt;int&gt;    (縞(シフト))  (0-1024)  
   シフトの判定に使用する縞検出の閾値。値が小さいほど、縞と判定されやすくなる。
 
-- thre_deint=&lt;int&gt;    (縞(解除))  
+- thre_deint=&lt;int&gt;    (縞(解除))  (0-1024)  
   縞解除用の縞検出の閾値。値が小さいほど、縞と判定されやすくなる。
 
-- thre_motion_y=&lt;int&gt; (Y動き)
-- thre_motion_c=&lt;int&gt; (C動き)  
+- thre_motion_y=&lt;int&gt; (Y動き) (0-1024)  
+- thre_motion_c=&lt;int&gt; (C動き) (0-1024)  
   動き検出の閾値。値が小さいほど、動きと判定されやすくなる。
 
 - level=&lt;int&gt;         (解除Lv)  
-  縞解除の方法の選択。
+  縞解除の方法の選択。(0 - 4)
 
 | 解除Lv | | |
 |:---|:---|:---|
@@ -643,7 +641,9 @@ rff=1の場合のみの対応。また、--trim, --vpp-deinterlaceとは併用�
   フィールドシフトを行う。
 
 - drop=&lt;bool&gt;         (間引き)
-  フィールドシフトを行うことで生じた表示時間の1フレームより短いフレームを間引く。
+  フィールドシフトを行うことで生じた表示時間の1フレームより短いフレームを間引く。これを有効にするとVFR(可変フレームレート)になるので注意。
+  NVEncCでmuxしながら出力する場合には、このタイムコードは自動的に反映される。
+  一方、raw出力する場合には、タイムコード反映されないので、vpp-afsのオプションにtimecode=trueを追加してタイムコードを別途出力し、あとからtimecodeファイルを含めてmuxする必要がある。
 
 - smooth=&lt;bool&gt;       (スムージング)
 - 24fps=&lt;bool&gt;        (24fps化)  
@@ -663,6 +663,9 @@ rff=1の場合のみの対応。また、--trim, --vpp-deinterlaceとは併用�
 
 - log=&lt;bool&gt;  
   フレームごとの判定状況等をcsvファイルで出力。(デバッグ用のログ出力)
+
+- timecode=&lt;bool&gt;  
+  タイムコードを出力する。
   
 **一括設定用オプション**
   たくさんあるパラメータを一括指定するためのオプション。一括設定用オプションは必ず先に読み込まれ、個別オプションの指定があればそちらで上書きされる。
@@ -731,7 +734,7 @@ log=0
 #### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 
-要nppi64_80.dllに○のあるものは、NPPライブラリを使用しており、x64バンお見の対応。また。使用には別途nppi64_80.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
+要nppi64_80.dllに○のあるものは、NPPライブラリを使用しており、x64版のみ対応。また。使用には別途nppi64_80.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
 
 | オプション名 | 説明 | 要nppi64_80.dll |
 |:---|:---|:---:|
@@ -751,17 +754,17 @@ log=0
 #### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **パラメータ**
-- radius=&lt;int&gt;  
-  適用半径。1-5の範囲で指定、デフォルトは3。
+- radius=&lt;int&gt;  (default=3, 1-5)  
+  適用半径。
 
-- strength=&lt;float&gt;  
-  フィルタの強さ。0.0-1.0の範囲で指定、デフォルトは0.08。
+- strength=&lt;float&gt;  (default=0.08, 0.0 - 1.0)    
+  フィルタの強さ。
 
-- lerp=&lt;float&gt;  
-  ノイズ除去ピクセルへのオリジナルピクセルのブレンド度合い。0.0-1.0の範囲で指定、デフォルトは0.2。
+- lerp=&lt;float&gt;  (default=0.2, 0.0 - 1.0)  
+  ノイズ除去ピクセルへのオリジナルピクセルのブレンド度合い。
 
-- th_lerp=&lt;float&gt;  
-  エッジ検出の閾値。0.0-1.0の範囲で指定、デフォルトは0.8。
+- th_lerp=&lt;float&gt;   (default=0.8, 0.0 - 1.0)  
+  エッジ検出の閾値。
 
 ```
 例: すこし強め
@@ -772,15 +775,14 @@ log=0
 正則化pmd法によるノイズ除去。弱めのノイズ除去を行いたいときに使用する。
 
 **パラメータ**
-- apply_count=&lt;int&gt;  
+- apply_count=&lt;int&gt;  (default=2, 1- )  
   適用回数。デフォルトは2。
 
-- strength=&lt;float&gt;  
-  フィルタの強さ。0-100の範囲で指定、デフォルトは100。
+- strength=&lt;float&gt;  (default=100, 0-100)  
+  フィルタの強さ。
 
-- threshold=&lt;float&gt;  
+- threshold=&lt;float&gt;  (default=100, 0-255)  
   フィルタの輪郭検出の閾値。小さいほど輪郭を保持するようになるが、フィルタの効果も弱まる。
-  0-255の範囲で指定、デフォルトは100。
 
 ```
 例: すこし弱め
@@ -788,8 +790,8 @@ log=0
 ```
 
 #### --vpp-gauss &lt;int&gt;
-nppi64_80.dll導入が必要で、x64版のみ使用可。
 適用サイズを指定してガウスフィルタをかける。サイズは3,5,7のどれか。
+nppi64_80.dll導入が必要で、x64版のみ使用可。
 
 #### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
@@ -814,7 +816,7 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 
 **パラメータ**
 - strength=&lt;float&gt; (default=5.0, -31 - 31)  
-  輪郭強調の強さ。より大きな値とすることで、より広い範囲のディテールに反応して強調をかけるようになる。
+  輪郭強調の強さ。より大きな値とすることで、輪郭強調が強力になる。
 
 - threshold=&lt;float&gt;  (default=20.0, 0 - 255)  
   輪郭強調を行わないようにするノイズの閾値。より大きな値ほど大きな輝度の変化をノイズとして扱うようになる。
@@ -939,7 +941,7 @@ logo14= (BS11).,BS11 1920x1080 v3
   基本的にはspinと同じだが、他のスレッドがあればそちらに譲る。
 
 - sync (デフォルト)  
- GPUタスクの終了まで、スレッドをスリープさせる。わずかに性能が落ちるかわりに、特にHWデコード使用時に、CPU使用率を大きく削減する。
+ GPUタスクの終了まで、スレッドをスリープさせる。性能が落ちる可能性があるかわりに、特にHWデコード使用時に、CPU使用率を大きく削減する。
 
 #### --output-buf &lt;int&gt;
 出力バッファサイズをMB単位で指定する。デフォルトは8、最大値は128。0で使用しない。
@@ -972,7 +974,7 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
 - trace ... フレームごとに情報を出力
 
 #### --max-procfps &lt;int&gt;
-QSVの処理速度の上限を設定。デフォルトは0 ( = 無制限)。
+エンコード速度の上限を設定。デフォルトは0 ( = 無制限)。
 複数本NVENCでエンコードをしていて、ひとつのストリームにCPU/GPUの全力を奪われたくないというときのためのオプション。
 ```
 例: 最大速度を90fpsに制限
