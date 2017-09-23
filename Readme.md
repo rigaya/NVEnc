@@ -2,7 +2,7 @@
 # NVEnc
 by rigaya
 
-<span style="font-size: 200%>[日本語版はこちら＞＞](./Readme.ja.md)</span>
+**[日本語版はこちら＞＞](./Readme.ja.md)**
 
 This software is meant to investigate performance and image quality of HW encoder (NVENC) of NVIDIA.
 There are 2 types of software developed, one is command line version that runs independently, and another is a output plug-in of [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
