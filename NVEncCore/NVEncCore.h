@@ -68,7 +68,7 @@ static const int DEFAULT_OUTPUT_BUF  = 8;
 static const int DEFAULT_LOOKAHEAD   = 16;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
-static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_BLOCKING_SYNC;
+static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
 
 static const uint32_t PIPELINE_DEPTH = 4;
 static const int MAX_FILTER_OUTPUT = 2;

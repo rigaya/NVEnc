@@ -2928,6 +2928,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return -0;
         }
         pParams->nProcSpeedLimit = (std::min)(value, INT_MAX);
+        if (get_list_value(list_cuda_schedule, _T("sync"), &value)) {
+            pParams->nCudaSchedule = value;
+        }
         return 0;
     }
     if (IS_OPTION("log")) {
