@@ -11,14 +11,14 @@ NVEncC.exe [Options] -i <filename> -o <filename>
 ```
 
 ### もっと実用的なコマンド
-#### avcuvid読み込み(cuvidデコード使用)の例
+#### cuvidデコードを使用する例
 ```Batchfile
-NVEncC --avcuvid -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
+NVEncC --avhw -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
 
-#### avcuvid読み込み(cuvidデコード使用)の例 (インタレ保持)
+#### cuvidデコードを使用する例 (インタレ保持)
 ```Batchfile
-NVEncC --avcuvid --interlace tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
+NVEncC --avhw --interlace tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
 
 #### avs(Avisynth)の例 (avsやvpyはvfw経由でも読み込み可能です)
@@ -207,7 +207,7 @@ avformat + cuvid decoderを使用して読み込む。
 ### --interlace &lt;string&gt;
 **入力**フレームがインターレースかどうかと、そのフィールドオーダーを設定する。
 
---vpp-deinterlace / [--vpp-afs](#--vpp-afs-param1value1param2value2) によりNVEncC内でインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
+[--vpp-deinterlace](#--vpp-deinterlace-string) / [--vpp-afs](#--vpp-afs-param1value1param2value2) によりNVEncC内でインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
 
 - none ... プログレッシブ
 - tff ... トップフィールドファースト
@@ -735,7 +735,7 @@ log=0
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 
-要nppi64_80.dllに"○"のあるものは、NPPライブラリを使用しており、x64版のみ対応。また、使用には別途nppi64_80.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
+要nppi64_80.dllに"○"のあるものは、[NPPライブラリ](https://developer.nvidia.com/npp)を使用しており、x64版のみ対応。また、使用には別途nppi64_80.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
 
 | オプション名 | 説明 | 要nppi64_80.dll |
 |:---|:---|:---:|
@@ -961,7 +961,7 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
 出力スレッドを使用するかどうかを指定する。
 - -1 ... 自動(デフォルト)
 -  0 ... 使用しない
--  1 ... 使用する
+-  1 ... 使用する  
 出力スレッドを使用すると、メモリ使用量が増加するが、エンコード速度が向上する場合がある。
 
 ### --log &lt;string&gt;
@@ -1016,4 +1016,4 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
 ```
 
 ### --perf-monitor-interval &lt;int&gt;
---perf-monitorでパフォーマンス測定を行う時間間隔をms単位で指定する(50以上)。デフォルトは 500。
+[--perf-monitor](#--perf-monitor-stringstring)でパフォーマンス測定を行う時間間隔をms単位で指定する(50以上)。デフォルトは 500。

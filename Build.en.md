@@ -64,7 +64,7 @@ Then, by configuring with options below, dlls will be built automatically.
 ```
 
 
-## 3. NVEnc.auo / NVEncC のビルド
+## 3. Build NVEncC / NVEnc.auo
 
 After preparations are done, open NVEnc.sln, and set headers below in the include path.
 

@@ -5,19 +5,19 @@ by rigaya
 **[日本語版はこちら＞＞](./Readme.ja.md)**
 
 This software is meant to investigate performance and image quality of HW encoder (NVENC) of NVIDIA.
-There are 2 types of software developed, one is command line version that runs independently, and another is a output plug-in of [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
+There are 2 types of software developed, one is command line version that runs independently, and the nother is a output plug-in of [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
 
-NVEncC.exe ... Command line version supporting transcoding.
-NVEnc.auo ... Output plugin for [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
+- NVEncC.exe ... Command line version supporting transcoding.  
+- NVEnc.auo ... Output plugin for [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
 
 ## Downloads & update history
 [rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-17.html)
 
-## Required Environment
-Windows 7, 8, 8.1, 10 (x86 / x64)
-Aviutl 0.99g4 or later (NVEnc.auo)
-Hardware which supports NVENC
-  NVIDIA GPU GeForce Kepler gen or later (GT / GTX 6xx or later)
+## System Requirements
+Windows 7, 8, 8.1, 10 (x86 / x64)  
+Aviutl 0.99g4 or later (NVEnc.auo)  
+Hardware which supports NVENC  
+  NVIDIA GPU GeForce Kepler gen or later (GT / GTX 6xx or later)  
   ※ Since GT 63x, 62x etc. are renames of the Fermi generation, they cannot run NVEnc.
 
 | NVEnc | required graphics driver version |
@@ -50,7 +50,7 @@ which might cause problem in some playback environments.
    - CQP (fixed quantization)
    - CBR (Constant bitrate)
    - CBRHQ (Constant bitrate, high quality)
-   - VBR (Variable bitrate
+   - VBR (Variable bitrate)
    - VBRHQ (Variable bitrate, high quality)
 - Interlaced encoding (by PAFF)
 - Lossless output (YUV 444)
@@ -66,8 +66,8 @@ which might cause problem in some playback environments.
 - Supports various formats such as avs, vpy, y4m, and raw
 - High performance filtering (VPP, Video Pre-Processing)
   - cuvid built-in hw processing
-   - resize
-   - deinterlace (normal / bob)
+    - resize
+    - deinterlace (normal / bob)
   - GPU filtering by CUDA
    - rff (apply rff flag)
    - afs (deinterlacer, Automatic field shift)
@@ -92,12 +92,11 @@ which might cause problem in some playback environments.
 - MIT license.
 - This program is based on NVIDA CUDA Samples and includes sample code.
   This software contains source code provided by NVIDIA Corporation.
-- With this software,
+- This software depends on
   [ffmpeg](https://ffmpeg.org/),
-  [tinyxml 2] (http://www.grinninglizard.com/tinyxml 2/),
-  [dtl](https://github.com/cubicdaiya/dtl),
-  [ttmath](http://www.ttmath.org/)
-  are used.
+  [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
+  [dtl](https://github.com/cubicdaiya/dtl) & 
+  [ttmath](http://www.ttmath.org/).
   For these licenses, please see the header part of the corresponding source and NVEnc_license.txt.
 
   [How to build](./Build.en.md)
@@ -105,6 +104,6 @@ which might cause problem in some playback environments.
 ### About source code
 Windows ... VC build
 
-Character code: UTF-8-BOM
-Line feed: CRLF
-Indent: blank x4
+Character code: UTF-8-BOM  
+Line feed: CRLF  
+Indent: blank x4  

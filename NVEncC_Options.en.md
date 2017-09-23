@@ -20,7 +20,7 @@ NVEncC --avhw -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 
 #### example of using hw (cuvid) deocder (interlaced)
 ```Batchfile
-NVEncC --avcuvid --interlace tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
+NVEncC --avhw --interlace tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
 
 #### avs (Avisynth) example (avs and vpy can also be read via vfw)
@@ -102,7 +102,7 @@ If unspecified, and you are running on multi-GPU environment, the device to be u
 - if --avhw is specified, then check whether the device supports hw decoding for the input file
 - device with lower Video Engine Utilization will be favored
 - device with lower GPU Utilization will be favored
-- late generation GPU will be favored
+- later generation GPU will be favored
 - GPU with more cores will be favored
 
 Utilization of the Video Engine and GPU is obtained using [NVML library](https://developer.nvidia.com/nvidia-management-library-nvml) in x64 version, and nvidia-smi.exe is executed in x86 version.
@@ -241,7 +241,7 @@ Set output bit depth.
 - 10 ... 10 bits
 
 ### --max-bitrate &lt;int&gt;
-Maximum bit rate (in kbps).
+Maximum bitrate (in kbps).
 
 ### --qp-init &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;
 Set the initial QP value with &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;. This option will be ignored in CQP mode.
@@ -283,7 +283,7 @@ Set maximum GOP length. When lookahead is off, this value will always be used. (
 Set the number of consecutive B frames.
 
 ### --ref &lt;int&gt;
-Set the reference distance. In hw encoding, many ref frames has minor effect with improving quality.
+Set the reference distance. In hw encoding, incresing ref frames will have minor effect on image quality or compression rate.
 
 ### --weightp
 Enable weighted P frames.
@@ -388,7 +388,7 @@ Encode only frames in the specified range.
 ### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 The format is hh:mm:ss.ms. "hh" or "mm" could be omitted. The transcode will start from the time specified.
 
-Seeking by this option is not exact but fast, compared to [--trim](#--trim-intintintintintint). If you want require exact seek, use [--trim](#--trim-intintintintintint).
+Seeking by this option is not exact but fast, compared to [--trim](#--trim-intintintintintint). If you require exact seek, use [--trim](#--trim-intintintintintint).
 ```
 Example 1: --seek 0:01:15.400
 Example 2: --seek 1:15.4
@@ -692,7 +692,7 @@ example: same as --vpp-afs preset=24fps
 ### --vpp-resize &lt;string&gt;
 Specify the resizing algorithm.
 
-Those with "○" in nppi64_80.dll use the NPP library, which is supported with x64 version only. Also to use those algorithms, you need to download nppi64_80.dll separately and place it in the same folder as NVEncC64.exe.
+Those with "○" in nppi64_80.dll use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only. To use those algorithms, you need to download nppi64_80.dll separately and place it in the same folder as NVEncC64.exe.
 
 | option name | desciption | require nppi64_80.dll |
 |:---|:---|:---:|
@@ -907,15 +907,15 @@ Specify the output buffer size in MB. The default is 8 and the maximum value is 
 
 The output buffer will store output data until it reaches the buffer size, and then the data will be written at once. Higher performance and redcution of file fragmentation on the disk could be expected.
 
-On the other hand, if setting too much buffer size, it can decrease performance, since writing such a big data to the disk will take some time. Generally, leaving this to default should be fine.
+On the other hand, setting too much buffer size could decrease performance, since writing such a big data to the disk will take some time. Generally, leaving this to default should be fine.
 
-If a protocol other than file is used, the this output buffer will not be used.
+If a protocol other than "file" is used, then this output buffer will not be used.
 
 ### --output-thread &lt;int&gt;
 Specify whether to use the output thread.
 - -1 ... auto (default)
 - 0 ... do not use output thread
-- 1 ... use output thread
+- 1 ... use output thread  
 Using an output thread increases memory usage, but sometimes improves encoding speed.
 
 ### --log &lt;string&gt;
@@ -932,7 +932,8 @@ Select the level of log output.
 
 ### --max-procfps &lt;int&gt;
 Set the upper limit of transcoding speed. The default is 0 (= unlimited).
-This could be use when you want to encode multiple stream and you do not want one stream to use up all the power of CPU or GPU.
+
+This could be used when you want to encode multiple stream and you do not want one stream to use up all the power of CPU or GPU.
 ```
 Example: Limit maximum speed to 90 fps
 --max-procfps 90
@@ -971,4 +972,4 @@ Outputs performance information. You can select the information name you want to
 ```
 
 ### --perf-monitor-interval &lt;int&gt;
-Specify the time interval for performance monitoring with --perf-monitor in ms (should be 50 or more). The default is 500.
+Specify the time interval for performance monitoring with [--perf-monitor](#--perf-monitor-stringstring) in ms (should be 50 or more). The default is 500.
