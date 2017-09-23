@@ -177,7 +177,6 @@
     </Lib>
     <CudaCompile />
     <CudaCompile>
-      <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
@@ -225,7 +224,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <CudaCompile />
     <CudaCompile />
     <CudaCompile>
-      <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
@@ -269,7 +267,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
@@ -316,7 +313,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
@@ -373,7 +369,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <CudaCompile>
-      <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
@@ -421,7 +416,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
@@ -470,7 +464,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <CudaCompile>
-      <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
@@ -519,7 +512,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <PtxAsOptionV>true</PtxAsOptionV>
       <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,sm_30;compute_50,sm_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
@@ -550,14 +542,14 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="convert_csp_avx2.cpp">
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="convert_csp_sse2.cpp" />
     <ClCompile Include="convert_csp_sse41.cpp" />
@@ -601,17 +593,16 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <CudaCompile Include="NVEncFilterAfsMerge.cu" />
     <CudaCompile Include="NVEncFilterAfsSynthesize.cu" />
     <CudaCompile Include="NVEncFilterDeband.cu" />
-    <CudaCompile Include="NVEncFilterDenoisePmd.cu">
-      <FileType>CppCode</FileType>
-    </CudaCompile>
+    <CudaCompile Include="NVEncFilterDenoisePmd.cu" />
+    <CudaCompile Include="NVEncFilterCrop.cu" />
+    <CudaCompile Include="NVEncFilterDelogo.cu" />
+    <CudaCompile Include="NVEncFilterDenoiseKnn.cu" />
     <CudaCompile Include="NVEncFilterEdgelevel.cu" />
-    <CudaCompile Include="NVEncFilterResize.cu">
-      <FileType>CppCode</FileType>
-    </CudaCompile>
+    <CudaCompile Include="NVEncFilterResize.cu" />
+    <CudaCompile Include="NVEncFilterUnsharp.cu" />
     <ClCompile Include="NVEncFrameInfo.cpp" />
     <ClCompile Include="NVEncCore.cpp" />
     <ClCompile Include="NVEncParam.cpp" />
-    <CudaCompile Include="NVEncFilterUnsharp.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\NVEncSDK\Common\inc\nvEncodeAPI.h" />
@@ -667,22 +658,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="rgy_thread.h" />
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="rgy_version.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <CudaCompile Include="NVEncFilterCrop.cu">
-      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <AdditionalCompilerOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-    </CudaCompile>
-    <CudaCompile Include="NVEncFilterDelogo.cu" />
-    <CudaCompile Include="NVEncFilterDenoiseKnn.cu">
-      <FileType>Document</FileType>
-    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="ram_speed_x64.asm">
