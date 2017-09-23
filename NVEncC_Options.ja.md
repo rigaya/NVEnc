@@ -124,7 +124,7 @@ NVEncで使用するDeviceIdを指定する。使用できるデバイスは、[
 - GPUの世代が新しい方 (Compute Capabilityで判定)
 - GPUのコア数が多い方
 
-Video Engineの使用率とGPUの使用率の取得には、x64版はNVMLライブラリ、x86版はnvidia-smi.exeを実行して取得している。
+Video Engineの使用率とGPUの使用率の取得には、x64版は[NVMLライブラリ](https://developer.nvidia.com/nvidia-management-library-nvml)、x86版はnvidia-smi.exeを実行して取得している。
 
 nvidia-smi.exeは通常ドライバと一緒に"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe"にインストールされている。
 
@@ -207,7 +207,7 @@ avformat + cuvid decoderを使用して読み込む。
 ### --interlace &lt;string&gt;
 **入力**フレームがインターレースかどうかと、そのフィールドオーダーを設定する。
 
---vpp-deinterlace / --vpp-afs によりNVEncC内でインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
+--vpp-deinterlace / [--vpp-afs](#--vpp-afs-param1value1param2value2) によりNVEncC内でインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
 
 - none ... プログレッシブ
 - tff ... トップフィールドファースト
@@ -405,7 +405,7 @@ libavが読み込み時に解析するファイルの時間を秒で指定。デ
 
 ### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 書式は、hh:mm:ss.ms。"hh"や"mm"は省略可。
-高速だが不正確なシークをしてからエンコードを開始する。正確な範囲指定を行いたい場合は[--trim](#--trim)で行う。
+高速だが不正確なシークをしてからエンコードを開始する。正確な範囲指定を行いたい場合は[--trim](#--trim-intintintintintint)で行う。
 ```
 例1: --seek 0:01:15.400
 例2: --seek 1:15.4
@@ -425,14 +425,14 @@ muxerに出力フォーマットを指定して出力する。
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
 
-tsなどでエラーが出るなどしてうまく動作しない場合は、[--audio-codec](#--audio-codec)で一度エンコードしたほうが安定動作するかもしれない。
+tsなどでエラーが出るなどしてうまく動作しない場合は、[--audio-codec](#--audio-codec-intstring)で一度エンコードしたほうが安定動作するかもしれない。
 
 ```
 例: トラック番号#1,#2を抽出
 --audio-copy 1,2
 ```
 ### --audio-codec [[&lt;int&gt;?]&lt;string&gt;]
-音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-encoders)で確認できる。
+音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-codecs---check-decoders---check-encoders)で確認できる。
 
 [&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
 ```
@@ -585,19 +585,19 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 
 
 ### --vpp-deinterlace &lt;string&gt;
---interlace tff か --interlace bff が指定されていて、--avhw使用時のみ有効。HWによるインタレ解除を使用する。
+[--interlace](#--interlace-string) tff か [--interlace](#--interlace-string) bff が指定されていて、[--avhw](#--avhw-string)使用時のみ有効。HWによるインタレ解除を使用する。
 
 - none   ... インタレ解除を行わない
 - normal ... 標準的な60i→30pインタレ解除。
 - adaptive ... normalと同じ
 - bob ... 60i→60pインタレ解除。
 
-avhwを使用していないがインタレ解除を行いたい場合や、24fps化(Inverse Telecine)を行いたい場合は、--vpp-afsを使用する。
+avhwを使用していないがインタレ解除を行いたい場合や、24fps化(Inverse Telecine)を行いたい場合は、[--vpp-afs](#--vpp-afs-param1value1param2value2)を使用する。
 
 ### --vpp-rff
-Repeat Field Flagを反映して、フレームを再構築する。rffによる音ズレ問題が解消できる。--avhw使用時のみ有効。
+Repeat Field Flagを反映して、フレームを再構築する。rffによる音ズレ問題が解消できる。[--avhw](#--avhw-string)使用時のみ有効。
 
-rff=1の場合のみの対応。(rff > 1には対応しない) また、--trim, --vpp-deinterlaceとは併用できない。
+rff=1の場合のみの対応。(rff > 1には対応しない) また、[--trim](#--trim-intintintintintint), [--vpp-deinterlace](#--vpp-deinterlace-string)とは併用できない。
 
 ### --vpp-afs [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 自動フィールドシフトによるインタレ解除を行う。
@@ -640,13 +640,13 @@ rff=1の場合のみの対応。(rff > 1には対応しない) また、--trim, 
 - shift=&lt;bool&gt;        (フィールドシフト)  
   フィールドシフトを行う。
 
-- drop=&lt;bool&gt;         (間引き)
+- drop=&lt;bool&gt;         (間引き)  
   フィールドシフトを行うことで生じた表示時間の1フレームより短いフレームを間引く。これを有効にするとVFR(可変フレームレート)になるので注意。
   NVEncCでmuxしながら出力する場合には、このタイムコードは自動的に反映される。
   一方、raw出力する場合には、タイムコード反映されないので、vpp-afsのオプションにtimecode=trueを追加してタイムコードを別途出力し、あとからtimecodeファイルを含めてmuxする必要がある。
 
-- smooth=&lt;bool&gt;       (スムージング)
-- 24fps=&lt;bool&gt;        (24fps化)  
+- smooth=&lt;bool&gt;       (スムージング)  
+- 24fps=&lt;bool&gt;        (24fps化)   
   24fps化を強制する、映画・アニメ用のオプション。フィールドシフトと間引きをonにする必要がある。
 
 - tune=&lt;bool&gt;         (調整モード)  
@@ -668,6 +668,7 @@ rff=1の場合のみの対応。(rff > 1には対応しない) また、--trim, 
   タイムコードを出力する。
   
 **一括設定用オプション**
+
   たくさんあるパラメータを一括指定するためのオプション。一括設定用オプションは必ず先に読み込まれ、個別オプションの指定があればそちらで上書きされる。
 
 - ini=&lt;string&gt;  
@@ -734,7 +735,7 @@ log=0
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 
-要nppi64_80.dllに○のあるものは、NPPライブラリを使用しており、x64版のみ対応。また。使用には別途nppi64_80.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
+要nppi64_80.dllに"○"のあるものは、NPPライブラリを使用しており、x64版のみ対応。また、使用には別途nppi64_80.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
 
 | オプション名 | 説明 | 要nppi64_80.dll |
 |:---|:---|:---:|
@@ -791,6 +792,7 @@ log=0
 
 ### --vpp-gauss &lt;int&gt;
 適用サイズを指定してガウスフィルタをかける。サイズは3,5,7のどれか。
+
 nppi64_80.dll導入が必要で、x64版のみ使用可。
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -929,7 +931,7 @@ logo14= (BS11).,BS11 1920x1080 v3
 ## 制御系のオプション
 
 ### --cuda-schedule &lt;string&gt;
-  主に、GPUのタスク終了を待機する際のCPUの挙動を決める。デフォルトはsync。
+  主に、GPUのタスク終了を待機する際のCPUの挙動を決める。デフォルトはauto。
 
 - auto  
   CUDAのドライバにモード決定を委ねる。

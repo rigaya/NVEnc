@@ -1,6 +1,8 @@
 ﻿
 # NVEncC option list
 
+**[日本語版はこちら＞＞](./NVEncC_Options.ja.md)**
+
 
 ## Command line example
 
@@ -38,11 +40,10 @@ ffmpeg -y -i "<inputfile>" -an -pix_fmt yuv420p -f yuv4mpegpipe - | NVEncC --y4m
 ```
 
 
-## Specifying options
+## Option format
 
 ```
 -<short option name>, --<option name> <argument>
-In the case of no argument, it is effective on standalone basis.
 
 The argument type is
 - none
@@ -93,7 +94,7 @@ show version of ffmpeg dll
 ## Basic encoding options
 
 ### -d, --device &lt;int&gt;
-Specify the deviceId to be used with NVEnc. deviceID can be checked with [--check-device] (#--check-device).
+Specify the deviceId to be used with NVEnc. deviceID can be checked with [--check-device](#--check-device).
 
 If unspecified, and you are running on multi-GPU environment, the device to be used will automatically selected, depending on following conditions...
 
@@ -104,7 +105,7 @@ If unspecified, and you are running on multi-GPU environment, the device to be u
 - late generation GPU will be favored
 - GPU with more cores will be favored
 
-Utilization of the Video Engine and GPU is obtained using NVML library in x64 version, and nvidia-smi.exe is executed in x86 version.
+Utilization of the Video Engine and GPU is obtained using [NVML library](https://developer.nvidia.com/nvidia-management-library-nvml) in x64 version, and nvidia-smi.exe is executed in x86 version.
 
 nvidia-smi is usually installed in "C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe" with the driver.
 
@@ -123,7 +124,8 @@ set input file name, pipe input with "-"
 Table below shows the supported readers of NVEnc. When input format is not set,
 reader used will be selected depending on the extension of input file.
 
-**Auto selection of reader**
+**Auto selection of reader**  
+
 | reader |  target extension |
 |:---|:---|          
 | Avisynth reader    | avs |
@@ -133,7 +135,8 @@ reader used will be selected depending on the extension of input file.
 | raw reader         | yuv |
 | avhw/avsw reader | others |
 
-**color format supported by reader**
+**color format supported by reader**  
+
 | reader | yuv420 | yuy2 | yuv422 | yuv444 | rgb24 | rgb32 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
 | raw | ○ |  |  |  |  |  |
@@ -175,7 +178,8 @@ Although you can specify the mode of the decoder as an option, normally it is no
 - native (default)
 - cuda
 
-**Codecs supported by avhw reader**
+**Codecs supported by avhw reader**  
+
 | Codecs | Status |
 |:---|:---:|
 | MPEG1      | ○ |
@@ -187,13 +191,13 @@ Although you can specify the mode of the decoder as an option, normally it is no
 | VC-1       | × |
 | WMV3/WMV9  | × |
 
-○ ... supported
+○ ... supported  
 × ... no support
 
 ### --interlace &lt;string&gt;
 Set interlace flag of **input** frame.
 
-Deinterlace is available through --vpp-deinterlace or --vpp-afs. If deinterlacer is not activated for interlaced input, then interlaced encoding is performed.
+Deinterlace is available through [--vpp-deinterlace](#--vpp-deinterlace-string) or [--vpp-afs](#--vpp-afs-param1value1param2value2). If deinterlacer is not activated for interlaced input, then interlaced encoding is performed.
 
 - none ... progressive
 - tff ... top field first
@@ -218,15 +222,15 @@ If not specified, it will be same as the input resolution. (no resize)
 
 The default is CQP (Constant quantization).
 
-### --cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;　(Constant quantization)
-Encode with CQP (Constant quantization). Set the QP value of &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;
+### --cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;
+Set the QP value of &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;
 
-Generally, it is recommended to set the QP value to be I & lt; P & lt; B.
+Generally, it is recommended to set the QP value to be I &lt; P &lt; B.
 
-### --cbr &lt;int&gt;   (Const. Bitrate)
-### --cbrhq &lt;int&gt; (Const. Bitrate (High Quality))
-### --vbr &lt;int&gt;   (Variable Bitrate)
-### --vbrhq &lt;int&gt; (Variable Bitrate (High Quality))
+### --cbr &lt;int&gt;
+### --cbrhq &lt;int&gt;
+### --vbr &lt;int&gt;
+### --vbrhq &lt;int&gt;
 Set bitrate in kbps.
 
 ## Other Options for Encoder
@@ -260,7 +264,7 @@ It could be used to maintain certain degree of image quality in any part of the 
 Set target quality when using VBR mode. (0.0-51.0, 0 = automatic)
 
 ### --lookahead &lt;int&gt;
-Enable lookahead, and specify its target range by the number of frames. (0 - 32)
+Enable lookahead, and specify its target range by the number of frames. (0 - 32)  
 This is useful to improve image quality, allowing adaptive insertion of I and B frames.
 
 ### --no-i-apapt
@@ -273,7 +277,7 @@ Disable adaptive B frame insertion when lookahead is enabled.
 Force fixed GOP length.
 
 ### --gop-len &lt;int&gt;
-Set maximum GOP length. When lookahead is off, this value will always be used. (Not variable)
+Set maximum GOP length. When lookahead is off, this value will always be used. (Not variable, fixed GOP)
 
 ### -b, --bframes &lt;int&gt;
 Set the number of consecutive B frames.
@@ -330,7 +334,7 @@ Set SAR ratio (pixel aspect ratio).
 ### --dar &lt;int&gt;:&lt;int&gt;
 Set DAR ratio (screen aspect ratio).
 
-### - fulllrange
+### --fulllrange
 Encode as full range YUV.
 
 ### --videoformat &lt;string&gt;
@@ -351,7 +355,6 @@ Encode as full range YUV.
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
 ```
-Setting of various VUI flags.
 
 ### --cabac [H.264 only]
 Use CABAC. (Default: on)
@@ -368,10 +371,10 @@ Perform lossless output. --profile high 444 is specified automatically. (Default
 ### --(no-)deblock [H.264 only]
 Enable deblock filter. (Default: on)
 
-### --cu-max & lt; int & gt; [HEVC only]
-### --cu-min & lt; int & gt; [HEVC only]
+### --cu-max &lt;int&gt; [HEVC only]
+### --cu-min &lt;int&gt; [HEVC only]
 Specify the maximum and minimum size of CU respectively. 8, 16, 32 can be specified.
-** Since it is known that image quality may be degraded when this option is used, it is recommended not to use these options. **
+**Since it is known that image quality may be degraded when this option is used, it is recommended not to use these options.**
 
 ## IO / Audio / Subtitle Options
 
@@ -383,9 +386,9 @@ If audio / subtitle tracks etc. are not detected properly, try increasing this v
 Encode only frames in the specified range.
 
 ### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
-The format is hh: mm: ss.ms. "hh" or "mm" could be omitted. The transcode will start from the time specified.
+The format is hh:mm:ss.ms. "hh" or "mm" could be omitted. The transcode will start from the time specified.
 
-Seeking by this option is not exact but fast, compared to --trim. If you want require exact seek, use [--trim](#--trim).
+Seeking by this option is not exact but fast, compared to [--trim](#--trim-intintintintintint). If you want require exact seek, use [--trim](#--trim-intintintintintint).
 ```
 Example 1: --seek 0:01:15.400
 Example 2: --seek 1:15.4
@@ -405,9 +408,9 @@ Available formats can be checked with [--check-formats](#--check-formats). To ou
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy audio track into output file. Available only when avhw / avsw reader is used.
 
-If it does not work well, try encoding with [--audio-codec](#--audio-codec), which is more stable.
+If it does not work well, try encoding with [--audio-codec](#--audio-codec-intstring), which is more stable.
 
-You can also specify the audio track (1, 2, ...) to extract with [&lt;int&gt;].
+You can also specify the audio track (1, 2, ...) to extract.
 
 ```
 Example: Copy all audio tracks
@@ -418,9 +421,9 @@ Example: Extract track numbers #1 and #2
 ```
 
 ### --audio-codec [[&lt;int&gt;?]&lt;string&gt;]
-Encode audio track with the codec specified. If codec is not set, most suitable codec wil be selected automatically. Codecs available could be checked with [--check-encoders](#--check-encoders).
+Encode audio track with the codec specified. If codec is not set, most suitable codec wil be selected automatically. Codecs available could be checked with [--check-encoders](#--check-codecs---check-decoders---check-encoders).
 
-You can also specify the audio track (1, 2, ...) to extract with [& lt; int & gt;].
+You can also specify the audio track (1, 2, ...) to extract.
 ```
 Example 1: --audio-codec libmp3lame (encode all audio tracks to mp3)
 Example 2: --audio-codec 2?aac (encode the 2nd track of audio to aac)
@@ -429,7 +432,7 @@ Example 2: --audio-codec 2?aac (encode the 2nd track of audio to aac)
 ### --audio-bitrate [&lt;int&gt;?]&lt;int&gt;
 Specify the bitrate in kbps when encoding audio.
 
-You can also specify the audio track (1, 2, ...) to extract with [& lt; int & gt;].
+You can also specify the audio track (1, 2, ...) to extract.
 ```
 Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
 Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
@@ -438,9 +441,11 @@ Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]
 Separate or merge audio channels.
 Audio tracks specified with this option will always be encoded. (no copying available)
+
 By comma(",") separation, you can generate multiple tracks from the same input track.
 
-##### format
+**format**
+
 Specify the track to be processed by &lt;int&gt;.
 
 Specify the channel to be used as input by &lt;string1&gt;. If omitted, input will be all the input channels.
@@ -454,11 +459,13 @@ Separate left and right channels of "dual mono" audio track, into two mono audio
 Example 2: --audio-stream :stereo
 Convert any audio track to stereo.
 
-Example 3: - audio-stream 2?5.1,5.1:stereo
-While encoding the 2nd 5.1 ch audio track of the input file as 5.1 ch, another stereo downmixed audio track will be generated from the same source audio track.
+Example 3: --audio-stream 2?5.1,5.1:stereo
+While encoding the 2nd 5.1 ch audio track of the input file as 5.1 ch,
+another stereo downmixed audio track will be generated
+from the same source audio track.
 ```
 
-##### Available symbols
+**Available symbols**
 ```
 mono       = FC
 stereo     = FL + FR
@@ -485,7 +492,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 
 ### --audio-samplerate [&lt;int&gt;?]&lt;int&gt;
 Specify the sampling frequency of the sound in Hz.
-You can also specify the audio track (1, 2, ...) to extract with [& lt; int & gt;].
+You can also specify the audio track (1, 2, ...) to extract.
 ```
 Example 1: --audio-bitrate 44100 (converting sound to 44100 Hz)
 Example 2: --audio-bitrate 2?22050 (Convert the second track of voice to 22050 Hz)
@@ -496,10 +503,10 @@ Specify the engine used for mixing audio channels and sampling frequency convers
 - swr ... swresampler (default)
 - soxr ... sox resampler (libsoxr)
 
-### --audio-file [&lt;int&gt;][&lt;string&gt;?]&lt;string&gt;
+### --audio-file [&lt;int&gt;?][&lt;string&gt;]&lt;string&gt;
 Extract audio track to the specified path. The output format is determined automatically from the output extension. Available only when avhw / avsw reader is used.
 
-You can also specify the audio track (1, 2, ...) to extract with [& lt; int & gt;].
+You can also specify the audio track (1, 2, ...) to extract.
 ```
 Example: extract audio track number #2 to test_out2.aac
 --audio-file 2?"test_out2.aac"
@@ -512,9 +519,9 @@ Example: Output in adts format without extension
 ```
 
 ### --audio-filter [&lt;int&gt;?]&lt;string&gt;
-Apply filters to audio track. Filters available are [here](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters).
+Apply filters to audio track. Filters could be slected from [link](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters).
 
-You can also specify the audio track (1, 2, ...) to filter with [&lt;int&gt;].
+You can also specify the audio track (1, 2, ...) to filter.
 
 ```
 Example 1: --audio-filter volume=0.2  (lowering the volume)
@@ -542,7 +549,7 @@ Mux an external audio file specified.
 
 ### --chapter &lt;string&gt;
 Set chapter in the (separate) chapter file.
-The chapter file could be either in nero format or apple format. Can not be used with --chapter-copy.
+The chapter file could be either in nero format or apple format. Cannot be used with --chapter-copy.
 
 ### --chapter-copy
 Copy chapters from input file.
@@ -577,19 +584,19 @@ Example: Output for HLS
 ## Vpp Options
 
 ### --vpp-deinterlace &lt;string&gt;
-Activate hw deinterlacer. Available only when used with avhw (hw decode) and --interlace tff or --interlace bff is specified.
+Activate hw deinterlacer. Available only when used with [--avhw](#--avhw-string)(hw decode) and [--interlace](#--interlace-string) tff or [--interlace](#--interlace-string) bff is specified.
 
 - none ... no deinterlace (default)
 - normal ... standard 60i → 30p interleave cancellation.
 - adaptive ... same as normal
 - bob ... 60i → 60p interleaved.
 
-for IT(inverse telecine), use --vpp-afs.
+for IT(inverse telecine), use [--vpp-afs](#--vpp-afs-param1value1param2value2).
 
 ### --vpp-rff
-Reflect the Repeat Field Flag. The avsync error caused by rff could be solved. Available only when --avhw is used.
+Reflect the Repeat Field Flag. The avsync error caused by rff could be solved. Available only when [--avhw](#--avhw-string) is used.
 
-rff of 2 or more will not be supported (only  supports rff = 1). Also, it can not be used with --trim, --vpp-deinterlace.
+rff of 2 or more will not be supported (only  supports rff = 1). Also, it can not be used with [--trim](#--trim-intintintintintint), [--vpp-deinterlace](#--vpp-deinterlace-string).
 
 ### --vpp-afs [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Activate Auto Field Shift (AFS) deinterlacer.
@@ -620,45 +627,45 @@ Activate Auto Field Shift (AFS) deinterlacer.
 - level=&lt;int&gt;  (0 - 4)  
   Select how to remove the stripes. 
 
-  | level | process | target | |
+| level | process | target | decription |
 |:---|:---|:---|:---|
-| 0 | none  | Stripe removing process will not be done.<br>New frame generated by field shift will be the output. |
+| 0 | none  | | Stripe removing process will not be done.<br>New frame generated by field shift will be the output. |
 | 1 | triplication | all pixels | Blend previous field into new frame generated by field shift.<br>Stripe caused be motion will all become afterimage. |
 | 2 | duplicate | stripe-detected pixels | Blend previous field into new frame generated by field shift, only on stripe detected pixels.<br>Should be used for movies with little motion. |
 | 3 (default) | duplicate  | motion-detected pixels | Blend previous field into new frame generated by field shift, only on motion detected pixels. <br>This mode can preserve more edges or small letters compared to level 2. | 
 | 4 | interpolate | motion-detected pixels | On motion detected pixels, drop one field, and generate pixel by interpolating from the other field.<br>There will be no afterimage, but the vertical resolution of pixels with motion will halved. |
 
-- shift=&lt;bool&gt;
+- shift=&lt;bool&gt;  
   Enable field shift.
 
-- drop=&lt;bool&gt;
+- drop=&lt;bool&gt;  
   drop frame which has shorter display time than "1 frame". Note that enabling this option will generate VFR (Variable Frame Rate) output.
   When muxing is done by NVEncC, the timecode will be applied automatically. However, when using raw output,
   you will need output timecode file by adding "timecode=true" to vpp-afs option,
   and mux the timecode file later.
 
-- smooth=&lt;bool&gt;
+- smooth=&lt;bool&gt;  
   Smoothen picture display timing.
 
-- 24fps=&lt;bool&gt;
+- 24fps=&lt;bool&gt;  
   Force 30fps -> 24fps conversion.
 
-- tune=&lt;bool&gt; 
+- tune=&lt;bool&gt;  
   When this options is set true, the output will be the result of motion and stripe detection, shown by the color below.
 
-| color | meaning |
+| color | decription |
 |:---:|:---|
 | dark blue | motion was detected |
 | grey | stripe was detected|
 | light blue | motion & stripe was detected |
 
-- rff=&lt;bool&gt;  
+- rff=&lt;bool&gt;   
   When this options is set true, rff flag from input will be checked, and when there is progressive frame coded with rff, then deinterlacing will not be applied.
 
 - log=&lt;bool&gt;  
   Generate log of per frame afs status (for debug).
 
-- preset=&lt;string&gt;
+- preset=&lt;string&gt;  
   Parameters will be set as below.
 
 |preset name   | default | triple | double | anime<br>cinema | min_afterimg |  24fps  | 30fps |
@@ -678,7 +685,7 @@ Activate Auto Field Shift (AFS) deinterlacer.
 |rff           |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
 
 ```
-option example: this is same as --vpp-afs preset=24fps
+example: same as --vpp-afs preset=24fps
 --vpp-afs preset=anime,method_switch=92,thre_shift=448,24fps=true
 ```
 
@@ -705,7 +712,7 @@ Those with "○" in nppi64_80.dll use the NPP library, which is supported with x
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Strong noise reduction filter.
 
-** Parameters **
+**Parameters**
 - radius=&lt;int&gt;  (default=3, 1-5)   
   radius of filter.
 
@@ -726,7 +733,7 @@ Example: slightly stronger than default
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Rather weak noise reduction by modified pmd method, aimed to preserve edge while noise reduction.
 
-** Parameters **
+**Parameters**
 - apply_count=&lt;int&gt;  (default=2, 1- )  
   Number of times to apply the filter. 
 
@@ -748,7 +755,7 @@ It is necessary to install nppi64_80.dll, and could be used only in x64 version.
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 unsharp filter, for edge and detail enhancement.
 
-** Parameters **
+**Parameters**
 - radius=&lt;int&gt; (default=3, 1-9)  
   radius of edge / detail detection.
 
@@ -766,7 +773,7 @@ Example: Somewhat stronger
 ### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Edge level adjustment filter, for edge sharpening.
 
-** Parameters **
+**Parameters**
 - strength=&lt;float&gt; (default=5.0, -31 - 31)  
   Strength of edge sharpening. Larger value will result stronger edge sharpening.
 
@@ -789,7 +796,7 @@ Example: Strengthening the black part of the outline
 
 ### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-** Parameters **
+**Parameters**
 - range=&lt;int&gt; (default=15, 0-127)  
   Blur range. Samples to be used for blur are taken from pixels within this range.
 
@@ -881,7 +888,7 @@ Monitor the performance of each vpp filter, and output the average per frame pro
 ## Other Options
 
 ### --cuda-schedule &lt;string&gt;
-  Change the behavior of the CPU when waiting for GPU task completion. The default is sync.
+  Change the behavior of the CPU when waiting for GPU task completion. The default is auto.
 
 - auto
   Leave the mode decision to the driver of CUDA.
