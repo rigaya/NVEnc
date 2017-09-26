@@ -1176,9 +1176,20 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             }
         }
         //m_streamsts.get_durationを呼ぶには、3フレーム先までstatusをセットする必要がある
-        if (m_streamsts.set_status(m_nFrame+preread_len, m_status[m_nFrame+preread_len], 0, m_source.get(m_nFrame+preread_len)->frame.timestamp) != 0) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(%d).\n"), m_nFrame+preread_len);
-            return NV_ENC_ERR_INVALID_CALL;
+        {
+            auto timestamp = m_source.get(m_nFrame+preread_len)->frame.timestamp;
+            //読み込まれた範囲を超える部分のtimestampは外挿する
+            //こうしないと最終フレームのdurationが正しく計算されない
+            if (m_nFrame+preread_len >= m_source.inframe()) {
+                //1フレームの平均時間
+                auto inframe_avg_duration = (m_source.get(m_source.inframe()-1)->frame.timestamp + m_source.inframe() / 2) / m_source.inframe();
+                //外挿するフレーム数をかけて足し込む
+                timestamp += (m_nFrame+preread_len - (m_source.inframe()-1)) * inframe_avg_duration;
+            }
+            if (m_streamsts.set_status(m_nFrame+preread_len, m_status[m_nFrame+preread_len], 0, timestamp) != 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(%d).\n"), m_nFrame+preread_len);
+                return NV_ENC_ERR_INVALID_CALL;
+            }
         }
         const auto afs_duration = m_streamsts.get_duration(m_nFrame);
         if (afs_duration == afsStreamStatus::AFS_SSTS_DROP) {
