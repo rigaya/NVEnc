@@ -42,6 +42,7 @@
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
 #include "ram_speed.h"
+#include "rgy_version.h"
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -837,7 +838,7 @@ tstring getEnviromentInfo(bool add_ram_info) {
     getCPUInfo(cpu_info, _countof(cpu_info));
 
     TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo("Intel", gpu_info, _countof(gpu_info));
+    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
 
     uint64_t UsedRamSize = 0;
     uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);

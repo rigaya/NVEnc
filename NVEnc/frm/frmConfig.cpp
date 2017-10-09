@@ -1658,7 +1658,7 @@ System::Void frmConfig::SetEnvironmentInfo() {
     //GPU名
     if (nullptr == StrGPUInfo || StrGPUInfo->Length <= 0) {
         TCHAR gpu_info[256] = { 0 };
-        getGPUInfo("NVIDIA", gpu_info, _countof(gpu_info));
+        getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
         StrGPUInfo = String(gpu_info).ToString();
     }
 

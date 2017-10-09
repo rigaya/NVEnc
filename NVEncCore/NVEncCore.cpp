@@ -276,7 +276,7 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
 #endif //#if ENABLE_NVML
             if (gpu.nv_driver_version == INT_MAX) {
                 TCHAR buffer[1024];
-                if (0 == getGPUInfo("NVIDIA", buffer, _countof(buffer), true)) {
+                if (0 == getGPUInfo(GPU_VENDOR, buffer, _countof(buffer), true)) {
                     try {
                         gpu.nv_driver_version = (int)(std::stod(buffer) * 1000.0 + 0.5);
                     } catch (...) {
@@ -981,7 +981,7 @@ NVENCSTATUS NVEncCore::InitCuda(int cudaSchedule) {
 
     TCHAR gpu_info[1024] = { 0 };
     const auto len = _stprintf_s(gpu_info, _T("#%d: "), m_nDeviceId);
-    if (m_nDeviceId || 0 != getGPUInfo("NVIDIA", gpu_info + len, _countof(gpu_info) - len)) {
+    if (m_nDeviceId || 0 != getGPUInfo(GPU_VENDOR, gpu_info + len, _countof(gpu_info) - len)) {
         const auto gpuInfo = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& info) { return info.id == device_id; });
         if (gpuInfo != m_GPUList.end()) {
             if (m_nDeviceId == gpuInfo->id) {
@@ -4393,7 +4393,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     TCHAR gpu_info[1024] = { 0 };
     {
         const auto len = _stprintf_s(gpu_info, _T("#%d: "), m_nDeviceId);
-        if (m_nDeviceId || 0 != getGPUInfo("NVIDIA", gpu_info + len, _countof(gpu_info) - len)) {
+        if (m_nDeviceId || 0 != getGPUInfo(GPU_VENDOR, gpu_info + len, _countof(gpu_info) - len)) {
             const auto& gpuInfo = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& info) { return info.id == device_id; });
             if (gpuInfo != m_GPUList.end()) {
                 _stprintf_s(gpu_info, _T("#%d: %s"), gpuInfo->id, gpuInfo->name.c_str());
