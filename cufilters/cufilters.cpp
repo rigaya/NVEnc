@@ -41,6 +41,7 @@
 #include "NVEncParam.h"
 
 void init_dialog(HWND hwnd, FILTER *fp);
+void update_cx(FILTER *fp);
 #define ID_LB_RESIZE_RES     40001
 #define ID_CX_RESIZE_RES     40002
 #define ID_BT_RESIZE_RES_ADD 40003
@@ -262,6 +263,7 @@ BOOL func_exit( FILTER *fp ) {
 }
 
 BOOL func_update(FILTER* fp, int status) {
+    update_cx(fp);
     return TRUE;
 }
 
@@ -420,9 +422,10 @@ void add_cx_resize_res_items(FILTER *fp) {
     EnableWindow(bt_resize_res_del, TRUE); // 削除ボタン有効化
 }
 
-static void update_cx() {
+static void update_cx(FILTER *fp) {
     select_combo_item(cx_resize_res,  cu_exdata.resize_idx);
     select_combo_item(cx_resize_algo, cu_exdata.resize_algo);
+    fp->exfunc->filter_window_update(fp);
 }
 
 BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, FILTER *fp) {
@@ -435,7 +438,7 @@ BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, 
         return TRUE;
     case WM_FILTER_UPDATE: // フィルタ更新
     case WM_FILTER_SAVE_END: // セーブ終了
-        update_cx();
+        update_cx(fp);
         break;
     case WM_COMMAND:
         switch (LOWORD(wparam)) {
