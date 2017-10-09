@@ -57,6 +57,7 @@ public:
     int proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const cuFilterChainParam& prm);
 
 private:
+    void close();
     int init_cuda(int deviceId);
     int allocate_buffer(const FrameInfo *pInputFrame, const FrameInfo *pOutputFrame);
     int filter_chain_create(const FrameInfo *pInputFrame, const FrameInfo *pOutputFrame, bool reset);

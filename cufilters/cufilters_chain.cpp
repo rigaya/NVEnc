@@ -95,6 +95,7 @@ cuFilterChain::cuFilterChain() :
     m_prm(),
     m_nDeviceId(0),
     m_device(0),
+    m_deviceName(),
     m_cuContextCurr(0),
     m_host(),
     m_dev(),
@@ -104,12 +105,15 @@ cuFilterChain::cuFilterChain() :
 }
 
 cuFilterChain::~cuFilterChain() {
+    close();
+}
+
+void cuFilterChain::close() {
     {
         cuFilterChainCtx ctx(m_cuContextCurr);
         cudaThreadSynchronize();
     }
     m_cuContextCurr = 0;
-    m_cuda_initilaized = false;
     m_pLastFilterParam.reset();
     m_vpFilters.clear();
     for (int i = 0; i < _countof(m_dev); i++) {
@@ -118,8 +122,8 @@ cuFilterChain::~cuFilterChain() {
     for (int i = 0; i < _countof(m_host); i++) {
         m_host[i].clear();
     }
+    m_cuda_initilaized = false;
 }
-
 
 void cuFilterChain::PrintMes(int logLevel, const TCHAR *format, ...) {
     if (logLevel < RGY_LOG_ERROR) {
@@ -302,6 +306,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init CopyHtoD.\n"));
             return sts;
         }
         //パラメータ情報を更新
@@ -323,6 +328,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init knn.\n"));
             return sts;
         }
         //パラメータ情報を更新
@@ -344,6 +350,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init pmd.\n"));
             return sts;
         }
         //パラメータ情報を更新
@@ -374,6 +381,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
 #endif
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init resize.\n"));
             return sts;
         }
         //パラメータ情報を更新
@@ -397,6 +405,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init unsharp.\n"));
             return sts;
         }
         //パラメータ情報を更新
@@ -418,6 +427,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init edgelevel.\n"));
             return sts;
         }
         //パラメータ情報を更新
@@ -439,6 +449,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init deband.\n"));
             return sts;
         }
         //パラメータ情報を更新
@@ -462,6 +473,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         memset(&param->crop, 0, sizeof(param->crop));
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init CopyDtoH.\n"));
             return sts;
         }
         //パラメータ情報を更新
@@ -476,9 +488,12 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
     if (!m_cuda_initilaized) {
         return 1;
     }
+
     cuFilterChainCtx ctx(m_cuContextCurr);
     //解像度チェック、メモリ確保
     if (allocate_buffer(pInputFrame, pOutputFrame)) {
+        PrintMes(RGY_LOG_ERROR, _T("failed to allocate buffer.\n"));
+        close();
         return 1;
     }
 
@@ -489,6 +504,8 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
     }
     //フィルタチェーン更新
     if (filter_chain_create(&m_host[0].frame, &m_host[1].frame, recreate_filter_chain)) {
+        PrintMes(RGY_LOG_ERROR, _T("failed to update filter chain.\n"));
+        close();
         return 1;
     }
 
@@ -527,6 +544,7 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
     auto sts_filter = lastFilter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
     if (sts_filter != NV_ENC_SUCCESS) {
         PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
+        close();
         return sts_filter;
     }
     cudaThreadSynchronize();
