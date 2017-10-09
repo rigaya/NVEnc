@@ -57,11 +57,13 @@ NVENCSTATUS NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
 
     pRffParam->frameOut.pitch = pRffParam->frameIn.pitch;
 
-    m_fieldBuf.frame = pRffParam->frameOut;
-    auto cudaerr = m_fieldBuf.alloc();
-    if (cudaerr != CUDA_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+    if (cmpFrameInfoCspResolution(&m_fieldBuf.frame, &pRffParam->frameOut)) {
+        m_fieldBuf.frame = pRffParam->frameOut;
+        auto cudaerr = m_fieldBuf.alloc();
+        if (cudaerr != CUDA_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return NV_ENC_ERR_OUT_OF_MEMORY;
+        }
     }
 
     m_nFieldBufUsed = -1;

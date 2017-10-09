@@ -18,6 +18,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ChapterRW", "ChapterRW\Chap
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NVEncSDK", "NVEncSDK\NVEncSDK.vcxproj", "{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cufilters", "cufilters\cufilters.vcxproj", "{E51BED9B-D90C-4483-B22F-76D10907EC79}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -118,6 +120,16 @@ Global
 		{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}.RelStatic|Win32.Build.0 = RelStatic|Win32
 		{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}.RelStatic|x64.ActiveCfg = RelStatic|x64
 		{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}.RelStatic|x64.Build.0 = RelStatic|x64
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.Debug|Win32.Build.0 = Debug|Win32
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.Debug|x64.ActiveCfg = Debug|x64
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.DebugStatic|Win32.ActiveCfg = DebugStatic|Win32
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.DebugStatic|x64.ActiveCfg = DebugStatic|x64
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.Release|Win32.ActiveCfg = Release|Win32
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.Release|Win32.Build.0 = Release|Win32
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.Release|x64.ActiveCfg = Release|x64
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.RelStatic|Win32.ActiveCfg = RelStatic|Win32
+		{E51BED9B-D90C-4483-B22F-76D10907EC79}.RelStatic|x64.ActiveCfg = RelStatic|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

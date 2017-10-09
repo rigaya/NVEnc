@@ -331,13 +331,16 @@ NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared
     }
     pUnsharpParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    float sigmaY = 0.8f + 0.3f * pUnsharpParam->unsharp.radius;
-    float sigmaUV = (RGY_CSP_CHROMA_FORMAT[pUnsharpParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) ? 0.8f + 0.3f * (pUnsharpParam->unsharp.radius * 0.5f + 0.25f) : sigmaY;
+    if (!m_pParam
+        || std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(m_pParam)->unsharp.radius != pUnsharpParam->unsharp.radius) {
+        float sigmaY = 0.8f + 0.3f * pUnsharpParam->unsharp.radius;
+        float sigmaUV = (RGY_CSP_CHROMA_FORMAT[pUnsharpParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) ? 0.8f + 0.3f * (pUnsharpParam->unsharp.radius * 0.5f + 0.25f) : sigmaY;
 
-    if (   NV_ENC_SUCCESS != (sts = setWeight(m_pGaussWeightBufY,  pUnsharpParam->unsharp.radius, sigmaY))
-        || NV_ENC_SUCCESS != (sts = setWeight(m_pGaussWeightBufUV, pUnsharpParam->unsharp.radius, sigmaUV))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to set weight: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return sts;
+        if (   NV_ENC_SUCCESS != (sts = setWeight(m_pGaussWeightBufY,  pUnsharpParam->unsharp.radius, sigmaY))
+            || NV_ENC_SUCCESS != (sts = setWeight(m_pGaussWeightBufUV, pUnsharpParam->unsharp.radius, sigmaUV))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set weight: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return sts;
+        }
     }
 
     m_sFilterInfo = strsprintf(_T("unsharp: radius %d, weight %.1f, threshold %.1f"),

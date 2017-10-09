@@ -162,6 +162,11 @@ void convert_yc48_to_yuv444_16bit_sse41(void **dst, const void **src, int width,
 void convert_yc48_to_yuv444_16bit_ssse3(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yc48_to_yuv444_16bit_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
+void convert_yuv444_16bit_to_yc48_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yuv444_16bit_to_yc48_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yuv444_16bit_to_yc48_sse41(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yuv444_16bit_to_yc48_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+
 //適当。
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -905,18 +910,22 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_YUY2,      RGY_CSP_YUV444,    false,  convert_yuy2_to_yuv444,              convert_yuy2_to_yuv444,               NONE )
 #if FOR_AUO
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444,    false,  convert_yc48_to_yuv444_avx,          convert_yc48_to_yuv444_avx,          AVX )
-    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444,    false,  convert_yc48_to_yuv444_sse41,        convert_yc48_to_yuv444_sse41,         SSE41|SSSE3|SSE2 )
+    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444,    false,  convert_yc48_to_yuv444_sse41,        convert_yc48_to_yuv444_sse41,        SSE41|SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444,    false,  convert_yc48_to_yuv444_sse2,         convert_yc48_to_yuv444_sse2,         SSE2 )
     FUNC_AVX2( RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_sse2,           convert_yc48_to_p010_i_avx2,         AVX2|AVX )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_avx,            convert_yc48_to_p010_i_avx,          AVX )
-    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_sse41,          convert_yc48_to_p010_i_sse41,         SSE41|SSSE3|SSE2 )
-    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_ssse3,          convert_yc48_to_p010_i_ssse3,         SSSE3|SSE2 )
+    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_sse41,          convert_yc48_to_p010_i_sse41,        SSE41|SSSE3|SSE2 )
+    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_ssse3,          convert_yc48_to_p010_i_ssse3,        SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_P010,      false,  convert_yc48_to_p010_sse2,           convert_yc48_to_p010_i_sse2,         SSE2 )
     FUNC_AVX2( RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_avx2,   convert_yc48_to_yuv444_16bit_avx2,   AVX2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_avx,    convert_yc48_to_yuv444_16bit_avx,    AVX )
-    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_sse41,  convert_yc48_to_yuv444_16bit_sse41,   SSE41|SSSE3|SSE2 )
-    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_ssse3,  convert_yc48_to_yuv444_16bit_ssse3,   SSSE3|SSE2 )
+    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_sse41,  convert_yc48_to_yuv444_16bit_sse41,  SSE41|SSSE3|SSE2 )
+    FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_ssse3,  convert_yc48_to_yuv444_16bit_ssse3,  SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_sse2,   convert_yc48_to_yuv444_16bit_sse2,   SSE2 )
+    FUNC_AVX2(RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_avx2,   convert_yuv444_16bit_to_yc48_avx2,   AVX2 )
+    FUNC_SSE( RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_avx,    convert_yuv444_16bit_to_yc48_avx,    AVX )
+    FUNC_SSE( RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_sse41,  convert_yuv444_16bit_to_yc48_sse41,  SSE41|SSSE3|SSE2 )
+    FUNC_SSE( RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_sse2,   convert_yuv444_16bit_to_yc48_sse2,   SSE2 )
 #endif
 #if ENABLE_AVSW_READER || ENABLE_AVI_READER || ENABLE_AVISYNTH_READER || ENABLE_VAPOURSYNTH_READER || ENABLE_AVI_READER || ENABLE_RAW_READER
     FUNC_AVX2( RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_avx2,     convert_yv12_to_nv12_avx2,     AVX2|AVX)

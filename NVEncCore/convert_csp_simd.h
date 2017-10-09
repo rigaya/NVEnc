@@ -966,6 +966,25 @@ static __forceinline __m128i convert_uv_range_from_yc48_420i(__m128i x0, __m128i
     return x0;
 }
 
+static __forceinline __m128i convert_y_range_to_yc48(__m128i x0) {
+    //coef = 4788
+    //((( y - 32768 ) * coef) >> 16 ) + (coef/2 - 299)
+    __m128i xC_0x8000 = _mm_slli_epi16(_mm_cmpeq_epi32(x0, x0), 15);
+    x0 = _mm_add_epi16(x0, xC_0x8000); // -32768
+    x0 = _mm_mulhi_epi16(x0, _mm_set1_epi16(4788));
+    x0 = _mm_add_epi16(x0, _mm_set1_epi16(4788/2 - 299));
+    return x0;
+}
+
+static __forceinline __m128i convert_uv_range_to_yc48(__m128i x0) {
+    //coeff = 4682
+    //UV = (( uv - 32768 ) * coef + (1<<15) ) >> 16
+    //   = (( uv - 32768 + (1<<15)/coef ) * coef ) >> 16
+    x0 = _mm_add_epi16(x0, _mm_set1_epi16(-32768 + ((1<<15)/4682)));
+    x0 = _mm_mulhi_epi16(x0, _mm_set1_epi16(4682));
+    return x0;
+}
+
 static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m128i& x2) {
 #if USE_SSE41
     __m128i x3, x4, x5;
@@ -1027,6 +1046,69 @@ static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m12
     x1 = x6;
     x2 = x7;
 #endif //USE_SSE41
+}
+
+
+static __forceinline void gather_y_u_v_to_yc48(__m128i& x0, __m128i& x1, __m128i& x2) {
+    __m128i x3, x4;
+#if USE_SSE41
+    alignas(16) static const uint8_t shuffle_yc48[16] = {
+        0x00, 0x01, 0x06, 0x07, 0x0C, 0x0D, 0x02, 0x03, 0x08, 0x09, 0x0E, 0x0F, 0x04, 0x05, 0x0A, 0x0B
+    };
+    x4 = _mm_load_si128((__m128i *)shuffle_yc48);
+    x0 = _mm_shuffle_epi8(x0, x4);                          //5,2,7,4,1,6,3,0
+    x1 = _mm_shuffle_epi8(x1, _mm_alignr_epi8(x4, x4, 14)); //2,7,4,1,6,3,0,5
+    x2 = _mm_shuffle_epi8(x2, _mm_alignr_epi8(x4, x4, 12)); //7,4,1,6,3,0,5,2
+
+    x3 = _mm_blend_epi16(x0, x1, 0x80 + 0x10 + 0x02);
+    x3 = _mm_blend_epi16(x3, x2, 0x20 + 0x04);
+
+    x4 = _mm_blend_epi16(x2, x1, 0x20 + 0x04);
+    x4 = _mm_blend_epi16(x4, x0, 0x80 + 0x10 + 0x02);
+
+    x2 = _mm_blend_epi16(x2, x0, 0x20 + 0x04);
+    x2 = _mm_blend_epi16(x2, x1, 0x40 + 0x08 + 0x01);
+
+    x0 = x3;
+    x1 = x4;
+#else
+    x0 = _mm_shufflelo_epi16(x0, _MM_SHUFFLE(3,1,2,0)); // 7,6,5,4,3,1,2,0
+    x0 = _mm_shufflehi_epi16(x0, _MM_SHUFFLE(3,1,2,0)); // 7,5,6,4,3,1,2,0
+    x0 = _mm_shuffle_epi32(  x0, _MM_SHUFFLE(3,1,2,0)); // 7,5,3,1,6,4,2,0
+    x0 = _mm_shufflelo_epi16(x0, _MM_SHUFFLE(3,1,2,0)); // 7,5,3,1,6,2,4,0
+    x0 = _mm_shufflehi_epi16(x0, _MM_SHUFFLE(3,1,2,0)); // 7,3,5,1,6,2,4,0
+
+    x1 = _mm_shufflelo_epi16(x1, _MM_SHUFFLE(3,1,2,0));
+    x1 = _mm_shufflehi_epi16(x1, _MM_SHUFFLE(3,1,2,0));
+    x1 = _mm_shuffle_epi32(  x1, _MM_SHUFFLE(3,1,2,0));
+    x1 = _mm_shufflelo_epi16(x1, _MM_SHUFFLE(3,1,2,0));
+    x1 = _mm_shufflehi_epi16(x1, _MM_SHUFFLE(3,1,2,0));
+
+    x2 = _mm_shufflelo_epi16(x2, _MM_SHUFFLE(3,1,2,0));
+    x2 = _mm_shufflehi_epi16(x2, _MM_SHUFFLE(3,1,2,0));
+    x2 = _mm_shuffle_epi32(  x2, _MM_SHUFFLE(3,1,2,0));
+    x2 = _mm_shufflelo_epi16(x2, _MM_SHUFFLE(3,1,2,0));
+    x2 = _mm_shufflehi_epi16(x2, _MM_SHUFFLE(3,1,2,0));
+
+    x3 = _mm_shuffle_epi32(x0, _MM_SHUFFLE(3,2,3,2));
+    x0 = _mm_unpacklo_epi16(x0, x1);
+    x1 = _mm_unpackhi_epi16(x1, x2);
+    x2 = _mm_unpacklo_epi16(x2, x3);
+
+    x3 = _mm_shuffle_epi32(x0, _MM_SHUFFLE(3,2,3,2));
+    x0 = _mm_unpacklo_epi32(x0, x2);
+    x2 = _mm_unpackhi_epi32(x2, x1);
+    x1 = _mm_unpacklo_epi32(x1, x3);
+
+    x3 = _mm_shuffle_epi32(x0, _MM_SHUFFLE(3,2,3,2));
+    x0 = _mm_unpacklo_epi64(x0, x1);
+    x1 = _mm_unpackhi_epi64(x1, x2);
+    x2 = _mm_unpacklo_epi64(x2, x3);
+
+    x4 = x2;
+    x2 = x1;
+    x1 = x4;
+#endif
 }
 
 template <bool aligned_store>
@@ -1161,23 +1243,54 @@ static void __forceinline convert_yc48_to_yuv444_simd(void **dst, const void **s
 
 template <bool aligned_store>
 static __forceinline void convert_yc48_to_yuv444_16bit_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
-    short *Y = (short *)dst[0];
-    short *U = (short *)dst[1];
-    short *V = (short *)dst[2];
-    short *pixel = (short *)src[0];
-    short *ycp;
-    short *const ycp_fin = (short *)pixel + width * height * 3;
+    char *Y_line = (char *)dst[0];
+    char *U_line = (char *)dst[1];
+    char *V_line = (char *)dst[2];
+    char *pixel = (char *)src[0];
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
     __m128i x1, x2, x3;
-    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 24, Y += 8, U += 8, V += 8) {
-        x1 = _mm_loadu_si128((__m128i *)(ycp +  0));
-        x2 = _mm_loadu_si128((__m128i *)(ycp +  8));
-        x3 = _mm_loadu_si128((__m128i *)(ycp + 16));
-        gather_y_u_v_from_yc48(x1, x2, x3);
-        _mm_store_switch_si128((__m128i *)Y, convert_y_range_from_yc48( x1,                                xC_Y_L_MA_16,      Y_L_RSH_16,     xC_YCC, xC_pw_one));
-        _mm_store_switch_si128((__m128i *)U, convert_uv_range_from_yc48(x2, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_444, UV_L_RSH_16_444, xC_YCC, xC_pw_one));
-        _mm_store_switch_si128((__m128i *)V, convert_uv_range_from_yc48(x3, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_444, UV_L_RSH_16_444, xC_YCC, xC_pw_one));
+    for (int y = 0; y < height; y++, pixel += src_y_pitch_byte, Y_line += dst_y_pitch_byte, U_line += dst_y_pitch_byte, V_line += dst_y_pitch_byte) {
+        short *Y = (short *)Y_line;
+        short *U = (short *)U_line;
+        short *V = (short *)V_line;
+        short *const ycp_fin = (short *)pixel + width * 3;
+        for (short *ycp = (short *)pixel; ycp < ycp_fin; ycp += 24, Y += 8, U += 8, V += 8) {
+            x1 = _mm_loadu_si128((__m128i *)(ycp +  0));
+            x2 = _mm_loadu_si128((__m128i *)(ycp +  8));
+            x3 = _mm_loadu_si128((__m128i *)(ycp + 16));
+            gather_y_u_v_from_yc48(x1, x2, x3);
+            _mm_store_switch_si128((__m128i *)Y, convert_y_range_from_yc48(x1, xC_Y_L_MA_16, Y_L_RSH_16, xC_YCC, xC_pw_one));
+            _mm_store_switch_si128((__m128i *)U, convert_uv_range_from_yc48(x2, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_444, UV_L_RSH_16_444, xC_YCC, xC_pw_one));
+            _mm_store_switch_si128((__m128i *)V, convert_uv_range_from_yc48(x3, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_444, UV_L_RSH_16_444, xC_YCC, xC_pw_one));
+        }
+    }
+}
+
+template <bool aligned_store>
+static __forceinline void convert_yuv444_16bit_to_yc48_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    char *Y_line = (char *)src[0];
+    char *U_line = (char *)src[1];
+    char *V_line = (char *)src[2];
+    char *pixel = (char *)dst[0];
+    __m128i x1, x2, x3;
+    for (int y = 0; y < height; y++, pixel += dst_y_pitch_byte, Y_line += src_y_pitch_byte, U_line += src_y_pitch_byte, V_line += src_y_pitch_byte) {
+        short *Y = (short *)Y_line;
+        short *U = (short *)U_line;
+        short *V = (short *)V_line;
+        short *const ycp_fin = (short *)pixel + width * 3;
+        for (short *ycp = (short *)pixel; ycp < ycp_fin; ycp += 24, Y += 8, U += 8, V += 8) {
+            x1 = _mm_loadu_si128((__m128i *)(Y));
+            x2 = _mm_loadu_si128((__m128i *)(U));
+            x3 = _mm_loadu_si128((__m128i *)(V));
+            x1 = convert_y_range_to_yc48(x1);
+            x2 = convert_uv_range_to_yc48(x2);
+            x3 = convert_uv_range_to_yc48(x3);
+            gather_y_u_v_to_yc48(x1, x2, x3);
+            _mm_store_switch_si128((__m128i *)(ycp +  0), x1);
+            _mm_store_switch_si128((__m128i *)(ycp +  8), x2);
+            _mm_store_switch_si128((__m128i *)(ycp + 16), x3);
+        }
     }
 }
 

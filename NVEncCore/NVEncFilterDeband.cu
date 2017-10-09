@@ -561,48 +561,59 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
     pDebandParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_RandY.frame = pDebandParam->frameOut;
-    m_RandY.frame.csp = RGY_CSP_RGB32;
-    cudaerr = m_RandY.alloc();
-    if (cudaerr != CUDA_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
-    }
-    m_RandUV.frame = pDebandParam->frameOut;
-    cudaerr = m_RandUV.alloc();
-    if (cudaerr != CUDA_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+    bool resChanged = cmpFrameInfoCspResolution(&m_RandY.frame, &pDebandParam->frameOut);
+    if (resChanged) {
+        m_RandY.frame = pDebandParam->frameOut;
+        m_RandY.frame.ptr = nullptr;
+        m_RandY.frame.csp = RGY_CSP_RGB32;
+        cudaerr = m_RandY.alloc();
+        if (cudaerr != CUDA_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return NV_ENC_ERR_OUT_OF_MEMORY;
+        }
+
+        m_RandUV.frame = pDebandParam->frameOut;
+        m_RandUV.frame.ptr = nullptr;
+        cudaerr = m_RandUV.alloc();
+        if (cudaerr != CUDA_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return NV_ENC_ERR_OUT_OF_MEMORY;
+        }
     }
 
-    dim3 threads(GEN_RAND_THREAD_X, GEN_RAND_THREAD_Y, 1);
-    dim3 grids(divCeil(pDebandParam->frameOut.width >> 1, threads.x), divCeil(pDebandParam->frameOut.height >> 1, threads.y * GEN_RAND_BLOCK_LOOP_Y), 1);
-    m_RandState.nSize = sizeof(curandState) * (threads.x * grids.x) * (threads.y * grids.y);
-    cudaerr = m_RandState.alloc();
-    if (cudaerr != CUDA_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
-    }
+    if (resChanged
+        || !m_pParam
+        || std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_pParam)->deband.seed != pDebandParam->deband.seed) {
+        dim3 threads(GEN_RAND_THREAD_X, GEN_RAND_THREAD_Y, 1);
+        dim3 grids(divCeil(pDebandParam->frameOut.width >> 1, threads.x), divCeil(pDebandParam->frameOut.height >> 1, threads.y * GEN_RAND_BLOCK_LOOP_Y), 1);
+        m_RandState.nSize = sizeof(curandState) * (threads.x * grids.x) * (threads.y * grids.y);
+        cudaerr = m_RandState.alloc();
+        if (cudaerr != CUDA_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return NV_ENC_ERR_OUT_OF_MEMORY;
+        }
 
-    kernel_rand_init<<<grids, threads>>>((curandState *)m_RandState.ptr, pDebandParam->deband.seed);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to run kernel_rand_init: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_GENERIC;
-    }
+        kernel_rand_init<<<grids, threads>>>((curandState *)m_RandState.ptr, pDebandParam->deband.seed);
+        cudaerr = cudaGetLastError();
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to run kernel_rand_init: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
 
-    kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false><<<grids, threads>>>(
-        (int8_t *)m_RandY.frame.ptr, (int8_t *)m_RandUV.frame.ptr,
-        m_RandY.frame.pitch, m_RandUV.frame.pitch,
-        m_RandY.frame.width, m_RandY.frame.height,
-        (curandState *)m_RandState.ptr);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to run kernel_gen_rand: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_GENERIC;
+        kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false><<<grids, threads>>>(
+            (int8_t *)m_RandY.frame.ptr, (int8_t *)m_RandUV.frame.ptr,
+            m_RandY.frame.pitch, m_RandUV.frame.pitch,
+            m_RandY.frame.width, m_RandY.frame.height,
+            (curandState *)m_RandState.ptr);
+        cudaerr = cudaGetLastError();
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to run kernel_gen_rand: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
     }
     
-    m_sFilterInfo = strsprintf(_T("deband: mode %d, range %d, threY %d, threCb %d, threCr %d\n                       ditherY %d, ditherC %d, blurFirst %s, randEachFrame %s"),
+    m_sFilterInfo = strsprintf(_T("deband: mode %d, range %d, threY %d, threCb %d, threCr %d\n")
+        _T("                       ditherY %d, ditherC %d, blurFirst %s, randEachFrame %s"),
         pDebandParam->deband.sample, pDebandParam->deband.range,
         pDebandParam->deband.threY, pDebandParam->deband.threCb, pDebandParam->deband.threCr,
         pDebandParam->deband.ditherY, pDebandParam->deband.ditherC,

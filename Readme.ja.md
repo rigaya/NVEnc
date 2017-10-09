@@ -2,18 +2,18 @@
 # NVEnc  
 by rigaya  
 
-このソフトウェアは、NVIDIAのGPU/APUに搭載されているHWエンコーダ(NVENC)の画質や速度といった性能の実験を目的としています。Aviutlの出力プラグイン版と単体で動作するコマンドライン版があります。  
+このソフトウェアは、NVIDIAのGPU/APUに搭載されているHWエンコーダ(NVENC)の画質や速度といった性能の実験を目的としています。[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグイン版と単体で動作するコマンドライン版があります。  
 
-NVEnc.auo … NVIDIAのNVEncを使用してエンコードを行うAviutlの出力プラグインです。  
-
-NVEncC.exe … 上記のコマンドライン版です。
+- NVEnc.auo … NVIDIAのNVEncを使用してエンコードを行う[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグインです。  
+- NVEncC.exe … 上記のコマンドライン版です。
+- cufilters … [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)用CUDAフィルタです。
 
 ## 配布場所 & 更新履歴  
 [rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-17.html)  
 
 ## 基本動作環境  
 Windows 7, 8, 8.1, 10 (x86/x64)  
-Aviutl 0.99g4 以降 (NVEnc.auo)  
+[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/) 0.99g4 以降 (NVEnc.auo)  
 NVEncが載ったハードウェア  
   NVIDIA製 GPU GeForce Kepler世代以降 (GT/GTX 6xx 以降)  
   ※GT 63x, 62x等はFermi世代のリネームであるため非対応なものがあります。  
@@ -90,6 +90,17 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   - 輪郭・ディテール強調
     - unsharp
     - edgelevel (エッジレベル調整)
+
+### cufilters.auf
+- 対応フィルタ
+  - リサイズ
+  - ノイズ除去
+    - knn (K-nearest neighbor)
+    - pmd (正則化pmd法)
+  - 輪郭・ディテール強調
+    - unsharp
+    - edgelevel (エッジレベル調整)
+  - バンディング低減
 
 ### NVEncのソースコードについて
 - MITライセンスです。

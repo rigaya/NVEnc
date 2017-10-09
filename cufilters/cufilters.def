@@ -1,0 +1,5 @@
+﻿LIBRARY cufilters.auf
+
+EXPORTS
+    GetFilterTable @1
+

@@ -234,6 +234,8 @@ NVENCSTATUS NVEncFilterDelogo::delogoUV(FrameInfo *pFrame) {
 
 NVEncFilterDelogo::NVEncFilterDelogo() {
     m_sFilterName = _T("delogo");
+    m_LogoFilePath = _T("");
+    m_nLogoIdx = -1;
 }
 
 NVEncFilterDelogo::~NVEncFilterDelogo() {
@@ -251,6 +253,9 @@ int NVEncFilterDelogo::readLogoFile() {
     if (pDelogoParam->logoFilePath == nullptr) {
         return 1;
     }
+    if (m_LogoFilePath == pDelogoParam->logoFilePath) {
+        return -1;
+    }
     auto file_deleter = [](FILE *fp) {
         fclose(fp);
     };
@@ -261,7 +266,7 @@ int NVEncFilterDelogo::readLogoFile() {
     }
     // ファイルヘッダ取得
     int logo_header_ver = 0;
-    LOGO_FILE_HEADER logo_file_header ={ 0 };
+    LOGO_FILE_HEADER logo_file_header = { 0 };
     if (sizeof(logo_file_header) != fread(&logo_file_header, 1, sizeof(logo_file_header), fp.get())) {
         AddMessage(RGY_LOG_ERROR, _T("invalid logo file.\n"));
         sts = 1;
@@ -296,6 +301,7 @@ int NVEncFilterDelogo::readLogoFile() {
             }
         }
     }
+    m_LogoFilePath = pDelogoParam->logoFilePath;
     return sts;
 }
 
@@ -408,15 +414,15 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
         return NV_ENC_ERR_INVALID_PARAM;
     }
     pDelogoParam->frameOut = pDelogoParam->frameIn;
-    //コピーを保存
-    m_pParam = pDelogoParam;
 
     //パラメータチェック
-    if (readLogoFile()) {
+    int ret_logofile = readLogoFile();
+    if (ret_logofile > 0) {
         return NV_ENC_ERR_INVALID_PARAM;
     }
-    if (0 > (m_nLogoIdx = selectLogo(pDelogoParam->logoSelect))) {
-        if (m_nLogoIdx == LOGO_AUTO_SELECT_NOHIT) {
+    const int logoidx = selectLogo(pDelogoParam->logoSelect);
+    if (logoidx < 0) {
+        if (logoidx == LOGO_AUTO_SELECT_NOHIT) {
             AddMessage(RGY_LOG_ERROR, _T("no logo was selected by auto select \"%s\".\n"), pDelogoParam->logoSelect);
             return NV_ENC_ERR_INVALID_PARAM;
         } else {
@@ -425,192 +431,196 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             return NV_ENC_ERR_INVALID_PARAM;
         }
     }
+    if (ret_logofile == 0 || m_nLogoIdx != logoidx) {
+        m_nLogoIdx = logoidx;
 
-    auto& logoData = m_sLogoDataList[m_nLogoIdx];
-    if (pDelogoParam->posX || pDelogoParam->posY) {
-        LogoData origData;
-        origData.header = logoData.header;
-        origData.logoPixel = logoData.logoPixel;
+        auto& logoData = m_sLogoDataList[m_nLogoIdx];
+        if (pDelogoParam->posX || pDelogoParam->posY) {
+            LogoData origData;
+            origData.header = logoData.header;
+            origData.logoPixel = logoData.logoPixel;
 
-        logoData.logoPixel = std::vector<LOGO_PIXEL>((logoData.header.w + 1) * (logoData.header.h + 1), { 0 });
+            logoData.logoPixel = std::vector<LOGO_PIXEL>((logoData.header.w + 1) * (logoData.header.h + 1), { 0 });
 
-        create_adj_exdata(logoData.logoPixel.data(), &logoData.header, origData.logoPixel.data(), &origData.header, pDelogoParam->posX, pDelogoParam->posY);
-    }
-    const int frameWidth  = pDelogoParam->frameIn.width;
-    const int frameHeight = pDelogoParam->frameIn.height;
-
-    m_sProcessData[LOGO__Y].offset[0] = pDelogoParam->Y  << 4;
-    m_sProcessData[LOGO__Y].offset[1] = pDelogoParam->Y  << 4;
-    m_sProcessData[LOGO_UV].offset[0] = pDelogoParam->Cb << 4;
-    m_sProcessData[LOGO_UV].offset[1] = pDelogoParam->Cr << 4;
-    m_sProcessData[LOGO__U].offset[0] = pDelogoParam->Cb << 4;
-    m_sProcessData[LOGO__U].offset[1] = pDelogoParam->Cb << 4;
-    m_sProcessData[LOGO__V].offset[0] = pDelogoParam->Cr << 4;
-    m_sProcessData[LOGO__V].offset[1] = pDelogoParam->Cr << 4;
-
-    m_sProcessData[LOGO__Y].fade = 256;
-    m_sProcessData[LOGO_UV].fade = 256;
-    m_sProcessData[LOGO__U].fade = 256;
-    m_sProcessData[LOGO__V].fade = 256;
-
-    m_sProcessData[LOGO__Y].depth = pDelogoParam->depth;
-    m_sProcessData[LOGO_UV].depth = pDelogoParam->depth;
-    m_sProcessData[LOGO__U].depth = pDelogoParam->depth;
-    m_sProcessData[LOGO__V].depth = pDelogoParam->depth;
-
-    m_sProcessData[LOGO__Y].i_start = (std::min)(logoData.header.x & ~63, frameWidth);
-    m_sProcessData[LOGO__Y].width   = (((std::min)(logoData.header.x + logoData.header.w, frameWidth) + 63) & ~63) - m_sProcessData[LOGO__Y].i_start;
-    m_sProcessData[LOGO_UV].i_start = m_sProcessData[LOGO__Y].i_start;
-    m_sProcessData[LOGO_UV].width   = m_sProcessData[LOGO__Y].width;
-    m_sProcessData[LOGO__U].i_start = m_sProcessData[LOGO__Y].i_start >> 1;
-    m_sProcessData[LOGO__U].width   = m_sProcessData[LOGO__Y].width >> 1;
-    m_sProcessData[LOGO__V].i_start = m_sProcessData[LOGO__U].i_start;
-    m_sProcessData[LOGO__V].width   = m_sProcessData[LOGO__U].width;
-    const int yWidthOffset = logoData.header.x - m_sProcessData[LOGO__Y].i_start;
-
-    m_sProcessData[LOGO__Y].j_start = (std::min)((int)logoData.header.y, frameHeight);
-    m_sProcessData[LOGO__Y].height  = (std::min)(logoData.header.y + logoData.header.h, frameHeight) - m_sProcessData[LOGO__Y].j_start;
-    m_sProcessData[LOGO_UV].j_start = logoData.header.y >> 1;
-    m_sProcessData[LOGO_UV].height  = (((logoData.header.y + logoData.header.h + 1) & ~1) - (m_sProcessData[LOGO_UV].j_start << 1)) >> 1;
-    m_sProcessData[LOGO__U].j_start = m_sProcessData[LOGO_UV].j_start;
-    m_sProcessData[LOGO__U].height  = m_sProcessData[LOGO_UV].height;
-    m_sProcessData[LOGO__V].j_start = m_sProcessData[LOGO__U].j_start;
-    m_sProcessData[LOGO__V].height  = m_sProcessData[LOGO__U].height;
-
-    if (logoData.header.x >= frameWidth || logoData.header.y >= frameHeight) {
-        AddMessage(RGY_LOG_ERROR, _T("\"%s\" was not included in frame size %dx%d.\ndelogo disabled.\n"), pDelogoParam->logoSelect, frameWidth, frameHeight);
-        AddMessage(RGY_LOG_ERROR, _T("logo pos x=%d, y=%d, including pos offset value %d:%d.\n"), logoData.header.x, logoData.header.y, pDelogoParam->posX, pDelogoParam->posY);
-        return NV_ENC_ERR_INVALID_PARAM;
-    }
-
-    m_sProcessData[LOGO__Y].pLogoPtr.reset((int16_t *)_aligned_malloc(sizeof(int16_t) * 2 * m_sProcessData[LOGO__Y].width * m_sProcessData[LOGO__Y].height, 32));
-    m_sProcessData[LOGO_UV].pLogoPtr.reset((int16_t *)_aligned_malloc(sizeof(int16_t) * 2 * m_sProcessData[LOGO_UV].width * m_sProcessData[LOGO_UV].height, 32));
-    m_sProcessData[LOGO__U].pLogoPtr.reset((int16_t *)_aligned_malloc(sizeof(int16_t) * 2 * m_sProcessData[LOGO__U].width * m_sProcessData[LOGO__U].height, 32));
-    m_sProcessData[LOGO__V].pLogoPtr.reset((int16_t *)_aligned_malloc(sizeof(int16_t) * 2 * m_sProcessData[LOGO__V].width * m_sProcessData[LOGO__V].height, 32));
-
-    memset(m_sProcessData[LOGO__Y].pLogoPtr.get(), 0, sizeof(int16_t) * 2 * m_sProcessData[LOGO__Y].width * m_sProcessData[LOGO__Y].height);
-    memset(m_sProcessData[LOGO_UV].pLogoPtr.get(), 0, sizeof(int16_t) * 2 * m_sProcessData[LOGO_UV].width * m_sProcessData[LOGO_UV].height);
-    memset(m_sProcessData[LOGO__U].pLogoPtr.get(), 0, sizeof(int16_t) * 2 * m_sProcessData[LOGO__U].width * m_sProcessData[LOGO__U].height);
-    memset(m_sProcessData[LOGO__V].pLogoPtr.get(), 0, sizeof(int16_t) * 2 * m_sProcessData[LOGO__V].width * m_sProcessData[LOGO__V].height);
-
-    //まず輝度成分をコピーしてしまう
-    for (int j = 0; j < m_sProcessData[LOGO__Y].height; j++) {
-        //輝度成分はそのままコピーするだけ
-        for (int i = 0; i < logoData.header.w; i++) {
-            int16x2_t logoY = *(int16x2_t *)&logoData.logoPixel[j * logoData.header.w + i].dp_y;
-            ((int16x2_t *)m_sProcessData[LOGO__Y].pLogoPtr.get())[j * m_sProcessData[LOGO__Y].width + i + yWidthOffset] = logoY;
+            create_adj_exdata(logoData.logoPixel.data(), &logoData.header, origData.logoPixel.data(), &origData.header, pDelogoParam->posX, pDelogoParam->posY);
         }
-    }
-    //まずは4:4:4->4:2:0処理時に端を気にしなくていいよう、縦横ともに2の倍数となるよう拡張する
-    //CbCrの順番に並べていく
-    //0で初期化しておく
-    std::vector<int16x2_t> bufferCbCr444ForShrink(2 * m_sProcessData[LOGO_UV].height * 2 * m_sProcessData[LOGO__Y].width, { 0, 0 });
-    int j_src = 0; //読み込み側の行
-    int j_dst = 0; //書き込み側の行
-    auto copyUVLineForShrink = [&]() {
-        for (int i = 0; i < logoData.header.w; i++) {
-            int16x2_t logoCb = *(int16x2_t *)&logoData.logoPixel[j_src * logoData.header.w + i].dp_cb;
-            int16x2_t logoCr = *(int16x2_t *)&logoData.logoPixel[j_src * logoData.header.w + i].dp_cr;
-            bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + i + yWidthOffset) * 2 + 0] = logoCb;
-            bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + i + yWidthOffset) * 2 + 1] = logoCr;
+        const int frameWidth  = pDelogoParam->frameIn.width;
+        const int frameHeight = pDelogoParam->frameIn.height;
+
+        m_sProcessData[LOGO__Y].offset[0] = pDelogoParam->Y  << 4;
+        m_sProcessData[LOGO__Y].offset[1] = pDelogoParam->Y  << 4;
+        m_sProcessData[LOGO_UV].offset[0] = pDelogoParam->Cb << 4;
+        m_sProcessData[LOGO_UV].offset[1] = pDelogoParam->Cr << 4;
+        m_sProcessData[LOGO__U].offset[0] = pDelogoParam->Cb << 4;
+        m_sProcessData[LOGO__U].offset[1] = pDelogoParam->Cb << 4;
+        m_sProcessData[LOGO__V].offset[0] = pDelogoParam->Cr << 4;
+        m_sProcessData[LOGO__V].offset[1] = pDelogoParam->Cr << 4;
+
+        m_sProcessData[LOGO__Y].fade = 256;
+        m_sProcessData[LOGO_UV].fade = 256;
+        m_sProcessData[LOGO__U].fade = 256;
+        m_sProcessData[LOGO__V].fade = 256;
+
+        m_sProcessData[LOGO__Y].depth = pDelogoParam->depth;
+        m_sProcessData[LOGO_UV].depth = pDelogoParam->depth;
+        m_sProcessData[LOGO__U].depth = pDelogoParam->depth;
+        m_sProcessData[LOGO__V].depth = pDelogoParam->depth;
+
+        m_sProcessData[LOGO__Y].i_start = (std::min)(logoData.header.x & ~63, frameWidth);
+        m_sProcessData[LOGO__Y].width   = (((std::min)(logoData.header.x + logoData.header.w, frameWidth) + 63) & ~63) - m_sProcessData[LOGO__Y].i_start;
+        m_sProcessData[LOGO_UV].i_start = m_sProcessData[LOGO__Y].i_start;
+        m_sProcessData[LOGO_UV].width   = m_sProcessData[LOGO__Y].width;
+        m_sProcessData[LOGO__U].i_start = m_sProcessData[LOGO__Y].i_start >> 1;
+        m_sProcessData[LOGO__U].width   = m_sProcessData[LOGO__Y].width >> 1;
+        m_sProcessData[LOGO__V].i_start = m_sProcessData[LOGO__U].i_start;
+        m_sProcessData[LOGO__V].width   = m_sProcessData[LOGO__U].width;
+        const int yWidthOffset = logoData.header.x - m_sProcessData[LOGO__Y].i_start;
+
+        m_sProcessData[LOGO__Y].j_start = (std::min)((int)logoData.header.y, frameHeight);
+        m_sProcessData[LOGO__Y].height  = (std::min)(logoData.header.y + logoData.header.h, frameHeight) - m_sProcessData[LOGO__Y].j_start;
+        m_sProcessData[LOGO_UV].j_start = logoData.header.y >> 1;
+        m_sProcessData[LOGO_UV].height  = (((logoData.header.y + logoData.header.h + 1) & ~1) - (m_sProcessData[LOGO_UV].j_start << 1)) >> 1;
+        m_sProcessData[LOGO__U].j_start = m_sProcessData[LOGO_UV].j_start;
+        m_sProcessData[LOGO__U].height  = m_sProcessData[LOGO_UV].height;
+        m_sProcessData[LOGO__V].j_start = m_sProcessData[LOGO__U].j_start;
+        m_sProcessData[LOGO__V].height  = m_sProcessData[LOGO__U].height;
+
+        if (logoData.header.x >= frameWidth || logoData.header.y >= frameHeight) {
+            AddMessage(RGY_LOG_ERROR, _T("\"%s\" was not included in frame size %dx%d.\ndelogo disabled.\n"), pDelogoParam->logoSelect, frameWidth, frameHeight);
+            AddMessage(RGY_LOG_ERROR, _T("logo pos x=%d, y=%d, including pos offset value %d:%d.\n"), logoData.header.x, logoData.header.y, pDelogoParam->posX, pDelogoParam->posY);
+            return NV_ENC_ERR_INVALID_PARAM;
         }
-        if (yWidthOffset & 1) {
-            //奇数列はじまりなら、それをその前の偶数列に拡張する
-            int16x2_t logoCb = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + 0 + yWidthOffset) * 2 + 0];
-            int16x2_t logoCr = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + 0 + yWidthOffset) * 2 + 1];
-            bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + 0 + yWidthOffset - 1) * 2 + 0] = logoCb;
-            bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + 0 + yWidthOffset - 1) * 2 + 1] = logoCr;
+
+        m_sProcessData[LOGO__Y].pLogoPtr.reset((int16_t *)_aligned_malloc(sizeof(int16_t) * 2 * m_sProcessData[LOGO__Y].width * m_sProcessData[LOGO__Y].height, 32));
+        m_sProcessData[LOGO_UV].pLogoPtr.reset((int16_t *)_aligned_malloc(sizeof(int16_t) * 2 * m_sProcessData[LOGO_UV].width * m_sProcessData[LOGO_UV].height, 32));
+        m_sProcessData[LOGO__U].pLogoPtr.reset((int16_t *)_aligned_malloc(sizeof(int16_t) * 2 * m_sProcessData[LOGO__U].width * m_sProcessData[LOGO__U].height, 32));
+        m_sProcessData[LOGO__V].pLogoPtr.reset((int16_t *)_aligned_malloc(sizeof(int16_t) * 2 * m_sProcessData[LOGO__V].width * m_sProcessData[LOGO__V].height, 32));
+
+        memset(m_sProcessData[LOGO__Y].pLogoPtr.get(), 0, sizeof(int16_t) * 2 * m_sProcessData[LOGO__Y].width * m_sProcessData[LOGO__Y].height);
+        memset(m_sProcessData[LOGO_UV].pLogoPtr.get(), 0, sizeof(int16_t) * 2 * m_sProcessData[LOGO_UV].width * m_sProcessData[LOGO_UV].height);
+        memset(m_sProcessData[LOGO__U].pLogoPtr.get(), 0, sizeof(int16_t) * 2 * m_sProcessData[LOGO__U].width * m_sProcessData[LOGO__U].height);
+        memset(m_sProcessData[LOGO__V].pLogoPtr.get(), 0, sizeof(int16_t) * 2 * m_sProcessData[LOGO__V].width * m_sProcessData[LOGO__V].height);
+
+        //まず輝度成分をコピーしてしまう
+        for (int j = 0; j < m_sProcessData[LOGO__Y].height; j++) {
+            //輝度成分はそのままコピーするだけ
+            for (int i = 0; i < logoData.header.w; i++) {
+                int16x2_t logoY = *(int16x2_t *)&logoData.logoPixel[j * logoData.header.w + i].dp_y;
+                ((int16x2_t *)m_sProcessData[LOGO__Y].pLogoPtr.get())[j * m_sProcessData[LOGO__Y].width + i + yWidthOffset] = logoY;
+            }
         }
-        if ((yWidthOffset + logoData.header.w) & 1) {
-            //偶数列おわりなら、それをその次の奇数列に拡張する
-            int16x2_t logoCb = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset) * 2 + 0];
-            int16x2_t logoCr = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset) * 2 + 1];
-            bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset + 1) * 2 + 0] = logoCb;
-            bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset + 1) * 2 + 1] = logoCr;
+        //まずは4:4:4->4:2:0処理時に端を気にしなくていいよう、縦横ともに2の倍数となるよう拡張する
+        //CbCrの順番に並べていく
+        //0で初期化しておく
+        std::vector<int16x2_t> bufferCbCr444ForShrink(2 * m_sProcessData[LOGO_UV].height * 2 * m_sProcessData[LOGO__Y].width, { 0, 0 });
+        int j_src = 0; //読み込み側の行
+        int j_dst = 0; //書き込み側の行
+        auto copyUVLineForShrink = [&]() {
+            for (int i = 0; i < logoData.header.w; i++) {
+                int16x2_t logoCb = *(int16x2_t *)&logoData.logoPixel[j_src * logoData.header.w + i].dp_cb;
+                int16x2_t logoCr = *(int16x2_t *)&logoData.logoPixel[j_src * logoData.header.w + i].dp_cr;
+                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + i + yWidthOffset) * 2 + 0] = logoCb;
+                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + i + yWidthOffset) * 2 + 1] = logoCr;
+            }
+            if (yWidthOffset & 1) {
+                //奇数列はじまりなら、それをその前の偶数列に拡張する
+                int16x2_t logoCb = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + 0 + yWidthOffset) * 2 + 0];
+                int16x2_t logoCr = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + 0 + yWidthOffset) * 2 + 1];
+                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + 0 + yWidthOffset - 1) * 2 + 0] = logoCb;
+                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + 0 + yWidthOffset - 1) * 2 + 1] = logoCr;
+            }
+            if ((yWidthOffset + logoData.header.w) & 1) {
+                //偶数列おわりなら、それをその次の奇数列に拡張する
+                int16x2_t logoCb = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset) * 2 + 0];
+                int16x2_t logoCr = *(int16x2_t *)&bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset) * 2 + 1];
+                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset + 1) * 2 + 0] = logoCb;
+                bufferCbCr444ForShrink[(j_dst * m_sProcessData[LOGO_UV].width + logoData.header.w + yWidthOffset + 1) * 2 + 1] = logoCr;
+            }
+        };
+        if (logoData.header.y & 1) {
+            copyUVLineForShrink();
+            j_dst++; //書き込み側は1行進める
         }
-    };
-    if (logoData.header.y & 1) {
-        copyUVLineForShrink();
-        j_dst++; //書き込み側は1行進める
-    }
-    for (; j_src < logoData.header.h; j_src++, j_dst++) {
-        copyUVLineForShrink();
-    }
-    if ((logoData.header.y + logoData.header.h) & 1) {
-        j_src--; //読み込み側は1行戻る
-        copyUVLineForShrink();
+        for (; j_src < logoData.header.h; j_src++, j_dst++) {
+            copyUVLineForShrink();
+        }
+        if ((logoData.header.y + logoData.header.h) & 1) {
+            j_src--; //読み込み側は1行戻る
+            copyUVLineForShrink();
+        }
+
+        //実際に縮小処理を行う
+        //2x2->1x1の処理なのでインクリメントはそれぞれ2ずつ
+        for (int j = 0; j < m_sProcessData[LOGO__Y].height; j += 2) {
+            for (int i = 0; i < m_sProcessData[LOGO_UV].width; i += 2) {
+                int16x2_t logoCb0 = bufferCbCr444ForShrink[((j + 0) * m_sProcessData[LOGO_UV].width + i + 0) * 2 + 0];
+                int16x2_t logoCr0 = bufferCbCr444ForShrink[((j + 0) * m_sProcessData[LOGO_UV].width + i + 0) * 2 + 1];
+                int16x2_t logoCb1 = bufferCbCr444ForShrink[((j + 0) * m_sProcessData[LOGO_UV].width + i + 1) * 2 + 0];
+                int16x2_t logoCr1 = bufferCbCr444ForShrink[((j + 0) * m_sProcessData[LOGO_UV].width + i + 1) * 2 + 1];
+                int16x2_t logoCb2 = bufferCbCr444ForShrink[((j + 1) * m_sProcessData[LOGO_UV].width + i + 0) * 2 + 0];
+                int16x2_t logoCr2 = bufferCbCr444ForShrink[((j + 1) * m_sProcessData[LOGO_UV].width + i + 0) * 2 + 1];
+                int16x2_t logoCb3 = bufferCbCr444ForShrink[((j + 1) * m_sProcessData[LOGO_UV].width + i + 1) * 2 + 0];
+                int16x2_t logoCr3 = bufferCbCr444ForShrink[((j + 1) * m_sProcessData[LOGO_UV].width + i + 1) * 2 + 1];
+
+                int16x2_t logoCb, logoCr;
+                logoCb.x = (logoCb0.x + logoCb1.x + logoCb2.x + logoCb3.x + 2) >> 2;
+                logoCb.y = (logoCb0.y + logoCb1.y + logoCb2.y + logoCb3.y + 2) >> 2;
+                logoCr.x = (logoCr0.x + logoCr1.x + logoCr2.x + logoCr3.x + 2) >> 2;
+                logoCr.y = (logoCr0.y + logoCr1.y + logoCr2.y + logoCr3.y + 2) >> 2;
+
+                //単純平均により4:4:4->4:2:0に
+                ((int16x2_t *)m_sProcessData[LOGO_UV].pLogoPtr.get())[(j >> 1) * m_sProcessData[LOGO_UV].width * 1 + (i >> 1) * 2 + 0] = logoCb;
+                ((int16x2_t *)m_sProcessData[LOGO_UV].pLogoPtr.get())[(j >> 1) * m_sProcessData[LOGO_UV].width * 1 + (i >> 1) * 2 + 1] = logoCr;
+                ((int16x2_t *)m_sProcessData[LOGO__U].pLogoPtr.get())[(j >> 1) * m_sProcessData[LOGO__U].width * 1 + (i >> 1) * 1] = logoCb;
+                ((int16x2_t *)m_sProcessData[LOGO__V].pLogoPtr.get())[(j >> 1) * m_sProcessData[LOGO__V].width * 1 + (i >> 1) * 1] = logoCr;
+            }
+        }
+
+        for (uint32_t i = 0; i < _countof(m_sProcessData); i++) {
+            unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height));
+            auto cudaerr = uptr->alloc();
+            if (cudaerr != cudaSuccess) {
+                m_pFrameBuf.clear();
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for logo data %d: %s.\n"),
+                    i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                return NV_ENC_ERR_OUT_OF_MEMORY;
+            }
+            m_sProcessData[i].pDevLogo = std::move(uptr);
+            //ロゴデータをGPUに転送
+            cudaerr = cudaMemcpy2DAsync(m_sProcessData[i].pDevLogo->frame.ptr, m_sProcessData[i].pDevLogo->frame.pitch,
+                (void *)m_sProcessData[i].pLogoPtr.get(), m_sProcessData[i].width * sizeof(int16x2_t),
+                m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height, cudaMemcpyHostToDevice);
+            if (cudaerr != cudaSuccess) {
+                AddMessage(RGY_LOG_ERROR, _T("error at sending logo data %d cudaMemcpy2DAsync(%s): %s.\n"),
+                    i,
+                    getCudaMemcpyKindStr(cudaMemcpyHostToDevice),
+                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            }
+        }
+
+        //フィルタ情報の調整
+        std::string str = "";
+        switch (pDelogoParam->mode) {
+        case DELOGO_MODE_ADD:
+            str += ", add";
+            break;
+        case DELOGO_MODE_REMOVE:
+        default:
+            break;
+        }
+        if (pDelogoParam->posX || pDelogoParam->posY) {
+            str += strsprintf(", pos=%d:%d", pDelogoParam->posX, pDelogoParam->posY);
+        }
+        if (pDelogoParam->depth != FILTER_DEFAULT_DELOGO_DEPTH) {
+            str += strsprintf(", dpth=%d", pDelogoParam->depth);
+        }
+        if (pDelogoParam->Y || pDelogoParam->Cb || pDelogoParam->Cr) {
+            str += strsprintf(", YCbCr=%d:%d:%d", pDelogoParam->Y, pDelogoParam->Cb, pDelogoParam->Cr);
+        }
+        m_sFilterInfo = char_to_tstring("delogo: " + std::string(logoData.header.name) + str);
     }
 
-    //実際に縮小処理を行う
-    //2x2->1x1の処理なのでインクリメントはそれぞれ2ずつ
-    for (int j = 0; j < m_sProcessData[LOGO__Y].height; j += 2) {
-        for (int i = 0; i < m_sProcessData[LOGO_UV].width; i += 2) {
-            int16x2_t logoCb0 = bufferCbCr444ForShrink[((j + 0) * m_sProcessData[LOGO_UV].width + i + 0) * 2 + 0];
-            int16x2_t logoCr0 = bufferCbCr444ForShrink[((j + 0) * m_sProcessData[LOGO_UV].width + i + 0) * 2 + 1];
-            int16x2_t logoCb1 = bufferCbCr444ForShrink[((j + 0) * m_sProcessData[LOGO_UV].width + i + 1) * 2 + 0];
-            int16x2_t logoCr1 = bufferCbCr444ForShrink[((j + 0) * m_sProcessData[LOGO_UV].width + i + 1) * 2 + 1];
-            int16x2_t logoCb2 = bufferCbCr444ForShrink[((j + 1) * m_sProcessData[LOGO_UV].width + i + 0) * 2 + 0];
-            int16x2_t logoCr2 = bufferCbCr444ForShrink[((j + 1) * m_sProcessData[LOGO_UV].width + i + 0) * 2 + 1];
-            int16x2_t logoCb3 = bufferCbCr444ForShrink[((j + 1) * m_sProcessData[LOGO_UV].width + i + 1) * 2 + 0];
-            int16x2_t logoCr3 = bufferCbCr444ForShrink[((j + 1) * m_sProcessData[LOGO_UV].width + i + 1) * 2 + 1];
-
-            int16x2_t logoCb, logoCr;
-            logoCb.x = (logoCb0.x + logoCb1.x + logoCb2.x + logoCb3.x + 2) >> 2;
-            logoCb.y = (logoCb0.y + logoCb1.y + logoCb2.y + logoCb3.y + 2) >> 2;
-            logoCr.x = (logoCr0.x + logoCr1.x + logoCr2.x + logoCr3.x + 2) >> 2;
-            logoCr.y = (logoCr0.y + logoCr1.y + logoCr2.y + logoCr3.y + 2) >> 2;
-
-            //単純平均により4:4:4->4:2:0に
-            ((int16x2_t *)m_sProcessData[LOGO_UV].pLogoPtr.get())[(j >> 1) * m_sProcessData[LOGO_UV].width * 1 + (i >> 1) * 2 + 0] = logoCb;
-            ((int16x2_t *)m_sProcessData[LOGO_UV].pLogoPtr.get())[(j >> 1) * m_sProcessData[LOGO_UV].width * 1 + (i >> 1) * 2 + 1] = logoCr;
-            ((int16x2_t *)m_sProcessData[LOGO__U].pLogoPtr.get())[(j >> 1) * m_sProcessData[LOGO__U].width * 1 + (i >> 1) * 1    ] = logoCb;
-            ((int16x2_t *)m_sProcessData[LOGO__V].pLogoPtr.get())[(j >> 1) * m_sProcessData[LOGO__V].width * 1 + (i >> 1) * 1    ] = logoCr;
-        }
-    }
-
-    for (uint32_t i = 0; i < _countof(m_sProcessData); i++) {
-        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height));
-        auto cudaerr = uptr->alloc();
-        if (cudaerr != cudaSuccess) {
-            m_pFrameBuf.clear();
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for logo data %d: %s.\n"),
-                i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
-        }
-        m_sProcessData[i].pDevLogo = std::move(uptr);
-        //ロゴデータをGPUに転送
-        cudaerr = cudaMemcpy2DAsync(m_sProcessData[i].pDevLogo->frame.ptr, m_sProcessData[i].pDevLogo->frame.pitch,
-            (void *)m_sProcessData[i].pLogoPtr.get(), m_sProcessData[i].width * sizeof(int16x2_t),
-            m_sProcessData[i].width * sizeof(int16x2_t), m_sProcessData[i].height, cudaMemcpyHostToDevice);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("error at sending logo data %d cudaMemcpy2DAsync(%s): %s.\n"),
-                i,
-                getCudaMemcpyKindStr(cudaMemcpyHostToDevice),
-                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        }
-    }
-
-    //フィルタ情報の調整
-    std::string str = "";
-    switch (pDelogoParam->mode) {
-    case DELOGO_MODE_ADD:
-        str += ", add";
-        break;
-    case DELOGO_MODE_REMOVE:
-    default:
-        break;
-    }
-    if (pDelogoParam->posX || pDelogoParam->posY) {
-        str += strsprintf(", pos=%d:%d", pDelogoParam->posX, pDelogoParam->posY);
-    }
-    if (pDelogoParam->depth != FILTER_DEFAULT_DELOGO_DEPTH) {
-        str += strsprintf(", dpth=%d", pDelogoParam->depth);
-    }
-    if (pDelogoParam->Y || pDelogoParam->Cb || pDelogoParam->Cr) {
-        str += strsprintf(", YCbCr=%d:%d:%d", pDelogoParam->Y, pDelogoParam->Cb, pDelogoParam->Cr);
-    }
-    m_sFilterInfo = char_to_tstring("delogo: " + std::string(logoData.header.name) + str);
-
+    m_pParam = pDelogoParam;
     return sts;
 }
 
@@ -652,6 +662,7 @@ NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInf
 }
 
 void NVEncFilterDelogo::close() {
+    m_LogoFilePath.clear();
     m_pFrameBuf.clear();
     m_sLogoDataList.clear();
 }

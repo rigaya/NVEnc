@@ -105,6 +105,7 @@ protected:
     NVENCSTATUS delogoY(FrameInfo *pFrame);
     NVENCSTATUS delogoUV(FrameInfo *pFrame);
 
+    tstring m_LogoFilePath;
     int m_nLogoIdx;
     vector<LogoData> m_sLogoDataList;
     ProcessDataDelogo m_sProcessData[4];

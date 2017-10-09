@@ -88,6 +88,17 @@ which might cause problem in some playback environments.
 - Mux audio and chapter
 - afs (Automatic field shift) support
 
+### cufilters.auf (Aviutl plugin)
+- supported filters
+  - resize
+  - noise reduction
+    - knn (K-nearest neighbor)
+    - pmd (modified pmd method)
+  - edge / detail enhancement
+    - unsharp
+    - edgelevel (edge ​​level adjustment)
+  - deband
+
 ### NVEnc source code
 - MIT license.
 - This program is based on NVIDA CUDA Samples and includes sample code.

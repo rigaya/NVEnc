@@ -252,6 +252,14 @@ struct FrameInfo {
     RGY_FRAME_FLAGS flags;
 };
 
+static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) {
+    return pA->csp != pB->csp
+        || pA->width != pB->width
+        || pA->height != pB->height
+        || pA->deivce_mem != pB->deivce_mem
+        || pA->pitch != pB->pitch;
+}
+
 struct FrameInfoExtra {
     int width_byte, height_total, frame_size;
 };

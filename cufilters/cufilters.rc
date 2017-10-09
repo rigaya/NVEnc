@@ -1,0 +1,82 @@
+﻿// -----------------------------------------------------------------------------------------
+// NVEnc by rigaya
+// -----------------------------------------------------------------------------------------
+//
+// The MIT License
+//
+// Copyright (c) 2014-2016 rigaya
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+// ------------------------------------------------------------------------------------------
+
+#include <winres.h>
+#include "cufilters_version.h"
+#include "cufilters.h"
+
+//	文字列表示ダイアログ
+//
+ADD_RES_DLG DIALOG 0, 0, 175, 52
+CAPTION "cufilter リサイズ 解像度追加"
+STYLE   WS_VISIBLE | WS_POPUP | WS_CAPTION | DS_MODALFRAME | WS_SYSMENU
+FONT 9, "ＭＳ Ｐゴシック"
+{
+    LTEXT "<幅>x<高さ> で入力", IDC_STATIC, 4, 4, 80, 10
+    EDITTEXT ID_TX_RESIZE_RES_ADD, 4, 18, 167, 14, ES_LEFT
+
+    DEFPUSHBUTTON "OK", IDOK, 80, 36, 40, 14, BS_CENTER|BS_VCENTER
+    PUSHBUTTON    "キャンセル", IDCANCEL, 127, 36, 40, 14, BS_CENTER|BS_VCENTER
+}
+
+
+//
+// Version Information
+//
+
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     VER_FILEVERSION
+PRODUCTVERSION  VER_PRODUCTVERSION
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       ( VER_DEBUG | VER_PRIVATE )
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_DLL
+FILESUBTYPE     VFT_APP
+BEGIN
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x411, 1200
+    END
+
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041104b0"
+        BEGIN
+            VALUE "Comments",         VER_STR_COMMENTS
+            VALUE "CompanyName",      VER_STR_COMPANYNAME
+            VALUE "FileDescription",  VER_STR_FILEDESCRIPTION
+            VALUE "FileVersion",      VER_STR_FILEVERSION
+            VALUE "InternalName",     VER_STR_INTERNALNAME
+            VALUE "OriginalFileName", VER_STR_ORIGINALFILENAME
+            VALUE "LegalCopyright",   VER_STR_LEGALCOPYRIGHT
+            VALUE "ProductName",      VER_STR_PRODUCTNAME
+            VALUE "ProductVersion",   VER_STR_PRODUCTVERSION
+        END
+    END
+END

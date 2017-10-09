@@ -628,7 +628,7 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
     pResizeParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    if (pResizeParam->interp == RESIZE_CUDA_SPLINE36) {
+    if (m_weightSpline36.ptr == nullptr && pResizeParam->interp == RESIZE_CUDA_SPLINE36) {
         static const float SPLINE36_WEIGHT[3][4] = {
             { 13.0f/11.0f, -453.0f/209.0f,    -3.0f/209.0f,  1.0f          },
             { -6.0f/11.0f,  612.0f/209.0f, -1038.0f/209.0f,  540.0f/209.0f },

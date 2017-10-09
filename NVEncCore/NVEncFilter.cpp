@@ -47,8 +47,25 @@ NVEncFilter::~NVEncFilter() {
 }
 
 cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
+    if (m_pFrameBuf.size() == frames
+        && !cmpFrameInfoCspResolution(&m_pFrameBuf[0]->frame, &frame)) {
+        //すべて確保されているか確認
+        bool allocated = true;
+        for (int i = 0; i < m_pFrameBuf.size(); i++) {
+            if (m_pFrameBuf[i]->frame.ptr == nullptr) {
+                allocated = false;
+                break;
+            }
+        }
+        if (allocated) {
+            return cudaSuccess;
+        }
+    }
+    m_pFrameBuf.clear();
+
     for (int i = 0; i < frames; i++) {
         unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(frame));
+        uptr->frame.ptr = nullptr;
         auto ret = uptr->alloc();
         if (ret != cudaSuccess) {
             m_pFrameBuf.clear();

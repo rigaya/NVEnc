@@ -135,9 +135,9 @@ public:
 };
 
 struct CUFrameBuf {
+public:
     FrameInfo frame;
     cudaEvent_t event;
-    CUFrameBuf(const CUFrameBuf &) = delete;
     CUFrameBuf()
         : frame({ 0 }), event() {
         cudaEventCreate(&event);
@@ -166,6 +166,10 @@ struct CUFrameBuf {
         : frame(_info), event() {
         cudaEventCreate(&event);
     };
+protected:
+    CUFrameBuf(const CUFrameBuf &) = delete;
+    void operator =(const CUFrameBuf &) = delete;
+public:
     cudaError_t alloc() {
         if (frame.ptr) {
             cudaFree(frame.ptr);
@@ -186,13 +190,13 @@ struct CUFrameBuf {
             cudaFree(frame.ptr);
             frame.ptr = nullptr;
         }
+    }
+    ~CUFrameBuf() {
+        clear();
         if (event) {
             cudaEventDestroy(event);
             event = nullptr;
         }
-    }
-    ~CUFrameBuf() {
-        clear();
     }
 };
 

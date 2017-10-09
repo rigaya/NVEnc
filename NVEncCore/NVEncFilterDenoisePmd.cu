@@ -372,11 +372,14 @@ NVENCSTATUS NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, sha
     }
     pPmdParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_Gauss.frame = pPmdParam->frameOut;
-    cudaerr = m_Gauss.alloc();
-    if (cudaerr != CUDA_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+    if (cmpFrameInfoCspResolution(&m_Gauss.frame, &pPmdParam->frameOut)) {
+        m_Gauss.frame = pPmdParam->frameOut;
+        m_Gauss.frame.ptr = nullptr;
+        cudaerr = m_Gauss.alloc();
+        if (cudaerr != CUDA_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return NV_ENC_ERR_OUT_OF_MEMORY;
+        }
     }
 
     m_sFilterInfo = strsprintf(_T("denoise(pmd): strength %d, threshold %d, apply %d, exp %d"),
