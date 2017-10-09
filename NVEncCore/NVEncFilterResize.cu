@@ -712,14 +712,8 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
         };
         static const std::map<RGY_CSP, resizeFunc> resize_list = {
             { RGY_CSP_YV12,      resizeFunc(resize_texture_bilinear_yv12<uint8_t,  8>,    resize_spline36_yv12<uint8_t,   8>)   },
-            { RGY_CSP_YV12_10,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 10>,   resize_spline36_yv12<uint16_t, 10>)   },
-            { RGY_CSP_YV12_12,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 12>,   resize_spline36_yv12<uint16_t, 12>)   },
-            { RGY_CSP_YV12_14,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 14>,   resize_spline36_yv12<uint16_t, 14>)   },
             { RGY_CSP_YV12_16,   resizeFunc(resize_texture_bilinear_yv12<uint16_t, 16>,   resize_spline36_yv12<uint16_t, 16>)   },
             { RGY_CSP_YUV444,    resizeFunc(resize_texture_bilinear_yuv444<uint8_t,   8>, resize_spline36_yuv444<uint8_t,   8>) },
-            { RGY_CSP_YUV444_10, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 10>, resize_spline36_yuv444<uint16_t, 10>) },
-            { RGY_CSP_YUV444_12, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 12>, resize_spline36_yuv444<uint16_t, 12>) },
-            { RGY_CSP_YUV444_14, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 14>, resize_spline36_yuv444<uint16_t, 14>) },
             { RGY_CSP_YUV444_16, resizeFunc(resize_texture_bilinear_yuv444<uint16_t, 16>, resize_spline36_yuv444<uint16_t, 16>) },
         };
         if (resize_list.count(pInputFrame->csp) == 0) {

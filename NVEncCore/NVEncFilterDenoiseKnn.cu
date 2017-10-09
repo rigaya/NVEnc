@@ -358,16 +358,8 @@ NVENCSTATUS NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, Fram
 
     static const std::map<RGY_CSP, decltype(denoise_yv12<uint8_t, 8>)*> denoise_list = {
         { RGY_CSP_YV12,      denoise_yv12<uint8_t,   8> },
-        { RGY_CSP_YV12_09,   denoise_yv12<uint16_t,  9> },
-        { RGY_CSP_YV12_10,   denoise_yv12<uint16_t, 10> },
-        { RGY_CSP_YV12_12,   denoise_yv12<uint16_t, 12> },
-        { RGY_CSP_YV12_14,   denoise_yv12<uint16_t, 14> },
         { RGY_CSP_YV12_16,   denoise_yv12<uint16_t, 16> },
         { RGY_CSP_YUV444,    denoise_yuv444<uint8_t,   8> },
-        { RGY_CSP_YUV444_09, denoise_yuv444<uint16_t,  9> },
-        { RGY_CSP_YUV444_10, denoise_yuv444<uint16_t, 10> },
-        { RGY_CSP_YUV444_12, denoise_yuv444<uint16_t, 12> },
-        { RGY_CSP_YUV444_14, denoise_yuv444<uint16_t, 14> },
         { RGY_CSP_YUV444_16, denoise_yuv444<uint16_t, 16> },
     };
     if (denoise_list.count(pInputFrame->csp) == 0) {

@@ -453,18 +453,6 @@ NVENCSTATUS NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *
             deband_yv12<uint8_t,   8, 0, false>, deband_yv12<uint8_t,   8, 0, true>,
             deband_yv12<uint8_t,   8, 1, false>, deband_yv12<uint8_t,   8, 1, true>,
             deband_yv12<uint8_t,   8, 2, false>, deband_yv12<uint8_t,   8, 2, true>) },
-        { RGY_CSP_YV12_10,   deband_func(
-            deband_yv12<uint16_t, 10, 0, false>, deband_yv12<uint16_t, 10, 0, true>,
-            deband_yv12<uint16_t, 10, 1, false>, deband_yv12<uint16_t, 10, 1, true>,
-            deband_yv12<uint16_t, 10, 2, false>, deband_yv12<uint16_t, 10, 2, true>) },
-        { RGY_CSP_YV12_12,   deband_func(
-            deband_yv12<uint16_t, 12, 0, false>, deband_yv12<uint16_t, 12, 0, true>,
-            deband_yv12<uint16_t, 12, 1, false>, deband_yv12<uint16_t, 12, 1, true>,
-            deband_yv12<uint16_t, 12, 2, false>, deband_yv12<uint16_t, 12, 2, true>) },
-        { RGY_CSP_YV12_14,   deband_func(
-            deband_yv12<uint16_t, 14, 0, false>, deband_yv12<uint16_t, 14, 0, true>,
-            deband_yv12<uint16_t, 14, 1, false>, deband_yv12<uint16_t, 14, 1, true>,
-            deband_yv12<uint16_t, 14, 2, false>, deband_yv12<uint16_t, 14, 2, true>) },
         { RGY_CSP_YV12_16,   deband_func(
             deband_yv12<uint16_t, 16, 0, false>, deband_yv12<uint16_t, 16, 0, true>,
             deband_yv12<uint16_t, 16, 1, false>, deband_yv12<uint16_t, 16, 1, true>,
@@ -473,18 +461,6 @@ NVENCSTATUS NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *
             deband_yuv444<uint8_t,   8, 0, false>, deband_yuv444<uint8_t,   8, 0, true>,
             deband_yuv444<uint8_t,   8, 1, false>, deband_yuv444<uint8_t,   8, 1, true>,
             deband_yuv444<uint8_t,   8, 2, false>, deband_yuv444<uint8_t,   8, 2, true>) },
-        { RGY_CSP_YUV444_10, deband_func(
-            deband_yuv444<uint16_t, 10, 0, false>, deband_yuv444<uint16_t, 10, 0, true>,
-            deband_yuv444<uint16_t, 10, 1, false>, deband_yuv444<uint16_t, 10, 1, true>,
-            deband_yuv444<uint16_t, 10, 2, false>, deband_yuv444<uint16_t, 10, 2, true>) },
-        { RGY_CSP_YUV444_12, deband_func(
-            deband_yuv444<uint16_t, 12, 0, false>, deband_yuv444<uint16_t, 12, 0, true>,
-            deband_yuv444<uint16_t, 12, 1, false>, deband_yuv444<uint16_t, 12, 1, true>,
-            deband_yuv444<uint16_t, 12, 2, false>, deband_yuv444<uint16_t, 12, 2, true>) },
-        { RGY_CSP_YUV444_14, deband_func(
-            deband_yuv444<uint16_t, 14, 0, false>, deband_yuv444<uint16_t, 14, 0, true>,
-            deband_yuv444<uint16_t, 14, 1, false>, deband_yuv444<uint16_t, 14, 1, true>,
-            deband_yuv444<uint16_t, 14, 2, false>, deband_yuv444<uint16_t, 14, 2, true>) },
         { RGY_CSP_YUV444_16, deband_func(
             deband_yuv444<uint16_t, 16, 0, false>, deband_yuv444<uint16_t, 16, 0, true>,
             deband_yuv444<uint16_t, 16, 1, false>, deband_yuv444<uint16_t, 16, 1, true>,

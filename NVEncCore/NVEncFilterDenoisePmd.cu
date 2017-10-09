@@ -310,14 +310,8 @@ NVENCSTATUS NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo
 
     static const std::map<RGY_CSP, pmd_func> denoise_func_list = {
         { RGY_CSP_YV12,      pmd_func(denoise_yv12<uint8_t,   8, true>,   denoise_yv12<uint8_t,   8, false>) },
-        { RGY_CSP_YV12_10,   pmd_func(denoise_yv12<uint16_t, 10, true>,   denoise_yv12<uint16_t, 10, false>) },
-        { RGY_CSP_YV12_12,   pmd_func(denoise_yv12<uint16_t, 12, true>,   denoise_yv12<uint16_t, 12, false>) },
-        { RGY_CSP_YV12_14,   pmd_func(denoise_yv12<uint16_t, 14, true>,   denoise_yv12<uint16_t, 14, false>) },
         { RGY_CSP_YV12_16,   pmd_func(denoise_yv12<uint16_t, 16, true>,   denoise_yv12<uint16_t, 16, false>) },
         { RGY_CSP_YUV444,    pmd_func(denoise_yuv444<uint8_t,   8, true>, denoise_yuv444<uint8_t,   8, false>) },
-        { RGY_CSP_YUV444_10, pmd_func(denoise_yuv444<uint16_t, 10, true>, denoise_yuv444<uint16_t, 10, false>) },
-        { RGY_CSP_YUV444_12, pmd_func(denoise_yuv444<uint16_t, 12, true>, denoise_yuv444<uint16_t, 12, false>) },
-        { RGY_CSP_YUV444_14, pmd_func(denoise_yuv444<uint16_t, 14, true>, denoise_yuv444<uint16_t, 14, false>) },
         { RGY_CSP_YUV444_16, pmd_func(denoise_yuv444<uint16_t, 16, true>, denoise_yuv444<uint16_t, 16, false>) },
     };
     if (denoise_func_list.count(pPmdParam->frameIn.csp) == 0) {
