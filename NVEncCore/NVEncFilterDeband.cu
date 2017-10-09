@@ -537,10 +537,13 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
     pDebandParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    bool resChanged = cmpFrameInfoCspResolution(&m_RandY.frame, &pDebandParam->frameOut);
+    bool resChanged = cmpFrameInfoCspResolution(&m_RandUV.frame, &pDebandParam->frameOut);
     if (resChanged) {
-        m_RandY.frame = pDebandParam->frameOut;
-        m_RandY.frame.ptr = nullptr;
+        m_RandY.frame.width = pDebandParam->frameOut.width;
+        m_RandY.frame.height = pDebandParam->frameOut.height;
+        m_RandY.frame.pitch = pDebandParam->frameOut.pitch;
+        m_RandY.frame.picstruct = pDebandParam->frameOut.picstruct;
+        m_RandY.frame.deivce_mem = pDebandParam->frameOut.deivce_mem;
         m_RandY.frame.csp = RGY_CSP_RGB32;
         cudaerr = m_RandY.alloc();
         if (cudaerr != CUDA_SUCCESS) {
@@ -548,8 +551,12 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
             return NV_ENC_ERR_OUT_OF_MEMORY;
         }
 
-        m_RandUV.frame = pDebandParam->frameOut;
-        m_RandUV.frame.ptr = nullptr;
+        m_RandUV.frame.width = pDebandParam->frameOut.width;
+        m_RandUV.frame.height = pDebandParam->frameOut.height;
+        m_RandUV.frame.pitch = pDebandParam->frameOut.pitch;
+        m_RandUV.frame.picstruct = pDebandParam->frameOut.picstruct;
+        m_RandUV.frame.deivce_mem = pDebandParam->frameOut.deivce_mem;
+        m_RandUV.frame.csp = pDebandParam->frameOut.csp;
         cudaerr = m_RandUV.alloc();
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());

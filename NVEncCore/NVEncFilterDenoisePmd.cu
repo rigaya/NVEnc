@@ -367,8 +367,12 @@ NVENCSTATUS NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, sha
     pPmdParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
     if (cmpFrameInfoCspResolution(&m_Gauss.frame, &pPmdParam->frameOut)) {
-        m_Gauss.frame = pPmdParam->frameOut;
-        m_Gauss.frame.ptr = nullptr;
+        m_Gauss.frame.width = pPmdParam->frameOut.width;
+        m_Gauss.frame.height = pPmdParam->frameOut.height;
+        m_Gauss.frame.pitch = pPmdParam->frameOut.pitch;
+        m_Gauss.frame.picstruct = pPmdParam->frameOut.picstruct;
+        m_Gauss.frame.deivce_mem = pPmdParam->frameOut.deivce_mem;
+        m_Gauss.frame.csp = pPmdParam->frameOut.csp;
         cudaerr = m_Gauss.alloc();
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
