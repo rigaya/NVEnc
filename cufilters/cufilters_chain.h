@@ -53,6 +53,7 @@ public:
     ~cuFilterChain();
 
     int init();
+    std::string get_dev_name() const;
     int proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const cuFilterChainParam& prm);
 
 private:
@@ -65,6 +66,7 @@ private:
     cuFilterChainParam m_prm;
     int m_nDeviceId;
     CUdevice m_device;
+    std::string m_deviceName;
     CUcontext m_cuContextCurr;
     CUFrameBuf m_host[2];
     CUFrameBuf m_dev[2];

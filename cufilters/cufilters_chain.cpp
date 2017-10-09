@@ -188,6 +188,12 @@ int cuFilterChain::init_cuda(int deviceId) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGet: ID:%d.\n"), m_nDeviceId);
 
+    cudaDeviceProp devProp;
+    auto cuerr = cudaGetDeviceProperties(&devProp, m_device);
+    if (cuerr == cudaSuccess) {
+        m_deviceName = devProp.name;
+    }
+
     if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&m_cuContextCurr))) {
         PrintMes(RGY_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
@@ -195,6 +201,10 @@ int cuFilterChain::init_cuda(int deviceId) {
     PrintMes(RGY_LOG_DEBUG, _T("cuCtxPopCurrent: Success.\n"));
     m_cuda_initilaized = true;
     return 0;
+}
+
+std::string cuFilterChain::get_dev_name() const {
+    return m_deviceName;
 }
 
 int cuFilterChain::allocate_buffer(const FrameInfo *pInputFrame, const FrameInfo *pOutputFrame) {

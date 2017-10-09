@@ -67,6 +67,7 @@ static const int filter_count = 6;
 
 //  トラックバーの名前
 TCHAR *track_name[] = {
+    //リサイズ
     "適用半径", "強さ", "ブレンド度合い", "ブレンド閾値", //knn
     "適用回数", "強さ", "閾値", //pmd
     "範囲", "強さ", "閾値", //unsharp
@@ -267,6 +268,7 @@ BOOL func_update(FILTER* fp, int status) {
 //---------------------------------------------------------------------
 //        設定画面処理
 //---------------------------------------------------------------------
+static HWND lb_device;
 static std::vector<HWND> child_hwnd;
 static HWND lb_proc_mode;
 static std::vector<std::pair<int, int>> resize_res;
@@ -522,23 +524,27 @@ void init_dialog(HWND hwnd, FILTER *fp) {
     //track bar間の高さを取得
     const int track_bar_delta_y = rc.top - dialog_rc.top - first_y;
 
-    const int add_height = (filter_count - 1) * track_bar_delta_y / 2 + track_bar_delta_y * 3;
+    const int add_height = (filter_count - 1) * track_bar_delta_y / 2 + track_bar_delta_y * 4;
     SetWindowPos(hwnd, HWND_TOP, 0, 0, dialog_rc.right - dialog_rc.left, dialog_rc.bottom - dialog_rc.top + add_height, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW);
 
     //checkboxの移動
     const int checkbox_idx = 1+5*CUFILTER_TRACK_MAX;
     //フィールド処理
-    const int cb_filed_y = 4;
+    const int cb_filed_y = 24;
     GetWindowRect(child_hwnd[checkbox_idx + CUFILTER_CHECK_FIELD], &rc);
     SetWindowPos(child_hwnd[checkbox_idx + CUFILTER_CHECK_FIELD], HWND_TOP, rc.left - dialog_rc.left, cb_filed_y, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
 
     //リサイズ
-    const int cb_resize_y = 20;
+    const int cb_resize_y = 48;
     GetWindowRect(child_hwnd[checkbox_idx + CUFILTER_CHECK_RESIZE_ENABLE], &rc);
     SetWindowPos(child_hwnd[checkbox_idx + CUFILTER_CHECK_RESIZE_ENABLE], HWND_TOP, rc.left - dialog_rc.left, cb_resize_y, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
 
     HINSTANCE hinst = fp->dll_hinst;
     HFONT b_font = CreateFont(14, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, SHIFTJIS_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, PROOF_QUALITY, DEFAULT_PITCH | FF_MODERN, "Meiryo UI");
+
+    lb_device = CreateWindow("static", "", SS_SIMPLE|WS_CHILD|WS_VISIBLE, 8, 4, 240, 24, hwnd, (HMENU)ID_LB_RESIZE_RES, hinst, NULL);
+    SendMessage(lb_device, WM_SETFONT, (WPARAM)b_font, 0);
+    SendMessage(lb_device, WM_SETTEXT, 0, (LPARAM)"デバイス情報");
 
     lb_proc_mode = CreateWindow("static", "", SS_SIMPLE|WS_CHILD|WS_VISIBLE, 8, cb_resize_y+24, 60, 24, hwnd, (HMENU)ID_LB_RESIZE_RES, hinst, NULL);
     SendMessage(lb_proc_mode, WM_SETFONT, (WPARAM)b_font, 0);
@@ -598,8 +604,16 @@ BOOL func_proc(FILTER *fp, FILTER_PROC_INFO *fpip) {
     if (!cufilter) {
         cufilter = std::unique_ptr<cuFilterChain>(new cuFilterChain());
         if (cufilter->init()) {
+            SendMessage(lb_device, WM_SETTEXT, 0, (LPARAM)"フィルタは無効です: CUDAを使用できません。");
             return FALSE;
         }
+        auto dev_name = cufilter->get_dev_name();
+        if (dev_name.length() == 0) {
+            dev_name = "CUDA 有効";
+        } else {
+            dev_name = "デバイス: " + dev_name;
+        }
+        SendMessage(lb_device, WM_SETTEXT, 0, (LPARAM)dev_name.c_str());
     }
     cuFilterChainParam prm;
     //リサイズ
