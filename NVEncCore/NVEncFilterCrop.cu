@@ -1206,7 +1206,7 @@ NVENCSTATUS NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
-    auto cudaerr = AllocFrameBuf(pCropParam->frameOut, 2);
+    auto cudaerr = AllocFrameBuf(pCropParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;

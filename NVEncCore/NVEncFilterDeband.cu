@@ -554,7 +554,7 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
         pDebandParam->deband.sample = clamp(pDebandParam->deband.sample, 0, 2);
     }
 
-    auto cudaerr = AllocFrameBuf(pDebandParam->frameOut, 2);
+    auto cudaerr = AllocFrameBuf(pDebandParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
