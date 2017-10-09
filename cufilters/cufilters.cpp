@@ -635,7 +635,7 @@ BOOL func_proc(FILTER *fp, FILTER_PROC_INFO *fpip) {
     //unsharp
     prm.unsharp.enable    = fp->check[CUFILTER_CHECK_UNSHARP_ENABLE] != 0;
     prm.unsharp.radius    = fp->track[CUFILTER_TRACK_UNSHARP_RADIUS];
-    prm.unsharp.weight    = (float)fp->track[CUFILTER_TRACK_UNSHARP_WEIGHT] * 0.01f;
+    prm.unsharp.weight    = (float)fp->track[CUFILTER_TRACK_UNSHARP_WEIGHT] * 0.1f;
     prm.unsharp.threshold = (float)fp->track[CUFILTER_TRACK_UNSHARP_THRESHOLD];
 
     //edgelevel
