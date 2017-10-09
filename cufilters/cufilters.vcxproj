@@ -189,9 +189,11 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cuda.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>cufilters.def</ModuleDefinitionFile>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "C:\ProgramEx\AviutlTest\plugins"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <PreprocessorDefinitions>
@@ -219,9 +221,11 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cuda.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>cufilters.def</ModuleDefinitionFile>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "C:\ProgramEx\AviutlTest\plugins"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <PreprocessorDefinitions>
@@ -249,9 +253,11 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cuda.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>cufilters.def</ModuleDefinitionFile>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "C:\ProgramEx\AviutlTest\plugins"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
@@ -280,9 +286,11 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cuda.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>cufilters.def</ModuleDefinitionFile>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "C:\ProgramEx\AviutlTest\plugins"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
@@ -313,9 +321,11 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cuda.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>cufilters.def</ModuleDefinitionFile>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "C:\ProgramEx\AviutlTest\plugins"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <PreprocessorDefinitions>
@@ -345,9 +355,11 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cuda.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>cufilters.def</ModuleDefinitionFile>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "C:\ProgramEx\AviutlTest\plugins"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <PreprocessorDefinitions>
@@ -377,9 +389,11 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cuda.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>cufilters.def</ModuleDefinitionFile>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "C:\ProgramEx\AviutlTest\plugins"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
@@ -410,9 +424,11 @@
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cuda.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>cufilters.def</ModuleDefinitionFile>
+      <DelayLoadDLLs>nvcuda.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "C:\ProgramEx\AviutlTest\plugins"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>

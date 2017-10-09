@@ -42,6 +42,8 @@
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
 
+bool check_if_nvcuda_dll_available();
+
 class cuFilterChainCtx {
     CUcontext& m_ctx;
 public:
@@ -136,6 +138,9 @@ void cuFilterChain::PrintMes(int logLevel, const TCHAR *format, ...) {
 }
 
 int cuFilterChain::init() {
+    if (!check_if_nvcuda_dll_available()) {
+        return 1;
+    }
     if (init_cuda(0)) {
         return 1;
     }
