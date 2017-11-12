@@ -133,6 +133,34 @@ void CQSVConsumer::AddMetrics(const std::map<MetricHandle, std::string>& metrics
 #endif //#if ENABLE_METRIC_FRAMEWORK
 
 #if ENABLE_NVML
+const TCHAR *nvmlErrStr(nvmlReturn_t ret) {
+    switch (ret) {
+    case NVML_SUCCESS:                   return _T("The operation was successful");
+    case NVML_ERROR_UNINITIALIZED:       return _T("case NVML was not first initialized with case NVMLInit()");
+    case NVML_ERROR_INVALID_ARGUMENT:    return _T("A supplied argument is invalid");
+    case NVML_ERROR_NOT_SUPPORTED:       return _T("The requested operation is not available on target device");
+    case NVML_ERROR_NO_PERMISSION:       return _T("The current user does not have permission for operation");
+    case NVML_ERROR_ALREADY_INITIALIZED: return _T("Deprecated: Multiple initializations are now allowed through ref counting");
+    case NVML_ERROR_NOT_FOUND:           return _T("A query to find an object was unsuccessful");
+    case NVML_ERROR_INSUFFICIENT_SIZE:   return _T("An input argument is not large enough");
+    case NVML_ERROR_INSUFFICIENT_POWER:  return _T("A device's external power cables are not properly attached");
+    case NVML_ERROR_DRIVER_NOT_LOADED:   return _T("NVIDIA driver is not loaded");
+    case NVML_ERROR_TIMEOUT:            return _T("User provided timeout passed");
+    case NVML_ERROR_IRQ_ISSUE:          return _T("NVIDIA Kernel detected an interrupt issue with a GPU");
+    case NVML_ERROR_LIBRARY_NOT_FOUND:  return _T("case NVML Shared Library couldn't be found or loaded");
+    case NVML_ERROR_FUNCTION_NOT_FOUND: return _T("Local version of case NVML doesn't implement this function");
+    case NVML_ERROR_CORRUPTED_INFOROM:  return _T("infoROM is corrupted");
+    case NVML_ERROR_GPU_IS_LOST:        return _T("The GPU has fallen off the bus or has otherwise become inaccessible");
+    case NVML_ERROR_RESET_REQUIRED:     return _T("The GPU requires a reset before it can be used again");
+    case NVML_ERROR_OPERATING_SYSTEM:   return _T("The GPU control device has been blocked by the operating system/cgroups");
+    case NVML_ERROR_LIB_RM_VERSION_MISMATCH:   return _T("RM detects a driver/library version mismatch");
+    case NVML_ERROR_IN_USE:             return _T("An operation cannot be performed because the GPU is currently in use");
+    case NVML_ERROR_UNKNOWN:
+    default:                            return _T("An internal driver error occurred");
+    }
+}
+
+
 nvmlReturn_t NVMLMonitor::LoadDll() {
     if (m_hDll) {
         CloseHandle(m_hDll);
@@ -674,7 +702,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #if ENABLE_NVML
     auto nvml_ret = m_nvmlMonitor.Init(prm->pciBusId);
     if (nvml_ret != NVML_SUCCESS) {
-        pRGYLog->write(RGY_LOG_INFO, _T("Failed to start NVML Monitoring.\n"));
+        pRGYLog->write(RGY_LOG_INFO, _T("Failed to start NVML Monitoring for \"%s\": %s.\n"), char_to_tstring(prm->pciBusId).c_str(), nvmlErrStr(nvml_ret));
     } else {
         pRGYLog->write(RGY_LOG_DEBUG, _T("Eanble NVML Monitoring\n"));
     }

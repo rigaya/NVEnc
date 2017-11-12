@@ -245,6 +245,8 @@ struct NVMLMonitorInfo {
 };
 
 #if ENABLE_NVML
+const TCHAR *nvmlErrStr(nvmlReturn_t ret);
+
 #define NVML_FUNCPTR(x) typedef decltype(x)* pf ## x;
 
 NVML_FUNCPTR(nvmlInit);
