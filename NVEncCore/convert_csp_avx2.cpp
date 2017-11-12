@@ -614,7 +614,7 @@ static void __forceinline convert_yv12_high_to_p010_avx2_base(void **dst, const 
             } else {
                 uint16_t *src_ptr = srcYLine;
                 uint16_t *dst_ptr = dstLine;
-                for (int x = 0; x < y_width; x += 8, dst_ptr += 8, src_ptr += 8) {
+                for (int x = 0; x < y_width; x += 16, dst_ptr += 16, src_ptr += 16) {
                     __m256i y0 = _mm256_loadu_si256((const __m256i *)src_ptr);
                     y0 = _mm256_slli_epi16(y0, 16 - in_bit_depth);
                     _mm256_storeu_si256((__m256i *)dst_ptr, y0);
@@ -634,7 +634,7 @@ static void __forceinline convert_yv12_high_to_p010_avx2_base(void **dst, const 
         uint16_t *src_v_ptr = srcVLine;
         uint16_t *dst_ptr = dstLine;
         __m256i y0, y1, y2;
-        for (int x = crop_left; x < x_fin; x += 16, src_u_ptr += 8, src_v_ptr += 8, dst_ptr += 16) {
+        for (int x = crop_left; x < x_fin; x += 32, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 32) {
             y0 = _mm256_loadu_si256((const __m256i *)src_u_ptr);
             y1 = _mm256_loadu_si256((const __m256i *)src_v_ptr);
 
@@ -649,8 +649,8 @@ static void __forceinline convert_yv12_high_to_p010_avx2_base(void **dst, const 
             y2 = _mm256_unpackhi_epi16(y0, y1);
             y0 = _mm256_unpacklo_epi16(y0, y1);
 
-            _mm256_storeu_si256((__m256i *)(dst_ptr + 0), y0);
-            _mm256_storeu_si256((__m256i *)(dst_ptr + 8), y2);
+            _mm256_storeu_si256((__m256i *)(dst_ptr +  0), y0);
+            _mm256_storeu_si256((__m256i *)(dst_ptr + 16), y2);
         }
     }
 }
