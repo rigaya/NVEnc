@@ -612,6 +612,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
         inputInfoAVCuvid.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.pHWDecCodecCsp = &HWDecCodecCsp;
+        inputInfoAVCuvid.bVideoDetectPulldown = !inputParam->vpp.rff && !inputParam->vpp.afs.enable && inputParam->nAVSyncMode == RGY_AVSYNC_ASSUME_CFR;
         pInputPrm = &inputInfoAVCuvid;
         PrintMes(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         m_pFileReader.reset(new RGYInputAvcodec());

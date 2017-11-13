@@ -286,7 +286,7 @@ void RGYInputAvcodec::vc1AddFrameHeader(AVPacket *pkt) {
     }
 }
 
-RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount) {
+RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown) {
     AVRational fpsDecoder = m_Demux.video.pStream->avg_frame_rate;
     const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
     //timebaseが60で割り切れない場合には、ptsが完全には割り切れない値である場合があり、より多くのフレーム数を解析する必要がある
@@ -303,6 +303,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
     int i_samples = 0;
     std::vector<int> frameDurationList;
     vector<std::pair<int, int>> durationHistgram;
+    bool bPulldown = bDetectpulldown;
 
     for (int i_retry = 0; ; i_retry++) {
         if (i_retry) {
@@ -350,6 +351,8 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         AddMessage(RGY_LOG_DEBUG, _T("checking %d frame samples.\n"), nFramesToCheck);
 
         frameDurationList.reserve(nFramesToCheck);
+        bPulldown = bDetectpulldown;
+        int last_repeat_pict = -1;
 
         for (int i = 0; i < nFramesToCheck; i++) {
 #if _DEBUG && 0
@@ -360,10 +363,16 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 #endif
             if (m_Demux.frames.list(i).poc != FRAMEPOS_POC_INVALID) {
                 int duration = m_Demux.frames.list(i).duration + m_Demux.frames.list(i).duration2;
+                auto repeat_pict = m_Demux.frames.list(i).repeat_pict;
                 //RFF用の補正
-                if (m_Demux.frames.list(i).repeat_pict > 1) {
-                    duration = (int)(duration * 2 / (double)(m_Demux.frames.list(i).repeat_pict + 1) + 0.5);
+                if (repeat_pict > 1) {
+                    duration = (int)(duration * 2 / (double)(repeat_pict + 1) + 0.5);
                 }
+                //puldownの検出
+                if (repeat_pict == last_repeat_pict) {
+                    bPulldown = false;
+                }
+                last_repeat_pict = repeat_pict;
                 frameDurationList.push_back(duration);
             }
         }
@@ -422,6 +431,9 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         //std::accumulateの初期値に"(uint64_t)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
         //大きすぎるtimebaseの時に必要
         double avgDuration = std::accumulate(frameDurationList.begin(), frameDurationList.end(), (uint64_t)0, [this](const uint64_t sum, const int& duration) { return sum + duration; }) / (double)(frameDurationList.size());
+        if (bPulldown) {
+            avgDuration *= 1.25;
+        }
         double avgFps = m_Demux.video.pStream->time_base.den / (double)(avgDuration * m_Demux.video.pStream->time_base.num);
         double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.05 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
         if (mostPopularDuration.second / (double)frameDurationList.size() > 0.95 && std::abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
@@ -1002,7 +1014,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         }
 #endif
 
-        if (RGY_ERR_NONE != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount))) {
+        if (RGY_ERR_NONE != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount, input_prm->bVideoDetectPulldown))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to get first frame position.\n"));
             return sts;
         }
