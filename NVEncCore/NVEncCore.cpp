@@ -359,7 +359,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
     nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
     vpp(),
-    bWeightP(false),
+    nWeightP(0),
     nPerfMonitorSelect(0),
     nPerfMonitorSelectMatplot(0),
     nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
@@ -2294,13 +2294,22 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
         m_stCreateEncodeParams.frameRateNum *= 2;
     }
-    if (inputParam->bWeightP) {
+    if (inputParam->nWeightP) {
         if (!getCapLimit(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION)) {
             error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction"));
         } else if (m_stEncConfig.frameIntervalP - 1 > 0) {
             error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction with B frames"));
         } else {
-            m_stCreateEncodeParams.enableWeightedPrediction = 1;
+            if (inputParam->codec == NV_ENC_HEVC) {
+                if (inputParam->nWeightP == 1) {
+                    PrintMes(RGY_LOG_WARN, _T("HEVC encode with weightp is unstable, weightp will be disabled.\n"));
+                } else {
+                    PrintMes(RGY_LOG_WARN, _T("forcing weightp, consider not using weightp with HEVC encode if unstable.\n"));
+                    m_stCreateEncodeParams.enableWeightedPrediction = 1;
+                }
+            } else {
+                m_stCreateEncodeParams.enableWeightedPrediction = 1;
+            }
         }
     }
     //Fix me add theading model

@@ -150,7 +150,7 @@ struct InEncodeVideoParam {
     RGYAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
     int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
     VppParam vpp;                 //vpp
-    bool bWeightP;
+    int nWeightP;
     int64_t nPerfMonitorSelect;
     int64_t nPerfMonitorSelectMatplot;
     int     nPerfMonitorInterval;

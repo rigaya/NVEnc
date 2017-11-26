@@ -286,7 +286,7 @@ Set the number of consecutive B frames.
 Set the reference distance. In hw encoding, incresing ref frames will have minor effect on image quality or compression rate.
 
 ### --weightp
-Enable weighted P frames.
+Enable weighted P frames. [H.264 only]
 
 ### --aq
 Enable adaptive quantization in frame (spatial). (Default: off)

@@ -396,6 +396,7 @@ static tstring help() {
         _T("                                  default: H.264 - %d frames, HEVC - %d frames\n")
         _T("   --ref <int>                  set Ref frames / default %d frames\n")
         _T("   --weightp                    enable weighted prediction for P frame\n")
+        _T("                                  FOR H.264 ONLY\n")
         _T("   --(no-)aq                    enable spatial adaptive quantization\n")
         _T("   --aq-temporal                enable temporal adaptive quantization\n")
         _T("                                  FOR H.264 ONLY\n")
@@ -1966,7 +1967,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("weightp")) {
-        pParams->bWeightP = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            pParams->nWeightP = 1;
+            return 0;
+        }
+        i++;
+        if (0 == _tcscmp(strInput[i], _T("force"))) {
+            pParams->nWeightP = 2;
+        }
         return 0;
     }
     if (IS_OPTION("mv-precision")) {
