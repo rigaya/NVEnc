@@ -4519,7 +4519,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             strLookahead += _T(", Adaptive ");
             if (!m_stEncConfig.rcParams.disableIadapt) strLookahead += _T("I");
             if (!m_stEncConfig.rcParams.disableBadapt && !m_stEncConfig.rcParams.disableIadapt) strLookahead += _T(", ");
-            if (!m_stEncConfig.rcParams.disableIadapt) strLookahead += _T("B");
+            if (!m_stEncConfig.rcParams.disableBadapt) strLookahead += _T("B");
             strLookahead += _T(" Insert");
         }
     } else {
