@@ -283,7 +283,6 @@ static tstring help() {
         _T("   --audio-ignore-decode-error <int>  (default: %d)\n")
         _T("                                set numbers of continuous packets of audio decode\n")
         _T("                                 error to ignore, replaced by silence.\n")
-        _T("   --audio-ignore-notrack-error ignore error when audio track is unfound.\n")
         _T("   --audio-samplerate [<int>?]<int>\n")
         _T("                                set sampling rate for audio (Hz).\n")
         _T("                                  in [<int>?], specify track number of audio.\n")
@@ -1427,8 +1426,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nAudioIgnoreDecodeError = value;
         return 0;
     }
+    //互換性のため残す
     if (0 == _tcscmp(option_name, _T("audio-ignore-notrack-error"))) {
-        pParams->bAudioIgnoreNoTrackError = 1;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-samplerate"))) {

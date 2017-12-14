@@ -744,11 +744,11 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         if (input_prm->bReadSubtitle) {
             auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE, &videoStreams);
             if (subStreams.size() == 0) {
-                AddMessage(RGY_LOG_ERROR, _T("--sub-copy is set, but no subtitle stream found.\n"));
-                return RGY_ERR_NOT_FOUND;
+                AddMessage(RGY_LOG_WARN, _T("--sub-copy is set, but no subtitle stream found.\n"));
+            } else {
+                m_Demux.format.nSubtitleTracks = (int)subStreams.size();
+                vector_cat(mediaStreams, subStreams);
             }
-            m_Demux.format.nSubtitleTracks = (int)subStreams.size();
-            vector_cat(mediaStreams, subStreams);
         }
         for (int iTrack = 0; iTrack < (int)mediaStreams.size(); iTrack++) {
             const AVCodecID codecId = m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codecpar->codec_id;
@@ -824,10 +824,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                     }
                 }
                 if (!audioFound) {
-                    AddMessage(input_prm->bAudioIgnoreNoTrackError ? RGY_LOG_WARN : RGY_LOG_ERROR, _T("could not find audio track #%d\n"), input_prm->ppAudioSelect[i]->nAudioSelect);
-                    if (!input_prm->bAudioIgnoreNoTrackError) {
-                        return RGY_ERR_INVALID_AUDIO_PARAM;
-                    }
+                    AddMessage(RGY_LOG_WARN, _T("could not find audio track #%d\n"), input_prm->ppAudioSelect[i]->nAudioSelect);
                 }
             }
         }

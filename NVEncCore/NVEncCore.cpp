@@ -350,7 +350,6 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nOutputThread(RGY_OUTPUT_THREAD_AUTO),
     nAudioThread(RGY_INPUT_THREAD_AUTO),
     nInputThread(RGY_AUDIO_THREAD_AUTO),
-    bAudioIgnoreNoTrackError(false),
     nAudioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     pMuxOpt(nullptr),
     sChapterFile(),
@@ -609,7 +608,6 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.fSeekSec = inputParam->fSeekSec;
         inputInfoAVCuvid.pFramePosListLog = inputParam->sFramePosListLog.c_str();
         inputInfoAVCuvid.nInputThread = inputParam->nInputThread;
-        inputInfoAVCuvid.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
         inputInfoAVCuvid.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.pHWDecCodecCsp = &HWDecCodecCsp;
         inputInfoAVCuvid.bVideoDetectPulldown = !inputParam->vpp.rff && !inputParam->vpp.afs.enable && inputParam->nAVSyncMode == RGY_AVSYNC_ASSUME_CFR;
@@ -712,7 +710,6 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             inputInfoAVAudioReader.fSeekSec = inputParam->fSeekSec;
             inputInfoAVAudioReader.pFramePosListLog = inputParam->sFramePosListLog.c_str();
             inputInfoAVAudioReader.nInputThread = 0;
-            inputInfoAVAudioReader.bAudioIgnoreNoTrackError = inputParam->bAudioIgnoreNoTrackError;
 
             shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
             ret = audioReader->Init(inputParam->ppAudioSourceList[i], &inputInfo, &inputInfoAVAudioReader, m_pNVLog, nullptr);

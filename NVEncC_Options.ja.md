@@ -542,9 +542,6 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 
 デフォルトは10。 0とすれば、1回でもデコードエラーが起これば処理を中断してエラー終了する。
 
-### --audio-ignore-notrack-error
-指定した音声トラックがない場合に、エラー終了させず、エンコードを続行する。
-
 ### --audio-source &lt;string&gt;
 --audio-copyと併用することで、外部音声ファイルをmuxする。
 

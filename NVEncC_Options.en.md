@@ -541,9 +541,6 @@ Example2: Quit transcoding for a single audio decode error.
 --audio-ignore-decode-error 0
 ```
 
-### --audio-ignore-notrack-error
-Ignore error even if there is no specified audio track.
-
 ### --audio-source &lt;string&gt;
 Mux an external audio file specified.
 

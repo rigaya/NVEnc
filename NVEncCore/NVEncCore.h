@@ -141,7 +141,6 @@ struct InEncodeVideoParam {
     int nOutputThread;
     int nAudioThread;
     int nInputThread;
-    bool bAudioIgnoreNoTrackError;
     int nAudioIgnoreDecodeError;
     muxOptList *pMuxOpt;
     tstring sChapterFile;
