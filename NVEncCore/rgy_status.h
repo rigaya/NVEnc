@@ -203,6 +203,7 @@ public:
             gpuencoder_usage = (int)info.dVEELoad;
         } else {
 #endif //#if ENABLE_NVML
+#if ENABLE_GPUZ_INFO
             GPUZ_SH_MEM gpu_info = { 0 };
             if ((m_pPerfMonitor && m_pPerfMonitor->GetGPUZInfo(&gpu_info))
                 || 0 == get_gpuz_info(&gpu_info)) {
@@ -219,6 +220,7 @@ public:
             } else {
                 m_sData.GPUInfoCountFail++;
             }
+#endif //#if ENABLE_GPUZ_INFO
 #if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
         }
 #endif //#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML

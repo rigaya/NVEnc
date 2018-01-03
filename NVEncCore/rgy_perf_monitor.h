@@ -343,10 +343,12 @@ public:
         return m_nvmlInfo.bDataValid;
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_GPUZ_INFO
     bool GetGPUZInfo(GPUZ_SH_MEM *info) {
         memcpy(info, &m_GPUZInfo, sizeof(m_GPUZInfo));
         return m_bGPUZInfoValid;
     }
+#endif //#if ENABLE_GPUZ_INFO
 
     void clear();
 protected:
@@ -398,7 +400,9 @@ protected:
     NVMLMonitor m_nvmlMonitor;
     NVMLMonitorInfo m_nvmlInfo;
 #endif //#if ENABLE_NVML
+#if ENABLE_GPUZ_INFO
     GPUZ_SH_MEM m_GPUZInfo;
+#endif //#if ENABLE_GPUZ_INFO
     bool m_bGPUZInfoValid;
 };
 

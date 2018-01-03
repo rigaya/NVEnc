@@ -32,6 +32,7 @@
 #include <Windows.h>
 #include <tchar.h>
 
+#define ENABLE_GPUZ_INFO 1
 #define SHMEM_NAME _T("GPUZShMem")
 #define MAX_RECORDS 128
 
@@ -62,6 +63,8 @@ double gpu_core_clock(GPUZ_SH_MEM *data);
 double gpu_load(GPUZ_SH_MEM *data);
 double video_engine_load(GPUZ_SH_MEM *data, bool *pbVideoEngineUsage);
 
+#else
+#define ENABLE_GPUZ_INFO 0
 #endif //#if (defined(_WIN32) || defined(_WIN64))
 
 #endif //__GPUZ_INFO_H__

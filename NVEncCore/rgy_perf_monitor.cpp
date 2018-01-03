@@ -434,7 +434,9 @@ CPerfMonitor::CPerfMonitor() {
 #if ENABLE_NVML
     memset(&m_nvmlInfo, 0, sizeof(m_nvmlInfo));
 #endif
+#if ENABLE_GPUZ_INFO
     memset(&m_GPUZInfo, 0, sizeof(m_GPUZInfo));
+#endif //#if ENABLE_GPUZ_INFO
     m_bGPUZInfoValid = false;
 
     cpu_info_t cpu_info;
@@ -891,6 +893,7 @@ void CPerfMonitor::check() {
         pInfoNew->ve_clock = 0.0;
         pInfoNew->vee_load_percent = 0.0;
         pInfoNew->ved_load_percent = 0.0;
+#if ENABLE_GPUZ_INFO
         memset(&m_GPUZInfo, 0, sizeof(m_GPUZInfo));
         if (0 == get_gpuz_info(&m_GPUZInfo)) {
             m_bGPUZInfoValid = true;
@@ -899,6 +902,7 @@ void CPerfMonitor::check() {
             pInfoNew->vee_load_percent = video_engine_load(&m_GPUZInfo, nullptr);
             pInfoNew->gpu_clock = gpu_core_clock(&m_GPUZInfo);
         }
+#endif //#if ENABLE_GPUZ_INFO
 #if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
