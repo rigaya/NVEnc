@@ -648,7 +648,11 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
-    m_pStatus->Init(inputParam->input.fpsN, inputParam->input.fpsD, inputParam->input.frames, m_pNVLog, m_pPerfMonitor);
+    auto outputFps = m_inputFps;
+    if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
+        outputFps *= 2;
+    }
+    m_pStatus->Init(outputFps.n(), outputFps.d(), inputParam->input.frames, m_pNVLog, m_pPerfMonitor);
 
     if (inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot) {
         m_pPerfMonitor->SetEncStatus(m_pStatus);
