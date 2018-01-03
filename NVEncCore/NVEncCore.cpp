@@ -3072,8 +3072,15 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVEncoderGPUInfo gpuInfo(m_nDeviceId, true);
     m_GPUList = gpuInfo.getGPUList();
     if (0 == m_GPUList.size()) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("NVEncが使用可能なGPUが見つかりませんでした。\n") : _T("No GPU found suitable for NVEnc Encoding.\n"));
-        return NV_ENC_ERR_NO_ENCODE_DEVICE;
+        gpuInfo = NVEncoderGPUInfo(-1, true);
+        m_GPUList = gpuInfo.getGPUList();
+        if (0 == m_GPUList.size()) {
+            PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("NVEncが使用可能なGPUが見つかりませんでした。\n") : _T("No GPU found suitable for NVEnc Encoding.\n"));
+            return NV_ENC_ERR_NO_ENCODE_DEVICE;
+        } else {
+            PrintMes(RGY_LOG_WARN, _T("DeviceId #%d not found, automatically selected default device.\n"), m_nDeviceId);
+            m_nDeviceId = -1;
+        }
     }
     //リスト中のGPUのうち、まずは指定されたHWエンコードが可能なもののみを選択
     if (NV_ENC_SUCCESS != (nvStatus = CheckGPUListByEncoder(inputParam))) {
