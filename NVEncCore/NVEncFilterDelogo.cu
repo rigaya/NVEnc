@@ -242,14 +242,8 @@ NVEncFilterDelogo::~NVEncFilterDelogo() {
     close();
 }
 
-int NVEncFilterDelogo::readLogoFile() {
+int NVEncFilterDelogo::readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo> pDelogoParam) {
     int sts = 0;
-
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
-    if (!pDelogoParam) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
-    }
     if (pDelogoParam->logoFilePath == nullptr) {
         return 1;
     }
@@ -416,7 +410,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
     pDelogoParam->frameOut = pDelogoParam->frameIn;
 
     //パラメータチェック
-    int ret_logofile = readLogoFile();
+    int ret_logofile = readLogoFile(pDelogoParam);
     if (ret_logofile > 0) {
         return NV_ENC_ERR_INVALID_PARAM;
     }

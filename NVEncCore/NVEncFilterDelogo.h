@@ -97,7 +97,7 @@ protected:
     virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     virtual void close() override;
 
-    int readLogoFile();
+    int readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo> pDelogoParam);
     int getLogoIdx(const std::string& logoName);
     int selectLogo(const TCHAR *selectStr);
     std::string logoNameList();
