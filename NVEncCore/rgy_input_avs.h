@@ -35,7 +35,7 @@
 #pragma warning(disable:4244)
 #pragma warning(disable:4456)
 #if defined(_WIN32) || defined(_WIN64)
-#include "avisynth_c.h" //Avisynth ver 2.5.8 (2.6.0の機能等は不要)
+#include "avisynth_c.h" //Avisynth+のヘッダを想定
 #else
 #include "avxsynth_c.h"
 #endif
@@ -43,30 +43,48 @@
 #include "rgy_input.h"
 #pragma warning(pop)
 
-typedef AVS_Value (__stdcall *func_avs_invoke)(AVS_ScriptEnvironment *scriptEnv, const char *name, AVS_Value args, const char** arg_names);
-typedef AVS_Clip * (__stdcall *func_avs_take_clip)(AVS_Value value, AVS_ScriptEnvironment *scriptEnv);
-typedef void  (__stdcall *func_avs_release_value)(AVS_Value value);
-typedef AVS_ScriptEnvironment * (__stdcall *func_avs_create_script_environment)(int version);
-typedef const AVS_VideoInfo * (__stdcall *func_avs_get_video_info)(AVS_Clip *clip);
-typedef AVS_VideoFrame * (__stdcall *func_avs_get_frame)(AVS_Clip *clip, int n);
-typedef void (__stdcall *func_avs_release_video_frame)(AVS_VideoFrame * frame);
-typedef void (__stdcall *func_avs_release_clip)(AVS_Clip *clip);
-typedef void (__stdcall *func_avs_delete_script_environment) (AVS_ScriptEnvironment *scriptEnv);
-typedef float (__stdcall *func_avs_get_version)(void);
+#define AVS_FUNCTYPE(x) typedef decltype(avs_ ## x)* func_avs_ ## x;
 
-typedef struct {
+AVS_FUNCTYPE(invoke);
+AVS_FUNCTYPE(take_clip);
+AVS_FUNCTYPE(release_value);
+AVS_FUNCTYPE(create_script_environment);
+AVS_FUNCTYPE(get_video_info);
+AVS_FUNCTYPE(get_frame);
+AVS_FUNCTYPE(release_video_frame);
+AVS_FUNCTYPE(release_clip);
+AVS_FUNCTYPE(delete_script_environment);
+AVS_FUNCTYPE(get_version);
+AVS_FUNCTYPE(get_pitch_p);
+AVS_FUNCTYPE(get_read_ptr_p);
+AVS_FUNCTYPE(is_420);
+AVS_FUNCTYPE(is_422);
+AVS_FUNCTYPE(is_444);
+
+#undef AVS_FUNCTYPE
+
+#define AVS_FUNCDECL(x) func_avs_ ## x x;
+
+struct avs_dll_t {
     HMODULE h_avisynth;
-    func_avs_invoke invoke;
-    func_avs_take_clip take_clip;
-    func_avs_release_value release_value;
-    func_avs_create_script_environment create_script_environment;
-    func_avs_get_video_info get_video_info;
-    func_avs_get_frame get_frame;
-    func_avs_release_video_frame release_video_frame;
-    func_avs_release_clip release_clip;
-    func_avs_delete_script_environment delete_script_environment;
-    func_avs_get_version get_version;
-} avs_dll_t;
+    AVS_FUNCDECL(invoke)
+    AVS_FUNCDECL(take_clip)
+    AVS_FUNCDECL(release_value)
+    AVS_FUNCDECL(create_script_environment)
+    AVS_FUNCDECL(get_video_info)
+    AVS_FUNCDECL(get_frame)
+    AVS_FUNCDECL(release_video_frame)
+    AVS_FUNCDECL(release_clip)
+    AVS_FUNCDECL(delete_script_environment)
+    AVS_FUNCDECL(get_version)
+    AVS_FUNCDECL(get_pitch_p)
+    AVS_FUNCDECL(get_read_ptr_p)
+    AVS_FUNCDECL(is_420)
+    AVS_FUNCDECL(is_422)
+    AVS_FUNCDECL(is_444)
+};
+
+#undef AVS_FUNCDECL
 
 class RGYInputAvs : public RGYInput {
 public:
