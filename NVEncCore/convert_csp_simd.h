@@ -969,19 +969,27 @@ static __forceinline __m128i convert_uv_range_from_yc48_420i(__m128i x0, __m128i
 static __forceinline __m128i convert_y_range_to_yc48(__m128i x0) {
     //coef = 4788
     //((( y - 32768 ) * coef) >> 16 ) + (coef/2 - 299)
-    __m128i xC_0x8000 = _mm_slli_epi16(_mm_cmpeq_epi32(x0, x0), 15);
+    const __m128i xC_0x8000 = _mm_slli_epi16(_mm_cmpeq_epi32(x0, x0), 15);
     x0 = _mm_add_epi16(x0, xC_0x8000); // -32768
     x0 = _mm_mulhi_epi16(x0, _mm_set1_epi16(4788));
-    x0 = _mm_add_epi16(x0, _mm_set1_epi16(4788/2 - 299));
+    x0 = _mm_adds_epi16(x0, _mm_set1_epi16(4788/2 - 299));
     return x0;
 }
 
 static __forceinline __m128i convert_uv_range_to_yc48(__m128i x0) {
     //coeff = 4682
     //UV = (( uv - 32768 ) * coef + (1<<15) ) >> 16
-    //   = (( uv - 32768 + (1<<15)/coef ) * coef ) >> 16
-    x0 = _mm_add_epi16(x0, _mm_set1_epi16(-32768 + ((1<<15)/4682)));
-    x0 = _mm_mulhi_epi16(x0, _mm_set1_epi16(4682));
+    const __m128i xC_coeff = _mm_unpacklo_epi16(_mm_set1_epi16(4682), _mm_set1_epi16(-1));
+    const __m128i xC_0x8000 = _mm_slli_epi16(_mm_cmpeq_epi32(x0, x0), 15);
+    __m128i x1;
+    x0 = _mm_add_epi16(x0, xC_0x8000); // -32768
+    x1 = _mm_unpackhi_epi16(x0, xC_0x8000);
+    x0 = _mm_unpacklo_epi16(x0, xC_0x8000);
+    x0 = _mm_madd_epi16(x0, xC_coeff);
+    x1 = _mm_madd_epi16(x1, xC_coeff);
+    x0 = _mm_srai_epi32(x0, 16);
+    x1 = _mm_srai_epi32(x1, 16);
+    x0 = _mm_packs_epi32(x0, x1);
     return x0;
 }
 
