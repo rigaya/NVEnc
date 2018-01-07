@@ -1589,6 +1589,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             this->fcgLBQPP = (gcnew System::Windows::Forms::Label());
             this->fcgLBQPB = (gcnew System::Windows::Forms::Label());
             this->tabPageVideoDetail = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBLogDebug = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBAuoTcfileout = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBTempDir = (gcnew System::Windows::Forms::Label());
             this->fcgBTCustomTempDir = (gcnew System::Windows::Forms::Button());
@@ -1812,7 +1813,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
-            this->fcgCBLogDebug = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -3811,6 +3811,18 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             this->tabPageVideoDetail->Text = L"詳細設定";
             this->tabPageVideoDetail->UseVisualStyleBackColor = true;
             // 
+            // fcgCBLogDebug
+            // 
+            this->fcgCBLogDebug->AutoSize = true;
+            this->fcgCBLogDebug->Location = System::Drawing::Point(257, 566);
+            this->fcgCBLogDebug->Margin = System::Windows::Forms::Padding(4);
+            this->fcgCBLogDebug->Name = L"fcgCBLogDebug";
+            this->fcgCBLogDebug->Size = System::Drawing::Size(130, 23);
+            this->fcgCBLogDebug->TabIndex = 168;
+            this->fcgCBLogDebug->Tag = L"chValue";
+            this->fcgCBLogDebug->Text = L"デバッグログ出力";
+            this->fcgCBLogDebug->UseVisualStyleBackColor = true;
+            // 
             // fcgCBAuoTcfileout
             // 
             this->fcgCBAuoTcfileout->AutoSize = true;
@@ -4500,7 +4512,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             this->fcgTBVppTweakSaturation->AutoSize = false;
             this->fcgTBVppTweakSaturation->Location = System::Drawing::Point(75, 118);
             this->fcgTBVppTweakSaturation->Margin = System::Windows::Forms::Padding(4);
-            this->fcgTBVppTweakSaturation->Maximum = 300;
+            this->fcgTBVppTweakSaturation->Maximum = 200;
             this->fcgTBVppTweakSaturation->Name = L"fcgTBVppTweakSaturation";
             this->fcgTBVppTweakSaturation->Size = System::Drawing::Size(144, 22);
             this->fcgTBVppTweakSaturation->TabIndex = 111;
@@ -4524,7 +4536,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             this->fcgTBVppTweakGamma->LargeChange = 10;
             this->fcgTBVppTweakGamma->Location = System::Drawing::Point(75, 86);
             this->fcgTBVppTweakGamma->Margin = System::Windows::Forms::Padding(4);
-            this->fcgTBVppTweakGamma->Maximum = 500;
+            this->fcgTBVppTweakGamma->Maximum = 200;
             this->fcgTBVppTweakGamma->Minimum = 1;
             this->fcgTBVppTweakGamma->Name = L"fcgTBVppTweakGamma";
             this->fcgTBVppTweakGamma->Size = System::Drawing::Size(144, 22);
@@ -5794,7 +5806,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             // 
             this->fcgCXVppResizeAlg->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVppResizeAlg->FormattingEnabled = true;
-            this->fcgCXVppResizeAlg->Location = System::Drawing::Point(212, 21);
+            this->fcgCXVppResizeAlg->Location = System::Drawing::Point(212, 28);
             this->fcgCXVppResizeAlg->Margin = System::Windows::Forms::Padding(4);
             this->fcgCXVppResizeAlg->Name = L"fcgCXVppResizeAlg";
             this->fcgCXVppResizeAlg->Size = System::Drawing::Size(179, 26);
@@ -5804,7 +5816,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             // fcgLBVppResize
             // 
             this->fcgLBVppResize->AutoSize = true;
-            this->fcgLBVppResize->Location = System::Drawing::Point(96, 26);
+            this->fcgLBVppResize->Location = System::Drawing::Point(96, 33);
             this->fcgLBVppResize->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppResize->Name = L"fcgLBVppResize";
             this->fcgLBVppResize->Size = System::Drawing::Size(16, 18);
@@ -5813,7 +5825,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             // 
             // fcgNUVppResizeHeight
             // 
-            this->fcgNUVppResizeHeight->Location = System::Drawing::Point(119, 22);
+            this->fcgNUVppResizeHeight->Location = System::Drawing::Point(119, 29);
             this->fcgNUVppResizeHeight->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppResizeHeight->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUVppResizeHeight->Name = L"fcgNUVppResizeHeight";
@@ -5824,7 +5836,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             // 
             // fcgNUVppResizeWidth
             // 
-            this->fcgNUVppResizeWidth->Location = System::Drawing::Point(14, 22);
+            this->fcgNUVppResizeWidth->Location = System::Drawing::Point(14, 29);
             this->fcgNUVppResizeWidth->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppResizeWidth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUVppResizeWidth->Name = L"fcgNUVppResizeWidth";
@@ -6488,18 +6500,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
             this->fcgLBAudioPriority->Size = System::Drawing::Size(78, 18);
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
-            // 
-            // fcgCBLogDebug
-            // 
-            this->fcgCBLogDebug->AutoSize = true;
-            this->fcgCBLogDebug->Location = System::Drawing::Point(257, 566);
-            this->fcgCBLogDebug->Margin = System::Windows::Forms::Padding(4);
-            this->fcgCBLogDebug->Name = L"fcgCBLogDebug";
-            this->fcgCBLogDebug->Size = System::Drawing::Size(130, 23);
-            this->fcgCBLogDebug->TabIndex = 168;
-            this->fcgCBLogDebug->Tag = L"chValue";
-            this->fcgCBLogDebug->Text = L"デバッグログ出力";
-            this->fcgCBLogDebug->UseVisualStyleBackColor = true;
             // 
             // frmConfig
             // 
