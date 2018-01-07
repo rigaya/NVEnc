@@ -233,7 +233,7 @@ NVENCSTATUS NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         AddMessage(RGY_LOG_WARN, _T("gamma should be in range of %.1f - %.1f.\n"), 0.1f, 10.0f);
     }
 
-    m_sFilterInfo = strsprintf(_T("tweak: brightness %.1f, contrast %.1f, saturation %.1f, gamma %.1f, hue %.1f"),
+    m_sFilterInfo = strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f"),
         pTweakParam->tweak.brightness, pTweakParam->tweak.contrast, pTweakParam->tweak.saturation, pTweakParam->tweak.gamma, pTweakParam->tweak.hue);
 
     //コピーを保存
