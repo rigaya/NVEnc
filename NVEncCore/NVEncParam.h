@@ -90,6 +90,12 @@ static const bool  FILTER_DEFAULT_AFS_RFF = false;
 static const bool  FILTER_DEFAULT_AFS_TIMECODE = false;
 static const bool  FILTER_DEFAULT_AFS_LOG = false;
 
+static const float FILTER_DEFAULT_TWEAK_BRIGHTNESS = 0.0f;
+static const float FILTER_DEFAULT_TWEAK_CONTRAST = 1.0f;
+static const float FILTER_DEFAULT_TWEAK_GAMMA = 1.0f;
+static const float FILTER_DEFAULT_TWEAK_SATURATION = 1.0f;
+static const float FILTER_DEFAULT_TWEAK_HUE = 0.0f;
+
 enum {
     NV_ENC_AVCUVID_NATIVE = 0,
     NV_ENC_AVCUVID_CUDA,
@@ -591,6 +597,17 @@ struct VppDeband {
     VppDeband();
 };
 
+struct VppTweak {
+    bool  enable;
+    float brightness; // -1.0 - 1.0 (0.0)
+    float contrast;   // -2.0 - 2.0 (1.0)
+    float gamma;      //  0.1 - 10.0 (1.0)
+    float saturation; //  0.0 - 3.0 (1.0)
+    float hue;        // -180 - 180 (0.0)
+
+    VppTweak();
+};
+
 typedef struct {
     int top, bottom, left, right;
 } AFS_SCAN_CLIP;
@@ -679,6 +696,7 @@ struct VppParam {
     VppPmd pmd;
     VppDeband deband;
     VppAfs afs;
+    VppTweak tweak;
     bool rff;
 
     VppParam();

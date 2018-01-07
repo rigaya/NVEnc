@@ -308,6 +308,9 @@
     <ClInclude Include="NVEncFilterEdgelevel.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="NVEncFilterTweak.h">
+      <Filter>ソース ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="NVEncFilterCrop.cu">
@@ -344,6 +347,9 @@
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterEdgelevel.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterTweak.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
   </ItemGroup>

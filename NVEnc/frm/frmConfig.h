@@ -1174,10 +1174,11 @@ private: System::Windows::Forms::Label^  label10;
 
 private: System::Windows::Forms::NumericUpDown^  numericUpDown4;
 private: System::Windows::Forms::ComboBox^  fcgCXVppDetailEnhance;
+private: System::Windows::Forms::CheckBox^  fcgCBVppAfsEnable;
 
 
 
-private: System::Windows::Forms::CheckBox^  fcCBVppAfsEnable;
+
 private: System::Windows::Forms::GroupBox^  fcggroupBoxVppAfs;
 private: System::Windows::Forms::TrackBar^  fcgTBVppAfsThreCMotion;
 private: System::Windows::Forms::Label^  fcgLBVppAfsThreCMotion;
@@ -1269,6 +1270,25 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppEdgelevelStrength;
 private: System::Windows::Forms::Label^  fcgLBVppEdgelevelWhite;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppEdgelevelWhite;
 private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
+private: System::Windows::Forms::CheckBox^  fcgCBVppTweakEnable;
+private: System::Windows::Forms::GroupBox^  fcggroupBoxVppTweak;
+
+
+private: System::Windows::Forms::TrackBar^  fcgTBVppTweakHue;
+private: System::Windows::Forms::Label^  fcgLBVppTweakHue;
+private: System::Windows::Forms::TrackBar^  fcgTBVppTweakSaturation;
+private: System::Windows::Forms::Label^  fcgLBVppTweakSaturation;
+private: System::Windows::Forms::TrackBar^  fcgTBVppTweakGamma;
+private: System::Windows::Forms::Label^  fcgLBVppTweakGamma;
+private: System::Windows::Forms::TrackBar^  fcgTBVppTweakContrast;
+private: System::Windows::Forms::Label^  fcgLBVppTweakContrast;
+private: System::Windows::Forms::TrackBar^  fcgTBVppTweakBrightness;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakGamma;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakSaturation;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakHue;
+private: System::Windows::Forms::Label^  fcgLBVppTweakBrightness;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakContrast;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakBrightness;
 
 
 
@@ -1622,6 +1642,23 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcgLBHEVCMaxCUSize = (gcnew System::Windows::Forms::Label());
             this->fcgCXHEVCMaxCUSize = (gcnew System::Windows::Forms::ComboBox());
             this->tabPageExOpt = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBVppTweakEnable = (gcnew System::Windows::Forms::CheckBox());
+            this->fcggroupBoxVppTweak = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgTBVppTweakHue = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgLBVppTweakHue = (gcnew System::Windows::Forms::Label());
+            this->fcgTBVppTweakSaturation = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgLBVppTweakSaturation = (gcnew System::Windows::Forms::Label());
+            this->fcgTBVppTweakGamma = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgLBVppTweakGamma = (gcnew System::Windows::Forms::Label());
+            this->fcgTBVppTweakContrast = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgLBVppTweakContrast = (gcnew System::Windows::Forms::Label());
+            this->fcgTBVppTweakBrightness = (gcnew System::Windows::Forms::TrackBar());
+            this->fcgNUVppTweakGamma = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppTweakSaturation = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppTweakHue = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBVppTweakBrightness = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppTweakContrast = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppTweakBrightness = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgCBVppPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxVppDetailEnahance = (gcnew System::Windows::Forms::GroupBox());
             this->fcgPNVppEdgelevel = (gcnew System::Windows::Forms::Panel());
@@ -1643,7 +1680,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcgNUVppUnsharpThreshold = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppUnsharpWeight = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppUnsharpRadius = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcCBVppAfsEnable = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBVppAfsEnable = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxVppAfs = (gcnew System::Windows::Forms::GroupBox());
             this->fcgTBVppAfsThreCMotion = (gcnew System::Windows::Forms::TrackBar());
             this->fcgLBVppAfsThreCMotion = (gcnew System::Windows::Forms::Label());
@@ -1822,6 +1859,17 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcgPNH264Detail->SuspendLayout();
             this->fcgPNHEVCDetail->SuspendLayout();
             this->tabPageExOpt->SuspendLayout();
+            this->fcggroupBoxVppTweak->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakHue))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakSaturation))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakGamma))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakContrast))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakBrightness))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakGamma))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakSaturation))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakHue))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakContrast))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakBrightness))->BeginInit();
             this->fcggroupBoxVppDetailEnahance->SuspendLayout();
             this->fcgPNVppEdgelevel->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelWhite))->BeginInit();
@@ -2768,7 +2816,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
-            this->tabPageVideoEnc->Click += gcnew System::EventHandler(this, &frmConfig::tabPageVideoEnc_Click);
             // 
             // fcgPNHEVC
             // 
@@ -2860,7 +2907,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcggroupBoxColorHEVC->Controls->Add(this->fcgLBTransferHEVC);
             this->fcggroupBoxColorHEVC->Controls->Add(this->fcgLBColorPrimHEVC);
             this->fcggroupBoxColorHEVC->Controls->Add(this->fcgLBColorMatrixHEVC);
-            this->fcggroupBoxColorHEVC->Location = System::Drawing::Point(19, 253);
+            this->fcggroupBoxColorHEVC->Location = System::Drawing::Point(19, 252);
             this->fcggroupBoxColorHEVC->Margin = System::Windows::Forms::Padding(4);
             this->fcggroupBoxColorHEVC->Name = L"fcggroupBoxColorHEVC";
             this->fcggroupBoxColorHEVC->Padding = System::Windows::Forms::Padding(4);
@@ -3099,7 +3146,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBInterlaced
             // 
             this->fcgLBInterlaced->AutoSize = true;
-            this->fcgLBInterlaced->Location = System::Drawing::Point(446, 177);
+            this->fcgLBInterlaced->Location = System::Drawing::Point(446, 178);
             this->fcgLBInterlaced->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBInterlaced->Name = L"fcgLBInterlaced";
             this->fcgLBInterlaced->Size = System::Drawing::Size(109, 18);
@@ -3162,7 +3209,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             this->fcgCXInterlaced->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXInterlaced->FormattingEnabled = true;
-            this->fcgCXInterlaced->Location = System::Drawing::Point(585, 173);
+            this->fcgCXInterlaced->Location = System::Drawing::Point(585, 172);
             this->fcgCXInterlaced->Margin = System::Windows::Forms::Padding(4);
             this->fcgCXInterlaced->Name = L"fcgCXInterlaced";
             this->fcgCXInterlaced->Size = System::Drawing::Size(150, 26);
@@ -3476,7 +3523,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBBluray
             // 
             this->fcgLBBluray->AutoSize = true;
-            this->fcgLBBluray->Location = System::Drawing::Point(20, 83);
+            this->fcgLBBluray->Location = System::Drawing::Point(20, 82);
             this->fcgLBBluray->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBBluray->Name = L"fcgLBBluray";
             this->fcgLBBluray->Size = System::Drawing::Size(94, 18);
@@ -3507,7 +3554,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBCodecLevel
             // 
             this->fcgLBCodecLevel->AutoSize = true;
-            this->fcgLBCodecLevel->Location = System::Drawing::Point(19, 47);
+            this->fcgLBCodecLevel->Location = System::Drawing::Point(19, 48);
             this->fcgLBCodecLevel->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBCodecLevel->Name = L"fcgLBCodecLevel";
             this->fcgLBCodecLevel->Size = System::Drawing::Size(41, 18);
@@ -3529,7 +3576,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             this->fcgCXCodecLevel->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXCodecLevel->FormattingEnabled = true;
-            this->fcgCXCodecLevel->Location = System::Drawing::Point(158, 43);
+            this->fcgCXCodecLevel->Location = System::Drawing::Point(158, 42);
             this->fcgCXCodecLevel->Margin = System::Windows::Forms::Padding(4);
             this->fcgCXCodecLevel->Name = L"fcgCXCodecLevel";
             this->fcgCXCodecLevel->Size = System::Drawing::Size(150, 26);
@@ -3586,7 +3633,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcggroupBoxColorH264->Controls->Add(this->fcgLBTransferH264);
             this->fcggroupBoxColorH264->Controls->Add(this->fcgLBColorPrimH264);
             this->fcggroupBoxColorH264->Controls->Add(this->fcgLBColorMatrixH264);
-            this->fcggroupBoxColorH264->Location = System::Drawing::Point(19, 253);
+            this->fcggroupBoxColorH264->Location = System::Drawing::Point(19, 252);
             this->fcggroupBoxColorH264->Margin = System::Windows::Forms::Padding(4);
             this->fcggroupBoxColorH264->Name = L"fcggroupBoxColorH264";
             this->fcggroupBoxColorH264->Padding = System::Windows::Forms::Padding(4);
@@ -3785,7 +3832,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgBTCustomTempDir
             // 
-            this->fcgBTCustomTempDir->Location = System::Drawing::Point(353, 485);
+            this->fcgBTCustomTempDir->Location = System::Drawing::Point(352, 485);
             this->fcgBTCustomTempDir->Margin = System::Windows::Forms::Padding(4);
             this->fcgBTCustomTempDir->Name = L"fcgBTCustomTempDir";
             this->fcgBTCustomTempDir->Size = System::Drawing::Size(36, 29);
@@ -4362,9 +4409,11 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // tabPageExOpt
             // 
+            this->tabPageExOpt->Controls->Add(this->fcgCBVppTweakEnable);
+            this->tabPageExOpt->Controls->Add(this->fcggroupBoxVppTweak);
             this->tabPageExOpt->Controls->Add(this->fcgCBVppPerfMonitor);
             this->tabPageExOpt->Controls->Add(this->fcggroupBoxVppDetailEnahance);
-            this->tabPageExOpt->Controls->Add(this->fcCBVppAfsEnable);
+            this->tabPageExOpt->Controls->Add(this->fcgCBVppAfsEnable);
             this->tabPageExOpt->Controls->Add(this->fcggroupBoxVppAfs);
             this->tabPageExOpt->Controls->Add(this->fcgCBVppDebandEnable);
             this->tabPageExOpt->Controls->Add(this->fcggroupBoxVppDeband);
@@ -4381,10 +4430,240 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->tabPageExOpt->Text = L"フィルタ";
             this->tabPageExOpt->UseVisualStyleBackColor = true;
             // 
+            // fcgCBVppTweakEnable
+            // 
+            this->fcgCBVppTweakEnable->AutoSize = true;
+            this->fcgCBVppTweakEnable->Location = System::Drawing::Point(462, 412);
+            this->fcgCBVppTweakEnable->Margin = System::Windows::Forms::Padding(4);
+            this->fcgCBVppTweakEnable->Name = L"fcgCBVppTweakEnable";
+            this->fcgCBVppTweakEnable->Size = System::Drawing::Size(86, 22);
+            this->fcgCBVppTweakEnable->TabIndex = 169;
+            this->fcgCBVppTweakEnable->Tag = L"chValue";
+            this->fcgCBVppTweakEnable->Text = L"色調補正";
+            this->fcgCBVppTweakEnable->UseVisualStyleBackColor = true;
+            this->fcgCBVppTweakEnable->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+            // 
+            // fcggroupBoxVppTweak
+            // 
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgTBVppTweakHue);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgLBVppTweakHue);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgTBVppTweakSaturation);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgLBVppTweakSaturation);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgTBVppTweakGamma);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgLBVppTweakGamma);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgTBVppTweakContrast);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgLBVppTweakContrast);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgTBVppTweakBrightness);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgNUVppTweakGamma);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgNUVppTweakSaturation);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgNUVppTweakHue);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgLBVppTweakBrightness);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgNUVppTweakContrast);
+            this->fcggroupBoxVppTweak->Controls->Add(this->fcgNUVppTweakBrightness);
+            this->fcggroupBoxVppTweak->Location = System::Drawing::Point(448, 414);
+            this->fcggroupBoxVppTweak->Margin = System::Windows::Forms::Padding(4);
+            this->fcggroupBoxVppTweak->Name = L"fcggroupBoxVppTweak";
+            this->fcggroupBoxVppTweak->Padding = System::Windows::Forms::Padding(4);
+            this->fcggroupBoxVppTweak->Size = System::Drawing::Size(309, 181);
+            this->fcggroupBoxVppTweak->TabIndex = 168;
+            this->fcggroupBoxVppTweak->TabStop = false;
+            // 
+            // fcgTBVppTweakHue
+            // 
+            this->fcgTBVppTweakHue->AutoSize = false;
+            this->fcgTBVppTweakHue->LargeChange = 10;
+            this->fcgTBVppTweakHue->Location = System::Drawing::Point(75, 149);
+            this->fcgTBVppTweakHue->Margin = System::Windows::Forms::Padding(4);
+            this->fcgTBVppTweakHue->Maximum = 180;
+            this->fcgTBVppTweakHue->Minimum = -180;
+            this->fcgTBVppTweakHue->Name = L"fcgTBVppTweakHue";
+            this->fcgTBVppTweakHue->Size = System::Drawing::Size(144, 22);
+            this->fcgTBVppTweakHue->TabIndex = 113;
+            this->fcgTBVppTweakHue->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppTweakHue->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppTweakScroll);
+            // 
+            // fcgLBVppTweakHue
+            // 
+            this->fcgLBVppTweakHue->AutoSize = true;
+            this->fcgLBVppTweakHue->Location = System::Drawing::Point(11, 149);
+            this->fcgLBVppTweakHue->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
+            this->fcgLBVppTweakHue->Name = L"fcgLBVppTweakHue";
+            this->fcgLBVppTweakHue->Size = System::Drawing::Size(36, 18);
+            this->fcgLBVppTweakHue->TabIndex = 112;
+            this->fcgLBVppTweakHue->Text = L"色相";
+            // 
+            // fcgTBVppTweakSaturation
+            // 
+            this->fcgTBVppTweakSaturation->AutoSize = false;
+            this->fcgTBVppTweakSaturation->Location = System::Drawing::Point(75, 118);
+            this->fcgTBVppTweakSaturation->Margin = System::Windows::Forms::Padding(4);
+            this->fcgTBVppTweakSaturation->Maximum = 300;
+            this->fcgTBVppTweakSaturation->Name = L"fcgTBVppTweakSaturation";
+            this->fcgTBVppTweakSaturation->Size = System::Drawing::Size(144, 22);
+            this->fcgTBVppTweakSaturation->TabIndex = 111;
+            this->fcgTBVppTweakSaturation->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppTweakSaturation->Value = 100;
+            this->fcgTBVppTweakSaturation->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppTweakScroll);
+            // 
+            // fcgLBVppTweakSaturation
+            // 
+            this->fcgLBVppTweakSaturation->AutoSize = true;
+            this->fcgLBVppTweakSaturation->Location = System::Drawing::Point(11, 118);
+            this->fcgLBVppTweakSaturation->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
+            this->fcgLBVppTweakSaturation->Name = L"fcgLBVppTweakSaturation";
+            this->fcgLBVppTweakSaturation->Size = System::Drawing::Size(36, 18);
+            this->fcgLBVppTweakSaturation->TabIndex = 110;
+            this->fcgLBVppTweakSaturation->Text = L"彩度";
+            // 
+            // fcgTBVppTweakGamma
+            // 
+            this->fcgTBVppTweakGamma->AutoSize = false;
+            this->fcgTBVppTweakGamma->LargeChange = 10;
+            this->fcgTBVppTweakGamma->Location = System::Drawing::Point(75, 86);
+            this->fcgTBVppTweakGamma->Margin = System::Windows::Forms::Padding(4);
+            this->fcgTBVppTweakGamma->Maximum = 500;
+            this->fcgTBVppTweakGamma->Minimum = 1;
+            this->fcgTBVppTweakGamma->Name = L"fcgTBVppTweakGamma";
+            this->fcgTBVppTweakGamma->Size = System::Drawing::Size(144, 22);
+            this->fcgTBVppTweakGamma->TabIndex = 109;
+            this->fcgTBVppTweakGamma->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppTweakGamma->Value = 100;
+            this->fcgTBVppTweakGamma->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppTweakScroll);
+            // 
+            // fcgLBVppTweakGamma
+            // 
+            this->fcgLBVppTweakGamma->AutoSize = true;
+            this->fcgLBVppTweakGamma->Location = System::Drawing::Point(11, 86);
+            this->fcgLBVppTweakGamma->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
+            this->fcgLBVppTweakGamma->Name = L"fcgLBVppTweakGamma";
+            this->fcgLBVppTweakGamma->Size = System::Drawing::Size(40, 18);
+            this->fcgLBVppTweakGamma->TabIndex = 108;
+            this->fcgLBVppTweakGamma->Text = L"ガンマ";
+            // 
+            // fcgTBVppTweakContrast
+            // 
+            this->fcgTBVppTweakContrast->AutoSize = false;
+            this->fcgTBVppTweakContrast->LargeChange = 10;
+            this->fcgTBVppTweakContrast->Location = System::Drawing::Point(75, 55);
+            this->fcgTBVppTweakContrast->Margin = System::Windows::Forms::Padding(4);
+            this->fcgTBVppTweakContrast->Maximum = 200;
+            this->fcgTBVppTweakContrast->Minimum = -200;
+            this->fcgTBVppTweakContrast->Name = L"fcgTBVppTweakContrast";
+            this->fcgTBVppTweakContrast->Size = System::Drawing::Size(144, 22);
+            this->fcgTBVppTweakContrast->TabIndex = 107;
+            this->fcgTBVppTweakContrast->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppTweakContrast->Value = 100;
+            this->fcgTBVppTweakContrast->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppTweakScroll);
+            // 
+            // fcgLBVppTweakContrast
+            // 
+            this->fcgLBVppTweakContrast->AutoSize = true;
+            this->fcgLBVppTweakContrast->Location = System::Drawing::Point(11, 55);
+            this->fcgLBVppTweakContrast->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
+            this->fcgLBVppTweakContrast->Name = L"fcgLBVppTweakContrast";
+            this->fcgLBVppTweakContrast->Size = System::Drawing::Size(69, 18);
+            this->fcgLBVppTweakContrast->TabIndex = 106;
+            this->fcgLBVppTweakContrast->Text = L"コントラスト";
+            // 
+            // fcgTBVppTweakBrightness
+            // 
+            this->fcgTBVppTweakBrightness->AutoSize = false;
+            this->fcgTBVppTweakBrightness->LargeChange = 10;
+            this->fcgTBVppTweakBrightness->Location = System::Drawing::Point(75, 24);
+            this->fcgTBVppTweakBrightness->Margin = System::Windows::Forms::Padding(4);
+            this->fcgTBVppTweakBrightness->Maximum = 100;
+            this->fcgTBVppTweakBrightness->Minimum = -100;
+            this->fcgTBVppTweakBrightness->Name = L"fcgTBVppTweakBrightness";
+            this->fcgTBVppTweakBrightness->Size = System::Drawing::Size(144, 22);
+            this->fcgTBVppTweakBrightness->TabIndex = 105;
+            this->fcgTBVppTweakBrightness->TickStyle = System::Windows::Forms::TickStyle::None;
+            this->fcgTBVppTweakBrightness->Scroll += gcnew System::EventHandler(this, &frmConfig::fcgTBVppTweakScroll);
+            // 
+            // fcgNUVppTweakGamma
+            // 
+            this->fcgNUVppTweakGamma->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 10, 0, 0, 0 });
+            this->fcgNUVppTweakGamma->Location = System::Drawing::Point(226, 86);
+            this->fcgNUVppTweakGamma->Margin = System::Windows::Forms::Padding(4);
+            this->fcgNUVppTweakGamma->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1000, 0, 0, 0 });
+            this->fcgNUVppTweakGamma->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            this->fcgNUVppTweakGamma->Name = L"fcgNUVppTweakGamma";
+            this->fcgNUVppTweakGamma->Size = System::Drawing::Size(75, 25);
+            this->fcgNUVppTweakGamma->TabIndex = 104;
+            this->fcgNUVppTweakGamma->Tag = L"chValue";
+            this->fcgNUVppTweakGamma->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppTweakGamma->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
+            this->fcgNUVppTweakGamma->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppTweakValueChanged);
+            // 
+            // fcgNUVppTweakSaturation
+            // 
+            this->fcgNUVppTweakSaturation->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 10, 0, 0, 0 });
+            this->fcgNUVppTweakSaturation->Location = System::Drawing::Point(226, 118);
+            this->fcgNUVppTweakSaturation->Margin = System::Windows::Forms::Padding(4);
+            this->fcgNUVppTweakSaturation->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 300, 0, 0, 0 });
+            this->fcgNUVppTweakSaturation->Name = L"fcgNUVppTweakSaturation";
+            this->fcgNUVppTweakSaturation->Size = System::Drawing::Size(75, 25);
+            this->fcgNUVppTweakSaturation->TabIndex = 103;
+            this->fcgNUVppTweakSaturation->Tag = L"chValue";
+            this->fcgNUVppTweakSaturation->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppTweakSaturation->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
+            this->fcgNUVppTweakSaturation->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppTweakValueChanged);
+            // 
+            // fcgNUVppTweakHue
+            // 
+            this->fcgNUVppTweakHue->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 10, 0, 0, 0 });
+            this->fcgNUVppTweakHue->Location = System::Drawing::Point(226, 149);
+            this->fcgNUVppTweakHue->Margin = System::Windows::Forms::Padding(4);
+            this->fcgNUVppTweakHue->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 180, 0, 0, 0 });
+            this->fcgNUVppTweakHue->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 180, 0, 0, System::Int32::MinValue });
+            this->fcgNUVppTweakHue->Name = L"fcgNUVppTweakHue";
+            this->fcgNUVppTweakHue->Size = System::Drawing::Size(75, 25);
+            this->fcgNUVppTweakHue->TabIndex = 102;
+            this->fcgNUVppTweakHue->Tag = L"chValue";
+            this->fcgNUVppTweakHue->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppTweakHue->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppTweakValueChanged);
+            // 
+            // fcgLBVppTweakBrightness
+            // 
+            this->fcgLBVppTweakBrightness->AutoSize = true;
+            this->fcgLBVppTweakBrightness->Location = System::Drawing::Point(11, 24);
+            this->fcgLBVppTweakBrightness->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
+            this->fcgLBVppTweakBrightness->Name = L"fcgLBVppTweakBrightness";
+            this->fcgLBVppTweakBrightness->Size = System::Drawing::Size(36, 18);
+            this->fcgLBVppTweakBrightness->TabIndex = 101;
+            this->fcgLBVppTweakBrightness->Text = L"輝度";
+            // 
+            // fcgNUVppTweakContrast
+            // 
+            this->fcgNUVppTweakContrast->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 10, 0, 0, 0 });
+            this->fcgNUVppTweakContrast->Location = System::Drawing::Point(226, 55);
+            this->fcgNUVppTweakContrast->Margin = System::Windows::Forms::Padding(4);
+            this->fcgNUVppTweakContrast->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 200, 0, 0, 0 });
+            this->fcgNUVppTweakContrast->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 200, 0, 0, System::Int32::MinValue });
+            this->fcgNUVppTweakContrast->Name = L"fcgNUVppTweakContrast";
+            this->fcgNUVppTweakContrast->Size = System::Drawing::Size(75, 25);
+            this->fcgNUVppTweakContrast->TabIndex = 100;
+            this->fcgNUVppTweakContrast->Tag = L"chValue";
+            this->fcgNUVppTweakContrast->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppTweakContrast->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
+            this->fcgNUVppTweakContrast->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppTweakValueChanged);
+            // 
+            // fcgNUVppTweakBrightness
+            // 
+            this->fcgNUVppTweakBrightness->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 10, 0, 0, 0 });
+            this->fcgNUVppTweakBrightness->Location = System::Drawing::Point(226, 24);
+            this->fcgNUVppTweakBrightness->Margin = System::Windows::Forms::Padding(4);
+            this->fcgNUVppTweakBrightness->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, System::Int32::MinValue });
+            this->fcgNUVppTweakBrightness->Name = L"fcgNUVppTweakBrightness";
+            this->fcgNUVppTweakBrightness->Size = System::Drawing::Size(75, 25);
+            this->fcgNUVppTweakBrightness->TabIndex = 99;
+            this->fcgNUVppTweakBrightness->Tag = L"chValue";
+            this->fcgNUVppTweakBrightness->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppTweakBrightness->ValueChanged += gcnew System::EventHandler(this, &frmConfig::fcgNUVppTweakValueChanged);
+            // 
             // fcgCBVppPerfMonitor
             // 
             this->fcgCBVppPerfMonitor->AutoSize = true;
-            this->fcgCBVppPerfMonitor->Location = System::Drawing::Point(608, 568);
+            this->fcgCBVppPerfMonitor->Location = System::Drawing::Point(15, 574);
             this->fcgCBVppPerfMonitor->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBVppPerfMonitor->Name = L"fcgCBVppPerfMonitor";
             this->fcgCBVppPerfMonitor->Size = System::Drawing::Size(140, 22);
@@ -4398,7 +4677,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcggroupBoxVppDetailEnahance->Controls->Add(this->fcgPNVppEdgelevel);
             this->fcggroupBoxVppDetailEnahance->Controls->Add(this->fcgCXVppDetailEnhance);
             this->fcggroupBoxVppDetailEnahance->Controls->Add(this->fcgPNVppUnsharp);
-            this->fcggroupBoxVppDetailEnahance->Location = System::Drawing::Point(4, 279);
+            this->fcggroupBoxVppDetailEnahance->Location = System::Drawing::Point(4, 249);
             this->fcggroupBoxVppDetailEnahance->Margin = System::Windows::Forms::Padding(4);
             this->fcggroupBoxVppDetailEnahance->Name = L"fcggroupBoxVppDetailEnahance";
             this->fcggroupBoxVppDetailEnahance->Padding = System::Windows::Forms::Padding(4);
@@ -4438,7 +4717,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgNUVppEdgelevelWhite
             // 
             this->fcgNUVppEdgelevelWhite->DecimalPlaces = 1;
-            this->fcgNUVppEdgelevelWhite->Location = System::Drawing::Point(299, 43);
+            this->fcgNUVppEdgelevelWhite->Location = System::Drawing::Point(299, 42);
             this->fcgNUVppEdgelevelWhite->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppEdgelevelWhite->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppEdgelevelWhite->Name = L"fcgNUVppEdgelevelWhite";
@@ -4493,7 +4772,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgNUVppEdgelevelBlack
             // 
             this->fcgNUVppEdgelevelBlack->DecimalPlaces = 1;
-            this->fcgNUVppEdgelevelBlack->Location = System::Drawing::Point(85, 43);
+            this->fcgNUVppEdgelevelBlack->Location = System::Drawing::Point(85, 42);
             this->fcgNUVppEdgelevelBlack->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppEdgelevelBlack->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppEdgelevelBlack->Name = L"fcgNUVppEdgelevelBlack";
@@ -4610,7 +4889,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             this->fcgNUVppUnsharpWeight->DecimalPlaces = 1;
             this->fcgNUVppUnsharpWeight->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 65536 });
-            this->fcgNUVppUnsharpWeight->Location = System::Drawing::Point(87, 43);
+            this->fcgNUVppUnsharpWeight->Location = System::Drawing::Point(88, 42);
             this->fcgNUVppUnsharpWeight->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppUnsharpWeight->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 10, 0, 0, 0 });
             this->fcgNUVppUnsharpWeight->Name = L"fcgNUVppUnsharpWeight";
@@ -4622,7 +4901,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgNUVppUnsharpRadius
             // 
-            this->fcgNUVppUnsharpRadius->Location = System::Drawing::Point(87, 9);
+            this->fcgNUVppUnsharpRadius->Location = System::Drawing::Point(88, 9);
             this->fcgNUVppUnsharpRadius->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppUnsharpRadius->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 9, 0, 0, 0 });
             this->fcgNUVppUnsharpRadius->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
@@ -4633,18 +4912,18 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcgNUVppUnsharpRadius->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             this->fcgNUVppUnsharpRadius->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
             // 
-            // fcCBVppAfsEnable
+            // fcgCBVppAfsEnable
             // 
-            this->fcCBVppAfsEnable->AutoSize = true;
-            this->fcCBVppAfsEnable->Location = System::Drawing::Point(462, 3);
-            this->fcCBVppAfsEnable->Margin = System::Windows::Forms::Padding(4);
-            this->fcCBVppAfsEnable->Name = L"fcCBVppAfsEnable";
-            this->fcCBVppAfsEnable->Size = System::Drawing::Size(137, 22);
-            this->fcCBVppAfsEnable->TabIndex = 15;
-            this->fcCBVppAfsEnable->Tag = L"chValue";
-            this->fcCBVppAfsEnable->Text = L"自動フィールドシフト";
-            this->fcCBVppAfsEnable->UseVisualStyleBackColor = true;
-            this->fcCBVppAfsEnable->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+            this->fcgCBVppAfsEnable->AutoSize = true;
+            this->fcgCBVppAfsEnable->Location = System::Drawing::Point(462, 3);
+            this->fcgCBVppAfsEnable->Margin = System::Windows::Forms::Padding(4);
+            this->fcgCBVppAfsEnable->Name = L"fcgCBVppAfsEnable";
+            this->fcgCBVppAfsEnable->Size = System::Drawing::Size(137, 22);
+            this->fcgCBVppAfsEnable->TabIndex = 15;
+            this->fcgCBVppAfsEnable->Tag = L"chValue";
+            this->fcgCBVppAfsEnable->Text = L"自動フィールドシフト";
+            this->fcgCBVppAfsEnable->UseVisualStyleBackColor = true;
+            this->fcgCBVppAfsEnable->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
             // 
             // fcggroupBoxVppAfs
             // 
@@ -4681,18 +4960,18 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcggroupBoxVppAfs->Controls->Add(this->fcgCXVppAfsAnalyze);
             this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsCoeffShift);
             this->fcggroupBoxVppAfs->Controls->Add(this->fcgNUVppAfsMethodSwitch);
-            this->fcggroupBoxVppAfs->Location = System::Drawing::Point(447, 6);
+            this->fcggroupBoxVppAfs->Location = System::Drawing::Point(448, 6);
             this->fcggroupBoxVppAfs->Margin = System::Windows::Forms::Padding(4);
             this->fcggroupBoxVppAfs->Name = L"fcggroupBoxVppAfs";
             this->fcggroupBoxVppAfs->Padding = System::Windows::Forms::Padding(4);
-            this->fcggroupBoxVppAfs->Size = System::Drawing::Size(308, 479);
+            this->fcggroupBoxVppAfs->Size = System::Drawing::Size(308, 400);
             this->fcggroupBoxVppAfs->TabIndex = 14;
             this->fcggroupBoxVppAfs->TabStop = false;
             // 
             // fcgTBVppAfsThreCMotion
             // 
             this->fcgTBVppAfsThreCMotion->AutoSize = false;
-            this->fcgTBVppAfsThreCMotion->Location = System::Drawing::Point(76, 249);
+            this->fcgTBVppAfsThreCMotion->Location = System::Drawing::Point(76, 245);
             this->fcgTBVppAfsThreCMotion->Margin = System::Windows::Forms::Padding(4);
             this->fcgTBVppAfsThreCMotion->Maximum = 1024;
             this->fcgTBVppAfsThreCMotion->Name = L"fcgTBVppAfsThreCMotion";
@@ -4704,7 +4983,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBVppAfsThreCMotion
             // 
             this->fcgLBVppAfsThreCMotion->AutoSize = true;
-            this->fcgLBVppAfsThreCMotion->Location = System::Drawing::Point(12, 249);
+            this->fcgLBVppAfsThreCMotion->Location = System::Drawing::Point(12, 245);
             this->fcgLBVppAfsThreCMotion->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppAfsThreCMotion->Name = L"fcgLBVppAfsThreCMotion";
             this->fcgLBVppAfsThreCMotion->Size = System::Drawing::Size(42, 18);
@@ -4714,7 +4993,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgTBVppAfsThreYMotion
             // 
             this->fcgTBVppAfsThreYMotion->AutoSize = false;
-            this->fcgTBVppAfsThreYMotion->Location = System::Drawing::Point(76, 218);
+            this->fcgTBVppAfsThreYMotion->Location = System::Drawing::Point(76, 214);
             this->fcgTBVppAfsThreYMotion->Margin = System::Windows::Forms::Padding(4);
             this->fcgTBVppAfsThreYMotion->Maximum = 1024;
             this->fcgTBVppAfsThreYMotion->Name = L"fcgTBVppAfsThreYMotion";
@@ -4726,7 +5005,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBVppAfsThreYmotion
             // 
             this->fcgLBVppAfsThreYmotion->AutoSize = true;
-            this->fcgLBVppAfsThreYmotion->Location = System::Drawing::Point(12, 218);
+            this->fcgLBVppAfsThreYmotion->Location = System::Drawing::Point(12, 214);
             this->fcgLBVppAfsThreYmotion->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppAfsThreYmotion->Name = L"fcgLBVppAfsThreYmotion";
             this->fcgLBVppAfsThreYmotion->Size = System::Drawing::Size(42, 18);
@@ -4736,7 +5015,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgTBVppAfsThreDeint
             // 
             this->fcgTBVppAfsThreDeint->AutoSize = false;
-            this->fcgTBVppAfsThreDeint->Location = System::Drawing::Point(76, 186);
+            this->fcgTBVppAfsThreDeint->Location = System::Drawing::Point(76, 182);
             this->fcgTBVppAfsThreDeint->Margin = System::Windows::Forms::Padding(4);
             this->fcgTBVppAfsThreDeint->Maximum = 1024;
             this->fcgTBVppAfsThreDeint->Name = L"fcgTBVppAfsThreDeint";
@@ -4748,7 +5027,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBVppAfsThreDeint
             // 
             this->fcgLBVppAfsThreDeint->AutoSize = true;
-            this->fcgLBVppAfsThreDeint->Location = System::Drawing::Point(12, 186);
+            this->fcgLBVppAfsThreDeint->Location = System::Drawing::Point(12, 182);
             this->fcgLBVppAfsThreDeint->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppAfsThreDeint->Name = L"fcgLBVppAfsThreDeint";
             this->fcgLBVppAfsThreDeint->Size = System::Drawing::Size(62, 18);
@@ -4758,7 +5037,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgTBVppAfsThreShift
             // 
             this->fcgTBVppAfsThreShift->AutoSize = false;
-            this->fcgTBVppAfsThreShift->Location = System::Drawing::Point(76, 155);
+            this->fcgTBVppAfsThreShift->Location = System::Drawing::Point(76, 151);
             this->fcgTBVppAfsThreShift->Margin = System::Windows::Forms::Padding(4);
             this->fcgTBVppAfsThreShift->Maximum = 1024;
             this->fcgTBVppAfsThreShift->Name = L"fcgTBVppAfsThreShift";
@@ -4770,7 +5049,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBVppAfsThreShift
             // 
             this->fcgLBVppAfsThreShift->AutoSize = true;
-            this->fcgLBVppAfsThreShift->Location = System::Drawing::Point(12, 155);
+            this->fcgLBVppAfsThreShift->Location = System::Drawing::Point(12, 151);
             this->fcgLBVppAfsThreShift->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppAfsThreShift->Name = L"fcgLBVppAfsThreShift";
             this->fcgLBVppAfsThreShift->Size = System::Drawing::Size(55, 18);
@@ -4780,7 +5059,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgTBVppAfsCoeffShift
             // 
             this->fcgTBVppAfsCoeffShift->AutoSize = false;
-            this->fcgTBVppAfsCoeffShift->Location = System::Drawing::Point(76, 124);
+            this->fcgTBVppAfsCoeffShift->Location = System::Drawing::Point(76, 120);
             this->fcgTBVppAfsCoeffShift->Margin = System::Windows::Forms::Padding(4);
             this->fcgTBVppAfsCoeffShift->Maximum = 256;
             this->fcgTBVppAfsCoeffShift->Name = L"fcgTBVppAfsCoeffShift";
@@ -4792,7 +5071,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBVppAfsCoeffShift
             // 
             this->fcgLBVppAfsCoeffShift->AutoSize = true;
-            this->fcgLBVppAfsCoeffShift->Location = System::Drawing::Point(12, 124);
+            this->fcgLBVppAfsCoeffShift->Location = System::Drawing::Point(12, 120);
             this->fcgLBVppAfsCoeffShift->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppAfsCoeffShift->Name = L"fcgLBVppAfsCoeffShift";
             this->fcgLBVppAfsCoeffShift->Size = System::Drawing::Size(50, 18);
@@ -4802,7 +5081,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // label20
             // 
             this->label20->AutoSize = true;
-            this->label20->Location = System::Drawing::Point(205, 61);
+            this->label20->Location = System::Drawing::Point(205, 58);
             this->label20->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->label20->Name = L"label20";
             this->label20->Size = System::Drawing::Size(22, 18);
@@ -4812,7 +5091,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // label19
             // 
             this->label19->AutoSize = true;
-            this->label19->Location = System::Drawing::Point(72, 61);
+            this->label19->Location = System::Drawing::Point(72, 58);
             this->label19->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->label19->Name = L"label19";
             this->label19->Size = System::Drawing::Size(22, 18);
@@ -4822,7 +5101,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // label4
             // 
             this->label4->AutoSize = true;
-            this->label4->Location = System::Drawing::Point(205, 29);
+            this->label4->Location = System::Drawing::Point(205, 25);
             this->label4->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->label4->Name = L"label4";
             this->label4->Size = System::Drawing::Size(22, 18);
@@ -4832,7 +5111,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBVppAfsUp
             // 
             this->fcgLBVppAfsUp->AutoSize = true;
-            this->fcgLBVppAfsUp->Location = System::Drawing::Point(72, 29);
+            this->fcgLBVppAfsUp->Location = System::Drawing::Point(72, 25);
             this->fcgLBVppAfsUp->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppAfsUp->Name = L"fcgLBVppAfsUp";
             this->fcgLBVppAfsUp->Size = System::Drawing::Size(22, 18);
@@ -4842,7 +5121,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgNUVppAfsRight
             // 
             this->fcgNUVppAfsRight->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8, 0, 0, 0 });
-            this->fcgNUVppAfsRight->Location = System::Drawing::Point(228, 59);
+            this->fcgNUVppAfsRight->Location = System::Drawing::Point(228, 55);
             this->fcgNUVppAfsRight->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsRight->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8192, 0, 0, 0 });
             this->fcgNUVppAfsRight->Name = L"fcgNUVppAfsRight";
@@ -4854,7 +5133,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgNUVppAfsLeft
             // 
             this->fcgNUVppAfsLeft->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8, 0, 0, 0 });
-            this->fcgNUVppAfsLeft->Location = System::Drawing::Point(98, 59);
+            this->fcgNUVppAfsLeft->Location = System::Drawing::Point(98, 55);
             this->fcgNUVppAfsLeft->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsLeft->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8192, 0, 0, 0 });
             this->fcgNUVppAfsLeft->Name = L"fcgNUVppAfsLeft";
@@ -4866,7 +5145,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgNUVppAfsBottom
             // 
             this->fcgNUVppAfsBottom->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8, 0, 0, 0 });
-            this->fcgNUVppAfsBottom->Location = System::Drawing::Point(228, 26);
+            this->fcgNUVppAfsBottom->Location = System::Drawing::Point(228, 22);
             this->fcgNUVppAfsBottom->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsBottom->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 4096, 0, 0, 0 });
             this->fcgNUVppAfsBottom->Name = L"fcgNUVppAfsBottom";
@@ -4878,7 +5157,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgNUVppAfsUp
             // 
             this->fcgNUVppAfsUp->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 8, 0, 0, 0 });
-            this->fcgNUVppAfsUp->Location = System::Drawing::Point(98, 26);
+            this->fcgNUVppAfsUp->Location = System::Drawing::Point(98, 22);
             this->fcgNUVppAfsUp->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsUp->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 4096, 0, 0, 0 });
             this->fcgNUVppAfsUp->Name = L"fcgNUVppAfsUp";
@@ -4890,7 +5169,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgTBVppAfsMethodSwitch
             // 
             this->fcgTBVppAfsMethodSwitch->AutoSize = false;
-            this->fcgTBVppAfsMethodSwitch->Location = System::Drawing::Point(76, 92);
+            this->fcgTBVppAfsMethodSwitch->Location = System::Drawing::Point(76, 89);
             this->fcgTBVppAfsMethodSwitch->Margin = System::Windows::Forms::Padding(4);
             this->fcgTBVppAfsMethodSwitch->Maximum = 256;
             this->fcgTBVppAfsMethodSwitch->Name = L"fcgTBVppAfsMethodSwitch";
@@ -4902,7 +5181,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgCBVppAfs24fps
             // 
             this->fcgCBVppAfs24fps->AutoSize = true;
-            this->fcgCBVppAfs24fps->Location = System::Drawing::Point(15, 408);
+            this->fcgCBVppAfs24fps->Location = System::Drawing::Point(188, 310);
             this->fcgCBVppAfs24fps->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBVppAfs24fps->Name = L"fcgCBVppAfs24fps";
             this->fcgCBVppAfs24fps->Size = System::Drawing::Size(83, 22);
@@ -4914,7 +5193,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgCBVppAfsTune
             // 
             this->fcgCBVppAfsTune->AutoSize = true;
-            this->fcgCBVppAfsTune->Location = System::Drawing::Point(15, 438);
+            this->fcgCBVppAfsTune->Location = System::Drawing::Point(188, 369);
             this->fcgCBVppAfsTune->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBVppAfsTune->Name = L"fcgCBVppAfsTune";
             this->fcgCBVppAfsTune->Size = System::Drawing::Size(90, 22);
@@ -4926,7 +5205,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgCBVppAfsSmooth
             // 
             this->fcgCBVppAfsSmooth->AutoSize = true;
-            this->fcgCBVppAfsSmooth->Location = System::Drawing::Point(15, 378);
+            this->fcgCBVppAfsSmooth->Location = System::Drawing::Point(15, 369);
             this->fcgCBVppAfsSmooth->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBVppAfsSmooth->Name = L"fcgCBVppAfsSmooth";
             this->fcgCBVppAfsSmooth->Size = System::Drawing::Size(96, 22);
@@ -4938,7 +5217,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgCBVppAfsDrop
             // 
             this->fcgCBVppAfsDrop->AutoSize = true;
-            this->fcgCBVppAfsDrop->Location = System::Drawing::Point(15, 348);
+            this->fcgCBVppAfsDrop->Location = System::Drawing::Point(15, 339);
             this->fcgCBVppAfsDrop->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBVppAfsDrop->Name = L"fcgCBVppAfsDrop";
             this->fcgCBVppAfsDrop->Size = System::Drawing::Size(69, 22);
@@ -4950,7 +5229,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgCBVppAfsShift
             // 
             this->fcgCBVppAfsShift->AutoSize = true;
-            this->fcgCBVppAfsShift->Location = System::Drawing::Point(15, 318);
+            this->fcgCBVppAfsShift->Location = System::Drawing::Point(15, 310);
             this->fcgCBVppAfsShift->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBVppAfsShift->Name = L"fcgCBVppAfsShift";
             this->fcgCBVppAfsShift->Size = System::Drawing::Size(109, 22);
@@ -4962,7 +5241,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBVppAfsAnalyze
             // 
             this->fcgLBVppAfsAnalyze->AutoSize = true;
-            this->fcgLBVppAfsAnalyze->Location = System::Drawing::Point(12, 285);
+            this->fcgLBVppAfsAnalyze->Location = System::Drawing::Point(12, 280);
             this->fcgLBVppAfsAnalyze->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppAfsAnalyze->Name = L"fcgLBVppAfsAnalyze";
             this->fcgLBVppAfsAnalyze->Size = System::Drawing::Size(51, 18);
@@ -4971,7 +5250,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgNUVppAfsThreCMotion
             // 
-            this->fcgNUVppAfsThreCMotion->Location = System::Drawing::Point(228, 249);
+            this->fcgNUVppAfsThreCMotion->Location = System::Drawing::Point(228, 245);
             this->fcgNUVppAfsThreCMotion->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsThreCMotion->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1024, 0, 0, 0 });
             this->fcgNUVppAfsThreCMotion->Name = L"fcgNUVppAfsThreCMotion";
@@ -4983,7 +5262,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgNUVppAfsThreShift
             // 
-            this->fcgNUVppAfsThreShift->Location = System::Drawing::Point(228, 155);
+            this->fcgNUVppAfsThreShift->Location = System::Drawing::Point(228, 151);
             this->fcgNUVppAfsThreShift->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsThreShift->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1024, 0, 0, 0 });
             this->fcgNUVppAfsThreShift->Name = L"fcgNUVppAfsThreShift";
@@ -4995,7 +5274,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgNUVppAfsThreDeint
             // 
-            this->fcgNUVppAfsThreDeint->Location = System::Drawing::Point(228, 186);
+            this->fcgNUVppAfsThreDeint->Location = System::Drawing::Point(228, 182);
             this->fcgNUVppAfsThreDeint->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsThreDeint->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1024, 0, 0, 0 });
             this->fcgNUVppAfsThreDeint->Name = L"fcgNUVppAfsThreDeint";
@@ -5007,7 +5286,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgNUVppAfsThreYMotion
             // 
-            this->fcgNUVppAfsThreYMotion->Location = System::Drawing::Point(228, 218);
+            this->fcgNUVppAfsThreYMotion->Location = System::Drawing::Point(228, 214);
             this->fcgNUVppAfsThreYMotion->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsThreYMotion->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1024, 0, 0, 0 });
             this->fcgNUVppAfsThreYMotion->Name = L"fcgNUVppAfsThreYMotion";
@@ -5020,7 +5299,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBVppAfsMethodSwitch
             // 
             this->fcgLBVppAfsMethodSwitch->AutoSize = true;
-            this->fcgLBVppAfsMethodSwitch->Location = System::Drawing::Point(12, 92);
+            this->fcgLBVppAfsMethodSwitch->Location = System::Drawing::Point(12, 89);
             this->fcgLBVppAfsMethodSwitch->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppAfsMethodSwitch->Name = L"fcgLBVppAfsMethodSwitch";
             this->fcgLBVppAfsMethodSwitch->Size = System::Drawing::Size(50, 18);
@@ -5031,7 +5310,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             this->fcgCXVppAfsAnalyze->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVppAfsAnalyze->FormattingEnabled = true;
-            this->fcgCXVppAfsAnalyze->Location = System::Drawing::Point(76, 281);
+            this->fcgCXVppAfsAnalyze->Location = System::Drawing::Point(76, 276);
             this->fcgCXVppAfsAnalyze->Margin = System::Windows::Forms::Padding(4);
             this->fcgCXVppAfsAnalyze->Name = L"fcgCXVppAfsAnalyze";
             this->fcgCXVppAfsAnalyze->Size = System::Drawing::Size(225, 26);
@@ -5040,7 +5319,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgNUVppAfsCoeffShift
             // 
-            this->fcgNUVppAfsCoeffShift->Location = System::Drawing::Point(228, 124);
+            this->fcgNUVppAfsCoeffShift->Location = System::Drawing::Point(228, 120);
             this->fcgNUVppAfsCoeffShift->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsCoeffShift->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 256, 0, 0, 0 });
             this->fcgNUVppAfsCoeffShift->Name = L"fcgNUVppAfsCoeffShift";
@@ -5052,7 +5331,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgNUVppAfsMethodSwitch
             // 
-            this->fcgNUVppAfsMethodSwitch->Location = System::Drawing::Point(228, 92);
+            this->fcgNUVppAfsMethodSwitch->Location = System::Drawing::Point(228, 89);
             this->fcgNUVppAfsMethodSwitch->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppAfsMethodSwitch->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 256, 0, 0, 0 });
             this->fcgNUVppAfsMethodSwitch->Name = L"fcgNUVppAfsMethodSwitch";
@@ -5065,7 +5344,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgCBVppDebandEnable
             // 
             this->fcgCBVppDebandEnable->AutoSize = true;
-            this->fcgCBVppDebandEnable->Location = System::Drawing::Point(15, 419);
+            this->fcgCBVppDebandEnable->Location = System::Drawing::Point(15, 388);
             this->fcgCBVppDebandEnable->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBVppDebandEnable->Name = L"fcgCBVppDebandEnable";
             this->fcgCBVppDebandEnable->Size = System::Drawing::Size(120, 22);
@@ -5095,7 +5374,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcggroupBoxVppDeband->Controls->Add(this->fcgCXVppDebandSample);
             this->fcggroupBoxVppDeband->Controls->Add(this->fcgNUVppDebandThreY);
             this->fcggroupBoxVppDeband->Controls->Add(this->fcgNUVppDebandRange);
-            this->fcggroupBoxVppDeband->Location = System::Drawing::Point(4, 417);
+            this->fcggroupBoxVppDeband->Location = System::Drawing::Point(4, 386);
             this->fcggroupBoxVppDeband->Margin = System::Windows::Forms::Padding(4);
             this->fcggroupBoxVppDeband->Name = L"fcggroupBoxVppDeband";
             this->fcggroupBoxVppDeband->Padding = System::Windows::Forms::Padding(4);
@@ -5106,7 +5385,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgCBVppDebandRandEachFrame
             // 
             this->fcgCBVppDebandRandEachFrame->AutoSize = true;
-            this->fcgCBVppDebandRandEachFrame->Location = System::Drawing::Point(206, 153);
+            this->fcgCBVppDebandRandEachFrame->Location = System::Drawing::Point(206, 152);
             this->fcgCBVppDebandRandEachFrame->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBVppDebandRandEachFrame->Name = L"fcgCBVppDebandRandEachFrame";
             this->fcgCBVppDebandRandEachFrame->Size = System::Drawing::Size(153, 22);
@@ -5118,7 +5397,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgCBVppDebandBlurFirst
             // 
             this->fcgCBVppDebandBlurFirst->AutoSize = true;
-            this->fcgCBVppDebandBlurFirst->Location = System::Drawing::Point(20, 153);
+            this->fcgCBVppDebandBlurFirst->Location = System::Drawing::Point(20, 152);
             this->fcgCBVppDebandBlurFirst->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBVppDebandBlurFirst->Name = L"fcgCBVppDebandBlurFirst";
             this->fcgCBVppDebandBlurFirst->Size = System::Drawing::Size(126, 22);
@@ -5299,7 +5578,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseKnn);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoisePmd);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgCXVppDenoiseMethod);
-            this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(4, 99);
+            this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(4, 71);
             this->fcggroupBoxVppDenoise->Margin = System::Windows::Forms::Padding(4);
             this->fcggroupBoxVppDenoise->Name = L"fcggroupBoxVppDenoise";
             this->fcggroupBoxVppDenoise->Padding = System::Windows::Forms::Padding(4);
@@ -5473,7 +5752,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             this->fcgCXVppDenoiseMethod->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVppDenoiseMethod->FormattingEnabled = true;
-            this->fcgCXVppDenoiseMethod->Location = System::Drawing::Point(32, 23);
+            this->fcgCXVppDenoiseMethod->Location = System::Drawing::Point(32, 22);
             this->fcgCXVppDenoiseMethod->Margin = System::Windows::Forms::Padding(4);
             this->fcgCXVppDenoiseMethod->Name = L"fcgCXVppDenoiseMethod";
             this->fcgCXVppDenoiseMethod->Size = System::Drawing::Size(238, 26);
@@ -5504,7 +5783,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcggroupBoxResize->Margin = System::Windows::Forms::Padding(4);
             this->fcggroupBoxResize->Name = L"fcggroupBoxResize";
             this->fcggroupBoxResize->Padding = System::Windows::Forms::Padding(4);
-            this->fcggroupBoxResize->Size = System::Drawing::Size(400, 88);
+            this->fcggroupBoxResize->Size = System::Drawing::Size(400, 64);
             this->fcggroupBoxResize->TabIndex = 10;
             this->fcggroupBoxResize->TabStop = false;
             // 
@@ -5512,7 +5791,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             this->fcgCXVppResizeAlg->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVppResizeAlg->FormattingEnabled = true;
-            this->fcgCXVppResizeAlg->Location = System::Drawing::Point(60, 54);
+            this->fcgCXVppResizeAlg->Location = System::Drawing::Point(212, 21);
             this->fcgCXVppResizeAlg->Margin = System::Windows::Forms::Padding(4);
             this->fcgCXVppResizeAlg->Name = L"fcgCXVppResizeAlg";
             this->fcgCXVppResizeAlg->Size = System::Drawing::Size(179, 26);
@@ -5522,7 +5801,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // fcgLBVppResize
             // 
             this->fcgLBVppResize->AutoSize = true;
-            this->fcgLBVppResize->Location = System::Drawing::Point(142, 26);
+            this->fcgLBVppResize->Location = System::Drawing::Point(96, 26);
             this->fcgLBVppResize->Margin = System::Windows::Forms::Padding(4, 0, 4, 0);
             this->fcgLBVppResize->Name = L"fcgLBVppResize";
             this->fcgLBVppResize->Size = System::Drawing::Size(16, 18);
@@ -5531,7 +5810,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgNUVppResizeHeight
             // 
-            this->fcgNUVppResizeHeight->Location = System::Drawing::Point(165, 23);
+            this->fcgNUVppResizeHeight->Location = System::Drawing::Point(119, 22);
             this->fcgNUVppResizeHeight->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppResizeHeight->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUVppResizeHeight->Name = L"fcgNUVppResizeHeight";
@@ -5542,7 +5821,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             // 
             // fcgNUVppResizeWidth
             // 
-            this->fcgNUVppResizeWidth->Location = System::Drawing::Point(60, 23);
+            this->fcgNUVppResizeWidth->Location = System::Drawing::Point(14, 22);
             this->fcgNUVppResizeWidth->Margin = System::Windows::Forms::Padding(4);
             this->fcgNUVppResizeWidth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUVppResizeWidth->Name = L"fcgNUVppResizeWidth";
@@ -6299,6 +6578,18 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
             this->fcgPNHEVCDetail->PerformLayout();
             this->tabPageExOpt->ResumeLayout(false);
             this->tabPageExOpt->PerformLayout();
+            this->fcggroupBoxVppTweak->ResumeLayout(false);
+            this->fcggroupBoxVppTweak->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakHue))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakSaturation))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakGamma))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakContrast))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppTweakBrightness))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakGamma))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakSaturation))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakHue))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakContrast))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppTweakBrightness))->EndInit();
             this->fcggroupBoxVppDetailEnahance->ResumeLayout(false);
             this->fcgPNVppEdgelevel->ResumeLayout(false);
             this->fcgPNVppEdgelevel->PerformLayout();
@@ -6909,7 +7200,43 @@ private: System::Windows::Forms::CheckBox^  fcgCBVppPerfMonitor;
                 }
             }
         }
-private: System::Void tabPageVideoEnc_Click(System::Object^  sender, System::EventArgs^  e) {
-}
+    private:
+        System::Void fcgTBVppTweakScroll(System::Object^  sender, System::EventArgs^  e) {
+            System::Windows::Forms::TrackBar^ senderTB = dynamic_cast<System::Windows::Forms::TrackBar^>(sender);
+            if (senderTB == nullptr) return;
+
+            array<TrackBarNU>^ targetList = {
+                { fcgTBVppTweakBrightness, fcgNUVppTweakBrightness },
+                { fcgTBVppTweakContrast,   fcgNUVppTweakContrast },
+                { fcgTBVppTweakGamma,      fcgNUVppTweakGamma },
+                { fcgTBVppTweakSaturation, fcgNUVppTweakSaturation },
+                { fcgTBVppTweakHue,        fcgNUVppTweakHue }
+            };
+            for (int i = 0; i < targetList->Length; i++) {
+                if (NULL == String::Compare(senderTB->Name, targetList[i].TB->Name)) {
+                    SetNUValue(targetList[i].NU, senderTB->Value);
+                    return;
+                }
+            }
+        }
+    private:
+        System::Void fcgNUVppTweakValueChanged(System::Object^  sender, System::EventArgs^  e) {
+            System::Windows::Forms::NumericUpDown^ senderNU = dynamic_cast<System::Windows::Forms::NumericUpDown^>(sender);
+            if (senderNU == nullptr) return;
+
+            array<TrackBarNU>^ targetList = {
+                { fcgTBVppTweakBrightness, fcgNUVppTweakBrightness },
+                { fcgTBVppTweakContrast,   fcgNUVppTweakContrast },
+                { fcgTBVppTweakGamma,      fcgNUVppTweakGamma },
+                { fcgTBVppTweakSaturation, fcgNUVppTweakSaturation },
+                { fcgTBVppTweakHue,        fcgNUVppTweakHue }
+            };
+            for (int i = 0; i < targetList->Length; i++) {
+                if (NULL == String::Compare(senderNU->Name, targetList[i].NU->Name)) {
+                    targetList[i].TB->Value = (int)senderNU->Value;
+                    return;
+                }
+            }
+        }
 };
 }

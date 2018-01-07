@@ -379,7 +379,7 @@ NVENCSTATUS NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, Frame
         pEdgelevelParam->edgelevel.white);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at edgelevel(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;

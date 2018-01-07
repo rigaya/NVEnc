@@ -746,7 +746,8 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppUnsharp->Visible    = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible  = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
     fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
-    fcggroupBoxVppAfs->Enabled = fcCBVppAfsEnable->Checked;
+    fcggroupBoxVppAfs->Enabled = fcgCBVppAfsEnable->Checked;
+    fcggroupBoxVppTweak->Enabled = fcgCBVppTweakEnable->Checked;
 
     this->ResumeLayout();
     this->PerformLayout();
@@ -1023,12 +1024,18 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppAfsThreYMotion,       cnf->vpp.afs.thre_Ymotion);
         SetNUValue(fcgNUVppAfsThreCMotion,       cnf->vpp.afs.thre_Cmotion);
         SetCXIndex(fcgCXVppAfsAnalyze,           cnf->vpp.afs.analyze);
-        fcCBVppAfsEnable->Checked              = cnf->vpp.afs.enable != 0;
+        fcgCBVppAfsEnable->Checked             = cnf->vpp.afs.enable != 0;
         fcgCBVppAfsShift->Checked              = cnf->vpp.afs.shift != 0;
         fcgCBVppAfsDrop->Checked               = cnf->vpp.afs.drop != 0;
         fcgCBVppAfsSmooth->Checked             = cnf->vpp.afs.smooth != 0;
         fcgCBVppAfs24fps->Checked              = cnf->vpp.afs.force24 != 0;
         fcgCBVppAfsTune->Checked               = cnf->vpp.afs.tune != 0;
+        fcgCBVppTweakEnable->Checked           = cnf->vpp.tweak.enable;
+        SetNUValue(fcgNUVppTweakBrightness,      (int)(cnf->vpp.tweak.brightness * 100.0f));
+        SetNUValue(fcgNUVppTweakContrast,        (int)(cnf->vpp.tweak.contrast * 100.0f));
+        SetNUValue(fcgNUVppTweakGamma,           (int)(cnf->vpp.tweak.gamma * 100.0f));
+        SetNUValue(fcgNUVppTweakSaturation,      (int)(cnf->vpp.tweak.saturation * 100.0f));
+        SetNUValue(fcgNUVppTweakHue,             (int) cnf->vpp.tweak.hue);
 
         //音声
         fcgCBAudioOnly->Checked            = cnf->oth.out_audio_only != 0;
@@ -1236,7 +1243,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vpp.deband.blurFirst       = fcgCBVppDebandBlurFirst->Checked;
     cnf->vpp.deband.randEachFrame   = fcgCBVppDebandRandEachFrame->Checked;
 
-    cnf->vpp.afs.enable             = fcCBVppAfsEnable->Checked;
+    cnf->vpp.afs.enable             = fcgCBVppAfsEnable->Checked;
     cnf->vpp.afs.clip.top           = (int)fcgNUVppAfsUp->Value;
     cnf->vpp.afs.clip.bottom        = (int)fcgNUVppAfsBottom->Value;
     cnf->vpp.afs.clip.left          = (int)fcgNUVppAfsLeft->Value;
@@ -1253,6 +1260,13 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vpp.afs.smooth             = fcgCBVppAfsSmooth->Checked;
     cnf->vpp.afs.force24            = fcgCBVppAfs24fps->Checked;
     cnf->vpp.afs.tune               = fcgCBVppAfsTune->Checked;
+
+    cnf->vpp.tweak.enable           = fcgCBVppTweakEnable->Checked;
+    cnf->vpp.tweak.brightness       = (float)fcgNUVppTweakBrightness->Value * 0.01f;
+    cnf->vpp.tweak.contrast         = (float)fcgNUVppTweakContrast->Value * 0.01f;
+    cnf->vpp.tweak.gamma            = (float)fcgNUVppTweakGamma->Value * 0.01f;
+    cnf->vpp.tweak.saturation       = (float)fcgNUVppTweakSaturation->Value * 0.01f;
+    cnf->vpp.tweak.hue              = (float)fcgNUVppTweakHue->Value;
 
     //音声部
     cnf->aud.encoder                = fcgCXAudioEncoder->SelectedIndex;

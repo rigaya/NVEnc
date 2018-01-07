@@ -41,6 +41,7 @@
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
+#include "NVEncFilterTweak.h"
 
 bool check_if_nvcuda_dll_available();
 
@@ -66,6 +67,7 @@ enum : uint32_t {
     CUFILTER_CHAIN_UNSHARP   = 0x08,
     CUFILTER_CHAIN_EDGELEVEL = 0x10,
     CUFILTER_CHAIN_DEBAND    = 0x20,
+    CUFILTER_CHAIN_TWEAK     = 0x40,
 };
 
 cuFilterChainParam::cuFilterChainParam() :
@@ -75,7 +77,8 @@ cuFilterChainParam::cuFilterChainParam() :
     edgelevel(),
     knn(),
     pmd(),
-    deband() {
+    deband(),
+    tweak() {
 
 }
 
@@ -87,6 +90,7 @@ uint32_t cuFilterChainParam::filter_enabled() const {
     if (unsharp.enable)   flags |= CUFILTER_CHAIN_UNSHARP;
     if (edgelevel.enable) flags |= CUFILTER_CHAIN_EDGELEVEL;
     if (deband.enable)    flags |= CUFILTER_CHAIN_DEBAND;
+    if (tweak.enable)     flags |= CUFILTER_CHAIN_TWEAK;
     return flags;
 }
 
@@ -425,6 +429,28 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
+        auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
+        if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init edgelevel.\n"));
+            return sts;
+        }
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+    }
+    //tweak
+    if (m_prm.tweak.enable) {
+        if (reset) {
+            //フィルタチェーンに追加
+            unique_ptr<NVEncFilter> filter(new NVEncFilterTweak());
+            m_vpFilters.push_back(std::move(filter));
+        }
+        shared_ptr<NVEncFilterParamTweak> param(new NVEncFilterParamTweak());
+        param->tweak = m_prm.tweak;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->bOutOverwrite = true;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init edgelevel.\n"));

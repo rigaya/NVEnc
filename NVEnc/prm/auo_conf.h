@@ -115,6 +115,7 @@ typedef struct {
     VppAfs afs;
     VppUnsharp unsharp;
     VppEdgelevel edgelevel;
+    VppTweak tweak;
 } CONF_VPP;
 
 typedef struct {

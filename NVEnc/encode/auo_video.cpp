@@ -210,6 +210,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     encPrm.vpp.deband = conf->vpp.deband;
     encPrm.vpp.unsharp = conf->vpp.unsharp;
     encPrm.vpp.edgelevel = conf->vpp.edgelevel;
+    encPrm.vpp.tweak = conf->vpp.tweak;
     encPrm.vpp.afs = conf->vpp.afs;
     if (encPrm.vpp.afs.enable) {
         encPrm.vpp.afs.timecode = true;

@@ -558,6 +558,20 @@ static tstring help() {
         FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
     str += strsprintf(_T("\n")
         _T("   --vpp-rff                    apply rff flag, with avhw reader only.\n"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-tweak [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     apply brightness, constrast, gamma, hue adjustment.\n")
+        _T("    params\n")
+        _T("      brightness=<float>        (default=%.1f, -1.0 - 1.0)\n")
+        _T("      contrast=<float>          (default=%.1f, -2.0 - 2.0)\n")
+        _T("      gamma=<float>             (default=%.1f,  0.1 - 10.0)\n")
+        _T("      saturation=<float>        (default=%.1f,  0.0 - 3.0)\n")
+        _T("      hue=<float>               (default=%.1f, -180 - 180)\n"),
+        FILTER_DEFAULT_TWEAK_BRIGHTNESS,
+        FILTER_DEFAULT_TWEAK_CONTRAST,
+        FILTER_DEFAULT_TWEAK_GAMMA,
+        FILTER_DEFAULT_TWEAK_SATURATION,
+        FILTER_DEFAULT_TWEAK_HUE);
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
@@ -2682,6 +2696,73 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("vpp-rff")) {
         pParams->vpp.rff = true;
+        return 0;
+    }
+
+    if (IS_OPTION("vpp-tweak")) {
+        pParams->vpp.tweak.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("brightness")) {
+                    try {
+                        pParams->vpp.tweak.brightness = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("contrast")) {
+                    try {
+                        pParams->vpp.tweak.contrast = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("gamma")) {
+                    try {
+                        pParams->vpp.tweak.gamma = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("saturation")) {
+                    try {
+                        pParams->vpp.tweak.saturation = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("hue")) {
+                    try {
+                        pParams->vpp.tweak.hue = std::stof(param_val);
+                    } catch (...) {
+                        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
         return 0;
     }
     if (IS_OPTION("vpp-perf-monitor")) {

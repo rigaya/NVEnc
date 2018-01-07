@@ -876,6 +876,24 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 --vpp-deband range=31,dither=12,rand_each_frame
 ```
 
+### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**Parameters**
+- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+
+- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+
+- gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
+
+- saturation=&lt;float&gt; (default=1.0, 0.0 - 3.0)  
+
+- hue=&lt;float&gt; (default=0.0, -180 - 180)  
+
+```
+例:
+--vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
+```
+
 ### --vpp-delogo &lt;string&gt;
 ロゴファイルを指定する。".lgd",".ldp",".ldp2"に対応。
 

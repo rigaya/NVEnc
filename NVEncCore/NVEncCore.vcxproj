@@ -598,6 +598,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <CudaCompile Include="NVEncFilterDelogo.cu" />
     <CudaCompile Include="NVEncFilterDenoiseKnn.cu" />
     <CudaCompile Include="NVEncFilterEdgelevel.cu" />
+    <CudaCompile Include="NVEncFilterTweak.cu" />
     <CudaCompile Include="NVEncFilterResize.cu" />
     <CudaCompile Include="NVEncFilterUnsharp.cu" />
     <ClCompile Include="NVEncFrameInfo.cpp" />
@@ -627,6 +628,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="NVEncFilterDenoiseKnn.h" />
     <ClInclude Include="NVEncFilterDenoisePmd.h" />
     <ClInclude Include="NVEncFilterEdgelevel.h" />
+    <ClInclude Include="NVEncFilterTweak.h" />
     <ClInclude Include="NVEncFilterRff.h" />
     <ClInclude Include="NVEncFilterUnsharp.h" />
     <ClInclude Include="NVEncFrameInfo.h" />

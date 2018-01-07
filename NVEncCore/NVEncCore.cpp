@@ -70,6 +70,7 @@
 #include "NVEncFilterRff.h"
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
+#include "NVEncFilterTweak.h"
 #include "NVEncFeature.h"
 #include "chapter_rw.h"
 #include "helper_cuda.h"
@@ -2512,6 +2513,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.pmd.enable
         || inputParam->vpp.deband.enable
         || inputParam->vpp.edgelevel.enable
+        || inputParam->vpp.tweak.enable
         || inputParam->vpp.afs.enable
         || inputParam->vpp.rff
         ) {
@@ -2784,6 +2786,26 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             }
             //フィルタチェーンに追加
             m_vpFilters.push_back(std::move(filterEdgelevel));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
+        //tweak
+        if (inputParam->vpp.tweak.enable) {
+            unique_ptr<NVEncFilter> filterEq(new NVEncFilterTweak());
+            shared_ptr<NVEncFilterParamTweak> param(new NVEncFilterParamTweak());
+            param->tweak = inputParam->vpp.tweak;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->bOutOverwrite = true;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filterEq->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filterEq));
             //パラメータ情報を更新
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新

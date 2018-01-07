@@ -94,6 +94,14 @@ VppDeband::VppDeband() :
 
 }
 
+VppTweak::VppTweak() :
+    enable(false),
+    brightness(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
+    contrast(FILTER_DEFAULT_TWEAK_CONTRAST),
+    gamma(FILTER_DEFAULT_TWEAK_GAMMA),
+    saturation(FILTER_DEFAULT_TWEAK_SATURATION),
+    hue(FILTER_DEFAULT_TWEAK_HUE) {
+}
 
 VppParam::VppParam() :
     bCheckPerformance(false),
@@ -107,6 +115,7 @@ VppParam::VppParam() :
     pmd(),
     deband(),
     afs(),
+    tweak(),
     rff(false) {
     delogo.pFilePath = nullptr;
     delogo.pSelect = nullptr;

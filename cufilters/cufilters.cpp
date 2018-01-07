@@ -64,7 +64,7 @@ static unique_ptr<cuFilterChain> cufilter;
 //        フィルタ構造体定義
 //---------------------------------------------------------------------
 
-static const int filter_count = 6;
+static const int filter_count = 7;
 
 //  トラックバーの名前
 TCHAR *track_name[] = {
@@ -73,6 +73,7 @@ TCHAR *track_name[] = {
     "適用回数", "強さ", "閾値", //pmd
     "範囲", "強さ", "閾値", //unsharp
     "特性", "閾値", "黒", "白", //エッジレベル調整
+    "輝度", "コントラスト", "ガンマ", "彩度", "色相", //tweak
     "range", "Y", "Cb", "Cr", "ditherY", "ditherC", "sample", "seed" //バンディング低減
 };
 
@@ -103,7 +104,15 @@ enum {
     CUFILTER_TRACK_EDGELEVEL_WHITE,
     CUFILTER_TRACK_EDGELEVEL_MAX,
 
-    CUFILTER_TRACK_DEBAND_FIRST = CUFILTER_TRACK_EDGELEVEL_MAX,
+    CUFILTER_TRACK_TWEAK_FIRST = CUFILTER_TRACK_EDGELEVEL_MAX,
+    CUFILTER_TRACK_TWEAK_BRIGHTNESS = CUFILTER_TRACK_TWEAK_FIRST,
+    CUFILTER_TRACK_TWEAK_CONTRAST,
+    CUFILTER_TRACK_TWEAK_GAMMA,
+    CUFILTER_TRACK_TWEAK_SATURATION,
+    CUFILTER_TRACK_TWEAK_HUE,
+    CUFILTER_TRACK_TWEAK_MAX,
+
+    CUFILTER_TRACK_DEBAND_FIRST = CUFILTER_TRACK_TWEAK_MAX,
     CUFILTER_TRACK_DEBAND_RANGE = CUFILTER_TRACK_DEBAND_FIRST,
     CUFILTER_TRACK_DEBAND_Y,
     CUFILTER_TRACK_DEBAND_CB,
@@ -123,6 +132,7 @@ int track_default[] = {
     2, 100, 100, //pmd
     3, 5, 10, //unsharp
     5, 20, 0, 0, //エッジレベル調整
+    0, 100, 100, 100, 0, //tweak
     15, 15, 15, 15, 15, 15, 1, 0 //バンディング低減
 };
 //  トラックバーの下限値
@@ -131,6 +141,7 @@ int track_s[] = {
     1,0,0, //pmd
     1,0,0, //unsharp
     -31,0,0,0, //エッジレベル調整
+    -100,-200,1,0,-180, //tweak
     0,0,0,0,0,0,0,0 //バンディング低減
 };
 //  トラックバーの上限値
@@ -139,6 +150,7 @@ int track_e[] = {
     10, 100, 255, //pmd
     9, 100, 255, //unsharp
     31, 255, 31, 31, //エッジレベル調整
+    100,200,500,300,180, //tweak
     127,31,31,31,31,31,2,8192//バンディング低減
 };
 
@@ -157,6 +169,7 @@ TCHAR *check_name[] = {
     "ノイズ除去 (pmd)",
     "unsharp",
     "エッジレベル調整",
+    "色調補正",
     "バンディング低減", "ブラー処理を先に", "毎フレーム乱数を生成"
 };
 
@@ -178,7 +191,10 @@ enum {
     CUFILTER_CHECK_EDGELEVEL_ENABLE = CUFILTER_CHECK_UNSHARP_MAX,
     CUFILTER_CHECK_EDGELEVEL_MAX,
 
-    CUFILTER_CHECK_DEBAND_ENABLE = CUFILTER_CHECK_EDGELEVEL_MAX,
+    CUFILTER_CHECK_TWEAK_ENABLE = CUFILTER_CHECK_EDGELEVEL_MAX,
+    CUFILTER_CHECK_TWEAK_MAX,
+
+    CUFILTER_CHECK_DEBAND_ENABLE = CUFILTER_CHECK_TWEAK_MAX,
     CUFILTER_CHECK_DEBAND_BLUR_FIRST,
     CUFILTER_CHECK_DEBAND_RAND_EACH_FRAME,
     CUFILTER_CHECK_DEBAND_MAX,
@@ -188,6 +204,7 @@ enum {
 
 //  チェックボックスの初期値 (値は0か1)
 int check_default[] = {
+    0,
     0,
     0,
     0,
@@ -582,6 +599,9 @@ void init_dialog(HWND hwnd, FILTER *fp) {
     //エッジレベル調整
     move_group(y_pos, CUFILTER_CHECK_EDGELEVEL_ENABLE, CUFILTER_CHECK_EDGELEVEL_MAX, CUFILTER_TRACK_EDGELEVEL_FIRST, CUFILTER_TRACK_EDGELEVEL_MAX, track_bar_delta_y, checkbox_idx, dialog_rc);
 
+    //tweak
+    move_group(y_pos, CUFILTER_CHECK_TWEAK_ENABLE, CUFILTER_CHECK_TWEAK_MAX, CUFILTER_TRACK_TWEAK_FIRST, CUFILTER_TRACK_TWEAK_MAX, track_bar_delta_y, checkbox_idx, dialog_rc);
+
     //バンディング
     move_group(y_pos, CUFILTER_CHECK_DEBAND_ENABLE, CUFILTER_CHECK_DEBAND_MAX, CUFILTER_TRACK_DEBAND_FIRST, CUFILTER_TRACK_DEBAND_MAX, track_bar_delta_y, checkbox_idx, dialog_rc);
 }
@@ -647,6 +667,14 @@ BOOL func_proc(FILTER *fp, FILTER_PROC_INFO *fpip) {
     prm.edgelevel.threshold = (float)fp->track[CUFILTER_TRACK_EDGELEVEL_THRESHOLD];
     prm.edgelevel.black     = (float)fp->track[CUFILTER_TRACK_EDGELEVEL_BLACK];
     prm.edgelevel.white     = (float)fp->track[CUFILTER_TRACK_EDGELEVEL_WHITE];
+
+    //tweak
+    prm.tweak.enable      = fp->check[CUFILTER_CHECK_TWEAK_ENABLE] != 0;
+    prm.tweak.brightness  = (float)fp->track[CUFILTER_TRACK_TWEAK_BRIGHTNESS] * 0.01f;
+    prm.tweak.contrast    = (float)fp->track[CUFILTER_TRACK_TWEAK_CONTRAST] * 0.01f;
+    prm.tweak.gamma       = (float)fp->track[CUFILTER_TRACK_TWEAK_GAMMA] * 0.01f;
+    prm.tweak.saturation  = (float)fp->track[CUFILTER_TRACK_TWEAK_SATURATION] * 0.01f;
+    prm.tweak.hue         = (float)fp->track[CUFILTER_TRACK_TWEAK_HUE];
 
     //deband
     prm.deband.enable        = fp->check[CUFILTER_CHECK_DEBAND_ENABLE] != 0;

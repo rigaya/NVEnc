@@ -26,57 +26,24 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef __CUFILTER_CHAIN_H__
-#define __CUFILTER_CHAIN_H__
+#pragma once
 
-#include <cstdint>
-#include "NVEncParam.h"
 #include "NVEncFilter.h"
-#include "convert_csp.h"
+#include "NVEncParam.h"
 
-struct cuFilterChainParam {
-    bool resizeEnable;
-    int resizeInterp;
-    VppUnsharp unsharp;
-    VppEdgelevel edgelevel;
-    VppKnn knn;
-    VppPmd pmd;
-    VppDeband deband;
+class NVEncFilterParamTweak : public NVEncFilterParam {
+public:
     VppTweak tweak;
 
-    cuFilterChainParam();
-    uint32_t filter_enabled() const;
+    virtual ~NVEncFilterParamTweak() {};
 };
 
-class cuFilterChain {
+class NVEncFilterTweak : public NVEncFilter {
 public:
-    cuFilterChain();
-    ~cuFilterChain();
-
-    int init();
-    std::string get_dev_name() const;
-    int proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const cuFilterChainParam& prm);
-
-private:
-    void close();
-    int init_cuda(int deviceId);
-    int allocate_buffer(const FrameInfo *pInputFrame, const FrameInfo *pOutputFrame);
-    int filter_chain_create(const FrameInfo *pInputFrame, const FrameInfo *pOutputFrame, bool reset);
-    void PrintMes(int logLevel, const TCHAR *format, ...);
-
-    bool m_cuda_initilaized;
-    cuFilterChainParam m_prm;
-    int m_nDeviceId;
-    CUdevice m_device;
-    std::string m_deviceName;
-    CUcontext m_cuContextCurr;
-    CUFrameBuf m_host[2];
-    CUFrameBuf m_dev[2];
-    vector<unique_ptr<NVEncFilter>> m_vpFilters;
-    shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
-    const ConvertCSP *m_convert_yc48_to_yuv444_16;
-    const ConvertCSP *m_convert_yuv444_16_to_yc48;
+    NVEncFilterTweak();
+    virtual ~NVEncFilterTweak();
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual void close() override;
 };
-
-
-#endif //__CUFILTER_CHAIN_H__
