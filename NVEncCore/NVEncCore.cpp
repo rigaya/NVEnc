@@ -1315,6 +1315,7 @@ NVENCSTATUS NVEncCore::NvEncDestroyEncoder() {
         nvStatus = m_pEncodeAPI->nvEncDestroyEncoder(m_hEncoder);
         m_hEncoder = NULL;
         m_pEncodeAPI = nullptr;
+        PrintMes(RGY_LOG_DEBUG, _T("nvEncDestroyEncoder: success.\n"));
     }
 
     return nvStatus;
