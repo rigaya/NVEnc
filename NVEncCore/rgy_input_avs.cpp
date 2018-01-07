@@ -34,6 +34,8 @@ static const TCHAR *avisynth_dll_name = _T("avisynth.dll");
 static const TCHAR *avisynth_dll_name = _T("libavxsynth.so");
 #endif
 
+static const int RGY_AVISYNTH_INTERFACE_25 = 2;
+
 int AVSC_CC rgy_avs_get_pitch_p(const AVS_VideoFrame * p, int plane) {
     switch (plane) {
     case AVS_PLANAR_U:
@@ -88,9 +90,10 @@ RGY_ERR RGYInputAvs::load_avisynth() {
 #define LOAD_FUNC(x, required, altern_func) {\
     if (nullptr == (m_sAvisynth. ## x = (func_avs_ ## x)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_" #x))) { \
         if (required) return RGY_ERR_INVALID_HANDLE; \
-        if (altern_func) m_sAvisynth. ## x = altern_func; \
+        if (altern_func) { m_sAvisynth. ## x = (altern_func); }; \
     } \
 }
+    auto test = rgy_avs_get_pitch_p;
     LOAD_FUNC(invoke, true, nullptr);
     LOAD_FUNC(take_clip, true, nullptr);
     LOAD_FUNC(release_value, true, nullptr);
@@ -101,8 +104,8 @@ RGY_ERR RGYInputAvs::load_avisynth() {
     LOAD_FUNC(release_clip, true, nullptr);
     LOAD_FUNC(delete_script_environment, true, nullptr);
     LOAD_FUNC(get_version, true, nullptr);
-    LOAD_FUNC(get_pitch_p, false, &rgy_avs_get_pitch_p);
-    LOAD_FUNC(get_read_ptr_p, false, &rgy_avs_get_read_ptr_p);
+    LOAD_FUNC(get_pitch_p, false, rgy_avs_get_pitch_p);
+    LOAD_FUNC(get_read_ptr_p, false, rgy_avs_get_read_ptr_p);
     LOAD_FUNC(is_420, false, nullptr);
     LOAD_FUNC(is_422, false, nullptr);
     LOAD_FUNC(is_444, false, nullptr);
@@ -120,7 +123,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INVALID_HANDLE;
     }
 
-    if (nullptr == (m_sAVSenv = m_sAvisynth.create_script_environment(AVISYNTH_INTERFACE_VERSION))) {
+    if (nullptr == (m_sAVSenv = m_sAvisynth.create_script_environment(RGY_AVISYNTH_INTERFACE_25))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init avisynth enviroment.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
