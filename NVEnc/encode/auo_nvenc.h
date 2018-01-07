@@ -60,7 +60,7 @@ class AuoEncodeStatus : public EncodeStatus
 {
 public:
     AuoEncodeStatus();
-    ~AuoEncodeStatus();
+    virtual ~AuoEncodeStatus();
 protected:
     virtual void UpdateDisplay(const TCHAR *mes, double progressPercent = 0.0) override;
     virtual void WriteLine(const TCHAR *mes) override;
@@ -84,7 +84,7 @@ private:
     BOOL m_pause;
 public:
     AuoInput();
-    ~AuoInput();
+    virtual ~AuoInput();
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
@@ -100,7 +100,7 @@ class CAuoNvEnc : public NVEncCore
 {
 public:
     CAuoNvEnc();
-    ~CAuoNvEnc();
+    virtual ~CAuoNvEnc();
 protected:
     virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam) override;
     virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam) override;

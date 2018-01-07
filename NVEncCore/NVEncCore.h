@@ -162,7 +162,7 @@ struct InEncodeVideoParam {
 class NVEncCore {
 public:
     NVEncCore();
-    ~NVEncCore();
+    virtual ~NVEncCore();
 
     //デフォルトのエンコード設定を取得 (H.264用に設定済み)
     static NV_ENC_CONFIG DefaultParam();

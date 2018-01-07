@@ -95,7 +95,7 @@ public:
         m_pause = false;
         m_bStdErrWriteToConsole = false;
     }
-    ~EncodeStatus() {
+    virtual ~EncodeStatus() {
         m_pRGYLog.reset();
         m_pPerfMonitor.reset();
     }

@@ -36,7 +36,7 @@
 class RGYInputRaw : public RGYInput {
 public:
     RGYInputRaw();
-    ~RGYInputRaw();
+    virtual ~RGYInputRaw();
 
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
