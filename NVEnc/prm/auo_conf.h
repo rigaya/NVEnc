@@ -121,6 +121,7 @@ typedef struct {
 typedef struct {
     BOOL afs;                      //自動フィールドシフトの使用
     BOOL auo_tcfile_out;           //auo側でタイムコードを出力する
+    BOOL log_debug;
 } CONF_VIDEO; //動画用設定
 
 typedef struct {

@@ -198,6 +198,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     encPrm.deviceID = conf->nvenc.deviceID;
     encPrm.nCudaSchedule = conf->nvenc.cuda_schedule;
     encPrm.nPerfMonitorSelect = (conf->nvenc.perf_monitor) ? (int)PERF_MONITOR_ALL : 0;
+    encPrm.loglevel = (conf->vid.log_debug) ? RGY_LOG_DEBUG : RGY_LOG_INFO;
     encPrm.outputFilename = pe->temp_filename;
     if (conf->vpp.resize_enable) {
         encPrm.vpp.resizeInterp = conf->vpp.resize_interp;

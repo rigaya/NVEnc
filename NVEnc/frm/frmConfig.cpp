@@ -968,6 +968,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXTempDir,             cnf->oth.temp_dir);
         fcgCBAFS->Checked                  = cnf->vid.afs != 0; 
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
+        fcgCBLogDebug->Checked             = cnf->vid.log_debug != 0;
 
         fcgCBVppPerfMonitor->Checked   = cnf->vpp.vpp_perf_monitor != 0;
         fcgCBVppResize->Checked        = cnf->vpp.resize_enable != 0;
@@ -1203,6 +1204,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->oth.temp_dir               = fcgCXTempDir->SelectedIndex;
     cnf->vid.afs                    = fcgCBAFS->Checked;
     cnf->vid.auo_tcfile_out         = fcgCBAuoTcfileout->Checked;
+    cnf->vid.log_debug              = fcgCBLogDebug->Checked;
 
     cnf->vpp.vpp_perf_monitor       = fcgCBVppPerfMonitor->Checked;
 

@@ -1289,6 +1289,7 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakHue;
 private: System::Windows::Forms::Label^  fcgLBVppTweakBrightness;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakContrast;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakBrightness;
+private: System::Windows::Forms::CheckBox^  fcgCBLogDebug;
 
 
 
@@ -1811,6 +1812,7 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakBrightness;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
+            this->fcgCBLogDebug = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -3784,6 +3786,7 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakBrightness;
             // 
             // tabPageVideoDetail
             // 
+            this->tabPageVideoDetail->Controls->Add(this->fcgCBLogDebug);
             this->tabPageVideoDetail->Controls->Add(this->fcgCBAuoTcfileout);
             this->tabPageVideoDetail->Controls->Add(this->fcgLBTempDir);
             this->tabPageVideoDetail->Controls->Add(this->fcgBTCustomTempDir);
@@ -6485,6 +6488,18 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppTweakBrightness;
             this->fcgLBAudioPriority->Size = System::Drawing::Size(78, 18);
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
+            // 
+            // fcgCBLogDebug
+            // 
+            this->fcgCBLogDebug->AutoSize = true;
+            this->fcgCBLogDebug->Location = System::Drawing::Point(257, 566);
+            this->fcgCBLogDebug->Margin = System::Windows::Forms::Padding(4);
+            this->fcgCBLogDebug->Name = L"fcgCBLogDebug";
+            this->fcgCBLogDebug->Size = System::Drawing::Size(130, 23);
+            this->fcgCBLogDebug->TabIndex = 168;
+            this->fcgCBLogDebug->Tag = L"chValue";
+            this->fcgCBLogDebug->Text = L"デバッグログ出力";
+            this->fcgCBLogDebug->UseVisualStyleBackColor = true;
             // 
             // frmConfig
             // 
