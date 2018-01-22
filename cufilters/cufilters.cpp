@@ -442,7 +442,6 @@ void add_cx_resize_res_items(FILTER *fp) {
 static void update_cx(FILTER *fp) {
     select_combo_item(cx_resize_res,  cu_exdata.resize_idx);
     select_combo_item(cx_resize_algo, cu_exdata.resize_algo);
-    fp->exfunc->filter_window_update(fp);
 }
 
 BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, FILTER *fp) {
