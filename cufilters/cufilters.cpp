@@ -509,19 +509,19 @@ BOOL CALLBACK EnumChildProc(HWND hwnd, LPARAM lParam) {
 void move_group(int& y_pos, int check_min, int check_max, int track_min, int track_max, const int track_bar_delta_y, const int checkbox_idx, const RECT& dialog_rc) {
     RECT rc;
     GetWindowRect(child_hwnd[checkbox_idx + check_min], &rc);
-    SetWindowPos(child_hwnd[checkbox_idx + check_min], HWND_TOP, rc.left - dialog_rc.left, y_pos, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
+    SetWindowPos(child_hwnd[checkbox_idx + check_min], HWND_TOP, rc.left - dialog_rc.left, y_pos, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
     y_pos += track_bar_delta_y;
 
     for (int i = track_min; i < track_max; i++, y_pos += track_bar_delta_y) {
         for (int j = 0; j < 5; j++) {
             GetWindowRect(child_hwnd[i*5+j+1], &rc);
-            SetWindowPos(child_hwnd[i*5+j+1], HWND_TOP, rc.left - dialog_rc.left, y_pos, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
+            SetWindowPos(child_hwnd[i*5+j+1], HWND_TOP, rc.left - dialog_rc.left, y_pos, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
         }
     }
 
     for (int i = check_min+1; i < check_max; i++, y_pos += track_bar_delta_y) {
         GetWindowRect(child_hwnd[checkbox_idx+i], &rc);
-        SetWindowPos(child_hwnd[checkbox_idx+i], HWND_TOP, rc.left - dialog_rc.left + 10, y_pos, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
+        SetWindowPos(child_hwnd[checkbox_idx+i], HWND_TOP, rc.left - dialog_rc.left + 10, y_pos, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
     }
     y_pos += track_bar_delta_y / 2;
 }
@@ -545,19 +545,19 @@ void init_dialog(HWND hwnd, FILTER *fp) {
     const int track_bar_delta_y = rc.top - dialog_rc.top - first_y;
 
     const int add_height = (filter_count - 1) * track_bar_delta_y / 2 + track_bar_delta_y * 4;
-    SetWindowPos(hwnd, HWND_TOP, 0, 0, dialog_rc.right - dialog_rc.left, dialog_rc.bottom - dialog_rc.top + add_height, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER | SWP_SHOWWINDOW);
+    SetWindowPos(hwnd, HWND_TOP, 0, 0, dialog_rc.right - dialog_rc.left, dialog_rc.bottom - dialog_rc.top + add_height, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
 
     //checkboxの移動
     const int checkbox_idx = 1+5*CUFILTER_TRACK_MAX;
     //フィールド処理
     const int cb_filed_y = 24;
     GetWindowRect(child_hwnd[checkbox_idx + CUFILTER_CHECK_FIELD], &rc);
-    SetWindowPos(child_hwnd[checkbox_idx + CUFILTER_CHECK_FIELD], HWND_TOP, rc.left - dialog_rc.left, cb_filed_y, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
+    SetWindowPos(child_hwnd[checkbox_idx + CUFILTER_CHECK_FIELD], HWND_TOP, rc.left - dialog_rc.left, cb_filed_y, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
 
     //リサイズ
     const int cb_resize_y = 48;
     GetWindowRect(child_hwnd[checkbox_idx + CUFILTER_CHECK_RESIZE_ENABLE], &rc);
-    SetWindowPos(child_hwnd[checkbox_idx + CUFILTER_CHECK_RESIZE_ENABLE], HWND_TOP, rc.left - dialog_rc.left, cb_resize_y, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
+    SetWindowPos(child_hwnd[checkbox_idx + CUFILTER_CHECK_RESIZE_ENABLE], HWND_TOP, rc.left - dialog_rc.left, cb_resize_y, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
 
     HINSTANCE hinst = fp->dll_hinst;
     HFONT b_font = CreateFont(14, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, SHIFTJIS_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, PROOF_QUALITY, DEFAULT_PITCH | FF_MODERN, "Meiryo UI");
