@@ -114,6 +114,7 @@ typedef struct AVMuxVideo {
     AVMuxTimestamp        timestampList;        //エンコーダから渡されたtimestampリスト
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     FILE                 *fpTsLogFile;          //mux timestampログファイル
+    RGYBitstream          seiNal;               //追加のsei nal
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
@@ -273,6 +274,7 @@ struct AvcodecWriterPrm {
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
     PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
     const TCHAR                 *pMuxVidTsLogFile;        //mux timestampログファイル
+    vector<uint8_t>              seiNal;                  //追加のsei nal
 
     AvcodecWriterPrm() :
         pInputFormatMetadata(nullptr),
@@ -292,7 +294,8 @@ struct AvcodecWriterPrm {
         nAudioThread(0),
         vMuxOpt(),
         pQueueInfo(nullptr),
-        pMuxVidTsLogFile(nullptr) {
+        pMuxVidTsLogFile(nullptr),
+        seiNal() {
     }
 };
 

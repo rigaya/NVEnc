@@ -34,6 +34,7 @@
 #include "rgy_util.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_avlog.h"
+#include "rgy_bitstream.h"
 
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
@@ -497,6 +498,10 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.pStreamIn         = prm->pVideoInputStream;
 
     m_Mux.video.timestampList.clear();
+
+    if (pVideoOutputInfo->codec == RGY_CODEC_HEVC && prm->seiNal.size() > 0) {
+        m_Mux.video.seiNal.copy(prm->seiNal.data(), prm->seiNal.size());
+    }
 
     if (prm->pMuxVidTsLogFile) {
         if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->pMuxVidTsLogFile, _T("a"))) {
@@ -1451,13 +1456,20 @@ RGY_ERR RGYOutputAvcodec::AddHEVCHeaderToExtraData(const RGYBitstream *pBitstrea
     const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
     const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
     const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+    const auto hevc_sei_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PREFIX_SEI; });
     const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
     if (header_check) {
         m_Mux.video.pStreamOut->codecpar->extradata_size = hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size;
+        if (nal_list.end() != hevc_sei_nal) {
+            m_Mux.video.pStreamOut->codecpar->extradata_size += hevc_sei_nal->size;
+        }
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pStreamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(new_ptr, hevc_vps_nal->ptr, hevc_vps_nal->size);
         memcpy(new_ptr + hevc_vps_nal->size, hevc_sps_nal->ptr, hevc_sps_nal->size);
         memcpy(new_ptr + hevc_vps_nal->size + hevc_sps_nal->size, hevc_pps_nal->ptr, hevc_pps_nal->size);
+        if (nal_list.end() != hevc_sei_nal) {
+            memcpy(new_ptr + hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size, hevc_sei_nal->ptr, hevc_sei_nal->size);
+        }
         if (m_Mux.video.pStreamOut->codecpar->extradata) {
             av_free(m_Mux.video.pStreamOut->codecpar->extradata);
         }
@@ -1738,6 +1750,31 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
 #else
         m_Mux.video.bDtsUnavailable = true;
 #endif
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && m_Mux.video.seiNal.size() > 0) {
+            RGYBitstream old = *pBitstream;
+            std::vector<nal_info> nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+            const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+            const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+            const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+            const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
+            if (header_check) {
+                pBitstream->setSize(0);
+                pBitstream->setOffset(0);
+                pBitstream->append(hevc_vps_nal->ptr, hevc_vps_nal->size);
+                pBitstream->append(hevc_sps_nal->ptr, hevc_sps_nal->size);
+                pBitstream->append(hevc_pps_nal->ptr, hevc_pps_nal->size);
+                pBitstream->append(&m_Mux.video.seiNal);
+                for (const auto& nal : nal_list) {
+                    if (nal.type != NALU_HEVC_VPS || nal.type != NALU_HEVC_SPS || nal.type != NALU_HEVC_PPS) {
+                        pBitstream->append(nal.ptr, nal.size);
+                    }
+                }
+            } else {
+                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+            m_Mux.video.seiNal.clear();
+        }
         RGY_ERR sts = WriteFileHeader(pBitstream);
         if (sts != RGY_ERR_NONE) {
             return sts;

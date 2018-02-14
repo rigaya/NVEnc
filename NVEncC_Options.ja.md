@@ -371,6 +371,19 @@ DAR比 (画面アスペクト比) の指定。
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
 ```  
+
+### --max-cll &lt;int&gt;,&lt;int&gt; [HEVCのみ]
+MaxCLL and MaxFall を nits で指定する。
+```
+--max-cll 1000,300
+```
+
+### --master-display &lt;string&gt; [HEVCのみ]
+Mastering display data の設定。
+```
+Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+```
+
 各種フラグの設定。
 
 ### --cabac [H.264のみ]

@@ -570,6 +570,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="ram_speed.cpp" />
     <ClCompile Include="rgy_avlog.cpp" />
     <ClCompile Include="rgy_avutil.cpp" />
+    <ClCompile Include="rgy_bitstream.cpp" />
     <ClCompile Include="rgy_err.cpp" />
     <ClCompile Include="rgy_event.cpp" />
     <ClCompile Include="rgy_input.cpp" />
@@ -639,6 +640,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="ram_speed.h" />
     <ClInclude Include="rgy_avlog.h" />
     <ClInclude Include="rgy_avutil.h" />
+    <ClInclude Include="rgy_bitstream.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_input.h" />

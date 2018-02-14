@@ -128,6 +128,8 @@ protected:
 struct RGYOutputRawPrm {
     bool bBenchmark;
     int nBufSizeMB;
+    RGY_CODEC codecId;
+    vector<uint8_t> seiNal;
 };
 
 class RGYOutputRaw : public RGYOutput {
@@ -140,6 +142,8 @@ public:
     virtual RGY_ERR WriteNextFrame(RGYFrame *pSurface) override;
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
+
+    vector<uint8_t> seiNal;
 };
 
 #endif //__RGY_OUTPUT_H__

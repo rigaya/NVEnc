@@ -356,6 +356,18 @@ Encode as full range YUV.
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
 ```
 
+### --max-cll &lt;int&gt;,&lt;int&gt; [HEVC only]
+Set MaxCLL and MaxFall in nits. 
+```
+--max-cll 1000,300
+```
+
+### --master-display &lt;string&gt; [HEVC only]
+Set Mastering display data.
+```
+Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+```
+
 ### --cabac [H.264 only]
 Use CABAC. (Default: on)
 

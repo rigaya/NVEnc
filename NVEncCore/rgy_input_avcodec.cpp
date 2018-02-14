@@ -36,6 +36,7 @@
 #include <memory>
 #include "rgy_thread.h"
 #include "rgy_input_avcodec.h"
+#include "rgy_bitstream.h"
 #include "rgy_avlog.h"
 
 //#ifdef LIBVA_SUPPORT

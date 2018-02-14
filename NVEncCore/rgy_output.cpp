@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include "rgy_output.h"
+#include "rgy_bitstream.h"
 
 #define WRITE_CHECK(writtenBytes, expected) { \
     if (writtenBytes != expected) { \
@@ -123,6 +124,9 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                 }
             }
         }
+        if (rawPrm->codecId == RGY_CODEC_HEVC) {
+            seiNal = rawPrm->seiNal;
+        }
     }
     m_bInited = true;
     return RGY_ERR_NONE;
@@ -136,8 +140,31 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
 
     uint32_t nBytesWritten = 0;
     if (!m_bNoOutput) {
-        nBytesWritten = (uint32_t)fwrite(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
-        WRITE_CHECK(nBytesWritten, pBitstream->size());
+        if (seiNal.size()) {
+            std::vector<nal_info> nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+            const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+            const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+            const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+            const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
+            if (header_check) {
+                nBytesWritten  = (uint32_t)fwrite(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
+                nBytesWritten += (uint32_t)fwrite(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
+                nBytesWritten += (uint32_t)fwrite(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
+                nBytesWritten += (uint32_t)fwrite(seiNal.data(),     1, seiNal.size(),      m_fDest.get());
+                for (const auto& nal : nal_list) {
+                    if (nal.type != NALU_HEVC_VPS || nal.type != NALU_HEVC_SPS || nal.type != NALU_HEVC_PPS) {
+                        nBytesWritten += (uint32_t)fwrite(nal.ptr, 1, nal.size, m_fDest.get());
+                    }
+                }
+            } else {
+                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+            seiNal.clear();
+        } else {
+            nBytesWritten = (uint32_t)fwrite(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+            WRITE_CHECK(nBytesWritten, pBitstream->size());
+        }
     }
 
     m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), 0);

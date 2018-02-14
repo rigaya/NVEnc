@@ -45,6 +45,7 @@
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
 #include "NVEncFilterAfs.h"
+#include "rgy_util.h"
 
 #if ENABLE_CPP_REGEX
 #include <regex>
@@ -421,7 +422,10 @@ static tstring help() {
     str += PrintListOptions(_T("--colorprim <string>"), list_colorprim, 0);
     str += PrintListOptions(_T("--transfer <string>"), list_transfer, 0);
     str += strsprintf(_T("")
-        _T("   --fullrange                  set fullrange\n"));
+        _T("   --fullrange                  set fullrange\n")
+        _T("   --max-cll <int>,<int>        set MaxCLL and MaxFall in nits. e.g. \"1000,300\"\n")
+        _T("   --master-display <string>    set Mastering display data.\n")
+        _T("      e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n"));
 
     str += strsprintf(_T("\n")
         _T("H.264/AVC\n")
@@ -2939,6 +2943,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (codecPrm[NV_ENC_HEVC].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN10) {
             codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = 2;
         }
+        return 0;
+    }
+    if (IS_OPTION("max-cll")) {
+        i++;
+        pParams->sMaxCll = tchar_to_string(strInput[i]);
+        return 0;
+    }
+    if (IS_OPTION("master-display")) {
+        i++;
+        pParams->sMasterDisplay = tchar_to_string(strInput[i]);
         return 0;
     }
     if (IS_OPTION("output-depth")) {

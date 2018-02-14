@@ -329,6 +329,8 @@ InEncodeVideoParam::InEncodeVideoParam() :
     bluray(0),                   //bluray出力
     yuv444(0),                   //YUV444出力
     lossless(0),                 //ロスレス出力
+    sMaxCll(),
+    sMasterDisplay(),
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
     nOutputBufSizeMB(DEFAULT_OUTPUT_BUF),         //出力バッファサイズ
@@ -771,6 +773,12 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     if (!useH264ESOutput) {
         inputParams->nAVMux |= RGY_MUX_VIDEO;
     }
+
+    HEVCHDRSei hedrsei;
+    if (hedrsei.parse(inputParams->sMaxCll, inputParams->sMasterDisplay)) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->nAVMux &= ~RGY_MUX_VIDEO;
     //}
@@ -791,6 +799,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         writerPrm.pMuxVidTsLogFile        = inputParams->pMuxVidTsLogFile;
         writerPrm.rBitstreamTimebase      = av_make_q(m_outputTimebase);
+        writerPrm.seiNal                  = hedrsei.gen_nal();
         if (inputParams->pMuxOpt > 0) {
             writerPrm.vMuxOpt = *inputParams->pMuxOpt;
         }
@@ -881,8 +890,11 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     } else {
 #endif //ENABLE_AVSW_READER
         m_pFileWriter = std::make_shared<RGYOutputRaw>();
-        RGYOutputRawPrm rawPrm = { 0 };
+        RGYOutputRawPrm rawPrm;
         rawPrm.nBufSizeMB = inputParams->nOutputBufSizeMB;
+        rawPrm.bBenchmark = false;
+        rawPrm.codecId = inputParams->codec == NV_ENC_H264 ? RGY_CODEC_H264 : RGY_CODEC_HEVC;
+        rawPrm.seiNal = hedrsei.gen_nal();
         sts = m_pFileWriter->Init(inputParams->outputFilename.c_str(), &outputVideoInfo, &rawPrm, m_pNVLog, m_pStatus);
         if (sts != 0) {
             PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
@@ -3284,7 +3296,11 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t ti
     encPicParams.pictureStruct = m_stPicStruct;
     //encPicParams.qpDeltaMap = qpDeltaMapArray;
     //encPicParams.qpDeltaMapSize = qpDeltaMapArraySize;
-
+    if (m_HEVCHDRSeiArray.size() > 0 && !m_HEVCHDRSeiAppended) {
+        m_HEVCHDRSeiAppended = true;
+        encPicParams.codecPicParams.hevcPicParams.seiPayloadArrayCnt = m_HEVCHDRSeiArray.size();
+        encPicParams.codecPicParams.hevcPicParams.seiPayloadArray = m_HEVCHDRSeiArray.data();
+    }
 
     //if (encPicCommand)
     //{
