@@ -273,7 +273,7 @@ NVENCSTATUS NVEncFilterUnsharp::setWeight(unique_ptr<CUMemBuf>& pGaussWeightBuf,
     for (int j = -radius; j <= radius; j++) {
         for (int i = -radius; i <= radius; i++) {
             const double w = 1.0f / (2.0f * (float)M_PI * sigma * sigma) * std::exp(-1.0f * (i * i + j * j) / (2.0f * sigma * sigma));
-            *ptr_weight = w;
+            *ptr_weight = (float)w;
             sum += (double)w;
             ptr_weight++;
         }
