@@ -93,7 +93,6 @@ RGY_ERR RGYInputAvs::load_avisynth() {
         if (altern_func) { m_sAvisynth. ## x = (altern_func); }; \
     } \
 }
-    auto test = rgy_avs_get_pitch_p;
     LOAD_FUNC(invoke, true, nullptr);
     LOAD_FUNC(take_clip, true, nullptr);
     LOAD_FUNC(release_value, true, nullptr);
