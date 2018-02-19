@@ -976,7 +976,11 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     if (srcCodecParam) {
         avcodec_parameters_free(&srcCodecParam);
     }
-
+    pMuxAudio->pStreamOut->disposition = pInputAudio->src.pStream->disposition;
+    if (pInputAudio->src.nSubStreamId != 0) {
+        //substream(--audio-filterなどによる複製stream)の場合はデフォルトstreamではない
+        pMuxAudio->pStreamOut->disposition &= (~AV_DISPOSITION_DEFAULT);
+    }
     if (pInputAudio->src.pStream->metadata) {
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputAudio->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
@@ -1115,9 +1119,7 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
     pMuxSub->pStreamOut->codecpar->width        = srcCodecParam->width;
     pMuxSub->pStreamOut->codecpar->height       = srcCodecParam->height;
 
-    if (pInputSubtitle->src.nTrackId == -1) {
-        pMuxSub->pStreamOut->disposition |= AV_DISPOSITION_DEFAULT;
-    }
+    pMuxSub->pStreamOut->disposition = pInputSubtitle->src.pStream->disposition;
     if (pInputSubtitle->src.pStream->metadata) {
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputSubtitle->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
