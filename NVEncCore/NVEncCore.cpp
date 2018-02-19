@@ -764,6 +764,11 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         &m_stEncConfig, m_stPicStruct,
         get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight),
         std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
+    HEVCHDRSei hedrsei;
+    if (hedrsei.parse(inputParams->sMaxCll, inputParams->sMasterDisplay)) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
 #if ENABLE_AVSW_READER
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =
@@ -774,11 +779,6 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         inputParams->nAVMux |= RGY_MUX_VIDEO;
     }
 
-    HEVCHDRSei hedrsei;
-    if (hedrsei.parse(inputParams->sMaxCll, inputParams->sMasterDisplay)) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
-    }
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->nAVMux &= ~RGY_MUX_VIDEO;
     //}
