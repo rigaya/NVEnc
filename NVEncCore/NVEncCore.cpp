@@ -2317,6 +2317,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         } else if (m_stEncConfig.frameIntervalP - 1 > 0) {
             error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction with B frames"));
         } else {
+#if 0
             if (inputParam->codec == NV_ENC_HEVC) {
                 if (inputParam->nWeightP == 1) {
                     PrintMes(RGY_LOG_WARN, _T("HEVC encode with weightp is unstable, weightp will be disabled.\n"));
@@ -2327,6 +2328,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             } else {
                 m_stCreateEncodeParams.enableWeightedPrediction = 1;
             }
+#else
+            m_stCreateEncodeParams.enableWeightedPrediction = 1;
+#endif
         }
     }
     //Fix me add theading model
@@ -2356,6 +2360,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
 
     if (inputParam->codec == NV_ENC_HEVC) {
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceMode = 3;
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceModeData = 1;
         //整合性チェック (一般, H.265/HEVC)
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
         //YUV444出力
