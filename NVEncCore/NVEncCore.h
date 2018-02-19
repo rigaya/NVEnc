@@ -315,10 +315,6 @@ protected:
     GUID                         m_stCodecGUID;           //出力コーデック
     uint32_t                     m_uEncWidth;             //出力縦解像度
     uint32_t                     m_uEncHeight;            //出力横解像度
-    vector<uint8_t>              m_HEVCHDRSeiMaxCll;
-    vector<uint8_t>              m_HEVCHDRSeiMasterDisplay;
-    vector<NV_ENC_SEI_PAYLOAD>   m_HEVCHDRSeiArray;       //HDR情報
-    bool                         m_HEVCHDRSeiAppended;    //HDR情報を付加した
 
     int                          m_nProcSpeedLimit;       //処理速度制限 (0で制限なし)
     RGYAVSync                    m_nAVSyncMode;           //映像音声同期設定

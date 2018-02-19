@@ -3296,11 +3296,6 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t ti
     encPicParams.pictureStruct = m_stPicStruct;
     //encPicParams.qpDeltaMap = qpDeltaMapArray;
     //encPicParams.qpDeltaMapSize = qpDeltaMapArraySize;
-    if (m_HEVCHDRSeiArray.size() > 0 && !m_HEVCHDRSeiAppended) {
-        m_HEVCHDRSeiAppended = true;
-        encPicParams.codecPicParams.hevcPicParams.seiPayloadArrayCnt = m_HEVCHDRSeiArray.size();
-        encPicParams.codecPicParams.hevcPicParams.seiPayloadArray = m_HEVCHDRSeiArray.data();
-    }
 
     //if (encPicCommand)
     //{
