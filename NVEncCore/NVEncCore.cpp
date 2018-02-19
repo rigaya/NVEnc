@@ -2015,19 +2015,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //    return NV_ENC_ERR_UNSUPPORTED_PARAM;
     //}
 
-    //バッファサイズ (固定で32 + PIPELINE_DEPTHとして与える)
-    //PIPELINE_DEPTH分拡張しないと、バッファ不足でエンコードが止まってしまう
-    m_uEncodeBufferCount = 32 + PIPELINE_DEPTH; // inputParam->inputBuffer;
-    if (m_uEncodeBufferCount > MAX_ENCODE_QUEUE) {
-#if FOR_AUO
-        PrintMes(RGY_LOG_ERROR, _T("入力バッファは多すぎます。: %d フレーム\n"), m_uEncodeBufferCount);
-        PrintMes(RGY_LOG_ERROR, _T("%d フレームまでに設定して下さい。\n"), MAX_ENCODE_QUEUE);
-#else
-        PrintMes(RGY_LOG_ERROR, _T("Input frame of %d exceeds the maximum size allowed (%d).\n"), m_uEncodeBufferCount, MAX_ENCODE_QUEUE);
-#endif
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
-    }
-
     //解像度の決定
     //この段階では、フィルタを使用した場合は解像度を変更しないものとする
     m_uEncWidth  = (m_pLastFilterParam) ? m_pLastFilterParam->frameOut.width  : inputParam->input.srcWidth  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
@@ -2294,6 +2281,23 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries,         list_colorprim);
     apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer);
     apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix,            list_colormatrix);
+
+    //バッファサイズ
+    //PIPELINE_DEPTH分拡張しないと、バッファ不足でエンコードが止まってしまう
+    int requiredBufferFrames = m_stEncConfig.frameIntervalP + 4;
+    if (m_stEncConfig.rcParams.enableLookahead) {
+        requiredBufferFrames += m_stEncConfig.rcParams.lookaheadDepth;
+    }
+    m_uEncodeBufferCount = std::max(32, requiredBufferFrames) + PIPELINE_DEPTH;
+    if (m_uEncodeBufferCount > MAX_ENCODE_QUEUE) {
+#if FOR_AUO
+        PrintMes(RGY_LOG_ERROR, _T("入力バッファは多すぎます。: %d フレーム\n"), m_uEncodeBufferCount);
+        PrintMes(RGY_LOG_ERROR, _T("%d フレームまでに設定して下さい。\n"), MAX_ENCODE_QUEUE);
+#else
+        PrintMes(RGY_LOG_ERROR, _T("Input frame of %d exceeds the maximum size allowed (%d).\n"), m_uEncodeBufferCount, MAX_ENCODE_QUEUE);
+#endif
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     m_stCreateEncodeParams.encodeConfig        = &m_stEncConfig;
