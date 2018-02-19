@@ -396,7 +396,6 @@ static tstring help() {
         _T("                                  default: H.264 - %d frames, HEVC - %d frames\n")
         _T("   --ref <int>                  set Ref frames / default %d frames\n")
         _T("   --weightp                    enable weighted prediction for P frame\n")
-        _T("                                  FOR H.264 ONLY\n")
         _T("   --(no-)aq                    enable spatial adaptive quantization\n")
         _T("   --aq-temporal                enable temporal adaptive quantization\n")
         _T("                                  FOR H.264 ONLY\n")
