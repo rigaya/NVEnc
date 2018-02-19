@@ -4633,6 +4633,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
     add_str(RGY_LOG_INFO, _T("Others         "));
     add_str(RGY_LOG_INFO, _T("mv:%s "), get_chr_from_value(list_mv_presicion, m_stEncConfig.mvPrecision));
+    if (m_stCreateEncodeParams.enableWeightedPrediction) {
+        add_str(RGY_LOG_INFO, _T("weightp "));
+    }
     if (codec == NV_ENC_H264) {
         add_str(RGY_LOG_INFO, _T("%s "), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));
         add_str(RGY_LOG_INFO, (m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC == 0) ? _T("deblock ") : _T("no_deblock "));
@@ -4642,9 +4645,6 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(RGY_LOG_DEBUG, _T("fmo:%s "), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
         if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 > 0) {
             add_str(RGY_LOG_INFO, _T("bdirect:%s "), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
-        }
-        if (m_stCreateEncodeParams.enableWeightedPrediction) {
-            add_str(RGY_LOG_INFO, _T("weightp "));
         }
     }
     add_str(RGY_LOG_INFO, _T("\n"));
