@@ -497,6 +497,17 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.nInputFirstKeyPts = prm->nVideoInputFirstKeyPts;
     m_Mux.video.pStreamIn         = prm->pVideoInputStream;
 
+    if (prm->pVideoInputStream) {
+        m_Mux.video.pStreamOut->disposition = prm->pVideoInputStream->disposition;
+        if (prm->pVideoInputStream->metadata) {
+            auto language_data = av_dict_get(prm->pVideoInputStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
+            if (language_data) {
+                av_dict_set(&m_Mux.video.pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
+                AddMessage(RGY_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
+            }
+        }
+    }
+
     m_Mux.video.timestampList.clear();
 
     if (pVideoOutputInfo->codec == RGY_CODEC_HEVC && prm->seiNal.size() > 0) {
