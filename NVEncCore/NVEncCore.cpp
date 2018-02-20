@@ -1135,8 +1135,9 @@ NVENCSTATUS NVEncCore::NvEncCreateBitstreamBuffer(uint32_t size, void **bitstrea
     NV_ENC_CREATE_BITSTREAM_BUFFER createBitstreamBufferParams;
     INIT_CONFIG(createBitstreamBufferParams, NV_ENC_CREATE_BITSTREAM_BUFFER);
 
-    createBitstreamBufferParams.size = size;
-    createBitstreamBufferParams.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
+    //ここでは特に指定せず、ドライバにバッファサイズを決めさせる
+    //createBitstreamBufferParams.size = size;
+    //createBitstreamBufferParams.memoryHeap = NV_ENC_MEMORY_HEAP_SYSMEM_CACHED;
 
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncCreateBitstreamBuffer(m_hEncoder, &createBitstreamBufferParams);
     if (nvStatus != NV_ENC_SUCCESS) {
