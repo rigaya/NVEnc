@@ -108,8 +108,8 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() {
     u16 |= (39 << 9) | 1;
     add_u16(data, u16);
 
-    vector_cat(data, sei_maxcll());
-    vector_cat(data, sei_masterdisplay());
+    vector_cat(data, data_maxcll);
+    vector_cat(data, data_masterdisplay);
     to_nal(data);
 
     vector_cat(header, data);
