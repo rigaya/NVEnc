@@ -71,16 +71,16 @@ int HEVCHDRSei::parse(std::string str_maxcll, std::string str_masterdisplay) {
     return 0;
 }
 
-HEVCHDRSeiPrm HEVCHDRSei::getprm() {
+HEVCHDRSeiPrm HEVCHDRSei::getprm() const {
     return prm;
 }
 
-void HEVCHDRSei::add_u16(std::vector<uint8_t>& data, uint16_t u16) {
+void HEVCHDRSei::add_u16(std::vector<uint8_t>& data, uint16_t u16) const {
     data.push_back((uint8_t)((u16 & 0xff00) >> 8));
     data.push_back((uint8_t)(u16 & 0x00ff));
 }
 
-void HEVCHDRSei::add_u32(std::vector<uint8_t>& data, uint32_t u32) {
+void HEVCHDRSei::add_u32(std::vector<uint8_t>& data, uint32_t u32) const {
     data.push_back((uint8_t)((u32 & 0xff000000) >> 24));
     data.push_back((uint8_t)((u32 & 0x00ff0000) >> 16));
     data.push_back((uint8_t)((u32 & 0x0000ff00) >>  8));
@@ -92,7 +92,7 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal(HEVCHDRSeiPrm prm_set) {
     return gen_nal();
 }
 
-std::vector<uint8_t> HEVCHDRSei::gen_nal() {
+std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
     std::vector<uint8_t> data;
     data.reserve(128);
 
@@ -118,7 +118,7 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() {
 }
 
 
-std::vector<uint8_t> HEVCHDRSei::sei_maxcll() {
+std::vector<uint8_t> HEVCHDRSei::sei_maxcll() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.maxcll >= 0 && prm.maxfall >= 0) {
@@ -130,7 +130,7 @@ std::vector<uint8_t> HEVCHDRSei::sei_maxcll() {
     return data;
 }
 
-std::vector<uint8_t> HEVCHDRSei::sei_masterdisplay() {
+std::vector<uint8_t> HEVCHDRSei::sei_masterdisplay() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.masterdisplay_set) {
@@ -145,7 +145,7 @@ std::vector<uint8_t> HEVCHDRSei::sei_masterdisplay() {
     return data;
 }
 
-void HEVCHDRSei::to_nal(std::vector<uint8_t>& data) {
+void HEVCHDRSei::to_nal(std::vector<uint8_t>& data) const {
     for (auto it = data.begin(); it < data.end() - 2; it++) {
         if (    *it == 0
             && *(it+1) == 0) {

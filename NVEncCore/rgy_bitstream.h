@@ -137,15 +137,15 @@ public:
     HEVCHDRSei();
 
     int parse(std::string maxcll, std::string masterdisplay);
-    HEVCHDRSeiPrm getprm();
-    std::vector<uint8_t> gen_nal();
+    HEVCHDRSeiPrm getprm() const;
+    std::vector<uint8_t> gen_nal() const;
     std::vector<uint8_t> gen_nal(HEVCHDRSeiPrm prm);
 private:
-    std::vector<uint8_t> sei_maxcll();
-    std::vector<uint8_t> sei_masterdisplay();
-    void to_nal(std::vector<uint8_t>& data);
-    void add_u16(std::vector<uint8_t>& data, uint16_t u16);
-    void add_u32(std::vector<uint8_t>& data, uint32_t u32);
+    std::vector<uint8_t> sei_maxcll() const;
+    std::vector<uint8_t> sei_masterdisplay() const;
+    void to_nal(std::vector<uint8_t>& data) const;
+    void add_u16(std::vector<uint8_t>& data, uint16_t u16) const;
+    void add_u32(std::vector<uint8_t>& data, uint32_t u32) const;
 };
 
 #endif //__RGY_BITSTREAM_H__
