@@ -142,7 +142,7 @@ reader used will be selected depending on the extension of input file.
 | raw | ○ |  |  |  |  |  |
 | y4m | ◎ |  | ◎ | ◎ |  |  |
 | avi | ○ | ○ |  |  | ○ | ○ |
-| avs | ○ | ○ |  |  |  |  |
+| avs | ◎ | ○ | ◎ | ◎ |  |  |
 | vpy | ◎ |  | ◎ | ◎ |  |  |
 | avhw | ◎ |  |  |  |  |  |
 | avsw | ◎ |  | ◎ | ◎ | ○ | ○ |
@@ -917,7 +917,7 @@ Monitor the performance of each vpp filter, and output the average per frame pro
 ### --cuda-schedule &lt;string&gt;
   Change the behavior of the CPU when waiting for GPU task completion. The default is auto.
 
-- auto
+- auto (default)
   Leave the mode decision to the driver of CUDA.
 
 - spin
@@ -926,7 +926,7 @@ Monitor the performance of each vpp filter, and output the average per frame pro
 - yeild
   Basically it is the same as spin, but switching to another running thread will be allowed.
 
-- sync (default)
+- sync
   Sleep a thread until the end of the GPU task. Performace might decrease, but will reduce CPU utilization especially when decoding is done by HW.
 
 ### --output-buf &lt;int&gt;
