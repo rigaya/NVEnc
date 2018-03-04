@@ -334,6 +334,10 @@ public:
         m_sData.bitrateKbps = (double)(m_sData.outFileSize * 8) *  (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / (1000.0 * m_sData.frameOut);
 
         TCHAR mes[512] = { 0 };
+        for (int i = 0; i < 79; i++)
+            mes[i] = ' ';
+        WriteLine(mes);
+
         m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / (double)time_elapsed64;
         m_sData.bitrateKbps = (m_sData.frameOut + m_sData.frameDrop == 0) ? 0 : (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
         m_tmLastUpdate = tm_result;
