@@ -743,6 +743,10 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     auto trimParam = m_pFileReader->GetTrimParam();
     m_pTrimParam = (trimParam->list.size()) ? trimParam : nullptr;
     if (m_pTrimParam) {
+        if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) == RGY_AVSYNC_VFR) {
+            PrintMes(RGY_LOG_ERROR, _T("--avsync vfr cannot be used with --trim.\n"));
+            return NV_ENC_ERR_GENERIC;
+        }
         PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
         for (int i = 0; i < (int)m_pTrimParam->list.size(); i++) {
             PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_pTrimParam->list[i].start, m_pTrimParam->list[i].fin);
