@@ -310,6 +310,9 @@ struct RGYFrame {
 private:
     FrameInfo info;
 public:
+    FrameInfo getInfo() const {
+        return info;
+    }
     void set(const FrameInfo& frameinfo) {
         info = frameinfo;
     }

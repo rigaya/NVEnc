@@ -3653,16 +3653,18 @@ NVENCSTATUS NVEncCore::Encode() {
         outPtsSource -= nOutFirstPts;
 
         if (pStreamIn
-            && (m_nAVSyncMode & RGY_AVSYNC_VFR || vpp_rff || vpp_afs_rff_aware)) {
-            if (std::abs(outPtsSource - nOutEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nOutFrameDuration) {
-                //timestampに一定以上の差があればそれを無視する
-                nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
-                outPtsSource = nOutEstimatedPts;
-            }
-            auto ptsDiff = outPtsSource - nOutEstimatedPts;
-            if (ptsDiff <= std::min<int64_t>(-1, -1 * nOutFrameDuration * 7 / 8)) {
-                //間引きが必要
-                return decFrames;
+            && ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) == RGY_AVSYNC_VFR || vpp_rff || vpp_afs_rff_aware)) {
+            if (vpp_rff || vpp_afs_rff_aware) {
+                if (std::abs(outPtsSource - nOutEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nOutFrameDuration) {
+                    //timestampに一定以上の差があればそれを無視する
+                    nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
+                    outPtsSource = nOutEstimatedPts;
+                }
+                auto ptsDiff = outPtsSource - nOutEstimatedPts;
+                if (ptsDiff <= std::min<int64_t>(-1, -1 * nOutFrameDuration * 7 / 8)) {
+                    //間引きが必要
+                    return decFrames;
+                }
             }
             //cuvidデコード時は、timebaseの分子はかならず1なので、pStreamIn->time_baseとズレているかもしれないのでオリジナルを計算
             const auto orig_pts = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, to_rgy(pStreamIn->time_base));
@@ -3964,7 +3966,7 @@ NVENCSTATUS NVEncCore::Encode() {
             auto heTransferFin = shared_ptr<void>(inputFrameBuf.heTransferFin.get(), [&](void *ptr) {
                 SetEvent((HANDLE)ptr);
             });
-            inputFrame.setHostFrameInfo(inputFrameBuf.frameInfo, heTransferFin);
+            inputFrame.setHostFrameInfo(frame.getInfo(), heTransferFin);
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unexpected error at Encode().\n"));
             return NV_ENC_ERR_GENERIC;
