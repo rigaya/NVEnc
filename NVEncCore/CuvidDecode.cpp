@@ -42,10 +42,6 @@ bool check_if_nvcuvid_dll_available() {
 }
 
 CodecCsp getHWDecCodecCsp() {
-
-    CUVIDDECODECAPS caps_test;
-    memset(&caps_test, 0, sizeof(caps_test));
-
     static const auto test_target = make_array<RGY_CSP>(
         RGY_CSP_NV12,
         RGY_CSP_YV12,
@@ -66,8 +62,11 @@ CodecCsp getHWDecCodecCsp() {
 
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         std::vector<RGY_CSP> supported_csp;
-        caps_test.eCodecType = codec_rgy_to_enc(HW_DECODE_LIST[i].rgy_codec);
+        const auto enc_codec = codec_rgy_to_enc(HW_DECODE_LIST[i].rgy_codec);
         for (auto csp : test_target) {
+            CUVIDDECODECAPS caps_test;
+            memset(&caps_test, 0, sizeof(caps_test));
+            caps_test.eCodecType = enc_codec;
             caps_test.nBitDepthMinus8 = RGY_CSP_BIT_DEPTH[csp] - 8;
             caps_test.eChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[csp]);
             auto ret = cuvidGetDecoderCaps(&caps_test);
