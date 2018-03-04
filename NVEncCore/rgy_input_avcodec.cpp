@@ -1121,7 +1121,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             cpu_info_t cpu_info;
             if (get_cpu_info(&cpu_info)) {
                 AVDictionary *pDict = nullptr;
-                av_dict_set_int(&pDict, "threads", cpu_info.logical_cores, 0);
+                av_dict_set_int(&pDict, "threads", std::min(cpu_info.logical_cores, 16u), 0);
                 if (0 > (ret = av_opt_set_dict(m_Demux.video.pCodecCtxDecode, &pDict))) {
                     AddMessage(RGY_LOG_ERROR, _T("Failed to set threads for decode (codec: %s): %s\n"),
                         char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
