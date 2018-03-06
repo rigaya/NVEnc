@@ -104,7 +104,7 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
         for (int i = 0; i < sep_count; i++)
             fileHeader += SEP5;
     }
-    fileHeader += _T("\n") + tstring(pDstFilename) + _T("\n");
+    fileHeader += _T("\n") + str_replace(tstring(pDstFilename), _T("%"), _T("%%")) + _T("\n");
     if (m_bHtml) {
         fileHeader += _T("<hr>");
     } else {
