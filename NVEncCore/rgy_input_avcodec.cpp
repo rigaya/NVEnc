@@ -1415,12 +1415,13 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
                     m_sTrimParam.offset = i_samples;
                 }
 #if ENCODER_NVENC
-                //NVENCでは、opengopなどでキーフレームのパケットよりあとにその前のフレームが来た場合、
+                //NVENCのhwデコーダでは、opengopなどでキーフレームのパケットよりあとにその前のフレームが来た場合、
                 //フレーム位置がさらにずれるので補正する
                 else if (!(pkt->flags & AV_PKT_FLAG_KEY)
                     && (pkt->pts != AV_NOPTS_VALUE)
                     && (m_Demux.video.nStreamFirstKeyPts != AV_NOPTS_VALUE)
-                    && pkt->pts < m_Demux.video.nStreamFirstKeyPts) {
+                    && pkt->pts < m_Demux.video.nStreamFirstKeyPts
+                    && m_Demux.video.nHWDecodeDeviceId >= 0) { //trim調整の適用はavhwリーダーのみ
                     m_sTrimParam.offset++;
                 }
 #endif //#if ENCODER_NVENC
