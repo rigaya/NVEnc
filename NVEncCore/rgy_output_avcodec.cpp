@@ -503,7 +503,12 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
             auto language_data = av_dict_get(prm->pVideoInputStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
             if (language_data) {
                 av_dict_set(&m_Mux.video.pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
-                AddMessage(RGY_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
+                AddMessage(RGY_LOG_DEBUG, _T("Set Video language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
+            }
+            auto rotation_data = av_dict_get(prm->pVideoInputStream->metadata, "rotation", NULL, AV_DICT_MATCH_CASE);
+            if (rotation_data) {
+                av_dict_set(&m_Mux.video.pStreamOut->metadata, rotation_data->key, rotation_data->value, AV_DICT_IGNORE_SUFFIX);
+                AddMessage(RGY_LOG_DEBUG, _T("Set Video rotation: key %s, value %s\n"), char_to_tstring(rotation_data->key).c_str(), char_to_tstring(rotation_data->value).c_str());
             }
         }
     }
