@@ -1373,7 +1373,8 @@ AVDemuxStream *RGYInputAvcodec::getPacketStreamData(const AVPacket *pkt) {
 int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
     av_init_packet(pkt);
     int i_samples = 0;
-    while (av_read_frame(m_Demux.format.pFormatCtx, pkt) >= 0
+    int ret_read_frame = 0;
+    while ((ret_read_frame = av_read_frame(m_Demux.format.pFormatCtx, pkt)) >= 0
         //trimからわかるフレーム数の上限値よりfixedNumがある程度の量の処理を進めたら読み込みを打ち切る
         && m_Demux.frames.fixedNum() - TRIM_OVERREAD_FRAMES < getVideoTrimMaxFramIdx()) {
         if (pkt->stream_index == m_Demux.video.nIndex) {
@@ -1467,6 +1468,11 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
         }
     }
     //ファイルの終わりに到達
+    if (ret_read_frame != AVERROR_EOF) {
+        AddMessage(RGY_LOG_ERROR, _T("error occured while reading file: %d frames, %s\n"), m_Demux.frames.frameNum(), qsv_av_err2str(ret_read_frame).c_str());
+        return 1;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("%d frames, %s\n"), m_Demux.frames.frameNum(), qsv_av_err2str(ret_read_frame).c_str());
     pkt->data = nullptr;
     pkt->size = 0;
     //動画の終端を表す最後のptsを挿入する
