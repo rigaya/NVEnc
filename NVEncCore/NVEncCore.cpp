@@ -651,6 +651,13 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
+    if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) == RGY_AVSYNC_VFR) {
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+        if (pAVCodecReader) {
+            //avsync vfr時は、入力streamのtimebaseをそのまま使用する
+            m_outputTimebase = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
+        }
+    }
     auto outputFps = m_inputFps;
     if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
         outputFps *= 2;
