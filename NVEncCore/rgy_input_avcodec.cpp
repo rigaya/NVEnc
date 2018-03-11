@@ -513,8 +513,9 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 
     auto trimList = make_vector(pTrimList, nTrimCount);
     //出力時の音声・字幕解析用に1パケットコピーしておく
-    if (m_Demux.qStreamPktL1.size()) { //この時点ではまだすべての音声パケットがL1にある
-        if (m_Demux.qStreamPktL2.size() > 0) {
+    if (m_Demux.qStreamPktL1.size() > 0 || m_Demux.qStreamPktL2.size() > 0) {
+        if (!m_Demux.frames.isEof() && m_Demux.qStreamPktL2.size() > 0) {
+            //最後まで読み込んでいなかったら、すべてのパケットはqStreamPktL1にあるはず
             AddMessage(RGY_LOG_ERROR, _T("qStreamPktL2 > 0, this is internal error.\n"));
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
@@ -523,17 +524,29 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 AddMessage(RGY_LOG_DEBUG, _T("checking for stream #%d\n"), streamInfo->nIndex);
                 const AVPacket *pkt1 = nullptr; //最初のパケット
                 const AVPacket *pkt2 = nullptr; //2番目のパケット
-                //それで見つからなかったら、L1キューを探す
-                for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
-                    if (m_Demux.qStreamPktL1[j].stream_index == streamInfo->nIndex) {
+                //まず、L2キューを探す
+                for (int j = 0; j < (int)m_Demux.qStreamPktL2.size(); j++) {
+                    if (m_Demux.qStreamPktL2.get(j)->data.stream_index == streamInfo->nIndex) {
                         if (pkt1) {
-                            pkt2 = &m_Demux.qStreamPktL1[j];
+                            pkt2 = &(m_Demux.qStreamPktL2.get(j)->data);
                             break;
                         }
-                        pkt1 = &m_Demux.qStreamPktL1[j];
+                        pkt1 = &(m_Demux.qStreamPktL2.get(j)->data);
                     }
                 }
-                if (pkt1 != NULL) {
+                if (pkt2 == nullptr) {
+                    //それで見つからなかったら、L1キューを探す
+                    for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
+                        if (m_Demux.qStreamPktL1[j].stream_index == streamInfo->nIndex) {
+                            if (pkt1) {
+                                pkt2 = &m_Demux.qStreamPktL1[j];
+                                break;
+                            }
+                            pkt1 = &m_Demux.qStreamPktL1[j];
+                        }
+                    }
+                }
+                if (pkt1 != nullptr) {
                     //1パケット目はたまにおかしいので、可能なら2パケット目を使用する
                     av_copy_packet(&streamInfo->pktSample, (pkt2) ? pkt2 : pkt1);
                     if (m_Demux.video.nStreamPtsInvalid & RGY_PTS_ALL_INVALID) {

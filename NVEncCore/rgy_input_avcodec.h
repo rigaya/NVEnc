@@ -358,6 +358,9 @@ public:
         m_nDuration = total_duration;
         m_nDurationNum = m_nNextFixNumIndex;
     }
+    bool isEof() const {
+        return m_bInputFin;
+    }
     //現在の情報から、ptsの状態を確認する
     //さらにptsの補正、ptsのソート、pocの確定を行う
     void checkPtsStatus(double durationHintifPtsAllInvalid = 0.0) {
