@@ -1481,7 +1481,7 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
         }
     }
     //ファイルの終わりに到達
-    if (ret_read_frame != AVERROR_EOF) {
+    if (ret_read_frame != AVERROR_EOF && ret_read_frame < 0) {
         AddMessage(RGY_LOG_ERROR, _T("error occured while reading file: %d frames, %s\n"), m_Demux.frames.frameNum(), qsv_av_err2str(ret_read_frame).c_str());
         return 1;
     }
