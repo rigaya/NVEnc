@@ -576,7 +576,7 @@ nero形式とapple形式に対応する。--chapter-copyとは併用できない
 --sub-copy 1,2
 ```
 
-### -m, --mux-options &lt;string1&gt;:&lt;string2&gt;
+### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 mux時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
 ```
