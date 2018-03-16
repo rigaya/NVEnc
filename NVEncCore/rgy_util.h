@@ -426,7 +426,6 @@ public:
 #define to_tstring to_string
 #endif
 
-typedef std::basic_string<TCHAR> tstring;
 typedef std::basic_stringstream<TCHAR> TStringStream;
 
 unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
