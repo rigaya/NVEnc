@@ -548,6 +548,8 @@ struct VppUnsharp {
     float threshold;
 
     VppUnsharp();
+    bool operator==(const VppUnsharp& x);
+    bool operator!=(const VppUnsharp& x);
 };
 
 struct VppEdgelevel {
@@ -558,6 +560,8 @@ struct VppEdgelevel {
     float white;
 
     VppEdgelevel();
+    bool operator==(const VppEdgelevel& x);
+    bool operator!=(const VppEdgelevel& x);
 };
 
 struct VppKnn {
@@ -569,6 +573,8 @@ struct VppKnn {
     float lerp_threshold;
 
     VppKnn();
+    bool operator==(const VppKnn& x);
+    bool operator!=(const VppKnn& x);
 };
 
 struct VppPmd {
@@ -579,6 +585,8 @@ struct VppPmd {
     bool  useExp;
 
     VppPmd();
+    bool operator==(const VppPmd& x);
+    bool operator!=(const VppPmd& x);
 };
 
 struct VppDeband {
@@ -595,6 +603,8 @@ struct VppDeband {
     bool randEachFrame;
 
     VppDeband();
+    bool operator==(const VppDeband& x);
+    bool operator!=(const VppDeband& x);
 };
 
 struct VppTweak {
@@ -606,6 +616,8 @@ struct VppTweak {
     float hue;        // -180 - 180 (0.0)
 
     VppTweak();
+    bool operator==(const VppTweak& x);
+    bool operator!=(const VppTweak& x);
 };
 
 typedef struct {
@@ -642,6 +654,8 @@ struct VppAfs {
     bool log;              //log出力
 
     VppAfs();
+    bool operator==(const VppAfs& x);
+    bool operator!=(const VppAfs& x);
 
     void check();
 };

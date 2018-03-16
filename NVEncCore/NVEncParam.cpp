@@ -53,12 +53,33 @@ VppUnsharp::VppUnsharp() :
 
 }
 
+bool VppUnsharp::operator==(const VppUnsharp& x) {
+    return enable == x.enable
+        && radius == x.radius
+        && weight == x.weight
+        && threshold == x.threshold;
+}
+bool VppUnsharp::operator!=(const VppUnsharp& x) {
+    return !(*this == x);
+}
+
 VppEdgelevel::VppEdgelevel() :
     enable(false),
     strength(FILTER_DEFAULT_EDGELEVEL_STRENGTH),
     threshold(FILTER_DEFAULT_EDGELEVEL_THRESHOLD),
     black(FILTER_DEFAULT_EDGELEVEL_BLACK),
     white(FILTER_DEFAULT_EDGELEVEL_WHITE) {
+}
+
+bool VppEdgelevel::operator==(const VppEdgelevel& x) {
+    return enable == x.enable
+        && strength == x.strength
+        && threshold == x.threshold
+        && black == x.black
+        && white == x.white;
+}
+bool VppEdgelevel::operator!=(const VppEdgelevel& x) {
+    return !(*this == x);
 }
 
 VppKnn::VppKnn() :
@@ -70,6 +91,18 @@ VppKnn::VppKnn() :
     lerp_threshold(FILTER_DEFAULT_KNN_LERPC_THRESHOLD) {
 }
 
+bool VppKnn::operator==(const VppKnn& x) {
+    return enable == x.enable
+        && radius == x.radius
+        && strength == x.strength
+        && lerpC == x.lerpC
+        && weight_threshold == x.weight_threshold
+        && lerp_threshold == x.lerp_threshold;
+}
+bool VppKnn::operator!=(const VppKnn& x) {
+    return !(*this == x);
+}
+
 VppPmd::VppPmd() :
     enable(false),
     strength(FILTER_DEFAULT_PMD_STRENGTH),
@@ -77,6 +110,17 @@ VppPmd::VppPmd() :
     applyCount(FILTER_DEFAULT_PMD_APPLY_COUNT),
     useExp(FILTER_DEFAULT_PMD_USE_EXP) {
 
+}
+
+bool VppPmd::operator==(const VppPmd& x) {
+    return enable == x.enable
+        && strength == x.strength
+        && threshold == x.threshold
+        && applyCount == x.applyCount
+        && useExp == x.useExp;
+}
+bool VppPmd::operator!=(const VppPmd& x) {
+    return !(*this == x);
 }
 
 VppDeband::VppDeband() :
@@ -94,6 +138,23 @@ VppDeband::VppDeband() :
 
 }
 
+bool VppDeband::operator==(const VppDeband& x) {
+    return enable == x.enable
+        && range == x.range
+        && threY == x.threY
+        && threCb == x.threCb
+        && threCr == x.threCr
+        && ditherY == x.ditherY
+        && ditherC == x.ditherC
+        && sample == x.sample
+        && seed == x.seed
+        && blurFirst == x.blurFirst
+        && randEachFrame == x.randEachFrame;
+}
+bool VppDeband::operator!=(const VppDeband& x) {
+    return !(*this == x);
+}
+
 VppTweak::VppTweak() :
     enable(false),
     brightness(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
@@ -101,6 +162,18 @@ VppTweak::VppTweak() :
     gamma(FILTER_DEFAULT_TWEAK_GAMMA),
     saturation(FILTER_DEFAULT_TWEAK_SATURATION),
     hue(FILTER_DEFAULT_TWEAK_HUE) {
+}
+
+bool VppTweak::operator==(const VppTweak& x) {
+    return enable == x.enable
+        && brightness == x.brightness
+        && contrast == x.contrast
+        && gamma == x.gamma
+        && saturation == x.saturation
+        && hue == x.hue;
+}
+bool VppTweak::operator!=(const VppTweak& x) {
+    return !(*this == x);
 }
 
 VppParam::VppParam() :
@@ -148,6 +221,33 @@ VppAfs::VppAfs() :
     timecode(FILTER_DEFAULT_AFS_TIMECODE),
     log(FILTER_DEFAULT_AFS_LOG) {
     check();
+}
+
+bool VppAfs::operator==(const VppAfs& x) {
+    return enable == x.enable
+        && tb_order == x.tb_order
+        && clip.bottom == x.clip.bottom
+        && clip.left == x.clip.left
+        && clip.top == x.clip.top
+        && clip.right == x.clip.right
+        && method_switch == x.method_switch
+        && coeff_shift == x.coeff_shift
+        && thre_shift == x.thre_shift
+        && thre_deint == x.thre_deint
+        && thre_Ymotion == x.thre_Ymotion
+        && thre_Cmotion == x.thre_Cmotion
+        && analyze == x.analyze
+        && shift == x.shift
+        && drop == x.drop
+        && smooth == x.smooth
+        && force24 == x.force24
+        && tune == x.tune
+        && rff == x.rff
+        && timecode == x.timecode
+        && log == x.log;
+}
+bool VppAfs::operator!=(const VppAfs& x) {
+    return !(*this == x);
 }
 
 void VppAfs::check() {
