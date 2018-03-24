@@ -40,6 +40,8 @@ namespace NVEnc {
     ref class LocalSettings 
     {
     public:
+        String^ vidEncName;
+        String^ vidEncPath;
         List<String^>^ audEncName;
         List<String^>^ audEncExeName;
         List<String^>^ audEncPath;
@@ -81,6 +83,13 @@ namespace NVEnc {
     value struct TrackBarNU {
         TrackBar^ TB;
         NumericUpDown^ NU;
+    };
+
+    value struct VidEncInfo {
+        bool hwencAvail;
+        bool h264Enc;
+        bool hevcEnc;
+        List<String^>^ devices;
     };
     /*
     ref class NVEncParamCache

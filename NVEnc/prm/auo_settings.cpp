@@ -52,6 +52,7 @@ static const char * const STG_DEFAULT_DIRECTORY_APPENDIX = "_stg";
 
 static const char * const INI_SECTION_MAIN         = "NVENC";
 static const char * const INI_SECTION_APPENDIX     = "APPENDIX";
+static const char * const INI_SECTION_VID          = "VIDEO";
 static const char * const INI_SECTION_AUD          = "AUDIO";
 static const char * const INI_SECTION_MUX          = "MUXER";
 static const char * const INI_SECTION_FN           = "FILENAME_REPLACE";
@@ -205,6 +206,7 @@ void guiEx_settings::initialize(BOOL disable_loading, const char *_auo_path, con
 }
 
 guiEx_settings::~guiEx_settings() {
+    clear_vid();
     clear_aud();
     clear_mux();
     clear_local();
@@ -248,9 +250,24 @@ int guiEx_settings::get_faw_index() {
 }
 
 void guiEx_settings::load_encode_stg() {
+    load_vid();
     load_aud();
     load_mux();
     load_local(); //fullpathの情報がきちんと格納されるよう、最後に呼ぶ
+}
+
+void guiEx_settings::load_vid() {
+    char key[INI_KEY_MAX_LEN];
+
+    clear_vid();
+
+    s_vid_mc.init(ini_filesize);
+
+    s_vid.filename     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "filename", "nvencc", ini_fileName);
+    s_vid.default_cmd  = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_default", "", ini_fileName);
+    s_vid.help_cmd     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_help", "", ini_fileName);
+
+    s_vid_refresh = TRUE;
 }
 
 void guiEx_settings::load_aud() {
@@ -467,6 +484,7 @@ void guiEx_settings::load_local() {
     s_local.chap_nero_convert_to_utf8 = GetPrivateProfileInt(   ini_section_main, "chap_nero_convert_to_utf8",DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
     s_local.get_relative_path         = GetPrivateProfileInt(   ini_section_main, "get_relative_path",        DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
     s_local.run_bat_minimized         = GetPrivateProfileInt(   ini_section_main, "run_bat_minimized",        DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
+    s_local.default_audio_encoder     = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder",    DEFAULT_AUDIO_ENCODER,         conf_fileName);
 
     
     GetFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
@@ -486,6 +504,7 @@ void guiEx_settings::load_local() {
     s_local.large_cmdbox = 0;
     s_local.audio_buffer_size   = min(GetPrivateProfileInt(ini_section_main, "audio_buffer",        AUDIO_BUFFER_DEFAULT, conf_fileName), AUDIO_BUFFER_MAX);
 
+    GetPrivateProfileString(INI_SECTION_VID, "NVENCC", "", s_vid.fullpath, _countof(s_vid.fullpath), conf_fileName);
     for (int i = 0; i < s_aud_count; i++)
         GetPrivateProfileString(INI_SECTION_AUD, s_aud[i].keyName, "", s_aud[i].fullpath,     _countof(s_aud[i].fullpath),     conf_fileName);
     for (int i = 0; i < s_mux_count; i++)
@@ -546,6 +565,7 @@ void guiEx_settings::save_local() {
     WritePrivateProfileIntWithDefault(   ini_section_main, "chap_nero_convert_to_utf8", s_local.chap_nero_convert_to_utf8, DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "get_relative_path",         s_local.get_relative_path,        DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "run_bat_minimized",         s_local.run_bat_minimized,        DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder",     s_local.default_audio_encoder,    DEFAULT_AUDIO_ENCODER,         conf_fileName);
 
 
     WriteFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
@@ -582,6 +602,8 @@ void guiEx_settings::save_local() {
         PathRemoveBlanks(s_mux[i].fullpath);
         WritePrivateProfileString(INI_SECTION_MUX, s_mux[i].keyName, s_mux[i].fullpath, conf_fileName);
     }
+    PathRemoveBlanks(s_vid.fullpath);
+    WritePrivateProfileString(INI_SECTION_VID, "NVENCC", s_vid.fullpath, conf_fileName);
 }
 
 void guiEx_settings::save_log_win() {
@@ -614,6 +636,11 @@ void guiEx_settings::save_fbc() {
     WritePrivateProfileDoubleWithDefault(INI_SECTION_FBC, "last_fps",             s_fbc.last_fps,             DEFAULT_FBC_LAST_FPS,             conf_fileName);
     WritePrivateProfileDoubleWithDefault(INI_SECTION_FBC, "last_time_in_sec",     s_fbc.last_time_in_sec,     DEFAULT_FBC_LAST_TIME_IN_SEC,     conf_fileName);
     WritePrivateProfileDoubleWithDefault(INI_SECTION_FBC, "initial_size",         s_fbc.initial_size,         DEFAULT_FBC_INITIAL_SIZE,         conf_fileName);
+}
+
+void guiEx_settings::clear_vid() {
+    s_vid_mc.clear();
+    s_vid_refresh = TRUE;
 }
 
 void guiEx_settings::clear_aud() {

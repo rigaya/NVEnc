@@ -112,6 +112,27 @@ static __forceinline __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
 #endif
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4100)
+template<bool highbit_depth>
+static void __forceinline copy_nv12_to_nv12(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int pixel_size = highbit_depth ? 2 : 1;
+    for (int i = 0; i < 2; i++) {
+        uint8_t *srcYLine = (uint8_t *)src[i] + src_y_pitch_byte * (crop_up >> i) + crop_left;
+        uint8_t *dstLine = (uint8_t *)dst[i];
+        const int y_fin = (height - crop_bottom) >> i;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = (crop_up >> i); y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            memcpy_sse(dstLine, srcYLine, y_width * pixel_size);
+        }
+    }
+}
+#pragma warning (pop)
+
 #if USE_SSSE3
 alignas(32) static const uint8_t  Array_INTERLACE_WEIGHT[2][32] = {
     {1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3},

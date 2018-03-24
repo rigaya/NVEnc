@@ -102,8 +102,23 @@
     <ClCompile Include="encode\exe_version.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
+    <ClCompile Include="encode\auo_convert.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert_avx2.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert_sse2.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert_sse41.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert_ssse3.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
     <ClCompile Include="prm\auo_conf_convert.cpp">
-      <Filter>ソース ファイル\prm</Filter>
+      <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -216,6 +231,15 @@
       <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
     <ClInclude Include="encode\exe_version.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\convert_const.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\convert_simd.h">
+      <Filter>ヘッダー ファイル\encode</Filter>
+    </ClInclude>
+    <ClInclude Include="encode\auo_convert.h">
       <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
   </ItemGroup>

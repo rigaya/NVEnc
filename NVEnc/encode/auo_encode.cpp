@@ -44,6 +44,7 @@
 #include "auo_error.h"
 #include "auo_audio.h"
 #include "auo_faw2aac.h"
+#include "NVEncCmd.h"
 
 static BOOL check_muxer_exist(MUXER_SETTINGS *muxer_stg) {
     if (PathFileExists(muxer_stg->fullpath)) 
@@ -68,8 +69,6 @@ BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, c
 
     //解像度
     int w_mul = 2, h_mul = 2;
-    if (is_interlaced(conf->nvenc.pic_struct))
-        h_mul *= 2;
     if (oip->w % w_mul) {
         error_invalid_resolution(TRUE,  w_mul, oip->w, oip->h);
         check = FALSE;
@@ -188,6 +187,14 @@ static void set_aud_delay_cut(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *
 }
 
 void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat) {
+    ParseCmdError err;
+    InEncodeVideoParam enc_prm;
+    NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
+    codec_prm[NV_ENC_H264] = DefaultParamH264();
+    codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
+    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd, err);
+    enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
+
     //初期化
     ZeroMemory(pe, sizeof(PRM_ENC));
     //設定更新
@@ -223,7 +230,8 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     //ESしか出せないので拡張子を変更
     change_ext(pe->temp_filename, _countof(pe->temp_filename), (conf->nvenc.codec == NV_ENC_H264) ? ".264" : ".265");
 
-    pe->muxer_to_be_used = check_muxer_to_be_used(conf, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
+    pe->vpp_afs = enc_prm.vpp.afs.enable ? TRUE : FALSE;
+    pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
     
     //FAWチェックとオーディオディレイの修正
     if (conf->aud.faw_check)
@@ -411,10 +419,6 @@ void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *
     //%{fps_rate}
     int fps_rate = oip->rate;
     int fps_scale = oip->scale;
-#ifdef MSDK_SAMPLE_VERSION
-    if (conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_IT)
-        fps_rate = (fps_rate * 4) / 5;
-#endif
     const int fps_gcd = get_gcd(fps_rate, fps_scale);
     fps_rate /= fps_gcd;
     fps_scale /= fps_gcd;
@@ -491,7 +495,7 @@ AUO_RESULT move_temporary_files(const CONF_GUIEX *conf, const PRM_ENC *pe, const
     //qpファイル
     move_temp_file(pe->append.qp,   pe->temp_filename, oip->savefile, ret, TRUE, "qp", FALSE);
     //tcファイル
-    BOOL erase_tc = (conf->vid.afs || conf->vpp.afs.enable) && !conf->vid.auo_tcfile_out && pe->muxer_to_be_used != MUXER_DISABLED;
+    BOOL erase_tc = (conf->vid.afs || pe->vpp_afs) && !conf->vid.auo_tcfile_out && pe->muxer_to_be_used != MUXER_DISABLED;
     move_temp_file(pe->append.tc,   pe->temp_filename, oip->savefile, ret, erase_tc, "タイムコード", FALSE);
     //チャプターファイル
     if (pe->muxer_to_be_used >= 0 && sys_dat->exstg->s_local.auto_del_chap) {
@@ -543,10 +547,10 @@ BOOL check_output_has_chapter(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat
     return has_chapter;
 }
 
-int check_muxer_to_be_used(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, const char *temp_filename, int video_output_type, BOOL audio_output) {
+int check_muxer_to_be_used(const CONF_GUIEX *conf, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const char *temp_filename, int video_output_type, BOOL audio_output) {
     int muxer_to_be_used = MUXER_DISABLED;
     if (video_output_type == VIDEO_OUTPUT_MP4 && !conf->mux.disable_mp4ext)
-        muxer_to_be_used = (conf->vid.afs || conf->vpp.afs.enable) ? MUXER_TC2MP4 : MUXER_MP4;
+        muxer_to_be_used = (conf->vid.afs || pe->vpp_afs) ? MUXER_TC2MP4 : MUXER_MP4;
     else if (video_output_type == VIDEO_OUTPUT_MKV && !conf->mux.disable_mkvext)
         muxer_to_be_used = MUXER_MKV;
     else if (video_output_type == VIDEO_OUTPUT_MPEG2 && !conf->mux.disable_mpgext)
@@ -556,7 +560,7 @@ int check_muxer_to_be_used(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, c
     BOOL no_muxer = TRUE;
     no_muxer &= !audio_output;
     no_muxer &= !conf->vid.afs;
-    no_muxer &= !conf->vpp.afs.enable;
+    no_muxer &= !pe->vpp_afs;
     no_muxer &= video_output_type == check_video_ouput(temp_filename);
     no_muxer &= !check_output_has_chapter(conf, sys_dat, muxer_to_be_used);
     return (no_muxer) ? MUXER_DISABLED : muxer_to_be_used;

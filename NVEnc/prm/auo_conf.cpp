@@ -39,8 +39,7 @@ const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
     sizeof(CONF_VIDEO),
     sizeof(CONF_AUDIO),
     sizeof(CONF_MUX),
-    sizeof(CONF_OTHER),
-    sizeof(CONF_VPP)
+    sizeof(CONF_OTHER)
 };
 
 const size_t guiEx_config::conf_block_pointer[CONF_BLOCK_COUNT] = {
@@ -48,8 +47,7 @@ const size_t guiEx_config::conf_block_pointer[CONF_BLOCK_COUNT] = {
     offsetof(CONF_GUIEX, vid),
     offsetof(CONF_GUIEX, aud),
     offsetof(CONF_GUIEX, mux),
-    offsetof(CONF_GUIEX, oth),
-    offsetof(CONF_GUIEX, vpp)
+    offsetof(CONF_GUIEX, oth)
 };
 
 guiEx_config::guiEx_config() { }
@@ -70,49 +68,28 @@ void guiEx_config::write_conf_header(CONF_GUIEX *save_conf) {
 BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int old_size) {
     BOOL ret = FALSE;
     init_CONF_GUIEX(conf_buf, FALSE);
-    if (((CONF_GUIEX *)old_data)->size_all != CONF_INITIALIZED)
+    CONF_GUIEX *old_conf = (CONF_GUIEX *)old_data;
+    if (old_conf->size_all != CONF_INITIALIZED)
         return ret;
-    if (old_size == sizeof(CONF_GUIEX)) {
-        memcpy(conf_buf, old_data, old_size);
-        if (0 == strcmp(conf_buf->conf_name, CONF_NAME_OLD_2))
-            convert_nvencstgv2_to_nvencstgv3(conf_buf);
-        ret = TRUE;
-    } else {
-        const void *data_table = NULL;
-        if (((CONF_GUIEX *)old_data)->block_count) {
-            //新しい形式からの調整
-            //ブロックサイズは保存されている
-            data_table = old_data;
-        } else {
-            //古い形式からの調整
-            //保存されるプリセットにブロックサイズが保存されていないため、データテーブルを参照する
-            //for (int j = 0; j < sizeof(CONF_OLD_DATA) / sizeof(CONF_OLD_DATA[0]); j++) {
-            //    if (old_size == CONF_OLD_DATA[j].size_all) {
-            //        data_table = &CONF_OLD_DATA[j];
-            //        break;
-            //    }
-            //}
-        }
-        if (data_table == NULL)
-            return ret;
-        if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_1)) {
-            convert_nvencstg_to_nvencstgv3(conf_buf, old_data);
-        } else {
-            if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_2))
-                convert_nvencstgv2_to_nvencstgv3((CONF_GUIEX *)old_data);
 
-            BYTE *dst = (BYTE *)conf_buf;
-            BYTE *block = NULL;
-            dst += CONF_HEAD_SIZE;
-            //ブロック部分のコピー
-            for (int i = 0; i < ((CONF_GUIEX *)data_table)->block_count; ++i) {
-                block = (BYTE *)old_data + ((CONF_GUIEX *)data_table)->block_head_p[i];
-                dst = (BYTE *)conf_buf + conf_block_pointer[i];
-                memcpy(dst, block, min(((CONF_GUIEX *)data_table)->block_size[i], conf_block_data[i]));
-            }
+    if (0 == strcmp(old_conf->conf_name, CONF_NAME_OLD_1)) {
+        convert_nvencstg_to_nvencstgv4(conf_buf, old_conf);
+    } else if (0 == strcmp(old_conf->conf_name, CONF_NAME_OLD_2)) {
+        convert_nvencstgv2_to_nvencstgv4(conf_buf, old_conf);
+    } else if (0 == strcmp(old_conf->conf_name, CONF_NAME_OLD_3)) {
+        convert_nvencstgv3_to_nvencstgv4(conf_buf, old_conf);
+    } else {
+        BYTE *dst = (BYTE *)conf_buf;
+        BYTE *block = nullptr;
+        dst += CONF_HEAD_SIZE;
+        //ブロック部分のコピー
+        for (int i = 0; i < old_conf->block_count; ++i) {
+            block = (BYTE *)old_conf + old_conf->block_head_p[i];
+            dst = (BYTE *)conf_buf + conf_block_pointer[i];
+            memcpy(dst, block, min(old_conf->block_size[i], conf_block_data[i]));
         }
-        ret = TRUE;
     }
+    ret = TRUE;
     return ret;
 }
 
@@ -130,7 +107,8 @@ int guiEx_config::load_guiex_conf(CONF_GUIEX *conf, const char *stg_file) {
     fread(&conf_name, sizeof(char), CONF_NAME_BLOCK_LEN, fp);
     if (   strcmp(CONF_NAME,       conf_name)
         && strcmp(CONF_NAME_OLD_1, conf_name)
-        && strcmp(CONF_NAME_OLD_2, conf_name)) {
+        && strcmp(CONF_NAME_OLD_2, conf_name)
+        && strcmp(CONF_NAME_OLD_3, conf_name)) {
         fclose(fp);
         return CONF_ERROR_FILE_OPEN;
     }
@@ -142,31 +120,31 @@ int guiEx_config::load_guiex_conf(CONF_GUIEX *conf, const char *stg_file) {
     fclose(fp);
 
     //ブロックサイズチェック
-    if (((CONF_GUIEX *)dat)->block_count > CONF_BLOCK_COUNT)
+    if (((CONF_GUIEX *)dat)->block_count > max(CONF_BLOCK_COUNT, stgv3_block_size()))
         return CONF_ERROR_BLOCK_SIZE;
 
     write_conf_header(conf);
     
     //旧設定ファイルから変換
-    if (0 == strcmp(CONF_NAME_OLD_1, conf_name)) {
-        convert_nvencstg_to_nvencstgv3(conf, dat);
-        return 0;
+    if (strcmp(conf_name, CONF_NAME_OLD_1) == 0) {
+        convert_nvencstg_to_nvencstgv4(conf, dat);
+    } else if (strcmp(conf_name, CONF_NAME_OLD_2) == 0) {
+        convert_nvencstgv2_to_nvencstgv4(conf, dat);
+    } else if (strcmp(conf_name, CONF_NAME_OLD_3) == 0) {
+        convert_nvencstgv3_to_nvencstgv4(conf, dat);
+    } else {
+        dst = (BYTE *)conf;
+        //filedat = (BYTE *)data;
+        //memcpy(dst, filedat, data->head_size);
+        dst += CONF_HEAD_SIZE;
+
+        //ブロック部分のコピー
+        for (int i = 0; i < ((CONF_GUIEX *)dat)->block_count; ++i) {
+            filedat = dat + ((CONF_GUIEX *)dat)->block_head_p[i];
+            dst = (BYTE *)conf + conf_block_pointer[i];
+            memcpy(dst, filedat, min(((CONF_GUIEX *)dat)->block_size[i], conf_block_data[i]));
+        }
     }
-
-    dst = (BYTE *)conf;
-    //filedat = (BYTE *)data;
-    //memcpy(dst, filedat, data->head_size);
-    dst += CONF_HEAD_SIZE;
-
-    //ブロック部分のコピー
-    for (int i = 0; i < ((CONF_GUIEX *)dat)->block_count; ++i) {
-        filedat = dat + ((CONF_GUIEX *)dat)->block_head_p[i];
-        dst = (BYTE *)conf + conf_block_pointer[i];
-        memcpy(dst, filedat, min(((CONF_GUIEX *)dat)->block_size[i], conf_block_data[i]));
-    }
-
-    if (0 == strcmp(CONF_NAME_OLD_2, conf_name))
-        convert_nvencstgv2_to_nvencstgv3(conf);
 
     //初期化するかどうかで使うので。
     conf->size_all = CONF_INITIALIZED;

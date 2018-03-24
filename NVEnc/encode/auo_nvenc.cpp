@@ -24,7 +24,7 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-
+#if 0
 #include <Windows.h>
 #include <Process.h>
 #include <mmsystem.h>
@@ -353,3 +353,4 @@ void CAuoLog::write(int logLevel, const TCHAR *format, ... ) {
     free(buffer);
     free(mes_line);
 }
+#endif

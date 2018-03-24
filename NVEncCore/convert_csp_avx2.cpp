@@ -118,6 +118,31 @@ static __forceinline void separate_low_up(__m256i& x0_return_lower, __m256i& x1_
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
+template<bool highbit_depth>
+void copy_nv12_to_nv12_avx2_internal(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int pixel_size = highbit_depth ? 2 : 1;
+    for (int i = 0; i < 2; i++) {
+        const uint8_t *srcYLine = (const uint8_t *)src[i] + src_y_pitch_byte * (crop_up >> i) + crop_left;
+        uint8_t *dstLine = (uint8_t *)dst[i];
+        const int y_fin = (height - crop_bottom) >> i;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = (crop_up >> i); y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            avx2_memcpy<true>(dstLine, srcYLine, y_width * pixel_size);
+        }
+    }
+}
+void copy_nv12_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    return copy_nv12_to_nv12_avx2_internal<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
+}
+
+void copy_p010_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    return copy_nv12_to_nv12_avx2_internal<true>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
+}
+
 void convert_yuy2_to_nv12_avx2(void **dst_array, const void **src_array, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];

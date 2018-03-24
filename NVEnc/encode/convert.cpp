@@ -30,25 +30,11 @@
 #include <emmintrin.h> //イントリンシック命令 SSE2
 
 #include "convert.h"
-#include "auo.h"
-#include "auo_util.h"
+#include "convert_const.h"
 
-//音声の16bit->8bit変換の選択
-func_audio_16to8 get_audio_16to8_func(BOOL split) {
-    static const func_audio_16to8 FUNC_CONVERT_AUDIO[][2] = {
-        { convert_audio_16to8,      split_audio_16to8x2      },
-        { convert_audio_16to8_sse2, split_audio_16to8x2_sse2 },
-#if (_MSC_VER >= 1700)
-        { convert_audio_16to8_avx2, split_audio_16to8x2_avx2 },
+#ifndef clamp
+#define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
-    };
-    int simd = 0;
-#if (_MSC_VER >= 1700)
-    if (0 == (simd = (!!check_avx2() * 2)))
-#endif
-        simd = check_sse2();
-    return FUNC_CONVERT_AUDIO[simd][!!split];
-}
 
 //直前の16byteアライメント
 static inline void * get_aligned_next(void *p) {
@@ -146,27 +132,372 @@ void convert_audio_16to8_sse2(BYTE *dst, short *src, int n) {
         sh++;
     }
 }
-#pragma warning( push )
-#pragma warning( disable: 4100 )
-void copy_yuy2(void *frame, BYTE *dst_Y, BYTE *dst_C, const int width, const int height, const int pitch) {
-    int y;
-    BYTE *p, *p_fin, *Y;
+
+void copy_yuy2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    memcpy(pixel_data->data[0], frame, width * height * 2);
+}
+
+void copy_yuy2_sse2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    BYTE *src = (BYTE *)frame;
+    BYTE *dst = pixel_data->data[0];
+    BYTE *dst_fin = pixel_data->data[0] + ((width * height * 2) & ~63);
     __m128i x0, x1, x2, x3;
-    int pitch_src = width * 2; 
-    //((((size_t)dst_Y | (size_t)pitch) & 0x0F) == 0x00)の条件は常に満たされる->_mm_stream_si128が使用可
-    for (y = 0; y < height; y++) {
-        p = (BYTE*)frame + y * pitch_src;
-        Y = (BYTE*)dst_Y + y * pitch;
-        p_fin = p + pitch_src;
-        for (; p < p_fin; p += 64, Y += 64) {
-            x0 = _mm_loadu_si128((const __m128i *)(p+ 0));
-            x1 = _mm_loadu_si128((const __m128i *)(p+16));
-            x2 = _mm_loadu_si128((const __m128i *)(p+32));
-            x3 = _mm_loadu_si128((const __m128i *)(p+48));
-            _mm_stream_si128((__m128i *)(Y +  0), x0);
-            _mm_stream_si128((__m128i *)(Y + 16), x1);
-            _mm_stream_si128((__m128i *)(Y + 32), x2);
-            _mm_stream_si128((__m128i *)(Y + 48), x3);
+    for (; dst < dst_fin; src += 64, dst += 64) {
+        x0    = _mm_loadu_si128((const __m128i *)(src +  0));
+        x1    = _mm_loadu_si128((const __m128i *)(src + 16));
+        x2    = _mm_loadu_si128((const __m128i *)(src + 32));
+        x3    = _mm_loadu_si128((const __m128i *)(src + 48));
+        _mm_stream_si128((__m128i *)(dst +  0), x0);
+        _mm_stream_si128((__m128i *)(dst + 16), x1);
+        _mm_stream_si128((__m128i *)(dst + 32), x2);
+        _mm_stream_si128((__m128i *)(dst + 48), x3);
+    }
+    dst_fin = dst + ((width * height * 2) & 63);
+    for (; dst < dst_fin; src += 4, dst += 4)
+        *(int*)dst = *(int*)src;
+}
+
+void sort_to_rgb(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    BYTE *ptr = pixel_data->data[0];
+    BYTE *dst, *src;
+    int y0 = 0, y1 = height - 1;
+    const int step = (width*3 + 3) & ~3;
+    for (; y0 < height; y0++, y1--) {
+        dst = ptr          + y1*width*3;
+        src = (BYTE*)frame + y0*step;
+        for (int x = 0; x < width; x++) {
+            dst[x*3 + 2] = src[x*3 + 0];
+            dst[x*3 + 1] = src[x*3 + 1];
+            dst[x*3 + 0] = src[x*3 + 2];
         }
+    }
+}
+
+void convert_yuy2_to_yv12(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x, y;
+    BYTE *Y  = pixel_data->data[0];
+    BYTE *Cb = pixel_data->data[1];
+    BYTE *Cr = pixel_data->data[2];
+    BYTE *p = (BYTE *)frame;
+    for (y = 0; y < height; y += 2) {
+        for (x = 0; x < width; x += 2) {
+            Y[ y   *width  + x    ] = p[( y   *width + x)*2    ];
+            Y[ y   *width  + x + 1] = p[( y   *width + x)*2 + 2];
+            Y[(y+1)*width  + x    ] = p[((y+1)*width + x)*2    ];
+            Y[(y+1)*width  + x + 1] = p[((y+1)*width + x)*2 + 2];
+            Cb[y*width/4   + x/2  ] =(p[( y   *width + x)*2 + 1] + p[((y+1)*width + x)*2 + 1] + 1)/2;
+            Cr[y*width/4   + x/2  ] =(p[( y   *width + x)*2 + 3] + p[((y+1)*width + x)*2 + 3] + 1)/2;
+        }
+    }
+}
+//適当。
+void convert_yuy2_to_nv12(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x, y;
+    BYTE *Y = pixel_data->data[0];
+    BYTE *C = pixel_data->data[1];
+    BYTE *p = (BYTE *)frame;
+    for (y = 0; y < height; y += 2) {
+        for (x = 0; x < width; x += 2) {
+            Y[ y   *width + x    ] = p[( y   *width + x)*2    ];
+            Y[ y   *width + x + 1] = p[( y   *width + x)*2 + 2];
+            Y[(y+1)*width + x    ] = p[((y+1)*width + x)*2    ];
+            Y[(y+1)*width + x + 1] = p[((y+1)*width + x)*2 + 2];
+            C[y*width/2   + x    ] =(p[( y   *width + x)*2 + 1] + p[((y+1)*width + x)*2 + 1] + 1)/2;
+            C[y*width/2   + x + 1] =(p[( y   *width + x)*2 + 3] + p[((y+1)*width + x)*2 + 3] + 1)/2;
+        }
+    }
+}
+
+//これも適当。
+void convert_yuy2_to_nv12_i(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x, y;
+    BYTE *Y = pixel_data->data[0];
+    BYTE *C = pixel_data->data[1];
+    BYTE *p = (BYTE *)frame;
+    for (y = 0; y < height; y += 4) {
+        for (x = 0; x < width; x += 2) {
+            Y[ y   *width + x    ] = p[( y   *width + x)*2    ];
+            Y[ y   *width + x + 1] = p[( y   *width + x)*2 + 2];
+            Y[(y+1)*width + x    ] = p[((y+1)*width + x)*2    ];
+            Y[(y+1)*width + x + 1] = p[((y+1)*width + x)*2 + 2];
+            Y[(y+2)*width + x    ] = p[((y+2)*width + x)*2    ];
+            Y[(y+2)*width + x + 1] = p[((y+2)*width + x)*2 + 2];
+            Y[(y+3)*width + x    ] = p[((y+3)*width + x)*2    ];
+            Y[(y+3)*width + x + 1] = p[((y+3)*width + x)*2 + 2];
+            C[y/2*width   + x    ] =(p[( y   *width + x)*2 + 1] * 3 + p[((y+2)*width + x)*2 + 1] * 1 + 2)>>2;
+            C[y/2*width   + x + 1] =(p[( y   *width + x)*2 + 3] * 3 + p[((y+2)*width + x)*2 + 3] * 1 + 2)>>2;
+            C[(y/2+1)*width + x  ] =(p[((y+1)*width + x)*2 + 1] * 1 + p[((y+3)*width + x)*2 + 1] * 3 + 2)>>2;
+            C[(y/2+1)*width + x+1] =(p[((y+1)*width + x)*2 + 3] * 1 + p[((y+3)*width + x)*2 + 3] * 3 + 2)>>2;
+        }
+    }
+}
+
+//これも適当。
+void convert_yuy2_to_yv12_i(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x, y;
+    BYTE *Y  = pixel_data->data[0];
+    BYTE *Cb = pixel_data->data[1];
+    BYTE *Cr = pixel_data->data[2];
+    BYTE *p = (BYTE *)frame;
+    for (y = 0; y < height; y += 4) {
+        for (x = 0; x < width; x += 2) {
+            Y[ y   *width + x    ] = p[( y   *width + x)*2    ];
+            Y[ y   *width + x + 1] = p[( y   *width + x)*2 + 2];
+            Y[(y+1)*width + x    ] = p[((y+1)*width + x)*2    ];
+            Y[(y+1)*width + x + 1] = p[((y+1)*width + x)*2 + 2];
+            Y[(y+2)*width + x    ] = p[((y+2)*width + x)*2    ];
+            Y[(y+2)*width + x + 1] = p[((y+2)*width + x)*2 + 2];
+            Y[(y+3)*width + x    ] = p[((y+3)*width + x)*2    ];
+            Y[(y+3)*width + x + 1] = p[((y+3)*width + x)*2 + 2];
+            Cb[y/2*(width/2)   + x/2   ] =(p[( y   *width + x)*2 + 1] * 3 + p[((y+2)*width + x)*2 + 1] * 1 + 2)>>2;
+            Cr[y/2*(width/2)   + x/2   ] =(p[( y   *width + x)*2 + 3] * 3 + p[((y+2)*width + x)*2 + 3] * 1 + 2)>>2;
+            Cb[(y/2+1)*(width/2) + x/2 ] =(p[((y+1)*width + x)*2 + 1] * 1 + p[((y+3)*width + x)*2 + 1] * 3 + 2)>>2;
+            Cr[(y/2+1)*(width/2) + x/2 ] =(p[((y+1)*width + x)*2 + 3] * 1 + p[((y+3)*width + x)*2 + 3] * 3 + 2)>>2;
+        }
+    }
+}
+static int inline pixel_YC48_to_YUV(int y, int mul, int add, int rshift, int ycc, int min, int max) {
+    return clamp(((y * mul + add) >> rshift) + ycc, min, max);
+}
+
+void convert_yc48_to_nv12_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x = 0, y = 0, i = 0;
+    PIXEL_YC *ycp;
+    short *dst_Y = (short *)pixel_data->data[0];
+    short *dst_C = (short *)pixel_data->data[1];
+    short *Y = NULL, *C = (short *)dst_C;
+    for (y = 0; y < height; y += 2) {
+        i = width * y;
+        ycp = (PIXEL_YC *)pixel + i;
+        Y = (short *)dst_Y + i;
+        for (x = 0; x < width; x += 2) {
+            Y[x        ] = (short)pixel_YC48_to_YUV(ycp[x        ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1      ] = (short)pixel_YC48_to_YUV(ycp[x+1      ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x  +width] = (short)pixel_YC48_to_YUV(ycp[x  +width].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1+width] = (short)pixel_YC48_to_YUV(ycp[x+1+width].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            *C = (short)pixel_YC48_to_YUV(((int)ycp[x].cb + (int)ycp[x+width].cb) + UV_OFFSET_x2, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420P, Y_L_YCC_16, 0, LIMIT_16);
+            C++;
+            *C = (short)pixel_YC48_to_YUV(((int)ycp[x].cr + (int)ycp[x+width].cr) + UV_OFFSET_x2, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420P, Y_L_YCC_16, 0, LIMIT_16);
+            C++;
+        }
+    }
+}
+void convert_yc48_to_nv12_i_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x = 0, y = 0, i = 0;
+    PIXEL_YC *ycp = NULL;
+    short *dst_Y = (short *)pixel_data->data[0];
+    short *dst_C = (short *)pixel_data->data[1];
+    short *Y = NULL, *C = NULL;
+    for (y = 0; y < height; y += 4) {
+        i = width * y;
+        ycp = (PIXEL_YC *)pixel + i;
+        Y = (short *)dst_Y + i;
+        C = (short *)dst_C + (i>>1);
+        for (x = 0; x < width; x += 2) {
+            Y[x          ] = (short)pixel_YC48_to_YUV(ycp[x          ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1        ] = (short)pixel_YC48_to_YUV(ycp[x+1        ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x  +width  ] = (short)pixel_YC48_to_YUV(ycp[x  +width  ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1+width  ] = (short)pixel_YC48_to_YUV(ycp[x+1+width  ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x  +width*2] = (short)pixel_YC48_to_YUV(ycp[x  +width*2].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1+width*2] = (short)pixel_YC48_to_YUV(ycp[x+1+width*2].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x  +width*3] = (short)pixel_YC48_to_YUV(ycp[x  +width*3].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1+width*3] = (short)pixel_YC48_to_YUV(ycp[x+1+width*3].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            C[0          ] = (short)pixel_YC48_to_YUV(((int)ycp[x      ].cb * 3 + (int)ycp[x+width*2].cb * 1) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420I, UV_L_YCC_16, 0, LIMIT_16);
+            C[0  +width  ] = (short)pixel_YC48_to_YUV(((int)ycp[x+width].cb * 1 + (int)ycp[x+width*3].cb * 3) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420I, UV_L_YCC_16, 0, LIMIT_16);
+            C++;
+            C[0          ] = (short)pixel_YC48_to_YUV(((int)ycp[x      ].cr * 3 + (int)ycp[x+width*2].cr * 1) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420I, UV_L_YCC_16, 0, LIMIT_16);
+            C[0  +width  ] = (short)pixel_YC48_to_YUV(((int)ycp[x+width].cr * 1 + (int)ycp[x+width*3].cr * 3) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420I, UV_L_YCC_16, 0, LIMIT_16);
+            C++;
+        }
+    }
+}
+
+void convert_yc48_to_yv12_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x = 0, y = 0, i = 0;
+    PIXEL_YC *ycp;
+    short *dst_Y = (short *)pixel_data->data[0];
+    short *dst_U = (short *)pixel_data->data[1];
+    short *dst_V = (short *)pixel_data->data[2];
+    short *Y = NULL, *U = NULL, *V = NULL;
+    for (y = 0; y < height; y += 2) {
+        i = width * y;
+        ycp = (PIXEL_YC *)pixel + i;
+        Y = (short *)dst_Y + i;
+        U = (short *)dst_U + (i>>2);
+        V = (short *)dst_V + (i>>2);
+        for (x = 0; x < width; x += 2) {
+            Y[x        ] = (short)pixel_YC48_to_YUV(ycp[x        ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1      ] = (short)pixel_YC48_to_YUV(ycp[x+1      ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x  +width] = (short)pixel_YC48_to_YUV(ycp[x  +width].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1+width] = (short)pixel_YC48_to_YUV(ycp[x+1+width].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            *U = (short)pixel_YC48_to_YUV(((int)ycp[x].cb + (int)ycp[x+width].cb) + UV_OFFSET_x2, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420P, Y_L_YCC_16, 0, LIMIT_16);
+            U++;
+            *V = (short)pixel_YC48_to_YUV(((int)ycp[x].cr + (int)ycp[x+width].cr) + UV_OFFSET_x2, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420P, Y_L_YCC_16, 0, LIMIT_16);
+            V++;
+        }
+    }
+}
+void convert_yc48_to_yv12_i_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x = 0, y = 0, i = 0;
+    PIXEL_YC *ycp = NULL;
+    short *dst_Y = (short *)pixel_data->data[0];
+    short *dst_U = (short *)pixel_data->data[1];
+    short *dst_V = (short *)pixel_data->data[2];
+    short *Y = NULL, *U = NULL, *V = NULL;
+    for (y = 0; y < height; y += 4) {
+        i = width * y;
+        ycp = (PIXEL_YC *)pixel + i;
+        Y = (short *)dst_Y + i;
+        U = (short *)dst_U + (i>>2);
+        V = (short *)dst_V + (i>>2);
+        for (x = 0; x < width; x += 2) {
+            Y[x          ] = (short)pixel_YC48_to_YUV(ycp[x          ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1        ] = (short)pixel_YC48_to_YUV(ycp[x+1        ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x  +width  ] = (short)pixel_YC48_to_YUV(ycp[x  +width  ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1+width  ] = (short)pixel_YC48_to_YUV(ycp[x+1+width  ].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x  +width*2] = (short)pixel_YC48_to_YUV(ycp[x  +width*2].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1+width*2] = (short)pixel_YC48_to_YUV(ycp[x+1+width*2].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x  +width*3] = (short)pixel_YC48_to_YUV(ycp[x  +width*3].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            Y[x+1+width*3] = (short)pixel_YC48_to_YUV(ycp[x+1+width*3].y, Y_L_MUL, Y_L_ADD_16, Y_L_RSH_16, Y_L_YCC_16, 0, LIMIT_16);
+            U[0          ] = (short)pixel_YC48_to_YUV(((int)ycp[x      ].cb * 3 + (int)ycp[x+width*2].cb * 1) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420I, UV_L_YCC_16, 0, LIMIT_16);
+            U[0  +width  ] = (short)pixel_YC48_to_YUV(((int)ycp[x+width].cb * 1 + (int)ycp[x+width*3].cb * 3) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420I, UV_L_YCC_16, 0, LIMIT_16);
+            U++;
+            V[0          ] = (short)pixel_YC48_to_YUV(((int)ycp[x      ].cr * 3 + (int)ycp[x+width*2].cr * 1) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420I, UV_L_YCC_16, 0, LIMIT_16);
+            V[0  +width  ] = (short)pixel_YC48_to_YUV(((int)ycp[x+width].cr * 1 + (int)ycp[x+width*3].cr * 3) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_16, UV_L_RSH_16_420I, UV_L_YCC_16, 0, LIMIT_16);
+            V++;
+        }
+    }
+}
+
+void convert_yc48_to_yv12_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x = 0, y = 0, i = 0;
+    PIXEL_YC *ycp;
+    short *dst_Y = (short *)pixel_data->data[0];
+    short *dst_U = (short *)pixel_data->data[1];
+    short *dst_V = (short *)pixel_data->data[2];
+    short *Y = NULL, *U = NULL, *V = NULL;
+    for (y = 0; y < height; y += 2) {
+        i = width * y;
+        ycp = (PIXEL_YC *)pixel + i;
+        Y = (short *)dst_Y + i;
+        U = (short *)dst_U + (i>>2);
+        V = (short *)dst_V + (i>>2);
+        for (x = 0; x < width; x += 2) {
+            Y[x        ] = (short)pixel_YC48_to_YUV(ycp[x        ].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x+1      ] = (short)pixel_YC48_to_YUV(ycp[x+1      ].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x  +width] = (short)pixel_YC48_to_YUV(ycp[x  +width].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x+1+width] = (short)pixel_YC48_to_YUV(ycp[x+1+width].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            *U = (short)pixel_YC48_to_YUV(((int)ycp[x].cb + (int)ycp[x+width].cb) + UV_OFFSET_x2, UV_L_MUL, Y_L_ADD_10, UV_L_RSH_10_420P, Y_L_YCC_10, 0, LIMIT_10);
+            U++;
+            *V = (short)pixel_YC48_to_YUV(((int)ycp[x].cr + (int)ycp[x+width].cr) + UV_OFFSET_x2, UV_L_MUL, Y_L_ADD_10, UV_L_RSH_10_420P, Y_L_YCC_10, 0, LIMIT_10);
+            V++;
+        }
+    }
+}
+void convert_yc48_to_yv12_i_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    int x = 0, y = 0, i = 0;
+    PIXEL_YC *ycp = NULL;
+    short *dst_Y = (short *)pixel_data->data[0];
+    short *dst_U = (short *)pixel_data->data[1];
+    short *dst_V = (short *)pixel_data->data[2];
+    short *Y = NULL, *U = NULL, *V = NULL;
+    for (y = 0; y < height; y += 4) {
+        i = width * y;
+        ycp = (PIXEL_YC *)pixel + i;
+        Y = (short *)dst_Y + i;
+        U = (short *)dst_U + (i>>2);
+        V = (short *)dst_V + (i>>2);
+        for (x = 0; x < width; x += 2) {
+            Y[x          ] = (short)pixel_YC48_to_YUV(ycp[x          ].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x+1        ] = (short)pixel_YC48_to_YUV(ycp[x+1        ].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x  +width  ] = (short)pixel_YC48_to_YUV(ycp[x  +width  ].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x+1+width  ] = (short)pixel_YC48_to_YUV(ycp[x+1+width  ].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x  +width*2] = (short)pixel_YC48_to_YUV(ycp[x  +width*2].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x+1+width*2] = (short)pixel_YC48_to_YUV(ycp[x+1+width*2].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x  +width*3] = (short)pixel_YC48_to_YUV(ycp[x  +width*3].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            Y[x+1+width*3] = (short)pixel_YC48_to_YUV(ycp[x+1+width*3].y, Y_L_MUL, Y_L_ADD_10, Y_L_RSH_10, Y_L_YCC_10, 0, LIMIT_10);
+            U[0          ] = (short)pixel_YC48_to_YUV(((int)ycp[x      ].cb * 3 + (int)ycp[x+width*2].cb * 1) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_10, UV_L_RSH_10_420I, UV_L_YCC_10, 0, LIMIT_10);
+            U[0  +width  ] = (short)pixel_YC48_to_YUV(((int)ycp[x+width].cb * 1 + (int)ycp[x+width*3].cb * 3) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_10, UV_L_RSH_10_420I, UV_L_YCC_10, 0, LIMIT_10);
+            U++;
+            V[0          ] = (short)pixel_YC48_to_YUV(((int)ycp[x      ].cr * 3 + (int)ycp[x+width*2].cr * 1) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_10, UV_L_RSH_10_420I, UV_L_YCC_10, 0, LIMIT_10);
+            V[0  +width  ] = (short)pixel_YC48_to_YUV(((int)ycp[x+width].cr * 1 + (int)ycp[x+width*3].cr * 3) + UV_OFFSET_x4, UV_L_MUL, Y_L_ADD_10, UV_L_RSH_10_420I, UV_L_YCC_10, 0, LIMIT_10);
+            V++;
+        }
+    }
+}
+
+void convert_yc48_to_yuv444(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    PIXEL_YC *ycp_fin = (PIXEL_YC *)pixel + width * height;
+    BYTE *Y = pixel_data->data[0];
+    BYTE *U = pixel_data->data[1];
+    BYTE *V = pixel_data->data[2];
+    for (PIXEL_YC *ycp = (PIXEL_YC *)pixel; ycp < ycp_fin; ycp++, Y++, U++, V++) {
+        *Y = (BYTE)pixel_YC48_to_YUV(ycp->y,                  Y_L_MUL,  Y_L_ADD_8,      Y_L_RSH_8,      Y_L_YCC_8, 0, LIMIT_8);
+        *U = (BYTE)pixel_YC48_to_YUV(ycp->cb + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_8_444, UV_L_RSH_8_444, UV_L_YCC_8, 0, LIMIT_8);
+        *V = (BYTE)pixel_YC48_to_YUV(ycp->cr + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_8_444, UV_L_RSH_8_444, UV_L_YCC_8, 0, LIMIT_8);
+    }
+}
+
+void convert_yc48_to_yuv444_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    PIXEL_YC *ycp_fin = (PIXEL_YC *)pixel + width * height;
+    short *Y = (short *)pixel_data->data[0];
+    short *U = (short *)pixel_data->data[1];
+    short *V = (short *)pixel_data->data[2];
+    for (PIXEL_YC *ycp = (PIXEL_YC *)pixel; ycp < ycp_fin; ycp++, Y++, U++, V++) {
+        *Y = (short)pixel_YC48_to_YUV(ycp->y,                  Y_L_MUL,  Y_L_ADD_10,      Y_L_RSH_10,      Y_L_YCC_10, 0, LIMIT_10);
+        *U = (short)pixel_YC48_to_YUV(ycp->cb + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_10_444, UV_L_RSH_10_444, UV_L_YCC_10, 0, LIMIT_10);
+        *V = (short)pixel_YC48_to_YUV(ycp->cr + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_10_444, UV_L_RSH_10_444, UV_L_YCC_10, 0, LIMIT_10);
+    }
+}
+
+void convert_yc48_to_yuv444_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    PIXEL_YC *ycp_fin = (PIXEL_YC *)pixel + width * height;
+    short *Y = (short *)pixel_data->data[0];
+    short *U = (short *)pixel_data->data[1];
+    short *V = (short *)pixel_data->data[2];
+    for (PIXEL_YC *ycp = (PIXEL_YC *)pixel; ycp < ycp_fin; ycp++, Y++, U++, V++) {
+        *Y = (short)pixel_YC48_to_YUV(ycp->y,                  Y_L_MUL,  Y_L_ADD_16,      Y_L_RSH_16,      Y_L_YCC_16, 0, LIMIT_16);
+        *U = (short)pixel_YC48_to_YUV(ycp->cb + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_16_444, UV_L_RSH_16_444, UV_L_YCC_16, 0, LIMIT_16);
+        *V = (short)pixel_YC48_to_YUV(ycp->cr + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_16_444, UV_L_RSH_16_444, UV_L_YCC_16, 0, LIMIT_16);
+    }
+}
+
+void convert_yuy2_to_nv16(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    BYTE *dst_Y = pixel_data->data[0];
+    BYTE *dst_C = pixel_data->data[1];
+    BYTE *p = (BYTE *)pixel;
+    const int n = width * height;
+    for (int i = 0; i < n; i += 2) {
+        dst_Y[i]   = p[i*2 + 0];
+        dst_C[i]   = p[i*2 + 1];
+        dst_Y[i+1] = p[i*2 + 2];
+        dst_C[i+1] = p[i*2 + 3];
+    }
+}
+
+void convert_yuy2_to_yuv422(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    BYTE *dst_Y = pixel_data->data[0];
+    BYTE *dst_U = pixel_data->data[1];
+    BYTE *dst_V = pixel_data->data[2];
+    BYTE *p = (BYTE *)pixel;
+    const int n = width * height;
+    for (int i = 0; i < n; i += 2) {
+        dst_Y[i +0] = p[i*2 + 0];
+        dst_U[i>>1] = p[i*2 + 1];
+        dst_Y[i +1] = p[i*2 + 2];
+        dst_V[i>>1] = p[i*2 + 3];
+    }
+}
+
+void convert_yc48_to_nv16_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+    short *dst_Y = (short *)pixel_data->data[0];
+    short *dst_C = (short *)pixel_data->data[1];
+    PIXEL_YC *ycp = (PIXEL_YC *)pixel;
+    const int n = width * height;
+    for (int i = 0; i < n; i += 2) {
+        dst_Y[i+0] = (short)pixel_YC48_to_YUV(ycp[i+0].y,                  Y_L_MUL,  Y_L_ADD_16,     Y_L_RSH_16,       Y_L_YCC_16, 0, LIMIT_16);
+        dst_C[i+0] = (short)pixel_YC48_to_YUV(ycp[i+0].cb + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_16_444, UV_L_RSH_16_444, UV_L_YCC_16, 0, LIMIT_16);
+        dst_C[i+1] = (short)pixel_YC48_to_YUV(ycp[i+0].cr + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_16_444, UV_L_RSH_16_444, UV_L_YCC_16, 0, LIMIT_16);
+        dst_Y[i+1] = (short)pixel_YC48_to_YUV(ycp[i+1].y,                  Y_L_MUL,  Y_L_ADD_16,     Y_L_RSH_16,       Y_L_YCC_16, 0, LIMIT_16);
     }
 }

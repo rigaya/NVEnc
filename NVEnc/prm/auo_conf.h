@@ -58,10 +58,11 @@ static inline int get_run_bat_idx(DWORD flag) {
 static const char *const CONF_NAME_OLD_1 = "NVEnc ConfigFile";
 static const char *const CONF_NAME_OLD_2 = "NVEnc ConfigFile v2";
 static const char *const CONF_NAME_OLD_3 = "NVEnc ConfigFile v3";
-static const char *const CONF_NAME       = CONF_NAME_OLD_3;
+static const char *const CONF_NAME_OLD_4 = "NVEnc ConfigFile v4";
+static const char *const CONF_NAME       = CONF_NAME_OLD_4;
 const int CONF_NAME_BLOCK_LEN            = 32;
 const int CONF_BLOCK_MAX                 = 32;
-const int CONF_BLOCK_COUNT               = 7; //最大 CONF_BLOCK_MAXまで
+const int CONF_BLOCK_COUNT               = 5; //最大 CONF_BLOCK_MAXまで
 const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
 
 enum {
@@ -88,41 +89,21 @@ static const char *const AUDIO_DELAY_CUT_MODE[] = {
 
 const int CMDEX_MAX_LEN = 2048;    //追加コマンドラインの最大長
 
-typedef struct CONF_NVENC {
-    NV_ENC_CONFIG enc_config;
-    NV_ENC_PIC_STRUCT pic_struct;
-    int preset;
-    int deviceID;
-    int inputBuffer;
-    int par[2];
-    int codec;
-    NV_ENC_CODEC_CONFIG codecConfig[2];
-    int bluray;
-    int weightp;
-    int perf_monitor;
-    int cuda_schedule;
-} CONF_NVENC;
-
+#pragma pack(push, 1)
 typedef struct {
-    BOOL vpp_perf_monitor;
-    BOOL resize_enable;
-    int resize_interp;
-    int resize_width;
-    int resize_height;
-    VppKnn knn;
-    VppPmd pmd;
-    VppDeband deband;
-    VppAfs afs;
-    VppUnsharp unsharp;
-    VppEdgelevel edgelevel;
-    VppTweak tweak;
-} CONF_VPP;
+    int codec;
+    int reserved[128];
+    char cmd[3072];
+    char reserved2[1024];
+} CONF_NVENC;
 
 typedef struct {
     BOOL afs;                      //自動フィールドシフトの使用
     BOOL auo_tcfile_out;           //auo側でタイムコードを出力する
-    BOOL log_debug;
-} CONF_VIDEO; //動画用設定
+    BOOL resize_enable;
+    int resize_width;
+    int resize_height;
+} CONF_VIDEO;
 
 typedef struct {
     int  encoder;             //使用する音声エンコーダ
@@ -181,15 +162,18 @@ typedef struct {
     CONF_AUDIO  aud;                             //音声についての設定
     CONF_MUX    mux;                             //muxについての設定
     CONF_OTHER  oth;                             //その他の設定
-    CONF_VPP    vpp;                             //vppについての設定
 } CONF_GUIEX;
+#pragma pack(pop)
 
 class guiEx_config {
 private:
     static const size_t conf_block_pointer[CONF_BLOCK_COUNT];
     static const int conf_block_data[CONF_BLOCK_COUNT];
-    static void convert_nvencstg_to_nvencstgv3(CONF_GUIEX *conf, const void *dat);
-    static void convert_nvencstgv2_to_nvencstgv3(CONF_GUIEX *conf);
+    int stgv3_block_size();
+    static void convert_nvencstg_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
+    static void convert_nvencstgv2_to_nvencstgv3(void *dat);
+    static void convert_nvencstgv2_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
+    static void convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
 public:
     guiEx_config();
     static void write_conf_header(CONF_GUIEX *conf);

@@ -196,6 +196,8 @@ System::Void frmConfig::LoadLocalStg() {
     LocalStg.CustomMP4TmpDir = String(_ex_stg->s_local.custom_mp4box_tmp_dir).ToString();
     LocalStg.LastAppDir      = String(_ex_stg->s_local.app_dir).ToString();
     LocalStg.LastBatDir      = String(_ex_stg->s_local.bat_dir).ToString();
+    LocalStg.vidEncName      = String(_ex_stg->s_vid.filename).ToString();
+    LocalStg.vidEncPath      = String(_ex_stg->s_vid.fullpath).ToString();
     LocalStg.MP4MuxerExeName = String(_ex_stg->s_mux[MUXER_MP4].filename).ToString();
     LocalStg.MP4MuxerPath    = String(_ex_stg->s_mux[MUXER_MP4].fullpath).ToString();
     LocalStg.MKVMuxerExeName = String(_ex_stg->s_mux[MUXER_MKV].filename).ToString();
@@ -222,6 +224,13 @@ System::Void frmConfig::LoadLocalStg() {
 System::Boolean frmConfig::CheckLocalStg() {
     bool error = false;
     String^ err = "";
+    //映像エンコーダのチェック
+    String^ VideoEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
+    if (!File::Exists(VideoEncoderPath)) {
+        if (!error) err += L"\n\n";
+        error = true;
+        err += L"指定された 動画エンコーダ は存在しません。\n [ " + VideoEncoderPath + L" ]\n";
+    }
     //音声エンコーダのチェック (実行ファイル名がない場合はチェックしない)
     if (LocalStg.audEncExeName[fcgCXAudioEncoder->SelectedIndex]->Length) {
         String^ AudioEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
@@ -266,6 +275,7 @@ System::Void frmConfig::SaveLocalStg() {
     GetCHARfromString(_ex_stg->s_local.custom_audio_tmp_dir,  sizeof(_ex_stg->s_local.custom_audio_tmp_dir),  LocalStg.CustomAudTmpDir);
     GetCHARfromString(_ex_stg->s_local.app_dir,               sizeof(_ex_stg->s_local.app_dir),               LocalStg.LastAppDir);
     GetCHARfromString(_ex_stg->s_local.bat_dir,               sizeof(_ex_stg->s_local.bat_dir),               LocalStg.LastBatDir);
+    GetCHARfromString(_ex_stg->s_vid.fullpath,                sizeof(_ex_stg->s_vid.fullpath),                LocalStg.vidEncPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_MP4].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MP4].fullpath),     LocalStg.MP4MuxerPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_MKV].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MKV].fullpath),     LocalStg.MKVMuxerPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_TC2MP4].fullpath,  sizeof(_ex_stg->s_mux[MUXER_TC2MP4].fullpath),  LocalStg.TC2MP4Path);
@@ -277,6 +287,7 @@ System::Void frmConfig::SaveLocalStg() {
 }
 
 System::Void frmConfig::SetLocalStg() {
+    fcgTXVideoEncoderPath->Text   = LocalStg.vidEncPath;
     fcgTXMP4MuxerPath->Text       = LocalStg.MP4MuxerPath;
     fcgTXMKVMuxerPath->Text       = LocalStg.MKVMuxerPath;
     fcgTXTC2MP4Path->Text         = LocalStg.TC2MP4Path;
@@ -285,12 +296,14 @@ System::Void frmConfig::SetLocalStg() {
     fcgTXCustomAudioTempDir->Text = LocalStg.CustomAudTmpDir;
     fcgTXCustomTempDir->Text      = LocalStg.CustomTmpDir;
     fcgTXMP4BoxTempDir->Text      = LocalStg.CustomMP4TmpDir;
+    fcgLBVideoEncoderPath->Text   = LocalStg.vidEncName + L" の指定";
     fcgLBMP4MuxerPath->Text       = LocalStg.MP4MuxerExeName + L" の指定";
     fcgLBMKVMuxerPath->Text       = LocalStg.MKVMuxerExeName + L" の指定";
     fcgLBTC2MP4Path->Text         = LocalStg.TC2MP4ExeName   + L" の指定";
     fcgLBMPGMuxerPath->Text       = LocalStg.MPGMuxerExeName + L" の指定";
     fcgLBMP4RawPath->Text         = LocalStg.MP4RawExeName + L" の指定";
 
+    fcgTXVideoEncoderPath->SelectionStart = fcgTXVideoEncoderPath->Text->Length;
     fcgTXMP4MuxerPath->SelectionStart     = fcgTXMP4MuxerPath->Text->Length;
     fcgTXTC2MP4Path->SelectionStart       = fcgTXTC2MP4Path->Text->Length;
     fcgTXMKVMuxerPath->SelectionStart     = fcgTXMKVMuxerPath->Text->Length;
@@ -674,6 +687,13 @@ System::Void frmConfig::InitComboBox() {
 #else
     setMuxerCmdExNames(fcgCXMPGCmdEx, MUXER_MPG);
 #endif
+    fcgCXDevice->Items->Clear();
+    fcgCXDevice->Items->Add(String(_T("Auto")).ToString());
+    //適当に追加しておく
+    //あとでデバイス情報を追加してから修正する
+    for (int i = 0; i < 8; i++) {
+        fcgCXDevice->Items->Add(_T("------"));
+    }
 
     setAudioEncoderNames();
 
@@ -688,6 +708,7 @@ System::Void frmConfig::SetTXMaxLen(TextBox^ TX, int max_len) {
 
 System::Void frmConfig::SetTXMaxLenAll() {
     //MaxLengthに最大文字数をセットし、それをもとにバイト数計算を行うイベントをセットする。
+    SetTXMaxLen(fcgTXVideoEncoderPath,   sizeof(sys_dat->exstg->s_vid.fullpath) - 1);
     SetTXMaxLen(fcgTXAudioEncoderPath,   sizeof(sys_dat->exstg->s_aud[0].fullpath) - 1);
     SetTXMaxLen(fcgTXMP4MuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MP4].fullpath) - 1);
     SetTXMaxLen(fcgTXMKVMuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MKV].fullpath) - 1);
@@ -756,7 +777,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 System::Void frmConfig::fcgCodecChanged(System::Object^  sender, System::EventArgs^  e) {
     bool h264_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_H264;
     bool hevc_mode = fcgCXEncCodec->SelectedIndex == NV_ENC_HEVC;
-    if (hevc_mode && !nvfeature_HEVCAvailable(featureCache)) {
+    if (hevc_mode && !nvencInfo.hevcEnc) {
         h264_mode = true;
         hevc_mode = false;
         fcgCXEncCodec->SelectedIndex = NV_ENC_H264;
@@ -827,18 +848,9 @@ System::Void frmConfig::AdjustLocation() {
     }
 }
 
-std::list<NVGPUInfo> get_gpu_list();
-
 System::Void frmConfig::InitForm() {
-    fcgCXDevice->Items->Clear();
-    fcgCXDevice->Items->Add(String(_T("Auto")).ToString());
-    for (auto& gpu : get_gpu_list()) {
-        fcgCXDevice->Items->Add(String(gpu.name.c_str()).ToString());
-    }
-    //CPU情報の取得
-    SetupFeatureTable();
-    getEnvironmentInfoDelegate = gcnew SetEnvironmentInfoDelegate(this, &frmConfig::SetEnvironmentInfo);
-    getEnvironmentInfoDelegate->BeginInvoke(nullptr, nullptr);
+    fcgPBNVEncLogoEnabled->Visible = false;
+    GetVidEncInfoAsync();
     //ローカル設定のロード
     LoadLocalStg();
     //ローカル設定の反映
@@ -874,93 +886,92 @@ System::Void frmConfig::InitForm() {
     //フォントの設定
     if (str_has_char(sys_dat->exstg->s_local.conf_font.name))
         SetFontFamilyToForm(this, gcnew FontFamily(String(sys_dat->exstg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
-    //NVEncが実行できるか
-    fcgPBNVEncLogoEnabled->Visible = featureCache && 0 < nvfeature_GetCachedNVEncCapability(featureCache).size();
-    //HEVCエンコができるか
-    if (!nvfeature_HEVCAvailable(featureCache)) {
-        fcgCXEncCodec->Items[NV_ENC_HEVC] = L"-------------";
-    }
-    fcgCXEncCodec->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCodecChanged);
-    fcgCodecChanged(nullptr, nullptr);
 }
 
 /////////////         データ <-> GUI     /////////////
 System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->SuspendLayout();
 
-    SetCXIndex(fcgCXEncCodec,          get_index_from_value(cnf->nvenc.codec, list_nvenc_codecs));
-    SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, cnf->nvenc.enc_config.rcParams.rateControlMode));
-    SetNUValue(fcgNUBitrate,           cnf->nvenc.enc_config.rcParams.averageBitRate / 1000);
-    SetNUValue(fcgNUMaxkbps,           cnf->nvenc.enc_config.rcParams.maxBitRate / 1000);
-    SetNUValue(fcgNUQPI,               cnf->nvenc.enc_config.rcParams.constQP.qpIntra);
-    SetNUValue(fcgNUQPP,               cnf->nvenc.enc_config.rcParams.constQP.qpInterP);
-    SetNUValue(fcgNUQPB,               cnf->nvenc.enc_config.rcParams.constQP.qpInterB);
-    SetNUValue(fcgNUVBRTragetQuality,  Decimal(cnf->nvenc.enc_config.rcParams.targetQuality + cnf->nvenc.enc_config.rcParams.targetQualityLSB / 256.0));
-    SetNUValue(fcgNUGopLength,         cnf->nvenc.enc_config.gopLength);
-    SetNUValue(fcgNUBframes,           cnf->nvenc.enc_config.frameIntervalP - 1);
-    SetCXIndex(fcgCXQualityPreset,     get_index_from_value(cnf->nvenc.preset, list_nvenc_preset_names));
-    SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, cnf->nvenc.enc_config.mvPrecision));
-    SetNUValue(fcgNUVBVBufsize, cnf->nvenc.enc_config.rcParams.vbvBufferSize / 1000);
-    SetNUValue(fcgNULookaheadDepth,   (cnf->nvenc.enc_config.rcParams.enableLookahead) ? cnf->nvenc.enc_config.rcParams.lookaheadDepth : 0);
-    uint32_t nAQ = 0;
-    nAQ |= cnf->nvenc.enc_config.rcParams.enableAQ ? NV_ENC_AQ_SPATIAL : 0x00;
-    nAQ |= cnf->nvenc.enc_config.rcParams.enableTemporalAQ ? NV_ENC_AQ_TEMPORAL : 0x00;
-    SetCXIndex(fcgCXAQ,                get_cx_index(list_aq, nAQ));
-    SetNUValue(fcgNUAQStrength,        cnf->nvenc.enc_config.rcParams.aqStrength);
-    fcgCBWeightP->Checked            = cnf->nvenc.weightp != 0;
-    
-    if (cnf->nvenc.par[0] * cnf->nvenc.par[1] <= 0)
-        cnf->nvenc.par[0] = cnf->nvenc.par[1] = 0;
-    SetCXIndex(fcgCXAspectRatio, (cnf->nvenc.par[0] < 0));
-    SetNUValue(fcgNUAspectRatioX, abs(cnf->nvenc.par[0]));
-    SetNUValue(fcgNUAspectRatioY, abs(cnf->nvenc.par[1]));
+    ParseCmdError err;
+    InEncodeVideoParam encPrm;
+    NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
+    codecPrm[NV_ENC_H264] = DefaultParamH264();
+    codecPrm[NV_ENC_HEVC] = DefaultParamHEVC();
+    parse_cmd(&encPrm, codecPrm, cnf->nvenc.cmd, err);
 
-    SetCXIndex(fcgCXDevice,      cnf->nvenc.deviceID+1); //先頭は"Auto"なので+1
-    SetCXIndex(fcgCXCudaSchdule, cnf->nvenc.cuda_schedule);
-    fcgCBPerfMonitor->Checked = 0 != cnf->nvenc.perf_monitor;
+    SetCXIndex(fcgCXEncCodec,          get_index_from_value(encPrm.codec, list_nvenc_codecs));
+    SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, encPrm.encConfig.rcParams.rateControlMode));
+    SetNUValue(fcgNUBitrate,           encPrm.encConfig.rcParams.averageBitRate / 1000);
+    SetNUValue(fcgNUMaxkbps,           encPrm.encConfig.rcParams.maxBitRate / 1000);
+    SetNUValue(fcgNUQPI,               encPrm.encConfig.rcParams.constQP.qpIntra);
+    SetNUValue(fcgNUQPP,               encPrm.encConfig.rcParams.constQP.qpInterP);
+    SetNUValue(fcgNUQPB,               encPrm.encConfig.rcParams.constQP.qpInterB);
+    SetNUValue(fcgNUVBRTragetQuality,  Decimal(encPrm.encConfig.rcParams.targetQuality + encPrm.encConfig.rcParams.targetQualityLSB / 256.0));
+    SetNUValue(fcgNUGopLength,         encPrm.encConfig.gopLength);
+    SetNUValue(fcgNUBframes,           encPrm.encConfig.frameIntervalP - 1);
+    SetCXIndex(fcgCXQualityPreset,     get_index_from_value(encPrm.preset, list_nvenc_preset_names));
+    SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, encPrm.encConfig.mvPrecision));
+    SetNUValue(fcgNUVBVBufsize, encPrm.encConfig.rcParams.vbvBufferSize / 1000);
+    SetNUValue(fcgNULookaheadDepth,   (encPrm.encConfig.rcParams.enableLookahead) ? encPrm.encConfig.rcParams.lookaheadDepth : 0);
+    uint32_t nAQ = 0;
+    nAQ |= encPrm.encConfig.rcParams.enableAQ ? NV_ENC_AQ_SPATIAL : 0x00;
+    nAQ |= encPrm.encConfig.rcParams.enableTemporalAQ ? NV_ENC_AQ_TEMPORAL : 0x00;
+    SetCXIndex(fcgCXAQ,                get_cx_index(list_aq, nAQ));
+    SetNUValue(fcgNUAQStrength,        encPrm.encConfig.rcParams.aqStrength);
+    fcgCBWeightP->Checked            = encPrm.nWeightP != 0;
+    
+    if (encPrm.par[0] * encPrm.par[1] <= 0)
+        encPrm.par[0] = encPrm.par[1] = 0;
+    SetCXIndex(fcgCXAspectRatio, (encPrm.par[0] < 0));
+    SetNUValue(fcgNUAspectRatioX, abs(encPrm.par[0]));
+    SetNUValue(fcgNUAspectRatioY, abs(encPrm.par[1]));
+
+    SetCXIndex(fcgCXDevice,      encPrm.deviceID+1); //先頭は"Auto"なので+1
+    SetCXIndex(fcgCXCudaSchdule, encPrm.nCudaSchedule);
+    fcgCBPerfMonitor->Checked = 0 != encPrm.nPerfMonitorSelect;
 
     //QPDetail
-    fcgCBQPMin->Checked = cnf->nvenc.enc_config.rcParams.enableMinQP != 0;
-    fcgCBQPMax->Checked = cnf->nvenc.enc_config.rcParams.enableMaxQP != 0;
-    fcgCBQPInit->Checked = cnf->nvenc.enc_config.rcParams.enableInitialRCQP != 0;
-    SetNUValue(fcgNUQPMinI, cnf->nvenc.enc_config.rcParams.minQP.qpIntra);
-    SetNUValue(fcgNUQPMinP, cnf->nvenc.enc_config.rcParams.minQP.qpInterP);
-    SetNUValue(fcgNUQPMinB, cnf->nvenc.enc_config.rcParams.minQP.qpInterB);
-    SetNUValue(fcgNUQPMaxI, cnf->nvenc.enc_config.rcParams.maxQP.qpIntra);
-    SetNUValue(fcgNUQPMaxP, cnf->nvenc.enc_config.rcParams.maxQP.qpInterP);
-    SetNUValue(fcgNUQPMaxB, cnf->nvenc.enc_config.rcParams.maxQP.qpInterB);
-    SetNUValue(fcgNUQPInitI, cnf->nvenc.enc_config.rcParams.initialRCQP.qpIntra);
-    SetNUValue(fcgNUQPInitP, cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterP);
-    SetNUValue(fcgNUQPInitB, cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterB);
+    fcgCBQPMin->Checked = encPrm.encConfig.rcParams.enableMinQP != 0;
+    fcgCBQPMax->Checked = encPrm.encConfig.rcParams.enableMaxQP != 0;
+    fcgCBQPInit->Checked = encPrm.encConfig.rcParams.enableInitialRCQP != 0;
+    SetNUValue(fcgNUQPMinI, encPrm.encConfig.rcParams.minQP.qpIntra);
+    SetNUValue(fcgNUQPMinP, encPrm.encConfig.rcParams.minQP.qpInterP);
+    SetNUValue(fcgNUQPMinB, encPrm.encConfig.rcParams.minQP.qpInterB);
+    SetNUValue(fcgNUQPMaxI, encPrm.encConfig.rcParams.maxQP.qpIntra);
+    SetNUValue(fcgNUQPMaxP, encPrm.encConfig.rcParams.maxQP.qpInterP);
+    SetNUValue(fcgNUQPMaxB, encPrm.encConfig.rcParams.maxQP.qpInterB);
+    SetNUValue(fcgNUQPInitI, encPrm.encConfig.rcParams.initialRCQP.qpIntra);
+    SetNUValue(fcgNUQPInitP, encPrm.encConfig.rcParams.initialRCQP.qpInterP);
+    SetNUValue(fcgNUQPInitB, encPrm.encConfig.rcParams.initialRCQP.qpInterB);
 
     //H.264
-    SetNUValue(fcgNURefFrames,         cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.maxNumRefFrames);
-    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, picstruct_enc_to_rgy(cnf->nvenc.pic_struct)));
-    SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level,            cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.level));
-    SetCXIndex(fcgCXCodecProfile, get_index_from_value(get_value_from_guid(cnf->nvenc.enc_config.profileGUID, h264_profile_names), h264_profile_names));
-    SetNUValue(fcgNUSlices,       cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.sliceModeData);
-    fcgCBBluray->Checked       = 0 != cnf->nvenc.bluray;
-    fcgCBCABAC->Checked        = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode;
-    fcgCBDeblock->Checked                                          = 0 == cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.disableDeblockingFilterIDC;
-    SetCXIndex(fcgCXVideoFormatH264,       get_cx_index(list_videoformat, cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat));
-    fcgCBFullrangeH264->Checked                                    = 0 != cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag;
-    SetCXIndex(fcgCXTransferH264,          get_cx_index(list_transfer,    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics));
-    SetCXIndex(fcgCXColorMatrixH264,       get_cx_index(list_colormatrix, cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix));
-    SetCXIndex(fcgCXColorPrimH264,         get_cx_index(list_colorprim,   cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries));
-    SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode));
-    SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode));
+    SetNUValue(fcgNURefFrames,         codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames);
+    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, encPrm.input.picstruct));
+    SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level,            codecPrm[NV_ENC_H264].h264Config.level));
+    SetCXIndex(fcgCXCodecProfile, get_index_from_value(get_value_from_guid(encPrm.encConfig.profileGUID, h264_profile_names), h264_profile_names));
+    SetNUValue(fcgNUSlices,       codecPrm[NV_ENC_H264].h264Config.sliceModeData);
+    fcgCBBluray->Checked       = 0 != encPrm.bluray;
+    fcgCBCABAC->Checked        = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != codecPrm[NV_ENC_H264].h264Config.entropyCodingMode;
+    fcgCBDeblock->Checked                                          = 0 == codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC;
+    SetCXIndex(fcgCXVideoFormatH264,       get_cx_index(list_videoformat, codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat));
+    fcgCBFullrangeH264->Checked                                    = 0 != codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag;
+    SetCXIndex(fcgCXTransferH264,          get_cx_index(list_transfer,    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics));
+    SetCXIndex(fcgCXColorMatrixH264,       get_cx_index(list_colormatrix, codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix));
+    SetCXIndex(fcgCXColorPrimH264,         get_cx_index(list_colorprim,   codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries));
+    SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, codecPrm[NV_ENC_H264].h264Config.adaptiveTransformMode));
+    SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         codecPrm[NV_ENC_H264].h264Config.bdirectMode));
     
     //HEVC
-    SetCXIndex(fcgCXHEVCOutBitDepth,       get_cx_index(list_bitdepth, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8));
-    SetCXIndex(fcgCXHEVCTier,      get_index_from_value(cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.tier, h265_profile_names));
-    SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.level));
-    SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxCUSize));
-    SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.minCUSize));
-    SetCXIndex(fcgCXVideoFormatHEVC,       get_cx_index(list_videoformat, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat));
-    fcgCBFullrangeHEVC->Checked                                    = 0 != cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag;
-    SetCXIndex(fcgCXTransferHEVC,          get_cx_index(list_transfer,    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics));
-    SetCXIndex(fcgCXColorMatrixHEVC,       get_cx_index(list_colormatrix, cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix));
-    SetCXIndex(fcgCXColorPrimHEVC,         get_cx_index(list_colorprim,   cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries));
+    SetCXIndex(fcgCXHEVCOutBitDepth,       get_cx_index(list_bitdepth, codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8));
+    SetCXIndex(fcgCXHEVCTier,      get_index_from_value(codecPrm[NV_ENC_HEVC].hevcConfig.tier, h265_profile_names));
+    SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   codecPrm[NV_ENC_HEVC].hevcConfig.level));
+    SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize));
+    SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize));
+    SetCXIndex(fcgCXVideoFormatHEVC,       get_cx_index(list_videoformat, codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat));
+    fcgCBFullrangeHEVC->Checked                                    = 0 != codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag;
+    SetCXIndex(fcgCXTransferHEVC,          get_cx_index(list_transfer,    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics));
+    SetCXIndex(fcgCXColorMatrixHEVC,       get_cx_index(list_colormatrix, codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix));
+    SetCXIndex(fcgCXColorPrimHEVC,         get_cx_index(list_colorprim,   codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries));
 
     //fcgCBShowPerformanceInfo->Checked = (CHECK_PERFORMANCE) ? cnf->vid.vce_ext_prm.show_performance_info != 0 : false;
 
@@ -968,75 +979,75 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXTempDir,             cnf->oth.temp_dir);
         fcgCBAFS->Checked                  = cnf->vid.afs != 0; 
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
-        fcgCBLogDebug->Checked             = cnf->vid.log_debug != 0;
+        fcgCBLogDebug->Checked             = encPrm.loglevel == RGY_LOG_DEBUG;
 
-        fcgCBVppPerfMonitor->Checked   = cnf->vpp.vpp_perf_monitor != 0;
-        fcgCBVppResize->Checked        = cnf->vpp.resize_enable != 0;
-        SetNUValue(fcgNUVppResizeWidth,  cnf->vpp.resize_width);
-        SetNUValue(fcgNUVppResizeHeight, cnf->vpp.resize_height);
-        SetCXIndex(fcgCXVppResizeAlg,    get_cx_index(list_nppi_resize, cnf->vpp.resize_interp));
+        fcgCBVppPerfMonitor->Checked   = encPrm.vpp.bCheckPerformance != 0;
+        fcgCBVppResize->Checked        = cnf->vid.resize_enable != 0;
+        SetNUValue(fcgNUVppResizeWidth,  cnf->vid.resize_width);
+        SetNUValue(fcgNUVppResizeHeight, cnf->vid.resize_height);
+        SetCXIndex(fcgCXVppResizeAlg,    get_cx_index(list_nppi_resize, encPrm.vpp.resizeInterp));
         int dnoise_idx = 0;
-        if (cnf->vpp.knn.enable) {
+        if (encPrm.vpp.knn.enable) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
-        } else if (cnf->vpp.pmd.enable) {
+        } else if (encPrm.vpp.pmd.enable) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
         }
         SetCXIndex(fcgCXVppDenoiseMethod,        dnoise_idx);
 
         int detail_enahance_idx = 0;
-        if (cnf->vpp.unsharp.enable) {
+        if (encPrm.vpp.unsharp.enable) {
             detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
-        } else if (cnf->vpp.edgelevel.enable) {
+        } else if (encPrm.vpp.edgelevel.enable) {
             detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("edgelevel"));
         }
         SetCXIndex(fcgCXVppDetailEnhance, detail_enahance_idx);
 
-        SetNUValue(fcgNUVppDenoiseKnnRadius,     cnf->vpp.knn.radius);
-        SetNUValue(fcgNUVppDenoiseKnnStrength,   cnf->vpp.knn.strength);
-        SetNUValue(fcgNUVppDenoiseKnnThreshold,  cnf->vpp.knn.lerp_threshold);
-        SetNUValue(fcgNUVppDenoisePmdApplyCount, cnf->vpp.pmd.applyCount);
-        SetNUValue(fcgNUVppDenoisePmdStrength,   cnf->vpp.pmd.strength);
-        SetNUValue(fcgNUVppDenoisePmdThreshold,  cnf->vpp.pmd.threshold);
-        fcgCBVppDebandEnable->Checked          = cnf->vpp.deband.enable;
-        SetNUValue(fcgNUVppDebandRange,          cnf->vpp.deband.range);
-        SetNUValue(fcgNUVppDebandThreY,          cnf->vpp.deband.threY);
-        SetNUValue(fcgNUVppDebandThreCb,         cnf->vpp.deband.threCb);
-        SetNUValue(fcgNUVppDebandThreCr,         cnf->vpp.deband.threCr);
-        SetNUValue(fcgNUVppDebandDitherY,        cnf->vpp.deband.ditherY);
-        SetNUValue(fcgNUVppDebandDitherC,        cnf->vpp.deband.ditherC);
-        SetCXIndex(fcgCXVppDebandSample,         cnf->vpp.deband.sample);
-        fcgCBVppDebandBlurFirst->Checked       = cnf->vpp.deband.blurFirst;
-        fcgCBVppDebandRandEachFrame->Checked   = cnf->vpp.deband.randEachFrame;
-        SetNUValue(fcgNUVppUnsharpRadius,        cnf->vpp.unsharp.radius);
-        SetNUValue(fcgNUVppUnsharpWeight,        cnf->vpp.unsharp.weight);
-        SetNUValue(fcgNUVppUnsharpThreshold,     cnf->vpp.unsharp.threshold);
-        SetNUValue(fcgNUVppEdgelevelStrength,    cnf->vpp.edgelevel.strength);
-        SetNUValue(fcgNUVppEdgelevelThreshold,   cnf->vpp.edgelevel.threshold);
-        SetNUValue(fcgNUVppEdgelevelBlack,       cnf->vpp.edgelevel.black);
-        SetNUValue(fcgNUVppEdgelevelWhite,       cnf->vpp.edgelevel.white);
-        SetNUValue(fcgNUVppAfsUp,                cnf->vpp.afs.clip.top);
-        SetNUValue(fcgNUVppAfsBottom,            cnf->vpp.afs.clip.bottom);
-        SetNUValue(fcgNUVppAfsLeft,              cnf->vpp.afs.clip.left);
-        SetNUValue(fcgNUVppAfsRight,             cnf->vpp.afs.clip.right);
-        SetNUValue(fcgNUVppAfsMethodSwitch,      cnf->vpp.afs.method_switch);
-        SetNUValue(fcgNUVppAfsCoeffShift,        cnf->vpp.afs.coeff_shift);
-        SetNUValue(fcgNUVppAfsThreShift,         cnf->vpp.afs.thre_shift);
-        SetNUValue(fcgNUVppAfsThreDeint,         cnf->vpp.afs.thre_deint);
-        SetNUValue(fcgNUVppAfsThreYMotion,       cnf->vpp.afs.thre_Ymotion);
-        SetNUValue(fcgNUVppAfsThreCMotion,       cnf->vpp.afs.thre_Cmotion);
-        SetCXIndex(fcgCXVppAfsAnalyze,           cnf->vpp.afs.analyze);
-        fcgCBVppAfsEnable->Checked             = cnf->vpp.afs.enable != 0;
-        fcgCBVppAfsShift->Checked              = cnf->vpp.afs.shift != 0;
-        fcgCBVppAfsDrop->Checked               = cnf->vpp.afs.drop != 0;
-        fcgCBVppAfsSmooth->Checked             = cnf->vpp.afs.smooth != 0;
-        fcgCBVppAfs24fps->Checked              = cnf->vpp.afs.force24 != 0;
-        fcgCBVppAfsTune->Checked               = cnf->vpp.afs.tune != 0;
-        fcgCBVppTweakEnable->Checked           = cnf->vpp.tweak.enable;
-        SetNUValue(fcgNUVppTweakBrightness,      (int)(cnf->vpp.tweak.brightness * 100.0f));
-        SetNUValue(fcgNUVppTweakContrast,        (int)(cnf->vpp.tweak.contrast * 100.0f));
-        SetNUValue(fcgNUVppTweakGamma,           (int)(cnf->vpp.tweak.gamma * 100.0f));
-        SetNUValue(fcgNUVppTweakSaturation,      (int)(cnf->vpp.tweak.saturation * 100.0f));
-        SetNUValue(fcgNUVppTweakHue,             (int) cnf->vpp.tweak.hue);
+        SetNUValue(fcgNUVppDenoiseKnnRadius,     encPrm.vpp.knn.radius);
+        SetNUValue(fcgNUVppDenoiseKnnStrength,   encPrm.vpp.knn.strength);
+        SetNUValue(fcgNUVppDenoiseKnnThreshold,  encPrm.vpp.knn.lerp_threshold);
+        SetNUValue(fcgNUVppDenoisePmdApplyCount, encPrm.vpp.pmd.applyCount);
+        SetNUValue(fcgNUVppDenoisePmdStrength,   encPrm.vpp.pmd.strength);
+        SetNUValue(fcgNUVppDenoisePmdThreshold,  encPrm.vpp.pmd.threshold);
+        fcgCBVppDebandEnable->Checked          = encPrm.vpp.deband.enable;
+        SetNUValue(fcgNUVppDebandRange,          encPrm.vpp.deband.range);
+        SetNUValue(fcgNUVppDebandThreY,          encPrm.vpp.deband.threY);
+        SetNUValue(fcgNUVppDebandThreCb,         encPrm.vpp.deband.threCb);
+        SetNUValue(fcgNUVppDebandThreCr,         encPrm.vpp.deband.threCr);
+        SetNUValue(fcgNUVppDebandDitherY,        encPrm.vpp.deband.ditherY);
+        SetNUValue(fcgNUVppDebandDitherC,        encPrm.vpp.deband.ditherC);
+        SetCXIndex(fcgCXVppDebandSample,         encPrm.vpp.deband.sample);
+        fcgCBVppDebandBlurFirst->Checked       = encPrm.vpp.deband.blurFirst;
+        fcgCBVppDebandRandEachFrame->Checked   = encPrm.vpp.deband.randEachFrame;
+        SetNUValue(fcgNUVppUnsharpRadius,        encPrm.vpp.unsharp.radius);
+        SetNUValue(fcgNUVppUnsharpWeight,        encPrm.vpp.unsharp.weight);
+        SetNUValue(fcgNUVppUnsharpThreshold,     encPrm.vpp.unsharp.threshold);
+        SetNUValue(fcgNUVppEdgelevelStrength,    encPrm.vpp.edgelevel.strength);
+        SetNUValue(fcgNUVppEdgelevelThreshold,   encPrm.vpp.edgelevel.threshold);
+        SetNUValue(fcgNUVppEdgelevelBlack,       encPrm.vpp.edgelevel.black);
+        SetNUValue(fcgNUVppEdgelevelWhite,       encPrm.vpp.edgelevel.white);
+        SetNUValue(fcgNUVppAfsUp,                encPrm.vpp.afs.clip.top);
+        SetNUValue(fcgNUVppAfsBottom,            encPrm.vpp.afs.clip.bottom);
+        SetNUValue(fcgNUVppAfsLeft,              encPrm.vpp.afs.clip.left);
+        SetNUValue(fcgNUVppAfsRight,             encPrm.vpp.afs.clip.right);
+        SetNUValue(fcgNUVppAfsMethodSwitch,      encPrm.vpp.afs.method_switch);
+        SetNUValue(fcgNUVppAfsCoeffShift,        encPrm.vpp.afs.coeff_shift);
+        SetNUValue(fcgNUVppAfsThreShift,         encPrm.vpp.afs.thre_shift);
+        SetNUValue(fcgNUVppAfsThreDeint,         encPrm.vpp.afs.thre_deint);
+        SetNUValue(fcgNUVppAfsThreYMotion,       encPrm.vpp.afs.thre_Ymotion);
+        SetNUValue(fcgNUVppAfsThreCMotion,       encPrm.vpp.afs.thre_Cmotion);
+        SetCXIndex(fcgCXVppAfsAnalyze,           encPrm.vpp.afs.analyze);
+        fcgCBVppAfsEnable->Checked             = encPrm.vpp.afs.enable != 0;
+        fcgCBVppAfsShift->Checked              = encPrm.vpp.afs.shift != 0;
+        fcgCBVppAfsDrop->Checked               = encPrm.vpp.afs.drop != 0;
+        fcgCBVppAfsSmooth->Checked             = encPrm.vpp.afs.smooth != 0;
+        fcgCBVppAfs24fps->Checked              = encPrm.vpp.afs.force24 != 0;
+        fcgCBVppAfsTune->Checked               = encPrm.vpp.afs.tune != 0;
+        fcgCBVppTweakEnable->Checked           = encPrm.vpp.tweak.enable;
+        SetNUValue(fcgNUVppTweakBrightness,      (int)(encPrm.vpp.tweak.brightness * 100.0f));
+        SetNUValue(fcgNUVppTweakContrast,        (int)(encPrm.vpp.tweak.contrast * 100.0f));
+        SetNUValue(fcgNUVppTweakGamma,           (int)(encPrm.vpp.tweak.gamma * 100.0f));
+        SetNUValue(fcgNUVppTweakSaturation,      (int)(encPrm.vpp.tweak.saturation * 100.0f));
+        SetNUValue(fcgNUVppTweakHue,             (int) encPrm.vpp.tweak.hue);
 
         //音声
         fcgCBAudioOnly->Checked            = cnf->oth.out_audio_only != 0;
@@ -1080,113 +1091,119 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->PerformLayout();
 }
 
-System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
+System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
+    InEncodeVideoParam encPrm;
+    NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
+    codecPrm[NV_ENC_H264] = DefaultParamH264();
+    codecPrm[NV_ENC_HEVC] = DefaultParamHEVC();
+
     //これもひたすら書くだけ。めんどい
-    cnf->nvenc.codec = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value;
-    cnf->nvenc.enc_config.rcParams.rateControlMode = (NV_ENC_PARAMS_RC_MODE)list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
-    cnf->nvenc.enc_config.rcParams.averageBitRate = (int)fcgNUBitrate->Value * 1000;
-    cnf->nvenc.enc_config.rcParams.maxBitRate = (int)fcgNUMaxkbps->Value * 1000;
-    cnf->nvenc.enc_config.rcParams.constQP.qpIntra  = (int)fcgNUQPI->Value;
-    cnf->nvenc.enc_config.rcParams.constQP.qpInterP = (int)fcgNUQPP->Value;
-    cnf->nvenc.enc_config.rcParams.constQP.qpInterB = (int)fcgNUQPB->Value;
-    cnf->nvenc.enc_config.gopLength = (int)fcgNUGopLength->Value;
+    encPrm.codec = list_nvenc_codecs[fcgCXEncCodec->SelectedIndex].value;
+    cnf->nvenc.codec = encPrm.codec;
+    encPrm.encConfig.rcParams.rateControlMode = (NV_ENC_PARAMS_RC_MODE)list_nvenc_rc_method[fcgCXEncMode->SelectedIndex].value;
+    encPrm.encConfig.rcParams.averageBitRate = (int)fcgNUBitrate->Value * 1000;
+    encPrm.encConfig.rcParams.maxBitRate = (int)fcgNUMaxkbps->Value * 1000;
+    encPrm.encConfig.rcParams.constQP.qpIntra  = (int)fcgNUQPI->Value;
+    encPrm.encConfig.rcParams.constQP.qpInterP = (int)fcgNUQPP->Value;
+    encPrm.encConfig.rcParams.constQP.qpInterB = (int)fcgNUQPB->Value;
+    encPrm.encConfig.gopLength = (int)fcgNUGopLength->Value;
     const double targetQualityDouble = (double)fcgNUVBRTragetQuality->Value;
     const int targetQualityInt = (int)targetQualityDouble;
-    cnf->nvenc.enc_config.rcParams.targetQuality = (uint8_t)targetQualityInt;
-    cnf->nvenc.enc_config.rcParams.targetQualityLSB = (uint8_t)clamp(((targetQualityDouble - targetQualityInt) * 256.0), 0, 255);
-    cnf->nvenc.enc_config.frameIntervalP = (int)fcgNUBframes->Value + 1;
-    cnf->nvenc.enc_config.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
-    cnf->nvenc.enc_config.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
-    cnf->nvenc.preset = list_nvenc_preset_names[fcgCXQualityPreset->SelectedIndex].value;
+    encPrm.encConfig.rcParams.targetQuality = (uint8_t)targetQualityInt;
+    encPrm.encConfig.rcParams.targetQualityLSB = (uint8_t)clamp(((targetQualityDouble - targetQualityInt) * 256.0), 0, 255);
+    encPrm.encConfig.frameIntervalP = (int)fcgNUBframes->Value + 1;
+    encPrm.encConfig.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
+    encPrm.encConfig.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
+    encPrm.preset = list_nvenc_preset_names[fcgCXQualityPreset->SelectedIndex].value;
 
     int nLookaheadDepth = (int)fcgNULookaheadDepth->Value;
-    if (nLookaheadDepth) {
-        cnf->nvenc.enc_config.rcParams.enableLookahead = 1;
-        cnf->nvenc.enc_config.rcParams.lookaheadDepth = (uint16_t)clamp(nLookaheadDepth, 0, 32);
+    if (nLookaheadDepth > 0) {
+        encPrm.encConfig.rcParams.enableLookahead = 1;
+        encPrm.encConfig.rcParams.lookaheadDepth = (uint16_t)clamp(nLookaheadDepth, 0, 32);
     } else {
-        cnf->nvenc.enc_config.rcParams.enableLookahead = 0;
-        cnf->nvenc.enc_config.rcParams.lookaheadDepth = 0;
+        encPrm.encConfig.rcParams.enableLookahead = 0;
+        encPrm.encConfig.rcParams.lookaheadDepth = 0;
     }
     uint32_t nAQ = list_aq[fcgCXAQ->SelectedIndex].value;
-    cnf->nvenc.enc_config.rcParams.enableAQ         = (nAQ & NV_ENC_AQ_SPATIAL)  ? 1 : 0;
-    cnf->nvenc.enc_config.rcParams.enableTemporalAQ = (nAQ & NV_ENC_AQ_TEMPORAL) ? 1 : 0;
-    cnf->nvenc.enc_config.rcParams.aqStrength = (uint32_t)clamp(fcgNUAQStrength->Value, 0, 15);
-    cnf->nvenc.weightp                        = (fcgCBWeightP->Checked) ? 1 : 0;
+    encPrm.encConfig.rcParams.enableAQ         = (nAQ & NV_ENC_AQ_SPATIAL)  ? 1 : 0;
+    encPrm.encConfig.rcParams.enableTemporalAQ = (nAQ & NV_ENC_AQ_TEMPORAL) ? 1 : 0;
+    encPrm.encConfig.rcParams.aqStrength = (uint32_t)clamp(fcgNUAQStrength->Value, 0, 15);
+    encPrm.nWeightP                        = (fcgCBWeightP->Checked) ? 1 : 0;
 
 
-    cnf->nvenc.par[0]                = (int)fcgNUAspectRatioX->Value;
-    cnf->nvenc.par[1]                = (int)fcgNUAspectRatioY->Value;
+    encPrm.par[0]                = (int)fcgNUAspectRatioX->Value;
+    encPrm.par[1]                = (int)fcgNUAspectRatioY->Value;
     if (fcgCXAspectRatio->SelectedIndex == 1) {
-        cnf->nvenc.par[0] *= -1;
-        cnf->nvenc.par[1] *= -1;
+        encPrm.par[0] *= -1;
+        encPrm.par[1] *= -1;
     }
 
-    cnf->nvenc.deviceID = (int)fcgCXDevice->SelectedIndex-1; //先頭は"Auto"なので-1
-    cnf->nvenc.cuda_schedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
+    encPrm.deviceID = (int)fcgCXDevice->SelectedIndex-1; //先頭は"Auto"なので-1
+    encPrm.nCudaSchedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
 
     //QPDetail
-    cnf->nvenc.enc_config.rcParams.enableMinQP = (fcgCBQPMin->Checked) ? 1 : 0;
-    cnf->nvenc.enc_config.rcParams.enableMaxQP = (fcgCBQPMax->Checked) ? 1 : 0;
-    cnf->nvenc.enc_config.rcParams.enableInitialRCQP = (fcgCBQPInit->Checked) ? 1 : 0;
-    cnf->nvenc.enc_config.rcParams.minQP.qpIntra  = (int)fcgNUQPMinI->Value;
-    cnf->nvenc.enc_config.rcParams.minQP.qpInterP = (int)fcgNUQPMinP->Value;
-    cnf->nvenc.enc_config.rcParams.minQP.qpInterB = (int)fcgNUQPMinB->Value;
-    cnf->nvenc.enc_config.rcParams.maxQP.qpIntra  = (int)fcgNUQPMaxI->Value;
-    cnf->nvenc.enc_config.rcParams.maxQP.qpInterP = (int)fcgNUQPMaxP->Value;
-    cnf->nvenc.enc_config.rcParams.maxQP.qpInterB = (int)fcgNUQPMaxB->Value;
-    cnf->nvenc.enc_config.rcParams.initialRCQP.qpIntra  = (int)fcgNUQPInitI->Value;
-    cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterP = (int)fcgNUQPInitP->Value;
-    cnf->nvenc.enc_config.rcParams.initialRCQP.qpInterB = (int)fcgNUQPInitB->Value;
+    encPrm.encConfig.rcParams.enableMinQP = (fcgCBQPMin->Checked) ? 1 : 0;
+    encPrm.encConfig.rcParams.enableMaxQP = (fcgCBQPMax->Checked) ? 1 : 0;
+    encPrm.encConfig.rcParams.enableInitialRCQP = (fcgCBQPInit->Checked) ? 1 : 0;
+    encPrm.encConfig.rcParams.minQP.qpIntra  = (int)fcgNUQPMinI->Value;
+    encPrm.encConfig.rcParams.minQP.qpInterP = (int)fcgNUQPMinP->Value;
+    encPrm.encConfig.rcParams.minQP.qpInterB = (int)fcgNUQPMinB->Value;
+    encPrm.encConfig.rcParams.maxQP.qpIntra  = (int)fcgNUQPMaxI->Value;
+    encPrm.encConfig.rcParams.maxQP.qpInterP = (int)fcgNUQPMaxP->Value;
+    encPrm.encConfig.rcParams.maxQP.qpInterB = (int)fcgNUQPMaxB->Value;
+    encPrm.encConfig.rcParams.initialRCQP.qpIntra  = (int)fcgNUQPInitI->Value;
+    encPrm.encConfig.rcParams.initialRCQP.qpInterP = (int)fcgNUQPInitP->Value;
+    encPrm.encConfig.rcParams.initialRCQP.qpInterB = (int)fcgNUQPInitB->Value;
 
-    cnf->nvenc.perf_monitor = fcgCBPerfMonitor->Checked;
+    encPrm.nPerfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;
 
     //H.264
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.maxNumRefFrames = (int)fcgNURefFrames->Value;
-    cnf->nvenc.pic_struct = picstruct_rgy_to_enc((RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value);
-    cnf->nvenc.enc_config.profileGUID = get_guid_from_value(h264_profile_names[fcgCXCodecProfile->SelectedIndex].value, h264_profile_names);
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.sliceModeData = (int)fcgNUSlices->Value;
-    cnf->nvenc.bluray = fcgCBBluray->Checked;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = false == fcgCBDeblock->Checked;
+    codecPrm[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
+    codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = (int)fcgNURefFrames->Value;
+    encPrm.input.picstruct = (RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
+    encPrm.encConfig.profileGUID = get_guid_from_value(h264_profile_names[fcgCXCodecProfile->SelectedIndex].value, h264_profile_names);
+    codecPrm[NV_ENC_H264].h264Config.adaptiveTransformMode = (NV_ENC_H264_ADAPTIVE_TRANSFORM_MODE)list_adapt_transform[fcgCXAdaptiveTransform->SelectedIndex].value;
+    codecPrm[NV_ENC_H264].h264Config.level = list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
+    codecPrm[NV_ENC_H264].h264Config.sliceModeData = (int)fcgNUSlices->Value;
+    encPrm.bluray = fcgCBBluray->Checked;
+    codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
+    codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = false == fcgCBDeblock->Checked;
 
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormatH264->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag      = fcgCBFullrangeH264->Checked;
+    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormatH264->SelectedIndex].value;
+    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag      = fcgCBFullrangeH264->Checked;
     if (fcgCBFullrangeH264->Checked || fcgCXVideoFormatH264->SelectedIndex == get_cx_index(list_videoformat, "undef")) {
-        cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoSignalTypePresentFlag = 1;
+        codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoSignalTypePresentFlag = 1;
     }
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = list_transfer[fcgCXTransferH264->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrixH264->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrimH264->SelectedIndex].value;
+    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = list_transfer[fcgCXTransferH264->SelectedIndex].value;
+    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrixH264->SelectedIndex].value;
+    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrimH264->SelectedIndex].value;
     if (   fcgCXTransferH264->SelectedIndex    == get_cx_index(list_transfer,    "undef")
         || fcgCXColorMatrixH264->SelectedIndex == get_cx_index(list_colormatrix, "undef")
         || fcgCXColorPrimH264->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) {
-        cnf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourDescriptionPresentFlag = 1;
+        codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourDescriptionPresentFlag = 1;
     }
 
     //HEVC
 
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = list_bitdepth[fcgCXHEVCOutBitDepth->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = (int)fcgNURefFrames->Value;
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.level = list_hevc_level[fxgCXHEVCLevel->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.tier  = h265_profile_names[fcgCXHEVCTier->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMaxCUSize->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = list_bitdepth[fcgCXHEVCOutBitDepth->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = (int)fcgNURefFrames->Value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.level = list_hevc_level[fxgCXHEVCLevel->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.tier  = h265_profile_names[fcgCXHEVCTier->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMaxCUSize->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
 
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormatHEVC->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag      = fcgCBFullrangeHEVC->Checked;
+    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormatHEVC->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag      = fcgCBFullrangeHEVC->Checked;
     if (fcgCBFullrangeH264->Checked || fcgCXVideoFormatH264->SelectedIndex == get_cx_index(list_videoformat, "undef")) {
-        cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag = 1;
+        codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag = 1;
     }
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = list_transfer[fcgCXTransferHEVC->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrixHEVC->SelectedIndex].value;
-    cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrimHEVC->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = list_transfer[fcgCXTransferHEVC->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrixHEVC->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrimHEVC->SelectedIndex].value;
     if (   fcgCXTransferHEVC->SelectedIndex    == get_cx_index(list_transfer,    "undef")
         || fcgCXColorMatrixHEVC->SelectedIndex == get_cx_index(list_colormatrix, "undef")
         || fcgCXColorPrimHEVC->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) {
-        cnf->nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourDescriptionPresentFlag = 1;
+        codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourDescriptionPresentFlag = 1;
     }
 
     //cnf->vid.vce_ext_prm.show_performance_info = fcgCBShowPerformanceInfo->Checked;
@@ -1204,71 +1221,79 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->oth.temp_dir               = fcgCXTempDir->SelectedIndex;
     cnf->vid.afs                    = fcgCBAFS->Checked;
     cnf->vid.auo_tcfile_out         = fcgCBAuoTcfileout->Checked;
-    cnf->vid.log_debug              = fcgCBLogDebug->Checked;
+    cnf->vid.resize_enable          = fcgCBVppResize->Checked;
+    cnf->vid.resize_width           = (int)fcgNUVppResizeWidth->Value;
+    cnf->vid.resize_height          = (int)fcgNUVppResizeHeight->Value;
+    if (cnf->vid.resize_enable) {
+        encPrm.input.dstWidth = cnf->vid.resize_width;
+        encPrm.input.dstHeight = cnf->vid.resize_height;
+    } else {
+        encPrm.input.dstWidth = 0;
+        encPrm.input.dstHeight = 0;
+    }
 
-    cnf->vpp.vpp_perf_monitor       = fcgCBVppPerfMonitor->Checked;
+    encPrm.loglevel                   = fcgCBLogDebug->Checked ? RGY_LOG_DEBUG : RGY_LOG_INFO;
+    encPrm.vpp.bCheckPerformance      = fcgCBVppPerfMonitor->Checked;
 
-    cnf->vpp.resize_enable          = fcgCBVppResize->Checked;
-    cnf->vpp.resize_width           = (int)fcgNUVppResizeWidth->Value;
-    cnf->vpp.resize_height          = (int)fcgNUVppResizeHeight->Value;
-    cnf->vpp.resize_interp          = list_nppi_resize[fcgCXVppResizeAlg->SelectedIndex].value;
+    encPrm.vpp.resizeInterp           = list_nppi_resize[fcgCXVppResizeAlg->SelectedIndex].value;
 
-    cnf->vpp.knn.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn"));
-    cnf->vpp.knn.radius             = (int)fcgNUVppDenoiseKnnRadius->Value;
-    cnf->vpp.knn.strength           = (float)fcgNUVppDenoiseKnnStrength->Value;
-    cnf->vpp.knn.lerp_threshold     = (float)fcgNUVppDenoiseKnnThreshold->Value;
+    encPrm.vpp.knn.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn"));
+    encPrm.vpp.knn.radius             = (int)fcgNUVppDenoiseKnnRadius->Value;
+    encPrm.vpp.knn.strength           = (float)fcgNUVppDenoiseKnnStrength->Value;
+    encPrm.vpp.knn.lerp_threshold     = (float)fcgNUVppDenoiseKnnThreshold->Value;
 
-    cnf->vpp.pmd.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd"));
-    cnf->vpp.pmd.applyCount         = (int)fcgNUVppDenoisePmdApplyCount->Value;
-    cnf->vpp.pmd.strength           = (float)fcgNUVppDenoisePmdStrength->Value;
-    cnf->vpp.pmd.threshold          = (float)fcgNUVppDenoisePmdThreshold->Value;
+    encPrm.vpp.pmd.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd"));
+    encPrm.vpp.pmd.applyCount         = (int)fcgNUVppDenoisePmdApplyCount->Value;
+    encPrm.vpp.pmd.strength           = (float)fcgNUVppDenoisePmdStrength->Value;
+    encPrm.vpp.pmd.threshold          = (float)fcgNUVppDenoisePmdThreshold->Value;
 
-    cnf->vpp.unsharp.enable         = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
-    cnf->vpp.unsharp.radius         = (int)fcgNUVppUnsharpRadius->Value;
-    cnf->vpp.unsharp.weight         = (float)fcgNUVppUnsharpWeight->Value;
-    cnf->vpp.unsharp.threshold      = (float)fcgNUVppUnsharpThreshold->Value;
+    encPrm.vpp.unsharp.enable         = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
+    encPrm.vpp.unsharp.radius         = (int)fcgNUVppUnsharpRadius->Value;
+    encPrm.vpp.unsharp.weight         = (float)fcgNUVppUnsharpWeight->Value;
+    encPrm.vpp.unsharp.threshold      = (float)fcgNUVppUnsharpThreshold->Value;
 
-    cnf->vpp.edgelevel.enable       = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel"));
-    cnf->vpp.edgelevel.strength     = (float)fcgNUVppEdgelevelStrength->Value;
-    cnf->vpp.edgelevel.threshold    = (float)fcgNUVppEdgelevelThreshold->Value;
-    cnf->vpp.edgelevel.black        = (float)fcgNUVppEdgelevelBlack->Value;
-    cnf->vpp.edgelevel.white        = (float)fcgNUVppEdgelevelWhite->Value;
+    encPrm.vpp.edgelevel.enable       = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel"));
+    encPrm.vpp.edgelevel.strength     = (float)fcgNUVppEdgelevelStrength->Value;
+    encPrm.vpp.edgelevel.threshold    = (float)fcgNUVppEdgelevelThreshold->Value;
+    encPrm.vpp.edgelevel.black        = (float)fcgNUVppEdgelevelBlack->Value;
+    encPrm.vpp.edgelevel.white        = (float)fcgNUVppEdgelevelWhite->Value;
 
-    cnf->vpp.deband.enable          = fcgCBVppDebandEnable->Checked;
-    cnf->vpp.deband.range           = (int)fcgNUVppDebandRange->Value;
-    cnf->vpp.deband.threY           = (int)fcgNUVppDebandThreY->Value;
-    cnf->vpp.deband.threCb          = (int)fcgNUVppDebandThreCb->Value;
-    cnf->vpp.deband.threCr          = (int)fcgNUVppDebandThreCr->Value;
-    cnf->vpp.deband.ditherY         = (int)fcgNUVppDebandDitherY->Value;
-    cnf->vpp.deband.ditherC         = (int)fcgNUVppDebandDitherC->Value;
-    cnf->vpp.deband.sample            = fcgCXVppDebandSample->SelectedIndex;
-    cnf->vpp.deband.blurFirst       = fcgCBVppDebandBlurFirst->Checked;
-    cnf->vpp.deband.randEachFrame   = fcgCBVppDebandRandEachFrame->Checked;
+    encPrm.vpp.deband.enable          = fcgCBVppDebandEnable->Checked;
+    encPrm.vpp.deband.range           = (int)fcgNUVppDebandRange->Value;
+    encPrm.vpp.deband.threY           = (int)fcgNUVppDebandThreY->Value;
+    encPrm.vpp.deband.threCb          = (int)fcgNUVppDebandThreCb->Value;
+    encPrm.vpp.deband.threCr          = (int)fcgNUVppDebandThreCr->Value;
+    encPrm.vpp.deband.ditherY         = (int)fcgNUVppDebandDitherY->Value;
+    encPrm.vpp.deband.ditherC         = (int)fcgNUVppDebandDitherC->Value;
+    encPrm.vpp.deband.sample            = fcgCXVppDebandSample->SelectedIndex;
+    encPrm.vpp.deband.blurFirst       = fcgCBVppDebandBlurFirst->Checked;
+    encPrm.vpp.deband.randEachFrame   = fcgCBVppDebandRandEachFrame->Checked;
 
-    cnf->vpp.afs.enable             = fcgCBVppAfsEnable->Checked;
-    cnf->vpp.afs.clip.top           = (int)fcgNUVppAfsUp->Value;
-    cnf->vpp.afs.clip.bottom        = (int)fcgNUVppAfsBottom->Value;
-    cnf->vpp.afs.clip.left          = (int)fcgNUVppAfsLeft->Value;
-    cnf->vpp.afs.clip.right         = (int)fcgNUVppAfsRight->Value;
-    cnf->vpp.afs.method_switch      = (int)fcgNUVppAfsMethodSwitch->Value;
-    cnf->vpp.afs.coeff_shift        = (int)fcgNUVppAfsCoeffShift->Value;
-    cnf->vpp.afs.thre_shift         = (int)fcgNUVppAfsThreShift->Value;
-    cnf->vpp.afs.thre_deint         = (int)fcgNUVppAfsThreDeint->Value;
-    cnf->vpp.afs.thre_Ymotion       = (int)fcgNUVppAfsThreYMotion->Value;
-    cnf->vpp.afs.thre_Cmotion       = (int)fcgNUVppAfsThreCMotion->Value;
-    cnf->vpp.afs.analyze            = fcgCXVppAfsAnalyze->SelectedIndex;
-    cnf->vpp.afs.shift              = fcgCBVppAfsShift->Checked;
-    cnf->vpp.afs.drop               = fcgCBVppAfsDrop->Checked;
-    cnf->vpp.afs.smooth             = fcgCBVppAfsSmooth->Checked;
-    cnf->vpp.afs.force24            = fcgCBVppAfs24fps->Checked;
-    cnf->vpp.afs.tune               = fcgCBVppAfsTune->Checked;
+    encPrm.vpp.afs.enable             = fcgCBVppAfsEnable->Checked;
+    encPrm.vpp.afs.timecode           = encPrm.vpp.afs.enable;
+    encPrm.vpp.afs.clip.top           = (int)fcgNUVppAfsUp->Value;
+    encPrm.vpp.afs.clip.bottom        = (int)fcgNUVppAfsBottom->Value;
+    encPrm.vpp.afs.clip.left          = (int)fcgNUVppAfsLeft->Value;
+    encPrm.vpp.afs.clip.right         = (int)fcgNUVppAfsRight->Value;
+    encPrm.vpp.afs.method_switch      = (int)fcgNUVppAfsMethodSwitch->Value;
+    encPrm.vpp.afs.coeff_shift        = (int)fcgNUVppAfsCoeffShift->Value;
+    encPrm.vpp.afs.thre_shift         = (int)fcgNUVppAfsThreShift->Value;
+    encPrm.vpp.afs.thre_deint         = (int)fcgNUVppAfsThreDeint->Value;
+    encPrm.vpp.afs.thre_Ymotion       = (int)fcgNUVppAfsThreYMotion->Value;
+    encPrm.vpp.afs.thre_Cmotion       = (int)fcgNUVppAfsThreCMotion->Value;
+    encPrm.vpp.afs.analyze            = fcgCXVppAfsAnalyze->SelectedIndex;
+    encPrm.vpp.afs.shift              = fcgCBVppAfsShift->Checked;
+    encPrm.vpp.afs.drop               = fcgCBVppAfsDrop->Checked;
+    encPrm.vpp.afs.smooth             = fcgCBVppAfsSmooth->Checked;
+    encPrm.vpp.afs.force24            = fcgCBVppAfs24fps->Checked;
+    encPrm.vpp.afs.tune               = fcgCBVppAfsTune->Checked;
 
-    cnf->vpp.tweak.enable           = fcgCBVppTweakEnable->Checked;
-    cnf->vpp.tweak.brightness       = (float)fcgNUVppTweakBrightness->Value * 0.01f;
-    cnf->vpp.tweak.contrast         = (float)fcgNUVppTweakContrast->Value * 0.01f;
-    cnf->vpp.tweak.gamma            = (float)fcgNUVppTweakGamma->Value * 0.01f;
-    cnf->vpp.tweak.saturation       = (float)fcgNUVppTweakSaturation->Value * 0.01f;
-    cnf->vpp.tweak.hue              = (float)fcgNUVppTweakHue->Value;
+    encPrm.vpp.tweak.enable           = fcgCBVppTweakEnable->Checked;
+    encPrm.vpp.tweak.brightness       = (float)fcgNUVppTweakBrightness->Value * 0.01f;
+    encPrm.vpp.tweak.contrast         = (float)fcgNUVppTweakContrast->Value * 0.01f;
+    encPrm.vpp.tweak.gamma            = (float)fcgNUVppTweakGamma->Value * 0.01f;
+    encPrm.vpp.tweak.saturation       = (float)fcgNUVppTweakSaturation->Value * 0.01f;
+    encPrm.vpp.tweak.hue              = (float)fcgNUVppTweakHue->Value;
 
     //音声部
     cnf->aud.encoder                = fcgCXAudioEncoder->SelectedIndex;
@@ -1307,6 +1332,10 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     GetCHARfromString(cnf->oth.batfile.after_process,  sizeof(cnf->oth.batfile.after_process),  fcgTXBatAfterPath->Text);
     GetCHARfromString(cnf->oth.batfile.before_audio, sizeof(cnf->oth.batfile.before_audio), fcgTXBatBeforeAudioPath->Text);
     GetCHARfromString(cnf->oth.batfile.after_audio,  sizeof(cnf->oth.batfile.after_audio),  fcgTXBatAfterAudioPath->Text);
+
+    strcpy_s(cnf->nvenc.cmd, gen_cmd(&encPrm, codecPrm, true).c_str());
+
+    return String(gen_cmd(&encPrm, codecPrm, false).c_str()).ToString();
 }
 
 System::Void frmConfig::GetfcgTSLSettingsNotes(char *notes, int nSize) {
@@ -1367,6 +1396,8 @@ System::Void frmConfig::SetAllCheckChangedEvents(Control ^top) {
             SetToolStripEvents((ToolStrip^)(top->Controls[i]), gcnew System::Windows::Forms::MouseEventHandler(this, &frmConfig::fcgTSItem_MouseDown));
         else if (top->Controls[i]->Tag == nullptr)
             SetAllCheckChangedEvents(top->Controls[i]);
+        else if (String::Equals(top->Controls[i]->Tag->ToString(), L"reCmd"))
+            SetChangedEvent(top->Controls[i], gcnew System::EventHandler(this, &frmConfig::fcgRebuildCmd));
         else if (String::Equals(top->Controls[i]->Tag->ToString(), L"chValue"))
             SetChangedEvent(top->Controls[i], gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges));
         else
@@ -1640,79 +1671,80 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
     }
 }
 
-System::Void frmConfig::SetupFeatureTable() {
-    //表示更新
-    fcgDGVFeaturesH264->ReadOnly = true;
-    fcgDGVFeaturesH264->AllowUserToAddRows = false;
-    fcgDGVFeaturesH264->AllowUserToResizeRows = false;
-    fcgDGVFeaturesH264->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
-
-    fcgDGVFeaturesHEVC->ReadOnly = true;
-    fcgDGVFeaturesHEVC->AllowUserToAddRows = false;
-    fcgDGVFeaturesHEVC->AllowUserToResizeRows = false;
-    fcgDGVFeaturesHEVC->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
-    
-    dataTableNVEncFeaturesH264 = gcnew DataTable();
-    dataTableNVEncFeaturesH264->Columns->Add(L"機能");
-    dataTableNVEncFeaturesH264->Columns->Add(L"サポート");
-
-    dataTableNVEncFeaturesHEVC = gcnew DataTable();
-    dataTableNVEncFeaturesHEVC->Columns->Add(L"機能");
-    dataTableNVEncFeaturesHEVC->Columns->Add(L"サポート");
-
-    fcgDGVFeaturesH264->DataSource = dataTableNVEncFeaturesH264; //テーブルをバインド
-    fcgDGVFeaturesHEVC->DataSource = dataTableNVEncFeaturesHEVC; //テーブルをバインド
+System::Void frmConfig::SetVidEncInfo(VidEncInfo info) {
+    if (this->InvokeRequired) {
+        this->Invoke(gcnew SetVidEncInfoDelegate(this, &frmConfig::SetVidEncInfo), info);
+    } else {
+        int oldIdx = fcgCXDevice->SelectedIndex;
+        fcgCXDevice->Items->Clear();
+        fcgCXDevice->Items->Add(String(_T("Auto")).ToString());
+        for (int i = 0; i < nvencInfo.devices->Count; i++) {
+            fcgCXDevice->Items->Add(nvencInfo.devices[i]);
+        }
+        //取得できたデバイス数よりもインデックスが大きければ自動(0)に戻す
+        SetCXIndex(fcgCXDevice, oldIdx >= nvencInfo.devices->Count ? oldIdx : 0);
+        fcgPBNVEncLogoEnabled->Visible = nvencInfo.hwencAvail;
+        //HEVCエンコができるか
+        if (!nvencInfo.hevcEnc) {
+            fcgCXEncCodec->Items[NV_ENC_HEVC] = L"-------------";
+        }
+        fcgCXEncCodec->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCodecChanged);
+        fcgCodecChanged(nullptr, nullptr);
+    }
 }
 
-System::Void frmConfig::SetEnvironmentInfo() {
-    //CPU名
-    if (nullptr == StrCPUInfo || StrCPUInfo->Length <= 0) {
-        TCHAR cpu_info[256] = { 0 };
-        getCPUInfo(cpu_info, _countof(cpu_info));
-        StrCPUInfo = String(cpu_info).ToString()->Replace(L" CPU ", L" ");
+VidEncInfo frmConfig::GetVidEncInfo() {
+    char exe_path[MAX_PATH_LEN];
+    char mes[8192];
+
+    VidEncInfo info;
+    info.hwencAvail = false;
+    info.h264Enc = false;
+    info.hevcEnc = false;
+    if (info.devices != nullptr) {
+        info.devices->Clear();
     }
-    //GPU名
-    if (nullptr == StrGPUInfo || StrGPUInfo->Length <= 0) {
-        TCHAR gpu_info[256] = { 0 };
-        getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
-        StrGPUInfo = String(gpu_info).ToString();
+    GetCHARfromString(exe_path, sizeof(exe_path), LocalStg.vidEncPath);
+    if (get_exe_message(exe_path, "--check-device", mes, _countof(mes), AUO_PIPE_MUXED) == RP_SUCCESS) {
+        info.devices = gcnew List<String^>();
+        auto list = String(mes).ToString()->Replace("DeviceId ", "")->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
+        info.devices->AddRange(list);
     }
 
-    //機能情報
-    if (featureCache && dataTableNVEncFeaturesH264->Rows->Count <= 1) {
-        nvfeature_GetCachedNVEncCapability(featureCache);
-    }
-    if (this->InvokeRequired) {
-        SetEnvironmentInfoDelegate^ sl = gcnew SetEnvironmentInfoDelegate(this, &frmConfig::SetEnvironmentInfo);
-        this->Invoke(sl);
-    } else {
-        OSVERSIONINFOEXW osversioninfo = { 0 };
-        tstring osversionstr = getOSVersion(&osversioninfo);
-        fcgLBOSInfo->Text = String(getOSVersion().c_str()).ToString() + (is_64bit_os() ? String(L" x64 ").ToString() : String(L" x86 ").ToString() + osversioninfo.dwBuildNumber.ToString());
-        fcgLBCPUInfoOnFeatureTab->Text = StrCPUInfo;
-        fcgLBGPUInfoOnFeatureTab->Text = StrGPUInfo;
-        if (featureCache) {
-            auto nvencCapabilities = nvfeature_GetCachedNVEncCapability(featureCache);
-            auto hevcFeatures = nvfeature_GetHEVCFeatures(nvencCapabilities);
-            auto h264Features = nvfeature_GetH264Features(nvencCapabilities);
-            if (nullptr != h264Features) {
-                for (auto cap : h264Features->caps) {
-                    DataRow^ drb = dataTableNVEncFeaturesH264->NewRow();
-                    drb[0] = String(cap.name).ToString();
-                    drb[1] = cap.value.ToString();
-                    dataTableNVEncFeaturesH264->Rows->Add(drb);
-                }
-            }
-            if (nullptr != hevcFeatures) {
-                for (auto cap : hevcFeatures->caps) {
-                    DataRow^ drb = dataTableNVEncFeaturesHEVC->NewRow();
-                    drb[0] = String(cap.name).ToString();
-                    drb[1] = cap.value.ToString();
-                    dataTableNVEncFeaturesHEVC->Rows->Add(drb);
+    if (get_exe_message(exe_path, "--check-hw", mes, _countof(mes), AUO_PIPE_MUXED) == RP_SUCCESS) {
+        auto lines = String(mes).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
+        bool check_codecs = false;
+        for (int i = 0; i < lines->Length; i++) {
+            if (lines[i]->Contains("Avaliable Codec")) {
+                check_codecs = true;
+            } else if (check_codecs) {
+                if (lines[i]->ToLower()->Contains("h.264")) {
+                    info.h264Enc = true;
+                } else if (lines[i]->ToLower()->Contains("hevc")) {
+                    info.hevcEnc = true;
                 }
             }
         }
     }
+    if (info.h264Enc || info.hevcEnc) {
+        info.hwencAvail = true;
+    }
+    nvencInfo = info;
+    SetVidEncInfo(info);
+    return info;
 }
 
+System::Void frmConfig::GetVidEncInfoAsync() {
+    if (!File::Exists(LocalStg.vidEncPath)) {
+        nvencInfo.hwencAvail = false;
+        nvencInfo.h264Enc = false;
+        nvencInfo.hevcEnc = false;
+        return;
+    }
+    if (taskNVEncInfo != nullptr && !taskNVEncInfo->IsCompleted) {
+        taskNVEncInfoCancell->Cancel();
+    }
+    taskNVEncInfoCancell = gcnew CancellationTokenSource();
+    taskNVEncInfo = Task<VidEncInfo>::Factory->StartNew(gcnew Func<VidEncInfo>(this, &frmConfig::GetVidEncInfo), taskNVEncInfoCancell->Token);
+}
 #pragma warning( pop )

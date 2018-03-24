@@ -1,6 +1,7 @@
 ﻿// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
+//
 // The MIT License
 //
 // Copyright (c) 2014-2016 rigaya
@@ -25,35 +26,26 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef _AUO_VIDEO_H_
-#define _AUO_VIDEO_H_
+#pragma once
+#ifndef __NVENC_CMD_H__
+#define __NVENC_CMD_H__
 
-#include "output.h"
-#include "convert.h"
-#include "auo_conf.h"
-#include "auo_system.h"
+#include <sstream>
+#include "NVEncParam.h"
 
-static const int CF_YUY2 = 0;
-static const int CF_YC48 = 1;
-static const int CF_RGB  = 2;
+tstring GetNVEncVersion();
+const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
 
-static const int DROP_FRAME_FLAG = INT_MAX;
-
-typedef struct {
-    DWORD FOURCC;   //FOURCC
-    DWORD size;  //1ピクセルあたりバイト数
-} COLORFORMAT_DATA;
-
-static const char * const CF_NAME[] = { "YUY2", "YC48", "RGB" };
-static const COLORFORMAT_DATA COLORFORMATS[] = {
-    { MAKEFOURCC('Y', 'U', 'Y', '2'), 2 }, //YUY2
-    { MAKEFOURCC('Y', 'C', '4', '8'), 6 }, //YC48
-    { NULL,                           3 }  //RGB
+struct ParseCmdError {
+    tstring strAppName;
+    tstring strErrorMessage;
+    tstring strOptionName;
+    tstring strErrorValue;
 };
 
-BOOL setup_afsvideo(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, CONF_GUIEX *conf, PRM_ENC *pe);
-void close_afsvideo(PRM_ENC *pe);
+int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nArgNum, const TCHAR **strInput, ParseCmdError& err, bool ignore_parse_err = false);
+int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const char *cmda, ParseCmdError& err, bool ignore_parse_err = false);
 
-AUO_RESULT video_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
+tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG codecPrm[2], bool save_disabled_prm);
 
-#endif //_AUO_VIDEO_H_
+#endif //__NVENC_PARSE_CMD_H__

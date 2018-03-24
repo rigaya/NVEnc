@@ -80,8 +80,6 @@
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
 
-const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
-
 using std::deque;
 
 #if ENABLE_NVTX
@@ -313,63 +311,6 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
 std::list<NVGPUInfo> get_gpu_list() {
     NVEncoderGPUInfo gpuinfo(-1, false);
     return gpuinfo.getGPUList();
-}
-
-InEncodeVideoParam::InEncodeVideoParam() :
-    input(),
-    inputFilename(),
-    outputFilename(),
-    sAVMuxOutputFormat(),
-    preset(0),
-    deviceID(-1),
-    nHWDecType(0),
-    par(),
-    encConfig(),
-    codec(0),
-    bluray(0),                   //bluray出力
-    yuv444(0),                   //YUV444出力
-    lossless(0),                 //ロスレス出力
-    sMaxCll(),
-    sMasterDisplay(),
-    logfile(),              //ログ出力先
-    loglevel(RGY_LOG_INFO),                 //ログ出力レベル
-    nOutputBufSizeMB(DEFAULT_OUTPUT_BUF),         //出力バッファサイズ
-    sFramePosListLog(),     //framePosList出力先
-    fSeekSec(0.0f),               //指定された秒数分先頭を飛ばす
-    nSubtitleSelectCount(0),
-    pSubtitleSelect(nullptr),
-    nAudioSourceCount(0),
-    ppAudioSourceList(nullptr),
-    nAudioSelectCount(0), //pAudioSelectの数
-    ppAudioSelectList(nullptr),
-    nAudioResampler(RGY_RESAMPLER_SWR),
-    nAVDemuxAnalyzeSec(0),
-    nAVMux(RGY_MUX_NONE),                       //RGY_MUX_xxx
-    nVideoTrack(0),
-    nVideoStreamId(0),
-    nTrimCount(0),
-    pTrimList(nullptr),
-    bCopyChapter(false),
-    nOutputThread(RGY_OUTPUT_THREAD_AUTO),
-    nAudioThread(RGY_INPUT_THREAD_AUTO),
-    nInputThread(RGY_AUDIO_THREAD_AUTO),
-    nAudioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
-    pMuxOpt(nullptr),
-    sChapterFile(),
-    pMuxVidTsLogFile(nullptr),
-    pAVInputFormat(nullptr),
-    nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
-    nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
-    vpp(),
-    nWeightP(0),
-    nPerfMonitorSelect(0),
-    nPerfMonitorSelectMatplot(0),
-    nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
-    nCudaSchedule(DEFAULT_CUDA_SCHEDULE),
-    pPrivatePrm(nullptr) {
-    encConfig = NVEncCore::DefaultParam();
-    memset(&par,       0, sizeof(par));
-    memset(&input,     0, sizeof(input));
 }
 
 NVEncoderGPUInfo::~NVEncoderGPUInfo() {
@@ -4354,88 +4295,6 @@ NVENCSTATUS NVEncCore::Encode() {
     return nvStatus;
 }
 #endif
-
-NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamH264() {
-    NV_ENC_CODEC_CONFIG config = { 0 };
-
-    config.h264Config.level     = NV_ENC_LEVEL_AUTOSELECT;
-    config.h264Config.idrPeriod = DEFAULT_GOP_LENGTH;
-
-    config.h264Config.chromaFormatIDC            = 1;
-    config.h264Config.disableDeblockingFilterIDC = 0;
-    config.h264Config.disableSPSPPS              = 0;
-    config.h264Config.sliceMode                  = 3;
-    config.h264Config.sliceModeData              = DEFAULT_NUM_SLICES;
-    config.h264Config.maxNumRefFrames            = DEFAULT_REF_FRAMES;
-    config.h264Config.bdirectMode                = NV_ENC_H264_BDIRECT_MODE_AUTOSELECT;
-    config.h264Config.adaptiveTransformMode      = NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT;
-    config.h264Config.entropyCodingMode          = NV_ENC_H264_ENTROPY_CODING_MODE_CABAC;
-
-    config.h264Config.h264VUIParameters.overscanInfo = 0;
-    config.h264Config.h264VUIParameters.colourMatrix            = get_cx_value(list_colormatrix, _T("undef"));
-    config.h264Config.h264VUIParameters.colourPrimaries         = get_cx_value(list_colorprim,   _T("undef"));
-    config.h264Config.h264VUIParameters.transferCharacteristics = get_cx_value(list_transfer,    _T("undef"));
-    config.h264Config.h264VUIParameters.videoFormat             = get_cx_value(list_videoformat, _T("undef"));
-
-    return config;
-}
-
-NV_ENC_CODEC_CONFIG NVEncCore::DefaultParamHEVC() {
-    NV_ENC_CODEC_CONFIG config = { 0 };
-
-    config.hevcConfig.level = NV_ENC_LEVEL_AUTOSELECT;
-    config.hevcConfig.tier  = NV_ENC_TIER_HEVC_MAIN;
-    config.hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
-    config.hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
-    config.hevcConfig.sliceMode = 0;
-    config.hevcConfig.sliceModeData = 0;
-    config.hevcConfig.maxNumRefFramesInDPB = DEFAULT_REF_FRAMES;
-    config.hevcConfig.chromaFormatIDC = 1;
-
-    config.hevcConfig.hevcVUIParameters.overscanInfo = 0;
-    config.hevcConfig.hevcVUIParameters.colourMatrix            = get_cx_value(list_colormatrix, _T("undef"));
-    config.hevcConfig.hevcVUIParameters.colourPrimaries         = get_cx_value(list_colorprim,   _T("undef"));
-    config.hevcConfig.hevcVUIParameters.transferCharacteristics = get_cx_value(list_transfer,    _T("undef"));
-    config.hevcConfig.hevcVUIParameters.videoFormat             = get_cx_value(list_videoformat, _T("undef"));
-
-    return config;
-}
-
-NV_ENC_CONFIG NVEncCore::DefaultParam() {
-
-    NV_ENC_CONFIG config = { 0 };
-    SET_VER(config, NV_ENC_CONFIG);
-    config.frameFieldMode                 = NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME;
-    config.profileGUID                    = NV_ENC_H264_PROFILE_HIGH_GUID;
-    config.gopLength                      = DEFAULT_GOP_LENGTH;
-    config.rcParams.rateControlMode       = NV_ENC_PARAMS_RC_CONSTQP;
-    //config.encodeCodecConfig.h264Config.level;
-    config.frameIntervalP                 = DEFAULT_B_FRAMES_H264 + 1;
-    config.mvPrecision                    = NV_ENC_MV_PRECISION_DEFAULT;
-    config.monoChromeEncoding             = 0;
-    config.rcParams.version               = NV_ENC_RC_PARAMS_VER;
-    config.rcParams.averageBitRate        = DEFAULT_AVG_BITRATE;
-    config.rcParams.maxBitRate            = 0;
-    config.rcParams.enableInitialRCQP     = 1;
-    config.rcParams.initialRCQP.qpInterB  = DEFAULT_QP_B;
-    config.rcParams.initialRCQP.qpInterP  = DEFAULT_QP_P;
-    config.rcParams.initialRCQP.qpIntra   = DEFAUTL_QP_I;
-    config.rcParams.maxQP.qpInterB        = 51;
-    config.rcParams.maxQP.qpInterP        = 51;
-    config.rcParams.maxQP.qpIntra         = 51;
-    config.rcParams.constQP.qpInterB      = DEFAULT_QP_B;
-    config.rcParams.constQP.qpInterP      = DEFAULT_QP_P;
-    config.rcParams.constQP.qpIntra       = DEFAUTL_QP_I;
-    config.rcParams.lookaheadDepth        = DEFAULT_LOOKAHEAD;
-    config.rcParams.targetQuality         = 0; //auto
-    config.rcParams.targetQualityLSB      = 0;
-
-    config.rcParams.vbvBufferSize         = 0;
-    config.rcParams.vbvInitialDelay       = 0;
-    config.encodeCodecConfig              = DefaultParamH264();
-
-    return config;
-}
 
 tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     tstring str;

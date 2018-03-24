@@ -30,6 +30,7 @@
 #include "auo_frm.h" 
 #include "auo_pipe.h"
 #include "auo_chapter.h"
+#include "auo_convert.h"
 
 void warning_failed_getting_temp_path() {
     write_log_auo_line(LOG_WARNING, "一時フォルダ名取得に失敗しました。一時フォルダ指定を解除しました。");
@@ -120,6 +121,10 @@ void error_run_process(const char *exe_name, int rp_ret) {
             write_log_auo_line_fmt(LOG_ERROR, "%s の実行に失敗しました。", exe_name);
             break;
     }
+}
+
+void error_video_output_thread_start() {
+    write_log_auo_line(LOG_ERROR, "パイプ出力用スレッドの生成に失敗しました。");
 }
 
 void warning_auto_qpfile_failed() {
@@ -301,6 +306,16 @@ void warning_mux_chapter(int sts) {
 void warning_chapter_convert_to_utf8(int sts) {
     write_log_auo_line_fmt(LOG_WARNING, "チャプターファイルのUTF-8への変換に失敗しました。");
     warning_mux_chapter(sts);
+}
+
+void error_select_convert_func(int width, int height, BOOL use16bit, BOOL interlaced, int output_csp) {
+    write_log_auo_line(LOG_ERROR, "色形式変換関数の取得に失敗しました。");
+    write_log_auo_line_fmt(LOG_ERROR, "%dx%d%s, output-csp %s%s%s",
+        width, height,
+        (interlaced) ? "i" : "p",
+        specify_csp[output_csp],
+        (use16bit) ? "(16bit)" : ""
+    );
 }
 
 void warning_no_batfile(const char *batfile) {

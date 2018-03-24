@@ -28,6 +28,7 @@
 #ifndef _AUO_NVENC_H_
 #define _AUO_NVENC_H_
 
+#if 0
 #include <Windows.h>
 #include <stdio.h>
 #include <vector>
@@ -105,5 +106,5 @@ protected:
     virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam) override;
     virtual NVENCSTATUS InitInput(InEncodeVideoParam *inputParam) override;
 };
-
+#endif
 #endif //_AUO_NVENC_H_

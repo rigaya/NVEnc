@@ -129,6 +129,10 @@ RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
                 pInfo->csp = RGY_CSP_YUV444_16;
             } else if (0 == _strnicmp(p+1, "444", strlen("444"))) {
                 pInfo->csp = RGY_CSP_YUV444;
+            } else if (0 == _strnicmp(p+1, "nv12", strlen("nv12"))) {
+                pInfo->csp = RGY_CSP_NV12;
+            } else if (0 == _strnicmp(p+1, "p010", strlen("p010"))) {
+                pInfo->csp = RGY_CSP_P010;
             } else {
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
@@ -215,6 +219,9 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2;
+        break;
+    case RGY_CSP_P010:
+        bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
         break;
     case RGY_CSP_YV12_09:
     case RGY_CSP_YV12_10:
@@ -307,6 +314,8 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
         frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2; break;
+    case RGY_CSP_P010:
+        frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3; break;
     case RGY_CSP_YUV422:
         frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2; break;
     case RGY_CSP_YUV444:
@@ -370,6 +379,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         src_array[2] = (uint8_t *)src_array[1] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight;
         break;
     case RGY_CSP_NV12:
+    case RGY_CSP_P010:
     default:
         break;
     }

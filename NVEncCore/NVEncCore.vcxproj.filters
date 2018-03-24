@@ -150,6 +150,9 @@
     <ClCompile Include="rgy_bitstream.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="NVEncCmd.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gpu_info.h">
@@ -315,6 +318,9 @@
       <Filter>ソース ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_bitstream.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="NVEncCmd.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>

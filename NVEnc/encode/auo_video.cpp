@@ -27,6 +27,7 @@
 
 #include <Windows.h>
 #pragma comment(lib, "user32.lib") //WaitforInputIdle
+#include <process.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
@@ -35,6 +36,13 @@
 #include <vector>
 
 #include "output.h"
+#include "vphelp_client.h"
+
+#pragma warning( push )
+#pragma warning( disable: 4127 )
+#include "afs_client.h"
+#pragma warning( pop )
+
 #include "convert.h"
 
 #include "auo.h"
@@ -47,11 +55,100 @@
 #include "auo_version.h"
 
 #include "auo_encode.h"
+#include "auo_convert.h"
 #include "auo_video.h"
 #include "auo_audio_parallel.h"
 
-#include "auo_nvenc.h"
 #include "NVEncParam.h"
+#include "NVEncCmd.h"
+
+typedef struct video_output_thread_t {
+    CONVERT_CF_DATA *pixel_data;
+    FILE *f_out;
+    BOOL abort;
+    HANDLE thread;
+    HANDLE he_out_start;
+    HANDLE he_out_fin;
+    int repeat;
+} video_output_thread_t;
+
+int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
+    //Aviutlからの入力に使用するフォーマット
+    RGY_CHROMAFMT chromafmt = RGY_CSP_CHROMA_FORMAT[csp];
+
+    if (use_highbit) {
+        return CF_YC48;
+    }
+
+    switch (chromafmt) {
+    case RGY_CHROMAFMT_YUV444:
+        return CF_YC48;
+    case RGY_CHROMAFMT_YUV420:
+    case RGY_CHROMAFMT_YUV422:
+    default:
+        return CF_YUY2;
+    }
+}
+
+void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *conf) {
+    ParseCmdError err;
+    InEncodeVideoParam enc_prm;
+    NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
+    codec_prm[NV_ENC_H264] = DefaultParamH264();
+    codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
+    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd, err);
+    enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
+    if (enc_prm.lossless) {
+        enc_prm.yuv444 = true;
+    }
+    use_highbit = enc_prm.codec == NV_ENC_HEVC && enc_prm.encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+    if (use_highbit) {
+        csp = (enc_prm.yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+    } else {
+        csp = (enc_prm.yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+    }
+}
+
+static int calc_input_frame_size(int width, int height, int color_format) {
+    width = (color_format == CF_RGB) ? (width+3) & ~3 : (width+1) & ~1;
+    return width * height * COLORFORMATS[color_format].size;
+}
+
+BOOL setup_afsvideo(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, CONF_GUIEX *conf, PRM_ENC *pe) {
+    //すでに初期化してある または 必要ない
+    if (pe->afs_init || pe->video_out_type == VIDEO_OUTPUT_DISABLED || !conf->vid.afs)
+        return TRUE;
+
+    bool use_highbit;
+    RGY_CSP csp;
+    get_csp_and_bitdepth(use_highbit, csp, conf);
+    const int color_format = get_aviutl_color_format(use_highbit, csp);
+    const int frame_size = calc_input_frame_size(oip->w, oip->h, color_format);
+    //Aviutl(自動フィールドシフト)からの映像入力
+    if (afs_vbuf_setup((OUTPUT_INFO *)oip, conf->vid.afs, frame_size, COLORFORMATS[color_format].FOURCC)) {
+        pe->afs_init = TRUE;
+        return TRUE;
+    } else if (conf->vid.afs && sys_dat->exstg->s_local.auto_afs_disable) {
+        afs_vbuf_release(); //一度解放
+        warning_auto_afs_disable();
+        conf->vid.afs = FALSE;
+        //再度使用するmuxerをチェックする
+        pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
+        return TRUE;
+    }
+    //エラー
+    error_afs_setup(conf->vid.afs, sys_dat->exstg->s_local.auto_afs_disable);
+    return FALSE;
+}
+
+void close_afsvideo(PRM_ENC *pe) {
+    if (!pe->afs_init || pe->video_out_type == VIDEO_OUTPUT_DISABLED)
+        return;
+
+    afs_vbuf_release();
+
+    pe->afs_init = FALSE;
+}
 
 DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *pe) {
     DWORD ret = AUO_RESULT_SUCCESS;
@@ -91,6 +188,52 @@ DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *
     }
     return ret;
 }
+
+static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, const InEncodeVideoParam *encPrm, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const char *input) {
+    //cliモードでない
+    //自動設定の適用
+    //apply_guiEx_auto_settings(&prm.x264, oip->w, oip->h, oip->rate, oip->scale, sys_dat->exstg->s_local.auto_ref_limit_by_level);
+    //GUI部のコマンドライン生成
+    strcpy_s(cmd, nSize, gen_cmd(encPrm, nullptr, false).c_str());
+    //メッセージの発行
+    if ((encPrm->encConfig.rcParams.vbvBufferSize != 0 || encPrm->encConfig.rcParams.vbvInitialDelay != 0) && conf->vid.afs) {
+        write_log_auo_line(LOG_INFO, "自動フィールドシフト使用時はvbv設定は正確に反映されません。");
+    }
+    //キーフレーム検出を行い、そのQPファイルが存在し、かつ--qpfileの指定がなければ、それをqpfileで読み込む
+    //出力ファイル
+    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " -o \"%s\"", pe->temp_filename);
+    //入力
+    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --y4m -i -");
+}
+
+static void set_pixel_data(CONVERT_CF_DATA *pixel_data, const CONF_GUIEX *conf, int w, int h, bool output_highbit_depth, RGY_CSP rgy_output_csp) {
+    const int byte_per_pixel = (output_highbit_depth) ? sizeof(short) : sizeof(BYTE);
+    ZeroMemory(pixel_data, sizeof(CONVERT_CF_DATA));
+    switch (rgy_output_csp) {
+    case OUT_CSP_YUY2: //yuy2 (YUV422)
+        pixel_data->count = 1;
+        pixel_data->size[0] = w * h * byte_per_pixel * 2;
+        break;
+    case RGY_CSP_YUV444:
+    case RGY_CSP_YUV444_16: //i444 (YUV444 planar)
+        pixel_data->count = 3;
+        pixel_data->size[0] = w * h * byte_per_pixel;
+        pixel_data->size[1] = pixel_data->size[0];
+        pixel_data->size[2] = pixel_data->size[0];
+        break;
+    case RGY_CSP_NV12: //nv12 (YUV420)
+    case RGY_CSP_P010: //nv12 (YUV420)
+    default:
+        pixel_data->count = 2;
+        pixel_data->size[0] = w * h * byte_per_pixel;
+        pixel_data->size[1] = pixel_data->size[0] / 2;
+        break;
+    }
+    //サイズの総和計算
+    for (int i = 0; i < pixel_data->count; i++)
+        pixel_data->total_size += pixel_data->size[i];
+}
+
 //並列処理時に音声データを取得する
 AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
@@ -170,6 +313,80 @@ static AUO_RESULT exit_audio_parallel_control(const OUTPUT_INFO *oip, PRM_ENC *p
     return vid_ret;
 }
 
+static void write_y4m_header(FILE *fp, const OUTPUT_INFO *oip, RGY_CSP rgy_output_csp) {
+    const char *y4m_csp = nullptr;
+    switch (rgy_output_csp) {
+    case RGY_CSP_YUV444:    y4m_csp = "444"; break;
+    case RGY_CSP_YUV444_16: y4m_csp = "444p16"; break;
+    case RGY_CSP_P010:      y4m_csp = "p010"; break;
+    case RGY_CSP_NV12:
+    default:                y4m_csp = "nv12"; break;
+    }
+    fprintf(fp, "YUV4MPEG2 W%d H%d F%d:%d C%s\n", oip->w, oip->h, oip->rate, oip->scale, y4m_csp);
+}
+
+//auo_pipe.cppのread_from_pipeの特別版
+static int ReadLogEnc(PIPE_SET *pipes, int total_drop, int current_frames) {
+    DWORD pipe_read = 0;
+    if (!PeekNamedPipe(pipes->stdErr.h_read, NULL, 0, NULL, &pipe_read, NULL))
+        return -1;
+    if (pipe_read) {
+        ReadFile(pipes->stdErr.h_read, pipes->read_buf + pipes->buf_len, sizeof(pipes->read_buf) - pipes->buf_len - 1, &pipe_read, NULL);
+        pipes->buf_len += pipe_read;
+        write_log_enc_mes(pipes->read_buf, &pipes->buf_len, total_drop, current_frames, NULL);
+    } else {
+        log_process_events();
+    }
+    return pipe_read;
+}
+
+static unsigned __stdcall video_output_thread_func(void *prm) {
+    video_output_thread_t *thread_data = reinterpret_cast<video_output_thread_t *>(prm);
+    CONVERT_CF_DATA *pixel_data = thread_data->pixel_data;
+    WaitForSingleObject(thread_data->he_out_start, INFINITE);
+    while (false == thread_data->abort) {
+        const char *FRAME_HEADER = "FRAME\n";
+        _fwrite_nolock(FRAME_HEADER, 1, strlen(FRAME_HEADER), thread_data->f_out);
+        //映像データをパイプに
+        for (int i = 0; i < 1 + thread_data->repeat; i++)
+            for (int j = 0; j < pixel_data->count; j++)
+                _fwrite_nolock((void *)pixel_data->data[j], 1, pixel_data->size[j], thread_data->f_out);
+
+        thread_data->repeat = 0;
+        SetEvent(thread_data->he_out_fin);
+        WaitForSingleObject(thread_data->he_out_start, INFINITE);
+    }
+    return 0;
+}
+
+static int video_output_create_thread(video_output_thread_t *thread_data, CONVERT_CF_DATA *pixel_data, FILE *pipe_stdin) {
+    AUO_RESULT ret = AUO_RESULT_SUCCESS;
+    thread_data->abort = false;
+    thread_data->pixel_data = pixel_data;
+    thread_data->f_out = pipe_stdin;
+    if (NULL == (thread_data->he_out_start = (HANDLE)CreateEvent(NULL, false, false, NULL))
+        || NULL == (thread_data->he_out_fin   = (HANDLE)CreateEvent(NULL, false, true, NULL))
+        || NULL == (thread_data->thread       = (HANDLE)_beginthreadex(NULL, 0, video_output_thread_func, thread_data, 0, NULL))) {
+        ret = AUO_RESULT_ERROR;
+    }
+    return ret;
+}
+
+static void video_output_close_thread(video_output_thread_t *thread_data, AUO_RESULT ret) {
+    if (thread_data->thread) {
+        if (!ret)
+            while (WAIT_TIMEOUT == WaitForSingleObject(thread_data->he_out_fin, LOG_UPDATE_INTERVAL))
+                log_process_events();
+        thread_data->abort = true;
+        SetEvent(thread_data->he_out_start);
+        WaitForSingleObject(thread_data->thread, INFINITE);
+        CloseHandle(thread_data->thread);
+        CloseHandle(thread_data->he_out_start);
+        CloseHandle(thread_data->he_out_fin);
+    }
+    memset(thread_data, 0, sizeof(thread_data[0]));
+}
+
 #pragma warning( push )
 #pragma warning( disable: 4100 )
 static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
@@ -177,93 +394,223 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     if (pe->video_out_type == VIDEO_OUTPUT_DISABLED)
         return AUO_RESULT_SUCCESS;
 
-    InputInfoAuo inputInfoAuo = { 0 };
-    inputInfoAuo.conf = conf;
-    inputInfoAuo.oip = oip;
-    inputInfoAuo.pe = pe;
-    inputInfoAuo.sys_dat = sys_dat;
-    inputInfoAuo.interlaced = is_interlaced(conf->nvenc.pic_struct);
+    ParseCmdError err;
+    InEncodeVideoParam enc_prm;
+    NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
+    codec_prm[NV_ENC_H264] = DefaultParamH264();
+    codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
+    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd, err);
+    enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
 
-    InEncodeVideoParam encPrm;
-    encPrm.codec = conf->nvenc.codec;
-    encPrm.encConfig = conf->nvenc.enc_config;
-    encPrm.encConfig.encodeCodecConfig = conf->nvenc.codecConfig[encPrm.codec];
-    encPrm.deviceID = conf->nvenc.deviceID;
-    encPrm.preset = conf->nvenc.preset;
-    encPrm.input.picstruct = picstruct_enc_to_rgy(conf->nvenc.pic_struct);
-    encPrm.bluray = conf->nvenc.bluray;
-    encPrm.nWeightP = conf->nvenc.weightp != 0;
-    //encPrm.inputBuffer = conf->nvenc.inputBuffer;
-    encPrm.pPrivatePrm = &inputInfoAuo;
-    encPrm.deviceID = conf->nvenc.deviceID;
-    encPrm.nCudaSchedule = conf->nvenc.cuda_schedule;
-    encPrm.nPerfMonitorSelect = (conf->nvenc.perf_monitor) ? (int)PERF_MONITOR_ALL : 0;
-    encPrm.loglevel = (conf->vid.log_debug) ? RGY_LOG_DEBUG : RGY_LOG_INFO;
-    encPrm.outputFilename = pe->temp_filename;
-    if (conf->vpp.resize_enable) {
-        encPrm.vpp.resizeInterp = conf->vpp.resize_interp;
-        encPrm.input.dstWidth = conf->vpp.resize_width;
-        encPrm.input.dstHeight = conf->vpp.resize_height;
-    }
-    encPrm.vpp.bCheckPerformance = conf->vpp.vpp_perf_monitor != 0;
-    encPrm.vpp.knn = conf->vpp.knn;
-    encPrm.vpp.pmd = conf->vpp.pmd;
-    encPrm.vpp.deband = conf->vpp.deband;
-    encPrm.vpp.unsharp = conf->vpp.unsharp;
-    encPrm.vpp.edgelevel = conf->vpp.edgelevel;
-    encPrm.vpp.tweak = conf->vpp.tweak;
-    encPrm.vpp.afs = conf->vpp.afs;
-    if (encPrm.vpp.afs.enable) {
-        encPrm.vpp.afs.timecode = true;
-    }
-    if (conf->vid.afs && conf->vpp.afs.enable) {
+    if (conf->vid.afs && enc_prm.vpp.afs.enable) {
         write_log_auo_line(LOG_ERROR, "Aviutlの自動フィールドシフトとNVEnc Vppの自動フィールドシフトは併用できません。");
         write_log_auo_line(LOG_ERROR, "どちらかを選択してからやり直してください。");
         return AUO_RESULT_ERROR;
     }
-    const auto enc_mode_flags = get_enc_mode_flags(&conf->nvenc);
-    encPrm.lossless = std::get<0>(enc_mode_flags);
-    encPrm.yuv444 = std::get<1>(enc_mode_flags);
-    encPrm.encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 = std::get<2>(enc_mode_flags) ? 2 : 0;
-    //encPrm.inputBuffer = 3;
-    memcpy(encPrm.par, conf->nvenc.par, sizeof(encPrm.par));
+    
+    char exe_cmd[MAX_CMD_LEN] = { 0 };
+    char exe_args[MAX_CMD_LEN] = { 0 };
+    char exe_dir[MAX_PATH_LEN] = { 0 };
 
-    if (!check_if_nvcuda_dll_available()) {
-        write_log_auo_line(LOG_ERROR, "NVEncを開始できません。");
-        write_log_auo_line(LOG_ERROR, "NVIDIAのGPU用ドライバがインストールされていない可能性がります。");
-        return AUO_RESULT_ERROR;
+    AUO_RESULT ret = AUO_RESULT_SUCCESS;
+    PIPE_SET pipes = { 0 };
+    PROCESS_INFORMATION pi_enc = { 0 };
+    const BOOL afs = conf->vid.afs != 0;
+
+    //プロセス用情報準備
+    if (!PathFileExists(sys_dat->exstg->s_vid.fullpath)) {
+        ret |= AUO_RESULT_ERROR; error_no_exe_file(ENCODER_NAME, sys_dat->exstg->s_vid.fullpath);
+        return ret;
     }
+    PathGetDirectory(exe_dir, _countof(exe_dir), sys_dat->exstg->s_vid.fullpath);
+
+    //output csp
+    if (enc_prm.lossless) {
+        enc_prm.yuv444 = true;
+    }
+    const int output_csp = (enc_prm.yuv444) ? OUT_CSP_YUV444 : OUT_CSP_NV12;
+    RGY_CSP rgy_output_csp;
+    bool output_highbit_depth;
+    get_csp_and_bitdepth(output_highbit_depth, rgy_output_csp, conf);
+    const bool interlaced = (enc_prm.input.picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
+
+    CONVERT_CF_DATA pixel_data = { 0 };
+    set_pixel_data(&pixel_data, conf, oip->w, oip->h, output_highbit_depth, rgy_output_csp);
+
+    //YUY2/YC48->NV12/YUV444, RGBコピー用関数
+    const int input_csp_idx = get_aviutl_color_format(output_highbit_depth, rgy_output_csp);
+    const func_convert_frame convert_frame = get_convert_func(oip->w, input_csp_idx, (output_highbit_depth) ? 16 : 8, interlaced, output_csp);
+    if (convert_frame == NULL) {
+        ret |= AUO_RESULT_ERROR; error_select_convert_func(oip->w, oip->h, output_highbit_depth, interlaced, output_csp);
+        return ret;
+    }
+    //映像バッファ用メモリ確保
+    if (!malloc_pixel_data(&pixel_data, oip->w, oip->h, output_csp, (output_highbit_depth) ? 16 : 8)) {
+        ret |= AUO_RESULT_ERROR; error_malloc_pixel_data();
+        return ret;
+    }
+
+    //コマンドライン生成
+    build_full_cmd(exe_cmd, _countof(exe_cmd), conf, &enc_prm, oip, pe, sys_dat, PIPE_FN);
+    write_log_auo_line(LOG_INFO, "NVEncC options...");
+    write_args(exe_cmd);
+    sprintf_s(exe_args, _countof(exe_args), "\"%s\" %s", sys_dat->exstg->s_vid.fullpath, exe_cmd);
+    remove(pe->temp_filename); //ファイルサイズチェックの時に旧ファイルを参照してしまうのを回避
+
+    //パイプの設定
+    pipes.stdIn.mode = AUO_PIPE_ENABLE;
+    pipes.stdErr.mode = AUO_PIPE_ENABLE;
+    pipes.stdIn.bufferSize = pixel_data.total_size * 2;
     
     DWORD tm_start = timeGetTime();
     set_window_title("NVEnc エンコード", PROGRESSBAR_CONTINUOUS);
     log_process_events();
 
-    CAuoNvEnc auoNvEnc;
+    video_output_thread_t thread_data = { 0 };
 
-    AUO_RESULT ret = AUO_RESULT_SUCCESS;
     int *jitter = NULL;
+    int rp_ret = 0;
     
-    if (conf->vid.afs && is_interlaced(conf->nvenc.pic_struct)) {
+    if (conf->vid.afs && interlaced) {
         ret |= AUO_RESULT_ERROR; error_afs_interlace_stg();
-    } else if (conf->vid.afs && NULL == (inputInfoAuo.jitter = jitter = (int *)calloc(oip->n + 1, sizeof(int)))) {
+    } else if (conf->vid.afs && NULL == (jitter = (int *)calloc(oip->n + 1, sizeof(int)))) {
         ret |= AUO_RESULT_ERROR; error_malloc_tc();
-    } else if (auoNvEnc.Initialize(&encPrm)) {
-        ret |= AUO_RESULT_ERROR;
-    } else if (auoNvEnc.InitEncode(&encPrm)) {
-        ret |= AUO_RESULT_ERROR;
+    //Aviutl(afs)からのフレーム読み込み
+    } else if (!setup_afsvideo(oip, sys_dat, conf, pe)) {
+        ret |= AUO_RESULT_ERROR; //Aviutl(afs)からのフレーム読み込みに失敗
+    //x264プロセス開始
+    } else if ((rp_ret = RunProcess(exe_args, exe_dir, &pi_enc, &pipes, GetPriorityClass(pe->h_p_aviutl), TRUE, FALSE)) != RP_SUCCESS) {
+        ret |= AUO_RESULT_ERROR; error_run_process("NVEncC", rp_ret);
+        //書き込みスレッドを開始
+    } else if (video_output_create_thread(&thread_data, &pixel_data, pipes.f_stdin)) {
+        ret |= AUO_RESULT_ERROR; error_video_output_thread_start();
     } else {
-        log_process_events();
-        auoNvEnc.PrintEncodingParamsInfo(LOG_INFO);
-        if (conf->vid.afs) write_log_auo_line(LOG_INFO, "自動フィールドシフト  on");
-        ret |= auoNvEnc.Encode() ? AUO_RESULT_ERROR : AUO_RESULT_SUCCESS;
-        flush_audio_log();
-        write_log_auo_enc_time("NVEnc エンコード", timeGetTime() - tm_start);
+        //全て正常
+        int i = 0;
+        void *frame = NULL;
+        int *next_jitter = NULL;
+        bool enc_pause = false;
+        BOOL copy_frame = false, drop = false;
+        const DWORD aviutl_color_fmt = COLORFORMATS[get_aviutl_color_format(output_highbit_depth, rgy_output_csp)].FOURCC;
+
+        //Aviutlの時間を取得
+        PROCESS_TIME time_aviutl;
+        GetProcessTime(pe->h_p_aviutl, &time_aviutl);
+
+        //x264が待機に入るまでこちらも待機
+        while (WaitForInputIdle(pi_enc.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT)
+            log_process_events();
+
+        write_y4m_header(pipes.f_stdin, oip, rgy_output_csp);
+
+        //ログウィンドウ側から制御を可能に
+        DWORD tm_vid_enc_start = timeGetTime();
+        enable_enc_control(&enc_pause, afs, TRUE, tm_vid_enc_start, oip->n);
+
+        //------------メインループ------------
+        for (i = 0, next_jitter = jitter + 1, pe->drop_count = 0; i < oip->n; i++, next_jitter++) {
+            //中断を確認
+            ret |= (oip->func_is_abort()) ? AUO_RESULT_ABORT : AUO_RESULT_SUCCESS;
+
+            //x264が実行中なら、メッセージを取得・ログウィンドウに表示
+            if (ReadLogEnc(&pipes, pe->drop_count, i) < 0) {
+                //勝手に死んだ...
+                ret |= AUO_RESULT_ERROR; error_x264_dead();
+                break;
+            }
+
+            if (!(i & 7)) {
+                //Aviutlの進捗表示を更新
+                oip->func_rest_time_disp(i, oip->n);
+
+                //音声同時処理
+                ret |= aud_parallel_task(oip, pe);
+            }
+
+            //一時停止
+            while (enc_pause & !ret) {
+                Sleep(LOG_UPDATE_INTERVAL);
+                ret |= (oip->func_is_abort()) ? AUO_RESULT_ABORT : AUO_RESULT_SUCCESS;
+                ReadLogEnc(&pipes, pe->drop_count, i);
+                log_process_events();
+            }
+
+            //標準入力への書き込み完了をチェック
+            while (WAIT_TIMEOUT == WaitForSingleObject(thread_data.he_out_fin, LOG_UPDATE_INTERVAL)) {
+                ret |= (oip->func_is_abort()) ? AUO_RESULT_ABORT : AUO_RESULT_SUCCESS;
+                ReadLogEnc(&pipes, pe->drop_count, i);
+                log_process_events();
+            }
+
+            //中断・エラー等をチェック
+            if (AUO_RESULT_SUCCESS != ret)
+                break;
+
+            //コピーフレームフラグ処理
+            copy_frame = (!!i & (oip->func_get_flag(i) & OUTPUT_INFO_FRAME_FLAG_COPYFRAME));
+
+            //Aviutl(afs)からフレームをもらう
+            if (NULL == (frame = ((afs) ? afs_get_video((OUTPUT_INFO *)oip, i, &drop, next_jitter) : oip->func_get_video_ex(i, aviutl_color_fmt)))) {
+                ret |= AUO_RESULT_ERROR; error_afs_get_frame();
+                break;
+            }
+
+            drop |= (afs & copy_frame);
+
+            if (!drop) {
+                //コピーフレームの場合は、映像バッファの中身を更新せず、そのままパイプに流す
+                if (!copy_frame)
+                    convert_frame(frame, &pixel_data, oip->w, oip->h);  /// YUY2/YC48->NV12/YUV444変換, RGBコピー
+                //標準入力への書き込みを開始
+                SetEvent(thread_data.he_out_start);
+            } else {
+                *(next_jitter - 1) = DROP_FRAME_FLAG;
+                pe->drop_count++;
+                //次のフレームの変換を許可
+                SetEvent(thread_data.he_out_fin);
+            }
+
+            // 「表示 -> セーブ中もプレビュー表示」がチェックされていると
+            // func_update_preview() の呼び出しによって func_get_video_ex() の
+            // 取得したバッファが書き換えられてしまうので、呼び出し位置を移動 (拡張AVI出力 plus より)
+            oip->func_update_preview();
+        }
+        //------------メインループここまで--------------
+
+        //書き込みスレッドを終了
+        video_output_close_thread(&thread_data, ret);
+
+        //ログウィンドウからのx264制御を無効化
+        disable_enc_control();
+
+        //パイプを閉じる
+        CloseStdIn(&pipes);
+
+        if (!ret) oip->func_rest_time_disp(oip->n, oip->n);
+
+        //音声の同時処理を終了させる
+        ret |= finish_aud_parallel_task(oip, pe, ret);
+        //音声との同時処理が終了
+        release_audio_parallel_events(pe);
+
         //タイムコード出力
-        if (!ret && (conf->vid.afs || conf->vid.auo_tcfile_out))
-            tcfile_out(jitter, oip->n, (double)oip->rate / (double)oip->scale, conf->vid.afs, pe);
-        if (!ret && conf->vid.afs)
-            write_log_auo_line_fmt(LOG_INFO, "drop %d / %d frames", pe->drop_count, oip->n);
-        ret |= (pe->aud_parallel.abort) ? AUO_RESULT_ABORT : AUO_RESULT_SUCCESS;
+        if (!ret && (afs || conf->vid.auo_tcfile_out))
+            tcfile_out(jitter, oip->n, (double)oip->rate / (double)oip->scale, afs, pe);
+
+        //エンコーダ終了待機
+        while (WaitForSingleObject(pi_enc.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT)
+            ReadLogEnc(&pipes, pe->drop_count, i);
+
+        DWORD tm_vid_enc_fin = timeGetTime();
+
+        //最後にメッセージを取得
+        while (ReadLogEnc(&pipes, pe->drop_count, i) > 0);
+
+        if (!(ret & AUO_RESULT_ERROR) && afs)
+            write_log_auo_line_fmt(LOG_INFO, "drop %d / %d frames", pe->drop_count, i);
+        
+        write_log_auo_line_fmt(LOG_INFO, "CPU使用率: Aviutl: %.2f%% / NVEnc: %.2f%%", GetProcessAvgCPUUsage(pe->h_p_aviutl, &time_aviutl), GetProcessAvgCPUUsage(pi_enc.hProcess));
+        write_log_auo_enc_time("NVEncエンコード時間", tm_vid_enc_fin - tm_vid_enc_start);
     }
     set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
     

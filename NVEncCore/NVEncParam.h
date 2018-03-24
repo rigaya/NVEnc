@@ -96,6 +96,32 @@ static const float FILTER_DEFAULT_TWEAK_GAMMA = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_SATURATION = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_HUE = 0.0f;
 
+static const int MAX_DECODE_FRAMES = 16;
+
+static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
+static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
+
+static const int DEFAULT_GOP_LENGTH  = 0;
+static const int DEFAULT_B_FRAMES_H264 = 3;
+static const int DEFAULT_B_FRAMES_HEVC = 0;
+static const int DEFAULT_REF_FRAMES  = 3;
+static const int DEFAULT_NUM_SLICES  = 1;
+static const int DEFAUTL_QP_I        = 20;
+static const int DEFAULT_QP_P        = 23;
+static const int DEFAULT_QP_B        = 25;
+static const int DEFAULT_AVG_BITRATE = 7500000;
+static const int DEFAULT_MAX_BITRATE = 17500000;
+static const int DEFAULT_OUTPUT_BUF  = 8;
+static const int DEFAULT_LOOKAHEAD   = 16;
+static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
+
+static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
+
+const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
+
+static const uint32_t PIPELINE_DEPTH = 4;
+static const int MAX_FILTER_OUTPUT = 2;
+
 enum {
     NV_ENC_AVCUVID_NATIVE = 0,
     NV_ENC_AVCUVID_CUDA,
@@ -548,8 +574,8 @@ struct VppUnsharp {
     float threshold;
 
     VppUnsharp();
-    bool operator==(const VppUnsharp& x);
-    bool operator!=(const VppUnsharp& x);
+    bool operator==(const VppUnsharp& x) const;
+    bool operator!=(const VppUnsharp& x) const;
 };
 
 struct VppEdgelevel {
@@ -560,8 +586,8 @@ struct VppEdgelevel {
     float white;
 
     VppEdgelevel();
-    bool operator==(const VppEdgelevel& x);
-    bool operator!=(const VppEdgelevel& x);
+    bool operator==(const VppEdgelevel& x) const;
+    bool operator!=(const VppEdgelevel& x) const;
 };
 
 struct VppKnn {
@@ -573,8 +599,8 @@ struct VppKnn {
     float lerp_threshold;
 
     VppKnn();
-    bool operator==(const VppKnn& x);
-    bool operator!=(const VppKnn& x);
+    bool operator==(const VppKnn& x) const;
+    bool operator!=(const VppKnn& x) const;
 };
 
 struct VppPmd {
@@ -585,8 +611,8 @@ struct VppPmd {
     bool  useExp;
 
     VppPmd();
-    bool operator==(const VppPmd& x);
-    bool operator!=(const VppPmd& x);
+    bool operator==(const VppPmd& x) const;
+    bool operator!=(const VppPmd& x) const;
 };
 
 struct VppDeband {
@@ -603,8 +629,8 @@ struct VppDeband {
     bool randEachFrame;
 
     VppDeband();
-    bool operator==(const VppDeband& x);
-    bool operator!=(const VppDeband& x);
+    bool operator==(const VppDeband& x) const;
+    bool operator!=(const VppDeband& x) const;
 };
 
 struct VppTweak {
@@ -616,8 +642,8 @@ struct VppTweak {
     float hue;        // -180 - 180 (0.0)
 
     VppTweak();
-    bool operator==(const VppTweak& x);
-    bool operator!=(const VppTweak& x);
+    bool operator==(const VppTweak& x) const;
+    bool operator!=(const VppTweak& x) const;
 };
 
 typedef struct {
@@ -654,8 +680,8 @@ struct VppAfs {
     bool log;              //log出力
 
     VppAfs();
-    bool operator==(const VppAfs& x);
-    bool operator!=(const VppAfs& x);
+    bool operator==(const VppAfs& x) const;
+    bool operator!=(const VppAfs& x) const;
 
     void check();
 };
@@ -716,49 +742,62 @@ struct VppParam {
     VppParam();
 };
 
-class NVEncCodecFeature {
-public:
-    GUID codec;                                       //CodecのGUID
-    std::vector<GUID> profiles;                       //ProfileのGUIDリスト
-    std::vector<GUID> presets;                        //PresetのGUIDリスト
-    std::vector<NV_ENC_PRESET_CONFIG> presetConfigs;  //Presetの設定リスト
-    std::vector<NV_ENC_BUFFER_FORMAT> surfaceFmt;     //対応フォーマットのリスト
-    std::vector<NVEncCap> caps;                       //対応Featureデータ
+struct InEncodeVideoParam {
+    VideoInfo input;              //入力する動画の情報
+    tstring inputFilename;        //入力ファイル名
+    tstring outputFilename;       //出力ファイル名
+    tstring sAVMuxOutputFormat;   //出力フォーマット
+    int preset;                   //出力プリセット
+    int deviceID;                 //使用するGPUのID
+    int nHWDecType;               //
+    int par[2];                   //使用されていません
+    NV_ENC_CONFIG encConfig;      //エンコード設定
+    int codec;                    //出力コーデック
+    int bluray;                   //bluray出力
+    int yuv444;                   //YUV444出力
+    int lossless;                 //ロスレス出力
+    std::string sMaxCll;
+    std::string sMasterDisplay;
+    tstring logfile;              //ログ出力先
+    int loglevel;                 //ログ出力レベル
+    int nOutputBufSizeMB;         //出力バッファサイズ
+    tstring sFramePosListLog;     //framePosList出力先
+    float fSeekSec;               //指定された秒数分先頭を飛ばす
+    int nSubtitleSelectCount;
+    int *pSubtitleSelect;
+    int nAudioSourceCount;
+    TCHAR **ppAudioSourceList;
+    int nAudioSelectCount; //pAudioSelectの数
+    sAudioSelect **ppAudioSelectList;
+    int nAudioResampler;
+    int nAVDemuxAnalyzeSec;
+    int nAVMux;                       //RGY_MUX_xxx
+    int nVideoTrack;
+    int nVideoStreamId;
+    int nTrimCount;
+    sTrim *pTrimList;
+    bool bCopyChapter;
+    int nOutputThread;
+    int nAudioThread;
+    int nInputThread;
+    int nAudioIgnoreDecodeError;
+    muxOptList *pMuxOpt;
+    tstring sChapterFile;
+    TCHAR *pMuxVidTsLogFile;
+    TCHAR *pAVInputFormat;
+    RGYAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
+    int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
+    VppParam vpp;                 //vpp
+    int nWeightP;
+    int64_t nPerfMonitorSelect;
+    int64_t nPerfMonitorSelectMatplot;
+    int     nPerfMonitorInterval;
+    int     nCudaSchedule;
+    void *pPrivatePrm;
 
-    NVEncCodecFeature(GUID codec = { 0 }) {
-        this->codec = codec;
-    }
+    InEncodeVideoParam();
 };
 
-struct NVGPUInfo {
-    int id;                 //CUDA device id
-    std::string pciBusId;   //PCI Bus ID
-    tstring name;           //GPU名
-    std::pair<int, int> compute_capability;
-    int nv_driver_version;   //1000倍
-    int cuda_driver_version; //1000倍
-    int cuda_cores;          //CUDAコア数
-    int clock_rate;          //基本動作周波数(Hz)
-    CodecCsp cuvid_csp;      //デコード機能
-    vector<NVEncCodecFeature> nvenc_codec_features; //エンコード機能
-};
-
-typedef void* nvfeature_t;
-nvfeature_t nvfeature_create();
-int nvfeature_createCacheAsync(nvfeature_t obj, int deviceID);
-const std::vector<NVEncCodecFeature>& nvfeature_GetCachedNVEncCapability(nvfeature_t obj);
-
-tstring get_codec_profile_name_from_guid(RGY_CODEC codec, const GUID& codecProfileGUID);
-tstring get_codec_level_name(RGY_CODEC codec, int level);
-
-//featureリストからHEVCのリストを取得 (HEVC非対応ならnullptr)
-const NVEncCodecFeature *nvfeature_GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures);
-//featureリストからHEVCのリストを取得 (H.264対応ならnullptr)
-const NVEncCodecFeature *nvfeature_GetH264Features(const std::vector<NVEncCodecFeature>& codecFeatures);
-
-//H.264が使用可能かどうかを取得 (取得できるまで待機)
-bool nvfeature_H264Available(nvfeature_t obj);
-//HEVCが使用可能かどうかを取得 (取得できるまで待機)
-bool nvfeature_HEVCAvailable(nvfeature_t obj);
-
-void nvfeature_close(nvfeature_t obj);
+NV_ENC_CONFIG DefaultParam();
+NV_ENC_CODEC_CONFIG DefaultParamH264();
+NV_ENC_CODEC_CONFIG DefaultParamHEVC();

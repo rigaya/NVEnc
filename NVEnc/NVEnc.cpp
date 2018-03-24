@@ -49,7 +49,7 @@
 #include "auo_encode.h"
 #include "auo_runbat.h"
 
-#include "NVEncCore.h"
+#include "NVEncParam.h"
 
 //---------------------------------------------------------------------
 //        出力プラグイン内部変数
@@ -269,25 +269,10 @@ void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     ZeroMemory(conf, sizeof(CONF_GUIEX));
     guiEx_config::write_conf_header(conf);
-    conf->nvenc.deviceID = -1;
-    conf->nvenc.enc_config = NVEncCore::DefaultParam();
-    conf->nvenc.codecConfig[NV_ENC_H264] = NVEncCore::DefaultParamH264();
-    conf->nvenc.codecConfig[NV_ENC_HEVC] = NVEncCore::DefaultParamHEVC();
-    conf->nvenc.pic_struct = NV_ENC_PIC_STRUCT_FRAME;
-    conf->nvenc.preset = NVENC_PRESET_DEFAULT;
-    conf->nvenc.enc_config.rcParams.maxBitRate = DEFAULT_MAX_BITRATE; //NVEnc.auoではデフォルト値としてセットする
-    conf->nvenc.cuda_schedule = DEFAULT_CUDA_SCHEDULE;
+    conf->aud.encoder = g_sys_dat.exstg->s_local.default_audio_encoder;
+    conf->vid.resize_width = 1280;
+    conf->vid.resize_height = 720;
     conf->size_all = CONF_INITIALIZED;
-    conf->vpp.resize_width = 1280;
-    conf->vpp.resize_height = 720;
-    conf->vpp.resize_interp = RESIZE_CUDA_SPLINE36;
-    conf->vpp.knn = VppKnn();
-    conf->vpp.pmd = VppPmd();
-    conf->vpp.deband = VppDeband();
-    conf->vpp.afs = VppAfs();
-    conf->vpp.unsharp = VppUnsharp();
-    conf->vpp.edgelevel = VppEdgelevel();
-    conf->vpp.tweak = VppTweak();
 }
 #pragma warning( pop )
 void write_log_auo_line_fmt(int log_type_index, const char *format, ... ) {
