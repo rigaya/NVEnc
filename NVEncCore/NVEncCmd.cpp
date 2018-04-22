@@ -2253,17 +2253,32 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (for_hevc) {
             int result = get_value_from_name(strInput[i], h265_profile_names);
             if (-1 != result) {
-                codecPrm[NV_ENC_HEVC].hevcConfig.tier = result;
-                if (codecPrm[NV_ENC_HEVC].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN444) {
+                //下位16bitを使用する
+                uint16_t *ptr = (uint16_t *)&codecPrm[NV_ENC_HEVC].hevcConfig.tier;
+                ptr[0] = (uint16_t)result;
+                if (result == NV_ENC_PROFILE_HEVC_MAIN444) {
                     pParams->yuv444 = TRUE;
                 }
-                if (codecPrm[NV_ENC_HEVC].hevcConfig.tier == NV_ENC_TIER_HEVC_MAIN10) {
+                if (result == NV_ENC_PROFILE_HEVC_MAIN10) {
                     codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = 2;
                 }
                 flag = true;
             }
         }
         if (!flag) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("tier")) {
+        i++;
+        int value = 0;
+        if (get_list_value(h265_tier_names, strInput[i], &value)) {
+            //上位16bitを使用する
+            uint16_t *ptr = (uint16_t *)&codecPrm[NV_ENC_HEVC].hevcConfig.tier;
+            ptr[1] = (uint16_t)value;
+        } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
@@ -2743,7 +2758,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     if (pParams->codec == NV_ENC_HEVC || save_disabled_prm) {
         OPT_LST_HEVC(_T("--level"), _T(":hevc"), level, list_hevc_level);
-        OPT_GUID_HEVC(_T("--profile"), _T(":hevc"), tier, h265_profile_names);
+        OPT_GUID_HEVC(_T("--profile"), _T(":hevc"), tier & 0xffff, h265_profile_names);
+        OPT_LST_HEVC(_T("--tier"), _T(":hevc"), tier >> 16, h265_tier_names);
         OPT_NUM_HEVC(_T("--ref"), _T(""), maxNumRefFramesInDPB);
         if (codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 != codecPrmDefault[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8) {
             cmd << _T(" --output-depth ") << codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 + 8;

@@ -1937,18 +1937,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //プロファイルのチェック
     if (inputParam->codec == NV_ENC_HEVC) {
         //m_stEncConfig.profileGUIDはデフォルトではH.264のプロファイル情報
-        //HEVCのプロファイル情報は、m_stEncConfig.encodeCodecConfig.hevcConfig.tierに保存されている
-        m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.hevcConfig.tier, h265_profile_names);
-        //NV_ENC_TIER_HEVC_MAIN10, NV_ENC_TIER_HEVC_MAIN444は独自拡張なので、エンコーダにはNV_ENC_TIER_HEVC_MAINとして渡す
-        static const uint32_t CHECK_TIER[] = {
-            NV_ENC_TIER_HEVC_MAIN, NV_ENC_TIER_HEVC_MAIN10, NV_ENC_TIER_HEVC_MAIN444
-        };
-        for (int i = 0; i < _countof(CHECK_TIER); i++) {
-            if (m_stEncConfig.encodeCodecConfig.hevcConfig.tier == CHECK_TIER[i]) {
-                m_stEncConfig.encodeCodecConfig.hevcConfig.tier = NV_ENC_TIER_HEVC_MAIN;
-                break;
-            }
-        }
+        //HEVCのプロファイル情報は、m_stEncConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
+        m_stEncConfig.profileGUID = get_guid_from_value(m_stEncConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
+        m_stEncConfig.encodeCodecConfig.hevcConfig.tier >>= 16;
     }
     if (!checkProfileSupported(m_stEncConfig.profileGUID)) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("指定されたプロファイルはサポートされていません。\n") : _T("Selected profile is not supported.\n"));
@@ -2925,8 +2916,8 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
         auto codecProfileGUID = inputParam->encConfig.profileGUID;
         if (rgy_codec == RGY_CODEC_HEVC) {
             //はデフォルトではH.264のプロファイル情報
-            //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.hevcConfig.tierに保存されている
-            codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.hevcConfig.tier, h265_profile_names);
+            //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
+            codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
             if (inputParam->yuv444 || inputParam->lossless) {
                 codecProfileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
             } else if (inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) {

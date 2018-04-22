@@ -338,6 +338,8 @@ static tstring help() {
         _T("   --profile <string>           set codec profile\n")
         _T("                                  H.264: baseline, main, high(default), high444\n")
         _T("                                  HEVC : main, main10, main444\n")
+        _T("   --tier <string>              set codec tier\n")
+        _T("                                  HEVC : main, high\n")
         _T("   --lossless                   for lossless (YUV444 only) / default: off\n"));
 
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),

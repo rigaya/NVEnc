@@ -344,6 +344,12 @@ h264:  auto, baseline, main, high, high444
 hevc:  auto, main, main10, main444
 ```
 
+### --tier &lt;string&gt;
+コーデックのtierを指定する。
+```
+hevc:  main, high
+```
+
 ### --sar &lt;int&gt;:&lt;int&gt;
 SAR比 (画素アスペクト比) の指定。
 

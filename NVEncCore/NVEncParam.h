@@ -143,16 +143,22 @@ const guid_desc h264_profile_names[] = {
 };
 
 enum {
-    NV_ENC_TIER_HEVC_MAIN10 = NV_ENC_TIER_HEVC_HIGH+1,
-    NV_ENC_TIER_HEVC_MAIN444,
+    NV_ENC_PROFILE_HEVC_MAIN = 0,
+    NV_ENC_PROFILE_HEVC_MAIN10 = 1,
+    NV_ENC_PROFILE_HEVC_MAIN444 = 2
 };
 
 const guid_desc h265_profile_names[] = {
     //{ NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, _T("auto"),                     0 },
-    { NV_ENC_HEVC_PROFILE_MAIN_GUID,        _T("main"),    NV_ENC_TIER_HEVC_MAIN },
-    { NV_ENC_HEVC_PROFILE_MAIN10_GUID,      _T("main10"),  NV_ENC_TIER_HEVC_MAIN10 },
-    { NV_ENC_HEVC_PROFILE_FREXT_GUID,       _T("main444"), NV_ENC_TIER_HEVC_MAIN444 },
+    { NV_ENC_HEVC_PROFILE_MAIN_GUID,        _T("main"),    NV_ENC_PROFILE_HEVC_MAIN },
+    { NV_ENC_HEVC_PROFILE_MAIN10_GUID,      _T("main10"),  NV_ENC_PROFILE_HEVC_MAIN10 },
+    { NV_ENC_HEVC_PROFILE_FREXT_GUID,       _T("main444"), NV_ENC_PROFILE_HEVC_MAIN444 },
     //{ NV_ENC_HEVC_PROFILE_HIGH_GUID, _T("High"), NV_ENC_TIER_HEVC_HIGH },
+};
+
+const CX_DESC h265_tier_names[] = {
+    { _T("main"),  NV_ENC_TIER_HEVC_MAIN },
+    { _T("high"),  NV_ENC_TIER_HEVC_HIGH },
 };
 
 enum {

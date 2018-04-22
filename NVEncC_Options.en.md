@@ -328,6 +328,12 @@ h264:  auto, baseline, main, high, high444
 hevc:  auto, main, main10, main444
 ```
 
+### --tier &lt;string&gt;
+Specify the tier of the codec.
+```
+hevc:  main, high
+```
+
 ### --sar &lt;int&gt;:&lt;int&gt;
 Set SAR ratio (pixel aspect ratio).
 
