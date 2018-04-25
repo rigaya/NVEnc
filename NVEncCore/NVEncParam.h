@@ -359,6 +359,13 @@ const CX_DESC list_bdirect[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_bref_mode[] = {
+    { _T("disabled"), NV_ENC_BFRAME_REF_MODE_DISABLED },
+    { _T("each"),     NV_ENC_BFRAME_REF_MODE_EACH },
+    { _T("middle"),   NV_ENC_BFRAME_REF_MODE_MIDDLE },
+    { NULL, NULL }
+};
+
 const CX_DESC list_fmo[] = {
     { _T("auto"),     NV_ENC_H264_FMO_AUTOSELECT },
     { _T("enabled"),  NV_ENC_H264_FMO_ENABLE     },

@@ -1750,6 +1750,7 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCode
     };
 
     add_cap_info(NV_ENC_CAPS_NUM_MAX_BFRAMES,              false, false, _T("Max Bframes"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE,      true,  true,  _T("B Ref Mode"));
     add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  false, false, _T("RC Modes"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       false, true,  _T("Field Encoding"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_MONOCHROME,           false, true,  _T("MonoChrome"));
@@ -2139,6 +2140,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         if (NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE != m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode && !getCapLimit(NV_ENC_CAPS_SUPPORT_ADAPTIVE_TRANSFORM)) {
             m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
             error_feature_unsupported(RGY_LOG_WARN, _T("Adaptive Tranform"));
+        }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef != NV_ENC_BFRAME_REF_MODE_DISABLED && !getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE)) {
+            m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef = NV_ENC_BFRAME_REF_MODE_DISABLED;
+            error_feature_unsupported(RGY_LOG_WARN, _T("B Ref Mode"));
         }
     }
     if ((NV_ENC_MV_PRECISION_QUARTER_PEL == m_stEncConfig.mvPrecision) && !getCapLimit(NV_ENC_CAPS_SUPPORT_QPELMV)) {

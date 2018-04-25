@@ -297,6 +297,14 @@ Enable adaptive quantization between frames (temporal). (Default: off)
 ### --aq-strength &lt;int&gt;
 Specify the AQ strength. (1 (weak) - 15 (strong), 0 = auto)
 
+### --bref-mode &lt;string&gt; [H.264 only]
+Specify B frame reference mode.
+- disabled (default)
+- each
+  use each B frames as references  
+- middle
+  Only(Number of B-frame)/2 th B-frame will be used for reference  
+
 ### --direct &lt;string&gt; [H.264 only]
 Specify H.264 B Direct mode.
 - auto (default)
@@ -328,7 +336,7 @@ h264:  auto, baseline, main, high, high444
 hevc:  auto, main, main10, main444
 ```
 
-### --tier &lt;string&gt;
+### --tier &lt;string&gt;  [HEVC only]
 Specify the tier of the codec.
 ```
 hevc:  main, high

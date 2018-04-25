@@ -381,25 +381,41 @@ static tstring help() {
         _T("                                  default: H.264 - %d frames, HEVC - %d frames\n")
         _T("   --ref <int>                  set Ref frames / default %d frames\n")
         _T("   --weightp                    enable weighted prediction for P frame\n")
-        _T("   --(no-)aq                    enable spatial adaptive quantization\n")
-        _T("   --aq-temporal                enable temporal adaptive quantization\n")
-        _T("                                  FOR H.264 ONLY\n")
-        _T("   --aq-strength <int>          set aq strength (weak 1 - 15 strong)\n")
-        _T("                                  FOR H.264 ONLY, default: 0 = auto\n")
-        _T("   --direct <string>            set H.264 B Direct mode\n")
-        _T("                                  auto(default), none, spatial, temporal\n")
-        _T("   --(no-)adapt-transform       set H.264 adaptive transform mode (default=auto)\n")
         _T("   --mv-precision <string>      set MV Precision / default: auto\n")
         _T("                                  auto,\n")
         _T("                                  Q-pel (High Quality),\n")
         _T("                                  half-pel,\n")
         _T("                                  full-pel (Low Quality, not recommended)\n")
-        _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n"),
+        _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
+        _T("   --(no-)aq                    enable spatial adaptive quantization\n")
+        _T("   --aq-temporal                [H264] enable temporal adaptive quantization\n")
+        _T("   --aq-strength <int>          [H264] set aq strength (weak 1 - 15 strong)\n")
+        _T("                                  default: 0 = auto\n")
+        _T("   --bref-mode <string>         [H264] set B frame reference mode\n")
+        _T("                                  - disabled (default)\n")
+        _T("                                  - each\n")
+        _T("                                  - middle\n")
+        _T("   --direct <string>            [H264] set B Direct mode\n")
+        _T("                                  auto(default), none, spatial, temporal\n")
+        _T("   --(no-)adapt-transform       [H264] set adaptive transform mode (default=auto)\n"),
         DEFAUTL_QP_I, DEFAULT_QP_P, DEFAULT_QP_B,
         DEFAULT_AVG_BITRATE / 1000,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
         DEFAULT_LOOKAHEAD,
         DEFAULT_B_FRAMES_H264, DEFAULT_B_FRAMES_HEVC, DEFAULT_REF_FRAMES);
+
+    str += strsprintf(_T("\n")
+        _T("   --cabac                      [H264] use CABAC\n")
+        _T("   --cavlc                      [H264] use CAVLC (no CABAC)\n")
+        _T("   --bluray                     [H264] for bluray / default: off\n")
+        _T("   --(no-)deblock               [H264] enable(disable) deblock filter\n"));
+
+    str += strsprintf(_T("\n")
+        _T("   --cu-max <int>               [HEVC] set max CU size\n")
+        _T("   --cu-min  <int>              [HEVC] set min CU size\n")
+        _T("                                  8, 16, 32 are avaliable\n")
+        _T("    warning: it is not recommended to use --cu-max or --cu-min,\n")
+        _T("             leaving it auto will enhance video quality.\n"));
 
     str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
     str += PrintListOptions(_T("--colormatrix <string>"), list_colormatrix, 0);
@@ -412,24 +428,8 @@ static tstring help() {
         _T("      e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n"));
 
     str += strsprintf(_T("\n")
-        _T("H.264/AVC\n")
-        _T("   --tff                        same as --interlace tff\n")
-        _T("   --bff                        same as --interlace bff\n")
         _T("   --interlace <string>         set input as interlaced\n")
         _T("                                  tff, bff\n")
-        _T("   --cabac                      use CABAC\n")
-        _T("   --cavlc                      use CAVLC (no CABAC)\n")
-        _T("   --bluray                     for bluray / default: off\n")
-        _T("   --(no-)deblock               enable(disable) deblock filter\n"));
-
-    str += strsprintf(_T("\n")
-        _T("H.265/HEVC\n")
-        _T("   --cu-max <int>               set max CU size\n")
-        _T("   --cu-min  <int>              set min CU size\n")
-        _T("                                  8, 16, 32 are avaliable\n")
-        _T("    warning: it is not recommended to use --cu-max or --cu-min,\n")
-        _T("             leaving it auto will enhance video quality.\n"));
-    str += strsprintf(_T("\n")
         _T("   --vpp-deinterlace <string>   set deinterlace mode / default: none\n")
         _T("                                  none, bob, adaptive (normal)\n")
         _T("                                  available only with avhw reader\n"));

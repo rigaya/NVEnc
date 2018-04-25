@@ -1118,6 +1118,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("bref-mode")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_bref_mode, strInput[i], &value)) {
+            codecPrm[NV_ENC_H264].h264Config.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)value;
+        } else {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
     if (IS_OPTION("max-bitrate") || IS_OPTION("maxbitrate")) {
         i++;
         int value = 0;
@@ -2778,6 +2789,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_H264(_T("--level"), _T(":h264"), level, list_avc_level);
         OPT_GUID(_T("--profile"), encConfig.profileGUID, h264_profile_names);
         OPT_NUM_H264(_T("--ref"), _T(""), maxNumRefFrames);
+        OPT_LST_H264(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         OPT_LST_H264(_T("--direct"), _T(""), bdirectMode, list_bdirect);
         OPT_BOOL_H264(_T("--adapt-transform"), _T("--no-adapt-transform"), _T(""), adaptiveTransformMode);
         OPT_BOOL_H264(_T("--fullrange"), _T(""), _T(":h264"), h264VUIParameters.videoFullRangeFlag);
