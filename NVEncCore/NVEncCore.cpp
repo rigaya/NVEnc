@@ -2221,10 +2221,15 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stEncConfig.rcParams.maxBitRate = DEFAULT_MAX_BITRATE;
         }
     }
-
-    apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries,         list_colorprim);
-    apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer);
-    apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix,            list_colormatrix);
+    if (inputParam->codec == NV_ENC_H264) {
+        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries,         list_colorprim);
+        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer);
+        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix,            list_colormatrix);
+    } else if (inputParam->codec == NV_ENC_HEVC) {
+        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.colourPrimaries,         list_colorprim);
+        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.transferCharacteristics, list_transfer);
+        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.colourMatrix,            list_colormatrix);
+    }
 
     //バッファサイズ
     //PIPELINE_DEPTH分拡張しないと、バッファ不足でエンコードが止まってしまう
