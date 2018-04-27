@@ -93,9 +93,6 @@
     <ClCompile Include="frm\frmLog.cpp">
       <Filter>フォーム</Filter>
     </ClCompile>
-    <ClCompile Include="encode\auo_nvenc.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
     <ClCompile Include="encode\convert_avx.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
@@ -226,9 +223,6 @@
     </ClInclude>
     <ClInclude Include="frm\frmSetTransparency.h">
       <Filter>フォーム</Filter>
-    </ClInclude>
-    <ClInclude Include="encode\auo_nvenc.h">
-      <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
     <ClInclude Include="encode\exe_version.h">
       <Filter>ヘッダー ファイル\encode</Filter>

@@ -583,16 +583,6 @@
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
     </ClCompile>
-    <ClCompile Include="encode\auo_nvenc.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">false</CompileAsManaged>
-    </ClCompile>
     <ClCompile Include="encode\auo_video.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
@@ -776,7 +766,6 @@
     <ClInclude Include="encode\auo_mux.h" />
     <ClInclude Include="encode\auo_pipe.h" />
     <ClInclude Include="encode\auo_runbat.h" />
-    <ClInclude Include="encode\auo_nvenc.h" />
     <ClInclude Include="encode\auo_video.h" />
     <ClInclude Include="encode\convert.h" />
     <ClInclude Include="encode\convert_const.h" />
