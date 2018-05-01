@@ -1768,9 +1768,7 @@ uint32_t RGYOutputAvcodec::getH264PAFFFieldLength(const uint8_t *ptr, uint32_t s
 
 RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *pBitstream) {
 #if ENABLE_AVCODEC_OUT_THREAD
-    //最初のヘッダーを書いたパケットは出力スレッドでなくエンコードスレッドが出力する
-    //出力スレッドは、このパケットがヘッダーを書き終わり、m_Mux.format.bFileHeaderWrittenフラグが立った時点で動き出す
-    if (m_Mux.thread.thOutput.joinable() && m_Mux.format.bFileHeaderWritten) {
+    if (m_Mux.thread.thOutput.joinable()) {
         RGYBitstream copyStream = RGYBitstreamInit();
         bool bFrameI = (pBitstream->frametype() & RGY_FRAMETYPE_I) != 0;
         bool bFrameP = (pBitstream->frametype() & RGY_FRAMETYPE_P) != 0;
@@ -1899,8 +1897,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     }
     m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), pBitstream->avgQP());
 #if ENABLE_AVCODEC_OUT_THREAD
-    //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
-    if (m_Mux.thread.thOutput.joinable() && m_Mux.format.bFileHeaderWritten) {
+    if (m_Mux.thread.thOutput.joinable()) {
         //確保したメモリ領域を使いまわすためにスタックに格納
         auto& qVideoQueueFree = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
         qVideoQueueFree.push(*pBitstream);
@@ -1911,8 +1908,6 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
 #if ENABLE_AVCODEC_OUT_THREAD
     }
 #endif
-    //最初のヘッダーを書いたパケットが書き終わってからフラグを立てる
-    //このタイミングで立てないと出力スレッドが先に動作してしまうことがある
     m_Mux.format.bFileHeaderWritten = true;
     return (m_Mux.format.bStreamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
@@ -2916,7 +2911,10 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                 if (qAudio.size() >= nQueueCapacity) {
                     qAudio.set_capacity(nQueueCapacity * 3 / 2);
                 }
-                break;
+                //動画キューになにもなかったら再度待機する
+                if (m_Mux.thread.qVideobitstream.size() == 0) {
+                    break;
+                }
             }
             //映像・音声の同期待ちが必要な場合、falseとなってループから抜けるよう、ここでfalseに設定する
             bAudioExists = false;
