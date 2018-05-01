@@ -822,7 +822,7 @@ static void show_nvenc_features(int deviceid) {
 
 int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
 
-#define IS_OPTION(x) (0 == _tcscmp(option_name, _T("--" x)))
+#define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
 
     if (IS_OPTION("help")) {
         show_version();
