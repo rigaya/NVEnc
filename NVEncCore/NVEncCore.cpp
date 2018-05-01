@@ -751,7 +751,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         writerPrm.pMuxVidTsLogFile        = inputParams->pMuxVidTsLogFile;
         writerPrm.rBitstreamTimebase      = av_make_q(m_outputTimebase);
-        writerPrm.seiNal                  = hedrsei.gen_nal();
+        writerPrm.pHEVCHdrSei             = &hedrsei;
         if (inputParams->pMuxOpt > 0) {
             writerPrm.vMuxOpt = *inputParams->pMuxOpt;
         }

@@ -515,8 +515,61 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
 
     m_Mux.video.timestampList.clear();
 
-    if (pVideoOutputInfo->codec == RGY_CODEC_HEVC && prm->seiNal.size() > 0) {
-        m_Mux.video.seiNal.copy(prm->seiNal.data(), prm->seiNal.size());
+    if (pVideoOutputInfo->codec == RGY_CODEC_HEVC && prm->pHEVCHdrSei != nullptr) {
+        auto seiNal = prm->pHEVCHdrSei->gen_nal();
+        if (seiNal.size() > 0) {
+            m_Mux.video.seiNal.copy(seiNal.data(), seiNal.size());
+
+            const auto HEVCHdrSeiPrm = prm->pHEVCHdrSei->getprm();
+
+            //streamのside dataとしてmasteringdisplay等を設定する
+            //mkv等では、これをしておかないとヘッダ部分に情報が適切にセットされない場合がある
+            size_t coll_size = 0;
+            unique_ptr<AVContentLightMetadata, decltype(&av_freep)> coll(av_content_light_metadata_alloc(&coll_size), av_freep);
+            unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)> mastering(av_mastering_display_metadata_alloc(), av_freep);
+
+            coll->MaxCLL = HEVCHdrSeiPrm.maxcll;
+            coll->MaxFALL = HEVCHdrSeiPrm.maxfall;
+
+            mastering->display_primaries[0][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[0], 50000);
+            mastering->display_primaries[0][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[1], 50000);
+            mastering->display_primaries[1][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[2], 50000);
+            mastering->display_primaries[1][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[3], 50000);
+            mastering->display_primaries[2][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[4], 50000);
+            mastering->display_primaries[2][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[5], 50000);
+            mastering->white_point[0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[6], 50000);
+            mastering->white_point[1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[7], 50000);
+            mastering->min_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[8], 10000);
+            mastering->max_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[9], 10000);
+            mastering->has_primaries = 1;
+            mastering->has_luminance = 1;
+
+            AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"),
+                coll->MaxCLL, coll->MaxFALL);
+            AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
+                av_q2d(mastering->display_primaries[0][0]),
+                av_q2d(mastering->display_primaries[0][1]),
+                av_q2d(mastering->display_primaries[1][0]),
+                av_q2d(mastering->display_primaries[1][1]),
+                av_q2d(mastering->display_primaries[2][0]),
+                av_q2d(mastering->display_primaries[2][1]),
+                av_q2d(mastering->white_point[0]), av_q2d(mastering->white_point[1]),
+                av_q2d(mastering->min_luminance), av_q2d(mastering->max_luminance));
+
+            int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, (uint8_t *)mastering.get(), sizeof(mastering.get()[0]));
+            if (err < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
+                return RGY_ERR_INVALID_CALL;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("set AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
+
+            err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, (uint8_t *)coll.get(), coll_size);
+            if (err < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
+                return RGY_ERR_INVALID_CALL;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("set AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
+        }
     }
 
     if (prm->pMuxVidTsLogFile) {

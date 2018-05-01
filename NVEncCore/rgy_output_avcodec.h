@@ -37,6 +37,7 @@
 #include <atomic>
 #include <cstdint>
 #include "rgy_avutil.h"
+#include "rgy_bitstream.h"
 #include "rgy_input_avcodec.h"
 #include "rgy_output.h"
 #include "rgy_perf_monitor.h"
@@ -274,7 +275,7 @@ struct AvcodecWriterPrm {
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
     PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
     const TCHAR                 *pMuxVidTsLogFile;        //mux timestampログファイル
-    vector<uint8_t>              seiNal;                  //追加のsei nal
+    HEVCHDRSei                  *pHEVCHdrSei;             //HDR関連のmetadata
 
     AvcodecWriterPrm() :
         pInputFormatMetadata(nullptr),
@@ -295,7 +296,7 @@ struct AvcodecWriterPrm {
         vMuxOpt(),
         pQueueInfo(nullptr),
         pMuxVidTsLogFile(nullptr),
-        seiNal() {
+        pHEVCHdrSei(nullptr) {
     }
 };
 

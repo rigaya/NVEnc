@@ -43,6 +43,7 @@ extern "C" {
 #include <libavutil/frame.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
+#include <libavutil/mastering_display_metadata.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
