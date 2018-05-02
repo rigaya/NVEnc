@@ -501,7 +501,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     OPT_GUID(_T("--profile"), conf->nvenc.enc_config.profileGUID, h264_profile_names);
     OPT_NUM_H264(_T("--ref"), _T(""), conf->nvenc.codecConfig[NV_ENC_H264].h264Config.maxNumRefFrames);
     OPT_LST_H264(_T("--direct"), _T(""), conf->nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode, list_bdirect);
-    OPT_BOOL_H264(_T("--adapt-transform"), _T("--no-adapt-transform"), _T(""), conf->nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode);
+    OPT_LST_H264(_T("--adapt-transform"), _T(""), conf->nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode, list_adapt_transform);
     OPT_BOOL_H264(_T("--fullrange"), _T(""), _T(":h264"), conf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag);
     OPT_LST_H264(_T("--videoformat"), _T(":h264"), conf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat, list_videoformat);
     OPT_LST_H264(_T("--colormatrix"), _T(":h264"), conf->nvenc.codecConfig[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix, list_colormatrix);
