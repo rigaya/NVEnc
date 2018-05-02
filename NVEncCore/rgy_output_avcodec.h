@@ -352,7 +352,7 @@ protected:
     RGY_ERR WriteNextFrameInternal(RGYBitstream *pBitstream, int64_t *pWrittenDts);
 
     //WriteNextPacketの本体
-    RGY_ERR WriteNextPacketInternal(AVPktMuxData *pktData);
+    RGY_ERR WriteNextPacketInternal(AVPktMuxData *pktData, int64_t maxDtsToWrite);
 
     //WriteNextPacketの音声処理部分(デコード/thAudEncodeがなければエンコードも担当)
     RGY_ERR WriteNextPacketAudio(AVPktMuxData *pktData);
@@ -475,6 +475,7 @@ protected:
     void CloseThread();
     void CloseQueues();
 
+    static const AVRational QUEUE_DTS_TIMEBASE;
     AVMux m_Mux;
     vector<AVPktMuxData> m_AudPktBufFileHead; //ファイルヘッダを書く前にやってきた音声パケットのバッファ
 };

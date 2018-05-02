@@ -916,6 +916,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                 }
                 writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
+                writerAudioPrm.rBitstreamTimebase = av_make_q(m_outputTimebase);
 
                 shared_ptr<RGYOutput> pWriter = std::make_shared<RGYOutputAvcodec>();
                 sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &outputVideoInfo, &writerAudioPrm, m_pNVLog, m_pStatus);
