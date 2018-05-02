@@ -707,6 +707,13 @@ void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void
     codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
     parse_cmd(&enc_prm, codec_prm, cmd_old.c_str(), err);
 
+    //うまく保存されていないことがある
+    enc_prm.encConfig.mvPrecision = NV_ENC_MV_PRECISION_DEFAULT;
+    codec_prm[NV_ENC_H264].h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT;
+    codec_prm[NV_ENC_H264].h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_AUTOSELECT;
+    codec_prm[NV_ENC_HEVC].hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
+    codec_prm[NV_ENC_HEVC].hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
+
     strcpy_s(conf->nvenc.cmd, gen_cmd(&enc_prm, codec_prm, true).c_str());
 }
 
