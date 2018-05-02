@@ -376,19 +376,24 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     std::basic_stringstream<TCHAR> cmd;
 
 #define OPT_FLOAT(str, opt, prec)  cmd << _T(" ") << (str) << _T(" ") << std::setprecision(prec) << (opt);
-#define OPT_NUM(str, opt)  cmd << _T(" ") << (str) << _T(" ") << (opt);
-#define OPT_NUM_HEVC(str, codec, opt) cmd << _T(" ") << (str) << (codec) << _T(" ") << (opt);
-#define OPT_NUM_H264(str, codec, opt) cmd << _T(" ") << (str) << (codec) << _T(" ") << (opt);
+#define OPT_NUM(str, opt)  cmd << _T(" ") << (str) << _T(" ") << (int)(opt);
+#define OPT_NUM_HEVC(str, codec, opt) cmd << _T(" ") << (str) << (codec) << _T(" ") << (int)(opt);
+#define OPT_NUM_H264(str, codec, opt) cmd << _T(" ") << (str) << (codec) << _T(" ") << (int)(opt);
 #define OPT_GUID(str, opt, list)  cmd << _T(" ") << (str) << _T(" ") << get_name_from_guid((opt), list);
 #define OPT_GUID_HEVC(str, codec, opt, list) cmd << _T(" ") << (str) << (codec) << _T(" ") << get_name_from_value((opt), list);
 #define OPT_LST(str, opt, list)  cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (opt));
 #define OPT_LST_HEVC(str, codec, opt, list) cmd << _T(" ") << (str) << (codec) << _T(" ") << get_chr_from_value(list, (opt));
 #define OPT_LST_H264(str, codec, opt, list)  cmd << _T(" ") << (str) << (codec) << _T(" ") << get_chr_from_value(list, (opt));
-#define OPT_QP(str, qp) { \
-    if ((qp.qpIntra) == (qp.qpInterP) && (qp.qpIntra) == (qp.qpInterB)) { \
-        cmd << _T(" ") << (str) << _T(" ") << (qp.qpIntra); \
+#define OPT_QP(str, qp, enable) { \
+    if (enable) { \
+        cmd << _T(" ") << (str) << _T(" "); \
     } else { \
-        cmd << _T(" ") << (str) << _T(" ") << (qp.qpIntra) << _T(":") << (qp.qpInterP) << _T(":") << (qp.qpInterB); \
+        cmd << _T(" ") << (str) << _T(" 0;"); \
+    } \
+    if ((qp.qpIntra) == (qp.qpInterP) && (qp.qpIntra) == (qp.qpInterB)) { \
+        cmd << (int)(qp.qpIntra); \
+    } else { \
+        cmd << (int)(qp.qpIntra) << _T(":") << (int)(qp.qpInterP) << _T(":") << (int)(qp.qpInterB); \
     } \
 }
 #define OPT_BOOL(str_true, str_false, opt)  cmd << _T(" ") << ((opt) ? (str_true) : (str_false));
@@ -423,7 +428,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     case NV_ENC_PARAMS_RC_CBR_HQ:
     case NV_ENC_PARAMS_RC_VBR:
     case NV_ENC_PARAMS_RC_VBR_HQ: {
-        OPT_QP(_T("--cqp"), conf->nvenc.enc_config.rcParams.constQP);
+        OPT_QP(_T("--cqp"), conf->nvenc.enc_config.rcParams.constQP, true);
     } break;
     case NV_ENC_PARAMS_RC_CONSTQP:
     default: {
@@ -445,7 +450,7 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     } break;
     case NV_ENC_PARAMS_RC_CONSTQP:
     default: {
-        OPT_QP(_T("--cqp"), conf->nvenc.enc_config.rcParams.constQP);
+        OPT_QP(_T("--cqp"), conf->nvenc.enc_config.rcParams.constQP, true);
     } break;
     }
     if (conf->nvenc.enc_config.rcParams.rateControlMode != NV_ENC_PARAMS_RC_CONSTQP) {
@@ -457,14 +462,14 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     if (conf->nvenc.enc_config.rcParams.initialRCQP.qpIntra > 0
         && conf->nvenc.enc_config.rcParams.initialRCQP.qpInterP > 0
         && conf->nvenc.enc_config.rcParams.initialRCQP.qpInterB > 0) {
-        OPT_QP(_T("--qp-init"), conf->nvenc.enc_config.rcParams.initialRCQP);
+        OPT_QP(_T("--qp-init"), conf->nvenc.enc_config.rcParams.initialRCQP, conf->nvenc.enc_config.rcParams.enableInitialRCQP);
     }
-    OPT_QP(_T("--qp-min"), conf->nvenc.enc_config.rcParams.minQP);
+    OPT_QP(_T("--qp-min"), conf->nvenc.enc_config.rcParams.minQP, conf->nvenc.enc_config.rcParams.enableMinQP);
     if (min(conf->nvenc.enc_config.rcParams.maxQP.qpIntra,
         min(conf->nvenc.enc_config.rcParams.maxQP.qpInterP, conf->nvenc.enc_config.rcParams.maxQP.qpInterB))
         > max(conf->nvenc.enc_config.rcParams.constQP.qpIntra,
             max(conf->nvenc.enc_config.rcParams.constQP.qpInterP, conf->nvenc.enc_config.rcParams.constQP.qpInterB))) {
-        OPT_QP(_T("--qp-max"), conf->nvenc.enc_config.rcParams.maxQP);
+        OPT_QP(_T("--qp-max"), conf->nvenc.enc_config.rcParams.maxQP, conf->nvenc.enc_config.rcParams.enableMaxQP);
     }
     OPT_NUM(_T("--lookahead"), conf->nvenc.enc_config.rcParams.lookaheadDepth);
     OPT_BOOL(_T("--no-i-adapt"), _T(""), conf->nvenc.enc_config.rcParams.disableIadapt);

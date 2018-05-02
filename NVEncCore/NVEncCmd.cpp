@@ -1044,50 +1044,62 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("qp-init") || IS_OPTION("qp-max") || IS_OPTION("qp-min")) {
-        NV_ENC_QP *ptrQP = nullptr;
-        if (IS_OPTION("qp-init")) {
-            pParams->encConfig.rcParams.enableInitialRCQP = 1;
-            ptrQP = &pParams->encConfig.rcParams.initialRCQP;
-        }
-        if (IS_OPTION("qp-max")) {
-            pParams->encConfig.rcParams.enableMaxQP = 1;
-            ptrQP = &pParams->encConfig.rcParams.maxQP;
-        }
-        if (IS_OPTION("qp-min")) {
-            pParams->encConfig.rcParams.enableMinQP = 1;
-            ptrQP = &pParams->encConfig.rcParams.minQP;
-        }
-        if (ptrQP == nullptr) {
-            return -1;
-        }
         i++;
-        int a[3] = { 0 };
-        if (   3 == _stscanf_s(strInput[i], _T("%d:%d:%d"), &a[0], &a[1], &a[2])
+        int a[4] = { 0 };
+        if (   4 == _stscanf_s(strInput[i], _T("%d;%d:%d:%d"), &a[3], &a[0], &a[1], &a[2])
+            || 4 == _stscanf_s(strInput[i], _T("%d;%d/%d/%d"), &a[3], &a[0], &a[1], &a[2])
+            || 4 == _stscanf_s(strInput[i], _T("%d;%d.%d.%d"), &a[3], &a[0], &a[1], &a[2])
+            || 4 == _stscanf_s(strInput[i], _T("%d;%d,%d,%d"), &a[3], &a[0], &a[1], &a[2])) {
+            a[3] = a[3] ? 1 : 0;
+        } else if (
+               3 == _stscanf_s(strInput[i], _T("%d:%d:%d"), &a[0], &a[1], &a[2])
             || 3 == _stscanf_s(strInput[i], _T("%d/%d/%d"), &a[0], &a[1], &a[2])
             || 3 == _stscanf_s(strInput[i], _T("%d.%d.%d"), &a[0], &a[1], &a[2])
             || 3 == _stscanf_s(strInput[i], _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
-            ptrQP->qpIntra  = a[0];
-            ptrQP->qpInterP = a[1];
-            ptrQP->qpInterB = a[2];
-            return 0;
-        }
-        if (   2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
+            a[3] = 1;
+        } else if (
+               3 == _stscanf_s(strInput[i], _T("%d;%d:%d"), &a[3], &a[0], &a[1])
+            || 3 == _stscanf_s(strInput[i], _T("%d;%d/%d"), &a[3], &a[0], &a[1])
+            || 3 == _stscanf_s(strInput[i], _T("%d;%d.%d"), &a[3], &a[0], &a[1])
+            || 3 == _stscanf_s(strInput[i], _T("%d;%d,%d"), &a[3], &a[0], &a[1])) {
+            a[3] = a[3] ? 1 : 0;
+            a[2] = a[1];
+        } else if (
+               2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
             || 2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
             || 2 == _stscanf_s(strInput[i], _T("%d.%d"), &a[0], &a[1])
             || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            ptrQP->qpIntra  = a[0];
-            ptrQP->qpInterP = a[1];
-            ptrQP->qpInterB = a[1];
-            return 0;
-        }
-        if (1 == _stscanf_s(strInput[i], _T("%d"), &a[0])) {
-            ptrQP->qpIntra  = a[0];
-            ptrQP->qpInterP = a[0];
-            ptrQP->qpInterB = a[0];
+            a[3] = 1;
+            a[2] = a[1];
+        } else if (2 == _stscanf_s(strInput[i], _T("%d;%d"), &a[3], &a[0])) {
+            a[3] = a[3] ? 1 : 0;
+            a[1] = a[0];
+            a[2] = a[0];
+        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &a[0])) {
+            a[3] = 1;
+            a[1] = a[0];
+            a[2] = a[0];
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        NV_ENC_QP *ptrQP = nullptr;
+        if (IS_OPTION("qp-init")) {
+            pParams->encConfig.rcParams.enableInitialRCQP = a[3];
+            ptrQP = &pParams->encConfig.rcParams.initialRCQP;
+        } else if (IS_OPTION("qp-max")) {
+            pParams->encConfig.rcParams.enableMaxQP = a[3];
+            ptrQP = &pParams->encConfig.rcParams.maxQP;
+        } else if (IS_OPTION("qp-min")) {
+            pParams->encConfig.rcParams.enableMinQP = a[3];
+            ptrQP = &pParams->encConfig.rcParams.minQP;
+        } else {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        ptrQP->qpIntra  = a[0];
+        ptrQP->qpInterP = a[1];
+        ptrQP->qpInterB = a[2];
         return 0;
     }
     if (IS_OPTION("gop-len")) {
@@ -2619,22 +2631,27 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
 #define OPT_FLOAT(str, opt, prec) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << std::setprecision(prec) << (pParams->opt);
 #define OPT_NUM(str, opt) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->opt);
-#define OPT_NUM_HEVC(str, codec, opt) if ((codecPrm[NV_ENC_HEVC].hevcConfig.opt) != (codecPrmDefault[NV_ENC_HEVC].hevcConfig.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << (codecPrm[NV_ENC_HEVC].hevcConfig.opt);
-#define OPT_NUM_H264(str, codec, opt) if ((codecPrm[NV_ENC_H264].h264Config.opt) != (codecPrmDefault[NV_ENC_H264].h264Config.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << (codecPrm[NV_ENC_H264].h264Config.opt);
+#define OPT_NUM_HEVC(str, codec, opt) if ((codecPrm[NV_ENC_HEVC].hevcConfig.opt) != (codecPrmDefault[NV_ENC_HEVC].hevcConfig.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << (int)(codecPrm[NV_ENC_HEVC].hevcConfig.opt);
+#define OPT_NUM_H264(str, codec, opt) if ((codecPrm[NV_ENC_H264].h264Config.opt) != (codecPrmDefault[NV_ENC_H264].h264Config.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << (int)(codecPrm[NV_ENC_H264].h264Config.opt);
 #define OPT_GUID(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_name_from_guid((pParams->opt), list);
 #define OPT_GUID_HEVC(str, codec, opt, list) if ((codecPrm[NV_ENC_HEVC].hevcConfig.opt) != (codecPrmDefault[NV_ENC_HEVC].hevcConfig.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << get_name_from_value((codecPrm[NV_ENC_HEVC].hevcConfig.opt), list);
 #define OPT_LST(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (pParams->opt));
 #define OPT_LST_HEVC(str, codec, opt, list) if ((codecPrm[NV_ENC_HEVC].hevcConfig.opt) != (codecPrmDefault[NV_ENC_HEVC].hevcConfig.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << get_chr_from_value(list, (codecPrm[NV_ENC_HEVC].hevcConfig.opt));
 #define OPT_LST_H264(str, codec, opt, list) if ((codecPrm[NV_ENC_H264].h264Config.opt) != (codecPrmDefault[NV_ENC_H264].h264Config.opt)) cmd << _T(" ") << (str) << ((save_disabled_prm) ? codec : _T("")) << _T(" ") << get_chr_from_value(list, (codecPrm[NV_ENC_H264].h264Config.opt));
-#define OPT_QP(str, qp, force) { \
-    if ((force) \
+#define OPT_QP(str, qp, enable, force) { \
+    if ((force) || (enable) \
     || (pParams->qp.qpIntra) != (encPrmDefault.qp.qpIntra) \
     || (pParams->qp.qpInterP) != (encPrmDefault.qp.qpInterP) \
     || (pParams->qp.qpInterB) != (encPrmDefault.qp.qpInterB)) { \
-        if ((pParams->qp.qpIntra) == (pParams->qp.qpInterP) && (pParams->qp.qpIntra) == (pParams->qp.qpInterB)) { \
-            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qp.qpIntra); \
+        if (enable) { \
+            cmd << _T(" ") << (str) << _T(" "); \
         } else { \
-            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qp.qpIntra) << _T(":") << (int)(pParams->qp.qpInterP) << _T(":") << (int)(pParams->qp.qpInterB); \
+            cmd << _T(" ") << (str) << _T(" 0;"); \
+        } \
+        if ((pParams->qp.qpIntra) == (pParams->qp.qpInterP) && (pParams->qp.qpIntra) == (pParams->qp.qpInterB)) { \
+            cmd << (int)(pParams->qp.qpIntra); \
+        } else { \
+            cmd << (int)(pParams->qp.qpIntra) << _T(":") << (int)(pParams->qp.qpInterP) << _T(":") << (int)(pParams->qp.qpInterB); \
         } \
     } \
 }
@@ -2699,7 +2716,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         case NV_ENC_PARAMS_RC_CBR_HQ:
         case NV_ENC_PARAMS_RC_VBR:
         case NV_ENC_PARAMS_RC_VBR_HQ: {
-            OPT_QP(_T("--cqp"), encConfig.rcParams.constQP, true);
+            OPT_QP(_T("--cqp"), encConfig.rcParams.constQP, true, true);
         } break;
         case NV_ENC_PARAMS_RC_CONSTQP:
         default: {
@@ -2722,7 +2739,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     } break;
     case NV_ENC_PARAMS_RC_CONSTQP:
     default: {
-        OPT_QP(_T("--cqp"), encConfig.rcParams.constQP, true);
+        OPT_QP(_T("--cqp"), encConfig.rcParams.constQP, true, true);
     } break;
     }
     if (pParams->encConfig.rcParams.rateControlMode != NV_ENC_PARAMS_RC_CONSTQP || save_disabled_prm) {
@@ -2735,13 +2752,13 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_NUM(_T("--max-bitrate"), encConfig.rcParams.maxBitRate / 1000);
     }
     if (pParams->encConfig.rcParams.enableInitialRCQP || save_disabled_prm) {
-        OPT_QP(_T("--qp-init"), encConfig.rcParams.initialRCQP, false);
+        OPT_QP(_T("--qp-init"), encConfig.rcParams.initialRCQP, pParams->encConfig.rcParams.enableInitialRCQP, false);
     }
     if (pParams->encConfig.rcParams.enableMinQP || save_disabled_prm) {
-        OPT_QP(_T("--qp-min"), encConfig.rcParams.minQP, false);
+        OPT_QP(_T("--qp-min"), encConfig.rcParams.minQP, pParams->encConfig.rcParams.enableMinQP, false);
     }
     if (pParams->encConfig.rcParams.enableMaxQP || save_disabled_prm) {
-        OPT_QP(_T("--qp-max"), encConfig.rcParams.maxQP, false);
+        OPT_QP(_T("--qp-max"), encConfig.rcParams.maxQP, pParams->encConfig.rcParams.enableMaxQP, false);
     }
     if (pParams->encConfig.rcParams.enableLookahead || save_disabled_prm) {
         OPT_NUM(_T("--lookahead"), encConfig.rcParams.lookaheadDepth);
