@@ -2985,10 +2985,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_BOOL(_T("timecode"), vpp.afs.timecode);
             ADD_BOOL(_T("log"), vpp.afs.log);
         }
-        if (tmp.str().empty()) {
-            cmd << _T(" --vpp-afs");
-        } else {
+        if (!tmp.str().empty()) {
             cmd << _T(" --vpp-afs ") << tmp.str().substr(1);
+        } else if (pParams->vpp.afs.enable) {
+            cmd << _T(" --vpp-afs");
         }
     }
     if (pParams->vpp.knn != encPrmDefault.vpp.knn) {
@@ -3003,10 +3003,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_FLOAT(_T("th_weight"), vpp.knn.weight_threshold, 3);
             ADD_FLOAT(_T("th_lerp"), vpp.knn.lerp_threshold, 3);
         }
-        if (tmp.str().empty()) {
-            cmd << _T(" --vpp-knn");
-        } else {
+        if (!tmp.str().empty()) {
             cmd << _T(" --vpp-knn ") << tmp.str().substr(1);
+        } else if (pParams->vpp.knn.enable) {
+            cmd << _T(" --vpp-knn");
         }
     }
     if (pParams->vpp.pmd != encPrmDefault.vpp.pmd) {
@@ -3020,10 +3020,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_FLOAT(_T("threshold"), vpp.pmd.threshold, 3);
             ADD_NUM(_T("useexp"), vpp.pmd.useExp);
         }
-        if (tmp.str().empty()) {
-            cmd << _T(" --vpp-pmd");
-        } else {
+        if (!tmp.str().empty()) {
             cmd << _T(" --vpp-pmd ") << tmp.str().substr(1);
+        } else if (pParams->vpp.pmd.enable) {
+            cmd << _T(" --vpp-pmd");
         }
     }
     OPT_LST(_T("--vpp-gauss"), vpp.gaussMaskSize, list_nppi_gauss);
@@ -3037,10 +3037,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_FLOAT(_T("weight"), vpp.unsharp.weight, 3);
             ADD_FLOAT(_T("threshold"), vpp.unsharp.threshold, 3);
         }
-        if (tmp.str().empty()) {
-            cmd << _T(" --vpp-unsharp");
-        } else {
+        if (!tmp.str().empty()) {
             cmd << _T(" --vpp-unsharp ") << tmp.str().substr(1);
+        } else if (pParams->vpp.unsharp.enable) {
+            cmd << _T(" --vpp-unsharp");
         }
     }
     if (pParams->vpp.edgelevel != encPrmDefault.vpp.edgelevel) {
@@ -3054,10 +3054,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_FLOAT(_T("black"), vpp.edgelevel.black, 3);
             ADD_FLOAT(_T("white"), vpp.edgelevel.white, 3);
         }
-        if (tmp.str().empty()) {
-            cmd << _T(" --vpp-edgelevel");
-        } else {
+        if (!tmp.str().empty()) {
             cmd << _T(" --vpp-edgelevel ") << tmp.str().substr(1);
+        } else if (pParams->vpp.edgelevel.enable) {
+            cmd << _T(" --vpp-edgelevel");
         }
     }
     if (pParams->vpp.tweak != encPrmDefault.vpp.tweak) {
@@ -3072,10 +3072,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_FLOAT(_T("saturation"), vpp.tweak.saturation, 3);
             ADD_FLOAT(_T("hue"), vpp.tweak.hue, 3);
         }
-        if (tmp.str().empty()) {
-            cmd << _T(" --vpp-tweak");
-        } else {
+        if (!tmp.str().empty()) {
             cmd << _T(" --vpp-tweak ") << tmp.str().substr(1);
+        } else if (pParams->vpp.tweak.enable) {
+            cmd << _T(" --vpp-tweak");
         }
     }
     if (pParams->vpp.deband != encPrmDefault.vpp.deband) {
@@ -3103,10 +3103,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_BOOL(_T("blurfirst"), vpp.deband.blurFirst);
             ADD_BOOL(_T("rand_each_frame"), vpp.deband.randEachFrame);
         }
-        if (tmp.str().empty()) {
-            cmd << _T(" --vpp-deband");
-        } else {
+        if (!tmp.str().empty()) {
             cmd << _T(" --vpp-deband ") << tmp.str().substr(1);
+        } else if (pParams->vpp.deband.enable) {
+            cmd << _T(" --vpp-deband");
         }
     }
     OPT_CHAR_PATH(_T("--vpp-delogo"), vpp.delogo.pFilePath);

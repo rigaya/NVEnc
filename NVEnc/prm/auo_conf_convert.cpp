@@ -551,10 +551,10 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     ADD_BOOL(_T("rff"), conf->vpp.afs.rff);
     ADD_BOOL(_T("timecode"), conf->vpp.afs.timecode);
     ADD_BOOL(_T("log"), conf->vpp.afs.log);
-    if (tmp.str().empty()) {
-        cmd << _T(" --vpp-afs");
-    } else {
+    if (!tmp.str().empty()) {
         cmd << _T(" --vpp-afs ") << tmp.str().substr(1);
+    } else if (conf->vpp.afs.enable) {
+        cmd << _T(" --vpp-afs");
     }
 
     //knn
@@ -565,10 +565,10 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     ADD_FLOAT(_T("lerp"), conf->vpp.knn.lerpC, 3);
     ADD_FLOAT(_T("th_weight"), conf->vpp.knn.weight_threshold, 3);
     ADD_FLOAT(_T("th_lerp"), conf->vpp.knn.lerp_threshold, 3);
-    if (tmp.str().empty()) {
-        cmd << _T(" --vpp-knn");
-    } else {
+    if (!tmp.str().empty()) {
         cmd << _T(" --vpp-knn ") << tmp.str().substr(1);
+    } else if (conf->vpp.knn.enable) {
+        cmd << _T(" --vpp-knn");
     }
 
     //pmd
@@ -578,10 +578,10 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     ADD_FLOAT(_T("strength"), conf->vpp.pmd.strength, 3);
     ADD_FLOAT(_T("threshold"), conf->vpp.pmd.threshold, 3);
     ADD_NUM(_T("useexp"), conf->vpp.pmd.useExp);
-    if (tmp.str().empty()) {
-        cmd << _T(" --vpp-pmd");
-    } else {
+    if (!tmp.str().empty()) {
         cmd << _T(" --vpp-pmd ") << tmp.str().substr(1);
+    } else if (conf->vpp.pmd.enable) {
+        cmd << _T(" --vpp-pmd");
     }
 
     //unsharp
@@ -592,10 +592,10 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     ADD_NUM(_T("radius"), conf->vpp.unsharp.radius);
     ADD_FLOAT(_T("weight"), conf->vpp.unsharp.weight, 3);
     ADD_FLOAT(_T("threshold"), conf->vpp.unsharp.threshold, 3);
-    if (tmp.str().empty()) {
-        cmd << _T(" --vpp-unsharp");
-    } else {
+    if (!tmp.str().empty()) {
         cmd << _T(" --vpp-unsharp ") << tmp.str().substr(1);
+    } else if (conf->vpp.unsharp.enable) {
+        cmd << _T(" --vpp-unsharp");
     }
 
     //edgelevel
@@ -607,10 +607,10 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     ADD_FLOAT(_T("threshold"), conf->vpp.edgelevel.threshold, 3);
     ADD_FLOAT(_T("black"), conf->vpp.edgelevel.black, 3);
     ADD_FLOAT(_T("white"), conf->vpp.edgelevel.white, 3);
-    if (tmp.str().empty()) {
-        cmd << _T(" --vpp-edgelevel");
-    } else {
+    if (!tmp.str().empty()) {
         cmd << _T(" --vpp-edgelevel ") << tmp.str().substr(1);
+    } else if (conf->vpp.edgelevel.enable) {
+        cmd << _T(" --vpp-edgelevel");
     }
 
     //tweak
@@ -623,10 +623,10 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     ADD_FLOAT(_T("gamma"), conf->vpp.tweak.gamma, 3);
     ADD_FLOAT(_T("saturation"), conf->vpp.tweak.saturation, 3);
     ADD_FLOAT(_T("hue"), conf->vpp.tweak.hue, 3);
-    if (tmp.str().empty()) {
-        cmd << _T(" --vpp-tweak");
-    } else {
+    if (!tmp.str().empty()) {
         cmd << _T(" --vpp-tweak ") << tmp.str().substr(1);
+    } else if (conf->vpp.tweak.enable) {
+        cmd << _T(" --vpp-tweak");
     }
 
     //deband
@@ -652,10 +652,10 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
     ADD_NUM(_T("sample"), conf->vpp.deband.sample);
     ADD_BOOL(_T("blurfirst"), conf->vpp.deband.blurFirst);
     ADD_BOOL(_T("rand_each_frame"), conf->vpp.deband.randEachFrame);
-    if (tmp.str().empty()) {
-        cmd << _T(" --vpp-deband");
-    } else {
+    if (!tmp.str().empty()) {
         cmd << _T(" --vpp-deband ") << tmp.str().substr(1);
+    } else if (conf->vpp.deband.enable) {
+        cmd << _T(" --vpp-deband");
     }
     if (conf->vid.log_debug) {
         cmd << _T(" --log-level debug");
