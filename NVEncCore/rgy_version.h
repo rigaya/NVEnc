@@ -29,9 +29,9 @@
 #ifndef __RGY_CONFIG_H__
 #define __RGY_CONFIG_H__
 
-#define VER_FILEVERSION              0,4,0,0
-#define VER_STR_FILEVERSION          "4.00"
-#define VER_STR_FILEVERSION_TCHAR _T("4.00")
+#define VER_FILEVERSION              0,4,1,0
+#define VER_STR_FILEVERSION          "4.01"
+#define VER_STR_FILEVERSION_TCHAR _T("4.01")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -68,7 +68,7 @@ const char *get_encoder_version();
 
 #define GPU_VENDOR "NVIDIA"
 
-#define NV_DRIVER_VER_MIN 378660
+#define NV_DRIVER_VER_MIN 390770
 
 #ifdef NVENC_AUO
 #define ENCODER_NAME  "NVEnc"
