@@ -99,7 +99,7 @@ protected:
 
     int readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo> pDelogoParam);
     int getLogoIdx(const std::string& logoName);
-    int selectLogo(const TCHAR *selectStr);
+    int selectLogo(const TCHAR *selectStr, const TCHAR *inputFilename);
     std::string logoNameList();
 
     NVENCSTATUS delogoY(FrameInfo *pFrame);

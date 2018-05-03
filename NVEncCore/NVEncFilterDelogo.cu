@@ -318,7 +318,7 @@ int NVEncFilterDelogo::getLogoIdx(const std::string& logoName) {
     return idx;
 }
 
-int NVEncFilterDelogo::selectLogo(const TCHAR *selectStr) {
+int NVEncFilterDelogo::selectLogo(const TCHAR *selectStr, const TCHAR *inputFilename) {
     if (selectStr == nullptr) {
         if (m_sLogoDataList.size() > 1) {
             AddMessage(RGY_LOG_ERROR, _T("--vpp-delogo-select option is required to select logo from logo pack.\n"));
@@ -357,7 +357,7 @@ int NVEncFilterDelogo::selectLogo(const TCHAR *selectStr) {
     //自動選択キー
     int count = 0;
     for (;; count++) {
-        char buf[512] ={ 0 };
+        char buf[512] = { 0 };
         GetPrivateProfileStringA("LOGO_AUTO_SELECT", strsprintf("logo%d", count+1).c_str(), "", buf, sizeof(buf), logoName.c_str());
         if (strlen(buf) == 0)
             break;
@@ -369,24 +369,19 @@ int NVEncFilterDelogo::selectLogo(const TCHAR *selectStr) {
     std::vector<LOGO_SELECT_KEY> logoAutoSelectKeys;
     logoAutoSelectKeys.reserve(count);
     for (int i = 0; i < count; i++) {
-        LOGO_SELECT_KEY selectKey;
-        char buf[512] ={ 0 };
+        char buf[512] = { 0 };
         GetPrivateProfileStringA("LOGO_AUTO_SELECT", strsprintf("logo%d", i+1).c_str(), "", buf, sizeof(buf), logoName.c_str());
         char *ptr = strchr(buf, ',');
         if (ptr != NULL) {
+            LOGO_SELECT_KEY selectKey;
             ptr[0] = '\0';
             selectKey.key = buf;
             strcpy_s(selectKey.logoname, ptr+1);
             logoAutoSelectKeys.push_back(std::move(selectKey));
         }
     }
-    auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
-    if (!pDelogoParam) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
-    }
     for (const auto& selectKey : logoAutoSelectKeys) {
-        if (NULL != _tcsstr(pDelogoParam->inputFileName, char_to_tstring(selectKey.key.c_str()).c_str())) {
+        if (NULL != _tcsstr(inputFilename, char_to_tstring(selectKey.key.c_str()).c_str())) {
             logoName = selectKey.logoname;
             return getLogoIdx(logoName);
         }
@@ -414,7 +409,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
     if (ret_logofile > 0) {
         return NV_ENC_ERR_INVALID_PARAM;
     }
-    const int logoidx = selectLogo(pDelogoParam->logoSelect);
+    const int logoidx = selectLogo(pDelogoParam->logoSelect, pDelogoParam->inputFileName);
     if (logoidx < 0) {
         if (logoidx == LOGO_AUTO_SELECT_NOHIT) {
             AddMessage(RGY_LOG_ERROR, _T("no logo was selected by auto select \"%s\".\n"), pDelogoParam->logoSelect);
