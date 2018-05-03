@@ -563,6 +563,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
                 AddMessage(RGY_LOG_ERROR, _T("failed to set AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
                 return RGY_ERR_INVALID_CALL;
             }
+            mastering.release(); //av_stream_add_side_dataされたデータはこちらで開放してはいけない
             AddMessage(RGY_LOG_DEBUG, _T("set AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
 
             err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, (uint8_t *)coll.get(), coll_size);
@@ -570,6 +571,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
                 AddMessage(RGY_LOG_ERROR, _T("failed to set AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
                 return RGY_ERR_INVALID_CALL;
             }
+            coll.release(); //av_stream_add_side_dataされたデータはこちらで開放してはいけない
             AddMessage(RGY_LOG_DEBUG, _T("set AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
         }
     }
