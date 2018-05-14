@@ -695,10 +695,15 @@ void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void
     conf->vid.resize_width   = conf_old.vpp.resize_width;
     conf->vid.resize_height  = conf_old.vpp.resize_height;
 
+    conf_old.nvenc.codecConfig[NV_ENC_H264].h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT;
+    conf_old.nvenc.codecConfig[NV_ENC_H264].h264Config.bdirectMode = NV_ENC_H264_BDIRECT_MODE_AUTOSELECT;
+    conf_old.nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.maxCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
+    conf_old.nvenc.codecConfig[NV_ENC_HEVC].hevcConfig.minCUSize = NV_ENC_HEVC_CUSIZE_AUTOSELECT;
+
     //古い設定ファイルからコマンドラインへ
     //ここではデフォルトパラメータを考慮せず、すべての情報の文字列化を行う
     auto cmd_old = gen_cmd_old3(&conf_old);
-    
+
     //一度パラメータに戻し、再度コマンドラインに戻すことでデフォルトパラメータの削除を行う
     ParseCmdError err;
     InEncodeVideoParam enc_prm;
