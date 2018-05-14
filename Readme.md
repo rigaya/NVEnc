@@ -65,6 +65,8 @@ which might cause problem in some playback environments.
   - HEVC (10 bitdepth support)
   - VP9
 - Supports various formats such as avs, vpy, y4m, and raw
+- Supports demux/muxing using libavformat
+- Supports decode using libavcodec
 - High performance filtering (VPP, Video Pre-Processing)
   - cuvid built-in hw processing
     - resize
