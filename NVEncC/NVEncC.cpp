@@ -943,8 +943,7 @@ int _tmain(int argc, TCHAR **argv) {
                 option_name = &argv[iarg][2];
             } else if (argv[iarg][2] == _T('\0')) {
                 if (nullptr == (option_name = cmd_short_opt_to_long(argv[iarg][1]))) {
-                    PrintHelp(argv[0], strsprintf(_T("Unknown options: \"%s\""), argv[iarg]).c_str(), _T(""), _T(""));
-                    return 1;
+                    continue;
                 }
             }
         }
