@@ -44,6 +44,7 @@
 #include <emmintrin.h>
 #include "rgy_osdep.h"
 #include "rgy_util.h"
+#include "rgy_version.h"
 #include "cpu_info.h"
 #if ENCODER_QSV
 #include "qsv_query.h"
@@ -113,8 +114,12 @@ static int getCPUName(wchar_t *buffer, size_t nSize) {
         buffer[0] = L'\0';
         ret = 1;
     } else {
-        if (0 == (ret = getCPUName(buf, nSize)))
-            MultiByteToWideChar(CP_ACP, 0, buf, -1, buffer, (DWORD)nSize);
+        if (0 == (ret = getCPUName(buf, nSize))) {
+            if (MultiByteToWideChar(CP_ACP, 0, buf, -1, buffer, (DWORD)nSize) == 0) {
+                buffer[0] = L'\0';
+                ret = 1;
+            }
+        }
         free(buf);
     }
     return ret;
@@ -396,23 +401,13 @@ double getCPUDefaultClockOpenCL() {
     int frequency = 0;
     char buffer[1024] = { 0 };
     getCPUName(buffer, _countof(buffer));
-    const std::vector<const char*> vendorNameList = { "Intel", "NVIDIA", "AMD" };
-
-    const char *vendorName = NULL;
-    for (auto vendor : vendorNameList) {
-        if (cl_check_vendor_name(buffer, vendor)) {
-            vendorName = vendor;
-        }
+    cl_func_t cl = { 0 };
+    cl_data_t data = { 0 };
+    if (CL_SUCCESS == cl_get_func(&cl)
+        && CL_SUCCESS == cl_get_platform_and_device(nullptr, CL_DEVICE_TYPE_CPU, &data, &cl)) {
+        frequency = cl_get_device_max_clock_frequency_mhz(&data, &cl);
     }
-    if (NULL != vendorName) {
-        cl_func_t cl = { 0 };
-        cl_data_t data = { 0 };
-        if (CL_SUCCESS == cl_get_func(&cl)
-            && CL_SUCCESS == cl_get_platform_and_device(vendorName, CL_DEVICE_TYPE_CPU, &data, &cl)) {
-            frequency = cl_get_device_max_clock_frequency_mhz(&data, &cl);
-        }
-        cl_release(&data, &cl);
-    }
+    cl_release(&data, &cl);
     return frequency / 1000.0;
 #endif // !ENABLE_OPENCL
 }
@@ -430,6 +425,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
     buffer[0] = _T('\0');
     cpu_info_t cpu_info;
     if (getCPUName(buffer, nSize) || !get_cpu_info(&cpu_info)) {
+        buffer[0] = _T('\0');
         ret = 1;
     } else {
         double defaultClock = getCPUDefaultClockFromCPUName();
