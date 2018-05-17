@@ -180,7 +180,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-58.dll;avformat-58.dll;avutil-56.dll;swresample-3.dll;avfilter-7.dll;nvcuda.dll;</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -193,8 +193,12 @@
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avcodec-*.dll"  "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avfilter-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avformat-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
@@ -226,7 +230,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-58.dll;avformat-58.dll;avutil-56.dll;swresample-3.dll;avfilter-7.dll;nvcuda.dll;</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -239,8 +243,12 @@
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avcodec-*.dll"  "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avfilter-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avformat-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
@@ -274,7 +282,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-58.dll;avformat-58.dll;avutil-56.dll;swresample-3.dll;avfilter-7.dll;nvcuda.dll;nppi64_80.dll;</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -287,8 +295,12 @@
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avcodec-*.dll"  "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avfilter-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avformat-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
@@ -320,7 +332,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-58.dll;avformat-58.dll;avutil-56.dll;swresample-3.dll;avfilter-7.dll;nvcuda.dll;nppi64_80.dll;</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -333,8 +345,12 @@
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avcodec-*.dll"  "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avfilter-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avformat-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <CudaCompile>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
@@ -379,7 +395,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-58.dll;avformat-58.dll;avutil-56.dll;swresample-3.dll;avfilter-7.dll;nvcuda.dll;</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -392,8 +408,12 @@
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avcodec-*.dll"  "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avfilter-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avformat-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -422,7 +442,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-58.dll;avformat-58.dll;avutil-56.dll;swresample-3.dll;avfilter-7.dll;nvcuda.dll;nppi64_80.dll;</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -435,8 +455,12 @@
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avcodec-*.dll"  "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avfilter-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avformat-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">
@@ -467,7 +491,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-58.dll;avformat-58.dll;avutil-56.dll;swresample-3.dll;avfilter-7.dll;nvcuda.dll;</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -480,8 +504,12 @@
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avcodec-*.dll"  "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avfilter-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avformat-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
@@ -511,7 +539,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>cuda.lib;d3d9.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>nvcuda.dll;nppi64_80.dll;avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll;avfilter-6.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-58.dll;avformat-58.dll;avutil-56.dll;swresample-3.dll;avfilter-7.dll;nvcuda.dll;nppi64_80.dll;</DelayLoadDLLs>
       <AdditionalLibraryDirectories>..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ResourceCompile>
@@ -524,8 +552,12 @@
       <AdditionalManifestFiles>NVEncC.manifest</AdditionalManifestFiles>
     </Manifest>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avcodec-*.dll"  "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avfilter-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avformat-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

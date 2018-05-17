@@ -263,7 +263,7 @@ void RGYInputAvcodec::vc1FixHeader(int nLengthFix) {
         memcpy(buffer.data() +  8, dataPtr, datasize);
         memcpy(buffer.data() +  8 + datasize, &height, sizeof(height));
         memcpy(buffer.data() + 12 + datasize, &width, sizeof(width));
-        m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, sizeof(buffer) + FF_INPUT_BUFFER_PADDING_SIZE);
+        m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, sizeof(buffer) + AV_INPUT_BUFFER_PADDING_SIZE);
         m_Demux.video.nExtradataSize = (int)buffer.size();
         memcpy(m_Demux.video.pExtradata, buffer.data(), buffer.size());
     } else {
@@ -1704,10 +1704,10 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
     if (m_Demux.video.pExtradata == nullptr) {
         m_Demux.video.nExtradataSize = m_Demux.video.pStream->codecpar->extradata_size;
         //ここでav_mallocを使用しないと正常に動作しない
-        m_Demux.video.pExtradata = (uint8_t *)av_malloc(m_Demux.video.pStream->codecpar->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
+        m_Demux.video.pExtradata = (uint8_t *)av_malloc(m_Demux.video.pStream->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
         //ヘッダのデータをコピーしておく
         memcpy(m_Demux.video.pExtradata, m_Demux.video.pStream->codecpar->extradata, m_Demux.video.nExtradataSize);
-        memset(m_Demux.video.pExtradata + m_Demux.video.nExtradataSize, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+        memset(m_Demux.video.pExtradata + m_Demux.video.nExtradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
         if (m_Demux.video.pBsfcCtx && m_Demux.video.pExtradata[0] == 1) {
             int ret = 0;
@@ -1753,7 +1753,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
             }
             av_bsf_free(&pBsfCtx);
             if (m_Demux.video.nExtradataSize < pkt.size) {
-                m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, m_Demux.video.pStream->codecpar->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
+                m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, m_Demux.video.pStream->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
             }
             memcpy(m_Demux.video.pExtradata, pkt.data, pkt.size);
             AddMessage(RGY_LOG_DEBUG, _T("GetHeader: changed %d bytes -> %d bytes by %s.\n"), m_Demux.video.nExtradataSize, pkt.size, char_to_tstring(pBsf->name).c_str());

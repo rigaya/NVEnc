@@ -923,7 +923,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
             pMuxAudio->pOutCodecEncodeCtx->channels, (uint32_t)pMuxAudio->pOutCodecEncodeCtx->channel_layout, pMuxAudio->pOutCodecEncodeCtx->sample_rate / 1000.0,
             char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.den);
-        if (pMuxAudio->pOutCodecEncode->capabilities & CODEC_CAP_EXPERIMENTAL) { 
+        if (pMuxAudio->pOutCodecEncode->capabilities & AV_CODEC_CAP_EXPERIMENTAL) { 
             //誰がなんと言おうと使うと言ったら使うのだ
             av_opt_set(pMuxAudio->pOutCodecEncodeCtx, "strict", "experimental", 0);
         }
@@ -1147,7 +1147,7 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
 
         AddMessage(RGY_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str(),
             pMuxSub->pOutCodecEncodeCtx->width, pMuxSub->pOutCodecEncodeCtx->height);
-        if (pMuxSub->pOutCodecEncode->capabilities & CODEC_CAP_EXPERIMENTAL) {
+        if (pMuxSub->pOutCodecEncode->capabilities & AV_CODEC_CAP_EXPERIMENTAL) {
             //問答無用で使うのだ
             av_opt_set(pMuxSub->pOutCodecEncodeCtx, "strict", "experimental", 0);
         }
@@ -1429,12 +1429,12 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *pVideo
 
     strcpy_s(m_Mux.format.pFormatCtx->filename, filename.c_str());
     if (m_Mux.format.pOutputFmt->flags & AVFMT_GLOBALHEADER) {
-        if (m_Mux.video.pStreamOut) { m_Mux.video.pStreamOut->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
+        if (m_Mux.video.pStreamOut) { m_Mux.video.pStreamOut->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER; }
         for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            if (m_Mux.audio[i].pStreamOut) { m_Mux.audio[i].pStreamOut->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
+            if (m_Mux.audio[i].pStreamOut) { m_Mux.audio[i].pStreamOut->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER; }
         }
         for (uint32_t i = 0; i < m_Mux.sub.size(); i++) {
-            if (m_Mux.sub[i].pStreamOut) { m_Mux.sub[i].pStreamOut->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
+            if (m_Mux.sub[i].pStreamOut) { m_Mux.sub[i].pStreamOut->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER; }
         }
     }
 
