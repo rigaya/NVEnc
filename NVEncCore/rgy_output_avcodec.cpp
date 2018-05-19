@@ -1251,9 +1251,6 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *pVideo
         return RGY_ERR_UNSUPPORTED;
     }
 
-    av_register_all();
-    avcodec_register_all();
-    avformatNetworkInit();
     av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
     for (const auto& stream : prm->inputStreamList) {

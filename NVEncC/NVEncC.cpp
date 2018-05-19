@@ -1007,8 +1007,5 @@ int _tmain(int argc, TCHAR **argv) {
         nvEnc.PrintEncodingParamsInfo(RGY_LOG_INFO);
         ret = (NV_ENC_SUCCESS == nvEnc.Encode()) ? 0 : 1;
     }
-#if ENABLE_AVSW_READER
-    avformatNetworkDeinit();
-#endif //#if ENABLE_AVCODEC_QSV_READER
     return ret;
 }

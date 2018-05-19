@@ -198,12 +198,6 @@ tstring getAVProtocols();
 //protocolを使用
 bool usingAVProtocols(std::string filename, int bOutput);
 
-//avformatのネットワークを初期化する
-bool avformatNetworkInit();
-
-//avformatのネットワークを閉じる
-void avformatNetworkDeinit();
-
 //バージョン情報の取得
 tstring getAVVersions();
 

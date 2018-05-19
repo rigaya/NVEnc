@@ -439,27 +439,6 @@ tstring getAVVersions() {
     return char_to_tstring(mes);
 }
 
-static bool avformat_network_initialized = false;
-
-bool avformatNetworkInit() {
-    if (!check_avcodec_dll()) {
-        return false;
-    }
-    if (avformat_network_initialized) {
-        return false;
-    }
-    avformat_network_initialized = true;
-    avformat_network_init();
-    return true;
-}
-
-void avformatNetworkDeinit() {
-    if (avformat_network_initialized) {
-        avformat_network_initialized = false;
-        avformat_network_deinit();
-    }
-}
-
 static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>(
     std::make_pair(AV_PIX_FMT_YUV420P,     RGY_CSP_YV12),
     std::make_pair(AV_PIX_FMT_YUVJ420P,    RGY_CSP_YV12),
