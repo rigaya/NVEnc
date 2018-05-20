@@ -88,6 +88,9 @@ show available output format
 ### --check-protocols
 show available protocols
 
+### --check-filters
+show available audio filters
+
 ### --check-avversion
 show version of ffmpeg dll
 
@@ -164,7 +167,7 @@ Read avi file using avi reader.
 Read Avisynth script file using avs reader.
 
 ### --vpy
-Read VapourSynth script file using avs reader.
+Read VapourSynth script file using vpy reader.
 
 ### --avsw
 Read input file using avformat + ffmpeg's sw decoder.
@@ -202,6 +205,15 @@ Deinterlace is available through [--vpp-deinterlace](#--vpp-deinterlace-string) 
 - none ... progressive
 - tff ... top field first
 - bff ... Bottom Field First
+
+### --video-track &lt;int&gt;
+Set video track to encode in track id. Will be active when used with avhw/avsw reader.
+ - 1 (default)  highest resolution video track
+ - 2            next high resolution video track
+    ...
+ - -1           lowest resolution video track
+ - -2           next low resolution video track
+    ...
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 Number of pixels to cropped from left, top, right, bottom.
@@ -955,11 +967,11 @@ On the other hand, setting too much buffer size could decrease performance, sinc
 If a protocol other than "file" is used, then this output buffer will not be used.
 
 ### --output-thread &lt;int&gt;
-Specify whether to use the output thread.
+Specify whether to use a separate thread for output.
 - -1 ... auto (default)
 - 0 ... do not use output thread
 - 1 ... use output thread  
-Using an output thread increases memory usage, but sometimes improves encoding speed.
+Using output thread increases memory usage, but sometimes improves encoding speed.
 
 ### --log &lt;string&gt;
 Output the log to the specified file.
