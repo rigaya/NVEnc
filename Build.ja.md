@@ -53,17 +53,9 @@ ffmpegのdllのビルド方法はいろいろあるかと思いますが、例�
 Visual Studioの環境変数がセットされた状態でビルドすると、
 自動的にVC用のdllとlibが作成されます。
 
-例えば、x64のdllをビルドするのであれば、
+参考までに、MSYS2向けのビルドスクリプトを[こちら](https://github.com/rigaya/build_scripts/tree/master/ffmpeg_dll)に置いておきます。
 
-```Batchfile
-call "%VS140COMNTOOLS%\..\..\VC\vcvarsall.bat" x64
-call msys.bat
-```
-としてmsysを起動し、
-```
---enable-shared --enable-swresample
-```
-をつけてビルドすると必要なdllとlibがビルドされます。
+laucherディレクトリ内のbatファイルから、MSYS2をVisual Studioの環境変数がセットされた状態で起動したのち、build_ffmpeg_dll.shを実行します。
 
 ## 3. NVEnc.auo / NVEncC のビルド
 

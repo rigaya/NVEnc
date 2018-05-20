@@ -54,15 +54,9 @@ One of the way to build ffmpeg dlls is to use msys+mingw, and when Visual Studio
 
 For example, if you need x64 build, you can set Visual Studio's environment path be calling vcvarsall.bat before msys.bat call.
 
-```Batchfile
-call "%VS140COMNTOOLS%\..\..\VC\vcvarsall.bat" x64
-call msys.bat
-```
-Then, by configuring with options below, dlls will be built automatically.
-```
---enable-shared --enable-swresample
-```
+Sample script to build dlls can ne found [here](https://github.com/rigaya/build_scripts/tree/master/ffmpeg_dll).
 
+By starting MSYS2 from the bat file in "laucher" dir, MSYS2 could be run with Visual Studio's environment path set. Then, running build_ffmpeg_dll.sh will build the dlls. 
 
 ## 3. Build NVEncC / NVEnc.auo
 
