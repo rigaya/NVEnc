@@ -1098,7 +1098,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             return tableData.pix_fmt == pixfmt;
         });
         if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->output_csp == RGY_CSP_NA) {
-            AddMessage(RGY_LOG_ERROR, _T("Invalid pixel format from input file.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Invalid pixel format \"%s\" from input file.\n"), char_to_tstring(av_get_pix_fmt_name(pixfmt)).c_str());
             return RGY_ERR_INVALID_COLOR_FORMAT;
         }
 
