@@ -148,7 +148,8 @@ std::vector<uint8_t> HEVCHDRSei::sei_masterdisplay() const {
 void HEVCHDRSei::to_nal(std::vector<uint8_t>& data) const {
     for (auto it = data.begin(); it < data.end() - 2; it++) {
         if (    *it == 0
-            && *(it+1) == 0) {
+            && *(it+1) == 0
+            && (*(it+2) & (~(0x03))) == 0) {
             it = data.insert(it+2, 0x03);
             it++;
         }
