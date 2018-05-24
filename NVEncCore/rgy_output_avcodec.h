@@ -116,6 +116,7 @@ typedef struct AVMuxVideo {
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     FILE                 *fpTsLogFile;          //mux timestampログファイル
     RGYBitstream          seiNal;               //追加のsei nal
+    AVBSFContext         *pBsfc;                //必要なら使用するbitstreamfilter
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
@@ -374,9 +375,6 @@ protected:
 
     //PCMのコーデックがwav出力時に変換を必要とするかを判定する
     AVCodecID PCMRequiresConversion(const AVCodecParameters *pCodecParm);
-
-    //RGY_CODECのcodecからAVCodecのCodecIDを返す
-    AVCodecID getAVCodecId(RGY_CODEC codec);
 
     //AAC音声にBitstreamフィルターを適用する
     RGY_ERR applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);

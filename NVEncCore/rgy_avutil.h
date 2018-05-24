@@ -89,6 +89,13 @@ static const CodecMap HW_DECODE_LIST[] = {
     //{ AV_CODEC_ID_WMV3,       RGY_CODEC_VC1   },
 };
 
+static const inline AVCodecID getAVCodecId(RGY_CODEC codec) {
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
+        if (HW_DECODE_LIST[i].rgy_codec == codec)
+            return HW_DECODE_LIST[i].avcodec_id;
+    return AV_CODEC_ID_NONE;
+}
+
 static const AVPixelFormat HW_DECODE_PIXFMT_LIST[] = {
     AV_PIX_FMT_YUV420P,
     AV_PIX_FMT_YUVJ420P,
@@ -144,6 +151,14 @@ static tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
 static const AVRational HW_NATIVE_TIMEBASE = { 1, HW_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
     _T("avcodec-58.dll"), _T("avformat-58.dll"), _T("avutil-56.dll"), _T("avfilter-7.dll"), _T("swresample-3.dll")
+};
+
+template<typename T>
+struct RGYAVDeleter {
+    RGYAVDeleter() : deleter(nullptr) {};
+    RGYAVDeleter(std::function<void(T**)> deleter) : deleter(deleter) {};
+    void operator()(T *p) { deleter(&p); }
+    std::function<void(T**)> deleter;
 };
 
 enum RGYAVCodecType : uint32_t {

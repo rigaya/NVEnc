@@ -35,6 +35,7 @@
 #include "rgy_tchar.h"
 #include "rgy_log.h"
 #include "rgy_status.h"
+#include "rgy_avutil.h"
 #include "NVEncUtil.h"
 
 using std::unique_ptr;
@@ -143,7 +144,8 @@ public:
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
 
-    vector<uint8_t> seiNal;
+    vector<uint8_t> m_seiNal;
+    unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
 };
 
 #endif //__RGY_OUTPUT_H__

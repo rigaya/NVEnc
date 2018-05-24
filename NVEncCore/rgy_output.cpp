@@ -78,12 +78,15 @@ void RGYOutput::Close() {
     m_pPrintMes.reset();
 }
 
-RGYOutputRaw::RGYOutputRaw() {
+RGYOutputRaw::RGYOutputRaw() :
+    m_seiNal(),
+    m_pBsfc() {
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
 
 RGYOutputRaw::~RGYOutputRaw() {
+    m_pBsfc.reset();
 }
 
 RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
@@ -124,8 +127,79 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                 }
             }
         }
+        if (ENCODER_NVENC
+            && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
+            && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0) {
+            if (!check_avcodec_dll()) {
+                AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
+                return RGY_ERR_NULL_PTR;
+            }
+
+            const char *bsf_name = nullptr;
+            switch (pVideoOutputInfo->codec) {
+            case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
+            case RGY_CODEC_HEVC: bsf_name = "hevc_metadata"; break;
+            default:
+                break;
+            }
+            if (bsf_name == nullptr) {
+                AddMessage(RGY_LOG_ERROR, _T("invalid codec to set metadata filter.\n"));
+                return RGY_ERR_INVALID_CALL;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsf_name);
+            auto filter = av_bsf_get_by_name(bsf_name);
+            if (filter == nullptr) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsf_name);
+                return RGY_ERR_NOT_FOUND;
+            }
+            unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>> codecpar(avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
+
+            codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
+            codecpar->codec_id                = getAVCodecId(pVideoOutputInfo->codec);
+            codecpar->width                   = pVideoOutputInfo->dstWidth;
+            codecpar->height                  = pVideoOutputInfo->dstHeight;
+            codecpar->format                  = csp_rgy_to_avpixfmt(pVideoOutputInfo->csp);
+            codecpar->level                   = pVideoOutputInfo->codecLevel;
+            codecpar->profile                 = pVideoOutputInfo->codecProfile;
+            codecpar->sample_aspect_ratio.num = pVideoOutputInfo->sar[0];
+            codecpar->sample_aspect_ratio.den = pVideoOutputInfo->sar[1];
+            codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
+            codecpar->field_order             = picstrcut_rgy_to_avfieldorder(pVideoOutputInfo->picstruct);
+            codecpar->video_delay             = pVideoOutputInfo->videoDelay;
+            if (pVideoOutputInfo->vui.descriptpresent) {
+                codecpar->color_space         = (AVColorSpace)pVideoOutputInfo->vui.matrix;
+                codecpar->color_primaries     = (AVColorPrimaries)pVideoOutputInfo->vui.colorprim;
+                codecpar->color_range         = (AVColorRange)(pVideoOutputInfo->vui.fullrange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
+                codecpar->color_trc           = (AVColorTransferCharacteristic)pVideoOutputInfo->vui.transfer;
+            }
+            int ret = 0;
+            AVBSFContext *bsfc = nullptr;
+            if (0 > (ret = av_bsf_alloc(filter, &bsfc))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+                return RGY_ERR_NULL_PTR;
+            }
+            if (0 > (ret = avcodec_parameters_copy(bsfc->par_in, codecpar.get()))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            m_pBsfc = unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>>(bsfc, RGYAVDeleter<AVBSFContext>(av_bsf_free));
+            AVDictionary *bsfPrm = nullptr;
+            char sar[128];
+            sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
+            av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
+            AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1], bsf_name);
+            if (0 > (ret = av_opt_set_dict2(m_pBsfc.get(), &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            if (0 > (ret = av_bsf_init(m_pBsfc.get()))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_name);
+        }
         if (rawPrm->codecId == RGY_CODEC_HEVC) {
-            seiNal = rawPrm->seiNal;
+            m_seiNal = rawPrm->seiNal;
         }
     }
     m_bInited = true;
@@ -140,7 +214,31 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
 
     uint32_t nBytesWritten = 0;
     if (!m_bNoOutput) {
-        if (seiNal.size()) {
+
+        if (m_pBsfc) {
+            AVPacket pkt = { 0 };
+            av_init_packet(&pkt);
+            av_new_packet(&pkt, pBitstream->size());
+            memcpy(pkt.data, pBitstream->data(), pBitstream->size());
+            int ret = 0;
+            if (0 > (ret = av_bsf_send_packet(m_pBsfc.get(), &pkt))) {
+                av_packet_unref(&pkt);
+                AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
+                    char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            ret = av_bsf_receive_packet(m_pBsfc.get(), &pkt);
+            if (ret == AVERROR(EAGAIN)) {
+                return RGY_ERR_NONE;
+            } else if ((ret < 0 && ret != AVERROR_EOF) || pkt.size < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
+                    char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            pBitstream->copy(pkt.data, pkt.size);
+            av_packet_unref(&pkt);
+        }
+        if (m_seiNal.size()) {
             std::vector<nal_info> nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
             const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
@@ -150,7 +248,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                 nBytesWritten  = (uint32_t)fwrite(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
                 nBytesWritten += (uint32_t)fwrite(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
                 nBytesWritten += (uint32_t)fwrite(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)fwrite(seiNal.data(),     1, seiNal.size(),      m_fDest.get());
+                nBytesWritten += (uint32_t)fwrite(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
                 for (const auto& nal : nal_list) {
                     if (nal.type != NALU_HEVC_VPS || nal.type != NALU_HEVC_SPS || nal.type != NALU_HEVC_PPS) {
                         nBytesWritten += (uint32_t)fwrite(nal.ptr, 1, nal.size, m_fDest.get());
@@ -160,7 +258,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                 AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
-            seiNal.clear();
+            m_seiNal.clear();
         } else {
             nBytesWritten = (uint32_t)fwrite(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
             WRITE_CHECK(nBytesWritten, pBitstream->size());

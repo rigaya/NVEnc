@@ -714,7 +714,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
         m_uEncWidth, m_uEncHeight,
         &m_stEncConfig, m_stPicStruct,
-        get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight),
+        std::make_pair(inputParams->par[0], inputParams->par[1]),
         std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
     HEVCHDRSei hedrsei;
     if (hedrsei.parse(inputParams->sMaxCll, inputParams->sMasterDisplay)) {

@@ -131,6 +131,9 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *pMuxVideo) {
         fclose(m_Mux.video.fpTsLogFile);
     }
     m_Mux.video.timestampList.clear();
+    if (m_Mux.video.pBsfc) {
+        av_bsf_free(&m_Mux.video.pBsfc);
+    }
     memset(pMuxVideo, 0, sizeof(pMuxVideo[0]));
     AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
 }
@@ -252,12 +255,6 @@ void RGYOutputAvcodec::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-AVCodecID RGYOutputAvcodec::getAVCodecId(RGY_CODEC codec) {
-    for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
-        if (HW_DECODE_LIST[i].rgy_codec == codec)
-            return HW_DECODE_LIST[i].avcodec_id;
-    return AV_CODEC_ID_NONE;
-}
 bool RGYOutputAvcodec::codecIDIsPCM(AVCodecID targetCodec) {
     static const auto pcmCodecs = make_array<AVCodecID>(
         AV_CODEC_ID_FIRST_AUDIO,
@@ -615,6 +612,51 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
             coll.release(); //av_stream_add_side_dataされたデータはこちらで開放してはいけない
             AddMessage(RGY_LOG_DEBUG, _T("set AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
         }
+    }
+
+    if (ENCODER_NVENC
+        && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
+        && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0) {
+        const char *bsf_name = nullptr;
+        switch (pVideoOutputInfo->codec) {
+        case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
+        case RGY_CODEC_HEVC: bsf_name = "hevc_metadata"; break;
+        default:
+            break;
+        }
+        if (bsf_name == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid codec to set metadata filter.\n"));
+            return RGY_ERR_INVALID_CALL;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsf_name);
+        auto filter = av_bsf_get_by_name(bsf_name);
+        if (filter == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsf_name);
+            return RGY_ERR_NOT_FOUND;
+        }
+        int ret = 0;
+        if (0 > (ret = av_bsf_alloc(filter, &m_Mux.video.pBsfc))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+            return RGY_ERR_NULL_PTR;
+        }
+        if (0 > (ret = avcodec_parameters_copy(m_Mux.video.pBsfc->par_in, m_Mux.video.pStreamOut->codecpar))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        AVDictionary *bsfPrm = nullptr;
+        char sar[128];
+        sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
+        av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
+        AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1], bsf_name);
+        if (0 > (ret = av_opt_set_dict2(m_Mux.video.pBsfc, &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        if (0 > (ret = av_bsf_init(m_Mux.video.pBsfc))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_name);
     }
 
     if (prm->pMuxVidTsLogFile) {
@@ -1890,6 +1932,30 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
+    }
+
+    if (m_Mux.video.pBsfc) {
+        AVPacket pkt = { 0 };
+        av_init_packet(&pkt);
+        av_new_packet(&pkt, pBitstream->size());
+        memcpy(pkt.data, pBitstream->data(), pBitstream->size());
+        int ret = 0;
+        if (0 > (ret = av_bsf_send_packet(m_Mux.video.pBsfc, &pkt))) {
+            av_packet_unref(&pkt);
+            AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
+                char_to_tstring(m_Mux.video.pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        ret = av_bsf_receive_packet(m_Mux.video.pBsfc, &pkt);
+        if (ret == AVERROR(EAGAIN)) {
+            return RGY_ERR_NONE;
+        } else if ((ret < 0 && ret != AVERROR_EOF) || pkt.size < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
+                char_to_tstring(m_Mux.video.pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        pBitstream->copy(pkt.data, pkt.size);
+        av_packet_unref(&pkt);
     }
 
     const int bIsPAFF = (m_VideoOutputInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0;
