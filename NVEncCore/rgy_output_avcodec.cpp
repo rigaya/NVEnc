@@ -507,12 +507,53 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
                 av_dict_set(&m_Mux.video.pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
                 AddMessage(RGY_LOG_DEBUG, _T("Set Video language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
             }
-            auto rotation_data = av_dict_get(prm->pVideoInputStream->metadata, "rotate", NULL, AV_DICT_MATCH_CASE);
-            if (rotation_data) {
-                av_dict_set(&m_Mux.video.pStreamOut->metadata, rotation_data->key, rotation_data->value, AV_DICT_IGNORE_SUFFIX);
-                AddMessage(RGY_LOG_DEBUG, _T("Set Video rotation: key %s, value %s\n"), char_to_tstring(rotation_data->key).c_str(), char_to_tstring(rotation_data->value).c_str());
+        }
+        int side_data_size = 0;
+        auto side_data = av_stream_get_side_data(prm->pVideoInputStream, AV_PKT_DATA_DISPLAYMATRIX, &side_data_size);
+        if (side_data) {
+            auto rotation = av_display_rotation_get((const int *)side_data);
+            int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_DISPLAYMATRIX, (uint8_t *)side_data, side_data_size);
+            if (err < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy rotation %d from input\n"), rotation);
+                return RGY_ERR_INVALID_CALL;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("copied rotation %d from input\n"), rotation);
+        }
+#if 0
+        if (pVideoOutputInfo->codec == RGY_CODEC_HEVC && prm->pHEVCHdrSei == nullptr) {
+            side_data = av_stream_get_side_data(prm->pVideoInputStream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, &side_data_size);
+            if (side_data) {
+                AVContentLightMetadata *coll = (AVContentLightMetadata *)side_data;
+                AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"), coll->MaxCLL, coll->MaxFALL);
+                int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, (uint8_t *)side_data, side_data_size);
+                if (err < 0) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to copy AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
+                    return RGY_ERR_INVALID_CALL;
+                }
+                AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_CONTENT_LIGHT_LEVEL from input\n"));
+            }
+            side_data = av_stream_get_side_data(prm->pVideoInputStream, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, &side_data_size);
+            if (side_data && side_data_size == sizeof(AVMasteringDisplayMetadata)) {
+                AVMasteringDisplayMetadata *mastering = (AVMasteringDisplayMetadata *)side_data;
+                AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
+                    av_q2d(mastering->display_primaries[0][0]),
+                    av_q2d(mastering->display_primaries[0][1]),
+                    av_q2d(mastering->display_primaries[1][0]),
+                    av_q2d(mastering->display_primaries[1][1]),
+                    av_q2d(mastering->display_primaries[2][0]),
+                    av_q2d(mastering->display_primaries[2][1]),
+                    av_q2d(mastering->white_point[0]), av_q2d(mastering->white_point[1]),
+                    av_q2d(mastering->min_luminance), av_q2d(mastering->max_luminance));
+
+                int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, (uint8_t *)side_data, side_data_size);
+                if (err < 0) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to copy AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
+                    return RGY_ERR_INVALID_CALL;
+                }
+                AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_MASTERING_DISPLAY_METADATA from input\n"));
             }
         }
+#endif
     }
 
     m_Mux.video.timestampList.clear();
@@ -1835,7 +1876,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
                 pBitstream->append(hevc_pps_nal->ptr, hevc_pps_nal->size);
                 pBitstream->append(&m_Mux.video.seiNal);
                 for (const auto& nal : nal_list) {
-                    if (nal.type != NALU_HEVC_VPS || nal.type != NALU_HEVC_SPS || nal.type != NALU_HEVC_PPS) {
+                    if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
                         pBitstream->append(nal.ptr, nal.size);
                     }
                 }
