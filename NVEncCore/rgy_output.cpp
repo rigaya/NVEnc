@@ -250,7 +250,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                 nBytesWritten += (uint32_t)fwrite(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
                 nBytesWritten += (uint32_t)fwrite(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
                 for (const auto& nal : nal_list) {
-                    if (nal.type != NALU_HEVC_VPS || nal.type != NALU_HEVC_SPS || nal.type != NALU_HEVC_PPS) {
+                    if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
                         nBytesWritten += (uint32_t)fwrite(nal.ptr, 1, nal.size, m_fDest.get());
                     }
                 }
