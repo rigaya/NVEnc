@@ -2231,10 +2231,20 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries,         list_colorprim);
         apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer);
         apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix,            list_colormatrix);
+        if (inputParam->yuv444) {
+            m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationFlag = 0;
+            m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationTop = 0;
+            m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationBot = 0;
+        }
     } else if (inputParam->codec == NV_ENC_HEVC) {
         apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.colourPrimaries,         list_colorprim);
         apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.transferCharacteristics, list_transfer);
         apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.colourMatrix,            list_colormatrix);
+        if (inputParam->yuv444) {
+            m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationFlag = 0;
+            m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationTop = 0;
+            m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationBot = 0;
+        }
     }
 
     //バッファサイズ

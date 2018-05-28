@@ -302,6 +302,15 @@ const CX_DESC list_videoformat[] = {
     { _T("mac"),       4  },
     { NULL, NULL } 
 };
+const CX_DESC list_chromaloc[] = {
+    { _T("0"), 0 },
+    { _T("1"), 1 },
+    { _T("2"), 2 },
+    { _T("3"), 3 },
+    { _T("4"), 4 },
+    { _T("5"), 5 },
+    { NULL, NULL }
+};
 
 const CX_DESC nvenc_interface_names[] = {
     { _T("CUDA"),      NV_ENC_CUDA },

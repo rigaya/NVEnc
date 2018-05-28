@@ -389,6 +389,10 @@ DAR比 (画面アスペクト比) の指定。
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
 ```  
 
+### --chromaloc &lt;int&gt;
+出力データのchroma location flagを 0 ～ 5 の範囲で指定する。  
+デフォルト = 0 (unspecified)
+
 ### --max-cll &lt;int&gt;,&lt;int&gt; [HEVCのみ]
 MaxCLL and MaxFall を nits で指定する。
 ```

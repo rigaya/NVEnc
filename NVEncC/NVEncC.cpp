@@ -422,6 +422,8 @@ static tstring help() {
     str += PrintListOptions(_T("--colorprim <string>"), list_colorprim, 0);
     str += PrintListOptions(_T("--transfer <string>"), list_transfer, 0);
     str += strsprintf(_T("")
+        _T("   --chromaloc <int>            set chroma location flag [ 0 ... 5 ]\n")
+        _T("                                  default: 0 = unspecified\n")
         _T("   --fullrange                  set fullrange\n")
         _T("   --max-cll <int>,<int>        set MaxCLL and MaxFall in nits. e.g. \"1000,300\"\n")
         _T("   --master-display <string>    set Mastering display data.\n")

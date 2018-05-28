@@ -360,7 +360,7 @@ Set SAR ratio (pixel aspect ratio).
 ### --dar &lt;int&gt;:&lt;int&gt;
 Set DAR ratio (screen aspect ratio).
 
-### --fulllrange
+### --fullrange
 Encode as full range YUV.
 
 ### --videoformat &lt;string&gt;
@@ -381,6 +381,10 @@ Encode as full range YUV.
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
 ```
+
+### --chromaloc &lt;int&gt;
+Set chroma location flag of the output bitstream from values 0 ... 5.  
+default: 0 = unspecified
 
 ### --max-cll &lt;int&gt;,&lt;int&gt; [HEVC only]
 Set MaxCLL and MaxFall in nits. 

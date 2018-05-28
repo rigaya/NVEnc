@@ -2294,6 +2294,28 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("chromaloc") || IS_OPTION("chromaloc:h264") || IS_OPTION("chromaloc:hevc")) {
+        const bool for_h264 = IS_OPTION("chromaloc") || IS_OPTION("chromaloc:h264");
+        const bool for_hevc = IS_OPTION("chromaloc") || IS_OPTION("chromaloc:hevc");
+        i++;
+        int value = 0;
+        if (get_list_value(list_chromaloc, strInput[i], &value)) {
+            if (for_h264) {
+                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.chromaSampleLocationFlag = value != 0;
+                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.chromaSampleLocationTop = value;
+                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.chromaSampleLocationBot = value;
+            }
+            if (for_hevc) {
+                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.chromaSampleLocationFlag = value != 0;
+                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.chromaSampleLocationTop = value;
+                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.chromaSampleLocationBot = value;
+            }
+        } else {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
     if (IS_OPTION("tier")) {
         i++;
         int value = 0;
@@ -2796,6 +2818,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_HEVC(_T("--videoformat"), _T(":hevc"), hevcVUIParameters.videoFormat, list_videoformat);
         OPT_LST_HEVC(_T("--colormatrix"), _T(":hevc"), hevcVUIParameters.colourMatrix, list_colormatrix);
         OPT_LST_HEVC(_T("--colorprim"), _T(":hevc"), hevcVUIParameters.colourPrimaries, list_colorprim);
+        OPT_LST_HEVC(_T("--chromaloc"), _T(":hevc"), hevcVUIParameters.chromaSampleLocationTop, list_chromaloc);
         OPT_LST_HEVC(_T("--transfer"), _T(":hevc"), hevcVUIParameters.transferCharacteristics, list_transfer);
         OPT_STR(_T("--max-cll"), sMaxCll);
         OPT_STR(_T("--master-display"), sMasterDisplay);
@@ -2813,6 +2836,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_H264(_T("--videoformat"), _T(":h264"), h264VUIParameters.videoFormat, list_videoformat);
         OPT_LST_H264(_T("--colormatrix"), _T(":h264"), h264VUIParameters.colourMatrix, list_colormatrix);
         OPT_LST_H264(_T("--colorprim"), _T(":h264"), h264VUIParameters.colourPrimaries, list_colorprim);
+        OPT_LST_H264(_T("--chromaloc"), _T(":h264"), h264VUIParameters.chromaSampleLocationTop, list_chromaloc);
         OPT_LST_H264(_T("--transfer"), _T(":h264"), h264VUIParameters.transferCharacteristics, list_transfer);
         if ((codecPrm[NV_ENC_H264].h264Config.entropyCodingMode) != (codecPrmDefault[NV_ENC_H264].h264Config.entropyCodingMode)) {
             cmd << _T(" --") << get_chr_from_value(list_entropy_coding, codecPrm[NV_ENC_H264].h264Config.entropyCodingMode);

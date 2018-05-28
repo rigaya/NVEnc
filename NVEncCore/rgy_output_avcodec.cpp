@@ -463,7 +463,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.pStreamOut->codecpar->profile                 = pVideoOutputInfo->codecProfile;
     m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.num = pVideoOutputInfo->sar[0];
     m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.den = pVideoOutputInfo->sar[1];
-    m_Mux.video.pStreamOut->codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
+    m_Mux.video.pStreamOut->codecpar->chroma_location         = (AVChromaLocation)clamp(pVideoOutputInfo->vui.chromaloc, 0, 6);
     m_Mux.video.pStreamOut->codecpar->field_order             = picstrcut_rgy_to_avfieldorder(pVideoOutputInfo->picstruct);
     m_Mux.video.pStreamOut->codecpar->video_delay             = pVideoOutputInfo->videoDelay;
     m_Mux.video.pStreamOut->sample_aspect_ratio.num           = pVideoOutputInfo->sar[0]; //mkvではこちらの指定も必要

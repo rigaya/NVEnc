@@ -176,6 +176,7 @@ VideoInfo videooutputinfo(
     info.vui.transfer = videoSignalInfo.transferCharacteristics;
     info.vui.fullrange = videoSignalInfo.videoFullRangeFlag;
     info.vui.format = videoSignalInfo.videoFormat;
+    info.vui.chromaloc = (videoSignalInfo.chromaSampleLocationFlag) ? videoSignalInfo.chromaSampleLocationTop : 0;
     return info;
 }
 
