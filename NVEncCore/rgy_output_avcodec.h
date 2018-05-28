@@ -51,7 +51,7 @@ using std::vector;
 static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 
 struct AVMuxTimestamp {
-    int64_t timestamp_list[4];
+    int64_t timestamp_list[8];
 
     void add(int64_t timestamp) {
         for (int idx = 0; idx < _countof(timestamp_list); idx++) {
@@ -117,6 +117,7 @@ typedef struct AVMuxVideo {
     FILE                 *fpTsLogFile;          //mux timestampログファイル
     RGYBitstream          seiNal;               //追加のsei nal
     AVBSFContext         *pBsfc;                //必要なら使用するbitstreamfilter
+    RGYTimestamp         *pTimestamp;           //timestampの情報
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
@@ -277,6 +278,7 @@ struct AvcodecWriterPrm {
     PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
     const TCHAR                 *pMuxVidTsLogFile;        //mux timestampログファイル
     HEVCHDRSei                  *pHEVCHdrSei;             //HDR関連のmetadata
+    RGYTimestamp                *pVidTimestamp;           //動画のtimestampの情報
 
     AvcodecWriterPrm() :
         pInputFormatMetadata(nullptr),
@@ -297,7 +299,8 @@ struct AvcodecWriterPrm {
         vMuxOpt(),
         pQueueInfo(nullptr),
         pMuxVidTsLogFile(nullptr),
-        pHEVCHdrSei(nullptr) {
+        pHEVCHdrSei(nullptr),
+        pVidTimestamp(nullptr) {
     }
 };
 

@@ -31,6 +31,8 @@
 
 #include <memory>
 #include <vector>
+#include <unordered_map>
+#include <mutex>
 #include "rgy_osdep.h"
 #include "rgy_tchar.h"
 #include "rgy_log.h"
@@ -45,6 +47,43 @@ enum OutputType {
     OUT_TYPE_NONE = 0,
     OUT_TYPE_BITSTREAM,
     OUT_TYPE_SURFACE
+};
+
+class RGYTimestamp {
+private:
+    std::unordered_map<int64_t, int64_t> m_duration;
+    std::mutex mtx;
+    int64_t last_check_pts;
+public:
+    RGYTimestamp() : m_duration(), mtx(), last_check_pts(0) {};
+    ~RGYTimestamp() {};
+    void add(int64_t pts, int64_t duration) {
+        std::lock_guard<std::mutex> lock(mtx);
+        m_duration[pts] = duration;
+    }
+    int64_t check(int64_t pts) {
+        std::lock_guard<std::mutex> lock(mtx);
+        auto pos = m_duration.find(pts);
+        if (pos == m_duration.end()) {
+            auto last_check_pos = m_duration.find(last_check_pts);
+            pts = last_check_pos->first + last_check_pos->second / 2;
+            auto next_pts = last_check_pos->first + last_check_pos->second;
+            last_check_pos->second = pts - last_check_pos->first;
+            m_duration[pts] = next_pts - pts;
+        }
+        last_check_pts = pts;
+        return pts;
+    }
+    int64_t get_and_pop(int64_t pts) {
+        std::lock_guard<std::mutex> lock(mtx);
+        auto pos = m_duration.find(pts);
+        if (pos == m_duration.end()) {
+            return -1;
+        }
+        auto duration = pos->second;
+        m_duration.erase(pos);
+        return duration;
+    }
 };
 
 class RGYOutput {

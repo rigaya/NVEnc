@@ -495,6 +495,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.bDtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.nInputFirstKeyPts = prm->nVideoInputFirstKeyPts;
     m_Mux.video.pStreamIn         = prm->pVideoInputStream;
+    m_Mux.video.pTimestamp        = prm->pVidTimestamp;
 
     if (prm->pVideoInputStream) {
         m_Mux.video.pStreamOut->disposition = prm->pVideoInputStream->disposition;
@@ -1706,22 +1707,6 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *pBitstream) {
             AddMessage(RGY_LOG_DEBUG, audioFrameSize);
         }
     }
-
-    //API v1.6以下でdtsがQSVが提供されない場合、自前で計算する必要がある
-    //API v1.6ではB-pyramidが存在しないので、Bフレームがあるかないかだけ考慮するればよい
-    if (m_Mux.video.pStreamOut) {
-        if (m_Mux.video.bDtsUnavailable) {
-            m_Mux.video.nFpsBaseNextDts = (0 - m_VideoOutputInfo.videoDelay * ((m_VideoOutputInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 2 : 1));
-            AddMessage(RGY_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
-
-            const int bIsPAFF = (m_VideoOutputInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0;
-            const AVRational fpsTimebase = av_div_q({ 1, 1 + bIsPAFF }, m_Mux.video.nFPS);
-            const AVRational streamTimebase = m_Mux.video.pStreamOut->codec->pkt_timebase;
-            for (int i = m_Mux.video.nFpsBaseNextDts; i < 0; i++) {
-                m_Mux.video.timestampList.add(av_rescale_q(i, fpsTimebase, streamTimebase));
-            }
-        }
-    }
     return RGY_ERR_NONE;
 }
 
@@ -1932,7 +1917,31 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
+
+        //dts生成を初期化
+        //何フレーム前からにすればよいかは、b-pyramid次第で異なるので、可能な限りエンコーダの情報を使用する
+        if (!m_Mux.video.bDtsUnavailable) {
+            m_VideoOutputInfo.videoDelay = -1 * (int)av_rescale_q(pBitstream->dts(), m_Mux.video.rBitstreamTimebase, av_inv_q(m_Mux.video.nFPS));
+        }
+        m_Mux.video.nFpsBaseNextDts = 0 - m_VideoOutputInfo.videoDelay;
+        AddMessage(RGY_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
+
+        const AVRational fpsTimebase = av_inv_q(m_Mux.video.nFPS);
+        const AVRational streamTimebase = m_Mux.video.pStreamOut->codec->pkt_timebase;
+        for (int i = m_Mux.video.nFpsBaseNextDts; i < 0; i++) {
+            m_Mux.video.timestampList.add(av_rescale_q(i, fpsTimebase, streamTimebase));
+        }
     }
+
+#if ENCODER_QSV
+    //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
+    int64_t bs_duration = 0;
+    if (m_Mux.video.pTimestamp) {
+        while ((bs_duration = m_Mux.video.pTimestamp->get_and_pop(pBitstream->pts())) < 0) {
+            Sleep(1);
+        }
+    }
+#endif
 
     if (m_Mux.video.pBsfc) {
         AVPacket pkt = { 0 };
@@ -1958,50 +1967,42 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         av_packet_unref(&pkt);
     }
 
-    const int bIsPAFF = (m_VideoOutputInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0;
-    for (uint32_t i = 0, frameSize = pBitstream->size(); frameSize > 0; i++) {
-        int isIDR = pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I) ? 1 : 0;
-        const uint32_t bytesToWrite = (bIsPAFF) ? getH264PAFFFieldLength(pBitstream->data(), frameSize, &isIDR) : frameSize;
-        AVPacket pkt = { 0 };
-        av_init_packet(&pkt);
-        av_new_packet(&pkt, bytesToWrite);
-        memcpy(pkt.data, pBitstream->data(), bytesToWrite);
-        pkt.size = bytesToWrite;
+    AVPacket pkt = { 0 };
+    av_init_packet(&pkt);
+    av_new_packet(&pkt, pBitstream->size());
+    memcpy(pkt.data, pBitstream->data(), pBitstream->size());
+    pkt.size = pBitstream->size();
 
-        const AVRational fpsTimebase = av_div_q({1, 1 + bIsPAFF}, m_Mux.video.nFPS);
-        const AVRational streamTimebase = m_Mux.video.pStreamOut->codec->pkt_timebase;
-        pkt.stream_index = m_Mux.video.pStreamOut->index;
-        pkt.flags        = isIDR;
-#if ENCODER_NVENC
-        pkt.duration     = pBitstream->duration() / (1 + bIsPAFF);
-        pkt.pts          = pBitstream->pts() + i * pkt.duration;
-        if (av_cmp_q(m_Mux.video.rBitstreamTimebase, streamTimebase) != 0) {
-            pkt.duration = av_rescale_q(pkt.duration, m_Mux.video.rBitstreamTimebase, streamTimebase);
-            pkt.pts      = av_rescale_q(pkt.pts, m_Mux.video.rBitstreamTimebase, streamTimebase);
-        }
+    const AVRational fpsTimebase = av_inv_q(m_Mux.video.nFPS);
+    const AVRational streamTimebase = m_Mux.video.pStreamOut->codec->pkt_timebase;
+    pkt.stream_index = m_Mux.video.pStreamOut->index;
+    pkt.flags        = pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I) ? 1 : 0;
+#if ENCODER_QSV
+    //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
+    pkt.duration = bs_duration;
 #else
-        pkt.duration     = (int)av_rescale_q(1, fpsTimebase, streamTimebase);
-        pkt.pts          = av_rescale_q(av_rescale_q(pBitstream->pts(), m_Mux.video.rBitstreamTimebase, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
+    pkt.duration = pBitstream->duration();
 #endif
-        if (!m_Mux.video.bDtsUnavailable) {
-            pkt.dts = av_rescale_q(av_rescale_q(pBitstream->dts(), m_Mux.video.rBitstreamTimebase, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
-        } else {
-            m_Mux.video.timestampList.add(pkt.pts);
-            pkt.dts = m_Mux.video.timestampList.get_min_pts();
-            //av_rescale_q(m_Mux.video.nFpsBaseNextDts, fpsTimebase, streamTimebase);
-            //m_Mux.video.nFpsBaseNextDts++;
-        }
-        const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
-        *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, QUEUE_DTS_TIMEBASE);
-        m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
-
-        frameSize -= bytesToWrite;
-        pBitstream->addOffset(bytesToWrite);
-        if (m_Mux.video.fpTsLogFile) {
-            const uint32_t frameType = pBitstream->frametype() >> (i<<3);
-            const TCHAR *pFrameTypeStr = (isIDR) ? _T("I") : (((frameType & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
-            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7d\n"), pFrameTypeStr, (lls)pBitstream->pts(), (lls)pBitstream->dts(), (lls)pts, (lls)dts, (int)duration, bytesToWrite);
-        }
+    pkt.pts = pBitstream->pts();
+    if (av_cmp_q(m_Mux.video.rBitstreamTimebase, streamTimebase) != 0) {
+        pkt.duration = av_rescale_q(pkt.duration, m_Mux.video.rBitstreamTimebase, streamTimebase);
+        pkt.pts      = av_rescale_q(pkt.pts, m_Mux.video.rBitstreamTimebase, streamTimebase);
+    }
+    if (false && !m_Mux.video.bDtsUnavailable) {
+        pkt.dts = av_rescale_q(av_rescale_q(pBitstream->dts(), m_Mux.video.rBitstreamTimebase, fpsTimebase), fpsTimebase, streamTimebase);
+    } else {
+        m_Mux.video.timestampList.add(pkt.pts);
+        pkt.dts = m_Mux.video.timestampList.get_min_pts();
+    }
+    const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
+    *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, QUEUE_DTS_TIMEBASE);
+    m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
+    
+    if (m_Mux.video.fpTsLogFile) {
+        const uint32_t frameType = pBitstream->frametype();
+        const TCHAR *pFrameTypeStr =
+            (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? _T("I") : (((pBitstream->frametype() & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
+        _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7d\n"), pFrameTypeStr, (lls)pBitstream->pts(), (lls)pBitstream->dts(), (lls)pts, (lls)dts, (int)duration, pBitstream->size());
     }
     m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), pBitstream->avgQP());
 #if ENABLE_AVCODEC_OUT_THREAD

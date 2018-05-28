@@ -592,7 +592,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
-    if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) == RGY_AVSYNC_VFR) {
+    if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pAVCodecReader) {
             //avsync vfr時は、入力streamのtimebaseをそのまま使用する
@@ -610,9 +610,9 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
 
 #if ENABLE_AVSW_READER
-    if ((m_nAVSyncMode & RGY_AVSYNC_VFR) || inputParam->vpp.rff) {
+    if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || inputParam->vpp.rff) {
         tstring err_target;
-        if (m_nAVSyncMode & RGY_AVSYNC_VFR) err_target += _T("avsync vfr, ");
+        if (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) err_target += _T("avsync vfr, ");
         if (inputParam->vpp.rff)            err_target += _T("vpp-rff, ");
         err_target = err_target.substr(0, err_target.length()-2);
 
@@ -691,7 +691,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     auto trimParam = m_pFileReader->GetTrimParam();
     m_pTrimParam = (trimParam->list.size()) ? trimParam : nullptr;
     if (m_pTrimParam) {
-        if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) == RGY_AVSYNC_VFR) {
+        if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
             PrintMes(RGY_LOG_ERROR, _T("--avsync vfr cannot be used with --trim.\n"));
             return NV_ENC_ERR_GENERIC;
         }
@@ -3587,7 +3587,7 @@ NVENCSTATUS NVEncCore::Encode() {
         int64_t outPtsSource = nOutEstimatedPts;
         int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration
 #if ENABLE_AVSW_READER
-        if (pStreamIn && (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR) || vpp_rff || vpp_afs_rff_aware)) {
+        if (pStreamIn && ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware)) {
             //CFR仮定ではなく、オリジナルの時間を見る
             outPtsSource = (pStreamIn) ? rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase) : nOutEstimatedPts;
         }
@@ -3598,7 +3598,7 @@ NVENCSTATUS NVEncCore::Encode() {
         outPtsSource -= nOutFirstPts;
 
         if (pStreamIn
-            && ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) == RGY_AVSYNC_VFR || vpp_rff || vpp_afs_rff_aware)) {
+            && ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware)) {
             if (vpp_rff || vpp_afs_rff_aware) {
                 if (std::abs(outPtsSource - nOutEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nOutFrameDuration) {
                     //timestampに一定以上の差があればそれを無視する
@@ -3615,12 +3615,12 @@ NVENCSTATUS NVEncCore::Encode() {
             const auto orig_pts = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, to_rgy(pStreamIn->time_base));
             //ptsからフレーム情報を取得する
             const auto framePos = pReader->GetFramePosList()->findpts(orig_pts, &nInputFramePosIdx);
-            if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0 && (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) == 0) {
+            if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0) {
                 //有効な値ならオリジナルのdurationを使用する
                 outDuration = rational_rescale(framePos.duration, to_rgy(pStreamIn->time_base), m_outputTimebase);
             }
         }
-        if ((m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) == RGY_AVSYNC_FORCE_CFR) {
+        if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) {
             if (std::abs(outPtsSource - nOutEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nOutFrameDuration) {
                 //timestampに一定以上の差があればそれを無視する
                 nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正

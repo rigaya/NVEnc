@@ -1536,14 +1536,8 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
         if (pkt.data) {
-#if ENCODER_QSV
-            sts = pBitstream->append(pkt.data, pkt.size);
-            pBitstream->setDataflag(0);
-            pBitstream->setPts(0);
-#else
             auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
             sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
-#endif
         }
         av_packet_unref(&pkt);
         m_Demux.video.nSampleGetCount++;
@@ -1569,14 +1563,8 @@ RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
         if (pkt.data) {
-#if ENCODER_QSV
-            pBitstream->setDataflag(0);
-            pBitstream->setPts(0);
-            sts = pBitstream->append(pkt.data, pkt.size);
-#else
             auto pts = (0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
             sts = pBitstream->copy(pkt.data, pkt.size, pkt.dts, pts);
-#endif
         }
     }
     return sts;
