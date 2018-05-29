@@ -79,14 +79,19 @@ void RGYOutput::Close() {
 }
 
 RGYOutputRaw::RGYOutputRaw() :
-    m_seiNal(),
-    m_pBsfc() {
+    m_seiNal()
+#if ENABLE_AVSW_READER
+    , m_pBsfc()
+#endif //#if ENABLE_AVSW_READER
+{
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
 
 RGYOutputRaw::~RGYOutputRaw() {
+#if ENABLE_AVSW_READER
     m_pBsfc.reset();
+#endif //#if ENABLE_AVSW_READER
 }
 
 RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
@@ -127,6 +132,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                 }
             }
         }
+#if ENABLE_AVSW_READER
         if (ENCODER_NVENC
             && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
             && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0) {
@@ -198,6 +204,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             }
             AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_name);
         }
+#endif //#if ENABLE_AVSW_READER
         if (rawPrm->codecId == RGY_CODEC_HEVC) {
             m_seiNal = rawPrm->seiNal;
         }
@@ -214,7 +221,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
 
     uint32_t nBytesWritten = 0;
     if (!m_bNoOutput) {
-
+#if ENABLE_AVSW_READER
         if (m_pBsfc) {
             AVPacket pkt = { 0 };
             av_init_packet(&pkt);
@@ -238,6 +245,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             pBitstream->copy(pkt.data, pkt.size);
             av_packet_unref(&pkt);
         }
+#endif //#if ENABLE_AVSW_READER
         if (m_seiNal.size()) {
             std::vector<nal_info> nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
