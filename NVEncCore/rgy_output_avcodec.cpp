@@ -635,12 +635,32 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
             AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsf_name);
             return RGY_ERR_NOT_FOUND;
         }
+        unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>> codecpar(avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
+
+        codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
+        codecpar->codec_id                = getAVCodecId(pVideoOutputInfo->codec);
+        codecpar->width                   = pVideoOutputInfo->dstWidth;
+        codecpar->height                  = pVideoOutputInfo->dstHeight;
+        codecpar->format                  = csp_rgy_to_avpixfmt(pVideoOutputInfo->csp);
+        codecpar->level                   = pVideoOutputInfo->codecLevel;
+        codecpar->profile                 = pVideoOutputInfo->codecProfile;
+        codecpar->sample_aspect_ratio.num = pVideoOutputInfo->sar[0];
+        codecpar->sample_aspect_ratio.den = pVideoOutputInfo->sar[1];
+        codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
+        codecpar->field_order             = picstrcut_rgy_to_avfieldorder(pVideoOutputInfo->picstruct);
+        codecpar->video_delay             = pVideoOutputInfo->videoDelay;
+        if (pVideoOutputInfo->vui.descriptpresent) {
+            codecpar->color_space         = (AVColorSpace)pVideoOutputInfo->vui.matrix;
+            codecpar->color_primaries     = (AVColorPrimaries)pVideoOutputInfo->vui.colorprim;
+            codecpar->color_range         = (AVColorRange)(pVideoOutputInfo->vui.fullrange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
+            codecpar->color_trc           = (AVColorTransferCharacteristic)pVideoOutputInfo->vui.transfer;
+        }
         int ret = 0;
         if (0 > (ret = av_bsf_alloc(filter, &m_Mux.video.pBsfc))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
-        if (0 > (ret = avcodec_parameters_copy(m_Mux.video.pBsfc->par_in, m_Mux.video.pStreamOut->codecpar))) {
+        if (0 > (ret = avcodec_parameters_copy(m_Mux.video.pBsfc->par_in, codecpar.get()))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
         }
