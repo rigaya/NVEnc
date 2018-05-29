@@ -580,8 +580,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
             mastering->display_primaries[2][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[5], 50000);
             mastering->white_point[0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[6], 50000);
             mastering->white_point[1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[7], 50000);
-            mastering->min_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[8], 10000);
-            mastering->max_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[9], 10000);
+            mastering->max_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[8], 10000);
+            mastering->min_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[9], 10000);
             mastering->has_primaries = 1;
             mastering->has_luminance = 1;
 
@@ -595,7 +595,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
                 av_q2d(mastering->display_primaries[2][0]),
                 av_q2d(mastering->display_primaries[2][1]),
                 av_q2d(mastering->white_point[0]), av_q2d(mastering->white_point[1]),
-                av_q2d(mastering->min_luminance), av_q2d(mastering->max_luminance));
+                av_q2d(mastering->max_luminance), av_q2d(mastering->min_luminance));
 
             int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, (uint8_t *)mastering.get(), sizeof(mastering.get()[0]));
             if (err < 0) {
