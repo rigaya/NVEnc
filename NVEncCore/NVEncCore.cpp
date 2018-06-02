@@ -778,12 +778,6 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         if (inputParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             PrintMes(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
             pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-            bool copyAll = false;
-            for (int i = 0; !copyAll && i < (int)inputParams->nAudioSelectCount; i++) {
-                //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
-                copyAll = (inputParams->ppAudioSelectList[i]->nAudioSelect == 0);
-            }
-            PrintMes(RGY_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (copyAll) ? _T("true") : _T("false"));
             vector<AVDemuxStream> streamList;
             if (pAVCodecReader) {
                 streamList = pAVCodecReader->GetInputStreamInfo();
@@ -811,15 +805,23 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                         pAudioSelect = inputParams->ppAudioSelectList[i];
                     }
                 }
-                if (pAudioSelect != nullptr || copyAll || bStreamIsSubtitle) {
+                if (pAudioSelect == nullptr) {
+                    //一致するTrackIDがなければ、nAudioSelect = 0 (全指定)を探す
+                    for (int i = 0; i < inputParams->nAudioSelectCount; i++) {
+                        if (inputParams->ppAudioSelectList[i]->nAudioSelect == 0
+                            && inputParams->ppAudioSelectList[i]->pAudioExtractFilename == nullptr) {
+                            pAudioSelect = inputParams->ppAudioSelectList[i];
+                        }
+                    }
+                }
+                if (pAudioSelect != nullptr || bStreamIsSubtitle) {
                     streamTrackUsed.push_back(stream.nTrackId);
                     AVOutputStreamPrm prm;
                     prm.src = stream;
-                    //pAudioSelect == nullptrは "copyAll" か 字幕ストリーム によるもの
-                    prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
-                    prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
-                    prm.pEncodeCodec = (pAudioSelect == nullptr) ? RGY_AVCODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
-                    prm.pFilter = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAudioFilter;
+                    prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
+                    prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
+                    prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
+                    prm.pFilter = pAudioSelect->pAudioFilter;
                     PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
                         stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec);
