@@ -1,3 +1,3 @@
 cd /d "%~dp0"
 call "%VS140COMNTOOLS%VsMSBuildCmd.bat"
-msbuild release.rebuild.proj /m
+msbuild release.build.proj /m:3

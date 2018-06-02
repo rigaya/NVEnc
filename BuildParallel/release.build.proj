@@ -11,6 +11,6 @@
         </ProjectToBuild>
     </ItemGroup>
     <Target Name="Build">
-        <MSBuild Projects="@(ProjectToBuild)" BuildInParallel="true" Targets="Rebuild"/>
+        <MSBuild Projects="@(ProjectToBuild)" BuildInParallel="true" />
     </Target>
 </Project>
