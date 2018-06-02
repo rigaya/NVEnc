@@ -37,6 +37,11 @@ avs2pipemod -y4mp "<avsfile>" | NVEncC --y4m -i - -o "<outfilename.264>"
 ffmpeg -y -i "<ソース動画>" -an -pix_fmt yuv420p -f yuv4mpegpipe - | NVEncC --y4m -i - -o "<outfilename.264>"
 ```
 
+#### ffmpegから映像と音声を両方パイプ渡したい
+--> "nut"フォーマットでくるんで受け渡しするとよいでしょう
+```Batchfile
+ffmpeg -y -i "<input>" <options for ffmpeg> -codec:a copy -codec:v rawvideo -pix_fmt yuv420p -f nut - | NVEncC --avsw -i - --audio-codec aac -o "<outfilename.mp4>"
+```
 
 #### raw H.264/ESのmux
 H.264/ESで出力し、mp4に格納したり、AAC音声とmuxする場合には、L-SMASHを使って、

@@ -13,12 +13,12 @@ NVEncC.exe [Options] -i <filename> -o <filename>
 ```
 
 ### More practical commands
-#### example of using hw (cuvid) deocder
+#### example of using hw (cuvid) decoder
 ```Batchfile
 NVEncC --avhw -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
 
-#### example of using hw (cuvid) deocder (interlaced)
+#### example of using hw (cuvid) decoder (interlaced)
 ```Batchfile
 NVEncC --avhw --interlace tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
@@ -39,6 +39,11 @@ avs2pipemod -y4mp "<avsfile>" | NVEncC - y4m - i - - o "<outfilename.264>"
 ffmpeg -y -i "<inputfile>" -an -pix_fmt yuv420p -f yuv4mpegpipe - | NVEncC --y4m -i - -o "<outfilename.264>"
 ```
 
+#### Passing video & audio from ffmpeg
+--> use "nut" to pass both video & audio thorough pipe.
+```Batchfile
+ffmpeg -y -i "<input>" <options for ffmpeg> -codec:a copy -codec:v rawvideo -pix_fmt yuv420p -f nut - | NVEncC --avsw -i - --audio-codec aac -o "<outfilename.mp4>"
+```
 
 ## Option format
 
@@ -62,37 +67,37 @@ Example 2: --xxx: disable xxx → --no-xxx: enable xxx
 ## Display options
 
 ### -h, -? --help
-show help
+Show help
 
 ### -v, --version
-show version of NVEncC
+Show version of NVEncC
 
 ### --check-device
-show device of available GPU recognized by NVEnc
+Show device of available GPU recognized by NVEnc
 
 ### --check-hw [&lt;int&gt;]
-check whether the specified device is able to run NVEnc. DeviceID: "0" will be checked if not specified.
+Check whether the specified device is able to run NVEnc. DeviceID: "0" will be checked if not specified.
 
 ### --check-features [&lt;int&gt;]
-show the information of features of the specified device. DeviceID: "0" will be checked if not specified.
+Show the information of features of the specified device. DeviceID: "0" will be checked if not specified.
 
 ### --check-environment
-show environment information recognized by NVEncC
+Show environment information recognized by NVEncC
 
 ### --check-codecs, --check-decoders, --check-encoders
-show available audio codec names
+Show available audio codec names
 
 ### --check-formats
-show available output format
+Show available output format
 
 ### --check-protocols
-show available protocols
+Show available protocols
 
 ### --check-filters
-show available audio filters
+Show available audio filters
 
 ### --check-avversion
-show version of ffmpeg dll
+Show version of ffmpeg dll
 
 ## Basic encoding options
 
@@ -119,10 +124,10 @@ Specify the output codec
  - hevc
 
 ### -o, --output &lt;string&gt;
-set output file name, pipe output with "-"
+Set output file name, pipe output with "-"
 
 ### -i, --input &lt;string&gt;
-set input file name, pipe input with "-"
+Set input file name, pipe input with "-"
 
 Table below shows the supported readers of NVEnc. When input format is not set,
 reader used will be selected depending on the extension of input file.
@@ -463,7 +468,7 @@ Example: Extract track numbers #1 and #2
 ```
 
 ### --audio-codec [[&lt;int&gt;?]&lt;string&gt;]
-Encode audio track with the codec specified. If codec is not set, most suitable codec wil be selected automatically. Codecs available could be checked with [--check-encoders](#--check-codecs---check-decoders---check-encoders).
+Encode audio track with the codec specified. If codec is not set, most suitable codec will be selected automatically. Codecs available could be checked with [--check-encoders](#--check-codecs---check-decoders---check-encoders).
 
 You can also specify the audio track (1, 2, ...) to extract.
 ```
@@ -605,7 +610,7 @@ Example: Copy subtitle track #1 and #2
 ```
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
-Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, and the option value in &lt;string2&gt.
+Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, and the option value in &lt;string2&gt;.
 
 ```
 Example: Output for HLS
@@ -653,7 +658,7 @@ Activate Auto Field Shift (AFS) deinterlacer.
   threshold to swicth field shift algorithm. 
 
 - coeff_shift=&lt;int&gt;  (0 - 256)  
-  threshold for field shift, with bigger value, more field shift will be occured.
+  threshold for field shift, with bigger value, more field shift will be occurred.
 
 - thre_shift=&lt;int&gt;  (0 - 1024)  
   threshold for stripe detection which will be used on shift decision. Lower value will result more stripe detection.
@@ -694,7 +699,7 @@ Activate Auto Field Shift (AFS) deinterlacer.
 - tune=&lt;bool&gt;  
   When this options is set true, the output will be the result of motion and stripe detection, shown by the color below.
 
-| color | decription |
+| color | description |
 |:---:|:---|
 | dark blue | motion was detected |
 | grey | stripe was detected|
@@ -735,7 +740,7 @@ Specify the resizing algorithm.
 
 Those with "○" in nppi64_80.dll use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only. To use those algorithms, you need to download nppi64_80.dll separately and place it in the same folder as NVEncC64.exe.
 
-| option name | desciption | require nppi64_80.dll |
+| option name | description | require nppi64_80.dll |
 |:---|:---|:---:|
 | default  | auto select | |
 | bilinear | linear interpolation | |
@@ -940,7 +945,7 @@ Adjustment of logo transparency. Default 128.
 Adjustment of each color component of the logo.
 
 ### --vpp-perf-monitor
-Monitor the performance of each vpp filter, and output the average per frame processing time of the applied filter(s). Note that the overall encoding performace may slightly be harmed.
+Monitor the performance of each vpp filter, and output the average per frame processing time of the applied filter(s). Note that the overall encoding performance may slightly be harmed.
 
 
 
@@ -959,12 +964,12 @@ Monitor the performance of each vpp filter, and output the average per frame pro
   Basically it is the same as spin, but switching to another running thread will be allowed.
 
 - sync
-  Sleep a thread until the end of the GPU task. Performace might decrease, but will reduce CPU utilization especially when decoding is done by HW.
+  Sleep a thread until the end of the GPU task. Performance might decrease, but will reduce CPU utilization especially when decoding is done by HW.
 
 ### --output-buf &lt;int&gt;
 Specify the output buffer size in MB. The default is 8 and the maximum value is 128.
 
-The output buffer will store output data until it reaches the buffer size, and then the data will be written at once. Higher performance and redcution of file fragmentation on the disk could be expected.
+The output buffer will store output data until it reaches the buffer size, and then the data will be written at once. Higher performance and reduction of file fragmentation on the disk could be expected.
 
 On the other hand, setting too much buffer size could decrease performance, since writing such a big data to the disk will take some time. Generally, leaving this to default should be fine.
 
@@ -990,7 +995,7 @@ Select the level of log output.
 - trace ... Output information for each frame (slow)
 
 ### --max-procfps &lt;int&gt;
-Set the upper limit of transcoding speed. The default is 0 (= unlimited).
+Set the upper limit of transcode speed. The default is 0 (= unlimited).
 
 This could be used when you want to encode multiple stream and you do not want one stream to use up all the power of CPU or GPU.
 ```

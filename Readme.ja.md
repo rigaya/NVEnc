@@ -114,7 +114,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   [ttmath](http://www.ttmath.org/)を使用しています。  
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、NVEnc_license.txtをご覧ください。
 
-  ビルド方法については[こちら](./Build.ja.md)
+- ビルド方法については[こちら](./Build.ja.md)
 
 ### ソースの構成
 Windows ... VCビルド  

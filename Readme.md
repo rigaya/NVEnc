@@ -113,7 +113,7 @@ which might cause problem in some playback environments.
   [ttmath](http://www.ttmath.org/).
   For these licenses, please see the header part of the corresponding source and NVEnc_license.txt.
 
-  [How to build](./Build.en.md)
+- [How to build](./Build.en.md)
 
 ### About source code
 Windows ... VC build
