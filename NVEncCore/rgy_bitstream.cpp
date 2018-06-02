@@ -113,7 +113,7 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
     to_nal(data);
 
     vector_cat(header, data);
-    header.push_back(0x00);
+    header.push_back(0x80);
     return header;
 }
 
