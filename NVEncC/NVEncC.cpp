@@ -925,8 +925,6 @@ int _tmain(int argc, TCHAR **argv) {
 #if defined(_WIN32) || defined(_WIN64)
     if (check_locale_is_ja()) {
         _tsetlocale(LC_ALL, _T("Japanese"));
-    } else {
-        _tsetlocale(LC_ALL, _T(""));
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
