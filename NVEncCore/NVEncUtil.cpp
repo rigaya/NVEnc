@@ -163,6 +163,7 @@ VideoInfo videooutputinfo(
     info.fpsD = outFps.second;
     info.sar[0] = sar.first;
     info.sar[1] = sar.second;
+    adjust_sar(&info.sar[0], &info.sar[1], nEncWidth, nEncHeight);
     info.picstruct = picstruct_enc_to_rgy(nPicStruct);
     info.csp = csp_enc_to_rgy(buffer_fmt);
 
