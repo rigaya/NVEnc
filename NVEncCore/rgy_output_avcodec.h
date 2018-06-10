@@ -109,7 +109,7 @@ typedef struct AVMuxVideo {
     AVRational            nFPS;                 //出力映像のフレームレート
     AVStream             *pStreamOut;           //出力ファイルの映像ストリーム
     bool                  bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
-    const AVStream       *pStreamIn;            //入力映像のストリーム
+    AVRational            inputStreamTimebase;  //入力streamのtimebase
     int64_t               nInputFirstKeyPts;    //入力映像の最初のpts
     AVRational            rBitstreamTimebase;   //エンコーダのtimebase
     AVMuxTimestamp        timestampList;        //エンコーダから渡されたtimestampリスト

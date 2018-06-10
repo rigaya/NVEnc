@@ -494,10 +494,10 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.pStreamOut->start_time          = 0;
     m_Mux.video.bDtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.nInputFirstKeyPts = prm->nVideoInputFirstKeyPts;
-    m_Mux.video.pStreamIn         = prm->pVideoInputStream;
     m_Mux.video.pTimestamp        = prm->pVidTimestamp;
 
     if (prm->pVideoInputStream) {
+        m_Mux.video.inputStreamTimebase = prm->pVideoInputStream->time_base;
         m_Mux.video.pStreamOut->disposition = prm->pVideoInputStream->disposition;
         if (prm->pVideoInputStream->metadata) {
             auto language_data = av_dict_get(prm->pVideoInputStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
@@ -2567,7 +2567,7 @@ RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *p
 RGY_ERR RGYOutputAvcodec::SubtitleWritePacket(AVPacket *pkt) {
     //字幕を処理する
     const AVMuxSub *pMuxSub = getSubPacketStreamData(pkt);
-    const AVRational vid_pkt_timebase = (m_Mux.video.pStreamIn) ? m_Mux.video.pStreamIn->time_base : av_inv_q(m_Mux.video.nFPS);
+    const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.nFPS);
     const int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstKeyPts, vid_pkt_timebase, pMuxSub->pStreamIn->time_base);
     //ptsが存在しない場合はないものとすると、AdjustTimestampTrimmedの結果がAV_NOPTS_VALUEとなるのは、
     //Trimによりカットされたときのみ
