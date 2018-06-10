@@ -78,8 +78,8 @@ public:
         m_sTrimParam = trim;
     }
 
-    sTrimParam *GetTrimParam() {
-        return &m_sTrimParam;
+    sTrimParam GetTrimParam() {
+        return m_sTrimParam;
     }
 
     sInputCrop GetInputCropInfo() {

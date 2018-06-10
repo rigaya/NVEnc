@@ -255,7 +255,7 @@ protected:
 
     vector<InputFrameBufInfo>    m_inputHostBuffer;
 
-    const sTrimParam             *m_pTrimParam;
+    sTrimParam                    m_trimParam;
     shared_ptr<RGYInput>          m_pFileReader;           //動画読み込み
     vector<shared_ptr<RGYInput>>  m_AudioReaders;
     shared_ptr<RGYOutput>         m_pFileWriter;           //動画書き出し

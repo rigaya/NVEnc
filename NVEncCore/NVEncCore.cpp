@@ -327,7 +327,8 @@ NVEncCore::NVEncCore() {
     m_pDevice = nullptr;
     m_nDeviceId = 0;
     m_pAbortByUser = nullptr;
-    m_pTrimParam = nullptr;
+    m_trimParam.list.clear();
+    m_trimParam.offset = 0;
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -688,18 +689,17 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         m_pFileReader->SetTrimParam(trimParam);
     }
     //trim情報をリーダーから取得する
-    auto trimParam = m_pFileReader->GetTrimParam();
-    m_pTrimParam = (trimParam->list.size()) ? trimParam : nullptr;
-    if (m_pTrimParam) {
+    m_trimParam = m_pFileReader->GetTrimParam();
+    if (m_trimParam.list.size() > 0) {
         if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
             PrintMes(RGY_LOG_ERROR, _T("--avsync vfr cannot be used with --trim.\n"));
             return NV_ENC_ERR_GENERIC;
         }
         PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
-        for (int i = 0; i < (int)m_pTrimParam->list.size(); i++) {
-            PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_pTrimParam->list[i].start, m_pTrimParam->list[i].fin);
+        for (int i = 0; i < (int)m_trimParam.list.size(); i++) {
+            PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_trimParam.list[i].start, m_trimParam.list[i].fin);
         }
-        PrintMes(RGY_LOG_DEBUG, _T(" (offset: %d)\n"), m_pTrimParam->offset);
+        PrintMes(RGY_LOG_DEBUG, _T(" (offset: %d)\n"), m_trimParam.offset);
     }
     return NV_ENC_SUCCESS;
 #else
@@ -739,9 +739,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         m_pFileWriter = std::make_shared<RGYOutputAvcodec>();
         AvcodecWriterPrm writerPrm;
         writerPrm.pOutputFormat = inputParams->sAVMuxOutputFormat.c_str();
-        if (m_pTrimParam) {
-            writerPrm.trimList = m_pTrimParam->list;
-        }
+        writerPrm.trimList                = m_trimParam.list;
         writerPrm.bVideoDtsUnavailable    = false;
         writerPrm.nOutputThread           = inputParams->nOutputThread;
         writerPrm.nAudioThread            = inputParams->nAudioThread;
@@ -913,9 +911,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                 writerAudioPrm.nAudioIgnoreDecodeError = inputParams->nAudioIgnoreDecodeError;
                 writerAudioPrm.nAudioResampler = inputParams->nAudioResampler;
                 writerAudioPrm.inputStreamList.push_back(prm);
-                if (m_pTrimParam) {
-                    writerAudioPrm.trimList = m_pTrimParam->list;
-                }
+                writerAudioPrm.trimList = m_trimParam.list;
                 writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
                 writerAudioPrm.rBitstreamTimebase = av_make_q(m_outputTimebase);
@@ -1400,7 +1396,8 @@ NVENCSTATUS NVEncCore::Deinitialize() {
 
     m_pNVLog.reset();
     m_pAbortByUser = nullptr;
-    m_pTrimParam = nullptr;
+    m_trimParam.list.clear();
+    m_trimParam.offset = 0;
     //すべてのエラーをflush - 次回に影響しないように
     auto cudaerr = cudaGetLastError();
     UNREFERENCED_PARAMETER(cudaerr);
@@ -2480,7 +2477,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-deinterlace.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
-        if (trim_active(m_pTrimParam)) {
+        if (trim_active(&m_trimParam)) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
             return NV_ENC_ERR_UNIMPLEMENTED;
         }
@@ -3931,7 +3928,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
         if (!bInputEmpty) {
             //trim反映
-            if (m_pTrimParam && !frame_inside_range(nInputFrame++, m_pTrimParam->list)) {
+            if (!frame_inside_range(nInputFrame++, m_trimParam.list)) {
                 continue;
             }
             auto decFrames = check_pts(&inputFrame);
@@ -4143,7 +4140,7 @@ NVENCSTATUS NVEncCore::Encode() {
             CUVIDPARSERDISPINFO pInfo;
             if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
                 int64_t pts = av_rescale_q(pInfo.timestamp, HW_NATIVE_TIMEBASE, pVideoCtx->pkt_timebase);
-                if (m_pTrimParam && !frame_inside_range(decodedFrame++, m_pTrimParam->list)) {
+                if (m_pTrimParam && !frame_inside_range(decodedFrame++, m_trimParam.list)) {
                     m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
                     continue;
                 }
@@ -4382,17 +4379,17 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(RGY_LOG_ERROR, _T("Deinterlace    %s\n"), get_chr_from_value(list_deinterlace, m_cuvidDec->getDeinterlaceMode()));
     }
 #endif //#if ENABLE_AVSW_READER
-    if (m_pTrimParam != NULL && m_pTrimParam->list.size()
-        && !(m_pTrimParam->list[0].start == 0 && m_pTrimParam->list[0].fin == TRIM_MAX)) {
+    if (m_trimParam.list.size()
+        && !(m_trimParam.list[0].start == 0 && m_trimParam.list[0].fin == TRIM_MAX)) {
         add_str(RGY_LOG_ERROR, _T("%s"), _T("Trim           "));
-        for (auto trim : m_pTrimParam->list) {
+        for (auto trim : m_trimParam.list) {
             if (trim.fin == TRIM_MAX) {
-                add_str(RGY_LOG_ERROR, _T("%d-fin "), trim.start + m_pTrimParam->offset);
+                add_str(RGY_LOG_ERROR, _T("%d-fin "), trim.start + m_trimParam.offset);
             } else {
-                add_str(RGY_LOG_ERROR, _T("%d-%d "), trim.start + m_pTrimParam->offset, trim.fin + m_pTrimParam->offset);
+                add_str(RGY_LOG_ERROR, _T("%d-%d "), trim.start + m_trimParam.offset, trim.fin + m_trimParam.offset);
             }
         }
-        add_str(RGY_LOG_ERROR, _T("[offset: %d]\n"), m_pTrimParam->offset);
+        add_str(RGY_LOG_ERROR, _T("[offset: %d]\n"), m_trimParam.offset);
     }
     if (m_nAVSyncMode != RGY_AVSYNC_ASSUME_CFR) {
         add_str(RGY_LOG_ERROR, _T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
