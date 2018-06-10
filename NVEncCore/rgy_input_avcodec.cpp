@@ -776,10 +776,18 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             } else {
                 //音声の場合
                 for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
-                    if (input_prm->ppAudioSelect[i]->nAudioSelect == 0 //特に指定なし = 全指定かどうか
-                        || input_prm->ppAudioSelect[i]->nAudioSelect == (iTrack + input_prm->nAudioTrackStart)) {
+                    if (input_prm->ppAudioSelect[i]->nAudioSelect == (iTrack + input_prm->nAudioTrackStart)) {
                         useStream = true;
                         pAudioSelect = input_prm->ppAudioSelect[i];
+                    }
+                }
+                if (pAudioSelect == nullptr) {
+                    //見つからなかったら、全指定(trackID = 0)のものを使用する
+                    for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
+                        if (input_prm->ppAudioSelect[i]->nAudioSelect == 0) {
+                            useStream = true;
+                            pAudioSelect = input_prm->ppAudioSelect[i];
+                        }
                     }
                 }
             }

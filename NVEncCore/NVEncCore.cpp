@@ -734,6 +734,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->nAVMux &= ~RGY_MUX_VIDEO;
     //}
+    bool audioCopyAll = false;
     if (inputParams->nAVMux & RGY_MUX_VIDEO) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
         m_pFileWriter = std::make_shared<RGYOutputAvcodec>();
@@ -775,6 +776,11 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         }
         if (inputParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             PrintMes(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
+            for (int i = 0; !audioCopyAll && i < inputParams->nAudioSelectCount; i++) {
+                //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
+                audioCopyAll = (inputParams->ppAudioSelectList[i]->nAudioSelect == 0);
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (audioCopyAll) ? _T("true") : _T("false"));
             pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             vector<AVDemuxStream> streamList;
             if (pAVCodecReader) {
@@ -858,14 +864,11 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     }
 
     //音声の抽出
-    if (inputParams->nAudioSelectCount + inputParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
+    if (inputParams->nAudioSelectCount + inputParams->nSubtitleSelectCount - (audioCopyAll ? 1 : 0) > (int)streamTrackUsed.size()) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-        if ((inputParams->input.type != RGY_INPUT_FMT_AVHW
-            && inputParams->input.type != RGY_INPUT_FMT_AVSW
-            && inputParams->input.type != RGY_INPUT_FMT_AVANY)
-            || pAVCodecReader == nullptr) {
-            PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avhw reader).\n"));
+        if (pAVCodecReader == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avhw/avsw reader).\n"));
             return NV_ENC_ERR_GENERIC;
         } else {
             auto inutAudioInfoList = pAVCodecReader->GetInputStreamInfo();
