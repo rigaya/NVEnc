@@ -509,30 +509,38 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
         int side_data_size = 0;
         auto side_data = av_stream_get_side_data(prm->pVideoInputStream, AV_PKT_DATA_DISPLAYMATRIX, &side_data_size);
         if (side_data) {
-            auto rotation = av_display_rotation_get((const int *)side_data);
-            int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_DISPLAYMATRIX, (uint8_t *)side_data, side_data_size);
+            unique_ptr<uint8_t, decltype(&av_freep)> side_data_copy((uint8_t *)av_malloc(side_data_size), av_freep);
+            memcpy(side_data_copy.get(), side_data, side_data_size);
+            auto rotation = av_display_rotation_get((const int *)side_data_copy.get());
+            int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_DISPLAYMATRIX, side_data_copy.get(), side_data_size);
             if (err < 0) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy rotation %d from input\n"), rotation);
                 return RGY_ERR_INVALID_CALL;
             }
             AddMessage(RGY_LOG_DEBUG, _T("copied rotation %d from input\n"), rotation);
+            side_data_copy.release();
         }
 #if 0
         if (pVideoOutputInfo->codec == RGY_CODEC_HEVC && prm->pHEVCHdrSei == nullptr) {
             side_data = av_stream_get_side_data(prm->pVideoInputStream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, &side_data_size);
             if (side_data) {
-                AVContentLightMetadata *coll = (AVContentLightMetadata *)side_data;
+                unique_ptr<uint8_t, decltype(&av_freep)> side_data_copy((uint8_t *)av_malloc(side_data_size), av_freep);
+                memcpy(side_data_copy.get(), side_data, side_data_size);
+                AVContentLightMetadata *coll = (AVContentLightMetadata *)side_data_copy.get();
                 AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"), coll->MaxCLL, coll->MaxFALL);
-                int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, (uint8_t *)side_data, side_data_size);
+                int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, (uint8_t *)side_data_copy.get(), side_data_size);
                 if (err < 0) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to copy AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
                     return RGY_ERR_INVALID_CALL;
                 }
                 AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_CONTENT_LIGHT_LEVEL from input\n"));
+                side_data_copy.release();
             }
             side_data = av_stream_get_side_data(prm->pVideoInputStream, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, &side_data_size);
             if (side_data && side_data_size == sizeof(AVMasteringDisplayMetadata)) {
-                AVMasteringDisplayMetadata *mastering = (AVMasteringDisplayMetadata *)side_data;
+                unique_ptr<uint8_t, decltype(&av_freep)> side_data_copy((uint8_t *)av_malloc(side_data_size), av_freep);
+                memcpy(side_data_copy.get(), side_data, side_data_size);
+                AVMasteringDisplayMetadata *mastering = (AVMasteringDisplayMetadata *)side_data_copy.get();
                 AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
                     av_q2d(mastering->display_primaries[0][0]),
                     av_q2d(mastering->display_primaries[0][1]),
@@ -543,14 +551,15 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
                     av_q2d(mastering->white_point[0]), av_q2d(mastering->white_point[1]),
                     av_q2d(mastering->min_luminance), av_q2d(mastering->max_luminance));
 
-                int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, (uint8_t *)side_data, side_data_size);
+                int err = av_stream_add_side_data(m_Mux.video.pStreamOut, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, (uint8_t *)side_data_copy.get(), side_data_size);
                 if (err < 0) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to copy AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
                     return RGY_ERR_INVALID_CALL;
                 }
                 AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_MASTERING_DISPLAY_METADATA from input\n"));
-            }
+                side_data_copy.release();
         }
+    }
 #endif
     }
 
@@ -559,7 +568,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     if (pVideoOutputInfo->codec == RGY_CODEC_HEVC && prm->pHEVCHdrSei != nullptr) {
         auto seiNal = prm->pHEVCHdrSei->gen_nal();
         if (seiNal.size() > 0) {
-            m_Mux.video.seiNal.copy(seiNal.data(), seiNal.size());
+            m_Mux.video.seiNal.copy(seiNal.data(), (uint32_t)seiNal.size());
 
             const auto HEVCHdrSeiPrm = prm->pHEVCHdrSei->getprm();
 
