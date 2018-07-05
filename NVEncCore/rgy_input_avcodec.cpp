@@ -643,10 +643,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
     m_Demux.format.pFormatCtx = avformat_alloc_context();
     m_Demux.format.nAnalyzeSec = input_prm->nAnalyzeSec;
     if (m_Demux.format.nAnalyzeSec) {
-        if (0 != (ret = av_opt_set_int(m_Demux.format.pFormatCtx, "probesize", m_Demux.format.nAnalyzeSec * AV_TIME_BASE, 0))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set probesize to %d sec: error %d\n"), m_Demux.format.nAnalyzeSec, ret);
+        if (0 != (ret = av_opt_set_int(m_Demux.format.pFormatCtx, "probesize", 1 << 29, 0))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set probesize to 0.5GB: error %d\n"), ret);
         } else {
-            AddMessage(RGY_LOG_DEBUG, _T("set probesize: %d sec\n"), m_Demux.format.nAnalyzeSec);
+            AddMessage(RGY_LOG_DEBUG, _T("set probesize: 0.5GB\n"));
         }
     }
     if (0 == strcmp(filename_char.c_str(), "-")) {
