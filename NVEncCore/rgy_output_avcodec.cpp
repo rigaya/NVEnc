@@ -1613,6 +1613,13 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *pVideo
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     }
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
+    if (m_Mux.video.pStreamOut == nullptr) {
+        RGY_ERR sts = WriteFileHeader(nullptr);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_Mux.format.bFileHeaderWritten = true;
+    }
     m_bInited = true;
     return RGY_ERR_NONE;
 }
@@ -3046,14 +3053,16 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
     const int nWaitThreshold = 32;
     const size_t videoPacketThreshold = std::min<size_t>(3072, m_Mux.thread.qVideobitstream.capacity()) - nWaitThreshold;
     const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.qAudioPacketOut.capacity()) - nWaitThreshold;
-    //現在のdts、"-1"は無視することを映像と音声の同期を行う必要がないことを意味する
-    int64_t audioDts = (m_Mux.audio.size()) ? 0 : INT64_MAX;
-    int64_t videoDts = (m_Mux.video.pStreamOut) ? 0 : INT64_MAX;
     //キューにデータが存在するか
     bool bAudioExists = false;
     bool bVideoExists = false;
     const auto fpsTimebase = av_inv_q(m_Mux.video.nFPS);
     const auto dtsThreshold = std::max(av_rescale_q(4, fpsTimebase, QUEUE_DTS_TIMEBASE), 4ll);
+    //syncIgnoreDtsは映像と音声の同期を行う必要がないことを意味する
+    //dtsThresholdを加算したときにオーバーフローしないよう、dtsThresholdを引いておく
+    const int64_t syncIgnoreDts = INT64_MAX - dtsThreshold;
+    int64_t audioDts = (m_Mux.audio.size()) ? 0 : syncIgnoreDts;
+    int64_t videoDts = (m_Mux.video.pStreamOut) ? 0 : syncIgnoreDts;
     WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, INFINITE);
     //bThAudProcessは出力開始した後で取得する(この前だとまだ起動していないことがある)
     const bool bThAudProcess = m_Mux.thread.thAudProcess.joinable();
@@ -3106,7 +3115,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                         m_Mux.thread.qAudioPacketOut.set_capacity(audPacketsPerSec * 4);
                     }
                 }
-                const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : INT64_MAX;
+                const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : syncIgnoreDts;
                 //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
                 (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
                 audioDts = (std::max)(audioDts, pktData.dts);
