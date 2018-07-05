@@ -82,7 +82,7 @@ public:
         return dataptr;
     }
 
-    const uint8_t *data() const {
+    uint8_t *data() const {
         return dataptr + dataOffset;
     }
 
@@ -195,6 +195,13 @@ public:
             maxLength = nSize;
         }
         return RGY_ERR_NONE;
+    }
+
+    void trim() {
+        if (dataOffset > 0 && dataLength > 0) {
+            memmove(dataptr, dataptr + dataOffset, dataLength);
+            dataOffset = 0;
+        }
     }
 
     RGY_ERR copy(const uint8_t *setData, uint32_t setSize) {

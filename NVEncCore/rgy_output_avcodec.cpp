@@ -1973,27 +1973,51 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
 #endif
 
     if (m_Mux.video.pBsfc) {
-        AVPacket pkt = { 0 };
-        av_init_packet(&pkt);
-        av_new_packet(&pkt, pBitstream->size());
-        memcpy(pkt.data, pBitstream->data(), pBitstream->size());
-        int ret = 0;
-        if (0 > (ret = av_bsf_send_packet(m_Mux.video.pBsfc, &pkt))) {
+        std::vector<nal_info> nal_list;
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+        } else if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
+            nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+        }
+        auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+        if (sps_nal != nal_list.end()) {
+            AVPacket pkt = { 0 };
+            av_init_packet(&pkt);
+            av_new_packet(&pkt, sps_nal->size);
+            memcpy(pkt.data, sps_nal->ptr, sps_nal->size);
+            int ret = 0;
+            if (0 > (ret = av_bsf_send_packet(m_Mux.video.pBsfc, &pkt))) {
+                av_packet_unref(&pkt);
+                AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
+                    char_to_tstring(m_Mux.video.pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            ret = av_bsf_receive_packet(m_Mux.video.pBsfc, &pkt);
+            if (ret == AVERROR(EAGAIN)) {
+                return RGY_ERR_NONE;
+            } else if ((ret < 0 && ret != AVERROR_EOF) || pkt.size < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
+                    char_to_tstring(m_Mux.video.pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            const int new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
+            if (sps_nal->size == pkt.size) {
+                memcpy(sps_nal->ptr, pkt.data, pkt.size);
+            } else {
+                const int sps_nal_offset = sps_nal->ptr - pBitstream->data();
+                const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
+                const int next_nal_new_offset = sps_nal_offset + pkt.size;
+                const int stream_orig_length = pBitstream->size();
+                if (pBitstream->bufsize() < new_data_size) {
+                    pBitstream->changeSize(new_data_size);
+                } else if (pkt.size > sps_nal->size) {
+                    pBitstream->trim();
+                }
+                memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
+                memcpy(pBitstream->data() + sps_nal_offset, pkt.data, pkt.size);
+            }
             av_packet_unref(&pkt);
-            AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
-                char_to_tstring(m_Mux.video.pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_UNKNOWN;
         }
-        ret = av_bsf_receive_packet(m_Mux.video.pBsfc, &pkt);
-        if (ret == AVERROR(EAGAIN)) {
-            return RGY_ERR_NONE;
-        } else if ((ret < 0 && ret != AVERROR_EOF) || pkt.size < 0) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
-                char_to_tstring(m_Mux.video.pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_UNKNOWN;
-        }
-        pBitstream->copy(pkt.data, pkt.size);
-        av_packet_unref(&pkt);
     }
 
     AVPacket pkt = { 0 };
