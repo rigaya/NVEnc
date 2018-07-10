@@ -643,6 +643,19 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("audio-profile"))) {
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        auto ret = set_audio_prm([](sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+            if (trackId != 0 || pAudioSelect->pAVAudioEncodeCodecProfile == nullptr) {
+                pAudioSelect->pAVAudioEncodeCodecProfile = _tcsdup(prmstr);
+            }
+        });
+        if (ret) {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return ret;
+        }
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("audio-bitrate"))) {
         try {
             auto ret = set_audio_prm([](sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {

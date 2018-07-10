@@ -493,6 +493,9 @@ Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
 Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ```
 
+### --audio-profile [[&lt;int&gt;?]&lt;string&gt;
+Specify audio codec profile when encoding audio.
+
 ### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]
 Separate or merge audio channels.
 Audio tracks specified with this option will always be encoded. (no copying available)

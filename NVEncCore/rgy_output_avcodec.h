@@ -251,12 +251,13 @@ typedef struct AVMux {
 } AVMux;
 
 typedef struct AVOutputStreamPrm {
-    AVDemuxStream src;             //入力音声・字幕の情報
-    const TCHAR  *pEncodeCodec;    //音声をエンコードするコーデック
-    const TCHAR  *pEncodeCodecPrm; //音声をエンコードするコーデックのパラメータ
-    int           nBitrate;        //ビットレートの指定
-    int           nSamplingRate;   //サンプリング周波数の指定
-    const TCHAR  *pFilter;         //音声フィルタ
+    AVDemuxStream src;                 //入力音声・字幕の情報
+    const TCHAR  *pEncodeCodec;        //音声をエンコードするコーデック
+    const TCHAR  *pEncodeCodecPrm;     //音声をエンコードするコーデックのパラメータ
+    const TCHAR  *pEncodeCodecProfile; //音声をエンコードするコーデックのパラメータ
+    int           nBitrate;            //ビットレートの指定
+    int           nSamplingRate;       //サンプリング周波数の指定
+    const TCHAR  *pFilter;             //音声フィルタ
 } AVOutputStreamPrm;
 
 struct AvcodecWriterPrm {
@@ -382,6 +383,12 @@ protected:
 
     //AAC音声にBitstreamフィルターを適用する
     RGY_ERR applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);
+
+    //音声のプロファイルを取得する
+    int AudioGetCodecProfile(tstring profile, AVCodecID codecId);
+
+    //音声のプロファイル(文字列)を取得する
+    tstring AudioGetCodecProfileStr(int profile, AVCodecID codecId);
 
     //H.264ストリームからPAFFのフィールドの長さを返す
     uint32_t getH264PAFFFieldLength(const uint8_t *ptr, uint32_t size, int *isIDR);

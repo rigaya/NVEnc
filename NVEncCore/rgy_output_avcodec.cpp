@@ -436,6 +436,39 @@ AVSampleFormat RGYOutputAvcodec::AutoSelectSampleFmt(const AVSampleFormat *pSamp
     return pSamplefmtList[0];
 }
 
+//音声のプロファイルを取得する
+int RGYOutputAvcodec::AudioGetCodecProfile(tstring profile, AVCodecID codecId) {
+    int selectedProfile = FF_PROFILE_UNKNOWN;
+    auto codecDesc = avcodec_descriptor_get(codecId);
+    if (codecDesc != nullptr) {
+        const std::string codec_profile = tchar_to_string(profile);
+        for (auto avprofile = codecDesc->profiles;
+            avprofile != nullptr && avprofile->profile != FF_PROFILE_UNKNOWN;
+            avprofile++) {
+            if (stricmp(avprofile->name, codec_profile.c_str()) == 0) {
+                selectedProfile = avprofile->profile;
+                break;
+            }
+        }
+    }
+    return selectedProfile;
+}
+
+//音声のプロファイル(文字列)を取得する
+tstring RGYOutputAvcodec::AudioGetCodecProfileStr(int profile, AVCodecID codecId) {
+    auto codecDesc = avcodec_descriptor_get(codecId);
+    if (codecDesc != nullptr) {
+        for (auto avprofile = codecDesc->profiles;
+            avprofile != nullptr && avprofile->profile != FF_PROFILE_UNKNOWN;
+            avprofile++) {
+            if (avprofile->profile == profile && avprofile->name != nullptr) {
+                return char_to_tstring(avprofile->name);
+            }
+        }
+    }
+    return _T("default");
+}
+
 RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const AvcodecWriterPrm *prm) {
     m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(pVideoOutputInfo->codec);
     if (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_NONE) {
@@ -1032,6 +1065,21 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
         if (!avcodecIsCopy(pInputAudio->pEncodeCodec)) {
             pMuxAudio->pOutCodecEncodeCtx->bit_rate        = ((pInputAudio->nBitrate) ? pInputAudio->nBitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
         }
+        //音声プロファイルの設定
+        if (pInputAudio->pEncodeCodecProfile != nullptr) {
+            const int selected_profile = AudioGetCodecProfile(pInputAudio->pEncodeCodecProfile, pMuxAudio->pOutCodecEncodeCtx->codec_id);
+            if (selected_profile == FF_PROFILE_UNKNOWN) {
+                AddMessage(RGY_LOG_ERROR, _T("unknown profile \"%s\" for codec %s (audio track %d).\n"),
+                    pInputAudio->pEncodeCodecProfile,
+                    char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(), pInputAudio->src.nTrackId);
+                return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
+            }
+            pMuxAudio->pOutCodecEncodeCtx->profile = selected_profile;
+            AddMessage(RGY_LOG_DEBUG, _T("profile %d (%s) selected for codec %s (audio track %d)."),
+                selected_profile, pInputAudio->pEncodeCodecProfile,
+                char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(), pInputAudio->src.nTrackId);
+        }
+        //音声エンコーダのオプションの設定
         AVDictionary *codecPrmDict = nullptr;
         unique_ptr<AVDictionary*, decltype(&av_dict_free)> codecPrmDictDeleter(&codecPrmDict, av_dict_free);
         unique_ptr<char, RGYAVDeleter<void>> prm_buf;
@@ -1047,9 +1095,11 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
             av_dict_get_string(codecPrmDict, &buf, '=', ',');
             prm_buf = unique_ptr<char, RGYAVDeleter<void>>(buf, RGYAVDeleter<void>(av_freep));
         }
-        AddMessage(RGY_LOG_DEBUG, _T("Audio Encoder Param: %s, %dch[0x%02x], %.1fkHz, %s, %d/%d, %s\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(),
+        AddMessage(RGY_LOG_DEBUG, _T("Audio Encoder Param: %s, %dch[0x%02x], %.1fkHz, %s, %d (%s), %d/%d, %s\n"),
+            char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->channels, (uint32_t)pMuxAudio->pOutCodecEncodeCtx->channel_layout, pMuxAudio->pOutCodecEncodeCtx->sample_rate / 1000.0,
             char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)).c_str(),
+            pMuxAudio->pOutCodecEncodeCtx->profile, AudioGetCodecProfileStr(pMuxAudio->pOutCodecEncodeCtx->profile, pMuxAudio->pOutCodecEncodeCtx->codec_id).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.den,
             char_to_tstring(prm_buf.get() ? prm_buf.get() : "default").c_str());
         if (pMuxAudio->pOutCodecEncode->capabilities & AV_CODEC_CAP_EXPERIMENTAL) {
