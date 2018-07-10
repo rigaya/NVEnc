@@ -1159,6 +1159,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     }
     pMuxAudio->pStreamOut->codecpar->codec_type      = srcCodecParam->codec_type;
     pMuxAudio->pStreamOut->codecpar->codec_id        = srcCodecParam->codec_id;
+    pMuxAudio->pStreamOut->codecpar->profile         = srcCodecParam->profile;
     pMuxAudio->pStreamOut->codecpar->frame_size      = srcCodecParam->frame_size;
     pMuxAudio->pStreamOut->codecpar->channels        = srcCodecParam->channels;
     pMuxAudio->pStreamOut->codecpar->channel_layout  = srcCodecParam->channel_layout;
