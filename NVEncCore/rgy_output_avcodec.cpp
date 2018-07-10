@@ -2142,10 +2142,18 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     }
     m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), pBitstream->avgQP());
 #if ENABLE_AVCODEC_OUT_THREAD
+    //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
     if (m_Mux.thread.thOutput.joinable()) {
-        //確保したメモリ領域を使いまわすためにスタックに格納
-        auto& qVideoQueueFree = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
-        qVideoQueueFree.push(*pBitstream);
+        //確保したメモリ領域を使いまわすためにキューに格納
+        const auto frameI = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
+        auto& qVideoQueueFree = (frameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
+        auto queueFavoredSize = (frameI) ? VID_BITSTREAM_QUEUE_SIZE_I : VID_BITSTREAM_QUEUE_SIZE_PB;
+        if (qVideoQueueFree.size() > queueFavoredSize) {
+            //あまり多すぎると無駄にメモリを使用するので減らす
+            pBitstream->clear();
+        } else {
+            qVideoQueueFree.push(*pBitstream);
+        }
     } else {
 #endif
         pBitstream->setSize(0);

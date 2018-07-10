@@ -50,6 +50,9 @@ using std::vector;
 
 static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 
+static const int VID_BITSTREAM_QUEUE_SIZE_I  = 4;
+static const int VID_BITSTREAM_QUEUE_SIZE_PB = 64;
+
 struct AVMuxTimestamp {
     int64_t timestamp_list[8];
 
