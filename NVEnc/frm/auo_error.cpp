@@ -154,13 +154,13 @@ void error_afs_interlace_stg() {
 }
 
 void error_x264_dead() {
-    write_log_auo_line(LOG_ERROR, "x264が予期せず途中終了しました。x264に不正なパラメータ(オプション)が渡された可能性があります。");
+    write_log_auo_line(LOG_ERROR, "NVEncCが予期せず途中終了しました。NVEncCに不正なパラメータ(オプション)が渡された可能性があります。");
 }
 
 void error_x264_version() {
     write_log_line(LOG_ERROR, ""
-        "auo [error]: x264のバージョンが古く、エンコードできません。\n"
-        "             最新のx264をダウンロードし、設定画面で最新版に指定しなおしてください。");
+        "auo [error]: NVEncCのバージョンが古く、エンコードできません。\n"
+        "             最新のNVEncCをダウンロードし、設定画面で最新版に指定しなおしてください。");
 }
 
 void error_afs_get_frame() {
