@@ -825,10 +825,12 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                     prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
                     prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
                     prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
+                    prm.pEncodeCodecPrm = pAudioSelect->pAVAudioEncodeCodecPrm;
                     prm.pFilter = pAudioSelect->pAudioFilter;
-                    PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
+                    PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
-                        stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec);
+                        stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec,
+                        prm.pEncodeCodecPrm ? prm.pEncodeCodecPrm : _T(""));
                     writerPrm.inputStreamList.push_back(std::move(prm));
                 }
             }

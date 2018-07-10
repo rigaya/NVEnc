@@ -481,13 +481,22 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 例: トラック番号#1,#2を抽出
 --audio-copy 1,2
 ```
-### --audio-codec [[&lt;int&gt;?]&lt;string&gt;]
+
+### --audio-codec [[&lt;int&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;]...]
 音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-codecs---check-decoders---check-encoders)で確認できる。
 
 [&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
+
+さらに、[&lt;string&gt;=&lt;string&gt;]の形式で、音声エンコーダのオプションを指定することもできる。
 ```
-例1: --audio-codec libmp3lame  (音声をmp3に変換)
-例2: --audio-codec 2?aac       (音声の第2トラックをaacに変換)
+例1: 音声をmp3に変換
+--audio-codec libmp3lame
+
+例2: 音声の第2トラックをaacに変換
+--audio-codec 2?aac
+
+例3: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
+--audio-codec aac:aac_coder=twoloop
 ```
 
 ### --audio-bitrate [&lt;int&gt;?]&lt;int&gt;

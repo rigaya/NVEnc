@@ -623,7 +623,18 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         auto ret = set_audio_prm([](sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
             if (trackId != 0 || pAudioSelect->pAVAudioEncodeCodec == nullptr) {
-                pAudioSelect->pAVAudioEncodeCodec = _tcsdup((prmstr) ? prmstr : RGY_AVCODEC_AUTO);
+                if (prmstr == nullptr) {
+                    pAudioSelect->pAVAudioEncodeCodec = _tcsdup(RGY_AVCODEC_AUTO);
+                } else {
+                    pAudioSelect->pAVAudioEncodeCodec = _tcsdup(prmstr);
+                    auto delim = _tcschr(pAudioSelect->pAVAudioEncodeCodec, _T(':'));
+                    if (delim != nullptr) {
+                        pAudioSelect->pAVAudioEncodeCodecPrm = _tcsdup(delim+1);
+                        delim[0] = _T('\0');
+                    } else {
+                        pAudioSelect->pAVAudioEncodeCodecPrm = nullptr;
+                    }
+                }
             }
         });
         if (ret) {
@@ -2766,6 +2777,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --audio-codec ") << pAudioSelect->nAudioSelect;
             if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_AUTO) != 0) {
                 cmd << _T("?") << pAudioSelect->pAVAudioEncodeCodec;
+            }
+            if (pAudioSelect->pAVAudioEncodeCodecPrm) {
+                cmd << _T(":") << pAudioSelect->pAVAudioEncodeCodecPrm;
             }
         }
     }

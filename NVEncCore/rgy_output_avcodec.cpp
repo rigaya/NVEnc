@@ -1032,17 +1032,42 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
         if (!avcodecIsCopy(pInputAudio->pEncodeCodec)) {
             pMuxAudio->pOutCodecEncodeCtx->bit_rate        = ((pInputAudio->nBitrate) ? pInputAudio->nBitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
         }
-        AddMessage(RGY_LOG_DEBUG, _T("Audio Encoder Param: %s, %dch[0x%02x], %.1fkHz, %s, %d/%d\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(),
+        AVDictionary *codecPrmDict = nullptr;
+        unique_ptr<AVDictionary*, decltype(&av_dict_free)> codecPrmDictDeleter(&codecPrmDict, av_dict_free);
+        unique_ptr<char, RGYAVDeleter<void>> prm_buf;
+        if (pInputAudio->pEncodeCodecPrm) {
+            int ret = av_dict_parse_string(&codecPrmDict, tchar_to_string(pInputAudio->pEncodeCodecPrm).c_str(), "=", ",", 0);
+            if (ret < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to parse param(s) for codec %s for audio track %d: %s\n"),
+                    char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(), pInputAudio->src.nTrackId, qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("  prm: %s\n"), pInputAudio->pEncodeCodecPrm);
+                return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
+            }
+            char *buf = nullptr;
+            av_dict_get_string(codecPrmDict, &buf, '=', ',');
+            prm_buf = unique_ptr<char, RGYAVDeleter<void>>(buf, RGYAVDeleter<void>(av_freep));
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("Audio Encoder Param: %s, %dch[0x%02x], %.1fkHz, %s, %d/%d, %s\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->channels, (uint32_t)pMuxAudio->pOutCodecEncodeCtx->channel_layout, pMuxAudio->pOutCodecEncodeCtx->sample_rate / 1000.0,
             char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)).c_str(),
-            pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.den);
-        if (pMuxAudio->pOutCodecEncode->capabilities & AV_CODEC_CAP_EXPERIMENTAL) { 
-            //誰がなんと言おうと使うと言ったら使うのだ
+            pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.den,
+            char_to_tstring(prm_buf.get() ? prm_buf.get() : "default").c_str());
+        if (pMuxAudio->pOutCodecEncode->capabilities & AV_CODEC_CAP_EXPERIMENTAL) {
             av_opt_set(pMuxAudio->pOutCodecEncodeCtx, "strict", "experimental", 0);
         }
-        if (0 > avcodec_open2(pMuxAudio->pOutCodecEncodeCtx, pMuxAudio->pOutCodecEncode, NULL)) {
+        if (0 > avcodec_open2(pMuxAudio->pOutCodecEncodeCtx, pMuxAudio->pOutCodecEncode, &codecPrmDict)) {
             AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
             return RGY_ERR_NULL_PTR;
+        }
+        if (codecPrmDict) {
+            for (const AVDictionaryEntry *t = nullptr; (t = av_dict_get(codecPrmDict, "", t, AV_DICT_IGNORE_SUFFIX)) != nullptr;) {
+                AddMessage(RGY_LOG_ERROR, _T("Unknown option to audio encoder[%s]: %s=%s\n"),
+                    char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(),
+                    char_to_tstring(t->key).c_str(),
+                    char_to_tstring(t->value).c_str());
+                m_Mux.format.bStreamError = true;
+                return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
+            }
         }
         pMuxAudio->nResamplerInChannels      = pMuxAudio->pOutCodecEncodeCtx->channels;
         pMuxAudio->nResamplerInChannelLayout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
