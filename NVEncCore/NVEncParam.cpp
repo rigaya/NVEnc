@@ -189,6 +189,7 @@ VppParam::VppParam() :
     deband(),
     afs(),
     tweak(),
+    pad(),
     rff(false) {
     delogo.pFilePath = nullptr;
     delogo.pSelect = nullptr;
@@ -257,6 +258,26 @@ void VppAfs::check() {
     }
     drop &= shift;
     smooth &= drop;
+}
+
+VppPad::VppPad() :
+    enable(false),
+    left(0),
+    top(0),
+    right(0),
+    bottom(0) {
+
+}
+
+bool VppPad::operator==(const VppPad& x) const {
+    return enable == x.enable
+        && left == x.left
+        && top == x.top
+        && right == x.right
+        && bottom == x.bottom;
+}
+bool VppPad::operator!=(const VppPad& x) const {
+    return !(*this == x);
 }
 
 NV_ENC_CODEC_CONFIG DefaultParamH264() {

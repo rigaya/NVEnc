@@ -708,6 +708,15 @@ struct VppAfs {
     void check();
 };
 
+struct VppPad {
+    bool enable;
+    int left, top, right, bottom;
+
+    VppPad();
+    bool operator==(const VppPad& x) const;
+    bool operator!=(const VppPad& x) const;
+};
+
 enum {
     AFS_PRESET_DEFAULT = 0,
     AFS_PRESET_TRIPLE,        //動き重視
@@ -759,6 +768,7 @@ struct VppParam {
     VppDeband deband;
     VppAfs afs;
     VppTweak tweak;
+    VppPad pad;
     bool rff;
 
     VppParam();

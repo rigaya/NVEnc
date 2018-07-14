@@ -911,6 +911,9 @@ Example:
 --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
 ```
 
+### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
+add padding to left,top,right,bottom (in pixels)
+
 ### --vpp-delogo &lt;string&gt;
 Specify a logo file. Corresponds to ".lgd", ".ldp", ".ldp2".
 

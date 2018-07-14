@@ -565,6 +565,9 @@ static tstring help() {
         FILTER_DEFAULT_TWEAK_GAMMA,
         FILTER_DEFAULT_TWEAK_SATURATION,
         FILTER_DEFAULT_TWEAK_HUE);
+    str += strsprintf(_T("\n")
+        _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
+        _T("     add padding to left,top,right,bottom (in pixels)\n"));
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")

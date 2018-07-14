@@ -43,6 +43,7 @@
 #include <vector>
 #include "helper_cuda.h"
 #include "NVEncUtil.h"
+#include "NVEncParam.h"
 #include "rgy_log.h"
 #include "convert_csp.h"
 #include "NVEncFrameInfo.h"
@@ -454,4 +455,22 @@ protected:
     NVENCSTATUS denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
     bool m_bInterlacedWarn;
+};
+
+class NVEncFilterParamPad : public NVEncFilterParam {
+public:
+    VppPad pad;
+    virtual ~NVEncFilterParamPad() {};
+};
+
+class NVEncFilterPad : public NVEncFilter {
+public:
+    NVEncFilterPad();
+    virtual ~NVEncFilterPad();
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+
+    NVENCSTATUS padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad);
+    virtual void close() override;
 };

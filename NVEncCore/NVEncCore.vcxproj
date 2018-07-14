@@ -585,6 +585,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="NVEncFeature.cpp" />
     <ClCompile Include="NVEncFilter.cpp" />
     <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
+    <ClCompile Include="NVEncFilterPad.cpp" />
     <ClCompile Include="NVEncFilterRff.cpp" />
     <ClCompile Include="NVEncCmd.cpp" />
     <ClCompile Include="NVEncUtil.cpp" />

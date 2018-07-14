@@ -1993,6 +1993,84 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+
+    if (IS_OPTION("vpp-pad")) {
+        pParams->vpp.pad.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        pParams->vpp.pad.enable = true;
+                    } else if (param_val == _T("false")) {
+                        pParams->vpp.pad.enable = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("r")) {
+                    try {
+                        pParams->vpp.pad.right = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("l")) {
+                    try {
+                        pParams->vpp.pad.left = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("t")) {
+                    try {
+                        pParams->vpp.pad.top = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("b")) {
+                    try {
+                        pParams->vpp.pad.bottom = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                int val[4] = { 0 };
+                if (   4 == _stscanf_s(strInput[i], _T("%d,%d,%d,%d"), &val[0], &val[1], &val[2], &val[3])
+                    || 4 == _stscanf_s(strInput[i], _T("%d:%d:%d:%d"), &val[0], &val[1], &val[2], &val[3])) {
+                    pParams->vpp.pad.left   = val[0];
+                    pParams->vpp.pad.top    = val[1];
+                    pParams->vpp.pad.right  = val[2];
+                    pParams->vpp.pad.bottom = val[3];
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-perf-monitor")) {
         pParams->vpp.bCheckPerformance = true;
         return 0;
@@ -2769,7 +2847,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
     }
     tmp.str(tstring());
-    for (uint32_t i = 0; i < pParams->nAudioSelectCount; i++) {
+    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
         const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
         if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) == 0) {
             if (pAudioSelect->nAudioSelect == 0) {
@@ -3014,6 +3092,23 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-tweak ") << tmp.str().substr(1);
         } else if (pParams->vpp.tweak.enable) {
             cmd << _T(" --vpp-tweak");
+        }
+    }
+    if (pParams->vpp.pad != encPrmDefault.vpp.pad) {
+        tmp.str(tstring());
+        if (!pParams->vpp.pad.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.pad.enable || save_disabled_prm) {
+            ADD_NUM(_T("r"), vpp.pad.right);
+            ADD_NUM(_T("l"), vpp.pad.left);
+            ADD_NUM(_T("t"), vpp.pad.top);
+            ADD_NUM(_T("b"), vpp.pad.bottom);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-pad ") << tmp.str().substr(1);
+        } else if (pParams->vpp.pad.enable) {
+            cmd << _T(" --vpp-pad");
         }
     }
     if (pParams->vpp.deband != encPrmDefault.vpp.deband) {

@@ -1901,7 +1901,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.gaussMaskSize > 0
             || inputParam->vpp.knn.enable
             || inputParam->vpp.pmd.enable
-            || inputParam->vpp.afs.enable);
+            || inputParam->vpp.afs.enable
+            || inputParam->vpp.pad.enable);
 }
 
 #pragma warning(push)
@@ -2447,8 +2448,14 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame.deivce_mem = true;
     }
 
-    m_uEncWidth  = inputParam->input.srcWidth  - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
-    m_uEncHeight = inputParam->input.srcHeight - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+    int resizeWidth  = inputFrame.width;
+    int resizeHeight = inputFrame.height;
+    m_uEncWidth = resizeWidth;
+    m_uEncHeight = resizeHeight;
+    if (inputParam->vpp.pad.enable) {
+        m_uEncWidth  += inputParam->vpp.pad.right + inputParam->vpp.pad.left;
+        m_uEncHeight += inputParam->vpp.pad.bottom + inputParam->vpp.pad.top;
+    }
 
     //picStructの設定
     m_stPicStruct = picstruct_rgy_to_enc(inputParam->input.picstruct);
@@ -2458,12 +2465,18 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
 
-    bool bResizeRequired = false;
-    if (   inputParam->input.dstWidth
-        && inputParam->input.dstHeight
-        && (inputParam->input.dstWidth != m_uEncWidth || inputParam->input.dstHeight != m_uEncHeight)) {
+    if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
         m_uEncWidth = inputParam->input.dstWidth;
         m_uEncHeight = inputParam->input.dstHeight;
+        resizeWidth = m_uEncWidth;
+        resizeHeight = m_uEncHeight;
+        if (inputParam->vpp.pad.enable) {
+            resizeWidth -= (inputParam->vpp.pad.right + inputParam->vpp.pad.left);
+            resizeHeight -= (inputParam->vpp.pad.bottom + inputParam->vpp.pad.top);
+        }
+    }
+    bool bResizeRequired = false;
+    if (inputFrame.width != resizeWidth || inputFrame.height != resizeHeight) {
         bResizeRequired = true;
     }
     //avhw読みではデコード直後にリサイズが可能
@@ -2498,8 +2511,9 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.pmd.enable
         || inputParam->vpp.deband.enable
         || inputParam->vpp.edgelevel.enable
-        || inputParam->vpp.tweak.enable
         || inputParam->vpp.afs.enable
+        || inputParam->vpp.tweak.enable
+        || inputParam->vpp.pad.enable
         || inputParam->vpp.rff
         ) {
         //swデコードならGPUに上げる必要がある
@@ -2713,8 +2727,8 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->interp = (inputParam->vpp.resizeInterp != NPPI_INTER_UNDEFINED) ? inputParam->vpp.resizeInterp : RESIZE_CUDA_SPLINE36;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
-            param->frameOut.width = m_uEncWidth;
-            param->frameOut.height = m_uEncHeight;
+            param->frameOut.width = resizeWidth;
+            param->frameOut.height = resizeHeight;
             param->bOutOverwrite = false;
 #if _M_IX86
             if (param->interp <= NPPI_INTER_MAX) {
@@ -2803,6 +2817,29 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->deband = inputParam->vpp.deband;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+        }
+        //padding
+        if (inputParam->vpp.pad.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterPad());
+            shared_ptr<NVEncFilterParamPad> param(new NVEncFilterParamPad());
+            param->pad = inputParam->vpp.pad;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->frameOut.width = m_uEncWidth;
+            param->frameOut.height = m_uEncHeight;
+            param->frameOut.pitch = 0;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);

@@ -959,6 +959,9 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
 ```
 
+### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
+指定のピクセル数(偶数)分のパディングを行う。左、上、右、下の順にピクセル数で指定する。
+
 ### --vpp-delogo &lt;string&gt;
 ロゴファイルを指定する。".lgd",".ldp",".ldp2"に対応。
 
