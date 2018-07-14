@@ -2799,6 +2799,14 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
         const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0
+            && pAudioSelect->pAVAudioEncodeCodecProfile != nullptr) {
+            cmd << _T(" --audio-profile ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->pAVAudioEncodeCodecProfile;
+        }
+    }
+
+    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
         if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
             cmd << _T(" --audio-bitrate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAVAudioEncodeBitrate;
         }
