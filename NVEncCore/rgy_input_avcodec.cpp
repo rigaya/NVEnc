@@ -494,21 +494,48 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
     m_Demux.video.nAvgFramerate = av_make_q((int)nAvgFramerate64.num, (int)nAvgFramerate64.den);
     AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (gcd): %d/%d\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
 
-    //近似値であれば、分母1001/分母1に合わせる
-    double fps = m_Demux.video.nAvgFramerate.num / (double)m_Demux.video.nAvgFramerate.den;
-    double fps_n = fps * 1001;
-    int fps_n_int = (int)(fps + 0.5) * 1000;
-    if (std::abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
-        m_Demux.video.nAvgFramerate.num = fps_n_int;
-        m_Demux.video.nAvgFramerate.den = 1001;
-    } else {
-        fps_n = fps * 1000;
-        fps_n_int = (int)(fps + 0.5) * 1000;
-        if (std::abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
-            m_Demux.video.nAvgFramerate.num = fps_n_int / 1000;
-            m_Demux.video.nAvgFramerate.den = 1;
+    struct KnownFpsList {
+        std::vector<int> base;
+        std::vector<int> mul;
+        int timebase_num;
+    };
+    const KnownFpsList knownFpsSmall = {
+        std::vector<int>{1, 2, 3, 4, 5, 10},
+        std::vector<int>{1},
+        1
+    };
+    const KnownFpsList knownFps1 = {
+        std::vector<int>{10, 12, 25},
+        std::vector<int>{1, 2, 3, 4, 5, 6, 10, 12, 20},
+        1
+    };
+    const KnownFpsList knownFps1001 = {
+        std::vector<int>{12000, 15000},
+        std::vector<int>{1, 2, 3, 4, 6, 8, 12, 16},
+        1001
+    };
+    const double fpsAvg = av_q2d(m_Demux.video.nAvgFramerate);
+    double fpsDiff = DBL_MAX;
+    AVRational fpsNear = m_Demux.video.nAvgFramerate;
+    auto round_fps = [&fpsDiff, &fpsNear, fpsAvg](const KnownFpsList& known_fps) {
+        for (auto b : known_fps.base) {
+            for (auto m : known_fps.mul) {
+                double fpsKnown = b * m / (double)known_fps.timebase_num;
+                double diff = std::abs(fpsKnown - fpsAvg);
+                if (diff < fpsDiff) {
+                    fpsDiff = diff;
+                    fpsNear = av_make_q(b * m, known_fps.timebase_num);
+                }
+            }
         }
+    };
+    round_fps(knownFpsSmall);
+    round_fps(knownFps1);
+    round_fps(knownFps1001);
+    if (fpsDiff / fpsAvg < 2.0 / 60.0) {
+        m_Demux.video.nAvgFramerate = fpsNear;
     }
+
     AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (round): %d/%d\n\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
 
     auto trimList = make_vector(pTrimList, nTrimCount);
