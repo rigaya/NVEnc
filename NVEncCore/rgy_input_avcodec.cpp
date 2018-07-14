@@ -1335,6 +1335,11 @@ int RGYInputAvcodec::getVideoFrameIdx(int64_t pts, AVRational timebase, int iSta
             }
             //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
             if (pts < m_Demux.frames.list(i).pts) {
+                //0フレーム目なら、仮想的に -1 フレーム目を考えて、それよりも前かどうかを判定する
+                //-2を返すことで、そのパケットは削除される
+                if (i == 0 && pts < m_Demux.frames.list(i).pts - m_Demux.frames.list(i).duration) {
+                    i--;
+                }
                 return i-1;
             }
         }
@@ -1342,7 +1347,12 @@ int RGYInputAvcodec::getVideoFrameIdx(int64_t pts, AVRational timebase, int iSta
         for (int i = (std::max)(0, iStart); i < framePosCount; i++) {
             //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
             if (av_compare_ts(pts, timebase, m_Demux.frames.list(i).pts, vid_pkt_timebase) < 0) {
-                return i - 1;
+                //0フレーム目なら、仮想的に -1 フレーム目を考えて、それよりも前かどうかを判定する
+                //-2を返すことで、そのパケットは削除される
+                if (i == 0 && av_compare_ts(pts, timebase, m_Demux.frames.list(i).pts - m_Demux.frames.list(i).duration, vid_pkt_timebase) < 0) {
+                    i--;
+                }
+                return i-1;
             }
         }
     }
