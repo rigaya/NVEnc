@@ -78,6 +78,12 @@ struct cudahost_deleter {
     }
 };
 
+struct cudadevice_deleter {
+    void operator()(void *ptr) const {
+        cudaFree(ptr);
+    }
+};
+
 static inline int divCeil(int value, int radix) {
     return (value + radix - 1) / radix;
 }
@@ -275,10 +281,10 @@ struct CUMemBufPair {
         return cudaMemcpy(ptrHost, ptrDevice, nSize, cudaMemcpyDeviceToHost);
     }
     cudaError_t copyHtoDAsync(cudaStream_t stream = 0) {
-        return cudaMemcpyAsync(ptrHost, ptrDevice, nSize, cudaMemcpyHostToDevice, stream);
+        return cudaMemcpyAsync(ptrDevice, ptrHost, nSize, cudaMemcpyHostToDevice, stream);
     }
     cudaError_t copyHtoD() {
-        return cudaMemcpy(ptrHost, ptrDevice, nSize, cudaMemcpyHostToDevice);
+        return cudaMemcpy(ptrDevice, ptrHost, nSize, cudaMemcpyHostToDevice);
     }
     void clear() {
         if (ptrDevice) {

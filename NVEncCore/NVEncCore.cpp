@@ -1897,7 +1897,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
         //インタレ保持でない (インタレ保持リサイズをするにはCUDAで行う必要がある)
         && !interlacedEncode
         //フィルタ処理が必要
-        && !(  inputParam->vpp.delogo.pFilePath
+        && !(  inputParam->vpp.delogo.enable
             || inputParam->vpp.gaussMaskSize > 0
             || inputParam->vpp.knn.enable
             || inputParam->vpp.pmd.enable
@@ -2512,7 +2512,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     //フィルタが必要
     if (bResizeRequired
-        || inputParam->vpp.delogo.pFilePath
+        || inputParam->vpp.delogo.enable
         || inputParam->vpp.gaussMaskSize > 0
         || inputParam->vpp.unsharp.enable
         || inputParam->vpp.knn.enable
@@ -2606,19 +2606,11 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             inputFrame = param->frameOut;
         }
         //delogo
-        if (inputParam->vpp.delogo.pFilePath) {
+        if (inputParam->vpp.delogo.enable) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterDelogo());
             shared_ptr<NVEncFilterParamDelogo> param(new NVEncFilterParamDelogo());
             param->inputFileName = inputParam->inputFilename.c_str();
-            param->logoFilePath  = inputParam->vpp.delogo.pFilePath;
-            param->logoSelect    = inputParam->vpp.delogo.pSelect;
-            param->depth         = (short)inputParam->vpp.delogo.nDepth;
-            param->posX          = (short)inputParam->vpp.delogo.nPosOffsetX;
-            param->posY          = (short)inputParam->vpp.delogo.nPosOffsetY;
-            param->Y             = (short)inputParam->vpp.delogo.nYOffset;
-            param->Cb            = (short)inputParam->vpp.delogo.nCbOffset;
-            param->Cr            = (short)inputParam->vpp.delogo.nCrOffset;
-            param->mode          = inputParam->vpp.delogo.nMode;
+            param->delogo        = inputParam->vpp.delogo;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->bOutOverwrite = true;

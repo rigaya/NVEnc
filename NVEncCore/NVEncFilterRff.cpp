@@ -75,6 +75,7 @@ NVENCSTATUS NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
 }
 
 NVENCSTATUS NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    UNREFERENCED_PARAMETER(pOutputFrameNum);
     NVENCSTATUS sts = NV_ENC_SUCCESS;
     if (pInputFrame->ptr == nullptr) {
         return sts;

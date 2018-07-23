@@ -915,10 +915,15 @@ Example:
 ### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
 add padding to left,top,right,bottom (in pixels)
 
-### --vpp-delogo &lt;string&gt;
-Specify a logo file. Corresponds to ".lgd", ".ldp", ".ldp2".
+### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-### --vpp-delogo-select &lt;string&gt;
+**Parameters**
+- select=&lt;string&gt;  
+For logo pack, specify the logo to use with one of the following.
+  - Logo name
+  - Index (1, 2, ...)
+  - Automatic selection ini file
+
 For logo pack, specify the logo to use with one of the following.
 
 - Logo name
@@ -927,7 +932,7 @@ For logo pack, specify the logo to use with one of the following.
 ```
  [LOGO_AUTO_SELECT]
  logo<num>=<pattern>,<logo name>
- ```
+```
 
  Example:
  ```ini
@@ -948,16 +953,37 @@ logo13= (BSJ).,BS Japan 1920x1080
 logo14= (BS11).,BS11 1920x1080 v3
 ```
 
-### --vpp-delogo-pos &lt;int&gt;:&lt;int&gt;
-Adjustment of logo position with 1/4 pixel accuracy in X:y direction.
 
-### --vpp-delogo-depth &lt;int&gt;
-Adjustment of logo transparency. Default 128.
+- pos &lt;int&gt;:&lt;int&gt;
+Adjustment of logo position with 1/4 pixel accuracy in x:y direction.  
 
-### --vpp-delogo-y  &lt;int&gt;
-### --vpp-delogo-cb &lt;int&gt;
-### --vpp-delogo-cr &lt;int&gt;
-Adjustment of each color component of the logo.
+- depth &lt;int&gt;
+Adjustment of logo transparency. Default 128.  
+
+- y=&lt;int&gt;  
+- cb=&lt;int&gt;  
+- cr=&lt;int&gt;  
+Adjustment of each color component of the logo.  
+
+- auto_fade=&lt;bool&gt;  
+Adjust fade value dynamically. default=false.  
+  
+- auto_nr=&lt;bool&gt;  
+Adjust strength of noise reduction dynamically. default=false.  
+
+- nr_area=&lt;int&gt;  
+Area of noise reduction near logo. (default=0 (off), 0 - 3)  
+
+- nr_value=&lt;int&gt;  
+Strength of noise reduction near logo. (default=0 (off), 0 - 4)  
+
+- log=&lt;bool&gt;  
+auto_fade, auto_nrを使用した場合のfade値の推移をログに出力する。
+
+```
+例:
+--vpp-delogo logodata.ldp2,select=delogo.auf.ini,auto_fade=true,auto_nr=true,nr_value=3,nr_area=1,log=true
+```
 
 ### --vpp-perf-monitor
 Monitor the performance of each vpp filter, and output the average per frame processing time of the applied filter(s). Note that the overall encoding performance may slightly be harmed.
