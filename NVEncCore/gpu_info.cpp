@@ -49,55 +49,22 @@ static std::basic_string<TCHAR> to_tchar(const char *string) {
     return str;
 };
 
-cl_int cl_get_driver_version(const cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
-    cl_int ret = CL_SUCCESS;
-    char cl_info_buffer[1024] = { 0 };
-    #if defined(_WIN32) || defined(_WIN64)
-    __try {
-    #endif //#if defined(_WIN32) || defined(_WIN64)
-        ret = cl->getDeviceInfo(cl_data->deviceID, CL_DRIVER_VERSION, _countof(cl_info_buffer), cl_info_buffer, NULL);
-    #if defined(_WIN32) || defined(_WIN64)
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        _ftprintf(stderr, _T("Crush (getDeviceInfo)\n"));
-        ret = CL_INVALID_VALUE;
-    }
-    #endif //#if defined(_WIN32) || defined(_WIN64)
-    if (ret == CL_SUCCESS) {
-        _tcscpy_s(buffer, buffer_size, to_tchar(cl_info_buffer).c_str());
-    } else {
-        _tcscpy_s(buffer, buffer_size, _T("Unknown"));
-    }
-    return ret;
-}
-
 static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
-    cl_int ret = CL_SUCCESS;
-    char cl_info_buffer[1024] = { 0 };
-    #if defined(_WIN32) || defined(_WIN64)
-    __try {
-    #endif //#if defined(_WIN32) || defined(_WIN64)
-        ret = cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_NAME, _countof(cl_info_buffer), cl_info_buffer, NULL);
-    #if defined(_WIN32) || defined(_WIN64)
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        _ftprintf(stderr, _T("Crush (getDeviceInfo)\n"));
-        ret = CL_INVALID_VALUE;
-    }
-    #endif //#if defined(_WIN32) || defined(_WIN64)
+    cl_int ret = cl_get_driver_version(cl_data, cl, buffer, buffer_size);
     if (ret != CL_SUCCESS) {
-        _tcscpy_s(buffer, buffer_size, _T("Unknown (error on OpenCL clGetDeviceInfo)"));
         return ret;
-    } else {
-        _tcscpy_s(buffer, buffer_size, to_tchar(cl_info_buffer).c_str());
-        const int max_device_frequency = cl_get_device_max_clock_frequency_mhz(cl_data, cl);
-        if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_MAX_COMPUTE_UNITS, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
-            _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%d EU)"), *(cl_uint *)cl_info_buffer);
-        }
-        if (max_device_frequency) {
-            _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" @ %d MHz"), max_device_frequency);
-        }
-        if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DRIVER_VERSION, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
-            _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%s)"), to_tchar(cl_info_buffer).c_str());
-        }
+    }
+    const int device_cu = cl_get_device_max_compute_units(cl_data, cl);
+    if (device_cu > 0) {
+        _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%d EU)"), device_cu);
+    }
+    const int max_device_frequency = cl_get_device_max_clock_frequency_mhz(cl_data, cl);
+    if (max_device_frequency) {
+        _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" @ %d MHz"), max_device_frequency);
+    }
+    TCHAR driver_ver[256] = { 0 };
+    if (CL_SUCCESS == cl_get_driver_version(cl_data, cl, driver_ver, _countof(driver_ver))) {
+        _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%s)"), driver_ver);
     }
     return ret;
 }

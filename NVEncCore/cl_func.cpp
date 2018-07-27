@@ -39,6 +39,14 @@
 //クラッシュしたことがあれば、このフラグを立て、以降OpenCLを使用しないようにする
 static bool opencl_crush = false;
 
+static void to_tchar(TCHAR *buf, uint32_t buf_size, const char *string) {
+#if UNICODE
+    MultiByteToWideChar(CP_ACP, 0, string, -1, buf, buf_size);
+#else
+    strcpy_s(buf, buf_size, string);
+#endif
+};
+
 static inline const char *strichr(const char *str, int c) {
     c = tolower(c);
     for (; *str; str++)
@@ -237,6 +245,77 @@ int cl_get_device_max_clock_frequency_mhz(const cl_data_t *cl_data, const cl_fun
     }
     #endif //#if defined(_WIN32) || defined(_WIN64)
     return frequency;
+}
+
+int cl_get_device_max_compute_units(const cl_data_t *cl_data, const cl_func_t *cl) {
+    int cu = 0;
+    if (opencl_crush) {
+        return cu;
+    }
+    #if defined(_WIN32) || defined(_WIN64)
+    __try {
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+        char cl_info_buffer[1024] = { 0 };
+        if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_MAX_COMPUTE_UNITS, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
+            cu = *(cl_uint *)cl_info_buffer;
+        }
+    #if defined(_WIN32) || defined(_WIN64)
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        _ftprintf(stderr, _T("Crush (getDeviceIDs)\n"));
+        opencl_crush = true;
+    }
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+    return cu;
+}
+
+cl_int cl_get_device_name(const cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
+    if (opencl_crush) {
+        return CL_INVALID_VALUE;
+    }
+    cl_int ret = CL_SUCCESS;
+    char cl_info_buffer[1024] = { 0 };
+    #if defined(_WIN32) || defined(_WIN64)
+    __try {
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+        ret = cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_NAME, _countof(cl_info_buffer), cl_info_buffer, NULL);
+    #if defined(_WIN32) || defined(_WIN64)
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        _ftprintf(stderr, _T("Crush (getDeviceInfo)\n"));
+        opencl_crush = true;
+        ret = CL_INVALID_VALUE;
+    }
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+    if (ret == CL_SUCCESS) {
+        to_tchar(buffer, buffer_size, cl_info_buffer);
+    } else {
+        _tcscpy_s(buffer, buffer_size, _T("Unknown"));
+    }
+    return ret;
+}
+
+cl_int cl_get_driver_version(const cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
+    if (opencl_crush) {
+        return CL_INVALID_VALUE;
+    }
+    cl_int ret = CL_SUCCESS;
+    char cl_info_buffer[1024] = { 0 };
+    #if defined(_WIN32) || defined(_WIN64)
+    __try {
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+        ret = cl->getDeviceInfo(cl_data->deviceID, CL_DRIVER_VERSION, _countof(cl_info_buffer), cl_info_buffer, NULL);
+    #if defined(_WIN32) || defined(_WIN64)
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        _ftprintf(stderr, _T("Crush (getDeviceInfo)\n"));
+        opencl_crush = true;
+        ret = CL_INVALID_VALUE;
+    }
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+    if (ret == CL_SUCCESS) {
+        to_tchar(buffer, buffer_size, cl_info_buffer);
+    } else {
+        _tcscpy_s(buffer, buffer_size, _T("Unknown"));
+    }
+    return ret;
 }
 
 void cl_release(cl_data_t *cl_data, cl_func_t *cl) {
