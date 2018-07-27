@@ -1677,6 +1677,10 @@ const AVStream *RGYInputAvcodec::GetInputVideoStream() {
     return m_Demux.video.pStream;
 }
 
+double RGYInputAvcodec::GetInputVideoDuration() {
+    return (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE));
+}
+
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
 //必要ならqStreamPktL2に移し、不要ならパケットを開放する
 void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
@@ -1912,9 +1916,9 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
     //進捗表示
     double progressPercent = 0.0;
     if (m_Demux.format.pFormatCtx->duration) {
-        progressPercent = m_Demux.frames.duration() * (m_Demux.video.pStream->time_base.num / (double)m_Demux.video.pStream->time_base.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
+        progressPercent = m_Demux.frames.duration() * (m_Demux.video.pStream->time_base.num / (double)m_Demux.video.pStream->time_base.den);
     }
-    return m_pEncSatusInfo->UpdateDisplay(progressPercent);
+    return m_pEncSatusInfo->UpdateDisplayByCurrentDuration(progressPercent);
 }
 #pragma warning(pop)
 

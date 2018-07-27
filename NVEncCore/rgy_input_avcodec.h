@@ -781,7 +781,10 @@ public:
 
     //動画の入力情報を取得する
     const AVStream *GetInputVideoStream();
-    
+
+    //動画の長さを取得する
+    double GetInputVideoDuration();
+
     //音声・字幕パケットの配列を取得する
     vector<AVPacket> GetStreamDataPackets();
 

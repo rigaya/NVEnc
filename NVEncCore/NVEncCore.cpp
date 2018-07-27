@@ -591,11 +591,13 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputParam->input.sar[1] = inputParamCopy.sar[1];
     }
 
+    double inputFileDuration = 0.0;
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
-    if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
-        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-        if (pAVCodecReader) {
+    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+    if (pAVCodecReader) {
+        inputFileDuration = pAVCodecReader->GetInputVideoDuration();
+        if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
             //avsync vfr時は、入力streamのtimebaseをそのまま使用する
             m_outputTimebase = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
         }
@@ -604,7 +606,31 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
         outputFps *= 2;
     }
-    m_pStatus->Init(outputFps.n(), outputFps.d(), inputParam->input.frames, m_pNVLog, m_pPerfMonitor);
+
+    //trim情報の作成
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN
+        && inputParam->nTrimCount > 0) {
+        //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
+        sTrimParam trimParam;
+        trimParam.list = make_vector(inputParam->pTrimList, inputParam->nTrimCount);
+        trimParam.offset = 0;
+        m_pFileReader->SetTrimParam(trimParam);
+    }
+    //trim情報をリーダーから取得する
+    m_trimParam = m_pFileReader->GetTrimParam();
+    if (m_trimParam.list.size() > 0) {
+        if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
+            PrintMes(RGY_LOG_ERROR, _T("--avsync vfr cannot be used with --trim.\n"));
+            return NV_ENC_ERR_GENERIC;
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
+        for (int i = 0; i < (int)m_trimParam.list.size(); i++) {
+            PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_trimParam.list[i].start, m_trimParam.list[i].fin);
+        }
+        PrintMes(RGY_LOG_DEBUG, _T(" (offset: %d)\n"), m_trimParam.offset);
+    }
+
+    m_pStatus->Init(outputFps.n(), outputFps.d(), inputParam->input.frames, inputFileDuration, m_trimParam, m_pNVLog, m_pPerfMonitor);
 
     if (inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot) {
         m_pPerfMonitor->SetEncStatus(m_pStatus);
@@ -679,28 +705,6 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         }
     }
 #endif //#if ENABLE_AVSW_READER
-
-    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN
-        && inputParam->nTrimCount > 0) {
-        //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
-        sTrimParam trimParam;
-        trimParam.list = make_vector(inputParam->pTrimList, inputParam->nTrimCount);
-        trimParam.offset = 0;
-        m_pFileReader->SetTrimParam(trimParam);
-    }
-    //trim情報をリーダーから取得する
-    m_trimParam = m_pFileReader->GetTrimParam();
-    if (m_trimParam.list.size() > 0) {
-        if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
-            PrintMes(RGY_LOG_ERROR, _T("--avsync vfr cannot be used with --trim.\n"));
-            return NV_ENC_ERR_GENERIC;
-        }
-        PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
-        for (int i = 0; i < (int)m_trimParam.list.size(); i++) {
-            PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_trimParam.list[i].start, m_trimParam.list[i].fin);
-        }
-        PrintMes(RGY_LOG_DEBUG, _T(" (offset: %d)\n"), m_trimParam.offset);
-    }
     return NV_ENC_SUCCESS;
 #else
     return NV_ENC_ERR_INVALID_CALL;

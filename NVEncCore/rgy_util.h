@@ -873,13 +873,13 @@ typedef struct {
     int offset;
 } sTrimParam;
 
+static const int TRIM_MAX = INT_MAX;
+static const int TRIM_OVERREAD_FRAMES = 128;
+
 typedef std::map<RGY_CODEC, vector<RGY_CSP>> CodecCsp;
 typedef std::vector<std::pair<int, CodecCsp>> DeviceCodecCsp;
 
 typedef std::vector<std::pair<tstring, tstring>> muxOptList;
-
-static const int TRIM_MAX = INT_MAX;
-static const int TRIM_OVERREAD_FRAMES = 128;
 
 static bool inline trim_active(const sTrimParam *pTrim) {
     if (pTrim == nullptr) {
