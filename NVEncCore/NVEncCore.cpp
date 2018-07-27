@@ -619,10 +619,6 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     //trim情報をリーダーから取得する
     m_trimParam = m_pFileReader->GetTrimParam();
     if (m_trimParam.list.size() > 0) {
-        if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
-            PrintMes(RGY_LOG_ERROR, _T("--avsync vfr cannot be used with --trim.\n"));
-            return NV_ENC_ERR_GENERIC;
-        }
         PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
         for (int i = 0; i < (int)m_trimParam.list.size(); i++) {
             PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_trimParam.list[i].start, m_trimParam.list[i].fin);
@@ -2053,7 +2049,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (inputParam->nAVSyncMode && inputParam->nTrimCount > 0) {
+    if ((inputParam->nAVSyncMode & RGY_AVSYNC_FORCE_CFR) != 0 && inputParam->nTrimCount > 0) {
         PrintMes(RGY_LOG_ERROR, _T("avsync forcecfr + trim is not supported.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
