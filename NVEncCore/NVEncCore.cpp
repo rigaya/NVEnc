@@ -4383,13 +4383,17 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
 
-    TCHAR gpu_info[1024] = { 0 };
+    tstring gpu_info;
     {
-        const auto len = _stprintf_s(gpu_info, _T("#%d: "), m_nDeviceId);
-        if (m_nDeviceId || 0 != getGPUInfo(GPU_VENDOR, gpu_info + len, _countof(gpu_info) - len)) {
-            const auto& gpuInfo = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& info) { return info.id == device_id; });
-            if (gpuInfo != m_GPUList.end()) {
-                _stprintf_s(gpu_info, _T("#%d: %s"), gpuInfo->id, gpuInfo->name.c_str());
+        const auto& gpuInfo = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& info) { return info.id == device_id; });
+        if (gpuInfo != m_GPUList.end()) {
+            gpu_info = strsprintf(_T("#%d: %s"), gpuInfo->id, gpuInfo->name.c_str());
+            if (gpuInfo->cuda_cores > 0) {
+                gpu_info += strsprintf(_T(" (%d cores"), gpuInfo->cuda_cores);
+                if (gpuInfo->clock_rate > 0) {
+                    gpu_info += strsprintf(_T(", %d MHz"), gpuInfo->clock_rate / 1000);
+                }
+                gpu_info += strsprintf(_T(")"));
             }
         }
     }
@@ -4405,7 +4409,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(RGY_LOG_ERROR, _T("%s\n"), get_encoder_version());
     add_str(RGY_LOG_INFO,  _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
-    add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info);
+    add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info.c_str());
     add_str(RGY_LOG_INFO,  _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
         NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
         cudaDriverVersion / 1000, (cudaDriverVersion % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
