@@ -639,7 +639,6 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         if (inputParam->vpp.rff)            err_target += _T("vpp-rff, ");
         err_target = err_target.substr(0, err_target.length()-2);
 
-        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pAVCodecReader) {
             //timestampになんらかの問題がある場合、vpp-rffとavsync vfrは使用できない
             const auto timestamp_status = pAVCodecReader->GetFramePosList()->getStreamPtsStatus();
