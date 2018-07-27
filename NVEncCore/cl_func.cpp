@@ -35,6 +35,10 @@
 
 #if ENABLE_OPENCL
 
+//OpenCLのドライバは場合によってはクラッシュする可能性がある
+//クラッシュしたことがあれば、このフラグを立て、以降OpenCLを使用しないようにする
+static bool opencl_crush = false;
+
 static inline const char *strichr(const char *str, int c) {
     c = tolower(c);
     for (; *str; str++)
@@ -104,56 +108,134 @@ void cl_release_func(cl_func_t *cl) {
 }
 
 cl_int cl_get_platform_and_device(const char *VendorName, cl_int device_type, cl_data_t *cl_data, const cl_func_t *cl) {
-    using namespace std;
-    cl_uint size = 0;
+    if (opencl_crush) {
+        return CL_INVALID_VALUE;
+    }
+
+    cl_uint platform_count = 0;
     cl_int ret = CL_SUCCESS;
 
-    if (CL_SUCCESS != (ret = cl->getPlatformIDs(0, NULL, &size))) {
-        _ftprintf(stderr, _T("Error (clGetPlatformIDs): %d\n"), ret);
-        return ret;
+    //OpenCLのドライバは場合によってはクラッシュする可能性がある
+    //その対策として、構造化例外を使用して回避を試みる
+    #if defined(_WIN32) || defined(_WIN64)
+    __try {
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+        if (CL_SUCCESS != (ret = cl->getPlatformIDs(0, NULL, &platform_count))) {
+            _ftprintf(stderr, _T("Error (clGetPlatformIDs): %d\n"), ret);
+            return ret;
+        }
+    #if defined(_WIN32) || defined(_WIN64)
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        _ftprintf(stderr, _T("Crush (clGetPlatformIDs)\n"));
+        opencl_crush = true; //クラッシュフラグを立てる
+        return CL_INVALID_VALUE;
     }
-
-    vector<cl_platform_id> platform_list(size);
-
-    if (CL_SUCCESS != (ret = cl->getPlatformIDs(size, &platform_list[0], &size))) {
-        _ftprintf(stderr, _T("Error (clGetPlatformIDs): %d\n"), ret);
-        return ret;
-    }
-
-    auto checkPlatformForVendor = [cl, VendorName](cl_platform_id platform_id) {
-        if (VendorName == nullptr) return true;
-        char buf[1024] = { 0 };
-        return (CL_SUCCESS == cl->getPlatformInfo(platform_id, CL_PLATFORM_VENDOR, _countof(buf), buf, NULL)
-            && cl_check_vendor_name(buf, VendorName));
-    };
-
-    for (auto platform : platform_list) {
-        if (checkPlatformForVendor(platform)) {
-            if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, device_type, 0, NULL, &size))) {
-                continue;
-            }
-            if (size == 0) {
-                continue;
-            }
-            vector<cl_device_id> device_list(size);
-            if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, device_type, size, &device_list[0], &size))) {
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+    if (platform_count > 0) {
+        cl_platform_id *platform_list = (cl_platform_id *)malloc(sizeof(platform_list[0]) * platform_count);
+        if (platform_list == nullptr) {
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+        #if defined(_WIN32) || defined(_WIN64)
+        __try {
+        #endif //#if defined(_WIN32) || defined(_WIN64)
+            if (CL_SUCCESS != (ret = cl->getPlatformIDs(platform_count, platform_list, &platform_count))) {
+                _ftprintf(stderr, _T("Error (getPlatformIDs): %d\n"), ret);
                 return ret;
             }
-            cl_data->platformID = platform;
-            cl_data->deviceID = device_list[0];
-            break;
+        #if defined(_WIN32) || defined(_WIN64)
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            _ftprintf(stderr, _T("Crush (getPlatformIDs)\n"));
+            opencl_crush = true; //クラッシュフラグを立てる
+            ret = CL_INVALID_VALUE;
+            platform_count = 0;
         }
-    }
+        #endif //#if defined(_WIN32) || defined(_WIN64)
 
+        for (uint32_t i = 0; i < platform_count; i++) {
+            bool targetVendor = true;
+            if (VendorName != nullptr) {
+                char buf[1024] = { 0 };
+                #if defined(_WIN32) || defined(_WIN64)
+                __try {
+                #endif //#if defined(_WIN32) || defined(_WIN64)
+                    targetVendor = (CL_SUCCESS == cl->getPlatformInfo(platform_list[i], CL_PLATFORM_VENDOR, _countof(buf), buf, NULL)
+                        && cl_check_vendor_name(buf, VendorName));
+                #if defined(_WIN32) || defined(_WIN64)
+                } __except (EXCEPTION_EXECUTE_HANDLER) {
+                    _ftprintf(stderr, _T("Crush (getPlatformInfo)\n"));
+                    opencl_crush = true; //クラッシュフラグを立てる
+                    ret = CL_INVALID_VALUE;
+                    break;
+                }
+                #endif //#if defined(_WIN32) || defined(_WIN64)
+            }
+            if (targetVendor) {
+                cl_uint device_count = 0;
+                #if defined(_WIN32) || defined(_WIN64)
+                __try {
+                #endif //#if defined(_WIN32) || defined(_WIN64)
+                    if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform_list[i], device_type, 0, NULL, &device_count))) {
+                        continue;
+                    }
+                #if defined(_WIN32) || defined(_WIN64)
+                } __except (EXCEPTION_EXECUTE_HANDLER) {
+                    _ftprintf(stderr, _T("Crush (getDeviceIDs)\n"));
+                    ret = CL_INVALID_VALUE;
+                    break;
+                }
+                #endif //#if defined(_WIN32) || defined(_WIN64)
+                if (device_count == 0) {
+                    continue;
+                }
+                bool got_result = false;
+                cl_device_id *device_list = (cl_device_id *)malloc(sizeof(device_list[0]) * device_count);
+                if (device_list != nullptr) {
+                    #if defined(_WIN32) || defined(_WIN64)
+                    __try {
+                    #endif //#if defined(_WIN32) || defined(_WIN64)
+                        ret = cl->getDeviceIDs(platform_list[i], device_type, device_count, &device_list[0], &device_count);
+                    #if defined(_WIN32) || defined(_WIN64)
+                    } __except (EXCEPTION_EXECUTE_HANDLER) {
+                        _ftprintf(stderr, _T("Crush (getDeviceIDs)\n"));
+                        opencl_crush = true; //クラッシュフラグを立てる
+                        ret = CL_INVALID_VALUE;
+                    }
+                    #endif //#if defined(_WIN32) || defined(_WIN64)
+                    if (ret == CL_SUCCESS) {
+                        cl_data->platformID = platform_list[i];
+                        cl_data->deviceID = device_list[0];
+                        got_result = true;
+                    }
+                }
+                if (device_list) free(device_list);
+                if (!got_result) continue;
+                break;
+            }
+        }
+        if (platform_list) free(platform_list);
+    }
     return ret;
 }
 
 int cl_get_device_max_clock_frequency_mhz(const cl_data_t *cl_data, const cl_func_t *cl) {
     int frequency = 0;
-    char cl_info_buffer[1024] = { 0 };
-    if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_MAX_CLOCK_FREQUENCY, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
-        frequency = *(cl_uint *)cl_info_buffer;
+    if (opencl_crush) {
+        return frequency;
     }
+    #if defined(_WIN32) || defined(_WIN64)
+    __try {
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+        char cl_info_buffer[1024] = { 0 };
+        if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_MAX_CLOCK_FREQUENCY, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
+            frequency = *(cl_uint *)cl_info_buffer;
+        }
+    #if defined(_WIN32) || defined(_WIN64)
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        _ftprintf(stderr, _T("Crush (getDeviceIDs)\n"));
+        opencl_crush = true;
+    }
+    #endif //#if defined(_WIN32) || defined(_WIN64)
     return frequency;
 }
 

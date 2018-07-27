@@ -132,7 +132,17 @@ static std::basic_string<TCHAR> to_tchar(const char *string) {
 cl_int cl_get_driver_version(const cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
     cl_int ret = CL_SUCCESS;
     char cl_info_buffer[1024] = { 0 };
-    if (CL_SUCCESS == (ret = cl->getDeviceInfo(cl_data->deviceID, CL_DRIVER_VERSION, _countof(cl_info_buffer), cl_info_buffer, NULL))) {
+    #if defined(_WIN32) || defined(_WIN64)
+    __try {
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+        ret = cl->getDeviceInfo(cl_data->deviceID, CL_DRIVER_VERSION, _countof(cl_info_buffer), cl_info_buffer, NULL);
+    #if defined(_WIN32) || defined(_WIN64)
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        _ftprintf(stderr, _T("Crush (getDeviceInfo)\n"));
+        ret = CL_INVALID_VALUE;
+    }
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+    if (ret == CL_SUCCESS) {
         _tcscpy_s(buffer, buffer_size, to_tchar(cl_info_buffer).c_str());
     } else {
         _tcscpy_s(buffer, buffer_size, _T("Unknown"));
@@ -143,7 +153,17 @@ cl_int cl_get_driver_version(const cl_data_t *cl_data, const cl_func_t *cl, TCHA
 static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
     cl_int ret = CL_SUCCESS;
     char cl_info_buffer[1024] = { 0 };
-    if (CL_SUCCESS != (ret = cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_NAME, _countof(cl_info_buffer), cl_info_buffer, NULL))) {
+    #if defined(_WIN32) || defined(_WIN64)
+    __try {
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+        ret = cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_NAME, _countof(cl_info_buffer), cl_info_buffer, NULL);
+    #if defined(_WIN32) || defined(_WIN64)
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        _ftprintf(stderr, _T("Crush (getDeviceInfo)\n"));
+        ret = CL_INVALID_VALUE;
+    }
+    #endif //#if defined(_WIN32) || defined(_WIN64)
+    if (ret != CL_SUCCESS) {
         _tcscpy_s(buffer, buffer_size, _T("Unknown (error on OpenCL clGetDeviceInfo)"));
         return ret;
     } else {
