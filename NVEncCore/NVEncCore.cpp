@@ -998,13 +998,13 @@ NVENCSTATUS NVEncCore::InitCuda(int cudaSchedule) {
         PrintMes(RGY_LOG_ERROR, _T("Invalid Device Id = %d\n"), m_nDeviceId);
         return NV_ENC_ERR_INVALID_ENCODERDEVICE;
     }
-    
+
     if (CUDA_SUCCESS != (cuResult = cuDeviceGet(&m_device, m_nDeviceId))) {
         PrintMes(RGY_LOG_ERROR, _T("cuDeviceGet error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("cuDeviceGet: ID:%d.\n"), m_nDeviceId);
-    
+
     int SMminor = 0, SMmajor = 0;
     if (CUDA_SUCCESS != (cuDeviceComputeCapability(&SMmajor, &SMminor, m_device))) {
         PrintMes(RGY_LOG_ERROR, _T("cuDeviceComputeCapability error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
@@ -1632,12 +1632,12 @@ NVENCSTATUS NVEncCore::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
     openSessionExParams.deviceType = deviceType;
     openSessionExParams.reserved = NULL;
     openSessionExParams.apiVersion = NVENCAPI_VERSION;
-    
+
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder))) {
         NVPrintFuncError(_T("nvEncOpenEncodeSessionEx"), nvStatus);
         if (nvStatus == NV_ENC_ERR_OUT_OF_MEMORY) {
-            PrintMes(RGY_LOG_ERROR, 
+            PrintMes(RGY_LOG_ERROR,
                 FOR_AUO ? _T("このエラーはメモリが不足しているか、同時にNVEncで3ストリーム以上エンコードしようとすると発生することがあります。\n")
                           _T("Geforceでは、NVIDIAのドライバの制限により3ストリーム以上の同時エンコードが行えません。\n")
                         : _T("This error might occur when shortage of memory, or when trying to encode more than 2 streams by NVEnc.\n")
@@ -1935,7 +1935,7 @@ NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 
 NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     memcpy(&m_stEncConfig, &inputParam->encConfig, sizeof(m_stEncConfig));
-    
+
     //コーデックの決定とチェックNV_ENC_PIC_PARAMS
     m_stCodecGUID = inputParam->codec == NV_ENC_H264 ? NV_ENC_CODEC_H264_GUID : NV_ENC_CODEC_HEVC_GUID;
     if (nullptr == getCodecFeature(m_stCodecGUID)) {
@@ -2022,7 +2022,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     if (   (int)inputParam->input.srcWidth  <= inputParam->input.crop.e.left + inputParam->input.crop.e.right
         && (int)inputParam->input.srcHeight <= inputParam->input.crop.e.up   + inputParam->input.crop.e.bottom) {
         PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d, Crop [%d,%d,%d,%d]\n"),
-             FOR_AUO ? _T("Crop値が無効です。") : _T("Invalid crop value."), 
+             FOR_AUO ? _T("Crop値が無効です。") : _T("Invalid crop value."),
             inputParam->input.srcWidth, inputParam->input.srcHeight,
             inputParam->input.crop.c[0], inputParam->input.crop.c[1], inputParam->input.crop.c[2], inputParam->input.crop.c[3]);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -2040,7 +2040,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     if ((inputParam->input.crop.e.left & 1) || (inputParam->input.crop.e.right & 1)
         || (inputParam->input.crop.e.up & height_check_mask) || (inputParam->input.crop.e.bottom & height_check_mask)) {
         PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d, Crop [%d,%d,%d,%d]\n"),
-             FOR_AUO ? _T("Crop値が無効です。") : _T("Invalid crop value."), 
+             FOR_AUO ? _T("Crop値が無効です。") : _T("Invalid crop value."),
             inputParam->input.srcWidth, inputParam->input.srcHeight,
             inputParam->input.crop.c[0], inputParam->input.crop.c[1], inputParam->input.crop.c[2], inputParam->input.crop.c[3]);
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("Crop値は2の倍数である必要があります。\n") : _T("Crop value of mod2 required.\n"));
@@ -3210,7 +3210,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
             m_pPerfMonitor.reset();
         }
     }
-    
+
     //作成したデバイスの情報をfeature取得
     if (NV_ENC_SUCCESS != (nvStatus = createDeviceFeatureList(false))) {
         return nvStatus;
@@ -3234,7 +3234,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("CreateEncoder: Success.\n"));
-    
+
     //入出力用メモリ確保
     NV_ENC_BUFFER_FORMAT encBufferFormat;
     if (bOutputHighBitDepth) {
@@ -3289,7 +3289,7 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t timestamp, uint64_t duration) {
-    
+
     NV_ENC_PIC_PARAMS encPicParams;
     INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
 
@@ -4537,7 +4537,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
         (bEnableLTR) ? _T("on") : _T("off"));
     add_str(RGY_LOG_INFO,  _T("Ref frames     %s\n"), strRef.c_str());
-    
+
     tstring strAQ;
     if (m_stEncConfig.rcParams.enableAQ || m_stEncConfig.rcParams.enableTemporalAQ) {
         strAQ = _T("on");
