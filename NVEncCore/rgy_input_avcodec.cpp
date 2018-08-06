@@ -105,7 +105,7 @@ void RGYInputAvcodec::CloseVideo(AVDemuxVideo *pVideo) {
     if (pVideo->pFrame) {
         av_frame_free(&pVideo->pFrame);
     }
-    
+
     if (pVideo->pExtradata) {
         av_free(pVideo->pExtradata);
     }
@@ -1461,6 +1461,11 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
                 continue;
             } else {
                 if (!m_Demux.video.bGotFirstKeyframe) {
+                    if (pkt->flags & AV_PKT_FLAG_DISCARD) {
+                        //timestampが正常に設定されておらず、移乗動作の原因となるので、
+                        //AV_PKT_FLAG_DISCARDがついている最初のフレームは無視する
+                        continue;
+                    }
                     //ここに入った場合は、必ず最初のキーフレーム
                     m_Demux.video.nStreamFirstKeyPts = pkt->pts;
                     m_Demux.video.bGotFirstKeyframe = true;
