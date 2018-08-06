@@ -77,6 +77,7 @@ which might cause problem in some playback environments.
    - delogo
    - resize
      In addition to bilinear, spline36, various algorithms by npp library are available for x64 version
+   - padding
    - deband
    - noise reduction
      - knn (K-nearest neighbor)

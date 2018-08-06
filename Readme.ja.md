@@ -83,6 +83,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
    - delogo
    - リサイズ  
      bilinear,spline36に加え、x64版ではnppライブラリによる各種アルゴリズムが利用可
+   - パディング(黒帯)の追加
    - バンディング低減
    - ノイズ除去
      - knn (K-nearest neighbor)
