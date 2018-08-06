@@ -1464,13 +1464,20 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *pVideo
         }
         return RGY_ERR_INVALID_FORMAT;
     }
+    if (0 == strcmp(filename.c_str(), "-")) {
+        m_Mux.format.bIsPipe = true;
+        m_bOutputIsStdout = true;
+        filename = "pipe:1";
+        AddMessage(RGY_LOG_DEBUG, _T("output is set to stdout\n"));
+    } else if (filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)")) {
+        m_Mux.format.bIsPipe = true;
+    }
     int err = avformat_alloc_output_context2(&m_Mux.format.pFormatCtx, m_Mux.format.pOutputFmt, nullptr, filename.c_str());
     if (m_Mux.format.pFormatCtx == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate format context: %s.\n"), qsv_av_err2str(err).c_str());
         return RGY_ERR_NULL_PTR;
     }
     m_Mux.format.bIsMatroska = 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "matroska");
-    m_Mux.format.bIsPipe = (0 == strcmp(filename.c_str(), "-")) || filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)");
 
 #if USE_CUSTOM_IO
     if (m_Mux.format.bIsPipe || usingAVProtocols(filename, 1) || (m_Mux.format.pFormatCtx->oformat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
@@ -2133,7 +2140,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
     *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, QUEUE_DTS_TIMEBASE);
     m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
-    
+
     if (m_Mux.video.fpTsLogFile) {
         const uint32_t frameType = pBitstream->frametype();
         const TCHAR *pFrameTypeStr =
