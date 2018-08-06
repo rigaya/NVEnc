@@ -635,8 +635,9 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #if ENABLE_AVSW_READER
     if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || inputParam->vpp.rff) {
         tstring err_target;
-        if (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) err_target += _T("avsync vfr, ");
-        if (inputParam->vpp.rff)            err_target += _T("vpp-rff, ");
+        if (m_nAVSyncMode & RGY_AVSYNC_VFR)       err_target += _T("avsync vfr, ");
+        if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) err_target += _T("avsync forcecfr, ");
+        if (inputParam->vpp.rff)                  err_target += _T("vpp-rff, ");
         err_target = err_target.substr(0, err_target.length()-2);
 
         if (pAVCodecReader) {
