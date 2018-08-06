@@ -4403,6 +4403,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
                 }
                 gpu_info += strsprintf(_T(")"));
             }
+            if (gpuInfo->nv_driver_version) {
+                gpu_info += strsprintf(_T("[%d.%d]"), gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
+            }
         }
     }
 
