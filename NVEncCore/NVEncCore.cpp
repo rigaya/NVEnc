@@ -653,7 +653,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
                 if (timestamp_status & RGY_DTS_SOMETIMES_INVALID) err_sts += _T("DTS_SOMETIMES_INVALID, "); //時折、無効なdtsを得る
                 err_sts = err_sts.substr(0, err_sts.length()-2);
 
-                PrintMes(RGY_LOG_ERROR, _T("timestamp not acquired successfully from input steram, %s cannot be used. \n  [0x%x] %s\n"),
+                PrintMes(RGY_LOG_ERROR, _T("timestamp not acquired successfully from input stream, %s cannot be used. \n  [0x%x] %s\n"),
                     err_target.c_str(), (uint32_t)timestamp_status, err_sts.c_str());
                 return NV_ENC_ERR_GENERIC;
             }
