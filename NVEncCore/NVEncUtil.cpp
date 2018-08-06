@@ -156,7 +156,7 @@ VideoInfo videooutputinfo(
     info.codec = codec_guid_enc_to_rgy(encCodecGUID);
     info.codecLevel = (info.codec == RGY_CODEC_H264) ? pEncConfig->encodeCodecConfig.h264Config.level : pEncConfig->encodeCodecConfig.hevcConfig.level;
     info.codecProfile = codec_guid_profile_enc_to_rgy(pEncConfig->profileGUID).codecProfile;
-    info.videoDelay = ((pEncConfig->frameIntervalP - 2) > 0) + (((pEncConfig->frameIntervalP - 2) > 2));
+    info.videoDelay = ((pEncConfig->frameIntervalP - 2) > 0) + (((pEncConfig->frameIntervalP - 2) >= 2));
     info.dstWidth = nEncWidth;
     info.dstHeight = nEncHeight;
     info.fpsN = outFps.first;
