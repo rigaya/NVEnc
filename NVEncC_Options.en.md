@@ -1,7 +1,8 @@
 ﻿
 # NVEncC option list
 
-**[日本語版はこちら＞＞](./NVEncC_Options.ja.md)**
+**[日本語版はこちら＞＞](./NVEncC_Options.ja.md)**  
+**[Chinese Version＞＞](./NVEncC_Options.zh-cn.md)**
 
 
 ## Command line example
