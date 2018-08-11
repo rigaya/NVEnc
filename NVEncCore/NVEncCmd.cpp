@@ -30,7 +30,7 @@
 #define NOMINMAX
 #include <set>
 #include <sstream>
-#include <iomanip> 
+#include <iomanip>
 #include <Windows.h>
 #include <shellapi.h>
 #include "rgy_version.h"
@@ -1322,19 +1322,13 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-delogo")
-        || IS_OPTION("vpp-delogo-file")) {
-        i++;
-        pParams->vpp.delogo.pFilePath = _tcsdup(strInput[i]);
-        return 0;
-    }
     if (IS_OPTION("vpp-delogo-select")) {
         i++;
-        pParams->vpp.delogo.pSelect = _tcsdup(strInput[i]);
+        pParams->vpp.delogo.logoSelect = strInput[i];
         return 0;
     }
     if (IS_OPTION("vpp-delogo-add")) {
-        pParams->vpp.delogo.nMode = DELOGO_MODE_ADD;
+        pParams->vpp.delogo.mode = DELOGO_MODE_ADD;
         return 0;
     }
     if (IS_OPTION("vpp-delogo-pos")) {
@@ -1347,8 +1341,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
-        pParams->vpp.delogo.nPosOffsetX = posOffsetX;
-        pParams->vpp.delogo.nPosOffsetY = posOffsetY;
+        pParams->vpp.delogo.posX = posOffsetX;
+        pParams->vpp.delogo.posY = posOffsetY;
         return 0;
     }
     if (IS_OPTION("vpp-delogo-depth")) {
@@ -1358,7 +1352,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
-        pParams->vpp.delogo.nDepth = depth;
+        pParams->vpp.delogo.depth = depth;
         return 0;
     }
     if (IS_OPTION("vpp-delogo-y")) {
@@ -1368,7 +1362,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
-        pParams->vpp.delogo.nYOffset = value;
+        pParams->vpp.delogo.Y = value;
         return 0;
     }
     if (IS_OPTION("vpp-delogo-cb")) {
@@ -1378,7 +1372,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
-        pParams->vpp.delogo.nCbOffset = value;
+        pParams->vpp.delogo.Cb = value;
         return 0;
     }
     if (IS_OPTION("vpp-delogo-cr")) {
@@ -1388,7 +1382,184 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
-        pParams->vpp.delogo.nCrOffset = value;
+        pParams->vpp.delogo.Cr = value;
+        return 0;
+    }
+
+    if (IS_OPTION("vpp-delogo")) {
+        pParams->vpp.delogo.enable = true;
+
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        vector<tstring> param_list;
+        bool flag_comma = false;
+        const TCHAR *pstr = strInput[i];
+        const TCHAR *qstr = strInput[i];
+        for (; *pstr; pstr++) {
+            if (*pstr == _T('\"')) {
+                flag_comma ^= true;
+            }
+            if (!flag_comma && *pstr == _T(',')) {
+                param_list.push_back(tstring(qstr, pstr - qstr));
+                qstr = pstr+1;
+            }
+        }
+        param_list.push_back(tstring(qstr, pstr - qstr));
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        pParams->vpp.delogo.enable = true;
+                    } else if (param_val == _T("false")) {
+                        pParams->vpp.delogo.enable = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("file")) {
+                    try {
+                        pParams->vpp.delogo.logoFilePath = param_val;
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("select")) {
+                    try {
+                        pParams->vpp.delogo.logoSelect = param_val;
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("add")) {
+                    if (param_val == _T("true")) {
+                        pParams->vpp.delogo.mode = DELOGO_MODE_ADD;
+                    } else if (param_val == _T("false")) {
+                        pParams->vpp.delogo.mode = DELOGO_MODE_REMOVE;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("pos")) {
+                    int posOffsetX, posOffsetY;
+                    if (   2 != _stscanf_s(param_val.c_str(), _T("%dx%d"), &posOffsetX, &posOffsetY)
+                        && 2 != _stscanf_s(param_val.c_str(), _T("%d,%d"), &posOffsetX, &posOffsetY)
+                        && 2 != _stscanf_s(param_val.c_str(), _T("%d/%d"), &posOffsetX, &posOffsetY)
+                        && 2 != _stscanf_s(param_val.c_str(), _T("%d:%d"), &posOffsetX, &posOffsetY)) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    pParams->vpp.delogo.posX = posOffsetX;
+                    pParams->vpp.delogo.posY = posOffsetY;
+                    continue;
+                }
+                if (param_arg == _T("depth")) {
+                    try {
+                        pParams->vpp.delogo.depth = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("y")) {
+                    try {
+                        pParams->vpp.delogo.Y = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cb")) {
+                    try {
+                        pParams->vpp.delogo.Cb = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cr")) {
+                    try {
+                        pParams->vpp.delogo.Cr = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("auto_nr")) {
+                    if (param_val == _T("true") || param_val == _T("on")) {
+                        pParams->vpp.delogo.autoNR = true;
+                    } else if (param_val == _T("false") || param_val == _T("off")) {
+                        pParams->vpp.delogo.autoNR = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("auto_fade")) {
+                    if (param_val == _T("true") || param_val == _T("on")) {
+                        pParams->vpp.delogo.autoFade = true;
+                    } else if (param_val == _T("false") || param_val == _T("off")) {
+                        pParams->vpp.delogo.autoFade = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nr_area")) {
+                    try {
+                        pParams->vpp.delogo.NRArea = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nr_value")) {
+                    try {
+                        pParams->vpp.delogo.NRValue = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    if (param_val == _T("true") || param_val == _T("on")) {
+                        pParams->vpp.delogo.log = true;
+                    } else if (param_val == _T("false") || param_val == _T("off")) {
+                        pParams->vpp.delogo.log = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                pParams->vpp.delogo.logoFilePath = param;
+            }
+        }
         return 0;
     }
     if (IS_OPTION("vpp-knn")) {
@@ -2973,6 +3144,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 #define ADD_LST(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (pParams->opt));
 #define ADD_BOOL(str, opt) if ((pParams->opt) != (encPrmDefault.opt)) tmp << _T(",") << (str) << _T("=") << ((pParams->opt) ? (_T("true")) : (_T("false")));
 #define ADD_CHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) tmp << _T(",") << (str) << _T("=") << (pParams->opt);
+#define ADD_PATH(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) tmp << _T(",") << (str) << _T("=\"") << (pParams->opt) << _T("\"");
 #define ADD_STR(str, opt) if (pParams->opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (pParams->opt.c_str());
 
     if (pParams->vpp.afs != encPrmDefault.vpp.afs) {
@@ -3142,16 +3314,35 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-deband");
         }
     }
-    OPT_CHAR_PATH(_T("--vpp-delogo"), vpp.delogo.pFilePath);
-    OPT_CHAR(_T("--vpp-delogo-select"), vpp.delogo.pSelect);
-    OPT_BOOL(_T("--vpp-delogo-add"), _T(""), vpp.delogo.nMode);
-    OPT_NUM(_T("--vpp-delogo-depth"), vpp.delogo.nDepth);
-    if (pParams->vpp.delogo.nPosOffsetX > 0 || pParams->vpp.delogo.nPosOffsetY > 0) {
-        cmd << _T(" --vpp-delogo-pos ") << pParams->vpp.delogo.nPosOffsetX << _T("x") << pParams->vpp.delogo.nPosOffsetY;
+    if (pParams->vpp.delogo != encPrmDefault.vpp.delogo) {
+        tmp.str(tstring());
+        if (!pParams->vpp.delogo.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.delogo.enable || save_disabled_prm) {
+            ADD_PATH(_T("file"), vpp.delogo.logoFilePath.c_str());
+            ADD_PATH(_T("select"), vpp.delogo.logoSelect.c_str());
+            if (pParams->vpp.delogo.posX != encPrmDefault.vpp.delogo.posX
+                || pParams->vpp.delogo.posY != encPrmDefault.vpp.delogo.posY) {
+                tmp << _T(",pos=") << pParams->vpp.delogo.posX << _T("x") << pParams->vpp.delogo.posY;
+            }
+            ADD_NUM(_T("depth"), vpp.delogo.depth);
+            ADD_NUM(_T("y"),  vpp.delogo.Y);
+            ADD_NUM(_T("cb"), vpp.delogo.Cb);
+            ADD_NUM(_T("cr"), vpp.delogo.Cr);
+            ADD_BOOL(_T("add"), vpp.delogo.mode);
+            ADD_BOOL(_T("auto_fade"), vpp.delogo.autoFade);
+            ADD_BOOL(_T("auto_nr"), vpp.delogo.autoNR);
+            ADD_NUM(_T("nr_area"), vpp.delogo.NRArea);
+            ADD_NUM(_T("nr_value"), vpp.delogo.NRValue);
+            ADD_BOOL(_T("log"), vpp.delogo.log);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-delogo ") << tmp.str().substr(1);
+        } else if (pParams->vpp.delogo.enable) {
+            cmd << _T(" --vpp-delogo");
+        }
     }
-    OPT_NUM(_T("--vpp-delogo-y"), vpp.delogo.nYOffset);
-    OPT_NUM(_T("--vpp-delogo-cb"), vpp.delogo.nCbOffset);
-    OPT_NUM(_T("--vpp-delogo-cr"), vpp.delogo.nCrOffset);
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vpp.bCheckPerformance);
 
     OPT_LST(_T("--cuda-schedule"), nCudaSchedule, list_cuda_schedule);

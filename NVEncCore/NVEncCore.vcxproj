@@ -616,9 +616,10 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile Include="NVEncFilterAfsMerge.cu" />
     <CudaCompile Include="NVEncFilterAfsSynthesize.cu" />
     <CudaCompile Include="NVEncFilterDeband.cu" />
+    <CudaCompile Include="NVEncFilterDelogo.cu" />
     <CudaCompile Include="NVEncFilterDenoisePmd.cu" />
     <CudaCompile Include="NVEncFilterCrop.cu" />
-    <CudaCompile Include="NVEncFilterDelogo.cu" />
+    <ClCompile Include="NVEncFilterDelogo.cpp" />
     <CudaCompile Include="NVEncFilterDenoiseKnn.cu" />
     <CudaCompile Include="NVEncFilterEdgelevel.cu" />
     <CudaCompile Include="NVEncFilterTweak.cu" />

@@ -589,6 +589,25 @@ static int get_value(int id, const std::vector<NVEncCap>& capList) {
     return 0;
 }
 
+struct VppDelogo {
+    bool enable;
+    tstring logoFilePath;  //ロゴファイル名
+    tstring logoSelect;    //ロゴの名前
+    int posX, posY; //位置オフセット
+    int depth;      //透明度深度
+    int Y, Cb, Cr;  //(輝度・色差)オフセット
+    int mode;
+    bool autoFade;
+    bool autoNR;
+    int NRArea;
+    int NRValue;
+    bool log;
+
+    VppDelogo();
+    bool operator==(const VppDelogo& x) const;
+    bool operator!=(const VppDelogo& x) const;
+};
+
 struct VppUnsharp {
     bool  enable;
     int   radius;
@@ -749,18 +768,7 @@ struct VppParam {
     int                      resizeInterp;
     NppiMaskSize             gaussMaskSize;
 
-    struct {
-        TCHAR *pFilePath; //ロゴファイル名へのポインタ
-        TCHAR *pSelect; //選択するロゴ
-        int    nPosOffsetX;
-        int    nPosOffsetY;
-        int    nDepth;
-        int    nYOffset;
-        int    nCbOffset;
-        int    nCrOffset;
-        int    nMode;
-    } delogo;
-
+    VppDelogo delogo;
     VppUnsharp unsharp;
     VppEdgelevel edgelevel;
     VppKnn knn;

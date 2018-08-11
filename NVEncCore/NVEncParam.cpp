@@ -45,6 +45,41 @@ tstring get_codec_level_name(RGY_CODEC codec, int level) {
     }
 }
 
+VppDelogo::VppDelogo() :
+    logoFilePath(),
+    logoSelect(),
+    posX(0), posY(0),
+    depth(FILTER_DEFAULT_DELOGO_DEPTH),
+    Y(0), Cb(0), Cr(0),
+    mode(DELOGO_MODE_REMOVE),
+    autoFade(false),
+    autoNR(false),
+    NRArea(0),
+    NRValue(0),
+    log(false) {
+}
+
+bool VppDelogo::operator==(const VppDelogo& x) const {
+    return enable == x.enable
+        && logoFilePath == x.logoFilePath
+        && logoSelect == x.logoSelect
+        && posX == x.posX
+        && posY == x.posY
+        && depth == x.depth
+        && Y == x.Y
+        && Cb == x.Cb
+        && Cr == x.Cr
+        && mode == x.mode
+        && autoFade == x.autoFade
+        && autoNR == x.autoNR
+        && NRArea == x.NRArea
+        && NRValue == x.NRValue
+        && log == x.log;
+}
+bool VppDelogo::operator!=(const VppDelogo& x) const {
+    return !(*this == x);
+}
+
 VppUnsharp::VppUnsharp() :
     enable(false),
     radius(FILTER_DEFAULT_UNSHARP_RADIUS),
@@ -191,15 +226,6 @@ VppParam::VppParam() :
     tweak(),
     pad(),
     rff(false) {
-    delogo.pFilePath = nullptr;
-    delogo.pSelect = nullptr;
-    delogo.nPosOffsetX = 0;
-    delogo.nPosOffsetY = 0;
-    delogo.nDepth = FILTER_DEFAULT_DELOGO_DEPTH;
-    delogo.nYOffset = 0;
-    delogo.nCbOffset = 0;
-    delogo.nCrOffset = 0;
-    delogo.nMode = DELOGO_MODE_REMOVE;
 }
 
 VppAfs::VppAfs() :

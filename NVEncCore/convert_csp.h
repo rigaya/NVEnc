@@ -63,6 +63,8 @@ enum RGY_CSP {
     RGY_CSP_RGB24,
     RGY_CSP_RGB32,
     RGY_CSP_YC48,
+    RGY_CSP_Y8,
+    RGY_CSP_Y16
 };
 
 static const TCHAR *RGY_CSP_NAMES[] = {
@@ -94,7 +96,9 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("rgb32r"),
     _T("rgb24"),
     _T("rgb32"),
-    _T("yc48")
+    _T("yc48"),
+    _T("y8"),
+    _T("yc16")
 };
 
 static const int RGY_CSP_BIT_DEPTH[] = {
@@ -127,6 +131,8 @@ static const int RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_RGB24
      8, //RGY_CSP_RGB32
     10, //RGY_CSP_YC48
+     8, //RGY_CSP_Y8
+    16, //RGY_CSP_Y16
 };
 
 enum RGY_CHROMAFMT {
@@ -168,6 +174,8 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YC48
+    RGY_CHROMAFMT_MONOCHROME,
+    RGY_CHROMAFMT_MONOCHROME,
 };
 
 enum RGY_PICSTRUCT : uint32_t {

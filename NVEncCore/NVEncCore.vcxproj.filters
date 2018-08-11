@@ -156,6 +156,9 @@
     <ClCompile Include="NVEncFilterPad.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="NVEncFilterDelogo.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gpu_info.h">
@@ -331,9 +334,6 @@
     <CudaCompile Include="NVEncFilterCrop.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
-    <CudaCompile Include="NVEncFilterDelogo.cu">
-      <Filter>ソース ファイル</Filter>
-    </CudaCompile>
     <CudaCompile Include="NVEncFilterDenoiseKnn.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
@@ -365,6 +365,9 @@
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
     <CudaCompile Include="NVEncFilterTweak.cu">
+      <Filter>ソース ファイル</Filter>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterDelogo.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
   </ItemGroup>
