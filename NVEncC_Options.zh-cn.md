@@ -1031,11 +1031,12 @@ Example: 增强边缘的暗部
 
 为左、上、右、下边缘添加内边距，单位像素。
 
-### --vpp-delogo &lt;string&gt;
+### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-指定去 Logo 用的 Logo 文件。可用 ".lgd"、".ldp"、".ldp2"格式文件。
+指定需要消除的Logo的Logo文件及设置。Logo文件支持".lgd"、".ldp"、".ldp2"格式。
 
-### --vpp-delogo-select &lt;string&gt;
+**参数**
+- select=&lt;string&gt;  
 
 使用下列参数之一来指定使用Logo包中的Logo。
 
@@ -1066,19 +1067,44 @@ logo13= (BSJ).,BS Japan 1920x1080
 logo14= (BS11).,BS11 1920x1080 v3
 ```
 
-### --vpp-delogo-pos &lt;int&gt;:&lt;int&gt;
+- pos &lt;int&gt;:&lt;int&gt;
 
 调整Logo位置。（单位像素，精度1/4像素，格式X:Y）
 
-### --vpp-delogo-depth &lt;int&gt;
+- depth &lt;int&gt;
 
 调整Logo透明度，默认为128。
 
-### --vpp-delogo-y  &lt;int&gt;
-### --vpp-delogo-cb &lt;int&gt;
-### --vpp-delogo-cr &lt;int&gt;
+- y=&lt;int&gt;  
+- cb=&lt;int&gt;  
+- cr=&lt;int&gt;  
 
 调整Logo的颜色组成。
+
+- auto_fade=&lt;bool&gt;  
+
+动态调整淡入淡出值。默认为false。
+
+- auto_nr=&lt;bool&gt;  
+
+动态调整降噪强度。默认为false。
+
+- nr_area=&lt;int&gt;  
+
+Logo附近需要降噪的区域。（默认为0（关闭），取值为0-3）
+
+- nr_value=&lt;int&gt;  
+
+Logo附近降噪的强度。（默认为0（关闭），取值为0-4）
+
+- log=&lt;bool&gt;  
+
+使用auto_fade、auto_nr时，输出淡入淡出值变化日志。
+
+```
+示例:
+--vpp-delogo logodata.ldp2,select=delogo.auf.ini,auto_fade=true,auto_nr=true,nr_value=3,nr_area=1,log=true
+```
 
 ### --vpp-perf-monitor
 
