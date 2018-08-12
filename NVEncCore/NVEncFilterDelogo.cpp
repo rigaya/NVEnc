@@ -773,7 +773,6 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
 }
 
 NVENCSTATUS NVEncFilterDelogo::createLogoMask() {
-    auto sts = NV_ENC_SUCCESS;
     for (float target_ratio = 0.1f; target_ratio >= 0.01f; target_ratio -= 0.01f) {
         for (float threshold = (float)DELOGO_MASK_THRESHOLD_DEFAULT; threshold >= 200.0f; threshold *= 0.95f) {
             auto sts = createLogoMask((int)(threshold + 0.5f));
