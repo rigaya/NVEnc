@@ -107,6 +107,34 @@ public:
     }
 };
 
+struct DelogoSrcBuffer {
+private:
+    std::array<CUFrameBuf, 4> m_src;
+public:
+    DelogoSrcBuffer() : m_src() {};
+    ~DelogoSrcBuffer() {
+        clear();
+    }
+    cudaError_t alloc(const FrameInfo& frame) {
+        for (size_t i = 0; i < m_src.size(); i++) {
+            m_src[i].frame = frame;
+            auto sts = m_src[i].alloc();
+            if (sts != cudaSuccess) {
+                return sts;
+            }
+        }
+        return cudaSuccess;
+    }
+    void clear() {
+        for (size_t i = 0; i < m_src.size(); i++) {
+            m_src[i].clear();
+        }
+    }
+    CUFrameBuf& operator[](int iframe) {
+        return m_src[std::max(iframe, 0) & 3];
+    }
+};
+
 class NVEncFilterParamDelogo : public NVEncFilterParam {
 public:
     const TCHAR *inputFileName; //入力ファイル名
@@ -155,6 +183,7 @@ protected:
     vector<LogoData> m_sLogoDataList;
     ProcessDataDelogo m_sProcessData[4];
 
+    DelogoSrcBuffer m_src;
     unique_ptr<CUFrameBuf> m_mask;           //評価用Mask(Original)
     unique_ptr<CUFrameBuf> m_maskAdjusted;   //評価用Mask(Frame毎の調整後)
     unique_ptr<CUFrameBuf> m_maskNR;         //NR用Mask
