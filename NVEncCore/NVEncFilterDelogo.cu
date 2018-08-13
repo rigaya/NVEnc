@@ -1137,6 +1137,60 @@ __global__ void kernel_create_adjust_mask2(
     }
 }
 
+//処理単位: 4要素/thread
+//ブロック構成: DELOGO_BLOCK_X * DELOGO_BLOCK_Y
+template<typename TypeMask4>
+__global__ void kernel_create_adjust_mask3(
+    uint8_t *__restrict__ ptr_dst_adjusted_mask, //TypeMask4
+    const int *__restrict__ ptr_temp_valid_mask_count, const int block_count,
+    const uint8_t *__restrict__ ptr_src_adjusted_mask, //TypeMask4
+    const int mask_pitch, const int mask_size, const int logo_w, const int logo_h,
+    const int target_count
+) {
+    const int imgx = blockIdx.x * DELOGO_BLOCK_X /*blockDim.x*/ + threadIdx.x;
+    const int imgy = (blockIdx.y * DELOGO_BLOCK_Y + threadIdx.y);
+    const int lid = threadIdx.y * DELOGO_BLOCK_X + threadIdx.x;
+
+    __shared__ int mask_count[DELOGO_ADJMASK_DIV_COUNT];
+    if (lid < DELOGO_ADJMASK_DIV_COUNT) {
+        mask_count[lid] = 0;
+    }
+    for (int j = threadIdx.y; j < DELOGO_ADJMASK_DIV_COUNT; j += DELOGO_BLOCK_Y) {
+        int tmp = 0;
+        for (int i = threadIdx.x; i < block_count; i += DELOGO_BLOCK_X) {
+            tmp += ptr_temp_valid_mask_count[j * block_count + i];
+        }
+        tmp = warp_sum<int, WARP_SIZE>(tmp);
+        const int lane = lid & (WARP_SIZE - 1);
+        if (lane == 0) {
+            atomicAdd(&mask_count[j], tmp);
+        }
+    }
+    __syncthreads();
+
+    __shared__ int shared_tmp;
+    if (lid == 0) {
+        for (int i = 0; i < DELOGO_ADJMASK_DIV_COUNT; i++) {
+            if (mask_count[i] >= target_count) {
+                shared_tmp = i;
+                break;
+            }
+        }
+#if DELOGO_DEBUG_CUDA
+        for (int i = 0; i < DELOGO_ADJMASK_DIV_COUNT; i++) {
+            printf("mask_count[%d]=%d\n", i, mask_count[i]);
+        }
+#endif
+    }
+    __syncthreads();
+    if (imgx < logo_w && imgy < logo_h) {
+        ptr_src_adjusted_mask += shared_tmp * mask_size;
+        ptr_src_adjusted_mask += imgy * mask_pitch + imgx * sizeof(TypeMask4);
+        ptr_dst_adjusted_mask += imgy * mask_pitch + imgx * sizeof(TypeMask4);
+        *(TypeMask4 *)ptr_dst_adjusted_mask = *(TypeMask4 *)ptr_src_adjusted_mask;
+    }
+}
+
 NVENCSTATUS NVEncFilterDelogo::createLogoMask(int maskThreshold) {
     const auto pLogoData = &m_sProcessData[LOGO__Y];
     if (pLogoData->width % 4 != 0) {
@@ -1344,7 +1398,7 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     const int target_count = (int)((float)valid_mask_count * (1.0f - rate));
     const dim3 gridSize2(gridSize.x, gridSize.y, DELOGO_ADJMASK_DIV_COUNT);
 
-    kernel_create_adjust_mask2<char4, short4><<<gridSize2, blockSize>>>(
+    kernel_create_adjust_mask2<char4, short4><<<gridSize2, blockSize, 0, stream>>>(
         (uint8_t *)m_adjMaskThresholdTest->frame.ptr, //TypeMask4
         (int *)m_adjMask2ValidMaskCount.ptrDevice,
         (const uint8_t *)m_bufEval[0]->frame.ptr, //TypeMask4
@@ -1364,7 +1418,18 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     cudaerr = cudaThreadSynchronize();
     debug_out_csv<char>(m_adjMaskThresholdTest.get(), _T("m_adjMaskThresholdTest.csv"));
 #endif
-
+#if 1
+    kernel_create_adjust_mask3<short4><<<gridSize, blockSize, 0, stream>>>(
+        (uint8_t *)m_maskAdjusted->frame.ptr,  //TypeMask4
+        (const int *)m_adjMask2ValidMaskCount.ptrDevice, blockCount,
+        (const uint8_t *)m_adjMaskThresholdTest->frame.ptr, //TypeMask4
+        m_maskAdjusted->frame.pitch, m_maskAdjusted->frame.pitch * logo_h,
+        logo_w, logo_h, target_count);
+#if DELOGO_DEBUG_CUDA
+    cudaerr = cudaThreadSynchronize();
+#endif
+    cudaEventRecord(*m_adjMaskStream.heEvalCopyFin.get(), stream);
+#else
     m_adjMask2ValidMaskCount.copyDtoH();
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy data from GPU(m_adjMask2ValidMaskCount): %s.\n"),
@@ -1399,6 +1464,7 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
         return NV_ENC_ERR_INVALID_CALL;
     }
     cudaEventRecord(*m_adjMaskStream.heEvalCopyFin.get(), *m_adjMaskStream.stEvalSub.get());
+#endif
     return NV_ENC_SUCCESS;
 }
 
