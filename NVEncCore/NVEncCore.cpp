@@ -2610,6 +2610,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterDelogo());
             shared_ptr<NVEncFilterParamDelogo> param(new NVEncFilterParamDelogo());
             param->inputFileName = inputParam->inputFilename.c_str();
+            param->cudaSchedule  = m_cudaSchedule;
             param->delogo        = inputParam->vpp.delogo;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;

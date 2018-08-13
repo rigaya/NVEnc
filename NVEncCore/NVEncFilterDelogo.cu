@@ -1258,11 +1258,16 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
 
     // NR=0で評価する
     std::vector<float> eval_results(DELOGO_PRE_DIV_COUNT+1);
-    auto sts = calcAutoFadeCoef2(eval_results, true, frame_logo, 0, pDelogoParam->delogo.NRArea, (const float *)m_fadeValueAdjust.ptrDevice);
+    cudaEventRecord(*m_adjMaskStream.heEval.get(), cudaStreamDefault);
+    cudaStreamWaitEvent(*m_adjMaskStream.stEval.get(), *m_adjMaskStream.heEval.get(), 0);
+    auto sts = autoFadeCoef2Run(true, frame_logo, 0, pDelogoParam->delogo.NRArea,
+        (const float *)m_fadeValueAdjust.ptrDevice, (int)eval_results.size(),
+        m_adjMaskStream);
     if (sts != NV_ENC_SUCCESS) {
         return sts;
     }
 
+    const auto stream = *m_adjMaskStream.stEval.get();
     const int logo_w = m_mask->frame.width;
     const int logo_h = m_mask->frame.height;
     const dim3 blockSize(DELOGO_BLOCK_X, DELOGO_BLOCK_Y);
@@ -1270,15 +1275,15 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     const int blockCount = gridSize.x * gridSize.y;
 
     //fade値をリセット(あとでkernel_create_adjust_mask1で加算していく)
-    auto cudaerr = cudaMemsetAsync(m_adjMaskEachFadeCount.ptrDevice, 0, sizeof(int) * (DELOGO_PRE_DIV_COUNT+1));
+    auto cudaerr = cudaMemsetAsync(m_adjMaskEachFadeCount.ptrDevice, 0, sizeof(int) * (DELOGO_PRE_DIV_COUNT+1), stream);
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("error at createAdjustedMask(cudaMemset): %s.\n"),
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
     }
 
-    static_assert(DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(char4::x)>::max(), "DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(short4::x)>::max()");
-    kernel_create_adjust_mask1<char4, short4><<<gridSize, blockSize>>>(
+    static_assert(DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(char4::x)>::max(), "DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(char4::x)>::max()");
+    kernel_create_adjust_mask1<char4, short4><<<gridSize, blockSize, 0, stream>>>(
         (uint8_t *)m_adjMaskMinIndex->frame.ptr, m_adjMaskMinIndex->frame.pitch,
         (int *)m_adjMaskEachFadeCount.ptrDevice, (int2 *)m_adjMaskMinResAndValidMaskCount.ptrDevice,
         m_mask->frame.pitch, logo_w, logo_h, m_mask->frame.pitch * logo_h,
@@ -1294,18 +1299,20 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     debug_out_csv<char>(m_adjMaskMinIndex.get(), _T("m_adjMaskMinIndex.csv"));
 #endif
     //計算結果をCPUに転送
-    cudaerr = m_adjMaskEachFadeCount.copyDtoH();
+    cudaerr = m_adjMaskEachFadeCount.copyDtoHAsync(stream);
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy data from GPU(m_adjMaskEachFadeCount): %s.\n"),
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
     }
-    cudaerr = m_adjMaskMinResAndValidMaskCount.copyDtoH();
+    cudaerr = m_adjMaskMinResAndValidMaskCount.copyDtoHAsync(stream);
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy data from GPU(m_adjMaskMinResAndValidMaskCount): %s.\n"),
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
     }
+    autoFadeCoef2Collect(eval_results, 0, *m_adjMaskStream.heEvalCopyFin.get());
+    cudaStreamSynchronize(stream);
 
     //GPUでの計算結果はブロックごとの値なので、最終的な集計はCPUで行う
     auto temp_whole_min_result_valid_mask_count = (const int2 *)m_adjMaskMinResAndValidMaskCount.ptrHost;
@@ -1381,15 +1388,17 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
         }
     }
 
-    cudaerr = cudaMemcpy(m_maskAdjusted->frame.ptr,
-        m_adjMaskThresholdTest->frame.ptr + target_index * m_maskAdjusted->frame.pitch * logo_h,
-        m_maskAdjusted->frame.pitch * logo_h,
-        cudaMemcpyDeviceToDevice);
+    cudaerr = cudaMemcpy2DAsync(m_maskAdjusted->frame.ptr, m_maskAdjusted->frame.pitch,
+        m_adjMaskThresholdTest->frame.ptr + target_index * m_adjMaskThresholdTest->frame.pitch * logo_h, m_adjMaskThresholdTest->frame.pitch,
+        logo_w, logo_h,
+        cudaMemcpyDeviceToDevice,
+        *m_adjMaskStream.stEvalSub.get());
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy data createAdjustedMask(m_adjMask2ValidMaskCount): %s.\n"),
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
     }
+    cudaEventRecord(*m_adjMaskStream.heEvalCopyFin.get(), *m_adjMaskStream.stEvalSub.get());
     return NV_ENC_SUCCESS;
 }
 
@@ -1400,13 +1409,14 @@ cudaError runDelogoYMultiFadeKernel(
     const FrameInfo *srcFrame,          //delogoを行うフレームの情報
     const bool multi_src,               //入力(frame_logo)も複数枚の入力(fade_n)を持つ
     const float *ptrDevFadeDepth,       //fade * depthの情報 (fade_n分の配列)
-    const int fade_n                    //並列処理するfadeの数
+    const int fade_n,                   //並列処理するfadeの数
+    cudaStream_t stream
 ) {
     //delogoは他のkernelとは異なり、1ピクセル=1スレッドなことに注意
     const dim3 blockSize(DELOGO_BLOCK_X, DELOGO_BLOCK_Y);
     const dim3 gridSize(divCeil(logo_data->width, blockSize.x), divCeil(logo_data->height, blockSize.y), fade_n);
 
-    kernel_delogo_multi_fade<Type, short, bit_depth, true><<<gridSize, blockSize>>>(
+    kernel_delogo_multi_fade<Type, short, bit_depth, true><<<gridSize, blockSize, 0, stream>>>(
         (uint8_t *)pDevBufDst->frame.ptr, pDevBufDst->frame.pitch, pDevBufDst->frame.pitch * logo_data->height,
         (const uint8_t *)srcFrame->ptr + logo_data->j_start * srcFrame->pitch + logo_data->i_start * sizeof(Type),
         srcFrame->pitch, srcFrame->width,
@@ -1422,7 +1432,8 @@ NVENCSTATUS NVEncFilterDelogo::runDelogoYMultiFade(
     const bool multi_src,           //入力(frame_logo)も複数枚の入力(fade_n)を持つ
     const int nr_value,             //この処理の時のnr_value (delogo処理には関係ないが、出力先のバッファを決めるために指定が必要)
     const float *ptrDevFadeDepth,   //fade * depthの情報 (fade_n分の配列)
-    const int fade_n                //並列処理するfadeの数
+    const int fade_n,               //並列処理するfadeの数
+    cudaStream_t stream
 ) {
     static const decltype(&runDelogoYMultiFadeKernel<uint16_t, 16>) delogo_multi_fade_func_list[2] = {
         runDelogoYMultiFadeKernel<uint8_t,   8>,
@@ -1435,7 +1446,8 @@ NVENCSTATUS NVEncFilterDelogo::runDelogoYMultiFade(
 
     auto cudaerr = delogo_multi_fade_func_list[RGY_CSP_BIT_DEPTH[frame_logo->csp] > 8 ? 1 : 0](
         m_bufDelogo[nr_value].get(),
-        &m_sProcessData[LOGO__Y], frame_logo, multi_src, ptrDevFadeDepth, fade_n);
+        &m_sProcessData[LOGO__Y], frame_logo, multi_src, ptrDevFadeDepth, fade_n,
+        stream);
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("error at runDelogoYMultiFade(kernel_delogo_multi_fade): %s.\n"),
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
@@ -1455,12 +1467,13 @@ cudaError runSmoothKernel(
     const int logo_w, const int logo_h, //ロゴの情報
     const TypeMask4 *ptr_mask, const int mask_pitch, int mask_threshold,  //スムージングを行うピクセルを決めるマスク
     const float *smooth_kernel, //スムージングのカーネル(GPU上にあるデータ)
-    int smooth_n                //並列処理する数
+    int smooth_n,               //並列処理する数
+    cudaStream_t stream
 ) {
     const dim3 blockSize(DELOGO_BLOCK_X, DELOGO_BLOCK_Y);
     const dim3 gridSize(divCeil(logo_w, blockSize.x * 4), divCeil(logo_h, blockSize.y * DELOGO_BLOCK_LOOP_Y), smooth_n);
 
-    kernel_proc_symmetry<Type4, TypeMask4, range><<<gridSize, blockSize>>>(
+    kernel_proc_symmetry<Type4, TypeMask4, range><<<gridSize, blockSize, 0, stream>>>(
         ptr_dst, dst_pitch, dst_size,
         ptr_src, src_pitch, src_size,
         logo_w, logo_h,
@@ -1472,7 +1485,8 @@ cudaError runSmoothKernel(
 
 NVENCSTATUS NVEncFilterDelogo::runSmooth(
     const int smooth_n, //並列処理する数
-    const int nr_value, const int nr_area) {
+    const int nr_value, const int nr_area,
+    cudaStream_t stream) {
     static const std::map<int, decltype(&runSmoothKernel<short4, short4, 1>)> smooth_func_list = {
         { 1, runSmoothKernel<short4, short4, 1> },
         { 2, runSmoothKernel<short4, short4, 2> },
@@ -1504,7 +1518,8 @@ NVENCSTATUS NVEncFilterDelogo::runSmooth(
             logo_w, logo_h,
             (const short4 *)ptr_mask->frame.ptr, ptr_mask->frame.pitch, m_maskThreshold,
             (float *)m_smoothKernel.get(),
-            smooth_n);
+            smooth_n,
+            stream);
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("error at runSmooth(kernel_proc_symmetry): %s.\n"),
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
@@ -1518,12 +1533,13 @@ NVENCSTATUS NVEncFilterDelogo::runSmooth(
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncFilterDelogo::prewittEvaluate(
-    std::vector<float>& eval,      //評価結果を出力(格納)する場所、vectorのサイズが同時処理する数
+NVENCSTATUS NVEncFilterDelogo::prewittEvaluateRun(
     const bool store_pixel_result, //評価結果をピクセルごとにm_bufEvalに格納するかどうか
     const CUFrameBuf *target,      //評価対象のデータ
     const CUFrameBuf *mask,        //処理時に使用するmask
-    const int nr_value             //この処理の時のnr_value (delogo処理には関係ないが、入出力のバッファを決めるために指定が必要)
+    const int nr_value,            //この処理の時のnr_value (delogo処理には関係ないが、入出力のバッファを決めるために指定が必要)
+    const int eval_n,              //同時処理する数
+    DelogoEvalStreams& evalst
 ) {
     const int logo_w = m_sProcessData[LOGO__Y].width;
     const int logo_h = m_sProcessData[LOGO__Y].height;
@@ -1531,17 +1547,18 @@ NVENCSTATUS NVEncFilterDelogo::prewittEvaluate(
         AddMessage(RGY_LOG_ERROR, _T("logo width must be mod4.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (eval.size() == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("eval.size() == 0.\n"));
+    if (eval_n == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("eval_n == 0.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
+    const auto stream = *evalst.stEval.get();
     const dim3 blockSize(DELOGO_BLOCK_X, DELOGO_BLOCK_Y);
-    const dim3 gridSize(divCeil(logo_w, blockSize.x * 4), divCeil(logo_h, blockSize.y * DELOGO_BLOCK_LOOP_Y), (int)eval.size());
-    const int blockCountPerEval = gridSize.x * gridSize.y;
+    const dim3 gridSize(divCeil(logo_w, blockSize.x * 4), divCeil(logo_h, blockSize.y * DELOGO_BLOCK_LOOP_Y), eval_n);
+    m_evalStream[nr_value].evalBlocks = gridSize.x * gridSize.y;
 
     if (store_pixel_result) {
         //ピクセルごとの評価結果をバッファに出力
-        kernel_proc_prewitt<short4, short4, 2, true, true, true, false><<<gridSize, blockSize>>>(
+        kernel_proc_prewitt<short4, short4, 2, true, true, true, false><<<gridSize, blockSize, 0, stream>>>(
             (uint8_t *)m_bufEval[nr_value]->frame.ptr, (float *)m_evalCounter[nr_value].ptrDevice, nullptr,
             (const uint8_t *)target->frame.ptr, target->frame.pitch,
             (const uint8_t *)mask->frame.ptr, mask->frame.pitch,
@@ -1549,7 +1566,7 @@ NVENCSTATUS NVEncFilterDelogo::prewittEvaluate(
             m_maskThreshold);
     } else {
         //ピクセルごとの評価結果は出力しない
-        kernel_proc_prewitt<short4, short4, 2, false, true, true, false><<<gridSize, blockSize>>>(
+        kernel_proc_prewitt<short4, short4, 2, false, true, true, false><<<gridSize, blockSize, 0, stream>>>(
             nullptr, (float *)m_evalCounter[nr_value].ptrDevice, nullptr,
             (const uint8_t *)target->frame.ptr, target->frame.pitch,
             (const uint8_t *)mask->frame.ptr, mask->frame.pitch,
@@ -1570,52 +1587,71 @@ NVENCSTATUS NVEncFilterDelogo::prewittEvaluate(
     }
 #endif //#if DELOGO_DEBUG_CUDA
     //評価結果(集計版)の一時データをGPU→CPUに転送
-    cudaerr = m_evalCounter[nr_value].copyDtoH();
+    cudaEventRecord(*evalst.heEval.get(), stream);
+    cudaStreamWaitEvent(*evalst.stEvalSub.get(), *evalst.heEval.get(), 0);
+    cudaerr = m_evalCounter[nr_value].copyDtoHAsync(*evalst.stEvalSub.get());
     if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("error at prewittEvaluate(m_evalCounter[nr_value].copyDtoH): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at prewittEvaluate(m_evalCounter[nr_value].copyDtoHAsync): %s.\n"),
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
     }
-    //一時データ(ブロックごとの出力)をCPU側で最終集計する
-    auto ptr_eval_temp = (const float *)m_evalCounter[nr_value].ptrHost;
-    std::fill(eval.begin(), eval.end(), 0.0f);
-    for (size_t ieval = 0; ieval < eval.size(); ieval++) {
-        for (int ib = 0; ib < blockCountPerEval; ib++) {
-            eval[ieval] += ptr_eval_temp[ieval * blockCountPerEval + ib];
-        }
-    }
+    cudaEventRecord(*evalst.heEvalCopyFin.get(), *evalst.stEvalSub.get());
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncFilterDelogo::calcAutoFadeCoef2(
-    std::vector<float>& eval,      //評価結果を出力(格納)する場所、vectorのサイズが同時処理する数
+NVENCSTATUS NVEncFilterDelogo::autoFadeCoef2Run(
     const bool store_pixel_result, //評価結果をピクセルごとにm_bufEvalに格納するかどうか
     const FrameInfo *frame_logo,   //delogoを行うフレームの情報
     const int nr_value,            //この処理の時のnr_value
     const int nr_area,             //この処理の時のnr_area
-    const float *ptrDevFadeDepth   //fade * depthの情報 (eval.size()分の配列)
+    const float *ptrDevFadeDepth,  //fade * depthの情報 (calc_n分の配列)
+    const int calc_n,              //同時処理する数
+    DelogoEvalStreams& evalst
 ) {
     if (m_sProcessData[LOGO__Y].pDevLogo->frame.width % 4 != 0) {
         AddMessage(RGY_LOG_ERROR, _T("frame width must be mod4\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    if (eval.size() == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("eval.size() == 0.\n"));
+    if (calc_n == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("calc_n == 0.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
-    auto sts = runDelogoYMultiFade(frame_logo, false, nr_value, ptrDevFadeDepth, (int)eval.size());
+    const auto stream = *evalst.stEval.get();
+    auto sts = runDelogoYMultiFade(frame_logo, false, nr_value, ptrDevFadeDepth, calc_n, stream);
     if (sts != NV_ENC_SUCCESS) return sts;
 
     auto ptrDevTarget = m_bufDelogo[nr_value].get();
     if (nr_value > 0) {
-        sts = runSmooth((int)eval.size(), nr_value, nr_area);
+        sts = runSmooth(calc_n, nr_value, nr_area, stream);
         if (sts != NV_ENC_SUCCESS) return sts;
         ptrDevTarget = m_bufDelogoNR[nr_value].get();
     }
 
-    sts = prewittEvaluate(eval, store_pixel_result, ptrDevTarget, m_mask.get(), nr_value);
+    sts = prewittEvaluateRun(store_pixel_result, ptrDevTarget, m_mask.get(), nr_value, calc_n, evalst);
     if (sts != NV_ENC_SUCCESS) return sts;
+
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncFilterDelogo::autoFadeCoef2Collect(
+    std::vector<float>& eval,      //評価結果を出力(格納)する場所、vectorのサイズが同時処理する数
+    const int nr_value,            //この処理の時のnr_value
+    cudaEvent_t eventCopyFin
+) {
+    if (eval.size() == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("eval.size() == 0.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+    cudaEventSynchronize(eventCopyFin);
+    //一時データ(ブロックごとの出力)をCPU側で最終集計する
+    auto ptr_eval_temp = (const float *)m_evalCounter[nr_value].ptrHost;
+    std::fill(eval.begin(), eval.end(), 0.0f);
+    for (size_t ieval = 0; ieval < eval.size(); ieval++) {
+        for (int ib = 0; ib < m_evalStream[nr_value].evalBlocks; ib++) {
+            eval[ieval] += ptr_eval_temp[ieval * m_evalStream[nr_value].evalBlocks + ib];
+        }
+    }
 
     return NV_ENC_SUCCESS;
 }
@@ -1657,7 +1693,7 @@ NVENCSTATUS NVEncFilterDelogo::logoNR(FrameInfo *pFrame, int nr_value) {
             logodata->width, logodata->height,
             (const short4 *)m_maskNRAdjusted->frame.ptr, m_maskNRAdjusted->frame.pitch, m_maskThreshold,
             (float *)m_smoothKernel.get(),
-            1);
+            1, cudaStreamDefault);
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("error at logoNR(kernel_proc_symmetry): %s.\n"),
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
