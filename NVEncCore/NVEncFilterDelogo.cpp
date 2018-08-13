@@ -53,7 +53,7 @@ static bool inv3x3(std::array<double, 9>& invm, const std::array<double, 9>& m) 
     if (std::abs(det) < DBL_MIN) {
         return false;
     }
-    const double inv_det = 1.0/det;
+    const double inv_det = 1.0 / det;
 
     invm[0] = inv_det*(m[4]*m[8] - m[5]*m[7]);
     invm[1] = inv_det*(m[2]*m[7] - m[1]*m[8]);
@@ -82,44 +82,72 @@ static std::array<double, 3> mul3x3vec(const std::array<double, 9>& m, const std
 }
 
 //2次関数の係数を最小自乗法で求める
-template<int n>
-std::array<double, 3> leastSquare2nd(const std::array<double, n>& x, const std::array<double, n>& y) {
-    std::array<double, 5> Ae;
-    std::array<double, 3> b;
-    std::fill(Ae.begin(), Ae.end(), 0.0);
-    std::fill(b.begin(), b.end(), 0.0);
-    for (int i = 0; i < n; i++) {
-        Ae[0] += 1.0;
-        Ae[1] += x[i];
-        Ae[2] += x[i] * x[i];
-        Ae[3] += x[i] * x[i] * x[i];
-        Ae[4] += x[i] * x[i] * x[i] * x[i];
-        b[0] += y[i];
-        b[1] += y[i] * x[i];
-        b[2] += y[i] * x[i] * x[i];
-    }
-    std::array<double, 9> A; //3x3行列
-    A[0] = Ae[0]; A[1] = Ae[1]; A[2] = Ae[2];
-    A[3] = Ae[1]; A[4] = Ae[2]; A[5] = Ae[3];
-    A[6] = Ae[2]; A[7] = Ae[3]; A[8] = Ae[4];
-
+std::array<double, 3> leastSquare2nd(const double *x, const double *y, size_t n) {
     std::array<double, 3> a = { 0.0, 0.0, 0.0 };
-    std::array<double, 9> invA;
-    if (inv3x3(invA, A)) {
-        a = mul3x3vec(invA, b);
+    if (n <= 1) {
+        a[0] = y[0];
+    } else if (n <= 2) {
+        if (x[1] - x[0] == 0) {
+            a[0] = (y[0] + y[1]) * 0.5;
+        } else {
+            a[1] = (y[1] - y[0]) / (x[1] - x[0]);
+            a[0] = y[0] - x[0] / a[1];
+        }
+    } else {
+        std::array<double, 5> Ae;
+        std::array<double, 3> b;
+        std::fill(Ae.begin(), Ae.end(), 0.0);
+        std::fill(b.begin(), b.end(), 0.0);
+        for (size_t i = 0; i < n; i++) {
+            Ae[0] += 1.0;
+            Ae[1] += x[i];
+            Ae[2] += x[i] * x[i];
+            Ae[3] += x[i] * x[i] * x[i];
+            Ae[4] += x[i] * x[i] * x[i] * x[i];
+            b[0] += y[i] * x[i] * x[i];
+            b[1] += y[i] * x[i];
+            b[2] += y[i];
+        }
+        std::array<double, 9> A; //3x3行列
+        A[0] = Ae[4]; A[1] = Ae[3]; A[2] = Ae[2];
+        A[3] = Ae[3]; A[4] = Ae[2]; A[5] = Ae[1];
+        A[6] = Ae[2]; A[7] = Ae[1]; A[8] = Ae[0];
+
+        std::array<double, 9> invA;
+        if (inv3x3(invA, A)) {
+            a = mul3x3vec(invA, b);
+            std::swap(a[0], a[2]);
+        }
     }
     return a;
 }
 
 //2次関数の係数の係数から最小値を求める
-double minX2nd(std::array<double, 3> a) {
-    if (a[0] <= 0.0) {
-        double y0 = a[2]; //x = 0での値
-        double y1 = (a[0] * LOGO_FADE_MAX + a[1]) * LOGO_FADE_MAX + a[2]; //x=LOGO_FADE_MAXでの値
+double minX2nd(const std::array<double, 3>& a) {
+    if (a[2] <= 0.0) {
+        double y0 = a[0]; //x = 0での値
+        double y1 = (a[2] * LOGO_FADE_MAX + a[1]) * LOGO_FADE_MAX + a[0]; //x=LOGO_FADE_MAXでの値
         return y0 < y1 ? 0.0 : (double)LOGO_FADE_MAX;
     }
     //平方完成
-    return -0.5 * a[1] / a[0];
+    return -0.5 * a[1] / a[2];
+}
+
+double quadratic(const std::array<double, 3>& a, double x) {
+    return ((a[2] * x) + a[1]) * x + a[0];
+}
+
+std::vector<double> quadratic_eq(const std::array<double, 3>& v) {
+    double a = v[2], b = v[1], c = v[0];
+    std::vector<double> ans;
+    const double D = b*b - 4.0*a*c;
+    if (D > 0.0) {
+        ans.push_back((-b + std::sqrt(D))/(2.0*a));
+        ans.push_back((-b - std::sqrt(D))/(2.0*a));
+    } else if (D == 0) {
+        ans.push_back(-b/(2.0*a));
+    }
+    return ans;
 }
 
 NVEncFilterDelogo::NVEncFilterDelogo() :
@@ -709,7 +737,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             }
             auto parallel_fade = (float *)m_fadeValueParallel.ptrHost;
             for (int i = 0; i < DELOGO_PARALLEL_FADE; i++) {
-                parallel_fade[i] = (float)LOGO_FADE_MAX * m_sProcessData[LOGO__Y].depth * i * 0.125f;
+                parallel_fade[i] = (float)LOGO_FADE_MAX * m_sProcessData[LOGO__Y].depth * i * (1.0 / 16.0);
             }
             cudaerr = m_fadeValueParallel.copyHtoD();
             if (cudaerr != cudaSuccess) {
@@ -813,13 +841,68 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFadeLS2(float& auto_fade, const FrameInfo
 
     const double depth_inv = 1.0 / m_sProcessData[LOGO__Y].depth;
     std::array<double, DELOGO_PARALLEL_FADE> x, y;
-    for (int i = 0; i < x.size(); i++) {
+    for (size_t i = 0; i < x.size(); i++) {
         x[i] = ((const float *)m_fadeValueParallel.ptrHost)[i] * depth_inv;
         y[i] = (double)eval[i];
     }
+    size_t minIdx = (int)std::distance(y.begin(), std::min_element(y.begin(), y.end()));
+    if (minIdx == 0 || minIdx == x.size()-1) {
+        const auto a = leastSquare2nd(x.data(), y.data(), x.size());
+        auto_fade = (float)minX2nd(a);
+    } else {
+        //最小値の位置で、2つに分けて評価する
+        auto a0 = leastSquare2nd(&x[0],      &y[0],      minIdx);
+        auto a1 = leastSquare2nd(&x[minIdx], &y[minIdx], x.size() - minIdx);
+        decltype(a0) a2;
+        for (size_t i = 0; i < a2.size(); i++) {
+            a2[i] = a1[i] - a0[i];
+        }
+        const auto ansA2 = quadratic_eq(a2);
+        const auto minX0 = minX2nd(a0);
+        const auto minX1 = minX2nd(a1);
+        const auto minY0 = quadratic(a0, minX0);
+        const auto minY1 = quadratic(a1, minX1);
+        const bool minX0inRange = x[0] <= minX0 && minX0 <= x[minIdx];
+        const bool minX1inRange = x[minIdx] <= minX1 && minX1 <= x.back();
 
-    const auto a = leastSquare2nd(x, y);
-    auto_fade = (float)minX2nd(a);
+        double minX = std::numeric_limits<double>::max();
+        double minY = std::numeric_limits<double>::max();
+        if (minX0inRange && minX1inRange) {
+            minX = (minY0 <= minY1) ? minX0 : minX1;
+            minY = std::min(minY0, minY1);
+        } else if (minX0inRange) {
+            minX = (minY0 <= quadratic(a1, x[minIdx])) ? minX0 : x[minIdx];
+            minY = std::min(minY0, quadratic(a1, x[minIdx]));
+        } else if (minX1inRange) {
+            minX = (quadratic(a0, x[minIdx]) <= minY1) ? x[minIdx] : minX1;
+            minY = std::min(quadratic(a0, x[minIdx]), minY1);
+        }
+        for (auto d : ansA2) {
+            if (x.front() <= d && d <= x.back()) {
+                if (quadratic(a1, d) < minY
+                    || (0 < minIdx && minIdx < x.size()-1
+                        && x[minIdx-1] < d && d < x[minIdx+1])) {
+                    minY = quadratic(a1, d);
+                    minX = d;
+                }
+            }
+        }
+        auto_fade = (float)minX;
+#if 0
+        std::ofstream file;
+        file.open(strsprintf("test%05d.csv", m_frameOut), std::ios::out);
+        for (size_t i = 0; i < x.size(); i++) {
+            file << x[i] << "," << y[i] << "," << quadratic(a0, x[i]) << "," << quadratic(a1, x[i]) << std::endl;
+        }
+        file << std::endl;
+        file << "minX = " << minX << std::endl;
+        file << "y0 = " << a0[2] << " * x2 + " << a0[1] << " * x1 + " << a0[0] << std::endl;
+        file << "y1 = " << a1[2] << " * x2 + " << a1[1] << " * x1 + " << a1[0] << std::endl;
+        file.close();
+#endif
+    }
+    auto_fade = clamp(auto_fade, 0.0, LOGO_FADE_MAX * 1.15);
+
     return NV_ENC_SUCCESS;
 }
 
@@ -905,8 +988,8 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fad
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
-//#define calcAutoFade calcAutoFadeLS2
-#define calcAutoFade calcAutoFade4
+#define calcAutoFade calcAutoFadeLS2
+//#define calcAutoFade calcAutoFade4
 
     const double fLimitRate = 0.7;
     if (pDelogoParam->delogo.autoNR) {
