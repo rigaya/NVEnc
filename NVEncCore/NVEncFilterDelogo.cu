@@ -1047,10 +1047,12 @@ int gen_adjust_mask(int& valid_mask_count,
 }
 
 template<typename Type>
-__inline__ __device__
 constexpr Type constpow(Type base, int exp) noexcept {
     return (exp == 0 ? (Type)1 : base * constpow<Type>(base, exp-1));
 }
+
+//prewitt_threshold_baseに対する倍率を配列で保持
+__constant__ float g_threshold_adj_mul[DELOGO_ADJMASK_DIV_COUNT];
 
 //処理単位: 4要素/thread
 //ブロック構成: DELOGO_BLOCK_X * DELOGO_BLOCK_Y * DELOGO_ADJMASK_DIV_COUNT
@@ -1070,43 +1072,7 @@ __global__ void kernel_create_adjust_mask2(
 
     //prewitt_thresholdを並列に計算する
     //prewitt_threshold_baseに対する倍率を配列で保持
-    //できればコンパイル時に計算されてほしい
-    //本当は、DELOGO_ADJMASK_DIV_COUNTのサイズ分をチェックできるとベスト
-    const float threshold_adj_mul[DELOGO_ADJMASK_DIV_COUNT] = {
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 0),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 1),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 2),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 3),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 4),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 5),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 6),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 7),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 8),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 9),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 10),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 11),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 12),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 13),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 14),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 15),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 16),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 17),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 18),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 19),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 20),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 21),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 22),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 23),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 24),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 25),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 26),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 27),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 28),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 29),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 30),
-        constpow<float>(DELOGO_ADJMASK_POW_BASE, 31)
-    };
-    const float prewitt_threshold = prewitt_threshold_base * threshold_adj_mul[blockIdx.z];
+    const float prewitt_threshold = prewitt_threshold_base * g_threshold_adj_mul[blockIdx.z];
 
     ptr_dst_adjusted_mask  += imgy * mask_pitch         + imgx * sizeof(TypeMask4) + mask_size * blockIdx.z;
     ptr_min_fade_idx       += imgy * min_fade_idx_pitch + imgx * sizeof(TypeIdx4);
@@ -1365,7 +1331,8 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return NV_ENC_ERR_INVALID_CALL;
     }
-    autoFadeCoef2Collect(eval_results, 0, *m_adjMaskStream.heEvalCopyFin.get());
+    sts = autoFadeCoef2Collect(eval_results, 0, *m_adjMaskStream.heEvalCopyFin.get());
+    if (sts != NV_ENC_SUCCESS) return sts;
     cudaStreamSynchronize(stream);
 
     //GPUでの計算結果はブロックごとの値なので、最終的な集計はCPUで行う
@@ -1396,6 +1363,23 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     const float prewitt_threshold_base = whole_min_result * 2.0f + 100.0f;
     const float rate = 0.5f + (float)std::min((aveResult - 400.0f) * (1.0f / 200.0f), 4.0f) * 0.08f;
     const int target_count = (int)((float)valid_mask_count * (1.0f - rate));
+
+    static bool threshold_mul_initialized = false;
+    if (!threshold_mul_initialized) {
+        //constantメモリを初期化
+        std::array<float, _countof(g_threshold_adj_mul)> threshold_adj_mul;
+        for (size_t i = 0; i < threshold_adj_mul.size(); i++) {
+            threshold_adj_mul[i] = constpow<float>(DELOGO_ADJMASK_POW_BASE, i);
+        }
+        cudaerr = cudaMemcpyToSymbol(g_threshold_adj_mul, threshold_adj_mul.data(), sizeof(g_threshold_adj_mul), 0, cudaMemcpyHostToDevice);
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy data to symbol(g_threshold_adj_mul): %s.\n"),
+                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
+        threshold_mul_initialized = true;
+    }
+
     const dim3 gridSize2(gridSize.x, gridSize.y, DELOGO_ADJMASK_DIV_COUNT);
 
     kernel_create_adjust_mask2<char4, short4><<<gridSize2, blockSize, 0, stream>>>(
