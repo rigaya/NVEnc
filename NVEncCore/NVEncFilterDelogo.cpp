@@ -752,7 +752,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             }
             auto parallel_fade = (float *)m_fadeValueParallel.ptrHost;
             for (int i = 0; i < DELOGO_PARALLEL_FADE; i++) {
-                parallel_fade[i] = (float)LOGO_FADE_MAX * m_sProcessData[LOGO__Y].depth * i * (1.0 / 16.0);
+                parallel_fade[i] = (float)LOGO_FADE_MAX * m_sProcessData[LOGO__Y].depth * i * (1.0f / 16.0f);
             }
             cudaerr = m_fadeValueParallel.copyHtoD();
             if (cudaerr != cudaSuccess) {
@@ -915,7 +915,7 @@ NVENCSTATUS NVEncFilterDelogo::autoFadeLS2(float& auto_fade, const int nr_value)
         file.close();
 #endif
     }
-    auto_fade = clamp(auto_fade, 0.0, LOGO_FADE_MAX * 1.15);
+    auto_fade = clamp(auto_fade, 0.0f, LOGO_FADE_MAX * 1.15f);
 
     return NV_ENC_SUCCESS;
 }
