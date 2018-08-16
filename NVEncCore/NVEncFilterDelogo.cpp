@@ -1209,6 +1209,8 @@ NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInf
     } else {
         if (pInputFrame->ptr == nullptr) {
             //自動フェードや自動NRを使用しない場合、入力フレームがないということはない
+            *pOutputFrameNum = 0;
+            ppOutputFrames[0] = nullptr;
             return sts;
         }
         if (ppOutputFrames[0] == nullptr) {
