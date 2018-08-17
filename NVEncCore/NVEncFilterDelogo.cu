@@ -1193,6 +1193,11 @@ NVENCSTATUS NVEncFilterDelogo::createLogoMask(int maskThreshold) {
     }
 #if DELOGO_DEBUG_CUDA
     cudaerr = cudaThreadSynchronize();
+    if (cudaerr != cudaSuccess) {
+        AddMessage(RGY_LOG_ERROR, _T("error at createAdjustedMask(cudaThreadSynchronize): %s.\n"),
+            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        return NV_ENC_ERR_INVALID_CALL;
+    }
     debug_out_csv<short>(m_mask.get(), _T("m_mask.csv"));
 #endif
 
@@ -1252,6 +1257,11 @@ NVENCSTATUS NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFra
         }
 #if DELOGO_DEBUG_CUDA
         cudaerr = cudaThreadSynchronize();
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at createNRMask(cudaThreadSynchronize[run_erosion]): %s.\n"),
+                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
         debug_out_csv<short>(ptr_mask_nr, _T("m_maskNR.csv"));
 #endif
     } else {
@@ -1264,6 +1274,14 @@ NVENCSTATUS NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFra
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
             return NV_ENC_ERR_INVALID_CALL;
         }
+#if DELOGO_DEBUG_CUDA
+        cudaerr = cudaThreadSynchronize();
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at createNRMask(cudaThreadSynchronize[cudaMemcpyAsync]): %s.\n"),
+                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
+#endif
     }
     return NV_ENC_SUCCESS;
 }
@@ -1316,6 +1334,11 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     }
 #if DELOGO_DEBUG_CUDA
     cudaerr = cudaThreadSynchronize();
+    if (cudaerr != cudaSuccess) {
+        AddMessage(RGY_LOG_ERROR, _T("error at createAdjustedMask(cudaThreadSynchronize(1)): %s.\n"),
+            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        return NV_ENC_ERR_INVALID_CALL;
+    }
     debug_out_csv<char>(m_adjMaskMinIndex.get(), _T("m_adjMaskMinIndex.csv"));
 #endif
     //計算結果をCPUに転送
@@ -1400,6 +1423,11 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     }
 #if DELOGO_DEBUG_CUDA
     cudaerr = cudaThreadSynchronize();
+    if (cudaerr != cudaSuccess) {
+        AddMessage(RGY_LOG_ERROR, _T("error at createAdjustedMask(cudaThreadSynchronize(2)): %s.\n"),
+            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        return NV_ENC_ERR_INVALID_CALL;
+    }
     debug_out_csv<char>(m_adjMaskThresholdTest.get(), _T("m_adjMaskThresholdTest.csv"));
 #endif
 #if 1
@@ -1411,6 +1439,11 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
         logo_w, logo_h, target_count);
 #if DELOGO_DEBUG_CUDA
     cudaerr = cudaThreadSynchronize();
+    if (cudaerr != cudaSuccess) {
+        AddMessage(RGY_LOG_ERROR, _T("error at createAdjustedMask(cudaThreadSynchronize(3)): %s.\n"),
+            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        return NV_ENC_ERR_INVALID_CALL;
+    }
 #endif
     cudaEventRecord(*m_adjMaskStream.heEvalCopyFin.get(), stream);
 #else
@@ -1505,6 +1538,11 @@ NVENCSTATUS NVEncFilterDelogo::runDelogoYMultiFade(
     }
 #if DELOGO_DEBUG_CUDA
     cudaerr = cudaThreadSynchronize();
+    if (cudaerr != cudaSuccess) {
+        AddMessage(RGY_LOG_ERROR, _T("error at runDelogoYMultiFade(cudaThreadSynchronize): %s.\n"),
+            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+        return NV_ENC_ERR_INVALID_CALL;
+    }
     debug_out_csv<short>(m_bufDelogo[nr_value].get(), _T("delogo_result.csv"));
 #endif
     return NV_ENC_SUCCESS;
@@ -1577,6 +1615,11 @@ NVENCSTATUS NVEncFilterDelogo::runSmooth(
         }
 #if DELOGO_DEBUG_CUDA
         cudaerr = cudaThreadSynchronize();
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at runSmooth(cudaThreadSynchronize): %s.\n"),
+                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
         debug_out_csv<short>(m_bufDelogoNR[nr_value].get(), _T("m_bufDelogoNR[nr_value].csv"));
 #endif
     }
@@ -1633,6 +1676,11 @@ NVENCSTATUS NVEncFilterDelogo::prewittEvaluateRun(
 #if DELOGO_DEBUG_CUDA
     if (store_pixel_result) {
         cudaerr = cudaThreadSynchronize();
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at prewittEvaluateRun(cudaThreadSynchronize): %s.\n"),
+                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
         debug_out_csv<short>(m_bufEval[nr_value].get(), _T("m_bufEval[nr_value].csv"));
     }
 #endif //#if DELOGO_DEBUG_CUDA
