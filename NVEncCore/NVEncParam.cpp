@@ -46,6 +46,7 @@ tstring get_codec_level_name(RGY_CODEC codec, int level) {
 }
 
 VppDelogo::VppDelogo() :
+    enable(false),
     logoFilePath(),
     logoSelect(),
     posX(0), posY(0),

@@ -3339,8 +3339,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-delogo ") << tmp.str().substr(1);
-        } else if (pParams->vpp.delogo.enable) {
-            cmd << _T(" --vpp-delogo");
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vpp.bCheckPerformance);
