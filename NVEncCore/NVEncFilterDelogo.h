@@ -240,6 +240,7 @@ protected:
     CUMemBufPair m_adjMaskEachFadeCount;
     CUMemBufPair m_adjMaskMinResAndValidMaskCount;
     CUMemBufPair m_adjMask2ValidMaskCount;
+    unique_ptr<void, cudadevice_deleter> m_adjMask2TargetCount;
     DelogoEvalStreams m_adjMaskStream;
     unique_ptr<void, cudadevice_deleter> m_smoothKernel;
     CUMemBufPair m_fadeValueAdjust;
