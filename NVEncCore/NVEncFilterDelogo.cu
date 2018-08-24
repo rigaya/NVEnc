@@ -648,7 +648,7 @@ __global__ void kernel_proc_symmetry(
 
         float4 ret = symmetery_pixel_y<range>(&shared[S_IDX(lx,0,0)], ly+range, kernel_y);
         __syncthreads();
-        if (imgx < logo_w && imgy < logo_h) {
+        if (imgx < (logo_w>>2) && imgy < logo_h) {
             const Type4 src = *(Type4 *)&ptr_src[imgy * src_pitch + imgx * sizeof(Type4)];
             *(Type4 *)ptr_dst = apply_mask<Type4, TypeMask4>(
                 vec_cast4<Type4, Type4>(src), vec_cast4<float4, Type4>(ret),
@@ -742,7 +742,7 @@ __global__ void kernel_erosion(
 
         TypeMask4 ret = erosion_pixel_y<TypeMask4, range>(&shared[S_IDX(lx, 0, 0)], ly+range, mask_threshold);
         __syncthreads();
-        if (imgx < logo_w && imgy < logo_h) {
+        if (imgx < (logo_w>>2) && imgy < logo_h) {
             *(TypeMask4 *)ptr_mask_dst = ret;
         }
     }
@@ -886,7 +886,7 @@ __global__ void kernel_proc_prewitt(
         const float4 ret_v = prewitt_pixel_y<range>(&shared[S_IDX(lx, 0, 1)], ly+range);
         __syncthreads();
         const float4 ret = calc_prewitt_val(ret_h, ret_v);
-        if (imgx < logo_w && imgy < logo_h) {
+        if (imgx < (logo_w>>2) && imgy < logo_h) {
             const TypeMask4 ret_masked = (use_mask)
                 ? apply_mask<TypeMask4, TypeMask4>(
                     type4_set1<TypeMask4>(0), vec_cast4<float4, TypeMask4>(ret),
@@ -965,7 +965,7 @@ __global__ void kernel_create_adjust_mask1(
     __shared__ int each_fade_count[DELOGO_PRE_DIV_COUNT+1];
     //まずはブロックごとにsharedメモリを使って加算
     //sharedメモリを初期化
-    if (lid < DELOGO_PRE_DIV_COUNT+1) {
+    if (lid <= DELOGO_PRE_DIV_COUNT) {
         each_fade_count[lid] = 0;
     }
     int valid_mask_count = 0;
@@ -976,33 +976,35 @@ __global__ void kernel_create_adjust_mask1(
     ptr_eval_result      += imgy * mask_pitch + imgx * sizeof(TypeMask4);
 
     TypeIdx4 ret = type4_set1<TypeIdx4>(-1);
-    if (imgx < logo_w && 2 <= imgy && imgy < logo_h-2) {
-        int4 min_fade        = type4_set1<int4>(-1);
-        TypeMask4 min_result = type4_set1<TypeMask4>(type_max<decltype(TypeMask4::x)>());
-        TypeMask4 max_result = type4_set1<TypeMask4>(0);
+    if (imgx < (logo_w>>2)) {
+        if (2 <= imgy && imgy < logo_h-2) {
+            int4 min_fade        = type4_set1<int4>(-1);
+            TypeMask4 min_result = type4_set1<TypeMask4>(type_max<decltype(TypeMask4::x)>());
+            TypeMask4 max_result = type4_set1<TypeMask4>(0);
 
-        #pragma unroll
-        for (int i = 0; i <= DELOGO_PRE_DIV_COUNT; i++, ptr_eval_result += mask_size) {
-            const TypeMask4 evals = *(const TypeMask4 *)ptr_eval_result;
-            if (evals.x < min_result.x) { min_result.x = evals.x; min_fade.x = i; }
-            if (evals.y < min_result.y) { min_result.y = evals.y; min_fade.y = i; }
-            if (evals.z < min_result.z) { min_result.z = evals.z; min_fade.z = i; }
-            if (evals.w < min_result.w) { min_result.w = evals.w; min_fade.w = i; }
-            max_result.x = max(max_result.x, evals.x);
-            max_result.y = max(max_result.y, evals.y);
-            max_result.z = max(max_result.z, evals.z);
-            max_result.w = max(max_result.w, evals.w);
+            #pragma unroll
+            for (int i = 0; i <= DELOGO_PRE_DIV_COUNT; i++, ptr_eval_result += mask_size) {
+                const TypeMask4 evals = *(const TypeMask4 *)ptr_eval_result;
+                if (evals.x < min_result.x) { min_result.x = evals.x; min_fade.x = i; }
+                if (evals.y < min_result.y) { min_result.y = evals.y; min_fade.y = i; }
+                if (evals.z < min_result.z) { min_result.z = evals.z; min_fade.z = i; }
+                if (evals.w < min_result.w) { min_result.w = evals.w; min_fade.w = i; }
+                max_result.x = max(max_result.x, evals.x);
+                max_result.y = max(max_result.y, evals.y);
+                max_result.z = max(max_result.z, evals.z);
+                max_result.w = max(max_result.w, evals.w);
+            }
+
+            ret.x = (decltype(TypeIdx4::x))adjust_mask_analyze(each_fade_count, valid_mask_count, whole_min_result, min_fade.x, min_result.x, max_result.x);
+            ret.y = (decltype(TypeIdx4::y))adjust_mask_analyze(each_fade_count, valid_mask_count, whole_min_result, min_fade.y, min_result.y, max_result.y);
+            ret.z = (decltype(TypeIdx4::z))adjust_mask_analyze(each_fade_count, valid_mask_count, whole_min_result, min_fade.z, min_result.z, max_result.z);
+            ret.w = (decltype(TypeIdx4::w))adjust_mask_analyze(each_fade_count, valid_mask_count, whole_min_result, min_fade.w, min_result.w, max_result.w);
+
+            ret = apply_mask<TypeIdx4, TypeMask4>(type4_set1<TypeIdx4>(-1), ret, *(const TypeMask4*)ptr_mask, mask_threshold);
         }
-
-        ret.x = (decltype(TypeIdx4::x))adjust_mask_analyze(each_fade_count, valid_mask_count, whole_min_result, min_fade.x, min_result.x, max_result.x);
-        ret.y = (decltype(TypeIdx4::y))adjust_mask_analyze(each_fade_count, valid_mask_count, whole_min_result, min_fade.y, min_result.y, max_result.y);
-        ret.z = (decltype(TypeIdx4::z))adjust_mask_analyze(each_fade_count, valid_mask_count, whole_min_result, min_fade.z, min_result.z, max_result.z);
-        ret.w = (decltype(TypeIdx4::w))adjust_mask_analyze(each_fade_count, valid_mask_count, whole_min_result, min_fade.w, min_result.w, max_result.w);
-
-        ret = apply_mask<TypeIdx4, TypeMask4>(type4_set1<TypeIdx4>(-1), ret, *(const TypeMask4*)ptr_mask, mask_threshold);
-    }
-    if (imgx < logo_w && imgy < logo_h) {
-        *(TypeIdx4 *)(ptr_dst_min_fade_idx) = ret;
+        if (imgy < logo_h) {
+            *(TypeIdx4 *)(ptr_dst_min_fade_idx) = ret;
+        }
     }
 
     __shared__ int shared_tmp[DELOGO_BLOCK_X * DELOGO_BLOCK_Y / WARP_SIZE];
@@ -1014,7 +1016,7 @@ __global__ void kernel_create_adjust_mask1(
         ptr_temp_whole_min_result_valid_mask_count[gid] = make_int2(whole_min_result, valid_mask_count);
     }
     //グローバルメモリにArtomic演算を使ってブロック単位の結果を足しこむ
-    if (lid <= DELOGO_PRE_DIV_COUNT+1) {
+    if (lid <= DELOGO_PRE_DIV_COUNT) {
         atomicAdd(&ptr_temp_each_fade_count[lid], each_fade_count[lid]);
     }
 }
@@ -1081,16 +1083,18 @@ __global__ void kernel_create_adjust_mask2(
     int valid_mask_count = 0;
 
     TypeMask4 ret = type4_set1<TypeMask4>(0);
-    if (imgx < logo_w && 2 <= imgy && imgy < logo_h-2) {
-        TypeIdx4 min_fade_idx = *(TypeIdx4 *)ptr_min_fade_idx;
+    if (imgx < (logo_w>>2)) {
+        if (2 <= imgy && imgy < logo_h-2) {
+            TypeIdx4 min_fade_idx = *(TypeIdx4 *)ptr_min_fade_idx;
 
-        ret.x = gen_adjust_mask<TypeMask4, 0>(valid_mask_count, ptr_eval_result, mask_size, min_fade_idx.x, prewitt_threshold, mask_threshold);
-        ret.y = gen_adjust_mask<TypeMask4, 1>(valid_mask_count, ptr_eval_result, mask_size, min_fade_idx.y, prewitt_threshold, mask_threshold);
-        ret.z = gen_adjust_mask<TypeMask4, 2>(valid_mask_count, ptr_eval_result, mask_size, min_fade_idx.z, prewitt_threshold, mask_threshold);
-        ret.w = gen_adjust_mask<TypeMask4, 3>(valid_mask_count, ptr_eval_result, mask_size, min_fade_idx.w, prewitt_threshold, mask_threshold);
-    }
-    if (imgx < logo_w && imgy < logo_h) {
-        *(TypeMask4 *)ptr_dst_adjusted_mask = ret;
+            ret.x = gen_adjust_mask<TypeMask4, 0>(valid_mask_count, ptr_eval_result, mask_size, min_fade_idx.x, prewitt_threshold, mask_threshold);
+            ret.y = gen_adjust_mask<TypeMask4, 1>(valid_mask_count, ptr_eval_result, mask_size, min_fade_idx.y, prewitt_threshold, mask_threshold);
+            ret.z = gen_adjust_mask<TypeMask4, 2>(valid_mask_count, ptr_eval_result, mask_size, min_fade_idx.z, prewitt_threshold, mask_threshold);
+            ret.w = gen_adjust_mask<TypeMask4, 3>(valid_mask_count, ptr_eval_result, mask_size, min_fade_idx.w, prewitt_threshold, mask_threshold);
+        }
+        if (imgy < logo_h) {
+            *(TypeMask4 *)ptr_dst_adjusted_mask = ret;
+        }
     }
 
     __shared__ int shared_tmp[DELOGO_BLOCK_X * DELOGO_BLOCK_Y / WARP_SIZE];
@@ -1136,6 +1140,7 @@ __global__ void kernel_create_adjust_mask3(
 
     __shared__ int shared_tmp;
     if (lid == 0) {
+        shared_tmp = 0;
         for (int i = 0; i < DELOGO_ADJMASK_DIV_COUNT; i++) {
             if (mask_count[i] >= target_count) {
                 shared_tmp = i;
@@ -1149,7 +1154,7 @@ __global__ void kernel_create_adjust_mask3(
 #endif
     }
     __syncthreads();
-    if (imgx < logo_w && imgy < logo_h) {
+    if (imgx < (logo_w>>2) && imgy < logo_h) {
         ptr_src_adjusted_mask += shared_tmp * mask_size;
         ptr_src_adjusted_mask += imgy * mask_pitch + imgx * sizeof(TypeMask4);
         ptr_dst_adjusted_mask += imgy * mask_pitch + imgx * sizeof(TypeMask4);
