@@ -292,6 +292,8 @@ template<> __device__ constexpr short type_min<short>() { return INT16_MIN; }
 template<> __device__ constexpr short type_max<short>() { return INT16_MAX; }
 template<> __device__ constexpr uint16_t type_min<uint16_t>() { return 0; }
 template<> __device__ constexpr uint16_t type_max<uint16_t>() { return UINT16_MAX; }
+template<> __device__ constexpr int type_min<int>() { return INT_MIN; }
+template<> __device__ constexpr int type_max<int>() { return INT_MAX; }
 
 template<typename TypeSrc, typename TypeDst, int bit_depth, bool target_y>
 __global__ void kernel_delogo_multi_fade(
@@ -1062,19 +1064,106 @@ template<typename TypeIdx4, typename TypeMask4>
 __global__ void kernel_create_adjust_mask2(
     uint8_t *__restrict__ ptr_dst_adjusted_mask, //TypeMask4
     int *__restrict__ ptr_temp_valid_mask_count,
+    int *__restrict__ ptr_target_count,
     const uint8_t *__restrict__ ptr_eval_result, //TypeMask4
     const int mask_pitch, const int mask_size, const int logo_w, const int logo_h,
     const uint8_t *__restrict__ ptr_min_fade_idx, //TypeIdx4
     const int min_fade_idx_pitch,
     const int mask_threshold,
-    const float prewitt_threshold_base
+    const float *__restrict__ ptr_temp_eval, const int eval_blocks,
+    const int2 *__restrict__ ptr_temp_whole_min_result_valid_mask_count, const int block_count,
+    const int *__restrict__ ptr_temp_each_fade_count,
+    const int orig_valid_mask_count
 ) {
     const int imgx = blockIdx.x * DELOGO_BLOCK_X /*blockDim.x*/ + threadIdx.x;
     const int imgy = (blockIdx.y * DELOGO_BLOCK_Y + threadIdx.y);
+    const int lid = threadIdx.y * DELOGO_BLOCK_X + threadIdx.x;
+    const int warp_lane = lid & (WARP_SIZE - 1);
+
+    //eval_resultの集計
+    __shared__ int eval_results[DELOGO_PRE_DIV_COUNT+1];
+    if (lid <= DELOGO_PRE_DIV_COUNT) {
+        eval_results[lid] = 0;
+    }
+    for (int j = threadIdx.y; j <= DELOGO_PRE_DIV_COUNT; j += DELOGO_BLOCK_Y) {
+        int tmp = 0;
+        for (int i = threadIdx.x; i < eval_blocks; i += DELOGO_BLOCK_X) {
+            tmp += ptr_temp_eval[j * eval_blocks + i];
+        }
+        tmp = warp_sum<int, WARP_SIZE>(tmp);
+        if (warp_lane == 0) {
+            atomicAdd(&eval_results[j], tmp);
+        }
+    }
+#if 0
+    if (imgx == 0 && imgy == 0 && blockIdx.z == 0) {
+        for (int i = 0; i <= DELOGO_PRE_DIV_COUNT; i++) {
+            printf("eval_results[%d]=%d\n", i, eval_results[i]);
+        }
+    }
+#endif
+
+    //shared_whole_min_result / shared_valid_mask_evalの集計
+    __shared__ int shared_whole_min_result;
+    __shared__ int shared_valid_mask_eval;
+    if (lid == 0) {
+        shared_whole_min_result = type_min<int>();
+        shared_valid_mask_eval = 0;
+    }
+    {
+        int whole_min_result = type_min<int>();
+        int valid_mask_eval = 0;
+        if (lid < block_count) {
+            int2 temp = ptr_temp_whole_min_result_valid_mask_count[lid];
+            whole_min_result = temp.x;
+            valid_mask_eval = temp.y;
+        }
+        whole_min_result = warp_min<int, WARP_SIZE>(whole_min_result);
+        valid_mask_eval = warp_sum<int, WARP_SIZE>(valid_mask_eval);
+        if (warp_lane == 0) {
+            atomicAdd(&shared_whole_min_result, whole_min_result);
+            atomicAdd(&shared_valid_mask_eval, valid_mask_eval);
+        }
+    }
+#if 0
+    if (imgx == 0 && imgy == 0 && blockIdx.z == 0) {
+        printf("[gpu] shared_whole_min_result=%d, shared_valid_mask_eval=%d\n", shared_whole_min_result, shared_valid_mask_eval);
+    }
+#endif
+    __shared__ int each_fade_count[DELOGO_PRE_DIV_COUNT+1];
+    if (lid <= DELOGO_PRE_DIV_COUNT) {
+        each_fade_count[lid] = ptr_temp_each_fade_count[lid];
+    }
+    __syncthreads();
+
+    __shared__ float shared_prewitt_threshold_base;
+    if (lid == 0) {
+        int min_fade_index = -1;
+        int max_fade_count = -1;
+        for (int i = 0; i <= DELOGO_PRE_DIV_COUNT; i++) {
+            if (each_fade_count[i] > max_fade_count) {
+                max_fade_count = each_fade_count[i];
+                min_fade_index = i;
+            }
+        }
+
+        const float aveResult = (orig_valid_mask_count > 0) ? eval_results[min_fade_index] / orig_valid_mask_count : 0;
+
+        shared_prewitt_threshold_base = shared_whole_min_result * 2.0f + 100.0f;
+        const float rate = 0.5f + (float)min((aveResult - 400.0f) * (1.0f / 200.0f), 4.0f) * 0.08f;
+        const int target_count = (int)((float)shared_valid_mask_eval * (1.0f - rate));
+#if 0
+        if (imgx == 0 && imgy == 0 && blockIdx.z == 0) {
+            printf("[gpu] shared_prewitt_threshold_base = %f, target_count = %d\n", shared_prewitt_threshold_base, target_count);
+        }
+#endif
+        ptr_target_count[0] = target_count;
+    }
+    __syncthreads();
 
     //prewitt_thresholdを並列に計算する
     //prewitt_threshold_baseに対する倍率を配列で保持
-    const float prewitt_threshold = prewitt_threshold_base * g_threshold_adj_mul[blockIdx.z];
+    const float prewitt_threshold = shared_prewitt_threshold_base * g_threshold_adj_mul[blockIdx.z];
 
     ptr_dst_adjusted_mask  += imgy * mask_pitch         + imgx * sizeof(TypeMask4) + mask_size * blockIdx.z;
     ptr_min_fade_idx       += imgy * min_fade_idx_pitch + imgx * sizeof(TypeIdx4);
@@ -1100,7 +1189,6 @@ __global__ void kernel_create_adjust_mask2(
     __shared__ int shared_tmp[DELOGO_BLOCK_X * DELOGO_BLOCK_Y / WARP_SIZE];
     valid_mask_count = block_sum(valid_mask_count, shared_tmp);
 
-    const int lid = threadIdx.y * DELOGO_BLOCK_X + threadIdx.x;
     if (lid == 0) {
         const int gid = blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x;
         ptr_temp_valid_mask_count[gid] = valid_mask_count;
@@ -1115,11 +1203,12 @@ __global__ void kernel_create_adjust_mask3(
     const int *__restrict__ ptr_temp_valid_mask_count, const int block_count,
     const uint8_t *__restrict__ ptr_src_adjusted_mask, //TypeMask4
     const int mask_pitch, const int mask_size, const int logo_w, const int logo_h,
-    const int target_count
+    const int *__restrict__ ptr_target_count
 ) {
     const int imgx = blockIdx.x * DELOGO_BLOCK_X /*blockDim.x*/ + threadIdx.x;
     const int imgy = (blockIdx.y * DELOGO_BLOCK_Y + threadIdx.y);
     const int lid = threadIdx.y * DELOGO_BLOCK_X + threadIdx.x;
+    const int warp_lane = lid & (WARP_SIZE - 1);
 
     __shared__ int mask_count[DELOGO_ADJMASK_DIV_COUNT];
     if (lid < DELOGO_ADJMASK_DIV_COUNT) {
@@ -1131,8 +1220,7 @@ __global__ void kernel_create_adjust_mask3(
             tmp += ptr_temp_valid_mask_count[j * block_count + i];
         }
         tmp = warp_sum<int, WARP_SIZE>(tmp);
-        const int lane = lid & (WARP_SIZE - 1);
-        if (lane == 0) {
+        if (warp_lane == 0) {
             atomicAdd(&mask_count[j], tmp);
         }
     }
@@ -1141,13 +1229,14 @@ __global__ void kernel_create_adjust_mask3(
     __shared__ int shared_tmp;
     if (lid == 0) {
         shared_tmp = 0;
+        const int target_count = ptr_target_count[0];
         for (int i = 0; i < DELOGO_ADJMASK_DIV_COUNT; i++) {
             if (mask_count[i] >= target_count) {
                 shared_tmp = i;
                 break;
             }
         }
-#if DELOGO_DEBUG_CUDA
+#if 0
         for (int i = 0; i < DELOGO_ADJMASK_DIV_COUNT; i++) {
             printf("mask_count[%d]=%d\n", i, mask_count[i]);
         }
@@ -1346,6 +1435,7 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     }
     debug_out_csv<char>(m_adjMaskMinIndex.get(), _T("m_adjMaskMinIndex.csv"));
 #endif
+#if 0
     //計算結果をCPUに転送
     cudaerr = m_adjMaskEachFadeCount.copyDtoHAsync(stream);
     if (cudaerr != cudaSuccess) {
@@ -1366,11 +1456,14 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     //GPUでの計算結果はブロックごとの値なので、最終的な集計はCPUで行う
     auto temp_whole_min_result_valid_mask_count = (const int2 *)m_adjMaskMinResAndValidMaskCount.ptrHost;
     int whole_min_result = std::numeric_limits<int>::max();
-    int valid_mask_count = 0;
+    int valid_mask_eval = 0;
     for (int i = 0; i < blockCount; i++) {
         whole_min_result = std::min(whole_min_result, temp_whole_min_result_valid_mask_count[i].x);
-        valid_mask_count += temp_whole_min_result_valid_mask_count[i].y;
+        valid_mask_eval += temp_whole_min_result_valid_mask_count[i].y;
     }
+#if DELOGO_DEBUG_CUDA
+    AddMessage(RGY_LOG_DEBUG, _T("whole_min_result = %d, valid_mask_eval = %d\n"), whole_min_result, valid_mask_eval);
+#endif
 
     //fade値は集計は必要なく直接利用できる
     auto each_fade_count = (const int *)m_adjMaskEachFadeCount.ptrHost;
@@ -1390,8 +1483,11 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
 
     const float prewitt_threshold_base = whole_min_result * 2.0f + 100.0f;
     const float rate = 0.5f + (float)std::min((aveResult - 400.0f) * (1.0f / 200.0f), 4.0f) * 0.08f;
-    const int target_count = (int)((float)valid_mask_count * (1.0f - rate));
-
+    const int target_count = (int)((float)valid_mask_eval * (1.0f - rate));
+#if DELOGO_DEBUG_CUDA
+    AddMessage(RGY_LOG_DEBUG, _T("prewitt_threshold_base = %f, target_count = %d\n"), prewitt_threshold_base, target_count);
+#endif
+#endif
     static bool threshold_mul_initialized = false;
     if (!threshold_mul_initialized) {
         //constantメモリを初期化
@@ -1413,12 +1509,15 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     kernel_create_adjust_mask2<char4, short4><<<gridSize2, blockSize, 0, stream>>>(
         (uint8_t *)m_adjMaskThresholdTest->frame.ptr, //TypeMask4
         (int *)m_adjMask2ValidMaskCount.ptrDevice,
+        (int *)m_adjMask2TargetCount.get(),
         (const uint8_t *)m_bufEval[0]->frame.ptr, //TypeMask4
         m_bufEval[0]->frame.pitch, m_bufEval[0]->frame.pitch * logo_h,
         logo_w, logo_h,
         (const uint8_t *)m_adjMaskMinIndex->frame.ptr, m_adjMaskMinIndex->frame.pitch,
         m_maskThreshold,
-        prewitt_threshold_base);
+        (const float *)m_evalCounter[0].ptrDevice, m_evalStream[0].evalBlocks,
+        (const int2 *)m_adjMaskMinResAndValidMaskCount.ptrDevice, blockCount,
+        (const int *)m_adjMaskEachFadeCount.ptrDevice, m_maskValidCount);
 
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -1441,7 +1540,8 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
         (const int *)m_adjMask2ValidMaskCount.ptrDevice, blockCount,
         (const uint8_t *)m_adjMaskThresholdTest->frame.ptr, //TypeMask4
         m_maskAdjusted->frame.pitch, m_maskAdjusted->frame.pitch * logo_h,
-        logo_w, logo_h, target_count);
+        logo_w, logo_h,
+        (const int *)m_adjMask2TargetCount.get());
 #if DELOGO_DEBUG_CUDA
     cudaerr = cudaThreadSynchronize();
     if (cudaerr != cudaSuccess) {
@@ -1690,15 +1790,17 @@ NVENCSTATUS NVEncFilterDelogo::prewittEvaluateRun(
     }
 #endif //#if DELOGO_DEBUG_CUDA
     //評価結果(集計版)の一時データをGPU→CPUに転送
-    cudaEventRecord(*evalst.heEval.get(), stream);
-    cudaStreamWaitEvent(*evalst.stEvalSub.get(), *evalst.heEval.get(), 0);
-    cudaerr = m_evalCounter[nr_value].copyDtoHAsync(*evalst.stEvalSub.get());
-    if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("error at prewittEvaluate(m_evalCounter[nr_value].copyDtoHAsync): %s.\n"),
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return NV_ENC_ERR_INVALID_CALL;
+    if (evalst.stEvalSub) {
+        cudaEventRecord(*evalst.heEval.get(), stream);
+        cudaStreamWaitEvent(*evalst.stEvalSub.get(), *evalst.heEval.get(), 0);
+        cudaerr = m_evalCounter[nr_value].copyDtoHAsync(*evalst.stEvalSub.get());
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at prewittEvaluate(m_evalCounter[nr_value].copyDtoHAsync): %s.\n"),
+                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
+        cudaEventRecord(*evalst.heEvalCopyFin.get(), *evalst.stEvalSub.get());
     }
-    cudaEventRecord(*evalst.heEvalCopyFin.get(), *evalst.stEvalSub.get());
     return NV_ENC_SUCCESS;
 }
 

@@ -148,16 +148,17 @@ public:
         heEval.reset();
         heEvalCopyFin.reset();
     }
-    cudaError_t init(CUctx_flags cudaSchedule) {
+    cudaError_t init(CUctx_flags cudaSchedule, bool noSubStream = false) {
         cudaError_t cudaerr = cudaSuccess;
         stEval = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
         cudaerr = cudaStreamCreateWithFlags(stEval.get(), cudaStreamNonBlocking);
         if (cudaerr != cudaSuccess) return cudaerr;
 
-        stEvalSub = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-        cudaerr = cudaStreamCreateWithFlags(stEvalSub.get(), cudaStreamNonBlocking);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
+        if (!noSubStream) {
+            stEvalSub = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
+            cudaerr = cudaStreamCreateWithFlags(stEvalSub.get(), cudaStreamNonBlocking);
+            if (cudaerr != cudaSuccess) return cudaerr;
+        }
         const uint32_t cudaEventFlags = (cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : 0;
         heEval = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         cudaerr = cudaEventCreateWithFlags(heEval.get(), cudaEventFlags | cudaEventDisableTiming);
@@ -240,6 +241,7 @@ protected:
     CUMemBufPair m_adjMaskEachFadeCount;
     CUMemBufPair m_adjMaskMinResAndValidMaskCount;
     CUMemBufPair m_adjMask2ValidMaskCount;
+    unique_ptr<void, cudadevice_deleter> m_adjMask2TargetCount;
     DelogoEvalStreams m_adjMaskStream;
     unique_ptr<void, cudadevice_deleter> m_smoothKernel;
     CUMemBufPair m_fadeValueAdjust;

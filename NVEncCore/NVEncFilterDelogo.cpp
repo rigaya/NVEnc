@@ -173,6 +173,7 @@ NVEncFilterDelogo::NVEncFilterDelogo() :
     m_adjMaskEachFadeCount(),
     m_adjMaskMinResAndValidMaskCount(),
     m_adjMask2ValidMaskCount(),
+    m_adjMask2TargetCount(),
     m_adjMaskStream(),
     m_smoothKernel(),
     m_fadeValueAdjust(),
@@ -690,18 +691,29 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
                 return NV_ENC_ERR_OUT_OF_MEMORY;
             }
-            cudaerr = m_adjMask2ValidMaskCount.alloc(sizeof(int) * maxBlocks * DELOGO_ADJMASK_DIV_COUNT);
+            cudaerr = m_adjMask2ValidMaskCount.alloc(sizeof(int) * (1 + maxBlocks * DELOGO_ADJMASK_DIV_COUNT));
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMask2ValidMaskCount: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
                 return NV_ENC_ERR_OUT_OF_MEMORY;
             }
 
-            cudaerr = m_adjMaskStream.init(pDelogoParam->cudaSchedule);
+            cudaerr = m_adjMaskStream.init(pDelogoParam->cudaSchedule, true);
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to create stream or event for m_adjMaskStream: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
                 return NV_ENC_ERR_GENERIC;
+            }
+
+            if (!m_adjMask2TargetCount) {
+                void *ptr = nullptr;
+                cudaerr = cudaMalloc(&ptr, sizeof(int));
+                if (cudaerr != cudaSuccess) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMask2TargetCount: %s.\n"),
+                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                }
+                m_adjMask2TargetCount = unique_ptr<void, cudadevice_deleter>(ptr, cudadevice_deleter());
             }
 
             if (!m_smoothKernel) {
@@ -1268,6 +1280,7 @@ void NVEncFilterDelogo::close() {
     m_adjMaskEachFadeCount.clear();
     m_adjMaskMinResAndValidMaskCount.clear();
     m_adjMask2ValidMaskCount.clear();
+    m_adjMask2TargetCount.reset();
     m_smoothKernel.reset();
     m_fadeValueAdjust.clear();
     m_fadeValueParallel.clear();
