@@ -1749,55 +1749,15 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
         memset(m_Demux.video.pExtradata + m_Demux.video.nExtradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
         if (m_Demux.video.pBsfcCtx && m_Demux.video.pExtradata[0] == 1) {
-            int ret = 0;
-            auto pBsf = av_bsf_get_by_name(m_Demux.video.pBsfcCtx->filter->name);
-            if (pBsf == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("failed find %s.\n"), char_to_tstring(m_Demux.video.pBsfcCtx->filter->name).c_str());
-                return RGY_ERR_NOT_FOUND;
+            if (m_Demux.video.nExtradataSize < m_Demux.video.pBsfcCtx->par_out->extradata_size) {
+                m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, m_Demux.video.pBsfcCtx->par_out->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
             }
-            AVBSFContext *pBsfCtx = nullptr;
-            if (0 > (ret = av_bsf_alloc(pBsf, &pBsfCtx))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed alloc memory for %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_NULL_PTR;
-            }
-            if (0 > (ret = avcodec_parameters_copy(pBsfCtx->par_in, m_Demux.video.pStream->codecpar))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to copy param for %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            if (0 > (ret = av_bsf_init(pBsfCtx))) {
-                AddMessage(RGY_LOG_ERROR, _T("failed init %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            uint8_t H264_IDR[] = { 0x00, 0x00, 0x00, 0x01, 0x65 };
-            uint8_t HEVC_IDR[] = { 0x00, 0x00, 0x00, 0x01, 19<<1 };
-            AVPacket pkt = { 0 };
-            av_init_packet(&pkt);
-            switch (m_Demux.video.pStream->codecpar->codec_id) {
-            case AV_CODEC_ID_H264: pkt.data = H264_IDR; pkt.size = sizeof(H264_IDR); break;
-            case AV_CODEC_ID_HEVC: pkt.data = HEVC_IDR; pkt.size = sizeof(HEVC_IDR); break;
-            default: break;
-            }
-            if (pkt.data == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("invalid codec to run %s.\n"), char_to_tstring(pBsf->name).c_str());
-                return RGY_ERR_NOT_FOUND;
-            }
-            for (AVPacket *inpkt = &pkt; 0 == av_bsf_send_packet(pBsfCtx, inpkt); inpkt = nullptr) {
-                ret = av_bsf_receive_packet(pBsfCtx, &pkt);
-                if (ret == 0)
-                    break;
-                if (ret != AVERROR(EAGAIN) && !(inpkt && ret == AVERROR_EOF)) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to run %s.\n"), char_to_tstring(pBsf->name).c_str());
-                    return RGY_ERR_UNKNOWN;
-                }
-            }
-            av_bsf_free(&pBsfCtx);
-            if (m_Demux.video.nExtradataSize < pkt.size) {
-                m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, m_Demux.video.pStream->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-            }
-            memcpy(m_Demux.video.pExtradata, pkt.data, pkt.size);
-            AddMessage(RGY_LOG_DEBUG, _T("GetHeader: changed %d bytes -> %d bytes by %s.\n"), m_Demux.video.nExtradataSize, pkt.size, char_to_tstring(pBsf->name).c_str());
-            m_Demux.video.nExtradataSize = pkt.size;
-            av_packet_unref(&pkt);
+            memcpy(m_Demux.video.pExtradata, m_Demux.video.pBsfcCtx->par_out->extradata, m_Demux.video.pBsfcCtx->par_out->extradata_size);
+            AddMessage(RGY_LOG_DEBUG, _T("GetHeader: changed %d bytes -> %d bytes by %s.\n"),
+                m_Demux.video.nExtradataSize, m_Demux.video.pBsfcCtx->par_out->extradata_size,
+                char_to_tstring(m_Demux.video.pBsfcCtx->filter->name).c_str());
+            m_Demux.video.nExtradataSize = m_Demux.video.pBsfcCtx->par_out->extradata_size;
+            memset(m_Demux.video.pExtradata + m_Demux.video.nExtradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
         } else if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_VC1) {
             int lengthFix = (0 == strcmp(m_Demux.format.pFormatCtx->iformat->name, "mpegts")) ? 0 : -1;
             vc1FixHeader(lengthFix);
