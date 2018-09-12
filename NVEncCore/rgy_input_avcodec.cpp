@@ -963,7 +963,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                     return RGY_ERR_NULL_PTR;
                 }
                 m_Demux.video.pBsfcCtx->time_base_in = av_stream_get_codec_timebase(m_Demux.video.pStream);
-                if (0 > (ret = avcodec_parameters_copy(m_Demux.video.pBsfcCtx->par_in, m_Demux.video.pStream->codecpar))) {
+                if (0 > (ret = avcodec_parameters_from_context(m_Demux.video.pBsfcCtx->par_in, m_Demux.video.pStream->codec))) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to set parameter for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_NULL_PTR;
                 }
@@ -1030,7 +1030,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             unique_ptr_custom<AVCodecParameters> codecParamCopy(avcodec_parameters_alloc(), [](AVCodecParameters *pCodecPar) {
                 avcodec_parameters_free(&pCodecPar);
             });
-            if (0 > (ret = avcodec_parameters_copy(codecParamCopy.get(), m_Demux.video.pStream->codecpar))) {
+            if (0 > (ret = avcodec_parameters_from_context(codecParamCopy.get(), m_Demux.video.pStream->codec))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
