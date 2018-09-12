@@ -327,11 +327,11 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 对于提高画面质量很有效，允许自适应插入 I 帧和 B帧。
 
-### --no-i-apapt
+### --no-i-adapt
 
 当 lookahead 启用时禁用自适应 I 帧插入。
 
-### --no-b-apapt
+### --no-b-adapt
 
 当 lookahead 启用时禁用自适应 B 帧插入。
 
@@ -382,7 +382,7 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 指定 H.264 B Direct 模式.
 - auto (默认)
-- none
+- disabled
 - spatial
 - temporal
 
