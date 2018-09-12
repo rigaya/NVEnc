@@ -171,6 +171,7 @@ void RGYInputAvcodec::SetExtraData(AVCodecParameters *pCodecParam, const uint8_t
     pCodecParam->extradata_size = size;
     pCodecParam->extradata      = (uint8_t *)av_malloc(pCodecParam->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
     memcpy(pCodecParam->extradata, data, size);
+    memset(pCodecParam->extradata + size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 };
 
 RGY_CODEC RGYInputAvcodec::checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt, const CodecCsp *pHWDecCodecCsp) {
@@ -940,7 +941,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         }
 
         //必要ならbitstream filterを初期化
-        if (m_Demux.video.pStream->codecpar->extradata && m_Demux.video.pStream->codecpar->extradata[0] == 1) {
+        if (m_Demux.video.nHWDecodeDeviceId >= 0 && m_Demux.video.pStream->codecpar->extradata && m_Demux.video.pStream->codecpar->extradata[0] == 1) {
             if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_H264 ||
                 m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
                 const char *filtername = nullptr;
