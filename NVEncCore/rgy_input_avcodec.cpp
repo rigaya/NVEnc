@@ -288,6 +288,51 @@ void RGYInputAvcodec::vc1AddFrameHeader(AVPacket *pkt) {
     }
 }
 
+void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
+    static const uint8_t SC[] = { 0, 0, 0, 1 };
+    const uint8_t *ptr, *ptr_fin;
+    if (pkt == NULL) {
+        m_hevcMp42AnnexbBuffer.reserve(m_Demux.video.nExtradataSize + 128);
+        ptr = m_Demux.video.pExtradata;
+        ptr_fin = ptr + m_Demux.video.nExtradataSize;
+        ptr += 0x16;
+    } else {
+        m_hevcMp42AnnexbBuffer.reserve(pkt->size + 128);
+        ptr = pkt->data;
+        ptr_fin = ptr + pkt->size;
+    }
+    const int numOfArrays = *ptr;
+    ptr += !!numOfArrays;
+
+    while (ptr + 6 < ptr_fin) {
+        ptr += !!numOfArrays;
+        const int count = readUB16(ptr); ptr += 2;
+        int units = (numOfArrays) ? count : 1;
+        for (int i = (std::max)(1, units); i; i--) {
+            uint32_t size = readUB16(ptr); ptr += 2;
+            uint32_t uppper = count << 16;
+            size += (numOfArrays) ? 0 : uppper;
+            m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), SC, SC+4);
+            m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), ptr, ptr+size); ptr += size;
+        }
+    }
+    if (pkt) {
+        if (pkt->buf->size < (int)m_hevcMp42AnnexbBuffer.size()) {
+            av_grow_packet(pkt, (int)m_hevcMp42AnnexbBuffer.size());
+        }
+        memcpy(pkt->data, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
+        pkt->size = (int)m_hevcMp42AnnexbBuffer.size();
+    } else {
+        if (m_Demux.video.pExtradata) {
+            av_free(m_Demux.video.pExtradata);
+        }
+        m_Demux.video.pExtradata = (uint8_t *)av_malloc(m_hevcMp42AnnexbBuffer.size());
+        m_Demux.video.nExtradataSize = (int)m_hevcMp42AnnexbBuffer.size();
+        memcpy(m_Demux.video.pExtradata, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
+    }
+    m_hevcMp42AnnexbBuffer.clear();
+}
+
 RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown) {
     AVRational fpsDecoder = m_Demux.video.pStream->avg_frame_rate;
     const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
@@ -942,7 +987,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
 
         //必要ならbitstream filterを初期化
         if (m_Demux.video.nHWDecodeDeviceId >= 0 && m_Demux.video.pStream->codecpar->extradata && m_Demux.video.pStream->codecpar->extradata[0] == 1) {
-            if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_H264 ||
+            if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+                m_Demux.video.bUseHEVCmp42AnnexB = true;
+            } else if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_H264 ||
                 m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
                 const char *filtername = nullptr;
                 switch (m_Demux.video.pStream->codecpar->codec_id) {
@@ -1035,7 +1082,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            if (m_Demux.video.pBsfcCtx) {
+            if (m_Demux.video.pBsfcCtx || m_Demux.video.bUseHEVCmp42AnnexB) {
                 SetExtraData(codecParamCopy.get(), m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
             }
             if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.pCodecCtxParser, codecParamCopy.get()))) {
@@ -1157,7 +1204,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            if (m_Demux.video.pBsfcCtx) {
+            if (m_Demux.video.pBsfcCtx || m_Demux.video.bUseHEVCmp42AnnexB) {
                 SetExtraData(codecParamCopy.get(), m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
             }
             if (0 > (ret = avcodec_parameters_to_context(m_Demux.video.pCodecCtxDecode, codecParamCopy.get()))) {
@@ -1451,6 +1498,9 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
             }
             if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_VC1) {
                 vc1AddFrameHeader(pkt);
+            }
+            if (m_Demux.video.bUseHEVCmp42AnnexB) {
+                hevcMp42Annexb(pkt);
             }
             //最初のキーフレームを取得するまではスキップする
             //スキップした枚数はi_samplesでカウントし、trim時に同期を適切にとるため、m_sTrimParam.offsetに格納する
@@ -1749,7 +1799,9 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
         memcpy(m_Demux.video.pExtradata, m_Demux.video.pStream->codecpar->extradata, m_Demux.video.nExtradataSize);
         memset(m_Demux.video.pExtradata + m_Demux.video.nExtradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
-        if (m_Demux.video.pBsfcCtx && m_Demux.video.pExtradata[0] == 1) {
+        if (m_Demux.video.bUseHEVCmp42AnnexB) {
+            hevcMp42Annexb(nullptr);
+        } else if (m_Demux.video.pBsfcCtx && m_Demux.video.pExtradata[0] == 1) {
             if (m_Demux.video.nExtradataSize < m_Demux.video.pBsfcCtx->par_out->extradata_size) {
                 m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, m_Demux.video.pBsfcCtx->par_out->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
             }
