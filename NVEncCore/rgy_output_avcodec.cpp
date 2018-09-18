@@ -2063,13 +2063,16 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
 #endif
 
     if (m_Mux.video.pBsfc) {
+        int target_nal = 0;
         std::vector<nal_info> nal_list;
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            target_nal = NALU_HEVC_SPS;
             nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
         } else if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
-            nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+            target_nal = NALU_H264_SPS;
+            nal_list = parse_nal_unit_h264(pBitstream->data(), pBitstream->size());
         }
-        auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+        auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [target_nal](nal_info info) { return info.type == target_nal; });
         if (sps_nal != nal_list.end()) {
             AVPacket pkt = { 0 };
             av_init_packet(&pkt);
