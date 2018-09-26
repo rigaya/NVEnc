@@ -40,12 +40,14 @@
 #include <string>
 #include <chrono>
 #include <memory>
+#include <algorithm>
 #include <climits>
 #include <map>
 #include <list>
 #include <sstream>
 #include <functional>
 #include <type_traits>
+#include "rgy_err.h"
 #include "rgy_osdep.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
@@ -182,6 +184,16 @@ struct handle_deleter {
         if (handle) {
 #if defined(_WIN32) || defined(_WIN64)
             CloseHandle(handle);
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        }
+    }
+};
+
+struct module_deleter {
+    void operator()(void *hmodule) const {
+        if (hmodule) {
+#if defined(_WIN32) || defined(_WIN64)
+            FreeLibrary((HMODULE)hmodule);
 #endif //#if defined(_WIN32) || defined(_WIN64)
         }
     }
@@ -781,7 +793,7 @@ struct VideoInfo {
     //[(i)(i)] 入力ピッチ 0なら入力横解像度に同じ
     uint32_t srcPitch;
 
-    uint32_t codedWidth;     //[   (i)] 
+    uint32_t codedWidth;     //[   (i)]
     uint32_t codedHeight;    //[   (i)]
 
                              //[      ] 出力解像度
@@ -1040,5 +1052,238 @@ const CX_DESC list_interlaced[] = {
 #endif
 
 int rgy_avx_dummy_if_avail(int bAVXAvail);
+
+struct rgy_time {
+    int h, m, s, ms, us, ns;
+
+    rgy_time() : h(0), m(0), s(0), ms(0), us(0), ns(0) {};
+    rgy_time(double time_sec) : h(0), m(0), s(0), ms(0), us(0), ns(0) {
+        s = (int)time_sec;
+        time_sec -= s;
+        ns = (int)(time_sec * 1e9 + 0.5);
+        us = ns / 1000;
+        ns -= us * 1000;
+        ms = us / 1000;
+        us -= ms * 1000;
+
+        m = (int)(s / 60);
+        s -= m * 60;
+        h = m / 60;
+        m -= h * 60;
+    };
+    rgy_time(uint32_t millisec) : h(0), m(0), s(0), ms(0), us(0), ns(0) {
+        s = (int)(millisec / 1000);
+        ms = (int)(millisec - s * 1000);
+        m = s / 60;
+        s -= m * 60;
+        h = m / 60;
+        m -= h * 60;
+    };
+    rgy_time(int64_t millisec) : h(0), m(0), s(0), ms(0), us(0), ns(0) {
+        int64_t sec = millisec / 1000;
+        ms = (int)(millisec - sec * 1000);
+
+        int64_t min = sec / 60;
+        s = (int)(sec - min * 60);
+
+        h = (int)(min / 60);
+        m = (int)(min - h * 60);
+    }
+    int64_t in_sec() {
+        return (((int64_t)h * 60 + m) * 60 + s + ((ms + ((us >= 500) ? 1 : 0)) >= 500) ? 1 : 0);
+    };
+    int64_t in_ms() {
+        return (((int64_t)h * 60 + m) * 60 + s) * 1000 + ms + ((us >= 500) ? 1 : 0);
+    };
+    tstring print() {
+        auto str = strsprintf(_T("%d:%02d:%02d.%3d"), h, m, s, ms);
+        if (us) {
+            str += std::to_wstring(us);
+        }
+        if (ns) {
+            str += std::to_wstring(ns);
+        }
+        return str;
+    };
+};
+
+class rgy_stream {
+    uint8_t *bufptr_;
+    int64_t buf_size_;
+    int64_t data_length_;
+    int64_t offset_;
+
+    uint32_t data_flag_;
+    int duration_;
+    int64_t pts_;
+    int64_t dts_;
+public:
+    uint8_t *bufptr() const {
+        return bufptr_;
+    }
+    uint8_t *data() const {
+        return bufptr_ + offset_;
+    }
+    int64_t size() const {
+        return data_length_;
+    }
+    int64_t buf_size() const {
+        return buf_size_;
+    }
+    void add_offset(int64_t add) {
+        if (data_length_ < add) {
+            add = data_length_;
+        }
+        offset_ += add;
+        data_length_ -= add;
+    }
+
+    void clear() {
+        if (bufptr_) {
+            _aligned_free(bufptr_);
+        }
+        bufptr_ = nullptr;
+        buf_size_ = 0;
+        data_length_ = 0;
+        offset_ = 0;
+    }
+    RGY_ERR alloc(int64_t size) {
+        clear();
+
+        if (size > 0) {
+            if (nullptr == (bufptr_ = (uint8_t *)_aligned_malloc(size, 32))) {
+                return RGY_ERR_NULL_PTR;
+            }
+            buf_size_ = size;
+        }
+        return RGY_ERR_NONE;
+    }
+    RGY_ERR realloc(int64_t size) {
+        if (bufptr_ == nullptr) {
+            return alloc(size);
+        }
+        if (size > 0) {
+            auto newptr = (uint8_t *)_aligned_malloc(size, 32);
+            if (newptr == nullptr) {
+                return RGY_ERR_NULL_PTR;
+            }
+            auto newdatalen = std::min(size, data_length_);
+            memcpy(newptr, bufptr_ + offset_, newdatalen);
+            _aligned_free(bufptr_);
+            bufptr_ = newptr;
+            offset_ = 0;
+            data_length_ = newdatalen;
+            buf_size_ = size;
+        }
+        return RGY_ERR_NONE;
+    }
+    RGY_ERR init() {
+        bufptr_ = nullptr;
+        buf_size_ = 0;
+        data_length_ = 0;
+        offset_ = 0;
+
+        data_flag_ = 0;
+        duration_ = 0;
+        pts_ = 0;
+        dts_ = 0;
+    }
+
+    void trim() {
+        if (offset_ > 0 && data_length_ > 0) {
+            memmove(bufptr_, bufptr_ + offset_, data_length_);
+            offset_ = 0;
+        }
+    }
+
+    RGY_ERR copy(const uint8_t *data, int64_t size) {
+        if (data == nullptr || size == 0) {
+            return RGY_ERR_MORE_BITSTREAM;
+        }
+        if (buf_size_ < size) {
+            clear();
+            auto sts = alloc(size);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        data_length_ = size;
+        offset_ = 0;
+        memcpy(bufptr_, data, size);
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR copy(const uint8_t *data, int64_t size, int64_t pts) {
+        pts_ = pts;
+        return copy(data, size);
+    }
+
+    RGY_ERR copy(const uint8_t *data, int64_t size, int64_t pts, int64_t dts) {
+        dts_ = dts;
+        return copy(data, size, pts);
+    }
+
+    RGY_ERR copy(const uint8_t *data, int64_t size, int64_t pts, int64_t dts, int duration) {
+        duration_ = duration;
+        return copy(data, size, pts, dts);
+    }
+
+    RGY_ERR copy(const uint8_t *data, int64_t size, int64_t pts, int64_t dts, int duration, uint32_t flag) {
+        data_flag_ = flag;
+        return copy(data, size, pts, dts, duration);
+    }
+
+    RGY_ERR copy(const rgy_stream *pBitstream) {
+        auto sts = copy(pBitstream->data(), pBitstream->size());
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        return copy(pBitstream->data(), pBitstream->size(), pBitstream->pts(), pBitstream->dts(), pBitstream->duration(), pBitstream->data_flag());
+    }
+
+    RGY_ERR append(const uint8_t *append_data, int64_t append_size) {
+        if (append_data && append_size > 0) {
+            const auto new_data_length = append_size + data_length_;
+            if (buf_size_ < new_data_length) {
+                auto sts = realloc(new_data_length * 2);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+
+            if (buf_size_ < new_data_length + offset_) {
+                trim();
+            }
+            memcpy(bufptr_ + data_length_ + offset_, append_data, append_size);
+            data_length_ = new_data_length;
+        }
+        return RGY_ERR_NONE;
+    }
+
+    uint32_t data_flag() const {
+        return data_flag_;
+    }
+    void set_data_flag(uint32_t flag) {
+        data_flag_  = flag;
+    }
+    int duration() const {
+        return duration_;
+    }
+    void set_duration(int duration) {
+        duration_ = duration;
+    }
+    int64_t pts() const {
+        return pts_;
+    }
+    void set_pts(int64_t pts) {
+        pts_ = pts;
+    }
+    int64_t dts() const {
+        return dts_;
+    }
+    void set_dts(int64_t dts) {
+        dts_ = dts;
+    }
+};
 
 #endif //__RGY_UTIL_H__

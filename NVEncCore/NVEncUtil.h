@@ -76,7 +76,6 @@ private:
     RGY_PICSTRUCT dataPicstruct;
     int dataFrameIdx;
     int64_t dataDuration;
-
 public:
     uint8_t *bufptr() const {
         return dataptr;

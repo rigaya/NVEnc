@@ -42,6 +42,8 @@
 #include <thread>
 #include <cassert>
 
+#define USE_CUSTOM_INPUT 1
+
 using std::vector;
 using std::pair;
 using std::deque;
@@ -663,6 +665,10 @@ typedef struct AVDemuxFormat {
     int                       nSubtitleTracks;       //存在する字幕のトラック数
     RGYAVSync                 nAVSyncMode;           //音声・映像同期モード
     AVDictionary             *pFormatOptions;        //avformat_open_inputに渡すオプション
+
+    FILE                     *fpInput;               //入力ファイルポインタ
+    char                     *pInputBuffer;          //入力バッファ
+    int                      inputBufferSize;        //入力バッファサイズ
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
@@ -814,6 +820,11 @@ public:
     //入力スレッドのハンドルを取得する
     HANDLE getThreadHandleInput();
 
+#if USE_CUSTOM_INPUT
+    int readPacket(uint8_t *buf, int buf_size);
+    int writePacket(uint8_t *buf, int buf_size);
+    int64_t seek(int64_t offset, int whence);
+#endif //USE_CUSTOM_INPUT
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
 

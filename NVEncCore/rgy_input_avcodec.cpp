@@ -44,7 +44,22 @@
 //#include "qsv_allocator.h"
 //#endif //#if LIBVA_SUPPORT
 
+
 #if ENABLE_AVSW_READER
+#if USE_CUSTOM_INPUT
+static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
+    RGYInputAvcodec *reader = reinterpret_cast<RGYInputAvcodec *>(opaque);
+    return reader->readPacket(buf, buf_size);
+}
+static int funcWritePacket(void *opaque, uint8_t *buf, int buf_size) {
+    RGYInputAvcodec *writer = reinterpret_cast<RGYInputAvcodec *>(opaque);
+    return reader->writePacket(buf, buf_size);
+}
+static int64_t funcSeek(void *opaque, int64_t offset, int whence) {
+    RGYInputAvcodec *writer = reinterpret_cast<RGYInputAvcodec *>(opaque);
+    return reader->seek(offset, whence);
+}
+#endif //USE_CUSTOM_INPUT
 
 static inline void extend_array_size(VideoFrameData *dataset) {
     static int default_capacity = 8 * 1024;
@@ -742,6 +757,26 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             return RGY_ERR_INVALID_FORMAT;
         }
     }
+
+#if USE_CUSTOM_INPUT
+    if (!m_Demux.format.bIsPipe && !usingAVProtocols(filename_char, 1) || !(pInFormat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
+        m_Demux.format.fpInput = _tfsopen(strFileName, _T("wb"), _SH_DENYWR);
+        if (m_Demux.format.fpInput == NULL) {
+            errno_t error = errno;
+            AddMessage(RGY_LOG_ERROR, _T("failed to open output file \"%s\": %s.\n"), strFileName, _tcserror(error));
+            return RGY_ERR_FILE_OPEN; // Couldn't open file
+        }
+        m_Demux.format.inputBufferSize = 8;
+        if (0 < (m_Demux.format.inputBufferSize = (uint32_t)malloc_degeneracy((void **)&m_Demux.format.pInputBuffer, m_Demux.format.inputBufferSize, 1024 * 1024))) {
+            setvbuf(m_Demux.format.fpInput, m_Demux.format.pInputBuffer, _IOFBF, m_Demux.format.inputBufferSize);
+            AddMessage(RGY_LOG_DEBUG, _T("set external output buffer %d MB.\n"), m_Demux.format.inputBufferSize / (1024 * 1024));
+        }
+        if (NULL == (m_Demux.format.pFormatCtx->pb = avio_alloc_context((unsigned char *)m_Demux.format.pInputBuffer, m_Demux.format.inputBufferSize, 1, this, funcReadPacket, funcWritePacket, funcSeek))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to alloc avio context.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+    } else
+#else
     //ファイルのオープン
     if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), pInFormat, &m_Demux.format.pFormatOptions)) {
         AddMessage(RGY_LOG_ERROR, _T("error opening file: \"%s\"\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
@@ -1963,4 +1998,17 @@ RGY_ERR RGYInputAvcodec::ThreadFuncRead() {
     return RGY_ERR_NONE;
 }
 
+#if USE_CUSTOM_INPUT
+int RGYInputAvcodec::readPacket(uint8_t *buf, int buf_size) {
+    return (int)fread(buf, 1, buf_size, m_Demux.format.fpInput);
+}
+int RGYInputAvcodec::writePacket(uint8_t *buf, int buf_size) {
+    return (int)fwrite(buf, 1, buf_size, m_Demux.format.fpInput);
+}
+int64_t RGYInputAvcodec::seek(int64_t offset, int whence) {
+    return _fseeki64(m_Demux.format.fpInput, offset, whence);
+}
+#endif //USE_CUSTOM_INPUT
+
 #endif //ENABLE_AVSW_READER
+
