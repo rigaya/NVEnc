@@ -610,6 +610,9 @@ The chapter file could be either in nero format or apple format. Cannot be used 
 ### --chapter-copy
 Copy chapters from input file.
 
+### --key-on-chapter
+Set keyframe on chapter position.
+
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
 It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;int&gt;].

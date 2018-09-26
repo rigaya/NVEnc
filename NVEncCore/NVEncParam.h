@@ -193,7 +193,7 @@ const CX_DESC list_nvenc_codecs_for_opt[] = {
     { NULL, NULL }
 };
 
-const CX_DESC list_avc_level[] = { 
+const CX_DESC list_avc_level[] = {
     { _T("auto"), 0   },
     { _T("1"),    10  },
     { _T("1b"),   9   },
@@ -215,7 +215,7 @@ const CX_DESC list_avc_level[] = {
     { NULL, NULL }
 };
 
-const CX_DESC list_hevc_level[] = { 
+const CX_DESC list_hevc_level[] = {
     { _T("auto"), 0   },
     { _T("1"),    NV_ENC_LEVEL_HEVC_1   },
     { _T("2"),    NV_ENC_LEVEL_HEVC_2   },
@@ -233,7 +233,7 @@ const CX_DESC list_hevc_level[] = {
     { NULL, NULL }
 };
 
-const CX_DESC list_hevc_cu_size[] = { 
+const CX_DESC list_hevc_cu_size[] = {
     { _T("auto"), NV_ENC_HEVC_CUSIZE_AUTOSELECT },
     { _T("8"),    NV_ENC_HEVC_CUSIZE_8x8        },
     { _T("16"),   NV_ENC_HEVC_CUSIZE_16x16      },
@@ -300,7 +300,7 @@ const CX_DESC list_videoformat[] = {
     { _T("pal"),       1  },
     { _T("secam"),     3  },
     { _T("mac"),       4  },
-    { NULL, NULL } 
+    { NULL, NULL }
 };
 const CX_DESC list_chromaloc[] = {
     { _T("0"), 0 },
@@ -817,6 +817,7 @@ struct InEncodeVideoParam {
     int nTrimCount;
     sTrim *pTrimList;
     bool bCopyChapter;
+    bool keyOnChapter;
     int nOutputThread;
     int nAudioThread;
     int nInputThread;

@@ -614,6 +614,9 @@ nero形式とapple形式に対応する。--chapter-copyとは併用できない
 ### --chapter-copy
 チャプターをコピーする。
 
+### --key-on-chapter
+キーフレーム位置にチャプターを挿入する。
+
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
 [&lt;int&gt;[,&lt;int&gt;]...]で、抽出する字幕トラック(1,2,...)を指定することもできる。
