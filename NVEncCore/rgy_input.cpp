@@ -26,7 +26,28 @@
 // ------------------------------------------------------------------------------------------
 
 #include <sstream>
+#include <iostream>
+#include <fstream>
+#include <set>
 #include "rgy_input.h"
+
+std::vector<int> read_keyfile(tstring keyfile) {
+    std::set<int> s; //重複回避のため
+    std::ifstream ifs(keyfile);
+    if (ifs.is_open()) {
+        std::string buff;
+        while (std::getline(ifs, buff)) {
+            if (buff.length() > 0) {
+                try {
+                    s.insert(std::stoi(buff));
+                } catch (...) {
+                    return vector<int>();
+                }
+            }
+        }
+    }
+    return vector<int>(s.begin(), s.end());
+}
 
 RGYInput::RGYInput() :
     m_pEncSatusInfo(),

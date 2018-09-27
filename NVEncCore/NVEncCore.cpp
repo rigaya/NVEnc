@@ -82,6 +82,12 @@
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"
 
+#if _M_IX86
+typedef ttmath::Int<4> ttint128;
+#else
+typedef ttmath::Int<2> ttint128;
+#endif
+
 using std::deque;
 
 #if ENABLE_NVTX
@@ -331,7 +337,10 @@ NVEncCore::NVEncCore() {
     m_pAbortByUser = nullptr;
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
+#if ENABLE_AVSW_READER
+    m_keyFile.clear();
     m_keyOnChapter = false;
+#endif
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -449,6 +458,7 @@ NVENCSTATUS NVEncCore::readChapterFile(const tstring& chapfile) {
 }
 
 NVENCSTATUS NVEncCore::InitChapters(const InEncodeVideoParam *inputParam) {
+#if ENABLE_AVSW_READER
     m_Chapters.clear();
     if (inputParam->sChapterFile.length() > 0) {
         //チャプターファイルを読み込む
@@ -476,6 +486,7 @@ NVENCSTATUS NVEncCore::InitChapters(const InEncodeVideoParam *inputParam) {
             m_keyOnChapter = inputParam->keyOnChapter;
         }
     }
+#endif //#if ENABLE_AVSW_READER
     return NV_ENC_SUCCESS;
 }
 
@@ -795,11 +806,6 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                 writerPrm.chapterList.clear();
                 for (uint32_t i = 0; i < m_Chapters.size(); i++) {
                     writerPrm.chapterList.push_back(m_Chapters[i].get());
-                }
-                if (inputParams->keyOnChapter && m_trimParam.list.size() > 0) {
-                    PrintMes(RGY_LOG_WARN, _T("--key-on-chap not supported when using --trim.\n"));
-                } else {
-                    m_keyOnChapter = inputParams->keyOnChapter;
                 }
             }
             writerPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
@@ -1416,6 +1422,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
         cuvidCtxLockDestroy(m_ctxLock);
         m_ctxLock = nullptr;
     }
+    m_keyFile.clear();
 #endif //#if ENABLE_AVSW_READER
 
     m_pStatus.reset();
@@ -3286,6 +3293,20 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitChapters: Success.\n"));
 
+#if ENABLE_AVSW_READER
+    if (inputParam->keyFile.length() > 0) {
+        if (m_trimParam.list.size() > 0) {
+            PrintMes(RGY_LOG_WARN, _T("--keyfile could not be used with --trim, disabled.\n"));
+        } else {
+            m_keyFile = read_keyfile(inputParam->keyFile);
+            if (m_keyFile.size() == 0) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to read keyFile \"%s\".\n"), inputParam->keyFile.c_str());
+                return NV_ENC_ERR_GENERIC;
+            }
+        }
+    }
+#endif //#if ENABLE_AVSW_READER
+
     //出力ファイルを開く
     if (NV_ENC_SUCCESS != (nvStatus = InitOutput(inputParam, encBufferFormat))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("出力ファイルのオープンに失敗しました。: \"%s\"\n") : _T("Failed to open output file: \"%s\"\n"), inputParam->outputFilename.c_str());
@@ -3326,7 +3347,7 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t timestamp, uint64_t duration) {
+NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration) {
 
     NV_ENC_PIC_PARAMS encPicParams;
     INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
@@ -3337,23 +3358,19 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t ti
             //av_cmopare_tsを使うと、timebaseが粗く端数が出る場合に厳密に比較できないことがある
             //そこで、ここでは、最小公倍数をとって厳密な比較を行う
             int64_t timebase_lcm = rgy_lcm(chap->time_base.den, m_outputTimebase.d());
-#if _M_IX86
-#define RESCALE_INT_SIZE 4
-#else
-#define RESCALE_INT_SIZE 2
-#endif
-            ttmath::Int<RESCALE_INT_SIZE> ts_frame = timestamp;
+            ttint128 ts_frame = timestamp;
             ts_frame *= m_outputTimebase.n();
             ts_frame *= timebase_lcm / m_outputTimebase.d();
 
-            ttmath::Int<RESCALE_INT_SIZE> ts_chap = chap->start;
+            ttint128 ts_chap = chap->start;
             ts_chap *= chap->time_base.num;
             ts_chap *= timebase_lcm / chap->time_base.den;
 
             if (chap->id >= 0 && ts_chap <= ts_frame) {
-                PrintMes(RGY_LOG_DEBUG, _T("Insert Keyframe on chapter %d: %s at frame %s (timebase: %lld).\n"),
+                PrintMes(RGY_LOG_DEBUG, _T("Insert Keyframe on chapter %d: %s at frame #%s: %s (timebase: %lld).\n"),
                     chap->id,
                     wstring_to_tstring(ts_chap.ToWString()).c_str(),
+                    id,
                     wstring_to_tstring(ts_frame.ToWString()).c_str(),
                     timebase_lcm);
                 chap->id = -1;
@@ -3361,6 +3378,10 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t ti
                 break;
             }
         }
+    }
+    if (std::find(m_keyFile.begin(), m_keyFile.end(), id) != m_keyFile.end()) {
+        PrintMes(RGY_LOG_DEBUG, _T("Insert Keyframe on frame #%d.\n"), id);
+        encPicParams.encodePicFlags |= NV_ENC_PIC_FLAG_FORCEIDR;
     }
 #endif //#if ENABLE_AVSW_READER
 
@@ -3408,7 +3429,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t ti
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t timestamp, uint64_t duration) {
+NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, int id, uint64_t timestamp, uint64_t duration) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 #if ENABLE_AVSW_READER
     EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
@@ -3452,7 +3473,7 @@ NVENCSTATUS NVEncCore::EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t tim
         PrintMes(RGY_LOG_ERROR, _T("Failed to Map input buffer %p: %s\n"), pEncodeBuffer->stInputBfr.hInputSurface, char_to_tstring(_nvencGetErrorEnum(nvStatus)).c_str());
         return nvStatus;
     }
-    NvEncEncodeFrame(pEncodeBuffer, timestamp, duration);
+    NvEncEncodeFrame(pEncodeBuffer, id, timestamp, duration);
 #endif //#if ENABLE_AVSW_READER
     return nvStatus;
 }
@@ -3952,8 +3973,7 @@ NVENCSTATUS NVEncCore::Encode() {
         } else {
             NvEncUnlockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface);
         }
-        nEncodeFrame++;
-        return NvEncEncodeFrame(pEncodeBuffer, encFrame->m_timestamp, encFrame->m_duration);
+        return NvEncEncodeFrame(pEncodeBuffer, nEncodeFrame++, encFrame->m_timestamp, encFrame->m_duration);
     };
 
 #define NV_ENC_ERR_ABORT ((NVENCSTATUS)-1)

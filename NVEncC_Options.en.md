@@ -637,7 +637,11 @@ apple format (should be in utf-8)
 Copy chapters from input file.
 
 ### --key-on-chapter
-Set keyframe on chapter position.
+Set keyframes on chapter position.
+
+### --keyfile &lt;string&gt;
+Set keyframes on frames (starting from 0, 1, 2, ...) specified in the file.
+There should be one frame ID per line.
 
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
