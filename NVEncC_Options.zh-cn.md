@@ -735,6 +735,10 @@ apple格式 (utf-8)
 
 从输入文件复制章节信息。
 
+### --key-on-chapter
+
+在章节分割处设置关键帧。
+
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 
 从输入文件复制字幕轨。仅当使用 avhw / avsw 读取器时有效。
