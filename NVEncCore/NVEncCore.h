@@ -205,6 +205,9 @@ protected:
     //デコーダインスタンスを作成
     NVENCSTATUS InitFilters(const InEncodeVideoParam *inputParam);
 
+    //チャプター読み込み等
+    NVENCSTATUS InitChapters(const InEncodeVideoParam *inputParam);
+
     //エンコーダインスタンスを作成
     NVENCSTATUS CreateEncoder(const InEncodeVideoParam *inputParam);
 
@@ -266,7 +269,7 @@ protected:
     NV_ENC_CONFIG                 m_stEncConfig;           //エンコード設定
 #if ENABLE_AVSW_READER
     bool                          m_keyOnChapter;        //チャプター上にキーフレームを配置する
-    vector<unique_ptr<AVChapter>> m_AVChapterFromFile;   //ファイルから読み込んだチャプター
+    vector<unique_ptr<AVChapter>> m_Chapters;            //ファイルから読み込んだチャプター
 #endif //#if ENABLE_AVSW_READER
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;

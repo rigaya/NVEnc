@@ -424,7 +424,7 @@ NVENCSTATUS NVEncCore::readChapterFile(const tstring& chapfile) {
         PrintMes(RGY_LOG_ERROR, _T("no chapter found from chapter file: \"%s\".\n"), chapfile.c_str());
         return NV_ENC_ERR_GENERIC;
     }
-    m_AVChapterFromFile.clear();
+    m_Chapters.clear();
     const auto& chapter_list = chapter.chapterlist();
     tstring chap_log;
     for (size_t i = 0; i < chapter_list.size(); i++) {
@@ -432,13 +432,13 @@ NVENCSTATUS NVEncCore::readChapterFile(const tstring& chapfile) {
         avchap->time_base = av_make_q(1, 1000);
         avchap->start = chapter_list[i]->get_ms();
         avchap->end = (i < chapter_list.size()-1) ? chapter_list[i+1]->get_ms() : avchap->start + 1;
-        avchap->id = (int)m_AVChapterFromFile.size();
+        avchap->id = (int)m_Chapters.size();
         avchap->metadata = nullptr;
         av_dict_set(&avchap->metadata, "title", wstring_to_string(chapter_list[i]->name, CP_UTF8).c_str(), 0);
         chap_log += strsprintf(_T("chapter #%02d [%d.%02d.%02d.%03d]: %s.\n"),
             avchap->id, chapter_list[i]->h, chapter_list[i]->m, chapter_list[i]->s, chapter_list[i]->ms,
             wstring_to_tstring(chapter_list[i]->name).c_str());
-        m_AVChapterFromFile.push_back(std::move(avchap));
+        m_Chapters.push_back(std::move(avchap));
     }
     PrintMes(RGY_LOG_DEBUG, _T("%s"), chap_log.c_str());
     return NV_ENC_SUCCESS;
@@ -446,6 +446,37 @@ NVENCSTATUS NVEncCore::readChapterFile(const tstring& chapfile) {
     PrintMes(RGY_LOG_ERROR, _T("chater reading unsupportted in this build"));
     return NV_ENC_ERR_UNIMPLEMENTED;
 #endif //#if ENABLE_AVCODEC_QSV_READER
+}
+
+NVENCSTATUS NVEncCore::InitChapters(const InEncodeVideoParam *inputParam) {
+    m_Chapters.clear();
+    if (inputParam->sChapterFile.length() > 0) {
+        //チャプターファイルを読み込む
+        auto chap_sts = readChapterFile(inputParam->sChapterFile);
+        if (chap_sts != NV_ENC_SUCCESS) {
+            return chap_sts;
+        }
+    }
+    if (m_Chapters.size() == 0) {
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            auto chapterList = pAVCodecReader->GetChapterList();
+            //入力ファイルのチャプターをコピーする
+            for (uint32_t i = 0; i < chapterList.size(); i++) {
+                unique_ptr<AVChapter> avchap(new AVChapter);
+                *avchap = *chapterList[i];
+                m_Chapters.push_back(std::move(avchap));
+            }
+        }
+    }
+    if (m_Chapters.size() > 0) {
+        if (inputParam->keyOnChapter && m_trimParam.list.size() > 0) {
+            PrintMes(RGY_LOG_WARN, _T("--key-on-chap not supported when using --trim.\n"));
+        } else {
+            m_keyOnChapter = inputParam->keyOnChapter;
+        }
+    }
+    return NV_ENC_SUCCESS;
 }
 
 NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
@@ -540,7 +571,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.nVideoStreamId = inputParam->nVideoStreamId;
         inputInfoAVCuvid.nReadAudio = inputParam->nAudioSelectCount > 0;
         inputInfoAVCuvid.bReadSubtitle = inputParam->nSubtitleSelectCount > 0;
-        inputInfoAVCuvid.bReadChapter = !!inputParam->bCopyChapter;
+        inputInfoAVCuvid.bReadChapter = true;
         inputInfoAVCuvid.nVideoAvgFramerate = std::make_pair(inputParam->input.fpsN, inputParam->input.fpsD);
         inputInfoAVCuvid.nAnalyzeSec = inputParam->nAVDemuxAnalyzeSec;
         inputInfoAVCuvid.nTrimCount = inputParam->nTrimCount;
@@ -760,27 +791,11 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
-            if (inputParams->sChapterFile.length() > 0) {
-                //チャプターファイルを読み込む
-                auto chap_sts = readChapterFile(inputParams->sChapterFile);
-                if (chap_sts != NV_ENC_SUCCESS) {
-                    return chap_sts;
-                }
+            if (m_Chapters.size() > 0 && inputParams->bCopyChapter) {
                 writerPrm.chapterList.clear();
-                for (uint32_t i = 0; i < m_AVChapterFromFile.size(); i++) {
-                    writerPrm.chapterList.push_back(m_AVChapterFromFile[i].get());
+                for (uint32_t i = 0; i < m_Chapters.size(); i++) {
+                    writerPrm.chapterList.push_back(m_Chapters[i].get());
                 }
-            } else {
-                //入力ファイルのチャプターをコピーする
-                writerPrm.chapterList = pAVCodecReader->GetChapterList();
-                m_AVChapterFromFile.clear();
-                for (uint32_t i = 0; i < writerPrm.chapterList.size(); i++) {
-                    unique_ptr<AVChapter> avchap(new AVChapter);
-                    *avchap = *writerPrm.chapterList[i];
-                    m_AVChapterFromFile.push_back(std::move(avchap));
-                }
-            }
-            if (m_AVChapterFromFile.size() > 0) {
                 if (inputParams->keyOnChapter && m_trimParam.list.size() > 0) {
                     PrintMes(RGY_LOG_WARN, _T("--key-on-chap not supported when using --trim.\n"));
                 } else {
@@ -3265,6 +3280,12 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("AllocateIOBuffers: Success.\n"));
 
+    //エンコーダにパラメータを渡し、初期化
+    if (NV_ENC_SUCCESS != (nvStatus = InitChapters(inputParam))) {
+        return nvStatus;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitChapters: Success.\n"));
+
     //出力ファイルを開く
     if (NV_ENC_SUCCESS != (nvStatus = InitOutput(inputParam, encBufferFormat))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("出力ファイルのオープンに失敗しました。: \"%s\"\n") : _T("Failed to open output file: \"%s\"\n"), inputParam->outputFilename.c_str());
@@ -3311,8 +3332,8 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t ti
     INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
 
 #if ENABLE_AVSW_READER
-    if (m_AVChapterFromFile.size() > 0 && m_keyOnChapter) {
-        for (const auto& chap : m_AVChapterFromFile) {
+    if (m_Chapters.size() > 0 && m_keyOnChapter) {
+        for (const auto& chap : m_Chapters) {
             //av_cmopare_tsを使うと、timebaseが粗く端数が出る場合に厳密に比較できないことがある
             //そこで、ここでは、最小公倍数をとって厳密な比較を行う
             int64_t timebase_lcm = rgy_lcm(chap->time_base.den, m_outputTimebase.d());
