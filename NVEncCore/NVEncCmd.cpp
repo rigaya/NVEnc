@@ -784,6 +784,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("key-on-chapter")) {
+        pParams->keyOnChapter = true;
+        return 0;
+    }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
@@ -3132,6 +3136,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_STR_PATH(_T("--chapter"), sChapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);
+    OPT_BOOL(_T("--key-on-chapter"), _T(""), keyOnChapter);
     OPT_LST(_T("--avsync"), nAVSyncMode, list_avsync);
 #endif //#if ENABLE_AVSW_READER
 
@@ -3339,8 +3344,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-delogo ") << tmp.str().substr(1);
-        } else if (pParams->vpp.delogo.enable) {
-            cmd << _T(" --vpp-delogo");
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vpp.bCheckPerformance);

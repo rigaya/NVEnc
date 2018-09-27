@@ -165,10 +165,10 @@ protected:
 
     //エンコーダが出力使用する色空間を入力パラメータをもとに取得
     RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
-    
+
     //既定の出力先に情報をメッセージを出力
     virtual void PrintMes(int logLevel, const TCHAR *format, ...);
-    
+
     //特定の関数でのエラーを表示
     void NVPrintFuncError(const TCHAR *funcName, NVENCSTATUS nvStatus);
 
@@ -265,6 +265,7 @@ protected:
     NV_ENC_PIC_STRUCT             m_stPicStruct;           //エンコードフレーム情報(プログレッシブ/インタレ)
     NV_ENC_CONFIG                 m_stEncConfig;           //エンコード設定
 #if ENABLE_AVSW_READER
+    bool                          m_keyOnChapter;        //チャプター上にキーフレームを配置する
     vector<unique_ptr<AVChapter>> m_AVChapterFromFile;   //ファイルから読み込んだチャプター
 #endif //#if ENABLE_AVSW_READER
 
@@ -345,7 +346,7 @@ protected:
     bool checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, const NVEncCodecFeature *codecFeature = nullptr);
 
     //指定したcodecFeatureで、指定したfeatureの値を取得
-    int getCapLimit(NV_ENC_CAPS flag, const NVEncCodecFeature *codecFeature = nullptr); 
+    int getCapLimit(NV_ENC_CAPS flag, const NVEncCodecFeature *codecFeature = nullptr);
 
     //コーデックのFeature情報のリスト (コーデックごとのリスト)
     std::vector<NVEncCodecFeature> m_EncodeFeatures;

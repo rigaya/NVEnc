@@ -46,6 +46,7 @@ tstring get_codec_level_name(RGY_CODEC codec, int level) {
 }
 
 VppDelogo::VppDelogo() :
+    enable(false),
     logoFilePath(),
     logoSelect(),
     posX(0), posY(0),
@@ -423,6 +424,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nTrimCount(0),
     pTrimList(nullptr),
     bCopyChapter(false),
+    keyOnChapter(false),
     nOutputThread(RGY_OUTPUT_THREAD_AUTO),
     nAudioThread(RGY_INPUT_THREAD_AUTO),
     nInputThread(RGY_AUDIO_THREAD_AUTO),

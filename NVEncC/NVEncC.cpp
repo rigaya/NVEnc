@@ -311,6 +311,7 @@ static tstring help() {
         _T("                                  in [<int>?], specify track number of audio.\n")
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
+        _T("   --key-on-chapter             set key frame on chapter.\n")
         _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
         _T("                                 these could be only used with\n")
         _T("                                 avhw/avsw reader and avcodec muxer.\n")

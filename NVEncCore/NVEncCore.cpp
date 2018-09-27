@@ -79,6 +79,8 @@
 #include "hevc_level.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
+#define TTMATH_NOASM
+#include "ttmath/ttmath.h"
 
 using std::deque;
 
@@ -329,6 +331,7 @@ NVEncCore::NVEncCore() {
     m_pAbortByUser = nullptr;
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
+    m_keyOnChapter = false;
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -437,7 +440,7 @@ NVENCSTATUS NVEncCore::readChapterFile(const tstring& chapfile) {
             wstring_to_tstring(chapter_list[i]->name).c_str());
         m_AVChapterFromFile.push_back(std::move(avchap));
     }
-    PrintMes(RGY_LOG_ERROR, _T("%s"), chap_log.c_str());
+    PrintMes(RGY_LOG_DEBUG, _T("%s"), chap_log.c_str());
     return NV_ENC_SUCCESS;
 #else
     PrintMes(RGY_LOG_ERROR, _T("chater reading unsupportted in this build"));
@@ -770,6 +773,19 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
             } else {
                 //入力ファイルのチャプターをコピーする
                 writerPrm.chapterList = pAVCodecReader->GetChapterList();
+                m_AVChapterFromFile.clear();
+                for (uint32_t i = 0; i < writerPrm.chapterList.size(); i++) {
+                    unique_ptr<AVChapter> avchap(new AVChapter);
+                    *avchap = *writerPrm.chapterList[i];
+                    m_AVChapterFromFile.push_back(std::move(avchap));
+                }
+            }
+            if (m_AVChapterFromFile.size() > 0) {
+                if (inputParams->keyOnChapter && m_trimParam.list.size() > 0) {
+                    PrintMes(RGY_LOG_WARN, _T("--key-on-chap not supported when using --trim.\n"));
+                } else {
+                    m_keyOnChapter = inputParams->keyOnChapter;
+                }
             }
             writerPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
             writerPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
@@ -1787,7 +1803,7 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCode
     add_cap_info(NV_ENC_CAPS_PREPROC_SUPPORT,              false, true,  _T("PreProcess"));
     add_cap_info(NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT,         false, true,  _T("Async Encoding"));
     add_cap_info(NV_ENC_CAPS_MB_NUM_MAX,                   false, false, _T("Max MBs"));
-    add_cap_info(NV_ENC_CAPS_MB_PER_SEC_MAX,               false, false, _T("MAX MB per sec"));
+    //add_cap_info(NV_ENC_CAPS_MB_PER_SEC_MAX,               false, false, _T("MAX MB per sec"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE,      false, true,  _T("Lossless"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_SAO,                  false, true,  _T("SAO"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_MEONLY_MODE,          false, true,  _T("Me Only Mode"));
@@ -2610,6 +2626,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterDelogo());
             shared_ptr<NVEncFilterParamDelogo> param(new NVEncFilterParamDelogo());
             param->inputFileName = inputParam->inputFilename.c_str();
+            param->cudaSchedule  = m_cudaSchedule;
             param->delogo        = inputParam->vpp.delogo;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
@@ -3292,6 +3309,39 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t ti
 
     NV_ENC_PIC_PARAMS encPicParams;
     INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
+
+#if ENABLE_AVSW_READER
+    if (m_AVChapterFromFile.size() > 0 && m_keyOnChapter) {
+        for (const auto& chap : m_AVChapterFromFile) {
+            //av_cmopare_tsを使うと、timebaseが粗く端数が出る場合に厳密に比較できないことがある
+            //そこで、ここでは、最小公倍数をとって厳密な比較を行う
+            int64_t timebase_lcm = rgy_lcm(chap->time_base.den, m_outputTimebase.d());
+#if _M_IX86
+#define RESCALE_INT_SIZE 4
+#else
+#define RESCALE_INT_SIZE 2
+#endif
+            ttmath::Int<RESCALE_INT_SIZE> ts_frame = timestamp;
+            ts_frame *= m_outputTimebase.n();
+            ts_frame *= timebase_lcm / m_outputTimebase.d();
+
+            ttmath::Int<RESCALE_INT_SIZE> ts_chap = chap->start;
+            ts_chap *= chap->time_base.num;
+            ts_chap *= timebase_lcm / chap->time_base.den;
+
+            if (chap->id >= 0 && ts_chap <= ts_frame) {
+                PrintMes(RGY_LOG_DEBUG, _T("Insert Keyframe on chapter %d: %s at frame %s (timebase: %lld).\n"),
+                    chap->id,
+                    wstring_to_tstring(ts_chap.ToWString()).c_str(),
+                    wstring_to_tstring(ts_frame.ToWString()).c_str(),
+                    timebase_lcm);
+                chap->id = -1;
+                encPicParams.encodePicFlags |= NV_ENC_PIC_FLAG_FORCEIDR;
+                break;
+            }
+        }
+    }
+#endif //#if ENABLE_AVSW_READER
 
     encPicParams.inputBuffer = pEncodeBuffer->stInputBfr.hInputSurface;
     encPicParams.bufferFmt = pEncodeBuffer->stInputBfr.bufferFmt;

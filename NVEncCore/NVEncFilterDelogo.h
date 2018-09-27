@@ -36,8 +36,7 @@
 #define DELOGO_BLOCK_Y  (8)
 #define DELOGO_BLOCK_LOOP_Y (4)
 
-#define DELOGO_PARALLEL_FADE (11)
-#define DELOGO_PARALLEL_FADE_MUL (1.25f)
+#define DELOGO_PARALLEL_FADE (33)
 #define DELOGO_PRE_DIV_COUNT (4)
 #define DELOGO_ADJMASK_DIV_COUNT (32)
 #define DELOGO_ADJMASK_POW_BASE (1.1)
@@ -107,12 +106,79 @@ public:
     }
 };
 
+class DelogoSrcBuffer {
+private:
+    std::array<CUFrameBuf, 4> m_src;
+public:
+    DelogoSrcBuffer() : m_src() {};
+    ~DelogoSrcBuffer() {
+        clear();
+    }
+    cudaError_t alloc(const FrameInfo& frame) {
+        for (size_t i = 0; i < m_src.size(); i++) {
+            m_src[i].frame = frame;
+            auto sts = m_src[i].alloc();
+            if (sts != cudaSuccess) {
+                return sts;
+            }
+        }
+        return cudaSuccess;
+    }
+    void clear() {
+        for (size_t i = 0; i < m_src.size(); i++) {
+            m_src[i].clear();
+        }
+    }
+    CUFrameBuf& operator[](int iframe) {
+        return m_src[std::max(iframe, 0) & 3];
+    }
+};
+
+struct DelogoEvalStreams {
+public:
+    int evalBlocks;
+    unique_ptr<cudaStream_t, cudastream_deleter> stEval;
+    unique_ptr<cudaStream_t, cudastream_deleter> stEvalSub;
+    unique_ptr<cudaEvent_t, cudaevent_deleter> heEval;
+    unique_ptr<cudaEvent_t, cudaevent_deleter> heEvalCopyFin;
+    DelogoEvalStreams() : evalBlocks(0), stEval(), stEvalSub(), heEval(), heEvalCopyFin() { }
+    ~DelogoEvalStreams() {
+        stEval.reset();
+        stEvalSub.reset();
+        heEval.reset();
+        heEvalCopyFin.reset();
+    }
+    cudaError_t init(CUctx_flags cudaSchedule, bool noSubStream = false) {
+        cudaError_t cudaerr = cudaSuccess;
+        stEval = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
+        cudaerr = cudaStreamCreateWithFlags(stEval.get(), cudaStreamNonBlocking);
+        if (cudaerr != cudaSuccess) return cudaerr;
+
+        if (!noSubStream) {
+            stEvalSub = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
+            cudaerr = cudaStreamCreateWithFlags(stEvalSub.get(), cudaStreamNonBlocking);
+            if (cudaerr != cudaSuccess) return cudaerr;
+        }
+        const uint32_t cudaEventFlags = (cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : 0;
+        heEval = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
+        cudaerr = cudaEventCreateWithFlags(heEval.get(), cudaEventFlags | cudaEventDisableTiming);
+        if (cudaerr != cudaSuccess) return cudaerr;
+
+        heEvalCopyFin = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
+        cudaerr = cudaEventCreateWithFlags(heEvalCopyFin.get(), cudaEventFlags | cudaEventDisableTiming);
+        if (cudaerr != cudaSuccess) return cudaerr;
+
+        return cudaerr;
+    }
+};
+
 class NVEncFilterParamDelogo : public NVEncFilterParam {
 public:
     const TCHAR *inputFileName; //入力ファイル名
+    CUctx_flags cudaSchedule;
     VppDelogo delogo;
 
-    NVEncFilterParamDelogo() : inputFileName(nullptr), delogo() {
+    NVEncFilterParamDelogo() : inputFileName(nullptr), cudaSchedule(CU_CTX_SCHED_AUTO), delogo() {
 
     };
     virtual ~NVEncFilterParamDelogo() {};
@@ -142,12 +208,12 @@ protected:
     NVENCSTATUS calcAutoFadeNR(int& auto_nr, float& auto_fade, const FrameInfo *pFrame);
     NVENCSTATUS calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const FrameInfo *pFrame);
     NVENCSTATUS createAdjustedMask(const FrameInfo *frame_logo);
-    NVENCSTATUS runDelogoYMultiFade(const FrameInfo *frame_logo, const bool multi_src, const int nr_value, const float *fade, const int fade_n);
-    NVENCSTATUS runSmooth(const int smooth_n, const int nr_value, const int nr_area);
-    NVENCSTATUS prewittEvaluate(std::vector<float>& eval, const bool store_pixel_result, const CUFrameBuf *target, const CUFrameBuf *mask, const int nr_value);
-    NVENCSTATUS calcAutoFadeCoef2(std::vector<float>& eval, const bool store_pixel_result, const FrameInfo *frame_logo, const int nr_value, const int nr_area, const float *ptrDevFadeDepth);
-    NVENCSTATUS calcAutoFadeLS2(float& auto_fade, const FrameInfo *frame_logo, const int nr_value, const int nr_area);
-    NVENCSTATUS calcAutoFade4(float& auto_fade, const FrameInfo *frame_logo, const int nr_value, const int nr_area);
+    NVENCSTATUS runDelogoYMultiFade(const FrameInfo *frame_logo, const bool multi_src, const int nr_value, const float *fade, const int fade_n, cudaStream_t stream);
+    NVENCSTATUS runSmooth(const int smooth_n, const int nr_value, const int nr_area, cudaStream_t stream);
+    NVENCSTATUS prewittEvaluateRun(const bool store_pixel_result, const CUFrameBuf *target, const CUFrameBuf *mask, const int nr_value, const int eval_n, DelogoEvalStreams& evalst);
+    NVENCSTATUS autoFadeCoef2Run(const bool store_pixel_result, const FrameInfo *frame_logo, const int nr_value, const int nr_area, const float *ptrDevFadeDepth, int calc_n, DelogoEvalStreams& evalst);
+    NVENCSTATUS autoFadeCoef2Collect(std::vector<float>& eval, const int nr_value, cudaEvent_t eventCopyFin);
+    NVENCSTATUS autoFadeLS2(float& auto_fade, const int nr_value);
     NVENCSTATUS logAutoFadeNR();
 
     tstring m_LogoFilePath;
@@ -155,6 +221,7 @@ protected:
     vector<LogoData> m_sLogoDataList;
     ProcessDataDelogo m_sProcessData[4];
 
+    DelogoSrcBuffer m_src;
     unique_ptr<CUFrameBuf> m_mask;           //評価用Mask(Original)
     unique_ptr<CUFrameBuf> m_maskAdjusted;   //評価用Mask(Frame毎の調整後)
     unique_ptr<CUFrameBuf> m_maskNR;         //NR用Mask
@@ -165,6 +232,7 @@ protected:
     std::array<unique_ptr<CUFrameBuf>, LOGO_NR_MAX+1> m_bufDelogo;   // ロゴ除去したもの
     std::array<unique_ptr<CUFrameBuf>, LOGO_NR_MAX+1> m_bufDelogoNR; // m_bufDelogoについてロゴ除去したもの
     std::array<unique_ptr<CUFrameBuf>, LOGO_NR_MAX+1> m_bufEval;  // 評価用のバッファ
+    std::array<DelogoEvalStreams, LOGO_NR_MAX+1> m_evalStream;  // 評価用のバッファ
     unique_ptr<CUFrameBuf> m_adjMaskMinIndex;
     unique_ptr<CUFrameBuf> m_adjMaskThresholdTest;
     unique_ptr<CUFrameBuf> m_NRProcTemp;
@@ -173,6 +241,8 @@ protected:
     CUMemBufPair m_adjMaskEachFadeCount;
     CUMemBufPair m_adjMaskMinResAndValidMaskCount;
     CUMemBufPair m_adjMask2ValidMaskCount;
+    unique_ptr<void, cudadevice_deleter> m_adjMask2TargetCount;
+    DelogoEvalStreams m_adjMaskStream;
     unique_ptr<void, cudadevice_deleter> m_smoothKernel;
     CUMemBufPair m_fadeValueAdjust;
     CUMemBufPair m_fadeValueParallel;

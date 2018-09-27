@@ -662,7 +662,7 @@ typedef struct AVDemuxFormat {
     int                       nAudioTracks;          //存在する音声のトラック数
     int                       nSubtitleTracks;       //存在する字幕のトラック数
     RGYAVSync                 nAVSyncMode;           //音声・映像同期モード
-    AVDictionary             *pFormatOptions;        //avformat_open_inputに渡すオプション       
+    AVDictionary             *pFormatOptions;        //avformat_open_inputに渡すオプション
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
@@ -690,6 +690,8 @@ typedef struct AVDemuxVideo {
     AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
 
     int                       nHWDecodeDeviceId;     //HWデコードする場合に選択したデバイス
+
+    bool                      bUseHEVCmp42AnnexB;
 } AVDemuxVideo;
 
 typedef struct AVDemuxStream {
@@ -856,6 +858,8 @@ protected:
 
     //ptsを動画のtimebaseから音声のtimebaseに変換する
     int64_t convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *pStream);
+
+    void hevcMp42Annexb(AVPacket *pkt);
 
     //VC-1のヘッダの修正を行う
     void vc1FixHeader(int nLengthFix = -1);

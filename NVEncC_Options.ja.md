@@ -291,10 +291,10 @@ VBRモード使用時の目標品質を設定する。(0.0-51.0, 0 = 自動)
 lookaheadを有効にし、その対象範囲をフレーム数で指定する。(0-32)
 画質の向上に役立つとともに、適応的なI,Bフレーム挿入が有効になる。
 
-### --no-i-apapt
+### --no-i-adapt
 lookahead有効時の適応的なIフレーム挿入を無効化する。
 
-### --no-b-apapt
+### --no-b-adapt
 lookahead有効時の適応的なBフレーム挿入を無効化する。
 
 ### --strict-gop
@@ -332,7 +332,7 @@ Bフレームの参照モードを指定する。
 ### --direct &lt;string&gt; [H.264のみ]
 H.264のBDirect modeを指定する。
 - auto(default)
-- none
+- disabled
 - spatial
 - temporal
 
@@ -613,6 +613,9 @@ nero形式とapple形式に対応する。--chapter-copyとは併用できない
 
 ### --chapter-copy
 チャプターをコピーする。
+
+### --key-on-chapter
+キーフレーム位置にチャプターを挿入する。
 
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。

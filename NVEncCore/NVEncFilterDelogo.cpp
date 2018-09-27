@@ -53,7 +53,7 @@ static bool inv3x3(std::array<double, 9>& invm, const std::array<double, 9>& m) 
     if (std::abs(det) < DBL_MIN) {
         return false;
     }
-    const double inv_det = 1.0/det;
+    const double inv_det = 1.0 / det;
 
     invm[0] = inv_det*(m[4]*m[8] - m[5]*m[7]);
     invm[1] = inv_det*(m[2]*m[7] - m[1]*m[8]);
@@ -82,44 +82,72 @@ static std::array<double, 3> mul3x3vec(const std::array<double, 9>& m, const std
 }
 
 //2次関数の係数を最小自乗法で求める
-template<int n>
-std::array<double, 3> leastSquare2nd(const std::array<double, n>& x, const std::array<double, n>& y) {
-    std::array<double, 5> Ae;
-    std::array<double, 3> b;
-    std::fill(Ae.begin(), Ae.end(), 0.0);
-    std::fill(b.begin(), b.end(), 0.0);
-    for (int i = 0; i < n; i++) {
-        Ae[0] += 1.0;
-        Ae[1] += x[i];
-        Ae[2] += x[i] * x[i];
-        Ae[3] += x[i] * x[i] * x[i];
-        Ae[4] += x[i] * x[i] * x[i] * x[i];
-        b[0] += y[i];
-        b[1] += y[i] * x[i];
-        b[2] += y[i] * x[i] * x[i];
-    }
-    std::array<double, 9> A; //3x3行列
-    A[0] = Ae[0]; A[1] = Ae[1]; A[2] = Ae[2];
-    A[3] = Ae[1]; A[4] = Ae[2]; A[5] = Ae[3];
-    A[6] = Ae[2]; A[7] = Ae[3]; A[8] = Ae[4];
-
+std::array<double, 3> leastSquare2nd(const double *x, const double *y, size_t n) {
     std::array<double, 3> a = { 0.0, 0.0, 0.0 };
-    std::array<double, 9> invA;
-    if (inv3x3(invA, A)) {
-        a = mul3x3vec(invA, b);
+    if (n <= 1) {
+        a[0] = y[0];
+    } else if (n <= 2) {
+        if (x[1] - x[0] == 0) {
+            a[0] = (y[0] + y[1]) * 0.5;
+        } else {
+            a[1] = (y[1] - y[0]) / (x[1] - x[0]);
+            a[0] = y[0] - x[0] / a[1];
+        }
+    } else {
+        std::array<double, 5> Ae;
+        std::array<double, 3> b;
+        std::fill(Ae.begin(), Ae.end(), 0.0);
+        std::fill(b.begin(), b.end(), 0.0);
+        for (size_t i = 0; i < n; i++) {
+            Ae[0] += 1.0;
+            Ae[1] += x[i];
+            Ae[2] += x[i] * x[i];
+            Ae[3] += x[i] * x[i] * x[i];
+            Ae[4] += x[i] * x[i] * x[i] * x[i];
+            b[0] += y[i] * x[i] * x[i];
+            b[1] += y[i] * x[i];
+            b[2] += y[i];
+        }
+        std::array<double, 9> A; //3x3行列
+        A[0] = Ae[4]; A[1] = Ae[3]; A[2] = Ae[2];
+        A[3] = Ae[3]; A[4] = Ae[2]; A[5] = Ae[1];
+        A[6] = Ae[2]; A[7] = Ae[1]; A[8] = Ae[0];
+
+        std::array<double, 9> invA;
+        if (inv3x3(invA, A)) {
+            a = mul3x3vec(invA, b);
+            std::swap(a[0], a[2]);
+        }
     }
     return a;
 }
 
 //2次関数の係数の係数から最小値を求める
-double minX2nd(std::array<double, 3> a) {
-    if (a[0] <= 0.0) {
-        double y0 = a[2]; //x = 0での値
-        double y1 = (a[0] * LOGO_FADE_MAX + a[1]) * LOGO_FADE_MAX + a[2]; //x=LOGO_FADE_MAXでの値
+double minX2nd(const std::array<double, 3>& a) {
+    if (a[2] <= 0.0) {
+        double y0 = a[0]; //x = 0での値
+        double y1 = (a[2] * LOGO_FADE_MAX + a[1]) * LOGO_FADE_MAX + a[0]; //x=LOGO_FADE_MAXでの値
         return y0 < y1 ? 0.0 : (double)LOGO_FADE_MAX;
     }
     //平方完成
-    return -0.5 * a[1] / a[0];
+    return -0.5 * a[1] / a[2];
+}
+
+double quadratic(const std::array<double, 3>& a, double x) {
+    return ((a[2] * x) + a[1]) * x + a[0];
+}
+
+std::vector<double> quadratic_eq(const std::array<double, 3>& v) {
+    double a = v[2], b = v[1], c = v[0];
+    std::vector<double> ans;
+    const double D = b*b - 4.0*a*c;
+    if (D > 0.0) {
+        ans.push_back((-b + std::sqrt(D))/(2.0*a));
+        ans.push_back((-b - std::sqrt(D))/(2.0*a));
+    } else if (D == 0) {
+        ans.push_back(-b/(2.0*a));
+    }
+    return ans;
 }
 
 NVEncFilterDelogo::NVEncFilterDelogo() :
@@ -127,6 +155,7 @@ NVEncFilterDelogo::NVEncFilterDelogo() :
     m_nLogoIdx(-1),
     m_sLogoDataList(),
     m_sProcessData(),
+    m_src(),
     m_mask(),
     m_maskAdjusted(),
     m_maskNR(),
@@ -144,6 +173,8 @@ NVEncFilterDelogo::NVEncFilterDelogo() :
     m_adjMaskEachFadeCount(),
     m_adjMaskMinResAndValidMaskCount(),
     m_adjMask2ValidMaskCount(),
+    m_adjMask2TargetCount(),
+    m_adjMaskStream(),
     m_smoothKernel(),
     m_fadeValueAdjust(),
     m_fadeValueParallel(),
@@ -526,11 +557,18 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             const int logo_h     = m_sProcessData[LOGO__Y].height;
 
             //自動フェード関連のメモリ確保
+            auto cudaerr = m_src.alloc(pDelogoParam->frameIn);
+            if (cudaerr != cudaSuccess) {
+                m_pFrameBuf.clear();
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for frame buffer: %s.\n"),
+                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                return NV_ENC_ERR_OUT_OF_MEMORY;
+            }
             m_mask.reset(           new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
             m_maskAdjusted.reset(   new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
             m_maskNR.reset(         new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
             m_maskNRAdjusted.reset( new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
-            auto cudaerr = m_mask->alloc();
+            cudaerr = m_mask->alloc();
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_mask: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
@@ -591,7 +629,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 return NV_ENC_ERR_UNSUPPORTED_PARAM;
             }
 
-            for (int i = 0; i < m_bufDelogo.size(); i++) {
+            for (size_t i = 0; i < m_bufDelogo.size(); i++) {
                 m_bufDelogo[i].reset(  new CUFrameBuf(logo_w, logo_h * DELOGO_PARALLEL_FADE, RGY_CSP_Y16));
                 m_bufDelogoNR[i].reset(new CUFrameBuf(logo_w, logo_h * DELOGO_PARALLEL_FADE, RGY_CSP_Y16));
                 m_bufEval[i].reset(    new CUFrameBuf(logo_w, logo_h * DELOGO_PARALLEL_FADE, RGY_CSP_Y16));
@@ -624,6 +662,13 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                         i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
                     return NV_ENC_ERR_OUT_OF_MEMORY;
                 }
+
+                cudaerr = m_evalStream[i].init(pDelogoParam->cudaSchedule);
+                if (cudaerr != cudaSuccess) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to create stream or event for m_evalStream[%d]: %s.\n"),
+                        i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                }
             }
             m_NRProcTemp.reset(new CUFrameBuf(logo_w, logo_h, RGY_CSP_BIT_DEPTH[pDelogoParam->frameIn.csp] > 8 ? RGY_CSP_Y16 : RGY_CSP_Y8));
             cudaerr = m_NRProcTemp->alloc();
@@ -646,11 +691,29 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
                 return NV_ENC_ERR_OUT_OF_MEMORY;
             }
-            cudaerr = m_adjMask2ValidMaskCount.alloc(sizeof(int) * maxBlocks * DELOGO_ADJMASK_DIV_COUNT);
+            cudaerr = m_adjMask2ValidMaskCount.alloc(sizeof(int) * (1 + maxBlocks * DELOGO_ADJMASK_DIV_COUNT));
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMask2ValidMaskCount: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
                 return NV_ENC_ERR_OUT_OF_MEMORY;
+            }
+
+            cudaerr = m_adjMaskStream.init(pDelogoParam->cudaSchedule, true);
+            if (cudaerr != cudaSuccess) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to create stream or event for m_adjMaskStream: %s.\n"),
+                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                return NV_ENC_ERR_GENERIC;
+            }
+
+            if (!m_adjMask2TargetCount) {
+                void *ptr = nullptr;
+                cudaerr = cudaMalloc(&ptr, sizeof(int));
+                if (cudaerr != cudaSuccess) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMask2TargetCount: %s.\n"),
+                        char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                }
+                m_adjMask2TargetCount = unique_ptr<void, cudadevice_deleter>(ptr, cudadevice_deleter());
             }
 
             if (!m_smoothKernel) {
@@ -701,7 +764,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             }
             auto parallel_fade = (float *)m_fadeValueParallel.ptrHost;
             for (int i = 0; i < DELOGO_PARALLEL_FADE; i++) {
-                parallel_fade[i] = (float)LOGO_FADE_MAX * m_sProcessData[LOGO__Y].depth * i * 0.125f;
+                parallel_fade[i] = (float)LOGO_FADE_MAX * m_sProcessData[LOGO__Y].depth * i * (1.0f / 16.0f);
             }
             cudaerr = m_fadeValueParallel.copyHtoD();
             if (cudaerr != cudaSuccess) {
@@ -773,7 +836,6 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
 }
 
 NVENCSTATUS NVEncFilterDelogo::createLogoMask() {
-    auto sts = NV_ENC_SUCCESS;
     for (float target_ratio = 0.1f; target_ratio >= 0.01f; target_ratio -= 0.01f) {
         for (float threshold = (float)DELOGO_MASK_THRESHOLD_DEFAULT; threshold >= 200.0f; threshold *= 0.95f) {
             auto sts = createLogoMask((int)(threshold + 0.5f));
@@ -792,8 +854,7 @@ NVENCSTATUS NVEncFilterDelogo::createLogoMask() {
     return NV_ENC_ERR_GENERIC;
 }
 
-NVENCSTATUS NVEncFilterDelogo::calcAutoFadeLS2(float& auto_fade, const FrameInfo *frame_logo, const int nr_value, const int nr_area) {
-
+NVENCSTATUS NVEncFilterDelogo::autoFadeLS2(float& auto_fade, const int nr_value) {
     if (m_fadeValueParallel.nSize != sizeof(float) * DELOGO_PARALLEL_FADE) {
         AddMessage(RGY_LOG_ERROR, _T("m_fadeValueParallel.nSize != sizeof(float) * DELOGO_PARALLEL_FADE (%d != %d).\n"),
             m_fadeValueParallel.nSize, sizeof(float) * DELOGO_PARALLEL_FADE);
@@ -801,22 +862,78 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFadeLS2(float& auto_fade, const FrameInfo
     }
 
     std::vector<float> eval(DELOGO_PARALLEL_FADE);
-    auto sts = calcAutoFadeCoef2(eval, false, frame_logo, nr_value, nr_area, (const float *)m_fadeValueParallel.ptrDevice);
+    auto sts = autoFadeCoef2Collect(eval, nr_value, *m_evalStream[nr_value].heEvalCopyFin.get());
     if (sts != NV_ENC_SUCCESS) return sts;
 
     const double depth_inv = 1.0 / m_sProcessData[LOGO__Y].depth;
     std::array<double, DELOGO_PARALLEL_FADE> x, y;
-    for (int i = 0; i < x.size(); i++) {
+    for (size_t i = 0; i < x.size(); i++) {
         x[i] = ((const float *)m_fadeValueParallel.ptrHost)[i] * depth_inv;
         y[i] = (double)eval[i];
     }
+    size_t minIdx = (int)std::distance(y.begin(), std::min_element(y.begin(), y.end()));
+    if (minIdx == 0 || minIdx == x.size()-1) {
+        const auto a = leastSquare2nd(x.data(), y.data(), x.size());
+        auto_fade = (float)minX2nd(a);
+    } else {
+        //最小値の位置で、2つに分けて評価する
+        auto a0 = leastSquare2nd(&x[0],      &y[0],      minIdx);
+        auto a1 = leastSquare2nd(&x[minIdx], &y[minIdx], x.size() - minIdx);
+        decltype(a0) a2;
+        for (size_t i = 0; i < a2.size(); i++) {
+            a2[i] = a1[i] - a0[i];
+        }
+        const auto ansA2 = quadratic_eq(a2);
+        const auto minX0 = minX2nd(a0);
+        const auto minX1 = minX2nd(a1);
+        const auto minY0 = quadratic(a0, minX0);
+        const auto minY1 = quadratic(a1, minX1);
+        const bool minX0inRange = x[0] <= minX0 && minX0 <= x[minIdx];
+        const bool minX1inRange = x[minIdx] <= minX1 && minX1 <= x.back();
 
-    const auto a = leastSquare2nd(x, y);
-    auto_fade = (float)minX2nd(a);
+        double minX = std::numeric_limits<double>::max();
+        double minY = std::numeric_limits<double>::max();
+        if (minX0inRange && minX1inRange) {
+            minX = (minY0 <= minY1) ? minX0 : minX1;
+            minY = std::min(minY0, minY1);
+        } else if (minX0inRange) {
+            minX = (minY0 <= quadratic(a1, x[minIdx])) ? minX0 : x[minIdx];
+            minY = std::min(minY0, quadratic(a1, x[minIdx]));
+        } else if (minX1inRange) {
+            minX = (quadratic(a0, x[minIdx]) <= minY1) ? x[minIdx] : minX1;
+            minY = std::min(quadratic(a0, x[minIdx]), minY1);
+        }
+        for (auto d : ansA2) {
+            if (x.front() <= d && d <= x.back()) {
+                if (quadratic(a1, d) < minY
+                    || (0 < minIdx && minIdx < x.size()-1
+                        && x[minIdx-1] < d && d < x[minIdx+1])) {
+                    minY = quadratic(a1, d);
+                    minX = d;
+                }
+            }
+        }
+        auto_fade = (float)minX;
+#if 0
+        std::ofstream file;
+        file.open(strsprintf("test%05d.csv", m_frameOut), std::ios::out);
+        for (size_t i = 0; i < x.size(); i++) {
+            file << x[i] << "," << y[i] << "," << quadratic(a0, x[i]) << "," << quadratic(a1, x[i]) << std::endl;
+        }
+        file << std::endl;
+        file << "minX = " << minX << std::endl;
+        file << "y0 = " << a0[2] << " * x2 + " << a0[1] << " * x1 + " << a0[0] << std::endl;
+        file << "y1 = " << a1[2] << " * x2 + " << a1[1] << " * x1 + " << a1[0] << std::endl;
+        file.close();
+#endif
+    }
+    auto_fade = clamp(auto_fade, 0.0f, LOGO_FADE_MAX * 1.15f);
+
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncFilterDelogo::calcAutoFade4(float& auto_fade, const FrameInfo *frame_logo, const int nr_value, const int nr_area) {
+#if 0
+NVENCSTATUS NVEncFilterDelogo::autoFade4(float& auto_fade, const FrameInfo *frame_logo, const int nr_value, const int nr_area) {
     float minFade = 0.0f;
     float maxFade = LOGO_FADE_MAX * 1.15f;
     std::array<float, 5> results;
@@ -835,8 +952,12 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFade4(float& auto_fade, const FrameInfo *
                 m_fadeValueTemp.copyHtoD();
 
                 std::vector<float> eval(1);
-                auto sts = calcAutoFadeCoef2(eval, false, frame_logo, nr_value, nr_area, (const float *)m_fadeValueTemp.ptrDevice);
+                auto sts = autoFadeCoef2Run(false, frame_logo, nr_value, nr_area, (const float *)m_fadeValueTemp.ptrDevice, (int)eval.size());
                 if (sts != NV_ENC_SUCCESS) return sts;
+
+                sts = autoFadeCoef2Collect(eval, nr_value);
+                if (sts != NV_ENC_SUCCESS) return sts;
+
                 results[i] = eval[0];
                 if (eval[0] < minResult) {
                     minResult = eval[0];
@@ -877,8 +998,12 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFade4(float& auto_fade, const FrameInfo *
         m_fadeValueTemp.copyHtoD();
 
         std::vector<float> eval(1);
-        auto sts = calcAutoFadeCoef2(eval, false, frame_logo, nr_value, nr_area, (const float *)m_fadeValueTemp.ptrDevice);
+        auto sts = autoFadeCoef2Run(false, frame_logo, nr_value, nr_area, (const float *)m_fadeValueTemp.ptrDevice, (int)eval.size());
         if (sts != NV_ENC_SUCCESS) return sts;
+
+        sts = autoFadeCoef2Collect(eval, nr_value);
+        if (sts != NV_ENC_SUCCESS) return sts;
+
         if (eval[0] < minResult) {
             minResult = eval[0];
             auto_fade = fade;
@@ -886,6 +1011,7 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFade4(float& auto_fade, const FrameInfo *
     }
     return NV_ENC_SUCCESS;
 }
+#endif
 
 NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const FrameInfo *pFrame) {
     // Frame毎に調整したMaskの作成
@@ -897,36 +1023,34 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fad
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return NV_ENC_ERR_INVALID_PARAM;
     }
-
-//#define calcAutoFade calcAutoFadeLS2
-#define calcAutoFade calcAutoFade4
-
-    const double fLimitRate = 0.7;
     if (pDelogoParam->delogo.autoNR) {
         auto_fade = 0.0f;
-        for (int nh = 0; nh <= LOGO_NR_MAX; nh++) { // NRのLimitに達しても処理を継続してFade値の決定には上限を超えたNRも指定する.
+        for (int nh = LOGO_NR_MAX; nh >= 0; nh--) {
+            cudaStreamWaitEvent(*m_evalStream[nh].stEval.get(), *m_adjMaskStream.heEvalCopyFin.get(), 0);
+            if (NV_ENC_SUCCESS != (sts = autoFadeCoef2Run(false, pFrame, nh, pDelogoParam->delogo.NRArea,
+                (const float *)m_fadeValueParallel.ptrDevice, DELOGO_PARALLEL_FADE,
+                m_evalStream[nh]))) {
+                return sts;
+            }
+        }
+        for (int nh = 0; nh <= LOGO_NR_MAX; nh++) {
             float temp_fade = 0.0f;
-            if (NV_ENC_SUCCESS != (sts = calcAutoFade(temp_fade, pFrame, nh, pDelogoParam->delogo.NRArea))) {
+            if (NV_ENC_SUCCESS != (sts = autoFadeLS2(auto_fade, nh))) {
                 return sts;
             }
             if (temp_fade > auto_fade) {
                 auto_fade = temp_fade;
                 auto_nr = nh;
             }
-            //if (nh == 0) {
-            //    // 調整していないロゴMaskで評価する.
-            //    unsigned int result = calc_auto_fade_coef2(nullptr,
-            //        g_logo.logo_y_delogo_nr.get(), g_logo.logo_y_delogo.get(), g_logo.logo_y.get(),
-            //        fp, lgh, g_logo.mask_nr.get(), g_logo.mask.get(), temp_fade, 0, 0, 0xffffffff);
-            //    int aveResult = result / g_logo.mask_valid_pixels;
-            //    nh_limit = (aveResult) ? std::min(LOGO_NR_REF / aveResult, LOGO_NR_MAX) : 0; // 最大NR強度を決定する.
-            //    debug_ave_result = aveResult;   // MaskのPixelあたりの平均Prewitt値.
-            //}
         }
-
     } else {
         auto_nr = pDelogoParam->delogo.NRValue;
-        if (NV_ENC_SUCCESS != (sts = calcAutoFade(auto_fade, pFrame, pDelogoParam->delogo.NRValue, pDelogoParam->delogo.NRArea))) {
+        if (NV_ENC_SUCCESS != (sts = autoFadeCoef2Run(false, pFrame, auto_nr, pDelogoParam->delogo.NRArea,
+            (const float *)m_fadeValueParallel.ptrDevice, DELOGO_PARALLEL_FADE,
+            m_evalStream[auto_nr]))) {
+            return sts;
+        }
+        if (NV_ENC_SUCCESS != (sts = autoFadeLS2(auto_fade, auto_nr))) {
             return sts;
         }
     }
@@ -1041,21 +1165,8 @@ NVENCSTATUS NVEncFilterDelogo::logAutoFadeNR() {
 NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     NVENCSTATUS sts = NV_ENC_SUCCESS;
 
-    if (pInputFrame->ptr == nullptr) {
-        return sts;
-    }
-
     *pOutputFrameNum = 1;
-    if (ppOutputFrames[0] == nullptr) {
-        AddMessage(RGY_LOG_ERROR, _T("ppOutputFrames[0] must be set.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
-    }
-    if (!ppOutputFrames[0]->deivce_mem) {
-        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
-    }
-    const auto memcpyKind = getCudaMemcpyKind(ppOutputFrames[0]->deivce_mem, ppOutputFrames[0]->deivce_mem);
-    if (memcpyKind != cudaMemcpyDeviceToDevice) {
+    if (ppOutputFrames[0] && !ppOutputFrames[0]->deivce_mem) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -1069,10 +1180,33 @@ NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInf
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
-    m_frameIn++;
     float fade = (float)m_sProcessData[LOGO__Y].fade;
     int auto_nr = pDelogoParam->delogo.NRValue;
     if (pDelogoParam->delogo.autoFade || pDelogoParam->delogo.autoNR) {
+        if (pInputFrame->ptr != nullptr) {
+            const auto frameOutInfoEx = getFrameInfoExtra(&m_src[m_frameIn].frame);
+            m_src[m_frameIn].frame.flags = pInputFrame->flags;
+            m_src[m_frameIn].frame.picstruct = pInputFrame->picstruct;
+            m_src[m_frameIn].frame.duration = pInputFrame->duration;
+            m_src[m_frameIn].frame.timestamp = pInputFrame->timestamp;
+            auto cudaerr = cudaMemcpy2DAsync(m_src[m_frameIn].frame.ptr, m_src[m_frameIn].frame.pitch,
+                pInputFrame->ptr, pInputFrame->pitch,
+                frameOutInfoEx.width_byte, frameOutInfoEx.height_total,
+                cudaMemcpyDeviceToDevice);
+            if (cudaerr != cudaSuccess) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy input frame to buffer: %s.\n"),
+                    char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+                return NV_ENC_ERR_GENERIC;
+            }
+            m_frameIn++;
+        } else if (m_frameIn <= m_frameOut) {
+            //出力フレームなし
+            *pOutputFrameNum = 0;
+            ppOutputFrames[0] = nullptr;
+            return sts;
+        } else {
+            pInputFrame = &m_src[m_frameIn].frame;
+        }
         if (NV_ENC_SUCCESS != (sts = calcAutoFadeNR(auto_nr, fade, pInputFrame))) {
             return sts;
         }
@@ -1082,6 +1216,21 @@ NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInf
             ppOutputFrames[0] = nullptr;
             return sts;
         }
+        ppOutputFrames[0] = &m_src[m_frameOut].frame;
+        m_frameOut++;
+    } else {
+        if (pInputFrame->ptr == nullptr) {
+            //自動フェードや自動NRを使用しない場合、入力フレームがないということはない
+            *pOutputFrameNum = 0;
+            ppOutputFrames[0] = nullptr;
+            return sts;
+        }
+        if (ppOutputFrames[0] == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("ppOutputFrames[0] must be set.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+        m_frameIn++;
+        m_frameOut++;
     }
 
     if (NV_ENC_SUCCESS != (sts = delogoY(ppOutputFrames[0], fade))) {
@@ -1099,7 +1248,6 @@ NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInf
     if (NV_ENC_SUCCESS != (sts = logAutoFadeNR())) {
         return sts;
     }
-    m_frameOut++;
     return sts;
 }
 
@@ -1107,6 +1255,7 @@ void NVEncFilterDelogo::close() {
     m_LogoFilePath.clear();
     m_pFrameBuf.clear();
     m_sLogoDataList.clear();
+    m_src.clear();
     m_mask.reset();
     m_maskAdjusted.reset();
     m_maskNR.reset();
@@ -1131,6 +1280,7 @@ void NVEncFilterDelogo::close() {
     m_adjMaskEachFadeCount.clear();
     m_adjMaskMinResAndValidMaskCount.clear();
     m_adjMask2ValidMaskCount.clear();
+    m_adjMask2TargetCount.reset();
     m_smoothKernel.reset();
     m_fadeValueAdjust.clear();
     m_fadeValueParallel.clear();

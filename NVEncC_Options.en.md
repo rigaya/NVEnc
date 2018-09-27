@@ -285,10 +285,10 @@ Set target quality when using VBR mode. (0.0-51.0, 0 = automatic)
 Enable lookahead, and specify its target range by the number of frames. (0 - 32)  
 This is useful to improve image quality, allowing adaptive insertion of I and B frames.
 
-### --no-i-apapt
+### --no-i-adapt
 Disable adaptive I frame insertion when lookahead is enabled.
 
-### --no-b-apapt
+### --no-b-adapt
 Disable adaptive B frame insertion when lookahead is enabled.
 
 ### --strict-gop
@@ -326,7 +326,7 @@ Specify B frame reference mode.
 ### --direct &lt;string&gt; [H.264 only]
 Specify H.264 B Direct mode.
 - auto (default)
-- none
+- disabled
 - spatial
 - temporal
 
@@ -609,6 +609,9 @@ The chapter file could be either in nero format or apple format. Cannot be used 
 
 ### --chapter-copy
 Copy chapters from input file.
+
+### --key-on-chapter
+Set keyframe on chapter position.
 
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
