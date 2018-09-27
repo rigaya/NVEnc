@@ -40,6 +40,8 @@
 #include "rgy_util.h"
 #include "NVEncUtil.h"
 
+std::vector<int> read_keyfile(tstring keyfile);
+
 class RGYInput {
 public:
     RGYInput();

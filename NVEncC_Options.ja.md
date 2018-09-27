@@ -611,11 +611,40 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 指定したチャプターファイルを読み込み反映させる。
 nero形式とapple形式に対応する。--chapter-copyとは併用できない。
 
+nero形式
+```
+CHAPTER01=00:00:39.706
+CHAPTER01NAME=chapter-1
+CHAPTER02=00:01:09.703
+CHAPTER02NAME=chapter-2
+CHAPTER03=00:01:28.288
+CHAPTER03NAME=chapter-3
+```
+
+apple形式 (should be in utf-8)
+```
+<?xml version="1.0" encoding="UTF-8" ?>
+  <TextStream version="1.1">
+   <TextStreamHeader>
+    <TextSampleDescription>
+    </TextSampleDescription>
+  </TextStreamHeader>
+  <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
+  <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
+  <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
+  <TextSample sampleTime="00:01:28.289" text="" />
+</TextStream>
+```
+
 ### --chapter-copy
 チャプターをコピーする。
 
 ### --key-on-chapter
 キーフレーム位置にチャプターを挿入する。
+
+### --keyfile &lt;string&gt;
+キーフレームしたいフレーム番号を記載したファイルを読み込み、指定のフレームをキーフレームに設定する。
+フレーム番号は、先頭から0, 1, 2, .... として、複数指定する場合は都度改行する。
 
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。

@@ -205,6 +205,9 @@ protected:
     //デコーダインスタンスを作成
     NVENCSTATUS InitFilters(const InEncodeVideoParam *inputParam);
 
+    //チャプター読み込み等
+    NVENCSTATUS InitChapters(const InEncodeVideoParam *inputParam);
+
     //エンコーダインスタンスを作成
     NVENCSTATUS CreateEncoder(const InEncodeVideoParam *inputParam);
 
@@ -215,9 +218,9 @@ protected:
     //NVENCSTATUS EncodeFrame(uint64_t timestamp);
 
     //フレームを1枚エンコーダに投入(非同期、トランスコード中継用)
-    NVENCSTATUS EncodeFrame(EncodeFrameConfig *pEncodeFrame, uint64_t timestamp, uint64_t duration);
+    NVENCSTATUS EncodeFrame(EncodeFrameConfig *pEncodeFrame, int id, uint64_t timestamp, uint64_t duration);
 
-    NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, uint64_t timestamp, uint64_t duration);
+    NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration);
 
     //エンコーダをフラッシュしてストリームを最後まで取り出す
     NVENCSTATUS FlushEncoder();
@@ -266,7 +269,8 @@ protected:
     NV_ENC_CONFIG                 m_stEncConfig;           //エンコード設定
 #if ENABLE_AVSW_READER
     bool                          m_keyOnChapter;        //チャプター上にキーフレームを配置する
-    vector<unique_ptr<AVChapter>> m_AVChapterFromFile;   //ファイルから読み込んだチャプター
+    vector<int>                   m_keyFile;             //キーフレームの指定
+    vector<unique_ptr<AVChapter>> m_Chapters;            //ファイルから読み込んだチャプター
 #endif //#if ENABLE_AVSW_READER
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;

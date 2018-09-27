@@ -705,6 +705,32 @@ Example2: 任何解码错误后退出转码
 
 使用章节文件设置章节信息。章节文件可以是 nero 或者 apple 格式。在 --chapter-copy 应用的情况下无法使用。
 
+
+nero格式
+```
+CHAPTER01=00:00:39.706
+CHAPTER01NAME=chapter-1
+CHAPTER02=00:01:09.703
+CHAPTER02NAME=chapter-2
+CHAPTER03=00:01:28.288
+CHAPTER03NAME=chapter-3
+```
+
+apple格式 (utf-8)
+```
+<?xml version="1.0" encoding="UTF-8" ?>
+  <TextStream version="1.1">
+   <TextStreamHeader>
+    <TextSampleDescription>
+    </TextSampleDescription>
+  </TextStreamHeader>
+  <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
+  <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
+  <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
+  <TextSample sampleTime="00:01:28.289" text="" />
+</TextStream>
+```
+
 ### --chapter-copy
 
 从输入文件复制章节信息。

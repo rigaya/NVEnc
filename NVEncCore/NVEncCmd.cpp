@@ -788,6 +788,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->keyOnChapter = true;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("keyfile"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            pParams->keyFile = strInput[i];
+        } else {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i+1]);
+            return 1;
+        }
+        return 0;
+    }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
@@ -3137,6 +3147,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);
     OPT_BOOL(_T("--key-on-chapter"), _T(""), keyOnChapter);
+    OPT_STR_PATH(_T("--keyfile"), keyFile);
     OPT_LST(_T("--avsync"), nAVSyncMode, list_avsync);
 #endif //#if ENABLE_AVSW_READER
 

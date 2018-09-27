@@ -824,6 +824,7 @@ struct InEncodeVideoParam {
     int nAudioIgnoreDecodeError;
     muxOptList *pMuxOpt;
     tstring sChapterFile;
+    tstring keyFile;
     TCHAR *pMuxVidTsLogFile;
     TCHAR *pAVInputFormat;
     RGYAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
