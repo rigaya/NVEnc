@@ -34,7 +34,7 @@
 #include <string>
 
 struct nal_info {
-    uint8_t *ptr;
+    const uint8_t *ptr;
     uint8_t type;
     uint32_t size;
 };
@@ -69,7 +69,7 @@ enum : uint8_t {
     NALU_HEVC_SUFFIX_SEI = 40,
 };
 
-static std::vector<nal_info> parse_nal_unit_h264(uint8_t *data, uint32_t size) {
+static std::vector<nal_info> parse_nal_unit_h264(const uint8_t *data, uint32_t size) {
     std::vector<nal_info> nal_list;
     nal_info nal_start = { nullptr, 0, 0 };
     const int i_fin = size - 3;
@@ -94,7 +94,7 @@ static std::vector<nal_info> parse_nal_unit_h264(uint8_t *data, uint32_t size) {
     return nal_list;
 }
 
-static std::vector<nal_info> parse_nal_unit_hevc(uint8_t *data, uint32_t size) {
+static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, uint32_t size) {
     std::vector<nal_info> nal_list;
     nal_info nal_start = { nullptr, 0, 0 };
     const int i_fin = size - 3;
