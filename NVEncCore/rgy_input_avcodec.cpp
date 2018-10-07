@@ -973,6 +973,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         }
         m_strReaderName = (m_Demux.video.nHWDecodeDeviceId >= 0) ? _T("av" DECODER_NAME) : _T("avsw");
         m_inputVideoInfo.type = (m_Demux.video.nHWDecodeDeviceId >= 0) ? RGY_INPUT_FMT_AVHW : RGY_INPUT_FMT_AVSW;
+        //念のため初期化
+        m_sTrimParam.list.clear();
+        m_sTrimParam.offset = 0;
 
         //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
         if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_HEVC) {

@@ -219,6 +219,8 @@ tstring getAVVersions();
 
 MAP_PAIR_0_1_PROTO(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP);
 
+#else
+#define AV_NOPTS_VALUE (-1)
 #endif //ENABLE_AVSW_READER
 
 #endif //__RGY_AVUTIL_H__
