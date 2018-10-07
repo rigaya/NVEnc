@@ -33,6 +33,7 @@
 #include <cctype>
 #include <cmath>
 #include <climits>
+#include <limits>
 #include <memory>
 #include "rgy_thread.h"
 #include "rgy_input_avcodec.h"
@@ -561,7 +562,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         1001
     };
     const double fpsAvg = av_q2d(m_Demux.video.nAvgFramerate);
-    double fpsDiff = DBL_MAX;
+    double fpsDiff = std::numeric_limits<double>::max();
     AVRational fpsNear = m_Demux.video.nAvgFramerate;
     auto round_fps = [&fpsDiff, &fpsNear, fpsAvg](const KnownFpsList& known_fps) {
         for (auto b : known_fps.base) {
