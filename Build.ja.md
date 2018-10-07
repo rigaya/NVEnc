@@ -19,45 +19,7 @@ yasmはパスに追加しておきます。
 git clone https://github.com/rigaya/NVEnc --recursive
 ```
 
-## 2. ffmpeg dllのビルド
-ffmpegのdllをビルドし、下記のように配置します。
-```
-NVEnc root
- |-NVEnc
- |-NVEncC
- |-NVEncCore
- |-NVEncSDK
- |-<others>...
- `-ffmpeg_lgpl
-    |- include
-    |   |-libavcodec
-    |   |  `- libavcodec header files
-    |   |-libavfilter
-    |   |  `- libavfilter header files
-    |   |-libavformat
-    |   |  `- libavfilter header files
-    |   |-libavutil
-    |   |  `- libavutil header files
-    |   `-libswresample
-    |      `- libswresample header files
-    `- lib
-        |-win32 (for win32 build)
-        |  `- avocdec, avfilter, avformat, avutil, swresample
-        |     x86 lib & dlls
-        `- x64 (for x64 build)
-           `- avocdec, avfilter, avformat, avutil, swresample
-              x64 lib & dlls
-```
-
-ffmpegのdllのビルド方法はいろいろあるかと思いますが、例えばmsys + mingw環境の場合には、
-Visual Studioの環境変数がセットされた状態でビルドすると、
-自動的にVC用のdllとlibが作成されます。
-
-参考までに、MSYS2向けのビルドスクリプトを[こちら](https://github.com/rigaya/build_scripts/tree/master/ffmpeg_dll)に置いておきます。
-
-laucherディレクトリ内のbatファイルから、MSYS2をVisual Studioの環境変数がセットされた状態で起動したのち、build_ffmpeg_dll.shを実行します。
-
-## 3. NVEnc.auo / NVEncC のビルド
+## 2. NVEnc.auo / NVEncC のビルド
 
 NVEnc.slnを開きます。
 
