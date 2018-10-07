@@ -1493,7 +1493,7 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
         //constantメモリを初期化
         std::array<float, _countof(g_threshold_adj_mul)> threshold_adj_mul;
         for (size_t i = 0; i < threshold_adj_mul.size(); i++) {
-            threshold_adj_mul[i] = constpow<float>(DELOGO_ADJMASK_POW_BASE, i);
+            threshold_adj_mul[i] = constpow<float>((float)DELOGO_ADJMASK_POW_BASE, i);
         }
         cudaerr = cudaMemcpyToSymbol(g_threshold_adj_mul, threshold_adj_mul.data(), sizeof(g_threshold_adj_mul), 0, cudaMemcpyHostToDevice);
         if (cudaerr != cudaSuccess) {
