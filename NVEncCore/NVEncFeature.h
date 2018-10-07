@@ -41,11 +41,11 @@ public:
     ~NVEncFeature();
 
     //featureリストの作成を開始 (非同期)
-    int createCacheAsync(int deviceID);
+    int createCacheAsync(int deviceID, int loglevel);
 
     //featureリストを取得 (取得できるまで待機)
     const std::vector<NVEncCodecFeature>& GetCachedNVEncCapability();
-    
+
     //featureリストからHEVCのリストを取得 (HEVC非対応ならnullptr)
     static const NVEncCodecFeature *GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures);
     //featureリストからHEVCのリストを取得 (H.264対応ならnullptr)
@@ -56,19 +56,15 @@ public:
     //HEVCが使用可能かどうかを取得 (取得できるまで待機)
     bool HEVCAvailable();
 protected:
-    //createCacheを非同期実行するスレッド用
-    static unsigned int __stdcall createCacheLoader(void *prm);
     //featureの取得を実行
-    int createCache(int deviceID);
+    int createCache(int deviceID, int loglevel);
 
     int m_nTargetDeviceID;   //対象デバイスID
-    NVEncCore *m_pNVEncCore; //NVEncCoreのインスタンス (スレッド終了時にdelete)
+    std::unique_ptr<NVEncCore> m_pNVEncCore; //NVEncCoreのインスタンス (スレッド終了時にdelete)
 
-    HANDLE m_hThCreateCache;      //featureリスト作成用スレッドのハンドル
-    HANDLE m_hEvCreateCache;      //featureリストの作成終了のイベント (ManualReset)
-    HANDLE m_hEvCreateCodecCache; //codecのみのリスト作成終了のイベント (ManualReset)
-    bool m_bH264; //H.264が使用可能かどうか (m_hEvCreateCodecCache後に有効)
-    bool m_bHEVC; //HEVCが使用可能かどうか (m_hEvCreateCodecCache後に有効)
+    std::thread m_hThCreateCache; //featureリスト作成用スレッドのハンドル
+    std::unique_ptr<void, handle_deleter> m_hEvCreateCache; //featureリストの作成終了のイベント (ManualReset)
+    std::unique_ptr<void, handle_deleter> m_hEvCreateCodecCache; //codecのみのリスト作成終了のイベント (ManualReset)
 
     //featureリスト
     //コーデックの有無はm_hEvCreateCodecCache後に有効

@@ -779,7 +779,7 @@ static void show_hw(int deviceid) {
     show_version();
 
     NVEncFeature nvFeature;
-    nvFeature.createCacheAsync(deviceid);
+    nvFeature.createCacheAsync(deviceid, RGY_LOG_DEBUG);
     auto nvEncCaps = nvFeature.GetCachedNVEncCapability();
     if (nvEncCaps.size()) {
         _ftprintf(stdout, _T("Avaliable Codec(s)\n"));
@@ -797,7 +797,7 @@ static void show_environment_info() {
 
 static void show_nvenc_features(int deviceid) {
     NVEncFeature nvFeature;
-    if (nvFeature.createCacheAsync(deviceid)) {
+    if (nvFeature.createCacheAsync(deviceid, RGY_LOG_INFO)) {
         _ftprintf(stdout, _T("error on checking features.\n"));
         return;
     }

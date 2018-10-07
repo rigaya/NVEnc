@@ -259,7 +259,7 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
             unique_ptr<NVEncFeature> nvFeature;
             if (getFeatures) {
                 nvFeature = unique_ptr<NVEncFeature>(new NVEncFeature());
-                nvFeature->createCacheAsync(currentDevice);
+                nvFeature->createCacheAsync(currentDevice, RGY_LOG_INFO);
             }
 
             NVGPUInfo gpu;
@@ -986,33 +986,57 @@ NVENCSTATUS NVEncCore::InitCuda(int cudaSchedule) {
     auto cudaerr = cudaGetLastError();
     PrintMes(RGY_LOG_DEBUG, _T("InitCuda: device #%d.\n"), m_nDeviceId);
 
+    PrintMes(RGY_LOG_DEBUG, _T("\n"), m_nDeviceId);
+    PrintMes(RGY_LOG_DEBUG, _T("Checking Environment Info...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("%s\n"), get_encoder_version());
+
+    OSVERSIONINFOEXW osversioninfo = { 0 };
+    tstring osversionstr = getOSVersion(&osversioninfo);
+    PrintMes(RGY_LOG_DEBUG, _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
+    PrintMes(RGY_LOG_DEBUG, _T("CPU            %s\n"), cpu_info);
 
     TCHAR gpu_info[1024] = { 0 };
     const auto len = _stprintf_s(gpu_info, _T("#%d: "), m_nDeviceId);
-    if (m_nDeviceId || 0 != getGPUInfo(GPU_VENDOR, gpu_info + len, _countof(gpu_info) - len)) {
-        const auto gpuInfo = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& info) { return info.id == device_id; });
-        if (gpuInfo != m_GPUList.end()) {
-            if (m_nDeviceId == gpuInfo->id) {
-                _stprintf_s(gpu_info, _T("#%d: %s"), gpuInfo->id, gpuInfo->name.c_str());
-                if (0 < gpuInfo->nv_driver_version && gpuInfo->nv_driver_version < NV_DRIVER_VER_MIN) {
-                    PrintMes(RGY_LOG_ERROR, _T("Insufficient NVIDIA driver version, Required %d.%d, Installed %d.%d\n"),
-                        NV_DRIVER_VER_MIN / 1000, (NV_DRIVER_VER_MIN % 1000) / 10,
-                        gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
-                    return NV_ENC_ERR_NO_ENCODE_DEVICE;
-                }
-                OSVERSIONINFOEXW osversioninfo = { 0 };
-                tstring osversionstr = getOSVersion(&osversioninfo);
-                PrintMes(RGY_LOG_DEBUG, _T("%s\n"), get_encoder_version());
-                PrintMes(RGY_LOG_DEBUG, _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
-                PrintMes(RGY_LOG_DEBUG, _T("CPU            %s\n"), cpu_info);
-                PrintMes(RGY_LOG_DEBUG, _T("GPU            %s\n"), gpu_info);
-                PrintMes(RGY_LOG_DEBUG, _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
-                    NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
-                    gpuInfo->cuda_driver_version / 1000, (gpuInfo->cuda_driver_version % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
+    if (0 == m_GPUList.size()) {
+        //NVEncFeatureから呼ばれたとき、ここに入る
+        //NVEncFeatureが再帰的に呼び出すのを避けるため、getFeatures = falseで呼び出す
+        NVEncoderGPUInfo gpuInfo(m_nDeviceId, false);
+        m_GPUList = gpuInfo.getGPUList();
+        if (0 == m_GPUList.size()) {
+            //NVEncFeatureが再帰的に呼び出すのを避けるため、getFeatures = falseで呼び出す
+            gpuInfo = NVEncoderGPUInfo(-1, false);
+            m_GPUList = gpuInfo.getGPUList();
+            if (0 == m_GPUList.size()) {
+                PrintMes(RGY_LOG_ERROR, _T("No GPU found suitable for NVEnc Encoding.\n"));
+                return NV_ENC_ERR_NO_ENCODE_DEVICE;
+            } else {
+                PrintMes(RGY_LOG_WARN, _T("DeviceId #%d not found, automatically selected default device.\n"), m_nDeviceId);
+                m_nDeviceId = 0;
             }
         }
+    }
+    const auto gpuInfo = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& info) { return info.id == device_id; });
+    if (gpuInfo != m_GPUList.end()) {
+        if (m_nDeviceId == gpuInfo->id) {
+            _stprintf_s(gpu_info, _T("#%d: %s (%d.%d)"), gpuInfo->id, gpuInfo->name.c_str(),
+                gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
+            PrintMes(RGY_LOG_DEBUG, _T("GPU            %s\n"), gpu_info);
+            if (0 < gpuInfo->nv_driver_version && gpuInfo->nv_driver_version < NV_DRIVER_VER_MIN) {
+                PrintMes(RGY_LOG_ERROR, _T("Insufficient NVIDIA driver version, Required %d.%d, Installed %d.%d\n"),
+                    NV_DRIVER_VER_MIN / 1000, (NV_DRIVER_VER_MIN % 1000) / 10,
+                    gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
+                return NV_ENC_ERR_NO_ENCODE_DEVICE;
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
+                NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
+                gpuInfo->cuda_driver_version / 1000, (gpuInfo->cuda_driver_version % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
+        }
+    } else {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to check NVIDIA driver version.\n"));
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
 
     //ひとまず、これまでのすべてのエラーをflush
@@ -3110,7 +3134,7 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
 
     MYPROC nvEncodeAPICreateInstance; // function pointer to create instance in nvEncodeAPI
     if (NULL == (nvEncodeAPICreateInstance = (MYPROC)GetProcAddress(m_hinstLib, "NvEncodeAPICreateInstance"))) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("NvEncodeAPICreateInstanceのアドレス取得に失敗しました。\n") : _T("Failed to get address of NvEncodeAPICreateInstance.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to load address of NvEncodeAPICreateInstance from %s.\n"), NVENCODE_API_DLL);
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
     if (NULL == (m_pEncodeAPI = new NV_ENCODE_API_FUNCTION_LIST)) {
@@ -3123,23 +3147,19 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
 
     if (NV_ENC_SUCCESS != (nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI))) {
         if (nvStatus == NV_ENC_ERR_INVALID_VERSION) {
-#if FOR_AUO
-            PrintMes(RGY_LOG_ERROR, _T("nvEncodeAPIのインスタンス作成に失敗しました。ドライバのバージョンが古い可能性があります。\n"));
-            PrintMes(RGY_LOG_ERROR, _T("最新のドライバに更新して試してみてください。\n"));
-#else
-            PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI, please consider updating your GPU driver.\n"));
-#endif
+            PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI(ver=0x%x), please consider updating your GPU driver.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
         } else {
             NVPrintFuncError(_T("nvEncodeAPICreateInstance"), nvStatus);
         }
         return nvStatus;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x): Success.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
 
     if (NV_ENC_SUCCESS != (nvStatus = NvEncOpenEncodeSessionEx(m_pDevice, NV_ENC_DEVICE_TYPE_CUDA))) {
+        NVPrintFuncError(_T("NvEncOpenEncodeSessionEx(device_type=NV_ENC_DEVICE_TYPE_CUDA)"), nvStatus);
         return nvStatus;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("NvEncOpenEncodeSessionEx: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("NvEncOpenEncodeSessionEx(device_type=NV_ENC_DEVICE_TYPE_CUDA): Success.\n"));
     return NV_ENC_SUCCESS;
 }
 
