@@ -282,7 +282,6 @@ void NVMLMonitor::Close() {
     }
     memset(&m_func, 0, sizeof(m_func));
 }
-#endif
 
 int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
     memset(info, 0, sizeof(info[0]));
@@ -405,6 +404,7 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
     }
     return 0;
 }
+#endif
 
 tstring CPerfMonitor::SelectedCounters(int select) {
     if (select == 0) {
