@@ -2389,10 +2389,16 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
 
     if (inputParam->codec == NV_ENC_HEVC) {
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceMode = 3;
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceModeData = 1;
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceMode != 3) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceMode = 3;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceModeData = 1;
+        }
         //整合性チェック (一般, H.265/HEVC)
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
+
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputBufferingPeriodSEI = 1;
+        }
         //YUV444出力
         if (inputParam->yuv444 || inputParam->lossless) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 3;
@@ -2423,6 +2429,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFormat = 0;
         }
     } else if (inputParam->codec == NV_ENC_H264) {
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceMode != 3) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceMode = 3;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceModeData = 1;
+        }
         //Bluray 互換出力
         if (inputParam->bluray) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputPictureTimingSEI = 1;
@@ -2447,6 +2457,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             if (maxGOPLen == 30u && overMaxGOPLen) {
                 m_stCreateEncodeParams.encodeConfig->gopLength = 30u;
             }
+        }
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputPictureTimingSEI) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputBufferingPeriodSEI = 1;
         }
         //YUV444出力
         if (inputParam->yuv444 || inputParam->lossless) {
@@ -4668,10 +4681,18 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         strAQ = _T("off");
     }
     add_str(RGY_LOG_INFO,  _T("AQ             %s\n"), strAQ.c_str());
-    if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
-        add_str(RGY_LOG_DEBUG, _T("Slice number      %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
-    } else {
-        add_str(RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+    if (codec == NV_ENC_H264) {
+        if (m_stEncConfig.encodeCodecConfig.h264Config.sliceMode == 3) {
+            add_str(RGY_LOG_DEBUG, _T("Slices            %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+        } else {
+            add_str(RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+        }
+    } else if (codec == NV_ENC_HEVC) {
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.sliceMode == 3) {
+            add_str(RGY_LOG_DEBUG, _T("Slices            %d\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData);
+        } else {
+            add_str(RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.sliceMode, m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData);
+        }
     }
     if (codec == NV_ENC_HEVC) {
         add_str(RGY_LOG_INFO, _T("CU max / min   %s / %s\n"),
@@ -4692,6 +4713,19 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(RGY_LOG_DEBUG, _T("fmo:%s "), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
         if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 > 0) {
             add_str(RGY_LOG_INFO, _T("bdirect:%s "), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
+        }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.outputAUD) {
+            add_str(RGY_LOG_INFO, _T("aud "));
+        }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI) {
+            add_str(RGY_LOG_INFO, _T("pic-struct "));
+        }
+    } else if (codec == NV_ENC_HEVC) {
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.outputAUD) {
+            add_str(RGY_LOG_INFO, _T("aud "));
+        }
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
+            add_str(RGY_LOG_INFO, _T("pic-struct "));
         }
     }
     add_str(RGY_LOG_INFO, _T("\n"));

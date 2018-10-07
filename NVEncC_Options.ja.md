@@ -346,6 +346,9 @@ H.264のadaptive transform modeを有効(無効)にする。
 - half-pel ... 1/2画素精度
 - full-pel ... 1 画素精度 (低精度)
 
+### --slices &lt;int&gt;
+スライス数。指定なし、あるいは0で自動。
+
 ### --level &lt;string&gt;
 エンコードするコーデックのLevelを指定する。指定しない場合は自動的に決定される。
 ```
@@ -409,6 +412,12 @@ Mastering display data の設定。
 ```
 Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
+
+### --aud
+Access Unit Delimiter NALを挿入する。
+
+### --pic-struct
+picture timing SEIを挿入する。
 
 各種フラグの設定。
 

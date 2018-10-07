@@ -390,6 +390,7 @@ static tstring help() {
         _T("                                  Q-pel (High Quality),\n")
         _T("                                  half-pel,\n")
         _T("                                  full-pel (Low Quality, not recommended)\n")
+        _T("   --slices <int>               number of slices, default 0 (auto)\n")
         _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
         _T("   --(no-)aq                    enable spatial adaptive quantization\n")
         _T("   --aq-temporal                [H264] enable temporal adaptive quantization\n")
@@ -426,6 +427,8 @@ static tstring help() {
     str += PrintListOptions(_T("--colorprim <string>"), list_colorprim, 0);
     str += PrintListOptions(_T("--transfer <string>"), list_transfer, 0);
     str += strsprintf(_T("")
+        _T("   --aud                        insert aud nal unit to ouput stream.\n")
+        _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n")
         _T("   --chromaloc <int>            set chroma location flag [ 0 ... 5 ]\n")
         _T("                                  default: 0 = unspecified\n")
         _T("   --fullrange                  set fullrange\n")

@@ -340,6 +340,9 @@ Motion vector accuracy / default: auto
 - half-pel ... 1/2 pixel precision
 - full-pel ... 1 pixel accuracy (low accuracy)
 
+### --slices &lt;int&gt;
+Set number of slices.
+
 ### --level &lt;string&gt;
 Specify the Level of the codec to be encoded. If not specified, it will be automatically set.
 ```
@@ -403,6 +406,12 @@ Set Mastering display data.
 ```
 Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
+
+### --aud
+Insert Access Unit Delimiter NAL.
+
+### --pic-struct
+Insert picture timing SEI.
 
 ### --cabac [H.264 only]
 Use CABAC. (Default: on)
