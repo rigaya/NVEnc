@@ -8,10 +8,22 @@ by rigaya
 - Visual Studio 2015
 - CUDA 8.0
 - yasm
-- Avisynth SDK
+- Avisynth+ SDK
 - VapourSynth SDK
 
 yasmはパスに追加しておきます。
+
+Avisynth+とVapourSynthは、SDKがインストールされるよう設定してインストールします。
+
+Avisynth+ SDKの"avisynth_c.h"とVapourSynth SDKの"VapourSynth.h", "VSScript.h"がVisual Studioのincludeパスに含まれるよう設定します。
+
+includeパスは環境変数 "AVISYNTH_SDK" / "VAPOURSYNTH_SDK" で渡すことができます。
+
+Avisynth+ / VapourSynthインストーラのデフォルトの場所にインストールした場合、下記のように設定することになります。
+```Batchfile
+setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
+setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
+```
 
 ## 1. ソースのダウンロード
 
@@ -21,11 +33,7 @@ git clone https://github.com/rigaya/NVEnc --recursive
 
 ## 2. NVEnc.auo / NVEncC のビルド
 
-NVEnc.slnを開きます。
-
-Avisynth SDKの"avisynth_c.h"、
-VapourSynth SDKの"VapourSynth.h", "VSScript.h"が
-includeパスに含まれるよう、Visual Studio設定した後、ビルドしてください。
+NVEnc.slnを開き、ビルドします。
 
 ビルドしたいものに合わせて、構成を選択してください。
 
