@@ -9,7 +9,7 @@ platform:
 
 configuration:
  - RelStatic
- 
+
 branches:
   only:
     - master
@@ -29,7 +29,7 @@ install:
   - if "%PLATFORM%" == "Win32" curl -o "c:\yasm\yasm.exe" http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win32.exe
   - set PATH=c:\yasm;%PATH%
   - yasm --version
-  
+
 before_build:
   - appveyor DownloadFile https://developer.nvidia.com/compute/cuda/8.0/prod/local_installers/cuda_8.0.44_windows-exe -FileName cuda_8.0.44_windows.exe
   - cuda_8.0.44_windows.exe -s compiler_8.0 command_line_tools_8.0 cudart_8.0 curand_8.0 curand_dev_8.0 npp_8.0 npp_dev_8.0 nvml_dev_8.0 visual_studio_integration_8.0
@@ -75,3 +75,14 @@ after_build:
 artifacts:
   - path: NVEncC_%BUILD_VERSION%_%PLATFORM%.7z
     name: NVEncC_%BUILD_VERSION%_%PLATFORM%
+
+deploy:
+  provider: GitHub
+  auth_token:
+    secure: IDRwZWN1uQaTxb64SQnTDNJR5KPtCFPL3Mln9GrdZ7TSiyec/o1KXpOuh/50ZO5A
+  artifact: NVEncC_%BUILD_VERSION%_%PLATFORM%
+  draft: false
+  prerelease: false
+  on:
+    branch: master
+    appveyor_repo_tag: true
