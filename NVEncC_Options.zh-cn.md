@@ -901,9 +901,6 @@ Activate Auto Field Shift (AFS) deinterlacer.
 | nn            | 近邻法 | ○ |
 | npp_linear    | NPP 库提供的线性插值 | ○ |
 | cubic         | 4x4 立方插值 | ○ |
-| cubic_bspline | 4x4 立方插值 (B=1, C=0)       | ○ |
-| cubic_catmull | 4x4 立方插值 (B=0, C=1/2)      | ○ |
-| cubic_b05c03  | 4x4 立方插值 (B=1/2, C=3/10)   | ○ |
 | super         | NPP 库提供的所谓的 "super sampling"  | ○ |
 | lanczos       | Lanczos 插值                    | ○ |
 

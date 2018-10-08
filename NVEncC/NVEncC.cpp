@@ -442,7 +442,7 @@ static tstring help() {
         _T("   --vpp-deinterlace <string>   set deinterlace mode / default: none\n")
         _T("                                  none, bob, adaptive (normal)\n")
         _T("                                  available only with avhw reader\n"));
-    str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
+    str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize_help, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
         _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]\n")

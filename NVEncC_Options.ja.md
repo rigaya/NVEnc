@@ -848,9 +848,6 @@ log=0
 | nn            | 最近傍点選択 | ○ |
 | npp_linear    | nppの線形補間 | ○ |
 | cubic         | 4x4 3次補間 | ○ |
-| cubic_bspline | 4x4 3次補間 (B=1, C=0)       | ○ |
-| cubic_catmull | 4x4 3次補間 (B=0, C=1/2)      | ○ |
-| cubic_b05c03  | 4x4 3次補間 (B=1/2, C=3/10)   | ○ |
 | super         | nppのsuper sampling(詳細不明) | ○ |
 | lanczos       | Lanczos法                    | ○ |
 

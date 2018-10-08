@@ -802,9 +802,6 @@ Those with "○" in nppi64_80.dll use the [NPP library](https://developer.nvidia
 | nn            | nearest neighbor | ○ |
 | npp_linear    | linear interpolation by NPP library | ○ |
 | cubic         | 4x4 cubic interpolation | ○ |
-| cubic_bspline | 4x4 cubic interpolation (B=1, C=0)       | ○ |
-| cubic_catmull | 4x4 cubic interpolation (B=0, C=1/2)      | ○ |
-| cubic_b05c03  | 4x4 cubic interpolation (B=1/2, C=3/10)   | ○ |
 | super         | So called "super sampling" by NPP library | ○ |
 | lanczos       | Lanczos interpolation                    | ○ |
 

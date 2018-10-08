@@ -63,7 +63,7 @@ System::Boolean frmSaveNewStg::checkStgFileName(String^ stgName) {
     String^ fileName;
     if (stgName->Length == 0)
         return false;
-    
+
     if (!ValidiateFileName(stgName)) {
         MessageBox::Show(L"ファイル名に使用できない文字が含まれています。\n保存できません。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
         return false;
@@ -234,8 +234,8 @@ System::Boolean frmConfig::CheckLocalStg() {
     //音声エンコーダのチェック (実行ファイル名がない場合はチェックしない)
     if (LocalStg.audEncExeName[fcgCXAudioEncoder->SelectedIndex]->Length) {
         String^ AudioEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
-        if (!File::Exists(AudioEncoderPath) 
-            && (fcgCXAudioEncoder->SelectedIndex != sys_dat->exstg->s_aud_faw_index 
+        if (!File::Exists(AudioEncoderPath)
+            && (fcgCXAudioEncoder->SelectedIndex != sys_dat->exstg->s_aud_faw_index
                 || !check_if_faw2aac_exists()) ) {
             //音声実行ファイルがない かつ
             //選択された音声がfawでない または fawであってもfaw2aacがない
@@ -261,7 +261,7 @@ System::Boolean frmConfig::CheckLocalStg() {
                 +  L"一度設定画面でFAW(fawcl)へのパスを指定してください。\n";
         }
     }
-    if (error) 
+    if (error)
         MessageBox::Show(this, err, L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
     return error;
 }
@@ -507,8 +507,8 @@ ToolStripMenuItem^ frmConfig::fcgTSSettingsSearchItem(String^ stgPath, ToolStrip
         if (item != nullptr)
             return item;
         item = dynamic_cast<ToolStripMenuItem^>(DropDownItem->DropDownItems[i]);
-        if (item      != nullptr && 
-            item->Tag != nullptr && 
+        if (item      != nullptr &&
+            item->Tag != nullptr &&
             0 == String::Compare(item->Tag->ToString(), stgPath, true))
             return item;
     }
@@ -520,7 +520,7 @@ ToolStripMenuItem^ frmConfig::fcgTSSettingsSearchItem(String^ stgPath) {
 }
 
 System::Void frmConfig::SaveToStgFile(String^ stgName) {
-    size_t nameLen = CountStringBytes(stgName) + 1; 
+    size_t nameLen = CountStringBytes(stgName) + 1;
     char *stg_name = (char *)malloc(nameLen);
     GetCHARfromString(stg_name, nameLen, stgName);
     init_CONF_GUIEX(cnf_stgSelected, FALSE);
@@ -566,7 +566,7 @@ System::Void frmConfig::fcgTSBSaveNew_Click(System::Object^  sender, System::Eve
 System::Void frmConfig::DeleteStgFile(ToolStripMenuItem^ mItem) {
     if (System::Windows::Forms::DialogResult::OK ==
         MessageBox::Show(L"設定ファイル " + mItem->Text + L" を削除してよろしいですか?",
-        L"エラー", MessageBoxButtons::OKCancel, MessageBoxIcon::Exclamation)) 
+        L"エラー", MessageBoxButtons::OKCancel, MessageBoxIcon::Exclamation))
     {
         File::Delete(mItem->Tag->ToString());
         RebuildStgFileDropDown(nullptr);
@@ -666,7 +666,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXHEVCOutBitDepth,   list_bitdepth);
     setComboBox(fcgCXAQ,                list_aq);
     setComboBox(fcgCXCudaSchdule,       list_cuda_schedule);
-    setComboBox(fcgCXVppResizeAlg,      list_nppi_resize);
+    setComboBox(fcgCXVppResizeAlg,      list_nppi_resize_help);
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
     setComboBox(fcgCXVppDetailEnhance,  list_vpp_detail_enahance);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
@@ -740,7 +740,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     bool cbr_vbr_mode = (vce_rc_method == NV_ENC_PARAMS_RC_CBR || vce_rc_method == NV_ENC_PARAMS_RC_CBR_HQ || vce_rc_method == NV_ENC_PARAMS_RC_VBR || vce_rc_method == NV_ENC_PARAMS_RC_VBR_HQ);
 
     this->SuspendLayout();
-    
+
     fcgPNHEVC->Visible = hevc_mode;
     fcgPNH264->Visible = h264_mode;
     fcgPNHEVCDetail->Visible = hevc_mode;
@@ -919,7 +919,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXAQ,                get_cx_index(list_aq, nAQ));
     SetNUValue(fcgNUAQStrength,        encPrm.encConfig.rcParams.aqStrength);
     fcgCBWeightP->Checked            = encPrm.nWeightP != 0;
-    
+
     if (encPrm.par[0] * encPrm.par[1] <= 0)
         encPrm.par[0] = encPrm.par[1] = 0;
     SetCXIndex(fcgCXAspectRatio, (encPrm.par[0] < 0));
@@ -960,7 +960,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXColorPrimH264,         get_cx_index(list_colorprim,   codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries));
     SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, codecPrm[NV_ENC_H264].h264Config.adaptiveTransformMode));
     SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         codecPrm[NV_ENC_H264].h264Config.bdirectMode));
-    
+
     //HEVC
     SetCXIndex(fcgCXHEVCOutBitDepth,       get_cx_index(list_bitdepth, codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8));
     SetCXIndex(fcgCXHEVCTier,      get_index_from_value(codecPrm[NV_ENC_HEVC].hevcConfig.tier, h265_profile_names));
@@ -977,7 +977,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
         SetCXIndex(fcgCXTempDir,             cnf->oth.temp_dir);
-        fcgCBAFS->Checked                  = cnf->vid.afs != 0; 
+        fcgCBAFS->Checked                  = cnf->vid.afs != 0;
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
         fcgCBLogDebug->Checked             = encPrm.loglevel == RGY_LOG_DEBUG;
 
@@ -1319,7 +1319,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->mux.mpg_mode               = fcgCXMPGCmdEx->SelectedIndex;
     cnf->mux.minimized              = fcgCBMuxMinimize->Checked;
     cnf->mux.priority               = fcgCXMuxPriority->SelectedIndex;
-    
+
     cnf->oth.run_bat                = RUN_BAT_NONE;
     cnf->oth.run_bat               |= (fcgCBRunBatBeforeAudio->Checked) ? RUN_BAT_BEFORE_AUDIO   : NULL;
     cnf->oth.run_bat               |= (fcgCBRunBatAfterAudio->Checked)  ? RUN_BAT_AFTER_AUDIO    : NULL;

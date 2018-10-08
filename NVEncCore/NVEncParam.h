@@ -455,6 +455,22 @@ const CX_DESC list_nppi_resize[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_nppi_resize_help[] = {
+    { _T("default"),       NPPI_INTER_UNDEFINED },
+    { _T("nn"),            NPPI_INTER_NN },
+    { _T("npp_linear"),    NPPI_INTER_LINEAR },
+    { _T("cubic"),         NPPI_INTER_CUBIC },
+    //{ _T("cubic_bspline"), NPPI_INTER_CUBIC2P_BSPLINE },
+    //{ _T("cubic_catmull"), NPPI_INTER_CUBIC2P_CATMULLROM },
+    //{ _T("cubic_b05c03"),  NPPI_INTER_CUBIC2P_B05C03 },
+    { _T("super"),         NPPI_INTER_SUPER },
+    { _T("lanczos"),       NPPI_INTER_LANCZOS },
+    //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
+    { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
+    { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
+    { NULL, NULL }
+};
+
 
 const CX_DESC list_vpp_denoise[] = {
     { _T("none"), 0 },
