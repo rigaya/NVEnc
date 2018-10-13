@@ -185,6 +185,7 @@ static tstring help() {
         _T("   --check-codecs               show codecs available\n")
         _T("   --check-encoders             show audio encoders available\n")
         _T("   --check-decoders             show audio decoders available\n")
+        _T("   --check-profiles <string>    show profile names available for specified codec\n")
         _T("   --check-formats              show in/out formats available\n")
         _T("   --check-protocols            show in/out protocols available\n")
         _T("   --check-filters              show filters available\n")
@@ -890,6 +891,18 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
     }
     if (0 == _tcscmp(option_name, _T("check-decoders"))) {
         _ftprintf(stdout, _T("%s\n"), getAVCodecs(RGY_AVCODEC_DEC).c_str());
+        return 1;
+    }
+    if (0 == _tcscmp(option_name, _T("check-profiles"))) {
+        auto list = getAudioPofileList(arg1);
+        if (list.size() == 0) {
+            _ftprintf(stdout, _T("Failed to find codec name \"%s\"\n"), arg1);
+        } else {
+            _ftprintf(stdout, _T("profile name for \"%s\"\n"), arg1);
+            for (const auto& name : list) {
+                _ftprintf(stdout, _T("  %s\n"), name.c_str());
+            }
+        }
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-protocols"))) {

@@ -88,6 +88,9 @@ Show environment information recognized by NVEncC
 ### --check-codecs, --check-decoders, --check-encoders
 Show available audio codec names
 
+### --check-profiles &lt;string&gt;
+Show profile names available for specified codec
+
 ### --check-formats
 Show available output format
 

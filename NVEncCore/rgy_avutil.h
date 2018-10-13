@@ -193,6 +193,9 @@ tstring getHWDecSupportedCodecList();
 //利用可能な音声エンコーダ/デコーダを表示
 tstring getAVCodecs(RGYAVCodecType flag);
 
+//音声エンコーダで利用可能なプロファイルのリストを作成
+std::vector<tstring> getAudioPofileList(const tstring& codec_name);
+
 //利用可能なフォーマットを表示
 tstring getAVFormats(RGYAVFormatType flag);
 

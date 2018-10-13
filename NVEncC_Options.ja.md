@@ -105,6 +105,9 @@ NVEncCの認識している環境情報を表示
 ### --check-codecs, --check-decoders, --check-encoders
 利用可能な音声コーデック名を表示
 
+### --check-profiles &lt;string&gt;
+利用可能な音声プロファイル名を表示
+
 ### --check-formats
 利用可能な出力フォーマットを表示
 
