@@ -2996,7 +2996,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         if ((pParams->encConfig.rcParams.targetQuality) != (encPrmDefault.encConfig.rcParams.targetQuality)
             || (pParams->encConfig.rcParams.targetQualityLSB) != (encPrmDefault.encConfig.rcParams.targetQualityLSB)) {
             float val = pParams->encConfig.rcParams.targetQuality + pParams->encConfig.rcParams.targetQualityLSB / 256.0f;
-            cmd << _T(" --vbr-quality ") << std::setprecision(2) << val;
+            cmd << _T(" --vbr-quality ") << std::fixed << std::setprecision(2) << val;
         }
         OPT_NUM(_T("--max-bitrate"), encConfig.rcParams.maxBitRate / 1000);
     }
