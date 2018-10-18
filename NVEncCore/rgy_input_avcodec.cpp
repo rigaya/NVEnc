@@ -53,11 +53,11 @@ static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
     return reader->readPacket(buf, buf_size);
 }
 static int funcWritePacket(void *opaque, uint8_t *buf, int buf_size) {
-    RGYInputAvcodec *writer = reinterpret_cast<RGYInputAvcodec *>(opaque);
+    RGYInputAvcodec *reader = reinterpret_cast<RGYInputAvcodec *>(opaque);
     return reader->writePacket(buf, buf_size);
 }
 static int64_t funcSeek(void *opaque, int64_t offset, int whence) {
-    RGYInputAvcodec *writer = reinterpret_cast<RGYInputAvcodec *>(opaque);
+    RGYInputAvcodec *reader = reinterpret_cast<RGYInputAvcodec *>(opaque);
     return reader->seek(offset, whence);
 }
 #endif //USE_CUSTOM_INPUT
@@ -777,7 +777,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             return RGY_ERR_NULL_PTR;
         }
     } else
-#else
+#endif
     //ファイルのオープン
     if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), pInFormat, &m_Demux.format.pFormatOptions)) {
         AddMessage(RGY_LOG_ERROR, _T("error opening file: \"%s\"\n"), char_to_tstring(filename_char, CP_UTF8).c_str());

@@ -31,6 +31,7 @@
 
 #include <utility>
 #include <array>
+#include "rgy_osdep.h"
 #include "nvEncodeAPI.h"
 #pragma warning (push)
 #pragma warning (disable: 4201)

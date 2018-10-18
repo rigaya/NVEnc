@@ -30,6 +30,7 @@
 #include <tchar.h>
 #include <limits.h>
 #include <vector>
+#include "rgy_osdep.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #pragma warning (disable: 4201)

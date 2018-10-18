@@ -47,8 +47,8 @@
 #include <sstream>
 #include <functional>
 #include <type_traits>
-#include "rgy_err.h"
 #include "rgy_osdep.h"
+#include "rgy_err.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
 #include "convert_csp.h"
@@ -1177,7 +1177,7 @@ public:
         }
         return RGY_ERR_NONE;
     }
-    RGY_ERR init() {
+    void init() {
         bufptr_ = nullptr;
         buf_size_ = 0;
         data_length_ = 0;
