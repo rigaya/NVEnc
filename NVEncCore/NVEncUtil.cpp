@@ -183,7 +183,10 @@ VideoInfo videooutputinfo(
 
 #if !ENABLE_AVSW_READER
 #define TTMATH_NOASM
+#pragma warning(push)
+#pragma warning(disable: 4244)
 #include "ttmath/ttmath.h"
+#pragma warning(pop)
 
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to) {
     auto mul = rgy_rational<int64_t>((int64_t)from.n() * (int64_t)to.d(), (int64_t)from.d() * (int64_t)to.n());

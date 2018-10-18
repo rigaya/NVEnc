@@ -79,14 +79,18 @@
 #include "hevc_level.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
+
+#pragma warning(push)
+#pragma warning(disable: 4244)
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"
-
 #if _M_IX86
 typedef ttmath::Int<4> ttint128;
 #else
 typedef ttmath::Int<2> ttint128;
 #endif
+#pragma warning(pop)
+
 
 using std::deque;
 
