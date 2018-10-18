@@ -784,6 +784,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("key-on-chapter")) {
+        pParams->keyOnChapter = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("keyfile"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            pParams->keyFile = strInput[i];
+        } else {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i+1]);
+            return 1;
+        }
+        return 0;
+    }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
@@ -2290,8 +2304,69 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 1;
         return 0;
     }
+    if (IS_OPTION("slices:h264")) {
+        i++;
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_H264].h264Config.sliceMode = 3;
+            codecPrm[NV_ENC_H264].h264Config.sliceModeData = value;
+        } catch (...) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+    }
+    if (IS_OPTION("slices:hevc")) {
+        i++;
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_HEVC].hevcConfig.sliceMode = 3;
+            codecPrm[NV_ENC_HEVC].hevcConfig.sliceModeData = value;
+        } catch (...) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+    }
+    if (IS_OPTION("slices")) {
+        i++;
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_H264].h264Config.sliceMode = 3;
+            codecPrm[NV_ENC_HEVC].hevcConfig.sliceMode = 3;
+            codecPrm[NV_ENC_H264].h264Config.sliceModeData = value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.sliceModeData = value;
+        } catch (...) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+    }
     if (IS_OPTION("deblock")) {
         codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 0;
+        return 0;
+    }
+    if (IS_OPTION("aud:h264")) {
+        codecPrm[NV_ENC_H264].h264Config.outputAUD = 1;
+        return 0;
+    }
+    if (IS_OPTION("aud:hevc")) {
+        codecPrm[NV_ENC_HEVC].hevcConfig.outputAUD = 1;
+        return 0;
+    }
+    if (IS_OPTION("aud")) {
+        codecPrm[NV_ENC_H264].h264Config.outputAUD = 1;
+        codecPrm[NV_ENC_HEVC].hevcConfig.outputAUD = 1;
+        return 0;
+    }
+    if (IS_OPTION("pic-struct:h264")) {
+        codecPrm[NV_ENC_H264].h264Config.outputPictureTimingSEI = 1;
+        return 0;
+    }
+    if (IS_OPTION("pic-struct:hevc")) {
+        codecPrm[NV_ENC_HEVC].hevcConfig.outputPictureTimingSEI = 1;
+        return 0;
+    }
+    if (IS_OPTION("pic-struct")) {
+        codecPrm[NV_ENC_H264].h264Config.outputPictureTimingSEI = 1;
+        codecPrm[NV_ENC_HEVC].hevcConfig.outputPictureTimingSEI = 1;
         return 0;
     }
     if (IS_OPTION("fullrange:h264")) {
@@ -2921,7 +2996,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         if ((pParams->encConfig.rcParams.targetQuality) != (encPrmDefault.encConfig.rcParams.targetQuality)
             || (pParams->encConfig.rcParams.targetQualityLSB) != (encPrmDefault.encConfig.rcParams.targetQualityLSB)) {
             float val = pParams->encConfig.rcParams.targetQuality + pParams->encConfig.rcParams.targetQualityLSB / 256.0f;
-            cmd << _T(" --vbr-quality ") << std::setprecision(2) << val;
+            cmd << _T(" --vbr-quality ") << std::fixed << std::setprecision(2) << val;
         }
         OPT_NUM(_T("--max-bitrate"), encConfig.rcParams.maxBitRate / 1000);
     }
@@ -2966,6 +3041,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         if (codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 != codecPrmDefault[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8) {
             cmd << _T(" --output-depth ") << codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 + 8;
         }
+        OPT_NUM_HEVC(_T("--slices"), _T(":hevc"), sliceModeData);
+        OPT_BOOL_HEVC(_T("--aud"), _T(""), _T(":hevc"), outputAUD);
+        OPT_BOOL_HEVC(_T("--pic-struct"), _T(""), _T(":hevc"), outputPictureTimingSEI);
         OPT_BOOL_HEVC(_T("--fullrange"), _T(""), _T(":hevc"), hevcVUIParameters.videoFullRangeFlag);
         OPT_LST_HEVC(_T("--videoformat"), _T(":hevc"), hevcVUIParameters.videoFormat, list_videoformat);
         OPT_LST_HEVC(_T("--colormatrix"), _T(":hevc"), hevcVUIParameters.colourMatrix, list_colormatrix);
@@ -2984,6 +3062,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_H264(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         OPT_LST_H264(_T("--direct"), _T(""), bdirectMode, list_bdirect);
         OPT_LST_H264(_T("--adapt-transform"), _T(""), adaptiveTransformMode, list_adapt_transform);
+        OPT_NUM_H264(_T("--slices"), _T(":h264"), sliceModeData);
+        OPT_BOOL_H264(_T("--aud"), _T(""), _T(":h264"), outputAUD);
+        OPT_BOOL_H264(_T("--pic-struct"), _T(""), _T(":h264"), outputPictureTimingSEI);
         OPT_BOOL_H264(_T("--fullrange"), _T(""), _T(":h264"), h264VUIParameters.videoFullRangeFlag);
         OPT_LST_H264(_T("--videoformat"), _T(":h264"), h264VUIParameters.videoFormat, list_videoformat);
         OPT_LST_H264(_T("--colormatrix"), _T(":h264"), h264VUIParameters.colourMatrix, list_colormatrix);
@@ -3132,6 +3213,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_STR_PATH(_T("--chapter"), sChapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);
+    OPT_BOOL(_T("--key-on-chapter"), _T(""), keyOnChapter);
+    OPT_STR_PATH(_T("--keyfile"), keyFile);
     OPT_LST(_T("--avsync"), nAVSyncMode, list_avsync);
 #endif //#if ENABLE_AVSW_READER
 

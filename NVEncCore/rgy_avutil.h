@@ -79,9 +79,7 @@ static const CodecMap HW_DECODE_LIST[] = {
     { AV_CODEC_ID_MPEG2VIDEO, RGY_CODEC_MPEG2 },
     { AV_CODEC_ID_VP8,        RGY_CODEC_VP8 },
     { AV_CODEC_ID_VP9,        RGY_CODEC_VP9 },
-#if ENCODER_QSV
     { AV_CODEC_ID_VC1,        RGY_CODEC_VC1   },
-#endif
 #if ENCODER_NVENC
     { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
     { AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4 },
@@ -195,6 +193,9 @@ tstring getHWDecSupportedCodecList();
 //利用可能な音声エンコーダ/デコーダを表示
 tstring getAVCodecs(RGYAVCodecType flag);
 
+//音声エンコーダで利用可能なプロファイルのリストを作成
+std::vector<tstring> getAudioPofileList(const tstring& codec_name);
+
 //利用可能なフォーマットを表示
 tstring getAVFormats(RGYAVFormatType flag);
 
@@ -219,6 +220,8 @@ tstring getAVVersions();
 
 MAP_PAIR_0_1_PROTO(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP);
 
+#else
+#define AV_NOPTS_VALUE (-1)
 #endif //ENABLE_AVSW_READER
 
 #endif //__RGY_AVUTIL_H__

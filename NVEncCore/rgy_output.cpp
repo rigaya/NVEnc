@@ -251,21 +251,17 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                     return RGY_ERR_UNKNOWN;
                 }
                 const int new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
-                if (sps_nal->size == pkt.size) {
-                    memcpy(sps_nal->ptr, pkt.data, pkt.size);
-                } else {
-                    const int sps_nal_offset = sps_nal->ptr - pBitstream->data();
-                    const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-                    const int next_nal_new_offset = sps_nal_offset + pkt.size;
-                    const int stream_orig_length = pBitstream->size();
-                    if (pBitstream->bufsize() < new_data_size) {
-                        pBitstream->changeSize(new_data_size);
-                    } else if (pkt.size > sps_nal->size) {
-                        pBitstream->trim();
-                    }
-                    memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
-                    memcpy(pBitstream->data() + sps_nal_offset, pkt.data, pkt.size);
+                const int sps_nal_offset = sps_nal->ptr - pBitstream->data();
+                const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
+                const int next_nal_new_offset = sps_nal_offset + pkt.size;
+                const int stream_orig_length = pBitstream->size();
+                if (pBitstream->bufsize() < new_data_size) {
+                    pBitstream->changeSize(new_data_size);
+                } else if (pkt.size > sps_nal->size) {
+                    pBitstream->trim();
                 }
+                memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
+                memcpy(pBitstream->data() + sps_nal_offset, pkt.data, pkt.size);
                 av_packet_unref(&pkt);
             }
         }

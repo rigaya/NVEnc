@@ -105,6 +105,9 @@ NVEncCの認識している環境情報を表示
 ### --check-codecs, --check-decoders, --check-encoders
 利用可能な音声コーデック名を表示
 
+### --check-profiles &lt;string&gt;
+利用可能な音声プロファイル名を表示
+
 ### --check-formats
 利用可能な出力フォーマットを表示
 
@@ -346,6 +349,9 @@ H.264のadaptive transform modeを有効(無効)にする。
 - half-pel ... 1/2画素精度
 - full-pel ... 1 画素精度 (低精度)
 
+### --slices &lt;int&gt;
+スライス数。指定なし、あるいは0で自動。
+
 ### --level &lt;string&gt;
 エンコードするコーデックのLevelを指定する。指定しない場合は自動的に決定される。
 ```
@@ -409,6 +415,12 @@ Mastering display data の設定。
 ```
 Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
+
+### --aud
+Access Unit Delimiter NALを挿入する。
+
+### --pic-struct
+picture timing SEIを挿入する。
 
 各種フラグの設定。
 
@@ -611,8 +623,40 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 指定したチャプターファイルを読み込み反映させる。
 nero形式とapple形式に対応する。--chapter-copyとは併用できない。
 
+nero形式
+```
+CHAPTER01=00:00:39.706
+CHAPTER01NAME=chapter-1
+CHAPTER02=00:01:09.703
+CHAPTER02NAME=chapter-2
+CHAPTER03=00:01:28.288
+CHAPTER03NAME=chapter-3
+```
+
+apple形式 (should be in utf-8)
+```
+<?xml version="1.0" encoding="UTF-8" ?>
+  <TextStream version="1.1">
+   <TextStreamHeader>
+    <TextSampleDescription>
+    </TextSampleDescription>
+  </TextStreamHeader>
+  <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
+  <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
+  <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
+  <TextSample sampleTime="00:01:28.289" text="" />
+</TextStream>
+```
+
 ### --chapter-copy
 チャプターをコピーする。
+
+### --key-on-chapter
+キーフレーム位置にチャプターを挿入する。
+
+### --keyfile &lt;string&gt;
+キーフレームしたいフレーム番号を記載したファイルを読み込み、指定のフレームをキーフレームに設定する。
+フレーム番号は、先頭から0, 1, 2, .... として、複数指定する場合は都度改行する。
 
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
@@ -807,9 +851,6 @@ log=0
 | nn            | 最近傍点選択 | ○ |
 | npp_linear    | nppの線形補間 | ○ |
 | cubic         | 4x4 3次補間 | ○ |
-| cubic_bspline | 4x4 3次補間 (B=1, C=0)       | ○ |
-| cubic_catmull | 4x4 3次補間 (B=0, C=1/2)      | ○ |
-| cubic_b05c03  | 4x4 3次補間 (B=1/2, C=3/10)   | ○ |
 | super         | nppのsuper sampling(詳細不明) | ○ |
 | lanczos       | Lanczos法                    | ○ |
 

@@ -126,7 +126,7 @@ tstring getAVCodecs(RGYAVCodecType flag) {
     }
     av_register_all();
     avcodec_register_all();
-    
+
     struct avcodecName {
         uint32_t type;
         const char *name;
@@ -194,6 +194,26 @@ tstring getAVCodecs(RGYAVCodecType flag) {
     return char_to_tstring(codecstr);
 }
 
+std::vector<tstring> getAudioPofileList(const tstring& codec_name) {
+    std::vector<tstring> profiles;
+    auto codec_name_s = tchar_to_string(codec_name);
+    auto codec = avcodec_find_encoder_by_name(codec_name_s.c_str());
+    if (codec) {
+        auto codecDesc = avcodec_descriptor_get(codec->id);
+        if (codecDesc) {
+            for (auto avprofile = codecDesc->profiles;
+                avprofile != nullptr && avprofile->profile != FF_PROFILE_UNKNOWN;
+                avprofile++) {
+                profiles.push_back(char_to_tstring(avprofile->name));
+            }
+        }
+        if (profiles.size() == 0) {
+            profiles.push_back(_T("none"));
+        }
+    }
+    return profiles;
+}
+
 //利用可能なフォーマットを表示
 tstring getAVFormats(RGYAVFormatType flag) {
     if (!check_avcodec_dll()) {
@@ -225,7 +245,7 @@ tstring getAVFormats(RGYAVFormatType flag) {
             list.push_back({ RGY_AVFORMAT_DEMUX, iformat->name, iformat->long_name });
         }
     }
-    
+
     AVOutputFormat *oformat = nullptr;
     while (nullptr != (oformat = av_oformat_next(oformat))) {
         bool alreadyExists = false;

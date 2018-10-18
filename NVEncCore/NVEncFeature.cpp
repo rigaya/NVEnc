@@ -32,140 +32,76 @@
 #include "NVEncFeature.h"
 #include "NVEncFeature.h"
 
-typedef void* nvfeature_t;
-
-nvfeature_t nvfeature_create() {
-    return new NVEncFeature();
-}
-int nvfeature_createCacheAsync(nvfeature_t obj, int deviceID) {
-    return reinterpret_cast<NVEncFeature *>(obj)->createCacheAsync(deviceID);
-}
-const std::vector<NVEncCodecFeature>& nvfeature_GetCachedNVEncCapability(nvfeature_t obj) {
-    return reinterpret_cast<NVEncFeature *>(obj)->GetCachedNVEncCapability();
-}
-
-//featureリストからHEVCのリストを取得 (HEVC非対応ならnullptr)
-const NVEncCodecFeature *nvfeature_GetHEVCFeatures(const std::vector<NVEncCodecFeature>& codecFeatures) {
-    return NVEncFeature::GetHEVCFeatures(codecFeatures);
-}
-//featureリストからHEVCのリストを取得 (H.264対応ならnullptr)
-const NVEncCodecFeature *nvfeature_GetH264Features(const std::vector<NVEncCodecFeature>& codecFeatures) {
-    return NVEncFeature::GetH264Features(codecFeatures);
-}
-
-//H.264が使用可能かどうかを取得 (取得できるまで待機)
-bool nvfeature_H264Available(nvfeature_t obj) {
-    return reinterpret_cast<NVEncFeature *>(obj)->H264Available();
-}
-
-//HEVCが使用可能かどうかを取得 (取得できるまで待機)
-bool nvfeature_HEVCAvailable(nvfeature_t obj) {
-    return reinterpret_cast<NVEncFeature *>(obj)->HEVCAvailable();
-}
-
-void nvfeature_close(nvfeature_t obj) {
-    NVEncFeature *ptr = reinterpret_cast<NVEncFeature *>(obj);
-    delete ptr;
-}
-
-NVEncFeature::NVEncFeature() {
-    m_pNVEncCore = nullptr;
-    m_hThCreateCache = NULL;
-    m_hEvCreateCache = NULL;
-    m_hEvCreateCodecCache = NULL;
-    m_bH264 = false;
-    m_bHEVC = false;
+NVEncFeature::NVEncFeature() :
+    m_nTargetDeviceID(0),
+    m_pNVEncCore(),
+    m_hThCreateCache(),
+    m_hEvCreateCache(),
+    m_hEvCreateCodecCache(),
+    m_EncodeFeatures() {
 }
 
 NVEncFeature::~NVEncFeature() {
-    if (nullptr != m_pNVEncCore) {
-        delete m_pNVEncCore;
-        m_pNVEncCore = nullptr;
+    m_pNVEncCore.reset();
+    if (m_hThCreateCache.joinable()) {
+        m_hThCreateCache.join();
     }
-    if (m_hThCreateCache) {
-        WaitForSingleObject(m_hThCreateCache, INFINITE);
-        CloseHandle(m_hThCreateCache);
-        m_hThCreateCache = NULL;
-    }
-    if (m_hEvCreateCache) {
-        CloseHandle(m_hEvCreateCache);
-        m_hEvCreateCache = NULL;
-    }
-    if (m_hEvCreateCodecCache) {
-        CloseHandle(m_hEvCreateCodecCache);
-        m_hEvCreateCodecCache = NULL;
-    }
+    m_hEvCreateCache.reset();
+    m_hEvCreateCodecCache.reset();
 }
 
-int NVEncFeature::createCache(int deviceID) {
+int NVEncFeature::createCache(int deviceID, int loglevel) {
     if (!check_if_nvcuda_dll_available()) {
-        SetEvent(m_hEvCreateCodecCache);
+        SetEvent(m_hEvCreateCodecCache.get());
     } else {
 
-        m_pNVEncCore = new NVEncCore();
+        m_pNVEncCore.reset(new NVEncCore());
 
         InEncodeVideoParam inputParam;
         inputParam.encConfig = DefaultParam();
         inputParam.deviceID = deviceID;
+        inputParam.loglevel = loglevel;
         if (   NV_ENC_SUCCESS != m_pNVEncCore->Initialize(&inputParam)
             || NV_ENC_SUCCESS != m_pNVEncCore->InitDevice(&inputParam)) {
-            SetEvent(m_hEvCreateCodecCache);
+            SetEvent(m_hEvCreateCodecCache.get());
         } else {
             m_pNVEncCore->createDeviceCodecList();
             m_EncodeFeatures = m_pNVEncCore->GetNVEncCapability();
-            m_bH264 = nullptr != GetH264Features(m_EncodeFeatures);
-            m_bHEVC = nullptr != GetHEVCFeatures(m_EncodeFeatures);
-            SetEvent(m_hEvCreateCodecCache);
+            SetEvent(m_hEvCreateCodecCache.get());
 
             m_pNVEncCore->createDeviceFeatureList();
             m_EncodeFeatures = m_pNVEncCore->GetNVEncCapability();
-            if (nullptr != m_pNVEncCore) {
-                delete m_pNVEncCore;
-                m_pNVEncCore = nullptr;
-            }
+            m_pNVEncCore.reset();
         }
     }
-    SetEvent(m_hEvCreateCache);
+    SetEvent(m_hEvCreateCache.get());
     return 0;
 }
 
-unsigned int __stdcall NVEncFeature::createCacheLoader(void *prm) {
-    NVEncFeature *nvencParam = reinterpret_cast<NVEncFeature *>(prm);
-    int deviceID = nvencParam->m_nTargetDeviceID;
-    nvencParam->m_nTargetDeviceID = -1;
-    nvencParam->createCache(deviceID);
-    return 0;
-}
-
-int NVEncFeature::createCacheAsync(int deviceID) {
+int NVEncFeature::createCacheAsync(int deviceID, int loglevel) {
     m_nTargetDeviceID = deviceID;
     GetCachedNVEncCapability(); //スレッドが生きていたら終了を待機
     //一度リソース開放
-    if (m_hEvCreateCodecCache) CloseHandle(m_hEvCreateCodecCache);
-    if (m_hEvCreateCache) CloseHandle(m_hEvCreateCache);
-    if (m_hThCreateCache) CloseHandle(m_hThCreateCache);
-    //イベントの作成とスレッドの起動
-    m_hEvCreateCodecCache = (HANDLE)CreateEvent(NULL, TRUE, FALSE, NULL);
-    m_hEvCreateCache      = (HANDLE)CreateEvent(NULL, TRUE, FALSE, NULL);
-    m_hThCreateCache      = (HANDLE)_beginthreadex(NULL, 0, createCacheLoader, this, 0, NULL);
-    if (NULL == m_hThCreateCache) {
-        return 1;
-    }
+    m_hEvCreateCodecCache = std::unique_ptr<void, handle_deleter>(CreateEvent(NULL, TRUE, FALSE, NULL), handle_deleter());
+    m_hEvCreateCache = std::unique_ptr<void, handle_deleter>(CreateEvent(NULL, TRUE, FALSE, NULL), handle_deleter());
+    m_hThCreateCache = std::thread([this, deviceID, loglevel]() {
+        createCache(deviceID, loglevel);
+    });
     return 0;
 }
 
 bool NVEncFeature::H264Available() {
-    WaitForSingleObject(m_hEvCreateCodecCache, INFINITE);
-    return m_bH264;
+    WaitForSingleObject(m_hEvCreateCodecCache.get(), INFINITE);
+    return GetH264Features(m_EncodeFeatures) != nullptr;
 }
 
 bool NVEncFeature::HEVCAvailable() {
-    WaitForSingleObject(m_hEvCreateCodecCache, INFINITE);
-    return m_bHEVC;
+    WaitForSingleObject(m_hEvCreateCodecCache.get(), INFINITE);
+    return GetHEVCFeatures(m_EncodeFeatures) != nullptr;
 }
 
 const std::vector<NVEncCodecFeature>& NVEncFeature::GetCachedNVEncCapability() {
-    WaitForSingleObject(m_hEvCreateCache, INFINITE);
+    WaitForSingleObject(m_hEvCreateCache.get(), INFINITE);
     return m_EncodeFeatures;
 }
 

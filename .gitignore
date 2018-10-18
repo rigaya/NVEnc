@@ -6,7 +6,6 @@
 *.user
 *.sln.docstates
 
-ffmpeg_lgpl/
 rgy_rev.h
 
 # Build results

@@ -132,6 +132,7 @@ void CQSVConsumer::AddMetrics(const std::map<MetricHandle, std::string>& metrics
 
 #endif //#if ENABLE_METRIC_FRAMEWORK
 
+#if ENCODER_NVENC
 #if ENABLE_NVML
 const TCHAR *nvmlErrStr(nvmlReturn_t ret) {
     switch (ret) {
@@ -282,7 +283,7 @@ void NVMLMonitor::Close() {
     }
     memset(&m_func, 0, sizeof(m_func));
 }
-#endif
+#endif //#if ENABLE_NVML
 
 int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
     memset(info, 0, sizeof(info[0]));
@@ -405,6 +406,7 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
     }
     return 0;
 }
+#endif //#if ENCODER_NVENC
 
 tstring CPerfMonitor::SelectedCounters(int select) {
     if (select == 0) {

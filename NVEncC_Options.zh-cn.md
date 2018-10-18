@@ -705,9 +705,43 @@ Example2: 任何解码错误后退出转码
 
 使用章节文件设置章节信息。章节文件可以是 nero 或者 apple 格式。在 --chapter-copy 应用的情况下无法使用。
 
+
+nero格式
+```
+CHAPTER01=00:00:39.706
+CHAPTER01NAME=chapter-1
+CHAPTER02=00:01:09.703
+CHAPTER02NAME=chapter-2
+CHAPTER03=00:01:28.288
+CHAPTER03NAME=chapter-3
+```
+
+apple格式 (utf-8)
+```
+<?xml version="1.0" encoding="UTF-8" ?>
+  <TextStream version="1.1">
+   <TextStreamHeader>
+    <TextSampleDescription>
+    </TextSampleDescription>
+  </TextStreamHeader>
+  <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
+  <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
+  <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
+  <TextSample sampleTime="00:01:28.289" text="" />
+</TextStream>
+```
+
 ### --chapter-copy
 
 从输入文件复制章节信息。
+
+### --key-on-chapter
+
+在章节分割处设置关键帧。
+
+### --keyfile &lt;string&gt;
+
+由文件指定关键帧位置（从0,1,2,...起）。文件应一行一个帧序号。
 
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 
@@ -867,9 +901,6 @@ Activate Auto Field Shift (AFS) deinterlacer.
 | nn            | 近邻法 | ○ |
 | npp_linear    | NPP 库提供的线性插值 | ○ |
 | cubic         | 4x4 立方插值 | ○ |
-| cubic_bspline | 4x4 立方插值 (B=1, C=0)       | ○ |
-| cubic_catmull | 4x4 立方插值 (B=0, C=1/2)      | ○ |
-| cubic_b05c03  | 4x4 立方插值 (B=1/2, C=3/10)   | ○ |
 | super         | NPP 库提供的所谓的 "super sampling"  | ○ |
 | lanczos       | Lanczos 插值                    | ○ |
 

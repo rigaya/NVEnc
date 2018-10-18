@@ -8,10 +8,22 @@ by rigaya
 - Visual Studio 2015
 - CUDA 8.0
 - yasm
-- Avisynth SDK
+- Avisynth+ SDK
 - VapourSynth SDK
 
 yasmはパスに追加しておきます。
+
+Avisynth+とVapourSynthは、SDKがインストールされるよう設定してインストールします。
+
+Avisynth+ SDKの"avisynth_c.h"とVapourSynth SDKの"VapourSynth.h", "VSScript.h"がVisual Studioのincludeパスに含まれるよう設定します。
+
+includeパスは環境変数 "AVISYNTH_SDK" / "VAPOURSYNTH_SDK" で渡すことができます。
+
+Avisynth+ / VapourSynthインストーラのデフォルトの場所にインストールした場合、下記のように設定することになります。
+```Batchfile
+setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
+setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
+```
 
 ## 1. ソースのダウンロード
 
@@ -19,51 +31,9 @@ yasmはパスに追加しておきます。
 git clone https://github.com/rigaya/NVEnc --recursive
 ```
 
-## 2. ffmpeg dllのビルド
-ffmpegのdllをビルドし、下記のように配置します。
-```
-NVEnc root
- |-NVEnc
- |-NVEncC
- |-NVEncCore
- |-NVEncSDK
- |-<others>...
- `-ffmpeg_lgpl
-    |- include
-    |   |-libavcodec
-    |   |  `- libavcodec header files
-    |   |-libavfilter
-    |   |  `- libavfilter header files
-    |   |-libavformat
-    |   |  `- libavfilter header files
-    |   |-libavutil
-    |   |  `- libavutil header files
-    |   `-libswresample
-    |      `- libswresample header files
-    `- lib
-        |-win32 (for win32 build)
-        |  `- avocdec, avfilter, avformat, avutil, swresample
-        |     x86 lib & dlls
-        `- x64 (for x64 build)
-           `- avocdec, avfilter, avformat, avutil, swresample
-              x64 lib & dlls
-```
+## 2. NVEnc.auo / NVEncC のビルド
 
-ffmpegのdllのビルド方法はいろいろあるかと思いますが、例えばmsys + mingw環境の場合には、
-Visual Studioの環境変数がセットされた状態でビルドすると、
-自動的にVC用のdllとlibが作成されます。
-
-参考までに、MSYS2向けのビルドスクリプトを[こちら](https://github.com/rigaya/build_scripts/tree/master/ffmpeg_dll)に置いておきます。
-
-laucherディレクトリ内のbatファイルから、MSYS2をVisual Studioの環境変数がセットされた状態で起動したのち、build_ffmpeg_dll.shを実行します。
-
-## 3. NVEnc.auo / NVEncC のビルド
-
-NVEnc.slnを開きます。
-
-Avisynth SDKの"avisynth_c.h"、
-VapourSynth SDKの"VapourSynth.h", "VSScript.h"が
-includeパスに含まれるよう、Visual Studio設定した後、ビルドしてください。
+NVEnc.slnを開き、ビルドします。
 
 ビルドしたいものに合わせて、構成を選択してください。
 
