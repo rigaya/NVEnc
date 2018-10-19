@@ -621,6 +621,7 @@ int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
     *ptr = nullptr;
     nMinSize = (std::max<size_t>)(nMinSize, 1);
+    nSize = (std::max<size_t>)(nSize, nMinSize);
     //確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
     while (nSize >= nMinSize) {
         void *qtr = malloc(nSize);

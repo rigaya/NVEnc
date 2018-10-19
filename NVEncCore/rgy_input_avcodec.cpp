@@ -134,6 +134,9 @@ void RGYInputAvcodec::CloseStream(AVDemuxStream *pStream) {
     if (pStream->pktSample.data) {
         av_packet_unref(&pStream->pktSample);
     }
+    if (pStream->extraData) {
+        av_free(pStream->extraData);
+    }
     memset(pStream, 0, sizeof(pStream[0]));
     pStream->nIndex = -1;
 }
@@ -149,6 +152,9 @@ void RGYInputAvcodec::Close() {
     m_Demux.qStreamPktL1.clear();
     m_Demux.qStreamPktL2.close([](AVPacket *pkt) { av_packet_unref(pkt); });
     AddMessage(RGY_LOG_DEBUG, _T("Cleared Stream Packet Buffer.\n"));
+
+    m_cap2ass.close();
+    AddMessage(RGY_LOG_DEBUG, _T("Closed caption handler.\n"));
 
     CloseFormat(&m_Demux.format);
     CloseVideo(&m_Demux.video);   AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
@@ -609,7 +615,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
         for (auto streamInfo = m_Demux.stream.begin(); streamInfo != m_Demux.stream.end(); streamInfo++) {
-            if (avcodec_get_type(streamInfo->pStream->codecpar->codec_id) == AVMEDIA_TYPE_AUDIO) {
+            if (streamInfo->pStream && avcodec_get_type(streamInfo->pStream->codecpar->codec_id) == AVMEDIA_TYPE_AUDIO) {
                 AddMessage(RGY_LOG_DEBUG, _T("checking for stream #%d\n"), streamInfo->nIndex);
                 const AVPacket *pkt1 = nullptr; //最初のパケット
                 const AVPacket *pkt2 = nullptr; //2番目のパケット
@@ -721,6 +727,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
 
     av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
+    if (input_prm->caption2ass) {
+        auto err = m_cap2ass.init(m_pPrintMes);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
 
     int ret = 0;
     std::string filename_char;
@@ -760,23 +772,21 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
     }
 
 #if USE_CUSTOM_INPUT
-    if (!m_Demux.format.bIsPipe && !usingAVProtocols(filename_char, 1) || !(pInFormat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
-        m_Demux.format.fpInput = _tfsopen(strFileName, _T("wb"), _SH_DENYWR);
+    if (!m_Demux.format.bIsPipe && !usingAVProtocols(filename_char, 0) || !(pInFormat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
+        m_Demux.format.fpInput = _tfopen(strFileName, _T("rb"));
         if (m_Demux.format.fpInput == NULL) {
             errno_t error = errno;
-            AddMessage(RGY_LOG_ERROR, _T("failed to open output file \"%s\": %s.\n"), strFileName, _tcserror(error));
+            AddMessage(RGY_LOG_ERROR, _T("failed to open input file \"%s\": %s.\n"), strFileName, _tcserror(error));
             return RGY_ERR_FILE_OPEN; // Couldn't open file
         }
-        m_Demux.format.inputBufferSize = 8;
-        if (0 < (m_Demux.format.inputBufferSize = (uint32_t)malloc_degeneracy((void **)&m_Demux.format.pInputBuffer, m_Demux.format.inputBufferSize, 1024 * 1024))) {
-            setvbuf(m_Demux.format.fpInput, m_Demux.format.pInputBuffer, _IOFBF, m_Demux.format.inputBufferSize);
-            AddMessage(RGY_LOG_DEBUG, _T("set external output buffer %d MB.\n"), m_Demux.format.inputBufferSize / (1024 * 1024));
-        }
-        if (NULL == (m_Demux.format.pFormatCtx->pb = avio_alloc_context((unsigned char *)m_Demux.format.pInputBuffer, m_Demux.format.inputBufferSize, 1, this, funcReadPacket, funcWritePacket, funcSeek))) {
+        m_Demux.format.inputBufferSize = 512 * 1024;
+        m_Demux.format.pInputBuffer = (char *)av_malloc(m_Demux.format.inputBufferSize);
+        m_Demux.format.pFormatCtx->flags |= AVFMT_FLAG_CUSTOM_IO;
+        if (NULL == (m_Demux.format.pFormatCtx->pb = avio_alloc_context((unsigned char *)m_Demux.format.pInputBuffer, m_Demux.format.inputBufferSize, 0, this, funcReadPacket, funcWritePacket, funcSeek))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to alloc avio context.\n"));
             return RGY_ERR_NULL_PTR;
         }
-    } else
+    }
 #endif
     //ファイルのオープン
     if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), pInFormat, &m_Demux.format.pFormatOptions)) {
@@ -863,7 +873,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         }
         if (input_prm->bReadSubtitle) {
             auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE, &videoStreams);
-            if (subStreams.size() == 0) {
+            if (subStreams.size() == 0 && !m_cap2ass.enabled()) {
                 AddMessage(RGY_LOG_WARN, _T("--sub-copy is set, but no subtitle stream found.\n"));
             } else {
                 m_Demux.format.nSubtitleTracks = (int)subStreams.size();
@@ -928,6 +938,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                     stream.nIndex = mediaStreams[iTrack];
                     stream.nSubStreamId = iSubStream;
                     stream.pStream = m_Demux.format.pFormatCtx->streams[stream.nIndex];
+                    stream.timebase = stream.pStream->time_base;
                     if (pAudioSelect) {
                         memcpy(stream.pnStreamChannelSelect, pAudioSelect->pnStreamChannelSelect, sizeof(stream.pnStreamChannelSelect));
                         memcpy(stream.pnStreamChannelOut,    pAudioSelect->pnStreamChannelOut,    sizeof(stream.pnStreamChannelOut));
@@ -956,6 +967,15 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 }
             }
         }
+    }
+
+    if (m_cap2ass.enabled()) {
+        //SubtitileのtrackIdは、-1, -2, -3
+        const int minSubTrackId = std::accumulate(m_Demux.stream.begin(), m_Demux.stream.end(), 0, [](int a, const AVDemuxStream& b) {
+            return std::min(a, b.nTrackId);
+        });
+        m_cap2ass.setIndex(m_Demux.format.pFormatCtx->nb_streams, minSubTrackId-1);
+        m_Demux.stream.push_back(m_cap2ass.stream());
     }
 
     if (input_prm->bReadChapter) {
@@ -1147,6 +1167,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         if (RGY_ERR_NONE != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount, input_prm->bVideoDetectPulldown))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to get first frame position.\n"));
             return sts;
+        }
+        if (m_cap2ass.enabled()) {
+            m_cap2ass.setVidFirstKeyPts(m_Demux.video.nStreamFirstKeyPts);
         }
 
         m_sTrimParam.list = make_vector(input_prm->pTrimList, input_prm->nTrimCount);
@@ -1448,11 +1471,11 @@ int RGYInputAvcodec::getVideoFrameIdx(int64_t pts, AVRational timebase, int iSta
 
 int64_t RGYInputAvcodec::convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *pStream) {
     const AVRational vid_pkt_timebase = (m_Demux.video.pStream) ? m_Demux.video.pStream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
-    return av_rescale_q(pts, vid_pkt_timebase, pStream->pStream->time_base);
+    return av_rescale_q(pts, vid_pkt_timebase, pStream->timebase);
 }
 
 bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream *pStream) {
-    pStream->nLastVidIndex = getVideoFrameIdx(pkt->pts, pStream->pStream->time_base, pStream->nLastVidIndex);
+    pStream->nLastVidIndex = getVideoFrameIdx(pkt->pts, pStream->timebase, pStream->nLastVidIndex);
 
     //該当フレームが-1フレーム未満なら、その音声はこの動画には含まれない
     if (pStream->nLastVidIndex < -1) {
@@ -1788,7 +1811,7 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
         auto pkt = m_Demux.qStreamPktL1.front();
         AVDemuxStream *pStream = getPacketStreamData(&pkt);
         //音声のptsが映像の終わりのptsを行きすぎたらやめる
-        if (0 < av_compare_ts(pkt.pts, pStream->pStream->time_base, m_Demux.frames.list(m_Demux.frames.fixedNum()).pts, vid_pkt_timebase)) {
+        if (0 < av_compare_ts(pkt.pts, pStream->timebase, m_Demux.frames.list(m_Demux.frames.fixedNum()).pts, vid_pkt_timebase)) {
             break;
         }
         if (checkStreamPacketToAdd(&pkt, pStream)) {
@@ -1991,6 +2014,17 @@ HANDLE RGYInputAvcodec::getThreadHandleInput() {
 #endif //#if defined(WIN32) || defined(WIN64)
 }
 
+//出力する動画の情報をセット
+void RGYInputAvcodec::setOutputVideoInfo(int w, int h, int sar_x, int sar_y, bool mux) {
+    if (mux) {
+        m_cap2ass.setOutputResolution(w, h, sar_x, sar_y);
+    } else {
+        //muxしないなら処理する必要はない
+        AddMessage(RGY_LOG_WARN, _T("caption2ass will be disabled as muxer is disabled.\n"));
+        m_cap2ass.disable();
+    }
+}
+
 RGY_ERR RGYInputAvcodec::ThreadFuncRead() {
     while (!m_Demux.thread.bAbortInput) {
         AVPacket pkt;
@@ -2004,12 +2038,26 @@ RGY_ERR RGYInputAvcodec::ThreadFuncRead() {
 
 #if USE_CUSTOM_INPUT
 int RGYInputAvcodec::readPacket(uint8_t *buf, int buf_size) {
-    return (int)fread(buf, 1, buf_size, m_Demux.format.fpInput);
+    auto ret = (int)fread(buf, 1, buf_size, m_Demux.format.fpInput);
+    if (m_cap2ass.enabled()) {
+        if (m_cap2ass.proc(buf, buf_size, m_Demux.qStreamPktL1) != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to process ts caption.\n"));
+            return AVERROR_INVALIDDATA;
+        }
+    }
+    return ret;
 }
 int RGYInputAvcodec::writePacket(uint8_t *buf, int buf_size) {
     return (int)fwrite(buf, 1, buf_size, m_Demux.format.fpInput);
 }
 int64_t RGYInputAvcodec::seek(int64_t offset, int whence) {
+    if (whence != SEEK_SET || whence != SEEK_CUR || whence != SEEK_END) {
+        //たまにwhence=65536とかいう要求が来ることがある
+        return -1;
+    }
+    if (m_cap2ass.enabled() && whence == SEEK_SET && offset == 0) {
+        m_cap2ass.reset();
+    }
     return _fseeki64(m_Demux.format.fpInput, offset, whence);
 }
 #endif //USE_CUSTOM_INPUT

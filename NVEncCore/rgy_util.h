@@ -39,6 +39,7 @@
 #include <array>
 #include <string>
 #include <chrono>
+#include <cassert>
 #include <memory>
 #include <algorithm>
 #include <climits>
@@ -1118,6 +1119,23 @@ class rgy_stream {
     int64_t pts_;
     int64_t dts_;
 public:
+    rgy_stream() :
+        bufptr_(nullptr),
+        buf_size_(0),
+        data_length_(0),
+        offset_(0),
+        data_flag_(0),
+        duration_(0),
+        pts_(0),
+        dts_(0) {
+    };
+    ~rgy_stream() {
+        if (bufptr_) {
+            _aligned_free(bufptr_);
+        }
+        bufptr_ = nullptr;
+        buf_size_ = 0;
+    }
     uint8_t *bufptr() const {
         return bufptr_;
     }
@@ -1136,19 +1154,21 @@ public:
         }
         offset_ += add;
         data_length_ -= add;
+        assert(offset_ >= 0);
+        assert(data_length_ >= 0);
     }
 
     void clear() {
-        if (bufptr_) {
-            _aligned_free(bufptr_);
-        }
-        bufptr_ = nullptr;
-        buf_size_ = 0;
         data_length_ = 0;
         offset_ = 0;
     }
     RGY_ERR alloc(int64_t size) {
         clear();
+        if (bufptr_) {
+            _aligned_free(bufptr_);
+        }
+        bufptr_ = nullptr;
+        buf_size_ = 0;
 
         if (size > 0) {
             if (nullptr == (bufptr_ = (uint8_t *)_aligned_malloc(size, 32))) {
@@ -1159,7 +1179,7 @@ public:
         return RGY_ERR_NONE;
     }
     RGY_ERR realloc(int64_t size) {
-        if (bufptr_ == nullptr) {
+        if (bufptr_ == nullptr || data_length_ == 0) {
             return alloc(size);
         }
         if (size > 0) {
@@ -1171,9 +1191,9 @@ public:
             memcpy(newptr, bufptr_ + offset_, newdatalen);
             _aligned_free(bufptr_);
             bufptr_ = newptr;
+            buf_size_ = size;
             offset_ = 0;
             data_length_ = newdatalen;
-            buf_size_ = size;
         }
         return RGY_ERR_NONE;
     }
@@ -1243,18 +1263,20 @@ public:
 
     RGY_ERR append(const uint8_t *append_data, int64_t append_size) {
         if (append_data && append_size > 0) {
-            const auto new_data_length = append_size + data_length_;
+            const auto new_data_length = data_length_ + append_size;
             if (buf_size_ < new_data_length) {
-                auto sts = realloc(new_data_length * 2);
+                auto sts = realloc(new_data_length + std::min(new_data_length / 2, 256 * 1024ll));
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
             }
 
             if (buf_size_ < new_data_length + offset_) {
-                trim();
+                memmove(bufptr_, bufptr_ + offset_, data_length_);
+                offset_ = 0;
             }
-            memcpy(bufptr_ + data_length_ + offset_, append_data, append_size);
+            assert(new_data_length + offset_ <= buf_size_);
+            memcpy(bufptr_ + offset_ + data_length_, append_data, append_size);
             data_length_ = new_data_length;
         }
         return RGY_ERR_NONE;

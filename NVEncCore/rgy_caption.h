@@ -138,8 +138,8 @@ struct LINE_STR {
 struct CAPTION_LINE {
     UINT            index;
     int64_t         pts;
-    DWORD           startTime;
-    DWORD           endTime;
+    int64_t         startTime;
+    int64_t         endTime;
     BYTE            outCharSizeMode;
     WORD            outCharW;
     WORD            outCharH;
@@ -151,25 +151,28 @@ struct CAPTION_LINE {
 };
 
 struct ass_setting_t {
-    long        SWF0offset;
-    long        SWF5offset;
-    long        SWF7offset;
-    long        SWF9offset;
-    long        SWF11offset;
-    TCHAR      *Comment1;
-    TCHAR      *Comment2;
-    TCHAR      *Comment3;
-    long        PlayResX;
-    long        PlayResY;
-    TCHAR      *DefaultFontname;
-    long        DefaultFontsize;
-    TCHAR      *DefaultStyle;
-    TCHAR      *BoxFontname;
-    long        BoxFontsize;
-    TCHAR      *BoxStyle;
-    TCHAR      *RubiFontname;
-    long        RubiFontsize;
-    TCHAR      *RubiStyle;
+    int         SWF0offset;
+    int         SWF5offset;
+    int         SWF7offset;
+    int         SWF9offset;
+    int         SWF11offset;
+    std::string Comment1;
+    std::string Comment2;
+    std::string Comment3;
+    int         PlayResX;
+    int         PlayResY;
+    std::string DefaultFontname;
+    int         DefaultFontsize;
+    std::string DefaultStyle;
+    std::string BoxFontname;
+    int         BoxFontsize;
+    std::string BoxStyle;
+    std::string RubiFontname;
+    int         RubiFontsize;
+    std::string RubiStyle;
+
+    ass_setting_t();
+    void set(const std::string& inifile, int width, int height);
 };
 
 struct c2a_ts {
@@ -209,7 +212,24 @@ public:
     Caption2Ass();
     ~Caption2Ass();
     RGY_ERR init(std::shared_ptr<RGYLog> pLog);
-    RGY_ERR proc(const uint8_t *data, const int64_t data_size);
+    RGY_ERR proc(const uint8_t *data, const int64_t data_size, std::vector<AVPacket>& subList);
+    void close();
+    bool enabled() const { return !!m_dll; };
+    void setVidFirstKeyPts(int64_t pts) {
+        m_vidFirstKeyPts = pts;
+    }
+
+    //assのヘッダを返す
+    std::string assHeader() const;
+
+    //入力データがtsかどうかの判定
+    bool isTS(const uint8_t *data, const int64_t data_size) const;
+
+    //出力解像度の設定
+    void setOutputResolution(int w, int h, int sar_x, int sar_y);
+
+    //内部データをリセット(seekが発生したときなどに使用する想定)
+    void reset();
 private:
     void AddMessage(int log_level, const tstring& str) {
         if (!m_pLog || log_level < m_pLog->getLogLevel()) {
@@ -237,8 +257,8 @@ private:
         AddMessage(log_level, buffer);
     }
     std::vector<CAPTION_DATA> getCaptionDataList(uint8_t ucLangTag);
-    RGY_ERR genCaption(int64_t pts);
-    std::vector<AVSubtitle> genAss(uint32_t endTime);
+    std::vector<AVPacket> genCaption(int64_t pts);
+    std::vector<AVPacket> genAss(int64_t endTime);
 
     std::unique_ptr<CaptionDLL> m_dll;
     bool m_streamSync;
@@ -250,6 +270,8 @@ private:
     ass_setting_t m_ass;
     std::vector<std::unique_ptr<CAPTION_LINE>> m_capList;
     std::shared_ptr<RGYLog> m_pLog;
+    int64_t m_vidFirstKeyPts;
+    int m_sidebarSize;
 };
 
 #endif //__RGY_CAPTION_H__

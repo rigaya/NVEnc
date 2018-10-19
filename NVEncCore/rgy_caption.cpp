@@ -26,6 +26,7 @@
 // --------------------------------------------------------------------------------------------
 
 #include <string>
+#include <sstream>
 #include "rgy_osdep.h"
 #include "rgy_caption.h"
 #include "packet_types.h"
@@ -33,7 +34,62 @@
 #define TIMESTAMP_INVALID_VALUE     (-1LL)
 #define WRAP_AROUND_VALUE           (1LL << 33)
 #define WRAP_AROUND_CHECK_VALUE     ((1LL << 32) - 1)
-#define PCR_MAXIMUM_INTERVAL        (100)
+#define PCR_MAXIMUM_INTERVAL        (100 * 90)
+
+static const char *DEFAULT_FONT_NAME = "MS UI Gothic";
+static const char *DEFAULT_STYLE      = "&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,15,0,1,2,2,1,10,10,10,0";
+static const char *DEFAULT_BOX_STYLE  = "&HFFFFFFFF,&H000000FF,&H00FFFFFF,&H00FFFFFF,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,0";
+static const char *DEFAULT_RUBI_STYLE = "&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,1,10,10,10,0";
+
+ass_setting_t::ass_setting_t() :
+    SWF0offset(0),
+    SWF5offset(0),
+    SWF7offset(0),
+    SWF9offset(0),
+    SWF11offset(0),
+    Comment1(""),
+    Comment2(""),
+    Comment3(""),
+    PlayResX(1920),
+    PlayResY(1080),
+    DefaultFontname(DEFAULT_FONT_NAME),
+    DefaultFontsize(90),
+    DefaultStyle(DEFAULT_STYLE),
+    BoxFontname(DEFAULT_FONT_NAME),
+    BoxFontsize(90),
+    BoxStyle(DEFAULT_BOX_STYLE),
+    RubiFontname(DEFAULT_FONT_NAME),
+    RubiFontsize(50),
+    RubiStyle(DEFAULT_RUBI_STYLE) {
+
+}
+void ass_setting_t::set(const std::string& inifile, int width, int height) {
+    SWF0offset = GetPrivateProfileIntA("SWFModeOffset", "SWF0offset", 0, inifile.c_str());
+    SWF5offset = GetPrivateProfileIntA("SWFModeOffset", "SWF5offset", 0, inifile.c_str());
+    SWF7offset = GetPrivateProfileIntA("SWFModeOffset", "SWF7offset", 0, inifile.c_str());
+    SWF9offset = GetPrivateProfileIntA("SWFModeOffset", "SWF9offset", 0, inifile.c_str());
+    SWF11offset = GetPrivateProfileIntA("SWFModeOffset", "SWF11offset", 0, inifile.c_str());
+
+    static const char *KEY = (double)width  / (double)height > 1.5 ? "Default" : "Default43";
+    char buffer[1024];
+    GetPrivateProfileStringA(KEY, "Comment1", "", buffer, sizeof(buffer), inifile.c_str()); Comment1 = buffer;
+    GetPrivateProfileStringA(KEY, "Comment2", "", buffer, sizeof(buffer), inifile.c_str()); Comment2 = buffer;
+    GetPrivateProfileStringA(KEY, "Comment3", "", buffer, sizeof(buffer), inifile.c_str()); Comment3 = buffer;
+    PlayResX = GetPrivateProfileIntA("SWFModeOffset", "PlayResX", 0, inifile.c_str());
+    PlayResY = GetPrivateProfileIntA("SWFModeOffset", "PlayResY", 0, inifile.c_str());
+
+    GetPrivateProfileStringA(KEY, "DefaultFontname", DEFAULT_FONT_NAME, buffer, sizeof(buffer), inifile.c_str()); DefaultFontname = buffer;
+    DefaultFontsize = GetPrivateProfileIntA("SWFModeOffset", "DefaultFontsize", 0, inifile.c_str());
+    GetPrivateProfileStringA(KEY, "DefaultStyle", DEFAULT_STYLE, buffer, sizeof(buffer), inifile.c_str()); DefaultStyle = buffer;
+
+    GetPrivateProfileStringA(KEY, "BoxFontname", DEFAULT_FONT_NAME, buffer, sizeof(buffer), inifile.c_str()); BoxFontname = buffer;
+    BoxFontsize = GetPrivateProfileIntA("SWFModeOffset", "BoxFontsize", 0, inifile.c_str());
+    GetPrivateProfileStringA(KEY, "BoxStyle", DEFAULT_BOX_STYLE, buffer, sizeof(buffer), inifile.c_str()); BoxStyle = buffer;
+
+    GetPrivateProfileStringA(KEY, "RubiFontname", DEFAULT_FONT_NAME, buffer, sizeof(buffer), inifile.c_str()); RubiFontname = buffer;
+    RubiFontsize = GetPrivateProfileIntA("SWFModeOffset", "RubiFontsize", 0, inifile.c_str());
+    GetPrivateProfileStringA(KEY, "RubiStyle", DEFAULT_RUBI_STYLE, buffer, sizeof(buffer), inifile.c_str()); RubiStyle = buffer;
+}
 
 static const unsigned char utf8_bom[3] = { 0xEF, 0xBB, 0xBF };
 
@@ -251,7 +307,7 @@ static int FindStartOffset(rgy_stream& st) {
     return 1;
 }
 
-static int resync(char *pbPacket, rgy_stream& st) {
+static int resync(void *pbPacket, rgy_stream& st) {
     char *ptr = (char *)memchr(pbPacket, 'G', 188);
     if (!ptr) {
         for (int i = 0; i < 20; i++) {
@@ -274,16 +330,16 @@ static int resync(char *pbPacket, rgy_stream& st) {
     return 0;
 }
 
-static int64_t GetPTS(char *pbPacket) {
+static int64_t GetPTS(uint8_t *pbPacket) {
     int64_t PTS = TIMESTAMP_INVALID_VALUE;
     // Get PTS in PES Header(00 00 01 BD)
     for (int i = 4; i < 188 - 10; i++) {
-        if (pbPacket[i + 0] == 0x00
+        if (   pbPacket[i + 0] == 0x00
             && pbPacket[i + 1] == 0x00
             && pbPacket[i + 2] == 0x01
             && pbPacket[i + 3] == 0xBD) {
 
-            uint8_t *pData = (uint8_t *)&pbPacket[i + 9];
+            uint8_t *pData = &pbPacket[i + 9];
 
             PTS = (int64_t)(((uint32_t)(*pData) & 0xE) >> 1) << 30;
             pData++;
@@ -299,7 +355,7 @@ static int64_t GetPTS(char *pbPacket) {
 
             PTS += (uint32_t)(*pData) >> 1;
 
-            PTS = PTS / 90;
+            //PTS = PTS / 90;
 
             break;
         }
@@ -307,12 +363,12 @@ static int64_t GetPTS(char *pbPacket) {
     return PTS;
 }
 
-static void parse_PAT(char *pbPacket, USHORT *PMTPid) {
+static void parse_PAT(uint8_t *pbPacket, USHORT *PMTPid) {
     PAT_HEADER *pat = (PAT_HEADER *)(pbPacket + sizeof(_Packet_Header) + 1);
 
     for (int i = 0; i < (188 - 13) / 4; i++) {
-        WORD wProgramID = swap16(pat->PMT_Array[i].program_id);
-        WORD wPID       = swap16(pat->PMT_Array[i].PID) & 0x1FFF;
+        uint16_t wProgramID = swap16(pat->PMT_Array[i].program_id);
+        uint16_t wPID       = swap16(pat->PMT_Array[i].PID) & 0x1FFF;
         if (wProgramID == 0xFFFF)
             break;
 
@@ -321,25 +377,25 @@ static void parse_PAT(char *pbPacket, USHORT *PMTPid) {
     }
 }
 
-static void parse_PMT(char *pbPacket, USHORT *PCRPid, USHORT *CaptionPid) {
+static void parse_PMT(uint8_t *pbPacket, USHORT *PCRPid, USHORT *CaptionPid) {
     PMT_HEADER *pmt = (PMT_HEADER *)(pbPacket + sizeof(_Packet_Header) + 1);
 
     if (*PCRPid == 0)
         *PCRPid = swap16(pmt->pcrpid) & 0x1FFF;
 
-    INT length = swap16(pmt->program_info_length) & 0x0FFF;
-    BYTE *pData = (BYTE *)&pmt->program_info_length + 2;
+    int length = swap16(pmt->program_info_length) & 0x0FFF;
+    uint8_t *pData = (uint8_t *)&pmt->program_info_length + 2;
     pData += length;    //read thrugh program_info
 
-    while ((char *)pData < pbPacket + 184) {
+    while (pData < pbPacket + 184) {
         PMT_PID_Desc *pmt_pid = (PMT_PID_Desc *)&pData[0];
 
         if (pmt_pid->StreamTypeID == 0x6) {
-            BOOL bcomponent_tag = FALSE;
-            INT iDescLen = swap16(pmt_pid->DescLen) & 0x0FFF;
+            bool bcomponent_tag = false;
+            int iDescLen = swap16(pmt_pid->DescLen) & 0x0FFF;
             for (int i = 0; i < iDescLen -2; i++) {
                 if (pData[i + 5] == 0x52 && pData[i + 6] == 0x01 && pData[i + 7] == 0x30) {
-                    bcomponent_tag = TRUE;
+                    bcomponent_tag = true;
                     break;
                 }
             }
@@ -352,7 +408,7 @@ static void parse_PMT(char *pbPacket, USHORT *PCRPid, USHORT *CaptionPid) {
     }
 }
 
-static void parse_Packet_Header(Packet_Header *packet_header, char *pbPacket) {
+static void parse_Packet_Header(Packet_Header *packet_header, uint8_t *pbPacket) {
     _Packet_Header *packet = (_Packet_Header *)pbPacket;
 
     packet_header->Sync             = packet->Sync;
@@ -429,7 +485,7 @@ PidInfo::PidInfo() :
 
 Caption2AssPrm::Caption2AssPrm() :
     DelayTime(0),
-    keepInterval(false),
+    keepInterval(true),
     HLCmode(HLC_kigou),
     srtornament(false),
     norubi(false),
@@ -439,7 +495,6 @@ Caption2AssPrm::Caption2AssPrm() :
     FileName(),
     TargetFileName(),
     readBufferSize(0) {
-
 }
 
 Caption2Ass::Caption2Ass() :
@@ -448,10 +503,20 @@ Caption2Ass::Caption2Ass() :
     m_stream(),
     m_timestamp(),
     m_prm(),
-    m_pid() {
+    m_pid(),
+    m_langTagList(),
+    m_ass(),
+    m_capList(),
+    m_pLog(),
+    m_vidFirstKeyPts(0),
+    m_sidebarSize(0) {
     m_stream.init();
 }
 Caption2Ass::~Caption2Ass() {
+    close();
+}
+
+void Caption2Ass::close() {
     m_pLog.reset();
 }
 
@@ -459,20 +524,29 @@ RGY_ERR Caption2Ass::init(std::shared_ptr<RGYLog> pLog) {
     m_pLog = pLog;
     m_dll.reset(new CaptionDLL());
     auto ret = m_dll->load();
-    if (ret != RGY_ERR_NONE) return ret;
+    if (ret != RGY_ERR_NONE) {
+        m_dll.reset();
+        AddMessage(RGY_LOG_ERROR, _T("Failed to load Caption.dll.\n"));
+        return ret;
+    }
 
     ret = m_dll->init();
-    if (ret != RGY_ERR_NONE) return ret;
+    if (ret != RGY_ERR_NONE) {
+        m_dll.reset();
+        AddMessage(RGY_LOG_ERROR, _T("Failed to init Caption.dll.\n"));
+        return ret;
+    }
 
     return RGY_ERR_NONE;
 }
 
 std::vector<CAPTION_DATA> Caption2Ass::getCaptionDataList(uint8_t ucLangTag) {
     std::vector<CAPTION_DATA> captionList;
-    CAPTION_DATA_DLL *pListDll;
-    DWORD count;
+    CAPTION_DATA_DLL *pListDll = nullptr;
+    DWORD count = 0;
     int ret = m_dll->f_GetCaptionDataCP()(ucLangTag, &pListDll, &count);
     if (ret == TRUE) {
+        captionList.reserve(count);
         for (DWORD i = 0; i < count; i++) {
             CAPTION_DATA data;
             data.bClear = !!pListDll[i].bClear;
@@ -484,6 +558,8 @@ std::vector<CAPTION_DATA> Caption2Ass::getCaptionDataList(uint8_t ucLangTag) {
             data.wPosX = pListDll[i].wPosX;
             data.wPosY = pListDll[i].wPosY;
             data.dwWaitTime = pListDll[i].dwWaitTime;
+
+            data.charList.reserve(pListDll[i].dwListCount);
             for (DWORD j = 0; j < pListDll[i].dwListCount; j++) {
                 CAPTION_CHAR_DATA charData;
                 charData.strDecode = pListDll[i].pstCharList[j].pszDecode;
@@ -509,7 +585,67 @@ std::vector<CAPTION_DATA> Caption2Ass::getCaptionDataList(uint8_t ucLangTag) {
     return std::move(captionList);
 }
 
-RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
+//assのヘッダを返す
+std::string Caption2Ass::assHeader() const {
+    std::stringstream ss;
+    ss << "[Script Info]" << std::endl;
+    ss << "; " << m_ass.Comment1 << std::endl;
+    ss << "; " << m_ass.Comment2 << std::endl;
+    ss << "; " << m_ass.Comment3 << std::endl;
+    ss << "Title: Default Aegisub file" << std::endl;
+    ss << "ScriptType: v4.00+" << std::endl;
+    ss << "WrapStyle: 0" << std::endl;
+    ss << "PlayResX: " << m_ass.PlayResX << std::endl;
+    ss << "PlayResY: " << m_ass.PlayResY << std::endl;
+    ss << "ScaledBorderAndShadow: yes" << std::endl;
+    ss << "Video Aspect Ratio: 0" << std::endl;
+    ss << "Video Zoom: 6" << std::endl;
+    ss << "Video Position: 0" << std::endl;
+    ss <<  std::endl;
+    ss << "[V4+ Styles]" << std::endl;
+    ss << "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding" << std::endl;
+    ss << "Style: Default," << m_ass.DefaultFontname << "," << m_ass.DefaultFontsize << "," << m_ass.DefaultStyle << std::endl;
+    ss << "Style: Box," << m_ass.BoxFontname << "," << m_ass.BoxFontsize << "," << m_ass.BoxStyle << std::endl;
+    ss << "Style: Rubi," << m_ass.RubiFontname << "," << m_ass.RubiFontsize << "," << m_ass.RubiStyle << std::endl;
+    ss << "//" << std::endl;
+    return ss.str();
+}
+
+//内部データをリセット(seekが発生したときなどに使用する想定)
+void Caption2Ass::reset() {
+    m_streamSync = false;
+    m_stream.clear();
+    m_timestamp = c2a_ts();
+    m_pid = PidInfo();
+    m_langTagList.clear();
+    m_capList.clear();
+    m_dll->init();
+}
+
+//入力データがtsかどうかの判定
+bool Caption2Ass::isTS(const uint8_t *data, const int64_t data_size) const {
+    rgy_stream st;
+    st.append(data, data_size);
+    return FindStartOffset(st) == 0;
+}
+
+void Caption2Ass::setOutputResolution(int w, int h, int sar_x, int sar_y) {
+    m_ass.PlayResX = w;
+    m_ass.PlayResY = h;
+    if (sar_x > 0 && sar_y > 0) {
+        if (sar_x > sar_y) {
+            m_ass.PlayResX = m_ass.PlayResX * sar_x / sar_y;
+        } else {
+            m_ass.PlayResY = m_ass.PlayResY * sar_y / sar_x;
+        }
+    }
+    m_sidebarSize = 0;
+    AddMessage(RGY_LOG_DEBUG, _T("PlayResX: %d, PlayResY: %d, m_sidebarSize: %d.\n"), m_ass.PlayResX, m_ass.PlayResY, m_sidebarSize);
+}
+
+RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size, std::vector<AVPacket>& subList) {
+    m_stream.append(data, data_size);
+
     if (m_streamSync) {
         if (!FindStartOffset(m_stream)) {
             return RGY_ERR_UNKNOWN;
@@ -517,11 +653,11 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
         m_streamSync = true;
     }
 
-    BOOL bPrintPMT = TRUE;
-    char pbPacket[188 * 2 + 4] = { 0 };
+    bool bPrintPMT = true;
+    uint8_t pbPacket[188 * 2 + 4] = { 0 };
     uint32_t packetCount = 0;
 
-    for (m_stream.append(data, data_size); m_stream.size() >= 188; ) {
+    while (m_stream.size() >= 188) {
         memcpy(pbPacket, m_stream.data(), 188);
         m_stream.add_offset(188);
         packetCount++;
@@ -542,7 +678,7 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
         // PAT
         if (packet.PID == 0 && (m_pid.PMTPid == 0 || bPrintPMT)) {
             parse_PAT(&pbPacket[0], &(m_pid.PMTPid));
-            bPrintPMT = FALSE;
+            bPrintPMT = false;
 
             continue; // next packet
         }
@@ -561,7 +697,7 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
             parse_PMT(&pbPacket[0], &(m_pid.PCRPid), &(m_pid.CaptionPid));
 
             if (m_timestamp.lastPTS == TIMESTAMP_INVALID_VALUE) {
-                AddMessage(RGY_LOG_DEBUG, _T("PMT, PCR, Caption : %04x, %04x, %04x\n"), m_pid.PMTPid, m_pid.PCRPid, m_pid.CaptionPid);
+                AddMessage(RGY_LOG_TRACE, _T("PMT, PCR, Caption : %04x, %04x, %04x\n"), m_pid.PMTPid, m_pid.PCRPid, m_pid.CaptionPid);
             }
 
             continue; // next packet
@@ -583,17 +719,19 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
             *  | 33 bits| 6 bits| 9 bits|
             *  +--------+-------+-------+
             */
-            int64_t PCR_base = ((int64_t)pbPacket[6] << 25)
-                | ((int64_t)pbPacket[7] << 17)
-                | ((int64_t)pbPacket[8] <<  9)
-                | ((int64_t)pbPacket[9] <<  1)
+            int64_t PCR_base =
+                  ((int64_t)pbPacket[ 6] << 25)
+                | ((int64_t)pbPacket[ 7] << 17)
+                | ((int64_t)pbPacket[ 8] <<  9)
+                | ((int64_t)pbPacket[ 9] <<  1)
                 | ((int64_t)pbPacket[10] >>  7);
-            int64_t PCR_ext = ((int64_t)(pbPacket[10] & 0x01) << 8)
+            int64_t PCR_ext =
+                 ((int64_t)(pbPacket[10] & 0x01) << 8)
                 |  (int64_t)pbPacket[11];
-            int64_t PCR = (PCR_base * 300 + PCR_ext) / 27000;
+            int64_t PCR = PCR_base + PCR_ext / 300;
 
             if (m_timestamp.lastPTS == TIMESTAMP_INVALID_VALUE) {
-                AddMessage(RGY_LOG_DEBUG, _T("PCR, startPCR, lastPCR, basePCR : %11lld, %11lld, %11lld, %11lld\n"),
+                AddMessage(RGY_LOG_TRACE, _T("PCR, startPCR, lastPCR, basePCR : %11lld, %11lld, %11lld, %11lld\n"),
                     PCR, m_timestamp.startPCR, m_timestamp.lastPCR, m_timestamp.basePCR);
             }
 
@@ -608,15 +746,16 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
                     AddMessage(RGY_LOG_DEBUG, _T("====== PCR less than lastPCR ======\n"));
                     AddMessage(RGY_LOG_DEBUG, _T("PCR, startPCR, lastPCR, basePCR : %11lld, %11lld, %11lld, %11lld\n"),
                         PCR, m_timestamp.startPCR, m_timestamp.lastPCR, m_timestamp.basePCR);
-                    m_timestamp.basePCR += WRAP_AROUND_VALUE / 90;
-                    checkTS = WRAP_AROUND_VALUE / 90;
+                    m_timestamp.basePCR += WRAP_AROUND_VALUE;
+                    checkTS = WRAP_AROUND_VALUE;
                 }
                 // Check drop packet. (This is even if the CM cut.)
                 checkTS += PCR;
                 if (checkTS > m_timestamp.lastPCR) {
                     checkTS -= m_timestamp.lastPCR;
-                    if (!(m_prm.keepInterval) && (checkTS > PCR_MAXIMUM_INTERVAL))
+                    if (!(m_prm.keepInterval) && (checkTS > PCR_MAXIMUM_INTERVAL)) {
                         m_timestamp.correctTS -= checkTS - (PCR_MAXIMUM_INTERVAL >> 2);
+                    }
                 }
             }
 
@@ -641,13 +780,13 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
 
                 // Get Caption PTS.
                 PTS = GetPTS(pbPacket);
-                AddMessage(RGY_LOG_DEBUG, _T("PTS, lastPTS, basePTS, startPCR : %11lld, %11lld, %11lld, %11lld    "),
+                AddMessage(RGY_LOG_TRACE, _T("PTS, lastPTS, basePTS, startPCR : %11lld, %11lld, %11lld, %11lld    "),
                     PTS, m_timestamp.lastPTS, m_timestamp.basePTS, m_timestamp.startPCR);
 
                 // Check skip.
                 if (PTS == TIMESTAMP_INVALID_VALUE || m_timestamp.startPCR == TIMESTAMP_INVALID_VALUE) {
                     //if (log->active)
-                    //    AddMessage(RGY_LOG_DEBUG, "Skip 1st caption\n");
+                    //    AddMessage(RGY_LOG_TRACE, "Skip 1st caption\n");
                     continue;
                 }
 
@@ -656,20 +795,20 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
                 //   lastPCR:  Detection on the 1st packet.             [1st PCR  >>> w-around >>> 1st PTS]
                 //   lastPTS:  Detection on the packet of 2nd or later. [prev PTS >>> w-around >>> now PTS]
                 int64_t checkTS = (m_timestamp.lastPTS == TIMESTAMP_INVALID_VALUE) ? m_timestamp.lastPCR : m_timestamp.lastPTS;
-                if ((PTS < checkTS) && ((checkTS - PTS) >(WRAP_AROUND_CHECK_VALUE / 90))) {
-                    m_timestamp.basePTS += WRAP_AROUND_VALUE / 90;
+                if ((PTS < checkTS) && ((checkTS - PTS) >(WRAP_AROUND_CHECK_VALUE))) {
+                    m_timestamp.basePTS += WRAP_AROUND_VALUE;
                 }
 
                 // Update lastPTS.
                 m_timestamp.lastPTS = PTS;
 
             } else {
-                AddMessage(RGY_LOG_DEBUG, _T("PTS, lastPTS, basePTS, startPCR : %11lld, %11lld, %11lld, %11lld    "),
+                AddMessage(RGY_LOG_TRACE, _T("PTS, lastPTS, basePTS, startPCR : %11lld, %11lld, %11lld, %11lld    "),
                     PTS, m_timestamp.lastPTS, m_timestamp.basePTS, m_timestamp.startPCR);
 
                 // Check skip.
                 if (m_timestamp.lastPTS == TIMESTAMP_INVALID_VALUE || m_timestamp.startPCR == TIMESTAMP_INVALID_VALUE) {
-                    AddMessage(RGY_LOG_DEBUG, _T("Skip 2nd caption\n"));
+                    AddMessage(RGY_LOG_TRACE, _T("Skip 2nd caption\n"));
                     continue;
                 }
 
@@ -680,9 +819,9 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
             // Correct PTS for output.
             PTS += m_timestamp.basePTS + m_timestamp.correctTS;
 
-            rgy_time time((PTS > m_timestamp.startPCR) ? (PTS - m_timestamp.startPCR) : 0);
+            rgy_time time((PTS > m_timestamp.startPCR) ? (PTS - m_timestamp.startPCR) / 90 : 0);
             if (packet.PayloadStartFlag) {
-                AddMessage(RGY_LOG_DEBUG, _T("%s Caption Time: %01d:%02d:%02d.%03d\n"),
+                AddMessage(RGY_LOG_TRACE, _T("%s Caption Time: %01d:%02d:%02d.%03d\n"),
                     ((packet.PayloadStartFlag) ? _T("1st") : _T("2nd")), time.h, time.m, time.s, time.ms);
             }
 
@@ -697,17 +836,15 @@ RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size) {
                     }
                 }
             } else if (ret == NO_ERR_CAPTION) {
-                auto err = genCaption(PTS);
-                if (err != RGY_ERR_NONE) {
-                    return err;
-                }
+                vector_cat(subList, genCaption(PTS));
             }
         }
     }
     return RGY_ERR_NONE;
 }
 
-RGY_ERR Caption2Ass::genCaption(int64_t PTS) {
+std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
+    std::vector<AVPacket> subList;
     int   workCharSizeMode  = 0;
     int   workCharW         = 0;
     int   workCharH         = 0;
@@ -723,31 +860,27 @@ RGY_ERR Caption2Ass::genCaption(int64_t PTS) {
     double ratioY = 1.0;
 
     // Get language tag.
-    unsigned char ucLangTag = 0; // m_dll->f_GetLangTagCP()(m_prm.LangType);
+    uint32_t ucLangTag = m_prm.LangType - 1; // m_dll->f_GetLangTagCP()(m_prm.LangType);
 
     // Output
-    std::vector<CAPTION_DATA> captionList = getCaptionDataList(ucLangTag);
+    std::vector<CAPTION_DATA> captionList = getCaptionDataList((ucLangTag < m_langTagList.size()) ? (unsigned char)ucLangTag : 0);
 
     int addSpaceNum = 0;
     std::unique_ptr<CAPTION_LINE> pCapLine;
     for (auto itcap = captionList.begin(); itcap != captionList.end(); itcap++) {
         if (itcap->bClear && !pCapLine) {
             // 字幕のスキップをチェック
-            if ((PTS + itcap->dwWaitTime) <= m_timestamp.startPCR) {
+            if ((PTS + itcap->dwWaitTime * 90) <= m_timestamp.startPCR) {
                 AddMessage(RGY_LOG_DEBUG, _T("%d Caption skip\n"), captionList.size());
             } else {
-                //app.bCreateOutput = TRUE;
-                uint32_t endTime = (uint32_t)((PTS + itcap->dwWaitTime) - m_timestamp.startPCR);
-                //for (int i = 0; handle[i]; i++)
-                //    if (handle[i]->active)
-                //        handle[i]->Dump(captionList, endTime);
-                genAss(endTime);
+                int64_t endTime = (PTS + itcap->dwWaitTime * 90) - m_timestamp.startPCR;
+                vector_cat(subList, genAss(endTime));
             }
             m_capList.clear();
             continue;
         }
 
-        AddMessage(RGY_LOG_DEBUG,
+        AddMessage(RGY_LOG_TRACE,
             _T("  SWFMode        : %4d\n")
             _T("  Client X:Y:W:H : %4d\t%4d\n")
             _T("  Pos    X:Y     : %4d\t%4d\n"),
@@ -762,9 +895,9 @@ RGY_ERR Caption2Ass::genCaption(int64_t PTS) {
             wLastSWFMode = itcap->wSWFMode;
             static const auto resolution = make_array<std::pair<int, int>>(
                 std::make_pair(1920, 1080),
-                std::make_pair(720, 480),
-                std::make_pair(1280, 720),
-                std::make_pair(960, 540)
+                std::make_pair( 720,  480),
+                std::make_pair(1280,  720),
+                std::make_pair( 960,  540)
                 );
             const int index = (wLastSWFMode ==  5) ? 0
                             : (wLastSWFMode ==  9) ? 1
@@ -785,7 +918,7 @@ RGY_ERR Caption2Ass::genCaption(int64_t PTS) {
             }
         }
 
-        std::vector<CAPTION_CHAR_DATA>::iterator it2 = itcap->charList.begin();
+        auto it2 = itcap->charList.begin();
 
         if (itcap->charList.size() > 0 && !pCapLine) {
             workCharSizeMode  = it2->wCharSizeMode;
@@ -839,7 +972,7 @@ RGY_ERR Caption2Ass::genCaption(int64_t PTS) {
             workPosX = (int)((wPosX + offsetPosX) * x_ratio);
             workPosY = (int)((wPosY + offsetPosY + y_swf_offset) * y_ratio);
             // Correction for workPosX.
-            workPosX = 0;// (workPosX > app.sidebar_size) ? workPosX - app.sidebar_size : 0;
+            workPosX = (workPosX > m_sidebarSize) ? workPosX - m_sidebarSize : 0;
 
             if (!(m_dll->unicode()) && (it2->wCharSizeMode == STR_SMALL))
                 workPosY += (int)(10 * ratioY);
@@ -868,19 +1001,21 @@ RGY_ERR Caption2Ass::genCaption(int64_t PTS) {
                 // 全角 -> 半角
                 it2->strDecode = GetHalfChar(it2->strDecode);
 
-            if (RGY_LOG_DEBUG >= m_pLog->getLogLevel()) {
+            const auto loglevel = RGY_LOG_TRACE;
+            if (loglevel >= m_pLog->getLogLevel()) {
+                AddMessage(loglevel, _T("pts: %11lld\n"), PTS);
                 if (it2->bUnderLine)
-                    AddMessage(RGY_LOG_DEBUG, _T("UnderLine : on\n"));
+                    AddMessage(loglevel, _T("  UnderLine : on\n"));
                 if (it2->bBold)
-                    AddMessage(RGY_LOG_DEBUG, _T("Bold : on\n"));
+                    AddMessage(loglevel, _T("  Bold : on\n"));
                 if (it2->bItalic)
-                    AddMessage(RGY_LOG_DEBUG, _T("Italic : on\n"));
+                    AddMessage(loglevel, _T("  Italic : on\n"));
                 if (it2->bHLC != 0)
-                    AddMessage(RGY_LOG_DEBUG, _T("HLC : on\n"));
-                AddMessage(RGY_LOG_DEBUG, _T("Color : %#.X   "), it2->stCharColor);
-                AddMessage(RGY_LOG_DEBUG, _T("Char M,W,H,HI,VI : %4d, %4d, %4d, %4d, %4d   "),
+                    AddMessage(loglevel, _T("  HLC : on\n"));
+                AddMessage(loglevel, _T("  Color : %#.X   "), it2->stCharColor);
+                AddMessage(loglevel, _T("  Char M,W,H,HI,VI : %4d, %4d, %4d, %4d, %4d   "),
                     it2->wCharSizeMode, it2->wCharW, it2->wCharH, it2->wCharHInterval, it2->wCharVInterval);
-                AddMessage(RGY_LOG_DEBUG, _T("%s\n"), it2->strDecode.c_str());
+                AddMessage(loglevel, _T("  %s\n"), char_to_tstring(it2->strDecode, (m_dll->unicode()) ? CP_UTF8 : 932).c_str());
             }
 
             std::string str_utf8;
@@ -891,7 +1026,7 @@ RGY_ERR Caption2Ass::genCaption(int64_t PTS) {
             if (/*(m_prm.format == FORMAT_TAW) || */ (m_dll->unicode())) {
                 str_utf8 += it2->strDecode;
             } else {
-                std::wstring wstr = char_to_wstring(it2->strDecode, 932);
+                auto wstr = char_to_wstring(it2->strDecode, 932);
                 str_utf8 += wstring_to_string(wstr, CP_UTF8);
             }
             if (it2->wCharSizeMode != STR_SMALL) {
@@ -960,23 +1095,23 @@ RGY_ERR Caption2Ass::genCaption(int64_t PTS) {
             m_capList.push_back(std::move(pCapLine));
         }
     }
-    return RGY_ERR_NONE;
+    return subList;
 }
 
-std::vector<AVSubtitle> Caption2Ass::genAss(uint32_t endTime) {
-    std::vector<AVSubtitle> assLines;
+std::vector<AVPacket> Caption2Ass::genAss(int64_t endTime) {
+    std::vector<AVPacket> assLines;
     auto it = m_capList.begin();
     for (int i = 0; it != m_capList.end(); it++, i++) {
         (*it)->endTime = endTime;
 
-        rgy_time ts((uint32_t)((*it)->startTime));
-        rgy_time te((uint32_t)((*it)->endTime));
+        rgy_time ts((uint32_t)((*it)->startTime / 90));
+        rgy_time te((uint32_t)((*it)->endTime / 90));
 
-        AVSubtitle sub;
-        sub.pts                = (*it)->pts;
-        sub.start_display_time = (*it)->startTime;
-        sub.end_display_time   = (*it)->endTime;
-        sub.format = 0;
+        AVPacket pkt;
+        av_init_packet(&pkt);
+        pkt.pts = (*it)->pts;
+        pkt.dts = (*it)->pts;
+        pkt.duration = (*it)->endTime - (*it)->startTime;
 
         auto it2 = (*it)->outStrings.begin();
         UINT outCharColor = it2->outCharColor.b << 16
@@ -997,35 +1132,49 @@ std::vector<AVSubtitle> Caption2Ass::genAss(uint32_t endTime) {
                 int iBoxPosY = (*it)->outPosY + ((*it)->outCharVInterval / 2);
                 int iBoxScaleX = (iHankaku + 1) * 50;
                 int iBoxScaleY = 100 * ((*it)->outCharH + (*it)->outCharVInterval) / (*it)->outCharH;
-                std::string str = strsprintf("Dialogue: 0,%01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d,Box,,0000,0000,0000,,{\\pos(%d,%d)\\fscx%d\\fscy%d\\3c&H%06x&}",
-                    ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10, iBoxPosX, iBoxPosY, iBoxScaleX, iBoxScaleY, outCharColor);
+                //std::string str = strsprintf("0,%01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d,Box,,0000,0000,0000,,{\\pos(%d,%d)\\fscx%d\\fscy%d\\3c&H%06x&}",
+                //    ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10, iBoxPosX, iBoxPosY, iBoxScaleX, iBoxScaleY, outCharColor);
+                std::string str = strsprintf("0,0,Box,,0000,0000,0000,,{\\pos(%d,%d)\\fscx%d\\fscy%d\\3c&H%06x&}",
+                    iBoxPosX, iBoxPosY, iBoxScaleX, iBoxScaleY, outCharColor);
                 static uint8_t utf8box[] = { 0xE2, 0x96, 0xA0 };
-                str.append((char *)utf8box, sizeof(utf8box));
-                sub.rects = (AVSubtitleRect **)av_malloc(sizeof(*sub.rects));
-                sub.rects[0] = (AVSubtitleRect *)av_malloc(sizeof(*sub.rects[0]));
-                sub.num_rects = 1;
-                sub.rects[0]->ass = av_strdup(str.c_str());
-                assLines.push_back(sub);
+                AVPacket pkt2;
+                av_init_packet(&pkt2);
+                av_packet_copy_props(&pkt2, &pkt);
+                uint8_t *ptr = (uint8_t *)av_strdup(str.c_str());
+                av_packet_from_data(&pkt2, ptr, (int)str.length());
+                assLines.push_back(pkt2);
+                AddMessage(RGY_LOG_DEBUG, _T("pts: %11lld, dur: %6lld, %01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d, %s\n"),
+                    pkt2.pts, pkt2.duration,
+                    ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
+                    char_to_tstring(str, CP_UTF8).c_str());
             } else { /* outHLC == HLC_draw */
                 int iBoxPosX = (*it)->outPosX + (iHankaku * (((*it)->outCharW + (*it)->outCharHInterval) / 4));
                 int iBoxPosY = (*it)->outPosY + ((*it)->outCharVInterval / 4);
                 int iBoxScaleX = iHankaku * 55;
                 int iBoxScaleY = 100;   //*((*it)->outCharH + (*it)->outCharVInterval) / (*it)->outCharH;
-                sub.rects = (AVSubtitleRect **)av_malloc(sizeof(*sub.rects));
-                sub.rects[0] = (AVSubtitleRect *)av_malloc(sizeof(*sub.rects[0]));
-                sub.num_rects = 1;
-                sub.rects[0]->ass = av_strdup(strsprintf("Dialogue: 0,%01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d,Box,,0000,0000,0000,,{\\pos(%d,%d)\\3c&H%06x&\\p1}m 0 0 l %d 0 %d %d 0 %d{\\p0}",
-                    ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10, iBoxPosX, iBoxPosY, outCharColor, iBoxScaleX, iBoxScaleX, iBoxScaleY, iBoxScaleY).c_str());
-                assLines.push_back(sub);
+                //auto str = strsprintf("0,%01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d,Box,,0000,0000,0000,,{\\pos(%d,%d)\\3c&H%06x&\\p1}m 0 0 l %d 0 %d %d 0 %d{\\p0}",
+                //    ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10, iBoxPosX, iBoxPosY, outCharColor, iBoxScaleX, iBoxScaleX, iBoxScaleY, iBoxScaleY);
+                auto str = strsprintf("0,0,Box,,0000,0000,0000,,{\\pos(%d,%d)\\3c&H%06x&\\p1}m 0 0 l %d 0 %d %d 0 %d{\\p0}",
+                    iBoxPosX, iBoxPosY, outCharColor, iBoxScaleX, iBoxScaleX, iBoxScaleY, iBoxScaleY);
+                AVPacket pkt2;
+                av_init_packet(&pkt2);
+                av_packet_copy_props(&pkt2, &pkt);
+                uint8_t *ptr = (uint8_t *)av_strdup(str.c_str());
+                av_packet_from_data(&pkt2, ptr, (int)str.length());
+                assLines.push_back(pkt2);
+                AddMessage(RGY_LOG_DEBUG, _T("pts: %11lld, dur: %6lld, %01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d, %s\n"),
+                    pkt2.pts, pkt2.duration,
+                    ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
+                    char_to_tstring(str, CP_UTF8).c_str());
             }
         }
-        std::string str;
-        if ((*it)->outCharSizeMode == STR_SMALL)
-            str += strsprintf("Dialogue: 0,%01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d,Rubi,,0000,0000,0000,,{\\pos(%d,%d)",
-                ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10, (*it)->outPosX, (*it)->outPosY);
-        else
-            str += strsprintf("Dialogue: 0,%01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d,Default,,0000,0000,0000,,{\\pos(%d,%d)",
-                ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10, (*it)->outPosX, (*it)->outPosY);
+        //std::string str = strsprintf("0,%01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d,%s,,0000,0000,0000,,{\\pos(%d,%d)",
+        //    ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
+        //    ((*it)->outCharSizeMode == STR_SMALL) ? "Rubi" : "Default",
+        //    (*it)->outPosX, (*it)->outPosY);
+        std::string str = strsprintf("0,0,%s,,0000,0000,0000,,{\\pos(%d,%d)",
+            ((*it)->outCharSizeMode == STR_SMALL) ? "Rubi" : "Default",
+            (*it)->outPosX, (*it)->outPosY);
 
         if (outCharColor != 0x00ffffff)
             str += strsprintf("\\c&H%06x&", outCharColor);
@@ -1087,11 +1236,13 @@ std::vector<AVSubtitle> Caption2Ass::genAss(uint32_t endTime) {
                 str += "]";
             str += "\\N";
         }
-        sub.rects = (AVSubtitleRect **)av_malloc(sizeof(*sub.rects));
-        sub.rects[0] = (AVSubtitleRect *)av_malloc(sizeof(*sub.rects[0]));
-        sub.num_rects = 1;
-        sub.rects[0]->ass = av_strdup(str.c_str());
-        assLines.push_back(sub);
+        uint8_t *ptr = (uint8_t *)av_strdup(str.c_str());
+        av_packet_from_data(&pkt, ptr, (int)str.length());
+        assLines.push_back(pkt);
+        AddMessage(RGY_LOG_DEBUG, _T("pts: %11lld, dur: %6lld, %01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d, %s\n"),
+            pkt.pts, pkt.duration,
+            ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
+            char_to_tstring(str, CP_UTF8).c_str());
     }
     return assLines;
 }

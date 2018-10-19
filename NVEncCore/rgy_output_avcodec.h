@@ -157,7 +157,7 @@ typedef struct AVMuxAudio {
     uint64_t              nResamplerInChannelLayout; //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     int                   nResamplerInSampleRate;    //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     AVSampleFormat        ResamplerInSampleFmt;      //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    
+
     //resampler
     int                   nAudioResampler;      //resamplerの選択 (QSV_RESAMPLER_xxx)
     SwrContext           *pSwrContext;          //Sampleformatの変換用
@@ -182,6 +182,7 @@ typedef struct AVMuxSub {
     int                   nInTrackId;           //ソースファイルの入力トラック番号
     const AVStream       *pStreamIn;            //入力字幕のストリーム
     int                   nStreamIndexIn;       //入力字幕のStreamのindex
+    AVRational            streamInTimebase;     //入力字幕のストリームのtimebase
     AVStream             *pStreamOut;           //出力ファイルの字幕ストリーム
 
     //変換用
@@ -399,7 +400,7 @@ protected:
     //extradataをコピーする
     void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
     void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
-    
+
     //映像の初期化
     RGY_ERR InitVideo(const VideoInfo *pVideoOutputInfo, const AvcodecWriterPrm *prm);
 

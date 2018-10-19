@@ -605,6 +605,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.pHWDecCodecCsp = &HWDecCodecCsp;
         inputInfoAVCuvid.bVideoDetectPulldown = !inputParam->vpp.rff && !inputParam->vpp.afs.enable && inputParam->nAVSyncMode == RGY_AVSYNC_ASSUME_CFR;
+        inputInfoAVCuvid.caption2ass = inputParam->caption2ass;
         pInputPrm = &inputInfoAVCuvid;
         PrintMes(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         m_pFileReader.reset(new RGYInputAvcodec());
@@ -780,6 +781,16 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         inputParams->nAVMux |= RGY_MUX_VIDEO;
     }
 
+    { auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            //caption2ass用の解像度情報の提供
+            //これをしないと入力ファイルのデータをずっとバッファし続けるので注意
+            pAVCodecReader->setOutputVideoInfo(m_uEncWidth, m_uEncHeight,
+                inputParams->par[0], inputParams->par[1],
+                (inputParams->nAVMux & RGY_MUX_VIDEO) != 0);
+        }
+    }
+
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->nAVMux &= ~RGY_MUX_VIDEO;
     //}
@@ -863,12 +874,21 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                     streamTrackUsed.push_back(stream.nTrackId);
                     AVOutputStreamPrm prm;
                     prm.src = stream;
-                    prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
-                    prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
-                    prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
-                    prm.pEncodeCodecPrm = pAudioSelect->pAVAudioEncodeCodecPrm;
-                    prm.pEncodeCodecProfile = pAudioSelect->pAVAudioEncodeCodecProfile;
-                    prm.pFilter = pAudioSelect->pAudioFilter;
+                    if (pAudioSelect) {
+                        prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
+                        prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
+                        prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
+                        prm.pEncodeCodecPrm = pAudioSelect->pAVAudioEncodeCodecPrm;
+                        prm.pEncodeCodecProfile = pAudioSelect->pAVAudioEncodeCodecProfile;
+                        prm.pFilter = pAudioSelect->pAudioFilter;
+                    } else {
+                        prm.nBitrate = 0;
+                        prm.nSamplingRate = 0;
+                        prm.pEncodeCodec = nullptr;
+                        prm.pEncodeCodecPrm = nullptr;
+                        prm.pEncodeCodecProfile = nullptr;
+                        prm.pFilter = nullptr;
+                    }
                     PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
                         stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec,

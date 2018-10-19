@@ -835,6 +835,7 @@ struct InEncodeVideoParam {
     sTrim *pTrimList;
     bool bCopyChapter;
     bool keyOnChapter;
+    bool caption2ass;
     int nOutputThread;
     int nAudioThread;
     int nInputThread;

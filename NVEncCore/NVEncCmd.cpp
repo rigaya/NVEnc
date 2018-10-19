@@ -832,6 +832,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("caption2ass"))) {
+        pParams->caption2ass = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-caption2ass"))) {
+        pParams->caption2ass = false;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("avsync"))) {
         int value = 0;
         i++;
@@ -3210,6 +3218,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         cmd << _T(" --sub-copy ") << tmp.str().substr(1);
     }
     tmp.str(tstring());
+    OPT_BOOL(_T("--caption2ass"), _T("--no-caption2ass"), caption2ass);
     OPT_STR_PATH(_T("--chapter"), sChapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);
