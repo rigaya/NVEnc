@@ -225,11 +225,10 @@ System::Boolean frmConfig::CheckLocalStg() {
     bool error = false;
     String^ err = "";
     //映像エンコーダのチェック
-    String^ VideoEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
-    if (!File::Exists(VideoEncoderPath)) {
+    if (!File::Exists(LocalStg.vidEncPath)) {
         if (!error) err += L"\n\n";
         error = true;
-        err += L"指定された 動画エンコーダ は存在しません。\n [ " + VideoEncoderPath + L" ]\n";
+        err += L"指定された 動画エンコーダ は存在しません。\n [ " + LocalStg.vidEncPath + L" ]\n";
     }
     //音声エンコーダのチェック (実行ファイル名がない場合はチェックしない)
     if (LocalStg.audEncExeName[fcgCXAudioEncoder->SelectedIndex]->Length) {
