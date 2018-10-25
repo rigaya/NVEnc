@@ -984,7 +984,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBVppResize->Checked        = cnf->vid.resize_enable != 0;
         SetNUValue(fcgNUVppResizeWidth,  cnf->vid.resize_width);
         SetNUValue(fcgNUVppResizeHeight, cnf->vid.resize_height);
-        SetCXIndex(fcgCXVppResizeAlg,    get_cx_index(list_nppi_resize, encPrm.vpp.resizeInterp));
+        SetCXIndex(fcgCXVppResizeAlg,    get_cx_index(list_nppi_resize_help, encPrm.vpp.resizeInterp));
         int dnoise_idx = 0;
         if (encPrm.vpp.knn.enable) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
@@ -1234,7 +1234,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.loglevel                   = fcgCBLogDebug->Checked ? RGY_LOG_DEBUG : RGY_LOG_INFO;
     encPrm.vpp.bCheckPerformance      = fcgCBVppPerfMonitor->Checked;
 
-    encPrm.vpp.resizeInterp           = list_nppi_resize[fcgCXVppResizeAlg->SelectedIndex].value;
+    encPrm.vpp.resizeInterp           = list_nppi_resize_help[fcgCXVppResizeAlg->SelectedIndex].value;
 
     encPrm.vpp.knn.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn"));
     encPrm.vpp.knn.radius             = (int)fcgNUVppDenoiseKnnRadius->Value;
