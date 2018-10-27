@@ -440,7 +440,7 @@ enum {
 
 const CX_DESC list_nppi_resize[] = {
     { _T("default"),       NPPI_INTER_UNDEFINED },
-#ifndef _M_IX86
+#if !defined(_M_IX86) || FOR_AUO
     { _T("nn"),            NPPI_INTER_NN },
     { _T("npp_linear"),    NPPI_INTER_LINEAR },
     { _T("cubic"),         NPPI_INTER_CUBIC },
