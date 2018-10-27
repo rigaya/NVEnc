@@ -727,8 +727,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
 
     av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
-    if (input_prm->caption2ass) {
-        auto err = m_cap2ass.init(m_pPrintMes);
+    if (input_prm->caption2ass != FORMAT_INVALID) {
+        auto err = m_cap2ass.init(m_pPrintMes, input_prm->caption2ass);
         if (err != RGY_ERR_NONE) {
             return err;
         }

@@ -35,6 +35,7 @@
 #include <shellapi.h>
 #include "rgy_version.h"
 #include "rgy_perf_monitor.h"
+#include "rgy_caption.h"
 #include "NVEncParam.h"
 #include "NVEncCmd.h"
 #include "NVEncFilterAfs.h"
@@ -833,11 +834,23 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("caption2ass"))) {
-        pParams->caption2ass = true;
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            if (_tcscmp(strInput[i], _T("ass")) == 0) {
+                pParams->caption2ass = FORMAT_ASS;
+            } else if (_tcscmp(strInput[i], _T("srt")) == 0) {
+                pParams->caption2ass = FORMAT_SRT;
+            } else {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return 1;
+            }
+        } else {
+            pParams->caption2ass = FORMAT_ASS;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-caption2ass"))) {
-        pParams->caption2ass = false;
+        pParams->caption2ass = FORMAT_INVALID;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avsync"))) {

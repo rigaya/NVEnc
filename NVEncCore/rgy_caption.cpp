@@ -483,6 +483,11 @@ PidInfo::PidInfo() :
     PCRPid(0) {
 }
 
+SrtOut::SrtOut() :
+    ornament(true),
+    index(0) {
+}
+
 Caption2AssPrm::Caption2AssPrm() :
     DelayTime(0),
     keepInterval(true),
@@ -499,6 +504,7 @@ Caption2AssPrm::Caption2AssPrm() :
 
 Caption2Ass::Caption2Ass() :
     m_dll(),
+    m_format(FORMAT_INVALID),
     m_streamSync(false),
     m_stream(),
     m_timestamp(),
@@ -509,7 +515,8 @@ Caption2Ass::Caption2Ass() :
     m_capList(),
     m_pLog(),
     m_vidFirstKeyPts(0),
-    m_sidebarSize(0) {
+    m_sidebarSize(0),
+    m_srt() {
     m_stream.init();
 }
 Caption2Ass::~Caption2Ass() {
@@ -520,7 +527,7 @@ void Caption2Ass::close() {
     m_pLog.reset();
 }
 
-RGY_ERR Caption2Ass::init(std::shared_ptr<RGYLog> pLog) {
+RGY_ERR Caption2Ass::init(std::shared_ptr<RGYLog> pLog, C2AFormat format) {
     m_pLog = pLog;
     m_dll.reset(new CaptionDLL());
     auto ret = m_dll->load();
@@ -536,7 +543,11 @@ RGY_ERR Caption2Ass::init(std::shared_ptr<RGYLog> pLog) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to init Caption.dll.\n"));
         return ret;
     }
-
+    m_format = format;
+    if (m_format != FORMAT_ASS && m_format != FORMAT_SRT) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid format specified.\n"));
+        return RGY_ERR_INVALID_DATA_TYPE;
+    }
     return RGY_ERR_NONE;
 }
 
@@ -874,7 +885,13 @@ std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
                 AddMessage(RGY_LOG_DEBUG, _T("%d Caption skip\n"), captionList.size());
             } else {
                 int64_t endTime = (PTS + itcap->dwWaitTime * 90) - m_timestamp.startPCR;
-                vector_cat(subList, genAss(endTime));
+                std::vector<AVPacket> pkts;
+                switch (m_format) {
+                case FORMAT_ASS: pkts = genAss(endTime); break;
+                case FORMAT_SRT: pkts = genSrt(endTime); break;
+                default: break;
+                }
+                vector_cat(subList, pkts);
             }
             m_capList.clear();
             continue;
@@ -1244,5 +1261,111 @@ std::vector<AVPacket> Caption2Ass::genAss(int64_t endTime) {
             ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
             char_to_tstring(str, CP_UTF8).c_str());
     }
+    return assLines;
+}
+
+std::vector<AVPacket> Caption2Ass::genSrt(int64_t endTime) {
+    AVPacket pkt;
+    av_init_packet(&pkt);
+    rgy_time ts, te;
+    std::string str;
+    bool bNoSRT = true;
+    auto it = m_capList.begin();
+    for (int i = 0; it != m_capList.end(); it++, i++) {
+        (*it)->endTime = endTime;
+
+        if (i == 0) {
+            (*it)->endTime = endTime;
+            pkt.pts = (*it)->pts;
+            pkt.dts = (*it)->pts;
+            pkt.duration = (*it)->endTime - (*it)->startTime;
+
+            ts = rgy_time((uint32_t)((*it)->startTime / 90));
+            te = rgy_time((uint32_t)((*it)->endTime / 90));
+            //str += strsprintf("%d\r\n%02d:%02d:%02d,%03d --> %02d:%02d:%02d,%03d\r\n",
+            //    m_srt.index, ts.h, ts.m, ts.s, ts.ms, te.h, te.m, te.s, te.ms);
+        }
+
+        // ふりがな Skip
+        if ((*it)->outCharSizeMode == STR_SMALL)
+            continue;
+        bNoSRT = false;
+
+        auto it2 = (*it)->outStrings.begin();
+        bool italic = false, bold = false, underLine = false, charColor = false;
+        auto ornament_start = [&](vector<LINE_STR>::iterator& s) {
+            italic    = (s)->outItalic    != FALSE;
+            bold      = (s)->outBold      != FALSE;
+            underLine = (s)->outUnderLine != FALSE;
+            charColor = ((s)->outCharColor.r != 0xff
+                      || (s)->outCharColor.g != 0xff
+                      || (s)->outCharColor.b != 0xff);
+
+            if ((s)->outItalic)    str += "<i>";
+            if ((s)->outBold)      str += "<b>";
+            if ((s)->outUnderLine) str += "<u>";
+            if (charColor) {
+                str += strsprintf("<font color=\"#%02x%02x%02x\">",
+                    (s)->outCharColor.r, (s)->outCharColor.g, (s)->outCharColor.b);
+            }
+        };
+        auto ornament_end = [&]() {
+            if (italic)    str += "</i>";
+            if (bold)      str += "</b>";
+            if (underLine) str += "</u>";
+            if (charColor) str += "</font>";
+        };
+        if (m_srt.ornament) {
+            ornament_start(it2);
+        }
+
+        BOOL bHLC = FALSE;
+        // Output strings.
+        while (true) {
+            if (!bHLC && (it2->outHLC != 0)) {
+                str += strsprintf("[");
+                bHLC = TRUE;
+            }
+
+            str += it2->str;
+
+            ++it2;
+            if (it2 == (*it)->outStrings.end())
+                break;
+
+            if (bHLC && (it2->outHLC == 0)) {
+                str += "]";
+                bHLC = FALSE;
+            }
+
+            if (m_srt.ornament) {
+                ornament_end();
+                // Next ornament.
+                ornament_start(it2);
+            }
+        }
+        if (bHLC)
+            str += "]";
+        if (m_srt.ornament) {
+            ornament_end();
+        }
+        //str += "\r\n";
+    }
+
+    //if (m_capList.size() > 0) {
+    //    if (bNoSRT)
+    //        str += "\r\n";
+    //    str += "\r\n";
+    //    m_srt.index++;
+    //}
+    AddMessage(RGY_LOG_DEBUG, _T("pts: %11lld, dur: %6lld, %01d:%02d:%02d.%02d,%01d:%02d:%02d.%02d, %s\n"),
+        pkt.pts, pkt.duration,
+        ts.h, ts.m, ts.s, ts.ms / 10, te.h, te.m, te.s, te.ms / 10,
+        char_to_tstring(str, CP_UTF8).c_str());
+    uint8_t *ptr = (uint8_t *)av_strdup(str.c_str());
+    av_packet_from_data(&pkt, ptr, (int)str.length());
+
+    std::vector<AVPacket> assLines;
+    assLines.push_back(pkt);
     return assLines;
 }

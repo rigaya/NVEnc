@@ -40,6 +40,7 @@
 #include "nvEncodeAPI.h"
 #include "NVEncoderPerf.h"
 #include "rgy_util.h"
+#include "rgy_caption.h"
 #include "convert_csp.h"
 
 using std::vector;
@@ -835,7 +836,7 @@ struct InEncodeVideoParam {
     sTrim *pTrimList;
     bool bCopyChapter;
     bool keyOnChapter;
-    bool caption2ass;
+    C2AFormat caption2ass;
     int nOutputThread;
     int nAudioThread;
     int nInputThread;

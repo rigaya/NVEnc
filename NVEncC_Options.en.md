@@ -666,8 +666,10 @@ Example: Copy subtitle track #1 and #2
 --sub-copy 1,2
 ```
 
-### --caption2ass
-Enable internal caption2ass process. Requires Caption.dll.
+### --caption2ass [&lt;string&gt;]
+Enable internal caption2ass process. This feature requires Caption.dll.  
+
+supported formats ... ass (default), srt
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, and the option value in &lt;string2&gt;.

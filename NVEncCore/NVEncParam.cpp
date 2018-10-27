@@ -425,7 +425,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     pTrimList(nullptr),
     bCopyChapter(false),
     keyOnChapter(false),
-    caption2ass(false),
+    caption2ass(FORMAT_INVALID),
     nOutputThread(RGY_OUTPUT_THREAD_AUTO),
     nAudioThread(RGY_INPUT_THREAD_AUTO),
     nInputThread(RGY_AUDIO_THREAD_AUTO),

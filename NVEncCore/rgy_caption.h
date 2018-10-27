@@ -35,6 +35,13 @@
 #include "rgy_log.h"
 #include "Caption.h"
 
+enum C2AFormat {
+    FORMAT_INVALID = 0,
+    FORMAT_SRT     = 1,
+    FORMAT_ASS     = 2,
+    FORMAT_MAX
+};
+
 enum {
     HLC_INVALID = 0,
     HLC_kigou   = 1,
@@ -51,7 +58,7 @@ enum {
 class CaptionDLL {
 public:
     CaptionDLL();
-    ~CaptionDLL();
+    virtual ~CaptionDLL();
     RGY_ERR load();
     RGY_ERR init();
     bool unicode() const {
@@ -207,11 +214,18 @@ struct PidInfo {
     PidInfo();
 };
 
+struct SrtOut {
+    bool ornament;
+    int index;
+
+    SrtOut();
+};
+
 class Caption2Ass {
 public:
     Caption2Ass();
-    ~Caption2Ass();
-    RGY_ERR init(std::shared_ptr<RGYLog> pLog);
+    virtual ~Caption2Ass();
+    RGY_ERR init(std::shared_ptr<RGYLog> pLog, C2AFormat format);
     RGY_ERR proc(const uint8_t *data, const int64_t data_size, std::vector<AVPacket>& subList);
     void close();
     bool enabled() const { return !!m_dll; };
@@ -221,6 +235,8 @@ public:
 
     //assのヘッダを返す
     std::string assHeader() const;
+
+    C2AFormat format() const { return m_format; }
 
     //入力データがtsかどうかの判定
     bool isTS(const uint8_t *data, const int64_t data_size) const;
@@ -259,8 +275,10 @@ private:
     std::vector<CAPTION_DATA> getCaptionDataList(uint8_t ucLangTag);
     std::vector<AVPacket> genCaption(int64_t pts);
     std::vector<AVPacket> genAss(int64_t endTime);
+    std::vector<AVPacket> genSrt(int64_t endTime);
 
     std::unique_ptr<CaptionDLL> m_dll;
+    C2AFormat m_format;
     bool m_streamSync;
     rgy_stream m_stream;
     c2a_ts m_timestamp;
@@ -272,6 +290,7 @@ private:
     std::shared_ptr<RGYLog> m_pLog;
     int64_t m_vidFirstKeyPts;
     int m_sidebarSize;
+    SrtOut m_srt;
 };
 
 #endif //__RGY_CAPTION_H__

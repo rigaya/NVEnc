@@ -715,6 +715,7 @@ typedef struct AVDemuxStream {
     void                     *extraData;              //pStream = nullptrの場合のヘッダー情報
     int                       extraDataSize;          //extraDataのサイズ
     AVRational                timebase;               //streamのtimebase
+    C2AFormat                 caption2ass;            //caption2assのformat
 } AVDemuxStream;
 
 typedef struct AVDemuxThread {
@@ -761,9 +762,12 @@ public:
         m_cap2ass.close();
         m_pLog.reset();
     }
-    RGY_ERR init(std::shared_ptr<RGYLog> pLog) {
+    RGY_ERR init(std::shared_ptr<RGYLog> pLog, C2AFormat format) {
         m_pLog = pLog;
-        return m_cap2ass.init(pLog);
+        return m_cap2ass.init(pLog, format);
+    }
+    C2AFormat format() const {
+        return m_cap2ass.format();
     }
     AVCAPTION_STATE state() const {
         return m_state;
@@ -789,7 +793,12 @@ public:
         m_cap2ass.setVidFirstKeyPts(pts);
     }
     AVDemuxStream stream() const {
-        auto header = m_cap2ass.assHeader();
+        std::string header;
+        switch (m_cap2ass.format()) {
+        case FORMAT_ASS: header = m_cap2ass.assHeader(); break;
+        case FORMAT_SRT:
+        default: break;
+        }
         AVDemuxStream stream;
         memset(&stream, 0, sizeof(AVDemuxStream));
         stream.nIndex = m_index;
@@ -797,6 +806,7 @@ public:
         stream.extraData = av_strdup(header.c_str());
         stream.extraDataSize = (int)header.length();
         stream.timebase = av_make_q(1, 90000);
+        stream.caption2ass = m_cap2ass.format();
         return stream;
     }
     RGY_ERR proc(uint8_t *buf, int buf_size, decltype(AVDemuxer::qStreamPktL1)& qStreamPkt) {
@@ -877,7 +887,7 @@ typedef struct AvcodecReaderPrm {
     PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
     DeviceCodecCsp *pHWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
     bool           bVideoDetectPulldown;     //pulldownの検出を試みるかどうか
-    bool           caption2ass;              //caption2assの処理の有効化
+    C2AFormat      caption2ass;              //caption2assの処理の有効化
 } AvcodecReaderPrm;
 
 class RGYInputAvcodec : public RGYInput

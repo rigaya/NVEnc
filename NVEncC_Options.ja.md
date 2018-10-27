@@ -669,8 +669,12 @@ apple形式 (should be in utf-8)
 --sub-copy 1,2
 ```
 
-### --caption2ass
-caption2assによる字幕のass化処理を有効にする。Caption.dllが必要。
+### --caption2ass &lt;string&gt;
+caption2assによる字幕抽出処理を行い、動画にmuxして出力する。別途 "Caption.dll" が必要。
+
+**出力フォーマット**
+- ass (デフォルト)
+- srt
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 mux時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
