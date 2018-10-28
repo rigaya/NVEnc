@@ -33,7 +33,6 @@
 #include "rgy_avutil.h"
 #include "rgy_err.h"
 #include "rgy_log.h"
-#include "Caption.h"
 
 enum C2AFormat {
     FORMAT_INVALID = 0,
@@ -41,6 +40,10 @@ enum C2AFormat {
     FORMAT_ASS     = 2,
     FORMAT_MAX
 };
+
+#if ENABLE_AVSW_READER
+
+#include "Caption.h"
 
 enum {
     HLC_INVALID = 0,
@@ -292,5 +295,7 @@ private:
     int m_sidebarSize;
     SrtOut m_srt;
 };
+
+#endif //#if ENABLE_AVSW_READER
 
 #endif //__RGY_CAPTION_H__

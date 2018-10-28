@@ -1099,10 +1099,18 @@ struct rgy_time {
     tstring print() {
         auto str = strsprintf(_T("%d:%02d:%02d.%3d"), h, m, s, ms);
         if (us) {
+#if _UNICODE
             str += std::to_wstring(us);
+#else
+            str += std::to_string(us);
+#endif
         }
         if (ns) {
+#if _UNICODE
             str += std::to_wstring(ns);
+#else
+            str += std::to_string(ns);
+#endif
         }
         return str;
     };
@@ -1110,8 +1118,8 @@ struct rgy_time {
 
 class rgy_stream {
     uint8_t *bufptr_;
-    int64_t buf_size_;
-    int64_t data_length_;
+    size_t buf_size_;
+    size_t data_length_;
     int64_t offset_;
 
     uint32_t data_flag_;
@@ -1142,13 +1150,13 @@ public:
     uint8_t *data() const {
         return bufptr_ + offset_;
     }
-    int64_t size() const {
+    size_t size() const {
         return data_length_;
     }
-    int64_t buf_size() const {
+    size_t buf_size() const {
         return buf_size_;
     }
-    void add_offset(int64_t add) {
+    void add_offset(size_t add) {
         if (data_length_ < add) {
             add = data_length_;
         }
@@ -1162,7 +1170,7 @@ public:
         data_length_ = 0;
         offset_ = 0;
     }
-    RGY_ERR alloc(int64_t size) {
+    RGY_ERR alloc(size_t size) {
         clear();
         if (bufptr_) {
             _aligned_free(bufptr_);
@@ -1178,7 +1186,7 @@ public:
         }
         return RGY_ERR_NONE;
     }
-    RGY_ERR realloc(int64_t size) {
+    RGY_ERR realloc(size_t size) {
         if (bufptr_ == nullptr || data_length_ == 0) {
             return alloc(size);
         }
@@ -1187,7 +1195,7 @@ public:
             if (newptr == nullptr) {
                 return RGY_ERR_NULL_PTR;
             }
-            auto newdatalen = std::min(size, data_length_);
+            auto newdatalen = (std::min)(size, data_length_);
             memcpy(newptr, bufptr_ + offset_, newdatalen);
             _aligned_free(bufptr_);
             bufptr_ = newptr;
@@ -1216,7 +1224,7 @@ public:
         }
     }
 
-    RGY_ERR copy(const uint8_t *data, int64_t size) {
+    RGY_ERR copy(const uint8_t *data, size_t size) {
         if (data == nullptr || size == 0) {
             return RGY_ERR_MORE_BITSTREAM;
         }
@@ -1233,22 +1241,22 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR copy(const uint8_t *data, int64_t size, int64_t pts) {
+    RGY_ERR copy(const uint8_t *data, size_t size, int64_t pts) {
         pts_ = pts;
         return copy(data, size);
     }
 
-    RGY_ERR copy(const uint8_t *data, int64_t size, int64_t pts, int64_t dts) {
+    RGY_ERR copy(const uint8_t *data, size_t size, int64_t pts, int64_t dts) {
         dts_ = dts;
         return copy(data, size, pts);
     }
 
-    RGY_ERR copy(const uint8_t *data, int64_t size, int64_t pts, int64_t dts, int duration) {
+    RGY_ERR copy(const uint8_t *data, size_t size, int64_t pts, int64_t dts, int duration) {
         duration_ = duration;
         return copy(data, size, pts, dts);
     }
 
-    RGY_ERR copy(const uint8_t *data, int64_t size, int64_t pts, int64_t dts, int duration, uint32_t flag) {
+    RGY_ERR copy(const uint8_t *data, size_t size, int64_t pts, int64_t dts, int duration, uint32_t flag) {
         data_flag_ = flag;
         return copy(data, size, pts, dts, duration);
     }
@@ -1261,11 +1269,11 @@ public:
         return copy(pBitstream->data(), pBitstream->size(), pBitstream->pts(), pBitstream->dts(), pBitstream->duration(), pBitstream->data_flag());
     }
 
-    RGY_ERR append(const uint8_t *append_data, int64_t append_size) {
+    RGY_ERR append(const uint8_t *append_data, size_t append_size) {
         if (append_data && append_size > 0) {
             const auto new_data_length = data_length_ + append_size;
             if (buf_size_ < new_data_length) {
-                auto sts = realloc(new_data_length + std::min(new_data_length / 2, 256 * 1024ll));
+                auto sts = realloc(new_data_length + (std::min<size_t>)(new_data_length / 2, 256 * 1024u));
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }

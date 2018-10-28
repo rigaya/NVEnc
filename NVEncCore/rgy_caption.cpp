@@ -31,6 +31,8 @@
 #include "rgy_caption.h"
 #include "packet_types.h"
 
+#if ENABLE_AVSW_READER
+
 #define TIMESTAMP_INVALID_VALUE     (-1LL)
 #define WRAP_AROUND_VALUE           (1LL << 33)
 #define WRAP_AROUND_CHECK_VALUE     ((1LL << 32) - 1)
@@ -1369,3 +1371,5 @@ std::vector<AVPacket> Caption2Ass::genSrt(int64_t endTime) {
     assLines.push_back(pkt);
     return assLines;
 }
+
+#endif //#if ENABLE_AVSW_READER
