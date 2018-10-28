@@ -705,17 +705,17 @@ typedef struct AVDemuxStream {
     int                       nIndex;                 //音声・字幕のストリームID (libavのストリームID)
     int                       nTrackId;               //音声のトラックID (QSVEncC独自, 1,2,3,...)、字幕は0
     int                       nSubStreamId;           //通常は0、音声のチャンネルを分離する際に複製として作成
-    AVStream                 *pStream;                //音声・字幕のストリーム
+    AVStream                 *pStream;                //音声・字幕のストリーム (caption2assから字幕生成の場合、nullptrとなる)
     int                       nLastVidIndex;          //音声の直前の相当する動画の位置
     int64_t                   nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
     AVPacket                  pktSample;              //サンプル用の音声・字幕データ
     int                       nDelayOfStream;         //音声側の遅延 (pkt_timebase基準)
     uint64_t                  pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
     uint64_t                  pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
-    void                     *extraData;              //pStream = nullptrの場合のヘッダー情報
-    int                       extraDataSize;          //extraDataのサイズ
-    AVRational                timebase;               //streamのtimebase
-    C2AFormat                 caption2ass;            //caption2assのformat
+    AVRational                timebase;               //streamのtimebase [pStream = nullptrの場合でも使えるように]
+    void                     *subtitleHeader;         //pStream = nullptrの場合 caption2assのヘッダー情報 (srt形式でもass用のヘッダーが入っている)
+    int                       subtitleHeaderSize;     //pStream = nullptrの場合 caption2assのヘッダー情報のサイズ
+    C2AFormat                 caption2ass;            //pStream = nullptrの場合 caption2assのformat
 } AVDemuxStream;
 
 typedef struct AVDemuxThread {
@@ -793,18 +793,13 @@ public:
         m_cap2ass.setVidFirstKeyPts(pts);
     }
     AVDemuxStream stream() const {
-        std::string header;
-        switch (m_cap2ass.format()) {
-        case FORMAT_ASS: header = m_cap2ass.assHeader(); break;
-        case FORMAT_SRT:
-        default: break;
-        }
+        std::string header = m_cap2ass.assHeader();
         AVDemuxStream stream;
         memset(&stream, 0, sizeof(AVDemuxStream));
         stream.nIndex = m_index;
         stream.nTrackId = m_trackId;
-        stream.extraData = av_strdup(header.c_str());
-        stream.extraDataSize = (int)header.length();
+        stream.subtitleHeader = av_strdup(header.c_str());
+        stream.subtitleHeaderSize = (int)header.length();
         stream.timebase = av_make_q(1, 90000);
         stream.caption2ass = m_cap2ass.format();
         return stream;

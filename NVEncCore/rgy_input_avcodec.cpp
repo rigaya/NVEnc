@@ -134,8 +134,8 @@ void RGYInputAvcodec::CloseStream(AVDemuxStream *pStream) {
     if (pStream->pktSample.data) {
         av_packet_unref(&pStream->pktSample);
     }
-    if (pStream->extraData) {
-        av_free(pStream->extraData);
+    if (pStream->subtitleHeader) {
+        av_free(pStream->subtitleHeader);
     }
     memset(pStream, 0, sizeof(pStream[0]));
     pStream->nIndex = -1;
