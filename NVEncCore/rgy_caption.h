@@ -41,6 +41,13 @@ enum C2AFormat {
     FORMAT_MAX
 };
 
+static const CX_DESC list_caption2ass[] = {
+    { _T("invalid"), FORMAT_INVALID },
+    { _T("srt"),     FORMAT_SRT },
+    { _T("ass"),     FORMAT_ASS },
+    { NULL, 0 }
+};
+
 #if ENABLE_AVSW_READER
 
 #include "Caption.h"
