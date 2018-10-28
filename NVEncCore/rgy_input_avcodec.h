@@ -810,10 +810,13 @@ public:
         return stream;
     }
     RGY_ERR proc(uint8_t *buf, int buf_size, decltype(AVDemuxer::qStreamPktL1)& qStreamPkt) {
+        auto ret = RGY_ERR_NONE;
+        if (buf_size == 0) {
+            return ret;
+        }
         if (m_state == AVCAPTION_UNKNOWN) {
             m_state = m_cap2ass.isTS(buf, buf_size) ? AVCAPTION_IS_TS : AVCAPTION_NOT_TS;
         }
-        auto ret = RGY_ERR_NONE;
         if (m_state == AVCAPTION_IS_TS) {
             if (!m_resolutionDetermined) {
                 //出力解像度が決まるまでデータを蓄積

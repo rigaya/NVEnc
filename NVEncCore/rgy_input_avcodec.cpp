@@ -2040,12 +2040,12 @@ RGY_ERR RGYInputAvcodec::ThreadFuncRead() {
 int RGYInputAvcodec::readPacket(uint8_t *buf, int buf_size) {
     auto ret = (int)fread(buf, 1, buf_size, m_Demux.format.fpInput);
     if (m_cap2ass.enabled()) {
-        if (m_cap2ass.proc(buf, buf_size, m_Demux.qStreamPktL1) != RGY_ERR_NONE) {
+        if (m_cap2ass.proc(buf, ret, m_Demux.qStreamPktL1) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to process ts caption.\n"));
             return AVERROR_INVALIDDATA;
         }
     }
-    return ret;
+    return (ret == 0) ? AVERROR_EOF : ret;
 }
 int RGYInputAvcodec::writePacket(uint8_t *buf, int buf_size) {
     return (int)fwrite(buf, 1, buf_size, m_Demux.format.fpInput);
