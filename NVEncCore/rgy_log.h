@@ -30,25 +30,26 @@
 #define __RGY_LOG_H__
 
 #include <cstdint>
-#include <thread>
 #include <string>
-#include <mutex>
 #include "rgy_tchar.h"
 #include "rgy_util.h"
+
+//NVEnc.auoビルド時、/clrでは<thread>は使用できませんなどと出るので、
+//前方宣言で回避する
+namespace std {
+    class mutex;
+}
 
 class RGYLog {
 protected:
     int m_nLogLevel = RGY_LOG_INFO;
     const TCHAR *m_pStrLog = nullptr;
     bool m_bHtml = false;
-    std::mutex m_mtx;
+    unique_ptr<std::mutex> m_mtx;
     static const char *HTML_FOOTER;
 public:
-    RGYLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO) {
-        init(pLogFile, log_level);
-    };
-    virtual ~RGYLog() {
-    };
+    RGYLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO);
+    virtual ~RGYLog();
     void init(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO);
     void writeHtmlHeader();
     void writeFileHeader(const TCHAR *pDstFilename);

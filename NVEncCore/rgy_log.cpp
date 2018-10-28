@@ -26,14 +26,24 @@
 // ------------------------------------------------------------------------------------------
 
 #include <algorithm>
+#include <thread>
+#include <mutex>
 #include "rgy_log.h"
 #include "rgy_version.h"
 
 const char *RGYLog::HTML_FOOTER = "</body>\n</html>\n";
 
+RGYLog::RGYLog(const TCHAR *pLogFile, int log_level) {
+    init(pLogFile, log_level);
+};
+
+RGYLog::~RGYLog() {
+}
+
 void RGYLog::init(const TCHAR *pLogFile, int log_level) {
     m_pStrLog = pLogFile;
     m_nLogLevel = log_level;
+    m_mtx.reset(new std::mutex());
     if (pLogFile != nullptr && _tcslen(pLogFile) > 0) {
         CreateDirectoryRecursive(PathRemoveFileSpecFixed(pLogFile).second.c_str());
         FILE *fp = NULL;
@@ -186,7 +196,7 @@ void RGYLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
         buffer_ptr = &buffer_char[0];
     }
 #endif
-    std::lock_guard<std::mutex> lock(m_mtx);
+    std::lock_guard<std::mutex> lock(*m_mtx.get());
     if (m_pStrLog) {
         FILE *fp_log = NULL;
         //logはANSI(まあようはShift-JIS)で保存する
