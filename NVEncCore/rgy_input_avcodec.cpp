@@ -93,12 +93,19 @@ void RGYInputAvcodec::CloseThread() {
 
 void RGYInputAvcodec::CloseFormat(AVDemuxFormat *pFormat) {
     //close video file
+    if (pFormat->fpInput) {
+        if (pFormat->pFormatCtx->pb->buffer) {
+            av_freep(&pFormat->pFormatCtx->pb->buffer);
+            avio_context_free(&pFormat->pFormatCtx->pb);
+        }
+        fclose(pFormat->fpInput);
+    }
     if (pFormat->pFormatCtx) {
         avformat_close_input(&pFormat->pFormatCtx);
         AddMessage(RGY_LOG_DEBUG, _T("Closed avformat context.\n"));
     }
-    if (m_Demux.format.pFormatOptions) {
-        av_dict_free(&m_Demux.format.pFormatOptions);
+    if (pFormat->pFormatOptions) {
+        av_dict_free(&pFormat->pFormatOptions);
     }
     memset(pFormat, 0, sizeof(pFormat[0]));
 }
@@ -772,20 +779,26 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
     }
 
 #if USE_CUSTOM_INPUT
-    if (!m_Demux.format.bIsPipe && !usingAVProtocols(filename_char, 0) || !(pInFormat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
-        m_Demux.format.fpInput = _tfopen(strFileName, _T("rb"));
-        if (m_Demux.format.fpInput == NULL) {
-            errno_t error = errno;
-            AddMessage(RGY_LOG_ERROR, _T("failed to open input file \"%s\": %s.\n"), strFileName, _tcserror(error));
-            return RGY_ERR_FILE_OPEN; // Couldn't open file
+    if (m_Demux.format.bIsPipe || (!usingAVProtocols(filename_char, 0) || !(pInFormat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE)))) {
+        if (0 == _tcscmp(strFileName, _T("-"))) {
+            m_Demux.format.fpInput = stdin;
+        } else {
+            m_Demux.format.fpInput = _tfopen(strFileName, _T("rb"));
+            if (m_Demux.format.fpInput == NULL) {
+                errno_t error = errno;
+                AddMessage(RGY_LOG_ERROR, _T("failed to open input file \"%s\": %s.\n"), strFileName, _tcserror(error));
+                return RGY_ERR_FILE_OPEN; // Couldn't open file
+            }
         }
-        m_Demux.format.inputBufferSize = 512 * 1024;
+        m_Demux.format.inputBufferSize = 4 * 1024;
         m_Demux.format.pInputBuffer = (char *)av_malloc(m_Demux.format.inputBufferSize);
-        m_Demux.format.pFormatCtx->flags |= AVFMT_FLAG_CUSTOM_IO;
-        if (NULL == (m_Demux.format.pFormatCtx->pb = avio_alloc_context((unsigned char *)m_Demux.format.pInputBuffer, m_Demux.format.inputBufferSize, 0, this, funcReadPacket, funcWritePacket, funcSeek))) {
+        if (NULL == (m_Demux.format.pFormatCtx->pb = avio_alloc_context((unsigned char *)m_Demux.format.pInputBuffer, m_Demux.format.inputBufferSize, 0, this, funcReadPacket, funcWritePacket, (m_Demux.format.bIsPipe) ? nullptr : funcSeek))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to alloc avio context.\n"));
             return RGY_ERR_NULL_PTR;
         }
+    } else if (m_cap2ass.enabled()) {
+        AddMessage(RGY_LOG_ERROR, _T("--caption2ass only supported when input is file or pipe.\n"));
+        m_cap2ass.disable();
     }
 #endif
     //ファイルのオープン
