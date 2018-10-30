@@ -494,14 +494,10 @@ Caption2AssPrm::Caption2AssPrm() :
     DelayTime(0),
     keepInterval(true),
     HLCmode(HLC_kigou),
-    srtornament(false),
     norubi(false),
     LangType(1),
-    detectLength(0),
     ass_type(),
-    FileName(),
-    TargetFileName(),
-    readBufferSize(0) {
+    FileName() {
 }
 
 Caption2Ass::Caption2Ass() :

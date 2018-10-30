@@ -206,14 +206,10 @@ struct Caption2AssPrm {
     int     DelayTime;
     bool    keepInterval;
     BYTE    HLCmode;
-    bool    srtornament;
     bool    norubi;
     int     LangType;
-    int     detectLength;
     tstring ass_type;
     tstring FileName;
-    tstring TargetFileName;
-    int     readBufferSize;
     Caption2AssPrm();
 };
 
