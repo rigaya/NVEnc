@@ -458,6 +458,7 @@ std::wstring PathRemoveExtensionS(const std::wstring& path);
 std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename);
 std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const WCHAR *dir);
+std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
 #endif
 
 std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);

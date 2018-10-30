@@ -567,6 +567,35 @@ bool rgy_get_filesize(const WCHAR *filepath, uint64_t *filesize) {
     *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
     return ret;
 }
+
+std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir) {
+    std::vector<tstring> list;
+
+    TCHAR buf[1024];
+    PathCombine(buf, GetFullPath(dir.c_str()).c_str(), pattern.c_str());
+
+    WIN32_FIND_DATA win32fd;
+    HANDLE hFind = FindFirstFile(buf, &win32fd);
+
+    if (hFind == INVALID_HANDLE_VALUE) {
+        return list;
+    }
+
+    do {
+        if ((win32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+            && _tcscmp(win32fd.cFileName, _T("..")) !=0
+            && _tcscmp(win32fd.cFileName, _T(".")) != 0) {
+            TCHAR buf2[1024];
+            PathCombine(buf2, dir.c_str(), win32fd.cFileName);
+            vector_cat(list, get_file_list(pattern, buf2));
+        } else {
+            PathCombine(buf, GetFullPath(dir.c_str()).c_str(), win32fd.cFileName);
+            list.push_back(buf);
+        }
+    } while (FindNextFile(hFind, &win32fd));
+    FindClose(hFind);
+    return list;
+}
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 tstring print_time(double time) {
