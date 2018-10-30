@@ -48,16 +48,24 @@ static const CX_DESC list_caption2ass[] = {
     { NULL, 0 }
 };
 
-#if ENABLE_AVSW_READER
-
-#include "Caption.h"
-
 enum {
     HLC_INVALID = 0,
     HLC_kigou   = 1,
     HLC_box     = 2,
     HLC_draw    = 3
 };
+
+static const CX_DESC list_caption2ass_hlc[] ={
+    { _T("invalid"), HLC_INVALID },
+    { _T("kigou"),   HLC_kigou },
+    { _T("box"),     HLC_box },
+    { _T("drwa"),    HLC_draw },
+    { NULL, 0 }
+};
+
+#if ENABLE_AVSW_READER
+
+#include "Caption.h"
 
 #define CAPTIONF(x) \
     private: \
@@ -249,6 +257,9 @@ public:
 
     //出力解像度の設定
     void setOutputResolution(int w, int h, int sar_x, int sar_y);
+
+    //現在の設定を表示
+    void printParam(int log_level);
 
     //内部データをリセット(seekが発生したときなどに使用する想定)
     void reset();

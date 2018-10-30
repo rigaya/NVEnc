@@ -652,6 +652,21 @@ void Caption2Ass::setOutputResolution(int w, int h, int sar_x, int sar_y) {
     AddMessage(RGY_LOG_DEBUG, _T("PlayResX: %d, PlayResY: %d, m_sidebarSize: %d.\n"), m_ass.PlayResX, m_ass.PlayResY, m_sidebarSize);
 }
 
+void Caption2Ass::printParam(int log_level) {
+    if (!m_pLog || log_level < m_pLog->getLogLevel()) {
+        return;
+    }
+    AddMessage(log_level, _T("caption2ass:   %s\n"), get_chr_from_value(list_caption2ass, m_format));
+    AddMessage(log_level, _T(" DelayTime:    %d\n"), m_prm.DelayTime);
+    AddMessage(log_level, _T(" keepInterval: %s\n"), m_prm.keepInterval ? _T("yes") : _T("no"));
+    AddMessage(log_level, _T(" HLCmode:      %d\n"), get_chr_from_value(list_caption2ass_hlc, m_prm.HLCmode));
+    AddMessage(log_level, _T(" norubi:       %s\n"), m_prm.norubi ? _T("yes") : _T("no"));
+    AddMessage(log_level, _T(" LangType:     %d\n"), m_prm.LangType);
+    AddMessage(log_level, _T(" ass_type:     %s\n"), m_prm.ass_type.c_str());
+    AddMessage(log_level, _T(" sidebarSize:  %d\n"), m_sidebarSize);
+    AddMessage(log_level, _T(" srt ornament: %s\n"), m_srt.ornament ? _T("yes") : _T("no"));
+}
+
 RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size, std::vector<AVPacket>& subList) {
     m_stream.append(data, data_size);
 
