@@ -38,10 +38,10 @@
 #define WRAP_AROUND_CHECK_VALUE     ((1LL << 32) - 1)
 #define PCR_MAXIMUM_INTERVAL        (100 * 90)
 
-static const char *DEFAULT_FONT_NAME = "MS UI Gothic";
-static const char *DEFAULT_STYLE      = "&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,15,0,1,2,2,1,10,10,10,0";
-static const char *DEFAULT_BOX_STYLE  = "&HFFFFFFFF,&H000000FF,&H00FFFFFF,&H00FFFFFF,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,0";
-static const char *DEFAULT_RUBI_STYLE = "&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,1,10,10,10,0";
+static const TCHAR *DEFAULT_FONT_NAME = _T("MS UI Gothic");
+static const TCHAR *DEFAULT_STYLE      = _T("&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,15,0,1,2,2,1,10,10,10,0");
+static const TCHAR *DEFAULT_BOX_STYLE  = _T("&HFFFFFFFF,&H000000FF,&H00FFFFFF,&H00FFFFFF,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,0");
+static const TCHAR *DEFAULT_RUBI_STYLE = _T("&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,1,10,10,10,0");
 
 ass_setting_t::ass_setting_t() :
     SWF0offset(0),
@@ -54,43 +54,45 @@ ass_setting_t::ass_setting_t() :
     Comment3(""),
     PlayResX(1920),
     PlayResY(1080),
-    DefaultFontname(DEFAULT_FONT_NAME),
+    DefaultFontname(tchar_to_string(DEFAULT_FONT_NAME)),
     DefaultFontsize(90),
-    DefaultStyle(DEFAULT_STYLE),
-    BoxFontname(DEFAULT_FONT_NAME),
+    DefaultStyle(tchar_to_string(DEFAULT_STYLE)),
+    BoxFontname(tchar_to_string(DEFAULT_FONT_NAME)),
     BoxFontsize(90),
-    BoxStyle(DEFAULT_BOX_STYLE),
-    RubiFontname(DEFAULT_FONT_NAME),
+    BoxStyle(tchar_to_string(DEFAULT_BOX_STYLE)),
+    RubiFontname(tchar_to_string(DEFAULT_FONT_NAME)),
     RubiFontsize(50),
-    RubiStyle(DEFAULT_RUBI_STYLE) {
+    RubiStyle(tchar_to_string(DEFAULT_RUBI_STYLE)) {
 
 }
-void ass_setting_t::set(const std::string& inifile, int width, int height) {
-    SWF0offset = GetPrivateProfileIntA("SWFModeOffset", "SWF0offset", 0, inifile.c_str());
-    SWF5offset = GetPrivateProfileIntA("SWFModeOffset", "SWF5offset", 0, inifile.c_str());
-    SWF7offset = GetPrivateProfileIntA("SWFModeOffset", "SWF7offset", 0, inifile.c_str());
-    SWF9offset = GetPrivateProfileIntA("SWFModeOffset", "SWF9offset", 0, inifile.c_str());
-    SWF11offset = GetPrivateProfileIntA("SWFModeOffset", "SWF11offset", 0, inifile.c_str());
+void ass_setting_t::set(const tstring& inifile, int width, int height) {
+#if defined(_WIN32) || defined(_WIN64)
+    SWF0offset = GetPrivateProfileInt(_T("SWFModeOffset"), _T("SWF0offset"), 0, inifile.c_str());
+    SWF5offset = GetPrivateProfileInt(_T("SWFModeOffset"), _T("SWF5offset"), 0, inifile.c_str());
+    SWF7offset = GetPrivateProfileInt(_T("SWFModeOffset"), _T("SWF7offset"), 0, inifile.c_str());
+    SWF9offset = GetPrivateProfileInt(_T("SWFModeOffset"), _T("SWF9offset"), 0, inifile.c_str());
+    SWF11offset = GetPrivateProfileInt(_T("SWFModeOffset"), _T("SWF11offset"), 0, inifile.c_str());
 
-    static const char *KEY = (double)width  / (double)height > 1.5 ? "Default" : "Default43";
-    char buffer[1024];
-    GetPrivateProfileStringA(KEY, "Comment1", "", buffer, sizeof(buffer), inifile.c_str()); Comment1 = buffer;
-    GetPrivateProfileStringA(KEY, "Comment2", "", buffer, sizeof(buffer), inifile.c_str()); Comment2 = buffer;
-    GetPrivateProfileStringA(KEY, "Comment3", "", buffer, sizeof(buffer), inifile.c_str()); Comment3 = buffer;
-    PlayResX = GetPrivateProfileIntA("SWFModeOffset", "PlayResX", 0, inifile.c_str());
-    PlayResY = GetPrivateProfileIntA("SWFModeOffset", "PlayResY", 0, inifile.c_str());
+    static const TCHAR *KEY = (double)width  / (double)height > 1.5 ? _T("Default") : _T("Default43");
+    TCHAR buffer[1024];
+    GetPrivateProfileString(KEY, _T("Comment1"), _T(""), buffer, _countof(buffer), inifile.c_str()); Comment1 = tchar_to_string(buffer, CP_UTF8);
+    GetPrivateProfileString(KEY, _T("Comment2"), _T(""), buffer, _countof(buffer), inifile.c_str()); Comment2 = tchar_to_string(buffer, CP_UTF8);
+    GetPrivateProfileString(KEY, _T("Comment3"), _T(""), buffer, _countof(buffer), inifile.c_str()); Comment3 = tchar_to_string(buffer, CP_UTF8);
+    PlayResX = GetPrivateProfileInt(KEY, _T("PlayResX"), 0, inifile.c_str());
+    PlayResY = GetPrivateProfileInt(KEY, _T("PlayResY"), 0, inifile.c_str());
 
-    GetPrivateProfileStringA(KEY, "DefaultFontname", DEFAULT_FONT_NAME, buffer, sizeof(buffer), inifile.c_str()); DefaultFontname = buffer;
-    DefaultFontsize = GetPrivateProfileIntA("SWFModeOffset", "DefaultFontsize", 0, inifile.c_str());
-    GetPrivateProfileStringA(KEY, "DefaultStyle", DEFAULT_STYLE, buffer, sizeof(buffer), inifile.c_str()); DefaultStyle = buffer;
+    GetPrivateProfileString(KEY, _T("DefaultFontname"), DEFAULT_FONT_NAME, buffer, _countof(buffer), inifile.c_str()); DefaultFontname = tchar_to_string(buffer, CP_UTF8);
+    DefaultFontsize = GetPrivateProfileInt(KEY, _T("DefaultFontsize"), 0, inifile.c_str());
+    GetPrivateProfileString(KEY, _T("DefaultStyle"), DEFAULT_STYLE, buffer, _countof(buffer), inifile.c_str()); DefaultStyle = tchar_to_string(buffer, CP_UTF8);
 
-    GetPrivateProfileStringA(KEY, "BoxFontname", DEFAULT_FONT_NAME, buffer, sizeof(buffer), inifile.c_str()); BoxFontname = buffer;
-    BoxFontsize = GetPrivateProfileIntA("SWFModeOffset", "BoxFontsize", 0, inifile.c_str());
-    GetPrivateProfileStringA(KEY, "BoxStyle", DEFAULT_BOX_STYLE, buffer, sizeof(buffer), inifile.c_str()); BoxStyle = buffer;
+    GetPrivateProfileString(KEY, _T("BoxFontname"), DEFAULT_FONT_NAME, buffer, _countof(buffer), inifile.c_str()); BoxFontname = tchar_to_string(buffer, CP_UTF8);
+    BoxFontsize = GetPrivateProfileInt(KEY, _T("BoxFontsize"), 0, inifile.c_str());
+    GetPrivateProfileString(KEY, _T("BoxStyle"), DEFAULT_BOX_STYLE, buffer, _countof(buffer), inifile.c_str()); BoxStyle = tchar_to_string(buffer, CP_UTF8);
 
-    GetPrivateProfileStringA(KEY, "RubiFontname", DEFAULT_FONT_NAME, buffer, sizeof(buffer), inifile.c_str()); RubiFontname = buffer;
-    RubiFontsize = GetPrivateProfileIntA("SWFModeOffset", "RubiFontsize", 0, inifile.c_str());
-    GetPrivateProfileStringA(KEY, "RubiStyle", DEFAULT_RUBI_STYLE, buffer, sizeof(buffer), inifile.c_str()); RubiStyle = buffer;
+    GetPrivateProfileString(KEY, _T("RubiFontname"), DEFAULT_FONT_NAME, buffer, _countof(buffer), inifile.c_str()); RubiFontname = tchar_to_string(buffer, CP_UTF8);
+    RubiFontsize = GetPrivateProfileInt(KEY, _T("RubiFontsize"), 0, inifile.c_str());
+    GetPrivateProfileString(KEY, _T("RubiStyle"), DEFAULT_RUBI_STYLE, buffer, _countof(buffer), inifile.c_str()); RubiStyle = tchar_to_string(buffer, CP_UTF8);
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
 static const unsigned char utf8_bom[3] = { 0xEF, 0xBB, 0xBF };
@@ -641,6 +643,16 @@ bool Caption2Ass::isTS(const uint8_t *data, const int64_t data_size) const {
 void Caption2Ass::setOutputResolution(int w, int h, int sar_x, int sar_y) {
     m_ass.PlayResX = w;
     m_ass.PlayResY = h;
+#if defined(_WIN32) || defined(_WIN64)
+    TCHAR buf[1024] = { 0 };
+    GetModuleFileName(NULL, buf, _countof(buf));
+    auto exeDir = PathRemoveFileSpecFixed(buf);
+    auto list = get_file_list(_T("Caption2Ass*.ini"), exeDir.second);
+    if (list.size() > 0) {
+        AddMessage(RGY_LOG_INFO, _T("load ass settings from \"%s\""), list[0].c_str());
+        m_ass.set(list[0], w, h);
+    }
+#endif
     if (sar_x > 0 && sar_y > 0) {
         if (sar_x > sar_y) {
             m_ass.PlayResX = m_ass.PlayResX * sar_x / sar_y;

@@ -197,7 +197,7 @@ struct ass_setting_t {
     std::string RubiStyle;
 
     ass_setting_t();
-    void set(const std::string& inifile, int width, int height);
+    void set(const tstring& inifile, int width, int height);
 };
 
 struct c2a_ts {
