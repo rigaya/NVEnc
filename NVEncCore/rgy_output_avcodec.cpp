@@ -1276,6 +1276,10 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
         if (avcodec_descriptor_get(codecId)->props & AV_CODEC_PROP_TEXT_SUB) {
             //mp4はmov_text形式しか使用できない
             codecId = AV_CODEC_ID_MOV_TEXT;
+            if (pInputSubtitle->src.pStream == nullptr && pInputSubtitle->src.caption2ass != FORMAT_SRT) {
+                AddMessage(RGY_LOG_ERROR, _T("When output format is mp4, please select \"srt\" for caption2ass format.\n"));
+                return RGY_ERR_INVALID_FORMAT;
+            }
         }
     } else if (codecId == AV_CODEC_ID_MOV_TEXT) {
         codecId = AV_CODEC_ID_ASS;
@@ -2745,11 +2749,8 @@ RGY_ERR RGYOutputAvcodec::SubtitleWritePacket(AVPacket *pkt) {
     const int64_t pts_orig = pkt->pts;
     const int64_t pts_adj = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts), pMuxSub->streamInTimebase, pMuxSub->streamInTimebase, false);
     if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts), pMuxSub->streamInTimebase, timebase_conv, false))) {
-        //dts側にもpts側に加えたのと同じ分だけの補正をかける
-        pkt->dts -= pts_adjust;
-        pkt->dts -= (pts_orig - pts_adj);
         //timescaleの変換を行い、負の値をとらないようにする
-        pkt->dts = std::max(INT64_C(0), av_rescale_q(pkt->dts, pMuxSub->streamInTimebase, timebase_conv));
+        pkt->dts = pkt->pts;
         if (pMuxSub->pOutCodecEncodeCtx) {
             return SubtitleTranscode(pMuxSub, pkt);
         }
