@@ -799,7 +799,8 @@ static void show_hw(int deviceid) {
 }
 
 static void show_environment_info() {
-    _ftprintf(stderr, _T("%s\n"), getEnviromentInfo(false).c_str());
+    show_version();
+    _ftprintf(stdout, _T("%s\n"), getEnviromentInfo(false).c_str());
 }
 
 static void show_nvenc_features(int deviceid) {
@@ -810,8 +811,8 @@ static void show_nvenc_features(int deviceid) {
     }
     auto nvEncCaps = nvFeature.GetCachedNVEncCapability();
 
-
-    _ftprintf(stdout, _T("%s\n"), getEnviromentInfo(false).c_str());
+    show_version();
+    _ftprintf(stdout, _T("\n%s\n"), getEnviromentInfo(false).c_str());
     if (nvEncCaps.size() == 0) {
         _ftprintf(stdout, _T("No NVEnc support.\n"));
     } else {
