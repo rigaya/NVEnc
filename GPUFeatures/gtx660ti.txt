@@ -1,0 +1,37 @@
+NVEncC (x64) 2.09 by rigaya [NVENC API v7.0], build Jul 22 2016 23:50:36
+GPU: GeForce GTX 660 Ti (7 EU) @ 980 MHz (347.52)
+
+使用可能な各機能の情報を表示します。
+コーデック: H.264/AVC
+Max Bframes               4
+RC Modes                  63
+Field Encoding            1
+MonoChrome                0
+FMO                       0
+Quater-Pel MV             1
+B Direct Mode             1
+CABAC                     1
+Adaptive Transform        1
+Max Temporal Layers       0
+Hierarchial P Frames      0
+Hierarchial B Frames      0
+Max Level                 51
+Min Level                 1
+4:4:4                     0
+Max Width                 4096
+Max Height                4096
+Dynamic Resolution Change 1
+Dynamic Bitrate Change    1
+Forced constant QP        0
+Dynamic RC Mode Change    0
+Subframe Readback         0
+Constrained Encoding      0
+Intra Refresh             1
+Custom VBV Bufsize        1
+Dynamic Slice Mode        1
+Ref Pic Invalidiation     1
+PreProcess                0
+Async Encoding            1
+Max MBs                   65536
+MAX MB per sec            983040
+Lossless                  0
