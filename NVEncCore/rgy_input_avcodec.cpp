@@ -94,9 +94,13 @@ void RGYInputAvcodec::CloseThread() {
 void RGYInputAvcodec::CloseFormat(AVDemuxFormat *pFormat) {
     //close video file
     if (pFormat->fpInput) {
-        if (pFormat->pFormatCtx->pb->buffer) {
-            av_freep(&pFormat->pFormatCtx->pb->buffer);
-            avio_context_free(&pFormat->pFormatCtx->pb);
+        if (pFormat->pFormatCtx) {
+            if (pFormat->pFormatCtx->pb) {
+                if (pFormat->pFormatCtx->pb->buffer) {
+                    av_freep(&pFormat->pFormatCtx->pb->buffer);
+                }
+                avio_context_free(&pFormat->pFormatCtx->pb);
+            }
         }
         fclose(pFormat->fpInput);
     }
