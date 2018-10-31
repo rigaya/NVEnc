@@ -789,7 +789,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         if (0 == _tcscmp(strFileName, _T("-"))) {
             m_Demux.format.fpInput = stdin;
         } else {
-            m_Demux.format.fpInput = _tfopen(strFileName, _T("rb"));
+            m_Demux.format.fpInput = _tfsopen(strFileName, _T("rb"), _SH_DENYWR);
             if (m_Demux.format.fpInput == NULL) {
                 errno_t error = errno;
                 AddMessage(RGY_LOG_ERROR, _T("failed to open input file \"%s\": %s.\n"), strFileName, _tcserror(error));
