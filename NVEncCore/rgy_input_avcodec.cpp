@@ -751,7 +751,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         AddMessage(RGY_LOG_ERROR, _T("failed to convert filename to utf-8 characters.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    m_Demux.format.bIsPipe = (0 == strcmp(filename_char.c_str(), "-")) || filename_char.c_str() == strstr(filename_char.c_str(), R"(\\.\pipe\)");
+    m_Demux.format.bIsPipe = (0 == strcmp(filename_char.c_str(), "-"))
+        || (0 == strncmp(filename_char.c_str(), "pipe:", strlen("pipe:")))
+        || filename_char.c_str() == strstr(filename_char.c_str(), R"(\\.\pipe\)");
     m_Demux.format.pFormatCtx = avformat_alloc_context();
     m_Demux.format.nAnalyzeSec = input_prm->nAnalyzeSec;
     if (m_Demux.format.nAnalyzeSec) {
