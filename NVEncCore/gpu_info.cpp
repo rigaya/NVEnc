@@ -50,7 +50,7 @@ static std::basic_string<TCHAR> to_tchar(const char *string) {
 };
 
 static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
-    cl_int ret = cl_get_driver_version(cl_data, cl, buffer, buffer_size);
+    cl_int ret = cl_get_device_name(cl_data, cl, buffer, buffer_size);
     if (ret != CL_SUCCESS) {
         return ret;
     }
@@ -71,9 +71,43 @@ static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCH
 
 #endif //ENABLE_OPENCL
 
+#if ENCODER_NVENC
+#include "NVEncCore.h"
+#endif //#if ENCODER_NVENC
+
 #pragma warning (push)
 #pragma warning (disable: 4100)
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
+#if 1
+    const int device_id = 0;
+    NVEncoderGPUInfo nvGPUInfo(device_id, true);
+    const auto gpulist = nvGPUInfo.getGPUList();
+    if (gpulist.size() > 0) {
+        tstring gpu_info;
+        const auto& gpuInfo = std::find_if(gpulist.begin(), gpulist.end(), [device_id](const NVGPUInfo& info) { return info.id == device_id; });
+        if (gpuInfo != gpulist.end()) {
+            if (driver_version_only) {
+                if (gpuInfo->nv_driver_version) {
+                    gpu_info = strsprintf(_T("%d.%d"), gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
+                }
+            } else {
+                gpu_info = strsprintf(_T("#%d: %s"), gpuInfo->id, gpuInfo->name.c_str());
+                if (gpuInfo->cuda_cores > 0) {
+                    gpu_info += strsprintf(_T(" (%d cores"), gpuInfo->cuda_cores);
+                    if (gpuInfo->clock_rate > 0) {
+                        gpu_info += strsprintf(_T(", %d MHz"), gpuInfo->clock_rate / 1000);
+                    }
+                    gpu_info += strsprintf(_T(")"));
+                }
+                if (gpuInfo->nv_driver_version) {
+                    gpu_info += strsprintf(_T("[%d.%d]"), gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
+                }
+            }
+            _tcscpy_s(buffer, buffer_size, gpu_info.c_str());
+            return 0;
+        }
+    }
+#endif  //#if ENCODER_NVENC
 #if !ENABLE_OPENCL
     _stprintf_s(buffer, buffer_size, _T("Unknown (not compiled with OpenCL support)"));
     return 0;
