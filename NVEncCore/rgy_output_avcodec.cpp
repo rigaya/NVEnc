@@ -3372,10 +3372,10 @@ HANDLE RGYOutputAvcodec::getThreadHandleAudEncode() {
 
 #if USE_CUSTOM_IO
 int RGYOutputAvcodec::readPacket(uint8_t *buf, int buf_size) {
-    return (int)fread(buf, 1, buf_size, m_Mux.format.fpOutput);
+    return (int)_fread_nolock(buf, 1, buf_size, m_Mux.format.fpOutput);
 }
 int RGYOutputAvcodec::writePacket(uint8_t *buf, int buf_size) {
-    return (int)fwrite(buf, 1, buf_size, m_Mux.format.fpOutput);
+    return (int)_fwrite_nolock(buf, 1, buf_size, m_Mux.format.fpOutput);
 }
 int64_t RGYOutputAvcodec::seek(int64_t offset, int whence) {
     return _fseeki64(m_Mux.format.fpOutput, offset, whence);

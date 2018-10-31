@@ -276,13 +276,13 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
             const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
             if (header_check) {
-                nBytesWritten  = (uint32_t)fwrite(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)fwrite(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)fwrite(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)fwrite(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
+                nBytesWritten  = (uint32_t)_fwrite_nolock(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
+                nBytesWritten += (uint32_t)_fwrite_nolock(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
+                nBytesWritten += (uint32_t)_fwrite_nolock(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
+                nBytesWritten += (uint32_t)_fwrite_nolock(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
                 for (const auto& nal : nal_list) {
                     if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
-                        nBytesWritten += (uint32_t)fwrite(nal.ptr, 1, nal.size, m_fDest.get());
+                        nBytesWritten += (uint32_t)_fwrite_nolock(nal.ptr, 1, nal.size, m_fDest.get());
                     }
                 }
             } else {
@@ -291,7 +291,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             }
             m_seiNal.clear();
         } else {
-            nBytesWritten = (uint32_t)fwrite(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+            nBytesWritten = (uint32_t)_fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
             WRITE_CHECK(nBytesWritten, pBitstream->size());
         }
     }

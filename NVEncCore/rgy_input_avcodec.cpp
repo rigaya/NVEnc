@@ -814,15 +814,15 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
     }
 #endif
     //ファイルのオープン
-    if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), pInFormat, &m_Demux.format.pFormatOptions)) {
-        AddMessage(RGY_LOG_ERROR, _T("error opening file: \"%s\"\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
+    if ((ret = avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), pInFormat, &m_Demux.format.pFormatOptions)) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("error opening file \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_FILE_OPEN; // Couldn't open file
     }
     AddMessage(RGY_LOG_DEBUG, _T("opened file \"%s\".\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
 
     if (m_Demux.format.nAnalyzeSec) {
         if (0 != (ret = av_opt_set_int(m_Demux.format.pFormatCtx, "analyzeduration", m_Demux.format.nAnalyzeSec * AV_TIME_BASE, 0))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set analyzeduration to %d sec, error %d\n"), m_Demux.format.nAnalyzeSec, ret);
+            AddMessage(RGY_LOG_ERROR, _T("failed to set analyzeduration to %d sec, error %s\n"), m_Demux.format.nAnalyzeSec, qsv_av_err2str(ret).c_str());
         } else {
             AddMessage(RGY_LOG_DEBUG, _T("set analyzeduration: %d sec\n"), m_Demux.format.nAnalyzeSec);
         }
@@ -2064,7 +2064,7 @@ RGY_ERR RGYInputAvcodec::ThreadFuncRead() {
 
 #if USE_CUSTOM_INPUT
 int RGYInputAvcodec::readPacket(uint8_t *buf, int buf_size) {
-    auto ret = (int)fread(buf, 1, buf_size, m_Demux.format.fpInput);
+    auto ret = (int)_fread_nolock(buf, 1, buf_size, m_Demux.format.fpInput);
     if (m_cap2ass.enabled()) {
         if (m_cap2ass.proc(buf, ret, m_Demux.qStreamPktL1) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to process ts caption.\n"));

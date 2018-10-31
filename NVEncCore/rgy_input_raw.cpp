@@ -292,7 +292,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
 
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         uint8_t y4m_buf[8] = { 0 };
-        if (fread(y4m_buf, 1, strlen("FRAME"), m_fSource) != strlen("FRAME")) {
+        if (_fread_nolock(y4m_buf, 1, strlen("FRAME"), m_fSource) != strlen("FRAME")) {
             AddMessage(RGY_LOG_DEBUG, _T("header1: finish.\n"));
             return RGY_ERR_MORE_DATA;
         }
@@ -301,7 +301,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
             return RGY_ERR_MORE_DATA;
         }
         int i;
-        for (i = 0; fgetc(m_fSource) != '\n'; i++) {
+        for (i = 0; _fgetc_nolock(m_fSource) != '\n'; i++) {
             if (i >= 64) {
                 AddMessage(RGY_LOG_DEBUG, _T("header3: finish.\n"));
                 return RGY_ERR_MORE_DATA;
@@ -342,7 +342,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    if (frameSize != fread(m_pBuffer.get(), 1, frameSize, m_fSource)) {
+    if (frameSize != _fread_nolock(m_pBuffer.get(), 1, frameSize, m_fSource)) {
         AddMessage(RGY_LOG_DEBUG, _T("fread: finish: %d.\n"), frameSize);
         return RGY_ERR_MORE_DATA;
     }
