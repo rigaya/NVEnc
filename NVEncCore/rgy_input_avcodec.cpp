@@ -795,6 +795,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 AddMessage(RGY_LOG_ERROR, _T("failed to open input file \"%s\": %s.\n"), strFileName, _tcserror(error));
                 return RGY_ERR_FILE_OPEN; // Couldn't open file
             }
+            if (!m_Demux.format.bIsPipe) {
+                if (rgy_get_filesize(strFileName, &m_Demux.format.inputFilesize) && m_Demux.format.inputFilesize == 0) {
+                    AddMessage(RGY_LOG_ERROR, _T("size of input file \"%s\" is 0\n"), strFileName);
+                    return RGY_ERR_FILE_OPEN;
+                }
+            }
         }
         m_Demux.format.inputBufferSize = 4 * 1024;
         m_Demux.format.pInputBuffer = (char *)av_malloc(m_Demux.format.inputBufferSize);
@@ -2071,8 +2077,11 @@ int RGYInputAvcodec::writePacket(uint8_t *buf, int buf_size) {
     return (int)fwrite(buf, 1, buf_size, m_Demux.format.fpInput);
 }
 int64_t RGYInputAvcodec::seek(int64_t offset, int whence) {
-    if (whence != SEEK_SET || whence != SEEK_CUR || whence != SEEK_END) {
-        //たまにwhence=65536とかいう要求が来ることがある
+    if (whence == AVSEEK_SIZE) {
+        //たまにwhence=65536(AVSEEK_SIZE)とかいう要求が来ることがある
+        return (m_Demux.format.inputFilesize) ? m_Demux.format.inputFilesize : -1;
+    }
+    if (whence != SEEK_SET && whence != SEEK_CUR && whence != SEEK_END) {
         return -1;
     }
     if (m_cap2ass.enabled() && whence == SEEK_SET && offset == 0) {

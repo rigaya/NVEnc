@@ -670,6 +670,7 @@ typedef struct AVDemuxFormat {
     FILE                     *fpInput;               //入力ファイルポインタ
     char                     *pInputBuffer;          //入力バッファ
     int                      inputBufferSize;        //入力バッファサイズ
+    uint64_t                 inputFilesize;          //入力ファイルサイズ
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
