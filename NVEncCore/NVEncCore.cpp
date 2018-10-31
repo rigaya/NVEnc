@@ -1175,6 +1175,7 @@ NVENCSTATUS NVEncCore::NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer) {
 }
 
 NVENCSTATUS NVEncCore::NvEncCreateBitstreamBuffer(uint32_t size, void **bitstreamBuffer) {
+    UNREFERENCED_PARAMETER(size);
     NV_ENC_CREATE_BITSTREAM_BUFFER createBitstreamBufferParams;
     INIT_CONFIG(createBitstreamBufferParams, NV_ENC_CREATE_BITSTREAM_BUFFER);
 
@@ -3118,6 +3119,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
 }
 
 NVENCSTATUS NVEncCore::GPUAutoSelect(const InEncodeVideoParam *inputParam) {
+    UNREFERENCED_PARAMETER(inputParam);
     if (m_GPUList.size() <= 1) {
         m_nDeviceId = m_GPUList.front().id;
         return NV_ENC_SUCCESS;

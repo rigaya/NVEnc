@@ -994,6 +994,9 @@ cudaError_t NVEncFilterAfs::count_stripe(AFS_STRIPE_DATA *sp, const AFS_SCAN_CLI
         AddMessage(RGY_LOG_ERROR, _T("failed cudaFreeHost: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return cudaerr;
     }
+#else
+    UNREFERENCED_PARAMETER(tb_order);
+    UNREFERENCED_PARAMETER(clip);
 #endif
     return cudaerr;
 }

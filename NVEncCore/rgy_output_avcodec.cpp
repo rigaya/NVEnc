@@ -469,6 +469,8 @@ tstring RGYOutputAvcodec::AudioGetCodecProfileStr(int profile, AVCodecID codecId
     return _T("default");
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const AvcodecWriterPrm *prm) {
     m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(pVideoOutputInfo->codec);
     if (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_NONE) {
@@ -743,6 +745,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     AddMessage(RGY_LOG_DEBUG, _T("bDtsUnavailable: %s\n"), (m_Mux.video.bDtsUnavailable) ? _T("on") : _T("off"));
     return RGY_ERR_NONE;
 }
+#pragma warning (pop)
 
 //音声フィルタの初期化
 RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt) {
@@ -2032,6 +2035,8 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *pBitstream) {
     return WriteNextFrameInternal(pBitstream, &dts);
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64_t *pWrittenDts) {
     if (!m_Mux.format.bFileHeaderWritten) {
 #if ENCODER_QSV
@@ -2129,13 +2134,13 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
                 return RGY_ERR_UNKNOWN;
             }
             const int new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
-            const int sps_nal_offset = sps_nal->ptr - pBitstream->data();
+            const int sps_nal_offset = (int)(sps_nal->ptr - pBitstream->data());
             const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
             const int next_nal_new_offset = sps_nal_offset + pkt.size;
             const int stream_orig_length = pBitstream->size();
-            if (pBitstream->bufsize() < new_data_size) {
+            if ((int)pBitstream->bufsize() < new_data_size) {
                 pBitstream->changeSize(new_data_size);
-            } else if (pkt.size > sps_nal->size) {
+            } else if (pkt.size > (int)sps_nal->size) {
                 pBitstream->trim();
             }
             memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
@@ -2205,6 +2210,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     m_Mux.format.bFileHeaderWritten = true;
     return (m_Mux.format.bStreamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
+#pragma warning (pop)
 
 RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *pSurface) {
     UNREFERENCED_PARAMETER(pSurface);
