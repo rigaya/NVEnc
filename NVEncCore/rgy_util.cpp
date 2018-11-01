@@ -861,14 +861,14 @@ uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-tstring getEnviromentInfo(bool add_ram_info) {
+tstring getEnviromentInfo(bool add_ram_info, int device_id) {
     tstring buf;
 
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
 
     TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
+    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info), device_id);
 
     uint64_t UsedRamSize = 0;
     uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);

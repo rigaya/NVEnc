@@ -557,7 +557,7 @@ tstring getOSVersion();
 #endif
 BOOL rgy_is_64bit_os();
 uint64_t getPhysicalRamSize(uint64_t *ramUsed);
-tstring getEnviromentInfo(bool add_ram_info = true);
+tstring getEnviromentInfo(bool add_ram_info = true, int device_id = 0);
 
 BOOL check_OS_Win8orLater();
 

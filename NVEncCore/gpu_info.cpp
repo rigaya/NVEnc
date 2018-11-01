@@ -77,9 +77,8 @@ static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCH
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
-int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
+int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, int device_id, bool driver_version_only) {
 #if 1
-    const int device_id = 0;
     NVEncoderGPUInfo nvGPUInfo(device_id, true);
     const auto gpulist = nvGPUInfo.getGPUList();
     if (gpulist.size() > 0) {
