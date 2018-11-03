@@ -1,0 +1,89 @@
+NVEncC (x64) 4.22 (r928) by rigaya, Nov  3 2018 22:20:09 (VC 1900/Win/avx2)
+  [NVENC API v8.1, CUDA 8.0]
+ reader: raw, avi, avs, vpy, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4]
+
+Environment Info
+OS : Windows 10 x64 (17134)
+CPU: Intel Core i9-7980XE @ 2.60GHz [TB: 4.11GHz] (18C/36T)
+RAM: Used 7604 MB, Total 16077 MB
+GPU: #0: GeForce RTX 2070 (4608 cores, 1710 MHz)[416.34]
+
+List of available features.
+Codec: H.264/AVC
+Max Bframes               4
+B Ref Mode                yes
+RC Modes                  63
+Field Encoding            no
+MonoChrome                no
+FMO                       no
+Quater-Pel MV             yes
+B Direct Mode             yes
+CABAC                     yes
+Adaptive Transform        yes
+Max Temporal Layers       0
+Hierarchial P Frames      no
+Hierarchial B Frames      no
+Max Level                 51
+Min Level                 1
+4:4:4                     yes
+Max Width                 4096
+Max Height                4096
+Dynamic Resolution Change yes
+Dynamic Bitrate Change    yes
+Forced constant QP        yes
+Dynamic RC Mode Change    no
+Subframe Readback         yes
+Constrained Encoding      yes
+Intra Refresh             yes
+Custom VBV Bufsize        yes
+Dynamic Slice Mode        yes
+Ref Pic Invalidiation     yes
+PreProcess                no
+Async Encoding            yes
+Max MBs                   65536
+Lossless                  yes
+SAO                       no
+Me Only Mode              yes
+Lookahead                 yes
+AQ (temporal)             yes
+Weighted Prediction       yes
+Max LTR Frames            8
+10bit depth               no
+
+Codec: H.265/HEVC
+Max Bframes               5
+RC Modes                  63
+Field Encoding            no
+MonoChrome                no
+Quater-Pel MV             yes
+B Direct Mode             no
+Max Temporal Layers       0
+Hierarchial P Frames      no
+Hierarchial B Frames      no
+Max Level                 62
+Min Level                 1
+4:4:4                     yes
+Max Width                 8192
+Max Height                8192
+Dynamic Resolution Change yes
+Dynamic Bitrate Change    yes
+Forced constant QP        yes
+Dynamic RC Mode Change    no
+Subframe Readback         yes
+Constrained Encoding      no
+Intra Refresh             yes
+Custom VBV Bufsize        yes
+Dynamic Slice Mode        yes
+Ref Pic Invalidiation     yes
+PreProcess                no
+Async Encoding            yes
+Max MBs                   262144
+Lossless                  yes
+SAO                       yes
+Me Only Mode              yes
+Lookahead                 yes
+AQ (temporal)             no
+Weighted Prediction       yes
+Max LTR Frames            7
+10bit depth               yes
+
