@@ -2333,6 +2333,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        return 0;
     }
     if (IS_OPTION("slices:hevc")) {
         i++;
@@ -2344,6 +2345,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        return 0;
     }
     if (IS_OPTION("slices")) {
         i++;
@@ -2357,6 +2359,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        return 0;
     }
     if (IS_OPTION("deblock")) {
         codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 0;
