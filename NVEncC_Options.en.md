@@ -672,9 +672,7 @@ Example: Copy subtitle track #1 and #2
 ```
 
 ### --caption2ass [&lt;string&gt;]
-Enable internal caption2ass process. This feature requires Caption.dll.  
-
-**Note:** Pelase always select srt format when muxing to mp4.  
+Enable caption2ass process. This feature requires Caption.dll.  
 
 supported formats ... srt (default), ass
 

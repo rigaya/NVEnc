@@ -675,7 +675,7 @@ apple形式 (should be in utf-8)
 ### --caption2ass [&lt;string&gt;]
 caption2assによる字幕抽出処理を行い、動画にmuxして出力する。別途 "Caption.dll" が必要。
 
-mp4にmuxする際は、必ずsrt形式を選択してください。内部でさらにmov_textに変換してmuxしますが、ass形式を選択するとmp4へのmuxがうまく動作しません。
+出力フォーマットがassかsrtのみなので、mkvなどで出力してください。
 
 **出力フォーマット**
 - srt (デフォルト)
