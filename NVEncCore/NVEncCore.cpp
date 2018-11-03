@@ -764,7 +764,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
         m_uEncWidth, m_uEncHeight,
         &m_stEncConfig, m_stPicStruct,
-        std::make_pair(inputParams->par[0], inputParams->par[1]),
+        std::make_pair(m_sar.n(), m_sar.d()),
         std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
     HEVCHDRSei hedrsei;
     if (hedrsei.parse(inputParams->sMaxCll, inputParams->sMasterDisplay)) {
@@ -786,7 +786,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
             //caption2ass用の解像度情報の提供
             //これをしないと入力ファイルのデータをずっとバッファし続けるので注意
             pAVCodecReader->setOutputVideoInfo(m_uEncWidth, m_uEncHeight,
-                inputParams->par[0], inputParams->par[1],
+                m_sar.n(), m_sar.d(),
                 (inputParams->nAVMux & RGY_MUX_VIDEO) != 0);
         }
     }
@@ -2279,6 +2279,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         par = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
     }
     adjust_sar(&par.first, &par.second, m_uEncWidth, m_uEncHeight);
+    m_sar = rgy_rational<int>(par.first, par.second);
 
     //色空間設定自動
     int frame_height = m_uEncHeight;
