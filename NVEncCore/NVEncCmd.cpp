@@ -2317,7 +2317,6 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("lossless")) {
         pParams->lossless = TRUE;
-        pParams->yuv444 = TRUE;
         return 0;
     }
     if (IS_OPTION("no-deblock")) {

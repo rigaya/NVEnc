@@ -261,6 +261,9 @@ Set output bit depth.
 - 8 ... 8 bits (default)
 - 10 ... 10 bits
 
+### --lossless
+Perform lossless output. (Default: off)
+
 ### --max-bitrate &lt;int&gt;
 Maximum bitrate (in kbps).
 
@@ -424,9 +427,6 @@ Use CAVLC. (Default: off)
 
 ### --bluray [H.264 only]
 Perform output for Bluray. (Default: off)
-
-### --lossless [H.264 only]
-Perform lossless output. --profile high 444 is specified automatically. (Default: off)
 
 ### --(no-)deblock [H.264 only]
 Enable deblock filter. (Default: on)

@@ -2392,25 +2392,53 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.enablePTD           = true;
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
     m_stCreateEncodeParams.presetGUID          = list_nvenc_preset_names[inputParam->preset].id;
+    if (inputParam->lossless) {
+        switch (list_nvenc_preset_names[inputParam->preset].value) {
+        case NVENC_PRESET_HP:
+        case NVENC_PRESET_LL_HP:
+            m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_HP_GUID;
+            break;
+        default:
+            m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID;
+            break;
+        }
+    }
 
     //ロスレス出力
     if (inputParam->lossless) {
+        //profileは0にしておかないと正常に動作しない
+        memset(&m_stCreateEncodeParams.encodeConfig->profileGUID, 0, sizeof(m_stCreateEncodeParams.encodeConfig->profileGUID));
         if (inputParam->codec == NV_ENC_H264) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag = 1;
         }
         m_stCreateEncodeParams.encodeConfig->rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-        m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterB = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.qpMapMode = NV_ENC_QP_MAP_DISABLED;
+        m_stCreateEncodeParams.encodeConfig->rcParams.aqStrength = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.enableAQ = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.enableTemporalAQ = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.targetQuality = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.targetQualityLSB = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.temporallayerIdxMask = 0;
+        memset(&m_stCreateEncodeParams.encodeConfig->rcParams.temporalLayerQP, 0, sizeof(m_stCreateEncodeParams.encodeConfig->rcParams.temporalLayerQP));
+        m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.vbvInitialDelay = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpIntra = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpInterP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpInterB = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.enableMinQP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.enableMaxQP = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.enableInitialRCQP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpIntra = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpInterP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpInterB = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpIntra = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterB = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.initialRCQP.qpIntra = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.initialRCQP.qpInterP = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.initialRCQP.qpInterB = 0;
     }
 
     if (inputParam->codec == NV_ENC_HEVC) {
@@ -2425,7 +2453,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputBufferingPeriodSEI = 1;
         }
         //YUV444出力
-        if (inputParam->yuv444 || inputParam->lossless) {
+        if (inputParam->yuv444) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 3;
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
             m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
@@ -2487,7 +2515,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputBufferingPeriodSEI = 1;
         }
         //YUV444出力
-        if (inputParam->yuv444 || inputParam->lossless) {
+        if (inputParam->yuv444) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.chromaFormatIDC = 3;
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
             m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_H264_PROFILE_HIGH_444_GUID;
@@ -3083,13 +3111,13 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
             //はデフォルトではH.264のプロファイル情報
             //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
             codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
-            if (inputParam->yuv444 || inputParam->lossless) {
+            if (inputParam->yuv444) {
                 codecProfileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
             } else if (inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) {
                 codecProfileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
             }
         } else if (rgy_codec == RGY_CODEC_H264) {
-            if (inputParam->yuv444 || inputParam->lossless) {
+            if (inputParam->yuv444) {
                 codecProfileGUID = NV_ENC_H264_PROFILE_HIGH_444_GUID;
             }
         } else {
@@ -3205,9 +3233,6 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
-    if (inputParam->lossless) {
-        inputParam->yuv444 = TRUE;
-    }
     const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
     if (bOutputHighBitDepth) {
         inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
@@ -4625,9 +4650,12 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
     add_str(RGY_LOG_INFO,  _T("Encoder Preset %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, list_nvenc_preset_names));
     add_str(RGY_LOG_ERROR, _T("Rate Control   %s"), get_chr_from_value(list_nvenc_rc_method_en, m_stEncConfig.rcParams.rateControlMode));
+    const bool lossless = (get_value_from_guid(m_stCodecGUID, list_nvenc_codecs) == NV_ENC_H264 && m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag)
+        || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_HP_GUID, sizeof(m_stCreateEncodeParams.presetGUID))
+        || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, sizeof(m_stCreateEncodeParams.presetGUID));
     if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
         add_str(RGY_LOG_ERROR, _T("  I:%d  P:%d  B:%d%s\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB,
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag ? _T(" (lossless)") : _T(""));
+            lossless ? _T(" (lossless)") : _T(""));
     } else {
         add_str(RGY_LOG_ERROR, _T("\n"));
         add_str(RGY_LOG_ERROR, _T("Bitrate        %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);

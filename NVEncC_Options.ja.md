@@ -263,6 +263,9 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 - 8 ... 8bit (デフォルト)
 - 10 ... 10bit
 
+### --lossless
+ロスレス出力を行う。(デフォルト: オフ)
+
 ### --max-bitrate &lt;int&gt;
 最大ビットレート(kbps単位)。
 
@@ -422,8 +425,6 @@ Access Unit Delimiter NALを挿入する。
 ### --pic-struct
 picture timing SEIを挿入する。
 
-各種フラグの設定。
-
 ### --cabac [H.264のみ]
 CABACを使用する。 (デフォルト: オン)
 
@@ -432,9 +433,6 @@ CAVLCを使用する。 (デフォルト: オフ)
 
 ### --bluray [H.264のみ]
 Bluray用出力を行う。(デフォルト: オフ)
-
-### --lossless [H.264のみ]
-ロスレス出力を行う。自動的に--profile high444が指定される。(デフォルト: オフ)
 
 ### --(no-)deblock [H.264のみ]
 デブロックフィルタを有効にする。(デフォルト: オン)

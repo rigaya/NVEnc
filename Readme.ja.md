@@ -60,7 +60,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - H.264 Level / Profileの指定
 - 最大ビットレート等の指定
 - 最大GOP長の指定
-- ロスレス出力 (YUV444)
+- ロスレス出力 (YUV 420 / YUV 444)
 
 ### NVEnc.auo
 - 音声エンコード

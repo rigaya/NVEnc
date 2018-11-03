@@ -56,7 +56,7 @@ which might cause problem in some playback environments.
    - VBR (Variable bitrate)
    - VBRHQ (Variable bitrate, high quality)
 - Interlaced encoding (by PAFF)
-- Lossless output (YUV 444)
+- Lossless output (YUV 420 / YUV 444)
 - supports setting of codec profile & level, SAR, colormatrix, maxbitrate, GOP len, etc...
 
 ### NVEncC
