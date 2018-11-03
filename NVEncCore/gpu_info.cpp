@@ -71,14 +71,14 @@ static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCH
 
 #endif //ENABLE_OPENCL
 
-#if ENCODER_NVENC
+#if ENCODER_NVENC && !FOR_AUO
 #include "NVEncCore.h"
 #endif //#if ENCODER_NVENC
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, int device_id, bool driver_version_only) {
-#if 1
+#if ENCODER_NVENC && !FOR_AUO
     NVEncoderGPUInfo nvGPUInfo(device_id, true);
     const auto gpulist = nvGPUInfo.getGPUList();
     if (gpulist.size() > 0) {
@@ -106,7 +106,7 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
             return 0;
         }
     }
-#endif  //#if ENCODER_NVENC
+#endif  //#if ENCODER_NVENC && !FOR_AUO
 #if !ENABLE_OPENCL
     _stprintf_s(buffer, buffer_size, _T("Unknown (not compiled with OpenCL support)"));
     return 0;
