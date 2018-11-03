@@ -212,16 +212,18 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     } else {
         m_inputVideoInfo.srcPitch = m_inputVideoInfo.srcWidth;
     }
-    m_inputVideoInfo.csp = nOutputCSP;
 
+    RGY_CSP output_csp_if_lossless = RGY_CSP_NA;
     uint32_t bufferSize = 0;
     switch (m_InputCsp) {
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2;
+        output_csp_if_lossless = RGY_CSP_NV12;
         break;
     case RGY_CSP_P010:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
+        output_csp_if_lossless = RGY_CSP_P010;
         break;
     case RGY_CSP_YV12_09:
     case RGY_CSP_YV12_10:
@@ -229,11 +231,13 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YV12_14:
     case RGY_CSP_YV12_16:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
+        output_csp_if_lossless = RGY_CSP_P010;
         break;
     case RGY_CSP_YUV422:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2;
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでNV16に変換する
         m_inputVideoInfo.csp = RGY_CSP_NV16;
+        output_csp_if_lossless = RGY_CSP_YUV444;
         break;
     case RGY_CSP_YUV422_09:
     case RGY_CSP_YUV422_10:
@@ -245,9 +249,11 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         m_inputVideoInfo.csp = RGY_CSP_P210;
         //m_inputVideoInfo.shiftも出力フォーマットに対応する値でなく入力フォーマットに対するものに
         m_inputVideoInfo.shift = 16 - RGY_CSP_BIT_DEPTH[m_InputCsp];
+        output_csp_if_lossless = RGY_CSP_YUV444_16;
         break;
     case RGY_CSP_YUV444:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
+        output_csp_if_lossless = RGY_CSP_YUV444;
         break;
     case RGY_CSP_YUV444_09:
     case RGY_CSP_YUV444_10:
@@ -255,12 +261,20 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YUV444_14:
     case RGY_CSP_YUV444_16:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 6;
+        output_csp_if_lossless = RGY_CSP_YUV444_16;
         break;
     default:
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     AddMessage(RGY_LOG_DEBUG, _T("%dx%d, pitch:%d, bufferSize:%d.\n"), m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcPitch, bufferSize);
+
+    if (nOutputCSP != RGY_CSP_NA) {
+        m_inputVideoInfo.csp = nOutputCSP;
+    } else {
+        //ロスレスの場合は、入力側で出力フォーマットを決める
+        m_inputVideoInfo.csp = output_csp_if_lossless;
+    }
 
     m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(bufferSize, 32), aligned_malloc_deleter());
     if (!m_pBuffer) {

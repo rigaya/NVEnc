@@ -2408,8 +2408,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //ロスレス出力
     if (inputParam->lossless) {
         //profileは0にしておかないと正常に動作しない
-        memset(&m_stCreateEncodeParams.encodeConfig->profileGUID, 0, sizeof(m_stCreateEncodeParams.encodeConfig->profileGUID));
         if (inputParam->codec == NV_ENC_H264) {
+            memset(&m_stCreateEncodeParams.encodeConfig->profileGUID, 0, sizeof(m_stCreateEncodeParams.encodeConfig->profileGUID));
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag = 1;
         }
         m_stCreateEncodeParams.encodeConfig->rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
@@ -3234,11 +3234,15 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
-    const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
-    if (bOutputHighBitDepth) {
-        inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+    bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+    if (inputParam->lossless) {
+        inputParam->input.csp = RGY_CSP_NA;
     } else {
-        inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+        if (bOutputHighBitDepth) {
+            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+        } else {
+            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+        }
     }
     m_nAVSyncMode = inputParam->nAVSyncMode;
     m_nProcSpeedLimit = inputParam->nProcSpeedLimit;
@@ -3285,12 +3289,14 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
     if (inputParam->lossless) {
+        const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
         //入力ファイルの情報をもとに修正
         //なるべくオリジナルに沿ったものにエンコードする
-        inputParam->yuv444 = (RGY_CSP_CHROMA_FORMAT[inputParam->input.csp] != RGY_CHROMAFMT_YUV420);
+        inputParam->yuv444 = (RGY_CSP_CHROMA_FORMAT[inputFrameInfo.csp] != RGY_CHROMAFMT_YUV420);
 
-        if (inputParam->codec == NV_ENC_HEVC && RGY_CSP_BIT_DEPTH[inputParam->input.csp] > 8) {
+        if (inputParam->codec == NV_ENC_HEVC && RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
             inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 = 2;
+            bOutputHighBitDepth = true;
         }
     }
 
