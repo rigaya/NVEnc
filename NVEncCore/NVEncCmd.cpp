@@ -2516,9 +2516,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             GUID result_guid = get_guid_from_name(strInput[i], h264_profile_names);
             if (0 != memcmp(&result_guid, &zero, sizeof(result_guid))) {
                 pParams->encConfig.profileGUID = result_guid;
-                if (0 == memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid))) {
-                    pParams->yuv444 = TRUE;
-                }
+                pParams->yuv444 = memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid)) == 0;
                 flag = true;
             }
         }
@@ -2533,6 +2531,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (result == NV_ENC_PROFILE_HEVC_MAIN10) {
                     codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = 2;
+                    pParams->yuv444 = FALSE;
+                } else if (result == NV_ENC_PROFILE_HEVC_MAIN) {
+                    codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = 0;
+                    pParams->yuv444 = FALSE;
                 }
                 flag = true;
             }

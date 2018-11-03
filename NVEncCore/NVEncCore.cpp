@@ -3242,6 +3242,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     m_nAVSyncMode = inputParam->nAVSyncMode;
     m_nProcSpeedLimit = inputParam->nProcSpeedLimit;
 
+    //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
     NVEncoderGPUInfo gpuInfo(m_nDeviceId, true);
     m_GPUList = gpuInfo.getGPUList();
     if (0 == m_GPUList.size()) {
@@ -3275,11 +3276,22 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("GPUAutoSelect: Success.\n"));
 
     //入力ファイルを開き、入力情報も取得
+    //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
     if (NV_ENC_SUCCESS != (nvStatus = InitInput(inputParam))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("入力ファイルを開けませんでした。\n") : _T("Failed to open input file.\n"));
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
+
+    if (inputParam->lossless) {
+        //入力ファイルの情報をもとに修正
+        //なるべくオリジナルに沿ったものにエンコードする
+        inputParam->yuv444 = (RGY_CSP_CHROMA_FORMAT[inputParam->input.csp] != RGY_CHROMAFMT_YUV420);
+
+        if (inputParam->codec == NV_ENC_HEVC && RGY_CSP_BIT_DEPTH[inputParam->input.csp] > 8) {
+            inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 = 2;
+        }
+    }
 
     if (m_GPUList.size() > 1 && m_nDeviceId < 0) {
 #if ENABLE_AVSW_READER
