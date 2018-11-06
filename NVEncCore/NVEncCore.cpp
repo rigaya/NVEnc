@@ -3152,6 +3152,36 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) available for encode.\n"), gpu->id, gpu->name.c_str());
         gpu++;
     }
+
+    if (inputParam->encConfig.frameIntervalP > 1) {
+        bool support_bframe = false;
+        //エンコード対象のBフレームサポートのあるGPUがあるかを確認する
+        for (const auto& gpu : m_GPUList) {
+            const auto codec = std::find_if(gpu.nvenc_codec_features.begin(), gpu.nvenc_codec_features.end(), [rgy_codec](const NVEncCodecFeature& codec) {
+                return codec.codec == codec_guid_rgy_to_enc(rgy_codec);
+            });
+            assert(codec != gpu.nvenc_codec_features.end());
+            if (get_value(NV_ENC_CAPS_NUM_MAX_BFRAMES, codec->caps) > 0) {
+                support_bframe = true;
+                break;
+            }
+        }
+        //BフレームサポートのあるGPUがあれば、そのGPU以外は除外する
+        if (support_bframe) {
+            for (auto gpu = m_GPUList.begin(); gpu != m_GPUList.end(); ) {
+                //コーデックのチェック
+                const auto codec = std::find_if(gpu->nvenc_codec_features.begin(), gpu->nvenc_codec_features.end(), [rgy_codec](const NVEncCodecFeature& codec) {
+                    return codec.codec == codec_guid_rgy_to_enc(rgy_codec);
+                });
+                assert(codec != gpu->nvenc_codec_features.end());
+                if (get_value(NV_ENC_CAPS_NUM_MAX_BFRAMES, codec->caps) == 0) {
+                    gpu = m_GPUList.erase(gpu);
+                    continue;
+                }
+                gpu++;
+            }
+        }
+    }
     return NV_ENC_SUCCESS;
 }
 
