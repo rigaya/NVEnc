@@ -189,6 +189,11 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
     LOAD_NVML_FUNC(nvmlDeviceGetDecoderUtilization);
     LOAD_NVML_FUNC(nvmlDeviceGetMemoryInfo);
     LOAD_NVML_FUNC(nvmlDeviceGetClockInfo);
+    LOAD_NVML_FUNC(nvmlDeviceGetPcieThroughput);
+    LOAD_NVML_FUNC(nvmlDeviceGetCurrPcieLinkGeneration);
+    LOAD_NVML_FUNC(nvmlDeviceGetCurrPcieLinkWidth);
+    LOAD_NVML_FUNC(nvmlDeviceGetMaxPcieLinkGeneration);
+    LOAD_NVML_FUNC(nvmlDeviceGetMaxPcieLinkWidth);
     LOAD_NVML_FUNC(nvmlSystemGetDriverVersion);
     LOAD_NVML_FUNC(nvmlSystemGetNVMLVersion);
 
@@ -272,6 +277,21 @@ nvmlReturn_t NVMLMonitor::getDriverVersionx1000(int& ver) {
         return NVML_ERROR_UNKNOWN;
     }
     return NVML_SUCCESS;
+}
+
+nvmlReturn_t NVMLMonitor::getMaxPCIeLink(int& gen, int& width) {
+    uint32_t val = 0;
+    auto ret = m_func.f_nvmlDeviceGetMaxPcieLinkGeneration(m_device, &val);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    gen = (int)val;
+    auto ret = m_func.f_nvmlDeviceGetMaxPcieLinkWidth(m_device, &val);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    width = (int)val;
+    return ret;
 }
 
 void NVMLMonitor::Close() {

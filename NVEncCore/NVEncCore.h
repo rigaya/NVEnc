@@ -93,6 +93,7 @@ struct NVGPUInfo {
     int cuda_driver_version; //1000倍
     int cuda_cores;          //CUDAコア数
     int clock_rate;          //基本動作周波数(Hz)
+    int pcie_gen, pcie_link; //PCIe接続情報
     CodecCsp cuvid_csp;      //デコード機能
     vector<NVEncCodecFeature> nvenc_codec_features; //エンコード機能
 };

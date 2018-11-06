@@ -275,13 +275,18 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
             gpu.clock_rate = devProp.clockRate;
             gpu.cuda_cores = _ConvertSMVer2Cores(devProp.major, devProp.minor) * devProp.multiProcessorCount;
             gpu.nv_driver_version = INT_MAX;
+            gpu.pcie_gen = 0;
+            gpu.pcie_link = 0;
 #if ENABLE_NVML
             {
-                int version = 0;
+                int version = 0, pcie_gen = 0, pcie_link = 0;
                 NVMLMonitor nvml_monitor;
                 if (NVML_SUCCESS == nvml_monitor.Init(gpu.pciBusId)
-                    && NVML_SUCCESS == nvml_monitor.getDriverVersionx1000(version)) {
+                    && NVML_SUCCESS == nvml_monitor.getDriverVersionx1000(version)
+                    && NVML_SUCCESS == nvml_monitor.getMaxPCIeLink(pcie_gen, pcie_link)) {
                     gpu.nv_driver_version = version;
+                    gpu.pcie_gen = pcie_gen;
+                    gpu.pcie_link = pcie_link;
                 }
             }
 #endif //#if ENABLE_NVML
@@ -4588,6 +4593,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
                     gpu_info += strsprintf(_T(", %d MHz"), gpuInfo->clock_rate / 1000);
                 }
                 gpu_info += strsprintf(_T(")"));
+            }
+            if (gpuInfo->pcie_gen > 0 && gpuInfo->pcie_link > 0) {
+                gpu_info += strsprintf(_T("[PCIe%dx%d]"), gpuInfo->pcie_gen, gpuInfo->pcie_link);
             }
             if (gpuInfo->nv_driver_version) {
                 gpu_info += strsprintf(_T("[%d.%d]"), gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);

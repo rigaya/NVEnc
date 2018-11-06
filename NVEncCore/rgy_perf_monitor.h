@@ -259,6 +259,11 @@ NVML_FUNCPTR(nvmlDeviceGetEncoderUtilization);
 NVML_FUNCPTR(nvmlDeviceGetDecoderUtilization);
 NVML_FUNCPTR(nvmlDeviceGetMemoryInfo);
 NVML_FUNCPTR(nvmlDeviceGetClockInfo);
+NVML_FUNCPTR(nvmlDeviceGetPcieThroughput);
+NVML_FUNCPTR(nvmlDeviceGetCurrPcieLinkGeneration);
+NVML_FUNCPTR(nvmlDeviceGetCurrPcieLinkWidth);
+NVML_FUNCPTR(nvmlDeviceGetMaxPcieLinkGeneration);
+NVML_FUNCPTR(nvmlDeviceGetMaxPcieLinkWidth);
 NVML_FUNCPTR(nvmlSystemGetDriverVersion);
 NVML_FUNCPTR(nvmlSystemGetNVMLVersion);
 
@@ -277,6 +282,11 @@ struct NVMLFuncList {
     NVML_FUNC(nvmlDeviceGetDecoderUtilization)
     NVML_FUNC(nvmlDeviceGetMemoryInfo)
     NVML_FUNC(nvmlDeviceGetClockInfo)
+    NVML_FUNC(nvmlDeviceGetPcieThroughput)
+    NVML_FUNC(nvmlDeviceGetCurrPcieLinkGeneration)
+    NVML_FUNC(nvmlDeviceGetCurrPcieLinkWidth)
+    NVML_FUNC(nvmlDeviceGetMaxPcieLinkGeneration)
+    NVML_FUNC(nvmlDeviceGetMaxPcieLinkWidth)
     NVML_FUNC(nvmlSystemGetDriverVersion)
     NVML_FUNC(nvmlSystemGetNVMLVersion)
 };
@@ -298,6 +308,7 @@ public:
     nvmlReturn_t Init(const std::string& pciBusId);
     nvmlReturn_t getData(NVMLMonitorInfo *info);
     nvmlReturn_t getDriverVersionx1000(int& ver);
+    nvmlReturn_t getMaxPCIeLink(int& gen, int& width);
 };
 
 #endif //#if ENABLE_NVML

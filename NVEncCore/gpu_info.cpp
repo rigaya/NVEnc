@@ -98,6 +98,9 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
                     }
                     gpu_info += strsprintf(_T(")"));
                 }
+                if (gpuInfo->pcie_gen > 0 && gpuInfo->pcie_link > 0) {
+                    gpu_info += strsprintf(_T("[PCIe%dx%d]"), gpuInfo->pcie_gen, gpuInfo->pcie_link);
+                }
                 if (gpuInfo->nv_driver_version) {
                     gpu_info += strsprintf(_T("[%d.%d]"), gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
                 }
