@@ -3142,7 +3142,10 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
         }
         if (   (inputParam->lossless && !get_value(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE, codec->caps))
             || (inputParam->yuv444 && !get_value(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE, codec->caps))
-            || (inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0 && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps))) {
+            || (inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0 && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps))
+            || (inputParam->codec == NV_ENC_H264
+                && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable))
+                && !get_value(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING, codec->caps))) {
             gpu = m_GPUList.erase(gpu);
             continue;
         }
