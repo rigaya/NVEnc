@@ -774,6 +774,9 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     m_nFrame = 0;
     m_nPts = 0;
     m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS));
+    if (pAfsParam->afs.force24) {
+        pAfsParam->baseFps *= rgy_rational<int>(4, 5);
+    }
 
     if (pAfsParam->afs.timecode) {
         const tstring tc_filename = PathRemoveExtensionS(pAfsParam->outFilename) + _T(".timecode.txt");
