@@ -618,10 +618,15 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #endif //#if ENABLE_AVSW_READER
     case RGY_INPUT_FMT_RAW:
     case RGY_INPUT_FMT_Y4M:
-    default:
+    default: {
+        if (inputParam->input.type == RGY_INPUT_FMT_RAW &&
+            (inputParam->input.fpsN <= 0 || inputParam->input.fpsD <= 0)) {
+            PrintMes(RGY_LOG_ERROR, _T("Please set fps when using raw input.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
         PrintMes(RGY_LOG_DEBUG, _T("raw/y4m reader selected.\n"));
         m_pFileReader.reset(new RGYInputRaw());
-        break;
+        break; }
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: input selected : %d.\n"), inputParam->input.type);
 
@@ -2082,12 +2087,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
     }
 
-    if (inputParam->input.fpsN <= 0 || inputParam->input.fpsD <= 0) {
-        if (inputParam->input.type == RGY_INPUT_FMT_RAW) {
-            PrintMes(RGY_LOG_ERROR, _T("Please set fps when using raw input.\n"));
-        } else {
-            PrintMes(RGY_LOG_ERROR, _T("Invalid fps: %d/%d.\n"), inputParam->input.fpsN, inputParam->input.fpsD);
-        }
+    if (m_encFps.n() <= 0 || m_encFps.d() <= 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Invalid fps: %d/%d.\n"), m_encFps.n(), m_encFps.d());
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
@@ -2268,7 +2269,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     //自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {
-        m_stEncConfig.gopLength = (int)(inputParam->input.fpsN / (double)inputParam->input.fpsD + 0.5) * 10;
+        m_stEncConfig.gopLength = (int)(m_encFps.n() / (double)m_encFps.d() + 0.5) * 10;
     }
     if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR && m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames == 0) {
         m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames = m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames;
@@ -2304,7 +2305,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             int level = m_stEncConfig.encodeCodecConfig.h264Config.level;
             if (level == 0) {
                 level = calc_h264_auto_level(m_uEncWidth, m_uEncHeight, m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames, is_interlaced(m_stPicStruct),
-                    inputParam->input.fpsN, inputParam->input.fpsD, profile, prefered_bitrate_kbps, m_stEncConfig.rcParams.vbvBufferSize / 1000);
+                    m_encFps.n(), m_encFps.d(), profile, prefered_bitrate_kbps, m_stEncConfig.rcParams.vbvBufferSize / 1000);
             }
             int max_bitrate_kbps = 0, vbv_bufsize_kbps = 0;
             get_h264_vbv_value(&max_bitrate_kbps, &vbv_bufsize_kbps, level, profile);
@@ -2319,7 +2320,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             int level = m_stEncConfig.encodeCodecConfig.hevcConfig.level;
             if (level == 0) {
                 level = calc_hevc_auto_level(m_uEncWidth, m_uEncHeight, //m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
-                    inputParam->input.fpsN, inputParam->input.fpsD, high_tier, prefered_bitrate_kbps);
+                    m_encFps.n(), m_encFps.d(), high_tier, prefered_bitrate_kbps);
             }
             //なぜかぎりぎりを指定するとエラー終了するので、すこし減らす
             m_stEncConfig.rcParams.maxBitRate = get_hevc_max_bitrate(level, high_tier) * 960;
@@ -2375,11 +2376,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.maxEncodeHeight     = m_uEncHeight;
     m_stCreateEncodeParams.maxEncodeWidth      = m_uEncWidth;
 
-    m_stCreateEncodeParams.frameRateNum        = inputParam->input.fpsN;
-    m_stCreateEncodeParams.frameRateDen        = inputParam->input.fpsD;
-    if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
-        m_stCreateEncodeParams.frameRateNum *= 2;
-    }
+    m_stCreateEncodeParams.frameRateNum        = m_encFps.n();
+    m_stCreateEncodeParams.frameRateDen        = m_encFps.d();
     if (inputParam->nWeightP) {
         if (!getCapLimit(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION)) {
             error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction"));
@@ -2509,7 +2507,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->frameIntervalP = std::min(m_stCreateEncodeParams.encodeConfig->frameIntervalP, 3+1);
             const auto maxGOPLen =
                 (m_uEncWidth <= 1280 && m_uEncHeight <= 720
-                && (int)(inputParam->input.fpsN / (double)inputParam->input.fpsD + 0.9) >= 60)
+                && (int)(m_encFps.n() / (double)m_encFps.d() + 0.9) >= 60)
                 ? 60u : 30u;
             const bool overMaxGOPLen = m_stCreateEncodeParams.encodeConfig->gopLength > maxGOPLen;
             m_stCreateEncodeParams.encodeConfig->gopLength = (std::min(m_stCreateEncodeParams.encodeConfig->gopLength, maxGOPLen) / m_stCreateEncodeParams.encodeConfig->frameIntervalP) * m_stCreateEncodeParams.encodeConfig->frameIntervalP;
@@ -2589,6 +2587,10 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         inputFrame.deivce_mem = true;
     }
+    m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
+    if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
+        m_encFps *= 2;
+    }
 
     int resizeWidth  = inputFrame.width;
     int resizeHeight = inputFrame.height;
@@ -2665,6 +2667,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameIn = inputFrame;
             param->frameOut.csp = param->frameIn.csp;
             param->frameOut.deivce_mem = true;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterCrop->init(param, m_pNVLog);
@@ -2677,6 +2680,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         const auto encCsp = GetEncoderCSP(inputParam);
         auto filterCsp = encCsp;
@@ -2704,6 +2708,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             default:
                 break;
             }
+            param->baseFps = m_encFps;
             param->frameOut.deivce_mem = true;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
@@ -2717,6 +2722,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //rff
         if (inputParam->vpp.rff) {
@@ -2724,6 +2730,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             shared_ptr<NVEncFilterParamRff> param(new NVEncFilterParamRff());
             param->frameIn  = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps  = m_encFps;
             param->inFps    = m_inputFps;
             param->timebase = m_outputTimebase;
             param->bOutOverwrite = true;
@@ -2738,6 +2745,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //delogo
         if (inputParam->vpp.delogo.enable) {
@@ -2748,6 +2756,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->delogo        = inputParam->vpp.delogo;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = true;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2760,6 +2769,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //afs
         if (inputParam->vpp.afs.enable) {
@@ -2775,6 +2785,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut = inputFrame;
             param->inFps = m_inputFps;
             param->outTimebase = m_outputTimebase;
+            param->baseFps = m_encFps;
             param->outFilename = inputParam->outputFilename;
             param->cudaSchedule = m_cudaSchedule;
             param->bOutOverwrite = false;
@@ -2789,6 +2800,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //ノイズ除去 (knn)
         if (inputParam->vpp.knn.enable) {
@@ -2797,6 +2809,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->knn = inputParam->vpp.knn;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2809,6 +2822,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //ノイズ除去 (pmd)
         if (inputParam->vpp.pmd.enable) {
@@ -2817,6 +2831,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->pmd = inputParam->vpp.pmd;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2829,6 +2844,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //ノイズ除去
         if (inputParam->vpp.gaussMaskSize > 0) {
@@ -2841,6 +2857,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->masksize = inputParam->vpp.gaussMaskSize;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterGauss->init(param, m_pNVLog);
@@ -2853,6 +2870,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
 #endif
         }
         //リサイズ
@@ -2864,6 +2882,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut = inputFrame;
             param->frameOut.width = resizeWidth;
             param->frameOut.height = resizeHeight;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
 #if _M_IX86
             if (param->interp <= NPPI_INTER_MAX) {
@@ -2882,6 +2901,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //unsharp
         if (inputParam->vpp.unsharp.enable) {
@@ -2892,6 +2912,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->unsharp.threshold = inputParam->vpp.unsharp.threshold;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterUnsharp->init(param, m_pNVLog);
@@ -2904,6 +2925,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //edgelevel
         if (inputParam->vpp.edgelevel.enable) {
@@ -2912,6 +2934,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->edgelevel = inputParam->vpp.edgelevel;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterEdgelevel->init(param, m_pNVLog);
@@ -2924,6 +2947,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //tweak
         if (inputParam->vpp.tweak.enable) {
@@ -2932,6 +2956,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->tweak = inputParam->vpp.tweak;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = true;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterEq->init(param, m_pNVLog);
@@ -2944,6 +2969,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //deband
         if (inputParam->vpp.deband.enable) {
@@ -2952,6 +2978,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->deband = inputParam->vpp.deband;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2964,6 +2991,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //padding
         if (inputParam->vpp.pad.enable) {
@@ -2975,6 +3003,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut.width = m_uEncWidth;
             param->frameOut.height = m_uEncHeight;
             param->frameOut.pitch = 0;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2987,6 +3016,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
     }
     //最後のフィルタ

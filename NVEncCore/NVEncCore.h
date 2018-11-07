@@ -286,6 +286,7 @@ protected:
     RGYAVSync                    m_nAVSyncMode;           //映像音声同期設定
     rgy_rational<int>            m_inputFps;              //入力フレームレート
     rgy_rational<int>            m_outputTimebase;        //出力のtimebase
+    rgy_rational<int>            m_encFps;                //エンコードのフレームレート
 #if ENABLE_AVSW_READER
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
 #endif //#if ENABLE_AVSW_READER

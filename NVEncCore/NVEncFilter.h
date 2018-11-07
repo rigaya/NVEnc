@@ -135,9 +135,10 @@ class NVEncFilterParam {
 public:
     FrameInfo frameIn;
     FrameInfo frameOut;
+    rgy_rational<int> baseFps;
     bool bOutOverwrite;
 
-    NVEncFilterParam() : frameIn({ 0 }), frameOut({ 0 }), bOutOverwrite(false) {};
+    NVEncFilterParam() : frameIn({ 0 }), frameOut({ 0 }), baseFps(), bOutOverwrite(false) {};
     virtual ~NVEncFilterParam() {};
 };
 
@@ -169,7 +170,7 @@ public:
         frame.deivce_mem = true;
         cudaEventCreate(&event);
     };
-    CUFrameBuf(const FrameInfo& _info) 
+    CUFrameBuf(const FrameInfo& _info)
         : frame(_info), event() {
         cudaEventCreate(&event);
     };
