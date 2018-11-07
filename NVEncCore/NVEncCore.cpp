@@ -3208,9 +3208,9 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(const InEncodeVideoParam *inputParam) {
         NVSMIInfo nvsmi;
         if (nvsmi.getData(&info, gpu.pciBusId) == 0) {
 #endif
-            ve_score  = 100.0 * (1.0 - std::pow(info.dVEELoad / 100.0, 4));
-            gpu_score = 100.0 * (1.0 - std::pow(info.dGPULoad / 100.0, 8));
-            PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) Load: GPU %.1f, VE: %.1f.\n"), gpu.id, gpu.name.c_str(), info.dGPULoad, info.dVEELoad);
+            ve_score  = 100.0 * (1.0 - std::pow(info.VEELoad / 100.0, 4));
+            gpu_score = 100.0 * (1.0 - std::pow(info.GPULoad / 100.0, 8));
+            PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) Load: GPU %.1f, VE: %.1f.\n"), gpu.id, gpu.name.c_str(), info.GPULoad, info.VEELoad);
         }
         gpuscore[gpu.id] = cc_score + ve_score + gpu_score + core_score;
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: VE %.1f, GPU %.1f, CC %.1f, Core %.1f.\n"), gpu.id, gpu.name.c_str(),

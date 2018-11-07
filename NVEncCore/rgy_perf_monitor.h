@@ -89,6 +89,7 @@ enum : int {
     PERF_MONITOR_VE_CLOCK      = 0x02000000,
     PERF_MONITOR_VEE_LOAD      = 0x04000000,
     PERF_MONITOR_VED_LOAD      = 0x08000000,
+    PERF_MONITOR_PCIE_LOAD     = 0x10000000,
     PERF_MONITOR_ALL         = (int)UINT_MAX,
 };
 
@@ -115,7 +116,7 @@ static const CX_DESC list_pref_monitor[] = {
     { _T("bitrate"),     PERF_MONITOR_BITRATE },
     { _T("bitrate_avg"), PERF_MONITOR_BITRATE_AVG },
     { _T("frame_out"),   PERF_MONITOR_FRAME_OUT },
-    { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_VEE_LOAD | PERF_MONITOR_VED_LOAD | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_VE_CLOCK },
+    { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_VEE_LOAD | PERF_MONITOR_VED_LOAD | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_VE_CLOCK | PERF_MONITOR_PCIE_LOAD },
     { _T("gpu_load"),    PERF_MONITOR_GPU_LOAD },
     { _T("gpu_clock"),   PERF_MONITOR_GPU_CLOCK },
 #if ENABLE_METRIC_FRAMEWORK
@@ -123,6 +124,7 @@ static const CX_DESC list_pref_monitor[] = {
 #endif
     { _T("vee_load"),    PERF_MONITOR_VEE_LOAD },
     { _T("ved_load"),    PERF_MONITOR_VEE_LOAD },
+    { _T("pcie_load"),   PERF_MONITOR_PCIE_LOAD },
     { _T("ve_clock"),    PERF_MONITOR_VE_CLOCK },
     { _T("queue"),       PERF_MONITOR_QUEUE_VID_IN | PERF_MONITOR_QUEUE_VID_OUT | PERF_MONITOR_QUEUE_AUD_IN | PERF_MONITOR_QUEUE_AUD_OUT },
     { nullptr, 0 }
@@ -178,6 +180,11 @@ struct PerfInfo {
     double  vee_load_percent;
     double  ved_load_percent;
     double  ve_clock;
+
+    int pcie_gen;
+    int pcie_link;
+    int pcie_throughput_tx_per_sec;
+    int pcie_throughput_rx_per_sec;
 };
 
 struct PerfOutputInfo {
@@ -200,7 +207,7 @@ struct PerfQueueInfo {
 struct QSVGPUInfo {
     double dMFXLoad;
     double dEULoad;
-    double dGPUFreq;
+    double GPUFreq;
 };
 
 class CQSVConsumer : public IConsumer {
@@ -208,7 +215,7 @@ public:
     CQSVConsumer() : m_bInfoValid(false), m_QSVInfo(), m_MetricsUsed() {
         m_QSVInfo.dMFXLoad = 0.0;
         m_QSVInfo.dEULoad  = 0.0;
-        m_QSVInfo.dGPUFreq = 0.0;
+        m_QSVInfo.GPUFreq = 0.0;
     };
     virtual void OnMetricUpdated(uint32_t count, MetricHandle * metrics, const uint64_t * types, const void ** buffers, uint64_t * sizes) override;
 
@@ -233,15 +240,19 @@ private:
 #endif //#if ENABLE_METRIC_FRAMEWORK
 
 struct NVMLMonitorInfo {
-    bool bDataValid;
-    double dGPULoad;
-    double dGPUFreq;
-    double dVEELoad;
-    double dVEDLoad;
-    double dVEFreq;
-    int64_t nMemFree;
-    int64_t nMemUsage;
-    int64_t nMemMax;
+    bool dataValid;
+    double GPULoad;
+    double GPUFreq;
+    double VEELoad;
+    double VEDLoad;
+    double VEFreq;
+    int64_t memFree;
+    int64_t memUsage;
+    int64_t memMax;
+    uint32_t pcieGen;
+    uint32_t pcieLink;
+    int pcieLoadTX;
+    int pcieLoadRX;
 };
 
 #if ENABLE_NVML
@@ -351,7 +362,7 @@ public:
 #if ENABLE_NVML
     bool GetNVMLInfo(NVMLMonitorInfo *info) {
         memcpy(info, &m_nvmlInfo, sizeof(m_nvmlInfo));
-        return m_nvmlInfo.bDataValid;
+        return m_nvmlInfo.dataValid;
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_GPUZ_INFO
