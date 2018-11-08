@@ -35,6 +35,7 @@
 #include <shellapi.h>
 #include "rgy_version.h"
 #include "rgy_perf_monitor.h"
+#include "rgy_caption.h"
 #include "NVEncParam.h"
 #include "NVEncCmd.h"
 #include "NVEncFilterAfs.h"
@@ -830,6 +831,25 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         for (auto it = trackSet.begin(); it != trackSet.end(); it++, iTrack++) {
             pParams->pSubtitleSelect[iTrack] = *it;
         }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("caption2ass"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            C2AFormat format = FORMAT_INVALID;
+            if (PARSE_ERROR_FLAG != (format = (C2AFormat)get_value_from_chr(list_caption2ass, strInput[i]))) {
+                pParams->caption2ass = format;
+            } else {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return 1;
+            }
+        } else {
+            pParams->caption2ass = FORMAT_SRT;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-caption2ass"))) {
+        pParams->caption2ass = FORMAT_INVALID;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avsync"))) {
@@ -2256,6 +2276,62 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+
+    if (IS_OPTION("vpp-select-every")) {
+        pParams->vpp.selectevery.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        pParams->vpp.selectevery.enable = true;
+                    } else if (param_val == _T("false")) {
+                        pParams->vpp.selectevery.enable = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("offset")) {
+                    try {
+                        pParams->vpp.selectevery.offset = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("step")) {
+                    try {
+                        pParams->vpp.selectevery.step = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                try {
+                    pParams->vpp.selectevery.step = std::stoi(strInput[i]);
+                } catch (...) {
+                    SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return -1;
+                }
+                continue;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-perf-monitor")) {
         pParams->vpp.bCheckPerformance = true;
         return 0;
@@ -2297,15 +2373,78 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("lossless")) {
         pParams->lossless = TRUE;
-        pParams->yuv444 = TRUE;
         return 0;
     }
     if (IS_OPTION("no-deblock")) {
         codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 1;
         return 0;
     }
+    if (IS_OPTION("slices:h264")) {
+        i++;
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_H264].h264Config.sliceMode = 3;
+            codecPrm[NV_ENC_H264].h264Config.sliceModeData = value;
+        } catch (...) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("slices:hevc")) {
+        i++;
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_HEVC].hevcConfig.sliceMode = 3;
+            codecPrm[NV_ENC_HEVC].hevcConfig.sliceModeData = value;
+        } catch (...) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("slices")) {
+        i++;
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_H264].h264Config.sliceMode = 3;
+            codecPrm[NV_ENC_HEVC].hevcConfig.sliceMode = 3;
+            codecPrm[NV_ENC_H264].h264Config.sliceModeData = value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.sliceModeData = value;
+        } catch (...) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
     if (IS_OPTION("deblock")) {
         codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 0;
+        return 0;
+    }
+    if (IS_OPTION("aud:h264")) {
+        codecPrm[NV_ENC_H264].h264Config.outputAUD = 1;
+        return 0;
+    }
+    if (IS_OPTION("aud:hevc")) {
+        codecPrm[NV_ENC_HEVC].hevcConfig.outputAUD = 1;
+        return 0;
+    }
+    if (IS_OPTION("aud")) {
+        codecPrm[NV_ENC_H264].h264Config.outputAUD = 1;
+        codecPrm[NV_ENC_HEVC].hevcConfig.outputAUD = 1;
+        return 0;
+    }
+    if (IS_OPTION("pic-struct:h264")) {
+        codecPrm[NV_ENC_H264].h264Config.outputPictureTimingSEI = 1;
+        return 0;
+    }
+    if (IS_OPTION("pic-struct:hevc")) {
+        codecPrm[NV_ENC_HEVC].hevcConfig.outputPictureTimingSEI = 1;
+        return 0;
+    }
+    if (IS_OPTION("pic-struct")) {
+        codecPrm[NV_ENC_H264].h264Config.outputPictureTimingSEI = 1;
+        codecPrm[NV_ENC_HEVC].hevcConfig.outputPictureTimingSEI = 1;
         return 0;
     }
     if (IS_OPTION("fullrange:h264")) {
@@ -2433,9 +2572,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             GUID result_guid = get_guid_from_name(strInput[i], h264_profile_names);
             if (0 != memcmp(&result_guid, &zero, sizeof(result_guid))) {
                 pParams->encConfig.profileGUID = result_guid;
-                if (0 == memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid))) {
-                    pParams->yuv444 = TRUE;
-                }
+                pParams->yuv444 = memcmp(&pParams->encConfig.profileGUID, &NV_ENC_H264_PROFILE_HIGH_444_GUID, sizeof(result_guid)) == 0;
                 flag = true;
             }
         }
@@ -2450,6 +2587,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (result == NV_ENC_PROFILE_HEVC_MAIN10) {
                     codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = 2;
+                    pParams->yuv444 = FALSE;
+                } else if (result == NV_ENC_PROFILE_HEVC_MAIN) {
+                    codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = 0;
+                    pParams->yuv444 = FALSE;
                 }
                 flag = true;
             }
@@ -2935,7 +3076,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         if ((pParams->encConfig.rcParams.targetQuality) != (encPrmDefault.encConfig.rcParams.targetQuality)
             || (pParams->encConfig.rcParams.targetQualityLSB) != (encPrmDefault.encConfig.rcParams.targetQualityLSB)) {
             float val = pParams->encConfig.rcParams.targetQuality + pParams->encConfig.rcParams.targetQualityLSB / 256.0f;
-            cmd << _T(" --vbr-quality ") << std::setprecision(2) << val;
+            cmd << _T(" --vbr-quality ") << std::fixed << std::setprecision(2) << val;
         }
         OPT_NUM(_T("--max-bitrate"), encConfig.rcParams.maxBitRate / 1000);
     }
@@ -2980,6 +3121,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         if (codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 != codecPrmDefault[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8) {
             cmd << _T(" --output-depth ") << codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 + 8;
         }
+        OPT_NUM_HEVC(_T("--slices"), _T(":hevc"), sliceModeData);
+        OPT_BOOL_HEVC(_T("--aud"), _T(""), _T(":hevc"), outputAUD);
+        OPT_BOOL_HEVC(_T("--pic-struct"), _T(""), _T(":hevc"), outputPictureTimingSEI);
         OPT_BOOL_HEVC(_T("--fullrange"), _T(""), _T(":hevc"), hevcVUIParameters.videoFullRangeFlag);
         OPT_LST_HEVC(_T("--videoformat"), _T(":hevc"), hevcVUIParameters.videoFormat, list_videoformat);
         OPT_LST_HEVC(_T("--colormatrix"), _T(":hevc"), hevcVUIParameters.colourMatrix, list_colormatrix);
@@ -2998,6 +3142,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_H264(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         OPT_LST_H264(_T("--direct"), _T(""), bdirectMode, list_bdirect);
         OPT_LST_H264(_T("--adapt-transform"), _T(""), adaptiveTransformMode, list_adapt_transform);
+        OPT_NUM_H264(_T("--slices"), _T(":h264"), sliceModeData);
+        OPT_BOOL_H264(_T("--aud"), _T(""), _T(":h264"), outputAUD);
+        OPT_BOOL_H264(_T("--pic-struct"), _T(""), _T(":h264"), outputPictureTimingSEI);
         OPT_BOOL_H264(_T("--fullrange"), _T(""), _T(":h264"), h264VUIParameters.videoFullRangeFlag);
         OPT_LST_H264(_T("--videoformat"), _T(":h264"), h264VUIParameters.videoFormat, list_videoformat);
         OPT_LST_H264(_T("--colormatrix"), _T(":h264"), h264VUIParameters.colourMatrix, list_colormatrix);
@@ -3143,6 +3290,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         cmd << _T(" --sub-copy ") << tmp.str().substr(1);
     }
     tmp.str(tstring());
+    OPT_LST(_T("--caption2ass"), caption2ass, list_caption2ass);
     OPT_STR_PATH(_T("--chapter"), sChapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);
@@ -3355,6 +3503,19 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-delogo ") << tmp.str().substr(1);
+        }
+    }
+    if (pParams->vpp.selectevery != encPrmDefault.vpp.selectevery) {
+        tmp.str(tstring());
+        if (!pParams->vpp.selectevery.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.selectevery.enable || save_disabled_prm) {
+            ADD_NUM(_T("step"), vpp.selectevery.step);
+            ADD_NUM(_T("offset"), vpp.selectevery.offset);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-select-every ") << tmp.str().substr(1);
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vpp.bCheckPerformance);

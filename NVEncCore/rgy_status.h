@@ -212,13 +212,13 @@ public:
         bGPUUsage = bVideoEngineUsage;
         if (bVideoEngineUsage) {
             m_sData.GPUInfoCountSuccess++;
-            m_sData.GPULoadPercentTotal += info.dGPULoad;
-            m_sData.VEELoadPercentTotal += info.dVEELoad;
-            m_sData.VEDLoadPercentTotal += info.dVEELoad;
-            m_sData.GPUClockTotal += info.dGPUFreq;
-            m_sData.VEClockTotal += info.dVEFreq;
-            gpuusage = (int)info.dGPULoad;
-            gpuencoder_usage = (int)info.dVEELoad;
+            m_sData.GPULoadPercentTotal += info.GPULoad;
+            m_sData.VEELoadPercentTotal += info.VEELoad;
+            m_sData.VEDLoadPercentTotal += info.VEELoad;
+            m_sData.GPUClockTotal += info.GPUFreq;
+            m_sData.VEClockTotal += info.VEFreq;
+            gpuusage = (int)info.GPULoad;
+            gpuencoder_usage = (int)info.VEELoad;
         } else {
 #endif //#if ENABLE_NVML
 #if ENABLE_GPUZ_INFO

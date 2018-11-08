@@ -1,0 +1,74 @@
+Environment Info
+OS : Windows 8.1 (x64)
+CPU: Intel Core i7-5960X @ 3.00GHz [TB: 4.40GHz] (8C/16T)
+GPU: GeForce GTX 970 (13 EU) @ 1253 MHz (347.25)
+RAM: Total 32670 MB / Used 20774 MB
+ 
+使用可能な各機能の情報を表示します。
+コーデック: H.264/AVC
+Max Bframes               4
+RC Modes                  63
+Field Encoding            1
+MonoChrome                0
+FMO                       0
+Quater-Pel MV             1
+B Direct Mode             1
+CABAC                     1
+Adaptive Transform        1
+Max Temporal Layers       0
+Hierarchial P Frames      0
+Hierarchial B Frames      0
+Max Level                 51
+Min Level                 1
+4:4:4                     0
+Max Width                 4096
+Max Height                4096
+Dynamic Resolution Change 1
+Dynamic Bitrate Change    1
+Forced constant QP        0
+Dynamic RC Mode Change    0
+Subframe Readback         0
+Constrained Encoding      0
+Intra Refresh             1
+Custom VBV Bufsize        1
+Dynamic Slice Mode        1
+Ref Pic Invalidiation     1
+PreProcess                0
+Async Encoding            1
+Max MBs                   65536
+MAX MB per sec            983040
+Lossless                  1
+ 
+コーデック: H.265/HEVC
+Max Bframes               0
+RC Modes                  63
+Field Encoding            0
+MonoChrome                0
+FMO                       1
+Quater-Pel MV             1
+B Direct Mode             0
+CABAC                     1
+Adaptive Transform        0
+Max Temporal Layers       0
+Hierarchial P Frames      0
+Hierarchial B Frames      0
+Max Level                 62
+Min Level                 1
+4:4:4                     0
+Max Width                 4096
+Max Height                4096
+Dynamic Resolution Change 1
+Dynamic Bitrate Change    1
+Forced constant QP        0
+Dynamic RC Mode Change    0
+Subframe Readback         0
+Constrained Encoding      1
+Intra Refresh             1
+Custom VBV Bufsize        1
+Dynamic Slice Mode        1
+Ref Pic Invalidiation     1
+PreProcess                0
+Async Encoding            0
+Max MBs                   65536
+MAX MB per sec            983040
+Lossless                  0

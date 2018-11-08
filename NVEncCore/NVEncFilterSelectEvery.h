@@ -26,11 +26,32 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef _GPU_INFO_H_
-#define _GPU_INFO_H_
+#pragma once
 
-#include "rgy_tchar.h"
+#include "NVEncFilter.h"
+#include "NVEncParam.h"
 
-int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, int device_id = 0, bool driver_version_only = false);
 
-#endif //_GPU_INFO_H_
+class NVEncFilterParamSelectEvery : public NVEncFilterParam {
+public:
+    VppSelectEvery selectevery;
+
+    NVEncFilterParamSelectEvery() : selectevery() {
+
+    };
+    virtual ~NVEncFilterParamSelectEvery() {};
+};
+
+class NVEncFilterSelectEvery : public NVEncFilter {
+public:
+    NVEncFilterSelectEvery();
+    virtual ~NVEncFilterSelectEvery();
+    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+protected:
+    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual void close() override;
+
+    int m_frames;
+    int64_t m_totalDuration;
+    int64_t m_outPts;
+};

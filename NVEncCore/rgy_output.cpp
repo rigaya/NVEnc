@@ -94,6 +94,8 @@ RGYOutputRaw::~RGYOutputRaw() {
 #endif //#if ENABLE_AVSW_READER
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(pVideoOutputInfo);
     RGYOutputRawPrm *rawPrm = (RGYOutputRawPrm *)prm;
@@ -212,6 +214,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
     m_bInited = true;
     return RGY_ERR_NONE;
 }
+#pragma warning (pop)
 
 RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
     if (pBitstream == nullptr) {
@@ -251,21 +254,17 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                     return RGY_ERR_UNKNOWN;
                 }
                 const int new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
-                if (sps_nal->size == pkt.size) {
-                    memcpy(sps_nal->ptr, pkt.data, pkt.size);
-                } else {
-                    const int sps_nal_offset = sps_nal->ptr - pBitstream->data();
-                    const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-                    const int next_nal_new_offset = sps_nal_offset + pkt.size;
-                    const int stream_orig_length = pBitstream->size();
-                    if (pBitstream->bufsize() < new_data_size) {
-                        pBitstream->changeSize(new_data_size);
-                    } else if (pkt.size > sps_nal->size) {
-                        pBitstream->trim();
-                    }
-                    memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
-                    memcpy(pBitstream->data() + sps_nal_offset, pkt.data, pkt.size);
+                const int sps_nal_offset = (int)(sps_nal->ptr - pBitstream->data());
+                const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
+                const int next_nal_new_offset = sps_nal_offset + pkt.size;
+                const int stream_orig_length = pBitstream->size();
+                if ((int)pBitstream->bufsize() < new_data_size) {
+                    pBitstream->changeSize(new_data_size);
+                } else if (pkt.size > (int)sps_nal->size) {
+                    pBitstream->trim();
                 }
+                memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
+                memcpy(pBitstream->data() + sps_nal_offset, pkt.data, pkt.size);
                 av_packet_unref(&pkt);
             }
         }
@@ -277,13 +276,13 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
             const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
             if (header_check) {
-                nBytesWritten  = (uint32_t)fwrite(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)fwrite(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)fwrite(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)fwrite(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
+                nBytesWritten  = (uint32_t)_fwrite_nolock(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
+                nBytesWritten += (uint32_t)_fwrite_nolock(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
+                nBytesWritten += (uint32_t)_fwrite_nolock(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
+                nBytesWritten += (uint32_t)_fwrite_nolock(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
                 for (const auto& nal : nal_list) {
                     if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
-                        nBytesWritten += (uint32_t)fwrite(nal.ptr, 1, nal.size, m_fDest.get());
+                        nBytesWritten += (uint32_t)_fwrite_nolock(nal.ptr, 1, nal.size, m_fDest.get());
                     }
                 }
             } else {
@@ -292,7 +291,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             }
             m_seiNal.clear();
         } else {
-            nBytesWritten = (uint32_t)fwrite(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+            nBytesWritten = (uint32_t)_fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
             WRITE_CHECK(nBytesWritten, pBitstream->size());
         }
     }

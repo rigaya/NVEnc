@@ -31,6 +31,7 @@
 
 #include <utility>
 #include <array>
+#include "rgy_osdep.h"
 #include "nvEncodeAPI.h"
 #pragma warning (push)
 #pragma warning (disable: 4201)
@@ -76,7 +77,6 @@ private:
     RGY_PICSTRUCT dataPicstruct;
     int dataFrameIdx;
     int64_t dataDuration;
-
 public:
     uint8_t *bufptr() const {
         return dataptr;

@@ -1057,6 +1057,8 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fad
     return NV_ENC_SUCCESS;
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, const FrameInfo *pFrame) {
     auto sts = calcAutoFadeNRFrame(auto_nr, auto_fade, pFrame);
     if (sts != NV_ENC_SUCCESS) return sts;
@@ -1141,6 +1143,7 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, co
     m_fadeArray[m_frameOut].adjFade = auto_fade;
     return NV_ENC_SUCCESS;
 }
+#pragma warning (pop)
 
 NVENCSTATUS NVEncFilterDelogo::logAutoFadeNR() {
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);

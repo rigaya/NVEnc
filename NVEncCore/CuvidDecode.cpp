@@ -298,12 +298,12 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     //init video parser
     memset(&m_videoFormatEx, 0, sizeof(CUVIDEOFORMATEX));
     if (input->codecExtra && input->codecExtraSize) {
-        if (input->codecExtraSize > sizeof(m_videoFormatEx.raw_seqhdr_data)) {
-            AddMessage(RGY_LOG_ERROR, _T("Parsed header too large!\n"));
-            return CUDA_ERROR_INVALID_VALUE;
-        }
-        memcpy(m_videoFormatEx.raw_seqhdr_data, input->codecExtra, input->codecExtraSize);
-        m_videoFormatEx.format.seqhdr_data_length = input->codecExtraSize;
+        //if (input->codecExtraSize > sizeof(m_videoFormatEx.raw_seqhdr_data)) {
+        //    AddMessage(RGY_LOG_ERROR, _T("Parsed header too large!\n"));
+        //    return CUDA_ERROR_INVALID_VALUE;
+        //}
+        m_videoFormatEx.format.seqhdr_data_length = std::min<uint32_t>(input->codecExtraSize, sizeof(m_videoFormatEx.raw_seqhdr_data));
+        memcpy(m_videoFormatEx.raw_seqhdr_data, input->codecExtra, m_videoFormatEx.format.seqhdr_data_length);
     }
     if (!av_isvalid_q(streamtimebase)) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid stream timebase %d/%d\n"), streamtimebase.num, streamtimebase.den);

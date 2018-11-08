@@ -71,6 +71,7 @@
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterTweak.h"
+#include "NVEncFilterSelectEvery.h"
 #include "NVEncFeature.h"
 #include "chapter_rw.h"
 #include "helper_cuda.h"
@@ -79,14 +80,18 @@
 #include "hevc_level.h"
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
+
+#pragma warning(push)
+#pragma warning(disable: 4244)
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"
-
 #if _M_IX86
 typedef ttmath::Int<4> ttint128;
 #else
 typedef ttmath::Int<2> ttint128;
 #endif
+#pragma warning(pop)
+
 
 using std::deque;
 
@@ -259,7 +264,7 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
             unique_ptr<NVEncFeature> nvFeature;
             if (getFeatures) {
                 nvFeature = unique_ptr<NVEncFeature>(new NVEncFeature());
-                nvFeature->createCacheAsync(currentDevice);
+                nvFeature->createCacheAsync(currentDevice, RGY_LOG_INFO);
             }
 
             NVGPUInfo gpu;
@@ -271,13 +276,18 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
             gpu.clock_rate = devProp.clockRate;
             gpu.cuda_cores = _ConvertSMVer2Cores(devProp.major, devProp.minor) * devProp.multiProcessorCount;
             gpu.nv_driver_version = INT_MAX;
+            gpu.pcie_gen = 0;
+            gpu.pcie_link = 0;
 #if ENABLE_NVML
             {
-                int version = 0;
+                int version = 0, pcie_gen = 0, pcie_link = 0;
                 NVMLMonitor nvml_monitor;
                 if (NVML_SUCCESS == nvml_monitor.Init(gpu.pciBusId)
-                    && NVML_SUCCESS == nvml_monitor.getDriverVersionx1000(version)) {
+                    && NVML_SUCCESS == nvml_monitor.getDriverVersionx1000(version)
+                    && NVML_SUCCESS == nvml_monitor.getMaxPCIeLink(pcie_gen, pcie_link)) {
                     gpu.nv_driver_version = version;
+                    gpu.pcie_gen = pcie_gen;
+                    gpu.pcie_link = pcie_link;
                 }
             }
 #endif //#if ENABLE_NVML
@@ -601,6 +611,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.pHWDecCodecCsp = &HWDecCodecCsp;
         inputInfoAVCuvid.bVideoDetectPulldown = !inputParam->vpp.rff && !inputParam->vpp.afs.enable && inputParam->nAVSyncMode == RGY_AVSYNC_ASSUME_CFR;
+        inputInfoAVCuvid.caption2ass = inputParam->caption2ass;
         pInputPrm = &inputInfoAVCuvid;
         PrintMes(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         m_pFileReader.reset(new RGYInputAvcodec());
@@ -608,10 +619,15 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #endif //#if ENABLE_AVSW_READER
     case RGY_INPUT_FMT_RAW:
     case RGY_INPUT_FMT_Y4M:
-    default:
+    default: {
+        if (inputParam->input.type == RGY_INPUT_FMT_RAW &&
+            (inputParam->input.fpsN <= 0 || inputParam->input.fpsD <= 0)) {
+            PrintMes(RGY_LOG_ERROR, _T("Please set fps when using raw input.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
         PrintMes(RGY_LOG_DEBUG, _T("raw/y4m reader selected.\n"));
         m_pFileReader.reset(new RGYInputRaw());
-        break;
+        break; }
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: input selected : %d.\n"), inputParam->input.type);
 
@@ -759,7 +775,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
         m_uEncWidth, m_uEncHeight,
         &m_stEncConfig, m_stPicStruct,
-        std::make_pair(inputParams->par[0], inputParams->par[1]),
+        std::make_pair(m_sar.n(), m_sar.d()),
         std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
     HEVCHDRSei hedrsei;
     if (hedrsei.parse(inputParams->sMaxCll, inputParams->sMasterDisplay)) {
@@ -774,6 +790,16 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         || check_ext(inputParams->outputFilename.c_str(), { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc" }); //特定の拡張子
     if (!useH264ESOutput) {
         inputParams->nAVMux |= RGY_MUX_VIDEO;
+    }
+
+    { auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            //caption2ass用の解像度情報の提供
+            //これをしないと入力ファイルのデータをずっとバッファし続けるので注意
+            pAVCodecReader->setOutputVideoInfo(m_uEncWidth, m_uEncHeight,
+                m_sar.n(), m_sar.d(),
+                (inputParams->nAVMux & RGY_MUX_VIDEO) != 0);
+        }
     }
 
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
@@ -859,12 +885,21 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                     streamTrackUsed.push_back(stream.nTrackId);
                     AVOutputStreamPrm prm;
                     prm.src = stream;
-                    prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
-                    prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
-                    prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
-                    prm.pEncodeCodecPrm = pAudioSelect->pAVAudioEncodeCodecPrm;
-                    prm.pEncodeCodecProfile = pAudioSelect->pAVAudioEncodeCodecProfile;
-                    prm.pFilter = pAudioSelect->pAudioFilter;
+                    if (pAudioSelect) {
+                        prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
+                        prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
+                        prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
+                        prm.pEncodeCodecPrm = pAudioSelect->pAVAudioEncodeCodecPrm;
+                        prm.pEncodeCodecProfile = pAudioSelect->pAVAudioEncodeCodecProfile;
+                        prm.pFilter = pAudioSelect->pAudioFilter;
+                    } else {
+                        prm.nBitrate = 0;
+                        prm.nSamplingRate = 0;
+                        prm.pEncodeCodec = nullptr;
+                        prm.pEncodeCodecPrm = nullptr;
+                        prm.pEncodeCodecProfile = nullptr;
+                        prm.pFilter = nullptr;
+                    }
                     PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
                         stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec,
@@ -986,33 +1021,57 @@ NVENCSTATUS NVEncCore::InitCuda(int cudaSchedule) {
     auto cudaerr = cudaGetLastError();
     PrintMes(RGY_LOG_DEBUG, _T("InitCuda: device #%d.\n"), m_nDeviceId);
 
+    PrintMes(RGY_LOG_DEBUG, _T("\n"), m_nDeviceId);
+    PrintMes(RGY_LOG_DEBUG, _T("Checking Environment Info...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("%s\n"), get_encoder_version());
+
+    OSVERSIONINFOEXW osversioninfo = { 0 };
+    tstring osversionstr = getOSVersion(&osversioninfo);
+    PrintMes(RGY_LOG_DEBUG, _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
+    PrintMes(RGY_LOG_DEBUG, _T("CPU            %s\n"), cpu_info);
 
     TCHAR gpu_info[1024] = { 0 };
     const auto len = _stprintf_s(gpu_info, _T("#%d: "), m_nDeviceId);
-    if (m_nDeviceId || 0 != getGPUInfo(GPU_VENDOR, gpu_info + len, _countof(gpu_info) - len)) {
-        const auto gpuInfo = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& info) { return info.id == device_id; });
-        if (gpuInfo != m_GPUList.end()) {
-            if (m_nDeviceId == gpuInfo->id) {
-                _stprintf_s(gpu_info, _T("#%d: %s"), gpuInfo->id, gpuInfo->name.c_str());
-                if (0 < gpuInfo->nv_driver_version && gpuInfo->nv_driver_version < NV_DRIVER_VER_MIN) {
-                    PrintMes(RGY_LOG_ERROR, _T("Insufficient NVIDIA driver version, Required %d.%d, Installed %d.%d\n"),
-                        NV_DRIVER_VER_MIN / 1000, (NV_DRIVER_VER_MIN % 1000) / 10,
-                        gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
-                    return NV_ENC_ERR_NO_ENCODE_DEVICE;
-                }
-                OSVERSIONINFOEXW osversioninfo = { 0 };
-                tstring osversionstr = getOSVersion(&osversioninfo);
-                PrintMes(RGY_LOG_DEBUG, _T("%s\n"), get_encoder_version());
-                PrintMes(RGY_LOG_DEBUG, _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
-                PrintMes(RGY_LOG_DEBUG, _T("CPU            %s\n"), cpu_info);
-                PrintMes(RGY_LOG_DEBUG, _T("GPU            %s\n"), gpu_info);
-                PrintMes(RGY_LOG_DEBUG, _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
-                    NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
-                    gpuInfo->cuda_driver_version / 1000, (gpuInfo->cuda_driver_version % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
+    if (0 == m_GPUList.size()) {
+        //NVEncFeatureから呼ばれたとき、ここに入る
+        //NVEncFeatureが再帰的に呼び出すのを避けるため、getFeatures = falseで呼び出す
+        NVEncoderGPUInfo gpuInfo(m_nDeviceId, false);
+        m_GPUList = gpuInfo.getGPUList();
+        if (0 == m_GPUList.size()) {
+            //NVEncFeatureが再帰的に呼び出すのを避けるため、getFeatures = falseで呼び出す
+            gpuInfo = NVEncoderGPUInfo(-1, false);
+            m_GPUList = gpuInfo.getGPUList();
+            if (0 == m_GPUList.size()) {
+                PrintMes(RGY_LOG_ERROR, _T("No GPU found suitable for NVEnc Encoding.\n"));
+                return NV_ENC_ERR_NO_ENCODE_DEVICE;
+            } else {
+                PrintMes(RGY_LOG_WARN, _T("DeviceId #%d not found, automatically selected default device.\n"), m_nDeviceId);
+                m_nDeviceId = 0;
             }
         }
+    }
+    const auto gpuInfo = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& info) { return info.id == device_id; });
+    if (gpuInfo != m_GPUList.end()) {
+        if (m_nDeviceId == gpuInfo->id) {
+            _stprintf_s(gpu_info, _T("#%d: %s (%d.%d)"), gpuInfo->id, gpuInfo->name.c_str(),
+                gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
+            PrintMes(RGY_LOG_DEBUG, _T("GPU            %s\n"), gpu_info);
+            if (0 < gpuInfo->nv_driver_version && gpuInfo->nv_driver_version < NV_DRIVER_VER_MIN) {
+                PrintMes(RGY_LOG_ERROR, _T("Insufficient NVIDIA driver version, Required %d.%d, Installed %d.%d\n"),
+                    NV_DRIVER_VER_MIN / 1000, (NV_DRIVER_VER_MIN % 1000) / 10,
+                    gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
+                return NV_ENC_ERR_NO_ENCODE_DEVICE;
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
+                NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
+                gpuInfo->cuda_driver_version / 1000, (gpuInfo->cuda_driver_version % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
+        }
+    } else {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to check NVIDIA driver version.\n"));
+        return NV_ENC_ERR_NO_ENCODE_DEVICE;
     }
 
     //ひとまず、これまでのすべてのエラーをflush
@@ -1127,6 +1186,7 @@ NVENCSTATUS NVEncCore::NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer) {
 }
 
 NVENCSTATUS NVEncCore::NvEncCreateBitstreamBuffer(uint32_t size, void **bitstreamBuffer) {
+    UNREFERENCED_PARAMETER(size);
     NV_ENC_CREATE_BITSTREAM_BUFFER createBitstreamBufferParams;
     INIT_CONFIG(createBitstreamBufferParams, NV_ENC_CREATE_BITSTREAM_BUFFER);
 
@@ -2028,12 +2088,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
     }
 
-    if (inputParam->input.fpsN <= 0 || inputParam->input.fpsD <= 0) {
-        if (inputParam->input.type == RGY_INPUT_FMT_RAW) {
-            PrintMes(RGY_LOG_ERROR, _T("Please set fps when using raw input.\n"));
-        } else {
-            PrintMes(RGY_LOG_ERROR, _T("Invalid fps: %d/%d.\n"), inputParam->input.fpsN, inputParam->input.fpsD);
-        }
+    if (m_encFps.n() <= 0 || m_encFps.d() <= 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Invalid fps: %d/%d.\n"), m_encFps.n(), m_encFps.d());
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
@@ -2214,7 +2270,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
     //自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {
-        m_stEncConfig.gopLength = (int)(inputParam->input.fpsN / (double)inputParam->input.fpsD + 0.5) * 10;
+        m_stEncConfig.gopLength = (int)(m_encFps.n() / (double)m_encFps.d() + 0.5) * 10;
     }
     if (m_stEncConfig.encodeCodecConfig.h264Config.enableLTR && m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames == 0) {
         m_stEncConfig.encodeCodecConfig.h264Config.ltrNumFrames = m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames;
@@ -2230,6 +2286,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         par = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
     }
     adjust_sar(&par.first, &par.second, m_uEncWidth, m_uEncHeight);
+    m_sar = rgy_rational<int>(par.first, par.second);
 
     //色空間設定自動
     int frame_height = m_uEncHeight;
@@ -2249,7 +2306,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             int level = m_stEncConfig.encodeCodecConfig.h264Config.level;
             if (level == 0) {
                 level = calc_h264_auto_level(m_uEncWidth, m_uEncHeight, m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames, is_interlaced(m_stPicStruct),
-                    inputParam->input.fpsN, inputParam->input.fpsD, profile, prefered_bitrate_kbps, m_stEncConfig.rcParams.vbvBufferSize / 1000);
+                    m_encFps.n(), m_encFps.d(), profile, prefered_bitrate_kbps, m_stEncConfig.rcParams.vbvBufferSize / 1000);
             }
             int max_bitrate_kbps = 0, vbv_bufsize_kbps = 0;
             get_h264_vbv_value(&max_bitrate_kbps, &vbv_bufsize_kbps, level, profile);
@@ -2264,7 +2321,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             int level = m_stEncConfig.encodeCodecConfig.hevcConfig.level;
             if (level == 0) {
                 level = calc_hevc_auto_level(m_uEncWidth, m_uEncHeight, //m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
-                    inputParam->input.fpsN, inputParam->input.fpsD, high_tier, prefered_bitrate_kbps);
+                    m_encFps.n(), m_encFps.d(), high_tier, prefered_bitrate_kbps);
             }
             //なぜかぎりぎりを指定するとエラー終了するので、すこし減らす
             m_stEncConfig.rcParams.maxBitRate = get_hevc_max_bitrate(level, high_tier) * 960;
@@ -2320,11 +2377,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.maxEncodeHeight     = m_uEncHeight;
     m_stCreateEncodeParams.maxEncodeWidth      = m_uEncWidth;
 
-    m_stCreateEncodeParams.frameRateNum        = inputParam->input.fpsN;
-    m_stCreateEncodeParams.frameRateDen        = inputParam->input.fpsD;
-    if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
-        m_stCreateEncodeParams.frameRateNum *= 2;
-    }
+    m_stCreateEncodeParams.frameRateNum        = m_encFps.n();
+    m_stCreateEncodeParams.frameRateDen        = m_encFps.d();
     if (inputParam->nWeightP) {
         if (!getCapLimit(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION)) {
             error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction"));
@@ -2343,34 +2397,68 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.enablePTD           = true;
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
     m_stCreateEncodeParams.presetGUID          = list_nvenc_preset_names[inputParam->preset].id;
+    if (inputParam->lossless) {
+        switch (list_nvenc_preset_names[inputParam->preset].value) {
+        case NVENC_PRESET_HP:
+        case NVENC_PRESET_LL_HP:
+            m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_HP_GUID;
+            break;
+        default:
+            m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID;
+            break;
+        }
+    }
 
     //ロスレス出力
     if (inputParam->lossless) {
+        //profileは0にしておかないと正常に動作しない
         if (inputParam->codec == NV_ENC_H264) {
+            memset(&m_stCreateEncodeParams.encodeConfig->profileGUID, 0, sizeof(m_stCreateEncodeParams.encodeConfig->profileGUID));
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag = 1;
         }
         m_stCreateEncodeParams.encodeConfig->rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-        m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterB = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.averageBitRate = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.maxBitRate = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.qpMapMode = NV_ENC_QP_MAP_DISABLED;
+        m_stCreateEncodeParams.encodeConfig->rcParams.aqStrength = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.enableAQ = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.enableTemporalAQ = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.targetQuality = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.targetQualityLSB = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.temporallayerIdxMask = 0;
+        memset(&m_stCreateEncodeParams.encodeConfig->rcParams.temporalLayerQP, 0, sizeof(m_stCreateEncodeParams.encodeConfig->rcParams.temporalLayerQP));
+        m_stCreateEncodeParams.encodeConfig->rcParams.vbvBufferSize = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.vbvInitialDelay = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpIntra = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpInterP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.constQP.qpInterB = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.enableMinQP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.enableMaxQP = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.enableInitialRCQP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpIntra = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpInterP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.minQP.qpInterB = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpIntra = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterP = 0;
         m_stCreateEncodeParams.encodeConfig->rcParams.maxQP.qpInterB = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.initialRCQP.qpIntra = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.initialRCQP.qpInterP = 0;
+        m_stCreateEncodeParams.encodeConfig->rcParams.initialRCQP.qpInterB = 0;
     }
 
     if (inputParam->codec == NV_ENC_HEVC) {
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceMode = 3;
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceModeData = 1;
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceMode != 3) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceMode = 3;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.sliceModeData = 1;
+        }
         //整合性チェック (一般, H.265/HEVC)
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.idrPeriod = m_stCreateEncodeParams.encodeConfig->gopLength;
+
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.outputBufferingPeriodSEI = 1;
+        }
         //YUV444出力
-        if (inputParam->yuv444 || inputParam->lossless) {
+        if (inputParam->yuv444) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.chromaFormatIDC = 3;
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
             m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
@@ -2399,6 +2487,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFormat = 0;
         }
     } else if (inputParam->codec == NV_ENC_H264) {
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceMode != 3) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceMode = 3;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.sliceModeData = 1;
+        }
         //Bluray 互換出力
         if (inputParam->bluray) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputPictureTimingSEI = 1;
@@ -2416,7 +2508,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->frameIntervalP = std::min(m_stCreateEncodeParams.encodeConfig->frameIntervalP, 3+1);
             const auto maxGOPLen =
                 (m_uEncWidth <= 1280 && m_uEncHeight <= 720
-                && (int)(inputParam->input.fpsN / (double)inputParam->input.fpsD + 0.9) >= 60)
+                && (int)(m_encFps.n() / (double)m_encFps.d() + 0.9) >= 60)
                 ? 60u : 30u;
             const bool overMaxGOPLen = m_stCreateEncodeParams.encodeConfig->gopLength > maxGOPLen;
             m_stCreateEncodeParams.encodeConfig->gopLength = (std::min(m_stCreateEncodeParams.encodeConfig->gopLength, maxGOPLen) / m_stCreateEncodeParams.encodeConfig->frameIntervalP) * m_stCreateEncodeParams.encodeConfig->frameIntervalP;
@@ -2424,8 +2516,11 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
                 m_stCreateEncodeParams.encodeConfig->gopLength = 30u;
             }
         }
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputPictureTimingSEI) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.outputBufferingPeriodSEI = 1;
+        }
         //YUV444出力
-        if (inputParam->yuv444 || inputParam->lossless) {
+        if (inputParam->yuv444) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.chromaFormatIDC = 3;
             //m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.separateColourPlaneFlag = 1;
             m_stCreateEncodeParams.encodeConfig->profileGUID = NV_ENC_H264_PROFILE_HIGH_444_GUID;
@@ -2492,6 +2587,10 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     inputFrame.height -= inputParam->input.crop.e.bottom + inputParam->input.crop.e.up;
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         inputFrame.deivce_mem = true;
+    }
+    m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
+    if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
+        m_encFps *= 2;
     }
 
     int resizeWidth  = inputFrame.width;
@@ -2561,6 +2660,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.tweak.enable
         || inputParam->vpp.pad.enable
         || inputParam->vpp.rff
+        || inputParam->vpp.selectevery.enable
         ) {
         //swデコードならGPUに上げる必要がある
         if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -2569,6 +2669,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameIn = inputFrame;
             param->frameOut.csp = param->frameIn.csp;
             param->frameOut.deivce_mem = true;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterCrop->init(param, m_pNVLog);
@@ -2581,6 +2682,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         const auto encCsp = GetEncoderCSP(inputParam);
         auto filterCsp = encCsp;
@@ -2608,6 +2710,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             default:
                 break;
             }
+            param->baseFps = m_encFps;
             param->frameOut.deivce_mem = true;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
@@ -2621,6 +2724,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //rff
         if (inputParam->vpp.rff) {
@@ -2628,6 +2732,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             shared_ptr<NVEncFilterParamRff> param(new NVEncFilterParamRff());
             param->frameIn  = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps  = m_encFps;
             param->inFps    = m_inputFps;
             param->timebase = m_outputTimebase;
             param->bOutOverwrite = true;
@@ -2642,6 +2747,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //delogo
         if (inputParam->vpp.delogo.enable) {
@@ -2652,6 +2758,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->delogo        = inputParam->vpp.delogo;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = true;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2664,6 +2771,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //afs
         if (inputParam->vpp.afs.enable) {
@@ -2679,6 +2787,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut = inputFrame;
             param->inFps = m_inputFps;
             param->outTimebase = m_outputTimebase;
+            param->baseFps = m_encFps;
             param->outFilename = inputParam->outputFilename;
             param->cudaSchedule = m_cudaSchedule;
             param->bOutOverwrite = false;
@@ -2693,6 +2802,29 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //select-every
+        if (inputParam->vpp.selectevery.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterSelectEvery());
+            shared_ptr<NVEncFilterParamSelectEvery> param(new NVEncFilterParamSelectEvery());
+            param->frameIn  = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps  = m_encFps;
+            param->selectevery = inputParam->vpp.selectevery;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //ノイズ除去 (knn)
         if (inputParam->vpp.knn.enable) {
@@ -2701,6 +2833,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->knn = inputParam->vpp.knn;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2713,6 +2846,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //ノイズ除去 (pmd)
         if (inputParam->vpp.pmd.enable) {
@@ -2721,6 +2855,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->pmd = inputParam->vpp.pmd;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2733,6 +2868,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //ノイズ除去
         if (inputParam->vpp.gaussMaskSize > 0) {
@@ -2745,6 +2881,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->masksize = inputParam->vpp.gaussMaskSize;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterGauss->init(param, m_pNVLog);
@@ -2757,6 +2894,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
 #endif
         }
         //リサイズ
@@ -2768,6 +2906,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut = inputFrame;
             param->frameOut.width = resizeWidth;
             param->frameOut.height = resizeHeight;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
 #if _M_IX86
             if (param->interp <= NPPI_INTER_MAX) {
@@ -2786,6 +2925,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //unsharp
         if (inputParam->vpp.unsharp.enable) {
@@ -2796,6 +2936,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->unsharp.threshold = inputParam->vpp.unsharp.threshold;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterUnsharp->init(param, m_pNVLog);
@@ -2808,6 +2949,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //edgelevel
         if (inputParam->vpp.edgelevel.enable) {
@@ -2816,6 +2958,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->edgelevel = inputParam->vpp.edgelevel;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterEdgelevel->init(param, m_pNVLog);
@@ -2828,6 +2971,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //tweak
         if (inputParam->vpp.tweak.enable) {
@@ -2836,6 +2980,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->tweak = inputParam->vpp.tweak;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = true;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filterEq->init(param, m_pNVLog);
@@ -2848,6 +2993,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //deband
         if (inputParam->vpp.deband.enable) {
@@ -2856,6 +3002,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->deband = inputParam->vpp.deband;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2868,6 +3015,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         //padding
         if (inputParam->vpp.pad.enable) {
@@ -2879,6 +3027,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut.width = m_uEncWidth;
             param->frameOut.height = m_uEncHeight;
             param->frameOut.pitch = 0;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -2891,6 +3040,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
     }
     //最後のフィルタ
@@ -3021,13 +3171,13 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
             //はデフォルトではH.264のプロファイル情報
             //HEVCのプロファイル情報は、inputParam->encConfig.encodeCodecConfig.hevcConfig.tierの下位16bitに保存されている
             codecProfileGUID = get_guid_from_value(inputParam->encConfig.encodeCodecConfig.hevcConfig.tier & 0xffff, h265_profile_names);
-            if (inputParam->yuv444 || inputParam->lossless) {
+            if (inputParam->yuv444) {
                 codecProfileGUID = NV_ENC_HEVC_PROFILE_FREXT_GUID;
             } else if (inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0) {
                 codecProfileGUID = (inputParam->yuv444) ? NV_ENC_HEVC_PROFILE_FREXT_GUID : NV_ENC_HEVC_PROFILE_MAIN10_GUID;
             }
         } else if (rgy_codec == RGY_CODEC_H264) {
-            if (inputParam->yuv444 || inputParam->lossless) {
+            if (inputParam->yuv444) {
                 codecProfileGUID = NV_ENC_H264_PROFILE_HIGH_444_GUID;
             }
         } else {
@@ -3046,17 +3196,51 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
         }
         if (   (inputParam->lossless && !get_value(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE, codec->caps))
             || (inputParam->yuv444 && !get_value(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE, codec->caps))
-            || (inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0 && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps))) {
+            || (inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0 && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps))
+            || (inputParam->codec == NV_ENC_H264
+                && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable))
+                && !get_value(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING, codec->caps))) {
             gpu = m_GPUList.erase(gpu);
             continue;
         }
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) available for encode.\n"), gpu->id, gpu->name.c_str());
         gpu++;
     }
+
+    if (inputParam->encConfig.frameIntervalP > 1) {
+        bool support_bframe = false;
+        //エンコード対象のBフレームサポートのあるGPUがあるかを確認する
+        for (const auto& gpu : m_GPUList) {
+            const auto codec = std::find_if(gpu.nvenc_codec_features.begin(), gpu.nvenc_codec_features.end(), [rgy_codec](const NVEncCodecFeature& codec) {
+                return codec.codec == codec_guid_rgy_to_enc(rgy_codec);
+            });
+            assert(codec != gpu.nvenc_codec_features.end());
+            if (get_value(NV_ENC_CAPS_NUM_MAX_BFRAMES, codec->caps) > 0) {
+                support_bframe = true;
+                break;
+            }
+        }
+        //BフレームサポートのあるGPUがあれば、そのGPU以外は除外する
+        if (support_bframe) {
+            for (auto gpu = m_GPUList.begin(); gpu != m_GPUList.end(); ) {
+                //コーデックのチェック
+                const auto codec = std::find_if(gpu->nvenc_codec_features.begin(), gpu->nvenc_codec_features.end(), [rgy_codec](const NVEncCodecFeature& codec) {
+                    return codec.codec == codec_guid_rgy_to_enc(rgy_codec);
+                });
+                assert(codec != gpu->nvenc_codec_features.end());
+                if (get_value(NV_ENC_CAPS_NUM_MAX_BFRAMES, codec->caps) == 0) {
+                    gpu = m_GPUList.erase(gpu);
+                    continue;
+                }
+                gpu++;
+            }
+        }
+    }
     return NV_ENC_SUCCESS;
 }
 
 NVENCSTATUS NVEncCore::GPUAutoSelect(const InEncodeVideoParam *inputParam) {
+    UNREFERENCED_PARAMETER(inputParam);
     if (m_GPUList.size() <= 1) {
         m_nDeviceId = m_GPUList.front().id;
         return NV_ENC_SUCCESS;
@@ -3078,9 +3262,9 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(const InEncodeVideoParam *inputParam) {
         NVSMIInfo nvsmi;
         if (nvsmi.getData(&info, gpu.pciBusId) == 0) {
 #endif
-            ve_score  = 100.0 * (1.0 - std::pow(info.dVEELoad / 100.0, 4));
-            gpu_score = 100.0 * (1.0 - std::pow(info.dGPULoad / 100.0, 8));
-            PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) Load: GPU %.1f, VE: %.1f.\n"), gpu.id, gpu.name.c_str(), info.dGPULoad, info.dVEELoad);
+            ve_score  = 100.0 * (1.0 - std::pow(info.VEELoad / 100.0, 4));
+            gpu_score = 100.0 * (1.0 - std::pow(info.GPULoad / 100.0, 8));
+            PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) Load: GPU %.1f, VE: %.1f.\n"), gpu.id, gpu.name.c_str(), info.GPULoad, info.VEELoad);
         }
         gpuscore[gpu.id] = cc_score + ve_score + gpu_score + core_score;
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: VE %.1f, GPU %.1f, CC %.1f, Core %.1f.\n"), gpu.id, gpu.name.c_str(),
@@ -3110,7 +3294,7 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
 
     MYPROC nvEncodeAPICreateInstance; // function pointer to create instance in nvEncodeAPI
     if (NULL == (nvEncodeAPICreateInstance = (MYPROC)GetProcAddress(m_hinstLib, "NvEncodeAPICreateInstance"))) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("NvEncodeAPICreateInstanceのアドレス取得に失敗しました。\n") : _T("Failed to get address of NvEncodeAPICreateInstance.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to load address of NvEncodeAPICreateInstance from %s.\n"), NVENCODE_API_DLL);
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
     if (NULL == (m_pEncodeAPI = new NV_ENCODE_API_FUNCTION_LIST)) {
@@ -3123,41 +3307,39 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
 
     if (NV_ENC_SUCCESS != (nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI))) {
         if (nvStatus == NV_ENC_ERR_INVALID_VERSION) {
-#if FOR_AUO
-            PrintMes(RGY_LOG_ERROR, _T("nvEncodeAPIのインスタンス作成に失敗しました。ドライバのバージョンが古い可能性があります。\n"));
-            PrintMes(RGY_LOG_ERROR, _T("最新のドライバに更新して試してみてください。\n"));
-#else
-            PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI, please consider updating your GPU driver.\n"));
-#endif
+            PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI(ver=0x%x), please consider updating your GPU driver.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
         } else {
             NVPrintFuncError(_T("nvEncodeAPICreateInstance"), nvStatus);
         }
         return nvStatus;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x): Success.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
 
     if (NV_ENC_SUCCESS != (nvStatus = NvEncOpenEncodeSessionEx(m_pDevice, NV_ENC_DEVICE_TYPE_CUDA))) {
+        NVPrintFuncError(_T("NvEncOpenEncodeSessionEx(device_type=NV_ENC_DEVICE_TYPE_CUDA)"), nvStatus);
         return nvStatus;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("NvEncOpenEncodeSessionEx: Success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("NvEncOpenEncodeSessionEx(device_type=NV_ENC_DEVICE_TYPE_CUDA): Success.\n"));
     return NV_ENC_SUCCESS;
 }
 
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
+    bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
     if (inputParam->lossless) {
-        inputParam->yuv444 = TRUE;
-    }
-    const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
-    if (bOutputHighBitDepth) {
-        inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+        inputParam->input.csp = RGY_CSP_NA;
     } else {
-        inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+        if (bOutputHighBitDepth) {
+            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+        } else {
+            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+        }
     }
     m_nAVSyncMode = inputParam->nAVSyncMode;
     m_nProcSpeedLimit = inputParam->nProcSpeedLimit;
 
+    //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
     NVEncoderGPUInfo gpuInfo(m_nDeviceId, true);
     m_GPUList = gpuInfo.getGPUList();
     if (0 == m_GPUList.size()) {
@@ -3191,11 +3373,24 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("GPUAutoSelect: Success.\n"));
 
     //入力ファイルを開き、入力情報も取得
+    //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
     if (NV_ENC_SUCCESS != (nvStatus = InitInput(inputParam))) {
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("入力ファイルを開けませんでした。\n") : _T("Failed to open input file.\n"));
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
+
+    if (inputParam->lossless) {
+        const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
+        //入力ファイルの情報をもとに修正
+        //なるべくオリジナルに沿ったものにエンコードする
+        inputParam->yuv444 = (RGY_CSP_CHROMA_FORMAT[inputFrameInfo.csp] != RGY_CHROMAFMT_YUV420);
+
+        if (inputParam->codec == NV_ENC_HEVC && RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
+            inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 = 2;
+            bOutputHighBitDepth = true;
+        }
+    }
 
     if (m_GPUList.size() > 1 && m_nDeviceId < 0) {
 #if ENABLE_AVSW_READER
@@ -4486,6 +4681,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
                 }
                 gpu_info += strsprintf(_T(")"));
             }
+            if (gpuInfo->pcie_gen > 0 && gpuInfo->pcie_link > 0) {
+                gpu_info += strsprintf(_T("[PCIe%dx%d]"), gpuInfo->pcie_gen, gpuInfo->pcie_link);
+            }
             if (gpuInfo->nv_driver_version) {
                 gpu_info += strsprintf(_T("[%d.%d]"), gpuInfo->nv_driver_version / 1000, (gpuInfo->nv_driver_version % 1000) / 10);
             }
@@ -4566,9 +4764,12 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
     add_str(RGY_LOG_INFO,  _T("Encoder Preset %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, list_nvenc_preset_names));
     add_str(RGY_LOG_ERROR, _T("Rate Control   %s"), get_chr_from_value(list_nvenc_rc_method_en, m_stEncConfig.rcParams.rateControlMode));
+    const bool lossless = (get_value_from_guid(m_stCodecGUID, list_nvenc_codecs) == NV_ENC_H264 && m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag)
+        || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_HP_GUID, sizeof(m_stCreateEncodeParams.presetGUID)) == 0
+        || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, sizeof(m_stCreateEncodeParams.presetGUID)) == 0;
     if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
         add_str(RGY_LOG_ERROR, _T("  I:%d  P:%d  B:%d%s\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB,
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag ? _T(" (lossless)") : _T(""));
+            lossless ? _T(" (lossless)") : _T(""));
     } else {
         add_str(RGY_LOG_ERROR, _T("\n"));
         add_str(RGY_LOG_ERROR, _T("Bitrate        %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
@@ -4648,10 +4849,18 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         strAQ = _T("off");
     }
     add_str(RGY_LOG_INFO,  _T("AQ             %s\n"), strAQ.c_str());
-    if (codec == NV_ENC_H264 && 3 == m_stEncConfig.encodeCodecConfig.h264Config.sliceMode) {
-        add_str(RGY_LOG_DEBUG, _T("Slice number      %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
-    } else {
-        add_str(RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+    if (codec == NV_ENC_H264) {
+        if (m_stEncConfig.encodeCodecConfig.h264Config.sliceMode == 3) {
+            add_str(RGY_LOG_DEBUG, _T("Slices            %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+        } else {
+            add_str(RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+        }
+    } else if (codec == NV_ENC_HEVC) {
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.sliceMode == 3) {
+            add_str(RGY_LOG_DEBUG, _T("Slices            %d\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData);
+        } else {
+            add_str(RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.sliceMode, m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData);
+        }
     }
     if (codec == NV_ENC_HEVC) {
         add_str(RGY_LOG_INFO, _T("CU max / min   %s / %s\n"),
@@ -4672,6 +4881,19 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(RGY_LOG_DEBUG, _T("fmo:%s "), get_chr_from_value(list_fmo, m_stEncConfig.encodeCodecConfig.h264Config.fmoMode));
         if (m_stCreateEncodeParams.encodeConfig->frameIntervalP - 1 > 0) {
             add_str(RGY_LOG_INFO, _T("bdirect:%s "), get_chr_from_value(list_bdirect, m_stEncConfig.encodeCodecConfig.h264Config.bdirectMode));
+        }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.outputAUD) {
+            add_str(RGY_LOG_INFO, _T("aud "));
+        }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI) {
+            add_str(RGY_LOG_INFO, _T("pic-struct "));
+        }
+    } else if (codec == NV_ENC_HEVC) {
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.outputAUD) {
+            add_str(RGY_LOG_INFO, _T("aud "));
+        }
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
+            add_str(RGY_LOG_INFO, _T("pic-struct "));
         }
     }
     add_str(RGY_LOG_INFO, _T("\n"));

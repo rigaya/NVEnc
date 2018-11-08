@@ -29,7 +29,7 @@
 #include "rgy_util.h"
 #include "rgy_bitstream.h"
 
-HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), masterdisplay_set(false), masterdisplay() {
+HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), masterdisplay(), masterdisplay_set(false) {
     memset(&masterdisplay, 0, sizeof(masterdisplay));
 }
 

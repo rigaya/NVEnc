@@ -4,6 +4,8 @@ by rigaya
 
 **[日本語版はこちら＞＞](./Readme.ja.md)**
 
+[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master)  
+
 This software is meant to investigate performance and image quality of HW encoder (NVENC) of NVIDIA.
 There are 2 types of software developed, one is command line version that runs independently, and the nother is a output plug-in of [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
 
@@ -54,7 +56,7 @@ which might cause problem in some playback environments.
    - VBR (Variable bitrate)
    - VBRHQ (Variable bitrate, high quality)
 - Interlaced encoding (by PAFF)
-- Lossless output (YUV 444)
+- Lossless output (YUV 420 / YUV 444)
 - supports setting of codec profile & level, SAR, colormatrix, maxbitrate, GOP len, etc...
 
 ### NVEncC
@@ -78,6 +80,7 @@ which might cause problem in some playback environments.
    - resize
      In addition to bilinear, spline36, various algorithms by npp library are available for x64 version
    - padding
+   - select-every
    - deband
    - noise reduction
      - knn (K-nearest neighbor)
@@ -110,8 +113,9 @@ which might cause problem in some playback environments.
 - This software depends on
   [ffmpeg](https://ffmpeg.org/),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
-  [dtl](https://github.com/cubicdaiya/dtl) & 
-  [ttmath](http://www.ttmath.org/).
+  [dtl](https://github.com/cubicdaiya/dtl),
+  [ttmath](http://www.ttmath.org/) &
+  [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR).
   For these licenses, please see the header part of the corresponding source and NVEnc_license.txt.
 
 - [How to build](./Build.en.md)

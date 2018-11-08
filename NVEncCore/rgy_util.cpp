@@ -567,6 +567,35 @@ bool rgy_get_filesize(const WCHAR *filepath, uint64_t *filesize) {
     *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
     return ret;
 }
+
+std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir) {
+    std::vector<tstring> list;
+
+    TCHAR buf[1024];
+    PathCombine(buf, GetFullPath(dir.c_str()).c_str(), pattern.c_str());
+
+    WIN32_FIND_DATA win32fd;
+    HANDLE hFind = FindFirstFile(buf, &win32fd);
+
+    if (hFind == INVALID_HANDLE_VALUE) {
+        return list;
+    }
+
+    do {
+        if ((win32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+            && _tcscmp(win32fd.cFileName, _T("..")) !=0
+            && _tcscmp(win32fd.cFileName, _T(".")) != 0) {
+            TCHAR buf2[1024];
+            PathCombine(buf2, dir.c_str(), win32fd.cFileName);
+            vector_cat(list, get_file_list(pattern, buf2));
+        } else {
+            PathCombine(buf, GetFullPath(dir.c_str()).c_str(), win32fd.cFileName);
+            list.push_back(buf);
+        }
+    } while (FindNextFile(hFind, &win32fd));
+    FindClose(hFind);
+    return list;
+}
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 tstring print_time(double time) {
@@ -621,6 +650,7 @@ int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
     *ptr = nullptr;
     nMinSize = (std::max<size_t>)(nMinSize, 1);
+    nSize = (std::max<size_t>)(nSize, nMinSize);
     //確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
     while (nSize >= nMinSize) {
         void *qtr = malloc(nSize);
@@ -831,14 +861,14 @@ uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-tstring getEnviromentInfo(bool add_ram_info) {
+tstring getEnviromentInfo(bool add_ram_info, int device_id) {
     tstring buf;
 
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
 
     TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
+    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info), device_id);
 
     uint64_t UsedRamSize = 0;
     uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);

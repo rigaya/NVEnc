@@ -88,6 +88,9 @@ Show environment information recognized by NVEncC
 ### --check-codecs, --check-decoders, --check-encoders
 Show available audio codec names
 
+### --check-profiles &lt;string&gt;
+Show profile names available for specified codec
+
 ### --check-formats
 Show available output format
 
@@ -258,6 +261,9 @@ Set output bit depth.
 - 8 ... 8 bits (default)
 - 10 ... 10 bits
 
+### --lossless
+Perform lossless output. (Default: off)
+
 ### --max-bitrate &lt;int&gt;
 Maximum bitrate (in kbps).
 
@@ -340,6 +346,9 @@ Motion vector accuracy / default: auto
 - half-pel ... 1/2 pixel precision
 - full-pel ... 1 pixel accuracy (low accuracy)
 
+### --slices &lt;int&gt;
+Set number of slices.
+
 ### --level &lt;string&gt;
 Specify the Level of the codec to be encoded. If not specified, it will be automatically set.
 ```
@@ -404,6 +413,12 @@ Set Mastering display data.
 Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
 
+### --aud
+Insert Access Unit Delimiter NAL.
+
+### --pic-struct
+Insert picture timing SEI.
+
 ### --cabac [H.264 only]
 Use CABAC. (Default: on)
 
@@ -412,9 +427,6 @@ Use CAVLC. (Default: off)
 
 ### --bluray [H.264 only]
 Perform output for Bluray. (Default: off)
-
-### --lossless [H.264 only]
-Perform lossless output. --profile high 444 is specified automatically. (Default: off)
 
 ### --(no-)deblock [H.264 only]
 Enable deblock filter. (Default: on)
@@ -432,6 +444,11 @@ If audio / subtitle tracks etc. are not detected properly, try increasing this v
 
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 Encode only frames in the specified range.
+
+```
+Example 1: --trim 0:1000,2000:3000    (encode from frame #0 to #1000 and from frame #2000 to #3000)
+Example 2: --trim 2000:0              (encode from frame #2000 to the end)
+```
 
 ### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 The format is hh:mm:ss.ms. "hh" or "mm" could be omitted. The transcode will start from the time specified.
@@ -654,6 +671,11 @@ Example: Copy subtitle track #1 and #2
 --sub-copy 1,2
 ```
 
+### --caption2ass [&lt;string&gt;]
+Enable caption2ass process. This feature requires Caption.dll.  
+
+supported formats ... srt (default), ass
+
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, and the option value in &lt;string2&gt;.
 
@@ -780,6 +802,18 @@ example: same as --vpp-afs preset=24fps
 --vpp-afs preset=anime,method_switch=92,thre_shift=448,24fps=true
 ```
 
+### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
+select one frame per specified frames and create output.
+
+**parameters**
+- step=&lt;int&gt;
+- offset=&lt;int&gt; (default: 0)
+
+```
+example1 (same as "select even"): --vpp-select-every 2
+example2 (same as "select odd "): --vpp-select-every 2,offset=1
+```
+
 ### --vpp-resize &lt;string&gt;
 Specify the resizing algorithm.
 
@@ -793,9 +827,6 @@ Those with "○" in nppi64_80.dll use the [NPP library](https://developer.nvidia
 | nn            | nearest neighbor | ○ |
 | npp_linear    | linear interpolation by NPP library | ○ |
 | cubic         | 4x4 cubic interpolation | ○ |
-| cubic_bspline | 4x4 cubic interpolation (B=1, C=0)       | ○ |
-| cubic_catmull | 4x4 cubic interpolation (B=0, C=1/2)      | ○ |
-| cubic_b05c03  | 4x4 cubic interpolation (B=1/2, C=3/10)   | ○ |
 | super         | So called "super sampling" by NPP library | ○ |
 | lanczos       | Lanczos interpolation                    | ○ |
 

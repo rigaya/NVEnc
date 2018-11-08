@@ -105,6 +105,9 @@ NVEncCの認識している環境情報を表示
 ### --check-codecs, --check-decoders, --check-encoders
 利用可能な音声コーデック名を表示
 
+### --check-profiles &lt;string&gt;
+利用可能な音声プロファイル名を表示
+
 ### --check-formats
 利用可能な出力フォーマットを表示
 
@@ -260,6 +263,9 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 - 8 ... 8bit (デフォルト)
 - 10 ... 10bit
 
+### --lossless
+ロスレス出力を行う。(デフォルト: オフ)
+
 ### --max-bitrate &lt;int&gt;
 最大ビットレート(kbps単位)。
 
@@ -346,6 +352,9 @@ H.264のadaptive transform modeを有効(無効)にする。
 - half-pel ... 1/2画素精度
 - full-pel ... 1 画素精度 (低精度)
 
+### --slices &lt;int&gt;
+スライス数。指定なし、あるいは0で自動。
+
 ### --level &lt;string&gt;
 エンコードするコーデックのLevelを指定する。指定しない場合は自動的に決定される。
 ```
@@ -410,7 +419,11 @@ Mastering display data の設定。
 Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
 
-各種フラグの設定。
+### --aud
+Access Unit Delimiter NALを挿入する。
+
+### --pic-struct
+picture timing SEIを挿入する。
 
 ### --cabac [H.264のみ]
 CABACを使用する。 (デフォルト: オン)
@@ -420,9 +433,6 @@ CAVLCを使用する。 (デフォルト: オフ)
 
 ### --bluray [H.264のみ]
 Bluray用出力を行う。(デフォルト: オフ)
-
-### --lossless [H.264のみ]
-ロスレス出力を行う。自動的に--profile high444が指定される。(デフォルト: オフ)
 
 ### --(no-)deblock [H.264のみ]
 デブロックフィルタを有効にする。(デフォルト: オン)
@@ -441,6 +451,11 @@ libavが読み込み時に解析するファイルの時間を秒で指定。デ
 
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 指定した範囲のフレームのみをエンコードする。
+
+```
+例1: --trim 0:1000,2000:3000    (0～1000フレーム目, 2000～3000フレーム目をエンコード)
+例2: --trim 2000:0              (2000～最終フレームまでをエンコード)
+```
 
 ### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 書式は、hh:mm:ss.ms。"hh"や"mm"は省略可。
@@ -657,6 +672,15 @@ apple形式 (should be in utf-8)
 --sub-copy 1,2
 ```
 
+### --caption2ass [&lt;string&gt;]
+caption2assによる字幕抽出処理を行い、動画にmuxして出力する。別途 "Caption.dll" が必要。
+
+出力フォーマットがassかsrtのみなので、mkvなどで出力してください。
+
+**出力フォーマット**
+- srt (デフォルト)
+- ass
+
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 mux時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
@@ -826,6 +850,18 @@ log=0
   - YUY2補間
   - シフト・解除なし
 
+### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
+指定stepフレームごとに1フレームを選択してフレームを間引きます。フレームレートが1/stepになります。
+
+**parameters**
+- step=&lt;int&gt;
+- offset=&lt;int&gt; (デフォルト: 0)
+
+```
+example1 ("select even"): --vpp-select-every 2
+example2 ("select odd "): --vpp-select-every 2,offset=1
+```
+  
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 
@@ -839,9 +875,6 @@ log=0
 | nn            | 最近傍点選択 | ○ |
 | npp_linear    | nppの線形補間 | ○ |
 | cubic         | 4x4 3次補間 | ○ |
-| cubic_bspline | 4x4 3次補間 (B=1, C=0)       | ○ |
-| cubic_catmull | 4x4 3次補間 (B=0, C=1/2)      | ○ |
-| cubic_b05c03  | 4x4 3次補間 (B=1/2, C=3/10)   | ○ |
 | super         | nppのsuper sampling(詳細不明) | ○ |
 | lanczos       | Lanczos法                    | ○ |
 

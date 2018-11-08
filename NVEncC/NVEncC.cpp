@@ -185,6 +185,7 @@ static tstring help() {
         _T("   --check-codecs               show codecs available\n")
         _T("   --check-encoders             show audio encoders available\n")
         _T("   --check-decoders             show audio decoders available\n")
+        _T("   --check-profiles <string>    show profile names available for specified codec\n")
         _T("   --check-formats              show in/out formats available\n")
         _T("   --check-protocols            show in/out protocols available\n")
         _T("   --check-filters              show filters available\n")
@@ -317,6 +318,9 @@ static tstring help() {
         _T("                                 avhw/avsw reader and avcodec muxer.\n")
         _T("                                 below are optional,\n")
         _T("                                  in [<int>?], specify track number to copy.\n")
+        _T("   --caption2ass [<string>]     enable caption2ass during encode.\n")
+        _T("                                  !! This feature requires Caption.dll !!\n")
+        _T("                                 supported formats ... srt (default), ass\n")
         _T("\n")
         _T("   --avsync <string>            method for AV sync (default: cfr)\n")
         _T("                                 cfr      ... assume cfr\n")
@@ -390,6 +394,7 @@ static tstring help() {
         _T("                                  Q-pel (High Quality),\n")
         _T("                                  half-pel,\n")
         _T("                                  full-pel (Low Quality, not recommended)\n")
+        _T("   --slices <int>               number of slices, default 0 (auto)\n")
         _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
         _T("   --(no-)aq                    enable spatial adaptive quantization\n")
         _T("   --aq-temporal                [H264] enable temporal adaptive quantization\n")
@@ -426,6 +431,8 @@ static tstring help() {
     str += PrintListOptions(_T("--colorprim <string>"), list_colorprim, 0);
     str += PrintListOptions(_T("--transfer <string>"), list_transfer, 0);
     str += strsprintf(_T("")
+        _T("   --aud                        insert aud nal unit to ouput stream.\n")
+        _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n")
         _T("   --chromaloc <int>            set chroma location flag [ 0 ... 5 ]\n")
         _T("                                  default: 0 = unspecified\n")
         _T("   --fullrange                  set fullrange\n")
@@ -439,7 +446,7 @@ static tstring help() {
         _T("   --vpp-deinterlace <string>   set deinterlace mode / default: none\n")
         _T("                                  none, bob, adaptive (normal)\n")
         _T("                                  available only with avhw reader\n"));
-    str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize, 0);
+    str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize_help, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
         _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]\n")
@@ -569,6 +576,9 @@ static tstring help() {
     str += strsprintf(_T("\n")
         _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
         _T("     add padding to left,top,right,bottom (in pixels)\n"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-select-every <int>[,offset=<int>]\n")
+        _T("     select one frame per specified frames and create output.\n"));
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
@@ -779,7 +789,7 @@ static void show_hw(int deviceid) {
     show_version();
 
     NVEncFeature nvFeature;
-    nvFeature.createCacheAsync(deviceid);
+    nvFeature.createCacheAsync(deviceid, RGY_LOG_DEBUG);
     auto nvEncCaps = nvFeature.GetCachedNVEncCapability();
     if (nvEncCaps.size()) {
         _ftprintf(stdout, _T("Avaliable Codec(s)\n"));
@@ -792,19 +802,20 @@ static void show_hw(int deviceid) {
 }
 
 static void show_environment_info() {
-    _ftprintf(stderr, _T("%s\n"), getEnviromentInfo(false).c_str());
+    show_version();
+    _ftprintf(stdout, _T("%s\n"), getEnviromentInfo(false).c_str());
 }
 
 static void show_nvenc_features(int deviceid) {
     NVEncFeature nvFeature;
-    if (nvFeature.createCacheAsync(deviceid)) {
+    if (nvFeature.createCacheAsync(deviceid, RGY_LOG_INFO)) {
         _ftprintf(stdout, _T("error on checking features.\n"));
         return;
     }
     auto nvEncCaps = nvFeature.GetCachedNVEncCapability();
 
-
-    _ftprintf(stdout, _T("%s\n"), getEnviromentInfo(false).c_str());
+    show_version();
+    _ftprintf(stdout, _T("\n%s\n"), getEnviromentInfo(false).c_str());
     if (nvEncCaps.size() == 0) {
         _ftprintf(stdout, _T("No NVEnc support.\n"));
     } else {
@@ -887,6 +898,18 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
     }
     if (0 == _tcscmp(option_name, _T("check-decoders"))) {
         _ftprintf(stdout, _T("%s\n"), getAVCodecs(RGY_AVCODEC_DEC).c_str());
+        return 1;
+    }
+    if (0 == _tcscmp(option_name, _T("check-profiles"))) {
+        auto list = getAudioPofileList(arg1);
+        if (list.size() == 0) {
+            _ftprintf(stdout, _T("Failed to find codec name \"%s\"\n"), arg1);
+        } else {
+            _ftprintf(stdout, _T("profile name for \"%s\"\n"), arg1);
+            for (const auto& name : list) {
+                _ftprintf(stdout, _T("  %s\n"), name.c_str());
+            }
+        }
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-protocols"))) {

@@ -93,6 +93,7 @@ struct NVGPUInfo {
     int cuda_driver_version; //1000倍
     int cuda_cores;          //CUDAコア数
     int clock_rate;          //基本動作周波数(Hz)
+    int pcie_gen, pcie_link; //PCIe接続情報
     CodecCsp cuvid_csp;      //デコード機能
     vector<NVEncCodecFeature> nvenc_codec_features; //エンコード機能
 };
@@ -279,11 +280,13 @@ protected:
     GUID                         m_stCodecGUID;           //出力コーデック
     uint32_t                     m_uEncWidth;             //出力縦解像度
     uint32_t                     m_uEncHeight;            //出力横解像度
+    rgy_rational<int>            m_sar;                   //出力のsar比
 
     int                          m_nProcSpeedLimit;       //処理速度制限 (0で制限なし)
     RGYAVSync                    m_nAVSyncMode;           //映像音声同期設定
     rgy_rational<int>            m_inputFps;              //入力フレームレート
     rgy_rational<int>            m_outputTimebase;        //出力のtimebase
+    rgy_rational<int>            m_encFps;                //エンコードのフレームレート
 #if ENABLE_AVSW_READER
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
 #endif //#if ENABLE_AVSW_READER

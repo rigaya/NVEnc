@@ -196,7 +196,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         }
     }
 
-    const auto nOutputCSP = m_inputVideoInfo.csp;
+    auto nOutputCSP = m_inputVideoInfo.csp;
     m_InputCsp = RGY_CSP_YV12;
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         //read y4m header
@@ -212,16 +212,18 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     } else {
         m_inputVideoInfo.srcPitch = m_inputVideoInfo.srcWidth;
     }
-    m_inputVideoInfo.csp = nOutputCSP;
 
+    RGY_CSP output_csp_if_lossless = RGY_CSP_NA;
     uint32_t bufferSize = 0;
     switch (m_InputCsp) {
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2;
+        output_csp_if_lossless = RGY_CSP_NV12;
         break;
     case RGY_CSP_P010:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
+        output_csp_if_lossless = RGY_CSP_P010;
         break;
     case RGY_CSP_YV12_09:
     case RGY_CSP_YV12_10:
@@ -229,11 +231,13 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YV12_14:
     case RGY_CSP_YV12_16:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
+        output_csp_if_lossless = RGY_CSP_P010;
         break;
     case RGY_CSP_YUV422:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2;
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでNV16に変換する
-        m_inputVideoInfo.csp = RGY_CSP_NV16;
+        nOutputCSP = RGY_CSP_NV16;
+        output_csp_if_lossless = RGY_CSP_YUV444;
         break;
     case RGY_CSP_YUV422_09:
     case RGY_CSP_YUV422_10:
@@ -242,12 +246,14 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YUV422_16:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 4;
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでP210に変換する
-        m_inputVideoInfo.csp = RGY_CSP_P210;
+        nOutputCSP = RGY_CSP_P210;
         //m_inputVideoInfo.shiftも出力フォーマットに対応する値でなく入力フォーマットに対するものに
         m_inputVideoInfo.shift = 16 - RGY_CSP_BIT_DEPTH[m_InputCsp];
+        output_csp_if_lossless = RGY_CSP_YUV444_16;
         break;
     case RGY_CSP_YUV444:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
+        output_csp_if_lossless = RGY_CSP_YUV444;
         break;
     case RGY_CSP_YUV444_09:
     case RGY_CSP_YUV444_10:
@@ -255,12 +261,20 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YUV444_14:
     case RGY_CSP_YUV444_16:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 6;
+        output_csp_if_lossless = RGY_CSP_YUV444_16;
         break;
     default:
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     AddMessage(RGY_LOG_DEBUG, _T("%dx%d, pitch:%d, bufferSize:%d.\n"), m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcPitch, bufferSize);
+
+    if (nOutputCSP != RGY_CSP_NA) {
+        m_inputVideoInfo.csp = nOutputCSP;
+    } else {
+        //ロスレスの場合は、入力側で出力フォーマットを決める
+        m_inputVideoInfo.csp = output_csp_if_lossless;
+    }
 
     m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(bufferSize, 32), aligned_malloc_deleter());
     if (!m_pBuffer) {
@@ -292,7 +306,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
 
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         uint8_t y4m_buf[8] = { 0 };
-        if (fread(y4m_buf, 1, strlen("FRAME"), m_fSource) != strlen("FRAME")) {
+        if (_fread_nolock(y4m_buf, 1, strlen("FRAME"), m_fSource) != strlen("FRAME")) {
             AddMessage(RGY_LOG_DEBUG, _T("header1: finish.\n"));
             return RGY_ERR_MORE_DATA;
         }
@@ -301,7 +315,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
             return RGY_ERR_MORE_DATA;
         }
         int i;
-        for (i = 0; fgetc(m_fSource) != '\n'; i++) {
+        for (i = 0; _fgetc_nolock(m_fSource) != '\n'; i++) {
             if (i >= 64) {
                 AddMessage(RGY_LOG_DEBUG, _T("header3: finish.\n"));
                 return RGY_ERR_MORE_DATA;
@@ -342,7 +356,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    if (frameSize != fread(m_pBuffer.get(), 1, frameSize, m_fSource)) {
+    if (frameSize != _fread_nolock(m_pBuffer.get(), 1, frameSize, m_fSource)) {
         AddMessage(RGY_LOG_DEBUG, _T("fread: finish: %d.\n"), frameSize);
         return RGY_ERR_MORE_DATA;
     }
