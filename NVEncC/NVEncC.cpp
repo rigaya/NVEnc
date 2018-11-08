@@ -576,6 +576,9 @@ static tstring help() {
     str += strsprintf(_T("\n")
         _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
         _T("     add padding to left,top,right,bottom (in pixels)\n"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-select-every <int>[,offset=<int>]\n")
+        _T("     select one frame per specified frames and create output.\n"));
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")

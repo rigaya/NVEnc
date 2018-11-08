@@ -80,6 +80,7 @@ which might cause problem in some playback environments.
    - resize
      In addition to bilinear, spline36, various algorithms by npp library are available for x64 version
    - padding
+   - select-every
    - deband
    - noise reduction
      - knn (K-nearest neighbor)

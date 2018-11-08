@@ -212,6 +212,21 @@ bool VppTweak::operator!=(const VppTweak& x) const {
     return !(*this == x);
 }
 
+VppSelectEvery::VppSelectEvery() :
+    enable(false),
+    step(1),
+    offset(0) {
+}
+
+bool VppSelectEvery::operator==(const VppSelectEvery& x) const {
+    return enable == x.enable
+        && step == x.step
+        && offset == x.offset;
+}
+bool VppSelectEvery::operator!=(const VppSelectEvery& x) const {
+    return !(*this == x);
+}
+
 VppParam::VppParam() :
     bCheckPerformance(false),
     deinterlace(cudaVideoDeinterlaceMode_Weave),
@@ -226,6 +241,7 @@ VppParam::VppParam() :
     afs(),
     tweak(),
     pad(),
+    selectevery(),
     rff(false) {
 }
 

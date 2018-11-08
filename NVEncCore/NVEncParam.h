@@ -705,6 +705,16 @@ struct VppTweak {
     bool operator!=(const VppTweak& x) const;
 };
 
+struct VppSelectEvery {
+    bool  enable;
+    int   step;
+    int   offset;
+
+    VppSelectEvery();
+    bool operator==(const VppSelectEvery& x) const;
+    bool operator!=(const VppSelectEvery& x) const;
+};
+
 typedef struct {
     int top, bottom, left, right;
 } AFS_SCAN_CLIP;
@@ -795,6 +805,7 @@ struct VppParam {
     VppAfs afs;
     VppTweak tweak;
     VppPad pad;
+    VppSelectEvery selectevery;
     bool rff;
 
     VppParam();

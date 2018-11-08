@@ -588,6 +588,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="NVEncFilterPad.cpp" />
     <ClCompile Include="NVEncFilterRff.cpp" />
     <ClCompile Include="NVEncCmd.cpp" />
+    <ClCompile Include="NVEncFilterSelectEvery.cpp" />
     <ClCompile Include="NVEncUtil.cpp" />
     <ClCompile Include="ram_speed.cpp" />
     <ClCompile Include="rgy_avlog.cpp" />
@@ -653,6 +654,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterDenoiseKnn.h" />
     <ClInclude Include="NVEncFilterDenoisePmd.h" />
     <ClInclude Include="NVEncFilterEdgelevel.h" />
+    <ClInclude Include="NVEncFilterSelectEvery.h" />
     <ClInclude Include="NVEncFilterTweak.h" />
     <ClInclude Include="NVEncFilterRff.h" />
     <ClInclude Include="NVEncFilterUnsharp.h" />

@@ -850,6 +850,18 @@ log=0
   - YUY2補間
   - シフト・解除なし
 
+### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
+指定stepフレームごとに1フレームを選択してフレームを間引きます。フレームレートが1/stepになります。
+
+**parameters**
+- step=&lt;int&gt;
+- offset=&lt;int&gt; (デフォルト: 0)
+
+```
+example1 ("select even"): --vpp-select-every 2
+example2 ("select odd "): --vpp-select-every 2,offset=1
+```
+  
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 

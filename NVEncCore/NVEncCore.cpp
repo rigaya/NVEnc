@@ -71,6 +71,7 @@
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterTweak.h"
+#include "NVEncFilterSelectEvery.h"
 #include "NVEncFeature.h"
 #include "chapter_rw.h"
 #include "helper_cuda.h"
@@ -2659,6 +2660,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.tweak.enable
         || inputParam->vpp.pad.enable
         || inputParam->vpp.rff
+        || inputParam->vpp.selectevery.enable
         ) {
         //swデコードならGPUに上げる必要がある
         if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -2788,6 +2790,28 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->baseFps = m_encFps;
             param->outFilename = inputParam->outputFilename;
             param->cudaSchedule = m_cudaSchedule;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //select-every
+        if (inputParam->vpp.selectevery.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterSelectEvery());
+            shared_ptr<NVEncFilterParamSelectEvery> param(new NVEncFilterParamSelectEvery());
+            param->frameIn  = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps  = m_encFps;
+            param->selectevery = inputParam->vpp.selectevery;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);

@@ -802,6 +802,18 @@ example: same as --vpp-afs preset=24fps
 --vpp-afs preset=anime,method_switch=92,thre_shift=448,24fps=true
 ```
 
+### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
+select one frame per specified frames and create output.
+
+**parameters**
+- step=&lt;int&gt;
+- offset=&lt;int&gt; (default: 0)
+
+```
+example1 (same as "select even"): --vpp-select-every 2
+example2 (same as "select odd "): --vpp-select-every 2,offset=1
+```
+
 ### --vpp-resize &lt;string&gt;
 Specify the resizing algorithm.
 

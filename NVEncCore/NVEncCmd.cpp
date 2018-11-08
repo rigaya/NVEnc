@@ -2276,6 +2276,62 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+
+    if (IS_OPTION("vpp-select-every")) {
+        pParams->vpp.selectevery.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        pParams->vpp.selectevery.enable = true;
+                    } else if (param_val == _T("false")) {
+                        pParams->vpp.selectevery.enable = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("offset")) {
+                    try {
+                        pParams->vpp.selectevery.offset = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("step")) {
+                    try {
+                        pParams->vpp.selectevery.step = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                try {
+                    pParams->vpp.selectevery.step = std::stoi(strInput[i]);
+                } catch (...) {
+                    SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return -1;
+                }
+                continue;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-perf-monitor")) {
         pParams->vpp.bCheckPerformance = true;
         return 0;
@@ -3447,6 +3503,19 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-delogo ") << tmp.str().substr(1);
+        }
+    }
+    if (pParams->vpp.selectevery != encPrmDefault.vpp.selectevery) {
+        tmp.str(tstring());
+        if (!pParams->vpp.selectevery.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.selectevery.enable || save_disabled_prm) {
+            ADD_NUM(_T("step"), vpp.selectevery.step);
+            ADD_NUM(_T("offset"), vpp.selectevery.offset);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-select-every ") << tmp.str().substr(1);
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vpp.bCheckPerformance);
