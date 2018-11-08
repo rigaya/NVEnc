@@ -196,7 +196,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         }
     }
 
-    const auto nOutputCSP = m_inputVideoInfo.csp;
+    auto nOutputCSP = m_inputVideoInfo.csp;
     m_InputCsp = RGY_CSP_YV12;
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         //read y4m header
@@ -236,7 +236,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YUV422:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2;
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでNV16に変換する
-        m_inputVideoInfo.csp = RGY_CSP_NV16;
+        nOutputCSP = RGY_CSP_NV16;
         output_csp_if_lossless = RGY_CSP_YUV444;
         break;
     case RGY_CSP_YUV422_09:
@@ -246,7 +246,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YUV422_16:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 4;
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでP210に変換する
-        m_inputVideoInfo.csp = RGY_CSP_P210;
+        nOutputCSP = RGY_CSP_P210;
         //m_inputVideoInfo.shiftも出力フォーマットに対応する値でなく入力フォーマットに対するものに
         m_inputVideoInfo.shift = 16 - RGY_CSP_BIT_DEPTH[m_InputCsp];
         output_csp_if_lossless = RGY_CSP_YUV444_16;
