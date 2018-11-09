@@ -909,6 +909,7 @@ std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
             if ((PTS + itcap->dwWaitTime * 90) <= m_timestamp.startPCR) {
                 AddMessage(RGY_LOG_DEBUG, _T("%d Caption skip\n"), captionList.size());
             } else {
+                //endTimeはstartTime同様、startPCRを基準とする
                 int64_t endTime = (PTS + itcap->dwWaitTime * 90) - m_timestamp.startPCR;
                 std::vector<AVPacket> pkts;
                 switch (m_format) {
@@ -1124,7 +1125,9 @@ std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
         if (bPushBack) {
             pCapLine->index            = 0;     //useless
             pCapLine->pts              = PTS;
+            //startTimeはstartPCRを基準とし、デバッグ用に用いる
             pCapLine->startTime        = (PTS > m_timestamp.startPCR) ? (DWORD)(PTS - m_timestamp.startPCR) : 0;
+            //endTimeは後で設定する
             pCapLine->endTime          = 0;
             pCapLine->outCharSizeMode  = (BYTE)workCharSizeMode;
             pCapLine->outCharW         = (WORD)(workCharW * ratioX);
@@ -1151,8 +1154,10 @@ std::vector<AVPacket> Caption2Ass::genAss(int64_t endTime) {
 
         AVPacket pkt;
         av_init_packet(&pkt);
+        //muxerには生のptsを伝達する
         pkt.pts = (*it)->pts;
         pkt.dts = (*it)->pts;
+        //startTime, endTimeは、startPCRを基準としているのでその差分は有効
         pkt.duration = (*it)->endTime - (*it)->startTime;
 
         auto it2 = (*it)->outStrings.begin();
