@@ -104,6 +104,10 @@ ffmpeg -y -i "<input>" <options for ffmpeg> -codec:a copy -codec:v rawvideo -pix
 
 显示可用的音频编解码器名
 
+### --check-profiles &lt;string&gt;
+
+显示指定的编码器可用的音频 profile 列表
+
 ### --check-formats
 
 显示可用的输出格式
@@ -296,6 +300,9 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 - 8 ... 8 bits (默认)
 - 10 ... 10 bits
 
+### --lossless
+进行无损输出。 (默认：关)
+
 ### --max-bitrate &lt;int&gt;
 最大码率，单位kbps。
 
@@ -475,6 +482,9 @@ hevc:  main, high
 示例: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
 
+### --pic-struct
+插入 Picture Timing SEI。
+
 ### --cabac [仅在 H.264 下有效]
 
 使用 CABAC. （默认：开）
@@ -486,10 +496,6 @@ hevc:  main, high
 ### --bluray [仅在 H.264 下有效]
 
 Bluray输出。（默认：关）
-
-### --lossless [仅在 H.264 下有效]
-
-无损输出. --profile high 444 将被自动指定.（默认：关）
 
 ### --(no-)deblock [仅在 H.264 下有效]
 
@@ -511,6 +517,11 @@ Bluray输出。（默认：关）
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 
 只编码指定范围内的帧。
+
+```
+示例1: --trim 0:1000,2000:3000    (编码第0~1000帧和2000~3000帧)
+示例2: --trim 2000:0              (编码第2000帧到最后)
+```
 
 ### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 
@@ -756,6 +767,16 @@ apple格式 (utf-8)
 --sub-copy 1,2
 ```
 
+### --caption2ass
+
+启用内部 caption2ass 处理。需要 Caption.dll。
+
+输出格式需要为 mkv。
+
+**支持格式**
+- ass (默认)
+- srt
+
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 
 为混流器传递附加参数。用&lt;string1&gt;指定参数名，用&lt;string2&gt;指定参数值。
@@ -884,6 +905,19 @@ Activate Auto Field Shift (AFS) deinterlacer.
 ```
 示例: same as --vpp-afs preset=24fps
 --vpp-afs preset=anime,method_switch=92,thre_shift=448,24fps=true
+```
+
+### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
+
+选取每隔特定数量的帧进行输出。
+
+**参数**
+- step=&lt;int&gt;
+- offset=&lt;int&gt; (默认：0)
+
+```
+示例一： (即 "select even"): --vpp-select-every 2
+示例二： (即 "select odd "): --vpp-select-every 2,offset=1
 ```
 
 ### --vpp-resize &lt;string&gt;
