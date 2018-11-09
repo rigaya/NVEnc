@@ -59,7 +59,7 @@ static const CX_DESC list_caption2ass_hlc[] ={
     { _T("invalid"), HLC_INVALID },
     { _T("kigou"),   HLC_kigou },
     { _T("box"),     HLC_box },
-    { _T("drwa"),    HLC_draw },
+    { _T("draw"),    HLC_draw },
     { NULL, 0 }
 };
 
