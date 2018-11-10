@@ -808,7 +808,7 @@ public:
         stream.caption2ass = m_cap2ass.format();
         return stream;
     }
-    RGY_ERR proc(uint8_t *buf, int buf_size, decltype(AVDemuxer::qStreamPktL1)& qStreamPkt) {
+    RGY_ERR proc(uint8_t *buf, size_t buf_size, decltype(AVDemuxer::qStreamPktL1)& qStreamPkt) {
         auto ret = RGY_ERR_NONE;
         if (buf_size == 0) {
             return ret;

@@ -1756,7 +1756,7 @@ RGY_ERR RGYOutputAvcodec::AddH264HeaderToExtraData(const RGYBitstream *pBitstrea
     const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
     const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
     if (header_check) {
-        m_Mux.video.pStreamOut->codecpar->extradata_size = h264_sps_nal->size + h264_pps_nal->size;
+        m_Mux.video.pStreamOut->codecpar->extradata_size = (int)(h264_sps_nal->size + h264_pps_nal->size);
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pStreamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(new_ptr, h264_sps_nal->ptr, h264_sps_nal->size);
         memcpy(new_ptr + h264_sps_nal->size, h264_pps_nal->ptr, h264_pps_nal->size);
@@ -1777,9 +1777,9 @@ RGY_ERR RGYOutputAvcodec::AddHEVCHeaderToExtraData(const RGYBitstream *pBitstrea
     const auto hevc_sei_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PREFIX_SEI; });
     const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
     if (header_check) {
-        m_Mux.video.pStreamOut->codecpar->extradata_size = hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size;
+        m_Mux.video.pStreamOut->codecpar->extradata_size = (int)(hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size);
         if (nal_list.end() != hevc_sei_nal) {
-            m_Mux.video.pStreamOut->codecpar->extradata_size += hevc_sei_nal->size;
+            m_Mux.video.pStreamOut->codecpar->extradata_size += (int)hevc_sei_nal->size;
         }
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.pStreamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(new_ptr, hevc_vps_nal->ptr, hevc_vps_nal->size);
@@ -2007,7 +2007,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *pBitstream) {
         //空いているmfxBistreamを取り出す
         if (!qVideoQueueFree.front_copy_and_pop_no_lock(&copyStream) || copyStream.bufsize() < pBitstream->size()) {
             //空いているmfxBistreamがない、あるいはそのバッファサイズが小さい場合は、領域を取り直す
-            const uint32_t allocate_bytes = pBitstream->size() * ((bFrameI | bFrameP) ? 2 : 8);
+            const auto allocate_bytes = pBitstream->size() * ((bFrameI | bFrameP) ? 2 : 8);
             if (RGY_ERR_NONE != copyStream.init(allocate_bytes)) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for video bitstream output buffer, %sB.\n"), allocate_bytes);
                 m_Mux.format.bStreamError = true;
@@ -2120,7 +2120,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         if (sps_nal != nal_list.end()) {
             AVPacket pkt = { 0 };
             av_init_packet(&pkt);
-            av_new_packet(&pkt, sps_nal->size);
+            av_new_packet(&pkt, (int)sps_nal->size);
             memcpy(pkt.data, sps_nal->ptr, sps_nal->size);
             int ret = 0;
             if (0 > (ret = av_bsf_send_packet(m_Mux.video.pBsfc, &pkt))) {
@@ -2137,14 +2137,14 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
                     char_to_tstring(m_Mux.video.pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            const int new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
-            const int sps_nal_offset = (int)(sps_nal->ptr - pBitstream->data());
-            const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-            const int next_nal_new_offset = sps_nal_offset + pkt.size;
-            const int stream_orig_length = pBitstream->size();
-            if ((int)pBitstream->bufsize() < new_data_size) {
+            const auto new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
+            const auto sps_nal_offset = sps_nal->ptr - pBitstream->data();
+            const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
+            const auto next_nal_new_offset = sps_nal_offset + pkt.size;
+            const auto stream_orig_length = pBitstream->size();
+            if ((decltype(new_data_size))pBitstream->bufsize() < new_data_size) {
                 pBitstream->changeSize(new_data_size);
-            } else if (pkt.size > (int)sps_nal->size) {
+            } else if (pkt.size > (decltype(pkt.size))sps_nal->size) {
                 pBitstream->trim();
             }
             memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
@@ -2155,9 +2155,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
 
     AVPacket pkt = { 0 };
     av_init_packet(&pkt);
-    av_new_packet(&pkt, pBitstream->size());
+    av_new_packet(&pkt, (int)pBitstream->size());
     memcpy(pkt.data, pBitstream->data(), pBitstream->size());
-    pkt.size = pBitstream->size();
+    pkt.size = (int)pBitstream->size();
 
     const AVRational fpsTimebase = av_inv_q(m_Mux.video.nFPS);
     const AVRational streamTimebase = m_Mux.video.pStreamOut->codec->pkt_timebase;
@@ -2188,7 +2188,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         const uint32_t frameType = pBitstream->frametype();
         const TCHAR *pFrameTypeStr =
             (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? _T("I") : (((pBitstream->frametype() & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
-        _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7d\n"), pFrameTypeStr, (lls)pBitstream->pts(), (lls)pBitstream->dts(), (lls)pts, (lls)dts, (int)duration, pBitstream->size());
+        _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pFrameTypeStr, (lls)pBitstream->pts(), (lls)pBitstream->dts(), (lls)pts, (lls)dts, (int)duration, pBitstream->size());
     }
     m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), pBitstream->avgQP());
 #if ENABLE_AVCODEC_OUT_THREAD

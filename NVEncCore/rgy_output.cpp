@@ -222,7 +222,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         return RGY_ERR_NULL_PTR;
     }
 
-    uint32_t nBytesWritten = 0;
+    size_t nBytesWritten = 0;
     if (!m_bNoOutput) {
 #if ENABLE_AVSW_READER
         if (m_pBsfc) {
@@ -236,7 +236,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             if (sps_nal != nal_list.end()) {
                 AVPacket pkt = { 0 };
                 av_init_packet(&pkt);
-                av_new_packet(&pkt, sps_nal->size);
+                av_new_packet(&pkt, (int)sps_nal->size);
                 memcpy(pkt.data, sps_nal->ptr, sps_nal->size);
                 int ret = 0;
                 if (0 > (ret = av_bsf_send_packet(m_pBsfc.get(), &pkt))) {
@@ -253,14 +253,14 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                         char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
-                const int new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
-                const int sps_nal_offset = (int)(sps_nal->ptr - pBitstream->data());
-                const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-                const int next_nal_new_offset = sps_nal_offset + pkt.size;
-                const int stream_orig_length = pBitstream->size();
-                if ((int)pBitstream->bufsize() < new_data_size) {
+                const auto new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
+                const auto sps_nal_offset = (int)(sps_nal->ptr - pBitstream->data());
+                const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
+                const auto next_nal_new_offset = sps_nal_offset + pkt.size;
+                const auto stream_orig_length = pBitstream->size();
+                if ((decltype(new_data_size))pBitstream->bufsize() < new_data_size) {
                     pBitstream->changeSize(new_data_size);
-                } else if (pkt.size > (int)sps_nal->size) {
+                } else if (pkt.size > sps_nal->size) {
                     pBitstream->trim();
                 }
                 memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
@@ -270,19 +270,19 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         }
 #endif //#if ENABLE_AVSW_READER
         if (m_seiNal.size()) {
-            std::vector<nal_info> nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+            const auto nal_list     = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
             const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
             const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
             const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
             if (header_check) {
-                nBytesWritten  = (uint32_t)_fwrite_nolock(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)_fwrite_nolock(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)_fwrite_nolock(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)_fwrite_nolock(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
+                nBytesWritten  = _fwrite_nolock(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
+                nBytesWritten += _fwrite_nolock(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
+                nBytesWritten += _fwrite_nolock(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
+                nBytesWritten += _fwrite_nolock(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
                 for (const auto& nal : nal_list) {
                     if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
-                        nBytesWritten += (uint32_t)_fwrite_nolock(nal.ptr, 1, nal.size, m_fDest.get());
+                        nBytesWritten += _fwrite_nolock(nal.ptr, 1, nal.size, m_fDest.get());
                     }
                 }
             } else {
@@ -291,7 +291,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             }
             m_seiNal.clear();
         } else {
-            nBytesWritten = (uint32_t)_fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+            nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
             WRITE_CHECK(nBytesWritten, pBitstream->size());
         }
     }

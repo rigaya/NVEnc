@@ -1913,7 +1913,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
                 const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
                 const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
                 if (header_check) {
-                    m_Demux.video.nExtradataSize = h264_sps_nal->size + h264_pps_nal->size;
+                    m_Demux.video.nExtradataSize = (int)(h264_sps_nal->size + h264_pps_nal->size);
                     uint8_t *new_ptr = (uint8_t *)av_malloc(m_Demux.video.nExtradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
                     memcpy(new_ptr, h264_sps_nal->ptr, h264_sps_nal->size);
                     memcpy(new_ptr + h264_sps_nal->size, h264_pps_nal->ptr, h264_pps_nal->size);
@@ -1929,7 +1929,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
                 const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
                 const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
                 if (header_check) {
-                    m_Demux.video.nExtradataSize = hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size;
+                    m_Demux.video.nExtradataSize = (int)(hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size);
                     uint8_t *new_ptr = (uint8_t *)av_malloc(m_Demux.video.nExtradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
                     memcpy(new_ptr, hevc_vps_nal->ptr, hevc_vps_nal->size);
                     memcpy(new_ptr + hevc_vps_nal->size, hevc_sps_nal->ptr, hevc_sps_nal->size);

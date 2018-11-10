@@ -634,7 +634,7 @@ void Caption2Ass::reset() {
 }
 
 //入力データがtsかどうかの判定
-bool Caption2Ass::isTS(const uint8_t *data, const int64_t data_size) const {
+bool Caption2Ass::isTS(const uint8_t *data, const size_t data_size) const {
     rgy_stream st;
     st.append(data, data_size);
     return FindStartOffset(st) == 0;
@@ -679,7 +679,7 @@ void Caption2Ass::printParam(int log_level) {
     AddMessage(log_level, _T(" srt ornament: %s\n"), m_srt.ornament ? _T("yes") : _T("no"));
 }
 
-RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size, std::vector<AVPacket>& subList) {
+RGY_ERR Caption2Ass::proc(const uint8_t *data, const size_t data_size, std::vector<AVPacket>& subList) {
     m_stream.append(data, data_size);
 
     if (m_streamSync) {

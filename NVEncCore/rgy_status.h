@@ -128,7 +128,7 @@ public:
         m_tmStart = std::chrono::system_clock::now();
         GetProcessTime(&m_sStartTime);
     }
-    void SetOutputData(RGY_FRAMETYPE picType, uint32_t outputBytes, uint32_t frameAvgQP) {
+    void SetOutputData(RGY_FRAMETYPE picType, uint64_t outputBytes, uint32_t frameAvgQP) {
         m_sData.outFileSize    += outputBytes;
         m_sData.frameOut       += 1;
         m_sData.frameOutIDR    += (picType & RGY_FRAMETYPE_IDR) >> 7;

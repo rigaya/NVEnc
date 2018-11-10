@@ -66,9 +66,9 @@ VideoInfo videooutputinfo(
 struct RGYBitstream {
 private:
     uint8_t *dataptr;
-    uint32_t dataLength;
-    uint32_t dataOffset;
-    uint32_t maxLength;
+    size_t dataLength;
+    size_t dataOffset;
+    size_t maxLength;
     int64_t  dataDts;
     int64_t  dataPts;
     uint32_t dataFlag;
@@ -126,27 +126,27 @@ public:
         dataFrameIdx = frameIdx;
     }
 
-    uint32_t size() const {
+    size_t size() const {
         return dataLength;
     }
 
-    void setSize(uint32_t size) {
+    void setSize(size_t size) {
         dataLength = size;
     }
 
-    uint32_t offset() const {
+    size_t offset() const {
         return dataOffset;
     }
 
-    void addOffset(uint32_t add) {
+    void addOffset(size_t add) {
         dataOffset += add;
     }
 
-    void setOffset(uint32_t offset) {
+    void setOffset(size_t offset) {
         dataOffset = offset;
     }
 
-    uint32_t bufsize() const {
+    size_t bufsize() const {
         return maxLength;
     }
 
@@ -184,7 +184,7 @@ public:
         maxLength = 0;
     }
 
-    RGY_ERR init(uint32_t nSize) {
+    RGY_ERR init(size_t nSize) {
         clear();
 
         if (nSize > 0) {
@@ -204,7 +204,7 @@ public:
         }
     }
 
-    RGY_ERR copy(const uint8_t *setData, uint32_t setSize) {
+    RGY_ERR copy(const uint8_t *setData, size_t setSize) {
         if (setData == nullptr || setSize == 0) {
             return RGY_ERR_MORE_BITSTREAM;
         }
@@ -221,7 +221,7 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR copy(const uint8_t *setData, uint32_t setSize, int64_t dts, int64_t pts) {
+    RGY_ERR copy(const uint8_t *setData, size_t setSize, int64_t dts, int64_t pts) {
         auto sts = copy(setData, setSize);
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -231,7 +231,7 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR ref(uint8_t *refData, uint32_t refSize) {
+    RGY_ERR ref(uint8_t *refData, size_t refSize) {
         clear();
         dataptr = refData;
         dataLength = refSize;
@@ -240,7 +240,7 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR ref(uint8_t *refData, uint32_t refSize, int64_t dts, int64_t pts) {
+    RGY_ERR ref(uint8_t *refData, size_t refSize, int64_t dts, int64_t pts) {
         auto sts = ref(refData, refSize);
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -258,7 +258,7 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR changeSize(uint32_t nNewSize) {
+    RGY_ERR changeSize(size_t nNewSize) {
         uint8_t *pData = (uint8_t *)_aligned_malloc(nNewSize, 32);
         if (pData == nullptr) {
             return RGY_ERR_NULL_PTR;
@@ -278,9 +278,9 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR append(const uint8_t *appendData, uint32_t appendSize) {
+    RGY_ERR append(const uint8_t *appendData, size_t appendSize) {
         if (appendData && appendSize > 0) {
-            const uint32_t new_data_length = appendSize + dataLength;
+            const auto new_data_length = appendSize + dataLength;
             if (maxLength < new_data_length) {
                 auto sts = changeSize(new_data_length);
                 if (sts != RGY_ERR_NONE) {

@@ -36,7 +36,7 @@
 struct nal_info {
     const uint8_t *ptr;
     uint8_t type;
-    uint32_t size;
+    size_t size;
 };
 
 enum : uint8_t {
@@ -69,53 +69,57 @@ enum : uint8_t {
     NALU_HEVC_SUFFIX_SEI = 40,
 };
 
-static std::vector<nal_info> parse_nal_unit_h264(const uint8_t *data, uint32_t size) {
+static std::vector<nal_info> parse_nal_unit_h264(const uint8_t *data, size_t size) {
     std::vector<nal_info> nal_list;
-    nal_info nal_start = { nullptr, 0, 0 };
-    const int i_fin = size - 3;
-    for (int i = 0; i < i_fin; i++) {
-        if (data[i+0] == 0 && data[i+1] == 0 && data[i+2] == 1) {
-            if (nal_start.ptr) {
-                nal_list.push_back(nal_start);
+    if (size > 3) {
+        nal_info nal_start = { nullptr, 0, 0 };
+        const auto i_fin = size - 3;
+        for (size_t i = 0; i < i_fin; i++) {
+            if (data[i+0] == 0 && data[i+1] == 0 && data[i+2] == 1) {
+                if (nal_start.ptr) {
+                    nal_list.push_back(nal_start);
+                }
+                nal_start.ptr = data + i - (i > 0 && data[i-1] == 0);
+                nal_start.type = data[i+3] & 0x1f;
+                nal_start.size = data + size - nal_start.ptr;
+                if (nal_list.size()) {
+                    auto prev = nal_list.end()-1;
+                    prev->size = nal_start.ptr - prev->ptr;
+                }
+                i += 3;
             }
-            nal_start.ptr = data + i - (i > 0 && data[i-1] == 0);
-            nal_start.type = data[i+3] & 0x1f;
-            nal_start.size = (int)(data + size - nal_start.ptr);
-            if (nal_list.size()) {
-                auto prev = nal_list.end()-1;
-                prev->size = (int)(nal_start.ptr - prev->ptr);
-            }
-            i += 3;
         }
-    }
-    if (nal_start.ptr) {
-        nal_list.push_back(nal_start);
+        if (nal_start.ptr) {
+            nal_list.push_back(nal_start);
+        }
     }
     return nal_list;
 }
 
-static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, uint32_t size) {
+static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, size_t size) {
     std::vector<nal_info> nal_list;
-    nal_info nal_start = { nullptr, 0, 0 };
-    const int i_fin = size - 3;
+    if (size > 3) {
+        nal_info nal_start = { nullptr, 0, 0 };
+        const auto i_fin = size - 3;
 
-    for (int i = 0; i < i_fin; i++) {
-        if (data[i+0] == 0 && data[i+1] == 0 && data[i+2] == 1) {
-            if (nal_start.ptr) {
-                nal_list.push_back(nal_start);
+        for (size_t i = 0; i < i_fin; i++) {
+            if (data[i+0] == 0 && data[i+1] == 0 && data[i+2] == 1) {
+                if (nal_start.ptr) {
+                    nal_list.push_back(nal_start);
+                }
+                nal_start.ptr = data + i - (i > 0 && data[i-1] == 0);
+                nal_start.type = (data[i+3] & 0x7f) >> 1;
+                nal_start.size = data + size - nal_start.ptr;
+                if (nal_list.size()) {
+                    auto prev = nal_list.end()-1;
+                    prev->size = nal_start.ptr - prev->ptr;
+                }
+                i += 3;
             }
-            nal_start.ptr = data + i - (i > 0 && data[i-1] == 0);
-            nal_start.type = (data[i+3] & 0x7f) >> 1;
-            nal_start.size = (int)(data + size - nal_start.ptr);
-            if (nal_list.size()) {
-                auto prev = nal_list.end()-1;
-                prev->size = (int)(nal_start.ptr - prev->ptr);
-            }
-            i += 3;
         }
-    }
-    if (nal_start.ptr) {
-        nal_list.push_back(nal_start);
+        if (nal_start.ptr) {
+            nal_list.push_back(nal_start);
+        }
     }
     return nal_list;
 }
