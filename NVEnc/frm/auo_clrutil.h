@@ -49,6 +49,11 @@ static size_t GetCHARfromString(char *chr, DWORD nSize, System::String^ str) {
     return str_len;
 }
 
+template <size_t size>
+int GetCHARfromString(char(&chr)[size], System::String^ str) {
+    return GetCHARfromString(chr, size, str);
+}
+
 static int CountStringBytes(System::String^ str) {
     return System::Text::Encoding::GetEncoding(L"Shift_JIS")->GetByteCount(str);
 }

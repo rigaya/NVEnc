@@ -766,6 +766,13 @@ static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
     return PARSE_ERROR_FLAG;
 }
 
+static const TCHAR *get_cx_desc(const CX_DESC * list, int v) {
+    for (int i = 0; list[i].desc; i++)
+        if (list[i].value == v)
+            return list[i].desc;
+    return nullptr;
+}
+
 struct VideoVUIInfo {
     int descriptpresent;
     int colorprim;
