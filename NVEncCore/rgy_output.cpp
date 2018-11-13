@@ -254,13 +254,13 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                     return RGY_ERR_UNKNOWN;
                 }
                 const auto new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
-                const auto sps_nal_offset = (int)(sps_nal->ptr - pBitstream->data());
+                const auto sps_nal_offset = sps_nal->ptr - pBitstream->data();
                 const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
                 const auto next_nal_new_offset = sps_nal_offset + pkt.size;
                 const auto stream_orig_length = pBitstream->size();
                 if ((decltype(new_data_size))pBitstream->bufsize() < new_data_size) {
                     pBitstream->changeSize(new_data_size);
-                } else if (pkt.size > sps_nal->size) {
+                } else if (pkt.size > (decltype(pkt.size))sps_nal->size) {
                     pBitstream->trim();
                 }
                 memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
