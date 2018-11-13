@@ -175,7 +175,7 @@ static const COVERT_FUNC_INFO FUNC_TABLE[] = {
     { CF_YC48, OUT_CSP_YUV444, BIT_8, A, 16,  SSE2,                 convert_yc48_to_yuv444_sse2_mod16 },
     { CF_YC48, OUT_CSP_YUV444, BIT_8, A,  1,  SSE2,                 convert_yc48_to_yuv444_sse2 },
     { CF_YC48, OUT_CSP_YUV444, BIT_8, A,  1,  NONE,                 convert_yc48_to_yuv444 },
-    
+
     //YC48 -> yuv444(10bit)
     { CF_YC48, OUT_CSP_YUV444, BIT10, A,  1,  NONE,                 convert_yc48_to_yuv444_10bit },
 
@@ -227,7 +227,7 @@ static void auo_write_func_info(const COVERT_FUNC_INFO *func_info) {
     switch (func_info->for_interlaced) {
         case P: interlaced = "p"; break;
         case I: interlaced = "i"; break;
-        case A: 
+        case A:
         default:interlaced = ""; break;
     }
     const char *bit_depth = "";
@@ -286,7 +286,7 @@ BOOL malloc_pixel_data(CONVERT_CF_DATA * const pixel_data, int width, int height
     const int to_yv12 = FALSE; // (output_csp == OUT_CSP_YV12);
     const DWORD pixel_size = (bit_depth > 8) ? sizeof(short) : sizeof(BYTE);
     const DWORD simd_check = get_availableSIMD();
-    const DWORD align_size = (simd_check & AUO_SIMD_SSE2) ? ((simd_check & AUO_SIMD_AVX2) ? (32<<to_yv12) : (16<<to_yv12)) : 1;
+    const DWORD align_size = (simd_check & AUO_SIMD_SSE2) ? ((simd_check & AUO_SIMD_AVX2) ? (64<<to_yv12) : (32<<to_yv12)) : 1;
 #define ALIGN_NEXT(i, align) (((i) + (align-1)) & (~(align-1))) //alignは2の累乗(1,2,4,8,16,32...)
     const DWORD frame_size = ALIGN_NEXT(width * height * pixel_size + (ALIGN_NEXT(width, align_size / pixel_size) - width) * 2 * pixel_size, align_size);
 #undef ALIGN_NEXT
