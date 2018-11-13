@@ -251,7 +251,7 @@ AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe) {
                     aud_p->buf_max_size = 0; //ここのmallocエラーは次の分岐でAUO_RESULT_ERRORに設定
             }
             void *data_ptr = NULL;
-            if (NULL == aud_p->buffer || 
+            if (NULL == aud_p->buffer ||
                 NULL == (data_ptr = oip->func_get_audio(aud_p->start, aud_p->get_length, &aud_p->get_length))) {
                 ret = AUO_RESULT_ERROR; //mallocエラーかget_audioのエラー
             } else {
@@ -407,7 +407,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         write_log_auo_line(LOG_ERROR, "どちらかを選択してからやり直してください。");
         return AUO_RESULT_ERROR;
     }
-    
+
     char exe_cmd[MAX_CMD_LEN] = { 0 };
     char exe_args[MAX_CMD_LEN] = { 0 };
     char exe_dir[MAX_PATH_LEN] = { 0 };
@@ -425,9 +425,6 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     PathGetDirectory(exe_dir, _countof(exe_dir), sys_dat->exstg->s_vid.fullpath);
 
     //output csp
-    if (enc_prm.lossless) {
-        enc_prm.yuv444 = true;
-    }
     const int output_csp = (enc_prm.yuv444) ? OUT_CSP_YUV444 : OUT_CSP_NV12;
     RGY_CSP rgy_output_csp;
     bool output_highbit_depth;
@@ -461,7 +458,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     pipes.stdIn.mode = AUO_PIPE_ENABLE;
     pipes.stdErr.mode = AUO_PIPE_ENABLE;
     pipes.stdIn.bufferSize = pixel_data.total_size * 2;
-    
+
     DWORD tm_start = timeGetTime();
     set_window_title("NVEnc エンコード", PROGRESSBAR_CONTINUOUS);
     log_process_events();
@@ -470,7 +467,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
     int *jitter = NULL;
     int rp_ret = 0;
-    
+
     if (conf->vid.afs && interlaced) {
         ret |= AUO_RESULT_ERROR; error_afs_interlace_stg();
     } else if (conf->vid.afs && NULL == (jitter = (int *)calloc(oip->n + 1, sizeof(int)))) {
@@ -608,12 +605,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
         if (!(ret & AUO_RESULT_ERROR) && afs)
             write_log_auo_line_fmt(LOG_INFO, "drop %d / %d frames", pe->drop_count, i);
-        
+
         write_log_auo_line_fmt(LOG_INFO, "CPU使用率: Aviutl: %.2f%% / NVEnc: %.2f%%", GetProcessAvgCPUUsage(pe->h_p_aviutl, &time_aviutl), GetProcessAvgCPUUsage(pi_enc.hProcess));
         write_log_auo_enc_time("NVEncエンコード時間", tm_vid_enc_fin - tm_vid_enc_start);
     }
     set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
-    
+
     if (jitter) free(jitter);
 
     return ret;
