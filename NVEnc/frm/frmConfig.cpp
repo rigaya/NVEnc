@@ -1332,6 +1332,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     GetCHARfromString(cnf->oth.batfile.before_audio, sizeof(cnf->oth.batfile.before_audio), fcgTXBatBeforeAudioPath->Text);
     GetCHARfromString(cnf->oth.batfile.after_audio,  sizeof(cnf->oth.batfile.after_audio),  fcgTXBatAfterAudioPath->Text);
 
+    GetfcgTSLSettingsNotes(cnf->oth.notes, sizeof(cnf->oth.notes));
+
     strcpy_s(cnf->nvenc.cmd, gen_cmd(&encPrm, codecPrm, true).c_str());
 
     return String(gen_cmd(&encPrm, codecPrm, false).c_str()).ToString();
