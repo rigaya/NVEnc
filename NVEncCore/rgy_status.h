@@ -103,14 +103,14 @@ public:
     }
 
     virtual void Init(uint32_t outputFPSRate, uint32_t outputFPSScale,
-        uint32_t totalOutputFrames, double totalDuration, const sTrimParam& trim,
+        uint32_t totalInputFrames, double totalDuration, const sTrimParam& trim,
         shared_ptr<RGYLog> pRGYLog, shared_ptr<CPerfMonitor> pPerfMonitor) {
         m_pause = false;
         m_pRGYLog = pRGYLog;
         m_pPerfMonitor = pPerfMonitor;
         m_sData.outputFPSRate = outputFPSRate;
         m_sData.outputFPSScale = outputFPSScale;
-        m_sData.frameTotal = totalOutputFrames;
+        m_sData.frameTotal = totalInputFrames;
         m_sData.totalDuration = totalDuration;
         if (trim.list.size() > 0 && trim.list.back().fin != TRIM_MAX) {
             //途中終了することになる
