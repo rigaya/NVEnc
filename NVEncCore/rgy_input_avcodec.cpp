@@ -2041,13 +2041,15 @@ HANDLE RGYInputAvcodec::getThreadHandleInput() {
 
 //出力する動画の情報をセット
 void RGYInputAvcodec::setOutputVideoInfo(int w, int h, int sar_x, int sar_y, bool mux) {
-    if (mux) {
-        m_cap2ass.setOutputResolution(w, h, sar_x, sar_y);
-        m_cap2ass.printParam(RGY_LOG_DEBUG);
-    } else {
-        //muxしないなら処理する必要はない
-        AddMessage(RGY_LOG_WARN, _T("caption2ass will be disabled as muxer is disabled.\n"));
-        m_cap2ass.disable();
+    if (m_cap2ass.enabled()) {
+        if (mux) {
+            m_cap2ass.setOutputResolution(w, h, sar_x, sar_y);
+            m_cap2ass.printParam(RGY_LOG_DEBUG);
+        } else {
+            //muxしないなら処理する必要はない
+            AddMessage(RGY_LOG_WARN, _T("caption2ass will be disabled as muxer is disabled.\n"));
+            m_cap2ass.disable();
+        }
     }
 }
 
