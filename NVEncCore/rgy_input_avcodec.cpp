@@ -1027,6 +1027,13 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         m_Demux.video.nHWDecodeDeviceId = -1;
         if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
             for (const auto& devCodecCsp : *input_prm->pHWDecCodecCsp) {
+                //VC-1では、pixelFormatがAV_PIX_FMT_NONEとなっている場合があるので、その場合は試しにAV_PIX_FMT_YUV420Pとして処理してみる
+                if (m_Demux.video.pStream->codecpar->codec_id == AV_CODEC_ID_VC1 && (AVPixelFormat)m_Demux.video.pStream->codecpar->format == AV_PIX_FMT_NONE) {
+                    AddMessage(RGY_LOG_WARN, _T("pixel format of input file reported as %s, will try decode as %s.\n"),
+                        char_to_tstring(av_get_pix_fmt_name(AV_PIX_FMT_NONE)).c_str(),
+                        char_to_tstring(av_get_pix_fmt_name((AVPixelFormat)m_Demux.video.pStream->codecpar->format)).c_str());
+                    m_Demux.video.pStream->codecpar->format = AV_PIX_FMT_YUV420P;
+                }
                 m_inputVideoInfo.codec = checkHWDecoderAvailable(
                     m_Demux.video.pStream->codecpar->codec_id, (AVPixelFormat)m_Demux.video.pStream->codecpar->format, &devCodecCsp.second);
                 if (m_inputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
