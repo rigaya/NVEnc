@@ -659,9 +659,15 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
         }
     }
 
-    if (ENCODER_NVENC
+    if ((ENCODER_NVENC
         && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
-        && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0) {
+        && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0)
+        || (ENCODER_VCEENC
+            && (pVideoOutputInfo->vui.format != 5
+                || pVideoOutputInfo->vui.colorprim != 2
+                || pVideoOutputInfo->vui.transfer != 2
+                || pVideoOutputInfo->vui.matrix != 2
+                || pVideoOutputInfo->vui.chromaloc != 0))) {
         const char *bsf_name = nullptr;
         switch (pVideoOutputInfo->codec) {
         case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
@@ -710,10 +716,34 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
         }
         AVDictionary *bsfPrm = nullptr;
         unique_ptr<AVDictionary*, decltype(&av_dict_free)> bsfPrmDictDeleter(&bsfPrm, av_dict_free);
-        char sar[128];
-        sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
-        av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
-        AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1], bsf_name);
+        if (ENCODER_NVENC) {
+            char sar[128];
+            sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
+            av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
+            AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1], bsf_name);
+        }
+        if (ENCODER_VCEENC) {
+            if (pVideoOutputInfo->vui.format != 5 /*undef*/) {
+                av_dict_set_int(&bsfPrm, "video_format", pVideoOutputInfo->vui.format, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set video_format %d by %s filter\n"), pVideoOutputInfo->vui.format, bsf_name);
+            }
+            if (pVideoOutputInfo->vui.colorprim != 2 /*undef*/) {
+                av_dict_set_int(&bsfPrm, "colour_primaries", pVideoOutputInfo->vui.colorprim, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set colorprim %d by %s filter\n"), pVideoOutputInfo->vui.colorprim, bsf_name);
+            }
+            if (pVideoOutputInfo->vui.transfer != 2 /*undef*/) {
+                av_dict_set_int(&bsfPrm, "transfer_characteristics", pVideoOutputInfo->vui.transfer, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set transfer %d by %s filter\n"), pVideoOutputInfo->vui.transfer, bsf_name);
+            }
+            if (pVideoOutputInfo->vui.matrix != 2 /*undef*/) {
+                av_dict_set_int(&bsfPrm, "matrix_coefficients", pVideoOutputInfo->vui.matrix, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), pVideoOutputInfo->vui.matrix, bsf_name);
+            }
+            if (pVideoOutputInfo->vui.chromaloc != 0) {
+                av_dict_set_int(&bsfPrm, "chroma_sample_loc_type", pVideoOutputInfo->vui.chromaloc, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), pVideoOutputInfo->vui.chromaloc, bsf_name);
+            }
+        }
         if (0 > (ret = av_opt_set_dict2(m_Mux.video.pBsfc, &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
