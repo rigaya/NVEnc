@@ -116,7 +116,6 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),
   [ttmath](http://www.ttmath.org/),
-  [dtl](https://github.com/cubicdaiya/dtl),
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR)を使用しています。  
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、NVEnc_license.txtをご覧ください。
 
