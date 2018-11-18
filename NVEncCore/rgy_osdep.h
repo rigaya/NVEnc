@@ -122,11 +122,13 @@ static inline void __cpuid(int cpuInfo[4], int param) {
     cpuInfo[3] = edx;
 }
 
+#if NO_XGETBV_INTRIN
 static inline unsigned long long _xgetbv(unsigned int index) {
   unsigned int eax, edx;
   __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
   return ((unsigned long long)edx << 32) | eax;
 }
+#endif
 
 #if NO_RDTSCP_INTRIN
 static inline uint64_t __rdtscp(uint32_t *Aux) {

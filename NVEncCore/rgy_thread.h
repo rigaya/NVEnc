@@ -31,6 +31,7 @@
 
 #include <thread>
 #include "rgy_osdep.h"
+#include "xmmintrin.h"
 
 static void RGY_FORCEINLINE sleep_hybrid(int count) {
     _mm_pause();

@@ -765,9 +765,9 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
             for (int i = 0; i < 78; i++) {
                 strFileHeadSep += _T("-");
             }
-            _ftprintf(m_Mux.video.fpTsLogFile, strFileHeadSep.c_str());
+            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), strFileHeadSep.c_str());
             _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), m_Mux.format.pFilename);
-            _ftprintf(m_Mux.video.fpTsLogFile, strFileHeadSep.c_str());
+            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), strFileHeadSep.c_str());
         }
     }
 

@@ -38,6 +38,7 @@
 #include <chrono>
 #include <memory>
 #include <vector>
+#include <cmath>
 #include <algorithm>
 #include "rgy_log.h"
 #include "cpu_info.h"
@@ -409,7 +410,7 @@ protected:
             memcpy(mes, header, header_len * sizeof(mes[0]));
             mes_len += header_len;
 
-            for (int i = (std::max)(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++) {
+            for (int i = (std::max)(0, (int)std::log10((double)count)); i < (int)std::log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++) {
                 mes[mes_len] = _T(' ');
             }
             mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%u"), count);
@@ -423,7 +424,7 @@ protected:
                 memcpy(mes + mes_len, TOTAL_SIZE, _tcslen(TOTAL_SIZE) * sizeof(mes[0]));
                 mes_len += (int)_tcslen(TOTAL_SIZE);
 
-                for (int i = (std::max)(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++) {
+                for (int i = (std::max)(0, (int)std::log10((double)frameSize / (double)(1024 * 1024))); i < (int)std::log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++) {
                     mes[mes_len] = _T(' ');
                 }
 

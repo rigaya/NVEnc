@@ -31,10 +31,10 @@
 #define USE_AVX   1
 #define USE_AVX2  1
 
+#include <immintrin.h>
 #include "rgy_simd.h"
 #include <stdint.h>
 #include <string.h>
-#include <immintrin.h>
 #include "convert_csp.h"
 
 #if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
