@@ -1099,7 +1099,7 @@ struct rgy_time {
         m = (int)(min - h * 60);
     }
     int64_t in_sec() {
-        return (((int64_t)h * 60 + m) * 60 + s + ((ms + ((us >= 500) ? 1 : 0)) >= 500) ? 1 : 0);
+        return (((int64_t)h * 60 + m) * 60 + s + (((ms + ((us >= 500) ? 1 : 0)) >= 500) ? 1 : 0));
     };
     int64_t in_ms() {
         return (((int64_t)h * 60 + m) * 60 + s) * 1000 + ms + ((us >= 500) ? 1 : 0);
