@@ -652,20 +652,12 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputParam->input.sar[1] = inputParamCopy.sar[1];
     }
 
-    double inputFileDuration = 0.0;
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
     auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-    if (pAVCodecReader) {
-        inputFileDuration = pAVCodecReader->GetInputVideoDuration();
-        if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
-            //avsync vfr時は、入力streamのtimebaseをそのまま使用する
-            m_outputTimebase = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
-        }
-    }
-    auto outputFps = m_inputFps;
-    if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
-        outputFps *= 2;
+    if (pAVCodecReader && (m_nAVSyncMode & RGY_AVSYNC_VFR)) {
+        //avsync vfr時は、入力streamのtimebaseをそのまま使用する
+        m_outputTimebase = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
     }
 
     //trim情報の作成
@@ -685,12 +677,6 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_trimParam.list[i].start, m_trimParam.list[i].fin);
         }
         PrintMes(RGY_LOG_DEBUG, _T(" (offset: %d)\n"), m_trimParam.offset);
-    }
-
-    m_pStatus->Init(outputFps.n(), outputFps.d(), inputParam->input.frames, inputFileDuration, m_trimParam, m_pNVLog, m_pPerfMonitor);
-
-    if (inputParam->nPerfMonitorSelect || inputParam->nPerfMonitorSelectMatplot) {
-        m_pPerfMonitor->SetEncStatus(m_pStatus);
     }
 
 #if ENABLE_AVSW_READER
@@ -792,6 +778,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         inputParams->nAVMux |= RGY_MUX_VIDEO;
     }
 
+    double inputFileDuration = 0.0;
     { auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             //caption2ass用の解像度情報の提供
@@ -799,7 +786,13 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
             pAVCodecReader->setOutputVideoInfo(m_uEncWidth, m_uEncHeight,
                 m_sar.n(), m_sar.d(),
                 (inputParams->nAVMux & RGY_MUX_VIDEO) != 0);
+            inputFileDuration = pAVCodecReader->GetInputVideoDuration();
         }
+    }
+
+    m_pStatus->Init(m_encFps.n(), m_encFps.d(), inputParams->input.frames, inputFileDuration, m_trimParam, m_pNVLog, m_pPerfMonitor);
+    if (inputParams->nPerfMonitorSelect || inputParams->nPerfMonitorSelectMatplot) {
+        m_pPerfMonitor->SetEncStatus(m_pStatus);
     }
 
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
