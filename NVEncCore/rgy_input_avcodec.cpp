@@ -785,7 +785,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
     }
 
 #if USE_CUSTOM_INPUT
-    if (m_Demux.format.bIsPipe || (!usingAVProtocols(filename_char, 0) || !(pInFormat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE)))) {
+    if (m_Demux.format.bIsPipe || (!usingAVProtocols(filename_char, 0) && (pInFormat == nullptr || !(pInFormat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))))) {
         if (0 == _tcscmp(strFileName, _T("-"))) {
             m_Demux.format.fpInput = stdin;
         } else {
