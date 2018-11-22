@@ -858,6 +858,17 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
 
             for (auto& stream : streamList) {
                 bool bStreamIsSubtitle = stream.nTrackId < 0;
+                //audio-fileで別ファイルとして抽出するものは除く
+                bool usedInAudioFile = false;
+                for (int i = 0; i < (int)inputParams->nAudioSelectCount; i++) {
+                    if (stream.nTrackId == inputParams->ppAudioSelectList[i]->nAudioSelect
+                        && inputParams->ppAudioSelectList[i]->pAudioExtractFilename != nullptr) {
+                        usedInAudioFile = true;
+                    }
+                }
+                if (usedInAudioFile) {
+                    continue;
+                }
                 const sAudioSelect *pAudioSelect = nullptr;
                 for (int i = 0; i < (int)inputParams->nAudioSelectCount; i++) {
                     if (stream.nTrackId == inputParams->ppAudioSelectList[i]->nAudioSelect
@@ -967,7 +978,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                 PrintMes(RGY_LOG_DEBUG, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
                     audioTrack.nTrackId, audioTrack.nIndex, pAudioSelect->pAudioExtractFilename, pAudioSelect->pAudioExtractFormat, pAudioSelect->pAVAudioEncodeCodec, pAudioSelect->nAVAudioEncodeBitrate);
 
-                AVOutputStreamPrm prm;
+                AVOutputStreamPrm prm = { 0 };
                 prm.src = audioTrack;
                 //pAudioSelect == nullptrは "copyAll" によるもの
                 prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
@@ -989,7 +1000,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                 writerAudioPrm.rBitstreamTimebase = av_make_q(m_outputTimebase);
 
                 shared_ptr<RGYOutput> pWriter = std::make_shared<RGYOutputAvcodec>();
-                sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &outputVideoInfo, &writerAudioPrm, m_pNVLog, m_pStatus);
+                sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, nullptr, &writerAudioPrm, m_pNVLog, m_pStatus);
                 if (sts != 0) {
                     PrintMes(RGY_LOG_ERROR, pWriter->GetOutputMessage());
                     return NV_ENC_ERR_GENERIC;
