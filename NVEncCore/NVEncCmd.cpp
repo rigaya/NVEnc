@@ -2853,6 +2853,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nPerfMonitorInterval = std::max(50, v);
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("session-retry"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < 0) {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->sessionRetry = value;
+        return 0;
+    }
     tstring mes = _T("Unknown option: --");
     mes += option_name;
     SET_ERR(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);
@@ -3547,6 +3561,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
     }
     OPT_NUM(_T("--perf-monitor-interval"), nPerfMonitorInterval);
+    OPT_NUM(_T("--session-retry"), sessionRetry);
     return cmd.str();
 }
 #pragma warning (pop)

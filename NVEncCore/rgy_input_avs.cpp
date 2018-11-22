@@ -158,49 +158,78 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     }
     AddMessage(RGY_LOG_DEBUG, _T("found video from avs file, pixel type 0x%x.\n"), m_sAVSinfo->pixel_type);
 
-    const RGY_CSP prefered_csp = (m_inputVideoInfo.csp != RGY_CSP_NA) ? m_inputVideoInfo.csp : RGY_CSP_NV12;
-
     struct CSPMap {
         int fmtID;
         RGY_CSP in, out;
+        constexpr CSPMap(int fmt, RGY_CSP i, RGY_CSP o) : fmtID(fmt), in(i), out(o) {};
     };
 
-    const std::vector<CSPMap> valid_csp_list = {
-        { AVS_CS_YV12,       RGY_CSP_YV12,      prefered_csp },
-        { AVS_CS_I420,       RGY_CSP_YV12,      prefered_csp },
-        { AVS_CS_IYUV,       RGY_CSP_YV12,      prefered_csp },
-        { AVS_CS_YUY2,       RGY_CSP_YUY2,      prefered_csp },
-        { AVS_CS_YV16,       RGY_CSP_YUV422,    RGY_CSP_NV16 },
-        { AVS_CS_YV24,       RGY_CSP_YUV444,    prefered_csp },
-        { AVS_CS_YUV420P10,  RGY_CSP_YV12_10,   prefered_csp },
-        { AVS_CS_YUV422P10,  RGY_CSP_YUV422_10, RGY_CSP_P210 },
-        { AVS_CS_YUV444P10,  RGY_CSP_YUV444_10, prefered_csp },
-        { AVS_CS_YUV420P12,  RGY_CSP_YV12_12,   prefered_csp },
-        { AVS_CS_YUV422P12,  RGY_CSP_YUV422_12, RGY_CSP_P210 },
-        { AVS_CS_YUV444P12,  RGY_CSP_YUV444_12, prefered_csp },
-        { AVS_CS_YUV420P14,  RGY_CSP_YV12_14,   prefered_csp },
-        { AVS_CS_YUV422P14,  RGY_CSP_YUV422_14, RGY_CSP_P210 },
-        { AVS_CS_YUV444P14,  RGY_CSP_YUV444_14, prefered_csp },
-        { AVS_CS_YUV420P16,  RGY_CSP_YV12_16,   prefered_csp },
-        { AVS_CS_YUV422P16,  RGY_CSP_YUV422_16, RGY_CSP_P210 },
-        { AVS_CS_YUV444P16,  RGY_CSP_YUV444_16, prefered_csp },
-        { AVS_CS_BGR24,      RGY_CSP_RGB24R,    RGY_CSP_RGB32 },
-        { AVS_CS_BGR32,      RGY_CSP_RGB32R,    RGY_CSP_RGB32 },
-    };
+    static constexpr auto valid_csp_list = make_array<CSPMap>(
+        CSPMap( AVS_CS_YV12,       RGY_CSP_YV12,      RGY_CSP_NV12 ),
+        CSPMap( AVS_CS_I420,       RGY_CSP_YV12,      RGY_CSP_NV12 ),
+        CSPMap( AVS_CS_IYUV,       RGY_CSP_YV12,      RGY_CSP_NV12 ),
+        CSPMap( AVS_CS_YUV420P10,  RGY_CSP_YV12_10,   RGY_CSP_P010 ),
+        CSPMap( AVS_CS_YUV420P12,  RGY_CSP_YV12_12,   RGY_CSP_P010 ),
+        CSPMap( AVS_CS_YUV420P14,  RGY_CSP_YV12_14,   RGY_CSP_P010 ),
+        CSPMap( AVS_CS_YUV420P16,  RGY_CSP_YV12_16,   RGY_CSP_P010 ),
+        CSPMap( AVS_CS_YUY2,       RGY_CSP_YUY2,      RGY_CSP_NV16 ),
+#if !ENCODER_VCEENC
+        CSPMap( AVS_CS_YV16,       RGY_CSP_YUV422,    RGY_CSP_NV16 ),
+        CSPMap( AVS_CS_YUV422P10,  RGY_CSP_YUV422_10, RGY_CSP_P210 ),
+        CSPMap( AVS_CS_YUV422P12,  RGY_CSP_YUV422_12, RGY_CSP_P210 ),
+        CSPMap( AVS_CS_YUV422P14,  RGY_CSP_YUV422_14, RGY_CSP_P210 ),
+        CSPMap( AVS_CS_YUV422P16,  RGY_CSP_YUV422_16, RGY_CSP_P210 ),
+#endif
+        CSPMap( AVS_CS_YV24,       RGY_CSP_YUV444,    RGY_CSP_YUV444 ),
+        CSPMap( AVS_CS_YUV444P10,  RGY_CSP_YUV444_10, RGY_CSP_YUV444_16 ),
+        CSPMap( AVS_CS_YUV444P12,  RGY_CSP_YUV444_12, RGY_CSP_YUV444_16 ),
+        CSPMap( AVS_CS_YUV444P14,  RGY_CSP_YUV444_14, RGY_CSP_YUV444_16 ),
+        CSPMap( AVS_CS_YUV444P16,  RGY_CSP_YUV444_16, RGY_CSP_YUV444_16 ),
+        CSPMap( AVS_CS_BGR24,      RGY_CSP_RGB24R,    RGY_CSP_RGB32 ),
+        CSPMap( AVS_CS_BGR32,      RGY_CSP_RGB32R,    RGY_CSP_RGB32 )
+    );
 
+    const RGY_CSP prefered_csp = m_inputVideoInfo.csp;
     m_InputCsp = RGY_CSP_NA;
-    for (auto csp : valid_csp_list) {
+    for (const auto& csp : valid_csp_list) {
         if (csp.fmtID == m_sAVSinfo->pixel_type) {
             m_InputCsp = csp.in;
-            m_inputVideoInfo.csp = csp.out;
-            m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
+            if (prefered_csp == RGY_CSP_NA) {
+                //ロスレスの場合は、入力側で出力フォーマットを決める
+                m_inputVideoInfo.csp = csp.out;
+            } else {
+                m_inputVideoInfo.csp = (get_convert_csp_func(m_InputCsp, prefered_csp, false) != nullptr) ? prefered_csp : csp.out;
+                //なるべく軽いフォーマットでGPUに転送するように
+                if (ENCODER_NVENC
+                    && RGY_CSP_BIT_PER_PIXEL[csp.out] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]
+                    && get_convert_csp_func(m_InputCsp, csp.out, false) != nullptr) {
+                    m_inputVideoInfo.csp = csp.out;
+                }
+            }
+            m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
+            if (m_sConvert == nullptr && m_InputCsp == RGY_CSP_YUY2) {
+                //YUY2用の特別処理
+                m_inputVideoInfo.csp = RGY_CSP_CHROMA_FORMAT[csp.out] == RGY_CHROMAFMT_YUV420 ? RGY_CSP_NV12 : RGY_CSP_YUV444;
+                m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
+            }
             break;
         }
     }
 
-    if (m_InputCsp == RGY_CSP_NA || m_sConvert == nullptr) {
+    if (m_InputCsp == RGY_CSP_NA) {
         AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
+    if (m_sConvert == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
+            RGY_CSP_NAMES[m_InputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
+        return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
+
+    if (m_inputVideoInfo.csp != prefered_csp) {
+        //入力フォーマットを変えた場合、m_inputVideoInfo.shiftは、出力フォーマットに対応する値ではなく、
+        //入力フォーマットに対応する値とする必要がある
+        m_inputVideoInfo.shift = (RGY_CSP_BIT_DEPTH[m_InputCsp] > 8) ? 16 - RGY_CSP_BIT_DEPTH[m_InputCsp] : 0;
     }
 
     m_inputVideoInfo.srcWidth = m_sAVSinfo->width;

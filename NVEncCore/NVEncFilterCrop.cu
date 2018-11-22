@@ -450,7 +450,7 @@ __global__ void kernel_crop_uv_nv16_nv12_p(uint8_t *__restrict__ pDstC, const in
         int isrc = isrc_y_nv16 * srcPitch + (uv_x + (offsetX >> 1)) * sizeof(TypeIn) * 2; //nv16
 
         struct TypeIn2 { TypeIn a, b; };
-        const TypeIn2 *ptr_src_0 = (const TypeIn2 *)(pSrc + isrc +        0); 
+        const TypeIn2 *ptr_src_0 = (const TypeIn2 *)(pSrc + isrc +        0);
         const TypeIn2 *ptr_src_1 = (const TypeIn2 *)(pSrc + isrc + srcPitch);
         TypeIn2 src0 = *ptr_src_0; //u,v 2要素ロード
         TypeIn2 src1 = *ptr_src_1; //下のu,v 2要素ロード
@@ -545,6 +545,20 @@ void crop_uv_yuv444_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, 
             ptrC, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
             ptrU, ptrV, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
     }
+}
+
+template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
+void crop_uv_yuv444_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop) {
+    FrameInfo frameOutU = *pOutputFrame;
+    FrameInfo frameOutV = *pOutputFrame;
+    FrameInfo frameInU = *pInputFrame;
+    FrameInfo frameInV = *pInputFrame;
+    frameOutU.ptr += frameOutU.pitch * frameOutU.height;
+    frameOutV.ptr += frameOutV.pitch * frameOutV.height * 2;
+    frameInU.ptr  += frameInU.pitch  * frameInU.height;
+    frameInV.ptr  += frameInV.pitch  * frameInV.height  * 2;
+    crop_y<TypeOut, out_bit_depth, TypeIn, in_bit_depth>(&frameOutU, &frameInU, pCrop);
+    crop_y<TypeOut, out_bit_depth, TypeIn, in_bit_depth>(&frameOutV, &frameInV, pCrop);
 }
 
 static __device__ float3 rgb_2_yuv(float3 rgb) {
@@ -1093,6 +1107,19 @@ NVENCSTATUS NVEncFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, co
         { RGY_CSP_2(RGY_CSP_YUV444_14, RGY_CSP_P010).i, crop_uv_yuv444_nv12<uint16_t, 14, uint16_t, 16> },
         { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_NV12).i, crop_uv_yuv444_nv12<uint16_t, 16, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_P010).i, crop_uv_yuv444_nv12<uint16_t, 16, uint16_t, 16> },
+
+        { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_YUV444).i,    crop_uv_yuv444_yuv444<uint8_t,   8, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_YUV444_16).i, crop_uv_yuv444_yuv444<uint8_t,   8, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_09, RGY_CSP_YUV444).i,    crop_uv_yuv444_yuv444<uint16_t,  9, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_09, RGY_CSP_YUV444_16).i, crop_uv_yuv444_yuv444<uint16_t,  9, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_10, RGY_CSP_YUV444).i,    crop_uv_yuv444_yuv444<uint16_t, 10, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_10, RGY_CSP_YUV444_16).i, crop_uv_yuv444_yuv444<uint16_t, 10, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_12, RGY_CSP_YUV444).i,    crop_uv_yuv444_yuv444<uint16_t, 12, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_12, RGY_CSP_YUV444_16).i, crop_uv_yuv444_yuv444<uint16_t, 12, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_14, RGY_CSP_YUV444).i,    crop_uv_yuv444_yuv444<uint16_t, 14, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_14, RGY_CSP_YUV444_16).i, crop_uv_yuv444_yuv444<uint16_t, 14, uint16_t, 16> },
+        { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_YUV444).i,    crop_uv_yuv444_yuv444<uint16_t, 16, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_YUV444_16, RGY_CSP_YUV444_16).i, crop_uv_yuv444_yuv444<uint16_t, 16, uint16_t, 16> },
     };
     const auto cspconv = RGY_CSP_2(pInputFrame->csp, pOutputFrame->csp);
     if (convert_from_yuv444_list.count(cspconv.i) == 0) {

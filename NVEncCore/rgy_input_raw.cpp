@@ -270,7 +270,10 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     AddMessage(RGY_LOG_DEBUG, _T("%dx%d, pitch:%d, bufferSize:%d.\n"), m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcPitch, bufferSize);
 
     if (nOutputCSP != RGY_CSP_NA) {
-        m_inputVideoInfo.csp = nOutputCSP;
+        m_inputVideoInfo.csp =
+            (ENCODER_NVENC
+                && RGY_CSP_BIT_PER_PIXEL[m_InputCsp] < RGY_CSP_BIT_PER_PIXEL[nOutputCSP])
+            ? output_csp_if_lossless : nOutputCSP;
     } else {
         //ロスレスの場合は、入力側で出力フォーマットを決める
         m_inputVideoInfo.csp = output_csp_if_lossless;
