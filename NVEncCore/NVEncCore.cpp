@@ -1726,7 +1726,7 @@ NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType) {
+NVENCSTATUS NVEncCore::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType, const int sessionRetry) {
     NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS openSessionExParams;
     INIT_CONFIG(openSessionExParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS);
 
@@ -1735,17 +1735,26 @@ NVENCSTATUS NVEncCore::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
     openSessionExParams.reserved = NULL;
     openSessionExParams.apiVersion = NVENCAPI_VERSION;
 
+    static const int retry_millisec = 500;
+    static const int retry_max = sessionRetry * 1000 / retry_millisec;
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder))) {
-        NVPrintFuncError(_T("nvEncOpenEncodeSessionEx"), nvStatus);
-        if (nvStatus == NV_ENC_ERR_OUT_OF_MEMORY) {
+    for (int retry = 0; NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder)); retry++) {
+        if (nvStatus != NV_ENC_ERR_OUT_OF_MEMORY) {
+            NVPrintFuncError(_T("nvEncOpenEncodeSessionEx"), nvStatus);
+            break;
+        }
+        if (retry >= retry_max) {
             PrintMes(RGY_LOG_ERROR,
                 FOR_AUO ? _T("このエラーはメモリが不足しているか、同時にNVEncで3ストリーム以上エンコードしようとすると発生することがあります。\n")
                           _T("Geforceでは、NVIDIAのドライバの制限により3ストリーム以上の同時エンコードが行えません。\n")
                         : _T("This error might occur when shortage of memory, or when trying to encode more than 2 streams by NVEnc.\n")
                           _T("In Geforce, simultaneous encoding is limited up to 2, due to the NVIDIA's driver limitation.\n"));
+            break;
         }
-        return nvStatus;
+        if ((retry % (10 * 1000 / retry_millisec)) == 0) {
+            PrintMes(RGY_LOG_INFO, _T("Waiting for other encode to finish...\n"));
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(retry_millisec));
     }
 
     return nvStatus;
@@ -3319,7 +3328,7 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x): Success.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
 
-    if (NV_ENC_SUCCESS != (nvStatus = NvEncOpenEncodeSessionEx(m_pDevice, NV_ENC_DEVICE_TYPE_CUDA))) {
+    if (NV_ENC_SUCCESS != (nvStatus = NvEncOpenEncodeSessionEx(m_pDevice, NV_ENC_DEVICE_TYPE_CUDA, inputParam->sessionRetry))) {
         NVPrintFuncError(_T("NvEncOpenEncodeSessionEx(device_type=NV_ENC_DEVICE_TYPE_CUDA)"), nvStatus);
         return nvStatus;
     }

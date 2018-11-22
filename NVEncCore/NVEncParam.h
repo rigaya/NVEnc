@@ -865,6 +865,7 @@ struct InEncodeVideoParam {
     int64_t nPerfMonitorSelectMatplot;
     int     nPerfMonitorInterval;
     int     nCudaSchedule;
+    int sessionRetry;
     void *pPrivatePrm;
 
     InEncodeVideoParam();

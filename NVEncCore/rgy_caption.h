@@ -71,7 +71,7 @@ static const CX_DESC list_caption2ass_hlc[] ={
     private: \
         x pf ## x; \
     public: \
-        const x f_ ## x() { return pf ## x; };
+        x f_ ## x() { return pf ## x; }
 
 class CaptionDLL {
 public:
