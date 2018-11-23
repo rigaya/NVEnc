@@ -660,10 +660,12 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         m_outputTimebase = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
     }
 
-    //trim情報の作成
-    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN
-        && inputParam->nTrimCount > 0) {
-        //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
+    if (
+#if ENABLE_AVSW_READER
+        std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader) == nullptr &&
+#endif
+        inputParam->pTrimList && inputParam->nTrimCount > 0) {
+        //avhw/avswリーダー以外は、trimは自分ではセットされないので、ここでセットする
         sTrimParam trimParam;
         trimParam.list = make_vector(inputParam->pTrimList, inputParam->nTrimCount);
         trimParam.offset = 0;
