@@ -113,6 +113,8 @@ RGY_ERR RGYInputAvs::load_avisynth() {
     return RGY_ERR_NONE;
 }
 
+#pragma warning(push)
+#pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
@@ -199,6 +201,10 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 m_inputVideoInfo.csp = csp.out;
             } else {
                 m_inputVideoInfo.csp = (get_convert_csp_func(m_InputCsp, prefered_csp, false) != nullptr) ? prefered_csp : csp.out;
+                //QSVではNV16->P010がサポートされていない
+                if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
+                    m_inputVideoInfo.csp = RGY_CSP_P210;
+                }
                 //なるべく軽いフォーマットでGPUに転送するように
                 if (ENCODER_NVENC
                     && RGY_CSP_BIT_PER_PIXEL[csp.out] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]
@@ -252,6 +258,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
+#pragma warning(pop)
 
 void RGYInputAvs::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));

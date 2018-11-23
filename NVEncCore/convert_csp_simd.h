@@ -175,7 +175,7 @@ static void __forceinline convert_yuy2_to_nv12_simd(void **dst, const void **src
             //-----------1行目---------------
             x0 = _mm_loadu_si128((const __m128i *)(p+ 0));
             x1 = _mm_loadu_si128((const __m128i *)(p+16));
-            
+
             separate_low_up(x0, x1);
             x3 = x1;
 
@@ -185,7 +185,7 @@ static void __forceinline convert_yuy2_to_nv12_simd(void **dst, const void **src
             //-----------2行目---------------
             x0 = _mm_loadu_si128((const __m128i *)(pw+ 0));
             x1 = _mm_loadu_si128((const __m128i *)(pw+16));
-            
+
             separate_low_up(x0, x1);
 
             _mm_store_si128((__m128i *)(dstYLine + dst_y_pitch_byte + x), x0);
@@ -701,6 +701,65 @@ static void __forceinline convert_yv12_high_to_p010_simd(void **dst, const void 
     }
 }
 
+static void __forceinline convert_yuv422_to_p210_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte;
+    const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    //Y成分のコピー
+    uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch * crop_up + crop_left;
+    uint16_t *dstLine = (uint16_t *)dst[0];
+    const int y_fin = height - crop_bottom;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
+        uint8_t *src_ptr = srcYLine;
+        uint16_t *dst_ptr = dstLine;
+        for (int x = 0; x < y_width; x += 16, dst_ptr += 16, src_ptr += 16) {
+            __m128i x0, x1;
+            x0 = _mm_loadu_si128((const __m128i *)src_ptr);
+            x1 = _mm_unpackhi_epi8(_mm_setzero_si128(), x0);
+            x0 = _mm_unpacklo_epi8(_mm_setzero_si128(), x0);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 0), x0);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 8), x1);
+        }
+    }
+    //UV成分のコピー
+    const int src_uv_pitch = src_uv_pitch_byte;
+    uint8_t *srcULine = (uint8_t *)src[1] + (((src_uv_pitch * crop_up) + crop_left) >> 1);
+    uint8_t *srcVLine = (uint8_t *)src[2] + (((src_uv_pitch * crop_up) + crop_left) >> 1);
+    dstLine = (uint16_t *)dst[1];
+    const int uv_fin = height - crop_bottom;
+    for (int y = crop_up; y < uv_fin; y++, srcULine += src_uv_pitch, srcVLine += src_uv_pitch, dstLine += dst_y_pitch) {
+        const int x_fin = width - crop_right;
+        uint8_t *src_u_ptr = srcULine;
+        uint8_t *src_v_ptr = srcVLine;
+        uint16_t *dst_ptr = dstLine;
+        __m128i x0, x1, x2, x3, x4;
+        for (int x = crop_left; x < x_fin; x += 16, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 32) {
+            x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
+            x1 = _mm_loadu_si128((const __m128i *)src_v_ptr);
+            x2 = _mm_unpackhi_epi8(_mm_setzero_si128(), x0);
+            x0 = _mm_unpacklo_epi8(_mm_setzero_si128(), x0);
+            x3 = _mm_unpackhi_epi8(_mm_setzero_si128(), x1);
+            x1 = _mm_unpacklo_epi8(_mm_setzero_si128(), x1);
+
+            x4 = _mm_unpackhi_epi16(x0, x1);
+            x0 = _mm_unpacklo_epi16(x0, x1);
+
+            _mm_storeu_si128((__m128i *)(dst_ptr +  0), x0);
+            _mm_storeu_si128((__m128i *)(dst_ptr +  8), x4);
+
+            x4 = _mm_unpackhi_epi16(x2, x3);
+            x0 = _mm_unpacklo_epi16(x2, x3);
+
+            _mm_storeu_si128((__m128i *)(dst_ptr + 16), x0);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 24), x4);
+        }
+    }
+}
+
 template<int in_bit_depth>
 static void __forceinline convert_yuv422_high_to_p210_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
@@ -1053,7 +1112,7 @@ static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m12
 
                                                         //select uv
     xMask = _mm_srli_si128(_mm_cmpeq_epi8(xMask, xMask), 8); //0x00000000, 0x00000000, 0xffffffff, 0xffffffff
-    x6 = select_by_mask(_mm_srli_si128(x1, 2), _mm_srli_si128(x2, 2), xMask); //x  x v4 u4 v6 u6 x  x 
+    x6 = select_by_mask(_mm_srli_si128(x1, 2), _mm_srli_si128(x2, 2), xMask); //x  x v4 u4 v6 u6 x  x
     x7 = select_by_mask(x0, x1, xMask);               //x  x  v1 u1 v3 u3 x  x
     xMask = _mm_slli_si128(xMask, 4);                 //0x00000000, 0xffffffff, 0xffffffff, 0x00000000
     x0 = _mm_alignr_epi8_simd(x1, x0, 2);             //v2 u2  x  x  x  x v0 u0

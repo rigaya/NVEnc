@@ -695,6 +695,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 
 #pragma warning(push)
 #pragma warning(disable:4100)
+#pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)prm;
 
@@ -1341,6 +1342,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 m_inputVideoInfo.csp = pixfmtData->output_csp;
             } else {
                 m_inputVideoInfo.csp = (get_convert_csp_func(m_InputCsp, prefered_csp, false) != nullptr) ? prefered_csp : pixfmtData->output_csp;
+                //QSVではNV16->P010がサポートされていない
+                if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
+                    m_inputVideoInfo.csp = RGY_CSP_P210;
+                }
                 //なるべく軽いフォーマットでGPUに転送するように
                 if (ENCODER_NVENC
                     && RGY_CSP_BIT_PER_PIXEL[pixfmtData->output_csp] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]
