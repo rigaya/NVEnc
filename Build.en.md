@@ -30,7 +30,6 @@ setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```Batchfile
 git clone https://github.com/rigaya/NVEnc --recursive
 ```
-```
 
 ## 2. Build NVEncC.exe / NVEnc.auo
 
