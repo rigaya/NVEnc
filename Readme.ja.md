@@ -33,6 +33,16 @@ NVEncが載ったハードウェア
 ## NVEncCの使用方法とオプション  
 NVEncCのオプションの説明 ([blog](http://rigaya34589.blog135.fc2.com/blog-entry-739.html), [github](./NVEncC_Options.ja.md)) 
 
+## 各GPUのエンコード機能情報の調査結果  
+NVEncC --check-features の結果をまとめたものです。ドライバに問い合わせた結果となっています。そのため、ドライバのバージョンによって結果が異なる可能性があります。 
+
+| GPU世代 | GPU名 |
+|:---|:---|
+| Kepler | [GTX660Ti](./GPUFeatures/gtx660ti.txt) |
+| Maxwell | [GTX970](./GPUFeatures/gtx970.txt) |
+| Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1060](./GPUFeatures/gtx1060.txt) |
+| Turing | [RTX2070](./GPUFeatures/rtx2070.txt) |
+
 ## NVEnc 使用にあたっての注意事項  
 無保証です。自己責任で使用してください。   
 NVEncを使用したことによる、いかなる損害・トラブルについても責任を負いません。  

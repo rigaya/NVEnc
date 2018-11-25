@@ -35,6 +35,16 @@ Hardware which supports NVENC
 ## Usage and options of NVEncC
 [Option list and details of NVEncC](./NVEncC_Options.en.md)
 
+## Examples of supported encode features  
+Result of --check-features, a feature list returned from the driver. May depend on the driver version.  
+
+| GPU Gen | GPU Name |
+|:---|:---|
+| Kepler | [GTX660Ti](./GPUFeatures/gtx660ti.txt) |
+| Maxwell | [GTX970](./GPUFeatures/gtx970.txt) |
+| Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1060](./GPUFeatures/gtx1060.txt) |
+| Turing | [RTX2070](./GPUFeatures/rtx2070.txt) |
+
 ## Precautions for using NVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
