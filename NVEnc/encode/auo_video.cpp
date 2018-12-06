@@ -489,6 +489,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         bool enc_pause = false;
         BOOL copy_frame = false, drop = false;
         const DWORD aviutl_color_fmt = COLORFORMATS[get_aviutl_color_format(output_highbit_depth, rgy_output_csp)].FOURCC;
+        double time_get_frame = 0.0;
+        int64_t qp_freq, qp_start, qp_end;
+        QueryPerformanceFrequency((LARGE_INTEGER *)&qp_freq);
+        const double qp_freq_sec = 1.0 / (double)qp_freq;
 
         //Aviutlの時間を取得
         PROCESS_TIME time_aviutl;
@@ -547,10 +551,13 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             copy_frame = (!!i & (oip->func_get_flag(i) & OUTPUT_INFO_FRAME_FLAG_COPYFRAME));
 
             //Aviutl(afs)からフレームをもらう
+            QueryPerformanceCounter((LARGE_INTEGER *)&qp_start);
             if (NULL == (frame = ((afs) ? afs_get_video((OUTPUT_INFO *)oip, i, &drop, next_jitter) : oip->func_get_video_ex(i, aviutl_color_fmt)))) {
                 ret |= AUO_RESULT_ERROR; error_afs_get_frame();
                 break;
             }
+            QueryPerformanceCounter((LARGE_INTEGER *)&qp_end);
+            time_get_frame += (qp_end - qp_start) * qp_freq_sec;
 
             drop |= (afs & copy_frame);
 
@@ -607,6 +614,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             write_log_auo_line_fmt(LOG_INFO, "drop %d / %d frames", pe->drop_count, i);
 
         write_log_auo_line_fmt(LOG_INFO, "CPU使用率: Aviutl: %.2f%% / NVEnc: %.2f%%", GetProcessAvgCPUUsage(pe->h_p_aviutl, &time_aviutl), GetProcessAvgCPUUsage(pi_enc.hProcess));
+        write_log_auo_line_fmt(LOG_INFO, "Aviutl 平均フレーム取得時間: %.3f ms", time_get_frame * 1000.0 / oip->n);
         write_log_auo_enc_time("NVEncエンコード時間", tm_vid_enc_fin - tm_vid_enc_start);
     }
     set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
