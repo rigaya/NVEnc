@@ -823,7 +823,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
-            if (m_Chapters.size() > 0 && inputParams->bCopyChapter) {
+            if (m_Chapters.size() > 0 && (inputParams->bCopyChapter || inputParams->sChapterFile.length() > 0)) {
                 writerPrm.chapterList.clear();
                 for (uint32_t i = 0; i < m_Chapters.size(); i++) {
                     writerPrm.chapterList.push_back(m_Chapters[i].get());
