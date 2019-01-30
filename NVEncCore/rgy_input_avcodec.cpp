@@ -142,6 +142,10 @@ void RGYInputAvcodec::CloseVideo(AVDemuxVideo *pVideo) {
 }
 
 void RGYInputAvcodec::CloseStream(AVDemuxStream *pStream) {
+    if (pStream->trimApplied) {
+        delete[] pStream->trimApplied;
+        pStream->trimApplied = nullptr;
+    }
     if (pStream->pktSample.data) {
         av_packet_unref(&pStream->pktSample);
     }
@@ -149,6 +153,7 @@ void RGYInputAvcodec::CloseStream(AVDemuxStream *pStream) {
         av_free(pStream->subtitleHeader);
     }
     memset(pStream, 0, sizeof(pStream[0]));
+    pStream->aud0_fin = AV_NOPTS_VALUE;
     pStream->nIndex = -1;
 }
 
@@ -664,9 +669,9 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                         AddMessage(RGY_LOG_DEBUG, _T("      first pts videoIdx: %d\n"), vidIndex);
                         if (vidIndex >= 0) {
                             //音声の遅れているフレーム数分のdurationを足し上げる
-                            int delayOfStream = (frame_inside_range(vidIndex, trimList)) ? (int)(pkt1->pts - m_Demux.frames.list(vidIndex).pts) : 0;
+                            int delayOfStream = (frame_inside_range(vidIndex, trimList).first) ? (int)(pkt1->pts - m_Demux.frames.list(vidIndex).pts) : 0;
                             for (int iFrame = m_sTrimParam.offset; iFrame < vidIndex; iFrame++) {
-                                if (frame_inside_range(iFrame, trimList)) {
+                                if (frame_inside_range(iFrame, trimList).first) {
                                     delayOfStream += m_Demux.frames.list(iFrame).duration;
                                 }
                             }
@@ -965,6 +970,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                     stream.nSubStreamId = iSubStream;
                     stream.pStream = m_Demux.format.pFormatCtx->streams[stream.nIndex];
                     stream.timebase = stream.pStream->time_base;
+                    stream.nExtractErrExcess = 0;
+                    stream.trimApplied = nullptr;
+                    stream.trimOffset = 0;
+                    stream.aud0_fin = AV_NOPTS_VALUE;
                     if (pAudioSelect) {
                         memcpy(stream.pnStreamChannelSelect, pAudioSelect->pnStreamChannelSelect, sizeof(stream.pnStreamChannelSelect));
                         memcpy(stream.pnStreamChannelOut,    pAudioSelect->pnStreamChannelOut,    sizeof(stream.pnStreamChannelOut));
@@ -1535,45 +1544,79 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
         return false;
     }
 
+    if (!pStream->trimApplied && m_sTrimParam.list.size() > 1) {
+        pStream->trimApplied = new bool[m_sTrimParam.list.size()];
+        std::fill(pStream->trimApplied, pStream->trimApplied + m_sTrimParam.list.size(), false);
+    }
+
     const auto vidFramePos = &m_Demux.frames.list((std::max)(pStream->nLastVidIndex, 0));
-    const int64_t vid_fin = convertTimebaseVidToStream(vidFramePos->pts + ((pStream->nLastVidIndex >= 0) ? vidFramePos->duration : 0), pStream);
+    const int64_t vid1_fin = convertTimebaseVidToStream(vidFramePos->pts + ((pStream->nLastVidIndex >= 0) ? vidFramePos->duration : 0), pStream);
+    const int64_t vid2_start = convertTimebaseVidToStream(m_Demux.frames.list((std::max)(pStream->nLastVidIndex+1, 0)).pts, pStream);
 
-    const int64_t aud_start = pkt->pts;
-    const int64_t aud_fin   = pkt->pts + pkt->duration;
+    const int64_t aud1_start = pkt->pts;
+    const int64_t aud1_fin   = pkt->pts + pkt->duration;
 
-    const bool frame_is_in_range = frame_inside_range(pStream->nLastVidIndex,     m_sTrimParam.list);
-    const bool next_is_in_range  = frame_inside_range(pStream->nLastVidIndex + 1, m_sTrimParam.list);
+    //block index (空白がtrimで削除された領域)
+    //       #0       #0         #1         #1       #2    #2
+    //   |        |----------|         |----------|     |------
+    const auto frame_is_in_range = frame_inside_range(pStream->nLastVidIndex,     m_sTrimParam.list);
+    const auto next_is_in_range  = frame_inside_range(pStream->nLastVidIndex + 1, m_sTrimParam.list);
+    const auto frame_trim_block_index = frame_is_in_range.second;
+    const auto next_trim_block_index  = next_is_in_range.second;
 
     bool result = true; //動画に含まれる音声かどうか
 
-    if (frame_is_in_range) {
-        if (aud_fin < vid_fin || next_is_in_range) {
+    if (frame_is_in_range.first) {
+        if (aud1_fin < vid1_fin || next_is_in_range.first) {
             ; //完全に動画フレームの範囲内か、次のフレームも範囲内なら、その音声パケットは含まれる
-              //              vid_fin
+              //              vid1_fin
               //動画 <-----------|
               //音声      |-----------|
-              //     aud_start     aud_fin
-        } else if (pkt->duration / 2 > (aud_fin - vid_fin + pStream->nExtractErrExcess)) {
+              //     aud1_start     aud1_fin
+        } else if (pkt->duration / 2 > (aud1_fin - vid1_fin + pStream->nExtractErrExcess)) {
             //はみ出した領域が少ないなら、その音声パケットは含まれる
-            pStream->nExtractErrExcess += aud_fin - vid_fin;
+            pStream->nExtractErrExcess += aud1_fin - vid1_fin;
         } else {
             //はみ出した領域が多いなら、その音声パケットは含まれない
-            pStream->nExtractErrExcess -= vid_fin - aud_start;
+            pStream->nExtractErrExcess -= vid1_fin - aud1_start;
             result = false;
         }
-    } else if (next_is_in_range && aud_fin > vid_fin) {
-        //             vid_fin
+    } else if (next_is_in_range.first && aud1_fin > vid2_start) {
+        //             vid2_start
         //動画             |------------>
         //音声      |-----------|
-        //     aud_start     aud_fin
-        if (pkt->duration / 2 > (vid_fin - aud_start + pStream->nExtractErrExcess)) {
-            pStream->nExtractErrExcess += vid_fin - aud_start;
+        //     aud1_start     aud1_fin
+        if (pkt->duration / 2 > (vid2_start - aud1_start + pStream->nExtractErrExcess)) {
+            pStream->nExtractErrExcess += vid2_start - aud1_start;
         } else {
-            pStream->nExtractErrExcess -= aud_fin - vid_fin;
+            pStream->nExtractErrExcess -= aud1_fin - vid2_start;
             result = false;
         }
     } else {
         result = false;
+    }
+    if (result) {
+        if (pStream->trimApplied && !pStream->trimApplied[frame_trim_block_index]) {
+            pStream->trimApplied[frame_trim_block_index] = true;
+            if (pStream->aud0_fin == AV_NOPTS_VALUE) {
+                //まだ一度も音声のパケットが渡されていない
+                pStream->trimOffset += aud1_start - m_Demux.video.nStreamFirstKeyPts;
+            } else {
+                assert(frame_trim_block_index > 0);
+                const int last_valid_vid_frame = m_sTrimParam.list[frame_trim_block_index-1].start;
+                assert(last_valid_vid_frame >= 0);
+                const int64_t vid0_fin = convertTimebaseVidToStream(m_Demux.frames.list(last_valid_vid_frame).pts, pStream);
+                const int64_t vid1_start = convertTimebaseVidToStream(vidFramePos->pts, pStream);
+                const int64_t vid_start = (frame_is_in_range.first) ? vid1_start : vid2_start;
+                if (vid_start - vid0_fin > aud1_start - pStream->aud0_fin) {
+                    pStream->trimOffset += aud1_start - pStream->aud0_fin;
+                } else {
+                    pStream->trimOffset += vid_start - vid0_fin - pStream->nExtractErrExcess;
+                    pStream->nExtractErrExcess = 0;
+                }
+            }
+        }
+        pStream->aud0_fin = aud1_fin;
     }
     return result;
 }
@@ -1810,6 +1853,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead() {
             } else {
                 AVDemuxStream *pStream = getPacketStreamData(&pkt);
                 if (checkStreamPacketToAdd(&pkt, pStream)) {
+                    pkt.pts -= pStream->trimOffset;
                     m_Demux.qStreamPktL1.push_back(pkt);
                 } else {
                     av_packet_unref(&pkt); //Writer側に渡さないパケットはここで開放する
@@ -1868,6 +1912,8 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
             break;
         }
         if (checkStreamPacketToAdd(&pkt, pStream)) {
+            pkt.pts -= pStream->trimOffset;
+            pkt.dts -= pStream->trimOffset;
             pkt.flags = (pkt.flags & 0xffff) | (pStream->nTrackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
             m_Demux.qStreamPktL2.push(pkt); //Writer側に渡したパケットはWriter側で開放する
         } else {

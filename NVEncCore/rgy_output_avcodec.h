@@ -131,6 +131,7 @@ typedef struct AVMuxAudio {
     int                   nDelaySamplesOfAudio; //入力音声の遅延 (pkt_timebase基準)
     AVStream             *pStreamOut;           //出力ファイルの音声ストリーム
     int                   nPacketWritten;       //出力したパケットの数
+    int64_t               dec_rescale_delta;    //decode時のtimebase変換用
 
     //変換用
     AVCodec              *pOutCodecDecode;      //変換する元のコーデック
@@ -152,18 +153,8 @@ typedef struct AVMuxAudio {
     AVFilterContext      *pFilterAudioFormat;
     AVFilterGraph        *pFilterGraph;
 
-    //現在の音声のフォーマット
-    int                   nResamplerInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    uint64_t              nResamplerInChannelLayout; //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    int                   nResamplerInSampleRate;    //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    AVSampleFormat        ResamplerInSampleFmt;      //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-
     //resampler
     int                   nAudioResampler;      //resamplerの選択 (QSV_RESAMPLER_xxx)
-    SwrContext           *pSwrContext;          //Sampleformatの変換用
-    uint8_t             **pSwrBuffer;           //Sampleformatの変換用のバッファ
-    uint32_t              nSwrBufferSize;       //Sampleformatの変換用のバッファのサイズ
-    int                   nSwrBufferLinesize;   //Sampleformatの変換用
     AVFrame              *pDecodedFrameCache;   //デコードされたデータのキャッシュされたもの
     int                   channelMapping[MAX_SPLIT_CHANNELS];        //resamplerで使用するチャンネル割り当て(入力チャンネルの選択)
     uint64_t              pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
@@ -174,7 +165,7 @@ typedef struct AVMuxAudio {
     int                   nAACBsfErrorFromStart; //開始直後からのbitstream filter errorの数
 
     int                   nOutputSamples;       //出力音声の出力済みsample数
-    int64_t               nLastPtsIn;           //入力音声の前パケットのpts
+    int64_t               nLastPtsIn;           //入力音声の前パケットのpts (input stream timebase)
     int64_t               nLastPtsOut;          //出力音声の前パケットのpts
 } AVMuxAudio;
 
@@ -368,16 +359,17 @@ protected:
     RGY_ERR WriteNextPacketAudio(AVPktMuxData *pktData);
 
     //WriteNextPacketの音声処理部分(エンコード)
-    RGY_ERR WriteNextPacketAudioFrame(AVPktMuxData *pktData);
+    RGY_ERR WriteNextPacketAudioFrame(vector<AVPktMuxData> audioFrames);
 
     //フィルタリング後のパケットをサブトラックに分配する
-    RGY_ERR WriteNextPacketToAudioSubtracks(AVPktMuxData *pktData);
+    RGY_ERR WriteNextPacketToAudioSubtracks(vector<AVPktMuxData> audioFrames);
 
     //音声フレームをエンコード
     RGY_ERR WriteNextAudioFrame(AVPktMuxData *pktData);
 
     //音声のフィルタリングを実行
-    RGY_ERR AudioFilterFrame(AVPktMuxData *pktData);
+    vector<AVPktMuxData> AudioFilterFrame(vector<AVPktMuxData> audioFrames);
+    vector<AVPktMuxData> AudioFilterFrameFlush(AVMuxAudio *pMuxAudio);
 
     //CodecIDがPCM系かどうか判定
     bool codecIDIsPCM(AVCodecID targetCodec);
@@ -444,13 +436,10 @@ protected:
     void AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDts);
 
     //音声をデコード
-    AVFrame *AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pkt);
-
-    //音声をresample
-    int AudioResampleFrame(AVMuxAudio *pMuxAudio, AVFrame **frame);
+    vector<unique_ptr<AVFrame, decltype(&av_frame_unref)>> AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pkt);
 
     //音声をエンコード
-    vector<AVPktMuxData> AudioEncodeFrame(AVMuxAudio *pMuxAudio, const AVFrame *frame);
+    vector<AVPktMuxData> AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVFrame *frame);
 
     //字幕パケットを書き出す
     RGY_ERR SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt);

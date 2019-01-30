@@ -915,17 +915,26 @@ static bool inline trim_active(const sTrimParam *pTrim) {
     return true;
 }
 
-static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
-    if (trimList.size() == 0)
-        return true;
-    if (frame < 0)
-        return false;
-    for (auto trim : trimList) {
-        if (trim.start <= frame && frame <= trim.fin) {
-            return true;
+//block index (空白がtrimで削除された領域)
+//       #0       #0         #1         #1       #2    #2
+//   |        |----------|         |----------|     |------
+static std::pair<bool, int> inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
+    int index = 0;
+    if (trimList.size() == 0) {
+        return std::make_pair(true, index);
+    }
+    if (frame < 0) {
+        return std::make_pair(false, index);
+    }
+    for (; index < (int)trimList.size(); index++) {
+        if (frame < trimList[index].start) {
+            return std::make_pair(false, index);
+        }
+        if (frame <= trimList[index].fin) {
+            return std::make_pair(true, index);
         }
     }
-    return false;
+    return std::make_pair(false, index);
 }
 
 static bool inline rearrange_trim_list(int frame, int offset, std::vector<sTrim>& trimList) {

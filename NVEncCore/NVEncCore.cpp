@@ -712,6 +712,9 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("%s can only be used with avhw /avsw reader.\n"), err_target.c_str());
             return NV_ENC_ERR_GENERIC;
         }
+    } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) != 0)) {
+        m_nAVSyncMode |= RGY_AVSYNC_VFR;
+        PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
     }
 
     if (inputParam->nAudioSourceCount > 0) {
