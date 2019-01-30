@@ -3861,6 +3861,7 @@ NVENCSTATUS NVEncCore::Encode() {
         m_pPerfMonitor->SetThreadHandles((HANDLE)(th_input.native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
     int64_t nOutFirstPts = -1; //入力のptsに対する補正 (スケール: m_outputTimebase)
+    int64_t lastTrimFramePts = AV_NOPTS_VALUE; //直前のtrimで落とされたフレームのpts, trimで落とされてない場合はAV_NOPTS_VALUE (スケール: m_outputTimebase)
 #endif //#if ENABLE_AVSW_READER
     int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: m_outputTimebase)
     const int64_t nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
@@ -3955,7 +3956,7 @@ NVENCSTATUS NVEncCore::Encode() {
         if (pStreamIn
             && ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware)) {
             if (vpp_rff || vpp_afs_rff_aware) {
-                if (std::abs(outPtsSource - nOutEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * nOutFrameDuration) {
+                if (std::abs(outPtsSource - nOutEstimatedPts) >= 32 * nOutFrameDuration) {
                     //timestampに一定以上の差があればそれを無視する
                     nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
                     outPtsSource = nOutEstimatedPts;
@@ -4272,10 +4273,17 @@ NVENCSTATUS NVEncCore::Encode() {
         }
 
         if (!bInputEmpty) {
+            const auto inputFramePts = rational_rescale(inputFrame.getTimeStamp(), srcTimebase, m_outputTimebase);
             //trim反映
-            if (!frame_inside_range(nInputFrame++, m_trimParam.list)) {
+            const auto trimSts = frame_inside_range(nInputFrame++, m_trimParam.list);
+            if (!trimSts.first) {
+                if (((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware) && (trimSts.second > 0) && (lastTrimFramePts != AV_NOPTS_VALUE)) {
+                    nOutFirstPts += inputFramePts - lastTrimFramePts;
+                    lastTrimFramePts = inputFramePts;
+                }
                 continue;
             }
+            lastTrimFramePts = AV_NOPTS_VALUE;
             auto decFrames = check_pts(&inputFrame);
 
             for (auto idf = decFrames.begin(); idf != decFrames.end(); idf++) {
