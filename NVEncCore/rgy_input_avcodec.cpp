@@ -1680,7 +1680,7 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
                         continue;
                     }
                     //ここに入った場合は、必ず最初のキーフレーム
-                    m_Demux.video.nStreamFirstKeyPts = pkt->pts;
+                    m_Demux.video.nStreamFirstKeyPts = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
                     m_Demux.video.bGotFirstKeyframe = true;
                     //キーフレームに到達するまでQSVではフレームが出てこない
                     //そのため、getSampleでも最初のキーフレームを取得するまでパケットを出力しない
