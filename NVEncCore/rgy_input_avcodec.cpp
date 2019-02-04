@@ -1639,6 +1639,10 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
         //trimからわかるフレーム数の上限値よりfixedNumがある程度の量の処理を進めたら読み込みを打ち切る
         && m_Demux.frames.fixedNum() - TRIM_OVERREAD_FRAMES < getVideoTrimMaxFramIdx()) {
         if (pkt->stream_index == m_Demux.video.nIndex) {
+            if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
+                const auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
+                AddMessage(RGY_LOG_WARN, _T("corrupt packet in video: %lld (%s)\n"), (long long int)timestamp, getTimestampString(timestamp, m_Demux.video.pStream->time_base).c_str());
+            }
             if (m_Demux.video.pBsfcCtx) {
                 auto ret = av_bsf_send_packet(m_Demux.video.pBsfcCtx, pkt);
                 if (ret < 0) {
@@ -1729,7 +1733,12 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
             CheckAndMoveStreamPacketList();
             return 0;
         }
-        if (getPacketStreamData(pkt) != NULL) {
+        const auto *stream = getPacketStreamData(pkt);
+        if (stream != nullptr) {
+            if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
+                const auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
+                AddMessage(RGY_LOG_WARN, _T("corrupt packet in stream %d: %lld (%s)\n"), pkt->stream_index, (long long int)timestamp, getTimestampString(timestamp, stream->pStream->time_base).c_str());
+            }
             //音声/字幕パケットはひとまずすべてバッファに格納する
             m_Demux.qStreamPktL1.push_back(*pkt);
         } else {
