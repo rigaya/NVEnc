@@ -1863,6 +1863,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead() {
                 AVDemuxStream *pStream = getPacketStreamData(&pkt);
                 if (checkStreamPacketToAdd(&pkt, pStream)) {
                     pkt.pts -= pStream->trimOffset;
+                    pkt.dts -= pStream->trimOffset;
                     m_Demux.qStreamPktL1.push_back(pkt);
                 } else {
                     av_packet_unref(&pkt); //Writer側に渡さないパケットはここで開放する
