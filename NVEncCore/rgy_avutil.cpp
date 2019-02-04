@@ -32,6 +32,10 @@
 
 #include "rgy_avutil.h"
 
+extern "C" {
+#include <libavutil/timestamp.h>
+}
+
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to) {
     return av_rescale_q(v, av_make_q(from), av_make_q(to));
 }
@@ -367,6 +371,16 @@ std::string getChannelLayoutChar(int channels, uint64_t channel_layout) {
 
 tstring getChannelLayoutString(int channels, uint64_t channel_layout) {
     return char_to_tstring(getChannelLayoutChar(channels, channel_layout));
+}
+
+std::string getTimestampChar(int64_t ts, const AVRational& timebase) {
+    char buf[AV_TS_MAX_STRING_SIZE];
+    AVRational tb = timebase;
+    return std::string(av_ts_make_time_string(buf, ts, &tb));
+}
+
+tstring getTimestampString(int64_t ts, const AVRational& timebase) {
+    return char_to_tstring(getTimestampChar(ts, timebase));
 }
 
 vector<std::string> getAVProtocolList(int bOutput) {
