@@ -141,6 +141,7 @@ typedef struct AVMuxAudio {
     uint32_t              nIgnoreDecodeError;   //デコード時に連続して発生したエラー回数がこの閾値を以下なら無視し、無音に置き換える
     uint32_t              nDecodeError;         //デコード処理中に連続してエラーが発生した回数
     bool                  bEncodeError;         //エンコード処理中にエラーが発生
+    int64_t               nDecodeNextPts;       //デコードの次のpts (samplerateベース)
 
     //filter
     int                   nFilterInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
