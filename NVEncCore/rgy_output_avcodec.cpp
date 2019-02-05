@@ -2059,9 +2059,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     }
 #endif
 
+    std::vector<nal_info> nal_list;
     if (m_Mux.video.pBsfc) {
         int target_nal = 0;
-        std::vector<nal_info> nal_list;
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
             target_nal = NALU_HEVC_SPS;
             nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
@@ -2106,6 +2106,22 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         }
     }
 
+    //IDRかどうかのフラグ
+    bool isIDR = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
+    if (m_Mux.video.pStreamOut->codecpar->field_order != AV_FIELD_PROGRESSIVE) {
+        if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
+            if (nal_list.size() == 0) {
+                nal_list = parse_nal_unit_h264(pBitstream->data(), pBitstream->size());
+            }
+            //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
+            //どちらかのフィールドがIDRならIDRのフラグを立てる
+            isIDR = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_IDR; }) != nal_list.end();
+        } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            AddMessage(RGY_LOG_ERROR, _T("Interlaced HEVC encoding not supported!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
+
     AVPacket pkt = { 0 };
     av_init_packet(&pkt);
     av_new_packet(&pkt, (int)pBitstream->size());
@@ -2115,7 +2131,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     const AVRational fpsTimebase = av_inv_q(m_Mux.video.nFPS);
     const AVRational streamTimebase = m_Mux.video.pStreamOut->codec->pkt_timebase;
     pkt.stream_index = m_Mux.video.pStreamOut->index;
-    pkt.flags        = pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I) ? 1 : 0;
+    pkt.flags        = isIDR ? AV_PKT_FLAG_KEY : 0;
 #if ENCODER_QSV
     //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
     pkt.duration = bs_duration;
@@ -2137,18 +2153,20 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, QUEUE_DTS_TIMEBASE);
     m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
 
+    //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
+    //どちらかのフィールドがIDRならIDRのフラグを立ててているので、それを参照する
+    const auto frameType = (isIDR) ? RGY_FRAMETYPE_IDR : pBitstream->frametype();
     if (m_Mux.video.fpTsLogFile) {
-        const uint32_t frameType = pBitstream->frametype();
         const TCHAR *pFrameTypeStr =
-            (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? _T("I") : (((pBitstream->frametype() & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
+            (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? _T("I") : (((frameType & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
         _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pFrameTypeStr, (lls)pBitstream->pts(), (lls)pBitstream->dts(), (lls)pts, (lls)dts, (int)duration, pBitstream->size());
     }
-    m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), pBitstream->avgQP());
+    m_pEncSatusInfo->SetOutputData(frameType, pBitstream->size(), pBitstream->avgQP());
 #if ENABLE_AVCODEC_OUT_THREAD
     //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
     if (m_Mux.thread.thOutput.joinable()) {
         //確保したメモリ領域を使いまわすためにキューに格納
-        const auto frameI = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
+        const auto frameI = (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
         auto& qVideoQueueFree = (frameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
         auto queueFavoredSize = (frameI) ? VID_BITSTREAM_QUEUE_SIZE_I : VID_BITSTREAM_QUEUE_SIZE_PB;
         if (qVideoQueueFree.size() > queueFavoredSize) {
