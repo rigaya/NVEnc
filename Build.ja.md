@@ -25,6 +25,13 @@ setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```
 
+さらにビルドに必要なCaption2Ass_PCRをcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
+
+```Batchfile
+git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
+setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
+```
+
 ## 1. ソースのダウンロード
 
 ```Batchfile
