@@ -386,7 +386,7 @@ static tstring help() {
         _T("   --no-b-adapt                 disable adapt. B frame insertion\n")
         _T("                                  for lookahead mode only, default: off\n")
         _T("-b,--bframes <int>              set number of consecutive B frames\n")
-        _T("                                  default: H.264 - %d frames, HEVC - %d frames\n")
+        _T("                                  default: %d frames\n")
         _T("   --ref <int>                  set Ref frames / default %d frames\n")
         _T("   --weightp                    enable weighted prediction for P frame\n")
         _T("   --mv-precision <string>      set MV Precision / default: auto\n")
@@ -411,7 +411,7 @@ static tstring help() {
         DEFAULT_AVG_BITRATE / 1000,
         DEFAULT_GOP_LENGTH, (DEFAULT_GOP_LENGTH == 0) ? _T(" (auto)") : _T(""),
         DEFAULT_LOOKAHEAD,
-        DEFAULT_B_FRAMES_H264, DEFAULT_B_FRAMES_HEVC, DEFAULT_REF_FRAMES);
+        DEFAULT_B_FRAMES, DEFAULT_REF_FRAMES);
 
     str += strsprintf(_T("\n")
         _T("   --cabac                      [H264] use CABAC\n")

@@ -151,7 +151,6 @@ struct sArgsData {
     uint32_t nParsedAudioSplit = 0;
     uint32_t nParsedAudioFilter = 0;
     uint32_t nTmpInputBuf = 0;
-    int nBframes = -1;
 };
 
 int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, sArgsData *argData, ParseCmdError& err) {
@@ -1060,7 +1059,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            argData->nBframes = value;
+            pParams->encConfig.frameIntervalP = value + 1;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
@@ -2907,24 +2906,6 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
             return sts;
         }
     }
-
-    //Bフレームの設定
-    if (argsData.nBframes < 0) {
-        //特に指定されていない場合はデフォルト値を反映する
-        switch (pParams->codec) {
-        case NV_ENC_H264:
-            argsData.nBframes = DEFAULT_B_FRAMES_H264;
-            break;
-        case NV_ENC_HEVC:
-            argsData.nBframes = DEFAULT_B_FRAMES_HEVC;
-            break;
-        default:
-            SET_ERR(strInput[0], _T("Unknown Output codec.\n"), nullptr, nullptr);
-            return -1;
-            break;
-        }
-    }
-    pParams->encConfig.frameIntervalP = argsData.nBframes + 1;
 
     return 0;
 }
