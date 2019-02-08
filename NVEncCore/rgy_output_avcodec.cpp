@@ -243,6 +243,12 @@ void RGYOutputAvcodec::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
+AVCodecID RGYOutputAvcodec::getAVCodecId(RGY_CODEC codec) {
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
+        if (HW_DECODE_LIST[i].rgy_codec == codec)
+            return HW_DECODE_LIST[i].avcodec_id;
+    return AV_CODEC_ID_NONE;
+}
 bool RGYOutputAvcodec::codecIDIsPCM(AVCodecID targetCodec) {
     static const auto pcmCodecs = make_array<AVCodecID>(
         AV_CODEC_ID_FIRST_AUDIO,
@@ -508,12 +514,6 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     if (m_Mux.format.bIsMatroska) {
         m_Mux.video.pStreamOut->time_base = av_make_q(1, 1000);
     }
-
-#if !ENCODER_NVENC
-    if (pVideoOutputInfo->picstruct & RGY_PICSTRUCT_INTERLACED) {
-        m_Mux.video.pStreamOut->time_base.den *= 2;
-    }
-#endif
     m_Mux.video.pStreamOut->start_time          = 0;
     m_Mux.video.bDtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.nInputFirstKeyPts = prm->nVideoInputFirstKeyPts;
@@ -581,8 +581,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
                 }
                 AddMessage(RGY_LOG_DEBUG, _T("copied AV_PKT_DATA_MASTERING_DISPLAY_METADATA from input\n"));
                 side_data_copy.release();
+            }
         }
-    }
 #endif
     }
 
@@ -1085,7 +1085,8 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
             char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->channels, (uint32_t)pMuxAudio->pOutCodecEncodeCtx->channel_layout, pMuxAudio->pOutCodecEncodeCtx->sample_rate / 1000.0,
             char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)).c_str(),
-            pMuxAudio->pOutCodecEncodeCtx->profile, AudioGetCodecProfileStr(pMuxAudio->pOutCodecEncodeCtx->profile, pMuxAudio->pOutCodecEncodeCtx->codec_id).c_str(),
+            pMuxAudio->pOutCodecEncodeCtx->profile,
+            AudioGetCodecProfileStr(pMuxAudio->pOutCodecEncodeCtx->profile, pMuxAudio->pOutCodecEncodeCtx->codec_id).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.den,
             char_to_tstring(prm_buf.get() ? prm_buf.get() : "default").c_str());
         if (pMuxAudio->pOutCodecEncode->capabilities & AV_CODEC_CAP_EXPERIMENTAL) {
@@ -1449,12 +1450,6 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *pVideo
 
     av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
-    for (const auto& stream : prm->inputStreamList) {
-        if (stream.pFilter) {
-            avfilter_register_all();
-            break;
-        }
-    }
 
     if (prm->pOutputFormat != nullptr) {
         AddMessage(RGY_LOG_DEBUG, _T("output format specified: %s\n"), prm->pOutputFormat);
@@ -2054,7 +2049,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     int64_t bs_duration = 0;
     if (m_Mux.video.pTimestamp) {
         while ((bs_duration = m_Mux.video.pTimestamp->get_and_pop(pBitstream->pts())) < 0) {
-            Sleep(1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
 #endif
@@ -2669,8 +2664,11 @@ RGY_ERR RGYOutputAvcodec::SubtitleWritePacket(AVPacket *pkt) {
     const int64_t pts_orig = pkt->pts;
     const int64_t pts_adj = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts), pMuxSub->streamInTimebase, pMuxSub->streamInTimebase, false);
     if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts), pMuxSub->streamInTimebase, timebase_conv, false))) {
+        //dts側にもpts側に加えたのと同じ分だけの補正をかける
+        pkt->dts -= pts_adjust;
+        pkt->dts -= (pts_orig - pts_adj);
         //timescaleの変換を行い、負の値をとらないようにする
-        pkt->dts = pkt->pts;
+        pkt->dts = std::max(INT64_C(0), av_rescale_q(pkt->dts, pMuxSub->streamInTimebase, timebase_conv));
         if (pMuxSub->pOutCodecEncodeCtx) {
             return SubtitleTranscode(pMuxSub, pkt);
         }
@@ -3116,6 +3114,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                 const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : syncIgnoreDts;
                 //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
                 (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
+                //複数のstreamがあり得るので最大値をとる
                 audioDts = (std::max)(audioDts, pktData.dts);
                 nWaitAudio = 0;
                 //AddMessage(RGY_LOG_TRACE, _T("audioDts=%8lld, maxDst=%8lld.\n"), audioDts, maxDts);
@@ -3173,6 +3172,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
             //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
             const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : INT64_MAX;
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
+            //複数のstreamがあり得るので最大値をとる
             audioDts = (std::max)(audioDts, pktData.dts);
         }
         RGYBitstream bitstream = RGYBitstreamInit();
