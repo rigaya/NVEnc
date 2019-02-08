@@ -712,7 +712,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("%s can only be used with avhw /avsw reader.\n"), err_target.c_str());
             return NV_ENC_ERR_GENERIC;
         }
-    } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) != 0)) {
+    } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) == 0)) {
         m_nAVSyncMode |= RGY_AVSYNC_VFR;
         const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
         if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1) { //fpsを割り切れるtimebaseならそのまま使用する
