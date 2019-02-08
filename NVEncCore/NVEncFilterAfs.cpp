@@ -1221,7 +1221,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
 
             pOutFrame->frame.flags = m_source.get(m_nFrame)->frame.flags & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_BFF | RGY_FRAME_FLAG_RFF_TFF));
             pOutFrame->frame.picstruct = RGY_PICSTRUCT_FRAME;
-            pOutFrame->frame.duration = rational_rescale(afs_duration, pAfsParam->inFps.inv() * rgy_rational<int>(1,4), pAfsParam->outTimebase);
+            pOutFrame->frame.duration = rational_rescale(afs_duration, pAfsParam->inTimebase, pAfsParam->outTimebase);
             pOutFrame->frame.timestamp = m_nPts;
             m_nPts += pOutFrame->frame.duration;
 
