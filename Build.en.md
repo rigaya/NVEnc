@@ -25,7 +25,7 @@ setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```
 
-You will also need Caption2Ass_PCR.
+You will also need source code of Caption2Ass_PCR.
 
 ```Batchfile
 git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
