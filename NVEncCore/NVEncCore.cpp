@@ -3868,8 +3868,8 @@ NVENCSTATUS NVEncCore::Encode() {
         m_pPerfMonitor->SetThreadHandles((HANDLE)(th_input.native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
     int64_t nOutFirstPts = -1; //入力のptsに対する補正 (スケール: m_outputTimebase)
-    int64_t lastTrimFramePts = AV_NOPTS_VALUE; //直前のtrimで落とされたフレームのpts, trimで落とされてない場合はAV_NOPTS_VALUE (スケール: m_outputTimebase)
 #endif //#if ENABLE_AVSW_READER
+    int64_t lastTrimFramePts = AV_NOPTS_VALUE; //直前のtrimで落とされたフレームのpts, trimで落とされてない場合はAV_NOPTS_VALUE (スケール: m_outputTimebase)
     int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: m_outputTimebase)
     const int64_t nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
 
@@ -4280,14 +4280,16 @@ NVENCSTATUS NVEncCore::Encode() {
         }
 
         if (!bInputEmpty) {
-            const auto inputFramePts = rational_rescale(inputFrame.getTimeStamp(), srcTimebase, m_outputTimebase);
             //trim反映
             const auto trimSts = frame_inside_range(nInputFrame++, m_trimParam.list);
             if (!trimSts.first) {
+#if ENABLE_AVSW_READER
+                const auto inputFramePts = rational_rescale(inputFrame.getTimeStamp(), srcTimebase, m_outputTimebase);
                 if (((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware) && (trimSts.second > 0) && (lastTrimFramePts != AV_NOPTS_VALUE)) {
                     nOutFirstPts += inputFramePts - lastTrimFramePts;
                     lastTrimFramePts = inputFramePts;
                 }
+#endif //#if ENABLE_AVSW_READER
                 continue;
             }
             lastTrimFramePts = AV_NOPTS_VALUE;
