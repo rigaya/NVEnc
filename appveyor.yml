@@ -4,7 +4,6 @@
 image: Visual Studio 2015
 
 platform:
- - Win32
  - x64
 
 configuration:
@@ -12,9 +11,7 @@ configuration:
 
 branches:
   only:
-    - master
-
-skip_non_tags: true
+    - test-build
 
 init:
   - ps: Set-WinSystemLocale ja-JP
@@ -75,14 +72,3 @@ after_build:
 artifacts:
   - path: NVEncC_%BUILD_VERSION%_%PLATFORM%.7z
     name: NVEncC_%BUILD_VERSION%_%PLATFORM%
-
-deploy:
-  provider: GitHub
-  auth_token:
-    secure: IDRwZWN1uQaTxb64SQnTDNJR5KPtCFPL3Mln9GrdZ7TSiyec/o1KXpOuh/50ZO5A
-  artifact: NVEncC_%BUILD_VERSION%_%PLATFORM%
-  draft: false
-  prerelease: false
-  on:
-    branch: master
-    appveyor_repo_tag: true
