@@ -715,8 +715,10 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) == 0)) {
         m_nAVSyncMode |= RGY_AVSYNC_VFR;
         const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
-        if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseならそのまま使用する
-            m_outputTimebase = timebaseStreamIn;
+        if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseなら
+            if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff) {
+                m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 8);
+            }
         }
         PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
     }
@@ -2808,6 +2810,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->inFps = m_inputFps;
+            param->inTimebase = m_outputTimebase;
             param->outTimebase = m_outputTimebase;
             param->baseFps = m_encFps;
             param->outFilename = inputParam->outputFilename;

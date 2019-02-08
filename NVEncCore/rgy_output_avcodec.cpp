@@ -2859,8 +2859,6 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
         pktData->samples = av_get_audio_frame_duration2(pMuxAudio->pStreamIn->codecpar, pktData->pkt.size);
         if (!pktData->samples) {
             pktData->samples = (int)av_rescale_q(pktData->pkt.duration, pMuxAudio->pStreamIn->time_base, samplerate);
-        }
-        if (!pktData->samples) {
             // 1/1000 timebaseは信じるに値しないので、frame_sizeがあればその値を使用する
             if (0 == av_cmp_q(pMuxAudio->pStreamIn->time_base, { 1, 1000 })
                 && pMuxAudio->pStreamIn->codecpar->frame_size) {
