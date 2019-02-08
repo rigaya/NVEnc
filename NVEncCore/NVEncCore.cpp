@@ -715,7 +715,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) == 0)) {
         m_nAVSyncMode |= RGY_AVSYNC_VFR;
         const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
-        if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1) { //fpsを割り切れるtimebaseならそのまま使用する
+        if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseならそのまま使用する
             m_outputTimebase = timebaseStreamIn;
         }
         PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
