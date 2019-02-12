@@ -257,6 +257,11 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 
 ## その他のオプション
 
+### -u, --preset
+エンコーダの品質プリセット。
+- default
+- performance
+- quality
 
 ### --output-depth &lt;int&gt;
 出力ビット深度を設定。

@@ -256,6 +256,12 @@ Set bitrate in kbps.
 
 ## Other Options for Encoder
 
+### -u, --preset
+Encode qulaity preset.
+- default
+- performance
+- quality
+
 ### --output-depth &lt;int&gt;
 Set output bit depth.
 - 8 ... 8 bits (default)

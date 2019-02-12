@@ -73,7 +73,7 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
         option_name = _T("device");
         break;
     case _T('u'):
-        option_name = _T("quality");
+        option_name = _T("preset");
         break;
     case _T('f'):
         option_name = _T("output-format");

@@ -367,7 +367,7 @@ static tstring help() {
         _T("   --cbrhq <int>                set bitrate for CBR (High Quality) mode (kbps)\n")
         _T("                                  default: %d kbps\n")
         _T("\n")
-        _T("   --preset <string>            set encoder preset\n")
+        _T("-u,--preset <string>            set encoder preset\n")
         _T("                                  default, performance, quality\n")
         _T("\n")
         _T("   --vbr-quality <float>        target quality for VBR mode (0-51, 0=auto)\n")
