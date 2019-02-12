@@ -2292,6 +2292,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
               && m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize != NV_ENC_HEVC_CUSIZE_8x8)) {
             PrintMes(RGY_LOG_WARN, _T("it is not recommended to use --cu-max or --cu-min, leaving it auto will enhance video quality.\n"));
         }
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef != NV_ENC_BFRAME_REF_MODE_DISABLED && !getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE)) {
+            m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef = NV_ENC_BFRAME_REF_MODE_DISABLED;
+            error_feature_unsupported(RGY_LOG_WARN, _T("B Ref Mode"));
+        }
     }
     //自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {
@@ -4845,7 +4849,8 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
     add_str(RGY_LOG_INFO,  _T("%s\n"), strLookahead.c_str());
     add_str(RGY_LOG_INFO,  _T("GOP length     %d frames\n"), m_stEncConfig.gopLength);
-    add_str(RGY_LOG_INFO,  _T("B frames       %d frames\n"), m_stEncConfig.frameIntervalP - 1);
+    const auto bref_mode = (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef : m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef;
+    add_str(RGY_LOG_INFO,  _T("B frames       %d frames [ref mode: %s]\n"), m_stEncConfig.frameIntervalP - 1, get_chr_from_value(list_bref_mode, bref_mode));
     if (codec == NV_ENC_H264) {
         add_str(RGY_LOG_DEBUG, _T("Output         "));
         TCHAR bitstream_info[256] ={ 0 };

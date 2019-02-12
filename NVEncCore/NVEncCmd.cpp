@@ -1071,6 +1071,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int value = 0;
         if (get_list_value(list_bref_mode, strInput[i], &value)) {
             codecPrm[NV_ENC_H264].h264Config.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
@@ -3113,6 +3114,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_GUID_HEVC(_T("--profile"), _T(":hevc"), tier & 0xffff, h265_profile_names);
         OPT_LST_HEVC(_T("--tier"), _T(":hevc"), tier >> 16, h265_tier_names);
         OPT_NUM_HEVC(_T("--ref"), _T(""), maxNumRefFramesInDPB);
+        OPT_LST_HEVC(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         if (codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 != codecPrmDefault[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8) {
             cmd << _T(" --output-depth ") << codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 + 8;
         }

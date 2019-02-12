@@ -400,7 +400,7 @@ static tstring help() {
         _T("   --aq-temporal                [H264] enable temporal adaptive quantization\n")
         _T("   --aq-strength <int>          [H264] set aq strength (weak 1 - 15 strong)\n")
         _T("                                  default: 0 = auto\n")
-        _T("   --bref-mode <string>         [H264] set B frame reference mode\n")
+        _T("   --bref-mode <string>         set B frame reference mode\n")
         _T("                                  - disabled (default)\n")
         _T("                                  - each\n")
         _T("                                  - middle\n")

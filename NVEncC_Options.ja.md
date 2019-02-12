@@ -327,7 +327,7 @@ lookahead有効時の適応的なBフレーム挿入を無効化する。
 ### --aq-strength &lt;int&gt;
 AQ強度を指定する。(1(弱) ～ 15(強)、0 = 自動)
 
-### --bref-mode &lt;string&gt; [H.264のみ]
+### --bref-mode &lt;string&gt;
 Bフレームの参照モードを指定する。
 - disabled (default)
 - each

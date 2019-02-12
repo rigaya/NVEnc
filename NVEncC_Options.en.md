@@ -321,7 +321,7 @@ Enable adaptive quantization between frames (temporal). (Default: off)
 ### --aq-strength &lt;int&gt;
 Specify the AQ strength. (1 (weak) - 15 (strong), 0 = auto)
 
-### --bref-mode &lt;string&gt; [H.264 only]
+### --bref-mode &lt;string&gt;
 Specify B frame reference mode.
 - disabled (default)
 - each
