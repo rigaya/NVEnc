@@ -32,7 +32,11 @@
 #define NOMINMAX
 #include <Windows.h>
 #include <stdint.h>
+#pragma warning (push)
+#pragma warning (disable: 4819)
+#pragma warning (disable: 4201)
 #include "nvEncodeAPI.h"
+#pragma warning (pop)
 #include <tchar.h>
 #include <vector>
 #include <list>

@@ -44,10 +44,10 @@
 //データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include "nvEncodeAPI.h"
 #pragma warning(pop)
 #include "process.h"
 #pragma comment(lib, "winmm.lib")
-#include "nvEncodeAPI.h"
 #include "NVEncCore.h"
 #include "rgy_version.h"
 #include "rgy_status.h"
@@ -1341,6 +1341,7 @@ NVENCSTATUS NVEncCore::NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resource
     registerResParams.height = height;
     registerResParams.pitch = pitch;
     registerResParams.bufferFormat = inputFormat;
+    registerResParams.bufferUsage = NV_ENC_INPUT_IMAGE;
 
     nvStatus = m_pEncodeAPI->nvEncRegisterResource(m_hEncoder, &registerResParams);
     if (nvStatus != NV_ENC_SUCCESS) {

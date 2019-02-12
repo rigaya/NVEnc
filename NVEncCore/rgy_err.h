@@ -35,7 +35,10 @@
 #include "mfxdefs.h"
 #endif
 #if ENCODER_NVENC
+#pragma warning (push)
+#pragma warning (disable: 4819)
 #include "nvEncodeAPI.h"
+#pragma warning(pop)
 #endif
 #if ENCODER_VCEENC
 #endif

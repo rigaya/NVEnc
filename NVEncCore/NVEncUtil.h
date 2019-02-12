@@ -32,7 +32,10 @@
 #include <utility>
 #include <array>
 #include "rgy_osdep.h"
+#pragma warning (push)
+#pragma warning (disable: 4819)
 #include "nvEncodeAPI.h"
+#pragma warning (pop)
 #pragma warning (push)
 #pragma warning (disable: 4201)
 #include "dynlink_cuviddec.h"
