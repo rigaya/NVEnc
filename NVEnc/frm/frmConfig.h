@@ -1037,9 +1037,9 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUQPMaxP;
 private: System::Windows::Forms::NumericUpDown^  fcgNUQPMaxI;
 private: System::Windows::Forms::Label^  fcgLBWeightP;
 private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
-private: System::Windows::Forms::GroupBox^  fcgGroupBoxQulaityStg;
-private: System::Windows::Forms::Button^  fcgBTQualityStg;
-private: System::Windows::Forms::ComboBox^  fcgCXQualityPreset;
+
+
+
 private: System::Windows::Forms::NumericUpDown^  fcgNUVBRTragetQuality;
 private: System::Windows::Forms::Label^  fcgLBVBRTragetQuality;
 private: System::Windows::Forms::Label^  fcgLBVBRTragetQuality2;
@@ -1288,6 +1288,12 @@ private: System::Windows::Forms::Button^  fcgBTVideoEncoderPath;
 
 
 private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
+private: System::Windows::Forms::ComboBox^  fcgCXBrefMode;
+
+private: System::Windows::Forms::Label^  fcgLBBrefMode;
+private: System::Windows::Forms::Label^  fcgLBQuality;
+private: System::Windows::Forms::ComboBox^  fcgCXQuality;
+
 
 
 
@@ -1599,9 +1605,6 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgLBCudaSchdule = (gcnew System::Windows::Forms::Label());
             this->fcgCXCudaSchdule = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCBPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgGroupBoxQulaityStg = (gcnew System::Windows::Forms::GroupBox());
-            this->fcgBTQualityStg = (gcnew System::Windows::Forms::Button());
-            this->fcgCXQualityPreset = (gcnew System::Windows::Forms::ComboBox());
             this->groupBoxQPDetail = (gcnew System::Windows::Forms::GroupBox());
             this->fcgLBQPDetailB = (gcnew System::Windows::Forms::Label());
             this->fcgLBQPDetailP = (gcnew System::Windows::Forms::Label());
@@ -1802,6 +1805,10 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
+            this->fcgCXBrefMode = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBBrefMode = (gcnew System::Windows::Forms::Label());
+            this->fcgLBQuality = (gcnew System::Windows::Forms::Label());
+            this->fcgCXQuality = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1835,7 +1842,6 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgPNHEVC->SuspendLayout();
             this->fcggroupBoxColorHEVC->SuspendLayout();
             this->tabPageVideoDetail->SuspendLayout();
-            this->fcgGroupBoxQulaityStg->SuspendLayout();
             this->groupBoxQPDetail->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPInitB))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPInitP))->BeginInit();
@@ -2062,7 +2068,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgtabPageMP4->Controls->Add(this->fcgCBMP4MuxerExt);
             this->fcgtabPageMP4->Location = System::Drawing::Point(4, 23);
             this->fcgtabPageMP4->Name = L"fcgtabPageMP4";
-            this->fcgtabPageMP4->Padding = System::Windows::Forms::Padding(3, 3, 3, 3);
+            this->fcgtabPageMP4->Padding = System::Windows::Forms::Padding(3);
             this->fcgtabPageMP4->Size = System::Drawing::Size(376, 187);
             this->fcgtabPageMP4->TabIndex = 0;
             this->fcgtabPageMP4->Text = L"mp4";
@@ -2253,7 +2259,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgtabPageMKV->Controls->Add(this->fcgCBMKVMuxerExt);
             this->fcgtabPageMKV->Location = System::Drawing::Point(4, 23);
             this->fcgtabPageMKV->Name = L"fcgtabPageMKV";
-            this->fcgtabPageMKV->Padding = System::Windows::Forms::Padding(3, 3, 3, 3);
+            this->fcgtabPageMKV->Padding = System::Windows::Forms::Padding(3);
             this->fcgtabPageMKV->Size = System::Drawing::Size(376, 187);
             this->fcgtabPageMKV->TabIndex = 1;
             this->fcgtabPageMKV->Text = L"mkv";
@@ -2683,6 +2689,11 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBQuality);
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXQuality);
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXBrefMode);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBBrefMode);
+            this->tabPageVideoEnc->Controls->Add(this->fcgPNHEVC);
             this->tabPageVideoEnc->Controls->Add(this->fcgBTVideoEncoderPath);
             this->tabPageVideoEnc->Controls->Add(this->fcgTXVideoEncoderPath);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBVideoEncoderPath);
@@ -2716,15 +2727,14 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->tabPageVideoEnc->Controls->Add(this->fcgCXEncMode);
             this->tabPageVideoEnc->Controls->Add(this->fcgPBNVEncLogoEnabled);
             this->tabPageVideoEnc->Controls->Add(this->fcgPBNVEncLogoDisabled);
-            this->tabPageVideoEnc->Controls->Add(this->fcgPNH264);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNQP);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNBitrate);
-            this->tabPageVideoEnc->Controls->Add(this->fcgPNHEVC);
+            this->tabPageVideoEnc->Controls->Add(this->fcgPNH264);
             this->tabPageVideoEnc->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->tabPageVideoEnc->Location = System::Drawing::Point(4, 24);
             this->tabPageVideoEnc->Name = L"tabPageVideoEnc";
-            this->tabPageVideoEnc->Padding = System::Windows::Forms::Padding(3, 3, 3, 3);
+            this->tabPageVideoEnc->Padding = System::Windows::Forms::Padding(3);
             this->tabPageVideoEnc->Size = System::Drawing::Size(608, 494);
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
@@ -2763,7 +2773,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBWeightP
             // 
             this->fcgLBWeightP->AutoSize = true;
-            this->fcgLBWeightP->Location = System::Drawing::Point(15, 471);
+            this->fcgLBWeightP->Location = System::Drawing::Point(15, 469);
             this->fcgLBWeightP->Name = L"fcgLBWeightP";
             this->fcgLBWeightP->Size = System::Drawing::Size(87, 14);
             this->fcgLBWeightP->TabIndex = 169;
@@ -2781,7 +2791,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgCBWeightP
             // 
             this->fcgCBWeightP->AutoSize = true;
-            this->fcgCBWeightP->Location = System::Drawing::Point(132, 474);
+            this->fcgCBWeightP->Location = System::Drawing::Point(132, 472);
             this->fcgCBWeightP->Name = L"fcgCBWeightP";
             this->fcgCBWeightP->Size = System::Drawing::Size(15, 14);
             this->fcgCBWeightP->TabIndex = 17;
@@ -2791,7 +2801,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // label3
             // 
             this->label3->AutoSize = true;
-            this->label3->Location = System::Drawing::Point(215, 359);
+            this->label3->Location = System::Drawing::Point(215, 301);
             this->label3->Name = L"label3";
             this->label3->Size = System::Drawing::Size(32, 14);
             this->label3->TabIndex = 167;
@@ -2800,7 +2810,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBLookaheadDisable
             // 
             this->fcgLBLookaheadDisable->AutoSize = true;
-            this->fcgLBLookaheadDisable->Location = System::Drawing::Point(215, 386);
+            this->fcgLBLookaheadDisable->Location = System::Drawing::Point(215, 439);
             this->fcgLBLookaheadDisable->Name = L"fcgLBLookaheadDisable";
             this->fcgLBLookaheadDisable->Size = System::Drawing::Size(66, 14);
             this->fcgLBLookaheadDisable->TabIndex = 165;
@@ -2808,7 +2818,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             // fcgNULookaheadDepth
             // 
-            this->fcgNULookaheadDepth->Location = System::Drawing::Point(132, 384);
+            this->fcgNULookaheadDepth->Location = System::Drawing::Point(132, 437);
             this->fcgNULookaheadDepth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 32, 0, 0, 0 });
             this->fcgNULookaheadDepth->Name = L"fcgNULookaheadDepth";
             this->fcgNULookaheadDepth->Size = System::Drawing::Size(77, 21);
@@ -2819,7 +2829,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBAQStrengthAuto
             // 
             this->fcgLBAQStrengthAuto->AutoSize = true;
-            this->fcgLBAQStrengthAuto->Location = System::Drawing::Point(215, 446);
+            this->fcgLBAQStrengthAuto->Location = System::Drawing::Point(536, 465);
             this->fcgLBAQStrengthAuto->Name = L"fcgLBAQStrengthAuto";
             this->fcgLBAQStrengthAuto->Size = System::Drawing::Size(66, 14);
             this->fcgLBAQStrengthAuto->TabIndex = 163;
@@ -2837,10 +2847,10 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             // fcgNUAQStrength
             // 
-            this->fcgNUAQStrength->Location = System::Drawing::Point(132, 445);
+            this->fcgNUAQStrength->Location = System::Drawing::Point(468, 463);
             this->fcgNUAQStrength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 15, 0, 0, 0 });
             this->fcgNUAQStrength->Name = L"fcgNUAQStrength";
-            this->fcgNUAQStrength->Size = System::Drawing::Size(77, 21);
+            this->fcgNUAQStrength->Size = System::Drawing::Size(57, 21);
             this->fcgNUAQStrength->TabIndex = 16;
             this->fcgNUAQStrength->Tag = L"reCmd";
             this->fcgNUAQStrength->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
@@ -2848,7 +2858,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBAQStrength
             // 
             this->fcgLBAQStrength->AutoSize = true;
-            this->fcgLBAQStrength->Location = System::Drawing::Point(14, 446);
+            this->fcgLBAQStrength->Location = System::Drawing::Point(350, 464);
             this->fcgLBAQStrength->Name = L"fcgLBAQStrength";
             this->fcgLBAQStrength->Size = System::Drawing::Size(107, 14);
             this->fcgLBAQStrength->TabIndex = 162;
@@ -2858,7 +2868,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             this->fcgCXAQ->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXAQ->FormattingEnabled = true;
-            this->fcgCXAQ->Location = System::Drawing::Point(132, 414);
+            this->fcgCXAQ->Location = System::Drawing::Point(468, 432);
             this->fcgCXAQ->Name = L"fcgCXAQ";
             this->fcgCXAQ->Size = System::Drawing::Size(122, 22);
             this->fcgCXAQ->TabIndex = 15;
@@ -2867,7 +2877,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBLookaheadDepth
             // 
             this->fcgLBLookaheadDepth->AutoSize = true;
-            this->fcgLBLookaheadDepth->Location = System::Drawing::Point(14, 386);
+            this->fcgLBLookaheadDepth->Location = System::Drawing::Point(14, 439);
             this->fcgLBLookaheadDepth->Name = L"fcgLBLookaheadDepth";
             this->fcgLBLookaheadDepth->Size = System::Drawing::Size(100, 14);
             this->fcgLBLookaheadDepth->TabIndex = 160;
@@ -2876,7 +2886,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBAQ
             // 
             this->fcgLBAQ->AutoSize = true;
-            this->fcgLBAQ->Location = System::Drawing::Point(14, 416);
+            this->fcgLBAQ->Location = System::Drawing::Point(350, 434);
             this->fcgLBAQ->Name = L"fcgLBAQ";
             this->fcgLBAQ->Size = System::Drawing::Size(102, 14);
             this->fcgLBAQ->TabIndex = 158;
@@ -2885,7 +2895,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgNUVBVBufsize
             // 
             this->fcgNUVBVBufsize->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 500, 0, 0, 0 });
-            this->fcgNUVBVBufsize->Location = System::Drawing::Point(132, 355);
+            this->fcgNUVBVBufsize->Location = System::Drawing::Point(132, 297);
             this->fcgNUVBVBufsize->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 128000, 0, 0, 0 });
             this->fcgNUVBVBufsize->Name = L"fcgNUVBVBufsize";
             this->fcgNUVBVBufsize->Size = System::Drawing::Size(77, 21);
@@ -2948,7 +2958,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBVBVBufsize
             // 
             this->fcgLBVBVBufsize->AutoSize = true;
-            this->fcgLBVBVBufsize->Location = System::Drawing::Point(14, 357);
+            this->fcgLBVBVBufsize->Location = System::Drawing::Point(14, 299);
             this->fcgLBVBVBufsize->Name = L"fcgLBVBVBufsize";
             this->fcgLBVBVBufsize->Size = System::Drawing::Size(84, 14);
             this->fcgLBVBVBufsize->TabIndex = 156;
@@ -2988,7 +2998,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             // fcgNURefFrames
             // 
-            this->fcgNURefFrames->Location = System::Drawing::Point(132, 327);
+            this->fcgNURefFrames->Location = System::Drawing::Point(132, 409);
             this->fcgNURefFrames->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNURefFrames->Name = L"fcgNURefFrames";
             this->fcgNURefFrames->Size = System::Drawing::Size(77, 21);
@@ -2999,7 +3009,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBRefFrames
             // 
             this->fcgLBRefFrames->AutoSize = true;
-            this->fcgLBRefFrames->Location = System::Drawing::Point(13, 330);
+            this->fcgLBRefFrames->Location = System::Drawing::Point(13, 412);
             this->fcgLBRefFrames->Name = L"fcgLBRefFrames";
             this->fcgLBRefFrames->Size = System::Drawing::Size(51, 14);
             this->fcgLBRefFrames->TabIndex = 140;
@@ -3007,7 +3017,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             // fcgNUBframes
             // 
-            this->fcgNUBframes->Location = System::Drawing::Point(132, 299);
+            this->fcgNUBframes->Location = System::Drawing::Point(132, 352);
             this->fcgNUBframes->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNUBframes->Name = L"fcgNUBframes";
             this->fcgNUBframes->Size = System::Drawing::Size(77, 21);
@@ -3018,7 +3028,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBBframes
             // 
             this->fcgLBBframes->AutoSize = true;
-            this->fcgLBBframes->Location = System::Drawing::Point(14, 302);
+            this->fcgLBBframes->Location = System::Drawing::Point(14, 355);
             this->fcgLBBframes->Name = L"fcgLBBframes";
             this->fcgLBBframes->Size = System::Drawing::Size(58, 14);
             this->fcgLBBframes->TabIndex = 133;
@@ -3027,7 +3037,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBGOPLengthAuto
             // 
             this->fcgLBGOPLengthAuto->AutoSize = true;
-            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 274);
+            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 327);
             this->fcgLBGOPLengthAuto->Name = L"fcgLBGOPLengthAuto";
             this->fcgLBGOPLengthAuto->Size = System::Drawing::Size(66, 14);
             this->fcgLBGOPLengthAuto->TabIndex = 101;
@@ -3035,7 +3045,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             // fcgNUGopLength
             // 
-            this->fcgNUGopLength->Location = System::Drawing::Point(132, 271);
+            this->fcgNUGopLength->Location = System::Drawing::Point(132, 324);
             this->fcgNUGopLength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 120000, 0, 0, 0 });
             this->fcgNUGopLength->Name = L"fcgNUGopLength";
             this->fcgNUGopLength->Size = System::Drawing::Size(77, 21);
@@ -3046,7 +3056,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBGOPLength
             // 
             this->fcgLBGOPLength->AutoSize = true;
-            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 274);
+            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 327);
             this->fcgLBGOPLength->Name = L"fcgLBGOPLength";
             this->fcgLBGOPLength->Size = System::Drawing::Size(41, 14);
             this->fcgLBGOPLength->TabIndex = 85;
@@ -3108,13 +3118,13 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgPNH264->Controls->Add(this->fcggroupBoxColorH264);
             this->fcgPNH264->Location = System::Drawing::Point(341, 165);
             this->fcgPNH264->Name = L"fcgPNH264";
-            this->fcgPNH264->Size = System::Drawing::Size(264, 307);
+            this->fcgPNH264->Size = System::Drawing::Size(264, 251);
             this->fcgPNH264->TabIndex = 152;
             // 
             // fcgLBBluray
             // 
             this->fcgLBBluray->AutoSize = true;
-            this->fcgLBBluray->Location = System::Drawing::Point(16, 66);
+            this->fcgLBBluray->Location = System::Drawing::Point(16, 8);
             this->fcgLBBluray->Name = L"fcgLBBluray";
             this->fcgLBBluray->Size = System::Drawing::Size(74, 14);
             this->fcgLBBluray->TabIndex = 156;
@@ -3123,7 +3133,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgCBBluray
             // 
             this->fcgCBBluray->AutoSize = true;
-            this->fcgCBBluray->Location = System::Drawing::Point(128, 67);
+            this->fcgCBBluray->Location = System::Drawing::Point(128, 9);
             this->fcgCBBluray->Name = L"fcgCBBluray";
             this->fcgCBBluray->Size = System::Drawing::Size(15, 14);
             this->fcgCBBluray->TabIndex = 43;
@@ -3133,7 +3143,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBCodecProfile
             // 
             this->fcgLBCodecProfile->AutoSize = true;
-            this->fcgLBCodecProfile->Location = System::Drawing::Point(15, 8);
+            this->fcgLBCodecProfile->Location = System::Drawing::Point(15, 38);
             this->fcgLBCodecProfile->Name = L"fcgLBCodecProfile";
             this->fcgLBCodecProfile->Size = System::Drawing::Size(53, 14);
             this->fcgLBCodecProfile->TabIndex = 83;
@@ -3142,7 +3152,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBCodecLevel
             // 
             this->fcgLBCodecLevel->AutoSize = true;
-            this->fcgLBCodecLevel->Location = System::Drawing::Point(15, 38);
+            this->fcgLBCodecLevel->Location = System::Drawing::Point(15, 69);
             this->fcgLBCodecLevel->Name = L"fcgLBCodecLevel";
             this->fcgLBCodecLevel->Size = System::Drawing::Size(33, 14);
             this->fcgLBCodecLevel->TabIndex = 84;
@@ -3152,7 +3162,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             this->fcgCXCodecProfile->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXCodecProfile->FormattingEnabled = true;
-            this->fcgCXCodecProfile->Location = System::Drawing::Point(126, 5);
+            this->fcgCXCodecProfile->Location = System::Drawing::Point(126, 35);
             this->fcgCXCodecProfile->Name = L"fcgCXCodecProfile";
             this->fcgCXCodecProfile->Size = System::Drawing::Size(121, 22);
             this->fcgCXCodecProfile->TabIndex = 41;
@@ -3162,7 +3172,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             this->fcgCXCodecLevel->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXCodecLevel->FormattingEnabled = true;
-            this->fcgCXCodecLevel->Location = System::Drawing::Point(126, 34);
+            this->fcgCXCodecLevel->Location = System::Drawing::Point(126, 65);
             this->fcgCXCodecLevel->Name = L"fcgCXCodecLevel";
             this->fcgCXCodecLevel->Size = System::Drawing::Size(121, 22);
             this->fcgCXCodecLevel->TabIndex = 42;
@@ -3171,7 +3181,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBFullrangeH264
             // 
             this->fcgLBFullrangeH264->AutoSize = true;
-            this->fcgLBFullrangeH264->Location = System::Drawing::Point(19, 182);
+            this->fcgLBFullrangeH264->Location = System::Drawing::Point(19, 126);
             this->fcgLBFullrangeH264->Name = L"fcgLBFullrangeH264";
             this->fcgLBFullrangeH264->Size = System::Drawing::Size(55, 14);
             this->fcgLBFullrangeH264->TabIndex = 145;
@@ -3180,7 +3190,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgCBFullrangeH264
             // 
             this->fcgCBFullrangeH264->AutoSize = true;
-            this->fcgCBFullrangeH264->Location = System::Drawing::Point(126, 186);
+            this->fcgCBFullrangeH264->Location = System::Drawing::Point(126, 130);
             this->fcgCBFullrangeH264->Name = L"fcgCBFullrangeH264";
             this->fcgCBFullrangeH264->Size = System::Drawing::Size(15, 14);
             this->fcgCBFullrangeH264->TabIndex = 51;
@@ -3191,7 +3201,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             this->fcgCXVideoFormatH264->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVideoFormatH264->FormattingEnabled = true;
-            this->fcgCXVideoFormatH264->Location = System::Drawing::Point(126, 155);
+            this->fcgCXVideoFormatH264->Location = System::Drawing::Point(126, 97);
             this->fcgCXVideoFormatH264->Name = L"fcgCXVideoFormatH264";
             this->fcgCXVideoFormatH264->Size = System::Drawing::Size(121, 22);
             this->fcgCXVideoFormatH264->TabIndex = 50;
@@ -3200,7 +3210,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBVideoFormatH264
             // 
             this->fcgLBVideoFormatH264->AutoSize = true;
-            this->fcgLBVideoFormatH264->Location = System::Drawing::Point(19, 157);
+            this->fcgLBVideoFormatH264->Location = System::Drawing::Point(19, 99);
             this->fcgLBVideoFormatH264->Name = L"fcgLBVideoFormatH264";
             this->fcgLBVideoFormatH264->Size = System::Drawing::Size(73, 14);
             this->fcgLBVideoFormatH264->TabIndex = 144;
@@ -3214,7 +3224,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcggroupBoxColorH264->Controls->Add(this->fcgLBTransferH264);
             this->fcggroupBoxColorH264->Controls->Add(this->fcgLBColorPrimH264);
             this->fcggroupBoxColorH264->Controls->Add(this->fcgLBColorMatrixH264);
-            this->fcggroupBoxColorH264->Location = System::Drawing::Point(15, 202);
+            this->fcggroupBoxColorH264->Location = System::Drawing::Point(15, 146);
             this->fcggroupBoxColorH264->Name = L"fcggroupBoxColorH264";
             this->fcggroupBoxColorH264->Size = System::Drawing::Size(241, 103);
             this->fcggroupBoxColorH264->TabIndex = 60;
@@ -3286,7 +3296,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgPNQP->Controls->Add(this->fcgNUQPB);
             this->fcgPNQP->Controls->Add(this->fcgLBQPP);
             this->fcgPNQP->Controls->Add(this->fcgLBQPB);
-            this->fcgPNQP->Location = System::Drawing::Point(8, 186);
+            this->fcgPNQP->Location = System::Drawing::Point(8, 215);
             this->fcgPNQP->Name = L"fcgPNQP";
             this->fcgPNQP->Size = System::Drawing::Size(289, 79);
             this->fcgPNQP->TabIndex = 113;
@@ -3342,7 +3352,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBQPB
             // 
             this->fcgLBQPB->AutoSize = true;
-            this->fcgLBQPB->Location = System::Drawing::Point(6, 57);
+            this->fcgLBQPB->Location = System::Drawing::Point(10, 57);
             this->fcgLBQPB->Name = L"fcgLBQPB";
             this->fcgLBQPB->Size = System::Drawing::Size(69, 14);
             this->fcgLBQPB->TabIndex = 77;
@@ -3359,7 +3369,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgPNBitrate->Controls->Add(this->fcgNUMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxBitrate2);
-            this->fcgPNBitrate->Location = System::Drawing::Point(8, 186);
+            this->fcgPNBitrate->Location = System::Drawing::Point(8, 215);
             this->fcgPNBitrate->Name = L"fcgPNBitrate";
             this->fcgPNBitrate->Size = System::Drawing::Size(289, 79);
             this->fcgPNBitrate->TabIndex = 114;
@@ -3452,6 +3462,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             // fcgPNHEVC
             // 
+            this->fcgPNHEVC->Controls->Add(this->fxgLBHEVCTier);
             this->fcgPNHEVC->Controls->Add(this->fcgLBHEVCOutBitDepth);
             this->fcgPNHEVC->Controls->Add(this->fcgCXHEVCOutBitDepth);
             this->fcgPNHEVC->Controls->Add(this->fcgLBFullrangeHEVC);
@@ -3460,12 +3471,11 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgPNHEVC->Controls->Add(this->fcgLBVideoFormatHEVC);
             this->fcgPNHEVC->Controls->Add(this->fcggroupBoxColorHEVC);
             this->fcgPNHEVC->Controls->Add(this->fcgLBHEVCProfile);
-            this->fcgPNHEVC->Controls->Add(this->fxgLBHEVCTier);
             this->fcgPNHEVC->Controls->Add(this->fcgCXHEVCTier);
             this->fcgPNHEVC->Controls->Add(this->fxgCXHEVCLevel);
             this->fcgPNHEVC->Location = System::Drawing::Point(341, 165);
             this->fcgPNHEVC->Name = L"fcgPNHEVC";
-            this->fcgPNHEVC->Size = System::Drawing::Size(264, 307);
+            this->fcgPNHEVC->Size = System::Drawing::Size(264, 251);
             this->fcgPNHEVC->TabIndex = 153;
             // 
             // fcgLBHEVCOutBitDepth
@@ -3490,7 +3500,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBFullrangeHEVC
             // 
             this->fcgLBFullrangeHEVC->AutoSize = true;
-            this->fcgLBFullrangeHEVC->Location = System::Drawing::Point(19, 182);
+            this->fcgLBFullrangeHEVC->Location = System::Drawing::Point(19, 126);
             this->fcgLBFullrangeHEVC->Name = L"fcgLBFullrangeHEVC";
             this->fcgLBFullrangeHEVC->Size = System::Drawing::Size(55, 14);
             this->fcgLBFullrangeHEVC->TabIndex = 154;
@@ -3499,7 +3509,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgCBFullrangeHEVC
             // 
             this->fcgCBFullrangeHEVC->AutoSize = true;
-            this->fcgCBFullrangeHEVC->Location = System::Drawing::Point(126, 186);
+            this->fcgCBFullrangeHEVC->Location = System::Drawing::Point(126, 130);
             this->fcgCBFullrangeHEVC->Name = L"fcgCBFullrangeHEVC";
             this->fcgCBFullrangeHEVC->Size = System::Drawing::Size(15, 14);
             this->fcgCBFullrangeHEVC->TabIndex = 91;
@@ -3510,7 +3520,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             this->fcgCXVideoFormatHEVC->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVideoFormatHEVC->FormattingEnabled = true;
-            this->fcgCXVideoFormatHEVC->Location = System::Drawing::Point(126, 155);
+            this->fcgCXVideoFormatHEVC->Location = System::Drawing::Point(126, 97);
             this->fcgCXVideoFormatHEVC->Name = L"fcgCXVideoFormatHEVC";
             this->fcgCXVideoFormatHEVC->Size = System::Drawing::Size(121, 22);
             this->fcgCXVideoFormatHEVC->TabIndex = 90;
@@ -3519,7 +3529,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBVideoFormatHEVC
             // 
             this->fcgLBVideoFormatHEVC->AutoSize = true;
-            this->fcgLBVideoFormatHEVC->Location = System::Drawing::Point(19, 157);
+            this->fcgLBVideoFormatHEVC->Location = System::Drawing::Point(19, 99);
             this->fcgLBVideoFormatHEVC->Name = L"fcgLBVideoFormatHEVC";
             this->fcgLBVideoFormatHEVC->Size = System::Drawing::Size(73, 14);
             this->fcgLBVideoFormatHEVC->TabIndex = 153;
@@ -3533,7 +3543,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcggroupBoxColorHEVC->Controls->Add(this->fcgLBTransferHEVC);
             this->fcggroupBoxColorHEVC->Controls->Add(this->fcgLBColorPrimHEVC);
             this->fcggroupBoxColorHEVC->Controls->Add(this->fcgLBColorMatrixHEVC);
-            this->fcggroupBoxColorHEVC->Location = System::Drawing::Point(15, 202);
+            this->fcggroupBoxColorHEVC->Location = System::Drawing::Point(15, 146);
             this->fcggroupBoxColorHEVC->Name = L"fcggroupBoxColorHEVC";
             this->fcggroupBoxColorHEVC->Size = System::Drawing::Size(241, 103);
             this->fcggroupBoxColorHEVC->TabIndex = 92;
@@ -3609,7 +3619,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fxgLBHEVCTier
             // 
             this->fxgLBHEVCTier->AutoSize = true;
-            this->fxgLBHEVCTier->Location = System::Drawing::Point(15, 68);
+            this->fxgLBHEVCTier->Location = System::Drawing::Point(15, 69);
             this->fxgLBHEVCTier->Name = L"fxgLBHEVCTier";
             this->fxgLBHEVCTier->Size = System::Drawing::Size(33, 14);
             this->fxgLBHEVCTier->TabIndex = 84;
@@ -3646,7 +3656,6 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->tabPageVideoDetail->Controls->Add(this->fcgLBCudaSchdule);
             this->tabPageVideoDetail->Controls->Add(this->fcgCXCudaSchdule);
             this->tabPageVideoDetail->Controls->Add(this->fcgCBPerfMonitor);
-            this->tabPageVideoDetail->Controls->Add(this->fcgGroupBoxQulaityStg);
             this->tabPageVideoDetail->Controls->Add(this->groupBoxQPDetail);
             this->tabPageVideoDetail->Controls->Add(this->fcgLBDevice);
             this->tabPageVideoDetail->Controls->Add(this->fcgCXDevice);
@@ -3750,37 +3759,6 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgCBPerfMonitor->Tag = L"reCmd";
             this->fcgCBPerfMonitor->Text = L"パフォーマンスログ出力";
             this->fcgCBPerfMonitor->UseVisualStyleBackColor = true;
-            // 
-            // fcgGroupBoxQulaityStg
-            // 
-            this->fcgGroupBoxQulaityStg->Controls->Add(this->fcgBTQualityStg);
-            this->fcgGroupBoxQulaityStg->Controls->Add(this->fcgCXQualityPreset);
-            this->fcgGroupBoxQulaityStg->Location = System::Drawing::Point(372, 404);
-            this->fcgGroupBoxQulaityStg->Name = L"fcgGroupBoxQulaityStg";
-            this->fcgGroupBoxQulaityStg->Size = System::Drawing::Size(219, 70);
-            this->fcgGroupBoxQulaityStg->TabIndex = 80;
-            this->fcgGroupBoxQulaityStg->TabStop = false;
-            this->fcgGroupBoxQulaityStg->Text = L"品質設定";
-            this->fcgGroupBoxQulaityStg->Visible = false;
-            // 
-            // fcgBTQualityStg
-            // 
-            this->fcgBTQualityStg->Location = System::Drawing::Point(106, 42);
-            this->fcgBTQualityStg->Name = L"fcgBTQualityStg";
-            this->fcgBTQualityStg->Size = System::Drawing::Size(97, 22);
-            this->fcgBTQualityStg->TabIndex = 1;
-            this->fcgBTQualityStg->Text = L"ロードして反映";
-            this->fcgBTQualityStg->UseVisualStyleBackColor = true;
-            // 
-            // fcgCXQualityPreset
-            // 
-            this->fcgCXQualityPreset->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXQualityPreset->FormattingEnabled = true;
-            this->fcgCXQualityPreset->Location = System::Drawing::Point(26, 17);
-            this->fcgCXQualityPreset->Name = L"fcgCXQualityPreset";
-            this->fcgCXQualityPreset->Size = System::Drawing::Size(174, 23);
-            this->fcgCXQualityPreset->TabIndex = 0;
-            this->fcgCXQualityPreset->Tag = L"chValue";
             // 
             // groupBoxQPDetail
             // 
@@ -4038,7 +4016,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // fcgLBSlices
             // 
             this->fcgLBSlices->AutoSize = true;
-            this->fcgLBSlices->Location = System::Drawing::Point(394, 373);
+            this->fcgLBSlices->Location = System::Drawing::Point(20, 251);
             this->fcgLBSlices->Name = L"fcgLBSlices";
             this->fcgLBSlices->Size = System::Drawing::Size(54, 15);
             this->fcgLBSlices->TabIndex = 155;
@@ -4047,7 +4025,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             // 
             // fcgNUSlices
             // 
-            this->fcgNUSlices->Location = System::Drawing::Point(503, 371);
+            this->fcgNUSlices->Location = System::Drawing::Point(129, 249);
             this->fcgNUSlices->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUSlices->Name = L"fcgNUSlices";
             this->fcgNUSlices->Size = System::Drawing::Size(70, 23);
@@ -5587,7 +5565,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgtabPageAudioMain->Controls->Add(this->fcgLBAudioTemp);
             this->fcgtabPageAudioMain->Location = System::Drawing::Point(4, 23);
             this->fcgtabPageAudioMain->Name = L"fcgtabPageAudioMain";
-            this->fcgtabPageAudioMain->Padding = System::Windows::Forms::Padding(3, 3, 3, 3);
+            this->fcgtabPageAudioMain->Padding = System::Windows::Forms::Padding(3);
             this->fcgtabPageAudioMain->Size = System::Drawing::Size(376, 269);
             this->fcgtabPageAudioMain->TabIndex = 0;
             this->fcgtabPageAudioMain->Text = L"音声";
@@ -5821,7 +5799,7 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgtabPageAudioOther->Controls->Add(this->fcgLBAudioPriority);
             this->fcgtabPageAudioOther->Location = System::Drawing::Point(4, 23);
             this->fcgtabPageAudioOther->Name = L"fcgtabPageAudioOther";
-            this->fcgtabPageAudioOther->Padding = System::Windows::Forms::Padding(3, 3, 3, 3);
+            this->fcgtabPageAudioOther->Padding = System::Windows::Forms::Padding(3);
             this->fcgtabPageAudioOther->Size = System::Drawing::Size(376, 269);
             this->fcgtabPageAudioOther->TabIndex = 1;
             this->fcgtabPageAudioOther->Text = L"その他";
@@ -5984,6 +5962,45 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcgTXCmd->TabIndex = 52;
             this->fcgTXCmd->DoubleClick += gcnew System::EventHandler(this, &frmConfig::fcgTXCmd_DoubleClick);
             // 
+            // fcgCXBrefMode
+            // 
+            this->fcgCXBrefMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXBrefMode->FormattingEnabled = true;
+            this->fcgCXBrefMode->Location = System::Drawing::Point(132, 380);
+            this->fcgCXBrefMode->Name = L"fcgCXBrefMode";
+            this->fcgCXBrefMode->Size = System::Drawing::Size(122, 22);
+            this->fcgCXBrefMode->TabIndex = 173;
+            this->fcgCXBrefMode->Tag = L"reCmd";
+            // 
+            // fcgLBBrefMode
+            // 
+            this->fcgLBBrefMode->AutoSize = true;
+            this->fcgLBBrefMode->Location = System::Drawing::Point(14, 382);
+            this->fcgLBBrefMode->Name = L"fcgLBBrefMode";
+            this->fcgLBBrefMode->Size = System::Drawing::Size(94, 14);
+            this->fcgLBBrefMode->TabIndex = 174;
+            this->fcgLBBrefMode->Text = L"Bフレーム参照モード";
+            // 
+            // fcgLBQuality
+            // 
+            this->fcgLBQuality->AutoSize = true;
+            this->fcgLBQuality->Location = System::Drawing::Point(13, 190);
+            this->fcgLBQuality->Name = L"fcgLBQuality";
+            this->fcgLBQuality->Size = System::Drawing::Size(29, 14);
+            this->fcgLBQuality->TabIndex = 176;
+            this->fcgLBQuality->Text = L"品質";
+            // 
+            // fcgCXQuality
+            // 
+            this->fcgCXQuality->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXQuality->FormattingEnabled = true;
+            this->fcgCXQuality->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
+            this->fcgCXQuality->Location = System::Drawing::Point(81, 187);
+            this->fcgCXQuality->Name = L"fcgCXQuality";
+            this->fcgCXQuality->Size = System::Drawing::Size(185, 22);
+            this->fcgCXQuality->TabIndex = 175;
+            this->fcgCXQuality->Tag = L"reCmd";
+            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -6056,7 +6073,6 @@ private: System::Windows::Forms::TextBox^  fcgTXVideoEncoderPath;
             this->fcggroupBoxColorHEVC->PerformLayout();
             this->tabPageVideoDetail->ResumeLayout(false);
             this->tabPageVideoDetail->PerformLayout();
-            this->fcgGroupBoxQulaityStg->ResumeLayout(false);
             this->groupBoxQPDetail->ResumeLayout(false);
             this->groupBoxQPDetail->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPInitB))->EndInit();

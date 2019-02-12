@@ -3008,6 +3008,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     cmd << _T(" -c ") << get_chr_from_value(list_nvenc_codecs_for_opt, pParams->codec);
     OPT_STR_PATH(_T("-i"), inputFilename);
     OPT_STR_PATH(_T("-o"), outputFilename);
+    if ((pParams->preset) != (encPrmDefault.preset)) cmd << _T(" -u ") << get_name_from_value(pParams->preset, list_nvenc_preset_names);
     switch (pParams->input.type) {
     case RGY_INPUT_FMT_RAW:    cmd << _T(" --raw"); break;
     case RGY_INPUT_FMT_Y4M:    cmd << _T(" --y4m"); break;

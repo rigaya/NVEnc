@@ -642,6 +642,7 @@ System::Void frmConfig::InitComboBox() {
     //コンボボックスに値を設定する
     setComboBox(fcgCXEncCodec,          list_nvenc_codecs);
     setComboBox(fcgCXEncMode,           list_nvenc_rc_method);
+    setComboBox(fcgCXQuality,           list_nvenc_preset_names);
     setComboBox(fcgCXCodecLevel,        list_avc_level);
     setComboBox(fcgCXCodecProfile,      h264_profile_names);
     setComboBox(fcgCXInterlaced,        list_interlaced);
@@ -649,7 +650,6 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXAdaptiveTransform, list_adapt_transform);
     setComboBox(fcgCXBDirectMode,       list_bdirect);
     setComboBox(fcgCXMVPrecision,       list_mv_presicion);
-    setComboBox(fcgCXQualityPreset,     list_nvenc_preset_names);
     setComboBox(fcgCXVideoFormatH264,   list_videoformat);
     setComboBox(fcgCXTransferH264,      list_transfer);
     setComboBox(fcgCXColorMatrixH264,   list_colormatrix);
@@ -664,6 +664,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXHEVCMinCUSize,     list_hevc_cu_size);
     setComboBox(fcgCXHEVCOutBitDepth,   list_bitdepth);
     setComboBox(fcgCXAQ,                list_aq);
+    setComboBox(fcgCXBrefMode,          list_bref_mode);
     setComboBox(fcgCXCudaSchdule,       list_cuda_schedule);
     setComboBox(fcgCXVppResizeAlg,      list_nppi_resize_help);
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
@@ -908,10 +909,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUVBRTragetQuality,  Decimal(encPrm.encConfig.rcParams.targetQuality + encPrm.encConfig.rcParams.targetQualityLSB / 256.0));
     SetNUValue(fcgNUGopLength,         encPrm.encConfig.gopLength);
     SetNUValue(fcgNUBframes,           encPrm.encConfig.frameIntervalP - 1);
-    SetCXIndex(fcgCXQualityPreset,     get_index_from_value(encPrm.preset, list_nvenc_preset_names));
+    SetCXIndex(fcgCXQuality,           get_index_from_value(encPrm.preset, list_nvenc_preset_names));
     SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, encPrm.encConfig.mvPrecision));
     SetNUValue(fcgNUVBVBufsize, encPrm.encConfig.rcParams.vbvBufferSize / 1000);
     SetNUValue(fcgNULookaheadDepth,   (encPrm.encConfig.rcParams.enableLookahead) ? encPrm.encConfig.rcParams.lookaheadDepth : 0);
+    SetCXIndex(fcgCXBrefMode,          codecPrm[NV_ENC_H264].h264Config.useBFramesAsRef);
     uint32_t nAQ = 0;
     nAQ |= encPrm.encConfig.rcParams.enableAQ ? NV_ENC_AQ_SPATIAL : 0x00;
     nAQ |= encPrm.encConfig.rcParams.enableTemporalAQ ? NV_ENC_AQ_TEMPORAL : 0x00;
@@ -1113,7 +1115,9 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.encConfig.frameIntervalP = (int)fcgNUBframes->Value + 1;
     encPrm.encConfig.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
     encPrm.encConfig.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
-    encPrm.preset = list_nvenc_preset_names[fcgCXQualityPreset->SelectedIndex].value;
+    encPrm.preset = list_nvenc_preset_names[fcgCXQuality->SelectedIndex].value;
+    codecPrm[NV_ENC_H264].h264Config.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)list_bref_mode[fcgCXBrefMode->SelectedIndex].value;
+    codecPrm[NV_ENC_HEVC].hevcConfig.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)list_bref_mode[fcgCXBrefMode->SelectedIndex].value;
 
     int nLookaheadDepth = (int)fcgNULookaheadDepth->Value;
     if (nLookaheadDepth > 0) {
