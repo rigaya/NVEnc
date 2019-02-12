@@ -68,7 +68,7 @@ const char *get_encoder_version();
 
 #define GPU_VENDOR "NVIDIA"
 
-#define NV_DRIVER_VER_MIN 390770
+#define NV_DRIVER_VER_MIN 418810
 
 #ifdef NVENC_AUO
 #define ENCODER_NAME  "NVEnc"
