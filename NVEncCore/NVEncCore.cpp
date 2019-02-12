@@ -1880,7 +1880,7 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCode
     };
 
     add_cap_info(NV_ENC_CAPS_NUM_MAX_BFRAMES,              false, false, _T("Max Bframes"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE,      true,  true,  _T("B Ref Mode"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE,      false, true,  _T("B Ref Mode"));
     add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  false, false, _T("RC Modes"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       false, true,  _T("Field Encoding"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_MONOCHROME,           false, true,  _T("MonoChrome"));
