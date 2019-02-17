@@ -96,9 +96,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 8.0.props" />
-  </ImportGroup>
+  <Import Project="..\cudaver.props" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -178,9 +176,9 @@
     </Lib>
     <CudaCompile />
     <CudaCompile>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
       <FastMath>true</FastMath>
@@ -228,10 +226,11 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile />
     <CudaCompile />
     <CudaCompile>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50;compute_75,sm_75</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
+      <PtxAsOptionV>true</PtxAsOptionV>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -274,9 +273,9 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
       <FastMath>true</FastMath>
@@ -323,12 +322,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,sm_30;compute_50,sm_50;compute_75,sm_75</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
-      <GPUDebugInfo>true</GPUDebugInfo>
-      <GenerateLineInfo>true</GenerateLineInfo>
+      <GenerateLineInfo>false</GenerateLineInfo>
+      <PtxAsOptionV>true</PtxAsOptionV>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -380,9 +379,9 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <CudaCompile>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
@@ -429,9 +428,9 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
     </CudaCompile>
     <CudaLink />
@@ -479,10 +478,11 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <CudaCompile>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,compute_30;compute_50,compute_50;compute_75,compute_75</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
+      <PtxAsOptionV>true</PtxAsOptionV>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -529,10 +529,11 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505"</AdditionalCompilerOptions>
-      <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=negative_shift_count" -Xcudafe "--diag_suppress=signed_one_bit_field" -Xcudafe "--diag_suppress=expr_has_no_effect" </AdditionalOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <CodeGeneration>compute_30,compute_30;compute_50,compute_50;compute_75,compute_75</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
+      <PtxAsOptionV>true</PtxAsOptionV>
     </CudaCompile>
     <CudaLink />
     <PreBuildEvent>
@@ -623,6 +624,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="NVEncFilterDelogo.cpp" />
     <CudaCompile Include="NVEncFilterDenoiseKnn.cu" />
     <CudaCompile Include="NVEncFilterEdgelevel.cu" />
+    <CudaCompile Include="NVEncFilterNnedi.cu" />
     <CudaCompile Include="NVEncFilterTweak.cu" />
     <CudaCompile Include="NVEncFilterResize.cu" />
     <CudaCompile Include="NVEncFilterUnsharp.cu" />
@@ -653,6 +655,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterDenoiseKnn.h" />
     <ClInclude Include="NVEncFilterDenoisePmd.h" />
     <ClInclude Include="NVEncFilterEdgelevel.h" />
+    <ClInclude Include="NVEncFilterNnedi.h" />
     <ClInclude Include="NVEncFilterSelectEvery.h" />
     <ClInclude Include="NVEncFilterTweak.h" />
     <ClInclude Include="NVEncFilterRff.h" />
@@ -668,6 +671,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_bitstream.h" />
     <ClInclude Include="rgy_caption.h" />
+    <ClInclude Include="rgy_cuda_util.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_input.h" />
@@ -723,7 +727,4 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 8.0.targets" />
-  </ImportGroup>
 </Project>

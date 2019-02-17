@@ -38,11 +38,8 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <vector_types.h>
-#include <device_functions.h>
 #include <sm_32_intrinsics.h>
 #pragma warning (pop)
-
-#define WARP_SIZE    (32)
 
 #define FILTER_BLOCK_INT_X  (32) //work groupサイズ(x) = スレッド数/work group
 #define FILTER_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group

@@ -32,7 +32,6 @@
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
-#include "device_functions.hpp"
 #include "device_launch_parameters.h"
 #include "NVEncFilterDelogo.h"
 #pragma warning (pop)

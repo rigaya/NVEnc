@@ -31,6 +31,12 @@
 #include <cstdint>
 #include "rgy_tchar.h"
 
+enum RGY_PLANE {
+    RGY_PLANE_Y,
+    RGY_PLANE_U,
+    RGY_PLANE_V,
+};
+
 typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
 enum RGY_CSP {
@@ -311,5 +317,7 @@ static bool interlaced(const FrameInfo& FrameInfo) {
 }
 
 FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
+
+FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane);
 
 #endif //_CONVERT_CSP_H_

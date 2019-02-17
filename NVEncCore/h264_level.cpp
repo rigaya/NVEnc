@@ -125,7 +125,7 @@ int calc_h264_auto_level(int width, int height, int ref, bool interlaced, int fp
 
 //vbv値を求める *vbv_max と *vbv_buf はNULLでもOK
 void get_h264_vbv_value(int *vbv_max, int *vbv_buf, int level, int profile) {
-    int level_idx = std::find(H264_LEVEL_INDEX, H264_LEVEL_INDEX + _countof(H264_LEVEL_INDEX), level) - H264_LEVEL_INDEX;
+    int level_idx = (int)(std::find(H264_LEVEL_INDEX, H264_LEVEL_INDEX + _countof(H264_LEVEL_INDEX), level) - H264_LEVEL_INDEX);
     if (level_idx == _countof(H264_LEVEL_INDEX)) {
         level_idx = 0;
     }

@@ -72,6 +72,7 @@
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterTweak.h"
 #include "NVEncFilterSelectEvery.h"
+#include "NVEncFilterNnedi.h"
 #include "NVEncFeature.h"
 #include "chapter_rw.h"
 #include "helper_cuda.h"
@@ -2012,7 +2013,7 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
 }
 
 bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
-    const bool interlacedEncode = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable));
+    const bool interlacedEncode = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable && !inputParam->vpp.nnedi.enable));
     return
          //デフォルトの補間方法
         inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED
@@ -2026,6 +2027,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.knn.enable
             || inputParam->vpp.pmd.enable
             || inputParam->vpp.afs.enable
+            || inputParam->vpp.nnedi.enable
             || inputParam->vpp.pad.enable);
 }
 
@@ -2130,7 +2132,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
 #endif
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable) {
+    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
 
@@ -2636,7 +2638,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     m_stPicStruct = picstruct_rgy_to_enc(inputParam->input.picstruct);
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable) {
+    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
 
@@ -2687,6 +2689,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.deband.enable
         || inputParam->vpp.edgelevel.enable
         || inputParam->vpp.afs.enable
+        || inputParam->vpp.nnedi.enable
         || inputParam->vpp.tweak.enable
         || inputParam->vpp.pad.enable
         || inputParam->vpp.rff
@@ -2821,6 +2824,32 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->baseFps = m_encFps;
             param->outFilename = inputParam->outputFilename;
             param->cudaSchedule = m_cudaSchedule;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //nnedi
+        if (inputParam->vpp.nnedi.enable) {
+            if ((inputParam->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
+                PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-afs.\n"));
+                return NV_ENC_ERR_INVALID_PARAM;
+            }
+            unique_ptr<NVEncFilter> filter(new NVEncFilterNnedi());
+            shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
+            param->nnedi = inputParam->vpp.nnedi;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
@@ -3229,7 +3258,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
             || (inputParam->yuv444 && !get_value(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE, codec->caps))
             || (inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0 && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps))
             || (inputParam->codec == NV_ENC_H264
-                && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable))
+                && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable && !inputParam->vpp.nnedi.enable))
                 && !get_value(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING, codec->caps))) {
             gpu = m_GPUList.erase(gpu);
             continue;

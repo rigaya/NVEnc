@@ -49,11 +49,9 @@
 #include "NVEncFrameInfo.h"
 
 #pragma comment(lib, "cudart_static.lib")
-#ifndef _M_IX86
-#pragma comment(lib, "nppi.lib")
-#endif
 
-static const TCHAR *NPPI_DLL_NAME = _T("nppi64_80.dll");
+extern const TCHAR *NPPI_DLL_NAME_TSTR;
+
 bool check_if_nppi_dll_available();
 
 using std::vector;

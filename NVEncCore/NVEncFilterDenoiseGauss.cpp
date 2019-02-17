@@ -189,7 +189,7 @@ NVENCSTATUS NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, s
         return NV_ENC_ERR_INVALID_PARAM;
     }
     if (!check_if_nppi_dll_available()) {
-        AddMessage(RGY_LOG_ERROR, _T("vpp-gauss requires \"%s\", not available on your system.\n"), NPPI_DLL_NAME);
+        AddMessage(RGY_LOG_ERROR, _T("vpp-gauss requires \"%s\", not available on your system.\n"), NPPI_DLL_NAME_TSTR);
         return NV_ENC_ERR_INVALID_PARAM;
     }
     //パラメータチェック

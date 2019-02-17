@@ -2121,6 +2121,104 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+
+
+    if (IS_OPTION("vpp-nnedi")) {
+        pParams->vpp.nnedi.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        pParams->vpp.nnedi.enable = true;
+                    } else if (param_val == _T("false")) {
+                        pParams->vpp.nnedi.enable = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("field")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_field, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.field = (VppNnediField)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nns")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_nns, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.nns = value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nsize")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_nsize, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.nsize = (VppNnediNSize)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("quality")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_quality, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.quality = (VppNnediQuality)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("prescreen")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_pre_screen, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.pre_screen = (VppNnediPreScreen)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("errortype")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_error_type, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.errortype = (VppNnediErrorType)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("weightfile")) {
+                    pParams->vpp.nnedi.weightfile = param_val.c_str();
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-rff")) {
         pParams->vpp.rff = true;
         return 0;
@@ -3347,6 +3445,25 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-afs ") << tmp.str().substr(1);
         } else if (pParams->vpp.afs.enable) {
             cmd << _T(" --vpp-afs");
+        }
+    }
+    if (pParams->vpp.nnedi != encPrmDefault.vpp.nnedi) {
+        tmp.str(tstring());
+        if (!pParams->vpp.nnedi.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.nnedi.enable || save_disabled_prm) {
+            ADD_LST(_T("field"), vpp.nnedi.field, list_vpp_nnedi_field);
+            ADD_LST(_T("nns"), vpp.nnedi.nns, list_vpp_nnedi_nns);
+            ADD_LST(_T("nsize"), vpp.nnedi.nsize, list_vpp_nnedi_nsize);
+            ADD_LST(_T("prescreen"), vpp.nnedi.pre_screen, list_vpp_nnedi_pre_screen);
+            ADD_LST(_T("errortype"), vpp.nnedi.errortype, list_vpp_nnedi_error_type);
+            ADD_PATH(_T("weightfile"), vpp.nnedi.weightfile.c_str());
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-nnedi ") << tmp.str().substr(1);
+        } else if (pParams->vpp.nnedi.enable) {
+            cmd << _T(" --vpp-nnedi");
         }
     }
     if (pParams->vpp.knn != encPrmDefault.vpp.knn) {

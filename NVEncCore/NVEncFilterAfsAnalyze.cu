@@ -38,11 +38,8 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <vector_types.h>
-#include <device_functions.h>
 #pragma warning (pop)
-
-#define WARP_SIZE_2N (5)
-#define WARP_SIZE    (1<<WARP_SIZE_2N)
+#include "rgy_cuda_util.h"
 
 #define BLOCK_INT_X  (32) //blockDim(x) = スレッド数/ブロック
 #define BLOCK_Y       (8) //blockDim(y) = スレッド数/ブロック
@@ -56,7 +53,7 @@
 
 //      7       6         5        4        3        2        1       0
 // | motion  |         non-shift        | motion  |          shift          |
-// |  shift  |  sign  |  shift |  deint |  flag   | sign  |  shift |  deint |      
+// |  shift  |  sign  |  shift |  deint |  flag   | sign  |  shift |  deint |
 const uint8_t motion_flag = 0x08u;
 const uint8_t motion_shift = 0x80u;
 
@@ -74,39 +71,7 @@ typedef uint32_t Flags;
 #define u8x4(x)  (uint32_t)(((uint32_t)(x)) | (((uint32_t)(x)) <<  8) | (((uint32_t)(x)) << 16) | (((uint32_t)(x)) << 24))
 #define u16x2(x) (uint32_t)(((uint32_t)(x)) | (((uint32_t)(x)) << 16))
 
-template<int width>
 __inline__ __device__
-int warp_sum(int val) {
-    static_assert(width <= WARP_SIZE, "width too big for warp_sum");
-    if (width >= 32) val += __shfl_xor(val, 16);
-    if (width >= 16) val += __shfl_xor(val, 8);
-    if (width >=  8) val += __shfl_xor(val, 4);
-    if (width >=  4) val += __shfl_xor(val, 2);
-    if (width >=  2) val += __shfl_xor(val, 1);
-    return val;
-}
-
-__inline__ __device__
-int block_sum(int val, int *shared) {
-    static_assert(BLOCK_INT_X * BLOCK_Y <= WARP_SIZE * WARP_SIZE, "block size too big for block_sum");
-    const int lid = threadIdx.y * BLOCK_INT_X + threadIdx.x;
-    const int lane    = lid & (WARP_SIZE - 1);
-    const int warp_id = lid >> WARP_SIZE_2N;
-
-    val = warp_sum<WARP_SIZE>(val);
-
-    if (lane == 0) shared[warp_id] = val;
-
-    __syncthreads();
-
-    if (warp_id == 0) {
-        val = (lid * WARP_SIZE < BLOCK_INT_X * BLOCK_Y) ? shared[lane] : 0;
-        val = warp_sum<BLOCK_INT_X * BLOCK_Y / WARP_SIZE>(val);
-    }
-    return val;
-}
-
-__inline__ __device__ 
 Flags analyze_motion(uint32_t p0, uint32_t p1, uint32_t thre_motion4, uint32_t thre_shift4) {
     uint32_t abs = __vabsdiffu4(p0, p1);
     Flags mask_motion =  __vcmpgtu4(thre_motion4, abs) & u8x4(motion_flag);
@@ -461,7 +426,7 @@ __global__ void kernel_afs_analyze_12(
         motion_count_01 = (int)(((ly + 1) & 1) ? (uint32_t)motion_count << 16 : (uint32_t)motion_count);
     }
 
-    motion_count_01 = block_sum(motion_count_01, (int *)shared);
+    motion_count_01 = block_sum<decltype(motion_count_01), BLOCK_INT_X, BLOCK_Y>(motion_count_01, (int *)shared);
 
     const int lid = threadIdx.y * BLOCK_INT_X + threadIdx.x;
     if (lid == 0) {

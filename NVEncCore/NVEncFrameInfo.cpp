@@ -117,3 +117,41 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
     exinfo.frame_size = pFrameInfo->pitch * exinfo.height_total;
     return exinfo;
 }
+
+FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane) {
+    FrameInfo planeInfo = *frameInfo;
+    switch (plane) {
+    case RGY_PLANE_U:
+    case RGY_PLANE_V:
+        if (frameInfo->csp == RGY_CSP_YUY2
+            || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_RGB
+            || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_MONOCHROME) {
+            ; //なにもしない
+        } else if (frameInfo->csp == RGY_CSP_NV12 || frameInfo->csp == RGY_CSP_P010) {
+            planeInfo.ptr += frameInfo->pitch * frameInfo->height;
+            planeInfo.height >>= 1;
+        } else if (frameInfo->csp == RGY_CSP_NV16 || frameInfo->csp == RGY_CSP_P210) {
+            planeInfo.ptr += frameInfo->pitch * frameInfo->height;
+        } else if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_YUV420) {
+            planeInfo.ptr += frameInfo->pitch * frameInfo->height;
+            planeInfo.width >>= 1;
+            planeInfo.height >>= 1;
+            if (plane == RGY_PLANE_V) {
+                planeInfo.ptr += planeInfo.pitch * planeInfo.height;
+            }
+        } else if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_YUV422) {
+            planeInfo.ptr += plane * frameInfo->pitch * frameInfo->height;
+            planeInfo.width >>= 1;
+            if (plane == RGY_PLANE_V) {
+                planeInfo.ptr += planeInfo.pitch * planeInfo.height;
+            }
+        } else { //RGY_CHROMAFMT_YUV444
+            planeInfo.ptr += plane * planeInfo.pitch * planeInfo.height;
+        }
+        break;
+    case RGY_PLANE_Y:
+    default:
+        break;
+    }
+    return planeInfo;
+}

@@ -35,13 +35,10 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <vector_types.h>
-#include <device_functions.h>
 #pragma warning (pop)
 #include "convert_csp.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncParam.h"
-
-#define WARP_SIZE    (32)
 
 #define SYN_BLOCK_INT_X  (32) //work groupサイズ(x) = スレッド数/work group
 #define SYN_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group
@@ -800,7 +797,7 @@ template<typename Type, typename Type2, typename Type4, typename Type8, int mode
 cudaError_t run_synthesize(uint8_t *dst,
     uint8_t *p0, uint8_t *p1, uint8_t *sip,
     const int width, const int height,
-    const int dstPitch, const int srcPitch, const int sipPitch, 
+    const int dstPitch, const int srcPitch, const int sipPitch,
     const int tb_order, const uint8_t status, const RGY_CSP csp,
     cudaStream_t stream) {
     auto cudaerr = cudaSuccess;
@@ -809,7 +806,7 @@ cudaError_t run_synthesize(uint8_t *dst,
     const int dst_uv_plane_offset = dstPitch * height >> ((yuv420) ? 1 : 0);
     const int src_yu_plane_offset = srcPitch * height;
     const int src_uv_plane_offset = srcPitch * height >> ((yuv420) ? 1 : 0);
-    
+
     if (mode < 0) {
         const dim3 blockSize(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
         const dim3 gridSize(divCeil(width, blockSize.x * 2), divCeil(height, blockSize.y * 2));
@@ -822,7 +819,7 @@ cudaError_t run_synthesize(uint8_t *dst,
     } else if (mode == 0) {
         const dim3 blockSize(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
         const dim3 gridSize(divCeil(width, blockSize.x * 8), divCeil(height, blockSize.y * 2));
-    
+
         kernel_synthesize_mode_0<Type4, Type8, yuv420><<<gridSize, blockSize, 0, stream>>>(
             dst, p0, p1,
             width, height, srcPitch, dstPitch,

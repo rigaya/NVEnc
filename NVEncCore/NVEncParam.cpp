@@ -239,6 +239,7 @@ VppParam::VppParam() :
     pmd(),
     deband(),
     afs(),
+    nnedi(),
     tweak(),
     pad(),
     selectevery(),
@@ -320,6 +321,32 @@ bool VppPad::operator==(const VppPad& x) const {
         && bottom == x.bottom;
 }
 bool VppPad::operator!=(const VppPad& x) const {
+    return !(*this == x);
+}
+
+VppNnedi::VppNnedi() :
+    enable(false),
+    field(VPP_NNEDI_FIELD_USE_AUTO),
+    nns(32),
+    nsize(VPP_NNEDI_NSIZE_32x4),
+    quality(VPP_NNEDI_QUALITY_FAST),
+    pre_screen(VPP_NNEDI_PRE_SCREEN_NEW),
+    errortype(VPP_NNEDI_ETYPE_ABS),
+    weightfile(_T("nnedi3_weights.bin")) {
+
+}
+
+bool VppNnedi::operator==(const VppNnedi& x) const {
+    return enable == x.enable
+        && field == x.field
+        && nns == x.nns
+        && nsize == x.nsize
+        && quality == x.quality
+        && pre_screen == x.pre_screen
+        && errortype == x.errortype
+        && weightfile == x.weightfile;
+}
+bool VppNnedi::operator!=(const VppNnedi& x) const {
     return !(*this == x);
 }
 

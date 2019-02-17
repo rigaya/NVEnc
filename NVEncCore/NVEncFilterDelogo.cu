@@ -31,8 +31,8 @@
 #include <cstdint>
 #include "NVEncFilterDelogo.h"
 #include "cuda_runtime.h"
-#include "device_functions.hpp"
 #include "device_launch_parameters.h"
+#include "rgy_cuda_util.h"
 
 #define DELOGO_DEBUG_CUDA 0
 
@@ -318,77 +318,9 @@ __global__ void kernel_delogo_multi_fade(
     }
 }
 
-#define WARP_SIZE_2N (5)
-#define WARP_SIZE (1<<WARP_SIZE_2N)
 #define DELOGO_SHARED_X DELOGO_BLOCK_X
 #define DELOGO_SHARED_Y (16)
 #define S_IDX(x,y,z) ((z)*(DELOGO_SHARED_Y*DELOGO_SHARED_X) + ((y)&(DELOGO_SHARED_Y-1))*DELOGO_SHARED_X + (x))
-
-template<typename Type, int width>
-__inline__ __device__
-Type warp_sum(Type val) {
-    static_assert(width <= WARP_SIZE, "width too big for warp_sum");
-    if (width >= 32) val += __shfl_xor(val, 16);
-    if (width >= 16) val += __shfl_xor(val, 8);
-    if (width >=  8) val += __shfl_xor(val, 4);
-    if (width >=  4) val += __shfl_xor(val, 2);
-    if (width >=  2) val += __shfl_xor(val, 1);
-    return val;
-}
-
-template<typename Type>
-__inline__ __device__
-Type block_sum(Type val, Type *shared) {
-    static_assert(DELOGO_BLOCK_X * DELOGO_BLOCK_Y <= WARP_SIZE * WARP_SIZE, "block size too big for block_sum");
-    const int lid = threadIdx.y * DELOGO_BLOCK_X + threadIdx.x;
-    const int lane    = lid & (WARP_SIZE - 1);
-    const int warp_id = lid >> WARP_SIZE_2N;
-
-    val = warp_sum<Type, WARP_SIZE>(val);
-
-    if (lane == 0) shared[warp_id] = val;
-
-    __syncthreads();
-
-    if (warp_id == 0) {
-        val = (lid * WARP_SIZE < DELOGO_BLOCK_X * DELOGO_BLOCK_Y) ? shared[lane] : 0;
-        val = warp_sum<Type, DELOGO_BLOCK_X * DELOGO_BLOCK_Y / WARP_SIZE>(val);
-    }
-    return val;
-}
-
-template<typename Type, int width>
-__inline__ __device__
-Type warp_min(Type val) {
-    static_assert(width <= WARP_SIZE, "width too big for warp_min");
-    if (width >= 32) val = min(val, __shfl_xor(val, 16));
-    if (width >= 16) val = min(val, __shfl_xor(val,  8));
-    if (width >=  8) val = min(val, __shfl_xor(val,  4));
-    if (width >=  4) val = min(val, __shfl_xor(val,  2));
-    if (width >=  2) val = min(val, __shfl_xor(val,  1));
-    return val;
-}
-
-template<typename Type>
-__inline__ __device__
-Type block_min(Type val, Type *shared) {
-    static_assert(DELOGO_BLOCK_X * DELOGO_BLOCK_Y <= WARP_SIZE * WARP_SIZE, "block size too big for block_min");
-    const int lid = threadIdx.y * DELOGO_BLOCK_X + threadIdx.x;
-    const int lane    = lid & (WARP_SIZE - 1);
-    const int warp_id = lid >> WARP_SIZE_2N;
-
-    val = warp_min<Type, WARP_SIZE>(val);
-
-    if (lane == 0) shared[warp_id] = val;
-
-    __syncthreads();
-
-    if (warp_id == 0) {
-        val = (lid * WARP_SIZE < DELOGO_BLOCK_X * DELOGO_BLOCK_Y) ? shared[lane] : 0;
-        val = warp_min<Type, DELOGO_BLOCK_X * DELOGO_BLOCK_Y / WARP_SIZE>(val);
-    }
-    return val;
-}
 
 struct float4x2 {
     float4 a, b;
@@ -912,7 +844,7 @@ __global__ void kernel_proc_prewitt(
         tmp  = sum.x + sum.y;
         tmp += sum.z + sum.w;
 
-        tmp = block_sum(tmp, (float *)&shared);
+        tmp = block_sum<decltype(tmp), DELOGO_BLOCK_X, DELOGO_BLOCK_Y>(tmp, (float *)&shared);
 
         const int lid = threadIdx.y * DELOGO_BLOCK_X + threadIdx.x;
         if (lid == 0) {
@@ -921,7 +853,7 @@ __global__ void kernel_proc_prewitt(
         }
     }
     if (count_valid_mask) {
-        valid_mask_count = block_sum(valid_mask_count, (int *)&shared);
+        valid_mask_count = block_sum<decltype(valid_mask_count), DELOGO_BLOCK_X, DELOGO_BLOCK_Y>(valid_mask_count, (int *)&shared);
 
         const int lid = threadIdx.y * DELOGO_BLOCK_X + threadIdx.x;
         if (lid == 0) {
@@ -1010,8 +942,8 @@ __global__ void kernel_create_adjust_mask1(
     }
 
     __shared__ int shared_tmp[DELOGO_BLOCK_X * DELOGO_BLOCK_Y / WARP_SIZE];
-    valid_mask_count = block_sum(valid_mask_count, shared_tmp);
-    whole_min_result = block_min(whole_min_result, shared_tmp);
+    valid_mask_count = block_sum<decltype(whole_min_result), DELOGO_BLOCK_X, DELOGO_BLOCK_Y>(valid_mask_count, shared_tmp);
+    whole_min_result = block_min<decltype(whole_min_result), DELOGO_BLOCK_X, DELOGO_BLOCK_Y>(whole_min_result, shared_tmp);
 
     if (lid == 0) {
         const int gid = blockIdx.y * gridDim.x + blockIdx.x;
@@ -1187,7 +1119,7 @@ __global__ void kernel_create_adjust_mask2(
     }
 
     __shared__ int shared_tmp[DELOGO_BLOCK_X * DELOGO_BLOCK_Y / WARP_SIZE];
-    valid_mask_count = block_sum(valid_mask_count, shared_tmp);
+    valid_mask_count = block_sum<decltype(valid_mask_count), DELOGO_BLOCK_X, DELOGO_BLOCK_Y>(valid_mask_count, shared_tmp);
 
     if (lid == 0) {
         const int gid = blockIdx.z * gridDim.y * gridDim.x + blockIdx.y * gridDim.x + blockIdx.x;
@@ -1492,7 +1424,7 @@ NVENCSTATUS NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     if (!threshold_mul_initialized) {
         //constantメモリを初期化
         std::array<float, _countof(g_threshold_adj_mul)> threshold_adj_mul;
-        for (size_t i = 0; i < threshold_adj_mul.size(); i++) {
+        for (int i = 0; i < (int)threshold_adj_mul.size(); i++) {
             threshold_adj_mul[i] = constpow<float>((float)DELOGO_ADJMASK_POW_BASE, i);
         }
         cudaerr = cudaMemcpyToSymbol(g_threshold_adj_mul, threshold_adj_mul.data(), sizeof(g_threshold_adj_mul), 0, cudaMemcpyHostToDevice);

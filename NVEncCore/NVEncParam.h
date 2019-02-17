@@ -494,6 +494,104 @@ const CX_DESC list_vpp_deband[] ={
     { NULL, NULL }
 };
 
+enum VppNnediField {
+    VPP_NNEDI_FIELD_UNKNOWN = -3,
+    VPP_NNEDI_FIELD_AF = -2,
+    VPP_NNEDI_FIELD_USE_AUTO  = -1,
+    VPP_NNEDI_FIELD_USE_TOP,
+    VPP_NNEDI_FIELD_USE_BOTTOM,
+    VPP_NNEDI_FIELD_TF,
+    VPP_NNEDI_FIELD_BF,
+
+    VPP_NNEDI_FIELD_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_field[] = {
+    { _T("af"),     VPP_NNEDI_FIELD_AF },
+    { _T("auto"),   VPP_NNEDI_FIELD_USE_AUTO },
+    { _T("top"),    VPP_NNEDI_FIELD_USE_TOP },
+    { _T("bottom"), VPP_NNEDI_FIELD_USE_BOTTOM },
+    { _T("tf"),     VPP_NNEDI_FIELD_TF },
+    { _T("bf"),     VPP_NNEDI_FIELD_BF },
+    { NULL, NULL }
+};
+
+const CX_DESC list_vpp_nnedi_nns[] = {
+    { _T("16"),   16 },
+    { _T("32"),   32 },
+    { _T("64"),   64 },
+    { _T("128"), 128 },
+    { _T("256"), 256 },
+    { NULL, NULL }
+};
+
+enum VppNnediNSize {
+    VPP_NNEDI_NSIZE_UNKNOWN = -1,
+
+    VPP_NNEDI_NSIZE_8x6 = 0,
+    VPP_NNEDI_NSIZE_16x6,
+    VPP_NNEDI_NSIZE_32x6,
+    VPP_NNEDI_NSIZE_48x6,
+    VPP_NNEDI_NSIZE_8x4,
+    VPP_NNEDI_NSIZE_16x4,
+    VPP_NNEDI_NSIZE_32x4,
+
+    VPP_NNEDI_NSIZE_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_nsize[] = {
+    { _T("8x6"),  VPP_NNEDI_NSIZE_8x6  },
+    { _T("16x6"), VPP_NNEDI_NSIZE_16x6 },
+    { _T("32x6"), VPP_NNEDI_NSIZE_32x6 },
+    { _T("48x6"), VPP_NNEDI_NSIZE_48x6 },
+    { _T("8x4"),  VPP_NNEDI_NSIZE_8x4  },
+    { _T("16x4"), VPP_NNEDI_NSIZE_16x4 },
+    { _T("32x4"), VPP_NNEDI_NSIZE_32x4 },
+    { NULL, NULL }
+};
+
+enum VppNnediQuality {
+    VPP_NNEDI_QUALITY_UNKNOWN = 0,
+    VPP_NNEDI_QUALITY_FAST,
+    VPP_NNEDI_QUALITY_SLOW,
+
+    VPP_NNEDI_QUALITY_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_quality[] = {
+    { _T("fast"), VPP_NNEDI_QUALITY_FAST },
+    { _T("slow"), VPP_NNEDI_QUALITY_SLOW },
+    { NULL, NULL }
+};
+
+enum VppNnediPreScreen {
+    VPP_NNEDI_PRE_SCREEN_NONE = 0,
+    VPP_NNEDI_PRE_SCREEN_ORIGINAL,
+    VPP_NNEDI_PRE_SCREEN_NEW,
+
+    VPP_NNEDI_PRE_SCREEN_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_pre_screen[] = {
+    { _T("none"),     VPP_NNEDI_PRE_SCREEN_NONE },
+    { _T("original"), VPP_NNEDI_PRE_SCREEN_ORIGINAL },
+    { _T("new"),      VPP_NNEDI_PRE_SCREEN_NEW },
+    { NULL, NULL }
+};
+
+enum VppNnediErrorType {
+    VPP_NNEDI_ETYPE_ABS = 0,
+    VPP_NNEDI_ETYPE_SQUARE,
+
+    VPP_NNEDI_ETYPE_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_error_type[] = {
+    { _T("abs"),    VPP_NNEDI_ETYPE_ABS },
+    { _T("square"), VPP_NNEDI_ETYPE_SQUARE },
+    { NULL, NULL }
+};
+
 const CX_DESC list_nppi_gauss[] = {
     { _T("disabled"), 0 },
     { _T("3"), NPP_MASK_SIZE_3_X_3 },
@@ -763,6 +861,21 @@ struct VppPad {
     bool operator!=(const VppPad& x) const;
 };
 
+struct VppNnedi {
+    bool              enable;
+    VppNnediField     field;
+    int               nns;
+    VppNnediNSize     nsize;
+    VppNnediQuality   quality;
+    VppNnediPreScreen pre_screen;
+    VppNnediErrorType errortype;
+    tstring           weightfile;
+
+    VppNnedi();
+    bool operator==(const VppNnedi& x) const;
+    bool operator!=(const VppNnedi& x) const;
+};
+
 enum {
     AFS_PRESET_DEFAULT = 0,
     AFS_PRESET_TRIPLE,        //動き重視
@@ -802,6 +915,7 @@ struct VppParam {
     VppPmd pmd;
     VppDeband deband;
     VppAfs afs;
+    VppNnedi nnedi;
     VppTweak tweak;
     VppPad pad;
     VppSelectEvery selectevery;
