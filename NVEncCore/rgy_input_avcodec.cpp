@@ -142,10 +142,6 @@ void RGYInputAvcodec::CloseVideo(AVDemuxVideo *pVideo) {
 }
 
 void RGYInputAvcodec::CloseStream(AVDemuxStream *pStream) {
-    if (pStream->trimApplied) {
-        delete[] pStream->trimApplied;
-        pStream->trimApplied = nullptr;
-    }
     if (pStream->pktSample.data) {
         av_packet_unref(&pStream->pktSample);
     }
@@ -153,6 +149,7 @@ void RGYInputAvcodec::CloseStream(AVDemuxStream *pStream) {
         av_free(pStream->subtitleHeader);
     }
     memset(pStream, 0, sizeof(pStream[0]));
+    pStream->appliedTrimBlock = -1;
     pStream->aud0_fin = AV_NOPTS_VALUE;
     pStream->nIndex = -1;
 }
@@ -971,7 +968,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                     stream.pStream = m_Demux.format.pFormatCtx->streams[stream.nIndex];
                     stream.timebase = stream.pStream->time_base;
                     stream.nExtractErrExcess = 0;
-                    stream.trimApplied = nullptr;
+                    stream.appliedTrimBlock = -1;
                     stream.trimOffset = 0;
                     stream.aud0_fin = AV_NOPTS_VALUE;
                     if (pAudioSelect) {
@@ -1544,11 +1541,6 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
         return false;
     }
 
-    if (!pStream->trimApplied && m_sTrimParam.list.size() > 1) {
-        pStream->trimApplied = new bool[m_sTrimParam.list.size()];
-        std::fill(pStream->trimApplied, pStream->trimApplied + m_sTrimParam.list.size(), false);
-    }
-
     const auto vidFramePos = &m_Demux.frames.list((std::max)(pStream->nLastVidIndex, 0));
     const int64_t vid1_fin = convertTimebaseVidToStream(vidFramePos->pts + ((pStream->nLastVidIndex >= 0) ? vidFramePos->duration : 0), pStream);
     const int64_t vid2_start = convertTimebaseVidToStream(m_Demux.frames.list((std::max)(pStream->nLastVidIndex+1, 0)).pts, pStream);
@@ -1596,11 +1588,12 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
         result = false;
     }
     if (result) {
-        if (pStream->trimApplied && !pStream->trimApplied[frame_trim_block_index]) {
-            pStream->trimApplied[frame_trim_block_index] = true;
+        if (pStream->appliedTrimBlock < frame_trim_block_index) {
+            pStream->appliedTrimBlock = frame_trim_block_index;
             if (pStream->aud0_fin == AV_NOPTS_VALUE) {
                 //まだ一度も音声のパケットが渡されていない
-                pStream->trimOffset += aud1_start - m_Demux.video.nStreamFirstKeyPts;
+                const int64_t vid0_start = convertTimebaseVidToStream(m_Demux.frames.list(m_sTrimParam.list[0].start).pts, pStream);
+                pStream->trimOffset += std::min(aud1_start, vid0_start) - m_Demux.video.nStreamFirstKeyPts;
             } else {
                 assert(frame_trim_block_index > 0);
                 const int last_valid_vid_frame = m_sTrimParam.list[frame_trim_block_index-1].start;
