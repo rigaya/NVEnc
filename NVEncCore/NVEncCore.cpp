@@ -3875,7 +3875,7 @@ NVENCSTATUS NVEncCore::Encode() {
         }
         m_pPerfMonitor->SetThreadHandles((HANDLE)(th_input.native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
-    int64_t nOutFirstPts = -1; //入力のptsに対する補正 (スケール: m_outputTimebase)
+    int64_t nOutFirstPts = AV_NOPTS_VALUE; //入力のptsに対する補正 (スケール: m_outputTimebase)
 #endif //#if ENABLE_AVSW_READER
     int64_t lastTrimFramePts = AV_NOPTS_VALUE; //直前のtrimで落とされたフレームのpts, trimで落とされてない場合はAV_NOPTS_VALUE (スケール: m_outputTimebase)
     int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: m_outputTimebase)
@@ -3962,7 +3962,7 @@ NVENCSTATUS NVEncCore::Encode() {
             //CFR仮定ではなく、オリジナルの時間を見る
             outPtsSource = (pStreamIn) ? rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase) : nOutEstimatedPts;
         }
-        if (nOutFirstPts == -1) {
+        if (nOutFirstPts == AV_NOPTS_VALUE) {
             nOutFirstPts = outPtsSource; //最初のpts
         }
         //最初のptsを0に修正
