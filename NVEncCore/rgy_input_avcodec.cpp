@@ -657,27 +657,6 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 if (pkt1 != nullptr) {
                     //1パケット目はたまにおかしいので、可能なら2パケット目を使用する
                     av_copy_packet(&streamInfo->pktSample, (pkt2) ? pkt2 : pkt1);
-                    if (m_Demux.video.nStreamPtsInvalid & RGY_PTS_ALL_INVALID) {
-                        streamInfo->nDelayOfStream = 0;
-                    } else {
-                        //その音声の属する動画フレーム番号
-                        const int vidIndex = getVideoFrameIdx(pkt1->pts, streamInfo->pStream->time_base, 0);
-                        AddMessage(RGY_LOG_DEBUG, _T("audio track %d first pts: %I64d\n"), streamInfo->nTrackId, pkt1->pts);
-                        AddMessage(RGY_LOG_DEBUG, _T("      first pts videoIdx: %d\n"), vidIndex);
-                        if (vidIndex >= 0) {
-                            //音声の遅れているフレーム数分のdurationを足し上げる
-                            int delayOfStream = (frame_inside_range(vidIndex, trimList).first) ? (int)(pkt1->pts - m_Demux.frames.list(vidIndex).pts) : 0;
-                            for (int iFrame = m_sTrimParam.offset; iFrame < vidIndex; iFrame++) {
-                                if (frame_inside_range(iFrame, trimList).first) {
-                                    delayOfStream += m_Demux.frames.list(iFrame).duration;
-                                }
-                            }
-                            streamInfo->nDelayOfStream = delayOfStream;
-                            AddMessage(RGY_LOG_DEBUG, _T("audio track %d delay: %d (timebase=%d/%d)\n"),
-                                streamInfo->nIndex, streamInfo->nTrackId,
-                                streamInfo->nDelayOfStream, streamInfo->pStream->time_base.num, streamInfo->pStream->time_base.den);
-                        }
-                    }
                 } else {
                     //音声の最初のサンプルを取得できていない
                     AddMessage(RGY_LOG_WARN, _T("failed to find stream #%d in preread.\n"), streamInfo->nIndex);

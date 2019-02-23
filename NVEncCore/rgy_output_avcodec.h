@@ -128,7 +128,6 @@ typedef struct AVMuxAudio {
     int                   nInSubStream;         //ソースファイルの入力サブストリーム番号
     const AVStream       *pStreamIn;            //入力音声のストリーム
     int                   nStreamIndexIn;       //入力音声のStreamのindex
-    int                   nDelaySamplesOfAudio; //入力音声の遅延 (pkt_timebase基準)
     AVStream             *pStreamOut;           //出力ファイルの音声ストリーム
     int                   nPacketWritten;       //出力したパケットの数
     int64_t               dec_rescale_delta;    //decode時のtimebase変換用

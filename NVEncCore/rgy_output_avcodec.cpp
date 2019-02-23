@@ -935,7 +935,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, u
 RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError) {
     pMuxAudio->pStreamIn = pInputAudio->src.pStream;
     AddMessage(RGY_LOG_DEBUG, _T("start initializing audio ouput...\n"));
-    AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, trackId %d.%d, delay %d, \n"), pInputAudio->src.nIndex, pInputAudio->src.nTrackId, pInputAudio->src.nSubStreamId, pMuxAudio->nDelaySamplesOfAudio);
+    AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, trackId %d.%d\n"), pInputAudio->src.nIndex, pInputAudio->src.nTrackId, pInputAudio->src.nSubStreamId);
     AddMessage(RGY_LOG_DEBUG, _T("samplerate %d, stream pkt_timebase %d/%d\n"), pMuxAudio->pStreamIn->codecpar->sample_rate, pMuxAudio->pStreamIn->time_base.num, pMuxAudio->pStreamIn->time_base.den);
 
     if (NULL == (pMuxAudio->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
@@ -1193,14 +1193,6 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
         SetExtraData(pMuxAudio->pStreamOut->codecpar, pMuxAudio->pStreamIn->codecpar->extradata, pMuxAudio->pStreamIn->codecpar->extradata_size);
     }
     pMuxAudio->pStreamOut->time_base = av_make_q(1, pMuxAudio->pStreamOut->codecpar->sample_rate);
-    if (m_Mux.video.pStreamOut) {
-        pMuxAudio->pStreamOut->start_time = (int)av_rescale_q(pInputAudio->src.nDelayOfStream, pMuxAudio->pStreamIn->time_base, pMuxAudio->pStreamOut->time_base);
-        pMuxAudio->nDelaySamplesOfAudio = (int)pMuxAudio->pStreamOut->start_time;
-        pMuxAudio->nLastPtsOut = AV_NOPTS_VALUE;
-
-        AddMessage(RGY_LOG_DEBUG, _T("delay      %6d (timabase %d/%d)\n"), pInputAudio->src.nDelayOfStream, pMuxAudio->pStreamIn->time_base.num, pMuxAudio->pStreamIn->time_base.den);
-        AddMessage(RGY_LOG_DEBUG, _T("start_time %6d (timabase %d/%d)\n"), pMuxAudio->pStreamOut->start_time,  pMuxAudio->pStreamOut->codec->time_base.num, pMuxAudio->pStreamOut->codec->time_base.den);
-    }
     if (srcCodecParam) {
         avcodec_parameters_free(&srcCodecParam);
     }
@@ -2828,11 +2820,6 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
             //特にエラーでなければそのまま終了
             if (sts == RGY_ERR_NONE) {
                 return RGY_ERR_NONE;
-            }
-            //先頭でエラーが出た場合は音声のDelayを増やすことで同期を保つ
-            if (pMuxAudio->nPacketWritten == 0) {
-                pMuxAudio->nDelaySamplesOfAudio += nSamples;
-                return (m_Mux.format.bStreamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
             }
             //音声エンコードしない場合はどうしようもないので終了
             if (!pMuxAudio->pOutCodecDecodeCtx || m_Mux.format.bStreamError) {

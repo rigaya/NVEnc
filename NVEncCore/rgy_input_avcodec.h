@@ -713,7 +713,6 @@ typedef struct AVDemuxStream {
     int64_t                   aud0_fin;               //直前に有効だったパケットのpts(stream timebase基準)
     int                       appliedTrimBlock;       //trim blockをどこまで適用したか
     AVPacket                  pktSample;              //サンプル用の音声・字幕データ
-    int                       nDelayOfStream;         //音声側の遅延 (pkt_timebase基準)
     uint64_t                  pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
     uint64_t                  pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
     AVRational                timebase;               //streamのtimebase [pStream = nullptrの場合でも使えるように]
