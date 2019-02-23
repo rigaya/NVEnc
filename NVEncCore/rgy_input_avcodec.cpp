@@ -1512,7 +1512,7 @@ int64_t RGYInputAvcodec::convertTimebaseVidToStream(int64_t pts, const AVDemuxSt
     return av_rescale_q(pts, vid_pkt_timebase, pStream->timebase);
 }
 
-bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream *pStream) {
+bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *pStream) {
     pStream->nLastVidIndex = getVideoFrameIdx(pkt->pts, pStream->timebase, pStream->nLastVidIndex);
 
     //該当フレームが-1フレーム未満なら、その音声はこの動画には含まれない
@@ -1524,8 +1524,8 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
     const int64_t vid1_fin = convertTimebaseVidToStream(vidFramePos->pts + ((pStream->nLastVidIndex >= 0) ? vidFramePos->duration : 0), pStream);
     const int64_t vid2_start = convertTimebaseVidToStream(m_Demux.frames.list((std::max)(pStream->nLastVidIndex+1, 0)).pts, pStream);
 
-    const int64_t aud1_start = pkt->pts;
-    const int64_t aud1_fin   = pkt->pts + pkt->duration;
+    int64_t aud1_start = pkt->pts;
+    int64_t aud1_fin   = pkt->pts + pkt->duration;
 
     //block index (空白がtrimで削除された領域)
     //       #0       #0         #1         #1       #2    #2
@@ -1546,7 +1546,13 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
               //     aud1_start     aud1_fin
         } else if (pkt->duration / 2 > (aud1_fin - vid1_fin + pStream->nExtractErrExcess)) {
             //はみ出した領域が少ないなら、その音声パケットは含まれる
-            pStream->nExtractErrExcess += aud1_fin - vid1_fin;
+            if (pStream->pStream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+                //字幕の場合は表示時間を調整する
+                pkt->duration -= vid1_fin - aud1_fin;
+                aud1_fin       = vid1_fin;
+            } else {
+                pStream->nExtractErrExcess += aud1_fin - vid1_fin;
+            }
         } else {
             //はみ出した領域が多いなら、その音声パケットは含まれない
             pStream->nExtractErrExcess -= vid1_fin - aud1_start;
@@ -1558,7 +1564,14 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
         //音声      |-----------|
         //     aud1_start     aud1_fin
         if (pkt->duration / 2 > (vid2_start - aud1_start + pStream->nExtractErrExcess)) {
-            pStream->nExtractErrExcess += vid2_start - aud1_start;
+            if (pStream->pStream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+                //字幕の場合は表示時間を調整する
+                pkt->pts      += vid2_start - aud1_start;
+                pkt->duration -= vid2_start - aud1_start;
+                aud1_start     = vid2_start;
+            } else {
+                pStream->nExtractErrExcess += vid2_start - aud1_start;
+            }
         } else {
             pStream->nExtractErrExcess -= aud1_fin - vid2_start;
             result = false;
@@ -1571,7 +1584,9 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
             pStream->appliedTrimBlock = frame_trim_block_index;
             if (pStream->aud0_fin == AV_NOPTS_VALUE) {
                 //まだ一度も音声のパケットが渡されていない
-                const int64_t vid0_start = convertTimebaseVidToStream(m_Demux.frames.list(m_sTrimParam.list[0].start).pts, pStream);
+                //基本的には動画の情報を基準に情報を修正する
+                const int first_vid_frame = (m_sTrimParam.list.size() > 0) ? m_sTrimParam.list[0].start : 0;
+                const int64_t vid0_start = convertTimebaseVidToStream(m_Demux.frames.list(first_vid_frame).pts, pStream);
                 pStream->trimOffset += std::min(aud1_start, vid0_start) - m_Demux.video.nStreamFirstKeyPts;
             } else {
                 assert(frame_trim_block_index > 0);
@@ -1589,6 +1604,9 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
             }
         }
         pStream->aud0_fin = aud1_fin;
+        //最終的に時刻を補正
+        pkt->pts -= pStream->trimOffset;
+        pkt->dts -= pStream->trimOffset;
     }
     return result;
 }
@@ -1834,8 +1852,6 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead() {
             } else {
                 AVDemuxStream *pStream = getPacketStreamData(&pkt);
                 if (checkStreamPacketToAdd(&pkt, pStream)) {
-                    pkt.pts -= pStream->trimOffset;
-                    pkt.dts -= pStream->trimOffset;
                     m_Demux.qStreamPktL1.push_back(pkt);
                 } else {
                     av_packet_unref(&pkt); //Writer側に渡さないパケットはここで開放する
@@ -1894,8 +1910,6 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
             break;
         }
         if (checkStreamPacketToAdd(&pkt, pStream)) {
-            pkt.pts -= pStream->trimOffset;
-            pkt.dts -= pStream->trimOffset;
             pkt.flags = (pkt.flags & 0xffff) | (pStream->nTrackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
             m_Demux.qStreamPktL2.push(pkt); //Writer側に渡したパケットはWriter側で開放する
         } else {

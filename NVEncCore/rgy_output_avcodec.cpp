@@ -948,6 +948,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     pMuxAudio->nInSubStream = pInputAudio->src.nSubStreamId;
     pMuxAudio->nStreamIndexIn = pInputAudio->src.nIndex;
     pMuxAudio->nLastPtsIn = AV_NOPTS_VALUE;
+    pMuxAudio->nLastPtsOut = AV_NOPTS_VALUE;
     pMuxAudio->pFilter = pInputAudio->pFilter;
     memcpy(pMuxAudio->pnStreamChannelSelect, pInputAudio->src.pnStreamChannelSelect, sizeof(pInputAudio->src.pnStreamChannelSelect));
     memcpy(pMuxAudio->pnStreamChannelOut,    pInputAudio->src.pnStreamChannelOut,    sizeof(pInputAudio->src.pnStreamChannelOut));
@@ -1815,7 +1816,7 @@ int64_t RGYOutputAvcodec::AdjustTimestampTrimmed(int64_t nTimeIn, AVRational tim
     AVRational timescaleFps = av_inv_q(m_Mux.video.nFPS);
     const int vidFrameIdx = (int)av_rescale_q(nTimeIn, timescaleIn, timescaleFps);
     int cutFrames = 0;
-    if (m_Mux.trim.size()) {
+    if (m_Mux.trim.size() > 0) {
         int nLastFinFrame = 0;
         for (const auto& trim : m_Mux.trim) {
             if (vidFrameIdx < trim.start) {
@@ -2648,28 +2649,15 @@ RGY_ERR RGYOutputAvcodec::SubtitleWritePacket(AVPacket *pkt) {
     //字幕を処理する
     const AVMuxSub *pMuxSub = getSubPacketStreamData(pkt);
     const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.nFPS);
-    const int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstKeyPts, vid_pkt_timebase, pMuxSub->streamInTimebase);
-    //ptsが存在しない場合はないものとすると、AdjustTimestampTrimmedの結果がAV_NOPTS_VALUEとなるのは、
-    //Trimによりカットされたときのみ
-    pkt->pts -= pts_adjust;
+    const int64_t pts_offset = av_rescale_q(m_Mux.video.nInputFirstKeyPts, vid_pkt_timebase, pMuxSub->streamInTimebase);
     const AVRational timebase_conv = (pMuxSub->pOutCodecDecodeCtx) ? pMuxSub->pOutCodecDecodeCtx->pkt_timebase : pMuxSub->pStreamOut->time_base;
-    const int64_t pts_orig = pkt->pts;
-    const int64_t pts_adj = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts), pMuxSub->streamInTimebase, pMuxSub->streamInTimebase, false);
-    if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts), pMuxSub->streamInTimebase, timebase_conv, false))) {
-        //dts側にもpts側に加えたのと同じ分だけの補正をかける
-        pkt->dts -= pts_adjust;
-        pkt->dts -= (pts_orig - pts_adj);
-        //timescaleの変換を行い、負の値をとらないようにする
-        pkt->dts = std::max(INT64_C(0), av_rescale_q(pkt->dts, pMuxSub->streamInTimebase, timebase_conv));
-        if (pMuxSub->pOutCodecEncodeCtx) {
-            return SubtitleTranscode(pMuxSub, pkt);
-        }
-        pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
-        pkt->duration = (int)av_rescale_q(pkt->duration, pMuxSub->streamInTimebase, pMuxSub->pStreamOut->time_base);
-        pkt->stream_index = pMuxSub->pStreamOut->index;
-        pkt->pos = -1;
-        m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
-    }
+    pkt->pts = av_rescale_q(std::max(0ll, pkt->pts - pts_offset), pMuxSub->streamInTimebase, timebase_conv);
+    pkt->dts = av_rescale_q(std::max(0ll, pkt->dts - pts_offset), pMuxSub->streamInTimebase, timebase_conv);
+    pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
+    pkt->duration = (int)av_rescale_q(pkt->duration, pMuxSub->streamInTimebase, pMuxSub->pStreamOut->time_base);
+    pkt->stream_index = pMuxSub->pStreamOut->index;
+    pkt->pos = -1;
+    m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
     return (m_Mux.format.bStreamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 

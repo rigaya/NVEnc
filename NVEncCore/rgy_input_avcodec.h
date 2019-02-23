@@ -978,7 +978,7 @@ protected:
     int getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe = false);
 
     //対象・字幕の音声パケットを追加するかどうか
-    bool checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream *pStream);
+    bool checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *pStream);
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVDemuxStream *getPacketStreamData(const AVPacket *pkt);

@@ -4290,15 +4290,19 @@ NVENCSTATUS NVEncCore::Encode() {
         if (!bInputEmpty) {
             //trim反映
             const auto trimSts = frame_inside_range(nInputFrame++, m_trimParam.list);
-            if (!trimSts.first) {
 #if ENABLE_AVSW_READER
-                const auto inputFramePts = rational_rescale(inputFrame.getTimeStamp(), srcTimebase, m_outputTimebase);
-                if (((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware) && (trimSts.second > 0) && (lastTrimFramePts != AV_NOPTS_VALUE)) {
-                    nOutFirstPts += inputFramePts - lastTrimFramePts;
-                    lastTrimFramePts = inputFramePts;
-                }
-#endif //#if ENABLE_AVSW_READER
-                continue;
+            const auto inputFramePts = rational_rescale(inputFrame.getTimeStamp(), srcTimebase, m_outputTimebase);
+            if (((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware)
+                && (trimSts.second > 0) //check_pts内で最初のフレームのptsを0とするようnOutFirstPtsが設定されるので、先頭のtrim blockについてはここでは処理しない
+                && (lastTrimFramePts != AV_NOPTS_VALUE)) { //前のフレームがtrimで脱落させたフレームなら
+                nOutFirstPts += inputFramePts - lastTrimFramePts; //trimで脱落させたフレームの分の時間を加算
+            }
+            if (!trimSts.first) {
+                lastTrimFramePts = inputFramePts; //脱落させたフレームの時間を記憶
+            }
+#endif
+            if (!trimSts.first) {
+                continue; //trimにより脱落させるフレーム
             }
             lastTrimFramePts = AV_NOPTS_VALUE;
             auto decFrames = check_pts(&inputFrame);
