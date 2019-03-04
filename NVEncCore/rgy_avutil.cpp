@@ -383,6 +383,22 @@ tstring getTimestampString(int64_t ts, const AVRational& timebase) {
     return char_to_tstring(getTimestampChar(ts, timebase));
 }
 
+uint32_t tagFromStr(std::string tagstr) {
+    uint32_t tag = 0x00;
+    for (size_t i = 0; i < std::max<size_t>(tagstr.length(), 4); i++) {
+        tag |= tagstr[i] << (i*8);
+    }
+    return tag;
+}
+
+std::string tagToStr(uint32_t tag) {
+    std::string str;
+    for (int i = 0; i < 4; i++) {
+        str.push_back((char)((tag >> (i*8)) & 0xff));
+    }
+    return str;
+}
+
 vector<std::string> getAVProtocolList(int bOutput) {
     vector<std::string> protocols;
 

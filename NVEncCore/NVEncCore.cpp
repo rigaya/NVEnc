@@ -826,6 +826,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         writerPrm.pMuxVidTsLogFile        = inputParams->pMuxVidTsLogFile;
         writerPrm.rBitstreamTimebase      = av_make_q(m_outputTimebase);
         writerPrm.pHEVCHdrSei             = &hedrsei;
+        writerPrm.videoCodecTag           = inputParams->videoCodecTag;
         if (inputParams->pMuxOpt > 0) {
             writerPrm.vMuxOpt = *inputParams->pMuxOpt;
         }

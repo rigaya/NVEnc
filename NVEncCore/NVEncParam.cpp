@@ -421,6 +421,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     lossless(0),                 //ロスレス出力
     sMaxCll(),
     sMasterDisplay(),
+    videoCodecTag(),
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
     nOutputBufSizeMB(DEFAULT_OUTPUT_BUF),         //出力バッファサイズ

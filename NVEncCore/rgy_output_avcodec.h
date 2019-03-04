@@ -276,6 +276,7 @@ struct AvcodecWriterPrm {
     const TCHAR                 *pMuxVidTsLogFile;        //mux timestampログファイル
     HEVCHDRSei                  *pHEVCHdrSei;             //HDR関連のmetadata
     RGYTimestamp                *pVidTimestamp;           //動画のtimestampの情報
+    std::string                  videoCodecTag;           //動画タグ
 
     AvcodecWriterPrm() :
         pInputFormatMetadata(nullptr),
@@ -297,7 +298,8 @@ struct AvcodecWriterPrm {
         pQueueInfo(nullptr),
         pMuxVidTsLogFile(nullptr),
         pHEVCHdrSei(nullptr),
-        pVidTimestamp(nullptr) {
+        pVidTimestamp(nullptr),
+        videoCodecTag() {
     }
 };
 

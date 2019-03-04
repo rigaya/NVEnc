@@ -826,6 +826,7 @@ struct InEncodeVideoParam {
     int lossless;                 //ロスレス出力
     std::string sMaxCll;
     std::string sMasterDisplay;
+    std::string videoCodecTag;
     tstring logfile;              //ログ出力先
     int loglevel;                 //ログ出力レベル
     int nOutputBufSizeMB;         //出力バッファサイズ

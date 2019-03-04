@@ -365,6 +365,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nVideoStreamId = v;
         return 0;
     }
+    if (IS_OPTION("video-tag")) {
+        i++;
+        pParams->videoCodecTag = tchar_to_string(strInput[i]);
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("trim"))) {
         i++;
         auto trim_str_list = split(strInput[i], _T(","));
@@ -2999,8 +3004,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             if (_tcslen(str_false)) { cmd << (str_false) << ((save_disabled_prm) ? (codec) : _T("")); }\
         } \
     }
-#define OPT_CHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << (pParams->opt);
-#define OPT_STR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << (pParams->opt.c_str());
+#define OPT_TCHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << (pParams->opt);
+#define OPT_TSTR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << pParams->opt.c_str();
+#define OPT_CHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << char_to_tstring(pParams->opt);
+#define OPT_STR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << char_to_tstring(pParams->opt).c_str();
 #define OPT_CHAR_PATH(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
@@ -3167,8 +3174,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
     }
     OPT_FLOAT(_T("--seek"), fSeekSec, 2);
-    OPT_CHAR(_T("--input-format"), pAVInputFormat);
-    OPT_STR(_T("--output-format"), sAVMuxOutputFormat);
+    OPT_TCHAR(_T("--input-format"), pAVInputFormat);
+    OPT_TSTR(_T("--output-format"), sAVMuxOutputFormat);
+    OPT_STR(_T("--video-tag"), videoCodecTag);
     OPT_NUM(_T("--video-track"), nVideoTrack);
     OPT_NUM(_T("--video-streamid"), nVideoStreamId);
     if (pParams->pMuxOpt) {

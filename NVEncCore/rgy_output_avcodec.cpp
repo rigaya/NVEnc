@@ -497,6 +497,10 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.pStreamOut->codecpar->video_delay             = pVideoOutputInfo->videoDelay;
     m_Mux.video.pStreamOut->sample_aspect_ratio.num           = pVideoOutputInfo->sar[0]; //mkvではこちらの指定も必要
     m_Mux.video.pStreamOut->sample_aspect_ratio.den           = pVideoOutputInfo->sar[1];
+    if (prm->videoCodecTag.length() > 0) {
+        m_Mux.video.pStreamOut->codecpar->codec_tag           = tagFromStr(prm->videoCodecTag);
+        AddMessage(RGY_LOG_DEBUG, _T("Set Video Codec Tag: %s\n"), char_to_tstring(tagToStr(m_Mux.video.pStreamOut->codecpar->codec_tag)).c_str());
+    }
     if (pVideoOutputInfo->vui.descriptpresent) {
         m_Mux.video.pStreamOut->codecpar->color_space         = (AVColorSpace)pVideoOutputInfo->vui.matrix;
         m_Mux.video.pStreamOut->codecpar->color_primaries     = (AVColorPrimaries)pVideoOutputInfo->vui.colorprim;
