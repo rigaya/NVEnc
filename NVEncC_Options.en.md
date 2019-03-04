@@ -476,6 +476,12 @@ Since the output format is automatically determined by the output extension, it 
 
 Available formats can be checked with [--check-formats](#--check-formats). To output H.264 / HEVC as an Elementary Stream, specify "raw".
 
+### --video-tag <string>
+Specify video tag.
+```
+ -o test.mp4 -c hevc --video-tag hvc1
+```
+
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy audio track into output file. Available only when avhw / avsw reader is used.
 

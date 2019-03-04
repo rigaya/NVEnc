@@ -492,6 +492,12 @@ muxerに出力フォーマットを指定して出力する。
 
 使用可能なフォーマットは[--check-formats](#--check-formats)で確認できる。H.264/HEVCをElementary Streamで出力する場合には、"raw"を指定する。
 
+### --video-tag <string>
+映像のcodec tagの指定。
+```
+ -o test.mp4 -c hevc --video-tag hvc1
+```
+
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
 
