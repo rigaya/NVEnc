@@ -665,7 +665,7 @@ cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo *pFrame, co
     resDescSrc.res.pitch2D.width = pFrame->width;
     resDescSrc.res.pitch2D.height = pFrame->height / 2; //フィールドなので半分
     resDescSrc.res.pitch2D.devPtr = (uint8_t *)pFrame->ptr
-        + (pFrame->pitch * (targetField == NNEDI_GEN_FIELD_TOP) ? 1 : 0); //有効なほうのフィールドを選択
+        + (pFrame->pitch * ((targetField == NNEDI_GEN_FIELD_TOP) ? 1 : 0)); //有効なほうのフィールドを選択
 
     cudaTextureDesc texDescSrc;
     memset(&texDescSrc, 0, sizeof(texDescSrc));
@@ -1167,7 +1167,7 @@ NVENCSTATUS NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         return sts;
     }
 
-    auto cudaerr = AllocFrameBuf(pNnediParam->frameOut, 1);
+    auto cudaerr = AllocFrameBuf(pNnediParam->frameOut, pNnediParam->nnedi.isbob() ? 2 : 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return NV_ENC_ERR_OUT_OF_MEMORY;
@@ -1181,8 +1181,10 @@ NVENCSTATUS NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_p
             return sts;
         }
     }
-    cuCtxSetCacheConfig(CU_FUNC_CACHE_PREFER_SHARED);
-    cuCtxSetSharedMemConfig(CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE);
+    if (pNnediParam->nnedi.isbob()) {
+        pParam->baseFps *= 2;
+        m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
+    }
 
     m_sFilterInfo = strsprintf(
         _T("nnedi: field %s, nns %d, nsize %s, quality %s, pre_screen %s\n")
@@ -1205,14 +1207,26 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
     if (pInputFrame->ptr == nullptr) {
         return sts;
     }
+    auto pNnediParam = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
+    if (!pNnediParam) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
         auto pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
         ppOutputFrames[0] = &pOutFrame->frame;
+        ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
         m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+        if (pNnediParam->nnedi.isbob()) {
+            pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
+            ppOutputFrames[1] = &pOutFrame->frame;
+            ppOutputFrames[1]->picstruct = pInputFrame->picstruct;
+            m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
+            *pOutputFrameNum = 2;
+        }
     }
-    ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
 
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
@@ -1223,14 +1237,10 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    auto pNnediParam = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
-    if (!pNnediParam) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
-    }
 
     NnediTargetField targetField = NNEDI_GEN_FIELD_UNKNOWN;
-    if (pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_AUTO) {
+    if (   pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_AUTO
+        || pNnediParam->nnedi.field == VPP_NNEDI_FIELD_BOB_AUTO) {
         if ((pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
             const auto inputFrameInfoEx = getFrameInfoExtra(pInputFrame);
             cudaMemcpy2DAsync(
@@ -1248,9 +1258,11 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
         } else if (pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_BFF) {
             targetField = NNEDI_GEN_FIELD_TOP;
         }
-    } else if (pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_TOP) {
+    } else if (pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_TOP
+        || pNnediParam->nnedi.field == VPP_NNEDI_FIELD_BOB_TOP_BOTTOM) {
         targetField = NNEDI_GEN_FIELD_BOTTOM;
-    } else if (pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_BOTTOM) {
+    } else if (pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_BOTTOM
+        || pNnediParam->nnedi.field == VPP_NNEDI_FIELD_BOB_BOTTOM_TOP) {
         targetField = NNEDI_GEN_FIELD_TOP;
     } else {
         AddMessage(RGY_LOG_ERROR, _T("Not implemented yet.\n"));
@@ -1282,6 +1294,29 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
         return NV_ENC_ERR_INVALID_CALL;
     }
     ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
+
+    if (pNnediParam->nnedi.isbob()) {
+        targetField = (targetField == NNEDI_GEN_FIELD_BOTTOM) ? NNEDI_GEN_FIELD_TOP : NNEDI_GEN_FIELD_BOTTOM;
+        func_list.at(pInputFrame->csp)(ppOutputFrames[1], pInputFrame,
+            pNnediParam, targetField,
+            m_weight0.ptr,
+            m_weight1[0].ptr,
+            m_weight1[1].ptr,
+            (cudaStream_t)0
+            );
+        cudaerr = cudaGetLastError();
+        if (cudaerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("error at nnedi(%s): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp],
+                char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
+            return NV_ENC_ERR_INVALID_CALL;
+        }
+        ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
+        ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
+        ppOutputFrames[0]->duration = (pInputFrame->duration + 1) / 2;
+        ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
+        ppOutputFrames[1]->duration = pInputFrame->duration - ppOutputFrames[0]->duration;
+    }
     return sts;
 }
 

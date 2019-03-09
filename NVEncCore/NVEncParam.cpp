@@ -336,6 +336,12 @@ VppNnedi::VppNnedi() :
 
 }
 
+bool VppNnedi::isbob() {
+    return field == VPP_NNEDI_FIELD_BOB_AUTO
+        || field == VPP_NNEDI_FIELD_BOB_BOTTOM_TOP
+        || field == VPP_NNEDI_FIELD_BOB_TOP_BOTTOM;
+}
+
 bool VppNnedi::operator==(const VppNnedi& x) const {
     return enable == x.enable
         && field == x.field

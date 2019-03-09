@@ -496,23 +496,23 @@ const CX_DESC list_vpp_deband[] ={
 
 enum VppNnediField {
     VPP_NNEDI_FIELD_UNKNOWN = -3,
-    VPP_NNEDI_FIELD_AF = -2,
+    VPP_NNEDI_FIELD_BOB_AUTO = -2,
     VPP_NNEDI_FIELD_USE_AUTO  = -1,
     VPP_NNEDI_FIELD_USE_TOP,
     VPP_NNEDI_FIELD_USE_BOTTOM,
-    VPP_NNEDI_FIELD_TF,
-    VPP_NNEDI_FIELD_BF,
+    VPP_NNEDI_FIELD_BOB_TOP_BOTTOM,
+    VPP_NNEDI_FIELD_BOB_BOTTOM_TOP,
 
     VPP_NNEDI_FIELD_MAX,
 };
 
 const CX_DESC list_vpp_nnedi_field[] = {
-    { _T("af"),     VPP_NNEDI_FIELD_AF },
-    { _T("auto"),   VPP_NNEDI_FIELD_USE_AUTO },
-    { _T("top"),    VPP_NNEDI_FIELD_USE_TOP },
-    { _T("bottom"), VPP_NNEDI_FIELD_USE_BOTTOM },
-    { _T("tf"),     VPP_NNEDI_FIELD_TF },
-    { _T("bf"),     VPP_NNEDI_FIELD_BF },
+    { _T("bob"),     VPP_NNEDI_FIELD_BOB_AUTO },
+    { _T("auto"),    VPP_NNEDI_FIELD_USE_AUTO },
+    { _T("top"),     VPP_NNEDI_FIELD_USE_TOP },
+    { _T("bottom"),  VPP_NNEDI_FIELD_USE_BOTTOM },
+    { _T("bob_tff"), VPP_NNEDI_FIELD_BOB_TOP_BOTTOM },
+    { _T("bob_bff"), VPP_NNEDI_FIELD_BOB_BOTTOM_TOP },
     { NULL, NULL }
 };
 
@@ -871,6 +871,7 @@ struct VppNnedi {
     VppNnediErrorType errortype;
     tstring           weightfile;
 
+    bool isbob();
     VppNnedi();
     bool operator==(const VppNnedi& x) const;
     bool operator!=(const VppNnedi& x) const;
