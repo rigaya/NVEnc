@@ -4107,111 +4107,124 @@ NVENCSTATUS NVEncCore::Encode() {
             }
 #endif //#if ENABLE_AVSW_READER
         }
-        //フィルタリングするならここ
-        //現在は1in 1outのみの実装
-        for (uint32_t ifilter = 0; ifilter < m_vpFilters.size() - 1; ifilter++) {
-            NVEncCtxAutoLock(ctxlock(m_ctxLock));
-            int nOutFrames = 0;
-            FrameInfo *outInfo[16] = { 0 };
-            auto sts_filter = m_vpFilters[ifilter]->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
-            if (sts_filter != NV_ENC_SUCCESS) {
-                PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
-                return sts_filter;
-            }
-            if (nOutFrames > 1) {
-                PrintMes(RGY_LOG_ERROR, _T("Currently only simple filters are supported.\n"));
-                return NV_ENC_ERR_UNIMPLEMENTED;
-            }
-            if (nOutFrames == 0) {
-                if (bDrain) continue;
-                return NV_ENC_SUCCESS;
-            }
-            if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
-                auto pCudaEvent = vInFrameTransferFin[nFilterFrame % vInFrameTransferFin.size()].get();
-                add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
-            }
-            bDrain = false; //途中でフレームが出てきたら、drain完了していない
-            frameInfo = *(outInfo[0]);
-        }
-        if (bDrain) {
-            return NV_ENC_SUCCESS; //最後までbDrain = trueなら、drain完了
-        }
 
-        //エンコードバッファを取得
-        EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
-        if (!pEncodeBuffer) {
-            pEncodeBuffer = m_EncodeBufferQueue.GetPending();
-            ProcessOutput(pEncodeBuffer);
-            PrintMes(RGY_LOG_TRACE, _T("Output frame %d\n"), m_pStatus->m_sData.frameOut);
-            if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
-                if (pEncodeBuffer->stInputBfr.hInputSurface) {
-                    auto nvencret = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
-                    if (nvencret != NV_ENC_SUCCESS) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to Unmap input buffer %p: %s\n"), pEncodeBuffer->stInputBfr.hInputSurface, char_to_tstring(_nvencGetErrorEnum(nvencret)).c_str());
-                        return nvencret;
+        deque<std::pair<FrameInfo, uint32_t>> filterframes;
+        filterframes.push_back(std::make_pair(frameInfo, 0u));
+
+        while (filterframes.size() > 0 || bDrain) {
+            //フィルタリングするならここ
+            for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
+                NVEncCtxAutoLock(ctxlock(m_ctxLock));
+                int nOutFrames = 0;
+                FrameInfo *outInfo[16] = { 0 };
+                auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+                if (sts_filter != NV_ENC_SUCCESS) {
+                    PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
+                    return sts_filter;
+                }
+                if (nOutFrames == 0) {
+                    if (bDrain) {
+                        filterframes.front().second++;
+                        continue;
                     }
-                    pEncodeBuffer->stInputBfr.hInputSurface = nullptr;
+                    return NV_ENC_SUCCESS;
+                }
+                filterframes.pop_front();
+                if (ifilter == 0) { //最初のフィルタなら転送なので、イベントをここでセットする
+                    auto pCudaEvent = vInFrameTransferFin[nFilterFrame % vInFrameTransferFin.size()].get();
+                    add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
+                }
+                bDrain = false; //途中でフレームが出てきたら、drain完了していない
+
+                //最初に出てきたフレームは先頭に追加する
+                if (nOutFrames > 0) {
+                    filterframes.push_front(std::make_pair(*outInfo[0], ifilter+1));
+                }
+                for (int jframe = 1; jframe < nOutFrames; jframe++) {
+                    filterframes.push_back(std::make_pair(*outInfo[jframe], ifilter+1));
                 }
             }
-            pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+            if (bDrain) {
+                return NV_ENC_SUCCESS; //最後までbDrain = trueなら、drain完了
+            }
+
+            //エンコードバッファを取得
+            EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
             if (!pEncodeBuffer) {
-                PrintMes(RGY_LOG_ERROR, _T("Error get enc buffer from queue.\n"));
-                return NV_ENC_ERR_GENERIC;
+                pEncodeBuffer = m_EncodeBufferQueue.GetPending();
+                ProcessOutput(pEncodeBuffer);
+                PrintMes(RGY_LOG_TRACE, _T("Output frame %d\n"), m_pStatus->m_sData.frameOut);
+                if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
+                    if (pEncodeBuffer->stInputBfr.hInputSurface) {
+                        auto nvencret = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
+                        if (nvencret != NV_ENC_SUCCESS) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to Unmap input buffer %p: %s\n"), pEncodeBuffer->stInputBfr.hInputSurface, char_to_tstring(_nvencGetErrorEnum(nvencret)).c_str());
+                            return nvencret;
+                        }
+                        pEncodeBuffer->stInputBfr.hInputSurface = nullptr;
+                    }
+                }
+                pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
+                if (!pEncodeBuffer) {
+                    PrintMes(RGY_LOG_ERROR, _T("Error get enc buffer from queue.\n"));
+                    return NV_ENC_ERR_GENERIC;
+                }
             }
-        }
-        //エンコードバッファにコピー
-        //エンコード直前のバッファまで転送を完了し、そのフレームのエンコードを開始できることを示すイベント
-        //ここでnFilterFrameをインクリメントする
-        {
-            NVEncCtxAutoLock(ctxlock(m_ctxLock));
-            auto& lastFilter = m_vpFilters[m_vpFilters.size()-1];
-            //最後のフィルタはNVEncFilterCspCropでなければならない
-            if (typeid(*lastFilter.get()) != typeid(NVEncFilterCspCrop)) {
-                PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
-                return NV_ENC_ERR_GENERIC;
+            //エンコードバッファにコピー
+            //エンコード直前のバッファまで転送を完了し、そのフレームのエンコードを開始できることを示すイベント
+            //ここでnFilterFrameをインクリメントする
+            {
+                NVEncCtxAutoLock(ctxlock(m_ctxLock));
+                auto& lastFilter = m_vpFilters[m_vpFilters.size()-1];
+                //最後のフィルタはNVEncFilterCspCropでなければならない
+                if (typeid(*lastFilter.get()) != typeid(NVEncFilterCspCrop)) {
+                    PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
+                    return NV_ENC_ERR_GENERIC;
+                }
+                int nOutFrames = 0;
+                FrameInfo *outInfo[16] = { 0 };
+                //エンコードバッファの情報を設定１
+                FrameInfo encFrameInfo ={ 0 };
+                if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
+                    encFrameInfo.ptr = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
+                    encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
+                    encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
+                    encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
+                    encFrameInfo.deivce_mem = true;
+                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
+                } else {
+                    //インタレ保持の場合は、NvEncCreateInputBuffer経由でフレームを渡さないと正常にエンコードできない
+                    uint32_t lockedPitch = 0;
+                    unsigned char *pInputSurface = nullptr;
+                    NvEncLockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
+                    encFrameInfo.ptr = (uint8_t *)pInputSurface;
+                    encFrameInfo.pitch = lockedPitch;
+                    encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
+                    encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
+                    encFrameInfo.deivce_mem = false; //CPU側にフレームデータを戻す
+                    encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
+                }
+                //エンコードバッファのポインタを渡す
+                outInfo[0] = &encFrameInfo;
+                auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+                filterframes.pop_front();
+                if (sts_filter != NV_ENC_SUCCESS) {
+                    PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
+                    return sts_filter;
+                }
+                auto pCudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()].get();
+                auto cudaret = cudaEventRecord(*pCudaEvent);
+                if (cudaret != cudaSuccess) {
+                    PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
+                    return NV_ENC_ERR_GENERIC;
+                }
+                if (m_vpFilters.size() == 1) {
+                    //フィルタの数が1のときは、ここが最初(かつ最後)のフィルタであり、転送フィルタである
+                    add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
+                }
+                unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(RGY_CSP_NV12, encFrameInfo.timestamp, encFrameInfo.duration, pEncodeBuffer, pCudaEvent));
+                dqEncFrames.push_back(std::move(frameEnc));
             }
-            int nOutFrames = 0;
-            FrameInfo *outInfo[16] = { 0 };
-            //エンコードバッファの情報を設定１
-            FrameInfo encFrameInfo = { 0 };
-            if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
-                encFrameInfo.ptr = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
-                encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
-                encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
-                encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
-                encFrameInfo.deivce_mem = true;
-                encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
-            } else {
-                //インタレ保持の場合は、NvEncCreateInputBuffer経由でフレームを渡さないと正常にエンコードできない
-                uint32_t lockedPitch = 0;
-                unsigned char *pInputSurface = nullptr;
-                NvEncLockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface, (void**)&pInputSurface, &lockedPitch);
-                encFrameInfo.ptr = (uint8_t *)pInputSurface;
-                encFrameInfo.pitch = lockedPitch;
-                encFrameInfo.width = pEncodeBuffer->stInputBfr.dwWidth;
-                encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
-                encFrameInfo.deivce_mem = false; //CPU側にフレームデータを戻す
-                encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
-            }
-            //エンコードバッファのポインタを渡す
-            outInfo[0] = &encFrameInfo;
-            auto sts_filter = lastFilter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
-            if (sts_filter != NV_ENC_SUCCESS) {
-                PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
-                return sts_filter;
-            }
-            auto pCudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()].get();
-            auto cudaret = cudaEventRecord(*pCudaEvent);
-            if (cudaret != cudaSuccess) {
-                PrintMes(RGY_LOG_ERROR, _T("Error cudaEventRecord: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
-                return NV_ENC_ERR_GENERIC;
-            }
-            if (m_vpFilters.size() == 1) {
-                //フィルタの数が1のときは、ここが最初(かつ最後)のフィルタであり、転送フィルタである
-                add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
-            }
-            unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(RGY_CSP_NV12, encFrameInfo.timestamp, encFrameInfo.duration, pEncodeBuffer, pCudaEvent));
-            dqEncFrames.push_back(std::move(frameEnc));
         }
         return NV_ENC_SUCCESS;
     };
