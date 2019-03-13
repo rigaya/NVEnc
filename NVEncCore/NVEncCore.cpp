@@ -294,7 +294,7 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
 #endif //#if ENABLE_NVML
             if (gpu.nv_driver_version == INT_MAX) {
                 TCHAR buffer[1024];
-                if (0 == getGPUInfo(GPU_VENDOR, buffer, _countof(buffer), true)) {
+                if (0 == getGPUInfo(GPU_VENDOR, buffer, _countof(buffer), currentDevice, true, true)) {
                     try {
                         gpu.nv_driver_version = (int)(std::stod(buffer) * 1000.0 + 0.5);
                     } catch (...) {

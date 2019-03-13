@@ -31,6 +31,6 @@
 
 #include "rgy_tchar.h"
 
-int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, int device_id = 0, bool driver_version_only = false);
+int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, int device_id = 0, bool driver_version_only = false, bool use_opencl = false);
 
 #endif //_GPU_INFO_H_
