@@ -6,7 +6,7 @@ by rigaya
 To build NVEnc, components below are required.
 
 - Visual Studio 2015
-- CUDA 8.0
+- CUDA 10.1 (x64) / CUDA 8.0 (x86)
 - yasm
 - Avisynth SDK
 - VapourSynth SDK
