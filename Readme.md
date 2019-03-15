@@ -86,7 +86,9 @@ which might cause problem in some playback environments.
     - deinterlace (normal / bob)
   - GPU filtering by CUDA
    - rff (apply rff flag)
-   - afs (deinterlacer, Automatic field shift)
+   - deinterlacer
+     - afs (Automatic field shift)
+     - nnedi
    - delogo
    - resize
      In addition to bilinear, spline36, various algorithms by npp library are available for x64 version
