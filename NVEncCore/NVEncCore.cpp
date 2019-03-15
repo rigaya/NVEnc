@@ -2844,9 +2844,13 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-afs.\n"));
                 return NV_ENC_ERR_INVALID_PARAM;
             }
+            const auto selectedGpu = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& gpuinfo) {
+                return gpuinfo.id == device_id;
+            });
             unique_ptr<NVEncFilter> filter(new NVEncFilterNnedi());
             shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
             param->nnedi = inputParam->vpp.nnedi;
+            param->compute_cpability = selectedGpu->compute_capability;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;

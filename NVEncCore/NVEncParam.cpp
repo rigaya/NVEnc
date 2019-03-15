@@ -330,6 +330,7 @@ VppNnedi::VppNnedi() :
     nns(32),
     nsize(VPP_NNEDI_NSIZE_32x4),
     quality(VPP_NNEDI_QUALITY_FAST),
+    precision(VPP_NNEDI_PRECISION_AUTO),
     pre_screen(VPP_NNEDI_PRE_SCREEN_NEW),
     errortype(VPP_NNEDI_ETYPE_ABS),
     weightfile(_T("")) {
@@ -350,6 +351,7 @@ bool VppNnedi::operator==(const VppNnedi& x) const {
         && quality == x.quality
         && pre_screen == x.pre_screen
         && errortype == x.errortype
+        && precision == x.precision
         && weightfile == x.weightfile;
 }
 bool VppNnedi::operator!=(const VppNnedi& x) const {

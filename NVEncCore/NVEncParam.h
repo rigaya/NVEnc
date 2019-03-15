@@ -592,6 +592,23 @@ const CX_DESC list_vpp_nnedi_error_type[] = {
     { NULL, NULL }
 };
 
+enum VppNnediPrecision {
+    VPP_NNEDI_PRECISION_UNKNOWN = -1,
+
+    VPP_NNEDI_PRECISION_AUTO = 0,
+    VPP_NNEDI_PRECISION_FP32,
+    VPP_NNEDI_PRECISION_FP16,
+
+    VPP_NNEDI_PRECISION_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_prec[] = {
+    { _T("auto"), VPP_NNEDI_PRECISION_AUTO },
+    { _T("fp32"), VPP_NNEDI_PRECISION_FP32 },
+    { _T("fp16"), VPP_NNEDI_PRECISION_FP16 },
+    { NULL, NULL }
+};
+
 const CX_DESC list_nppi_gauss[] = {
     { _T("disabled"), 0 },
     { _T("3"), NPP_MASK_SIZE_3_X_3 },
@@ -867,6 +884,7 @@ struct VppNnedi {
     int               nns;
     VppNnediNSize     nsize;
     VppNnediQuality   quality;
+    VppNnediPrecision precision;
     VppNnediPreScreen pre_screen;
     VppNnediErrorType errortype;
     tstring           weightfile;

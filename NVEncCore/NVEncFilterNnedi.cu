@@ -40,6 +40,10 @@
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
+#if __CUDACC_VER_MAJOR__ >= 10
+#include "cuda_fp16.h"
+#include "cuda_fp16.hpp"
+#endif
 #include "device_launch_parameters.h"
 #pragma warning (pop)
 #include "rgy_cuda_util.h"
@@ -108,6 +112,9 @@ static float exp_(float val) {
     return __expf(clamp(val, -80.0f, 80.0f));
 }
 
+#define ENABLE_CUDA_FP16_DEVICE (__CUDACC_VER_MAJOR__ >= 10 && __CUDA_ARCH__ >= 530)
+#define ENABLE_CUDA_FP16_HOST   (__CUDACC_VER_MAJOR__ >= 10)
+
 //dot_product1で重み(nns)方向のループアンロールを行う
 //これにより、一度sharedメモリからレジスタにのせたpixel情報を使いまわすことができる
 #define ENABLE_DP1_WEIGHT_LOOP_UNROLL 1
@@ -130,6 +137,39 @@ static_assert(WEIGHT_LOOP <= WARP_SIZE, "WEIGHT_LOOP < WARP_SIZE");
 #define SSRC(x,y) ((y)*ssrc_dim+(x))
 #define SWHT_IDX(i,thIdWeight) ((thIdWeight)*sweight_dim+(i))
 
+template<typename TypeSSrc>
+__device__ __inline__
+void load_texSrc(TypeSSrc *const ptr_src, const int ssrc_dim, cudaTextureObject_t texSrc, const int nnx, const int nny, const int nnx_2_m1, const int nny_2, const int thIdX, const int thIdY, const int gIdX, const int gIdY, const int pix_x_per_thread, const int thread_y_loop);
+
+template<>
+__device__ __inline__
+void load_texSrc<float>(float *const ptr_src, const int ssrc_dim, cudaTextureObject_t texSrc, const int nnx, const int nny, const int nnx_2_m1, const int nny_2, const int thIdX, const int thIdY, const int gIdX, const int gIdY, const int pix_x_per_thread, const int thread_y_loop) {
+    for (int y = 0; y + thIdY < NNEDI_BLOCK_Y * thread_y_loop + nny; y += NNEDI_BLOCK_Y) {
+        for (int x = 0; x + thIdX < ssrc_dim; x += NNEDI_BLOCK_X) {
+            const float px = blockIdx.x * NNEDI_BLOCK_X /*blockDim.x*/ * pix_x_per_thread + thIdX + x - nnx_2_m1 + 0.5f;
+            const float py = blockIdx.y * NNEDI_BLOCK_Y /*blockDim.y*/ * thread_y_loop + thIdY + y - nny_2 + 0.5f;
+            ptr_src[SSRC(x + thIdX, y + thIdY)] = (float)tex2D<float>(texSrc, px, py) * 256.0f;
+        }
+    }
+}
+#if ENABLE_CUDA_FP16_HOST
+template<>
+__device__ __inline__
+void load_texSrc<__half2>(__half2 *const ptr_src, const int ssrc_dim, cudaTextureObject_t texSrc, const int nnx, const int nny, const int nnx_2_m1, const int nny_2, const int thIdX, const int thIdY, const int gIdX, const int gIdY, const int pix_x_per_thread, const int thread_y_loop) {
+#if ENABLE_CUDA_FP16_DEVICE
+    for (int y = 0; y + thIdY < NNEDI_BLOCK_Y * thread_y_loop + nny; y += NNEDI_BLOCK_Y) {
+        for (int x = 0; x + thIdX < ssrc_dim; x += NNEDI_BLOCK_X) {
+            const float px = blockIdx.x * NNEDI_BLOCK_X /*blockDim.x*/ * pix_x_per_thread + thIdX + x - nnx_2_m1 + 0.5f;
+            const float py = blockIdx.y * NNEDI_BLOCK_Y /*blockDim.y*/ * thread_y_loop + thIdY + y - nny_2 + 0.5f;
+            ptr_src[SSRC(x + thIdX, y + thIdY)] = __floats2half2_rn(
+                tex2D<float>(texSrc, px, py),
+                tex2D<float>(texSrc, px+1.0f, py));
+        }
+    }
+#endif //#if ENABLE_CUDA_FP16_DEVICE
+}
+#endif //#if ENABLE_CUDA_FP16_HOST
+
 template<typename TypePixel, int bit_depth>
 __device__ __inline__
 TypePixel prescreen_flag() {
@@ -139,7 +179,7 @@ TypePixel prescreen_flag() {
 template<typename TypePixel, typename TypeWeight, bool scale_dummy, bool src_is_frame, int thread_y_loop>
 __device__ __inline__
 void dot_product0(
-    float sum[thread_y_loop][WEIGHT_LOOP],
+    TypeWeight sum[thread_y_loop][WEIGHT_LOOP],
     const TypePixel *const ptr_src, const int ssrc_dim,
     const TypeWeight *const ptr_weight, const int sweight_dim,
     const TypeWeight *__restrict__ weight_offset,
@@ -178,10 +218,10 @@ void dot_product0(
 
     #pragma unroll
     for (int i = 0; i < WEIGHT_LOOP; i++, weight_offset++) {
-        const float wo = weight_offset[0];
+        const TypeWeight wo = weight_offset[0];
         #pragma unroll
         for (int ithy = 0; ithy < thread_y_loop; ithy++) {
-            const float scale = (scale_dummy) ? 1.0f : mstd[ithy][2];
+            const TypeWeight scale = (scale_dummy) ? 1.0f : mstd[ithy][2];
             sum[ithy][i] = sum[ithy][i] * scale + wo;
         }
     }
@@ -196,7 +236,7 @@ static TypePixel interp_ret(const TypeSSrc *const ptr_src, const int ssrc_dim,
         const float tmp =
             (19.0f/32.0f) * (ptr_src[SSRC(thIdX + nnx_2_m1, thIdY * thread_y_loop + ithy + 1)] + ptr_src[SSRC(thIdX + nnx_2_m1, thIdY * thread_y_loop + ithy + 2)])
             - (3.0f/32.0f) * (ptr_src[SSRC(thIdX + nnx_2_m1, thIdY * thread_y_loop + ithy + 0)] + ptr_src[SSRC(thIdX + nnx_2_m1, thIdY * thread_y_loop + ithy + 3)]);
-        val = (TypePixel)clamp(tmp+0.5f, 0, (1<<bit_depth)-1);
+        val = (TypePixel)clamp(tmp * ((1<<bit_depth) / 256.0f) + 0.5f, 0, (1<<bit_depth)-1);
     }
     return val;
 }
@@ -235,16 +275,9 @@ __global__ void kernel_comute_network0(
     //input(texture) -> shared
     //textureからpixel情報をsharedメモリにロードする
     //範囲外の折り返し等はtextureでやってくれるのでここでは無視
-    const int x_src_offset = (prescreen_orig) ? -1 : 0;
-    const int nnx_2_m1 = nnx / 2 + x_src_offset;
+    const int nnx_2_m1 = (prescreen_orig) ? 5 : 6;
     const int nny_2 = nny / 2 - (targetField == NNEDI_GEN_FIELD_BOTTOM ? 1 : 0);
-    for (int y = 0; y + thIdY < NNEDI_BLOCK_Y * thread_y_loop + nny; y += NNEDI_BLOCK_Y) {
-        for (int x = 0; x + thIdX < ssrc_dim; x += NNEDI_BLOCK_X) {
-            float px = blockIdx.x * NNEDI_BLOCK_X /*blockDim.x*/ * pix_x_per_thread + thIdX + x - nnx_2_m1 + 0.5f;
-            float py = blockIdx.y * NNEDI_BLOCK_Y /*blockDim.y*/ * thread_y_loop + thIdY + y - nny_2 + 0.5f;
-            ptr_src[SSRC(x + thIdX, y + thIdY)] = tex2D<float>(texSrc, px, py) * ((1<<bit_depth)-1.0f);
-        }
-    }
+    load_texSrc<TypeSSrc>(ptr_src, ssrc_dim, texSrc, nnx, nny, nnx_2_m1, nny_2, thIdX, thIdY, gIdX, gIdY, pix_x_per_thread, thread_y_loop);
     __syncthreads();
 
     float *const ptr_temp = (float *)((char *)ptr_src
@@ -301,7 +334,7 @@ __global__ void kernel_comute_network0(
             for (int ithy = 0; ithy < thread_y_loop; ithy++) {
                 if ((gIdY + ithy) * 2 < dstHeight) { //縦方向は1行おきの処理となるので "*2"
                     const bool flag = (fmaxf(ret[ithy][2], ret[ithy][3]) <= fmaxf(ret[ithy][0], ret[ithy][1])) ? true : false;
-                    decltype(TypePixel4::x) *const ptr_dst = (decltype(TypePixel4::x) *)((char *)pDst + (gIdY + ithy) * dstPitch + gIdX * sizeof(TypePixel4::x));
+                    decltype(TypePixel4::x) *const ptr_dst = (decltype(TypePixel4::x) *)((uint8_t *)pDst + (gIdY + ithy) * dstPitch + gIdX * sizeof(TypePixel4::x));
                     ptr_dst[0] = interp_ret<decltype(TypePixel4::x), bit_depth, TypeSSrc, thread_y_loop>(ptr_src, ssrc_dim, flag, nnx, nny, thIdX, thIdY, ithy, nnx_2_m1, nny_2);
                 }
             }
@@ -339,7 +372,7 @@ __global__ void kernel_comute_network0(
             #pragma unroll
             for (int ithy = 0; ithy < thread_y_loop; ithy++) {
                 if ((gIdY + ithy) * 2 < dstHeight) { //縦方向は1行おきの処理となるので "*2"
-                    TypePixel4 *const ptr_dst = (TypePixel4 *)((char *)pDst + (gIdY + ithy) * dstPitch + gIdX * sizeof(decltype(TypePixel4::x)));
+                    TypePixel4 *const ptr_dst = (TypePixel4 *)((uint8_t *)pDst + (gIdY + ithy) * dstPitch + gIdX * sizeof(decltype(TypePixel4::x)));
                     //1スレッドで4pixel分出力する
                     TypePixel4 out;
                     out.x = interp_ret<decltype(TypePixel4::x), bit_depth, TypeSSrc, thread_y_loop>(ptr_src+0, ssrc_dim, ret[ithy][0] > 0.0f, nnx, nny, thIdX * pix_x_per_thread, thIdY, ithy, nnx_2_m1, nny_2);
@@ -353,12 +386,102 @@ __global__ void kernel_comute_network0(
     }
 }
 
-template<typename TypePixel, typename TypeWeight>
+template<typename T> __device__ __inline__ T setval(float val);
+template<> __device__ __inline__ float setval(float val) { return val; };
+template<typename TypeSSrc> __device__ __inline__ int kernel_comute_network1_calc_scale_step();
+template<> __device__ __inline__ int kernel_comute_network1_calc_scale_step<float>() { return 1; };
+
+template<typename TypeSSrc> __device__
+    void kernel_comute_network1_calc_scale_get_sum_sumsq(float& sum, float& sumsq, TypeSSrc tsum, TypeSSrc tsumsq);
+template<> __device__ __inline__
+    void kernel_comute_network1_calc_scale_get_sum_sumsq<float>(float& sum, float& sumsq, float tsum, float tsumsq) {
+    sum = tsum, sumsq = tsumsq;
+}
+#if ENABLE_CUDA_FP16_HOST
+template<> __device__ __inline__ int kernel_comute_network1_calc_scale_step<__half2>() { return 2; };
+template<> __device__ __inline__ __half2 setval(float val) { return __float2half2_rn(val); }
+template<> __device__ __inline__
+    void kernel_comute_network1_calc_scale_get_sum_sumsq<__half2>(float& sum, float& sumsq, __half2 tsum, __half2 tsumsq) {
+    sum = ((float)tsum.x + (float)tsum.y) * 256.0f;
+    sumsq = ((float)tsumsq.x + (float)tsumsq.y) * 256.0f * 256.0f;
+}
+#endif //#if ENABLE_CUDA_FP16_HOST
+
+template<typename TypeSSrc, typename TypeWeight>
 __device__ __inline__
-void dot_product_frame1(
+void kernel_comute_network1_calc_scale(
+    float mstd[THREAD_Y_LOOP][4],
+    TypeWeight *__restrict__ const ptr_temp,
+    const TypeSSrc *__restrict__ const ptr_src, const int ssrc_dim,
+    const int nnx, const int nny, const int nnxy,
+    const int thIdX, const int thIdY) {
+    const int step = kernel_comute_network1_calc_scale_step<TypeSSrc>();
+#define TMP_IDX(x,y,i) ((((i)*(nny + NNEDI_BLOCK_Y * THREAD_Y_LOOP)+(y))*NNEDI_BLOCK_X)+(x))
+    for (int y = 0; y + thIdY < nny + NNEDI_BLOCK_Y * THREAD_Y_LOOP; y += NNEDI_BLOCK_Y) {
+        TypeSSrc sum = setval<TypeSSrc>(0.0f), sumsq = setval<TypeSSrc>(0.0f);
+        //まず各ピクセルごとに、x方向の総和をとる
+        #pragma unroll (4)
+        for (int x = 0; x < nnx; x += step) {
+            const auto value = ptr_src[SSRC(x + thIdX, y + thIdY)];
+            sum += value;
+            sumsq += value * value;
+        }
+        //一度sharedメモリに格納
+        ptr_temp[TMP_IDX(thIdX, thIdY+y, 0)] = sum;
+        ptr_temp[TMP_IDX(thIdX, thIdY+y, 1)] = sumsq;
+    }
+    __syncthreads();
+
+    const float inv_nnxy = __frcp_rn(nnxy);
+
+    //次にy方向の総和をとる
+    #pragma unroll
+    for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
+        TypeSSrc tsum = setval<TypeSSrc>(0.0f), tsumsq = setval<TypeSSrc>(0.0f);
+        #pragma unroll
+        for (int y = 0; y < nny; y++) {
+            tsum   += ptr_temp[TMP_IDX(thIdX, thIdY*THREAD_Y_LOOP+ithy+y, 0)];
+            tsumsq += ptr_temp[TMP_IDX(thIdX, thIdY*THREAD_Y_LOOP+ithy+y, 1)];
+        }
+
+        float sum, sumsq;
+        kernel_comute_network1_calc_scale_get_sum_sumsq<TypeSSrc>(sum, sumsq, tsum, tsumsq);
+
+        mstd[ithy][3] = 0.0f;
+        mstd[ithy][0] = sum * inv_nnxy;
+        float tmp = sumsq * inv_nnxy - mstd[ithy][0] * mstd[ithy][0];
+        //if (thIdX == 0 && thIdY == 0 && blockIdx.x == 2 && blockIdx.y == 2) {
+        //    printf("%e, %e, %e, %e, %e\n", inv_nnxy, tmp, sum, sumsq, mstd[ithy][0]);
+        //}
+        if (tmp <= FLT_EPSILON) {
+            mstd[ithy][1] = 0.0f;
+            mstd[ithy][2] = 0.0f;
+        } else {
+            mstd[ithy][1] = __fsqrt_rn(tmp);
+            mstd[ithy][2] = __frcp_rn(mstd[ithy][1]);
+        }
+    }
+#undef TMP_IDX
+}
+#if ENABLE_CUDA_FP16_HOST && (!ENABLE_CUDA_FP16_DEVICE)
+template<>
+__device__ __inline__
+void kernel_comute_network1_calc_scale(
+    float mstd[THREAD_Y_LOOP][4],
+    __half2 *__restrict__ const ptr_temp,
+    const __half2 *__restrict__ const ptr_src, const int ssrc_dim,
+    const int nnx, const int nny, const int nnxy,
+    const int thIdX, const int thIdY) {
+    //ダミー
+}
+#endif //#if ENABLE_CUDA_FP16_HOST && (!ENABLE_CUDA_FP16_DEVICE)
+
+template<typename TypeSSrc, typename TypeWeight>
+__device__ __inline__
+void dot_product_frame1_fp32(
     float sum0[THREAD_Y_LOOP][WEIGHT_LOOP], //レジスタにのることを期待する
     float sum1[THREAD_Y_LOOP][WEIGHT_LOOP], //レジスタにのることを期待する
-    TypePixel *__restrict__ const ptr_src, const int ssrc_dim,
+    TypeSSrc *__restrict__ const ptr_src, const int ssrc_dim,
     const TypeWeight *__restrict__ const ptr_weight, const int sweight_dim,
     const TypeWeight *__restrict__ weight_offset,
     const int nnx, const int nny, const int nns, const int thIdX, const int thIdY,
@@ -373,23 +496,24 @@ void dot_product_frame1(
     }
     const TypeWeight *ptr_w = ptr_weight;
     for (int y = 0; y < nny; y++) {
-        const TypePixel *ptr_s = &ptr_src[SSRC(thIdX, thIdY * THREAD_Y_LOOP + y)];
+        const TypeSSrc *ptr_s = &ptr_src[SSRC(thIdX, thIdY * THREAD_Y_LOOP + y)];
 #if ENABLE_DP1_WEIGHT_ARRAY_OPT
         //#pragma unroll (4)
         for (int x = 0; x < nnx; x++, ptr_s++) {
             //このsharedメモリからロードしたpixelデータをレジスタ上で使いまわすのが重要
-            TypePixel s0[THREAD_Y_LOOP];
+            TypeSSrc s0[THREAD_Y_LOOP];
             #pragma unroll
             for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
                 s0[ithy] = ptr_s[SSRC(0, ithy)];
             }
 #if ENABLE_DP1_SHUFFLE_OPT
-            const auto w = ptr_w[thIdX & (WEIGHT_LOOP*2-1)];
+            TypeWeight w;
+            if (thIdX < WEIGHT_LOOP*2) w = ptr_w[thIdX];
             ptr_w += WEIGHT_LOOP*2;
             #pragma unroll
             for (int i = 0; i < WEIGHT_LOOP; i++) {
-                const auto w0 = __shfl(w, (thIdX & (WEIGHT_LOOP*2))+i*2+0);
-                const auto w1 = __shfl(w, (thIdX & (WEIGHT_LOOP*2))+i*2+1);
+                const auto w0 = __shfl(w, i*2+0);
+                const auto w1 = __shfl(w, i*2+1);
                 #pragma unroll
                 for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
                     sum0[ithy][i] += s0[ithy] * w0;
@@ -431,66 +555,196 @@ void dot_product_frame1(
         }
     }
 #endif
+#if ENABLE_DP1_WEIGHT_ARRAY_OPT
+    #pragma unroll
+    for (int i = 0; i < WEIGHT_LOOP; i++, weight_offset += 2) {
+        #pragma unroll
+        for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
+            sum0[ithy][i] = sum0[ithy][i] * mstd[ithy][2] + weight_offset[0];
+            sum1[ithy][i] = sum1[ithy][i] * mstd[ithy][2] + weight_offset[1];
+        }
+    }
+#else
     #pragma unroll
     for (int i = 0; i < WEIGHT_LOOP; i++, weight_offset++) {
         #pragma unroll
         for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
             sum0[ithy][i] = sum0[ithy][i] * mstd[ithy][2] + weight_offset[0];
-            sum1[ithy][i] = sum1[ithy][i] * mstd[ithy][2] + weight_offset[0+nns];
+            sum1[ithy][i] = sum1[ithy][i] * mstd[ithy][2] + weight_offset[nns];
         }
     }
+#endif
 }
 
-template<typename TypeSSrc, typename TypeWeight>
+#if ENABLE_CUDA_FP16_HOST
 __device__ __inline__
-void kernel_comute_network1_calc_scale(
-    float mstd[THREAD_Y_LOOP][4],
-    TypeWeight *__restrict__ const ptr_temp,
-    const TypeSSrc *__restrict__ const ptr_src, const int ssrc_dim,
-    const int nnx, const int nny, const int nnxy,
-    const int thIdX, const int thIdY) {
-
-#define TMP_IDX(x,y,i) ((((i)*(nny + NNEDI_BLOCK_Y * THREAD_Y_LOOP)+(y))*NNEDI_BLOCK_X)+(x))
-    for (int y = 0; y + thIdY < nny + NNEDI_BLOCK_Y * THREAD_Y_LOOP; y += NNEDI_BLOCK_Y) {
-        float sum = 0.0f, sumsq = 0.0f;
-        //まず各ピクセルごとに、x方向の総和をとる
-        #pragma unroll (4)
-        for (int x = 0; x < nnx; x++) {
-            const auto value = ptr_src[SSRC(x + thIdX, y + thIdY)];
-            sum += value;
-            sumsq += value * value;
-        }
-        //一度sharedメモリに格納
-        ptr_temp[TMP_IDX(thIdX, thIdY+y, 0)] = sum;
-        ptr_temp[TMP_IDX(thIdX, thIdY+y, 1)] = sumsq;
-    }
-    __syncthreads();
-
-    const float scale = __frcp_rn(nnxy);
-
-    //次にy方向の総和をとる
+void dot_product_frame1_fp16(
+    __half2 sum[THREAD_Y_LOOP][WEIGHT_LOOP],
+    __half2 *__restrict__ const ptr_src, const int ssrc_dim,
+    const __half2 *__restrict__ const ptr_weight, const int sweight_dim,
+    const __half2 *__restrict__ weight_offset,
+    const int nnx, const int nny, const int nns, const int thIdX, const int thIdY,
+    const __half2 weight_scale[THREAD_Y_LOOP]
+) {
+#if ENABLE_CUDA_FP16_DEVICE
     #pragma unroll
     for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
-        float sum = 0.0f, sumsq = 0.0f;
         #pragma unroll
-        for (int y = 0; y < nny; y++) {
-            sum   += ptr_temp[TMP_IDX(thIdX, thIdY*THREAD_Y_LOOP+ithy+y, 0)];
-            sumsq += ptr_temp[TMP_IDX(thIdX, thIdY*THREAD_Y_LOOP+ithy+y, 1)];
-        }
-
-        mstd[ithy][3] = 0.0f;
-        mstd[ithy][0] = sum * scale;
-        float tmp = sumsq * scale - mstd[ithy][0] * mstd[ithy][0];
-        if (tmp <= FLT_EPSILON) {
-            mstd[ithy][1] = 0.0f;
-            mstd[ithy][2] = 0.0f;
-        } else {
-            mstd[ithy][1] = sqrt(tmp);
-            mstd[ithy][2] = __frcp_rn(mstd[ithy][1]);
+        for (int i = 0; i < WEIGHT_LOOP; i++) {
+            sum[ithy][i] = setval<__half2>(0.0f);
         }
     }
-#undef TMP_IDX
+    const __half2 *ptr_w = ptr_weight;
+    for (int y = 0; y < nny; y++) {
+        const __half2 *ptr_s = &ptr_src[SSRC(thIdX, thIdY * THREAD_Y_LOOP + y)];
+        //#pragma unroll (4)
+        for (int x = 0; x < nnx; x += 2, ptr_s += 2) {
+            //このsharedメモリからロードしたpixelデータをレジスタ上で使いまわすのが重要
+            __half2 s0[THREAD_Y_LOOP];
+            #pragma unroll
+            for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
+                s0[ithy] = ptr_s[SSRC(0, ithy)];
+            }
+            //[nns/WEIGHT_LOOP][nnxy][WEIGHT_LOOP][2]
+            __half2 w;
+            if (thIdX < WEIGHT_LOOP*2) w = ptr_w[thIdX];
+            ptr_w += WEIGHT_LOOP*2;
+            #pragma unroll
+            for (int i = 0; i < WEIGHT_LOOP; i++) {
+                __half2 w0 = __shfl(w,            +i);
+                __half2 w1 = __shfl(w, WEIGHT_LOOP+i);
+                #pragma unroll
+                for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
+                    sum[ithy][i] += __low2half2(s0[ithy]) * w0;
+                    sum[ithy][i] += __high2half2(s0[ithy]) * w1;
+                }
+            }
+        }
+    }
+    #pragma unroll
+    for (int i = 0; i < WEIGHT_LOOP; i++, weight_offset++) {
+        #pragma unroll
+        for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
+            sum[ithy][i] = sum[ithy][i] * weight_scale[ithy] + weight_offset[0];
+        }
+    }
+#endif //#if ENABLE_CUDA_FP16_DEVICE
 }
+#endif //#if ENABLE_CUDA_FP16_HOST
+
+__device__ __inline__
+void kernel_comute_network1_dot_product(
+    float wsum[THREAD_Y_LOOP],
+    float vsum[THREAD_Y_LOOP],
+    float *const ptr_src, const int ssrc_dim,
+    const float *const weight,
+    float mstd[THREAD_Y_LOOP][4],
+    const int nnx, const int nny, const int nnxy, const int nns,
+    const int thIdX, const int thIdY) {
+    const int sweight_dim = (ENABLE_DP1_WEIGHT_ARRAY_OPT) ? 2 * nnxy : nnxy;
+    for (int iw = 0; iw < nns; iw += WEIGHT_LOOP) {
+        float sum0[THREAD_Y_LOOP][WEIGHT_LOOP]; //レジスタにのることを期待する
+        dot_product0<float, float, false, true, THREAD_Y_LOOP>(sum0, ptr_src, ssrc_dim, weight+ (iw)*nnxy, sweight_dim, weight + (nns*2)*nnxy + iw, nnx, nny, thIdX, thIdY, 1, mstd);
+
+        float sum1[THREAD_Y_LOOP][WEIGHT_LOOP]; //レジスタにのることを期待する
+        dot_product0<float, float, false, true, THREAD_Y_LOOP>(sum1, ptr_src, ssrc_dim, weight+ (nns+iw)*nnxy, sweight_dim, weight + (nns*2)*nnxy+nns + iw, nnx, nny, thIdX, thIdY, 1, mstd);
+
+        #pragma unroll
+        for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
+            #pragma unroll
+            for (int ithw = 0; ithw < WEIGHT_LOOP; ithw++) {
+                float ret0 = exp_(sum0[ithy][ithw]);
+                float ret1 = sum1[ithy][ithw];
+                wsum[ithy] += ret0;
+                vsum[ithy] += ret0 * (ret1 * __frcp_rn(1.0f + fabs(ret1)));
+            }
+        }
+    }
+}
+
+#if ENABLE_CUDA_FP16_HOST
+__device__ __inline__
+void kernel_comute_network1_dot_product(
+    float wsum[THREAD_Y_LOOP],
+    float vsum[THREAD_Y_LOOP],
+    __half2 *const ptr_src, const int ssrc_dim,
+    const __half2 *const weight,
+    float mstd[THREAD_Y_LOOP][4],
+    const int nnx, const int nny, const int nnxy, const int nns,
+    const int thIdX, const int thIdY) {
+    //未実装
+    assert(0);
+}
+#endif //#if ENABLE_CUDA_FP16_HOST
+
+__device__ __inline__
+void kernel_comute_network1_dot_product_opt(
+    float wsum[THREAD_Y_LOOP],
+    float vsum[THREAD_Y_LOOP],
+    float *const ptr_src, const int ssrc_dim,
+    const float *const weight,
+    float mstd[THREAD_Y_LOOP][4],
+    const int nnx, const int nny, const int nnxy, const int nns,
+    const int thIdX, const int thIdY) {
+    const int sweight_dim = (ENABLE_DP1_WEIGHT_ARRAY_OPT) ? 2 * nnxy : nnxy;
+    for (int iw = 0; iw < nns; iw += WEIGHT_LOOP) {
+        float sum0[THREAD_Y_LOOP][WEIGHT_LOOP]; //レジスタにのることを期待する
+        float sum1[THREAD_Y_LOOP][WEIGHT_LOOP]; //レジスタにのることを期待する
+        // 重み(nns)方向に、WEIGHT_LOOP分のdotproduct
+        // sum0[i] <- iw     - iw+WEIGHT_LOOP
+        // sum1[i] <- iw+nns - iw+WEIGHT_LOOP+nns
+        dot_product_frame1_fp32(sum0, sum1, ptr_src, ssrc_dim, weight+iw*sweight_dim, sweight_dim, weight + (nns*2)*nnxy + iw*2, nnx, nny, nns, thIdX, thIdY, mstd);
+        #pragma unroll
+        for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
+            #pragma unroll
+            for (int ithw = 0; ithw < WEIGHT_LOOP; ithw++) {
+                float ret0 = exp_(sum0[ithy][ithw]);
+                float ret1 = sum1[ithy][ithw];
+                wsum[ithy] += ret0;
+                vsum[ithy] += ret0 * (ret1 * __frcp_rn(1.0f + fabs(ret1)));
+            }
+        }
+    }
+}
+
+#if ENABLE_CUDA_FP16_HOST
+__device__ __inline__
+void kernel_comute_network1_dot_product_opt(
+    float wsum[THREAD_Y_LOOP],
+    float vsum[THREAD_Y_LOOP],
+    __half2 *const ptr_src, const int ssrc_dim,
+    const __half2 *const weight,
+    float mstd[THREAD_Y_LOOP][4],
+    const int nnx, const int nny, const int nnxy, const int nns,
+    const int thIdX, const int thIdY) {
+#if ENABLE_CUDA_FP16_DEVICE
+    const int sweight_dim = nnxy;
+    for (int iw = 0; iw < nns; iw += WEIGHT_LOOP) {
+        __half2 sum[THREAD_Y_LOOP][WEIGHT_LOOP]; //レジスタにのることを期待する
+        // 重み(nns)方向に、WEIGHT_LOOP分のdotproduct
+        // sum0[i] <- iw     - iw+WEIGHT_LOOP
+        // sum1[i] <- iw+nns - iw+WEIGHT_LOOP+nns
+        __half2 weight_scale[THREAD_Y_LOOP];
+        #pragma unroll
+        for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
+            weight_scale[ithy] = __float2half2_rn(mstd[ithy][2] * 256.0f); // *weight[nns*(nnxy+1)] <<<<<<<< scalingはとりあえずなしで
+        }
+        dot_product_frame1_fp16(sum, ptr_src, ssrc_dim, weight+iw*sweight_dim, sweight_dim, weight + nns*nnxy + iw, nnx, nny, nns, thIdX, thIdY, weight_scale);
+        #pragma unroll
+        for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
+            #pragma unroll
+            for (int ithw = 0; ithw < WEIGHT_LOOP; ithw++) {
+                float ret0 = exp_(__low2float(sum[ithy][ithw]));
+                float ret1 = __high2float(sum[ithy][ithw]);
+                wsum[ithy] += ret0;
+                vsum[ithy] += ret0 * (ret1 * __frcp_rn(1.0f + fabs(ret1)));
+            }
+        }
+    }
+#endif //#if ENABLE_CUDA_FP16_DEVICE
+}
+#endif //#if ENABLE_CUDA_FP16_HOST
+
 
 template<typename TypePixel, int bit_depth, typename TypeSSrc, typename TypeWeight, int nnx, int nny>
 __global__ void kernel_comute_network1(
@@ -524,13 +778,7 @@ __global__ void kernel_comute_network1(
     //範囲外の折り返し等はtextureでやってくれるのでここでは無視
     const int nnx_2_m1 = nnx / 2 - 1;
     const int nny_2 = nny / 2 - (targetField == NNEDI_GEN_FIELD_BOTTOM ? 1 : 0);
-    for (int y = 0; y + thIdY < NNEDI_BLOCK_Y * THREAD_Y_LOOP + nny; y += NNEDI_BLOCK_Y) {
-        for (int x = 0; x + thIdX < NNEDI_BLOCK_X + nnx; x += NNEDI_BLOCK_X) {
-            float px = (gIdX + x - nnx_2_m1) + 0.5f;
-            float py = blockIdx.y * NNEDI_BLOCK_Y /*blockDim.y*/ * THREAD_Y_LOOP + thIdY + y - nny_2 + 0.5f;
-            ptr_src[SSRC(x + thIdX, y + thIdY)] = tex2D<float>(texSrc, px, py) * ((1<<bit_depth)-1.0f);
-        }
-    }
+    load_texSrc<TypeSSrc>(ptr_src, ssrc_dim, texSrc, nnx, nny, nnx_2_m1, nny_2, thIdX, thIdY, gIdX, gIdY, 1, THREAD_Y_LOOP);
     __syncthreads();
 
     TypeWeight *const ptr_temp = (TypeWeight *)((char *)shared
@@ -539,16 +787,16 @@ __global__ void kernel_comute_network1(
     float mstd[THREAD_Y_LOOP][4];
     kernel_comute_network1_calc_scale(mstd, ptr_temp, ptr_src, ssrc_dim, nnx, nny, nnxy, thIdX, thIdY);
 
-    TypePixel *const ptr_dst_base = (TypePixel *)((char *)pDst + gIdY * dstPitch + gIdX * sizeof(TypePixel));
+    uint8_t *const ptr_dst_base = (uint8_t *)pDst + gIdY * dstPitch + gIdX * sizeof(TypePixel);
     uint32_t flag_sum = 0xffffffff; //処理するかどうかのフラグ
     if (prescreen) {
         flag_sum = 0x00;
-        TypePixel *ptr_dst = ptr_dst_base;
+        uint8_t *ptr_dst = ptr_dst_base;
         #pragma unroll
         for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++, ptr_dst += dstPitch) {
             uint32_t flag = 0x00;
             if ((gIdY + ithy) * 2 < dstHeight) { //縦方向は1行おきの処理となるので "*2"
-                flag = (ptr_dst[0] == prescreen_flag<TypePixel, bit_depth>()) ? 0x01 << ithy : 0x00;
+                flag = (((TypePixel *)ptr_dst)[0] == prescreen_flag<TypePixel, bit_depth>()) ? 0x01 << ithy : 0x00;
             }
             flag_sum |= flag;
             static_assert(THREAD_Y_LOOP <= sizeof(flag_sum) * 8, "THREAD_Y_LOOP <= sizeof(flag_sum) * 8");
@@ -583,7 +831,6 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
 
 #endif
     //weightの先頭のポインタ
-    const int sweight_dim = (ENABLE_DP1_WEIGHT_ARRAY_OPT) ? 2 * nnxy : nnxy;
     if (__any(flag_sum)) { //どのpixelも処理する必要がなければ、スキップする
         for (int iquality = 0; iquality < quals; iquality++) {
             const TypeWeight *const weight = (iquality) ? weight11 : weight10;
@@ -593,43 +840,11 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
                 wsum[ithy] = vsum[ithy] = 0.0f;
             }
             if (ENABLE_DP1_WEIGHT_LOOP_UNROLL) {
-                for (int iw = 0; iw < nns; iw += WEIGHT_LOOP) {
-                    float sum0[THREAD_Y_LOOP][WEIGHT_LOOP]; //レジスタにのることを期待する
-                    float sum1[THREAD_Y_LOOP][WEIGHT_LOOP]; //レジスタにのることを期待する
-                    // 重み(nns)方向に、WEIGHT_LOOP分のdotproduct
-                    // sum0[i] <- iw     - iw+WEIGHT_LOOP
-                    // sum1[i] <- iw+nns - iw+WEIGHT_LOOP+nns
-                    dot_product_frame1(sum0, sum1, ptr_src, ssrc_dim, weight+iw*sweight_dim, sweight_dim, weight + (nns*2)*nnxy + iw, nnx, nny, nns, thIdX, thIdY, mstd);
-                    #pragma unroll
-                    for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
-                        #pragma unroll
-                        for (int ithw = 0; ithw < WEIGHT_LOOP; ithw++) {
-                            float ret0 = exp_(sum0[ithy][ithw]);
-                            float ret1 = sum1[ithy][ithw];
-                            wsum[ithy] += ret0;
-                            vsum[ithy] += ret0 * (ret1 * __frcp_rn(1.0f + fabs(ret1)));
-                        }
-                    }
-                }
+                kernel_comute_network1_dot_product_opt(
+                    wsum, vsum, ptr_src, ssrc_dim, weight, mstd, nnx, nny, nnxy, nns, thIdX, thIdY);
             } else {
-                for (int iw = 0; iw < nns; iw += WEIGHT_LOOP) {
-                    float sum0[THREAD_Y_LOOP][WEIGHT_LOOP]; //レジスタにのることを期待する
-                    dot_product0<TypeSSrc, TypeWeight, false, true, THREAD_Y_LOOP>(sum0, ptr_src, ssrc_dim, weight+ (iw)*nnxy, sweight_dim, weight + (nns*2)*nnxy + iw, nnx, nny, thIdX, thIdY, 1, mstd);
-
-                    float sum1[THREAD_Y_LOOP][WEIGHT_LOOP]; //レジスタにのることを期待する
-                    dot_product0<TypeSSrc, TypeWeight, false, true, THREAD_Y_LOOP>(sum1, ptr_src, ssrc_dim, weight+ (nns+iw)*nnxy, sweight_dim, weight + (nns*2)*nnxy+nns + iw, nnx, nny, thIdX, thIdY, 1, mstd);
-
-                    #pragma unroll
-                    for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++) {
-                        #pragma unroll
-                        for (int ithw = 0; ithw < WEIGHT_LOOP; ithw++) {
-                            float ret0 = exp_(sum0[ithy][ithw]);
-                            float ret1 = sum1[ithy][ithw];
-                            wsum[ithy] += ret0;
-                            vsum[ithy] += ret0 * (ret1 * __frcp_rn(1.0f + fabs(ret1)));
-                        }
-                    }
-                }
+                kernel_comute_network1_dot_product(
+                    wsum, vsum, ptr_src, ssrc_dim, weight, mstd, nnx, nny, nnxy, nns, thIdX, thIdY);
             }
 
             const float min_weight_sum = 1e-10f;
@@ -642,11 +857,11 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
         }
 
         if (gIdX < dstWidth) {
-            const float scale = (quals > 1) ? 0.5f : 1.0f;
-            TypePixel *ptr_dst = ptr_dst_base;
+            const float scale = (1<<bit_depth) / 256.0f * ((quals > 1) ? 0.5f : 1.0f);
+            uint8_t *ptr_dst = (uint8_t *)ptr_dst_base;
             for (int ithy = 0; ithy < THREAD_Y_LOOP; ithy++, ptr_dst += dstPitch) {
                 if ((flag_sum & (1<<ithy)) && (gIdY + ithy) * 2 < dstHeight) { //縦方向は1行おきの処理となるので "*2"
-                    ptr_dst[0] = (TypePixel)clamp(mstd[ithy][3] * scale + 0.5f, 0.0f, (1<<bit_depth)-1.0f);
+                    ((TypePixel *)ptr_dst)[0] = (TypePixel)clamp(mstd[ithy][3] * scale + 0.5f, 0.0f, (1<<bit_depth)-1.0f);
                 }
             }
         }
@@ -842,7 +1057,7 @@ cudaError_t proc_plane(
     const FrameInfo *pInputPlane,
     const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam,
     const NnediTargetField targetField,
-    const TypeWeight *weight0,
+    const float *weight0,
     const TypeWeight *weight10,
     const TypeWeight *weight11,
     cudaStream_t stream
@@ -867,7 +1082,7 @@ cudaError_t proc_plane(
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = nnedi_compute_network_0<TypePixel4, bit_depth, TypeSSrc, TypeWeight>(pOutputPlane,
+    cudaerr = nnedi_compute_network_0<TypePixel4, bit_depth, float, float>(pOutputPlane,
         texSrc,
         weight0,
         pNnediParam->nnedi.pre_screen,
@@ -916,15 +1131,15 @@ cudaError_t proc_frame(FrameInfo *pOutputFrame,
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
-    cudaerr = proc_plane<TypePixel, TypePixel4, bit_depth, TypeSSrc, TypeWeight>(&planeOutputY, &planeInputY, pNnediParam, targetField, (const TypeWeight *)weight0, (const TypeWeight *)weight10, (const TypeWeight *)weight11, stream);
+    cudaerr = proc_plane<TypePixel, TypePixel4, bit_depth, TypeSSrc, TypeWeight>(&planeOutputY, &planeInputY, pNnediParam, targetField, (const float *)weight0, (const TypeWeight *)weight10, (const TypeWeight *)weight11, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = proc_plane<TypePixel, TypePixel4, bit_depth, TypeSSrc, TypeWeight>(&planeOutputU, &planeInputU, pNnediParam, targetField, (const TypeWeight *)weight0, (const TypeWeight *)weight10, (const TypeWeight *)weight11, stream);
+    cudaerr = proc_plane<TypePixel, TypePixel4, bit_depth, TypeSSrc, TypeWeight>(&planeOutputU, &planeInputU, pNnediParam, targetField, (const float *)weight0, (const TypeWeight *)weight10, (const TypeWeight *)weight11, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = proc_plane<TypePixel, TypePixel4, bit_depth, TypeSSrc, TypeWeight>(&planeOutputV, &planeInputV, pNnediParam, targetField, (const TypeWeight *)weight0, (const TypeWeight *)weight10, (const TypeWeight *)weight11, stream);
+    cudaerr = proc_plane<TypePixel, TypePixel4, bit_depth, TypeSSrc, TypeWeight>(&planeOutputV, &planeInputV, pNnediParam, targetField, (const float *)weight0, (const TypeWeight *)weight10, (const TypeWeight *)weight11, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -968,6 +1183,16 @@ NVENCSTATUS NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamN
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"pre_screen\": %d\n"), pNnediParam->nnedi.pre_screen);
         return NV_ENC_ERR_INVALID_PARAM;
     }
+    if (pNnediParam->nnedi.precision < VPP_NNEDI_PRECISION_UNKNOWN || VPP_NNEDI_PRECISION_MAX <= pNnediParam->nnedi.precision) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"prec\": %d\n"), pNnediParam->nnedi.precision);
+        return NV_ENC_ERR_INVALID_PARAM;
+    }
+#if !ENABLE_CUDA_FP16_HOST
+    if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) {
+        AddMessage(RGY_LOG_WARN, _T("prec=fp16 not compiled in this build, switching to fp32.\n"));
+        pNnediParam->nnedi.precision = VPP_NNEDI_PRECISION_FP32;
+    }
+#endif
     return NV_ENC_SUCCESS;
 }
 
@@ -1022,8 +1247,19 @@ NVENCSTATUS NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamN
     if (weights.size() == 0) {
         return NV_ENC_ERR_INVALID_PARAM;
     }
+    if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_AUTO) {
+        pNnediParam->nnedi.precision =
+#if ENABLE_CUDA_FP16_HOST
+            ((pNnediParam->compute_cpability.first == 6 && pNnediParam->compute_cpability.second == 0)
+                || pNnediParam->compute_cpability.first >= 7)
+            ? VPP_NNEDI_PRECISION_FP16 : VPP_NNEDI_PRECISION_FP32;
+#else
+            VPP_NNEDI_PRECISION_FP32;
+#endif
+    }
 
     const int weight1size = pNnediParam->nnedi.nns * 2 * (sizeNX[pNnediParam->nnedi.nsize] * sizeNY[pNnediParam->nnedi.nsize] + 1);
+    const int sizeofweight1 = (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) ? 4 : 2;
     int weight1size_tsize = 0;
     int weight1size_offset = 0;
     for (int j = 0; j < (int)_countof(sizeNN); j++) {
@@ -1037,10 +1273,10 @@ NVENCSTATUS NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamN
     }
 
     std::vector<float> weight0f;
-    std::array<std::vector<float>, 2> weight1;
+    std::array<std::vector<char>, 2> weight1;
 
     for (size_t i = 0; i < weight1.size(); i++) {
-        weight1[i].resize(weight1size, 0.0);
+        weight1[i].resize(weight1size * sizeofweight1, 0);
     }
 
     if (pNnediParam->nnedi.pre_screen >= VPP_NNEDI_PRE_SCREEN_NEW) {
@@ -1118,56 +1354,95 @@ NVENCSTATUS NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamN
 
     for (int i = 0; i < 2; i++) {
         const float *ptrW = weights.data() + weight0size + weight0sizenew * 3 + weight1size_tsize * pNnediParam->nnedi.errortype + weight1size_offset + i * weight1size;
-        const int sizeNXY = sizeNX[pNnediParam->nnedi.nsize] * sizeNY[pNnediParam->nnedi.nsize];
-
-        std::vector<double> mean0(pNnediParam->nnedi.nns * 2, 0.0);
-        for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
-            const float *ptr = ptrW + j * sizeNXY;
-            mean0[j] = std::accumulate(ptr, ptr + sizeNXY, 0.0) / (double)sizeNXY;
+        if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) {
+            setWeight1<float>((float *)weight1[i].data(), ptrW, pNnediParam);
+        } else {
+#if ENABLE_CUDA_FP16_HOST
+            setWeight1<__half>((__half *)weight1[i].data(), ptrW, pNnediParam);
+#endif //#if ENABLE_CUDA_FP16_HOST
         }
-
-        const double inv_nns = 1.0 / (double)pNnediParam->nnedi.nns;
-        std::vector<double> mean1(sizeNXY, 0.0);
-        for (int j = 0; j < pNnediParam->nnedi.nns; j++) {
-            for (int k = 0; k < sizeNXY; k++) {
-                mean1[k] += (ptrW[j * sizeNXY + k] - mean0[j]) * inv_nns;
-            }
-        }
-
-        const float *ptr = ptrW + pNnediParam->nnedi.nns * 2 * sizeNXY;
-        const double mean2 = std::accumulate(ptr, ptr + pNnediParam->nnedi.nns, 0.0) * inv_nns;
-
-        for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
-            for (int k = 0; k < sizeNXY; k++) {
-                weight1[i][j * sizeNXY + k] = (float)(ptrW[j * sizeNXY + k] - mean0[j] - (j < pNnediParam->nnedi.nns ? mean1[k] : 0.0));
-            }
-            weight1[i][pNnediParam->nnedi.nns * 2 * sizeNXY + j] = (float)(ptrW[pNnediParam->nnedi.nns * 2 * sizeNXY + j] - (j < pNnediParam->nnedi.nns ? mean2 : 0.0));
-        }
-#if ENABLE_DP1_WEIGHT_ARRAY_OPT
-        //最適化のため、本来の並びを変更する
-        //[2][nns][nnxy] -> [nns/WEIGHT_LOOP][nnxy][WEIGHT_LOOP][2]
-        vector<float> tmp(pNnediParam->nnedi.nns * 2 * sizeNXY);
-        memcpy(tmp.data(), weight1[i].data(), sizeof(tmp[0]) * tmp.size());
-        for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
-            for (int k = 0; k < sizeNXY; k++) {
-                const int j1 = j  / pNnediParam->nnedi.nns;
-                const int j2 = j  % pNnediParam->nnedi.nns;
-                const int j3 = j2 / WEIGHT_LOOP;
-                const int w  = j2 % WEIGHT_LOOP;
-                weight1[i][((j3 * sizeNXY + k) * WEIGHT_LOOP + w) * 2 + j1] = tmp[j * sizeNXY + k];
-            }
-        }
-#endif
     }
     m_weight0 = CUMemBuf(weight0f.size() * sizeof(weight0f[0]));
     m_weight0.alloc();
     cudaMemcpy(m_weight0.ptr, weight0f.data(), m_weight0.nSize, cudaMemcpyHostToDevice);
     for (size_t i = 0; i < weight1.size(); i++) {
-        m_weight1[i] = CUMemBuf(weight1[i].size() * sizeof(weight1[i][0]));
+        m_weight1[i] = CUMemBuf(weight1[i].size());
         m_weight1[i].alloc();
         cudaMemcpy(m_weight1[i].ptr, weight1[i].data(), m_weight1[i].nSize, cudaMemcpyHostToDevice);
     }
     return NV_ENC_SUCCESS;
+}
+
+template<typename TypeWeight> TypeWeight toWeight(float f, float scale);
+template<> float toWeight<float>(float f, float scale) { return f; }
+#if ENABLE_CUDA_FP16_HOST
+template<> __half toWeight<__half>(float f, float scale) { return __float2half_rn(f * scale); }
+#endif
+
+template<typename TypeWeight>
+void NVEncFilterNnedi::setWeight1(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam) {
+    const int sizeNXY = sizeNX[pNnediParam->nnedi.nsize] * sizeNY[pNnediParam->nnedi.nsize];
+
+    std::vector<double> mean0(pNnediParam->nnedi.nns * 2, 0.0);
+    for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
+        const float *ptr = ptrW + j * sizeNXY;
+        mean0[j] = std::accumulate(ptr, ptr + sizeNXY, 0.0) / (double)sizeNXY;
+    }
+
+    const double inv_nns = 1.0 / (double)pNnediParam->nnedi.nns;
+    std::vector<double> mean1(sizeNXY, 0.0);
+    for (int j = 0; j < pNnediParam->nnedi.nns; j++) {
+        for (int k = 0; k < sizeNXY; k++) {
+            mean1[k] += (ptrW[j * sizeNXY + k] - mean0[j]) * inv_nns;
+        }
+    }
+
+    const float *ptr = ptrW + pNnediParam->nnedi.nns * 2 * sizeNXY;
+    const double mean2 = std::accumulate(ptr, ptr + pNnediParam->nnedi.nns, 0.0) * inv_nns;
+
+    vector<float> buf(pNnediParam->nnedi.nns * 2 * sizeNXY);
+    float max0 = 0.0f, max1 = 0.0f;
+    for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
+        for (int k = 0; k < sizeNXY; k++) {
+            buf[j * sizeNXY + k] = (float)(ptrW[j * sizeNXY + k] - mean0[j] - (j < pNnediParam->nnedi.nns ? mean1[k] : 0.0));
+            if (j < pNnediParam->nnedi.nns) {
+                max0 = std::max(max0, buf[j * sizeNXY + k]);
+            } else {
+                max1 = std::max(max1, buf[j * sizeNXY + k]);
+            }
+        }
+        ptrDst[pNnediParam->nnedi.nns * 2 * sizeNXY + j] = toWeight<TypeWeight>(ptrW[pNnediParam->nnedi.nns * 2 * sizeNXY + j] - (float)(j < pNnediParam->nnedi.nns ? mean2 : 0.0), 1.0f);
+    }
+    for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
+        float scale = 1.0f; // std::min(1.0f, (j < pNnediParam->nnedi.nns) ? 4096.0f / max0 : 4096.0f / max1);
+        for (int k = 0; k < sizeNXY; k++) {
+            ptrDst[j * sizeNXY + k] = toWeight<TypeWeight>(buf[j * sizeNXY + k], scale);
+        }
+    }
+    ptrDst[pNnediParam->nnedi.nns * 2 * (sizeNXY + 1) + 0] = toWeight<TypeWeight>(1.0f /*std::max(1.0f, max0 / 4096.0f)*/, 1.0f);
+    ptrDst[pNnediParam->nnedi.nns * 2 * (sizeNXY + 1) + 1] = toWeight<TypeWeight>(1.0f /*std::max(1.0f, max1 / 4096.0f)*/, 1.0f);
+
+#if ENABLE_DP1_WEIGHT_ARRAY_OPT
+    //最適化のため、本来の並びを変更する
+    //[2][nns][nnxy] -> [nns/WEIGHT_LOOP][nnxy][WEIGHT_LOOP][2]
+    vector<TypeWeight> tmp(pNnediParam->nnedi.nns * 2 * (sizeNXY + 1));
+    memcpy(tmp.data(), ptrDst, sizeof(tmp[0]) * tmp.size());
+    for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
+        for (int k = 0; k < sizeNXY; k++) {
+            const int j1 = j  / pNnediParam->nnedi.nns;
+            const int j2 = j  % pNnediParam->nnedi.nns;
+            const int j3 = j2 / WEIGHT_LOOP;
+            const int w  = j2 % WEIGHT_LOOP;
+            ptrDst[((j3 * sizeNXY + k) * WEIGHT_LOOP + w) * 2 + j1] = tmp[j * sizeNXY + k];
+        }
+    }
+    ptrDst += pNnediParam->nnedi.nns * 2 * sizeNXY;
+    auto tmp2 = tmp.data() + pNnediParam->nnedi.nns * 2 * sizeNXY;
+    for (int j = 0; j < pNnediParam->nnedi.nns; j++) {
+        ptrDst[j * 2 + 0] = tmp2[j];
+        ptrDst[j * 2 + 1] = tmp2[pNnediParam->nnedi.nns + j];
+    }
+#endif
 }
 
 NVENCSTATUS NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -1203,12 +1478,13 @@ NVENCSTATUS NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
 
     m_sFilterInfo = strsprintf(
-        _T("nnedi: field %s, nns %d, nsize %s, quality %s, pre_screen %s\n")
-        _T("                      errortype %s, weight \"%s\""),
+        _T("nnedi: field %s, nns %d, nsize %s, quality %s, prec %s\n")
+        _T("                       pre_screen %s, errortype %s, weight \"%s\""),
         get_cx_desc(list_vpp_nnedi_field, pNnediParam->nnedi.field),
         pNnediParam->nnedi.nns,
         get_cx_desc(list_vpp_nnedi_nsize, pNnediParam->nnedi.nsize),
         get_cx_desc(list_vpp_nnedi_quality, pNnediParam->nnedi.quality),
+        get_cx_desc(list_vpp_nnedi_prec, pNnediParam->nnedi.precision),
         get_cx_desc(list_vpp_nnedi_pre_screen, pNnediParam->nnedi.pre_screen),
         get_cx_desc(list_vpp_nnedi_error_type, pNnediParam->nnedi.errortype),
         ((pNnediParam->nnedi.weightfile.length()) ? pNnediParam->nnedi.weightfile.c_str() : _T("internal")));
@@ -1285,12 +1561,23 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
-    static const std::map<RGY_CSP, decltype(proc_frame<uint8_t, uchar4, 8, float, float>)*> func_list = {
+    static const std::map<RGY_CSP, decltype(proc_frame<uint8_t, uchar4, 8, float, float>)*> func_list_fp32 ={
         { RGY_CSP_YV12,      proc_frame<uint8_t,  uchar4,   8, float, float> },
         { RGY_CSP_YV12_16,   proc_frame<uint16_t, ushort4, 16, float, float> },
         { RGY_CSP_YUV444,    proc_frame<uint8_t,  uchar4,   8, float, float> },
         { RGY_CSP_YUV444_16, proc_frame<uint16_t, ushort4, 16, float, float> }
     };
+#if ENABLE_CUDA_FP16_HOST
+    static const std::map<RGY_CSP, decltype(proc_frame<uint8_t, uchar4, 8, __half2, __half2>)*> func_list_fp16 ={
+        { RGY_CSP_YV12,      proc_frame<uint8_t,  uchar4,   8, __half2, __half2> },
+        { RGY_CSP_YV12_16,   proc_frame<uint16_t, ushort4, 16, __half2, __half2> },
+        { RGY_CSP_YUV444,    proc_frame<uint8_t,  uchar4,   8, __half2, __half2> },
+        { RGY_CSP_YUV444_16, proc_frame<uint16_t, ushort4, 16, __half2, __half2> }
+    };
+    const auto& func_list = (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
+#else
+    const auto& func_list = func_list_fp32;
+#endif
     if (func_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return NV_ENC_ERR_UNIMPLEMENTED;

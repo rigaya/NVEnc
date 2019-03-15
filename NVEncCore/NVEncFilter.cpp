@@ -231,11 +231,6 @@ double NVEncFilter::GetAvgTimeElapsed() {
     return m_dFilterTimeMs / (double)m_nFilterRunCount;
 }
 
-#define SSTRING(str) STRING(str)
-#define STRING(str) #str
-
-const TCHAR *NPPI_DLL_NAME_TSTR = _T(SSTRING(NPPI_DLL_NAME));
-
 bool check_if_nppi_dll_available() {
     HMODULE hModule = LoadLibrary(NPPI_DLL_NAME_TSTR);
     if (hModule == NULL)

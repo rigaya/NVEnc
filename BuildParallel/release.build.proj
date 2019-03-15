@@ -6,9 +6,6 @@
         <ProjectToBuild Include="..\NVEnc.sln">
             <Properties>Configuration=RelStatic;Platform=Win32</Properties>
         </ProjectToBuild>
-        <ProjectToBuild Include="..\NVEnc.sln">
-            <Properties>Configuration=RelStatic;Platform=x64</Properties>
-        </ProjectToBuild>
     </ItemGroup>
     <Target Name="Build">
         <MSBuild Projects="@(ProjectToBuild)" BuildInParallel="true" />

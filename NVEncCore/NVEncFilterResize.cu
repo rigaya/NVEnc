@@ -37,6 +37,20 @@
 #include "device_launch_parameters.h"
 #pragma warning (pop)
 
+#if __CUDACC_VER_MAJOR__ == 8
+const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_80.dll");
+#elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 0
+const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_90.dll");
+#elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 1
+const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_91.dll");
+#elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 2
+const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_92.dll");
+#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 0
+const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_100.dll");
+#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 1
+const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_101.dll");
+#endif
+
 template<typename Type, int bit_depth>
 __global__ void kernel_resize_texture_bilinear(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     cudaTextureObject_t texObj,

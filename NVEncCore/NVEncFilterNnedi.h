@@ -40,6 +40,7 @@ enum NnediTargetField {
 class NVEncFilterParamNnedi : public NVEncFilterParam {
 public:
     VppNnedi nnedi;
+    std::pair<int, int> compute_cpability;
 
     virtual ~NVEncFilterParamNnedi() {};
 };
@@ -59,6 +60,9 @@ protected:
     virtual void close() override;
     virtual NVENCSTATUS checkParam(const std::shared_ptr<NVEncFilterParamNnedi> pParam);
     virtual NVENCSTATUS initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
+
+    template<typename TypeWeight>
+    void setWeight1(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
     virtual std::vector<float> readWeights(const tstring& weightFile);
 
     CUMemBuf m_weight0;
