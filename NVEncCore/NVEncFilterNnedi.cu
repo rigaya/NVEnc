@@ -968,14 +968,6 @@ NVENCSTATUS NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamN
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"pre_screen\": %d\n"), pNnediParam->nnedi.pre_screen);
         return NV_ENC_ERR_INVALID_PARAM;
     }
-    if (pNnediParam->nnedi.weightfile.length() == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("weight file is not set.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
-    }
-    if (!PathFileExists(pNnediParam->nnedi.weightfile.c_str())) {
-        AddMessage(RGY_LOG_ERROR, _T("weight file \"%s\" does not exist.\n"), pNnediParam->nnedi.weightfile.c_str());
-        return NV_ENC_ERR_INVALID_PARAM;
-    }
     return NV_ENC_SUCCESS;
 }
 
@@ -983,20 +975,44 @@ std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile) {
     std::vector<float> weights;
     const uint32_t expectedFileSize = 13574928u;
     uint64_t weightFileSize = 0;
-    if (!rgy_get_filesize(weightFile.c_str(), &weightFileSize)) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to get filesize of weight file \"%s\".\n"), weightFile.c_str());
-    } else if (weightFileSize != expectedFileSize) {
-        AddMessage(RGY_LOG_ERROR, _T("Weights file \"%s\" has unexpected file size %u.\n"),
-            weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
-    } else {
-        weights.resize(weightFileSize);
-        std::ifstream fin(weightFile, std::ios::in | std::ios::binary);
-        if (!fin.good()) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to open weights file \"%s\".\n"), weightFile.c_str());
-        } else if (fin.read((char *)weights.data(), weightFileSize).gcount() != (int64_t)weightFileSize) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to read weights file \"%s\".\n"), weightFile.c_str());
+    if (weightFile.length() == 0) {
+        HMODULE hModule = GetModuleHandle(NULL);
+        HRSRC hResource = NULL;
+        HGLOBAL hResourceData = NULL;
+        const char *pDataPtr = NULL;
+        if (NULL == hModule) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get module handle.\n"));
+        } else if (NULL == (hResource = FindResource(hModule, _T("NNEDI_WEIGHTBIN"), _T("EXE_DATA")))) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get resource handle for \"NNEDI_WEIGHTBIN\".\n"));
+        } else if (NULL == (hResourceData = LoadResource(hModule, hResource))) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to load resource \"NNEDI_WEIGHTBIN\".\n"));
+        } else if (NULL == (pDataPtr = (const char *)LockResource(hResourceData))) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to lock resource \"NNEDI_WEIGHTBIN\".\n"));
+        } else if (expectedFileSize != (weightFileSize = SizeofResource(hModule, hResource))) {
+            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %u [expected: %u].\n"),
+                weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
+        } else {
+            weights.resize(weightFileSize);
+            memcpy(weights.data(), pDataPtr, weightFileSize);
         }
-        fin.close();
+    } else {
+        if (!PathFileExists(weightFile.c_str())) {
+            AddMessage(RGY_LOG_ERROR, _T("weight file \"%s\" does not exist.\n"), weightFile.c_str());
+        } else if (!rgy_get_filesize(weightFile.c_str(), &weightFileSize)) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get filesize of weight file \"%s\".\n"), weightFile.c_str());
+        } else if (weightFileSize != expectedFileSize) {
+            AddMessage(RGY_LOG_ERROR, _T("Weights file \"%s\" has unexpected file size %u [expected: %u].\n"),
+                weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
+        } else {
+            weights.resize(weightFileSize);
+            std::ifstream fin(weightFile, std::ios::in | std::ios::binary);
+            if (!fin.good()) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to open weights file \"%s\".\n"), weightFile.c_str());
+            } else if (fin.read((char *)weights.data(), weightFileSize).gcount() != (int64_t)weightFileSize) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to read weights file \"%s\".\n"), weightFile.c_str());
+            }
+            fin.close();
+        }
     }
     return std::move(weights);
 }
@@ -1195,7 +1211,7 @@ NVENCSTATUS NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_p
         get_cx_desc(list_vpp_nnedi_quality, pNnediParam->nnedi.quality),
         get_cx_desc(list_vpp_nnedi_pre_screen, pNnediParam->nnedi.pre_screen),
         get_cx_desc(list_vpp_nnedi_error_type, pNnediParam->nnedi.errortype),
-        pNnediParam->nnedi.weightfile.c_str());
+        ((pNnediParam->nnedi.weightfile.length()) ? pNnediParam->nnedi.weightfile.c_str() : _T("internal")));
 
     //コピーを保存
     m_pParam = pNnediParam;

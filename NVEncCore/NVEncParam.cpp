@@ -332,7 +332,7 @@ VppNnedi::VppNnedi() :
     quality(VPP_NNEDI_QUALITY_FAST),
     pre_screen(VPP_NNEDI_PRE_SCREEN_NEW),
     errortype(VPP_NNEDI_ETYPE_ABS),
-    weightfile(_T("nnedi3_weights.bin")) {
+    weightfile(_T("")) {
 
 }
 
