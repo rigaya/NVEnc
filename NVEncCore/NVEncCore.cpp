@@ -4141,11 +4141,8 @@ NVENCSTATUS NVEncCore::Encode() {
                 bDrain = false; //途中でフレームが出てきたら、drain完了していない
 
                 //最初に出てきたフレームは先頭に追加する
-                if (nOutFrames > 0) {
-                    filterframes.push_front(std::make_pair(*outInfo[0], ifilter+1));
-                }
-                for (int jframe = 1; jframe < nOutFrames; jframe++) {
-                    filterframes.push_back(std::make_pair(*outInfo[jframe], ifilter+1));
+                for (int jframe = nOutFrames-1; jframe >= 0; jframe--) {
+                    filterframes.push_front(std::make_pair(*outInfo[jframe], ifilter+1));
                 }
             }
             if (bDrain) {
