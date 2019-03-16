@@ -564,18 +564,47 @@ const CX_DESC list_vpp_nnedi_quality[] = {
     { NULL, NULL }
 };
 
-enum VppNnediPreScreen {
-    VPP_NNEDI_PRE_SCREEN_NONE = 0,
-    VPP_NNEDI_PRE_SCREEN_ORIGINAL,
-    VPP_NNEDI_PRE_SCREEN_NEW,
+enum VppNnediPreScreen : uint32_t {
+    VPP_NNEDI_PRE_SCREEN_NONE            = 0x00,
+    VPP_NNEDI_PRE_SCREEN_ORIGINAL        = 0x01,
+    VPP_NNEDI_PRE_SCREEN_NEW             = 0x02,
+    VPP_NNEDI_PRE_SCREEN_MODE            = 0x07,
+    VPP_NNEDI_PRE_SCREEN_BLOCK           = 0x10,
+    VPP_NNEDI_PRE_SCREEN_ONLY            = 0x20,
+    VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK  = VPP_NNEDI_PRE_SCREEN_ORIGINAL | VPP_NNEDI_PRE_SCREEN_BLOCK,
+    VPP_NNEDI_PRE_SCREEN_NEW_BLOCK       = VPP_NNEDI_PRE_SCREEN_NEW      | VPP_NNEDI_PRE_SCREEN_BLOCK,
+    VPP_NNEDI_PRE_SCREEN_ORIGINAL_ONLY   = VPP_NNEDI_PRE_SCREEN_ORIGINAL | VPP_NNEDI_PRE_SCREEN_ONLY,
+    VPP_NNEDI_PRE_SCREEN_NEW_ONLY        = VPP_NNEDI_PRE_SCREEN_NEW      | VPP_NNEDI_PRE_SCREEN_ONLY,
 
     VPP_NNEDI_PRE_SCREEN_MAX,
 };
 
+static VppNnediPreScreen operator|(VppNnediPreScreen a, VppNnediPreScreen b) {
+    return (VppNnediPreScreen)((uint32_t)a | (uint32_t)b);
+}
+
+static VppNnediPreScreen operator|=(VppNnediPreScreen& a, VppNnediPreScreen b) {
+    a = a | b;
+    return a;
+}
+
+static VppNnediPreScreen operator&(VppNnediPreScreen a, VppNnediPreScreen b) {
+    return (VppNnediPreScreen)((uint32_t)a & (uint32_t)b);
+}
+
+static VppNnediPreScreen operator&=(VppNnediPreScreen& a, VppNnediPreScreen b) {
+    a = (VppNnediPreScreen)((uint32_t)a & (uint32_t)b);
+    return a;
+}
+
 const CX_DESC list_vpp_nnedi_pre_screen[] = {
-    { _T("none"),     VPP_NNEDI_PRE_SCREEN_NONE },
-    { _T("original"), VPP_NNEDI_PRE_SCREEN_ORIGINAL },
-    { _T("new"),      VPP_NNEDI_PRE_SCREEN_NEW },
+    { _T("none"),           VPP_NNEDI_PRE_SCREEN_NONE },
+    { _T("original"),       VPP_NNEDI_PRE_SCREEN_ORIGINAL },
+    { _T("new"),            VPP_NNEDI_PRE_SCREEN_NEW },
+    { _T("original_block"), VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
+    { _T("new_block"),      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK },
+    { _T("original_only"),  VPP_NNEDI_PRE_SCREEN_ORIGINAL_ONLY },
+    { _T("new_only"),       VPP_NNEDI_PRE_SCREEN_NEW_ONLY },
     { NULL, NULL }
 };
 

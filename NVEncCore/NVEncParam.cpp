@@ -331,7 +331,7 @@ VppNnedi::VppNnedi() :
     nsize(VPP_NNEDI_NSIZE_32x4),
     quality(VPP_NNEDI_QUALITY_FAST),
     precision(VPP_NNEDI_PRECISION_AUTO),
-    pre_screen(VPP_NNEDI_PRE_SCREEN_NEW),
+    pre_screen(VPP_NNEDI_PRE_SCREEN_NEW_BLOCK),
     errortype(VPP_NNEDI_ETYPE_ABS),
     weightfile(_T("")) {
 

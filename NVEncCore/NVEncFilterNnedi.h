@@ -62,6 +62,9 @@ protected:
     virtual NVENCSTATUS initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
 
     template<typename TypeWeight>
+    void setWeight0(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
+
+    template<typename TypeWeight>
     void setWeight1(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
     virtual std::vector<float> readWeights(const tstring& weightFile);
 
