@@ -47,6 +47,7 @@ public:
 
 class NVEncFilterNnedi : public NVEncFilter {
 public:
+    static const int weight_loop_1;
     static const int sizeNX[];
     static const int sizeNY[];
     static const int sizeNN[];
