@@ -121,7 +121,8 @@ static float exp_(float val) {
 //shuffle命令を使ったweight係数の分配により高速化する
 #define ENABLE_DP1_SHUFFLE_OPT 1
 
-#define SSRC(x,y) ((y)*ssrc_dim+(x))
+#define SSRC(x,y) ((y)*(ssrc_dim)+(x))
+#define SPIX(x,y) ((y)*(spix_dim)+(x))
 #define SWHT_IDX(i,thIdWeight) ((thIdWeight)*sweight_dim+(i))
 
 __device__ __inline__
@@ -146,21 +147,25 @@ __half2 elliott(__half2 val) {
 }
 #endif
 
-template<int pix_x_per_thread, int thread_y_loop>
+template<int pix_x_per_thread, int thread_y_loop, bool load_for_interp, typename TypePixel, int bit_depth>
 __device__ __inline__
-void load_texSrc(float *const ptr_src, const int ssrc_dim, cudaTextureObject_t texSrc, const int nnx, const int nny, const int nnx_2_m1, const int nny_2, const int thIdX, const int thIdY) {
+void load_texSrc(float *const ptr_src, const int ssrc_dim, TypePixel *const ptr_pix, const int spix_dim, cudaTextureObject_t texSrc, const int nnx, const int nny, const int nnx_2_m1, const int nny_2, const int thIdX, const int thIdY) {
     for (int y = 0; y + thIdY < NNEDI_BLOCK_Y * thread_y_loop + nny; y += NNEDI_BLOCK_Y) {
         for (int x = 0; x + thIdX < ssrc_dim; x += NNEDI_BLOCK_X) {
             const float px = blockIdx.x * NNEDI_BLOCK_X /*blockDim.x*/ * pix_x_per_thread + thIdX + x - nnx_2_m1 + 0.5f;
             const float py = blockIdx.y * NNEDI_BLOCK_Y /*blockDim.y*/ * thread_y_loop + thIdY + y - nny_2 + 0.5f;
-            ptr_src[SSRC(x + thIdX, y + thIdY)] = (float)tex2D<float>(texSrc, px, py) * 256.0f; //floatのときはここで256倍して8bit相当に戻す
+            const float value = (float)tex2D<float>(texSrc, px, py);
+            ptr_src[SSRC(x + thIdX, y + thIdY)] = value * 256.0f; //floatのときはここで256倍して8bit相当に戻す
+            if (load_for_interp && 0 <= thIdX + x - nnx_2_m1 && thIdX + x - nnx_2_m1 < spix_dim) {
+                ptr_pix[SPIX(x + thIdX - nnx_2_m1, y + thIdY)] = (TypePixel)(value * (float)(1<<bit_depth) + 0.5f);
+            }
         }
     }
 }
 #if ENABLE_CUDA_FP16_HOST
-template<int pix_x_per_thread, int thread_y_loop>
+template<int pix_x_per_thread, int thread_y_loop, bool load_for_interp, typename TypePixel, int bit_depth>
 __device__ __inline__
-void load_texSrc(__half2 *const ptr_src, const int ssrc_dim, cudaTextureObject_t texSrc, const int nnx, const int nny, const int nnx_2_m1, const int nny_2, const int thIdX, const int thIdY) {
+void load_texSrc(__half2 *const ptr_src, const int ssrc_dim, TypePixel *const ptr_pix, const int spix_dim, cudaTextureObject_t texSrc, const int nnx, const int nny, const int nnx_2_m1, const int nny_2, const int thIdX, const int thIdY) {
 #if ENABLE_CUDA_FP16_DEVICE
     static_assert(pix_x_per_thread == 1 || pix_x_per_thread == 4, "pix_x_per_thread == 1 or 4");
     if (pix_x_per_thread == 1) {
@@ -170,10 +175,12 @@ void load_texSrc(__half2 *const ptr_src, const int ssrc_dim, cudaTextureObject_t
             for (int x = 0; x + thIdX < ssrc_dim; x += NNEDI_BLOCK_X) {
                 const float px = blockIdx.x * NNEDI_BLOCK_X /*blockDim.x*/ + thIdX + x - nnx_2_m1 + 0.5f;
                 const float py = blockIdx.y * NNEDI_BLOCK_Y /*blockDim.y*/ * thread_y_loop + thIdY + y - nny_2 + 0.5f;
-                ptr_src[SSRC(x + thIdX, y + thIdY)] = __floats2half2_rn(
-                    tex2D<float>(texSrc, px, py),
-                    tex2D<float>(texSrc, px+1.0f, py));
-                //half2のときはここでは256倍せず、0～1の範囲を使用する
+                const float v0 = tex2D<float>(texSrc, px, py);
+                const float v1 = tex2D<float>(texSrc, px+1.0f, py);
+                ptr_src[SSRC(x + thIdX, y + thIdY)] = __floats2half2_rn(v0, v1); //half2のときはここでは256倍せず、0～1の範囲を使用する
+                if (load_for_interp && 0 <= thIdX + x - nnx_2_m1 && thIdX + x - nnx_2_m1 < spix_dim) {
+                    ptr_pix[SPIX(x + thIdX - nnx_2_m1, y + thIdY)] = (TypePixel)(v0 * (float)(1<<bit_depth) + 0.5f);
+                }
             }
         }
     } else { //pix_x_per_thread == 4
@@ -181,12 +188,20 @@ void load_texSrc(__half2 *const ptr_src, const int ssrc_dim, cudaTextureObject_t
         // | 0, 1 | 2, 3 | 4, 5 | ...
         for (int y = 0; y + thIdY < NNEDI_BLOCK_Y * thread_y_loop + nny; y += NNEDI_BLOCK_Y) {
             for (int x = 0; x + thIdX < ssrc_dim; x += NNEDI_BLOCK_X) {
-                const float px = blockIdx.x * NNEDI_BLOCK_X /*blockDim.x*/ * pix_x_per_thread + (thIdX + x) * 2 - nnx_2_m1 + 0.5f;
+                const int load_x = (thIdX + x) * 2 - nnx_2_m1;
+                const float px = blockIdx.x * NNEDI_BLOCK_X /*blockDim.x*/ * pix_x_per_thread + load_x + 0.5f;
                 const float py = blockIdx.y * NNEDI_BLOCK_Y /*blockDim.y*/ * thread_y_loop + thIdY + y - nny_2 + 0.5f;
-                ptr_src[SSRC(x + thIdX, y + thIdY)] = __floats2half2_rn(
-                    tex2D<float>(texSrc, px, py),
-                    tex2D<float>(texSrc, px+1.0f, py));
-                //half2のときはここでは256倍せず、0～1の範囲を使用する
+                const float v0 = tex2D<float>(texSrc, px, py);
+                const float v1 = tex2D<float>(texSrc, px+1.0f, py);
+                ptr_src[SSRC(x + thIdX, y + thIdY)] = __floats2half2_rn(v0, v1); //half2のときはここでは256倍せず、0～1の範囲を使用する
+                if (load_for_interp && 0 <= load_x && load_x < spix_dim) {
+                    struct __align__(sizeof(TypePixel) * 2) TypePixel2 {
+                        TypePixel x, y;
+                    } p;
+                    p.x = (TypePixel)(v0 * (float)(1<<bit_depth) + 0.5f);
+                    p.y = (TypePixel)(v1 * (float)(1<<bit_depth) + 0.5f);
+                    *(TypePixel2 *)&ptr_pix[SPIX(load_x, y + thIdY)] = p;
+                }
             }
         }
     }
@@ -463,29 +478,20 @@ __global__ void kernel_compute_network0(
         + (ssrc_dim * (NNEDI_BLOCK_Y * thread_y_loop + nny) * sizeof(ptr_src[0])));
 #define STMP_IDX(i,x,y) ( ((y)*(NNEDI_BLOCK_X)+(x)) * stmp_dim + (i))
 
-    //input(texture) -> shared
+    //interp_ret()で補間を行う時に使用するデータ
+    //16bit精度(int)の場合、fp16では精度が落ちる可能性があるため、ptr_srcとは別に保持することにした
+    //interp_ret()では縦方向にしか補間しないので、ptr_srcのようにnnx分余分に読む必要はない
+    //ここではsharedメモリ節約のため、floatではなく整数で保持する
+    decltype(TypePixel4::x) *const ptr_pix = (decltype(TypePixel4::x) *)((char *)ptr_temp
+        + NNEDI_BLOCK_X * NNEDI_BLOCK_Y * thread_y_loop * stmp_dim * sizeof(TypeCalc));
+    const int spix_dim = NNEDI_BLOCK_X * pix_x_per_thread;
+
+    //input(texture) -> shared, spix
     //textureからpixel情報をsharedメモリにロードする
     //範囲外の折り返し等はtextureでやってくれるのでここでは無視
     const int nnx_2_m1 = (prescreen_new) ? 6 : 5;
     const int nny_2 = nny / 2 - (targetField == NNEDI_GEN_FIELD_BOTTOM ? 1 : 0);
-    load_texSrc<pix_x_per_thread, thread_y_loop>(ptr_src, ssrc_dim, texSrc, nnx, nny, nnx_2_m1, nny_2, thIdX, thIdY);
-
-    //最後にinterp_ret()で補間を行う時に使用するデータをロードする
-    //16bit精度(int)の場合、fp16では精度が落ちる可能性があるため、ptr_srcとは別に保持することにした
-    //interp_ret()では縦方向にしか補間しないので、ptr_srcのようにnnx分余分に読む必要はない
-    //ここではsharedメモリ節約のため、floatではなく整数で保持する
-    //本来は、load_texSrcと統合可能なはず
-    decltype(TypePixel4::x) *const ptr_pix = (decltype(TypePixel4::x) *)((char *)ptr_temp
-        + NNEDI_BLOCK_X * NNEDI_BLOCK_Y * thread_y_loop * stmp_dim * sizeof(TypeCalc));
-    const int spix_dim = NNEDI_BLOCK_X * pix_x_per_thread;
-#define SPIX(x,y) ((y)*(spix_dim)+(x))
-    for (int y = 0; y + thIdY < NNEDI_BLOCK_Y * thread_y_loop + nny; y += NNEDI_BLOCK_Y) {
-        for (int x = 0; x + thIdX < NNEDI_BLOCK_X * pix_x_per_thread; x += NNEDI_BLOCK_X) {
-            const float px = blockIdx.x * NNEDI_BLOCK_X /*blockDim.x*/ * pix_x_per_thread + thIdX + x + 0.5f;
-            const float py = blockIdx.y * NNEDI_BLOCK_Y /*blockDim.y*/ * thread_y_loop + thIdY + y - nny_2 + 0.5f;
-            ptr_pix[SPIX(x + thIdX, y + thIdY)] = (decltype(TypePixel4::x))(tex2D<float>(texSrc, px, py) * (float)(1<<bit_depth) + 0.5f);
-        }
-    }
+    load_texSrc<pix_x_per_thread, thread_y_loop, true, decltype(TypePixel4::x), bit_depth>(ptr_src, ssrc_dim, ptr_pix, spix_dim, texSrc, nnx, nny, nnx_2_m1, nny_2, thIdX, thIdY);
     __syncthreads();
 
     float dummy[thread_y_loop][4];
@@ -1021,7 +1027,8 @@ __global__ void kernel_comute_network1(
     //範囲外の折り返し等はtextureでやってくれるのでここでは無視
     const int nnx_2_m1 = nnx / 2 - 1;
     const int nny_2 = nny / 2 - (targetField == NNEDI_GEN_FIELD_BOTTOM ? 1 : 0);
-    load_texSrc<1, thread_y_loop>(ptr_src, ssrc_dim, texSrc, nnx, nny, nnx_2_m1, nny_2, thIdX, thIdY);
+    load_texSrc<1, thread_y_loop, false, float/*実際には使わないのでなんでもいい*/, bit_depth>(
+        ptr_src, ssrc_dim, nullptr, 0, texSrc, nnx, nny, nnx_2_m1, nny_2, thIdX, thIdY);
     __syncthreads();
 
     TypeCalc *const ptr_temp = (TypeCalc *)((char *)shared
