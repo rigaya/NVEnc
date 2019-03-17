@@ -40,7 +40,7 @@ enum NnediTargetField {
 class NVEncFilterParamNnedi : public NVEncFilterParam {
 public:
     VppNnedi nnedi;
-    std::pair<int, int> compute_cpability;
+    std::pair<int, int> compute_capability;
 
     virtual ~NVEncFilterParamNnedi() {};
 };

@@ -1515,8 +1515,8 @@ NVENCSTATUS NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamN
     if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_AUTO) {
         pNnediParam->nnedi.precision =
 #if ENABLE_CUDA_FP16_HOST
-            ((pNnediParam->compute_cpability.first == 6 && pNnediParam->compute_cpability.second == 0)
-                || pNnediParam->compute_cpability.first >= 7)
+            ((pNnediParam->compute_capability.first == 6 && pNnediParam->compute_capability.second == 0)
+                || pNnediParam->compute_capability.first >= 7)
             ? VPP_NNEDI_PRECISION_FP16 : VPP_NNEDI_PRECISION_FP32;
 #else
             VPP_NNEDI_PRECISION_FP32;

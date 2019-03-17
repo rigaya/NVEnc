@@ -2850,7 +2850,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterNnedi());
             shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
             param->nnedi = inputParam->vpp.nnedi;
-            param->compute_cpability = selectedGpu->compute_capability;
+            param->compute_capability = selectedGpu->compute_capability;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
