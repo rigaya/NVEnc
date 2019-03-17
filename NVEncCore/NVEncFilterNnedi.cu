@@ -974,8 +974,7 @@ void kernel_comute_network1_dot_product_opt(
         __half2 weight_scale[thread_y_loop];
         #pragma unroll
         for (int ithy = 0; ithy < thread_y_loop; ithy++) {
-            //half2使用時には、textureからのロード時に256倍していないので、ここで補正する
-            weight_scale[ithy] = __float2half2_rn(mstd[ithy][2] * 256.0f);
+            weight_scale[ithy] = __float2half2_rn(mstd[ithy][2]);
         }
         dot_product_frame1_fp16<thread_y_loop, weight_loop>(
             sum, ptr_src, ssrc_dim, weight+iw*sweight_dim, sweight_dim, weight + nns*nnxy + iw, nnx, nny, nns, thIdX, thIdY, weight_scale);
@@ -983,8 +982,9 @@ void kernel_comute_network1_dot_product_opt(
         for (int ithy = 0; ithy < thread_y_loop; ithy++) {
             #pragma unroll
             for (int ithw = 0; ithw < weight_loop; ithw++) {
-                float ret0 = exp_(__low2float(sum[ithy][ithw]));
-                float ret1 = __high2float(sum[ithy][ithw]);
+                //half2使用時には、オーバーフローを避けるため、textureからのロード時に256倍していないので、ここでfloatにしてから補正する
+                float ret0 = exp_(__low2float(sum[ithy][ithw]) * 256.0f);
+                float ret1 = __high2float(sum[ithy][ithw]) * 256.0f;
                 wsum[ithy] += ret0;
                 vsum[ithy] += ret0 * (ret1 * __frcp_rn(1.0f + fabs(ret1)));
             }
@@ -1738,7 +1738,9 @@ void NVEncFilterNnedi::setWeight1(TypeCalc *ptrDst, const float *ptrW, const std
                 max1 = std::max(max1, buf[j * sizeNXY + k]);
             }
         }
-        ptrDst[pNnediParam->nnedi.nns * 2 * sizeNXY + j] = toWeight<TypeCalc>(ptrW[pNnediParam->nnedi.nns * 2 * sizeNXY + j] - (float)(j < pNnediParam->nnedi.nns ? mean2 : 0.0));
+        //fp16の場合、オーバーフローを避けるため途中まで0～1の範囲で計算するので、offsetの部分には1/256が必要
+        float scale = (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) ? 1.0f / 256.0f : 1.0f;
+        ptrDst[pNnediParam->nnedi.nns * 2 * sizeNXY + j] = toWeight<TypeCalc>((ptrW[pNnediParam->nnedi.nns * 2 * sizeNXY + j] - (float)(j < pNnediParam->nnedi.nns ? mean2 : 0.0)) * scale);
     }
     for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
         for (int k = 0; k < sizeNXY; k++) {
