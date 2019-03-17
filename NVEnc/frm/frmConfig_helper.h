@@ -37,7 +37,7 @@ using namespace System::Collections::Generic;
 
 namespace NVEnc {
 
-    ref class LocalSettings 
+    ref class LocalSettings
     {
     public:
         String^ vidEncName;
@@ -167,39 +167,46 @@ const int fcgCXAudioEncModeSmallWidth = 189;
 const int fcgCXAudioEncModeLargeWidth = 237;
 
 
-static const WCHAR * const list_aspect_ratio[] = {
+static const wchar_t * const list_aspect_ratio[] = {
     L"SAR(PAR, 画素比)で指定",
     L"DAR(画面比)で指定",
     NULL
 };
 
-static const WCHAR * const list_tempdir[] = {
+static const wchar_t * const list_tempdir[] = {
     L"出力先と同じフォルダ (デフォルト)",
     L"システムの一時フォルダ",
     L"カスタム",
     NULL
 };
 
-static const WCHAR * const list_audtempdir[] = {
+static const wchar_t * const list_audtempdir[] = {
     L"変更しない",
     L"カスタム",
     NULL
 };
 
-static const WCHAR * const list_mp4boxtempdir[] = {
+static const wchar_t * const list_mp4boxtempdir[] = {
     L"指定しない",
     L"カスタム",
     NULL
 };
 
-const WCHAR * const audio_enc_timing_desc[] = {
+const wchar_t * const audio_enc_timing_desc[] = {
     L"後",
     L"前",
     L"同時",
     NULL
 };
 
-static const WCHAR * const list_vpp_afs_analyze[] = {
+static const wchar_t * const list_vpp_deinterlacer[] = {
+    L"なし",
+    L"自動フィールドシフト",
+    L"nnedi",
+    NULL
+};
+
+static const wchar_t * const list_vpp_afs_analyze[] = {
     L"0 - 解除なし",
     L"1 - フィールド三重化",
     L"2 - 縞検出二重化",
@@ -207,6 +214,22 @@ static const WCHAR * const list_vpp_afs_analyze[] = {
     L"4 - 動き検出補間",
     NULL
 };
+
+const CX_DESC list_vpp_nnedi_pre_screen_gui[] = {
+    { _T("none"),           VPP_NNEDI_PRE_SCREEN_NONE },
+    { _T("original"),       VPP_NNEDI_PRE_SCREEN_ORIGINAL },
+    { _T("new"),            VPP_NNEDI_PRE_SCREEN_NEW },
+    { _T("original_block"), VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
+    { _T("new_block"),      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK },
+    { NULL, NULL }
+};
+
+static int get_cx_index(const wchar_t * const*list, const wchar_t *wchr) {
+    for (int i = 0; list[i]; i++)
+        if (0 == wcscmp(list[i], wchr))
+            return i;
+    return 0;
+}
 
 //メモ表示用 RGB
 const int StgNotesColor[][3] = {

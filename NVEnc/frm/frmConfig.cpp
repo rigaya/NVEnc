@@ -670,7 +670,14 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
     setComboBox(fcgCXVppDetailEnhance,  list_vpp_detail_enahance);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
+    setComboBox(fcgCXVppDeinterlace,    list_vpp_deinterlacer);
     setComboBox(fcgCXVppAfsAnalyze,     list_vpp_afs_analyze);
+    setComboBox(fcgCXVppNnediNsize,     list_vpp_nnedi_nsize);
+    setComboBox(fcgCXVppNnediNns,       list_vpp_nnedi_nns);
+    setComboBox(fcgCXVppNnediQual,      list_vpp_nnedi_quality);
+    setComboBox(fcgCXVppNnediPrec,      list_vpp_nnedi_prec);
+    setComboBox(fcgCXVppNnediPrescreen, list_vpp_nnedi_pre_screen_gui);
+    setComboBox(fcgCXVppNnediErrorType, list_vpp_nnedi_error_type);
 
     setComboBox(fcgCXAudioTempDir,  list_audtempdir);
     setComboBox(fcgCXMP4BoxTempDir, list_mp4boxtempdir);
@@ -767,7 +774,8 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppUnsharp->Visible    = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible  = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
     fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
-    fcggroupBoxVppAfs->Enabled = fcgCBVppAfsEnable->Checked;
+    fcgPNVppAfs->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"自動フィールドシフト"));
+    fcgPNVppNnedi->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"nnedi"));
     fcggroupBoxVppTweak->Enabled = fcgCBVppTweakEnable->Checked;
 
     this->ResumeLayout();
@@ -1003,6 +1011,14 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         }
         SetCXIndex(fcgCXVppDetailEnhance, detail_enahance_idx);
 
+        int deinterlacer_idx = 0;
+        if (encPrm.vpp.afs.enable) {
+            deinterlacer_idx = get_cx_index(list_vpp_deinterlacer, L"自動フィールドシフト");
+        } else if (encPrm.vpp.nnedi.enable) {
+            deinterlacer_idx = get_cx_index(list_vpp_deinterlacer, L"nnedi");
+        }
+        SetCXIndex(fcgCXVppDeinterlace, deinterlacer_idx);
+
         SetNUValue(fcgNUVppDenoiseKnnRadius,     encPrm.vpp.knn.radius);
         SetNUValue(fcgNUVppDenoiseKnnStrength,   encPrm.vpp.knn.strength);
         SetNUValue(fcgNUVppDenoiseKnnThreshold,  encPrm.vpp.knn.lerp_threshold);
@@ -1037,12 +1053,17 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppAfsThreYMotion,       encPrm.vpp.afs.thre_Ymotion);
         SetNUValue(fcgNUVppAfsThreCMotion,       encPrm.vpp.afs.thre_Cmotion);
         SetCXIndex(fcgCXVppAfsAnalyze,           encPrm.vpp.afs.analyze);
-        fcgCBVppAfsEnable->Checked             = encPrm.vpp.afs.enable != 0;
         fcgCBVppAfsShift->Checked              = encPrm.vpp.afs.shift != 0;
         fcgCBVppAfsDrop->Checked               = encPrm.vpp.afs.drop != 0;
         fcgCBVppAfsSmooth->Checked             = encPrm.vpp.afs.smooth != 0;
         fcgCBVppAfs24fps->Checked              = encPrm.vpp.afs.force24 != 0;
         fcgCBVppAfsTune->Checked               = encPrm.vpp.afs.tune != 0;
+        SetCXIndex(fcgCXVppNnediNsize,           get_cx_index(list_vpp_nnedi_nsize, encPrm.vpp.nnedi.nsize));
+        SetCXIndex(fcgCXVppNnediNns,             get_cx_index(list_vpp_nnedi_nns, encPrm.vpp.nnedi.nns));
+        SetCXIndex(fcgCXVppNnediPrec,            get_cx_index(list_vpp_nnedi_prec, encPrm.vpp.nnedi.precision));
+        SetCXIndex(fcgCXVppNnediPrescreen,       get_cx_index(list_vpp_nnedi_pre_screen, encPrm.vpp.nnedi.pre_screen));
+        SetCXIndex(fcgCXVppNnediQual,            get_cx_index(list_vpp_nnedi_quality, encPrm.vpp.nnedi.quality));
+        SetCXIndex(fcgCXVppNnediErrorType,       get_cx_index(list_vpp_nnedi_error_type, encPrm.vpp.nnedi.errortype));
         fcgCBVppTweakEnable->Checked           = encPrm.vpp.tweak.enable;
         SetNUValue(fcgNUVppTweakBrightness,      (int)(encPrm.vpp.tweak.brightness * 100.0f));
         SetNUValue(fcgNUVppTweakContrast,        (int)(encPrm.vpp.tweak.contrast * 100.0f));
@@ -1272,7 +1293,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.deband.blurFirst       = fcgCBVppDebandBlurFirst->Checked;
     encPrm.vpp.deband.randEachFrame   = fcgCBVppDebandRandEachFrame->Checked;
 
-    encPrm.vpp.afs.enable             = fcgCBVppAfsEnable->Checked;
+    encPrm.vpp.afs.enable             = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"自動フィールドシフト"));
     encPrm.vpp.afs.timecode           = encPrm.vpp.afs.enable;
     encPrm.vpp.afs.clip.top           = (int)fcgNUVppAfsUp->Value;
     encPrm.vpp.afs.clip.bottom        = (int)fcgNUVppAfsBottom->Value;
@@ -1290,6 +1311,14 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.afs.smooth             = fcgCBVppAfsSmooth->Checked;
     encPrm.vpp.afs.force24            = fcgCBVppAfs24fps->Checked;
     encPrm.vpp.afs.tune               = fcgCBVppAfsTune->Checked;
+
+    encPrm.vpp.nnedi.enable           = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"nnedi"));
+    encPrm.vpp.nnedi.nsize            = (VppNnediNSize)list_vpp_nnedi_nsize[fcgCXVppNnediNsize->SelectedIndex].value;
+    encPrm.vpp.nnedi.nns              = list_vpp_nnedi_nns[fcgCXVppNnediNns->SelectedIndex].value;
+    encPrm.vpp.nnedi.quality          = (VppNnediQuality)list_vpp_nnedi_quality[fcgCXVppNnediQual->SelectedIndex].value;
+    encPrm.vpp.nnedi.precision        = (VppNnediPrecision)list_vpp_nnedi_prec[fcgCXVppNnediPrec->SelectedIndex].value;
+    encPrm.vpp.nnedi.pre_screen       = (VppNnediPreScreen)list_vpp_nnedi_pre_screen[fcgCXVppNnediPrescreen->SelectedIndex].value;
+    encPrm.vpp.nnedi.errortype        = (VppNnediErrorType)list_vpp_nnedi_error_type[fcgCXVppNnediErrorType->SelectedIndex].value;
 
     encPrm.vpp.tweak.enable           = fcgCBVppTweakEnable->Checked;
     encPrm.vpp.tweak.brightness       = (float)fcgNUVppTweakBrightness->Value * 0.01f;
