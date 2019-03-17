@@ -2641,6 +2641,15 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
+    //インタレ解除の個数をチェック
+    int deinterlacer = 0;
+    if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
+    if (inputParam->vpp.afs.enable) deinterlacer++;
+    if (inputParam->vpp.nnedi.enable) deinterlacer++;
+    if (deinterlacer >= 2) {
+        PrintMes(RGY_LOG_ERROR, _T("Activating 2 or more deinterlacer is not supported.\n"));
+        return NV_ENC_ERR_UNIMPLEMENTED;
+    }
 
     if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
         m_uEncWidth = inputParam->input.dstWidth;
