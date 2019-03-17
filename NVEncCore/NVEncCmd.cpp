@@ -3466,9 +3466,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_LST(_T("field"), vpp.nnedi.field, list_vpp_nnedi_field);
             ADD_LST(_T("nns"), vpp.nnedi.nns, list_vpp_nnedi_nns);
             ADD_LST(_T("nsize"), vpp.nnedi.nsize, list_vpp_nnedi_nsize);
+            ADD_LST(_T("quality"), vpp.nnedi.quality, list_vpp_nnedi_quality);
+            ADD_LST(_T("prec"), vpp.nnedi.precision, list_vpp_nnedi_prec);
             ADD_LST(_T("prescreen"), vpp.nnedi.pre_screen, list_vpp_nnedi_pre_screen);
             ADD_LST(_T("errortype"), vpp.nnedi.errortype, list_vpp_nnedi_error_type);
-            ADD_LST(_T("prec"), vpp.nnedi.precision, list_vpp_nnedi_prec);
             ADD_PATH(_T("weightfile"), vpp.nnedi.weightfile.c_str());
         }
         if (!tmp.str().empty()) {
