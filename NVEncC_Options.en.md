@@ -835,10 +835,11 @@ nnedi deinterlacer.
   Area size which neural net uses to generate a pixel.
   - 8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4
 
-- qual  
+- quality  
   quality settings.
 
   - fast (default)
+
   - slow  
     "slow" uses another neural net and blends 2 outputs from different network to enhance quality.
 
