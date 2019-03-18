@@ -88,26 +88,26 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - avs, vpy, y4m, rawなど各種形式に対応
 - GPUを使用した高速フィルタリング
   - cuvid内蔵のhw処理
-   - リサイズ
-   - インタレ解除 (normal / bob)
+    - リサイズ
+    - インタレ解除 (normal / bob)
   - CUDAによるGPUフィルタリング
-   - rff (rffフラグの適用)
-   - インタレ解除
-     - afs (自動フィールドシフト)
-     - nnedi
-   - delogo
-   - リサイズ  
-     bilinear,spline36に加え、x64版ではnppライブラリによる各種アルゴリズムが利用可
-   - パディング(黒帯)の追加
-   - フレーム間引き(select every)
-   - バンディング低減
-   - ノイズ除去
-     - knn (K-nearest neighbor)
-     - pmd (正則化pmd法)
-     - gauss (nppライブラリ、x64版のみ)
-  - 輪郭・ディテール強調
-    - unsharp
-    - edgelevel (エッジレベル調整)
+    - rff (rffフラグの適用)
+    - インタレ解除
+      - afs (自動フィールドシフト)
+      - nnedi
+    - delogo
+    - リサイズ  
+      bilinear,spline36に加え、x64版ではnppライブラリによる各種アルゴリズムが利用可
+    - パディング(黒帯)の追加
+    - フレーム間引き(select every)
+    - バンディング低減
+    - ノイズ除去
+      - knn (K-nearest neighbor)
+      - pmd (正則化pmd法)
+      - gauss (nppライブラリ、x64版のみ)
+    - 輪郭・ディテール強調
+      - unsharp
+      - edgelevel (エッジレベル調整)
 
 ### cufilters.auf
 - 対応フィルタ

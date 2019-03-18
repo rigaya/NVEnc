@@ -85,23 +85,23 @@ which might cause problem in some playback environments.
     - resize
     - deinterlace (normal / bob)
   - GPU filtering by CUDA
-   - rff (apply rff flag)
-   - deinterlacer
-     - afs (Automatic field shift)
-     - nnedi
-   - delogo
-   - resize
-     In addition to bilinear, spline36, various algorithms by npp library are available for x64 version
-   - padding
-   - select-every
-   - deband
-   - noise reduction
-     - knn (K-nearest neighbor)
-     - pmd (modified pmd method)
-     - gauss (npp library, x64 version only)
-  - edge / detail enhancement
-    - unsharp
-    - edgelevel (edge ​​level adjustment)
+    - rff (apply rff flag)
+    - deinterlacer
+      - afs (Automatic field shift)
+      - nnedi
+    - delogo
+    - resize
+      In addition to bilinear, spline36, various algorithms by npp library are available for x64 version
+    - padding
+    - select-every
+    - deband
+    - noise reduction
+      - knn (K-nearest neighbor)
+      - pmd (modified pmd method)
+      - gauss (npp library, x64 version only)
+    - edge / detail enhancement
+      - unsharp
+      - edgelevel (edge ​​level adjustment)
 
 ### NVEnc.auo (Aviutl plugin)
 - Audio encoding

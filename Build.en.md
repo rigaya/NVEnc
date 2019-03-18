@@ -43,7 +43,7 @@ git clone https://github.com/rigaya/NVEnc --recursive
 
 Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 
-|  |For Debug build|For Release build|
-|:--------------|:--------------|:--------|
+|   | For Debug build | For Release build |
+|:---------------------|:------|:--------|
 |NVEnc.auo (win32 only) | Debug | Release |
 |NVEncC(64).exe | DebugStatic | RelStatic |
