@@ -37,7 +37,6 @@ setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
 ```Batchfile
 git clone https://github.com/rigaya/NVEnc --recursive
 ```
-```
 
 ## 2. Build NVEncC.exe / NVEnc.auo
 
