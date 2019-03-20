@@ -45,10 +45,8 @@ const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_90.dll");
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_91.dll");
 #elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 2
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_92.dll");
-#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 0
-const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_100.dll");
-#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 1
-const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_101.dll");
+#elif __CUDACC_VER_MAJOR__ == 10
+const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
 #endif
 
 template<typename Type, int bit_depth>
