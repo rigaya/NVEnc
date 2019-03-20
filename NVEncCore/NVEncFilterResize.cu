@@ -625,7 +625,6 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
         AddMessage(RGY_LOG_WARN, _T("--vpp-resize %s requires \"%s\", not available on your system.\n"), get_chr_from_value(list_nppi_resize, pResizeParam->interp), NPPI_DLL_NAME_TSTR);
         pResizeParam->interp = RESIZE_CUDA_SPLINE36;
         AddMessage(RGY_LOG_WARN, _T("switching to %s."), get_chr_from_value(list_nppi_resize, pResizeParam->interp));
-        return NV_ENC_ERR_INVALID_PARAM;
     }
     //パラメータチェック
     if (pResizeParam->frameOut.height <= 0 || pResizeParam->frameOut.width <= 0) {
