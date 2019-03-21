@@ -476,6 +476,18 @@ Since the output format is automatically determined by the output extension, it 
 
 Available formats can be checked with [--check-formats](#--check-formats). To output H.264 / HEVC as an Elementary Stream, specify "raw".
 
+### --video-track &lt;int&gt;
+Set video track to encode by resolution. Will be active when used with avhw/avsw reader.
+ - 1 (default)  highest resolution video track
+ - 2            next high resolution video track
+    ...
+ - -1           lowest resolution video track
+ - -2           next low resolution video track
+    ...
+    
+### --video-streamid &lt;int&gt;
+Set video track to encode in stream id.
+
 ### --video-tag <string>
 Specify video tag.
 ```
