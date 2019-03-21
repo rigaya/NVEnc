@@ -35,6 +35,7 @@
 #include "convert_csp.h"
 
 struct cuFilterChainParam {
+    HMODULE hModule;
     bool resizeEnable;
     int resizeInterp;
     VppUnsharp unsharp;
@@ -43,6 +44,7 @@ struct cuFilterChainParam {
     VppPmd pmd;
     VppDeband deband;
     VppTweak tweak;
+    VppNnedi nnedi;
 
     cuFilterChainParam();
     uint32_t filter_enabled() const;
@@ -69,6 +71,7 @@ private:
     int m_nDeviceId;
     CUdevice m_device;
     std::string m_deviceName;
+    std::pair<int, int> m_computeCapability;
     CUcontext m_cuContextCurr;
     CUFrameBuf m_host[2];
     CUFrameBuf m_dev[2];

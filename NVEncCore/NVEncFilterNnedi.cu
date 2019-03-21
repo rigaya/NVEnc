@@ -1460,13 +1460,15 @@ NVENCSTATUS NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamN
     return NV_ENC_SUCCESS;
 }
 
-std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile) {
+std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMODULE hModule) {
     std::vector<float> weights;
     const uint32_t expectedFileSize = 13574928u;
     uint64_t weightFileSize = 0;
     if (weightFile.length() == 0) {
         //埋め込みデータを使用する
-        HMODULE hModule = GetModuleHandle(NULL);
+        if (hModule == NULL) {
+            hModule = GetModuleHandle(NULL);
+        }
         HRSRC hResource = NULL;
         HGLOBAL hResourceData = NULL;
         const char *pDataPtr = NULL;
@@ -1508,7 +1510,7 @@ std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile) {
 }
 
 NVENCSTATUS NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam) {
-    std::vector<float> weights = readWeights(pNnediParam->nnedi.weightfile);
+    std::vector<float> weights = readWeights(pNnediParam->nnedi.weightfile, pNnediParam->hModule);
     if (weights.size() == 0) {
         return NV_ENC_ERR_INVALID_PARAM;
     }

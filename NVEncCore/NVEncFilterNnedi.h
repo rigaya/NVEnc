@@ -41,7 +41,9 @@ class NVEncFilterParamNnedi : public NVEncFilterParam {
 public:
     VppNnedi nnedi;
     std::pair<int, int> compute_capability;
+    HMODULE hModule;
 
+    NVEncFilterParamNnedi() : nnedi(), compute_capability(std::make_pair(0, 0)), hModule(NULL) {};
     virtual ~NVEncFilterParamNnedi() {};
 };
 
@@ -67,7 +69,7 @@ protected:
 
     template<typename TypeWeight>
     void setWeight1(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
-    virtual std::vector<float> readWeights(const tstring& weightFile);
+    virtual std::vector<float> readWeights(const tstring& weightFile, HMODULE hModule);
 
     CUMemBuf m_weight0;
     std::array<CUMemBuf, 2> m_weight1;

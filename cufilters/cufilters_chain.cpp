@@ -42,6 +42,7 @@
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterTweak.h"
+#include "NVEncFilterNnedi.h"
 
 bool check_if_nvcuda_dll_available();
 
@@ -68,9 +69,11 @@ enum : uint32_t {
     CUFILTER_CHAIN_EDGELEVEL = 0x10,
     CUFILTER_CHAIN_DEBAND    = 0x20,
     CUFILTER_CHAIN_TWEAK     = 0x40,
+    CUFILTER_CHAIN_NNEDI     = 0x80,
 };
 
 cuFilterChainParam::cuFilterChainParam() :
+    hModule(NULL),
     resizeEnable(false),
     resizeInterp(RESIZE_CUDA_SPLINE36),
     unsharp(),
@@ -78,7 +81,8 @@ cuFilterChainParam::cuFilterChainParam() :
     knn(),
     pmd(),
     deband(),
-    tweak() {
+    tweak(),
+    nnedi() {
 
 }
 
@@ -91,6 +95,7 @@ uint32_t cuFilterChainParam::filter_enabled() const {
     if (edgelevel.enable) flags |= CUFILTER_CHAIN_EDGELEVEL;
     if (deband.enable)    flags |= CUFILTER_CHAIN_DEBAND;
     if (tweak.enable)     flags |= CUFILTER_CHAIN_TWEAK;
+    if (nnedi.enable)     flags |= CUFILTER_CHAIN_NNEDI;
     return flags;
 }
 
@@ -200,6 +205,7 @@ int cuFilterChain::init_cuda(int deviceId) {
     auto cuerr = cudaGetDeviceProperties(&devProp, m_device);
     if (cuerr == cudaSuccess) {
         m_deviceName = devProp.name;
+        m_computeCapability = std::make_pair(devProp.major, devProp.minor);
     }
 
     if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&m_cuContextCurr))) {
@@ -311,6 +317,30 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
         if (sts != NV_ENC_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init CopyHtoD.\n"));
+            return sts;
+        }
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+    }
+    // nnedi
+    if (m_prm.nnedi.enable) {
+        if (reset) {
+            //フィルタチェーンに追加
+            unique_ptr<NVEncFilter> filter(new NVEncFilterNnedi());
+            m_vpFilters.push_back(std::move(filter));
+        }
+        shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
+        param->nnedi = m_prm.nnedi;
+        param->compute_capability = m_computeCapability;
+        param->hModule = m_prm.hModule;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->bOutOverwrite = false;
+        auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
+        if (sts != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init nnedi.\n"));
             return sts;
         }
         //パラメータ情報を更新
