@@ -1747,8 +1747,6 @@ void NVEncFilterNnedi::setWeight1(TypeCalc *ptrDst, const float *ptrW, const std
             ptrDst[j * sizeNXY + k] = toWeight<TypeCalc>(buf[j * sizeNXY + k]);
         }
     }
-    ptrDst[pNnediParam->nnedi.nns * 2 * (sizeNXY + 1) + 0] = toWeight<TypeCalc>(1.0f);
-    ptrDst[pNnediParam->nnedi.nns * 2 * (sizeNXY + 1) + 1] = toWeight<TypeCalc>(1.0f);
     //<<<<<< ここまでで通常(CPU版)の並びのデータが作成できた
 
 #if ENABLE_DP1_WEIGHT_ARRAY_OPT
