@@ -47,7 +47,7 @@
     <Link>
       <AdditionalDependencies>nppc.lib;nppif.lib;nppig.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <!-- <AdditionalIncludeDirectories>;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories> -->
-      <DelayLoadDLLs>nppc64_$(CUDA_MAJOR_VER).dll;nppif64_$(CUDA_MAJOR_VER).dll;nppig64_$(CUDA_MAJOR_VER).dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <DelayLoadDLLs>nppif64_$(CUDA_MAJOR_VER).dll;nppig64_$(CUDA_MAJOR_VER).dll;%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="$(CUDA_MAJOR_VER) &lt; 10 AND '$(Platform)'=='x64'">
