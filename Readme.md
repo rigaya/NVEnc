@@ -110,6 +110,7 @@ which might cause problem in some playback environments.
 
 ### cufilters.auf (Aviutl plugin)
 - supported filters
+  - nnedi
   - resize
   - noise reduction
     - knn (K-nearest neighbor)

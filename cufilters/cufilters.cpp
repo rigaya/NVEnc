@@ -386,6 +386,18 @@ static int select_combo_item(HWND hwnd, int data) {
         cu_exdata.resize_idx = current_data;
     } else if (hwnd == cx_resize_algo) {
         cu_exdata.resize_algo = current_data;
+    } else if (hwnd == cx_nnedi_field) {
+        cu_exdata.nnedi_field = (VppNnediField)current_data;
+    } else if (hwnd == cx_nnedi_nns) {
+        cu_exdata.nnedi_nns = current_data;
+    } else if (hwnd == cx_nnedi_nsize) {
+        cu_exdata.nnedi_nsize = (VppNnediNSize)current_data;
+    } else if (hwnd == cx_nnedi_quality) {
+        cu_exdata.nnedi_quality = (VppNnediQuality)current_data;
+    } else if (hwnd == cx_nnedi_prescreen) {
+        cu_exdata.nnedi_prescreen = (VppNnediPreScreen)current_data;
+    } else if (hwnd == cx_nnedi_errortype) {
+        cu_exdata.nnedi_errortype = (VppNnediErrorType)current_data;
     }
     return sel_idx;
 }
@@ -529,7 +541,7 @@ BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, 
             switch (HIWORD(wparam)) {
             case CBN_SELCHANGE: // 選択変更
                 change_cx_param(cx_resize_res);
-                break;
+                return TRUE; //TRUEを返すと画像処理が更新される
             default:
                 break;
             }
@@ -538,7 +550,7 @@ BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, 
             switch (HIWORD(wparam)) {
             case CBN_SELCHANGE: // 選択変更
                 change_cx_param(cx_resize_algo);
-                break;
+                return TRUE; //TRUEを返すと画像処理が更新される
             default:
                 break;
             }
@@ -553,7 +565,7 @@ BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, 
             switch (HIWORD(wparam)) {
             case CBN_SELCHANGE: // 選択変更
                 change_cx_param(cx_nnedi_field);
-                break;
+                return TRUE; //TRUEを返すと画像処理が更新される
             default:
                 break;
             }
@@ -562,7 +574,7 @@ BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, 
             switch (HIWORD(wparam)) {
             case CBN_SELCHANGE: // 選択変更
                 change_cx_param(cx_nnedi_nsize);
-                break;
+                return TRUE; //TRUEを返すと画像処理が更新される
             default:
                 break;
             }
@@ -571,7 +583,7 @@ BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, 
             switch (HIWORD(wparam)) {
             case CBN_SELCHANGE: // 選択変更
                 change_cx_param(cx_nnedi_nns);
-                break;
+                return TRUE; //TRUEを返すと画像処理が更新される
             default:
                 break;
             }
@@ -580,7 +592,7 @@ BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, 
             switch (HIWORD(wparam)) {
             case CBN_SELCHANGE: // 選択変更
                 change_cx_param(cx_nnedi_quality);
-                break;
+                return TRUE; //TRUEを返すと画像処理が更新される
             default:
                 break;
             }
@@ -589,7 +601,7 @@ BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, 
             switch (HIWORD(wparam)) {
             case CBN_SELCHANGE: // 選択変更
                 change_cx_param(cx_nnedi_prescreen);
-                break;
+                return TRUE; //TRUEを返すと画像処理が更新される
             default:
                 break;
             }
@@ -598,7 +610,7 @@ BOOL func_WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam, void*, 
             switch (HIWORD(wparam)) {
             case CBN_SELCHANGE: // 選択変更
                 change_cx_param(cx_nnedi_errortype);
-                break;
+                return TRUE; //TRUEを返すと画像処理が更新される
             default:
                 break;
             }
@@ -761,6 +773,8 @@ void init_dialog(HWND hwnd, FILTER *fp) {
     y_pos_max = max(y_pos_max, y_pos);
 
     SetWindowPos(hwnd, HWND_TOP, 0, 0, (dialog_rc.right - dialog_rc.left) * columns, y_pos_max + 24, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
+
+    update_cx(fp);
 }
 
 //---------------------------------------------------------------------
@@ -850,7 +864,7 @@ BOOL func_proc(FILTER *fp, FILTER_PROC_INFO *fpip) {
     prm.deband.randEachFrame = fp->check[CUFILTER_CHECK_DEBAND_RAND_EACH_FRAME] != 0;
 
     //nnedi
-    prm.nnedi.enable        = fp->check[CUFILTER_CHECK_DEBAND_ENABLE] != 0;
+    prm.nnedi.enable        = fp->check[CUFILTER_CHECK_NNEDI_ENABLE] != 0;
     prm.nnedi.field         = cu_exdata.nnedi_field;
     prm.nnedi.nsize         = cu_exdata.nnedi_nsize;
     prm.nnedi.nns           = cu_exdata.nnedi_nns;

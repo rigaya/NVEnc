@@ -111,6 +111,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 
 ### cufilters.auf
 - 対応フィルタ
+  - nnedi
   - リサイズ
   - ノイズ除去
     - knn (K-nearest neighbor)
