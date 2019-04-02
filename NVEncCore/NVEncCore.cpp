@@ -3214,10 +3214,6 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
         //手動で設定されている
         return NV_ENC_SUCCESS;
     }
-    if (m_GPUList.size() == 1) {
-        m_nDeviceId = m_GPUList.front().id;
-        return NV_ENC_SUCCESS;
-    }
     RGY_CODEC rgy_codec = RGY_CODEC_UNKNOWN;
     switch (inputParam->codec) {
     case NV_ENC_H264: rgy_codec = RGY_CODEC_H264; break;
@@ -3227,13 +3223,14 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
     //エンコーダの対応をチェック
+    tstring message; //GPUチェックのメッセージ
     for (auto gpu = m_GPUList.begin(); gpu != m_GPUList.end(); ) {
         //コーデックのチェック
         const auto codec = std::find_if(gpu->nvenc_codec_features.begin(), gpu->nvenc_codec_features.end(), [rgy_codec](const NVEncCodecFeature& codec) {
             return codec.codec == codec_guid_rgy_to_enc(rgy_codec);
         });
         if (codec == gpu->nvenc_codec_features.end()) {
-            PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) cannot encode codec %s, dropped from list.\n"),
+            message += strsprintf(_T("GPU #%d (%s) does not support %s encoding.\n"),
                 gpu->id, gpu->name.c_str(), CodecToStr(rgy_codec).c_str());
             gpu = m_GPUList.erase(gpu);
             continue;
@@ -3261,23 +3258,44 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
             return 0 == memcmp(&codecProfileGUID, &profile_guid, sizeof(profile_guid));
         });
         if (profile == codec->profiles.end()) {
-            PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) cannot encode %s %s.\n"), gpu->id, gpu->name.c_str(),
+            message += strsprintf(_T("GPU #%d (%s) cannot encode %s %s.\n"), gpu->id, gpu->name.c_str(),
                 CodecToStr(rgy_codec).c_str(),
                 get_codec_profile_name_from_guid(rgy_codec, codecProfileGUID).c_str());
             gpu = m_GPUList.erase(gpu);
             continue;
         }
-        if (   (inputParam->lossless && !get_value(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE, codec->caps))
-            || (inputParam->yuv444 && !get_value(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE, codec->caps))
-            || (inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0 && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps))
-            || (inputParam->codec == NV_ENC_H264
-                && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable && !inputParam->vpp.nnedi.enable))
-                && !get_value(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING, codec->caps))) {
+        if (inputParam->lossless && !get_value(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE, codec->caps)) {
+            message += strsprintf(_T("GPU #%d (%s) does not support lossless encoding.\n"), gpu->id, gpu->name.c_str());
+            gpu = m_GPUList.erase(gpu);
+            continue;
+        }
+        if (inputParam->yuv444 && !get_value(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE, codec->caps)) {
+            message += strsprintf(_T("GPU #%d (%s) does not support yuv444 encoding.\n"), gpu->id, gpu->name.c_str());
+            gpu = m_GPUList.erase(gpu);
+            continue;
+        }
+        if (inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0 && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps)) {
+            message += strsprintf(_T("GPU #%d (%s) does not support HEVC 10bit depth encoding.\n"), gpu->id, gpu->name.c_str());
+            gpu = m_GPUList.erase(gpu);
+            continue;
+        }
+        if (inputParam->codec == NV_ENC_H264
+            && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable && !inputParam->vpp.nnedi.enable))
+            && !get_value(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING, codec->caps)) {
+            message += strsprintf(_T("GPU #%d (%s) does not support H.264 interlaced encoding.\n"), gpu->id, gpu->name.c_str());
             gpu = m_GPUList.erase(gpu);
             continue;
         }
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) available for encode.\n"), gpu->id, gpu->name.c_str());
         gpu++;
+    }
+    PrintMes((m_GPUList.size() == 0) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("%s\n"), message.c_str());
+    if (m_GPUList.size() == 0) {
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+    if (m_GPUList.size() == 1) {
+        m_nDeviceId = m_GPUList.front().id;
+        return NV_ENC_SUCCESS;
     }
 
     if (inputParam->encConfig.frameIntervalP > 1) {
