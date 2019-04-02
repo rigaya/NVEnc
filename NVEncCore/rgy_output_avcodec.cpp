@@ -1168,29 +1168,42 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     }
 
     //パラメータのコピー
-    //下記のようにavcodec_copy_contextを使用するとavformat_write_header()が
-    //Tag mp4a/0x6134706d incompatible with output codec id '86018' ([64][0][0][0])のようなエラーを出すことがある
-    //そのため、必要な値だけをひとつづつコピーする
-    //avcodec_copy_context(pMuxAudio->pStream->codec, srcCodecCtx);
-    AVCodecParameters *srcCodecParam = avcodec_parameters_alloc();
     if (pMuxAudio->pOutCodecEncodeCtx) {
-        avcodec_parameters_from_context(srcCodecParam, pMuxAudio->pOutCodecEncodeCtx);
+        avcodec_parameters_from_context(pMuxAudio->pStreamOut->codecpar, pMuxAudio->pOutCodecEncodeCtx);
     } else {
-        avcodec_parameters_copy(srcCodecParam, pInputAudio->src.pStream->codecpar);
+        auto codectag = pMuxAudio->pStreamOut->codecpar->codec_tag;
+        avcodec_parameters_copy(pMuxAudio->pStreamOut->codecpar, pInputAudio->src.pStream->codecpar);
+
+        //codec_tagの適合性のチェック
+        auto src_codectag = pInputAudio->src.pStream->codecpar->codec_tag;
+        if (src_codectag != 0
+            && m_Mux.format.pFormatCtx->oformat->codec_tag) {
+            uint32_t codec_tag_tmp;
+            if (av_codec_get_id(m_Mux.format.pFormatCtx->oformat->codec_tag, src_codectag) == pMuxAudio->pStreamOut->codecpar->codec_id
+                || !av_codec_get_tag2(m_Mux.format.pFormatCtx->oformat->codec_tag, pMuxAudio->pStreamOut->codecpar->codec_id, &codec_tag_tmp)) {
+                codectag = src_codectag;
+            }
+        }
+        pMuxAudio->pStreamOut->codecpar->codec_tag = codectag;
+
+        avformat_transfer_internal_stream_timing_info(m_Mux.format.pFormatCtx->oformat, pMuxAudio->pStreamOut, pInputAudio->src.pStream, AVFMT_TBCF_AUTO);
+
+        if (pMuxAudio->pStreamOut->codecpar->codec_id == AV_CODEC_ID_MP3) {
+            if (   pMuxAudio->pStreamOut->codecpar->block_align == 1
+                || pMuxAudio->pStreamOut->codecpar->block_align == 576
+                || pMuxAudio->pStreamOut->codecpar->block_align == 1152) {
+                pMuxAudio->pStreamOut->codecpar->block_align = 0;
+            }
+        } else if (pMuxAudio->pStreamOut->codecpar->codec_id == AV_CODEC_ID_AC3) {
+            pMuxAudio->pStreamOut->codecpar->block_align = 0;
+        }
+        for (int i = 0; i < pMuxAudio->pStreamIn->nb_side_data; i++) {
+            const AVPacketSideData *const sidedataSrc = &pMuxAudio->pStreamIn->side_data[i];
+            uint8_t *const dst_data = av_stream_new_side_data(pMuxAudio->pStreamOut, sidedataSrc->type, sidedataSrc->size);
+            memcpy(dst_data, sidedataSrc->data, sidedataSrc->size);
+        }
     }
-    pMuxAudio->pStreamOut->codecpar->codec_type      = srcCodecParam->codec_type;
-    pMuxAudio->pStreamOut->codecpar->codec_id        = srcCodecParam->codec_id;
-    pMuxAudio->pStreamOut->codecpar->profile         = srcCodecParam->profile;
-    pMuxAudio->pStreamOut->codecpar->frame_size      = srcCodecParam->frame_size;
-    pMuxAudio->pStreamOut->codecpar->channels        = srcCodecParam->channels;
-    pMuxAudio->pStreamOut->codecpar->channel_layout  = srcCodecParam->channel_layout;
-    pMuxAudio->pStreamOut->codecpar->sample_rate     = srcCodecParam->sample_rate;
-    pMuxAudio->pStreamOut->codecpar->format          = srcCodecParam->format;
-    pMuxAudio->pStreamOut->codecpar->block_align     = srcCodecParam->block_align;
-    if (srcCodecParam->extradata_size) {
-        AddMessage(RGY_LOG_DEBUG, _T("set extradata from stream codec...\n"));
-        SetExtraData(pMuxAudio->pStreamOut->codecpar, srcCodecParam->extradata, srcCodecParam->extradata_size);
-    } else if (pMuxAudio->pStreamIn->codecpar->extradata_size) {
+    if (pMuxAudio->pStreamIn->codecpar->extradata_size) {
         //aac_adtstoascから得たヘッダをコピーする
         //これをしておかないと、avformat_write_headerで"Error parsing AAC extradata, unable to determine samplerate."という
         //意味不明なエラーメッセージが表示される
@@ -1198,10 +1211,8 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
         SetExtraData(pMuxAudio->pStreamOut->codecpar, pMuxAudio->pStreamIn->codecpar->extradata, pMuxAudio->pStreamIn->codecpar->extradata_size);
     }
     pMuxAudio->pStreamOut->time_base = av_make_q(1, pMuxAudio->pStreamOut->codecpar->sample_rate);
-    if (srcCodecParam) {
-        avcodec_parameters_free(&srcCodecParam);
-    }
     pMuxAudio->pStreamOut->disposition = pInputAudio->src.pStream->disposition;
+
     if (pInputAudio->src.nSubStreamId != 0) {
         //substream(--audio-filterなどによる複製stream)の場合はデフォルトstreamではない
         pMuxAudio->pStreamOut->disposition &= (~AV_DISPOSITION_DEFAULT);
@@ -2302,50 +2313,52 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket 
         AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         return;
     }
-    if (samples) {
-        //durationについて、sample数から出力ストリームのtimebaseに変更する
-        pkt->stream_index = pMuxAudio->pStreamOut->index;
-        pkt->flags = AV_PKT_FLAG_KEY; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
-        const AVRational samplerate = { 1, (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx->sample_rate : pMuxAudio->pStreamIn->codecpar->sample_rate };
-        if (!pMuxAudio->pOutCodecEncodeCtx) {
+    //durationについて、sample数から出力ストリームのtimebaseに変更する
+    pkt->stream_index = pMuxAudio->pStreamOut->index;
+    pkt->flags = AV_PKT_FLAG_KEY; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
+    const AVRational samplerate = { 1, (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx->sample_rate : pMuxAudio->pStreamIn->codecpar->sample_rate };
+    if (!pMuxAudio->pOutCodecEncodeCtx) {
+        if (samples > 0) {
             pkt->pts = av_rescale_delta(pMuxAudio->pStreamIn->time_base, pkt->pts, samplerate, samples, &pMuxAudio->dec_rescale_delta, pMuxAudio->pStreamOut->time_base);
         } else {
-            pkt->pts = av_rescale_q(pkt->pts, pMuxAudio->pOutCodecEncodeCtx->time_base, pMuxAudio->pStreamOut->time_base);
+            pkt->pts = av_rescale_q(pkt->pts, pMuxAudio->pStreamIn->time_base, pMuxAudio->pStreamOut->time_base);
         }
-        if (m_Mux.video.pStreamOut) {
-            pkt->pts -= av_rescale_q(m_Mux.video.nInputFirstKeyPts, m_Mux.video.inputStreamTimebase, pMuxAudio->pStreamOut->time_base);
-        }
-        if (pMuxAudio->nLastPtsOut != AV_NOPTS_VALUE) {
-            //以前のptsより前になりそうになったら修正する
-            const auto maxPts = pMuxAudio->nLastPtsOut + !(m_Mux.format.pFormatCtx->flags & AVFMT_TS_NONSTRICT);
-            if (pkt->pts < maxPts) {
-                AddMessage(RGY_LOG_WARN, _T("Timestamp error in stream %d, previous: %lld, current: %lld [timebase: %d/%d].\n"),
+    } else {
+        pkt->pts = av_rescale_q(pkt->pts, pMuxAudio->pOutCodecEncodeCtx->time_base, pMuxAudio->pStreamOut->time_base);
+    }
+    if (m_Mux.video.pStreamOut) {
+        pkt->pts -= av_rescale_q(m_Mux.video.nInputFirstKeyPts, m_Mux.video.inputStreamTimebase, pMuxAudio->pStreamOut->time_base);
+    }
+    if (pMuxAudio->nLastPtsOut != AV_NOPTS_VALUE) {
+        //以前のptsより前になりそうになったら修正する
+        const auto maxPts = pMuxAudio->nLastPtsOut + !(m_Mux.format.pFormatCtx->oformat->flags & AVFMT_TS_NONSTRICT);
+        if (pkt->pts < maxPts) {
+            auto loglevel = (maxPts - pkt->pts > 2) ? RGY_LOG_WARN : RGY_LOG_DEBUG;
+            if (loglevel < m_pPrintMes->getLogLevel()) {
+                AddMessage(loglevel, _T("Timestamp error in stream %d, previous: %lld, current: %lld [timebase: %d/%d].\n"),
                     pMuxAudio->pStreamOut->index,
                     (long long int)pMuxAudio->nLastPtsOut,
                     (long long int)pkt->pts,
                     pMuxAudio->pStreamOut->time_base.num, pMuxAudio->pStreamOut->time_base.den);
-                AddMessage(RGY_LOG_WARN, _T("                              previous: %s current: %s\n"),
+                AddMessage(loglevel, _T("                              previous: %s current: %s\n"),
                     getTimestampString(pMuxAudio->nLastPtsOut, pMuxAudio->pStreamOut->time_base).c_str(),
                     getTimestampString(pkt->pts, pMuxAudio->pStreamOut->time_base).c_str());
-                AddMessage(RGY_LOG_WARN, _T("Chaging timestamp to %lld(%s), this may corrupt av-synchronization.\n"),
+                AddMessage(loglevel, _T("Chaging timestamp to %lld(%s), this may corrupt av-synchronization.\n"),
                     (long long int)maxPts, getTimestampString(maxPts, pMuxAudio->pStreamOut->time_base).c_str());
-                pkt->pts = maxPts;
             }
+            pkt->pts = maxPts;
         }
-        pkt->dts          = pkt->pts;
-        pkt->duration     = (int)av_rescale_q(samples, samplerate, pMuxAudio->pStreamOut->time_base);
-        if (pkt->duration == 0) {
-            pkt->duration = (int)(pkt->pts - pMuxAudio->nLastPtsOut);
-        }
-        pMuxAudio->nLastPtsOut = pkt->pts;
-        *pWrittenDts = av_rescale_q(pkt->dts, pMuxAudio->pStreamOut->time_base, QUEUE_DTS_TIMEBASE);
-        m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
-        pMuxAudio->nOutputSamples += samples;
-    } else {
-        //av_interleaved_write_frameに渡ったパケットは開放する必要がないが、
-        //それ以外は解放してやる必要がある
-        av_packet_unref(pkt);
     }
+    pkt->dts          = pkt->pts;
+    pkt->duration     = (int)av_rescale_q(samples, samplerate, pMuxAudio->pStreamOut->time_base);
+    if (pkt->duration == 0) {
+        pkt->duration = (int)(pkt->pts - pMuxAudio->nLastPtsOut);
+    }
+    pMuxAudio->nLastPtsOut = pkt->pts;
+    *pWrittenDts = av_rescale_q(pkt->dts, pMuxAudio->pStreamOut->time_base, QUEUE_DTS_TIMEBASE);
+    //av_interleaved_write_frameに渡ったパケットは開放する必要がない
+    m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
+    pMuxAudio->nOutputSamples += samples;
 }
 
 //音声/字幕パケットを実際に書き出す (構造体版)
