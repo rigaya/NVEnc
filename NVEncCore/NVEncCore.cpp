@@ -2610,7 +2610,7 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
     return nvStatus;
 }
 
-NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
+RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     FrameInfo inputFrame = { 0 };
     inputFrame.width = inputParam->input.srcWidth;
     inputFrame.height = inputParam->input.srcHeight;
@@ -2648,7 +2648,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (inputParam->vpp.nnedi.enable) deinterlacer++;
     if (deinterlacer >= 2) {
         PrintMes(RGY_LOG_ERROR, _T("Activating 2 or more deinterlacer is not supported.\n"));
-        return NV_ENC_ERR_UNIMPLEMENTED;
+        return RGY_ERR_UNSUPPORTED;
     }
 
     if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
@@ -2676,16 +2676,16 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 #if ENABLE_AVSW_READER
         if (!m_cuvidDec) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff can only be used with hw decoder.\n"));
-            return NV_ENC_ERR_UNIMPLEMENTED;
+            return RGY_ERR_UNSUPPORTED;
         }
 #endif //#if ENABLE_AVSW_READER
         if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-deinterlace.\n"));
-            return NV_ENC_ERR_UNIMPLEMENTED;
+            return RGY_ERR_UNSUPPORTED;
         }
         if (trim_active(&m_trimParam)) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
-            return NV_ENC_ERR_UNIMPLEMENTED;
+            return RGY_ERR_UNSUPPORTED;
         }
     }
     //フィルタが必要
@@ -2819,7 +2819,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         if (inputParam->vpp.afs.enable) {
             if ((inputParam->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
                 PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-afs.\n"));
-                return NV_ENC_ERR_INVALID_PARAM;
+                return RGY_ERR_INVALID_PARAM;
             }
             unique_ptr<NVEncFilter> filter(new NVEncFilterAfs());
             shared_ptr<NVEncFilterParamAfs> param(new NVEncFilterParamAfs());
@@ -2851,7 +2851,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         if (inputParam->vpp.nnedi.enable) {
             if ((inputParam->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
                 PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-nnedi.\n"));
-                return NV_ENC_ERR_INVALID_PARAM;
+                return RGY_ERR_INVALID_PARAM;
             }
             const auto selectedGpu = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& gpuinfo) {
                 return gpuinfo.id == device_id;
@@ -3185,7 +3185,7 @@ NVENCSTATUS NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             filter->CheckPerformance(inputParam->vpp.bCheckPerformance);
         }
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 bool NVEncCore::VppRffEnabled() {
@@ -3553,8 +3553,8 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("InitDecoder: Success.\n"));
 
     //必要ならフィルターを作成
-    if (NV_ENC_SUCCESS != (nvStatus = InitFilters(inputParam))) {
-        return nvStatus;
+    if (InitFilters(inputParam) != RGY_ERR_NONE) {
+        return NV_ENC_ERR_INVALID_PARAM;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitFilters: Success.\n"));
 
@@ -4153,9 +4153,9 @@ NVENCSTATUS NVEncCore::Encode() {
                 int nOutFrames = 0;
                 FrameInfo *outInfo[16] = { 0 };
                 auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
-                if (sts_filter != NV_ENC_SUCCESS) {
+                if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
-                    return sts_filter;
+                    return NV_ENC_ERR_GENERIC;
                 }
                 if (nOutFrames == 0) {
                     if (bDrain) {
@@ -4240,9 +4240,9 @@ NVENCSTATUS NVEncCore::Encode() {
                 outInfo[0] = &encFrameInfo;
                 auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
                 filterframes.pop_front();
-                if (sts_filter != NV_ENC_SUCCESS) {
+                if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
-                    return sts_filter;
+                    return NV_ENC_ERR_GENERIC;
                 }
                 auto pCudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()].get();
                 auto cudaret = cudaEventRecord(*pCudaEvent);

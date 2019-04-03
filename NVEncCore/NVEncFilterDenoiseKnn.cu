@@ -272,48 +272,48 @@ NVEncFilterDenoiseKnn::~NVEncFilterDenoiseKnn() {
     close();
 }
 
-NVENCSTATUS NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pKnnParam = std::dynamic_pointer_cast<NVEncFilterParamDenoiseKnn>(pParam);
     if (!pKnnParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
     if (pKnnParam->frameOut.height <= 0 || pKnnParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pKnnParam->knn.radius <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("radius must be a positive value.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pKnnParam->knn.radius > KNN_RADIUS_MAX) {
         AddMessage(RGY_LOG_ERROR, _T("radius must be <= %d.\n"), KNN_RADIUS_MAX);
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pKnnParam->knn.strength < 0.0 || 1.0 < pKnnParam->knn.strength) {
         AddMessage(RGY_LOG_ERROR, _T("strength should be 0.0 - 1.0.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pKnnParam->knn.lerpC < 0.0 || 1.0 < pKnnParam->knn.lerpC) {
         AddMessage(RGY_LOG_ERROR, _T("lerpC should be 0.0 - 1.0.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pKnnParam->knn.lerp_threshold < 0.0 || 1.0 < pKnnParam->knn.lerp_threshold) {
         AddMessage(RGY_LOG_ERROR, _T("th_lerp should be 0.0 - 1.0.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pKnnParam->knn.weight_threshold < 0.0 || 1.0 < pKnnParam->knn.weight_threshold) {
         AddMessage(RGY_LOG_ERROR, _T("th_weight should be 0.0 - 1.0.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     auto cudaerr = AllocFrameBuf(pKnnParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pKnnParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -324,8 +324,8 @@ NVENCSTATUS NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, sha
     return sts;
 }
 
-NVENCSTATUS NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {
         return sts;
@@ -344,16 +344,16 @@ NVENCSTATUS NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, Fram
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pKnnParam = std::dynamic_pointer_cast<NVEncFilterParamDenoiseKnn>(m_pParam);
     if (!pKnnParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     static const std::map<RGY_CSP, decltype(denoise_yv12<uint8_t, 8>)*> denoise_list = {
@@ -364,7 +364,7 @@ NVENCSTATUS NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, Fram
     };
     if (denoise_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
-        return NV_ENC_ERR_UNIMPLEMENTED;
+        return RGY_ERR_UNSUPPORTED;
     }
     denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pKnnParam->knn.radius, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold);
     auto cudaerr = cudaGetLastError();
@@ -372,7 +372,7 @@ NVENCSTATUS NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, Fram
         AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return NV_ENC_ERR_INVALID_CALL;
+        return RGY_ERR_CUDA;
     }
     return sts;
 }

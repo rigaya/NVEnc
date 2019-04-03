@@ -196,25 +196,25 @@ NVEncFilterTweak::~NVEncFilterTweak() {
     close();
 }
 
-NVENCSTATUS NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pTweakParam = std::dynamic_pointer_cast<NVEncFilterParamTweak>(pParam);
     if (!pTweakParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //delogoは常に元のフレームを書き換え
     if (!pTweakParam->bOutOverwrite) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid param, delogo will overwrite input frame.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     pTweakParam->frameOut = pTweakParam->frameIn;
 
     //パラメータチェック
     if (pTweakParam->frameOut.height <= 0 || pTweakParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pTweakParam->tweak.brightness < -1.0f || 1.0f < pTweakParam->tweak.brightness) {
         pTweakParam->tweak.brightness = clamp(pTweakParam->tweak.brightness, -1.0f, 1.0f);
@@ -241,8 +241,8 @@ NVENCSTATUS NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     return sts;
 }
 
-NVENCSTATUS NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;
     }
@@ -250,26 +250,26 @@ NVENCSTATUS NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("ppOutputFrames[0] must be set.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (!ppOutputFrames[0]->deivce_mem) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     const auto memcpyKind = getCudaMemcpyKind(ppOutputFrames[0]->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
     auto pTweakParam = std::dynamic_pointer_cast<NVEncFilterParamTweak>(m_pParam);
     if (!pTweakParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     static const std::map<RGY_CSP, decltype(tweak_yv12<uint8_t, uchar4, 8>)*> tweak_list = {
@@ -280,7 +280,7 @@ NVENCSTATUS NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo
     };
     if (tweak_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
-        return NV_ENC_ERR_UNIMPLEMENTED;
+        return RGY_ERR_UNSUPPORTED;
     }
     tweak_list.at(pInputFrame->csp)(ppOutputFrames[0],
         pTweakParam->tweak.contrast,
@@ -293,7 +293,7 @@ NVENCSTATUS NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo
         AddMessage(RGY_LOG_ERROR, _T("error at tweak(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return NV_ENC_ERR_INVALID_CALL;
+        return RGY_ERR_CUDA;
     }
     return sts;
 }

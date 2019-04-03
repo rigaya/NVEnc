@@ -229,13 +229,13 @@ class NVEncFilterAfs : public NVEncFilter {
 public:
     NVEncFilterAfs();
     virtual ~NVEncFilterAfs();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
     static void set_preset(VppAfs *pVppAfs, int preset);
     static int read_afs_inifile(VppAfs *pVppAfs, const TCHAR *inifile);
 protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     virtual void close() override;
-    NVENCSTATUS check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam);
+    RGY_ERR check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam);
 
     cudaError_t analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_SCAN_DATA *sp, CUMemBufPair *count_motion, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
     bool scan_frame_result_cached(int iframe, const VppAfs *pAfsPrm);

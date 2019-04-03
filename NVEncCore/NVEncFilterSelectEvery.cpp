@@ -45,13 +45,13 @@ NVEncFilterSelectEvery::~NVEncFilterSelectEvery() {
     close();
 }
 
-NVENCSTATUS NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pSelectParam = std::dynamic_pointer_cast<NVEncFilterParamSelectEvery>(pParam);
     if (!pSelectParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     pSelectParam->frameOut.pitch = pSelectParam->frameIn.pitch;
@@ -60,7 +60,7 @@ NVENCSTATUS NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, sh
     auto cudaerr = AllocFrameBuf(pSelectParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
 
     m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
@@ -70,13 +70,13 @@ NVENCSTATUS NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, sh
     return sts;
 }
 
-NVENCSTATUS NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
 
     auto pSelectParam = std::dynamic_pointer_cast<NVEncFilterParamSelectEvery>(m_pParam);
     if (!pSelectParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     ppOutputFrames[0] = nullptr;
@@ -89,7 +89,7 @@ NVENCSTATUS NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, Fra
                 const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, pOutFrame->frame.deivce_mem);
                 if (memcpyKind != cudaMemcpyDeviceToDevice) {
                     AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-                    return NV_ENC_ERR_UNSUPPORTED_PARAM;
+                    return RGY_ERR_INVALID_PARAM;
                 }
                 const auto frameInfoEx = getFrameInfoExtra(pInputFrame);
                 auto cudaerr = cudaMemcpy2DAsync(pOutFrame->frame.ptr, pOutFrame->frame.pitch,
@@ -97,7 +97,7 @@ NVENCSTATUS NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, Fra
                     cudaMemcpyDeviceToDevice);
                 if (cudaerr != CUDA_SUCCESS) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_CUDA;
                 }
             }
             ppOutputFrames[0] = &pOutFrame->frame;
@@ -118,7 +118,7 @@ NVENCSTATUS NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, Fra
         const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, pOutFrame->frame.deivce_mem);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+            return RGY_ERR_INVALID_PARAM;
         }
         const auto frameInfoEx = getFrameInfoExtra(pInputFrame);
         auto cudaerr = cudaMemcpy2DAsync(pOutFrame->frame.ptr, pOutFrame->frame.pitch,
@@ -126,7 +126,7 @@ NVENCSTATUS NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, Fra
             cudaMemcpyDeviceToDevice);
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_CUDA;
         }
     }
     if (m_frames % pSelectParam->selectevery.step == (pSelectParam->selectevery.step-1)) {

@@ -57,12 +57,12 @@ public:
 public:
     NVEncFilterNnedi();
     virtual ~NVEncFilterNnedi();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     virtual void close() override;
-    virtual NVENCSTATUS checkParam(const std::shared_ptr<NVEncFilterParamNnedi> pParam);
-    virtual NVENCSTATUS initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
+    virtual RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamNnedi> pParam);
+    virtual RGY_ERR initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
 
     template<typename TypeWeight>
     void setWeight0(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);

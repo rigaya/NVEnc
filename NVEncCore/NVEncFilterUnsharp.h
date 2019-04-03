@@ -42,12 +42,12 @@ class NVEncFilterUnsharp : public NVEncFilter {
 public:
     NVEncFilterUnsharp();
     virtual ~NVEncFilterUnsharp();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
-    NVENCSTATUS unsharpYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pWeight);
-    NVENCSTATUS unsharpYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pWeight);
-    NVENCSTATUS setWeight(unique_ptr<CUMemBuf>& m_pGaussWeightBuf, int radius, float sigma);
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    RGY_ERR unsharpYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pWeight);
+    RGY_ERR unsharpYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pWeight);
+    RGY_ERR setWeight(unique_ptr<CUMemBuf>& m_pGaussWeightBuf, int radius, float sigma);
     virtual void close() override;
 
     bool m_bInterlacedWarn;

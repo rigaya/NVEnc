@@ -338,48 +338,48 @@ int NVEncFilterDelogo::selectLogo(const tstring& selectStr, const tstring& input
     return LOGO_AUTO_SELECT_NOHIT;
 }
 
-NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(pParam);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //delogoは常に元のフレームを書き換え
     if (!pDelogoParam->bOutOverwrite) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid param, delogo will overwrite input frame.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     pDelogoParam->frameOut = pDelogoParam->frameIn;
 
     //パラメータチェック
     int ret_logofile = readLogoFile(pDelogoParam);
     if (ret_logofile > 0) {
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     const int logoidx = selectLogo(pDelogoParam->delogo.logoSelect, pDelogoParam->inputFileName);
     if (logoidx < 0) {
         if (logoidx == LOGO_AUTO_SELECT_NOHIT) {
             AddMessage(RGY_LOG_ERROR, _T("no logo was selected by auto select \"%s\".\n"), pDelogoParam->delogo.logoSelect.c_str());
-            return NV_ENC_ERR_INVALID_PARAM;
+            return RGY_ERR_INVALID_PARAM;
         } else {
             AddMessage(RGY_LOG_ERROR, _T("could not select logo by \"%s\".\n"), pDelogoParam->delogo.logoSelect.c_str());
             AddMessage(RGY_LOG_ERROR, char_to_tstring(logoNameList()));
-            return NV_ENC_ERR_INVALID_PARAM;
+            return RGY_ERR_INVALID_PARAM;
         }
     }
     if (pDelogoParam->frameOut.height <= 0 || pDelogoParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pDelogoParam->delogo.NRArea < 0 || 3 < pDelogoParam->delogo.NRArea) {
         AddMessage(RGY_LOG_ERROR, _T("nr_area must be in range of 0 - 3.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pDelogoParam->delogo.NRValue < 0 || 4 < pDelogoParam->delogo.NRValue) {
         AddMessage(RGY_LOG_ERROR, _T("nr_value must be in range of 0 - 4.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (ret_logofile == 0 || m_nLogoIdx != logoidx) {
         m_nLogoIdx = logoidx;
@@ -439,7 +439,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
         if (logoData.header.x >= frameWidth || logoData.header.y >= frameHeight) {
             AddMessage(RGY_LOG_ERROR, _T("\"%s\" was not included in frame size %dx%d.\ndelogo disabled.\n"), pDelogoParam->delogo.logoSelect.c_str(), frameWidth, frameHeight);
             AddMessage(RGY_LOG_ERROR, _T("logo pos x=%d, y=%d, including pos offset value %d:%d.\n"), logoData.header.x, logoData.header.y, pDelogoParam->delogo.posX, pDelogoParam->delogo.posY);
-            return NV_ENC_ERR_INVALID_PARAM;
+            return RGY_ERR_INVALID_PARAM;
         }
 
         m_sProcessData[LOGO__Y].pLogoPtr.reset((int16_t *)_aligned_malloc(sizeof(int16_t) * 2 * m_sProcessData[LOGO__Y].width * m_sProcessData[LOGO__Y].height, 32));
@@ -534,7 +534,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 m_pFrameBuf.clear();
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for logo data %d: %s.\n"),
                     i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
             m_sProcessData[i].pDevLogo = std::move(uptr);
             //ロゴデータをGPUに転送
@@ -561,7 +561,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 m_pFrameBuf.clear();
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for frame buffer: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
             m_mask.reset(           new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
             m_maskAdjusted.reset(   new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y16));
@@ -571,45 +571,45 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_mask: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
             cudaerr = m_maskAdjusted->alloc();
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_maskAdjusted: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
             cudaerr = m_maskNR->alloc();
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_maskNR: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
             cudaerr = m_maskNRAdjusted->alloc();
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_maskNRAdjusted: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
 
             const int mask_pitch = m_mask->frame.pitch;
             auto pitch_check = [=](int frame_pitch, const TCHAR *buf_name) {
                 if (mask_pitch != frame_pitch) {
                     AddMessage(RGY_LOG_ERROR, _T("%s pitch does not match mask pitch: logo=%d, %s=%d.\n"), buf_name, mask_pitch, buf_name, frame_pitch);
-                    return NV_ENC_ERR_UNSUPPORTED_PARAM;
+                    return RGY_ERR_UNSUPPORTED;
                 }
-                return NV_ENC_SUCCESS;
+                return RGY_ERR_NONE;
             };
-            if (pitch_check(m_maskAdjusted->frame.pitch, _T("m_maskAdjusted")) != NV_ENC_SUCCESS) return NV_ENC_ERR_UNSUPPORTED_PARAM;
-            if (pitch_check(m_maskNR->frame.pitch, _T("m_maskNR")) != NV_ENC_SUCCESS) return NV_ENC_ERR_UNSUPPORTED_PARAM;
-            if (pitch_check(m_maskNRAdjusted->frame.pitch, _T("m_maskNRAdjusted")) != NV_ENC_SUCCESS) return NV_ENC_ERR_UNSUPPORTED_PARAM;
+            if (pitch_check(m_maskAdjusted->frame.pitch, _T("m_maskAdjusted")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+            if (pitch_check(m_maskNR->frame.pitch, _T("m_maskNR")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+            if (pitch_check(m_maskNRAdjusted->frame.pitch, _T("m_maskNRAdjusted")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
 
             m_adjMaskMinIndex.reset(new CUFrameBuf(logo_w, logo_h, RGY_CSP_Y8));
             cudaerr = m_adjMaskMinIndex->alloc();
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMaskMinIndex: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
 
             m_adjMaskThresholdTest.reset(new CUFrameBuf(logo_w, logo_h * DELOGO_ADJMASK_DIV_COUNT, RGY_CSP_Y16));
@@ -617,7 +617,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMaskThresholdTest: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
 
             if (   m_bufDelogo.size() != m_bufDelogoNR.size()
@@ -625,7 +625,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 || m_bufDelogo.size() != m_evalCounter.size()) {
                 AddMessage(RGY_LOG_ERROR, _T("internal error, invalid array size\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_UNSUPPORTED_PARAM;
+                return RGY_ERR_INVALID_PARAM;
             }
 
             for (size_t i = 0; i < m_bufDelogo.size(); i++) {
@@ -636,37 +636,37 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_bufDelogo[%d]: %s.\n"),
                         i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
                 cudaerr = m_bufDelogoNR[i]->alloc();
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_bufDelogoNR[%d]: %s.\n"),
                         i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
                 cudaerr = m_bufEval[i]->alloc();
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_bufEval[%d]: %s.\n"),
                         i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
-                if (pitch_check(m_bufDelogo[i]->frame.pitch, _T("m_bufDelogo[i]")) != NV_ENC_SUCCESS) return NV_ENC_ERR_UNSUPPORTED_PARAM;
-                if (pitch_check(m_bufDelogoNR[i]->frame.pitch, _T("m_bufDelogoNR[i]")) != NV_ENC_SUCCESS) return NV_ENC_ERR_UNSUPPORTED_PARAM;
-                if (pitch_check(m_bufEval[i]->frame.pitch, _T("m_bufEval[i]")) != NV_ENC_SUCCESS) return NV_ENC_ERR_UNSUPPORTED_PARAM;
+                if (pitch_check(m_bufDelogo[i]->frame.pitch, _T("m_bufDelogo[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+                if (pitch_check(m_bufDelogoNR[i]->frame.pitch, _T("m_bufDelogoNR[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
+                if (pitch_check(m_bufEval[i]->frame.pitch, _T("m_bufEval[i]")) != RGY_ERR_NONE) return RGY_ERR_INVALID_PARAM;
 
                 const int maxBlocks = DELOGO_PARALLEL_FADE * divCeil(logo_w, DELOGO_BLOCK_X * 4) * divCeil(logo_h, DELOGO_BLOCK_Y * DELOGO_BLOCK_LOOP_Y);
                 cudaerr = m_evalCounter[i].alloc(sizeof(float) * maxBlocks);
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_evalCounter[%d]: %s.\n"),
                         i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
 
                 cudaerr = m_evalStream[i].init(pDelogoParam->cudaSchedule);
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to create stream or event for m_evalStream[%d]: %s.\n"),
                         i, char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
             }
             m_NRProcTemp.reset(new CUFrameBuf(logo_w, logo_h, RGY_CSP_BIT_DEPTH[pDelogoParam->frameIn.csp] > 8 ? RGY_CSP_Y16 : RGY_CSP_Y8));
@@ -674,7 +674,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_NRProcTemp: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
 
             const int maxBlocks = divCeil(logo_w, DELOGO_BLOCK_X * 4) * divCeil(logo_h, DELOGO_BLOCK_Y);
@@ -682,26 +682,26 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMaskMinResAndValidMaskCount: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
             cudaerr = m_adjMaskEachFadeCount.alloc(sizeof(int) * (DELOGO_PRE_DIV_COUNT+1));
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMaskEachFadeCount: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
             cudaerr = m_adjMask2ValidMaskCount.alloc(sizeof(int) * (1 + maxBlocks * DELOGO_ADJMASK_DIV_COUNT));
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMask2ValidMaskCount: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_OUT_OF_MEMORY;
+                return RGY_ERR_MEMORY_ALLOC;
             }
 
             cudaerr = m_adjMaskStream.init(pDelogoParam->cudaSchedule, true);
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to create stream or event for m_adjMaskStream: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_GENERIC;
+                return RGY_ERR_CUDA;
             }
 
             if (!m_adjMask2TargetCount) {
@@ -710,7 +710,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_adjMask2TargetCount: %s.\n"),
                         char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
                 m_adjMask2TargetCount = unique_ptr<void, cudadevice_deleter>(ptr, cudadevice_deleter());
             }
@@ -721,7 +721,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_smoothKernel: %s.\n"),
                         char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
                 m_smoothKernel = unique_ptr<void, cudadevice_deleter>(ptr, cudadevice_deleter());
                 std::array<float, LOGO_NR_MAX * 2 + 1> smooth_kernel;
@@ -730,7 +730,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to copy smooth_kernel: %s.\n"),
                         char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_GENERIC;
+                    return RGY_ERR_CUDA;
                 }
             }
 
@@ -739,7 +739,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_fadeValueAdjust: %s.\n"),
                         char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
             }
             auto fade_cpu = (float *)m_fadeValueAdjust.ptrHost;
@@ -750,7 +750,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy fade_cpu: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_GENERIC;
+                return RGY_ERR_CUDA;
             }
 
             if (m_fadeValueParallel.nSize == 0) {
@@ -758,7 +758,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_fadeValueParallel: %s.\n"),
                         char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
             }
             auto parallel_fade = (float *)m_fadeValueParallel.ptrHost;
@@ -769,7 +769,7 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy parallel_fade: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_GENERIC;
+                return RGY_ERR_CUDA;
             }
 
             if (m_fadeValueTemp.nSize == 0) {
@@ -777,13 +777,13 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for m_fadeValueTemp: %s.\n"),
                         char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                    return NV_ENC_ERR_OUT_OF_MEMORY;
+                    return RGY_ERR_MEMORY_ALLOC;
                 }
             }
-            if (NV_ENC_SUCCESS != (sts = createLogoMask())) {
+            if (RGY_ERR_NONE != (sts = createLogoMask())) {
                 return sts;
             }
-            if (NV_ENC_SUCCESS != (sts = createNRMask(m_maskNR.get(), m_mask.get(), pDelogoParam->delogo.NRArea))) {
+            if (RGY_ERR_NONE != (sts = createNRMask(m_maskNR.get(), m_mask.get(), pDelogoParam->delogo.NRArea))) {
                 return sts;
             }
         }
@@ -834,11 +834,11 @@ NVENCSTATUS NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_
     return sts;
 }
 
-NVENCSTATUS NVEncFilterDelogo::createLogoMask() {
+RGY_ERR NVEncFilterDelogo::createLogoMask() {
     for (float target_ratio = 0.1f; target_ratio >= 0.01f; target_ratio -= 0.01f) {
         for (float threshold = (float)DELOGO_MASK_THRESHOLD_DEFAULT; threshold >= 200.0f; threshold *= 0.95f) {
             auto sts = createLogoMask((int)(threshold + 0.5f));
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             };
             const float ratio = m_maskValidCount / (float)(m_sProcessData[LOGO__Y].width * m_sProcessData[LOGO__Y].height);
@@ -846,23 +846,23 @@ NVENCSTATUS NVEncFilterDelogo::createLogoMask() {
                 (int)(threshold + 0.5f), m_maskValidCount, ratio * 100.0f);
             if (ratio >= target_ratio) {
                 m_maskThreshold = (int)(threshold + 0.5f);
-                return NV_ENC_SUCCESS;
+                return RGY_ERR_NONE;
             }
         }
     }
-    return NV_ENC_ERR_GENERIC;
+    return RGY_ERR_UNKNOWN;
 }
 
-NVENCSTATUS NVEncFilterDelogo::autoFadeLS2(float& auto_fade, const int nr_value) {
+RGY_ERR NVEncFilterDelogo::autoFadeLS2(float& auto_fade, const int nr_value) {
     if (m_fadeValueParallel.nSize != sizeof(float) * DELOGO_PARALLEL_FADE) {
         AddMessage(RGY_LOG_ERROR, _T("m_fadeValueParallel.nSize != sizeof(float) * DELOGO_PARALLEL_FADE (%d != %d).\n"),
             m_fadeValueParallel.nSize, sizeof(float) * DELOGO_PARALLEL_FADE);
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     std::vector<float> eval(DELOGO_PARALLEL_FADE);
     auto sts = autoFadeCoef2Collect(eval, nr_value, *m_evalStream[nr_value].heEvalCopyFin.get());
-    if (sts != NV_ENC_SUCCESS) return sts;
+    if (sts != RGY_ERR_NONE) return sts;
 
     const double depth_inv = 1.0 / m_sProcessData[LOGO__Y].depth;
     std::array<double, DELOGO_PARALLEL_FADE> x, y;
@@ -928,7 +928,7 @@ NVENCSTATUS NVEncFilterDelogo::autoFadeLS2(float& auto_fade, const int nr_value)
     }
     auto_fade = clamp(auto_fade, 0.0f, LOGO_FADE_MAX * 1.15f);
 
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 #if 0
@@ -952,10 +952,10 @@ NVENCSTATUS NVEncFilterDelogo::autoFade4(float& auto_fade, const FrameInfo *fram
 
                 std::vector<float> eval(1);
                 auto sts = autoFadeCoef2Run(false, frame_logo, nr_value, nr_area, (const float *)m_fadeValueTemp.ptrDevice, (int)eval.size());
-                if (sts != NV_ENC_SUCCESS) return sts;
+                if (sts != RGY_ERR_NONE) return sts;
 
                 sts = autoFadeCoef2Collect(eval, nr_value);
-                if (sts != NV_ENC_SUCCESS) return sts;
+                if (sts != RGY_ERR_NONE) return sts;
 
                 results[i] = eval[0];
                 if (eval[0] < minResult) {
@@ -998,35 +998,35 @@ NVENCSTATUS NVEncFilterDelogo::autoFade4(float& auto_fade, const FrameInfo *fram
 
         std::vector<float> eval(1);
         auto sts = autoFadeCoef2Run(false, frame_logo, nr_value, nr_area, (const float *)m_fadeValueTemp.ptrDevice, (int)eval.size());
-        if (sts != NV_ENC_SUCCESS) return sts;
+        if (sts != RGY_ERR_NONE) return sts;
 
         sts = autoFadeCoef2Collect(eval, nr_value);
-        if (sts != NV_ENC_SUCCESS) return sts;
+        if (sts != RGY_ERR_NONE) return sts;
 
         if (eval[0] < minResult) {
             minResult = eval[0];
             auto_fade = fade;
         }
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 #endif
 
-NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const FrameInfo *pFrame) {
+RGY_ERR NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const FrameInfo *pFrame) {
     // Frame毎に調整したMaskの作成
     auto sts = createAdjustedMask(pFrame);
-    if (sts != NV_ENC_SUCCESS) return sts;
+    if (sts != RGY_ERR_NONE) return sts;
 
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pDelogoParam->delogo.autoNR) {
         auto_fade = 0.0f;
         for (int nh = LOGO_NR_MAX; nh >= 0; nh--) {
             cudaStreamWaitEvent(*m_evalStream[nh].stEval.get(), *m_adjMaskStream.heEvalCopyFin.get(), 0);
-            if (NV_ENC_SUCCESS != (sts = autoFadeCoef2Run(false, pFrame, nh, pDelogoParam->delogo.NRArea,
+            if (RGY_ERR_NONE != (sts = autoFadeCoef2Run(false, pFrame, nh, pDelogoParam->delogo.NRArea,
                 (const float *)m_fadeValueParallel.ptrDevice, DELOGO_PARALLEL_FADE,
                 m_evalStream[nh]))) {
                 return sts;
@@ -1034,7 +1034,7 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fad
         }
         for (int nh = 0; nh <= LOGO_NR_MAX; nh++) {
             float temp_fade = 0.0f;
-            if (NV_ENC_SUCCESS != (sts = autoFadeLS2(auto_fade, nh))) {
+            if (RGY_ERR_NONE != (sts = autoFadeLS2(auto_fade, nh))) {
                 return sts;
             }
             if (temp_fade > auto_fade) {
@@ -1044,23 +1044,23 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fad
         }
     } else {
         auto_nr = pDelogoParam->delogo.NRValue;
-        if (NV_ENC_SUCCESS != (sts = autoFadeCoef2Run(false, pFrame, auto_nr, pDelogoParam->delogo.NRArea,
+        if (RGY_ERR_NONE != (sts = autoFadeCoef2Run(false, pFrame, auto_nr, pDelogoParam->delogo.NRArea,
             (const float *)m_fadeValueParallel.ptrDevice, DELOGO_PARALLEL_FADE,
             m_evalStream[auto_nr]))) {
             return sts;
         }
-        if (NV_ENC_SUCCESS != (sts = autoFadeLS2(auto_fade, auto_nr))) {
+        if (RGY_ERR_NONE != (sts = autoFadeLS2(auto_fade, auto_nr))) {
             return sts;
         }
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 #pragma warning (push)
 #pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
-NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, const FrameInfo *pFrame) {
+RGY_ERR NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, const FrameInfo *pFrame) {
     auto sts = calcAutoFadeNRFrame(auto_nr, auto_fade, pFrame);
-    if (sts != NV_ENC_SUCCESS) return sts;
+    if (sts != RGY_ERR_NONE) return sts;
 
     m_fadeArray[m_frameOut].frameId = m_frameOut;
     m_fadeArray[m_frameOut].fade = auto_fade;
@@ -1140,15 +1140,15 @@ NVENCSTATUS NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, co
         }
     }
     m_fadeArray[m_frameOut].adjFade = auto_fade;
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 #pragma warning (pop)
 
-NVENCSTATUS NVEncFilterDelogo::logAutoFadeNR() {
+RGY_ERR NVEncFilterDelogo::logAutoFadeNR() {
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pDelogoParam->delogo.log
         && (pDelogoParam->delogo.autoFade || pDelogoParam->delogo.autoNR)) {
@@ -1161,25 +1161,25 @@ NVENCSTATUS NVEncFilterDelogo::logAutoFadeNR() {
                 m_fadeArray[m_frameOut].fade);
         }
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
-NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
 
     *pOutputFrameNum = 1;
     if (ppOutputFrames[0] && !ppOutputFrames[0]->deivce_mem) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
     if (!pDelogoParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     float fade = (float)m_sProcessData[LOGO__Y].fade;
@@ -1198,7 +1198,7 @@ NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInf
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy input frame to buffer: %s.\n"),
                     char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-                return NV_ENC_ERR_GENERIC;
+                return RGY_ERR_CUDA;
             }
             m_frameIn++;
         } else if (m_frameIn <= m_frameOut) {
@@ -1209,7 +1209,7 @@ NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInf
         } else {
             pInputFrame = &m_src[m_frameIn].frame;
         }
-        if (NV_ENC_SUCCESS != (sts = calcAutoFadeNR(auto_nr, fade, pInputFrame))) {
+        if (RGY_ERR_NONE != (sts = calcAutoFadeNR(auto_nr, fade, pInputFrame))) {
             return sts;
         }
         if (m_frameIn < 3) {
@@ -1229,25 +1229,25 @@ NVENCSTATUS NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInf
         }
         if (ppOutputFrames[0] == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("ppOutputFrames[0] must be set.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+            return RGY_ERR_INVALID_PARAM;
         }
         m_frameIn++;
         m_frameOut++;
     }
 
-    if (NV_ENC_SUCCESS != (sts = delogoY(ppOutputFrames[0], fade))) {
+    if (RGY_ERR_NONE != (sts = delogoY(ppOutputFrames[0], fade))) {
         return sts;
     }
 
-    if (NV_ENC_SUCCESS != (sts = delogoUV(ppOutputFrames[0], fade))) {
+    if (RGY_ERR_NONE != (sts = delogoUV(ppOutputFrames[0], fade))) {
         return sts;
     }
 
-    if (NV_ENC_SUCCESS != (sts = logoNR(ppOutputFrames[0], pDelogoParam->delogo.NRValue))) {
+    if (RGY_ERR_NONE != (sts = logoNR(ppOutputFrames[0], pDelogoParam->delogo.NRValue))) {
         return sts;
     }
 
-    if (NV_ENC_SUCCESS != (sts = logAutoFadeNR())) {
+    if (RGY_ERR_NONE != (sts = logAutoFadeNR())) {
         return sts;
     }
     return sts;

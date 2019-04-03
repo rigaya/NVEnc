@@ -315,7 +315,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         memset(&param->crop, 0, sizeof(param->crop));
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init CopyHtoD.\n"));
             return sts;
         }
@@ -339,7 +339,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init nnedi.\n"));
             return sts;
         }
@@ -361,7 +361,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init knn.\n"));
             return sts;
         }
@@ -383,7 +383,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init pmd.\n"));
             return sts;
         }
@@ -414,7 +414,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         }
 #endif
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init resize.\n"));
             return sts;
         }
@@ -438,7 +438,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init unsharp.\n"));
             return sts;
         }
@@ -460,7 +460,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init edgelevel.\n"));
             return sts;
         }
@@ -482,7 +482,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = true;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init edgelevel.\n"));
             return sts;
         }
@@ -504,7 +504,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init deband.\n"));
             return sts;
         }
@@ -528,7 +528,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->bOutOverwrite = false;
         memset(&param->crop, 0, sizeof(param->crop));
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init CopyDtoH.\n"));
             return sts;
         }
@@ -582,7 +582,7 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
         int nOutFrames = 0;
         FrameInfo *outInfo[16] = { 0 };
         auto sts_filter = m_vpFilters[ifilter]->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
-        if (sts_filter != NV_ENC_SUCCESS) {
+        if (sts_filter != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
             return sts_filter;
         }
@@ -598,7 +598,7 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
     FrameInfo *outInfo[16] = { 0 };
     outInfo[0] = &m_host[1].frame;
     auto sts_filter = lastFilter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
-    if (sts_filter != NV_ENC_SUCCESS) {
+    if (sts_filter != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
         close();
         return sts_filter;

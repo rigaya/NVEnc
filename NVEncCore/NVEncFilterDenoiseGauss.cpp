@@ -74,16 +74,16 @@ static NppStatus denoise_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFr
     return NPP_SUCCESS;
 }
 
-NVENCSTATUS NVEncFilterDenoiseGauss::denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDenoiseGauss::denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+    RGY_ERR sts = RGY_ERR_NONE;
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pGaussParam = std::dynamic_pointer_cast<NVEncFilterParamGaussDenoise>(m_pParam);
     if (!pGaussParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     const auto supportedCspYV12High = make_array<RGY_CSP>(RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     NppStatus nppsts = NPP_SUCCESS;
@@ -91,19 +91,19 @@ NVENCSTATUS NVEncFilterDenoiseGauss::denoiseYV12(FrameInfo *pOutputFrame, const 
         nppsts = denoise_yv12<Npp8u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_8u_C1R, pGaussParam->masksize);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = NV_ENC_ERR_GENERIC;
+            sts = RGY_ERR_UNKNOWN;
         }
     } else if (std::find(supportedCspYV12High.begin(), supportedCspYV12High.end(), pGaussParam->frameIn.csp) != supportedCspYV12High.end()) {
         nppsts = denoise_yv12<Npp16u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_16u_C1R, pGaussParam->masksize);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = NV_ENC_ERR_GENERIC;
+            sts = RGY_ERR_UNKNOWN;
         }
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
-        sts = NV_ENC_ERR_UNIMPLEMENTED;
+        sts = RGY_ERR_UNSUPPORTED;
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 template<typename T, typename Tfunc>
@@ -140,16 +140,16 @@ static NppStatus denoise_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInput
     return NPP_SUCCESS;
 }
 
-NVENCSTATUS NVEncFilterDenoiseGauss::denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDenoiseGauss::denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+    RGY_ERR sts = RGY_ERR_NONE;
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pGaussParam = std::dynamic_pointer_cast<NVEncFilterParamGaussDenoise>(m_pParam);
     if (!pGaussParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     const auto supportedCspYUV444High = make_array<RGY_CSP>(RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
     NppStatus nppsts = NPP_SUCCESS;
@@ -157,19 +157,19 @@ NVENCSTATUS NVEncFilterDenoiseGauss::denoiseYUV444(FrameInfo *pOutputFrame, cons
         nppsts = denoise_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_8u_C1R, pGaussParam->masksize);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = NV_ENC_ERR_GENERIC;
+            sts = RGY_ERR_UNKNOWN;
         }
     } else if (std::find(supportedCspYUV444High.begin(), supportedCspYUV444High.end(), pGaussParam->frameIn.csp) != supportedCspYUV444High.end()) {
         nppsts = denoise_yuv444<Npp16u>(pOutputFrame, pInputFrame, nppiFilterGaussBorder_16u_C1R, pGaussParam->masksize);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to denoise: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = NV_ENC_ERR_GENERIC;
+            sts = RGY_ERR_UNKNOWN;
         }
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
-        sts = NV_ENC_ERR_UNIMPLEMENTED;
+        sts = RGY_ERR_UNSUPPORTED;
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterDenoiseGauss::NVEncFilterDenoiseGauss() : m_bInterlacedWarn(false) {
@@ -180,28 +180,28 @@ NVEncFilterDenoiseGauss::~NVEncFilterDenoiseGauss() {
     close();
 }
 
-NVENCSTATUS NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pGaussParam = std::dynamic_pointer_cast<NVEncFilterParamGaussDenoise>(pParam);
     if (!pGaussParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (!check_if_nppi_dll_available()) {
         AddMessage(RGY_LOG_ERROR, _T("vpp-gauss requires \"%s\", not available on your system.\n"), NPPI_DLL_NAME_TSTR);
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_NOT_FOUND;
     }
     //パラメータチェック
     if (pGaussParam->frameOut.height <= 0 || pGaussParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     auto cudaerr = AllocFrameBuf(pGaussParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pGaussParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -211,8 +211,8 @@ NVENCSTATUS NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, s
     return sts;
 }
 
-NVENCSTATUS NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {
         return sts;
@@ -231,11 +231,11 @@ NVENCSTATUS NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, Fr
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
@@ -246,7 +246,7 @@ NVENCSTATUS NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, Fr
         sts = denoiseYUV444(ppOutputFrames[0], pInputFrame);
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
-        sts = NV_ENC_ERR_UNIMPLEMENTED;
+        sts = RGY_ERR_UNSUPPORTED;
     }
     return sts;
 }

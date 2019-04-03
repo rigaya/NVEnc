@@ -286,18 +286,18 @@ NVEncFilterEdgelevel::~NVEncFilterEdgelevel() {
     close();
 }
 
-NVENCSTATUS NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pEdgelevelParam = std::dynamic_pointer_cast<NVEncFilterParamEdgelevel>(pParam);
     if (!pEdgelevelParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
     if (pEdgelevelParam->frameOut.height <= 0 || pEdgelevelParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pEdgelevelParam->edgelevel.strength < -31.0f || 31.0f < pEdgelevelParam->edgelevel.strength) {
         pEdgelevelParam->edgelevel.strength = clamp(pEdgelevelParam->edgelevel.strength, -31.0f, 31.0f);
@@ -319,7 +319,7 @@ NVENCSTATUS NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shar
     auto cudaerr = AllocFrameBuf(pEdgelevelParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pEdgelevelParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -331,8 +331,8 @@ NVENCSTATUS NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shar
     return sts;
 }
 
-NVENCSTATUS NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;
     }
@@ -350,16 +350,16 @@ NVENCSTATUS NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, Frame
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pEdgelevelParam = std::dynamic_pointer_cast<NVEncFilterParamEdgelevel>(m_pParam);
     if (!pEdgelevelParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     static const std::map<RGY_CSP, decltype(edgelevel_yv12<uint8_t, 8>)*> denoise_list = {
@@ -370,7 +370,7 @@ NVENCSTATUS NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, Frame
     };
     if (denoise_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
-        return NV_ENC_ERR_UNIMPLEMENTED;
+        return RGY_ERR_UNSUPPORTED;
     }
     denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame,
         pEdgelevelParam->edgelevel.strength,
@@ -382,7 +382,7 @@ NVENCSTATUS NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, Frame
         AddMessage(RGY_LOG_ERROR, _T("error at edgelevel(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return NV_ENC_ERR_INVALID_CALL;
+        return RGY_ERR_CUDA;
     }
     return sts;
 }

@@ -208,7 +208,7 @@ protected:
     NVENCSTATUS InitDecoder(const InEncodeVideoParam *inputParam);
 
     //デコーダインスタンスを作成
-    NVENCSTATUS InitFilters(const InEncodeVideoParam *inputParam);
+    RGY_ERR InitFilters(const InEncodeVideoParam *inputParam);
 
     //チャプター読み込み等
     NVENCSTATUS InitChapters(const InEncodeVideoParam *inputParam);

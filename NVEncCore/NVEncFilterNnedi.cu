@@ -57,7 +57,7 @@ static const int weight0sizenew = 4 * 65 + 4 * 5;
 static const int TRASNPOSE_BLOCK_DIM = 16;
 static const int TRASNPOSE_TILE_DIM  = 64;
 
-template<typename TypePixel4>
+template<typename TypePixel4, bool flipX, bool flipY>
 __global__ void kernel_transpose_frame(
     uint8_t *__restrict__ pDst,
     const int dstPitch,
@@ -74,7 +74,7 @@ __global__ void kernel_transpose_frame(
         const int srcHeight = dstWidth;
         if (gSrcIdX < srcWidth) {
             for (int j = 0; j < TRASNPOSE_TILE_DIM; j++) {
-                TypePixel4 val ={ 0, 0, 0, 0 };
+                TypePixel4 val = { 0, 0, 0, 0 };
                 if (gSrcIdY + j < srcWidth) {
                     TypePixel4 *ptr_src = (TypePixel4 *)(pSrc + (gSrcIdY+j) * srcPitch + gSrcIdX * sizeof(TypePixel4));
                     val = ptr_src[0];
@@ -91,16 +91,50 @@ __global__ void kernel_transpose_frame(
         for (int j = 0; j < TRASNPOSE_TILE_DIM; j++) {
             if (gDstIdY + j < dstHeight) {
                 TypePixel4 val;
-                val.x = stemp[threadIdx.x * 4 + 0][threadIdx.y+j];
-                val.y = stemp[threadIdx.x * 4 + 1][threadIdx.y+j];
-                val.z = stemp[threadIdx.x * 4 + 2][threadIdx.y+j];
-                val.w = stemp[threadIdx.x * 4 + 3][threadIdx.y+j];
-                TypePixel4 *ptr_dst = (TypePixel4 *)(pDst + (gDstIdY+j) * dstPitch + gDstIdX * sizeof(TypePixel4));
+                if (flipX) {
+                    val.x = stemp[threadIdx.x * 4 + 3][threadIdx.y+j];
+                    val.y = stemp[threadIdx.x * 4 + 2][threadIdx.y+j];
+                    val.z = stemp[threadIdx.x * 4 + 1][threadIdx.y+j];
+                    val.w = stemp[threadIdx.x * 4 + 0][threadIdx.y+j];
+                } else {
+                    val.x = stemp[threadIdx.x * 4 + 0][threadIdx.y+j];
+                    val.y = stemp[threadIdx.x * 4 + 1][threadIdx.y+j];
+                    val.z = stemp[threadIdx.x * 4 + 2][threadIdx.y+j];
+                    val.w = stemp[threadIdx.x * 4 + 3][threadIdx.y+j];
+                }
+                const int dstX = (flipX) ? dstWidth - (gDstIdX) - 1 : gDstIdX;
+                const int dstY = (flipY) ? dstHeight - (gDstIdY+j) - 1 : gDstIdY+j;
+                TypePixel4 *ptr_dst = (TypePixel4 *)(pDst + dstY * dstPitch + dstX * sizeof(TypePixel4));
                 *ptr_dst = val;
             }
         }
     }
 };
+
+template<typename TypePixel4, bool flipX, bool flipY>
+cudaError_t transpose_frame(
+    FrameInfo *pOutputFrame,
+    const FrameInfo *pInputFrame,
+    cudaStream_t stream
+) {
+    dim3 blockSize(TRASNPOSE_BLOCK_DIM, TRASNPOSE_BLOCK_DIM);
+    dim3 gridSize(
+        divCeil(pOutputFrame->width, blockSize.x),
+        divCeil(pOutputFrame->height, blockSize.y));
+
+    kernel_transpose_frame<TypePixel4, flipX, flipY><<<gridSize, blockSize, 0, stream>>>(
+        (uint8_t *)pOutputFrame->ptr,
+        pOutputFrame->pitch,
+        pOutputFrame->width,  // = srcHeight
+        pOutputFrame->height, // = srcWidth
+        (const uint8_t *)pInputFrame->ptr,
+        pInputFrame->pitch);
+    auto cudaerr = cudaGetLastError();
+    if (cudaerr != cudaSuccess) {
+        return cudaerr;
+    }
+    return cudaerr;
+}
 
 __device__ __inline__
 static float exp_(float val) {
@@ -1422,14 +1456,14 @@ NVEncFilterNnedi::~NVEncFilterNnedi() {
     close();
 }
 
-NVENCSTATUS NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam) {
+RGY_ERR NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam) {
     if (pNnediParam->frameOut.height <= 0 || pNnediParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid frame size.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pNnediParam->nnedi.field <= VPP_NNEDI_FIELD_UNKNOWN || VPP_NNEDI_FIELD_MAX <= pNnediParam->nnedi.field) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"field\": %d\n"), pNnediParam->nnedi.field);
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pNnediParam->nnedi.nns < 16 || 256 < pNnediParam->nnedi.nns) {
         pNnediParam->nnedi.nns = clamp(pNnediParam->nnedi.nns, 16, 256);
@@ -1437,19 +1471,19 @@ NVENCSTATUS NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamN
     }
     if (pNnediParam->nnedi.nsize <= VPP_NNEDI_NSIZE_UNKNOWN || VPP_NNEDI_NSIZE_MAX <= pNnediParam->nnedi.nsize) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"nsize\": %d\n"), pNnediParam->nnedi.nsize);
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pNnediParam->nnedi.quality <= VPP_NNEDI_QUALITY_UNKNOWN || VPP_NNEDI_QUALITY_MAX <= pNnediParam->nnedi.quality) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"quality\": %d\n"), pNnediParam->nnedi.quality);
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pNnediParam->nnedi.pre_screen < VPP_NNEDI_PRE_SCREEN_NONE || VPP_NNEDI_PRE_SCREEN_MAX <= pNnediParam->nnedi.pre_screen) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"pre_screen\": %d\n"), pNnediParam->nnedi.pre_screen);
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pNnediParam->nnedi.precision < VPP_NNEDI_PRECISION_UNKNOWN || VPP_NNEDI_PRECISION_MAX <= pNnediParam->nnedi.precision) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"prec\": %d\n"), pNnediParam->nnedi.precision);
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 #if !ENABLE_CUDA_FP16_HOST
     if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) {
@@ -1457,7 +1491,7 @@ NVENCSTATUS NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamN
         pNnediParam->nnedi.precision = VPP_NNEDI_PRECISION_FP32;
     }
 #endif
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMODULE hModule) {
@@ -1509,10 +1543,10 @@ std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMOD
     return std::move(weights);
 }
 
-NVENCSTATUS NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam) {
+RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam) {
     std::vector<float> weights = readWeights(pNnediParam->nnedi.weightfile, pNnediParam->hModule);
     if (weights.size() == 0) {
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_AUTO) {
         pNnediParam->nnedi.precision =
@@ -1569,7 +1603,7 @@ NVENCSTATUS NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamN
         m_weight1[i].alloc();
         cudaMemcpy(m_weight1[i].ptr, weight1[i].data(), m_weight1[i].nSize, cudaMemcpyHostToDevice);
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 template<typename TypeCalc> TypeCalc toWeight(float f);
@@ -1774,30 +1808,30 @@ void NVEncFilterNnedi::setWeight1(TypeCalc *ptrDst, const float *ptrW, const std
 #endif
 }
 
-NVENCSTATUS NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pNnediParam = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(pParam);
     if (!pNnediParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
-    if ((sts = checkParam(pNnediParam)) != NV_ENC_SUCCESS) {
+    if ((sts = checkParam(pNnediParam)) != RGY_ERR_NONE) {
         return sts;
     }
 
     auto cudaerr = AllocFrameBuf(pNnediParam->frameOut, pNnediParam->nnedi.isbob() ? 2 : 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pNnediParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
     auto pNnediParamPrev = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
     if (!pNnediParamPrev
         || pNnediParamPrev->nnedi != pNnediParam->nnedi) {
-        if ((sts = initParams(pNnediParam)) != NV_ENC_SUCCESS) {
+        if ((sts = initParams(pNnediParam)) != RGY_ERR_NONE) {
             return sts;
         }
     }
@@ -1823,15 +1857,15 @@ NVENCSTATUS NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     return sts;
 }
 
-NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;
     }
     auto pNnediParam = std::dynamic_pointer_cast<NVEncFilterParamNnedi>(m_pParam);
     if (!pNnediParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     *pOutputFrameNum = 1;
@@ -1852,11 +1886,11 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_UNSUPPORTED;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_UNSUPPORTED;
     }
 
     NnediTargetField targetField = NNEDI_GEN_FIELD_UNKNOWN;
@@ -1873,7 +1907,7 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
                 inputFrameInfoEx.height_total,
                 memcpyKind
             );
-            return NV_ENC_SUCCESS;
+            return RGY_ERR_NONE;
         } else if (pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_TFF) {
             targetField = NNEDI_GEN_FIELD_BOTTOM;
         } else if (pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_BFF) {
@@ -1887,7 +1921,7 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
         targetField = NNEDI_GEN_FIELD_TOP;
     } else {
         AddMessage(RGY_LOG_ERROR, _T("Not implemented yet.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     static const std::map<RGY_CSP, decltype(proc_frame<uint8_t, uchar4, 8, float, weight_loop_1>)*> func_list_fp32 ={
@@ -1909,7 +1943,7 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
 #endif
     if (func_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
-        return NV_ENC_ERR_UNIMPLEMENTED;
+        return RGY_ERR_UNSUPPORTED;
     }
     func_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame,
         pNnediParam, targetField,
@@ -1923,7 +1957,7 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
         AddMessage(RGY_LOG_ERROR, _T("error at nnedi(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return NV_ENC_ERR_INVALID_CALL;
+        return RGY_ERR_CUDA;
     }
     ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
 
@@ -1941,7 +1975,7 @@ NVENCSTATUS NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo
             AddMessage(RGY_LOG_ERROR, _T("error at nnedi(%s): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp],
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return NV_ENC_ERR_INVALID_CALL;
+            return RGY_ERR_CUDA;
         }
         ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
         ppOutputFrames[0]->timestamp = pInputFrame->timestamp;

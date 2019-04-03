@@ -622,26 +622,26 @@ int NVEncFilterAfs::read_afs_inifile(VppAfs *pVppAfs, const TCHAR *inifile) {
     return 0;
 }
 
-NVENCSTATUS NVEncFilterAfs::check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam) {
+RGY_ERR NVEncFilterAfs::check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam) {
     if (pAfsParam->frameOut.height <= 0 || pAfsParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.clip.top < 0 || pAfsParam->afs.clip.top >= pAfsParam->frameOut.height) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.top).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.clip.bottom < 0 || pAfsParam->afs.clip.bottom >= pAfsParam->frameOut.height) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.bottom).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.clip.top + pAfsParam->afs.clip.bottom >= pAfsParam->frameOut.height) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.top + clip.bottom).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.clip.left < 0 || pAfsParam->afs.clip.left >= pAfsParam->frameOut.width) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.left).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.clip.left % 4 != 0) {
         AddMessage(RGY_LOG_ERROR, _T("parameter \"left\" rounded to multiple of 4.\n"));
@@ -649,7 +649,7 @@ NVENCSTATUS NVEncFilterAfs::check_param(shared_ptr<NVEncFilterParamAfs> pAfsPara
     }
     if (pAfsParam->afs.clip.right < 0 || pAfsParam->afs.clip.right >= pAfsParam->frameOut.width) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.right).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.clip.right % 4 != 0) {
         AddMessage(RGY_LOG_ERROR, _T("parameter \"right\" rounded to multiple of 4.\n"));
@@ -657,61 +657,61 @@ NVENCSTATUS NVEncFilterAfs::check_param(shared_ptr<NVEncFilterParamAfs> pAfsPara
     }
     if (pAfsParam->afs.clip.left + pAfsParam->afs.clip.right >= pAfsParam->frameOut.width) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (clip.left + clip.right).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.method_switch < 0 || pAfsParam->afs.method_switch > 256) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (method_switch).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.coeff_shift < 0 || pAfsParam->afs.coeff_shift > 256) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (coeff_shift).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.thre_shift < 0 || pAfsParam->afs.thre_shift > 1024) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (thre_shift).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.thre_deint < 0 || pAfsParam->afs.thre_deint > 1024) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (thre_deint).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.thre_Ymotion < 0 || pAfsParam->afs.thre_Ymotion > 1024) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (thre_Ymotion).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.thre_Cmotion < 0 || pAfsParam->afs.thre_Cmotion > 1024) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (thre_Cmotion).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pAfsParam->afs.analyze < 0 || pAfsParam->afs.analyze > 5) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (level).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (!pAfsParam->afs.shift) {
         AddMessage(RGY_LOG_WARN, _T("shift was off, so drop and smooth will also be off.\n"));
         pAfsParam->afs.drop = false;
         pAfsParam->afs.smooth = false;
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
-NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pAfsParam = std::dynamic_pointer_cast<NVEncFilterParamAfs>(pParam);
     if (!pAfsParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
     if (check_param(pAfsParam) != NV_ENC_SUCCESS) {
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     auto cudaerr = AllocFrameBuf(pAfsParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pAfsParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, pitch %d, %s.\n"),
@@ -719,21 +719,21 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
 
     if (CUDA_SUCCESS != (cudaerr = m_source.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated source buffer: %dx%d, pitch %d, %s.\n"),
         m_source.get(0)->frame.width, m_source.get(0)->frame.height, m_source.get(0)->frame.pitch, RGY_CSP_NAMES[m_source.get(0)->frame.csp]);
 
     if (CUDA_SUCCESS != (cudaerr = m_scan.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated scan buffer: %dx%d, pitch %d, %s.\n"),
         m_scan.get(0)->map.frame.width, m_scan.get(0)->map.frame.height, m_scan.get(0)->map.frame.pitch, RGY_CSP_NAMES[m_scan.get(0)->map.frame.csp]);
 
     if (CUDA_SUCCESS != (cudaerr = m_stripe.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated stripe buffer: %dx%d, pitch %d, %s.\n"),
         m_stripe.get(0)->map.frame.width, m_stripe.get(0)->map.frame.height, m_stripe.get(0)->map.frame.pitch, RGY_CSP_NAMES[m_stripe.get(0)->map.frame.csp]);
@@ -741,13 +741,13 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     m_streamAnalyze = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
     if (CUDA_SUCCESS != (cudaerr = cudaStreamCreateWithFlags(m_streamAnalyze.get(), cudaStreamNonBlocking))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_CUDA;
     }
 
     m_streamCopy = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
     if (CUDA_SUCCESS != (cudaerr = cudaStreamCreateWithFlags(m_streamCopy.get(), cudaStreamNonBlocking))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_CUDA;
     }
 
     const uint32_t cudaEventFlags = (pAfsParam->cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : 0;
@@ -755,19 +755,19 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     m_eventSrcAdd = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
     if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventSrcAdd.get(), cudaEventFlags | cudaEventDisableTiming))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_CUDA;
     }
 
     m_eventScanFrame = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
     if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventScanFrame.get(), cudaEventFlags | cudaEventDisableTiming))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_CUDA;
     }
 
     m_eventMergeScan = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
     if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventMergeScan.get(), cudaEventFlags | cudaEventDisableTiming))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_CUDA;
     }
 
     pAfsParam->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
@@ -783,7 +783,7 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         if (open_timecode(tc_filename)) {
             errno_t error = errno;
             AddMessage(RGY_LOG_ERROR, _T("failed to open timecode file \"%s\": %s.\n"), tc_filename.c_str(), _tcserror(error));
-            return NV_ENC_ERR_GENERIC; // Couldn't open file
+            return RGY_ERR_FILE_OPEN; // Couldn't open file
         }
         AddMessage(RGY_LOG_DEBUG, _T("opened timecode file \"%s\".\n"), tc_filename.c_str());
     }
@@ -793,7 +793,7 @@ NVENCSTATUS NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         if (m_streamsts.open_log(log_filename)) {
             errno_t error = errno;
             AddMessage(RGY_LOG_ERROR, _T("failed to open afs log file \"%s\": %s.\n"), log_filename.c_str(), _tcserror(error));
-            return NV_ENC_ERR_GENERIC; // Couldn't open file
+            return RGY_ERR_FILE_OPEN; // Couldn't open file
         }
         AddMessage(RGY_LOG_DEBUG, _T("opened afs log file \"%s\".\n"), log_filename.c_str());
     }
@@ -1097,13 +1097,13 @@ cudaError_t NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs 
     return cudaSuccess;
 }
 
-NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
 
     auto pAfsParam = std::dynamic_pointer_cast<NVEncFilterParamAfs>(m_pParam);
     if (!pAfsParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     const int iframe = m_source.inframe();
@@ -1117,17 +1117,17 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
         const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, m_pFrameBuf[0]->frame.deivce_mem);
         if (memcpyKind != cudaMemcpyDeviceToDevice) {
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+            return RGY_ERR_INVALID_CALL;
         }
         if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
             AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+            return RGY_ERR_INVALID_PARAM;
         }
         //sourceキャッシュにコピー
         auto cudaerr = m_source.add(pInputFrame, cudaStreamDefault);
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to add frame to sorce buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_CUDA;
         }
         if (STREAM_OPT) {
             cudaEventSynchronize(*m_eventSrcAdd.get());
@@ -1138,12 +1138,12 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             // scan_frame(p1 = -2, p0 = -1)のscan_frameも必要
             if (cudaSuccess != (cudaerr = scan_frame(iframe-1, false, pAfsParam.get(), cudaStreamDefault))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe-1=%d): %s.\n"), iframe-1, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return NV_ENC_ERR_INVALID_CALL;
+                return RGY_ERR_CUDA;
             }
         }
         if (cudaSuccess != (cudaerr = scan_frame(iframe, false, pAfsParam.get(), (STREAM_OPT) ? *m_streamAnalyze.get() : cudaStreamDefault))) {
             AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe=%d): %s.\n"), iframe, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_INVALID_CALL;
+            return RGY_ERR_CUDA;
         }
     }
 
@@ -1152,7 +1152,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
         auto cudaerr = analyze_frame(iframe - 5, pAfsParam.get(), reverse, assume_shift, result_stat);
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe=%d): %s.\n"), iframe - 5, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_INVALID_CALL;
+            return RGY_ERR_CUDA;
         }
     }
     static const int preread_len = 3;
@@ -1168,7 +1168,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("error on analyze_frame(m_nFrame=%d, iframe=%d): %s.\n"),
                     m_nFrame, m_nFrame + i, iframe, char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return NV_ENC_ERR_INVALID_CALL;
+                return RGY_ERR_CUDA;
             }
         }
 
@@ -1177,7 +1177,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             for (int i = 0; i < preread_len; i++) {
                 if (m_streamsts.set_status(i, m_status[i], i, m_source.get(i)->frame.timestamp) != 0) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(%d).\n"), i);
-                    return NV_ENC_ERR_INVALID_CALL;
+                    return RGY_ERR_CUDA;
                 }
             }
         }
@@ -1194,7 +1194,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             }
             if (m_streamsts.set_status(m_nFrame+preread_len, m_status[m_nFrame+preread_len], 0, timestamp) != 0) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to set afs_status(%d).\n"), m_nFrame+preread_len);
-                return NV_ENC_ERR_INVALID_CALL;
+                return RGY_ERR_CUDA;
             }
         }
         const auto afs_duration = m_streamsts.get_duration(m_nFrame);
@@ -1204,7 +1204,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             ppOutputFrames[0] = nullptr;
         } else if (afs_duration < 0) {
             AddMessage(RGY_LOG_ERROR, _T("invalid call for m_streamsts.get_duration(%d).\n"), m_nFrame);
-            return NV_ENC_ERR_INVALID_CALL;
+            return RGY_ERR_INVALID_CALL;
         } else {
             //出力先のフレーム
             CUFrameBuf *pOutFrame = nullptr;
@@ -1231,7 +1231,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             auto sip_filtered = m_stripe.filter(m_nFrame, pAfsParam->afs.analyze, cudaStreamDefault, &cudaerr);
             if (sip_filtered == nullptr || cudaerr != CUDA_SUCCESS) {
                 AddMessage(RGY_LOG_ERROR, _T("failed m_stripe.filter(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return NV_ENC_ERR_INVALID_CALL;
+                return RGY_ERR_INVALID_CALL;
             }
 
             if (interlaced(m_source.get(m_nFrame)->frame) || pAfsParam->afs.tune) {
@@ -1241,7 +1241,7 @@ NVENCSTATUS NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             }
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("error on synthesize(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return NV_ENC_ERR_INVALID_CALL;
+                return RGY_ERR_CUDA;
             }
         }
 

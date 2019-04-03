@@ -500,20 +500,20 @@ static NppStatus resize_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFra
     return sts;
 }
 
-NVENCSTATUS NVEncFilterResize::resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterResize::resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
 #if _M_IX86
     AddMessage(RGY_LOG_ERROR, _T("npp filter not supported on x86.\n"));
-    return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    return RGY_ERR_UNSUPPORTED;
 #else
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+    RGY_ERR sts = RGY_ERR_NONE;
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pResizeParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(m_pParam);
     if (!pResizeParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     const auto interp = (NppiInterpolationMode)pResizeParam->interp;
     static const auto supportedCspYV12High = make_array<RGY_CSP>(RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
@@ -522,17 +522,17 @@ NVENCSTATUS NVEncFilterResize::resizeYV12(FrameInfo *pOutputFrame, const FrameIn
         nppsts = resize_yv12<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_C1R, interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = NV_ENC_ERR_GENERIC;
+            sts = RGY_ERR_CUDA;
         }
     } else if (std::find(supportedCspYV12High.begin(), supportedCspYV12High.end(), m_pParam->frameIn.csp) != supportedCspYV12High.end()) {
         nppsts = resize_yv12<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_C1R, interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = NV_ENC_ERR_GENERIC;
+            sts = RGY_ERR_CUDA;
         }
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
-        sts = NV_ENC_ERR_UNIMPLEMENTED;
+        sts = RGY_ERR_UNSUPPORTED;
     }
     return sts;
 #endif
@@ -567,20 +567,20 @@ static NppStatus resize_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputF
     return sts;
 }
 
-NVENCSTATUS NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
 #if _M_IX86
     AddMessage(RGY_LOG_ERROR, _T("npp filter not supported on x86.\n"));
-    return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    return RGY_ERR_UNSUPPORTED;
 #else
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+    RGY_ERR sts = RGY_ERR_NONE;
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pResizeParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(m_pParam);
     if (!pResizeParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     const auto interp = (NppiInterpolationMode)pResizeParam->interp;
     static const auto supportedCspYUV444High = make_array<RGY_CSP>(RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
@@ -589,17 +589,17 @@ NVENCSTATUS NVEncFilterResize::resizeYUV444(FrameInfo *pOutputFrame, const Frame
         nppsts = resize_yuv444<Npp8u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_8u_P3R, interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = NV_ENC_ERR_GENERIC;
+            sts = RGY_ERR_CUDA;
         }
     } else if (std::find(supportedCspYUV444High.begin(), supportedCspYUV444High.end(), m_pParam->frameIn.csp) != supportedCspYUV444High.end()) {
         nppsts = resize_yuv444<Npp16u>(pOutputFrame, pInputFrame, nppiResizeSqrPixel_16u_P3R, interp);
         if (nppsts != NPP_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to resize: %d, %s.\n"), nppsts, char_to_tstring(_cudaGetErrorEnum(nppsts)).c_str());
-            sts = NV_ENC_ERR_GENERIC;
+            sts = RGY_ERR_CUDA;
         }
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
-        sts = NV_ENC_ERR_UNIMPLEMENTED;
+        sts = RGY_ERR_UNSUPPORTED;
     }
     return sts;
 #endif
@@ -613,13 +613,13 @@ NVEncFilterResize::~NVEncFilterResize() {
     close();
 }
 
-NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pResizeParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(pParam);
     if (!pResizeParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pResizeParam->interp <= NPPI_INTER_MAX && !check_if_nppi_dll_available()) {
         AddMessage(RGY_LOG_WARN, _T("--vpp-resize %s requires \"%s\", not available on your system.\n"), get_chr_from_value(list_nppi_resize, pResizeParam->interp), NPPI_DLL_NAME_TSTR);
@@ -629,13 +629,13 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
     //パラメータチェック
     if (pResizeParam->frameOut.height <= 0 || pResizeParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     auto cudaerr = AllocFrameBuf(pResizeParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pResizeParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -648,12 +648,12 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
         m_weightSpline36 = CUMemBuf(sizeof(SPLINE36_WEIGHT));
         if (CUDA_SUCCESS != (cudaerr = m_weightSpline36.alloc())) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_MEMORY_ALLOC;
         }
         cudaerr = cudaMemcpy(m_weightSpline36.ptr, SPLINE36_WEIGHT[0], sizeof(SPLINE36_WEIGHT), cudaMemcpyHostToDevice);
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to send weight to gpu memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_CUDA;
         }
     }
 
@@ -667,8 +667,8 @@ NVENCSTATUS NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_
     return sts;
 }
 
-NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;
     }
@@ -686,11 +686,11 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_UNSUPPORTED;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_UNSUPPORTED;
     }
     static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
@@ -698,7 +698,7 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
     auto pResizeParam = std::dynamic_pointer_cast<NVEncFilterParamResize>(m_pParam);
     if (!pResizeParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pResizeParam->interp <= NPPI_INTER_MAX) {
         if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), m_pParam->frameIn.csp) != supportedCspYV12.end()) {
@@ -707,7 +707,7 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
             sts = resizeYUV444(ppOutputFrames[0], pInputFrame);
         } else {
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
-            sts = NV_ENC_ERR_UNIMPLEMENTED;
+            sts = RGY_ERR_UNSUPPORTED;
         }
     } else {
         struct resizeFunc {
@@ -729,7 +729,7 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
         };
         if (resize_list.count(pInputFrame->csp) == 0) {
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
-            return NV_ENC_ERR_UNIMPLEMENTED;
+            return RGY_ERR_UNSUPPORTED;
         }
         resize_list.at(pInputFrame->csp).func(pResizeParam->interp)(ppOutputFrames[0], pInputFrame, (float *)m_weightSpline36.ptr);
         auto cudaerr = cudaGetLastError();
@@ -737,7 +737,7 @@ NVENCSTATUS NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInf
             AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp],
                 char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-            return NV_ENC_ERR_INVALID_CALL;
+            return RGY_ERR_CUDA;
         }
     }
     return sts;
