@@ -208,7 +208,7 @@ public:
         } else {
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
-        NVMLMonitorInfo info = { 0 };
+        NVMLMonitorInfo info;
         bVideoEngineUsage = m_pPerfMonitor && m_pPerfMonitor->GetNVMLInfo(&info);
         bGPUUsage = bVideoEngineUsage;
         if (bVideoEngineUsage) {

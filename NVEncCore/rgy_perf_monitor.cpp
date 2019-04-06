@@ -928,7 +928,9 @@ void CPerfMonitor::check() {
     pInfoNew->pcie_link = 0;
     pInfoNew->pcie_throughput_tx_per_sec = 0;
     pInfoNew->pcie_throughput_rx_per_sec = 0;
-    if (m_nvmlMonitor.getData(&m_nvmlInfo) == NVML_SUCCESS) {
+    NVMLMonitorInfo nvmlInfo;
+    if (m_nvmlMonitor.getData(&nvmlInfo) == NVML_SUCCESS) {
+        m_nvmlInfo = nvmlInfo;
         pInfoNew->gpu_info_valid   = TRUE;
         pInfoNew->gpu_clock        = m_nvmlInfo.GPUFreq;
         pInfoNew->gpu_load_percent = m_nvmlInfo.GPULoad;

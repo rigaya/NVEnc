@@ -660,6 +660,49 @@ const CX_DESC list_cuda_schedule[] = {
     { NULL, NULL }
 };
 
+enum VppYadifMode : uint32_t {
+    VPP_YADIF_MODE_UNKNOWN  = 0x00,
+
+    VPP_YADIF_MODE_TFF      = 0x01,
+    VPP_YADIF_MODE_BFF      = 0x02,
+    VPP_YADIF_MODE_AUTO     = 0x04,
+    VPP_YADIF_MODE_BOB      = 0x08,
+    VPP_YADIF_MODE_BOB_TFF  = VPP_YADIF_MODE_BOB | VPP_YADIF_MODE_TFF,
+    VPP_YADIF_MODE_BOB_BFF  = VPP_YADIF_MODE_BOB | VPP_YADIF_MODE_BFF,
+    VPP_YADIF_MODE_BOB_AUTO = VPP_YADIF_MODE_BOB | VPP_YADIF_MODE_AUTO,
+
+    VPP_YADIF_MODE_MAX = VPP_YADIF_MODE_BOB_AUTO + 1,
+};
+
+static VppYadifMode operator|(VppYadifMode a, VppYadifMode b) {
+    return (VppYadifMode)((uint32_t)a | (uint32_t)b);
+}
+
+static VppYadifMode operator|=(VppYadifMode& a, VppYadifMode b) {
+    a = a | b;
+    return a;
+}
+
+static VppYadifMode operator&(VppYadifMode a, VppYadifMode b) {
+    return (VppYadifMode)((uint32_t)a & (uint32_t)b);
+}
+
+static VppYadifMode operator&=(VppYadifMode& a, VppYadifMode b) {
+    a = (VppYadifMode)((uint32_t)a & (uint32_t)b);
+    return a;
+}
+
+const CX_DESC list_vpp_yadif_mode[] = {
+    { _T("unknown"),  VPP_YADIF_MODE_UNKNOWN  },
+    { _T("tff"),      VPP_YADIF_MODE_TFF      },
+    { _T("bff"),      VPP_YADIF_MODE_BFF      },
+    { _T("auto"),     VPP_YADIF_MODE_AUTO     },
+    { _T("bob_tff"),  VPP_YADIF_MODE_BOB_TFF  },
+    { _T("bob_bff"),  VPP_YADIF_MODE_BOB_BFF  },
+    { _T("bob"),      VPP_YADIF_MODE_BOB_AUTO },
+    { NULL, NULL }
+};
+
 template<size_t count>
 static const TCHAR *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]) {
     for (int i = 0; i < count; i++) {
@@ -898,6 +941,15 @@ struct VppAfs {
     void check();
 };
 
+struct VppYadif {
+    bool enable;
+    VppYadifMode mode;
+
+    VppYadif();
+    bool operator==(const VppYadif& x) const;
+    bool operator!=(const VppYadif& x) const;
+};
+
 struct VppPad {
     bool enable;
     int left, top, right, bottom;
@@ -964,6 +1016,7 @@ struct VppParam {
     VppDeband deband;
     VppAfs afs;
     VppNnedi nnedi;
+    VppYadif yadif;
     VppTweak tweak;
     VppPad pad;
     VppSelectEvery selectevery;
