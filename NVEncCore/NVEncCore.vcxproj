@@ -639,6 +639,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="NVEncFrameInfo.cpp" />
     <ClCompile Include="NVEncCore.cpp" />
     <ClCompile Include="NVEncParam.cpp" />
+    <CudaCompile Include="NVEncFilterYadif.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\NVEncSDK\Common\inc\nvEncodeAPI.h" />
@@ -668,6 +669,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterTweak.h" />
     <ClInclude Include="NVEncFilterRff.h" />
     <ClInclude Include="NVEncFilterUnsharp.h" />
+    <ClInclude Include="NVEncFilterYadif.h" />
     <ClInclude Include="NVEncFrameInfo.h" />
     <ClInclude Include="NvEncoderPerf.h" />
     <ClInclude Include="NVEncCore.h" />

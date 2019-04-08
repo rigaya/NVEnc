@@ -521,6 +521,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (0 == _tcscmp(option_name, _T("input-format"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
             pParams->pAVInputFormat = _tcsdup(strInput[i]);
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
@@ -2121,8 +2122,6 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-
-
     if (IS_OPTION("vpp-nnedi")) {
         pParams->vpp.nnedi.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -2218,6 +2217,48 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("weightfile")) {
                     pParams->vpp.nnedi.weightfile = param_val.c_str();
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-yadif")) {
+        pParams->vpp.yadif.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        pParams->vpp.yadif.enable = true;
+                    } else if (param_val == _T("false")) {
+                        pParams->vpp.yadif.enable = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_yadif_mode, param_val.c_str(), &value)) {
+                        pParams->vpp.yadif.mode = (VppYadifMode)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
                     continue;
                 }
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
@@ -3476,6 +3517,20 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-nnedi ") << tmp.str().substr(1);
         } else if (pParams->vpp.nnedi.enable) {
             cmd << _T(" --vpp-nnedi");
+        }
+    }
+    if (pParams->vpp.yadif != encPrmDefault.vpp.yadif) {
+        tmp.str(tstring());
+        if (!pParams->vpp.yadif.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.yadif.enable || save_disabled_prm) {
+            ADD_LST(_T("mode"), vpp.yadif.mode, list_vpp_yadif_mode);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-yadif ") << tmp.str().substr(1);
+        } else if (pParams->vpp.yadif.enable) {
+            cmd << _T(" --vpp-yadif");
         }
     }
     if (pParams->vpp.knn != encPrmDefault.vpp.knn) {

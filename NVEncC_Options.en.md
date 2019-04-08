@@ -895,6 +895,25 @@ nnedi deinterlacer.
 example: --vpp-nnedi field=auto,nns=64,nsize=32x6,qual=slow,prescreen=none,prec=fp32
 ```
 
+### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
+yadif deinterlacer.
+
+**parameters**
+- mode
+
+  - auto (default)  
+    Generate latter field from first field.
+  - tff  
+    Generate bottom field using top field.
+  - bff  
+    Generate top field using bottom field.
+  - bob   
+    Generate one frame from each field.
+  - bob_tff   
+    Generate one frame from each field assuming top field first.
+  - bob_bff   
+    Generate one frame from each field assuming bottom field first.
+
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 select one frame per specified frames and create output.
 

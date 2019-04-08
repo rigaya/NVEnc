@@ -95,6 +95,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
     - インタレ解除
       - afs (自動フィールドシフト)
       - nnedi
+      - yadif
     - delogo
     - リサイズ  
       bilinear,spline36に加え、x64版ではnppライブラリによる各種アルゴリズムが利用可

@@ -240,6 +240,7 @@ VppParam::VppParam() :
     deband(),
     afs(),
     nnedi(),
+    yadif(),
     tweak(),
     pad(),
     selectevery(),
@@ -302,6 +303,20 @@ void VppAfs::check() {
     }
     drop &= shift;
     smooth &= drop;
+}
+
+VppYadif::VppYadif() :
+    enable(false),
+    mode(VPP_YADIF_MODE_AUTO) {
+
+}
+
+bool VppYadif::operator==(const VppYadif& x) const {
+    return enable == x.enable
+        && mode == x.mode;
+}
+bool VppYadif::operator!=(const VppYadif& x) const {
+    return !(*this == x);
 }
 
 VppPad::VppPad() :

@@ -936,6 +936,25 @@ nnediによるインタレ解除を行う。基本的には片方フィールド
 例: --vpp-nnedi field=auto,nns=64,nsize=32x6,qual=slow,prescreen=none,prec=fp32
 ```
   
+### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
+yadifによるインタレ解除を行う。
+
+**parameters**
+- mode
+
+  - auto (default)  
+    維持するフィールドを自動的に選択。
+  - tff  
+    トップフィールド維持。
+  - bff  
+    ボトムフィールド維持。
+  - bob   
+    60fps化を行う(field順は自動選択)。
+  - bob_tff   
+    60fps化を行う(tff)。
+  - bob_bff   
+    60fps化を行う(bff)。
+
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 指定stepフレームごとに1フレームを選択してフレームを間引きます。フレームレートが1/stepになります。
 

@@ -67,12 +67,13 @@
 #include "NVEncFilterDenoisePmd.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterAfs.h"
+#include "NVEncFilterNnedi.h"
+#include "NVEncFilterYadif.h"
 #include "NVEncFilterRff.h"
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterTweak.h"
 #include "NVEncFilterSelectEvery.h"
-#include "NVEncFilterNnedi.h"
 #include "NVEncFeature.h"
 #include "chapter_rw.h"
 #include "helper_cuda.h"
@@ -2013,7 +2014,11 @@ bool NVEncCore::checkSurfaceFmtSupported(NV_ENC_BUFFER_FORMAT surfaceFormat, con
 }
 
 bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
-    const bool interlacedEncode = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable && !inputParam->vpp.nnedi.enable));
+    const bool interlacedEncode = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED)
+        && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave
+            && !inputParam->vpp.afs.enable
+            && !inputParam->vpp.nnedi.enable
+            && !inputParam->vpp.yadif.enable));
     return
          //デフォルトの補間方法
         inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED
@@ -2028,6 +2033,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.pmd.enable
             || inputParam->vpp.afs.enable
             || inputParam->vpp.nnedi.enable
+            || inputParam->vpp.yadif.enable
             || inputParam->vpp.pad.enable);
 }
 
@@ -2132,7 +2138,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
 #endif
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable) {
+    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
 
@@ -2638,7 +2644,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     m_stPicStruct = picstruct_rgy_to_enc(inputParam->input.picstruct);
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
-    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable) {
+    } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
     //インタレ解除の個数をチェック
@@ -2646,6 +2652,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
     if (inputParam->vpp.afs.enable) deinterlacer++;
     if (inputParam->vpp.nnedi.enable) deinterlacer++;
+    if (inputParam->vpp.yadif.enable) deinterlacer++;
     if (deinterlacer >= 2) {
         PrintMes(RGY_LOG_ERROR, _T("Activating 2 or more deinterlacer is not supported.\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -2699,6 +2706,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.edgelevel.enable
         || inputParam->vpp.afs.enable
         || inputParam->vpp.nnedi.enable
+        || inputParam->vpp.yadif.enable
         || inputParam->vpp.tweak.enable
         || inputParam->vpp.pad.enable
         || inputParam->vpp.rff
@@ -2860,6 +2868,32 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
             param->nnedi = inputParam->vpp.nnedi;
             param->compute_capability = selectedGpu->compute_capability;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //yadif
+        if (inputParam->vpp.yadif.enable) {
+            if ((inputParam->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
+                PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-yadif.\n"));
+                return RGY_ERR_INVALID_PARAM;
+            }
+            unique_ptr<NVEncFilter> filter(new NVEncFilterYadif());
+            shared_ptr<NVEncFilterParamYadif> param(new NVEncFilterParamYadif());
+            param->yadif = inputParam->vpp.yadif;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
@@ -3280,7 +3314,12 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(const InEncodeVideoParam *inputPara
             continue;
         }
         if (inputParam->codec == NV_ENC_H264
-            && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave && !inputParam->vpp.afs.enable && !inputParam->vpp.nnedi.enable))
+            && (
+                (inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED)
+                && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave
+                    && !inputParam->vpp.afs.enable
+                    && !inputParam->vpp.nnedi.enable
+                    && !inputParam->vpp.yadif.enable))
             && !get_value(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING, codec->caps)) {
             message += strsprintf(_T("GPU #%d (%s) does not support H.264 interlaced encoding.\n"), gpu->id, gpu->name.c_str());
             gpu = m_GPUList.erase(gpu);
