@@ -522,6 +522,17 @@ static tstring help() {
         _T("      weightfile=<string>   Set path of weight file. By default (not specified),\n")
         _T("                              internal weight params will be used.\n"));
     str += strsprintf(_T("\n")
+        _T("   --vpp-yadif [<param1>=<value>]\n")
+        _T("     enable yadif deinterlacer\n")
+        _T("    params\n")
+        _T("      mode=<string>\n")
+        _T("          auto (default)    Generate latter field using first field.\n")
+        _T("          tff               Generate bottom field using top field.\n")
+        _T("          bff               Generate top field using bottom field.\n")
+        _T("          bob               Generate one frame from each field.\n")
+        _T("          bob_tff           Generate one frame from each field assuming tff.\n")
+        _T("          bob_bff           Generate one frame from each field assuming bff.\n"));
+    str += strsprintf(_T("\n")
         _T("   --vpp-rff                    apply rff flag, with avhw reader only.\n"));
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize_help, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);

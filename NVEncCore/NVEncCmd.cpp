@@ -1917,7 +1917,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 auto param_val = param.substr(pos+1);
                 std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
                 if (param_arg == _T("ini")) {
-                    if (NVEncFilterAfs::read_afs_inifile(&pParams->vpp.afs, param_val.c_str())) {
+                    if (pParams->vpp.afs.read_afs_inifile(param_val.c_str())) {
                         SET_ERR(strInput[0], _T("ini file does not exist."), option_name, strInput[i]);
                         return -1;
                     }
@@ -1926,7 +1926,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         int value = 0;
                         if (get_list_value(list_afs_preset, param_val.c_str(), &value)) {
-                            NVEncFilterAfs::set_preset(&pParams->vpp.afs, value);
+                            pParams->vpp.afs.set_preset(value);
                         } else {
                             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                             return -1;

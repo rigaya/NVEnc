@@ -935,6 +935,8 @@ struct VppAfs {
     bool log;              //log出力
 
     VppAfs();
+    void set_preset(int preset);
+    int read_afs_inifile(const TCHAR* inifile);
     bool operator==(const VppAfs& x) const;
     bool operator!=(const VppAfs& x) const;
 

@@ -1,6 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="DebugFilters|Win32">
+      <Configuration>DebugFilters</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DebugFilters|x64">
+      <Configuration>DebugFilters</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="DebugStatic|Win32">
       <Configuration>DebugStatic</Configuration>
       <Platform>Win32</Platform>
@@ -25,6 +33,14 @@
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="RelFilters|Win32">
+      <Configuration>RelFilters</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelFilters|x64">
+      <Configuration>RelFilters</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="RelStatic|Win32">
       <Configuration>RelStatic</Configuration>
       <Platform>Win32</Platform>
@@ -38,7 +54,7 @@
     <ProjectGuid>{1CD1CF80-E971-4A92-93E0-4AEA5F4032B5}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>NVEncCore</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <CudaToolkitCustomDir>
     </CudaToolkitCustomDir>
   </PropertyGroup>
@@ -46,54 +62,80 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="..\cudaver.props" />
@@ -103,10 +145,16 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -118,7 +166,13 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -130,11 +184,19 @@
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
@@ -150,7 +212,15 @@
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)obj\$(ProjectName)\</IntDir>
   </PropertyGroup>
@@ -176,7 +246,7 @@
     </Lib>
     <CudaCompile />
     <CudaCompile>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
@@ -227,7 +297,57 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <CudaCompile />
     <CudaCompile />
     <CudaCompile>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
+      <FastMath>true</FastMath>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <UseHostDefines>true</UseHostDefines>
+    </CudaCompile>
+    <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter processid=$pid)){$ppid=$p.parentprocessid;}foreach($p in (get-wmiobject win32_process -filter processid=$ppid)){$p.parentprocessid;}"') do set PID=%%i
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.%PID%.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
+fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
+if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <CudaCompile />
+    <CudaCompile />
+    <CudaCompile>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
       <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
@@ -275,7 +395,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <GenerateLineInfo>true</GenerateLineInfo>
@@ -325,7 +445,57 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
+      <FastMath>true</FastMath>
+      <GenerateLineInfo>false</GenerateLineInfo>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <UseHostDefines>true</UseHostDefines>
+    </CudaCompile>
+    <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter processid=$pid)){$ppid=$p.parentprocessid;}foreach($p in (get-wmiobject win32_process -filter processid=$ppid)){$p.parentprocessid;}"') do set PID=%%i
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.%PID%.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
+fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
+if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
+    <CudaLink>
+      <GPUDebugInfo>true</GPUDebugInfo>
+    </CudaLink>
+    <CudaLink>
+      <Optimization>Od</Optimization>
+    </CudaLink>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
       <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
@@ -383,7 +553,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <CudaCompile>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
@@ -433,7 +603,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
       <CodeGeneration>compute_30,compute_30;compute_50,compute_50</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
@@ -484,7 +654,59 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <CudaCompile>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
+      <FastMath>true</FastMath>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <UseHostDefines>true</UseHostDefines>
+    </CudaCompile>
+    <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter processid=$pid)){$ppid=$p.parentprocessid;}foreach($p in (get-wmiobject win32_process -filter processid=$ppid)){$p.parentprocessid;}"') do set PID=%%i
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.%PID%.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
+fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
+if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <StringPooling>true</StringPooling>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <CudaCompile>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
       <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
@@ -536,7 +758,59 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Lib>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
-      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127"</AdditionalCompilerOptions>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
+      <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
+      <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
+      <FastMath>true</FastMath>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <UseHostDefines>true</UseHostDefines>
+    </CudaCompile>
+    <CudaLink />
+    <PreBuildEvent>
+      <Command>@set REV=0
+where git &gt;NUL　2&gt;&amp;1
+for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter processid=$pid)){$ppid=$p.parentprocessid;}foreach($p in (get-wmiobject win32_process -filter processid=$ppid)){$p.parentprocessid;}"') do set PID=%%i
+if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; rgy_rev.h.%PID%.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
+fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
+if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <StringPooling>true</StringPooling>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>..\NVEncSDK\Common\lib\$(PlatformName);$(DXSDK_DIR)\lib\x86;$(CUDA_PATH)\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <AdditionalCompilerOptions>/wd"4819" /wd"4505" /wd"4127" /FS</AdditionalCompilerOptions>
       <CodeGeneration>$(CUDA_CODE_GEN)</CodeGeneration>
       <AdditionalOptions>-Xcudafe "--display_error_number --diag_suppress=negative_shift_count --diag_suppress=signed_one_bit_field --diag_suppress=expr_has_no_effect --diag_suppress=177   --diag_suppress=186 --diag_suppress=815  --diag_suppress=1444 --diag_suppress=2465"</AdditionalOptions>
       <FastMath>true</FastMath>
@@ -558,88 +832,262 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="cl_func.cpp" />
-    <ClCompile Include="convert_csp.cpp" />
+    <ClCompile Include="convert_csp.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="convert_csp_avx.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="convert_csp_avx2.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="convert_csp_sse2.cpp" />
-    <ClCompile Include="convert_csp_sse41.cpp" />
-    <ClCompile Include="convert_csp_ssse3.cpp" />
+    <ClCompile Include="convert_csp_sse2.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="convert_csp_sse41.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="convert_csp_ssse3.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="cpu_info.cpp" />
-    <ClCompile Include="CuvidDecode.cpp" />
-    <ClCompile Include="FrameQueue.cpp" />
-    <ClCompile Include="gpuz_info.cpp" />
+    <ClCompile Include="CuvidDecode.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="FrameQueue.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="gpuz_info.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="gpu_info.cpp" />
-    <ClCompile Include="h264_level.cpp" />
-    <ClCompile Include="hevc_level.cpp" />
-    <ClCompile Include="logo.cpp" />
-    <ClCompile Include="NVEncFeature.cpp" />
-    <ClCompile Include="NVEncFilter.cpp" />
-    <ClCompile Include="NVEncFilterDenoiseGauss.cpp" />
-    <ClCompile Include="NVEncFilterPad.cpp" />
-    <ClCompile Include="NVEncFilterRff.cpp" />
+    <ClCompile Include="h264_level.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="hevc_level.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="logo.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="NVEncFeature.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="NVEncFilter.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="NVEncFilterDenoiseGauss.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="NVEncFilterPad.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="NVEncFilterRff.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="NVEncCmd.cpp" />
-    <ClCompile Include="NVEncFilterSelectEvery.cpp" />
-    <ClCompile Include="NVEncUtil.cpp" />
+    <ClCompile Include="NVEncFilterSelectEvery.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="NVEncUtil.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="ram_speed.cpp" />
-    <ClCompile Include="rgy_avlog.cpp" />
-    <ClCompile Include="rgy_avutil.cpp" />
-    <ClCompile Include="rgy_bitstream.cpp" />
-    <ClCompile Include="rgy_caption.cpp" />
-    <ClCompile Include="rgy_err.cpp" />
-    <ClCompile Include="rgy_event.cpp" />
-    <ClCompile Include="rgy_input.cpp" />
-    <ClCompile Include="rgy_input_avcodec.cpp" />
-    <ClCompile Include="rgy_input_avi.cpp" />
-    <ClCompile Include="rgy_input_avs.cpp" />
-    <ClCompile Include="rgy_input_raw.cpp" />
-    <ClCompile Include="rgy_input_vpy.cpp" />
-    <ClCompile Include="rgy_log.cpp" />
-    <ClCompile Include="rgy_output.cpp" />
-    <ClCompile Include="rgy_output_avcodec.cpp" />
-    <ClCompile Include="rgy_perf_monitor.cpp" />
-    <ClCompile Include="rgy_pipe.cpp" />
-    <ClCompile Include="rgy_pipe_linux.cpp" />
+    <ClCompile Include="rgy_avlog.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_avutil.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_bitstream.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_caption.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_err.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_event.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_input.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_input_avcodec.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_input_avi.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_input_avs.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_input_raw.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_input_vpy.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_log.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_output.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_output_avcodec.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_perf_monitor.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_pipe.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_pipe_linux.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="rgy_simd.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <ClCompile Include="rgy_version.cpp" />
-    <ClCompile Include="NVEncFilterAfs.cpp" />
-    <CudaCompile Include="NVEncFilterAfsAnalyze.cu" />
-    <CudaCompile Include="NVEncFilterAfsFilter.cu" />
-    <CudaCompile Include="NVEncFilterAfsMerge.cu" />
-    <CudaCompile Include="NVEncFilterAfsSynthesize.cu" />
-    <CudaCompile Include="NVEncFilterDeband.cu" />
-    <CudaCompile Include="NVEncFilterDelogo.cu" />
-    <CudaCompile Include="NVEncFilterDenoisePmd.cu" />
-    <CudaCompile Include="NVEncFilterCrop.cu" />
-    <ClCompile Include="NVEncFilterDelogo.cpp" />
-    <CudaCompile Include="NVEncFilterDenoiseKnn.cu" />
-    <CudaCompile Include="NVEncFilterEdgelevel.cu" />
-    <CudaCompile Include="NVEncFilterNnedi.cu" />
-    <CudaCompile Include="NVEncFilterTweak.cu" />
-    <CudaCompile Include="NVEncFilterResize.cu" />
-    <CudaCompile Include="NVEncFilterUnsharp.cu" />
-    <ClCompile Include="NVEncFrameInfo.cpp" />
-    <ClCompile Include="NVEncCore.cpp" />
+    <ClCompile Include="NVEncFilterAfs.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <CudaCompile Include="NVEncFilterAfsAnalyze.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterAfsFilter.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterAfsMerge.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterAfsSynthesize.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterDeband.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterDelogo.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterDenoisePmd.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterCrop.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <ClCompile Include="NVEncFilterDelogo.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <CudaCompile Include="NVEncFilterDenoiseKnn.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterEdgelevel.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterNnedi.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterTweak.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterResize.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <CudaCompile Include="NVEncFilterUnsharp.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
+    <ClCompile Include="NVEncFrameInfo.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="NVEncCore.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="NVEncParam.cpp" />
-    <CudaCompile Include="NVEncFilterYadif.cu" />
+    <CudaCompile Include="NVEncFilterYadif.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\NVEncSDK\Common\inc\nvEncodeAPI.h" />
@@ -666,7 +1114,10 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncFilterEdgelevel.h" />
     <ClInclude Include="NVEncFilterNnedi.h" />
     <ClInclude Include="NVEncFilterSelectEvery.h" />
-    <ClInclude Include="NVEncFilterTweak.h" />
+    <ClInclude Include="NVEncFilterTweak.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="NVEncFilterRff.h" />
     <ClInclude Include="NVEncFilterUnsharp.h" />
     <ClInclude Include="NVEncFilterYadif.h" />
@@ -711,14 +1162,22 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling asm...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">Compiling asm...</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">Compiling asm...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">Compiling asm...</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">Compiling asm...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling asm...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </CustomBuild>
     <CustomBuild Include="ram_speed_x86.asm">
       <FileType>Document</FileType>
@@ -726,11 +1185,17 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling asm...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">Compiling asm...</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">Compiling asm...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">Compiling asm...</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">Compiling asm...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compiling asm...</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>

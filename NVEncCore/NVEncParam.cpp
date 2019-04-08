@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include "NVEncParam.h"
+#include "afs_stg.h"
 
 using std::vector;
 
@@ -303,6 +304,162 @@ void VppAfs::check() {
     }
     drop &= shift;
     smooth &= drop;
+}
+
+void VppAfs::set_preset(int preset) {
+    switch (preset) {
+    case AFS_PRESET_DEFAULT: //デフォルト
+        method_switch = FILTER_DEFAULT_AFS_METHOD_SWITCH;
+        coeff_shift   = FILTER_DEFAULT_AFS_COEFF_SHIFT;
+        thre_shift    = FILTER_DEFAULT_AFS_THRE_SHIFT;
+        thre_deint    = FILTER_DEFAULT_AFS_THRE_DEINT;
+        thre_Ymotion  = FILTER_DEFAULT_AFS_THRE_YMOTION;
+        thre_Cmotion  = FILTER_DEFAULT_AFS_THRE_CMOTION;
+        analyze       = FILTER_DEFAULT_AFS_ANALYZE;
+        shift         = FILTER_DEFAULT_AFS_SHIFT;
+        drop          = FILTER_DEFAULT_AFS_DROP;
+        smooth        = FILTER_DEFAULT_AFS_SMOOTH;
+        force24       = FILTER_DEFAULT_AFS_FORCE24;
+        tune          = FILTER_DEFAULT_AFS_TUNE;
+        break;
+    case AFS_PRESET_TRIPLE: //動き重視
+        method_switch = 0;
+        coeff_shift   = 192;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 1;
+        shift         = false;
+        drop          = false;
+        smooth        = false;
+        force24       = false;
+        tune          = false;
+        break;
+    case AFS_PRESET_DOUBLE://二重化
+        method_switch = 0;
+        coeff_shift   = 192;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 2;
+        shift         = true;
+        drop          = true;
+        smooth        = true;
+        force24       = false;
+        tune          = false;
+        break;
+    case AFS_PRESET_ANIME: //映画/アニメ
+        method_switch = 64;
+        coeff_shift   = 128;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 3;
+        shift         = true;
+        drop          = true;
+        smooth        = true;
+        force24       = false;
+        tune          = false;
+        break;
+    case AFS_PRESET_MIN_AFTERIMG:      //残像最小化
+        method_switch = 0;
+        coeff_shift   = 192;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 4;
+        shift         = true;
+        drop          = true;
+        smooth        = true;
+        force24       = false;
+        tune          = false;
+        break;
+    case AFS_PRESET_FORCE24_SD:        //24fps固定
+        method_switch = 64;
+        coeff_shift   = 128;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 3;
+        shift         = true;
+        drop          = true;
+        smooth        = false;
+        force24       = true;
+        tune          = false;
+        break;
+    case AFS_PRESET_FORCE24_HD:        //24fps固定 (HD)
+        method_switch = 92;
+        coeff_shift   = 192;
+        thre_shift    = 448;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 3;
+        shift         = true;
+        drop          = true;
+        smooth        = true;
+        force24       = true;
+        tune          = false;
+        break;
+    case AFS_PRESET_FORCE30:           //30fps固定
+        method_switch = 92;
+        coeff_shift   = 192;
+        thre_shift    = 448;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 3;
+        shift         = false;
+        drop          = false;
+        smooth        = false;
+        force24       = false;
+        tune          = false;
+        break;
+    default:
+        break;
+    }
+}
+
+int VppAfs::read_afs_inifile(const TCHAR* inifile) {
+    if (!PathFileExists(inifile)) {
+        return 1;
+    }
+    const auto filename = tchar_to_string(inifile);
+    const auto section = AFS_STG_SECTION;
+
+    clip.top      = GetPrivateProfileIntA(section, AFS_STG_UP, clip.top, filename.c_str());
+    clip.bottom   = GetPrivateProfileIntA(section, AFS_STG_BOTTOM, clip.bottom, filename.c_str());
+    clip.left     = GetPrivateProfileIntA(section, AFS_STG_LEFT, clip.left, filename.c_str());
+    clip.right    = GetPrivateProfileIntA(section, AFS_STG_RIGHT, clip.right, filename.c_str());
+    method_switch = GetPrivateProfileIntA(section, AFS_STG_METHOD_WATERSHED, method_switch, filename.c_str());
+    coeff_shift   = GetPrivateProfileIntA(section, AFS_STG_COEFF_SHIFT, coeff_shift, filename.c_str());
+    thre_shift    = GetPrivateProfileIntA(section, AFS_STG_THRE_SHIFT, thre_shift, filename.c_str());
+    thre_deint    = GetPrivateProfileIntA(section, AFS_STG_THRE_DEINT, thre_deint, filename.c_str());
+    thre_Ymotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_Y_MOTION, thre_Ymotion, filename.c_str());
+    thre_Cmotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_C_MOTION, thre_Cmotion, filename.c_str());
+    analyze       = GetPrivateProfileIntA(section, AFS_STG_MODE, analyze, filename.c_str());
+
+    shift    = 0 != GetPrivateProfileIntA(section, AFS_STG_FIELD_SHIFT, shift, filename.c_str());
+    drop     = 0 != GetPrivateProfileIntA(section, AFS_STG_DROP, drop, filename.c_str());
+    smooth   = 0 != GetPrivateProfileIntA(section, AFS_STG_SMOOTH, smooth, filename.c_str());
+    force24  = 0 != GetPrivateProfileIntA(section, AFS_STG_FORCE24, force24, filename.c_str());
+    rff      = 0 != GetPrivateProfileIntA(section, AFS_STG_RFF, rff, filename.c_str());
+    log      = 0 != GetPrivateProfileIntA(section, AFS_STG_LOG, log, filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_DETECT_SC, fp->check[4], filename.c_str());
+    tune     = 0 != GetPrivateProfileIntA(section, AFS_STG_TUNE_MODE, tune, filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_LOG_SAVE, fp->check[6], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_TRACE_MODE, fp->check[7], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_REPLAY_MODE, fp->check[8], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_YUY2UPSAMPLE, fp->check[9], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_THROUGH_MODE, fp->check[10], filename.c_str());
+
+    // GetPrivateProfileIntA(section, AFS_STG_PROC_MODE, g_afs.ex_data.proc_mode, filename.c_str());
+    return 0;
 }
 
 VppYadif::VppYadif() :

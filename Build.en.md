@@ -44,5 +44,6 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 
 |   | For Debug build | For Release build |
 |:---------------------|:------|:--------|
-|NVEnc.auo (win32 only) | Debug | Release |
 |NVEncC(64).exe | DebugStatic | RelStatic |
+|NVEnc.auo (win32 only) | Debug | Release |
+|cufilters.auf (win32 only) | DebugFilters | RelFilters |

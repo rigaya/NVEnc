@@ -46,5 +46,6 @@ NVEnc.slnを開き、ビルドします。
 
 |              |Debug用構成|Release用構成|
 |:---------------------|:------|:--------|
-|NVEnc.auo (win32のみ) | Debug | Release |
 |NVEncC(64).exe | DebugStatic | RelStatic |
+|NVEnc.auo (win32のみ) | Debug | Release |
+|cufilters.auf (win32のみ) | DebugFilters | RelFilters |
