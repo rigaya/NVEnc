@@ -92,7 +92,10 @@ which might cause problem in some playback environments.
       - yadif
     - delogo
     - resize
-      In addition to bilinear, spline36, various algorithms by npp library are available for x64 version
+      - bilinear
+      - spline16, spline36, spline64
+      - lanczos2, lanczos3, lanczos4
+      - various algorithms by npp library are available (x64 version only)
     - padding
     - select-every
     - deband

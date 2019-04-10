@@ -98,7 +98,10 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
       - yadif
     - delogo
     - リサイズ  
-      bilinear,spline36に加え、x64版ではnppライブラリによる各種アルゴリズムが利用可
+      - bilinear
+      - spline16, spline36, spline64
+      - lanczos2, lanczos3, lanczos4
+      - nppライブラリによる各種アルゴリズム (x64版のみ)
     - パディング(黒帯)の追加
     - フレーム間引き(select every)
     - バンディング低減

@@ -434,12 +434,12 @@ public:
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
-    RGY_ERR resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    RGY_ERR resizeYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR resizeNppiYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR resizeNppiYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
 
     bool m_bInterlacedWarn;
-    CUMemBuf m_weightSpline36;
+    CUMemBuf m_weightSpline;
 };
 
 

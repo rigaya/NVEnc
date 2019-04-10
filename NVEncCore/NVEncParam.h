@@ -435,7 +435,12 @@ const CX_DESC list_deinterlace[] = {
 enum {
     NPPI_INTER_MAX = NPPI_INTER_LANCZOS3_ADVANCED,
     RESIZE_CUDA_TEXTURE_BILINEAR,
+    RESIZE_CUDA_SPLINE16,
     RESIZE_CUDA_SPLINE36,
+    RESIZE_CUDA_SPLINE64,
+    RESIZE_CUDA_LANCZOS2,
+    RESIZE_CUDA_LANCZOS3,
+    RESIZE_CUDA_LANCZOS4,
 };
 
 const CX_DESC list_nppi_resize[] = {
@@ -452,7 +457,12 @@ const CX_DESC list_nppi_resize[] = {
 #endif
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
     { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
+    { _T("spline16"),      RESIZE_CUDA_SPLINE16 },
     { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
+    { _T("spline64"),      RESIZE_CUDA_SPLINE64 },
+    { _T("lanczos2"),      RESIZE_CUDA_LANCZOS2 },
+    { _T("lanczos3"),      RESIZE_CUDA_LANCZOS3 },
+    { _T("lanczos4"),      RESIZE_CUDA_LANCZOS4 },
     { NULL, NULL }
 };
 
@@ -468,7 +478,12 @@ const CX_DESC list_nppi_resize_help[] = {
     { _T("lanczos"),       NPPI_INTER_LANCZOS },
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
     { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
+    { _T("spline16"),      RESIZE_CUDA_SPLINE16 },
     { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
+    { _T("spline64"),      RESIZE_CUDA_SPLINE64 },
+    { _T("lanczos2"),      RESIZE_CUDA_LANCZOS2 },
+    { _T("lanczos3"),      RESIZE_CUDA_LANCZOS3 },
+    { _T("lanczos4"),      RESIZE_CUDA_LANCZOS4 },
     { NULL, NULL }
 };
 

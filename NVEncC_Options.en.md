@@ -929,13 +929,18 @@ example2 (same as "select odd "): --vpp-select-every 2,offset=1
 ### --vpp-resize &lt;string&gt;
 Specify the resizing algorithm.
 
-Those with "○" in nppi64_80.dll use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only. To use those algorithms, you need to download nppi64_80.dll separately and place it in the same folder as NVEncC64.exe.
+Those with "○" in nppi64_10.dll use the [NPP library](https://developer.nvidia.com/npp), which supports x64 version only. To use those algorithms, you need to download nppi64_10.dll separately and place it in the same folder as NVEncC64.exe.
 
-| option name | description | require nppi64_80.dll |
+| option name | description | require nppi64_10.dll |
 |:---|:---|:---:|
 | default  | auto select | |
 | bilinear | linear interpolation | |
+| spline16 | 4x4 spline curve interpolation | |
 | spline36 | 6x6 spline curve interpolation | |
+| spline64 | 8x8 spline curve interpolation | |
+| lanczos2 | 4x4 Lanczos resampling | |
+| lanczos3 | 6x6 Lanczos resampling | |
+| lanczos4 | 8x8 Lanczos resampling | |
 | nn            | nearest neighbor | ○ |
 | npp_linear    | linear interpolation by NPP library | ○ |
 | cubic         | 4x4 cubic interpolation | ○ |

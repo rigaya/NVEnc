@@ -970,13 +970,18 @@ example2 ("select odd "): --vpp-select-every 2,offset=1
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 
-要nppi64_80.dllに"○"のあるものは、[NPPライブラリ](https://developer.nvidia.com/npp)を使用しており、x64版のみ対応。また、使用には別途nppi64_80.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
+要nppi64_10.dllに"○"のあるものは、[NPPライブラリ](https://developer.nvidia.com/npp)を使用しており、x64版のみ対応。また、使用には別途nppi64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
 
-| オプション名 | 説明 | 要nppi64_80.dll |
+| オプション名 | 説明 | 要nppi64_10.dll |
 |:---|:---|:---:|
 | default  | 自動的に適切なものを選択 | |
 | bilinear | 線形補間 | |
+| spline16 | 4x4 Spline補間 | |
 | spline36 | 6x6 Spline補間 | |
+| spline64 | 8x8 Spline補間 | |
+| lanczos2 | 4x4 lanczos補間 | |
+| lanczos3 | 6x6 lanczos補間 | |
+| lanczos4 | 8x8 lanczos補間 | |
 | nn            | 最近傍点選択 | ○ |
 | npp_linear    | nppの線形補間 | ○ |
 | cubic         | 4x4 3次補間 | ○ |
