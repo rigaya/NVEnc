@@ -2981,7 +2981,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         if (inputParam->vpp.gaussMaskSize > 0) {
 #if _M_IX86
             PrintMes(RGY_LOG_ERROR, _T("gauss denoise filter not supported in x86.\n"));
-            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+            return RGY_ERR_UNSUPPORTED;
 #else
             unique_ptr<NVEncFilter> filterGauss(new NVEncFilterDenoiseGauss());
             shared_ptr<NVEncFilterParamGaussDenoise> param(new NVEncFilterParamGaussDenoise());
