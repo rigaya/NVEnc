@@ -409,6 +409,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     case RGY_CHROMAFMT_YUV444:
         break;
     case RGY_CHROMAFMT_RGB:
+    case RGY_CHROMAFMT_RGB_PACKED:
         break;
     case RGY_CHROMAFMT_YUV420:
     default:

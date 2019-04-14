@@ -100,6 +100,12 @@ static const auto RGY_CSP_TO_NVENC = make_array<std::pair<RGY_CSP, NV_ENC_BUFFER
     std::make_pair(RGY_CSP_RGB32R,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_RGB24,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_RGB32,     NV_ENC_BUFFER_FORMAT_ARGB),
+    std::make_pair(RGY_CSP_BGR24,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_BGR32,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_RGB,       NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_RGBA,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_GBR,       NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_GBRA,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YC48,      NV_ENC_BUFFER_FORMAT_UNDEFINED)
     );
 

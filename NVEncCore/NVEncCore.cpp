@@ -1672,6 +1672,14 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         case RGY_CSP_RGB32R:
             bufPitch = bufWidth * 4;
             bufSize = bufPitch * bufHeight; break;
+        case RGY_CSP_RGB:
+        case RGY_CSP_GBR:
+            bufPitch  = (bufWidth + 31) & (~31);
+            bufSize = bufPitch * bufHeight * 3; break;
+        case RGY_CSP_RGBA:
+        case RGY_CSP_GBRA:
+            bufPitch  = (bufWidth + 31) & (~31);
+            bufSize = bufPitch * bufHeight * 4; break;
         default:
             PrintMes(RGY_LOG_ERROR, _T("Unsupported csp at AllocateIOBuffers.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;

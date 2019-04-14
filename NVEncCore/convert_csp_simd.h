@@ -462,9 +462,144 @@ static void __forceinline convert_rgb24r_to_rgb32_simd(void **dst, const void **
         }
     }
 }
+
+#define RGB_PLANE(x0, x1, x2, x3) (((x3) << 24) | ((x2) << 16) | ((x1) << 8) | (x0))
+template<uint32_t plane_from>
+static void __forceinline convert_rgb_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    uint8_t *srcRLine = (uint8_t *)src[(plane_from >>  0) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
+    uint8_t *srcGLine = (uint8_t *)src[(plane_from >>  8) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
+    uint8_t *srcBLine = (uint8_t *)src[(plane_from >> 16) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
+    alignas(16) const char MASK_RGB_TO_RGB24[] ={
+         0, -1, -1,  1, -1, -1,  2, -1, -1,  3, -1, -1,  4, -1, -1,  5,
+        -1, -1,  6, -1, -1,  7, -1, -1,  8, -1, -1,  9, -1, -1, 10, -1,
+        -1, 11, -1, -1, 12, -1, -1, 13, -1, -1, 14, -1, -1, 15, -1, -1
+    };
+    uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
+    for (int y = 0; y < y_range.len; y++, dstLine += dst_y_pitch_byte, srcRLine += src_y_pitch_byte, srcGLine += src_y_pitch_byte, srcBLine += src_y_pitch_byte) {
+        uint8_t *ptr_srcR = srcRLine;
+        uint8_t *ptr_srcG = srcGLine;
+        uint8_t *ptr_srcB = srcBLine;
+        uint8_t *ptr_dst = dstLine;
+        __m128i xmask0 = _mm_load_si128((__m128i *)&MASK_RGB_TO_RGB24[0]);
+        __m128i xmask1 = _mm_load_si128((__m128i *)&MASK_RGB_TO_RGB24[16]);
+        __m128i xmask2 = _mm_load_si128((__m128i *)&MASK_RGB_TO_RGB24[32]);
+        int x = 0, x_fin = width - crop_left - crop_right - 16;
+        for (; x < x_fin; x += 16, ptr_dst += 48, ptr_srcR += 16, ptr_srcG += 16, ptr_srcB += 16) {
+            __m128i xR = _mm_loadu_si128((__m128i *)ptr_srcR);
+            __m128i xG = _mm_loadu_si128((__m128i *)ptr_srcG);
+            __m128i xB = _mm_loadu_si128((__m128i *)ptr_srcB);
+            __m128i x0 = _mm_shuffle_epi8(xR, xmask0);
+            __m128i x1 = _mm_shuffle_epi8(xR, xmask1);
+            __m128i x2 = _mm_shuffle_epi8(xR, xmask2);
+            x0 = _mm_or_si128(x0, _mm_shuffle_epi8(xG, _mm_alignr_epi8(xmask0, xmask2, 15)));
+            x1 = _mm_or_si128(x1, _mm_shuffle_epi8(xG, _mm_alignr_epi8(xmask1, xmask0, 15)));
+            x2 = _mm_or_si128(x2, _mm_shuffle_epi8(xG, _mm_alignr_epi8(xmask2, xmask1, 15)));
+            x0 = _mm_or_si128(x0, _mm_shuffle_epi8(xB, _mm_alignr_epi8(xmask0, xmask2, 14)));
+            x1 = _mm_or_si128(x1, _mm_shuffle_epi8(xB, _mm_alignr_epi8(xmask1, xmask0, 14)));
+            x2 = _mm_or_si128(x2, _mm_shuffle_epi8(xB, _mm_alignr_epi8(xmask2, xmask1, 14)));
+            _mm_storeu_si128((__m128i *)(ptr_dst +  0), x0);
+            _mm_storeu_si128((__m128i *)(ptr_dst + 16), x1);
+            _mm_storeu_si128((__m128i *)(ptr_dst + 32), x2);
+        }
+        if (width & 15) {
+            int x_offset = (16 - (width & 15));
+            ptr_dst -= x_offset * 3;
+            ptr_srcR -= x_offset;
+            ptr_srcG -= x_offset;
+            ptr_srcB -= x_offset;
+        }
+        __m128i xR = _mm_loadu_si128((__m128i *)ptr_srcR);
+        __m128i xG = _mm_loadu_si128((__m128i *)ptr_srcG);
+        __m128i xB = _mm_loadu_si128((__m128i *)ptr_srcB);
+        __m128i x0 = _mm_shuffle_epi8(xR, xmask0);
+        __m128i x1 = _mm_shuffle_epi8(xR, xmask1);
+        __m128i x2 = _mm_shuffle_epi8(xR, xmask2);
+        x0 = _mm_or_si128(x0, _mm_shuffle_epi8(xG, _mm_alignr_epi8(xmask0, xmask2, 15)));
+        x1 = _mm_or_si128(x1, _mm_shuffle_epi8(xG, _mm_alignr_epi8(xmask1, xmask0, 15)));
+        x2 = _mm_or_si128(x2, _mm_shuffle_epi8(xG, _mm_alignr_epi8(xmask2, xmask1, 15)));
+        x0 = _mm_or_si128(x0, _mm_shuffle_epi8(xB, _mm_alignr_epi8(xmask0, xmask2, 14)));
+        x1 = _mm_or_si128(x1, _mm_shuffle_epi8(xB, _mm_alignr_epi8(xmask1, xmask0, 14)));
+        x2 = _mm_or_si128(x2, _mm_shuffle_epi8(xB, _mm_alignr_epi8(xmask2, xmask1, 14)));
+        _mm_storeu_si128((__m128i *)(ptr_dst +  0), x0);
+        _mm_storeu_si128((__m128i *)(ptr_dst + 16), x1);
+        _mm_storeu_si128((__m128i *)(ptr_dst + 32), x2);
+    }
+}
 #endif
 
-static void __forceinline convert_rgb24_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+#define RGB_PLANE(x0, x1, x2, x3) (((x3) << 24) | ((x2) << 16) | ((x1) << 8) | (x0))
+template<uint32_t plane_from>
+static void __forceinline convert_rgb_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    uint8_t *srcRLine = (uint8_t *)src[(plane_from >>  0) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
+    uint8_t *srcGLine = (uint8_t *)src[(plane_from >>  8) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
+    uint8_t *srcBLine = (uint8_t *)src[(plane_from >> 16) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
+    uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
+    for (int y = 0; y < y_range.len; y++, dstLine += dst_y_pitch_byte, srcRLine += src_y_pitch_byte, srcGLine += src_y_pitch_byte, srcBLine += src_y_pitch_byte) {
+        uint8_t *ptr_srcR = srcRLine;
+        uint8_t *ptr_srcG = srcGLine;
+        uint8_t *ptr_srcB = srcBLine;
+        uint8_t *ptr_dst = dstLine;
+        int x = 0, x_fin = width - crop_left - crop_right - 16;
+        for (; x < x_fin; x += 16, ptr_dst += 64, ptr_srcR += 16, ptr_srcG += 16, ptr_srcB += 16) {
+            __m128i xR = _mm_loadu_si128((__m128i *)ptr_srcR);
+            __m128i xG = _mm_loadu_si128((__m128i *)ptr_srcG);
+            __m128i xB = _mm_loadu_si128((__m128i *)ptr_srcB);
+
+            __m128i xRG0 = _mm_unpacklo_epi8(xR, xG);
+            __m128i xRG1 = _mm_unpackhi_epi8(xR, xG);
+            __m128i xB0 = _mm_unpacklo_epi8(xB, _mm_setzero_si128());
+            __m128i xB1 = _mm_unpackhi_epi8(xB, _mm_setzero_si128());
+
+            __m128i x0 = _mm_unpacklo_epi16(xRG0, xB0);
+            __m128i x1 = _mm_unpackhi_epi16(xRG0, xB0);
+            __m128i x2 = _mm_unpacklo_epi16(xRG1, xB1);
+            __m128i x3 = _mm_unpackhi_epi16(xRG1, xB1);
+
+            _mm_storeu_si128((__m128i *)(ptr_dst +  0), x0);
+            _mm_storeu_si128((__m128i *)(ptr_dst + 16), x1);
+            _mm_storeu_si128((__m128i *)(ptr_dst + 32), x2);
+            _mm_storeu_si128((__m128i *)(ptr_dst + 48), x3);
+        }
+        if (width & 15) {
+            int x_offset = (16 - (width & 15));
+            ptr_dst -= x_offset * 3;
+            ptr_srcR -= x_offset;
+            ptr_srcG -= x_offset;
+            ptr_srcB -= x_offset;
+        }
+        __m128i xR = _mm_loadu_si128((__m128i *)ptr_srcR);
+        __m128i xG = _mm_loadu_si128((__m128i *)ptr_srcG);
+        __m128i xB = _mm_loadu_si128((__m128i *)ptr_srcB);
+
+        __m128i xRG0 = _mm_unpacklo_epi8(xR, xG);
+        __m128i xRG1 = _mm_unpackhi_epi8(xR, xG);
+        __m128i xB0 = _mm_unpacklo_epi8(xB, _mm_setzero_si128());
+        __m128i xB1 = _mm_unpackhi_epi8(xB, _mm_setzero_si128());
+
+        __m128i x0 = _mm_unpacklo_epi16(xRG0, xB0);
+        __m128i x1 = _mm_unpackhi_epi16(xRG0, xB0);
+        __m128i x2 = _mm_unpacklo_epi16(xRG1, xB1);
+        __m128i x3 = _mm_unpackhi_epi16(xRG1, xB1);
+
+        _mm_storeu_si128((__m128i *)(ptr_dst +  0), x0);
+        _mm_storeu_si128((__m128i *)(ptr_dst + 16), x1);
+        _mm_storeu_si128((__m128i *)(ptr_dst + 32), x2);
+        _mm_storeu_si128((__m128i *)(ptr_dst + 48), x3);
+    }
+}
+
+template<RGY_CSP csp_from>
+void convert_rgb24_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -472,9 +607,68 @@ static void __forceinline convert_rgb24_to_rgb24_simd(void **dst, const void **s
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
     uint8_t *srcLine = (uint8_t *)src[0] + src_y_pitch_byte * y_range.start_src + crop_left * 3;
     uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
-    const int y_width = width - crop_right - crop_left;
-    for (int y = 0; y < y_range.len; y++, dstLine += dst_y_pitch_byte, srcLine += src_y_pitch_byte) {
-        memcpy_sse(dstLine, srcLine, y_width * 3);
+    const int x_width = width - crop_right - crop_left;
+    if (csp_from == RGY_CSP_RGB24) {
+        for (int y = 0; y < y_range.len; y++, dstLine += dst_y_pitch_byte, srcLine += src_y_pitch_byte) {
+            memcpy_sse(dstLine, srcLine, x_width * 3);
+        }
+    } else {
+#if USE_SSSE3
+        static_assert(csp_from == RGY_CSP_BGR24 || csp_from == RGY_CSP_RGB24, "invalid csp");
+        alignas(16) const char MASK_BGR3_TO_RGB3[] = {
+             2,  1,  0,  5,  4,  3,  8,  7,  6, 11, 10,  9, 14, 13, 12, -1, //[0]->[0]
+            -1, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, //[0]->[1]
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  1, //[1]->[0]
+             0, -1,  4,  3,  2,  7,  6,  5, 10,  9,  8, 13, 12, 11, -1, 15, //[1]->[1]
+            14, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, //[1]->[2]
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,  0, -1, //[2]->[1]
+            -1,  3,  2,  1,  6,  5,  4,  9,  8,  7, 12, 11, 10, 15, 14, 13  //[2]->[2]
+        };
+        const char *mask;
+        switch (csp_from) {
+        case RGY_CSP_BGR24:
+        default: mask = MASK_BGR3_TO_RGB3; break;
+        }
+        for (int y = 0; y < y_range.len; y++, dstLine += dst_y_pitch_byte, srcLine += src_y_pitch_byte) {
+            uint8_t *ptr_dst = dstLine;
+            uint8_t *ptr_src = srcLine;
+            for (int x = 0; x < x_width - 16; x += 16, ptr_dst += 48, ptr_src += 48) {
+                __m128i src0 = _mm_loadu_si128((const __m128i *)(ptr_src +  0));
+                __m128i src1 = _mm_loadu_si128((const __m128i *)(ptr_src + 16));
+                __m128i src2 = _mm_loadu_si128((const __m128i *)(ptr_src + 32));
+                __m128i x0 = _mm_shuffle_epi8(src0, _mm_load_si128((__m128i *)(mask +  0)));
+                __m128i x1 = _mm_shuffle_epi8(src0, _mm_load_si128((__m128i *)(mask + 16)));
+                x0 = _mm_or_si128(x0, _mm_shuffle_epi8(src1, _mm_load_si128((__m128i *)(mask + 32))));
+                x1 = _mm_or_si128(x1, _mm_shuffle_epi8(src1, _mm_load_si128((__m128i *)(mask + 48))));
+                __m128i x2 = _mm_shuffle_epi8(src1, _mm_load_si128((__m128i *)(mask + 64)));
+                x1 = _mm_or_si128(x1, _mm_shuffle_epi8(src2, _mm_load_si128((__m128i *)(mask + 80))));
+                x2 = _mm_or_si128(x2, _mm_shuffle_epi8(src2, _mm_load_si128((__m128i *)(mask + 96))));
+                _mm_storeu_si128((__m128i *)(ptr_dst +  0), x0);
+                _mm_storeu_si128((__m128i *)(ptr_dst + 16), x1);
+                _mm_storeu_si128((__m128i *)(ptr_dst + 32), x2);
+            }
+            if (x_width % 16) {
+                int x_offest = 16 - (x_width % 16);
+                ptr_dst -= x_offest * 3;
+                ptr_src -= x_offest * 3;
+            }
+            __m128i src0 = _mm_loadu_si128((const __m128i *)(ptr_src +  0));
+            __m128i src1 = _mm_loadu_si128((const __m128i *)(ptr_src + 16));
+            __m128i src2 = _mm_loadu_si128((const __m128i *)(ptr_src + 32));
+            __m128i x0 = _mm_shuffle_epi8(src0, _mm_load_si128((__m128i *)(mask +  0)));
+            __m128i x1 = _mm_shuffle_epi8(src0, _mm_load_si128((__m128i *)(mask + 16)));
+            x0 = _mm_or_si128(x0, _mm_shuffle_epi8(src1, _mm_load_si128((__m128i *)(mask + 32))));
+            x1 = _mm_or_si128(x1, _mm_shuffle_epi8(src1, _mm_load_si128((__m128i *)(mask + 48))));
+            __m128i x2 = _mm_shuffle_epi8(src1, _mm_load_si128((__m128i *)(mask + 64)));
+            x1 = _mm_or_si128(x1, _mm_shuffle_epi8(src2, _mm_load_si128((__m128i *)(mask + 80))));
+            x2 = _mm_or_si128(x2, _mm_shuffle_epi8(src2, _mm_load_si128((__m128i *)(mask + 96))));
+            _mm_storeu_si128((__m128i *)(ptr_dst +  0), x0);
+            _mm_storeu_si128((__m128i *)(ptr_dst + 16), x1);
+            _mm_storeu_si128((__m128i *)(ptr_dst + 32), x2);
+        }
+#else
+        static_assert(csp_from == RGY_CSP_RGB24, "invalid csp");
+#endif
     }
 }
 
@@ -492,7 +686,8 @@ static void __forceinline convert_rgb24r_to_rgb24_simd(void **dst, const void **
     }
 }
 
-static void __forceinline convert_rgb32_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+template<RGY_CSP csp_from>
+void convert_rgb32_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
     const int crop_right  = crop[2];
@@ -500,9 +695,42 @@ static void __forceinline convert_rgb32_to_rgb32_simd(void **dst, const void **s
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
     uint8_t *srcLine = (uint8_t *)src[0] + src_y_pitch_byte * y_range.start_src + crop_left * 4;
     uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
-    const int y_width = width - crop_right - crop_left;
+    const int x_width = width - crop_right - crop_left;
+    if (csp_from == RGY_CSP_RGB24) {
     for (int y = 0; y < y_range.len; y++, dstLine += dst_y_pitch_byte, srcLine += src_y_pitch_byte) {
-        memcpy_sse(dstLine, srcLine, y_width * 4);
+        memcpy_sse(dstLine, srcLine, x_width * 4);
+    }
+    } else {
+#if USE_SSSE3
+        static_assert(csp_from == RGY_CSP_BGR32 || csp_from == RGY_CSP_RGB32, "invalid csp");
+        alignas(16) const char MASK_BGR4_TO_RGB4[] = { 2, 1, 0, 3, 6, 5, 4, 7, 10, 9, 8, 11, 14, 13, 12, 15 };
+        alignas(16) const char MASK_GBR4_TO_RGB4[] = { 2, 0, 1, 3, 6, 4, 5, 7, 10, 8, 9, 11, 14, 12, 13, 15 };
+        const char *mask = nullptr;
+        switch (csp_from) {
+        //case RGY_CSP_GBR32: mask = MASK_GBR4_TO_RGB4; break;
+        case RGY_CSP_BGR32:
+        default:            mask = MASK_BGR4_TO_RGB4; break;
+        }
+        for (int y = 0; y < y_range.len; y++, dstLine += dst_y_pitch_byte, srcLine += src_y_pitch_byte) {
+            uint8_t *ptr_dst = dstLine;
+            uint8_t *ptr_src = srcLine;
+            for (int x = 0; x < x_width - 4; x += 4, ptr_dst += 16, ptr_src += 16) {
+                __m128i src0 = _mm_loadu_si128((const __m128i *)(ptr_src +  0));
+                __m128i x0 = _mm_shuffle_epi8(src0, _mm_load_si128((__m128i *)(mask +  0)));
+                _mm_storeu_si128((__m128i *)(ptr_dst +  0), x0);
+            }
+            if (x_width % 4) {
+                int x_offest = 4 - (x_width % 4);
+                ptr_dst -= x_offest * 4;
+                ptr_src -= x_offest * 4;
+            }
+            __m128i src0 = _mm_loadu_si128((const __m128i *)(ptr_src +  0));
+            __m128i x0 = _mm_shuffle_epi8(src0, _mm_load_si128((__m128i *)(mask +  0)));
+            _mm_storeu_si128((__m128i *)(ptr_dst +  0), x0);
+        }
+#else
+        static_assert(csp_from == RGY_CSP_RGB32, "invalid csp");
+#endif
     }
 }
 
