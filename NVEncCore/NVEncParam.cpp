@@ -667,6 +667,8 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
     nCudaSchedule(DEFAULT_CUDA_SCHEDULE),
     sessionRetry(0),
+    threadCsp(0),
+    simdCsp(-1),
     pPrivatePrm(nullptr) {
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));

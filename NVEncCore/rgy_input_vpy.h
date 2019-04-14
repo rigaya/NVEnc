@@ -81,7 +81,7 @@ public:
 
     void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
 protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
 
     void release_vapoursynth();
     int load_vapoursynth();

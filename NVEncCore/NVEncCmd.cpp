@@ -2920,7 +2920,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nOutputBufSizeMB = (std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("input-thread"))) {
+    if (0 == _tcscmp(option_name, _T("input-thread"))
+        || 0 == _tcscmp(option_name, _T("thread-input"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
@@ -2938,7 +2939,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nOutputThread = 0;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("output-thread"))) {
+    if (0 == _tcscmp(option_name, _T("output-thread"))
+        || 0 == _tcscmp(option_name, _T("thread-output"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
@@ -2952,7 +2954,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nOutputThread = value;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("audio-thread"))) {
+    if (0 == _tcscmp(option_name, _T("audio-thread"))
+        || 0 == _tcscmp(option_name, _T("thread-audio"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
@@ -2964,6 +2967,31 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return 1;
         }
         pParams->nAudioThread = value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("thread-csp"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < -1 || value >= 2) {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->threadCsp = value;
+        return 0;
+    }
+    if (IS_OPTION("simd-csp")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_simd, strInput[i], &value)) {
+            pParams->simdCsp = value;
+        } else {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("max-procfps"))) {
@@ -3712,9 +3740,11 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_LST(_T("--cuda-schedule"), nCudaSchedule, list_cuda_schedule);
     OPT_NUM(_T("--output-buf"), nOutputBufSizeMB);
-    OPT_NUM(_T("--output-thread"), nOutputThread);
-    OPT_NUM(_T("--input-thread"), nInputThread);
-    OPT_NUM(_T("--audio-thread"), nAudioThread);
+    OPT_NUM(_T("--thread-output"), nOutputThread);
+    OPT_NUM(_T("--thread-input"), nInputThread);
+    OPT_NUM(_T("--thread-audio"), nAudioThread);
+    OPT_NUM(_T("--thread-csp"), threadCsp);
+    OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), nProcSpeedLimit);
     OPT_STR_PATH(_T("--log"), logfile);
     OPT_LST(_T("--log-level"), loglevel, list_log_level);

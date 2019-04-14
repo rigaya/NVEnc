@@ -42,12 +42,59 @@
 
 std::vector<int> read_keyfile(tstring keyfile);
 
+struct RGYConvertCSPPrm {
+    bool abort;
+    void** dst;
+    const void** src;
+    int interlaced;
+    int width;
+    int src_y_pitch_byte;
+    int src_uv_pitch_byte;
+    int dst_y_pitch_byte;
+    int height;
+    int dst_height;
+    int* crop;
+
+    RGYConvertCSPPrm();
+};
+
+class RGYConvertCSP {
+private:
+    const ConvertCSP* m_csp;
+    RGY_CSP m_csp_from;
+    RGY_CSP m_csp_to;
+    bool m_uv_only;
+    int m_threads;
+    std::vector<std::thread> m_th;
+    std::vector<std::unique_ptr<void, handle_deleter>> m_heStart;
+    std::vector<std::unique_ptr<void, handle_deleter>> m_heFin;
+    std::vector<HANDLE> m_heFinCopy;
+    RGYConvertCSPPrm m_prm;
+public:
+    RGYConvertCSP();
+    RGYConvertCSP(int threads);
+    ~RGYConvertCSP();
+    const ConvertCSP* getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd);
+    const ConvertCSP* getFunc() const { return m_csp; };
+
+    int run(int interlaced, void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int* crop);
+};
+
+class RGYInputPrm {
+public:
+    int threadCsp;
+    uint32_t simdCsp;
+
+    RGYInputPrm() : threadCsp(-1), simdCsp(0) {};
+    virtual ~RGYInputPrm() {};
+};
+
 class RGYInput {
 public:
     RGYInput();
     virtual ~RGYInput();
 
-    RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<RGYLog> pLog, shared_ptr<EncodeStatus> pEncSatusInfo) {
+    RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm, shared_ptr<RGYLog> pLog, shared_ptr<EncodeStatus> pEncSatusInfo) {
         Close();
         m_pPrintMes = pLog;
         m_pEncSatusInfo = pEncSatusInfo;
@@ -139,7 +186,7 @@ public:
         return m_inputVideoInfo.codec;
     }
 protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) = 0;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) = 0;
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm);
 
     //trim listを参照し、動画の最大フレームインデックスを取得する
@@ -155,7 +202,7 @@ protected:
     VideoInfo m_inputVideoInfo;
 
     RGY_CSP m_InputCsp;
-    const ConvertCSP *m_sConvert;
+    unique_ptr<RGYConvertCSP> m_sConvert;
     shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
 
     tstring m_strInputInfo;

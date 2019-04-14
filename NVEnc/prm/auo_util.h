@@ -384,7 +384,7 @@ static BOOL check_avx2() {
     }
     return FALSE;
 }
-
+#if 0
 static DWORD get_availableSIMD() {
     int CPUInfo[4];
     __cpuid(CPUInfo, 1);
@@ -410,6 +410,7 @@ static DWORD get_availableSIMD() {
         simd |= AUO_SIMD_AVX2;
     return simd;
 }
+#endif
 
 static BOOL check_OS_Win7orLater() {
 #if (_MSC_VER >= 1800)

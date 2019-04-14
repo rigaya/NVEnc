@@ -70,6 +70,38 @@ static inline void extend_array_size(VideoFrameData *dataset) {
     memset(dataset->frame + current_cap, 0, sizeof(dataset->frame[0]) * (dataset->capacity - current_cap));
 }
 
+RGYInputAvcodecPrm::RGYInputAvcodecPrm() :
+    memType(0),
+    pInputFormat(nullptr),
+    bReadVideo(false),
+    nVideoTrack(0),
+    nVideoStreamId(0),
+    nReadAudio(0),
+    bReadSubtitle(false),
+    bReadChapter(false),
+    nVideoAvgFramerate(),
+    nAnalyzeSec(0),
+    nTrimCount(0),
+    pTrimList(nullptr),
+    nAudioTrackStart(0),
+    nSubtitleTrackStart(0),
+    nAudioSelectCount(0),
+    ppAudioSelect(nullptr),
+    nSubtitleSelectCount(0),
+    pSubtitleSelect(nullptr),
+    nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
+    nProcSpeedLimit(0),
+    fSeekSec(0.0),
+    pFramePosListLog(nullptr),
+    pLogCopyFrameData(nullptr),
+    nInputThread(0),
+    pQueueInfo(nullptr),
+    pHWDecCodecCsp(nullptr),
+    bVideoDetectPulldown(false),
+    caption2ass(FORMAT_ASS) {
+
+}
+
 RGYInputAvcodec::RGYInputAvcodec() {
     memset(&m_Demux.format, 0, sizeof(m_Demux.format));
     memset(&m_Demux.video,  0, sizeof(m_Demux.video));
@@ -677,8 +709,8 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 #pragma warning(push)
 #pragma warning(disable:4100)
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
-RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
-    const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)prm;
+RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
+    const RGYInputAvcodecPrm *input_prm = dynamic_cast<const RGYInputAvcodecPrm*>(prm);
 
     if (input_prm->bReadVideo) {
         if (pInputInfo->type != RGY_INPUT_FMT_AVANY) {
@@ -700,6 +732,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
         return RGY_ERR_NULL_PTR;
     }
+
+    m_sConvert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
 
     for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
         tstring audioLog = strsprintf(_T("select audio track %s, codec %s"),
@@ -1237,7 +1271,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             { AV_PIX_FMT_YUV422P,      8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV16 },
             { AV_PIX_FMT_NV16,         8, RGY_CHROMAFMT_YUV422, RGY_CSP_NV16 },
 #endif
-            { AV_PIX_FMT_YUV444P,      8, RGY_CHROMAFMT_YUV444, RGY_CSP_NV12 },
+            { AV_PIX_FMT_YUV444P,      8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
             { AV_PIX_FMT_YUVJ444P,     8, RGY_CHROMAFMT_YUV444, RGY_CSP_YUV444 },
             { AV_PIX_FMT_YUV420P16LE, 16, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
             { AV_PIX_FMT_YUV420P14LE, 14, RGY_CHROMAFMT_YUV420, RGY_CSP_P010 },
@@ -1326,7 +1360,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 //ロスレスの場合は、入力側で出力フォーマットを決める
                 m_inputVideoInfo.csp = pixfmtData->output_csp;
             } else {
-                m_inputVideoInfo.csp = (get_convert_csp_func(m_InputCsp, prefered_csp, false) != nullptr) ? prefered_csp : pixfmtData->output_csp;
+                m_inputVideoInfo.csp = (m_sConvert->getFunc(m_InputCsp, prefered_csp, false, prm->simdCsp) != nullptr) ? prefered_csp : pixfmtData->output_csp;
                 //QSVではNV16->P010がサポートされていない
                 if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
                     m_inputVideoInfo.csp = RGY_CSP_P210;
@@ -1334,17 +1368,16 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 //なるべく軽いフォーマットでGPUに転送するように
                 if (ENCODER_NVENC
                     && RGY_CSP_BIT_PER_PIXEL[pixfmtData->output_csp] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]
-                    && get_convert_csp_func(m_InputCsp, pixfmtData->output_csp, false) != nullptr) {
+                    && m_sConvert->getFunc(m_InputCsp, pixfmtData->output_csp, false, prm->simdCsp) != nullptr) {
                     m_inputVideoInfo.csp = pixfmtData->output_csp;
                 }
             }
-            m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
-            if (m_sConvert == nullptr && m_InputCsp == RGY_CSP_YUY2) {
+            if (m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr && m_InputCsp == RGY_CSP_YUY2) {
                 //YUY2用の特別処理
                 m_inputVideoInfo.csp = RGY_CSP_CHROMA_FORMAT[pixfmtData->output_csp] == RGY_CHROMAFMT_YUV420 ? RGY_CSP_NV12 : RGY_CSP_YUV444;
-                m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
+                m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp);
             }
-            if (m_sConvert == nullptr) {
+            if (m_sConvert->getFunc() == nullptr) {
                 AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
                      RGY_CSP_NAMES[pixCspConv], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
                 return RGY_ERR_INVALID_COLOR_FORMAT;
@@ -1392,7 +1425,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             m_strInputInfo += mes;
         } else {
             CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(avcodec_get_name(m_Demux.video.pStream->codecpar->codec_id))).c_str(),
-                RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
+                RGY_CSP_NAMES[m_sConvert->getFunc()->csp_from], RGY_CSP_NAMES[m_sConvert->getFunc()->csp_to], get_simd_str(m_sConvert->getFunc()->simd), &m_inputVideoInfo);
             if (input_prm->fSeekSec > 0.0f) {
                 m_strInputInfo += strsprintf(_T("\n         seek: %s"), print_time(input_prm->fSeekSec).c_str());
             }
@@ -2073,8 +2106,8 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         pSurface->setDuration(m_Demux.video.pFrame->pkt_duration);
         //フレームデータをコピー
         void *dst_array[3];
-        pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
-        m_sConvert->func[m_Demux.video.pFrame->interlaced_frame != 0](
+        pSurface->ptrArray(dst_array, m_sConvert->getFunc()->csp_to == RGY_CSP_RGB24 || m_sConvert->getFunc()->csp_to == RGY_CSP_RGB32);
+        m_sConvert->run(m_Demux.video.pFrame->interlaced_frame != 0,
             dst_array, (const void **)m_Demux.video.pFrame->data,
             m_inputVideoInfo.srcWidth, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], pSurface->pitch(),
             m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);

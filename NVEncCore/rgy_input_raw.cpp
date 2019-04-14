@@ -170,11 +170,12 @@ void RGYInputRaw::Close() {
     RGYInput::Close();
 }
 
-RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
-    UNREFERENCED_PARAMETER(prm);
+RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
     m_strReaderName = (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw");
+
+    m_sConvert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
 
     bool use_stdin = _tcscmp(strFileName, _T("-")) == 0;
     if (use_stdin) {
@@ -285,16 +286,15 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_NULL_PTR;
     }
 
-    m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
     m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
 
-    if (nullptr == m_sConvert) {
+    if (m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("raw/y4m: color conversion not supported: %s -> %s.\n"),
             RGY_CSP_NAMES[m_InputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    CreateInputInfo(m_strReaderName.c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
+    CreateInputInfo(m_strReaderName.c_str(), RGY_CSP_NAMES[m_sConvert->getFunc()->csp_from], RGY_CSP_NAMES[m_sConvert->getFunc()->csp_to], get_simd_str(m_sConvert->getFunc()->simd), &m_inputVideoInfo);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
@@ -327,7 +327,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     uint32_t frameSize = 0;
-    switch (m_sConvert->csp_from) {
+    switch (m_sConvert->getFunc()->csp_from) {
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
         frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2; break;
@@ -365,12 +365,12 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
+    pSurface->ptrArray(dst_array, m_sConvert->getFunc()->csp_to == RGY_CSP_RGB24 || m_sConvert->getFunc()->csp_to == RGY_CSP_RGB32);
 
     const void *src_array[3];
     src_array[0] = m_pBuffer.get();
     src_array[1] = (uint8_t *)src_array[0] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight;
-    switch (m_sConvert->csp_from) {
+    switch (m_sConvert->getFunc()->csp_from) {
     case RGY_CSP_YV12:
     case RGY_CSP_YV12_09:
     case RGY_CSP_YV12_10:
@@ -402,7 +402,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     int src_uv_pitch = m_inputVideoInfo.srcPitch;
-    switch (RGY_CSP_CHROMA_FORMAT[m_sConvert->csp_from]) {
+    switch (RGY_CSP_CHROMA_FORMAT[m_sConvert->getFunc()->csp_from]) {
     case RGY_CHROMAFMT_YUV422:
         src_uv_pitch >>= 1;
         break;
@@ -415,7 +415,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         src_uv_pitch >>= 1;
         break;
     }
-    m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
+    m_sConvert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
         src_uv_pitch, pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 

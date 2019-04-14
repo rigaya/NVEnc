@@ -62,7 +62,22 @@
 #include "NVEncParam.h"
 #include "NVEncCmd.h"
 
-typedef struct video_output_thread_t {
+static const int MAX_CONV_THREADS = 4;
+
+struct alignas(64) video_convert_thread_t {
+    void *frame;
+    CONVERT_CF_DATA *pixel_data;
+    func_convert_frame convert_frame;
+    int w, h;
+    int thread_id;
+    int thread_n;
+    BOOL abort;
+    HANDLE thread;
+    HANDLE he_conv_start;
+    HANDLE he_conv_fin;
+};
+
+struct video_output_thread_t {
     CONVERT_CF_DATA *pixel_data;
     FILE *f_out;
     BOOL abort;
@@ -70,7 +85,7 @@ typedef struct video_output_thread_t {
     HANDLE he_out_start;
     HANDLE he_out_fin;
     int repeat;
-} video_output_thread_t;
+};
 
 int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
     //Aviutlからの入力に使用するフォーマット
@@ -348,17 +363,81 @@ static int ReadLogEnc(PIPE_SET *pipes, int total_drop, int current_frames) {
     return pipe_read;
 }
 
+static unsigned __stdcall video_convert_thread_func(void *prm) {
+    video_convert_thread_t *th = reinterpret_cast<video_convert_thread_t *>(prm);
+    CONVERT_CF_DATA *pixel_data = th->pixel_data;
+    WaitForSingleObject(th->he_conv_start, INFINITE);
+    while (false == th->abort) {
+        th->convert_frame(th->frame, th->pixel_data, th->w, th->h, th->thread_id, th->thread_n);  /// YUY2/YC48->NV12/YUV444変換, RGBコピー
+        SetEvent(th->he_conv_fin);
+        WaitForSingleObject(th->he_conv_start, INFINITE);
+    }
+    return 0;
+}
+
+static int video_convert_create_thread(std::vector<video_convert_thread_t>& thread_data, CONVERT_CF_DATA *pixel_data, const OUTPUT_INFO *oip, const func_convert_frame convert_frame) {
+    AUO_RESULT ret = AUO_RESULT_SUCCESS;
+    const auto thread_n = min(MAX_CONV_THREADS, ((int)get_cpu_info().physical_cores + 3) / 4);
+    thread_data.resize(thread_n-1);
+    for (int ith = 1; ith < thread_n; ith++) {
+        video_convert_thread_t& th = thread_data[ith-1];
+        th.thread_id = ith;
+        th.thread_n = thread_n;
+        th.pixel_data = pixel_data;
+        th.convert_frame = convert_frame;
+        th.frame = nullptr;
+        th.w = oip->w;
+        th.h = oip->h;
+        th.abort = false;
+        if (   NULL == (th.he_conv_start = (HANDLE)CreateEvent(NULL, false, false, NULL))
+            || NULL == (th.he_conv_fin   = (HANDLE)CreateEvent(NULL, false, true, NULL))
+            || NULL == (th.thread        = (HANDLE)_beginthreadex(NULL, 0, video_convert_thread_func, &th, 0, NULL))) {
+            ret = AUO_RESULT_ERROR;
+            break;
+        }
+    }
+    return ret;
+}
+
+static void video_convert_close_thread(std::vector<video_convert_thread_t> &thread_data, AUO_RESULT ret) {
+    for (int ith = 0; ith < thread_data.size(); ith++) {
+        video_convert_thread_t &th = thread_data[ith];
+        th.abort = true;
+        SetEvent(th.he_conv_start);
+        WaitForSingleObject(th.thread, INFINITE);
+        CloseHandle(th.thread);
+        CloseHandle(th.he_conv_start);
+        CloseHandle(th.he_conv_fin);
+    }
+}
+
+static void convert_frame_threads(void *frame, std::vector<video_convert_thread_t> &thread_data, CONVERT_CF_DATA *pixel_data, const OUTPUT_INFO *oip, const func_convert_frame convert_frame) {
+    const int thread_n = (int)thread_data.size() + 1;
+    HANDLE heConvfinCopy[MAX_CONV_THREADS];
+    for (int ith = 1; ith < thread_n; ith++) {
+        thread_data[ith-1].frame = frame;
+        SetEvent(thread_data[ith-1].he_conv_start);
+        heConvfinCopy[ith-1] = thread_data[ith-1].he_conv_fin;
+    }
+    convert_frame(frame, pixel_data, oip->w, oip->h, 0, thread_n);  /// YUY2/YC48->NV12/YUV444変換, RGBコピー
+    if (thread_n > 1) {
+        WaitForMultipleObjects(thread_n-1, heConvfinCopy, TRUE, INFINITE);
+    }
+}
+
 static unsigned __stdcall video_output_thread_func(void *prm) {
     video_output_thread_t *thread_data = reinterpret_cast<video_output_thread_t *>(prm);
     CONVERT_CF_DATA *pixel_data = thread_data->pixel_data;
     WaitForSingleObject(thread_data->he_out_start, INFINITE);
     while (false == thread_data->abort) {
-        const char *FRAME_HEADER = "FRAME\n";
-        _fwrite_nolock(FRAME_HEADER, 1, strlen(FRAME_HEADER), thread_data->f_out);
         //映像データをパイプに
-        for (int i = 0; i < 1 + thread_data->repeat; i++)
-            for (int j = 0; j < pixel_data->count; j++)
+        for (int i = 0; i < 1 + thread_data->repeat; i++) {
+            const char *FRAME_HEADER = "FRAME\n";
+            _fwrite_nolock(FRAME_HEADER, 1, strlen(FRAME_HEADER), thread_data->f_out);
+            for (int j = 0; j < pixel_data->count; j++) {
                 _fwrite_nolock((void *)pixel_data->data[j], 1, pixel_data->size[j], thread_data->f_out);
+            }
+        }
 
         thread_data->repeat = 0;
         SetEvent(thread_data->he_out_fin);
@@ -471,6 +550,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     set_window_title("NVEnc エンコード", PROGRESSBAR_CONTINUOUS);
     log_process_events();
 
+    std::vector<video_convert_thread_t> thread_conv;
     video_output_thread_t thread_data = { 0 };
 
     int *jitter = NULL;
@@ -486,7 +566,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     //x264プロセス開始
     } else if ((rp_ret = RunProcess(exe_args, exe_dir, &pi_enc, &pipes, GetPriorityClass(pe->h_p_aviutl), TRUE, FALSE)) != RP_SUCCESS) {
         ret |= AUO_RESULT_ERROR; error_run_process("NVEncC", rp_ret);
-        //書き込みスレッドを開始
+    //変換スレッドを開始
+    } else if (video_convert_create_thread(thread_conv, &pixel_data, oip, convert_frame)) {
+        ret |= AUO_RESULT_ERROR; error_video_convert_thread_start();
+    //書き込みスレッドを開始
     } else if (video_output_create_thread(&thread_data, &pixel_data, pipes.f_stdin)) {
         ret |= AUO_RESULT_ERROR; error_video_output_thread_start();
     } else {
@@ -572,7 +655,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             if (!drop) {
                 //コピーフレームの場合は、映像バッファの中身を更新せず、そのままパイプに流す
                 if (!copy_frame)
-                    convert_frame(frame, &pixel_data, oip->w, oip->h);  /// YUY2/YC48->NV12/YUV444変換, RGBコピー
+                    convert_frame_threads(frame, thread_conv, &pixel_data, oip, convert_frame);
                 //標準入力への書き込みを開始
                 SetEvent(thread_data.he_out_start);
             } else {
@@ -591,6 +674,8 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
         //書き込みスレッドを終了
         video_output_close_thread(&thread_data, ret);
+        //変換用スレッドを終了
+        video_convert_close_thread(thread_conv, ret);
 
         //ログウィンドウからのx264制御を無効化
         disable_enc_control();

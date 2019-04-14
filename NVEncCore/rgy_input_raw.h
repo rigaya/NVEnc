@@ -42,7 +42,7 @@ public:
     virtual void Close() override;
 
 protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
     RGY_ERR ParseY4MHeader(char *buf, VideoInfo *pInfo);
 
     FILE *m_fSource;

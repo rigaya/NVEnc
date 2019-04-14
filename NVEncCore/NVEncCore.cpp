@@ -555,14 +555,18 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
+    RGYInputPrm inputPrm;
+    inputPrm.threadCsp = inputParam->threadCsp;
+    inputPrm.simdCsp = inputParam->simdCsp;
+    RGYInputPrm *pInputPrm = &inputPrm;
+
 #if ENABLE_AVSW_READER
-    AvcodecReaderPrm inputInfoAVCuvid = { 0 };
+    RGYInputAvcodecPrm inputInfoAVCuvid;
     DeviceCodecCsp HWDecCodecCsp;
     for (const auto& gpu : m_GPUList) {
         HWDecCodecCsp.push_back(std::make_pair(gpu.id, gpu.cuvid_csp));
     }
 #endif
-    void *pInputPrm = nullptr;
 
     switch (inputParam->input.type) {
 #if ENABLE_AVI_READER
@@ -588,6 +592,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     case RGY_INPUT_FMT_AVHW:
     case RGY_INPUT_FMT_AVSW:
     case RGY_INPUT_FMT_AVANY:
+        inputInfoAVCuvid.threadCsp = inputParam->threadCsp;
+        inputInfoAVCuvid.simdCsp = inputParam->simdCsp;
         inputInfoAVCuvid.pInputFormat = inputParam->pAVInputFormat;
         inputInfoAVCuvid.bReadVideo = true;
         inputInfoAVCuvid.nVideoTrack = inputParam->nVideoTrack;
@@ -730,7 +736,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         for (int i = 0; i < (int)inputParam->nAudioSourceCount; i++) {
             VideoInfo inputInfo = inputParam->input;
 
-            AvcodecReaderPrm inputInfoAVAudioReader = { 0 };
+            RGYInputAvcodecPrm inputInfoAVAudioReader;
             inputInfoAVAudioReader.bReadVideo = false;
             inputInfoAVAudioReader.nReadAudio = inputParam->nAudioSourceCount > 0;
             inputInfoAVAudioReader.bReadSubtitle = false;

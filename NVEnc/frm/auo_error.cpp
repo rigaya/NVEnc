@@ -27,7 +27,7 @@
 
 #include "auo.h"
 #include "auo_version.h"
-#include "auo_frm.h" 
+#include "auo_frm.h"
 #include "auo_pipe.h"
 #include "auo_chapter.h"
 #include "auo_convert.h"
@@ -37,7 +37,7 @@ void warning_failed_getting_temp_path() {
 }
 
 void warning_no_temp_root(const char *dir) {
-    write_log_auo_line_fmt(LOG_WARNING, 
+    write_log_auo_line_fmt(LOG_WARNING,
         "指定された一時フォルダ \"%s\" が存在しません。一時フォルダ指定を解除しました。",
         dir);
 }
@@ -123,6 +123,10 @@ void error_run_process(const char *exe_name, int rp_ret) {
     }
 }
 
+void error_video_convert_thread_start() {
+    write_log_auo_line(LOG_ERROR, "色空間変換用スレッドの生成に失敗しました。");
+}
+
 void error_video_output_thread_start() {
     write_log_auo_line(LOG_ERROR, "パイプ出力用スレッドの生成に失敗しました。");
 }
@@ -148,7 +152,7 @@ void error_malloc_8bit() {
 }
 
 void error_afs_interlace_stg() {
-    write_log_line(LOG_ERROR, 
+    write_log_line(LOG_ERROR,
         "auo [error]: 自動フィールドシフトとインターレース設定が両方オンになっており、設定が矛盾しています。\n"
         "             設定を見なおしてください。");
 }
@@ -176,7 +180,7 @@ void error_no_wavefile() {
 }
 
 void warning_audio_length() {
-    write_log_line(LOG_WARNING, 
+    write_log_line(LOG_WARNING,
         "auo [warning]: 音声の長さが動画の長さと大きく異なるようです。\n"
         "               これが意図したものでない場合、音声が正常に出力されていないかもしれません。\n"
         "               この問題は圧縮音声をソースとしていると発生することがあります。\n"

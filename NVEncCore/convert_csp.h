@@ -37,7 +37,7 @@ enum RGY_PLANE {
     RGY_PLANE_V,
 };
 
-typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 
 enum RGY_CSP {
     RGY_CSP_NA = 0,
@@ -256,7 +256,7 @@ typedef struct ConvertCSP {
     unsigned int simd;
 } ConvertCSP;
 
-const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only);
+const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd);
 const TCHAR *get_simd_str(unsigned int simd);
 
 enum RGY_FRAME_FLAGS : uint64_t {
@@ -319,5 +319,22 @@ static bool interlaced(const FrameInfo& FrameInfo) {
 FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
 
 FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane);
+
+struct THREAD_Y_RANGE {
+    int start_src;
+    int start_dst;
+    int len;
+};
+
+static inline THREAD_Y_RANGE thread_y_range(int y_start, int y_end, int thread_id, int thread_n) {
+    const int h = y_end - y_start;
+    THREAD_Y_RANGE y_range;
+    int y0 = ((((h *  thread_id)    / thread_n) + 3) & ~3);
+    int y1 = ((((h * (thread_id+1)) / thread_n) + 3) & ~3);
+    y_range.start_src = y_start + y0;
+    y_range.start_dst = y0;
+    y_range.len = y1 - y0;
+    return y_range;
+}
 
 #endif //_CONVERT_CSP_H_

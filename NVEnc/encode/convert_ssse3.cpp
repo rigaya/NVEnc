@@ -13,50 +13,50 @@
 
 #include "convert_simd.h"
 
-void convert_yuy2_to_nv12_i_ssse3_mod16(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yuy2_to_nv12_i_simd<TRUE>(frame, pixel_data, width, height);
+void convert_yuy2_to_nv12_i_ssse3_mod16(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yuy2_to_nv12_i_simd<TRUE>(frame, pixel_data, width, height, thread_id, thread_n);
 }
-void convert_yuy2_to_nv12_i_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yuy2_to_nv12_i_simd<FALSE>(frame, pixel_data, width, height);
+void convert_yuy2_to_nv12_i_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yuy2_to_nv12_i_simd<FALSE>(frame, pixel_data, width, height, thread_id, thread_n);
 }
-void convert_yuy2_to_yv12_i_ssse3_mod32(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yuy2_to_yv12_i_simd<TRUE>(frame, pixel_data, width, height);
+void convert_yuy2_to_yv12_i_ssse3_mod32(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yuy2_to_yv12_i_simd<TRUE>(frame, pixel_data, width, height, thread_id, thread_n);
 }
-void convert_yuy2_to_yv12_i_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yuy2_to_yv12_i_simd<FALSE>(frame, pixel_data, width, height);
-}
-
-void convert_yc48_to_nv12_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_nv12_16bit_simd<TRUE>(frame, pixel_data, width, height);
-}
-void convert_yc48_to_nv12_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_nv12_16bit_simd<FALSE>(frame, pixel_data, width, height);
-}
-void convert_yc48_to_nv12_i_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_nv12_i_16bit_simd<TRUE>(frame, pixel_data, width, height);
-}
-void convert_yc48_to_nv12_i_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_nv12_i_16bit_simd<FALSE>(frame, pixel_data, width, height);
-}
-void convert_yc48_to_yv12_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_yv12_16bit_simd<TRUE>(frame, pixel_data, width, height);
-}
-void convert_yc48_to_yv12_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_yv12_16bit_simd<FALSE>(frame, pixel_data, width, height);
-}
-void convert_yc48_to_yv12_i_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_yv12_i_16bit_simd<TRUE>(frame, pixel_data, width, height);
-}
-void convert_yc48_to_yv12_i_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_yv12_i_16bit_simd<FALSE>(frame, pixel_data, width, height);
-}
-void convert_yc48_to_nv16_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_nv16_16bit_simd<TRUE>(frame, pixel_data, width, height);
-}
-void convert_yc48_to_nv16_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    return convert_yc48_to_nv16_16bit_simd<FALSE>(frame, pixel_data, width, height);
+void convert_yuy2_to_yv12_i_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yuy2_to_yv12_i_simd<FALSE>(frame, pixel_data, width, height, thread_id, thread_n);
 }
 
-void sort_to_rgb_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    sort_to_rgb_simd(frame, pixel_data, width, height);
+void convert_yc48_to_nv12_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_nv12_16bit_simd<TRUE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+void convert_yc48_to_nv12_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_nv12_16bit_simd<FALSE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+void convert_yc48_to_nv12_i_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_nv12_i_16bit_simd<TRUE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+void convert_yc48_to_nv12_i_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_nv12_i_16bit_simd<FALSE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+void convert_yc48_to_yv12_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_yv12_16bit_simd<TRUE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+void convert_yc48_to_yv12_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_yv12_16bit_simd<FALSE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+void convert_yc48_to_yv12_i_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_yv12_i_16bit_simd<TRUE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+void convert_yc48_to_yv12_i_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_yv12_i_16bit_simd<FALSE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+void convert_yc48_to_nv16_16bit_ssse3_mod8(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_nv16_16bit_simd<TRUE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+void convert_yc48_to_nv16_16bit_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    return convert_yc48_to_nv16_16bit_simd<FALSE>(frame, pixel_data, width, height, thread_id, thread_n);
+}
+
+void sort_to_rgb_ssse3(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    sort_to_rgb_simd(frame, pixel_data, width, height, thread_id, thread_n);
 }

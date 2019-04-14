@@ -41,6 +41,7 @@
 #include "NVEncoderPerf.h"
 #include "rgy_util.h"
 #include "rgy_caption.h"
+#include "rgy_simd.h"
 #include "convert_csp.h"
 
 using std::vector;
@@ -430,6 +431,18 @@ const CX_DESC list_deinterlace[] = {
     { _T("adaptive"), cudaVideoDeinterlaceMode_Adaptive },
     { _T("normal"),   cudaVideoDeinterlaceMode_Adaptive },
     { NULL, 0 }
+};
+
+const CX_DESC list_simd[] = {
+    { _T("auto"),     -1  },
+    { _T("none"),     NONE },
+    { _T("sse2"),     SSE2 },
+    { _T("sse3"),     SSE3|SSE2 },
+    { _T("ssse3"),    SSSE3|SSE3|SSE2 },
+    { _T("sse41"),    SSE41|SSSE3|SSE3|SSE2 },
+    { _T("avx"),      AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
+    { _T("avx2"),     AVX2|AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
+    { NULL, NULL }
 };
 
 enum {
@@ -1098,6 +1111,8 @@ struct InEncodeVideoParam {
     int     nPerfMonitorInterval;
     int     nCudaSchedule;
     int sessionRetry;
+    int threadCsp;
+    int simdCsp;
     void *pPrivatePrm;
 
     InEncodeVideoParam();
