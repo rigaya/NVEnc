@@ -44,8 +44,8 @@ std::vector<int> read_keyfile(tstring keyfile);
 
 struct RGYConvertCSPPrm {
     bool abort;
-    void** dst;
-    const void** src;
+    void **dst;
+    const void **src;
     int interlaced;
     int width;
     int src_y_pitch_byte;
@@ -53,14 +53,14 @@ struct RGYConvertCSPPrm {
     int dst_y_pitch_byte;
     int height;
     int dst_height;
-    int* crop;
+    int *crop;
 
     RGYConvertCSPPrm();
 };
 
 class RGYConvertCSP {
 private:
-    const ConvertCSP* m_csp;
+    const ConvertCSP *m_csp;
     RGY_CSP m_csp_from;
     RGY_CSP m_csp_to;
     bool m_uv_only;
@@ -74,10 +74,10 @@ public:
     RGYConvertCSP();
     RGYConvertCSP(int threads);
     ~RGYConvertCSP();
-    const ConvertCSP* getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd);
-    const ConvertCSP* getFunc() const { return m_csp; };
+    const ConvertCSP *getFunc(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd);
+    const ConvertCSP *getFunc() const { return m_csp; };
 
-    int run(int interlaced, void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int* crop);
+    int run(int interlaced, void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 };
 
 class RGYInputPrm {

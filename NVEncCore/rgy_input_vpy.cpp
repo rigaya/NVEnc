@@ -109,6 +109,7 @@ int RGYInputVpy::initAsyncEvents() {
     }
     return 0;
 }
+
 void RGYInputVpy::closeAsyncEvents() {
     m_bAbortAsync = true;
     for (int i_frame = m_nCopyOfInputFrames; i_frame < m_nAsyncFrames; i_frame++) {
@@ -164,7 +165,6 @@ int RGYInputVpy::getRevInfo(const char *vsVersionString) {
 #pragma warning(push)
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
-    UNREFERENCED_PARAMETER(prm);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
     if (load_vapoursynth()) {
@@ -224,7 +224,6 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         AddMessage(RGY_LOG_ERROR, _T("Invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-
 
     struct CSPMap {
         int fmtID;

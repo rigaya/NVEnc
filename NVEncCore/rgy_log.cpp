@@ -139,7 +139,9 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
 #endif
         write(RGY_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
         write(RGY_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+#if defined(_WIN32) || defined(_WIN64)
         write(RGY_LOG_DEBUG, _T("Locale    %s\n"), _tsetlocale(LC_ALL, nullptr));
+#endif
     }
 }
 void RGYLog::writeFileFooter() {

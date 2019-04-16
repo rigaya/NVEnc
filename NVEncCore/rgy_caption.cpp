@@ -29,9 +29,10 @@
 #include <sstream>
 #include "rgy_osdep.h"
 #include "rgy_caption.h"
-#include "packet_types.h"
 
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))
+
+#include "packet_types.h"
 
 #define TIMESTAMP_INVALID_VALUE     (-1LL)
 #define WRAP_AROUND_VALUE           (1LL << 33)
@@ -1400,4 +1401,4 @@ std::vector<AVPacket> Caption2Ass::genSrt(int64_t endTime) {
     return assLines;
 }
 
-#endif //#if ENABLE_AVSW_READER
+#endif //#if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))

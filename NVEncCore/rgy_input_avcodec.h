@@ -34,7 +34,6 @@
 
 #if ENABLE_AVSW_READER
 #include "rgy_avutil.h"
-#include "rgy_caption.h"
 #include "rgy_queue.h"
 #include "rgy_perf_monitor.h"
 #include "convert_csp.h"
@@ -43,7 +42,14 @@
 #include <thread>
 #include <cassert>
 
+#if (defined(_WIN32) || defined(_WIN64))
+#define ENABLE_CAPTION2ASS 1
 #define USE_CUSTOM_INPUT 1
+#include "rgy_caption.h"
+#else
+#define ENABLE_CAPTION2ASS 0
+#define USE_CUSTOM_INPUT 0
+#endif
 
 using std::vector;
 using std::pair;
@@ -751,11 +757,14 @@ enum AVCAPTION_STATE {
     AVCAPTION_IS_TS = 1,
 };
 
+
+#if ENABLE_CAPTION2ASS
 class AVCaption2Ass {
 public:
     AVCaption2Ass() : m_cap2ass(), m_pLog(), m_subList(), m_buffer(),
         m_index(-1), m_trackId(0),
-        m_state(AVCAPTION_UNKNOWN), m_resolutionDetermined(false) {};
+        m_state(AVCAPTION_UNKNOWN), m_resolutionDetermined(false) {
+    };
     ~AVCaption2Ass() { close(); };
     bool enabled() const {
         return m_cap2ass.enabled() && m_state >= AVCAPTION_UNKNOWN;
@@ -862,6 +871,48 @@ protected:
     //出力解像度が決まったかどうかを示すフラグ
     bool m_resolutionDetermined;
 };
+#else
+class AVCaption2Ass {
+public:
+    AVCaption2Ass() {};
+    ~AVCaption2Ass() {  };
+    bool enabled() const {
+        return false;
+    }
+    void close() {
+    }
+    RGY_ERR init(std::shared_ptr<RGYLog> pLog, C2AFormat format) {
+        return RGY_ERR_NONE;
+    }
+    C2AFormat format() const {
+        return FORMAT_INVALID;
+    }
+    AVCAPTION_STATE state() const {
+        return AVCAPTION_DISABLED;
+    }
+    void disable() {
+    }
+    void reset() {
+    }
+    void setIndex(int streamIndex, int trackId) {
+    }
+    void setOutputResolution(int w, int h, int sar_x, int sar_y) {
+    }
+    void printParam(int log_level) {
+    }
+    void setVidFirstKeyPts(int64_t pts) {
+    }
+    AVDemuxStream stream() const {
+        AVDemuxStream stream;
+        memset(&stream, 0, sizeof(AVDemuxStream));
+        return stream;
+    }
+    RGY_ERR proc(uint8_t *buf, int buf_size, decltype(AVDemuxer::qStreamPktL1)& qStreamPkt) {
+        return RGY_ERR_NONE;
+    }
+protected:
+};
+#endif //#if ENABLE_CAPTION2ASS
 
 class RGYInputAvcodecPrm : public RGYInputPrm {
 public:

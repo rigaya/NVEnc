@@ -72,7 +72,7 @@ void CQSVConsumer::SetValue(const std::string& metricName, double value) {
     } else if (metricName == METRIC_NAMES[1]) {
         m_QSVInfo.dEULoad = value;
     } else if (metricName == METRIC_NAMES[2]) {
-        m_QSVInfo.GPUFreq = value;
+        m_QSVInfo.dGPUFreq = value;
     }
 }
 

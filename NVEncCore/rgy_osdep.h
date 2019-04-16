@@ -110,6 +110,7 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
 #define vsprintf_s(buf, size, fmt, va)  vsprintf(buf, fmt, va)
 #define vswprintf_s vswprintf
 #define _strnicmp strncasecmp
+#define stricmp strcasecmp
 
 static inline void __cpuid(int cpuInfo[4], int param) {
     int eax = 0, ebx = 0, ecx = 0, edx = 0;
@@ -218,6 +219,7 @@ static inline BOOL CreateDirectory(const char *dir, void *dummy) {
 #define PathFileExistsA PathFileExists
 #define PathIsDirectoryA PathIsDirectory
 #define CreateDirectoryA CreateDirectory
+#define PathFindExtensionA PathFindExtension
 
 static inline int PathIsUNC(const char *path) {
     return 0;
@@ -257,6 +259,8 @@ static void SetThreadPriority(pthread_t thread, int priority) {
     return; //何もしない
 }
 
+#define _fread_nolock fread
+#define _fwrite_nolock fwrite
 #define _fseeki64 fseek
 #define _ftelli64 ftell
 

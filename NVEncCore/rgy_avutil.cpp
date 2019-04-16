@@ -28,7 +28,7 @@
 #include <numeric>
 #include "rgy_version.h"
 
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && !FOR_AUO
 
 #include "rgy_avutil.h"
 

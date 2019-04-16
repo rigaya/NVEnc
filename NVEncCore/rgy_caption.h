@@ -63,7 +63,7 @@ static const CX_DESC list_caption2ass_hlc[] ={
     { NULL, 0 }
 };
 
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))
 
 #include "Caption.h"
 
@@ -71,7 +71,7 @@ static const CX_DESC list_caption2ass_hlc[] ={
     private: \
         x pf ## x; \
     public: \
-        x f_ ## x() { return pf ## x; }
+        const x f_ ## x() { return pf ## x; }
 
 class CaptionDLL {
 public:
@@ -310,6 +310,6 @@ private:
     SrtOut m_srt;
 };
 
-#endif //#if ENABLE_AVSW_READER
+#endif //#if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))
 
 #endif //__RGY_CAPTION_H__

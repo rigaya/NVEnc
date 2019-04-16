@@ -207,7 +207,7 @@ struct PerfQueueInfo {
 struct QSVGPUInfo {
     double dMFXLoad;
     double dEULoad;
-    double GPUFreq;
+    double dGPUFreq;
 };
 
 class CQSVConsumer : public IConsumer {
@@ -215,7 +215,7 @@ public:
     CQSVConsumer() : m_bInfoValid(false), m_QSVInfo(), m_MetricsUsed() {
         m_QSVInfo.dMFXLoad = 0.0;
         m_QSVInfo.dEULoad  = 0.0;
-        m_QSVInfo.GPUFreq = 0.0;
+        m_QSVInfo.dGPUFreq = 0.0;
     };
     virtual void OnMetricUpdated(uint32_t count, MetricHandle * metrics, const uint64_t * types, const void ** buffers, uint64_t * sizes) override;
 
