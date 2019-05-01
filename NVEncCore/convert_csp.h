@@ -366,6 +366,9 @@ static inline THREAD_Y_RANGE thread_y_range(int y_start, int y_end, int thread_i
     THREAD_Y_RANGE y_range;
     int y0 = ((((h *  thread_id)    / thread_n) + 3) & ~3);
     int y1 = ((((h * (thread_id+1)) / thread_n) + 3) & ~3);
+    if (y1 > y_end) {
+        y1 = y_end;
+    }
     y_range.start_src = y_start + y0;
     y_range.start_dst = y0;
     y_range.len = y1 - y0;

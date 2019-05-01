@@ -70,6 +70,9 @@ static inline AUO_Y_RANGE thread_y_range(int h, int thread_id, int thread_n) {
     AUO_Y_RANGE y_range;
     y_range.s = ((((h *  thread_id)    / thread_n) + 3) & ~3);
     y_range.e = ((((h * (thread_id+1)) / thread_n) + 3) & ~3);
+    if (y_range.e > h) {
+        y_range.e = h;
+    }
     return y_range;
 }
 
