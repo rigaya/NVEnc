@@ -896,7 +896,7 @@ example: --vpp-nnedi field=auto,nns=64,nsize=32x6,qual=slow,prescreen=none,prec=
 ```
 
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
-yadif deinterlacer.
+Yadif deinterlacer.
 
 **parameters**
 - mode
@@ -913,6 +913,49 @@ yadif deinterlacer.
     Generate one frame from each field assuming top field first.
   - bob_bff   
     Generate one frame from each field assuming bottom field first.
+    
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+Converts colorspace of the video. Available on x64 version.
+
+**parameters**
+- matrix=&lt;from&gt;:&lt;to&gt;  
+  
+```
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+```
+
+- colorprim=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+```
+
+- transfer=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, arib-srd-b67
+```
+
+- range=&lt;from&gt;:&lt;to&gt;  
+```
+  limited, full
+```
+
+- hdr2sdr=&lt;bool&gt;  
+Enables HDR10 to SDR with Hable tone-mapping, based on [hdr2sdr.py](https://gist.github.com/4re/34ccbb95732c1bef47c3d2975ac62395).
+
+- source_peak=&lt;float&gt;  (default: 1000.0)  
+
+- ldr_nits=&lt;float&gt;  (default: 100.0)  
+
+
+```
+example1: convert from BT.601 -> BT.709
+--vpp-colorspace matrix=smpte170m:bt709
+
+example2: using hdr2sdr
+--vpp-colorspace hdr2sdr=true,source_peak=1000.0,ldr_nits=100.0
+```
 
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 select one frame per specified frames and create output.

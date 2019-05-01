@@ -90,6 +90,8 @@ which might cause problem in some playback environments.
       - afs (Automatic field shift)
       - nnedi
       - yadif
+    - colorspace conversion (x64 version only)
+      - hdr2sdr
     - delogo
     - resize
       - bilinear
@@ -129,6 +131,7 @@ which might cause problem in some playback environments.
 - This program is based on NVIDA CUDA Samples and includes sample code.
   This software contains source code provided by NVIDIA Corporation.
 - This software depends on
+  [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),

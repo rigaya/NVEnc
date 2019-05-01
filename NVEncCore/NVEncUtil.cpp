@@ -189,9 +189,9 @@ VideoInfo videooutputinfo(
         : pEncConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters;
 
     info.vui.descriptpresent = videoSignalInfo.colourDescriptionPresentFlag;
-    info.vui.colorprim = videoSignalInfo.colourPrimaries;
-    info.vui.matrix = videoSignalInfo.colourMatrix;
-    info.vui.transfer = videoSignalInfo.transferCharacteristics;
+    info.vui.colorprim = (CspColorprim)videoSignalInfo.colourPrimaries;
+    info.vui.matrix = (CspMatrix)videoSignalInfo.colourMatrix;
+    info.vui.transfer = (CspTransfer)videoSignalInfo.transferCharacteristics;
     info.vui.fullrange = videoSignalInfo.videoFullRangeFlag;
     info.vui.format = videoSignalInfo.videoFormat;
     info.vui.chromaloc = (videoSignalInfo.chromaSampleLocationFlag) ? videoSignalInfo.chromaSampleLocationTop : 0;

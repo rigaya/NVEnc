@@ -865,7 +865,7 @@ log=0
 nnediによるインタレ解除を行う。基本的には片方フィールドは捨てて、もう片方のフィールドから
 ニューラルネットを使って輪郭を補正しながらフレームを再構築することでインタレ解除するが、とても重い…。
 
-**parameters**
+**パラメータ**
 - field  
   インタレ解除の方法。
   - auto (デフォルト)  
@@ -939,7 +939,7 @@ nnediによるインタレ解除を行う。基本的には片方フィールド
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
 yadifによるインタレ解除を行う。
 
-**parameters**
+**パラメータ**
 - mode
 
   - auto (default)  
@@ -955,16 +955,61 @@ yadifによるインタレ解除を行う。
   - bob_bff   
     60fps化を行う(bff)。
 
+
+    
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+色空間変換を行う。x64版のみ使用可能。
+
+**パラメータ**
+- matrix=&lt;from&gt;:&lt;to&gt;  
+  
+```
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+```
+
+- colorprim=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+```
+
+- transfer=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, arib-srd-b67
+```
+
+- range=&lt;from&gt;:&lt;to&gt;  
+```
+  limited, full
+```
+
+- hdr2sdr=&lt;bool&gt;  
+"Hable tone-mapping"によるHDR10 to SDRへの変換を行う。 [hdr2sdr.py](https://gist.github.com/4re/34ccbb95732c1bef47c3d2975ac62395)を移植したもの。
+
+- source_peak=&lt;float&gt;  (default: 1000.0)  
+
+- ldr_nits=&lt;float&gt;  (default: 100.0)  
+
+
+```
+例1: BT.709(fullrange) -> BT.601 への変換
+--vpp-colorspace matrix=smpte170m:bt709,range=full:limited
+
+例2: hdr2sdrの使用
+--vpp-colorspace hdr2sdr=true,source_peak=1000.0,ldr_nits=100.0
+```
+
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 指定stepフレームごとに1フレームを選択してフレームを間引きます。フレームレートが1/stepになります。
 
-**parameters**
+**パラメータ**
 - step=&lt;int&gt;
 - offset=&lt;int&gt; (デフォルト: 0)
 
 ```
-example1 ("select even"): --vpp-select-every 2
-example2 ("select odd "): --vpp-select-every 2,offset=1
+例1 ("select even"): --vpp-select-every 2
+例2 ("select odd "): --vpp-select-every 2,offset=1
 ```
   
 ### --vpp-resize &lt;string&gt;

@@ -73,6 +73,7 @@
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterTweak.h"
+#include "NVEncFilterColorspace.h"
 #include "NVEncFilterSelectEvery.h"
 #include "NVEncFeature.h"
 #include "chapter_rw.h"
@@ -2043,11 +2044,16 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
         //フィルタ処理が必要
         && !(  inputParam->vpp.delogo.enable
             || inputParam->vpp.gaussMaskSize > 0
+            || inputParam->vpp.unsharp.enable
             || inputParam->vpp.knn.enable
             || inputParam->vpp.pmd.enable
+            || inputParam->vpp.deband.enable
+            || inputParam->vpp.edgelevel.enable
             || inputParam->vpp.afs.enable
             || inputParam->vpp.nnedi.enable
             || inputParam->vpp.yadif.enable
+            || inputParam->vpp.tweak.enable
+            || inputParam->vpp.colorspace.enable
             || inputParam->vpp.pad.enable);
 }
 
@@ -2722,6 +2728,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.nnedi.enable
         || inputParam->vpp.yadif.enable
         || inputParam->vpp.tweak.enable
+        || inputParam->vpp.colorspace.enable
         || inputParam->vpp.pad.enable
         || inputParam->vpp.rff
         || inputParam->vpp.selectevery.enable
@@ -2757,6 +2764,27 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
         if (inputParam->vpp.afs.enable && RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_YUV444) {
             filterCsp = (RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+        }
+        //colorspace
+        if (inputParam->vpp.colorspace.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterColorspace());
+            shared_ptr<NVEncFilterParamColorspace> param(new NVEncFilterParamColorspace());
+            param->colorspace = inputParam->vpp.colorspace;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
         }
         if (filterCsp != inputFrame.csp
             || (cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN)) { //cropが必要ならただちに適用する
@@ -3475,8 +3503,8 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
     bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
-    if (inputParam->lossless) {
-        inputParam->input.csp = RGY_CSP_NA;
+    if (inputParam->lossless || inputParam->vpp.colorspace.enable) {
+        inputParam->input.csp = RGY_CSP_NA; //なるべくそのままの色空間のままGPUへ転送する
     } else {
         if (bOutputHighBitDepth) {
             inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;

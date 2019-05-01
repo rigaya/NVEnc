@@ -99,6 +99,15 @@ static const float FILTER_DEFAULT_TWEAK_GAMMA = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_SATURATION = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_HUE = 0.0f;
 
+static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
+static const double FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK = 100.0;
+
+static const TCHAR *FILTER_DEFAULT_CUSTOM_KERNEL_NAME = _T("kernel_filter");
+static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_X = 32;
+static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_Y = 8;
+static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_X = 1;
+static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_Y = 1;
+
 static const int MAX_DECODE_FRAMES = 16;
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
@@ -241,76 +250,6 @@ const CX_DESC list_hevc_cu_size[] = {
     { _T("16"),   NV_ENC_HEVC_CUSIZE_16x16      },
     { _T("32"),   NV_ENC_HEVC_CUSIZE_32x32      },
     { _T("64"),   NV_ENC_HEVC_CUSIZE_64x64      },
-    { NULL, NULL }
-};
-
-const int COLOR_VALUE_AUTO = INT_MAX;
-const int HD_HEIGHT_THRESHOLD = 720;
-const int HD_INDEX = 2;
-const int SD_INDEX = 3;
-const CX_DESC list_colorprim[] = {
-    { _T("undef"),     2  },
-    { _T("auto"),      COLOR_VALUE_AUTO },
-    { _T("bt709"),     1  },
-    { _T("smpte170m"), 6  },
-    { _T("bt470m"),    4  },
-    { _T("bt470bg"),   5  },
-    { _T("smpte240m"), 7  },
-    { _T("film"),      8  },
-    { _T("bt2020"),    9  },
-    { NULL, NULL }
-};
-const CX_DESC list_transfer[] = {
-    { _T("undef"),         2  },
-    { _T("auto"),          COLOR_VALUE_AUTO },
-    { _T("bt709"),         1  },
-    { _T("smpte170m"),     6  },
-    { _T("bt470m"),        4  },
-    { _T("bt470bg"),       5  },
-    { _T("smpte240m"),     7  },
-    { _T("linear"),        8  },
-    { _T("log100"),        9  },
-    { _T("log316"),        10 },
-    { _T("iec61966-2-4"),  11 },
-    { _T("bt1361e"),       12 },
-    { _T("iec61966-2-1"),  13 },
-    { _T("bt2020-10"),     14 },
-    { _T("bt2020-12"),     15 },
-    { _T("smpte2084"),     16 },
-    { _T("smpte428"),      17 },
-    { _T("arib-srd-b67"),  18 },
-    { NULL, NULL }
-};
-const CX_DESC list_colormatrix[] = {
-    { _T("undef"),     2  },
-    { _T("auto"),      COLOR_VALUE_AUTO },
-    { _T("bt709"),     1  },
-    { _T("smpte170m"), 6  },
-    { _T("bt470bg"),   5  },
-    { _T("smpte240m"), 7  },
-    { _T("YCgCo"),     8  },
-    { _T("fcc"),       4  },
-    { _T("GBR"),       0  },
-    { _T("bt2020nc"),  9  },
-    { _T("bt2020c"),   10 },
-    { NULL, NULL }
-};
-const CX_DESC list_videoformat[] = {
-    { _T("undef"),     5  },
-    { _T("ntsc"),      2  },
-    { _T("component"), 0  },
-    { _T("pal"),       1  },
-    { _T("secam"),     3  },
-    { _T("mac"),       4  },
-    { NULL, NULL }
-};
-const CX_DESC list_chromaloc[] = {
-    { _T("0"), 0 },
-    { _T("1"), 1 },
-    { _T("2"), 2 },
-    { _T("3"), 3 },
-    { _T("4"), 4 },
-    { _T("5"), 5 },
     { NULL, NULL }
 };
 
@@ -906,6 +845,32 @@ struct VppDeband {
     bool operator!=(const VppDeband& x) const;
 };
 
+struct ColorspaceConv {
+    VideoVUIInfo from, to;
+    double source_peak;
+    bool approx_gamma;
+    bool scene_ref;
+
+    ColorspaceConv();
+    void set(const VideoVUIInfo& csp_from, const VideoVUIInfo &csp_to) {
+        from = csp_from;
+        to = csp_to;
+    }
+    bool operator==(const ColorspaceConv &x) const;
+    bool operator!=(const ColorspaceConv &x) const;
+};
+
+struct VppColorspace {
+    bool enable;
+    bool hdr2sdr;
+    double ldr_nits;
+    vector<ColorspaceConv> convs;
+
+    VppColorspace();
+    bool operator==(const VppColorspace &x) const;
+    bool operator!=(const VppColorspace &x) const;
+};
+
 struct VppTweak {
     bool  enable;
     float brightness; // -1.0 - 1.0 (0.0)
@@ -1032,6 +997,56 @@ const CX_DESC list_afs_preset[] = {
     { NULL, NULL }
 };
 
+enum VppCustomInterface {
+    VPP_CUSTOM_INTERFACE_PER_PLANE,
+    VPP_CUSTOM_INTERFACE_PLANES,
+
+    VPP_CUSTOM_INTERFACE_MAX,
+};
+
+const CX_DESC list_vpp_custom_interface[] = {
+    { _T("per_plane"),    VPP_CUSTOM_INTERFACE_PER_PLANE },
+    { _T("planes"),       VPP_CUSTOM_INTERFACE_PLANES },
+    { NULL, NULL }
+};
+
+enum VppCustomInterlaceMode {
+    VPP_CUSTOM_INTERLACE_UNSUPPORTED,
+    VPP_CUSTOM_INTERLACE_PER_FIELD,
+    VPP_CUSTOM_INTERLACE_FRAME,
+
+    VPP_CUSTOM_INTERLACE_MAX,
+};
+
+const CX_DESC list_vpp_custom_interlace[] = {
+    { _T("unsupported"), VPP_CUSTOM_INTERLACE_UNSUPPORTED },
+    { _T("per_field"),   VPP_CUSTOM_INTERLACE_PER_FIELD },
+    { _T("frame"),       VPP_CUSTOM_INTERLACE_FRAME },
+    { NULL, NULL }
+};
+
+struct VppCustom {
+    bool enable;
+    tstring filter_name;
+    tstring kernel_name;
+    tstring kernel_path;
+    std::string kernel;
+    std::string compile_options;
+    VppCustomInterface kernel_interface;
+    VppCustomInterlaceMode interlace;
+    int threadPerBlockX;
+    int threadPerBlockY;
+    int pixelPerThreadX;
+    int pixelPerThreadY;
+    int dstWidth;
+    int dstHeight;
+    std::map<std::string, std::string> params;
+
+    VppCustom();
+    bool operator==(const VppCustom &x) const;
+    bool operator!=(const VppCustom &x) const;
+};
+
 struct VppParam {
     bool bCheckPerformance;
     cudaVideoDeinterlaceMode deinterlace;
@@ -1048,6 +1063,7 @@ struct VppParam {
     VppNnedi nnedi;
     VppYadif yadif;
     VppTweak tweak;
+    VppColorspace colorspace;
     VppPad pad;
     VppSelectEvery selectevery;
     bool rff;

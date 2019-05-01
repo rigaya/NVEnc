@@ -1,11 +1,13 @@
 # NVEnc
 # continuous integration settings
 
-image: Visual Studio 2015
+environment:
+  matrix:
+    - PLATFORM: Win32
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
 
-platform:
- - Win32
- - x64
+    - PLATFORM: x64
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
 
 configuration:
  - RelStatic
@@ -18,8 +20,9 @@ skip_non_tags: true
 
 init:
   - ps: Set-WinSystemLocale ja-JP
-  - ps: Start-Sleep -s 5
+  - ps: Start-Sleep -s 15
   - ps: Restart-Computer
+  - ps: Start-Sleep -s 15
   - git config --global core.autocrlf input
 
 install:
@@ -32,7 +35,7 @@ install:
 
 before_build:
   - if "%PLATFORM%" == "x64" appveyor DownloadFile https://developer.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_10.1.105_418.96_win10.exe -FileName cuda_10.1.105_418.96_win10.exe
-  - if "%PLATFORM%" == "x64" cuda_10.1.105_418.96_win10.exe -s nvcc_10.1 cudart_10.1 curand_10.1 curand_dev_10.1 npp_10.1 npp_dev_10.1 nvml_dev_10.1 visual_studio_integration_10.1
+  - if "%PLATFORM%" == "x64" cuda_10.1.105_418.96_win10.exe -s nvcc_10.1 cudart_10.1 curand_10.1 curand_dev_10.1 npp_10.1 npp_dev_10.1 nvml_dev_10.1 nvrtc_10.1 nvrtc_dev_10.1 visual_studio_integration_10.1
   - if "%PLATFORM%" == "x64" set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.1\bin;%PATH%
   - if "%PLATFORM%" == "x64" set CUDA_PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.1
   - if "%PLATFORM%" == "x64" set CUDA_PATH_V10_1=%CUDA_PATH%
@@ -78,6 +81,7 @@ after_build:
   - mkdir NVEncC_Release
   - copy _build\%PLATFORM%\%CONFIGURATION%\NVEncC*.exe NVEncC_Release
   - copy _build\%PLATFORM%\%CONFIGURATION%\*.dll NVEncC_Release
+  - if "%PLATFORM%" == "x64" copy "%CUDA_PATH%\bin\nvrtc64_101_0.dll" NVEncC_Release
   - 7z a -mx9 NVEncC_%BUILD_VERSION%_%PLATFORM%.7z .\NVEncC_Release\*
 
 artifacts:

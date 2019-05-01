@@ -39,14 +39,22 @@
 
 #if __CUDACC_VER_MAJOR__ == 8
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_80.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_80.dll");
 #elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 0
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_90.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_90.dll");
 #elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 1
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_91.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_91.dll");
 #elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 2
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_92.dll");
-#elif __CUDACC_VER_MAJOR__ == 10
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_92.dll");
+#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 0
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_100_0.dll");
+#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 1
+const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
+const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_101_0.dll");
 #endif
 
 template<typename TypePixel>

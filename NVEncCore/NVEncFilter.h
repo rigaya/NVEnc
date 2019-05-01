@@ -51,8 +51,10 @@
 #pragma comment(lib, "cudart_static.lib")
 
 extern const TCHAR *NPPI_DLL_NAME_TSTR;
+extern const TCHAR *NVRTC_DLL_NAME_TSTR;
 
 bool check_if_nppi_dll_available();
+bool check_if_nvrtc_dll_available();
 
 using std::vector;
 

@@ -238,3 +238,12 @@ bool check_if_nppi_dll_available() {
     FreeLibrary(hModule);
     return true;
 }
+
+bool check_if_nvrtc_dll_available() {
+    HMODULE hModule = LoadLibrary(NVRTC_DLL_NAME_TSTR);
+    if (hModule == NULL)
+        return false;
+    FreeLibrary(hModule);
+    return true;
+}
+

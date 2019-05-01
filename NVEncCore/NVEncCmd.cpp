@@ -2352,6 +2352,124 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-colorspace")) {
+        pParams->vpp.colorspace.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto parse = [](int *from, int *to, tstring param_val, const CX_DESC *list) {
+                    auto from_to = split(param_val, _T(":"));
+                    if (from_to.size() == 2
+                        && get_list_value(list, from_to[0].c_str(), from)
+                        && get_list_value(list, from_to[1].c_str(), to)) {
+                        return true;
+                    }
+                    return false;
+                };
+                if (pParams->vpp.colorspace.convs.size() == 0) {
+                    pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                }
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("matrix")) {
+                    auto& conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.matrix != conv.to.matrix) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.matrix, (int *)&conv.to.matrix, param_val, list_colormatrix)) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("colorprim")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.colorprim != conv.to.colorprim) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.colorprim, (int *)&conv.to.colorprim, param_val, list_colorprim)) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("transfer")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.transfer != conv.to.transfer) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.transfer, (int *)&conv.to.transfer, param_val, list_transfer)) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("range")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.fullrange != conv.to.fullrange) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.fullrange, (int *)&conv.to.fullrange, param_val, list_colorrange)) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("source_peak")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    try {
+                        conv.source_peak = std::stof(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("approx_gamma")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    conv.approx_gamma = (param_val == _T("true")) || (param_val == _T("on"));
+                    continue;
+                }
+                if (param_arg == _T("scene_ref")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    conv.scene_ref = (param_val == _T("true")) || (param_val == _T("on"));
+                    continue;
+                }
+                if (param_arg == _T("hdr2sdr")) {
+                    pParams->vpp.colorspace.hdr2sdr = (param_val == _T("true")) || (param_val == _T("on"));
+                    continue;
+                }
+                if (param_arg == _T("ldr_nits")) {
+                    try {
+                        pParams->vpp.colorspace.ldr_nits = std::stof(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                if (param == _T("hdr2sdr")) {
+                    pParams->vpp.colorspace.hdr2sdr = true;
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
 
     if (IS_OPTION("vpp-pad")) {
         pParams->vpp.pad.enable = true;
@@ -3646,6 +3764,52 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-tweak ") << tmp.str().substr(1);
         } else if (pParams->vpp.tweak.enable) {
             cmd << _T(" --vpp-tweak");
+        }
+    }
+    if (pParams->vpp.colorspace != encPrmDefault.vpp.colorspace) {
+        tmp.str(tstring());
+        if (!pParams->vpp.colorspace.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.colorspace.enable || save_disabled_prm) {
+            for (int i = 0; i < pParams->vpp.colorspace.convs.size(); i++) {
+                auto from = pParams->vpp.colorspace.convs[i].from;
+                auto to = pParams->vpp.colorspace.convs[i].to;
+                if (from.matrix != to.matrix) {
+                    tmp << _T(",matrix=");
+                    tmp << get_cx_desc(list_colormatrix, from.matrix);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colormatrix, to.matrix);
+                }
+                if (from.colorprim != to.colorprim) {
+                    tmp << _T(",colorprim=");
+                    tmp << get_cx_desc(list_colorprim, from.colorprim);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colorprim, to.colorprim);
+                }
+                if (from.transfer != to.transfer) {
+                    tmp << _T(",transfer=");
+                    tmp << get_cx_desc(list_transfer, from.transfer);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_transfer, to.transfer);
+                }
+                if (from.fullrange != to.fullrange) {
+                    tmp << _T(",range=");
+                    tmp << get_cx_desc(list_colorrange, from.fullrange);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colorrange, to.fullrange);
+                }
+                ADD_FLOAT(_T("source_peak"), vpp.colorspace.convs[i].source_peak, 1);
+                ADD_BOOL(_T("approx_gamma"), vpp.colorspace.convs[i].approx_gamma);
+                ADD_BOOL(_T("scene_ref"), vpp.colorspace.convs[i].scene_ref);
+                ADD_BOOL(_T("hdr2sdr"), vpp.colorspace.hdr2sdr);
+                ADD_FLOAT(_T("ldr_nits"), vpp.colorspace.ldr_nits, 1);
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-colorspace ") << tmp.str().substr(1);
+        } else if (pParams->vpp.colorspace.enable) {
+            cmd << _T(" --vpp-colorspace");
         }
     }
     if (pParams->vpp.pad != encPrmDefault.vpp.pad) {

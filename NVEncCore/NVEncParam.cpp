@@ -192,6 +192,52 @@ bool VppDeband::operator!=(const VppDeband& x) const {
     return !(*this == x);
 }
 
+ColorspaceConv::ColorspaceConv() :
+    from(),
+    to(),
+    source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+    approx_gamma(false),
+    scene_ref(false) {
+
+}
+bool ColorspaceConv::operator==(const ColorspaceConv &x) const {
+    return from == x.from
+        && to == x.to
+        && source_peak == x.source_peak
+        && approx_gamma == x.approx_gamma
+        && scene_ref == x.scene_ref;
+}
+bool ColorspaceConv::operator!=(const ColorspaceConv &x) const {
+    return !(*this == x);
+}
+
+VppColorspace::VppColorspace() :
+    enable(false),
+    hdr2sdr(false),
+    ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+    convs() {
+
+}
+
+bool VppColorspace::operator==(const VppColorspace &x) const {
+    if (enable != x.enable
+        || x.hdr2sdr != this->hdr2sdr
+        || x.ldr_nits != this->ldr_nits
+        || x.convs.size() != this->convs.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < x.convs.size(); i++) {
+        if (x.convs[i].from != this->convs[i].from
+            || x.convs[i].to != this->convs[i].to) {
+            return false;
+        }
+    }
+    return true;
+}
+bool VppColorspace::operator!=(const VppColorspace &x) const {
+    return !(*this == x);
+}
+
 VppTweak::VppTweak() :
     enable(false),
     brightness(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
@@ -228,6 +274,47 @@ bool VppSelectEvery::operator!=(const VppSelectEvery& x) const {
     return !(*this == x);
 }
 
+VppCustom::VppCustom() :
+    enable(false),
+    filter_name(),
+    kernel_name(FILTER_DEFAULT_CUSTOM_KERNEL_NAME),
+    kernel_path(),
+    kernel(),
+    compile_options(),
+    kernel_interface(VPP_CUSTOM_INTERFACE_PER_PLANE),
+    interlace(VPP_CUSTOM_INTERLACE_UNSUPPORTED),
+    threadPerBlockX(FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_X),
+    threadPerBlockY(FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_Y),
+    pixelPerThreadX(FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_X),
+    pixelPerThreadY(FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_Y),
+    dstWidth(0),
+    dstHeight(0),
+    params() {
+
+}
+
+bool VppCustom::operator==(const VppCustom &x) const {
+    return enable == x.enable
+        && filter_name == x.filter_name
+        && kernel_name == x.kernel_name
+        && kernel_path == x.kernel_path
+        && kernel == x.kernel
+        && compile_options == x.compile_options
+        && kernel_interface == x.kernel_interface
+        && interlace == x.interlace
+        && threadPerBlockX == x.threadPerBlockX
+        && threadPerBlockY == x.threadPerBlockY
+        && pixelPerThreadX == x.pixelPerThreadX
+        && pixelPerThreadY == x.pixelPerThreadY
+        && dstWidth == x.dstWidth
+        && dstHeight == x.dstHeight
+        && params == x.params;
+}
+bool VppCustom::operator!=(const VppCustom &x) const {
+    return !(*this == x);
+}
+
+
 VppParam::VppParam() :
     bCheckPerformance(false),
     deinterlace(cudaVideoDeinterlaceMode_Weave),
@@ -243,6 +330,7 @@ VppParam::VppParam() :
     nnedi(),
     yadif(),
     tweak(),
+    colorspace(),
     pad(),
     selectevery(),
     rff(false) {

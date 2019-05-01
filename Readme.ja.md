@@ -97,6 +97,8 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
       - nnedi
       - yadif
     - delogo
+    - 色空間変換 (x64版のみ)
+      - hdr2sdr
     - リサイズ  
       - bilinear
       - spline16, spline36, spline64
@@ -130,6 +132,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - 本プログラムは、NVIDA CUDA Samplesをベースに作成されており、サンプルコードを含みます。  
   This software contains source code provided by NVIDIA Corporation.  
 - 本ソフトウェアでは、
+  [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),
