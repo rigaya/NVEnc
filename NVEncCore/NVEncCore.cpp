@@ -2770,6 +2770,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterColorspace());
             shared_ptr<NVEncFilterParamColorspace> param(new NVEncFilterParamColorspace());
             param->colorspace = inputParam->vpp.colorspace;
+            param->encCsp = encCsp;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;

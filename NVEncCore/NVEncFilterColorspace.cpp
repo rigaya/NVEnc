@@ -1193,7 +1193,7 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
             shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
             paramCrop->frameIn = pParam->frameIn;
             paramCrop->frameOut = pParam->frameIn;
-            paramCrop->frameOut.csp = (RGY_CSP_BIT_DEPTH[paramCrop->frameIn.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+            paramCrop->frameOut.csp = (std::max(RGY_CSP_BIT_DEPTH[paramCrop->frameIn.csp], RGY_CSP_BIT_DEPTH[prmCsp->encCsp]) > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
             paramCrop->baseFps = pParam->baseFps;
             paramCrop->frameOut.deivce_mem = true;
             paramCrop->bOutOverwrite = false;

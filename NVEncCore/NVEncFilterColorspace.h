@@ -120,8 +120,9 @@ private:
 class NVEncFilterParamColorspace : public NVEncFilterParam {
 public:
     VppColorspace colorspace;
+    RGY_CSP encCsp;
 
-    NVEncFilterParamColorspace() : colorspace() {
+    NVEncFilterParamColorspace() : colorspace(), encCsp(RGY_CSP_NA) {
 
     };
     virtual ~NVEncFilterParamColorspace() {};
