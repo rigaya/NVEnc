@@ -156,7 +156,7 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     if (m_InputCsp == RGY_CSP_RGB32R) {
         m_inputVideoInfo.csp = RGY_CSP_RGB32;
     } else if (m_InputCsp == RGY_CSP_RGB24R) {
-        m_inputVideoInfo.csp = (ENCODER_NVENC) ? RGY_CSP_RGB24 : RGY_CSP_RGB32;
+        m_inputVideoInfo.csp = (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32;
     } else {
         m_inputVideoInfo.csp = RGY_CSP_NV12;
     }

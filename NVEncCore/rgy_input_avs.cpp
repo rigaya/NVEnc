@@ -192,8 +192,8 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         CSPMap( AVS_CS_YUV444P12,  RGY_CSP_YUV444_12, RGY_CSP_YUV444_16 ),
         CSPMap( AVS_CS_YUV444P14,  RGY_CSP_YUV444_14, RGY_CSP_YUV444_16 ),
         CSPMap( AVS_CS_YUV444P16,  RGY_CSP_YUV444_16, RGY_CSP_YUV444_16 ),
-        CSPMap( AVS_CS_BGR24,      RGY_CSP_RGB24R,    RGY_CSP_RGB32 ),
-        CSPMap( AVS_CS_BGR32,      RGY_CSP_RGB32R,    RGY_CSP_RGB32 )
+        CSPMap( AVS_CS_BGR24,      RGY_CSP_RGB24R,    (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32 ),
+        CSPMap( AVS_CS_BGR32,      RGY_CSP_RGB32R,    (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32 )
     );
 
     const RGY_CSP prefered_csp = m_inputVideoInfo.csp;

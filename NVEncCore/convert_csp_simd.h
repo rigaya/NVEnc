@@ -386,6 +386,7 @@ static void __forceinline convert_yuv422_to_nv16_simd(void **dst, const void **s
     }
 }
 
+#define RGB_PLANE(x0, x1, x2, x3) (((x3) << 24) | ((x2) << 16) | ((x1) << 8) | (x0))
 #if USE_SSSE3
 static void __forceinline convert_rgb24_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
@@ -463,7 +464,77 @@ static void __forceinline convert_rgb24r_to_rgb32_simd(void **dst, const void **
     }
 }
 
-#define RGB_PLANE(x0, x1, x2, x3) (((x3) << 24) | ((x2) << 16) | ((x1) << 8) | (x0))
+template<uint32_t plane_from, bool source_reverse>
+static void __forceinline convert_rgb24_to_rgb_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    uint8_t *dst0Line = (uint8_t *)dst[(plane_from >>  0) & 0xff] + dst_y_pitch_byte * y_range.start_dst;
+    uint8_t *dst1Line = (uint8_t *)dst[(plane_from >>  8) & 0xff] + dst_y_pitch_byte * y_range.start_dst;
+    uint8_t *dst2Line = (uint8_t *)dst[(plane_from >> 16) & 0xff] + dst_y_pitch_byte * y_range.start_dst;
+    uint8_t *srcLine  = (uint8_t *)src[0] + src_y_pitch_byte * ((source_reverse) ? (height - crop_bottom - y_range.start_src - 1) : y_range.start_src) + crop_left * 3;
+    alignas(16) const char MASK_RGB_TO_RGB24[] = {
+        0,  3,  6,  9, 12, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        1,  4,  7, 10, 13, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        2,  5,  8, 11, 14, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    };
+    __m128i xmask0 = _mm_load_si128((__m128i *)&MASK_RGB_TO_RGB24[0]);
+    __m128i xmask1 = _mm_load_si128((__m128i *)&MASK_RGB_TO_RGB24[16]);
+    __m128i xmask2 = _mm_load_si128((__m128i *)&MASK_RGB_TO_RGB24[32]);
+    __m128i xmask3 = _mm_set1_epi8(-1);
+    if (source_reverse) {
+        src_y_pitch_byte = -1 * src_y_pitch_byte;
+    }
+    for (int y = 0; y < y_range.len; y++, srcLine += src_y_pitch_byte, dst0Line += dst_y_pitch_byte, dst1Line += dst_y_pitch_byte, dst2Line += dst_y_pitch_byte) {
+        uint8_t *ptr_src  = srcLine;
+        uint8_t *ptr_dst0 = dst0Line;
+        uint8_t *ptr_dst1 = dst1Line;
+        uint8_t *ptr_dst2 = dst2Line;
+        int x = 0, x_fin = width - crop_left - crop_right - 16;
+        for (; x < x_fin; x += 16, ptr_src += 48, ptr_dst0 += 16, ptr_dst1 += 16, ptr_dst2 += 16) {
+            __m128i xSrc0 = _mm_loadu_si128((__m128i *)(ptr_src +  0));
+            __m128i xSrc1 = _mm_loadu_si128((__m128i *)(ptr_src + 16));
+            __m128i xSrc2 = _mm_loadu_si128((__m128i *)(ptr_src + 32));
+            __m128i x0 = _mm_shuffle_epi8(xSrc0, xmask0);
+            __m128i x1 = _mm_shuffle_epi8(xSrc0, xmask1);
+            __m128i x2 = _mm_shuffle_epi8(xSrc0, xmask2);
+            x0 = _mm_or_si128(x0, _mm_shuffle_epi8(xSrc1, _mm_alignr_epi8(xmask2, xmask3, 10)));
+            x1 = _mm_or_si128(x1, _mm_shuffle_epi8(xSrc1, _mm_alignr_epi8(xmask0, xmask3, 11)));
+            x2 = _mm_or_si128(x2, _mm_shuffle_epi8(xSrc1, _mm_alignr_epi8(xmask1, xmask3, 11)));
+            x0 = _mm_or_si128(x0, _mm_shuffle_epi8(xSrc2, _mm_alignr_epi8(xmask1, xmask3,  5)));
+            x1 = _mm_or_si128(x1, _mm_shuffle_epi8(xSrc2, _mm_alignr_epi8(xmask2, xmask3,  5)));
+            x2 = _mm_or_si128(x2, _mm_shuffle_epi8(xSrc2, _mm_alignr_epi8(xmask0, xmask3,  6)));
+            _mm_storeu_si128((__m128i *)ptr_dst0, x0);
+            _mm_storeu_si128((__m128i *)ptr_dst1, x1);
+            _mm_storeu_si128((__m128i *)ptr_dst2, x2);
+        }
+        if (width & 15) {
+            int x_offset = (16 - (width & 15));
+            ptr_src -= x_offset * 3;
+            ptr_dst0 -= x_offset;
+            ptr_dst1 -= x_offset;
+            ptr_dst2 -= x_offset;
+        }
+        __m128i xSrc0 = _mm_loadu_si128((__m128i *)(ptr_src +  0));
+        __m128i xSrc1 = _mm_loadu_si128((__m128i *)(ptr_src + 16));
+        __m128i xSrc2 = _mm_loadu_si128((__m128i *)(ptr_src + 32));
+        __m128i x0 = _mm_shuffle_epi8(xSrc0, xmask0);
+        __m128i x1 = _mm_shuffle_epi8(xSrc0, xmask1);
+        __m128i x2 = _mm_shuffle_epi8(xSrc0, xmask2);
+        x0 = _mm_or_si128(x0, _mm_shuffle_epi8(xSrc1, _mm_alignr_epi8(xmask2, xmask3, 10)));
+        x1 = _mm_or_si128(x1, _mm_shuffle_epi8(xSrc1, _mm_alignr_epi8(xmask0, xmask3, 11)));
+        x2 = _mm_or_si128(x2, _mm_shuffle_epi8(xSrc1, _mm_alignr_epi8(xmask1, xmask3, 11)));
+        x0 = _mm_or_si128(x0, _mm_shuffle_epi8(xSrc2, _mm_alignr_epi8(xmask1, xmask3, 5)));
+        x1 = _mm_or_si128(x1, _mm_shuffle_epi8(xSrc2, _mm_alignr_epi8(xmask2, xmask3, 5)));
+        x2 = _mm_or_si128(x2, _mm_shuffle_epi8(xSrc2, _mm_alignr_epi8(xmask0, xmask3, 6)));
+        _mm_storeu_si128((__m128i *)ptr_dst0, x0);
+        _mm_storeu_si128((__m128i *)ptr_dst1, x1);
+        _mm_storeu_si128((__m128i *)ptr_dst2, x2);
+    }
+}
+
 template<uint32_t plane_from>
 static void __forceinline convert_rgb_to_rgb24_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
@@ -474,7 +545,7 @@ static void __forceinline convert_rgb_to_rgb24_simd(void **dst, const void **src
     uint8_t *srcRLine = (uint8_t *)src[(plane_from >>  0) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
     uint8_t *srcGLine = (uint8_t *)src[(plane_from >>  8) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
     uint8_t *srcBLine = (uint8_t *)src[(plane_from >> 16) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
-    alignas(16) const char MASK_RGB_TO_RGB24[] ={
+    alignas(16) const char MASK_RGB_TO_RGB24[] = {
          0, -1, -1,  1, -1, -1,  2, -1, -1,  3, -1, -1,  4, -1, -1,  5,
         -1, -1,  6, -1, -1,  7, -1, -1,  8, -1, -1,  9, -1, -1, 10, -1,
         -1, 11, -1, -1, 12, -1, -1, 13, -1, -1, 14, -1, -1, 15, -1, -1
@@ -532,7 +603,75 @@ static void __forceinline convert_rgb_to_rgb24_simd(void **dst, const void **src
 }
 #endif
 
-#define RGB_PLANE(x0, x1, x2, x3) (((x3) << 24) | ((x2) << 16) | ((x1) << 8) | (x0))
+template<uint32_t plane_from, bool source_reverse>
+static void __forceinline convert_rgb32_to_rgb_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    uint8_t *dst0Line = (uint8_t *)dst[(plane_from >>  0) & 0xff] + dst_y_pitch_byte * y_range.start_dst;
+    uint8_t *dst1Line = (uint8_t *)dst[(plane_from >>  8) & 0xff] + dst_y_pitch_byte * y_range.start_dst;
+    uint8_t *dst2Line = (uint8_t *)dst[(plane_from >> 16) & 0xff] + dst_y_pitch_byte * y_range.start_dst;
+    uint8_t *srcLine  = (uint8_t *)src[0] + src_y_pitch_byte * ((source_reverse) ? (height - crop_bottom - y_range.start_src - 1) : y_range.start_src) + crop_left * 4;
+    __m128i xMask = _mm_set1_epi16(0xff);
+    if (source_reverse) {
+        src_y_pitch_byte = -1 * src_y_pitch_byte;
+    }
+    for (int y = 0; y < y_range.len; y++, srcLine += src_y_pitch_byte, dst0Line += dst_y_pitch_byte, dst1Line += dst_y_pitch_byte, dst2Line += dst_y_pitch_byte) {
+        uint8_t *ptr_src  = srcLine;
+        uint8_t *ptr_dst0 = dst0Line;
+        uint8_t *ptr_dst1 = dst1Line;
+        uint8_t *ptr_dst2 = dst2Line;
+        int x = 0, x_fin = width - crop_left - crop_right - 16;
+        for (; x < x_fin; x += 16, ptr_src += 64, ptr_dst0 += 16, ptr_dst1 += 16, ptr_dst2 += 16) {
+            __m128i xSrc0 = _mm_loadu_si128((__m128i *)(ptr_src +  0));
+            __m128i xSrc1 = _mm_loadu_si128((__m128i *)(ptr_src + 16));
+            __m128i xSrc2 = _mm_loadu_si128((__m128i *)(ptr_src + 32));
+            __m128i xSrc3 = _mm_loadu_si128((__m128i *)(ptr_src + 48));
+
+            __m128i x02_0 = _mm_packus_epi16(_mm_and_si128(xMask, xSrc0), _mm_and_si128(xMask, xSrc1));
+            __m128i x02_1 = _mm_packus_epi16(_mm_and_si128(xMask, xSrc2), _mm_and_si128(xMask, xSrc3));
+            __m128i x13_0 = _mm_packus_epi16(_mm_srli_epi16(xSrc0, 8), _mm_srli_epi16(xSrc1, 8));
+            __m128i x13_1 = _mm_packus_epi16(_mm_srli_epi16(xSrc2, 8), _mm_srli_epi16(xSrc3, 8));
+
+            __m128i x0 = _mm_packus_epi16(_mm_and_si128(xMask, x02_0), _mm_and_si128(xMask, x02_1));
+            __m128i x1 = _mm_packus_epi16(_mm_and_si128(xMask, x13_0), _mm_and_si128(xMask, x13_1));
+            __m128i x2 = _mm_packus_epi16(_mm_srli_epi16(x02_0, 8), _mm_srli_epi16(x02_1, 8));
+            //__m128i x3 = _mm_packus_epi16(_mm_srli_epi16(x13_0, 8), _mm_srli_epi16(x13_1, 8));
+
+            _mm_storeu_si128((__m128i *)ptr_dst0, x0);
+            _mm_storeu_si128((__m128i *)ptr_dst1, x1);
+            _mm_storeu_si128((__m128i *)ptr_dst2, x2);
+        }
+        if (width & 15) {
+            int x_offset = (16 - (width & 15));
+            ptr_src -= x_offset * 3;
+            ptr_dst0 -= x_offset;
+            ptr_dst1 -= x_offset;
+            ptr_dst2 -= x_offset;
+        }
+        __m128i xSrc0 = _mm_loadu_si128((__m128i *)(ptr_src +  0));
+        __m128i xSrc1 = _mm_loadu_si128((__m128i *)(ptr_src + 16));
+        __m128i xSrc2 = _mm_loadu_si128((__m128i *)(ptr_src + 32));
+        __m128i xSrc3 = _mm_loadu_si128((__m128i *)(ptr_src + 48));
+
+        __m128i x02_0 = _mm_packus_epi16(_mm_and_si128(xMask, xSrc0), _mm_and_si128(xMask, xSrc1));
+        __m128i x02_1 = _mm_packus_epi16(_mm_and_si128(xMask, xSrc2), _mm_and_si128(xMask, xSrc3));
+        __m128i x13_0 = _mm_packus_epi16(_mm_srli_epi16(xSrc0, 8), _mm_srli_epi16(xSrc1, 8));
+        __m128i x13_1 = _mm_packus_epi16(_mm_srli_epi16(xSrc2, 8), _mm_srli_epi16(xSrc3, 8));
+
+        __m128i x0 = _mm_packus_epi16(_mm_and_si128(xMask, x02_0), _mm_and_si128(xMask, x02_1));
+        __m128i x1 = _mm_packus_epi16(_mm_and_si128(xMask, x13_0), _mm_and_si128(xMask, x13_1));
+        __m128i x2 = _mm_packus_epi16(_mm_srli_epi16(x02_0, 8), _mm_srli_epi16(x02_1, 8));
+        //__m128i x3 = _mm_packus_epi16(_mm_srli_epi16(x13_0), 8), _mm_srli_epi16(x13_1), 8));
+
+        _mm_storeu_si128((__m128i *)ptr_dst0, x0);
+        _mm_storeu_si128((__m128i *)ptr_dst1, x1);
+        _mm_storeu_si128((__m128i *)ptr_dst2, x2);
+    }
+}
+
 template<uint32_t plane_from>
 static void __forceinline convert_rgb_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
@@ -745,6 +884,23 @@ static void __forceinline convert_rgb32r_to_rgb32_simd(void **dst, const void **
     const int y_width = width - crop_right - crop_left;
     for (int y = 0; y < y_range.len; y++, dstLine += dst_y_pitch_byte, srcLine -= src_y_pitch_byte) {
         memcpy_sse(dstLine, srcLine, y_width * 4);
+    }
+}
+
+template<uint32_t plane_from>
+void copy_rgb_to_rgb(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    for (int i = 0; i < 3; i++) {
+        uint8_t *srcYLine = (uint8_t *)src[(plane_from >> (i*8)) & 0xff] + src_y_pitch_byte * y_range.start_src + crop_left;
+        uint8_t *dstLine = (uint8_t *)dst[i] + dst_y_pitch_byte * y_range.start_dst;
+        const int y_width = width - crop_right - crop_left;
+        for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+            memcpy_sse(dstLine, srcYLine, y_width);
+        }
     }
 }
 
