@@ -239,8 +239,8 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         CSPMap( pfYUV422P10, RGY_CSP_YUV422_10, RGY_CSP_P210 ),
         CSPMap( pfYUV422P16, RGY_CSP_YUV422_16, RGY_CSP_P210 ),
         CSPMap( pfYUV444P8,  RGY_CSP_YUV444,    RGY_CSP_YUV444 ),
-        CSPMap( pfYUV444P10, RGY_CSP_YUV444_10, RGY_CSP_YUV444_10 ),
-        CSPMap( pfYUV444P16, RGY_CSP_YUV444_16, RGY_CSP_YUV444_10 )
+        CSPMap( pfYUV444P10, RGY_CSP_YUV444_10, RGY_CSP_YUV444_16 ),
+        CSPMap( pfYUV444P16, RGY_CSP_YUV444_16, RGY_CSP_YUV444_16 )
     );
 
     const RGY_CSP prefered_csp = m_inputVideoInfo.csp;
