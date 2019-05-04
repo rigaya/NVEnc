@@ -171,7 +171,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_NULL_PTR;
     }
 
-    m_sConvert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
+    m_sConvert = std::make_unique<RGYConvertCSP>((m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) ? 1 : prm->threadCsp);
 
     //ファイルデータ読み込み
     std::ifstream inputFile(strFileName);
