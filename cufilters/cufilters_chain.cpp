@@ -42,6 +42,7 @@
 #include "NVEncFilterUnsharp.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterTweak.h"
+#include "NVEncFilterNnedi.h"
 
 bool check_if_nvcuda_dll_available();
 
@@ -68,9 +69,11 @@ enum : uint32_t {
     CUFILTER_CHAIN_EDGELEVEL = 0x10,
     CUFILTER_CHAIN_DEBAND    = 0x20,
     CUFILTER_CHAIN_TWEAK     = 0x40,
+    CUFILTER_CHAIN_NNEDI     = 0x80,
 };
 
 cuFilterChainParam::cuFilterChainParam() :
+    hModule(NULL),
     resizeEnable(false),
     resizeInterp(RESIZE_CUDA_SPLINE36),
     unsharp(),
@@ -78,7 +81,8 @@ cuFilterChainParam::cuFilterChainParam() :
     knn(),
     pmd(),
     deband(),
-    tweak() {
+    tweak(),
+    nnedi() {
 
 }
 
@@ -91,6 +95,7 @@ uint32_t cuFilterChainParam::filter_enabled() const {
     if (edgelevel.enable) flags |= CUFILTER_CHAIN_EDGELEVEL;
     if (deband.enable)    flags |= CUFILTER_CHAIN_DEBAND;
     if (tweak.enable)     flags |= CUFILTER_CHAIN_TWEAK;
+    if (nnedi.enable)     flags |= CUFILTER_CHAIN_NNEDI;
     return flags;
 }
 
@@ -153,12 +158,12 @@ int cuFilterChain::init() {
         return 1;
     }
 
-    m_convert_yc48_to_yuv444_16 = get_convert_csp_func(RGY_CSP_YC48, RGY_CSP_YUV444_16, false);
+    m_convert_yc48_to_yuv444_16 = get_convert_csp_func(RGY_CSP_YC48, RGY_CSP_YUV444_16, false, 0xffffffff);
     if (m_convert_yc48_to_yuv444_16 == nullptr) {
         PrintMes(RGY_LOG_ERROR, _T("unsupported color format conversion, %s -> %s\n"), RGY_CSP_NAMES[RGY_CSP_YC48], RGY_CSP_NAMES[RGY_CSP_YUV444_16]);
         return 1;
     }
-    m_convert_yuv444_16_to_yc48 = get_convert_csp_func(RGY_CSP_YUV444_16, RGY_CSP_YC48, false);
+    m_convert_yuv444_16_to_yc48 = get_convert_csp_func(RGY_CSP_YUV444_16, RGY_CSP_YC48, false, 0xffffffff);
     if (m_convert_yuv444_16_to_yc48 == nullptr) {
         PrintMes(RGY_LOG_ERROR, _T("unsupported color format conversion, %s -> %s\n"), RGY_CSP_NAMES[RGY_CSP_YUV444_16], RGY_CSP_NAMES[RGY_CSP_YC48]);
         return 1;
@@ -200,6 +205,7 @@ int cuFilterChain::init_cuda(int deviceId) {
     auto cuerr = cudaGetDeviceProperties(&devProp, m_device);
     if (cuerr == cudaSuccess) {
         m_deviceName = devProp.name;
+        m_computeCapability = std::make_pair(devProp.major, devProp.minor);
     }
 
     if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&m_cuContextCurr))) {
@@ -309,8 +315,32 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         memset(&param->crop, 0, sizeof(param->crop));
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init CopyHtoD.\n"));
+            return sts;
+        }
+        //パラメータ情報を更新
+        m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+    }
+    // nnedi
+    if (m_prm.nnedi.enable) {
+        if (reset) {
+            //フィルタチェーンに追加
+            unique_ptr<NVEncFilter> filter(new NVEncFilterNnedi());
+            m_vpFilters.push_back(std::move(filter));
+        }
+        shared_ptr<NVEncFilterParamNnedi> param(new NVEncFilterParamNnedi());
+        param->nnedi = m_prm.nnedi;
+        param->compute_capability = m_computeCapability;
+        param->hModule = m_prm.hModule;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->bOutOverwrite = false;
+        auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
+        if (sts != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to init nnedi.\n"));
             return sts;
         }
         //パラメータ情報を更新
@@ -331,7 +361,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init knn.\n"));
             return sts;
         }
@@ -353,7 +383,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init pmd.\n"));
             return sts;
         }
@@ -384,7 +414,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         }
 #endif
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init resize.\n"));
             return sts;
         }
@@ -408,7 +438,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init unsharp.\n"));
             return sts;
         }
@@ -430,7 +460,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init edgelevel.\n"));
             return sts;
         }
@@ -452,7 +482,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = true;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init edgelevel.\n"));
             return sts;
         }
@@ -474,7 +504,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->frameOut = inputFrame;
         param->bOutOverwrite = false;
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init deband.\n"));
             return sts;
         }
@@ -498,7 +528,7 @@ int cuFilterChain::filter_chain_create(const FrameInfo *pInputFrame, const Frame
         param->bOutOverwrite = false;
         memset(&param->crop, 0, sizeof(param->crop));
         auto sts = m_vpFilters[filter_idx++]->init(param, nullptr);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init CopyDtoH.\n"));
             return sts;
         }
@@ -544,7 +574,7 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
     m_convert_yc48_to_yuv444_16->func[0](
         ptr_array, (const void **)&pInputFrame->ptr,
         pInputFrame->width, pInputFrame->pitch, pInputFrame->pitch,
-        m_host[0].frame.pitch, pInputFrame->height, m_host[0].frame.height, crop);
+        m_host[0].frame.pitch, pInputFrame->height, m_host[0].frame.height, 0, 1, crop);
 #if 1
     //フィルタチェーン実行
     auto frameInfo = m_host[0].frame;
@@ -552,7 +582,7 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
         int nOutFrames = 0;
         FrameInfo *outInfo[16] = { 0 };
         auto sts_filter = m_vpFilters[ifilter]->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
-        if (sts_filter != NV_ENC_SUCCESS) {
+        if (sts_filter != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
             return sts_filter;
         }
@@ -568,7 +598,7 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
     FrameInfo *outInfo[16] = { 0 };
     outInfo[0] = &m_host[1].frame;
     auto sts_filter = lastFilter->filter(&frameInfo, (FrameInfo **)&outInfo, &nOutFrames);
-    if (sts_filter != NV_ENC_SUCCESS) {
+    if (sts_filter != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
         close();
         return sts_filter;
@@ -586,7 +616,7 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
     m_convert_yuv444_16_to_yc48->func[0](
         (void **)&pOutputFrame->ptr, (const void **)ptr_array,
         m_host[1].frame.width, m_host[1].frame.pitch, m_host[1].frame.pitch,
-        pOutputFrame->pitch, m_host[1].frame.height, pOutputFrame->height, crop);
+        pOutputFrame->pitch, m_host[1].frame.height, pOutputFrame->height, 0, 1, crop);
 
     return 0;
 }

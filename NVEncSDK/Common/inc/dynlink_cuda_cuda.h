@@ -65,10 +65,13 @@ typedef struct CUevent_st *CUevent;                       /**< CUDA event */
 typedef struct CUstream_st *CUstream;                     /**< CUDA stream */
 typedef struct CUgraphicsResource_st *CUgraphicsResource; /**< CUDA graphics interop resource */
 
+#ifndef CU_UUID_HAS_BEEN_DEFINED
+#define CU_UUID_HAS_BEEN_DEFINED
 typedef struct CUuuid_st                                  /**< CUDA definition of UUID */
 {
     char bytes[16];
 } CUuuid;
+#endif //CU_UUID_HAS_BEEN_DEFINED
 
 /**
  * Context creation flags

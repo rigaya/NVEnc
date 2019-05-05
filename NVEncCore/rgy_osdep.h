@@ -110,6 +110,7 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
 #define vsprintf_s(buf, size, fmt, va)  vsprintf(buf, fmt, va)
 #define vswprintf_s vswprintf
 #define _strnicmp strncasecmp
+#define stricmp strcasecmp
 
 static inline void __cpuid(int cpuInfo[4], int param) {
     int eax = 0, ebx = 0, ecx = 0, edx = 0;
@@ -122,11 +123,13 @@ static inline void __cpuid(int cpuInfo[4], int param) {
     cpuInfo[3] = edx;
 }
 
+#if NO_XGETBV_INTRIN
 static inline unsigned long long _xgetbv(unsigned int index) {
   unsigned int eax, edx;
   __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
   return ((unsigned long long)edx << 32) | eax;
 }
+#endif
 
 #if NO_RDTSCP_INTRIN
 static inline uint64_t __rdtscp(uint32_t *Aux) {
@@ -216,6 +219,7 @@ static inline BOOL CreateDirectory(const char *dir, void *dummy) {
 #define PathFileExistsA PathFileExists
 #define PathIsDirectoryA PathIsDirectory
 #define CreateDirectoryA CreateDirectory
+#define PathFindExtensionA PathFindExtension
 
 static inline int PathIsUNC(const char *path) {
     return 0;
@@ -255,6 +259,8 @@ static void SetThreadPriority(pthread_t thread, int priority) {
     return; //何もしない
 }
 
+#define _fread_nolock fread
+#define _fwrite_nolock fwrite
 #define _fseeki64 fseek
 #define _ftelli64 ftell
 

@@ -34,7 +34,7 @@
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 
-//NVEnc.auoビルド時、/clrでは<thread>は使用できませんなどと出るので、
+//NVEnc.auo/QSVEnc.auoビルド時、/clrでは<thread>は使用できませんなどと出るので、
 //前方宣言で回避する
 namespace std {
     class mutex;

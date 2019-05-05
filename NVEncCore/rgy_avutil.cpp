@@ -28,9 +28,13 @@
 #include <numeric>
 #include "rgy_version.h"
 
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && !FOR_AUO
 
 #include "rgy_avutil.h"
+
+extern "C" {
+#include <libavutil/timestamp.h>
+}
 
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to) {
     return av_rescale_q(v, av_make_q(from), av_make_q(to));
@@ -369,15 +373,39 @@ tstring getChannelLayoutString(int channels, uint64_t channel_layout) {
     return char_to_tstring(getChannelLayoutChar(channels, channel_layout));
 }
 
+std::string getTimestampChar(int64_t ts, const AVRational& timebase) {
+    char buf[AV_TS_MAX_STRING_SIZE];
+    AVRational tb = timebase;
+    return std::string(av_ts_make_time_string(buf, ts, &tb));
+}
+
+tstring getTimestampString(int64_t ts, const AVRational& timebase) {
+    return char_to_tstring(getTimestampChar(ts, timebase));
+}
+
+uint32_t tagFromStr(std::string tagstr) {
+    uint32_t tag = 0x00;
+    for (size_t i = 0; i < std::max<size_t>(tagstr.length(), 4); i++) {
+        tag |= tagstr[i] << (i*8);
+    }
+    return tag;
+}
+
+std::string tagToStr(uint32_t tag) {
+    std::string str;
+    for (int i = 0; i < 4; i++) {
+        str.push_back((char)((tag >> (i*8)) & 0xff));
+    }
+    return str;
+}
+
 vector<std::string> getAVProtocolList(int bOutput) {
     vector<std::string> protocols;
 
     void *opaque = nullptr;
     const char *name = nullptr;
     while (nullptr != (name = avio_enum_protocols(&opaque, bOutput))) {
-        std::string data = name;
-        std::transform(data.begin(), data.end(), data.begin(), ::tolower);
-        protocols.push_back(data);
+        protocols.push_back(tolowercase(name));
     }
     return protocols;
 }
@@ -486,8 +514,12 @@ static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>
     std::make_pair(AV_PIX_FMT_YUV444P12LE, RGY_CSP_YUV444_12),
     std::make_pair(AV_PIX_FMT_YUV444P10LE, RGY_CSP_YUV444_10),
     std::make_pair(AV_PIX_FMT_YUV444P9LE,  RGY_CSP_YUV444_09),
-    std::make_pair(AV_PIX_FMT_RGB24,       RGY_CSP_RGB24),
-    std::make_pair(AV_PIX_FMT_RGBA,        RGY_CSP_RGB32)
+    std::make_pair(AV_PIX_FMT_RGB24,       RGY_CSP_BGR24),
+    std::make_pair(AV_PIX_FMT_RGBA,        RGY_CSP_BGR32),
+    std::make_pair(AV_PIX_FMT_BGR24,       RGY_CSP_RGB24),
+    std::make_pair(AV_PIX_FMT_BGRA,        RGY_CSP_RGB32),
+    std::make_pair(AV_PIX_FMT_GBRP,        RGY_CSP_GBR),
+    std::make_pair(AV_PIX_FMT_GBRAP,       RGY_CSP_GBRA)
 );
 
 MAP_PAIR_0_1(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP, CSP_PIXFMT_RGY, AV_PIX_FMT_NONE, RGY_CSP_NA);

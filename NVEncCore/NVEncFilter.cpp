@@ -77,7 +77,7 @@ cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
     return cudaSuccess;
 }
 
-NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     cudaError_t cudaerr = cudaSuccess;
     if (m_bCheckPerformance) {
         cudaerr = cudaEventRecord(*m_peFilterStart.get());
@@ -103,7 +103,7 @@ NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFram
         if (m_nPathThrough & FILTER_PATHTHROUGH_TIMESTAMP) {
             if (nOutFrame != 1) {
                 AddMessage(RGY_LOG_ERROR, _T("timestamp path through can only be applied to 1-in/1-out filter.\n"));
-                return NV_ENC_ERR_INVALID_CALL;
+                return RGY_ERR_INVALID_CALL;
             } else {
                 ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
                 ppOutputFrames[0]->duration  = pInputFrame->duration;
@@ -134,7 +134,7 @@ NVENCSTATUS NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFram
     return ret;
 }
 
-NVENCSTATUS NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream) {
     if (!m_pFieldPairIn) {
         unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(*pInputFrame));
         uptr->frame.ptr = nullptr;
@@ -145,7 +145,7 @@ NVENCSTATUS NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame,
         auto ret = uptr->alloc();
         if (ret != cudaSuccess) {
             m_pFrameBuf.clear();
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_MEMORY_ALLOC;
         }
         m_pFieldPairIn = std::move(uptr);
     }
@@ -159,7 +159,7 @@ NVENCSTATUS NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame,
         auto ret = uptr->alloc();
         if (ret != cudaSuccess) {
             m_pFrameBuf.clear();
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_MEMORY_ALLOC;
         }
         m_pFieldPairOut = std::move(uptr);
     }
@@ -173,7 +173,7 @@ NVENCSTATUS NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame,
             cudaMemcpyDeviceToDevice, stream);
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to seprate field(0): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_INVALID_CALL;
+            return RGY_ERR_CUDA;
         }
         int nFieldOut = 0;
         auto pFieldOut = &m_pFieldPairOut->frame;
@@ -187,10 +187,10 @@ NVENCSTATUS NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame,
             cudaMemcpyDeviceToDevice, stream);
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to merge field(1): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_INVALID_CALL;
+            return RGY_ERR_CUDA;
         }
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 void NVEncFilter::CheckPerformance(bool flag) {
@@ -232,9 +232,18 @@ double NVEncFilter::GetAvgTimeElapsed() {
 }
 
 bool check_if_nppi_dll_available() {
-    HMODULE hModule = LoadLibrary(NPPI_DLL_NAME);
+    HMODULE hModule = LoadLibrary(NPPI_DLL_NAME_TSTR);
     if (hModule == NULL)
         return false;
     FreeLibrary(hModule);
     return true;
 }
+
+bool check_if_nvrtc_dll_available() {
+    HMODULE hModule = LoadLibrary(NVRTC_DLL_NAME_TSTR);
+    if (hModule == NULL)
+        return false;
+    FreeLibrary(hModule);
+    return true;
+}
+

@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V8_0)'" >
+    <CUDA_MAJOR_VER>8</CUDA_MAJOR_VER>
+    <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
+    <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+    <CUDA_CODE_GEN>compute_30,compute_30;compute_50,compute_50</CUDA_CODE_GEN>
+    <NVRTC_DLL_NAME>nvrtc64_80.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V9_0)'" >
+    <CUDA_MAJOR_VER>9</CUDA_MAJOR_VER>
+    <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
+    <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+    <CUDA_CODE_GEN>compute_30,compute_30;compute_50,compute_50</CUDA_CODE_GEN>
+    <NVRTC_DLL_NAME>nvrtc64_90.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V9_1)'" >
+    <CUDA_MAJOR_VER>9</CUDA_MAJOR_VER>
+    <CUDA_MINOR_VER>1</CUDA_MINOR_VER>
+    <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+    <CUDA_CODE_GEN>compute_30,compute_30;compute_50,compute_50</CUDA_CODE_GEN>
+    <NVRTC_DLL_NAME>nvrtc64_91.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V9_2)'" >
+    <CUDA_MAJOR_VER>9</CUDA_MAJOR_VER>
+    <CUDA_MINOR_VER>2</CUDA_MINOR_VER>
+    <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+    <CUDA_CODE_GEN>compute_30,compute_30;compute_50,compute_50</CUDA_CODE_GEN>
+    <NVRTC_DLL_NAME>nvrtc64_92.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V10_0)'" >
+    <CUDA_MAJOR_VER>10</CUDA_MAJOR_VER>
+    <CUDA_MINOR_VER>0</CUDA_MINOR_VER>
+    <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+    <CUDA_CODE_GEN>compute_30,compute_30;compute_50,compute_50;compute_75,compute_75</CUDA_CODE_GEN>
+    <NVRTC_DLL_NAME>nvrtc64_100_0.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
+  <PropertyGroup Label="UserMacros" Condition="'$(CUDA_PATH)' == '$(CUDA_PATH_V10_1)'" >
+    <CUDA_MAJOR_VER>10</CUDA_MAJOR_VER>
+    <CUDA_MINOR_VER>1</CUDA_MINOR_VER>
+    <CUDA_VER>$(CUDA_MAJOR_VER).$(CUDA_MINOR_VER)</CUDA_VER>
+    <CUDA_CODE_GEN>compute_30,compute_30;compute_50,compute_50;compute_75,compute_75</CUDA_CODE_GEN>
+    <NVRTC_DLL_NAME>nvrtc64_101_0.dll</NVRTC_DLL_NAME>
+  </PropertyGroup>
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA $(CUDA_VER).props" />
+  </ImportGroup>
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA $(CUDA_VER).targets" />
+  </ImportGroup>
+  <ItemDefinitionGroup Condition="$(CUDA_MAJOR_VER) &gt;= 10 AND '$(Platform)'=='x64'">
+    <Link>
+      <AdditionalDependencies>nppc.lib;nppif.lib;nppig.lib;nvrtc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- <AdditionalIncludeDirectories>;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories> -->
+      <DelayLoadDLLs>nppif64_$(CUDA_MAJOR_VER).dll;nppig64_$(CUDA_MAJOR_VER).dll;$(NVRTC_DLL_NAME);%(DelayLoadDLLs)</DelayLoadDLLs>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="$(CUDA_MAJOR_VER) &lt; 10 AND '$(Platform)'=='x64'">
+    <Link>
+      <AdditionalDependencies>nppi.lib;nvrtc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- <AdditionalIncludeDirectories>;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories> -->
+      <DelayLoadDLLs>nppi64_$(CUDA_MAJOR_VER)$(CUDA_MINOR_VER).dll;$(NVRTC_DLL_NAME);%(DelayLoadDLLs)</DelayLoadDLLs>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup />
+</Project>

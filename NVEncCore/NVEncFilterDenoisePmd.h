@@ -46,12 +46,12 @@ class NVEncFilterDenoisePmd : public NVEncFilter {
 public:
     NVEncFilterDenoisePmd();
     virtual ~NVEncFilterDenoisePmd();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     virtual void close() override;
 
-    NVENCSTATUS denoise(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame);
+    RGY_ERR denoise(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame);
 
     bool m_bInterlacedWarn;
     CUFrameBuf m_Gauss;

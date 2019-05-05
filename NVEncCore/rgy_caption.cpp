@@ -29,9 +29,10 @@
 #include <sstream>
 #include "rgy_osdep.h"
 #include "rgy_caption.h"
-#include "packet_types.h"
 
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))
+
+#include "packet_types.h"
 
 #define TIMESTAMP_INVALID_VALUE     (-1LL)
 #define WRAP_AROUND_VALUE           (1LL << 33)
@@ -634,7 +635,7 @@ void Caption2Ass::reset() {
 }
 
 //入力データがtsかどうかの判定
-bool Caption2Ass::isTS(const uint8_t *data, const int64_t data_size) const {
+bool Caption2Ass::isTS(const uint8_t *data, const size_t data_size) const {
     rgy_stream st;
     st.append(data, data_size);
     return FindStartOffset(st) == 0;
@@ -679,7 +680,7 @@ void Caption2Ass::printParam(int log_level) {
     AddMessage(log_level, _T(" srt ornament: %s\n"), m_srt.ornament ? _T("yes") : _T("no"));
 }
 
-RGY_ERR Caption2Ass::proc(const uint8_t *data, const int64_t data_size, std::vector<AVPacket>& subList) {
+RGY_ERR Caption2Ass::proc(const uint8_t *data, const size_t data_size, std::vector<AVPacket>& subList) {
     m_stream.append(data, data_size);
 
     if (m_streamSync) {
@@ -909,6 +910,7 @@ std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
             if ((PTS + itcap->dwWaitTime * 90) <= m_timestamp.startPCR) {
                 AddMessage(RGY_LOG_DEBUG, _T("%d Caption skip\n"), captionList.size());
             } else {
+                //endTimeはstartTime同様、startPCRを基準とする
                 int64_t endTime = (PTS + itcap->dwWaitTime * 90) - m_timestamp.startPCR;
                 std::vector<AVPacket> pkts;
                 switch (m_format) {
@@ -1124,7 +1126,9 @@ std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
         if (bPushBack) {
             pCapLine->index            = 0;     //useless
             pCapLine->pts              = PTS;
+            //startTimeはstartPCRを基準とし、デバッグ用に用いる
             pCapLine->startTime        = (PTS > m_timestamp.startPCR) ? (DWORD)(PTS - m_timestamp.startPCR) : 0;
+            //endTimeは後で設定する
             pCapLine->endTime          = 0;
             pCapLine->outCharSizeMode  = (BYTE)workCharSizeMode;
             pCapLine->outCharW         = (WORD)(workCharW * ratioX);
@@ -1151,8 +1155,10 @@ std::vector<AVPacket> Caption2Ass::genAss(int64_t endTime) {
 
         AVPacket pkt;
         av_init_packet(&pkt);
+        //muxerには生のptsを伝達する
         pkt.pts = (*it)->pts;
         pkt.dts = (*it)->pts;
+        //startTime, endTimeは、startPCRを基準としているのでその差分は有効
         pkt.duration = (*it)->endTime - (*it)->startTime;
 
         auto it2 = (*it)->outStrings.begin();
@@ -1395,4 +1401,4 @@ std::vector<AVPacket> Caption2Ass::genSrt(int64_t endTime) {
     return assLines;
 }
 
-#endif //#if ENABLE_AVSW_READER
+#endif //#if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))

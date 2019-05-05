@@ -73,7 +73,7 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
         option_name = _T("device");
         break;
     case _T('u'):
-        option_name = _T("quality");
+        option_name = _T("preset");
         break;
     case _T('f'):
         option_name = _T("output-format");
@@ -151,7 +151,6 @@ struct sArgsData {
     uint32_t nParsedAudioSplit = 0;
     uint32_t nParsedAudioFilter = 0;
     uint32_t nTmpInputBuf = 0;
-    int nBframes = -1;
 };
 
 int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, sArgsData *argData, ParseCmdError& err) {
@@ -366,6 +365,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nVideoStreamId = v;
         return 0;
     }
+    if (IS_OPTION("video-tag")) {
+        i++;
+        pParams->videoCodecTag = tchar_to_string(strInput[i]);
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("trim"))) {
         i++;
         auto trim_str_list = split(strInput[i], _T(","));
@@ -517,6 +521,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (0 == _tcscmp(option_name, _T("input-format"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
             pParams->pAVInputFormat = _tcsdup(strInput[i]);
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
@@ -1060,7 +1065,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            argData->nBframes = value;
+            pParams->encConfig.frameIntervalP = value + 1;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
@@ -1072,6 +1077,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int value = 0;
         if (get_list_value(list_bref_mode, strInput[i], &value)) {
             codecPrm[NV_ENC_H264].h264Config.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
@@ -1244,9 +1250,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
-                auto param_arg = param.substr(0, pos);
+                auto param_arg = tolowercase(param.substr(0, pos));
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.unsharp.enable = true;
@@ -1911,7 +1916,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 auto param_val = param.substr(pos+1);
                 std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
                 if (param_arg == _T("ini")) {
-                    if (NVEncFilterAfs::read_afs_inifile(&pParams->vpp.afs, param_val.c_str())) {
+                    if (pParams->vpp.afs.read_afs_inifile(param_val.c_str())) {
                         SET_ERR(strInput[0], _T("ini file does not exist."), option_name, strInput[i]);
                         return -1;
                     }
@@ -1920,7 +1925,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         int value = 0;
                         if (get_list_value(list_afs_preset, param_val.c_str(), &value)) {
-                            NVEncFilterAfs::set_preset(&pParams->vpp.afs, value);
+                            pParams->vpp.afs.set_preset(value);
                         } else {
                             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                             return -1;
@@ -2116,6 +2121,154 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-nnedi")) {
+        pParams->vpp.nnedi.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        pParams->vpp.nnedi.enable = true;
+                    } else if (param_val == _T("false")) {
+                        pParams->vpp.nnedi.enable = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("field")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_field, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.field = (VppNnediField)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nns")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_nns, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.nns = value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nsize")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_nsize, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.nsize = (VppNnediNSize)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("quality")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_quality, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.quality = (VppNnediQuality)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("prescreen")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_pre_screen, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.pre_screen = (VppNnediPreScreen)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("errortype")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_error_type, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.errortype = (VppNnediErrorType)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("prec")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_nnedi_prec, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.precision = (VppNnediPrecision)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("weightfile")) {
+                    pParams->vpp.nnedi.weightfile = param_val.c_str();
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-yadif")) {
+        pParams->vpp.yadif.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        pParams->vpp.yadif.enable = true;
+                    } else if (param_val == _T("false")) {
+                        pParams->vpp.yadif.enable = false;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_yadif_mode, param_val.c_str(), &value)) {
+                        pParams->vpp.yadif.mode = (VppYadifMode)value;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-rff")) {
         pParams->vpp.rff = true;
         return 0;
@@ -2192,6 +2345,124 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-colorspace")) {
+        pParams->vpp.colorspace.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto parse = [](int *from, int *to, tstring param_val, const CX_DESC *list) {
+                    auto from_to = split(param_val, _T(":"));
+                    if (from_to.size() == 2
+                        && get_list_value(list, from_to[0].c_str(), from)
+                        && get_list_value(list, from_to[1].c_str(), to)) {
+                        return true;
+                    }
+                    return false;
+                };
+                if (pParams->vpp.colorspace.convs.size() == 0) {
+                    pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                }
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                if (param_arg == _T("matrix")) {
+                    auto& conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.matrix != conv.to.matrix) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.matrix, (int *)&conv.to.matrix, param_val, list_colormatrix)) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("colorprim")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.colorprim != conv.to.colorprim) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.colorprim, (int *)&conv.to.colorprim, param_val, list_colorprim)) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("transfer")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.transfer != conv.to.transfer) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.transfer, (int *)&conv.to.transfer, param_val, list_transfer)) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("range")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.fullrange != conv.to.fullrange) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.fullrange, (int *)&conv.to.fullrange, param_val, list_colorrange)) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("source_peak")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    try {
+                        conv.source_peak = std::stof(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("approx_gamma")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    conv.approx_gamma = (param_val == _T("true")) || (param_val == _T("on"));
+                    continue;
+                }
+                if (param_arg == _T("scene_ref")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    conv.scene_ref = (param_val == _T("true")) || (param_val == _T("on"));
+                    continue;
+                }
+                if (param_arg == _T("hdr2sdr")) {
+                    pParams->vpp.colorspace.hdr2sdr = (param_val == _T("true")) || (param_val == _T("on"));
+                    continue;
+                }
+                if (param_arg == _T("ldr_nits")) {
+                    try {
+                        pParams->vpp.colorspace.ldr_nits = std::stof(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                if (param == _T("hdr2sdr")) {
+                    pParams->vpp.colorspace.hdr2sdr = true;
+                    continue;
+                }
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
@@ -2766,7 +3037,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nOutputBufSizeMB = (std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("input-thread"))) {
+    if (0 == _tcscmp(option_name, _T("input-thread"))
+        || 0 == _tcscmp(option_name, _T("thread-input"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
@@ -2784,7 +3056,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nOutputThread = 0;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("output-thread"))) {
+    if (0 == _tcscmp(option_name, _T("output-thread"))
+        || 0 == _tcscmp(option_name, _T("thread-output"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
@@ -2798,7 +3071,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nOutputThread = value;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("audio-thread"))) {
+    if (0 == _tcscmp(option_name, _T("audio-thread"))
+        || 0 == _tcscmp(option_name, _T("thread-audio"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
@@ -2810,6 +3084,31 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return 1;
         }
         pParams->nAudioThread = value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("thread-csp"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < -1 || value >= 2) {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->threadCsp = value;
+        return 0;
+    }
+    if (IS_OPTION("simd-csp")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_simd, strInput[i], &value)) {
+            pParams->simdCsp = value;
+        } else {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("max-procfps"))) {
@@ -2853,6 +3152,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->nPerfMonitorInterval = std::max(50, v);
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("session-retry"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < 0) {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->sessionRetry = value;
+        return 0;
+    }
     tstring mes = _T("Unknown option: --");
     mes += option_name;
     SET_ERR(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);
@@ -2893,24 +3206,6 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
             return sts;
         }
     }
-
-    //Bフレームの設定
-    if (argsData.nBframes < 0) {
-        //特に指定されていない場合はデフォルト値を反映する
-        switch (pParams->codec) {
-        case NV_ENC_H264:
-            argsData.nBframes = DEFAULT_B_FRAMES_H264;
-            break;
-        case NV_ENC_HEVC:
-            argsData.nBframes = DEFAULT_B_FRAMES_HEVC;
-            break;
-        default:
-            SET_ERR(strInput[0], _T("Unknown Output codec.\n"), nullptr, nullptr);
-            return -1;
-            break;
-        }
-    }
-    pParams->encConfig.frameIntervalP = argsData.nBframes + 1;
 
     return 0;
 }
@@ -3003,8 +3298,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             if (_tcslen(str_false)) { cmd << (str_false) << ((save_disabled_prm) ? (codec) : _T("")); }\
         } \
     }
-#define OPT_CHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << (pParams->opt);
-#define OPT_STR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << (pParams->opt.c_str());
+#define OPT_TCHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << (pParams->opt);
+#define OPT_TSTR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << pParams->opt.c_str();
+#define OPT_CHAR(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" ") << char_to_tstring(pParams->opt);
+#define OPT_STR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << char_to_tstring(pParams->opt).c_str();
 #define OPT_CHAR_PATH(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
@@ -3012,6 +3309,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     cmd << _T(" -c ") << get_chr_from_value(list_nvenc_codecs_for_opt, pParams->codec);
     OPT_STR_PATH(_T("-i"), inputFilename);
     OPT_STR_PATH(_T("-o"), outputFilename);
+    if ((pParams->preset) != (encPrmDefault.preset)) cmd << _T(" -u ") << get_name_from_value(pParams->preset, list_nvenc_preset_names);
     switch (pParams->input.type) {
     case RGY_INPUT_FMT_RAW:    cmd << _T(" --raw"); break;
     case RGY_INPUT_FMT_Y4M:    cmd << _T(" --y4m"); break;
@@ -3118,6 +3416,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_GUID_HEVC(_T("--profile"), _T(":hevc"), tier & 0xffff, h265_profile_names);
         OPT_LST_HEVC(_T("--tier"), _T(":hevc"), tier >> 16, h265_tier_names);
         OPT_NUM_HEVC(_T("--ref"), _T(""), maxNumRefFramesInDPB);
+        OPT_LST_HEVC(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         if (codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 != codecPrmDefault[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8) {
             cmd << _T(" --output-depth ") << codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 + 8;
         }
@@ -3169,8 +3468,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
     }
     OPT_FLOAT(_T("--seek"), fSeekSec, 2);
-    OPT_CHAR(_T("--input-format"), pAVInputFormat);
-    OPT_STR(_T("--output-format"), sAVMuxOutputFormat);
+    OPT_TCHAR(_T("--input-format"), pAVInputFormat);
+    OPT_TSTR(_T("--output-format"), sAVMuxOutputFormat);
+    OPT_STR(_T("--video-tag"), videoCodecTag);
     OPT_NUM(_T("--video-track"), nVideoTrack);
     OPT_NUM(_T("--video-streamid"), nVideoStreamId);
     if (pParams->pMuxOpt) {
@@ -3343,6 +3643,41 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-afs");
         }
     }
+    if (pParams->vpp.nnedi != encPrmDefault.vpp.nnedi) {
+        tmp.str(tstring());
+        if (!pParams->vpp.nnedi.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.nnedi.enable || save_disabled_prm) {
+            ADD_LST(_T("field"), vpp.nnedi.field, list_vpp_nnedi_field);
+            ADD_LST(_T("nns"), vpp.nnedi.nns, list_vpp_nnedi_nns);
+            ADD_LST(_T("nsize"), vpp.nnedi.nsize, list_vpp_nnedi_nsize);
+            ADD_LST(_T("quality"), vpp.nnedi.quality, list_vpp_nnedi_quality);
+            ADD_LST(_T("prec"), vpp.nnedi.precision, list_vpp_nnedi_prec);
+            ADD_LST(_T("prescreen"), vpp.nnedi.pre_screen, list_vpp_nnedi_pre_screen);
+            ADD_LST(_T("errortype"), vpp.nnedi.errortype, list_vpp_nnedi_error_type);
+            ADD_PATH(_T("weightfile"), vpp.nnedi.weightfile.c_str());
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-nnedi ") << tmp.str().substr(1);
+        } else if (pParams->vpp.nnedi.enable) {
+            cmd << _T(" --vpp-nnedi");
+        }
+    }
+    if (pParams->vpp.yadif != encPrmDefault.vpp.yadif) {
+        tmp.str(tstring());
+        if (!pParams->vpp.yadif.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.yadif.enable || save_disabled_prm) {
+            ADD_LST(_T("mode"), vpp.yadif.mode, list_vpp_yadif_mode);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-yadif ") << tmp.str().substr(1);
+        } else if (pParams->vpp.yadif.enable) {
+            cmd << _T(" --vpp-yadif");
+        }
+    }
     if (pParams->vpp.knn != encPrmDefault.vpp.knn) {
         tmp.str(tstring());
         if (!pParams->vpp.knn.enable && save_disabled_prm) {
@@ -3428,6 +3763,52 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-tweak ") << tmp.str().substr(1);
         } else if (pParams->vpp.tweak.enable) {
             cmd << _T(" --vpp-tweak");
+        }
+    }
+    if (pParams->vpp.colorspace != encPrmDefault.vpp.colorspace) {
+        tmp.str(tstring());
+        if (!pParams->vpp.colorspace.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.colorspace.enable || save_disabled_prm) {
+            for (int i = 0; i < pParams->vpp.colorspace.convs.size(); i++) {
+                auto from = pParams->vpp.colorspace.convs[i].from;
+                auto to = pParams->vpp.colorspace.convs[i].to;
+                if (from.matrix != to.matrix) {
+                    tmp << _T(",matrix=");
+                    tmp << get_cx_desc(list_colormatrix, from.matrix);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colormatrix, to.matrix);
+                }
+                if (from.colorprim != to.colorprim) {
+                    tmp << _T(",colorprim=");
+                    tmp << get_cx_desc(list_colorprim, from.colorprim);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colorprim, to.colorprim);
+                }
+                if (from.transfer != to.transfer) {
+                    tmp << _T(",transfer=");
+                    tmp << get_cx_desc(list_transfer, from.transfer);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_transfer, to.transfer);
+                }
+                if (from.fullrange != to.fullrange) {
+                    tmp << _T(",range=");
+                    tmp << get_cx_desc(list_colorrange, from.fullrange);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colorrange, to.fullrange);
+                }
+                ADD_FLOAT(_T("source_peak"), vpp.colorspace.convs[i].source_peak, 1);
+                ADD_BOOL(_T("approx_gamma"), vpp.colorspace.convs[i].approx_gamma);
+                ADD_BOOL(_T("scene_ref"), vpp.colorspace.convs[i].scene_ref);
+                ADD_BOOL(_T("hdr2sdr"), vpp.colorspace.hdr2sdr);
+                ADD_FLOAT(_T("ldr_nits"), vpp.colorspace.ldr_nits, 1);
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-colorspace ") << tmp.str().substr(1);
+        } else if (pParams->vpp.colorspace.enable) {
+            cmd << _T(" --vpp-colorspace");
         }
     }
     if (pParams->vpp.pad != encPrmDefault.vpp.pad) {
@@ -3522,9 +3903,11 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_LST(_T("--cuda-schedule"), nCudaSchedule, list_cuda_schedule);
     OPT_NUM(_T("--output-buf"), nOutputBufSizeMB);
-    OPT_NUM(_T("--output-thread"), nOutputThread);
-    OPT_NUM(_T("--input-thread"), nInputThread);
-    OPT_NUM(_T("--audio-thread"), nAudioThread);
+    OPT_NUM(_T("--thread-output"), nOutputThread);
+    OPT_NUM(_T("--thread-input"), nInputThread);
+    OPT_NUM(_T("--thread-audio"), nAudioThread);
+    OPT_NUM(_T("--thread-csp"), threadCsp);
+    OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), nProcSpeedLimit);
     OPT_STR_PATH(_T("--log"), logfile);
     OPT_LST(_T("--log-level"), loglevel, list_log_level);
@@ -3547,6 +3930,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
     }
     OPT_NUM(_T("--perf-monitor-interval"), nPerfMonitorInterval);
+    OPT_NUM(_T("--session-retry"), sessionRetry);
     return cmd.str();
 }
 #pragma warning (pop)

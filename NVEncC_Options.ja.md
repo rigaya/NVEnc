@@ -212,7 +212,7 @@ avformat + cuvid decoderを使用して読み込む。
 | H.265/HEVC | ○ |
 | VP8        | × |
 | VP9        | ○ |
-| VC-1       | × |
+| VC-1       | ○ |
 | WMV3/WMV9  | × |
 
 ### --interlace &lt;string&gt;
@@ -257,6 +257,11 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 
 ## その他のオプション
 
+### -u, --preset
+エンコーダの品質プリセット。
+- default
+- performance
+- quality
 
 ### --output-depth &lt;int&gt;
 出力ビット深度を設定。
@@ -327,7 +332,7 @@ lookahead有効時の適応的なBフレーム挿入を無効化する。
 ### --aq-strength &lt;int&gt;
 AQ強度を指定する。(1(弱) ～ 15(強)、0 = 自動)
 
-### --bref-mode &lt;string&gt; [H.264のみ]
+### --bref-mode &lt;string&gt;
 Bフレームの参照モードを指定する。
 - disabled (default)
 - each
@@ -486,6 +491,12 @@ muxerに出力フォーマットを指定して出力する。
 出力フォーマットは出力拡張子から自動的に決定されるので、通常、特に指定する必要はないが、このオプションで出力フォーマットを強制できる。
 
 使用可能なフォーマットは[--check-formats](#--check-formats)で確認できる。H.264/HEVCをElementary Streamで出力する場合には、"raw"を指定する。
+
+### --video-tag <string>
+映像のcodec tagの指定。
+```
+ -o test.mp4 -c hevc --video-tag hvc1
+```
 
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
@@ -850,28 +861,172 @@ log=0
   - YUY2補間
   - シフト・解除なし
 
+### --vpp-nnedi [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+nnediによるインタレ解除を行う。基本的には片方フィールドは捨てて、もう片方のフィールドから
+ニューラルネットを使って輪郭を補正しながらフレームを再構築することでインタレ解除するが、とても重い…。
+
+**パラメータ**
+- field  
+  インタレ解除の方法。
+  - auto (デフォルト)  
+    維持するフィールドを自動的に選択
+  - top  
+    トップフィールド維持
+  - bottom  
+    ボトムフィールド維持
+
+- nns  (デフォルト: 32)  
+  ニューラルネットのニューロン数。
+  - 16, 32, 64, 128, 256
+
+- nsize  (デフォルト: 32x4)  
+  ニューラルネットが参照する近傍ブロックのサイズ。
+  - 8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4
+
+- quality  (デフォルト: fast)  
+  品質の設定。
+
+  - fast
+
+  - slow  
+    slowではfastのニューラルネットの出力に、もうひとつの
+    ニューラルネットの出力をブレンドして品質を上げる(当然その分さらに遅い)。
+
+- prescreen (デフォルト: new_block)  
+  事前に前処理を行い、単純な補間で済ますか、ニューラルネットでの補正を行うか決定する。
+  基本的にはエッジ近傍がニューラルネットでの補正の対象となり、ニューラルネットを使う頻度が下がることで処理が高速になる。
+  
+  - none  
+    前処理を行わず、すべてのpixelをニューラルネットで再構成する。
+
+  - original
+  - new  
+    前処理を行い、必要なところのみニューラルネットでの補正を行うようにする。originalとnewは方式が異なる。newのほうが速くなる傾向にある。
+
+  - original_block
+  - new_block  
+    original/newのGPU最適化版。pixel単位の判定の代わりにブロック単位の判定を行う。
+
+- errortype (デフォルト: abs)  
+  ニューラルネットの重みパラメータを選択する。
+  - abs  
+    絶対誤差を最小にするよう学習された重みを用いる。
+  - square  
+    二乗誤差を最小にするよう学習された重みを用いる。
+  
+- prec (デフォルト: auto)  
+  演算精度の選択。
+  - auto  
+    fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
+    現状ではTuring世代のGPUで自動的にfp16が使用される。
+    Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
+  
+  - fp16 (x64版のみ)  
+    半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
+  
+  - fp32  
+    単精度浮動小数点を使って計算する。
+    
+  
+- weightfile (デフォルト: 組み込み)  
+  重みパラメータファイルの(パスの)指定。特に指定のない場合、実行ファイルに埋め込まれたデータを使用する。
+
+  
+```
+例: --vpp-nnedi field=auto,nns=64,nsize=32x6,qual=slow,prescreen=none,prec=fp32
+```
+  
+### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
+yadifによるインタレ解除を行う。
+
+**パラメータ**
+- mode
+
+  - auto (default)  
+    維持するフィールドを自動的に選択。
+  - tff  
+    トップフィールド維持。
+  - bff  
+    ボトムフィールド維持。
+  - bob   
+    60fps化を行う(field順は自動選択)。
+  - bob_tff   
+    60fps化を行う(tff)。
+  - bob_bff   
+    60fps化を行う(bff)。
+
+
+    
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+色空間変換を行う。x64版のみ使用可能。
+
+**パラメータ**
+- matrix=&lt;from&gt;:&lt;to&gt;  
+  
+```
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+```
+
+- colorprim=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+```
+
+- transfer=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, arib-srd-b67
+```
+
+- range=&lt;from&gt;:&lt;to&gt;  
+```
+  limited, full
+```
+
+- hdr2sdr=&lt;bool&gt;  
+"Hable tone-mapping"によるHDR10 to SDRへの変換を行う。 [hdr2sdr.py](https://gist.github.com/4re/34ccbb95732c1bef47c3d2975ac62395)を移植したもの。
+
+- source_peak=&lt;float&gt;  (default: 1000.0)  
+
+- ldr_nits=&lt;float&gt;  (default: 100.0)  
+
+
+```
+例1: BT.709(fullrange) -> BT.601 への変換
+--vpp-colorspace matrix=smpte170m:bt709,range=full:limited
+
+例2: hdr2sdrの使用
+--vpp-colorspace hdr2sdr=true,source_peak=1000.0,ldr_nits=100.0
+```
+
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 指定stepフレームごとに1フレームを選択してフレームを間引きます。フレームレートが1/stepになります。
 
-**parameters**
+**パラメータ**
 - step=&lt;int&gt;
 - offset=&lt;int&gt; (デフォルト: 0)
 
 ```
-example1 ("select even"): --vpp-select-every 2
-example2 ("select odd "): --vpp-select-every 2,offset=1
+例1 ("select even"): --vpp-select-every 2
+例2 ("select odd "): --vpp-select-every 2,offset=1
 ```
   
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 
-要nppi64_80.dllに"○"のあるものは、[NPPライブラリ](https://developer.nvidia.com/npp)を使用しており、x64版のみ対応。また、使用には別途nppi64_80.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
+要nppi64_10.dllに"○"のあるものは、[NPPライブラリ](https://developer.nvidia.com/npp)を使用しており、x64版のみ対応。また、使用には別途nppi64_10.dllをダウンロードし、NVEncC64.exeと同じフォルダに配置する必要がある。
 
-| オプション名 | 説明 | 要nppi64_80.dll |
+| オプション名 | 説明 | 要nppi64_10.dll |
 |:---|:---|:---:|
 | default  | 自動的に適切なものを選択 | |
 | bilinear | 線形補間 | |
+| spline16 | 4x4 Spline補間 | |
 | spline36 | 6x6 Spline補間 | |
+| spline64 | 8x8 Spline補間 | |
+| lanczos2 | 4x4 lanczos補間 | |
+| lanczos3 | 6x6 lanczos補間 | |
+| lanczos4 | 8x8 lanczos補間 | |
 | nn            | 最近傍点選択 | ○ |
 | npp_linear    | nppの線形補間 | ○ |
 | cubic         | 4x4 3次補間 | ○ |
@@ -1107,7 +1262,7 @@ auto_fade, auto_nrを使用した場合のfade値の推移をログに出力す�
   CUDAのドライバにモード決定を委ねる。
 
 - spin  
-  常にCPUを稼働させ、GPUタスクの終了を監視する。復帰のレイテンシが最小となり、最も高速だが、1コア分のCPU使用率を常に使用する。
+  常にCPUを稼働させ、GPUタスクの終了を監視する。復帰のレイテンシが最小となり、最も高速だが、CPU 1コアを常に使用する。
 
 - yeild  
   基本的にはspinと同じだが、他のスレッドがあればそちらに譲る。

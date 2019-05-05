@@ -38,50 +38,14 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <vector_types.h>
-#include <device_functions.h>
 #pragma warning (pop)
-
-#define WARP_SIZE_2N (5)
-#define WARP_SIZE    (1<<WARP_SIZE_2N)
+#include "rgy_cuda_util.h"
 
 #define MERGE_BLOCK_INT_X  (32) //work groupサイズ(x) = スレッド数/work group
 #define MERGE_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group
 #define MERGE_BLOCK_LOOP_Y  (1) //work groupのy方向反復数
 
 #define u8x4(x)  (uint32_t)(((uint32_t)(x)) | (((uint32_t)(x)) <<  8) | (((uint32_t)(x)) << 16) | (((uint32_t)(x)) << 24))
-
-
-template<int width>
-__inline__ __device__
-int warp_sum(int val) {
-    static_assert(width <= WARP_SIZE, "width too big for warp_sum");
-    if (width >= 32) val += __shfl_xor(val, 16);
-    if (width >= 16) val += __shfl_xor(val, 8);
-    if (width >=  8) val += __shfl_xor(val, 4);
-    if (width >=  4) val += __shfl_xor(val, 2);
-    if (width >=  2) val += __shfl_xor(val, 1);
-    return val;
-}
-
-__inline__ __device__
-int block_sum(int val, int *shared) {
-    static_assert(MERGE_BLOCK_INT_X * MERGE_BLOCK_Y <= WARP_SIZE * WARP_SIZE, "block size too big for block_sum");
-    const int lid = threadIdx.y * MERGE_BLOCK_INT_X + threadIdx.x;
-    const int lane    = lid & (WARP_SIZE - 1);
-    const int warp_id = lid >> WARP_SIZE_2N;
-
-    val = warp_sum<WARP_SIZE>(val);
-
-    if (lane == 0) shared[warp_id] = val;
-
-    __syncthreads();
-
-    if (warp_id == 0) {
-        val = (lid * WARP_SIZE < MERGE_BLOCK_INT_X * MERGE_BLOCK_Y) ? shared[lane] : 0;
-        val = warp_sum<MERGE_BLOCK_INT_X * MERGE_BLOCK_Y / WARP_SIZE>(val);
-    }
-    return val;
-}
 
 template<typename Type>
 __global__ void kernel_afs_merge_scan(
@@ -149,7 +113,7 @@ __global__ void kernel_afs_merge_scan(
     int stripe_count_01 = (int)(field_select ? (uint32_t)stripe_count << 16 : (uint32_t)stripe_count);
 
     __shared__ int shared[MERGE_BLOCK_INT_X * MERGE_BLOCK_Y / WARP_SIZE]; //int単位でアクセスする
-    stripe_count_01 = block_sum(stripe_count_01, (int *)shared);
+    stripe_count_01 = block_sum<decltype(stripe_count_01), MERGE_BLOCK_INT_X, MERGE_BLOCK_Y>(stripe_count_01, (int *)shared);
 
     const int lid = threadIdx.y * MERGE_BLOCK_INT_X + threadIdx.x;
     if (lid == 0) {

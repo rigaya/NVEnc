@@ -290,15 +290,15 @@ static cudaError_t denoise_yuv444(FrameInfo *pOutputFrame[2], FrameInfo *pGauss,
 }
 
 
-NVENCSTATUS NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame) {
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pPmdParam = std::dynamic_pointer_cast<NVEncFilterParamDenoisePmd>(m_pParam);
     if (!pPmdParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     struct pmd_func {
         decltype(denoise_yv12<uint8_t, 8, true>)* func[2];
@@ -316,13 +316,13 @@ NVENCSTATUS NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo
     };
     if (denoise_func_list.count(pPmdParam->frameIn.csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for denoise(pmd): %s\n"), RGY_CSP_NAMES[pPmdParam->frameIn.csp]);
-        return NV_ENC_ERR_UNIMPLEMENTED;
+        return RGY_ERR_UNSUPPORTED;
     }
     auto cudaerr = denoise_func_list.at(pPmdParam->frameIn.csp).func[!!pPmdParam->pmd.useExp](pOutputFrame, pGauss, pInputFrame, pPmdParam->pmd.applyCount, pPmdParam->pmd.strength, pPmdParam->pmd.threshold);
     if (cudaerr != cudaSuccess) {
-        return NV_ENC_ERR_INVALID_CALL;
+        return RGY_ERR_CUDA;
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterDenoisePmd::NVEncFilterDenoisePmd() : m_bInterlacedWarn(false) {
@@ -333,22 +333,22 @@ NVEncFilterDenoisePmd::~NVEncFilterDenoisePmd() {
     close();
 }
 
-NVENCSTATUS NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pPmdParam = std::dynamic_pointer_cast<NVEncFilterParamDenoisePmd>(pParam);
     if (!pPmdParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
     if (pPmdParam->frameOut.height <= 0 || pPmdParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pPmdParam->pmd.applyCount <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter, apply_count must be a positive value.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pPmdParam->pmd.strength < 0.0f || 100.0f < pPmdParam->pmd.strength) {
         AddMessage(RGY_LOG_WARN, _T("strength must be in range of 0.0 - 100.0.\n"));
@@ -362,7 +362,7 @@ NVENCSTATUS NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, sha
     auto cudaerr = AllocFrameBuf(pPmdParam->frameOut, 2);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pPmdParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -376,7 +376,7 @@ NVENCSTATUS NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, sha
         cudaerr = m_Gauss.alloc();
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_MEMORY_ALLOC;
         }
     }
 
@@ -387,15 +387,15 @@ NVENCSTATUS NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, sha
     return sts;
 }
 
-NVENCSTATUS NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
 
     if (pInputFrame->ptr == nullptr) {
-        return NV_ENC_SUCCESS;
+        return RGY_ERR_NONE;
     }
     auto pPmdParam = std::dynamic_pointer_cast<NVEncFilterParamDenoisePmd>(m_pParam);
     if (!pPmdParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     const int out_idx = final_dst_index(pPmdParam->pmd.applyCount);
@@ -424,11 +424,11 @@ NVENCSTATUS NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, Fram
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     auto ret = denoise(pOutputFrame, &m_Gauss.frame, pInputFrame);

@@ -100,10 +100,27 @@ static const auto RGY_CSP_TO_NVENC = make_array<std::pair<RGY_CSP, NV_ENC_BUFFER
     std::make_pair(RGY_CSP_RGB32R,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_RGB24,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_RGB32,     NV_ENC_BUFFER_FORMAT_ARGB),
+    std::make_pair(RGY_CSP_BGR24,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_BGR32,     NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_RGB,       NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_RGBA,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_GBR,       NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_GBRA,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YC48,      NV_ENC_BUFFER_FORMAT_UNDEFINED)
     );
 
 MAP_PAIR_0_1(csp, rgy, RGY_CSP, enc, NV_ENC_BUFFER_FORMAT, RGY_CSP_TO_NVENC, RGY_CSP_NA, NV_ENC_BUFFER_FORMAT_UNDEFINED);
+
+static const auto RGY_CSP_TO_SURFACEFMT = make_array<std::pair<RGY_CSP, cudaVideoSurfaceFormat>>(
+    std::make_pair(RGY_CSP_NV12,      cudaVideoSurfaceFormat_NV12),
+    std::make_pair(RGY_CSP_P010,      cudaVideoSurfaceFormat_P016),
+    std::make_pair(RGY_CSP_YUV444,    cudaVideoSurfaceFormat_YUV444),
+    std::make_pair(RGY_CSP_YUV444_16, cudaVideoSurfaceFormat_YUV444_16Bit),
+    std::make_pair(RGY_CSP_YUV444_12, cudaVideoSurfaceFormat_YUV444_16Bit),
+    std::make_pair(RGY_CSP_YUV444_10, cudaVideoSurfaceFormat_YUV444_16Bit)
+    );
+
+MAP_PAIR_0_1(csp, rgy, RGY_CSP, surfacefmt, cudaVideoSurfaceFormat, RGY_CSP_TO_SURFACEFMT, RGY_CSP_NA, cudaVideoSurfaceFormat_NV12);
 
 __declspec(noinline)
 NV_ENC_PIC_STRUCT picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct) {
@@ -172,9 +189,9 @@ VideoInfo videooutputinfo(
         : pEncConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters;
 
     info.vui.descriptpresent = videoSignalInfo.colourDescriptionPresentFlag;
-    info.vui.colorprim = videoSignalInfo.colourPrimaries;
-    info.vui.matrix = videoSignalInfo.colourMatrix;
-    info.vui.transfer = videoSignalInfo.transferCharacteristics;
+    info.vui.colorprim = (CspColorprim)videoSignalInfo.colourPrimaries;
+    info.vui.matrix = (CspMatrix)videoSignalInfo.colourMatrix;
+    info.vui.transfer = (CspTransfer)videoSignalInfo.transferCharacteristics;
     info.vui.fullrange = videoSignalInfo.videoFullRangeFlag;
     info.vui.format = videoSignalInfo.videoFormat;
     info.vui.chromaloc = (videoSignalInfo.chromaSampleLocationFlag) ? videoSignalInfo.chromaSampleLocationTop : 0;

@@ -49,12 +49,12 @@
 #include "NVEncFrameInfo.h"
 
 #pragma comment(lib, "cudart_static.lib")
-#ifndef _M_IX86
-#pragma comment(lib, "nppi.lib")
-#endif
 
-static const TCHAR *NPPI_DLL_NAME = _T("nppi64_80.dll");
+extern const TCHAR *NPPI_DLL_NAME_TSTR;
+extern const TCHAR *NVRTC_DLL_NAME_TSTR;
+
 bool check_if_nppi_dll_available();
+bool check_if_nvrtc_dll_available();
 
 using std::vector;
 
@@ -341,8 +341,8 @@ public:
     tstring name() {
         return m_sFilterName;
     }
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) = 0;
-    NVENCSTATUS filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum);
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) = 0;
+    RGY_ERR filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum);
     const tstring GetInputMessage() {
         return m_sFilterInfo;
     }
@@ -352,8 +352,8 @@ public:
     void CheckPerformance(bool flag);
     double GetAvgTimeElapsed();
 protected:
-    NVENCSTATUS filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream);
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;
+    RGY_ERR filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream);
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;
     virtual void close() = 0;
 
     void AddMessage(int log_level, const tstring& str) {
@@ -411,15 +411,15 @@ class NVEncFilterCspCrop : public NVEncFilter {
 public:
     NVEncFilterCspCrop();
     virtual ~NVEncFilterCspCrop();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
-    NVENCSTATUS convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    NVENCSTATUS convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    NVENCSTATUS convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    NVENCSTATUS convertCspFromNV16(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    NVENCSTATUS convertCspFromRGB(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    NVENCSTATUS convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    RGY_ERR convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR convertCspFromNV16(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR convertCspFromRGB(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
 };
 
@@ -433,15 +433,15 @@ class NVEncFilterResize : public NVEncFilter {
 public:
     NVEncFilterResize();
     virtual ~NVEncFilterResize();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
-    NVENCSTATUS resizeYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    NVENCSTATUS resizeYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    RGY_ERR resizeNppiYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR resizeNppiYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
 
     bool m_bInterlacedWarn;
-    CUMemBuf m_weightSpline36;
+    CUMemBuf m_weightSpline;
 };
 
 
@@ -455,11 +455,11 @@ class NVEncFilterDenoiseGauss : public NVEncFilter {
 public:
     NVEncFilterDenoiseGauss();
     virtual ~NVEncFilterDenoiseGauss();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
-    NVENCSTATUS denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    NVENCSTATUS denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    RGY_ERR denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
     bool m_bInterlacedWarn;
 };
@@ -474,10 +474,10 @@ class NVEncFilterPad : public NVEncFilter {
 public:
     NVEncFilterPad();
     virtual ~NVEncFilterPad();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
 
-    NVENCSTATUS padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad);
+    RGY_ERR padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad);
     virtual void close() override;
 };

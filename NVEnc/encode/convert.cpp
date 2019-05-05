@@ -133,34 +133,20 @@ void convert_audio_16to8_sse2(BYTE *dst, short *src, int n) {
     }
 }
 
-void copy_yuy2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    memcpy(pixel_data->data[0], frame, width * height * 2);
+void copy_yuy2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    memcpy((BYTE *)(pixel_data->data[0]) + width * y_range.s * 2, (BYTE *)frame + width * y_range.s * 2, width * (y_range.e - y_range.s) * 2);
 }
 
-void copy_yuy2_sse2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    BYTE *src = (BYTE *)frame;
-    BYTE *dst = pixel_data->data[0];
-    BYTE *dst_fin = pixel_data->data[0] + ((width * height * 2) & ~63);
-    __m128i x0, x1, x2, x3;
-    for (; dst < dst_fin; src += 64, dst += 64) {
-        x0    = _mm_loadu_si128((const __m128i *)(src +  0));
-        x1    = _mm_loadu_si128((const __m128i *)(src + 16));
-        x2    = _mm_loadu_si128((const __m128i *)(src + 32));
-        x3    = _mm_loadu_si128((const __m128i *)(src + 48));
-        _mm_stream_si128((__m128i *)(dst +  0), x0);
-        _mm_stream_si128((__m128i *)(dst + 16), x1);
-        _mm_stream_si128((__m128i *)(dst + 32), x2);
-        _mm_stream_si128((__m128i *)(dst + 48), x3);
-    }
-    dst_fin = dst + ((width * height * 2) & 63);
-    for (; dst < dst_fin; src += 4, dst += 4)
-        *(int*)dst = *(int*)src;
+void copy_yuy2_sse2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    copy_yuy2(frame, pixel_data, width, height, thread_id, thread_n);
 }
 
-void sort_to_rgb(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void sort_to_rgb(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     BYTE *ptr = pixel_data->data[0];
     BYTE *dst, *src;
-    int y0 = 0, y1 = height - 1;
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    int y0 = y_range.s, y1 = y_range.e - 1;
     const int step = (width*3 + 3) & ~3;
     for (; y0 < height; y0++, y1--) {
         dst = ptr          + y1*width*3;
@@ -173,13 +159,14 @@ void sort_to_rgb(void *frame, CONVERT_CF_DATA *pixel_data, const int width, cons
     }
 }
 
-void convert_yuy2_to_yv12(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yuy2_to_yv12(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     BYTE *Y  = pixel_data->data[0];
     BYTE *Cb = pixel_data->data[1];
     BYTE *Cr = pixel_data->data[2];
     BYTE *p = (BYTE *)frame;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         for (x = 0; x < width; x += 2) {
             Y[ y   *width  + x    ] = p[( y   *width + x)*2    ];
             Y[ y   *width  + x + 1] = p[( y   *width + x)*2 + 2];
@@ -191,12 +178,13 @@ void convert_yuy2_to_yv12(void *frame, CONVERT_CF_DATA *pixel_data, const int wi
     }
 }
 //適当。
-void convert_yuy2_to_nv12(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yuy2_to_nv12(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     BYTE *Y = pixel_data->data[0];
     BYTE *C = pixel_data->data[1];
     BYTE *p = (BYTE *)frame;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         for (x = 0; x < width; x += 2) {
             Y[ y   *width + x    ] = p[( y   *width + x)*2    ];
             Y[ y   *width + x + 1] = p[( y   *width + x)*2 + 2];
@@ -209,12 +197,13 @@ void convert_yuy2_to_nv12(void *frame, CONVERT_CF_DATA *pixel_data, const int wi
 }
 
 //これも適当。
-void convert_yuy2_to_nv12_i(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yuy2_to_nv12_i(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     BYTE *Y = pixel_data->data[0];
     BYTE *C = pixel_data->data[1];
     BYTE *p = (BYTE *)frame;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (x = 0; x < width; x += 2) {
             Y[ y   *width + x    ] = p[( y   *width + x)*2    ];
             Y[ y   *width + x + 1] = p[( y   *width + x)*2 + 2];
@@ -233,13 +222,14 @@ void convert_yuy2_to_nv12_i(void *frame, CONVERT_CF_DATA *pixel_data, const int 
 }
 
 //これも適当。
-void convert_yuy2_to_yv12_i(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yuy2_to_yv12_i(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     BYTE *Y  = pixel_data->data[0];
     BYTE *Cb = pixel_data->data[1];
     BYTE *Cr = pixel_data->data[2];
     BYTE *p = (BYTE *)frame;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (x = 0; x < width; x += 2) {
             Y[ y   *width + x    ] = p[( y   *width + x)*2    ];
             Y[ y   *width + x + 1] = p[( y   *width + x)*2 + 2];
@@ -260,13 +250,14 @@ static int inline pixel_YC48_to_YUV(int y, int mul, int add, int rshift, int ycc
     return clamp(((y * mul + add) >> rshift) + ycc, min, max);
 }
 
-void convert_yc48_to_nv12_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_nv12_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x = 0, y = 0, i = 0;
     PIXEL_YC *ycp;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_C = (short *)pixel_data->data[1];
     short *Y = NULL, *C = (short *)dst_C;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         i = width * y;
         ycp = (PIXEL_YC *)pixel + i;
         Y = (short *)dst_Y + i;
@@ -282,13 +273,14 @@ void convert_yc48_to_nv12_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const 
         }
     }
 }
-void convert_yc48_to_nv12_i_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_nv12_i_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x = 0, y = 0, i = 0;
     PIXEL_YC *ycp = NULL;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_C = (short *)pixel_data->data[1];
     short *Y = NULL, *C = NULL;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 4) {
         i = width * y;
         ycp = (PIXEL_YC *)pixel + i;
         Y = (short *)dst_Y + i;
@@ -312,14 +304,15 @@ void convert_yc48_to_nv12_i_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, cons
     }
 }
 
-void convert_yc48_to_yv12_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_yv12_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x = 0, y = 0, i = 0;
     PIXEL_YC *ycp;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_U = (short *)pixel_data->data[1];
     short *dst_V = (short *)pixel_data->data[2];
     short *Y = NULL, *U = NULL, *V = NULL;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         i = width * y;
         ycp = (PIXEL_YC *)pixel + i;
         Y = (short *)dst_Y + i;
@@ -337,14 +330,15 @@ void convert_yc48_to_yv12_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const 
         }
     }
 }
-void convert_yc48_to_yv12_i_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_yv12_i_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x = 0, y = 0, i = 0;
     PIXEL_YC *ycp = NULL;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_U = (short *)pixel_data->data[1];
     short *dst_V = (short *)pixel_data->data[2];
     short *Y = NULL, *U = NULL, *V = NULL;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 4) {
         i = width * y;
         ycp = (PIXEL_YC *)pixel + i;
         Y = (short *)dst_Y + i;
@@ -369,14 +363,15 @@ void convert_yc48_to_yv12_i_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, cons
     }
 }
 
-void convert_yc48_to_yv12_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_yv12_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x = 0, y = 0, i = 0;
     PIXEL_YC *ycp;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_U = (short *)pixel_data->data[1];
     short *dst_V = (short *)pixel_data->data[2];
     short *Y = NULL, *U = NULL, *V = NULL;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         i = width * y;
         ycp = (PIXEL_YC *)pixel + i;
         Y = (short *)dst_Y + i;
@@ -394,14 +389,15 @@ void convert_yc48_to_yv12_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const 
         }
     }
 }
-void convert_yc48_to_yv12_i_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_yv12_i_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x = 0, y = 0, i = 0;
     PIXEL_YC *ycp = NULL;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_U = (short *)pixel_data->data[1];
     short *dst_V = (short *)pixel_data->data[2];
     short *Y = NULL, *U = NULL, *V = NULL;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y =y_range.s; y < y_range.e; y += 4) {
         i = width * y;
         ycp = (PIXEL_YC *)pixel + i;
         Y = (short *)dst_Y + i;
@@ -426,47 +422,54 @@ void convert_yc48_to_yv12_i_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, cons
     }
 }
 
-void convert_yc48_to_yuv444(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    PIXEL_YC *ycp_fin = (PIXEL_YC *)pixel + width * height;
-    BYTE *Y = pixel_data->data[0];
-    BYTE *U = pixel_data->data[1];
-    BYTE *V = pixel_data->data[2];
-    for (PIXEL_YC *ycp = (PIXEL_YC *)pixel; ycp < ycp_fin; ycp++, Y++, U++, V++) {
+void convert_yc48_to_yuv444(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    PIXEL_YC *ycp = (PIXEL_YC *)pixel + width * y_range.s;
+    PIXEL_YC *ycp_fin = (PIXEL_YC *)pixel + width * y_range.e;
+    BYTE *Y = pixel_data->data[0] + width * y_range.s;
+    BYTE *U = pixel_data->data[1] + width * y_range.s;
+    BYTE *V = pixel_data->data[2] + width * y_range.s;
+    for (; ycp < ycp_fin; ycp++, Y++, U++, V++) {
         *Y = (BYTE)pixel_YC48_to_YUV(ycp->y,                  Y_L_MUL,  Y_L_ADD_8,      Y_L_RSH_8,      Y_L_YCC_8, 0, LIMIT_8);
         *U = (BYTE)pixel_YC48_to_YUV(ycp->cb + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_8_444, UV_L_RSH_8_444, UV_L_YCC_8, 0, LIMIT_8);
         *V = (BYTE)pixel_YC48_to_YUV(ycp->cr + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_8_444, UV_L_RSH_8_444, UV_L_YCC_8, 0, LIMIT_8);
     }
 }
 
-void convert_yc48_to_yuv444_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    PIXEL_YC *ycp_fin = (PIXEL_YC *)pixel + width * height;
-    short *Y = (short *)pixel_data->data[0];
-    short *U = (short *)pixel_data->data[1];
-    short *V = (short *)pixel_data->data[2];
-    for (PIXEL_YC *ycp = (PIXEL_YC *)pixel; ycp < ycp_fin; ycp++, Y++, U++, V++) {
+void convert_yc48_to_yuv444_10bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    PIXEL_YC *ycp = (PIXEL_YC *)pixel + width * y_range.s;
+    PIXEL_YC *ycp_fin = (PIXEL_YC *)pixel + width * y_range.e;
+    short *Y = (short *)pixel_data->data[0] + width * y_range.s;
+    short *U = (short *)pixel_data->data[1] + width * y_range.s;
+    short *V = (short *)pixel_data->data[2] + width * y_range.s;
+    for (; ycp < ycp_fin; ycp++, Y++, U++, V++) {
         *Y = (short)pixel_YC48_to_YUV(ycp->y,                  Y_L_MUL,  Y_L_ADD_10,      Y_L_RSH_10,      Y_L_YCC_10, 0, LIMIT_10);
         *U = (short)pixel_YC48_to_YUV(ycp->cb + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_10_444, UV_L_RSH_10_444, UV_L_YCC_10, 0, LIMIT_10);
         *V = (short)pixel_YC48_to_YUV(ycp->cr + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_10_444, UV_L_RSH_10_444, UV_L_YCC_10, 0, LIMIT_10);
     }
 }
 
-void convert_yc48_to_yuv444_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    PIXEL_YC *ycp_fin = (PIXEL_YC *)pixel + width * height;
-    short *Y = (short *)pixel_data->data[0];
-    short *U = (short *)pixel_data->data[1];
-    short *V = (short *)pixel_data->data[2];
-    for (PIXEL_YC *ycp = (PIXEL_YC *)pixel; ycp < ycp_fin; ycp++, Y++, U++, V++) {
+void convert_yc48_to_yuv444_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    PIXEL_YC *ycp = (PIXEL_YC *)pixel + width * y_range.s;
+    PIXEL_YC *ycp_fin = (PIXEL_YC *)pixel + width * y_range.e;
+    short *Y = (short *)pixel_data->data[0] + width * y_range.s;
+    short *U = (short *)pixel_data->data[1] + width * y_range.s;
+    short *V = (short *)pixel_data->data[2] + width * y_range.s;
+    for ( ; ycp < ycp_fin; ycp++, Y++, U++, V++) {
         *Y = (short)pixel_YC48_to_YUV(ycp->y,                  Y_L_MUL,  Y_L_ADD_16,      Y_L_RSH_16,      Y_L_YCC_16, 0, LIMIT_16);
         *U = (short)pixel_YC48_to_YUV(ycp->cb + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_16_444, UV_L_RSH_16_444, UV_L_YCC_16, 0, LIMIT_16);
         *V = (short)pixel_YC48_to_YUV(ycp->cr + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_16_444, UV_L_RSH_16_444, UV_L_YCC_16, 0, LIMIT_16);
     }
 }
 
-void convert_yuy2_to_nv16(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    BYTE *dst_Y = pixel_data->data[0];
-    BYTE *dst_C = pixel_data->data[1];
-    BYTE *p = (BYTE *)pixel;
-    const int n = width * height;
+void convert_yuy2_to_nv16(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    BYTE *dst_Y = pixel_data->data[0] + width * y_range.s;
+    BYTE *dst_C = pixel_data->data[1] + width * y_range.s;
+    BYTE *p = (BYTE *)pixel + width * y_range.s * 2;
+    const int n = width * (y_range.e - y_range.s);
     for (int i = 0; i < n; i += 2) {
         dst_Y[i]   = p[i*2 + 0];
         dst_C[i]   = p[i*2 + 1];
@@ -475,12 +478,13 @@ void convert_yuy2_to_nv16(void *pixel, CONVERT_CF_DATA *pixel_data, const int wi
     }
 }
 
-void convert_yuy2_to_yuv422(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    BYTE *dst_Y = pixel_data->data[0];
-    BYTE *dst_U = pixel_data->data[1];
-    BYTE *dst_V = pixel_data->data[2];
+void convert_yuy2_to_yuv422(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    BYTE *dst_Y = pixel_data->data[0] + width * y_range.s;
+    BYTE *dst_U = pixel_data->data[1] + width * y_range.s / 2;
+    BYTE *dst_V = pixel_data->data[2] + width * y_range.s / 2;
     BYTE *p = (BYTE *)pixel;
-    const int n = width * height;
+    const int n = width * (y_range.e - y_range.s);
     for (int i = 0; i < n; i += 2) {
         dst_Y[i +0] = p[i*2 + 0];
         dst_U[i>>1] = p[i*2 + 1];
@@ -489,11 +493,12 @@ void convert_yuy2_to_yuv422(void *pixel, CONVERT_CF_DATA *pixel_data, const int 
     }
 }
 
-void convert_yc48_to_nv16_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    short *dst_Y = (short *)pixel_data->data[0];
-    short *dst_C = (short *)pixel_data->data[1];
-    PIXEL_YC *ycp = (PIXEL_YC *)pixel;
-    const int n = width * height;
+void convert_yc48_to_nv16_16bit(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    short *dst_Y = (short *)pixel_data->data[0] + width * y_range.s;
+    short *dst_C = (short *)pixel_data->data[1] + width * y_range.s;
+    PIXEL_YC *ycp = (PIXEL_YC *)pixel + width * y_range.s;
+    const int n = width * (y_range.e - y_range.s);
     for (int i = 0; i < n; i += 2) {
         dst_Y[i+0] = (short)pixel_YC48_to_YUV(ycp[i+0].y,                  Y_L_MUL,  Y_L_ADD_16,     Y_L_RSH_16,       Y_L_YCC_16, 0, LIMIT_16);
         dst_C[i+0] = (short)pixel_YC48_to_YUV(ycp[i+0].cb + UV_OFFSET_x1, UV_L_MUL, UV_L_ADD_16_444, UV_L_RSH_16_444, UV_L_YCC_16, 0, LIMIT_16);

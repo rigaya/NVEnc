@@ -54,11 +54,12 @@ unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t c
     }
     uint32_t flags = (codepage == CP_UTF8) ? 0 : WC_NO_BEST_FIT_CHARS;
     int multibyte_length = WideCharToMultiByte(codepage, flags, wstr, -1, nullptr, 0, nullptr, nullptr);
-    str.resize(multibyte_length, 0);
-    if (0 == WideCharToMultiByte(codepage, flags, wstr, -1, &str[0], multibyte_length, nullptr, nullptr)) {
+    std::vector<char> tmp(multibyte_length, 0);
+    if (0 == WideCharToMultiByte(codepage, flags, wstr, -1, tmp.data(), (int)tmp.size(), nullptr, nullptr)) {
         str.clear();
         return 0;
     }
+    str = tmp.data();
     return multibyte_length;
 }
 #else
@@ -168,11 +169,12 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
         return 0;
     }
     int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
-    wstr.resize(widechar_length, 0);
-    if (0 == MultiByteToWideChar(codepage, 0, str, -1, &wstr[0], (int)wstr.size())) {
+    std::vector<wchar_t> tmp(widechar_length, 0);
+    if (0 == MultiByteToWideChar(codepage, 0, str, -1, tmp.data(), (int)tmp.size())) {
         wstr.clear();
         return 0;
     }
+    wstr = tmp.data();
     return widechar_length;
 }
 #else

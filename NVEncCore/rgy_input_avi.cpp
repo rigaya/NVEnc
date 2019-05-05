@@ -55,10 +55,11 @@ RGYInputAvi::~RGYInputAvi() {
     Close();
 }
 
-RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
-    UNREFERENCED_PARAMETER(prm);
+RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
-    
+
+    m_sConvert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
+
     AVIFileInit();
 
     if (0 != AVIFileOpen(&m_pAviFile, strFileName, OF_READ | OF_SHARE_DENY_NONE, NULL)) {
@@ -155,17 +156,16 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     if (m_InputCsp == RGY_CSP_RGB32R) {
         m_inputVideoInfo.csp = RGY_CSP_RGB32;
     } else if (m_InputCsp == RGY_CSP_RGB24R) {
-        m_inputVideoInfo.csp = (ENCODER_NVENC) ? RGY_CSP_RGB24 : RGY_CSP_RGB32;
+        m_inputVideoInfo.csp = (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32;
     } else {
         m_inputVideoInfo.csp = RGY_CSP_NV12;
     }
-    m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
-    if (m_sConvert == nullptr) {
+    if (m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
             RGY_CSP_NAMES[m_InputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    CreateInputInfo(tstring(_T("avi: ") + strFcc).c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
+    CreateInputInfo(tstring(_T("avi: ") + strFcc).c_str(), RGY_CSP_NAMES[m_sConvert->getFunc()->csp_from], RGY_CSP_NAMES[m_sConvert->getFunc()->csp_to], get_simd_str(m_sConvert->getFunc()->simd), &m_inputVideoInfo);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
@@ -227,10 +227,10 @@ RGY_ERR RGYInputAvi::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
+    pSurface->ptrArray(dst_array, m_sConvert->getFunc()->csp_to == RGY_CSP_RGB24 || m_sConvert->getFunc()->csp_to == RGY_CSP_RGB32);
     const void *src_array[3] = { ptr_src, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 5 / 4, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight };
 
-    m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
+    m_sConvert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array,
         m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcWidth * m_nYPitchMultiplizer, m_inputVideoInfo.srcWidth/2, pSurface->pitch(),
         m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);

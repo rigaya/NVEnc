@@ -29,6 +29,8 @@
 #include "rgy_osdep.h"
 #if _MSC_VER
 #include <intrin.h>
+#else
+#include <x86intrin.h>
 #endif //_MSC_VER
 #include "rgy_simd.h"
 

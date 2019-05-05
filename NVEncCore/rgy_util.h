@@ -111,6 +111,10 @@ template<typename T, size_t size>
 std::vector<T> make_vector(const T(&ptr)[size]) {
     return std::vector<T>(ptr, ptr + size);
 }
+template<typename T, typename... ArgTypes>
+std::vector<T> make_vector(ArgTypes... args) {
+    return std::vector<T>{ reinterpret_cast<T>(args)... };
+}
 template<typename T0, typename T1>
 std::vector<T0> make_vector(const T0 *ptr, T1 size) {
     static_assert(std::is_integral<T1>::value == true, "T1 should be integral");
@@ -441,6 +445,36 @@ public:
 
 typedef std::basic_stringstream<TCHAR> TStringStream;
 
+#pragma warning (push)
+#pragma warning (disable: 4244)
+static inline std::string tolowercase(const std::string& str) {
+    std::string str_copy = str;
+    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), tolower);
+    return str_copy;
+}
+static inline std::string touppercase(const std::string &str) {
+    std::string str_copy = str;
+    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), toupper);
+    return str_copy;
+}
+#if defined(_WIN32) || defined(_WIN64)
+static inline std::wstring tolowercase(const std::wstring &str) {
+    auto temp = wcsdup(str.data());
+    _wcslwr(temp);
+    std::wstring str_lo = temp;
+    free(temp);
+    return str_lo;
+}
+static inline std::wstring touppercase(const std::wstring &str) {
+    auto temp = wcsdup(str.data());
+    _wcsupr(temp);
+    std::wstring str_lo = temp;
+    free(temp);
+    return str_lo;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+#pragma warning (pop)
+
 unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
 std::string wstring_to_string(const wchar_t *wstr, uint32_t codepage = CP_THREAD_ACP);
 std::string wstring_to_string(const std::wstring& wstr, uint32_t codepage = CP_THREAD_ACP);
@@ -459,7 +493,7 @@ std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename)
 std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const WCHAR *dir);
 std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
-#endif
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
 std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
@@ -766,14 +800,485 @@ static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
     return PARSE_ERROR_FLAG;
 }
 
+static const TCHAR *get_cx_desc(const CX_DESC * list, int v) {
+    for (int i = 0; list[i].desc; i++)
+        if (list[i].value == v)
+            return list[i].desc;
+    return nullptr;
+}
+
+class vec3 {
+public:
+    vec3() : v() {
+        for (int i = 0; i < 3; i++)
+            v[i] = 0.0;
+    }
+    vec3(const vec3 &m) { memcpy(&v[0], &m.v[0], sizeof(v)); }
+    vec3(double a0, double a1, double a2) {
+        v[0] = a0;
+        v[1] = a1;
+        v[2] = a2;
+    }
+    vec3 &operator=(const vec3 &m) { memcpy(&v[0], &m.v[0], sizeof(v)); return *this; }
+    const vec3 &m() const {
+        return *this;
+    }
+    double &operator()(int i) {
+        return v[i];
+    }
+    const double &operator()(int i) const {
+        return v[i];
+    }
+    vec3 &operator+= (const vec3 &a) {
+        for (int i = 0; i < 3; i++)
+            v[i] += a.v[i];
+        return *this;
+    }
+    vec3 &operator-= (const vec3 &a) {
+        for (int i = 0; i < 3; i++)
+            v[i] -= a.v[i];
+        return *this;
+    }
+    vec3 amdal(const vec3 &a) const {
+        return vec3(
+            v[0] * a.v[0],
+            v[1] * a.v[1],
+            v[2] * a.v[2]
+        );
+    }
+    double dot(const vec3 &a) const {
+        return a.v[0] * v[0] + a.v[1] * v[1] + a.v[2] * v[2];
+    }
+    vec3 cross(const vec3 &a) const {
+        return vec3(
+            v[1] * a.v[2] - v[2] * a.v[1],
+            v[2] * a.v[0] - v[0] * a.v[2],
+            v[0] * a.v[1] - v[1] * a.v[0]
+        );
+    }
+    bool operator== (const vec3 &r) const {
+        return memcmp(&v[0], &r.v[0], sizeof(v)) == 0;
+    }
+    bool operator!= (const vec3 &r) const {
+        return memcmp(&v[0], &r.v[0], sizeof(v)) != 0;
+    }
+private:
+    double v[3];
+};
+
+class mat3x3 {
+public:
+    mat3x3() : mat() {
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                mat[j][i] = 0.0;
+    }
+    mat3x3(const vec3 &col0, const vec3 &col1, const vec3 &col2) : mat() {
+        for (int i = 0; i < 3; i++) {
+            mat[0][i] = col0(i);
+            mat[1][i] = col1(i);
+            mat[2][i] = col2(i);
+        }
+    }
+    mat3x3(const mat3x3 &m) { memcpy(&this->mat[0][0], &m.mat[0][0], sizeof(mat)); }
+    mat3x3(double a00, double a01, double a02, double a10, double a11, double a12, double a20, double a21, double a22) {
+        mat[0][0] = a00;
+        mat[0][1] = a01;
+        mat[0][2] = a02;
+        mat[1][0] = a10;
+        mat[1][1] = a11;
+        mat[1][2] = a12;
+        mat[2][0] = a20;
+        mat[2][1] = a21;
+        mat[2][2] = a22;
+    }
+    mat3x3 &operator=(const mat3x3 &m) { memcpy(&this->mat[0][0], &m.mat[0][0], sizeof(mat)); return *this; }
+
+    const mat3x3 &m() const {
+        return *this;
+    }
+    //(行,列)
+    double &operator()(int i, int j) {
+        return mat[i][j];
+    }
+    //(行,列)
+    const double &operator()(int i, int j) const {
+        return mat[i][j];
+    }
+
+    mat3x3 &operator+= (const mat3x3& a) {
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                mat[j][i] += a.mat[j][i];
+        return *this;
+    }
+    mat3x3 &operator-= (const mat3x3 &a) {
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                mat[j][i] -= a.mat[j][i];
+        return *this;
+    }
+    mat3x3 &operator*= (const double a) {
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                mat[j][i] *= a;
+        return *this;
+    }
+    mat3x3 &operator*= (const mat3x3 &r) {
+        *this = mul(*this, r);
+        return *this;
+    }
+    mat3x3 &operator/= (const double a) {
+        *this *= (1.0 / a);
+        return *this;
+    }
+    mat3x3 &operator/= (const mat3x3 &r) {
+        *this = mul(*this, r.inv());
+        return *this;
+    }
+
+    template<typename Arg>
+    mat3x3 operator + (const Arg &a) const {
+        mat3x3 t(*this);
+        t += a;
+        return t;
+    }
+    template<typename Arg>
+    mat3x3 operator - (const Arg &a) const {
+        mat3x3 t(*this);
+        t -= a;
+        return t;
+    }
+    mat3x3 operator * (const mat3x3 &a) const {
+        mat3x3 t(*this);
+        t *= a;
+        return t;
+    }
+    mat3x3 operator * (const double &a) const {
+        mat3x3 t(*this);
+        t *= a;
+        return t;
+    }
+    vec3 operator * (const vec3 &a) const {
+        vec3 v;
+        for (int j = 0; j < 3; j++) {
+            double d = 0.0;
+            for (int i = 0; i < 3; i++) {
+                d += mat[j][i] * a(i);
+            }
+            v(j) = d;
+        }
+        return v;
+    }
+    template<typename Arg>
+    mat3x3 operator / (const Arg &a) const {
+        mat3x3 t(*this);
+        t /= a;
+        return t;
+    }
+    bool operator== (const mat3x3&r) const {
+        return memcmp(&mat[0][0], &r.mat[0][0], sizeof(mat)) == 0;
+    }
+    bool operator!= (const mat3x3& r) const {
+        return memcmp(&mat[0][0], &r.mat[0][0], sizeof(mat)) != 0;
+    }
+    double det() const {
+        const double determinant =
+            +mat[0][0]*(mat[1][1]*mat[2][2]-mat[2][1]*mat[1][2])
+            -mat[0][1]*(mat[1][0]*mat[2][2]-mat[1][2]*mat[2][0])
+            +mat[0][2]*(mat[1][0]*mat[2][1]-mat[1][1]*mat[2][0]);
+        return determinant;
+    }
+    double det2(double a00, double a01, double a10, double a11) const {
+        return a00 * a11 - a01 * a10;
+    }
+    mat3x3 inv() const {
+        const double invdet = 1.0 / det();
+
+        mat3x3 ret;
+        ret.mat[0][0] = det2(mat[1][1], mat[1][2], mat[2][1], mat[2][2]) * invdet;
+        ret.mat[0][1] = det2(mat[0][2], mat[0][1], mat[2][2], mat[2][1]) * invdet;
+        ret.mat[0][2] = det2(mat[0][1], mat[0][2], mat[1][1], mat[1][2]) * invdet;
+        ret.mat[1][0] = det2(mat[1][2], mat[1][0], mat[2][2], mat[2][0]) * invdet;
+        ret.mat[1][1] = det2(mat[0][0], mat[0][2], mat[2][0], mat[2][2]) * invdet;
+        ret.mat[1][2] = det2(mat[0][2], mat[0][0], mat[1][2], mat[1][0]) * invdet;
+        ret.mat[2][0] = det2(mat[1][0], mat[1][1], mat[2][0], mat[2][1]) * invdet;
+        ret.mat[2][1] = det2(mat[0][1], mat[0][0], mat[2][1], mat[2][0]) * invdet;
+        ret.mat[2][2] = det2(mat[0][0], mat[0][1], mat[1][0], mat[1][1]) * invdet;
+        return ret;
+    }
+    mat3x3 trans() const {
+        mat3x3 ret;
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                ret.mat[j][i] = mat[i][j];
+        return ret;
+    }
+    mat3x3 mul(const mat3x3& a, const mat3x3& b) {
+        mat3x3 ret;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                double accum = 0;
+                for (int k = 0; k < 3; k++) {
+                    accum += a.mat[i][k] * b.mat[k][j];
+                }
+                ret(i,j) = accum;
+            }
+        }
+        return ret;
+    }
+    static mat3x3 identity() {
+        mat3x3 ret;
+        for (int i = 0; i < 3; i++) {
+            ret.mat[i][i] = 1.0;
+        }
+        return ret;
+    }
+private:
+    double mat[3][3]; //[行][列]
+};
+
+const int COLOR_VALUE_AUTO = INT_MAX;
+const int HD_HEIGHT_THRESHOLD = 720;
+const int HD_INDEX = 2;
+const int SD_INDEX = 3;
+
+enum CspMatrix {
+    RGY_MATRIX_RGB         = 0,
+    RGY_MATRIX_BT709       = 1,
+    RGY_MATRIX_UNSPECIFIED = 2,
+    RGY_MATRIX_FCC         = 4,
+    RGY_MATRIX_BT470_BG    = 5,
+    RGY_MATRIX_ST170_M     = 6,
+    RGY_MATRIX_ST240_M     = 7,
+    RGY_MATRIX_YCGCO       = 8,
+    RGY_MATRIX_BT2020_NCL  = 9,
+    RGY_MATRIX_BT2020_CL   = 10,
+    RGY_MATRIX_DERIVED_NCL = 12,
+    RGY_MATRIX_DERIVED_CL  = 13,
+    RGY_MATRIX_ICTCP       = 14,
+    RGY_MATRIX_2100_LMS,
+};
+
+static const auto CspMatrixList = make_array<CspMatrix>(
+    RGY_MATRIX_RGB,
+    RGY_MATRIX_BT709,
+    RGY_MATRIX_UNSPECIFIED,
+    RGY_MATRIX_FCC,
+    RGY_MATRIX_BT470_BG,
+    RGY_MATRIX_ST170_M,
+    RGY_MATRIX_ST240_M,
+    RGY_MATRIX_YCGCO,
+    RGY_MATRIX_BT2020_NCL,
+    RGY_MATRIX_BT2020_CL,
+    RGY_MATRIX_DERIVED_NCL,
+    RGY_MATRIX_DERIVED_CL,
+    RGY_MATRIX_ICTCP,
+    RGY_MATRIX_2100_LMS
+);
+
+const CX_DESC list_colormatrix[] = {
+    { _T("undef"),       RGY_MATRIX_UNSPECIFIED  },
+    { _T("auto"),        COLOR_VALUE_AUTO },
+    { _T("bt709"),       RGY_MATRIX_BT709  },
+    { _T("smpte170m"),   RGY_MATRIX_ST170_M  },
+    { _T("bt470bg"),     RGY_MATRIX_BT470_BG  },
+    { _T("smpte240m"),   RGY_MATRIX_ST240_M  },
+    { _T("YCgCo"),       RGY_MATRIX_YCGCO  },
+    { _T("fcc"),         RGY_MATRIX_FCC  },
+    { _T("GBR"),         RGY_MATRIX_RGB  },
+    { _T("bt2020nc"),    RGY_MATRIX_BT2020_NCL  },
+    { _T("bt2020c"),     RGY_MATRIX_BT2020_CL },
+    { _T("derived-ncl"), RGY_MATRIX_DERIVED_NCL },
+    { _T("derived-cl"),  RGY_MATRIX_DERIVED_CL },
+    { _T("ictco"),       RGY_MATRIX_ICTCP },
+    { _T("2100-lms"),    RGY_MATRIX_2100_LMS },
+    { NULL, NULL }
+};
+
+enum CspTransfer {
+    RGY_TRANSFER_BT709        = 1,
+    RGY_TRANSFER_UNSPECIFIED  = 2,
+    RGY_TRANSFER_BT470_M      = 4,
+    RGY_TRANSFER_BT470_BG     = 5,
+    RGY_TRANSFER_BT601        = 6,  //BT709
+    RGY_TRANSFER_ST240_M      = 7,
+    RGY_TRANSFER_LINEAR       = 8,
+    RGY_TRANSFER_LOG_100      = 9,
+    RGY_TRANSFER_LOG_316      = 10,
+    RGY_TRANSFER_IEC61966_2_4 = 11, //XVYCC
+    RGY_TRANSFER_IEC61966_2_1 = 13, //SRGB
+    RGY_TRANSFER_BT2020_10    = 14, //BT709
+    RGY_TRANSFER_BT2020_12    = 15, //BT709
+    RGY_TRANSFER_ST2084       = 16,
+    RGY_TRANSFER_ARIB_B67     = 18
+};
+
+static const auto CspTransferList = make_array<CspTransfer>(
+    RGY_TRANSFER_BT709,
+    RGY_TRANSFER_UNSPECIFIED,
+    RGY_TRANSFER_BT470_M,
+    RGY_TRANSFER_BT470_BG,
+    RGY_TRANSFER_BT601,  //BT709
+    RGY_TRANSFER_ST240_M,
+    RGY_TRANSFER_LINEAR,
+    RGY_TRANSFER_LOG_100,
+    RGY_TRANSFER_LOG_316,
+    RGY_TRANSFER_IEC61966_2_4, //XVYCC
+    RGY_TRANSFER_IEC61966_2_1, //SRGB
+    RGY_TRANSFER_BT2020_10, //BT709
+    RGY_TRANSFER_BT2020_12, //BT709
+    RGY_TRANSFER_ST2084,
+    RGY_TRANSFER_ARIB_B67
+);
+
+const CX_DESC list_transfer[] = {
+    { _T("undef"),         RGY_TRANSFER_UNSPECIFIED  },
+    { _T("auto"),          COLOR_VALUE_AUTO },
+    { _T("bt709"),         RGY_TRANSFER_BT709  },
+    { _T("smpte170m"),     RGY_TRANSFER_BT601  },
+    { _T("bt470m"),        RGY_TRANSFER_BT470_M  },
+    { _T("bt470bg"),       RGY_TRANSFER_BT470_BG  },
+    { _T("smpte240m"),     RGY_TRANSFER_ST240_M  },
+    { _T("linear"),        RGY_TRANSFER_LINEAR  },
+    { _T("log100"),        RGY_TRANSFER_LOG_100  },
+    { _T("log316"),        RGY_TRANSFER_LOG_316 },
+    { _T("iec61966-2-4"),  RGY_TRANSFER_IEC61966_2_4 },
+    { _T("bt1361e"),       12 },
+    { _T("iec61966-2-1"),  RGY_TRANSFER_IEC61966_2_1 },
+    { _T("bt2020-10"),     RGY_TRANSFER_BT2020_10 },
+    { _T("bt2020-12"),     RGY_TRANSFER_BT2020_12 },
+    { _T("smpte2084"),     RGY_TRANSFER_ST2084 },
+    { _T("smpte428"),      17 },
+    { _T("arib-srd-b67"),  RGY_TRANSFER_ARIB_B67 },
+    { NULL, NULL }
+};
+
+enum CspColorprim {
+    RGY_PRIM_BT709       = 1,
+    RGY_PRIM_UNSPECIFIED = 2,
+    RGY_PRIM_BT470_M     = 4,
+    RGY_PRIM_BT470_BG    = 5,
+    RGY_PRIM_ST170_M     = 6,
+    RGY_PRIM_ST240_M     = 7,
+    RGY_PRIM_FILM        = 8,
+    RGY_PRIM_BT2020      = 9,
+    RGY_PRIM_ST428, //XYZ
+    RGY_PRIM_ST431_2, //DCI_P3
+    RGY_PRIM_ST432_1, //DCI_P3_D65
+    RGY_PRIM_EBU3213_E //JEDEC_P22
+};
+
+static const auto CspColorprimList = make_array<CspColorprim>(
+    RGY_PRIM_BT709,
+    RGY_PRIM_UNSPECIFIED,
+    RGY_PRIM_BT470_M,
+    RGY_PRIM_BT470_BG,
+    RGY_PRIM_ST170_M,
+    RGY_PRIM_ST240_M,
+    RGY_PRIM_FILM,
+    RGY_PRIM_BT2020,
+    RGY_PRIM_ST428, //XYZ
+    RGY_PRIM_ST431_2, //DCI_P3
+    RGY_PRIM_ST432_1, //DCI_P3_D65
+    RGY_PRIM_EBU3213_E //JEDEC_P22
+);
+
+const CX_DESC list_colorprim[] = {
+    { _T("undef"),     RGY_PRIM_UNSPECIFIED  },
+    { _T("auto"),      COLOR_VALUE_AUTO   },
+    { _T("bt709"),     RGY_PRIM_BT709     },
+    { _T("smpte170m"), RGY_PRIM_ST170_M   },
+    { _T("bt470m"),    RGY_PRIM_BT470_M   },
+    { _T("bt470bg"),   RGY_PRIM_BT470_BG  },
+    { _T("smpte240m"), RGY_PRIM_ST240_M   },
+    { _T("film"),      RGY_PRIM_FILM      },
+    { _T("bt2020"),    RGY_PRIM_BT2020    },
+    { _T("st428"),     RGY_PRIM_ST428     },
+    { _T("st431-2"),   RGY_PRIM_ST431_2   },
+    { _T("st432-1"),   RGY_PRIM_ST432_1   },
+    { _T("ebu3213-e"), RGY_PRIM_EBU3213_E },
+    { NULL, NULL }
+};
+
+const CX_DESC list_videoformat[] = {
+    { _T("undef"),     5  },
+    { _T("ntsc"),      2  },
+    { _T("component"), 0  },
+    { _T("pal"),       1  },
+    { _T("secam"),     3  },
+    { _T("mac"),       4  },
+    { NULL, NULL }
+};
+const CX_DESC list_chromaloc[] = {
+    { _T("0"), 0 },
+    { _T("1"), 1 },
+    { _T("2"), 2 },
+    { _T("3"), 3 },
+    { _T("4"), 4 },
+    { _T("5"), 5 },
+    { NULL, NULL }
+};
+const CX_DESC list_colorrange[] = {
+    { _T("limited"), 0 },
+    { _T("full"), 1 },
+    { _T("tv"), 0 },
+    { _T("pc"), 1 },
+    { NULL, NULL }
+};
+
 struct VideoVUIInfo {
     int descriptpresent;
-    int colorprim;
-    int matrix;
-    int transfer;
+    CspColorprim colorprim;
+    CspMatrix matrix;
+    CspTransfer transfer;
     int format;
     int fullrange;
     int chromaloc;
+
+    VideoVUIInfo() :
+        descriptpresent(0),
+        colorprim((CspColorprim)get_cx_value(list_colorprim, _T("undef"))),
+        matrix((CspMatrix)get_cx_value(list_colormatrix, _T("undef"))),
+        transfer((CspTransfer)get_cx_value(list_transfer, _T("undef"))),
+        format(get_cx_value(list_videoformat, _T("undef"))),
+        fullrange(0),
+        chromaloc(0) {
+
+    }
+    VideoVUIInfo to(CspMatrix csp_matrix) const {
+        auto ret = *this;
+        ret.matrix = csp_matrix;
+        return ret;
+    }
+    VideoVUIInfo to(CspTransfer csp_transfer) const {
+        auto ret = *this;
+        ret.transfer = csp_transfer;
+        return ret;
+    }
+    VideoVUIInfo to(CspColorprim prim) const {
+        auto ret = *this;
+        ret.colorprim = prim;
+        return ret;
+    }
+    tstring print_main() const {
+        return tstring(_T("matrix:")) + get_cx_desc(list_colormatrix, matrix) + _T(",")
+            + tstring(_T("colorprim:")) + get_cx_desc(list_colorprim, colorprim) + _T(",")
+            + tstring(_T("transfer:")) + get_cx_desc(list_transfer, transfer);
+    }
+
+    bool operator==(const VideoVUIInfo &x) const {
+        return descriptpresent == x.descriptpresent
+            && colorprim == x.colorprim
+            && matrix == x.matrix
+            && transfer == x.transfer
+            && format == x.format
+            && fullrange == x.fullrange
+            && chromaloc == x.chromaloc;
+    }
+    bool operator!=(const VideoVUIInfo &x) const {
+        return !(*this == x);
+    }
 };
 
 struct VideoInfo {
@@ -908,17 +1413,26 @@ static bool inline trim_active(const sTrimParam *pTrim) {
     return true;
 }
 
-static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
-    if (trimList.size() == 0)
-        return true;
-    if (frame < 0)
-        return false;
-    for (auto trim : trimList) {
-        if (trim.start <= frame && frame <= trim.fin) {
-            return true;
+//block index (空白がtrimで削除された領域)
+//       #0       #0         #1         #1       #2    #2
+//   |        |----------|         |----------|     |------
+static std::pair<bool, int> inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
+    int index = 0;
+    if (trimList.size() == 0) {
+        return std::make_pair(true, index);
+    }
+    if (frame < 0) {
+        return std::make_pair(false, index);
+    }
+    for (; index < (int)trimList.size(); index++) {
+        if (frame < trimList[index].start) {
+            return std::make_pair(false, index);
+        }
+        if (frame <= trimList[index].fin) {
+            return std::make_pair(true, index);
         }
     }
-    return false;
+    return std::make_pair(false, index);
 }
 
 static bool inline rearrange_trim_list(int frame, int offset, std::vector<sTrim>& trimList) {
@@ -1092,7 +1606,7 @@ struct rgy_time {
         m = (int)(min - h * 60);
     }
     int64_t in_sec() {
-        return (((int64_t)h * 60 + m) * 60 + s + ((ms + ((us >= 500) ? 1 : 0)) >= 500) ? 1 : 0);
+        return (((int64_t)h * 60 + m) * 60 + s + (((ms + ((us >= 500) ? 1 : 0)) >= 500) ? 1 : 0));
     };
     int64_t in_ms() {
         return (((int64_t)h * 60 + m) * 60 + s) * 1000 + ms + ((us >= 500) ? 1 : 0);

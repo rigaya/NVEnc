@@ -36,11 +36,12 @@
 #pragma warning (disable: 4201)
 #include "dynlink_cuviddec.h"
 #include <npp.h>
-#pragma warning (pop)
 #include "nvEncodeAPI.h"
+#pragma warning (pop)
 #include "NVEncoderPerf.h"
 #include "rgy_util.h"
 #include "rgy_caption.h"
+#include "rgy_simd.h"
 #include "convert_csp.h"
 
 using std::vector;
@@ -98,14 +99,22 @@ static const float FILTER_DEFAULT_TWEAK_GAMMA = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_SATURATION = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_HUE = 0.0f;
 
+static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
+static const double FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK = 100.0;
+
+static const TCHAR *FILTER_DEFAULT_CUSTOM_KERNEL_NAME = _T("kernel_filter");
+static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_X = 32;
+static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_Y = 8;
+static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_X = 1;
+static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_Y = 1;
+
 static const int MAX_DECODE_FRAMES = 16;
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
 
 static const int DEFAULT_GOP_LENGTH  = 0;
-static const int DEFAULT_B_FRAMES_H264 = 3;
-static const int DEFAULT_B_FRAMES_HEVC = 0;
+static const int DEFAULT_B_FRAMES    = 3;
 static const int DEFAULT_REF_FRAMES  = 3;
 static const int DEFAULT_NUM_SLICES  = 1;
 static const int DEFAUTL_QP_I        = 20;
@@ -178,9 +187,9 @@ const guid_desc list_nvenc_preset_names[] = {
     { NV_ENC_PRESET_HP_GUID,                   _T("performance"),             NVENC_PRESET_HP },
     { NV_ENC_PRESET_HQ_GUID,                   _T("quality"),                 NVENC_PRESET_HQ },
     //{ NV_ENC_PRESET_BD_GUID,                   _T("bluray"),                  NVENC_PRESET_BD },
-    { NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID,  _T("lowlatency"),              NVENC_PRESET_LL },
-    { NV_ENC_PRESET_LOW_LATENCY_HP_GUID,       _T("lowlatency-performance"),  NVENC_PRESET_LL_HP },
-    { NV_ENC_PRESET_LOW_LATENCY_HQ_GUID,       _T("lowlatency-quality"),      NVENC_PRESET_LL_HQ },
+    //{ NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID,  _T("lowlatency"),              NVENC_PRESET_LL },
+    //{ NV_ENC_PRESET_LOW_LATENCY_HP_GUID,       _T("lowlatency-performance"),  NVENC_PRESET_LL_HP },
+    //{ NV_ENC_PRESET_LOW_LATENCY_HQ_GUID,       _T("lowlatency-quality"),      NVENC_PRESET_LL_HQ },
 };
 
 const guid_desc list_nvenc_codecs[] = {
@@ -241,76 +250,6 @@ const CX_DESC list_hevc_cu_size[] = {
     { _T("16"),   NV_ENC_HEVC_CUSIZE_16x16      },
     { _T("32"),   NV_ENC_HEVC_CUSIZE_32x32      },
     { _T("64"),   NV_ENC_HEVC_CUSIZE_64x64      },
-    { NULL, NULL }
-};
-
-const int COLOR_VALUE_AUTO = INT_MAX;
-const int HD_HEIGHT_THRESHOLD = 720;
-const int HD_INDEX = 2;
-const int SD_INDEX = 3;
-const CX_DESC list_colorprim[] = {
-    { _T("undef"),     2  },
-    { _T("auto"),      COLOR_VALUE_AUTO },
-    { _T("bt709"),     1  },
-    { _T("smpte170m"), 6  },
-    { _T("bt470m"),    4  },
-    { _T("bt470bg"),   5  },
-    { _T("smpte240m"), 7  },
-    { _T("film"),      8  },
-    { _T("bt2020"),    9  },
-    { NULL, NULL }
-};
-const CX_DESC list_transfer[] = {
-    { _T("undef"),         2  },
-    { _T("auto"),          COLOR_VALUE_AUTO },
-    { _T("bt709"),         1  },
-    { _T("smpte170m"),     6  },
-    { _T("bt470m"),        4  },
-    { _T("bt470bg"),       5  },
-    { _T("smpte240m"),     7  },
-    { _T("linear"),        8  },
-    { _T("log100"),        9  },
-    { _T("log316"),        10 },
-    { _T("iec61966-2-4"),  11 },
-    { _T("bt1361e"),       12 },
-    { _T("iec61966-2-1"),  13 },
-    { _T("bt2020-10"),     14 },
-    { _T("bt2020-12"),     15 },
-    { _T("smpte2084"),     16 },
-    { _T("smpte428"),      17 },
-    { _T("arib-srd-b67"),  18 },
-    { NULL, NULL }
-};
-const CX_DESC list_colormatrix[] = {
-    { _T("undef"),     2  },
-    { _T("auto"),      COLOR_VALUE_AUTO },
-    { _T("bt709"),     1  },
-    { _T("smpte170m"), 6  },
-    { _T("bt470bg"),   5  },
-    { _T("smpte240m"), 7  },
-    { _T("YCgCo"),     8  },
-    { _T("fcc"),       4  },
-    { _T("GBR"),       0  },
-    { _T("bt2020nc"),  9  },
-    { _T("bt2020c"),   10 },
-    { NULL, NULL }
-};
-const CX_DESC list_videoformat[] = {
-    { _T("undef"),     5  },
-    { _T("ntsc"),      2  },
-    { _T("component"), 0  },
-    { _T("pal"),       1  },
-    { _T("secam"),     3  },
-    { _T("mac"),       4  },
-    { NULL, NULL }
-};
-const CX_DESC list_chromaloc[] = {
-    { _T("0"), 0 },
-    { _T("1"), 1 },
-    { _T("2"), 2 },
-    { _T("3"), 3 },
-    { _T("4"), 4 },
-    { _T("5"), 5 },
     { NULL, NULL }
 };
 
@@ -433,10 +372,27 @@ const CX_DESC list_deinterlace[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_simd[] = {
+    { _T("auto"),     -1  },
+    { _T("none"),     NONE },
+    { _T("sse2"),     SSE2 },
+    { _T("sse3"),     SSE3|SSE2 },
+    { _T("ssse3"),    SSSE3|SSE3|SSE2 },
+    { _T("sse41"),    SSE41|SSSE3|SSE3|SSE2 },
+    { _T("avx"),      AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
+    { _T("avx2"),     AVX2|AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
+    { NULL, NULL }
+};
+
 enum {
     NPPI_INTER_MAX = NPPI_INTER_LANCZOS3_ADVANCED,
     RESIZE_CUDA_TEXTURE_BILINEAR,
+    RESIZE_CUDA_SPLINE16,
     RESIZE_CUDA_SPLINE36,
+    RESIZE_CUDA_SPLINE64,
+    RESIZE_CUDA_LANCZOS2,
+    RESIZE_CUDA_LANCZOS3,
+    RESIZE_CUDA_LANCZOS4,
 };
 
 const CX_DESC list_nppi_resize[] = {
@@ -453,7 +409,12 @@ const CX_DESC list_nppi_resize[] = {
 #endif
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
     { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
+    { _T("spline16"),      RESIZE_CUDA_SPLINE16 },
     { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
+    { _T("spline64"),      RESIZE_CUDA_SPLINE64 },
+    { _T("lanczos2"),      RESIZE_CUDA_LANCZOS2 },
+    { _T("lanczos3"),      RESIZE_CUDA_LANCZOS3 },
+    { _T("lanczos4"),      RESIZE_CUDA_LANCZOS4 },
     { NULL, NULL }
 };
 
@@ -469,7 +430,12 @@ const CX_DESC list_nppi_resize_help[] = {
     { _T("lanczos"),       NPPI_INTER_LANCZOS },
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
     { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
+    { _T("spline16"),      RESIZE_CUDA_SPLINE16 },
     { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
+    { _T("spline64"),      RESIZE_CUDA_SPLINE64 },
+    { _T("lanczos2"),      RESIZE_CUDA_LANCZOS2 },
+    { _T("lanczos3"),      RESIZE_CUDA_LANCZOS3 },
+    { _T("lanczos4"),      RESIZE_CUDA_LANCZOS4 },
     { NULL, NULL }
 };
 
@@ -495,6 +461,150 @@ const CX_DESC list_vpp_deband[] ={
     { NULL, NULL }
 };
 
+enum VppNnediField {
+    VPP_NNEDI_FIELD_UNKNOWN = 0,
+    VPP_NNEDI_FIELD_BOB_AUTO,
+    VPP_NNEDI_FIELD_USE_AUTO,
+    VPP_NNEDI_FIELD_USE_TOP,
+    VPP_NNEDI_FIELD_USE_BOTTOM,
+    VPP_NNEDI_FIELD_BOB_TOP_BOTTOM,
+    VPP_NNEDI_FIELD_BOB_BOTTOM_TOP,
+
+    VPP_NNEDI_FIELD_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_field[] = {
+    { _T("bob"),     VPP_NNEDI_FIELD_BOB_AUTO },
+    { _T("auto"),    VPP_NNEDI_FIELD_USE_AUTO },
+    { _T("top"),     VPP_NNEDI_FIELD_USE_TOP },
+    { _T("bottom"),  VPP_NNEDI_FIELD_USE_BOTTOM },
+    { _T("bob_tff"), VPP_NNEDI_FIELD_BOB_TOP_BOTTOM },
+    { _T("bob_bff"), VPP_NNEDI_FIELD_BOB_BOTTOM_TOP },
+    { NULL, NULL }
+};
+
+const CX_DESC list_vpp_nnedi_nns[] = {
+    { _T("16"),   16 },
+    { _T("32"),   32 },
+    { _T("64"),   64 },
+    { _T("128"), 128 },
+    { _T("256"), 256 },
+    { NULL, NULL }
+};
+
+enum VppNnediNSize {
+    VPP_NNEDI_NSIZE_UNKNOWN = -1,
+
+    VPP_NNEDI_NSIZE_8x6 = 0,
+    VPP_NNEDI_NSIZE_16x6,
+    VPP_NNEDI_NSIZE_32x6,
+    VPP_NNEDI_NSIZE_48x6,
+    VPP_NNEDI_NSIZE_8x4,
+    VPP_NNEDI_NSIZE_16x4,
+    VPP_NNEDI_NSIZE_32x4,
+
+    VPP_NNEDI_NSIZE_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_nsize[] = {
+    { _T("8x6"),  VPP_NNEDI_NSIZE_8x6  },
+    { _T("16x6"), VPP_NNEDI_NSIZE_16x6 },
+    { _T("32x6"), VPP_NNEDI_NSIZE_32x6 },
+    { _T("48x6"), VPP_NNEDI_NSIZE_48x6 },
+    { _T("8x4"),  VPP_NNEDI_NSIZE_8x4  },
+    { _T("16x4"), VPP_NNEDI_NSIZE_16x4 },
+    { _T("32x4"), VPP_NNEDI_NSIZE_32x4 },
+    { NULL, NULL }
+};
+
+enum VppNnediQuality {
+    VPP_NNEDI_QUALITY_UNKNOWN = 0,
+    VPP_NNEDI_QUALITY_FAST,
+    VPP_NNEDI_QUALITY_SLOW,
+
+    VPP_NNEDI_QUALITY_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_quality[] = {
+    { _T("fast"), VPP_NNEDI_QUALITY_FAST },
+    { _T("slow"), VPP_NNEDI_QUALITY_SLOW },
+    { NULL, NULL }
+};
+
+enum VppNnediPreScreen : uint32_t {
+    VPP_NNEDI_PRE_SCREEN_NONE            = 0x00,
+    VPP_NNEDI_PRE_SCREEN_ORIGINAL        = 0x01,
+    VPP_NNEDI_PRE_SCREEN_NEW             = 0x02,
+    VPP_NNEDI_PRE_SCREEN_MODE            = 0x07,
+    VPP_NNEDI_PRE_SCREEN_BLOCK           = 0x10,
+    VPP_NNEDI_PRE_SCREEN_ONLY            = 0x20,
+    VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK  = VPP_NNEDI_PRE_SCREEN_ORIGINAL | VPP_NNEDI_PRE_SCREEN_BLOCK,
+    VPP_NNEDI_PRE_SCREEN_NEW_BLOCK       = VPP_NNEDI_PRE_SCREEN_NEW      | VPP_NNEDI_PRE_SCREEN_BLOCK,
+    VPP_NNEDI_PRE_SCREEN_ORIGINAL_ONLY   = VPP_NNEDI_PRE_SCREEN_ORIGINAL | VPP_NNEDI_PRE_SCREEN_ONLY,
+    VPP_NNEDI_PRE_SCREEN_NEW_ONLY        = VPP_NNEDI_PRE_SCREEN_NEW      | VPP_NNEDI_PRE_SCREEN_ONLY,
+
+    VPP_NNEDI_PRE_SCREEN_MAX,
+};
+
+static VppNnediPreScreen operator|(VppNnediPreScreen a, VppNnediPreScreen b) {
+    return (VppNnediPreScreen)((uint32_t)a | (uint32_t)b);
+}
+
+static VppNnediPreScreen operator|=(VppNnediPreScreen& a, VppNnediPreScreen b) {
+    a = a | b;
+    return a;
+}
+
+static VppNnediPreScreen operator&(VppNnediPreScreen a, VppNnediPreScreen b) {
+    return (VppNnediPreScreen)((uint32_t)a & (uint32_t)b);
+}
+
+static VppNnediPreScreen operator&=(VppNnediPreScreen& a, VppNnediPreScreen b) {
+    a = (VppNnediPreScreen)((uint32_t)a & (uint32_t)b);
+    return a;
+}
+
+const CX_DESC list_vpp_nnedi_pre_screen[] = {
+    { _T("none"),           VPP_NNEDI_PRE_SCREEN_NONE },
+    { _T("original"),       VPP_NNEDI_PRE_SCREEN_ORIGINAL },
+    { _T("new"),            VPP_NNEDI_PRE_SCREEN_NEW },
+    { _T("original_block"), VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
+    { _T("new_block"),      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK },
+    { _T("original_only"),  VPP_NNEDI_PRE_SCREEN_ORIGINAL_ONLY },
+    { _T("new_only"),       VPP_NNEDI_PRE_SCREEN_NEW_ONLY },
+    { NULL, NULL }
+};
+
+enum VppNnediErrorType {
+    VPP_NNEDI_ETYPE_ABS = 0,
+    VPP_NNEDI_ETYPE_SQUARE,
+
+    VPP_NNEDI_ETYPE_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_error_type[] = {
+    { _T("abs"),    VPP_NNEDI_ETYPE_ABS },
+    { _T("square"), VPP_NNEDI_ETYPE_SQUARE },
+    { NULL, NULL }
+};
+
+enum VppNnediPrecision {
+    VPP_NNEDI_PRECISION_UNKNOWN = -1,
+
+    VPP_NNEDI_PRECISION_AUTO = 0,
+    VPP_NNEDI_PRECISION_FP32,
+    VPP_NNEDI_PRECISION_FP16,
+
+    VPP_NNEDI_PRECISION_MAX,
+};
+
+const CX_DESC list_vpp_nnedi_prec[] = {
+    { _T("auto"), VPP_NNEDI_PRECISION_AUTO },
+    { _T("fp32"), VPP_NNEDI_PRECISION_FP32 },
+    { _T("fp16"), VPP_NNEDI_PRECISION_FP16 },
+    { NULL, NULL }
+};
+
 const CX_DESC list_nppi_gauss[] = {
     { _T("disabled"), 0 },
     { _T("3"), NPP_MASK_SIZE_3_X_3 },
@@ -514,6 +624,49 @@ const CX_DESC list_cuda_schedule[] = {
     { _T("spin"),  CU_CTX_SCHED_SPIN },
     { _T("yield"), CU_CTX_SCHED_YIELD },
     { _T("sync"),  CU_CTX_SCHED_BLOCKING_SYNC },
+    { NULL, NULL }
+};
+
+enum VppYadifMode : uint32_t {
+    VPP_YADIF_MODE_UNKNOWN  = 0x00,
+
+    VPP_YADIF_MODE_TFF      = 0x01,
+    VPP_YADIF_MODE_BFF      = 0x02,
+    VPP_YADIF_MODE_AUTO     = 0x04,
+    VPP_YADIF_MODE_BOB      = 0x08,
+    VPP_YADIF_MODE_BOB_TFF  = VPP_YADIF_MODE_BOB | VPP_YADIF_MODE_TFF,
+    VPP_YADIF_MODE_BOB_BFF  = VPP_YADIF_MODE_BOB | VPP_YADIF_MODE_BFF,
+    VPP_YADIF_MODE_BOB_AUTO = VPP_YADIF_MODE_BOB | VPP_YADIF_MODE_AUTO,
+
+    VPP_YADIF_MODE_MAX = VPP_YADIF_MODE_BOB_AUTO + 1,
+};
+
+static VppYadifMode operator|(VppYadifMode a, VppYadifMode b) {
+    return (VppYadifMode)((uint32_t)a | (uint32_t)b);
+}
+
+static VppYadifMode operator|=(VppYadifMode& a, VppYadifMode b) {
+    a = a | b;
+    return a;
+}
+
+static VppYadifMode operator&(VppYadifMode a, VppYadifMode b) {
+    return (VppYadifMode)((uint32_t)a & (uint32_t)b);
+}
+
+static VppYadifMode operator&=(VppYadifMode& a, VppYadifMode b) {
+    a = (VppYadifMode)((uint32_t)a & (uint32_t)b);
+    return a;
+}
+
+const CX_DESC list_vpp_yadif_mode[] = {
+    { _T("unknown"),  VPP_YADIF_MODE_UNKNOWN  },
+    { _T("tff"),      VPP_YADIF_MODE_TFF      },
+    { _T("bff"),      VPP_YADIF_MODE_BFF      },
+    { _T("auto"),     VPP_YADIF_MODE_AUTO     },
+    { _T("bob_tff"),  VPP_YADIF_MODE_BOB_TFF  },
+    { _T("bob_bff"),  VPP_YADIF_MODE_BOB_BFF  },
+    { _T("bob"),      VPP_YADIF_MODE_BOB_AUTO },
     { NULL, NULL }
 };
 
@@ -692,6 +845,32 @@ struct VppDeband {
     bool operator!=(const VppDeband& x) const;
 };
 
+struct ColorspaceConv {
+    VideoVUIInfo from, to;
+    double source_peak;
+    bool approx_gamma;
+    bool scene_ref;
+
+    ColorspaceConv();
+    void set(const VideoVUIInfo& csp_from, const VideoVUIInfo &csp_to) {
+        from = csp_from;
+        to = csp_to;
+    }
+    bool operator==(const ColorspaceConv &x) const;
+    bool operator!=(const ColorspaceConv &x) const;
+};
+
+struct VppColorspace {
+    bool enable;
+    bool hdr2sdr;
+    double ldr_nits;
+    vector<ColorspaceConv> convs;
+
+    VppColorspace();
+    bool operator==(const VppColorspace &x) const;
+    bool operator!=(const VppColorspace &x) const;
+};
+
 struct VppTweak {
     bool  enable;
     float brightness; // -1.0 - 1.0 (0.0)
@@ -749,10 +928,21 @@ struct VppAfs {
     bool log;              //log出力
 
     VppAfs();
+    void set_preset(int preset);
+    int read_afs_inifile(const TCHAR* inifile);
     bool operator==(const VppAfs& x) const;
     bool operator!=(const VppAfs& x) const;
 
     void check();
+};
+
+struct VppYadif {
+    bool enable;
+    VppYadifMode mode;
+
+    VppYadif();
+    bool operator==(const VppYadif& x) const;
+    bool operator!=(const VppYadif& x) const;
 };
 
 struct VppPad {
@@ -762,6 +952,23 @@ struct VppPad {
     VppPad();
     bool operator==(const VppPad& x) const;
     bool operator!=(const VppPad& x) const;
+};
+
+struct VppNnedi {
+    bool              enable;
+    VppNnediField     field;
+    int               nns;
+    VppNnediNSize     nsize;
+    VppNnediQuality   quality;
+    VppNnediPrecision precision;
+    VppNnediPreScreen pre_screen;
+    VppNnediErrorType errortype;
+    tstring           weightfile;
+
+    bool isbob();
+    VppNnedi();
+    bool operator==(const VppNnedi& x) const;
+    bool operator!=(const VppNnedi& x) const;
 };
 
 enum {
@@ -790,6 +997,56 @@ const CX_DESC list_afs_preset[] = {
     { NULL, NULL }
 };
 
+enum VppCustomInterface {
+    VPP_CUSTOM_INTERFACE_PER_PLANE,
+    VPP_CUSTOM_INTERFACE_PLANES,
+
+    VPP_CUSTOM_INTERFACE_MAX,
+};
+
+const CX_DESC list_vpp_custom_interface[] = {
+    { _T("per_plane"),    VPP_CUSTOM_INTERFACE_PER_PLANE },
+    { _T("planes"),       VPP_CUSTOM_INTERFACE_PLANES },
+    { NULL, NULL }
+};
+
+enum VppCustomInterlaceMode {
+    VPP_CUSTOM_INTERLACE_UNSUPPORTED,
+    VPP_CUSTOM_INTERLACE_PER_FIELD,
+    VPP_CUSTOM_INTERLACE_FRAME,
+
+    VPP_CUSTOM_INTERLACE_MAX,
+};
+
+const CX_DESC list_vpp_custom_interlace[] = {
+    { _T("unsupported"), VPP_CUSTOM_INTERLACE_UNSUPPORTED },
+    { _T("per_field"),   VPP_CUSTOM_INTERLACE_PER_FIELD },
+    { _T("frame"),       VPP_CUSTOM_INTERLACE_FRAME },
+    { NULL, NULL }
+};
+
+struct VppCustom {
+    bool enable;
+    tstring filter_name;
+    tstring kernel_name;
+    tstring kernel_path;
+    std::string kernel;
+    std::string compile_options;
+    VppCustomInterface kernel_interface;
+    VppCustomInterlaceMode interlace;
+    int threadPerBlockX;
+    int threadPerBlockY;
+    int pixelPerThreadX;
+    int pixelPerThreadY;
+    int dstWidth;
+    int dstHeight;
+    std::map<std::string, std::string> params;
+
+    VppCustom();
+    bool operator==(const VppCustom &x) const;
+    bool operator!=(const VppCustom &x) const;
+};
+
 struct VppParam {
     bool bCheckPerformance;
     cudaVideoDeinterlaceMode deinterlace;
@@ -803,7 +1060,10 @@ struct VppParam {
     VppPmd pmd;
     VppDeband deband;
     VppAfs afs;
+    VppNnedi nnedi;
+    VppYadif yadif;
     VppTweak tweak;
+    VppColorspace colorspace;
     VppPad pad;
     VppSelectEvery selectevery;
     bool rff;
@@ -827,6 +1087,7 @@ struct InEncodeVideoParam {
     int lossless;                 //ロスレス出力
     std::string sMaxCll;
     std::string sMasterDisplay;
+    std::string videoCodecTag;
     tstring logfile;              //ログ出力先
     int loglevel;                 //ログ出力レベル
     int nOutputBufSizeMB;         //出力バッファサイズ
@@ -865,6 +1126,9 @@ struct InEncodeVideoParam {
     int64_t nPerfMonitorSelectMatplot;
     int     nPerfMonitorInterval;
     int     nCudaSchedule;
+    int sessionRetry;
+    int threadCsp;
+    int simdCsp;
     void *pPrivatePrm;
 
     InEncodeVideoParam();

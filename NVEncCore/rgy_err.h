@@ -35,7 +35,10 @@
 #include "mfxdefs.h"
 #endif
 #if ENCODER_NVENC
+#pragma warning (push)
+#pragma warning (disable: 4819)
 #include "nvEncodeAPI.h"
+#pragma warning(pop)
 #endif
 #if ENCODER_VCEENC
 #endif
@@ -82,6 +85,7 @@ enum RGY_ERR {
     RGY_ERR_INVALID_CALL                = -36,
     RGY_ERR_INVALID_VERSION             = -37,
     RGY_ERR_MAP_FAILED                  = -38,
+    RGY_ERR_CUDA                        = -39,
 
     RGY_WRN_IN_EXECUTION                = 1,
     RGY_WRN_DEVICE_BUSY                 = 2,

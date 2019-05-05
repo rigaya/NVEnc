@@ -32,7 +32,11 @@
 #define NOMINMAX
 #include <Windows.h>
 #include <stdint.h>
+#pragma warning (push)
+#pragma warning (disable: 4819)
+#pragma warning (disable: 4201)
 #include "nvEncodeAPI.h"
+#pragma warning (pop)
 #include <tchar.h>
 #include <vector>
 #include <list>
@@ -204,7 +208,7 @@ protected:
     NVENCSTATUS InitDecoder(const InEncodeVideoParam *inputParam);
 
     //デコーダインスタンスを作成
-    NVENCSTATUS InitFilters(const InEncodeVideoParam *inputParam);
+    RGY_ERR InitFilters(const InEncodeVideoParam *inputParam);
 
     //チャプター読み込み等
     NVENCSTATUS InitChapters(const InEncodeVideoParam *inputParam);
@@ -291,7 +295,7 @@ protected:
     unique_ptr<CuvidDecode>      m_cuvidDec;              //デコード
 #endif //#if ENABLE_AVSW_READER
     //サブメソッド
-    NVENCSTATUS NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType);
+    NVENCSTATUS NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType, const int sessionRetry);
     NVENCSTATUS NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, NV_ENC_BUFFER_FORMAT inputFormat);
     NVENCSTATUS NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer);
     NVENCSTATUS NvEncCreateBitstreamBuffer(uint32_t size, void **bitstreamBuffer);

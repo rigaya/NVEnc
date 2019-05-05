@@ -6,7 +6,7 @@ by rigaya
 ビルドには、下記のものが必要です。
 
 - Visual Studio 2015
-- CUDA 8.0
+- CUDA 10.1 (x64) / CUDA 8.0 (x86)
 - yasm
 - Avisynth+ SDK
 - VapourSynth SDK
@@ -25,6 +25,13 @@ setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```
 
+さらにビルドに必要なCaption2Ass_PCRをcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
+
+```Batchfile
+git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
+setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
+```
+
 ## 1. ソースのダウンロード
 
 ```Batchfile
@@ -39,5 +46,6 @@ NVEnc.slnを開き、ビルドします。
 
 |              |Debug用構成|Release用構成|
 |:---------------------|:------|:--------|
-|NVEnc.auo (win32のみ) | Debug | Release |
 |NVEncC(64).exe | DebugStatic | RelStatic |
+|NVEnc.auo (win32のみ) | Debug | Release |
+|cufilters.auf (win32のみ) | DebugFilters | RelFilters |

@@ -31,6 +31,8 @@
 
 #ifndef _MSC_VER
 
+#include <immintrin.h>
+
 #ifndef __forceinline
 #define __forceinline __attribute__((always_inline))
 #endif

@@ -206,6 +206,14 @@ tstring getAVFilters();
 std::string getChannelLayoutChar(int channels, uint64_t channel_layout);
 tstring getChannelLayoutString(int channels, uint64_t channel_layout);
 
+//時刻を表示
+std::string getTimestampChar(int64_t ts, const AVRational& timebase);
+tstring getTimestampString(int64_t ts, const AVRational& timebase);
+
+//tag関連
+uint32_t tagFromStr(std::string tagstr);
+std::string tagToStr(uint32_t tag);
+
 //利用可能なプロトコル情報のリストを取得
 vector<std::string> getAVProtocolList(int bOutput);
 

@@ -83,13 +83,14 @@ static __forceinline void separate_low_up_16bit(__m128i& x0_return_lower, __m128
 
 //YUY2->NV12 SSE2版
 template <BOOL aligned_store>
-static __forceinline void convert_yuy2_to_nv12_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+static __forceinline void convert_yuy2_to_nv12_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     BYTE *p, *pw, *Y, *C;
     BYTE *dst_Y = pixel_data->data[0];
     BYTE *dst_C = pixel_data->data[1];
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
     __m128i x0, x1, x3;
-    for (y = 0; y < height; y += 2) {
+    for (y = y_range.s; y < y_range.e; y += 2) {
         x  = y * width;
         p  = (BYTE *)frame + (x<<1);
         pw = p + (width<<1);
@@ -99,7 +100,7 @@ static __forceinline void convert_yuy2_to_nv12_simd(void *frame, CONVERT_CF_DATA
             //-----------1行目---------------
             x0 = _mm_loadu_si128((const __m128i *)(p+ 0));
             x1 = _mm_loadu_si128((const __m128i *)(p+16));
-            
+
             separate_low_up(x0, x1);
             x3 = x1;
 
@@ -109,7 +110,7 @@ static __forceinline void convert_yuy2_to_nv12_simd(void *frame, CONVERT_CF_DATA
             //-----------2行目---------------
             x0 = _mm_loadu_si128((const __m128i *)(pw+ 0));
             x1 = _mm_loadu_si128((const __m128i *)(pw+16));
-            
+
             separate_low_up(x0, x1);
 
             _mm_store_switch_si128((__m128i *)(Y + width + x), x0);
@@ -150,13 +151,14 @@ static __forceinline __m128i yuv422_to_420_i_interpolate(__m128i y_up, __m128i y
 }
 
 template <BOOL aligned_store>
-static __forceinline void convert_yuy2_to_nv12_i_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+static __forceinline void convert_yuy2_to_nv12_i_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y, i;
     BYTE *p, *pw, *Y, *C;
     BYTE *dst_Y = pixel_data->data[0];
     BYTE *dst_C = pixel_data->data[1];
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
     __m128i x0, x1, x3;
-    for (y = 0; y < height; y += 4) {
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (i = 0; i < 2; i++) {
             x  = (y + i) * width;
             p  = (BYTE *)frame + (x<<1);
@@ -167,7 +169,7 @@ static __forceinline void convert_yuy2_to_nv12_i_simd(void *frame, CONVERT_CF_DA
                 //-----------    1+i行目   ---------------
                 x0 = _mm_loadu_si128((const __m128i *)(p+ 0));
                 x1 = _mm_loadu_si128((const __m128i *)(p+16));
-            
+
                 separate_low_up(x0, x1);
                 x3 = x1;
 
@@ -177,7 +179,7 @@ static __forceinline void convert_yuy2_to_nv12_i_simd(void *frame, CONVERT_CF_DA
                 //-----------3+i行目---------------
                 x0 = _mm_loadu_si128((const __m128i *)(pw+ 0));
                 x1 = _mm_loadu_si128((const __m128i *)(pw+16));
-            
+
                 separate_low_up(x0, x1);
 
                 _mm_store_switch_si128((__m128i *)(Y + (width<<1) + x), x0);
@@ -192,14 +194,15 @@ static __forceinline void convert_yuy2_to_nv12_i_simd(void *frame, CONVERT_CF_DA
 
 //YUY2->YV12 SSE2版
 template <BOOL aligned_store>
-static void convert_yuy2_to_yv12_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+static void convert_yuy2_to_yv12_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     BYTE *p, *pw, *Y, *U, *V;
     BYTE *dst_Y = pixel_data->data[0];
     BYTE *dst_U = pixel_data->data[1];
     BYTE *dst_V = pixel_data->data[2];
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
     __m128i x0, x1, x3, x6;
-    for (y = 0; y < height; y += 2) {
+    for (y = y_range.s; y < y_range.e; y += 2) {
         x  = y * width;
         p  = (BYTE *)frame + (x<<1);
         pw = p + (width<<1);
@@ -210,7 +213,7 @@ static void convert_yuy2_to_yv12_simd(void *frame, CONVERT_CF_DATA *pixel_data, 
 
             x0 = _mm_loadu_si128((const __m128i *)(p+ 0));
             x1 = _mm_loadu_si128((const __m128i *)(p+16));
-            
+
             separate_low_up(x0, x1);
             x3 = x1;
 
@@ -218,7 +221,7 @@ static void convert_yuy2_to_yv12_simd(void *frame, CONVERT_CF_DATA *pixel_data, 
 
             x0 = _mm_loadu_si128((const __m128i *)(p+32));
             x1 = _mm_loadu_si128((const __m128i *)(p+48));
-            
+
             separate_low_up(x0, x1);
             x6 = x1;
 
@@ -226,7 +229,7 @@ static void convert_yuy2_to_yv12_simd(void *frame, CONVERT_CF_DATA *pixel_data, 
 
             x0 = _mm_loadu_si128((const __m128i *)(pw+ 0));
             x1 = _mm_loadu_si128((const __m128i *)(pw+16));
-            
+
             separate_low_up(x0, x1);
 
             _mm_store_switch_si128((__m128i *)(Y + width + x), x0);
@@ -235,16 +238,16 @@ static void convert_yuy2_to_yv12_simd(void *frame, CONVERT_CF_DATA *pixel_data, 
 
             x0 = _mm_loadu_si128((const __m128i *)(pw+32));
             x1 = _mm_loadu_si128((const __m128i *)(pw+48));
-            
+
             separate_low_up(x0, x1);
 
             _mm_store_switch_si128((__m128i *)(Y + width + x + 16), x0);
 
             x0 = x3;
             x1 = _mm_avg_epu8(x1, x6);
-            
+
             separate_low_up(x0, x1);
-            
+
             _mm_store_switch_si128((__m128i *)(U + (x>>1)), x0);
             _mm_store_switch_si128((__m128i *)(V + (x>>1)), x1);
         }
@@ -252,14 +255,15 @@ static void convert_yuy2_to_yv12_simd(void *frame, CONVERT_CF_DATA *pixel_data, 
 }
 
 template <BOOL aligned_store>
-static __forceinline void convert_yuy2_to_yv12_i_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+static __forceinline void convert_yuy2_to_yv12_i_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y, i;
     BYTE *p, *pw, *Y, *U, *V;
     BYTE *dst_Y = pixel_data->data[0];
     BYTE *dst_U = pixel_data->data[1];
     BYTE *dst_V = pixel_data->data[2];
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
     __m128i x0, x1, x3, x6;
-    for (y = 0; y < height; y += 4) {
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (i = 0; i < 2; i++) {
             x  = (y + i) * width;
             p  = (BYTE *)frame + (x<<1);
@@ -279,7 +283,7 @@ static __forceinline void convert_yuy2_to_yv12_i_simd(void *frame, CONVERT_CF_DA
 
                 x0 = _mm_loadu_si128((const __m128i *)(p+32));
                 x1 = _mm_loadu_si128((const __m128i *)(p+48));
-            
+
                 separate_low_up(x0, x1);
                 x6 = x1;
 
@@ -289,25 +293,25 @@ static __forceinline void convert_yuy2_to_yv12_i_simd(void *frame, CONVERT_CF_DA
                 //-----------3+i行目---------------
                 x0 = _mm_loadu_si128((const __m128i *)(pw+ 0));
                 x1 = _mm_loadu_si128((const __m128i *)(pw+16));
-            
+
                 separate_low_up(x0, x1);
 
                 _mm_store_switch_si128((__m128i *)(Y + (width<<1) + x), x0);
-                
+
                 x3 = yuv422_to_420_i_interpolate(x3, x1, i);
 
                 x0 = _mm_loadu_si128((const __m128i *)(pw+ 0));
                 x1 = _mm_loadu_si128((const __m128i *)(pw+16));
-            
+
                 separate_low_up(x0, x1);
 
                 _mm_store_switch_si128((__m128i *)(Y + (width<<1) + x + 16), x0);
-                
+
                 x0 = x3;
                 x1 = yuv422_to_420_i_interpolate(x6, x1, i);
-            
+
                 separate_low_up(x0, x1);
-            
+
                 _mm_store_switch_si128((__m128i *)(U + (x>>1)), x0);
                 _mm_store_switch_si128((__m128i *)(V + (x>>1)), x1);
             }
@@ -316,16 +320,17 @@ static __forceinline void convert_yuy2_to_yv12_i_simd(void *frame, CONVERT_CF_DA
 }
 
 template <BOOL aligned_store>
-static void convert_yuy2_to_nv16_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    BYTE *p = (BYTE *)pixel;
-    BYTE * const p_fin = p + width * height * 2;
-    BYTE *dst_Y = pixel_data->data[0];
-    BYTE *dst_C = pixel_data->data[1];
+static void convert_yuy2_to_nv16_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    BYTE *p = (BYTE *)pixel + width * y_range.s * 2;
+    BYTE * const p_fin = (BYTE *)pixel + width * y_range.e * 2;
+    BYTE *dst_Y = pixel_data->data[0] + width * y_range.s;
+    BYTE *dst_C = pixel_data->data[1] + width * y_range.s;
     __m128i x0, x1;
     for (; p < p_fin; p += 32, dst_Y += 16, dst_C += 16) {
         x0 = _mm_loadu_si128((__m128i *)(p+ 0));
         x1 = _mm_loadu_si128((__m128i *)(p+16));
-        
+
         separate_low_up(x0, x1);
 
         _mm_store_switch_si128((__m128i *)dst_Y, x0);
@@ -438,7 +443,7 @@ static __forceinline __m128i convert_uv_range_from_yc48_420i(__m128i x0, __m128i
 }
 
 template <BOOL aligned_store>
-static __forceinline void convert_yc48_to_nv12_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+static __forceinline void convert_yc48_to_nv12_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_C = (short *)pixel_data->data[1];
@@ -446,8 +451,9 @@ static __forceinline void convert_yc48_to_nv12_16bit_simd(void *pixel, CONVERT_C
     short *Y = NULL, *C = NULL;
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
     __m128i x0, x1, x2, x3;
-    for (y = 0; y < height; y += 2) {
+    for (y = y_range.s; y < y_range.e; y += 2) {
         ycp = (short*)pixel + width * y * 3;
         ycpw= ycp + width*3;
         Y   = (short*)dst_Y + width * y;
@@ -477,7 +483,7 @@ static __forceinline void convert_yc48_to_nv12_16bit_simd(void *pixel, CONVERT_C
 }
 
 template <BOOL aligned_store>
-static __forceinline void convert_yc48_to_nv12_i_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+static __forceinline void convert_yc48_to_nv12_i_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y, i;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_C = (short *)pixel_data->data[1];
@@ -485,8 +491,9 @@ static __forceinline void convert_yc48_to_nv12_i_16bit_simd(void *pixel, CONVERT
     short *Y = NULL, *C = NULL;
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
     __m128i x0, x1, x2, x3;
-    for (y = 0; y < height; y += 4) {
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (i = 0; i < 2; i++) {
             ycp = (short*)pixel + width * (y + i) * 3;
             ycpw= ycp + width*2*3;
@@ -514,7 +521,7 @@ static __forceinline void convert_yc48_to_nv12_i_16bit_simd(void *pixel, CONVERT
 }
 
 template <BOOL aligned_store>
-static __forceinline void convert_yc48_to_yv12_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+static __forceinline void convert_yc48_to_yv12_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_U = (short *)pixel_data->data[1];
@@ -523,8 +530,9 @@ static __forceinline void convert_yc48_to_yv12_16bit_simd(void *pixel, CONVERT_C
     short *Y = NULL, *U = NULL, *V = NULL;
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
     __m128i x0, x1, x2, x3, x4;
-    for (y = 0; y < height; y += 2) {
+    for (y = y_range.s; y < y_range.e; y += 2) {
         ycp = (short*)pixel + width * y * 3;
         ycpw= ycp + width*3;
         Y   = (short*)dst_Y + width * y;
@@ -546,9 +554,9 @@ static __forceinline void convert_yc48_to_yv12_16bit_simd(void *pixel, CONVERT_C
             gather_y_uv_from_yc48(x1, x2, x3);
 
             _mm_store_switch_si128((__m128i *)(Y + x + width), convert_y_range_from_yc48(x1, xC_Y_L_MA_16, Y_L_RSH_16, xC_YCC, xC_pw_one));
-            
+
             x4 = convert_uv_range_from_yc48_yuv420p(x0, x2, _mm_set1_epi16(UV_OFFSET_x2), xC_UV_L_MA_16_420P, UV_L_RSH_16_420P, xC_YCC, xC_pw_one);
-            
+
             x1 = _mm_loadu_si128((__m128i *)(ycp + 24));
             x2 = _mm_loadu_si128((__m128i *)(ycp + 32));
             x3 = _mm_loadu_si128((__m128i *)(ycp + 40));
@@ -568,7 +576,7 @@ static __forceinline void convert_yc48_to_yv12_16bit_simd(void *pixel, CONVERT_C
             x0 = convert_uv_range_from_yc48_yuv420p(x0, x2, _mm_set1_epi16(UV_OFFSET_x2), xC_UV_L_MA_16_420P, UV_L_RSH_16_420P, xC_YCC, xC_pw_one);
 
             separate_low_up_16bit(x4, x0);
-            
+
             _mm_store_switch_si128((__m128i *)(U + (x>>1)), x4);
             _mm_store_switch_si128((__m128i *)(V + (x>>1)), x0);
         }
@@ -576,7 +584,7 @@ static __forceinline void convert_yc48_to_yv12_16bit_simd(void *pixel, CONVERT_C
 }
 
 template <BOOL aligned_store>
-static __forceinline void convert_yc48_to_yv12_i_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+static __forceinline void convert_yc48_to_yv12_i_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y, i;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_U = (short *)pixel_data->data[1];
@@ -585,8 +593,9 @@ static __forceinline void convert_yc48_to_yv12_i_16bit_simd(void *pixel, CONVERT
     short *Y = NULL, *U = NULL, *V = NULL;
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
     __m128i x0, x1, x2, x3, x4;
-    for (y = 0; y < height; y += 4) {
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (i = 0; i < 2; i++) {
             ycp = (short*)pixel + width * (y + i) * 3;
             ycpw= ycp + width*2*3;
@@ -609,7 +618,7 @@ static __forceinline void convert_yc48_to_yv12_i_16bit_simd(void *pixel, CONVERT
                 _mm_store_switch_si128((__m128i *)(Y + x + width*2), convert_y_range_from_yc48(x1, xC_Y_L_MA_16, Y_L_RSH_16, xC_YCC, xC_pw_one));
 
                 x4 = convert_uv_range_from_yc48_420i(x0, x2, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_420I(i), xC_UV_L_MA_16_420I((i+1)&0x01), UV_L_RSH_16_420I, xC_YCC, xC_pw_one);
-                
+
                 x1 = _mm_loadu_si128((__m128i *)(ycp + 24));
                 x2 = _mm_loadu_si128((__m128i *)(ycp + 32));
                 x3 = _mm_loadu_si128((__m128i *)(ycp + 40));
@@ -625,9 +634,9 @@ static __forceinline void convert_yc48_to_yv12_i_16bit_simd(void *pixel, CONVERT
                 _mm_store_switch_si128((__m128i *)(Y + x + 8 + width*2), convert_y_range_from_yc48(x1, xC_Y_L_MA_16, Y_L_RSH_16, xC_YCC, xC_pw_one));
 
                 x0 = convert_uv_range_from_yc48_420i(x0, x2, _mm_set1_epi16(UV_OFFSET_x1), xC_UV_L_MA_16_420I(i), xC_UV_L_MA_16_420I((i+1)&0x01), UV_L_RSH_16_420I, xC_YCC, xC_pw_one);
-                 
+
                 separate_low_up_16bit(x4, x0);
-                
+
                 _mm_store_switch_si128((__m128i *)(U + x), x4);
                 _mm_store_switch_si128((__m128i *)(V + x), x0);
             }
@@ -636,11 +645,12 @@ static __forceinline void convert_yc48_to_yv12_i_16bit_simd(void *pixel, CONVERT
 }
 
 template <BOOL aligned_store>
-static __forceinline void convert_yc48_to_nv16_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    short *dst_Y = (short *)pixel_data->data[0];
-    short *dst_C = (short *)pixel_data->data[1];
-    short *ycp = (short *)pixel;
-    short * const ycp_fin = ycp + width * height * 3;
+static __forceinline void convert_yc48_to_nv16_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    short *dst_Y = (short *)pixel_data->data[0] + width * y_range.s;
+    short *dst_C = (short *)pixel_data->data[1] + width * y_range.s;
+    short *ycp = (short *)pixel + width * y_range.s * 3;
+    short * const ycp_fin = (short *)pixel + width * y_range.e * 3;
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
     __m128i x1, x2, x3;
@@ -682,7 +692,7 @@ static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m12
 
     x6 = _mm_unpacklo_epi16(x5, x5);    //11663300
     x7 = _mm_unpackhi_epi16(x5, x5);    //55227744
-    
+
     static const _declspec(align(16)) USHORT maskY_shuffle[8] = { 0xffff, 0x0000, 0xffff, 0x0000, 0x0000, 0xffff, 0xffff, 0x0000 };
     xMask = _mm_load_si128((__m128i*)maskY_shuffle);
     x5 = select_by_mask(x7, x6, xMask);                 //51627340
@@ -693,7 +703,7 @@ static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m12
 
     //select uv
     xMask = _mm_srli_si128(_mm_cmpeq_epi8(xMask, xMask), 8); //0x00000000, 0x00000000, 0xffffffff, 0xffffffff
-    x6 = select_by_mask(_mm_srli_si128(x1, 2), _mm_srli_si128(x2, 2), xMask); //x  x v4 u4 v6 u6 x  x 
+    x6 = select_by_mask(_mm_srli_si128(x1, 2), _mm_srli_si128(x2, 2), xMask); //x  x v4 u4 v6 u6 x  x
     x7 = select_by_mask(x0, x1, xMask);               //x  x  v1 u1 v3 u3 x  x
     xMask = _mm_slli_si128(xMask, 4);                 //0x00000000, 0xffffffff, 0xffffffff, 0x00000000
     x0 = _mm_alignr_epi8_simd(x1, x0, 2);             //v2 u2  x  x  x  x v0 u0
@@ -718,16 +728,17 @@ static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m12
 }
 
 template <BOOL aligned_store>
-static __forceinline void convert_yc48_to_yuv444_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    BYTE *Y = (BYTE *)pixel_data->data[0];
-    BYTE *U = (BYTE *)pixel_data->data[1];
-    BYTE *V = (BYTE *)pixel_data->data[2];
-    short *ycp;
-    short *const ycp_fin = (short *)pixel + width * height * 3;
+static __forceinline void convert_yc48_to_yuv444_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    BYTE *Y = (BYTE *)pixel_data->data[0] + width * y_range.s;
+    BYTE *U = (BYTE *)pixel_data->data[1] + width * y_range.s;
+    BYTE *V = (BYTE *)pixel_data->data[2] + width * y_range.s;
+    short *ycp = (short *)pixel + width * y_range.s * 3;
+    short *const ycp_fin = (short *)pixel + width * y_range.e * 3;
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
     __m128i x1, x2, x3, xY, xU, xV;
-    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 48, Y += 16, U += 16, V += 16) {
+    for (; ycp < ycp_fin; ycp += 48, Y += 16, U += 16, V += 16) {
         x1 = _mm_loadu_si128((__m128i *)(ycp +  0));
         x2 = _mm_loadu_si128((__m128i *)(ycp +  8));
         x3 = _mm_loadu_si128((__m128i *)(ycp + 16));
@@ -762,16 +773,17 @@ static __forceinline void convert_yc48_to_yuv444_simd(void *pixel, CONVERT_CF_DA
     }
 }
 template <BOOL aligned_store>
-static __forceinline void convert_yc48_to_yuv444_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    short *Y = (short *)pixel_data->data[0];
-    short *U = (short *)pixel_data->data[1];
-    short *V = (short *)pixel_data->data[2];
-    short *ycp;
-    short *const ycp_fin = (short *)pixel + width * height * 3;
+static __forceinline void convert_yc48_to_yuv444_16bit_simd(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    short *Y = (short *)pixel_data->data[0] + width * y_range.s;
+    short *U = (short *)pixel_data->data[1] + width * y_range.s;
+    short *V = (short *)pixel_data->data[2] + width * y_range.s;
+    short *ycp = (short *)pixel + width * y_range.s * 3;
+    short *const ycp_fin = (short *)pixel + width * y_range.e * 3;
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
     __m128i x1, x2, x3;
-    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 24, Y += 8, U += 8, V += 8) {
+    for ( ; ycp < ycp_fin; ycp += 24, Y += 8, U += 8, V += 8) {
         x1 = _mm_loadu_si128((__m128i *)(ycp +  0));
         x2 = _mm_loadu_si128((__m128i *)(ycp +  8));
         x3 = _mm_loadu_si128((__m128i *)(ycp + 16));
@@ -784,13 +796,14 @@ static __forceinline void convert_yc48_to_yuv444_16bit_simd(void *pixel, CONVERT
 
 
 #if USE_SSSE3
-static __forceinline void sort_to_rgb_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+static __forceinline void sort_to_rgb_simd(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     static const __m128i xC_SHUF = _mm_set_epi8(16, 12, 13, 14, 9, 10,  11,  6,  7,  8,  3,  4,  5,  0,  1,  2);
     BYTE *ptr = pixel_data->data[0];
     BYTE *dst, *src, *src_fin;
-    int y0 = 0, y1 = height - 1;
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    int y0 = y_range.s, y1 = y_range.e - 1;
     const int step = (width*3 + 3) & ~3;
-    for (; y0 < height; y0++, y1--) {
+    for (; y0 < y_range.e; y0++, y1--) {
         dst = ptr          + y0*width*3;
         src = (BYTE*)frame + y1*step;
         src_fin = src + width*3;

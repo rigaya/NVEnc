@@ -126,13 +126,14 @@ static __forceinline void separate_low_up_16bit(__m256i& y0_return_lower, __m256
     y1_return_upper = _mm256_packus_epi32(y4, y5);
 }
 
-void convert_yuy2_to_nv12_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yuy2_to_nv12_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     BYTE *p, *pw, *Y, *C;
     BYTE *dst_Y = pixel_data->data[0];
     BYTE *dst_C = pixel_data->data[1];
     __m256i y0, y1, y3;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         x  = y * width;
         p  = (BYTE *)frame + (x<<1);
         pw = p + (width<<1);
@@ -152,7 +153,7 @@ void convert_yuy2_to_nv12_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const i
             //-----------2行目---------------
             y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+32)), _mm_loadu_si128((__m128i*)(pw+ 0)));
             y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+48)), _mm_loadu_si128((__m128i*)(pw+16)));
-            
+
             separate_low_up(y0, y1);
 
             _mm256_storeu_si256((__m256i *)(Y + width + x), y0);
@@ -165,14 +166,15 @@ void convert_yuy2_to_nv12_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const i
     _mm256_zeroupper();
 }
 
-void convert_yuy2_to_yv12_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yuy2_to_yv12_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     BYTE *p, *pw, *Y, *U, *V;
     BYTE *dst_Y = pixel_data->data[0];
     BYTE *dst_U = pixel_data->data[1];
     BYTE *dst_V = pixel_data->data[2];
     __m256i y0, y1, y3, y6;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         x  = y * width;
         p  = (BYTE *)frame + (x<<1);
         pw = p + (width<<1);
@@ -201,7 +203,7 @@ void convert_yuy2_to_yv12_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const i
             //-----------2行目---------------
             y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+32)), _mm_loadu_si128((__m128i*)(pw+ 0)));
             y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+48)), _mm_loadu_si128((__m128i*)(pw+16)));
-            
+
             separate_low_up(y0, y1);
 
             _mm256_storeu_si256((__m256i *)(Y + width + x), y0);
@@ -210,7 +212,7 @@ void convert_yuy2_to_yv12_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const i
 
             y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+ 96)), _mm_loadu_si128((__m128i*)(pw+64)));
             y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+112)), _mm_loadu_si128((__m128i*)(pw+80)));
-            
+
             separate_low_up(y0, y1);
 
             _mm256_storeu_si256((__m256i *)(Y + width + x + 32), y0);
@@ -242,13 +244,14 @@ static __forceinline __m256i yuv422_to_420_i_interpolate(__m256i y_up, __m256i y
     return y0;
 }
 
-void convert_yuy2_to_nv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yuy2_to_nv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y, i;
     BYTE *p, *pw, *Y, *C;
     BYTE *dst_Y = pixel_data->data[0];
     BYTE *dst_C = pixel_data->data[1];
     __m256i y0, y1, y3;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (i = 0; i < 2; i++) {
             x  = (y + i) * width;
             p  = (BYTE *)frame + (x<<1);
@@ -259,7 +262,7 @@ void convert_yuy2_to_nv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const
                 //-----------    1+i行目   ---------------
                 y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(p+32)), _mm_loadu_si128((__m128i*)(p+ 0)));
                 y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(p+48)), _mm_loadu_si128((__m128i*)(p+16)));
-                
+
                 separate_low_up(y0, y1);
                 y3 = y1;
 
@@ -269,7 +272,7 @@ void convert_yuy2_to_nv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const
                 //-----------3+i行目---------------
                 y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+32)), _mm_loadu_si128((__m128i*)(pw+ 0)));
                 y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+48)), _mm_loadu_si128((__m128i*)(pw+16)));
-                
+
                 separate_low_up(y0, y1);
 
                 _mm256_storeu_si256((__m256i *)(Y + (width<<1) + x), y0);
@@ -284,14 +287,15 @@ void convert_yuy2_to_nv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const
     _mm256_zeroupper();
 }
 
-void convert_yuy2_to_yv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yuy2_to_yv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y, i;
     BYTE *p, *pw, *Y, *U, *V;
     BYTE *dst_Y = pixel_data->data[0];
     BYTE *dst_U = pixel_data->data[1];
     BYTE *dst_V = pixel_data->data[2];
     __m256i y0, y1, y3, y6;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (i = 0; i < 2; i++) {
             x  = (y + i) * width;
             p  = (BYTE *)frame + (x<<1);
@@ -303,7 +307,7 @@ void convert_yuy2_to_yv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const
                 //-----------    1+i行目   ---------------
                 y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(p+32)), _mm_loadu_si128((__m128i*)(p+ 0)));
                 y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(p+48)), _mm_loadu_si128((__m128i*)(p+16)));
-                
+
                 separate_low_up(y0, y1);
                 y3 = y1;
 
@@ -311,7 +315,7 @@ void convert_yuy2_to_yv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const
 
                 y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(p+ 96)), _mm_loadu_si128((__m128i*)(p+64)));
                 y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(p+112)), _mm_loadu_si128((__m128i*)(p+80)));
-                
+
                 separate_low_up(y0, y1);
                 y6 = y1;
 
@@ -321,16 +325,16 @@ void convert_yuy2_to_yv12_i_avx2(void *frame, CONVERT_CF_DATA *pixel_data, const
                 //-----------3+i行目---------------
                 y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+32)), _mm_loadu_si128((__m128i*)(pw+ 0)));
                 y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+48)), _mm_loadu_si128((__m128i*)(pw+16)));
-                
+
                 separate_low_up(y0, y1);
 
                 _mm256_storeu_si256((__m256i *)(Y + (width<<1) + x), y0);
-                
+
                 y3 = yuv422_to_420_i_interpolate(y3, y1, i);
 
                 y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+ 96)), _mm_loadu_si128((__m128i*)(pw+64)));
                 y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(pw+112)), _mm_loadu_si128((__m128i*)(pw+80)));
-                
+
                 separate_low_up(y0, y1);
 
                 _mm256_storeu_si256((__m256i *)(Y + (width<<1) + x + 32), y0);
@@ -353,7 +357,7 @@ static __forceinline void gather_y_uv_from_yc48(__m256i& y0, __m256i& y1, __m256
     __m256i y3 = y0;
     __m256i y4 = y1;
     __m256i y5 = y2;
-            
+
     y0 = _mm256_blend_epi32(y3, y4, 0xf0);                    // 384, 0
     y1 = _mm256_permute2x128_si256(y3, y5, (0x02<<4) + 0x01); // 512, 128
     y2 = _mm256_blend_epi32(y4, y5, 0xf0);                    // 640, 256
@@ -440,7 +444,7 @@ static __forceinline __m256i convert_uv_range_from_yc48_420i(__m256i y0, __m256i
     return y0;
 }
 
-void convert_yc48_to_nv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_nv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_C = (short *)pixel_data->data[1];
@@ -449,7 +453,8 @@ void convert_yc48_to_nv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, c
     const __m256i yC_pw_one = _mm256_set1_epi16(1);
     const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
     __m256i y0, y1, y2, y3;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         ycp = (short*)pixel + width * y * 3;
         ycpw= ycp + width*3;
         Y   = (short*)dst_Y + width * y;
@@ -478,7 +483,7 @@ void convert_yc48_to_nv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, c
     _mm256_zeroupper();
 }
 
-void convert_yc48_to_nv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_nv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y, i;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_C = (short *)pixel_data->data[1];
@@ -487,7 +492,8 @@ void convert_yc48_to_nv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data,
     const __m256i yC_pw_one = _mm256_set1_epi16(1);
     const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
     __m256i y0, y1, y2, y3;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (i = 0; i < 2; i++) {
             ycp = (short*)pixel + width * (y + i) * 3;
             ycpw= ycp + width*2*3;
@@ -518,7 +524,7 @@ void convert_yc48_to_nv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data,
     _mm256_zeroupper();
 }
 
-void convert_yc48_to_yv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_yv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_U = (short *)pixel_data->data[1];
@@ -528,7 +534,8 @@ void convert_yc48_to_yv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, c
     const __m256i yC_pw_one = _mm256_set1_epi16(1);
     const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
     __m256i y0, y1, y2, y3, y4;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         ycp = (short*)pixel + width * y * 3;
         ycpw= ycp + width*3;
         Y   = (short*)dst_Y + width * y;
@@ -553,7 +560,7 @@ void convert_yc48_to_yv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, c
             _mm256_storeu_si256((__m256i *)(Y + x + width), convert_y_range_from_yc48(y1, yC_Y_L_MA_16, Y_L_RSH_16, yC_YCC, yC_pw_one));
 
             y4 = convert_uv_range_from_yc48_yuv420p(y0, y2,  _mm256_set1_epi16(UV_OFFSET_x2), yC_UV_L_MA_16_420P, UV_L_RSH_16_420P, yC_YCC, yC_pw_one);
-            
+
             y1 = _mm256_loadu_si256((__m256i *)(ycp + 48)); // 128, 0
             y2 = _mm256_loadu_si256((__m256i *)(ycp + 64)); // 384, 256
             y3 = _mm256_loadu_si256((__m256i *)(ycp + 80)); // 640, 512
@@ -582,7 +589,7 @@ void convert_yc48_to_yv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, c
     _mm256_zeroupper();
 }
 
-void convert_yc48_to_yv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_yc48_to_yv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y, i;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_U = (short *)pixel_data->data[1];
@@ -592,7 +599,8 @@ void convert_yc48_to_yv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data,
     const __m256i yC_pw_one = _mm256_set1_epi16(1);
     const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
     __m256i y0, y1, y2, y3, y4;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (i = 0; i < 2; i++) {
             ycp = (short*)pixel + width * (y + i) * 3;
             ycpw= ycp + width*2*3;
@@ -618,7 +626,7 @@ void convert_yc48_to_yv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data,
                 _mm256_storeu_si256((__m256i *)(Y + x + width*2), convert_y_range_from_yc48(y1, yC_Y_L_MA_16, Y_L_RSH_16, yC_YCC, yC_pw_one));
 
                 y4 = convert_uv_range_from_yc48_420i(y0, y2, _mm256_set1_epi16(UV_OFFSET_x1), yC_UV_L_MA_16_420I(i), yC_UV_L_MA_16_420I((i+1)&0x01), UV_L_RSH_16_420I, yC_YCC, yC_pw_one);
-                
+
                 y1 = _mm256_loadu_si256((__m256i *)(ycp + 48)); // 128, 0
                 y2 = _mm256_loadu_si256((__m256i *)(ycp + 64)); // 384, 256
                 y3 = _mm256_loadu_si256((__m256i *)(ycp + 80)); // 640, 512
@@ -667,16 +675,18 @@ static __forceinline void gather_y_u_v_from_yc48(__m256i& y0, __m256i& y1, __m25
     y1 = _mm256_shuffle_epi8(y1, _mm256_alignr_epi8(yC_SUFFLE_YCP_Y, yC_SUFFLE_YCP_Y, 6));
     y2 = _mm256_shuffle_epi8(y2, _mm256_alignr_epi8(yC_SUFFLE_YCP_Y, yC_SUFFLE_YCP_Y, 12));
 }
-void convert_yc48_to_yuv444_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    BYTE *Y = (BYTE *)pixel_data->data[0];
-    BYTE *U = (BYTE *)pixel_data->data[1];
-    BYTE *V = (BYTE *)pixel_data->data[2];
-    short *ycp;
-    short *const ycp_fin = (short *)pixel + width * height * 3;
+
+void convert_yc48_to_yuv444_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    BYTE *Y = (BYTE *)pixel_data->data[0] + width * y_range.s;
+    BYTE *U = (BYTE *)pixel_data->data[1] + width * y_range.s;
+    BYTE *V = (BYTE *)pixel_data->data[2] + width * y_range.s;
+    short *ycp = (short *)pixel + width * y_range.s * 3;
+    short *const ycp_fin = (short *)pixel + width * y_range.e * 3;
     const __m256i yC_pw_one = _mm256_set1_epi16(1);
     const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
     __m256i y1, y2, y3, yY, yU, yV;
-    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 96, Y += 32, U += 32, V += 32) {
+    for (; ycp < ycp_fin; ycp += 96, Y += 32, U += 32, V += 32) {
         y1 = _mm256_loadu_si256((__m256i *)(ycp +  0));
         y2 = _mm256_loadu_si256((__m256i *)(ycp + 16));
         y3 = _mm256_loadu_si256((__m256i *)(ycp + 32));
@@ -689,7 +699,7 @@ void convert_yc48_to_yuv444_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const
         yY = _mm256_srli_epi16(y1, 8);
         yU = _mm256_srli_epi16(y2, 8);
         yV = _mm256_srli_epi16(y3, 8);
-        
+
         y1 = _mm256_loadu_si256((__m256i *)(ycp + 48));
         y2 = _mm256_loadu_si256((__m256i *)(ycp + 64));
         y3 = _mm256_loadu_si256((__m256i *)(ycp + 80));
@@ -717,16 +727,17 @@ void convert_yc48_to_yuv444_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const
     }
     _mm256_zeroupper();
 }
-void convert_yc48_to_yuv444_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    short *Y = (short *)pixel_data->data[0];
-    short *U = (short *)pixel_data->data[1];
-    short *V = (short *)pixel_data->data[2];
-    short *ycp;
-    short *const ycp_fin = (short *)pixel + width * height * 3;
+void convert_yc48_to_yuv444_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    short *Y = (short *)pixel_data->data[0] + width * y_range.s;
+    short *U = (short *)pixel_data->data[1] + width * y_range.s;
+    short *V = (short *)pixel_data->data[2] + width * y_range.s;
+    short *ycp = (short *)pixel + width * y_range.s * 3;
+    short *const ycp_fin = (short *)pixel + width * y_range.e * 3;
     const __m256i yC_pw_one = _mm256_set1_epi16(1);
     const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
     __m256i y1, y2, y3;
-    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 48, Y += 16, U += 16, V += 16) {
+    for (; ycp < ycp_fin; ycp += 48, Y += 16, U += 16, V += 16) {
         y1 = _mm256_loadu_si256((__m256i *)(ycp +  0));
         y2 = _mm256_loadu_si256((__m256i *)(ycp + 16));
         y3 = _mm256_loadu_si256((__m256i *)(ycp + 32));
@@ -740,16 +751,17 @@ void convert_yc48_to_yuv444_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data,
     _mm256_zeroupper();
 }
 
-void convert_yuy2_to_nv16_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    BYTE *p = (BYTE *)pixel;
-    BYTE * const p_fin = p + width * height * 2;
-    BYTE *dst_Y = pixel_data->data[0];
-    BYTE *dst_C = pixel_data->data[1];
+void convert_yuy2_to_nv16_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    BYTE *p = (BYTE *)pixel + width * y_range.s * 2;
+    BYTE * const p_fin = (BYTE *)pixel + width * y_range.e * 2;
+    BYTE *dst_Y = pixel_data->data[0] + width * y_range.s;
+    BYTE *dst_C = pixel_data->data[1] + width * y_range.s;
     __m256i y0, y1;
     for (; p < p_fin; p += 64, dst_Y += 32, dst_C += 32) {
         y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(p+32)), _mm_loadu_si128((__m128i*)(p+ 0)));
         y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(p+48)), _mm_loadu_si128((__m128i*)(p+16)));
-        
+
         separate_low_up(y0, y1);
 
         _mm256_storeu_si256((__m256i *)dst_Y, y0);
@@ -758,11 +770,12 @@ void convert_yuy2_to_nv16_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const i
     _mm256_zeroupper();
 }
 
-void convert_yc48_to_nv16_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    short *dst_Y = (short *)pixel_data->data[0];
-    short *dst_C = (short *)pixel_data->data[1];
-    short *ycp = (short *)pixel;
-    short * const ycp_fin = ycp + width * height * 3;
+void convert_yc48_to_nv16_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    short *dst_Y = (short *)pixel_data->data[0] + width * y_range.s;
+    short *dst_C = (short *)pixel_data->data[1] + width * y_range.s;
+    short *ycp = (short *)pixel + width * y_range.s * 3;
+    short * const ycp_fin = (short *)pixel + width * y_range.e * 3;
     const __m256i yC_pw_one = _mm256_set1_epi16(1);
     const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
     __m256i y1, y2, y3;
@@ -778,14 +791,15 @@ void convert_yc48_to_nv16_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, c
     }
     _mm256_zeroupper();
 }
-void convert_lw48_to_nv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_lw48_to_nv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_C = (short *)pixel_data->data[1];
     short *ycp, *ycpw;
     short *Y = NULL, *C = NULL;
     __m256i y0, y1, y2, y3;
-    for (y = 0; y < height; y += 2) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 2) {
         ycp = (short*)pixel + width * y * 3;
         ycpw= ycp + width*3;
         Y   = (short*)dst_Y + width * y;
@@ -816,14 +830,15 @@ void convert_lw48_to_nv12_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, c
     _mm256_zeroupper();
 }
 
-void convert_lw48_to_nv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
+void convert_lw48_to_nv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
     int x, y, i;
     short *dst_Y = (short *)pixel_data->data[0];
     short *dst_C = (short *)pixel_data->data[1];
     short *ycp, *ycpw;
     short *Y = NULL, *C = NULL;
     __m256i y0, y1, y2, y3;
-    for (y = 0; y < height; y += 4) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    for (y = y_range.s; y < y_range.e; y += 4) {
         for (i = 0; i < 2; i++) {
             ycp = (short*)pixel + width * (y + i) * 3;
             ycpw= ycp + width*2*3;
@@ -861,11 +876,12 @@ void convert_lw48_to_nv12_i_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data,
     }
     _mm256_zeroupper();
 }
-void convert_lw48_to_nv16_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    short *dst_Y = (short *)pixel_data->data[0];
-    short *dst_C = (short *)pixel_data->data[1];
-    short *ycp = (short *)pixel;
-    short * const ycp_fin = ycp + width * height * 3;
+void convert_lw48_to_nv16_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    short *dst_Y = (short *)pixel_data->data[0] + width * y_range.s;
+    short *dst_C = (short *)pixel_data->data[1] + width * y_range.s;
+    short *ycp = (short *)pixel + width * y_range.s * 3;
+    short * const ycp_fin = (short *)pixel + width * y_range.e * 3;
     __m256i y1, y2, y3;
     for (; ycp < ycp_fin; ycp += 48, dst_Y += 16, dst_C += 16) {
         y1 = _mm256_loadu_si256((__m256i *)(ycp +  0));
@@ -879,14 +895,15 @@ void convert_lw48_to_nv16_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, c
     }
     _mm256_zeroupper();
 }
-void convert_lw48_to_yuv444_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    BYTE *Y = (BYTE *)pixel_data->data[0];
-    BYTE *U = (BYTE *)pixel_data->data[1];
-    BYTE *V = (BYTE *)pixel_data->data[2];
-    short *ycp;
-    short *const ycp_fin = (short *)pixel + width * height * 3;
+void convert_lw48_to_yuv444_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    BYTE *Y = (BYTE *)pixel_data->data[0] + width * y_range.s;
+    BYTE *U = (BYTE *)pixel_data->data[1] + width * y_range.s;
+    BYTE *V = (BYTE *)pixel_data->data[2] + width * y_range.s;
+    short *ycp = (short *)pixel + width * y_range.s * 3;
+    short *const ycp_fin = (short *)pixel + width * y_range.e * 3;
     __m256i y1, y2, y3, yY, yU, yV;
-    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 96, Y += 16, U += 16, V += 16) {
+    for (; ycp < ycp_fin; ycp += 96, Y += 16, U += 16, V += 16) {
         y1 = _mm256_loadu_si256((__m256i *)(ycp +  0));
         y2 = _mm256_loadu_si256((__m256i *)(ycp + 16));
         y3 = _mm256_loadu_si256((__m256i *)(ycp + 32));
@@ -896,7 +913,7 @@ void convert_lw48_to_yuv444_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const
         yY = _mm256_srli_epi16(y1, 8);
         yU = _mm256_srli_epi16(y2, 8);
         yV = _mm256_srli_epi16(y3, 8);
-        
+
         y1 = _mm256_loadu_si256((__m256i *)(ycp + 48));
         y2 = _mm256_loadu_si256((__m256i *)(ycp + 64));
         y3 = _mm256_loadu_si256((__m256i *)(ycp + 80));
@@ -921,14 +938,15 @@ void convert_lw48_to_yuv444_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const
     }
     _mm256_zeroupper();
 }
-void convert_lw48_to_yuv444_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height) {
-    short *Y = (short *)pixel_data->data[0];
-    short *U = (short *)pixel_data->data[1];
-    short *V = (short *)pixel_data->data[2];
-    short *ycp;
-    short *const ycp_fin = (short *)pixel + width * height * 3;
+void convert_lw48_to_yuv444_16bit_avx2(void *pixel, CONVERT_CF_DATA *pixel_data, const int width, const int height, const int thread_id, const int thread_n) {
+    const auto y_range = thread_y_range(height, thread_id, thread_n);
+    short *Y = (short *)pixel_data->data[0] + width * y_range.s;
+    short *U = (short *)pixel_data->data[1] + width * y_range.s;
+    short *V = (short *)pixel_data->data[2] + width * y_range.s;
+    short *ycp = (short *)pixel + width * y_range.s * 3;
+    short *const ycp_fin = (short *)pixel + width * y_range.e * 3;
     __m256i y1, y2, y3;
-    for (ycp = (short *)pixel; ycp < ycp_fin; ycp += 48, Y += 16, U += 16, V += 16) {
+    for (; ycp < ycp_fin; ycp += 48, Y += 16, U += 16, V += 16) {
         y1 = _mm256_loadu_si256((__m256i *)(ycp +  0));
         y2 = _mm256_loadu_si256((__m256i *)(ycp + 16));
         y3 = _mm256_loadu_si256((__m256i *)(ycp + 32));

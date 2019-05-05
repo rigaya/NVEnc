@@ -29,9 +29,20 @@ NVEncが載ったハードウェア
 |NVEnc 3.02 以降 | NVIDIA グラフィックドライバ 369.30以降 |
 |NVEnc 3.08 以降 | NVIDIA グラフィックドライバ 378.66以降 |
 |NVEnc 4.00 以降 | NVIDIA グラフィックドライバ 390.77以降 |
+|NVEnc 4.31 以降 | NVIDIA グラフィックドライバ 418.81以降 |
 
 ## NVEncCの使用方法とオプション  
 NVEncCのオプションの説明 ([blog](http://rigaya34589.blog135.fc2.com/blog-entry-739.html), [github](./NVEncC_Options.ja.md)) 
+
+## 各GPUのエンコード機能情報の調査結果  
+NVEncC --check-features の結果をまとめたものです。ドライバに問い合わせた結果となっています。そのため、ドライバのバージョンによって結果が異なる可能性があります。 
+
+| GPU世代 | GPU名 |
+|:---|:---|
+| Kepler | [GTX660Ti](./GPUFeatures/gtx660ti.txt) |
+| Maxwell | [GTX970](./GPUFeatures/gtx970.txt) |
+| Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1060](./GPUFeatures/gtx1060.txt) |
+| Turing | [RTX2070](./GPUFeatures/rtx2070.txt) |
 
 ## NVEnc 使用にあたっての注意事項  
 無保証です。自己責任で使用してください。   
@@ -77,27 +88,36 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - avs, vpy, y4m, rawなど各種形式に対応
 - GPUを使用した高速フィルタリング
   - cuvid内蔵のhw処理
-   - リサイズ
-   - インタレ解除 (normal / bob)
+    - リサイズ
+    - インタレ解除 (normal / bob)
   - CUDAによるGPUフィルタリング
-   - rff (rffフラグの適用)
-   - afs (自動フィールドシフト)
-   - delogo
-   - リサイズ  
-     bilinear,spline36に加え、x64版ではnppライブラリによる各種アルゴリズムが利用可
-   - パディング(黒帯)の追加
-   - フレーム間引き(select every)
-   - バンディング低減
-   - ノイズ除去
-     - knn (K-nearest neighbor)
-     - pmd (正則化pmd法)
-     - gauss (nppライブラリ、x64版のみ)
-  - 輪郭・ディテール強調
-    - unsharp
-    - edgelevel (エッジレベル調整)
+    - rff (rffフラグの適用)
+    - インタレ解除
+      - afs (自動フィールドシフト)
+      - nnedi
+      - yadif
+    - delogo
+    - 色空間変換 (x64版のみ)
+      - hdr2sdr
+    - リサイズ  
+      - bilinear
+      - spline16, spline36, spline64
+      - lanczos2, lanczos3, lanczos4
+      - nppライブラリによる各種アルゴリズム (x64版のみ)
+    - パディング(黒帯)の追加
+    - フレーム間引き(select every)
+    - バンディング低減
+    - ノイズ除去
+      - knn (K-nearest neighbor)
+      - pmd (正則化pmd法)
+      - gauss (nppライブラリ、x64版のみ)
+    - 輪郭・ディテール強調
+      - unsharp
+      - edgelevel (エッジレベル調整)
 
 ### cufilters.auf
 - 対応フィルタ
+  - nnedi
   - リサイズ
   - ノイズ除去
     - knn (K-nearest neighbor)
@@ -112,11 +132,11 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - 本プログラムは、NVIDA CUDA Samplesをベースに作成されており、サンプルコードを含みます。  
   This software contains source code provided by NVIDIA Corporation.  
 - 本ソフトウェアでは、
+  [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),
   [ttmath](http://www.ttmath.org/),
-  [dtl](https://github.com/cubicdaiya/dtl),
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR)を使用しています。  
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、NVEnc_license.txtをご覧ください。
 

@@ -30,6 +30,8 @@
 #include "cufilters_version.h"
 #include "cufilters.h"
 
+NNEDI_WEIGHTBIN EXE_DATA DISCARDABLE "..\\resource\\nnedi3_weights.bin"
+
 //	文字列表示ダイアログ
 //
 ADD_RES_DLG DIALOG 0, 0, 175, 52

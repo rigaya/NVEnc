@@ -72,7 +72,7 @@ void CQSVConsumer::SetValue(const std::string& metricName, double value) {
     } else if (metricName == METRIC_NAMES[1]) {
         m_QSVInfo.dEULoad = value;
     } else if (metricName == METRIC_NAMES[2]) {
-        m_QSVInfo.GPUFreq = value;
+        m_QSVInfo.dGPUFreq = value;
     }
 }
 
@@ -358,7 +358,7 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
                 break;
             }
         }
-        std::transform(m_NVSMIOut.cbegin(), m_NVSMIOut.cend(), m_NVSMIOut.begin(), tolower);
+        m_NVSMIOut = tolowercase(m_NVSMIOut);
     }
     if (m_NVSMIOut.length() == 0) {
         return 1;
@@ -928,7 +928,9 @@ void CPerfMonitor::check() {
     pInfoNew->pcie_link = 0;
     pInfoNew->pcie_throughput_tx_per_sec = 0;
     pInfoNew->pcie_throughput_rx_per_sec = 0;
-    if (m_nvmlMonitor.getData(&m_nvmlInfo) == NVML_SUCCESS) {
+    NVMLMonitorInfo nvmlInfo;
+    if (m_nvmlMonitor.getData(&nvmlInfo) == NVML_SUCCESS) {
+        m_nvmlInfo = nvmlInfo;
         pInfoNew->gpu_info_valid   = TRUE;
         pInfoNew->gpu_clock        = m_nvmlInfo.GPUFreq;
         pInfoNew->gpu_load_percent = m_nvmlInfo.GPULoad;

@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include "NVEncParam.h"
+#include "afs_stg.h"
 
 using std::vector;
 
@@ -191,6 +192,52 @@ bool VppDeband::operator!=(const VppDeband& x) const {
     return !(*this == x);
 }
 
+ColorspaceConv::ColorspaceConv() :
+    from(),
+    to(),
+    source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+    approx_gamma(false),
+    scene_ref(false) {
+
+}
+bool ColorspaceConv::operator==(const ColorspaceConv &x) const {
+    return from == x.from
+        && to == x.to
+        && source_peak == x.source_peak
+        && approx_gamma == x.approx_gamma
+        && scene_ref == x.scene_ref;
+}
+bool ColorspaceConv::operator!=(const ColorspaceConv &x) const {
+    return !(*this == x);
+}
+
+VppColorspace::VppColorspace() :
+    enable(false),
+    hdr2sdr(false),
+    ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+    convs() {
+
+}
+
+bool VppColorspace::operator==(const VppColorspace &x) const {
+    if (enable != x.enable
+        || x.hdr2sdr != this->hdr2sdr
+        || x.ldr_nits != this->ldr_nits
+        || x.convs.size() != this->convs.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < x.convs.size(); i++) {
+        if (x.convs[i].from != this->convs[i].from
+            || x.convs[i].to != this->convs[i].to) {
+            return false;
+        }
+    }
+    return true;
+}
+bool VppColorspace::operator!=(const VppColorspace &x) const {
+    return !(*this == x);
+}
+
 VppTweak::VppTweak() :
     enable(false),
     brightness(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
@@ -227,6 +274,47 @@ bool VppSelectEvery::operator!=(const VppSelectEvery& x) const {
     return !(*this == x);
 }
 
+VppCustom::VppCustom() :
+    enable(false),
+    filter_name(),
+    kernel_name(FILTER_DEFAULT_CUSTOM_KERNEL_NAME),
+    kernel_path(),
+    kernel(),
+    compile_options(),
+    kernel_interface(VPP_CUSTOM_INTERFACE_PER_PLANE),
+    interlace(VPP_CUSTOM_INTERLACE_UNSUPPORTED),
+    threadPerBlockX(FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_X),
+    threadPerBlockY(FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_Y),
+    pixelPerThreadX(FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_X),
+    pixelPerThreadY(FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_Y),
+    dstWidth(0),
+    dstHeight(0),
+    params() {
+
+}
+
+bool VppCustom::operator==(const VppCustom &x) const {
+    return enable == x.enable
+        && filter_name == x.filter_name
+        && kernel_name == x.kernel_name
+        && kernel_path == x.kernel_path
+        && kernel == x.kernel
+        && compile_options == x.compile_options
+        && kernel_interface == x.kernel_interface
+        && interlace == x.interlace
+        && threadPerBlockX == x.threadPerBlockX
+        && threadPerBlockY == x.threadPerBlockY
+        && pixelPerThreadX == x.pixelPerThreadX
+        && pixelPerThreadY == x.pixelPerThreadY
+        && dstWidth == x.dstWidth
+        && dstHeight == x.dstHeight
+        && params == x.params;
+}
+bool VppCustom::operator!=(const VppCustom &x) const {
+    return !(*this == x);
+}
+
+
 VppParam::VppParam() :
     bCheckPerformance(false),
     deinterlace(cudaVideoDeinterlaceMode_Weave),
@@ -239,7 +327,10 @@ VppParam::VppParam() :
     pmd(),
     deband(),
     afs(),
+    nnedi(),
+    yadif(),
     tweak(),
+    colorspace(),
     pad(),
     selectevery(),
     rff(false) {
@@ -303,6 +394,176 @@ void VppAfs::check() {
     smooth &= drop;
 }
 
+void VppAfs::set_preset(int preset) {
+    switch (preset) {
+    case AFS_PRESET_DEFAULT: //デフォルト
+        method_switch = FILTER_DEFAULT_AFS_METHOD_SWITCH;
+        coeff_shift   = FILTER_DEFAULT_AFS_COEFF_SHIFT;
+        thre_shift    = FILTER_DEFAULT_AFS_THRE_SHIFT;
+        thre_deint    = FILTER_DEFAULT_AFS_THRE_DEINT;
+        thre_Ymotion  = FILTER_DEFAULT_AFS_THRE_YMOTION;
+        thre_Cmotion  = FILTER_DEFAULT_AFS_THRE_CMOTION;
+        analyze       = FILTER_DEFAULT_AFS_ANALYZE;
+        shift         = FILTER_DEFAULT_AFS_SHIFT;
+        drop          = FILTER_DEFAULT_AFS_DROP;
+        smooth        = FILTER_DEFAULT_AFS_SMOOTH;
+        force24       = FILTER_DEFAULT_AFS_FORCE24;
+        tune          = FILTER_DEFAULT_AFS_TUNE;
+        break;
+    case AFS_PRESET_TRIPLE: //動き重視
+        method_switch = 0;
+        coeff_shift   = 192;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 1;
+        shift         = false;
+        drop          = false;
+        smooth        = false;
+        force24       = false;
+        tune          = false;
+        break;
+    case AFS_PRESET_DOUBLE://二重化
+        method_switch = 0;
+        coeff_shift   = 192;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 2;
+        shift         = true;
+        drop          = true;
+        smooth        = true;
+        force24       = false;
+        tune          = false;
+        break;
+    case AFS_PRESET_ANIME: //映画/アニメ
+        method_switch = 64;
+        coeff_shift   = 128;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 3;
+        shift         = true;
+        drop          = true;
+        smooth        = true;
+        force24       = false;
+        tune          = false;
+        break;
+    case AFS_PRESET_MIN_AFTERIMG:      //残像最小化
+        method_switch = 0;
+        coeff_shift   = 192;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 4;
+        shift         = true;
+        drop          = true;
+        smooth        = true;
+        force24       = false;
+        tune          = false;
+        break;
+    case AFS_PRESET_FORCE24_SD:        //24fps固定
+        method_switch = 64;
+        coeff_shift   = 128;
+        thre_shift    = 128;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 3;
+        shift         = true;
+        drop          = true;
+        smooth        = false;
+        force24       = true;
+        tune          = false;
+        break;
+    case AFS_PRESET_FORCE24_HD:        //24fps固定 (HD)
+        method_switch = 92;
+        coeff_shift   = 192;
+        thre_shift    = 448;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 3;
+        shift         = true;
+        drop          = true;
+        smooth        = true;
+        force24       = true;
+        tune          = false;
+        break;
+    case AFS_PRESET_FORCE30:           //30fps固定
+        method_switch = 92;
+        coeff_shift   = 192;
+        thre_shift    = 448;
+        thre_deint    = 48;
+        thre_Ymotion  = 112;
+        thre_Cmotion  = 224;
+        analyze       = 3;
+        shift         = false;
+        drop          = false;
+        smooth        = false;
+        force24       = false;
+        tune          = false;
+        break;
+    default:
+        break;
+    }
+}
+
+int VppAfs::read_afs_inifile(const TCHAR* inifile) {
+    if (!PathFileExists(inifile)) {
+        return 1;
+    }
+    const auto filename = tchar_to_string(inifile);
+    const auto section = AFS_STG_SECTION;
+
+    clip.top      = GetPrivateProfileIntA(section, AFS_STG_UP, clip.top, filename.c_str());
+    clip.bottom   = GetPrivateProfileIntA(section, AFS_STG_BOTTOM, clip.bottom, filename.c_str());
+    clip.left     = GetPrivateProfileIntA(section, AFS_STG_LEFT, clip.left, filename.c_str());
+    clip.right    = GetPrivateProfileIntA(section, AFS_STG_RIGHT, clip.right, filename.c_str());
+    method_switch = GetPrivateProfileIntA(section, AFS_STG_METHOD_WATERSHED, method_switch, filename.c_str());
+    coeff_shift   = GetPrivateProfileIntA(section, AFS_STG_COEFF_SHIFT, coeff_shift, filename.c_str());
+    thre_shift    = GetPrivateProfileIntA(section, AFS_STG_THRE_SHIFT, thre_shift, filename.c_str());
+    thre_deint    = GetPrivateProfileIntA(section, AFS_STG_THRE_DEINT, thre_deint, filename.c_str());
+    thre_Ymotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_Y_MOTION, thre_Ymotion, filename.c_str());
+    thre_Cmotion  = GetPrivateProfileIntA(section, AFS_STG_THRE_C_MOTION, thre_Cmotion, filename.c_str());
+    analyze       = GetPrivateProfileIntA(section, AFS_STG_MODE, analyze, filename.c_str());
+
+    shift    = 0 != GetPrivateProfileIntA(section, AFS_STG_FIELD_SHIFT, shift, filename.c_str());
+    drop     = 0 != GetPrivateProfileIntA(section, AFS_STG_DROP, drop, filename.c_str());
+    smooth   = 0 != GetPrivateProfileIntA(section, AFS_STG_SMOOTH, smooth, filename.c_str());
+    force24  = 0 != GetPrivateProfileIntA(section, AFS_STG_FORCE24, force24, filename.c_str());
+    rff      = 0 != GetPrivateProfileIntA(section, AFS_STG_RFF, rff, filename.c_str());
+    log      = 0 != GetPrivateProfileIntA(section, AFS_STG_LOG, log, filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_DETECT_SC, fp->check[4], filename.c_str());
+    tune     = 0 != GetPrivateProfileIntA(section, AFS_STG_TUNE_MODE, tune, filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_LOG_SAVE, fp->check[6], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_TRACE_MODE, fp->check[7], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_REPLAY_MODE, fp->check[8], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_YUY2UPSAMPLE, fp->check[9], filename.c_str());
+    // GetPrivateProfileIntA(section, AFS_STG_THROUGH_MODE, fp->check[10], filename.c_str());
+
+    // GetPrivateProfileIntA(section, AFS_STG_PROC_MODE, g_afs.ex_data.proc_mode, filename.c_str());
+    return 0;
+}
+
+VppYadif::VppYadif() :
+    enable(false),
+    mode(VPP_YADIF_MODE_AUTO) {
+
+}
+
+bool VppYadif::operator==(const VppYadif& x) const {
+    return enable == x.enable
+        && mode == x.mode;
+}
+bool VppYadif::operator!=(const VppYadif& x) const {
+    return !(*this == x);
+}
+
 VppPad::VppPad() :
     enable(false),
     left(0),
@@ -320,6 +581,40 @@ bool VppPad::operator==(const VppPad& x) const {
         && bottom == x.bottom;
 }
 bool VppPad::operator!=(const VppPad& x) const {
+    return !(*this == x);
+}
+
+VppNnedi::VppNnedi() :
+    enable(false),
+    field(VPP_NNEDI_FIELD_USE_AUTO),
+    nns(32),
+    nsize(VPP_NNEDI_NSIZE_32x4),
+    quality(VPP_NNEDI_QUALITY_FAST),
+    precision(VPP_NNEDI_PRECISION_AUTO),
+    pre_screen(VPP_NNEDI_PRE_SCREEN_NEW_BLOCK),
+    errortype(VPP_NNEDI_ETYPE_ABS),
+    weightfile(_T("")) {
+
+}
+
+bool VppNnedi::isbob() {
+    return field == VPP_NNEDI_FIELD_BOB_AUTO
+        || field == VPP_NNEDI_FIELD_BOB_BOTTOM_TOP
+        || field == VPP_NNEDI_FIELD_BOB_TOP_BOTTOM;
+}
+
+bool VppNnedi::operator==(const VppNnedi& x) const {
+    return enable == x.enable
+        && field == x.field
+        && nns == x.nns
+        && nsize == x.nsize
+        && quality == x.quality
+        && pre_screen == x.pre_screen
+        && errortype == x.errortype
+        && precision == x.precision
+        && weightfile == x.weightfile;
+}
+bool VppNnedi::operator!=(const VppNnedi& x) const {
     return !(*this == x);
 }
 
@@ -378,7 +673,7 @@ NV_ENC_CONFIG DefaultParam() {
     config.gopLength                      = DEFAULT_GOP_LENGTH;
     config.rcParams.rateControlMode       = NV_ENC_PARAMS_RC_CONSTQP;
     //config.encodeCodecConfig.h264Config.level;
-    config.frameIntervalP                 = DEFAULT_B_FRAMES_H264 + 1;
+    config.frameIntervalP                 = DEFAULT_B_FRAMES + 1;
     config.mvPrecision                    = NV_ENC_MV_PRECISION_DEFAULT;
     config.monoChromeEncoding             = 0;
     config.rcParams.version               = NV_ENC_RC_PARAMS_VER;
@@ -421,6 +716,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     lossless(0),                 //ロスレス出力
     sMaxCll(),
     sMasterDisplay(),
+    videoCodecTag(),
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
     nOutputBufSizeMB(DEFAULT_OUTPUT_BUF),         //出力バッファサイズ
@@ -458,6 +754,9 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nPerfMonitorSelectMatplot(0),
     nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
     nCudaSchedule(DEFAULT_CUDA_SCHEDULE),
+    sessionRetry(0),
+    threadCsp(0),
+    simdCsp(-1),
     pPrivatePrm(nullptr) {
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));

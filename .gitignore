@@ -26,6 +26,7 @@ _build/
 
 *_i.c
 *_p.c
+*.i
 *.ilk
 *.meta
 *.obj
@@ -52,6 +53,7 @@ _build/
 *.VC.db
 
 # Visual C++ cache files
+.vs/
 ipch/
 *.aps
 *.ncb

@@ -135,9 +135,15 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             }
         }
 #if ENABLE_AVSW_READER
-        if (ENCODER_NVENC
+        if ((ENCODER_NVENC
             && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
-            && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0) {
+            && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0)
+            || (ENCODER_VCEENC
+                && (pVideoOutputInfo->vui.format != 5
+                    || pVideoOutputInfo->vui.colorprim != 2
+                    || pVideoOutputInfo->vui.transfer != 2
+                    || pVideoOutputInfo->vui.matrix != 2
+                    || pVideoOutputInfo->vui.chromaloc != 0))) {
             if (!check_avcodec_dll()) {
                 AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
                 return RGY_ERR_NULL_PTR;
@@ -192,10 +198,34 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             }
             m_pBsfc = unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>>(bsfc, RGYAVDeleter<AVBSFContext>(av_bsf_free));
             AVDictionary *bsfPrm = nullptr;
-            char sar[128];
-            sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
-            av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
-            AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1], bsf_name);
+            if (ENCODER_NVENC) {
+                char sar[128];
+                sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
+                av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1], bsf_name);
+            }
+            if (ENCODER_VCEENC) {
+                if (pVideoOutputInfo->vui.format != 5 /*undef*/) {
+                    av_dict_set_int(&bsfPrm, "video_format", pVideoOutputInfo->vui.format, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set video_format %d by %s filter\n"), pVideoOutputInfo->vui.format, bsf_name);
+                }
+                if (pVideoOutputInfo->vui.colorprim != 2 /*undef*/) {
+                    av_dict_set_int(&bsfPrm, "colour_primaries", pVideoOutputInfo->vui.colorprim, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set colorprim %d by %s filter\n"), pVideoOutputInfo->vui.colorprim, bsf_name);
+                }
+                if (pVideoOutputInfo->vui.transfer != 2 /*undef*/) {
+                    av_dict_set_int(&bsfPrm, "transfer_characteristics", pVideoOutputInfo->vui.transfer, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set transfer %d by %s filter\n"), pVideoOutputInfo->vui.transfer, bsf_name);
+                }
+                if (pVideoOutputInfo->vui.matrix != 2 /*undef*/) {
+                    av_dict_set_int(&bsfPrm, "matrix_coefficients", pVideoOutputInfo->vui.matrix, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), pVideoOutputInfo->vui.matrix, bsf_name);
+                }
+                if (pVideoOutputInfo->vui.chromaloc != 0) {
+                    av_dict_set_int(&bsfPrm, "chroma_sample_loc_type", pVideoOutputInfo->vui.chromaloc, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), pVideoOutputInfo->vui.chromaloc, bsf_name);
+                }
+            }
             if (0 > (ret = av_opt_set_dict2(m_pBsfc.get(), &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
@@ -222,21 +252,24 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         return RGY_ERR_NULL_PTR;
     }
 
-    uint32_t nBytesWritten = 0;
+    size_t nBytesWritten = 0;
     if (!m_bNoOutput) {
 #if ENABLE_AVSW_READER
         if (m_pBsfc) {
+            uint8_t nal_type = 0;
             std::vector<nal_info> nal_list;
             if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+                nal_type = NALU_HEVC_SPS;
                 nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
             } else if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
-                nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+                nal_type = NALU_H264_SPS;
+                nal_list = parse_nal_unit_h264(pBitstream->data(), pBitstream->size());
             }
             auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
             if (sps_nal != nal_list.end()) {
                 AVPacket pkt = { 0 };
                 av_init_packet(&pkt);
-                av_new_packet(&pkt, sps_nal->size);
+                av_new_packet(&pkt, (int)sps_nal->size);
                 memcpy(pkt.data, sps_nal->ptr, sps_nal->size);
                 int ret = 0;
                 if (0 > (ret = av_bsf_send_packet(m_pBsfc.get(), &pkt))) {
@@ -253,14 +286,14 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                         char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
-                const int new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
-                const int sps_nal_offset = (int)(sps_nal->ptr - pBitstream->data());
-                const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-                const int next_nal_new_offset = sps_nal_offset + pkt.size;
-                const int stream_orig_length = pBitstream->size();
-                if ((int)pBitstream->bufsize() < new_data_size) {
+                const auto new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
+                const auto sps_nal_offset = sps_nal->ptr - pBitstream->data();
+                const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
+                const auto next_nal_new_offset = sps_nal_offset + pkt.size;
+                const auto stream_orig_length = pBitstream->size();
+                if ((decltype(new_data_size))pBitstream->bufsize() < new_data_size) {
                     pBitstream->changeSize(new_data_size);
-                } else if (pkt.size > (int)sps_nal->size) {
+                } else if (pkt.size > (decltype(pkt.size))sps_nal->size) {
                     pBitstream->trim();
                 }
                 memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
@@ -270,19 +303,19 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         }
 #endif //#if ENABLE_AVSW_READER
         if (m_seiNal.size()) {
-            std::vector<nal_info> nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+            const auto nal_list     = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
             const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
             const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
             const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
             if (header_check) {
-                nBytesWritten  = (uint32_t)_fwrite_nolock(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)_fwrite_nolock(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)_fwrite_nolock(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
-                nBytesWritten += (uint32_t)_fwrite_nolock(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
+                nBytesWritten  = _fwrite_nolock(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
+                nBytesWritten += _fwrite_nolock(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
+                nBytesWritten += _fwrite_nolock(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
+                nBytesWritten += _fwrite_nolock(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
                 for (const auto& nal : nal_list) {
                     if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
-                        nBytesWritten += (uint32_t)_fwrite_nolock(nal.ptr, 1, nal.size, m_fDest.get());
+                        nBytesWritten += _fwrite_nolock(nal.ptr, 1, nal.size, m_fDest.get());
                     }
                 }
             } else {
@@ -291,7 +324,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             }
             m_seiNal.clear();
         } else {
-            nBytesWritten = (uint32_t)_fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+            nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
             WRITE_CHECK(nBytesWritten, pBitstream->size());
         }
     }

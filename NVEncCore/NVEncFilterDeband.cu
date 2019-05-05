@@ -419,15 +419,15 @@ static cudaError_t deband_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInpu
     return cudaerr;
 }
 
-NVENCSTATUS NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_CALL;
     }
     auto pParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_pParam);
     if (!pParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     struct deband_func {
         decltype(deband_yv12<uint8_t, 8, 0, true>)* func[3][2]; /* sample_mode, blur_first */
@@ -468,16 +468,16 @@ NVENCSTATUS NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *
     };
     if (deband_func_list.count(pParam->frameIn.csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for deband: %s\n"), RGY_CSP_NAMES[pParam->frameIn.csp]);
-        return NV_ENC_ERR_UNIMPLEMENTED;
+        return RGY_ERR_UNSUPPORTED;
     }
     auto cudaerr = deband_func_list.at(pParam->frameIn.csp).func[pParam->deband.sample][pParam->deband.blurFirst ? 1 : 0](
         pOutputFrame, pInputFrame, &m_RandY.frame, &m_RandUV.frame,
         pParam->deband.range, pParam->deband.threY, pParam->deband.threCb, pParam->deband.threCr, pParam->deband.ditherY, pParam->deband.ditherC, pParam->deband.randEachFrame,
         (curandState *)m_RandState.ptr);
     if (cudaerr != cudaSuccess) {
-        return NV_ENC_ERR_INVALID_CALL;
+        return RGY_ERR_CUDA;
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterDeband::NVEncFilterDeband() : m_RandY(), m_RandUV() {
@@ -488,18 +488,18 @@ NVEncFilterDeband::~NVEncFilterDeband() {
     close();
 }
 
-NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pDebandParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(pParam);
     if (!pDebandParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
     if (pDebandParam->frameOut.height <= 0 || pDebandParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pDebandParam->deband.range < 0 || 127 < pDebandParam->deband.range) {
         AddMessage(RGY_LOG_WARN, _T("range must be in range of 0 - 127.\n"));
@@ -533,7 +533,7 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
     auto cudaerr = AllocFrameBuf(pDebandParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pDebandParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -548,7 +548,7 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
         cudaerr = m_RandY.alloc();
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_MEMORY_ALLOC;
         }
 
         m_RandUV.frame.width = pDebandParam->frameOut.width;
@@ -560,7 +560,7 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
         cudaerr = m_RandUV.alloc();
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_MEMORY_ALLOC;
         }
     }
 
@@ -573,14 +573,14 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
         cudaerr = m_RandState.alloc();
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_MEMORY_ALLOC;
         }
 
         kernel_rand_init<<<grids, threads>>>((curandState *)m_RandState.ptr, pDebandParam->deband.seed);
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to run kernel_rand_init: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_GENERIC;
+            return RGY_ERR_CUDA;
         }
 
         kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false><<<grids, threads>>>(
@@ -591,10 +591,10 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to run kernel_gen_rand: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_GENERIC;
+            return RGY_ERR_CUDA;
         }
     }
-    
+
     m_sFilterInfo = strsprintf(_T("deband: mode %d, range %d, threY %d, threCb %d, threCr %d\n")
         _T("                       ditherY %d, ditherC %d, blurFirst %s, randEachFrame %s"),
         pDebandParam->deband.sample, pDebandParam->deband.range,
@@ -607,15 +607,15 @@ NVENCSTATUS NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_
     return sts;
 }
 
-NVENCSTATUS NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
 
     if (pInputFrame->ptr == nullptr) {
-        return NV_ENC_SUCCESS;
+        return RGY_ERR_NONE;
     }
     auto pDebandParam = std::dynamic_pointer_cast<NVEncFilterParamDeband>(m_pParam);
     if (!pDebandParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     *pOutputFrameNum = 1;
@@ -628,11 +628,11 @@ NVENCSTATUS NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInf
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_CALL;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_CALL;
     }
 
     return deband(ppOutputFrames[0], pInputFrame);

@@ -31,9 +31,20 @@ Hardware which supports NVENC
 | NVEnc 3.02 or later | NVIDIA graphics driver 369.30 or later |
 | NVEnc 3.08 or later | NVIDIA graphics driver 378.66 or later |
 | NVEnc 4.00 or later | NVIDIA graphics driver 390.77 or later |
+| NVEnc 4.31 or later | NVIDIA graphics driver 418.81 or later |
 
 ## Usage and options of NVEncC
 [Option list and details of NVEncC](./NVEncC_Options.en.md)
+
+## Examples of supported encode features  
+Result of --check-features, a feature list returned from the driver. May depend on the driver version.  
+
+| GPU Gen | GPU Name |
+|:---|:---|
+| Kepler | [GTX660Ti](./GPUFeatures/gtx660ti.txt) |
+| Maxwell | [GTX970](./GPUFeatures/gtx970.txt) |
+| Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1060](./GPUFeatures/gtx1060.txt) |
+| Turing | [RTX2070](./GPUFeatures/rtx2070.txt) |
 
 ## Precautions for using NVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
@@ -74,21 +85,29 @@ which might cause problem in some playback environments.
     - resize
     - deinterlace (normal / bob)
   - GPU filtering by CUDA
-   - rff (apply rff flag)
-   - afs (deinterlacer, Automatic field shift)
-   - delogo
-   - resize
-     In addition to bilinear, spline36, various algorithms by npp library are available for x64 version
-   - padding
-   - select-every
-   - deband
-   - noise reduction
-     - knn (K-nearest neighbor)
-     - pmd (modified pmd method)
-     - gauss (npp library, x64 version only)
-  - edge / detail enhancement
-    - unsharp
-    - edgelevel (edge ​​level adjustment)
+    - rff (apply rff flag)
+    - deinterlacer
+      - afs (Automatic field shift)
+      - nnedi
+      - yadif
+    - colorspace conversion (x64 version only)
+      - hdr2sdr
+    - delogo
+    - resize
+      - bilinear
+      - spline16, spline36, spline64
+      - lanczos2, lanczos3, lanczos4
+      - various algorithms by npp library are available (x64 version only)
+    - padding
+    - select-every
+    - deband
+    - noise reduction
+      - knn (K-nearest neighbor)
+      - pmd (modified pmd method)
+      - gauss (npp library, x64 version only)
+    - edge / detail enhancement
+      - unsharp
+      - edgelevel (edge ​​level adjustment)
 
 ### NVEnc.auo (Aviutl plugin)
 - Audio encoding
@@ -97,6 +116,7 @@ which might cause problem in some playback environments.
 
 ### cufilters.auf (Aviutl plugin)
 - supported filters
+  - nnedi
   - resize
   - noise reduction
     - knn (K-nearest neighbor)
@@ -111,6 +131,7 @@ which might cause problem in some playback environments.
 - This program is based on NVIDA CUDA Samples and includes sample code.
   This software contains source code provided by NVIDIA Corporation.
 - This software depends on
+  [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),

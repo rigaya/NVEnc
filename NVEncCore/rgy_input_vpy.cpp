@@ -79,20 +79,20 @@ int RGYInputVpy::load_vapoursynth() {
         return 1;
     }
 
-    std::map<void **, const char*> vs_func_list = {
-        { (void **)&m_sVS.init,           (VPY_X64) ? "vsscript_init"           : "_vsscript_init@0"            },
-        { (void **)&m_sVS.finalize,       (VPY_X64) ? "vsscript_finalize"       : "_vsscript_finalize@0",       },
-        { (void **)&m_sVS.evaluateScript, (VPY_X64) ? "vsscript_evaluateScript" : "_vsscript_evaluateScript@16" },
-        { (void **)&m_sVS.evaluateFile,   (VPY_X64) ? "vsscript_evaluateFile"   : "_vsscript_evaluateFile@12"   },
-        { (void **)&m_sVS.freeScript,     (VPY_X64) ? "vsscript_freeScript"     : "_vsscript_freeScript@4"      },
-        { (void **)&m_sVS.getError,       (VPY_X64) ? "vsscript_getError"       : "_vsscript_getError@4"        },
-        { (void **)&m_sVS.getOutput,      (VPY_X64) ? "vsscript_getOutput"      : "_vsscript_getOutput@8"       },
-        { (void **)&m_sVS.clearOutput,    (VPY_X64) ? "vsscript_clearOutput"    : "_vsscript_clearOutput@8"     },
-        { (void **)&m_sVS.getCore,        (VPY_X64) ? "vsscript_getCore"        : "_vsscript_getCore@4"         },
-        { (void **)&m_sVS.getVSApi,       (VPY_X64) ? "vsscript_getVSApi"       : "_vsscript_getVSApi@0"        },
-    };
+    static auto vs_func_list = make_array<std::pair<void **, const char*>>(
+        std::make_pair( (void **)&m_sVS.init,           (VPY_X64) ? "vsscript_init"           : "_vsscript_init@0"            ),
+        std::make_pair( (void **)&m_sVS.finalize,       (VPY_X64) ? "vsscript_finalize"       : "_vsscript_finalize@0"        ),
+        std::make_pair( (void **)&m_sVS.evaluateScript, (VPY_X64) ? "vsscript_evaluateScript" : "_vsscript_evaluateScript@16" ),
+        std::make_pair( (void **)&m_sVS.evaluateFile,   (VPY_X64) ? "vsscript_evaluateFile"   : "_vsscript_evaluateFile@12"   ),
+        std::make_pair( (void **)&m_sVS.freeScript,     (VPY_X64) ? "vsscript_freeScript"     : "_vsscript_freeScript@4"      ),
+        std::make_pair( (void **)&m_sVS.getError,       (VPY_X64) ? "vsscript_getError"       : "_vsscript_getError@4"        ),
+        std::make_pair( (void **)&m_sVS.getOutput,      (VPY_X64) ? "vsscript_getOutput"      : "_vsscript_getOutput@8"       ),
+        std::make_pair( (void **)&m_sVS.clearOutput,    (VPY_X64) ? "vsscript_clearOutput"    : "_vsscript_clearOutput@8"     ),
+        std::make_pair( (void **)&m_sVS.getCore,        (VPY_X64) ? "vsscript_getCore"        : "_vsscript_getCore@4"         ),
+        std::make_pair( (void **)&m_sVS.getVSApi,       (VPY_X64) ? "vsscript_getVSApi"       : "_vsscript_getVSApi@0"        )
+    );
 
-    for (auto vs_func : vs_func_list) {
+    for (auto& vs_func : vs_func_list) {
         if (NULL == (*(vs_func.first) = RGY_GET_PROC_ADDRESS(m_sVS.hVSScriptDLL, vs_func.second))) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to load vsscript functions.\n"));
             return 1;
@@ -109,6 +109,7 @@ int RGYInputVpy::initAsyncEvents() {
     }
     return 0;
 }
+
 void RGYInputVpy::closeAsyncEvents() {
     m_bAbortAsync = true;
     for (int i_frame = m_nCopyOfInputFrames; i_frame < m_nAsyncFrames; i_frame++) {
@@ -161,13 +162,17 @@ int RGYInputVpy::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
-    UNREFERENCED_PARAMETER(prm);
+#pragma warning(push)
+#pragma warning(disable:4127) //warning C4127: 条件式が定数です。
+RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
-    
+
     if (load_vapoursynth()) {
         return RGY_ERR_NULL_PTR;
     }
+
+    m_sConvert = std::make_unique<RGYConvertCSP>((m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) ? 1 : prm->threadCsp);
+
     //ファイルデータ読み込み
     std::ifstream inputFile(strFileName);
     if (inputFile.bad()) {
@@ -220,42 +225,66 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    const RGY_CSP prefered_csp = (m_inputVideoInfo.csp != RGY_CSP_NA) ? m_inputVideoInfo.csp : RGY_CSP_NV12;
-
-    typedef struct CSPMap {
+    struct CSPMap {
         int fmtID;
         RGY_CSP in, out;
-    } CSPMap;
-
-    const std::vector<CSPMap> valid_csp_list = {
-        { pfYUV420P8,  RGY_CSP_YV12,      prefered_csp },
-        { pfYUV420P10, RGY_CSP_YV12_10,   prefered_csp },
-        { pfYUV420P16, RGY_CSP_YV12_16,   prefered_csp },
-        { pfYUV422P8,  RGY_CSP_YUV422,    RGY_CSP_NV16 },
-        { pfYUV422P10, RGY_CSP_YUV422_10, RGY_CSP_P210 },
-        { pfYUV422P16, RGY_CSP_YUV422_16, RGY_CSP_P210 },
-        { pfYUV444P8,  RGY_CSP_YUV444,    prefered_csp },
-        { pfYUV444P10, RGY_CSP_YUV444_10, prefered_csp },
-        { pfYUV444P16, RGY_CSP_YUV444_16, prefered_csp },
+        constexpr CSPMap(int fmt, RGY_CSP i, RGY_CSP o) : fmtID(fmt), in(i), out(o) {};
     };
 
-    for (auto csp : valid_csp_list) {
+    static constexpr auto valid_csp_list = make_array<CSPMap>(
+        CSPMap( pfYUV420P8,  RGY_CSP_YV12,      RGY_CSP_NV12 ),
+        CSPMap( pfYUV420P10, RGY_CSP_YV12_10,   RGY_CSP_P010 ),
+        CSPMap( pfYUV420P16, RGY_CSP_YV12_16,   RGY_CSP_P010 ),
+        CSPMap( pfYUV422P8,  RGY_CSP_YUV422,    RGY_CSP_NV16 ),
+        CSPMap( pfYUV422P10, RGY_CSP_YUV422_10, RGY_CSP_P210 ),
+        CSPMap( pfYUV422P16, RGY_CSP_YUV422_16, RGY_CSP_P210 ),
+        CSPMap( pfYUV444P8,  RGY_CSP_YUV444,    RGY_CSP_YUV444 ),
+        CSPMap( pfYUV444P10, RGY_CSP_YUV444_10, RGY_CSP_YUV444_16 ),
+        CSPMap( pfYUV444P16, RGY_CSP_YUV444_16, RGY_CSP_YUV444_16 )
+    );
+
+    const RGY_CSP prefered_csp = m_inputVideoInfo.csp;
+    m_InputCsp = RGY_CSP_NA;
+    for (const auto& csp : valid_csp_list) {
         if (csp.fmtID == vsvideoinfo->format->id) {
             m_InputCsp = csp.in;
-            m_inputVideoInfo.csp = csp.out;
-            m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
+            if (prefered_csp == RGY_CSP_NA) {
+                //ロスレスの場合は、入力側で出力フォーマットを決める
+                m_inputVideoInfo.csp = csp.out;
+            } else {
+                m_inputVideoInfo.csp = (m_sConvert->getFunc(m_InputCsp, prefered_csp, false, prm->simdCsp) != nullptr) ? prefered_csp : csp.out;
+                //QSVではNV16->P010がサポートされていない
+                if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
+                    m_inputVideoInfo.csp = RGY_CSP_P210;
+                }
+                //なるべく軽いフォーマットでGPUに転送するように
+                if (ENCODER_NVENC
+                    && RGY_CSP_BIT_PER_PIXEL[csp.out] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]
+                    && m_sConvert->getFunc(m_InputCsp, csp.out, false, prm->simdCsp) != nullptr) {
+                    m_inputVideoInfo.csp = csp.out;
+                }
+            }
+            if (m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr && m_InputCsp == RGY_CSP_YUY2) {
+                //YUY2用の特別処理
+                m_inputVideoInfo.csp = RGY_CSP_CHROMA_FORMAT[csp.out] == RGY_CHROMAFMT_YUV420 ? RGY_CSP_NV12 : RGY_CSP_YUV444;
+                m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp);
+            }
             break;
         }
     }
 
-    if (m_sConvert == nullptr) {
+    if (m_InputCsp == RGY_CSP_NA) {
         AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
+        return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
+    if (m_sConvert->getFunc() == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
+            RGY_CSP_NAMES[m_InputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (m_inputVideoInfo.csp != prefered_csp) {
-        //yuv422読み込みなどは、出力フォーマットへの直接変換を持たないのでNV16/P210などに変換する
-        //その際、m_inputVideoInfo.shiftは、出力フォーマットに対応する値ではなく、
+        //入力フォーマットを変えた場合、m_inputVideoInfo.shiftは、出力フォーマットに対応する値ではなく、
         //入力フォーマットに対応する値とする必要がある
         m_inputVideoInfo.shift = (RGY_CSP_BIT_DEPTH[m_InputCsp] > 8) ? 16 - RGY_CSP_BIT_DEPTH[m_InputCsp] : 0;
     }
@@ -293,11 +322,12 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         vs_ver += strsprintf(_T(" r%d"), rev);
     }
 
-    CreateInputInfo(vs_ver.c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
+    CreateInputInfo(vs_ver.c_str(), RGY_CSP_NAMES[m_sConvert->getFunc()->csp_from], RGY_CSP_NAMES[m_sConvert->getFunc()->csp_to], get_simd_str(m_sConvert->getFunc()->simd), &m_inputVideoInfo);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
+#pragma warning(pop)
 
 void RGYInputVpy::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
@@ -336,9 +366,9 @@ RGY_ERR RGYInputVpy::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
+    pSurface->ptrArray(dst_array, m_sConvert->getFunc()->csp_to == RGY_CSP_RGB24 || m_sConvert->getFunc()->csp_to == RGY_CSP_RGB32);
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
-    m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
+    m_sConvert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array,
         m_inputVideoInfo.srcWidth, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1),
         pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);

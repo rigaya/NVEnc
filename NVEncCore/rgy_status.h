@@ -38,6 +38,7 @@
 #include <chrono>
 #include <memory>
 #include <vector>
+#include <cmath>
 #include <algorithm>
 #include "rgy_log.h"
 #include "cpu_info.h"
@@ -103,14 +104,14 @@ public:
     }
 
     virtual void Init(uint32_t outputFPSRate, uint32_t outputFPSScale,
-        uint32_t totalOutputFrames, double totalDuration, const sTrimParam& trim,
+        uint32_t totalInputFrames, double totalDuration, const sTrimParam& trim,
         shared_ptr<RGYLog> pRGYLog, shared_ptr<CPerfMonitor> pPerfMonitor) {
         m_pause = false;
         m_pRGYLog = pRGYLog;
         m_pPerfMonitor = pPerfMonitor;
         m_sData.outputFPSRate = outputFPSRate;
         m_sData.outputFPSScale = outputFPSScale;
-        m_sData.frameTotal = totalOutputFrames;
+        m_sData.frameTotal = totalInputFrames;
         m_sData.totalDuration = totalDuration;
         if (trim.list.size() > 0 && trim.list.back().fin != TRIM_MAX) {
             //途中終了することになる
@@ -128,7 +129,7 @@ public:
         m_tmStart = std::chrono::system_clock::now();
         GetProcessTime(&m_sStartTime);
     }
-    void SetOutputData(RGY_FRAMETYPE picType, uint32_t outputBytes, uint32_t frameAvgQP) {
+    void SetOutputData(RGY_FRAMETYPE picType, uint64_t outputBytes, uint32_t frameAvgQP) {
         m_sData.outFileSize    += outputBytes;
         m_sData.frameOut       += 1;
         m_sData.frameOutIDR    += (picType & RGY_FRAMETYPE_IDR) >> 7;
@@ -207,7 +208,7 @@ public:
         } else {
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
-        NVMLMonitorInfo info = { 0 };
+        NVMLMonitorInfo info;
         bVideoEngineUsage = m_pPerfMonitor && m_pPerfMonitor->GetNVMLInfo(&info);
         bGPUUsage = bVideoEngineUsage;
         if (bVideoEngineUsage) {
@@ -409,7 +410,7 @@ protected:
             memcpy(mes, header, header_len * sizeof(mes[0]));
             mes_len += header_len;
 
-            for (int i = (std::max)(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++) {
+            for (int i = (std::max)(0, (int)std::log10((double)count)); i < (int)std::log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++) {
                 mes[mes_len] = _T(' ');
             }
             mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%u"), count);
@@ -423,7 +424,7 @@ protected:
                 memcpy(mes + mes_len, TOTAL_SIZE, _tcslen(TOTAL_SIZE) * sizeof(mes[0]));
                 mes_len += (int)_tcslen(TOTAL_SIZE);
 
-                for (int i = (std::max)(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++) {
+                for (int i = (std::max)(0, (int)std::log10((double)frameSize / (double)(1024 * 1024))); i < (int)std::log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++) {
                     mes[mes_len] = _T(' ');
                 }
 

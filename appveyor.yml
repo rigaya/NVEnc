@@ -1,11 +1,13 @@
 # NVEnc
 # continuous integration settings
 
-image: Visual Studio 2015
+environment:
+  matrix:
+    - PLATFORM: Win32
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
 
-platform:
- - Win32
- - x64
+    - PLATFORM: x64
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
 
 configuration:
  - RelStatic
@@ -18,8 +20,9 @@ skip_non_tags: true
 
 init:
   - ps: Set-WinSystemLocale ja-JP
-  - ps: Start-Sleep -s 5
+  - ps: Start-Sleep -s 15
   - ps: Restart-Computer
+  - ps: Start-Sleep -s 15
   - git config --global core.autocrlf input
 
 install:
@@ -31,11 +34,16 @@ install:
   - yasm --version
 
 before_build:
-  - appveyor DownloadFile https://developer.nvidia.com/compute/cuda/8.0/prod/local_installers/cuda_8.0.44_windows-exe -FileName cuda_8.0.44_windows.exe
-  - cuda_8.0.44_windows.exe -s compiler_8.0 command_line_tools_8.0 cudart_8.0 curand_8.0 curand_dev_8.0 npp_8.0 npp_dev_8.0 nvml_dev_8.0 visual_studio_integration_8.0
-  - set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v8.0\bin;%PATH%
-  - set CUDA_PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v8.0
-  - set CUDA_PATH_V8_0=%CUDA_PATH%
+  - if "%PLATFORM%" == "x64" appveyor DownloadFile https://developer.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_10.1.105_418.96_win10.exe -FileName cuda_10.1.105_418.96_win10.exe
+  - if "%PLATFORM%" == "x64" cuda_10.1.105_418.96_win10.exe -s nvcc_10.1 cudart_10.1 curand_10.1 curand_dev_10.1 npp_10.1 npp_dev_10.1 nvml_dev_10.1 nvrtc_10.1 nvrtc_dev_10.1 visual_studio_integration_10.1
+  - if "%PLATFORM%" == "x64" set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.1\bin;%PATH%
+  - if "%PLATFORM%" == "x64" set CUDA_PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.1
+  - if "%PLATFORM%" == "x64" set CUDA_PATH_V10_1=%CUDA_PATH%
+  - if "%PLATFORM%" == "Win32" appveyor DownloadFile https://developer.nvidia.com/compute/cuda/8.0/prod/local_installers/cuda_8.0.44_windows-exe -FileName cuda_8.0.44_windows.exe
+  - if "%PLATFORM%" == "Win32" cuda_8.0.44_windows.exe -s compiler_8.0 command_line_tools_8.0 cudart_8.0 curand_8.0 curand_dev_8.0 npp_8.0 npp_dev_8.0 nvml_dev_8.0 visual_studio_integration_8.0
+  - if "%PLATFORM%" == "Win32" set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v8.0\bin;%PATH%
+  - if "%PLATFORM%" == "Win32" set CUDA_PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v8.0
+  - if "%PLATFORM%" == "Win32" set CUDA_PATH_V8_0=%CUDA_PATH%
   - git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
   - git clone -b MT https://github.com/pinterf/AviSynthPlus.git ..\avisynthplus
   - git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
@@ -73,6 +81,7 @@ after_build:
   - mkdir NVEncC_Release
   - copy _build\%PLATFORM%\%CONFIGURATION%\NVEncC*.exe NVEncC_Release
   - copy _build\%PLATFORM%\%CONFIGURATION%\*.dll NVEncC_Release
+  - if "%PLATFORM%" == "x64" copy "%CUDA_PATH%\bin\nvrtc64_101_0.dll" NVEncC_Release
   - 7z a -mx9 NVEncC_%BUILD_VERSION%_%PLATFORM%.7z .\NVEncC_Release\*
 
 artifacts:

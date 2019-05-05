@@ -257,7 +257,7 @@ NVEncFilterUnsharp::~NVEncFilterUnsharp() {
     close();
 }
 
-NVENCSTATUS NVEncFilterUnsharp::setWeight(unique_ptr<CUMemBuf>& pGaussWeightBuf, int radius, float sigma) {
+RGY_ERR NVEncFilterUnsharp::setWeight(unique_ptr<CUMemBuf>& pGaussWeightBuf, int radius, float sigma) {
     const int nWeightCount = (2 * radius + 1) * (2 * radius + 1);
     const int nBufferSize = sizeof(float) * nWeightCount;
     pGaussWeightBuf = unique_ptr<CUMemBuf>(new CUMemBuf(nBufferSize));
@@ -265,7 +265,7 @@ NVENCSTATUS NVEncFilterUnsharp::setWeight(unique_ptr<CUMemBuf>& pGaussWeightBuf,
     auto cudaerr = pGaussWeightBuf->alloc();
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate weight buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     vector<float> weight(nWeightCount);
     float *ptr_weight = weight.data();
@@ -289,27 +289,27 @@ NVENCSTATUS NVEncFilterUnsharp::setWeight(unique_ptr<CUMemBuf>& pGaussWeightBuf,
     cudaerr = cudaMemcpy(pGaussWeightBuf->ptr, weight.data(), nBufferSize, cudaMemcpyHostToDevice);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy weight to device: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_GENERIC;
+        return RGY_ERR_CUDA;
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
-NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pUnsharpParam = std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(pParam);
     if (!pUnsharpParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
     if (pUnsharpParam->frameOut.height <= 0 || pUnsharpParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pUnsharpParam->unsharp.radius < 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (radius).\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pUnsharpParam->unsharp.radius < 1 && pUnsharpParam->unsharp.radius > UNSHARP_RADIUS_MAX) {
         AddMessage(RGY_LOG_WARN, _T("radius must be in range of 1-%d.\n"), UNSHARP_RADIUS_MAX);
@@ -327,7 +327,7 @@ NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared
     auto cudaerr = AllocFrameBuf(pUnsharpParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pUnsharpParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -336,8 +336,8 @@ NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared
         float sigmaY = 0.8f + 0.3f * pUnsharpParam->unsharp.radius;
         float sigmaUV = (RGY_CSP_CHROMA_FORMAT[pUnsharpParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) ? 0.8f + 0.3f * (pUnsharpParam->unsharp.radius * 0.5f + 0.25f) : sigmaY;
 
-        if (   NV_ENC_SUCCESS != (sts = setWeight(m_pGaussWeightBufY,  pUnsharpParam->unsharp.radius, sigmaY))
-            || NV_ENC_SUCCESS != (sts = setWeight(m_pGaussWeightBufUV, pUnsharpParam->unsharp.radius, sigmaUV))) {
+        if (   RGY_ERR_NONE != (sts = setWeight(m_pGaussWeightBufY,  pUnsharpParam->unsharp.radius, sigmaY))
+            || RGY_ERR_NONE != (sts = setWeight(m_pGaussWeightBufUV, pUnsharpParam->unsharp.radius, sigmaUV))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to set weight: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return sts;
         }
@@ -351,8 +351,8 @@ NVENCSTATUS NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared
     return sts;
 }
 
-NVENCSTATUS NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;
     }
@@ -370,16 +370,16 @@ NVENCSTATUS NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameIn
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pUnsharpParam = std::dynamic_pointer_cast<NVEncFilterParamUnsharp>(m_pParam);
     if (!pUnsharpParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     static const std::map<RGY_CSP, decltype(unsharp_yv12<uint8_t, 8>)*> denoise_list = {
@@ -390,7 +390,7 @@ NVENCSTATUS NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameIn
     };
     if (denoise_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
-        return NV_ENC_ERR_UNIMPLEMENTED;
+        return RGY_ERR_UNSUPPORTED;
     }
     denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, m_pGaussWeightBufY.get(), m_pGaussWeightBufUV.get(),
         pUnsharpParam->unsharp.radius, pUnsharpParam->unsharp.weight, pUnsharpParam->unsharp.threshold);
@@ -399,7 +399,7 @@ NVENCSTATUS NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameIn
         AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return NV_ENC_ERR_INVALID_CALL;
+        return RGY_ERR_CUDA;
     }
     return sts;
 }

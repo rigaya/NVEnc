@@ -45,13 +45,13 @@ NVEncFilterPad::~NVEncFilterPad() {
     close();
 }
 
-NVENCSTATUS NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pPadParam = std::dynamic_pointer_cast<NVEncFilterParamPad>(pParam);
     if (!pPadParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
     if (   pPadParam->pad.left   % 2 != 0
@@ -59,18 +59,18 @@ NVENCSTATUS NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         || pPadParam->pad.right  % 2 != 0
         || pPadParam->pad.bottom % 2 != 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pParam->frameOut.width != pParam->frameIn.width + pPadParam->pad.right + pPadParam->pad.left
         || pParam->frameOut.height != pParam->frameIn.height + pPadParam->pad.top + pPadParam->pad.bottom) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     auto cudaerr = AllocFrameBuf(pParam->frameOut, 1);
     if (cudaerr != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return NV_ENC_ERR_OUT_OF_MEMORY;
+        return RGY_ERR_MEMORY_ALLOC;
     }
     pParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
@@ -84,11 +84,11 @@ NVENCSTATUS NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     return sts;
 }
 
-NVENCSTATUS NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad) {
+RGY_ERR NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad) {
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, pOutputFrame->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (pad->right == 0 && pad->left == 0) {
         if (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8) {
@@ -145,11 +145,11 @@ NVENCSTATUS NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *p
         AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync: %s.\n"),
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
     }
-    return NV_ENC_SUCCESS;
+    return RGY_ERR_NONE;
 }
 
-NVENCSTATUS NVEncFilterPad::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterPad::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+    RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {
         return sts;
@@ -165,22 +165,22 @@ NVENCSTATUS NVEncFilterPad::run_filter(const FrameInfo *pInputFrame, FrameInfo *
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, ppOutputFrames[0]->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
     auto pPadParam = std::dynamic_pointer_cast<NVEncFilterParamPad>(m_pParam);
     if (!pPadParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     auto frameOut = *ppOutputFrames[0];
     auto frameIn = *pInputFrame;
     sts = padPlane(&frameOut, &frameIn, (uint16_t)(16 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &pPadParam->pad);
-    if (sts != NV_ENC_SUCCESS) return sts;
+    if (sts != RGY_ERR_NONE) return sts;
 
     const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
@@ -197,25 +197,25 @@ NVENCSTATUS NVEncFilterPad::run_filter(const FrameInfo *pInputFrame, FrameInfo *
         frameIn.height >>= 1;
         frameIn.width  >>= 1;
         sts = padPlane(&frameOut, &frameIn, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &uvPad);
-        if (sts != NV_ENC_SUCCESS) return sts;
+        if (sts != RGY_ERR_NONE) return sts;
 
         frameOut.ptr += frameOut.pitch * frameOut.height;
         frameIn.ptr  += frameIn.pitch  * frameIn.height;
         sts = padPlane(&frameOut, &frameIn, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &uvPad);
-        if (sts != NV_ENC_SUCCESS) return sts;
+        if (sts != RGY_ERR_NONE) return sts;
     } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), m_pParam->frameIn.csp) != supportedCspYUV444.end()) {
         frameOut.ptr += frameOut.pitch * frameOut.height;
         frameIn.ptr  += frameIn.pitch  * frameIn.height;
         sts = padPlane(&frameOut, &frameIn, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &pPadParam->pad);
-        if (sts != NV_ENC_SUCCESS) return sts;
+        if (sts != RGY_ERR_NONE) return sts;
 
         frameOut.ptr += frameOut.pitch * frameOut.height;
         frameIn.ptr  += frameIn.pitch  * frameIn.height;
         sts = padPlane(&frameOut, &frameIn, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &pPadParam->pad);
-        if (sts != NV_ENC_SUCCESS) return sts;
+        if (sts != RGY_ERR_NONE) return sts;
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
-        sts = NV_ENC_ERR_UNIMPLEMENTED;
+        sts = RGY_ERR_UNSUPPORTED;
     }
     return sts;
 }

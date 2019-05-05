@@ -29,7 +29,11 @@
 #pragma once
 
 #include <limits.h>
+#pragma warning (push)
+#pragma warning (disable: 4819)
+#pragma warning (disable: 4201)
 #include "nvEncodeAPI.h"
+#pragma warning (pop)
 #include "NVEncoderPerf.h"
 #include "NVEncCore.h"
 #include "NVEncParam.h"

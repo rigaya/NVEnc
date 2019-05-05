@@ -188,9 +188,9 @@ class NVEncFilterDelogo : public NVEncFilter {
 public:
     NVEncFilterDelogo();
     virtual ~NVEncFilterDelogo();
-    virtual NVENCSTATUS init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual NVENCSTATUS run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
     virtual void close() override;
 
     int readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo> pDelogoParam);
@@ -198,23 +198,23 @@ protected:
     int selectLogo(const tstring& selectStr, const tstring& inputFilename);
     std::string logoNameList();
 
-    NVENCSTATUS delogoY(FrameInfo *pFrame, float fade);
-    NVENCSTATUS delogoUV(FrameInfo *pFrame, float fade);
-    NVENCSTATUS logoNR(FrameInfo *pFrame, int nr_value);
+    RGY_ERR delogoY(FrameInfo *pFrame, float fade);
+    RGY_ERR delogoUV(FrameInfo *pFrame, float fade);
+    RGY_ERR logoNR(FrameInfo *pFrame, int nr_value);
 
-    NVENCSTATUS createLogoMask();
-    NVENCSTATUS createLogoMask(int maskThreshold);
-    NVENCSTATUS createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int nr_value);
-    NVENCSTATUS calcAutoFadeNR(int& auto_nr, float& auto_fade, const FrameInfo *pFrame);
-    NVENCSTATUS calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const FrameInfo *pFrame);
-    NVENCSTATUS createAdjustedMask(const FrameInfo *frame_logo);
-    NVENCSTATUS runDelogoYMultiFade(const FrameInfo *frame_logo, const bool multi_src, const int nr_value, const float *fade, const int fade_n, cudaStream_t stream);
-    NVENCSTATUS runSmooth(const int smooth_n, const int nr_value, const int nr_area, cudaStream_t stream);
-    NVENCSTATUS prewittEvaluateRun(const bool store_pixel_result, const CUFrameBuf *target, const CUFrameBuf *mask, const int nr_value, const int eval_n, DelogoEvalStreams& evalst);
-    NVENCSTATUS autoFadeCoef2Run(const bool store_pixel_result, const FrameInfo *frame_logo, const int nr_value, const int nr_area, const float *ptrDevFadeDepth, int calc_n, DelogoEvalStreams& evalst);
-    NVENCSTATUS autoFadeCoef2Collect(std::vector<float>& eval, const int nr_value, cudaEvent_t eventCopyFin);
-    NVENCSTATUS autoFadeLS2(float& auto_fade, const int nr_value);
-    NVENCSTATUS logAutoFadeNR();
+    RGY_ERR createLogoMask();
+    RGY_ERR createLogoMask(int maskThreshold);
+    RGY_ERR createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBuf *ptr_mask, int nr_value);
+    RGY_ERR calcAutoFadeNR(int& auto_nr, float& auto_fade, const FrameInfo *pFrame);
+    RGY_ERR calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const FrameInfo *pFrame);
+    RGY_ERR createAdjustedMask(const FrameInfo *frame_logo);
+    RGY_ERR runDelogoYMultiFade(const FrameInfo *frame_logo, const bool multi_src, const int nr_value, const float *fade, const int fade_n, cudaStream_t stream);
+    RGY_ERR runSmooth(const int smooth_n, const int nr_value, const int nr_area, cudaStream_t stream);
+    RGY_ERR prewittEvaluateRun(const bool store_pixel_result, const CUFrameBuf *target, const CUFrameBuf *mask, const int nr_value, const int eval_n, DelogoEvalStreams& evalst);
+    RGY_ERR autoFadeCoef2Run(const bool store_pixel_result, const FrameInfo *frame_logo, const int nr_value, const int nr_area, const float *ptrDevFadeDepth, int calc_n, DelogoEvalStreams& evalst);
+    RGY_ERR autoFadeCoef2Collect(std::vector<float>& eval, const int nr_value, cudaEvent_t eventCopyFin);
+    RGY_ERR autoFadeLS2(float& auto_fade, const int nr_value);
+    RGY_ERR logAutoFadeNR();
 
     tstring m_LogoFilePath;
     int m_nLogoIdx;

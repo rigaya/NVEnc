@@ -59,11 +59,11 @@ static const CX_DESC list_caption2ass_hlc[] ={
     { _T("invalid"), HLC_INVALID },
     { _T("kigou"),   HLC_kigou },
     { _T("box"),     HLC_box },
-    { _T("drwa"),    HLC_draw },
+    { _T("draw"),    HLC_draw },
     { NULL, 0 }
 };
 
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))
 
 #include "Caption.h"
 
@@ -71,7 +71,7 @@ static const CX_DESC list_caption2ass_hlc[] ={
     private: \
         x pf ## x; \
     public: \
-        const x f_ ## x() { return pf ## x; };
+        const x f_ ## x() { return pf ## x; }
 
 class CaptionDLL {
 public:
@@ -240,7 +240,7 @@ public:
     Caption2Ass();
     virtual ~Caption2Ass();
     RGY_ERR init(std::shared_ptr<RGYLog> pLog, C2AFormat format);
-    RGY_ERR proc(const uint8_t *data, const int64_t data_size, std::vector<AVPacket>& subList);
+    RGY_ERR proc(const uint8_t *data, const size_t data_size, std::vector<AVPacket>& subList);
     void close();
     bool enabled() const { return !!m_dll; };
     void setVidFirstKeyPts(int64_t pts) {
@@ -253,7 +253,7 @@ public:
     C2AFormat format() const { return m_format; }
 
     //入力データがtsかどうかの判定
-    bool isTS(const uint8_t *data, const int64_t data_size) const;
+    bool isTS(const uint8_t *data, const size_t data_size) const;
 
     //出力解像度の設定
     void setOutputResolution(int w, int h, int sar_x, int sar_y);
@@ -310,6 +310,6 @@ private:
     SrtOut m_srt;
 };
 
-#endif //#if ENABLE_AVSW_READER
+#endif //#if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))
 
 #endif //__RGY_CAPTION_H__

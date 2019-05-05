@@ -151,7 +151,6 @@ void HEVCHDRSei::to_nal(std::vector<uint8_t>& data) const {
             && *(it+1) == 0
             && (*(it+2) & (~(0x03))) == 0) {
             it = data.insert(it+2, 0x03);
-            it++;
         }
     }
 }

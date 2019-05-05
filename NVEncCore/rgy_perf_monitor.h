@@ -207,7 +207,7 @@ struct PerfQueueInfo {
 struct QSVGPUInfo {
     double dMFXLoad;
     double dEULoad;
-    double GPUFreq;
+    double dGPUFreq;
 };
 
 class CQSVConsumer : public IConsumer {
@@ -215,7 +215,7 @@ public:
     CQSVConsumer() : m_bInfoValid(false), m_QSVInfo(), m_MetricsUsed() {
         m_QSVInfo.dMFXLoad = 0.0;
         m_QSVInfo.dEULoad  = 0.0;
-        m_QSVInfo.GPUFreq = 0.0;
+        m_QSVInfo.dGPUFreq = 0.0;
     };
     virtual void OnMetricUpdated(uint32_t count, MetricHandle * metrics, const uint64_t * types, const void ** buffers, uint64_t * sizes) override;
 
@@ -253,6 +253,21 @@ struct NVMLMonitorInfo {
     uint32_t pcieLink;
     int pcieLoadTX;
     int pcieLoadRX;
+
+    NVMLMonitorInfo() :
+        dataValid(false),
+        GPULoad(0.0),
+        GPUFreq(0.0),
+        VEELoad(0.0),
+        VEDLoad(0.0),
+        VEFreq(0.0),
+        memFree(0),
+        memMax(0),
+        pcieGen(0),
+        pcieLink(0),
+        pcieLoadTX(0),
+        pcieLoadRX(0) {
+    };
 };
 
 #if ENABLE_NVML
@@ -361,7 +376,7 @@ public:
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
     bool GetNVMLInfo(NVMLMonitorInfo *info) {
-        memcpy(info, &m_nvmlInfo, sizeof(m_nvmlInfo));
+        *info = m_nvmlInfo;
         return m_nvmlInfo.dataValid;
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK

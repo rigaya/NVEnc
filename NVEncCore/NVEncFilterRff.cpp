@@ -46,13 +46,13 @@ NVEncFilterRff::~NVEncFilterRff() {
     close();
 }
 
-NVENCSTATUS NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+RGY_ERR NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+    RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
     auto pRffParam = std::dynamic_pointer_cast<NVEncFilterParamRff>(pParam);
     if (!pRffParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     pRffParam->frameOut.pitch = pRffParam->frameIn.pitch;
@@ -62,7 +62,7 @@ NVENCSTATUS NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         auto cudaerr = m_fieldBuf.alloc();
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_MEMORY_ALLOC;
         }
     }
 
@@ -74,9 +74,9 @@ NVENCSTATUS NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     return sts;
 }
 
-NVENCSTATUS NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     UNREFERENCED_PARAMETER(pOutputFrameNum);
-    NVENCSTATUS sts = NV_ENC_SUCCESS;
+    RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;
     }
@@ -84,7 +84,7 @@ NVENCSTATUS NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo *
     auto pRffParam = std::dynamic_pointer_cast<NVEncFilterParamRff>(m_pParam);
     if (!pRffParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return NV_ENC_ERR_INVALID_PARAM;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     //出力先のフレーム
@@ -111,7 +111,7 @@ NVENCSTATUS NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             frameInfoEx.width_byte, frameInfoEx.height_total >> 1, cudaMemcpyDeviceToDevice, cudaStreamDefault);
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to field buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_CUDA;
         }
     }
     if (m_nFieldBufUsed >= 0) {
@@ -121,7 +121,7 @@ NVENCSTATUS NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo *
             frameInfoEx.width_byte, frameInfoEx.height_total >> 1, cudaMemcpyDeviceToDevice, cudaStreamDefault);
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to field buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return NV_ENC_ERR_OUT_OF_MEMORY;
+            return RGY_ERR_CUDA;
         }
     }
     m_nFieldBufUsed = bufDst;
