@@ -160,7 +160,7 @@ __global__ void kernel_yadif(
                 temporal<TypePixel>(tex0, tex01, tex1, tex12, tex2, valSpatial, gIdXf, gIdYf),
                 0, ((1<<bit_depth)-1));
         }
-        *(TypePixel *)(ptrDst + gIdY * dstPitch + gIdX * sizeof(TypePixel)) = ret;
+        *(TypePixel *)((uint8_t *)ptrDst + gIdY * dstPitch + gIdX * sizeof(TypePixel)) = ret;
     }
 }
 
