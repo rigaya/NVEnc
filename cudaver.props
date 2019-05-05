@@ -51,14 +51,14 @@
   </ImportGroup>
   <ItemDefinitionGroup Condition="$(CUDA_MAJOR_VER) &gt;= 10 AND '$(Platform)'=='x64'">
     <Link>
-      <AdditionalDependencies>nppc.lib;nppif.lib;nppig.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>nppc.lib;nppif.lib;nppig.lib;nvrtc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <!-- <AdditionalIncludeDirectories>;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories> -->
       <DelayLoadDLLs>nppif64_$(CUDA_MAJOR_VER).dll;nppig64_$(CUDA_MAJOR_VER).dll;$(NVRTC_DLL_NAME);%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="$(CUDA_MAJOR_VER) &lt; 10 AND '$(Platform)'=='x64'">
     <Link>
-      <AdditionalDependencies>nppi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>nppi.lib;nvrtc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <!-- <AdditionalIncludeDirectories>;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories> -->
       <DelayLoadDLLs>nppi64_$(CUDA_MAJOR_VER)$(CUDA_MINOR_VER).dll;$(NVRTC_DLL_NAME);%(DelayLoadDLLs)</DelayLoadDLLs>
     </Link>

@@ -26,6 +26,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <map>
 #include <array>
 #include "convert_csp.h"

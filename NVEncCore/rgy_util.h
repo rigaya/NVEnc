@@ -457,32 +457,22 @@ static inline std::string touppercase(const std::string &str) {
     std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), toupper);
     return str_copy;
 }
-static inline tstring tolowercase(const tstring &str) {
-#if UNICODE
+#if defined(_WIN32) || defined(_WIN64)
+static inline std::wstring tolowercase(const std::wstring &str) {
     auto temp = wcsdup(str.data());
     _wcslwr(temp);
-    tstring str_lo = temp;
+    std::wstring str_lo = temp;
     free(temp);
     return str_lo;
-#else
-    tstring str_copy = str;
-    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), tolower);
-    return str_copy;
-#endif
 }
-static inline tstring touppercase(const tstring &str) {
-#if UNICODE
+static inline std::wstring touppercase(const std::wstring &str) {
     auto temp = wcsdup(str.data());
     _wcsupr(temp);
-    tstring str_lo = temp;
+    std::wstring str_lo = temp;
     free(temp);
     return str_lo;
-#else
-    tstring str_copy = str;
-    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), toupper);
-    return str_copy;
-#endif
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 #pragma warning (pop)
 
 unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
@@ -503,7 +493,7 @@ std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename)
 std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const WCHAR *dir);
 std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
-#endif
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
 std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);

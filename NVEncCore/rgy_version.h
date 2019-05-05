@@ -29,9 +29,9 @@
 #ifndef __RGY_CONFIG_H__
 #define __RGY_CONFIG_H__
 
-#define VER_FILEVERSION              0,4,36,0
-#define VER_STR_FILEVERSION          "4.36"
-#define VER_STR_FILEVERSION_TCHAR _T("4.36")
+#define VER_FILEVERSION              0,4,37,0
+#define VER_STR_FILEVERSION          "4.37"
+#define VER_STR_FILEVERSION_TCHAR _T("4.37")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -62,8 +62,10 @@ const char *get_encoder_version();
 
 #ifdef _M_IX86
 #define ENABLE_NVML 0
+#define ENABLE_NVRTC 0
 #else
 #define ENABLE_NVML 1
+#define ENABLE_NVRTC 1
 #endif
 
 #define GPU_VENDOR "NVIDIA"

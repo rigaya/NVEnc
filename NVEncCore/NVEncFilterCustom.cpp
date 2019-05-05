@@ -40,7 +40,11 @@
 
 const std::string NVEncFilterCustom::KERNEL_NAME = "kernel_filter";
 
-NVEncFilterCustom::NVEncFilterCustom() : m_kernel_cache(), m_program() {
+NVEncFilterCustom::NVEncFilterCustom()
+#if ENABLE_NVRTC
+    : m_kernel_cache(), m_program()
+#endif //#if ENABLE_NVRTC
+{
     m_sFilterName = _T("custom");
 }
 
@@ -108,10 +112,7 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-#if _M_IX86
-    AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) is not supported on x86 exec file.\n"), prm->custom.filter_name.c_str());
-    return RGY_ERR_UNSUPPORTED;
-#endif
+#if ENABLE_NVRTC
     if (!check_if_nvrtc_dll_available()) {
         AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) requires \"%s\", not available on your system.\n"), prm->custom.filter_name.c_str(), NVRTC_DLL_NAME_TSTR);
         return RGY_ERR_UNSUPPORTED;
@@ -173,9 +174,14 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 
     m_pParam = pParam;
     return sts;
+#else
+    AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) is not supported on this build.\n"), prm->custom.filter_name.c_str());
+    return RGY_ERR_UNSUPPORTED;
+#endif
 }
 
 RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputPlane, const FrameInfo *pInpuPlane, RGY_PLANE plane, cudaStream_t stream) {
+#if ENABLE_NVRTC
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_pParam);
     const dim3 blockSize(prm->custom.threadPerBlockX, prm->custom.threadPerBlockY);
     const dim3 gridSize(
@@ -209,6 +215,9 @@ RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputPlane, const FrameInf
         return RGY_ERR_CUDA;
     }
     return RGY_ERR_NONE;
+#else
+    return RGY_ERR_UNSUPPORTED;
+#endif
 }
 
 RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
@@ -232,6 +241,7 @@ RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputFrame, const FrameInf
 }
 
 RGY_ERR NVEncFilterCustom::run_planes(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+#if ENABLE_NVRTC
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_pParam);
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
@@ -274,6 +284,9 @@ RGY_ERR NVEncFilterCustom::run_planes(FrameInfo *pOutputFrame, const FrameInfo *
         return RGY_ERR_CUDA;
     }
     return RGY_ERR_NONE;
+#else
+    return RGY_ERR_UNSUPPORTED;
+#endif
 }
 
 RGY_ERR NVEncFilterCustom::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

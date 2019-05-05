@@ -31,6 +31,7 @@
 #include <array>
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
+#if ENABLE_NVRTC
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #pragma warning (disable: 4117)
@@ -47,6 +48,7 @@
 #define DISABLE_DLFCN 1
 #include "jitify.hpp"
 #pragma warning (pop)
+#endif //#if ENABLE_NVRTC
 
 
 class NVEncFilterParamCustom : public NVEncFilterParam {
@@ -73,6 +75,8 @@ protected:
     virtual RGY_ERR run_per_plane(FrameInfo *ppOutputFrames, const FrameInfo *pInputFrame, cudaStream_t stream);
     virtual RGY_ERR run_planes(FrameInfo *ppOutputFrames, const FrameInfo *pInputFrame, cudaStream_t stream);
 
+#if ENABLE_NVRTC
     jitify::JitCache m_kernel_cache;
     unique_ptr<jitify::Program> m_program;
+#endif //#if ENABLE_NVRTC
 };

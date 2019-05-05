@@ -158,12 +158,12 @@ int cuFilterChain::init() {
         return 1;
     }
 
-    m_convert_yc48_to_yuv444_16 = get_convert_csp_func(RGY_CSP_YC48, RGY_CSP_YUV444_16, false);
+    m_convert_yc48_to_yuv444_16 = get_convert_csp_func(RGY_CSP_YC48, RGY_CSP_YUV444_16, false, 0xffffffff);
     if (m_convert_yc48_to_yuv444_16 == nullptr) {
         PrintMes(RGY_LOG_ERROR, _T("unsupported color format conversion, %s -> %s\n"), RGY_CSP_NAMES[RGY_CSP_YC48], RGY_CSP_NAMES[RGY_CSP_YUV444_16]);
         return 1;
     }
-    m_convert_yuv444_16_to_yc48 = get_convert_csp_func(RGY_CSP_YUV444_16, RGY_CSP_YC48, false);
+    m_convert_yuv444_16_to_yc48 = get_convert_csp_func(RGY_CSP_YUV444_16, RGY_CSP_YC48, false, 0xffffffff);
     if (m_convert_yuv444_16_to_yc48 == nullptr) {
         PrintMes(RGY_LOG_ERROR, _T("unsupported color format conversion, %s -> %s\n"), RGY_CSP_NAMES[RGY_CSP_YUV444_16], RGY_CSP_NAMES[RGY_CSP_YC48]);
         return 1;
@@ -574,7 +574,7 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
     m_convert_yc48_to_yuv444_16->func[0](
         ptr_array, (const void **)&pInputFrame->ptr,
         pInputFrame->width, pInputFrame->pitch, pInputFrame->pitch,
-        m_host[0].frame.pitch, pInputFrame->height, m_host[0].frame.height, crop);
+        m_host[0].frame.pitch, pInputFrame->height, m_host[0].frame.height, 0, 1, crop);
 #if 1
     //フィルタチェーン実行
     auto frameInfo = m_host[0].frame;
@@ -616,7 +616,7 @@ int cuFilterChain::proc(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, c
     m_convert_yuv444_16_to_yc48->func[0](
         (void **)&pOutputFrame->ptr, (const void **)ptr_array,
         m_host[1].frame.width, m_host[1].frame.pitch, m_host[1].frame.pitch,
-        pOutputFrame->pitch, m_host[1].frame.height, pOutputFrame->height, crop);
+        pOutputFrame->pitch, m_host[1].frame.height, pOutputFrame->height, 0, 1, crop);
 
     return 0;
 }

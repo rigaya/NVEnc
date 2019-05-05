@@ -691,7 +691,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
@@ -797,7 +797,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\inc;..\NVEncSDK;..\NVEncSDK\Common;..\NVEncSDK\Common\inc;..\NVEncSDK\Core;..\NVEncSDK\Core\include;..\ffmpeg_lgpl\include;..\ttmath;..\ChapterRW;..\jitify;$(WindowsSDK_IncludePath);$(CUDA_PATH)\include;$(DXSDK_DIR)\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4505;4996;4512</DisableSpecificWarnings>
