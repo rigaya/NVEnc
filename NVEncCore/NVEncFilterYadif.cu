@@ -179,8 +179,8 @@ cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo *pFrame) {
 
     cudaTextureDesc texDescSrc;
     memset(&texDescSrc, 0, sizeof(texDescSrc));
-    texDescSrc.addressMode[0]   = cudaAddressModeClamp;
-    texDescSrc.addressMode[1]   = cudaAddressModeClamp;
+    texDescSrc.addressMode[0]   = cudaAddressModeWrap;
+    texDescSrc.addressMode[1]   = cudaAddressModeWrap;
     texDescSrc.filterMode       = cudaFilterModePoint;
     texDescSrc.readMode         = cudaReadModeElementType;
     texDescSrc.normalizedCoords = 0;
