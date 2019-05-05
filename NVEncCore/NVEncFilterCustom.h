@@ -38,6 +38,7 @@
 #pragma warning (disable: 4456)
 #pragma warning (disable: 4267)
 #pragma warning (disable: 4706)
+#pragma warning (disable: 4091)
 #define JITIFY_PRINT_INSTANTIATION 0
 #define JITIFY_PRINT_SOURCE 1
 #define JITIFY_PRINT_LOG 1

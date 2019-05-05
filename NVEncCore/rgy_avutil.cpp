@@ -405,9 +405,7 @@ vector<std::string> getAVProtocolList(int bOutput) {
     void *opaque = nullptr;
     const char *name = nullptr;
     while (nullptr != (name = avio_enum_protocols(&opaque, bOutput))) {
-        std::string data = name;
-        std::transform(data.begin(), data.end(), data.begin(), ::tolower);
-        protocols.push_back(data);
+        protocols.push_back(tolowercase(name));
     }
     return protocols;
 }

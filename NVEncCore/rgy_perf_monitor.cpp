@@ -358,7 +358,7 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
                 break;
             }
         }
-        std::transform(m_NVSMIOut.cbegin(), m_NVSMIOut.cend(), m_NVSMIOut.begin(), tolower);
+        m_NVSMIOut = tolowercase(m_NVSMIOut);
     }
     if (m_NVSMIOut.length() == 0) {
         return 1;

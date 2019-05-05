@@ -445,6 +445,46 @@ public:
 
 typedef std::basic_stringstream<TCHAR> TStringStream;
 
+#pragma warning (push)
+#pragma warning (disable: 4244)
+static inline std::string tolowercase(const std::string& str) {
+    std::string str_copy = str;
+    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), tolower);
+    return str_copy;
+}
+static inline std::string touppercase(const std::string &str) {
+    std::string str_copy = str;
+    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), toupper);
+    return str_copy;
+}
+static inline tstring tolowercase(const tstring &str) {
+#if UNICODE
+    auto temp = wcsdup(str.data());
+    _wcslwr(temp);
+    tstring str_lo = temp;
+    free(temp);
+    return str_lo;
+#else
+    tstring str_copy = str;
+    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), tolower);
+    return str_copy;
+#endif
+}
+static inline tstring touppercase(const tstring &str) {
+#if UNICODE
+    auto temp = wcsdup(str.data());
+    _wcsupr(temp);
+    tstring str_lo = temp;
+    free(temp);
+    return str_lo;
+#else
+    tstring str_copy = str;
+    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), toupper);
+    return str_copy;
+#endif
+}
+#pragma warning (pop)
+
 unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
 std::string wstring_to_string(const wchar_t *wstr, uint32_t codepage = CP_THREAD_ACP);
 std::string wstring_to_string(const std::wstring& wstr, uint32_t codepage = CP_THREAD_ACP);

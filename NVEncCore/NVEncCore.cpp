@@ -255,7 +255,6 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
         return;
 
     for (int currentDevice = 0; currentDevice < deviceCount; currentDevice++) {
-        char gpu_name[1024] = { 0 };
         char pci_bus_name[1024] = { 0 };
         CUdevice cuDevice = 0;
         cudaDeviceProp devProp;

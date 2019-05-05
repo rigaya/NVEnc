@@ -1250,9 +1250,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
-                auto param_arg = param.substr(0, pos);
+                auto param_arg = tolowercase(param.substr(0, pos));
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.unsharp.enable = true;
