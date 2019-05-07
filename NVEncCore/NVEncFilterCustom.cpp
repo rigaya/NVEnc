@@ -38,26 +38,6 @@
 #include "device_launch_parameters.h"
 #pragma warning (pop)
 
-#if __CUDACC_VER_MAJOR__ == 8
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_80.dll");
-const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_80.dll");
-#elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 0
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_90.dll");
-const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_90.dll");
-#elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 1
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_91.dll");
-const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_91.dll");
-#elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 2
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_92.dll");
-const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_92.dll");
-#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 0
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_100_0.dll");
-const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_100.dll");
-#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 1
-const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_101_0.dll");
-const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_101.dll");
-#endif
-
 const std::string NVEncFilterCustom::KERNEL_NAME = "kernel_filter";
 
 NVEncFilterCustom::NVEncFilterCustom()
