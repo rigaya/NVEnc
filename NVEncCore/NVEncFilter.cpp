@@ -247,3 +247,10 @@ bool check_if_nvrtc_dll_available() {
     return true;
 }
 
+bool check_if_nvrtc_builtin_dll_available() {
+    HMODULE hModule = LoadLibrary(NVRTC_BUILTIN_DLL_NAME_TSTR);
+    if (hModule == NULL)
+        return false;
+    FreeLibrary(hModule);
+    return true;
+}

@@ -52,9 +52,11 @@
 
 extern const TCHAR *NPPI_DLL_NAME_TSTR;
 extern const TCHAR *NVRTC_DLL_NAME_TSTR;
+extern const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR;
 
 bool check_if_nppi_dll_available();
 bool check_if_nvrtc_dll_available();
+bool check_if_nvrtc_builtin_dll_available();
 
 using std::vector;
 
