@@ -69,7 +69,7 @@ protected:
 
     template<typename TypeWeight>
     void setWeight1(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
-    virtual std::vector<float> readWeights(const tstring& weightFile, HMODULE hModule);
+    virtual shared_ptr<const float> readWeights(const tstring& weightFile, HMODULE hModule);
 
     CUMemBuf m_weight0;
     std::array<CUMemBuf, 2> m_weight1;

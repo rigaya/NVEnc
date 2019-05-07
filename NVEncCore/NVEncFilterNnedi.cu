@@ -1494,8 +1494,8 @@ RGY_ERR NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamNnedi
     return RGY_ERR_NONE;
 }
 
-std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMODULE hModule) {
-    std::vector<float> weights;
+shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMODULE hModule) {
+    shared_ptr<const float> weights;
     const uint32_t expectedFileSize = 13574928u;
     uint64_t weightFileSize = 0;
     if (weightFile.length() == 0) {
@@ -1518,8 +1518,7 @@ std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMOD
             AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %u [expected: %u].\n"),
                 weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
         } else {
-            weights.resize(weightFileSize);
-            memcpy(weights.data(), pDataPtr, weightFileSize);
+            weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { return; /*何もしない*/ });
         }
     } else {
         if (!PathFileExists(weightFile.c_str())) {
@@ -1530,22 +1529,30 @@ std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMOD
             AddMessage(RGY_LOG_ERROR, _T("Weights file \"%s\" has unexpected file size %u [expected: %u].\n"),
                 weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
         } else {
-            weights.resize(weightFileSize);
             std::ifstream fin(weightFile, std::ios::in | std::ios::binary);
             if (!fin.good()) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to open weights file \"%s\".\n"), weightFile.c_str());
-            } else if (fin.read((char *)weights.data(), weightFileSize).gcount() != (int64_t)weightFileSize) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to read weights file \"%s\".\n"), weightFile.c_str());
+            } else {
+                float *buffer = new float[weightFileSize / sizeof(float)];
+                if (!buffer) {
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to allocate buffer memory for \"%s\".\n"), weightFile.c_str());
+                } else {
+                    weights = shared_ptr<float>(buffer, std::default_delete<float[]>());
+                    if (fin.read((char *)weights.get(), weightFileSize).gcount() != (int64_t)weightFileSize) {
+                        AddMessage(RGY_LOG_ERROR, _T("Failed to read weights file \"%s\".\n"), weightFile.c_str());
+                        weights.reset();
+                    }
+                }
+                fin.close();
             }
-            fin.close();
         }
     }
     return std::move(weights);
 }
 
 RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam) {
-    std::vector<float> weights = readWeights(pNnediParam->nnedi.weightfile, pNnediParam->hModule);
-    if (weights.size() == 0) {
+    auto weights = readWeights(pNnediParam->nnedi.weightfile, pNnediParam->hModule);
+    if (!weights) {
         return RGY_ERR_INVALID_PARAM;
     }
     if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_AUTO) {
@@ -1576,17 +1583,17 @@ RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi
     std::vector<char> weight0f;
     weight0f.resize((((pNnediParam->nnedi.pre_screen & VPP_NNEDI_PRE_SCREEN_MODE) >= VPP_NNEDI_PRE_SCREEN_NEW) ? weight0sizenew : weight0size) * sizeofweight);
     if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) {
-        setWeight0<float>((float *)weight0f.data(), weights.data(), pNnediParam);
+        setWeight0<float>((float *)weight0f.data(), weights.get(), pNnediParam);
     } else {
 #if ENABLE_CUDA_FP16_HOST
-        setWeight0<__half>((__half *)weight0f.data(), weights.data(), pNnediParam);
+        setWeight0<__half>((__half *)weight0f.data(), weights.get(), pNnediParam);
 #endif //#if ENABLE_CUDA_FP16_HOST
     }
 
     std::array<std::vector<char>, 2> weight1;
     for (int i = 0; i < 2; i++) {
         weight1[i].resize(weight1size * sizeofweight, 0);
-        const float *ptrW = weights.data() + weight0size + weight0sizenew * 3 + weight1size_tsize * pNnediParam->nnedi.errortype + weight1size_offset + i * weight1size;
+        const float *ptrW = weights.get() + weight0size + weight0sizenew * 3 + weight1size_tsize * pNnediParam->nnedi.errortype + weight1size_offset + i * weight1size;
         if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) {
             setWeight1<float>((float *)weight1[i].data(), ptrW, pNnediParam);
         } else {
