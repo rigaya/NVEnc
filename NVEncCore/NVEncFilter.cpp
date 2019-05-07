@@ -239,6 +239,7 @@ bool check_if_nppi_dll_available() {
     return true;
 }
 
+#if ENABLE_NVRTC
 bool check_if_nvrtc_dll_available() {
     HMODULE hModule = LoadLibrary(NVRTC_DLL_NAME_TSTR);
     if (hModule == NULL)
@@ -254,3 +255,4 @@ bool check_if_nvrtc_builtin_dll_available() {
     FreeLibrary(hModule);
     return true;
 }
+#endif

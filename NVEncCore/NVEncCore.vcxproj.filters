@@ -332,9 +332,6 @@
     <ClInclude Include="NVEncFilterEdgelevel.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="NVEncFilterTweak.h">
-      <Filter>ソース ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="rgy_bitstream.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -363,6 +360,9 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="NVEncFilterCustom.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="NVEncFilterTweak.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>

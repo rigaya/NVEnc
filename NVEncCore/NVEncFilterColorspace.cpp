@@ -1103,6 +1103,7 @@ RGY_ERR NVEncFilterColorspace::check_param(shared_ptr<NVEncFilterParamColorspace
 }
 
 std::string NVEncFilterColorspace::genKernelCode() {
+#if ENABLE_NVRTC
     std::vector<char> colorspace_func_h;
     uint64_t datasize = 0;
     HMODULE hModule = GetModuleHandle(NULL);
@@ -1131,9 +1132,13 @@ std::string NVEncFilterColorspace::genKernelCode() {
         kernel += kernel_base2;
     }
     return kernel;
+#else
+    return "";
+#endif
 }
 
 RGY_ERR NVEncFilterColorspace::setupCustomFilter(const FrameInfo& frameInfo, shared_ptr<NVEncFilterParamColorspace> prm) {
+#if ENABLE_NVRTC
     VppCustom customPrms;
     customPrms.enable = true;
     customPrms.compile_options = "--use_fast_math -DTYPE4=" + std::string((RGY_CSP_BIT_DEPTH[frameInfo.csp] > 8) ? "ushort4" : "uchar4");
@@ -1159,6 +1164,9 @@ RGY_ERR NVEncFilterColorspace::setupCustomFilter(const FrameInfo& frameInfo, sha
     }
     custom = std::move(filterCustom);
     return RGY_ERR_NONE;
+#else
+    return RGY_ERR_UNSUPPORTED;
+#endif
 }
 
 RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -1169,10 +1177,10 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-#if _M_IX86
+#if !ENABLE_NVRTC
     AddMessage(RGY_LOG_ERROR, _T("--vpp-colorspace is not supported on x86 exec file.\n"));
     return RGY_ERR_UNSUPPORTED;
-#endif
+#else
     if (!check_if_nvrtc_dll_available()) {
         AddMessage(RGY_LOG_ERROR, _T("--vpp-colorspace requires \"%s\", not available on your system.\n"), NVRTC_DLL_NAME_TSTR);
         return RGY_ERR_UNSUPPORTED;
@@ -1255,9 +1263,11 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
     m_sFilterInfo += opCtrl->printInfoAll();
     m_pParam = pParam;
     return sts;
+#endif
 }
 
 RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+#if ENABLE_NVRTC
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {
@@ -1293,6 +1303,9 @@ RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInf
         return sts_filter;
     }
     return sts;
+#else
+    return RGY_ERR_UNSUPPORTED;
+#endif
 }
 
 void NVEncFilterColorspace::close() {
