@@ -546,7 +546,14 @@ Bluray输出。（默认：关）
 由于输出格式可以通过输出文件的扩展名自动确定，通常情况下无需指定，但你可以使用该选项强行指定输出格式。
 
 可用的格式可以通过[--check-formats](#--check-formats)查询。
-Available formats can be checked with [--check-formats](#--check-formats). 要将H.264 / HEVC输出为基本流，请指定“raw”。
+
+要将H.264 / HEVC输出为基本流，请指定“raw”。
+
+### --video-tag <string>
+指定视频标签。
+```
+ -o test.mp4 -c hevc --video-tag hvc1
+```
 
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 
@@ -907,6 +914,131 @@ Activate Auto Field Shift (AFS) deinterlacer.
 --vpp-afs preset=anime,method_switch=92,thre_shift=448,24fps=true
 ```
 
+### --vpp-nnedi [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+使用 nnedi 进行反交错。丢弃其中一个场，再使用神经网络进行轮廓修正重新构建另一个场来去除交错，十分慢。
+
+**参数**
+- field  
+  去除交错的方法。
+  - auto (默认)  
+    自动选择保持不变的场
+  - top  
+    保持上场不变
+  - bottom  
+    保持下场不变
+
+- nns  (默认: 32)  
+  神经网络的神经元数量。
+  - 16, 32, 64, 128, 256
+
+- nsize  (默认: 32x4)  
+  神经网络中参照的近邻区域大小。
+  - 8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4
+
+- quality (默认: fast)  
+  设定品质。
+
+  - fast
+  - slow  
+    slow即将fast的神经网络的输出，与另一神经网络的输出进行混合来提升输出质量（当然，会变得更慢）。
+
+- prescreen (默认: new_block)  
+  进行预处理来决定是进行简单的补间还是使用神经网络进行修正。一般来说，只有边缘附近会被作为神经网络修正的对象，降低了使用神经网络的频率使得处理速度上升。
+
+  - none  
+    不进行预处理，将所有的像素使用神经网络进行重新构建。
+
+  - original
+  - new  
+    进行预处理，在必要的地方使用神经网络进行修正。original和new在处理方式上不同，new要更快一些。
+
+  - original_block
+  - new_block  
+    original/new的 GPU 优化版。不使用像素而使用区域作为判定单位。
+
+- errortype (默认: abs)  
+  选择神经网络的权重参数。
+  - abs  
+    使用训练过的权重参数让绝对误差最小。
+  - square  
+    使用训练过的权重参数让二乘误差最小。
+
+- prec (默认: auto)  
+  选择运算精度。
+  - auto  
+    当fp16可用并且使用能获得更快的速度的时候，将自动选择fp16。
+
+    当前 Turing 架构的 GPU 将会自动使用 fp16。Pascal 架构的 GPU 虽然可以使用 fp16 但是太慢了所以不会使用。
+
+- weightfile (默认: 使用内置文件)  
+  指定权重参数文件。不指定的时候将会使用内置的数据。
+
+```
+示例：--vpp-nnedi field=auto,nns=64,nsize=32x6,qual=slow,prescreen=none,prec=fp32
+```
+
+### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
+使用 yadif 进行反交错。
+
+**参数**
+- mode
+
+  - auto (default)  
+    自动选择保持不变的场
+  - tff  
+    保持上场不变
+  - bff  
+    保持下场不变
+  - bob   
+    处理成60fps（场序自动选择）
+  - bob_tff   
+    处理成60fps（上场优先）
+  - bob_bff  
+    处理成60fps（下场优先）
+
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+进行色彩空间变换。
+
+**参数**
+- matrix=&lt;from&gt;:&lt;to&gt;  
+
+```
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+```
+
+- colorprim=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+```
+
+- transfer=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, arib-srd-b67
+```
+
+- range=&lt;from&gt;:&lt;to&gt;  
+```
+  limited, full
+```
+
+- hdr2sdr=&lt;bool&gt;  
+使用"Hable tone-mapping"将HDR10转换为SDR。 是从[hdr2sdr.py](https://gist.github.com/4re/34ccbb95732c1bef47c3d2975ac62395)移植的。
+
+- source_peak=&lt;float&gt;  (默认: 1000.0)  
+
+- ldr_nits=&lt;float&gt;  (默认: 100.0)  
+
+
+```
+例1: BT.709(fullrange) -> BT.601
+--vpp-colorspace matrix=smpte170m:bt709,range=full:limited
+例2: hdr2sdr
+--vpp-colorspace hdr2sdr=true,source_peak=1000.0,ldr_nits=100.0
+```
+
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 
 选取每隔特定数量的帧进行输出。
@@ -924,14 +1056,19 @@ Activate Auto Field Shift (AFS) deinterlacer.
 
 设置缩放算法。
 
-标记为"○"的算法需要[NPP library](https://developer.nvidia.com/npp)（nppi64_80.dll），仅在 x64 版本支持。使用这些算法，你需要另外下载 nppi64_80.dll 并把它和 NVEncC64.exe 放置在同一目录。
+标记为"○"的算法需要[NPP library](https://developer.nvidia.com/npp)（nppi64_10.dll），仅在 x64 版本支持。使用这些算法，你需要另外下载 nppi64_10.dll 并把它和 NVEncC64.exe 放置在同一目录。
 
 
-| 选项名 | 描述 | 是否需要 nppi64_80.dll |
+| 选项名 | 描述 | 是否需要 nppi64_10.dll |
 |:---|:---|:---:|
 | default  | 自动选择 | |
 | bilinear | 线性插值 | |
-| spline36 | 6x6样条曲线插值 | |
+| spline16 | 4x4 样条曲线插值 | |
+| spline36 | 6x6 样条曲线插值 | |
+| spline64 | 8x8 样条曲线插值 | |
+| lanczos2 | 4x4 lanczos插值 | |
+| lanczos3 | 6x6 lanczos插值 | |
+| lanczos4 | 8x8 lanczos插值 | |
 | nn            | 近邻法 | ○ |
 | npp_linear    | NPP 库提供的线性插值 | ○ |
 | cubic         | 4x4 立方插值 | ○ |
