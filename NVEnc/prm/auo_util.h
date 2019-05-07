@@ -63,18 +63,6 @@ static const BYTE UTF8_BOM[]     = { 0xEF, 0xBB, 0xBF };
 static const BYTE UTF16_LE_BOM[] = { 0xFF, 0xFE };
 static const BYTE UTF16_BE_BOM[] = { 0xFE, 0xFF };
 
-//SIMD
-enum {
-    AUO_SIMD_NONE  = 0x0000,
-    AUO_SIMD_SSE2  = 0x0001,
-    AUO_SIMD_SSE3  = 0x0002, //使用していない
-    AUO_SIMD_SSSE3 = 0x0004,
-    AUO_SIMD_SSE41 = 0x0008,
-    AUO_SIMD_SSE42 = 0x0010, //使用していない
-    AUO_SIMD_AVX   = 0x0020,
-    AUO_SIMD_AVX2  = 0x0040, //使用していない
-};
-
 //関数マクロ
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #define foreach(it,a) \

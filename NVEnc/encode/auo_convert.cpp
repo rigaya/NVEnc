@@ -46,16 +46,6 @@ typedef struct {
     func_convert_frame func;      //関数へのポインタ
 } COVERT_FUNC_INFO;
 
-//表でうっとおしいので省略する
-#define NONE  AUO_SIMD_NONE
-#define SSE2  AUO_SIMD_SSE2
-#define SSE3  AUO_SIMD_SSE3
-#define SSSE3 AUO_SIMD_SSSE3
-#define SSE41 AUO_SIMD_SSE41
-#define SSE42 AUO_SIMD_SSE42
-#define AVX   AUO_SIMD_AVX
-#define AVX2  AUO_SIMD_AVX2
-
 //なんの数字かわかりやすいようにこう定義する
 static const int BIT_8 =  8;
 static const int BIT10 = 10;
@@ -286,7 +276,7 @@ BOOL malloc_pixel_data(CONVERT_CF_DATA * const pixel_data, int width, int height
     const int to_yv12 = FALSE; // (output_csp == OUT_CSP_YV12);
     const DWORD pixel_size = (bit_depth > 8) ? sizeof(short) : sizeof(BYTE);
     const DWORD simd_check = get_availableSIMD();
-    const DWORD align_size = (simd_check & AUO_SIMD_SSE2) ? ((simd_check & AUO_SIMD_AVX2) ? (64<<to_yv12) : (32<<to_yv12)) : 1;
+    const DWORD align_size = (simd_check & SSE2) ? ((simd_check & AVX2) ? (64<<to_yv12) : (32<<to_yv12)) : 1;
 #define ALIGN_NEXT(i, align) (((i) + (align-1)) & (~(align-1))) //alignは2の累乗(1,2,4,8,16,32...)
     const DWORD frame_size = ALIGN_NEXT(width * height * pixel_size + (ALIGN_NEXT(width, align_size / pixel_size) - width) * 2 * pixel_size, align_size);
 #undef ALIGN_NEXT
