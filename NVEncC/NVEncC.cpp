@@ -534,6 +534,27 @@ static tstring help() {
         _T("          bob_bff           Generate one frame from each field assuming bff.\n"));
     str += strsprintf(_T("\n")
         _T("   --vpp-rff                    apply rff flag, with avhw reader only.\n"));
+#if ENABLE_NVRTC
+    str += strsprintf(_T("\n")
+        _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Converts colorspace of the video.\n")
+        _T("    params\n")
+        _T("      matrix=<from>:<to>\n")
+        _T("        bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR,\n")
+        _T("        bt2020nc, bt2020c\n")
+        _T("      colorprim=<from>:<to>\n")
+        _T("        bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020\n")
+        _T("      transfer=<from>:<to>\n")
+        _T("        bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,\n")
+        _T("        log100, log316, iec61966-2-4, iec61966-2-1,\n")
+        _T("        bt2020-10, bt2020-12, smpte2084, arib-srd-b67\n")
+        _T("      range=<from>:<to>\n")
+        _T("        limited, full\n")
+        _T("      hdr2sdr=<bool>\n")
+        _T("        Enables HDR10 to SDR with Hable tone-mapping, based on hdr2sdr.py.\n")
+        _T("      source_peak=<float>  (default: 1000.0)\n")
+        _T("      ldr_nits=<float>  (default: 100.0)\n"));
+#endif //#if ENABLE_NVRTC
     str += PrintListOptions(_T("--vpp-resize <string>"),     list_nppi_resize_help, 0);
     str += PrintListOptions(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
     str += strsprintf(_T("")
