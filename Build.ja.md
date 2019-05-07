@@ -5,8 +5,8 @@ by rigaya
 ## 0. 準備
 ビルドには、下記のものが必要です。
 
-- Visual Studio 2015
-- CUDA 10.1 (x64) / CUDA 8.0 (x86)
+- Visual Studio 2015 + CUDA 8.0 (x86)
+- Visual Studio 2015/2017/2019 + CUDA 10.1 (x64)
 - yasm
 - Avisynth+ SDK
 - VapourSynth SDK
