@@ -388,23 +388,94 @@ protected:
     const TransferFunc m_func;
 };
 
-class ColorspaceOpHDR2SDR : public ColorspaceOp {
+enum ColorspaceOpHDR2SDRMode {
+    HDR2SDR_MODE_UNKNOWN,
+    HDR2SDR_MODE_HABLE,
+    HDR2SDR_MODE_MOBIUS,
+    HDR2SDR_MODE_REINHARD
+};
+
+class ColorspaceOpHDR2SDRHable : public ColorspaceOp {
 public:
-    ColorspaceOpHDR2SDR() : m_source_peak(1000.0), m_ldr_nits(100.0), m_A(0.22), m_B(0.3), m_C(0.1), m_D(0.2), m_E(0.01), m_F(0.3) {};
-    ColorspaceOpHDR2SDR(double source_peak, double ldr_nits,
-        double A = 0.22, double B = 0.3, double C = 0.1, double D = 0.2, double E = 0.01, double F = 0.3) :
+    ColorspaceOpHDR2SDRHable() : m_mode(HDR2SDR_MODE_HABLE),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+        m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+        m_A(FILTER_DEFAULT_HDR2SDR_HABLE_A),
+        m_B(FILTER_DEFAULT_HDR2SDR_HABLE_B),
+        m_C(FILTER_DEFAULT_HDR2SDR_HABLE_C),
+        m_D(FILTER_DEFAULT_HDR2SDR_HABLE_D),
+        m_E(FILTER_DEFAULT_HDR2SDR_HABLE_E),
+        m_F(FILTER_DEFAULT_HDR2SDR_HABLE_F),
+        m_W(FILTER_DEFAULT_HDR2SDR_HABLE_W) {};
+    ColorspaceOpHDR2SDRHable(double source_peak, double ldr_nits,
+        double A, double B, double C, double D, double E, double F, double W) :
+        m_mode(HDR2SDR_MODE_HABLE),
         m_source_peak(source_peak), m_ldr_nits(ldr_nits),
-        m_A(A), m_B(B), m_C(C), m_D(D), m_E(E), m_F(F) {
+        m_A(A), m_B(B), m_C(C), m_D(D), m_E(E), m_F(F), m_W(W) {
         m_type = COLORSPACE_OP_TYPE_HDR2SDR;
     };
-    virtual ~ColorspaceOpHDR2SDR() {};
+    virtual ~ColorspaceOpHDR2SDRHable() {};
     virtual std::string print();
+    virtual std::string printInfo() override;
     virtual bool add(const ColorspaceOp *op) { UNREFERENCED_PARAMETER(op); return false; }
     double source_peak() const { return m_source_peak; }
     double ldr_nits() const { return m_ldr_nits; }
 protected:
+    ColorspaceOpHDR2SDRMode m_mode;
     double m_source_peak, m_ldr_nits;
-    double m_A, m_B, m_C, m_D, m_E, m_F;
+    double m_A, m_B, m_C, m_D, m_E, m_F, m_W;
+};
+
+class ColorspaceOpHDR2SDRMobius : public ColorspaceOp {
+public:
+    ColorspaceOpHDR2SDRMobius() : m_mode(HDR2SDR_MODE_MOBIUS),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+        m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+        m_transition(FILTER_DEFAULT_HDR2SDR_MOBIUS_TRANSITION),
+        m_peak(FILTER_DEFAULT_HDR2SDR_MOBIUS_PEAK) {};
+    ColorspaceOpHDR2SDRMobius(double source_peak, double ldr_nits,
+        double transition, double peak) :
+        m_mode(HDR2SDR_MODE_MOBIUS),
+        m_source_peak(source_peak), m_ldr_nits(ldr_nits),
+        m_transition(transition), m_peak(peak) {
+        m_type = COLORSPACE_OP_TYPE_HDR2SDR;
+    };
+    virtual ~ColorspaceOpHDR2SDRMobius() {};
+    virtual std::string print();
+    virtual std::string printInfo() override;
+    virtual bool add(const ColorspaceOp *op) { UNREFERENCED_PARAMETER(op); return false; }
+    double source_peak() const { return m_source_peak; }
+    double ldr_nits() const { return m_ldr_nits; }
+protected:
+    ColorspaceOpHDR2SDRMode m_mode;
+    double m_source_peak, m_ldr_nits;
+    double m_transition, m_peak;
+};
+
+class ColorspaceOpHDR2SDRReinhard : public ColorspaceOp {
+public:
+    ColorspaceOpHDR2SDRReinhard() : m_mode(HDR2SDR_MODE_REINHARD),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+        m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+        m_contrast(FILTER_DEFAULT_HDR2SDR_REINHARD_CONTRAST),
+        m_peak(FILTER_DEFAULT_HDR2SDR_REINHARD_PEAK) {};
+    ColorspaceOpHDR2SDRReinhard(double source_peak, double ldr_nits,
+        double contrast, double peak) :
+        m_mode(HDR2SDR_MODE_REINHARD),
+        m_source_peak(source_peak), m_ldr_nits(ldr_nits),
+        m_contrast(contrast), m_peak(peak) {
+        m_type = COLORSPACE_OP_TYPE_HDR2SDR;
+    };
+    virtual ~ColorspaceOpHDR2SDRReinhard() {};
+    virtual std::string print();
+    virtual std::string printInfo() override;
+    virtual bool add(const ColorspaceOp *op) { UNREFERENCED_PARAMETER(op); return false; }
+    double source_peak() const { return m_source_peak; }
+    double ldr_nits() const { return m_ldr_nits; }
+protected:
+    ColorspaceOpHDR2SDRMode m_mode;
+    double m_source_peak, m_ldr_nits;
+    double m_contrast, m_peak;
 };
 
 class ColorspaceOpRange : public ColorspaceOp {
@@ -574,9 +645,9 @@ std::string ColorspaceOpCL2YUV::print() {
         m_nb, m_pb, m_nr, m_pr);
 }
 
-std::string ColorspaceOpHDR2SDR::print() {
+std::string ColorspaceOpHDR2SDRHable::print() {
     return strsprintf(R"(
-    { //hdr2sdr
+    { //hdr2sdr hable
         const float source_peak = %.16ef;
         const float ldr_nits = %.16ef;
         const float A = %.16ef;
@@ -585,11 +656,63 @@ std::string ColorspaceOpHDR2SDR::print() {
         const float D = %.16ef;
         const float E = %.16ef;
         const float F = %.16ef;
-        x.x = hdr2sdr( x.x, source_peak, ldr_nits, A, B, C, D, E, F );
-        x.y = hdr2sdr( x.y, source_peak, ldr_nits, A, B, C, D, E, F );
-        x.z = hdr2sdr( x.z, source_peak, ldr_nits, A, B, C, D, E, F );
+        const float W = %.16ef;
+        x.x = hdr2sdr_hable( x.x, source_peak, ldr_nits, A, B, C, D, E, F, W );
+        x.y = hdr2sdr_hable( x.y, source_peak, ldr_nits, A, B, C, D, E, F, W );
+        x.z = hdr2sdr_hable( x.z, source_peak, ldr_nits, A, B, C, D, E, F, W );
     })",
-        m_source_peak, m_ldr_nits, m_A, m_B, m_C, m_D, m_E, m_F);
+        m_source_peak, m_ldr_nits, m_A, m_B, m_C, m_D, m_E, m_F, m_W);
+}
+
+std::string ColorspaceOpHDR2SDRMobius::print() {
+    return strsprintf(R"(
+    { //hdr2sdr mobius
+        const float source_peak = %.16ef;
+        const float ldr_nits = %.16ef;
+        const float transition = %.16ef;
+        const float peak = %.16ef;
+        x.x = hdr2sdr_mobius( x.x, source_peak, ldr_nits, transition, peak );
+        x.y = hdr2sdr_mobius( x.y, source_peak, ldr_nits, transition, peak );
+        x.z = hdr2sdr_mobius( x.z, source_peak, ldr_nits, transition, peak );
+    })",
+        m_source_peak, m_ldr_nits, m_transition, m_peak);
+}
+
+std::string ColorspaceOpHDR2SDRReinhard::print() {
+    return strsprintf(R"(
+    { //hdr2sdr mobius
+        const float source_peak = %.16ef;
+        const float ldr_nits = %.16ef;
+        const float contrast = %.16ef;
+        const float peak = %.16ef;
+        const float offset = (1.0f - contrast) / contrast;
+        x.x = hdr2sdr_reinhard( x.x, source_peak, ldr_nits, offset, peak );
+        x.y = hdr2sdr_reinhard( x.y, source_peak, ldr_nits, offset, peak );
+        x.z = hdr2sdr_reinhard( x.z, source_peak, ldr_nits, offset, peak );
+    })",
+        m_source_peak, m_ldr_nits, m_contrast, m_peak);
+}
+
+std::string ColorspaceOpHDR2SDRHable::printInfo() {
+    return strsprintf("hdr2sdr(hable): source_peak=%.2f ldr_nits=%.2f\n"
+        "                             A %.2f, B %.2f, C %.2f, D %.2f\n"
+        "                             E %.2f, F %.2f, W %.2f",
+        m_source_peak, m_ldr_nits,
+        m_A, m_B, m_C, m_D, m_E, m_F, m_W);
+}
+
+std::string ColorspaceOpHDR2SDRMobius::printInfo() {
+    return strsprintf("hdr2sdr(mobius): source_peak=%.2f ldr_nits=%.2f\n"
+        "                             transition %.2f, peak %.2f",
+        m_source_peak, m_ldr_nits,
+        m_transition, m_peak);
+}
+
+std::string ColorspaceOpHDR2SDRReinhard::printInfo() {
+    return strsprintf("hdr2sdr(reinhard): source_peak=%.2f ldr_nits=%.2f\n"
+        "                             contrast %.2f, peak %.2f",
+        m_source_peak, m_ldr_nits,
+        m_contrast, m_peak);
 }
 
 std::string ColorspaceOpRange::print() {
@@ -645,8 +768,7 @@ tstring ColorspaceOpCtrl::printInfoAll() const {
             if (str.length() > 0) {
                 str += _T("\n                           ");
             }
-            auto op_hdr2sdr = dynamic_cast<ColorspaceOpHDR2SDR *>(op.ops.get());
-            str += strsprintf(_T("hdr2sdr:source_peak=%.2f ldr_nits=%.2f"), op_hdr2sdr->source_peak(), op_hdr2sdr->ldr_nits());
+            str += char_to_tstring(op.ops->printInfo());
         }
     }
     return str;
@@ -799,8 +921,18 @@ RGY_ERR ColorspaceOpCtrl::addColorspaceOpClRGB2YUV(vector<ColorspaceOpInfo> &ops
     return RGY_ERR_NONE;
 }
 
-RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits) {
-    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDR>(source_peak, ldr_nits)));
+RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapHable& prm) {
+    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDRHable>(source_peak, ldr_nits, prm.a, prm.b, prm.c, prm.d, prm.e, prm.f, prm.w)));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapMobius &prm) {
+    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDRMobius>(source_peak, ldr_nits, prm.transition, prm.peak)));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapReinhard &prm) {
+    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDRReinhard>(source_peak, ldr_nits, prm.contrast, prm.peak)));
     return RGY_ERR_NONE;
 }
 
@@ -922,11 +1054,23 @@ struct ColorspaceHash {
     }
 };
 
-RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, double ldr_nits) {
+RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm) {
     const auto csp_from1 = in.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084);
     const auto csp_to1 = csp_from1.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR);
     CHECK(setPath(csp_from1, csp_to1, source_peak, approx_gamma, scene_ref));
-    CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, source_peak, ldr_nits));
+    switch (prm.tonemap) {
+    case HDR2SDR_MODE_HABLE:
+        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, source_peak, prm.ldr_nits, prm.hable));
+        break;
+    case HDR2SDR_MODE_MOBIUS:
+        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, source_peak, prm.ldr_nits, prm.mobius));
+        break;
+    case HDR2SDR_MODE_REINHARD:
+        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, source_peak, prm.ldr_nits, prm.reinhard));
+        break;
+    default:
+        return RGY_ERR_INVALID_PARAM;
+    }
     auto csp_to2 = out;
     if (csp_to2.matrix == RGY_MATRIX_UNSPECIFIED) {
         csp_to2 = csp_to2.to(RGY_MATRIX_BT709).to(RGY_TRANSFER_BT709).to(RGY_PRIM_BT709);
@@ -1230,13 +1374,14 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
             prmCsp->frameOut.csp = RGY_CSP_YUV444;
         }
         opCtrl = std::make_unique<ColorspaceOpCtrl>(pPrintMes);
-        if (prmCsp->colorspace.hdr2sdr) {
-            const auto from = prmCsp->colorspace.convs.begin()->from;
-            const auto source_peak = prmCsp->colorspace.convs.begin()->source_peak;
-            const auto approx_gamma = prmCsp->colorspace.convs.begin()->approx_gamma;
-            const auto scene_ref = prmCsp->colorspace.convs.begin()->scene_ref;
+        if (prmCsp->colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED) {
+            const auto &convbegin = prmCsp->colorspace.convs.begin();
+            const auto from = convbegin->from;
+            const auto source_peak = convbegin->source_peak;
+            const auto approx_gamma = convbegin->approx_gamma;
+            const auto scene_ref = convbegin->scene_ref;
             const auto to = prmCsp->colorspace.convs.back().to;
-            if ((sts = opCtrl->setHDR2SDR(from, to, source_peak, approx_gamma, scene_ref, prmCsp->colorspace.ldr_nits)) != RGY_ERR_NONE) {
+            if ((sts = opCtrl->setHDR2SDR(from, to, source_peak, approx_gamma, scene_ref, prmCsp->colorspace.hdr2sdr)) != RGY_ERR_NONE) {
                 return sts;
             }
         } else {

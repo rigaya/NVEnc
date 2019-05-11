@@ -941,20 +941,49 @@ Converts colorspace of the video. Available on x64 version.
   limited, full
 ```
 
-- hdr2sdr=&lt;bool&gt;  
-Enables HDR10 to SDR with Hable tone-mapping, based on [hdr2sdr.py](https://gist.github.com/4re/34ccbb95732c1bef47c3d2975ac62395).
+- hdr2sdr=&lt;string&gt;  
+  Enables HDR10 to SDR by selected tone-mapping.  
+
+  - none (default)  
+    hdr2sdr processing is disabled.
+  
+  - hable  
+    Trys to preserve both bright and dark detailes, but with rather dark result.
+    You may specify addtional params (a,b,c,d,e,f,w) for the hable tone-mapping function below.  
+
+    hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
+    output = hable( (source_peak / ldr_nits) * input ) / hable(w)
+    
+    defaults: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3, w = 11.2
+
+  - mobius
+    Trys to preserve contrast and colors while bright details might be removed.  
+    - transition=&lt;float&gt;  (default: 0.3)  
+      Threshold to move from linear conversion to mobius tone mapping.  
+    - peak=&lt;float&gt;  (default: 1.0)  
+      reference peak brightness
+  
+  - reinhard  
+    - contrast=&lt;float&gt;  (default: 0.5)  
+      local contrast coefficient  
+    - peak=&lt;float&gt;  (default: 1.0)  
+      reference peak brightness
 
 - source_peak=&lt;float&gt;  (default: 1000.0)  
 
 - ldr_nits=&lt;float&gt;  (default: 100.0)  
+  Target brightness for hdr2sdr function.
 
 
 ```
 example1: convert from BT.601 -> BT.709
 --vpp-colorspace matrix=smpte170m:bt709
 
-example2: using hdr2sdr
---vpp-colorspace hdr2sdr=true,source_peak=1000.0,ldr_nits=100.0
+example2: using hdr2sdr (hable tone-mapping)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
+
+example3: using hdr2sdr (hable tone-mapping) and setting the coefs (this is example for the default settings)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3,w=11.2
 ```
 
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]

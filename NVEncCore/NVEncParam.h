@@ -100,7 +100,21 @@ static const float FILTER_DEFAULT_TWEAK_SATURATION = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_HUE = 0.0f;
 
 static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
-static const double FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK = 100.0;
+static const double FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK = 1000.0;
+
+static const double FILTER_DEFAULT_HDR2SDR_HABLE_A = 0.22;
+static const double FILTER_DEFAULT_HDR2SDR_HABLE_B = 0.3;
+static const double FILTER_DEFAULT_HDR2SDR_HABLE_C = 0.1;
+static const double FILTER_DEFAULT_HDR2SDR_HABLE_D = 0.2;
+static const double FILTER_DEFAULT_HDR2SDR_HABLE_E = 0.01;
+static const double FILTER_DEFAULT_HDR2SDR_HABLE_F = 0.3;
+static const double FILTER_DEFAULT_HDR2SDR_HABLE_W = 11.2;
+
+static const double FILTER_DEFAULT_HDR2SDR_MOBIUS_TRANSITION = 0.3;
+static const double FILTER_DEFAULT_HDR2SDR_MOBIUS_PEAK = 1.0;
+
+static const double FILTER_DEFAULT_HDR2SDR_REINHARD_CONTRAST = 0.5;
+static const double FILTER_DEFAULT_HDR2SDR_REINHARD_PEAK = 1.0;
 
 static const TCHAR *FILTER_DEFAULT_CUSTOM_KERNEL_NAME = _T("kernel_filter");
 static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_X = 32;
@@ -458,6 +472,21 @@ const CX_DESC list_vpp_deband[] ={
     { _T("0 - 1点参照"),  0 },
     { _T("1 - 2点参照"),  1 },
     { _T("2 - 4点参照"),  2 },
+    { NULL, NULL }
+};
+
+enum HDR2SDRToneMap {
+    HDR2SDR_DISABLED,
+    HDR2SDR_HABLE,
+    HDR2SDR_MOBIUS,
+    HDR2SDR_REINHARD
+};
+
+const CX_DESC list_vpp_hdr2sdr[] = {
+    { _T("none"),     HDR2SDR_DISABLED },
+    { _T("hable"),    HDR2SDR_HABLE },
+    { _T("mobius"),   HDR2SDR_MOBIUS },
+    { _T("reinhard"), HDR2SDR_REINHARD },
     { NULL, NULL }
 };
 
@@ -860,10 +889,45 @@ struct ColorspaceConv {
     bool operator!=(const ColorspaceConv &x) const;
 };
 
+struct TonemapHable {
+    double a, b, c, d, e, f, w;
+
+    TonemapHable();
+    bool operator==(const TonemapHable &x) const;
+    bool operator!=(const TonemapHable &x) const;
+};
+
+struct TonemapMobius {
+    double transition, peak;
+
+    TonemapMobius();
+    bool operator==(const TonemapMobius &x) const;
+    bool operator!=(const TonemapMobius &x) const;
+};
+
+struct TonemapReinhard {
+    double contrast, peak;
+
+    TonemapReinhard();
+    bool operator==(const TonemapReinhard &x) const;
+    bool operator!=(const TonemapReinhard &x) const;
+};
+
+struct HDR2SDRParams {
+    HDR2SDRToneMap tonemap;
+    TonemapHable hable;
+    TonemapMobius mobius;
+    TonemapReinhard reinhard;
+    double ldr_nits;
+
+    HDR2SDRParams();
+    bool operator==(const HDR2SDRParams &x) const;
+    bool operator!=(const HDR2SDRParams &x) const;
+};
+
 struct VppColorspace {
     bool enable;
-    bool hdr2sdr;
-    double ldr_nits;
+    HDR2SDRParams hdr2sdr;
     vector<ColorspaceConv> convs;
 
     VppColorspace();

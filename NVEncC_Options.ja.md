@@ -984,20 +984,50 @@ yadifによるインタレ解除を行う。
   limited, full
 ```
 
-- hdr2sdr=&lt;bool&gt;  
-"Hable tone-mapping"によるHDR10 to SDRへの変換を行う。 [hdr2sdr.py](https://gist.github.com/4re/34ccbb95732c1bef47c3d2975ac62395)を移植したもの。
+- hdr2sdr=&lt;string&gt;  
+  tone-mappingを指定してHDRからSDRへの変換を行う。 
+  
+  - none  (デフォルト)  
+    hdr2sdrの処理を行うない。
 
-- source_peak=&lt;float&gt;  (default: 1000.0)  
+  - hable    
+    明部と暗部のディテールの両方をバランスよく保ちながら変換する。(ただし、やや暗めになる)
+    下記のhable tone-mappingの式のパラメータ(a,b,c,d,e,f,w)の指定も可能。
 
-- ldr_nits=&lt;float&gt;  (default: 100.0)  
+    hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
+    output = hable( (source_peak / ldr_nits) * input ) / hable(w)
+    
+    デフォルト: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3, w = 11.2
+
+  - mobius
+    なるべく画面の明るさやコントラストを維持した変換を行うが、明部のディテールがつぶれる可能性がある。
+   
+    - transition=&lt;float&gt;  (デフォルト: 0.3)  
+      線形変換から mobius tone mappingに移行する分岐点。  
+    - peak=&lt;float&gt;  (デフォルト: 1.0)  
+      reference peak brightness
+  
+  - reinhard  
+    - contrast=&lt;float&gt;  (デフォルト: 0.5)  
+      local contrast coefficient  
+    - peak=&lt;float&gt;  (デフォルト: 1.0)  
+      reference peak brightness
+
+
+- source_peak=&lt;float&gt;  (デフォルト: 1000.0)  
+
+- ldr_nits=&lt;float&gt;  (デフォルト: 100.0)  
 
 
 ```
 例1: BT.709(fullrange) -> BT.601 への変換
 --vpp-colorspace matrix=smpte170m:bt709,range=full:limited
 
-例2: hdr2sdrの使用
---vpp-colorspace hdr2sdr=true,source_peak=1000.0,ldr_nits=100.0
+例2: hdr2sdrの使用 (hable tone-mapping)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
+
+例3: hdr2sdr使用時の追加パラメータの指定例 (下記例ではデフォルトと同じ意味)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3,w=11.2
 ```
 
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]

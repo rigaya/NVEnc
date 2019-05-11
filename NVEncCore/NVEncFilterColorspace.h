@@ -48,6 +48,7 @@ public:
     virtual ~ColorspaceOp() {};
     virtual ColorspaceOpType getType() const { return m_type; };
     virtual std::string print() = 0;
+    virtual std::string printInfo() { return ""; }
     virtual bool add(const ColorspaceOp *op) = 0;
 protected:
     ColorspaceOpType m_type;
@@ -71,14 +72,16 @@ public:
     void clearOperation() {
         operations.clear();
     }
-    RGY_ERR setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, double ldr_nits);
+    RGY_ERR setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams &prm);
     RGY_ERR setPath(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref);
     RGY_ERR setOperation(RGY_CSP csp_in, RGY_CSP csp_out);
     std::string printOpAll() const;
     tstring printInfoAll() const;
 
 private:
-    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits);
+    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapHable &prm);
+    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapMobius &prm);
+    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapReinhard &prm);
     RGY_ERR addColorspaceOpNclYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpNclRGB2YUV(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpClYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to, double source_peak);

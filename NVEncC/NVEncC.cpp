@@ -550,8 +550,8 @@ static tstring help() {
         _T("        bt2020-10, bt2020-12, smpte2084, arib-srd-b67\n")
         _T("      range=<from>:<to>\n")
         _T("        limited, full\n")
-        _T("      hdr2sdr=<bool>\n")
-        _T("        Enables HDR10 to SDR with Hable tone-mapping, based on hdr2sdr.py.\n")
+        _T("      hdr2sdr=<string>     Enables HDR10 to SDR.\n")
+        _T("                             hable, mobius, reinhard, none\n")
         _T("      source_peak=<float>  (default: 1000.0)\n")
         _T("      ldr_nits=<float>  (default: 100.0)\n"));
 #endif //#if ENABLE_NVRTC
