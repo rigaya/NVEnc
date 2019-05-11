@@ -53,6 +53,8 @@ const char *get_encoder_version();
 
 #define ENABLE_OPENCL 1
 
+#define CUVID_DISABLE_CROP 1
+
 #define ENABLE_AVCODEC_OUT_THREAD 1
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
 #define ENABLE_CPP_REGEX 1

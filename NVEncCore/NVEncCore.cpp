@@ -2038,6 +2038,10 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
         inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED
         //deinterlace bobとリサイズを有効にすると色成分が正常に出力されない場合がある
         && inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Bob
+#if CUVID_DISABLE_CROP
+        //cropが行われていない (cuvidのcropはよくわからん)
+        && !cropEnabled(inputParam->input.crop)
+#endif //#if CUVID_DISABLE_CROP
         //インタレ保持でない (インタレ保持リサイズをするにはCUDAで行う必要がある)
         && !interlacedEncode
         //フィルタ処理が必要
@@ -2636,12 +2640,20 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
 }
 
 RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
+    //cuvidデコーダの場合、cropを入力時に行っていない場合がある
+    const bool cropRequired = CUVID_DISABLE_CROP && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN;
+
     FrameInfo inputFrame = { 0 };
     inputFrame.width = inputParam->input.srcWidth;
     inputFrame.height = inputParam->input.srcHeight;
     inputFrame.csp = inputParam->input.csp;
-    inputFrame.width -= inputParam->input.crop.e.left + inputParam->input.crop.e.right;
-    inputFrame.height -= inputParam->input.crop.e.bottom + inputParam->input.crop.e.up;
+    const int croppedWidth = inputFrame.width - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
+    const int croppedHeight = inputFrame.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+    if (!cropRequired) {
+        //入力時にcrop済み
+        inputFrame.width = croppedWidth;
+        inputFrame.height = croppedHeight;
+    }
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         inputFrame.deivce_mem = true;
     }
@@ -2650,13 +2662,34 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         m_encFps *= 2;
     }
 
-    int resizeWidth  = inputFrame.width;
-    int resizeHeight = inputFrame.height;
+    int resizeWidth  = croppedWidth;
+    int resizeHeight = croppedHeight;
     m_uEncWidth = resizeWidth;
     m_uEncHeight = resizeHeight;
     if (inputParam->vpp.pad.enable) {
         m_uEncWidth  += inputParam->vpp.pad.right + inputParam->vpp.pad.left;
         m_uEncHeight += inputParam->vpp.pad.bottom + inputParam->vpp.pad.top;
+    }
+
+    if (inputParam->input.dstWidth > 0 && inputParam->input.dstHeight > 0) {
+        m_uEncWidth = inputParam->input.dstWidth;
+        m_uEncHeight = inputParam->input.dstHeight;
+        resizeWidth = m_uEncWidth;
+        resizeHeight = m_uEncHeight;
+        if (inputParam->vpp.pad.enable) {
+            resizeWidth -= (inputParam->vpp.pad.right + inputParam->vpp.pad.left);
+            resizeHeight -= (inputParam->vpp.pad.bottom + inputParam->vpp.pad.top);
+        }
+    }
+    bool resizeRequired = false;
+    if (croppedWidth != resizeWidth || croppedHeight != resizeHeight) {
+        resizeRequired = true;
+    }
+    //avhw読みではデコード直後にリサイズが可能
+    if (resizeRequired && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN && enableCuvidResize(inputParam)) {
+        inputFrame.width  = inputParam->input.dstWidth;
+        inputFrame.height = inputParam->input.dstHeight;
+        resizeRequired = false;
     }
 
     //picStructの設定
@@ -2677,26 +2710,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         return RGY_ERR_UNSUPPORTED;
     }
 
-    if (inputParam->input.dstWidth && inputParam->input.dstHeight) {
-        m_uEncWidth = inputParam->input.dstWidth;
-        m_uEncHeight = inputParam->input.dstHeight;
-        resizeWidth = m_uEncWidth;
-        resizeHeight = m_uEncHeight;
-        if (inputParam->vpp.pad.enable) {
-            resizeWidth -= (inputParam->vpp.pad.right + inputParam->vpp.pad.left);
-            resizeHeight -= (inputParam->vpp.pad.bottom + inputParam->vpp.pad.top);
-        }
-    }
-    bool bResizeRequired = false;
-    if (inputFrame.width != resizeWidth || inputFrame.height != resizeHeight) {
-        bResizeRequired = true;
-    }
-    //avhw読みではデコード直後にリサイズが可能
-    if (bResizeRequired && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN && enableCuvidResize(inputParam)) {
-        inputFrame.width  = inputParam->input.dstWidth;
-        inputFrame.height = inputParam->input.dstHeight;
-        bResizeRequired = false;
-    }
     //vpp-rffの制約事項
     if (inputParam->vpp.rff) {
 #if ENABLE_AVSW_READER
@@ -2715,7 +2728,8 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
     }
     //フィルタが必要
-    if (bResizeRequired
+    if (resizeRequired
+        || cropRequired
         || inputParam->vpp.delogo.enable
         || inputParam->vpp.gaussMaskSize > 0
         || inputParam->vpp.unsharp.enable
@@ -2787,7 +2801,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_encFps = param->baseFps;
         }
         if (filterCsp != inputFrame.csp
-            || (cropEnabled(inputParam->input.crop) && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN)) { //cropが必要ならただちに適用する
+            || cropRequired) { //cropが必要ならただちに適用する
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterCspCrop());
             shared_ptr<NVEncFilterParamCrop> param(new NVEncFilterParamCrop());
             param->frameIn = inputFrame;
@@ -2801,6 +2815,9 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 break;
             default:
                 break;
+            }
+            if (cropRequired) {
+                param->crop = inputParam->input.crop;
             }
             param->baseFps = m_encFps;
             param->frameOut.deivce_mem = true;
@@ -3047,7 +3064,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 #endif
         }
         //リサイズ
-        if (bResizeRequired) {
+        if (resizeRequired) {
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterResize());
             shared_ptr<NVEncFilterParamResize> param(new NVEncFilterParamResize());
             param->interp = (inputParam->vpp.resizeInterp != NPPI_INTER_UNDEFINED) ? inputParam->vpp.resizeInterp : RESIZE_CUDA_SPLINE36;

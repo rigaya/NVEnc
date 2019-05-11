@@ -225,7 +225,6 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
         cuvidDestroyDecoder(m_videoDecoder);
         m_videoDecoder = nullptr;
     }
-
     m_videoDecodeCreateInfo.CodecType = pFormat->codec;
     m_videoDecodeCreateInfo.ChromaFormat = pFormat->chroma_format;
     m_videoDecodeCreateInfo.ulWidth   = pFormat->coded_width;
@@ -236,18 +235,32 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
         m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.dstWidth;
         m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.dstHeight;
     } else {
+#if CUVID_DISABLE_CROP
+        m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.srcWidth;
+        m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.srcHeight;
+#else
         m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.srcWidth - m_videoInfo.crop.e.right - m_videoInfo.crop.e.left;
         m_videoDecodeCreateInfo.ulTargetHeight = m_videoInfo.srcHeight - m_videoInfo.crop.e.up - m_videoInfo.crop.e.bottom;
+#endif
     }
     m_videoDecodeCreateInfo.target_rect.left = 0;
     m_videoDecodeCreateInfo.target_rect.top = 0;
     m_videoDecodeCreateInfo.target_rect.right = (short)m_videoDecodeCreateInfo.ulTargetWidth;
     m_videoDecodeCreateInfo.target_rect.bottom = (short)m_videoDecodeCreateInfo.ulTargetHeight;
 
+#if CUVID_DISABLE_CROP
+    //cuvidでcropすると2で割り切れない高さのcropがうまく処理されなかったりよくわからないので、
+    //いろいろ調査するのも面倒なのでcropの使用そのものをやめる
+    m_videoDecodeCreateInfo.display_area.left   = (short)(pFormat->display_area.left);
+    m_videoDecodeCreateInfo.display_area.top    = (short)(pFormat->display_area.top);
+    m_videoDecodeCreateInfo.display_area.right  = (short)(pFormat->display_area.right);
+    m_videoDecodeCreateInfo.display_area.bottom = (short)(pFormat->display_area.bottom);
+#else
     m_videoDecodeCreateInfo.display_area.left   = (short)(pFormat->display_area.left + m_videoInfo.crop.e.left);
     m_videoDecodeCreateInfo.display_area.top    = (short)(pFormat->display_area.top + m_videoInfo.crop.e.up);
     m_videoDecodeCreateInfo.display_area.right  = (short)(pFormat->display_area.right - m_videoInfo.crop.e.right);
     m_videoDecodeCreateInfo.display_area.bottom = (short)(pFormat->display_area.bottom - m_videoInfo.crop.e.bottom);
+#endif
 
     cuvidCtxLock(m_ctxLock, 0);
     m_videoDecodeCreateInfo.CodecType = pFormat->codec;
