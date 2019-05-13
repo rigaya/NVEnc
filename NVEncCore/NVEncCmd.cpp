@@ -1307,7 +1307,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.edgelevel.enable = true;
@@ -1452,7 +1452,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.delogo.enable = true;
@@ -1615,7 +1615,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 if (pos != std::string::npos) {
                     auto param_arg = param.substr(0, pos);
                     auto param_val = param.substr(pos+1);
-                    std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                    param_arg = tolowercase(param_arg);
                     if (param_arg == _T("enable")) {
                         if (param_val == _T("true")) {
                             pParams->vpp.knn.enable = true;
@@ -1692,7 +1692,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.pmd.enable = true;
@@ -1758,7 +1758,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.deband.enable = true;
@@ -1914,7 +1914,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("ini")) {
                     if (pParams->vpp.afs.read_afs_inifile(param_val.c_str())) {
                         SET_ERR(strInput[0], _T("ini file does not exist."), option_name, strInput[i]);
@@ -1943,7 +1943,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.afs.enable = true;
@@ -2132,7 +2132,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.nnedi.enable = true;
@@ -2238,7 +2238,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.yadif.enable = true;
@@ -2285,7 +2285,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.tweak.enable = true;
@@ -2374,7 +2374,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("matrix")) {
                     auto& conv = pParams->vpp.colorspace.convs.back();
                     if (conv.from.matrix != conv.to.matrix) {
@@ -2579,7 +2579,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.pad.enable = true;
@@ -2657,7 +2657,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos+1);
-                std::transform(param_arg.begin(), param_arg.end(), param_arg.begin(), tolower);
+                param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
                         pParams->vpp.selectevery.enable = true;

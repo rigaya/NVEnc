@@ -461,7 +461,7 @@ bool usingAVProtocols(std::string filename, int bOutput) {
     const auto pos = filename.find_first_of(':');
     if (pos != std::string::npos) {
         std::string check = filename.substr(0, pos);
-        std::transform(check.begin(), check.end(), check.begin(), tolower);
+        check = tolowercase(check);
         if (std::find(protocolList.begin(), protocolList.end(), check) != protocolList.end()) {
             return true;
         }
