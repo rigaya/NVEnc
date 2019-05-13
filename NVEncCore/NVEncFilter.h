@@ -50,6 +50,8 @@
 
 #pragma comment(lib, "cudart_static.lib")
 
+struct AVPacket;
+
 extern const TCHAR *NPPI_DLL_NAME_TSTR;
 extern const TCHAR *NVRTC_DLL_NAME_TSTR;
 extern const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR;
@@ -135,6 +137,96 @@ static const TCHAR *getCudaMemcpyKindStr(bool inputDevice, bool outputDevice) {
     return getCudaMemcpyKindStr(getCudaMemcpyKind(inputDevice, outputDevice));
 }
 
+static cudaError_t copyFrameData(FrameInfo *dst, const FrameInfo *src) {
+    auto dstInfoEx = getFrameInfoExtra(dst);
+    const auto srcInfoEx = getFrameInfoExtra(src);
+    if (dst->pitch == 0
+        || srcInfoEx.width_byte > dst->pitch
+        || srcInfoEx.height_total > dstInfoEx.height_total) {
+        if (dst->ptr) {
+            cudaFree(dst->ptr);
+            dst->ptr = nullptr;
+        }
+        dst->pitch = 0;
+    }
+    dst->width = src->width;
+    dst->height = src->height;
+    dst->csp = src->csp;
+    dst->picstruct = src->picstruct;
+    dst->timestamp = src->timestamp;
+    dst->duration = src->duration;
+    dst->flags = src->flags;
+    if (dst->ptr == nullptr) {
+        dstInfoEx = getFrameInfoExtra(dst);
+        if (!dstInfoEx.width_byte) {
+            return cudaErrorNotSupported;
+        }
+        if (dst->deivce_mem) {
+            size_t memPitch = 0;
+            auto ret = cudaMallocPitch(&dst->ptr, &memPitch, dstInfoEx.width_byte, dstInfoEx.height_total);
+            if (ret != cudaSuccess) {
+                return ret;
+            }
+            dst->pitch = (int)memPitch;
+        } else {
+            dst->pitch = ALIGN(dstInfoEx.width_byte, 64);
+            dstInfoEx = getFrameInfoExtra(dst);
+            auto ret = cudaMallocHost(&dst->ptr, dstInfoEx.frame_size);
+            if (ret != cudaSuccess) {
+                return ret;
+            }
+        }
+    }
+    //更新
+    dstInfoEx = getFrameInfoExtra(dst);
+    return cudaMemcpy2D(dst->ptr, dst->pitch, src->ptr, src->pitch, dstInfoEx.width_byte, dstInfoEx.height_total, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem));
+}
+
+static cudaError_t copyFrameDataAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
+    auto dstInfoEx = getFrameInfoExtra(dst);
+    const auto srcInfoEx = getFrameInfoExtra(src);
+    if (dst->pitch == 0
+        || srcInfoEx.width_byte > dst->pitch
+        || srcInfoEx.height_total > dstInfoEx.height_total) {
+        if (dst->ptr) {
+            cudaFree(dst->ptr);
+            dst->ptr = nullptr;
+        }
+        dst->pitch = 0;
+    }
+    dst->width = src->width;
+    dst->height = src->height;
+    dst->csp = src->csp;
+    dst->picstruct = src->picstruct;
+    dst->timestamp = src->timestamp;
+    dst->duration = src->duration;
+    dst->flags = src->flags;
+    if (dst->ptr == nullptr) {
+        dstInfoEx = getFrameInfoExtra(dst);
+        if (!dstInfoEx.width_byte) {
+            return cudaErrorNotSupported;
+        }
+        if (dst->deivce_mem) {
+            size_t memPitch = 0;
+            auto ret = cudaMallocPitch(&dst->ptr, &memPitch, dstInfoEx.width_byte, dstInfoEx.height_total);
+            if (ret != cudaSuccess) {
+                return ret;
+            }
+            dst->pitch = (int)memPitch;
+        } else {
+            dst->pitch = ALIGN(dstInfoEx.width_byte, 64);
+            dstInfoEx = getFrameInfoExtra(dst);
+            auto ret = cudaMallocHost(&dst->ptr, dstInfoEx.frame_size);
+            if (ret != cudaSuccess) {
+                return ret;
+            }
+        }
+    }
+    //更新
+    dstInfoEx = getFrameInfoExtra(dst);
+    return cudaMemcpy2DAsync(dst->ptr, dst->pitch, src->ptr, src->pitch, dstInfoEx.width_byte, dstInfoEx.height_total, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem), stream);
+}
+
 class NVEncFilterParam {
 public:
     FrameInfo frameIn;
@@ -178,6 +270,12 @@ public:
         : frame(_info), event() {
         cudaEventCreate(&event);
     };
+    cudaError_t copyFrame(const FrameInfo *src) {
+        return copyFrameData(&frame, src);
+    }
+    cudaError_t copyFrameAsync(const FrameInfo *src, cudaStream_t stream) {
+        return copyFrameDataAsync(&frame, src, stream);
+    }
 protected:
     CUFrameBuf(const CUFrameBuf &) = delete;
     void operator =(const CUFrameBuf &) = delete;
@@ -355,6 +453,8 @@ public:
     }
     void CheckPerformance(bool flag);
     double GetAvgTimeElapsed();
+    virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
+    virtual int targetTrackIdx() { return 0; };
 protected:
     RGY_ERR filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream);
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;

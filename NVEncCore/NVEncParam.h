@@ -699,6 +699,12 @@ const CX_DESC list_vpp_yadif_mode[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_vpp_ass_shaping[] = {
+    { _T("simple"),  0 },
+    { _T("complex"), 1 },
+    { NULL, NULL }
+};
+
 template<size_t count>
 static const TCHAR *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]) {
     for (int i = 0; i < count; i++) {
@@ -958,6 +964,18 @@ struct VppSelectEvery {
     bool operator!=(const VppSelectEvery& x) const;
 };
 
+struct VppSubburn {
+    bool  enable;
+    tstring filename;
+    std::string charcode;
+    int trackId;
+    int assShaping;
+
+    VppSubburn();
+    bool operator==(const VppSubburn &x) const;
+    bool operator!=(const VppSubburn &x) const;
+};
+
 typedef struct {
     int top, bottom, left, right;
 } AFS_SCAN_CLIP;
@@ -1129,6 +1147,7 @@ struct VppParam {
     VppTweak tweak;
     VppColorspace colorspace;
     VppPad pad;
+    VppSubburn subburn;
     VppSelectEvery selectevery;
     bool rff;
 

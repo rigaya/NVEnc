@@ -334,6 +334,25 @@ bool VppSelectEvery::operator!=(const VppSelectEvery& x) const {
     return !(*this == x);
 }
 
+VppSubburn::VppSubburn() :
+    enable(false),
+    filename(),
+    charcode(),
+    trackId(0),
+    assShaping(1) {
+}
+
+bool VppSubburn::operator==(const VppSubburn &x) const {
+    return enable == x.enable
+        && filename == x.filename
+        && charcode == x.charcode
+        && trackId == x.trackId
+        && assShaping == x.assShaping;
+}
+bool VppSubburn::operator!=(const VppSubburn &x) const {
+    return !(*this == x);
+}
+
 VppCustom::VppCustom() :
     enable(false),
     filter_name(),
@@ -392,6 +411,7 @@ VppParam::VppParam() :
     tweak(),
     colorspace(),
     pad(),
+    subburn(),
     selectevery(),
     rff(false) {
 }

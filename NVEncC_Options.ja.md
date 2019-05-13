@@ -1212,6 +1212,32 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 ### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
 指定のピクセル数(偶数)分のパディングを行う。左、上、右、下の順にピクセル数で指定する。
 
+### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+指定した字幕の焼きこみを行う。
+
+**Parameters**
+- track=&lt;int&gt;  
+  入力ファイルの指定した字幕トラックを焼きこむ。(--avhw, --avsw時のみ有効、字幕トラックは1,2,3,...で指定)
+  
+- filename=&lt;string&gt;  
+  指定したファイルの字幕トラックを焼きこむ。
+
+- charcode=&lt;string&gt;  
+  字幕の文字コードの指定。(字幕がtext形式の場合)
+
+- shaping=&lt;string&gt;  
+  字幕のレンダリングの品質の指定。(字幕がtext形式の場合)
+  - simple
+  - complex (デフォルト)
+
+```
+例1:
+--vpp-subburn track=1
+
+例2: Shift-JISな文字コードのassファイルの焼きこみ
+--vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
+```
+
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 ロゴファイルとロゴ消しのオプションを指定する。ロゴファイルは、".lgd",".ldp",".ldp2"に対応。
 

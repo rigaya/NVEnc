@@ -494,7 +494,7 @@ public:
 protected:
     //ptsでソート
     void sortPts(uint32_t index, uint32_t len) {
-#if !defined(_MSC_VER) && __cplusplus <= 201103
+#if (!defined(_MSC_VER) && __cplusplus <= 201103) || defined(__NVCC__)
         FramePos *pStart = (FramePos *)m_list.get(index);
         FramePos *pEnd = (FramePos *)m_list.get(index + len);
         std::sort(pStart, pEnd, CompareFramePos());

@@ -204,9 +204,9 @@ RGY_ERR NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    //delogoは常に元のフレームを書き換え
+    //tweakは常に元のフレームを書き換え
     if (!pTweakParam->bOutOverwrite) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid param, delogo will overwrite input frame.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid param, tweak will overwrite input frame.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     pTweakParam->frameOut = pTweakParam->frameIn;

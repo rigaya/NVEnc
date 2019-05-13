@@ -89,6 +89,14 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
         exinfo.width_byte = pFrameInfo->width * 2;
         exinfo.height_total = pFrameInfo->height * 3;
         break;
+    case RGY_CSP_YUVA444:
+        exinfo.width_byte = pFrameInfo->width;
+        exinfo.height_total = pFrameInfo->height * 4;
+        break;
+    case RGY_CSP_YUVA444_16:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = pFrameInfo->height * 4;
+        break;
     case RGY_CSP_RGB24:
     case RGY_CSP_RGB24R:
     case RGY_CSP_BGR24:
@@ -142,6 +150,7 @@ FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane) {
         switch (plane) {
         case RGY_PLANE_U:
         case RGY_PLANE_V:
+        case RGY_PLANE_A:
             //case RGY_PLANE_G:
             //case RGY_PLANE_B:
             if (frameInfo->csp == RGY_CSP_YUY2

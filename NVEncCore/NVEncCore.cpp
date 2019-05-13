@@ -74,6 +74,7 @@
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncFilterTweak.h"
 #include "NVEncFilterColorspace.h"
+#include "NVEncFilterSubburn.h"
 #include "NVEncFilterSelectEvery.h"
 #include "NVEncFeature.h"
 #include "chapter_rw.h"
@@ -592,6 +593,10 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     case RGY_INPUT_FMT_AVHW:
     case RGY_INPUT_FMT_AVSW:
     case RGY_INPUT_FMT_AVANY:
+        if (inputParam->nSubtitleSelectCount > 0 && inputParam->vpp.subburn.trackId != 0) {
+            PrintMes(RGY_LOG_ERROR, _T("--sub-copy and --vpp-subburn should not be set at the same time.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
         inputInfoAVCuvid.threadCsp = inputParam->threadCsp;
         inputInfoAVCuvid.simdCsp = inputParam->simdCsp;
         inputInfoAVCuvid.pInputFormat = inputParam->pAVInputFormat;
@@ -599,7 +604,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.nVideoTrack = inputParam->nVideoTrack;
         inputInfoAVCuvid.nVideoStreamId = inputParam->nVideoStreamId;
         inputInfoAVCuvid.nReadAudio = inputParam->nAudioSelectCount > 0;
-        inputInfoAVCuvid.bReadSubtitle = inputParam->nSubtitleSelectCount > 0;
+        inputInfoAVCuvid.bReadSubtitle = (inputParam->nSubtitleSelectCount > 0) || (inputParam->vpp.subburn.trackId > 0);
         inputInfoAVCuvid.bReadChapter = true;
         inputInfoAVCuvid.nVideoAvgFramerate = std::make_pair(inputParam->input.fpsN, inputParam->input.fpsD);
         inputInfoAVCuvid.nAnalyzeSec = inputParam->nAVDemuxAnalyzeSec;
@@ -609,8 +614,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         inputInfoAVCuvid.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
         inputInfoAVCuvid.nAudioSelectCount = inputParam->nAudioSelectCount;
         inputInfoAVCuvid.ppAudioSelect = inputParam->ppAudioSelectList;
-        inputInfoAVCuvid.nSubtitleSelectCount = inputParam->nSubtitleSelectCount;
-        inputInfoAVCuvid.pSubtitleSelect = inputParam->pSubtitleSelect;
+        inputInfoAVCuvid.nSubtitleSelectCount = (inputParam->vpp.subburn.trackId) ? 1 : inputParam->nSubtitleSelectCount;
+        inputInfoAVCuvid.pSubtitleSelect = (inputParam->vpp.subburn.trackId) ? &inputParam->vpp.subburn.trackId : inputParam->pSubtitleSelect;
         inputInfoAVCuvid.nProcSpeedLimit = inputParam->nProcSpeedLimit;
         inputInfoAVCuvid.nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.fSeekSec = inputParam->fSeekSec;
@@ -907,6 +912,9 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
                 }
                 if (pAudioSelect != nullptr || bStreamIsSubtitle) {
                     streamTrackUsed.push_back(stream.nTrackId);
+                    if (bStreamIsSubtitle && inputParams->vpp.subburn.trackId != 0) {
+                        continue;
+                    }
                     AVOutputStreamPrm prm;
                     prm.src = stream;
                     if (pAudioSelect) {
@@ -2057,6 +2065,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.yadif.enable
             || inputParam->vpp.tweak.enable
             || inputParam->vpp.colorspace.enable
+            || inputParam->vpp.subburn.enable
             || inputParam->vpp.pad.enable);
 }
 
@@ -2743,6 +2752,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.tweak.enable
         || inputParam->vpp.colorspace.enable
         || inputParam->vpp.pad.enable
+        || inputParam->vpp.subburn.enable
         || inputParam->vpp.rff
         || inputParam->vpp.selectevery.enable
         ) {
@@ -3061,6 +3071,51 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             //入力フレーム情報を更新
             inputFrame = param->frameOut;
             m_encFps = param->baseFps;
+#endif
+        }
+        //字幕焼きこみ
+        if (inputParam->vpp.subburn.enable) {
+#if ENABLE_AVSW_READER
+            if (inputParam->vpp.subburn.filename.length() > 0
+                && m_trimParam.list.size() > 0) {
+                PrintMes(RGY_LOG_ERROR, _T("--vpp-subburn with input as file cannot be used with --trim.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
+            unique_ptr<NVEncFilter> filter(new NVEncFilterSubburn());
+            shared_ptr<NVEncFilterParamSubburn> param(new NVEncFilterParamSubburn());
+            param->subburn = inputParam->vpp.subburn;
+            auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+            if (pAVCodecReader != nullptr) {
+                param->videoInputStream = pAVCodecReader->GetInputVideoStream();
+                param->videoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
+                param->videoInfo = m_pFileReader->GetInputFrameInfo();
+                for (const auto &stream : pAVCodecReader->GetInputStreamInfo()) {
+                    if (stream.nTrackId == -1 * param->subburn.trackId) {
+                        param->streamIn = stream;
+                        break;
+                    }
+                }
+            }
+            param->bOutOverwrite = true;
+            param->videoTimebase = av_make_q(m_outputTimebase);
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            NVEncCtxAutoLock(cxtlock(m_ctxLock));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+#else
+            PrintMes(RGY_LOG_ERROR, _T("--vpp-subburn not supported in this build.\n"));
+            return RGY_ERR_UNSUPPORTED;
 #endif
         }
         //リサイズ
@@ -3961,9 +4016,17 @@ NVENCSTATUS NVEncCore::Encode() {
             }
         }
     }
+    //streamのtrackIdからパケットを送信するvppフィルタへのポインタを返すテーブルを作成
+    std::map<int, NVEncFilter*> pFilterForStreams;
+    for (uint32_t ifilter = 0; ifilter < m_vpFilters.size(); ifilter++) {
+        const auto targetTrackId = m_vpFilters[ifilter]->targetTrackIdx();
+        if (targetTrackId != 0) {
+            pFilterForStreams[targetTrackId] = m_vpFilters[ifilter].get();
+        }
+    }
 
     auto extract_audio =[&]() {
-        int sts = 0;
+        auto sts = RGY_ERR_NONE;
         if (m_pFileWriterListAudio.size()) {
             auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             vector<AVPacket> packetList;
@@ -3984,18 +4047,22 @@ NVENCSTATUS NVEncCore::Encode() {
                     auto pWriter = pWriterForAudioStreams[nTrackId];
                     if (pWriter == nullptr) {
                         PrintMes(RGY_LOG_ERROR, _T("Invalid writer found for audio track %d\n"), nTrackId);
-                        return 1;
+                        return RGY_ERR_NOT_FOUND;
                     }
-                    if (0 != (sts = pWriter->WriteNextPacket(&packetList[i]))) {
-                        return 1;
+                    if ((sts = pWriter->WriteNextPacket(&packetList[i])) != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                } else if (pFilterForStreams.count(nTrackId)) {
+                    if ((sts = pFilterForStreams[nTrackId]->addStreamPacket(&packetList[i])) != RGY_ERR_NONE) {
+                        return sts;
                     }
                 } else {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to find writer for audio track %d\n"), nTrackId);
-                    return 1;
+                    return RGY_ERR_NOT_FOUND;
                 }
             }
         }
-        return 0;
+        return RGY_ERR_NONE;
     };
 
     std::thread th_input;

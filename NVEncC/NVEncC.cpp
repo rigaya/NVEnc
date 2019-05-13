@@ -639,6 +639,14 @@ static tstring help() {
     str += strsprintf(_T("\n")
         _T("   --vpp-select-every <int>[,offset=<int>]\n")
         _T("     select one frame per specified frames and create output.\n"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-subrbun [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Burn in specified subtitle to the video.\n")
+        _T("    params\n")
+        _T("      track=<int>               subtitle track of the input file to burn in.\n")
+        _T("      filename=<string>         subtitle file path to burn in.\n")
+        _T("      charcode=<string>         subtitle charcter code.\n")
+        _T("      shaping=<string>          rendering quality of text.\n"));
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")

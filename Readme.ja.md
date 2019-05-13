@@ -97,6 +97,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
       - nnedi
       - yadif
     - delogo
+    - 字幕焼きこみ
     - 色空間変換 (x64版のみ)
       - hdr2sdr
     - リサイズ  

@@ -93,6 +93,7 @@ which might cause problem in some playback environments.
     - colorspace conversion (x64 version only)
       - hdr2sdr
     - delogo
+    - subburn
     - resize
       - bilinear
       - spline16, spline36, spline64

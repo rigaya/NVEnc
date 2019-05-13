@@ -1168,6 +1168,33 @@ Example:
 ### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
 add padding to left,top,right,bottom (in pixels)
 
+### --vpp-subburn [,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+"Burn in" specified subtitle to the video.
+
+**Parameters**
+- track=&lt;int&gt;  
+  Select subtitle track of the input file to burn in, track count starting from 1. 
+  Available when --avhw or --avsw is used.
+  
+- filename=&lt;string&gt;  
+  Select subtitle file path to burn in.
+
+- charcode=&lt;string&gt;  
+  Specify subtitle charcter code to burn in, for text type sub.
+
+- shaping=&lt;string&gt;  
+  Rendering quality of text, for text type sub.  
+  - simple
+  - complex (default)
+
+```
+Example1:
+--vpp-subburn track=1
+
+Example2: burn in subtitle from file which charcter code is Shift-JIS
+--vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
+```
+
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **Parameters**
