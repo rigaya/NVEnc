@@ -929,7 +929,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 //字幕の場合
                 for (int i = 0; !useStream && i < input_prm->nSubtitleSelectCount; i++) {
                     if (input_prm->pSubtitleSelect[i] == 0 //特に指定なし = 全指定かどうか
-                        || input_prm->pSubtitleSelect[i] == (iTrack - m_Demux.format.nAudioTracks + 1 + input_prm->nSubtitleTrackStart)) {
+                        || input_prm->pSubtitleSelect[i] == (iTrack - m_Demux.format.nAudioTracks + input_prm->nSubtitleTrackStart)) {
                         useStream = true;
                     }
                 }
@@ -974,7 +974,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                     iSubStream++) {
                     AVDemuxStream stream = { 0 };
                     stream.nTrackId = (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId))
-                        ? -(iTrack - m_Demux.format.nAudioTracks + 1 + input_prm->nSubtitleTrackStart) //字幕は -1, -2, -3
+                        ? -(iTrack - m_Demux.format.nAudioTracks + input_prm->nSubtitleTrackStart) //字幕は -1, -2, -3
                         : iTrack + input_prm->nAudioTrackStart; //音声は1, 2, 3
                     stream.nIndex = mediaStreams[iTrack];
                     stream.nSubStreamId = iSubStream;
