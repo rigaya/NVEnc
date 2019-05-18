@@ -1128,8 +1128,9 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const Fr
     const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
     //Y
     if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
+        const int pixsize = RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? 2 : 1;
         auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
-            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
+            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.up * pInputFrame->pitch + pCropParam->crop.e.left * pixsize,
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice);
         if (cudaerr != cudaSuccess) {
@@ -1197,8 +1198,9 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fr
     const auto frameOutInfoEx = getFrameInfoExtra(&pCropParam->frameOut);
     //Y
     if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
+        const int pixsize = RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? 2 : 1;
         auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
-            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
+            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.up * pInputFrame->pitch + pCropParam->crop.e.left * pixsize,
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pCropParam->frameOut.height, cudaMemcpyDeviceToDevice);
         if (cudaerr != cudaSuccess) {
@@ -1248,8 +1250,9 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(FrameInfo *pOutputFrame, const Fr
     const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
     //Y
     if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
+        const int pixsize = RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? 2 : 1;
         auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
-            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
+            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.up * pInputFrame->pitch + pCropParam->crop.e.left * pixsize,
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice);
         if (cudaerr != cudaSuccess) {
@@ -1323,8 +1326,9 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const 
     const auto frameOutInfoEx = getFrameInfoExtra(pOutputFrame);
     //Y
     if (RGY_CSP_BIT_DEPTH[pInputFrame->csp] == RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) {
+        const int pixsize = RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? 2 : 1;
         auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
-            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.left + pCropParam->crop.e.up * pInputFrame->pitch,
+            (uint8_t *)pInputFrame->ptr + pCropParam->crop.e.up * pInputFrame->pitch + pCropParam->crop.e.left * pixsize,
             pInputFrame->pitch,
             frameOutInfoEx.width_byte, pOutputFrame->height, cudaMemcpyDeviceToDevice);
         if (cudaerr != cudaSuccess) {
