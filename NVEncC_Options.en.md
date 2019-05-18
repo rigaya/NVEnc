@@ -1165,10 +1165,10 @@ Example:
 --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
 ```
 
-### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
+### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 add padding to left,top,right,bottom (in pixels)
 
-### --vpp-subburn [,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 "Burn in" specified subtitle to the video.
 
 **Parameters**
@@ -1188,10 +1188,13 @@ add padding to left,top,right,bottom (in pixels)
   - complex (default)
 
 ```
-Example1:
+Example1: burn in subtitle from the track of the input file
 --vpp-subburn track=1
 
-Example2: burn in subtitle from file which charcter code is Shift-JIS
+Example2: burn in PGS subtitle from file
+--vpp-subburn filename="subtitle.sup"
+
+Example3: burn in ASS subtitle from file which charcter code is Shift-JIS
 --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
 ```
 

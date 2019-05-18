@@ -1209,7 +1209,7 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
 ```
 
-### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
+### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 指定のピクセル数(偶数)分のパディングを行う。左、上、右、下の順にピクセル数で指定する。
 
 ### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -1231,10 +1231,13 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   - complex (デフォルト)
 
 ```
-例1:
+例1: 入力ファイルの字幕トラックを焼きこみ
 --vpp-subburn track=1
 
-例2: Shift-JISな文字コードのassファイルの焼きこみ
+例2: PGS字幕をファイルから焼きこみ
+--vpp-subburn filename="subtitle.sup"
+
+例3: Shift-JISな文字コードのassファイルの焼きこみ
 --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
 ```
 
