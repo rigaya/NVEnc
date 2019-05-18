@@ -2650,7 +2650,9 @@ NVENCSTATUS NVEncCore::CreateEncoder(const InEncodeVideoParam *inputParam) {
 
 RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     //cuvidデコーダの場合、cropを入力時に行っていない場合がある
-    const bool cropRequired = CUVID_DISABLE_CROP && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN;
+    const bool cropRequired = cropEnabled(inputParam->input.crop)
+        && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN
+        && CUVID_DISABLE_CROP;
 
     FrameInfo inputFrame = { 0 };
     inputFrame.width = inputParam->input.srcWidth;
@@ -2671,6 +2673,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         m_encFps *= 2;
     }
 
+    //リサイザの出力すべきサイズ
     int resizeWidth  = croppedWidth;
     int resizeHeight = croppedHeight;
     m_uEncWidth = resizeWidth;
@@ -2680,6 +2683,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         m_uEncHeight += inputParam->vpp.pad.bottom + inputParam->vpp.pad.top;
     }
 
+    //指定のリサイズがあればそのサイズに設定する
     if (inputParam->input.dstWidth > 0 && inputParam->input.dstHeight > 0) {
         m_uEncWidth = inputParam->input.dstWidth;
         m_uEncHeight = inputParam->input.dstHeight;
