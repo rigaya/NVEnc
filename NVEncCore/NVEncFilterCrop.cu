@@ -187,12 +187,12 @@ template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 void crop_uv_nv12_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
-    uint8_t *ptrU = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
-    uint8_t *ptrV = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 3 / 2;
-    const uint8_t *ptrC = (const uint8_t  *)pInputFrame->ptr + pInputFrame->pitch  * pInputFrame->height;
+    auto outPlaneU = getPlane(pOutputFrame, RGY_PLANE_U);
+    auto outPlaneV = getPlane(pOutputFrame, RGY_PLANE_V);
+    const auto inPlaneC = getPlane(pInputFrame, RGY_PLANE_C);
     kernel_crop_uv_nv12_yv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize>>>(
-        ptrU, ptrV, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        ptrC, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
+        outPlaneU.ptr, outPlaneV.ptr, outPlaneU.pitch, pOutputFrame->width, pOutputFrame->height,
+        inPlaneC.ptr, inPlaneC.pitch, pCrop->e.left, pCrop->e.up);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
