@@ -598,6 +598,14 @@ std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir) {
     FindClose(hFind);
     return list;
 }
+
+tstring getExeDir() {
+    TCHAR exePath[1024];
+    memset(exePath, 0, sizeof(exePath));
+    GetModuleFileName(NULL, exePath, _countof(exePath));
+    return PathRemoveFileSpecFixed(tstring(exePath)).second;
+}
+
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 tstring print_time(double time) {

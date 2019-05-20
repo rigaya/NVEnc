@@ -46,6 +46,7 @@
 #include "rgy_status.h"
 #include "rgy_log.h"
 #include "rgy_bitstream.h"
+#include "rgy_hdr10plus.h"
 #include "NVEncUtil.h"
 #include "NVEncParam.h"
 #include "CuvidDecode.h"
@@ -219,13 +220,7 @@ protected:
     //入出力用バッファを確保
     NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const VideoInfo *pInputInfo);
 
-    //フレームを1枚エンコーダに投入(非同期)
-    //NVENCSTATUS EncodeFrame(uint64_t timestamp);
-
-    //フレームを1枚エンコーダに投入(非同期、トランスコード中継用)
-    NVENCSTATUS EncodeFrame(EncodeFrameConfig *pEncodeFrame, int id, uint64_t timestamp, uint64_t duration);
-
-    NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration);
+    NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration, int inputFrameId);
 
     //エンコーダをフラッシュしてストリームを最後まで取り出す
     NVENCSTATUS FlushEncoder();
@@ -277,6 +272,7 @@ protected:
     vector<int>                   m_keyFile;             //キーフレームの指定
     vector<unique_ptr<AVChapter>> m_Chapters;            //ファイルから読み込んだチャプター
 #endif //#if ENABLE_AVSW_READER
+    unique_ptr<RGYHDR10Plus>      m_hdr10plus;
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;
     shared_ptr<NVEncFilterParam>    m_pLastFilterParam;

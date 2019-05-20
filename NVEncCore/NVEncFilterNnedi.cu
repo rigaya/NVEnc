@@ -1989,6 +1989,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         ppOutputFrames[0]->duration = (pInputFrame->duration + 1) / 2;
         ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
         ppOutputFrames[1]->duration = pInputFrame->duration - ppOutputFrames[0]->duration;
+        ppOutputFrames[1]->inputFrameId = pInputFrame->inputFrameId;
     }
     return sts;
 }

@@ -241,6 +241,8 @@ const TCHAR *get_err_mes(RGY_ERR sts) {
     case RGY_ERR_NO_DEVICE:                return _T("no deivce found.");
     case RGY_ERR_INVALID_VERSION:          return _T("invalid version.");
     case RGY_ERR_MAP_FAILED:               return _T("map failed.");
+    case RGY_ERR_CUDA:                     return _T("error in cuda.");
+    case RGY_ERR_RUN_PROCESS:              return _T("running process failed.");
     case RGY_WRN_IN_EXECUTION:             return _T("the previous asynchrous operation is in execution.");
     case RGY_WRN_DEVICE_BUSY:              return _T("the HW acceleration device is busy.");
     case RGY_WRN_VIDEO_PARAM_CHANGED:      return _T("the video parameters are changed during decoding.");

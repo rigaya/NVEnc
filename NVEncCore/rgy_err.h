@@ -86,6 +86,7 @@ enum RGY_ERR {
     RGY_ERR_INVALID_VERSION             = -37,
     RGY_ERR_MAP_FAILED                  = -38,
     RGY_ERR_CUDA                        = -39,
+    RGY_ERR_RUN_PROCESS                 = -40,
 
     RGY_WRN_IN_EXECUTION                = 1,
     RGY_WRN_DEVICE_BUSY                 = 2,

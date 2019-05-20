@@ -344,6 +344,7 @@ struct FrameInfo {
     bool deivce_mem;
     RGY_PICSTRUCT picstruct;
     RGY_FRAME_FLAGS flags;
+    int inputFrameId;
 };
 
 static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) {

@@ -3094,6 +3094,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->sMasterDisplay = tchar_to_string(strInput[i]);
         return 0;
     }
+    if (IS_OPTION("dhdr10-info")) {
+        i++;
+        pParams->dynamicHdr10plusJson = strInput[i];
+        return 0;
+    }
     if (IS_OPTION("output-depth")) {
         i++;
         int value = 0;
@@ -3608,6 +3613,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_HEVC(_T("--transfer"), _T(":hevc"), hevcVUIParameters.transferCharacteristics, list_transfer);
         OPT_STR(_T("--max-cll"), sMaxCll);
         OPT_STR(_T("--master-display"), sMasterDisplay);
+        OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
         OPT_LST_HEVC(_T("--cu-max"), _T(""), maxCUSize, list_hevc_cu_size);
         OPT_LST_HEVC(_T("--cu-min"), _T(""), minCUSize, list_hevc_cu_size);
     }

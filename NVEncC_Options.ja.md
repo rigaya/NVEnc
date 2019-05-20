@@ -426,6 +426,9 @@ Mastering display data の設定。
 Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
 
+### --dhdr10-info &lt;string&gt; [HEVC only]
+指定したjsonファイルから、HDR10+のメタデータを読み込んで反映する。
+
 ### --aud
 Access Unit Delimiter NALを挿入する。
 

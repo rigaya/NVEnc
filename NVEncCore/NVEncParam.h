@@ -1170,6 +1170,7 @@ struct InEncodeVideoParam {
     int lossless;                 //ロスレス出力
     std::string sMaxCll;
     std::string sMasterDisplay;
+    tstring dynamicHdr10plusJson;
     std::string videoCodecTag;
     tstring logfile;              //ログ出力先
     int loglevel;                 //ログ出力レベル

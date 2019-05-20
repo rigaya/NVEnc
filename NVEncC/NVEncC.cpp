@@ -436,9 +436,10 @@ static tstring help() {
         _T("   --chromaloc <int>            set chroma location flag [ 0 ... 5 ]\n")
         _T("                                  default: 0 = unspecified\n")
         _T("   --fullrange                  set fullrange\n")
-        _T("   --max-cll <int>,<int>        set MaxCLL and MaxFall in nits. e.g. \"1000,300\"\n")
+        _T("   --max-cll <int>,<int>        set MaxCLL/MaxFall in nits. e.g. \"1000,300\"\n")
         _T("   --master-display <string>    set Mastering display data.\n")
-        _T("      e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n"));
+        _T("   e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n")
+        _T("   --dhdr10-info <string>       apply dynamic HDR10+ metadata from json file.\n"));
 
     str += strsprintf(_T("\n")
         _T("   --interlace <string>         set input as interlaced\n")

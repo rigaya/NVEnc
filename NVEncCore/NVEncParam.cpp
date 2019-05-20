@@ -796,6 +796,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     lossless(0),                 //ロスレス出力
     sMaxCll(),
     sMasterDisplay(),
+    dynamicHdr10plusJson(),
     videoCodecTag(),
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル

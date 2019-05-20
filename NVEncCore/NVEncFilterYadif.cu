@@ -475,6 +475,7 @@ RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
                     ppOutputFrames[0]->duration = (pSourceFrame->duration + 1) / 2;
                     ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
                     ppOutputFrames[1]->duration = pSourceFrame->duration - ppOutputFrames[0]->duration;
+                    ppOutputFrames[1]->inputFrameId = pInputFrame->inputFrameId;
                 }
                 return RGY_ERR_NONE;
             } else if (pSourceFrame->picstruct & RGY_PICSTRUCT_FRAME_TFF) {
@@ -532,6 +533,7 @@ RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
             ppOutputFrames[0]->duration = (pSourceFrame->duration + 1) / 2;
             ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
             ppOutputFrames[1]->duration = pSourceFrame->duration - ppOutputFrames[0]->duration;
+            ppOutputFrames[1]->inputFrameId = pInputFrame->inputFrameId;
         }
         m_nFrame++;
     } else {

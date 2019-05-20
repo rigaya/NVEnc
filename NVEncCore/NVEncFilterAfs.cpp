@@ -68,10 +68,11 @@ cudaError_t afsSourceCache::alloc(const FrameInfo& frameInfo) {
 cudaError_t afsSourceCache::add(const FrameInfo *pInputFrame, cudaStream_t stream) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
-    pDstFrame->frame.flags     = pInputFrame->flags;
-    pDstFrame->frame.picstruct = pInputFrame->picstruct;
-    pDstFrame->frame.timestamp = pInputFrame->timestamp;
-    pDstFrame->frame.duration  = pInputFrame->duration;
+    pDstFrame->frame.flags        = pInputFrame->flags;
+    pDstFrame->frame.picstruct    = pInputFrame->picstruct;
+    pDstFrame->frame.timestamp    = pInputFrame->timestamp;
+    pDstFrame->frame.duration     = pInputFrame->duration;
+    pDstFrame->frame.inputFrameId = pInputFrame->inputFrameId;
 
     const auto frameOutInfoEx = getFrameInfoExtra(pInputFrame);
     static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);

@@ -421,6 +421,9 @@ Set Mastering display data.
 Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
 
+### --dhdr10-info &lt;string&gt; [HEVC only]
+Apply HDR10+ dynamic metadata from specified json file.
+
 ### --aud
 Insert Access Unit Delimiter NAL.
 
