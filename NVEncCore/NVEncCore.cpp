@@ -1632,14 +1632,16 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
     {
 #endif //#if ENABLE_AVSW_READER
         m_inputHostBuffer.resize(PIPELINE_DEPTH);
-        int bufWidth  = pInputInfo->srcWidth  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
-        int bufHeight = pInputInfo->srcHeight - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
+        //このアライメントは読み込み時の色変換の並列化のために必要
+        const int align = 64 * (RGY_CSP_BIT_DEPTH[pInputInfo->csp] > 8 ? 2 : 1);
+        const int bufWidth  = pInputInfo->srcWidth  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
+        const int bufHeight = pInputInfo->srcHeight - pInputInfo->crop.e.bottom - pInputInfo->crop.e.up;
         int bufPitch = 0;
         int bufSize = 0;
         switch (pInputInfo->csp) {
         case RGY_CSP_NV12:
         case RGY_CSP_YV12:
-            bufPitch  = (bufWidth + 31) & (~31);
+            bufPitch  = (bufWidth + align) & (~align);
             bufSize = bufPitch * bufHeight * 3 / 2; break;
         case RGY_CSP_P010:
         case RGY_CSP_YV12_09:
@@ -1647,12 +1649,12 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         case RGY_CSP_YV12_12:
         case RGY_CSP_YV12_14:
         case RGY_CSP_YV12_16:
-            bufPitch = (bufWidth * 2 + 31) & (~31);
+            bufPitch = (bufWidth * 2 + align) & (~align);
             bufSize = bufPitch * bufHeight * 3 / 2; break;
         case RGY_CSP_NV16:
         case RGY_CSP_YUY2:
         case RGY_CSP_YUV422:
-            bufPitch  = (bufWidth + 31) & (~31);
+            bufPitch  = (bufWidth + align) & (~align);
             bufSize = bufPitch * bufHeight * 2; break;
         case RGY_CSP_P210:
         case RGY_CSP_YUV422_09:
@@ -1660,33 +1662,33 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         case RGY_CSP_YUV422_12:
         case RGY_CSP_YUV422_14:
         case RGY_CSP_YUV422_16:
-            bufPitch = (bufWidth * 2 + 31) & (~31);
+            bufPitch = (bufWidth * 2 + align) & (~align);
             bufSize = bufPitch * bufHeight * 2; break;
         case RGY_CSP_YUV444:
-            bufPitch  = (bufWidth + 31) & (~31);
+            bufPitch  = (bufWidth + align) & (~align);
             bufSize = bufPitch * bufHeight * 3; break;
         case RGY_CSP_YUV444_09:
         case RGY_CSP_YUV444_10:
         case RGY_CSP_YUV444_12:
         case RGY_CSP_YUV444_14:
         case RGY_CSP_YUV444_16:
-            bufPitch = (bufWidth * 2 + 31) & (~31);
+            bufPitch = (bufWidth * 2 + align) & (~align);
             bufSize = bufPitch * bufHeight * 3; break;
         case RGY_CSP_RGB24:
         case RGY_CSP_RGB24R:
-            bufPitch = (bufWidth * 3 + 3) & (~3);
+            bufPitch = (bufWidth * 3 + align) & (~align);
             bufSize = bufPitch * bufHeight; break;
         case RGY_CSP_RGB32:
         case RGY_CSP_RGB32R:
-            bufPitch = bufWidth * 4;
+            bufPitch = (bufWidth * 4 + align) & (~align);
             bufSize = bufPitch * bufHeight; break;
         case RGY_CSP_RGB:
         case RGY_CSP_GBR:
-            bufPitch  = (bufWidth + 31) & (~31);
+            bufPitch  = (bufWidth + align) & (~align);
             bufSize = bufPitch * bufHeight * 3; break;
         case RGY_CSP_RGBA:
         case RGY_CSP_GBRA:
-            bufPitch  = (bufWidth + 31) & (~31);
+            bufPitch  = (bufWidth + align) & (~align);
             bufSize = bufPitch * bufHeight * 4; break;
         default:
             PrintMes(RGY_LOG_ERROR, _T("Unsupported csp at AllocateIOBuffers.\n"));
