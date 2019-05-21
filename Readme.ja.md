@@ -137,6 +137,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   [ffmpeg](https://ffmpeg.org/),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),
+  [libass](https://github.com/libass/libass),
   [ttmath](http://www.ttmath.org/),
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR)を使用しています。  
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、NVEnc_license.txtをご覧ください。

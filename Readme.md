@@ -136,6 +136,7 @@ which might cause problem in some playback environments.
   [ffmpeg](https://ffmpeg.org/),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),
+  [libass](https://github.com/libass/libass),
   [ttmath](http://www.ttmath.org/) &
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR).
   For these licenses, please see the header part of the corresponding source and NVEnc_license.txt.
