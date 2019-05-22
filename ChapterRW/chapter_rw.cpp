@@ -95,7 +95,7 @@ static BOOL isJis(const void *str, uint32_t size_in_byte) {
         if (*chr > 0x7F)
             return FALSE;
         for (int i = 0; ESCAPE[i][0]; i++) {
-            if (str_fin - chr > ESCAPE[i][0] && 
+            if (str_fin - chr > ESCAPE[i][0] &&
                 memcmp(chr, &ESCAPE[i][1], ESCAPE[i][0]) == 0)
                 return TRUE;
         }
@@ -152,8 +152,8 @@ static uint32_t jpn_check(const void *str, uint32_t size_in_byte) {
             score_euc += 2; chr++;
         } else if (
             str_fin - chr > 2 &&
-            chr[0] == 0x8F && 
-            (0xA1 <= chr[1] && chr[1] <= 0xFE) && 
+            chr[0] == 0x8F &&
+            (0xA1 <= chr[1] && chr[1] <= 0xFE) &&
             (0xA1 <= chr[2] && chr[2] <= 0xFE)) {
             score_euc += 3; chr += 2;
         }
@@ -168,7 +168,7 @@ static uint32_t jpn_check(const void *str, uint32_t size_in_byte) {
 }
 
 static uint32_t get_code_page(const void *str, uint32_t size_in_byte) {
-	uint32_t ret = CODE_PAGE_UNSET;
+    uint32_t ret = CODE_PAGE_UNSET;
     if ((ret = check_bom(str)) != CODE_PAGE_UNSET)
         return ret;
 
@@ -379,11 +379,11 @@ int ChapterRW::write_chapter_apple_header(std::ostream& ostream) {
 
     ostream.write((const char *)UTF8_BOM, sizeof(UTF8_BOM));
     ostream << wstring_to_string(
-    L"<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\r\n" 
-    L"<TextStream version=\"1.1\">\r\n" 
+    L"<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\r\n"
+    L"<TextStream version=\"1.1\">\r\n"
     L"<TextStreamHeader>\r\n"
     L"<TextSampleDescription>\r\n"
-    L"</TextSampleDescription>\r\n" 
+    L"</TextSampleDescription>\r\n"
     L"</TextStreamHeader>\r\n", CP_UTF8);
     return sts;
 }
@@ -480,7 +480,7 @@ int ChapterRW::overwrite_file(ChapType out_chapter_type, bool nero_in_utf8) {
 
 #if !(defined(_WIN32) || defined(_WIN64))
 typedef struct DetectEncodingInfo {
-	uint32_t nCodePage;
+    uint32_t nCodePage;
 } DetectEncodingInfo;
 #endif
 
@@ -576,6 +576,12 @@ ChapType ChapterRW::check_chap_type(const wstring& data) {
         && string::npos != data.find(L"<TextSample")) {
         return CHAP_TYPE_APPLE;
     }
+    if (string::npos != data.find(L"<Chapters")
+        && string::npos != data.find(L"<EditionEntry")
+        && string::npos != data.find(L"<ChapterAtom")
+        && string::npos != data.find(L"<ChapterTimeStart")) {
+        return CHAP_TYPE_MATROSKA;
+    }
 
     return CHAP_TYPE_UNKNOWN;
 }
@@ -615,7 +621,7 @@ int ChapterRW::read_chapter_nero() {
         if (string::npos == pw_line[i].find(pw_key[i&1], 0, wcslen(pw_key[i&1])))
             return AUO_CHAP_ERR_INVALID_FMT;
         pw_key[(i&1) + 1] = &pw_line[i][0];//CHAPTER KEY名を保存
-        pw_data[i&1] = wcschr(&pw_line[i][0], L'='); 
+        pw_data[i&1] = wcschr(&pw_line[i][0], L'=');
         *pw_data[i&1] = L'\0'; //CHAPTER KEY名を一つの文字列として扱えるように
         pw_data[i&1]++; //データは'='の次から
         if (i&1) {
@@ -661,10 +667,10 @@ int ChapterRW::read_chapter_apple() {
         for (auto element = elemTextStream->FirstChildElement(ELEMENT_NAME); element != nullptr; element = element->NextSiblingElement(ELEMENT_NAME)) {
             int time[4] = { 0 };
             auto pSampleTime = element->Attribute(ATTRIBUTE_NAME);
-            if (   4 != sscanf_s(pSampleTime, "%d:%d:%d:%d\r\n", &time[0], &time[1], &time[2], &time[3])
-                && 4 != sscanf_s(pSampleTime, "%d:%d:%d.%d\r\n", &time[0], &time[1], &time[2], &time[3])
-                && 4 != sscanf_s(pSampleTime, "%d:%d.%d.%d\r\n", &time[0], &time[1], &time[2], &time[3])
-                && 4 != sscanf_s(pSampleTime, "%d.%d.%d.%d\r\n", &time[0], &time[1], &time[2], &time[3])) {
+            if (   4 != sscanf_s(pSampleTime, "%d:%d:%d:%d", &time[0], &time[1], &time[2], &time[3])
+                && 4 != sscanf_s(pSampleTime, "%d:%d:%d.%d", &time[0], &time[1], &time[2], &time[3])
+                && 4 != sscanf_s(pSampleTime, "%d:%d.%d.%d", &time[0], &time[1], &time[2], &time[3])
+                && 4 != sscanf_s(pSampleTime, "%d.%d.%d.%d", &time[0], &time[1], &time[2], &time[3])) {
                 return AUO_CHAP_ERR_PARSE_XML;
             }
             unique_ptr<ChapData> chap(new ChapData());
@@ -672,15 +678,116 @@ int ChapterRW::read_chapter_apple() {
             chap->m  = time[1];
             chap->s  = time[2];
             chap->ms = time[3];
+            m_duration = max(m_duration, chap->get_ms());
             if (element->GetText()) {
                 chap->name = char_to_wstring(element->GetText(), CP_UTF8);
                 chapters.push_back(std::move(chap));
-            } else {
-                m_duration = chap->get_ms();
             }
         }
     }
 
+    return sts;
+}
+
+int ChapterRW::read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, int& addedCount) {
+    static const char *const CHAPTER_ATOM         = "ChapterAtom";
+    static const char *const CHAPTER_TIME_START   = "ChapterTimeStart";
+    static const char *const CHAPTER_TIME_END     = "ChapterTimeEnd";
+    static const char *const CHAPTER_DISPLAY      = "ChapterDisplay";
+    static const char *const CHAPTER_STRING       = "ChapterString";
+    static const char *const CHAPTER_FLAG_HIDDEN  = "ChapterFlagHidden";
+    static const char *const CHAPTER_FLAG_ENABLED = "ChapterFlagEnabled";
+
+    for (auto chapterAtom = elem->FirstChildElement(CHAPTER_ATOM); chapterAtom != nullptr; chapterAtom = chapterAtom->NextSiblingElement(CHAPTER_ATOM)) {
+        int count = 0;
+        int ret = read_chapter_matroska_chapter_atom(chapterAtom, count);
+        if (ret != AUO_CHAP_ERR_NONE) {
+            return ret;
+        }
+        if (count == 0) {
+            auto flagHidden = chapterAtom->FirstChildElement(CHAPTER_FLAG_HIDDEN);
+            auto flagEnabled = chapterAtom->FirstChildElement(CHAPTER_FLAG_ENABLED);
+            const bool hidden  = ( flagHidden  && strtol(flagHidden->GetText(), nullptr, 10) != 0);
+            const bool enabled = (!flagEnabled || strtol(flagEnabled->GetText(), nullptr, 10) != 0);
+            if (!hidden && enabled) {
+                auto chapterTimeStart = chapterAtom->FirstChildElement(CHAPTER_TIME_START);
+                if (chapterTimeStart == nullptr) {
+                    return AUO_CHAP_ERR_PARSE_XML;
+                }
+                auto chapterDisplay = chapterAtom->FirstChildElement(CHAPTER_DISPLAY);
+
+                auto timeStart = chapterTimeStart->GetText();
+                int time[4] = { 0 };
+                if (   4 != sscanf_s(timeStart, "%d:%d:%d:%d", &time[0], &time[1], &time[2], &time[3])
+                    && 4 != sscanf_s(timeStart, "%d:%d:%d.%d", &time[0], &time[1], &time[2], &time[3])
+                    && 4 != sscanf_s(timeStart, "%d:%d.%d.%d", &time[0], &time[1], &time[2], &time[3])
+                    && 4 != sscanf_s(timeStart, "%d.%d.%d.%d", &time[0], &time[1], &time[2], &time[3])) {
+                    return AUO_CHAP_ERR_PARSE_XML;
+                }
+                unique_ptr<ChapData> chap(new ChapData());
+                chap->h  = time[0];
+                chap->m  = time[1];
+                chap->s  = time[2];
+                chap->ms = time[3];
+                m_duration = max(m_duration, chap->get_ms());
+                if (chapterDisplay && chapterDisplay->FirstChildElement(CHAPTER_STRING)) {
+                    chap->name = char_to_wstring(chapterDisplay->FirstChildElement(CHAPTER_STRING)->GetText(), CP_UTF8);
+                    chapters.push_back(std::move(chap));
+                }
+            }
+            count++;
+        }
+        auto chapterTimeEnd = chapterAtom->FirstChildElement(CHAPTER_TIME_END);
+        if (chapterTimeEnd) {
+            auto timeEnd = chapterTimeEnd->GetText();
+            int time[4] = { 0 };
+            if (   4 == sscanf_s(timeEnd, "%d:%d:%d:%d", &time[0], &time[1], &time[2], &time[3])
+                || 4 == sscanf_s(timeEnd, "%d:%d:%d.%d", &time[0], &time[1], &time[2], &time[3])
+                || 4 == sscanf_s(timeEnd, "%d:%d.%d.%d", &time[0], &time[1], &time[2], &time[3])
+                || 4 == sscanf_s(timeEnd, "%d.%d.%d.%d", &time[0], &time[1], &time[2], &time[3])) {
+                ChapData chap;
+                chap.h  = time[0];
+                chap.m  = time[1];
+                chap.s  = time[2];
+                chap.ms = time[3];
+                m_duration = max(m_duration, chap.get_ms());
+            }
+        }
+        addedCount += count;
+    }
+    return AUO_CHAP_ERR_NONE;
+}
+
+int ChapterRW::read_chapter_matroska() {
+    int sts = AUO_CHAP_ERR_NONE;
+    if (nullptr == m_filepath) {
+        sts = AUO_CHAP_ERR_NULL_PTR;
+        return sts;
+    }
+
+    static const char *const ROOT = "Chapters";
+    static const char *const EDITION_ENTRY = "EditionEntry";
+
+    unique_ptr<FILE, fp_deleter> fp;
+    {
+        FILE *fp_tmp = NULL;
+        if (_tfopen_s(&fp_tmp, m_filepath, _T("rb"))) {
+            return AUO_CHAP_ERR_FILE_OPEN;
+        }
+        fp.reset(fp_tmp);
+    }
+    tinyxml2::XMLDocument xml;
+    if (tinyxml2::XML_NO_ERROR != xml.LoadFile(fp.get())) {
+        sts = AUO_CHAP_ERR_INIT_READ_STREAM;
+    } else {
+        auto root = xml.FirstChildElement(ROOT);
+        for (auto element = root->FirstChildElement(EDITION_ENTRY); element != nullptr; element = root->NextSiblingElement(EDITION_ENTRY)) {
+            int count = 0;
+            if ((sts = read_chapter_matroska_chapter_atom(element, count)) != AUO_CHAP_ERR_NONE) {
+                return sts;
+            }
+        }
+    }
     return sts;
 }
 
@@ -691,8 +798,18 @@ int ChapterRW::read_chapter() {
             return AUO_CHAP_ERR_CP_DETECT;
         }
     }
-    sts = (CHAP_TYPE_NERO == m_chapter_type) ? read_chapter_nero() : read_chapter_apple();
-    return sts;
+    switch (m_chapter_type) {
+    case CHAP_TYPE_NERO:
+        return read_chapter_nero();
+    case CHAP_TYPE_APPLE:
+        return read_chapter_apple();
+    case CHAP_TYPE_MATROSKA:
+        return read_chapter_matroska();
+    case CHAP_TYPE_ANOTHER:
+    case CHAP_TYPE_UNKNOWN:
+    default:
+        return AUO_CHAP_ERR_INVALID_FMT;
+    }
 }
 
 int ChapterRW::read_file() {

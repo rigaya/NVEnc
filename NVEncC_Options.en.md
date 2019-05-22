@@ -646,7 +646,7 @@ Mux an external audio file specified.
 
 ### --chapter &lt;string&gt;
 Set chapter in the (separate) chapter file.
-The chapter file could be either in nero format or apple format. Cannot be used with --chapter-copy.
+The chapter file could be in nero format, apple format or matroska format. Cannot be used with --chapter-copy.
 
 nero format
 ```
@@ -673,6 +673,39 @@ apple format (should be in utf-8)
 </TextStream>
 ```
 
+matroska形式 (hould be in utf-8)
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<Chapters>
+  <EditionEntry>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-0</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-1</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-2</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
+      <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
+      <ChapterDisplay>
+        <ChapterString>chapter-3</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+  </EditionEntry>
+</Chapters>
+```
 
 ### --chapter-copy
 Copy chapters from input file.

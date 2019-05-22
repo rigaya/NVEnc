@@ -23,6 +23,10 @@ typedef char TCHAR;
 #endif
 #endif
 
+namespace tinyxml2 {
+    class XMLElement;
+}
+
 //日本語環境の一般的なコードページ一覧
 enum : uint32_t {
     CODE_PAGE_SJIS        = 932, //Shift-JIS
@@ -39,8 +43,9 @@ enum : uint32_t {
 enum ChapType {
     CHAP_TYPE_ANOTHER = -1,
     CHAP_TYPE_UNKNOWN = 0,
-    CHAP_TYPE_NERO    = 1,
-    CHAP_TYPE_APPLE   = 2,
+    CHAP_TYPE_NERO,
+    CHAP_TYPE_APPLE,
+    CHAP_TYPE_MATROSKA,
 };
 
 enum {
@@ -94,7 +99,7 @@ private:
 public:
     ChapterRW();
     ~ChapterRW();
-    
+
     //読み込んだチャプターの種類(m_chapter_type)を返す
     int file_chapter_type();
 
@@ -112,7 +117,7 @@ public:
     //out_chapter_type...出力するチャプターの種類
     //nero_in_utf8...出力するチャプターがneroの場合に、utf-8で出力する
     int write_file(const TCHAR *out_filepath, ChapType out_chapter_type, bool nero_in_utf8);
-    
+
     //チャプターファイルを上書きする
     //失敗した場合にはなにもしない
     //out_chapter_type...出力するチャプターの種類
@@ -162,6 +167,11 @@ private:
 
     //appleチャプターから、チャプターリスト(chapters)を作成
     int read_chapter_apple();
+
+    int read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, int &count);
+
+    //matroskaチャプターから、チャプターリスト(chapters)を作成
+    int read_chapter_matroska();
 
     //appleチャプターのヘッダー部分を作成
     int write_chapter_apple_header(std::ostream& ostream);

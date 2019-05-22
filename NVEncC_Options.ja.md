@@ -635,7 +635,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 
 ### --chapter &lt;string&gt;
 指定したチャプターファイルを読み込み反映させる。
-nero形式とapple形式に対応する。--chapter-copyとは併用できない。
+nero形式、apple形式、matroska形式に対応する。--chapter-copyとは併用できない。
 
 nero形式
 ```
@@ -647,7 +647,7 @@ CHAPTER03=00:01:28.288
 CHAPTER03NAME=chapter-3
 ```
 
-apple形式 (should be in utf-8)
+apple形式 (UTF-8であること)
 ```
 <?xml version="1.0" encoding="UTF-8" ?>
   <TextStream version="1.1">
@@ -660,6 +660,40 @@ apple形式 (should be in utf-8)
   <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
   <TextSample sampleTime="00:01:28.289" text="" />
 </TextStream>
+```
+
+matroska形式 (UTF-8であること)
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<Chapters>
+  <EditionEntry>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-0</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-1</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-2</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
+      <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
+      <ChapterDisplay>
+        <ChapterString>chapter-3</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+  </EditionEntry>
+</Chapters>
 ```
 
 ### --chapter-copy
