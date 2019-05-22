@@ -1432,7 +1432,7 @@ RGY_ERR RGYOutputAvcodec::SetChapters(const vector<const AVChapter *>& pChapterL
             m_Mux.format.pFormatCtx->chapters[i] = outChapters[i];
 
             AddMessage(RGY_LOG_DEBUG, _T("chapter #%d: id %d, %lld -> %lld (timebase %d/%d), [%s -> %s]\n"),
-                outChapters[i]->id, (long long int)outChapters[i]->start, (long long int)outChapters[i]->end,
+                i, outChapters[i]->id, (long long int)outChapters[i]->start, (long long int)outChapters[i]->end,
                 outChapters[i]->time_base.num, outChapters[i]->time_base.den,
                 getTimestampString(outChapters[i]->start, outChapters[i]->time_base).c_str(),
                 getTimestampString(outChapters[i]->end, outChapters[i]->time_base).c_str());
