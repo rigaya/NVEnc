@@ -151,15 +151,17 @@ reader used will be selected depending on the extension of input file.
 
 | reader | yuv420 | yuy2 | yuv422 | yuv444 | rgb24 | rgb32 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| raw | ○ |  |  |  |  |  |
-| y4m | ◎ |  | ◎ | ◎ |  |  |
-| avi | ○ | ○ |  |  | ○ | ○ |
-| avs | ◎ | ○ | ◎ | ◎ |  |  |
-| vpy | ◎ |  | ◎ | ◎ |  |  |
-| avhw | ◎ |  |  |  |  |  |
-| avsw | ◎ |  | ◎ | ◎ | ○ | ○ |
+| raw    |   ○   |      |        |        |       |       |
+| y4m    |   ◎   |      |   ◎   |   ◎   |       |       |
+| avi    |   ○   |  ○  |        |        |   ○  |   ○  |
+| avs    |   ◎   |  ○  |   ◎   |   ◎   |   ○  |   ○  |
+| vpy    |   ◎   |      |   ◎   |   ◎   |       |       |
+| avhw   |   □   |      |        |   ◇   |       |       |
+| avsw   |   ◎   |      |   ◎   |   ◎   |   ○  |   ○  |
 
 ◎ ... 8bit / 9bit / 10bit / 12bit / 14bit / 16bit supported  
+◇ ... 8bit / 10bit / 12bit supported  
+□ ... 8bit / 10bit supported  
 ○ ... support only 8 bits
 
 ### --raw
