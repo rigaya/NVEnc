@@ -3107,6 +3107,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
+            param->crop = inputParam->input.crop;
             NVEncCtxAutoLock(cxtlock(m_ctxLock));
             auto sts = filter->init(param, m_pNVLog);
             if (sts != NV_ENC_SUCCESS) {

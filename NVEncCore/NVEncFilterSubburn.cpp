@@ -444,7 +444,7 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
                 m_subImages.clear();
                 return RGY_ERR_NONE;
             }
-            return procFrameBitmap(pOutputFrame, prm->videoInfo.crop, stream);
+            return procFrameBitmap(pOutputFrame, prm->crop, stream);
         }
     }
     return RGY_ERR_NONE;

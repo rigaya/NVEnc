@@ -329,7 +329,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     frame->copyFrameAsync(&img, stream);
     return SubImageData(std::move(frame), std::move(bufCPU),
         rect->x - ((crop.e.left + crop.e.right) / 2),
-        rect->y - crop.e.bottom);
+        rect->y - crop.e.up - crop.e.bottom);
 }
 
 

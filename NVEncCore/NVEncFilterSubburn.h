@@ -51,7 +51,7 @@ struct SubImageData {
     int x, y;
 
     SubImageData(unique_ptr<CUFrameBuf> img, unique_ptr<void, decltype(&cudaFreeHost)> imgCPU, int posX, int posY) :
-        image(std::move(img)), imageCPU(std::move(imgCPU)), x(posX), y(posY) { }
+        image(std::move(img)), imageCPU(std::move(imgCPU)), x(posX), y(posY){ }
 };
 
 class NVEncFilterParamSubburn : public NVEncFilterParam {
@@ -62,8 +62,9 @@ public:
     int64_t         videoInputFirstKeyPts;
     VideoInfo       videoInfo;
     AVDemuxStream   streamIn;
+    sInputCrop      crop;
 
-    NVEncFilterParamSubburn() : subburn(), videoTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn() {};
+    NVEncFilterParamSubburn() : subburn(), videoTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop() {};
     virtual ~NVEncFilterParamSubburn() {};
 };
 
