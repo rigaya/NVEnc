@@ -126,7 +126,7 @@ static void __forceinline copy_nv12_to_nv12(void **dst, const void **src, int wi
     for (int i = 0; i < 2; i++) {
         const auto y_range = thread_y_range(crop_up >> i, (height - crop_bottom) >> i, thread_id, thread_n);
         uint8_t *srcYLine = (uint8_t *)src[i] + src_y_pitch_byte * y_range.start_src + crop_left;
-        uint8_t *dstLine = (uint8_t *)dst[i] + src_y_pitch_byte * y_range.start_dst;
+        uint8_t *dstLine = (uint8_t *)dst[i] + dst_y_pitch_byte * y_range.start_dst;
         const int y_width = width - crop_right - crop_left;
         for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
             memcpy_sse(dstLine, srcYLine, y_width * pixel_size);
