@@ -46,6 +46,18 @@ tstring get_codec_level_name(RGY_CODEC codec, int level) {
     }
 }
 
+GPUAutoSelectMul::GPUAutoSelectMul() : cores(0.001f), gen(1.0f), gpu(1.0f), ve(1.0f) {}
+
+bool GPUAutoSelectMul::operator==(const GPUAutoSelectMul &x) const {
+    return cores == x.cores
+        && gen == x.gen
+        && gpu == x.gpu
+        && ve == x.ve;
+}
+bool GPUAutoSelectMul::operator!=(const GPUAutoSelectMul &x) const {
+    return !(*this == x);
+}
+
 VppDelogo::VppDelogo() :
     enable(false),
     logoFilePath(),
@@ -835,6 +847,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     nPerfMonitorSelectMatplot(0),
     nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
     nCudaSchedule(DEFAULT_CUDA_SCHEDULE),
+    gpuSelect(),
     sessionRetry(0),
     threadCsp(0),
     simdCsp(-1),

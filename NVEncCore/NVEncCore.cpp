@@ -3523,8 +3523,8 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(const InEncodeVideoParam *inputParam) {
     }
     std::map<int, double> gpuscore;
     for (const auto& gpu : m_GPUList) {
-        double core_score = gpu.cuda_cores * 0.001;
-        double cc_score = (gpu.compute_capability.first * 1000.0 + gpu.compute_capability.second) * 0.01;
+        double core_score = gpu.cuda_cores * inputParam->gpuSelect.cores;
+        double cc_score = (gpu.compute_capability.first * 10.0 + gpu.compute_capability.second) * inputParam->gpuSelect.gen;
         double ve_score = 0.0;
         double gpu_score = 0.0;
 
@@ -3538,8 +3538,8 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(const InEncodeVideoParam *inputParam) {
         NVSMIInfo nvsmi;
         if (nvsmi.getData(&info, gpu.pciBusId) == 0) {
 #endif
-            ve_score  = 100.0 * (1.0 - std::pow(info.VEELoad / 100.0, 1.0));
-            gpu_score = 100.0 * (1.0 - std::pow(info.GPULoad / 100.0, 1.5));
+            ve_score  = 100.0 * (1.0 - std::pow(info.VEELoad / 100.0, 1.0)) * inputParam->gpuSelect.ve;
+            gpu_score = 100.0 * (1.0 - std::pow(info.GPULoad / 100.0, 1.5)) * inputParam->gpuSelect.gpu;
             PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) Load: GPU %.1f, VE: %.1f.\n"), gpu.id, gpu.name.c_str(), info.GPULoad, info.VEELoad);
         }
         gpuscore[gpu.id] = cc_score + ve_score + gpu_score + core_score;

@@ -795,6 +795,17 @@ static int get_value(int id, const std::vector<NVEncCap>& capList) {
     return 0;
 }
 
+struct GPUAutoSelectMul {
+    float cores;
+    float gen;
+    float gpu;
+    float ve;
+
+    GPUAutoSelectMul();
+    bool operator==(const GPUAutoSelectMul &x) const;
+    bool operator!=(const GPUAutoSelectMul &x) const;
+};
+
 struct VppDelogo {
     bool enable;
     tstring logoFilePath;  //ロゴファイル名
@@ -1210,9 +1221,11 @@ struct InEncodeVideoParam {
     int64_t nPerfMonitorSelectMatplot;
     int     nPerfMonitorInterval;
     int     nCudaSchedule;
+    GPUAutoSelectMul gpuSelect;
     int sessionRetry;
     int threadCsp;
     int simdCsp;
+
     void *pPrivatePrm;
 
     InEncodeVideoParam();

@@ -3162,6 +3162,63 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+
+    if (IS_OPTION("gpu-select")) {
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("cores")) {
+                    try {
+                        pParams->gpuSelect.cores = std::stof(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("gen")) {
+                    try {
+                        pParams->gpuSelect.gen = std::stof(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ve")) {
+                    try {
+                        pParams->gpuSelect.ve = std::stof(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("gpu")) {
+                    try {
+                        pParams->gpuSelect.gpu = std::stof(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("max-procfps")) {
         i++;
         int value = 0;
@@ -4112,6 +4169,16 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vpp.bCheckPerformance);
 
     OPT_LST(_T("--cuda-schedule"), nCudaSchedule, list_cuda_schedule);
+    if (pParams->gpuSelect != encPrmDefault.gpuSelect) {
+        tmp.str(tstring());
+        ADD_FLOAT(_T("cores"), gpuSelect.cores, 6);
+        ADD_FLOAT(_T("gen"), gpuSelect.gen, 3);
+        ADD_FLOAT(_T("ve"), gpuSelect.ve, 3);
+        ADD_FLOAT(_T("gpu"), gpuSelect.gpu, 3);
+        if (!tmp.str().empty()) {
+            cmd << _T(" --gpu-select ") << tmp.str().substr(1);
+        }
+    }
     OPT_NUM(_T("--output-buf"), nOutputBufSizeMB);
     OPT_NUM(_T("--thread-output"), nOutputThread);
     OPT_NUM(_T("--thread-input"), nInputThread);
