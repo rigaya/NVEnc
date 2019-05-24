@@ -169,6 +169,8 @@ protected:
     //メインメソッド
     NVENCSTATUS SetEncodeCodecList(void *encode);
 
+    RGY_ERR CheckDynamicRCParams(std::vector<DynamicRCParam> &dynamicRC);
+
     //エンコーダが出力使用する色空間を入力パラメータをもとに取得
     RGY_CSP GetEncoderCSP(const InEncodeVideoParam *inputParam);
 
@@ -255,6 +257,8 @@ protected:
     HINSTANCE                    m_hinstLib;              //nvEncodeAPI.dllのモジュールハンドル
     void                        *m_hEncoder;              //エンコーダのインスタンス
     NV_ENC_INITIALIZE_PARAMS     m_stCreateEncodeParams;  //エンコーダの初期化パラメータ
+    std::vector<DynamicRCParam>  m_dynamicRC;             //動的に変更するエンコーダのパラメータ
+    int                          m_appliedDynamicRC;      //今適用されているパラメータ(未適用なら-1)
 
     vector<InputFrameBufInfo>    m_inputHostBuffer;
 

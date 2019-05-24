@@ -256,6 +256,8 @@ Generally, it is recommended to set the QP value to be I &lt; P &lt; B.
 ### --vbrhq &lt;int&gt;
 Set bitrate in kbps.
 
+Constant quality mode can be used by "--vbrhq 0 --vbr-quality &lt;float&gt;".
+
 ## Other Options for Encoder
 
 ### -u, --preset
@@ -294,6 +296,32 @@ It could be used to maintain certain degree of image quality in any part of the 
 
 ### --vbr-quality &lt;float&gt;
 Set target quality when using VBR mode. (0.0-51.0, 0 = automatic)
+
+### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
+Change the rate control mode and rate control params within the specified range of output frames.
+
+**required parameters**
+It is required to specify one of the params below.
+- cqp=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+- cbr=&lt;int&gt;  
+- cbrhq=&lt;int&gt;  
+- vbr=&lt;int&gt;  
+- vbrhq=&lt;int&gt;  
+
+**additional parameters**
+- max-bitrate=&lt;int&gt;  
+- vbr-quality=&lt;float&gt;  
+
+```
+Example1: Encode by vbrhq(12000kbps) in output frame range 3000-3999,
+          encode by constant quality mode(29.0) in output frame range 5000-5999,
+          and encode by constant quality mode(25.0) on other frame range.
+  --vbrhq 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbrhq=12000 --dynamic-rc 5000:5999,vbrhq=0,vbr-quality=29.0
+
+Example2: Encode by vbrhq(6000kbps) to output frame number 2999,
+          and encode by vbrhq(12000kbps) from output frame number 3000 and later.
+  --vbrhq 6000 --dynamic-rc start=3000,vbrhq=12000
+```
 
 ### --lookahead &lt;int&gt;
 Enable lookahead, and specify its target range by the number of frames. (0 - 32)  

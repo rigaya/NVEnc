@@ -359,6 +359,7 @@ NVEncCore::NVEncCore() {
     m_keyFile.clear();
     m_keyOnChapter = false;
 #endif
+    m_appliedDynamicRC = DYNAMIC_PARAM_NOT_SELECTED;
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -2362,6 +2363,10 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             error_feature_unsupported(RGY_LOG_WARN, _T("B Ref Mode"));
         }
     }
+    if (m_dynamicRC.size() > 0 && !getCapLimit(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)) {
+        error_feature_unsupported(RGY_LOG_ERROR, _T("dynamic RC Change"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
     //自動決定パラメータ
     if (0 == m_stEncConfig.gopLength) {
         m_stEncConfig.gopLength = (int)(m_encFps.n() / (double)m_encFps.d() + 0.5) * 10;
@@ -3603,6 +3608,38 @@ NVENCSTATUS NVEncCore::InitDevice(const InEncodeVideoParam *inputParam) {
     return NV_ENC_SUCCESS;
 }
 
+RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<DynamicRCParam>& dynamicRC) {
+    if (dynamicRC.size() == 0) {
+        return RGY_ERR_NONE;
+    }
+    std::sort(dynamicRC.begin(), dynamicRC.end(), [](const DynamicRCParam& a, const DynamicRCParam& b) {
+        return (a.start == b.start) ? a.end < b.end : a.start < b.start;
+    });
+    std::for_each(dynamicRC.begin(), dynamicRC.end(), [](DynamicRCParam &a) {
+        if (a.end <= 0) {
+            a.end = TRIM_MAX;
+        }
+    });
+    int id = 0;
+    for (auto a : dynamicRC) {
+        if (a.start < id) {
+            PrintMes(RGY_LOG_ERROR, _T("Invalid sequence of frame ID in --dynamic-rc.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("%s\n"), printParams(dynamicRC).c_str());
+            return RGY_ERR_INVALID_PARAM;
+        }
+        id = a.start;
+        if (a.end > 0 && a.end < id) {
+            PrintMes(RGY_LOG_ERROR, _T("Invalid sequence of frame ID in --dynamic-rc.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("%s\n"), printParams(dynamicRC).c_str());
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("%s\n"), printParams(dynamicRC).c_str());
+    m_dynamicRC = dynamicRC;
+    m_appliedDynamicRC = DYNAMIC_PARAM_NOT_SELECTED;
+    return RGY_ERR_NONE;
+}
+
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
@@ -3651,6 +3688,12 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("GPUAutoSelect: Success.\n"));
+
+    auto rgy_err = CheckDynamicRCParams(inputParam->dynamicRC);
+    if (rgy_err != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_DEBUG, _T("Error in dynamic rate control params.\n"));
+        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
 
     //入力ファイルを開き、入力情報も取得
     //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
@@ -3826,6 +3869,49 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
 
     NV_ENC_PIC_PARAMS encPicParams;
     INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
+
+    if (m_dynamicRC.size() > 0) {
+        int selectedIdx = DYNAMIC_PARAM_NOT_SELECTED;
+        for (int i = 0; i < (int)m_dynamicRC.size(); i++) {
+            if (m_dynamicRC[i].start <= id && id <= m_dynamicRC[i].end) {
+                selectedIdx = i;
+            }
+            if (m_dynamicRC[i].start > id) {
+                break;
+            }
+        }
+        if (m_appliedDynamicRC != selectedIdx) {
+            NV_ENC_CONFIG encConfig = m_stEncConfig; //エンコード設定
+            NV_ENC_RECONFIGURE_PARAMS reconf_params = { 0 };
+            reconf_params.version = NV_ENC_RECONFIGURE_PARAMS_VER;
+            reconf_params.resetEncoder = 1;
+            reconf_params.forceIDR = 1;
+            reconf_params.reInitEncodeParams = m_stCreateEncodeParams;
+            reconf_params.reInitEncodeParams.encodeConfig = &encConfig;
+            if (selectedIdx >= 0) {
+                const auto &selectedPrms = m_dynamicRC[selectedIdx];
+                encConfig.rcParams.rateControlMode = selectedPrms.rc_mode;
+                if (encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP) {
+                    encConfig.rcParams.constQP = selectedPrms.qp;
+                } else {
+                    encConfig.rcParams.averageBitRate = selectedPrms.avg_bitrate;
+                    if (selectedPrms.targetQuality >= 0) {
+                        encConfig.rcParams.targetQuality    = (uint8_t)selectedPrms.targetQuality;
+                        encConfig.rcParams.targetQualityLSB = (uint8_t)selectedPrms.targetQualityLSB;
+                    }
+                }
+                if (selectedPrms.max_bitrate > 0) {
+                    encConfig.rcParams.maxBitRate = selectedPrms.max_bitrate;
+                }
+            }
+            NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncReconfigureEncoder(m_hEncoder, &reconf_params);
+            if (nvStatus != NV_ENC_SUCCESS) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to reconfigure the encoder.\n"));
+                return nvStatus;
+            }
+            m_appliedDynamicRC = selectedIdx;
+        }
+    }
 
 #if ENABLE_AVSW_READER
     if (m_Chapters.size() > 0 && m_keyOnChapter) {
@@ -5077,6 +5163,13 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         }
         add_str(RGY_LOG_INFO,  _T("VBV buf size   %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvBufferSize / 1000,   0, _T("kbit")).c_str());
         add_str(RGY_LOG_DEBUG, _T("VBV init delay %s\n"), value_or_auto(m_stEncConfig.rcParams.vbvInitialDelay / 1000, 0, _T("kbit")).c_str());
+    }
+    if (m_dynamicRC.size() > 0) {
+        tstring strDynamicRC = tstring(_T("DynamicRC      ")) + m_dynamicRC[0].print();
+        for (int i = 1; i < (int)m_dynamicRC.size(); i++) {
+            strDynamicRC += _T("\n               ") + m_dynamicRC[i].print();
+        }
+        add_str(RGY_LOG_INFO, _T("%s\n"), strDynamicRC.c_str());
     }
     tstring strLookahead = _T("Lookahead      ");
     if (m_stEncConfig.rcParams.enableLookahead) {

@@ -398,6 +398,25 @@ const CX_DESC list_simd[] = {
     { NULL, NULL }
 };
 
+static const int DYNAMIC_PARAM_NOT_SELECTED = -1;
+
+struct DynamicRCParam {
+    int start;
+    int end;
+    NV_ENC_PARAMS_RC_MODE rc_mode;
+    int avg_bitrate;
+    int max_bitrate;
+    int targetQuality;
+    int targetQualityLSB;
+    NV_ENC_QP qp;
+
+    DynamicRCParam();
+    tstring print() const;
+    bool operator==(const DynamicRCParam &x) const;
+    bool operator!=(const DynamicRCParam &x) const;
+};
+tstring printParams(const std::vector<DynamicRCParam> &dynamicRC);
+
 enum {
     NPPI_INTER_MAX = NPPI_INTER_LANCZOS3_ADVANCED,
     RESIZE_CUDA_TEXTURE_BILINEAR,
@@ -1175,6 +1194,7 @@ struct InEncodeVideoParam {
     int nHWDecType;               //
     int par[2];                   //使用されていません
     NV_ENC_CONFIG encConfig;      //エンコード設定
+    std::vector<DynamicRCParam> dynamicRC;
     int codec;                    //出力コーデック
     int bluray;                   //bluray出力
     int yuv444;                   //YUV444出力

@@ -256,6 +256,8 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 ### --vbrhq &lt;int&gt; (可変ビットレート (高品質))
 ビットレートをkbps単位で指定してエンコードを行う。
 
+固定品質モードを使用するには、--vbrhq 0 --vbr-quality &lt;float&gt; で利用可能。
+
 
 ## その他のオプション
 
@@ -299,6 +301,32 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 
 ### --vbr-quality &lt;float&gt;
 VBRモード使用時の目標品質を設定する。(0.0-51.0, 0 = 自動)
+
+### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
+"開始フレーム番号:終了フレーム番号"で指定した出力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(vbr-quality)。
+
+**必須パラメータ**
+下記パラメータのうち、必ずひとつは指定が必要。
+- cqp=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+- cbr=&lt;int&gt;  
+- cbrhq=&lt;int&gt;  
+- vbr=&lt;int&gt;  
+- vbrhq=&lt;int&gt;  
+
+**追加パラメータ**
+- max-bitrate=&lt;int&gt;  
+- vbr-quality=&lt;float&gt;  
+
+```
+例1: 出力フレーム番号 3000-3999 の間はvbrhqの12000kbpsでエンコード、
+     出力フレーム番号 5000-5999 の間は固定品質の29.0でエンコードし、
+     その他の領域は固定品質の25.0でエンコードする。
+  --vbrhq 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbrhq=12000 --dynamic-rc 5000:5999,vbrhq=0,vbr-quality=29.0
+
+例2: 出力フレーム番号 3000までは、vbrhqの6000kbpsでエンコードし、
+     出力フレーム番号 3000以降はvbrhqの12000kbpsでエンコードする。
+  --vbrhq 6000 --dynamic-rc start=3000,vbrhq=12000
+```
 
 ### --lookahead &lt;int&gt;
 lookaheadを有効にし、その対象範囲をフレーム数で指定する。(0-32)

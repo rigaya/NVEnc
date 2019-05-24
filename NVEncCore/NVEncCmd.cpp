@@ -153,6 +153,26 @@ struct sArgsData {
     uint32_t nTmpInputBuf = 0;
 };
 
+int parse_qp(int a[3], const TCHAR *str) {
+    memset(a, 0, sizeof(a));
+    if (   3 == _stscanf_s(str, _T("%d:%d:%d"), &a[0], &a[1], &a[2])
+        || 3 == _stscanf_s(str, _T("%d/%d/%d"), &a[0], &a[1], &a[2])
+        || 3 == _stscanf_s(str, _T("%d.%d.%d"), &a[0], &a[1], &a[2])
+        || 3 == _stscanf_s(str, _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
+        return 3;
+    }
+    if (   2 == _stscanf_s(str, _T("%d:%d"), &a[0], &a[1])
+        || 2 == _stscanf_s(str, _T("%d/%d"), &a[0], &a[1])
+        || 2 == _stscanf_s(str, _T("%d.%d"), &a[0], &a[1])
+        || 2 == _stscanf_s(str, _T("%d,%d"), &a[0], &a[1])) {
+        return 2;
+    }
+    if (1 == _stscanf_s(str, _T("%d"), &a[0])) {
+        return 1;
+    }
+    return 0;
+}
+
 int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, sArgsData *argData, ParseCmdError& err) {
 #define SET_ERR(app_name, errmes, opt_name, err_val) \
     err.strAppName = (app_name) ? app_name : _T(""); \
@@ -890,35 +910,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (IS_OPTION("cqp")) {
         i++;
         int a[3] = { 0 };
-        if (   3 == _stscanf_s(strInput[i], _T("%d:%d:%d"), &a[0], &a[1], &a[2])
-            || 3 == _stscanf_s(strInput[i], _T("%d/%d/%d"), &a[0], &a[1], &a[2])
-            || 3 == _stscanf_s(strInput[i], _T("%d.%d.%d"), &a[0], &a[1], &a[2])
-            || 3 == _stscanf_s(strInput[i], _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-            pParams->encConfig.rcParams.constQP.qpIntra  = a[0];
-            pParams->encConfig.rcParams.constQP.qpInterP = a[1];
-            pParams->encConfig.rcParams.constQP.qpInterB = a[2];
-            return 0;
-        }
-        if (   2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d.%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-            pParams->encConfig.rcParams.constQP.qpIntra  = a[0];
-            pParams->encConfig.rcParams.constQP.qpInterP = a[1];
-            pParams->encConfig.rcParams.constQP.qpInterB = a[1];
-            return 0;
-        }
-        if (1 == _stscanf_s(strInput[i], _T("%d"), &a[0])) {
-            pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
-            pParams->encConfig.rcParams.constQP.qpIntra  = a[0];
-            pParams->encConfig.rcParams.constQP.qpInterP = a[0];
-            pParams->encConfig.rcParams.constQP.qpInterB = a[0];
-        } else {
+        int ret = parse_qp(a, strInput[i]);
+        if (ret == 0) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
+        pParams->encConfig.rcParams.constQP.qpIntra  = a[0];
+        pParams->encConfig.rcParams.constQP.qpInterP = (ret > 1) ? a[1] : a[ret-1];
+        pParams->encConfig.rcParams.constQP.qpInterB = (ret > 2) ? a[2] : a[ret-1];
         return 0;
     }
     if (IS_OPTION("vbr")) {
@@ -983,6 +983,119 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
+        return 0;
+    }
+    if (IS_OPTION("dynamic-rc")) {
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        bool rc_mode_defined = false;
+        DynamicRCParam rcPrm;
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("start")) {
+                    try {
+                        rcPrm.start = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("end")) {
+                    try {
+                        rcPrm.end = std::stoi(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cqp")) {
+                    int a[3] = { 0 };
+                    int ret = parse_qp(a, strInput[i]);
+                    if (ret == 0) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    rcPrm.rc_mode = NV_ENC_PARAMS_RC_CONSTQP;
+                    rcPrm.qp.qpIntra  = a[0];
+                    rcPrm.qp.qpInterP = (ret > 1) ? a[1] : a[ret-1];
+                    rcPrm.qp.qpInterB = (ret > 2) ? a[2] : a[ret-1];
+                    rc_mode_defined = true;
+                    continue;
+                }
+                int temp = 0;
+                if (get_list_value(list_nvenc_rc_method_en, touppercase(param_arg).c_str(), &temp)) {
+                    try {
+                        rcPrm.avg_bitrate = std::stoi(param_val) * 1000;
+                        rcPrm.rc_mode = (NV_ENC_PARAMS_RC_MODE)temp;
+                        rc_mode_defined = true;
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("max-bitrate")) {
+                    try {
+                        rcPrm.max_bitrate = std::stoi(param_val) * 1000;
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("vbr-quality")) {
+                    try {
+                        auto value = (std::max)(0.0, std::stod(param_val));
+                        int value_int = (int)value;
+                        rcPrm.targetQuality = (uint8_t)clamp(value_int, 0, 51);
+                        rcPrm.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                pos = param.find_first_of(_T(":"));
+                if (pos != std::string::npos) {
+                    auto param_val0 = param.substr(0, pos);
+                    auto param_val1 = param.substr(pos+1);
+                    try {
+                        rcPrm.start = std::stoi(param_val0);
+                        rcPrm.end   = std::stoi(param_val1);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
+        }
+        if (!rc_mode_defined) {
+            SET_ERR(strInput[0], _T("rate control mode unspecified!"), option_name, strInput[i]);
+            return -1;
+        }
+        if (rcPrm.start < 0) {
+            SET_ERR(strInput[0], _T("start frame ID unspecified!"), option_name, strInput[i]);
+            return -1;
+        }
+        if (rcPrm.end > 0 && rcPrm.start > rcPrm.end) {
+            SET_ERR(strInput[0], _T("start frame ID must be smaller than end frame ID!"), option_name, strInput[i]);
+            return -1;
+        }
+        pParams->dynamicRC.push_back(rcPrm);
         return 0;
     }
     if (IS_OPTION("qp-init") || IS_OPTION("qp-max") || IS_OPTION("qp-min")) {
