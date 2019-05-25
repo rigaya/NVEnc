@@ -549,7 +549,7 @@ Bluray输出。（默认：关）
 
 要将H.264 / HEVC输出为基本流，请指定“raw”。
 
-### --video-tag <string>
+### --video-tag  &lt;string&gt;
 指定视频标签。
 ```
  -o test.mp4 -c hevc --video-tag hvc1
@@ -600,7 +600,7 @@ Example 3: 为 "aac_coder" 添加 "twoloop" 参数可以提升低码率下的音
 示例 2: --audio-bitrate 2?256 (设置第二根音频轨的码率为 256kbps)
 ```
 
-### --audio-profile [[&lt;int&gt;?]&lt;string&gt;
+### --audio-profile [&lt;int&gt;?]&lt;string&gt;
 
 指定音频编码器的profile。
 

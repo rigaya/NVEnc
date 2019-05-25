@@ -130,6 +130,7 @@ NVEncで使用するDeviceIdを指定する。使用できるデバイスは、[
 判断基準は  
 - 指定のエンコードが可能かどうか
 - --avhwが指定されていれば入力ファイルのHWデコードが可能かどうか
+- (インタレ保持エンコが指定されていれば、)インタレ保持エンコが可能かどうか
 - Video Engineの使用率が低い方
 - GPUの使用率が低い方
 - GPUの世代が新しい方 (Compute Capabilityで判定)
@@ -307,15 +308,15 @@ VBRモード使用時の目標品質を設定する。(0.0-51.0, 0 = 自動)
 
 **必須パラメータ**
 下記パラメータのうち、必ずひとつは指定が必要。
-- cqp=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
-- cbr=&lt;int&gt;  
-- cbrhq=&lt;int&gt;  
-- vbr=&lt;int&gt;  
-- vbrhq=&lt;int&gt;  
+- [cqp](./NVEncC_Options.ja.md#--cqp-int-or-intintint%E5%9B%BA%E5%AE%9A%E9%87%8F%E5%AD%90%E5%8C%96%E9%87%8F)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+- [cbr](./NVEncC_Options.ja.md#--cbr-int---%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+- [cbrhq](./NVEncC_Options.ja.md#--cbrhq-int-%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88-%E9%AB%98%E5%93%81%E8%B3%AA)=&lt;int&gt;  
+- [vbr](./NVEncC_Options.ja.md#--vbr-int---%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+- [vbrhq](./NVEncC_Options.ja.md#--vbrhq-int-%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88-%E9%AB%98%E5%93%81%E8%B3%AA)=&lt;int&gt;  
 
 **追加パラメータ**
-- max-bitrate=&lt;int&gt;  
-- vbr-quality=&lt;float&gt;  
+- [max-bitrate](./NVEncC_Options.ja.md#--max-bitrate-int)=&lt;int&gt;  
+- [vbr-quality](./NVEncC_Options.ja.md#--vbr-quality-float)=&lt;float&gt;  
 
 ```
 例1: 出力フレーム番号 3000-3999 の間はvbrhqの12000kbpsでエンコード、
@@ -445,17 +446,17 @@ DAR比 (画面アスペクト比) の指定。
 ### --max-cll &lt;int&gt;,&lt;int&gt; [HEVCのみ]
 MaxCLL and MaxFall を nits で指定する。
 ```
---max-cll 1000,300
+例: --max-cll 1000,300
 ```
 
 ### --master-display &lt;string&gt; [HEVCのみ]
 Mastering display data の設定。
 ```
-Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+例: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
 
 ### --dhdr10-info &lt;string&gt; [HEVC only]
-指定したjsonファイルから、HDR10+のメタデータを読み込んで反映する。
+指定したjsonファイルから、HDR10+のメタデータを読み込んで反映する。実行には追加で[hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen)が必要。
 
 ### --aud
 Access Unit Delimiter NALを挿入する。
@@ -525,7 +526,7 @@ muxerに出力フォーマットを指定して出力する。
 
 使用可能なフォーマットは[--check-formats](#--check-formats)で確認できる。H.264/HEVCをElementary Streamで出力する場合には、"raw"を指定する。
 
-### --video-tag <string>
+### --video-tag  &lt;string&gt;
 映像のcodec tagの指定。
 ```
  -o test.mp4 -c hevc --video-tag hvc1
@@ -567,7 +568,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
 ```
 
-### --audio-profile [[&lt;int&gt;?]&lt;string&gt;
+### --audio-profile [&lt;int&gt;?]&lt;string&gt;
 音声をエンコードする際、そのプロファイルを指定する。
 
 ### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]
@@ -696,6 +697,7 @@ apple形式 (UTF-8であること)
 ```
 
 matroska形式 (UTF-8であること)
+[その他のサンプル&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
 ```
 <?xml version="1.0" encoding="UTF-8"?>
 <Chapters>
@@ -1066,7 +1068,7 @@ yadifによるインタレ解除を行う。
     
     デフォルト: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3, w = 11.2
 
-  - mobius
+  - mobius  
     なるべく画面の明るさやコントラストを維持した変換を行うが、明部のディテールがつぶれる可能性がある。
    
     - transition=&lt;float&gt;  (デフォルト: 0.3)  
@@ -1280,7 +1282,7 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 指定のピクセル数(偶数)分のパディングを行う。左、上、右、下の順にピクセル数で指定する。
 
 ### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-指定した字幕の焼きこみを行う。
+指定した字幕の焼きこみを行う。テキスト形式の字幕については、[libass](https://github.com/libass/libass)を用いたレンダリングを行う。
 
 **Parameters**
 - track=&lt;int&gt;  

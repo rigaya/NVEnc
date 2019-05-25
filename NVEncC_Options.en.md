@@ -112,6 +112,7 @@ If unspecified, and you are running on multi-GPU environment, the device to be u
 
 - whether the device supports specified encoding
 - if --avhw is specified, then check whether the device supports hw decoding for the input file
+- if interlaced encoding is specified, then check if it is supported
 - device with lower Video Engine Utilization will be favored
 - device with lower GPU Utilization will be favored
 - later generation GPU will be favored
@@ -302,15 +303,15 @@ Change the rate control mode and rate control params within the specified range 
 
 **required parameters**
 It is required to specify one of the params below.
-- cqp=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
-- cbr=&lt;int&gt;  
-- cbrhq=&lt;int&gt;  
-- vbr=&lt;int&gt;  
-- vbrhq=&lt;int&gt;  
+- [cqp](./NVEncC_Options.en.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+- [cbr](./NVEncC_Options.en.md#--cbr-int)=&lt;int&gt;  
+- [cbrhq](./NVEncC_Options.en.md#--cbrhq-int)=&lt;int&gt;  
+- [vbr](./NVEncC_Options.en.md#--vbr-int)=&lt;int&gt;  
+- [vbrhq](./NVEncC_Options.en.md#--vbrhq-int)=&lt;int&gt;  
 
 **additional parameters**
-- max-bitrate=&lt;int&gt;  
-- vbr-quality=&lt;float&gt;  
+- [max-bitrate](./NVEncC_Options.en.md#--max-bitrate-int)=&lt;int&gt;  
+- [vbr-quality](./NVEncC_Options.en.md#--vbr-quality-float)=&lt;float&gt;  
 
 ```
 Example1: Encode by vbrhq(12000kbps) in output frame range 3000-3999,
@@ -450,7 +451,7 @@ Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450
 ```
 
 ### --dhdr10-info &lt;string&gt; [HEVC only]
-Apply HDR10+ dynamic metadata from specified json file.
+Apply HDR10+ dynamic metadata from specified json file. Requires [hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen) module  additionally.
 
 ### --aud
 Insert Access Unit Delimiter NAL.
@@ -521,7 +522,7 @@ Set video track to encode by resolution. Will be active when used with avhw/avsw
 ### --video-streamid &lt;int&gt;
 Set video track to encode in stream id.
 
-### --video-tag <string>
+### --video-tag &lt;string&gt;
 Specify video tag.
 ```
  -o test.mp4 -c hevc --video-tag hvc1
@@ -568,7 +569,7 @@ Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
 Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ```
 
-### --audio-profile [[&lt;int&gt;?]&lt;string&gt;
+### --audio-profile [&lt;int&gt;?]&lt;string&gt;
 Specify audio codec profile when encoding audio.
 
 ### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]
@@ -707,6 +708,7 @@ apple format (should be in utf-8)
 ```
 
 matroska形式 (hould be in utf-8)
+[Other Samples&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
 ```
 <?xml version="1.0" encoding="UTF-8"?>
 <Chapters>
@@ -1022,7 +1024,7 @@ Converts colorspace of the video. Available on x64 version.
     
     defaults: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3, w = 11.2
 
-  - mobius
+  - mobius  
     Trys to preserve contrast and colors while bright details might be removed.  
     - transition=&lt;float&gt;  (default: 0.3)  
       Threshold to move from linear conversion to mobius tone mapping.  
@@ -1235,7 +1237,7 @@ Example:
 add padding to left,top,right,bottom (in pixels)
 
 ### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-"Burn in" specified subtitle to the video.
+"Burn in" specified subtitle to the video. Text type subtitles will be rendered by [libass](https://github.com/libass/libass).
 
 **Parameters**
 - track=&lt;int&gt;  
