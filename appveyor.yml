@@ -33,7 +33,7 @@ install:
   - set PATH=c:\yasm;%PATH%
   - yasm --version
   - mkdir c:\hdr10plus_gen
-  - curl -o "c:\hdr10plus_gen\hdr10plus_gen_0.00_%PLATFORM%.7z" https://github.com/rigaya/hdr10plus_gen/releases/download/0.00/hdr10plus_gen_0.00_%PLATFORM%.7z
+  - curl -L -o "c:\hdr10plus_gen\hdr10plus_gen_0.00_%PLATFORM%.7z" https://github.com/rigaya/hdr10plus_gen/releases/download/0.00/hdr10plus_gen_0.00_%PLATFORM%.7z
   - 7z x -oC:\hdr10plus_gen\ "c:\hdr10plus_gen\hdr10plus_gen_0.00_%PLATFORM%.7z"
 
 before_build:
