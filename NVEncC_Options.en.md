@@ -298,7 +298,7 @@ It could be used to maintain certain degree of image quality in any part of the 
 ### --vbr-quality &lt;float&gt;
 Set target quality when using VBR mode. (0.0-51.0, 0 = automatic)
 
-### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
+### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
 Change the rate control mode and rate control params within the specified range of output frames.
 
 **required parameters**
