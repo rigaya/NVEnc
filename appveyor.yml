@@ -47,7 +47,6 @@ before_build:
   - if "%PLATFORM%" == "Win32" set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v8.0\bin;%PATH%
   - if "%PLATFORM%" == "Win32" set CUDA_PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v8.0
   - if "%PLATFORM%" == "Win32" set CUDA_PATH_V8_0=%CUDA_PATH%
-  - 7z x hdr10plus_gen_0.00_%PLATFORM%.7z
   - git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
   - git clone -b MT https://github.com/pinterf/AviSynthPlus.git ..\avisynthplus
   - git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
