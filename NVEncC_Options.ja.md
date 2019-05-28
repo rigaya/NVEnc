@@ -671,7 +671,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 指定したチャプターファイルを読み込み反映させる。
 nero形式、apple形式、matroska形式に対応する。--chapter-copyとは併用できない。
 
-nero形式
+nero形式  
 ```
 CHAPTER01=00:00:39.706
 CHAPTER01NAME=chapter-1
@@ -681,7 +681,7 @@ CHAPTER03=00:01:28.288
 CHAPTER03NAME=chapter-3
 ```
 
-apple形式 (UTF-8であること)
+apple形式 (UTF-8であること)  
 ```
 <?xml version="1.0" encoding="UTF-8" ?>
   <TextStream version="1.1">
@@ -696,7 +696,7 @@ apple形式 (UTF-8であること)
 </TextStream>
 ```
 
-matroska形式 (UTF-8であること)
+matroska形式 (UTF-8であること)  
 [その他のサンプル&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
 ```
 <?xml version="1.0" encoding="UTF-8"?>

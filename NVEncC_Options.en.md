@@ -682,7 +682,7 @@ Mux an external audio file specified.
 Set chapter in the (separate) chapter file.
 The chapter file could be in nero format, apple format or matroska format. Cannot be used with --chapter-copy.
 
-nero format
+nero format  
 ```
 CHAPTER01=00:00:39.706
 CHAPTER01NAME=chapter-1
@@ -692,7 +692,7 @@ CHAPTER03=00:01:28.288
 CHAPTER03NAME=chapter-3
 ```
 
-apple format (should be in utf-8)
+apple format (should be in utf-8)  
 ```
 <?xml version="1.0" encoding="UTF-8" ?>
   <TextStream version="1.1">
@@ -707,7 +707,7 @@ apple format (should be in utf-8)
 </TextStream>
 ```
 
-matroska形式 (hould be in utf-8)
+matroska形式 (hould be in utf-8)  
 [Other Samples&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
 ```
 <?xml version="1.0" encoding="UTF-8"?>
