@@ -54,15 +54,20 @@ private:
     std::unordered_map<int64_t, int64_t> m_duration;
     std::mutex mtx;
     int64_t last_check_pts;
+    int64_t offset;
 public:
-    RGYTimestamp() : m_duration(), mtx(), last_check_pts(0) {};
+    RGYTimestamp() : m_duration(), mtx(), last_check_pts(-1), offset(0) {};
     ~RGYTimestamp() {};
     void add(int64_t pts, int64_t duration) {
         std::lock_guard<std::mutex> lock(mtx);
         m_duration[pts] = duration;
     }
     int64_t check(int64_t pts) {
+        if (last_check_pts < 0 && pts > 0) {
+            offset = -pts;
+        }
         std::lock_guard<std::mutex> lock(mtx);
+        pts += offset;
         auto pos = m_duration.find(pts);
         if (pos == m_duration.end()) {
             auto last_check_pos = m_duration.find(last_check_pts);
