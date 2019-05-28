@@ -70,7 +70,7 @@ static inline void extend_array_size(VideoFrameData *dataset) {
     memset(dataset->frame + current_cap, 0, sizeof(dataset->frame[0]) * (dataset->capacity - current_cap));
 }
 
-RGYInputAvcodecPrm::RGYInputAvcodecPrm() :
+RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     memType(0),
     pInputFormat(nullptr),
     bReadVideo(false),
@@ -98,7 +98,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm() :
     pQueueInfo(nullptr),
     pHWDecCodecCsp(nullptr),
     bVideoDetectPulldown(false),
-    caption2ass(FORMAT_ASS) {
+    caption2ass(FORMAT_ASS),
+    RGYInputPrm(base) {
 
 }
 

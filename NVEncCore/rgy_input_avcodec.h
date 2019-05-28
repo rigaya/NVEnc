@@ -945,7 +945,7 @@ public:
     bool           bVideoDetectPulldown;     //pulldownの検出を試みるかどうか
     C2AFormat      caption2ass;              //caption2assの処理の有効化
 
-    RGYInputAvcodecPrm();
+    RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};
 };
 

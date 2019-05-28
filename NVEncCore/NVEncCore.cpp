@@ -568,7 +568,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     RGYInputPrm *pInputPrm = &inputPrm;
 
 #if ENABLE_AVSW_READER
-    RGYInputAvcodecPrm inputInfoAVCuvid;
+    RGYInputAvcodecPrm inputInfoAVCuvid(inputPrm);
     DeviceCodecCsp HWDecCodecCsp;
     for (const auto& gpu : m_GPUList) {
         HWDecCodecCsp.push_back(std::make_pair(gpu.id, gpu.cuvid_csp));
