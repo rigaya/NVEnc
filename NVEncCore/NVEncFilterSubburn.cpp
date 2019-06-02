@@ -392,12 +392,13 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
     }
     const auto inputSubStream = (prm->streamIn.pStream) ? prm->streamIn.pStream : m_formatCtx->streams[m_subtitleStreamIndex];
     const int64_t nFrameTimeMs = av_rescale_q(pOutputFrame->timestamp, prm->videoTimebase, { 1, 1000 });
+    const int64_t vidInputOffsetMs = av_rescale_q(prm->videoInputFirstKeyPts, prm->videoTimebase, { 1, 1000 });
 
     AVPacket pkt;
     while (m_queueSubPackets.front_copy_no_lock(&pkt)) {
         if (!(m_subType & AV_CODEC_PROP_TEXT_SUB)) {
             //字幕パケットのptsが、フレームのptsより古ければ、処理する必要がある
-            if (nFrameTimeMs < av_rescale_q(pkt.pts, inputSubStream->time_base, { 1, 1000 })) {
+            if (nFrameTimeMs < av_rescale_q(pkt.pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs) {
                 //取得したパケットが未来のパケットなら無視
                 break;
             }
