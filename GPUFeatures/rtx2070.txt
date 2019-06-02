@@ -1,12 +1,12 @@
-NVEncC (x64) 4.22 (r928) by rigaya, Nov  3 2018 22:20:09 (VC 1900/Win/avx2)
-  [NVENC API v8.1, CUDA 8.0]
+NVEncC (x86) 4.41 (r1108) by rigaya, May 25 2019 09:48:58 (VC 1900/Win/avx2)
+  [NVENC API v9.0, CUDA 8.0]
  reader: raw, avi, avs, vpy, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4]
 
 Environment Info
 OS : Windows 10 x64 (17134)
 CPU: Intel Core i9-7980XE @ 2.60GHz [TB: 4.11GHz] (18C/36T)
-RAM: Used 7604 MB, Total 16077 MB
-GPU: #0: GeForce RTX 2070 (4608 cores, 1710 MHz)[416.34]
+RAM: Used 5313 MB, Total 16077 MB
+GPU: #0: GeForce RTX 2070 (2304 cores, 1710 MHz)[419.67]
 
 List of available features.
 Codec: H.264/AVC
@@ -52,6 +52,7 @@ Max LTR Frames            8
 
 Codec: H.265/HEVC
 Max Bframes               5
+B Ref Mode                yes
 RC Modes                  63
 Field Encoding            no
 MonoChrome                no
@@ -82,7 +83,7 @@ Lossless                  yes
 SAO                       yes
 Me Only Mode              yes
 Lookahead                 yes
-AQ (temporal)             no
+AQ (temporal)             yes
 Weighted Prediction       yes
 Max LTR Frames            7
 10bit depth               yes
