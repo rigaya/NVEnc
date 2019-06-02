@@ -1305,6 +1305,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+    if (IS_OPTION("nonrefp")) {
+        pParams->encConfig.rcParams.enableNonRefP = 1;
+        return 0;
+    }
     if (IS_OPTION("mv-precision")) {
         i++;
         int value = 0;
@@ -3752,6 +3756,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     }
     OPT_NUM(_T("-b"), encConfig.frameIntervalP-1);
     OPT_BOOL(_T("--weightp"), _T(""), nWeightP);
+    OPT_BOOL(_T("--nonrefp"), _T(""), encConfig.rcParams.enableNonRefP);
     OPT_BOOL(_T("--aq"), _T("--no-aq"), encConfig.rcParams.enableAQ);
     OPT_BOOL(_T("--aq-temporal"), _T(""), encConfig.rcParams.enableTemporalAQ);
     OPT_NUM(_T("--aq-strength"), encConfig.rcParams.aqStrength);

@@ -5253,6 +5253,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     if (m_stCreateEncodeParams.enableWeightedPrediction) {
         add_str(RGY_LOG_INFO, _T("weightp "));
     }
+    if (m_stCreateEncodeParams.encodeConfig->rcParams.enableNonRefP) {
+        add_str(RGY_LOG_INFO, _T("nonrefp "));
+    }
     if (codec == NV_ENC_H264) {
         add_str(RGY_LOG_INFO, _T("%s "), get_chr_from_value(list_entropy_coding, m_stEncConfig.encodeCodecConfig.h264Config.entropyCodingMode));
         add_str(RGY_LOG_INFO, (m_stEncConfig.encodeCodecConfig.h264Config.disableDeblockingFilterIDC == 0) ? _T("deblock ") : _T("no_deblock "));

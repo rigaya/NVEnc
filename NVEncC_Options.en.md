@@ -349,6 +349,9 @@ Set the reference distance. In hw encoding, incresing ref frames will have minor
 ### --weightp
 Enable weighted P frames. [H.264 only]
 
+### --nonrefp
+enable automatic insertion of non-reference P-frames.
+
 ### --aq
 Enable adaptive quantization in frame (spatial). (Default: off)
 
