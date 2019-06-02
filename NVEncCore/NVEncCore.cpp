@@ -747,7 +747,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         for (int i = 0; i < (int)inputParam->nAudioSourceCount; i++) {
             VideoInfo inputInfo = inputParam->input;
 
-            RGYInputAvcodecPrm inputInfoAVAudioReader;
+            RGYInputAvcodecPrm inputInfoAVAudioReader(inputPrm);
             inputInfoAVAudioReader.bReadVideo = false;
             inputInfoAVAudioReader.nReadAudio = inputParam->nAudioSourceCount > 0;
             inputInfoAVAudioReader.bReadSubtitle = false;
