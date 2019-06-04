@@ -315,7 +315,7 @@ protected:
     NVENCSTATUS NvEncFlushEncoderQueue(void *hEOSEvent);
     NVENCSTATUS NvEncDestroyEncoder();
 
-    uint32_t                     m_uEncodeBufferCount;                //入力バッファ数 (16以上、MAX_ENCODE_QUEUE以下)
+    int                          m_encodeBufferCount;                 //入力バッファ数 (16以上、MAX_ENCODE_QUEUE以下)
     CNvQueue<EncodeBuffer>       m_EncodeBufferQueue;                 //エンコーダへのフレーム投入キュー
     EncodeOutputBuffer           m_stEOSOutputBfr;                    //エンコーダからの出力バッファ
     EncodeBuffer                 m_stEncodeBuffer[MAX_ENCODE_QUEUE];  //エンコーダへのフレームバッファ

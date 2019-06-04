@@ -349,7 +349,7 @@ NVEncCore::NVEncCore() {
     m_hEncoder = nullptr;
     m_pStatus = nullptr;
     m_pFileReader = nullptr;
-    m_uEncodeBufferCount = 16;
+    m_encodeBufferCount = 16;
     m_pDevice = nullptr;
     m_nDeviceId = 0;
     m_pAbortByUser = nullptr;
@@ -1568,7 +1568,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
 NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const VideoInfo *pInputInfo) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
-    m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_uEncodeBufferCount);
+    m_EncodeBufferQueue.Initialize(m_stEncodeBuffer, m_encodeBufferCount);
     uint32_t uInputWidthByte = 0;
     uint32_t uInputHeightTotal = 0;
     switch (inputFormat) {
@@ -1601,7 +1601,7 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
     default:
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
-    for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
+    for (int i = 0; i < m_encodeBufferCount; i++) {
         if (m_stPicStruct == NV_ENC_PIC_STRUCT_FRAME) {
 #if ENABLE_AVSW_READER
             cuvidCtxLock(m_ctxLock, 0);
@@ -1750,7 +1750,7 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
 }
 
 NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
-    for (uint32_t i = 0; i < m_uEncodeBufferCount; i++) {
+    for (int i = 0; i < m_encodeBufferCount; i++) {
         if (m_stEncodeBuffer[i].stInputBfr.pNV12devPtr) {
 #if ENABLE_AVSW_READER
             cuvidCtxLock(m_ctxLock, 0);
@@ -2449,18 +2449,25 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
 
     //バッファサイズ
-    //PIPELINE_DEPTH分拡張しないと、バッファ不足でエンコードが止まってしまう
+    int extraBufSize = 0;
+    if (m_uEncWidth * m_uEncHeight <= 2048 * 1080) {
+        extraBufSize = 4;
+    } else if (m_uEncWidth * m_uEncHeight <= 4096 * 2160) {
+        extraBufSize = 2;
+    }
     int requiredBufferFrames = m_stEncConfig.frameIntervalP + 4;
     if (m_stEncConfig.rcParams.enableLookahead) {
         requiredBufferFrames += m_stEncConfig.rcParams.lookaheadDepth;
     }
-    m_uEncodeBufferCount = std::max(32, requiredBufferFrames) + PIPELINE_DEPTH;
-    if (m_uEncodeBufferCount > MAX_ENCODE_QUEUE) {
+    //PIPELINE_DEPTH分拡張しないと、バッファ不足でエンコードが止まってしまう
+    m_encodeBufferCount = requiredBufferFrames + PIPELINE_DEPTH;
+    m_encodeBufferCount = std::max(m_encodeBufferCount, std::min(m_encodeBufferCount + extraBufSize, 32));
+    if (m_encodeBufferCount > MAX_ENCODE_QUEUE) {
 #if FOR_AUO
-        PrintMes(RGY_LOG_ERROR, _T("入力バッファは多すぎます。: %d フレーム\n"), m_uEncodeBufferCount);
+        PrintMes(RGY_LOG_ERROR, _T("入力バッファは多すぎます。: %d フレーム\n"), m_encodeBufferCount);
         PrintMes(RGY_LOG_ERROR, _T("%d フレームまでに設定して下さい。\n"), MAX_ENCODE_QUEUE);
 #else
-        PrintMes(RGY_LOG_ERROR, _T("Input frame of %d exceeds the maximum size allowed (%d).\n"), m_uEncodeBufferCount, MAX_ENCODE_QUEUE);
+        PrintMes(RGY_LOG_ERROR, _T("Input frame of %d exceeds the maximum size allowed (%d).\n"), m_encodeBufferCount, MAX_ENCODE_QUEUE);
 #endif
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -4749,7 +4756,7 @@ NVENCSTATUS NVEncCore::Encode() {
     m_pStatus->SetStart();
 
     int ret = 0;
-    const int bufferCount = m_uEncodeBufferCount;
+    const int bufferCount = m_encodeBufferCount;
 #if ENABLE_AVSW_READER
     const AVCodecContext *pVideoCtx = nullptr;
     RGYInputAvcodec *pReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
@@ -5077,7 +5084,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(RGY_LOG_INFO,  _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
         NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
         cudaDriverVersion / 1000, (cudaDriverVersion % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
-    add_str(RGY_LOG_ERROR, _T("Input Buffers  %s, %d frames\n"), _T("CUDA"), m_uEncodeBufferCount);
+    add_str(RGY_LOG_ERROR, _T("Input Buffers  %s, %d frames\n"), _T("CUDA"), m_encodeBufferCount);
     tstring inputMes = m_pFileReader->GetInputMessage();
     for (const auto& reader : m_AudioReaders) {
         inputMes += _T("\n") + tstring(reader->GetInputMessage());

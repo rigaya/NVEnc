@@ -144,7 +144,7 @@ static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
 
 const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 
-static const uint32_t PIPELINE_DEPTH = 4;
+static const int PIPELINE_DEPTH = 4;
 static const int MAX_FILTER_OUTPUT = 2;
 
 enum {
