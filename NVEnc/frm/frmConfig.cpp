@@ -938,6 +938,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXDevice,      encPrm.deviceID+1); //先頭は"Auto"なので+1
     SetCXIndex(fcgCXCudaSchdule, encPrm.nCudaSchedule);
     fcgCBPerfMonitor->Checked = 0 != encPrm.nPerfMonitorSelect;
+    fcgCBLossless->Checked = 0 != encPrm.lossless;
 
     //QPDetail
     fcgCBQPMin->Checked = encPrm.encConfig.rcParams.enableMinQP != 0;
@@ -1164,6 +1165,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     encPrm.deviceID = (int)fcgCXDevice->SelectedIndex-1; //先頭は"Auto"なので-1
     encPrm.nCudaSchedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
+    encPrm.lossless = fcgCBLossless->Checked;
 
     //QPDetail
     encPrm.encConfig.rcParams.enableMinQP = (fcgCBQPMin->Checked) ? 1 : 0;
