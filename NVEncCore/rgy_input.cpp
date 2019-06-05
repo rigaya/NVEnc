@@ -106,7 +106,7 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
     if (m_threads == 0) {
         const int div = (m_csp->simd == 0) ? 2 : 4;
         const int max = (m_csp->simd == 0) ? 8 : 4;
-        m_threads = (dst_y_pitch_byte % 128 != 0) ? 1 : std::min(max, ((int)get_cpu_info().physical_cores + div) / div);
+        m_threads = std::min(max, ((int)get_cpu_info().physical_cores + div) / div);
     }
     if (m_threads > 1 && m_th.size() == 0) {
         m_heFinCopy.clear();
