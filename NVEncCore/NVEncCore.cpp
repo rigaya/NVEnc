@@ -4116,9 +4116,9 @@ NVENCSTATUS NVEncCore::Encode() {
         }
     }
 
-    auto extract_audio =[&]() {
+    auto extract_audio = [&]() {
         auto sts = RGY_ERR_NONE;
-        if (m_pFileWriterListAudio.size()) {
+        if ((m_pFileWriterListAudio.size() + pFilterForStreams.size()) > 0) {
             auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             vector<AVPacket> packetList;
             if (pAVCodecReader != nullptr) {
