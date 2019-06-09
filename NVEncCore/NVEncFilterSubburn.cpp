@@ -164,14 +164,20 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
             AddMessage(RGY_LOG_ERROR, _T("no subtitle stream found in \"%s\".\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
             return RGY_ERR_INVALID_FORMAT; // Couldn't open file
         }
-        inputCodecId = m_formatCtx->streams[m_subtitleStreamIndex]->codec->codec_id;
-        AddMessage(RGY_LOG_DEBUG, _T("found subtitle in stream #%d (%s).\n"), m_subtitleStreamIndex, char_to_tstring(avcodec_get_name(inputCodecId)).c_str());
+        const auto pstream = m_formatCtx->streams[m_subtitleStreamIndex];
+        inputCodecId = pstream->codec->codec_id;
+        AddMessage(RGY_LOG_DEBUG, _T("found subtitle in stream #%d (%s), timebase %d/%d.\n"),
+            m_subtitleStreamIndex, char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
+            pstream->time_base.num, pstream->time_base.den);
     } else {
         if (prm->streamIn.pStream == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("internal error: stream info not provided.\n"));
             return RGY_ERR_UNKNOWN;
         }
         inputCodecId = prm->streamIn.pStream->codecpar->codec_id;
+        AddMessage(RGY_LOG_DEBUG, _T("using subtitle track #%d (%s), timebase %d/%d.\n"),
+            prm->subburn.trackId, char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
+            prm->streamIn.pStream->time_base.num, prm->streamIn.pStream->time_base.den);
     }
 
     m_subType = avcodec_descriptor_get(inputCodecId)->props;
@@ -242,10 +248,12 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
                 return RGY_ERR_NULL_PTR;
             }
         }
+        AddMessage(RGY_LOG_DEBUG, _T("set \"sub_charenc\" to \"%s\""), char_to_tstring(prm->subburn.charcode).c_str());
         if (0 > (ret = av_dict_set(&pCodecOpts, "sub_text_format", "ass", 0))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to set \"sub_text_format\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
+        AddMessage(RGY_LOG_DEBUG, _T("set \"sub_text_format\" to \"ass\""));
     }
     if (0 > (ret = avcodec_open2(m_outCodecDecodeCtx.get(), m_outCodecDecode, &pCodecOpts))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
@@ -380,7 +388,18 @@ int NVEncFilterSubburn::targetTrackIdx() {
 
 RGY_ERR NVEncFilterSubburn::addStreamPacket(AVPacket *pkt) {
     m_queueSubPackets.push(*pkt);
-    AddMessage(RGY_LOG_TRACE, _T("Add subtitle packet\n"));
+    const int log_level = RGY_LOG_TRACE;
+    if (m_pPrintMes != nullptr && log_level >= m_pPrintMes->getLogLevel()) {
+        auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+        if (!prm) {
+            AddMessage(log_level, _T("Invalid parameter type.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const auto inputSubStream = (prm->streamIn.pStream) ? prm->streamIn.pStream : m_formatCtx->streams[m_subtitleStreamIndex];
+        const int64_t vidInputOffsetMs = av_rescale_q(prm->videoInputFirstKeyPts, prm->videoTimebase, { 1, 1000 });
+        const auto pktTimeMs = av_rescale_q(pkt->pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs;
+        AddMessage(log_level, _T("Add subtitle packet: %s\n"), getTimestampString(pktTimeMs, av_make_q(1, 1000)).c_str());
+    }
     return RGY_ERR_NONE;
 }
 
@@ -396,9 +415,10 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
 
     AVPacket pkt;
     while (m_queueSubPackets.front_copy_no_lock(&pkt)) {
+        const auto pktTimeMs = av_rescale_q(pkt.pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs;
         if (!(m_subType & AV_CODEC_PROP_TEXT_SUB)) {
             //字幕パケットのptsが、フレームのptsより古ければ、処理する必要がある
-            if (nFrameTimeMs < av_rescale_q(pkt.pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs) {
+            if (nFrameTimeMs < pktTimeMs) {
                 //取得したパケットが未来のパケットなら無視
                 break;
             }
@@ -418,8 +438,15 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
             AddMessage(RGY_LOG_ERROR, _T("Failed to decode subtitle.\n"));
             return RGY_ERR_NONE;
         }
+        if (got_sub) {
+            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000)) - vidInputOffsetMs;
+            AddMessage(RGY_LOG_TRACE, _T("decoded subtitle chunk (%s - %s), Video frame (%s)"),
+                getTimestampString(nStartTime, av_make_q(1, 1000)).c_str(),
+                getTimestampString(nStartTime + m_subData->end_display_time, av_make_q(1, 1000)).c_str(),
+                getTimestampString(nFrameTimeMs, av_make_q(1, 1000)).c_str());
+        }
         if (got_sub && (m_subType & AV_CODEC_PROP_TEXT_SUB)) {
-            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000));
+            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000)) - vidInputOffsetMs;
             const int64_t nDuration  = m_subData->end_display_time;
             for (uint32_t i = 0; i < m_subData->num_rects; i++) {
                 auto *ass = m_subData->rects[i]->ass;
@@ -437,14 +464,20 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
     } else {
         if (m_subData) {
             //いまなんらかの字幕情報がデコード済みなら、その有効期限をチェックする
-            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000));
+            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000)) - vidInputOffsetMs;
             const int64_t nDuration  = m_subData->end_display_time;
             if (nStartTime + nDuration < nFrameTimeMs) {
                 //現在蓄えている字幕データを開放
+                AddMessage(RGY_LOG_TRACE, _T("release subtitle chunk (%s - %s) [video frame (%s)]"),
+                    getTimestampString(nStartTime, av_make_q(1, 1000)).c_str(),
+                    getTimestampString(nStartTime + nDuration, av_make_q(1, 1000)).c_str(),
+                    getTimestampString(nFrameTimeMs, av_make_q(1, 1000)).c_str());
                 m_subData.reset();
                 m_subImages.clear();
                 return RGY_ERR_NONE;
             }
+            AddMessage(RGY_LOG_TRACE, _T("burn subtitle into video frame (%s)"),
+                getTimestampString(nFrameTimeMs, av_make_q(1, 1000)).c_str());
             return procFrameBitmap(pOutputFrame, prm->crop, stream);
         }
     }
