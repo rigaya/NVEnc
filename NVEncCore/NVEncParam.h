@@ -1177,7 +1177,7 @@ struct VppParam {
     VppTweak tweak;
     VppColorspace colorspace;
     VppPad pad;
-    VppSubburn subburn;
+    std::vector<VppSubburn> subburn;
     VppSelectEvery selectevery;
     bool rff;
 

@@ -2688,8 +2688,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
 
 
     if (IS_OPTION("vpp-subburn")) {
-        pParams->vpp.subburn.enable = true;
+        VppSubburn subburn;
+        subburn.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            pParams->vpp.subburn.push_back(subburn);
             return 0;
         }
         i++;
@@ -2715,9 +2717,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
-                        pParams->vpp.subburn.enable = true;
+                        subburn.enable = true;
                     } else if (param_val == _T("false")) {
-                        pParams->vpp.subburn.enable = false;
+                        subburn.enable = false;
                     } else {
                         SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
@@ -2726,7 +2728,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("track")) {
                     try {
-                        pParams->vpp.subburn.trackId = std::stoi(param_val);
+                        subburn.trackId = std::stoi(param_val);
                     } catch (...) {
                         SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
@@ -2734,17 +2736,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     continue;
                 }
                 if (param_arg == _T("filename")) {
-                    pParams->vpp.subburn.filename = param_val;
+                    subburn.filename = param_val;
                     continue;
                 }
                 if (param_arg == _T("charcode")) {
-                    pParams->vpp.subburn.charcode = tchar_to_string(param_val);
+                    subburn.charcode = tchar_to_string(param_val);
                     continue;
                 }
                 if (param_arg == _T("shaping")) {
                     int value = 0;
                     if (get_list_value(list_vpp_ass_shaping, param_val.c_str(), &value)) {
-                        pParams->vpp.subburn.assShaping = value;
+                        subburn.assShaping = value;
                     } else {
                         SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
@@ -2755,12 +2757,13 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 return -1;
             } else {
                 try {
-                    pParams->vpp.subburn.trackId = std::stoi(param);
+                    subburn.trackId = std::stoi(param);
                 } catch (...) {
-                    pParams->vpp.subburn.filename = param;
+                    subburn.filename = param;
                 }
             }
         }
+        pParams->vpp.subburn.push_back(subburn);
         return 0;
     }
 
@@ -4123,21 +4126,23 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-tweak");
         }
     }
-    if (pParams->vpp.subburn != encPrmDefault.vpp.subburn) {
-        tmp.str(tstring());
-        if (!pParams->vpp.subburn.enable && save_disabled_prm) {
-            tmp << _T(",enable=false");
-        }
-        if (pParams->vpp.subburn.enable || save_disabled_prm) {
-            ADD_NUM(_T("track"), vpp.subburn.trackId);
-            ADD_PATH(_T("filename"), vpp.subburn.filename.c_str());
-            ADD_STR(_T("charcode"), vpp.subburn.charcode);
-            ADD_LST(_T("shaping"), vpp.subburn.assShaping, list_vpp_ass_shaping);
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);
-        } else if (pParams->vpp.subburn.enable) {
-            cmd << _T(" --vpp-subburn");
+    for (int i = 0; i < (int)pParams->vpp.subburn.size(); i++) {
+        if (pParams->vpp.subburn[i] != VppSubburn()) {
+            tmp.str(tstring());
+            if (!pParams->vpp.subburn[i].enable && save_disabled_prm) {
+                tmp << _T(",enable=false");
+            }
+            if (pParams->vpp.subburn[i].enable || save_disabled_prm) {
+                ADD_NUM(_T("track"), vpp.subburn[i].trackId);
+                ADD_PATH(_T("filename"), vpp.subburn[i].filename.c_str());
+                ADD_STR(_T("charcode"), vpp.subburn[i].charcode);
+                ADD_LST(_T("shaping"), vpp.subburn[i].assShaping, list_vpp_ass_shaping);
+            }
+            if (!tmp.str().empty()) {
+                cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);
+            } else if (pParams->vpp.subburn[i].enable) {
+                cmd << _T(" --vpp-subburn");
+            }
         }
     }
     if (pParams->vpp.colorspace != encPrmDefault.vpp.colorspace) {
