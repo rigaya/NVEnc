@@ -738,17 +738,17 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
 
     for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
         tstring audioLog = strsprintf(_T("select audio track %s, codec %s"),
-            (input_prm->ppAudioSelect[i]->nAudioSelect) ? strsprintf(_T("#%d"), input_prm->ppAudioSelect[i]->nAudioSelect).c_str() : _T("all"),
-            input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec);
-        if (input_prm->ppAudioSelect[i]->pAudioExtractFormat) {
-            audioLog += tstring(_T("format ")) + input_prm->ppAudioSelect[i]->pAudioExtractFormat;
+            (input_prm->ppAudioSelect[i]->trackID) ? strsprintf(_T("#%d"), input_prm->ppAudioSelect[i]->trackID).c_str() : _T("all"),
+            input_prm->ppAudioSelect[i]->encCodec.c_str());
+        if (input_prm->ppAudioSelect[i]->extractFormat.length() > 0) {
+            audioLog += tstring(_T("format ")) + input_prm->ppAudioSelect[i]->extractFormat;
         }
-        if (input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec != nullptr
-            && 0 != _tcscmp(input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec, RGY_AVCODEC_COPY)) {
-            audioLog += strsprintf(_T("bitrate %d"), input_prm->ppAudioSelect[i]->nAVAudioEncodeBitrate);
+        if (input_prm->ppAudioSelect[i]->encCodec.length() > 0
+            && !avcodecIsCopy(input_prm->ppAudioSelect[i]->encCodec)) {
+            audioLog += strsprintf(_T("bitrate %d"), input_prm->ppAudioSelect[i]->encBitrate);
         }
-        if (input_prm->ppAudioSelect[i]->pAudioExtractFilename) {
-            audioLog += tstring(_T("filename \"")) + input_prm->ppAudioSelect[i]->pAudioExtractFilename + tstring(_T("\""));
+        if (input_prm->ppAudioSelect[i]->extractFilename.length() > 0) {
+            audioLog += tstring(_T("filename \"")) + input_prm->ppAudioSelect[i]->extractFilename + tstring(_T("\""));
         }
         AddMessage(RGY_LOG_DEBUG, audioLog);
     }
@@ -925,19 +925,19 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         for (int iTrack = 0; iTrack < (int)mediaStreams.size(); iTrack++) {
             const AVCodecID codecId = m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codecpar->codec_id;
             bool useStream = false;
-            sAudioSelect *pAudioSelect = nullptr; //トラックに対応するsAudioSelect (字幕ストリームの場合はnullptrのまま)
+            AudioSelect *pAudioSelect = nullptr; //トラックに対応するAudioSelect (字幕ストリームの場合はnullptrのまま)
             if (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId)) {
                 //字幕の場合
                 for (int i = 0; !useStream && i < input_prm->nSubtitleSelectCount; i++) {
-                    if (input_prm->pSubtitleSelect[i] == 0 //特に指定なし = 全指定かどうか
-                        || input_prm->pSubtitleSelect[i] == (iTrack - m_Demux.format.nAudioTracks + input_prm->nSubtitleTrackStart)) {
+                    if (input_prm->ppSubtitleSelect[i]->trackID == 0 //特に指定なし = 全指定かどうか
+                        || input_prm->ppSubtitleSelect[i]->trackID == (iTrack - m_Demux.format.nAudioTracks + input_prm->nSubtitleTrackStart)) {
                         useStream = true;
                     }
                 }
             } else {
                 //音声の場合
                 for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
-                    if (input_prm->ppAudioSelect[i]->nAudioSelect == (iTrack + input_prm->nAudioTrackStart)) {
+                    if (input_prm->ppAudioSelect[i]->trackID == (iTrack + input_prm->nAudioTrackStart)) {
                         useStream = true;
                         pAudioSelect = input_prm->ppAudioSelect[i];
                     }
@@ -945,7 +945,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 if (pAudioSelect == nullptr) {
                     //見つからなかったら、全指定(trackID = 0)のものを使用する
                     for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
-                        if (input_prm->ppAudioSelect[i]->nAudioSelect == 0) {
+                        if (input_prm->ppAudioSelect[i]->trackID == 0) {
                             useStream = true;
                             pAudioSelect = input_prm->ppAudioSelect[i];
                         }
@@ -1000,16 +1000,16 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         //指定されたすべての音声トラックが発見されたかを確認する
         for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
             //全指定のトラック=0は無視
-            if (input_prm->ppAudioSelect[i]->nAudioSelect > 0) {
+            if (input_prm->ppAudioSelect[i]->trackID > 0) {
                 bool audioFound = false;
                 for (const auto& stream : m_Demux.stream) {
-                    if (stream.nTrackId == input_prm->ppAudioSelect[i]->nAudioSelect) {
+                    if (stream.nTrackId == input_prm->ppAudioSelect[i]->trackID) {
                         audioFound = true;
                         break;
                     }
                 }
                 if (!audioFound) {
-                    AddMessage(RGY_LOG_WARN, _T("could not find audio track #%d\n"), input_prm->ppAudioSelect[i]->nAudioSelect);
+                    AddMessage(RGY_LOG_WARN, _T("could not find audio track #%d\n"), input_prm->ppAudioSelect[i]->trackID);
                 }
             }
         }
@@ -1295,8 +1295,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             { AV_PIX_FMT_BGR24,        8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32 },
             { AV_PIX_FMT_RGBA,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32 },
             { AV_PIX_FMT_BGRA,         8, RGY_CHROMAFMT_RGB_PACKED, (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32 },
-            { AV_PIX_FMT_GBRP,         8, RGY_CHROMAFMT_RGB,        (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB24 },
-            { AV_PIX_FMT_GBRAP,        8, RGY_CHROMAFMT_RGB,        (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB24 },
+            { AV_PIX_FMT_GBRP,         8, RGY_CHROMAFMT_RGB,        (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32 },
+            { AV_PIX_FMT_GBRAP,        8, RGY_CHROMAFMT_RGB,        (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32 },
         };
 
         const auto pixfmt = (AVPixelFormat)m_Demux.video.pStream->codecpar->format;

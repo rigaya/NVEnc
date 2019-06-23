@@ -864,7 +864,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     sFramePosListLog(),     //framePosList出力先
     fSeekSec(0.0f),               //指定された秒数分先頭を飛ばす
     nSubtitleSelectCount(0),
-    pSubtitleSelect(nullptr),
+    ppSubtitleSelectList(nullptr),
     nAudioSourceCount(0),
     ppAudioSourceList(nullptr),
     nAudioSelectCount(0), //pAudioSelectの数

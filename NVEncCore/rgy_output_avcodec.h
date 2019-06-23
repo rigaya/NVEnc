@@ -245,19 +245,34 @@ typedef struct AVMux {
 #endif
 } AVMux;
 
-typedef struct AVOutputStreamPrm {
-    AVDemuxStream src;                 //入力音声・字幕の情報
-    const TCHAR  *pEncodeCodec;        //音声をエンコードするコーデック
-    const TCHAR  *pEncodeCodecPrm;     //音声をエンコードするコーデックのパラメータ
-    const TCHAR  *pEncodeCodecProfile; //音声をエンコードするコーデックのパラメータ
-    int           nBitrate;            //ビットレートの指定
-    int           nSamplingRate;       //サンプリング周波数の指定
-    const TCHAR  *pFilter;             //音声フィルタ
-} AVOutputStreamPrm;
+struct AVOutputStreamPrm {
+    AVDemuxStream src;          //入力音声・字幕の情報
+    tstring decodeCodecPrm;     //音声をデコードするコーデックのパラメータ
+    tstring encodeCodec;        //音声をエンコードするコーデック
+    tstring encodeCodecPrm;     //音声をエンコードするコーデックのパラメータ
+    tstring encodeCodecProfile; //音声をエンコードするコーデックのパラメータ
+    int     bitrate;           //ビットレートの指定
+    int     samplingRate;      //サンプリング周波数の指定
+    tstring filter;             //音声フィルタ
+    bool    asdata;           //バイナリデータとして転送する
+
+    AVOutputStreamPrm() :
+        src(),
+        decodeCodecPrm(),
+        encodeCodec(RGY_AVCODEC_COPY),
+        encodeCodecPrm(),
+        encodeCodecProfile(),
+        bitrate(0),
+        samplingRate(0),
+        filter(),
+        asdata(false) {
+
+    }
+};
 
 struct AvcodecWriterPrm {
     const AVDictionary          *pInputFormatMetadata;    //入力ファイルのグローバルメタデータ
-    const TCHAR                 *pOutputFormat;           //出力のフォーマット
+    tstring                      outputFormat;           //出力のフォーマット
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
     const AVStream              *pVideoInputStream;       //入力映像のストリーム
     AVRational                   rBitstreamTimebase;      //エンコーダのtimebase
@@ -273,14 +288,14 @@ struct AvcodecWriterPrm {
     int                          nAudioThread;            //音声処理スレッド数
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
     PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
-    const TCHAR                 *pMuxVidTsLogFile;        //mux timestampログファイル
+    tstring                      muxVidTsLogFile;        //mux timestampログファイル
     HEVCHDRSei                  *pHEVCHdrSei;             //HDR関連のmetadata
     RGYTimestamp                *pVidTimestamp;           //動画のtimestampの情報
     std::string                  videoCodecTag;           //動画タグ
 
     AvcodecWriterPrm() :
         pInputFormatMetadata(nullptr),
-        pOutputFormat(nullptr),
+        outputFormat(),
         bVideoDtsUnavailable(),
         pVideoInputStream(nullptr),
         rBitstreamTimebase(av_make_q(0, 1)),
@@ -296,7 +311,7 @@ struct AvcodecWriterPrm {
         nAudioThread(0),
         vMuxOpt(),
         pQueueInfo(nullptr),
-        pMuxVidTsLogFile(nullptr),
+        muxVidTsLogFile(),
         pHEVCHdrSei(nullptr),
         pVidTimestamp(nullptr),
         videoCodecTag() {

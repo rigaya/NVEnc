@@ -1209,11 +1209,11 @@ struct InEncodeVideoParam {
     tstring sFramePosListLog;     //framePosList出力先
     float fSeekSec;               //指定された秒数分先頭を飛ばす
     int nSubtitleSelectCount;
-    int *pSubtitleSelect;
+    SubtitleSelect **ppSubtitleSelectList;
     int nAudioSourceCount;
     TCHAR **ppAudioSourceList;
     int nAudioSelectCount; //pAudioSelectの数
-    sAudioSelect **ppAudioSelectList;
+    AudioSelect **ppAudioSelectList;
     int nAudioResampler;
     int nAVDemuxAnalyzeSec;
     int nAVMux;                       //RGY_MUX_xxx

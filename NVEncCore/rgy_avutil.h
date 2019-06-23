@@ -126,6 +126,12 @@ static inline bool avcodecIsCopy(const TCHAR *codec) {
 static inline bool avcodecIsAuto(const TCHAR *codec) {
     return codec != nullptr && 0 == _tcsicmp(codec, RGY_AVCODEC_AUTO);
 }
+static inline bool avcodecIsCopy(const tstring& codec) {
+    return codec.length() == 0 || avcodecIsCopy(codec.c_str());
+}
+static inline bool avcodecIsAuto(const tstring &codec) {
+    return codec.length() > 0 && avcodecIsAuto(codec.c_str());
+}
 
 //AV_LOG_TRACE    56 - RGY_LOG_TRACE -3
 //AV_LOG_DEBUG    48 - RGY_LOG_DEBUG -2

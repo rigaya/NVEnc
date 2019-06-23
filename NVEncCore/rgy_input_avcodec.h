@@ -931,9 +931,9 @@ public:
     int            nAudioTrackStart;        //音声のトラック番号の開始点
     int            nSubtitleTrackStart;     //字幕のトラック番号の開始点
     int            nAudioSelectCount;       //muxする音声のトラック数
-    sAudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
+    AudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
-    const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
+    SubtitleSelect **ppSubtitleSelect;      //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
     RGYAVSync      nAVSyncMode;             //音声・映像同期モード
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
     float          fSeekSec;                //指定された秒数分先頭を飛ばす

@@ -104,7 +104,7 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
 
 static int getAudioTrackIdx(const InEncodeVideoParam* pParams, int iTrack) {
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        if (iTrack == pParams->ppAudioSelectList[i]->nAudioSelect) {
+        if (iTrack == pParams->ppAudioSelectList[i]->trackID) {
             return i;
         }
     }
@@ -120,6 +120,15 @@ static int getFreeAudioTrack(const InEncodeVideoParam* pParams) {
 #ifndef _MSC_VER
     return -1;
 #endif //_MSC_VER
+}
+
+static int getSubTrackIdx(const InEncodeVideoParam *pParams, int iTrack) {
+    for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
+        if (iTrack == pParams->ppSubtitleSelectList[i]->trackID) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 bool get_list_value(const CX_DESC * list, const TCHAR *chr, int *value) {
@@ -468,17 +477,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (0 == _tcscmp(option_name, _T("audio-file"))) {
         i++;
         const TCHAR *ptr = strInput[i];
-        sAudioSelect *pAudioSelect = nullptr;
+        AudioSelect *pAudioSelect = nullptr;
         int audioIdx = -1;
         int trackId = 0;
         if (_tcschr(ptr, '?') == nullptr || 1 != _stscanf(ptr, _T("%d?"), &trackId)) {
             //トラック番号を適当に発番する (カウントは1から)
             trackId = argData->nParsedAudioFile+1;
             audioIdx = getAudioTrackIdx(pParams, trackId);
-            if (audioIdx < 0 || pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename != nullptr) {
+            if (audioIdx < 0 || pParams->ppAudioSelectList[audioIdx]->extractFilename.length() > 0) {
                 trackId = getFreeAudioTrack(pParams);
-                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
-                pAudioSelect->nAudioSelect = trackId;
+                pAudioSelect = new AudioSelect();
+                pAudioSelect->trackID = trackId;
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
@@ -489,8 +498,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         } else {
             audioIdx = getAudioTrackIdx(pParams, trackId);
             if (audioIdx < 0) {
-                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
-                pAudioSelect->nAudioSelect = trackId;
+                pAudioSelect = new AudioSelect();
+                pAudioSelect->trackID = trackId;
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
@@ -499,7 +508,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         assert(pAudioSelect != nullptr);
         const TCHAR *qtr = _tcschr(ptr, ':');
         if (qtr != NULL && !(ptr + 1 == qtr && qtr[1] == _T('\\'))) {
-            pAudioSelect->pAudioExtractFormat = _tcsdup(ptr);
+            pAudioSelect->extractFormat = ptr;
             ptr = qtr + 1;
         }
         size_t filename_len = _tcslen(ptr);
@@ -510,8 +519,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         //ファイル名が重複していないかを確認する
         for (int j = 0; j < pParams->nAudioSelectCount; j++) {
-            if (pParams->ppAudioSelectList[j]->pAudioExtractFilename != nullptr
-                && 0 == _tcsicmp(pParams->ppAudioSelectList[j]->pAudioExtractFilename, ptr)) {
+            if (pParams->ppAudioSelectList[j]->extractFilename.length() > 0
+                && 0 == _tcsicmp(pParams->ppAudioSelectList[j]->extractFilename.c_str(), ptr)) {
                 SET_ERR(strInput[0], _T("Same output file name is used more than twice"), option_name, nullptr);
                 return 1;
             }
@@ -520,11 +529,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (audioIdx < 0) {
             audioIdx = pParams->nAudioSelectCount;
             //新たに要素を追加
-            pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+            pParams->ppAudioSelectList = (AudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
             pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
             pParams->nAudioSelectCount++;
         }
-        pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename = _tcsdup(ptr);
+        pParams->ppAudioSelectList[audioIdx]->extractFilename = ptr;
         argData->nParsedAudioFile++;
         return 0;
     }
@@ -550,7 +559,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
 #if ENABLE_AVSW_READER
-    auto set_audio_prm = [&](std::function<void(sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr)> func_set) {
+    auto set_audio_prm = [&](std::function<void(AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr)> func_set) {
         const TCHAR *ptr = nullptr;
         const TCHAR *ptrDelim = nullptr;
         int trackId = 0;
@@ -565,16 +574,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 trackId = std::stoi(temp);
             }
         }
-        sAudioSelect *pAudioSelect = nullptr;
+        AudioSelect *pAudioSelect = nullptr;
         int audioIdx = getAudioTrackIdx(pParams, trackId);
         if (audioIdx < 0) {
-            pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+            pAudioSelect = new AudioSelect();
             if (trackId != 0) {
                 //もし、trackID=0以外の指定であれば、
                 //これまでalltrackに指定されたパラメータを探して引き継ぐ
-                sAudioSelect *pAudioSelectAll = nullptr;
+                AudioSelect *pAudioSelectAll = nullptr;
                 for (int itrack = 0; itrack < pParams->nAudioSelectCount; itrack++) {
-                    if (pParams->ppAudioSelectList[itrack]->nAudioSelect == 0) {
+                    if (pParams->ppAudioSelectList[itrack]->trackID == 0) {
                         pAudioSelectAll = pParams->ppAudioSelectList[itrack];
                     }
                 }
@@ -582,7 +591,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     *pAudioSelect = *pAudioSelectAll;
                 }
             }
-            pAudioSelect->nAudioSelect = trackId;
+            pAudioSelect->trackID = trackId;
         } else {
             pAudioSelect = pParams->ppAudioSelectList[audioIdx];
         }
@@ -596,17 +605,69 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (audioIdx < 0) {
             audioIdx = pParams->nAudioSelectCount;
             //新たに要素を追加
-            pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+            pParams->ppAudioSelectList = (AudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
             pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
             pParams->nAudioSelectCount++;
         }
         return 0;
     };
-    if (   0 == _tcscmp(option_name, _T("audio-copy"))
+    auto set_sub_prm = [&](std::function<void(SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr)> func_set) {
+        const TCHAR *ptr = nullptr;
+        const TCHAR *ptrDelim = nullptr;
+        int trackId = 0;
+        if (i+1 < nArgNum) {
+            if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
+                i++;
+                ptrDelim = _tcschr(strInput[i], _T('?'));
+                ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
+            }
+            if (ptrDelim != nullptr) {
+                tstring temp = tstring(strInput[i]).substr(0, ptrDelim - strInput[i]);
+                trackId = std::stoi(temp);
+            }
+        }
+        SubtitleSelect *pSubSelect = nullptr;
+        int subIdx = getSubTrackIdx(pParams, trackId);
+        if (subIdx < 0) {
+            pSubSelect = new SubtitleSelect();
+            if (trackId != 0) {
+                //もし、trackID=0以外の指定であれば、
+                //これまでalltrackに指定されたパラメータを探して引き継ぐ
+                SubtitleSelect *pSubSelectAll = nullptr;
+                for (int itrack = 0; itrack < pParams->nSubtitleSelectCount; itrack++) {
+                    if (pParams->ppSubtitleSelectList[itrack]->trackID == 0) {
+                        pSubSelectAll = pParams->ppSubtitleSelectList[itrack];
+                    }
+                }
+                if (pSubSelectAll) {
+                    *pSubSelect = *pSubSelectAll;
+                }
+            }
+            pSubSelect->trackID = trackId;
+        } else {
+            pSubSelect = pParams->ppSubtitleSelectList[subIdx];
+        }
+        func_set(pSubSelect, trackId, ptr);
+        if (trackId == 0) {
+            for (int itrack = 0; itrack < pParams->nSubtitleSelectCount; itrack++) {
+                func_set(pParams->ppSubtitleSelectList[itrack], trackId, ptr);
+            }
+        }
+
+        if (subIdx < 0) {
+            subIdx = pParams->nSubtitleSelectCount;
+            //新たに要素を追加
+            pParams->ppSubtitleSelectList = (SubtitleSelect **)realloc(pParams->ppSubtitleSelectList, sizeof(pParams->ppSubtitleSelectList[0]) * (pParams->nSubtitleSelectCount + 1));
+            pParams->ppSubtitleSelectList[pParams->nSubtitleSelectCount] = pSubSelect;
+            pParams->nSubtitleSelectCount++;
+        }
+        return 0;
+    };
+    if (0 == _tcscmp(option_name, _T("audio-copy"))
         || 0 == _tcscmp(option_name, _T("copy-audio"))) {
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         std::set<int> trackSet; //重複しないよう、setを使う
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             auto trackListStr = split(strInput[i], _T(","));
             for (auto str : trackListStr) {
@@ -624,20 +685,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
 
         for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
             int trackId = *it;
-            sAudioSelect *pAudioSelect = nullptr;
+            AudioSelect *pAudioSelect = nullptr;
             int audioIdx = getAudioTrackIdx(pParams, trackId);
             if (audioIdx < 0) {
-                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
-                pAudioSelect->nAudioSelect = trackId;
+                pAudioSelect = new AudioSelect();
+                pAudioSelect->trackID = trackId;
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
-            pAudioSelect->pAVAudioEncodeCodec = _tcsdup(RGY_AVCODEC_COPY);
+            pAudioSelect->encCodec = RGY_AVCODEC_COPY;
 
             if (audioIdx < 0) {
                 audioIdx = pParams->nAudioSelectCount;
                 //新たに要素を追加
-                pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                pParams->ppAudioSelectList = (AudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
                 pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
                 pParams->nAudioSelectCount++;
             }
@@ -647,18 +708,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (0 == _tcscmp(option_name, _T("audio-codec"))) {
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        auto ret = set_audio_prm([](sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-            if (trackId != 0 || pAudioSelect->pAVAudioEncodeCodec == nullptr) {
+        auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+            if (trackId != 0 || pAudioSelect->encCodec.length() == 0) {
                 if (prmstr == nullptr) {
-                    pAudioSelect->pAVAudioEncodeCodec = _tcsdup(RGY_AVCODEC_AUTO);
+                    pAudioSelect->encCodec = RGY_AVCODEC_AUTO;
                 } else {
-                    pAudioSelect->pAVAudioEncodeCodec = _tcsdup(prmstr);
-                    auto delim = _tcschr(pAudioSelect->pAVAudioEncodeCodec, _T(':'));
-                    if (delim != nullptr) {
-                        pAudioSelect->pAVAudioEncodeCodecPrm = _tcsdup(delim+1);
-                        delim[0] = _T('\0');
-                    } else {
-                        pAudioSelect->pAVAudioEncodeCodecPrm = nullptr;
+                    tstring prm = prmstr;
+                    auto delimEnc = prm.find(_T(":"));
+                    auto delimDec = prm.find(_T("#"));
+                    pAudioSelect->encCodec = prm.substr(0, std::min(delimEnc, delimDec));
+                    if (delimEnc != tstring::npos) {
+                        pAudioSelect->encCodecPrm = prm.substr(delimEnc + 1, (delimEnc < delimDec) ? delimDec - delimEnc - 1 : tstring::npos);
+                    }
+                    if (delimDec != tstring::npos) {
+                        pAudioSelect->decCodecPrm = prm.substr(delimDec + 1, (delimDec < delimEnc) ? delimEnc - delimDec - 1 : tstring::npos);
                     }
                 }
             }
@@ -671,9 +734,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (0 == _tcscmp(option_name, _T("audio-profile"))) {
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        auto ret = set_audio_prm([](sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-            if (trackId != 0 || pAudioSelect->pAVAudioEncodeCodecProfile == nullptr) {
-                pAudioSelect->pAVAudioEncodeCodecProfile = _tcsdup(prmstr);
+        auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+            if (trackId != 0 || pAudioSelect->encCodecProfile.length() == 0) {
+                pAudioSelect->encCodecProfile = prmstr;
             }
         });
         if (ret) {
@@ -684,9 +747,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (0 == _tcscmp(option_name, _T("audio-bitrate"))) {
         try {
-            auto ret = set_audio_prm([](sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-                if (trackId != 0 || pAudioSelect->nAVAudioEncodeBitrate == 0) {
-                    pAudioSelect->nAVAudioEncodeBitrate = std::stoi(prmstr);
+            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || pAudioSelect->encBitrate == 0) {
+                    pAudioSelect->encBitrate = std::stoi(prmstr);
                 }
             });
             return ret;
@@ -711,9 +774,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (0 == _tcscmp(option_name, _T("audio-samplerate"))) {
         try {
-            auto ret = set_audio_prm([](sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-                if (trackId != 0 || pAudioSelect->nAudioSamplingRate == 0) {
-                    pAudioSelect->nAudioSamplingRate = std::stoi(prmstr);
+            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || pAudioSelect->encSamplingRate == 0) {
+                    pAudioSelect->encSamplingRate = std::stoi(prmstr);
                 }
             });
             return ret;
@@ -743,7 +806,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
 
         try {
-            auto ret = set_audio_prm([](sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
                 if (trackId != 0 || (pAudioSelect->pnStreamChannelSelect[0] == 0 && pAudioSelect->pnStreamChannelOut[0] == 0)) {
                     auto streamSelectList = split(tchar_to_string(prmstr), ",");
                     if (streamSelectList.size() > _countof(pAudioSelect->pnStreamChannelSelect)) {
@@ -780,12 +843,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (0 == _tcscmp(option_name, _T("audio-filter"))) {
         try {
-            auto ret = set_audio_prm([](sAudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-                if (trackId != 0 || (pAudioSelect->pAudioFilter == nullptr)) {
-                    if (pAudioSelect->pAudioFilter) {
-                        free(pAudioSelect->pAudioFilter);
-                    }
-                    pAudioSelect->pAudioFilter = _tcsdup(prmstr);
+            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || pAudioSelect->filter.length() == 0) {
+                    pAudioSelect->filter = prmstr;
                 }
             });
             return ret;
@@ -827,34 +887,79 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
-        std::set<int> trackSet; //重複しないよう、setを使う
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+        std::map<int, SubtitleSelect> trackSet; //重複しないように
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             auto trackListStr = split(strInput[i], _T(","));
             for (auto str : trackListStr) {
                 int iTrack = 0;
                 if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
-                    SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                    return 1;
+                    if (str == _T("asdata")) {
+                        trackSet[iTrack].trackID = iTrack;
+                        trackSet[iTrack].encCodec = RGY_AVCODEC_COPY;
+                        trackSet[iTrack].asdata = true;
+                    } else {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return 1;
+                    }
                 } else {
-                    trackSet.insert(iTrack);
+                    trackSet[iTrack].trackID = iTrack;
+                    trackSet[iTrack].encCodec = RGY_AVCODEC_COPY;
+                    auto options = str.find(_T('?'));
+                    if (str.substr(options+1) == _T("asdata")) {
+                        trackSet[iTrack].asdata = true;
+                    }
                 }
             }
         } else {
-            trackSet.insert(0);
-        }
-        for (int iTrack = 0; iTrack < pParams->nSubtitleSelectCount; iTrack++) {
-            trackSet.insert(pParams->pSubtitleSelect[iTrack]);
-        }
-        if (pParams->pSubtitleSelect) {
-            free(pParams->pSubtitleSelect);
+            trackSet[0].trackID = 0;
+            trackSet[0].encCodec = RGY_AVCODEC_COPY;
         }
 
-        pParams->pSubtitleSelect = (int *)malloc(sizeof(pParams->pSubtitleSelect[0]) * trackSet.size());
-        pParams->nSubtitleSelectCount = (int)trackSet.size();
-        int iTrack = 0;
-        for (auto it = trackSet.begin(); it != trackSet.end(); it++, iTrack++) {
-            pParams->pSubtitleSelect[iTrack] = *it;
+        for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
+            int trackId = it->first;
+            SubtitleSelect *pSubtitleSelect = nullptr;
+            int subIdx = getSubTrackIdx(pParams, trackId);
+            if (subIdx < 0) {
+                pSubtitleSelect = new SubtitleSelect();
+            } else {
+                pSubtitleSelect = pParams->ppSubtitleSelectList[subIdx];
+            }
+            pSubtitleSelect[0] = it->second;
+
+            if (subIdx < 0) {
+                subIdx = pParams->nSubtitleSelectCount;
+                //新たに要素を追加
+                pParams->ppSubtitleSelectList = (SubtitleSelect **)realloc(pParams->ppSubtitleSelectList, sizeof(pParams->ppSubtitleSelectList[0]) * (pParams->nSubtitleSelectCount + 1));
+                pParams->ppSubtitleSelectList[pParams->nSubtitleSelectCount] = pSubtitleSelect;
+                pParams->nSubtitleSelectCount++;
+            }
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("sub-codec"))) {
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        auto ret = set_sub_prm([](SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr) {
+            if (trackId != 0 || pSubSelect->encCodec.length() == 0) {
+                if (prmstr == nullptr) {
+                    pSubSelect->encCodec = RGY_AVCODEC_AUTO;
+                } else {
+                    tstring prm = prmstr;
+                    auto delimEnc = prm.find(_T(":"));
+                    auto delimDec = prm.find(_T("#"));
+                    pSubSelect->encCodec = prm.substr(0, std::min(delimEnc, delimDec));
+                    if (delimEnc != tstring::npos) {
+                        pSubSelect->encCodecPrm = prm.substr(delimEnc + 1, (delimEnc < delimDec) ? delimDec - delimEnc - 1 : tstring::npos);
+                    }
+                    if (delimDec != tstring::npos) {
+                        pSubSelect->decCodecPrm = prm.substr(delimDec + 1, (delimDec < delimEnc) ? delimEnc - delimDec - 1 : tstring::npos);
+                    }
+                }
+            }
+        });
+        if (ret) {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return ret;
         }
         return 0;
     }
@@ -3840,13 +3945,13 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
     }
     tmp.str(tstring());
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) == 0) {
-            if (pAudioSelect->nAudioSelect == 0) {
+    for (uint32_t i = 0; i < pParams->nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec == RGY_AVCODEC_COPY) {
+            if (pAudioSelect->trackID == 0) {
                 tmp << _T(","); // --audio-copy のみの指定 (トラックIDを省略)
             } else {
-                tmp << _T(",") << pAudioSelect->nAudioSelect;
+                tmp << _T(",") << pAudioSelect->trackID;
             }
         }
     }
@@ -3856,36 +3961,37 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     tmp.str(tstring());
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
-            cmd << _T(" --audio-codec ") << pAudioSelect->nAudioSelect;
-            if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_AUTO) != 0) {
-                cmd << _T("?") << pAudioSelect->pAVAudioEncodeCodec;
+        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY) {
+            cmd << _T(" --audio-codec ") << pAudioSelect->trackID;
+            if (pAudioSelect->encCodec != RGY_AVCODEC_AUTO) {
+                cmd << _T("?") << pAudioSelect->encCodec;
             }
-            if (pAudioSelect->pAVAudioEncodeCodecPrm) {
-                cmd << _T(":") << pAudioSelect->pAVAudioEncodeCodecPrm;
+            if (pAudioSelect->encCodecPrm.length() > 0) {
+                cmd << _T(":") << pAudioSelect->encCodecPrm;
             }
         }
     }
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0
-            && pAudioSelect->pAVAudioEncodeCodecProfile != nullptr) {
-            cmd << _T(" --audio-profile ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->pAVAudioEncodeCodecProfile;
+        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
+            && pAudioSelect->encCodecProfile.length() > 0) {
+            cmd << _T(" --audio-profile ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encCodecProfile;
         }
     }
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
-            cmd << _T(" --audio-bitrate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAVAudioEncodeBitrate;
+        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
+            && pAudioSelect->encBitrate > 0) {
+            cmd << _T(" --audio-bitrate ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encBitrate;
         }
     }
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
         tmp.str(tstring());
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
         for (int j = 0; j < MAX_SPLIT_CHANNELS; j++) {
             if (pAudioSelect->pnStreamChannelSelect[j] == 0) {
                 break;
@@ -3904,33 +4010,35 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             }
         }
         if (!tmp.str().empty()) {
-            cmd << _T(" --audio-stream ") << pAudioSelect->nAudioSelect << _T("?") << tmp.str();
+            cmd << _T(" --audio-stream ") << pAudioSelect->trackID << _T("?") << tmp.str();
         }
     }
     tmp.str(tstring());
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
-            cmd << _T(" --audio-samplerate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAudioSamplingRate;
+        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
+            && pAudioSelect->encSamplingRate > 0) {
+            cmd << _T(" --audio-samplerate ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encSamplingRate;
         }
     }
     OPT_LST(_T("--audio-resampler"), nAudioResampler, list_resampler);
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
-            cmd << _T(" --audio-filter ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->pAudioFilter;
+        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
+            && pAudioSelect->filter.length() > 0) {
+            cmd << _T(" --audio-filter ") << pAudioSelect->trackID << _T("?") << pAudioSelect->filter;
         }
     }
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (pAudioSelect->pAudioExtractFilename) {
-            cmd << _T(" --audio-file ") << pAudioSelect->nAudioSelect << _T("?");
-            if (pAudioSelect->pAudioExtractFormat) {
-                cmd << pAudioSelect->pAudioExtractFormat << _T(":");
+        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        if (pAudioSelect->extractFilename.length() > 0) {
+            cmd << _T(" --audio-file ") << pAudioSelect->trackID << _T("?");
+            if (pAudioSelect->extractFormat.length() > 0) {
+                cmd << pAudioSelect->extractFormat << _T(":");
             }
-            cmd << _T("\"") << pAudioSelect->pAudioExtractFilename << _T("\"");
+            cmd << _T("\"") << pAudioSelect->extractFilename << _T("\"");
         }
     }
     for (int i = 0; i < pParams->nAudioSourceCount; i++) {
@@ -3945,7 +4053,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     tmp.str(tstring());
     for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
-        tmp << _T(",") << pParams->pSubtitleSelect[i];
+        tmp << _T(",") << pParams->ppSubtitleSelectList[i]->trackID;
+        if (pParams->ppSubtitleSelectList[i]->asdata) {
+            tmp << _T("?asdata");
+        }
     }
     if (!tmp.str().empty()) {
         cmd << _T(" --sub-copy ") << tmp.str().substr(1);
