@@ -1064,3 +1064,8 @@ SubtitleSelect::SubtitleSelect() :
     asdata(false) {
 
 }
+
+DataSelect::DataSelect() :
+    trackID(0) {
+
+}

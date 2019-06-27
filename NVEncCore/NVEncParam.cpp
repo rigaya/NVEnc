@@ -869,6 +869,8 @@ InEncodeVideoParam::InEncodeVideoParam() :
     ppAudioSourceList(nullptr),
     nAudioSelectCount(0), //pAudioSelectの数
     ppAudioSelectList(nullptr),
+    nDataSelectCount(0),
+    ppDataSelectList(nullptr),
     nAudioResampler(RGY_RESAMPLER_SWR),
     nAVDemuxAnalyzeSec(0),
     nAVMux(RGY_MUX_NONE),                       //RGY_MUX_xxx

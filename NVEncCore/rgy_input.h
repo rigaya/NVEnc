@@ -145,9 +145,12 @@ public:
     virtual int GetAudioTrackCount() {
         return 0;
     }
-
     //入力ファイルに存在する字幕のトラック数を返す
     virtual int GetSubtitleTrackCount() {
+        return 0;
+    }
+    //入力ファイルに存在するデータのトラック数を返す
+    virtual int GetDataTrackCount() {
         return 0;
     }
     const TCHAR *GetInputMessage() {

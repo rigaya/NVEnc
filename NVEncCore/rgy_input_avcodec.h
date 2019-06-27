@@ -59,6 +59,16 @@ static const uint32_t AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 static const uint32_t AV_FRAME_MAX_REORDER = 16;
 static const int FRAMEPOS_POC_INVALID = -1;
 
+static int trackFullID(AVMediaType media_type, int trackID) {
+    return (((uint32_t)media_type) << 12) | trackID;
+}
+static AVMediaType trackMediaType(int trackID) {
+    return (AVMediaType)((((uint32_t)trackID) & 0xf000) >> 12);
+}
+static int trackID(int trackID) {
+    return (int)(((uint32_t)trackID) & 0x0fff);
+}
+
 enum RGYPtsStatus : uint32_t {
     RGY_PTS_UNKNOWN           = 0x00,
     RGY_PTS_NORMAL            = 0x01,
@@ -670,6 +680,7 @@ typedef struct AVDemuxFormat {
     uint32_t                  nPreReadBufferIdx;     //先読みバッファの読み込み履歴
     int                       nAudioTracks;          //存在する音声のトラック数
     int                       nSubtitleTracks;       //存在する字幕のトラック数
+    int                       nDataTracks;           //存在するデータのトラック数
     RGYAVSync                 nAVSyncMode;           //音声・映像同期モード
     AVDictionary             *pFormatOptions;        //avformat_open_inputに渡すオプション
 
@@ -923,6 +934,7 @@ public:
     int            nVideoStreamId;          //動画StreamIdの選択
     uint32_t       nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
     bool           bReadSubtitle;           //字幕の読み込みを行うかどうか
+    bool           bReadData;               //データの読み込みを行うかどうか
     bool           bReadChapter;            //チャプターの読み込みを行うかどうか
     pair<int,int>  nVideoAvgFramerate;      //動画のフレームレート
     int            nAnalyzeSec;             //入力ファイルを分析する秒数
@@ -930,20 +942,23 @@ public:
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
     int            nAudioTrackStart;        //音声のトラック番号の開始点
     int            nSubtitleTrackStart;     //字幕のトラック番号の開始点
+    int            nDataTrackStart;         //データのトラック番号の開始点
     int            nAudioSelectCount;       //muxする音声のトラック数
-    AudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
+    AudioSelect **ppAudioSelect;            //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
     SubtitleSelect **ppSubtitleSelect;      //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
+    int            nDataSelectCount;        //muxするデータのトラック数
+    DataSelect   **ppDataSelect;            //muxするデータのトラック番号のリスト 1,2,...(1から連番で指定)
     RGYAVSync      nAVSyncMode;             //音声・映像同期モード
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
     float          fSeekSec;                //指定された秒数分先頭を飛ばす
     const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
     const TCHAR   *pLogCopyFrameData;       //frame情報copy関数のログ出力先 (デバッグ用)
     int            nInputThread;            //入力スレッドを有効にする
-    PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
-    DeviceCodecCsp *pHWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
-    bool           bVideoDetectPulldown;     //pulldownの検出を試みるかどうか
-    C2AFormat      caption2ass;              //caption2assの処理の有効化
+    PerfQueueInfo *pQueueInfo;              //キューの情報を格納する構造体
+    DeviceCodecCsp *pHWDecCodecCsp;         //HWデコーダのサポートするコーデックと色空間
+    bool           bVideoDetectPulldown;    //pulldownの検出を試みるかどうか
+    C2AFormat      caption2ass;             //caption2assの処理の有効化
 
     RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};
@@ -996,6 +1011,9 @@ public:
 
     //入力ファイルに存在する字幕のトラック数を返す
     int GetSubtitleTrackCount() override;
+
+    //入力ファイルに存在するデータのトラック数を返す
+    int GetDataTrackCount() override;
 
     //動画の最初のフレームのptsを取得する
     int64_t GetVideoFirstKeyPts();

@@ -771,6 +771,9 @@ Enable caption2ass process. This feature requires Caption.dll.
 
 supported formats ... srt (default), ass
 
+### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
+Copy data stream from input file. Available only when avhw / avsw reader is used.
+
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, and the option value in &lt;string2&gt;.
 

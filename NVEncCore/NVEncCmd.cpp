@@ -131,6 +131,15 @@ static int getSubTrackIdx(const InEncodeVideoParam *pParams, int iTrack) {
     return -1;
 }
 
+static int getDataTrackIdx(const InEncodeVideoParam *pParams, int iTrack) {
+    for (int i = 0; i < pParams->nDataSelectCount; i++) {
+        if (iTrack == pParams->ppDataSelectList[i]->trackID) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 bool get_list_value(const CX_DESC * list, const TCHAR *chr, int *value) {
     for (int i = 0; list[i].desc; i++) {
         if (0 == _tcsicmp(list[i].desc, chr)) {
@@ -980,6 +989,46 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (0 == _tcscmp(option_name, _T("no-caption2ass"))) {
         pParams->caption2ass = FORMAT_INVALID;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("data-copy"))) {
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
+        std::map<int, DataSelect> trackSet; //重複しないように
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
+            i++;
+            auto trackListStr = split(strInput[i], _T(","));
+            for (auto str : trackListStr) {
+                int iTrack = 0;
+                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
+                    SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return 1;
+                } else {
+                    trackSet[iTrack].trackID = iTrack;
+                }
+            }
+        } else {
+            trackSet[0].trackID = 0;
+        }
+
+        for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
+            int trackId = it->first;
+            DataSelect *pDataSelect = nullptr;
+            int dataIdx = getDataTrackIdx(pParams, trackId);
+            if (dataIdx < 0) {
+                pDataSelect = new DataSelect();
+            } else {
+                pDataSelect = pParams->ppDataSelectList[dataIdx];
+            }
+            pDataSelect[0] = it->second;
+
+            if (dataIdx < 0) {
+                dataIdx = pParams->nDataSelectCount;
+                //新たに要素を追加
+                pParams->ppDataSelectList = (DataSelect **)realloc(pParams->ppDataSelectList, sizeof(pParams->ppDataSelectList[0]) * (pParams->nDataSelectCount + 1));
+                pParams->ppDataSelectList[pParams->nDataSelectCount] = pDataSelect;
+                pParams->nDataSelectCount++;
+            }
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avsync"))) {
@@ -4063,6 +4112,16 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     }
     tmp.str(tstring());
     OPT_LST(_T("--caption2ass"), caption2ass, list_caption2ass);
+
+    tmp.str(tstring());
+    for (int i = 0; i < pParams->nDataSelectCount; i++) {
+        tmp << _T(",") << pParams->ppDataSelectList[i]->trackID;
+    }
+    if (!tmp.str().empty()) {
+        cmd << _T(" --data-copy ") << tmp.str().substr(1);
+    }
+    tmp.str(tstring());
+
     OPT_STR_PATH(_T("--chapter"), sChapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);

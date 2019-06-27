@@ -169,7 +169,7 @@ typedef struct AVMuxAudio {
     int64_t               nLastPtsOut;          //出力音声の前パケットのpts
 } AVMuxAudio;
 
-typedef struct AVMuxSub {
+typedef struct AVMuxOther {
     int                   nInTrackId;           //ソースファイルの入力トラック番号
     const AVStream       *pStreamIn;            //入力字幕のストリーム
     int                   nStreamIndexIn;       //入力字幕のStreamのindex
@@ -183,7 +183,7 @@ typedef struct AVMuxSub {
     AVCodecContext       *pOutCodecEncodeCtx;   //変換先の音声のCodecContext
 
     uint8_t              *pBuf;                 //変換用のバッファ
-} AVMuxSub;
+} AVMuxOther;
 
 enum {
     MUX_DATA_TYPE_NONE   = 0,
@@ -238,7 +238,7 @@ typedef struct AVMux {
     AVMuxFormat         format;
     AVMuxVideo          video;
     vector<AVMuxAudio>  audio;
-    vector<AVMuxSub>    sub;
+    vector<AVMuxOther>  other;
     vector<sTrim>       trim;
 #if ENABLE_AVCODEC_OUT_THREAD
     AVMuxThread         thread;
@@ -426,7 +426,7 @@ protected:
     RGY_ERR InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError);
 
     //字幕の初期化
-    RGY_ERR InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
+    RGY_ERR InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
 
     //チャプターをコピー
     RGY_ERR SetChapters(const vector<const AVChapter *>& chapterList, bool bChapterNoTrim);
@@ -441,7 +441,7 @@ protected:
     AVMuxAudio *getAudioStreamData(int nTrackId, int nSubStreamId = 0);
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
-    AVMuxSub *getSubPacketStreamData(const AVPacket *pkt);
+    AVMuxOther *getOtherPacketStreamData(const AVPacket *pkt);
 
     //音声のchannel_layoutを自動選択する
     uint64_t AutoSelectChannelLayout(const uint64_t *pChannelLayout, const AVCodecContext *pSrcAudioCtx);
@@ -462,10 +462,10 @@ protected:
     vector<AVPktMuxData> AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVFrame *frame);
 
     //字幕パケットを書き出す
-    RGY_ERR SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt);
+    RGY_ERR SubtitleTranscode(const AVMuxOther *pMuxSub, AVPacket *pkt);
 
-    //字幕パケットを書き出す
-    RGY_ERR SubtitleWritePacket(AVPacket *pkt);
+    //その他のパケットを書き出す
+    RGY_ERR WriteOtherPacket(AVPacket *pkt);
 
     //パケットを実際に書き出す
     void WriteNextPacketProcessed(AVPktMuxData *pktData);
@@ -490,7 +490,7 @@ protected:
     //lastValidFrame ... true 最後の有効なフレーム+1のtimestampを返す / false .. AV_NOPTS_VALUEを返す
     int64_t AdjustTimestampTrimmed(int64_t nTimeIn, AVRational timescaleIn, AVRational timescaleOut, bool lastValidFrame);
 
-    void CloseSubtitle(AVMuxSub *pMuxSub);
+    void CloseOther(AVMuxOther *pMuxOther);
     void CloseAudio(AVMuxAudio *pMuxAudio);
     void CloseVideo(AVMuxVideo *pMuxVideo);
     void CloseFormat(AVMuxFormat *pMuxFormat);

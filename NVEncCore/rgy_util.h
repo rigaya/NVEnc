@@ -1547,6 +1547,13 @@ struct SubtitleSelect {
     ~SubtitleSelect() {};
 };
 
+struct DataSelect {
+    int trackID;
+
+    DataSelect();
+    ~DataSelect() {};
+};
+
 const CX_DESC list_empty[] = {
     { NULL, 0 }
 };

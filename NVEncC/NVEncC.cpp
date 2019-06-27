@@ -321,6 +321,7 @@ static tstring help() {
         _T("   --caption2ass [<string>]     enable caption2ass during encode.\n")
         _T("                                  !! This feature requires Caption.dll !!\n")
         _T("                                 supported formats ... srt (default), ass\n")
+        _T("   --data-copy [<int>[,...]]    copy data stream to output file.\n")
         _T("\n")
         _T("   --avsync <string>            method for AV sync (default: cfr)\n")
         _T("                                 cfr      ... assume cfr\n")

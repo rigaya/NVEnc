@@ -1214,6 +1214,8 @@ struct InEncodeVideoParam {
     TCHAR **ppAudioSourceList;
     int nAudioSelectCount; //pAudioSelectの数
     AudioSelect **ppAudioSelectList;
+    int        nDataSelectCount;
+    DataSelect **ppDataSelectList;
     int nAudioResampler;
     int nAVDemuxAnalyzeSec;
     int nAVMux;                       //RGY_MUX_xxx

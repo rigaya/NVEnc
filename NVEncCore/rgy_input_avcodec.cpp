@@ -78,6 +78,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     nVideoStreamId(0),
     nReadAudio(0),
     bReadSubtitle(false),
+    bReadData(false),
     bReadChapter(false),
     nVideoAvgFramerate(),
     nAnalyzeSec(0),
@@ -85,10 +86,13 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     pTrimList(nullptr),
     nAudioTrackStart(0),
     nSubtitleTrackStart(0),
+    nDataTrackStart(0),
     nAudioSelectCount(0),
     ppAudioSelect(nullptr),
     nSubtitleSelectCount(0),
-    pSubtitleSelect(nullptr),
+    ppSubtitleSelect(nullptr),
+    nDataSelectCount(0),
+    ppDataSelect(nullptr),
     nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
     nProcSpeedLimit(0),
     fSeekSec(0.0),
@@ -922,22 +926,35 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                 vector_cat(mediaStreams, subStreams);
             }
         }
+        if (input_prm->bReadData) {
+            auto dataStreams = getStreamIndex(AVMEDIA_TYPE_DATA, &videoStreams);
+            m_Demux.format.nDataTracks = (int)dataStreams.size();
+            vector_cat(mediaStreams, dataStreams);
+        }
         for (int iTrack = 0; iTrack < (int)mediaStreams.size(); iTrack++) {
             const AVCodecID codecId = m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codecpar->codec_id;
             bool useStream = false;
             AudioSelect *pAudioSelect = nullptr; //トラックに対応するAudioSelect (字幕ストリームの場合はnullptrのまま)
-            if (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId)) {
-                //字幕の場合
+            if (avcodec_get_type(codecId) == AVMEDIA_TYPE_SUBTITLE) {
+                //字幕・データの場合
                 for (int i = 0; !useStream && i < input_prm->nSubtitleSelectCount; i++) {
                     if (input_prm->ppSubtitleSelect[i]->trackID == 0 //特に指定なし = 全指定かどうか
-                        || input_prm->ppSubtitleSelect[i]->trackID == (iTrack - m_Demux.format.nAudioTracks + input_prm->nSubtitleTrackStart)) {
+                        || input_prm->ppSubtitleSelect[i]->trackID - 1 == (iTrack - m_Demux.format.nAudioTracks)) {
+                        useStream = true;
+                    }
+                }
+            } else if (avcodec_get_type(codecId) == AVMEDIA_TYPE_DATA) {
+                //データの場合
+                for (int i = 0; !useStream && i < input_prm->nDataSelectCount; i++) {
+                    if (input_prm->ppDataSelect[i]->trackID == 0 //特に指定なし = 全指定かどうか
+                        || input_prm->ppDataSelect[i]->trackID - 1 == (iTrack - m_Demux.format.nAudioTracks - m_Demux.format.nSubtitleTracks)) {
                         useStream = true;
                     }
                 }
             } else {
                 //音声の場合
                 for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
-                    if (input_prm->ppAudioSelect[i]->trackID == (iTrack + input_prm->nAudioTrackStart)) {
+                    if (input_prm->ppAudioSelect[i]->trackID - 1 == (iTrack)) {
                         useStream = true;
                         pAudioSelect = input_prm->ppAudioSelect[i];
                     }
@@ -974,9 +991,20 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                         && pAudioSelect->pnStreamChannelSelect[iSubStream]); //audio-splitが指定されている
                     iSubStream++) {
                     AVDemuxStream stream = { 0 };
-                    stream.nTrackId = (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId))
-                        ? -(iTrack - m_Demux.format.nAudioTracks + input_prm->nSubtitleTrackStart) //字幕は -1, -2, -3
-                        : iTrack + input_prm->nAudioTrackStart; //音声は1, 2, 3
+                    switch (avcodec_get_type(codecId)) {
+                    case AVMEDIA_TYPE_SUBTITLE:
+                        stream.nTrackId = trackFullID(AVMEDIA_TYPE_SUBTITLE, iTrack - m_Demux.format.nAudioTracks + input_prm->nSubtitleTrackStart);
+                        break;
+                    case AVMEDIA_TYPE_DATA:
+                        stream.nTrackId = trackFullID(AVMEDIA_TYPE_DATA, iTrack - m_Demux.format.nAudioTracks - m_Demux.format.nSubtitleTracks + input_prm->nDataTrackStart);
+                        break;
+                    case AVMEDIA_TYPE_AUDIO:
+                        stream.nTrackId = trackFullID(AVMEDIA_TYPE_AUDIO, iTrack + input_prm->nAudioTrackStart);
+                        break;
+                    default:
+                        AddMessage(RGY_LOG_ERROR, _T("Unknoen media type!"));
+                        return RGY_ERR_INVALID_PARAM;
+                    }
                     stream.nIndex = mediaStreams[iTrack];
                     stream.nSubStreamId = iSubStream;
                     stream.pStream = m_Demux.format.pFormatCtx->streams[stream.nIndex];
@@ -992,7 +1020,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                     m_Demux.stream.push_back(stream);
                     AddMessage(RGY_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d\n"),
                         get_media_type_string(codecId).c_str(),
-                        stream.nIndex, stream.nTrackId, stream.nSubStreamId, char_to_tstring(avcodec_get_name(codecId)).c_str(),
+                        stream.nIndex, trackID(stream.nTrackId), stream.nSubStreamId, char_to_tstring(avcodec_get_name(codecId)).c_str(),
                         stream.pStream->codecpar->frame_size, stream.pStream->time_base.num, stream.pStream->time_base.den);
                 }
             }
@@ -1003,7 +1031,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             if (input_prm->ppAudioSelect[i]->trackID > 0) {
                 bool audioFound = false;
                 for (const auto& stream : m_Demux.stream) {
-                    if (stream.nTrackId == input_prm->ppAudioSelect[i]->trackID) {
+                    if (trackID(stream.nTrackId) == input_prm->ppAudioSelect[i]->trackID) {
                         audioFound = true;
                         break;
                     }
@@ -1016,12 +1044,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
     }
 
     if (m_cap2ass.enabled()) {
-        //SubtitileのtrackIdは、-1, -2, -3
-        const int minSubTrackId = std::accumulate(m_Demux.stream.begin(), m_Demux.stream.end(), 0, [](int a, const AVDemuxStream& b) {
-            return std::min(a, b.nTrackId);
+        const int maxSubTrackId = std::accumulate(m_Demux.stream.begin(), m_Demux.stream.end(), 0, [](int a, const AVDemuxStream& b) {
+            return trackMediaType(b.nTrackId) == AVMEDIA_TYPE_SUBTITLE ? std::max(a, trackID(b.nTrackId)) : a;
         });
-        m_cap2ass.setIndex(m_Demux.format.pFormatCtx->nb_streams, minSubTrackId-1);
+        m_cap2ass.setIndex(m_Demux.format.pFormatCtx->nb_streams, trackFullID(AVMEDIA_TYPE_SUBTITLE, maxSubTrackId+1));
         m_Demux.stream.push_back(m_cap2ass.stream());
+        m_Demux.format.nSubtitleTracks++;
     }
 
     if (input_prm->bReadChapter) {
@@ -1499,6 +1527,10 @@ int RGYInputAvcodec::GetSubtitleTrackCount() {
     return m_Demux.format.nSubtitleTracks;
 }
 
+int RGYInputAvcodec::GetDataTrackCount() {
+    return m_Demux.format.nDataTracks;
+}
+
 int RGYInputAvcodec::GetAudioTrackCount() {
     return m_Demux.format.nAudioTracks;
 }
@@ -1948,7 +1980,7 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
             break;
         }
         if (checkStreamPacketToAdd(&pkt, pStream)) {
-            pkt.flags = (pkt.flags & 0xffff) | (pStream->nTrackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+            pkt.flags = (pkt.flags & 0xffff) | ((uint32_t)pStream->nTrackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
             m_Demux.qStreamPktL2.push(pkt); //Writer側に渡したパケットはWriter側で開放する
         } else {
             av_packet_unref(&pkt); //Writer側に渡さないパケットはここで開放する
