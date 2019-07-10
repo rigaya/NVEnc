@@ -18,9 +18,6 @@
     <ClCompile Include="cl_func.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="cpu_info.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="gpu_info.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -178,6 +175,9 @@
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="rgy_hdr10plus.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="cpu_info.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>
@@ -441,5 +441,13 @@
     <CustomBuild Include="ram_speed_x86.asm">
       <Filter>ソース ファイル</Filter>
     </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpu_info_x86.asm">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="cpu_info_x64.asm">
+      <Filter>ソース ファイル</Filter>
+    </None>
   </ItemGroup>
 </Project>

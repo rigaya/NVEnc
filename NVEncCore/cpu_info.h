@@ -63,7 +63,7 @@ int inline getCPUInfo(TCHAR(&buffer)[size]) {
 }
 
 double getCPUDefaultClock();
-double getCPUMaxTurboClock(unsigned int num_thread);
+double getCPUMaxTurboClock();
 
 typedef struct PROCESS_TIME {
     uint64_t creation, exit, kernel, user;
