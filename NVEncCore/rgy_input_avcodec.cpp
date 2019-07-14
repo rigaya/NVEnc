@@ -422,7 +422,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
     int i_samples = 0;
     std::vector<int> frameDurationList;
     vector<std::pair<int, int>> durationHistgram;
-    bool bPulldown = bDetectpulldown;
+    bool bPulldown = false;
 
     for (int i_retry = 0; ; i_retry++) {
         if (i_retry) {
@@ -470,8 +470,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         AddMessage(RGY_LOG_DEBUG, _T("checking %d frame samples.\n"), nFramesToCheck);
 
         frameDurationList.reserve(nFramesToCheck);
-        bPulldown = bDetectpulldown;
-        int last_repeat_pict = -1;
+        int rff_frames = 0;
 
         for (int i = 0; i < nFramesToCheck; i++) {
 #if _DEBUG && 0
@@ -486,15 +485,12 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 //RFF用の補正
                 if (repeat_pict > 1) {
                     duration = (int)(duration * 2 / (double)(repeat_pict + 1) + 0.5);
+                    rff_frames++;
                 }
-                //puldownの検出
-                if (repeat_pict == last_repeat_pict) {
-                    bPulldown = false;
-                }
-                last_repeat_pict = repeat_pict;
                 frameDurationList.push_back(duration);
             }
         }
+        bPulldown = (bDetectpulldown && ((rff_frames+1/*たまたま切り捨てられることのないように*/) / (double)nFramesToCheck > 0.45));
 
         //durationのヒストグラムを作成
         std::for_each(frameDurationList.begin(), frameDurationList.end(), [&durationHistgram](const int& duration) {
