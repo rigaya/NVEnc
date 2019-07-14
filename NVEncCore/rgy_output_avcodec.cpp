@@ -1260,7 +1260,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
 }
 
 RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *pInputStream) {
-    const auto mediaType = (pInputStream->asdata) ? AVMEDIA_TYPE_DATA : trackMediaType(pInputStream->src.nTrackId);
+    const auto mediaType = (pInputStream->asdata) ? AVMEDIA_TYPE_UNKNOWN : trackMediaType(pInputStream->src.nTrackId);
     const auto mediaTypeStr = char_to_tstring(av_get_media_type_string(mediaType));
     AddMessage(RGY_LOG_DEBUG, _T("start initializing %s ouput...\n"), mediaTypeStr.c_str());
 
@@ -1268,8 +1268,8 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *pInp
         ? pInputStream->src.pStream->codecpar->codec_id
         : (pInputStream->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
 
-    if (mediaType == AVMEDIA_TYPE_DATA) {
-        codecId = AV_CODEC_ID_BIN_DATA;
+    if (mediaType == AVMEDIA_TYPE_UNKNOWN) {
+        codecId = AV_CODEC_ID_NONE;
     } else if (!avcodecIsCopy(pInputStream->encodeCodec)) {
         auto codec = avcodec_find_decoder_by_name(tchar_to_string(pInputStream->encodeCodec).c_str());
         if (codec == nullptr) {
@@ -1332,7 +1332,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *pInp
     } else {
         avcodec_parameters_copy(srcCodecParam.get(), pInputStream->src.pStream->codecpar);
 
-        if (nullptr == (pMuxSub->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, (mediaType == AVMEDIA_TYPE_DATA) ? nullptr : avcodec_find_decoder(codecId)))) {
+        if (nullptr == (pMuxSub->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, avcodec_find_decoder(codecId)))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
             return RGY_ERR_NULL_PTR;
         }
@@ -1340,8 +1340,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *pInp
             pInputStream->src.nIndex, pInputStream->src.pStream->time_base.num, pInputStream->src.pStream->time_base.den, trackID(pInputStream->src.nTrackId));
     }
     if (pInputStream->asdata) {
-        srcCodecParam->codec_type = AVMEDIA_TYPE_DATA;
-        srcCodecParam->codec_id   = AV_CODEC_ID_BIN_DATA;
+        srcCodecParam->codec_type = AVMEDIA_TYPE_UNKNOWN;
     } else if (mediaType == AVMEDIA_TYPE_DATA) {
         //なにもしない
     } else if (srcCodecParam->codec_id != codecId || codecId == AV_CODEC_ID_MOV_TEXT) {
