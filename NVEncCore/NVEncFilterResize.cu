@@ -100,7 +100,7 @@ __global__ void kernel_resize_texture_bilinear(uint8_t *__restrict__ pDst, const
         const float y = (float)iy + 0.5f;
 
         Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)(tex2D<float>(texObj, x * ratioX, y * ratioY) * (float)(1<<bit_depth));
+        ptr[0] = (Type)(tex2D<float>(texObj, x * ratioX, y * ratioY) * (float)((1<<bit_depth)-1));
     }
 }
 
