@@ -128,6 +128,9 @@ cudaError_t proc_frame(FrameInfo *pFrame,
     //焼きこみフレームの範囲内に収まるようチェック
     const int burnWidth  = std::min((pos_x & ~1) + pSubImg->width,  pFrame->width)  - (pos_x & ~1);
     const int burnHeight = std::min((pos_y & ~1) + pSubImg->height, pFrame->height) - (pos_y & ~1);
+    if (burnWidth < 0 || burnHeight < 0) {
+        return cudaSuccess;
+    }
 
     dim3 blockSize(32, 8);
     dim3 gridSize(divCeil(burnWidth, blockSize.x * 2), divCeil(burnHeight, blockSize.y * 2)); // 2x2pixel/thread
