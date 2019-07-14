@@ -370,7 +370,7 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         if (m_outCodecDecodeCtx->width > 0 && m_outCodecDecodeCtx->height > 0) {
             double scaleX = prm->frameOut.width / m_outCodecDecodeCtx->width;
             double scaleY = prm->frameOut.height / m_outCodecDecodeCtx->height;
-            prm->subburn.scale = (float)std::sqrt(scaleX * scaleX + scaleY * scaleY);
+            prm->subburn.scale = (float)std::sqrt(scaleX * scaleY);
             if (std::abs(prm->subburn.scale - 1.0f) <= 0.1f) {
                 prm->subburn.scale = 1.0f;
             }
