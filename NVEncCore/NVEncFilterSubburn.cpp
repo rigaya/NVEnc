@@ -383,9 +383,9 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     }
 
     if (prm->subburn.filename.length() > 0) {
-        m_sFilterInfo = strsprintf(_T("subburn: %s, scale %.2f"), prm->subburn.filename.c_str(), prm->subburn.scale);
+        m_sFilterInfo = strsprintf(_T("subburn: %s, scale x%.2f"), prm->subburn.filename.c_str(), prm->subburn.scale);
     } else {
-        m_sFilterInfo = strsprintf(_T("subburn: track #%d, scale %.2f"), prm->subburn.trackId, prm->subburn.scale);
+        m_sFilterInfo = strsprintf(_T("subburn: track #%d, scale x%.2f"), prm->subburn.trackId, prm->subburn.scale);
     }
 
     //コピーを保存
