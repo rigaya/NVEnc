@@ -893,6 +893,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+#if ENABLE_AVSW_READER
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
@@ -1031,6 +1032,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+#endif //#if ENABLE_AVSW_READER
     if (0 == _tcscmp(option_name, _T("avsync"))) {
         int value = 0;
         i++;
