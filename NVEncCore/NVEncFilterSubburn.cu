@@ -218,7 +218,7 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
     //GPUへ転送
     auto frame = std::make_unique<CUFrameBuf>(img.width, img.height, img.csp);
     frame->copyFrameAsync(&img, stream);
-    return SubImageData(std::move(frame), std::move(bufCPU), image->dst_x, image->dst_y);
+    return SubImageData(std::move(frame), std::unique_ptr<CUFrameBuf>(), std::move(bufCPU), image->dst_x, image->dst_y);
 }
 
 
@@ -298,7 +298,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
         const uint8_t subG = (uint8_t)((subColor >>  8) & 0xff);
         const uint8_t subB = (uint8_t)(subColor        & 0xff);
 
-        const uint8_t subY = (uint8_t)clamp(((66 * subR + 129 * subG +  25 * subB + 128) >> 8) +  16, 0, 255);
+        const uint8_t subY = (uint8_t)clamp((( 66 * subR + 129 * subG +  25 * subB + 128) >> 8) +  16, 0, 255);
         const uint8_t subU = (uint8_t)clamp(((-38 * subR -  74 * subG + 112 * subB + 128) >> 8) + 128, 0, 255);
         const uint8_t subV = (uint8_t)clamp(((112 * subR -  94 * subG -  18 * subB + 128) >> 8) + 128, 0, 255);
 
@@ -325,11 +325,36 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
         }
     }
     //GPUへ転送
-    auto frame = std::make_unique<CUFrameBuf>(img.width, img.height, img.csp);
-    frame->copyFrameAsync(&img, stream);
-    return SubImageData(std::move(frame), std::move(bufCPU),
-        rect->x - ((crop.e.left + crop.e.right) / 2),
-        rect->y - crop.e.up - crop.e.bottom);
+    auto frameTemp = std::make_unique<CUFrameBuf>(img.width, img.height, img.csp);
+    frameTemp->copyFrameAsync(&img, stream);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+
+    decltype(frameTemp) frame;
+    if (prm->subburn.scale == 1.0f) {
+        frame = std::move(frameTemp);
+    } else {
+        frame = std::make_unique<CUFrameBuf>(
+            ALIGN((int)(img.width  * prm->subburn.scale + 0.5f), 4),
+            ALIGN((int)(img.height * prm->subburn.scale + 0.5f), 4), img.csp);
+        frame->alloc();
+        unique_ptr<NVEncFilterResize> filterResize(new NVEncFilterResize());
+        shared_ptr<NVEncFilterParamResize> paramResize(new NVEncFilterParamResize());
+        paramResize->frameIn = frameTemp->frame;
+        paramResize->frameOut = frame->frame;
+        paramResize->baseFps = prm->baseFps;
+        paramResize->frameOut.deivce_mem = true;
+        paramResize->bOutOverwrite = false;
+        paramResize->interp = RESIZE_CUDA_TEXTURE_BILINEAR;
+        filterResize->init(paramResize, m_pPrintMes);
+        m_resize = std::move(filterResize);
+
+        int filterOutputNum = 0;
+        FrameInfo *filterOutput[1] = { &frame->frame };
+        auto sts_filter = m_resize->filter(&frameTemp->frame, (FrameInfo **)&filterOutput, &filterOutputNum);
+    }
+    return SubImageData(std::move(frame), std::move(frameTemp), std::move(bufCPU),
+        ALIGN((int)(prm->subburn.scale * rect->x + 0.5f), 4) - ((crop.e.left + crop.e.right) / 2),
+        ALIGN((int)(prm->subburn.scale * rect->y + 0.5f), 4) - crop.e.up - crop.e.bottom);
 }
 
 

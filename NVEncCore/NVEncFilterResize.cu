@@ -140,9 +140,11 @@ static cudaError_t resize_texture_bilinear_frame(FrameInfo* pOutputFrame, const 
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
+    const auto planeSrcA = getPlane(pInputFrame, RGY_PLANE_A);
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+    auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
 
     auto cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputY, &planeSrcY, stream);
     if (cudaerr != cudaSuccess) {
@@ -155,6 +157,12 @@ static cudaError_t resize_texture_bilinear_frame(FrameInfo* pOutputFrame, const 
     cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputV, &planeSrcV, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
+    }
+    if (planeOutputA.ptr != nullptr) {
+        cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputA, &planeSrcA, stream);
+        if (cudaerr != cudaSuccess) {
+            return cudaerr;
+        }
     }
     return cudaerr;
 }
@@ -265,9 +273,11 @@ static cudaError_t resize_spline_frame(FrameInfo* pOutputFrame, const FrameInfo*
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
+    const auto planeSrcA = getPlane(pInputFrame, RGY_PLANE_A);
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+    auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
 
     auto cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputY, &planeSrcY, pgFactor, stream);
     if (cudaerr != cudaSuccess) {
@@ -280,6 +290,12 @@ static cudaError_t resize_spline_frame(FrameInfo* pOutputFrame, const FrameInfo*
     cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputV, &planeSrcV, pgFactor, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
+    }
+    if (planeOutputA.ptr != nullptr) {
+        cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputA, &planeSrcA, pgFactor, stream);
+        if (cudaerr != cudaSuccess) {
+            return cudaerr;
+        }
     }
     return cudaerr;
 }
@@ -379,9 +395,11 @@ static cudaError_t resize_lanczos_frame(FrameInfo* pOutputFrame, const FrameInfo
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
+    const auto planeSrcA = getPlane(pInputFrame, RGY_PLANE_A);
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+    auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
 
     auto cudaerr = resize_lanczos_plane<Type, bit_depth, radius>(&planeOutputY, &planeSrcY, stream);
     if (cudaerr != cudaSuccess) {
@@ -394,6 +412,12 @@ static cudaError_t resize_lanczos_frame(FrameInfo* pOutputFrame, const FrameInfo
     cudaerr = resize_lanczos_plane<Type, bit_depth, radius>(&planeOutputV, &planeSrcV, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
+    }
+    if (planeOutputA.ptr != nullptr) {
+        cudaerr = resize_lanczos_plane<Type, bit_depth, radius>(&planeOutputA, &planeSrcA, stream);
+        if (cudaerr != cudaSuccess) {
+            return cudaerr;
+        }
     }
     return cudaerr;
 }
@@ -700,10 +724,12 @@ RGY_ERR NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **
         }
     } else {
         static const std::map<RGY_CSP, decltype(resize_frame<uint8_t, 8>)*> resize_list = {
-            { RGY_CSP_YV12,      resize_frame<uint8_t,   8> },
-            { RGY_CSP_YV12_16,   resize_frame<uint16_t, 16> },
-            { RGY_CSP_YUV444,    resize_frame<uint8_t,   8> },
-            { RGY_CSP_YUV444_16, resize_frame<uint16_t, 16> },
+            { RGY_CSP_YV12,       resize_frame<uint8_t,   8> },
+            { RGY_CSP_YV12_16,    resize_frame<uint16_t, 16> },
+            { RGY_CSP_YUV444,     resize_frame<uint8_t,   8> },
+            { RGY_CSP_YUV444_16,  resize_frame<uint16_t, 16> },
+            { RGY_CSP_YUVA444,    resize_frame<uint8_t,   8> },
+            { RGY_CSP_YUVA444_16, resize_frame<uint16_t, 16> },
         };
         if (resize_list.count(pInputFrame->csp) == 0) {
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);

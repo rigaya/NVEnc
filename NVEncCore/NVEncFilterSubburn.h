@@ -47,11 +47,12 @@ struct subtitle_deleter {
 
 struct SubImageData {
     unique_ptr<CUFrameBuf> image;
+    unique_ptr<CUFrameBuf> imageTemp;
     unique_ptr<void, decltype(&cudaFreeHost)> imageCPU;
     int x, y;
 
-    SubImageData(unique_ptr<CUFrameBuf> img, unique_ptr<void, decltype(&cudaFreeHost)> imgCPU, int posX, int posY) :
-        image(std::move(img)), imageCPU(std::move(imgCPU)), x(posX), y(posY){ }
+    SubImageData(unique_ptr<CUFrameBuf> img, unique_ptr<CUFrameBuf> imgTemp, unique_ptr<void, decltype(&cudaFreeHost)> imgCPU, int posX, int posY) :
+        image(std::move(img)), imageTemp(std::move(imgTemp)), imageCPU(std::move(imgCPU)), x(posX), y(posY){ }
 };
 
 class NVEncFilterParamSubburn : public NVEncFilterParam {
@@ -101,6 +102,8 @@ protected:
     unique_ptr<ASS_Library, decltype(&ass_library_done)> m_assLibrary; //libassのコンテキスト
     unique_ptr<ASS_Renderer, decltype(&ass_renderer_done)> m_assRenderer; //libassのレンダラ
     unique_ptr<ASS_Track, decltype(&ass_free_track)> m_assTrack; //libassのトラック
+
+    unique_ptr<NVEncFilterResize> m_resize;
 
     RGYQueueSPSP<AVPacket> m_queueSubPackets; //入力から得られた字幕パケット
 };

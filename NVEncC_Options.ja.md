@@ -1305,6 +1305,9 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   - simple
   - complex (デフォルト)
 
+- scale=&lt;float&gt; (デフォルト=0.0 (auto))
+  bitmap形式の字幕の表示サイズの倍率  
+
 ```
 例1: 入力ファイルの字幕トラックを焼きこみ
 --vpp-subburn track=1

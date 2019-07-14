@@ -1000,6 +1000,7 @@ struct VppSubburn {
     std::string charcode;
     int trackId;
     int assShaping;
+    float scale;
 
     VppSubburn();
     bool operator==(const VppSubburn &x) const;

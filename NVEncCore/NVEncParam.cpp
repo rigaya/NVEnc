@@ -398,7 +398,8 @@ VppSubburn::VppSubburn() :
     filename(),
     charcode(),
     trackId(0),
-    assShaping(1) {
+    assShaping(1),
+    scale(0.0) {
 }
 
 bool VppSubburn::operator==(const VppSubburn &x) const {
@@ -406,7 +407,8 @@ bool VppSubburn::operator==(const VppSubburn &x) const {
         && filename == x.filename
         && charcode == x.charcode
         && trackId == x.trackId
-        && assShaping == x.assShaping;
+        && assShaping == x.assShaping
+        && scale == x.scale;
 }
 bool VppSubburn::operator!=(const VppSubburn &x) const {
     return !(*this == x);

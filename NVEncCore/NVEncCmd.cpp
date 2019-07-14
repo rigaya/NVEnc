@@ -2907,6 +2907,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
+                if (param_arg == _T("scale")) {
+                    try {
+                        subburn.scale = std::stof(param_val);
+                    } catch (...) {
+                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {

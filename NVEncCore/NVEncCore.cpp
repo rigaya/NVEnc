@@ -3194,7 +3194,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->videoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 param->videoInfo = m_pFileReader->GetInputFrameInfo();
                 for (const auto &stream : pAVCodecReader->GetInputStreamInfo()) {
-                    if (stream.nTrackId == -1 * param->subburn.trackId) {
+                    if (stream.nTrackId == trackFullID(AVMEDIA_TYPE_SUBTITLE, param->subburn.trackId)) {
                         param->streamIn = stream;
                         break;
                     }

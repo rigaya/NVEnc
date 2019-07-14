@@ -148,9 +148,14 @@ FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane) {
         }
     } else {
         switch (plane) {
+        case RGY_PLANE_A:
+            if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] != RGY_CHROMAFMT_YUVA444) {
+                planeInfo.ptr = nullptr;
+                break;
+            }
+            //フォールスルー
         case RGY_PLANE_U:
         case RGY_PLANE_V:
-        case RGY_PLANE_A:
             //case RGY_PLANE_G:
             //case RGY_PLANE_B:
             if (frameInfo->csp == RGY_CSP_YUY2
@@ -175,7 +180,7 @@ FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane) {
                 if (plane == RGY_PLANE_V) {
                     planeInfo.ptr += planeInfo.pitch * planeInfo.height;
                 }
-            } else { //RGY_CHROMAFMT_YUV444 & RGY_CHROMAFMT_RGB
+            } else { //RGY_CHROMAFMT_YUV444 & RGY_CHROMAFMT_YUVA444 & RGY_CHROMAFMT_RGB
                 planeInfo.ptr += plane * planeInfo.pitch * planeInfo.height;
             }
             break;

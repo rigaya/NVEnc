@@ -366,11 +366,26 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
             return sts;
         }
     }
+    if (prm->subburn.scale <= 0.0f) {
+        if (m_outCodecDecodeCtx->width > 0 && m_outCodecDecodeCtx->height > 0) {
+            double scaleX = prm->frameOut.width / m_outCodecDecodeCtx->width;
+            double scaleY = prm->frameOut.height / m_outCodecDecodeCtx->height;
+            prm->subburn.scale = (float)std::sqrt(scaleX * scaleX + scaleY * scaleY);
+            if (std::abs(prm->subburn.scale - 1.0f) <= 0.1f) {
+                prm->subburn.scale = 1.0f;
+            }
+        } else {
+            prm->subburn.scale = 1.0f;
+        }
+    } else if (m_subType & AV_CODEC_PROP_TEXT_SUB) {
+        AddMessage(RGY_LOG_WARN, _T("manual scaling not available for text type fonts.\n"));
+        prm->subburn.scale = 1.0f;
+    }
 
     if (prm->subburn.filename.length() > 0) {
-        m_sFilterInfo = strsprintf(_T("subburn: %s"), prm->subburn.filename.c_str());
+        m_sFilterInfo = strsprintf(_T("subburn: %s, scale %.2f"), prm->subburn.filename.c_str(), prm->subburn.scale);
     } else {
-        m_sFilterInfo = strsprintf(_T("subburn: track #%d"), prm->subburn.trackId);
+        m_sFilterInfo = strsprintf(_T("subburn: track #%d, scale %.2f"), prm->subburn.trackId, prm->subburn.scale);
     }
 
     //コピーを保存

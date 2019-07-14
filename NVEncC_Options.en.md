@@ -1261,6 +1261,9 @@ add padding to left,top,right,bottom (in pixels)
   - simple
   - complex (default)
 
+- scale=&lt;float&gt; (default=0.0 (auto))
+  scaling multiplizer for bitmap fonts.  
+
 ```
 Example1: burn in subtitle from the track of the input file
 --vpp-subburn track=1
