@@ -751,6 +751,12 @@ typedef union sInputCrop {
 } sInputCrop;
 #pragma warning(pop)
 
+static inline sInputCrop initCrop() {
+    sInputCrop s;
+    memset(&s, 0, sizeof(s));
+    return s;
+}
+
 static inline bool cropEnabled(const sInputCrop& crop) {
     return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
 }

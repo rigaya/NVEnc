@@ -1847,21 +1847,13 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
     }
 
-    m_sFilterInfo = strsprintf(
-        _T("nnedi: field %s, nns %d, nsize %s, quality %s, prec %s\n")
-        _T("                       pre_screen %s, errortype %s, weight \"%s\""),
-        get_cx_desc(list_vpp_nnedi_field, pNnediParam->nnedi.field),
-        pNnediParam->nnedi.nns,
-        get_cx_desc(list_vpp_nnedi_nsize, pNnediParam->nnedi.nsize),
-        get_cx_desc(list_vpp_nnedi_quality, pNnediParam->nnedi.quality),
-        get_cx_desc(list_vpp_nnedi_prec, pNnediParam->nnedi.precision),
-        get_cx_desc(list_vpp_nnedi_pre_screen, pNnediParam->nnedi.pre_screen),
-        get_cx_desc(list_vpp_nnedi_error_type, pNnediParam->nnedi.errortype),
-        ((pNnediParam->nnedi.weightfile.length()) ? pNnediParam->nnedi.weightfile.c_str() : _T("internal")));
-
-    //コピーを保存
+    setFilterInfo(pParam->print());
     m_pParam = pNnediParam;
     return sts;
+}
+
+tstring NVEncFilterParamNnedi::print() const {
+    return nnedi.print();
 }
 
 RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

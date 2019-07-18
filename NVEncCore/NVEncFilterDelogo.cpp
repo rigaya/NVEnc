@@ -788,41 +788,7 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             }
         }
 
-        //フィルタ情報の調整
-        std::string str = "";
-        switch (pDelogoParam->delogo.mode) {
-        case DELOGO_MODE_ADD:
-            str += ", add";
-            break;
-        case DELOGO_MODE_REMOVE:
-        default:
-            break;
-        }
-        if (pDelogoParam->delogo.posX || pDelogoParam->delogo.posY) {
-            str += strsprintf(", pos=%d:%d", pDelogoParam->delogo.posX, pDelogoParam->delogo.posY);
-        }
-        if (pDelogoParam->delogo.depth != FILTER_DEFAULT_DELOGO_DEPTH) {
-            str += strsprintf(", dpth=%d", pDelogoParam->delogo.depth);
-        }
-        if (pDelogoParam->delogo.Y || pDelogoParam->delogo.Cb || pDelogoParam->delogo.Cr) {
-            str += strsprintf(", YCbCr=%d:%d:%d", pDelogoParam->delogo.Y, pDelogoParam->delogo.Cb, pDelogoParam->delogo.Cr);
-        }
-        if (pDelogoParam->delogo.autoFade) {
-            str += ", auto_fade";
-        }
-        if (pDelogoParam->delogo.autoNR) {
-            str += ", auto_nr";
-        }
-        if ((pDelogoParam->delogo.autoFade || pDelogoParam->delogo.autoNR) && pDelogoParam->delogo.log) {
-            str += ", log";
-        }
-        if (pDelogoParam->delogo.NRValue) {
-            str += ", nr_value=" + std::to_string(pDelogoParam->delogo.NRValue);
-        }
-        if (pDelogoParam->delogo.NRArea) {
-            str += ", nr_area=" + std::to_string(pDelogoParam->delogo.NRArea);
-        }
-        m_sFilterInfo = char_to_tstring("delogo: " + std::string(logoData.header.name) + str);
+        setFilterInfo(_T("delgo:") + char_to_tstring(logoData.header.name) + pDelogoParam->print());
         if (pDelogoParam->delogo.log) {
             m_logPath = pDelogoParam->inputFileName + tstring(_T(".delogo_log.csv"));
             std::unique_ptr<FILE, decltype(&fclose)> fp(_tfopen(m_logPath.c_str(), _T("w")), fclose);
@@ -832,6 +798,10 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
     }
     return sts;
+}
+
+tstring NVEncFilterParamDelogo::print() const {
+    return delogo.print();
 }
 
 RGY_ERR NVEncFilterDelogo::createLogoMask() {

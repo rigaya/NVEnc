@@ -644,20 +644,13 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_DEBUG, _T("opened afs log file \"%s\".\n"), log_filename.c_str());
     }
 
-#define ON_OFF(b) ((b) ? _T("on") : _T("off"))
-    m_sFilterInfo = strsprintf(
-        _T("afs: clip(T %d, B %d, L %d, R %d), switch %d, coeff_shift %d\n")
-        _T("                    thre(shift %d, deint %d, Ymotion %d, Cmotion %d)\n")
-        _T("                    level %d, shift %s, drop %s, smooth %s, force24 %s\n")
-        _T("                    tune %s, tb_order %d(%s), rff %s, timecode %s, log %s"),
-        pAfsParam->afs.clip.top, pAfsParam->afs.clip.bottom , pAfsParam->afs.clip.left, pAfsParam->afs.clip.right,
-        pAfsParam->afs.method_switch, pAfsParam->afs.coeff_shift,
-        pAfsParam->afs.thre_shift, pAfsParam->afs.thre_deint, pAfsParam->afs.thre_Ymotion, pAfsParam->afs.thre_Cmotion,
-        pAfsParam->afs.analyze, ON_OFF(pAfsParam->afs.shift), ON_OFF(pAfsParam->afs.drop), ON_OFF(pAfsParam->afs.smooth), ON_OFF(pAfsParam->afs.force24),
-        ON_OFF(pAfsParam->afs.tune), pAfsParam->afs.tb_order, pAfsParam->afs.tb_order ? _T("tff") : _T("bff"), ON_OFF(pAfsParam->afs.rff), ON_OFF(pAfsParam->afs.timecode), ON_OFF(pAfsParam->afs.log));
-#undef ON_OFF
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamAfs::print() const {
+    return afs.print();
 }
 
 bool NVEncFilterAfs::scan_frame_result_cached(int frame, const VppAfs *pAfsPrm) {

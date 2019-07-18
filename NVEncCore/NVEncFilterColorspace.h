@@ -129,6 +129,7 @@ public:
 
     };
     virtual ~NVEncFilterParamColorspace() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterColorspace : public NVEncFilter {

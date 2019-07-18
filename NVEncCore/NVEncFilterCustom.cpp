@@ -164,26 +164,23 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     }
     m_pPrintMes->write_log(RGY_LOG_DEBUG, char_to_tstring(compile_log).c_str());
 
-    m_sFilterInfo = strsprintf(_T("%s: %s, %dx%d %s\n")
-        _T("                    interface %s, interlace %s\n")
-        _T("                    thread/block (%d,%d), pixel/thread (%d,%d)\n"),
-        m_sFilterName.c_str(), prm->custom.kernel_path.c_str(),
-        pParam->frameOut.width, pParam->frameOut.height, RGY_CSP_NAMES[pParam->frameOut.csp],
-        get_cx_desc(list_vpp_custom_interface, prm->custom.kernel_interface),
-        get_cx_desc(list_vpp_custom_interlace, prm->custom.interlace),
-        prm->custom.threadPerBlockX, prm->custom.threadPerBlockY,
-        prm->custom.pixelPerThreadX, prm->custom.pixelPerThreadY);
-    if (prm->custom.dstWidth > 0 || prm->custom.dstHeight > 0) {
-        m_sFilterInfo += strsprintf(_T("                    output res %dx%d\n"),
-            prm->frameOut.width, prm->frameOut.height);
-    }
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
 #else
     AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) is not supported on this build.\n"), prm->custom.filter_name.c_str());
     return RGY_ERR_UNSUPPORTED;
 #endif
+}
+
+tstring NVEncFilterParamCustom::print() const {
+    tstring info = custom.print();
+    info += strsprintf(_T("                    %dx%d %s\n"), frameIn.width, frameIn.height, RGY_CSP_NAMES[frameIn.csp]);
+    if (custom.dstWidth > 0 || custom.dstHeight > 0) {
+        info += strsprintf(_T("                    output res %dx%d\n"),
+            frameOut.width, frameOut.height);
+    };
+    return info;
 }
 
 RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputPlane, const FrameInfo *pInpuPlane, RGY_PLANE plane, cudaStream_t stream) {

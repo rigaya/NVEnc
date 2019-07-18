@@ -323,12 +323,13 @@ RGY_ERR NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
     pEdgelevelParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_sFilterInfo = strsprintf(_T("edgelevel: strength %.1f, threshold %.1f, black %.1f, white %.1f"),
-        pEdgelevelParam->edgelevel.strength, pEdgelevelParam->edgelevel.threshold, pEdgelevelParam->edgelevel.black, pEdgelevelParam->edgelevel.white);
-
-    //コピーを保存
+    setFilterInfo(pParam->print());
     m_pParam = pEdgelevelParam;
     return sts;
+}
+
+tstring NVEncFilterParamEdgelevel::print() const {
+    return edgelevel.print();
 }
 
 RGY_ERR NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

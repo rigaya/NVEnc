@@ -1503,7 +1503,7 @@ RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     //パラメータチェック
     for (int i = 0; i < _countof(pCropParam->crop.c); i++) {
         if ((pCropParam->crop.c[i] & 1) != 0) {
-            AddMessage(RGY_LOG_ERROR, _T("crop should be divided by 2.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("crop should be divided by 2 (%d,%d,%d,%d).\n"), pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->crop.e.right, pCropParam->crop.e.bottom);
             return RGY_ERR_INVALID_PARAM;
         }
     }
@@ -1522,20 +1522,24 @@ RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     pCropParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
     //フィルタ情報の調整
-    m_sFilterInfo = _T("");
-    if (cropEnabled(pCropParam->crop)) {
-        m_sFilterInfo += strsprintf(_T("crop: %d,%d,%d,%d"), pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->crop.e.right, pCropParam->crop.e.bottom);
-    }
-    if (pCropParam->frameOut.csp != pCropParam->frameIn.csp) {
-        m_sFilterInfo += (m_sFilterInfo.length()) ? _T("/cspconv") : _T("cspconv");
-        m_sFilterInfo += strsprintf(_T("(%s -> %s)"), RGY_CSP_NAMES[pCropParam->frameIn.csp], RGY_CSP_NAMES[pCropParam->frameOut.csp]);
-    }
-    if (m_sFilterInfo.length() == 0) {
-        m_sFilterInfo += getCudaMemcpyKindStr(pCropParam->frameIn.deivce_mem, pCropParam->frameOut.deivce_mem);
-    }
-
+    setFilterInfo(pCropParam->print());
     m_pParam = pCropParam;
     return sts;
+}
+
+tstring NVEncFilterParamCrop::print() const {
+    tstring filterInfo;
+    if (cropEnabled(crop)) {
+        filterInfo += strsprintf(_T("crop: %d,%d,%d,%d"), crop.e.left, crop.e.up, crop.e.right, crop.e.bottom);
+    }
+    if (frameOut.csp != frameIn.csp) {
+        filterInfo += (filterInfo.length()) ? _T("/cspconv") : _T("cspconv");
+        filterInfo += strsprintf(_T("(%s -> %s)"), RGY_CSP_NAMES[frameIn.csp], RGY_CSP_NAMES[frameOut.csp]);
+    }
+    if (filterInfo.length() == 0) {
+        filterInfo += getCudaMemcpyKindStr(frameIn.deivce_mem, frameOut.deivce_mem);
+    }
+    return filterInfo;
 }
 
 RGY_ERR NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

@@ -45,6 +45,7 @@ public:
 
     NVEncFilterParamNnedi() : nnedi(), compute_capability(std::make_pair(0, 0)), hModule(NULL) {};
     virtual ~NVEncFilterParamNnedi() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterNnedi : public NVEncFilter {

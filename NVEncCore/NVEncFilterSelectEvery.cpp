@@ -65,9 +65,13 @@ RGY_ERR NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, shared
 
     m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
 
-    m_sFilterInfo = strsprintf(_T("selectevery %d (offset %d)"), pSelectParam->selectevery.step, pSelectParam->selectevery.offset);
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamSelectEvery::print() const {
+    return selectevery.print();
 }
 
 RGY_ERR NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

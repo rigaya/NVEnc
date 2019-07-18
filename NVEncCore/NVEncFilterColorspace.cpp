@@ -1402,14 +1402,19 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, picth %d, %s.\n"),
         pParam->frameOut.width, pParam->frameOut.height, pParam->frameOut.pitch, RGY_CSP_NAMES[pParam->frameOut.csp]);
 
-    m_sFilterInfo = _T("colorspace: ");
+    tstring filterInfo = _T("colorspace: ");
     if (crop) {
-        m_sFilterInfo += crop->GetInputMessage() + _T("\n                           ");
+        filterInfo += crop->GetInputMessage() + _T("\n                           ");
     }
-    m_sFilterInfo += opCtrl->printInfoAll();
+    filterInfo += opCtrl->printInfoAll();
+    setFilterInfo(filterInfo);
     m_pParam = pParam;
     return sts;
 #endif
+}
+
+tstring NVEncFilterParamColorspace::print() const {
+    return _T("");
 }
 
 RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

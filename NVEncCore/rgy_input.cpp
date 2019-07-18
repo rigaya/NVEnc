@@ -198,5 +198,9 @@ void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSp
     ss << inputPrm->srcWidth << _T("x") << inputPrm->srcHeight << _T(", ");
     ss << inputPrm->fpsN << _T("/") << inputPrm->fpsD << _T(" fps");
 
+    if (cropEnabled(inputPrm->crop)) {
+        ss << "crop(" << inputPrm->crop.e.left << "," << inputPrm->crop.e.up << "," << inputPrm->crop.e.right << "," << inputPrm->crop.e.bottom << ")";
+    }
+
     m_strInputInfo = ss.str();
 }

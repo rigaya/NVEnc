@@ -842,6 +842,7 @@ struct VppDelogo {
     VppDelogo();
     bool operator==(const VppDelogo& x) const;
     bool operator!=(const VppDelogo& x) const;
+    tstring print() const;
 };
 
 struct VppUnsharp {
@@ -853,6 +854,7 @@ struct VppUnsharp {
     VppUnsharp();
     bool operator==(const VppUnsharp& x) const;
     bool operator!=(const VppUnsharp& x) const;
+    tstring print() const;
 };
 
 struct VppEdgelevel {
@@ -865,6 +867,7 @@ struct VppEdgelevel {
     VppEdgelevel();
     bool operator==(const VppEdgelevel& x) const;
     bool operator!=(const VppEdgelevel& x) const;
+    tstring print() const;
 };
 
 struct VppKnn {
@@ -878,6 +881,7 @@ struct VppKnn {
     VppKnn();
     bool operator==(const VppKnn& x) const;
     bool operator!=(const VppKnn& x) const;
+    tstring print() const;
 };
 
 struct VppPmd {
@@ -890,6 +894,7 @@ struct VppPmd {
     VppPmd();
     bool operator==(const VppPmd& x) const;
     bool operator!=(const VppPmd& x) const;
+    tstring print() const;
 };
 
 struct VppDeband {
@@ -908,6 +913,7 @@ struct VppDeband {
     VppDeband();
     bool operator==(const VppDeband& x) const;
     bool operator!=(const VppDeband& x) const;
+    tstring print() const;
 };
 
 struct ColorspaceConv {
@@ -982,6 +988,7 @@ struct VppTweak {
     VppTweak();
     bool operator==(const VppTweak& x) const;
     bool operator!=(const VppTweak& x) const;
+    tstring print() const;
 };
 
 struct VppSelectEvery {
@@ -992,6 +999,7 @@ struct VppSelectEvery {
     VppSelectEvery();
     bool operator==(const VppSelectEvery& x) const;
     bool operator!=(const VppSelectEvery& x) const;
+    tstring print() const;
 };
 
 struct VppSubburn {
@@ -1005,6 +1013,7 @@ struct VppSubburn {
     VppSubburn();
     bool operator==(const VppSubburn &x) const;
     bool operator!=(const VppSubburn &x) const;
+    tstring print() const;
 };
 
 typedef struct {
@@ -1045,6 +1054,7 @@ struct VppAfs {
     int read_afs_inifile(const TCHAR* inifile);
     bool operator==(const VppAfs& x) const;
     bool operator!=(const VppAfs& x) const;
+    tstring print() const;
 
     void check();
 };
@@ -1056,6 +1066,7 @@ struct VppYadif {
     VppYadif();
     bool operator==(const VppYadif& x) const;
     bool operator!=(const VppYadif& x) const;
+    tstring print() const;
 };
 
 struct VppPad {
@@ -1065,6 +1076,7 @@ struct VppPad {
     VppPad();
     bool operator==(const VppPad& x) const;
     bool operator!=(const VppPad& x) const;
+    tstring print() const;
 };
 
 struct VppNnedi {
@@ -1082,6 +1094,7 @@ struct VppNnedi {
     VppNnedi();
     bool operator==(const VppNnedi& x) const;
     bool operator!=(const VppNnedi& x) const;
+    tstring print() const;
 };
 
 enum {
@@ -1158,6 +1171,7 @@ struct VppCustom {
     VppCustom();
     bool operator==(const VppCustom &x) const;
     bool operator!=(const VppCustom &x) const;
+    tstring print() const;
 };
 
 struct VppParam {

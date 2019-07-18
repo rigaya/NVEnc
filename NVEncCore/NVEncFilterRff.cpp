@@ -69,9 +69,13 @@ RGY_ERR NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     m_nFieldBufUsed = -1;
     m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT));
 
-    m_sFilterInfo = strsprintf(_T("rff"));
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamRff::print() const {
+    return _T("rff");
 }
 
 RGY_ERR NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

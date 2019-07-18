@@ -67,6 +67,7 @@ public:
 
     NVEncFilterParamSubburn() : subburn(), videoTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop() {};
     virtual ~NVEncFilterParamSubburn() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterSubburn : public NVEncFilter {

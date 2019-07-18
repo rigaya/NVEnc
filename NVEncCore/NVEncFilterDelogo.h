@@ -182,6 +182,7 @@ public:
 
     };
     virtual ~NVEncFilterParamDelogo() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterDelogo : public NVEncFilter {

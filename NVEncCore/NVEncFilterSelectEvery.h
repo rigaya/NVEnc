@@ -40,6 +40,7 @@ public:
 
     };
     virtual ~NVEncFilterParamSelectEvery() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterSelectEvery : public NVEncFilter {

@@ -343,12 +343,13 @@ RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         }
     }
 
-    m_sFilterInfo = strsprintf(_T("unsharp: radius %d, weight %.1f, threshold %.1f"),
-        pUnsharpParam->unsharp.radius, pUnsharpParam->unsharp.weight, pUnsharpParam->unsharp.threshold);
-
-    //コピーを保存
+    setFilterInfo(pParam->print());
     m_pParam = pUnsharpParam;
     return sts;
+}
+
+tstring NVEncFilterParamUnsharp::print() const {
+    return unsharp.print();
 }
 
 RGY_ERR NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

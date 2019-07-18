@@ -74,14 +74,16 @@ RGY_ERR NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     }
     pParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_sFilterInfo = strsprintf(_T("pad: [%dx%d]->[%dx%d] (right=%d, left=%d, top=%d, bottom=%d)"),
-        pParam->frameIn.width, pParam->frameIn.height,
-        pParam->frameOut.width, pParam->frameOut.height,
-        pPadParam->pad.right, pPadParam->pad.left,
-        pPadParam->pad.top, pPadParam->pad.bottom);
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamPad::print() const {
+    return strsprintf(_T("pad: [%dx%d]->[%dx%d] "),
+        frameIn.width, frameIn.height,
+        frameOut.width, frameOut.height)
+        + pad.print();
 }
 
 RGY_ERR NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad) {

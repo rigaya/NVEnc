@@ -595,16 +595,13 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
     }
 
-    m_sFilterInfo = strsprintf(_T("deband: mode %d, range %d, threY %d, threCb %d, threCr %d\n")
-        _T("                       ditherY %d, ditherC %d, blurFirst %s, randEachFrame %s"),
-        pDebandParam->deband.sample, pDebandParam->deband.range,
-        pDebandParam->deband.threY, pDebandParam->deband.threCb, pDebandParam->deband.threCr,
-        pDebandParam->deband.ditherY, pDebandParam->deband.ditherC,
-        pDebandParam->deband.blurFirst ? _T("yes") : _T("no"),
-        pDebandParam->deband.randEachFrame ? _T("yes") : _T("no"));
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamDeband::print() const {
+    return deband.print();
 }
 
 RGY_ERR NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

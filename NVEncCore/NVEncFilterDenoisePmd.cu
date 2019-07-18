@@ -380,11 +380,13 @@ RGY_ERR NVEncFilterDenoisePmd::init(shared_ptr<NVEncFilterParam> pParam, shared_
         }
     }
 
-    m_sFilterInfo = strsprintf(_T("denoise(pmd): strength %d, threshold %d, apply %d, exp %d"),
-        (int)pPmdParam->pmd.strength, (int)pPmdParam->pmd.threshold, pPmdParam->pmd.applyCount, pPmdParam->pmd.useExp);
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamDenoisePmd::print() const {
+    return pmd.print();
 }
 
 RGY_ERR NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

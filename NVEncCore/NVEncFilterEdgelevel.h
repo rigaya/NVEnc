@@ -35,7 +35,9 @@ class NVEncFilterParamEdgelevel : public NVEncFilterParam {
 public:
     VppEdgelevel edgelevel;
 
+    NVEncFilterParamEdgelevel() : edgelevel() {};
     virtual ~NVEncFilterParamEdgelevel() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterEdgelevel : public NVEncFilter {

@@ -40,6 +40,7 @@ public:
 
     };
     virtual ~NVEncFilterParamDenoisePmd() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterDenoisePmd : public NVEncFilter {

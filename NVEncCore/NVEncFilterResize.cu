@@ -670,14 +670,18 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
     }
 
-    m_sFilterInfo = strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
-        get_chr_from_value(list_nppi_resize, pResizeParam->interp),
-        pResizeParam->frameIn.width, pResizeParam->frameIn.height,
-        pResizeParam->frameOut.width, pResizeParam->frameOut.height);
+    setFilterInfo(pResizeParam->print());
 
     //コピーを保存
     m_pParam = pResizeParam;
     return sts;
+}
+
+tstring NVEncFilterParamResize::print() const {
+    return strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
+        get_chr_from_value(list_nppi_resize, interp),
+        frameIn.width, frameIn.height,
+        frameOut.width, frameOut.height);
 }
 
 RGY_ERR NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

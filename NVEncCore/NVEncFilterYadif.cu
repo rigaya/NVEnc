@@ -377,11 +377,13 @@ RGY_ERR NVEncFilterYadif::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         prmYadif->baseFps *= 2;
     }
 
-    m_sFilterInfo = strsprintf(
-        _T("yadif: mode %s"),
-        get_cx_desc(list_vpp_yadif_mode, prmYadif->yadif.mode));
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamYadif::print() const {
+    return yadif.print();
 }
 
 RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

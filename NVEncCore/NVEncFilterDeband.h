@@ -40,6 +40,7 @@ public:
 
     };
     virtual ~NVEncFilterParamDeband() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterDeband : public NVEncFilter {

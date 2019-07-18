@@ -35,7 +35,9 @@ class NVEncFilterParamUnsharp : public NVEncFilterParam {
 public:
     VppUnsharp unsharp;
 
+    NVEncFilterParamUnsharp() : unsharp() {};
     virtual ~NVEncFilterParamUnsharp() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterUnsharp : public NVEncFilter {

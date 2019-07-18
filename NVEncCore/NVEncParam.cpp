@@ -141,6 +141,43 @@ bool VppDelogo::operator!=(const VppDelogo& x) const {
     return !(*this == x);
 }
 
+tstring VppDelogo::print() const {
+    tstring str = _T("");
+    switch (mode) {
+    case DELOGO_MODE_ADD:
+        str += _T(", add");
+        break;
+    case DELOGO_MODE_REMOVE:
+    default:
+        break;
+    }
+    if (posX || posY) {
+        str += strsprintf(_T(", pos=%d:%d"), posX, posY);
+    }
+    if (depth != FILTER_DEFAULT_DELOGO_DEPTH) {
+        str += strsprintf(_T(", dpth=%d"), depth);
+    }
+    if (Y || Cb || Cr) {
+        str += strsprintf(_T(", YCbCr=%d:%d:%d"), Y, Cb, Cr);
+    }
+    if (autoFade) {
+        str += _T(", auto_fade");
+    }
+    if (autoNR) {
+        str += _T(", auto_nr");
+    }
+    if ((autoFade || autoNR) && log) {
+        str += _T(", log");
+    }
+    if (NRValue) {
+        str += strsprintf(_T(", nr_value=%d"), NRValue);
+    }
+    if (NRArea) {
+        str += strsprintf(_T(", nr_area=%d"), NRArea);
+    }
+    return str;
+}
+
 VppUnsharp::VppUnsharp() :
     enable(false),
     radius(FILTER_DEFAULT_UNSHARP_RADIUS),
@@ -157,6 +194,11 @@ bool VppUnsharp::operator==(const VppUnsharp& x) const {
 }
 bool VppUnsharp::operator!=(const VppUnsharp& x) const {
     return !(*this == x);
+}
+
+tstring VppUnsharp::print() const {
+    return strsprintf(_T("unsharp: radius %d, weight %.1f, threshold %.1f"),
+        radius, weight, threshold);
 }
 
 VppEdgelevel::VppEdgelevel() :
@@ -176,6 +218,11 @@ bool VppEdgelevel::operator==(const VppEdgelevel& x) const {
 }
 bool VppEdgelevel::operator!=(const VppEdgelevel& x) const {
     return !(*this == x);
+}
+
+tstring VppEdgelevel::print() const {
+    return strsprintf(_T("edgelevel: strength %.1f, threshold %.1f, black %.1f, white %.1f"),
+        strength, threshold, black, white);
 }
 
 VppKnn::VppKnn() :
@@ -199,6 +246,14 @@ bool VppKnn::operator!=(const VppKnn& x) const {
     return !(*this == x);
 }
 
+tstring VppKnn::print() const {
+    return strsprintf(
+        _T("denoise(knn): radius %d, strength %.2f, lerp %.2f\n")
+        _T("                              th_weight %.2f, th_lerp %.2f"),
+        radius, strength, lerpC,
+        weight_threshold, lerp_threshold);
+}
+
 VppPmd::VppPmd() :
     enable(false),
     strength(FILTER_DEFAULT_PMD_STRENGTH),
@@ -217,6 +272,11 @@ bool VppPmd::operator==(const VppPmd& x) const {
 }
 bool VppPmd::operator!=(const VppPmd& x) const {
     return !(*this == x);
+}
+
+tstring VppPmd::print() const {
+    return strsprintf(_T("denoise(pmd): strength %d, threshold %d, apply %d, exp %d"),
+        (int)strength, (int)threshold, applyCount, useExp);
 }
 
 VppDeband::VppDeband() :
@@ -249,6 +309,16 @@ bool VppDeband::operator==(const VppDeband& x) const {
 }
 bool VppDeband::operator!=(const VppDeband& x) const {
     return !(*this == x);
+}
+
+tstring VppDeband::print() const {
+    return strsprintf(_T("deband: mode %d, range %d, threY %d, threCb %d, threCr %d\n")
+        _T("                       ditherY %d, ditherC %d, blurFirst %s, randEachFrame %s"),
+        sample, range,
+        threY, threCb, threCr,
+        ditherY, ditherC,
+        blurFirst ? _T("yes") : _T("no"),
+        randEachFrame ? _T("yes") : _T("no"));
 }
 
 ColorspaceConv::ColorspaceConv() :
@@ -378,6 +448,11 @@ bool VppTweak::operator!=(const VppTweak& x) const {
     return !(*this == x);
 }
 
+tstring VppTweak::print() const {
+    return strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f"),
+        brightness, contrast, saturation, gamma, hue);
+}
+
 VppSelectEvery::VppSelectEvery() :
     enable(false),
     step(1),
@@ -391,6 +466,10 @@ bool VppSelectEvery::operator==(const VppSelectEvery& x) const {
 }
 bool VppSelectEvery::operator!=(const VppSelectEvery& x) const {
     return !(*this == x);
+}
+
+tstring VppSelectEvery::print() const {
+    return strsprintf(_T("selectevery %d (offset %d)"), step, offset);
 }
 
 VppSubburn::VppSubburn() :
@@ -412,6 +491,14 @@ bool VppSubburn::operator==(const VppSubburn &x) const {
 }
 bool VppSubburn::operator!=(const VppSubburn &x) const {
     return !(*this == x);
+}
+
+tstring VppSubburn::print() const {
+    return strsprintf(_T("subburn: %s, scale x%.2f"),
+        (filename.length() > 0)
+            ? filename.c_str()
+            : strsprintf(_T("track #%d"), trackId).c_str(),
+        scale);
 }
 
 VppCustom::VppCustom() :
@@ -454,6 +541,15 @@ bool VppCustom::operator!=(const VppCustom &x) const {
     return !(*this == x);
 }
 
+tstring VppCustom::print() const {
+    return strsprintf(_T("%s: %s, interface %s, interlace %s\n")
+        _T("                    thread/block (%d,%d), pixel/thread (%d,%d)\n"),
+        filter_name.c_str(), kernel_path.c_str(),
+        get_cx_desc(list_vpp_custom_interface, kernel_interface),
+        get_cx_desc(list_vpp_custom_interlace, interlace),
+        threadPerBlockX, threadPerBlockY,
+        pixelPerThreadX, pixelPerThreadY);
+}
 
 VppParam::VppParam() :
     bCheckPerformance(false),
@@ -691,6 +787,21 @@ int VppAfs::read_afs_inifile(const TCHAR* inifile) {
     return 0;
 }
 
+tstring VppAfs::print() const {
+#define ON_OFF(b) ((b) ? _T("on") : _T("off"))
+    return strsprintf(
+        _T("afs: clip(T %d, B %d, L %d, R %d), switch %d, coeff_shift %d\n")
+        _T("                    thre(shift %d, deint %d, Ymotion %d, Cmotion %d)\n")
+        _T("                    level %d, shift %s, drop %s, smooth %s, force24 %s\n")
+        _T("                    tune %s, tb_order %d(%s), rff %s, timecode %s, log %s"),
+        clip.top, clip.bottom, clip.left, clip.right,
+        method_switch, coeff_shift,
+        thre_shift, thre_deint, thre_Ymotion, thre_Cmotion,
+        analyze, ON_OFF(shift), ON_OFF(drop), ON_OFF(smooth), ON_OFF(force24),
+        ON_OFF(tune), tb_order, tb_order ? _T("tff") : _T("bff"), ON_OFF(rff), ON_OFF(timecode), ON_OFF(log));
+#undef ON_OFF
+}
+
 VppYadif::VppYadif() :
     enable(false),
     mode(VPP_YADIF_MODE_AUTO) {
@@ -703,6 +814,12 @@ bool VppYadif::operator==(const VppYadif& x) const {
 }
 bool VppYadif::operator!=(const VppYadif& x) const {
     return !(*this == x);
+}
+
+tstring VppYadif::print() const {
+    return strsprintf(
+        _T("yadif: mode %s"),
+        get_cx_desc(list_vpp_yadif_mode, mode));
 }
 
 VppPad::VppPad() :
@@ -723,6 +840,11 @@ bool VppPad::operator==(const VppPad& x) const {
 }
 bool VppPad::operator!=(const VppPad& x) const {
     return !(*this == x);
+}
+
+tstring VppPad::print() const {
+    return strsprintf(_T("(right=%d, left=%d, top=%d, bottom=%d)"),
+        right, left, top, bottom);
 }
 
 VppNnedi::VppNnedi() :
@@ -757,6 +879,20 @@ bool VppNnedi::operator==(const VppNnedi& x) const {
 }
 bool VppNnedi::operator!=(const VppNnedi& x) const {
     return !(*this == x);
+}
+
+tstring VppNnedi::print() const {
+    return strsprintf(
+        _T("nnedi: field %s, nns %d, nsize %s, quality %s, prec %s\n")
+        _T("                       pre_screen %s, errortype %s, weight \"%s\""),
+        get_cx_desc(list_vpp_nnedi_field, field),
+        nns,
+        get_cx_desc(list_vpp_nnedi_nsize, nsize),
+        get_cx_desc(list_vpp_nnedi_quality, quality),
+        get_cx_desc(list_vpp_nnedi_prec, precision),
+        get_cx_desc(list_vpp_nnedi_pre_screen, pre_screen),
+        get_cx_desc(list_vpp_nnedi_error_type, errortype),
+        ((weightfile.length()) ? weightfile.c_str() : _T("internal")));
 }
 
 NV_ENC_CODEC_CONFIG DefaultParamH264() {

@@ -382,15 +382,13 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         prm->subburn.scale = 1.0f;
     }
 
-    if (prm->subburn.filename.length() > 0) {
-        m_sFilterInfo = strsprintf(_T("subburn: %s, scale x%.2f"), prm->subburn.filename.c_str(), prm->subburn.scale);
-    } else {
-        m_sFilterInfo = strsprintf(_T("subburn: track #%d, scale x%.2f"), prm->subburn.trackId, prm->subburn.scale);
-    }
-
-    //コピーを保存
+    setFilterInfo(pParam->print());
     m_pParam = prm;
     return sts;
+}
+
+tstring NVEncFilterParamSubburn::print() const {
+    return subburn.print();
 }
 
 int NVEncFilterSubburn::targetTrackIdx() {

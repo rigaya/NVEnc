@@ -35,7 +35,9 @@ class NVEncFilterParamTweak : public NVEncFilterParam {
 public:
     VppTweak tweak;
 
+    NVEncFilterParamTweak() : tweak() {};
     virtual ~NVEncFilterParamTweak() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterTweak : public NVEncFilter {

@@ -235,6 +235,7 @@ public:
     bool bOutOverwrite;
 
     NVEncFilterParam() : frameIn({ 0 }), frameOut({ 0 }), baseFps(), bOutOverwrite(false) {};
+    virtual tstring print() const = 0;
     virtual ~NVEncFilterParam() {};
 };
 
@@ -460,6 +461,10 @@ protected:
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;
     virtual void close() = 0;
 
+    void setFilterInfo(const tstring &info) {
+        m_sFilterInfo = info;
+        AddMessage(RGY_LOG_DEBUG, info);
+    }
     void AddMessage(int log_level, const tstring& str) {
         if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
             return;
@@ -508,7 +513,9 @@ class NVEncFilterParamCrop : public NVEncFilterParam {
 public:
     sInputCrop crop;
 
+    NVEncFilterParamCrop() : crop(initCrop()) {};
     virtual ~NVEncFilterParamCrop() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterCspCrop : public NVEncFilter {
@@ -530,7 +537,9 @@ protected:
 class NVEncFilterParamResize : public NVEncFilterParam {
 public:
     int interp;
+    NVEncFilterParamResize() : interp(RESIZE_CUDA_SPLINE36) {}
     virtual ~NVEncFilterParamResize() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterResize : public NVEncFilter {
@@ -552,7 +561,9 @@ protected:
 class NVEncFilterParamGaussDenoise : public NVEncFilterParam {
 public:
     NppiMaskSize masksize;
+    NVEncFilterParamGaussDenoise() : masksize(NPP_MASK_SIZE_3_X_3) {};
     virtual ~NVEncFilterParamGaussDenoise() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterDenoiseGauss : public NVEncFilter {
@@ -571,7 +582,9 @@ protected:
 class NVEncFilterParamPad : public NVEncFilterParam {
 public:
     VppPad pad;
+    NVEncFilterParamPad() : pad() {};
     virtual ~NVEncFilterParamPad() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterPad : public NVEncFilter {

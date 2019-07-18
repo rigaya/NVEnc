@@ -80,6 +80,7 @@ public:
 
     };
     virtual ~NVEncFilterParamAfs() {};
+    virtual tstring print() const override;
 };
 
 class afsSourceCache {

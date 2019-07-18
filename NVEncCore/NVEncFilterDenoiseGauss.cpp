@@ -205,10 +205,14 @@ RGY_ERR NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, share
     }
     pGaussParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_sFilterInfo = strsprintf(_T("denoise(gauss): mask size: %s"), get_chr_from_value(list_nppi_gauss, pGaussParam->masksize));
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamGaussDenoise::print() const {
+    return strsprintf(_T("denoise(gauss): mask size: %s"),
+        get_chr_from_value(list_nppi_gauss, masksize));
 }
 
 RGY_ERR NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {

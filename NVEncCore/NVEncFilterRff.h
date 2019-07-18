@@ -41,6 +41,7 @@ public:
 
     };
     virtual ~NVEncFilterParamRff() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterRff : public NVEncFilter {

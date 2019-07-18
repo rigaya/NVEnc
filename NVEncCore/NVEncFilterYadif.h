@@ -46,6 +46,7 @@ public:
 
     };
     virtual ~NVEncFilterParamYadif() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterYadifSource {
