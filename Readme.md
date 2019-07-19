@@ -45,7 +45,7 @@ Result of --check-features, a feature list returned from the driver. May depend 
 | Maxwell | [GTX970](./GPUFeatures/gtx970.txt) |
 | Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1070](./GPUFeatures/gtx1070.txt), [GTX1060](./GPUFeatures/gtx1060.txt) |
 | Volta | [GTX1650](./GPUFeatures/gtx1650.txt) |
-| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt)  |
+| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt)  |
 
 ## Precautions for using NVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
