@@ -90,7 +90,7 @@ cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo* pFrame, cu
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_resize_texture_bilinear(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+__global__ void kernel_resize_texture(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     cudaTextureObject_t texObj,
     const float ratioX, const float ratioY) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
@@ -105,23 +105,23 @@ __global__ void kernel_resize_texture_bilinear(uint8_t *__restrict__ pDst, const
 }
 
 template<typename Type, int bit_depth>
-void resize_texture_bilinear(uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight, cudaTextureObject_t texObj, const float ratioX, const float ratioY, cudaStream_t stream) {
+void resize_texture(uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight, cudaTextureObject_t texObj, const float ratioX, const float ratioY, cudaStream_t stream) {
     dim3 blockSize(32, 8);
     dim3 gridSize(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
-    kernel_resize_texture_bilinear<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texObj, ratioX, ratioY);
+    kernel_resize_texture<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texObj, ratioX, ratioY);
 }
 
 template<typename Type, int bit_depth>
-cudaError_t resize_texture_bilinear_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+cudaError_t resize_texture_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int interp, cudaStream_t stream) {
     const float ratioX = 1.0f / (float)(pOutputFrame->width);
     const float ratioY = 1.0f / (float)(pOutputFrame->height);
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexField<Type>(texSrc, pInputFrame, cudaFilterModeLinear, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
+    if ((cudaerr = setTexField<Type>(texSrc, pInputFrame, (interp == RESIZE_CUDA_TEXTURE_BILINEAR) ? cudaFilterModeLinear : cudaFilterModePoint, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
         return cudaerr;
     }
-    resize_texture_bilinear<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
+    resize_texture<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
         pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
         texSrc, ratioX, ratioY, stream);
     cudaerr = cudaGetLastError();
@@ -136,7 +136,7 @@ cudaError_t resize_texture_bilinear_plane(FrameInfo *pOutputFrame, const FrameIn
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t resize_texture_bilinear_frame(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, cudaStream_t stream) {
+static cudaError_t resize_texture_frame(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, int interp, cudaStream_t stream) {
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -146,20 +146,20 @@ static cudaError_t resize_texture_bilinear_frame(FrameInfo* pOutputFrame, const 
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
 
-    auto cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputY, &planeSrcY, stream);
+    auto cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputY, &planeSrcY, interp, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputU, &planeSrcU, stream);
+    cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputU, &planeSrcU, interp, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputV, &planeSrcV, stream);
+    cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputV, &planeSrcV, interp, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
     if (planeOutputA.ptr != nullptr) {
-        cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputA, &planeSrcA, stream);
+        cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputA, &planeSrcA, interp, stream);
         if (cudaerr != cudaSuccess) {
             return cudaerr;
         }
@@ -425,7 +425,8 @@ static cudaError_t resize_lanczos_frame(FrameInfo* pOutputFrame, const FrameInfo
 template<typename Type, int bit_depth>
 static cudaError_t resize_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int interp, const float *pgFactor, cudaStream_t stream) {
     switch (interp) {
-    case RESIZE_CUDA_TEXTURE_BILINEAR: return resize_texture_bilinear_frame<Type, bit_depth>(pOutputFrame, pInputFrame, stream);
+    case RESIZE_CUDA_TEXTURE_BILINEAR:
+    case RESIZE_CUDA_TEXTURE_NEAREST: return resize_texture_frame<Type, bit_depth>(pOutputFrame, pInputFrame, interp, stream);
     case RESIZE_CUDA_SPLINE16: return resize_spline_frame<Type, bit_depth, 2>(pOutputFrame, pInputFrame, pgFactor, stream);
     case RESIZE_CUDA_SPLINE36: return resize_spline_frame<Type, bit_depth, 3>(pOutputFrame, pInputFrame, pgFactor, stream);
     case RESIZE_CUDA_SPLINE64: return resize_spline_frame<Type, bit_depth, 4>(pOutputFrame, pInputFrame, pgFactor, stream);

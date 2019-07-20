@@ -420,6 +420,7 @@ tstring printParams(const std::vector<DynamicRCParam> &dynamicRC);
 enum {
     NPPI_INTER_MAX = NPPI_INTER_LANCZOS3_ADVANCED,
     RESIZE_CUDA_TEXTURE_BILINEAR,
+    RESIZE_CUDA_TEXTURE_NEAREST,
     RESIZE_CUDA_SPLINE16,
     RESIZE_CUDA_SPLINE36,
     RESIZE_CUDA_SPLINE64,
@@ -442,6 +443,7 @@ const CX_DESC list_nppi_resize[] = {
 #endif
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
     { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
+    { _T("nearest"),       RESIZE_CUDA_TEXTURE_NEAREST },
     { _T("spline16"),      RESIZE_CUDA_SPLINE16 },
     { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
     { _T("spline64"),      RESIZE_CUDA_SPLINE64 },
@@ -463,6 +465,7 @@ const CX_DESC list_nppi_resize_help[] = {
     { _T("lanczos"),       NPPI_INTER_LANCZOS },
     //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
     { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
+    { _T("nearest"),       RESIZE_CUDA_TEXTURE_NEAREST },
     { _T("spline16"),      RESIZE_CUDA_SPLINE16 },
     { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
     { _T("spline64"),      RESIZE_CUDA_SPLINE64 },
