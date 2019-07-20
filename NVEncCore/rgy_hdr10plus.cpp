@@ -79,7 +79,7 @@ RGY_ERR RGYHDR10Plus::init(const tstring &inputJson) {
 }
 
 const vector<uint8_t> *RGYHDR10Plus::getData(int iframe) {
-    if (!m_proc->processAlive() || !m_fpStdOut) {
+    if (!m_fpStdOut) {
         return nullptr;
     }
     while (m_buffer.first != iframe) {
@@ -94,6 +94,7 @@ const vector<uint8_t> *RGYHDR10Plus::getData(int iframe) {
         if (fread(m_buffer.second.data(), 1, m_buffer.second.size(), m_fpStdOut.get()) != m_buffer.second.size()) {
             return nullptr;
         }
+        m_buffer.first = frameNum;
     }
     return &m_buffer.second;
 }
