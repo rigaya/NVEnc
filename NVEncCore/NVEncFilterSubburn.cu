@@ -262,7 +262,7 @@ RGY_ERR NVEncFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frame
     return RGY_ERR_NONE;
 }
 
-SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, const sInputCrop &crop, cudaStream_t stream) {
+SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, const FrameInfo *outputFrame, const sInputCrop &crop, cudaStream_t stream) {
     //YUV420の関係で縦横2pixelずつ処理するので、2で割り切れている必要がある
     const int x_offset = ((rect->x % 2) != 0) ? 1 : 0;
     const int y_offset = ((rect->y % 2) != 0) ? 1 : 0;
@@ -327,6 +327,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
             planeA.ptr[dst_idx] = subA;
         }
     }
+
     //GPUへ転送
     auto frameTemp = std::make_unique<CUFrameBuf>(img.width, img.height, img.csp);
     frameTemp->copyFrameAsync(&img, stream);
@@ -336,6 +337,44 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     if (prm->subburn.scale == 1.0f) {
         frame = std::move(frameTemp);
     } else {
+#if 1
+        FrameInfo tempframe = img;
+        std::vector<uint8_t> temp(imgInfoEx.frame_size);
+        memcpy(temp.data(), img.ptr, temp.size());
+        tempframe.ptr = temp.data();
+        auto tmpY = getPlane(&tempframe, RGY_PLANE_Y);
+        auto tmpU = getPlane(&tempframe, RGY_PLANE_U);
+        auto tmpV = getPlane(&tempframe, RGY_PLANE_V);
+        for (int j = 0; j < rect->h; j++) {
+            for (int i = 0; i < rect->w; i++) {
+                #define IDX(x, y) ((clamp(y,0,rect->h)+y_offset) * img.pitch + (clamp(x,0,rect->w)+x_offset))
+                const int dst_idx = IDX(i,j);
+                if (planeA.ptr[dst_idx] == 0) {
+                    int minidx = -1;
+                    uint8_t minval = 255;
+                    for (int jy = -1; jy <= 1; jy++) {
+                        for (int ix = -1; ix <= 1; ix++) {
+                            int idx = IDX(i+ix, j+jy);
+                            if (planeA.ptr[idx] != 0) {
+                                auto val = tmpY.ptr[idx];
+                                if (val < minval) {
+                                    minidx = idx;
+                                    minval = val;
+                                }
+                            }
+                        }
+                    }
+                    if (minidx >= 0) {
+                        planeY.ptr[dst_idx] = tmpY.ptr[minidx];
+                        planeU.ptr[dst_idx] = tmpU.ptr[minidx];
+                        planeV.ptr[dst_idx] = tmpV.ptr[minidx];
+                    }
+                }
+                #undef IDX
+            }
+        }
+#endif
+
         frame = std::make_unique<CUFrameBuf>(
             ALIGN((int)(img.width  * prm->subburn.scale + 0.5f), 4),
             ALIGN((int)(img.height * prm->subburn.scale + 0.5f), 4), img.csp);
@@ -355,9 +394,14 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
         FrameInfo *filterOutput[1] = { &frame->frame };
         auto sts_filter = m_resize->filter(&frameTemp->frame, (FrameInfo **)&filterOutput, &filterOutputNum);
     }
-    return SubImageData(std::move(frame), std::move(frameTemp), std::move(bufCPU),
-        ALIGN((int)(prm->subburn.scale * rect->x + 0.5f), 4) - ((crop.e.left + crop.e.right) / 2),
-        ALIGN((int)(prm->subburn.scale * rect->y + 0.5f), 4) - crop.e.up - crop.e.bottom);
+    int x_pos = ALIGN((int)(prm->subburn.scale * rect->x + 0.5f) - ((crop.e.left + crop.e.right) / 2), 2);
+    int y_pos = ALIGN((int)(prm->subburn.scale * rect->y + 0.5f) - crop.e.up - crop.e.bottom, 2);
+    if (m_outCodecDecodeCtx->height > 0) {
+        const double y_factor = rect->y / (double)m_outCodecDecodeCtx->height;
+        y_pos = ALIGN((int)(outputFrame->height * y_factor + 0.5f), 2);
+        y_pos = std::min(y_pos, outputFrame->height - rect->h);
+    }
+    return SubImageData(std::move(frame), std::move(frameTemp), std::move(bufCPU), x_pos, y_pos);
 }
 
 
@@ -366,7 +410,7 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(FrameInfo *pOutputFrame, const sInpu
         if (m_subData->num_rects != m_subImages.size()) {
             for (uint32_t irect = 0; irect < m_subData->num_rects; irect++) {
                 const AVSubtitleRect *rect = m_subData->rects[irect];
-                m_subImages.push_back(std::move(bitmapRectToImage(rect, crop, stream)));
+                m_subImages.push_back(std::move(bitmapRectToImage(rect, pOutputFrame, crop, stream)));
             }
         }
         if ((m_subData->num_rects != m_subImages.size())) {

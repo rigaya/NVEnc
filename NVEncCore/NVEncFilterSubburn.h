@@ -86,7 +86,7 @@ protected:
     void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
     RGY_ERR readSubFile();
     SubImageData textRectToImage(const ASS_Image *image, cudaStream_t stream);
-    SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const sInputCrop &crop, cudaStream_t stream);
+    SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const FrameInfo *outputFrame, const sInputCrop &crop, cudaStream_t stream);
     RGY_ERR procFrameText(FrameInfo *pOutputFrame, int64_t frameTimeMs, cudaStream_t stream);
     RGY_ERR procFrameBitmap(FrameInfo *pOutputFrame, const sInputCrop& crop, cudaStream_t stream);
     RGY_ERR procFrame(FrameInfo *pOutputFrame, cudaStream_t stream);
