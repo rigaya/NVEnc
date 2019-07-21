@@ -48,7 +48,7 @@ RGYInputAvi::RGYInputAvi() :
     m_nYPitchMultiplizer(1),
     m_nBufSize(0),
     m_pBuffer() {
-    m_strReaderName = _T("avi");
+    m_readerName = _T("avi");
 }
 
 RGYInputAvi::~RGYInputAvi() {
@@ -58,7 +58,7 @@ RGYInputAvi::~RGYInputAvi() {
 RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
-    m_sConvert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
+    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
 
     AVIFileInit();
 
@@ -87,7 +87,7 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             m_inputVideoInfo.fpsD = sinfo.dwScale;
             m_inputVideoInfo.frames = sinfo.dwLength - sinfo.dwStart;
 
-            m_InputCsp = codec_fcc_to_rgy(sinfo.fccHandler);
+            m_inputCsp = codec_fcc_to_rgy(sinfo.fccHandler);
 
             char temp[5] = { 0 };
             memcpy(temp, &sinfo.fccHandler, sizeof(sinfo.fccHandler));
@@ -103,8 +103,8 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     }
     AddMessage(RGY_LOG_DEBUG, _T("found video stream from avi file.\n"));
 
-    if (   m_InputCsp == RGY_CSP_YUY2
-        || m_InputCsp == RGY_CSP_YV12) {
+    if (   m_inputCsp == RGY_CSP_YUY2
+        || m_inputCsp == RGY_CSP_YV12) {
         //何もしない
     } else {
         BITMAPINFOHEADER bih[4] = {
@@ -118,10 +118,10 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 continue;
             }
             if (bih[i].biCompression == BI_RGB) {
-                m_InputCsp = (bih[i].biBitCount == 24) ? RGY_CSP_RGB24R : RGY_CSP_RGB32R;
+                m_inputCsp = (bih[i].biBitCount == 24) ? RGY_CSP_RGB24R : RGY_CSP_RGB32R;
             } else {
-                m_InputCsp = codec_fcc_to_rgy(bih[i].biCompression);
-                if (m_InputCsp == RGY_CSP_NA) {
+                m_inputCsp = codec_fcc_to_rgy(bih[i].biCompression);
+                if (m_inputCsp == RGY_CSP_NA) {
                     AddMessage(RGY_LOG_ERROR, _T("Invalid Color format.\n"));
                     return RGY_ERR_INVALID_COLOR_FORMAT;
                 }
@@ -141,11 +141,11 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 return RGY_ERR_MORE_DATA;
             }
 
-            m_InputCsp = (bmpInfoHeader->biBitCount == 24) ? RGY_CSP_RGB24R : RGY_CSP_RGB32R;
+            m_inputCsp = (bmpInfoHeader->biBitCount == 24) ? RGY_CSP_RGB24R : RGY_CSP_RGB32R;
         }
     }
 
-    switch (m_InputCsp) {
+    switch (m_inputCsp) {
     case RGY_CSP_YUY2:   m_nYPitchMultiplizer = 2; break;
     case RGY_CSP_RGB24R: m_nYPitchMultiplizer = 3; break;
     case RGY_CSP_RGB32R: m_nYPitchMultiplizer = 4; break;
@@ -153,20 +153,20 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     default: m_nYPitchMultiplizer = 1; break;
     }
 
-    if (m_InputCsp == RGY_CSP_RGB32R) {
+    if (m_inputCsp == RGY_CSP_RGB32R) {
         m_inputVideoInfo.csp = RGY_CSP_RGB32;
-    } else if (m_InputCsp == RGY_CSP_RGB24R) {
+    } else if (m_inputCsp == RGY_CSP_RGB24R) {
         m_inputVideoInfo.csp = (ENCODER_NVENC) ? RGY_CSP_RGB : RGY_CSP_RGB32;
     } else {
         m_inputVideoInfo.csp = RGY_CSP_NV12;
     }
-    if (m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr) {
+    if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
-            RGY_CSP_NAMES[m_InputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
+            RGY_CSP_NAMES[m_inputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    CreateInputInfo(tstring(_T("avi: ") + strFcc).c_str(), RGY_CSP_NAMES[m_sConvert->getFunc()->csp_from], RGY_CSP_NAMES[m_sConvert->getFunc()->csp_to], get_simd_str(m_sConvert->getFunc()->simd), &m_inputVideoInfo);
-    AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
+    CreateInputInfo(tstring(_T("avi: ") + strFcc).c_str(), RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
+    AddMessage(RGY_LOG_DEBUG, m_inputInfo);
     *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
@@ -193,20 +193,20 @@ void RGYInputAvi::Close() {
     m_pBuffer.reset();
 
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
-    m_pEncSatusInfo.reset();
+    m_encSatusInfo.reset();
 }
 
 RGY_ERR RGYInputAvi::LoadNextFrame(RGYFrame *pSurface) {
-    if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
-        //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
+    if ((int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
+        //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-        || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
+        || getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 
     uint8_t *ptr_src = nullptr;
     if (m_pGetFrame) {
-        if (nullptr == (ptr_src = (uint8_t *)AVIStreamGetFrame(m_pGetFrame, m_pEncSatusInfo->m_sData.frameIn))) {
+        if (nullptr == (ptr_src = (uint8_t *)AVIStreamGetFrame(m_pGetFrame, m_encSatusInfo->m_sData.frameIn))) {
             return RGY_ERR_MORE_DATA;
         }
         ptr_src += sizeof(BITMAPINFOHEADER);
@@ -221,23 +221,23 @@ RGY_ERR RGYInputAvi::LoadNextFrame(RGYFrame *pSurface) {
             m_nBufSize = required_bufsize;
         }
         LONG sizeRead = 0;
-        if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_sData.frameIn, 1, m_pBuffer.get(), (LONG)m_nBufSize, &sizeRead, NULL))
+        if (0 != AVIStreamRead(m_pAviStream, m_encSatusInfo->m_sData.frameIn, 1, m_pBuffer.get(), (LONG)m_nBufSize, &sizeRead, NULL))
             return RGY_ERR_MORE_DATA;
         ptr_src = m_pBuffer.get();
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array, m_sConvert->getFunc()->csp_to == RGY_CSP_RGB24 || m_sConvert->getFunc()->csp_to == RGY_CSP_RGB32);
+    pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
     const void *src_array[3] = { ptr_src, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 5 / 4, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight };
 
-    m_sConvert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
+    m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array,
         m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcWidth * m_nYPitchMultiplizer, m_inputVideoInfo.srcWidth/2, pSurface->pitch(),
         m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
-    m_pEncSatusInfo->m_sData.frameIn++;
+    m_encSatusInfo->m_sData.frameIn++;
     // display update
-    return m_pEncSatusInfo->UpdateDisplay();
+    return m_encSatusInfo->UpdateDisplay();
 }
 
 #endif //ENABLE_AVI_READER

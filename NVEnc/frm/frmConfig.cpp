@@ -936,8 +936,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUAspectRatioY, abs(encPrm.par[1]));
 
     SetCXIndex(fcgCXDevice,      encPrm.deviceID+1); //先頭は"Auto"なので+1
-    SetCXIndex(fcgCXCudaSchdule, encPrm.nCudaSchedule);
-    fcgCBPerfMonitor->Checked = 0 != encPrm.nPerfMonitorSelect;
+    SetCXIndex(fcgCXCudaSchdule, encPrm.cudaSchedule);
+    fcgCBPerfMonitor->Checked = 0 != encPrm.perfMonitorSelect;
     fcgCBLossless->Checked = 0 != encPrm.lossless;
 
     //QPDetail
@@ -991,7 +991,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
         fcgCBLogDebug->Checked             = encPrm.loglevel == RGY_LOG_DEBUG;
 
-        fcgCBVppPerfMonitor->Checked   = encPrm.vpp.bCheckPerformance != 0;
+        fcgCBVppPerfMonitor->Checked   = encPrm.vpp.checkPerformance != 0;
         fcgCBVppResize->Checked        = cnf->vid.resize_enable != 0;
         SetNUValue(fcgNUVppResizeWidth,  cnf->vid.resize_width);
         SetNUValue(fcgNUVppResizeHeight, cnf->vid.resize_height);
@@ -1164,7 +1164,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     }
 
     encPrm.deviceID = (int)fcgCXDevice->SelectedIndex-1; //先頭は"Auto"なので-1
-    encPrm.nCudaSchedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
+    encPrm.cudaSchedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
     encPrm.lossless = fcgCBLossless->Checked;
 
     //QPDetail
@@ -1181,7 +1181,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.encConfig.rcParams.initialRCQP.qpInterP = (int)fcgNUQPInitP->Value;
     encPrm.encConfig.rcParams.initialRCQP.qpInterB = (int)fcgNUQPInitB->Value;
 
-    encPrm.nPerfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;
+    encPrm.perfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;
 
     //H.264
     codecPrm[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
@@ -1259,7 +1259,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     }
 
     encPrm.loglevel                   = fcgCBLogDebug->Checked ? RGY_LOG_DEBUG : RGY_LOG_INFO;
-    encPrm.vpp.bCheckPerformance      = fcgCBVppPerfMonitor->Checked;
+    encPrm.vpp.checkPerformance      = fcgCBVppPerfMonitor->Checked;
 
     encPrm.vpp.resizeInterp           = list_nppi_resize_help[fcgCXVppResizeAlg->SelectedIndex].value;
 

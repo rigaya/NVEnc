@@ -1050,10 +1050,10 @@ AudioSelect::AudioSelect() :
     extractFilename(),
     extractFormat(),
     filter(),
-    pnStreamChannelSelect(),
-    pnStreamChannelOut() {
-    memset(pnStreamChannelSelect, 0, sizeof(pnStreamChannelSelect));
-    memset(pnStreamChannelOut, 0, sizeof(pnStreamChannelOut));
+    streamChannelSelect(),
+    streamChannelOut() {
+    memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
+    memset(streamChannelOut, 0, sizeof(streamChannelOut));
 }
 
 SubtitleSelect::SubtitleSelect() :

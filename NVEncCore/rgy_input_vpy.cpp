@@ -47,7 +47,7 @@ RGYInputVpy::RGYInputVpy() :
     memset(m_hAsyncEventFrameSetFin,   0, sizeof(m_hAsyncEventFrameSetFin));
     memset(m_hAsyncEventFrameSetStart, 0, sizeof(m_hAsyncEventFrameSetStart));
     memset(&m_sVS, 0, sizeof(m_sVS));
-    m_strReaderName = _T("vpy");
+    m_readerName = _T("vpy");
 }
 
 RGYInputVpy::~RGYInputVpy() {
@@ -171,7 +171,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_NULL_PTR;
     }
 
-    m_sConvert = std::make_unique<RGYConvertCSP>((m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) ? 1 : prm->threadCsp);
+    m_convert = std::make_unique<RGYConvertCSP>((m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) ? 1 : prm->threadCsp);
 
     //ファイルデータ読み込み
     std::ifstream inputFile(strFileName);
@@ -244,15 +244,15 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     );
 
     const RGY_CSP prefered_csp = m_inputVideoInfo.csp;
-    m_InputCsp = RGY_CSP_NA;
+    m_inputCsp = RGY_CSP_NA;
     for (const auto& csp : valid_csp_list) {
         if (csp.fmtID == vsvideoinfo->format->id) {
-            m_InputCsp = csp.in;
+            m_inputCsp = csp.in;
             if (prefered_csp == RGY_CSP_NA) {
                 //ロスレスの場合は、入力側で出力フォーマットを決める
                 m_inputVideoInfo.csp = csp.out;
             } else {
-                m_inputVideoInfo.csp = (m_sConvert->getFunc(m_InputCsp, prefered_csp, false, prm->simdCsp) != nullptr) ? prefered_csp : csp.out;
+                m_inputVideoInfo.csp = (m_convert->getFunc(m_inputCsp, prefered_csp, false, prm->simdCsp) != nullptr) ? prefered_csp : csp.out;
                 //QSVではNV16->P010がサポートされていない
                 if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
                     m_inputVideoInfo.csp = RGY_CSP_P210;
@@ -260,33 +260,33 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 //なるべく軽いフォーマットでGPUに転送するように
                 if (ENCODER_NVENC
                     && RGY_CSP_BIT_PER_PIXEL[csp.out] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]
-                    && m_sConvert->getFunc(m_InputCsp, csp.out, false, prm->simdCsp) != nullptr) {
+                    && m_convert->getFunc(m_inputCsp, csp.out, false, prm->simdCsp) != nullptr) {
                     m_inputVideoInfo.csp = csp.out;
                 }
             }
-            if (m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr && m_InputCsp == RGY_CSP_YUY2) {
+            if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr && m_inputCsp == RGY_CSP_YUY2) {
                 //YUY2用の特別処理
                 m_inputVideoInfo.csp = RGY_CSP_CHROMA_FORMAT[csp.out] == RGY_CHROMAFMT_YUV420 ? RGY_CSP_NV12 : RGY_CSP_YUV444;
-                m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp);
+                m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp);
             }
             break;
         }
     }
 
-    if (m_InputCsp == RGY_CSP_NA) {
+    if (m_inputCsp == RGY_CSP_NA) {
         AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    if (m_sConvert->getFunc() == nullptr) {
+    if (m_convert->getFunc() == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
-            RGY_CSP_NAMES[m_InputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
+            RGY_CSP_NAMES[m_inputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (m_inputVideoInfo.csp != prefered_csp) {
         //入力フォーマットを変えた場合、m_inputVideoInfo.shiftは、出力フォーマットに対応する値ではなく、
         //入力フォーマットに対応する値とする必要がある
-        m_inputVideoInfo.shift = (RGY_CSP_BIT_DEPTH[m_InputCsp] > 8) ? 16 - RGY_CSP_BIT_DEPTH[m_InputCsp] : 0;
+        m_inputVideoInfo.shift = (RGY_CSP_BIT_DEPTH[m_inputCsp] > 8) ? 16 - RGY_CSP_BIT_DEPTH[m_inputCsp] : 0;
     }
 
     if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
@@ -322,8 +322,8 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         vs_ver += strsprintf(_T(" r%d"), rev);
     }
 
-    CreateInputInfo(vs_ver.c_str(), RGY_CSP_NAMES[m_sConvert->getFunc()->csp_from], RGY_CSP_NAMES[m_sConvert->getFunc()->csp_to], get_simd_str(m_sConvert->getFunc()->simd), &m_inputVideoInfo);
-    AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
+    CreateInputInfo(vs_ver.c_str(), RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
+    AddMessage(RGY_LOG_DEBUG, m_inputInfo);
     *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
@@ -348,37 +348,37 @@ void RGYInputVpy::Close() {
     m_sVSscript = nullptr;
     m_sVSnode = nullptr;
     m_nAsyncFrames = 0;
-    m_pEncSatusInfo.reset();
+    m_encSatusInfo.reset();
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
 RGY_ERR RGYInputVpy::LoadNextFrame(RGYFrame *pSurface) {
-    if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
-        //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
+    if ((int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
+        //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-        || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
+        || getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 
-    const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_pEncSatusInfo->m_sData.frameIn);
+    const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_encSatusInfo->m_sData.frameIn);
     if (src_frame == nullptr) {
         return RGY_ERR_MORE_DATA;
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array, m_sConvert->getFunc()->csp_to == RGY_CSP_RGB24 || m_sConvert->getFunc()->csp_to == RGY_CSP_RGB32);
+    pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
-    m_sConvert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
+    m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array,
         m_inputVideoInfo.srcWidth, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1),
         pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     m_sVSapi->freeFrame(src_frame);
 
-    m_pEncSatusInfo->m_sData.frameIn++;
-    m_nCopyOfInputFrames = m_pEncSatusInfo->m_sData.frameIn;
+    m_encSatusInfo->m_sData.frameIn++;
+    m_nCopyOfInputFrames = m_encSatusInfo->m_sData.frameIn;
 
-    return m_pEncSatusInfo->UpdateDisplay();
+    return m_encSatusInfo->UpdateDisplay();
 }
 
 #endif //ENABLE_VAPOURSYNTH_READER

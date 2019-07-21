@@ -88,101 +88,101 @@ struct AVMuxTimestamp {
 };
 
 typedef struct AVMuxFormat {
-    const TCHAR          *pFilename;            //出力ファイル名
-    AVFormatContext      *pFormatCtx;           //出力ファイルのformatContext
+    const TCHAR          *filename;             //出力ファイル名
+    AVFormatContext      *formatCtx;            //出力ファイルのformatContext
     char                  metadataStr[256];     //出力ファイルのエンコーダ名
-    AVOutputFormat       *pOutputFmt;           //出力ファイルのoutputFormat
+    AVOutputFormat       *outputFmt;            //出力ファイルのoutputFormat
 
 #if USE_CUSTOM_IO
-    uint8_t              *pAVOutBuffer;         //avio_alloc_context用のバッファ
-    uint32_t              nAVOutBufferSize;     //avio_alloc_context用のバッファサイズ
+    uint8_t              *AVOutBuffer;          //avio_alloc_context用のバッファ
+    uint32_t              AVOutBufferSize;      //avio_alloc_context用のバッファサイズ
     FILE                 *fpOutput;             //出力ファイルポインタ
-    char                 *pOutputBuffer;        //出力ファイルポインタ用のバッファ
-    uint32_t              nOutputBufferSize;    //出力ファイルポインタ用のバッファサイズ
+    char                 *outputBuffer;         //出力ファイルポインタ用のバッファ
+    uint32_t              outputBufferSize;     //出力ファイルポインタ用のバッファサイズ
 #endif //USE_CUSTOM_IO
-    bool                  bStreamError;         //エラーが発生
-    bool                  bIsMatroska;          //mkvかどうか
-    bool                  bIsPipe;              //パイプ出力かどうか
-    bool                  bFileHeaderWritten;   //ファイルヘッダを出力したかどうか
-    AVDictionary         *pHeaderOptions;       //ヘッダオプション
+    bool                  streamError;          //エラーが発生
+    bool                  isMatroska;           //mkvかどうか
+    bool                  isPipe;               //パイプ出力かどうか
+    bool                  fileHeaderWritten;    //ファイルヘッダを出力したかどうか
+    AVDictionary         *headerOptions;        //ヘッダオプション
 } AVMuxFormat;
 
 typedef struct AVMuxVideo {
-    AVCodec              *pCodec;               //出力映像のCodec
-    AVRational            nFPS;                 //出力映像のフレームレート
-    AVStream             *pStreamOut;           //出力ファイルの映像ストリーム
-    bool                  bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
+    AVCodec              *codec;                //出力映像のCodec
+    AVRational            outputFps;            //出力映像のフレームレート
+    AVStream             *streamOut;            //出力ファイルの映像ストリーム
+    bool                  dtsUnavailable;       //出力映像のdtsが無効 (API v1.6以下)
     AVRational            inputStreamTimebase;  //入力streamのtimebase
-    int64_t               nInputFirstKeyPts;    //入力映像の最初のpts
-    AVRational            rBitstreamTimebase;   //エンコーダのtimebase
+    int64_t               inputFirstKeyPts;     //入力映像の最初のpts
+    AVRational            bitstreamTimebase;    //エンコーダのtimebase
     AVMuxTimestamp        timestampList;        //エンコーダから渡されたtimestampリスト
-    int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
+    int                   fpsBaseNextDts;       //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     FILE                 *fpTsLogFile;          //mux timestampログファイル
     RGYBitstream          seiNal;               //追加のsei nal
-    AVBSFContext         *pBsfc;                //必要なら使用するbitstreamfilter
-    RGYTimestamp         *pTimestamp;           //timestampの情報
+    AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
+    RGYTimestamp         *timestamp;            //timestampの情報
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
-    int                   nInTrackId;           //ソースファイルの入力トラック番号
-    int                   nInSubStream;         //ソースファイルの入力サブストリーム番号
-    const AVStream       *pStreamIn;            //入力音声のストリーム
-    int                   nStreamIndexIn;       //入力音声のStreamのindex
-    AVStream             *pStreamOut;           //出力ファイルの音声ストリーム
-    int                   nPacketWritten;       //出力したパケットの数
+    int                   inTrackId;            //ソースファイルの入力トラック番号
+    int                   inSubStream;          //ソースファイルの入力サブストリーム番号
+    const AVStream       *streamIn;             //入力音声のストリーム
+    int                   streamIndexIn;        //入力音声のStreamのindex
+    AVStream             *streamOut;            //出力ファイルの音声ストリーム
+    int                   packetWritten;        //出力したパケットの数
     int64_t               dec_rescale_delta;    //decode時のtimebase変換用
 
     //変換用
-    AVCodec              *pOutCodecDecode;      //変換する元のコーデック
-    AVCodecContext       *pOutCodecDecodeCtx;   //変換する元のCodecContext
-    AVCodec              *pOutCodecEncode;      //変換先の音声のコーデック
-    AVCodecContext       *pOutCodecEncodeCtx;   //変換先の音声のCodecContext
-    uint32_t              nIgnoreDecodeError;   //デコード時に連続して発生したエラー回数がこの閾値を以下なら無視し、無音に置き換える
-    uint32_t              nDecodeError;         //デコード処理中に連続してエラーが発生した回数
-    bool                  bEncodeError;         //エンコード処理中にエラーが発生
-    int64_t               nDecodeNextPts;       //デコードの次のpts (samplerateベース)
+    AVCodec              *outCodecDecode;       //変換する元のコーデック
+    AVCodecContext       *outCodecDecodeCtx;    //変換する元のCodecContext
+    AVCodec              *outCodecEncode;       //変換先の音声のコーデック
+    AVCodecContext       *outCodecEncodeCtx;    //変換先の音声のCodecContext
+    uint32_t              ignoreDecodeError;    //デコード時に連続して発生したエラー回数がこの閾値を以下なら無視し、無音に置き換える
+    uint32_t              decodeError;          //デコード処理中に連続してエラーが発生した回数
+    bool                  encodeError;          //エンコード処理中にエラーが発生
+    int64_t               decodeNextPts;        //デコードの次のpts (samplerateベース)
 
     //filter
-    int                   nFilterInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    uint64_t              nFilterInChannelLayout; //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    int                   nFilterInSampleRate;    //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    AVSampleFormat        FilterInSampleFmt;      //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    const TCHAR          *pFilter;
-    AVFilterContext      *pFilterBufferSrcCtx;
-    AVFilterContext      *pFilterBufferSinkCtx;
-    AVFilterContext      *pFilterAudioFormat;
-    AVFilterGraph        *pFilterGraph;
+    int                   filterInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    uint64_t              filterInChannelLayout; //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    int                   filterInSampleRate;    //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    AVSampleFormat        filterInSampleFmt;     //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    const TCHAR          *filter;
+    AVFilterContext      *filterBufferSrcCtx;
+    AVFilterContext      *filterBufferSinkCtx;
+    AVFilterContext      *filterAudioFormat;
+    AVFilterGraph        *filterGraph;
 
     //resampler
-    int                   nAudioResampler;      //resamplerの選択 (QSV_RESAMPLER_xxx)
-    AVFrame              *pDecodedFrameCache;   //デコードされたデータのキャッシュされたもの
+    int                   audioResampler;      //resamplerの選択 (QSV_RESAMPLER_xxx)
+    AVFrame              *decodedFrameCache;   //デコードされたデータのキャッシュされたもの
     int                   channelMapping[MAX_SPLIT_CHANNELS];        //resamplerで使用するチャンネル割り当て(入力チャンネルの選択)
-    uint64_t              pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
-    uint64_t              pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+    uint64_t              streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t              streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
 
     //AACの変換用
-    AVBSFContext         *pAACBsfc;             //必要なら使用するbitstreamfilter
-    int                   nAACBsfErrorFromStart; //開始直後からのbitstream filter errorの数
+    AVBSFContext         *AACBsfc;              //必要なら使用するbitstreamfilter
+    int                   AACBsfErrorFromStart; //開始直後からのbitstream filter errorの数
 
-    int                   nOutputSamples;       //出力音声の出力済みsample数
-    int64_t               nLastPtsIn;           //入力音声の前パケットのpts (input stream timebase)
-    int64_t               nLastPtsOut;          //出力音声の前パケットのpts
+    int                   outputSamples;        //出力音声の出力済みsample数
+    int64_t               lastPtsIn;            //入力音声の前パケットのpts (input stream timebase)
+    int64_t               lastPtsOut;           //出力音声の前パケットのpts
 } AVMuxAudio;
 
 typedef struct AVMuxOther {
-    int                   nInTrackId;           //ソースファイルの入力トラック番号
-    const AVStream       *pStreamIn;            //入力字幕のストリーム
-    int                   nStreamIndexIn;       //入力字幕のStreamのindex
+    int                   inTrackId;           //ソースファイルの入力トラック番号
+    const AVStream       *streamIn;            //入力字幕のストリーム
+    int                   streamIndexIn;       //入力字幕のStreamのindex
     AVRational            streamInTimebase;     //入力字幕のストリームのtimebase
-    AVStream             *pStreamOut;           //出力ファイルの字幕ストリーム
+    AVStream             *streamOut;           //出力ファイルの字幕ストリーム
 
     //変換用
-    AVCodec              *pOutCodecDecode;      //変換する元のコーデック
-    AVCodecContext       *pOutCodecDecodeCtx;   //変換する元のCodecContext
-    AVCodec              *pOutCodecEncode;      //変換先の音声のコーデック
-    AVCodecContext       *pOutCodecEncodeCtx;   //変換先の音声のCodecContext
+    AVCodec              *outCodecDecode;      //変換する元のコーデック
+    AVCodecContext       *outCodecDecodeCtx;   //変換する元のCodecContext
+    AVCodec              *outCodecEncode;      //変換先の音声のコーデック
+    AVCodecContext       *outCodecEncodeCtx;   //変換先の音声のCodecContext
 
-    uint8_t              *pBuf;                 //変換用のバッファ
+    uint8_t              *bufConvert;          //変換用のバッファ
 } AVMuxOther;
 
 enum {
@@ -194,10 +194,10 @@ enum {
 typedef struct AVPktMuxData {
     int         type;        //MUX_DATA_TYPE_xxx
     AVPacket    pkt;         //type == MUX_DATA_TYPE_PACKET 時有効
-    AVMuxAudio *pMuxAudio;   //type == MUX_DATA_TYPE_PACKET 時有効
+    AVMuxAudio *muxAudio;    //type == MUX_DATA_TYPE_PACKET 時有効
     int64_t     dts;         //type == MUX_DATA_TYPE_PACKET 時有効
     int         samples;     //type == MUX_DATA_TYPE_PACKET 時有効
-    AVFrame    *pFrame;      //type == MUX_DATA_TYPE_FRAME 時有効
+    AVFrame    *frame;      //type == MUX_DATA_TYPE_FRAME 時有効
     int         got_result;  //type == MUX_DATA_TYPE_FRAME 時有効
 } AVPktMuxData;
 
@@ -209,14 +209,14 @@ enum {
 
 #if ENABLE_AVCODEC_OUT_THREAD
 typedef struct AVMuxThread {
-    bool                           bEnableOutputThread;       //出力スレッドを使用する
-    bool                           bEnableAudProcessThread;   //音声処理スレッドを使用する
-    bool                           bEnableAudEncodeThread;    //音声エンコードスレッドを使用する
-    std::atomic<bool>              bAbortOutput;              //出力スレッドに停止を通知する
+    bool                           enableOutputThread;        //出力スレッドを使用する
+    bool                           enableAudProcessThread;    //音声処理スレッドを使用する
+    bool                           enableAudEncodeThread;     //音声エンコードスレッドを使用する
+    std::atomic<bool>              abortOutput;               //出力スレッドに停止を通知する
     std::thread                    thOutput;                  //出力スレッド(mux部分を担当)
-    std::atomic<bool>              bThAudProcessAbort;        //音声処理スレッドに停止を通知する
+    std::atomic<bool>              thAudProcessAbort;         //音声処理スレッドに停止を通知する
     std::thread                    thAudProcess;              //音声処理スレッド(デコード/thAudEncodeがなければエンコードも担当)
-    std::atomic<bool>              bThAudEncodeAbort;         //音声エンコードスレッドに停止を通知する
+    std::atomic<bool>              thAudEncodeAbort;          //音声エンコードスレッドに停止を通知する
     std::thread                    thAudEncode;               //音声エンコードスレッド(エンコードを担当)
     HANDLE                         heEventPktAddedOutput;     //キューのいずれかにデータが追加されたことを通知する
     HANDLE                         heEventClosingOutput;      //出力スレッドが停止処理を開始したことを通知する
@@ -230,7 +230,7 @@ typedef struct AVMuxThread {
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
-    PerfQueueInfo                 *pQueueInfo;                //キューの情報を格納する構造体
+    PerfQueueInfo                 *queueInfo;                //キューの情報を格納する構造体
 } AVMuxThread;
 #endif
 
@@ -271,49 +271,49 @@ struct AVOutputStreamPrm {
 };
 
 struct AvcodecWriterPrm {
-    const AVDictionary          *pInputFormatMetadata;    //入力ファイルのグローバルメタデータ
-    tstring                      outputFormat;           //出力のフォーマット
+    const AVDictionary          *inputFormatMetadata;     //入力ファイルのグローバルメタデータ
+    tstring                      outputFormat;            //出力のフォーマット
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
-    const AVStream              *pVideoInputStream;       //入力映像のストリーム
-    AVRational                   rBitstreamTimebase;      //エンコーダのtimebase
-    int64_t                      nVideoInputFirstKeyPts;  //入力映像の最初のpts
+    const AVStream              *videoInputStream;        //入力映像のストリーム
+    AVRational                   bitstreamTimebase;       //エンコーダのtimebase
+    int64_t                      videoInputFirstKeyPts;   //入力映像の最初のpts
     vector<sTrim>                trimList;                //Trimする動画フレームの領域のリスト
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
-    bool                         bChapterNoTrim;          //チャプターにtrimを反映しない
-    int                          nAudioResampler;         //音声のresamplerの選択
-    uint32_t                     nAudioIgnoreDecodeError; //音声デコード時に発生したエラーを無視して、無音に置き換える
-    int                          nBufSizeMB;              //出力バッファサイズ
-    int                          nOutputThread;           //出力スレッド数
-    int                          nAudioThread;            //音声処理スレッド数
-    muxOptList                   vMuxOpt;                 //mux時に使用するオプション
-    PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
-    tstring                      muxVidTsLogFile;        //mux timestampログファイル
-    HEVCHDRSei                  *pHEVCHdrSei;             //HDR関連のmetadata
-    RGYTimestamp                *pVidTimestamp;           //動画のtimestampの情報
+    bool                         chapterNoTrim;           //チャプターにtrimを反映しない
+    int                          audioResampler;          //音声のresamplerの選択
+    uint32_t                     audioIgnoreDecodeError;  //音声デコード時に発生したエラーを無視して、無音に置き換える
+    int                          bufSizeMB;               //出力バッファサイズ
+    int                          threadOutput;            //出力スレッド数
+    int                          threadAudio;             //音声処理スレッド数
+    muxOptList                   muxOpt;                  //mux時に使用するオプション
+    PerfQueueInfo               *queueInfo;               //キューの情報を格納する構造体
+    tstring                      muxVidTsLogFile;         //mux timestampログファイル
+    HEVCHDRSei                  *HEVCHdrSei;              //HDR関連のmetadata
+    RGYTimestamp                *vidTimestamp;            //動画のtimestampの情報
     std::string                  videoCodecTag;           //動画タグ
 
     AvcodecWriterPrm() :
-        pInputFormatMetadata(nullptr),
+        inputFormatMetadata(nullptr),
         outputFormat(),
         bVideoDtsUnavailable(),
-        pVideoInputStream(nullptr),
-        rBitstreamTimebase(av_make_q(0, 1)),
-        nVideoInputFirstKeyPts(0),
+        videoInputStream(nullptr),
+        bitstreamTimebase(av_make_q(0, 1)),
+        videoInputFirstKeyPts(0),
         trimList(),
         inputStreamList(),
         chapterList(),
-        bChapterNoTrim(false),
-        nAudioResampler(0),
-        nAudioIgnoreDecodeError(0),
-        nBufSizeMB(0),
-        nOutputThread(0),
-        nAudioThread(0),
-        vMuxOpt(),
-        pQueueInfo(nullptr),
+        chapterNoTrim(false),
+        audioResampler(0),
+        audioIgnoreDecodeError(0),
+        bufSizeMB(0),
+        threadOutput(0),
+        threadAudio(0),
+        muxOpt(),
+        queueInfo(nullptr),
         muxVidTsLogFile(),
-        pHEVCHdrSei(nullptr),
-        pVidTimestamp(nullptr),
+        HEVCHdrSei(nullptr),
+        vidTimestamp(nullptr),
         videoCodecTag() {
     }
 };
@@ -346,7 +346,7 @@ public:
     HANDLE getThreadHandleAudProcess();
     HANDLE getThreadHandleAudEncode();
 protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *option) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *videoOutputInfo, const void *option) override;
 
     //別のスレッドで実行する場合のスレッド関数 (出力)
     RGY_ERR WriteThreadFunc();
@@ -364,10 +364,10 @@ protected:
     AVPktMuxData pktMuxData(const AVPacket *pkt);
 
     //AVPktMuxDataを初期化する
-    AVPktMuxData pktMuxData(AVFrame *pFrame);
+    AVPktMuxData pktMuxData(AVFrame *frame);
 
     //WriteNextFrameの本体
-    RGY_ERR WriteNextFrameInternal(RGYBitstream *pBitstream, int64_t *pWrittenDts);
+    RGY_ERR WriteNextFrameInternal(RGYBitstream *bitstream, int64_t *writtenDts);
 
     //WriteNextPacketの本体
     RGY_ERR WriteNextPacketInternal(AVPktMuxData *pktData, int64_t maxDtsToWrite);
@@ -386,19 +386,19 @@ protected:
 
     //音声のフィルタリングを実行
     vector<AVPktMuxData> AudioFilterFrame(vector<AVPktMuxData> audioFrames);
-    vector<AVPktMuxData> AudioFilterFrameFlush(AVMuxAudio *pMuxAudio);
+    vector<AVPktMuxData> AudioFilterFrameFlush(AVMuxAudio *muxAudio);
 
     //CodecIDがPCM系かどうか判定
     bool codecIDIsPCM(AVCodecID targetCodec);
 
     //PCMのコーデックがwav出力時に変換を必要とするかを判定する
-    AVCodecID PCMRequiresConversion(const AVCodecParameters *pCodecParm);
+    AVCodecID PCMRequiresConversion(const AVCodecParameters *codecParm);
 
     //RGY_CODECのcodecからAVCodecのCodecIDを返す
     AVCodecID getAVCodecId(RGY_CODEC codec);
 
     //AAC音声にBitstreamフィルターを適用する
-    RGY_ERR applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);
+    RGY_ERR applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *muxAudio);
 
     //音声のプロファイルを取得する
     int AudioGetCodecProfile(tstring profile, AVCodecID codecId);
@@ -411,25 +411,25 @@ protected:
 
     //extradataをコピーする
     void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
-    void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
+    void SetExtraData(AVCodecParameters *codecParam, const uint8_t *data, uint32_t size);
 
     //映像の初期化
-    RGY_ERR InitVideo(const VideoInfo *pVideoOutputInfo, const AvcodecWriterPrm *prm);
+    RGY_ERR InitVideo(const VideoInfo *videoOutputInfo, const AvcodecWriterPrm *prm);
 
     //音声フィルタの初期化
-    RGY_ERR InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
+    RGY_ERR InitAudioFilter(AVMuxAudio *muxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声リサンプラの初期化
-    RGY_ERR InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
+    RGY_ERR InitAudioResampler(AVMuxAudio *muxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
-    RGY_ERR InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError);
+    RGY_ERR InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError);
 
     //字幕の初期化
-    RGY_ERR InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
+    RGY_ERR InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *inputSubtitle);
 
     //チャプターをコピー
-    RGY_ERR SetChapters(const vector<const AVChapter *>& chapterList, bool bChapterNoTrim);
+    RGY_ERR SetChapters(const vector<const AVChapter *>& chapterList, bool chapterNoTrim);
 
     //メッセージを作成
     tstring GetWriterMes();
@@ -438,28 +438,28 @@ protected:
     AVMuxAudio *getAudioPacketStreamData(const AVPacket *pkt);
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
-    AVMuxAudio *getAudioStreamData(int nTrackId, int nSubStreamId = 0);
+    AVMuxAudio *getAudioStreamData(int trackId, int subStreamId = 0);
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVMuxOther *getOtherPacketStreamData(const AVPacket *pkt);
 
     //音声のchannel_layoutを自動選択する
-    uint64_t AutoSelectChannelLayout(const uint64_t *pChannelLayout, const AVCodecContext *pSrcAudioCtx);
+    uint64_t AutoSelectChannelLayout(const uint64_t *channelLayout, const AVCodecContext *srcAudioCtx);
 
     //音声のsample formatを自動選択する
-    AVSampleFormat AutoSelectSampleFmt(const AVSampleFormat *pSamplefmtList, const AVCodecContext *pSrcAudioCtx);
+    AVSampleFormat AutoSelectSampleFmt(const AVSampleFormat *samplefmtList, const AVCodecContext *srcAudioCtx);
 
     //音声のサンプリングレートを自動選択する
     int AutoSelectSamplingRate(const int *pSamplingRateList, int nSrcSamplingRate);
 
     //音声ストリームをすべて吐き出す
-    void AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDts);
+    void AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDts);
 
     //音声をデコード
-    vector<unique_ptr<AVFrame, decltype(&av_frame_unref)>> AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pkt);
+    vector<unique_ptr<AVFrame, decltype(&av_frame_unref)>> AudioDecodePacket(AVMuxAudio *muxAudio, AVPacket *pkt);
 
     //音声をエンコード
-    vector<AVPktMuxData> AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVFrame *frame);
+    vector<AVPktMuxData> AudioEncodeFrame(AVMuxAudio *muxAudio, AVFrame *frame);
 
     //字幕パケットを書き出す
     RGY_ERR SubtitleTranscode(const AVMuxOther *pMuxSub, AVPacket *pkt);
@@ -471,10 +471,10 @@ protected:
     void WriteNextPacketProcessed(AVPktMuxData *pktData);
 
     //パケットを実際に書き出す
-    void WriteNextPacketProcessed(AVPktMuxData *pktData, int64_t *pWrittenDts);
+    void WriteNextPacketProcessed(AVPktMuxData *pktData, int64_t *writtenDts);
 
     //パケットを実際に書き出す
-    void WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts);
+    void WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *pkt, int samples, int64_t *writtenDts);
 
     //extradataにH264のヘッダーを追加する
     RGY_ERR AddH264HeaderToExtraData(const RGYBitstream *pBitstream);
@@ -491,7 +491,7 @@ protected:
     int64_t AdjustTimestampTrimmed(int64_t nTimeIn, AVRational timescaleIn, AVRational timescaleOut, bool lastValidFrame);
 
     void CloseOther(AVMuxOther *pMuxOther);
-    void CloseAudio(AVMuxAudio *pMuxAudio);
+    void CloseAudio(AVMuxAudio *muxAudio);
     void CloseVideo(AVMuxVideo *pMuxVideo);
     void CloseFormat(AVMuxFormat *pMuxFormat);
     void CloseThread();

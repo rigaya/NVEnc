@@ -1172,7 +1172,7 @@ struct VppCustom {
 };
 
 struct VppParam {
-    bool bCheckPerformance;
+    bool checkPerformance;
     cudaVideoDeinterlaceMode deinterlace;
     int                      resizeInterp;
     NppiMaskSize             gaussMaskSize;
@@ -1198,7 +1198,7 @@ struct VppParam {
 
 struct InEncodeVideoParam {
     int deviceID;                 //使用するGPUのID
-    int nCudaSchedule;
+    int cudaSchedule;
     GPUAutoSelectMul gpuSelect;
     int sessionRetry;
 
@@ -1217,8 +1217,6 @@ struct InEncodeVideoParam {
     RGYParamCommon common;
     RGYParamControl ctrl;
     VppParam vpp;                 //vpp
-
-    void *pPrivatePrm;
 
     InEncodeVideoParam();
 };

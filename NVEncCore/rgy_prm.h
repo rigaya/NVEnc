@@ -41,13 +41,13 @@ static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 struct RGYParamCommon {
     tstring inputFilename;        //入力ファイル名
     tstring outputFilename;       //出力ファイル名
-    tstring sAVMuxOutputFormat;   //出力フォーマット
+    tstring muxOutputFormat;   //出力フォーマット
 
-    std::string sMaxCll;
-    std::string sMasterDisplay;
+    std::string maxCll;
+    std::string masterDisplay;
     tstring dynamicHdr10plusJson;
     std::string videoCodecTag;
-    float fSeekSec;               //指定された秒数分先頭を飛ばす
+    float seekSec;               //指定された秒数分先頭を飛ばす
     int nSubtitleSelectCount;
     SubtitleSelect **ppSubtitleSelectList;
     int nAudioSourceCount;
@@ -56,25 +56,25 @@ struct RGYParamCommon {
     AudioSelect **ppAudioSelectList;
     int        nDataSelectCount;
     DataSelect **ppDataSelectList;
-    int nAudioResampler;
-    int nAVDemuxAnalyzeSec;
-    int nAVMux;                       //RGY_MUX_xxx
-    int nVideoTrack;
-    int nVideoStreamId;
+    int audioResampler;
+    int demuxAnalyzeSec;
+    int AVMuxTarget;                       //RGY_MUX_xxx
+    int videoTrack;
+    int videoStreamId;
     int nTrimCount;
     sTrim *pTrimList;
-    bool bCopyChapter;
+    bool copyChapter;
     bool keyOnChapter;
     C2AFormat caption2ass;
-    int nAudioIgnoreDecodeError;
-    muxOptList *pMuxOpt;
-    tstring sChapterFile;
+    int audioIgnoreDecodeError;
+    muxOptList *muxOpt;
+    tstring chapterFile;
     tstring keyFile;
-    TCHAR *pAVInputFormat;
-    RGYAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
+    TCHAR *AVInputFormat;
+    RGYAVSync AVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
 
 
-    int nOutputBufSizeMB;         //出力バッファサイズ
+    int outputBufSizeMB;         //出力バッファサイズ
 
     RGYParamCommon();
     ~RGYParamCommon();
@@ -85,15 +85,15 @@ struct RGYParamControl {
     int simdCsp;
     tstring logfile;              //ログ出力先
     int loglevel;                 //ログ出力レベル
-    tstring sFramePosListLog;     //framePosList出力先
-    TCHAR *pMuxVidTsLogFile;
-    int nOutputThread;
-    int nAudioThread;
-    int nInputThread;
-    int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
-    int64_t nPerfMonitorSelect;
-    int64_t nPerfMonitorSelectMatplot;
-    int     nPerfMonitorInterval;
+    tstring logFramePosList;     //framePosList出力先
+    TCHAR *logMuxVidTsFile;
+    int threadOutput;
+    int threadAudio;
+    int threadInput;
+    int procSpeedLimit;      //処理速度制限 (0で制限なし)
+    int64_t perfMonitorSelect;
+    int64_t perfMonitorSelectMatplot;
+    int     perfMonitorInterval;
 
     RGYParamControl();
     ~RGYParamControl();

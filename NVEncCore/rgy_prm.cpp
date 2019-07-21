@@ -32,12 +32,12 @@
 RGYParamCommon::RGYParamCommon() :
     inputFilename(),
     outputFilename(),
-    sAVMuxOutputFormat(),
-    sMaxCll(),
-    sMasterDisplay(),
+    muxOutputFormat(),
+    maxCll(),
+    masterDisplay(),
     dynamicHdr10plusJson(),
     videoCodecTag(),
-    fSeekSec(0.0f),               //指定された秒数分先頭を飛ばす
+    seekSec(0.0f),               //指定された秒数分先頭を飛ばす
     nSubtitleSelectCount(0),
     ppSubtitleSelectList(nullptr),
     nAudioSourceCount(0),
@@ -46,22 +46,22 @@ RGYParamCommon::RGYParamCommon() :
     ppAudioSelectList(nullptr),
     nDataSelectCount(0),
     ppDataSelectList(nullptr),
-    nAudioResampler(RGY_RESAMPLER_SWR),
-    nAVDemuxAnalyzeSec(0),
-    nAVMux(RGY_MUX_NONE),                       //RGY_MUX_xxx
-    nVideoTrack(0),
-    nVideoStreamId(0),
+    audioResampler(RGY_RESAMPLER_SWR),
+    demuxAnalyzeSec(0),
+    AVMuxTarget(RGY_MUX_NONE),                       //RGY_MUX_xxx
+    videoTrack(0),
+    videoStreamId(0),
     nTrimCount(0),
     pTrimList(nullptr),
-    bCopyChapter(false),
+    copyChapter(false),
     keyOnChapter(false),
     caption2ass(FORMAT_INVALID),
-    nAudioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
-    pMuxOpt(nullptr),
-    sChapterFile(),
-    pAVInputFormat(nullptr),
-    nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
-    nOutputBufSizeMB(OUTPUT_BUF_SIZE) {
+    audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
+    muxOpt(nullptr),
+    chapterFile(),
+    AVInputFormat(nullptr),
+    AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
+    outputBufSizeMB(OUTPUT_BUF_SIZE) {
 
 }
 
@@ -70,15 +70,15 @@ RGYParamCommon::~RGYParamCommon() {};
 RGYParamControl::RGYParamControl() :
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
-    sFramePosListLog(),     //framePosList出力先
-    pMuxVidTsLogFile(nullptr),
-    nOutputThread(RGY_OUTPUT_THREAD_AUTO),
-    nAudioThread(RGY_INPUT_THREAD_AUTO),
-    nInputThread(RGY_AUDIO_THREAD_AUTO),
-    nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
-    nPerfMonitorSelect(0),
-    nPerfMonitorSelectMatplot(0),
-    nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
+    logFramePosList(),     //framePosList出力先
+    logMuxVidTsFile(nullptr),
+    threadOutput(RGY_OUTPUT_THREAD_AUTO),
+    threadAudio(RGY_INPUT_THREAD_AUTO),
+    threadInput(RGY_AUDIO_THREAD_AUTO),
+    procSpeedLimit(0),      //処理速度制限 (0で制限なし)
+    perfMonitorSelect(0),
+    perfMonitorSelectMatplot(0),
+    perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
     threadCsp(0),
     simdCsp(-1) {
 

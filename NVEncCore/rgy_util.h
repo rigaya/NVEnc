@@ -1500,26 +1500,26 @@ static const uint64_t RGY_CHANNEL_AUTO = UINT64_MAX;
 static const int RGY_OUTPUT_BUF_MB_MAX = 128;
 
 template <uint32_t size>
-static bool bSplitChannelsEnabled(uint64_t(&pnStreamChannels)[size]) {
+static bool bSplitChannelsEnabled(uint64_t(&streamChannels)[size]) {
     bool bEnabled = false;
     for (uint32_t i = 0; i < size; i++) {
-        bEnabled |= pnStreamChannels[i] != 0;
+        bEnabled |= streamChannels[i] != 0;
     }
     return bEnabled;
 }
 
 template <uint32_t size>
-static void setSplitChannelAuto(uint64_t(&pnStreamChannels)[size]) {
+static void setSplitChannelAuto(uint64_t(&streamChannels)[size]) {
     for (uint32_t i = 0; i < size; i++) {
-        pnStreamChannels[i] = ((uint64_t)1) << i;
+        streamChannels[i] = ((uint64_t)1) << i;
     }
 }
 
 template <uint32_t size>
-static bool isSplitChannelAuto(uint64_t(&pnStreamChannels)[size]) {
+static bool isSplitChannelAuto(uint64_t(&streamChannels)[size]) {
     bool isAuto = true;
     for (uint32_t i = 0; isAuto && i < size; i++) {
-        isAuto &= (pnStreamChannels[i] == (((uint64_t)1) << i));
+        isAuto &= (streamChannels[i] == (((uint64_t)1) << i));
     }
     return isAuto;
 }
@@ -1535,8 +1535,8 @@ struct AudioSelect {
     tstring  extractFilename;      //抽出する音声のファイル名のリスト
     tstring  extractFormat;        //抽出する音声ファイルのフォーマット
     tstring  filter;               //音声フィルタ
-    uint64_t pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
-    uint64_t pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+    uint64_t streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
 
     AudioSelect();
     ~AudioSelect() {};

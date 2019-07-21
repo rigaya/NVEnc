@@ -552,7 +552,7 @@ tstring VppCustom::print() const {
 }
 
 VppParam::VppParam() :
-    bCheckPerformance(false),
+    checkPerformance(false),
     deinterlace(cudaVideoDeinterlaceMode_Weave),
     resizeInterp(NPPI_INTER_UNDEFINED),
     gaussMaskSize((NppiMaskSize)0),
@@ -979,7 +979,7 @@ NV_ENC_CONFIG DefaultParam() {
 
 InEncodeVideoParam::InEncodeVideoParam() :
     deviceID(0),
-    nCudaSchedule(DEFAULT_CUDA_SCHEDULE),
+    cudaSchedule(DEFAULT_CUDA_SCHEDULE),
     gpuSelect(),
     sessionRetry(0),
     input(),
@@ -995,8 +995,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     common(),
     ctrl(),
     vpp(),
-    nWeightP(0),
-    pPrivatePrm(nullptr) {
+    nWeightP(0) {
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));
     memset(&input, 0, sizeof(input));

@@ -154,16 +154,16 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
 }
 
 RGYInput::RGYInput() :
-    m_pEncSatusInfo(),
+    m_encSatusInfo(),
     m_inputVideoInfo(),
-    m_InputCsp(RGY_CSP_NA),
-    m_sConvert(nullptr),
-    m_pPrintMes(),
-    m_strInputInfo(),
-    m_strReaderName(_T("unknown")),
-    m_sTrimParam() {
-    m_sTrimParam.list.clear();
-    m_sTrimParam.offset = 0;
+    m_inputCsp(RGY_CSP_NA),
+    m_convert(nullptr),
+    m_printMes(),
+    m_inputInfo(),
+    m_readerName(_T("unknown")),
+    m_trimParam() {
+    m_trimParam.list.clear();
+    m_trimParam.offset = 0;
     memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
 }
 
@@ -174,15 +174,15 @@ RGYInput::~RGYInput() {
 void RGYInput::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
 
-    m_pEncSatusInfo.reset();
-    m_sConvert = nullptr;
+    m_encSatusInfo.reset();
+    m_convert = nullptr;
 
-    m_strInputInfo.empty();
+    m_inputInfo.empty();
 
-    m_sTrimParam.list.clear();
-    m_sTrimParam.offset = 0;
+    m_trimParam.list.clear();
+    m_trimParam.offset = 0;
     AddMessage(RGY_LOG_DEBUG, _T("Close...\n"));
-    m_pPrintMes.reset();
+    m_printMes.reset();
 }
 
 void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm) {
@@ -202,5 +202,5 @@ void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSp
         ss << "crop(" << inputPrm->crop.e.left << "," << inputPrm->crop.e.up << "," << inputPrm->crop.e.right << "," << inputPrm->crop.e.bottom << ")";
     }
 
-    m_strInputInfo = ss.str();
+    m_inputInfo = ss.str();
 }

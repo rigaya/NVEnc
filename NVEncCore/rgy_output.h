@@ -96,14 +96,14 @@ public:
     RGYOutput();
     virtual ~RGYOutput();
 
-    RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm, shared_ptr<RGYLog> pLog, shared_ptr<EncodeStatus> pEncSatusInfo) {
+    RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *videoOutputInfo, const void *prm, shared_ptr<RGYLog> log, shared_ptr<EncodeStatus> encSatusInfo) {
         Close();
-        m_pPrintMes = pLog;
-        m_pEncSatusInfo = pEncSatusInfo;
-        if (pVideoOutputInfo) {
-            memcpy(&m_VideoOutputInfo, pVideoOutputInfo, sizeof(m_VideoOutputInfo));
+        m_printMes = log;
+        m_encSatusInfo = encSatusInfo;
+        if (videoOutputInfo) {
+            memcpy(&m_VideoOutputInfo, videoOutputInfo, sizeof(m_VideoOutputInfo));
         }
-        return Init(strFileName, pVideoOutputInfo, prm);
+        return Init(strFileName, videoOutputInfo, prm);
     }
 
     virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) = 0;
@@ -111,7 +111,7 @@ public:
     virtual void Close();
 
     virtual bool outputStdout() {
-        return m_bOutputIsStdout;
+        return m_outputIsStdout;
     }
 
     virtual OutputType getOutType() {
@@ -126,18 +126,18 @@ public:
         return (mes) ? mes : _T("");
     }
     void AddMessage(int log_level, const tstring& str) {
-        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+        if (m_printMes == nullptr || log_level < m_printMes->getLogLevel()) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto& line : lines) {
             if (line[0] != _T('\0')) {
-                m_pPrintMes->write(log_level, (m_strWriterName + _T(": ") + line + _T("\n")).c_str());
+                m_printMes->write(log_level, (m_strWriterName + _T(": ") + line + _T("\n")).c_str());
             }
         }
     }
     void AddMessage(int log_level, const TCHAR *format, ... ) {
-        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+        if (m_printMes == nullptr || log_level < m_printMes->getLogLevel()) {
             return;
         }
 
@@ -153,26 +153,26 @@ public:
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) = 0;
 
-    shared_ptr<EncodeStatus> m_pEncSatusInfo;
+    shared_ptr<EncodeStatus> m_encSatusInfo;
     unique_ptr<FILE, fp_deleter>  m_fDest;
-    bool        m_bOutputIsStdout;
-    bool        m_bInited;
-    bool        m_bNoOutput;
+    bool        m_outputIsStdout;
+    bool        m_inited;
+    bool        m_noOutput;
     OutputType  m_OutType;
-    bool        m_bSourceHWMem;
-    bool        m_bY4mHeaderWritten;
+    bool        m_sourceHWMem;
+    bool        m_y4mHeaderWritten;
     tstring     m_strWriterName;
     tstring     m_strOutputInfo;
     VideoInfo   m_VideoOutputInfo;
-    shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
-    unique_ptr<char, malloc_deleter>            m_pOutputBuffer;
-    unique_ptr<uint8_t, aligned_malloc_deleter> m_pReadBuffer;
-    unique_ptr<uint8_t, aligned_malloc_deleter> m_pUVBuffer;
+    shared_ptr<RGYLog> m_printMes;  //ログ出力
+    unique_ptr<char, malloc_deleter>            m_outputBuffer;
+    unique_ptr<uint8_t, aligned_malloc_deleter> m_readBuffer;
+    unique_ptr<uint8_t, aligned_malloc_deleter> m_UVBuffer;
 };
 
 struct RGYOutputRawPrm {
-    bool bBenchmark;
-    int nBufSizeMB;
+    bool benchmark;
+    int bufSizeMB;
     RGY_CODEC codecId;
     vector<uint8_t> seiNal;
 };

@@ -170,14 +170,14 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
             m_subtitleStreamIndex, char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
             pstream->time_base.num, pstream->time_base.den);
     } else {
-        if (prm->streamIn.pStream == nullptr) {
+        if (prm->streamIn.stream == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("internal error: stream info not provided.\n"));
             return RGY_ERR_UNKNOWN;
         }
-        inputCodecId = prm->streamIn.pStream->codecpar->codec_id;
+        inputCodecId = prm->streamIn.stream->codecpar->codec_id;
         AddMessage(RGY_LOG_DEBUG, _T("using subtitle track #%d (%s), timebase %d/%d.\n"),
             prm->subburn.trackId, char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
-            prm->streamIn.pStream->time_base.num, prm->streamIn.pStream->time_base.den);
+            prm->streamIn.stream->time_base.num, prm->streamIn.stream->time_base.den);
     }
 
     m_subType = avcodec_descriptor_get(inputCodecId)->props;
@@ -197,14 +197,14 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
         return RGY_ERR_NULL_PTR;
     }
     m_outCodecDecodeCtx = unique_ptr<AVCodecContext, decltype(&avcodec_close)>(avcodec_alloc_context3(m_outCodecDecode), avcodec_close);
-    if (prm->streamIn.pStream) {
+    if (prm->streamIn.stream) {
         //設定されていない必須情報があれば設定する
 #define COPY_IF_ZERO(dst, src) { if ((dst)==0) (dst)=(src); }
-        COPY_IF_ZERO(m_outCodecDecodeCtx->width, prm->streamIn.pStream->codecpar->width);
-        COPY_IF_ZERO(m_outCodecDecodeCtx->height, prm->streamIn.pStream->codecpar->height);
+        COPY_IF_ZERO(m_outCodecDecodeCtx->width, prm->streamIn.stream->codecpar->width);
+        COPY_IF_ZERO(m_outCodecDecodeCtx->height, prm->streamIn.stream->codecpar->height);
 #undef COPY_IF_ZERO
-        m_outCodecDecodeCtx->pkt_timebase = prm->streamIn.pStream->time_base;
-        SetExtraData(m_outCodecDecodeCtx.get(), prm->streamIn.pStream->codecpar->extradata, prm->streamIn.pStream->codecpar->extradata_size);
+        m_outCodecDecodeCtx->pkt_timebase = prm->streamIn.stream->time_base;
+        SetExtraData(m_outCodecDecodeCtx.get(), prm->streamIn.stream->codecpar->extradata, prm->streamIn.stream->codecpar->extradata_size);
     } else {
         m_outCodecDecodeCtx->pkt_timebase = m_formatCtx->streams[m_subtitleStreamIndex]->time_base;
         auto *pCodecCtx = m_formatCtx->streams[m_subtitleStreamIndex]->codec;
@@ -361,7 +361,7 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
             return sts;
         }
     }
-    if (prm->streamIn.pStream == nullptr) {
+    if (prm->streamIn.stream == nullptr) {
         if ((sts = readSubFile()) != RGY_ERR_NONE) {
             return sts;
         }
@@ -396,7 +396,7 @@ int NVEncFilterSubburn::targetTrackIdx() {
     if (!prm) {
         return 0;
     }
-    return prm->streamIn.nTrackId;
+    return prm->streamIn.trackId;
 }
 
 RGY_ERR NVEncFilterSubburn::addStreamPacket(AVPacket *pkt) {
@@ -408,7 +408,7 @@ RGY_ERR NVEncFilterSubburn::addStreamPacket(AVPacket *pkt) {
             AddMessage(log_level, _T("Invalid parameter type.\n"));
             return RGY_ERR_INVALID_PARAM;
         }
-        const auto inputSubStream = (prm->streamIn.pStream) ? prm->streamIn.pStream : m_formatCtx->streams[m_subtitleStreamIndex];
+        const auto inputSubStream = (prm->streamIn.stream) ? prm->streamIn.stream : m_formatCtx->streams[m_subtitleStreamIndex];
         const int64_t vidInputOffsetMs = av_rescale_q(prm->videoInputFirstKeyPts, prm->videoTimebase, { 1, 1000 });
         const auto pktTimeMs = av_rescale_q(pkt->pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs;
         AddMessage(log_level, _T("Add subtitle packet: %s\n"), getTimestampString(pktTimeMs, av_make_q(1, 1000)).c_str());
@@ -422,7 +422,7 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    const auto inputSubStream = (prm->streamIn.pStream) ? prm->streamIn.pStream : m_formatCtx->streams[m_subtitleStreamIndex];
+    const auto inputSubStream = (prm->streamIn.stream) ? prm->streamIn.stream : m_formatCtx->streams[m_subtitleStreamIndex];
     const int64_t nFrameTimeMs = av_rescale_q(pOutputFrame->timestamp, prm->videoTimebase, { 1, 1000 });
     const int64_t vidInputOffsetMs = av_rescale_q(prm->videoInputFirstKeyPts, prm->videoTimebase, { 1, 1000 });
 

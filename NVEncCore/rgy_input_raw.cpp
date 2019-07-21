@@ -153,7 +153,7 @@ RGYInputRaw::RGYInputRaw() :
     m_fSource(NULL),
     m_nBufSize(0),
     m_pBuffer() {
-    m_strReaderName = _T("raw");
+    m_readerName = _T("raw");
 }
 
 RGYInputRaw::~RGYInputRaw() {
@@ -173,9 +173,9 @@ void RGYInputRaw::Close() {
 RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
-    m_strReaderName = (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw");
+    m_readerName = (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw");
 
-    m_sConvert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
+    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
 
     bool use_stdin = _tcscmp(strFileName, _T("-")) == 0;
     if (use_stdin) {
@@ -198,7 +198,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     }
 
     auto nOutputCSP = m_inputVideoInfo.csp;
-    m_InputCsp = RGY_CSP_YV12;
+    m_inputCsp = RGY_CSP_YV12;
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         //read y4m header
         char buf[128] = { 0 };
@@ -209,14 +209,14 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             AddMessage(RGY_LOG_ERROR, _T("failed to parse y4m header."));
             return RGY_ERR_INVALID_FORMAT;
         }
-        m_InputCsp = m_inputVideoInfo.csp;
+        m_inputCsp = m_inputVideoInfo.csp;
     } else {
         m_inputVideoInfo.srcPitch = m_inputVideoInfo.srcWidth;
     }
 
     RGY_CSP output_csp_if_lossless = RGY_CSP_NA;
     uint32_t bufferSize = 0;
-    switch (m_InputCsp) {
+    switch (m_inputCsp) {
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2;
@@ -257,7 +257,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでP210に変換する
         nOutputCSP = RGY_CSP_P210;
         //m_inputVideoInfo.shiftも出力フォーマットに対応する値でなく入力フォーマットに対するものに
-        m_inputVideoInfo.shift = 16 - RGY_CSP_BIT_DEPTH[m_InputCsp];
+        m_inputVideoInfo.shift = 16 - RGY_CSP_BIT_DEPTH[m_inputCsp];
         output_csp_if_lossless = RGY_CSP_YUV444_16;
         break;
     case RGY_CSP_YUV444:
@@ -281,7 +281,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     if (nOutputCSP != RGY_CSP_NA) {
         m_inputVideoInfo.csp =
             (ENCODER_NVENC
-                && RGY_CSP_BIT_PER_PIXEL[m_InputCsp] < RGY_CSP_BIT_PER_PIXEL[nOutputCSP])
+                && RGY_CSP_BIT_PER_PIXEL[m_inputCsp] < RGY_CSP_BIT_PER_PIXEL[nOutputCSP])
             ? output_csp_if_lossless : nOutputCSP;
     } else {
         //ロスレスの場合は、入力側で出力フォーマットを決める
@@ -296,22 +296,22 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
     m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
 
-    if (m_sConvert->getFunc(m_InputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr) {
+    if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("raw/y4m: color conversion not supported: %s -> %s.\n"),
-            RGY_CSP_NAMES[m_InputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
+            RGY_CSP_NAMES[m_inputCsp], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    CreateInputInfo(m_strReaderName.c_str(), RGY_CSP_NAMES[m_sConvert->getFunc()->csp_from], RGY_CSP_NAMES[m_sConvert->getFunc()->csp_to], get_simd_str(m_sConvert->getFunc()->simd), &m_inputVideoInfo);
-    AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
+    CreateInputInfo(m_readerName.c_str(), RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
+    AddMessage(RGY_LOG_DEBUG, m_inputInfo);
     *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
-    //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
+    //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
     //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-    if (getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
+    if (getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 
@@ -335,7 +335,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     uint32_t frameSize = 0;
-    switch (m_sConvert->getFunc()->csp_from) {
+    switch (m_convert->getFunc()->csp_from) {
     case RGY_CSP_NV12:
     case RGY_CSP_YV12:
         frameSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3 / 2; break;
@@ -373,12 +373,12 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     void *dst_array[3];
-    pSurface->ptrArray(dst_array, m_sConvert->getFunc()->csp_to == RGY_CSP_RGB24 || m_sConvert->getFunc()->csp_to == RGY_CSP_RGB32);
+    pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
 
     const void *src_array[3];
     src_array[0] = m_pBuffer.get();
     src_array[1] = (uint8_t *)src_array[0] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight;
-    switch (m_sConvert->getFunc()->csp_from) {
+    switch (m_convert->getFunc()->csp_from) {
     case RGY_CSP_YV12:
     case RGY_CSP_YV12_09:
     case RGY_CSP_YV12_10:
@@ -410,7 +410,7 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     int src_uv_pitch = m_inputVideoInfo.srcPitch;
-    switch (RGY_CSP_CHROMA_FORMAT[m_sConvert->getFunc()->csp_from]) {
+    switch (RGY_CSP_CHROMA_FORMAT[m_convert->getFunc()->csp_from]) {
     case RGY_CHROMAFMT_YUV422:
         src_uv_pitch >>= 1;
         break;
@@ -424,12 +424,12 @@ RGY_ERR RGYInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         src_uv_pitch >>= 1;
         break;
     }
-    m_sConvert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
+    m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
         src_uv_pitch, pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
-    m_pEncSatusInfo->m_sData.frameIn++;
-    return m_pEncSatusInfo->UpdateDisplay();
+    m_encSatusInfo->m_sData.frameIn++;
+    return m_encSatusInfo->UpdateDisplay();
 }
 
 #endif

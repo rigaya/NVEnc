@@ -35,27 +35,27 @@
     } }
 
 RGYOutput::RGYOutput() :
-    m_pEncSatusInfo(),
+    m_encSatusInfo(),
     m_fDest(),
-    m_bOutputIsStdout(false),
-    m_bInited(false),
-    m_bNoOutput(false),
+    m_outputIsStdout(false),
+    m_inited(false),
+    m_noOutput(false),
     m_OutType(OUT_TYPE_BITSTREAM),
-    m_bSourceHWMem(false),
-    m_bY4mHeaderWritten(false),
+    m_sourceHWMem(false),
+    m_y4mHeaderWritten(false),
     m_strWriterName(),
     m_strOutputInfo(),
     m_VideoOutputInfo(),
-    m_pPrintMes(),
-    m_pOutputBuffer(),
-    m_pReadBuffer(),
-    m_pUVBuffer() {
+    m_printMes(),
+    m_outputBuffer(),
+    m_readBuffer(),
+    m_UVBuffer() {
     memset(&m_VideoOutputInfo, 0, sizeof(m_VideoOutputInfo));
 }
 
 RGYOutput::~RGYOutput() {
-    m_pEncSatusInfo.reset();
-    m_pPrintMes.reset();
+    m_encSatusInfo.reset();
+    m_printMes.reset();
     Close();
 }
 
@@ -65,17 +65,17 @@ void RGYOutput::Close() {
         m_fDest.reset();
         AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
     }
-    m_pEncSatusInfo.reset();
-    m_pOutputBuffer.reset();
-    m_pReadBuffer.reset();
-    m_pUVBuffer.reset();
+    m_encSatusInfo.reset();
+    m_outputBuffer.reset();
+    m_readBuffer.reset();
+    m_UVBuffer.reset();
 
-    m_bNoOutput = false;
-    m_bInited = false;
-    m_bSourceHWMem = false;
-    m_bY4mHeaderWritten = false;
+    m_noOutput = false;
+    m_inited = false;
+    m_sourceHWMem = false;
+    m_y4mHeaderWritten = false;
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
-    m_pPrintMes.reset();
+    m_printMes.reset();
 }
 
 RGYOutputRaw::RGYOutputRaw() :
@@ -99,18 +99,18 @@ RGYOutputRaw::~RGYOutputRaw() {
 RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(pVideoOutputInfo);
     RGYOutputRawPrm *rawPrm = (RGYOutputRawPrm *)prm;
-    if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
+    if (!rawPrm->benchmark && _tcslen(strFileName) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("output filename not set.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
 
-    if (rawPrm->bBenchmark) {
-        m_bNoOutput = true;
+    if (rawPrm->benchmark) {
+        m_noOutput = true;
         AddMessage(RGY_LOG_DEBUG, _T("no output for benchmark mode.\n"));
     } else {
         if (_tcscmp(strFileName, _T("-")) == 0) {
             m_fDest.reset(stdout);
-            m_bOutputIsStdout = true;
+            m_outputIsStdout = true;
             AddMessage(RGY_LOG_DEBUG, _T("using stdout\n"));
         } else {
             CreateDirectoryRecursive(PathRemoveFileSpecFixed(strFileName).second.c_str());
@@ -123,13 +123,13 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             m_fDest.reset(fp);
             AddMessage(RGY_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
 
-            int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, RGY_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
+            int bufferSizeByte = clamp(rawPrm->bufSizeMB, 0, RGY_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
             if (bufferSizeByte) {
                 void *ptr = nullptr;
                 bufferSizeByte = (int)malloc_degeneracy(&ptr, bufferSizeByte, 1024 * 1024);
                 if (bufferSizeByte) {
-                    m_pOutputBuffer.reset((char*)ptr);
-                    setvbuf(m_fDest.get(), m_pOutputBuffer.get(), _IOFBF, bufferSizeByte);
+                    m_outputBuffer.reset((char*)ptr);
+                    setvbuf(m_fDest.get(), m_outputBuffer.get(), _IOFBF, bufferSizeByte);
                     AddMessage(RGY_LOG_DEBUG, _T("Added %d MB output buffer.\n"), bufferSizeByte / (1024 * 1024));
                 }
             }
@@ -241,7 +241,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             m_seiNal = rawPrm->seiNal;
         }
     }
-    m_bInited = true;
+    m_inited = true;
     return RGY_ERR_NONE;
 }
 #pragma warning (pop)
@@ -253,7 +253,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
     }
 
     size_t nBytesWritten = 0;
-    if (!m_bNoOutput) {
+    if (!m_noOutput) {
 #if ENABLE_AVSW_READER
         if (m_pBsfc) {
             uint8_t nal_type = 0;
@@ -329,7 +329,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         }
     }
 
-    m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), 0);
+    m_encSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), 0);
     pBitstream->setSize(0);
 
     return RGY_ERR_NONE;
