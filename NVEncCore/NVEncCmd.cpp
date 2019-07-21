@@ -103,8 +103,8 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
 #define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
 
 static int getAudioTrackIdx(const InEncodeVideoParam* pParams, int iTrack) {
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        if (iTrack == pParams->ppAudioSelectList[i]->trackID) {
+    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
+        if (iTrack == pParams->common.ppAudioSelectList[i]->trackID) {
             return i;
         }
     }
@@ -123,8 +123,8 @@ static int getFreeAudioTrack(const InEncodeVideoParam* pParams) {
 }
 
 static int getSubTrackIdx(const InEncodeVideoParam *pParams, int iTrack) {
-    for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
-        if (iTrack == pParams->ppSubtitleSelectList[i]->trackID) {
+    for (int i = 0; i < pParams->common.nSubtitleSelectCount; i++) {
+        if (iTrack == pParams->common.ppSubtitleSelectList[i]->trackID) {
             return i;
         }
     }
@@ -132,8 +132,8 @@ static int getSubTrackIdx(const InEncodeVideoParam *pParams, int iTrack) {
 }
 
 static int getDataTrackIdx(const InEncodeVideoParam *pParams, int iTrack) {
-    for (int i = 0; i < pParams->nDataSelectCount; i++) {
-        if (iTrack == pParams->ppDataSelectList[i]->trackID) {
+    for (int i = 0; i < pParams->common.nDataSelectCount; i++) {
+        if (iTrack == pParams->common.ppDataSelectList[i]->trackID) {
             return i;
         }
     }
@@ -227,12 +227,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("input")) {
         i++;
-        pParams->inputFilename = strInput[i];
+        pParams->common.inputFilename = strInput[i];
         return 0;
     }
     if (IS_OPTION("output")) {
         i++;
-        pParams->outputFilename = strInput[i];
+        pParams->common.outputFilename = strInput[i];
         return 0;
     }
     if (IS_OPTION("fps")) {
@@ -375,7 +375,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("input-analyze requires non-negative value."), option_name, strInput[i]);
             return 1;
         } else {
-            pParams->nAVDemuxAnalyzeSec = (int)((std::min)(value, USHRT_MAX));
+            pParams->common.nAVDemuxAnalyzeSec = (int)((std::min)(value, USHRT_MAX));
         }
         return 0;
     }
@@ -390,7 +390,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->nVideoTrack = v;
+        pParams->common.nVideoTrack = v;
         return 0;
     }
     if (IS_OPTION("video-streamid")) {
@@ -400,12 +400,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->nVideoStreamId = v;
+        pParams->common.nVideoStreamId = v;
         return 0;
     }
     if (IS_OPTION("video-tag")) {
         i++;
-        pParams->videoCodecTag = tchar_to_string(strInput[i]);
+        pParams->common.videoCodecTag = tchar_to_string(strInput[i]);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("trim"))) {
@@ -433,9 +433,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     trim_list.erase(trim_list.begin() + j+1);
                 }
             }
-            pParams->nTrimCount = (int)trim_list.size();
-            pParams->pTrimList = (sTrim *)malloc(sizeof(pParams->pTrimList[0]) * trim_list.size());
-            memcpy(pParams->pTrimList, &trim_list[0], sizeof(pParams->pTrimList[0]) * trim_list.size());
+            pParams->common.nTrimCount = (int)trim_list.size();
+            pParams->common.pTrimList = (sTrim *)malloc(sizeof(pParams->common.pTrimList[0]) * trim_list.size());
+            memcpy(pParams->common.pTrimList, &trim_list[0], sizeof(pParams->common.pTrimList[0]) * trim_list.size());
         }
         return 0;
     }
@@ -469,18 +469,18 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->fSeekSec = sec + mm * 60;
+        pParams->common.fSeekSec = sec + mm * 60;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-source"))) {
         i++;
-        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        pParams->common.nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         size_t audioSourceLen = _tcslen(strInput[i]) + 1;
         TCHAR *pAudioSource = (TCHAR *)malloc(sizeof(strInput[i][0]) * audioSourceLen);
         memcpy(pAudioSource, strInput[i], sizeof(strInput[i][0]) * audioSourceLen);
-        pParams->ppAudioSourceList = (TCHAR **)realloc(pParams->ppAudioSourceList, sizeof(pParams->ppAudioSourceList[0]) * (pParams->nAudioSourceCount + 1));
-        pParams->ppAudioSourceList[pParams->nAudioSourceCount] = pAudioSource;
-        pParams->nAudioSourceCount++;
+        pParams->common.ppAudioSourceList = (TCHAR **)realloc(pParams->common.ppAudioSourceList, sizeof(pParams->common.ppAudioSourceList[0]) * (pParams->common.nAudioSourceCount + 1));
+        pParams->common.ppAudioSourceList[pParams->common.nAudioSourceCount] = pAudioSource;
+        pParams->common.nAudioSourceCount++;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-file"))) {
@@ -493,12 +493,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             //トラック番号を適当に発番する (カウントは1から)
             trackId = argData->nParsedAudioFile+1;
             audioIdx = getAudioTrackIdx(pParams, trackId);
-            if (audioIdx < 0 || pParams->ppAudioSelectList[audioIdx]->extractFilename.length() > 0) {
+            if (audioIdx < 0 || pParams->common.ppAudioSelectList[audioIdx]->extractFilename.length() > 0) {
                 trackId = getFreeAudioTrack(pParams);
                 pAudioSelect = new AudioSelect();
                 pAudioSelect->trackID = trackId;
             } else {
-                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+                pAudioSelect = pParams->common.ppAudioSelectList[audioIdx];
             }
         } else if (i <= 0) {
             //トラック番号は1から連番で指定
@@ -510,7 +510,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 pAudioSelect = new AudioSelect();
                 pAudioSelect->trackID = trackId;
             } else {
-                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+                pAudioSelect = pParams->common.ppAudioSelectList[audioIdx];
             }
             ptr = _tcschr(ptr, '?') + 1;
         }
@@ -527,22 +527,22 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             ptr++;
         }
         //ファイル名が重複していないかを確認する
-        for (int j = 0; j < pParams->nAudioSelectCount; j++) {
-            if (pParams->ppAudioSelectList[j]->extractFilename.length() > 0
-                && 0 == _tcsicmp(pParams->ppAudioSelectList[j]->extractFilename.c_str(), ptr)) {
+        for (int j = 0; j < pParams->common.nAudioSelectCount; j++) {
+            if (pParams->common.ppAudioSelectList[j]->extractFilename.length() > 0
+                && 0 == _tcsicmp(pParams->common.ppAudioSelectList[j]->extractFilename.c_str(), ptr)) {
                 SET_ERR(strInput[0], _T("Same output file name is used more than twice"), option_name, nullptr);
                 return 1;
             }
         }
 
         if (audioIdx < 0) {
-            audioIdx = pParams->nAudioSelectCount;
+            audioIdx = pParams->common.nAudioSelectCount;
             //新たに要素を追加
-            pParams->ppAudioSelectList = (AudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
-            pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
-            pParams->nAudioSelectCount++;
+            pParams->common.ppAudioSelectList = (AudioSelect **)realloc(pParams->common.ppAudioSelectList, sizeof(pParams->common.ppAudioSelectList[0]) * (pParams->common.nAudioSelectCount + 1));
+            pParams->common.ppAudioSelectList[pParams->common.nAudioSelectCount] = pAudioSelect;
+            pParams->common.nAudioSelectCount++;
         }
-        pParams->ppAudioSelectList[audioIdx]->extractFilename = ptr;
+        pParams->common.ppAudioSelectList[audioIdx]->extractFilename = ptr;
         argData->nParsedAudioFile++;
         return 0;
     }
@@ -550,9 +550,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         || 0 == _tcscmp(option_name, _T("output-format"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
-            pParams->sAVMuxOutputFormat = strInput[i];
+            pParams->common.sAVMuxOutputFormat = strInput[i];
             if (0 != _tcsicmp(strInput[i], _T("raw"))) {
-                pParams->nAVMux |= RGY_MUX_VIDEO;
+                pParams->common.nAVMux |= RGY_MUX_VIDEO;
             }
         }
         return 0;
@@ -560,7 +560,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     if (0 == _tcscmp(option_name, _T("input-format"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
-            pParams->pAVInputFormat = _tcsdup(strInput[i]);
+            pParams->common.pAVInputFormat = _tcsdup(strInput[i]);
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
@@ -591,9 +591,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 //もし、trackID=0以外の指定であれば、
                 //これまでalltrackに指定されたパラメータを探して引き継ぐ
                 AudioSelect *pAudioSelectAll = nullptr;
-                for (int itrack = 0; itrack < pParams->nAudioSelectCount; itrack++) {
-                    if (pParams->ppAudioSelectList[itrack]->trackID == 0) {
-                        pAudioSelectAll = pParams->ppAudioSelectList[itrack];
+                for (int itrack = 0; itrack < pParams->common.nAudioSelectCount; itrack++) {
+                    if (pParams->common.ppAudioSelectList[itrack]->trackID == 0) {
+                        pAudioSelectAll = pParams->common.ppAudioSelectList[itrack];
                     }
                 }
                 if (pAudioSelectAll) {
@@ -602,21 +602,21 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             }
             pAudioSelect->trackID = trackId;
         } else {
-            pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+            pAudioSelect = pParams->common.ppAudioSelectList[audioIdx];
         }
         func_set(pAudioSelect, trackId, ptr);
         if (trackId == 0) {
-            for (int itrack = 0; itrack < pParams->nAudioSelectCount; itrack++) {
-                func_set(pParams->ppAudioSelectList[itrack], trackId, ptr);
+            for (int itrack = 0; itrack < pParams->common.nAudioSelectCount; itrack++) {
+                func_set(pParams->common.ppAudioSelectList[itrack], trackId, ptr);
             }
         }
 
         if (audioIdx < 0) {
-            audioIdx = pParams->nAudioSelectCount;
+            audioIdx = pParams->common.nAudioSelectCount;
             //新たに要素を追加
-            pParams->ppAudioSelectList = (AudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
-            pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
-            pParams->nAudioSelectCount++;
+            pParams->common.ppAudioSelectList = (AudioSelect **)realloc(pParams->common.ppAudioSelectList, sizeof(pParams->common.ppAudioSelectList[0]) * (pParams->common.nAudioSelectCount + 1));
+            pParams->common.ppAudioSelectList[pParams->common.nAudioSelectCount] = pAudioSelect;
+            pParams->common.nAudioSelectCount++;
         }
         return 0;
     };
@@ -643,9 +643,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 //もし、trackID=0以外の指定であれば、
                 //これまでalltrackに指定されたパラメータを探して引き継ぐ
                 SubtitleSelect *pSubSelectAll = nullptr;
-                for (int itrack = 0; itrack < pParams->nSubtitleSelectCount; itrack++) {
-                    if (pParams->ppSubtitleSelectList[itrack]->trackID == 0) {
-                        pSubSelectAll = pParams->ppSubtitleSelectList[itrack];
+                for (int itrack = 0; itrack < pParams->common.nSubtitleSelectCount; itrack++) {
+                    if (pParams->common.ppSubtitleSelectList[itrack]->trackID == 0) {
+                        pSubSelectAll = pParams->common.ppSubtitleSelectList[itrack];
                     }
                 }
                 if (pSubSelectAll) {
@@ -654,27 +654,27 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             }
             pSubSelect->trackID = trackId;
         } else {
-            pSubSelect = pParams->ppSubtitleSelectList[subIdx];
+            pSubSelect = pParams->common.ppSubtitleSelectList[subIdx];
         }
         func_set(pSubSelect, trackId, ptr);
         if (trackId == 0) {
-            for (int itrack = 0; itrack < pParams->nSubtitleSelectCount; itrack++) {
-                func_set(pParams->ppSubtitleSelectList[itrack], trackId, ptr);
+            for (int itrack = 0; itrack < pParams->common.nSubtitleSelectCount; itrack++) {
+                func_set(pParams->common.ppSubtitleSelectList[itrack], trackId, ptr);
             }
         }
 
         if (subIdx < 0) {
-            subIdx = pParams->nSubtitleSelectCount;
+            subIdx = pParams->common.nSubtitleSelectCount;
             //新たに要素を追加
-            pParams->ppSubtitleSelectList = (SubtitleSelect **)realloc(pParams->ppSubtitleSelectList, sizeof(pParams->ppSubtitleSelectList[0]) * (pParams->nSubtitleSelectCount + 1));
-            pParams->ppSubtitleSelectList[pParams->nSubtitleSelectCount] = pSubSelect;
-            pParams->nSubtitleSelectCount++;
+            pParams->common.ppSubtitleSelectList = (SubtitleSelect **)realloc(pParams->common.ppSubtitleSelectList, sizeof(pParams->common.ppSubtitleSelectList[0]) * (pParams->common.nSubtitleSelectCount + 1));
+            pParams->common.ppSubtitleSelectList[pParams->common.nSubtitleSelectCount] = pSubSelect;
+            pParams->common.nSubtitleSelectCount++;
         }
         return 0;
     };
     if (0 == _tcscmp(option_name, _T("audio-copy"))
         || 0 == _tcscmp(option_name, _T("copy-audio"))) {
-        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        pParams->common.nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         std::set<int> trackSet; //重複しないよう、setを使う
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
@@ -700,23 +700,23 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 pAudioSelect = new AudioSelect();
                 pAudioSelect->trackID = trackId;
             } else {
-                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+                pAudioSelect = pParams->common.ppAudioSelectList[audioIdx];
             }
             pAudioSelect->encCodec = RGY_AVCODEC_COPY;
 
             if (audioIdx < 0) {
-                audioIdx = pParams->nAudioSelectCount;
+                audioIdx = pParams->common.nAudioSelectCount;
                 //新たに要素を追加
-                pParams->ppAudioSelectList = (AudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
-                pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
-                pParams->nAudioSelectCount++;
+                pParams->common.ppAudioSelectList = (AudioSelect **)realloc(pParams->common.ppAudioSelectList, sizeof(pParams->common.ppAudioSelectList[0]) * (pParams->common.nAudioSelectCount + 1));
+                pParams->common.ppAudioSelectList[pParams->common.nAudioSelectCount] = pAudioSelect;
+                pParams->common.nAudioSelectCount++;
             }
             argData->nParsedAudioCopy++;
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-codec"))) {
-        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        pParams->common.nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
             if (trackId != 0 || pAudioSelect->encCodec.length() == 0) {
                 if (prmstr == nullptr) {
@@ -742,7 +742,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-profile"))) {
-        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        pParams->common.nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
             if (trackId != 0 || pAudioSelect->encCodecProfile.length() == 0) {
                 pAudioSelect->encCodecProfile = prmstr;
@@ -774,7 +774,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->nAudioIgnoreDecodeError = value;
+        pParams->common.nAudioIgnoreDecodeError = value;
         return 0;
     }
     //互換性のため残す
@@ -798,9 +798,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int v = 0;
         if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_resampler, strInput[i]))) {
-            pParams->nAudioResampler = v;
+            pParams->common.nAudioResampler = v;
         } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_resampler) - 1) {
-            pParams->nAudioResampler = v;
+            pParams->common.nAudioResampler = v;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
@@ -866,13 +866,13 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
 #endif //#if ENABLE_AVCODEC_QSV_READER
     if (   0 == _tcscmp(option_name, _T("chapter-copy"))
         || 0 == _tcscmp(option_name, _T("copy-chapter"))) {
-        pParams->bCopyChapter = TRUE;
+        pParams->common.bCopyChapter = TRUE;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("chapter"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
-            pParams->sChapterFile = strInput[i];
+            pParams->common.sChapterFile = strInput[i];
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i+1]);
             return 1;
@@ -880,13 +880,13 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
     if (IS_OPTION("key-on-chapter")) {
-        pParams->keyOnChapter = true;
+        pParams->common.keyOnChapter = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("keyfile"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
-            pParams->keyFile = strInput[i];
+            pParams->common.keyFile = strInput[i];
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i+1]);
             return 1;
@@ -896,7 +896,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
 #if ENABLE_AVSW_READER
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
-        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
+        pParams->common.nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         std::map<int, SubtitleSelect> trackSet; //重複しないように
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
@@ -933,22 +933,22 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (subIdx < 0) {
                 pSubtitleSelect = new SubtitleSelect();
             } else {
-                pSubtitleSelect = pParams->ppSubtitleSelectList[subIdx];
+                pSubtitleSelect = pParams->common.ppSubtitleSelectList[subIdx];
             }
             pSubtitleSelect[0] = it->second;
 
             if (subIdx < 0) {
-                subIdx = pParams->nSubtitleSelectCount;
+                subIdx = pParams->common.nSubtitleSelectCount;
                 //新たに要素を追加
-                pParams->ppSubtitleSelectList = (SubtitleSelect **)realloc(pParams->ppSubtitleSelectList, sizeof(pParams->ppSubtitleSelectList[0]) * (pParams->nSubtitleSelectCount + 1));
-                pParams->ppSubtitleSelectList[pParams->nSubtitleSelectCount] = pSubtitleSelect;
-                pParams->nSubtitleSelectCount++;
+                pParams->common.ppSubtitleSelectList = (SubtitleSelect **)realloc(pParams->common.ppSubtitleSelectList, sizeof(pParams->common.ppSubtitleSelectList[0]) * (pParams->common.nSubtitleSelectCount + 1));
+                pParams->common.ppSubtitleSelectList[pParams->common.nSubtitleSelectCount] = pSubtitleSelect;
+                pParams->common.nSubtitleSelectCount++;
             }
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("sub-codec"))) {
-        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        pParams->common.nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         auto ret = set_sub_prm([](SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr) {
             if (trackId != 0 || pSubSelect->encCodec.length() == 0) {
                 if (prmstr == nullptr) {
@@ -978,22 +978,22 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             i++;
             C2AFormat format = FORMAT_INVALID;
             if (PARSE_ERROR_FLAG != (format = (C2AFormat)get_value_from_chr(list_caption2ass, strInput[i]))) {
-                pParams->caption2ass = format;
+                pParams->common.caption2ass = format;
             } else {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return 1;
             }
         } else {
-            pParams->caption2ass = FORMAT_SRT;
+            pParams->common.caption2ass = FORMAT_SRT;
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-caption2ass"))) {
-        pParams->caption2ass = FORMAT_INVALID;
+        pParams->common.caption2ass = FORMAT_INVALID;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("data-copy"))) {
-        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
+        pParams->common.nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         std::map<int, DataSelect> trackSet; //重複しないように
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
@@ -1018,16 +1018,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (dataIdx < 0) {
                 pDataSelect = new DataSelect();
             } else {
-                pDataSelect = pParams->ppDataSelectList[dataIdx];
+                pDataSelect = pParams->common.ppDataSelectList[dataIdx];
             }
             pDataSelect[0] = it->second;
 
             if (dataIdx < 0) {
-                dataIdx = pParams->nDataSelectCount;
+                dataIdx = pParams->common.nDataSelectCount;
                 //新たに要素を追加
-                pParams->ppDataSelectList = (DataSelect **)realloc(pParams->ppDataSelectList, sizeof(pParams->ppDataSelectList[0]) * (pParams->nDataSelectCount + 1));
-                pParams->ppDataSelectList[pParams->nDataSelectCount] = pDataSelect;
-                pParams->nDataSelectCount++;
+                pParams->common.ppDataSelectList = (DataSelect **)realloc(pParams->common.ppDataSelectList, sizeof(pParams->common.ppDataSelectList[0]) * (pParams->common.nDataSelectCount + 1));
+                pParams->common.ppDataSelectList[pParams->common.nDataSelectCount] = pDataSelect;
+                pParams->common.nDataSelectCount++;
             }
         }
         return 0;
@@ -1037,7 +1037,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int value = 0;
         i++;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avsync, strInput[i]))) {
-            pParams->nAVSyncMode = (RGYAVSync)value;
+            pParams->common.nAVSyncMode = (RGYAVSync)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
@@ -1052,10 +1052,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 SET_ERR(strInput[0], _T("invalid value"), option_name, nullptr);
                 return 1;
             } else {
-                if (pParams->pMuxOpt == nullptr) {
-                    pParams->pMuxOpt = new muxOptList();
+                if (pParams->common.pMuxOpt == nullptr) {
+                    pParams->common.pMuxOpt = new muxOptList();
                 }
-                pParams->pMuxOpt->push_back(std::make_pair<tstring, tstring>(tstring(strInput[i]).substr(0, ptr - strInput[i]), tstring(ptr+1)));
+                pParams->common.pMuxOpt->push_back(std::make_pair<tstring, tstring>(tstring(strInput[i]).substr(0, ptr - strInput[i]), tstring(ptr+1)));
             }
         } else {
             SET_ERR(strInput[0], _T("invalid option"), option_name, nullptr);
@@ -3371,17 +3371,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("max-cll")) {
         i++;
-        pParams->sMaxCll = tchar_to_string(strInput[i]);
+        pParams->common.sMaxCll = tchar_to_string(strInput[i]);
         return 0;
     }
     if (IS_OPTION("master-display")) {
         i++;
-        pParams->sMasterDisplay = tchar_to_string(strInput[i]);
+        pParams->common.sMasterDisplay = tchar_to_string(strInput[i]);
         return 0;
     }
     if (IS_OPTION("dhdr10-info")) {
         i++;
-        pParams->dynamicHdr10plusJson = strInput[i];
+        pParams->common.dynamicHdr10plusJson = strInput[i];
         return 0;
     }
     if (IS_OPTION("output-depth")) {
@@ -3504,33 +3504,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-    if (IS_OPTION("max-procfps")) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        if (value < 0) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return -0;
-        }
-        pParams->nProcSpeedLimit = (std::min)(value, INT_MAX);
-        if (get_list_value(list_cuda_schedule, _T("sync"), &value)) {
-            pParams->nCudaSchedule = value;
-        }
-        return 0;
-    }
     if (IS_OPTION("log")) {
         i++;
-        pParams->logfile = strInput[i];
+        pParams->ctrl.logfile = strInput[i];
         return 0;
     }
     if (IS_OPTION("log-level")) {
         i++;
         int value = 0;
         if (get_list_value(list_log_level, strInput[i], &value)) {
-            pParams->loglevel = value;
+            pParams->ctrl.loglevel = value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
@@ -3539,12 +3522,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("log-framelist")) {
         i++;
-        pParams->sFramePosListLog = strInput[i];
+        pParams->ctrl.sFramePosListLog = strInput[i];
         return 0;
     }
     if (IS_OPTION("log-mux-ts")) {
         i++;
-        pParams->pMuxVidTsLogFile = _tcsdup(strInput[i]);
+        pParams->ctrl.pMuxVidTsLogFile = _tcsdup(strInput[i]);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("output-buf"))) {
@@ -3558,7 +3541,24 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->nOutputBufSizeMB = (std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
+        pParams->common.nOutputBufSizeMB = (std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
+        return 0;
+    }
+    if (IS_OPTION("max-procfps")) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        if (value < 0) {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return -0;
+        }
+        pParams->ctrl.nProcSpeedLimit = (std::min)(value, INT_MAX);
+        if (get_list_value(list_cuda_schedule, _T("sync"), &value)) {
+            pParams->nCudaSchedule = value;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("input-thread"))
@@ -3573,11 +3573,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->nInputThread = (int8_t)value;
+        pParams->ctrl.nInputThread = (int8_t)value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
-        pParams->nOutputThread = 0;
+        pParams->ctrl.nOutputThread = 0;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("output-thread"))
@@ -3592,7 +3592,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->nOutputThread = value;
+        pParams->ctrl.nOutputThread = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-thread"))
@@ -3607,7 +3607,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->nAudioThread = value;
+        pParams->ctrl.nAudioThread = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("thread-csp"))) {
@@ -3621,37 +3621,23 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->threadCsp = value;
+        pParams->ctrl.threadCsp = value;
         return 0;
     }
     if (IS_OPTION("simd-csp")) {
         i++;
         int value = 0;
         if (get_list_value(list_simd, strInput[i], &value)) {
-            pParams->simdCsp = value;
+            pParams->ctrl.simdCsp = value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("max-procfps"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        if (value < 0) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->nProcSpeedLimit = (uint16_t)(std::min)(value, (int)UINT16_MAX);
-        return 0;
-    }
     if (0 == _tcscmp(option_name, _T("perf-monitor"))) {
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
-            pParams->nPerfMonitorSelect = (int)PERF_MONITOR_ALL;
+            pParams->ctrl.nPerfMonitorSelect = (int)PERF_MONITOR_ALL;
         } else {
             i++;
             auto items = split(strInput[i], _T(","));
@@ -3661,7 +3647,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     SET_ERR(strInput[0], _T("Unknown value"), option_name, item.c_str());
                     return 1;
                 }
-                pParams->nPerfMonitorSelect |= value;
+                pParams->ctrl.nPerfMonitorSelect |= value;
             }
         }
         return 0;
@@ -3673,7 +3659,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->nPerfMonitorInterval = std::max(50, v);
+        pParams->ctrl.nPerfMonitorInterval = std::max(50, v);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("session-retry"))) {
@@ -3831,8 +3817,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_NUM(_T("-d"), deviceID);
     cmd << _T(" -c ") << get_chr_from_value(list_nvenc_codecs_for_opt, pParams->codec);
-    OPT_STR_PATH(_T("-i"), inputFilename);
-    OPT_STR_PATH(_T("-o"), outputFilename);
+    OPT_STR_PATH(_T("-i"), common.inputFilename);
+    OPT_STR_PATH(_T("-o"), common.outputFilename);
     if ((pParams->preset) != (encPrmDefault.preset)) cmd << _T(" -u ") << get_name_from_value(pParams->preset, list_nvenc_preset_names);
     switch (pParams->input.type) {
     case RGY_INPUT_FMT_RAW:    cmd << _T(" --raw"); break;
@@ -3954,9 +3940,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_HEVC(_T("--colorprim"), _T(":hevc"), hevcVUIParameters.colourPrimaries, list_colorprim);
         OPT_LST_HEVC(_T("--chromaloc"), _T(":hevc"), hevcVUIParameters.chromaSampleLocationTop, list_chromaloc);
         OPT_LST_HEVC(_T("--transfer"), _T(":hevc"), hevcVUIParameters.transferCharacteristics, list_transfer);
-        OPT_STR(_T("--max-cll"), sMaxCll);
-        OPT_STR(_T("--master-display"), sMasterDisplay);
-        OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
+        OPT_STR(_T("--max-cll"), common.sMaxCll);
+        OPT_STR(_T("--master-display"), common.sMasterDisplay);
+        OPT_TSTR(_T("--dhdr10-info"), common.dynamicHdr10plusJson);
         OPT_LST_HEVC(_T("--cu-max"), _T(""), maxCUSize, list_hevc_cu_size);
         OPT_LST_HEVC(_T("--cu-min"), _T(""), minCUSize, list_hevc_cu_size);
     }
@@ -3985,28 +3971,28 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     std::basic_stringstream<TCHAR> tmp;
 #if ENABLE_AVSW_READER
-    OPT_NUM(_T("--input-analyze"), nAVDemuxAnalyzeSec);
-    if (pParams->nTrimCount > 0) {
+    OPT_NUM(_T("--input-analyze"), common.nAVDemuxAnalyzeSec);
+    if (pParams->common.nTrimCount > 0) {
         cmd << _T(" --trim ");
-        for (int i = 0; i < pParams->nTrimCount; i++) {
+        for (int i = 0; i < pParams->common.nTrimCount; i++) {
             if (i > 0) cmd << _T(",");
-            cmd << pParams->pTrimList[i].start << _T(":") << pParams->pTrimList[i].fin;
+            cmd << pParams->common.pTrimList[i].start << _T(":") << pParams->common.pTrimList[i].fin;
         }
     }
-    OPT_FLOAT(_T("--seek"), fSeekSec, 2);
-    OPT_TCHAR(_T("--input-format"), pAVInputFormat);
-    OPT_TSTR(_T("--output-format"), sAVMuxOutputFormat);
-    OPT_STR(_T("--video-tag"), videoCodecTag);
-    OPT_NUM(_T("--video-track"), nVideoTrack);
-    OPT_NUM(_T("--video-streamid"), nVideoStreamId);
-    if (pParams->pMuxOpt) {
-        for (uint32_t i = 0; i < pParams->pMuxOpt->size(); i++) {
-            cmd << _T(" -m ") << pParams->pMuxOpt->at(i).first << _T(":") << pParams->pMuxOpt->at(i).second;
+    OPT_FLOAT(_T("--seek"), common.fSeekSec, 2);
+    OPT_TCHAR(_T("--input-format"), common.pAVInputFormat);
+    OPT_TSTR(_T("--output-format"), common.sAVMuxOutputFormat);
+    OPT_STR(_T("--video-tag"), common.videoCodecTag);
+    OPT_NUM(_T("--video-track"), common.nVideoTrack);
+    OPT_NUM(_T("--video-streamid"), common.nVideoStreamId);
+    if (pParams->common.pMuxOpt) {
+        for (uint32_t i = 0; i < pParams->common.pMuxOpt->size(); i++) {
+            cmd << _T(" -m ") << pParams->common.pMuxOpt->at(i).first << _T(":") << pParams->common.pMuxOpt->at(i).second;
         }
     }
     tmp.str(tstring());
-    for (uint32_t i = 0; i < pParams->nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
         if (pAudioSelect->encCodec == RGY_AVCODEC_COPY) {
             if (pAudioSelect->trackID == 0) {
                 tmp << _T(","); // --audio-copy のみの指定 (トラックIDを省略)
@@ -4020,8 +4006,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     }
     tmp.str(tstring());
 
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY) {
             cmd << _T(" --audio-codec ") << pAudioSelect->trackID;
             if (pAudioSelect->encCodec != RGY_AVCODEC_AUTO) {
@@ -4033,25 +4019,25 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
     }
 
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->encCodecProfile.length() > 0) {
             cmd << _T(" --audio-profile ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encCodecProfile;
         }
     }
 
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->encBitrate > 0) {
             cmd << _T(" --audio-bitrate ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encBitrate;
         }
     }
 
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
         tmp.str(tstring());
-        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
         for (int j = 0; j < MAX_SPLIT_CHANNELS; j++) {
             if (pAudioSelect->pnStreamChannelSelect[j] == 0) {
                 break;
@@ -4075,24 +4061,24 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     }
     tmp.str(tstring());
 
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->encSamplingRate > 0) {
             cmd << _T(" --audio-samplerate ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encSamplingRate;
         }
     }
-    OPT_LST(_T("--audio-resampler"), nAudioResampler, list_resampler);
+    OPT_LST(_T("--audio-resampler"), common.nAudioResampler, list_resampler);
 
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->filter.length() > 0) {
             cmd << _T(" --audio-filter ") << pAudioSelect->trackID << _T("?") << pAudioSelect->filter;
         }
     }
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
         if (pAudioSelect->extractFilename.length() > 0) {
             cmd << _T(" --audio-file ") << pAudioSelect->trackID << _T("?");
             if (pAudioSelect->extractFormat.length() > 0) {
@@ -4101,20 +4087,20 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T("\"") << pAudioSelect->extractFilename << _T("\"");
         }
     }
-    for (int i = 0; i < pParams->nAudioSourceCount; i++) {
-        cmd << _T(" --audio-source ") << _T("\"") << pParams->ppAudioSourceList[i] << _T("\"");
+    for (int i = 0; i < pParams->common.nAudioSourceCount; i++) {
+        cmd << _T(" --audio-source ") << _T("\"") << pParams->common.ppAudioSourceList[i] << _T("\"");
     }
-    OPT_NUM(_T("--audio-ignore-decode-error"), nAudioIgnoreDecodeError);
-    if (pParams->pMuxOpt) {
-        for (uint32_t i = 0; i < pParams->pMuxOpt->size(); i++) {
-            cmd << _T(" -m ") << (*pParams->pMuxOpt)[i].first << _T(":") << (*pParams->pMuxOpt)[i].second;
+    OPT_NUM(_T("--audio-ignore-decode-error"), common.nAudioIgnoreDecodeError);
+    if (pParams->common.pMuxOpt) {
+        for (uint32_t i = 0; i < pParams->common.pMuxOpt->size(); i++) {
+            cmd << _T(" -m ") << (*pParams->common.pMuxOpt)[i].first << _T(":") << (*pParams->common.pMuxOpt)[i].second;
         }
     }
 
     tmp.str(tstring());
-    for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
-        tmp << _T(",") << pParams->ppSubtitleSelectList[i]->trackID;
-        if (pParams->ppSubtitleSelectList[i]->asdata) {
+    for (int i = 0; i < pParams->common.nSubtitleSelectCount; i++) {
+        tmp << _T(",") << pParams->common.ppSubtitleSelectList[i]->trackID;
+        if (pParams->common.ppSubtitleSelectList[i]->asdata) {
             tmp << _T("?asdata");
         }
     }
@@ -4122,23 +4108,23 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         cmd << _T(" --sub-copy ") << tmp.str().substr(1);
     }
     tmp.str(tstring());
-    OPT_LST(_T("--caption2ass"), caption2ass, list_caption2ass);
+    OPT_LST(_T("--caption2ass"), common.caption2ass, list_caption2ass);
 
     tmp.str(tstring());
-    for (int i = 0; i < pParams->nDataSelectCount; i++) {
-        tmp << _T(",") << pParams->ppDataSelectList[i]->trackID;
+    for (int i = 0; i < pParams->common.nDataSelectCount; i++) {
+        tmp << _T(",") << pParams->common.ppDataSelectList[i]->trackID;
     }
     if (!tmp.str().empty()) {
         cmd << _T(" --data-copy ") << tmp.str().substr(1);
     }
     tmp.str(tstring());
 
-    OPT_STR_PATH(_T("--chapter"), sChapterFile);
-    OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
+    OPT_STR_PATH(_T("--chapter"), common.sChapterFile);
+    OPT_BOOL(_T("--chapter-copy"), _T(""), common.bCopyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);
-    OPT_BOOL(_T("--key-on-chapter"), _T(""), keyOnChapter);
-    OPT_STR_PATH(_T("--keyfile"), keyFile);
-    OPT_LST(_T("--avsync"), nAVSyncMode, list_avsync);
+    OPT_BOOL(_T("--key-on-chapter"), _T(""), common.keyOnChapter);
+    OPT_STR_PATH(_T("--keyfile"), common.keyFile);
+    OPT_LST(_T("--avsync"), common.nAVSyncMode, list_avsync);
 #endif //#if ENABLE_AVSW_READER
 
     OPT_LST(_T("--vpp-deinterlace"), vpp.deinterlace, list_deinterlace);
@@ -4483,19 +4469,21 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --gpu-select ") << tmp.str().substr(1);
         }
     }
-    OPT_NUM(_T("--output-buf"), nOutputBufSizeMB);
-    OPT_NUM(_T("--thread-output"), nOutputThread);
-    OPT_NUM(_T("--thread-input"), nInputThread);
-    OPT_NUM(_T("--thread-audio"), nAudioThread);
-    OPT_NUM(_T("--thread-csp"), threadCsp);
-    OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
-    OPT_NUM(_T("--max-procfps"), nProcSpeedLimit);
-    OPT_STR_PATH(_T("--log"), logfile);
-    OPT_LST(_T("--log-level"), loglevel, list_log_level);
-    OPT_STR_PATH(_T("--log-framelist"), sFramePosListLog);
-    OPT_CHAR_PATH(_T("--log-mux-ts"), pMuxVidTsLogFile);
-    if (pParams->nPerfMonitorSelect != encPrmDefault.nPerfMonitorSelect) {
-        auto select = (int)pParams->nPerfMonitorSelect;
+    OPT_NUM(_T("--session-retry"), sessionRetry);
+
+    OPT_NUM(_T("--output-buf"), common.nOutputBufSizeMB);
+    OPT_NUM(_T("--thread-output"), ctrl.nOutputThread);
+    OPT_NUM(_T("--thread-input"), ctrl.nInputThread);
+    OPT_NUM(_T("--thread-audio"), ctrl.nAudioThread);
+    OPT_NUM(_T("--thread-csp"), ctrl.threadCsp);
+    OPT_LST(_T("--simd-csp"), ctrl.simdCsp, list_simd);
+    OPT_NUM(_T("--max-procfps"), ctrl.nProcSpeedLimit);
+    OPT_STR_PATH(_T("--log"), ctrl.logfile);
+    OPT_LST(_T("--log-level"), ctrl.loglevel, list_log_level);
+    OPT_STR_PATH(_T("--log-framelist"), ctrl.sFramePosListLog);
+    OPT_CHAR_PATH(_T("--log-mux-ts"), ctrl.pMuxVidTsLogFile);
+    if (pParams->ctrl.nPerfMonitorSelect != encPrmDefault.ctrl.nPerfMonitorSelect) {
+        auto select = (int)pParams->ctrl.nPerfMonitorSelect;
         tmp.str(tstring());
         for (int i = 0; list_pref_monitor[i].desc; i++) {
             auto check = list_pref_monitor[i].value;
@@ -4510,8 +4498,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --perf-monitor ") << tmp.str().substr(1);
         }
     }
-    OPT_NUM(_T("--perf-monitor-interval"), nPerfMonitorInterval);
-    OPT_NUM(_T("--session-retry"), sessionRetry);
+    OPT_NUM(_T("--perf-monitor-interval"), ctrl.nPerfMonitorInterval);
     return cmd.str();
 }
 #pragma warning (pop)

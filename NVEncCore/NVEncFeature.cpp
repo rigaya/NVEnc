@@ -60,7 +60,7 @@ int NVEncFeature::createCache(int deviceID, int loglevel) {
         InEncodeVideoParam inputParam;
         inputParam.encConfig = DefaultParam();
         inputParam.deviceID = deviceID;
-        inputParam.loglevel = loglevel;
+        inputParam.ctrl.loglevel = loglevel;
         if (   NV_ENC_SUCCESS != m_pNVEncCore->Initialize(&inputParam)
             || NV_ENC_SUCCESS != m_pNVEncCore->InitDevice(&inputParam)) {
             SetEvent(m_hEvCreateCodecCache.get());

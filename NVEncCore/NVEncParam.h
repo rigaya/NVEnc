@@ -40,8 +40,8 @@
 #pragma warning (pop)
 #include "NVEncoderPerf.h"
 #include "rgy_util.h"
-#include "rgy_caption.h"
 #include "rgy_simd.h"
+#include "rgy_prm.h"
 #include "convert_csp.h"
 
 using std::vector;
@@ -124,9 +124,6 @@ static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_Y = 1;
 
 static const int MAX_DECODE_FRAMES = 16;
 
-static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
-static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
-
 static const int DEFAULT_GOP_LENGTH  = 0;
 static const int DEFAULT_B_FRAMES    = 3;
 static const int DEFAULT_REF_FRAMES  = 3;
@@ -138,11 +135,8 @@ static const int DEFAULT_AVG_BITRATE = 7500000;
 static const int DEFAULT_MAX_BITRATE = 17500000;
 static const int DEFAULT_OUTPUT_BUF  = 8;
 static const int DEFAULT_LOOKAHEAD   = 16;
-static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
 static const int DEFAULT_CUDA_SCHEDULE = CU_CTX_SCHED_AUTO;
-
-const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 
 static const int PIPELINE_DEPTH = 4;
 static const int MAX_FILTER_OUTPUT = 2;
@@ -1203,12 +1197,13 @@ struct VppParam {
 };
 
 struct InEncodeVideoParam {
-    VideoInfo input;              //入力する動画の情報
-    tstring inputFilename;        //入力ファイル名
-    tstring outputFilename;       //出力ファイル名
-    tstring sAVMuxOutputFormat;   //出力フォーマット
-    int preset;                   //出力プリセット
     int deviceID;                 //使用するGPUのID
+    int nCudaSchedule;
+    GPUAutoSelectMul gpuSelect;
+    int sessionRetry;
+
+    VideoInfo input;              //入力する動画の情報
+    int preset;                   //出力プリセット
     int nHWDecType;               //
     int par[2];                   //使用されていません
     NV_ENC_CONFIG encConfig;      //エンコード設定
@@ -1217,54 +1212,11 @@ struct InEncodeVideoParam {
     int bluray;                   //bluray出力
     int yuv444;                   //YUV444出力
     int lossless;                 //ロスレス出力
-    std::string sMaxCll;
-    std::string sMasterDisplay;
-    tstring dynamicHdr10plusJson;
-    std::string videoCodecTag;
-    tstring logfile;              //ログ出力先
-    int loglevel;                 //ログ出力レベル
-    int nOutputBufSizeMB;         //出力バッファサイズ
-    tstring sFramePosListLog;     //framePosList出力先
-    float fSeekSec;               //指定された秒数分先頭を飛ばす
-    int nSubtitleSelectCount;
-    SubtitleSelect **ppSubtitleSelectList;
-    int nAudioSourceCount;
-    TCHAR **ppAudioSourceList;
-    int nAudioSelectCount; //pAudioSelectの数
-    AudioSelect **ppAudioSelectList;
-    int        nDataSelectCount;
-    DataSelect **ppDataSelectList;
-    int nAudioResampler;
-    int nAVDemuxAnalyzeSec;
-    int nAVMux;                       //RGY_MUX_xxx
-    int nVideoTrack;
-    int nVideoStreamId;
-    int nTrimCount;
-    sTrim *pTrimList;
-    bool bCopyChapter;
-    bool keyOnChapter;
-    C2AFormat caption2ass;
-    int nOutputThread;
-    int nAudioThread;
-    int nInputThread;
-    int nAudioIgnoreDecodeError;
-    muxOptList *pMuxOpt;
-    tstring sChapterFile;
-    tstring keyFile;
-    TCHAR *pMuxVidTsLogFile;
-    TCHAR *pAVInputFormat;
-    RGYAVSync nAVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
-    int nProcSpeedLimit;      //処理速度制限 (0で制限なし)
-    VppParam vpp;                 //vpp
     int nWeightP;
-    int64_t nPerfMonitorSelect;
-    int64_t nPerfMonitorSelectMatplot;
-    int     nPerfMonitorInterval;
-    int     nCudaSchedule;
-    GPUAutoSelectMul gpuSelect;
-    int sessionRetry;
-    int threadCsp;
-    int simdCsp;
+
+    RGYParamCommon common;
+    RGYParamControl ctrl;
+    VppParam vpp;                 //vpp
 
     void *pPrivatePrm;
 

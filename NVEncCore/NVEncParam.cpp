@@ -978,12 +978,12 @@ NV_ENC_CONFIG DefaultParam() {
 }
 
 InEncodeVideoParam::InEncodeVideoParam() :
+    deviceID(0),
+    nCudaSchedule(DEFAULT_CUDA_SCHEDULE),
+    gpuSelect(),
+    sessionRetry(0),
     input(),
-    inputFilename(),
-    outputFilename(),
-    sAVMuxOutputFormat(),
     preset(0),
-    deviceID(-1),
     nHWDecType(0),
     par(),
     encConfig(),
@@ -992,53 +992,10 @@ InEncodeVideoParam::InEncodeVideoParam() :
     bluray(0),                   //bluray出力
     yuv444(0),                   //YUV444出力
     lossless(0),                 //ロスレス出力
-    sMaxCll(),
-    sMasterDisplay(),
-    dynamicHdr10plusJson(),
-    videoCodecTag(),
-    logfile(),              //ログ出力先
-    loglevel(RGY_LOG_INFO),                 //ログ出力レベル
-    nOutputBufSizeMB(DEFAULT_OUTPUT_BUF),         //出力バッファサイズ
-    sFramePosListLog(),     //framePosList出力先
-    fSeekSec(0.0f),               //指定された秒数分先頭を飛ばす
-    nSubtitleSelectCount(0),
-    ppSubtitleSelectList(nullptr),
-    nAudioSourceCount(0),
-    ppAudioSourceList(nullptr),
-    nAudioSelectCount(0), //pAudioSelectの数
-    ppAudioSelectList(nullptr),
-    nDataSelectCount(0),
-    ppDataSelectList(nullptr),
-    nAudioResampler(RGY_RESAMPLER_SWR),
-    nAVDemuxAnalyzeSec(0),
-    nAVMux(RGY_MUX_NONE),                       //RGY_MUX_xxx
-    nVideoTrack(0),
-    nVideoStreamId(0),
-    nTrimCount(0),
-    pTrimList(nullptr),
-    bCopyChapter(false),
-    keyOnChapter(false),
-    caption2ass(FORMAT_INVALID),
-    nOutputThread(RGY_OUTPUT_THREAD_AUTO),
-    nAudioThread(RGY_INPUT_THREAD_AUTO),
-    nInputThread(RGY_AUDIO_THREAD_AUTO),
-    nAudioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
-    pMuxOpt(nullptr),
-    sChapterFile(),
-    pMuxVidTsLogFile(nullptr),
-    pAVInputFormat(nullptr),
-    nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
-    nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
+    common(),
+    ctrl(),
     vpp(),
     nWeightP(0),
-    nPerfMonitorSelect(0),
-    nPerfMonitorSelectMatplot(0),
-    nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
-    nCudaSchedule(DEFAULT_CUDA_SCHEDULE),
-    gpuSelect(),
-    sessionRetry(0),
-    threadCsp(0),
-    simdCsp(-1),
     pPrivatePrm(nullptr) {
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));

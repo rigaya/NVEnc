@@ -1082,18 +1082,18 @@ int _tmain(int argc, TCHAR **argv) {
         return 1;
     }
     //オプションチェック
-    if (0 == encPrm.inputFilename.length()) {
+    if (0 == encPrm.common.inputFilename.length()) {
         _ftprintf(stderr, _T("Input file is not specified.\n"));
         return -1;
     }
-    if (0 == encPrm.outputFilename.length()) {
+    if (0 == encPrm.common.outputFilename.length()) {
         _ftprintf(stderr, _T("Output file is not specified.\n"));
         return -1;
     }
 
 #if defined(_WIN32) || defined(_WIN64)
     //set stdin to binary mode when using pipe input
-    if (_tcscmp(encPrm.inputFilename.c_str(), _T("-")) == NULL) {
+    if (_tcscmp(encPrm.common.inputFilename.c_str(), _T("-")) == NULL) {
         if (_setmode(_fileno(stdin), _O_BINARY) == 1) {
             PrintHelp(argv[0], _T("failed to switch stdin to binary mode."), _T(""), _T(""));
             return 1;
@@ -1101,7 +1101,7 @@ int _tmain(int argc, TCHAR **argv) {
     }
 
     //set stdout to binary mode when using pipe output
-    if (_tcscmp(encPrm.outputFilename.c_str(), _T("-")) == NULL) {
+    if (_tcscmp(encPrm.common.outputFilename.c_str(), _T("-")) == NULL) {
         if (_setmode(_fileno(stdout), _O_BINARY) == 1) {
             PrintHelp(argv[0], _T("failed to switch stdout to binary mode."), _T(""), _T(""));
             return 1;
