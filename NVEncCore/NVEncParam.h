@@ -380,18 +380,6 @@ const CX_DESC list_deinterlace[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_simd[] = {
-    { _T("auto"),     -1  },
-    { _T("none"),     NONE },
-    { _T("sse2"),     SSE2 },
-    { _T("sse3"),     SSE3|SSE2 },
-    { _T("ssse3"),    SSSE3|SSE3|SSE2 },
-    { _T("sse41"),    SSE41|SSSE3|SSE3|SSE2 },
-    { _T("avx"),      AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
-    { _T("avx2"),     AVX2|AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
-    { NULL, NULL }
-};
-
 static const int DYNAMIC_PARAM_NOT_SELECTED = -1;
 
 struct DynamicRCParam {

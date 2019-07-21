@@ -36,13 +36,6 @@
 tstring GetNVEncVersion();
 const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
 
-struct ParseCmdError {
-    tstring strAppName;
-    tstring strErrorMessage;
-    tstring strOptionName;
-    tstring strErrorValue;
-};
-
 int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nArgNum, const TCHAR **strInput, ParseCmdError& err, bool ignore_parse_err = false);
 int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const char *cmda, ParseCmdError& err, bool ignore_parse_err = false);
 

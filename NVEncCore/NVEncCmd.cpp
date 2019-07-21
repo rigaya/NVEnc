@@ -100,47 +100,7 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
     return option_name;
 }
 
-#define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
-
-static int getAudioTrackIdx(const InEncodeVideoParam* pParams, int iTrack) {
-    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
-        if (iTrack == pParams->common.ppAudioSelectList[i]->trackID) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static int getFreeAudioTrack(const InEncodeVideoParam* pParams) {
-    for (int iTrack = 1;; iTrack++) {
-        if (0 > getAudioTrackIdx(pParams, iTrack)) {
-            return iTrack;
-        }
-    }
-#ifndef _MSC_VER
-    return -1;
-#endif //_MSC_VER
-}
-
-static int getSubTrackIdx(const InEncodeVideoParam *pParams, int iTrack) {
-    for (int i = 0; i < pParams->common.nSubtitleSelectCount; i++) {
-        if (iTrack == pParams->common.ppSubtitleSelectList[i]->trackID) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static int getDataTrackIdx(const InEncodeVideoParam *pParams, int iTrack) {
-    for (int i = 0; i < pParams->common.nDataSelectCount; i++) {
-        if (iTrack == pParams->common.ppDataSelectList[i]->trackID) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-bool get_list_value(const CX_DESC * list, const TCHAR *chr, int *value) {
+bool get_list_guid_value(const guid_desc *list, const TCHAR *chr, int *value) {
     for (int i = 0; list[i].desc; i++) {
         if (0 == _tcsicmp(list[i].desc, chr)) {
             *value = list[i].value;
@@ -148,27 +108,6 @@ bool get_list_value(const CX_DESC * list, const TCHAR *chr, int *value) {
         }
     }
     return false;
-};
-bool get_list_guid_value(const guid_desc * list, const TCHAR *chr, int *value) {
-    for (int i = 0; list[i].desc; i++) {
-        if (0 == _tcsicmp(list[i].desc, chr)) {
-            *value = list[i].value;
-            return true;
-        }
-    }
-    return false;
-};
-
-struct sArgsData {
-    tstring cachedlevel, cachedprofile;
-    uint32_t nParsedAudioFile = 0;
-    uint32_t nParsedAudioEncode = 0;
-    uint32_t nParsedAudioCopy = 0;
-    uint32_t nParsedAudioBitrate = 0;
-    uint32_t nParsedAudioSamplerate = 0;
-    uint32_t nParsedAudioSplit = 0;
-    uint32_t nParsedAudioFilter = 0;
-    uint32_t nTmpInputBuf = 0;
 };
 
 int parse_qp(int a[3], const TCHAR *str) {
@@ -192,12 +131,6 @@ int parse_qp(int a[3], const TCHAR *str) {
 }
 
 int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, sArgsData *argData, ParseCmdError& err) {
-#define SET_ERR(app_name, errmes, opt_name, err_val) \
-    err.strAppName = (app_name) ? app_name : _T(""); \
-    err.strErrorMessage = (errmes) ? errmes : _T(""); \
-    err.strOptionName = (opt_name) ? opt_name : _T(""); \
-    err.strErrorValue = (err_val) ? err_val : _T("");
-
     if (IS_OPTION("device")) {
         int deviceid = -1;
         if (i + 1 < nArgNum) {
@@ -208,7 +141,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             }
         }
         if (deviceid < 0) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         pParams->deviceID = deviceid;
@@ -220,84 +153,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (value >= 0) {
             pParams->preset = value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("input")) {
-        i++;
-        pParams->common.inputFilename = strInput[i];
-        return 0;
-    }
-    if (IS_OPTION("output")) {
-        i++;
-        pParams->common.outputFilename = strInput[i];
-        return 0;
-    }
-    if (IS_OPTION("fps")) {
-        i++;
-        int a[2] = { 0 };
-        if (   2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            pParams->input.fpsN = a[0];
-            pParams->input.fpsD = a[1];
-        } else {
-            double d;
-            if (1 == _stscanf_s(strInput[i], _T("%lf"), &d)) {
-                int rate = (int)(d * 1001.0 + 0.5);
-                if (rate % 1000 == 0) {
-                    pParams->input.fpsN = rate;
-                    pParams->input.fpsD = 1001;
-                } else {
-                    pParams->input.fpsD = 100000;
-                    pParams->input.fpsN = (int)(d * pParams->input.fpsD + 0.5);
-                    rgy_reduce(pParams->input.fpsN, pParams->input.fpsD);
-                }
-            } else  {
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return -1;
-            }
-        }
-        return 0;
-    }
-    if (IS_OPTION("input-res")) {
-        i++;
-        int a[2] = { 0 };
-        if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            pParams->input.srcWidth  = a[0];
-            pParams->input.srcHeight = a[1];
-        } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("output-res")) {
-        i++;
-        int a[2] = { 0 };
-        if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            pParams->input.dstWidth  = a[0];
-            pParams->input.dstHeight = a[1];
-        } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("crop")) {
-        i++;
-        sInputCrop a = { 0 };
-        if (   4 == _stscanf_s(strInput[i], _T("%d,%d,%d,%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])
-            || 4 == _stscanf_s(strInput[i], _T("%d:%d:%d:%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])) {
-            memcpy(&pParams->input.crop, &a, sizeof(a));
-        } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -308,758 +164,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_nvenc_codecs_for_opt, strInput[i], &value)) {
             pParams->codec = value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("raw")) {
-        pParams->input.type = RGY_INPUT_FMT_RAW;
-        return 0;
-    }
-    if (IS_OPTION("y4m")) {
-        pParams->input.type = RGY_INPUT_FMT_Y4M;
-#if ENABLE_AVI_READER
-        return 0;
-    }
-    if (IS_OPTION("avi")) {
-        pParams->input.type = RGY_INPUT_FMT_AVI;
-#endif
-#if ENABLE_AVISYNTH_READER
-        return 0;
-    }
-    if (IS_OPTION("avs")) {
-        pParams->input.type = RGY_INPUT_FMT_AVS;
-#endif
-#if ENABLE_VAPOURSYNTH_READER
-        return 0;
-    }
-    if (IS_OPTION("vpy")) {
-        pParams->input.type = RGY_INPUT_FMT_VPY;
-        return 0;
-    }
-    if (IS_OPTION("vpy-mt")) {
-        pParams->input.type = RGY_INPUT_FMT_VPY_MT;
-#endif
-#if ENABLE_AVSW_READER
-        return 0;
-    }
-    if (IS_OPTION("avcuvid")
-        || IS_OPTION("avhw")) {
-        pParams->input.type = RGY_INPUT_FMT_AVHW;
-        if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
-            i++;
-            int value = 0;
-            if (get_list_value(list_cuvid_mode, strInput[i], &value)) {
-                pParams->nHWDecType = value;
-            } else {
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return -1;
-            }
-        }
-#endif
-        return 0;
-    }
-    if (IS_OPTION("avsw")) {
-        pParams->input.type = RGY_INPUT_FMT_AVSW;
-        return 0;
-    }
-    if (   IS_OPTION("input-analyze")
-        || IS_OPTION("avcuvid-analyze")) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        } else if (value < 0) {
-            SET_ERR(strInput[0], _T("input-analyze requires non-negative value."), option_name, strInput[i]);
-            return 1;
-        } else {
-            pParams->common.demuxAnalyzeSec = (int)((std::min)(value, USHRT_MAX));
-        }
-        return 0;
-    }
-    if (IS_OPTION("video-track")) {
-        i++;
-        int v = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        if (v == 0) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->common.videoTrack = v;
-        return 0;
-    }
-    if (IS_OPTION("video-streamid")) {
-        i++;
-        int v = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%i"), &v)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->common.videoStreamId = v;
-        return 0;
-    }
-    if (IS_OPTION("video-tag")) {
-        i++;
-        pParams->common.videoCodecTag = tchar_to_string(strInput[i]);
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("trim"))) {
-        i++;
-        auto trim_str_list = split(strInput[i], _T(","));
-        std::vector<sTrim> trim_list;
-        for (auto trim_str : trim_str_list) {
-            sTrim trim;
-            if (2 != _stscanf_s(trim_str.c_str(), _T("%d:%d"), &trim.start, &trim.fin) || (trim.fin > 0 && trim.fin < trim.start)) {
-                SET_ERR(strInput[0], _T("Invalid Value"), option_name, trim_str.c_str());
-                return 1;
-            }
-            if (trim.fin == 0) {
-                trim.fin = TRIM_MAX;
-            } else if (trim.fin < 0) {
-                trim.fin = trim.start - trim.fin - 1;
-            }
-            trim_list.push_back(trim);
-        }
-        if (trim_list.size()) {
-            std::sort(trim_list.begin(), trim_list.end(), [](const sTrim& trimA, const sTrim& trimB) { return trimA.start < trimB.start; });
-            for (int j = (int)trim_list.size() - 2; j >= 0; j--) {
-                if (trim_list[j].fin > trim_list[j+1].start) {
-                    trim_list[j].fin = trim_list[j+1].fin;
-                    trim_list.erase(trim_list.begin() + j+1);
-                }
-            }
-            pParams->common.nTrimCount = (int)trim_list.size();
-            pParams->common.pTrimList = (sTrim *)malloc(sizeof(pParams->common.pTrimList[0]) * trim_list.size());
-            memcpy(pParams->common.pTrimList, &trim_list[0], sizeof(pParams->common.pTrimList[0]) * trim_list.size());
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("seek"))) {
-        i++;
-        int ret = 0;
-        int hh = 0, mm = 0;
-        float sec = 0.0f;
-        if (   3 != (ret = _stscanf_s(strInput[i], _T("%d:%d:%f"),    &hh, &mm, &sec))
-            && 2 != (ret = _stscanf_s(strInput[i],    _T("%d:%f"),         &mm, &sec))
-            && 1 != (ret = _stscanf_s(strInput[i],       _T("%f"),              &sec))) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        if (ret <= 2) {
-            hh = 0;
-        }
-        if (ret <= 1) {
-            mm = 0;
-        }
-        if (hh < 0 || mm < 0 || sec < 0) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        if (hh > 0 && mm >= 60) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        mm += hh * 60;
-        if (mm > 0 && sec >= 60.0f) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->common.seekSec = sec + mm * 60;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("audio-source"))) {
-        i++;
-        pParams->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        size_t audioSourceLen = _tcslen(strInput[i]) + 1;
-        TCHAR *pAudioSource = (TCHAR *)malloc(sizeof(strInput[i][0]) * audioSourceLen);
-        memcpy(pAudioSource, strInput[i], sizeof(strInput[i][0]) * audioSourceLen);
-        pParams->common.ppAudioSourceList = (TCHAR **)realloc(pParams->common.ppAudioSourceList, sizeof(pParams->common.ppAudioSourceList[0]) * (pParams->common.nAudioSourceCount + 1));
-        pParams->common.ppAudioSourceList[pParams->common.nAudioSourceCount] = pAudioSource;
-        pParams->common.nAudioSourceCount++;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("audio-file"))) {
-        i++;
-        const TCHAR *ptr = strInput[i];
-        AudioSelect *pAudioSelect = nullptr;
-        int audioIdx = -1;
-        int trackId = 0;
-        if (_tcschr(ptr, '?') == nullptr || 1 != _stscanf(ptr, _T("%d?"), &trackId)) {
-            //トラック番号を適当に発番する (カウントは1から)
-            trackId = argData->nParsedAudioFile+1;
-            audioIdx = getAudioTrackIdx(pParams, trackId);
-            if (audioIdx < 0 || pParams->common.ppAudioSelectList[audioIdx]->extractFilename.length() > 0) {
-                trackId = getFreeAudioTrack(pParams);
-                pAudioSelect = new AudioSelect();
-                pAudioSelect->trackID = trackId;
-            } else {
-                pAudioSelect = pParams->common.ppAudioSelectList[audioIdx];
-            }
-        } else if (i <= 0) {
-            //トラック番号は1から連番で指定
-            SET_ERR(strInput[0], _T("Invalid track number"), option_name, strInput[i]);
-            return 1;
-        } else {
-            audioIdx = getAudioTrackIdx(pParams, trackId);
-            if (audioIdx < 0) {
-                pAudioSelect = new AudioSelect();
-                pAudioSelect->trackID = trackId;
-            } else {
-                pAudioSelect = pParams->common.ppAudioSelectList[audioIdx];
-            }
-            ptr = _tcschr(ptr, '?') + 1;
-        }
-        assert(pAudioSelect != nullptr);
-        const TCHAR *qtr = _tcschr(ptr, ':');
-        if (qtr != NULL && !(ptr + 1 == qtr && qtr[1] == _T('\\'))) {
-            pAudioSelect->extractFormat = ptr;
-            ptr = qtr + 1;
-        }
-        size_t filename_len = _tcslen(ptr);
-        //ファイル名が""でくくられてたら取り除く
-        if (ptr[0] == _T('\"') && ptr[filename_len-1] == _T('\"')) {
-            filename_len -= 2;
-            ptr++;
-        }
-        //ファイル名が重複していないかを確認する
-        for (int j = 0; j < pParams->common.nAudioSelectCount; j++) {
-            if (pParams->common.ppAudioSelectList[j]->extractFilename.length() > 0
-                && 0 == _tcsicmp(pParams->common.ppAudioSelectList[j]->extractFilename.c_str(), ptr)) {
-                SET_ERR(strInput[0], _T("Same output file name is used more than twice"), option_name, nullptr);
-                return 1;
-            }
-        }
-
-        if (audioIdx < 0) {
-            audioIdx = pParams->common.nAudioSelectCount;
-            //新たに要素を追加
-            pParams->common.ppAudioSelectList = (AudioSelect **)realloc(pParams->common.ppAudioSelectList, sizeof(pParams->common.ppAudioSelectList[0]) * (pParams->common.nAudioSelectCount + 1));
-            pParams->common.ppAudioSelectList[pParams->common.nAudioSelectCount] = pAudioSelect;
-            pParams->common.nAudioSelectCount++;
-        }
-        pParams->common.ppAudioSelectList[audioIdx]->extractFilename = ptr;
-        argData->nParsedAudioFile++;
-        return 0;
-    }
-    if (   0 == _tcscmp(option_name, _T("format"))
-        || 0 == _tcscmp(option_name, _T("output-format"))) {
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
-            i++;
-            pParams->common.muxOutputFormat = strInput[i];
-            if (0 != _tcsicmp(strInput[i], _T("raw"))) {
-                pParams->common.AVMuxTarget |= RGY_MUX_VIDEO;
-            }
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("input-format"))) {
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
-            i++;
-            pParams->common.AVInputFormat = _tcsdup(strInput[i]);
-        } else {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-#if ENABLE_AVSW_READER
-    auto set_audio_prm = [&](std::function<void(AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr)> func_set) {
-        const TCHAR *ptr = nullptr;
-        const TCHAR *ptrDelim = nullptr;
-        int trackId = 0;
-        if (i+1 < nArgNum) {
-            if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
-                i++;
-                ptrDelim = _tcschr(strInput[i], _T('?'));
-                ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
-            }
-            if (ptrDelim != nullptr) {
-                tstring temp = tstring(strInput[i]).substr(0, ptrDelim - strInput[i]);
-                trackId = std::stoi(temp);
-            }
-        }
-        AudioSelect *pAudioSelect = nullptr;
-        int audioIdx = getAudioTrackIdx(pParams, trackId);
-        if (audioIdx < 0) {
-            pAudioSelect = new AudioSelect();
-            if (trackId != 0) {
-                //もし、trackID=0以外の指定であれば、
-                //これまでalltrackに指定されたパラメータを探して引き継ぐ
-                AudioSelect *pAudioSelectAll = nullptr;
-                for (int itrack = 0; itrack < pParams->common.nAudioSelectCount; itrack++) {
-                    if (pParams->common.ppAudioSelectList[itrack]->trackID == 0) {
-                        pAudioSelectAll = pParams->common.ppAudioSelectList[itrack];
-                    }
-                }
-                if (pAudioSelectAll) {
-                    *pAudioSelect = *pAudioSelectAll;
-                }
-            }
-            pAudioSelect->trackID = trackId;
-        } else {
-            pAudioSelect = pParams->common.ppAudioSelectList[audioIdx];
-        }
-        func_set(pAudioSelect, trackId, ptr);
-        if (trackId == 0) {
-            for (int itrack = 0; itrack < pParams->common.nAudioSelectCount; itrack++) {
-                func_set(pParams->common.ppAudioSelectList[itrack], trackId, ptr);
-            }
-        }
-
-        if (audioIdx < 0) {
-            audioIdx = pParams->common.nAudioSelectCount;
-            //新たに要素を追加
-            pParams->common.ppAudioSelectList = (AudioSelect **)realloc(pParams->common.ppAudioSelectList, sizeof(pParams->common.ppAudioSelectList[0]) * (pParams->common.nAudioSelectCount + 1));
-            pParams->common.ppAudioSelectList[pParams->common.nAudioSelectCount] = pAudioSelect;
-            pParams->common.nAudioSelectCount++;
-        }
-        return 0;
-    };
-    auto set_sub_prm = [&](std::function<void(SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr)> func_set) {
-        const TCHAR *ptr = nullptr;
-        const TCHAR *ptrDelim = nullptr;
-        int trackId = 0;
-        if (i+1 < nArgNum) {
-            if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
-                i++;
-                ptrDelim = _tcschr(strInput[i], _T('?'));
-                ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
-            }
-            if (ptrDelim != nullptr) {
-                tstring temp = tstring(strInput[i]).substr(0, ptrDelim - strInput[i]);
-                trackId = std::stoi(temp);
-            }
-        }
-        SubtitleSelect *pSubSelect = nullptr;
-        int subIdx = getSubTrackIdx(pParams, trackId);
-        if (subIdx < 0) {
-            pSubSelect = new SubtitleSelect();
-            if (trackId != 0) {
-                //もし、trackID=0以外の指定であれば、
-                //これまでalltrackに指定されたパラメータを探して引き継ぐ
-                SubtitleSelect *pSubSelectAll = nullptr;
-                for (int itrack = 0; itrack < pParams->common.nSubtitleSelectCount; itrack++) {
-                    if (pParams->common.ppSubtitleSelectList[itrack]->trackID == 0) {
-                        pSubSelectAll = pParams->common.ppSubtitleSelectList[itrack];
-                    }
-                }
-                if (pSubSelectAll) {
-                    *pSubSelect = *pSubSelectAll;
-                }
-            }
-            pSubSelect->trackID = trackId;
-        } else {
-            pSubSelect = pParams->common.ppSubtitleSelectList[subIdx];
-        }
-        func_set(pSubSelect, trackId, ptr);
-        if (trackId == 0) {
-            for (int itrack = 0; itrack < pParams->common.nSubtitleSelectCount; itrack++) {
-                func_set(pParams->common.ppSubtitleSelectList[itrack], trackId, ptr);
-            }
-        }
-
-        if (subIdx < 0) {
-            subIdx = pParams->common.nSubtitleSelectCount;
-            //新たに要素を追加
-            pParams->common.ppSubtitleSelectList = (SubtitleSelect **)realloc(pParams->common.ppSubtitleSelectList, sizeof(pParams->common.ppSubtitleSelectList[0]) * (pParams->common.nSubtitleSelectCount + 1));
-            pParams->common.ppSubtitleSelectList[pParams->common.nSubtitleSelectCount] = pSubSelect;
-            pParams->common.nSubtitleSelectCount++;
-        }
-        return 0;
-    };
-    if (0 == _tcscmp(option_name, _T("audio-copy"))
-        || 0 == _tcscmp(option_name, _T("copy-audio"))) {
-        pParams->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        std::set<int> trackSet; //重複しないよう、setを使う
-        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
-            i++;
-            auto trackListStr = split(strInput[i], _T(","));
-            for (auto str : trackListStr) {
-                int iTrack = 0;
-                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
-                    SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                    return 1;
-                } else {
-                    trackSet.insert(iTrack);
-                }
-            }
-        } else {
-            trackSet.insert(0);
-        }
-
-        for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
-            int trackId = *it;
-            AudioSelect *pAudioSelect = nullptr;
-            int audioIdx = getAudioTrackIdx(pParams, trackId);
-            if (audioIdx < 0) {
-                pAudioSelect = new AudioSelect();
-                pAudioSelect->trackID = trackId;
-            } else {
-                pAudioSelect = pParams->common.ppAudioSelectList[audioIdx];
-            }
-            pAudioSelect->encCodec = RGY_AVCODEC_COPY;
-
-            if (audioIdx < 0) {
-                audioIdx = pParams->common.nAudioSelectCount;
-                //新たに要素を追加
-                pParams->common.ppAudioSelectList = (AudioSelect **)realloc(pParams->common.ppAudioSelectList, sizeof(pParams->common.ppAudioSelectList[0]) * (pParams->common.nAudioSelectCount + 1));
-                pParams->common.ppAudioSelectList[pParams->common.nAudioSelectCount] = pAudioSelect;
-                pParams->common.nAudioSelectCount++;
-            }
-            argData->nParsedAudioCopy++;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("audio-codec"))) {
-        pParams->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-            if (trackId != 0 || pAudioSelect->encCodec.length() == 0) {
-                if (prmstr == nullptr) {
-                    pAudioSelect->encCodec = RGY_AVCODEC_AUTO;
-                } else {
-                    tstring prm = prmstr;
-                    auto delimEnc = prm.find(_T(":"));
-                    auto delimDec = prm.find(_T("#"));
-                    pAudioSelect->encCodec = prm.substr(0, std::min(delimEnc, delimDec));
-                    if (delimEnc != tstring::npos) {
-                        pAudioSelect->encCodecPrm = prm.substr(delimEnc + 1, (delimEnc < delimDec) ? delimDec - delimEnc - 1 : tstring::npos);
-                    }
-                    if (delimDec != tstring::npos) {
-                        pAudioSelect->decCodecPrm = prm.substr(delimDec + 1, (delimDec < delimEnc) ? delimEnc - delimDec - 1 : tstring::npos);
-                    }
-                }
-            }
-        });
-        if (ret) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return ret;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("audio-profile"))) {
-        pParams->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-            if (trackId != 0 || pAudioSelect->encCodecProfile.length() == 0) {
-                pAudioSelect->encCodecProfile = prmstr;
-            }
-        });
-        if (ret) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return ret;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("audio-bitrate"))) {
-        try {
-            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-                if (trackId != 0 || pAudioSelect->encBitrate == 0) {
-                    pAudioSelect->encBitrate = std::stoi(prmstr);
-                }
-            });
-            return ret;
-        } catch (...) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-    }
-    if (0 == _tcscmp(option_name, _T("audio-ignore-decode-error"))) {
-        i++;
-        uint32_t value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->common.audioIgnoreDecodeError = value;
-        return 0;
-    }
-    //互換性のため残す
-    if (0 == _tcscmp(option_name, _T("audio-ignore-notrack-error"))) {
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("audio-samplerate"))) {
-        try {
-            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-                if (trackId != 0 || pAudioSelect->encSamplingRate == 0) {
-                    pAudioSelect->encSamplingRate = std::stoi(prmstr);
-                }
-            });
-            return ret;
-        } catch (...) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-    }
-    if (0 == _tcscmp(option_name, _T("audio-resampler"))) {
-        i++;
-        int v = 0;
-        if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_resampler, strInput[i]))) {
-            pParams->common.audioResampler = v;
-        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_resampler) - 1) {
-            pParams->common.audioResampler = v;
-        } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("audio-stream"))) {
-        //ここで、av_get_channel_layout()を使うため、チェックする必要がある
-        if (!check_avcodec_dll()) {
-            _ftprintf(stderr, _T("%s\n--audio-stream could not be used.\n"), error_mes_avcodec_dll_not_found().c_str());
-            return 1;
-        }
-
-        try {
-            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-                if (trackId != 0 || (pAudioSelect->streamChannelSelect[0] == 0 && pAudioSelect->streamChannelOut[0] == 0)) {
-                    auto streamSelectList = split(tchar_to_string(prmstr), ",");
-                    if (streamSelectList.size() > _countof(pAudioSelect->streamChannelSelect)) {
-                        return 1;
-                    }
-                    static const char *DELIM = ":";
-                    for (uint32_t j = 0; j < streamSelectList.size(); j++) {
-                        auto selectPtr = streamSelectList[j].c_str();
-                        auto selectDelimPos = strstr(selectPtr, DELIM);
-                        if (selectDelimPos == nullptr) {
-                            auto channelLayout = av_get_channel_layout(selectPtr);
-                            pAudioSelect->streamChannelSelect[j] = channelLayout;
-                            pAudioSelect->streamChannelOut[j]    = RGY_CHANNEL_AUTO; //自動
-                        } else if (selectPtr == selectDelimPos) {
-                            pAudioSelect->streamChannelSelect[j] = RGY_CHANNEL_AUTO;
-                            pAudioSelect->streamChannelOut[j]    = av_get_channel_layout(selectDelimPos + strlen(DELIM));
-                        } else {
-                            pAudioSelect->streamChannelSelect[j] = av_get_channel_layout(streamSelectList[j].substr(0, selectDelimPos - selectPtr).c_str());
-                            pAudioSelect->streamChannelOut[j]    = av_get_channel_layout(selectDelimPos + strlen(DELIM));
-                        }
-                    }
-                }
-                return 0;
-            });
-            if (ret) {
-                SET_ERR(strInput[0], _T("Too much streams splitted"), option_name, strInput[i]);
-                return ret;
-            }
-            return ret;
-        } catch (...) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-    }
-    if (0 == _tcscmp(option_name, _T("audio-filter"))) {
-        try {
-            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
-                if (trackId != 0 || pAudioSelect->filter.length() == 0) {
-                    pAudioSelect->filter = prmstr;
-                }
-            });
-            return ret;
-        } catch (...) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-    }
-#endif //#if ENABLE_AVCODEC_QSV_READER
-    if (   0 == _tcscmp(option_name, _T("chapter-copy"))
-        || 0 == _tcscmp(option_name, _T("copy-chapter"))) {
-        pParams->common.copyChapter = TRUE;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("chapter"))) {
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
-            i++;
-            pParams->common.chapterFile = strInput[i];
-        } else {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i+1]);
-            return 1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("key-on-chapter")) {
-        pParams->common.keyOnChapter = true;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("keyfile"))) {
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
-            i++;
-            pParams->common.keyFile = strInput[i];
-        } else {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i+1]);
-            return 1;
-        }
-        return 0;
-    }
-#if ENABLE_AVSW_READER
-    if (   0 == _tcscmp(option_name, _T("sub-copy"))
-        || 0 == _tcscmp(option_name, _T("copy-sub"))) {
-        pParams->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
-        std::map<int, SubtitleSelect> trackSet; //重複しないように
-        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
-            i++;
-            auto trackListStr = split(strInput[i], _T(","));
-            for (auto str : trackListStr) {
-                int iTrack = 0;
-                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
-                    if (str == _T("asdata")) {
-                        trackSet[iTrack].trackID = iTrack;
-                        trackSet[iTrack].encCodec = RGY_AVCODEC_COPY;
-                        trackSet[iTrack].asdata = true;
-                    } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                        return 1;
-                    }
-                } else {
-                    trackSet[iTrack].trackID = iTrack;
-                    trackSet[iTrack].encCodec = RGY_AVCODEC_COPY;
-                    auto options = str.find(_T('?'));
-                    if (str.substr(options+1) == _T("asdata")) {
-                        trackSet[iTrack].asdata = true;
-                    }
-                }
-            }
-        } else {
-            trackSet[0].trackID = 0;
-            trackSet[0].encCodec = RGY_AVCODEC_COPY;
-        }
-
-        for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
-            int trackId = it->first;
-            SubtitleSelect *pSubtitleSelect = nullptr;
-            int subIdx = getSubTrackIdx(pParams, trackId);
-            if (subIdx < 0) {
-                pSubtitleSelect = new SubtitleSelect();
-            } else {
-                pSubtitleSelect = pParams->common.ppSubtitleSelectList[subIdx];
-            }
-            pSubtitleSelect[0] = it->second;
-
-            if (subIdx < 0) {
-                subIdx = pParams->common.nSubtitleSelectCount;
-                //新たに要素を追加
-                pParams->common.ppSubtitleSelectList = (SubtitleSelect **)realloc(pParams->common.ppSubtitleSelectList, sizeof(pParams->common.ppSubtitleSelectList[0]) * (pParams->common.nSubtitleSelectCount + 1));
-                pParams->common.ppSubtitleSelectList[pParams->common.nSubtitleSelectCount] = pSubtitleSelect;
-                pParams->common.nSubtitleSelectCount++;
-            }
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("sub-codec"))) {
-        pParams->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        auto ret = set_sub_prm([](SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr) {
-            if (trackId != 0 || pSubSelect->encCodec.length() == 0) {
-                if (prmstr == nullptr) {
-                    pSubSelect->encCodec = RGY_AVCODEC_AUTO;
-                } else {
-                    tstring prm = prmstr;
-                    auto delimEnc = prm.find(_T(":"));
-                    auto delimDec = prm.find(_T("#"));
-                    pSubSelect->encCodec = prm.substr(0, std::min(delimEnc, delimDec));
-                    if (delimEnc != tstring::npos) {
-                        pSubSelect->encCodecPrm = prm.substr(delimEnc + 1, (delimEnc < delimDec) ? delimDec - delimEnc - 1 : tstring::npos);
-                    }
-                    if (delimDec != tstring::npos) {
-                        pSubSelect->decCodecPrm = prm.substr(delimDec + 1, (delimDec < delimEnc) ? delimEnc - delimDec - 1 : tstring::npos);
-                    }
-                }
-            }
-        });
-        if (ret) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return ret;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("caption2ass"))) {
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
-            i++;
-            C2AFormat format = FORMAT_INVALID;
-            if (PARSE_ERROR_FLAG != (format = (C2AFormat)get_value_from_chr(list_caption2ass, strInput[i]))) {
-                pParams->common.caption2ass = format;
-            } else {
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return 1;
-            }
-        } else {
-            pParams->common.caption2ass = FORMAT_SRT;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("no-caption2ass"))) {
-        pParams->common.caption2ass = FORMAT_INVALID;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("data-copy"))) {
-        pParams->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
-        std::map<int, DataSelect> trackSet; //重複しないように
-        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
-            i++;
-            auto trackListStr = split(strInput[i], _T(","));
-            for (auto str : trackListStr) {
-                int iTrack = 0;
-                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
-                    SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                    return 1;
-                } else {
-                    trackSet[iTrack].trackID = iTrack;
-                }
-            }
-        } else {
-            trackSet[0].trackID = 0;
-        }
-
-        for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
-            int trackId = it->first;
-            DataSelect *pDataSelect = nullptr;
-            int dataIdx = getDataTrackIdx(pParams, trackId);
-            if (dataIdx < 0) {
-                pDataSelect = new DataSelect();
-            } else {
-                pDataSelect = pParams->common.ppDataSelectList[dataIdx];
-            }
-            pDataSelect[0] = it->second;
-
-            if (dataIdx < 0) {
-                dataIdx = pParams->common.nDataSelectCount;
-                //新たに要素を追加
-                pParams->common.ppDataSelectList = (DataSelect **)realloc(pParams->common.ppDataSelectList, sizeof(pParams->common.ppDataSelectList[0]) * (pParams->common.nDataSelectCount + 1));
-                pParams->common.ppDataSelectList[pParams->common.nDataSelectCount] = pDataSelect;
-                pParams->common.nDataSelectCount++;
-            }
-        }
-        return 0;
-    }
-#endif //#if ENABLE_AVSW_READER
-    if (0 == _tcscmp(option_name, _T("avsync"))) {
-        int value = 0;
-        i++;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avsync, strInput[i]))) {
-            pParams->common.AVSyncMode = (RGYAVSync)value;
-        } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("mux-option"))) {
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
-            i++;
-            auto ptr = _tcschr(strInput[i], ':');
-            if (ptr == nullptr) {
-                SET_ERR(strInput[0], _T("invalid value"), option_name, nullptr);
-                return 1;
-            } else {
-                if (pParams->common.muxOpt == nullptr) {
-                    pParams->common.muxOpt = new muxOptList();
-                }
-                pParams->common.muxOpt->push_back(std::make_pair<tstring, tstring>(tstring(strInput[i]).substr(0, ptr - strInput[i]), tstring(ptr+1)));
-            }
-        } else {
-            SET_ERR(strInput[0], _T("invalid option"), option_name, nullptr);
-            return 1;
         }
         return 0;
     }
@@ -1068,7 +174,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         int a[3] = { 0 };
         int ret = parse_qp(a, strInput[i]);
         if (ret == 0) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CONSTQP;
@@ -1084,7 +190,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1096,7 +202,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_HQ;
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1109,7 +215,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
             pParams->encConfig.rcParams.maxBitRate = value * 1000;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1122,7 +228,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
             pParams->encConfig.rcParams.maxBitRate = value * 1000;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1136,7 +242,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.targetQuality = (uint8_t)clamp(value_int, 0, 51);
             pParams->encConfig.rcParams.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1158,7 +264,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         rcPrm.start = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1167,7 +273,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         rcPrm.end = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1176,7 +282,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     int a[3] = { 0 };
                     int ret = parse_qp(a, strInput[i]);
                     if (ret == 0) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     rcPrm.rc_mode = NV_ENC_PARAMS_RC_CONSTQP;
@@ -1193,7 +299,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         rcPrm.rc_mode = (NV_ENC_PARAMS_RC_MODE)temp;
                         rc_mode_defined = true;
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1202,7 +308,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         rcPrm.max_bitrate = std::stoi(param_val) * 1000;
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1214,12 +320,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         rcPrm.targetQuality = (uint8_t)clamp(value_int, 0, 51);
                         rcPrm.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
                 pos = param.find_first_of(_T(":"));
@@ -1230,25 +336,25 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         rcPrm.start = std::stoi(param_val0);
                         rcPrm.end   = std::stoi(param_val1);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
         if (!rc_mode_defined) {
-            SET_ERR(strInput[0], _T("rate control mode unspecified!"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("rate control mode unspecified!"), option_name, strInput[i]);
             return -1;
         }
         if (rcPrm.start < 0) {
-            SET_ERR(strInput[0], _T("start frame ID unspecified!"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("start frame ID unspecified!"), option_name, strInput[i]);
             return -1;
         }
         if (rcPrm.end > 0 && rcPrm.start > rcPrm.end) {
-            SET_ERR(strInput[0], _T("start frame ID must be smaller than end frame ID!"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("start frame ID must be smaller than end frame ID!"), option_name, strInput[i]);
             return -1;
         }
         pParams->dynamicRC.push_back(rcPrm);
@@ -1291,7 +397,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             a[1] = a[0];
             a[2] = a[0];
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         NV_ENC_QP *ptrQP = nullptr;
@@ -1305,7 +411,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.enableMinQP = a[3];
             ptrQP = &pParams->encConfig.rcParams.minQP;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         ptrQP->qpIntra  = a[0];
@@ -1321,7 +427,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         } else if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.gopLength = value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1336,7 +442,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.frameIntervalP = value + 1;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1348,7 +454,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)value;
             codecPrm[NV_ENC_HEVC].hevcConfig.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1359,7 +465,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.rcParams.maxBitRate = value * 1000;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1371,7 +477,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.enableLookahead = value > 0;
             pParams->encConfig.rcParams.lookaheadDepth = (uint16_t)clamp(value, 0, 32);
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1390,7 +496,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.rcParams.vbvBufferSize = value * 1000;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1409,7 +515,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.rcParams.aqStrength = clamp(value, 0, 15);
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1425,7 +531,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_bdirect, strInput[i], &value)) {
             codecPrm[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1445,7 +551,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
             codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1471,7 +577,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_mv_presicion, strInput[i], &value)) {
             pParams->encConfig.mvPrecision = (NV_ENC_MV_PRECISION)value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1482,7 +588,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_deinterlace, strInput[i], &value)) {
             pParams->vpp.deinterlace = (cudaVideoDeinterlaceMode)value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         if (pParams->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave
@@ -1497,7 +603,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_nppi_resize, strInput[i], &value)) {
             pParams->vpp.resizeInterp = (NppiInterpolationMode)value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1508,7 +614,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_nppi_gauss, strInput[i], &value)) {
             pParams->vpp.gaussMaskSize = (NppiMaskSize)value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -1531,7 +637,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.unsharp.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1540,7 +646,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.unsharp.radius = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1549,7 +655,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.unsharp.weight = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1558,12 +664,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.unsharp.threshold = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -1587,7 +693,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.edgelevel.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1596,7 +702,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.edgelevel.strength = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1605,7 +711,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.edgelevel.threshold = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1614,7 +720,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.edgelevel.black = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1623,12 +729,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.edgelevel.white = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -1650,7 +756,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &posOffsetX, &posOffsetY)
             && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &posOffsetX, &posOffsetY)
             && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &posOffsetX, &posOffsetY)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         pParams->vpp.delogo.posX = posOffsetX;
@@ -1661,7 +767,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int depth;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &depth)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         pParams->vpp.delogo.depth = depth;
@@ -1671,7 +777,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         pParams->vpp.delogo.Y = value;
@@ -1681,7 +787,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         pParams->vpp.delogo.Cb = value;
@@ -1691,7 +797,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         i++;
         int value;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         pParams->vpp.delogo.Cr = value;
@@ -1732,7 +838,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.delogo.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1741,7 +847,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.delogo.logoFilePath = param_val;
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1750,7 +856,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.delogo.logoSelect = param_val;
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1761,7 +867,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.delogo.mode = DELOGO_MODE_REMOVE;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1772,7 +878,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         && 2 != _stscanf_s(param_val.c_str(), _T("%d,%d"), &posOffsetX, &posOffsetY)
                         && 2 != _stscanf_s(param_val.c_str(), _T("%d/%d"), &posOffsetX, &posOffsetY)
                         && 2 != _stscanf_s(param_val.c_str(), _T("%d:%d"), &posOffsetX, &posOffsetY)) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     pParams->vpp.delogo.posX = posOffsetX;
@@ -1783,7 +889,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.delogo.depth = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1792,7 +898,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.delogo.Y = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1801,7 +907,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.delogo.Cb = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1810,7 +916,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.delogo.Cr = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1821,7 +927,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false") || param_val == _T("off")) {
                         pParams->vpp.delogo.autoNR = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1832,7 +938,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false") || param_val == _T("off")) {
                         pParams->vpp.delogo.autoFade = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1841,7 +947,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.delogo.NRArea = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1850,7 +956,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.delogo.NRValue = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1861,12 +967,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false") || param_val == _T("off")) {
                         pParams->vpp.delogo.log = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
                 pParams->vpp.delogo.logoFilePath = param;
@@ -1895,7 +1001,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         } else if (param_val == _T("false")) {
                             pParams->vpp.knn.enable = false;
                         } else {
-                            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                             return -1;
                         }
                         continue;
@@ -1904,7 +1010,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         try {
                             pParams->vpp.knn.radius = std::stoi(param_val);
                         } catch (...) {
-                            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                             return -1;
                         }
                         continue;
@@ -1913,7 +1019,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         try {
                             pParams->vpp.knn.strength = std::stof(param_val);
                         } catch (...) {
-                            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                             return -1;
                         }
                         continue;
@@ -1922,7 +1028,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         try {
                             pParams->vpp.knn.lerpC = std::stof(param_val);
                         } catch (...) {
-                            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                             return -1;
                         }
                         continue;
@@ -1931,7 +1037,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         try {
                             pParams->vpp.knn.weight_threshold = std::stof(param_val);
                         } catch (...) {
-                            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                             return -1;
                         }
                         continue;
@@ -1940,12 +1046,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         try {
                             pParams->vpp.knn.lerp_threshold = std::stof(param_val);
                         } catch (...) {
-                            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                             return -1;
                         }
                         continue;
                     }
-                    SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                     return -1;
                 }
             }
@@ -1972,7 +1078,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.pmd.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1981,7 +1087,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.pmd.applyCount = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1990,7 +1096,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.pmd.strength = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -1999,7 +1105,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.pmd.threshold = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2008,12 +1114,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.pmd.useExp = std::stoi(param_val) != 0;
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -2038,7 +1144,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.deband.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2047,7 +1153,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.deband.range = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2058,7 +1164,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         pParams->vpp.deband.threCb = pParams->vpp.deband.threY;
                         pParams->vpp.deband.threCr = pParams->vpp.deband.threY;
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2067,7 +1173,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.deband.threY = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2076,7 +1182,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.deband.threCb = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2085,7 +1191,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.deband.threCr = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2095,7 +1201,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         pParams->vpp.deband.ditherY = std::stoi(param_val);
                         pParams->vpp.deband.ditherC = pParams->vpp.deband.ditherY;
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2104,7 +1210,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.deband.ditherY = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2113,7 +1219,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.deband.ditherC = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2122,7 +1228,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.deband.sample = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2131,7 +1237,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.deband.seed = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2144,7 +1250,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     pParams->vpp.deband.randEachFrame = (param_val == _T("true")) || (param_val == _T("on"));
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
                 if (param == _T("blurfirst")) {
@@ -2155,7 +1261,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     pParams->vpp.deband.randEachFrame = true;
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -2190,7 +1296,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 param_arg = tolowercase(param_arg);
                 if (param_arg == _T("ini")) {
                     if (pParams->vpp.afs.read_afs_inifile(param_val.c_str())) {
-                        SET_ERR(strInput[0], _T("ini file does not exist."), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("ini file does not exist."), option_name, strInput[i]);
                         return -1;
                     }
                 }
@@ -2200,11 +1306,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         if (get_list_value(list_afs_preset, param_val.c_str(), &value)) {
                             pParams->vpp.afs.set_preset(value);
                         } else {
-                            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                             return -1;
                         }
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2223,7 +1329,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.afs.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2232,7 +1338,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.clip.top = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2241,7 +1347,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.clip.bottom = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2250,7 +1356,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.clip.left = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2259,7 +1365,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.clip.right = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2268,7 +1374,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.method_switch = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2277,7 +1383,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.coeff_shift = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2286,7 +1392,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.thre_shift = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2295,7 +1401,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.thre_deint = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2304,7 +1410,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.thre_Ymotion = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2313,7 +1419,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.thre_Cmotion = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2322,7 +1428,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.afs.analyze = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2365,7 +1471,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 if (param_arg == _T("preset")) {
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
                 if (param == _T("shift")) {
@@ -2388,7 +1494,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     pParams->vpp.afs.tune = true;
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -2412,7 +1518,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.nnedi.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2422,7 +1528,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_nnedi_field, param_val.c_str(), &value)) {
                         pParams->vpp.nnedi.field = (VppNnediField)value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2432,7 +1538,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_nnedi_nns, param_val.c_str(), &value)) {
                         pParams->vpp.nnedi.nns = value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2442,7 +1548,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_nnedi_nsize, param_val.c_str(), &value)) {
                         pParams->vpp.nnedi.nsize = (VppNnediNSize)value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2452,7 +1558,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_nnedi_quality, param_val.c_str(), &value)) {
                         pParams->vpp.nnedi.quality = (VppNnediQuality)value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2462,7 +1568,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_nnedi_pre_screen, param_val.c_str(), &value)) {
                         pParams->vpp.nnedi.pre_screen = (VppNnediPreScreen)value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2472,7 +1578,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_nnedi_error_type, param_val.c_str(), &value)) {
                         pParams->vpp.nnedi.errortype = (VppNnediErrorType)value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2482,7 +1588,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_nnedi_prec, param_val.c_str(), &value)) {
                         pParams->vpp.nnedi.precision = (VppNnediPrecision)value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2491,10 +1597,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     pParams->vpp.nnedi.weightfile = param_val.c_str();
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -2518,7 +1624,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.yadif.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2528,15 +1634,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_yadif_mode, param_val.c_str(), &value)) {
                         pParams->vpp.yadif.mode = (VppYadifMode)value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -2565,7 +1671,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.tweak.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2574,7 +1680,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.tweak.brightness = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2583,7 +1689,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.tweak.contrast = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2592,7 +1698,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.tweak.gamma = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2601,7 +1707,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.tweak.saturation = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2610,15 +1716,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.tweak.hue = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -2655,7 +1761,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         conv = pParams->vpp.colorspace.convs.back();
                     }
                     if (!parse((int *)&conv.from.matrix, (int *)&conv.to.matrix, param_val, list_colormatrix)) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2667,7 +1773,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         conv = pParams->vpp.colorspace.convs.back();
                     }
                     if (!parse((int *)&conv.from.colorprim, (int *)&conv.to.colorprim, param_val, list_colorprim)) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2679,7 +1785,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         conv = pParams->vpp.colorspace.convs.back();
                     }
                     if (!parse((int *)&conv.from.transfer, (int *)&conv.to.transfer, param_val, list_transfer)) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2691,7 +1797,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         conv = pParams->vpp.colorspace.convs.back();
                     }
                     if (!parse((int *)&conv.from.fullrange, (int *)&conv.to.fullrange, param_val, list_colorrange)) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2701,7 +1807,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         conv.source_peak = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2721,7 +1827,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_hdr2sdr, param_val.c_str(), &value)) {
                         pParams->vpp.colorspace.hdr2sdr.tonemap = (HDR2SDRToneMap)value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2730,7 +1836,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.ldr_nits = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2739,7 +1845,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.hable.a = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2748,7 +1854,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.hable.b = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2757,7 +1863,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.hable.c = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2766,7 +1872,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.hable.d = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2775,7 +1881,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.hable.e = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2784,7 +1890,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.hable.f = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2793,7 +1899,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.hable.w = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2802,7 +1908,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.mobius.transition = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2811,7 +1917,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.colorspace.hdr2sdr.reinhard.contrast = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2822,19 +1928,19 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         pParams->vpp.colorspace.hdr2sdr.mobius.peak = peak;
                         pParams->vpp.colorspace.hdr2sdr.reinhard.peak = peak;
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
                 if (param == _T("hdr2sdr")) {
                     pParams->vpp.colorspace.hdr2sdr.tonemap = HDR2SDR_HABLE;
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -2877,7 +1983,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         subburn.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2886,7 +1992,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         subburn.trackId = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2904,7 +2010,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     if (get_list_value(list_vpp_ass_shaping, param_val.c_str(), &value)) {
                         subburn.assShaping = value;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2913,12 +2019,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         subburn.scale = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
                 try {
@@ -2950,7 +2056,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.pad.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2959,7 +2065,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.pad.right = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2968,7 +2074,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.pad.left = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2977,7 +2083,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.pad.top = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -2986,12 +2092,12 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.pad.bottom = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
                 int val[4] = { 0 };
@@ -3003,7 +2109,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     pParams->vpp.pad.bottom = val[3];
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
@@ -3028,7 +2134,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else if (param_val == _T("false")) {
                         pParams->vpp.selectevery.enable = false;
                     } else {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -3037,7 +2143,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.selectevery.offset = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -3046,18 +2152,18 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->vpp.selectevery.step = std::stoi(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
                 try {
                     pParams->vpp.selectevery.step = std::stoi(strInput[i]);
                 } catch (...) {
-                    SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                     return -1;
                 }
                 continue;
@@ -3071,25 +2177,6 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("no-vpp-perf-monitor")) {
         pParams->vpp.checkPerformance = false;
-        return 0;
-    }
-    if (IS_OPTION("tff")) {
-        pParams->input.picstruct = RGY_PICSTRUCT_FRAME_TFF;
-        return 0;
-    }
-    if (IS_OPTION("bff")) {
-        pParams->input.picstruct = RGY_PICSTRUCT_FRAME_BFF;
-        return 0;
-    }
-    if (IS_OPTION("interlace") || IS_OPTION("interlaced")) {
-        i++;
-        int value = 0;
-        if (get_list_value(list_interlaced, strInput[i], &value)) {
-            pParams->input.picstruct = (RGY_PICSTRUCT)value;
-        } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
         return 0;
     }
     if (IS_OPTION("cavlc")) {
@@ -3119,7 +2206,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.sliceMode = 3;
             codecPrm[NV_ENC_H264].h264Config.sliceModeData = value;
         } catch (...) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3131,7 +2218,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_HEVC].hevcConfig.sliceMode = 3;
             codecPrm[NV_ENC_HEVC].hevcConfig.sliceModeData = value;
         } catch (...) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3145,7 +2232,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             codecPrm[NV_ENC_H264].h264Config.sliceModeData = value;
             codecPrm[NV_ENC_HEVC].hevcConfig.sliceModeData = value;
         } catch (...) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3202,7 +2289,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (for_h264) codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
             if (for_hevc) codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat = value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3216,7 +2303,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (for_h264) codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix = value;
             if (for_hevc) codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix = value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3230,7 +2317,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (for_h264) codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries = value;
             if (for_hevc) codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries = value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3244,7 +2331,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             if (for_h264) codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = value;
             if (for_hevc) codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3290,7 +2377,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             flag = true;
         }
         if (!flag) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3329,7 +2416,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             }
         }
         if (!flag) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3351,7 +2438,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.chromaSampleLocationBot = value;
             }
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3364,24 +2451,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             uint16_t *ptr = (uint16_t *)&codecPrm[NV_ENC_HEVC].hevcConfig.tier;
             ptr[1] = (uint16_t)value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
-        return 0;
-    }
-    if (IS_OPTION("max-cll")) {
-        i++;
-        pParams->common.maxCll = tchar_to_string(strInput[i]);
-        return 0;
-    }
-    if (IS_OPTION("master-display")) {
-        i++;
-        pParams->common.masterDisplay = tchar_to_string(strInput[i]);
-        return 0;
-    }
-    if (IS_OPTION("dhdr10-info")) {
-        i++;
-        pParams->common.dynamicHdr10plusJson = strInput[i];
         return 0;
     }
     if (IS_OPTION("output-depth")) {
@@ -3390,7 +2462,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = clamp(value - 8, 0, 4);
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3409,7 +2481,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->par[0] = a[0];
             pParams->par[1] = a[1];
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3420,7 +2492,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_hevc_cu_size, strInput[i], &value)) {
             codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3431,7 +2503,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_hevc_cu_size, strInput[i], &value)) {
             codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3442,7 +2514,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_cuda_schedule, strInput[i], &value)) {
             pParams->cudaSchedule = value;
         } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
         return 0;
@@ -3463,7 +2535,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->gpuSelect.cores = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -3472,7 +2544,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->gpuSelect.gen = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -3481,7 +2553,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->gpuSelect.ve = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
@@ -3490,195 +2562,47 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         pParams->gpuSelect.gpu = std::stof(param_val);
                     } catch (...) {
-                        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
                     continue;
                 }
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
-                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             }
         }
-        return 0;
-    }
-    if (IS_OPTION("log")) {
-        i++;
-        pParams->ctrl.logfile = strInput[i];
-        return 0;
-    }
-    if (IS_OPTION("log-level")) {
-        i++;
-        int value = 0;
-        if (get_list_value(list_log_level, strInput[i], &value)) {
-            pParams->ctrl.loglevel = value;
-        } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("log-framelist")) {
-        i++;
-        pParams->ctrl.logFramePosList = strInput[i];
-        return 0;
-    }
-    if (IS_OPTION("log-mux-ts")) {
-        i++;
-        pParams->ctrl.logMuxVidTsFile = _tcsdup(strInput[i]);
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("output-buf"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        if (value < 0) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->common.outputBufSizeMB = (std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
-        return 0;
-    }
-    if (IS_OPTION("max-procfps")) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        if (value < 0) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return -0;
-        }
-        pParams->ctrl.procSpeedLimit = (std::min)(value, INT_MAX);
-        if (get_list_value(list_cuda_schedule, _T("sync"), &value)) {
-            pParams->cudaSchedule = value;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("input-thread"))
-        || 0 == _tcscmp(option_name, _T("thread-input"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        if (value < -1 || value >= 2) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->ctrl.threadInput = (int8_t)value;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
-        pParams->ctrl.threadOutput = 0;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("output-thread"))
-        || 0 == _tcscmp(option_name, _T("thread-output"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        if (value < -1 || value >= 2) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->ctrl.threadOutput = value;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("audio-thread"))
-        || 0 == _tcscmp(option_name, _T("thread-audio"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        if (value < -1 || value >= 3) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->ctrl.threadAudio = value;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("thread-csp"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        if (value < -1 || value >= 2) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->ctrl.threadCsp = value;
-        return 0;
-    }
-    if (IS_OPTION("simd-csp")) {
-        i++;
-        int value = 0;
-        if (get_list_value(list_simd, strInput[i], &value)) {
-            pParams->ctrl.simdCsp = value;
-        } else {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("perf-monitor"))) {
-        if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
-            pParams->ctrl.perfMonitorSelect = (int)PERF_MONITOR_ALL;
-        } else {
-            i++;
-            auto items = split(strInput[i], _T(","));
-            for (const auto& item : items) {
-                int value = 0;
-                if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_pref_monitor, item.c_str()))) {
-                    SET_ERR(strInput[0], _T("Unknown value"), option_name, item.c_str());
-                    return 1;
-                }
-                pParams->ctrl.perfMonitorSelect |= value;
-            }
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("perf-monitor-interval"))) {
-        i++;
-        int v;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
-        pParams->ctrl.perfMonitorInterval = std::max(50, v);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("session-retry"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
         if (value < 0) {
-            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
         }
         pParams->sessionRetry = value;
         return 0;
     }
+
+    if (parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, argData, err) > 0) {
+        return 1;
+    }
+    if (parse_one_common_option(option_name, strInput, i, nArgNum, &pParams->common, argData, err) > 0) {
+        return 1;
+    }
+    if (parse_one_ctrl_option(option_name, strInput, i, nArgNum, &pParams->ctrl, argData, err) > 0) {
+        return 1;
+    }
     tstring mes = _T("Unknown option: --");
     mes += option_name;
-    SET_ERR(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);
+    CMD_PARSE_SET_ERR(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);
     return -1;
 }
 #undef IS_OPTION
@@ -3696,19 +2620,19 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
                 option_name = &strInput[i][2];
             } else if (strInput[i][2] == _T('\0')) {
                 if (nullptr == (option_name = cmd_short_opt_to_long(strInput[i][1]))) {
-                    SET_ERR(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
+                    CMD_PARSE_SET_ERR(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
                     return -1;
                 }
             } else {
                 if (ignore_parse_err) continue;
-                SET_ERR(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
+                CMD_PARSE_SET_ERR(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
                 return -1;
             }
         }
 
         if (nullptr == option_name) {
             if (ignore_parse_err) continue;
-            SET_ERR(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
+            CMD_PARSE_SET_ERR(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
             return -1;
         }
         auto sts = parse_one_option(option_name, strInput, i, nArgNum, pParams, codecPrm, &argsData, err);
@@ -3817,36 +2741,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_NUM(_T("-d"), deviceID);
     cmd << _T(" -c ") << get_chr_from_value(list_nvenc_codecs_for_opt, pParams->codec);
-    OPT_STR_PATH(_T("-i"), common.inputFilename);
-    OPT_STR_PATH(_T("-o"), common.outputFilename);
     if ((pParams->preset) != (encPrmDefault.preset)) cmd << _T(" -u ") << get_name_from_value(pParams->preset, list_nvenc_preset_names);
-    switch (pParams->input.type) {
-    case RGY_INPUT_FMT_RAW:    cmd << _T(" --raw"); break;
-    case RGY_INPUT_FMT_Y4M:    cmd << _T(" --y4m"); break;
-    case RGY_INPUT_FMT_AVI:    cmd << _T(" --avi"); break;
-    case RGY_INPUT_FMT_AVS:    cmd << _T(" --avs"); break;
-    case RGY_INPUT_FMT_VPY:    cmd << _T(" --vpy"); break;
-    case RGY_INPUT_FMT_VPY_MT: cmd << _T(" --vpy-mt"); break;
-    case RGY_INPUT_FMT_AVHW:   cmd << _T(" --avhw"); break;
-    case RGY_INPUT_FMT_AVSW:   cmd << _T(" --avsw"); break;
-    default: break;
-    }
-    if (save_disabled_prm || pParams->input.picstruct != RGY_PICSTRUCT_FRAME) {
-        OPT_LST(_T("--interlace"), input.picstruct, list_interlaced);
-    }
-    if (cropEnabled(pParams->input.crop)) {
-        cmd << _T(" --crop ") << pParams->input.crop.e.left << _T(",") << pParams->input.crop.e.up
-            << _T(",") << pParams->input.crop.e.right << _T(",") << pParams->input.crop.e.bottom;
-    }
-    if (pParams->input.fpsN * pParams->input.fpsD > 0) {
-        cmd << _T(" --fps ") << pParams->input.fpsN << _T("/") << pParams->input.fpsD;
-    }
-    if (pParams->input.srcWidth * pParams->input.srcHeight > 0) {
-        cmd << _T(" --input-res ") << pParams->input.srcWidth << _T("x") << pParams->input.srcHeight;
-    }
-    if (pParams->input.dstWidth * pParams->input.dstHeight > 0) {
-        cmd << _T(" --output-res ") << pParams->input.dstWidth << _T("x") << pParams->input.dstHeight;
-    }
+
+    cmd << gen_cmd(&pParams->input, &encPrmDefault.input, save_disabled_prm);
+
     if (save_disabled_prm) {
         switch (pParams->encConfig.rcParams.rateControlMode) {
         case NV_ENC_PARAMS_RC_CBR:
@@ -3940,9 +2838,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_HEVC(_T("--colorprim"), _T(":hevc"), hevcVUIParameters.colourPrimaries, list_colorprim);
         OPT_LST_HEVC(_T("--chromaloc"), _T(":hevc"), hevcVUIParameters.chromaSampleLocationTop, list_chromaloc);
         OPT_LST_HEVC(_T("--transfer"), _T(":hevc"), hevcVUIParameters.transferCharacteristics, list_transfer);
-        OPT_STR(_T("--max-cll"), common.maxCll);
-        OPT_STR(_T("--master-display"), common.masterDisplay);
-        OPT_TSTR(_T("--dhdr10-info"), common.dynamicHdr10plusJson);
         OPT_LST_HEVC(_T("--cu-max"), _T(""), maxCUSize, list_hevc_cu_size);
         OPT_LST_HEVC(_T("--cu-min"), _T(""), minCUSize, list_hevc_cu_size);
     }
@@ -3969,167 +2864,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_BOOL_H264(_T("--no-deblock"), _T("--deblock"), _T(""), disableDeblockingFilterIDC);
     }
 
-    std::basic_stringstream<TCHAR> tmp;
-#if ENABLE_AVSW_READER
-    OPT_NUM(_T("--input-analyze"), common.demuxAnalyzeSec);
-    if (pParams->common.nTrimCount > 0) {
-        cmd << _T(" --trim ");
-        for (int i = 0; i < pParams->common.nTrimCount; i++) {
-            if (i > 0) cmd << _T(",");
-            cmd << pParams->common.pTrimList[i].start << _T(":") << pParams->common.pTrimList[i].fin;
-        }
-    }
-    OPT_FLOAT(_T("--seek"), common.seekSec, 2);
-    OPT_TCHAR(_T("--input-format"), common.AVInputFormat);
-    OPT_TSTR(_T("--output-format"), common.muxOutputFormat);
-    OPT_STR(_T("--video-tag"), common.videoCodecTag);
-    OPT_NUM(_T("--video-track"), common.videoTrack);
-    OPT_NUM(_T("--video-streamid"), common.videoStreamId);
-    if (pParams->common.muxOpt) {
-        for (uint32_t i = 0; i < pParams->common.muxOpt->size(); i++) {
-            cmd << _T(" -m ") << pParams->common.muxOpt->at(i).first << _T(":") << pParams->common.muxOpt->at(i).second;
-        }
-    }
-    tmp.str(tstring());
-    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
-        if (pAudioSelect->encCodec == RGY_AVCODEC_COPY) {
-            if (pAudioSelect->trackID == 0) {
-                tmp << _T(","); // --audio-copy のみの指定 (トラックIDを省略)
-            } else {
-                tmp << _T(",") << pAudioSelect->trackID;
-            }
-        }
-    }
-    if (!tmp.str().empty()) {
-        cmd << _T(" --audio-copy ") << tmp.str().substr(1);
-    }
-    tmp.str(tstring());
-
-    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
-        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY) {
-            cmd << _T(" --audio-codec ") << pAudioSelect->trackID;
-            if (pAudioSelect->encCodec != RGY_AVCODEC_AUTO) {
-                cmd << _T("?") << pAudioSelect->encCodec;
-            }
-            if (pAudioSelect->encCodecPrm.length() > 0) {
-                cmd << _T(":") << pAudioSelect->encCodecPrm;
-            }
-        }
-    }
-
-    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
-        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
-            && pAudioSelect->encCodecProfile.length() > 0) {
-            cmd << _T(" --audio-profile ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encCodecProfile;
-        }
-    }
-
-    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
-        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
-            && pAudioSelect->encBitrate > 0) {
-            cmd << _T(" --audio-bitrate ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encBitrate;
-        }
-    }
-
-    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
-        tmp.str(tstring());
-        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
-        for (int j = 0; j < MAX_SPLIT_CHANNELS; j++) {
-            if (pAudioSelect->streamChannelSelect[j] == 0) {
-                break;
-            }
-            if (j > 0) cmd << _T(",");
-            if (pAudioSelect->streamChannelSelect[j] != RGY_CHANNEL_AUTO) {
-                char buf[256];
-                av_get_channel_layout_string(buf, _countof(buf), 0, pAudioSelect->streamChannelOut[j]);
-                cmd << char_to_tstring(buf);
-            }
-            if (pAudioSelect->streamChannelOut[j] != RGY_CHANNEL_AUTO) {
-                cmd << _T(":");
-                char buf[256];
-                av_get_channel_layout_string(buf, _countof(buf), 0, pAudioSelect->streamChannelOut[j]);
-                cmd << char_to_tstring(buf);
-            }
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --audio-stream ") << pAudioSelect->trackID << _T("?") << tmp.str();
-        }
-    }
-    tmp.str(tstring());
-
-    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
-        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
-            && pAudioSelect->encSamplingRate > 0) {
-            cmd << _T(" --audio-samplerate ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encSamplingRate;
-        }
-    }
-    OPT_LST(_T("--audio-resampler"), common.audioResampler, list_resampler);
-
-    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
-        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
-            && pAudioSelect->filter.length() > 0) {
-            cmd << _T(" --audio-filter ") << pAudioSelect->trackID << _T("?") << pAudioSelect->filter;
-        }
-    }
-    for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = pParams->common.ppAudioSelectList[i];
-        if (pAudioSelect->extractFilename.length() > 0) {
-            cmd << _T(" --audio-file ") << pAudioSelect->trackID << _T("?");
-            if (pAudioSelect->extractFormat.length() > 0) {
-                cmd << pAudioSelect->extractFormat << _T(":");
-            }
-            cmd << _T("\"") << pAudioSelect->extractFilename << _T("\"");
-        }
-    }
-    for (int i = 0; i < pParams->common.nAudioSourceCount; i++) {
-        cmd << _T(" --audio-source ") << _T("\"") << pParams->common.ppAudioSourceList[i] << _T("\"");
-    }
-    OPT_NUM(_T("--audio-ignore-decode-error"), common.audioIgnoreDecodeError);
-    if (pParams->common.muxOpt) {
-        for (uint32_t i = 0; i < pParams->common.muxOpt->size(); i++) {
-            cmd << _T(" -m ") << (*pParams->common.muxOpt)[i].first << _T(":") << (*pParams->common.muxOpt)[i].second;
-        }
-    }
-
-    tmp.str(tstring());
-    for (int i = 0; i < pParams->common.nSubtitleSelectCount; i++) {
-        tmp << _T(",") << pParams->common.ppSubtitleSelectList[i]->trackID;
-        if (pParams->common.ppSubtitleSelectList[i]->asdata) {
-            tmp << _T("?asdata");
-        }
-    }
-    if (!tmp.str().empty()) {
-        cmd << _T(" --sub-copy ") << tmp.str().substr(1);
-    }
-    tmp.str(tstring());
-    OPT_LST(_T("--caption2ass"), common.caption2ass, list_caption2ass);
-
-    tmp.str(tstring());
-    for (int i = 0; i < pParams->common.nDataSelectCount; i++) {
-        tmp << _T(",") << pParams->common.ppDataSelectList[i]->trackID;
-    }
-    if (!tmp.str().empty()) {
-        cmd << _T(" --data-copy ") << tmp.str().substr(1);
-    }
-    tmp.str(tstring());
-
-    OPT_STR_PATH(_T("--chapter"), common.chapterFile);
-    OPT_BOOL(_T("--chapter-copy"), _T(""), common.copyChapter);
-    //OPT_BOOL(_T("--chapter-no-trim"), _T(""), chapterNoTrim);
-    OPT_BOOL(_T("--key-on-chapter"), _T(""), common.keyOnChapter);
-    OPT_STR_PATH(_T("--keyfile"), common.keyFile);
-    OPT_LST(_T("--avsync"), common.AVSyncMode, list_avsync);
-#endif //#if ENABLE_AVSW_READER
-
-    OPT_LST(_T("--vpp-deinterlace"), vpp.deinterlace, list_deinterlace);
-    OPT_BOOL(_T("--vpp-rff"), _T(""), vpp.rff);
-    OPT_LST(_T("--vpp-resize"), vpp.resizeInterp, list_nppi_resize);
+    cmd << gen_cmd(&pParams->common, &encPrmDefault.common, save_disabled_prm);
 
 #define ADD_FLOAT(str, opt, prec) if ((pParams->opt) != (encPrmDefault.opt)) tmp << _T(",") << (str) << _T("=") << std::setprecision(prec) << (pParams->opt);
 #define ADD_NUM(str, opt) if ((pParams->opt) != (encPrmDefault.opt)) tmp << _T(",") << (str) << _T("=") << (pParams->opt);
@@ -4139,6 +2874,11 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 #define ADD_PATH(str, opt) if ((pParams->opt) && _tcslen(pParams->opt)) tmp << _T(",") << (str) << _T("=\"") << (pParams->opt) << _T("\"");
 #define ADD_STR(str, opt) if (pParams->opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (pParams->opt.c_str());
 
+    OPT_LST(_T("--vpp-deinterlace"), vpp.deinterlace, list_deinterlace);
+    OPT_BOOL(_T("--vpp-rff"), _T(""), vpp.rff);
+    OPT_LST(_T("--vpp-resize"), vpp.resizeInterp, list_nppi_resize);
+
+    std::basic_stringstream<TCHAR> tmp;
     if (pParams->vpp.afs != encPrmDefault.vpp.afs) {
         tmp.str(tstring());
         if (!pParams->vpp.afs.enable && save_disabled_prm) {
@@ -4471,36 +3211,10 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     }
     OPT_NUM(_T("--session-retry"), sessionRetry);
 
-    OPT_NUM(_T("--output-buf"), common.outputBufSizeMB);
-    OPT_NUM(_T("--thread-output"), ctrl.threadOutput);
-    OPT_NUM(_T("--thread-input"), ctrl.threadInput);
-    OPT_NUM(_T("--thread-audio"), ctrl.threadAudio);
-    OPT_NUM(_T("--thread-csp"), ctrl.threadCsp);
-    OPT_LST(_T("--simd-csp"), ctrl.simdCsp, list_simd);
-    OPT_NUM(_T("--max-procfps"), ctrl.procSpeedLimit);
-    OPT_STR_PATH(_T("--log"), ctrl.logfile);
-    OPT_LST(_T("--log-level"), ctrl.loglevel, list_log_level);
-    OPT_STR_PATH(_T("--log-framelist"), ctrl.logFramePosList);
-    OPT_CHAR_PATH(_T("--log-mux-ts"), ctrl.logMuxVidTsFile);
-    if (pParams->ctrl.perfMonitorSelect != encPrmDefault.ctrl.perfMonitorSelect) {
-        auto select = (int)pParams->ctrl.perfMonitorSelect;
-        tmp.str(tstring());
-        for (int i = 0; list_pref_monitor[i].desc; i++) {
-            auto check = list_pref_monitor[i].value;
-            if ((select & check) == check) {
-                tmp << _T(",") << list_pref_monitor[i].desc;
-                select &= (~check);
-            }
-        }
-        if (tmp.str().empty()) {
-            cmd << _T(" --perf-monitor");
-        } else {
-            cmd << _T(" --perf-monitor ") << tmp.str().substr(1);
-        }
-    }
-    OPT_NUM(_T("--perf-monitor-interval"), ctrl.perfMonitorInterval);
+    cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm);
+
     return cmd.str();
 }
 #pragma warning (pop)
 
-#undef SET_ERR
+#undef CMD_PARSE_SET_ERR

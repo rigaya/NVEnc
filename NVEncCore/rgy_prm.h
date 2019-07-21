@@ -31,6 +31,7 @@
 
 #include "rgy_avutil.h"
 #include "rgy_caption.h"
+#include "rgy_simd.h"
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
@@ -99,5 +100,52 @@ struct RGYParamControl {
     ~RGYParamControl();
 };
 
+
+struct ParseCmdError {
+    tstring strAppName;
+    tstring strErrorMessage;
+    tstring strOptionName;
+    tstring strErrorValue;
+};
+
+struct sArgsData {
+    tstring cachedlevel, cachedprofile;
+    uint32_t nParsedAudioFile = 0;
+    uint32_t nParsedAudioEncode = 0;
+    uint32_t nParsedAudioCopy = 0;
+    uint32_t nParsedAudioBitrate = 0;
+    uint32_t nParsedAudioSamplerate = 0;
+    uint32_t nParsedAudioSplit = 0;
+    uint32_t nParsedAudioFilter = 0;
+    uint32_t nTmpInputBuf = 0;
+};
+
+const CX_DESC list_simd[] = {
+    { _T("auto"),     -1  },
+    { _T("none"),     NONE },
+    { _T("sse2"),     SSE2 },
+    { _T("sse3"),     SSE3|SSE2 },
+    { _T("ssse3"),    SSSE3|SSE3|SSE2 },
+    { _T("sse41"),    SSE41|SSSE3|SSE3|SSE2 },
+    { _T("avx"),      AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
+    { _T("avx2"),     AVX2|AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
+    { NULL, NULL }
+};
+
+
+#define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
+#define CMD_PARSE_SET_ERR(app_name, errmes, opt_name, err_val) \
+    err.strAppName = (app_name) ? app_name : _T(""); \
+    err.strErrorMessage = (errmes) ? errmes : _T(""); \
+    err.strOptionName = (opt_name) ? opt_name : _T(""); \
+    err.strErrorValue = (err_val) ? err_val : _T("");
+
+int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, sArgsData *argData, ParseCmdError &err);
+int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamCommon *common, sArgsData *argData, ParseCmdError &err);
+int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamControl *ctrl, sArgsData *argData, ParseCmdError &err);
+
+tstring gen_cmd(const VideoInfo *common, const VideoInfo *default, bool save_disabled_prm);
+tstring gen_cmd(const RGYParamCommon *common, const RGYParamCommon *default, bool save_disabled_prm);
+tstring gen_cmd(const RGYParamControl *ctrl, const RGYParamControl *default, bool save_disabled_prm);
 
 #endif //__RGY_PRM_H__

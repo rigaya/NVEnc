@@ -814,6 +814,16 @@ static const TCHAR *get_cx_desc(const CX_DESC * list, int v) {
     return nullptr;
 }
 
+static bool get_list_value(const CX_DESC *list, const TCHAR *chr, int *value) {
+    for (int i = 0; list[i].desc; i++) {
+        if (0 == _tcsicmp(list[i].desc, chr)) {
+            *value = list[i].value;
+            return true;
+        }
+    }
+    return false;
+};
+
 class vec3 {
 public:
     vec3() : v() {
