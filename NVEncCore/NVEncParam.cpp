@@ -978,7 +978,7 @@ NV_ENC_CONFIG DefaultParam() {
 }
 
 InEncodeVideoParam::InEncodeVideoParam() :
-    deviceID(0),
+    deviceID(-1),
     cudaSchedule(DEFAULT_CUDA_SCHEDULE),
     gpuSelect(),
     sessionRetry(0),
@@ -988,7 +988,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     par(),
     encConfig(),
     dynamicRC(),
-    codec(0),
+    codec(NV_ENC_H264),
     bluray(0),                   //bluray出力
     yuv444(0),                   //YUV444出力
     lossless(0),                 //ロスレス出力

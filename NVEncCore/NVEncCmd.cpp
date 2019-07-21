@@ -2591,15 +2591,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
 
-    if (parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, argData, err) > 0) {
-        return 1;
-    }
-    if (parse_one_common_option(option_name, strInput, i, nArgNum, &pParams->common, argData, err) > 0) {
-        return 1;
-    }
-    if (parse_one_ctrl_option(option_name, strInput, i, nArgNum, &pParams->ctrl, argData, err) > 0) {
-        return 1;
-    }
+    auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, argData, err);
+    if (ret >= 0) return ret;
+
+    ret = parse_one_common_option(option_name, strInput, i, nArgNum, &pParams->common, argData, err);
+    if (ret >= 0) return ret;
+
+    ret = parse_one_ctrl_option(option_name, strInput, i, nArgNum, &pParams->ctrl, argData, err);
+    if (ret >= 0) return ret;
+
     tstring mes = _T("Unknown option: --");
     mes += option_name;
     CMD_PARSE_SET_ERR(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);
