@@ -272,7 +272,11 @@ const int TEST_COUNT = 5000;
 #ifdef __cplusplus
 extern "C" {
 #endif
-    extern int runl_por(int loop_count);
+#if _M_IX86
+    extern int runl_por(uint32_t loop_count);
+#else
+    extern int64_t runl_por(uint32_t loop_count);
+#endif
 #ifdef __cplusplus
 }
 #endif
