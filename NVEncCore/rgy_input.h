@@ -38,6 +38,7 @@
 #include "convert_csp.h"
 #include "rgy_err.h"
 #include "rgy_util.h"
+#include "rgy_prm.h"
 #include "NVEncUtil.h"
 
 std::vector<int> read_keyfile(tstring keyfile);
@@ -213,6 +214,21 @@ protected:
 
     sTrimParam m_trimParam;
 };
+
+RGY_ERR initReaders(
+    shared_ptr<RGYInput> &pFileReader,
+    vector<shared_ptr<RGYInput>> &audioReaders,
+    VideoInfo *input,
+    const shared_ptr<EncodeStatus> pStatus,
+    const RGYParamCommon *common,
+    const RGYParamControl *ctrl,
+    DeviceCodecCsp &HWDecCodecCsp,
+    const int subburnTrackId,
+    const bool vpp_afs,
+    const bool vpp_rff,
+    CPerfMonitor *perfMonitor,
+    shared_ptr<RGYLog> log
+);
 
 #endif //__RGY_INPUT_H__
 

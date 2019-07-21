@@ -1038,34 +1038,3 @@ RGY_NOINLINE int rgy_avx_dummy_if_avail(int bAVXAvail) {
     _mm256_zeroupper();
     return ret;
 }
-
-AudioSelect::AudioSelect() :
-    trackID(0),
-    decCodecPrm(),
-    encCodec(),
-    encCodecPrm(),
-    encCodecProfile(),
-    encBitrate(0),
-    encSamplingRate(0),
-    extractFilename(),
-    extractFormat(),
-    filter(),
-    streamChannelSelect(),
-    streamChannelOut() {
-    memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
-    memset(streamChannelOut, 0, sizeof(streamChannelOut));
-}
-
-SubtitleSelect::SubtitleSelect() :
-    trackID(0),
-    encCodec(),
-    encCodecPrm(),
-    decCodecPrm(),
-    asdata(false) {
-
-}
-
-DataSelect::DataSelect() :
-    trackID(0) {
-
-}

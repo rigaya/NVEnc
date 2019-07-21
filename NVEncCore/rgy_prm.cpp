@@ -34,6 +34,37 @@
 #include "rgy_err.h"
 #include "rgy_perf_monitor.h"
 
+AudioSelect::AudioSelect() :
+    trackID(0),
+    decCodecPrm(),
+    encCodec(),
+    encCodecPrm(),
+    encCodecProfile(),
+    encBitrate(0),
+    encSamplingRate(0),
+    extractFilename(),
+    extractFormat(),
+    filter(),
+    streamChannelSelect(),
+    streamChannelOut() {
+    memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
+    memset(streamChannelOut, 0, sizeof(streamChannelOut));
+}
+
+SubtitleSelect::SubtitleSelect() :
+    trackID(0),
+    encCodec(),
+    encCodecPrm(),
+    decCodecPrm(),
+    asdata(false) {
+
+}
+
+DataSelect::DataSelect() :
+    trackID(0) {
+
+}
+
 RGYParamCommon::RGYParamCommon() :
     inputFilename(),
     outputFilename(),
@@ -1390,4 +1421,25 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     }
     OPT_NUM(_T("--perf-monitor-interval"), perfMonitorInterval);
     return cmd.str();
+}
+
+unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log) {
+    unique_ptr<RGYHDR10Plus> hdr10plus;
+    if (dynamicHdr10plusJson.length() > 0) {
+        if (!PathFileExists(dynamicHdr10plusJson.c_str())) {
+            log->write(RGY_LOG_ERROR, _T("Cannot find the file specified : %s.\n"), dynamicHdr10plusJson.c_str());
+        } else {
+            hdr10plus = std::make_unique<RGYHDR10Plus>();
+            auto ret = hdr10plus->init(dynamicHdr10plusJson);
+            if (ret == RGY_ERR_NOT_FOUND) {
+                log->write(RGY_LOG_ERROR, _T("Cannot find \"%s\" required for --dhdr10-info.\n"), RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME);
+                hdr10plus.reset();
+            } else if (ret != RGY_ERR_NONE) {
+                log->write(RGY_LOG_ERROR, _T("Failed to initialize hdr10plus reader: %s.\n"), get_err_mes((RGY_ERR)ret));
+                hdr10plus.reset();
+            }
+            log->write(RGY_LOG_DEBUG, _T("initialized hdr10plus reader: %s\n"), dynamicHdr10plusJson.c_str());
+        }
+    }
+    return hdr10plus;
 }

@@ -32,12 +32,49 @@
 #include "rgy_avutil.h"
 #include "rgy_caption.h"
 #include "rgy_simd.h"
+#include "rgy_hdr10plus.h"
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
 
 static const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
+
+struct AudioSelect {
+    int      trackID;         //選択した音声トラックのリスト 1,2,...(1から連番で指定)
+    tstring  decCodecPrm;     //音声エンコードのデコーダのパラメータ
+    tstring  encCodec;        //音声エンコードのコーデック
+    tstring  encCodecPrm;     //音声エンコードのコーデックのパラメータ
+    tstring  encCodecProfile; //音声エンコードのコーデックのプロファイル
+    int      encBitrate;      //音声エンコードに選択した音声トラックのビットレート
+    int      encSamplingRate;         //サンプリング周波数
+    tstring  extractFilename;      //抽出する音声のファイル名のリスト
+    tstring  extractFormat;        //抽出する音声ファイルのフォーマット
+    tstring  filter;               //音声フィルタ
+    uint64_t streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+
+    AudioSelect();
+    ~AudioSelect() {};
+};
+
+struct SubtitleSelect {
+    int trackID;
+    tstring encCodec;
+    tstring encCodecPrm;
+    tstring decCodecPrm;
+    bool asdata;
+
+    SubtitleSelect();
+    ~SubtitleSelect() {};
+};
+
+struct DataSelect {
+    int trackID;
+
+    DataSelect();
+    ~DataSelect() {};
+};
 
 struct RGYParamCommon {
     tstring inputFilename;        //入力ファイル名
@@ -147,5 +184,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 tstring gen_cmd(const VideoInfo *common, const VideoInfo *default, bool save_disabled_prm);
 tstring gen_cmd(const RGYParamCommon *common, const RGYParamCommon *default, bool save_disabled_prm);
 tstring gen_cmd(const RGYParamControl *ctrl, const RGYParamControl *default, bool save_disabled_prm);
+
+unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log);
 
 #endif //__RGY_PRM_H__

@@ -38,6 +38,7 @@
 #include "rgy_log.h"
 #include "rgy_status.h"
 #include "rgy_avutil.h"
+#include "rgy_input.h"
 #include "NVEncUtil.h"
 
 using std::unique_ptr;
@@ -193,5 +194,23 @@ protected:
     unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
 #endif //#if ENABLE_AVSW_READER
 };
+
+RGY_ERR initWriters(
+    shared_ptr<RGYOutput> &pFileWriter,
+    vector<shared_ptr<RGYOutput>> &pFileWriterListAudio,
+    shared_ptr<RGYInput> &pFileReader,
+    vector<shared_ptr<RGYInput>> &audioReaders,
+    RGYParamCommon *common,
+    const VideoInfo *input,
+    const RGYParamControl *ctrl,
+    const VideoInfo outputVideoInfo,
+    const sTrimParam &trimParam,
+    const rgy_rational<int> outputTimebase,
+    const vector<unique_ptr<AVChapter>> &chapters,
+    const int subburnTrackId,
+    shared_ptr<EncodeStatus> pStatus,
+    shared_ptr<CPerfMonitor> pPerfMonitor,
+    shared_ptr<RGYLog> log
+);
 
 #endif //__RGY_OUTPUT_H__
