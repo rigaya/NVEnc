@@ -121,6 +121,10 @@ typedef struct AVMuxVideo {
     RGYBitstream          seiNal;               //追加のsei nal
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
     RGYTimestamp         *timestamp;            //timestampの情報
+#if ENCODER_VCEENC
+    AVCodecParserContext *pParserCtx;           //動画ストリームのParser (VCEのみ)
+    int64_t               nParserStreamPos;     //動画ストリームのバイト数
+#endif //#if ENCODER_VCEENC
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
@@ -489,6 +493,10 @@ protected:
     //nTimeInがTrimで切り取られる領域の場合
     //lastValidFrame ... true 最後の有効なフレーム+1のtimestampを返す / false .. AV_NOPTS_VALUEを返す
     int64_t AdjustTimestampTrimmed(int64_t nTimeIn, AVRational timescaleIn, AVRational timescaleOut, bool lastValidFrame);
+
+#if ENCODER_VCEENC
+    RGY_ERR VidCheckStreamAVParser(RGYBitstream *pBitstream);
+#endif
 
     void CloseOther(AVMuxOther *pMuxOther);
     void CloseAudio(AVMuxAudio *muxAudio);

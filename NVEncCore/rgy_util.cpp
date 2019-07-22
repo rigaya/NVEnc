@@ -1024,6 +1024,28 @@ std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned in
     return std::make_pair<int, int>(x / b, y / b);
 }
 
+int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule) {
+    *data = nullptr;
+    //埋め込みデータを使用する
+    if (hModule == NULL) {
+        hModule = GetModuleHandle(NULL);
+    }
+    const char *pDataPtr = NULL;
+    if (hModule == NULL) {
+        return 0;
+    }
+    HRSRC hResource = FindResource(hModule, name, type);
+    if (hResource == NULL) {
+        return 0;
+    }
+    HGLOBAL hResourceData = LoadResource(hModule, hResource);
+    if (hResourceData == NULL) {
+        return 0;
+    }
+    *data = LockResource(hResourceData);
+    return (int)SizeofResource(hModule, hResource);
+}
+
 #include "rgy_simd.h"
 #include <immintrin.h>
 

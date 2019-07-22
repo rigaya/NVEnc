@@ -356,6 +356,8 @@ RGY_ERR initWriters(
     const rgy_rational<int> outputTimebase,
     const vector<unique_ptr<AVChapter>>& chapters,
     const int subburnTrackId,
+    const bool videoDtsUnavailable,
+    const bool benchmark,
     shared_ptr<EncodeStatus> pStatus,
     shared_ptr<CPerfMonitor> pPerfMonitor,
     shared_ptr<RGYLog> log
@@ -403,7 +405,7 @@ RGY_ERR initWriters(
         AvcodecWriterPrm writerPrm;
         writerPrm.outputFormat            = common->muxOutputFormat;
         writerPrm.trimList                = trimParam.list;
-        writerPrm.bVideoDtsUnavailable    = false;
+        writerPrm.bVideoDtsUnavailable    = videoDtsUnavailable;
         writerPrm.threadOutput           = ctrl->threadOutput;
         writerPrm.threadAudio            = ctrl->threadAudio;
         writerPrm.bufSizeMB              = common->outputBufSizeMB;
@@ -566,7 +568,7 @@ RGY_ERR initWriters(
         pFileWriter = std::make_shared<RGYOutputRaw>();
         RGYOutputRawPrm rawPrm;
         rawPrm.bufSizeMB = common->outputBufSizeMB;
-        rawPrm.benchmark = false;
+        rawPrm.benchmark = benchmark;
         rawPrm.codecId = outputVideoInfo.codec;
         rawPrm.seiNal = hedrsei.gen_nal();
         auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);

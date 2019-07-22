@@ -437,6 +437,15 @@ public:
     }
 };
 
+static int64_t rgy_change_scale(int64_t t, const rgy_rational<int>& scale_in, const rgy_rational<int>& scale_out) {
+    rgy_rational<int64_t> a = rgy_rational<int64_t>(scale_in.n(), scale_in.d());
+    rgy_rational<int64_t> b = rgy_rational<int64_t>(scale_out.n(), scale_out.d());
+    a *= t;
+    a /= b;
+    int64_t n = ((a.n() + a.d() / 2) / a.d());
+    return n;
+}
+
 #if UNICODE
 #define to_tstring to_wstring
 #else
@@ -595,6 +604,8 @@ uint64_t getPhysicalRamSize(uint64_t *ramUsed);
 tstring getEnviromentInfo(bool add_ram_info = true, int device_id = 0);
 
 BOOL check_OS_Win8orLater();
+
+int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule = NULL);
 
 static void RGY_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
     if (size < 64) {

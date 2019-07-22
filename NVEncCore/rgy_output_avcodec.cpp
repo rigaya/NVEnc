@@ -115,6 +115,11 @@ void RGYOutputAvcodec::CloseAudio(AVMuxAudio *muxAudio) {
 }
 
 void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
+#if ENCODER_VCEENC
+    if (pMuxVideo->pParserCtx) {
+        av_parser_close(pMuxVideo->pParserCtx);
+    }
+#endif //#if ENCODER_VCEENC
     if (m_Mux.video.fpTsLogFile) {
         fclose(m_Mux.video.fpTsLogFile);
     }
@@ -746,6 +751,16 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         }
         AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_name);
     }
+
+#if ENCODER_VCEENC
+    //parserを初期化 (VCEのみで必要)
+    if (nullptr == (m_Mux.video.pParserCtx = av_parser_init(m_Mux.format.pFormatCtx->video_codec_id))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.pFormatCtx->video_codec_id)).c_str());
+        return RGY_ERR_NULL_PTR;
+    }
+    m_Mux.video.pParserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+    m_Mux.video.nParserStreamPos = 0;
+#endif //#if ENCODER_VCEENC
 
     if (prm->muxVidTsLogFile.length() > 0) {
         if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->muxVidTsLogFile.c_str(), _T("a"))) {
@@ -2038,6 +2053,41 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *bitstream) {
     return WriteNextFrameInternal(bitstream, &dts);
 }
 
+#if ENCODER_VCEENC
+RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
+    RGY_ERR err = RGY_ERR_NONE;
+    m_Mux.video.nParserStreamPos += pBitstream->size();
+    AVPacket pkt;
+    av_init_packet(&pkt);
+    av_new_packet(&pkt, (int)pBitstream->size());
+    memcpy(pkt.data, pBitstream->data(), pBitstream->size());
+    pkt.size = (int)pBitstream->size();
+    pkt.pts = pBitstream->pts();
+    pkt.dts = pBitstream->dts();
+    pkt.pos = m_Mux.video.nParserStreamPos;
+    uint8_t *dummy = nullptr;
+    int dummy_size = 0;
+    if (0 < av_parser_parse2(m_Mux.video.pParserCtx, m_Mux.video.pStreamOut->codec, &dummy, &dummy_size, pkt.data, pkt.size, pkt.pts, pkt.dts, pkt.pos)) {
+        //pBitstream->PictStruct = m_Mux.video.pParserCtx->picture_structure;
+        //pBitstream->RepeatPict = m_Mux.video.pParserCtx->repeat_pict;
+
+        const auto pict_type = m_Mux.video.pParserCtx->pict_type;
+
+        RGY_FRAMETYPE frameType = RGY_FRAMETYPE_UNKNOWN;
+        frameType |= (m_Mux.video.pParserCtx->key_frame) ? (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I) : RGY_FRAMETYPE_UNKNOWN;
+        frameType |= (pict_type == AV_PICTURE_TYPE_I) ? (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I) : RGY_FRAMETYPE_UNKNOWN;
+        frameType |= (pict_type == AV_PICTURE_TYPE_P) ? RGY_FRAMETYPE_P : RGY_FRAMETYPE_UNKNOWN;
+        frameType |= (pict_type == AV_PICTURE_TYPE_B) ? RGY_FRAMETYPE_B : RGY_FRAMETYPE_UNKNOWN;
+        pBitstream->setFrametype(frameType);
+    } else {
+        AddMessage(RGY_LOG_ERROR, _T("AVParser error parsing VCE output."));
+        err = RGY_ERR_UNKNOWN;
+    }
+    av_packet_unref(&pkt);
+    return err;
+}
+#endif
+
 #pragma warning (push)
 #pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_t *writtenDts) {
@@ -2104,6 +2154,10 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         }
     }
 #endif
+
+#if ENCODER_VCEENC
+    VidCheckStreamAVParser(pBitstream);
+#endif //#if ENCODER_VCEENC
 
     std::vector<nal_info> nal_list;
     if (m_Mux.video.bsfc) {

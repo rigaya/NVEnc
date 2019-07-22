@@ -170,6 +170,48 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     16, //RGY_CSP_Y16
 };
 
+static const uint8_t RGY_CSP_PLANES[] = {
+     0, //RGY_CSP_NA
+     2, //RGY_CSP_NV12
+     3, //RGY_CSP_YV12
+     1, //RGY_CSP_YUY2
+     3, //RGY_CSP_YUV422
+     2, //RGY_CSP_NV16
+     3, //RGY_CSP_YUV444
+     3, //RGY_CSP_YV12_09
+     3,
+     3,
+     3,
+     3, //RGY_CSP_YV12_16
+     2, //RGY_CSP_P010
+     3, //RGY_CSP_YUV422_09
+     3,
+     3,
+     3,
+     3, //RGY_CSP_YUV422_16
+     2, //RGY_CSP_P210
+     3, //RGY_CSP_YUV444_09
+     3,
+     3,
+     3,
+     3, //RGY_CSP_YUV444_16
+     4, //RGY_CSP_YUVA444
+     4, //RGY_CSP_YUVA444_16
+     1, //RGY_CSP_RGB24R
+     1, //RGY_CSP_RGB32R
+     1, //RGY_CSP_RGB24
+     1, //RGY_CSP_RGB32
+     1, //RGY_CSP_BGR24
+     1, //RGY_CSP_BGR32
+     3, //RGY_CSP_RGB
+     3, //RGY_CSP_RGBA
+     3, //RGY_CSP_GBR
+     3, //RGY_CSP_GBRA
+     1, //RGY_CSP_YC48
+     1, //RGY_CSP_Y8
+     1, //RGY_CSP_Y16
+};
+
 enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_UNKNOWN = 0,
     RGY_CHROMAFMT_MONOCHROME = 0,
