@@ -49,6 +49,8 @@
 #include "process.h"
 #pragma comment(lib, "winmm.lib")
 #include "NVEncCore.h"
+#include "cpu_info.h"
+#include "gpu_info.h"
 #include "rgy_version.h"
 #include "rgy_status.h"
 #include "rgy_input.h"
@@ -625,6 +627,33 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 #endif //ENABLE_RAW_READER
 }
 #pragma warning(pop)
+
+NVENCSTATUS NVEncCore::InitPerfMonitor(const InEncodeVideoParam *inputParam) {
+    const bool bLogOutput = inputParam->ctrl.perfMonitorSelect || inputParam->ctrl.perfMonitorSelectMatplot;
+    tstring perfMonLog;
+    if (bLogOutput) {
+        perfMonLog = inputParam->common.outputFilename + _T("_perf.csv");
+    }
+    const auto selectedGpu = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo &gpuinfo) {
+        return gpuinfo.id == device_id;
+    });
+    CPerfMonitorPrm perfMonitorPrm = { 0 };
+#if ENABLE_NVML
+    perfMonitorPrm.pciBusId = selectedGpu->pciBusId.c_str();
+#endif
+    if (m_pPerfMonitor->init(perfMonLog.c_str(), _T(""), (bLogOutput) ? inputParam->ctrl.perfMonitorInterval : 1000,
+        (int)inputParam->ctrl.perfMonitorSelect, (int)inputParam->ctrl.perfMonitorSelectMatplot,
+#if defined(_WIN32) || defined(_WIN64)
+        std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()),
+#else
+        nullptr,
+#endif
+        m_pNVLog, &perfMonitorPrm)) {
+        PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
+        m_pPerfMonitor.reset();
+    }
+    return NV_ENC_SUCCESS;
+}
 
 NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FORMAT encBufferFormat) {
     int sts = 0;
@@ -3334,32 +3363,6 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitNVEncInstance: Success.\n"));
 
-    const auto selectedGpu = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& gpuinfo) {
-        return gpuinfo.id == device_id;
-    });
-    if (true) {
-        const bool bLogOutput = inputParam->ctrl.perfMonitorSelect || inputParam->ctrl.perfMonitorSelectMatplot;
-        tstring perfMonLog;
-        if (bLogOutput) {
-            perfMonLog = inputParam->common.outputFilename + _T("_perf.csv");
-        }
-        CPerfMonitorPrm perfMonitorPrm = { 0 };
-#if ENABLE_NVML
-        perfMonitorPrm.pciBusId = selectedGpu->pciBusId.c_str();
-#endif
-        if (m_pPerfMonitor->init(perfMonLog.c_str(), _T(""), (bLogOutput) ? inputParam->ctrl.perfMonitorInterval : 1000,
-            (int)inputParam->ctrl.perfMonitorSelect, (int)inputParam->ctrl.perfMonitorSelectMatplot,
-#if defined(_WIN32) || defined(_WIN64)
-            std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()),
-#else
-            nullptr,
-#endif
-            m_pNVLog, &perfMonitorPrm)) {
-            PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
-            m_pPerfMonitor.reset();
-        }
-    }
-
     //作成したデバイスの情報をfeature取得
     if (NV_ENC_SUCCESS != (nvStatus = createDeviceFeatureList(false))) {
         return nvStatus;
@@ -3416,6 +3419,12 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         }
     }
 #endif //#if ENABLE_AVSW_READER
+
+    if (NV_ENC_SUCCESS != (nvStatus = InitPerfMonitor(inputParam))) {
+        PrintMes(RGY_LOG_ERROR, _T("Faield to initialize performance monitor.\n"));
+        return nvStatus;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitPerfMonitor: Success.\n"));
 
     //出力ファイルを開く
     if (NV_ENC_SUCCESS != (nvStatus = InitOutput(inputParam, encBufferFormat))) {

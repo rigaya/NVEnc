@@ -30,6 +30,7 @@
 #define __RGY_INPUT_H__
 
 #include <memory>
+#include <thread>
 #include "rgy_osdep.h"
 #include "rgy_tchar.h"
 #include "rgy_log.h"

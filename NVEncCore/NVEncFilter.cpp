@@ -232,6 +232,9 @@ double NVEncFilter::GetAvgTimeElapsed() {
     return m_dFilterTimeMs / (double)m_nFilterRunCount;
 }
 
+NVEncFilterParamCrop::NVEncFilterParamCrop() : crop(initCrop()), NVEncFilterParam() {};
+NVEncFilterParamCrop::~NVEncFilterParamCrop() {};
+
 bool check_if_nppi_dll_available() {
     HMODULE hModule = LoadLibrary(NPPI_DLL_NAME_TSTR);
     if (hModule == NULL)

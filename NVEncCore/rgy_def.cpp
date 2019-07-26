@@ -1,10 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// NVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
-//
 // The MIT License
 //
-// Copyright (c) 2014-2016 rigaya
+// Copyright (c) 2011-2016 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,22 +23,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
 
-#pragma once
-#ifndef __NVENC_CMD_H__
-#define __NVENC_CMD_H__
+#include "rgy_def.h"
+#include "rgy_log.h"
 
-#include <sstream>
-#include "rgy_cmd.h"
-#include "NVEncParam.h"
+const CX_DESC list_log_level[7] = {
+    { _T("trace"), RGY_LOG_TRACE },
+    { _T("debug"), RGY_LOG_DEBUG },
+    { _T("more"),  RGY_LOG_MORE  },
+    { _T("info"),  RGY_LOG_INFO  },
+    { _T("warn"),  RGY_LOG_WARN  },
+    { _T("error"), RGY_LOG_ERROR },
+    { NULL, 0 }
+};
 
-tstring GetNVEncVersion();
-const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
-
-int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nArgNum, const TCHAR **strInput, ParseCmdError& err, bool ignore_parse_err = false);
-int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const char *cmda, ParseCmdError& err, bool ignore_parse_err = false);
-
-tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG codecPrm[2], bool save_disabled_prm);
-
-#endif //__NVENC_PARSE_CMD_H__

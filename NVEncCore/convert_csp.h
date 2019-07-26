@@ -410,6 +410,52 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
 
 FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane);
 
+#pragma warning(push)
+#pragma warning(disable: 4201)
+typedef union sInputCrop {
+    struct {
+        int left, up, right, bottom;
+    } e;
+    int c[4];
+} sInputCrop;
+#pragma warning(pop)
+
+static inline bool cropEnabled(const sInputCrop &crop) {
+    return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
+}
+
+static inline sInputCrop initCrop() {
+    sInputCrop crop = { 0 };
+    return crop;
+}
+
+static sInputCrop getPlane(const sInputCrop *crop, const RGY_CSP csp, const RGY_PLANE plane) {
+    sInputCrop planeCrop = *crop;
+    if (plane == RGY_PLANE_Y
+        || csp == RGY_CSP_YUY2
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB_PACKED
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV444
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_MONOCHROME) {
+        return planeCrop;
+    }
+    if (csp == RGY_CSP_NV12 || csp == RGY_CSP_P010) {
+        planeCrop.e.up >>= 1;
+        planeCrop.e.bottom >>= 1;
+    } else if (csp == RGY_CSP_NV16 || csp == RGY_CSP_P210) {
+        ;
+    } else if (RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420) {
+        planeCrop.e.up >>= 1;
+        planeCrop.e.bottom >>= 1;
+        planeCrop.e.left >>= 1;
+        planeCrop.e.right >>= 1;
+    } else if (RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV422) {
+        planeCrop.e.left >>= 1;
+        planeCrop.e.right >>= 1;
+    }
+    return planeCrop;
+}
+
 struct THREAD_Y_RANGE {
     int start_src;
     int start_dst;

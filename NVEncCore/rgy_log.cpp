@@ -30,6 +30,9 @@
 #include <mutex>
 #include "rgy_log.h"
 #include "rgy_version.h"
+#include "rgy_util.h"
+#include "cpu_info.h"
+#include "gpu_info.h"
 
 const char *RGYLog::HTML_FOOTER = "</body>\n</html>\n";
 
@@ -226,13 +229,13 @@ void RGYLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     }
 }
 
-void RGYLog::write(int log_level, const WCHAR *format, va_list args) {
+void RGYLog::write(int log_level, const wchar_t *format, va_list args) {
     if (log_level < m_nLogLevel) {
         return;
     }
 
     int len = _vscwprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
-    std::vector<WCHAR> buffer(len, 0);
+    std::vector<wchar_t> buffer(len, 0);
     if (buffer.data() != nullptr) {
         vswprintf_s(buffer.data(), len, format, args); // C4996
         write_log(log_level, wstring_to_tstring(buffer.data()).c_str());
@@ -240,7 +243,7 @@ void RGYLog::write(int log_level, const WCHAR *format, va_list args) {
     va_end(args);
 }
 
-void RGYLog::write(int log_level, const char *format, va_list args, uint32_t codepage) {
+void RGYLog::write(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP) {
     if (log_level < m_nLogLevel) {
         return;
     }
@@ -254,7 +257,7 @@ void RGYLog::write(int log_level, const char *format, va_list args, uint32_t cod
     va_end(args);
 }
 
-void RGYLog::write_line(int log_level, const char *format, va_list args, uint32_t codepage) {
+void RGYLog::write_line(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP) {
     if (log_level < m_nLogLevel) {
         return;
     }

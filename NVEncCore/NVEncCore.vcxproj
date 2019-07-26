@@ -976,10 +976,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_cmd.cpp" />
     <ClCompile Include="rgy_codepage.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_def.cpp" />
     <ClCompile Include="rgy_err.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -1042,6 +1044,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </ClCompile>
     <ClCompile Include="rgy_prm.cpp" />
     <ClCompile Include="rgy_simd.cpp" />
+    <ClCompile Include="rgy_status.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <ClCompile Include="rgy_version.cpp" />
     <ClCompile Include="NVEncFilterAfs.cpp">
@@ -1170,8 +1173,10 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_bitstream.h" />
     <ClInclude Include="rgy_caption.h" />
+    <ClInclude Include="rgy_cmd.h" />
     <ClInclude Include="rgy_codepage.h" />
     <ClInclude Include="rgy_cuda_util.h" />
+    <ClInclude Include="rgy_def.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_hdr10plus.h" />

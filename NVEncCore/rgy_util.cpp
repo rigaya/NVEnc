@@ -39,6 +39,9 @@
 #include <iconv.h>
 #endif
 #include "rgy_util.h"
+#include "rgy_log.h"
+#include "cpu_info.h"
+#include "gpu_info.h"
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
 #include "ram_speed.h"
@@ -1030,7 +1033,6 @@ int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODU
     if (hModule == NULL) {
         hModule = GetModuleHandle(NULL);
     }
-    const char *pDataPtr = NULL;
     if (hModule == NULL) {
         return 0;
     }

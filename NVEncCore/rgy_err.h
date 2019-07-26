@@ -41,6 +41,7 @@
 #pragma warning(pop)
 #endif
 #if ENCODER_VCEENC
+#include "core/Result.h"
 #endif
 
 #include <algorithm>
@@ -88,6 +89,55 @@ enum RGY_ERR {
     RGY_ERR_CUDA                        = -39,
     RGY_ERR_RUN_PROCESS                 = -40,
 
+    //OpenCL
+    RGY_ERR_INVALID_PLATFORM                = -50,
+    RGY_ERR_INVALID_DEVICE_TYPE             = -51,
+    RGY_ERR_INVALID_CONTEXT                 = -52,
+    RGY_ERR_INVALID_QUEUE_PROPERTIES        = -53,
+    RGY_ERR_INVALID_COMMAND_QUEUE           = -54,
+    RGY_ERR_DEVICE_NOT_FOUND                = -55,
+    RGY_ERR_DEVICE_NOT_AVAILABLE            = -56,
+    RGY_ERR_COMPILER_NOT_AVAILABLE          = -57,
+    RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE   = -58,
+    RGY_ERR_OUT_OF_RESOURCES                = -59,
+    RGY_ERR_OUT_OF_HOST_MEMORY              = -60,
+    RGY_ERR_PROFILING_INFO_NOT_AVAILABLE    = -61,
+    RGY_ERR_MEM_COPY_OVERLAP                = -62,
+    RGY_ERR_IMAGE_FORMAT_MISMATCH           = -63,
+    RGY_ERR_IMAGE_FORMAT_NOT_SUPPORTED      = -64,
+    RGY_ERR_BUILD_PROGRAM_FAILURE           = -65,
+    RGY_ERR_MAP_FAILURE                     = -66,
+
+    RGY_ERR_INVALID_HOST_PTR                = -68,
+    RGY_ERR_INVALID_MEM_OBJECT              = -69,
+    RGY_ERR_INVALID_IMAGE_FORMAT_DESCRIPTOR = -70,
+    RGY_ERR_INVALID_IMAGE_SIZE              = -71,
+    RGY_ERR_INVALID_SAMPLER                 = -72,
+    RGY_ERR_INVALID_BINARY                  = -73,
+    RGY_ERR_INVALID_BUILD_OPTIONS           = -74,
+    RGY_ERR_INVALID_PROGRAM                 = -75,
+    RGY_ERR_INVALID_PROGRAM_EXECUTABLE      = -76,
+    RGY_ERR_INVALID_KERNEL_NAME             = -77,
+    RGY_ERR_INVALID_KERNEL_DEFINITION       = -78,
+    RGY_ERR_INVALID_KERNEL                  = -79,
+    RGY_ERR_INVALID_ARG_INDEX               = -80,
+    RGY_ERR_INVALID_ARG_VALUE               = -81,
+    RGY_ERR_INVALID_ARG_SIZE                = -82,
+    RGY_ERR_INVALID_KERNEL_ARGS             = -83,
+    RGY_ERR_INVALID_WORK_DIMENSION          = -84,
+    RGY_ERR_INVALID_WORK_GROUP_SIZE         = -85,
+    RGY_ERR_INVALID_WORK_ITEM_SIZE          = -86,
+    RGY_ERR_INVALID_GLOBAL_OFFSET           = -87,
+    RGY_ERR_INVALID_EVENT_WAIT_LIST         = -88,
+    RGY_ERR_INVALID_EVENT                   = -89,
+    RGY_ERR_INVALID_OPERATION               = -90,
+    RGY_ERR_INVALID_GL_OBJECT               = -91,
+    RGY_ERR_INVALID_BUFFER_SIZE             = -92,
+    RGY_ERR_INVALID_MIP_LEVEL               = -93,
+    RGY_ERR_INVALID_GLOBAL_WORK_SIZE        = -94,
+    RGY_ERR_COMPILE_PROGRAM_FAILURE         = -95,
+    RGY_ERR_OPENCL_CRUSH                    = -96,
+
     RGY_WRN_IN_EXECUTION                = 1,
     RGY_WRN_DEVICE_BUSY                 = 2,
     RGY_WRN_VIDEO_PARAM_CHANGED         = 3,
@@ -117,8 +167,8 @@ RGY_ERR err_to_rgy(NVENCSTATUS err);
 #endif //#if ENCODER_NVENC
 
 #if ENCODER_VCEENC
-AMF_ERR err_to_amf(RGYErr err);
-RGYErr err_to_rgy(AMF_ERR err);
+AMF_RESULT err_to_amf(RGY_ERR err);
+RGY_ERR err_to_rgy(AMF_RESULT err);
 #endif //#if ENCODER_VCEENC
 
 const TCHAR *get_err_mes(RGY_ERR sts);

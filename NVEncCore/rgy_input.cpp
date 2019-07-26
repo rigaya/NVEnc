@@ -30,6 +30,7 @@
 #include <fstream>
 #include <set>
 #include "rgy_input.h"
+#include "cpu_info.h"
 
 std::vector<int> read_keyfile(tstring keyfile) {
     std::set<int> s; //重複回避のため

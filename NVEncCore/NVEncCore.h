@@ -195,6 +195,9 @@ protected:
     //ログを初期化
     virtual NVENCSTATUS InitLog(const InEncodeVideoParam *inputParam);
 
+    //perfMonitorの初期化
+    virtual NVENCSTATUS InitPerfMonitor(const InEncodeVideoParam *inputParam);
+
     //GPUListのGPUが必要なエンコードを行えるかチェック
     NVENCSTATUS CheckGPUListByEncoder(const InEncodeVideoParam *inputParam);
 

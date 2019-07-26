@@ -29,7 +29,7 @@
 #ifndef __RGY_PRM_H__
 #define __RGY_PRM_H__
 
-#include "rgy_avutil.h"
+#include "rgy_def.h"
 #include "rgy_caption.h"
 #include "rgy_simd.h"
 #include "rgy_hdr10plus.h"
@@ -137,25 +137,9 @@ struct RGYParamControl {
     ~RGYParamControl();
 };
 
-
-struct ParseCmdError {
-    tstring strAppName;
-    tstring strErrorMessage;
-    tstring strOptionName;
-    tstring strErrorValue;
-};
-
-struct sArgsData {
-    tstring cachedlevel, cachedprofile;
-    uint32_t nParsedAudioFile = 0;
-    uint32_t nParsedAudioEncode = 0;
-    uint32_t nParsedAudioCopy = 0;
-    uint32_t nParsedAudioBitrate = 0;
-    uint32_t nParsedAudioSamplerate = 0;
-    uint32_t nParsedAudioSplit = 0;
-    uint32_t nParsedAudioFilter = 0;
-    uint32_t nTmpInputBuf = 0;
-};
+bool trim_active(const sTrimParam *pTrim);
+std::pair<bool, int> frame_inside_range(int frame, const std::vector<sTrim> &trimList);
+bool rearrange_trim_list(int frame, int offset, std::vector<sTrim> &trimList);
 
 const CX_DESC list_simd[] = {
     { _T("auto"),     -1  },
@@ -169,21 +153,30 @@ const CX_DESC list_simd[] = {
     { NULL, NULL }
 };
 
+template <uint32_t size>
+static bool bSplitChannelsEnabled(uint64_t(&streamChannels)[size]) {
+    bool bEnabled = false;
+    for (uint32_t i = 0; i < size; i++) {
+        bEnabled |= streamChannels[i] != 0;
+    }
+    return bEnabled;
+}
 
-#define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
-#define CMD_PARSE_SET_ERR(app_name, errmes, opt_name, err_val) \
-    err.strAppName = (app_name) ? app_name : _T(""); \
-    err.strErrorMessage = (errmes) ? errmes : _T(""); \
-    err.strOptionName = (opt_name) ? opt_name : _T(""); \
-    err.strErrorValue = (err_val) ? err_val : _T("");
+template <uint32_t size>
+static void setSplitChannelAuto(uint64_t(&streamChannels)[size]) {
+    for (uint32_t i = 0; i < size; i++) {
+        streamChannels[i] = ((uint64_t)1) << i;
+    }
+}
 
-int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, sArgsData *argData, ParseCmdError &err);
-int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamCommon *common, sArgsData *argData, ParseCmdError &err);
-int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamControl *ctrl, sArgsData *argData, ParseCmdError &err);
-
-tstring gen_cmd(const VideoInfo *common, const VideoInfo *default, bool save_disabled_prm);
-tstring gen_cmd(const RGYParamCommon *common, const RGYParamCommon *default, bool save_disabled_prm);
-tstring gen_cmd(const RGYParamControl *ctrl, const RGYParamControl *default, bool save_disabled_prm);
+template <uint32_t size>
+static bool isSplitChannelAuto(uint64_t(&streamChannels)[size]) {
+    bool isAuto = true;
+    for (uint32_t i = 0; isAuto && i < size; i++) {
+        isAuto &= (streamChannels[i] == (((uint64_t)1) << i));
+    }
+    return isAuto;
+}
 
 unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log);
 

@@ -208,6 +208,8 @@ RGY_ERR initWriters(
     const rgy_rational<int> outputTimebase,
     const vector<unique_ptr<AVChapter>> &chapters,
     const int subburnTrackId,
+    const bool videoDtsUnavailable,
+    const bool benchmark,
     shared_ptr<EncodeStatus> pStatus,
     shared_ptr<CPerfMonitor> pPerfMonitor,
     shared_ptr<RGYLog> log

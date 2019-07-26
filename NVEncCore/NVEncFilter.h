@@ -513,8 +513,8 @@ class NVEncFilterParamCrop : public NVEncFilterParam {
 public:
     sInputCrop crop;
 
-    NVEncFilterParamCrop() : crop(initCrop()) {};
-    virtual ~NVEncFilterParamCrop() {};
+    NVEncFilterParamCrop();
+    virtual ~NVEncFilterParamCrop();
     virtual tstring print() const override;
 };
 
