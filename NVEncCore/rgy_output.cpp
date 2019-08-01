@@ -443,19 +443,6 @@ RGY_ERR initWriters(
             if (pAVCodecReader) {
                 streamList = pAVCodecReader->GetInputStreamInfo();
             }
-            for (const auto& audioReader : audioReaders) {
-                if (audioReader->GetAudioTrackCount()) {
-                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<RGYInputAvcodec>(audioReader);
-                    if (pAVCodecAudioReader) {
-                        vector_cat(streamList, pAVCodecAudioReader->GetInputStreamInfo());
-                    }
-                    //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
-                    if (pAVCodecReader == nullptr) {
-                        writerPrm.videoInputFirstKeyPts = pAVCodecAudioReader->GetVideoFirstKeyPts();
-                        writerPrm.videoInputStream = pAVCodecAudioReader->GetInputVideoStream();
-                    }
-                }
-            }
 
             for (auto& stream : streamList) {
                 const auto streamMediaType = trackMediaType(stream.trackId);
@@ -475,6 +462,7 @@ RGY_ERR initWriters(
                     if (trackID(stream.trackId) == common->ppAudioSelectList[i]->trackID
                         && common->ppAudioSelectList[i]->extractFilename.length() == 0) {
                         pAudioSelect = common->ppAudioSelectList[i];
+                        break;
                     }
                 }
                 if (pAudioSelect == nullptr) {
@@ -483,6 +471,7 @@ RGY_ERR initWriters(
                         if (common->ppAudioSelectList[i]->trackID == 0
                             && common->ppAudioSelectList[i]->extractFilename.length() == 0) {
                             pAudioSelect = common->ppAudioSelectList[i];
+                            break;
                         }
                     }
                 }
@@ -491,6 +480,7 @@ RGY_ERR initWriters(
                     for (int i = 0; i < common->nSubtitleSelectCount; i++) {
                         if (trackID(stream.trackId) == common->ppSubtitleSelectList[i]->trackID) {
                             pSubtitleSelect = common->ppSubtitleSelectList[i];
+                            break;
                         }
                     }
                     if (pSubtitleSelect == nullptr) {
@@ -550,6 +540,78 @@ RGY_ERR initWriters(
                     writerPrm.inputStreamList.push_back(std::move(prm));
                 }
             }
+            vector<AVDemuxStream> audioSrcStreams;
+            for (const auto &audioReader : audioReaders) {
+                if (audioReader->GetAudioTrackCount()) {
+                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<RGYInputAvcodec>(audioReader);
+                    if (pAVCodecAudioReader) {
+                        vector_cat(audioSrcStreams, pAVCodecAudioReader->GetInputStreamInfo());
+                    }
+                    //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
+                    if (pAVCodecReader == nullptr) {
+                        writerPrm.videoInputFirstKeyPts = pAVCodecAudioReader->GetVideoFirstKeyPts();
+                        writerPrm.videoInputStream = pAVCodecAudioReader->GetInputVideoStream();
+                    }
+                }
+            }
+            for (auto &stream : audioSrcStreams) {
+                const auto streamMediaType = trackMediaType(stream.trackId);
+                //audio-fileで別ファイルとして抽出するものは除く
+                bool usedInAudioFile = false;
+                for (const auto &audsrc : common->audioSource) {
+                    for (const auto &audsel : audsrc.select) {
+                        if (trackID(stream.trackId) == audsel.first
+                            && audsel.second.extractFilename.length() > 0) {
+                            usedInAudioFile = true;
+                        }
+                    }
+                }
+                if (usedInAudioFile) {
+                    continue;
+                }
+                const AudioSelect *pAudioSelect = nullptr;
+                for (const auto &audsrc : common->audioSource) {
+                    for (const auto &audsel : audsrc.select) {
+                        if (audsel.first == trackID(stream.trackId)) {
+                            pAudioSelect = &audsel.second;
+                            break;
+                        }
+                    }
+                }
+                if (pAudioSelect == nullptr) {
+                    //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
+                    for (const auto &audsrc : common->audioSource) {
+                        for (const auto &audsel : audsrc.select) {
+                            if (audsel.first == 0) {
+                                pAudioSelect = &audsel.second;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (pAudioSelect != nullptr || audioCopyAll) {
+                    streamTrackUsed.push_back(stream.trackId);
+                    AVOutputStreamPrm prm;
+                    prm.src = stream;
+                    //pAudioSelect == nullptrは "copyAllStreams" か 字幕ストリーム によるもの
+                    if (pAudioSelect != nullptr) {
+                        prm.decodeCodecPrm = pAudioSelect->decCodecPrm;
+                        prm.bitrate = pAudioSelect->encBitrate;
+                        prm.samplingRate = pAudioSelect->encSamplingRate;
+                        prm.encodeCodec = pAudioSelect->encCodec;
+                        prm.encodeCodecPrm = pAudioSelect->encCodecPrm;
+                        prm.encodeCodecProfile = pAudioSelect->encCodecProfile;
+                        prm.filter = pAudioSelect->filter;
+                    }
+                    log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s\n"),
+                        char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
+                        stream.trackId, stream.index, prm.bitrate, prm.encodeCodec.c_str(),
+                        prm.encodeCodecProfile.c_str(),
+                        prm.encodeCodecPrm.c_str());
+                    writerPrm.inputStreamList.push_back(std::move(prm));
+                }
+            }
+            vector_cat(streamList, audioSrcStreams);
         }
         auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &writerPrm, log, pStatus);
         if (sts != RGY_ERR_NONE) {

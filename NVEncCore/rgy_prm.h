@@ -58,6 +58,14 @@ struct AudioSelect {
     ~AudioSelect() {};
 };
 
+struct AudioSource {
+    tstring filename;
+    std::map<int, AudioSelect> select;
+
+    AudioSource();
+    ~AudioSource() {};
+};
+
 struct SubtitleSelect {
     int trackID;
     tstring encCodec;
@@ -88,8 +96,7 @@ struct RGYParamCommon {
     float seekSec;               //指定された秒数分先頭を飛ばす
     int nSubtitleSelectCount;
     SubtitleSelect **ppSubtitleSelectList;
-    int nAudioSourceCount;
-    TCHAR **ppAudioSourceList;
+    std::vector<AudioSource> audioSource;
     int nAudioSelectCount; //pAudioSelectの数
     AudioSelect **ppAudioSelectList;
     int        nDataSelectCount;

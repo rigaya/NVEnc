@@ -667,8 +667,35 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 
 デフォルトは10。 0とすれば、1回でもデコードエラーが起これば処理を中断してエラー終了する。
 
-### --audio-source &lt;string&gt;
---audio-copyと併用することで、外部音声ファイルをmuxする。
+### --audio-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
+外部音声ファイルをmuxする。
+
+**パラメータ** 
+- copy  
+  音声トラックをそのままコピーする。
+
+- codec=&lt;string&gt;  
+  音声トラックを指定のコーデックにエンコードする。
+
+- profile=&lt;string&gt;  
+  音声エンコード時のプロファイルを指定する。
+
+- bitrate=&lt;int&gt;  
+  音声エンコード時のビットレートをkbps単位で指定する。
+  
+- samplerate=&lt;int&gt;  
+  音声エンコード時のサンプリングレートをHz単位で指定する。
+
+- enc_prm=&lt;string&gt;  
+  音声エンコード時のパラメータを指定する。
+
+- filter=&lt;string&gt;  
+  音声エンコード時のフィルタを指定する。
+
+```
+例1: --audio-source "<audio_file>":copy
+例2: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
+```
 
 ### --chapter &lt;string&gt;
 指定したチャプターファイルを読み込み反映させる。

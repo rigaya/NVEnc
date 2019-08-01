@@ -327,12 +327,94 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     if (IS_OPTION("audio-source")) {
         i++;
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        size_t audioSourceLen = _tcslen(strInput[i]) + 1;
-        TCHAR *pAudioSource = (TCHAR *)malloc(sizeof(strInput[i][0]) * audioSourceLen);
-        memcpy(pAudioSource, strInput[i], sizeof(strInput[i][0]) * audioSourceLen);
-        common->ppAudioSourceList = (TCHAR **)realloc(common->ppAudioSourceList, sizeof(common->ppAudioSourceList[0]) * (common->nAudioSourceCount + 1));
-        common->ppAudioSourceList[common->nAudioSourceCount] = pAudioSource;
-        common->nAudioSourceCount++;
+        AudioSource src;
+        const TCHAR *ptr = strInput[i];
+        const TCHAR *qtr;
+        if (*ptr == _T('\"')) {
+            while (*ptr != _T('\"') && *ptr != _T('\0'))
+                ptr++;
+            if (*ptr == _T('\0')) {
+                src.filename = strInput[i]+1;
+                src.select[0].encCodec = RGY_AVCODEC_COPY;
+                common->audioSource.push_back(src);
+                return 0;
+            }
+            src.filename = tstring(strInput[i]+1).substr(0, ptr - strInput[i] - 2);
+            qtr = _tcschr(ptr, ':');
+        } else {
+            qtr = _tcschr(ptr, ':');
+            if (qtr == nullptr) {
+                src.filename = strInput[i];
+                src.select[0].encCodec = RGY_AVCODEC_COPY;
+                common->audioSource.push_back(src);
+                return 0;
+            }
+            src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
+        }
+        auto channel_select_list = split(qtr+1, _T(":"));
+        for (auto channel : channel_select_list) {
+            int trackId = 0;
+            auto channel_id_split = channel.find(_T('?'));
+            if (channel_id_split != std::string::npos) {
+                try {
+                    trackId = std::stoi(channel.substr(0, channel_id_split));
+                } catch (...) {
+                    CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return -1;
+                }
+                channel = channel.substr(channel_id_split+1);
+            }
+            AudioSelect &chSel = src.select[trackId];
+            chSel.trackID = trackId;
+            for (const auto& param : split(channel, _T(";"))) {
+                auto pos = param.find_first_of(_T("="));
+                if (pos != std::string::npos) {
+                    auto param_arg = param.substr(0, pos);
+                    auto param_val = param.substr(pos+1);
+                    if (param_arg == _T("codec")) {
+                        chSel.encCodec = param_val;
+                    } else if (param_arg == _T("bitrate")) {
+                        try {
+                            chSel.encBitrate = std::stoi(param_val);
+                        } catch (...) {
+                            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            return -1;
+                        }
+                    } else if (param_arg == _T("samplerate")) {
+                        try {
+                            chSel.encSamplingRate = std::stoi(param_val);
+                        } catch (...) {
+                            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                            return -1;
+                        }
+                    } else if (param_arg == _T("profile")) {
+                        chSel.encCodecProfile = param_val;
+                    } else if (param_arg == _T("filter")) {
+                        chSel.filter = param_val;
+                    } else if (param_arg == _T("enc_prm")) {
+                        chSel.encCodecPrm = param_val;
+                    } else {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    if (chSel.encCodec.length() == 0) {
+                        chSel.encCodec = RGY_AVCODEC_AUTO;
+                    }
+                    continue;
+                } else {
+                    if (param == _T("copy")) {
+                        chSel.encCodec = RGY_AVCODEC_COPY;
+                    } else {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                }
+            }
+            if (chSel.encCodec.length() == 0) {
+                chSel.encCodec = RGY_AVCODEC_COPY;
+            }
+        }
+        common->audioSource.push_back(src);
         return 0;
     }
     if (IS_OPTION("audio-file")) {
@@ -1208,17 +1290,17 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             if (pAudioSelect->streamChannelSelect[j] == 0) {
                 break;
             }
-            if (j > 0) cmd << _T(",");
+            if (j > 0) tmp << _T(",");
             if (pAudioSelect->streamChannelSelect[j] != RGY_CHANNEL_AUTO) {
                 char buf[256];
                 av_get_channel_layout_string(buf, _countof(buf), 0, pAudioSelect->streamChannelOut[j]);
-                cmd << char_to_tstring(buf);
+                tmp << char_to_tstring(buf);
             }
             if (pAudioSelect->streamChannelOut[j] != RGY_CHANNEL_AUTO) {
-                cmd << _T(":");
+                tmp << _T(":");
                 char buf[256];
                 av_get_channel_layout_string(buf, _countof(buf), 0, pAudioSelect->streamChannelOut[j]);
-                cmd << char_to_tstring(buf);
+                tmp << char_to_tstring(buf);
             }
         }
         if (!tmp.str().empty()) {
@@ -1253,8 +1335,43 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << _T("\"") << pAudioSelect->extractFilename << _T("\"");
         }
     }
-    for (int i = 0; i < param->nAudioSourceCount; i++) {
-        cmd << _T(" --audio-source ") << _T("\"") << param->ppAudioSourceList[i] << _T("\"");
+    for (const auto &src : param->audioSource) {
+        if (src.filename.length() > 0) {
+            cmd << _T(" --audio-source ") << _T("\"") << src.filename << _T("\"");
+            for (const auto &channel : src.select) {
+                cmd << _T(":");
+                if (channel.first > 0) {
+                    cmd << channel.first << _T("?");
+                }
+                const auto &sel = channel.second;
+                if (sel.encCodec.length() == 0) {
+                    ; //何もしない
+                } else if (sel.encCodec == RGY_AVCODEC_COPY) {
+                    cmd << _T("copy");
+                } else {
+                    tmp.str(tstring());
+                    cmd << _T(";codec=") << sel.encCodec;
+                    if (sel.encBitrate > 0) {
+                        cmd << _T(";bitrate=") << sel.encBitrate;
+                    }
+                    if (sel.encCodecPrm.length() > 0) {
+                        cmd << _T(";prm=") << sel.encCodecPrm;
+                    }
+                    if (sel.encCodecProfile.length() > 0) {
+                        cmd << _T(";profile=") << sel.encCodecProfile;
+                    }
+                    if (sel.encSamplingRate > 0) {
+                        cmd << _T(";samplerate=") << sel.encSamplingRate;
+                    }
+                    if (sel.filter.length() > 0) {
+                        cmd << _T(";filter=") << _T("\"") << sel.filter << _T("\"");
+                    }
+                }
+                if (!tmp.str().empty()) {
+                    cmd << tmp.str().substr(1);
+                }
+            }
+        }
     }
     OPT_NUM(_T("--audio-ignore-decode-error"), audioIgnoreDecodeError);
     if (param->muxOpt) {

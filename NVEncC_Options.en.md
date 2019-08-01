@@ -678,8 +678,35 @@ Example2: Quit transcoding for a single audio decode error.
 --audio-ignore-decode-error 0
 ```
 
-### --audio-source &lt;string&gt;
+### --audio-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
 Mux an external audio file specified.
+
+**params** 
+- copy  
+  Copy audio track.
+
+- codec=&lt;string&gt;  
+  Encode audio to specified audio codec.
+
+- profile=&lt;string&gt;  
+  Specify audio codec profile when encoding audio.
+
+- bitrate=&lt;int&gt;  
+  Specify audio bitrate in kbps.
+  
+- samplerate=&lt;int&gt;  
+  Specify audio sampling rate.
+
+- enc_prm=&lt;string&gt;  
+  Specify params for audio encoder.
+
+- filter=&lt;string&gt;  
+  Specify filters for audio.
+
+```
+Example1: --audio-source "<audio_file>":copy
+Example2: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
+```
 
 ### --chapter &lt;string&gt;
 Set chapter in the (separate) chapter file.

@@ -51,6 +51,12 @@ AudioSelect::AudioSelect() :
     memset(streamChannelOut, 0, sizeof(streamChannelOut));
 }
 
+AudioSource::AudioSource() :
+    filename(),
+    select() {
+
+}
+
 SubtitleSelect::SubtitleSelect() :
     trackID(0),
     encCodec(),
@@ -76,8 +82,7 @@ RGYParamCommon::RGYParamCommon() :
     seekSec(0.0f),               //指定された秒数分先頭を飛ばす
     nSubtitleSelectCount(0),
     ppSubtitleSelectList(nullptr),
-    nAudioSourceCount(0),
-    ppAudioSourceList(nullptr),
+    audioSource(),
     nAudioSelectCount(0), //pAudioSelectの数
     ppAudioSelectList(nullptr),
     nDataSelectCount(0),
