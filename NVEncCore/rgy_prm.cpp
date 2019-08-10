@@ -178,6 +178,7 @@ bool rearrange_trim_list(int frame, int offset, std::vector<sTrim> &trimList) {
     return false;
 }
 
+#if !NVENC_AUO
 unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log) {
     unique_ptr<RGYHDR10Plus> hdr10plus;
     if (!PathFileExists(dynamicHdr10plusJson.c_str())) {
@@ -196,3 +197,4 @@ unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJso
     }
     return hdr10plus;
 }
+#endif

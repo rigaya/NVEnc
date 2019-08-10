@@ -324,6 +324,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->seekSec = sec + mm * 60;
         return 0;
     }
+#if ENABLE_AVSW_READER
     if (IS_OPTION("audio-source")) {
         i++;
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
@@ -500,7 +501,6 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-#if ENABLE_AVSW_READER
     auto set_audio_prm = [&](std::function<void(AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr)> func_set) {
         const TCHAR *ptr = nullptr;
         const TCHAR *ptrDelim = nullptr;

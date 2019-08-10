@@ -937,7 +937,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
     SetCXIndex(fcgCXDevice,      encPrm.deviceID+1); //先頭は"Auto"なので+1
     SetCXIndex(fcgCXCudaSchdule, encPrm.cudaSchedule);
-    fcgCBPerfMonitor->Checked = 0 != encPrm.perfMonitorSelect;
+    fcgCBPerfMonitor->Checked = 0 != encPrm.ctrl.perfMonitorSelect;
     fcgCBLossless->Checked = 0 != encPrm.lossless;
 
     //QPDetail
@@ -989,7 +989,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXTempDir,             cnf->oth.temp_dir);
         fcgCBAFS->Checked                  = cnf->vid.afs != 0;
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
-        fcgCBLogDebug->Checked             = encPrm.loglevel == RGY_LOG_DEBUG;
+        fcgCBLogDebug->Checked             = encPrm.ctrl.loglevel == RGY_LOG_DEBUG;
 
         fcgCBVppPerfMonitor->Checked   = encPrm.vpp.checkPerformance != 0;
         fcgCBVppResize->Checked        = cnf->vid.resize_enable != 0;
@@ -1181,7 +1181,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.encConfig.rcParams.initialRCQP.qpInterP = (int)fcgNUQPInitP->Value;
     encPrm.encConfig.rcParams.initialRCQP.qpInterB = (int)fcgNUQPInitB->Value;
 
-    encPrm.perfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;
+    encPrm.ctrl.perfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;
 
     //H.264
     codecPrm[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
@@ -1258,8 +1258,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         encPrm.input.dstHeight = 0;
     }
 
-    encPrm.loglevel                   = fcgCBLogDebug->Checked ? RGY_LOG_DEBUG : RGY_LOG_INFO;
-    encPrm.vpp.checkPerformance      = fcgCBVppPerfMonitor->Checked;
+    encPrm.ctrl.loglevel              = fcgCBLogDebug->Checked ? RGY_LOG_DEBUG : RGY_LOG_INFO;
+    encPrm.vpp.checkPerformance       = fcgCBVppPerfMonitor->Checked;
 
     encPrm.vpp.resizeInterp           = list_nppi_resize_help[fcgCXVppResizeAlg->SelectedIndex].value;
 

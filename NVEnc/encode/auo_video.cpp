@@ -59,6 +59,7 @@
 #include "auo_video.h"
 #include "auo_audio_parallel.h"
 
+#include "cpu_info.h"
 #include "NVEncParam.h"
 #include "NVEncCmd.h"
 
