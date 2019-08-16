@@ -114,8 +114,8 @@ RGYParamControl::RGYParamControl() :
     logFramePosList(),     //framePosList出力先
     logMuxVidTsFile(nullptr),
     threadOutput(RGY_OUTPUT_THREAD_AUTO),
-    threadAudio(RGY_INPUT_THREAD_AUTO),
-    threadInput(RGY_AUDIO_THREAD_AUTO),
+    threadAudio(RGY_AUDIO_THREAD_AUTO),
+    threadInput(RGY_INPUT_THREAD_AUTO),
     procSpeedLimit(0),      //処理速度制限 (0で制限なし)
     perfMonitorSelect(0),
     perfMonitorSelectMatplot(0),
