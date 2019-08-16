@@ -968,7 +968,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
     muxAudio->streamIndexIn = inputAudio->src.index;
     muxAudio->lastPtsIn = AV_NOPTS_VALUE;
     muxAudio->lastPtsOut = AV_NOPTS_VALUE;
-    muxAudio->filter = _tcsdup(inputAudio->filter.c_str());
+    muxAudio->filter = inputAudio->filter.length() > 0 ? _tcsdup(inputAudio->filter.c_str()) : nullptr;
     memcpy(muxAudio->streamChannelSelect, inputAudio->src.streamChannelSelect, sizeof(inputAudio->src.streamChannelSelect));
     memcpy(muxAudio->streamChannelOut,    inputAudio->src.streamChannelOut,    sizeof(inputAudio->src.streamChannelOut));
 
@@ -1946,7 +1946,7 @@ tstring RGYOutputAvcodec::GetWriterMes() {
                     audiostr += strsprintf(":%s", getChannelLayoutChar(av_get_channel_layout_nb_channels(audioStream.streamChannelSelect[audioStream.inSubStream]), audioStream.streamChannelSelect[audioStream.inSubStream]).c_str());
                 }
                 //フィルタ情報
-                if (audioStream.filter) {
+                if (audioStream.filter && _tcslen(audioStream.filter) > 0) {
                     audiostr += ":";
                     std::string filter_str;
                     auto filters = split(tchar_to_string(audioStream.filter, CP_UTF8), ",");
