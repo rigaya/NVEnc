@@ -2483,6 +2483,7 @@ vector<unique_ptr<AVFrame, decltype(&av_frame_unref)>> RGYOutputAvcodec::AudioDe
     bool sent_packet = false;
 
     //最終的な出力フレーム
+    int64_t recieved_samples = 0;
     int recv_ret = 0;
     for (;;) {
         unique_ptr<AVFrame, decltype(&av_frame_unref)> receivedData(nullptr, av_frame_unref);
@@ -2530,9 +2531,11 @@ vector<unique_ptr<AVFrame, decltype(&av_frame_unref)>> RGYOutputAvcodec::AudioDe
                     const auto orig_pts = receivedData->pts;
                     receivedData->pts = av_rescale_delta(muxAudio->streamIn->time_base, orig_pts,
                         timebase_samplerate, receivedData->nb_samples, &muxAudio->dec_rescale_delta, timebase_samplerate);
+                    receivedData->pts += recieved_samples;
                     //fprintf(stderr, "pkt pts: %d, orig pts: %12d, out pts: %12d, samples: %6d\n", (int)pktInInfo.pts, (int)orig_pts, (int)receivedData->pts, receivedData->nb_samples);
                 }
                 muxAudio->decodeNextPts = receivedData->pts + receivedData->nb_samples;
+                recieved_samples += receivedData->nb_samples;
             }
         }
 
