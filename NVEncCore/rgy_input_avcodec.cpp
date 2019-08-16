@@ -71,6 +71,7 @@ static inline void extend_array_size(VideoFrameData *dataset) {
 }
 
 RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
+    RGYInputPrm(base),
     memType(0),
     pInputFormat(nullptr),
     readVideo(false),
@@ -102,8 +103,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     queueInfo(nullptr),
     HWDecCodecCsp(nullptr),
     videoDetectPulldown(false),
-    caption2ass(FORMAT_ASS),
-    RGYInputPrm(base) {
+    caption2ass(FORMAT_ASS) {
 
 }
 
@@ -734,7 +734,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         return RGY_ERR_NULL_PTR;
     }
 
-    m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
+    m_convert = std::unique_ptr<RGYConvertCSP>(new RGYConvertCSP(prm->threadCsp));
 
     for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
         tstring audioLog = strsprintf(_T("select audio track %s, codec %s"),

@@ -149,7 +149,7 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
         width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte,
         height, dst_height, 0, (int)m_th.size()+1, crop);
     if (m_th.size() > 0) {
-        WaitForMultipleObjects((DWORD)m_heFinCopy.size(), m_heFinCopy.data(), TRUE, INFINITE);
+        WaitForMultipleObjects((uint32_t)m_heFinCopy.size(), m_heFinCopy.data(), TRUE, INFINITE);
     }
     return 0;
 }

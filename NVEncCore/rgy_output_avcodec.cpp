@@ -116,8 +116,8 @@ void RGYOutputAvcodec::CloseAudio(AVMuxAudio *muxAudio) {
 
 void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
 #if ENCODER_VCEENC
-    if (pMuxVideo->pParserCtx) {
-        av_parser_close(pMuxVideo->pParserCtx);
+    if (muxVideo->parserCtx) {
+        av_parser_close(muxVideo->parserCtx);
     }
 #endif //#if ENCODER_VCEENC
     if (m_Mux.video.fpTsLogFile) {
@@ -754,12 +754,12 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
 
 #if ENCODER_VCEENC
     //parserを初期化 (VCEのみで必要)
-    if (nullptr == (m_Mux.video.pParserCtx = av_parser_init(m_Mux.format.pFormatCtx->video_codec_id))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.pFormatCtx->video_codec_id)).c_str());
+    if (nullptr == (m_Mux.video.parserCtx = av_parser_init(m_Mux.format.formatCtx->video_codec_id))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
         return RGY_ERR_NULL_PTR;
     }
-    m_Mux.video.pParserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
-    m_Mux.video.nParserStreamPos = 0;
+    m_Mux.video.parserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+    m_Mux.video.parserStreamPos = 0;
 #endif //#if ENCODER_VCEENC
 
     if (prm->muxVidTsLogFile.length() > 0) {
@@ -2056,7 +2056,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *bitstream) {
 #if ENCODER_VCEENC
 RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
     RGY_ERR err = RGY_ERR_NONE;
-    m_Mux.video.nParserStreamPos += pBitstream->size();
+    m_Mux.video.parserStreamPos += pBitstream->size();
     AVPacket pkt;
     av_init_packet(&pkt);
     av_new_packet(&pkt, (int)pBitstream->size());
@@ -2064,17 +2064,17 @@ RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
     pkt.size = (int)pBitstream->size();
     pkt.pts = pBitstream->pts();
     pkt.dts = pBitstream->dts();
-    pkt.pos = m_Mux.video.nParserStreamPos;
+    pkt.pos = m_Mux.video.parserStreamPos;
     uint8_t *dummy = nullptr;
     int dummy_size = 0;
-    if (0 < av_parser_parse2(m_Mux.video.pParserCtx, m_Mux.video.pStreamOut->codec, &dummy, &dummy_size, pkt.data, pkt.size, pkt.pts, pkt.dts, pkt.pos)) {
-        //pBitstream->PictStruct = m_Mux.video.pParserCtx->picture_structure;
-        //pBitstream->RepeatPict = m_Mux.video.pParserCtx->repeat_pict;
+    if (0 < av_parser_parse2(m_Mux.video.parserCtx, m_Mux.video.streamOut->codec, &dummy, &dummy_size, pkt.data, pkt.size, pkt.pts, pkt.dts, pkt.pos)) {
+        //pBitstream->PictStruct = m_Mux.video.parserCtx->picture_structure;
+        //pBitstream->RepeatPict = m_Mux.video.parserCtx->repeat_pict;
 
-        const auto pict_type = m_Mux.video.pParserCtx->pict_type;
+        const auto pict_type = m_Mux.video.parserCtx->pict_type;
 
         RGY_FRAMETYPE frameType = RGY_FRAMETYPE_UNKNOWN;
-        frameType |= (m_Mux.video.pParserCtx->key_frame) ? (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I) : RGY_FRAMETYPE_UNKNOWN;
+        frameType |= (m_Mux.video.parserCtx->key_frame) ? (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I) : RGY_FRAMETYPE_UNKNOWN;
         frameType |= (pict_type == AV_PICTURE_TYPE_I) ? (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I) : RGY_FRAMETYPE_UNKNOWN;
         frameType |= (pict_type == AV_PICTURE_TYPE_P) ? RGY_FRAMETYPE_P : RGY_FRAMETYPE_UNKNOWN;
         frameType |= (pict_type == AV_PICTURE_TYPE_B) ? RGY_FRAMETYPE_B : RGY_FRAMETYPE_UNKNOWN;
@@ -2156,7 +2156,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 #endif
 
 #if ENCODER_VCEENC
-    VidCheckStreamAVParser(pBitstream);
+    VidCheckStreamAVParser(bitstream);
 #endif //#if ENCODER_VCEENC
 
     std::vector<nal_info> nal_list;
@@ -2768,8 +2768,8 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
     const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.outputFps);
     const int64_t pts_offset = av_rescale_q(m_Mux.video.inputFirstKeyPts, vid_pkt_timebase, pMuxOther->streamInTimebase);
     const AVRational timebase_conv = (pMuxOther->outCodecDecodeCtx) ? pMuxOther->outCodecDecodeCtx->pkt_timebase : pMuxOther->streamOut->time_base;
-    pkt->pts = av_rescale_q(std::max(0ll, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
-    pkt->dts = av_rescale_q(std::max(0ll, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
+    pkt->pts = av_rescale_q(std::max<int64_t>(0, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
+    pkt->dts = av_rescale_q(std::max<int64_t>(0, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
     pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
     pkt->duration = (int)av_rescale_q(pkt->duration, pMuxOther->streamInTimebase, pMuxOther->streamOut->time_base);
     pkt->stream_index = pMuxOther->streamOut->index;
@@ -3144,7 +3144,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
     bool bAudioExists = false;
     bool bVideoExists = false;
     const auto fpsTimebase = av_inv_q(m_Mux.video.outputFps);
-    const auto dtsThreshold = std::max(av_rescale_q(4, fpsTimebase, QUEUE_DTS_TIMEBASE), 4ll);
+    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(4, fpsTimebase, QUEUE_DTS_TIMEBASE), 4);
     //syncIgnoreDtsは映像と音声の同期を行う必要がないことを意味する
     //dtsThresholdを加算したときにオーバーフローしないよう、dtsThresholdを引いておく
     const int64_t syncIgnoreDts = INT64_MAX - dtsThreshold;

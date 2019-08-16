@@ -610,7 +610,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
         }
         PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
     }
-#if ENCODER_NVENC
+#if !FOR_AUO
     if (inputParam->common.dynamicHdr10plusJson.length() > 0) {
         m_hdr10plus = initDynamicHDR10Plus(inputParam->common.dynamicHdr10plusJson, m_pNVLog);
         if (!m_hdr10plus) {

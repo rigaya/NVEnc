@@ -466,7 +466,49 @@ tstring CPerfMonitor::SelectedCounters(int select) {
     return str;
 }
 
-CPerfMonitor::CPerfMonitor() {
+CPerfMonitor::CPerfMonitor() :
+    m_nStep(0),
+    m_sPywPath(),
+    m_info(),
+    m_thCheck(),
+    m_thMainThread(),
+    m_pProcess(),
+    m_pipes(),
+    m_thEncThread(NULL),
+    m_thInThread(NULL),
+    m_thOutThread(NULL),
+    m_thAudProcThread(NULL),
+    m_thAudEncThread(NULL),
+    m_nLogicalCPU(get_cpu_info().logical_cores),
+    m_pEncStatus(),
+    m_nEncStartTime(0),
+    m_nOutputFPSRate(0),
+    m_nOutputFPSScale(0),
+    m_nCreateTime100ns(0),
+    m_bAbort(false),
+    m_bEncStarted(false),
+    m_nInterval(500),
+    m_sMonitorFilename(),
+    m_fpLog(),
+    m_nSelectCheck(0),
+    m_nSelectOutputLog(0),
+    m_nSelectOutputPlot(0),
+    m_QueueInfo(),
+    m_pRGYLog(),
+#if ENABLE_METRIC_FRAMEWORK
+    m_pLoader(nullptr),
+    m_pManager(),
+    m_Consumer(),
+#endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+    m_nvmlMonitor(),
+    m_nvmlInfo(),
+#endif //#if ENABLE_NVML
+#if ENABLE_GPUZ_INFO
+    m_GPUZInfo(),
+#endif //#if ENABLE_GPUZ_INFO
+    m_bGPUZInfoValid(false)
+{
     memset(m_info, 0, sizeof(m_info));
     memset(&m_pipes, 0, sizeof(m_pipes));
     memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
@@ -479,14 +521,6 @@ CPerfMonitor::CPerfMonitor() {
 #if ENABLE_GPUZ_INFO
     memset(&m_GPUZInfo, 0, sizeof(m_GPUZInfo));
 #endif //#if ENABLE_GPUZ_INFO
-    m_bGPUZInfoValid = false;
-
-    cpu_info_t cpu_info;
-    get_cpu_info(&cpu_info);
-    m_nLogicalCPU = cpu_info.logical_cores;
-    m_thAudProcThread = NULL;
-    m_thEncThread = NULL;
-    m_thOutThread = NULL;
 }
 
 CPerfMonitor::~CPerfMonitor() {

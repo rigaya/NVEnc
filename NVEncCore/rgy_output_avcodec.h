@@ -122,8 +122,8 @@ typedef struct AVMuxVideo {
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
     RGYTimestamp         *timestamp;            //timestampの情報
 #if ENCODER_VCEENC
-    AVCodecParserContext *pParserCtx;           //動画ストリームのParser (VCEのみ)
-    int64_t               nParserStreamPos;     //動画ストリームのバイト数
+    AVCodecParserContext *parserCtx;            //動画ストリームのParser (VCEのみ)
+    int64_t               parserStreamPos;      //動画ストリームのバイト数
 #endif //#if ENCODER_VCEENC
 } AVMuxVideo;
 

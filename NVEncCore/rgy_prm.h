@@ -157,7 +157,7 @@ const CX_DESC list_simd[] = {
     { _T("sse41"),    SSE41|SSSE3|SSE3|SSE2 },
     { _T("avx"),      AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
     { _T("avx2"),     AVX2|AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 template <uint32_t size>

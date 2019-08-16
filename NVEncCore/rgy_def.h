@@ -291,7 +291,7 @@ const CX_DESC list_colormatrix[] = {
     { _T("derived-cl"),  RGY_MATRIX_DERIVED_CL },
     { _T("ictco"),       RGY_MATRIX_ICTCP },
     { _T("2100-lms"),    RGY_MATRIX_2100_LMS },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum CspTransfer {
@@ -349,7 +349,7 @@ const CX_DESC list_transfer[] = {
     { _T("smpte2084"),     RGY_TRANSFER_ST2084 },
     { _T("smpte428"),      17 },
     { _T("arib-srd-b67"),  RGY_TRANSFER_ARIB_B67 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum CspColorprim {
@@ -396,7 +396,7 @@ const CX_DESC list_colorprim[] = {
     { _T("st431-2"),   RGY_PRIM_ST431_2   },
     { _T("st432-1"),   RGY_PRIM_ST432_1   },
     { _T("ebu3213-e"), RGY_PRIM_EBU3213_E },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_videoformat[] = {
@@ -406,7 +406,7 @@ const CX_DESC list_videoformat[] = {
     { _T("pal"),       1  },
     { _T("secam"),     3  },
     { _T("mac"),       4  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_chromaloc[] = {
     { _T("0"), 0 },
@@ -415,14 +415,14 @@ const CX_DESC list_chromaloc[] = {
     { _T("3"), 3 },
     { _T("4"), 4 },
     { _T("5"), 5 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_colorrange[] = {
     { _T("limited"), 0 },
     { _T("full"), 1 },
     { _T("tv"), 0 },
     { _T("pc"), 1 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 struct VideoVUIInfo {

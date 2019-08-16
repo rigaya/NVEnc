@@ -306,12 +306,14 @@ static double get_tick_per_sec() {
 //rdtscpを使うと0xc0000096例外 (一般ソフトウェア例外)を発する場合があるらしい
 //そこでそれを検出する
 bool check_rdtscp_available() {
+#if defined(_WIN32) || defined(_WIN64)
     __try {
         UINT dummy;
         __rdtscp(&dummy);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
     }
+#endif //defined(_WIN32) || defined(_WIN64)
     return true;
 }
 
