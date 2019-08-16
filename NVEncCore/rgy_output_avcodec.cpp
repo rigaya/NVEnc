@@ -1244,13 +1244,13 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             uint8_t *const dst_data = av_stream_new_side_data(muxAudio->streamOut, sidedataSrc->type, sidedataSrc->size);
             memcpy(dst_data, sidedataSrc->data, sidedataSrc->size);
         }
-    }
-    if (muxAudio->streamIn->codecpar->extradata_size) {
-        //aac_adtstoascから得たヘッダをコピーする
-        //これをしておかないと、avformat_write_headerで"Error parsing AAC extradata, unable to determine samplerate."という
-        //意味不明なエラーメッセージが表示される
-        AddMessage(RGY_LOG_DEBUG, _T("set extradata from original packet...\n"));
-        SetExtraData(muxAudio->streamOut->codecpar, muxAudio->streamIn->codecpar->extradata, muxAudio->streamIn->codecpar->extradata_size);
+        if (muxAudio->streamIn->codecpar->extradata_size) {
+            //aac_adtstoascから得たヘッダをコピーする
+            //これをしておかないと、avformat_write_headerで"Error parsing AAC extradata, unable to determine samplerate."という
+            //意味不明なエラーメッセージが表示される
+            AddMessage(RGY_LOG_DEBUG, _T("set extradata from original packet...\n"));
+            SetExtraData(muxAudio->streamOut->codecpar, muxAudio->streamIn->codecpar->extradata, muxAudio->streamIn->codecpar->extradata_size);
+        }
     }
     muxAudio->streamOut->time_base = av_make_q(1, muxAudio->streamOut->codecpar->sample_rate);
     muxAudio->streamOut->disposition = inputAudio->src.stream->disposition;
