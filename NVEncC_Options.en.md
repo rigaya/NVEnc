@@ -1291,6 +1291,9 @@ add padding to left,top,right,bottom (in pixels)
 - scale=&lt;float&gt; (default=0.0 (auto))
   scaling multiplizer for bitmap fonts.  
 
+- ts_offset=&lt;float&gt; (default=0.0)
+  add offset in seconds to the subtitle timestamps (for debug perpose).  
+
 ```
 Example1: burn in subtitle from the track of the input file
 --vpp-subburn track=1

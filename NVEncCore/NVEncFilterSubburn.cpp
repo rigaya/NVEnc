@@ -361,6 +361,7 @@ RGY_ERR NVEncFilterSubburn::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
             return sts;
         }
     }
+    m_pParam = prm;
     if (prm->streamIn.stream == nullptr) {
         if ((sts = readSubFile()) != RGY_ERR_NONE) {
             return sts;
@@ -410,7 +411,8 @@ RGY_ERR NVEncFilterSubburn::addStreamPacket(AVPacket *pkt) {
         }
         const auto inputSubStream = (prm->streamIn.stream) ? prm->streamIn.stream : m_formatCtx->streams[m_subtitleStreamIndex];
         const int64_t vidInputOffsetMs = av_rescale_q(prm->videoInputFirstKeyPts, prm->videoTimebase, { 1, 1000 });
-        const auto pktTimeMs = av_rescale_q(pkt->pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs;
+        const int64_t tsOffsetMs = (int64_t)(prm->subburn.ts_offset * 1000.0 + 0.5);
+        const auto pktTimeMs = av_rescale_q(pkt->pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs + tsOffsetMs;
         AddMessage(log_level, _T("Add subtitle packet: %s\n"), getTimestampString(pktTimeMs, av_make_q(1, 1000)).c_str());
     }
     return RGY_ERR_NONE;
@@ -425,10 +427,11 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
     const auto inputSubStream = (prm->streamIn.stream) ? prm->streamIn.stream : m_formatCtx->streams[m_subtitleStreamIndex];
     const int64_t nFrameTimeMs = av_rescale_q(pOutputFrame->timestamp, prm->videoTimebase, { 1, 1000 });
     const int64_t vidInputOffsetMs = av_rescale_q(prm->videoInputFirstKeyPts, prm->videoTimebase, { 1, 1000 });
+    const int64_t tsOffsetMs = (int64_t)(prm->subburn.ts_offset * 1000.0 + 0.5);
 
     AVPacket pkt;
     while (m_queueSubPackets.front_copy_no_lock(&pkt)) {
-        const auto pktTimeMs = av_rescale_q(pkt.pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs;
+        const auto pktTimeMs = av_rescale_q(pkt.pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs + tsOffsetMs;
         if (!(m_subType & AV_CODEC_PROP_TEXT_SUB)) {
             //字幕パケットのptsが、フレームのptsより古ければ、処理する必要がある
             if (nFrameTimeMs < pktTimeMs) {
@@ -452,14 +455,14 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
             return RGY_ERR_NONE;
         }
         if (got_sub) {
-            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000)) - vidInputOffsetMs;
+            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000)) - vidInputOffsetMs + tsOffsetMs;
             AddMessage(RGY_LOG_TRACE, _T("decoded subtitle chunk (%s - %s), Video frame (%s)"),
                 getTimestampString(nStartTime, av_make_q(1, 1000)).c_str(),
                 getTimestampString(nStartTime + m_subData->end_display_time, av_make_q(1, 1000)).c_str(),
                 getTimestampString(nFrameTimeMs, av_make_q(1, 1000)).c_str());
         }
         if (got_sub && (m_subType & AV_CODEC_PROP_TEXT_SUB)) {
-            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000)) - vidInputOffsetMs;
+            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000)) - vidInputOffsetMs + tsOffsetMs;
             const int64_t nDuration  = m_subData->end_display_time;
             for (uint32_t i = 0; i < m_subData->num_rects; i++) {
                 auto *ass = m_subData->rects[i]->ass;
@@ -477,7 +480,7 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
     } else {
         if (m_subData) {
             //いまなんらかの字幕情報がデコード済みなら、その有効期限をチェックする
-            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000)) - vidInputOffsetMs;
+            const int64_t nStartTime = av_rescale_q(m_subData->pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000)) - vidInputOffsetMs + tsOffsetMs;
             const int64_t nDuration  = m_subData->end_display_time;
             if (nStartTime + nDuration < nFrameTimeMs) {
                 //現在蓄えている字幕データを開放

@@ -520,7 +520,8 @@ static tstring help() {
         _T("      filename=<string>         subtitle file path to burn in.\n")
         _T("      charcode=<string>         subtitle charcter code.\n")
         _T("      shaping=<string>          rendering quality of text.\n")
-        _T("      scale=<float>             scaling multiplizer for bitmap subtitles.\n"));
+        _T("      scale=<float>             scaling multiplizer for bitmap subtitles.\n")
+        _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n"));
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")

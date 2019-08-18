@@ -994,6 +994,7 @@ struct VppSubburn {
     int trackId;
     int assShaping;
     float scale;
+    double ts_offset;
 
     VppSubburn();
     bool operator==(const VppSubburn &x) const;

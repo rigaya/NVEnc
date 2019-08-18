@@ -2024,6 +2024,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
+                if (param_arg == _T("ts_offset")) {
+                    try {
+                        subburn.ts_offset = std::stof(param_val);
+                    } catch (...) {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
                 CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return -1;
             } else {
@@ -3044,6 +3053,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
                 ADD_PATH(_T("filename"), vpp.subburn[i].filename.c_str());
                 ADD_STR(_T("charcode"), vpp.subburn[i].charcode);
                 ADD_LST(_T("shaping"), vpp.subburn[i].assShaping, list_vpp_ass_shaping);
+                ADD_FLOAT(_T("scale"), vpp.subburn[i].scale, 4);
+                ADD_FLOAT(_T("ts_offset"), vpp.subburn[i].ts_offset, 4);
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);

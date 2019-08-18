@@ -1335,6 +1335,9 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 - scale=&lt;float&gt; (デフォルト=0.0 (auto))
   bitmap形式の字幕の表示サイズの倍率  
 
+- ts_offset=&lt;float&gt; (デフォルト=0.0)
+  字幕のtimestampを秒単位で調整(デバッグ用)  
+
 ```
 例1: 入力ファイルの字幕トラックを焼きこみ
 --vpp-subburn track=1

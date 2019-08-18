@@ -478,7 +478,8 @@ VppSubburn::VppSubburn() :
     charcode(),
     trackId(0),
     assShaping(1),
-    scale(0.0) {
+    scale(0.0),
+    ts_offset(0.0) {
 }
 
 bool VppSubburn::operator==(const VppSubburn &x) const {
@@ -487,18 +488,23 @@ bool VppSubburn::operator==(const VppSubburn &x) const {
         && charcode == x.charcode
         && trackId == x.trackId
         && assShaping == x.assShaping
-        && scale == x.scale;
+        && scale == x.scale
+        && ts_offset == x.ts_offset;
 }
 bool VppSubburn::operator!=(const VppSubburn &x) const {
     return !(*this == x);
 }
 
 tstring VppSubburn::print() const {
-    return strsprintf(_T("subburn: %s, scale x%.2f"),
+    tstring str = strsprintf(_T("subburn: %s, scale x%.2f"),
         (filename.length() > 0)
             ? filename.c_str()
             : strsprintf(_T("track #%d"), trackId).c_str(),
         scale);
+    if (ts_offset != 0.0) {
+        str += strsprintf(_T(", ts_offset %.2f"), ts_offset);
+    }
+    return str;
 }
 
 VppCustom::VppCustom() :
