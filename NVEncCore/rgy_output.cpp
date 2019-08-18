@@ -458,20 +458,22 @@ RGY_ERR initWriters(
                     continue;
                 }
                 const AudioSelect *pAudioSelect = nullptr;
-                for (int i = 0; i < (int)common->nAudioSelectCount; i++) {
-                    if (trackID(stream.trackId) == common->ppAudioSelectList[i]->trackID
-                        && common->ppAudioSelectList[i]->extractFilename.length() == 0) {
-                        pAudioSelect = common->ppAudioSelectList[i];
-                        break;
-                    }
-                }
-                if (pAudioSelect == nullptr) {
-                    //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
-                    for (int i = 0; i < common->nAudioSelectCount; i++) {
-                        if (common->ppAudioSelectList[i]->trackID == 0
+                if (streamMediaType == AVMEDIA_TYPE_AUDIO) {
+                    for (int i = 0; i < (int)common->nAudioSelectCount; i++) {
+                        if (trackID(stream.trackId) == common->ppAudioSelectList[i]->trackID
                             && common->ppAudioSelectList[i]->extractFilename.length() == 0) {
                             pAudioSelect = common->ppAudioSelectList[i];
                             break;
+                        }
+                    }
+                    if (pAudioSelect == nullptr) {
+                        //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
+                        for (int i = 0; i < common->nAudioSelectCount; i++) {
+                            if (common->ppAudioSelectList[i]->trackID == 0
+                                && common->ppAudioSelectList[i]->extractFilename.length() == 0) {
+                                pAudioSelect = common->ppAudioSelectList[i];
+                                break;
+                            }
                         }
                     }
                 }
@@ -627,19 +629,35 @@ RGY_ERR initWriters(
         return RGY_ERR_UNKNOWN;
     } else {
 #endif //ENABLE_AVSW_READER
-        pFileWriter = std::make_shared<RGYOutputRaw>();
-        RGYOutputRawPrm rawPrm;
-        rawPrm.bufSizeMB = common->outputBufSizeMB;
-        rawPrm.benchmark = benchmark;
-        rawPrm.codecId = outputVideoInfo.codec;
-        rawPrm.seiNal = hedrsei.gen_nal();
-        auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
-        if (sts != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, pFileWriter->GetOutputMessage());
-            return sts;
+#if ENCODER_QSV
+        if (outputVideoInfo.codec == RGY_CODEC_UNKNOWN) {
+            pFileWriter = std::make_shared<RGYOutFrame>();
+            YUVWriterParam param;
+            param.bY4m = true;
+            auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &param, log, pStatus);
+            if (sts != RGY_ERR_NONE) {
+                log->write(RGY_LOG_ERROR, pFileWriter->GetOutputMessage());
+                return sts;
+            }
+            stdoutUsed = pFileWriter->outputStdout();
+            log->write(RGY_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+        } else
+#endif
+        {
+            pFileWriter = std::make_shared<RGYOutputRaw>();
+            RGYOutputRawPrm rawPrm;
+            rawPrm.bufSizeMB = common->outputBufSizeMB;
+            rawPrm.benchmark = benchmark;
+            rawPrm.codecId = outputVideoInfo.codec;
+            rawPrm.seiNal = hedrsei.gen_nal();
+            auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
+            if (sts != RGY_ERR_NONE) {
+                log->write(RGY_LOG_ERROR, pFileWriter->GetOutputMessage());
+                return sts;
+            }
+            stdoutUsed = pFileWriter->outputStdout();
+            log->write(RGY_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         }
-        stdoutUsed = pFileWriter->outputStdout();
-        log->write(RGY_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
 #if ENABLE_AVSW_READER
     }
 

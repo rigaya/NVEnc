@@ -219,7 +219,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             }
             if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr && m_inputCsp == RGY_CSP_YUY2) {
                 //YUY2用の特別処理
-                m_inputVideoInfo.csp = RGY_CSP_CHROMA_FORMAT[csp.out] == RGY_CHROMAFMT_YUV420 ? RGY_CSP_NV12 : RGY_CSP_YUV444;
+                m_inputVideoInfo.csp = (RGY_CSP_CHROMA_FORMAT[csp.out] == RGY_CHROMAFMT_YUV420 || ENCODER_QSV) ? RGY_CSP_NV12 : RGY_CSP_YUV444;
                 m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp);
             }
             break;

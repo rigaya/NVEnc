@@ -205,12 +205,12 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
 
 int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamCommon *common, sArgsData *argData, ParseCmdError &err) {
 
-    if (IS_OPTION("input")) {
+    if (IS_OPTION("input") || IS_OPTION("input-file")) {
         i++;
         common->inputFilename = strInput[i];
         return 0;
     }
-    if (IS_OPTION("output")) {
+    if (IS_OPTION("output") || IS_OPTION("output-file")) {
         i++;
         common->outputFilename = strInput[i];
         return 0;
@@ -324,7 +324,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->seekSec = sec + mm * 60;
         return 0;
     }
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && !FOR_AUO
     if (IS_OPTION("audio-source")) {
         i++;
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
@@ -824,7 +824,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && !FOR_AUO
     if (IS_OPTION("sub-copy") || IS_OPTION("copy-sub")) {
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         std::map<int, SubtitleSelect> trackSet; //重複しないように
@@ -1282,7 +1282,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << _T(" --audio-bitrate ") << pAudioSelect->trackID << _T("?") << pAudioSelect->encBitrate;
         }
     }
-
+#if !FOR_AUO
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         tmp.str(tstring());
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
@@ -1307,6 +1307,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << _T(" --audio-stream ") << pAudioSelect->trackID << _T("?") << tmp.str();
         }
     }
+#endif
     tmp.str(tstring());
 
     for (int i = 0; i < param->nAudioSelectCount; i++) {

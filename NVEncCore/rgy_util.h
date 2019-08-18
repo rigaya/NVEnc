@@ -453,6 +453,7 @@ typedef std::basic_stringstream<TCHAR> TStringStream;
 
 #pragma warning (push)
 #pragma warning (disable: 4244)
+#pragma warning (disable: 4996)
 static inline std::string tolowercase(const std::string& str) {
     std::string str_copy = str;
     std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), tolower);

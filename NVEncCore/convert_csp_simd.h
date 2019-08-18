@@ -386,7 +386,7 @@ static void __forceinline convert_yuv422_to_nv16_simd(void **dst, const void **s
     }
 }
 
-#define RGB_PLANE(x0, x1, x2, x3) (((x3) << 24) | ((x2) << 16) | ((x1) << 8) | (x0))
+#define RGB_PLANE(x0, x1, x2, x3) ((((uint32_t)(x3) & 0xff) << 24) | (((uint32_t)(x2) & 0xff) << 16) | (((uint32_t)(x1) & 0xff) << 8) | ((uint32_t)(x0) & 0xff))
 #if USE_SSSE3
 static void __forceinline convert_rgb24_to_rgb32_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];

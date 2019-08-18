@@ -608,14 +608,12 @@ const CX_DESC list_resampler[] = {
     { NULL, 0 }
 };
 
-#if ENCODER_QSV == 0
 const CX_DESC list_interlaced[] = {
     { _T("progressive"), RGY_PICSTRUCT_FRAME     },
     { _T("tff"),         RGY_PICSTRUCT_FRAME_TFF },
     { _T("bff"),         RGY_PICSTRUCT_FRAME_BFF },
     { NULL, 0 }
 };
-#endif
 
 typedef std::map<RGY_CODEC, std::vector<RGY_CSP>> CodecCsp;
 typedef std::vector<std::pair<int, CodecCsp>> DeviceCodecCsp;
