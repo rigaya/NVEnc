@@ -195,6 +195,14 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
     auto planeV = getPlane(&img, RGY_PLANE_V);
     auto planeA = getPlane(&img, RGY_PLANE_A);
 
+    for (int j = 0; j < img.height; j++) {
+        for (int i = 0; i < img.width; i++) {
+            const int idx = j * img.pitch + i;
+            planeU.ptr[idx] = 128;
+            planeV.ptr[idx] = 128;
+        }
+    }
+
     const uint32_t subColor = image->color;
     const uint8_t subR = (uint8_t) (subColor >> 24);
     const uint8_t subG = (uint8_t)((subColor >> 16) & 0xff);
@@ -287,6 +295,14 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     auto planeV = getPlane(&img, RGY_PLANE_V);
     auto planeA = getPlane(&img, RGY_PLANE_A);
 
+    for (int j = 0; j < img.height; j++) {
+        for (int i = 0; i < img.width; i++) {
+            const int idx = j * img.pitch + i;
+            planeU.ptr[idx] = 128;
+            planeV.ptr[idx] = 128;
+        }
+    }
+
     //色テーブルをRGBA->YUVAに変換
     const uint32_t *pColorARGB = (uint32_t *)rect->data[1];
     alignas(32) uint32_t colorTableYUVA[256];
@@ -337,7 +353,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     if (prm->subburn.scale == 1.0f) {
         frame = std::move(frameTemp);
     } else {
-#if 1
+#if 0
         FrameInfo tempframe = img;
         std::vector<uint8_t> temp(imgInfoEx.frame_size);
         memcpy(temp.data(), img.ptr, temp.size());
