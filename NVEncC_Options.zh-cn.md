@@ -210,14 +210,10 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 使用 avformat 和 ffmpeg 的软件解码器读取文件.
 
-### --avhw [&lt;string&gt;]
+### --avhw
 
 使用 avformat 和 cuvid 的硬件解码器。使用该模式可以提供最佳性能，因为该模式下整个编解码过程均在 GPU 运行。
 
-尽管你可以选择解码器模式，但一般情况下不需要。
-
-- native (默认)
-- cuda
 
 **avhw reader 支持的编码**  
 
