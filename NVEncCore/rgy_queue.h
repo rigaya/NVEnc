@@ -180,12 +180,14 @@ public:
             //一度falseになったことが確認できれば、
             //その次の取り出しは新しいバッファから行われていることになるので、
             //古いバッファは破棄してよい
-            while (m_bUsingData.load()) {
+            int expected = 0;
+            while (!m_bUsingData.compare_exchange_weak(expected, 1)) {
                 _mm_pause();
+                expected = 0;
             }
             //古いバッファを破棄
             m_pBufStart = std::move(newBuf);
-            m_bUsingData = 0;
+            m_bUsingData--;
         }
         memcpy(m_pBufIn.load(), &in, sizeof(Type));
         m_pBufIn++;
