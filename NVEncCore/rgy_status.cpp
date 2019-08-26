@@ -202,6 +202,18 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
     double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
     if (m_sData.frameOut + m_sData.frameDrop >= 30) {
         TCHAR mes[256] = { 0 };
+
+        int consoleWidth = 0;
+#if defined(_WIN32) || defined(_WIN64)
+        HANDLE hStdErr = GetStdHandle(STD_ERROR_HANDLE);
+        DWORD mode = 0;
+        bool stderr_write_to_console = 0 != GetConsoleMode(hStdErr, &mode); //stderrの出力先がコンソールかどうか
+        if (stderr_write_to_console) {
+            CONSOLE_SCREEN_BUFFER_INFO consoleinfo;
+            GetConsoleScreenBufferInfo(hStdErr, &consoleinfo);
+            consoleWidth = consoleinfo.dwSize.X;
+        }
+#endif //#if defined(_WIN32) || defined(_WIN64)
         m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
         m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
         if (0 < m_sData.frameTotal || progressPercent > 0.0) {
@@ -231,7 +243,14 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
                     len += _stprintf_s(mes + len, _countof(mes) - len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
                 }
             }
-            for (; len < 79; len++) {
+            const double est_file_size = (double)m_sData.outFileSize / (progressPercent * 0.01);
+            const int est_file_size_len = len + _stprintf_s(mes + len, _countof(mes) - len, _T(", est out size %.1fMB"), est_file_size * (1.0 / (1024.0 * 1024.0)));
+            if (consoleWidth == 0 || consoleWidth >= est_file_size_len) {
+                len = est_file_size_len;
+            } else {
+                mes[len] = _T('\0');
+            }
+            for (; len < std::max(consoleWidth-1, 79); len++) {
                 mes[len] = _T(' ');
             }
             mes[len] = _T('\0');
@@ -262,8 +281,20 @@ void EncodeStatus::WriteResults() {
     m_sData.encodeFps = m_sData.frameOut * 1000.0 / (double)time_elapsed64;
     m_sData.bitrateKbps = (double)(m_sData.outFileSize * 8) *  (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / (1000.0 * m_sData.frameOut);
 
+    int consoleWidth = 0;
+#if defined(_WIN32) || defined(_WIN64)
+    HANDLE hStdErr = GetStdHandle(STD_ERROR_HANDLE);
+    DWORD mode = 0;
+    bool stderr_write_to_console = 0 != GetConsoleMode(hStdErr, &mode); //stderrの出力先がコンソールかどうか
+    if (stderr_write_to_console) {
+        CONSOLE_SCREEN_BUFFER_INFO consoleinfo;
+        GetConsoleScreenBufferInfo(hStdErr, &consoleinfo);
+        consoleWidth = consoleinfo.dwSize.X;
+    }
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
     TCHAR mes[512] = { 0 };
-    for (int i = 0; i < 79; i++)
+    for (int i = 0; i < std::max(consoleWidth-1, 79); i++)
         mes[i] = ' ';
     WriteLine(mes);
 
