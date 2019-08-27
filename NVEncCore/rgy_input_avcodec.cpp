@@ -103,7 +103,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     queueInfo(nullptr),
     HWDecCodecCsp(nullptr),
     videoDetectPulldown(false),
-    caption2ass(FORMAT_ASS) {
+    caption2ass(FORMAT_INVALID) {
 
 }
 
