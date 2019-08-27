@@ -127,13 +127,39 @@ void nvfeature_close(nvfeature_t obj);
 class NVEncoderGPUInfo
 {
 public:
-    NVEncoderGPUInfo(int deviceId, bool getFeatures);
+    NVEncoderGPUInfo(int deviceId, bool getFeatures, std::shared_ptr<RGYLog> log = std::shared_ptr<RGYLog>());
     ~NVEncoderGPUInfo();
     const std::list<NVGPUInfo> getGPUList() {
         return GPUList;
     }
+    void writeLog(int log_level, const tstring &str) {
+        if (!m_log || log_level < m_log->getLogLevel()) {
+            return;
+        }
+        auto lines = split(str, _T("\n"));
+        for (const auto &line : lines) {
+            if (line[0] != _T('\0')) {
+                m_log->write(log_level, ( + _T("gpuinfo: ") + line + _T("\n")).c_str());
+            }
+        }
+    }
+    void writeLog(int log_level, const TCHAR *format, ...) {
+        if (!m_log || log_level < m_log->getLogLevel()) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+        _vstprintf_s(&buffer[0], len, format, args);
+        va_end(args);
+        writeLog(log_level, buffer);
+    }
 private:
     std::list<NVGPUInfo> GPUList;
+    std::shared_ptr<RGYLog> m_log;
 };
 
 class NVEncCore {

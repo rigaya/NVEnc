@@ -247,34 +247,72 @@ bool check_if_nvcuda_dll_available() {
     return true;
 }
 
-NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
+NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures, shared_ptr<RGYLog> log) {
     CUresult cuResult = CUDA_SUCCESS;
+    cudaError_t cuErr = cudaSuccess;
+    m_log = log;
+    if (!check_if_nvcuda_dll_available()) {
+        writeLog(RGY_LOG_ERROR, _T("Failed to find nvcuda.dll.\n"));
+        return;
+    }
+    writeLog(RGY_LOG_DEBUG, _T("found nvcuda.dll.\n"));
 
-    if (!check_if_nvcuda_dll_available())
+    if (CUDA_SUCCESS != (cuResult = cuInit(0))) {
+        writeLog(RGY_LOG_ERROR, _T("Error: cuInit(0): %s\n"), char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return;
+    }
+    writeLog(RGY_LOG_DEBUG, _T("cuInit(0): success.\n"));
 
-    if (CUDA_SUCCESS != (cuResult = cuInit(0)))
+    if (CUDA_SUCCESS != (cuResult = cuvidInit(0))) {
+        writeLog(RGY_LOG_ERROR, _T("Error: cuvidInit(0): %s\n"), char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return;
-    if (CUDA_SUCCESS != (cuResult = cuvidInit(0)))
-        return;
+    }
+    writeLog(RGY_LOG_DEBUG, _T("cuvidInit(0): success.\n"));
 
     int deviceCount = 0;
-    if (CUDA_SUCCESS != (cuDeviceGetCount(&deviceCount)) || 0 == deviceCount)
+    if (CUDA_SUCCESS != (cuResult = cuDeviceGetCount(&deviceCount))) {
+        writeLog(RGY_LOG_ERROR, _T("Error: cuDeviceGetCount(): %s\n"), char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return;
+    }
+    if (deviceCount == 0) {
+        writeLog(RGY_LOG_ERROR, _T("Error: no CUDA device.\n"));
+    }
+    writeLog(RGY_LOG_DEBUG, _T("Found %d CUDA device(s).\n"), deviceCount);
 
     for (int currentDevice = 0; currentDevice < deviceCount; currentDevice++) {
         char pci_bus_name[1024] = { 0 };
         CUdevice cuDevice = 0;
         cudaDeviceProp devProp;
-        if ((deviceId < 0 || deviceId == currentDevice)
-            && cudaSuccess == cudaDeviceGetPCIBusId(pci_bus_name, sizeof(pci_bus_name), currentDevice)
-            && CUDA_SUCCESS == cuDeviceGet(&cuDevice, currentDevice)
-            && CUDA_SUCCESS == cudaGetDeviceProperties(&devProp, cuDevice)
-            && (((devProp.major << 4) + devProp.minor) >= 0x30)) {
+        if ((deviceId < 0 || deviceId == currentDevice)) {
+            const int error_level = (deviceId >= 0) ? RGY_LOG_ERROR : RGY_LOG_DEBUG;
+            writeLog(RGY_LOG_DEBUG, _T("checking for device #%d.\n"), currentDevice);
+
+            if ((cuResult = cuDeviceGet(&cuDevice, currentDevice)) != CUDA_SUCCESS) {
+                writeLog(error_level, _T("  Error: cuDeviceGet(): %s\n"), char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+                continue;
+            }
+            writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGet: success\n"));
+
+            if ((cuErr = cudaGetDeviceProperties(&devProp, cuDevice)) != CUDA_SUCCESS) {
+                writeLog(error_level, _T("  Error: cudaGetDeviceProperties(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
+                continue;
+            }
+            if (((devProp.major << 4) + devProp.minor) < 0x30) {
+                writeLog(error_level, _T("  Error: device does not satisfy required CUDA version (>=3.0): %d.%d\n"), devProp.major, devProp.minor);
+                continue;
+            }
+            writeLog(RGY_LOG_DEBUG, _T("  cudaGetDeviceProperties: CUDA %d.%d\n"), devProp.major, devProp.minor);
+
             unique_ptr<NVEncFeature> nvFeature;
             if (getFeatures) {
                 nvFeature = unique_ptr<NVEncFeature>(new NVEncFeature());
                 nvFeature->createCacheAsync(currentDevice, RGY_LOG_INFO);
+            }
+
+            if ((cuErr = cudaDeviceGetPCIBusId(pci_bus_name, sizeof(pci_bus_name), currentDevice)) != cudaSuccess) {
+                writeLog((deviceId >= 0) ? RGY_LOG_WARN : RGY_LOG_DEBUG, _T("  Warn: cudaDeviceGetPCIBusId(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
+            } else {
+                writeLog(RGY_LOG_DEBUG, _T("  PCIBusId: %s\n"), char_to_tstring(pci_bus_name).c_str());
             }
 
             NVGPUInfo gpu;
@@ -285,11 +323,11 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
             gpu.compute_capability.second = devProp.minor;
             gpu.clock_rate = devProp.clockRate;
             gpu.cuda_cores = _ConvertSMVer2Cores(devProp.major, devProp.minor) * devProp.multiProcessorCount;
-            gpu.nv_driver_version = INT_MAX;
+            gpu.nv_driver_version = std::numeric_limits<int>::max();
             gpu.pcie_gen = 0;
             gpu.pcie_link = 0;
 #if ENABLE_NVML
-            {
+            if (gpu.pciBusId.length() > 0) {
                 int version = 0, pcie_gen = 0, pcie_link = 0;
                 NVMLMonitor nvml_monitor;
                 if (NVML_SUCCESS == nvml_monitor.Init(gpu.pciBusId)
@@ -298,10 +336,11 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
                     gpu.nv_driver_version = version;
                     gpu.pcie_gen = pcie_gen;
                     gpu.pcie_link = pcie_link;
+                    writeLog(RGY_LOG_DEBUG, _T("  Got GPU Info from NVML.\n"));
                 }
             }
 #endif //#if ENABLE_NVML
-            if (gpu.nv_driver_version == INT_MAX) {
+            if (gpu.nv_driver_version == std::numeric_limits<int>::max()) {
                 TCHAR buffer[1024];
                 if (0 == getGPUInfo(GPU_VENDOR, buffer, _countof(buffer), currentDevice, true, true)) {
                     try {
@@ -313,22 +352,26 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures) {
             if (0 < gpu.nv_driver_version && gpu.nv_driver_version < NV_DRIVER_VER_MIN) {
                 gpu.nv_driver_version = -1;
             }
+            writeLog(RGY_LOG_DEBUG, _T("  NV Driver version: %d.\n"), gpu.nv_driver_version);
 
             gpu.cuda_driver_version = 0;
             if (CUDA_SUCCESS != (cuResult = cuDriverGetVersion(&gpu.cuda_driver_version))) {
                 gpu.cuda_driver_version = -1;
             }
+            writeLog(RGY_LOG_DEBUG, _T("  CUDA Driver version: %d.\n"), gpu.cuda_driver_version);
 
 #if ENABLE_AVSW_READER
             CUcontext cuctx;
             if (CUDA_SUCCESS == (cuResult = cuCtxCreate((CUcontext*)(&cuctx), 0, cuDevice))) {
                 gpu.cuvid_csp = getHWDecCodecCsp();
                 cuCtxDestroy(cuctx);
+                writeLog(RGY_LOG_DEBUG, _T("  getHWDecCodecCsp\n"));
             }
 #endif
 
             if (getFeatures) {
                 gpu.nvenc_codec_features = nvFeature->GetCachedNVEncCapability();
+                writeLog(RGY_LOG_DEBUG, _T("  GetCachedNVEncCapability\n"));
             }
             nvFeature.reset();
             GPUList.push_back(gpu);
@@ -342,6 +385,7 @@ std::list<NVGPUInfo> get_gpu_list() {
 }
 
 NVEncoderGPUInfo::~NVEncoderGPUInfo() {
+    m_log.reset();
 };
 
 NVEncCore::NVEncCore() {
@@ -362,6 +406,7 @@ NVEncCore::NVEncCore() {
     m_keyOnChapter = false;
 #endif
     m_appliedDynamicRC = DYNAMIC_PARAM_NOT_SELECTED;
+    m_cudaSchedule = CU_CTX_SCHED_AUTO;
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -705,11 +750,11 @@ NVENCSTATUS NVEncCore::InitCuda(int cudaSchedule) {
     if (0 == m_GPUList.size()) {
         //NVEncFeatureから呼ばれたとき、ここに入る
         //NVEncFeatureが再帰的に呼び出すのを避けるため、getFeatures = falseで呼び出す
-        NVEncoderGPUInfo gpuInfo(m_nDeviceId, false);
+        NVEncoderGPUInfo gpuInfo(m_nDeviceId, false, m_pNVLog);
         m_GPUList = gpuInfo.getGPUList();
         if (0 == m_GPUList.size()) {
             //NVEncFeatureが再帰的に呼び出すのを避けるため、getFeatures = falseで呼び出す
-            gpuInfo = NVEncoderGPUInfo(-1, false);
+            gpuInfo = NVEncoderGPUInfo(-1, false, m_pNVLog);
             m_GPUList = gpuInfo.getGPUList();
             if (0 == m_GPUList.size()) {
                 PrintMes(RGY_LOG_ERROR, _T("No GPU found suitable for NVEnc Encoding.\n"));
@@ -3278,10 +3323,10 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
 
     //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
-    NVEncoderGPUInfo gpuInfo(m_nDeviceId, true);
+    NVEncoderGPUInfo gpuInfo(m_nDeviceId, true, m_pNVLog);
     m_GPUList = gpuInfo.getGPUList();
     if (0 == m_GPUList.size()) {
-        gpuInfo = NVEncoderGPUInfo(-1, true);
+        gpuInfo = NVEncoderGPUInfo(-1, true, m_pNVLog);
         m_GPUList = gpuInfo.getGPUList();
         if (0 == m_GPUList.size()) {
             PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("NVEncが使用可能なGPUが見つかりませんでした。\n") : _T("No GPU found suitable for NVEnc Encoding.\n"));
