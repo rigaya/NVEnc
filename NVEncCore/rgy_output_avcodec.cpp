@@ -1139,8 +1139,10 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         if (muxAudio->outCodecEncode->capabilities & AV_CODEC_CAP_EXPERIMENTAL) {
             av_opt_set(muxAudio->outCodecEncodeCtx, "strict", "experimental", 0);
         }
-        if (0 > avcodec_open2(muxAudio->outCodecEncodeCtx, muxAudio->outCodecEncode, &codecPrmDict)) {
-            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
+        int ret = avcodec_open2(muxAudio->outCodecEncodeCtx, muxAudio->outCodecEncode, &codecPrmDict);
+        if (ret < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to open encoder(%s) for audio track %d: %s\n"),
+                char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
         if (codecPrmDict) {
