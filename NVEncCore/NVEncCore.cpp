@@ -4348,7 +4348,6 @@ NVENCSTATUS NVEncCore::Encode() {
         }
     }
 #endif //#if ENABLE_AVSW_READER
-    PrintMes(RGY_LOG_INFO, _T("                                                                             \n"));
     //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
     auto encstatus = nvStatus;
     if (nEncodeFrames > 0 || nvStatus == NV_ENC_SUCCESS) {
