@@ -481,7 +481,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         argData->nParsedAudioFile++;
         return 0;
     }
-    if (IS_OPTION("format") || IS_OPTION("input-output")) {
+    if (IS_OPTION("format") || IS_OPTION("output-format")) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
             common->muxOutputFormat = strInput[i];
