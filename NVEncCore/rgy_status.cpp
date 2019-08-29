@@ -46,7 +46,7 @@
 EncodeStatus::EncodeStatus() {
     memset(&m_sData, 0, sizeof(m_sData));
 
-    m_sStartTime = std::make_unique<PROCESS_TIME>();
+    m_sStartTime = std::unique_ptr<PROCESS_TIME>(new PROCESS_TIME());
     m_tmLastUpdate = std::chrono::system_clock::now();
     m_pause = false;
     m_bStdErrWriteToConsole = false;

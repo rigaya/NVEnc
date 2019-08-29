@@ -206,7 +206,9 @@ RGY_ERR initWriters(
     const VideoInfo outputVideoInfo,
     const sTrimParam &trimParam,
     const rgy_rational<int> outputTimebase,
+#if ENABLE_AVSW_READER
     const vector<unique_ptr<AVChapter>> &chapters,
+#endif //#if ENABLE_AVSW_READER
     const int subburnTrackId,
     const bool videoDtsUnavailable,
     const bool benchmark,

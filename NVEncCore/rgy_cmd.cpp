@@ -172,6 +172,8 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         return 0;
     }
     if (IS_OPTION("avcuvid")
+        || IS_OPTION("avqsv")
+        || IS_OPTION("avvce")
         || IS_OPTION("avhw")) {
         input->type = RGY_INPUT_FMT_AVHW;
 #endif

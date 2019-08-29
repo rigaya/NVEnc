@@ -32,8 +32,9 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include <map>
 #include <array>
+#include <map>
+#include <limits>
 #include "rgy_tchar.h"
 #include "convert_csp.h"
 
@@ -47,11 +48,11 @@ static const int RGY_INPUT_THREAD_AUTO = -1;
 
 static const int CHECK_PTS_MAX_INSERT_FRAMES = 8;
 
-static const int TRIM_MAX = INT_MAX;
+static const int TRIM_MAX = std::numeric_limits<int>::max();
 static const int TRIM_OVERREAD_FRAMES = 128;
 
 static const uint32_t MAX_SPLIT_CHANNELS = 32;
-static const uint64_t RGY_CHANNEL_AUTO = UINT64_MAX;
+static const uint64_t RGY_CHANNEL_AUTO = std::numeric_limits<uint64_t>::max();
 static const int RGY_OUTPUT_BUF_MB_MAX = 128;
 
 typedef struct {
@@ -201,7 +202,7 @@ static int get_cx_value(const CX_DESC *list, const TCHAR *chr) {
     return 0;
 }
 
-static int PARSE_ERROR_FLAG = INT_MIN;
+static int PARSE_ERROR_FLAG = std::numeric_limits<int>::min();
 static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
     for (int i = 0; list[i].desc; i++)
         if (_tcsicmp(list[i].desc, chr) == 0)
@@ -236,7 +237,7 @@ enum {
     DELOGO_MODE_ADD,
 };
 
-const int COLOR_VALUE_AUTO = INT_MAX;
+const int COLOR_VALUE_AUTO = std::numeric_limits<int>::max();
 const int HD_HEIGHT_THRESHOLD = 720;
 const int HD_INDEX = 2;
 const int SD_INDEX = 3;

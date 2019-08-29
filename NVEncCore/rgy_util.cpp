@@ -1029,6 +1029,7 @@ std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned in
 
 int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule) {
     *data = nullptr;
+#if defined(_WIN32) || defined(_WIN64)
     //埋め込みデータを使用する
     if (hModule == NULL) {
         hModule = GetModuleHandle(NULL);
@@ -1046,6 +1047,9 @@ int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODU
     }
     *data = LockResource(hResourceData);
     return (int)SizeofResource(hModule, hResource);
+#else
+    return 0;
+#endif
 }
 
 #include "rgy_simd.h"

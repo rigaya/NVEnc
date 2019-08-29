@@ -178,13 +178,13 @@ bool rearrange_trim_list(int frame, int offset, std::vector<sTrim> &trimList) {
     return false;
 }
 
-#if !FOR_AUO
+#if !FOR_AUO && (defined(_WIN32) || defined(_WIN64))
 unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log) {
     unique_ptr<RGYHDR10Plus> hdr10plus;
     if (!PathFileExists(dynamicHdr10plusJson.c_str())) {
         log->write(RGY_LOG_ERROR, _T("Cannot find the file specified : %s.\n"), dynamicHdr10plusJson.c_str());
     } else {
-        hdr10plus = std::make_unique<RGYHDR10Plus>();
+        hdr10plus = std::unique_ptr<RGYHDR10Plus>(new RGYHDR10Plus());
         auto ret = hdr10plus->init(dynamicHdr10plusJson);
         if (ret == RGY_ERR_NOT_FOUND) {
             log->write(RGY_LOG_ERROR, _T("Cannot find \"%s\" required for --dhdr10-info.\n"), RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME);
