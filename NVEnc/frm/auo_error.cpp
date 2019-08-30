@@ -131,6 +131,22 @@ void error_video_output_thread_start() {
     write_log_auo_line(LOG_ERROR, "パイプ出力用スレッドの生成に失敗しました。");
 }
 
+void error_video_create_param_mem() {
+    write_log_auo_line(LOG_ERROR, "パラメータ保持用のメモリ確保に失敗しました。");
+}
+
+void error_video_create_event() {
+    write_log_auo_line(LOG_ERROR, "読み込み用のイベント作成に失敗しました。");
+}
+
+void error_video_open_shared_input_buf() {
+    write_log_auo_line(LOG_ERROR, "読み込み用のメモリのオープンに失敗しました。");
+}
+
+void error_video_get_conv_func() {
+    write_log_auo_line(LOG_ERROR, "色変換用の関数選択に失敗しました。");
+}
+
 void warning_auto_qpfile_failed() {
     write_log_auo_line(LOG_WARNING, "Aviutlのキーフレーム検出用 qpfileの自動作成に失敗しました。");
 }

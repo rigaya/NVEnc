@@ -32,24 +32,6 @@
 #include "rgy_input.h"
 #include "cpu_info.h"
 
-std::vector<int> read_keyfile(tstring keyfile) {
-    std::set<int> s; //重複回避のため
-    std::ifstream ifs(keyfile);
-    if (ifs.is_open()) {
-        std::string buff;
-        while (std::getline(ifs, buff)) {
-            if (buff.length() > 0) {
-                try {
-                    s.insert(std::stoi(buff));
-                } catch (...) {
-                    return vector<int>();
-                }
-            }
-        }
-    }
-    return vector<int>(s.begin(), s.end());
-}
-
 RGYConvertCSPPrm::RGYConvertCSPPrm() :
     abort(false),
     dst(nullptr),
@@ -154,6 +136,26 @@ int RGYConvertCSP::run(int interlaced, void **dst, const void **src, int width, 
     return 0;
 }
 
+#if !FOR_AUO
+
+std::vector<int> read_keyfile(tstring keyfile) {
+    std::set<int> s; //重複回避のため
+    std::ifstream ifs(keyfile);
+    if (ifs.is_open()) {
+        std::string buff;
+        while (std::getline(ifs, buff)) {
+            if (buff.length() > 0) {
+                try {
+                    s.insert(std::stoi(buff));
+                } catch (...) {
+                    return vector<int>();
+                }
+            }
+        }
+    }
+    return vector<int>(s.begin(), s.end());
+}
+
 RGYInput::RGYInput() :
     m_encSatusInfo(),
     m_inputVideoInfo(),
@@ -211,6 +213,7 @@ void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSp
 #include "rgy_input_avi.h"
 #include "rgy_input_avs.h"
 #include "rgy_input_vpy.h"
+#include "rgy_input_sm.h"
 #include "rgy_input_avcodec.h"
 
 RGY_ERR initReaders(
@@ -353,6 +356,12 @@ RGY_ERR initReaders(
         pFileReader.reset(new RGYInputAvcodec());
         } break;
 #endif //#if ENABLE_AVSW_READER
+#if ENABLE_SM_READER
+    case RGY_INPUT_FMT_SM: {
+        log->write(RGY_LOG_DEBUG, _T("shared mem reader selected.\n"));
+        pFileReader.reset(new RGYInputSM());
+        } break;
+#endif //#if ENABLE_SM_READER
     case RGY_INPUT_FMT_RAW:
     case RGY_INPUT_FMT_Y4M:
     default: {
@@ -437,3 +446,5 @@ RGY_ERR initReaders(
     return RGY_ERR_INVALID_CALL;
 #endif //ENABLE_RAW_READER
 }
+
+#endif //#if !FOR_AUO

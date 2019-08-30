@@ -30,6 +30,8 @@ func_audio_16to8 get_audio_16to8_func(BOOL split) {
     return FUNC_CONVERT_AUDIO[simd][!!split];
 }
 
+#if 0
+
 enum eInterlace {
     A = -1, //区別の必要なし
     P = 0,  //プログレッシブ用
@@ -329,3 +331,5 @@ void free_pixel_data(CONVERT_CF_DATA *pixel_data) {
         _mm_free(pixel_data->data[0]);
     ZeroMemory(pixel_data, sizeof(CONVERT_CF_DATA));
 }
+
+#endif

@@ -32,7 +32,7 @@ NVEncが載ったハードウェア
 |NVEnc 4.31 以降 | NVIDIA グラフィックドライバ 418.81以降 |
 
 ## NVEncCの使用方法とオプション  
-NVEncCのオプションの説明 ([blog](http://rigaya34589.blog135.fc2.com/blog-entry-739.html), [github](./NVEncC_Options.ja.md)) 
+[NVEncCのオプションの説明](./NVEncC_Options.ja.md)
 
 ## 各GPUのエンコード機能情報の調査結果  
 NVEncC --check-features の結果をまとめたものです。ドライバに問い合わせた結果となっています。そのため、ドライバのバージョンによって結果が異なる可能性があります。 

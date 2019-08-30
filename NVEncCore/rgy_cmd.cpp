@@ -142,6 +142,12 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
     }
     if (IS_OPTION("raw")) {
         input->type = RGY_INPUT_FMT_RAW;
+#if ENABLE_SM_READER
+        return 0;
+    }
+    if (IS_OPTION("sm")) {
+        input->type = RGY_INPUT_FMT_SM;
+#endif
         return 0;
     }
     if (IS_OPTION("y4m")) {

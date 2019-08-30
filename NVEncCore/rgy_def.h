@@ -162,6 +162,7 @@ enum RGY_INPUT_FMT {
     RGY_INPUT_FMT_AVHW,
     RGY_INPUT_FMT_AVSW,
     RGY_INPUT_FMT_AVANY,
+    RGY_INPUT_FMT_SM,
 };
 
 typedef struct CX_DESC {
