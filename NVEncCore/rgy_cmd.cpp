@@ -332,28 +332,14 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         AudioSource src;
         const TCHAR *ptr = strInput[i];
-        const TCHAR *qtr;
-        if (*ptr == _T('\"')) {
-            while (*ptr != _T('\"') && *ptr != _T('\0'))
-                ptr++;
-            if (*ptr == _T('\0')) {
-                src.filename = strInput[i]+1;
-                src.select[0].encCodec = RGY_AVCODEC_COPY;
-                common->audioSource.push_back(src);
-                return 0;
-            }
-            src.filename = tstring(strInput[i]+1).substr(0, ptr - strInput[i] - 2);
-            qtr = _tcschr(ptr, ':');
-        } else {
-            qtr = _tcschr(ptr, ':');
-            if (qtr == nullptr) {
-                src.filename = strInput[i];
-                src.select[0].encCodec = RGY_AVCODEC_COPY;
-                common->audioSource.push_back(src);
-                return 0;
-            }
-            src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
+        const TCHAR *qtr = _tcsrchr(ptr, _T(':'));
+        if (qtr == nullptr) {
+            src.filename = strInput[i];
+            src.select[0].encCodec = RGY_AVCODEC_COPY;
+            common->audioSource.push_back(src);
+            return 0;
         }
+        src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
         auto channel_select_list = split(qtr+1, _T(":"));
         for (auto channel : channel_select_list) {
             int trackId = 0;
