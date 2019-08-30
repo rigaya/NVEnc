@@ -39,7 +39,15 @@
 #include "rgy_status.h"
 #include "rgy_avutil.h"
 #include "rgy_input.h"
+#if ENCODER_NVENC
 #include "NVEncUtil.h"
+#endif //#if ENCODER_NVENC
+#if ENCODER_QSV
+#include "qsv_util.h"
+#endif //#if ENCODER_QSV
+#if ENCODER_VCEENC
+#include "vce_util.h"
+#endif //#if ENCODER_VCEENC
 
 using std::unique_ptr;
 using std::shared_ptr;
@@ -216,5 +224,27 @@ RGY_ERR initWriters(
     shared_ptr<CPerfMonitor> pPerfMonitor,
     shared_ptr<RGYLog> log
 );
+
+#if ENCODER_QSV
+
+struct YUVWriterParam {
+    bool bY4m;
+};
+
+class RGYOutFrame : public RGYOutput {
+public:
+
+    RGYOutFrame();
+    virtual ~RGYOutFrame();
+
+    virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) override;
+    virtual RGY_ERR WriteNextFrame(RGYFrame *pSurface) override;
+protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
+
+    bool m_bY4m;
+};
+
+#endif //#if ENCODER_QSV
 
 #endif //__RGY_OUTPUT_H__

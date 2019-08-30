@@ -40,7 +40,15 @@
 #include "rgy_err.h"
 #include "rgy_util.h"
 #include "rgy_prm.h"
+#if ENCODER_NVENC
 #include "NVEncUtil.h"
+#endif //#if ENCODER_NVENC
+#if ENCODER_QSV
+#include "qsv_util.h"
+#endif //#if ENCODER_QSV
+#if ENCODER_VCEENC
+#include "vce_util.h"
+#endif //#if ENCODER_VCEENC
 
 std::vector<int> read_keyfile(tstring keyfile);
 

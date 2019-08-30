@@ -42,7 +42,15 @@
 #include "rgy_output.h"
 #include "rgy_perf_monitor.h"
 #include "rgy_util.h"
+#if ENCODER_NVENC
 #include "NVEncUtil.h"
+#endif //#if ENCODER_NVENC
+#if ENCODER_QSV
+#include "qsv_util.h"
+#endif //#if ENCODER_QSV
+#if ENCODER_VCEENC
+#include "vce_util.h"
+#endif //#if ENCODER_VCEENC
 
 using std::vector;
 
