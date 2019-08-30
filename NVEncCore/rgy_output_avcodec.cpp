@@ -2425,7 +2425,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
     } else {
         pkt->pts = av_rescale_q(pkt->pts, muxAudio->outCodecEncodeCtx->time_base, muxAudio->streamOut->time_base);
     }
-    if (m_Mux.video.streamOut) {
+    if (m_Mux.video.streamOut && m_Mux.video.inputFirstKeyPts != 0) {
         pkt->pts -= av_rescale_q(m_Mux.video.inputFirstKeyPts, m_Mux.video.inputStreamTimebase, muxAudio->streamOut->time_base);
     }
     if (muxAudio->lastPtsOut != AV_NOPTS_VALUE) {

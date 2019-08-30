@@ -1586,6 +1586,11 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
         return false;
     }
 
+    //映像がないなら判定しない
+    if (!m_Demux.video.stream) {
+        return true;
+    }
+
     const auto vidFramePos = &m_Demux.frames.list((std::max)(stream->lastVidIndex, 0));
     const int64_t vid1_fin = convertTimebaseVidToStream(vidFramePos->pts + ((stream->lastVidIndex >= 0) ? vidFramePos->duration : 0), stream);
     const int64_t vid2_start = convertTimebaseVidToStream(m_Demux.frames.list((std::max)(stream->lastVidIndex+1, 0)).pts, stream);
@@ -1927,8 +1932,8 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead() {
                 if (pStream->pktSample.data == nullptr) {
                     av_copy_packet(&pStream->pktSample, &pkt);
                 }
-                uint64_t pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
-                uint64_t pkt_dist = pktt - pStream->pktSample.pts;
+                auto pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
+                auto pkt_dist = pktt - pStream->pktSample.pts;
                 //1フレーム分のサンプルを取得したら終了
                 if (pkt_dist * (double)pStream->stream->time_base.num / (double)pStream->stream->time_base.den > vidEstDurationSec) {
                     //およそ1フレーム分のパケットを設定する
@@ -1937,7 +1942,12 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead() {
                     if (m_Demux.frames.getStreamPtsStatus() == RGY_PTS_UNKNOWN) {
                         m_Demux.frames.checkPtsStatus();
                     }
-                    CheckAndMoveStreamPacketList();
+                    while (!m_Demux.qStreamPktL1.empty()) {
+                        auto pkt2 = m_Demux.qStreamPktL1.front();
+                        pkt2.flags = (pkt2.flags & 0xffff) | ((uint32_t)pStream->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+                        m_Demux.qStreamPktL2.push(pkt2); //Writer側に渡したパケットはWriter側で開放する
+                        m_Demux.qStreamPktL1.pop_front();
+                    }
                     return;
                 }
             }
