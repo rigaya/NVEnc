@@ -40,8 +40,6 @@ void error_no_exe_file(const char *name, const char *path);
 void warning_auto_afs_disable();
 void error_afs_setup(BOOL afs, BOOL auto_afs_disable);
 void error_run_process(const char *exe_name, int rp_ret);
-void error_video_convert_thread_start();
-void error_video_output_thread_start();
 void error_video_create_param_mem();
 void error_video_create_event();
 void error_video_open_shared_input_buf();

@@ -28,6 +28,8 @@
 #ifndef _AUO_UTIL_H_
 #define _AUO_UTIL_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #if (_MSC_VER >= 1800)
 #include <VersionHelpers.h>
@@ -47,15 +49,17 @@
 #include "auo_version.h"
 
 //日本語環境の一般的なコードページ一覧
-#define CODE_PAGE_SJIS        932 //Shift-JIS
-#define CODE_PAGE_JIS         50220
-#define CODE_PAGE_EUC_JP      51932
-#define CODE_PAGE_UTF8        CP_UTF8
-#define CODE_PAGE_UTF16_LE    CP_WINUNICODE //WindowsのUnicode WCHAR のコードページ
-#define CODE_PAGE_UTF16_BE    1201
-#define CODE_PAGE_US_ASCII    20127
-#define CODE_PAGE_WEST_EUROPE 1252  //厄介な西ヨーロッパ言語
-#define CODE_PAGE_UNSET       0xffffffff
+enum : DWORD {
+    CODE_PAGE_SJIS        = 932, //Shift-JIS
+    CODE_PAGE_JIS         = 50220,
+    CODE_PAGE_EUC_JP      = 51932,
+    CODE_PAGE_UTF8        = CP_UTF8,
+    CODE_PAGE_UTF16_LE    = 1200, //WindowsのUnicode WCHAR のコードページ
+    CODE_PAGE_UTF16_BE    = 1201,
+    CODE_PAGE_US_ASCII    = 20127,
+    CODE_PAGE_WEST_EUROPE = 1252,  //厄介な西ヨーロッパ言語
+    CODE_PAGE_UNSET       = 0xffffffff,
+};
 
 //BOM文字リスト
 static const int MAX_UTF8_CHAR_LENGTH = 6;

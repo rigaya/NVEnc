@@ -28,6 +28,8 @@
 #ifndef _AUO_AUDIO_H_
 #define _AUO_AUDIO_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include "output.h"
 #include "auo_conf.h"

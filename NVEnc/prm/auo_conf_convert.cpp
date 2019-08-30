@@ -30,6 +30,8 @@
 #include <stddef.h>
 #include <iomanip>
 #include <sstream>
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -45,7 +47,7 @@ typedef struct _NV_ENC_CONFIG_SVC_TEMPORAL
     void*            reserved2[64];                    /**< [in]: Reserved and should be set to NULL */
 } NV_ENC_CONFIG_SVC_TEMPORAL;
 
-/** 
+/**
  * MVC encoder configuration parameters
  */
 typedef struct _NV_ENC_CONFIG_MVC
@@ -69,7 +71,7 @@ typedef struct _NV_ENC_CONFIG_H264_OLD
     uint32_t hierarchicalPFrames       :1;                          /**< [in]: Set to 1 to enable hierarchical PFrames */
     uint32_t hierarchicalBFrames       :1;                          /**< [in]: Set to 1 to enable hierarchical BFrames */
     uint32_t outputBufferingPeriodSEI  :1;                          /**< [in]: Set to 1 to write SEI buffering period syntax in the bitstream */
-    uint32_t outputPictureTimingSEI    :1;                          /**< [in]: Set to 1 to write SEI picture timing syntax in the bitstream */ 
+    uint32_t outputPictureTimingSEI    :1;                          /**< [in]: Set to 1 to write SEI picture timing syntax in the bitstream */
     uint32_t outputAUD                 :1;                          /**< [in]: Set to 1 to write access unit delimiter syntax in bitstream */
     uint32_t disableSPSPPS             :1;                          /**< [in]: Set to 1 to disable writing of Sequence and Picture parameter info in bitstream */
     uint32_t outputFramePackingSEI     :1;                          /**< [in]: Set to 1 to enable writing of frame packing arrangement SEI messages to bitstream */
@@ -94,11 +96,11 @@ typedef struct _NV_ENC_CONFIG_H264_OLD
     NV_ENC_H264_ENTROPY_CODING_MODE     entropyCodingMode;          /**< [in]: Specifies the entropy coding mode. Check support for CABAC mode using ::NV_ENC_CAPS_SUPPORT_CABAC caps. */
     NV_ENC_STEREO_PACKING_MODE          stereoMode;                 /**< [in]: Specifies the stereo frame packing mode which is to be signalled in frame packing arrangement SEI */
     NV_ENC_CONFIG_H264_EXT              h264Extension;              /**< [in]: Specifies the H264 extension config */
-    uint32_t                            intraRefreshPeriod;         /**< [in]: Specifies the interval between successive intra refresh if enableIntrarefresh is set and one time intraRefresh configuration is desired. 
+    uint32_t                            intraRefreshPeriod;         /**< [in]: Specifies the interval between successive intra refresh if enableIntrarefresh is set and one time intraRefresh configuration is desired.
                                                                                When this is specified only first IDR will be encoded and no more key frames will be encoded. Client should set PIC_TYPE = NV_ENC_PIC_TYPE_INTRA_REFRESH
                                                                                for first picture of every intra refresh period. */
     uint32_t                            intraRefreshCnt;            /**< [in]: Specifies the number of frames over which intra refresh will happen */
-    uint32_t                            maxNumRefFrames;            /**< [in]: Specifies the DPB size used for encoding. Setting it to 0 will let driver use the default dpb size. 
+    uint32_t                            maxNumRefFrames;            /**< [in]: Specifies the DPB size used for encoding. Setting it to 0 will let driver use the default dpb size.
                                                                                The low latency application which wants to invalidate reference frame as an error resilience tool
                                                                                is recommended to use a large DPB size so that the encoder can keep old reference frames which can be used if recent
                                                                                frames are invalidated. */
@@ -289,7 +291,7 @@ void guiEx_config::convert_nvencstg_to_nvencstgv4(CONF_GUIEX *conf, const void *
     init_CONF_GUIEX_old(&confv3);
 
     //まずそのままコピーするブロックはそうする
-#define COPY_BLOCK(block, block_idx) { memcpy(&confv3.block, ((BYTE *)old_data) + old_data->block_head_p[block_idx], min(sizeof(confv3.block), old_data->block_size[block_idx])); }
+#define COPY_BLOCK(block, block_idx) { memcpy(&confv3.block, ((BYTE *)old_data) + old_data->block_head_p[block_idx], std::min((int)sizeof(confv3.block), old_data->block_size[block_idx])); }
     COPY_BLOCK(nvenc, 0);
     COPY_BLOCK(vid, 1);
     COPY_BLOCK(aud, 2);
@@ -351,7 +353,7 @@ void guiEx_config::convert_nvencstgv2_to_nvencstgv3(void *_conf) {
     char bat_path_after_process[1024];
     strcpy_s(bat_path_after_process,  conf->oth.batfiles[0]);
     strcpy_s(bat_path_before_process, conf->oth.batfiles[2]);
-    
+
     DWORD old_run_bat_flags = conf->oth.run_bat;
     conf->oth.run_bat  = 0x00;
     conf->oth.run_bat |= (old_run_bat_flags & OLD_FLAG_BEFORE) ? RUN_BAT_BEFORE_PROCESS : 0x00;
@@ -465,10 +467,10 @@ tstring gen_cmd_old3(const CONF_GUIEX_OLD3 *conf) {
         OPT_QP(_T("--qp-init"), conf->nvenc.enc_config.rcParams.initialRCQP, conf->nvenc.enc_config.rcParams.enableInitialRCQP);
     }
     OPT_QP(_T("--qp-min"), conf->nvenc.enc_config.rcParams.minQP, conf->nvenc.enc_config.rcParams.enableMinQP);
-    if (min(conf->nvenc.enc_config.rcParams.maxQP.qpIntra,
-        min(conf->nvenc.enc_config.rcParams.maxQP.qpInterP, conf->nvenc.enc_config.rcParams.maxQP.qpInterB))
-        > max(conf->nvenc.enc_config.rcParams.constQP.qpIntra,
-            max(conf->nvenc.enc_config.rcParams.constQP.qpInterP, conf->nvenc.enc_config.rcParams.constQP.qpInterB))) {
+    if (std::min(conf->nvenc.enc_config.rcParams.maxQP.qpIntra,
+        std::min(conf->nvenc.enc_config.rcParams.maxQP.qpInterP, conf->nvenc.enc_config.rcParams.maxQP.qpInterB))
+        > std::max(conf->nvenc.enc_config.rcParams.constQP.qpIntra,
+            std::max(conf->nvenc.enc_config.rcParams.constQP.qpInterP, conf->nvenc.enc_config.rcParams.constQP.qpInterB))) {
         OPT_QP(_T("--qp-max"), conf->nvenc.enc_config.rcParams.maxQP, conf->nvenc.enc_config.rcParams.enableMaxQP);
     }
     OPT_NUM(_T("--lookahead"), conf->nvenc.enc_config.rcParams.lookaheadDepth);
@@ -678,11 +680,11 @@ void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void
     for (int i = 0; i < ((CONF_GUIEX_OLD3 *)dat)->block_count; ++i) {
         BYTE *filedat = (BYTE *)dat + ((CONF_GUIEX_OLD3 *)dat)->block_head_p[i];
         BYTE *dst = (BYTE *)&conf_old + conf_block_pointer_old[i];
-        memcpy(dst, filedat, min(((CONF_GUIEX_OLD3 *)dat)->block_size[i], conf_block_data_old[i]));
+        memcpy(dst, filedat, std::min(((CONF_GUIEX_OLD3 *)dat)->block_size[i], conf_block_data_old[i]));
     }
 
     //まずそのままコピーするブロックはそうする
-#define COPY_BLOCK(block, block_idx) { memcpy(&conf->block, ((BYTE *)&conf_old) + conf_old.block_head_p[block_idx], min(sizeof(conf->block), conf_old.block_size[block_idx])); }
+#define COPY_BLOCK(block, block_idx) { memcpy(&conf->block, ((BYTE *)&conf_old) + conf_old.block_head_p[block_idx], std::min((int)sizeof(conf->block), conf_old.block_size[block_idx])); }
     COPY_BLOCK(aud, 2);
     COPY_BLOCK(mux, 3);
     COPY_BLOCK(oth, 4);

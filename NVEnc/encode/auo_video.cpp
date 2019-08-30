@@ -25,6 +25,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #pragma comment(lib, "user32.lib") //WaitforInputIdle
 #include <process.h>
@@ -65,29 +67,6 @@
 #include "NVEncCmd.h"
 
 static const int MAX_CONV_THREADS = 4;
-
-struct alignas(64) video_convert_thread_t {
-    void *frame;
-    CONVERT_CF_DATA *pixel_data;
-    func_convert_frame convert_frame;
-    int w, h;
-    int thread_id;
-    int thread_n;
-    BOOL abort;
-    HANDLE thread;
-    HANDLE he_conv_start;
-    HANDLE he_conv_fin;
-};
-
-struct video_output_thread_t {
-    CONVERT_CF_DATA *pixel_data;
-    FILE *f_out;
-    BOOL abort;
-    HANDLE thread;
-    HANDLE he_out_start;
-    HANDLE he_out_fin;
-    int repeat;
-};
 
 int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
     //Aviutlからの入力に使用するフォーマット
@@ -462,7 +441,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         const double qp_freq_sec = 1.0 / (double)qp_freq;
         RGYInputSMPrm *const prmsm = (RGYInputSMPrm *)prmSM->ptr();
         std::unique_ptr<RGYSharedMemWin> inputbuf;
-        auto convert = std::unique_ptr<RGYConvertCSP>(new RGYConvertCSP(min(MAX_CONV_THREADS, ((int)get_cpu_info().physical_cores + 3) / 4)));
+        auto convert = std::unique_ptr<RGYConvertCSP>(new RGYConvertCSP(std::min(MAX_CONV_THREADS, ((int)get_cpu_info().physical_cores + 3) / 4)));
         void *dst_array[3];
 
         //Aviutlの時間を取得
@@ -655,6 +634,13 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
     if (heBufEmpty) CloseHandle(heBufEmpty);
     if (heBufFilled) CloseHandle(heBufFilled);
+
+    //解放処理
+    if (pipes.stdErr.mode)
+        CloseHandle(pipes.stdErr.h_read);
+    CloseHandle(pi_enc.hProcess);
+    CloseHandle(pi_enc.hThread);
+
     if (jitter) free(jitter);
 
     return ret;

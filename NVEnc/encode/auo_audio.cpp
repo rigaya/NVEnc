@@ -25,6 +25,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -77,7 +79,7 @@ void auo_faw_check(CONF_AUDIO *aud, const OUTPUT_INFO *oip, PRM_ENC *pe, const g
         return;
     }
     int n = 0;
-    short *dat = (short *)get_audio_data(oip, pe, 0, min(oip->audio_n, 10 * oip->audio_rate), &n);
+    short *dat = (short *)get_audio_data(oip, pe, 0, std::min(oip->audio_n, 10 * oip->audio_rate), &n);
     int ret = FAWCheck(dat, n, oip->audio_rate, oip->audio_size);
     switch (ret) {
         case NON_FAW:
@@ -376,7 +378,7 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
                 ret |= AUO_RESULT_ABORT;
                 break;
             }
-            audio_dat = get_audio_data(oip, pe, samples_read, min(oip->audio_n - samples_read, bufsize), &samples_get);
+            audio_dat = get_audio_data(oip, pe, samples_read, std::min(oip->audio_n - samples_read, bufsize), &samples_get);
             samples_read += samples_get;
             set_log_progress(samples_read / (double)oip->audio_n);
 

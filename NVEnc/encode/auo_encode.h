@@ -28,6 +28,8 @@
 #ifndef _AUO_ENCODE_H_
 #define _AUO_ENCODE_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <stdio.h>
 

@@ -123,14 +123,6 @@ void error_run_process(const char *exe_name, int rp_ret) {
     }
 }
 
-void error_video_convert_thread_start() {
-    write_log_auo_line(LOG_ERROR, "色空間変換用スレッドの生成に失敗しました。");
-}
-
-void error_video_output_thread_start() {
-    write_log_auo_line(LOG_ERROR, "パイプ出力用スレッドの生成に失敗しました。");
-}
-
 void error_video_create_param_mem() {
     write_log_auo_line(LOG_ERROR, "パラメータ保持用のメモリ確保に失敗しました。");
 }

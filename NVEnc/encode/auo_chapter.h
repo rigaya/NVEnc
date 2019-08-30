@@ -28,6 +28,8 @@
 #ifndef _AUO_CHAPTER_H_
 #define _AUO_CHAPTER_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <string>
 #include <memory>

@@ -26,12 +26,14 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include <stdio.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
 #include <mmsystem.h>
-#pragma comment(lib, "winmm.lib") 
+#pragma comment(lib, "winmm.lib")
 
 #include "output.h"
 #include "auo.h"
@@ -145,18 +147,18 @@ EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTa
     //                        //    戻り値    : データへのポインタ
     //                        //              画像データポインタの内容は次に外部関数を使うかメインに処理を戻すまで有効
 
-BOOL func_init() 
+BOOL func_init()
 {
     return TRUE;
 }
 
-BOOL func_exit() 
+BOOL func_exit()
 {
     delete_SYSTEM_DATA(&g_sys_dat);
     return TRUE;
 }
 
-BOOL func_output( OUTPUT_INFO *oip ) 
+BOOL func_output( OUTPUT_INFO *oip )
 {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     static const encode_task task[3][2] = { { video_output, audio_output }, { audio_output, video_output }, { audio_output_parallel, video_output }  };
@@ -205,7 +207,7 @@ BOOL func_output( OUTPUT_INFO *oip )
 
     if (!(ret & (AUO_RESULT_ERROR | AUO_RESULT_ABORT)))
         ret |= run_bat_file(&conf_out, oip, &pe, &g_sys_dat, RUN_BAT_AFTER_PROCESS);
-    
+
     log_process_events();
     return (ret & AUO_RESULT_ERROR) ? FALSE : TRUE;
 }
@@ -290,10 +292,10 @@ void write_log_auo_line_fmt(int log_type_index, const char *format, ... ) {
 //エンコード時間の表示
 void write_log_auo_enc_time(const char *mes, DWORD time) {
     time = ((time + 50) / 100) * 100; //四捨五入
-    write_log_auo_line_fmt(LOG_INFO, "%s : %d時間%2d分%2d.%1d秒", 
-        mes, 
+    write_log_auo_line_fmt(LOG_INFO, "%s : %d時間%2d分%2d.%1d秒",
+        mes,
         time / (60*60*1000),
-        (time % (60*60*1000)) / (60*1000), 
+        (time % (60*60*1000)) / (60*1000),
         (time % (60*1000)) / 1000,
         ((time % 1000)) / 100);
 }
@@ -312,7 +314,7 @@ void overwrite_aviutl_ini_file_filter(int idx) {
     get_aviutl_dir(ini_file, _countof(ini_file));
     PathAddBackSlashLong(ini_file);
     strcat_s(ini_file, _countof(ini_file), "aviutl.ini");
-    
+
     char filefilter_ini[1024] = { 0 };
     make_file_filter(filefilter_ini, _countof(filefilter_ini), idx);
     WritePrivateProfileString(AUO_NAME, "filefilter", filefilter_ini, ini_file);
@@ -326,7 +328,7 @@ void make_file_filter(char *filter, size_t nSize, int default_index) {
         nSize = _countof(g_auo_filefilter);
     }
     char *ptr = filter;
-    
+
 #define ADD_FILTER(str, appendix) { \
     size_t len = strlen(str); \
     if (nSize - (ptr - filter) <= len + 1) return; \

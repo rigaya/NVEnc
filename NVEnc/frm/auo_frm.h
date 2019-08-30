@@ -28,6 +28,8 @@
 #ifndef _AUO_FRM_H_
 #define _AUO_FRM_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include "auo_conf.h"
 #include "auo_system.h"

@@ -25,6 +25,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <fcntl.h>
 #include <io.h>
@@ -48,7 +50,7 @@ static int StartPipes(PIPE_SET *pipes) {
     int ret = RP_USE_NO_PIPE;
     SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
     if (pipes->stdOut.mode) {
-        if (!CreatePipe(&pipes->stdOut.h_read, &pipes->stdOut.h_write, &sa, pipes->stdOut.bufferSize) || 
+        if (!CreatePipe(&pipes->stdOut.h_read, &pipes->stdOut.h_write, &sa, pipes->stdOut.bufferSize) ||
             !SetHandleInformation(pipes->stdOut.h_read, HANDLE_FLAG_INHERIT, 0))
             return RP_ERROR_OPEN_PIPE;
         ret = RP_SUCCESS;

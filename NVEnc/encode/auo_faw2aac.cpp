@@ -25,6 +25,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -197,7 +199,7 @@ static int auo_kill_update_preview() {
 static AUO_RESULT audio_faw2aac_check(const char *audfile) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     UINT64 audfilesize = 0;
-    if (!PathFileExists(audfile) || 
+    if (!PathFileExists(audfile) ||
         (GetFileSizeUInt64(audfile, &audfilesize) && audfilesize == 0)) {
             //エラーが発生した場合
         ret |= AUO_RESULT_ERROR; error_audenc_failed("faw2aac.auo", NULL);
@@ -225,8 +227,8 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
     if (hModule == NULL) {
         ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_INFO, "faw2aac.auoが見つかりませんでした。");
     } else if (
-           NULL == (getFAW2AACTable = (func_get_auo_table)GetProcAddress(hModule, "GetOutputPluginTable")) 
-        || NULL == (opt = getFAW2AACTable()) 
+           NULL == (getFAW2AACTable = (func_get_auo_table)GetProcAddress(hModule, "GetOutputPluginTable"))
+        || NULL == (opt = getFAW2AACTable())
         || NULL ==  opt->func_output) {
         ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoのロードに失敗しました。");
     } else {
