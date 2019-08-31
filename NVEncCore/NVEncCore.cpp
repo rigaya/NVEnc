@@ -280,9 +280,11 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures, shared_ptr<RG
     writeLog(RGY_LOG_DEBUG, _T("Found %d CUDA device(s).\n"), deviceCount);
 
     for (int currentDevice = 0; currentDevice < deviceCount; currentDevice++) {
-        char pci_bus_name[1024] = { 0 };
+        char pci_bus_name[64] = { 0 };
         CUdevice cuDevice = 0;
         cudaDeviceProp devProp;
+        cudaGetLastError(); //これまでのエラーを初期化
+
         if ((deviceId < 0 || deviceId == currentDevice)) {
             const int error_level = (deviceId >= 0) ? RGY_LOG_ERROR : RGY_LOG_DEBUG;
             writeLog(RGY_LOG_DEBUG, _T("checking for device #%d.\n"), currentDevice);
@@ -293,7 +295,7 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures, shared_ptr<RG
             }
             writeLog(RGY_LOG_DEBUG, _T("  cuDeviceGet: success\n"));
 
-            if ((cuErr = cudaGetDeviceProperties(&devProp, cuDevice)) != CUDA_SUCCESS) {
+            if ((cuErr = cudaGetDeviceProperties(&devProp, currentDevice)) == cudaErrorInvalidDevice) {
                 writeLog(error_level, _T("  Error: cudaGetDeviceProperties(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
                 continue;
             }
@@ -309,7 +311,8 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures, shared_ptr<RG
                 nvFeature->createCacheAsync(currentDevice, RGY_LOG_INFO);
             }
 
-            if ((cuErr = cudaDeviceGetPCIBusId(pci_bus_name, sizeof(pci_bus_name), currentDevice)) != cudaSuccess) {
+            cuErr = cudaDeviceGetPCIBusId(pci_bus_name, sizeof(pci_bus_name), currentDevice);
+            if (cuErr == cudaErrorInvalidDevice || cuErr == cudaErrorInvalidValue) {
                 writeLog((deviceId >= 0) ? RGY_LOG_WARN : RGY_LOG_DEBUG, _T("  Warn: cudaDeviceGetPCIBusId(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
             } else {
                 writeLog(RGY_LOG_DEBUG, _T("  PCIBusId: %s\n"), char_to_tstring(pci_bus_name).c_str());
