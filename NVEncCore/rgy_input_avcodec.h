@@ -995,7 +995,7 @@ public:
     double GetInputVideoDuration();
 
     //音声・字幕パケットの配列を取得する
-    vector<AVPacket> GetStreamDataPackets();
+    vector<AVPacket> GetStreamDataPackets(int inputFrame);
 
     //音声・字幕のコーデックコンテキストを取得する
     vector<AVDemuxStream> GetInputStreamInfo();
@@ -1061,7 +1061,7 @@ protected:
     void CheckAndMoveStreamPacketList();
 
     //音声パケットの配列を取得する (映像を読み込んでいないときに使用)
-    void GetAudioDataPacketsWhenNoVideoRead();
+    void GetAudioDataPacketsWhenNoVideoRead(int inputFrame);
 
     //QSVでデコードした際の最初のフレームのptsを取得する
     //さらに、平均フレームレートを推定する

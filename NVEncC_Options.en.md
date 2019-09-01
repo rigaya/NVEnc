@@ -777,6 +777,9 @@ Set keyframes on chapter position.
 Set keyframes on frames (starting from 0, 1, 2, ...) specified in the file.
 There should be one frame ID per line.
 
+### --sub-source &lt;string&gt;
+Read subtitle from the specified file and mux into the output file.
+
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
 It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;int&gt;].

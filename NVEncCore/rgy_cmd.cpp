@@ -897,6 +897,67 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("sub-source")) {
+        i++;
+        common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        SubSource src;
+        const TCHAR *ptr = strInput[i];
+        const TCHAR *qtr = _tcsrchr(ptr, _T(':'));
+        if (qtr == nullptr) {
+            src.filename = strInput[i];
+            src.select[0].encCodec = RGY_AVCODEC_COPY;
+            common->subSource.push_back(src);
+            return 0;
+        }
+        src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
+        auto channel_select_list = split(qtr+1, _T(":"));
+        for (auto channel : channel_select_list) {
+            int trackId = 0;
+            auto channel_id_split = channel.find(_T('?'));
+            if (channel_id_split != std::string::npos) {
+                try {
+                    trackId = std::stoi(channel.substr(0, channel_id_split));
+                } catch (...) {
+                    CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return -1;
+                }
+                channel = channel.substr(channel_id_split+1);
+            }
+            SubtitleSelect &chSel = src.select[trackId];
+            chSel.trackID = trackId;
+            for (const auto &param : split(channel, _T(";"))) {
+                auto pos = param.find_first_of(_T("="));
+                if (pos != std::string::npos) {
+                    auto param_arg = param.substr(0, pos);
+                    auto param_val = param.substr(pos+1);
+                    if (param_arg == _T("codec")) {
+                        chSel.encCodec = param_val;
+                    } else if (param_arg == _T("enc_prm")) {
+                        chSel.encCodecPrm = param_val;
+                    } else {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    if (chSel.encCodec.length() == 0) {
+                        chSel.encCodec = RGY_AVCODEC_AUTO;
+                    }
+                    continue;
+                } else {
+                    if (param == _T("copy")) {
+                        chSel.encCodec = RGY_AVCODEC_COPY;
+                    } else {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                }
+            }
+            if (chSel.encCodec.length() == 0) {
+                chSel.encCodec = RGY_AVCODEC_COPY;
+            }
+        }
+        common->subSource.push_back(src);
+        return 0;
+    }
     if (IS_OPTION("caption2ass")) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
@@ -1386,6 +1447,32 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         cmd << _T(" --sub-copy ") << tmp.str().substr(1);
     }
     tmp.str(tstring());
+    for (const auto &src : param->subSource) {
+        if (src.filename.length() > 0) {
+            cmd << _T(" --sub-source ") << _T("\"") << src.filename << _T("\"");
+            for (const auto &channel : src.select) {
+                cmd << _T(":");
+                if (channel.first > 0) {
+                    cmd << channel.first << _T("?");
+                }
+                const auto &sel = channel.second;
+                if (sel.encCodec.length() == 0) {
+                    ; //何もしない
+                } else if (sel.encCodec == RGY_AVCODEC_COPY) {
+                    cmd << _T("copy");
+                } else {
+                    tmp.str(tstring());
+                    cmd << _T(";codec=") << sel.encCodec;
+                    if (sel.encCodecPrm.length() > 0) {
+                        cmd << _T(";prm=") << sel.encCodecPrm;
+                    }
+                }
+                if (!tmp.str().empty()) {
+                    cmd << tmp.str().substr(1);
+                }
+            }
+        }
+    }
     OPT_LST(_T("--caption2ass"), caption2ass, list_caption2ass);
 
     tmp.str(tstring());
@@ -1494,7 +1581,7 @@ tstring gen_cmd_help_common() {
         _T("                                 -2           next low resolution video track\n")
         _T("                                   ... \n")
         _T("   --video-streamid <int>       set video track to encode in stream id\n")
-        _T("   --audio-source <string>      input extra audio file\n")
+        _T("   --audio-source <string>      input extra audio file.\n")
         _T("   --audio-file [<int>?][<string>:]<string>\n")
         _T("                                extract audio into file.\n")
         _T("                                 could be only used with avhw/avsw reader.\n")
@@ -1576,6 +1663,7 @@ tstring gen_cmd_help_common() {
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
         _T("   --key-on-chapter             set key frame on chapter.\n")
+        _T("   --sub-source <string>        input extra subtitle file.\n")
         _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
         _T("                                 these could be only used with\n")
         _T("                                 avhw/avsw reader and avcodec muxer.\n")

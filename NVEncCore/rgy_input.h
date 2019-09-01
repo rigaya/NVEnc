@@ -226,7 +226,7 @@ protected:
 
 RGY_ERR initReaders(
     shared_ptr<RGYInput> &pFileReader,
-    vector<shared_ptr<RGYInput>> &audioReaders,
+    vector<shared_ptr<RGYInput>> &otherReaders,
     VideoInfo *input,
     const shared_ptr<EncodeStatus> pStatus,
     const RGYParamCommon *common,

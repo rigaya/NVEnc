@@ -554,7 +554,7 @@ RGY_ERR initWriters(
     shared_ptr<RGYOutput> &pFileWriter,
     vector<shared_ptr<RGYOutput>>& pFileWriterListAudio,
     shared_ptr<RGYInput> &pFileReader,
-    vector<shared_ptr<RGYInput>> &audioReaders,
+    vector<shared_ptr<RGYInput>> &otherReaders,
     RGYParamCommon *common,
     const VideoInfo *input,
     const RGYParamControl *ctrl,
@@ -751,12 +751,12 @@ RGY_ERR initWriters(
                     writerPrm.inputStreamList.push_back(std::move(prm));
                 }
             }
-            vector<AVDemuxStream> audioSrcStreams;
-            for (const auto &audioReader : audioReaders) {
-                if (audioReader->GetAudioTrackCount()) {
-                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<RGYInputAvcodec>(audioReader);
+            vector<AVDemuxStream> otherSrcStreams;
+            for (const auto &reader : otherReaders) {
+                if (reader->GetAudioTrackCount() > 0 || reader->GetSubtitleTrackCount() > 0) {
+                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<RGYInputAvcodec>(reader);
                     if (pAVCodecAudioReader) {
-                        vector_cat(audioSrcStreams, pAVCodecAudioReader->GetInputStreamInfo());
+                        vector_cat(otherSrcStreams, pAVCodecAudioReader->GetInputStreamInfo());
                     }
                     //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
                     if (pAVCodecReader == nullptr) {
@@ -765,7 +765,7 @@ RGY_ERR initWriters(
                     }
                 }
             }
-            for (auto &stream : audioSrcStreams) {
+            for (auto &stream : otherSrcStreams) {
                 const auto streamMediaType = trackMediaType(stream.trackId);
                 //audio-fileで別ファイルとして抽出するものは除く
                 bool usedInAudioFile = false;
@@ -781,26 +781,50 @@ RGY_ERR initWriters(
                     continue;
                 }
                 const AudioSelect *pAudioSelect = nullptr;
-                for (const auto &audsrc : common->audioSource) {
-                    for (const auto &audsel : audsrc.select) {
-                        if (audsel.first == trackID(stream.trackId)) {
-                            pAudioSelect = &audsel.second;
-                            break;
-                        }
-                    }
-                }
-                if (pAudioSelect == nullptr) {
-                    //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
+                if (streamMediaType == AVMEDIA_TYPE_AUDIO) {
                     for (const auto &audsrc : common->audioSource) {
                         for (const auto &audsel : audsrc.select) {
-                            if (audsel.first == 0) {
+                            if (audsel.first == trackID(stream.trackId)) {
                                 pAudioSelect = &audsel.second;
                                 break;
                             }
                         }
                     }
+                    if (pAudioSelect == nullptr) {
+                        //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
+                        for (const auto &audsrc : common->audioSource) {
+                            for (const auto &audsel : audsrc.select) {
+                                if (audsel.first == 0) {
+                                    pAudioSelect = &audsel.second;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
-                if (pAudioSelect != nullptr || audioCopyAll) {
+                const SubtitleSelect *pSubtitleSelect = nullptr;
+                if (streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
+                    for (const auto &subSrc : common->subSource) {
+                        for (const auto &subsel : subSrc.select) {
+                            if (subsel.first == trackID(stream.trackId)) {
+                                pSubtitleSelect = &subsel.second;
+                                break;
+                            }
+                        }
+                    }
+                    if (pSubtitleSelect == nullptr) {
+                        //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
+                        for (const auto &subSrc : common->subSource) {
+                            for (const auto &subsel : subSrc.select) {
+                                if (subsel.first == 0) {
+                                    pSubtitleSelect = &subsel.second;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (pAudioSelect != nullptr || audioCopyAll || streamMediaType != AVMEDIA_TYPE_AUDIO) {
                     streamTrackUsed.push_back(stream.trackId);
                     AVOutputStreamPrm prm;
                     prm.src = stream;
@@ -814,6 +838,11 @@ RGY_ERR initWriters(
                         prm.encodeCodecProfile = pAudioSelect->encCodecProfile;
                         prm.filter = pAudioSelect->filter;
                     }
+                    if (pSubtitleSelect != nullptr) {
+                        prm.encodeCodec = pSubtitleSelect->encCodec;
+                        prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
+                        prm.asdata = pSubtitleSelect->asdata;
+                    }
                     log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s\n"),
                         char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
                         stream.trackId, stream.index, prm.bitrate, prm.encodeCodec.c_str(),
@@ -822,7 +851,7 @@ RGY_ERR initWriters(
                     writerPrm.inputStreamList.push_back(std::move(prm));
                 }
             }
-            vector_cat(streamList, audioSrcStreams);
+            vector_cat(streamList, otherSrcStreams);
         }
         auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &writerPrm, log, pStatus);
         if (sts != RGY_ERR_NONE) {

@@ -1899,8 +1899,13 @@ RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
     return sts;
 }
 
-void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead() {
-    m_Demux.video.nSampleGetCount++;
+void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
+
+    if (m_Demux.video.nSampleGetCount >= inputFrame) {
+        return;
+    }
+    m_Demux.video.nSampleGetCount = inputFrame;
+    const double vidEstDurationSec = inputFrame * (double)m_Demux.video.nAvgFramerate.den / (double)m_Demux.video.nAvgFramerate.num; //1フレームの時間(秒)
 
     AVPacket pkt;
     av_init_packet(&pkt);
@@ -1913,48 +1918,60 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead() {
             CheckAndMoveStreamPacketList();
         }
         return;
-    } else {
-        const double vidEstDurationSec = m_Demux.video.nSampleGetCount * (double)m_Demux.video.nAvgFramerate.den / (double)m_Demux.video.nAvgFramerate.num; //1フレームの時間(秒)
-        //動画に映像がない場合、
-        //およそ1フレーム分のパケットを取得する
-        while (av_read_frame(m_Demux.format.formatCtx, &pkt) >= 0) {
-            if (m_Demux.format.formatCtx->streams[pkt.stream_index]->codecpar->codec_type != AVMEDIA_TYPE_AUDIO) {
-                av_packet_unref(&pkt);
-            } else {
-                AVDemuxStream *pStream = getPacketStreamData(&pkt);
-                if (checkStreamPacketToAdd(&pkt, pStream)) {
-                    m_Demux.qStreamPktL1.push_back(pkt);
-                } else {
-                    av_packet_unref(&pkt); //Writer側に渡さないパケットはここで開放する
-                }
+    }
 
-                //最初のパケットは参照用にコピーしておく
-                if (pStream->pktSample.data == nullptr) {
-                    av_copy_packet(&pStream->pktSample, &pkt);
+    auto move_pkt = [this](double vidEstDurationSec) {
+        while (!m_Demux.qStreamPktL1.empty()) {
+            auto pkt2 = m_Demux.qStreamPktL1.front();
+            AVDemuxStream *pStream2 = getPacketStreamData(&pkt2);
+            const double pkt2timeSec = pkt2.pts * (double)pStream2->stream->time_base.num / (double)pStream2->stream->time_base.den;
+            if (pkt2timeSec > vidEstDurationSec - 5.0) {
+                break;
+            }
+            pkt2.flags = (pkt2.flags & 0xffff) | ((uint32_t)pStream2->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+            m_Demux.qStreamPktL2.push(pkt2); //Writer側に渡したパケットはWriter側で開放する
+            m_Demux.qStreamPktL1.pop_front();
+        }
+    };
+
+    //動画に映像がない場合、
+    //およそ1フレーム分のパケットを取得する
+    while (av_read_frame(m_Demux.format.formatCtx, &pkt) >= 0) {
+        const auto codec_type = m_Demux.format.formatCtx->streams[pkt.stream_index]->codecpar->codec_type;
+        if (codec_type != AVMEDIA_TYPE_AUDIO && codec_type != AVMEDIA_TYPE_SUBTITLE) {
+            av_packet_unref(&pkt);
+        } else {
+            AVDemuxStream *pStream = getPacketStreamData(&pkt);
+            if (checkStreamPacketToAdd(&pkt, pStream)) {
+                m_Demux.qStreamPktL1.push_back(pkt);
+            } else {
+                av_packet_unref(&pkt); //Writer側に渡さないパケットはここで開放する
+            }
+
+            //最初のパケットは参照用にコピーしておく
+            if (pStream->pktSample.data == nullptr) {
+                av_copy_packet(&pStream->pktSample, &pkt);
+            }
+            auto pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
+            auto pkt_dist = pktt - pStream->pktSample.pts;
+            //1フレーム分のサンプルを取得したら終了
+            if (pkt_dist * (double)pStream->stream->time_base.num / (double)pStream->stream->time_base.den > vidEstDurationSec - 2.5) {
+                //およそ1フレーム分のパケットを設定する
+                int64_t pts = inputFrame;
+                m_Demux.frames.add(framePos(pts, pts, 1, 0, inputFrame, AV_PKT_FLAG_KEY));
+                if (m_Demux.frames.getStreamPtsStatus() == RGY_PTS_UNKNOWN) {
+                    m_Demux.frames.checkPtsStatus();
                 }
-                auto pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
-                auto pkt_dist = pktt - pStream->pktSample.pts;
-                //1フレーム分のサンプルを取得したら終了
-                if (pkt_dist * (double)pStream->stream->time_base.num / (double)pStream->stream->time_base.den > vidEstDurationSec) {
-                    //およそ1フレーム分のパケットを設定する
-                    int64_t pts = m_Demux.video.nSampleGetCount;
-                    m_Demux.frames.add(framePos(pts, pts, 1, 0, m_Demux.video.nSampleGetCount, AV_PKT_FLAG_KEY));
-                    if (m_Demux.frames.getStreamPtsStatus() == RGY_PTS_UNKNOWN) {
-                        m_Demux.frames.checkPtsStatus();
-                    }
-                    while (!m_Demux.qStreamPktL1.empty()) {
-                        auto pkt2 = m_Demux.qStreamPktL1.front();
-                        pkt2.flags = (pkt2.flags & 0xffff) | ((uint32_t)pStream->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
-                        m_Demux.qStreamPktL2.push(pkt2); //Writer側に渡したパケットはWriter側で開放する
-                        m_Demux.qStreamPktL1.pop_front();
-                    }
-                    return;
-                }
+                move_pkt(vidEstDurationSec);
+                return;
             }
         }
+    }
+    move_pkt(vidEstDurationSec);
+    if (!m_Demux.frames.isEof()) {
         //読み込みが終了
-        int64_t pts = m_Demux.video.nSampleGetCount;
-        m_Demux.frames.fin(framePos(pts, pts, 1, 0, m_Demux.video.nSampleGetCount, AV_PKT_FLAG_KEY), m_Demux.video.nSampleGetCount);
+        int64_t pts = inputFrame;
+        m_Demux.frames.fin(framePos(pts, pts, 1, 0, inputFrame, AV_PKT_FLAG_KEY), inputFrame);
     }
 }
 
@@ -1995,9 +2012,9 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
     }
 }
 
-vector<AVPacket> RGYInputAvcodec::GetStreamDataPackets() {
+vector<AVPacket> RGYInputAvcodec::GetStreamDataPackets(int inputFrame) {
     if (!m_Demux.video.readVideo) {
-        GetAudioDataPacketsWhenNoVideoRead();
+        GetAudioDataPacketsWhenNoVideoRead(inputFrame);
     }
 
     //出力するパケットを選択する

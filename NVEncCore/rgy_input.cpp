@@ -216,9 +216,79 @@ void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSp
 #include "rgy_input_sm.h"
 #include "rgy_input_avcodec.h"
 
+#if ENABLE_AVSW_READER
+template<bool subtitle, typename T>
+static RGY_ERR initOtherReaders(
+    vector<shared_ptr<RGYInput>> &otherReaders,
+    int& sourceAudioTrackIdStart,
+    int& sourceSubtitleTrackIdStart,
+    int& sourceDataTrackIdStart,
+    const vector<T>& source,
+    const VideoInfo *input,
+    const RGYParamCommon *common,
+    const RGYParamControl *ctrl,
+    shared_ptr<RGYLog> log
+) {
+    RGYInputPrm inputPrm;
+    inputPrm.threadCsp = ctrl->threadCsp;
+    inputPrm.simdCsp = ctrl->simdCsp;
+
+    for (auto &src : source) {
+
+        VideoInfo inputInfo = *input;
+
+        std::vector<T *> select;
+        for (auto &channel : src.select) {
+            auto ptr = (T *)&channel.second;
+            select.push_back(ptr);
+        }
+
+        RGYInputAvcodecPrm inputInfoAVAudioReader(inputPrm);
+        inputInfoAVAudioReader.readVideo = false;
+        inputInfoAVAudioReader.readChapter = false;
+        inputInfoAVAudioReader.readData = false;
+        inputInfoAVAudioReader.videoAvgFramerate = std::make_pair(inputInfo.fpsN, inputInfo.fpsD);
+        inputInfoAVAudioReader.analyzeSec = common->demuxAnalyzeSec;
+        inputInfoAVAudioReader.nTrimCount = common->nTrimCount;
+        inputInfoAVAudioReader.pTrimList = common->pTrimList;
+        inputInfoAVAudioReader.trackStartAudio = sourceAudioTrackIdStart;
+        inputInfoAVAudioReader.trackStartSubtitle = sourceSubtitleTrackIdStart;
+        inputInfoAVAudioReader.trackStartData = sourceDataTrackIdStart;
+        if (subtitle) {
+            inputInfoAVAudioReader.readAudio = false;
+            inputInfoAVAudioReader.readSubtitle = true;
+            inputInfoAVAudioReader.nSubtitleSelectCount = (int)select.size();
+            inputInfoAVAudioReader.ppSubtitleSelect = (SubtitleSelect **)select.data();
+        } else {
+            inputInfoAVAudioReader.readAudio = true;
+            inputInfoAVAudioReader.readSubtitle = false;
+            inputInfoAVAudioReader.nAudioSelectCount = (int)select.size();
+            inputInfoAVAudioReader.ppAudioSelect = (AudioSelect **)select.data();
+        }
+        inputInfoAVAudioReader.procSpeedLimit = ctrl->procSpeedLimit;
+        inputInfoAVAudioReader.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
+        inputInfoAVAudioReader.seekSec = common->seekSec;
+        inputInfoAVAudioReader.logFramePosList = ctrl->logFramePosList.c_str();
+        inputInfoAVAudioReader.threadInput = 0;
+
+        shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
+        auto ret = audioReader->Init(src.filename.c_str(), &inputInfo, &inputInfoAVAudioReader, log, nullptr);
+        if (ret != 0) {
+            log->write(RGY_LOG_ERROR, audioReader->GetInputMessage());
+            return ret;
+        }
+        sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
+        sourceSubtitleTrackIdStart += audioReader->GetSubtitleTrackCount();
+        sourceDataTrackIdStart += audioReader->GetDataTrackCount();
+        otherReaders.push_back(std::move(audioReader));
+    }
+    return RGY_ERR_NONE;
+}
+#endif
+
 RGY_ERR initReaders(
     shared_ptr<RGYInput>& pFileReader,
-    vector<shared_ptr<RGYInput>>& audioReaders,
+    vector<shared_ptr<RGYInput>>& otherReaders,
     VideoInfo *input,
     const shared_ptr<EncodeStatus> pStatus,
     const RGYParamCommon *common,
@@ -398,49 +468,17 @@ RGY_ERR initReaders(
     }
 
 #if ENABLE_AVSW_READER
-    for (auto& src : common->audioSource) {
-
-        VideoInfo inputInfo = *input;
-
-        std::vector<AudioSelect*> select;
-        for (auto& channel : src.select) {
-            auto ptr = (AudioSelect *)&channel.second;
-            select.push_back(ptr);
-        }
-
-        RGYInputAvcodecPrm inputInfoAVAudioReader(inputPrm);
-        inputInfoAVAudioReader.readVideo = false;
-        inputInfoAVAudioReader.readAudio = true;
-        inputInfoAVAudioReader.readSubtitle = false;
-        inputInfoAVAudioReader.readChapter = false;
-        inputInfoAVAudioReader.readData = false;
-        inputInfoAVAudioReader.videoAvgFramerate = std::make_pair(inputInfo.fpsN, inputInfo.fpsD);
-        inputInfoAVAudioReader.analyzeSec = common->demuxAnalyzeSec;
-        inputInfoAVAudioReader.nTrimCount = common->nTrimCount;
-        inputInfoAVAudioReader.pTrimList = common->pTrimList;
-        inputInfoAVAudioReader.trackStartAudio = sourceAudioTrackIdStart;
-        inputInfoAVAudioReader.trackStartSubtitle = sourceSubtitleTrackIdStart;
-        inputInfoAVAudioReader.trackStartData = sourceDataTrackIdStart;
-        inputInfoAVAudioReader.nAudioSelectCount = (int)select.size();
-        inputInfoAVAudioReader.ppAudioSelect = select.data();
-        inputInfoAVAudioReader.procSpeedLimit = ctrl->procSpeedLimit;
-        inputInfoAVAudioReader.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
-        inputInfoAVAudioReader.seekSec = common->seekSec;
-        inputInfoAVAudioReader.logFramePosList = ctrl->logFramePosList.c_str();
-        inputInfoAVAudioReader.threadInput = 0;
-
-        shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
-        ret = audioReader->Init(src.filename.c_str(), &inputInfo, &inputInfoAVAudioReader, log, nullptr);
-        if (ret != 0) {
-            log->write(RGY_LOG_ERROR, audioReader->GetInputMessage());
-            return ret;
-        }
-        sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
-        sourceSubtitleTrackIdStart += audioReader->GetSubtitleTrackCount();
-        sourceDataTrackIdStart += audioReader->GetDataTrackCount();
-        audioReaders.push_back(std::move(audioReader));
-    }
 #endif //#if ENABLE_AVSW_READER
+    if ((ret = initOtherReaders<false>(otherReaders,
+        sourceAudioTrackIdStart, sourceSubtitleTrackIdStart, sourceDataTrackIdStart,
+        common->audioSource, input, common, ctrl, log)) != RGY_ERR_NONE) {
+        return ret;
+    }
+    if ((ret = initOtherReaders<true>(otherReaders,
+        sourceAudioTrackIdStart, sourceSubtitleTrackIdStart, sourceDataTrackIdStart,
+        common->subSource, input, common, ctrl, log)) != RGY_ERR_NONE) {
+        return ret;
+    }
     return RGY_ERR_NONE;
 #else
     return RGY_ERR_INVALID_CALL;

@@ -66,6 +66,12 @@ SubtitleSelect::SubtitleSelect() :
 
 }
 
+SubSource::SubSource() :
+    filename(),
+    select() {
+
+}
+
 DataSelect::DataSelect() :
     trackID(0) {
 
@@ -82,6 +88,7 @@ RGYParamCommon::RGYParamCommon() :
     seekSec(0.0f),               //指定された秒数分先頭を飛ばす
     nSubtitleSelectCount(0),
     ppSubtitleSelectList(nullptr),
+    subSource(),
     audioSource(),
     nAudioSelectCount(0), //pAudioSelectの数
     ppAudioSelectList(nullptr),
