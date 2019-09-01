@@ -3140,8 +3140,6 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
 #if ENABLE_AVCODEC_OUT_THREAD
     //映像と音声の同期をとる際に、それをあきらめるまでの閾値
     const int nWaitThreshold = 32;
-    const size_t videoPacketThreshold = std::min<size_t>(3072, m_Mux.thread.qVideobitstream.capacity()) - nWaitThreshold;
-    const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.qAudioPacketOut.capacity()) - nWaitThreshold;
     //キューにデータが存在するか
     bool bAudioExists = false;
     bool bVideoExists = false;
@@ -3216,6 +3214,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
             //一定以上の動画フレームがキューにたまっており、音声キューになにもなければ、
             //音声を無視して動画フレームの処理を開始させる
             //音声が途中までしかなかったり、途中からしかなかったりする場合にこうした処理が必要
+            const size_t videoPacketThreshold = std::min<size_t>(3072, m_Mux.thread.qVideobitstream.capacity()) - nWaitThreshold;
             if (m_Mux.thread.qAudioPacketOut.size() == 0 && m_Mux.thread.qVideobitstream.size() > videoPacketThreshold) {
                 nWaitAudio++;
                 if (nWaitAudio <= nWaitThreshold) {
@@ -3229,6 +3228,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
             }
             //一定以上の音声フレームがキューにたまっており、動画キューになにもなければ、
             //動画を無視して音声フレームの処理を開始させる
+            const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.qAudioPacketOut.capacity()) - nWaitThreshold;
             if (m_Mux.thread.qVideobitstream.size() == 0 && m_Mux.thread.qAudioPacketOut.size() > audioPacketThreshold) {
                 nWaitVideo++;
                 if (nWaitVideo <= nWaitThreshold) {
