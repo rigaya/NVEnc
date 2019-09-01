@@ -105,6 +105,7 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     m_inputVideoInfo.fpsD = prmsm->fpsD;
     m_inputVideoInfo.srcPitch = prmsm->pitch;
     m_inputVideoInfo.picstruct = prmsm->picstruct;
+    m_inputVideoInfo.frames = prmsm->frames;
     m_inputCsp = m_inputVideoInfo.csp = prmsm->csp;
 
     RGY_CSP output_csp_if_lossless = RGY_CSP_NA;

@@ -45,6 +45,7 @@ struct RGYInputSMPrm {
     int pitch;
     RGY_CSP csp;
     RGY_PICSTRUCT picstruct;
+    int frames;
     uint32_t bufSize;
     bool abort;
 };

@@ -304,7 +304,7 @@ static int ReadLogEnc(PIPE_SET *pipes, int total_drop, int current_frames) {
     return pipe_read;
 }
 
-static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO *oip, RGY_CSP out_csp, RGY_PICSTRUCT picstruct, uint32_t pid) {
+static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO *oip, bool afs, RGY_CSP out_csp, RGY_PICSTRUCT picstruct, uint32_t pid) {
     char sm_name[256];
     sprintf_s(sm_name, "%s_%d", RGYInputSMPrmSM, pid);
     auto PrmSm = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(sm_name, sizeof(RGYInputSMPrm)));
@@ -314,6 +314,7 @@ static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO
         prmsm->h = oip->h;
         prmsm->fpsN = oip->rate;
         prmsm->fpsD = oip->scale;
+        prmsm->frames = (afs) ? 0 : oip->n;
         prmsm->picstruct = picstruct;
         prmsm->csp = out_csp;
         prmsm->abort = false;
@@ -423,7 +424,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     //x264プロセス開始
     } else if ((rp_ret = RunProcess(exe_args, exe_dir, &pi_enc, &pipes, GetPriorityClass(pe->h_p_aviutl), TRUE, FALSE)) != RP_SUCCESS) {
         ret |= AUO_RESULT_ERROR; error_run_process("NVEncC", rp_ret);
-    } else if ((prmSM = video_create_param_mem(oip, rgy_output_csp, enc_prm.input.picstruct, pi_enc.dwProcessId)) == nullptr || !prmSM->is_open()) {
+    } else if ((prmSM = video_create_param_mem(oip, afs, rgy_output_csp, enc_prm.input.picstruct, pi_enc.dwProcessId)) == nullptr || !prmSM->is_open()) {
         ret |= AUO_RESULT_ERROR; error_video_create_param_mem();
     } else if (video_create_event(heBufEmpty, heBufFilled, pi_enc.dwProcessId)) {
         ret |= AUO_RESULT_ERROR; error_video_create_event();
