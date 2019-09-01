@@ -1731,7 +1731,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
         m_Mux.thread.thAudProcessAbort = false;
         m_Mux.thread.thAudEncodeAbort = false;
         m_Mux.thread.qAudioPacketOut.init(8192, 256 * std::max(1, (int)m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
-        m_Mux.thread.qVideobitstream.init(4096, (std::max)(64, (m_Mux.video.outputFps.den) ? m_Mux.video.outputFps.num * 4 / m_Mux.video.outputFps.den : 0));
+        m_Mux.thread.qVideobitstream.init(4096, (std::max)(256, (m_Mux.video.outputFps.den) ? m_Mux.video.outputFps.num * 4 / m_Mux.video.outputFps.den : 0));
         m_Mux.thread.qVideobitstreamFreeI.init(256);
         m_Mux.thread.qVideobitstreamFreePB.init(3840);
         m_Mux.thread.heEventPktAddedOutput = CreateEvent(NULL, TRUE, FALSE, NULL);

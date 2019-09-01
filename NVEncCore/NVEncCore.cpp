@@ -2112,9 +2112,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //バッファサイズ
     int extraBufSize = 0;
     if (m_uEncWidth * m_uEncHeight <= 2048 * 1080) {
-        extraBufSize = 4;
+        extraBufSize = 8;
     } else if (m_uEncWidth * m_uEncHeight <= 4096 * 2160) {
-        extraBufSize = 2;
+        extraBufSize = 4;
     }
     int requiredBufferFrames = m_stEncConfig.frameIntervalP + 4;
     if (m_stEncConfig.rcParams.enableLookahead) {
