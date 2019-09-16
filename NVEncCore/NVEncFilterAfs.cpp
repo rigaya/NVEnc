@@ -75,53 +75,9 @@ cudaError_t afsSourceCache::add(const FrameInfo *pInputFrame, cudaStream_t strea
     pDstFrame->frame.inputFrameId = pInputFrame->inputFrameId;
 
     const auto frameOutInfoEx = getFrameInfoExtra(pInputFrame);
-    static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
-    static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-    auto cudaerr = cudaSuccess;
-    if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pInputFrame->csp) != supportedCspYV12.end()) {
-        //Y
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr, pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
-            frameOutInfoEx.width_byte, pDstFrame->frame.height, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        //Uフィールド分離
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr + pDstFrame->frame.pitch * pDstFrame->frame.height,
-            pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr + (pInputFrame->height + 0) * pInputFrame->pitch,
-            pInputFrame->pitch * 2, //偶数ラインのみ取り出し
-            frameOutInfoEx.width_byte >> 1, pDstFrame->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr + pDstFrame->frame.pitch * pDstFrame->frame.height * 5 / 4,
-            pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr + (pInputFrame->height + 1) * pInputFrame->pitch,
-            pInputFrame->pitch * 2, //奇数ラインのみ取り出し
-            frameOutInfoEx.width_byte >> 1, pDstFrame->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        //Vフィールド分離
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr + pDstFrame->frame.pitch * pDstFrame->frame.height * 6 / 4,
-            pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr + (pInputFrame->height * 3 / 2 + 0) * pInputFrame->pitch,
-            pInputFrame->pitch * 2, //偶数ラインのみ取り出し
-            frameOutInfoEx.width_byte >> 1, pDstFrame->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr + pDstFrame->frame.pitch * pDstFrame->frame.height * 7 / 4,
-            pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr + (pInputFrame->height * 3 / 2 + 1) * pInputFrame->pitch,
-            pInputFrame->pitch * 2, //奇数ラインのみ取り出し
-            frameOutInfoEx.width_byte >> 1, pDstFrame->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-    } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), pInputFrame->csp) != supportedCspYUV444.end()) {
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr, pDstFrame->frame.pitch,
+    auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr, pDstFrame->frame.pitch,
             (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
             frameOutInfoEx.width_byte, frameOutInfoEx.height_total, cudaMemcpyDeviceToDevice, stream);
-    } else {
-        cudaerr = cudaErrorNotSupported;
-    }
     return cudaerr;
 }
 
@@ -1095,53 +1051,9 @@ RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
 
 cudaError_t NVEncFilterAfs::copy_frame(CUFrameBuf *pOut, CUFrameBuf *p0, cudaStream_t stream) {
     const auto frameOutInfoEx = getFrameInfoExtra(&p0->frame);
-    static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
-    static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-    auto cudaerr = cudaSuccess;
-    if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), p0->frame.csp) != supportedCspYV12.end()) {
-        //Y
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr, pOut->frame.pitch,
-            (uint8_t *)p0->frame.ptr, p0->frame.pitch,
-            frameOutInfoEx.width_byte, pOut->frame.height, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        //Uフィールド
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height + 0),
-            pOut->frame.pitch * 2, //偶数ラインの展開
-            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height,
-            p0->frame.pitch,
-            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height + 1),
-            pOut->frame.pitch * 2, //奇数ラインの展開
-            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height * 5 / 4,
-            p0->frame.pitch,
-            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        //Vフィールド
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height * 3 / 2 + 0),
-            pOut->frame.pitch * 2, //偶数ラインの展開
-            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height * 6 / 4,
-            p0->frame.pitch,
-            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height * 3 / 2 + 1),
-            pOut->frame.pitch * 2, //奇数ラインの展開
-            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height * 7 / 4,
-            p0->frame.pitch,
-            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-    } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), p0->frame.csp) != supportedCspYUV444.end()) {
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr, pOut->frame.pitch,
-            (uint8_t *)p0->frame.ptr, p0->frame.pitch,
-            frameOutInfoEx.width_byte, frameOutInfoEx.height_total, cudaMemcpyDeviceToDevice, stream);
-    } else {
-        cudaerr = cudaErrorNotSupported;
-    }
+    auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr, pOut->frame.pitch,
+        (uint8_t *)p0->frame.ptr, p0->frame.pitch,
+        frameOutInfoEx.width_byte, frameOutInfoEx.height_total, cudaMemcpyDeviceToDevice, stream);
     return cudaerr;
 }
 

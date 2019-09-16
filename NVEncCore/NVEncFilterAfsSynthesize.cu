@@ -831,15 +831,19 @@ cudaError_t run_synthesize(uint8_t *dst,
         const dim3 gridSize(divCeil(width, blockSize.x * 8), divCeil(height, blockSize.y * 2));
 
         if (yuv420) {
+            uint8_t *const pU0 = p0 + srcPitch * height;
+            uint8_t *const pV0 = p0 + srcPitch * height * 3/2;
+            uint8_t *const pU1 = p1 + srcPitch * height;
+            uint8_t *const pV1 = p1 + srcPitch * height * 3/2;
             cudaTextureObject_t texP0U0, texP0U1, texP0V0, texP0V1, texP1U0, texP1U1, texP1V0,texP1V1;
-            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height,         srcPitch, width >> 1, height >> 2))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height * 5 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height * 6 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * height * 7 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height,         srcPitch, width >> 1, height >> 2))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height * 5 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height * 6 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
-            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * height * 7 / 4, srcPitch, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pU0 + srcPitch * 0, srcPitch * 2, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pU0 + srcPitch * 1, srcPitch * 2, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pV0 + srcPitch * 0, srcPitch * 2, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pV0 + srcPitch * 1, srcPitch * 2, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pU1 + srcPitch * 0, srcPitch * 2, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pU1 + srcPitch * 1, srcPitch * 2, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pV1 + srcPitch * 0, srcPitch * 2, width >> 1, height >> 2))) return cudaerr;
+            if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pV1 + srcPitch * 1, srcPitch * 2, width >> 1, height >> 2))) return cudaerr;
 
             kernel_synthesize_mode_1234_yuv420<Type, Type4, Type8, mode><<<gridSize, blockSize, 0, stream>>>(
                 dst, p0, p1, sip,
