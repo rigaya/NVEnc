@@ -282,7 +282,7 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures, shared_ptr<RG
     for (int currentDevice = 0; currentDevice < deviceCount; currentDevice++) {
         char pci_bus_name[64] = { 0 };
         CUdevice cuDevice = 0;
-        cudaDeviceProp devProp;
+        cudaDeviceProp devProp = cudaDevicePropDontCare;
         cudaGetLastError(); //これまでのエラーを初期化
 
         if ((deviceId < 0 || deviceId == currentDevice)) {
@@ -299,11 +299,13 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures, shared_ptr<RG
                 writeLog(error_level, _T("  Error: cudaGetDeviceProperties(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
                 continue;
             }
-            if (((devProp.major << 4) + devProp.minor) < 0x30) {
-                writeLog(error_level, _T("  Error: device does not satisfy required CUDA version (>=3.0): %d.%d\n"), devProp.major, devProp.minor);
-                continue;
+            if (cuErr == cudaSuccess) {
+                if (((devProp.major << 4) + devProp.minor) < 0x30) {
+                    writeLog(error_level, _T("  Error: device does not satisfy required CUDA version (>=3.0): %d.%d\n"), devProp.major, devProp.minor);
+                    continue;
+                }
+                writeLog(RGY_LOG_DEBUG, _T("  cudaGetDeviceProperties: CUDA %d.%d\n"), devProp.major, devProp.minor);
             }
-            writeLog(RGY_LOG_DEBUG, _T("  cudaGetDeviceProperties: CUDA %d.%d\n"), devProp.major, devProp.minor);
 
             unique_ptr<NVEncFeature> nvFeature;
             if (getFeatures) {
