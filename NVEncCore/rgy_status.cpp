@@ -238,9 +238,14 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
                 len += _stprintf_s(mes + len, _countof(mes) - len, _T(", afs drop %d/%d  "), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
             }
             if (bGPUUsage) {
-                len += _stprintf_s(mes + len, _countof(mes) - len, _T(", GPU %d%%"), gpuusage);
+                int new_len = len + _stprintf_s(mes + len, _countof(mes) - len, _T(", GPU %d%%"), gpuusage);
                 if (bVideoEngineUsage) {
-                    len += _stprintf_s(mes + len, _countof(mes) - len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
+                    new_len += _stprintf_s(mes + new_len, _countof(mes) - new_len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
+                }
+                if (consoleWidth == 0 || consoleWidth >= new_len) {
+                    len = new_len;
+                } else {
+                    mes[len] = _T('\0');
                 }
             }
             const double est_file_size = (double)m_sData.outFileSize / (progressPercent * 0.01);
@@ -250,7 +255,8 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
             } else {
                 mes[len] = _T('\0');
             }
-            for (; len < std::max(consoleWidth-1, 79); len++) {
+            const int fillWidth = (consoleWidth > 0) ? std::min(consoleWidth, (int)_countof(mes))-1 : 79;
+            for (; len < fillWidth; len++) {
                 mes[len] = _T(' ');
             }
             mes[len] = _T('\0');
@@ -261,12 +267,18 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
                 (int)(m_sData.bitrateKbps + 0.5)
             );
             if (bGPUUsage) {
-                len += _stprintf_s(mes + len, _countof(mes) - len, _T(", GPU %d%%"), gpuusage);
+                int new_len = len + _stprintf_s(mes + len, _countof(mes) - len, _T(", GPU %d%%"), gpuusage);
                 if (bVideoEngineUsage) {
-                    len += _stprintf_s(mes + len, _countof(mes) - len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
+                    new_len += _stprintf_s(mes + len, _countof(mes) - len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
+                }
+                if (consoleWidth == 0 || consoleWidth >= new_len) {
+                    len = new_len;
+                } else {
+                    mes[len] = _T('\0');
                 }
             }
-            for (; len < 79; len++) {
+            const int fillWidth = (consoleWidth > 0) ? std::min(consoleWidth, (int)_countof(mes))-1 : 79;
+            for (; len < fillWidth; len++) {
                 mes[len] = _T(' ');
             }
             mes[len] = _T('\0');
