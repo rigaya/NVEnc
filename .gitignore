@@ -60,6 +60,7 @@ ipch/
 *.opensdf
 *.sdf
 *.cachefile
+*.tlog
 
 # Visual Studio profiler
 *.psess
