@@ -304,6 +304,7 @@ COLORSPACE_FUNC float hdr2sdr_hable(float x, float source_peak, float ldr_nits, 
 COLORSPACE_FUNC float hdr2sdr_mobius(float x, float source_peak, float ldr_nits, float t, float peak) {
     const float eb = source_peak / ldr_nits;
     x *= eb;
+    peak *= eb;
     if (x <= t) {
         return x;
     }
@@ -315,5 +316,7 @@ COLORSPACE_FUNC float hdr2sdr_mobius(float x, float source_peak, float ldr_nits,
 
 COLORSPACE_FUNC float hdr2sdr_reinhard(float x, float source_peak, float ldr_nits, float offset, float peak) {
     const float eb = source_peak / ldr_nits;
-    return x * eb / (x * eb + offset) * (peak + offset) / peak;
+    peak *= eb;
+    x *= eb;
+    return x / (x + offset) * (peak + offset) / peak;
 }
