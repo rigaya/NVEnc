@@ -657,9 +657,12 @@ std::string ColorspaceOpHDR2SDRHable::print() {
         const float E = %.16ef;
         const float F = %.16ef;
         const float W = %.16ef;
-        x.x = hdr2sdr_hable( x.x, source_peak, ldr_nits, A, B, C, D, E, F, W );
-        x.y = hdr2sdr_hable( x.y, source_peak, ldr_nits, A, B, C, D, E, F, W );
-        x.z = hdr2sdr_hable( x.z, source_peak, ldr_nits, A, B, C, D, E, F, W );
+        const float in = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
+        const float out = hdr2sdr_hable( in, source_peak, ldr_nits, A, B, C, D, E, F, W );
+        const float mul = out / in;
+        x.x *= mul;
+        x.y *= mul;
+        x.z *= mul;
     })",
         m_source_peak, m_ldr_nits, m_A, m_B, m_C, m_D, m_E, m_F, m_W);
 }
@@ -671,24 +674,30 @@ std::string ColorspaceOpHDR2SDRMobius::print() {
         const float ldr_nits = %.16ef;
         const float transition = %.16ef;
         const float peak = %.16ef;
-        x.x = hdr2sdr_mobius( x.x, source_peak, ldr_nits, transition, peak );
-        x.y = hdr2sdr_mobius( x.y, source_peak, ldr_nits, transition, peak );
-        x.z = hdr2sdr_mobius( x.z, source_peak, ldr_nits, transition, peak );
+        const float in = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
+        const float out = hdr2sdr_mobius( in, source_peak, ldr_nits, transition, peak );
+        const float mul = out / in;
+        x.x *= mul;
+        x.y *= mul;
+        x.z *= mul;
     })",
         m_source_peak, m_ldr_nits, m_transition, m_peak);
 }
 
 std::string ColorspaceOpHDR2SDRReinhard::print() {
     return strsprintf(R"(
-    { //hdr2sdr mobius
+    { //hdr2sdr reinhard
         const float source_peak = %.16ef;
         const float ldr_nits = %.16ef;
         const float contrast = %.16ef;
         const float peak = %.16ef;
         const float offset = (1.0f - contrast) / contrast;
-        x.x = hdr2sdr_reinhard( x.x, source_peak, ldr_nits, offset, peak );
-        x.y = hdr2sdr_reinhard( x.y, source_peak, ldr_nits, offset, peak );
-        x.z = hdr2sdr_reinhard( x.z, source_peak, ldr_nits, offset, peak );
+        const float in = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
+        const float out = hdr2sdr_reinhard( in, source_peak, ldr_nits, offset, peak );
+        const float mul = out / in;
+        x.x *= mul;
+        x.y *= mul;
+        x.z *= mul;
     })",
         m_source_peak, m_ldr_nits, m_contrast, m_peak);
 }
