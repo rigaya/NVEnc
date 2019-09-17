@@ -65,7 +65,7 @@
     <ProjectGuid>{C1CF32C5-A001-42AA-8F6A-B1A697EA8D5B}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>NVEncSDK</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion></WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
