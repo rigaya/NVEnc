@@ -479,6 +479,9 @@ VppSubburn::VppSubburn() :
     trackId(0),
     assShaping(1),
     scale(0.0),
+    transparency_offset(0.0),
+    brightness(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
+    contrast(FILTER_DEFAULT_TWEAK_CONTRAST),
     ts_offset(0.0) {
 }
 
@@ -489,6 +492,9 @@ bool VppSubburn::operator==(const VppSubburn &x) const {
         && trackId == x.trackId
         && assShaping == x.assShaping
         && scale == x.scale
+        && transparency_offset == x.transparency_offset
+        && brightness == x.brightness
+        && contrast == x.contrast
         && ts_offset == x.ts_offset;
 }
 bool VppSubburn::operator!=(const VppSubburn &x) const {
@@ -501,6 +507,15 @@ tstring VppSubburn::print() const {
             ? filename.c_str()
             : strsprintf(_T("track #%d"), trackId).c_str(),
         scale);
+    if (transparency_offset != 0.0) {
+        str += strsprintf(_T(", transparency %.2f"), transparency_offset);
+    }
+    if (brightness != FILTER_DEFAULT_TWEAK_BRIGHTNESS) {
+        str += strsprintf(_T(", brightness %.2f"), brightness);
+    }
+    if (contrast != FILTER_DEFAULT_TWEAK_CONTRAST) {
+        str += strsprintf(_T(", contrast %.2f"), contrast);
+    }
     if (ts_offset != 0.0) {
         str += strsprintf(_T(", ts_offset %.2f"), ts_offset);
     }

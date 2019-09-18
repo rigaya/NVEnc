@@ -2024,6 +2024,33 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
+                if (param_arg == _T("transparency")) {
+                    try {
+                        subburn.transparency_offset = std::stof(param_val);
+                    } catch (...) {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("brightness")) {
+                    try {
+                        subburn.brightness = std::stof(param_val);
+                    } catch (...) {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("contrast")) {
+                    try {
+                        subburn.contrast = std::stof(param_val);
+                    } catch (...) {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("ts_offset")) {
                     try {
                         subburn.ts_offset = std::stof(param_val);
@@ -3055,6 +3082,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
                 ADD_LST(_T("shaping"), vpp.subburn[i].assShaping, list_vpp_ass_shaping);
                 ADD_FLOAT(_T("scale"), vpp.subburn[i].scale, 4);
                 ADD_FLOAT(_T("ts_offset"), vpp.subburn[i].ts_offset, 4);
+                ADD_FLOAT(_T("transparency"), vpp.subburn[i].transparency_offset, 4);
+                ADD_FLOAT(_T("brightness"), vpp.subburn[i].brightness, 4);
+                ADD_FLOAT(_T("contrast"), vpp.subburn[i].contrast, 4);
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);

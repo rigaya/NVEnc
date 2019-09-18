@@ -47,20 +47,22 @@ static __device__ float lerpf(float a, float b, float c) {
 
 template<typename TypePixel, int bit_depth>
 __inline__ __device__
-TypePixel blend(TypePixel pix, uint8_t alpha, uint8_t val) {
+TypePixel blend(TypePixel pix, uint8_t alpha, uint8_t val, float transparency_offset, float pix_offset, float contrast) {
     //alpha値は 0が透明, 255が不透明
-    float ret = lerpf((float)pix, (float)(val << (bit_depth - 8)), alpha * (1.0f / 255.0f));
+    float subval = val * (1.0f / (float)(1 << 8));
+    subval = contrast * (subval - 0.5f) + 0.5f + pix_offset;
+    float ret = lerpf((float)pix, subval * (float)(1<<bit_depth), alpha * (1.0f / 255.0f) * (1.0f - transparency_offset));
     return (TypePixel)clamp(ret, 0.0f, (1<<bit_depth)-0.5f);
 }
 
 template<typename TypePixel2, int bit_depth>
 __inline__ __device__
-void blend(void *pix, const void *alpha, const void *val) {
+void blend(void *pix, const void *alpha, const void *val, float transparency_offset, float pix_offset, float contrast) {
     uchar2 a = *(uchar2 *)alpha;
     uchar2 v = *(uchar2 *)val;
     TypePixel2 p = *(TypePixel2 *)pix;
-    p.x = blend<decltype(TypePixel2::x), bit_depth>(p.x, a.x, v.x);
-    p.y = blend<decltype(TypePixel2::x), bit_depth>(p.y, a.y, v.y);
+    p.x = blend<decltype(TypePixel2::x), bit_depth>(p.x, a.x, v.x, transparency_offset, pix_offset, contrast);
+    p.y = blend<decltype(TypePixel2::x), bit_depth>(p.y, a.y, v.y, transparency_offset, pix_offset, contrast);
     *(TypePixel2 *)pix = p;
 }
 
@@ -69,7 +71,7 @@ __global__ void kernel_subburn(uint8_t *__restrict__ pPlaneY, uint8_t *__restric
     const int pitchFrame,
     const uint8_t *__restrict__ pSubY, const uint8_t *__restrict__ pSubU, const uint8_t *__restrict__ pSubV, const uint8_t *__restrict__ pSubA,
     const int pitchSub,
-    const int width, const int height, bool interlaced) {
+    const int width, const int height, bool interlaced, float transparency_offset, float brightness, float contrast) {
     //縦横2x2pixelを1スレッドで処理する
     const int ix = (blockIdx.x * blockDim.x + threadIdx.x) * 2;
     const int iy = (blockIdx.y * blockDim.y + threadIdx.y) * 2;
@@ -84,8 +86,8 @@ __global__ void kernel_subburn(uint8_t *__restrict__ pPlaneY, uint8_t *__restric
         pSubV   += iy * pitchSub + ix;
         pSubA   += iy * pitchSub + ix;
 
-        blend<TypePixel2, bit_depth>(pPlaneY,              pSubA,            pSubY           );
-        blend<TypePixel2, bit_depth>(pPlaneY + pitchFrame, pSubA + pitchSub, pSubY + pitchSub);
+        blend<TypePixel2, bit_depth>(pPlaneY,              pSubA,            pSubY,            transparency_offset, brightness, contrast);
+        blend<TypePixel2, bit_depth>(pPlaneY + pitchFrame, pSubA + pitchSub, pSubY + pitchSub, transparency_offset, brightness, contrast);
 
         if (yuv420) {
             pPlaneU += (iy>>1) * pitchFrame + (ix>>1) * sizeof(TypePixel);
@@ -107,15 +109,15 @@ __global__ void kernel_subburn(uint8_t *__restrict__ pPlaneY, uint8_t *__restric
                 subV = (pSubV[0] + pSubV[pitchSub] + 1) >> 1;
                 subA = (pSubA[0] + pSubA[pitchSub] + 1) >> 1;
             }
-            *(TypePixel *)pPlaneU = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneU, subA, subU);
-            *(TypePixel *)pPlaneV = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneV, subA, subV);
+            *(TypePixel *)pPlaneU = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneU, subA, subU, transparency_offset, 0.0f, 0.0f);
+            *(TypePixel *)pPlaneV = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneV, subA, subV, transparency_offset, 0.0f, 0.0f);
         } else {
             pPlaneU += iy * pitchFrame + ix * sizeof(TypePixel);
             pPlaneV += iy * pitchFrame + ix * sizeof(TypePixel);
-            blend<TypePixel2, bit_depth>(pPlaneU,              pSubA,            pSubU           );
-            blend<TypePixel2, bit_depth>(pPlaneU + pitchFrame, pSubA + pitchSub, pSubU + pitchSub);
-            blend<TypePixel2, bit_depth>(pPlaneV,              pSubA,            pSubV           );
-            blend<TypePixel2, bit_depth>(pPlaneV + pitchFrame, pSubA + pitchSub, pSubV + pitchSub);
+            blend<TypePixel2, bit_depth>(pPlaneU,              pSubA,            pSubU,            transparency_offset, 0.0f, 0.0f);
+            blend<TypePixel2, bit_depth>(pPlaneU + pitchFrame, pSubA + pitchSub, pSubU + pitchSub, transparency_offset, 0.0f, 0.0f);
+            blend<TypePixel2, bit_depth>(pPlaneV,              pSubA,            pSubV,            transparency_offset, 0.0f, 0.0f);
+            blend<TypePixel2, bit_depth>(pPlaneV + pitchFrame, pSubA + pitchSub, pSubV + pitchSub, transparency_offset, 0.0f, 0.0f);
         }
     }
 }
@@ -124,6 +126,7 @@ template<typename TypePixel, int bit_depth>
 cudaError_t proc_frame(FrameInfo *pFrame,
     const FrameInfo *pSubImg,
     int pos_x, int pos_y,
+    float transparency_offset, float brightness, float contrast,
     cudaStream_t stream) {
     //焼きこみフレームの範囲内に収まるようチェック
     const int burnWidth  = std::min((pos_x & ~1) + pSubImg->width,  pFrame->width)  - (pos_x & ~1);
@@ -153,7 +156,7 @@ cudaError_t proc_frame(FrameInfo *pFrame,
             planeFrameV.ptr + frameOffsetByteUV,
             planeFrameY.pitch,
             planeSubY.ptr, planeSubU.ptr, planeSubV.ptr, planeSubA.ptr, planeSubY.pitch,
-            burnWidth, burnHeight, interlaced(*pFrame));
+            burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
     } else {
         kernel_subburn<TypePixel, bit_depth, false><<<gridSize, blockSize, 0, stream>>>(
             planeFrameY.ptr + frameOffsetByte,
@@ -161,7 +164,7 @@ cudaError_t proc_frame(FrameInfo *pFrame,
             planeFrameV.ptr + frameOffsetByte,
             planeFrameY.pitch,
             planeSubY.ptr, planeSubU.ptr, planeSubV.ptr, planeSubA.ptr, planeSubY.pitch,
-            burnWidth, burnHeight, interlaced(*pFrame));
+            burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
     }
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -245,6 +248,11 @@ RGY_ERR NVEncFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frame
             m_subImages.push_back(std::move(textRectToImage(image, stream)));
         }
     }
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (m_subImages.size()) {
         static const std::map<RGY_CSP, decltype(proc_frame<uint8_t, 8>) *> func_list ={
             { RGY_CSP_YV12,      proc_frame<uint8_t,   8> },
@@ -258,7 +266,8 @@ RGY_ERR NVEncFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frame
         }
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
             const FrameInfo *pSubImg = &m_subImages[irect].image->frame;
-            auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y, stream);
+            auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
+                prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, stream);
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
                     RGY_CSP_NAMES[pOutputFrame->csp],
@@ -433,6 +442,11 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(FrameInfo *pOutputFrame, const sInpu
             AddMessage(RGY_LOG_ERROR, _T("unexpected error.\n"));
             return RGY_ERR_UNKNOWN;
         }
+        auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
+        if (!prm) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
         static const std::map<RGY_CSP, decltype(proc_frame<uint8_t, 8>) *> func_list = {
             { RGY_CSP_YV12,      proc_frame<uint8_t,   8> },
             { RGY_CSP_YV12_16,   proc_frame<uint16_t, 16> },
@@ -445,7 +459,8 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(FrameInfo *pOutputFrame, const sInpu
         }
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
             const FrameInfo *pSubImg = &m_subImages[irect].image->frame;
-            auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y, stream);
+            auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
+                prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, stream);
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
                     RGY_CSP_NAMES[pOutputFrame->csp],

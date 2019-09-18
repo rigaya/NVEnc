@@ -1289,6 +1289,15 @@ add padding to left,top,right,bottom (in pixels)
 - scale=&lt;float&gt; (default=0.0 (auto))
   scaling multiplizer for bitmap fonts.  
 
+- transparency=&lt;float&gt; (default=0.0, 0.0 - 1.0)
+  adds additional transparency for subtitle.  
+
+- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)
+  modifies brightness of the subtitle.  
+
+- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)
+  modifies contrast of the subtitle.  
+
 - ts_offset=&lt;float&gt; (default=0.0)
   add offset in seconds to the subtitle timestamps (for debug perpose).  
 

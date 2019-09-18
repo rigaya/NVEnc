@@ -119,6 +119,18 @@ RGY_ERR NVEncFilterSubburn::checkParam(const std::shared_ptr<NVEncFilterParamSub
         AddMessage(RGY_LOG_ERROR, _T("subtitle file \"prec\" does not exist\n"), prm->subburn.filename.c_str());
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->subburn.brightness < -1.0f || 1.0f < prm->subburn.brightness) {
+        AddMessage(RGY_LOG_ERROR, _T("\"brightness\" must be in range of -1.0 - 1.0, but %.2f set.\n"), prm->subburn.brightness);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->subburn.contrast < -2.0f || 2.0f < prm->subburn.contrast) {
+        AddMessage(RGY_LOG_ERROR, _T("\"contrast\" must be in range of -2.0 - 2.0, but %.2f set.\n"), prm->subburn.contrast);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->subburn.transparency_offset < 0.0f || 1.0f < prm->subburn.transparency_offset) {
+        AddMessage(RGY_LOG_ERROR, _T("\"transparency\" must be in range of 0.0 - 1.0, but %.2f set.\n"), prm->subburn.transparency_offset);
+        return RGY_ERR_INVALID_PARAM;
+    }
     return RGY_ERR_NONE;
 }
 

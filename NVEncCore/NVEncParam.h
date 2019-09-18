@@ -994,6 +994,9 @@ struct VppSubburn {
     int trackId;
     int assShaping;
     float scale;
+    float transparency_offset;
+    float brightness;
+    float contrast;
     double ts_offset;
 
     VppSubburn();

@@ -1333,6 +1333,15 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 - scale=&lt;float&gt; (デフォルト=0.0 (auto))
   bitmap形式の字幕の表示サイズの倍率  
 
+- transparency=&lt;float&gt; (デフォルト=0.0, 0.0 - 1.0)
+  字幕に透過性を追加する。  
+
+- brightness=&lt;float&gt; (デフォルト=0.0, -1.0 - 1.0)
+  字幕の輝度の調整を行う。  
+
+- contrast=&lt;float&gt; (デフォルト=1.0, -2.0 - 2.0)
+  字幕のコントラストの調整を行う。  
+
 - ts_offset=&lt;float&gt; (デフォルト=0.0)
   字幕のtimestampを秒単位で調整(デバッグ用)  
 

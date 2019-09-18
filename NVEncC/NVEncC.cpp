@@ -521,7 +521,14 @@ static tstring help() {
         _T("      charcode=<string>         subtitle charcter code.\n")
         _T("      shaping=<string>          rendering quality of text.\n")
         _T("      scale=<float>             scaling multiplizer for bitmap subtitles.\n")
-        _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n"));
+        _T("      transparency=<float>      adds additional transparency.\n")
+        _T("                                  (default=0.0, 0.0 - 1.0)\n")
+        _T("      brightness=<float>        modifies brightness of the subtitle.\n")
+        _T("                                  (default=%.1f, -1.0 - 1.0)\n")
+        _T("      contrast=<float>          modifies contrast of the subtitle.\n")
+        _T("                                  (default=%.1f, -2.0 - 2.0)\n")
+        _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n"),
+        FILTER_DEFAULT_TWEAK_BRIGHTNESS, FILTER_DEFAULT_TWEAK_CONTRAST);
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
