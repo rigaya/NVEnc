@@ -64,13 +64,13 @@ union RGY_CSP_2 {
     ? ((int)(a) + (int)(b) + 1) \
     : ((out_bit_depth > in_bit_depth + 1) \
         ? (((int)(a) + (int)(b) + 1) << (out_bit_depth - in_bit_depth - 1)) \
-        : (((int)(a) + (int)(b) + (1 << (in_bit_depth - out_bit_depth))) >> (in_bit_depth + 1 - out_bit_depth))))
+        : (((int)(a) + (int)(b) + 1) >> (in_bit_depth + 1 - out_bit_depth))))
 
 #define BIT_DEPTH_CONV_3x1_AVG(a, b) (TypeOut)((out_bit_depth == in_bit_depth + 2) \
     ? ((int)(a) * 3 + (int)(b) + 2) \
     : ((out_bit_depth > in_bit_depth + 2) \
         ? (((int)(a) * 3 + (int)(b) + 2) << (out_bit_depth - in_bit_depth - 2)) \
-        : (((int)(a) * 3 + (int)(b) + (2 << (in_bit_depth - out_bit_depth))) >> (in_bit_depth + 2 - out_bit_depth))))
+        : (((int)(a) * 3 + (int)(b) + 2) >> (in_bit_depth + 2 - out_bit_depth))))
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 __global__ void kernel_crop_nv12_nv12(TypeOut *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
