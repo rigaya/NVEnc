@@ -78,13 +78,17 @@ RGY_ERR NVEncFilterCustom::check_param(shared_ptr<NVEncFilterParamCustom> prm) {
     }
     int device = 0;
     cudaGetDevice(&device);
-    cudaDeviceProp devProp;
-    cudaGetDeviceProperties(&devProp, device);
-    if (devProp.maxThreadsPerBlock < prm->custom.threadPerBlockX * prm->custom.threadPerBlockY) {
+    int maxThreadsPerBlock = 0;
+    auto cuErr = cudaDeviceGetAttribute(&maxThreadsPerBlock, cudaDevAttrMaxThreadsPerBlock, device);
+    if (cuErr == cudaErrorInvalidDevice || cuErr == cudaErrorInvalidValue) {
+        AddMessage(RGY_LOG_ERROR, _T("Error on cudaDeviceGetAttribute(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
+        return RGY_ERR_CUDA;
+    }
+    if (cuErr == cudaSuccess && maxThreadsPerBlock < prm->custom.threadPerBlockX * prm->custom.threadPerBlockY) {
         AddMessage(RGY_LOG_ERROR, _T("threadPerBlock is over limit of device: %d=%dx%d, limit=%d\n"),
             prm->custom.pixelPerThreadX * prm->custom.pixelPerThreadY,
             prm->custom.pixelPerThreadX, prm->custom.pixelPerThreadY,
-            devProp.maxThreadsPerBlock);
+            maxThreadsPerBlock);
         return RGY_ERR_INVALID_PARAM;
     }
 
