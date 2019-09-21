@@ -635,7 +635,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         && (pResizeParam->interp == RESIZE_CUDA_SPLINE16 || pResizeParam->interp == RESIZE_CUDA_SPLINE36 || pResizeParam->interp == RESIZE_CUDA_SPLINE64)) {
         static const auto SPLINE16_WEIGHT = std::vector<float>{
             1.0f,       -9.0f/5.0f,  -1.0f/5.0f, 1.0f,
-            -1.0f/3.0f,  9.0f/5.0f, -46.0f/5.0f, 8.0f/5.0f
+            -1.0f/3.0f,  9.0f/5.0f, -46.0f/15.0f, 8.0f/5.0f
         };
         static const auto SPLINE36_WEIGHT = std::vector<float>{
             13.0f/11.0f, -453.0f/209.0f,    -3.0f/209.0f,  1.0f,
