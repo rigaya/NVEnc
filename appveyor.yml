@@ -3,11 +3,11 @@
 
 environment:
   matrix:
-    - PLATFORM: Win32
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-
     - PLATFORM: x64
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+    
+    - PLATFORM: Win32
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
 
 configuration:
  - RelStatic
@@ -42,6 +42,8 @@ before_build:
   - if "%PLATFORM%" == "x64" set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.1\bin;%PATH%
   - if "%PLATFORM%" == "x64" set CUDA_PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.1
   - if "%PLATFORM%" == "x64" set CUDA_PATH_V10_1=%CUDA_PATH%
+  - if "%PLATFORM%" == "x64" appveyor DownloadFile http://download.microsoft.com/download/B/0/C/B0C80BA3-8AD6-4958-810B-6882485230B5/standalonesdk/sdksetup.exe
+  - if "%PLATFORM%" == "x64" sdksetup.exe /q /norestart /features OptionId.WindowsDesktopSoftwareDevelopmentKit
   - if "%PLATFORM%" == "Win32" appveyor DownloadFile https://developer.nvidia.com/compute/cuda/8.0/prod/local_installers/cuda_8.0.44_windows-exe -FileName cuda_8.0.44_windows.exe
   - if "%PLATFORM%" == "Win32" cuda_8.0.44_windows.exe -s compiler_8.0 command_line_tools_8.0 cudart_8.0 curand_8.0 curand_dev_8.0 npp_8.0 npp_dev_8.0 nvml_dev_8.0 visual_studio_integration_8.0
   - if "%PLATFORM%" == "Win32" set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v8.0\bin;%PATH%
