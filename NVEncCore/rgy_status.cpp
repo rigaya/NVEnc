@@ -216,73 +216,87 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
         m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
         m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
-        if (0 < m_sData.frameTotal || progressPercent > 0.0) {
+        enum {
+            MES_PROGRESS_PERCENT,
+            MES_CURRENT_FRAME,
+            MES_FRAME_TOTAL,
+            MES_FPS_KBPS,
+            MES_REMAIN,
+            MES_DROP,
+            MES_GPU,
+            MES_EST_FILE_SIZE,
+            MES_ID_MAX
+        };
+        struct mes_data {
+            int len;
+            TCHAR str[64];
+        };
+        std::array<mes_data, MES_ID_MAX> chunks;
+        for (auto& c : chunks) {
+            c.len = 0;
+        }
+        if (m_sData.frameTotal > 0 || progressPercent > 0.0) { //progress percent
             if (progressPercent == 0.0) {
                 progressPercent = (m_sData.frameIn) * 100 / (double)m_sData.frameTotal;
             }
             progressPercent = (std::min)(progressPercent, 100.0);
             uint32_t remaining_time = (uint32_t)(elapsedTime * (100.0 - progressPercent) / progressPercent + 0.5);
-            int hh = remaining_time / (60*60*1000);
+            const int hh = remaining_time / (60*60*1000);
             remaining_time -= hh * (60*60*1000);
-            int mm = remaining_time / (60*1000);
+            const int mm = remaining_time / (60*1000);
             remaining_time -= mm * (60*1000);
-            int ss = (remaining_time + 500) / 1000;
+            const int ss = (remaining_time + 500) / 1000;
 
-            int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %d kb/s, remain %d:%02d:%02d"),
-                progressPercent,
-                (m_sData.frameOut + m_sData.frameDrop),
-                m_sData.encodeFps,
-                (int)(m_sData.bitrateKbps + 0.5),
-                hh, mm, ss);
-            if (m_sData.frameDrop) {
-                len += _stprintf_s(mes + len, _countof(mes) - len, _T(", afs drop %d/%d  "), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
-            }
-            if (bGPUUsage) {
-                int new_len = len + _stprintf_s(mes + len, _countof(mes) - len, _T(", GPU %d%%"), gpuusage);
-                if (bVideoEngineUsage) {
-                    new_len += _stprintf_s(mes + new_len, _countof(mes) - new_len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
-                }
-                if (consoleWidth == 0 || consoleWidth >= new_len) {
-                    len = new_len;
-                } else {
-                    mes[len] = _T('\0');
-                }
-            }
+            chunks[MES_PROGRESS_PERCENT].len = _stprintf_s(chunks[MES_PROGRESS_PERCENT].str, _T("[%.1lf%%] "), progressPercent);
+            chunks[MES_REMAIN].len           = _stprintf_s(chunks[MES_REMAIN].str, _T(", remain %d:%02d:%02d"), hh, mm, ss);
+
             const double est_file_size = (double)m_sData.outFileSize / (progressPercent * 0.01);
-            const int est_file_size_len = len + _stprintf_s(mes + len, _countof(mes) - len, _T(", est out size %.1fMB"), est_file_size * (1.0 / (1024.0 * 1024.0)));
-            if (consoleWidth == 0 || consoleWidth >= est_file_size_len) {
-                len = est_file_size_len;
-            } else {
-                mes[len] = _T('\0');
-            }
-            const int fillWidth = (consoleWidth > 0) ? std::min(consoleWidth, (int)_countof(mes))-1 : 79;
-            for (; len < fillWidth; len++) {
-                mes[len] = _T(' ');
-            }
-            mes[len] = _T('\0');
-        } else {
-            int len = _stprintf_s(mes, _countof(mes), _T("%d frames: %.2lf fps, %d kbps"),
-                (m_sData.frameOut + m_sData.frameDrop),
-                m_sData.encodeFps,
-                (int)(m_sData.bitrateKbps + 0.5)
-            );
-            if (bGPUUsage) {
-                int new_len = len + _stprintf_s(mes + len, _countof(mes) - len, _T(", GPU %d%%"), gpuusage);
-                if (bVideoEngineUsage) {
-                    new_len += _stprintf_s(mes + len, _countof(mes) - len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
-                }
-                if (consoleWidth == 0 || consoleWidth >= new_len) {
-                    len = new_len;
-                } else {
-                    mes[len] = _T('\0');
-                }
-            }
-            const int fillWidth = (consoleWidth > 0) ? std::min(consoleWidth, (int)_countof(mes))-1 : 79;
-            for (; len < fillWidth; len++) {
-                mes[len] = _T(' ');
-            }
-            mes[len] = _T('\0');
+            chunks[MES_EST_FILE_SIZE].len = _stprintf_s(chunks[MES_EST_FILE_SIZE].str, _T(", est out size %.1fMB"), est_file_size * (1.0 / (1024.0 * 1024.0)));
         }
+        chunks[MES_CURRENT_FRAME].len = _stprintf_s(chunks[MES_CURRENT_FRAME].str, _T("%d"), m_sData.frameOut + m_sData.frameDrop);
+        if (m_sData.frameTotal > 0) {
+            chunks[MES_FRAME_TOTAL].len = _stprintf_s(chunks[MES_FRAME_TOTAL].str, _T("/%d"), m_sData.frameTotal);
+        }
+        chunks[MES_FPS_KBPS].len = _stprintf_s(chunks[MES_FPS_KBPS].str, _T(" frames: %.2lf fps, %d kb/s"), m_sData.encodeFps, (int)(m_sData.bitrateKbps + 0.5));
+        if (m_sData.frameDrop) {
+            chunks[MES_DROP].len = _stprintf_s(chunks[MES_DROP].str, _T(", afs drop %d/%d"), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
+        }
+        if (bGPUUsage) {
+            chunks[MES_GPU].len = _stprintf_s(chunks[MES_GPU].str, _T(", GPU %d%%"), gpuusage);
+            if (bVideoEngineUsage) {
+                chunks[MES_GPU].len += _stprintf_s(chunks[MES_GPU].str + chunks[MES_GPU].len, _countof(chunks[MES_GPU].str) - chunks[MES_GPU].len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
+            }
+        }
+
+        int mesLength = 0;
+        auto check_add_length = [&mesLength, &chunks, consoleWidth](int mes_id) {
+            if (consoleWidth <= 0 || mesLength + chunks[mes_id].len < consoleWidth) {
+                mesLength += chunks[mes_id].len;
+            } else {
+                chunks[mes_id].len = 0;
+            }
+        };
+        check_add_length(MES_PROGRESS_PERCENT);
+        check_add_length(MES_CURRENT_FRAME);
+        check_add_length(MES_FPS_KBPS);
+        check_add_length(MES_REMAIN);
+        check_add_length(MES_DROP);
+        check_add_length(MES_GPU);
+        check_add_length(MES_EST_FILE_SIZE);
+        check_add_length(MES_FRAME_TOTAL);
+
+        int len = 0;
+        for (const auto& c : chunks) {
+            if (c.len > 0) {
+                _tcscpy_s(mes + len, _countof(mes) - len, c.str);
+                len += c.len;
+            }
+        }
+        const int fillWidth = (consoleWidth > 0) ? std::min(consoleWidth, (int)_countof(mes))-1 : 79;
+        for (; len < fillWidth; len++) {
+            mes[len] = _T(' ');
+        }
+        mes[len] = _T('\0');
         UpdateDisplay(mes, progressPercent);
     }
     return RGY_ERR_NONE;
