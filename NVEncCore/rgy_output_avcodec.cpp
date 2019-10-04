@@ -3327,7 +3327,12 @@ int RGYOutputAvcodec::readPacket(uint8_t *buf, int buf_size) {
     return (int)_fread_nolock(buf, 1, buf_size, m_Mux.format.fpOutput);
 }
 int RGYOutputAvcodec::writePacket(uint8_t *buf, int buf_size) {
-    return (int)_fwrite_nolock(buf, 1, buf_size, m_Mux.format.fpOutput);
+    int res = (int)_fwrite_nolock(buf, 1, buf_size, m_Mux.format.fpOutput);
+    if (res < buf_size) {
+        AddMessage(RGY_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\""));
+        m_Mux.format.streamError = true;
+    }
+    return res;
 }
 int64_t RGYOutputAvcodec::seek(int64_t offset, int whence) {
     return _fseeki64(m_Mux.format.fpOutput, offset, whence);

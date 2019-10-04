@@ -1165,8 +1165,11 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, &lockBitstreamData);
     if (nvStatus == NV_ENC_SUCCESS) {
         RGYBitstream bitstream = RGYBitstreamInit(lockBitstreamData);
-        m_pFileWriter->WriteNextFrame(&bitstream);
+        auto outErr = m_pFileWriter->WriteNextFrame(&bitstream);
         nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
+        if (nvStatus == NV_ENC_SUCCESS && outErr != RGY_ERR_NONE) {
+            nvStatus = NV_ENC_ERR_GENERIC;
+        }
     } else {
         NVPrintFuncError(_T("nvEncLockBitstream"), nvStatus);
         return nvStatus;
@@ -1184,7 +1187,9 @@ NVENCSTATUS NVEncCore::FlushEncoder() {
 
     EncodeBuffer *pEncodeBufer = m_EncodeBufferQueue.GetPending();
     while (pEncodeBufer) {
-        ProcessOutput(pEncodeBufer);
+        if (ProcessOutput(pEncodeBufer) != RGY_ERR_NONE) {
+            nvStatus = NV_ENC_ERR_GENERIC;
+        }
         pEncodeBufer = m_EncodeBufferQueue.GetPending();
     }
 
@@ -4105,7 +4110,9 @@ NVENCSTATUS NVEncCore::Encode() {
             EncodeBuffer *pEncodeBuffer = m_EncodeBufferQueue.GetAvailable();
             if (!pEncodeBuffer) {
                 pEncodeBuffer = m_EncodeBufferQueue.GetPending();
-                ProcessOutput(pEncodeBuffer);
+                if (ProcessOutput(pEncodeBuffer) != NV_ENC_SUCCESS) {
+                    return NV_ENC_ERR_GENERIC;
+                }
                 PrintMes(RGY_LOG_TRACE, _T("Output frame %d\n"), m_pStatus->m_sData.frameOut);
                 if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
                     if (pEncodeBuffer->stInputBfr.hInputSurface) {
