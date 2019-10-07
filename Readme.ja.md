@@ -30,6 +30,7 @@ NVEncが載ったハードウェア
 |NVEnc 3.08 以降 | NVIDIA グラフィックドライバ 378.66以降 |
 |NVEnc 4.00 以降 | NVIDIA グラフィックドライバ 390.77以降 |
 |NVEnc 4.31 以降 | NVIDIA グラフィックドライバ 418.81以降 |
+|NVEnc 4.51 以降 | NVIDIA グラフィックドライバ 436.15以降 |
 
 ## NVEncCの使用方法とオプション  
 [NVEncCのオプションの説明](./NVEncC_Options.ja.md)

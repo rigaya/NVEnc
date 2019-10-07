@@ -546,13 +546,46 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("ref")) {
         i++;
-        int value = 0;
-        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
-            codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
-        } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos+1);
+                if (param_arg == _T("l0")) {
+                    int value = 0;
+                    if (get_list_value(list_num_refs, param_val.c_str(), &value)) {
+                        codecPrm[NV_ENC_H264].h264Config.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
+                        codecPrm[NV_ENC_HEVC].hevcConfig.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
+                    } else {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("l1")) {
+                    int value = 0;
+                    if (get_list_value(list_num_refs, param_val.c_str(), &value)) {
+                        codecPrm[NV_ENC_H264].h264Config.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
+                        codecPrm[NV_ENC_HEVC].hevcConfig.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
+                    } else {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            } else {
+                try {
+                    int value = std::stoi(param);
+                    codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
+                    codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
+                } catch (...) {
+                    CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return -1;
+                }
+                continue;
+            }
         }
         return 0;
     }

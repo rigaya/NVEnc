@@ -1632,8 +1632,12 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCode
     add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    false, false, _T("Max Level"));
     add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    false, false, _T("Min Level"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE,        false, true,  _T("4:4:4"));
+    add_cap_info(NV_ENC_CAPS_WIDTH_MIN,                    false, false, _T("Min Width"));
     add_cap_info(NV_ENC_CAPS_WIDTH_MAX,                    false, false, _T("Max Width"));
+    add_cap_info(NV_ENC_CAPS_HEIGHT_MIN,                   false, false, _T("Min Height"));
     add_cap_info(NV_ENC_CAPS_HEIGHT_MAX,                   false, false, _T("Max Height"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES,  false, true,  _T("Multiple Refs"));
+    add_cap_info(NV_ENC_CAPS_NUM_MAX_LTR_FRAMES,           false, false, _T("Max LTR Frames"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_RES_CHANGE,       false, true,  _T("Dynamic Resolution Change"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE,   false, true,  _T("Dynamic Bitrate Change"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_DYN_FORCE_CONSTQP,    false, true,  _T("Forced constant QP"));
@@ -1654,7 +1658,6 @@ NVENCSTATUS NVEncCore::GetCurrentDeviceNVEncCapability(void *hEncoder, NVEncCode
     add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD,            false, true,  _T("Lookahead"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ,          false, true,  _T("AQ (temporal)"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION,  false, true,  _T("Weighted Prediction"));
-    add_cap_info(NV_ENC_CAPS_NUM_MAX_LTR_FRAMES,           false, false, _T("Max LTR Frames"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE,         false, true,  _T("10bit depth"));
     return nvStatus;
 }
@@ -2025,6 +2028,13 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef = NV_ENC_BFRAME_REF_MODE_DISABLED;
             error_feature_unsupported(RGY_LOG_WARN, _T("B Ref Mode"));
         }
+        if (  (   m_stEncConfig.encodeCodecConfig.h264Config.numRefL0 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
+               || m_stEncConfig.encodeCodecConfig.h264Config.numRefL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)
+            && !getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
+            m_stEncConfig.encodeCodecConfig.h264Config.numRefL0 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+            m_stEncConfig.encodeCodecConfig.h264Config.numRefL1 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+            error_feature_unsupported(RGY_LOG_WARN, _T("Multiple Refs"));
+        }
     }
     if ((NV_ENC_MV_PRECISION_QUARTER_PEL == m_stEncConfig.mvPrecision) && !getCapLimit(NV_ENC_CAPS_SUPPORT_QPELMV)) {
         m_stEncConfig.mvPrecision = NV_ENC_MV_PRECISION_HALF_PEL;
@@ -2048,6 +2058,13 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         if (m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef != NV_ENC_BFRAME_REF_MODE_DISABLED && !getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE)) {
             m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef = NV_ENC_BFRAME_REF_MODE_DISABLED;
             error_feature_unsupported(RGY_LOG_WARN, _T("B Ref Mode"));
+        }
+        if (  (   m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
+               || m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)
+            && !getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
+            m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+            m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+            error_feature_unsupported(RGY_LOG_WARN, _T("Multiple Refs"));
         }
     }
     if (m_dynamicRC.size() > 0 && !getCapLimit(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)) {
@@ -4883,10 +4900,24 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(RGY_LOG_DEBUG, _T("%s\n"), bitstream_info);
     }
 
+    tstring strRef = strsprintf(_T("%d frames"),
+        (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
+    auto numRefL0 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+    auto numRefL1 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+    if (codec == NV_ENC_H264) {
+        numRefL0 = m_stEncConfig.encodeCodecConfig.h264Config.numRefL0;
+        numRefL1 = m_stEncConfig.encodeCodecConfig.h264Config.numRefL1;
+    } else if (codec == NV_ENC_HEVC) {
+        numRefL0 = m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0;
+        numRefL1 = m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1;
+    }
+    if (getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
+        strRef += strsprintf(_T(", MultiRef L0:%s L1:%s"), get_chr_from_value(list_num_refs, numRefL0), get_chr_from_value(list_num_refs, numRefL1));
+    }
     const bool bEnableLTR = (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.enableLTR : m_stEncConfig.encodeCodecConfig.hevcConfig.enableLTR;
-    tstring strRef = strsprintf(_T("%d frames, LTR: %s"),
-        (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
-        (bEnableLTR) ? _T("on") : _T("off"));
+    if (bEnableLTR) {
+        strRef += _T(", LTR:on");
+    }
     add_str(RGY_LOG_INFO,  _T("Ref frames     %s\n"), strRef.c_str());
 
     tstring strAQ;

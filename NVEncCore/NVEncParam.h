@@ -380,6 +380,18 @@ const CX_DESC list_deinterlace[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_num_refs[] = {
+    { _T("auto"),     NV_ENC_NUM_REF_FRAMES_AUTOSELECT },
+    { _T("1"),        NV_ENC_NUM_REF_FRAMES_1          },
+    { _T("2"),        NV_ENC_NUM_REF_FRAMES_2          },
+    { _T("3"),        NV_ENC_NUM_REF_FRAMES_3          },
+    { _T("4"),        NV_ENC_NUM_REF_FRAMES_4          },
+    { _T("5"),        NV_ENC_NUM_REF_FRAMES_5          },
+    { _T("6"),        NV_ENC_NUM_REF_FRAMES_6          },
+    { _T("7"),        NV_ENC_NUM_REF_FRAMES_7          },
+    { NULL, 0 }
+};
+
 static const int DYNAMIC_PARAM_NOT_SELECTED = -1;
 
 struct DynamicRCParam {

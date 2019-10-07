@@ -304,7 +304,7 @@ void guiEx_config::convert_nvencstg_to_nvencstgv4(CONF_GUIEX *conf, const void *
 
     memset(&confv3.nvenc.codecConfig[NV_ENC_H264].h264Config, 0, sizeof(confv3.nvenc.codecConfig[NV_ENC_H264].h264Config));
 #define COPY_H264_STG(name) { confv3.nvenc.codecConfig[NV_ENC_H264].h264Config.name = h264old->name; }
-    COPY_H264_STG(enableTemporalSVC);
+    //COPY_H264_STG(enableTemporalSVC);
     COPY_H264_STG(enableStereoMVC);
     COPY_H264_STG(hierarchicalPFrames);
     COPY_H264_STG(hierarchicalBFrames);

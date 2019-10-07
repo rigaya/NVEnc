@@ -338,8 +338,14 @@ Set maximum GOP length. When lookahead is off, this value will always be used. (
 ### -b, --bframes &lt;int&gt;
 Set the number of consecutive B frames.
 
-### --ref &lt;int&gt;
-Set the reference distance. In hw encoding, incresing ref frames will have minor effect on image quality or compression rate.
+### --ref &lt;int&gt;[,L0=&lt;int&gt;][,L1=&lt;int&gt;]
+Set the reference distance (max=16).  
+Also specify max number of reference frames in reference picture list L0/L1 (max=7).
+
+```
+Example1: --ref 4
+Example2: --ref 8,L0=5,L1=4
+```
 
 ### --weightp
 Enable weighted P frames. [H.264 only]
