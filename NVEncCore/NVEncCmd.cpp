@@ -546,46 +546,37 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("ref")) {
         i++;
-        for (const auto &param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = tolowercase(param.substr(0, pos));
-                auto param_val = param.substr(pos+1);
-                if (param_arg == _T("l0")) {
-                    int value = 0;
-                    if (get_list_value(list_num_refs, param_val.c_str(), &value)) {
-                        codecPrm[NV_ENC_H264].h264Config.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
-                        codecPrm[NV_ENC_HEVC].hevcConfig.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
-                    } else {
-                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                        return -1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("l1")) {
-                    int value = 0;
-                    if (get_list_value(list_num_refs, param_val.c_str(), &value)) {
-                        codecPrm[NV_ENC_H264].h264Config.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
-                        codecPrm[NV_ENC_HEVC].hevcConfig.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
-                    } else {
-                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                        return -1;
-                    }
-                    continue;
-                }
-                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return -1;
-            } else {
-                try {
-                    int value = std::stoi(param);
-                    codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
-                    codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
-                } catch (...) {
-                    CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                    return -1;
-                }
-                continue;
-            }
+        try {
+            int value = std::stoi(strInput[i]);
+            codecPrm[NV_ENC_H264].h264Config.maxNumRefFrames = value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = value;
+        } catch (...) {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("multiref-l0")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_num_refs, strInput[i], &value)) {
+            codecPrm[NV_ENC_H264].h264Config.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.numRefL0 = (NV_ENC_NUM_REF_FRAMES)value;
+        } else {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("multiref-l1")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_num_refs, strInput[i], &value)) {
+            codecPrm[NV_ENC_H264].h264Config.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
+            codecPrm[NV_ENC_HEVC].hevcConfig.numRefL1 = (NV_ENC_NUM_REF_FRAMES)value;
+        } else {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
         }
         return 0;
     }
@@ -2894,6 +2885,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_GUID_HEVC(_T("--profile"), _T(":hevc"), tier & 0xffff, h265_profile_names);
         OPT_LST_HEVC(_T("--tier"), _T(":hevc"), tier >> 16, h265_tier_names);
         OPT_NUM_HEVC(_T("--ref"), _T(""), maxNumRefFramesInDPB);
+        OPT_NUM_HEVC(_T("--multiref-l0"), _T(""), numRefL0);
+        OPT_NUM_HEVC(_T("--multiref-l1"), _T(""), numRefL1);
         OPT_LST_HEVC(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         if (codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 != codecPrmDefault[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8) {
             cmd << _T(" --output-depth ") << codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 + 8;
@@ -2914,6 +2907,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_H264(_T("--level"), _T(":h264"), level, list_avc_level);
         OPT_GUID(_T("--profile"), encConfig.profileGUID, h264_profile_names);
         OPT_NUM_H264(_T("--ref"), _T(""), maxNumRefFrames);
+        OPT_NUM_H264(_T("--multiref-l0"), _T(""), numRefL0);
+        OPT_NUM_H264(_T("--multiref-l1"), _T(""), numRefL1);
         OPT_LST_H264(_T("--bref-mode"), _T(""), useBFramesAsRef, list_bref_mode);
         OPT_LST_H264(_T("--direct"), _T(""), bdirectMode, list_bdirect);
         OPT_LST_H264(_T("--adapt-transform"), _T(""), adaptiveTransformMode, list_adapt_transform);
