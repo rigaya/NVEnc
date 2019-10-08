@@ -3,11 +3,11 @@
 
 environment:
   matrix:
-    - PLATFORM: x64
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
-    
     - PLATFORM: Win32
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+
+    - PLATFORM: x64
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
 
 configuration:
  - RelStatic
@@ -37,13 +37,11 @@ install:
   - 7z x -oC:\hdr10plus_gen\ "c:\hdr10plus_gen\hdr10plus_gen_0.00_%PLATFORM%.7z"
 
 before_build:
-  - if "%PLATFORM%" == "x64" appveyor DownloadFile http://developer.download.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_10.1.243_426.00_win10.exe -FileName cuda_10.1.243_426.00_win10.exe
-  - if "%PLATFORM%" == "x64" cuda_10.1.243_426.00_win10.exe -s nvcc_10.1 cudart_10.1 curand_10.1 curand_dev_10.1 npp_10.1 npp_dev_10.1 nvml_dev_10.1 nvrtc_10.1 nvrtc_dev_10.1 visual_studio_integration_10.1
+  - if "%PLATFORM%" == "x64" appveyor DownloadFile https://developer.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_10.1.105_418.96_win10.exe -FileName cuda_10.1.105_418.96_win10.exe
+  - if "%PLATFORM%" == "x64" cuda_10.1.105_418.96_win10.exe -s nvcc_10.1 cudart_10.1 curand_10.1 curand_dev_10.1 npp_10.1 npp_dev_10.1 nvml_dev_10.1 nvrtc_10.1 nvrtc_dev_10.1 visual_studio_integration_10.1
   - if "%PLATFORM%" == "x64" set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.1\bin;%PATH%
   - if "%PLATFORM%" == "x64" set CUDA_PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v10.1
   - if "%PLATFORM%" == "x64" set CUDA_PATH_V10_1=%CUDA_PATH%
-  - if "%PLATFORM%" == "x64" appveyor DownloadFile http://download.microsoft.com/download/B/0/C/B0C80BA3-8AD6-4958-810B-6882485230B5/standalonesdk/sdksetup.exe
-  - if "%PLATFORM%" == "x64" sdksetup.exe /q /norestart /features OptionId.WindowsDesktopSoftwareDevelopmentKit
   - if "%PLATFORM%" == "Win32" appveyor DownloadFile https://developer.nvidia.com/compute/cuda/8.0/prod/local_installers/cuda_8.0.44_windows-exe -FileName cuda_8.0.44_windows.exe
   - if "%PLATFORM%" == "Win32" cuda_8.0.44_windows.exe -s compiler_8.0 command_line_tools_8.0 cudart_8.0 curand_8.0 curand_dev_8.0 npp_8.0 npp_dev_8.0 nvml_dev_8.0 visual_studio_integration_8.0
   - if "%PLATFORM%" == "Win32" set PATH=%ProgramFiles%\NVIDIA GPU Computing Toolkit\CUDA\v8.0\bin;%PATH%
