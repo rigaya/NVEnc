@@ -42,8 +42,11 @@ public:
     RGYSharedMem() : shared_size(0), handle(nullptr), buffer(nullptr) {
     }
 
+#pragma warning(push)
+#pragma warning(disable:4100) //warning C4100: 引数は関数の本体部で 1 度も参照されません。
     RGYSharedMem(const char *pipename, uint64_t size) : RGYSharedMem() {
     }
+#pragma warning(pop)
 
     virtual ~RGYSharedMem() {
     }

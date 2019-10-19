@@ -48,6 +48,7 @@ void RGYInputSM::Close() {
 }
 
 RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
+    UNREFERENCED_PARAMETER(strFileName);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
     m_readerName = _T("sm");
