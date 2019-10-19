@@ -648,10 +648,7 @@ RGY_ERR initWriters(
             }
             log->write(RGY_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (audioCopyAll) ? _T("true") : _T("false"));
             pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
-            vector<AVDemuxStream> streamList;
-            if (pAVCodecReader) {
-                streamList = pAVCodecReader->GetInputStreamInfo();
-            }
+            vector<AVDemuxStream> streamList = pFileReader->GetInputStreamInfo();
 
             for (auto& stream : streamList) {
                 const auto streamMediaType = trackMediaType(stream.trackId);

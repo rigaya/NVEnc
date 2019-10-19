@@ -52,6 +52,7 @@ AVS_FUNCTYPE(take_clip);
 AVS_FUNCTYPE(release_value);
 AVS_FUNCTYPE(create_script_environment);
 AVS_FUNCTYPE(get_video_info);
+AVS_FUNCTYPE(get_audio);
 AVS_FUNCTYPE(get_frame);
 AVS_FUNCTYPE(release_video_frame);
 AVS_FUNCTYPE(release_clip);
@@ -59,6 +60,7 @@ AVS_FUNCTYPE(delete_script_environment);
 AVS_FUNCTYPE(get_version);
 AVS_FUNCTYPE(get_pitch_p);
 AVS_FUNCTYPE(get_read_ptr_p);
+AVS_FUNCTYPE(clip_get_error);
 #if !IS_AVXSYNTH
 AVS_FUNCTYPE(is_420);
 AVS_FUNCTYPE(is_422);
@@ -76,6 +78,7 @@ struct avs_dll_t {
     AVS_FUNCDECL(release_value)
     AVS_FUNCDECL(create_script_environment)
     AVS_FUNCDECL(get_video_info)
+    AVS_FUNCDECL(get_audio)
     AVS_FUNCDECL(get_frame)
     AVS_FUNCDECL(release_video_frame)
     AVS_FUNCDECL(release_clip)
@@ -83,6 +86,7 @@ struct avs_dll_t {
     AVS_FUNCDECL(get_version)
     AVS_FUNCDECL(get_pitch_p)
     AVS_FUNCDECL(get_read_ptr_p)
+    AVS_FUNCDECL(clip_get_error);
 #if !IS_AVXSYNTH
     AVS_FUNCDECL(is_420)
     AVS_FUNCDECL(is_422)
@@ -92,6 +96,15 @@ struct avs_dll_t {
 
 #undef AVS_FUNCDECL
 
+
+class RGYInputAvsPrm : public RGYInputPrm {
+public:
+    bool readAudio;
+    RGYInputAvsPrm(RGYInputPrm base);
+
+    virtual ~RGYInputAvsPrm() {};
+};
+
 class RGYInputAvs : public RGYInput {
 public:
     RGYInputAvs();
@@ -99,6 +112,16 @@ public:
 
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
+
+#if ENABLE_AVSW_READER
+    virtual int GetAudioTrackCount() override { return (int)m_audio.size(); };
+
+    //音声・字幕パケットの配列を取得する
+    virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) override;
+
+    //音声・字幕のコーデックコンテキストを取得する
+    virtual vector<AVDemuxStream> GetInputStreamInfo() override { return m_audio; };
+#endif // #if ENABLE_AVSW_READER
 
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
@@ -110,6 +133,14 @@ protected:
     const AVS_VideoInfo *m_sAVSinfo;
 
     avs_dll_t m_sAvisynth;
+
+#if ENABLE_AVSW_READER
+    RGY_ERR InitAudio();
+
+    vector<AVDemuxStream> m_audio;
+    unique_ptr<AVFormatContext, decltype(&avformat_free_context)> m_format;
+    int64_t m_audioCurrentSample;
+#endif //#if ENABLE_AVSW_READER
 };
 
 #endif //ENABLE_AVISYNTH_READER

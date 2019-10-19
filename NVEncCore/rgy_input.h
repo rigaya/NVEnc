@@ -40,6 +40,7 @@
 #include "rgy_err.h"
 #include "rgy_util.h"
 #include "rgy_prm.h"
+#include "rgy_avutil.h"
 #if ENCODER_NVENC
 #include "NVEncUtil.h"
 #endif //#if ENCODER_NVENC
@@ -51,6 +52,37 @@
 #endif //#if ENCODER_VCEENC
 
 std::vector<int> read_keyfile(tstring keyfile);
+
+#if ENABLE_AVSW_READER
+typedef struct AVDemuxStream {
+    int                       index;                  //音声・字幕のストリームID (libavのストリームID)
+    int                       trackId;                //音声のトラックID (QSVEncC独自, 1,2,3,...)、字幕は0
+    int                       subStreamId;            //通常は0、音声のチャンネルを分離する際に複製として作成
+    AVStream                 *stream;                 //音声・字幕のストリーム (caption2assから字幕生成の場合、nullptrとなる)
+    int                       lastVidIndex;           //音声の直前の相当する動画の位置
+    int64_t                   extractErrExcess;       //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
+    int64_t                   trimOffset;             //trimによる補正量 (stream timebase基準)
+    int64_t                   aud0_fin;               //直前に有効だったパケットのpts(stream timebase基準)
+    int                       appliedTrimBlock;       //trim blockをどこまで適用したか
+    AVPacket                  pktSample;              //サンプル用の音声・字幕データ
+    uint64_t                  streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t                  streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+    AVRational                timebase;               //streamのtimebase [stream = nullptrの場合でも使えるように]
+    void                     *subtitleHeader;         //stream = nullptrの場合 caption2assのヘッダー情報 (srt形式でもass用のヘッダーが入っている)
+    int                       subtitleHeaderSize;     //stream = nullptrの場合 caption2assのヘッダー情報のサイズ
+    C2AFormat                 caption2ass;            //stream = nullptrの場合 caption2assのformat
+} AVDemuxStream;
+
+static int trackFullID(AVMediaType media_type, int trackID) {
+    return (((uint32_t)media_type) << 12) | trackID;
+}
+static AVMediaType trackMediaType(int trackID) {
+    return (AVMediaType)((((uint32_t)trackID) & 0xf000) >> 12);
+}
+static int trackID(int trackID) {
+    return (int)(((uint32_t)trackID) & 0x0fff);
+}
+#endif //#if ENABLE_AVSW_READER
 
 struct RGYConvertCSPPrm {
     bool abort;
@@ -150,6 +182,18 @@ public:
     void SetInputFrames(int frames) {
         m_inputVideoInfo.frames = frames;
     }
+
+#if ENABLE_AVSW_READER
+    //音声・字幕パケットの配列を取得する
+    virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) {
+        return vector<AVPacket>();
+    }
+
+    //音声・字幕のコーデックコンテキストを取得する
+    virtual vector<AVDemuxStream> GetInputStreamInfo() {
+        return vector<AVDemuxStream>();
+    }
+#endif //#if ENABLE_AVSW_READER
 
     //入力ファイルに存在する音声のトラック数を返す
     virtual int GetAudioTrackCount() {

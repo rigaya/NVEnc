@@ -59,16 +59,6 @@ static const uint32_t AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 static const uint32_t AV_FRAME_MAX_REORDER = 16;
 static const int FRAMEPOS_POC_INVALID = -1;
 
-static int trackFullID(AVMediaType media_type, int trackID) {
-    return (((uint32_t)media_type) << 12) | trackID;
-}
-static AVMediaType trackMediaType(int trackID) {
-    return (AVMediaType)((((uint32_t)trackID) & 0xf000) >> 12);
-}
-static int trackID(int trackID) {
-    return (int)(((uint32_t)trackID) & 0x0fff);
-}
-
 enum RGYPtsStatus : uint32_t {
     RGY_PTS_UNKNOWN           = 0x00,
     RGY_PTS_NORMAL            = 0x01,
@@ -719,25 +709,6 @@ typedef struct AVDemuxVideo {
     bool                      bUseHEVCmp42AnnexB;
 } AVDemuxVideo;
 
-typedef struct AVDemuxStream {
-    int                       index;                  //音声・字幕のストリームID (libavのストリームID)
-    int                       trackId;                //音声のトラックID (QSVEncC独自, 1,2,3,...)、字幕は0
-    int                       subStreamId;            //通常は0、音声のチャンネルを分離する際に複製として作成
-    AVStream                 *stream;                 //音声・字幕のストリーム (caption2assから字幕生成の場合、nullptrとなる)
-    int                       lastVidIndex;           //音声の直前の相当する動画の位置
-    int64_t                   extractErrExcess;       //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
-    int64_t                   trimOffset;             //trimによる補正量 (stream timebase基準)
-    int64_t                   aud0_fin;               //直前に有効だったパケットのpts(stream timebase基準)
-    int                       appliedTrimBlock;       //trim blockをどこまで適用したか
-    AVPacket                  pktSample;              //サンプル用の音声・字幕データ
-    uint64_t                  streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
-    uint64_t                  streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
-    AVRational                timebase;               //streamのtimebase [stream = nullptrの場合でも使えるように]
-    void                     *subtitleHeader;         //stream = nullptrの場合 caption2assのヘッダー情報 (srt形式でもass用のヘッダーが入っている)
-    int                       subtitleHeaderSize;     //stream = nullptrの場合 caption2assのヘッダー情報のサイズ
-    C2AFormat                 caption2ass;            //stream = nullptrの場合 caption2assのformat
-} AVDemuxStream;
-
 typedef struct AVDemuxThread {
     int                          threadInput;       //入力スレッドを使用する
     std::atomic<bool>            bAbortInput;        //読み込みスレッドに停止を通知する
@@ -995,10 +966,10 @@ public:
     double GetInputVideoDuration();
 
     //音声・字幕パケットの配列を取得する
-    vector<AVPacket> GetStreamDataPackets(int inputFrame);
+    virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) override;
 
     //音声・字幕のコーデックコンテキストを取得する
-    vector<AVDemuxStream> GetInputStreamInfo();
+    virtual vector<AVDemuxStream> GetInputStreamInfo() override;
 
     //チャプターリストを取得する
     vector<const AVChapter *> GetChapterList();

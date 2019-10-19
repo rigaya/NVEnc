@@ -360,6 +360,8 @@ RGY_ERR initReaders(
 
     auto subBurnTrack = std::make_unique<SubtitleSelect>();
     SubtitleSelect *subBurnTrackPtr = subBurnTrack.get();
+
+    RGYInputAvsPrm inputPrmAvs(inputPrm);
 #if ENABLE_AVSW_READER
     RGYInputAvcodecPrm inputInfoAVCuvid(inputPrm);
 #endif
@@ -373,6 +375,8 @@ RGY_ERR initReaders(
 #endif //ENABLE_AVI_READER
 #if ENABLE_AVISYNTH_READER
     case RGY_INPUT_FMT_AVS:
+        inputPrmAvs.readAudio = common->nAudioSelectCount > 0;
+        pInputPrm = &inputPrmAvs;
         log->write(RGY_LOG_DEBUG, _T("avs reader selected.\n"));
         pFileReader.reset(new RGYInputAvs());
         break;

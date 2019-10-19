@@ -53,11 +53,23 @@ const uint8_t* AVSC_CC rgy_avs_get_read_ptr_p(const AVS_VideoFrame * p, int plan
     }
 }
 
+RGYInputAvsPrm::RGYInputAvsPrm(RGYInputPrm base) :
+    RGYInputPrm(base),
+    readAudio(false) {
+
+}
+
 RGYInputAvs::RGYInputAvs() :
     m_sAVSenv(nullptr),
     m_sAVSclip(nullptr),
     m_sAVSinfo(nullptr),
-    m_sAvisynth() {
+    m_sAvisynth(),
+#if ENABLE_AVSW_READER
+    m_audio(),
+    m_format(unique_ptr<AVFormatContext, decltype(&avformat_free_context)>(nullptr, &avformat_free_context)),
+    m_audioCurrentSample(0)
+#endif //#if ENABLE_AVSW_READER
+{
     memset(&m_sAvisynth, 0, sizeof(m_sAvisynth));
     m_readerName = _T("avs");
 }
@@ -100,6 +112,7 @@ RGY_ERR RGYInputAvs::load_avisynth() {
     LOAD_FUNC(release_value, true, nullptr);
     LOAD_FUNC(create_script_environment, true, nullptr);
     LOAD_FUNC(get_video_info, true, nullptr);
+    LOAD_FUNC(get_audio, true, nullptr);
     LOAD_FUNC(get_frame, true, nullptr);
     LOAD_FUNC(release_video_frame, true, nullptr);
     LOAD_FUNC(release_clip, true, nullptr);
@@ -107,6 +120,7 @@ RGY_ERR RGYInputAvs::load_avisynth() {
     LOAD_FUNC(get_version, true, nullptr);
     LOAD_FUNC(get_pitch_p, false, rgy_avs_get_pitch_p);
     LOAD_FUNC(get_read_ptr_p, false, rgy_avs_get_read_ptr_p);
+    LOAD_FUNC(clip_get_error, true, nullptr);
 #if !IS_AVXSYNTH
     LOAD_FUNC(is_420, false, nullptr);
     LOAD_FUNC(is_422, false, nullptr);
@@ -116,6 +130,104 @@ RGY_ERR RGYInputAvs::load_avisynth() {
 #undef LOAD_FUNC
     return RGY_ERR_NONE;
 }
+
+#if ENABLE_AVSW_READER
+RGY_ERR RGYInputAvs::InitAudio() {
+    auto format = avformat_alloc_context();
+    if (format == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to alloc format context.\n"));
+        return RGY_ERR_INVALID_HANDLE;
+    }
+    m_format = unique_ptr<AVFormatContext, decltype(&avformat_free_context)>(format, &avformat_free_context);
+
+    AVDemuxStream st = { 0 };
+
+    st.stream = avformat_new_stream(m_format.get(), NULL);
+
+    st.stream->codecpar->codec_type  = AVMEDIA_TYPE_AUDIO;
+    st.stream->codecpar->sample_rate = m_sAVSinfo->audio_samples_per_second;
+    st.stream->codecpar->channels    = m_sAVSinfo->nchannels;
+    st.stream->duration              = m_sAVSinfo->num_audio_samples;
+    st.stream->time_base             = av_make_q(1, m_sAVSinfo->audio_samples_per_second);
+
+    switch (m_sAVSinfo->sample_type) {
+    case AVS_SAMPLE_INT8:
+        st.stream->codecpar->codec_id = AV_CODEC_ID_PCM_U8;
+        st.stream->codecpar->bits_per_coded_sample = 8;
+        st.stream->codecpar->bits_per_raw_sample = 8;
+        st.stream->codecpar->format = AV_SAMPLE_FMT_U8;
+        break;
+    case AVS_SAMPLE_INT16:
+        st.stream->codecpar->codec_id = AV_CODEC_ID_PCM_S16LE;
+        st.stream->codecpar->bits_per_coded_sample = 16;
+        st.stream->codecpar->bits_per_raw_sample = 16;
+        st.stream->codecpar->format = AV_SAMPLE_FMT_S16;
+        break;
+    case AVS_SAMPLE_INT24:
+        st.stream->codecpar->codec_id = AV_CODEC_ID_PCM_S24LE;
+        st.stream->codecpar->bits_per_coded_sample = 24;
+        st.stream->codecpar->bits_per_raw_sample = 24;
+        break;
+    case AVS_SAMPLE_INT32:
+        st.stream->codecpar->codec_id = AV_CODEC_ID_PCM_S32LE;
+        st.stream->codecpar->bits_per_coded_sample = 32;
+        st.stream->codecpar->bits_per_raw_sample = 32;
+        st.stream->codecpar->format = AV_SAMPLE_FMT_S32;
+        break;
+    case AVS_SAMPLE_FLOAT:
+        st.stream->codecpar->codec_id = AV_CODEC_ID_PCM_F32LE;
+        st.stream->codecpar->bits_per_coded_sample = 32;
+        st.stream->codecpar->bits_per_raw_sample = 32;
+        st.stream->codecpar->format = AV_SAMPLE_FMT_FLT;
+        break;
+    default:
+        AddMessage(RGY_LOG_ERROR, _T("Unknown AviSynth sample type %d.\n"), m_sAVSinfo->sample_type);
+        return RGY_ERR_INVALID_AUDIO_PARAM;
+    }
+    st.index = 0;
+    st.timebase = st.stream->time_base;
+    st.trackId = trackFullID(AVMEDIA_TYPE_AUDIO, (int)m_audio.size() + 1);
+    m_audio.push_back(st);
+    return RGY_ERR_NONE;
+}
+
+vector<AVPacket> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
+    UNREFERENCED_PARAMETER(inputFrame);
+
+    vector<AVPacket> pkts;
+
+    const auto samplerate = av_make_q(m_sAVSinfo->audio_samples_per_second, 1);
+    const auto fps = av_make_q(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+    auto samples = (int)(av_rescale_q(m_encSatusInfo->m_sData.frameIn, samplerate, fps) - m_audioCurrentSample);
+    if (samples <= 0) {
+        return pkts;
+    }
+    if (m_audioCurrentSample + samples > m_sAVSinfo->num_audio_samples) {
+        samples = (int)(m_sAVSinfo->num_audio_samples - m_audioCurrentSample);
+    }
+
+    const int size = avs_bytes_per_channel_sample(m_sAVSinfo) * samples * m_sAVSinfo->nchannels;
+    AVPacket pkt;
+    if (av_new_packet(&pkt, size) < 0) {
+        return pkts;
+    }
+    pkt.pts = m_audioCurrentSample;
+    pkt.dts = m_audioCurrentSample;
+    pkt.duration = samples;
+    pkt.stream_index = m_audio.begin()->index;
+    pkt.flags = (pkt.flags & 0xffff) | ((uint32_t)m_audio.begin()->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+
+    m_sAvisynth.f_get_audio(m_sAVSclip, pkt.data, m_audioCurrentSample, samples);
+    const auto avs_err = m_sAvisynth.f_clip_get_error(m_sAVSclip);
+    if (avs_err) {
+        AddMessage(RGY_LOG_ERROR, _T("Unknown error when reading audio frame from avisynth: %d.\n"), avs_err);
+        return pkts;
+    }
+    pkts.push_back(pkt);
+    m_audioCurrentSample += samples;
+    return pkts;
+}
+#endif //#if ENABLE_AVSW_READER
 
 #pragma warning(push)
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
@@ -250,6 +362,19 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo.frames = m_sAVSinfo->num_frames;
     rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 
+    auto avsPrm = reinterpret_cast<const RGYInputAvsPrm *>(prm);
+    if (avsPrm != nullptr && avsPrm->readAudio) {
+        if (!avs_has_audio(m_sAVSinfo)) {
+            AddMessage(RGY_LOG_WARN, _T("avs has no audio.\n"));
+        } else {
+            auto err = InitAudio();
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_DEBUG, _T("failed to initialize audio.\n"));
+                return err;
+            }
+        }
+    }
+
 #if IS_AVXSYNTH
     tstring avisynth_version = _T("Avxsynth ");
 #else
@@ -270,6 +395,9 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
 void RGYInputAvs::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
+#if ENABLE_AVSW_READER
+    m_format.reset();
+#endif //#if ENABLE_AVSW_READER
     if (m_sAVSclip)
         m_sAvisynth.f_release_clip(m_sAVSclip);
     if (m_sAVSenv)
@@ -295,6 +423,11 @@ RGY_ERR RGYInputAvs::LoadNextFrame(RGYFrame *pSurface) {
     AVS_VideoFrame *frame = m_sAvisynth.f_get_frame(m_sAVSclip, m_encSatusInfo->m_sData.frameIn);
     if (frame == nullptr) {
         return RGY_ERR_MORE_DATA;
+    }
+    auto avs_err = m_sAvisynth.f_clip_get_error(m_sAVSclip);
+    if (avs_err) {
+        AddMessage(RGY_LOG_ERROR, _T("Unknown error when reading video frame from avisynth: %d.\n"), avs_err);
+        return RGY_ERR_UNKNOWN;
     }
 
     void *dst_array[3];
