@@ -49,6 +49,7 @@ typedef char TCHAR;
 #define _tcsnccmp strncmp
 #define _tcsicmp strcasecmp
 #define _tcschr strchr
+#define _tcsrchr strrchr
 #define _tcsstr strstr
 #define _tcstol strtol
 #define _tcsdup strdup

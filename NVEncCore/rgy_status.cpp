@@ -232,7 +232,7 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
             TCHAR str[64];
         };
         std::array<mes_data, MES_ID_MAX> chunks;
-        for (auto& c : chunks) {
+        for (auto &c : chunks) {
             c.len = 0;
         }
         if (m_sData.frameTotal > 0 || progressPercent > 0.0) { //progress percent
@@ -286,7 +286,7 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
         check_add_length(MES_FRAME_TOTAL);
 
         int len = 0;
-        for (const auto& c : chunks) {
+        for (const auto &c : chunks) {
             if (c.len > 0) {
                 _tcscpy_s(mes + len, _countof(mes) - len, c.str);
                 len += c.len;

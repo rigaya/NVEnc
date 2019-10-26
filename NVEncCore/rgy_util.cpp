@@ -339,6 +339,29 @@ std::vector<std::string> split(const std::string &str, const std::string &delim,
     return res;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+std::vector<std::wstring> sep_cmd(const std::wstring& cmd) {
+    std::vector<std::wstring> args;
+    int argc = 0;
+    auto ptr = CommandLineToArgvW(cmd.c_str(), &argc);
+    for (int i = 0; i < argc; i++) {
+        args.push_back(ptr[i]);
+    }
+    args.push_back(L"");
+    LocalFree(ptr);
+    return std::move(args);
+}
+
+std::vector<std::string> sep_cmd(const std::string& cmd) {
+    std::vector<std::string> args;
+    std::wstring wcmd = char_to_wstring(cmd);
+    for (const auto &warg : sep_cmd(wcmd)) {
+        args.push_back(wstring_to_string(warg));
+    }
+    return std::move(args);
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
 std::string lstrip(const std::string& string, const char* trim) {
     auto result = string;
     auto left = string.find_first_not_of(trim);

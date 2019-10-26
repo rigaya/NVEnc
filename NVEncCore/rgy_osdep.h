@@ -45,6 +45,7 @@
 #include <io.h>
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
+#include <shellapi.h>
 #define RGY_GET_PROC_ADDRESS GetProcAddress
 
 #else //#if defined(_WIN32) || defined(_WIN64)

@@ -524,6 +524,11 @@ std::wstring lstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n"
 std::wstring rstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 std::wstring trim(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 
+#if defined(_WIN32) || defined(_WIN64)
+std::vector<std::wstring> sep_cmd(const std::wstring &cmd);
+std::vector<std::string> sep_cmd(const std::string &cmd);
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
 std::string GetFullPath(const char *path);
 bool rgy_get_filesize(const char *filepath, uint64_t *filesize);
