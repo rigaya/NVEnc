@@ -725,8 +725,6 @@ NVENCSTATUS NVEncCore::InitPerfMonitor(const InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FORMAT encBufferFormat) {
-    int sts = 0;
-    bool stdoutUsed = false;
     const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
         m_uEncWidth, m_uEncHeight,
         &m_stEncConfig, m_stPicStruct,

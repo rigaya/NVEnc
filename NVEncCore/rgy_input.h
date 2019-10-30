@@ -184,6 +184,8 @@ public:
     }
 
 #if ENABLE_AVSW_READER
+#pragma warning(push)
+#pragma warning(disable: 4100)
     //音声・字幕パケットの配列を取得する
     virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) {
         return vector<AVPacket>();
@@ -193,6 +195,7 @@ public:
     virtual vector<AVDemuxStream> GetInputStreamInfo() {
         return vector<AVDemuxStream>();
     }
+#pragma warning(pop)
 #endif //#if ENABLE_AVSW_READER
 
     //入力ファイルに存在する音声のトラック数を返す
