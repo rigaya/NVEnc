@@ -2110,7 +2110,10 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
                 bitstream->append(hevc_pps_nal->ptr, hevc_pps_nal->size);
                 bitstream->append(&m_Mux.video.seiNal);
                 for (const auto& nal : nal_list) {
-                    if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
+                    //このif文を無効化しないと、mux後seiNalが正しく解釈されない(max-cllの値が化ける)
+                    //つまり、VPS->SPS->PPS->SEI->VPS->SPS->PPS->IDRとする (これでよいかどうかは不明)
+                    if (false // <<< わざと無効化
+                        && (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS)) {
                         bitstream->append(nal.ptr, nal.size);
                     }
                 }
