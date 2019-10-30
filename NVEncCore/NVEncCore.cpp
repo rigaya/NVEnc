@@ -3808,7 +3808,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
             //音声ファイルリーダーからのトラックを結合する
             for (const auto& reader : m_AudioReaders) {
-                vector_cat(packetList, pReader->GetStreamDataPackets(inputFrames));
+                vector_cat(packetList, reader->GetStreamDataPackets(inputFrames));
             }
             //パケットを各Writerに分配する
             for (uint32_t i = 0; i < packetList.size(); i++) {
