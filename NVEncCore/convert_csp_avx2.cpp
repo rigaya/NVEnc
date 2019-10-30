@@ -50,26 +50,26 @@ static void __forceinline avx2_memcpy(uint8_t *dst, const uint8_t *src, int size
             dst[i] = src[i];
         return;
     }
-    uint8_t *dst_fin = dst + size;
-    uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)(dst_fin + 31) & ~31) - 128);
     __m256i y0, y1, y2, y3;
+    uint8_t *dst_fin = dst + size;
     const int start_align_diff = (int)((size_t)dst & 31);
     if (start_align_diff) {
         y0 = _mm256_loadu_si256((const __m256i*)src);
         _mm256_storeu_si256((__m256i*)dst, y0);
         dst += 32 - start_align_diff;
         src += 32 - start_align_diff;
+        size -= (32 - start_align_diff);
     }
 #define _mm256_stream_switch_si256(x, ymm) ((use_stream) ? _mm256_stream_si256((x), (ymm)) : _mm256_store_si256((x), (ymm)))
-    for ( ; dst < dst_aligned_fin; dst += 128, src += 128) {
-        y0 = _mm256_loadu_si256((const __m256i*)(src +  0));
-        y1 = _mm256_loadu_si256((const __m256i*)(src + 32));
-        y2 = _mm256_loadu_si256((const __m256i*)(src + 64));
-        y3 = _mm256_loadu_si256((const __m256i*)(src + 96));
-        _mm256_stream_switch_si256((__m256i*)(dst +  0), y0);
-        _mm256_stream_switch_si256((__m256i*)(dst + 32), y1);
-        _mm256_stream_switch_si256((__m256i*)(dst + 64), y2);
-        _mm256_stream_switch_si256((__m256i*)(dst + 96), y3);
+    for (; size > 128; size -= 128, dst += 128, src += 128) {
+        y0 = _mm256_loadu_si256((const __m256i *)(src +  0));
+        y1 = _mm256_loadu_si256((const __m256i *)(src + 32));
+        y2 = _mm256_loadu_si256((const __m256i *)(src + 64));
+        y3 = _mm256_loadu_si256((const __m256i *)(src + 96));
+        _mm256_stream_switch_si256((__m256i *)(dst +  0), y0);
+        _mm256_stream_switch_si256((__m256i *)(dst + 32), y1);
+        _mm256_stream_switch_si256((__m256i *)(dst + 64), y2);
+        _mm256_stream_switch_si256((__m256i *)(dst + 96), y3);
     }
 #undef _mm256_stream_switch_si256
     uint8_t *dst_tmp = dst_fin - 128;
