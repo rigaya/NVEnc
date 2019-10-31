@@ -592,7 +592,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                         ptr_src = tempBufForNonModWidth.get();
                     }
                     int dummy[4] = { 0 };
-                    convert->run((rgy_output_csp & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
+                    convert->run((enc_prm.input.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
                         dst_array, (const void **)&ptr_src, oip->w,
                         src_pitch,
                         (input_csp == RGY_CSP_YC48) ? src_pitch : src_pitch >> 1,
