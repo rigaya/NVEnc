@@ -577,6 +577,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                         ret |= AUO_RESULT_ERROR; error_video_get_conv_func();
                         break;
                     }
+                    write_log_auo_line_fmt(RGY_LOG_INFO, "Convert %s -> %s [%s]",
+                        RGY_CSP_NAMES[convert->getFunc()->csp_from],
+                        RGY_CSP_NAMES[convert->getFunc()->csp_to],
+                        get_simd_str(convert->getFunc()->simd));
                 }
                 //コピーフレームの場合は、映像バッファの中身を更新せず、そのままパイプに流す
                 if (!copy_frame) {
