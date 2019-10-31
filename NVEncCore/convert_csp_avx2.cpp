@@ -1037,11 +1037,12 @@ void convert_yc48_to_p010_avx2(void **dst, const void **src, int width, int src_
     const __m256i yC_pw_one = _mm256_set1_epi16(1);
     const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
     const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    const int src_y_pitch = src_y_pitch_byte >> 1;
     const auto y_range = thread_y_range(0, height, thread_id, thread_n);
     __m256i y0, y1, y2, y3;
     for (y = y_range.start_src; y < (y_range.start_src + y_range.len); y += 2) {
-        ycp = (short*)pixel + width * y * 3;
-        ycpw= ycp + width*3;
+        ycp = (short*)pixel + src_y_pitch * y;
+        ycpw= ycp + src_y_pitch;
         Y   = (short*)dst_Y + dst_y_pitch * y;
         C   = (short*)dst_C + dst_y_pitch * y / 2;
         for (x = 0; x < width; x += 16, ycp += 48, ycpw += 48) {
@@ -1078,12 +1079,13 @@ void convert_yc48_to_p010_i_avx2(void **dst, const void **src, int width, int sr
     const __m256i yC_pw_one = _mm256_set1_epi16(1);
     const __m256i yC_YCC = _mm256_set1_epi32(1<<LSFT_YCC_16);
     const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    const int src_y_pitch = src_y_pitch_byte >> 1;
     const auto y_range = thread_y_range(0, height, thread_id, thread_n);
     __m256i y0, y1, y2, y3;
     for (y = y_range.start_src; y < (y_range.start_src + y_range.len); y += 4) {
         for (i = 0; i < 2; i++) {
-            ycp = (short*)pixel + width * (y + i) * 3;
-            ycpw= ycp + width*2*3;
+            ycp = (short*)pixel + src_y_pitch * (y + i);
+            ycpw= ycp + src_y_pitch*2;
             Y   = (short*)dst_Y + dst_y_pitch * (y + i);
             C   = (short*)dst_C + dst_y_pitch * (y + i*2) / 2;
             for (x = 0; x < width; x += 16, ycp += 48, ycpw += 48) {

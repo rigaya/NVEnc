@@ -1600,10 +1600,11 @@ static __forceinline void convert_yc48_to_p010_simd(void **dst, const void **src
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
     const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    const int src_y_pitch = src_y_pitch_byte >> 1;
     __m128i x0, x1, x2, x3;
     for (y = y_range.start_src; y < (y_range.start_src + y_range.len); y += 2) {
-        ycp = (short*)pixel + width * y * 3;
-        ycpw= ycp + width*3;
+        ycp = (short*)pixel + src_y_pitch * y;
+        ycpw= ycp + src_y_pitch;
         Y   = dst_Y + dst_y_pitch * y;
         C   = dst_C + dst_y_pitch * y / 2;
         for (x = 0; x < width; x += 8, ycp += 24, ycpw += 24) {
@@ -1641,12 +1642,13 @@ static __forceinline void convert_yc48_to_p010_i_simd(void **dst, const void **s
     const __m128i xC_pw_one = _mm_set1_epi16(1);
     const __m128i xC_YCC = _mm_set1_epi32(1<<LSFT_YCC_16);
     const int dst_y_pitch = dst_y_pitch_byte >> 1;
+    const int src_y_pitch = src_y_pitch_byte >> 1;
     const auto y_range = thread_y_range(0, height, thread_id, thread_n);
     __m128i x0, x1, x2, x3;
     for (y = y_range.start_src; y < (y_range.start_src + y_range.len); y += 4) {
         for (i = 0; i < 2; i++) {
-            ycp = (short*)pixel + width * (y + i) * 3;
-            ycpw= ycp + width*2*3;
+            ycp = (short*)pixel + src_y_pitch * (y + i);
+            ycpw= ycp + src_y_pitch * 2;
             Y   = dst_Y + dst_y_pitch * (y + i);
             C   = dst_C + dst_y_pitch * (y + i*2) / 2;
             for (x = 0; x < width; x += 8, ycp += 24, ycpw += 24) {
