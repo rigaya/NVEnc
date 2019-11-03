@@ -2096,8 +2096,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         m_Mux.video.dtsUnavailable = true;
 #endif
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && m_Mux.video.seiNal.size() > 0) {
-            RGYBitstream old = *bitstream;
-            std::vector<nal_info> nal_list = parse_nal_unit_hevc(bitstream->data(), bitstream->size());
+            RGYBitstream bsCopy = RGYBitstreamInit();
+            bsCopy.copy(bitstream);
+            std::vector<nal_info> nal_list = parse_nal_unit_hevc(bsCopy.data(), bsCopy.size());
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
             const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
             const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
@@ -2110,10 +2111,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
                 bitstream->append(hevc_pps_nal->ptr, hevc_pps_nal->size);
                 bitstream->append(&m_Mux.video.seiNal);
                 for (const auto& nal : nal_list) {
-                    //このif文を無効化しないと、mux後seiNalが正しく解釈されない(max-cllの値が化ける)
-                    //つまり、VPS->SPS->PPS->SEI->VPS->SPS->PPS->IDRとする (これでよいかどうかは不明)
-                    if (true // <<< わざと
-                        || (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS)) {
+                    if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
                         bitstream->append(nal.ptr, nal.size);
                     }
                 }
