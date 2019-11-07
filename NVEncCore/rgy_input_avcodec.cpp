@@ -1987,6 +1987,10 @@ double RGYInputAvcodec::GetInputVideoDuration() {
     return (m_Demux.format.formatCtx->duration * (1.0 / (double)AV_TIME_BASE));
 }
 
+rgy_rational<int> RGYInputAvcodec::getInputTimebase() {
+    return to_rgy(GetInputVideoStream()->time_base);
+}
+
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
 //必要ならqStreamPktL2に移し、不要ならパケットを開放する
 void RGYInputAvcodec::CheckAndMoveStreamPacketList() {

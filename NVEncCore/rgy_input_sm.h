@@ -47,6 +47,8 @@ struct RGYInputSMPrm {
     RGY_PICSTRUCT picstruct;
     int frames;
     uint32_t bufSize;
+    int64_t timestamp;
+    int duration;
     bool abort;
 };
 #pragma pack(pop)
@@ -60,6 +62,7 @@ public:
 
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
+    virtual rgy_rational<int> getInputTimebase() override;
 
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;

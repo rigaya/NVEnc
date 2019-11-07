@@ -611,10 +611,9 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
-    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-    if (pAVCodecReader && (m_nAVSyncMode & RGY_AVSYNC_VFR)) {
+    if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
         //avsync vfr時は、入力streamのtimebaseをそのまま使用する
-        m_outputTimebase = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
+        m_outputTimebase = m_pFileReader->getInputTimebase();
     }
 
     if (
@@ -639,6 +638,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
     }
 
 #if ENABLE_AVSW_READER
+    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
     if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || inputParam->vpp.rff) {
         tstring err_target;
         if (m_nAVSyncMode & RGY_AVSYNC_VFR)       err_target += _T("avsync vfr, ");
@@ -665,8 +665,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam) {
                 return NV_ENC_ERR_GENERIC;
             }
             PrintMes(RGY_LOG_DEBUG, _T("timestamp check: 0x%x\n"), timestamp_status);
-        } else {
-            PrintMes(RGY_LOG_ERROR, _T("%s can only be used with avhw /avsw reader.\n"), err_target.c_str());
+        } else if (m_outputTimebase.n() == 0 || !m_outputTimebase.is_valid()) {
+            PrintMes(RGY_LOG_ERROR, _T("%s cannot be used with current reader.\n"), err_target.c_str());
             return NV_ENC_ERR_GENERIC;
         }
     } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) == 0)) {
@@ -3777,7 +3777,7 @@ NVENCSTATUS NVEncCore::Encode() {
         streamIn = pReader->GetInputVideoStream();
     }
     //cuvidデコード時は、timebaseの分子はかならず1
-    const auto srcTimebase = (streamIn) ? rgy_rational<int>((m_cuvidDec) ? 1 : streamIn->time_base.num, streamIn->time_base.den) : rgy_rational<int>();
+    const auto srcTimebase = (streamIn) ? rgy_rational<int>((m_cuvidDec) ? 1 : streamIn->time_base.num, streamIn->time_base.den) : m_pFileReader->getInputTimebase();
 
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
     std::map<int, shared_ptr<RGYOutputAvcodec>> pWriterForAudioStreams;
@@ -3958,9 +3958,10 @@ NVENCSTATUS NVEncCore::Encode() {
         int64_t outPtsSource = nOutEstimatedPts;
         int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration
 #if ENABLE_AVSW_READER
-        if (streamIn && ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware)) {
+        if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware) {
             //CFR仮定ではなく、オリジナルの時間を見る
-            outPtsSource = (streamIn) ? rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase) : nOutEstimatedPts;
+            outPtsSource = (srcTimebase.n() > 0 && srcTimebase.is_valid()) ? rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase) : nOutEstimatedPts;
+            outDuration = rational_rescale(pInputFrame->getDuration(), srcTimebase, m_outputTimebase);
         }
         if (nOutFirstPts == AV_NOPTS_VALUE) {
             nOutFirstPts = outPtsSource; //最初のpts
@@ -3968,8 +3969,7 @@ NVENCSTATUS NVEncCore::Encode() {
         //最初のptsを0に修正
         outPtsSource -= nOutFirstPts;
 
-        if (streamIn
-            && ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware)) {
+        if ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware) {
             if (vpp_rff || vpp_afs_rff_aware) {
                 if (std::abs(outPtsSource - nOutEstimatedPts) >= 32 * nOutFrameDuration) {
                     //timestampに一定以上の差があればそれを無視する
@@ -3982,13 +3982,15 @@ NVENCSTATUS NVEncCore::Encode() {
                     return decFrames;
                 }
             }
-            //cuvidデコード時は、timebaseの分子はかならず1なので、streamIn->time_baseとズレているかもしれないのでオリジナルを計算
-            const auto orig_pts = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, to_rgy(streamIn->time_base));
-            //ptsからフレーム情報を取得する
-            const auto framePos = pReader->GetFramePosList()->findpts(orig_pts, &nInputFramePosIdx);
-            if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0) {
-                //有効な値ならオリジナルのdurationを使用する
-                outDuration = rational_rescale(framePos.duration, to_rgy(streamIn->time_base), m_outputTimebase);
+            if (streamIn) {
+                //cuvidデコード時は、timebaseの分子はかならず1なので、streamIn->time_baseとズレているかもしれないのでオリジナルを計算
+                const auto orig_pts = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, to_rgy(streamIn->time_base));
+                //ptsからフレーム情報を取得する
+                const auto framePos = pReader->GetFramePosList()->findpts(orig_pts, &nInputFramePosIdx);
+                if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0) {
+                    //有効な値ならオリジナルのdurationを使用する
+                    outDuration = rational_rescale(framePos.duration, to_rgy(streamIn->time_base), m_outputTimebase);
+                }
             }
         }
         if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) {

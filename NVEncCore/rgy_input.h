@@ -182,6 +182,9 @@ public:
     void SetInputFrames(int frames) {
         m_inputVideoInfo.frames = frames;
     }
+    virtual rgy_rational<int> getInputTimebase() {
+        return rgy_rational<int>();
+    }
 
 #if ENABLE_AVSW_READER
 #pragma warning(push)

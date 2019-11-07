@@ -207,7 +207,7 @@ static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, cons
     //出力ファイル
     sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " -o \"%s\"", pe->temp_filename);
     //入力
-    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --sm -i -");
+    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --avsync vfr --sm -i -");
 }
 
 //並列処理時に音声データを取得する
@@ -393,6 +393,11 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     //YUY2/YC48->NV12/YUV444, RGBコピー用関数
     const int input_csp_idx = get_aviutl_color_format(output_highbit_depth, rgy_output_csp);
     const RGY_CSP input_csp = (input_csp_idx == CF_YC48) ? RGY_CSP_YC48 : RGY_CSP_YUY2;
+
+    //自動フィールドシフト関連
+    if (pe->muxer_to_be_used != MUXER_DISABLED) {
+        enc_prm.vpp.afs.timecode = false;
+    }
 
     //コマンドライン生成
     build_full_cmd(exe_cmd, _countof(exe_cmd), conf, &enc_prm, oip, pe, sys_dat, PIPE_FN);
@@ -602,6 +607,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                         (input_csp == RGY_CSP_YC48) ? src_pitch : src_pitch >> 1,
                         prmsm->pitch, oip->h, oip->h, dummy);
                 }
+                prmsm->timestamp = (int64_t)i * 4;
+                prmsm->duration = 4;
+                if (jitter) {
+                    prmsm->timestamp += next_jitter[-1];
+                    prmsm->duration += next_jitter[0] - next_jitter[-1];
+                }
 
                 //完了通知
                 SetEvent(heBufFilled);
@@ -640,7 +651,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         release_audio_parallel_events(pe);
 
         //タイムコード出力
-        if (!ret && (afs || conf->vid.auo_tcfile_out))
+        if (!ret && ((afs && pe->muxer_to_be_used != MUXER_DISABLED) || conf->vid.auo_tcfile_out))
             tcfile_out(jitter, oip->n, (double)oip->rate / (double)oip->scale, afs, pe);
 
         //エンコーダ終了待機

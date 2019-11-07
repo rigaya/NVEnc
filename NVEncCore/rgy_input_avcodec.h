@@ -977,6 +977,8 @@ public:
     //フレーム情報構造へのポインタを返す
     FramePosList *GetFramePosList();
 
+    virtual rgy_rational<int> getInputTimebase() override;
+
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;
 

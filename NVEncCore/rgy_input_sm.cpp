@@ -47,6 +47,10 @@ void RGYInputSM::Close() {
     RGYInput::Close();
 }
 
+rgy_rational<int> RGYInputSM::getInputTimebase() {
+    return rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).inv() * rgy_rational<int>(1, 4);
+}
+
 RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     UNREFERENCED_PARAMETER(strFileName);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
@@ -277,6 +281,9 @@ RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
     m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
         src_uv_pitch, pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+
+    pSurface->setTimestamp(prmsm->timestamp);
+    pSurface->setDuration(prmsm->duration);
 
     SetEvent(m_buf_empty.get());
     m_encSatusInfo->m_sData.frameIn++;
