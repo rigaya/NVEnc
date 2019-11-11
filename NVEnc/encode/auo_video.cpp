@@ -592,10 +592,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                     uint8_t *ptr_src = (uint8_t *)frame;
                     int src_pitch = (input_csp == RGY_CSP_YC48) ? oip->w * 6 : oip->w * 2;
                     if (tempBufForNonModWidth) { //SIMDの要求する値で割り切れない場合は、一時バッファを使用してpitchがあるようにする
-                        for (int i = 0; i < oip->h; i++) {
-                            auto ptr_dst = tempBufForNonModWidth.get() + tempBufForNonModWidthPitch * i;
-                            auto ptr_src = (uint8_t *)frame + src_pitch * i;
-                            memcpy(ptr_dst, ptr_src, src_pitch);
+                        for (int j = 0; j < oip->h; j++) {
+                            auto dst = tempBufForNonModWidth.get() + tempBufForNonModWidthPitch * j;
+                            auto src = (uint8_t *)frame + src_pitch * j;
+                            memcpy(dst, src, src_pitch);
                         }
                         src_pitch = tempBufForNonModWidthPitch;
                         ptr_src = tempBufForNonModWidth.get();
