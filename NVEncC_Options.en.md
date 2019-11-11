@@ -816,10 +816,10 @@ Example: Output for HLS
     The input will be assumed as CFR and input pts will not be checked.
 
   - forcecfr
-    Check pts from the input file, and duplicate or remove frames if required to keep CFR, so that synchronization with the audio could be maintained.
+    Check pts from the input file, and duplicate or remove frames if required to keep CFR, so that synchronization with the audio could be maintained. Please note that this could not be used with --trim.
 
   - vfr  
-    Honor source timestamp and enable vfr output. Only available for avsw/avhw reader, and could not be used with --trim.
+    Honor source timestamp and enable vfr output. Only available for avsw/avhw reader.
 
 ## Vpp Options
 
