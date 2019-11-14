@@ -699,7 +699,7 @@ typedef struct AVDemuxVideo {
     int                       extradataSize;         //動画のヘッダサイズ
     AVRational                nAvgFramerate;         //動画のフレームレート
 
-    uint32_t                  nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
+    int                       nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
 
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
     AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用

@@ -116,6 +116,8 @@ RGYParamCommon::RGYParamCommon() :
 RGYParamCommon::~RGYParamCommon() {};
 
 RGYParamControl::RGYParamControl() :
+    threadCsp(0),
+    simdCsp(-1),
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
     logFramePosList(),     //framePosList出力先
@@ -126,9 +128,7 @@ RGYParamControl::RGYParamControl() :
     procSpeedLimit(0),      //処理速度制限 (0で制限なし)
     perfMonitorSelect(0),
     perfMonitorSelectMatplot(0),
-    perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
-    threadCsp(0),
-    simdCsp(-1) {
+    perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL) {
 
 }
 RGYParamControl::~RGYParamControl() {};
