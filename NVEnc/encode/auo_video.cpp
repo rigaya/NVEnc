@@ -318,6 +318,7 @@ static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO
         prmsm->picstruct = picstruct;
         prmsm->csp = out_csp;
         prmsm->abort = false;
+        prmsm->afs = afs;
     }
     return std::move(PrmSm);
 }
@@ -608,10 +609,9 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                         prmsm->pitch, oip->h, oip->h, dummy);
                 }
                 prmsm->timestamp = (int64_t)i * 4;
-                prmsm->duration = 4;
+                prmsm->duration = 0
                 if (jitter) {
                     prmsm->timestamp += next_jitter[-1];
-                    prmsm->duration += next_jitter[0] - next_jitter[-1];
                 }
 
                 //完了通知

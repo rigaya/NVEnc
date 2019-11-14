@@ -51,6 +51,11 @@ rgy_rational<int> RGYInputSM::getInputTimebase() {
     return rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).inv() * rgy_rational<int>(1, 4);
 }
 
+bool RGYInputSM::isAfs() {
+    RGYInputSMPrm* prmsm = (RGYInputSMPrm*)m_prm->ptr();
+    return prmsm->afs;
+}
+
 RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     UNREFERENCED_PARAMETER(strFileName);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));

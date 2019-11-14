@@ -49,6 +49,7 @@ struct RGYInputSMPrm {
     uint32_t bufSize;
     int64_t timestamp;
     int duration;
+    bool afs;
     bool abort;
 };
 #pragma pack(pop)
@@ -64,6 +65,7 @@ public:
     virtual void Close() override;
     virtual rgy_rational<int> getInputTimebase() override;
 
+    bool isAfs();
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
 

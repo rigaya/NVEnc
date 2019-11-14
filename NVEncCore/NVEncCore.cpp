@@ -3958,10 +3958,10 @@ NVENCSTATUS NVEncCore::Encode() {
         int64_t outPtsSource = nOutEstimatedPts;
         int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration
 #if ENABLE_AVSW_READER
-        if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware) {
+        if ((srcTimebase.n() > 0 && srcTimebase.is_valid())
+            && ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware)) {
             //CFR仮定ではなく、オリジナルの時間を見る
-            outPtsSource = (srcTimebase.n() > 0 && srcTimebase.is_valid()) ? rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase) : nOutEstimatedPts;
-            outDuration = rational_rescale(pInputFrame->getDuration(), srcTimebase, m_outputTimebase);
+            outPtsSource = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase);
         }
         if (nOutFirstPts == AV_NOPTS_VALUE) {
             nOutFirstPts = outPtsSource; //最初のpts
