@@ -1062,6 +1062,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("no-mp4opt")) {
+        common->disableMp4Opt = true;
+        return 0;
+    }
     if (IS_OPTION("max-cll")) {
         i++;
         common->maxCll = tchar_to_string(strInput[i]);
@@ -1488,6 +1492,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_BOOL(_T("--chapter-copy"), _T(""), copyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), chapterNoTrim);
     OPT_BOOL(_T("--key-on-chapter"), _T(""), keyOnChapter);
+    OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
     OPT_STR_PATH(_T("--keyfile"), keyFile);
     OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
 #endif //#if ENABLE_AVSW_READER

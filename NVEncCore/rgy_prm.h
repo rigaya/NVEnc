@@ -122,6 +122,7 @@ struct RGYParamCommon {
     C2AFormat caption2ass;
     int audioIgnoreDecodeError;
     muxOptList *muxOpt;
+    bool disableMp4Opt;
     tstring chapterFile;
     tstring keyFile;
     TCHAR *AVInputFormat;

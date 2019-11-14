@@ -1547,6 +1547,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
         return RGY_ERR_NULL_PTR;
     }
     m_Mux.format.isMatroska = 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "matroska");
+    m_Mux.format.disableMp4Opt = prm->disableMp4Opt;
 
 #if USE_CUSTOM_IO
     if (m_Mux.format.isPipe || usingAVProtocols(filename, 1) || (m_Mux.format.formatCtx->oformat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
@@ -1841,9 +1842,11 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
             av_dict_set(&m_Mux.format.headerOptions, "brand", "mp42", 0);
             AddMessage(RGY_LOG_DEBUG, _T("set format brand \"mp42\".\n"));
 
-            //moovを先頭に
-            av_dict_set(&m_Mux.format.headerOptions, "movflags", "faststart", 0);
-            AddMessage(RGY_LOG_DEBUG, _T("set faststart.\n"));
+            if (!m_Mux.format.disableMp4Opt) {
+                //moovを先頭に
+                av_dict_set(&m_Mux.format.headerOptions, "movflags", "faststart", 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set faststart.\n"));
+            }
         }
     }
 

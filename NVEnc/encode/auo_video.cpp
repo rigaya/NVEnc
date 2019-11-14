@@ -362,6 +362,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd, err);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
 
+    enc_prm.common.disableMp4Opt = pe->muxer_to_be_used != MUXER_DISABLED;
     if (conf->vid.afs && enc_prm.vpp.afs.enable) {
         write_log_auo_line(LOG_ERROR, "Aviutlの自動フィールドシフトとNVEnc Vppの自動フィールドシフトは併用できません。");
         write_log_auo_line(LOG_ERROR, "どちらかを選択してからやり直してください。");

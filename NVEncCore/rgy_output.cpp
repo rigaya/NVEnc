@@ -635,6 +635,7 @@ RGY_ERR initWriters(
         writerPrm.HEVCHdrSei             = &hedrsei;
         writerPrm.videoCodecTag           = common->videoCodecTag;
         writerPrm.afs                     = isAfs;
+        writerPrm.disableMp4Opt           = common->disableMp4Opt;
         if (common->muxOpt > 0) {
             writerPrm.muxOpt = *common->muxOpt;
         }

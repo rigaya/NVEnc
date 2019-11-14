@@ -106,6 +106,7 @@ RGYParamCommon::RGYParamCommon() :
     caption2ass(FORMAT_INVALID),
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     muxOpt(nullptr),
+    disableMp4Opt(false),
     chapterFile(),
     AVInputFormat(nullptr),
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
