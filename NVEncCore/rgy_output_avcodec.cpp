@@ -133,7 +133,7 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
 
 void RGYOutputAvcodec::CloseFormat(AVMuxFormat *muxFormat) {
     if (muxFormat->formatCtx) {
-        if (!muxFormat->streamError) {
+        if (!muxFormat->streamError && m_Mux.format.fileHeaderWritten) {
             av_write_trailer(muxFormat->formatCtx);
         }
 #if USE_CUSTOM_IO
