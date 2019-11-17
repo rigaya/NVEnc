@@ -1492,10 +1492,10 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_BOOL(_T("--chapter-copy"), _T(""), copyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), chapterNoTrim);
     OPT_BOOL(_T("--key-on-chapter"), _T(""), keyOnChapter);
-    OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
     OPT_STR_PATH(_T("--keyfile"), keyFile);
-    OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
 #endif //#if ENABLE_AVSW_READER
+    OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
+    OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
 
     OPT_STR(_T("--max-cll"), maxCll);
     OPT_STR(_T("--master-display"), masterDisplay);

@@ -207,7 +207,7 @@ static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, cons
     //出力ファイル
     sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " -o \"%s\"", pe->temp_filename);
     //入力
-    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --avsync vfr --sm -i -");
+    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --sm -i -");
 }
 
 //並列処理時に音声データを取得する
@@ -362,6 +362,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd, err);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
 
+    enc_prm.common.AVSyncMode = conf->vid.afs ? RGY_AVSYNC_VFR : RGY_AVSYNC_ASSUME_CFR;
     enc_prm.common.disableMp4Opt = pe->muxer_to_be_used != MUXER_DISABLED;
     if (conf->vid.afs && enc_prm.vpp.afs.enable) {
         write_log_auo_line(LOG_ERROR, "Aviutlの自動フィールドシフトとNVEnc Vppの自動フィールドシフトは併用できません。");
