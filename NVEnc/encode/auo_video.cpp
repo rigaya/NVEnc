@@ -364,6 +364,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
     enc_prm.common.AVSyncMode = conf->vid.afs ? RGY_AVSYNC_VFR : RGY_AVSYNC_ASSUME_CFR;
     enc_prm.common.disableMp4Opt = pe->muxer_to_be_used != MUXER_DISABLED;
+    if (!conf->vid.resize_enable) {
+        enc_prm.input.dstWidth = 0;
+        enc_prm.input.dstHeight = 0;
+    }
     if (conf->vid.afs && enc_prm.vpp.afs.enable) {
         write_log_auo_line(LOG_ERROR, "Aviutlの自動フィールドシフトとNVEnc Vppの自動フィールドシフトは併用できません。");
         write_log_auo_line(LOG_ERROR, "どちらかを選択してからやり直してください。");
@@ -611,7 +615,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                         prmsm->pitch, oip->h, oip->h, dummy);
                 }
                 prmsm->timestamp = (int64_t)i * 4;
-                prmsm->duration = 0
+                prmsm->duration = 0;
                 if (jitter) {
                     prmsm->timestamp += next_jitter[-1];
                 }
