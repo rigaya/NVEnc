@@ -195,6 +195,9 @@ vector<AVPacket> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
     UNREFERENCED_PARAMETER(inputFrame);
 
     vector<AVPacket> pkts;
+    if (m_audio.size() == 0) {
+        return pkts;
+    }
 
     const auto samplerate = av_make_q(m_sAVSinfo->audio_samples_per_second, 1);
     const auto fps = av_make_q(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
