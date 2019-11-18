@@ -311,8 +311,8 @@ protected:
     shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
 
     GUID                         m_stCodecGUID;           //出力コーデック
-    uint32_t                     m_uEncWidth;             //出力縦解像度
-    uint32_t                     m_uEncHeight;            //出力横解像度
+    int                          m_uEncWidth;             //出力縦解像度
+    int                          m_uEncHeight;            //出力横解像度
     rgy_rational<int>            m_sar;                   //出力のsar比
 
     int                          m_nProcSpeedLimit;       //処理速度制限 (0で制限なし)

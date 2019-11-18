@@ -492,22 +492,22 @@ struct VideoInfo {
     RGY_INPUT_FMT type;
 
     //[(i) i ] 入力横解像度
-    uint32_t srcWidth;
+    int srcWidth;
 
     //[(i) i ] 入力縦解像度
-    uint32_t srcHeight;
+    int srcHeight;
 
     //[(i)(i)] 入力ピッチ 0なら入力横解像度に同じ
     uint32_t srcPitch;
 
-    uint32_t codedWidth;     //[   (i)]
-    uint32_t codedHeight;    //[   (i)]
+    int codedWidth;     //[   (i)]
+    int codedHeight;    //[   (i)]
 
                              //[      ] 出力解像度
-    uint32_t dstWidth;
+    int dstWidth;
 
     //[      ] 出力解像度
-    uint32_t dstHeight;
+    int dstHeight;
 
     //[      ] 出力解像度
     uint32_t dstPitch;

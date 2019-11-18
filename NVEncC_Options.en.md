@@ -234,7 +234,19 @@ Set input resolution. Required for raw format.
 ### --output-res &lt;int&gt;x&lt;int&gt;
 Set output resolution. When it is different from the input resolution, HW/GPU resizer will be activated automatically.
 
-If not specified, it will be same as the input resolution. (no resize)
+If not specified, it will be same as the input resolution. (no resize)  
+
+_Special Values_
+- 0 ... Will be same as input.
+- One of width or height as negative value    
+  Will be resized keeping aspect ratio, and a value which could be divided by the negative value will be chosen.
+
+```
+Example: input 1280x720
+--output-res 1024x576 -> normal
+--output-res 960x0    -> resize to 960x720 (0 will be replaced to 720, same as input)
+--output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
+```
 
 
 ## Encode Mode Options

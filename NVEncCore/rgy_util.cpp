@@ -1050,6 +1050,32 @@ std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned in
     return std::make_pair<int, int>(x / b, y / b);
 }
 
+void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, int src_w, int src_h, int src_sar_w, int src_sar_h, const sInputCrop& crop) {
+    if (dst_w * dst_h < 0) {
+        src_w -= (crop.e.left + crop.e.right);
+        src_h -= (crop.e.bottom + crop.e.up);
+        double dar = src_w / (double)src_h;
+        if (src_sar_w * src_sar_h > 0) {
+            if (src_sar_w < 0) {
+                dar = src_sar_w / (double)src_sar_h;
+            } else {
+                dar = (src_w * (double)src_sar_w) / (src_h * (double)src_sar_h);
+            }
+        }
+        if (dst_sar_w * dst_sar_h <= 0) {
+            dst_sar_w = dst_sar_h = 1;
+        }
+        dar /= (dst_sar_w / (double)dst_sar_h);
+        if (dst_w < 0) {
+            const int div = std::abs(dst_w);
+            dst_w = (((int)(dst_h * dar) + (div >> 1)) / div) * div;
+        } else { //dst_h < 0
+            const int div = std::abs(dst_h);
+            dst_h = (((int)(dst_w / dar) + (div >> 1)) / div) * div;
+        }
+    }
+}
+
 int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule) {
     *data = nullptr;
 #if defined(_WIN32) || defined(_WIN64)

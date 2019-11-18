@@ -1935,7 +1935,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, _T("%s: %dx%d, [%s]: %d [上限: %d]\n"), error_mes, m_uEncWidth, m_uEncHeight, feature, featureValue, getCapLimit(featureID));
     };
 
-    if (m_uEncWidth > (uint32_t)getCapLimit(NV_ENC_CAPS_WIDTH_MAX) || m_uEncHeight > (uint32_t)getCapLimit(NV_ENC_CAPS_HEIGHT_MAX)) {
+    if (m_uEncWidth > getCapLimit(NV_ENC_CAPS_WIDTH_MAX) || m_uEncHeight > getCapLimit(NV_ENC_CAPS_HEIGHT_MAX)) {
         error_resolution_over_limit(nullptr, 0, (NV_ENC_CAPS)0);
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
@@ -3457,6 +3457,21 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("createDeviceFeatureList: Success.\n"));
+
+    { //出力解像度の自動設定 decoderの初期化前に実施
+        if (inputParam->input.dstWidth < 0 && inputParam->input.dstHeight < 0) {
+            PrintMes(RGY_LOG_ERROR, _T("Either one of output resolution must be positive value.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+        auto outpar = std::make_pair(inputParam->par[0], inputParam->par[1]);
+        if ((!inputParam->par[0] || !inputParam->par[1]) //SAR比の指定がない
+            && inputParam->input.sar[0] && inputParam->input.sar[1] //入力側からSAR比を取得ずみ
+            && (inputParam->input.dstWidth == inputParam->input.srcWidth && inputParam->input.dstHeight == inputParam->input.srcHeight)) {//リサイズは行われない
+            outpar = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
+        }
+        set_auto_resolution(inputParam->input.dstWidth, inputParam->input.dstHeight, outpar.first, outpar.second,
+            inputParam->input.srcWidth, inputParam->input.srcHeight, inputParam->input.sar[0], inputParam->input.sar[1], inputParam->input.crop);
+    }
 
     //必要ならデコーダを作成
     if (NV_ENC_SUCCESS != (nvStatus = InitDecoder(inputParam))) {
