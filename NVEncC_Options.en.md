@@ -358,7 +358,7 @@ Set the reference distance (max=16).
 Set max number of reference frames in reference picture list L0/L1 (max=7).
 
 ### --weightp
-Enable weighted P frames. [H.264 only]
+Enable weighted P frames.
 
 ### --nonrefp
 enable automatic insertion of non-reference P-frames.

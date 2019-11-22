@@ -357,7 +357,7 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 ### --weightp
 
-启用带权 P 帧。[仅在 H.264 下有效]
+启用带权 P 帧。
 
 ### --aq
 

@@ -364,7 +364,7 @@ lookahead有効時の適応的なBフレーム挿入を無効化する。
 
 
 ### --weightp
-重み付きPフレームを使用する。 [H.264のみ]
+重み付きPフレームを使用する。
 
 ### --nonrefp
 non-reference P-framesを自動挿入を有効にする。
