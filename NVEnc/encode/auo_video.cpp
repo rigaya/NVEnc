@@ -615,7 +615,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                         prmsm->pitch, oip->h, oip->h, dummy);
                 }
                 prmsm->timestamp = (int64_t)i * 4;
-                prmsm->duration = 0
+                prmsm->duration = 0;
                 if (jitter) {
                     prmsm->timestamp += next_jitter[-1];
                 }
