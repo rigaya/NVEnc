@@ -450,6 +450,10 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 }
             }
         }
+        if (m_Demux.qVideoPkt.size() == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("No video packets found!\n"));
+            return RGY_ERR_UNKNOWN;
+        }
 #if _DEBUG && 0
         for (int i = 0; i < m_Demux.frames.frameNum(); i++) {
             fprintf(stderr, "%3d: pts:%I64d, poc:%3d, duration:%5d, duration2:%5d, repeat:%d\n",
