@@ -479,10 +479,10 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
     cudaTextureObject_t texP1V0 = 0;
     cudaTextureObject_t texP1V1 = 0; //yuv444では使用されない
     uint8_t *const pU0 = p0 + srcPitch * srcHeight;
-    uint8_t *const pV0 = p0 + srcPitch * srcHeight * 3/2;
     uint8_t *const pU1 = p1 + srcPitch * srcHeight;
-    uint8_t *const pV1 = p1 + srcPitch * srcHeight * 3/2;
     if (yuv420) {
+        uint8_t *const pV0 = p0 + srcPitch * srcHeight * 3/2;
+        uint8_t *const pV1 = p1 + srcPitch * srcHeight * 3/2;
         if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pU0 + srcPitch * 0, srcPitch * 2, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
         if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pU0 + srcPitch * 1, srcPitch * 2, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
         if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pV0 + srcPitch * 0, srcPitch * 2, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
@@ -492,6 +492,8 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
         if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pV1 + srcPitch * 0, srcPitch * 2, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
         if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, pV1 + srcPitch * 1, srcPitch * 2, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
     } else {
+        uint8_t *const pV0 = p0 + srcPitch * srcHeight * 2;
+        uint8_t *const pV1 = p1 + srcPitch * srcHeight * 2;
         if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0U0, cudaFilterModePoint, cudaReadModeElementType, pU0, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
         if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0V0, cudaFilterModePoint, cudaReadModeElementType, pV0, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
         if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1U0, cudaFilterModePoint, cudaReadModeElementType, pU1, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
