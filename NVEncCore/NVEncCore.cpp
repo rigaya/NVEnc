@@ -2194,8 +2194,15 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             error_feature_unsupported(RGY_LOG_WARN, _T("weighted prediction with B frames"));
         } else {
             if (inputParam->codec == NV_ENC_HEVC) {
-                PrintMes(RGY_LOG_WARN, _T("HEVC encode with weightp is known to be unstable on some environments.\n"));
-                PrintMes(RGY_LOG_WARN, _T("Consider not using weightp with HEVC encode if unstable.\n"));
+                const auto selectedGpu = std::find_if(m_GPUList.begin(), m_GPUList.end(), [device_id = m_nDeviceId](const NVGPUInfo& gpuinfo) {
+                    return gpuinfo.id == device_id;
+                });
+                if (selectedGpu->compute_capability.first == 6 //Pascal
+                    || (selectedGpu->compute_capability.first == 7 && selectedGpu->compute_capability.second <= 2) //Volta
+                    ) {
+                    PrintMes(RGY_LOG_WARN, _T("HEVC encode with weightp is known to be unstable on some environments.\n"));
+                    PrintMes(RGY_LOG_WARN, _T("Consider not using weightp with HEVC encode if unstable.\n"));
+                }
             }
             m_stCreateEncodeParams.enableWeightedPrediction = 1;
         }
