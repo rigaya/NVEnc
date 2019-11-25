@@ -1725,11 +1725,43 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
             if (m_Demux.video.bUseHEVCmp42AnnexB) {
                 hevcMp42Annexb(pkt);
             }
+            FramePos pos = { 0 };
+            pos.pts = pkt->pts;
+            pos.dts = pkt->dts;
+            pos.duration = (int)pkt->duration;
+            pos.duration2 = 0;
+            pos.poc = FRAMEPOS_POC_INVALID;
+            pos.flags = (uint8_t)pkt->flags;
+            pos.pict_type = AV_PICTURE_TYPE_NONE;
+            if (m_Demux.video.pParserCtx) {
+                uint8_t* dummy = nullptr;
+                int dummy_size = 0;
+                av_parser_parse2(m_Demux.video.pParserCtx, m_Demux.video.pCodecCtxParser, &dummy, &dummy_size, pkt->data, pkt->size, pkt->pts, pkt->dts, pkt->pos);
+                pos.pict_type = (uint8_t)(std::max)(m_Demux.video.pParserCtx->pict_type, 0);
+                switch (m_Demux.video.pParserCtx->picture_structure) {
+                    //フィールドとして符号化されている
+                case AV_PICTURE_STRUCTURE_TOP_FIELD:    pos.pic_struct = RGY_PICSTRUCT_FIELD_TOP; break;
+                case AV_PICTURE_STRUCTURE_BOTTOM_FIELD: pos.pic_struct = RGY_PICSTRUCT_FIELD_BOTTOM; break;
+                    //フレームとして符号化されている
+                default:
+                    switch (m_Demux.video.pParserCtx->field_order) {
+                    case AV_FIELD_TT:
+                    case AV_FIELD_TB: pos.pic_struct = RGY_PICSTRUCT_FRAME_TFF; break;
+                    case AV_FIELD_BT:
+                    case AV_FIELD_BB: pos.pic_struct = RGY_PICSTRUCT_FRAME_BFF; break;
+                    default:          pos.pic_struct = RGY_PICSTRUCT_FRAME;     break;
+                    }
+                }
+                pos.repeat_pict = (uint8_t)m_Demux.video.pParserCtx->repeat_pict;
+            }
+            //mkv入りのVC-1をカットしたものなど、動画によってはpkt->flagsにフラグがセットされていないことがある
+            //parserの情報も活用してキーフレームかどうかを判定する
+            const bool keyframe = (pkt->flags & AV_PKT_FLAG_KEY) != 0 || pos.pict_type == AV_PICTURE_TYPE_I;
             //最初のキーフレームを取得するまではスキップする
             //スキップした枚数はi_samplesでカウントし、trim時に同期を適切にとるため、m_trimParam.offsetに格納する
             //  ただし、bTreatFirstPacketAsKeyframeが指定されている場合には、キーフレームでなくてもframePosListへの追加を許可する
             //  このモードは、対象の入力ファイルから--audio-sourceなどで音声のみ拾ってくる場合に使用する
-            if (!bTreatFirstPacketAsKeyframe && !m_Demux.video.gotFirstKeyframe && !(pkt->flags & AV_PKT_FLAG_KEY)) {
+            if (!bTreatFirstPacketAsKeyframe && !m_Demux.video.gotFirstKeyframe && !keyframe) {
                 av_packet_unref(pkt);
                 i_samples++;
                 continue;
@@ -1760,34 +1792,6 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
                     m_trimParam.offset++;
                 }
 #endif //#if ENCODER_NVENC
-                FramePos pos = { 0 };
-                pos.pts = pkt->pts;
-                pos.dts = pkt->dts;
-                pos.duration = (int)pkt->duration;
-                pos.duration2 = 0;
-                pos.poc = FRAMEPOS_POC_INVALID;
-                pos.flags = (uint8_t)pkt->flags;
-                if (m_Demux.video.pParserCtx) {
-                    uint8_t *dummy = nullptr;
-                    int dummy_size = 0;
-                    av_parser_parse2(m_Demux.video.pParserCtx, m_Demux.video.pCodecCtxParser, &dummy, &dummy_size, pkt->data, pkt->size, pkt->pts, pkt->dts, pkt->pos);
-                    pos.pict_type = (uint8_t)(std::max)(m_Demux.video.pParserCtx->pict_type, 0);
-                    switch (m_Demux.video.pParserCtx->picture_structure) {
-                    //フィールドとして符号化されている
-                    case AV_PICTURE_STRUCTURE_TOP_FIELD:    pos.pic_struct = RGY_PICSTRUCT_FIELD_TOP; break;
-                    case AV_PICTURE_STRUCTURE_BOTTOM_FIELD: pos.pic_struct = RGY_PICSTRUCT_FIELD_BOTTOM; break;
-                    //フレームとして符号化されている
-                    default:
-                        switch (m_Demux.video.pParserCtx->field_order) {
-                        case AV_FIELD_TT:
-                        case AV_FIELD_TB: pos.pic_struct = RGY_PICSTRUCT_FRAME_TFF; break;
-                        case AV_FIELD_BT:
-                        case AV_FIELD_BB: pos.pic_struct = RGY_PICSTRUCT_FRAME_BFF; break;
-                        default:          pos.pic_struct = RGY_PICSTRUCT_FRAME;     break;
-                        }
-                    }
-                    pos.repeat_pict = (uint8_t)m_Demux.video.pParserCtx->repeat_pict;
-                }
                 m_Demux.frames.add(pos);
             }
             //ptsの確定したところまで、音声を出力する
