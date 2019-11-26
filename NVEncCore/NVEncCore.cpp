@@ -2058,11 +2058,29 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             error_feature_unsupported(RGY_LOG_WARN, _T("B Ref Mode"));
         }
         if (  (   m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
-               || m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)
-            && !getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
-            m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
-            m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
-            error_feature_unsupported(RGY_LOG_WARN, _T("Multiple Refs"));
+               || m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)) {
+            if (!getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
+                m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+                m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+                error_feature_unsupported(RGY_LOG_WARN, _T("Multiple Refs"));
+            } else {
+                //multirefの制約
+                int maxRefL0 = 8, maxRefL1 = 4;
+                if (m_stEncConfig.frameIntervalP - 1 > 0) { //Bフレームあり
+                    maxRefL0--; maxRefL1--;
+                    if (m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef != NV_ENC_BFRAME_REF_MODE_DISABLED) {
+                        maxRefL0--; maxRefL1--;
+                    }
+                }
+                if ((int)m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 > maxRefL0) {
+                    PrintMes(RGY_LOG_WARN, _T("multiref(L0) is lowered %d -> %d due to HEVC spec.\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0, maxRefL0);
+                    m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 = (NV_ENC_NUM_REF_FRAMES)maxRefL0;
+                }
+                if ((int)m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 > maxRefL1) {
+                    PrintMes(RGY_LOG_WARN, _T("multiref(L1) is lowered %d -> %d due to HEVC spec.\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1, maxRefL1);
+                    m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 = (NV_ENC_NUM_REF_FRAMES)maxRefL1;
+                }
+            }
         }
     }
     if (m_dynamicRC.size() > 0 && !getCapLimit(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)) {
