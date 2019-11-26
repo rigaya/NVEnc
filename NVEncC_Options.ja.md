@@ -648,6 +648,9 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 - swr  ... swresampler (デフォルト)
 - soxr ... sox resampler (libsoxr)
 
+### --audio-delay [&lt;int&gt;?]&lt;int&gt;
+音声に設定する遅延をms単位で指定する。
+
 ### --audio-file [&lt;int&gt;][&lt;string&gt;?]&lt;string&gt;
 指定したパスに音声を抽出する。出力フォーマットは出力拡張子から自動的に決定する。avhw/avswリーダー使用時のみ有効。
 

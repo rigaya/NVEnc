@@ -646,6 +646,9 @@ Example 1: --audio-bitrate 44100 (converting sound to 44100 Hz)
 Example 2: --audio-bitrate 2?22050 (Convert the second track of voice to 22050 Hz)
 ```
 
+### --audio-delay [&lt;int&gt;?]&lt;int&gt;
+Specify audio delay in milli seconds.
+
 ### --audio-resampler &lt;string&gt;
 Specify the engine used for mixing audio channels and sampling frequency conversion.
 - swr ... swresampler (default)

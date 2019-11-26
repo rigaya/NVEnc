@@ -47,7 +47,8 @@ struct AudioSelect {
     tstring  encCodecPrm;     //音声エンコードのコーデックのパラメータ
     tstring  encCodecProfile; //音声エンコードのコーデックのプロファイル
     int      encBitrate;      //音声エンコードに選択した音声トラックのビットレート
-    int      encSamplingRate;         //サンプリング周波数
+    int      encSamplingRate;      //サンプリング周波数
+    int      addDelayMs;           //追加する音声の遅延(millisecond)
     tstring  extractFilename;      //抽出する音声のファイル名のリスト
     tstring  extractFormat;        //抽出する音声ファイルのフォーマット
     tstring  filter;               //音声フィルタ

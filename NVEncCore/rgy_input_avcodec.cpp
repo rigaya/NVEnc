@@ -1012,16 +1012,17 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     stream.extractErrExcess = 0;
                     stream.appliedTrimBlock = -1;
                     stream.trimOffset = 0;
+                    stream.addDelayMs = pAudioSelect->addDelayMs;
                     stream.aud0_fin = AV_NOPTS_VALUE;
                     if (pAudioSelect) {
                         memcpy(stream.streamChannelSelect, pAudioSelect->streamChannelSelect, sizeof(stream.streamChannelSelect));
                         memcpy(stream.streamChannelOut,    pAudioSelect->streamChannelOut,    sizeof(stream.streamChannelOut));
                     }
                     m_Demux.stream.push_back(stream);
-                    AddMessage(RGY_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d\n"),
+                    AddMessage(RGY_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d, delay %d ms\n"),
                         get_media_type_string(codecId).c_str(),
                         stream.index, trackID(stream.trackId), stream.subStreamId, char_to_tstring(avcodec_get_name(codecId)).c_str(),
-                        stream.stream->codecpar->frame_size, stream.stream->time_base.num, stream.stream->time_base.den);
+                        stream.stream->codecpar->frame_size, stream.stream->time_base.num, stream.stream->time_base.den, stream.addDelayMs);
                 }
             }
         }
@@ -1950,6 +1951,8 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
             av_packet_unref(&pkt);
         } else {
             AVDemuxStream *pStream = getPacketStreamData(&pkt);
+            const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
+            pkt.pts += delay_ts;
             if (checkStreamPacketToAdd(&pkt, pStream)) {
                 m_Demux.qStreamPktL1.push_back(pkt);
             } else {
@@ -2010,10 +2013,12 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
     while (!m_Demux.qStreamPktL1.empty()) {
         auto pkt = m_Demux.qStreamPktL1.front();
         AVDemuxStream *pStream = getPacketStreamData(&pkt);
+        const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
         //音声のptsが映像の終わりのptsを行きすぎたらやめる
-        if (0 < av_compare_ts(pkt.pts, pStream->timebase, m_Demux.frames.list(m_Demux.frames.fixedNum()).pts, vid_pkt_timebase)) {
+        if (0 < av_compare_ts(pkt.pts + delay_ts, pStream->timebase, m_Demux.frames.list(m_Demux.frames.fixedNum()).pts, vid_pkt_timebase)) {
             break;
         }
+        pkt.pts += delay_ts;
         if (checkStreamPacketToAdd(&pkt, pStream)) {
             pkt.flags = (pkt.flags & 0xffff) | ((uint32_t)pStream->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
             m_Demux.qStreamPktL2.push(pkt); //Writer側に渡したパケットはWriter側で開放する
