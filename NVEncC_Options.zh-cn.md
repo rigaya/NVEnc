@@ -225,7 +225,7 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 | H.265/HEVC | ○ |
 | VP8        | × |
 | VP9        | ○ |
-| VC-1       | × |
+| VC-1       | ○ |
 | WMV3/WMV9  | × |
 
 ○ ... 支持  

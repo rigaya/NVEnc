@@ -78,6 +78,7 @@ which might cause problem in some playback environments.
   - MPEG2
   - H.264 / AVC
   - HEVC (10 bit / 12bitdepth with YUV444 support)
+  - VC-1
   - VP9
 - Supports various formats such as avs, vpy, y4m, and raw
 - Supports demux/muxing using libavformat

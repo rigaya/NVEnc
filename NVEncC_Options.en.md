@@ -198,7 +198,7 @@ since entire transcode process will be run on the GPU.
 | H.265/HEVC | ○ |
 | VP8        | × |
 | VP9        | ○ |
-| VC-1       | × |
+| VC-1       | ○ |
 | WMV3/WMV9  | × |
 
 ○ ... supported  

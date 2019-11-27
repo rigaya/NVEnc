@@ -86,6 +86,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   - MPEG2
   - H.264/AVC
   - HEVC (10bit/12bit YUV4:4:4対応)
+  - VC-1
   - VP9
 - avs, vpy, y4m, rawなど各種形式に対応
 - GPUを使用した高速フィルタリング
