@@ -44,7 +44,7 @@ NVEncC --check-features の結果をまとめたものです。ドライバに�
 | Maxwell | [GTX970](./GPUFeatures/gtx970.txt) |
 | Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1070](./GPUFeatures/gtx1070.txt), [GTX1060](./GPUFeatures/gtx1060.txt) |
 | Volta | [GTX1650](./GPUFeatures/gtx1650.txt) |
-| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt)  |
+| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  |
 
 ## NVEnc 使用にあたっての注意事項  
 無保証です。自己責任で使用してください。   
