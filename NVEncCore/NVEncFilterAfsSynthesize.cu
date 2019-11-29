@@ -64,11 +64,6 @@ int is_latter_field(int pos_y, int tb_order) {
 }
 
 __device__ __inline__
-int yuv420c_h(int y, const int height_y) {
-    return (y >> 1) + ((y & 1) ? (height_y >> 2) : 0);
-}
-
-__device__ __inline__
 uint32_t deint(int src1, int src3, int src4, int src5, int src7, uint32_t flag, uint32_t mask, int max) {
     const int tmp2 = src1 + src7;
     const int tmp3 = src3 + src5;
@@ -655,8 +650,8 @@ __global__ void kernel_synthesize_mode_0(
 
         if (yuv420 && ((imgy << 1) < height)) {
             //u
-            const int uv_pos_dst = imgy                    * dst_pitch + imgx * sizeof(Type4);
-            const int uv_pos_src = yuv420c_h(imgy, height) * src_pitch + imgx * sizeof(Type4);
+            const int uv_pos_dst = imgy * dst_pitch + imgx * sizeof(Type4);
+            const int uv_pos_src = imgy * src_pitch + imgx * sizeof(Type4);
             const int u_pos_dst  = dst_yu_plane_offset + uv_pos_dst;
             const int u_pos_src  = src_yu_plane_offset + uv_pos_src;
             Type4 *dst_u = (Type4 *)(dst + u_pos_dst);
