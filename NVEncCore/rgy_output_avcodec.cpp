@@ -2505,9 +2505,15 @@ vector<unique_ptr<AVFrame, decltype(&av_frame_unref)>> RGYOutputAvcodec::AudioDe
             if (send_ret == AVERROR_EOF) {
                 AddMessage(RGY_LOG_DEBUG, _T("avcodec writer: failed to send packet to audio decoder, already flushed.\n"));
                 break;
+            } else if (send_ret == AVERROR(EINVAL)) {
+                AddMessage(RGY_LOG_DEBUG, _T("avcodec writer: failed to send packet to audio decoder, requires flush.\n"));
+                break;
+            } else if (send_ret == AVERROR(ENOMEM)) {
+                break;
             }
         }
         if (send_ret < 0 && send_ret != AVERROR(EAGAIN)) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to send packet to audio decoder: %s.\n"), qsv_av_err2str(send_ret).c_str());
             muxAudio->decodeError++;
         } else {
             receivedData = unique_ptr<AVFrame, decltype(&av_frame_unref)>(av_frame_alloc(), av_frame_unref);
