@@ -350,7 +350,7 @@ const CX_DESC list_transfer[] = {
     { _T("bt2020-12"),     RGY_TRANSFER_BT2020_12 },
     { _T("smpte2084"),     RGY_TRANSFER_ST2084 },
     { _T("smpte428"),      17 },
-    { _T("arib-srd-b67"),  RGY_TRANSFER_ARIB_B67 },
+    { _T("arib-std-b67"),  RGY_TRANSFER_ARIB_B67 },
     { NULL, 0 }
 };
 

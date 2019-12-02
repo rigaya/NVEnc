@@ -451,7 +451,7 @@ DAR比 (画面アスペクト比) の指定。
 ```
   undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
+  bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```  
 
 ### --chromaloc &lt;int&gt;
