@@ -1584,7 +1584,9 @@ int64_t RGYInputAvcodec::convertTimebaseVidToStream(int64_t pts, const AVDemuxSt
 }
 
 bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *stream) {
-    stream->lastVidIndex = getVideoFrameIdx(pkt->pts, stream->timebase, stream->lastVidIndex);
+    if (pkt->pts != AV_NOPTS_VALUE) { //pkt->ptsがAV_NOPTS_VALUEの場合は、以前のフレームの継続とみなして更新しない
+        stream->lastVidIndex = getVideoFrameIdx(pkt->pts, stream->timebase, stream->lastVidIndex);
+    }
 
     //該当フレームが-1フレーム未満なら、その音声はこの動画には含まれない
     if (stream->lastVidIndex < -1) {
