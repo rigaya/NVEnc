@@ -283,6 +283,18 @@ TransferFunc getTrasferFunc(CspTransfer transfer, double peak_luminance, bool sc
         func.to_linear_scale = ST2084_PEAK_LUMINANCE / peak_luminance;
         func.to_gamma_scale = peak_luminance / ST2084_PEAK_LUMINANCE;
         break;
+    case RGY_TRANSFER_ARIB_B67:
+        if (scene_referred) {
+            SET_FUNC(to_linear, arib_b67_inverse_oetf);
+            SET_FUNC(to_gamma, arib_b67_oetf);
+        } else {
+            SET_FUNC(to_linear, arib_b67_eotf);
+            SET_FUNC(to_gamma, arib_b67_inverse_eotf);
+
+        }
+        func.to_linear_scale = scene_referred ? 12.0f : static_cast<float>(1000.0 / peak_luminance);
+        func.to_gamma_scale = scene_referred ? 1.0f / 12.0f : static_cast<float>(peak_luminance / 1000.0);
+        break;
     default:
         func.to_linear = nullptr;
         func.to_gamma = nullptr;
@@ -842,7 +854,7 @@ RGY_ERR ColorspaceOpCtrl::addColorspaceOpGamma2Linear(vector<ColorspaceOpInfo> &
         AddMessage(RGY_LOG_ERROR, _T("invalid conversion\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (from.transfer == RGY_TRANSFER_ARIB_B67  && useDisplayReferredB67(from, approx_gamma, scene_ref)) {
+    if (from.transfer == RGY_TRANSFER_ARIB_B67 && useDisplayReferredB67(from, approx_gamma, scene_ref)) {
         const mat3x3 mat = matrixRGB2YUVfromPrim(from.colorprim);
         const auto func = getTrasferFunc(RGY_TRANSFER_ARIB_B67, source_peak, false);
         ops.push_back(ColorspaceOpInfo(from, to, make_unique<ColorspaceOpInvAribB67>(mat(0, 0), mat(0, 1), mat(0, 2), func.to_linear_scale)));
@@ -1064,7 +1076,13 @@ struct ColorspaceHash {
 };
 
 RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm) {
-    const auto csp_from1 = in.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084);
+    auto csp_from1 = in;
+    if (csp_from1.matrix == RGY_MATRIX_UNSPECIFIED) {
+        csp_from1 = csp_from1.to(RGY_MATRIX_BT2020_NCL);
+    }
+    if (csp_from1.transfer == RGY_TRANSFER_UNSPECIFIED) {
+        csp_from1 = csp_from1.to(RGY_TRANSFER_ST2084);
+    }
     const auto csp_to1 = csp_from1.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR);
     CHECK(setPath(csp_from1, csp_to1, source_peak, approx_gamma, scene_ref));
     switch (prm.tonemap) {
