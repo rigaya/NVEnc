@@ -214,7 +214,7 @@ void convert_yuy2_to_nv12_i_avx2(void **dst_array, const void **src_array, int w
     const void *src = src_array[0];
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
     uint8_t *srcLine = (uint8_t *)src + src_y_pitch_byte * y_range.start_src + crop_left;
-    uint8_t *dstYLine = (uint8_t *)dst_array[0] + src_y_pitch_byte * y_range.start_dst;
+    uint8_t *dstYLine = (uint8_t *)dst_array[0] + dst_y_pitch_byte * y_range.start_dst;
     uint8_t *dstCLine = (uint8_t *)dst_array[1] + dst_y_pitch_byte * (y_range.start_dst >> 1);
     for (int y = 0; y < y_range.len; y += 4) {
         for (int i = 0; i < 2; i++) {
