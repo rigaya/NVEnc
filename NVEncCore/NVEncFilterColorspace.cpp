@@ -130,7 +130,7 @@ mat3x3 genMatrixfromPrim(CspColorprim prim) {
         w.dot(r.cross(g)) / x.dot(y.cross(z)));
 }
 
-mat3x3 matrixYUV2RGBfromPrim(CspColorprim prim) {
+mat3x3 matrixRGB2YUVfromPrim(CspColorprim prim) {
     switch (prim) {
     case RGY_PRIM_BT709:  return matrixRGB2YUV(RGY_MATRIX_BT709);
     case RGY_PRIM_BT2020: return matrixRGB2YUV(RGY_MATRIX_BT2020_NCL);
@@ -138,8 +138,8 @@ mat3x3 matrixYUV2RGBfromPrim(CspColorprim prim) {
     }
 }
 
-mat3x3 matrixRGB2YUVfromPrim(CspColorprim prim) {
-    return matrixYUV2RGBfromPrim(prim).inv();
+mat3x3 matrixYUV2RGBfromPrim(CspColorprim prim) {
+    return matrixRGB2YUVfromPrim(prim).inv();
 }
 
 mat3x3 getPrimXYZ(CspColorprim prim) {
