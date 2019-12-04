@@ -324,7 +324,7 @@ tstring VppDeband::print() const {
 ColorspaceConv::ColorspaceConv() :
     from(),
     to(),
-    source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+    sdr_source_peak(FILTER_DEFAULT_COLORSPACE_NOMINAL_SOURCE_PEAK),
     approx_gamma(false),
     scene_ref(false) {
 
@@ -332,7 +332,7 @@ ColorspaceConv::ColorspaceConv() :
 bool ColorspaceConv::operator==(const ColorspaceConv &x) const {
     return from == x.from
         && to == x.to
-        && source_peak == x.source_peak
+        && sdr_source_peak == x.sdr_source_peak
         && approx_gamma == x.approx_gamma
         && scene_ref == x.scene_ref;
 }
@@ -389,7 +389,8 @@ HDR2SDRParams::HDR2SDRParams() :
     hable(),
     mobius(),
     reinhard(),
-    ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS) {
+    ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+    hdr_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK) {
 
 }
 bool HDR2SDRParams::operator==(const HDR2SDRParams &x) const {

@@ -100,7 +100,8 @@ static const float FILTER_DEFAULT_TWEAK_SATURATION = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_HUE = 0.0f;
 
 static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
-static const double FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK = 1000.0;
+static const double FILTER_DEFAULT_COLORSPACE_NOMINAL_SOURCE_PEAK = 100.0;
+static const double FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK = 1000.0;
 
 static const double FILTER_DEFAULT_HDR2SDR_HABLE_A = 0.22;
 static const double FILTER_DEFAULT_HDR2SDR_HABLE_B = 0.3;
@@ -915,7 +916,7 @@ struct VppDeband {
 
 struct ColorspaceConv {
     VideoVUIInfo from, to;
-    double source_peak;
+    double sdr_source_peak;
     bool approx_gamma;
     bool scene_ref;
 
@@ -958,6 +959,7 @@ struct HDR2SDRParams {
     TonemapMobius mobius;
     TonemapReinhard reinhard;
     double ldr_nits;
+    double hdr_source_peak;
 
     HDR2SDRParams();
     bool operator==(const HDR2SDRParams &x) const;

@@ -296,14 +296,13 @@ COLORSPACE_FUNC float hable(float x, float A, float B, float C, float D, float E
 
 COLORSPACE_FUNC float hdr2sdr_hable(float x, float source_peak, float ldr_nits, float A, float B, float C, float D, float E, float F, float W) {
     const float eb = source_peak / ldr_nits;
-    const float t0 = hable(eb * x, A, B, C, D, E, F);
-    const float t1 = hable(W, A, B, C, D, E, F);
+    const float t0 = hable(x, A, B, C, D, E, F);
+    const float t1 = hable(eb, A, B, C, D, E, F);
     return t0 / t1;
 }
 
 COLORSPACE_FUNC float hdr2sdr_mobius(float x, float source_peak, float ldr_nits, float t, float peak) {
     const float eb = source_peak / ldr_nits;
-    x *= eb;
     peak *= eb;
     if (x <= t) {
         return x;
@@ -317,6 +316,5 @@ COLORSPACE_FUNC float hdr2sdr_mobius(float x, float source_peak, float ldr_nits,
 COLORSPACE_FUNC float hdr2sdr_reinhard(float x, float source_peak, float ldr_nits, float offset, float peak) {
     const float eb = source_peak / ldr_nits;
     peak *= eb;
-    x *= eb;
     return x / (x + offset) * (peak + offset) / peak;
 }

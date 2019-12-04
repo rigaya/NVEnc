@@ -1827,9 +1827,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     continue;
                 }
                 if (param_arg == _T("source_peak")) {
-                    auto &conv = pParams->vpp.colorspace.convs.back();
                     try {
-                        conv.source_peak = std::stof(param_val);
+                        pParams->vpp.colorspace.hdr2sdr.hdr_source_peak = std::stof(param_val);
                     } catch (...) {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
@@ -3154,11 +3153,11 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
                     tmp << _T(":");
                     tmp << get_cx_desc(list_colorrange, to.fullrange);
                 }
-                ADD_FLOAT(_T("source_peak"), vpp.colorspace.convs[i].source_peak, 1);
                 ADD_BOOL(_T("approx_gamma"), vpp.colorspace.convs[i].approx_gamma);
                 ADD_BOOL(_T("scene_ref"), vpp.colorspace.convs[i].scene_ref);
                 ADD_LST(_T("hdr2sdr"), vpp.colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
                 ADD_FLOAT(_T("ldr_nits"), vpp.colorspace.hdr2sdr.ldr_nits, 1);
+                ADD_FLOAT(_T("source_peak"), vpp.colorspace.hdr2sdr.hdr_source_peak, 1);
                 ADD_FLOAT(_T("a"), vpp.colorspace.hdr2sdr.hable.a, 3);
                 ADD_FLOAT(_T("b"), vpp.colorspace.hdr2sdr.hable.b, 3);
                 ADD_FLOAT(_T("c"), vpp.colorspace.hdr2sdr.hable.c, 3);

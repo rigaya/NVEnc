@@ -410,7 +410,7 @@ enum ColorspaceOpHDR2SDRMode {
 class ColorspaceOpHDR2SDRHable : public ColorspaceOp {
 public:
     ColorspaceOpHDR2SDRHable() : m_mode(HDR2SDR_MODE_HABLE),
-        m_source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
         m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
         m_A(FILTER_DEFAULT_HDR2SDR_HABLE_A),
         m_B(FILTER_DEFAULT_HDR2SDR_HABLE_B),
@@ -441,7 +441,7 @@ protected:
 class ColorspaceOpHDR2SDRMobius : public ColorspaceOp {
 public:
     ColorspaceOpHDR2SDRMobius() : m_mode(HDR2SDR_MODE_MOBIUS),
-        m_source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
         m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
         m_transition(FILTER_DEFAULT_HDR2SDR_MOBIUS_TRANSITION),
         m_peak(FILTER_DEFAULT_HDR2SDR_MOBIUS_PEAK) {};
@@ -467,7 +467,7 @@ protected:
 class ColorspaceOpHDR2SDRReinhard : public ColorspaceOp {
 public:
     ColorspaceOpHDR2SDRReinhard() : m_mode(HDR2SDR_MODE_REINHARD),
-        m_source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
         m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
         m_contrast(FILTER_DEFAULT_HDR2SDR_REINHARD_CONTRAST),
         m_peak(FILTER_DEFAULT_HDR2SDR_REINHARD_PEAK) {};
@@ -1075,7 +1075,7 @@ struct ColorspaceHash {
     }
 };
 
-RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm) {
+RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double sdr_source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm) {
     auto csp_from1 = in;
     if (csp_from1.matrix == RGY_MATRIX_UNSPECIFIED) {
         csp_from1 = csp_from1.to(RGY_MATRIX_BT2020_NCL);
@@ -1083,17 +1083,20 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
     if (csp_from1.transfer == RGY_TRANSFER_UNSPECIFIED) {
         csp_from1 = csp_from1.to(RGY_TRANSFER_ST2084);
     }
+    if (csp_from1.matrix == RGY_TRANSFER_ARIB_B67 && csp_from1.colorprim == RGY_PRIM_UNSPECIFIED) {
+        csp_from1 = csp_from1.to(RGY_PRIM_BT2020);
+    }
     const auto csp_to1 = csp_from1.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR);
-    CHECK(setPath(csp_from1, csp_to1, source_peak, approx_gamma, scene_ref));
+    CHECK(setPath(csp_from1, csp_to1, sdr_source_peak, approx_gamma, scene_ref));
     switch (prm.tonemap) {
     case HDR2SDR_MODE_HABLE:
-        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, source_peak, prm.ldr_nits, prm.hable));
+        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.hable));
         break;
     case HDR2SDR_MODE_MOBIUS:
-        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, source_peak, prm.ldr_nits, prm.mobius));
+        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.mobius));
         break;
     case HDR2SDR_MODE_REINHARD:
-        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, source_peak, prm.ldr_nits, prm.reinhard));
+        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.reinhard));
         break;
     default:
         return RGY_ERR_INVALID_PARAM;
@@ -1103,7 +1106,7 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
         csp_to2 = csp_to2.to(RGY_MATRIX_BT709).to(RGY_TRANSFER_BT709).to(RGY_PRIM_BT709);
     }
     const auto csp_from2 = csp_to2.to(RGY_PRIM_BT2020).to(RGY_TRANSFER_LINEAR).to(RGY_MATRIX_RGB);
-    CHECK(setPath(csp_from2, csp_to2, source_peak, approx_gamma, scene_ref));
+    CHECK(setPath(csp_from2, csp_to2, sdr_source_peak, approx_gamma, scene_ref));
     return RGY_ERR_NONE;
 }
 
@@ -1404,7 +1407,7 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
         if (prmCsp->colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED) {
             const auto &convbegin = prmCsp->colorspace.convs.begin();
             const auto from = convbegin->from;
-            const auto source_peak = convbegin->source_peak;
+            const auto source_peak = convbegin->sdr_source_peak;
             const auto approx_gamma = convbegin->approx_gamma;
             const auto scene_ref = convbegin->scene_ref;
             const auto to = prmCsp->colorspace.convs.back().to;
@@ -1413,7 +1416,7 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
             }
         } else {
             for (const auto &conv : prmCsp->colorspace.convs) {
-                if ((sts = opCtrl->setPath(conv.from, conv.to, conv.source_peak, conv.approx_gamma, conv.scene_ref)) != RGY_ERR_NONE) {
+                if ((sts = opCtrl->setPath(conv.from, conv.to, conv.sdr_source_peak, conv.approx_gamma, conv.scene_ref)) != RGY_ERR_NONE) {
                     return sts;
                 }
             }
