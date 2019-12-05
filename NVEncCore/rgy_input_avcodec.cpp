@@ -1012,9 +1012,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     stream.extractErrExcess = 0;
                     stream.appliedTrimBlock = -1;
                     stream.trimOffset = 0;
-                    stream.addDelayMs = pAudioSelect->addDelayMs;
                     stream.aud0_fin = AV_NOPTS_VALUE;
                     if (pAudioSelect) {
+                        stream.addDelayMs = pAudioSelect->addDelayMs;
                         memcpy(stream.streamChannelSelect, pAudioSelect->streamChannelSelect, sizeof(stream.streamChannelSelect));
                         memcpy(stream.streamChannelOut,    pAudioSelect->streamChannelOut,    sizeof(stream.streamChannelOut));
                     }
