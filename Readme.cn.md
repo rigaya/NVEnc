@@ -129,11 +129,11 @@ NVEnc的输出可能不包括max_dec_frame_buffering字段，
     - edgelevel (edge ​​level adjustment)
   - deband
 
-### NVEnc source code
+### NVEnc 源码
 - MIT license.
-- This program is based on NVIDA CUDA Samples and includes sample code.
-  This software contains source code provided by NVIDIA Corporation.
-- This software depends on
+- 这个程序是基于NVIDA CUDA样本，包括样本代码。
+  本软件包含NVIDIA公司提供的源代码。
+- 这个软件依赖于
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
@@ -141,11 +141,11 @@ NVEnc的输出可能不包括max_dec_frame_buffering字段，
   [libass](https://github.com/libass/libass),
   [ttmath](http://www.ttmath.org/) &
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR).
-  For these licenses, please see the header part of the corresponding source and NVEnc_license.txt.
+  对于这些许可证，请参阅相应源代码的标题部分和NVEnc_license.txt。
 
-- [How to build](./Build.en.md)
+- [如何构建](./Build.cn.md)
 
-### About source code
+### 关于源代码
 Windows ... VC build
 
 Character code: UTF-8-BOM  
