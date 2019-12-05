@@ -1112,12 +1112,12 @@ yadifによるインタレ解除を行う。
 
   - hable    
     明部と暗部のディテールの両方をバランスよく保ちながら変換する。(ただし、やや暗めになる)
-    下記のhable tone-mappingの式のパラメータ(a,b,c,d,e,f,w)の指定も可能。
+    下記のhable tone-mappingの式のパラメータ(a,b,c,d,e,f)の指定も可能。
 
     hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
-    output = hable( (source_peak / ldr_nits) * input ) / hable(w)
+    output = hable( input ) / hable( (source_peak / ldr_nits) )
     
-    デフォルト: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3, w = 11.2
+    デフォルト: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
 
   - mobius  
     なるべく画面の明るさやコントラストを維持した変換を行うが、明部のディテールがつぶれる可能性がある。

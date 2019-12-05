@@ -417,13 +417,12 @@ public:
         m_C(FILTER_DEFAULT_HDR2SDR_HABLE_C),
         m_D(FILTER_DEFAULT_HDR2SDR_HABLE_D),
         m_E(FILTER_DEFAULT_HDR2SDR_HABLE_E),
-        m_F(FILTER_DEFAULT_HDR2SDR_HABLE_F),
-        m_W(FILTER_DEFAULT_HDR2SDR_HABLE_W) {};
+        m_F(FILTER_DEFAULT_HDR2SDR_HABLE_F) {};
     ColorspaceOpHDR2SDRHable(double source_peak, double ldr_nits,
-        double A, double B, double C, double D, double E, double F, double W) :
+        double A, double B, double C, double D, double E, double F) :
         m_mode(HDR2SDR_MODE_HABLE),
         m_source_peak(source_peak), m_ldr_nits(ldr_nits),
-        m_A(A), m_B(B), m_C(C), m_D(D), m_E(E), m_F(F), m_W(W) {
+        m_A(A), m_B(B), m_C(C), m_D(D), m_E(E), m_F(F) {
         m_type = COLORSPACE_OP_TYPE_HDR2SDR;
     };
     virtual ~ColorspaceOpHDR2SDRHable() {};
@@ -435,7 +434,7 @@ public:
 protected:
     ColorspaceOpHDR2SDRMode m_mode;
     double m_source_peak, m_ldr_nits;
-    double m_A, m_B, m_C, m_D, m_E, m_F, m_W;
+    double m_A, m_B, m_C, m_D, m_E, m_F;
 };
 
 class ColorspaceOpHDR2SDRMobius : public ColorspaceOp {
@@ -668,15 +667,14 @@ std::string ColorspaceOpHDR2SDRHable::print() {
         const float D = %.16ef;
         const float E = %.16ef;
         const float F = %.16ef;
-        const float W = %.16ef;
         const float in = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
-        const float out = hdr2sdr_hable( in, source_peak, ldr_nits, A, B, C, D, E, F, W );
+        const float out = hdr2sdr_hable( in, source_peak, ldr_nits, A, B, C, D, E, F );
         const float mul = out / in;
         x.x *= mul;
         x.y *= mul;
         x.z *= mul;
     })",
-        m_source_peak, m_ldr_nits, m_A, m_B, m_C, m_D, m_E, m_F, m_W);
+        m_source_peak, m_ldr_nits, m_A, m_B, m_C, m_D, m_E, m_F);
 }
 
 std::string ColorspaceOpHDR2SDRMobius::print() {
@@ -717,9 +715,9 @@ std::string ColorspaceOpHDR2SDRReinhard::print() {
 std::string ColorspaceOpHDR2SDRHable::printInfo() {
     return strsprintf("hdr2sdr(hable): source_peak=%.2f ldr_nits=%.2f\n"
         "                             A %.2f, B %.2f, C %.2f, D %.2f\n"
-        "                             E %.2f, F %.2f, W %.2f",
+        "                             E %.2f, F %.2f",
         m_source_peak, m_ldr_nits,
-        m_A, m_B, m_C, m_D, m_E, m_F, m_W);
+        m_A, m_B, m_C, m_D, m_E, m_F);
 }
 
 std::string ColorspaceOpHDR2SDRMobius::printInfo() {
@@ -943,7 +941,7 @@ RGY_ERR ColorspaceOpCtrl::addColorspaceOpClRGB2YUV(vector<ColorspaceOpInfo> &ops
 }
 
 RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapHable& prm) {
-    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDRHable>(source_peak, ldr_nits, prm.a, prm.b, prm.c, prm.d, prm.e, prm.f, prm.w)));
+    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDRHable>(source_peak, ldr_nits, prm.a, prm.b, prm.c, prm.d, prm.e, prm.f)));
     return RGY_ERR_NONE;
 }
 

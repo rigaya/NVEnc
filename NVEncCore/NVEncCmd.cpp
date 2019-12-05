@@ -1919,12 +1919,6 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     continue;
                 }
                 if (param_arg == _T("w")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.hable.w = std::stof(param_val);
-                    } catch (...) {
-                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                        return -1;
-                    }
                     continue;
                 }
                 if (param_arg == _T("transition")) {
@@ -3164,7 +3158,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
                 ADD_FLOAT(_T("d"), vpp.colorspace.hdr2sdr.hable.d, 3);
                 ADD_FLOAT(_T("e"), vpp.colorspace.hdr2sdr.hable.e, 3);
                 ADD_FLOAT(_T("f"), vpp.colorspace.hdr2sdr.hable.f, 3);
-                ADD_FLOAT(_T("w"), vpp.colorspace.hdr2sdr.hable.w, 3);
                 ADD_FLOAT(_T("transition"), vpp.colorspace.hdr2sdr.mobius.transition, 3);
                 ADD_FLOAT(_T("peak"), vpp.colorspace.hdr2sdr.mobius.peak, 3);
                 ADD_FLOAT(_T("contrast"), vpp.colorspace.hdr2sdr.reinhard.contrast, 3);

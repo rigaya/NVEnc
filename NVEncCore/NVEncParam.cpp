@@ -346,8 +346,7 @@ TonemapHable::TonemapHable() :
     c(FILTER_DEFAULT_HDR2SDR_HABLE_C),
     d(FILTER_DEFAULT_HDR2SDR_HABLE_D),
     e(FILTER_DEFAULT_HDR2SDR_HABLE_E),
-    f(FILTER_DEFAULT_HDR2SDR_HABLE_F),
-    w(FILTER_DEFAULT_HDR2SDR_HABLE_W) {}
+    f(FILTER_DEFAULT_HDR2SDR_HABLE_F) {}
 
 bool TonemapHable::operator==(const TonemapHable &x) const {
     return a == x.a
@@ -355,8 +354,7 @@ bool TonemapHable::operator==(const TonemapHable &x) const {
         && c == x.c
         && d == x.d
         && e == x.e
-        && f == x.f
-        && w == x.w;
+        && f == x.f;
 }
 bool TonemapHable::operator!=(const TonemapHable &x) const {
     return !(*this == x);

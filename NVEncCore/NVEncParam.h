@@ -930,7 +930,7 @@ struct ColorspaceConv {
 };
 
 struct TonemapHable {
-    double a, b, c, d, e, f, w;
+    double a, b, c, d, e, f;
 
     TonemapHable();
     bool operator==(const TonemapHable &x) const;

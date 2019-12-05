@@ -1067,12 +1067,12 @@ Converts colorspace of the video. Available on x64 version.
   
   - hable  
     Trys to preserve both bright and dark detailes, but with rather dark result.
-    You may specify addtional params (a,b,c,d,e,f,w) for the hable tone-mapping function below.  
+    You may specify addtional params (a,b,c,d,e,f) for the hable tone-mapping function below.  
 
     hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
-    output = hable( (source_peak / ldr_nits) * input ) / hable(w)
+    output = hable( input ) / hable( (source_peak / ldr_nits) )
     
-    defaults: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3, w = 11.2
+    defaults: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
 
   - mobius  
     Trys to preserve contrast and colors while bright details might be removed.  

@@ -294,7 +294,7 @@ COLORSPACE_FUNC float hable(float x, float A, float B, float C, float D, float E
     return ((x*(A*x+C*B)+D*E) / (x*(A*x+B)+D*F)) - E/F;
 }
 
-COLORSPACE_FUNC float hdr2sdr_hable(float x, float source_peak, float ldr_nits, float A, float B, float C, float D, float E, float F, float W) {
+COLORSPACE_FUNC float hdr2sdr_hable(float x, float source_peak, float ldr_nits, float A, float B, float C, float D, float E, float F) {
     const float eb = source_peak / ldr_nits;
     const float t0 = hable(x, A, B, C, D, E, F);
     const float t1 = hable(eb, A, B, C, D, E, F);
