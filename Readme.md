@@ -3,6 +3,7 @@
 by rigaya
 
 **[日本語版はこちら＞＞](./Readme.ja.md)**
+**[简体中文版本＞＞](./Readme.cn.md)**
 
 [![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master)  
 
