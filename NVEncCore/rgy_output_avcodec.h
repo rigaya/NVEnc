@@ -474,7 +474,7 @@ protected:
     void AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDts);
 
     //音声をデコード
-    vector<unique_ptr<AVFrame, decltype(&av_frame_unref)>> AudioDecodePacket(AVMuxAudio *muxAudio, AVPacket *pkt);
+    vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> AudioDecodePacket(AVMuxAudio *muxAudio, AVPacket *pkt);
 
     //音声をエンコード
     vector<AVPktMuxData> AudioEncodeFrame(AVMuxAudio *muxAudio, AVFrame *frame);
