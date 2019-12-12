@@ -63,6 +63,10 @@ const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_100.dll");
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_101_0.dll");
 const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_101.dll");
+#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 2
+const TCHAR* NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
+const TCHAR* NVRTC_DLL_NAME_TSTR = _T("nvrtc64_102_0.dll");
+const TCHAR* NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_102.dll");
 #endif
 
 template<typename TypePixel>
