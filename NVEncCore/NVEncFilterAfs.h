@@ -249,7 +249,6 @@ protected:
     cudaError_t analyze_frame(int iframe, const NVEncFilterParamAfs *pAfsPrm, int reverse[4], int assume_shift[4], int result_stat[4]);
 
     cudaError_t synthesize(int iframe, CUFrameBuf *pOut, CUFrameBuf *p0, CUFrameBuf *p1, AFS_STRIPE_DATA *sip, const NVEncFilterParamAfs *pAfsPrm, cudaStream_t stream);
-    cudaError_t copy_frame(CUFrameBuf *pOut, CUFrameBuf *p0, cudaStream_t stream);
 
     int open_timecode(tstring tc_filename);
     void write_timecode(int64_t pts, const rgy_rational<int>& timebase);

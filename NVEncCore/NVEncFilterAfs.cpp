@@ -73,12 +73,7 @@ cudaError_t afsSourceCache::add(const FrameInfo *pInputFrame, cudaStream_t strea
     pDstFrame->frame.timestamp    = pInputFrame->timestamp;
     pDstFrame->frame.duration     = pInputFrame->duration;
     pDstFrame->frame.inputFrameId = pInputFrame->inputFrameId;
-
-    const auto frameOutInfoEx = getFrameInfoExtra(pInputFrame);
-    auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr, pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
-            frameOutInfoEx.width_byte, frameOutInfoEx.height_total, cudaMemcpyDeviceToDevice, stream);
-    return cudaerr;
+    return copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);;
 }
 
 void afsSourceCache::clear() {
@@ -1032,7 +1027,7 @@ RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
             if (interlaced(m_source.get(m_nFrame)->frame) || pAfsParam->afs.tune) {
                 cudaerr = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, pAfsParam.get(), cudaStreamDefault);
             } else {
-                cudaerr = copy_frame(pOutFrame, m_source.get(m_nFrame), cudaStreamDefault);
+                cudaerr = copyFrameAsync(&pOutFrame->frame, &m_source.get(m_nFrame)->frame, cudaStreamDefault);
             }
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("error on synthesize(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
@@ -1047,14 +1042,6 @@ RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         ppOutputFrames[0] = nullptr;
     }
     return sts;
-}
-
-cudaError_t NVEncFilterAfs::copy_frame(CUFrameBuf *pOut, CUFrameBuf *p0, cudaStream_t stream) {
-    const auto frameOutInfoEx = getFrameInfoExtra(&p0->frame);
-    auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr, pOut->frame.pitch,
-        (uint8_t *)p0->frame.ptr, p0->frame.pitch,
-        frameOutInfoEx.width_byte, frameOutInfoEx.height_total, cudaMemcpyDeviceToDevice, stream);
-    return cudaerr;
 }
 
 int NVEncFilterAfs::open_timecode(tstring tc_filename) {

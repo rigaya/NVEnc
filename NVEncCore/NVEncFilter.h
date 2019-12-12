@@ -137,7 +137,27 @@ static const TCHAR *getCudaMemcpyKindStr(bool inputDevice, bool outputDevice) {
     return getCudaMemcpyKindStr(getCudaMemcpyKind(inputDevice, outputDevice));
 }
 
-static cudaError_t copyFrameData(FrameInfo *dst, const FrameInfo *src) {
+static void copyFrameProp(FrameInfo *dst, const FrameInfo *src) {
+    dst->width = src->width;
+    dst->height = src->height;
+    dst->csp = src->csp;
+    dst->picstruct = src->picstruct;
+    dst->timestamp = src->timestamp;
+    dst->duration = src->duration;
+    dst->flags = src->flags;
+}
+
+static cudaError_t copyPlane(FrameInfo *dst, const FrameInfo *src) {
+    const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
+    return cudaMemcpy2D(dst->ptr, dst->pitch, src->ptr, src->pitch, width_byte, dst->height, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem));
+}
+
+static cudaError_t copyPlaneAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
+    const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
+    return cudaMemcpy2DAsync(dst->ptr, dst->pitch, src->ptr, src->pitch, width_byte, dst->height, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem), stream);
+}
+
+static cudaError_t checkCopyFrame(FrameInfo *dst, const FrameInfo *src) {
     auto dstInfoEx = getFrameInfoExtra(dst);
     const auto srcInfoEx = getFrameInfoExtra(src);
     if (dst->pitch == 0
@@ -149,13 +169,6 @@ static cudaError_t copyFrameData(FrameInfo *dst, const FrameInfo *src) {
         }
         dst->pitch = 0;
     }
-    dst->width = src->width;
-    dst->height = src->height;
-    dst->csp = src->csp;
-    dst->picstruct = src->picstruct;
-    dst->timestamp = src->timestamp;
-    dst->duration = src->duration;
-    dst->flags = src->flags;
     if (dst->ptr == nullptr) {
         dstInfoEx = getFrameInfoExtra(dst);
         if (!dstInfoEx.width_byte) {
@@ -177,54 +190,57 @@ static cudaError_t copyFrameData(FrameInfo *dst, const FrameInfo *src) {
             }
         }
     }
-    //更新
-    dstInfoEx = getFrameInfoExtra(dst);
-    return cudaMemcpy2D(dst->ptr, dst->pitch, src->ptr, src->pitch, dstInfoEx.width_byte, dstInfoEx.height_total, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem));
+    return cudaSuccess;
+}
+
+static cudaError_t copyFrame(FrameInfo *dst, const FrameInfo *src) {
+    for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
+        const auto srcPlane = getPlane(src, (RGY_PLANE)i);
+        auto dstPlane = getPlane(dst, (RGY_PLANE)i);
+        auto ret = copyPlane(&dstPlane, &srcPlane);
+        if (ret != cudaSuccess) {
+            return ret;
+        }
+    }
+    return cudaSuccess;
+}
+
+static cudaError_t copyFrameAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
+    for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
+        const auto srcPlane = getPlane(src, (RGY_PLANE)i);
+        auto dstPlane = getPlane(dst, (RGY_PLANE)i);
+        auto ret = copyPlaneAsync(&dstPlane, &srcPlane, stream);
+        if (ret != cudaSuccess) {
+            return ret;
+        }
+    }
+    return cudaSuccess;
+}
+
+static cudaError_t copyFrameData(FrameInfo *dst, const FrameInfo *src) {
+    {   auto ret = checkCopyFrame(dst, src);
+        if (ret != cudaSuccess) {
+            return ret;
+        }
+    }
+    auto ret = copyFrame(dst, src);
+    if (ret == cudaSuccess) {
+        copyFrameProp(dst, src);
+    }
+    return ret;
 }
 
 static cudaError_t copyFrameDataAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
-    auto dstInfoEx = getFrameInfoExtra(dst);
-    const auto srcInfoEx = getFrameInfoExtra(src);
-    if (dst->pitch == 0
-        || srcInfoEx.width_byte > dst->pitch
-        || srcInfoEx.height_total > dstInfoEx.height_total) {
-        if (dst->ptr) {
-            cudaFree(dst->ptr);
-            dst->ptr = nullptr;
-        }
-        dst->pitch = 0;
-    }
-    dst->width = src->width;
-    dst->height = src->height;
-    dst->csp = src->csp;
-    dst->picstruct = src->picstruct;
-    dst->timestamp = src->timestamp;
-    dst->duration = src->duration;
-    dst->flags = src->flags;
-    if (dst->ptr == nullptr) {
-        dstInfoEx = getFrameInfoExtra(dst);
-        if (!dstInfoEx.width_byte) {
-            return cudaErrorNotSupported;
-        }
-        if (dst->deivce_mem) {
-            size_t memPitch = 0;
-            auto ret = cudaMallocPitch(&dst->ptr, &memPitch, dstInfoEx.width_byte, dstInfoEx.height_total);
-            if (ret != cudaSuccess) {
-                return ret;
-            }
-            dst->pitch = (int)memPitch;
-        } else {
-            dst->pitch = ALIGN(dstInfoEx.width_byte, 64);
-            dstInfoEx = getFrameInfoExtra(dst);
-            auto ret = cudaMallocHost(&dst->ptr, dstInfoEx.frame_size);
-            if (ret != cudaSuccess) {
-                return ret;
-            }
+    {   auto ret = checkCopyFrame(dst, src);
+        if (ret != cudaSuccess) {
+            return ret;
         }
     }
-    //更新
-    dstInfoEx = getFrameInfoExtra(dst);
-    return cudaMemcpy2DAsync(dst->ptr, dst->pitch, src->ptr, src->pitch, dstInfoEx.width_byte, dstInfoEx.height_total, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem), stream);
+    auto ret = copyFrameAsync(dst, src, stream);
+    if (ret == cudaSuccess) {
+        copyFrameProp(dst, src);
+    }
+    return ret;
 }
 
 class NVEncFilterParam {
