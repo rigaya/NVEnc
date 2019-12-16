@@ -81,6 +81,7 @@ void EncodeStatus::Init(uint32_t outputFPSRate, uint32_t outputFPSScale,
 
 void EncodeStatus::SetStart() {
     m_tmStart = std::chrono::system_clock::now();
+    m_bEncStarted = true;
     GetProcessTime(m_sStartTime.get());
 }
 void EncodeStatus::SetOutputData(RGY_FRAMETYPE picType, uint64_t outputBytes, uint32_t frameAvgQP) {
