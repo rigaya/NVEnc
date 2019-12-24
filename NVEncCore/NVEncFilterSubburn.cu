@@ -109,15 +109,15 @@ __global__ void kernel_subburn(uint8_t *__restrict__ pPlaneY, uint8_t *__restric
                 subV = (pSubV[0] + pSubV[pitchSub] + 1) >> 1;
                 subA = (pSubA[0] + pSubA[pitchSub] + 1) >> 1;
             }
-            *(TypePixel *)pPlaneU = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneU, subA, subU, transparency_offset, 0.0f, 0.0f);
-            *(TypePixel *)pPlaneV = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneV, subA, subV, transparency_offset, 0.0f, 0.0f);
+            *(TypePixel *)pPlaneU = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneU, subA, subU, transparency_offset, 0.0f, 1.0f);
+            *(TypePixel *)pPlaneV = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneV, subA, subV, transparency_offset, 0.0f, 1.0f);
         } else {
             pPlaneU += iy * pitchFrame + ix * sizeof(TypePixel);
             pPlaneV += iy * pitchFrame + ix * sizeof(TypePixel);
-            blend<TypePixel2, bit_depth>(pPlaneU,              pSubA,            pSubU,            transparency_offset, 0.0f, 0.0f);
-            blend<TypePixel2, bit_depth>(pPlaneU + pitchFrame, pSubA + pitchSub, pSubU + pitchSub, transparency_offset, 0.0f, 0.0f);
-            blend<TypePixel2, bit_depth>(pPlaneV,              pSubA,            pSubV,            transparency_offset, 0.0f, 0.0f);
-            blend<TypePixel2, bit_depth>(pPlaneV + pitchFrame, pSubA + pitchSub, pSubV + pitchSub, transparency_offset, 0.0f, 0.0f);
+            blend<TypePixel2, bit_depth>(pPlaneU,              pSubA,            pSubU,            transparency_offset, 0.0f, 1.0f);
+            blend<TypePixel2, bit_depth>(pPlaneU + pitchFrame, pSubA + pitchSub, pSubU + pitchSub, transparency_offset, 0.0f, 1.0f);
+            blend<TypePixel2, bit_depth>(pPlaneV,              pSubA,            pSubV,            transparency_offset, 0.0f, 1.0f);
+            blend<TypePixel2, bit_depth>(pPlaneV + pitchFrame, pSubA + pitchSub, pSubV + pitchSub, transparency_offset, 0.0f, 1.0f);
         }
     }
 }
