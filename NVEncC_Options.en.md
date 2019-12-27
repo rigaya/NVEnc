@@ -719,7 +719,8 @@ Mux an external audio file specified.
 
 ```
 Example1: --audio-source "<audio_file>":copy
-Example2: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
+Example2: --audio-source "<audio_file>":codec=aac
+Example3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
 ```
 
 ### --chapter &lt;string&gt;

@@ -709,7 +709,8 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 
 ```
 例1: --audio-source "<audio_file>":copy
-例2: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
+例2: --audio-source "<audio_file>":codec=aac
+例3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
 ```
 
 ### --chapter &lt;string&gt;
