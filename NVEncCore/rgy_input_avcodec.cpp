@@ -2081,7 +2081,7 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
             m_Demux.video.extradataSize = m_Demux.video.bsfcCtx->par_out->extradata_size;
             memset(m_Demux.video.extradata + m_Demux.video.extradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
         } else if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_VC1) {
-            int lengthFix = (0 == strcmp(m_Demux.format.formatCtx->iformat->name, "mpegts")) ? 0 : -1;
+            //int lengthFix = (0 == strcmp(m_Demux.format.formatCtx->iformat->name, "mpegts")) ? 0 : -1;
             //vc1FixHeader(lengthFix);
         }
         AddMessage(RGY_LOG_DEBUG, _T("GetHeader: %d bytes.\n"), m_Demux.video.extradataSize);
