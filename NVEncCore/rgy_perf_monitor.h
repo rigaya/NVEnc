@@ -41,6 +41,10 @@
 #include "gpuz_info.h"
 #include "rgy_util.h"
 
+#if ENABLE_PERF_COUNTER
+#include "rgy_perf_counter.h"
+#endif //#if ENABLE_PERF_COUNTER
+
 #if ENABLE_METRIC_FRAMEWORK
 #pragma warning(push)
 #pragma warning(disable: 4456)
@@ -353,6 +357,7 @@ struct CPerfMonitorPrm {
 #if ENABLE_NVML
     const char *pciBusId;
 #endif
+    LUID luid;
     char reserved[256];
 };
 
@@ -375,6 +380,16 @@ public:
         return m_Consumer.getMFXLoad(info);
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_PERF_COUNTER
+    std::vector<CounterEntry> GetPerfCounters() {
+        std::vector<CounterEntry> counters;
+        {
+            std::lock_guard<std::mutex> lock(m_perfCounter->getmtx());
+            counters = m_perfCounter->getCounters().filter_pid(m_pid).get();
+        }
+        return counters;
+    }
+#endif //#if ENABLE_PERF_COUNTER
 #if ENABLE_NVML
     bool GetNVMLInfo(NVMLMonitorInfo *info) {
         *info = m_nvmlInfo;
@@ -401,6 +416,8 @@ protected:
     tstring SelectedCounters(int select);
 
     int m_nStep;
+    LUID m_luid;
+    uint32_t m_pid;
     tstring m_sPywPath;
     PerfInfo m_info[2];
     std::thread m_thCheck;
@@ -442,6 +459,11 @@ protected:
     GPUZ_SH_MEM m_GPUZInfo;
 #endif //#if ENABLE_GPUZ_INFO
     bool m_bGPUZInfoValid;
+
+#if ENABLE_PERF_COUNTER
+    std::unique_ptr<RGYGPUCounterWin> m_perfCounter;
+#endif
+    bool m_prefCounterValid;
 };
 
 

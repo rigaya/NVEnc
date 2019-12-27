@@ -61,6 +61,7 @@ const char *get_encoder_version();
 #define ENABLE_DTL 1
 
 #define ENABLE_NVTX 0
+#define ENABLE_PERF_COUNTER 1
 
 #ifdef _M_IX86
 #define ENABLE_NVML 0

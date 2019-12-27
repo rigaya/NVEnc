@@ -145,59 +145,73 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
     }
     m_tmLastUpdate = tm;
 
+    bool qsv_metric = false;
     bool bVideoEngineUsage = false;
     bool bGPUUsage = false;
-    int gpuencoder_usage = 0;
-    int gpuusage = 0;
+    double gpudecoder_usage = 0.0;
+    double gpuencoder_usage = 0.0;
+    double gpuusage = 0.0;
 #if defined(_WIN32) || defined(_WIN64)
 #if ENABLE_METRIC_FRAMEWORK
     QSVGPUInfo info = { 0 };
-    bVideoEngineUsage = m_pPerfMonitor && m_pPerfMonitor->GetQSVInfo(&info);
-    bGPUUsage = bVideoEngineUsage;
+    bGPUUsage = bVideoEngineUsage = m_pPerfMonitor && m_pPerfMonitor->GetQSVInfo(&info);
     if (bVideoEngineUsage) {
-        m_sData.GPUInfoCountSuccess++;
-        m_sData.GPULoadPercentTotal += info.dEULoad;
-        m_sData.MFXLoadPercentTotal += info.dMFXLoad;
-        gpuusage = (int)info.dEULoad;
-        gpuencoder_usage = (int)info.dMFXLoad;
-    } else {
+        qsv_metric = true;
+        gpuusage = info.dEULoad;
+        gpuencoder_usage = info.dMFXLoad;
+    }
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_PERF_COUNTER
+    if (m_pPerfMonitor) {
+        const auto counters = m_pPerfMonitor->GetPerfCounters();
+        bGPUUsage = bVideoEngineUsage = counters.size() > 0;
+        if (bVideoEngineUsage) {
+            if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKを優先
+                gpuencoder_usage = RGYGPUCounterWinEntries(counters).filter_type(L"encode").sum();
+                bVideoEngineUsage = !ENCODER_QSV || gpuencoder_usage > 0.0; //QSVのMFX使用率はこれでは取れない
+            }
+            gpuusage = std::max(std::max(std::max(
+                RGYGPUCounterWinEntries(counters).filter_type(L"cuda").sum(), //nvenc
+                RGYGPUCounterWinEntries(counters).filter_type(L"compute").sum()), //vce-opencl
+                RGYGPUCounterWinEntries(counters).filter_type(L"3d").sum()), //qsv
+                RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").sum()); //qsv
+            gpudecoder_usage = RGYGPUCounterWinEntries(counters).filter_type(L"decode").sum();
+        }
+    }
+#endif //#if ENABLE_PERF_COUNTER
 #if ENABLE_NVML
-    NVMLMonitorInfo info;
-    bVideoEngineUsage = m_pPerfMonitor && m_pPerfMonitor->GetNVMLInfo(&info);
-    bGPUUsage = bVideoEngineUsage;
-    if (bVideoEngineUsage) {
-        m_sData.GPUInfoCountSuccess++;
-        m_sData.GPULoadPercentTotal += info.GPULoad;
-        m_sData.VEELoadPercentTotal += info.VEELoad;
-        m_sData.VEDLoadPercentTotal += info.VEELoad;
-        m_sData.GPUClockTotal += info.GPUFreq;
-        m_sData.VEClockTotal += info.VEFreq;
-        gpuusage = (int)info.GPULoad;
-        gpuencoder_usage = (int)info.VEELoad;
-    } else {
+    if (!bGPUUsage) {
+        NVMLMonitorInfo info;
+        bGPUUsage = bVideoEngineUsage = m_pPerfMonitor && m_pPerfMonitor->GetNVMLInfo(&info);
+        if (bGPUUsage) {
+            gpuusage = info.GPULoad;
+            gpuencoder_usage = info.VEELoad;
+            gpudecoder_usage = info.VEDLoad;
+            m_sData.GPUClockTotal += info.GPUFreq;
+            m_sData.VEClockTotal += info.VEFreq;
+        }
+    }
 #endif //#if ENABLE_NVML
 #if ENABLE_GPUZ_INFO
+    if (!bGPUUsage) {
         GPUZ_SH_MEM gpu_info = { 0 };
         if ((m_pPerfMonitor && m_pPerfMonitor->GetGPUZInfo(&gpu_info))
             || 0 == get_gpuz_info(&gpu_info)) {
-            const double gpu_usage = gpu_load(&gpu_info);
-            const double ve_usage = video_engine_load(&gpu_info, &bVideoEngineUsage);
-
             bGPUUsage = true;
-            m_sData.GPUInfoCountSuccess++;
-            m_sData.GPULoadPercentTotal += gpu_usage;
+            gpuusage = gpu_load(&gpu_info);
+            gpuencoder_usage = video_engine_load(&gpu_info, &bVideoEngineUsage);
             m_sData.GPUClockTotal += gpu_core_clock(&gpu_info);
-            m_sData.VEELoadPercentTotal += ve_usage;
-            gpuusage = (int)(gpu_usage + 0.5);
-            gpuencoder_usage = (int)(ve_usage + 0.5);
         } else {
             m_sData.GPUInfoCountFail++;
         }
-#endif //#if ENABLE_GPUZ_INFO
-#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
     }
-#endif //#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
+#endif //#if ENABLE_GPUZ_INFO
+    if (bGPUUsage) {
+        m_sData.GPUInfoCountSuccess++;
+        m_sData.GPULoadPercentTotal += gpuusage;
+        m_sData.MFXLoadPercentTotal += gpuencoder_usage;
+        m_sData.VEDLoadPercentTotal += gpudecoder_usage;
+    }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
     double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
@@ -225,6 +239,7 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
             MES_REMAIN,
             MES_DROP,
             MES_GPU,
+            MES_GPU_DEC,
             MES_EST_FILE_SIZE,
             MES_ID_MAX
         };
@@ -263,9 +278,12 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
             chunks[MES_DROP].len = _stprintf_s(chunks[MES_DROP].str, _T(", afs drop %d/%d"), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
         }
         if (bGPUUsage) {
-            chunks[MES_GPU].len = _stprintf_s(chunks[MES_GPU].str, _T(", GPU %d%%"), gpuusage);
+            chunks[MES_GPU].len = _stprintf_s(chunks[MES_GPU].str, _T(", GPU %d%%"), (int)(gpuusage + 0.5));
             if (bVideoEngineUsage) {
-                chunks[MES_GPU].len += _stprintf_s(chunks[MES_GPU].str + chunks[MES_GPU].len, _countof(chunks[MES_GPU].str) - chunks[MES_GPU].len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), gpuencoder_usage);
+                chunks[MES_GPU].len += _stprintf_s(chunks[MES_GPU].str + chunks[MES_GPU].len, _countof(chunks[MES_GPU].str) - chunks[MES_GPU].len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), (int)(gpuencoder_usage + 0.5));
+            }
+            if (gpudecoder_usage > 0) {
+                chunks[MES_GPU_DEC].len += _stprintf_s(chunks[MES_GPU_DEC].str, _countof(chunks[MES_GPU_DEC].str), _T(", VD %d%%"), (int)(gpudecoder_usage + 0.5));
             }
         }
 
@@ -283,6 +301,7 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
         check_add_length(MES_REMAIN);
         check_add_length(MES_DROP);
         check_add_length(MES_GPU);
+        check_add_length(MES_GPU_DEC);
         check_add_length(MES_EST_FILE_SIZE);
         check_add_length(MES_FRAME_TOTAL);
 

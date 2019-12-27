@@ -468,6 +468,8 @@ tstring CPerfMonitor::SelectedCounters(int select) {
 
 CPerfMonitor::CPerfMonitor() :
     m_nStep(0),
+    m_luid({ 0, 0 }),
+    m_pid(),
     m_sPywPath(),
     m_info(),
     m_thCheck(),
@@ -507,7 +509,11 @@ CPerfMonitor::CPerfMonitor() :
 #if ENABLE_GPUZ_INFO
     m_GPUZInfo(),
 #endif //#if ENABLE_GPUZ_INFO
-    m_bGPUZInfoValid(false)
+    m_bGPUZInfoValid(false),
+#if ENABLE_PERF_COUNTER
+    m_perfCounter(),
+#endif //#if ENABLE_PERF_COUNTER
+    m_prefCounterValid(false)
 {
     memset(m_info, 0, sizeof(m_info));
     memset(&m_pipes, 0, sizeof(m_pipes));
@@ -701,6 +707,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     std::shared_ptr<RGYLog> pRGYLog, CPerfMonitorPrm *prm) {
     clear();
     m_pRGYLog = pRGYLog;
+    m_luid = prm->luid;
+    m_pid = GetCurrentProcessId();
 
     m_nCreateTime100ns = (int64_t)(clock() * (1e7 / CLOCKS_PER_SEC) + 0.5);
     m_sMonitorFilename = filename;
@@ -790,6 +798,15 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #else
     UNREFERENCED_PARAMETER(prm);
 #endif //#if ENABLE_NVML
+
+#if ENABLE_PERF_COUNTER
+    OSVERSIONINFOEXW osver;
+    getOSVersion(&osver);
+    if (osver.dwMajorVersion > 6 || (osver.dwMajorVersion == 6 && osver.dwMinorVersion >= 4)) { //Windows10
+        m_perfCounter = std::make_unique<RGYGPUCounterWin>();
+        m_perfCounter->thread_run();
+    }
+#endif //#if ENABLE_PERF_COUNTER
 
     if (m_nSelectOutputPlot) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -940,18 +957,19 @@ void CPerfMonitor::check() {
     const double time_diff_inv = 1.0 / (pInfoNew->time_us - pInfoOld->time_us);
 
     //GPU情報
+    bool qsv_metric = false;
     m_bGPUZInfoValid = false;
     pInfoNew->gpu_info_valid = FALSE;
 #if ENABLE_METRIC_FRAMEWORK
     QSVGPUInfo qsvinfo = { 0 };
     if (m_Consumer.getMFXLoad(&qsvinfo)) {
+        qsv_metric = true;
         pInfoNew->gpu_info_valid = TRUE;
         pInfoNew->mfx_load_percent = qsvinfo.dMFXLoad;
         pInfoNew->gpu_load_percent = qsvinfo.dEULoad;
-        pInfoNew->gpu_clock = qsvinfo.GPUFreq;
+        pInfoNew->gpu_clock = qsvinfo.dGPUFreq;
     } else {
 #endif //#if ENABLE_METRIC_FRAMEWORK
-#if ENABLE_NVML
     pInfoNew->gpu_info_valid   = FALSE;
     pInfoNew->gpu_clock = 0.0;
     pInfoNew->gpu_load_percent = 0.0;
@@ -962,6 +980,7 @@ void CPerfMonitor::check() {
     pInfoNew->pcie_link = 0;
     pInfoNew->pcie_throughput_tx_per_sec = 0;
     pInfoNew->pcie_throughput_rx_per_sec = 0;
+#if ENABLE_NVML
     NVMLMonitorInfo nvmlInfo;
     if (m_nvmlMonitor.getData(&nvmlInfo) == NVML_SUCCESS) {
         m_nvmlInfo = nvmlInfo;
@@ -999,6 +1018,32 @@ void CPerfMonitor::check() {
 #if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
+#if ENABLE_PERF_COUNTER
+    if (m_perfCounter) {
+        if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKの値を優先する
+            pInfoNew->vee_load_percent = 0.0;
+        }
+        pInfoNew->gpu_load_percent = 0.0;
+        pInfoNew->ved_load_percent = 0.0;
+        std::vector<CounterEntry> counters;
+        {
+            std::lock_guard<std::mutex> lock(m_perfCounter->getmtx());
+            counters = m_perfCounter->getCounters().filter_pid(m_pid).get();
+        }
+        if (counters.size() > 0) {
+            pInfoNew->gpu_info_valid = TRUE;
+            if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKの値を優先する
+                pInfoNew->vee_load_percent = RGYGPUCounterWinEntries(counters).filter_type(L"encode").sum();
+            }
+            pInfoNew->gpu_load_percent = std::max(std::max(std::max(
+                RGYGPUCounterWinEntries(counters).filter_type(L"cuda").sum(), //nvenc
+                RGYGPUCounterWinEntries(counters).filter_type(L"compute").sum()), //vce-opencl
+                RGYGPUCounterWinEntries(counters).filter_type(L"3d").sum()), //qsv
+                RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").sum()); //qsv
+            pInfoNew->ved_load_percent = RGYGPUCounterWinEntries(counters).filter_type(L"decode").sum();
+        }
+    }
+#endif //#if ENABLE_PERF_COUNTER
 #else
     struct rusage usage = { 0 };
     getrusage(RUSAGE_SELF, &usage);
