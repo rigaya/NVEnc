@@ -180,7 +180,7 @@ void RGYInput::Close() {
     m_encSatusInfo.reset();
     m_convert = nullptr;
 
-    m_inputInfo.empty();
+    m_inputInfo.clear();
 
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
