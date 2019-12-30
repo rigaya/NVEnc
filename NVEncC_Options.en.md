@@ -1011,7 +1011,7 @@ nnedi deinterlacer.
 
   
 ```
-example: --vpp-nnedi field=auto,nns=64,nsize=32x6,qual=slow,prescreen=none,prec=fp32
+example: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
 ```
 
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
