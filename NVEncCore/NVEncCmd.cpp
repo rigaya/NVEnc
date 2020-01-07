@@ -2232,6 +2232,14 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->vpp.checkPerformance = false;
         return 0;
     }
+    if (IS_OPTION("ssim")) {
+        pParams->ssim = true;
+        return 0;
+    }
+    if (IS_OPTION("no-ssim")) {
+        pParams->ssim = false;
+        return 0;
+    }
     if (IS_OPTION("cavlc")) {
         codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
         return 0;
@@ -3258,6 +3266,8 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vpp.checkPerformance);
+
+    OPT_BOOL(_T("--ssim"), _T(""), ssim);
 
     OPT_LST(_T("--cuda-schedule"), cudaSchedule, list_cuda_schedule);
     if (pParams->gpuSelect != encPrmDefault.gpuSelect) {

@@ -1015,6 +1015,7 @@ InEncodeVideoParam::InEncodeVideoParam() :
     common(),
     ctrl(),
     vpp(),
+    ssim(false),
     nWeightP(0) {
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));

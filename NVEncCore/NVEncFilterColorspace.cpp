@@ -1445,7 +1445,7 @@ tstring NVEncFilterParamColorspace::print() const {
     return _T("");
 }
 
-RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 #if ENABLE_NVRTC
     RGY_ERR sts = RGY_ERR_NONE;
 
@@ -1463,7 +1463,7 @@ RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInf
         int cropFilterOutputNum = 0;
         FrameInfo *pCropFilterOutput[1] = { nullptr };
         FrameInfo cropInput = *pInputFrame;
-        auto sts_filter = crop->filter(&cropInput, (FrameInfo **)&pCropFilterOutput, &cropFilterOutputNum);
+        auto sts_filter = crop->filter(&cropInput, (FrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, stream);
         if (pCropFilterOutput[0] == nullptr || cropFilterOutputNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), crop->name().c_str());
             return sts_filter;
@@ -1476,7 +1476,7 @@ RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInf
     }
     //色空間変換
     FrameInfo filterInput = *pInputFrame;
-    auto sts_filter = custom->filter(&filterInput, ppOutputFrames, pOutputFrameNum);
+    auto sts_filter = custom->filter(&filterInput, ppOutputFrames, pOutputFrameNum, stream);
     if (sts_filter != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), custom->name().c_str());
         return sts_filter;

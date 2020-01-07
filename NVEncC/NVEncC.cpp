@@ -545,6 +545,7 @@ static tstring help() {
         _T("   --vpp-perf-monitor           check duration of each filter.\n")
         _T("                                  may decrease overall transcode performance.\n"));
     str += strsprintf(_T("")
+        _T("   --ssim                       calc ssim.\n")
         _T("   --cuda-schedule <string>     set cuda schedule mode (default: sync).\n")
         _T("       auto  : let cuda driver to decide\n")
         _T("       spin  : CPU will spin when waiting GPU tasks,\n")

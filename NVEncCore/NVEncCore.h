@@ -51,6 +51,7 @@
 #include "NVEncParam.h"
 #include "CuvidDecode.h"
 #include "NVEncFilter.h"
+#include "NVEncFilterSsim.h"
 #include "NVEncFrameInfo.h"
 
 using std::vector;
@@ -309,6 +310,7 @@ protected:
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;
     shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
+    unique_ptr<NVEncFilterSsim>  m_ssim;
 
     GUID                         m_stCodecGUID;           //出力コーデック
     int                          m_uEncWidth;             //出力縦解像度

@@ -77,7 +77,7 @@ cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
     return cudaSuccess;
 }
 
-RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     cudaError_t cudaerr = cudaSuccess;
     if (m_bCheckPerformance) {
         cudaerr = cudaEventRecord(*m_peFilterStart.get());
@@ -97,7 +97,7 @@ RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, 
         ppOutputFrames[0] = pInputFrame;
         *pOutputFrameNum = 1;
     }
-    const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum);
+    const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
     const int nOutFrame = *pOutputFrameNum;
     if (!m_pParam->bOutOverwrite && nOutFrame > 0) {
         if (m_nPathThrough & FILTER_PATHTHROUGH_TIMESTAMP) {
@@ -178,7 +178,7 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame, Fra
         }
         int nFieldOut = 0;
         auto pFieldOut = &m_pFieldPairOut->frame;
-        auto err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut);
+        auto err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut, stream);
         if (err != NV_ENC_SUCCESS) {
             return err;
         }

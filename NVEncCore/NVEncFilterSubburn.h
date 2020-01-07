@@ -78,7 +78,7 @@ public:
     virtual RGY_ERR addStreamPacket(AVPacket *pkt) override;
     virtual int targetTrackIdx() override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamSubburn> prm);
     virtual RGY_ERR initAVCodec(const std::shared_ptr<NVEncFilterParamSubburn> prm);

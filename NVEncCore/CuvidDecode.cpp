@@ -286,7 +286,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     m_nDecType = nDecType;
     m_pPrintMes = pLog;
     m_bIgnoreDynamicFormatChange = ignoreDynamicFormatChange;
-    m_deinterlaceMode = vpp->deinterlace;
+    m_deinterlaceMode = (vpp) ? vpp->deinterlace : cudaVideoDeinterlaceMode_Weave;
 
     if (!check_if_nvcuvid_dll_available()) {
         AddMessage(RGY_LOG_ERROR, _T("nvcuvid.dll does not exist.\n"));
@@ -351,7 +351,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
 
     m_videoDecodeCreateInfo.ChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[input->csp]);
     m_videoDecodeCreateInfo.OutputFormat = csp_rgy_to_surfacefmt(input->csp);
-    m_videoDecodeCreateInfo.DeinterlaceMode = vpp->deinterlace;
+    m_videoDecodeCreateInfo.DeinterlaceMode = (vpp) ? vpp->deinterlace : cudaVideoDeinterlaceMode_Weave;
 
     if (m_videoInfo.dstWidth > 0 && m_videoInfo.dstHeight > 0) {
         m_videoDecodeCreateInfo.ulTargetWidth  = m_videoInfo.dstWidth;

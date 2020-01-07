@@ -140,7 +140,7 @@ public:
     virtual RGY_ERR setupCustomFilter(const FrameInfo &frameInfo, shared_ptr<NVEncFilterParamColorspace> prm);
     virtual std::string genKernelCode();
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<NVEncFilterParamColorspace> prm);
 

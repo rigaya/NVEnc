@@ -1223,6 +1223,7 @@ struct InEncodeVideoParam {
     RGYParamCommon common;
     RGYParamControl ctrl;
     VppParam vpp;                 //vpp
+    bool ssim;
 
     InEncodeVideoParam();
 };

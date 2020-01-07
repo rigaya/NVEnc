@@ -604,7 +604,7 @@ tstring NVEncFilterParamDeband::print() const {
     return deband.print();
 }
 
-RGY_ERR NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 
     if (pInputFrame->ptr == nullptr) {
         return RGY_ERR_NONE;

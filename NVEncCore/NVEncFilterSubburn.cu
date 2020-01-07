@@ -417,7 +417,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
 
         int filterOutputNum = 0;
         FrameInfo *filterOutput[1] = { &frame->frame };
-        m_resize->filter(&frameTemp->frame, (FrameInfo **)&filterOutput, &filterOutputNum);
+        m_resize->filter(&frameTemp->frame, (FrameInfo **)&filterOutput, &filterOutputNum, stream);
     }
     int x_pos = ALIGN((int)(prm->subburn.scale * rect->x + 0.5f) - ((crop.e.left + crop.e.right) / 2), 2);
     int y_pos = ALIGN((int)(prm->subburn.scale * rect->y + 0.5f) - crop.e.up - crop.e.bottom, 2);

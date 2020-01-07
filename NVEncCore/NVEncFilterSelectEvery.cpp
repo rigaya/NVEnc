@@ -74,7 +74,7 @@ tstring NVEncFilterParamSelectEvery::print() const {
     return selectevery.print();
 }
 
-RGY_ERR NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     auto pSelectParam = std::dynamic_pointer_cast<NVEncFilterParamSelectEvery>(m_pParam);

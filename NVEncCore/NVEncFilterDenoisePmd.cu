@@ -389,7 +389,7 @@ tstring NVEncFilterParamDenoisePmd::print() const {
     return pmd.print();
 }
 
-RGY_ERR NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 
     if (pInputFrame->ptr == nullptr) {
         return RGY_ERR_NONE;

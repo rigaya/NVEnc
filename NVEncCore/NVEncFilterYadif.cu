@@ -386,7 +386,7 @@ tstring NVEncFilterParamYadif::print() const {
     return yadif.print();
 }
 
-RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     auto prmYadif = std::dynamic_pointer_cast<NVEncFilterParamYadif>(m_pParam);

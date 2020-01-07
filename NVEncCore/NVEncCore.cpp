@@ -1163,6 +1163,12 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockBitstream(m_hEncoder, &lockBitstreamData);
     if (nvStatus == NV_ENC_SUCCESS) {
         RGYBitstream bitstream = RGYBitstreamInit(lockBitstreamData);
+        if (m_ssim) {
+            if (!m_ssim->decodeStarted()) {
+                m_ssim->initDecode(&bitstream);
+            }
+            m_ssim->addBitstream(&bitstream);
+        }
         auto outErr = m_pFileWriter->WriteNextFrame(&bitstream);
         nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
         if (nvStatus == NV_ENC_SUCCESS && outErr != RGY_ERR_NONE) {
@@ -1202,6 +1208,7 @@ NVENCSTATUS NVEncCore::FlushEncoder() {
 NVENCSTATUS NVEncCore::Deinitialize() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
+    m_ssim.reset();
     m_hdr10plus.reset();
     m_AudioReaders.clear();
     m_pFileReader.reset();
@@ -3561,6 +3568,44 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitOutput: Success.\n"), inputParam->common.outputFilename.c_str());
+
+    if (inputParam->ssim) {
+        unique_ptr<NVEncFilterSsim> filterSsim(new NVEncFilterSsim());
+        shared_ptr<NVEncFilterParamSsim> param(new NVEncFilterParamSsim());
+        param->input = videooutputinfo(m_stCodecGUID, encBufferFormat,
+            m_uEncWidth, m_uEncHeight,
+            &m_stEncConfig, m_stPicStruct,
+            std::make_pair(m_sar.n(), m_sar.d()),
+            std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
+        //HWデコーダの出力フォーマットに合わせる
+        if (RGY_CSP_BIT_DEPTH[param->input.csp] > 8) {
+            if (RGY_CSP_CHROMA_FORMAT[param->input.csp] == RGY_CHROMAFMT_YUV420) {
+                param->input.csp = RGY_CSP_P010;
+            } else if (RGY_CSP_CHROMA_FORMAT[param->input.csp] == RGY_CHROMAFMT_YUV444) {
+                param->input.csp = RGY_CSP_YUV444_16;
+            } else {
+                PrintMes(RGY_LOG_ERROR, _T("Unexpected output format.\n"));
+                return NV_ENC_ERR_UNSUPPORTED_PARAM;
+            }
+        }
+        param->input.srcWidth = m_uEncWidth;
+        param->input.srcHeight = m_uEncHeight;
+        param->frameIn = m_pLastFilterParam->frameOut;
+        param->frameOut = param->frameIn;
+        param->frameIn.deivce_mem = true;
+        param->frameOut.deivce_mem = true;
+        param->bOutOverwrite = false;
+        param->ctxLock = m_ctxLock;
+        param->streamtimebase = m_outputTimebase;
+        param->ssim = inputParam->ssim;
+        param->deviceId = m_nDeviceId;
+        NVEncCtxAutoLock(cxtlock(m_ctxLock));
+        auto sts = filterSsim->init(param, m_pNVLog);
+        if (sts != NV_ENC_SUCCESS) {
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
+        m_ssim = std::move(filterSsim);
+    }
     return nvStatus;
 }
 
@@ -4129,7 +4174,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 NVEncCtxAutoLock(ctxlock(m_ctxLock));
                 int nOutFrames = 0;
                 FrameInfo *outInfo[16] = { 0 };
-                auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+                auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames, cudaStreamDefault);
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
                     return NV_ENC_ERR_GENERIC;
@@ -4195,7 +4240,8 @@ NVENCSTATUS NVEncCore::Encode() {
                 int nOutFrames = 0;
                 FrameInfo *outInfo[16] = { 0 };
                 //エンコードバッファの情報を設定１
-                FrameInfo encFrameInfo ={ 0 };
+                FrameInfo encFrameInfo = { 0 };
+                FrameInfo ssimTarget = { 0 };
                 if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
                     encFrameInfo.ptr = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
                     encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
@@ -4203,6 +4249,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
                     encFrameInfo.deivce_mem = true;
                     encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
+                    ssimTarget = encFrameInfo;
                 } else {
                     //インタレ保持の場合は、NvEncCreateInputBuffer経由でフレームを渡さないと正常にエンコードできない
                     uint32_t lockedPitch = 0;
@@ -4214,14 +4261,19 @@ NVENCSTATUS NVEncCore::Encode() {
                     encFrameInfo.height = pEncodeBuffer->stInputBfr.dwHeight;
                     encFrameInfo.deivce_mem = false; //CPU側にフレームデータを戻す
                     encFrameInfo.csp = getEncCsp(pEncodeBuffer->stInputBfr.bufferFmt);
+                    ssimTarget = filterframes.front().first;
                 }
                 //エンコードバッファのポインタを渡す
                 outInfo[0] = &encFrameInfo;
-                auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+                auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames, cudaStreamDefault);
                 filterframes.pop_front();
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
                     return NV_ENC_ERR_GENERIC;
+                }
+                if (m_ssim) {
+                    int dummy = 0;
+                    m_ssim->filter(&ssimTarget, nullptr, &dummy, cudaStreamDefault);
                 }
                 auto pCudaEvent = vEncStartEvents[nFilterFrame++ % vEncStartEvents.size()].get();
                 auto cudaret = cudaEventRecord(*pCudaEvent);
@@ -4433,12 +4485,16 @@ NVENCSTATUS NVEncCore::Encode() {
     //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
     auto encstatus = nvStatus;
     if (nEncodeFrames > 0 || nvStatus == NV_ENC_SUCCESS) {
+        NVEncCtxAutoLock(cxtlock(m_ctxLock));
         encstatus = FlushEncoder();
         if (encstatus != NV_ENC_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("Error FlushEncoder: %d.\n"), encstatus);
             nvStatus = encstatus;
         } else {
             PrintMes(RGY_LOG_DEBUG, _T("Flushed Encoder\n"));
+        }
+        if (m_ssim) {
+            m_ssim->addBitstream(nullptr);
         }
     }
     m_pFileWriter->Close();

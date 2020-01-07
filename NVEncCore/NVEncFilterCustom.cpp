@@ -296,7 +296,7 @@ RGY_ERR NVEncFilterCustom::run_planes(FrameInfo *pOutputFrame, const FrameInfo *
 #endif
 }
 
-RGY_ERR NVEncFilterCustom::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterCustom::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {
@@ -333,9 +333,9 @@ RGY_ERR NVEncFilterCustom::run_filter(const FrameInfo *pInputFrame, FrameInfo **
             return RGY_ERR_CUDA;
         }
     } else if (prm->custom.kernel_interface == VPP_CUSTOM_INTERFACE_PLANES) {
-        sts = run_planes(pOutputFrame, pInputFrame, cudaStreamDefault);
+        sts = run_planes(pOutputFrame, pInputFrame, stream);
     } else {
-        sts = run_per_plane(pOutputFrame, pInputFrame, cudaStreamDefault);
+        sts = run_per_plane(pOutputFrame, pInputFrame, stream);
     }
     return sts;
 }
