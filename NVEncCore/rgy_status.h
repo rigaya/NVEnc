@@ -83,7 +83,6 @@ typedef struct EncodeStatusData {
     int    GPUInfoCountSuccess;
     int    GPUInfoCountFail;
     double GPULoadPercentTotal;
-    double MFXLoadPercentTotal;
     double VEELoadPercentTotal;
     double VEDLoadPercentTotal;
     double VEClockTotal;
@@ -112,7 +111,7 @@ public:
     EncodeStatusData m_sData;
 protected:
     virtual void WriteLine(const TCHAR *mes);
-    virtual void WriteLineDirect(TCHAR *mes);
+    virtual void WriteLineDirect(const TCHAR *mes);
     void WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP);
 
     bool m_pause;
