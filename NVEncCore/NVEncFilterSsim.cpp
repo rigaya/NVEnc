@@ -36,6 +36,10 @@ static double ssim_db(double ssim, double weight) {
     return 10.0 * log10(weight / (weight - ssim));
 }
 
+static double get_psnr(double mse, uint64_t nb_frames, int max) {
+    return 10.0 * log10((max * max) / (mse / nb_frames));
+}
+
 tstring NVEncFilterParamSsim::print() const {
     tstring str;
     if (ssim) str += _T("ssim ");
@@ -55,13 +59,17 @@ NVEncFilterSsim::NVEncFilterSsim() :
     m_decoder(),
     m_crop(),
     m_decFrameCopy(),
-    m_tmp(),
+    m_tmpSsim(),
+    m_tmpPsnr(),
     m_cropEvent(),
     m_streamCrop(),
-    m_streamCalc(),
+    m_streamCalcSsim(),
+    m_streamCalcPsnr(),
     m_planeCoef(),
     m_ssimTotalPlane(),
     m_ssimTotal(0.0),
+    m_psnrTotalPlane(),
+    m_psnrTotal(0.0),
     m_frames(0) {
     m_sFilterName = _T("ssim/psnr");
 }
@@ -82,12 +90,14 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
 
     m_deviceId = prm->deviceId;
     m_crop.reset();
-    if (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) {
+    if (pParam->frameOut.csp == RGY_CSP_NV12) {
+        pParam->frameOut.csp = RGY_CSP_YV12;
+    }
+    if (pParam->frameIn.csp != pParam->frameOut.csp) {
         unique_ptr<NVEncFilterCspCrop> filterCrop(new NVEncFilterCspCrop());
         shared_ptr<NVEncFilterParamCrop> paramCrop(new NVEncFilterParamCrop());
         paramCrop->frameIn = pParam->frameIn;
-        paramCrop->frameOut = pParam->frameIn;
-        paramCrop->frameOut.csp = (RGY_CSP_BIT_DEPTH[paramCrop->frameIn.csp] > 8) ? RGY_CSP_YV12_16 : RGY_CSP_YV12;
+        paramCrop->frameOut = pParam->frameOut;
         paramCrop->baseFps = pParam->baseFps;
         paramCrop->frameIn.deivce_mem = true;
         paramCrop->frameOut.deivce_mem = true;
@@ -112,10 +122,16 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
             m_planeCoef[i] = (double)(plane.width * plane.height) / elemSum;
         }
     }
+    //SSIM
     for (size_t i = 0; i < m_ssimTotalPlane.size(); i++) {
-        m_ssimTotalPlane[i] = 0.0f;
+        m_ssimTotalPlane[i] = 0.0;
     }
-    m_ssimTotal = 0.0f;
+    m_ssimTotal = 0.0;
+    //PSNR
+    for (size_t i = 0; i < m_psnrTotalPlane.size(); i++) {
+        m_psnrTotalPlane[i] = 0.0;
+    }
+    m_psnrTotal = 0.0;
 
     setFilterInfo(pParam->print());
     m_pParam = pParam;
@@ -224,8 +240,20 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         return RGY_ERR_CUDA;
     }
 
+    //HWデコーダの出力フォーマットに合わせる
+    VideoInfo vidInfo = prm->input;
+    if (RGY_CSP_BIT_DEPTH[vidInfo.csp] > 8) {
+        if (RGY_CSP_CHROMA_FORMAT[vidInfo.csp] == RGY_CHROMAFMT_YUV420) {
+            vidInfo.csp = RGY_CSP_P010;
+        } else if (RGY_CSP_CHROMA_FORMAT[vidInfo.csp] == RGY_CHROMAFMT_YUV444) {
+            vidInfo.csp = RGY_CSP_YUV444_16;
+        } else {
+            AddMessage(RGY_LOG_ERROR, _T("Unexpected output format.\n"));
+            return RGY_ERR_INVALID_COLOR_FORMAT;
+        }
+    }
     m_decoder = std::make_unique<CuvidDecode>();
-    auto result = m_decoder->InitDecode(m_vidctxlock, &prm->input, nullptr, av_make_q(prm->streamtimebase), m_pPrintMes, NV_ENC_AVCUVID_NATIVE, false);
+    auto result = m_decoder->InitDecode(m_vidctxlock, &vidInfo, nullptr, av_make_q(prm->streamtimebase), m_pPrintMes, NV_ENC_AVCUVID_NATIVE, false);
     if (result != CUDA_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init decoder.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -233,12 +261,24 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
     //SSIM用のスレッドで使用するリソースもすべてSSIM用のスレッド内で作成する
     {
         CCtxAutoLock ctxLock(m_vidctxlock);
-        for (size_t i = 0; i < m_streamCalc.size(); i++) {
-            m_streamCalc[i] = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-            auto cudaerr = cudaStreamCreateWithFlags(m_streamCalc[i].get(), cudaStreamDefault);
-            if (cudaerr != CUDA_SUCCESS) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return RGY_ERR_CUDA;
+        if (prm->ssim) {
+            for (size_t i = 0; i < m_streamCalcSsim.size(); i++) {
+                m_streamCalcSsim[i] = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
+                auto cudaerr = cudaStreamCreateWithFlags(m_streamCalcSsim[i].get(), cudaStreamDefault);
+                if (cudaerr != CUDA_SUCCESS) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+                    return RGY_ERR_CUDA;
+                }
+            }
+        }
+        if (prm->psnr) {
+            for (size_t i = 0; i < m_streamCalcPsnr.size(); i++) {
+                m_streamCalcPsnr[i] = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
+                auto cudaerr = cudaStreamCreateWithFlags(m_streamCalcPsnr[i].get(), cudaStreamDefault);
+                if (cudaerr != CUDA_SUCCESS) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+                    return RGY_ERR_CUDA;
+                }
             }
         }
         m_streamCrop = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
@@ -325,12 +365,26 @@ RGY_ERR NVEncFilterSsim::run_filter(const FrameInfo *pInputFrame, FrameInfo **pp
 }
 
 void NVEncFilterSsim::ssim_fin() {
-    auto str = strsprintf(_T("\nSSIM All: %f (%f), YUV: "), m_ssimTotal / m_frames, ssim_db(m_ssimTotal, (double)m_frames));
-    for (int i = 0; i < RGY_CSP_PLANES[m_pParam->frameOut.csp]; i++) {
-        str += strsprintf(_T(" %f (%f), "), m_ssimTotalPlane[i] / m_frames, ssim_db(m_ssimTotalPlane[i], (double)m_frames));
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
+    if (!prm) {
+        return;
     }
-    str += strsprintf(_T("(Frames: %d)\n"), m_frames);
-    AddMessage(RGY_LOG_INFO, _T("%s\n"), str.c_str());
+    if (prm->ssim) {
+        auto str = strsprintf(_T("\nSSIM YUV:"));
+        for (int i = 0; i < RGY_CSP_PLANES[m_pParam->frameOut.csp]; i++) {
+            str += strsprintf(_T(" %f (%f),"), m_ssimTotalPlane[i] / m_frames, ssim_db(m_ssimTotalPlane[i], (double)m_frames));
+        }
+        str += strsprintf(_T("All: %f (%f), (Frames: %d)\n"), m_ssimTotal / m_frames, ssim_db(m_ssimTotal, (double)m_frames), m_frames);
+        AddMessage(RGY_LOG_INFO, _T("%s\n"), str.c_str());
+    }
+    if (prm->psnr) {
+        auto str = strsprintf(_T("\nPSNR YUV:"));
+        for (int i = 0; i < RGY_CSP_PLANES[m_pParam->frameOut.csp]; i++) {
+            str += strsprintf(_T(" %f,"), get_psnr(m_psnrTotalPlane[i], m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1));
+        }
+        str += strsprintf(_T("Avg: %f, (Frames: %d)\n"), get_psnr(m_psnrTotal, m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1), m_frames);
+        AddMessage(RGY_LOG_INFO, _T("%s\n"), str.c_str());
+    }
 }
 
 RGY_ERR NVEncFilterSsim::thread_func() {
@@ -417,7 +471,12 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             //cropが終わってから比較が行われるように設定
             cudaEventRecord(*m_cropEvent.get(), *m_streamCrop.get());
             for (int i = 0; i < RGY_CSP_PLANES[targetFrame.csp]; i++) {
-                cudaStreamWaitEvent(*m_streamCalc[i].get(), *m_cropEvent.get(), 0);
+                if (prm->ssim) {
+                    cudaStreamWaitEvent(*m_streamCalcSsim[i].get(), *m_cropEvent.get(), 0);
+                }
+                if (prm->psnr) {
+                    cudaStreamWaitEvent(*m_streamCalcPsnr[i].get(), *m_cropEvent.get(), 0);
+                }
             }
         }
 
@@ -427,7 +486,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
         if (m_crop) {
             cudaEventSynchronize(originalFrame->event);
         }
-        auto sts_filter = calc_ssim(&originalFrame->frame, &targetFrame);
+        auto sts_filter = calc_ssim_psnr(&originalFrame->frame, &targetFrame);
         if (sts_filter != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_crop->name().c_str());
             return sts_filter;
@@ -447,11 +506,17 @@ void NVEncFilterSsim::close() {
         m_abort = true;
         m_thread.join();
     }
-    for (size_t i = 0; i < m_streamCalc.size(); i++) {
-        m_streamCalc[i].reset();
+    for (size_t i = 0; i < m_streamCalcSsim.size(); i++) {
+        m_streamCalcSsim[i].reset();
     }
-    for (size_t i = 0; i < m_tmp.size(); i++) {
-        m_tmp[i].clear();
+    for (size_t i = 0; i < m_streamCalcPsnr.size(); i++) {
+        m_streamCalcPsnr[i].reset();
+    }
+    for (size_t i = 0; i < m_tmpSsim.size(); i++) {
+        m_tmpSsim[i].clear();
+    }
+    for (size_t i = 0; i < m_tmpPsnr.size(); i++) {
+        m_tmpPsnr[i].clear();
     }
     m_decFrameCopy.reset();
     m_streamCrop.reset();

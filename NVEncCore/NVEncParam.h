@@ -1224,6 +1224,7 @@ struct InEncodeVideoParam {
     RGYParamControl ctrl;
     VppParam vpp;                 //vpp
     bool ssim;
+    bool psnr;
 
     InEncodeVideoParam();
 };

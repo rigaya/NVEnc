@@ -3569,7 +3569,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitOutput: Success.\n"), inputParam->common.outputFilename.c_str());
 
-    if (inputParam->ssim) {
+    if (inputParam->ssim || inputParam->psnr) {
         unique_ptr<NVEncFilterSsim> filterSsim(new NVEncFilterSsim());
         shared_ptr<NVEncFilterParamSsim> param(new NVEncFilterParamSsim());
         param->input = videooutputinfo(m_stCodecGUID, encBufferFormat,
@@ -3577,27 +3577,18 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
             &m_stEncConfig, m_stPicStruct,
             std::make_pair(m_sar.n(), m_sar.d()),
             std::make_pair(m_stCreateEncodeParams.frameRateNum, m_stCreateEncodeParams.frameRateDen));
-        //HWデコーダの出力フォーマットに合わせる
-        if (RGY_CSP_BIT_DEPTH[param->input.csp] > 8) {
-            if (RGY_CSP_CHROMA_FORMAT[param->input.csp] == RGY_CHROMAFMT_YUV420) {
-                param->input.csp = RGY_CSP_P010;
-            } else if (RGY_CSP_CHROMA_FORMAT[param->input.csp] == RGY_CHROMAFMT_YUV444) {
-                param->input.csp = RGY_CSP_YUV444_16;
-            } else {
-                PrintMes(RGY_LOG_ERROR, _T("Unexpected output format.\n"));
-                return NV_ENC_ERR_UNSUPPORTED_PARAM;
-            }
-        }
         param->input.srcWidth = m_uEncWidth;
         param->input.srcHeight = m_uEncHeight;
         param->frameIn = m_pLastFilterParam->frameOut;
         param->frameOut = param->frameIn;
+        param->frameOut.csp = param->input.csp;
         param->frameIn.deivce_mem = true;
         param->frameOut.deivce_mem = true;
         param->bOutOverwrite = false;
         param->ctxLock = m_ctxLock;
         param->streamtimebase = m_outputTimebase;
         param->ssim = inputParam->ssim;
+        param->psnr = inputParam->psnr;
         param->deviceId = m_nDeviceId;
         NVEncCtxAutoLock(cxtlock(m_ctxLock));
         auto sts = filterSsim->init(param, m_pNVLog);

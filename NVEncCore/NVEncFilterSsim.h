@@ -69,7 +69,7 @@ protected:
     RGY_ERR init_cuda_resources();
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
-    virtual RGY_ERR calc_ssim(const FrameInfo *p0, const FrameInfo *p1);
+    virtual RGY_ERR calc_ssim_psnr(const FrameInfo *p0, const FrameInfo *p1);
     virtual void ssim_fin();
 
     bool m_decodeStarted; //デコードが開始したか
@@ -87,12 +87,16 @@ protected:
     std::unique_ptr<CuvidDecode> m_decoder;     // デコーダエンジン
     unique_ptr<NVEncFilterCspCrop> m_crop;      // NV12->YV12変換用
     std::unique_ptr<CUFrameBuf> m_decFrameCopy; //デコード後にcrop(NV12->YV12変換)したフレームの格納場所
-    std::array<CUMemBufPair, 3> m_tmp; //評価結果を返すための一時バッファ
+    std::array<CUMemBufPair, 3> m_tmpSsim; //評価結果を返すための一時バッファ
+    std::array<CUMemBufPair, 3> m_tmpPsnr; //評価結果を返すための一時バッファ
     unique_ptr<cudaEvent_t, cudaevent_deleter> m_cropEvent; //デコードしたフレームがcrop(NV12->YV12変換)し終わったかを示すイベント
     std::unique_ptr<cudaStream_t, cudastream_deleter> m_streamCrop; //デコードしたフレームをcrop(NV12->YV12変換)するstream
-    std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> m_streamCalc; //評価計算を行うstream
+    std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> m_streamCalcSsim; //評価計算を行うstream
+    std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> m_streamCalcPsnr; //評価計算を行うstream
     std::array<double, 3> m_planeCoef;      // 評価結果に関する YUVの重み
     std::array<double, 3> m_ssimTotalPlane; // 評価結果の累積値 YUV
     double m_ssimTotal;                     // 評価結果の累積値 All
+    std::array<double, 3> m_psnrTotalPlane; // 評価結果の累積値 YUV
+    double m_psnrTotal;                     // 評価結果の累積値 All
     int m_frames;                           // 評価したフレーム数
 };
