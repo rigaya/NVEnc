@@ -104,11 +104,11 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     {
         int elemSum = 0;
         for (size_t i = 0; i < m_ssimTotalPlane.size(); i++) {
-            const auto plane = getPlane(&pParam->frameIn, (RGY_PLANE)i);
+            const auto plane = getPlane(&pParam->frameOut, (RGY_PLANE)i);
             elemSum += plane.width * plane.height;
         }
         for (size_t i = 0; i < m_ssimTotalPlane.size(); i++) {
-            const auto plane = getPlane(&pParam->frameIn, (RGY_PLANE)i);
+            const auto plane = getPlane(&pParam->frameOut, (RGY_PLANE)i);
             m_planeCoef[i] = (double)(plane.width * plane.height) / elemSum;
         }
     }
