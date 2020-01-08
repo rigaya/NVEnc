@@ -4884,6 +4884,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     for (const auto& filter : m_vpFilters) {
         vppFilterMes += strsprintf(_T("%s%s\n"), (vppFilterMes.length()) ? _T("               ") : _T("Vpp Filters    "), filter->GetInputMessage().c_str());
     }
+    if (m_ssim) {
+        vppFilterMes += _T("               ") + m_ssim->GetInputMessage() + _T("\n");
+    }
     add_str(RGY_LOG_ERROR, vppFilterMes.c_str());
     if (rgy_codec == RGY_CODEC_H264) {
         add_str(RGY_LOG_ERROR, _T("Output Info    %s %s @ Level %s\n"), get_name_from_guid(m_stCodecGUID, list_nvenc_codecs),
