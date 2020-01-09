@@ -920,7 +920,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         if (input_prm->readSubtitle) {
             auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE, &videoStreams);
             if (subStreams.size() == 0 && !m_cap2ass.enabled()) {
-                AddMessage(RGY_LOG_WARN, _T("--sub-copy is set, but no subtitle stream found.\n"));
+                AddMessage(RGY_LOG_WARN, _T("--sub-copy%s is set, but no subtitle stream found.\n"), (ENCODER_NVENC) ? _T("/--vpp-subburn") : _T(""));
             } else {
                 m_Demux.format.subtitleTracks = (int)subStreams.size();
                 vector_cat(mediaStreams, subStreams);
