@@ -85,14 +85,14 @@ using std::shared_ptr;
         auto ret = std::find_if(map_pair.begin(), map_pair.end(), [var0](std::pair<type0, type1> a) { \
             return a.first == var0; \
         }); \
-        return (ret == map_pair.end()) ? default1 : ret->second; \
+        return (ret == map_pair.end()) ? (default1) : ret->second; \
     } \
     RGY_NOINLINE  \
     type0 prefix ## _ ## name1 ## _to_ ## name0(type1 var1) {\
         auto ret = std::find_if(map_pair.begin(), map_pair.end(), [var1](std::pair<type0, type1> a) { \
             return a.second == var1; \
         }); \
-        return (ret == map_pair.end()) ? default0 : ret->first; \
+        return (ret == map_pair.end()) ? (default0) : ret->first; \
     }
 
 typedef long long lls;
