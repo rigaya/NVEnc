@@ -490,6 +490,12 @@ Enable deblock filter. (Default: on)
 Specify the maximum and minimum size of CU respectively. 8, 16, 32 can be specified.
 **Since it is known that image quality may be degraded when this option is used, it is recommended not to use these options.**
 
+### --ssim
+Calculate ssim of the encoded video.
+
+### --psnr
+Calculate psnr of the encoded video.
+
 ## IO / Audio / Subtitle Options
 
 ### --input-analyze &lt;int&gt;

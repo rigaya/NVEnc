@@ -84,6 +84,7 @@ which might cause problem in some playback environments.
 - Supports various formats such as avs, vpy, y4m, and raw
 - Supports demux/muxing using libavformat
 - Supports decode using libavcodec
+- Calculation of ssim/psnr of the encode
 - High performance filtering (VPP, Video Pre-Processing)
   - cuvid built-in hw processing
     - resize

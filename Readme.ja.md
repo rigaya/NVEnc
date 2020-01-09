@@ -89,6 +89,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   - VC-1
   - VP9
 - avs, vpy, y4m, rawなど各種形式に対応
+- エンコード結果のSSIM/PSNRを計算
 - GPUを使用した高速フィルタリング
   - cuvid内蔵のhw処理
     - リサイズ
