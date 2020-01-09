@@ -420,7 +420,7 @@ RGY_ERR NVEncFilterSsim::calc_ssim_psnr(const FrameInfo *p0, const FrameInfo *p1
             ssimPlane /= (double)(((plane0.width >> 2) - 1) *((plane0.height >> 2) - 1));
             m_ssimTotalPlane[i] += ssimPlane;
             ssimv += ssimPlane * m_planeCoef[i];
-            //AddMessage(RGY_LOG_INFO, _T("ssimPlane = %.16e, m_ssimTotalPlane[i] = %.16e"), ssimPlane, m_ssimTotalPlane[i]);
+            AddMessage(RGY_LOG_TRACE, _T("ssimPlane = %.16e, m_ssimTotalPlane[i] = %.16e"), ssimPlane, m_ssimTotalPlane[i]);
         }
         m_ssimTotal += ssimv;
     }
@@ -440,7 +440,7 @@ RGY_ERR NVEncFilterSsim::calc_ssim_psnr(const FrameInfo *p0, const FrameInfo *p1
             double psnrPlaneF = psnrPlane / (double)(plane0.width * plane0.height);
             m_psnrTotalPlane[i] += psnrPlaneF;
             psnrv += psnrPlaneF * m_planeCoef[i];
-            //AddMessage(RGY_LOG_INFO, _T("psnrPlane = %.16e, m_psnrTotalPlane[i] = %.16e"), psnrPlane, m_psnrTotalPlane[i]);
+            AddMessage(RGY_LOG_TRACE, _T("psnrPlane = %.16e, m_psnrTotalPlane[i] = %.16e"), psnrPlane, m_psnrTotalPlane[i]);
         }
         m_psnrTotal += psnrv;
     }

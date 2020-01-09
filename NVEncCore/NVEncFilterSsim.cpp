@@ -110,6 +110,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_crop->GetInputMessage().c_str());
         pParam->frameOut = paramCrop->frameOut;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("ssim original format %s -> %s.\n"), RGY_CSP_NAMES[pParam->frameIn.csp], RGY_CSP_NAMES[pParam->frameOut.csp]);
 
     {
         int elemSum = 0;
@@ -120,6 +121,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         for (size_t i = 0; i < m_ssimTotalPlane.size(); i++) {
             const auto plane = getPlane(&pParam->frameOut, (RGY_PLANE)i);
             m_planeCoef[i] = (double)(plane.width * plane.height) / elemSum;
+            AddMessage(RGY_LOG_DEBUG, _T("Plane coef : %f\n"), m_planeCoef[i]);
         }
     }
     //SSIM
@@ -139,6 +141,8 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
 }
 
 RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
+    AddMessage(RGY_LOG_DEBUG, _T("initDecode() with bitstream size: %d.\n"), (int)bitstream->size());
+
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -147,12 +151,25 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
     int ret = 0;
     const auto avcodecID = getAVCodecId(prm->input.codec);
     const auto codec = avcodec_find_decoder(avcodecID);
+    if (codec == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to find decoder for codec %s.\n"), CodecToStr(prm->input.codec));
+        return RGY_ERR_NULL_PTR;
+    }
     auto codecCtx = std::unique_ptr<AVCodecContext, decltype(&avcodec_close)>(avcodec_alloc_context3(codec), &avcodec_close);
-    avcodec_open2(codecCtx.get(), codec, nullptr);
+    if (0 > (ret = avcodec_open2(codecCtx.get(), codec, nullptr))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to open codec %s: %s.\n"), char_to_tstring(avcodec_get_name(avcodecID)).c_str(), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_NULL_PTR;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Opened decoder for codec %s\n"), char_to_tstring(avcodec_get_name(avcodecID)).c_str());
 
     const char *bsf_name = "extract_extradata";
+    const auto bsf = av_bsf_get_by_name(bsf_name);
+    if (bsf == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to bsf %s.\n"), char_to_tstring(bsf_name).c_str());
+        return RGY_ERR_NULL_PTR;
+    }
     AVBSFContext *bsfc = nullptr;
-    if (0 > (ret = av_bsf_alloc(av_bsf_get_by_name(bsf_name), &bsfc))) {
+    if (0 > (ret = av_bsf_alloc(bsf, &bsfc))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
         return RGY_ERR_NULL_PTR;
     }
@@ -169,6 +186,7 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("Initialized bsf %s\n"), bsf_name);
 
     AVPacket pkt;
     av_init_packet(&pkt);
@@ -192,16 +210,21 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
             prm->input.codecExtra = malloc(pkt.side_data[i].size);
             prm->input.codecExtraSize = pkt.side_data[i].size;
             memcpy(prm->input.codecExtra, pkt.side_data[i].data, pkt.side_data[i].size);
+            AddMessage(RGY_LOG_DEBUG, _T("Found extradata of codec %s: size %d\n"), char_to_tstring(avcodec_get_name(avcodecID)).c_str(), pkt.side_data[i].size);
+            break;
         }
     }
 
     //比較用のスレッドの開始
     m_thread = std::thread(&NVEncFilterSsim::thread_func, this);
+    AddMessage(RGY_LOG_DEBUG, _T("Started ssim/psnr calculation thread.\n"));
+
     //デコードの開始を待つ必要がある
     while (m_thread.joinable() && !m_decodeStarted) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
+    AddMessage(RGY_LOG_DEBUG, _T("initDecode(): fin.\n"));
     return (m_decodeStarted) ? RGY_ERR_NONE : RGY_ERR_UNKNOWN;
 }
 
@@ -212,6 +235,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         return RGY_ERR_INVALID_PARAM;
     }
 
+    AddMessage(RGY_LOG_DEBUG, _T("Started initilaizing cuda resource on device ID %d.\n"), prm->deviceId);
     //デコーダはデコード結果を取り出すスレッドで初期化する必要がある
     //そうしないとcuda contextをまたいでフレームデータをやりとりするために
     //D->H->Dのような無駄な転送が行われてしまう
@@ -239,6 +263,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCtxLockCreate: 0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
         return RGY_ERR_CUDA;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("cuvidCtxLockCreate: Success.\n"));
 
     //HWデコーダの出力フォーマットに合わせる
     VideoInfo vidInfo = prm->input;
@@ -252,6 +277,8 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
             return RGY_ERR_INVALID_COLOR_FORMAT;
         }
     }
+    AddMessage(RGY_LOG_DEBUG, _T("cuvid output format %s.\n"), RGY_CSP_NAMES[vidInfo.csp]);
+
     m_decoder = std::make_unique<CuvidDecode>();
     auto result = m_decoder->InitDecode(m_vidctxlock, &vidInfo, nullptr, av_make_q(prm->streamtimebase), m_pPrintMes, NV_ENC_AVCUVID_NATIVE, false);
     if (result != CUDA_SUCCESS) {
@@ -269,6 +296,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
                     AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                     return RGY_ERR_CUDA;
                 }
+                AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamCalcSsim[%d]: Success.\n"), i);
             }
         }
         if (prm->psnr) {
@@ -279,6 +307,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
                     AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                     return RGY_ERR_CUDA;
                 }
+                AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamCalcPsnr[%d]: Success.\n"), i);
             }
         }
         m_streamCrop = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
@@ -287,12 +316,15 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
             AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
         }
+        AddMessage(RGY_LOG_DEBUG, _T("cudaStreamCreateWithFlags for m_streamCrop: Success.\n"));
+
         m_cropEvent = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         cudaerr = cudaEventCreate(m_cropEvent.get());
         if (cudaerr != CUDA_SUCCESS) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreate: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
         }
+        AddMessage(RGY_LOG_DEBUG, _T("cudaEventCreate for m_cropEvent: Success.\n"));
     }
     return RGY_ERR_NONE;
 }
@@ -393,7 +425,9 @@ RGY_ERR NVEncFilterSsim::thread_func() {
         return sts;
     }
     m_decodeStarted = true;
-    return compare_frames(true);
+    auto ret = compare_frames(true);
+    AddMessage(RGY_LOG_DEBUG, _T("Finishing ssim/psnr calculation thread: %d.\n"), get_err_mes(ret));
+    return ret;
 }
 
 RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
@@ -503,6 +537,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
 
 void NVEncFilterSsim::close() {
     if (m_thread.joinable()) {
+        AddMessage(RGY_LOG_DEBUG, _T("Waiting for ssim/psnr calculation thread to finish.\n"));
         m_abort = true;
         m_thread.join();
     }
@@ -523,5 +558,5 @@ void NVEncFilterSsim::close() {
     m_input.clear();
     m_unused.clear();
     m_decoder.reset();
-    AddMessage(RGY_LOG_DEBUG, _T("closed ssim filter.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("closed ssim/psnr filter.\n"));
 }

@@ -4490,6 +4490,7 @@ NVENCSTATUS NVEncCore::Encode() {
             PrintMes(RGY_LOG_DEBUG, _T("Flushed Encoder\n"));
         }
         if (m_ssim) {
+            PrintMes(RGY_LOG_DEBUG, _T("Flushing ssim/psnr calc.\n"));
             m_ssim->addBitstream(nullptr);
         }
     }
