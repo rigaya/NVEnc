@@ -2874,24 +2874,29 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                     }
                 }
             }
-            param->bOutOverwrite = true;
-            param->videoTimebase = av_make_q(m_outputTimebase);
-            param->frameIn = inputFrame;
-            param->frameOut = inputFrame;
-            param->baseFps = m_encFps;
-            param->crop = inputParam->input.crop;
-            NVEncCtxAutoLock(cxtlock(m_ctxLock));
-            auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
-                return sts;
+            if (param->subburn.trackId != 0 && param->streamIn.stream == nullptr) {
+                PrintMes(RGY_LOG_WARN, _T("Could not find subtitle track #%d, vpp-subburn for track #%d will be disabled.\n"),
+                    param->subburn.trackId, param->subburn.trackId);
+            } else {
+                param->bOutOverwrite = true;
+                param->videoTimebase = av_make_q(m_outputTimebase);
+                param->frameIn = inputFrame;
+                param->frameOut = inputFrame;
+                param->baseFps = m_encFps;
+                param->crop = inputParam->input.crop;
+                NVEncCtxAutoLock(cxtlock(m_ctxLock));
+                auto sts = filter->init(param, m_pNVLog);
+                if (sts != NV_ENC_SUCCESS) {
+                    return sts;
+                }
+                //フィルタチェーンに追加
+                m_vpFilters.push_back(std::move(filter));
+                //パラメータ情報を更新
+                m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+                //入力フレーム情報を更新
+                inputFrame = param->frameOut;
+                m_encFps = param->baseFps;
             }
-            //フィルタチェーンに追加
-            m_vpFilters.push_back(std::move(filter));
-            //パラメータ情報を更新
-            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
-            //入力フレーム情報を更新
-            inputFrame = param->frameOut;
-            m_encFps = param->baseFps;
 #else
             PrintMes(RGY_LOG_ERROR, _T("--vpp-subburn not supported in this build.\n"));
             return RGY_ERR_UNSUPPORTED;
