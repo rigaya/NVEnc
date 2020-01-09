@@ -374,7 +374,7 @@ void NVEncFilterSsim::ssim_fin() {
         for (int i = 0; i < RGY_CSP_PLANES[m_pParam->frameOut.csp]; i++) {
             str += strsprintf(_T(" %f (%f),"), m_ssimTotalPlane[i] / m_frames, ssim_db(m_ssimTotalPlane[i], (double)m_frames));
         }
-        str += strsprintf(_T("All: %f (%f), (Frames: %d)\n"), m_ssimTotal / m_frames, ssim_db(m_ssimTotal, (double)m_frames), m_frames);
+        str += strsprintf(_T(" All: %f (%f), (Frames: %d)\n"), m_ssimTotal / m_frames, ssim_db(m_ssimTotal, (double)m_frames), m_frames);
         AddMessage(RGY_LOG_INFO, _T("%s\n"), str.c_str());
     }
     if (prm->psnr) {
@@ -382,7 +382,7 @@ void NVEncFilterSsim::ssim_fin() {
         for (int i = 0; i < RGY_CSP_PLANES[m_pParam->frameOut.csp]; i++) {
             str += strsprintf(_T(" %f,"), get_psnr(m_psnrTotalPlane[i], m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1));
         }
-        str += strsprintf(_T("Avg: %f, (Frames: %d)\n"), get_psnr(m_psnrTotal, m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1), m_frames);
+        str += strsprintf(_T(" Avg: %f, (Frames: %d)\n"), get_psnr(m_psnrTotal, m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1), m_frames);
         AddMessage(RGY_LOG_INFO, _T("%s\n"), str.c_str());
     }
 }
