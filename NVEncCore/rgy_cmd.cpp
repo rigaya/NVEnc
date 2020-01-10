@@ -1765,12 +1765,7 @@ tstring gen_cmd_help_ctrl() {
         _T("                                 gpu_load    ... gpu usage (%%)\n")
         _T("                                 gpu_clock   ... gpu avg clock\n")
         _T("                                 vee_load    ... gpu video encoder usage (%%)\n")
-#if 0 && ENABLE_NVML
         _T("                                 ved_load    ... gpu video decoder usage (%%)\n")
-#endif
-#if ENABLE_NVML
-        _T("                                 ve_clock    ... gpu video engine clock\n")
-#endif
         _T("                                 gpu         ... monitor all gpu info\n")
 #endif //#if defined(_WIN32) || defined(_WIN64)
         _T("                                 queue       ... queue usage\n")

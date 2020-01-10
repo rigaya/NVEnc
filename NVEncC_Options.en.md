@@ -1484,6 +1484,7 @@ Outputs performance information. You can select the information name you want to
  gpu_load    ... gpu usage (%)
  gpu_clock   ... gpu avg clock
  vee_load    ... gpu video encoder usage (%)
+ ved_load    ... gpu video decoder usage (%)
  gpu         ... monitor all gpu info
  queue       ... queue usage
  mem_private ... private memory (MB)

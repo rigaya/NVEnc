@@ -888,8 +888,6 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #endif
 #if ENCODER_NVENC
     m_nSelectCheck &= (~PERF_MONITOR_MFX_LOAD);
-    //うまくとれてなさそう
-    m_nSelectCheck &= (~PERF_MONITOR_VED_LOAD);
 #endif
 
     m_nSelectOutputLog &= m_nSelectCheck;

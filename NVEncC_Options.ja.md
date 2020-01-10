@@ -1526,6 +1526,7 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
  gpu_load    ... gpu usage (%)
  gpu_clock   ... gpu avg clock
  vee_load    ... gpu video encoder usage (%)
+ ved_load    ... gpu video decoder usage (%)
  gpu         ... monitor all gpu info
  queue       ... queue usage
  mem_private ... private memory (MB)
