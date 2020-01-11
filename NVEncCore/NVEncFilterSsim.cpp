@@ -356,6 +356,8 @@ RGY_ERR NVEncFilterSsim::addBitstream(const RGYBitstream *bitstream) {
 }
 
 RGY_ERR NVEncFilterSsim::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+    UNREFERENCED_PARAMETER(ppOutputFrames);
+    UNREFERENCED_PARAMETER(pOutputFrameNum);
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (m_unused.size() == 0) {

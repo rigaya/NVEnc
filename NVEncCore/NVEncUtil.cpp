@@ -202,6 +202,7 @@ VideoInfo videooutputinfo(
 #define TTMATH_NOASM
 #pragma warning(push)
 #pragma warning(disable: 4244)
+#pragma warning(disable: 4834)
 #include "ttmath/ttmath.h"
 #pragma warning(pop)
 
