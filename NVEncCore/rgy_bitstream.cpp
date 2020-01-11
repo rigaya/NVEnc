@@ -36,7 +36,12 @@ HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), masterdisplay(), maste
 HEVCHDRSei::HEVCHDRSei() : prm() {
 }
 
-int HEVCHDRSei::parse(std::string str_maxcll, std::string str_masterdisplay) {
+void HEVCHDRSei::set_maxcll(int maxcll, int maxfall) {
+    prm.maxcll = maxcll;
+    prm.maxfall = maxfall;
+}
+
+int HEVCHDRSei::parse_maxcll(std::string str_maxcll) {
     if (str_maxcll.length()) {
         std::regex re_maxcll(R"((\d+),(\d+))");
         std::smatch match_maxcll;
@@ -51,7 +56,17 @@ int HEVCHDRSei::parse(std::string str_maxcll, std::string str_masterdisplay) {
             return 1;
         }
     }
+    return 0;
+}
 
+void HEVCHDRSei::set_masterdisplay(const int masterdisplay[10]) {
+    for (int i = 0; i < 10; i++) {
+        prm.masterdisplay[i] = masterdisplay[i];
+    }
+    prm.masterdisplay_set = true;
+}
+
+int HEVCHDRSei::parse_masterdisplay(std::string str_masterdisplay) {
     if (str_masterdisplay.length()) {
         std::regex re_masterdisplay(R"(G\((\d+),(\d+)\)B\((\d+),(\d+)\)R\((\d+),(\d+)\)WP\((\d+),(\d+)\)L\((\d+),(\d+)\))");
         std::smatch match_masterdisplay;
@@ -61,7 +76,7 @@ int HEVCHDRSei::parse(std::string str_maxcll, std::string str_masterdisplay) {
 
         try {
             for (int i = 0; i < 10; i++) {
-                prm.masterdisplay[i] = std::stoi(match_masterdisplay[i+1]);
+                prm.masterdisplay[i] = std::stoi(match_masterdisplay[i + 1]);
             }
         } catch (...) {
             return 1;

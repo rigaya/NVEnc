@@ -425,6 +425,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.HWDecCodecCsp = &HWDecCodecCsp;
         inputInfoAVCuvid.videoDetectPulldown = !vpp_rff && !vpp_afs && common->AVSyncMode == RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.caption2ass = common->caption2ass;
+        inputInfoAVCuvid.pasrseHDRmetadata = common->maxCll == maxCLLSource || common->masterDisplay == masterDisplaySource;
         pInputPrm = &inputInfoAVCuvid;
         log->write(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         pFileReader.reset(new RGYInputAvcodec());

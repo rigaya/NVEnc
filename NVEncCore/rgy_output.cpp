@@ -551,6 +551,44 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 #include "rgy_input_avcodec.h"
 #include "rgy_output_avcodec.h"
 
+int setHEVCHDRSei(HEVCHDRSei& hedrsei, const std::string& maxCll, const std::string &masterDisplay, const RGYInput *reader) {
+    const AVMasteringDisplayMetadata *masteringDisplaySrc = nullptr;
+    const AVContentLightMetadata *contentLightSrc = nullptr;
+    { auto avcodecReader = dynamic_cast<const RGYInputAvcodec *>(reader);
+        if (avcodecReader != nullptr) {
+            masteringDisplaySrc = avcodecReader->getMasteringDisplay();
+            contentLightSrc = avcodecReader->getContentLight();
+        }
+    }
+    int ret = 0;
+    if (maxCll == maxCLLSource) {
+        if (contentLightSrc != nullptr) {
+            hedrsei.set_maxcll(contentLightSrc->MaxCLL, contentLightSrc->MaxFALL);
+        }
+    } else {
+        ret = hedrsei.parse_maxcll(maxCll);
+    }
+    if (masterDisplay == masterDisplaySource) {
+        if (masteringDisplaySrc != nullptr) {
+            int masterdisplay[10];
+            masterdisplay[0] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[1][0], av_make_q(50000, 1))) + 0.5); //G
+            masterdisplay[1] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[1][1], av_make_q(50000, 1))) + 0.5); //G
+            masterdisplay[2] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[2][0], av_make_q(50000, 1))) + 0.5); //B
+            masterdisplay[3] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[2][1], av_make_q(50000, 1))) + 0.5); //B
+            masterdisplay[4] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[0][0], av_make_q(50000, 1))) + 0.5); //R
+            masterdisplay[5] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[0][1], av_make_q(50000, 1))) + 0.5); //R
+            masterdisplay[6] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->white_point[0], av_make_q(50000, 1))) + 0.5);
+            masterdisplay[7] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->white_point[1], av_make_q(50000, 1))) + 0.5);
+            masterdisplay[8] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->max_luminance, av_make_q(10000, 1))) + 0.5);
+            masterdisplay[9] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->min_luminance, av_make_q(10000, 1))) + 0.5);
+            hedrsei.set_masterdisplay(masterdisplay);
+        }
+    } else {
+        ret = hedrsei.parse_masterdisplay(masterDisplay);
+    }
+    return ret;
+}
+
 RGY_ERR initWriters(
     shared_ptr<RGYOutput> &pFileWriter,
     vector<shared_ptr<RGYOutput>>& pFileWriterListAudio,
@@ -574,7 +612,7 @@ RGY_ERR initWriters(
 ) {
     bool stdoutUsed = false;
     HEVCHDRSei hedrsei;
-    if (hedrsei.parse(common->maxCll, common->masterDisplay)) {
+    if (setHEVCHDRSei(hedrsei, common->maxCll, common->masterDisplay, pFileReader.get())) {
         log->write(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
         return RGY_ERR_UNSUPPORTED;
     }

@@ -40,6 +40,9 @@ static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
 static const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
+static const char *maxCLLSource = "copy";
+static const char *masterDisplaySource = "copy";
+
 struct AudioSelect {
     int      trackID;         //選択した音声トラックのリスト 1,2,...(1から連番で指定)
     tstring  decCodecPrm;     //音声エンコードのデコーダのパラメータ

@@ -707,6 +707,8 @@ typedef struct AVDemuxVideo {
     int                       HWDecodeDeviceId;      //HWデコードする場合に選択したデバイス
 
     bool                      bUseHEVCmp42AnnexB;
+    AVMasteringDisplayMetadata *masteringDisplay;
+    AVContentLightMetadata   *contentLight;
 } AVDemuxVideo;
 
 typedef struct AVDemuxThread {
@@ -930,6 +932,7 @@ public:
     DeviceCodecCsp *HWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
     bool           videoDetectPulldown;     //pulldownの検出を試みるかどうか
     C2AFormat      caption2ass;             //caption2assの処理の有効化
+    bool           pasrseHDRmetadata;       //HDR関連のmeta情報を取得する
 
     RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};
@@ -1000,6 +1003,10 @@ public:
     //出力する動画の情報をセット
     void setOutputVideoInfo(int w, int h, int sar_x, int sar_y, bool mux);
 
+    //HDRのmetadataへのポインタを返す
+    const AVMasteringDisplayMetadata *getMasteringDisplay() const;
+    const AVContentLightMetadata *getContentLight() const;
+
 #if USE_CUSTOM_INPUT
     int readPacket(uint8_t *buf, int buf_size);
     int writePacket(uint8_t *buf, int buf_size);
@@ -1007,6 +1014,8 @@ public:
 #endif //USE_CUSTOM_INPUT
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm) override;
+
+    RGY_ERR parseHDRData();
 
     void SetExtraData(AVCodecParameters *codecParam, const uint8_t *data, uint32_t size);
 

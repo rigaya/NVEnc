@@ -103,7 +103,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     queueInfo(nullptr),
     HWDecCodecCsp(nullptr),
     videoDetectPulldown(false),
-    caption2ass(FORMAT_INVALID) {
+    caption2ass(FORMAT_INVALID),
+    pasrseHDRmetadata(false) {
 
 }
 
@@ -161,6 +162,12 @@ void RGYInputAvcodec::CloseVideo(AVDemuxVideo *video) {
     }
     if (video->codecCtxDecode) {
         avcodec_free_context(&video->codecCtxDecode);
+    }
+    if (video->contentLight) {
+        av_freep(&video->contentLight);
+    }
+    if (video->masteringDisplay) {
+        av_freep(&video->masteringDisplay);
     }
     //close bitstreamfilter
     if (video->bsfcCtx) {
@@ -708,6 +715,129 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         }
     }
 
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYInputAvcodec::parseHDRData() {
+    //まずはstreamのside_dataを探す
+    int size = 0;
+    auto data = av_stream_get_side_data(m_Demux.video.stream, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, &size);
+    if (data) {
+        m_Demux.video.masteringDisplay = av_mastering_display_metadata_alloc();
+        memcpy(m_Demux.video.masteringDisplay, data, size);
+        AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
+            av_q2d(m_Demux.video.masteringDisplay->display_primaries[0][0]),
+            av_q2d(m_Demux.video.masteringDisplay->display_primaries[0][1]),
+            av_q2d(m_Demux.video.masteringDisplay->display_primaries[1][0]),
+            av_q2d(m_Demux.video.masteringDisplay->display_primaries[1][1]),
+            av_q2d(m_Demux.video.masteringDisplay->display_primaries[2][0]),
+            av_q2d(m_Demux.video.masteringDisplay->display_primaries[2][1]),
+            av_q2d(m_Demux.video.masteringDisplay->white_point[0]), av_q2d(m_Demux.video.masteringDisplay->white_point[1]),
+            av_q2d(m_Demux.video.masteringDisplay->min_luminance), av_q2d(m_Demux.video.masteringDisplay->max_luminance));
+    }
+    data = av_stream_get_side_data(m_Demux.video.stream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, &size);
+    if (data) {
+        size_t st_size = 0;
+        m_Demux.video.contentLight = av_content_light_metadata_alloc(&st_size);
+        memcpy(m_Demux.video.contentLight, data, st_size);
+        AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"), m_Demux.video.contentLight->MaxCLL, m_Demux.video.contentLight->MaxFALL);
+    }
+    if (m_Demux.video.masteringDisplay || m_Demux.video.contentLight) {
+        return RGY_ERR_NONE;
+    }
+    if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_HEVC) {
+        return RGY_ERR_NONE;
+    }
+
+    //codec側に格納されている値は、streamからは取得できない
+    //HDR関連のmeta情報を取得するために、decoderをキックし、先頭のフレームにセットされる情報を取得する
+    auto codecDecode = avcodec_find_decoder(m_Demux.video.stream->codecpar->codec_id);
+    if (codecDecode == nullptr) {
+        AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.stream->codecpar->codec_id).c_str());
+        return RGY_ERR_NOT_FOUND;
+    }
+    std::unique_ptr<AVCodecContext, RGYAVDeleter<AVCodecContext>> codecCtxDec(avcodec_alloc_context3(codecDecode), RGYAVDeleter<AVCodecContext>(avcodec_free_context));
+    if (!codecCtxDec) {
+        AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("Failed to allocate decoder"), m_Demux.video.stream->codecpar->codec_id).c_str());
+        return RGY_ERR_NULL_PTR;
+    }
+    unique_ptr_custom<AVCodecParameters> codecParamCopy(avcodec_parameters_alloc(), [](AVCodecParameters *pCodecPar) {
+        avcodec_parameters_free(&pCodecPar);
+        });
+    auto ret = avcodec_parameters_copy(codecParamCopy.get(), m_Demux.video.stream->codecpar);
+    if (ret < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    if (m_Demux.video.bsfcCtx || m_Demux.video.bUseHEVCmp42AnnexB) {
+        SetExtraData(codecParamCopy.get(), m_Demux.video.extradata, m_Demux.video.extradataSize);
+    }
+    if (0 > (ret = avcodec_parameters_to_context(codecCtxDec.get(), codecParamCopy.get()))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to set codec param to context for decoder: %s.\n"), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    AVDictionary *pDict = nullptr;
+    av_dict_set_int(&pDict, "threads", 1, 0);
+    if (0 > (ret = av_opt_set_dict(codecCtxDec.get(), &pDict))) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set threads for decode (codec: %s): %s\n"),
+            char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    av_dict_free(&pDict);
+    if (0 > (ret = avcodec_open2(codecCtxDec.get(), codecDecode, nullptr))) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    std::unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> frameDec(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free));
+    bool got_frame = false;
+    for (int i = 0; i < m_Demux.qVideoPkt.size() && !got_frame; i++) {
+        AVPacket *pkt = &m_Demux.qVideoPkt.get(i)->data;
+        ret = avcodec_send_packet(codecCtxDec.get(), pkt);
+
+        if (ret == AVERROR_EOF) { //これ以上パケットを送れない
+            AddMessage(RGY_LOG_DEBUG, _T("failed to send packet to video decoder, already flushed: %s.\n"), qsv_av_err2str(ret).c_str());
+        } else if (ret < 0 && ret != AVERROR(EAGAIN)) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to send packet to video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
+        ret = avcodec_receive_frame(codecCtxDec.get(), frameDec.get());
+        if (ret == AVERROR(EAGAIN)) { //もっとパケットを送る必要がある
+            continue;
+        }
+        if (ret == AVERROR_EOF) {
+            //最後まで読み込んだ
+            return RGY_ERR_MORE_DATA;
+        }
+        if (ret < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to receive frame from video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
+        got_frame = true;
+    }
+    if (got_frame) {
+        auto side_data = av_frame_get_side_data(frameDec.get(), AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
+        if (side_data) {
+            m_Demux.video.masteringDisplay = av_mastering_display_metadata_alloc();
+            memcpy(m_Demux.video.masteringDisplay, side_data->data, sizeof(AVMasteringDisplayMetadata));
+            AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
+                av_q2d(m_Demux.video.masteringDisplay->display_primaries[0][0]),
+                av_q2d(m_Demux.video.masteringDisplay->display_primaries[0][1]),
+                av_q2d(m_Demux.video.masteringDisplay->display_primaries[1][0]),
+                av_q2d(m_Demux.video.masteringDisplay->display_primaries[1][1]),
+                av_q2d(m_Demux.video.masteringDisplay->display_primaries[2][0]),
+                av_q2d(m_Demux.video.masteringDisplay->display_primaries[2][1]),
+                av_q2d(m_Demux.video.masteringDisplay->white_point[0]), av_q2d(m_Demux.video.masteringDisplay->white_point[1]),
+                av_q2d(m_Demux.video.masteringDisplay->min_luminance), av_q2d(m_Demux.video.masteringDisplay->max_luminance));
+        }
+        side_data = av_frame_get_side_data(frameDec.get(), AV_FRAME_DATA_CONTENT_LIGHT_LEVEL);
+        if (side_data) {
+            size_t st_size = 0;
+            m_Demux.video.contentLight = av_content_light_metadata_alloc(&st_size);
+            memcpy(m_Demux.video.contentLight, side_data->data, st_size);
+            AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"), m_Demux.video.contentLight->MaxCLL, m_Demux.video.contentLight->MaxFALL);
+        }
+    }
     return RGY_ERR_NONE;
 }
 
@@ -1433,6 +1563,14 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
 
         m_Demux.format.AVSyncMode = input_prm->AVSyncMode;
+
+        if (input_prm->pasrseHDRmetadata) {
+            auto err = parseHDRData();
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to parse HDR metadata header from input.\n"));
+                return err;
+            }
+        }
 
         //情報を格納
         m_inputVideoInfo.srcWidth    = m_Demux.video.stream->codecpar->width;
@@ -2245,6 +2383,13 @@ RGY_ERR RGYInputAvcodec::ThreadFuncRead() {
     }
     return RGY_ERR_NONE;
 }
+
+const AVMasteringDisplayMetadata *RGYInputAvcodec::getMasteringDisplay() const {
+    return m_Demux.video.masteringDisplay;
+};
+const AVContentLightMetadata *RGYInputAvcodec::getContentLight() const {
+    return m_Demux.video.contentLight;
+};
 
 #if USE_CUSTOM_INPUT
 int RGYInputAvcodec::readPacket(uint8_t *buf, int buf_size) {

@@ -453,15 +453,17 @@ Set chroma location flag of the output bitstream from values 0 ... 5.
 default: 0 = unspecified
 
 ### --max-cll &lt;int&gt;,&lt;int&gt; [HEVC only]
-Set MaxCLL and MaxFall in nits. 
+Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file.
 ```
---max-cll 1000,300
+Example1: --max-cll 1000,300
+Example2: --max-cll copy  # copy values from source
 ```
 
 ### --master-display &lt;string&gt; [HEVC only]
-Set Mastering display data.
+Set Mastering display data. "copy" will copy values from the input file.
 ```
-Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+Example1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+Example2: --master-display copy  # copy values from source
 ```
 
 ### --dhdr10-info &lt;string&gt; [HEVC only]
