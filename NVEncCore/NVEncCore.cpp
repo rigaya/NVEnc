@@ -89,6 +89,7 @@
 
 #pragma warning(push)
 #pragma warning(disable: 4244)
+#pragma warning(disable: 4834)
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"
 #if _M_IX86
