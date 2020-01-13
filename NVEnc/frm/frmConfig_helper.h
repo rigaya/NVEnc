@@ -203,6 +203,7 @@ static const wchar_t * const list_vpp_deinterlacer[] = {
     L"なし",
     L"自動フィールドシフト",
     L"nnedi",
+    L"yadif",
     NULL
 };
 

@@ -1019,6 +1019,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             deinterlacer_idx = get_cx_index(list_vpp_deinterlacer, L"自動フィールドシフト");
         } else if (encPrm.vpp.nnedi.enable) {
             deinterlacer_idx = get_cx_index(list_vpp_deinterlacer, L"nnedi");
+        } else if (encPrm.vpp.yadif.enable) {
+            deinterlacer_idx = get_cx_index(list_vpp_deinterlacer, L"yadif");
         }
         SetCXIndex(fcgCXVppDeinterlace, deinterlacer_idx);
 
@@ -1325,6 +1327,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.nnedi.precision        = (VppNnediPrecision)list_vpp_nnedi_prec[fcgCXVppNnediPrec->SelectedIndex].value;
     encPrm.vpp.nnedi.pre_screen       = (VppNnediPreScreen)list_vpp_nnedi_pre_screen[fcgCXVppNnediPrescreen->SelectedIndex].value;
     encPrm.vpp.nnedi.errortype        = (VppNnediErrorType)list_vpp_nnedi_error_type[fcgCXVppNnediErrorType->SelectedIndex].value;
+
+    encPrm.vpp.yadif.enable = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"yadif"));
 
     encPrm.vpp.tweak.enable           = fcgCBVppTweakEnable->Checked;
     encPrm.vpp.tweak.brightness       = (float)fcgNUVppTweakBrightness->Value * 0.01f;
