@@ -185,7 +185,7 @@ int chapter_file::write_chapter_nero(const char *out_filepath, bool utf8) {
             const DWORD chapter_name_length = chap->name.length() + 1;
             if (char_buffer.size() < chapter_name_length * 4)
                 char_buffer.resize(chapter_name_length * 4);
-            std::fill(char_buffer.begin(), char_buffer.end(), 0);
+            std::fill(char_buffer.begin(), char_buffer.end(), '\0');
 
             DWORD encMode = 0;
             UINT buf_len_in_byte = char_buffer.size();
