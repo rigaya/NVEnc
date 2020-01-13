@@ -78,7 +78,7 @@ static const auto RGY_CSP_TO_NVENC = make_array<std::pair<RGY_CSP, NV_ENC_BUFFER
     std::make_pair(RGY_CSP_YV12,      NV_ENC_BUFFER_FORMAT_YV12),
     std::make_pair(RGY_CSP_YUY2,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV422,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
-    std::make_pair(RGY_CSP_YUV444,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YUV444,    NV_ENC_BUFFER_FORMAT_YUV444),
     std::make_pair(RGY_CSP_YV12_09,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YV12_10,   NV_ENC_BUFFER_FORMAT_YUV420_10BIT),
     std::make_pair(RGY_CSP_YV12_12,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
