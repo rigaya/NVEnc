@@ -168,11 +168,14 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
         AddMessage(RGY_LOG_ERROR, _T("failed to bsf %s.\n"), char_to_tstring(bsf_name).c_str());
         return RGY_ERR_NULL_PTR;
     }
-    AVBSFContext *bsfc = nullptr;
-    if (0 > (ret = av_bsf_alloc(bsf, &bsfc))) {
+    AVBSFContext *bsfctmp = nullptr;
+    if (0 > (ret = av_bsf_alloc(bsf, &bsfctmp))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
         return RGY_ERR_NULL_PTR;
     }
+    unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> bsfc(bsfctmp, RGYAVDeleter<AVBSFContext>(av_bsf_free));
+    bsfctmp = nullptr;
+
     unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>> codecpar(avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
     if (0 > (ret = avcodec_parameters_from_context(codecpar.get(), codecCtx.get()))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to get codec parameter for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
@@ -182,22 +185,21 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
-    if (0 > (ret = av_bsf_init(bsfc))) {
+    if (0 > (ret = av_bsf_init(bsfc.get()))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
     AddMessage(RGY_LOG_DEBUG, _T("Initialized bsf %s\n"), bsf_name);
 
     AVPacket pkt;
-    av_init_packet(&pkt);
-    av_packet_from_data(&pkt, bitstream->data(), (int)bitstream->size());
-    if (0 > (ret = av_bsf_send_packet(bsfc, &pkt))) {
-        av_packet_unref(&pkt);
+    av_new_packet(&pkt, (int)bitstream->size());
+    memcpy(pkt.data, bitstream->data(), (int)bitstream->size());
+    if (0 > (ret = av_bsf_send_packet(bsfc.get(), &pkt))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
             char_to_tstring(bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
-    ret = av_bsf_receive_packet(bsfc, &pkt);
+    ret = av_bsf_receive_packet(bsfc.get(), &pkt);
     if (ret == AVERROR(EAGAIN)) {
         return RGY_ERR_NONE;
     } else if ((ret < 0 && ret != AVERROR_EOF) || pkt.size < 0) {
@@ -205,15 +207,15 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
             char_to_tstring(bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
-    for (int i = 0; i < pkt.side_data_elems; i++) {
-        if (pkt.side_data[i].type == AV_PKT_DATA_NEW_EXTRADATA) {
-            prm->input.codecExtra = malloc(pkt.side_data[i].size);
-            prm->input.codecExtraSize = pkt.side_data[i].size;
-            memcpy(prm->input.codecExtra, pkt.side_data[i].data, pkt.side_data[i].size);
-            AddMessage(RGY_LOG_DEBUG, _T("Found extradata of codec %s: size %d\n"), char_to_tstring(avcodec_get_name(avcodecID)).c_str(), pkt.side_data[i].size);
-            break;
-        }
+    int side_data_size = 0;
+    auto side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_data_size);
+    if (side_data) {
+        prm->input.codecExtra = malloc(side_data_size);
+        prm->input.codecExtraSize = side_data_size;
+        memcpy(prm->input.codecExtra, side_data, side_data_size);
+        AddMessage(RGY_LOG_DEBUG, _T("Found extradata of codec %s: size %d\n"), char_to_tstring(avcodec_get_name(avcodecID)).c_str(), side_data_size);
     }
+    av_packet_unref(&pkt);
 
     //比較用のスレッドの開始
     m_thread = std::thread(&NVEncFilterSsim::thread_func, this);
