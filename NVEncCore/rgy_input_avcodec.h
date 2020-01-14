@@ -707,8 +707,9 @@ typedef struct AVDemuxVideo {
     int                       HWDecodeDeviceId;      //HWデコードする場合に選択したデバイス
 
     bool                      bUseHEVCmp42AnnexB;
-    AVMasteringDisplayMetadata *masteringDisplay;
-    AVContentLightMetadata   *contentLight;
+    
+    AVMasteringDisplayMetadata *masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
+    AVContentLightMetadata   *contentLight;          //入力ファイルから抽出したHDRメタ情報
 } AVDemuxVideo;
 
 typedef struct AVDemuxThread {
