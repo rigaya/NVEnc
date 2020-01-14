@@ -175,6 +175,7 @@ static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, size_t siz
 struct HEVCHDRSeiPrm {
     int maxcll;
     int maxfall;
+    bool contentlight_set;
     int masterdisplay[10];
     bool masterdisplay_set;
 public:
