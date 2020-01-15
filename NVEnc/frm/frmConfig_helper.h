@@ -225,6 +225,12 @@ const CX_DESC list_vpp_nnedi_pre_screen_gui[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_vpp_yadif_mode_gui[] = {
+    { _T("normal"),        VPP_YADIF_MODE_AUTO },
+    { _T("bob"),           VPP_YADIF_MODE_BOB_AUTO },
+    { NULL, NULL }
+};
+
 static int get_cx_index(const wchar_t * const*list, const wchar_t *wchr) {
     for (int i = 0; list[i]; i++)
         if (0 == wcscmp(list[i], wchr))

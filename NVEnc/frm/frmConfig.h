@@ -1355,6 +1355,9 @@ private: System::Windows::Forms::CheckBox ^fcgCBSSIM;
 
 
 private: System::Windows::Forms::Label ^fcgLBSSIM;
+private: System::Windows::Forms::Panel ^fcgPNVppYadif;
+private: System::Windows::Forms::Label ^fcgLBVppYadifMode;
+private: System::Windows::Forms::ComboBox ^fcgCXVppYadifMode;
 
 
 
@@ -1664,6 +1667,10 @@ private: System::Windows::Forms::Label ^fcgLBSSIM;
             this->fcgLBColorPrimH264 = (gcnew System::Windows::Forms::Label());
             this->fcgLBColorMatrixH264 = (gcnew System::Windows::Forms::Label());
             this->tabPageVideoDetail = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBPSNR = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgLBPSNR = (gcnew System::Windows::Forms::Label());
+            this->fcgCBSSIM = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgLBSSIM = (gcnew System::Windows::Forms::Label());
             this->fcgCBLossless = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBLossless = (gcnew System::Windows::Forms::Label());
             this->fcgCBLogDebug = (gcnew System::Windows::Forms::CheckBox());
@@ -1890,10 +1897,9 @@ private: System::Windows::Forms::Label ^fcgLBSSIM;
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
-            this->fcgCBSSIM = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgLBSSIM = (gcnew System::Windows::Forms::Label());
-            this->fcgCBPSNR = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgLBPSNR = (gcnew System::Windows::Forms::Label());
+            this->fcgPNVppYadif = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBVppYadifMode = (gcnew System::Windows::Forms::Label());
+            this->fcgCXVppYadifMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2006,6 +2012,7 @@ private: System::Windows::Forms::Label ^fcgLBSSIM;
             this->fcgtabPageAudioMain->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAudioBitrate))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
+            this->fcgPNVppYadif->SuspendLayout();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
@@ -3802,6 +3809,44 @@ private: System::Windows::Forms::Label ^fcgLBSSIM;
             this->tabPageVideoDetail->Text = L"詳細設定";
             this->tabPageVideoDetail->UseVisualStyleBackColor = true;
             // 
+            // fcgCBPSNR
+            // 
+            this->fcgCBPSNR->AutoSize = true;
+            this->fcgCBPSNR->Location = System::Drawing::Point(133, 325);
+            this->fcgCBPSNR->Name = L"fcgCBPSNR";
+            this->fcgCBPSNR->Size = System::Drawing::Size(15, 14);
+            this->fcgCBPSNR->TabIndex = 173;
+            this->fcgCBPSNR->Tag = L"reCmd";
+            this->fcgCBPSNR->UseVisualStyleBackColor = true;
+            // 
+            // fcgLBPSNR
+            // 
+            this->fcgLBPSNR->AutoSize = true;
+            this->fcgLBPSNR->Location = System::Drawing::Point(21, 324);
+            this->fcgLBPSNR->Name = L"fcgLBPSNR";
+            this->fcgLBPSNR->Size = System::Drawing::Size(32, 15);
+            this->fcgLBPSNR->TabIndex = 174;
+            this->fcgLBPSNR->Text = L"psnr";
+            // 
+            // fcgCBSSIM
+            // 
+            this->fcgCBSSIM->AutoSize = true;
+            this->fcgCBSSIM->Location = System::Drawing::Point(133, 301);
+            this->fcgCBSSIM->Name = L"fcgCBSSIM";
+            this->fcgCBSSIM->Size = System::Drawing::Size(15, 14);
+            this->fcgCBSSIM->TabIndex = 171;
+            this->fcgCBSSIM->Tag = L"reCmd";
+            this->fcgCBSSIM->UseVisualStyleBackColor = true;
+            // 
+            // fcgLBSSIM
+            // 
+            this->fcgLBSSIM->AutoSize = true;
+            this->fcgLBSSIM->Location = System::Drawing::Point(21, 300);
+            this->fcgLBSSIM->Name = L"fcgLBSSIM";
+            this->fcgLBSSIM->Size = System::Drawing::Size(34, 15);
+            this->fcgLBSSIM->TabIndex = 172;
+            this->fcgLBSSIM->Text = L"ssim";
+            // 
             // fcgCBLossless
             // 
             this->fcgCBLossless->AutoSize = true;
@@ -4812,6 +4857,7 @@ private: System::Windows::Forms::Label ^fcgLBSSIM;
             // 
             // fcggroupBoxVppDeinterlace
             // 
+            this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppYadif);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppNnedi);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgLBVppDeinterlace);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgCXVppDeinterlace);
@@ -6265,43 +6311,33 @@ private: System::Windows::Forms::Label ^fcgLBSSIM;
             this->fcgTXCmd->TabIndex = 52;
             this->fcgTXCmd->DoubleClick += gcnew System::EventHandler(this, &frmConfig::fcgTXCmd_DoubleClick);
             // 
-            // fcgCBSSIM
+            // fcgPNVppYadif
             // 
-            this->fcgCBSSIM->AutoSize = true;
-            this->fcgCBSSIM->Location = System::Drawing::Point(133, 301);
-            this->fcgCBSSIM->Name = L"fcgCBSSIM";
-            this->fcgCBSSIM->Size = System::Drawing::Size(15, 14);
-            this->fcgCBSSIM->TabIndex = 171;
-            this->fcgCBSSIM->Tag = L"reCmd";
-            this->fcgCBSSIM->UseVisualStyleBackColor = true;
+            this->fcgPNVppYadif->Controls->Add(this->fcgLBVppYadifMode);
+            this->fcgPNVppYadif->Controls->Add(this->fcgCXVppYadifMode);
+            this->fcgPNVppYadif->Location = System::Drawing::Point(6, 41);
+            this->fcgPNVppYadif->Name = L"fcgPNVppYadif";
+            this->fcgPNVppYadif->Size = System::Drawing::Size(251, 294);
+            this->fcgPNVppYadif->TabIndex = 89;
             // 
-            // fcgLBSSIM
+            // fcgLBVppYadifMode
             // 
-            this->fcgLBSSIM->AutoSize = true;
-            this->fcgLBSSIM->Location = System::Drawing::Point(21, 300);
-            this->fcgLBSSIM->Name = L"fcgLBSSIM";
-            this->fcgLBSSIM->Size = System::Drawing::Size(34, 15);
-            this->fcgLBSSIM->TabIndex = 172;
-            this->fcgLBSSIM->Text = L"ssim";
+            this->fcgLBVppYadifMode->AutoSize = true;
+            this->fcgLBVppYadifMode->Location = System::Drawing::Point(14, 12);
+            this->fcgLBVppYadifMode->Name = L"fcgLBVppYadifMode";
+            this->fcgLBVppYadifMode->Size = System::Drawing::Size(38, 14);
+            this->fcgLBVppYadifMode->TabIndex = 78;
+            this->fcgLBVppYadifMode->Text = L"mode";
             // 
-            // fcgCBPSNR
+            // fcgCXVppYadifMode
             // 
-            this->fcgCBPSNR->AutoSize = true;
-            this->fcgCBPSNR->Location = System::Drawing::Point(133, 325);
-            this->fcgCBPSNR->Name = L"fcgCBPSNR";
-            this->fcgCBPSNR->Size = System::Drawing::Size(15, 14);
-            this->fcgCBPSNR->TabIndex = 173;
-            this->fcgCBPSNR->Tag = L"reCmd";
-            this->fcgCBPSNR->UseVisualStyleBackColor = true;
-            // 
-            // fcgLBPSNR
-            // 
-            this->fcgLBPSNR->AutoSize = true;
-            this->fcgLBPSNR->Location = System::Drawing::Point(21, 324);
-            this->fcgLBPSNR->Name = L"fcgLBPSNR";
-            this->fcgLBPSNR->Size = System::Drawing::Size(32, 15);
-            this->fcgLBPSNR->TabIndex = 174;
-            this->fcgLBPSNR->Text = L"psnr";
+            this->fcgCXVppYadifMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppYadifMode->FormattingEnabled = true;
+            this->fcgCXVppYadifMode->Location = System::Drawing::Point(81, 9);
+            this->fcgCXVppYadifMode->Name = L"fcgCXVppYadifMode";
+            this->fcgCXVppYadifMode->Size = System::Drawing::Size(160, 22);
+            this->fcgCXVppYadifMode->TabIndex = 77;
+            this->fcgCXVppYadifMode->Tag = L"reCmd";
             // 
             // frmConfig
             // 
@@ -6470,6 +6506,8 @@ private: System::Windows::Forms::Label ^fcgLBSSIM;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAudioBitrate))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
+            this->fcgPNVppYadif->ResumeLayout(false);
+            this->fcgPNVppYadif->PerformLayout();
             this->ResumeLayout(false);
             this->PerformLayout();
 
