@@ -17,8 +17,8 @@ There are 2 types of software developed, one is command line version that runs i
 [rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-17.html)
 
 ## System Requirements
-Windows 7, 8, 8.1, 10 (x86 / x64)  
-Aviutl 0.99g4 or later (NVEnc.auo)  
+Windows 10 (x86 / x64)  
+Aviutl 1.00 or later (NVEnc.auo)  
 Hardware which supports NVENC  
   NVIDIA GPU GeForce Kepler gen or later (GT / GTX 6xx or later)  
   ※ Since GT 63x, 62x etc. are renames of the Fermi generation, they cannot run NVEnc.

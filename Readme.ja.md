@@ -14,8 +14,8 @@ by rigaya
 [rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-17.html)  
 
 ## 基本動作環境  
-Windows 7, 8, 8.1, 10 (x86/x64)  
-[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/) 0.99g4 以降 (NVEnc.auo)  
+Windows 10 (x86/x64)  
+[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/) 1.00 以降 (NVEnc.auo)  
 NVEncが載ったハードウェア  
   NVIDIA製 GPU GeForce Kepler世代以降 (GT/GTX 6xx 以降)  
   ※GT 63x, 62x等はFermi世代のリネームであるため非対応なものがあります。  

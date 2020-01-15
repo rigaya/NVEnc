@@ -16,8 +16,8 @@ by rigaya
 [rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-17.html)
 
 ## 系统需求
-Windows 7, 8, 8.1, 10 (x86 / x64)  
-Aviutl 0.99g4 or later (NVEnc.auo)  
+Windows 10 (x86 / x64)  
+Aviutl 1.00 or later (NVEnc.auo)  
 支持NVENC的硬件  
   NVIDIA GPU GeForce Kepler gen或更新(GT / GTX 6xx或更新)  
   ※ 由于GT 63x, 62x等是费米代的重命名，他们不能运行NVEnc。
