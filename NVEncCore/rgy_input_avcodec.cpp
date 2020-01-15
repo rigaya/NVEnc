@@ -784,6 +784,9 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
         return RGY_ERR_UNKNOWN;
     }
     av_dict_free(&pDict);
+
+    codecCtxDec->time_base = av_stream_get_codec_timebase(m_Demux.video.stream);
+    codecCtxDec->pkt_timebase = m_Demux.video.stream->time_base;
     if (0 > (ret = avcodec_open2(codecCtxDec.get(), codecDecode, nullptr))) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNSUPPORTED;
