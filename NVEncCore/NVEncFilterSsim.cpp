@@ -135,7 +135,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
     }
     m_psnrTotal = 0.0;
 
-    setFilterInfo(pParam->print());
+    setFilterInfo(pParam->print() + _T("(") + RGY_CSP_NAMES[pParam->frameOut.csp] + _T(")"));
     m_pParam = pParam;
     return sts;
 }
