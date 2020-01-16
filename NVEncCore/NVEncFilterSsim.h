@@ -67,6 +67,7 @@ public:
     RGY_ERR addBitstream(const RGYBitstream *bitstream);
 protected:
     RGY_ERR init_cuda_resources();
+    void close_cuda_resources();
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     virtual RGY_ERR calc_ssim_psnr(const FrameInfo *p0, const FrameInfo *p1);

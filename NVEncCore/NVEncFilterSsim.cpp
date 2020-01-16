@@ -331,6 +331,38 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
     return RGY_ERR_NONE;
 }
 
+void NVEncFilterSsim::close_cuda_resources() {
+    {
+        CCtxAutoLock ctxLock(m_vidctxlock);
+        m_streamCrop.reset();
+        m_cropEvent.reset();
+        for (auto& st : m_streamCalcSsim) {
+            st.reset();
+        }
+        for (auto &st : m_streamCalcPsnr) {
+            st.reset();
+        }
+        for (auto &buf : m_tmpSsim) {
+            buf.clear();
+        }
+        for (auto &buf : m_tmpPsnr) {
+            buf.clear();
+        }
+        m_decFrameCopy.reset();
+        m_input.clear();
+        m_unused.clear();
+    }
+    m_decoder.reset();
+    if (m_vidctxlock) {
+        cuvidCtxLockDestroy(m_vidctxlock);
+        m_vidctxlock = nullptr;
+    }
+    if (m_cudaCtx) {
+        cuCtxDestroy(m_cudaCtx);
+        m_cudaCtx = nullptr;
+    }
+}
+
 RGY_ERR NVEncFilterSsim::addBitstream(const RGYBitstream *bitstream) {
     if (m_decoder->GetError()) {
         return RGY_ERR_UNKNOWN;
@@ -431,6 +463,7 @@ RGY_ERR NVEncFilterSsim::thread_func() {
     m_decodeStarted = true;
     auto ret = compare_frames(true);
     AddMessage(RGY_LOG_DEBUG, _T("Finishing ssim/psnr calculation thread: %d.\n"), get_err_mes(ret));
+    close_cuda_resources();
     return ret;
 }
 
@@ -545,22 +578,6 @@ void NVEncFilterSsim::close() {
         m_abort = true;
         m_thread.join();
     }
-    for (size_t i = 0; i < m_streamCalcSsim.size(); i++) {
-        m_streamCalcSsim[i].reset();
-    }
-    for (size_t i = 0; i < m_streamCalcPsnr.size(); i++) {
-        m_streamCalcPsnr[i].reset();
-    }
-    for (size_t i = 0; i < m_tmpSsim.size(); i++) {
-        m_tmpSsim[i].clear();
-    }
-    for (size_t i = 0; i < m_tmpPsnr.size(); i++) {
-        m_tmpPsnr[i].clear();
-    }
-    m_decFrameCopy.reset();
-    m_streamCrop.reset();
-    m_input.clear();
-    m_unused.clear();
-    m_decoder.reset();
+    close_cuda_resources();
     AddMessage(RGY_LOG_DEBUG, _T("closed ssim/psnr filter.\n"));
 }
