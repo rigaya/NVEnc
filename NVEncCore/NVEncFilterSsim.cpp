@@ -559,7 +559,6 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
         }
         auto sts_filter = calc_ssim_psnr(&originalFrame->frame, &targetFrame);
         if (sts_filter != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_crop->name().c_str());
             return sts_filter;
         }
 
