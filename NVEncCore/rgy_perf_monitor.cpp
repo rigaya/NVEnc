@@ -472,6 +472,7 @@ CPerfMonitor::CPerfMonitor() :
     m_pid(),
     m_sPywPath(),
     m_info(),
+    m_refreshedTime(),
     m_thCheck(),
     m_thMainThread(),
     m_pProcess(),
@@ -534,10 +535,16 @@ CPerfMonitor::~CPerfMonitor() {
 }
 
 void CPerfMonitor::clear() {
+    send_thread_fin();
     if (m_thCheck.joinable()) {
+        AddMessage(RGY_LOG_DEBUG, _T("Closing thread...\n"));
         m_bAbort = true;
         m_thCheck.join();
+        AddMessage(RGY_LOG_DEBUG, _T("Closed thread.\n"));
     }
+    AddMessage(RGY_LOG_DEBUG, _T("Closing perf counter...\n"));
+    m_perfCounter.reset();
+    AddMessage(RGY_LOG_DEBUG, _T("Closed perf counter.\n"));
     memset(m_info, 0, sizeof(m_info));
     memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
 #if ENABLE_METRIC_FRAMEWORK
@@ -559,6 +566,7 @@ void CPerfMonitor::clear() {
     m_bEncStarted = false;
     if (m_fpLog) {
         fprintf(m_fpLog.get(), "\n\n");
+        AddMessage(RGY_LOG_DEBUG, _T("Closing perf monitor log...\n"));
     }
     m_fpLog.reset();
     if (m_pipes.f_stdin) {
@@ -567,6 +575,13 @@ void CPerfMonitor::clear() {
     }
     m_pProcess.reset();
     m_pRGYLog.reset();
+}
+
+void CPerfMonitor::send_thread_fin() {
+    m_bAbort = true;
+    if (m_perfCounter) {
+        m_perfCounter->send_thread_fin();
+    }
 }
 
 int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
@@ -717,6 +732,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_nSelectOutputLog = nSelectOutputLog;
     m_nSelectCheck = m_nSelectOutputLog | m_nSelectOutputPlot;
     m_thMainThread = std::move(thMainThread);
+    m_refreshedTime = std::chrono::system_clock::now() - std::chrono::milliseconds(m_nInterval);
 
     if (!m_fpLog && m_sMonitorFilename.length() > 0) {
         m_fpLog = std::unique_ptr<FILE, fp_deleter>(_tfopen(m_sMonitorFilename.c_str(), _T("a")));
@@ -1323,20 +1339,24 @@ void CPerfMonitor::loader(void *prm) {
 
 void CPerfMonitor::run() {
     while (!m_bAbort) {
-        check();
-        if (m_pProcess && !m_pProcess->processAlive()) {
-            if (m_pipes.f_stdin) {
-                fclose(m_pipes.f_stdin);
+        auto timenow = std::chrono::system_clock::now();
+        if (m_nInterval <= 100 || timenow - m_refreshedTime > std::chrono::milliseconds(m_nInterval)) {
+            check();
+            if (m_pProcess && !m_pProcess->processAlive()) {
+                if (m_pipes.f_stdin) {
+                    fclose(m_pipes.f_stdin);
+                }
+                m_pipes.f_stdin = NULL;
+                if (m_nSelectOutputPlot) {
+                    m_pRGYLog->write(RGY_LOG_WARN, _T("Error occured running python for perf-monitor-plot.\n"));
+                    m_nSelectOutputPlot = 0;
+                }
             }
-            m_pipes.f_stdin = NULL;
-            if (m_nSelectOutputPlot) {
-                m_pRGYLog->write(RGY_LOG_WARN, _T("Error occured running python for perf-monitor-plot.\n"));
-                m_nSelectOutputPlot = 0;
-            }
+            write(m_fpLog.get(), m_nSelectOutputLog);
+            write(m_pipes.f_stdin, m_nSelectOutputPlot);
+            m_refreshedTime = timenow;
         }
-        write(m_fpLog.get(),   m_nSelectOutputLog);
-        write(m_pipes.f_stdin, m_nSelectOutputPlot);
-        std::this_thread::sleep_for(std::chrono::milliseconds(m_nInterval));
+        std::this_thread::sleep_for(std::chrono::milliseconds((m_nInterval <= 100) ? m_nInterval : 50));
     }
     check();
     write(m_fpLog.get(),   m_nSelectOutputLog);

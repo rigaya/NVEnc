@@ -52,8 +52,9 @@ EncodeStatus::EncodeStatus() {
     m_bStdErrWriteToConsole = false;
 }
 EncodeStatus::~EncodeStatus() {
-    m_pRGYLog.reset();
+    if (m_pRGYLog) m_pRGYLog->write_log(RGY_LOG_DEBUG, _T("Closing EncodeStatus...\n"));
     m_pPerfMonitor.reset();
+    m_pRGYLog.reset();
     m_sStartTime.reset();
 }
 
@@ -441,7 +442,7 @@ void EncodeStatus::WriteLineDirect(const TCHAR *mes) {
 }
 void EncodeStatus::WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
     if (count) {
-        TCHAR mes[512] ={ 0 };
+        TCHAR mes[512] = { 0 };
         int mes_len = 0;
         const int header_len = (int)_tcslen(header);
         memcpy(mes, header, header_len * sizeof(mes[0]));

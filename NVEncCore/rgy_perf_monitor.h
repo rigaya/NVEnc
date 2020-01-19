@@ -383,7 +383,7 @@ public:
 #if ENABLE_PERF_COUNTER
     std::vector<CounterEntry> GetPerfCounters() {
         std::vector<CounterEntry> counters;
-        {
+        if (m_perfCounter) {
             std::lock_guard<std::mutex> lock(m_perfCounter->getmtx());
             counters = m_perfCounter->getCounters().filter_pid(m_pid).get();
         }
@@ -404,12 +404,39 @@ public:
 #endif //#if ENABLE_GPUZ_INFO
 
     void clear();
+    void send_thread_fin();
 protected:
     int createPerfMpnitorPyw(const TCHAR *pywPath);
     void check();
     void run();
     void write_header(FILE *fp, int nSelect);
     void write(FILE *fp, int nSelect);
+
+    void AddMessage(int log_level, const tstring &str) {
+        if (m_pRGYLog == nullptr || log_level < m_pRGYLog->getLogLevel()) {
+            return;
+        }
+        auto lines = split(str, _T("\n"));
+        for (const auto &line : lines) {
+            if (line[0] != _T('\0')) {
+                m_pRGYLog->write(log_level, (_T("perf monitor: ") + line + _T("\n")).c_str());
+            }
+        }
+    }
+    void AddMessage(int log_level, const TCHAR *format, ...) {
+        if (m_pRGYLog == nullptr || log_level < m_pRGYLog->getLogLevel()) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+        _vstprintf_s(&buffer[0], len, format, args);
+        va_end(args);
+        AddMessage(log_level, buffer);
+    }
 
     static void loader(void *prm);
 
@@ -420,6 +447,7 @@ protected:
     uint32_t m_pid;
     tstring m_sPywPath;
     PerfInfo m_info[2];
+    std::chrono::system_clock::time_point m_refreshedTime;
     std::thread m_thCheck;
     std::unique_ptr<void, handle_deleter> m_thMainThread;
     std::unique_ptr<RGYPipeProcess> m_pProcess;
