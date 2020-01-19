@@ -121,6 +121,7 @@ RGYInputAvcodec::~RGYInputAvcodec() {
 void RGYInputAvcodec::CloseThread() {
     m_Demux.thread.bAbortInput = true;
     if (m_Demux.thread.thInput.joinable()) {
+        AddMessage(RGY_LOG_DEBUG, _T("Closing Input thread.\n"));
         m_Demux.qVideoPkt.set_capacity(SIZE_MAX);
         m_Demux.qVideoPkt.set_keep_length(0);
         m_Demux.thread.thInput.join();
@@ -132,22 +133,31 @@ void RGYInputAvcodec::CloseThread() {
 void RGYInputAvcodec::CloseFormat(AVDemuxFormat *format) {
     //close video file
     if (format->fpInput) {
+        AddMessage(RGY_LOG_DEBUG, _T("Closing file pointer...\n"));
         if (format->formatCtx) {
             if (format->formatCtx->pb) {
                 if (format->formatCtx->pb->buffer) {
+                    AddMessage(RGY_LOG_DEBUG, _T("Closing pb->buffer...\n"));
                     av_freep(&format->formatCtx->pb->buffer);
+                    AddMessage(RGY_LOG_DEBUG, _T("Closed pb->buffer.\n"));
                 }
+                AddMessage(RGY_LOG_DEBUG, _T("Closing avio context...\n"));
                 avio_context_free(&format->formatCtx->pb);
+                AddMessage(RGY_LOG_DEBUG, _T("Closed avio context.\n"));
             }
         }
         fclose(format->fpInput);
+        AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
     }
     if (format->formatCtx) {
+        AddMessage(RGY_LOG_DEBUG, _T("Closing avformat context...\n"));
         avformat_close_input(&format->formatCtx);
         AddMessage(RGY_LOG_DEBUG, _T("Closed avformat context.\n"));
     }
     if (format->formatOptions) {
+        AddMessage(RGY_LOG_DEBUG, _T("Free formatOptions...\n"));
         av_dict_free(&format->formatOptions);
+        AddMessage(RGY_LOG_DEBUG, _T("Freed formatOptions.\n"));
     }
     memset(format, 0, sizeof(format[0]));
 }
@@ -155,30 +165,46 @@ void RGYInputAvcodec::CloseFormat(AVDemuxFormat *format) {
 void RGYInputAvcodec::CloseVideo(AVDemuxVideo *video) {
     //close parser
     if (video->pParserCtx) {
+        AddMessage(RGY_LOG_DEBUG, _T("Close parser...\n"));
         av_parser_close(video->pParserCtx);
+        AddMessage(RGY_LOG_DEBUG, _T("Closed parser.\n"));
     }
     if (video->pCodecCtxParser) {
+        AddMessage(RGY_LOG_DEBUG, _T("Close codecCtx for parser...\n"));
         avcodec_free_context(&video->pCodecCtxParser);
+        AddMessage(RGY_LOG_DEBUG, _T("Closed codecCtx for parser.\n"));
     }
     if (video->codecCtxDecode) {
+        AddMessage(RGY_LOG_DEBUG, _T("Close codecCtx...\n"));
         avcodec_free_context(&video->codecCtxDecode);
+        AddMessage(RGY_LOG_DEBUG, _T("Closed codecCtx.\n"));
     }
     if (video->contentLight) {
+        AddMessage(RGY_LOG_DEBUG, _T("Free content light metadata...\n"));
         av_freep(&video->contentLight);
+        AddMessage(RGY_LOG_DEBUG, _T("Freed content light metadata.\n"));
     }
     if (video->masteringDisplay) {
+        AddMessage(RGY_LOG_DEBUG, _T("Free mastering display metadata...\n"));
         av_freep(&video->masteringDisplay);
+        AddMessage(RGY_LOG_DEBUG, _T("Freed mastering display metadata.\n"));
     }
     //close bitstreamfilter
     if (video->bsfcCtx) {
+        AddMessage(RGY_LOG_DEBUG, _T("Free bsf...\n"));
         av_bsf_free(&video->bsfcCtx);
+        AddMessage(RGY_LOG_DEBUG, _T("Freed bsf.\n"));
     }
     if (video->frame) {
+        AddMessage(RGY_LOG_DEBUG, _T("Free video frame...\n"));
         av_frame_free(&video->frame);
+        AddMessage(RGY_LOG_DEBUG, _T("Freed video frame.\n"));
     }
 
     if (video->extradata) {
+        AddMessage(RGY_LOG_DEBUG, _T("Free extra data...\n"));
         av_free(video->extradata);
+        AddMessage(RGY_LOG_DEBUG, _T("Freed extra data.\n"));
     }
 
     memset(video, 0, sizeof(video[0]));
@@ -187,10 +213,14 @@ void RGYInputAvcodec::CloseVideo(AVDemuxVideo *video) {
 
 void RGYInputAvcodec::CloseStream(AVDemuxStream *stream) {
     if (stream->pktSample.data) {
+        AddMessage(RGY_LOG_DEBUG, _T("Free packet sample...\n"));
         av_packet_unref(&stream->pktSample);
+        AddMessage(RGY_LOG_DEBUG, _T("Freed packet sample.\n"));
     }
     if (stream->subtitleHeader) {
+        AddMessage(RGY_LOG_DEBUG, _T("Free subtitleHeader...\n"));
         av_free(stream->subtitleHeader);
+        AddMessage(RGY_LOG_DEBUG, _T("Freed subtitleHeader.\n"));
     }
     memset(stream, 0, sizeof(stream[0]));
     stream->appliedTrimBlock = -1;
@@ -208,16 +238,18 @@ void RGYInputAvcodec::Close() {
     }
     m_Demux.qStreamPktL1.clear();
     m_Demux.qStreamPktL2.close([](AVPacket *pkt) { av_packet_unref(pkt); });
-    AddMessage(RGY_LOG_DEBUG, _T("Cleared Stream Packet Buffer.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed Stream Packet Buffer.\n"));
 
     m_cap2ass.close();
     AddMessage(RGY_LOG_DEBUG, _T("Closed caption handler.\n"));
 
-    CloseFormat(&m_Demux.format);
-    CloseVideo(&m_Demux.video);   AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
+    CloseFormat(&m_Demux.format); AddMessage(RGY_LOG_DEBUG, _T("Closed format.\n"));
+
+    CloseVideo(&m_Demux.video); AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
     for (int i = 0; i < (int)m_Demux.stream.size(); i++) {
+        AddMessage(RGY_LOG_DEBUG, _T("Closing Stream #%d...\n"), i);
         CloseStream(&m_Demux.stream[i]);
-        AddMessage(RGY_LOG_DEBUG, _T("Cleared Stream #%d.\n"), i);
+        AddMessage(RGY_LOG_DEBUG, _T("Closed Stream #%d.\n"), i);
     }
     m_Demux.stream.clear();
     m_Demux.chapter.clear();
@@ -235,8 +267,10 @@ void RGYInputAvcodec::Close() {
     m_encSatusInfo.reset();
     if (m_logFramePosList.length()) {
         m_Demux.frames.printList(m_logFramePosList.c_str());
+        AddMessage(RGY_LOG_DEBUG, _T("Output logFramePosList.\n"));
     }
     m_Demux.frames.clear();
+    AddMessage(RGY_LOG_DEBUG, _T("Cleared frame pos list.\n"));
 
     memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
