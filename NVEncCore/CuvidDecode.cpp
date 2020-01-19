@@ -189,23 +189,39 @@ int CuvidDecode::DecPictureDisplay(CUVIDPARSERDISPINFO *pPicParams) {
     return 1;
 }
 
-void CuvidDecode::CloseDecoder() {
+RGY_ERR CuvidDecode::CloseDecoder() {
+    RGY_ERR err = RGY_ERR_NONE;
+    AddMessage(RGY_LOG_DEBUG, _T("Closing decoder...\n"));
     if (m_videoDecoder) {
-        cuvidDestroyDecoder(m_videoDecoder);
+        try {
+            cuvidDestroyDecoder(m_videoDecoder);
+            AddMessage(RGY_LOG_DEBUG, _T("cuvidDestroyDecoder: Fin.\n"));
+        } catch (std::exception e) {
+            AddMessage(RGY_LOG_ERROR, _T("Error in cuvidDestroyDecoder: %s\n"), char_to_tstring(e.what()).c_str());
+            err = RGY_ERR_UNKNOWN;
+        }
         m_videoDecoder = nullptr;
     }
     if (m_videoParser) {
-        cuvidDestroyVideoParser(m_videoParser);
+        try {
+            cuvidDestroyVideoParser(m_videoParser);
+            AddMessage(RGY_LOG_DEBUG, _T("cuvidDestroyVideoParser: Fin.\n"));
+        } catch (std::exception e) {
+            AddMessage(RGY_LOG_ERROR, _T("Error in cuvidDestroyVideoParser: %s\n"), char_to_tstring(e.what()).c_str());
+            err = RGY_ERR_UNKNOWN;
+        }
         m_videoParser = nullptr;
     }
     m_ctxLock = nullptr;
-    m_pPrintMes.reset();
     if (m_pFrameQueue) {
         delete m_pFrameQueue;
         m_pFrameQueue = nullptr;
     }
     m_decodedFrames = 0;
     m_bError = false;
+    AddMessage(RGY_LOG_DEBUG, _T("Closed decoder.\n"));
+    m_pPrintMes.reset();
+    return err;
 }
 
 CUresult CuvidDecode::CreateDecoder() {
