@@ -3591,7 +3591,6 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         param->frameIn.deivce_mem = true;
         param->frameOut.deivce_mem = true;
         param->bOutOverwrite = false;
-        param->ctxLock = m_ctxLock;
         param->streamtimebase = m_outputTimebase;
         param->ssim = inputParam->ssim;
         param->psnr = inputParam->psnr;

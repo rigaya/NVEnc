@@ -43,11 +43,10 @@ public:
     bool ssim;
     bool psnr;
     int deviceId;
-    CUvideoctxlock ctxLock;
     VideoInfo input;
     rgy_rational<int> streamtimebase;
 
-    NVEncFilterParamSsim() : ssim(true), psnr(false), deviceId(0), ctxLock(), input(), streamtimebase() {
+    NVEncFilterParamSsim() : ssim(true), psnr(false), deviceId(0), input(), streamtimebase() {
 
     };
     virtual ~NVEncFilterParamSsim() {};
