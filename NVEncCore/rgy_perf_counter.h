@@ -32,6 +32,7 @@
 #include <string>
 #include <thread>
 #include <mutex>
+#include <chrono>
 #include <vector>
 
 struct CounterEntry {
@@ -79,7 +80,8 @@ public:
     void close();
 
     void thread_run();
-    void thread_fin();
+    int thread_fin();
+    void send_thread_fin();
 
     std::mutex &getmtx() {
         return mtxRefresh;
@@ -95,6 +97,7 @@ protected:
     std::thread thRefresh;
     std::mutex mtxRefresh;
     bool m_refreshed;
+    std::chrono::system_clock::time_point m_refreshedTime;
     std::vector<CounterEntry> counters;
 
     long m_nameHandle;

@@ -170,6 +170,7 @@ RGYGPUCounterWin::RGYGPUCounterWin() :
     thRefresh(),
     mtxRefresh(),
     m_refreshed(false),
+    m_refreshedTime(),
     counters(),
     m_nameHandle(0),
     m_utilizationHandle(0),
@@ -182,7 +183,6 @@ RGYGPUCounterWin::RGYGPUCounterWin() :
 
 RGYGPUCounterWin::~RGYGPUCounterWin() {
     thread_fin();
-    close();
 }
 
 void RGYGPUCounterWin::close() {
@@ -333,10 +333,14 @@ int RGYGPUCounterWin::thread_func() {
         return 1;
     }
     while (!m_abort) {
-        auto ret = refreshCounters();
-        if (ret) return ret;
-        m_refreshed = true;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        auto timenow = std::chrono::system_clock::now();
+        if (timenow - m_refreshedTime > std::chrono::milliseconds(500)) {
+            auto ret = refreshCounters();
+            if (ret) break;
+            m_refreshed = true;
+            m_refreshedTime = timenow;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     close();
     CoUninitialize();
@@ -344,12 +348,22 @@ int RGYGPUCounterWin::thread_func() {
 }
 
 void RGYGPUCounterWin::thread_run() {
+    m_refreshedTime = std::chrono::system_clock::now() - std::chrono::milliseconds(500);
     thRefresh = std::thread(&RGYGPUCounterWin::thread_func, this);
 }
 
-void RGYGPUCounterWin::thread_fin() {
-    if (thRefresh.joinable()) {
-        m_abort = true;
-        thRefresh.join();
+void RGYGPUCounterWin::send_thread_fin() {
+    m_abort = true;
+}
+
+int RGYGPUCounterWin::thread_fin() {
+    try {
+        if (thRefresh.joinable()) {
+            m_abort = true;
+            thRefresh.join();
+        }
+    } catch (...) {
+        return 1;
     }
+    return 0;
 }
