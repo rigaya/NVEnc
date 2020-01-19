@@ -2106,6 +2106,14 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
                 }
             }
         }
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.tier == NV_ENC_TIER_HEVC_HIGH) {
+            if (m_stEncConfig.encodeCodecConfig.hevcConfig.level != 0
+                && !is_avail_hevc_high_tier(m_stEncConfig.encodeCodecConfig.hevcConfig.level)) {
+                const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
+                PrintMes(RGY_LOG_WARN, _T("HEVC Level %s does not support High tier, switching to Main tier.\n"), get_codec_level_name(rgy_codec, m_stEncConfig.encodeCodecConfig.hevcConfig.level).c_str());
+                m_stEncConfig.encodeCodecConfig.hevcConfig.tier = NV_ENC_TIER_HEVC_MAIN;
+            }
+        }
     }
     if (m_dynamicRC.size() > 0 && !getCapLimit(NV_ENC_CAPS_SUPPORT_DYN_BITRATE_CHANGE)) {
         error_feature_unsupported(RGY_LOG_ERROR, _T("dynamic RC Change"));
