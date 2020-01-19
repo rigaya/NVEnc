@@ -1228,19 +1228,34 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     m_cuvidDec.reset();
 
     if (m_ctxLock) {
-        cuvidCtxLockDestroy(m_ctxLock);
+        PrintMes(RGY_LOG_DEBUG, _T("cuvidCtxLockDestroy...\n"));
+        try {
+            cuvidCtxLockDestroy(m_ctxLock);
+            PrintMes(RGY_LOG_DEBUG, _T("cuvidCtxLockDestroy: Fin.\n"));
+        } catch (std::exception e) {
+            PrintMes(RGY_LOG_ERROR, _T("Error in cuvidCtxLockDestroy: %s\n"), char_to_tstring(e.what()).c_str());
+        }
         m_ctxLock = nullptr;
     }
     m_keyFile.clear();
 #endif //#if ENABLE_AVSW_READER
 
     m_pStatus.reset();
+    PrintMes(RGY_LOG_DEBUG, _T("Closed EncodeStatus.\n"));
 
     if (m_pDevice) {
-        CUresult cuResult = CUDA_SUCCESS;
-        cuResult = cuCtxDestroy((CUcontext)m_pDevice);
-        if (cuResult != CUDA_SUCCESS)
-            PrintMes(RGY_LOG_ERROR, _T("cuCtxDestroy error:0x%x: %s\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+        PrintMes(RGY_LOG_DEBUG, _T("cuCtxDestroy...\n"));
+        try {
+            CUresult cuResult = CUDA_SUCCESS;
+            cuResult = cuCtxDestroy((CUcontext)m_pDevice);
+            if (cuResult != CUDA_SUCCESS) {
+                PrintMes(RGY_LOG_ERROR, _T("cuCtxDestroy error:0x%x: %s\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
+            } else {
+                PrintMes(RGY_LOG_DEBUG, _T("cuCtxDestroy: Fin.\n"));
+            }
+        } catch (std::exception e) {
+            PrintMes(RGY_LOG_ERROR, _T("Error in cuCtxDestroy: %s\n"), char_to_tstring(e.what()).c_str());
+        }
 
         m_pDevice = NULL;
     }
@@ -1248,6 +1263,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing perf monitor...\n"));
     m_pPerfMonitor.reset();
 
+    PrintMes(RGY_LOG_DEBUG, _T("Closing logger...\n"));
     m_pNVLog.reset();
     m_pAbortByUser = nullptr;
     m_trimParam.list.clear();
@@ -4459,6 +4475,7 @@ NVENCSTATUS NVEncCore::Encode() {
 #if ENABLE_AVSW_READER
     if (th_input.joinable()) {
         //ここでフレームをすべて吐き出し切らないと、中断時にデコードスレッドが終了しない
+        PrintMes(RGY_LOG_DEBUG, _T("Flushing Decoder\n"));
         if (m_cuvidDec) {
             while (!m_cuvidDec->GetError()
                 && !(m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
@@ -4469,6 +4486,7 @@ NVENCSTATUS NVEncCore::Encode() {
             }
         }
         th_input.join();
+        PrintMes(RGY_LOG_DEBUG, _T("Flushed Decoder\n"));
     }
     for (const auto& writer : m_pFileWriterListAudio) {
         auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(writer);
