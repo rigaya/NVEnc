@@ -351,14 +351,20 @@ void NVEncFilterSsim::close_cuda_resources() {
         m_decFrameCopy.reset();
         m_input.clear();
         m_unused.clear();
+        AddMessage(RGY_LOG_DEBUG, _T("Freed CUDA resources.\n"));
     }
     m_decoder.reset();
+    AddMessage(RGY_LOG_DEBUG, _T("Closed Decoder: %s.\n"));
     if (m_vidctxlock) {
+        AddMessage(RGY_LOG_DEBUG, _T("cuvidCtxLockDestroy...\n"));
         cuvidCtxLockDestroy(m_vidctxlock);
+        AddMessage(RGY_LOG_DEBUG, _T("cuvidCtxLockDestroy: Fin.\n"));
         m_vidctxlock = nullptr;
     }
     if (m_cudaCtx) {
+        AddMessage(RGY_LOG_DEBUG, _T("cuCtxDestroy...\n"));
         cuCtxDestroy(m_cudaCtx);
+        AddMessage(RGY_LOG_DEBUG, _T("cuCtxDestroy: Fin.\n"));
         m_cudaCtx = nullptr;
     }
 }
