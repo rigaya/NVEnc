@@ -170,7 +170,7 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
     }
     AVBSFContext *bsfctmp = nullptr;
     if (0 > (ret = av_bsf_alloc(bsf, &bsfctmp))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), char_to_tstring(bsf_name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_NULL_PTR;
     }
     unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> bsfc(bsfctmp, RGYAVDeleter<AVBSFContext>(av_bsf_free));
@@ -178,18 +178,18 @@ RGY_ERR NVEncFilterSsim::initDecode(const RGYBitstream *bitstream) {
 
     unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>> codecpar(avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
     if (0 > (ret = avcodec_parameters_from_context(codecpar.get(), codecCtx.get()))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to get codec parameter for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to get codec parameter for %s: %s.\n"), char_to_tstring(bsf_name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
     if (0 > (ret = avcodec_parameters_copy(bsfc->par_in, codecpar.get()))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), char_to_tstring(bsf_name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
     if (0 > (ret = av_bsf_init(bsfc.get()))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), char_to_tstring(bsf_name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
-    AddMessage(RGY_LOG_DEBUG, _T("Initialized bsf %s\n"), bsf_name);
+    AddMessage(RGY_LOG_DEBUG, _T("Initialized bsf %s\n"), char_to_tstring(bsf_name).c_str());
 
     AVPacket pkt;
     av_new_packet(&pkt, (int)bitstream->size());
