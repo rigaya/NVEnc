@@ -1080,6 +1080,79 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->disableMp4Opt = true;
         return 0;
     }
+    if (IS_OPTION("fullrange") || IS_OPTION("fullrange:h264") || IS_OPTION("fullrange:hevc")) {
+        common->out_vui.fullrange = 1;
+        return 0;
+    }
+    if (IS_OPTION("colorrange")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_colorrange, strInput[i], &value)) {
+            common->out_vui.fullrange = value;
+        } else {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("videoformat") || IS_OPTION("videoformat:h264") || IS_OPTION("videoformat:hevc")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_videoformat, strInput[i], &value)) {
+            common->out_vui.format = value;
+        } else {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("colormatrix") || IS_OPTION("colormatrix:h264") || IS_OPTION("colormatrix:hevc")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_colormatrix, strInput[i], &value)) {
+            common->out_vui.descriptpresent = 1;
+            common->out_vui.matrix = (CspMatrix)value;
+        } else {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("colorprim") || IS_OPTION("colorprim:h264") || IS_OPTION("colorprim:hevc")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_colorprim, strInput[i], &value)) {
+            common->out_vui.descriptpresent = 1;
+            common->out_vui.colorprim = (CspColorprim)value;
+        } else {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("transfer") || IS_OPTION("transfer:h264") || IS_OPTION("transfer:hevc")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_transfer, strInput[i], &value)) {
+            common->out_vui.descriptpresent = 1;
+            common->out_vui.transfer = (CspTransfer)value;
+        } else {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("chromaloc") || IS_OPTION("chromaloc:h264") || IS_OPTION("chromaloc:hevc")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_chromaloc, strInput[i], &value)) {
+            common->out_vui.chromaloc = value;
+        } else {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return -1;
+        }
+        return 0;
+    }
     if (IS_OPTION("max-cll")) {
         i++;
         common->maxCll = tchar_to_string(strInput[i]);
@@ -1518,6 +1591,12 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
     OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
 
+    OPT_LST(_T("--chromaloc"), out_vui.chromaloc, list_chromaloc);
+    OPT_LST(_T("--colorrange"), out_vui.fullrange, list_colorrange);
+    OPT_LST(_T("--colormatrix"), out_vui.matrix, list_colormatrix);
+    OPT_LST(_T("--colorprim"), out_vui.colorprim, list_colorprim);
+    OPT_LST(_T("--transfer"), out_vui.transfer, list_transfer);
+    OPT_LST(_T("--videoformat"), out_vui.format, list_videoformat);
     OPT_STR(_T("--max-cll"), maxCll);
     OPT_STR(_T("--master-display"), masterDisplay);
     OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
@@ -1559,6 +1638,33 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     return cmd.str();
 }
 
+
+//適当に改行しながら表示する
+tstring print_list_options(const TCHAR *option_name, const CX_DESC *list, int default_index) {
+    const TCHAR *indent_space = _T("                                ");
+    const int indent_len = (int)_tcslen(indent_space);
+    const int max_len = 77;
+    tstring str = strsprintf(_T("   %s "), option_name);
+    while ((int)str.length() < indent_len)
+        str += _T(" ");
+    int line_len = (int)str.length();
+    for (int i = 0; list[i].desc; i++) {
+        if (line_len + _tcslen(list[i].desc) + _tcslen(_T(", ")) >= max_len) {
+            str += strsprintf(_T("\n%s"), indent_space);
+            line_len = indent_len;
+        } else {
+            if (i) {
+                str += strsprintf(_T(", "));
+                line_len += 2;
+            }
+        }
+        str += strsprintf(_T("%s"), list[i].desc);
+        line_len += (int)_tcslen(list[i].desc);
+    }
+    str += strsprintf(_T("\n%s default: %s\n"), indent_space, list[default_index].desc);
+    return str;
+}
+
 tstring gen_cmd_help_input() {
     tstring str =
         _T("\n")
@@ -1593,8 +1699,20 @@ tstring gen_cmd_help_input() {
 }
 
 tstring gen_cmd_help_common() {
+    tstring str =
+        _T("   --chromaloc <int>            set chroma location flag [ 0 ... 5 ]\n")
+        _T("                                  default: 0 = unspecified\n");
+    str += print_list_options(_T("--videoformat <string>"), list_videoformat, 0);
+    str += print_list_options(_T("--colormatrix <string>"), list_colormatrix, 0);
+    str += print_list_options(_T("--colorprim <string>"), list_colorprim, 0);
+    str += print_list_options(_T("--transfer <string>"), list_transfer, 0);
+    str += print_list_options(_T("--colorrange <string>"), list_colorrange, 0);
 #if ENABLE_AVSW_READER
-    tstring str = strsprintf(_T("")
+    str += strsprintf(
+        _T("   --max-cll <int>,<int>        set MaxCLL/MaxFall in nits. e.g. \"1000,300\"\n")
+        _T("   --master-display <string>    set Mastering display data.\n")
+        _T("   e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n")
+        _T("   --dhdr10-info <string>       apply dynamic HDR10+ metadata from json file.\n")
         _T("   --input-analyze <int>       set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avhw/avsw reader.\n")
@@ -1712,8 +1830,6 @@ tstring gen_cmd_help_common() {
         _T("                                 these could be only used with\n")
         _T("                                 avhw/avsw reader and avcodec muxer.\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
-#else
-    tstring str;
 #endif
     return str;
 }

@@ -238,12 +238,14 @@ enum {
     DELOGO_MODE_ADD,
 };
 
+const int COLOR_VALUE_COPY = -1;
 const int COLOR_VALUE_AUTO = std::numeric_limits<int>::max();
 const int HD_HEIGHT_THRESHOLD = 720;
 const int HD_INDEX = 2;
 const int SD_INDEX = 3;
 
 enum CspMatrix {
+    RGY_MATRIX_COPY        = COLOR_VALUE_COPY,
     RGY_MATRIX_RGB         = 0,
     RGY_MATRIX_BT709       = 1,
     RGY_MATRIX_UNSPECIFIED = 2,
@@ -279,6 +281,7 @@ static const std::array<CspMatrix, 14> CspMatrixList{
 
 const CX_DESC list_colormatrix[] = {
     { _T("undef"),       RGY_MATRIX_UNSPECIFIED  },
+    { _T("copy"),        RGY_MATRIX_COPY  },
     { _T("auto"),        COLOR_VALUE_AUTO },
     { _T("bt709"),       RGY_MATRIX_BT709  },
     { _T("smpte170m"),   RGY_MATRIX_ST170_M  },
@@ -297,6 +300,7 @@ const CX_DESC list_colormatrix[] = {
 };
 
 enum CspTransfer {
+    RGY_TRANSFER_COPY         = COLOR_VALUE_COPY,
     RGY_TRANSFER_BT709        = 1,
     RGY_TRANSFER_UNSPECIFIED  = 2,
     RGY_TRANSFER_BT470_M      = 4,
@@ -334,6 +338,7 @@ static const std::array<CspTransfer, 15> CspTransferList{
 
 const CX_DESC list_transfer[] = {
     { _T("undef"),         RGY_TRANSFER_UNSPECIFIED  },
+    { _T("copy"),          RGY_TRANSFER_COPY },
     { _T("auto"),          COLOR_VALUE_AUTO },
     { _T("bt709"),         RGY_TRANSFER_BT709  },
     { _T("smpte170m"),     RGY_TRANSFER_BT601  },
@@ -355,6 +360,7 @@ const CX_DESC list_transfer[] = {
 };
 
 enum CspColorprim {
+    RGY_PRIM_COPY        = COLOR_VALUE_COPY,
     RGY_PRIM_BT709       = 1,
     RGY_PRIM_UNSPECIFIED = 2,
     RGY_PRIM_BT470_M     = 4,
@@ -386,6 +392,7 @@ static const std::array<CspColorprim, 12> CspColorprimList{
 
 const CX_DESC list_colorprim[] = {
     { _T("undef"),     RGY_PRIM_UNSPECIFIED  },
+    { _T("copy"),      RGY_PRIM_COPY      },
     { _T("auto"),      COLOR_VALUE_AUTO   },
     { _T("bt709"),     RGY_PRIM_BT709     },
     { _T("smpte170m"), RGY_PRIM_ST170_M   },
@@ -403,6 +410,7 @@ const CX_DESC list_colorprim[] = {
 
 const CX_DESC list_videoformat[] = {
     { _T("undef"),     5  },
+    { _T("copy"),     -1  },
     { _T("ntsc"),      2  },
     { _T("component"), 0  },
     { _T("pal"),       1  },
@@ -417,6 +425,7 @@ const CX_DESC list_chromaloc[] = {
     { _T("3"), 3 },
     { _T("4"), 4 },
     { _T("5"), 5 },
+    { _T("copy"), COLOR_VALUE_COPY },
     { NULL, 0 }
 };
 const CX_DESC list_colorrange[] = {
@@ -424,11 +433,21 @@ const CX_DESC list_colorrange[] = {
     { _T("full"), 1 },
     { _T("tv"), 0 },
     { _T("pc"), 1 },
+    { _T("copy"),    COLOR_VALUE_COPY },
     { NULL, 0 }
 };
 
+template<typename T>
+void apply_auto_color_characteristic(T &value, const CX_DESC *list, int frame_height, T input_val) {
+    if (value == COLOR_VALUE_AUTO) {
+        value = (T)list[(frame_height >= HD_HEIGHT_THRESHOLD) ? HD_INDEX : SD_INDEX].value;
+    } else if (value == COLOR_VALUE_COPY) {
+        value = input_val;
+    }
+};
+
 struct VideoVUIInfo {
-    int descriptpresent;
+    int descriptpresent; //colorprim, matrix, transfer is present
     CspColorprim colorprim;
     CspMatrix matrix;
     CspTransfer transfer;
@@ -461,11 +480,8 @@ struct VideoVUIInfo {
         ret.colorprim = prim;
         return ret;
     }
-    tstring print_main() const {
-        return tstring(_T("matrix:")) + get_cx_desc(list_colormatrix, matrix) + _T(",")
-            + tstring(_T("colorprim:")) + get_cx_desc(list_colorprim, colorprim) + _T(",")
-            + tstring(_T("transfer:")) + get_cx_desc(list_transfer, transfer);
-    }
+    tstring print_main() const;
+    tstring print_all(bool write_all = false) const;
 
     bool operator==(const VideoVUIInfo &x) const {
         return descriptpresent == x.descriptpresent

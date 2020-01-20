@@ -82,6 +82,7 @@ RGYParamCommon::RGYParamCommon() :
     inputFilename(),
     outputFilename(),
     muxOutputFormat(),
+    out_vui(),
     maxCll(),
     masterDisplay(),
     dynamicHdr10plusJson(),

@@ -316,6 +316,7 @@ protected:
     int                          m_uEncWidth;             //出力縦解像度
     int                          m_uEncHeight;            //出力横解像度
     rgy_rational<int>            m_sar;                   //出力のsar比
+    VideoVUIInfo                 m_encVUI;                //出力のVUI情報
 
     int                          m_nProcSpeedLimit;       //処理速度制限 (0で制限なし)
     RGYAVSync                    m_nAVSyncMode;           //映像音声同期設定

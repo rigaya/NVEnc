@@ -432,6 +432,7 @@ NVEncCore::NVEncCore() {
 #endif
     m_appliedDynamicRC = DYNAMIC_PARAM_NOT_SELECTED;
     m_cudaSchedule = CU_CTX_SCHED_AUTO;
+    m_encVUI = VideoVUIInfo();
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -2141,10 +2142,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     //色空間設定自動
     int frame_height = m_uEncHeight;
-    auto apply_auto_colormatrix = [frame_height](uint32_t& value, const CX_DESC *list) {
-        if (COLOR_VALUE_AUTO == value)
-            value = list[(frame_height >= HD_HEIGHT_THRESHOLD) ? HD_INDEX : SD_INDEX].value;
-    };
     //最大ビットレート自動
     if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP) {
         //CQPモードでは、最大ビットレートの指定は不要
@@ -2180,25 +2177,27 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stEncConfig.rcParams.maxBitRate = DEFAULT_MAX_BITRATE;
         }
     }
-    if (inputParam->codec == NV_ENC_H264) {
-        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries,         list_colorprim);
-        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics, list_transfer);
-        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix,            list_colormatrix);
-        if (inputParam->yuv444) {
+    if (inputParam->yuv444) {
+        if (inputParam->codec == NV_ENC_H264) {
             m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationFlag = 0;
             m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationTop = 0;
             m_stEncConfig.encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationBot = 0;
-        }
-    } else if (inputParam->codec == NV_ENC_HEVC) {
-        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.colourPrimaries,         list_colorprim);
-        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.transferCharacteristics, list_transfer);
-        apply_auto_colormatrix(m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.colourMatrix,            list_colormatrix);
-        if (inputParam->yuv444) {
+        } else if (inputParam->codec == NV_ENC_HEVC) {
             m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationFlag = 0;
             m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationTop = 0;
             m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationBot = 0;
         }
     }
+    m_encVUI = inputParam->common.out_vui;
+    apply_auto_color_characteristic(m_encVUI.colorprim, list_colorprim,   m_uEncHeight, inputParam->input.vui.colorprim);
+    apply_auto_color_characteristic(m_encVUI.transfer,  list_transfer,    m_uEncHeight, inputParam->input.vui.transfer);
+    apply_auto_color_characteristic(m_encVUI.matrix,    list_colormatrix, m_uEncHeight, inputParam->input.vui.matrix);
+    apply_auto_color_characteristic(m_encVUI.fullrange, list_colorrange,  m_uEncHeight, inputParam->input.vui.fullrange);
+    apply_auto_color_characteristic(m_encVUI.chromaloc, list_chromaloc,   m_uEncHeight, inputParam->input.vui.chromaloc);
+    m_encVUI.descriptpresent =
+            get_cx_value(list_colormatrix, _T("undef")) != (int)m_encVUI.matrix
+        || get_cx_value(list_colorprim, _T("undef")) != (int)m_encVUI.colorprim
+        || get_cx_value(list_transfer, _T("undef")) != (int)m_encVUI.transfer;
 
     //バッファサイズ
     int extraBufSize = 0;
@@ -2334,22 +2333,25 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.overscanInfoPresentFlag = 1;
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.overscanInfo = 0;
 
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourDescriptionPresentFlag =
-            (      get_cx_value(list_colorprim,   _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourPrimaries
-                || get_cx_value(list_transfer,    _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.transferCharacteristics
-                || get_cx_value(list_colormatrix, _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourMatrix) ? 1 : 0;
-        if (!m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourDescriptionPresentFlag) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourPrimaries = 0;
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.transferCharacteristics = 0;
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourMatrix = 0;
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourDescriptionPresentFlag = m_encVUI.descriptpresent;
+        if (m_encVUI.descriptpresent) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourPrimaries = m_encVUI.colorprim;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.transferCharacteristics = m_encVUI.transfer;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourMatrix = m_encVUI.matrix;
         }
 
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag =
-            (get_cx_value(list_videoformat, _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFormat
-                || m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFullRangeFlag
-                || m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.colourDescriptionPresentFlag) ? 1 : 0;
-        if (!m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFormat = 0;
+            (get_cx_value(list_videoformat, _T("undef")) != (int)m_encVUI.format
+                || m_encVUI.fullrange
+                || m_encVUI.descriptpresent) ? 1 : 0;
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFormat = m_encVUI.format;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFullRangeFlag = m_encVUI.fullrange;
+        }
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationFlag = m_encVUI.chromaloc != 0;
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationFlag) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationTop = m_encVUI.chromaloc;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationBot = m_encVUI.chromaloc;
         }
         if (m_hdr10plus) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
@@ -2406,22 +2408,25 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.overscanInfoPresentFlag = 1;
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.overscanInfo = 0;
 
-        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourDescriptionPresentFlag =
-            (  get_cx_value(list_colorprim,   _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries
-            || get_cx_value(list_transfer,    _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics
-            || get_cx_value(list_colormatrix, _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix) ? 1 : 0;
-        if (!m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourDescriptionPresentFlag) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries = 0;
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics = 0;
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix = 0;
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourDescriptionPresentFlag = m_encVUI.descriptpresent;
+        if (m_encVUI.descriptpresent) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourPrimaries = m_encVUI.colorprim;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.transferCharacteristics = m_encVUI.transfer;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourMatrix = m_encVUI.matrix;
         }
 
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag =
-            (get_cx_value(list_videoformat, _T("undef")) != (int)m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFormat
-            || m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag
-            || m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.colourDescriptionPresentFlag) ? 1 : 0;
-        if (!m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag) {
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFormat = 0;
+            (get_cx_value(list_videoformat, _T("undef")) != (int)m_encVUI.format
+                || m_encVUI.fullrange
+                || m_encVUI.descriptpresent) ? 1 : 0;
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFormat = m_encVUI.format;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag = m_encVUI.fullrange;
+        }
+        m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationFlag = m_encVUI.chromaloc != 0;
+        if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationFlag) {
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationTop = m_encVUI.chromaloc;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationBot = m_encVUI.chromaloc;
         }
     }
 
@@ -5079,6 +5084,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             get_chr_from_value(list_hevc_cu_size, m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize));
         if (m_hdr10plus) {
             add_str(RGY_LOG_DEBUG, _T("Dynamic HDR10     %s\n"), m_hdr10plus->inputJson().c_str());
+        }
+    }
+    { const auto &vui_str = m_encVUI.print_all();
+        if (vui_str.length() > 0) {
+            add_str(RGY_LOG_INFO, _T("VUI            %s\n"), vui_str.c_str());
         }
     }
     add_str(RGY_LOG_INFO, _T("Others         "));

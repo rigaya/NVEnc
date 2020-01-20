@@ -2336,75 +2336,6 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         codecPrm[NV_ENC_HEVC].hevcConfig.outputPictureTimingSEI = 1;
         return 0;
     }
-    if (IS_OPTION("fullrange:h264")) {
-        codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag = 1;
-        return 0;
-    }
-    if (IS_OPTION("fullrange:hevc")) {
-        codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag = 1;
-        return 0;
-    }
-    if (IS_OPTION("fullrange")) {
-        codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag = 1;
-        codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag = 1;
-        return 0;
-    }
-    if (IS_OPTION("videoformat") || IS_OPTION("videoformat:h264") || IS_OPTION("videoformat:hevc")) {
-        const bool for_h264 = IS_OPTION("videoformat") || IS_OPTION("videoformat:h264");
-        const bool for_hevc = IS_OPTION("videoformat") || IS_OPTION("videoformat:hevc");
-        i++;
-        int value = 0;
-        if (get_list_value(list_videoformat, strInput[i], &value)) {
-            if (for_h264) codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat = value;
-            if (for_hevc) codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat = value;
-        } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("colormatrix") || IS_OPTION("colormatrix:h264") || IS_OPTION("colormatrix:hevc")) {
-        const bool for_h264 = IS_OPTION("colormatrix") || IS_OPTION("colormatrix:h264");
-        const bool for_hevc = IS_OPTION("colormatrix") || IS_OPTION("colormatrix:hevc");
-        i++;
-        int value = 0;
-        if (get_list_value(list_colormatrix, strInput[i], &value)) {
-            if (for_h264) codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix = value;
-            if (for_hevc) codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix = value;
-        } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("colorprim") || IS_OPTION("colorprim:h264") || IS_OPTION("colorprim:hevc")) {
-        const bool for_h264 = IS_OPTION("colorprim") || IS_OPTION("colorprim:h264");
-        const bool for_hevc = IS_OPTION("colorprim") || IS_OPTION("colorprim:hevc");
-        i++;
-        int value = 0;
-        if (get_list_value(list_colorprim, strInput[i], &value)) {
-            if (for_h264) codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries = value;
-            if (for_hevc) codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries = value;
-        } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("transfer") || IS_OPTION("transfer:h264") || IS_OPTION("transfer:hevc")) {
-        const bool for_h264 = IS_OPTION("transfer") || IS_OPTION("transfer:h264");
-        const bool for_hevc = IS_OPTION("transfer") || IS_OPTION("transfer:hevc");
-        i++;
-        int value = 0;
-        if (get_list_value(list_transfer, strInput[i], &value)) {
-            if (for_h264) codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = value;
-            if (for_hevc) codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = value;
-        } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
     if (IS_OPTION("level") || IS_OPTION("level:h264") || IS_OPTION("level:hevc")) {
         const bool for_h264 = IS_OPTION("level") || IS_OPTION("level:h264");
         const bool for_hevc = IS_OPTION("level") || IS_OPTION("level:hevc");
@@ -2485,28 +2416,6 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             }
         }
         if (!flag) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return -1;
-        }
-        return 0;
-    }
-    if (IS_OPTION("chromaloc") || IS_OPTION("chromaloc:h264") || IS_OPTION("chromaloc:hevc")) {
-        const bool for_h264 = IS_OPTION("chromaloc") || IS_OPTION("chromaloc:h264");
-        const bool for_hevc = IS_OPTION("chromaloc") || IS_OPTION("chromaloc:hevc");
-        i++;
-        int value = 0;
-        if (get_list_value(list_chromaloc, strInput[i], &value)) {
-            if (for_h264) {
-                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.chromaSampleLocationFlag = value != 0;
-                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.chromaSampleLocationTop = value;
-                codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.chromaSampleLocationBot = value;
-            }
-            if (for_hevc) {
-                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.chromaSampleLocationFlag = value != 0;
-                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.chromaSampleLocationTop = value;
-                codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.chromaSampleLocationBot = value;
-            }
-        } else {
             CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
         }
@@ -2903,12 +2812,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_NUM_HEVC(_T("--slices"), _T(":hevc"), sliceModeData);
         OPT_BOOL_HEVC(_T("--aud"), _T(""), _T(":hevc"), outputAUD);
         OPT_BOOL_HEVC(_T("--pic-struct"), _T(""), _T(":hevc"), outputPictureTimingSEI);
-        OPT_BOOL_HEVC(_T("--fullrange"), _T(""), _T(":hevc"), hevcVUIParameters.videoFullRangeFlag);
-        OPT_LST_HEVC(_T("--videoformat"), _T(":hevc"), hevcVUIParameters.videoFormat, list_videoformat);
-        OPT_LST_HEVC(_T("--colormatrix"), _T(":hevc"), hevcVUIParameters.colourMatrix, list_colormatrix);
-        OPT_LST_HEVC(_T("--colorprim"), _T(":hevc"), hevcVUIParameters.colourPrimaries, list_colorprim);
-        OPT_LST_HEVC(_T("--chromaloc"), _T(":hevc"), hevcVUIParameters.chromaSampleLocationTop, list_chromaloc);
-        OPT_LST_HEVC(_T("--transfer"), _T(":hevc"), hevcVUIParameters.transferCharacteristics, list_transfer);
         OPT_LST_HEVC(_T("--cu-max"), _T(""), maxCUSize, list_hevc_cu_size);
         OPT_LST_HEVC(_T("--cu-min"), _T(""), minCUSize, list_hevc_cu_size);
     }
@@ -2924,12 +2827,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_NUM_H264(_T("--slices"), _T(":h264"), sliceModeData);
         OPT_BOOL_H264(_T("--aud"), _T(""), _T(":h264"), outputAUD);
         OPT_BOOL_H264(_T("--pic-struct"), _T(""), _T(":h264"), outputPictureTimingSEI);
-        OPT_BOOL_H264(_T("--fullrange"), _T(""), _T(":h264"), h264VUIParameters.videoFullRangeFlag);
-        OPT_LST_H264(_T("--videoformat"), _T(":h264"), h264VUIParameters.videoFormat, list_videoformat);
-        OPT_LST_H264(_T("--colormatrix"), _T(":h264"), h264VUIParameters.colourMatrix, list_colormatrix);
-        OPT_LST_H264(_T("--colorprim"), _T(":h264"), h264VUIParameters.colourPrimaries, list_colorprim);
-        OPT_LST_H264(_T("--chromaloc"), _T(":h264"), h264VUIParameters.chromaSampleLocationTop, list_chromaloc);
-        OPT_LST_H264(_T("--transfer"), _T(":h264"), h264VUIParameters.transferCharacteristics, list_transfer);
         if ((codecPrm[NV_ENC_H264].h264Config.entropyCodingMode) != (codecPrmDefault[NV_ENC_H264].h264Config.entropyCodingMode)) {
             cmd << _T(" --") << get_chr_from_value(list_entropy_coding, codecPrm[NV_ENC_H264].h264Config.entropyCodingMode);
         }

@@ -1021,5 +1021,6 @@ InEncodeVideoParam::InEncodeVideoParam() :
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));
     memset(&input, 0, sizeof(input));
+    input.vui = VideoVUIInfo();
 }
 

@@ -38,3 +38,31 @@ const CX_DESC list_log_level[7] = {
     { NULL, 0 }
 };
 
+tstring VideoVUIInfo::print_main() const {
+    return tstring(_T("matrix:")) + get_cx_desc(list_colormatrix, matrix) + _T(",")
+        + tstring(_T("colorprim:")) + get_cx_desc(list_colorprim, colorprim) + _T(",")
+        + tstring(_T("transfer:")) + get_cx_desc(list_transfer, transfer);
+}
+
+tstring VideoVUIInfo::print_all(bool write_all) const {
+    tstring str;
+    if (write_all || matrix != get_cx_value(list_colormatrix, _T("undef"))) {
+        str += tstring(_T(",matrix:")) + get_cx_desc(list_colormatrix, matrix);
+    }
+    if (write_all || colorprim != get_cx_value(list_colorprim, _T("undef"))) {
+        str += tstring(_T(",colorprim:")) + get_cx_desc(list_colorprim, colorprim);
+    }
+    if (write_all || transfer != get_cx_value(list_transfer, _T("undef"))) {
+        str += tstring(_T(",transfer:")) + get_cx_desc(list_transfer, transfer);
+    }
+    if (write_all || format != get_cx_value(list_videoformat, _T("undef"))) {
+        str += tstring(_T(",videoformat:")) + get_cx_desc(list_videoformat, format);
+    }
+    if (write_all || fullrange != 0) {
+        str += tstring(_T(",range:")) + get_cx_desc(list_colorrange, fullrange);
+    }
+    if (write_all || chromaloc != 0) {
+        str += tstring(_T(",chromaloc:")) + get_cx_desc(list_chromaloc, chromaloc);
+    }
+    return (str.length() > 1) ? str.substr(1) : str;
+}

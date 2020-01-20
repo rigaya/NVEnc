@@ -99,7 +99,8 @@ struct DataSelect {
 struct RGYParamCommon {
     tstring inputFilename;        //入力ファイル名
     tstring outputFilename;       //出力ファイル名
-    tstring muxOutputFormat;   //出力フォーマット
+    tstring muxOutputFormat;      //出力フォーマット
+    VideoVUIInfo out_vui;
 
     std::string maxCll;
     std::string masterDisplay;

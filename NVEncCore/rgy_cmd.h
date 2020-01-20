@@ -67,6 +67,8 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
 int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamCommon *common, sArgsData *argData, ParseCmdError &err);
 int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamControl *ctrl, sArgsData *argData, ParseCmdError &err);
 
+tstring print_list_options(const TCHAR *option_name, const CX_DESC *list, int default_index);
+
 tstring gen_cmd(const VideoInfo *common, const VideoInfo *defaultPrm, bool save_disabled_prm);
 tstring gen_cmd(const RGYParamCommon *common, const RGYParamCommon *defaultPrm, bool save_disabled_prm);
 tstring gen_cmd(const RGYParamControl *ctrl, const RGYParamControl *defaultPrm, bool save_disabled_prm);

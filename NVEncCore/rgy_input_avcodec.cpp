@@ -1622,6 +1622,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         //getFirstFramePosAndFrameRateをもとにfpsを決定
         m_inputVideoInfo.fpsN        = m_Demux.video.nAvgFramerate.num;
         m_inputVideoInfo.fpsD        = m_Demux.video.nAvgFramerate.den;
+        m_inputVideoInfo.vui.format    = (int)m_Demux.video.stream->codecpar->format;
+        m_inputVideoInfo.vui.chromaloc = (int)m_Demux.video.stream->codecpar->chroma_location;
+        m_inputVideoInfo.vui.matrix    = (CspMatrix)m_Demux.video.stream->codecpar->color_space;
+        m_inputVideoInfo.vui.colorprim = (CspColorprim)m_Demux.video.stream->codecpar->color_primaries;
+        m_inputVideoInfo.vui.transfer  = (CspTransfer)m_Demux.video.stream->codecpar->color_trc;
+        m_inputVideoInfo.vui.descriptpresent = 1;
 
         if (m_Demux.video.HWDecodeDeviceId >= 0) {
             tstring mes = strsprintf(_T("av" DECODER_NAME ": %s, %dx%d, %d/%d fps"),
