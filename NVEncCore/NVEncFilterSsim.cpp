@@ -363,7 +363,8 @@ RGY_ERR NVEncFilterSsim::run_filter(const FrameInfo *pInputFrame, FrameInfo **pp
     UNREFERENCED_PARAMETER(pOutputFrameNum);
     RGY_ERR sts = RGY_ERR_NONE;
 
-    if (m_unused.size() == 0) {
+    std::lock_guard< std::mutex> lock(m_mtx); //ロックを忘れないこと
+    if (m_unused.empty()) {
         //待機中のフレームバッファがなければ新たに作成する
         m_unused.push_back(std::make_unique<CUFrameBuf>());
     }
@@ -390,21 +391,29 @@ RGY_ERR NVEncFilterSsim::run_filter(const FrameInfo *pInputFrame, FrameInfo **pp
             return sts_filter;
         }
     } else {
-        copyFrameAsync(&copyFrame->frame, pInputFrame, stream);
+        auto cuerr = copyFrameAsync(&copyFrame->frame, pInputFrame, stream);
+        if (cuerr != cudaSuccess) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copy frame.\n"));
+            return RGY_ERR_CUDA;
+        }
     }
     cudaEventRecord(copyFrame->event, stream);
 
     //フレームをm_unusedからm_inputに移す
-    std::lock_guard< std::mutex> lock(m_mtx); //ロックを忘れないこと
     m_input.push_back(std::move(copyFrame));
     m_unused.pop_front();
     return sts;
 }
 
-void NVEncFilterSsim::ssim_fin() {
+void NVEncFilterSsim::showResult() {
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
     if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return;
+    }
+    if (m_thread.joinable()) {
+        AddMessage(RGY_LOG_DEBUG, _T("Waiting for ssim/psnr calculation thread to finish.\n"));
+        m_thread.join();
     }
     if (prm->ssim) {
         auto str = strsprintf(_T("\nSSIM YUV:"));
@@ -444,10 +453,11 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
     }
     while (!m_abort) {
         if (m_decoder->GetError()) {
+            AddMessage(RGY_LOG_ERROR, _T("Error in decoder!\n"));
             return RGY_ERR_UNKNOWN;
         }
         if (m_decoder->frameQueue()->isEndOfDecode() && m_decoder->frameQueue()->isEmpty()) {
-            ssim_fin();
+            AddMessage(RGY_LOG_DEBUG, _T("Finished decoding.\n"));
             return RGY_ERR_NONE;
         }
         CUVIDPARSERDISPINFO dispInfo = { 0 };
@@ -521,19 +531,28 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
         }
 
         //比較用のキューの先頭に積まれているものから順次比較していく
-        auto &originalFrame = m_input.front();
-        //オリジナルのフレームに対するcrop操作が終わっているか確認する (基本的には終わっているはず)
-        if (m_crop) {
-            cudaEventSynchronize(originalFrame->event);
+        if (m_input.empty()) {
+            AddMessage(RGY_LOG_ERROR, _T("Original frame #%d to be compared is missing.\n"), m_frames);
+            return RGY_ERR_UNKNOWN;
         }
-        auto sts_filter = calc_ssim_psnr(&originalFrame->frame, &targetFrame);
+        FrameInfo original;
+        {
+            std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
+            auto &originalFrame = m_input.front();
+            //オリジナルのフレームに対するcrop操作が終わっているか確認する (基本的には終わっているはず)
+            if (m_crop) {
+                cudaEventSynchronize(originalFrame->event);
+            }
+            original = originalFrame->frame;
+        }
+        auto sts_filter = calc_ssim_psnr(&original, &targetFrame);
         if (sts_filter != RGY_ERR_NONE) {
             return sts_filter;
         }
 
         //フレームをm_inputからm_unusedに移す
         std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
-        m_unused.push_back(std::move(originalFrame));
+        m_unused.push_back(std::move(m_input.front()));
         m_input.pop_front();
         m_frames++;
     }
@@ -542,7 +561,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
 
 void NVEncFilterSsim::close() {
     if (m_thread.joinable()) {
-        AddMessage(RGY_LOG_DEBUG, _T("Waiting for ssim/psnr calculation thread to finish.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Forcing ssim/psnr calculation thread to finish.\n"));
         m_abort = true;
         m_thread.join();
     }

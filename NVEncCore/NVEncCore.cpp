@@ -4532,6 +4532,9 @@ NVENCSTATUS NVEncCore::Encode() {
     m_pFileWriter->Close();
     m_pFileReader->Close();
     m_pStatus->WriteResults();
+    if (m_ssim) {
+        m_ssim->showResult();
+    }
     vector<std::pair<tstring, double>> filter_result;
     for (auto& filter : m_vpFilters) {
         auto avgtime = filter->GetAvgTimeElapsed();

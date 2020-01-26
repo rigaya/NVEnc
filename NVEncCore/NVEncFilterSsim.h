@@ -65,13 +65,13 @@ public:
     RGY_ERR compare_frames(bool flush);
 
     RGY_ERR addBitstream(const RGYBitstream *bitstream);
+    virtual void showResult();
 protected:
     RGY_ERR init_cuda_resources();
     void close_cuda_resources();
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     virtual RGY_ERR calc_ssim_psnr(const FrameInfo *p0, const FrameInfo *p1);
-    virtual void ssim_fin();
 
     bool m_decodeStarted; //デコードが開始したか
     int m_deviceId;       //SSIM計算で使用するCUDA device ID
