@@ -3621,10 +3621,10 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         param->frameOut.deivce_mem = true;
         param->bOutOverwrite = false;
         param->streamtimebase = m_outputTimebase;
+        param->vidctxlock = m_ctxLock;
         param->ssim = inputParam->ssim;
         param->psnr = inputParam->psnr;
         param->deviceId = m_nDeviceId;
-        NVEncCtxAutoLock(cxtlock(m_ctxLock));
         auto sts = filterSsim->init(param, m_pNVLog);
         if (sts != NV_ENC_SUCCESS) {
             return NV_ENC_ERR_UNSUPPORTED_PARAM;

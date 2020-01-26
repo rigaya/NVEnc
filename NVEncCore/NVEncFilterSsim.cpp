@@ -53,7 +53,7 @@ NVEncFilterSsim::NVEncFilterSsim() :
     m_thread(),
     m_mtx(),
     m_abort(false),
-    m_cudaCtx(),
+    m_vidctxlock(),
     m_input(),
     m_unused(),
     m_decoder(),
@@ -88,6 +88,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         return RGY_ERR_INVALID_PARAM;
     }
 
+    m_vidctxlock = prm->vidctxlock;
     m_deviceId = prm->deviceId;
     m_crop.reset();
     if (pParam->frameOut.csp == RGY_CSP_NV12) {
@@ -102,6 +103,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         paramCrop->frameIn.deivce_mem = true;
         paramCrop->frameOut.deivce_mem = true;
         paramCrop->bOutOverwrite = false;
+        NVEncCtxAutoLock(cxtlock(m_vidctxlock));
         sts = filterCrop->init(paramCrop, m_pPrintMes);
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -237,36 +239,6 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         return RGY_ERR_INVALID_PARAM;
     }
 
-    AddMessage(RGY_LOG_DEBUG, _T("Started initilaizing cuda resource on device ID %d.\n"), prm->deviceId);
-    //デコーダはデコード結果を取り出すスレッドで初期化する必要がある
-    //そうしないとcuda contextをまたいでフレームデータをやりとりするために
-    //D->H->Dのような無駄な転送が行われてしまう
-    CUdevice device;
-    auto cuResult = cuDeviceGet(&device, prm->deviceId);
-    if (cuResult != CUDA_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("cuDeviceGet error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
-        return RGY_ERR_CUDA;
-    }
-    //deviceを選択してcuda conetxtを作成する
-    void *pDevice = nullptr;
-    if (CUDA_SUCCESS != (cuResult = cuCtxCreate((CUcontext *)(&pDevice), 0, device))) {
-        AddMessage(RGY_LOG_ERROR, _T("cuCtxCreate error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
-        return RGY_ERR_CUDA;
-    }
-    AddMessage(RGY_LOG_DEBUG, _T("cuCtxCreate: Success.\n"));
-
-    if (CUDA_SUCCESS != (cuResult = cuCtxPopCurrent(&m_cudaCtx))) {
-        AddMessage(RGY_LOG_ERROR, _T("cuCtxPopCurrent error:0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
-        return RGY_ERR_CUDA;
-    }
-    AddMessage(RGY_LOG_DEBUG, _T("cuCtxPopCurrent: Success.\n"));
-
-    if (CUDA_SUCCESS != (cuResult = cuvidCtxLockCreate(&m_vidctxlock, m_cudaCtx))) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCtxLockCreate: 0x%x (%s)\n"), cuResult, char_to_tstring(_cudaGetErrorEnum(cuResult)).c_str());
-        return RGY_ERR_CUDA;
-    }
-    AddMessage(RGY_LOG_DEBUG, _T("cuvidCtxLockCreate: Success.\n"));
-
     //HWデコーダの出力フォーマットに合わせる
     VideoInfo vidInfo = prm->input;
     if (RGY_CSP_BIT_DEPTH[vidInfo.csp] > 8) {
@@ -356,16 +328,7 @@ void NVEncFilterSsim::close_cuda_resources() {
     m_decoder.reset();
     AddMessage(RGY_LOG_DEBUG, _T("Closed Decoder: %s.\n"));
     if (m_vidctxlock) {
-        AddMessage(RGY_LOG_DEBUG, _T("cuvidCtxLockDestroy...\n"));
-        cuvidCtxLockDestroy(m_vidctxlock);
-        AddMessage(RGY_LOG_DEBUG, _T("cuvidCtxLockDestroy: Fin.\n"));
         m_vidctxlock = nullptr;
-    }
-    if (m_cudaCtx) {
-        AddMessage(RGY_LOG_DEBUG, _T("cuCtxDestroy...\n"));
-        cuCtxDestroy(m_cudaCtx);
-        AddMessage(RGY_LOG_DEBUG, _T("cuCtxDestroy: Fin.\n"));
-        m_cudaCtx = nullptr;
     }
 }
 

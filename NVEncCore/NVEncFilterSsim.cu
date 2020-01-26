@@ -242,8 +242,7 @@ cudaError calc_ssim_frame(const FrameInfo *p0, const FrameInfo *p1, std::array<C
     for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
-        cudaStream_t *pstream = streamCalc[0].get();
-        auto cudaerr = calc_ssim_plane<Type4, bit_depth>(&plane0, &plane1, tmp[i], *pstream);
+        auto cudaerr = calc_ssim_plane<Type4, bit_depth>(&plane0, &plane1, tmp[i], *streamCalc[i].get());
         if (cudaerr != cudaSuccess) {
             return cudaerr;
         }
@@ -341,8 +340,7 @@ cudaError calc_psnr_frame(const FrameInfo *p0, const FrameInfo *p1, std::array<C
     for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
-        cudaStream_t *pstream = streamCalc[0].get();
-        auto cudaerr = calc_psnr_plane<Type4, bit_depth>(&plane0, &plane1, tmp[i], *pstream);
+        auto cudaerr = calc_psnr_plane<Type4, bit_depth>(&plane0, &plane1, tmp[i], *streamCalc[i].get());
         if (cudaerr != cudaSuccess) {
             return cudaerr;
         }

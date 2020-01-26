@@ -43,10 +43,11 @@ public:
     bool ssim;
     bool psnr;
     int deviceId;
+    CUvideoctxlock vidctxlock;
     VideoInfo input;
     rgy_rational<int> streamtimebase;
 
-    NVEncFilterParamSsim() : ssim(true), psnr(false), deviceId(0), input(), streamtimebase() {
+    NVEncFilterParamSsim() : ssim(true), psnr(false), deviceId(0), vidctxlock(), input(), streamtimebase() {
 
     };
     virtual ~NVEncFilterParamSsim() {};
@@ -80,8 +81,7 @@ protected:
     std::mutex m_mtx;     //m_input, m_unused操作用のロック
     bool m_abort;         //スレッド中断用
 
-    CUvideoctxlock m_vidctxlock; //m_cudaCtxを使って作ったcuvid用のlock
-    CUcontext m_cudaCtx; //SSIM計算で使用するCUDA context (通常のフィルタ処理とは別のコンテキスト)
+    CUvideoctxlock m_vidctxlock; //cuvid用のlock
     std::deque<std::unique_ptr<CUFrameBuf>> m_input;  //使用中のフレームバッファ(オリジナルフレーム格納用)
     std::deque<std::unique_ptr<CUFrameBuf>> m_unused; //使っていないフレームバッファ(オリジナルフレーム格納用)
     std::unique_ptr<CuvidDecode> m_decoder;     // デコーダエンジン
