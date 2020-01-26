@@ -1731,10 +1731,11 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     m_Mux.thread.enableOutputThread     = prm->threadOutput > 0;
     if (m_Mux.thread.enableOutputThread) {
         AddMessage(RGY_LOG_DEBUG, _T("starting output thread...\n"));
+        const int audioQueueCapacity = 1024;
         m_Mux.thread.abortOutput = false;
         m_Mux.thread.thAudProcessAbort = false;
         m_Mux.thread.thAudEncodeAbort = false;
-        m_Mux.thread.qAudioPacketOut.init(8192, 256 * std::max(1, (int)m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
+        m_Mux.thread.qAudioPacketOut.init(8192, audioQueueCapacity * std::max(1, (int)m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
         m_Mux.thread.qVideobitstream.init(4096, (std::max)(256, (m_Mux.video.outputFps.den) ? m_Mux.video.outputFps.num * 4 / m_Mux.video.outputFps.den : 0));
         m_Mux.thread.qVideobitstreamFreeI.init(256);
         m_Mux.thread.qVideobitstreamFreePB.init(3840);
@@ -1744,13 +1745,13 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.enableAudProcessThread) {
             AddMessage(RGY_LOG_DEBUG, _T("starting audio process thread...\n"));
-            m_Mux.thread.qAudioPacketProcess.init(8192, 512, 4);
+            m_Mux.thread.qAudioPacketProcess.init(8192, audioQueueCapacity * std::max(2, (int)m_Mux.audio.size()), 4);
             m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.thAudProcess = std::thread(&RGYOutputAvcodec::ThreadFuncAudThread, this);
             if (m_Mux.thread.enableAudEncodeThread) {
                 AddMessage(RGY_LOG_DEBUG, _T("starting audio encode thread...\n"));
-                m_Mux.thread.qAudioFrameEncode.init(8192, 512, 4);
+                m_Mux.thread.qAudioFrameEncode.init(8192, audioQueueCapacity * std::max(2, (int)m_Mux.audio.size()), 4);
                 m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);
                 m_Mux.thread.heEventClosingAudEncode  = CreateEvent(NULL, TRUE, FALSE, NULL);
                 m_Mux.thread.thAudEncode = std::thread(&RGYOutputAvcodec::ThreadFuncAudEncodeThread, this);
