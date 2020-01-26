@@ -3864,10 +3864,11 @@ NVENCSTATUS NVEncCore::Encode() {
 
     //eventFinのセットを待って、キューからデータを削除する
     //nPipelineDepth以上キューに積まれていたら、eventのセットを強制的に待機する
-    auto check_inframe_transfer = [&dqFrameTransferData](const uint32_t nPipelineDepth) {
+    auto check_inframe_transfer = [&dqFrameTransferData, ctxLock = this->m_ctxLock](const uint32_t nPipelineDepth) {
         const auto queueLength = dqFrameTransferData.size();
         cudaError_t cuerr = cudaSuccess;
         if (queueLength > 0) {
+            NVEncCtxAutoLock(ctxlock(ctxLock));
             auto cuevent = *dqFrameTransferData.front().eventFin;
             if (cudaSuccess == (cuerr = (queueLength >= nPipelineDepth) ? cudaEventSynchronize(cuevent) : cudaEventQuery(cuevent))) {
                 dqFrameTransferData.pop_front();
@@ -4319,7 +4320,10 @@ NVENCSTATUS NVEncCore::Encode() {
 
     auto send_encoder = [&](int& nEncodeFrame, unique_ptr<FrameBufferDataEnc>& encFrame) {
         //エンコーダ用のバッファまで転送が終了するのを待機
-        if (encFrame->m_pEvent) { cudaEventSynchronize(*encFrame->m_pEvent); }
+        NVEncCtxAutoLock(ctxlock(m_ctxLock));
+        if (encFrame->m_pEvent) {
+            cudaEventSynchronize(*encFrame->m_pEvent);
+        }
         EncodeBuffer *pEncodeBuffer = encFrame->m_pEncodeBuffer;
         if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
             auto nvencret = NvEncMapInputResource(pEncodeBuffer->stInputBfr.nvRegisteredResource, &pEncodeBuffer->stInputBfr.hInputSurface);
