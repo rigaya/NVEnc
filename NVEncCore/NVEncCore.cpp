@@ -4516,7 +4516,6 @@ NVENCSTATUS NVEncCore::Encode() {
     //FlushEncoderはかならず行わないと、NvEncDestroyEncoderで異常終了する
     auto encstatus = nvStatus;
     if (nEncodeFrames > 0 || nvStatus == NV_ENC_SUCCESS) {
-        NVEncCtxAutoLock(cxtlock(m_ctxLock));
         encstatus = FlushEncoder();
         if (encstatus != NV_ENC_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("Error FlushEncoder: %d.\n"), encstatus);
