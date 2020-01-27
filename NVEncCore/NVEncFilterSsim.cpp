@@ -440,7 +440,7 @@ RGY_ERR NVEncFilterSsim::thread_func() {
     }
     m_decodeStarted = true;
     auto ret = compare_frames(true);
-    AddMessage(RGY_LOG_DEBUG, _T("Finishing ssim/psnr calculation thread: %d.\n"), get_err_mes(ret));
+    AddMessage(RGY_LOG_DEBUG, _T("Finishing ssim/psnr calculation thread: %s.\n"), get_err_mes(ret));
     close_cuda_resources();
     return ret;
 }
