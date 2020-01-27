@@ -304,7 +304,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
 }
 
 void NVEncFilterSsim::close_cuda_resources() {
-    {
+    if (m_vidctxlock) {
         CCtxAutoLock ctxLock(m_vidctxlock);
         m_streamCrop.reset();
         m_cropEvent.reset();
@@ -325,11 +325,11 @@ void NVEncFilterSsim::close_cuda_resources() {
         m_unused.clear();
         AddMessage(RGY_LOG_DEBUG, _T("Freed CUDA resources.\n"));
     }
-    m_decoder.reset();
-    AddMessage(RGY_LOG_DEBUG, _T("Closed Decoder: %s.\n"));
     if (m_vidctxlock) {
-        m_vidctxlock = nullptr;
+        m_decoder.reset();
+        AddMessage(RGY_LOG_DEBUG, _T("Closed Decoder.\n"));
     }
+    m_vidctxlock = nullptr;
 }
 
 RGY_ERR NVEncFilterSsim::addBitstream(const RGYBitstream *bitstream) {
