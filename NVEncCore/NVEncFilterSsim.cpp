@@ -481,6 +481,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
         vppinfo.unpaired_field = 0;
         CUdeviceptr dMappedFrame = 0;
         uint32_t pitch = 0;
+        NVEncCtxAutoLock(ctxlock(m_vidctxlock));
         if (CUDA_SUCCESS != (curesult = cuvidMapVideoFrame(m_decoder->GetDecoder(), dispInfo.picture_index, &dMappedFrame, &pitch, &vppinfo))) {
             AddMessage(RGY_LOG_ERROR, _T("Error cuvidMapVideoFrame: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
             return RGY_ERR_UNKNOWN;
@@ -492,7 +493,6 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             cuvidUnmapVideoFrame(m_decoder->GetDecoder(), (CUdeviceptr)ptr);
             });
 
-        NVEncCtxAutoLock(ctxlock(m_vidctxlock));
         FrameInfo targetFrame = frameInfo;
         if (m_crop) {
             if (!m_decFrameCopy) {
