@@ -99,6 +99,13 @@ AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct) {
     return AV_FIELD_PROGRESSIVE;
 }
 
+RGY_PICSTRUCT picstruct_avframe_to_rgy(const AVFrame *frame) {
+    if (frame->interlaced_frame) {
+        return frame->top_field_first ? RGY_PICSTRUCT_FRAME_TFF : RGY_PICSTRUCT_FRAME_BFF;
+    }
+    return RGY_PICSTRUCT_FRAME;
+}
+
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret) {
     char mes[256];

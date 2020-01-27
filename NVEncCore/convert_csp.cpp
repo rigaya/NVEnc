@@ -1081,6 +1081,20 @@ static const ConvertCSP funcList[] = {
 #endif
 };
 
+const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct) {
+    switch (picstruct) {
+    case RGY_PICSTRUCT_FRAME:        return _T("progressive");
+    case RGY_PICSTRUCT_FIELD_TOP:    return _T("tff_field");
+    case RGY_PICSTRUCT_FIELD_BOTTOM: return _T("bff_field");
+    case RGY_PICSTRUCT_FIELD:        return _T("field");
+    case RGY_PICSTRUCT_FRAME_TFF:    return _T("tff_frame");
+    case RGY_PICSTRUCT_FRAME_BFF:    return _T("bff_frame");
+    case RGY_PICSTRUCT_AUTO:         return _T("auto");
+    case RGY_PICSTRUCT_UNKNOWN:
+    default: return _T("unknown");
+    }
+}
+
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd) {
     uint32_t availableSIMD = get_availableSIMD() & simd;
     const ConvertCSP *convert = nullptr;

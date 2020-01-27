@@ -179,6 +179,9 @@ enum RGYAVFormatType : uint32_t {
 //NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
 AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct);
 
+//AVFrameの情報からRGY_PICSTRUCTを返す
+RGY_PICSTRUCT picstruct_avframe_to_rgy(const AVFrame *frame);
+
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret);
 

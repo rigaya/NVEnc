@@ -1896,16 +1896,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
     if (   pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_AUTO
         || pNnediParam->nnedi.field == VPP_NNEDI_FIELD_BOB_AUTO) {
         if ((pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
-            const auto inputFrameInfoEx = getFrameInfoExtra(pInputFrame);
-            cudaMemcpy2DAsync(
-                ppOutputFrames[0]->ptr,
-                ppOutputFrames[0]->pitch,
-                pInputFrame->ptr,
-                pInputFrame->pitch,
-                inputFrameInfoEx.width_byte,
-                inputFrameInfoEx.height_total,
-                memcpyKind
-            );
+            copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);
             return RGY_ERR_NONE;
         } else if (pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_TFF) {
             targetField = NNEDI_GEN_FIELD_BOTTOM;
@@ -1949,7 +1940,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         m_weight0.ptr,
         m_weight1[0].ptr,
         m_weight1[1].ptr,
-        (cudaStream_t)0
+        stream
         );
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -1967,7 +1958,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
             m_weight0.ptr,
             m_weight1[0].ptr,
             m_weight1[1].ptr,
-            (cudaStream_t)0
+            stream
             );
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {

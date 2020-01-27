@@ -630,6 +630,7 @@ const CX_DESC list_interlaced[] = {
     { _T("progressive"), RGY_PICSTRUCT_FRAME     },
     { _T("tff"),         RGY_PICSTRUCT_FRAME_TFF },
     { _T("bff"),         RGY_PICSTRUCT_FRAME_BFF },
+    { _T("auto"),        (int)RGY_PICSTRUCT_AUTO },
     { NULL, 0 }
 };
 

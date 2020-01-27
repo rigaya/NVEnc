@@ -308,17 +308,8 @@ cudaError_t NVEncFilterYadifSource::alloc(const FrameInfo& frameInfo) {
 cudaError_t NVEncFilterYadifSource::add(const FrameInfo *pInputFrame, cudaStream_t stream) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
-    pDstFrame->frame.flags     = pInputFrame->flags;
-    pDstFrame->frame.picstruct = pInputFrame->picstruct;
-    pDstFrame->frame.timestamp = pInputFrame->timestamp;
-    pDstFrame->frame.duration  = pInputFrame->duration;
-
-    const auto frameOutInfoEx = getFrameInfoExtra(pInputFrame);
-    auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr, pDstFrame->frame.pitch,
-        (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
-        frameOutInfoEx.width_byte, frameOutInfoEx.height_total, cudaMemcpyDeviceToDevice, stream);
-    if (cudaerr != cudaSuccess) return cudaerr;
-    return cudaerr;
+    copyFrameProp(&pDstFrame->frame, pInputFrame);
+    return copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);
 }
 
 NVEncFilterYadif::NVEncFilterYadif() : m_nFrame(0), m_pts(0), m_source() {
@@ -413,9 +404,9 @@ RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
             return RGY_ERR_INVALID_PARAM;
         }
         //sourceキャッシュにコピー
-        auto cudaerr = m_source.add(pInputFrame, cudaStreamDefault);
+        auto cudaerr = m_source.add(pInputFrame, stream);
         if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to add frame to sorce buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to add frame to source buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
         }
     }
@@ -428,6 +419,7 @@ RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         if (ppOutputFrames[0] == nullptr) {
             pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
             ppOutputFrames[0] = &pOutFrame->frame;
+            ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
             m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
             if (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) {
                 pOutFrame = m_pFrameBuf[m_nFrameIdx].get();
@@ -452,33 +444,17 @@ RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
             if ((pSourceFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
                 ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
                 ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
-                const auto inputFrameInfoEx = getFrameInfoExtra(pSourceFrame);
-                cudaMemcpy2DAsync(
-                    ppOutputFrames[0]->ptr,
-                    ppOutputFrames[0]->pitch,
-                    pSourceFrame->ptr,
-                    pSourceFrame->pitch,
-                    inputFrameInfoEx.width_byte,
-                    inputFrameInfoEx.height_total,
-                    memcpyKind
-                );
+                copyFrameAsync(ppOutputFrames[0], pSourceFrame, stream);
                 if (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) {
-                    cudaMemcpy2DAsync(
-                        ppOutputFrames[1]->ptr,
-                        ppOutputFrames[1]->pitch,
-                        pSourceFrame->ptr,
-                        pSourceFrame->pitch,
-                        inputFrameInfoEx.width_byte,
-                        inputFrameInfoEx.height_total,
-                        memcpyKind
-                    );
                     ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
                     ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
                     ppOutputFrames[0]->duration = (pSourceFrame->duration + 1) / 2;
                     ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
                     ppOutputFrames[1]->duration = pSourceFrame->duration - ppOutputFrames[0]->duration;
                     ppOutputFrames[1]->inputFrameId = pInputFrame->inputFrameId;
+                    copyFrameAsync(ppOutputFrames[1], pSourceFrame, stream);
                 }
+                m_nFrame++;
                 return RGY_ERR_NONE;
             } else if (pSourceFrame->picstruct & RGY_PICSTRUCT_FRAME_TFF) {
                 targetField = YADIF_GEN_FIELD_BOTTOM;
@@ -510,7 +486,7 @@ RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
             &m_source.get(m_nFrame+1)->frame,
             targetField,
             pSourceFrame->picstruct,
-            (cudaStream_t)0
+            stream
             );
 
         ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
@@ -528,7 +504,7 @@ RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
                 &m_source.get(m_nFrame+1)->frame,
                 targetField,
                 pSourceFrame->picstruct,
-                (cudaStream_t)0
+                stream
                 );
             ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
             ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;

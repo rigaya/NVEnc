@@ -318,6 +318,7 @@ enum RGY_PICSTRUCT : uint32_t {
     RGY_PICSTRUCT_FRAME_BFF    = 0x00 | RGY_PICSTRUCT_BFF | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (BFF)
     RGY_PICSTRUCT_FIELD_TOP    = 0x00 | RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_FIELD, //フィールドとして符号化されている (Topフィールド)
     RGY_PICSTRUCT_FIELD_BOTTOM = 0x00 | RGY_PICSTRUCT_BFF | RGY_PICSTRUCT_FIELD, //フィールドとして符号化されている (Bottomフィールド)
+    RGY_PICSTRUCT_AUTO         = 0xffffffff,
 };
 
 static RGY_PICSTRUCT operator|(RGY_PICSTRUCT a, RGY_PICSTRUCT b) {
@@ -337,6 +338,8 @@ static RGY_PICSTRUCT operator&=(RGY_PICSTRUCT& a, RGY_PICSTRUCT b) {
     a = (RGY_PICSTRUCT)((uint8_t)a & (uint8_t)b);
     return a;
 }
+
+const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct);
 
 typedef struct ConvertCSP {
     RGY_CSP csp_from, csp_to;
