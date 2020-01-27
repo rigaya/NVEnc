@@ -359,17 +359,23 @@ public:
     uint32_t pitch() {
         return info.pitch;
     }
-    uint64_t timestamp() {
+    uint64_t timestamp() const {
         return info.timestamp;
     }
     void setTimestamp(uint64_t frame_timestamp) {
         info.timestamp = frame_timestamp;
     }
-    int64_t duration() {
+    int64_t duration() const {
         return info.duration;
     }
     void setDuration(int64_t frame_duration) {
         info.duration = frame_duration;
+    }
+    RGY_PICSTRUCT picstruct() const {
+        return info.picstruct;
+    }
+    void setPicstruct(RGY_PICSTRUCT picstruct) {
+        info.picstruct = picstruct;
     }
 };
 
