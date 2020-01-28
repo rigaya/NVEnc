@@ -507,7 +507,7 @@ void NVEncCore::NVPrintFuncError(const TCHAR *funcName, CUresult code) {
 NVENCSTATUS NVEncCore::InitLog(const InEncodeVideoParam *inputParam) {
     //ログの初期化
     m_pNVLog.reset(new RGYLog(inputParam->ctrl.logfile.c_str(), inputParam->ctrl.loglevel));
-    if (inputParam->ctrl.logfile.length()) {
+    if ((inputParam->ctrl.logfile.length() > 0 || inputParam->common.outputFilename.length() > 0) && inputParam->input.type != RGY_INPUT_FMT_SM) {
         m_pNVLog->writeFileHeader(inputParam->common.outputFilename.c_str());
     }
     return NV_ENC_SUCCESS;
