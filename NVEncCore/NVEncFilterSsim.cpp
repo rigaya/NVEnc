@@ -366,17 +366,17 @@ RGY_ERR NVEncFilterSsim::run_filter(const FrameInfo *pInputFrame, FrameInfo **pp
     std::lock_guard< std::mutex> lock(m_mtx); //ロックを忘れないこと
     if (m_unused.empty()) {
         //待機中のフレームバッファがなければ新たに作成する
-        m_unused.push_back(std::make_unique<CUFrameBuf>());
-    }
-    auto& copyFrame = m_unused.front();
-    if (copyFrame->frame.ptr == nullptr) {
-        copyFrameProp(&copyFrame->frame, (m_crop) ? &m_crop->GetFilterParam()->frameOut : pInputFrame);
-        auto curesult = copyFrame->alloc();
+        auto frameBuf = std::make_unique<CUFrameBuf>();
+        copyFrameProp(&frameBuf->frame, (m_crop) ? &m_crop->GetFilterParam()->frameOut : pInputFrame);
+        frameBuf->frame.deivce_mem = true;
+        auto curesult = frameBuf->alloc();
         if (curesult != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
+        m_unused.push_back(std::move(frameBuf));
     }
+    auto& copyFrame = m_unused.front();
     if (m_crop) {
         int cropFilterOutputNum = 0;
         FrameInfo *outInfo[1] = { &copyFrame->frame };
@@ -496,9 +496,9 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
         FrameInfo targetFrame = frameInfo;
         if (m_crop) {
             if (!m_decFrameCopy) {
-                m_decFrameCopy = std::make_unique<CUFrameBuf>(targetFrame);
+                m_decFrameCopy = std::make_unique<CUFrameBuf>();
                 copyFrameProp(&m_decFrameCopy->frame, &m_crop->GetFilterParam()->frameOut);
-                m_decFrameCopy->frame.ptr = nullptr;
+                m_decFrameCopy->frame.deivce_mem = true;
                 auto cuerr = m_decFrameCopy->alloc();
                 if (cuerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory.\n"));

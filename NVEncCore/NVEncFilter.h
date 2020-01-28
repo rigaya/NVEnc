@@ -145,7 +145,6 @@ static void copyFrameProp(FrameInfo *dst, const FrameInfo *src) {
     dst->timestamp = src->timestamp;
     dst->duration = src->duration;
     dst->flags = src->flags;
-    dst->deivce_mem = src->deivce_mem;
 }
 
 static cudaError_t copyPlane(FrameInfo *dst, const FrameInfo *src) {
