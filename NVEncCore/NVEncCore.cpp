@@ -2188,14 +2188,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stEncConfig.encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationBot = 0;
         }
     }
-    m_encVUI = inputParam->common.out_vui;
-    apply_auto_color_characteristic(m_encVUI.colorprim, list_colorprim,   m_uEncHeight, inputParam->input.vui.colorprim);
-    apply_auto_color_characteristic(m_encVUI.transfer,  list_transfer,    m_uEncHeight, inputParam->input.vui.transfer);
-    apply_auto_color_characteristic(m_encVUI.matrix,    list_colormatrix, m_uEncHeight, inputParam->input.vui.matrix);
-    apply_auto_color_characteristic(m_encVUI.fullrange, list_colorrange,  m_uEncHeight, inputParam->input.vui.fullrange);
-    apply_auto_color_characteristic(m_encVUI.chromaloc, list_chromaloc,   m_uEncHeight, inputParam->input.vui.chromaloc);
     m_encVUI.descriptpresent =
-            get_cx_value(list_colormatrix, _T("undef")) != (int)m_encVUI.matrix
+           get_cx_value(list_colormatrix, _T("undef")) != (int)m_encVUI.matrix
         || get_cx_value(list_colorprim, _T("undef")) != (int)m_encVUI.colorprim
         || get_cx_value(list_transfer, _T("undef")) != (int)m_encVUI.transfer;
 
@@ -2534,6 +2528,9 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         return RGY_ERR_UNSUPPORTED;
     }
 
+    //VUI情報
+    auto VuiFiltered = inputParam->input.vui;
+
     //vpp-rffの制約事項
     if (inputParam->vpp.rff) {
 #if ENABLE_AVSW_READER
@@ -2605,10 +2602,11 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
         //colorspace
         if (inputParam->vpp.colorspace.enable) {
-            unique_ptr<NVEncFilter> filter(new NVEncFilterColorspace());
+            unique_ptr<NVEncFilterColorspace> filter(new NVEncFilterColorspace());
             shared_ptr<NVEncFilterParamColorspace> param(new NVEncFilterParamColorspace());
             param->colorspace = inputParam->vpp.colorspace;
             param->encCsp = encCsp;
+            param->VuiIn = VuiFiltered;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
@@ -2617,6 +2615,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             if (sts != NV_ENC_SUCCESS) {
                 return sts;
             }
+            VuiFiltered = filter->VuiOut();
             //フィルタチェーンに追加
             m_vpFilters.push_back(std::move(filter));
             //パラメータ情報を更新
@@ -3155,6 +3154,12 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             filter->CheckPerformance(inputParam->vpp.checkPerformance);
         }
     }
+    m_encVUI = inputParam->common.out_vui;
+    apply_auto_color_characteristic(m_encVUI.colorprim, list_colorprim,   m_uEncHeight, VuiFiltered.colorprim);
+    apply_auto_color_characteristic(m_encVUI.transfer,  list_transfer,    m_uEncHeight, VuiFiltered.transfer);
+    apply_auto_color_characteristic(m_encVUI.matrix,    list_colormatrix, m_uEncHeight, VuiFiltered.matrix);
+    apply_auto_color_characteristic(m_encVUI.fullrange, list_colorrange,  m_uEncHeight, VuiFiltered.fullrange);
+    apply_auto_color_characteristic(m_encVUI.chromaloc, list_chromaloc,   m_uEncHeight, VuiFiltered.chromaloc);
     return RGY_ERR_NONE;
 }
 

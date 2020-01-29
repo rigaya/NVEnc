@@ -793,6 +793,10 @@ tstring ColorspaceOpCtrl::printInfoAll() const {
     return str;
 }
 
+VideoVUIInfo ColorspaceOpCtrl::VuiOut() const {
+    return operations.back().to;
+}
+
 RGY_ERR ColorspaceOpCtrl::addColorspaceOpNclYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to) {
     if (from.transfer != to.transfer) {
         AddMessage(RGY_LOG_ERROR, _T("transfer mismatch\n"));
@@ -1073,7 +1077,7 @@ struct ColorspaceHash {
     }
 };
 
-RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double sdr_source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm) {
+RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double sdr_source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm, int height) {
     auto csp_from1 = in;
     if (csp_from1.matrix == RGY_MATRIX_UNSPECIFIED) {
         csp_from1 = csp_from1.to(RGY_MATRIX_BT2020_NCL);
@@ -1085,7 +1089,7 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
         csp_from1 = csp_from1.to(RGY_PRIM_BT2020);
     }
     const auto csp_to1 = csp_from1.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR);
-    CHECK(setPath(csp_from1, csp_to1, sdr_source_peak, approx_gamma, scene_ref));
+    CHECK(setPath(csp_from1, csp_to1, sdr_source_peak, approx_gamma, scene_ref, height));
     switch (prm.tonemap) {
     case HDR2SDR_MODE_HABLE:
         CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.hable));
@@ -1100,15 +1104,20 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
         return RGY_ERR_INVALID_PARAM;
     }
     auto csp_to2 = out;
+    apply_auto_color_characteristic(csp_to2.colorprim, list_colorprim,   height, csp_from1.colorprim);
+    apply_auto_color_characteristic(csp_to2.transfer,  list_transfer,    height, csp_from1.transfer);
+    apply_auto_color_characteristic(csp_to2.matrix,    list_colormatrix, height, csp_from1.matrix);
+    apply_auto_color_characteristic(csp_to2.fullrange, list_colorrange,  height, csp_from1.fullrange);
+    apply_auto_color_characteristic(csp_to2.chromaloc, list_chromaloc,   height, csp_from1.chromaloc);
     if (csp_to2.matrix == RGY_MATRIX_UNSPECIFIED) {
         csp_to2 = csp_to2.to(RGY_MATRIX_BT709).to(RGY_TRANSFER_BT709).to(RGY_PRIM_BT709);
     }
     const auto csp_from2 = csp_to2.to(RGY_PRIM_BT2020).to(RGY_TRANSFER_LINEAR).to(RGY_MATRIX_RGB);
-    CHECK(setPath(csp_from2, csp_to2, sdr_source_peak, approx_gamma, scene_ref));
+    CHECK(setPath(csp_from2, csp_to2, sdr_source_peak, approx_gamma, scene_ref, height));
     return RGY_ERR_NONE;
 }
 
-RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref) {
+RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, int height) {
     if (!is_valid_csp(in)) {
         AddMessage(RGY_LOG_ERROR, _T("invalid input colorspace definition\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -1117,7 +1126,13 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
         AddMessage(RGY_LOG_ERROR, _T("invalid output colorspace definition\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    AddMessage(RGY_LOG_DEBUG, _T("Search path from %s -> %s"), in.print_main().c_str(), out.print_main().c_str());
+    auto out_target = out;
+    apply_auto_color_characteristic(out_target.colorprim, list_colorprim,   height, in.colorprim);
+    apply_auto_color_characteristic(out_target.transfer,  list_transfer,    height, in.transfer);
+    apply_auto_color_characteristic(out_target.matrix,    list_colormatrix, height, in.matrix);
+    apply_auto_color_characteristic(out_target.fullrange, list_colorrange,  height, in.fullrange);
+    apply_auto_color_characteristic(out_target.chromaloc, list_chromaloc,   height, in.chromaloc);
+    AddMessage(RGY_LOG_DEBUG, _T("Search path from %s -> %s"), in.print_main().c_str(), out_target.print_main().c_str());
 
     std::deque<VideoVUIInfo> queue;
     std::unordered_set<VideoVUIInfo, ColorspaceHash> visited;
@@ -1132,7 +1147,7 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
         vertex = queue.front();
         queue.pop_front();
 
-        if (vertex == out)
+        if (vertex == out_target)
             break;
 
         vector<ColorspaceOpInfo> nodes;
@@ -1146,7 +1161,7 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
             parents[edge.to] = std::move(edge);
         }
     }
-    if (vertex != out) {
+    if (vertex != out_target) {
         AddMessage(RGY_LOG_ERROR, _T("no path between colorspaces\n"));
         return RGY_ERR_INVALID_PARAM;
     }
@@ -1387,6 +1402,14 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
         }
     }
 
+    //入力ファイルのVUIが取得されていれば、これを使用する
+    auto &firstVUI = prmCsp->colorspace.convs.begin()->from;
+    apply_auto_color_characteristic(firstVUI.colorprim, list_colorprim,   prmCsp->frameIn.height, prmCsp->VuiIn.colorprim);
+    apply_auto_color_characteristic(firstVUI.transfer,  list_transfer,    prmCsp->frameIn.height, prmCsp->VuiIn.transfer);
+    apply_auto_color_characteristic(firstVUI.matrix,    list_colormatrix, prmCsp->frameIn.height, prmCsp->VuiIn.matrix);
+    apply_auto_color_characteristic(firstVUI.fullrange, list_colorrange,  prmCsp->frameIn.height, prmCsp->VuiIn.fullrange);
+    apply_auto_color_characteristic(firstVUI.chromaloc, list_chromaloc,   prmCsp->frameIn.height, prmCsp->VuiIn.chromaloc);
+
     auto prmPrev = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(m_pParam);
     if (!prmPrev || prmPrev->colorspace != prmCsp->colorspace) {
         const auto filterInCsp = prmCsp->frameOut.csp;
@@ -1409,12 +1432,12 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
             const auto approx_gamma = convbegin->approx_gamma;
             const auto scene_ref = convbegin->scene_ref;
             const auto to = prmCsp->colorspace.convs.back().to;
-            if ((sts = opCtrl->setHDR2SDR(from, to, source_peak, approx_gamma, scene_ref, prmCsp->colorspace.hdr2sdr)) != RGY_ERR_NONE) {
+            if ((sts = opCtrl->setHDR2SDR(from, to, source_peak, approx_gamma, scene_ref, prmCsp->colorspace.hdr2sdr, prmCsp->frameIn.height)) != RGY_ERR_NONE) {
                 return sts;
             }
         } else {
             for (const auto &conv : prmCsp->colorspace.convs) {
-                if ((sts = opCtrl->setPath(conv.from, conv.to, conv.sdr_source_peak, conv.approx_gamma, conv.scene_ref)) != RGY_ERR_NONE) {
+                if ((sts = opCtrl->setPath(conv.from, conv.to, conv.sdr_source_peak, conv.approx_gamma, conv.scene_ref, prmCsp->frameIn.height)) != RGY_ERR_NONE) {
                     return sts;
                 }
             }
@@ -1439,6 +1462,10 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
     m_pParam = pParam;
     return sts;
 #endif
+}
+
+VideoVUIInfo NVEncFilterColorspace::VuiOut() const {
+    return opCtrl->VuiOut();
 }
 
 tstring NVEncFilterParamColorspace::print() const {
