@@ -328,18 +328,12 @@ static int video_create_event(HANDLE& heBufEmpty, HANDLE &heBufFilled, uint32_t 
 
     sprintf_s(buf_event_name, "%s_%d", RGYInputSMEventEmpty, pid);
     heBufEmpty = CreateEventA(NULL, FALSE, FALSE, buf_event_name);
-    if (heBufEmpty == NULL) {
-        heBufEmpty = OpenEventA(EVENT_ALL_ACCESS, FALSE, buf_event_name);
-    }
     //if (heBufEmpty != NULL) {
     //    write_log_auo_line_fmt(LOG_MORE, "Created Event: %s", buf_event_name);
     //}
 
     sprintf_s(buf_event_name, "%s_%d", RGYInputSMEventFilled, pid);
     heBufFilled = CreateEventA(NULL, FALSE, FALSE, buf_event_name);
-    if (heBufFilled == NULL) {
-        heBufFilled = OpenEventA(EVENT_ALL_ACCESS, FALSE, buf_event_name);
-    }
     //if (heBufFilled != NULL) {
     //    write_log_auo_line_fmt(LOG_MORE, "Created Event: %s", buf_event_name);
     //}
