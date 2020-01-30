@@ -42,6 +42,8 @@ void error_afs_setup(BOOL afs, BOOL auto_afs_disable);
 void error_run_process(const char *exe_name, int rp_ret);
 void error_video_create_param_mem();
 void error_video_create_event();
+void error_video_wait_event();
+void error_video_set_event();
 void error_video_open_shared_input_buf();
 void error_video_get_conv_func();
 void warning_auto_qpfile_failed();

@@ -29,10 +29,19 @@
 
 #if ENABLE_SM_READER
 
+
+RGYInputSMPrm::RGYInputSMPrm(RGYInputPrm base) :
+    RGYInputPrm(base),
+    parentProcessID(false) {
+
+}
+
 RGYInputSM::RGYInputSM() :
+    m_prm(),
     m_sm(),
-    m_buf_empty(),
-    m_buf_filled() {
+    m_heBufEmpty(NULL),
+    m_heBufFilled(NULL),
+    m_parentProcess(NULL) {
     m_readerName = _T("sm");
 }
 
@@ -41,8 +50,9 @@ RGYInputSM::~RGYInputSM() {
 }
 
 void RGYInputSM::Close() {
-    m_buf_empty.reset();
-    m_buf_filled.reset();
+    m_heBufEmpty = NULL;
+    m_heBufFilled = NULL;
+    m_parentProcess = NULL;
     m_sm.reset();
     RGYInput::Close();
 }
@@ -52,7 +62,7 @@ rgy_rational<int> RGYInputSM::getInputTimebase() {
 }
 
 bool RGYInputSM::isAfs() {
-    RGYInputSMPrm* prmsm = (RGYInputSMPrm*)m_prm->ptr();
+    RGYInputSMSharedData* prmsm = (RGYInputSMSharedData*)m_prm->ptr();
     return prmsm->afs;
 }
 
@@ -64,50 +74,26 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
 
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
 
-    const auto pid = GetCurrentProcessId();
-    const int handleOpenRetry = 10 * 60 * 10;
-    {
-        char eventname[256];
-        sprintf_s(eventname, "%s_%d", RGYInputSMEventEmpty, pid);
-        AddMessage(RGY_LOG_DEBUG, _T("Opening Event %s...\n"), eventname);
-        HANDLE handleEmpty = nullptr;
-        for (int i = 0; i < handleOpenRetry && (handleEmpty = OpenEventA(EVENT_ALL_ACCESS, FALSE, eventname)) == nullptr; i++) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-        m_buf_empty = std::unique_ptr<void, handle_deleter>(handleEmpty, handle_deleter());
-        if (!m_buf_empty) {
-            AddMessage(RGY_LOG_ERROR, _T("could not open event1 for input."));
-            return RGY_ERR_INVALID_HANDLE;
-        }
-        AddMessage(RGY_LOG_DEBUG, _T("Opened event %s: %p..\n"), char_to_tstring(eventname).c_str(), m_buf_empty.get());
-    }
 
-    {
-        char eventname[256];
-        sprintf_s(eventname, "%s_%d", RGYInputSMEventFilled, pid);
-        AddMessage(RGY_LOG_DEBUG, _T("Opening Event %s...\n"), eventname);
-        HANDLE handleFilled = nullptr;
-        for (int i = 0; i < handleOpenRetry && (handleFilled = OpenEventA(EVENT_ALL_ACCESS, FALSE, eventname)) == nullptr; i++) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-        m_buf_filled = std::unique_ptr<void, handle_deleter>(handleFilled, handle_deleter());
-        if (!m_buf_filled) {
-            AddMessage(RGY_LOG_ERROR, _T("could not open event2 for input."));
-            return RGY_ERR_INVALID_HANDLE;
-        }
-        AddMessage(RGY_LOG_DEBUG, _T("Opened event %s: %p.\n"), char_to_tstring(eventname).c_str(), m_buf_filled.get());
-    }
+    const RGYInputSMPrm *prmSM = dynamic_cast<const RGYInputSMPrm *>(prm);
 
     auto nOutputCSP = m_inputVideoInfo.csp;
 
-    m_prm = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(strsprintf("%s_%d", RGYInputSMPrmSM, pid).c_str(), sizeof(RGYInputSMPrm)));
+    m_prm = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(strsprintf("%s_%08x", RGYInputSMPrmSM, prmSM->parentProcessID).c_str(), sizeof(RGYInputSMSharedData)));
     if (!m_prm->is_open()) {
-        AddMessage(RGY_LOG_ERROR, _T("could not open params for input."));
+        AddMessage(RGY_LOG_ERROR, _T("could not open params for input: %s.\n"), char_to_tstring(m_prm->name()).c_str());
         return RGY_ERR_INVALID_HANDLE;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("Opened parameter struct %s, size: %u.\n"), char_to_tstring(m_prm->name()).c_str(), m_prm->size());
 
+    m_parentProcess = OpenProcess(SYNCHRONIZE | PROCESS_VM_READ, FALSE, prmSM->parentProcessID);
+    if (m_parentProcess == NULL) {
+        AddMessage(RGY_LOG_ERROR, _T("could not open parent process handle.\n"));
+        return RGY_ERR_INVALID_HANDLE;
+    }
+    AddMessage(RGY_LOG_ERROR, _T("Parent process handle: 0x%08x.\n"), (uint32_t)m_parentProcess);
 
-    RGYInputSMPrm *prmsm = (RGYInputSMPrm *)m_prm->ptr();
+    RGYInputSMSharedData *prmsm = (RGYInputSMSharedData *)m_prm->ptr();
     prmsm->pitch = ALIGN(prmsm->w, 128) * (RGY_CSP_BIT_DEPTH[prmsm->csp] > 8 ? 2 : 1);
     m_inputVideoInfo.srcWidth = prmsm->w;
     m_inputVideoInfo.srcHeight = prmsm->h;
@@ -117,6 +103,9 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     m_inputVideoInfo.picstruct = prmsm->picstruct;
     m_inputVideoInfo.frames = prmsm->frames;
     m_inputCsp = m_inputVideoInfo.csp = prmsm->csp;
+    m_heBufEmpty = (HANDLE)prmsm->heBufEmpty;
+    m_heBufFilled = (HANDLE)prmsm->heBufFilled;
+    AddMessage(RGY_LOG_DEBUG, _T("Got event handle empty: 0x%08x, filled: 0x%08x.\n"), (uint32_t)m_heBufEmpty, (uint32_t)m_heBufFilled);
 
     RGY_CSP output_csp_if_lossless = RGY_CSP_NA;
     uint32_t bufferSize = 0;
@@ -141,7 +130,7 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     case RGY_CSP_YUV422:
         bufferSize = m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight * 2;
         if (ENCODER_VCEENC) {
-            AddMessage(RGY_LOG_ERROR, _T("yuv422 not supported as input color format."));
+            AddMessage(RGY_LOG_ERROR, _T("yuv422 not supported as input color format.\n"));
             return RGY_ERR_INVALID_FORMAT;
         }
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでNV16に変換する
@@ -155,7 +144,7 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     case RGY_CSP_YUV422_16:
         bufferSize = m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight * 4;
         if (ENCODER_VCEENC) {
-            AddMessage(RGY_LOG_ERROR, _T("yuv422 not supported as input color format."));
+            AddMessage(RGY_LOG_ERROR, _T("yuv422 not supported as input color format.\n"));
             return RGY_ERR_INVALID_FORMAT;
         }
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでP210に変換する
@@ -180,7 +169,8 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
         AddMessage(RGY_LOG_ERROR, _T("Unknown color foramt.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
-    AddMessage(RGY_LOG_DEBUG, _T("%dx%d, pitch:%d, bufferSize:%d.\n"), m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcPitch, bufferSize);
+    AddMessage(RGY_LOG_DEBUG, _T("%s, %dx%d, pitch:%d, bufferSize:%d.\n"), RGY_CSP_NAMES[m_inputVideoInfo.csp],
+        m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcPitch, bufferSize);
 
     if (nOutputCSP != RGY_CSP_NA) {
         m_inputVideoInfo.csp =
@@ -192,14 +182,19 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
         m_inputVideoInfo.csp = output_csp_if_lossless;
     }
 
-    m_sm = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(strsprintf("%s_%d", RGYInputSMBuffer, pid).c_str(), bufferSize));
+    prmsm->bufSize = bufferSize;
+    m_sm = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(strsprintf("%s_%08x", RGYInputSMBuffer, prmSM->parentProcessID).c_str(), bufferSize));
     if (!m_sm->is_open()) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate input buffer.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate input buffer %s.\n"), char_to_tstring(m_prm->name()).c_str());
         return RGY_ERR_NULL_PTR;
     }
-    prmsm->bufSize = bufferSize;
-    SetEvent(m_buf_empty.get());
-    AddMessage(RGY_LOG_DEBUG, _T("SetEvent: m_buf_empty.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Created input buffer %s, size = %d.\n"), char_to_tstring(m_prm->name()).c_str(), m_prm->size());
+
+    if (SetEvent(m_heBufEmpty) == FALSE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set event!\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("SetEvent: heBufEmpty.\n"));
 
     m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
 
@@ -221,14 +216,24 @@ RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
     if (getVideoTrimMaxFramIdx() < (int)m_encSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
-
-    if (WaitForSingleObject(m_buf_filled.get(), 10 * 1000) == WAIT_TIMEOUT) {
-        AddMessage(RGY_LOG_ERROR, _T("timeout, no input for 10 seconds.\n"));
-        return RGY_ERR_ABORTED;
-    }
-    RGYInputSMPrm *prmsm = (RGYInputSMPrm *)m_prm->ptr();
+    RGYInputSMSharedData *prmsm = (RGYInputSMSharedData *)m_prm->ptr();
     if (prmsm->abort) {
         return RGY_ERR_MORE_DATA;
+    }
+
+    DWORD waiterr = 0;
+    while ((waiterr = WaitForSingleObject(m_heBufFilled, 1000)) != WAIT_OBJECT_0) {
+        if (prmsm->abort) {
+            return RGY_ERR_MORE_DATA;
+        }
+        if (waiterr == WAIT_FAILED) {
+            AddMessage(RGY_LOG_ERROR, _T("Waiting for filling buffer has failed!\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        if (WaitForSingleObject(m_parentProcess, 0) == WAIT_OBJECT_0) {
+            AddMessage(RGY_LOG_ERROR, _T("Parent Process has terminated!\n"));
+            return RGY_ERR_ABORTED;
+        }
     }
 
     void *dst_array[3];
@@ -290,7 +295,10 @@ RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
     pSurface->setTimestamp(prmsm->timestamp);
     pSurface->setDuration(prmsm->duration);
 
-    SetEvent(m_buf_empty.get());
+    if (SetEvent(m_heBufEmpty) == FALSE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to set event!\n"));
+        return RGY_ERR_UNKNOWN;
+    }
     m_encSatusInfo->m_sData.frameIn++;
     return m_encSatusInfo->UpdateDisplay();
 }

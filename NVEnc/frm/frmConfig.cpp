@@ -650,14 +650,10 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXAdaptiveTransform, list_adapt_transform);
     setComboBox(fcgCXBDirectMode,       list_bdirect);
     setComboBox(fcgCXMVPrecision,       list_mv_presicion);
-    setComboBox(fcgCXVideoFormatH264,   list_videoformat);
-    setComboBox(fcgCXTransferH264,      list_transfer);
-    setComboBox(fcgCXColorMatrixH264,   list_colormatrix);
-    setComboBox(fcgCXColorPrimH264,     list_colorprim);
-    setComboBox(fcgCXVideoFormatHEVC,   list_videoformat);
-    setComboBox(fcgCXTransferHEVC,      list_transfer);
-    setComboBox(fcgCXColorMatrixHEVC,   list_colormatrix);
-    setComboBox(fcgCXColorPrimHEVC,     list_colorprim);
+    setComboBox(fcgCXVideoFormat,       list_videoformat);
+    setComboBox(fcgCXTransfer,          list_transfer);
+    setComboBox(fcgCXColorMatrix,       list_colormatrix);
+    setComboBox(fcgCXColorPrim,         list_colorprim);
     setComboBox(fcgCXHEVCTier,          h265_profile_names);
     setComboBox(fxgCXHEVCLevel,         list_hevc_level);
     setComboBox(fcgCXHEVCMaxCUSize,     list_hevc_cu_size);

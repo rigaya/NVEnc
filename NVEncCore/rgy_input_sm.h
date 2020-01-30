@@ -34,12 +34,10 @@
 
 static const char *RGYInputSMPrmSM       = "RGYInputSMPrmSM";
 static const char *RGYInputSMBuffer      = "RGYInputSMBuffer";
-static const char *RGYInputSMEventEmpty  = "RGYInputSMEventEmpty";
-static const char *RGYInputSMEventFilled = "RGYInputSMEventFilled";
 
 #pragma pack(push)
 #pragma pack(1)
-struct RGYInputSMPrm {
+struct RGYInputSMSharedData {
     int w, h;
     int fpsN, fpsD;
     int pitch;
@@ -51,10 +49,22 @@ struct RGYInputSMPrm {
     int duration;
     bool afs;
     bool abort;
+    bool reserved[2];
+    uint32_t heBufEmpty;
+    uint32_t heBufFilled;
 };
 #pragma pack(pop)
 
 #if ENABLE_SM_READER
+
+class RGYInputSMPrm : public RGYInputPrm {
+public:
+    uint32_t parentProcessID;
+
+    RGYInputSMPrm(RGYInputPrm base);
+
+    virtual ~RGYInputSMPrm() {};
+};
 
 class RGYInputSM : public RGYInput {
 public:
@@ -71,8 +81,9 @@ protected:
 
     std::unique_ptr<RGYSharedMemWin> m_prm;
     std::unique_ptr<RGYSharedMem> m_sm;
-    std::unique_ptr<void, handle_deleter> m_buf_empty;
-    std::unique_ptr<void, handle_deleter> m_buf_filled;
+    HANDLE m_heBufEmpty;
+    HANDLE m_heBufFilled;
+    HANDLE m_parentProcess;
 };
 
 #endif //#if ENABLE_SM_READER

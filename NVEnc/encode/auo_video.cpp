@@ -207,7 +207,7 @@ static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, cons
     //出力ファイル
     sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " -o \"%s\"", pe->temp_filename);
     //入力
-    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --sm -i -");
+    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --sm --parent-pid %08x -i -", GetCurrentProcessId());
 }
 
 //並列処理時に音声データを取得する
@@ -304,12 +304,12 @@ static int ReadLogEnc(PIPE_SET *pipes, int total_drop, int current_frames) {
     return pipe_read;
 }
 
-static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO *oip, bool afs, RGY_CSP out_csp, RGY_PICSTRUCT picstruct, uint32_t pid) {
+static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO *oip, bool afs, RGY_CSP out_csp, RGY_PICSTRUCT picstruct, HANDLE heBufEmpty, HANDLE heBufFilled) {
     char sm_name[256];
-    sprintf_s(sm_name, "%s_%d", RGYInputSMPrmSM, pid);
-    auto PrmSm = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(sm_name, sizeof(RGYInputSMPrm)));
+    sprintf_s(sm_name, "%s_%08x", RGYInputSMPrmSM, GetCurrentProcessId());
+    auto PrmSm = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(sm_name, sizeof(RGYInputSMSharedData)));
     if (PrmSm->is_open()) {
-        RGYInputSMPrm *prmsm = (RGYInputSMPrm *)PrmSm->ptr();
+        RGYInputSMSharedData *prmsm = (RGYInputSMSharedData *)PrmSm->ptr();
         prmsm->w = oip->w;
         prmsm->h = oip->h;
         prmsm->fpsN = oip->rate;
@@ -319,21 +319,23 @@ static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO
         prmsm->csp = out_csp;
         prmsm->abort = false;
         prmsm->afs = afs;
+        prmsm->heBufEmpty = (uint32_t)heBufEmpty;
+        prmsm->heBufFilled = (uint32_t)heBufFilled;
     }
     return std::move(PrmSm);
 }
 
-static int video_create_event(HANDLE& heBufEmpty, HANDLE &heBufFilled, uint32_t pid) {
-    char buf_event_name[256];
-
-    sprintf_s(buf_event_name, "%s_%d", RGYInputSMEventEmpty, pid);
-    heBufEmpty = CreateEventA(NULL, FALSE, FALSE, buf_event_name);
+static int video_create_event(HANDLE& heBufEmpty, HANDLE &heBufFilled) {
+    SECURITY_ATTRIBUTES sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+    heBufEmpty = CreateEventA(&sa, FALSE, FALSE, nullptr);
     //if (heBufEmpty != NULL) {
     //    write_log_auo_line_fmt(LOG_MORE, "Created Event: %s", buf_event_name);
     //}
 
-    sprintf_s(buf_event_name, "%s_%d", RGYInputSMEventFilled, pid);
-    heBufFilled = CreateEventA(NULL, FALSE, FALSE, buf_event_name);
+    heBufFilled = CreateEventA(&sa, FALSE, FALSE, nullptr);
     //if (heBufFilled != NULL) {
     //    write_log_auo_line_fmt(LOG_MORE, "Created Event: %s", buf_event_name);
     //}
@@ -428,12 +430,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     } else if (!setup_afsvideo(oip, sys_dat, conf, pe)) {
         ret |= AUO_RESULT_ERROR; //Aviutl(afs)からのフレーム読み込みに失敗
     //x264プロセス開始
+    } else if (video_create_event(heBufEmpty, heBufFilled)) {
+        ret |= AUO_RESULT_ERROR; error_video_create_event();
+    } else if ((prmSM = video_create_param_mem(oip, afs, rgy_output_csp, enc_prm.input.picstruct, heBufEmpty, heBufFilled)) == nullptr || !prmSM->is_open()) {
+        ret |= AUO_RESULT_ERROR; error_video_create_param_mem();
     } else if ((rp_ret = RunProcess(exe_args, exe_dir, &pi_enc, &pipes, GetPriorityClass(pe->h_p_aviutl), TRUE, FALSE)) != RP_SUCCESS) {
         ret |= AUO_RESULT_ERROR; error_run_process("NVEncC", rp_ret);
-    } else if ((prmSM = video_create_param_mem(oip, afs, rgy_output_csp, enc_prm.input.picstruct, pi_enc.dwProcessId)) == nullptr || !prmSM->is_open()) {
-        ret |= AUO_RESULT_ERROR; error_video_create_param_mem();
-    } else if (video_create_event(heBufEmpty, heBufFilled, pi_enc.dwProcessId)) {
-        ret |= AUO_RESULT_ERROR; error_video_create_event();
     } else {
         //全て正常
         int i = 0;
@@ -446,7 +448,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         int64_t qp_freq, qp_start, qp_end;
         QueryPerformanceFrequency((LARGE_INTEGER *)&qp_freq);
         const double qp_freq_sec = 1.0 / (double)qp_freq;
-        RGYInputSMPrm *const prmsm = (RGYInputSMPrm *)prmSM->ptr();
+        RGYInputSMSharedData *const prmsm = (RGYInputSMSharedData *)prmSM->ptr();
         std::unique_ptr<uint8_t, aligned_malloc_deleter> tempBufForNonModWidth;
         int tempBufForNonModWidthPitch = 0;
         std::unique_ptr<RGYSharedMemWin> inputbuf;
@@ -513,7 +515,13 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
             if (!drop) {
 
+                DWORD wait_err = WAIT_TIMEOUT;
                 do {
+                    if (wait_err == WAIT_FAILED) {
+                        error_video_wait_event();
+                        ret |= AUO_RESULT_ABORT;
+                        break;
+                    }
                     if (oip->func_is_abort()) {
                         ret |= AUO_RESULT_ABORT;
                         break;
@@ -525,13 +533,13 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                         break;
                     }
                     log_process_events();
-                } while ((WAIT_TIMEOUT == WaitForSingleObject(heBufEmpty, LOG_UPDATE_INTERVAL)));
+                } while ((wait_err = WaitForSingleObject(heBufEmpty, LOG_UPDATE_INTERVAL)) != WAIT_OBJECT_0);
                 if (ret != AUO_RESULT_SUCCESS)
                     break;
 
                 if (!inputbuf) {
                     char sm_name[256];
-                    sprintf_s(sm_name, "%s_%d", RGYInputSMBuffer, pi_enc.dwProcessId);
+                    sprintf_s(sm_name, "%s_%08x", RGYInputSMBuffer, GetCurrentProcessId());
                     inputbuf = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(sm_name, prmsm->bufSize));
                     if (!inputbuf) {
                         ret |= AUO_RESULT_ERROR; error_video_open_shared_input_buf();
@@ -615,7 +623,11 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                 }
 
                 //完了通知
-                SetEvent(heBufFilled);
+                if (SetEvent(heBufFilled) == FALSE) {
+                    error_video_set_event();
+                    ret |= AUO_RESULT_ABORT;
+                    break;
+                }
             } else {
                 *(next_jitter - 1) = DROP_FRAME_FLAG;
                 pe->drop_count++;

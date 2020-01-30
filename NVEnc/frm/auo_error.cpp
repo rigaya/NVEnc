@@ -131,6 +131,14 @@ void error_video_create_event() {
     write_log_auo_line(LOG_ERROR, "読み込み用のイベント作成に失敗しました。");
 }
 
+void error_video_wait_event() {
+    write_log_auo_line(LOG_ERROR, "読み込み用のイベント待機に失敗しました。");
+}
+
+void error_video_set_event() {
+    write_log_auo_line(LOG_ERROR, "読み込み用のイベントセットに失敗しました。");
+}
+
 void error_video_open_shared_input_buf() {
     write_log_auo_line(LOG_ERROR, "読み込み用のメモリのオープンに失敗しました。");
 }

@@ -365,6 +365,10 @@ RGY_ERR initReaders(
 #if ENABLE_AVSW_READER
     RGYInputAvcodecPrm inputInfoAVCuvid(inputPrm);
 #endif
+#if ENABLE_SM_READER
+    RGYInputSMPrm inputPrmSM(inputPrm);
+    inputPrmSM.parentProcessID = ctrl->parentProcessID;
+#endif
 
     switch (input->type) {
 #if ENABLE_AVI_READER
@@ -434,6 +438,7 @@ RGY_ERR initReaders(
 #if ENABLE_SM_READER
     case RGY_INPUT_FMT_SM: {
         log->write(RGY_LOG_DEBUG, _T("shared mem reader selected.\n"));
+        pInputPrm = &inputPrmSM;
         pFileReader.reset(new RGYInputSM());
         } break;
 #endif //#if ENABLE_SM_READER

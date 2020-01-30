@@ -131,7 +131,8 @@ RGYParamControl::RGYParamControl() :
     procSpeedLimit(0),      //処理速度制限 (0で制限なし)
     perfMonitorSelect(0),
     perfMonitorSelectMatplot(0),
-    perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL) {
+    perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
+    parentProcessID(0) {
 
 }
 RGYParamControl::~RGYParamControl() {};

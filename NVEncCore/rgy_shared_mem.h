@@ -31,12 +31,14 @@
 
 #include "rgy_osdep.h"
 #include <cstdint>
+#include <string>
 
 class RGYSharedMem {
 protected:
     uint64_t shared_size;
     void *handle;
     void *buffer;
+    std::string mem_name;
 
 public:
     RGYSharedMem() : shared_size(0), handle(nullptr), buffer(nullptr) {
@@ -55,6 +57,7 @@ public:
     bool is_open() { return (buffer != nullptr) && (handle != nullptr); }
     void setSize(uint64_t size) { shared_size = size; }
     uint64_t size() const { return shared_size; }
+    const std::string &name() const { return mem_name; }
 
     virtual void open(const char *pipename, uint64_t size) = 0;
     virtual void close() = 0;
@@ -78,6 +81,7 @@ public:
     void open(const char *pipename, uint64_t size) override {
         close();
         shared_size = size;
+        mem_name = pipename;
         handle = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, (DWORD)(size >> 32), (DWORD)(size & 0xffffffffu), pipename);
         if (handle == nullptr) {
             return;
@@ -110,6 +114,7 @@ public:
             handle = nullptr;
         }
         shared_size = 0;
+        mem_name.clear();
     }
 };
 #endif //#if defined(_WIN32) || defined(_WIN64)

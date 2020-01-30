@@ -154,6 +154,7 @@ struct RGYParamControl {
     int64_t perfMonitorSelect;
     int64_t perfMonitorSelectMatplot;
     int     perfMonitorInterval;
+    uint32_t parentProcessID;
 
     RGYParamControl();
     ~RGYParamControl();
