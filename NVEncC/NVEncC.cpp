@@ -111,6 +111,9 @@ static tstring PrintMultipleListOptions(const TCHAR *option_name, const TCHAR *o
             line += strsprintf(_T(" "));
         }
         for (int i = 0; data.list[i].desc; i++) {
+            if (i > 0 && data.list[i].value == data.list[i-1].value) {
+                continue; //連続で同じ値を示す文字列があるときは、先頭のみ表示する
+            }
             const int desc_len = (int)(_tcslen(data.list[i].desc) + _tcslen(_T(", ")) + ((i == data.default_index) ? _tcslen(_T("(default)")) : 0));
             if (line.length() + desc_len >= max_len) {
                 str += line + _T("\n");
