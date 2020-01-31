@@ -66,6 +66,8 @@ bool RGYInputSM::isAfs() {
     return prmsm->afs;
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4312) //'型キャスト': 'uint32_t' からより大きいサイズの 'HANDLE' へ変換します。
 RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     UNREFERENCED_PARAMETER(strFileName);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
@@ -91,7 +93,7 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
         AddMessage(RGY_LOG_ERROR, _T("could not open parent process handle.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
-    AddMessage(RGY_LOG_ERROR, _T("Parent process handle: 0x%08x.\n"), (uint32_t)m_parentProcess);
+    AddMessage(RGY_LOG_ERROR, _T("Parent process handle: 0x%08p.\n"), m_parentProcess);
 
     RGYInputSMSharedData *prmsm = (RGYInputSMSharedData *)m_prm->ptr();
     prmsm->pitch = ALIGN(prmsm->w, 128) * (RGY_CSP_BIT_DEPTH[prmsm->csp] > 8 ? 2 : 1);
@@ -105,7 +107,7 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     m_inputCsp = m_inputVideoInfo.csp = prmsm->csp;
     m_heBufEmpty = (HANDLE)prmsm->heBufEmpty;
     m_heBufFilled = (HANDLE)prmsm->heBufFilled;
-    AddMessage(RGY_LOG_DEBUG, _T("Got event handle empty: 0x%08x, filled: 0x%08x.\n"), (uint32_t)m_heBufEmpty, (uint32_t)m_heBufFilled);
+    AddMessage(RGY_LOG_DEBUG, _T("Got event handle empty: 0x%08p, filled: 0x%08p.\n"), m_heBufEmpty, m_heBufFilled);
 
     RGY_CSP output_csp_if_lossless = RGY_CSP_NA;
     uint32_t bufferSize = 0;
@@ -209,6 +211,7 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
+#pragma warning(pop)
 
 RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
     //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
