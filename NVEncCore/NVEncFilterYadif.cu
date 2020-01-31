@@ -461,7 +461,6 @@ RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
             } else if ((pSourceFrame->picstruct & RGY_PICSTRUCT_FRAME_BFF) == RGY_PICSTRUCT_FRAME_BFF) {
                 targetField = YADIF_GEN_FIELD_TOP;
             }
-            AddMessage(RGY_LOG_ERROR, _T("picstruct: %d, %s.\n"), targetField, picstrcut_to_str(pSourceFrame->picstruct));
         } else if (prmYadif->yadif.mode & VPP_YADIF_MODE_TFF) {
             targetField = YADIF_GEN_FIELD_BOTTOM;
         } else if (prmYadif->yadif.mode & VPP_YADIF_MODE_BFF) {
