@@ -1963,6 +1963,12 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
                     }
                     //ここに入った場合は、必ず最初のキーフレーム
                     m_Demux.video.streamFirstKeyPts = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
+                    if (m_Demux.video.streamFirstKeyPts == AV_NOPTS_VALUE) {
+                        if (m_Demux.stream.size() > 0) {
+                            AddMessage(RGY_LOG_WARN, _T("first key frame had timestamp AV_NOPTS_VALUE, this might lead to avsync error.\n"));
+                        }
+                        m_Demux.video.streamFirstKeyPts = 0;
+                    }
                     m_Demux.video.gotFirstKeyframe = true;
                     //キーフレームに到達するまでQSVではフレームが出てこない
                     //そのため、getSampleでも最初のキーフレームを取得するまでパケットを出力しない
