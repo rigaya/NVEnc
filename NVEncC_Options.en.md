@@ -212,6 +212,7 @@ Deinterlace is available through [--vpp-deinterlace](#--vpp-deinterlace-string) 
 - none ... progressive
 - tff ... top field first
 - bff ... Bottom Field First
+- auto ... detect each frame (available only for [avhw](#--avhw)/[avsw](#--avsw) reader)
 
 ### --video-track &lt;int&gt;
 Set video track to encode in track id. Will be active when used with avhw/avsw reader.

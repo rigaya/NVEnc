@@ -1898,9 +1898,9 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         if ((pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
             copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);
             return RGY_ERR_NONE;
-        } else if (pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_TFF) {
+        } else if ((pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_TFF) == RGY_PICSTRUCT_FRAME_TFF) {
             targetField = NNEDI_GEN_FIELD_BOTTOM;
-        } else if (pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_BFF) {
+        } else if ((pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_BFF) == RGY_PICSTRUCT_FRAME_BFF) {
             targetField = NNEDI_GEN_FIELD_TOP;
         }
     } else if (pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_TOP

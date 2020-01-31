@@ -616,8 +616,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             return -1;
         }
         if (pParams->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave
-            && pParams->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
-            pParams->input.picstruct = RGY_PICSTRUCT_FRAME_TFF;
+            && (pParams->input.picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
+            pParams->input.picstruct = RGY_PICSTRUCT_AUTO;
         }
         return 0;
     }

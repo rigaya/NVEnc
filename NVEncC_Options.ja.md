@@ -221,6 +221,7 @@ avformat + cuvid decoderを使用して読み込む。
 - none ... プログレッシブ
 - tff ... トップフィールドファースト
 - bff ... ボトムフィールドファースト
+- auto ... 各フレームについて自動的に判断 ([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 左、上、右、下の切り落とし画素数。

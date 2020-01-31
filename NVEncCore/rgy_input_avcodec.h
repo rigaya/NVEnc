@@ -707,7 +707,7 @@ typedef struct AVDemuxVideo {
     int                       HWDecodeDeviceId;      //HWデコードする場合に選択したデバイス
 
     bool                      bUseHEVCmp42AnnexB;
-    
+
     AVMasteringDisplayMetadata *masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
     AVContentLightMetadata   *contentLight;          //入力ファイルから抽出したHDRメタ情報
 } AVDemuxVideo;
@@ -934,6 +934,7 @@ public:
     bool           videoDetectPulldown;     //pulldownの検出を試みるかどうか
     C2AFormat      caption2ass;             //caption2assの処理の有効化
     bool           pasrseHDRmetadata;       //HDR関連のmeta情報を取得する
+    bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
 
     RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};

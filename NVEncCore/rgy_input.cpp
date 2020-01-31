@@ -352,6 +352,15 @@ RGY_ERR initReaders(
         log->write(RGY_LOG_ERROR, _T("avsw reader not compiled in this binary.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    auto check_if_avsw_or_avhw = [](RGY_INPUT_FMT input_type) {
+        return input_type == RGY_INPUT_FMT_AVHW
+            || input_type == RGY_INPUT_FMT_AVSW
+            || input_type == RGY_INPUT_FMT_AVANY;
+    };
+    if (input->picstruct == RGY_PICSTRUCT_AUTO && !check_if_avsw_or_avhw(input->type)) {
+        log->write(RGY_LOG_ERROR, _T("--interlace auto is only supported with avsw/avhw reader.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
 
     RGYInputPrm inputPrm;
     inputPrm.threadCsp = ctrl->threadCsp;
@@ -430,6 +439,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.videoDetectPulldown = !vpp_rff && !vpp_afs && common->AVSyncMode == RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.caption2ass = common->caption2ass;
         inputInfoAVCuvid.pasrseHDRmetadata = common->maxCll == maxCLLSource || common->masterDisplay == masterDisplaySource;
+        inputInfoAVCuvid.interlaceAutoFrame = input->picstruct == RGY_PICSTRUCT_AUTO;
         pInputPrm = &inputInfoAVCuvid;
         log->write(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         pFileReader.reset(new RGYInputAvcodec());
