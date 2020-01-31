@@ -1509,6 +1509,13 @@ RGY_ERR NVEncFilterCspCrop::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
             return RGY_ERR_INVALID_PARAM;
         }
     }
+    //yuv422->yuv420のインタレ対応の変換はないので、yuv444を経由するようにする
+    if (RGY_CSP_CHROMA_FORMAT[pCropParam->frameIn.csp] == RGY_CHROMAFMT_YUV422
+        && RGY_CSP_CHROMA_FORMAT[pCropParam->frameOut.csp] == RGY_CHROMAFMT_YUV420
+        && (pCropParam->frameIn.picstruct & RGY_PICSTRUCT_INTERLACED) != 0) {
+        pCropParam->frameOut.csp = (RGY_CSP_BIT_DEPTH[pCropParam->frameOut.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+    }
+    pCropParam->frameOut.picstruct = pCropParam->frameIn.picstruct;
     pCropParam->frameOut.height = pCropParam->frameIn.height - pCropParam->crop.e.bottom - pCropParam->crop.e.up;
     pCropParam->frameOut.width = pCropParam->frameIn.width - pCropParam->crop.e.left - pCropParam->crop.e.right;
     if (pCropParam->frameOut.height <= 0 || pCropParam->frameOut.width <= 0) {

@@ -2455,6 +2455,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     inputFrame.width = inputParam->input.srcWidth;
     inputFrame.height = inputParam->input.srcHeight;
     inputFrame.csp = inputParam->input.csp;
+    inputFrame.picstruct = inputParam->input.picstruct;
     const int croppedWidth = inputFrame.width - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
     const int croppedHeight = inputFrame.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
     if (!cropRequired) {
@@ -2503,17 +2504,10 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
 
     //picStructの設定
-    if (inputParam->input.picstruct == RGY_PICSTRUCT_AUTO) {
-        { auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-        if (pAVCodecReader == nullptr) {
-            PrintMes(RGY_LOG_DEBUG, _T("--interlace auto can only be used with avhw/avsw reader.\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
-        }
-    }
     m_stPicStruct = picstruct_rgy_to_enc(inputParam->input.picstruct);
     if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
+        inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
     } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
     }
