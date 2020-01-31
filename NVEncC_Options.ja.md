@@ -436,38 +436,49 @@ DAR比 (画面アスペクト比) の指定。
 ### --fullrange
 フルレンジYUVとしてエンコードする。
 
-### --videoformat &lt;string&gt;
+### --colorrange &lt;string&gt;
+"--colorrange full"は"--fullrange"に同じ。
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
-  undef, ntsc, component, pal, secam, mac
+  limited, full, auto
+```
+
+### --videoformat &lt;string&gt;
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
+```
+  undef, auto, ntsc, component, pal, secam, mac
 ```
 ### --colormatrix &lt;string&gt;
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
-  undef, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+  undef, auto, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
 ```
 ### --colorprim &lt;string&gt;
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
 ```
 ### --transfer &lt;string&gt;
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```  
 
-### --chromaloc &lt;int&gt;
+### --chromaloc &lt;int&gt; or "auto"
 出力データのchroma location flagを 0 ～ 5 の範囲で指定する。  
 デフォルト = 0 (unspecified)
 
-### --max-cll &lt;int&gt;,&lt;int&gt; [HEVCのみ]
-MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVCのみ]
+MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
 例1: --max-cll 1000,300
 例2: --max-cll copy  # 入力ファイルから値をコピー
 ```
 
-### --master-display &lt;string&gt; [HEVCのみ]
-Mastering display data の設定。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。
+### --master-display &lt;string&gt; or "copy" [HEVCのみ]
+Mastering display data の設定。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
 例1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 例2: --master-display copy  # 入力ファイルから値をコピー
@@ -1088,30 +1099,31 @@ yadifによるインタレ解除を行う。
 
     
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-色空間変換を行う。x64版のみ使用可能。
+色空間変換を行う。x64版のみ使用可能。  
+パラメータに"input"を指定すると、入力ファイルの値を参照できる。(avhww/avsw読み込みのみ)
 
 **パラメータ**
 - matrix=&lt;from&gt;:&lt;to&gt;  
   
 ```
-  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
 ```
 
 - colorprim=&lt;from&gt;:&lt;to&gt;  
 ```
-  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
 ```
 
 - transfer=&lt;from&gt;:&lt;to&gt;  
 ```
   bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, arib-srd-b67
+  bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
 ```
 
 - range=&lt;from&gt;:&lt;to&gt;  
 ```
-  limited, full
+  limited, full, auto
 ```
 
 - hdr2sdr=&lt;string&gt;  

@@ -238,14 +238,14 @@ enum {
     DELOGO_MODE_ADD,
 };
 
-const int COLOR_VALUE_COPY = -1;
-const int COLOR_VALUE_AUTO = std::numeric_limits<int>::max();
+const int COLOR_VALUE_AUTO = -1;
+const int COLOR_VALUE_AUTO_RESOLUTION = std::numeric_limits<int>::max();
 const int HD_HEIGHT_THRESHOLD = 720;
-const int HD_INDEX = 2;
-const int SD_INDEX = 3;
+const int HD_INDEX = 3;
+const int SD_INDEX = 4;
 
 enum CspMatrix {
-    RGY_MATRIX_COPY        = COLOR_VALUE_COPY,
+    RGY_MATRIX_AUTO        = COLOR_VALUE_AUTO,
     RGY_MATRIX_RGB         = 0,
     RGY_MATRIX_BT709       = 1,
     RGY_MATRIX_UNSPECIFIED = 2,
@@ -281,8 +281,8 @@ static const std::array<CspMatrix, 14> CspMatrixList{
 
 const CX_DESC list_colormatrix[] = {
     { _T("undef"),       RGY_MATRIX_UNSPECIFIED  },
-    { _T("copy"),        RGY_MATRIX_COPY  },
-    { _T("auto"),        COLOR_VALUE_AUTO },
+    { _T("auto"),        RGY_MATRIX_AUTO  },
+    { _T("auto_res"),    COLOR_VALUE_AUTO_RESOLUTION },
     { _T("bt709"),       RGY_MATRIX_BT709  },
     { _T("smpte170m"),   RGY_MATRIX_ST170_M  },
     { _T("bt470bg"),     RGY_MATRIX_BT470_BG  },
@@ -300,7 +300,7 @@ const CX_DESC list_colormatrix[] = {
 };
 
 enum CspTransfer {
-    RGY_TRANSFER_COPY         = COLOR_VALUE_COPY,
+    RGY_TRANSFER_AUTO         = COLOR_VALUE_AUTO,
     RGY_TRANSFER_BT709        = 1,
     RGY_TRANSFER_UNSPECIFIED  = 2,
     RGY_TRANSFER_BT470_M      = 4,
@@ -338,8 +338,8 @@ static const std::array<CspTransfer, 15> CspTransferList{
 
 const CX_DESC list_transfer[] = {
     { _T("undef"),         RGY_TRANSFER_UNSPECIFIED  },
-    { _T("copy"),          RGY_TRANSFER_COPY },
-    { _T("auto"),          COLOR_VALUE_AUTO },
+    { _T("auto"),          RGY_TRANSFER_AUTO },
+    { _T("auto_res"),      COLOR_VALUE_AUTO_RESOLUTION },
     { _T("bt709"),         RGY_TRANSFER_BT709  },
     { _T("smpte170m"),     RGY_TRANSFER_BT601  },
     { _T("bt470m"),        RGY_TRANSFER_BT470_M  },
@@ -360,7 +360,7 @@ const CX_DESC list_transfer[] = {
 };
 
 enum CspColorprim {
-    RGY_PRIM_COPY        = COLOR_VALUE_COPY,
+    RGY_PRIM_AUTO        = COLOR_VALUE_AUTO,
     RGY_PRIM_BT709       = 1,
     RGY_PRIM_UNSPECIFIED = 2,
     RGY_PRIM_BT470_M     = 4,
@@ -392,8 +392,8 @@ static const std::array<CspColorprim, 12> CspColorprimList{
 
 const CX_DESC list_colorprim[] = {
     { _T("undef"),     RGY_PRIM_UNSPECIFIED  },
-    { _T("copy"),      RGY_PRIM_COPY      },
-    { _T("auto"),      COLOR_VALUE_AUTO   },
+    { _T("auto"),      RGY_PRIM_AUTO      },
+    { _T("auto_res"),  COLOR_VALUE_AUTO_RESOLUTION   },
     { _T("bt709"),     RGY_PRIM_BT709     },
     { _T("smpte170m"), RGY_PRIM_ST170_M   },
     { _T("bt470m"),    RGY_PRIM_BT470_M   },
@@ -410,7 +410,7 @@ const CX_DESC list_colorprim[] = {
 
 const CX_DESC list_videoformat[] = {
     { _T("undef"),     5  },
-    { _T("copy"),     -1  },
+    { _T("auto"),     COLOR_VALUE_AUTO  },
     { _T("ntsc"),      2  },
     { _T("component"), 0  },
     { _T("pal"),       1  },
@@ -425,24 +425,24 @@ const CX_DESC list_chromaloc[] = {
     { _T("3"), 3 },
     { _T("4"), 4 },
     { _T("5"), 5 },
-    { _T("copy"), COLOR_VALUE_COPY },
+    { _T("auto"),  COLOR_VALUE_AUTO },
     { NULL, 0 }
 };
 const CX_DESC list_colorrange[] = {
     { _T("limited"), 0 },
-    { _T("full"), 1 },
-    { _T("tv"), 0 },
-    { _T("pc"), 1 },
-    { _T("copy"),    COLOR_VALUE_COPY },
+    { _T("tv"),      0 },
+    { _T("full"),    1 },
+    { _T("pc"),      1 },
+    { _T("auto"),    COLOR_VALUE_AUTO },
     { NULL, 0 }
 };
 
 template<typename T>
-void apply_auto_color_characteristic(T &value, const CX_DESC *list, int frame_height, T input_val) {
-    if (value == COLOR_VALUE_AUTO) {
+void apply_auto_color_characteristic(T &value, const CX_DESC *list, int frame_height, T auto_val) {
+    if (value == COLOR_VALUE_AUTO_RESOLUTION) {
         value = (T)list[(frame_height >= HD_HEIGHT_THRESHOLD) ? HD_INDEX : SD_INDEX].value;
-    } else if (value == COLOR_VALUE_COPY) {
-        value = input_val;
+    } else if (value == COLOR_VALUE_AUTO) {
+        value = auto_val;
     }
 };
 

@@ -286,6 +286,21 @@ static RGY_ERR initOtherReaders(
 }
 #endif
 
+static bool check_if_avhw_or_avsw(RGY_INPUT_FMT input_type) {
+    return input_type == RGY_INPUT_FMT_AVHW
+        || input_type == RGY_INPUT_FMT_AVSW
+        || input_type == RGY_INPUT_FMT_AVANY;
+};
+
+template<typename T>
+bool check_avhw_avsw_only(const T& target, const T& autoval, const char *name, RGYLog *log) {
+    if (target == autoval) {
+        log->write(RGY_LOG_ERROR, _T("\"%s\" is only supported with avsw/avhw reader.\n"), name);
+        return true;
+    }
+    return false;
+}
+
 RGY_ERR initReaders(
     shared_ptr<RGYInput>& pFileReader,
     vector<shared_ptr<RGYInput>>& otherReaders,
@@ -352,14 +367,16 @@ RGY_ERR initReaders(
         log->write(RGY_LOG_ERROR, _T("avsw reader not compiled in this binary.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    auto check_if_avsw_or_avhw = [](RGY_INPUT_FMT input_type) {
-        return input_type == RGY_INPUT_FMT_AVHW
-            || input_type == RGY_INPUT_FMT_AVSW
-            || input_type == RGY_INPUT_FMT_AVANY;
-    };
-    if (input->picstruct == RGY_PICSTRUCT_AUTO && !check_if_avsw_or_avhw(input->type)) {
-        log->write(RGY_LOG_ERROR, _T("--interlace auto is only supported with avsw/avhw reader.\n"));
-        return RGY_ERR_UNSUPPORTED;
+    if (!check_if_avhw_or_avsw(input->type)) {
+        if (check_avhw_avsw_only(input->picstruct,          RGY_PICSTRUCT_AUTO, "--interlace auto",      log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.chromaloc, COLOR_VALUE_AUTO,   "--chromaloc auto",      log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.format,    COLOR_VALUE_AUTO,   "--videoformat auto",    log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.matrix,    RGY_MATRIX_AUTO,    "--colormatrix auto",    log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.colorprim, RGY_PRIM_AUTO,      "--colorprim auto",      log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.transfer,  RGY_TRANSFER_AUTO,  "--transfer auto",       log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.fullrange, COLOR_VALUE_AUTO,   "--colorrange auto",     log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only<std::string>(common->maxCll, maxCLLSource,     "--maxcll copy",         log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only<std::string>(common->masterDisplay, masterDisplaySource, "--master-dsiplay copy", log.get())) return RGY_ERR_UNSUPPORTED;
     }
 
     RGYInputPrm inputPrm;

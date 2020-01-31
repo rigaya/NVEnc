@@ -430,38 +430,50 @@ Set DAR ratio (screen aspect ratio).
 ### --fullrange
 Encode as full range YUV.
 
-### --videoformat &lt;string&gt;
+### --colorrange &lt;string&gt;
+"--colorrange full" is same as "--fullrange".
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
-  undef, ntsc, component, pal, secam, mac
+  limited, full, auto
+```
+
+### --videoformat &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
+```
+  undef, auto, ntsc, component, pal, secam, mac
 ```
 ### --colormatrix &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
-  undef, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+  undef, auto, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
 ```
 ### --colorprim &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
 ```
 ### --transfer &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```
 
-### --chromaloc &lt;int&gt;
+### --chromaloc &lt;int&gt; or "auto"
 Set chroma location flag of the output bitstream from values 0 ... 5.  
+"auto" will copy from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 default: 0 = unspecified
 
-### --max-cll &lt;int&gt;,&lt;int&gt; [HEVC only]
-Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file.
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC only]
+Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 ```
 Example1: --max-cll 1000,300
 Example2: --max-cll copy  # copy values from source
 ```
 
-### --master-display &lt;string&gt; [HEVC only]
-Set Mastering display data. "copy" will copy values from the input file.
+### --master-display &lt;string&gt; or "copy" [HEVC only]
+Set Mastering display data. "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 ```
 Example1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 Example2: --master-display copy  # copy values from source
@@ -1043,30 +1055,31 @@ Yadif deinterlacer.
     Generate one frame from each field assuming bottom field first.
     
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-Converts colorspace of the video. Available on x64 version.
+Converts colorspace of the video. Available on x64 version.  
+Values for parameters will be copied from input file for "input".
 
 **parameters**
 - matrix=&lt;from&gt;:&lt;to&gt;  
   
 ```
-  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
 ```
 
 - colorprim=&lt;from&gt;:&lt;to&gt;  
 ```
-  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
 ```
 
 - transfer=&lt;from&gt;:&lt;to&gt;  
 ```
   bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, arib-srd-b67
+  bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
 ```
 
 - range=&lt;from&gt;:&lt;to&gt;  
 ```
-  limited, full
+  limited, full, auto
 ```
 
 - hdr2sdr=&lt;string&gt;  
