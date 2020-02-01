@@ -93,7 +93,7 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
         AddMessage(RGY_LOG_ERROR, _T("could not open parent process handle.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
-    AddMessage(RGY_LOG_ERROR, _T("Parent process handle: 0x%08p.\n"), m_parentProcess);
+    AddMessage(RGY_LOG_DEBUG, _T("Parent process handle: 0x%08p.\n"), m_parentProcess);
 
     RGYInputSMSharedData *prmsm = (RGYInputSMSharedData *)m_prm->ptr();
     prmsm->pitch = ALIGN(prmsm->w, 128) * (RGY_CSP_BIT_DEPTH[prmsm->csp] > 8 ? 2 : 1);
@@ -237,6 +237,9 @@ RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
             AddMessage(RGY_LOG_ERROR, _T("Parent Process has terminated!\n"));
             return RGY_ERR_ABORTED;
         }
+    }
+    if (prmsm->abort) {
+        return RGY_ERR_MORE_DATA;
     }
 
     void *dst_array[3];
