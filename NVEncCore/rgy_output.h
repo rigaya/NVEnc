@@ -38,6 +38,7 @@
 #include "rgy_log.h"
 #include "rgy_status.h"
 #include "rgy_avutil.h"
+#include "rgy_bitstream.h"
 #include "rgy_input.h"
 #if ENCODER_NVENC
 #include "NVEncUtil.h"
@@ -183,7 +184,7 @@ struct RGYOutputRawPrm {
     bool benchmark;
     int bufSizeMB;
     RGY_CODEC codecId;
-    vector<uint8_t> seiNal;
+    const HEVCHDRSei *hedrsei;
 };
 
 class RGYOutputRaw : public RGYOutput {
@@ -203,6 +204,8 @@ protected:
 #endif //#if ENABLE_AVSW_READER
 };
 
+std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, const RGYInput *reader);
+
 RGY_ERR initWriters(
     shared_ptr<RGYOutput> &pFileWriter,
     vector<shared_ptr<RGYOutput>> &pFileWriterListAudio,
@@ -217,6 +220,7 @@ RGY_ERR initWriters(
 #if ENABLE_AVSW_READER
     const vector<unique_ptr<AVChapter>> &chapters,
 #endif //#if ENABLE_AVSW_READER
+    const HEVCHDRSei *hedrsei,
     const int subburnTrackId,
     const bool videoDtsUnavailable,
     const bool benchmark,

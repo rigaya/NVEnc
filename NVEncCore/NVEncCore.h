@@ -307,6 +307,7 @@ protected:
     vector<unique_ptr<AVChapter>> m_Chapters;            //ファイルから読み込んだチャプター
 #endif //#if ENABLE_AVSW_READER
     unique_ptr<RGYHDR10Plus>      m_hdr10plus;
+    unique_ptr<HEVCHDRSei>        m_hdrsei;
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;
     shared_ptr<NVEncFilterParam>    m_pLastFilterParam;

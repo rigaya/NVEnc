@@ -28,6 +28,7 @@
 #include <regex>
 #include "rgy_util.h"
 #include "rgy_bitstream.h"
+#include "rgy_util.h"
 
 HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false) {
     memset(&masterdisplay, 0, sizeof(masterdisplay));
@@ -90,6 +91,44 @@ int HEVCHDRSei::parse_masterdisplay(std::string str_masterdisplay) {
 
 HEVCHDRSeiPrm HEVCHDRSei::getprm() const {
     return prm;
+}
+std::string HEVCHDRSei::print_masterdisplay() const {
+    std::string str;
+    if (prm.masterdisplay_set) {
+        str += strsprintf("G(%f %f) B(%f %f) R(%f %f) WP(%f %f) L(%f %f)",
+            (float)prm.masterdisplay[0] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[1] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[2] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[3] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[4] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[5] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[6] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[7] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[8] * (1.0f / 10000.0f),
+            (float)prm.masterdisplay[9] * (1.0f / 10000.0f));
+    }
+    return str;
+}
+
+std::string HEVCHDRSei::print_maxcll() const {
+    std::string str;
+    if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
+        str += strsprintf("%d/%d", prm.maxcll, prm.maxfall);
+    }
+    return str;
+}
+
+std::string HEVCHDRSei::print() const {
+    std::string str = print_masterdisplay();
+    std::string str1 = print_maxcll();
+    if (str.length() > 0) {
+        str = "Mastering Display: " + str + "\n";
+    }
+    str += str1;
+    if (str1.length() > 0) {
+        str += "MaxCLL/MaxFALL: " + str1 + "\n";
+    }
+    return str;
 }
 
 void HEVCHDRSei::add_u16(std::vector<uint8_t>& data, uint16_t u16) const {

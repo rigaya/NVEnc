@@ -433,6 +433,7 @@ NVEncCore::NVEncCore() {
     m_appliedDynamicRC = DYNAMIC_PARAM_NOT_SELECTED;
     m_cudaSchedule = CU_CTX_SCHED_AUTO;
     m_encVUI = VideoVUIInfo();
+    m_hdrsei.reset();
 
     INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
     INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
@@ -727,6 +728,11 @@ NVENCSTATUS NVEncCore::InitPerfMonitor(const InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER_FORMAT encBufferFormat) {
+    m_hdrsei = createHEVCHDRSei(inputParams->common.maxCll, inputParams->common.masterDisplay, m_pFileReader.get());
+    if (!m_hdrsei) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
+        return NV_ENC_ERR_GENERIC;
+    }
     const auto outputVideoInfo = videooutputinfo(m_stCodecGUID, encBufferFormat,
         m_uEncWidth, m_uEncHeight,
         &m_stEncConfig, m_stPicStruct,
@@ -745,7 +751,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
 
     if (initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
-        m_trimParam, m_outputTimebase, m_Chapters, subburnTrackId, false, false, m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
+        m_trimParam, m_outputTimebase, m_Chapters, m_hdrsei.get(), subburnTrackId, false, false, m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return NV_ENC_ERR_GENERIC;
     }
@@ -5103,7 +5109,25 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     }
     { const auto &vui_str = m_encVUI.print_all();
         if (vui_str.length() > 0) {
-            add_str(RGY_LOG_INFO, _T("VUI            %s\n"), vui_str.c_str());
+            add_str(RGY_LOG_INFO,  _T("VUI            %s\n"), vui_str.c_str());
+        }
+    }
+    if (m_hdrsei) {
+        const auto masterdisplay = m_hdrsei->print_masterdisplay();
+        const auto maxcll = m_hdrsei->print_maxcll();
+        if (masterdisplay.length() > 0) {
+            const tstring tstr = char_to_tstring(masterdisplay);
+            const auto splitpos = tstr.find(_T("WP("));
+            if (splitpos == std::string::npos) {
+                add_str(RGY_LOG_INFO, _T("MasteringDisp  %s\n"), tstr.c_str());
+            } else {
+                add_str(RGY_LOG_INFO, _T("MasteringDisp  %s\n")
+                    _T("               %s\n"),
+                    tstr.substr(0, splitpos - 1).c_str(), tstr.substr(splitpos).c_str());
+            }
+        }
+        if (maxcll.length() > 0) {
+            add_str(RGY_LOG_INFO, _T("MaxCLL/MaxFALL %s\n"), char_to_tstring(maxcll).c_str());
         }
     }
     add_str(RGY_LOG_INFO, _T("Others         "));

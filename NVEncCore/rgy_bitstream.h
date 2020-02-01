@@ -194,6 +194,9 @@ public:
     void set_masterdisplay(const int masterdisplay[10]);
     int parse_masterdisplay(std::string masterdisplay);
     HEVCHDRSeiPrm getprm() const;
+    std::string print_masterdisplay() const;
+    std::string print_maxcll() const;
+    std::string print() const;
     std::vector<uint8_t> gen_nal() const;
     std::vector<uint8_t> gen_nal(HEVCHDRSeiPrm prm);
 private:

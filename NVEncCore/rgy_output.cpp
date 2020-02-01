@@ -264,8 +264,9 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_name);
         }
 #endif //#if ENABLE_AVSW_READER
-        if (rawPrm->codecId == RGY_CODEC_HEVC) {
-            m_seiNal = rawPrm->seiNal;
+        if (rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->hedrsei != nullptr) {
+            AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hedrsei->print()));
+            m_seiNal = rawPrm->hedrsei->gen_nal();
         }
     }
     m_inited = true;
@@ -551,7 +552,8 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 #include "rgy_input_avcodec.h"
 #include "rgy_output_avcodec.h"
 
-int setHEVCHDRSei(HEVCHDRSei& hedrsei, const std::string& maxCll, const std::string &masterDisplay, const RGYInput *reader) {
+std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string& maxCll, const std::string &masterDisplay, const RGYInput *reader) {
+    auto hedrsei = std::make_unique<HEVCHDRSei>();
     const AVMasteringDisplayMetadata *masteringDisplaySrc = nullptr;
     const AVContentLightMetadata *contentLightSrc = nullptr;
     { auto avcodecReader = dynamic_cast<const RGYInputAvcodec *>(reader);
@@ -563,10 +565,10 @@ int setHEVCHDRSei(HEVCHDRSei& hedrsei, const std::string& maxCll, const std::str
     int ret = 0;
     if (maxCll == maxCLLSource) {
         if (contentLightSrc != nullptr) {
-            hedrsei.set_maxcll(contentLightSrc->MaxCLL, contentLightSrc->MaxFALL);
+            hedrsei->set_maxcll(contentLightSrc->MaxCLL, contentLightSrc->MaxFALL);
         }
     } else {
-        ret = hedrsei.parse_maxcll(maxCll);
+        ret = hedrsei->parse_maxcll(maxCll);
     }
     if (masterDisplay == masterDisplaySource) {
         if (masteringDisplaySrc != nullptr) {
@@ -581,12 +583,15 @@ int setHEVCHDRSei(HEVCHDRSei& hedrsei, const std::string& maxCll, const std::str
             masterdisplay[7] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->white_point[1], av_make_q(50000, 1))) + 0.5);
             masterdisplay[8] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->max_luminance, av_make_q(10000, 1))) + 0.5);
             masterdisplay[9] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->min_luminance, av_make_q(10000, 1))) + 0.5);
-            hedrsei.set_masterdisplay(masterdisplay);
+            hedrsei->set_masterdisplay(masterdisplay);
         }
     } else {
-        ret = hedrsei.parse_masterdisplay(masterDisplay);
+        ret = hedrsei->parse_masterdisplay(masterDisplay);
     }
-    return ret;
+    if (ret) {
+        hedrsei.reset();
+    }
+    return hedrsei;
 }
 
 RGY_ERR initWriters(
@@ -603,6 +608,7 @@ RGY_ERR initWriters(
 #if ENABLE_AVSW_READER
     const vector<unique_ptr<AVChapter>>& chapters,
 #endif //#if ENABLE_AVSW_READER
+    const HEVCHDRSei *hedrsei,
     const int subburnTrackId,
     const bool videoDtsUnavailable,
     const bool benchmark,
@@ -611,11 +617,6 @@ RGY_ERR initWriters(
     shared_ptr<RGYLog> log
 ) {
     bool stdoutUsed = false;
-    HEVCHDRSei hedrsei;
-    if (setHEVCHDRSei(hedrsei, common->maxCll, common->masterDisplay, pFileReader.get())) {
-        log->write(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
 #if ENABLE_AVSW_READER
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =
@@ -669,8 +670,8 @@ RGY_ERR initWriters(
         writerPrm.audioIgnoreDecodeError = common->audioIgnoreDecodeError;
         writerPrm.queueInfo = (pPerfMonitor) ? pPerfMonitor->GetQueueInfoPtr() : nullptr;
         writerPrm.muxVidTsLogFile         = (ctrl->logMuxVidTsFile) ? ctrl->logMuxVidTsFile : _T("");
-        writerPrm.bitstreamTimebase      = av_make_q(outputTimebase);
-        writerPrm.HEVCHdrSei             = &hedrsei;
+        writerPrm.bitstreamTimebase       = av_make_q(outputTimebase);
+        writerPrm.HEVCHdrSei              = hedrsei;
         writerPrm.videoCodecTag           = common->videoCodecTag;
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
@@ -933,7 +934,7 @@ RGY_ERR initWriters(
             rawPrm.bufSizeMB = common->outputBufSizeMB;
             rawPrm.benchmark = benchmark;
             rawPrm.codecId = outputVideoInfo.codec;
-            rawPrm.seiNal = hedrsei.gen_nal();
+            rawPrm.hedrsei = hedrsei;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, pFileWriter->GetOutputMessage());

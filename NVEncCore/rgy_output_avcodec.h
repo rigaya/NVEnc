@@ -303,7 +303,7 @@ struct AvcodecWriterPrm {
     muxOptList                   muxOpt;                  //mux時に使用するオプション
     PerfQueueInfo               *queueInfo;               //キューの情報を格納する構造体
     tstring                      muxVidTsLogFile;         //mux timestampログファイル
-    HEVCHDRSei                  *HEVCHdrSei;              //HDR関連のmetadata
+    const HEVCHDRSei            *HEVCHdrSei;              //HDR関連のmetadata
     RGYTimestamp                *vidTimestamp;            //動画のtimestampの情報
     std::string                  videoCodecTag;           //動画タグ
     bool                         afs;                     //入力が自動フィールドシフト

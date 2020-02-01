@@ -602,6 +602,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         auto seiNal = prm->HEVCHdrSei->gen_nal();
         if (seiNal.size() > 0) {
             m_Mux.video.seiNal.copy(seiNal.data(), (uint32_t)seiNal.size());
+            AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->HEVCHdrSei->print()));
 
             const auto HEVCHdrSeiPrm = prm->HEVCHdrSei->getprm();
 
