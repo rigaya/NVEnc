@@ -697,7 +697,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         codecpar->profile                 = videoOutputInfo->codecProfile;
         codecpar->sample_aspect_ratio.num = videoOutputInfo->sar[0];
         codecpar->sample_aspect_ratio.den = videoOutputInfo->sar[1];
-        codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
+        codecpar->chroma_location         = (AVChromaLocation)videoOutputInfo->vui.chromaloc;
         codecpar->field_order             = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
         codecpar->video_delay             = videoOutputInfo->videoDelay;
         if (videoOutputInfo->vui.descriptpresent) {

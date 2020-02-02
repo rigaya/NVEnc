@@ -204,7 +204,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             codecpar->profile                 = pVideoOutputInfo->codecProfile;
             codecpar->sample_aspect_ratio.num = pVideoOutputInfo->sar[0];
             codecpar->sample_aspect_ratio.den = pVideoOutputInfo->sar[1];
-            codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
+            codecpar->chroma_location         = (AVChromaLocation)pVideoOutputInfo->vui.chromaloc;
             codecpar->field_order             = picstrcut_rgy_to_avfieldorder(pVideoOutputInfo->picstruct);
             codecpar->video_delay             = pVideoOutputInfo->videoDelay;
             if (pVideoOutputInfo->vui.descriptpresent) {
