@@ -1146,7 +1146,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         i++;
         int value = 0;
         if (get_list_value(list_chromaloc, strInput[i], &value)) {
-            common->out_vui.chromaloc = value;
+            common->out_vui.chromaloc = (CspChromaloc)value;
         } else {
             CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;

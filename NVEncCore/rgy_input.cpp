@@ -369,7 +369,7 @@ RGY_ERR initReaders(
     }
     if (!check_if_avhw_or_avsw(input->type)) {
         if (check_avhw_avsw_only(input->picstruct,          RGY_PICSTRUCT_AUTO, "--interlace auto",      log.get())) return RGY_ERR_UNSUPPORTED;
-        if (check_avhw_avsw_only(common->out_vui.chromaloc, COLOR_VALUE_AUTO,   "--chromaloc auto",      log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.chromaloc, RGY_CHROMALOC_AUTO, "--chromaloc auto",      log.get())) return RGY_ERR_UNSUPPORTED;
         if (check_avhw_avsw_only(common->out_vui.format,    COLOR_VALUE_AUTO,   "--videoformat auto",    log.get())) return RGY_ERR_UNSUPPORTED;
         if (check_avhw_avsw_only(common->out_vui.matrix,    RGY_MATRIX_AUTO,    "--colormatrix auto",    log.get())) return RGY_ERR_UNSUPPORTED;
         if (check_avhw_avsw_only(common->out_vui.colorprim, RGY_PRIM_AUTO,      "--colorprim auto",      log.get())) return RGY_ERR_UNSUPPORTED;

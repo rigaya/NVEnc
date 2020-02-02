@@ -1624,7 +1624,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_inputVideoInfo.fpsN        = m_Demux.video.nAvgFramerate.num;
         m_inputVideoInfo.fpsD        = m_Demux.video.nAvgFramerate.den;
         m_inputVideoInfo.vui.format    = (int)m_Demux.video.stream->codecpar->format;
-        m_inputVideoInfo.vui.chromaloc = (int)m_Demux.video.stream->codecpar->chroma_location;
+        m_inputVideoInfo.vui.chromaloc = (CspChromaloc)m_Demux.video.stream->codecpar->chroma_location;
         m_inputVideoInfo.vui.matrix    = (CspMatrix)m_Demux.video.stream->codecpar->color_space;
         m_inputVideoInfo.vui.colorprim = (CspColorprim)m_Demux.video.stream->codecpar->color_primaries;
         m_inputVideoInfo.vui.transfer  = (CspTransfer)m_Demux.video.stream->codecpar->color_trc;

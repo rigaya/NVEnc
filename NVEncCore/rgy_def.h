@@ -418,16 +418,46 @@ const CX_DESC list_videoformat[] = {
     { _T("mac"),       4  },
     { NULL, 0 }
 };
+
+
+// 1st luma line > |X   X ...    |3 4 X ...     X が輝度ピクセル位置
+//                 |             |1 2           1-6 are possible chroma positions
+// 2nd luma line > |X   X ...    |5 6 X ...
+enum CspChromaloc {
+    RGY_CHROMALOC_AUTO = COLOR_VALUE_AUTO,
+    RGY_CHROMALOC_UNSPECIFIED = 0,
+    RGY_CHROMALOC_LEFT = 1,
+    RGY_CHROMALOC_CENTER = 2,
+    RGY_CHROMALOC_TOPLEFT = 3,
+    RGY_CHROMALOC_TOP = 4,
+    RGY_CHROMALOC_BOTTOMLEFT = 5,
+    RGY_CHROMALOC_BOTTOM = 6,
+};
+
 const CX_DESC list_chromaloc[] = {
-    { _T("0"), 0 },
-    { _T("1"), 1 },
-    { _T("2"), 2 },
-    { _T("3"), 3 },
-    { _T("4"), 4 },
-    { _T("5"), 5 },
+    { _T("0"), RGY_CHROMALOC_UNSPECIFIED },
+    { _T("1"), RGY_CHROMALOC_LEFT },
+    { _T("2"), RGY_CHROMALOC_CENTER },
+    { _T("3"), RGY_CHROMALOC_TOPLEFT },
+    { _T("4"), RGY_CHROMALOC_TOP },
+    { _T("5"), RGY_CHROMALOC_BOTTOMLEFT },
+    { _T("6"), RGY_CHROMALOC_BOTTOM },
     { _T("auto"),  COLOR_VALUE_AUTO },
     { NULL, 0 }
 };
+
+const CX_DESC list_chromaloc_str[] = {
+    { _T("undef"),      RGY_CHROMALOC_UNSPECIFIED },
+    { _T("left"),       RGY_CHROMALOC_LEFT },
+    { _T("center"),     RGY_CHROMALOC_CENTER },
+    { _T("topleft"),    RGY_CHROMALOC_TOPLEFT },
+    { _T("top"),        RGY_CHROMALOC_TOP },
+    { _T("bottomleft"), RGY_CHROMALOC_BOTTOMLEFT },
+    { _T("bottom"),     RGY_CHROMALOC_BOTTOM },
+    { _T("auto"),       COLOR_VALUE_AUTO },
+    { NULL, 0 }
+};
+
 const CX_DESC list_colorrange[] = {
     { _T("limited"), 0 },
     { _T("tv"),      0 },
@@ -453,7 +483,7 @@ struct VideoVUIInfo {
     CspTransfer transfer;
     int format;
     int fullrange;
-    int chromaloc;
+    CspChromaloc chromaloc;
 
     VideoVUIInfo() :
         descriptpresent(0),
@@ -462,7 +492,7 @@ struct VideoVUIInfo {
         transfer((CspTransfer)get_cx_value(list_transfer, _T("undef"))),
         format(get_cx_value(list_videoformat, _T("undef"))),
         fullrange(0),
-        chromaloc(0) {
+        chromaloc((CspChromaloc)get_cx_value(list_chromaloc_str, _T("undef"))) {
 
     }
     VideoVUIInfo to(CspMatrix csp_matrix) const {
@@ -630,7 +660,7 @@ const CX_DESC list_interlaced[] = {
     { _T("progressive"), RGY_PICSTRUCT_FRAME     },
     { _T("tff"),         RGY_PICSTRUCT_FRAME_TFF },
     { _T("bff"),         RGY_PICSTRUCT_FRAME_BFF },
-#if (ENCODER_NVENC || ENCODER_VCE) 
+#if (ENCODER_NVENC || ENCODER_VCE)
     { _T("auto"),        (int)RGY_PICSTRUCT_AUTO },
 #endif
     { NULL, 0 }
