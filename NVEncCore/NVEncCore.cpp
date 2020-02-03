@@ -2146,8 +2146,6 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     adjust_sar(&par.first, &par.second, m_uEncWidth, m_uEncHeight);
     m_sar = rgy_rational<int>(par.first, par.second);
 
-    //色空間設定自動
-    int frame_height = m_uEncHeight;
     //最大ビットレート自動
     if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP) {
         //CQPモードでは、最大ビットレートの指定は不要
