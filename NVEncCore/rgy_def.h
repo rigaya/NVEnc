@@ -458,12 +458,20 @@ const CX_DESC list_chromaloc_str[] = {
     { NULL, 0 }
 };
 
+enum CspColorRange {
+    RGY_COLORRANGE_AUTO = COLOR_VALUE_AUTO,
+    RGY_COLORRANGE_UNSPECIFIED = 0,
+    RGY_COLORRANGE_LIMITED = 1,
+    RGY_COLORRANGE_FULL = 2,
+};
+
 const CX_DESC list_colorrange[] = {
-    { _T("limited"), 0 },
-    { _T("tv"),      0 },
-    { _T("full"),    1 },
-    { _T("pc"),      1 },
-    { _T("auto"),    COLOR_VALUE_AUTO },
+    { _T("undef"),   RGY_COLORRANGE_UNSPECIFIED },
+    { _T("limited"), RGY_COLORRANGE_LIMITED },
+    { _T("tv"),      RGY_COLORRANGE_LIMITED },
+    { _T("full"),    RGY_COLORRANGE_FULL },
+    { _T("pc"),      RGY_COLORRANGE_FULL },
+    { _T("auto"),    RGY_COLORRANGE_AUTO },
     { NULL, 0 }
 };
 
@@ -482,7 +490,7 @@ struct VideoVUIInfo {
     CspMatrix matrix;
     CspTransfer transfer;
     int format;
-    int fullrange;
+    CspColorRange colorrange;
     CspChromaloc chromaloc;
 
     VideoVUIInfo() :
@@ -491,7 +499,7 @@ struct VideoVUIInfo {
         matrix((CspMatrix)get_cx_value(list_colormatrix, _T("undef"))),
         transfer((CspTransfer)get_cx_value(list_transfer, _T("undef"))),
         format(get_cx_value(list_videoformat, _T("undef"))),
-        fullrange(0),
+        colorrange((CspColorRange)get_cx_value(list_colorrange, _T("undef"))),
         chromaloc((CspChromaloc)get_cx_value(list_chromaloc_str, _T("undef"))) {
 
     }
@@ -519,7 +527,7 @@ struct VideoVUIInfo {
             && matrix == x.matrix
             && transfer == x.transfer
             && format == x.format
-            && fullrange == x.fullrange
+            && colorrange == x.colorrange
             && chromaloc == x.chromaloc;
     }
     bool operator!=(const VideoVUIInfo &x) const {

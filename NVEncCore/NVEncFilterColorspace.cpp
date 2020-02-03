@@ -501,9 +501,9 @@ public:
             offset_y  = 0.0;
             offset_uv = 0.0;
         } else {
-            range_y   = (info.fullrange) ? ((1<<bit_depth)-1) : 219 << (bit_depth - 8);
-            range_uv  = (info.fullrange) ? ((1<<bit_depth)-1) : 224 << (bit_depth - 8);
-            offset_y  = (info.fullrange) ? 0 : 16 << (bit_depth - 8);
+            range_y   = (info.colorrange == RGY_COLORRANGE_FULL) ? ((1<<bit_depth)-1) : 219 << (bit_depth - 8);
+            range_uv  = (info.colorrange == RGY_COLORRANGE_FULL) ? ((1<<bit_depth)-1) : 224 << (bit_depth - 8);
+            offset_y  = (info.colorrange == RGY_COLORRANGE_FULL) ? 0 : 16 << (bit_depth - 8);
             offset_uv = (double)(1 << (bit_depth - 1));
         }
         if (int2float) {
@@ -1104,11 +1104,11 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
         return RGY_ERR_INVALID_PARAM;
     }
     auto csp_to2 = out;
-    apply_auto_color_characteristic(csp_to2.colorprim, list_colorprim,   height, csp_from1.colorprim);
-    apply_auto_color_characteristic(csp_to2.transfer,  list_transfer,    height, csp_from1.transfer);
-    apply_auto_color_characteristic(csp_to2.matrix,    list_colormatrix, height, csp_from1.matrix);
-    apply_auto_color_characteristic(csp_to2.fullrange, list_colorrange,  height, csp_from1.fullrange);
-    apply_auto_color_characteristic(csp_to2.chromaloc, list_chromaloc,   height, csp_from1.chromaloc);
+    apply_auto_color_characteristic(csp_to2.colorprim,  list_colorprim,   height, csp_from1.colorprim);
+    apply_auto_color_characteristic(csp_to2.transfer,   list_transfer,    height, csp_from1.transfer);
+    apply_auto_color_characteristic(csp_to2.matrix,     list_colormatrix, height, csp_from1.matrix);
+    apply_auto_color_characteristic(csp_to2.colorrange, list_colorrange,  height, csp_from1.colorrange);
+    apply_auto_color_characteristic(csp_to2.chromaloc,  list_chromaloc,   height, csp_from1.chromaloc);
     if (csp_to2.matrix == RGY_MATRIX_UNSPECIFIED) {
         csp_to2 = csp_to2.to(RGY_MATRIX_BT709).to(RGY_TRANSFER_BT709).to(RGY_PRIM_BT709);
     }
@@ -1127,11 +1127,11 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
         return RGY_ERR_INVALID_PARAM;
     }
     auto out_target = out;
-    apply_auto_color_characteristic(out_target.colorprim, list_colorprim,   height, in.colorprim);
-    apply_auto_color_characteristic(out_target.transfer,  list_transfer,    height, in.transfer);
-    apply_auto_color_characteristic(out_target.matrix,    list_colormatrix, height, in.matrix);
-    apply_auto_color_characteristic(out_target.fullrange, list_colorrange,  height, in.fullrange);
-    apply_auto_color_characteristic(out_target.chromaloc, list_chromaloc,   height, in.chromaloc);
+    apply_auto_color_characteristic(out_target.colorprim,  list_colorprim,   height, in.colorprim);
+    apply_auto_color_characteristic(out_target.transfer,   list_transfer,    height, in.transfer);
+    apply_auto_color_characteristic(out_target.matrix,     list_colormatrix, height, in.matrix);
+    apply_auto_color_characteristic(out_target.colorrange, list_colorrange,  height, in.colorrange);
+    apply_auto_color_characteristic(out_target.chromaloc,  list_chromaloc,   height, in.chromaloc);
     AddMessage(RGY_LOG_DEBUG, _T("Search path from %s -> %s"), in.print_main().c_str(), out_target.print_main().c_str());
 
     std::deque<VideoVUIInfo> queue;
@@ -1404,11 +1404,11 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
 
     //入力ファイルのVUIが取得されていれば、これを使用する
     auto &firstVUI = prmCsp->colorspace.convs.begin()->from;
-    apply_auto_color_characteristic(firstVUI.colorprim, list_colorprim,   prmCsp->frameIn.height, prmCsp->VuiIn.colorprim);
-    apply_auto_color_characteristic(firstVUI.transfer,  list_transfer,    prmCsp->frameIn.height, prmCsp->VuiIn.transfer);
-    apply_auto_color_characteristic(firstVUI.matrix,    list_colormatrix, prmCsp->frameIn.height, prmCsp->VuiIn.matrix);
-    apply_auto_color_characteristic(firstVUI.fullrange, list_colorrange,  prmCsp->frameIn.height, prmCsp->VuiIn.fullrange);
-    apply_auto_color_characteristic(firstVUI.chromaloc, list_chromaloc,   prmCsp->frameIn.height, prmCsp->VuiIn.chromaloc);
+    apply_auto_color_characteristic(firstVUI.colorprim,  list_colorprim,   prmCsp->frameIn.height, prmCsp->VuiIn.colorprim);
+    apply_auto_color_characteristic(firstVUI.transfer,   list_transfer,    prmCsp->frameIn.height, prmCsp->VuiIn.transfer);
+    apply_auto_color_characteristic(firstVUI.matrix,     list_colormatrix, prmCsp->frameIn.height, prmCsp->VuiIn.matrix);
+    apply_auto_color_characteristic(firstVUI.colorrange, list_colorrange,  prmCsp->frameIn.height, prmCsp->VuiIn.colorrange);
+    apply_auto_color_characteristic(firstVUI.chromaloc,  list_chromaloc,   prmCsp->frameIn.height, prmCsp->VuiIn.chromaloc);
 
     auto prmPrev = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(m_pParam);
     if (!prmPrev || prmPrev->colorspace != prmCsp->colorspace) {

@@ -2340,11 +2340,11 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag =
             (get_cx_value(list_videoformat, _T("undef")) != (int)m_encVUI.format
-                || m_encVUI.fullrange
+                || m_encVUI.colorrange == RGY_COLORRANGE_FULL
                 || m_encVUI.descriptpresent) ? 1 : 0;
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFormat = m_encVUI.format;
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFullRangeFlag = m_encVUI.fullrange;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.videoFullRangeFlag = m_encVUI.colorrange == RGY_COLORRANGE_FULL ? 1 : 0;
         }
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationFlag = m_encVUI.chromaloc != 0;
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationFlag) {
@@ -2415,11 +2415,11 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag =
             (get_cx_value(list_videoformat, _T("undef")) != (int)m_encVUI.format
-                || m_encVUI.fullrange
+                || m_encVUI.colorrange == RGY_COLORRANGE_FULL
                 || m_encVUI.descriptpresent) ? 1 : 0;
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoSignalTypePresentFlag) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFormat = m_encVUI.format;
-            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag = m_encVUI.fullrange;
+            m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.videoFullRangeFlag = m_encVUI.colorrange == RGY_COLORRANGE_FULL ? 1 : 0;
         }
         m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationFlag = m_encVUI.chromaloc != 0;
         if (m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.h264VUIParameters.chromaSampleLocationFlag) {
@@ -3153,11 +3153,11 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
     }
     m_encVUI = inputParam->common.out_vui;
-    apply_auto_color_characteristic(m_encVUI.colorprim, list_colorprim,   m_uEncHeight, VuiFiltered.colorprim);
-    apply_auto_color_characteristic(m_encVUI.transfer,  list_transfer,    m_uEncHeight, VuiFiltered.transfer);
-    apply_auto_color_characteristic(m_encVUI.matrix,    list_colormatrix, m_uEncHeight, VuiFiltered.matrix);
-    apply_auto_color_characteristic(m_encVUI.fullrange, list_colorrange,  m_uEncHeight, VuiFiltered.fullrange);
-    apply_auto_color_characteristic(m_encVUI.chromaloc, list_chromaloc,   m_uEncHeight, VuiFiltered.chromaloc);
+    apply_auto_color_characteristic(m_encVUI.colorprim,  list_colorprim,   m_uEncHeight, VuiFiltered.colorprim);
+    apply_auto_color_characteristic(m_encVUI.transfer,   list_transfer,    m_uEncHeight, VuiFiltered.transfer);
+    apply_auto_color_characteristic(m_encVUI.matrix,     list_colormatrix, m_uEncHeight, VuiFiltered.matrix);
+    apply_auto_color_characteristic(m_encVUI.colorrange, list_colorrange,  m_uEncHeight, VuiFiltered.colorrange);
+    apply_auto_color_characteristic(m_encVUI.chromaloc,  list_chromaloc,   m_uEncHeight, VuiFiltered.chromaloc);
     return RGY_ERR_NONE;
 }
 

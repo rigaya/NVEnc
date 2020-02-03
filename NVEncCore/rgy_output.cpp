@@ -210,7 +210,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             if (pVideoOutputInfo->vui.descriptpresent) {
                 codecpar->color_space         = (AVColorSpace)pVideoOutputInfo->vui.matrix;
                 codecpar->color_primaries     = (AVColorPrimaries)pVideoOutputInfo->vui.colorprim;
-                codecpar->color_range         = (AVColorRange)(pVideoOutputInfo->vui.fullrange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
+                codecpar->color_range         = (AVColorRange)pVideoOutputInfo->vui.colorrange;
                 codecpar->color_trc           = (AVColorTransferCharacteristic)pVideoOutputInfo->vui.transfer;
             }
             int ret = 0;

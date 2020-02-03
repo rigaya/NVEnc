@@ -1081,14 +1081,14 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
     if (IS_OPTION("fullrange") || IS_OPTION("fullrange:h264") || IS_OPTION("fullrange:hevc")) {
-        common->out_vui.fullrange = 1;
+        common->out_vui.colorrange = RGY_COLORRANGE_FULL;
         return 0;
     }
     if (IS_OPTION("colorrange")) {
         i++;
         int value = 0;
         if (get_list_value(list_colorrange, strInput[i], &value)) {
-            common->out_vui.fullrange = value;
+            common->out_vui.colorrange = (CspColorRange)value;
         } else {
             CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return -1;
@@ -1605,7 +1605,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
 
     OPT_LST(_T("--chromaloc"), out_vui.chromaloc, list_chromaloc);
-    OPT_LST(_T("--colorrange"), out_vui.fullrange, list_colorrange);
+    OPT_LST(_T("--colorrange"), out_vui.colorrange, list_colorrange);
     OPT_LST(_T("--colormatrix"), out_vui.matrix, list_colormatrix);
     OPT_LST(_T("--colorprim"), out_vui.colorprim, list_colorprim);
     OPT_LST(_T("--transfer"), out_vui.transfer, list_transfer);

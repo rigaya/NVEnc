@@ -972,7 +972,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize));
 
     SetCXIndex(fcgCXVideoFormat,       get_cx_index(list_videoformat, encPrm.common.out_vui.format));
-    fcgCBFullrange->Checked                                    = 0 != encPrm.common.out_vui.fullrange;
+    fcgCBFullrange->Checked                                         = encPrm.common.out_vui.colorrange == RGY_COLORRANGE_FULL;
     SetCXIndex(fcgCXTransfer,          get_cx_index(list_transfer,    encPrm.common.out_vui.transfer));
     SetCXIndex(fcgCXColorMatrix,       get_cx_index(list_colormatrix, encPrm.common.out_vui.matrix));
     SetCXIndex(fcgCXColorPrim,         get_cx_index(list_colorprim,   encPrm.common.out_vui.colorprim));
@@ -1203,7 +1203,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
 
     encPrm.common.out_vui.format    = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
-    encPrm.common.out_vui.fullrange = fcgCBFullrange->Checked ? 1 : 0;
+    encPrm.common.out_vui.colorrange = fcgCBFullrange->Checked ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
     encPrm.common.out_vui.matrix    = (CspMatrix)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
     encPrm.common.out_vui.colorprim = (CspColorprim)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
     encPrm.common.out_vui.transfer  = (CspTransfer)list_transfer[fcgCXTransfer->SelectedIndex].value;

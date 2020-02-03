@@ -192,9 +192,9 @@ VideoInfo videooutputinfo(
     info.vui.colorprim = (CspColorprim)videoSignalInfo.colourPrimaries;
     info.vui.matrix = (CspMatrix)videoSignalInfo.colourMatrix;
     info.vui.transfer = (CspTransfer)videoSignalInfo.transferCharacteristics;
-    info.vui.fullrange = videoSignalInfo.videoFullRangeFlag;
+    info.vui.colorrange = videoSignalInfo.videoFullRangeFlag ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
     info.vui.format = videoSignalInfo.videoFormat;
-    info.vui.chromaloc = (videoSignalInfo.chromaSampleLocationFlag) ? videoSignalInfo.chromaSampleLocationTop : 0;
+    info.vui.chromaloc = (videoSignalInfo.chromaSampleLocationFlag) ? (CspChromaloc)(videoSignalInfo.chromaSampleLocationTop+1) :  RGY_CHROMALOC_UNSPECIFIED;
     return info;
 }
 

@@ -368,14 +368,14 @@ RGY_ERR initReaders(
         return RGY_ERR_UNSUPPORTED;
     }
     if (!check_if_avhw_or_avsw(input->type)) {
-        if (check_avhw_avsw_only(input->picstruct,          RGY_PICSTRUCT_AUTO, "--interlace auto",      log.get())) return RGY_ERR_UNSUPPORTED;
-        if (check_avhw_avsw_only(common->out_vui.chromaloc, RGY_CHROMALOC_AUTO, "--chromaloc auto",      log.get())) return RGY_ERR_UNSUPPORTED;
-        if (check_avhw_avsw_only(common->out_vui.format,    COLOR_VALUE_AUTO,   "--videoformat auto",    log.get())) return RGY_ERR_UNSUPPORTED;
-        if (check_avhw_avsw_only(common->out_vui.matrix,    RGY_MATRIX_AUTO,    "--colormatrix auto",    log.get())) return RGY_ERR_UNSUPPORTED;
-        if (check_avhw_avsw_only(common->out_vui.colorprim, RGY_PRIM_AUTO,      "--colorprim auto",      log.get())) return RGY_ERR_UNSUPPORTED;
-        if (check_avhw_avsw_only(common->out_vui.transfer,  RGY_TRANSFER_AUTO,  "--transfer auto",       log.get())) return RGY_ERR_UNSUPPORTED;
-        if (check_avhw_avsw_only(common->out_vui.fullrange, COLOR_VALUE_AUTO,   "--colorrange auto",     log.get())) return RGY_ERR_UNSUPPORTED;
-        if (check_avhw_avsw_only<std::string>(common->maxCll, maxCLLSource,     "--maxcll copy",         log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(input->picstruct,           RGY_PICSTRUCT_AUTO,  "--interlace auto",   log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.chromaloc,  RGY_CHROMALOC_AUTO,  "--chromaloc auto",   log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.format,     COLOR_VALUE_AUTO,    "--videoformat auto", log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.matrix,     RGY_MATRIX_AUTO,     "--colormatrix auto", log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.colorprim,  RGY_PRIM_AUTO,       "--colorprim auto",   log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.transfer,   RGY_TRANSFER_AUTO,   "--transfer auto",    log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only(common->out_vui.colorrange, RGY_COLORRANGE_AUTO, "--colorrange auto",  log.get())) return RGY_ERR_UNSUPPORTED;
+        if (check_avhw_avsw_only<std::string>(common->maxCll, maxCLLSource,       "--maxcll copy",      log.get())) return RGY_ERR_UNSUPPORTED;
         if (check_avhw_avsw_only<std::string>(common->masterDisplay, masterDisplaySource, "--master-dsiplay copy", log.get())) return RGY_ERR_UNSUPPORTED;
     }
 

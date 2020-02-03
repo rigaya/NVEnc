@@ -1816,11 +1816,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("range")) {
                     auto &conv = pParams->vpp.colorspace.convs.back();
-                    if (conv.from.fullrange != conv.to.fullrange) {
+                    if (conv.from.colorrange != conv.to.colorrange) {
                         pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
                         conv = pParams->vpp.colorspace.convs.back();
                     }
-                    if (!parse((int *)&conv.from.fullrange, (int *)&conv.to.fullrange, param_val, list_colorrange)) {
+                    if (!parse((int *)&conv.from.colorrange, (int *)&conv.to.colorrange, param_val, list_colorrange)) {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
                     }
@@ -3054,11 +3054,11 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
                     tmp << _T(":");
                     tmp << get_cx_desc(list_transfer, to.transfer);
                 }
-                if (from.fullrange != to.fullrange) {
+                if (from.colorrange != to.colorrange) {
                     tmp << _T(",range=");
-                    tmp << get_cx_desc(list_colorrange, from.fullrange);
+                    tmp << get_cx_desc(list_colorrange, from.colorrange);
                     tmp << _T(":");
-                    tmp << get_cx_desc(list_colorrange, to.fullrange);
+                    tmp << get_cx_desc(list_colorrange, to.colorrange);
                 }
                 ADD_BOOL(_T("approx_gamma"), vpp.colorspace.convs[i].approx_gamma);
                 ADD_BOOL(_T("scene_ref"), vpp.colorspace.convs[i].scene_ref);
