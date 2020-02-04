@@ -680,10 +680,11 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             AddMessage(RGY_LOG_ERROR, _T("invalid codec to set metadata filter.\n"));
             return RGY_ERR_INVALID_CALL;
         }
-        AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsf_name);
+        const auto bsf_tname = char_to_tstring(bsf_name);
+        AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsf_tname.c_str());
         auto filter = av_bsf_get_by_name(bsf_name);
         if (filter == nullptr) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsf_name);
+            AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsf_tname.c_str());
             return RGY_ERR_NOT_FOUND;
         }
         unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>> codecpar(avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
@@ -708,11 +709,11 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         }
         int ret = 0;
         if (0 > (ret = av_bsf_alloc(filter, &m_Mux.video.bsfc))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
         if (0 > (ret = avcodec_parameters_copy(m_Mux.video.bsfc->par_in, codecpar.get()))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
         }
         AVDictionary *bsfPrm = nullptr;
@@ -721,39 +722,39 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             char sar[128];
             sprintf_s(sar, "%d/%d", videoOutputInfo->sar[0], videoOutputInfo->sar[1]);
             av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
-            AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), videoOutputInfo->sar[0], videoOutputInfo->sar[1], bsf_name);
+            AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), videoOutputInfo->sar[0], videoOutputInfo->sar[1], bsf_tname.c_str());
         }
         if (ENCODER_VCEENC) {
             if (videoOutputInfo->vui.format != 5 /*undef*/) {
                 av_dict_set_int(&bsfPrm, "video_format", videoOutputInfo->vui.format, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set video_format %d by %s filter\n"), videoOutputInfo->vui.format, bsf_name);
+                AddMessage(RGY_LOG_DEBUG, _T("set video_format %d by %s filter\n"), videoOutputInfo->vui.format, bsf_tname.c_str());
             }
             if (videoOutputInfo->vui.colorprim != 2 /*undef*/) {
                 av_dict_set_int(&bsfPrm, "colour_primaries", videoOutputInfo->vui.colorprim, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set colorprim %d by %s filter\n"), videoOutputInfo->vui.colorprim, bsf_name);
+                AddMessage(RGY_LOG_DEBUG, _T("set colorprim %d by %s filter\n"), videoOutputInfo->vui.colorprim, bsf_tname.c_str());
             }
             if (videoOutputInfo->vui.transfer != 2 /*undef*/) {
                 av_dict_set_int(&bsfPrm, "transfer_characteristics", videoOutputInfo->vui.transfer, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set transfer %d by %s filter\n"), videoOutputInfo->vui.transfer, bsf_name);
+                AddMessage(RGY_LOG_DEBUG, _T("set transfer %d by %s filter\n"), videoOutputInfo->vui.transfer, bsf_tname.c_str());
             }
             if (videoOutputInfo->vui.matrix != 2 /*undef*/) {
                 av_dict_set_int(&bsfPrm, "matrix_coefficients", videoOutputInfo->vui.matrix, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), videoOutputInfo->vui.matrix, bsf_name);
+                AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), videoOutputInfo->vui.matrix, bsf_tname.c_str());
             }
             if (videoOutputInfo->vui.chromaloc != 0) {
                 av_dict_set_int(&bsfPrm, "chroma_sample_loc_type", videoOutputInfo->vui.chromaloc, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), videoOutputInfo->vui.chromaloc, bsf_name);
+                AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), videoOutputInfo->vui.chromaloc, bsf_tname.c_str());
             }
         }
         if (0 > (ret = av_opt_set_dict2(m_Mux.video.bsfc, &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
         }
         if (0 > (ret = av_bsf_init(m_Mux.video.bsfc))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_name, qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
         }
-        AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_name);
+        AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_tname.c_str());
     }
 
 #if ENCODER_VCEENC
