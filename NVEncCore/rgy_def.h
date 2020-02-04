@@ -520,6 +520,13 @@ struct VideoVUIInfo {
     }
     tstring print_main() const;
     tstring print_all(bool write_all = false) const;
+    void apply_auto(const VideoVUIInfo &input, const int inputHeight) {
+        apply_auto_color_characteristic(colorprim,  list_colorprim,   inputHeight, input.colorprim);
+        apply_auto_color_characteristic(transfer,   list_transfer,    inputHeight, input.transfer);
+        apply_auto_color_characteristic(matrix,     list_colormatrix, inputHeight, input.matrix);
+        apply_auto_color_characteristic(colorrange, list_colorrange,  inputHeight, input.colorrange);
+        apply_auto_color_characteristic(chromaloc,  list_chromaloc,   inputHeight, input.chromaloc);
+    }
 
     bool operator==(const VideoVUIInfo &x) const {
         return descriptpresent == x.descriptpresent

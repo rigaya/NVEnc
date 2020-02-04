@@ -3153,11 +3153,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         }
     }
     m_encVUI = inputParam->common.out_vui;
-    apply_auto_color_characteristic(m_encVUI.colorprim,  list_colorprim,   m_uEncHeight, VuiFiltered.colorprim);
-    apply_auto_color_characteristic(m_encVUI.transfer,   list_transfer,    m_uEncHeight, VuiFiltered.transfer);
-    apply_auto_color_characteristic(m_encVUI.matrix,     list_colormatrix, m_uEncHeight, VuiFiltered.matrix);
-    apply_auto_color_characteristic(m_encVUI.colorrange, list_colorrange,  m_uEncHeight, VuiFiltered.colorrange);
-    apply_auto_color_characteristic(m_encVUI.chromaloc,  list_chromaloc,   m_uEncHeight, VuiFiltered.chromaloc);
+    m_encVUI.apply_auto(VuiFiltered, m_uEncHeight);
     return RGY_ERR_NONE;
 }
 
