@@ -124,14 +124,14 @@ CuvidDecode::~CuvidDecode() {
 
 int CuvidDecode::DecVideoData(CUVIDSOURCEDATAPACKET *pPacket) {
     CUresult curesult = CUDA_SUCCESS;
-    //cuvidCtxLock(m_ctxLock, 0);
+    cuvidCtxLock(m_ctxLock, 0);
     __try {
         curesult = cuvidParseVideoData(m_videoParser, pPacket);
     } __except(1) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
-    //cuvidCtxUnlock(m_ctxLock, 0);
+    cuvidCtxUnlock(m_ctxLock, 0);
     if (curesult != CUDA_SUCCESS) {
         m_bError = true;
     }
@@ -142,14 +142,14 @@ int CuvidDecode::DecPictureDecode(CUVIDPICPARAMS *pPicParams) {
     AddMessage(RGY_LOG_TRACE, _T("DecPictureDecode idx: %d\n"), pPicParams->CurrPicIdx);
     m_pFrameQueue->waitUntilFrameAvailable(pPicParams->CurrPicIdx);
     CUresult curesult = CUDA_SUCCESS;
-    //cuvidCtxLock(m_ctxLock, 0);
+    cuvidCtxLock(m_ctxLock, 0);
     __try {
         curesult = cuvidDecodePicture(m_videoDecoder, pPicParams);
     } __except(1) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidDecodePicture error\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
-    //cuvidCtxUnlock(m_ctxLock, 0);
+    cuvidCtxUnlock(m_ctxLock, 0);
     if (curesult != CUDA_SUCCESS) {
         m_bError = true;
     }
@@ -194,6 +194,7 @@ RGY_ERR CuvidDecode::CloseDecoder() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing decoder...\n"));
     if (m_videoDecoder) {
         try {
+            NVEncCtxAutoLock(ctxlock(m_ctxLock));
             cuvidDestroyDecoder(m_videoDecoder);
             AddMessage(RGY_LOG_DEBUG, _T("cuvidDestroyDecoder: Fin.\n"));
         } catch (std::exception e) {
@@ -204,6 +205,7 @@ RGY_ERR CuvidDecode::CloseDecoder() {
     }
     if (m_videoParser) {
         try {
+            NVEncCtxAutoLock(ctxlock(m_ctxLock));
             cuvidDestroyVideoParser(m_videoParser);
             AddMessage(RGY_LOG_DEBUG, _T("cuvidDestroyVideoParser: Fin.\n"));
         } catch (std::exception e) {
@@ -278,10 +280,9 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
     m_videoDecodeCreateInfo.display_area.bottom = (short)(pFormat->display_area.bottom - m_videoInfo.crop.e.bottom);
 #endif
 
-    cuvidCtxLock(m_ctxLock, 0);
+    NVEncCtxAutoLock(ctxlock(m_ctxLock));
     m_videoDecodeCreateInfo.CodecType = pFormat->codec;
     CUresult curesult = CreateDecoder();
-    cuvidCtxUnlock(m_ctxLock, 0);
     if (CUDA_SUCCESS != curesult) {
         AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
         return curesult;
