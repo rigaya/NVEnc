@@ -511,6 +511,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         m_Mux.video.streamOut->codecpar->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
         m_Mux.video.streamOut->codecpar->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
         m_Mux.video.streamOut->codecpar->color_trc           = (AVColorTransferCharacteristic)videoOutputInfo->vui.transfer;
+        AddMessage(RGY_LOG_DEBUG, _T("Set VUI Params: %s\n"), videoOutputInfo->vui.print_all().c_str());
     }
     if (0 > avcodec_open2(m_Mux.video.streamOut->codec, m_Mux.video.codec, NULL)) {
         AddMessage(RGY_LOG_ERROR, _T("failed to open codec %s for video.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
