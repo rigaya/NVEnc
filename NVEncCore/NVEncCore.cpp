@@ -391,6 +391,8 @@ NVEncoderGPUInfo::NVEncoderGPUInfo(int deviceId, bool getFeatures, shared_ptr<RG
                 gpu.cuvid_csp = getHWDecCodecCsp();
                 cuCtxDestroy(cuctx);
                 writeLog(RGY_LOG_DEBUG, _T("  getHWDecCodecCsp\n"));
+            } else {
+                writeLog(RGY_LOG_DEBUG, _T("  cuCtxCreate error\n"));
             }
 #endif
 
@@ -1177,6 +1179,7 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
             }
             m_ssim->addBitstream(&bitstream);
         }
+        PrintMes(RGY_LOG_TRACE, _T("Output frame %d: size %zu, pts %lld, dts %lld\n"), m_pStatus->m_sData.frameOut, bitstream.size(), bitstream.pts(), bitstream.dts());
         auto outErr = m_pFileWriter->WriteNextFrame(&bitstream);
         nvStatus = m_pEncodeAPI->nvEncUnlockBitstream(m_hEncoder, pEncodeBuffer->stOutputBfr.hBitstreamBuffer);
         if (nvStatus == NV_ENC_SUCCESS && outErr != RGY_ERR_NONE) {
@@ -3673,7 +3676,7 @@ NVENCSTATUS NVEncCore::Initialize(InEncodeVideoParam *inputParam) {
 }
 
 NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration, int inputFrameId) {
-
+    PrintMes(RGY_LOG_TRACE, _T("Sending frame %d to encoder: timestamp %lld, duration %lld\n"), inputFrameId, timestamp, duration);
     NV_ENC_PIC_PARAMS encPicParams;
     INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
 
@@ -3717,6 +3720,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
                 return nvStatus;
             }
             m_appliedDynamicRC = selectedIdx;
+            PrintMes(RGY_LOG_DEBUG, _T("Reconfigured encoder (%d).\n"), selectedIdx);
         }
     }
 
@@ -3809,6 +3813,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
         PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("フレームの投入に失敗しました。\n") : _T("Failed to add frame into the encoder.\n"));
         return nvStatus;
     }
+    PrintMes(RGY_LOG_TRACE, _T("  Sent frame %d to encoder\n"), inputFrameId);
 
     return NV_ENC_SUCCESS;
 }
@@ -3962,7 +3967,8 @@ NVENCSTATUS NVEncCore::Encode() {
             for (int i = 0; sts == RGY_ERR_NONE && nvStatus == NV_ENC_SUCCESS && !m_cuvidDec->GetError(); i++) {
                 sts = m_pFileReader->LoadNextFrame(nullptr);
                 m_pFileReader->GetNextBitstream(&bitstream);
-                PrintMes(RGY_LOG_TRACE, _T("Set packet %d\n"), i);
+                PrintMes(RGY_LOG_TRACE, _T("Set packet #%d, size %zu, pts %lld (%s)\n"), i, bitstream.size(),
+                    (long long int)bitstream.pts(), getTimestampString(bitstream.pts(), streamIn->time_base).c_str());
                 if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(bitstream.bufptr() + bitstream.offset(), bitstream.size(), bitstream.pts(), streamIn->time_base))) {
                     PrintMes(RGY_LOG_ERROR, _T("Error in DecodePacket: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
                     return curesult;
@@ -4007,6 +4013,7 @@ NVENCSTATUS NVEncCore::Encode() {
         if (pInputFrame->inputIsHost()) {
             pInputFrame->setTimeStamp(outPts);
             pInputFrame->setDuration(outDuration);
+            PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[host](%d): outPtsSource %lld, outDuration %d\n"), pInputFrame->getFrameInfo().inputFrameId, outPts, outDuration);
             vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(*pInputFrame))));
         }
 #if ENABLE_AVSW_READER
@@ -4043,6 +4050,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     }
                     dec_vpp_rff_sts ^= 1; //反転
                 }
+                PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[dev](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), pInputFrame->getFrameInfo().inputFrameId, frameinfo.timestamp, frameinfo.duration, oVPP.progressive_frame);
                 break;
             case cudaVideoDeinterlaceMode_Bob:
                 //RFFに関するフラグを念のためクリア
@@ -4052,9 +4060,11 @@ NVENCSTATUS NVEncCore::Encode() {
                 oVPP.second_field = 0;
                 frameinfo.duration >>= 1;
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), pInputFrame->getFrameInfo().inputFrameId, frameinfo.timestamp, frameinfo.duration, oVPP.progressive_frame);
                 oVPP.second_field = 1;
                 frameinfo.timestamp += frameinfo.duration;
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), pInputFrame->getFrameInfo().inputFrameId, frameinfo.timestamp, frameinfo.duration, oVPP.progressive_frame);
                 break;
             case cudaVideoDeinterlaceMode_Adaptive:
                 //RFFに関するフラグを念のためクリア
@@ -4062,6 +4072,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 pInputFrame->setInterlaceFlag(RGY_PICSTRUCT_FRAME);
                 oVPP.progressive_frame = (interlaceAutoDetect) ? pInputFrame->getCuvidInfo()->progressive_frame : 0;
                 vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[adp](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), pInputFrame->getFrameInfo().inputFrameId, frameinfo.timestamp, frameinfo.duration, oVPP.progressive_frame);
                 break;
             default:
                 PrintMes(RGY_LOG_ERROR, _T("Unknown Deinterlace mode\n"));
@@ -4083,8 +4094,10 @@ NVENCSTATUS NVEncCore::Encode() {
             //CFR仮定ではなく、オリジナルの時間を見る
             outPtsSource = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, m_outputTimebase);
         }
+        PrintMes(RGY_LOG_TRACE, _T("check_pts(%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), pInputFrame->getFrameInfo().inputFrameId, nOutEstimatedPts, outPtsSource, outDuration);
         if (nOutFirstPts == AV_NOPTS_VALUE) {
             nOutFirstPts = outPtsSource; //最初のpts
+            PrintMes(RGY_LOG_TRACE, _T("check_pts: nOutFirstPts %lld\n"), outPtsSource);
         }
         //最初のptsを0に修正
         outPtsSource -= nOutFirstPts;
@@ -4092,13 +4105,16 @@ NVENCSTATUS NVEncCore::Encode() {
         if ((m_nAVSyncMode & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware) {
             if (vpp_rff || vpp_afs_rff_aware) {
                 if (std::abs(outPtsSource - nOutEstimatedPts) >= 32 * nOutFrameDuration) {
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts: detected gap %lld, changing offset.\n"), outPtsSource, std::abs(outPtsSource - nOutEstimatedPts));
                     //timestampに一定以上の差があればそれを無視する
                     nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
                     outPtsSource = nOutEstimatedPts;
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts:   changed to nOutFirstPts %lld, outPtsSource %lld.\n"), nOutFirstPts, outPtsSource);
                 }
                 auto ptsDiff = outPtsSource - nOutEstimatedPts;
                 if (ptsDiff <= std::min<int64_t>(-1, -1 * nOutFrameDuration * 7 / 8)) {
                     //間引きが必要
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (vfr)\n"), pInputFrame->getFrameInfo().inputFrameId);
                     return decFrames;
                 }
             }
@@ -4107,9 +4123,11 @@ NVENCSTATUS NVEncCore::Encode() {
                 const auto orig_pts = rational_rescale(pInputFrame->getTimeStamp(), srcTimebase, to_rgy(streamIn->time_base));
                 //ptsからフレーム情報を取得する
                 const auto framePos = pReader->GetFramePosList()->findpts(orig_pts, &nInputFramePosIdx);
+                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   estimetaed orig_pts %lld, framePos %d\n"), pInputFrame->getFrameInfo().inputFrameId, orig_pts, framePos.poc);
                 if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0) {
                     //有効な値ならオリジナルのdurationを使用する
                     outDuration = rational_rescale(framePos.duration, to_rgy(streamIn->time_base), m_outputTimebase);
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   changing duration to original: %d\n"), pInputFrame->getFrameInfo().inputFrameId, outDuration);
                 }
             }
         }
@@ -4119,10 +4137,12 @@ NVENCSTATUS NVEncCore::Encode() {
                 nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
                 outPtsSource = nOutEstimatedPts;
                 PrintMes(RGY_LOG_WARN, _T("Big Gap was found between 2 frames, avsync might be corrupted.\n"));
+                PrintMes(RGY_LOG_TRACE, _T("check_pts:   changed to nOutFirstPts %lld, outPtsSource %lld.\n"), nOutFirstPts, outPtsSource);
             }
             auto ptsDiff = outPtsSource - nOutEstimatedPts;
             if (ptsDiff <= std::min<int64_t>(-1, -1 * nOutFrameDuration * 7 / 8)) {
                 //間引きが必要
+                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (assume_cfr)\n"), pInputFrame->getFrameInfo().inputFrameId);
                 return decFrames;
             }
             while (ptsDiff >= std::max<int64_t>(1, nOutFrameDuration * 7 / 8)) {
@@ -4186,6 +4206,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 memcpyKind = cudaMemcpyDeviceToDevice;
                 auto vppinfo = inframe->getVppInfo();
                 uint32_t pitch = 0;
+                NVEncCtxAutoLock(ctxlock(m_ctxLock));
                 if (CUDA_SUCCESS != (curesult = cuvidMapVideoFrame(m_cuvidDec->GetDecoder(), inframe->getCuvidInfo()->picture_index, &dMappedFrame, &pitch, &vppinfo))) {
                     PrintMes(RGY_LOG_ERROR, _T("Error cuvidMapVideoFrame: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
                     return NV_ENC_ERR_GENERIC;
@@ -4194,8 +4215,10 @@ NVENCSTATUS NVEncCore::Encode() {
                 frameInfo.pitch = pitch;
                 frameInfo.ptr = (uint8_t *)dMappedFrame;
                 deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
+                    NVEncCtxAutoLock(ctxlock(m_ctxLock));
                     cuvidUnmapVideoFrame(m_cuvidDec->GetDecoder(), (CUdeviceptr)ptr);
                 });
+                PrintMes(RGY_LOG_TRACE, _T("filter_frame(%d): mapped video frame.\n"), nFilterFrame);
             }
 #endif //#if ENABLE_AVSW_READER
         }
@@ -4244,7 +4267,6 @@ NVENCSTATUS NVEncCore::Encode() {
                 if (ProcessOutput(pEncodeBuffer) != NV_ENC_SUCCESS) {
                     return NV_ENC_ERR_GENERIC;
                 }
-                PrintMes(RGY_LOG_TRACE, _T("Output frame %d\n"), m_pStatus->m_sData.frameOut);
                 if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
                     if (pEncodeBuffer->stInputBfr.hInputSurface) {
                         auto nvencret = NvEncUnmapInputResource(pEncodeBuffer->stInputBfr.hInputSurface);
@@ -4306,6 +4328,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
                     return NV_ENC_ERR_GENERIC;
                 }
+                PrintMes(RGY_LOG_TRACE, _T("filter_frame(%d): queued last filter : %s.\n"), nFilterFrame, lastFilter->name().c_str());
                 if (m_ssim) {
                     int dummy = 0;
                     m_ssim->filter(&ssimTarget, nullptr, &dummy, cudaStreamDefault);
@@ -4399,6 +4422,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     delete ptr;
                 }), m_cuvidDec->GetDecFrameInfo());
                 inputFrame.setInputFrameId(nInputFrame);
+                PrintMes(RGY_LOG_TRACE, _T("input frame (dev) #%d, pic_idx %d, timestamp %lld\n"), nInputFrame, dispInfo.picture_index, dispInfo.timestamp);
             }
         } else
 #endif //#if ENABLE_AVSW_READER
@@ -4428,6 +4452,7 @@ NVENCSTATUS NVEncCore::Encode() {
             });
             inputFrame.setHostFrameInfo(frame.getInfo(), heTransferFin);
             inputFrame.setInputFrameId(nInputFrame);
+            PrintMes(RGY_LOG_TRACE, _T("input frame (host) #%d, timestamp %lld, duration %lld\n"), nInputFrame, inputFrame.getTimeStamp(), inputFrame.getDuration());
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unexpected error at Encode().\n"));
             return NV_ENC_ERR_GENERIC;
