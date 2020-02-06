@@ -132,7 +132,7 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
         TCHAR gpu_info[1024] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
         getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
-        write(RGY_LOG_DEBUG, _T("%s    %s (%s)\n"), ENCODER_NAME, VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+        write(RGY_LOG_DEBUG, _T("%s    %s (%s)\n"), _T(ENCODER_NAME), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
 #if defined(_WIN32) || defined(_WIN64)
         OSVERSIONINFOEXW osversioninfo = { 0 };
         tstring osversionstr = getOSVersion(&osversioninfo);
