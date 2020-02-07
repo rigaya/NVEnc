@@ -26,7 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "NVEncCore.h"
 #include "CuvidDecode.h"
 #include "helper_cuda.h"
 #include "NVEncUtil.h"

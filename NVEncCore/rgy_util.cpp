@@ -902,13 +902,8 @@ tstring getEnviromentInfo(bool add_ram_info, int device_id) {
 
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
-
-    TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info), device_id);
-
     uint64_t UsedRamSize = 0;
     uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
-
 
     buf += _T("Environment Info\n");
 #if defined(_WIN32) || defined(_WIN64)
@@ -939,7 +934,12 @@ tstring getEnviromentInfo(bool add_ram_info, int device_id) {
         add_ram_info |= write_rw_speed(_T("RAM"), (cpuinfo.max_cache_level) ? cpuinfo.caches[cpuinfo.max_cache_level-1].size / 1024 * 8 : 96 * 1024);
     }
     buf += strsprintf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
+
+#if ENCODER_QSV
+    TCHAR gpu_info[1024] = { 0 };
+    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
     buf += strsprintf(_T("GPU: %s\n"), gpu_info);
+#endif //#if ENCODER_QSV
     return buf;
 }
 

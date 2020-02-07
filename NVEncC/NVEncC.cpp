@@ -26,9 +26,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
+
+#include "rgy_osdep.h"
 #include <locale.h>
 #include <tchar.h>
 #include <locale.h>
@@ -40,13 +39,13 @@
 #include <set>
 #include <cstdio>
 #include "rgy_version.h"
-#include "NVEncCore.h"
-#include "NVEncFeature.h"
+#include "rgy_util.h"
+#include "NVEncDevice.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncCmd.h"
-#include "rgy_util.h"
+#include "NVEncCore.h"
 
 #if ENABLE_CPP_REGEX
 #include <regex>
@@ -625,32 +624,30 @@ static void show_device_list() {
         return;
     }
 
-    NVEncoderGPUInfo gpuInfo(-1, false);
-    auto gpuList = gpuInfo.getGPUList();
-    if (0 == gpuList.size()) {
-        _ftprintf(stdout, _T("No GPU found suitable for NVEnc Encoding.\n"));
-        return;
-    }
+    InEncodeVideoParam encPrm;
+    encPrm.deviceID = -1;
+    encPrm.ctrl.loglevel = RGY_LOG_INFO;
 
-    for (const auto& gpu : gpuList) {
-        _ftprintf(stdout, _T("DeviceId #%d: %s\n"), gpu.id, gpu.name.c_str());
+    NVEncCore nvEnc;
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
+        && NV_ENC_SUCCESS == nvEnc.ShowDeviceList(&encPrm)) {
+        return;
     }
 }
 
 static void show_hw(int deviceid) {
     show_version();
 
-    NVEncFeature nvFeature;
-    nvFeature.createCacheAsync(deviceid, RGY_LOG_DEBUG);
-    auto nvEncCaps = nvFeature.GetCachedNVEncCapability();
-    if (nvEncCaps.size()) {
-        _ftprintf(stdout, _T("Avaliable Codec(s)\n"));
-        for (auto codecNVEncCaps : nvEncCaps) {
-            _ftprintf(stdout, _T("%s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
-        }
-    } else {
-        _ftprintf(stdout, _T("No NVEnc support.\n"));
+    InEncodeVideoParam encPrm;
+    encPrm.deviceID = deviceid;
+    encPrm.ctrl.loglevel = RGY_LOG_DEBUG;
+
+    NVEncCore nvEnc;
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
+        && NV_ENC_SUCCESS == nvEnc.ShowCodecSupport(&encPrm)) {
+        return;
     }
+    return;
 }
 
 static void show_environment_info() {
@@ -659,36 +656,17 @@ static void show_environment_info() {
 }
 
 static void show_nvenc_features(int deviceid) {
-    NVEncFeature nvFeature;
-    if (nvFeature.createCacheAsync(deviceid, RGY_LOG_INFO)) {
-        _ftprintf(stdout, _T("error on checking features.\n"));
-        return;
-    }
-    auto nvEncCaps = nvFeature.GetCachedNVEncCapability();
-
     show_version();
     _ftprintf(stdout, _T("\n%s\n"), getEnviromentInfo(false).c_str());
-    if (nvEncCaps.size() == 0) {
-        _ftprintf(stdout, _T("No NVEnc support.\n"));
-    } else {
-        _ftprintf(stdout, _T("List of available features.\n"));
-        for (auto codecNVEncCaps : nvEncCaps) {
-            _ftprintf(stdout, _T("Codec: %s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
-            size_t max_length = 0;
-            std::for_each(codecNVEncCaps.caps.begin(), codecNVEncCaps.caps.end(), [&max_length](const NVEncCap& x) { max_length = (std::max)(max_length, _tcslen(x.name)); });
-            for (auto cap : codecNVEncCaps.caps) {
-                _ftprintf(stdout, _T("%s"), cap.name);
-                for (size_t i = _tcslen(cap.name); i <= max_length; i++) {
-                    _ftprintf(stdout, _T(" "));
-                }
-                if (cap.isBool) {
-                    _ftprintf(stdout, cap.value ? _T("yes\n") : _T("no\n"));
-                } else {
-                    _ftprintf(stdout, _T("%d\n"), cap.value);
-                }
-            }
-            _ftprintf(stdout, _T("\n"));
-        }
+
+    InEncodeVideoParam encPrm;
+    encPrm.deviceID = deviceid;
+    encPrm.ctrl.loglevel = RGY_LOG_INFO;
+
+    NVEncCore nvEnc;
+    if (NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
+        && NV_ENC_SUCCESS == nvEnc.ShowNVEncFeatures(&encPrm)) {
+        return;
     }
 }
 

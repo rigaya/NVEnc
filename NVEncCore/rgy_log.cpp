@@ -129,9 +129,7 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
 
     if (m_nLogLevel <= RGY_LOG_DEBUG) {
         TCHAR cpuInfo[256] = { 0 };
-        TCHAR gpu_info[1024] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
-        getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
         write(RGY_LOG_DEBUG, _T("%s    %s (%s)\n"), _T(ENCODER_NAME), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
 #if defined(_WIN32) || defined(_WIN64)
         OSVERSIONINFOEXW osversioninfo = { 0 };
@@ -141,7 +139,11 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
         write(RGY_LOG_DEBUG, _T("OS        %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
 #endif
         write(RGY_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
+#if ENCODER_QSV
+        TCHAR gpu_info[1024] = { 0 };
+        getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
         write(RGY_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+#endif //#if ENCODER_QSV
 #if defined(_WIN32) || defined(_WIN64)
         write(RGY_LOG_DEBUG, _T("Locale    %s\n"), _tsetlocale(LC_ALL, nullptr));
 #endif

@@ -355,10 +355,12 @@ public:
 
 struct CPerfMonitorPrm {
 #if ENABLE_NVML
-    const char *pciBusId;
+    std::string pciBusId;
 #endif
     LUID luid;
     char reserved[256];
+
+    CPerfMonitorPrm() : pciBusId(), luid({ 0 }), reserved() {};
 };
 
 class CPerfMonitor {
