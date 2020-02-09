@@ -201,6 +201,10 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         i++;
         int value = 0;
         if (get_list_value(list_interlaced, strInput[i], &value)) {
+            if (ENCODER_QSV && value == RGY_PICSTRUCT_AUTO) { //qsvではinterlace autoは未サポート
+                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return -1;
+            }
             input->picstruct = (RGY_PICSTRUCT)value;
         } else {
             CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
