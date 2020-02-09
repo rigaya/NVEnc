@@ -41,6 +41,7 @@
 #include <chrono>
 #include <cassert>
 #include <memory>
+#include <atomic>
 #include <algorithm>
 #include <climits>
 #include <map>
@@ -441,6 +442,13 @@ static int64_t rgy_change_scale(int64_t t, const rgy_rational<int>& scale_in, co
     a /= b;
     int64_t n = ((a.n() + a.d() / 2) / a.d());
     return n;
+}
+
+template<typename T>
+void atomic_max(std::atomic<T> &maximum_value, T const &value) noexcept {
+    T prev_value = maximum_value;
+    while (prev_value < value &&
+        !maximum_value.compare_exchange_weak(prev_value, value));
 }
 
 #if UNICODE

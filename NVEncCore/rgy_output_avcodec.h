@@ -244,7 +244,8 @@ typedef struct AVMuxThread {
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
-    PerfQueueInfo                 *queueInfo;                //キューの情報を格納する構造体
+    std::atomic<int64_t>           streamOutMaxDts;           //音声・字幕キューの最後のdts (timebase = QUEUE_DTS_TIMEBASE) (キューの同期に使用)
+    PerfQueueInfo                 *queueInfo;                 //キューの情報を格納する構造体
 } AVMuxThread;
 #endif
 
