@@ -1319,7 +1319,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 auto param_val = param.substr(pos+1);
                 param_arg = tolowercase(param_arg);
                 if (param_arg == _T("ini")) {
-                    if (pParams->vpp.afs.read_afs_inifile(param_val.c_str())) {
+                    if (pParams->vpp.afs.read_afs_inifile(trim(param_val, _T("\"")).c_str())) {
                         CMD_PARSE_SET_ERR(strInput[0], _T("ini file does not exist."), option_name, strInput[i]);
                         return -1;
                     }
@@ -1618,7 +1618,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     continue;
                 }
                 if (param_arg == _T("weightfile")) {
-                    pParams->vpp.nnedi.weightfile = param_val.c_str();
+                    pParams->vpp.nnedi.weightfile = trim(param_val, _T("\"")).c_str();
                     continue;
                 }
                 CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
@@ -2015,11 +2015,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     continue;
                 }
                 if (param_arg == _T("filename")) {
-                    subburn.filename = param_val;
+                    subburn.filename = trim(param_val, _T("\""));
                     continue;
                 }
                 if (param_arg == _T("charcode")) {
-                    subburn.charcode = tchar_to_string(param_val);
+                    subburn.charcode = trim(tchar_to_string(param_val), "\"");
                     continue;
                 }
                 if (param_arg == _T("shaping")) {
