@@ -3762,8 +3762,10 @@ NVENCSTATUS NVEncCore::Encode() {
         //ここでフレームをすべて吐き出し切らないと、中断時にデコードスレッドが終了しない
         PrintMes(RGY_LOG_DEBUG, _T("Flushing Decoder\n"));
         if (m_cuvidDec) {
+            //エンコード中断時の処理
             while (!m_cuvidDec->GetError()
                 && !(m_cuvidDec->frameQueue()->isEndOfDecode() && m_cuvidDec->frameQueue()->isEmpty())) {
+                m_cuvidDec->frameQueue()->endDecode(); //デコーダの待機ループから強制的に出る
                 CUVIDPARSERDISPINFO pInfo;
                 if (m_cuvidDec->frameQueue()->dequeue(&pInfo)) {
                     m_cuvidDec->frameQueue()->releaseFrame(&pInfo);
