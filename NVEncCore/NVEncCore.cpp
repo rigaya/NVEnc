@@ -913,6 +913,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
 
     m_ssim.reset();
     m_hdr10plus.reset();
+    m_hdrsei.reset();
     m_AudioReaders.clear();
     m_pFileReader.reset();
     m_pFileWriter.reset();
@@ -925,7 +926,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
         }
         ReleaseIOBuffers();
     }
-
+    m_inputHostBuffer.clear();
     m_cuvidDec.reset();
     if (m_dev) {
         m_dev->close_device();
@@ -933,7 +934,12 @@ NVENCSTATUS NVEncCore::Deinitialize() {
 
 #if ENABLE_AVSW_READER
     m_keyFile.clear();
+    m_Chapters.clear();
 #endif //#if ENABLE_AVSW_READER
+
+    m_dynamicRC.clear();
+    m_ssim.reset();
+    m_pLastFilterParam.reset();
 
     m_pStatus.reset();
     PrintMes(RGY_LOG_DEBUG, _T("Closed EncodeStatus.\n"));
@@ -2973,7 +2979,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
             ts_chap *= timebase_lcm / chap->time_base.den;
 
             if (chap->id >= 0 && ts_chap <= ts_frame) {
-                PrintMes(RGY_LOG_DEBUG, _T("Insert Keyframe on chapter %d: %s at frame #%s: %s (timebase: %lld).\n"),
+                PrintMes(RGY_LOG_DEBUG, _T("Insert Keyframe on chapter %d: %s at frame #%d: %s (timebase: %lld).\n"),
                     chap->id,
                     wstring_to_tstring(ts_chap.ToWString()).c_str(),
                     id,
