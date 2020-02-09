@@ -3223,8 +3223,8 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                 && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
                 if (pktData.muxAudio && pktData.muxAudio->streamIn) {
                     audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.muxAudio->streamIn->time_base) * pktData.pkt.duration) + 0.5));
-                    if ((int)m_Mux.thread.qAudioPacketOut.capacity() < audPacketsPerSec * 4) {
-                        m_Mux.thread.qAudioPacketOut.set_capacity(audPacketsPerSec * 4);
+                    if ((int)m_Mux.thread.qAudioPacketOut.capacity() < audPacketsPerSec * 10) {
+                        m_Mux.thread.qAudioPacketOut.set_capacity(audPacketsPerSec * 10);
                     }
                 }
                 const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : syncIgnoreDts;
