@@ -348,7 +348,7 @@ class NVSMIInfo {
 private:
     std::string m_NVSMIOut;
 public:
-    NVSMIInfo() {};
+    NVSMIInfo() : m_NVSMIOut() {};
     ~NVSMIInfo() {};
     int getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid);
 };
@@ -360,7 +360,11 @@ struct CPerfMonitorPrm {
     LUID luid;
     char reserved[256];
 
-    CPerfMonitorPrm() : pciBusId(), luid({ 0 }), reserved() {};
+    CPerfMonitorPrm() :
+#if ENABLE_NVML
+        pciBusId(),
+#endif
+        luid({ 0 }), reserved() {};
 };
 
 class CPerfMonitor {
