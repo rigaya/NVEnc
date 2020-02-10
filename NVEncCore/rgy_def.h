@@ -422,7 +422,7 @@ const CX_DESC list_videoformat[] = {
 
 // 1st luma line > |X   X ...    |3 4 X ...     X が輝度ピクセル位置
 //                 |             |1 2           1-6 are possible chroma positions
-// 2nd luma line > |X   X ...    |5 6 X ...
+// 2nd luma line > |X   X ...    |5 6 X ...     bitstreamに入れるときは-1すること
 enum CspChromaloc {
     RGY_CHROMALOC_AUTO = COLOR_VALUE_AUTO,
     RGY_CHROMALOC_UNSPECIFIED = 0,
@@ -435,14 +435,14 @@ enum CspChromaloc {
 };
 
 const CX_DESC list_chromaloc[] = {
-    { _T("0"), RGY_CHROMALOC_UNSPECIFIED },
-    { _T("1"), RGY_CHROMALOC_LEFT },
-    { _T("2"), RGY_CHROMALOC_CENTER },
-    { _T("3"), RGY_CHROMALOC_TOPLEFT },
-    { _T("4"), RGY_CHROMALOC_TOP },
-    { _T("5"), RGY_CHROMALOC_BOTTOMLEFT },
-    { _T("6"), RGY_CHROMALOC_BOTTOM },
-    { _T("auto"),  COLOR_VALUE_AUTO },
+    { _T("undef"), RGY_CHROMALOC_UNSPECIFIED },
+    { _T("0"),     RGY_CHROMALOC_LEFT },
+    { _T("1"),     RGY_CHROMALOC_CENTER },
+    { _T("2"),     RGY_CHROMALOC_TOPLEFT },
+    { _T("3"),     RGY_CHROMALOC_TOP },
+    { _T("4"),     RGY_CHROMALOC_BOTTOMLEFT },
+    { _T("5"),     RGY_CHROMALOC_BOTTOM },
+    { _T("auto"),  RGY_CHROMALOC_AUTO },
     { NULL, 0 }
 };
 
@@ -454,7 +454,7 @@ const CX_DESC list_chromaloc_str[] = {
     { _T("top"),        RGY_CHROMALOC_TOP },
     { _T("bottomleft"), RGY_CHROMALOC_BOTTOMLEFT },
     { _T("bottom"),     RGY_CHROMALOC_BOTTOM },
-    { _T("auto"),       COLOR_VALUE_AUTO },
+    { _T("auto"),       RGY_CHROMALOC_AUTO },
     { NULL, 0 }
 };
 

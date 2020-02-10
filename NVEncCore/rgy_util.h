@@ -41,12 +41,12 @@
 #include <chrono>
 #include <cassert>
 #include <memory>
-#include <atomic>
 #include <algorithm>
 #include <climits>
 #include <map>
 #include <list>
 #include <sstream>
+#include <atomic>
 #include <functional>
 #include <type_traits>
 #include "rgy_def.h"

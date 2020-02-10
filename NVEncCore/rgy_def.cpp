@@ -61,8 +61,8 @@ tstring VideoVUIInfo::print_all(bool write_all) const {
     if (write_all || colorrange != get_cx_value(list_colorrange, _T("undef"))) {
         str += tstring(_T(",range:")) + get_cx_desc(list_colorrange, colorrange);
     }
-    if (write_all || chromaloc != 0) {
-        str += tstring(_T(",chromaloc:")) + get_cx_desc(list_chromaloc, chromaloc) + _T("(") + get_cx_desc(list_chromaloc_str, chromaloc) + _T(")");
+    if (write_all || chromaloc != get_cx_value(list_chromaloc_str, _T("undef"))) {
+        str += tstring(_T(",chromaloc:")) + get_cx_desc(list_chromaloc_str, chromaloc);
     }
     return (str.length() > 1) ? str.substr(1) : str;
 }
