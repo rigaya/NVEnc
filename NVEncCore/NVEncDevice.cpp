@@ -273,7 +273,7 @@ NVENCSTATUS NVEncoder::NvEncReconfigureEncoder(NV_ENC_RECONFIGURE_PARAMS *reconf
 
 NVENCSTATUS NVEncoder::NvEncEncodePicture(NV_ENC_PIC_PARAMS *picParams) {
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncEncodePicture(m_hEncoder, picParams);
-    if (nvStatus != NV_ENC_SUCCESS) {
+    if (nvStatus != NV_ENC_SUCCESS && nvStatus != NV_ENC_ERR_NEED_MORE_INPUT) {
         NVPrintFuncError(_T("NvEncEncodePicture"), nvStatus);
         return nvStatus;
     }
