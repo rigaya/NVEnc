@@ -122,16 +122,18 @@ CuvidDecode::~CuvidDecode() {
 }
 
 int CuvidDecode::DecVideoData(CUVIDSOURCEDATAPACKET *pPacket) {
+    AddMessage(RGY_LOG_TRACE, _T("DecVideoData packet: timestamp %lld, size %u\n"), pPacket->timestamp, pPacket->payload_size);
     CUresult curesult = CUDA_SUCCESS;
     cuvidCtxLock(m_ctxLock, 0);
     __try {
         curesult = cuvidParseVideoData(m_videoParser, pPacket);
     } __except(1) {
-        AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
+        AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData exception\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
     cuvidCtxUnlock(m_ctxLock, 0);
     if (curesult != CUDA_SUCCESS) {
+        AddMessage(RGY_LOG_DEBUG, _T("cuvidParseVideoData error\n"));
         m_bError = true;
     }
     return (curesult == CUDA_SUCCESS);
@@ -145,11 +147,12 @@ int CuvidDecode::DecPictureDecode(CUVIDPICPARAMS *pPicParams) {
     __try {
         curesult = cuvidDecodePicture(m_videoDecoder, pPicParams);
     } __except(1) {
-        AddMessage(RGY_LOG_ERROR, _T("cuvidDecodePicture error\n"));
+        AddMessage(RGY_LOG_ERROR, _T("cuvidDecodePicture exception\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
     cuvidCtxUnlock(m_ctxLock, 0);
     if (curesult != CUDA_SUCCESS) {
+        AddMessage(RGY_LOG_DEBUG, _T("cuvidDecodePicture error\n"));
         m_bError = true;
     }
     return (curesult == CUDA_SUCCESS);
