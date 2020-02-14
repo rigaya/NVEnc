@@ -3438,7 +3438,7 @@ private: System::Windows::Forms::Label ^fcgLBColorMatrix;
             // fcgNUBitrate
             //
             this->fcgNUBitrate->Location = System::Drawing::Point(124, 2);
-            this->fcgNUBitrate->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
+            this->fcgNUBitrate->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65536000, 0, 0, 0 });
             this->fcgNUBitrate->Name = L"fcgNUBitrate";
             this->fcgNUBitrate->Size = System::Drawing::Size(77, 21);
             this->fcgNUBitrate->TabIndex = 2;
@@ -3457,7 +3457,7 @@ private: System::Windows::Forms::Label ^fcgLBColorMatrix;
             // fcgNUMaxkbps
             //
             this->fcgNUMaxkbps->Location = System::Drawing::Point(124, 29);
-            this->fcgNUMaxkbps->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
+            this->fcgNUMaxkbps->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65536000, 0, 0, 0 });
             this->fcgNUMaxkbps->Name = L"fcgNUMaxkbps";
             this->fcgNUMaxkbps->Size = System::Drawing::Size(77, 21);
             this->fcgNUMaxkbps->TabIndex = 3;

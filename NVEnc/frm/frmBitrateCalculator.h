@@ -193,22 +193,22 @@ namespace NVEnc {
             this->fbcLBMovieFrameRate = (gcnew System::Windows::Forms::Label());
             this->fbcBTChangeLengthMode = (gcnew System::Windows::Forms::Button());
             this->fbcGroupBoxVideoLength = (gcnew System::Windows::Forms::GroupBox());
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNULengthHour))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNULengthMin))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNULengthSec))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNUBitrateVideo))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNUBitrateAudio))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNUBitrateSum))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNULengthHour))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNULengthMin))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNULengthSec))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNUBitrateVideo))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNUBitrateAudio))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNUBitrateSum))->BeginInit();
             this->fbcPNMovieTime->SuspendLayout();
             this->fbcPNMovieFrames->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNUMovieFrames))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNUMovieFrames))->BeginInit();
             this->fbcGroupBoxVideoLength->SuspendLayout();
             this->SuspendLayout();
             // 
             // fbcNULengthHour
             // 
             this->fbcNULengthHour->Location = System::Drawing::Point(75, 9);
-            this->fbcNULengthHour->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) {120, 0, 0, 0});
+            this->fbcNULengthHour->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 120, 0, 0, 0 });
             this->fbcNULengthHour->Name = L"fbcNULengthHour";
             this->fbcNULengthHour->Size = System::Drawing::Size(55, 21);
             this->fbcNULengthHour->TabIndex = 0;
@@ -218,7 +218,7 @@ namespace NVEnc {
             // fbcNULengthMin
             // 
             this->fbcNULengthMin->Location = System::Drawing::Point(166, 9);
-            this->fbcNULengthMin->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) {59, 0, 0, 0});
+            this->fbcNULengthMin->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 59, 0, 0, 0 });
             this->fbcNULengthMin->Name = L"fbcNULengthMin";
             this->fbcNULengthMin->Size = System::Drawing::Size(55, 21);
             this->fbcNULengthMin->TabIndex = 1;
@@ -228,7 +228,7 @@ namespace NVEnc {
             // fbcNULengthSec
             // 
             this->fbcNULengthSec->Location = System::Drawing::Point(248, 9);
-            this->fbcNULengthSec->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) {59, 0, 0, 0});
+            this->fbcNULengthSec->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 59, 0, 0, 0 });
             this->fbcNULengthSec->Name = L"fbcNULengthSec";
             this->fbcNULengthSec->Size = System::Drawing::Size(55, 21);
             this->fbcNULengthSec->TabIndex = 2;
@@ -301,7 +301,7 @@ namespace NVEnc {
             // fbcNUBitrateVideo
             // 
             this->fbcNUBitrateVideo->Location = System::Drawing::Point(132, 123);
-            this->fbcNUBitrateVideo->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) {128000, 0, 0, 0});
+            this->fbcNUBitrateVideo->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65536000, 0, 0, 0 });
             this->fbcNUBitrateVideo->Name = L"fbcNUBitrateVideo";
             this->fbcNUBitrateVideo->Size = System::Drawing::Size(65, 21);
             this->fbcNUBitrateVideo->TabIndex = 4;
@@ -311,7 +311,7 @@ namespace NVEnc {
             // fbcNUBitrateAudio
             // 
             this->fbcNUBitrateAudio->Location = System::Drawing::Point(132, 156);
-            this->fbcNUBitrateAudio->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) {1536, 0, 0, 0});
+            this->fbcNUBitrateAudio->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 13892, 0, 0, 0 });
             this->fbcNUBitrateAudio->Name = L"fbcNUBitrateAudio";
             this->fbcNUBitrateAudio->Size = System::Drawing::Size(65, 21);
             this->fbcNUBitrateAudio->TabIndex = 5;
@@ -386,7 +386,7 @@ namespace NVEnc {
             // fbcNUBitrateSum
             // 
             this->fbcNUBitrateSum->Location = System::Drawing::Point(132, 187);
-            this->fbcNUBitrateSum->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) {128000, 0, 0, 0});
+            this->fbcNUBitrateSum->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65536000, 0, 0, 0 });
             this->fbcNUBitrateSum->Name = L"fbcNUBitrateSum";
             this->fbcNUBitrateSum->Size = System::Drawing::Size(65, 21);
             this->fbcNUBitrateSum->TabIndex = 6;
@@ -464,7 +464,7 @@ namespace NVEnc {
             // fbcNUMovieFrames
             // 
             this->fbcNUMovieFrames->Location = System::Drawing::Point(87, 9);
-            this->fbcNUMovieFrames->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) {1280000, 0, 0, 0});
+            this->fbcNUMovieFrames->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1280000, 0, 0, 0 });
             this->fbcNUMovieFrames->Name = L"fbcNUMovieFrames";
             this->fbcNUMovieFrames->Size = System::Drawing::Size(72, 21);
             this->fbcNUMovieFrames->TabIndex = 7;
@@ -532,7 +532,7 @@ namespace NVEnc {
             this->Controls->Add(this->fbcLBMovieSize);
             this->Controls->Add(this->fbcLBAudioBitrate);
             this->Controls->Add(this->fbcLBVideoBitrate);
-            this->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point, 
+            this->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(0)));
             this->FormBorderStyle = System::Windows::Forms::FormBorderStyle::FixedDialog;
             this->KeyPreview = true;
@@ -541,20 +541,20 @@ namespace NVEnc {
             this->Name = L"frmBitrateCalculator";
             this->ShowIcon = false;
             this->Text = L"簡易ビットレート計算機";
-            this->Load += gcnew System::EventHandler(this, &frmBitrateCalculator::frmBitrateCalculator_Load);
             this->FormClosing += gcnew System::Windows::Forms::FormClosingEventHandler(this, &frmBitrateCalculator::frmBitrateCalculator_FormClosing);
+            this->Load += gcnew System::EventHandler(this, &frmBitrateCalculator::frmBitrateCalculator_Load);
             this->KeyDown += gcnew System::Windows::Forms::KeyEventHandler(this, &frmBitrateCalculator::frmBitrateCalculator_KeyDown);
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNULengthHour))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNULengthMin))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNULengthSec))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNUBitrateVideo))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNUBitrateAudio))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNUBitrateSum))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNULengthHour))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNULengthMin))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNULengthSec))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNUBitrateVideo))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNUBitrateAudio))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNUBitrateSum))->EndInit();
             this->fbcPNMovieTime->ResumeLayout(false);
             this->fbcPNMovieTime->PerformLayout();
             this->fbcPNMovieFrames->ResumeLayout(false);
             this->fbcPNMovieFrames->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^  >(this->fbcNUMovieFrames))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fbcNUMovieFrames))->EndInit();
             this->fbcGroupBoxVideoLength->ResumeLayout(false);
             this->ResumeLayout(false);
             this->PerformLayout();
