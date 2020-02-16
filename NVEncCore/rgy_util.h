@@ -1158,6 +1158,32 @@ public:
     }
 };
 
+class CombinationGenerator {
+public:
+    CombinationGenerator(int i) : m_nCombination(i) {
+
+    }
+    void create(vector<int> used) {
+        if ((int)used.size() == m_nCombination) {
+            m_nCombinationList.push_back(used);
+        }
+        for (int i = 0; i < m_nCombination; i++) {
+            if (std::find(used.begin(), used.end(), i) == used.end()) {
+                vector<int> u = used;
+                u.push_back(i);
+                create(u);
+            }
+        }
+    }
+    vector<vector<int>> generate() {
+        vector<int> used;
+        create(used);
+        return m_nCombinationList;
+    };
+    int m_nCombination;
+    vector<vector<int>> m_nCombinationList;
+};
+
 int rgy_avx_dummy_if_avail(int bAVXAvail);
 
 #endif //__RGY_UTIL_H__

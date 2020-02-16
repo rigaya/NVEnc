@@ -87,12 +87,11 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
 }
 
 void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *conf) {
-    ParseCmdError err;
     InEncodeVideoParam enc_prm;
     NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
     codec_prm[NV_ENC_H264] = DefaultParamH264();
     codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd, err);
+    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
     if (enc_prm.lossless) {
         enc_prm.yuv444 = true;
@@ -350,12 +349,11 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     if (pe->video_out_type == VIDEO_OUTPUT_DISABLED)
         return AUO_RESULT_SUCCESS;
 
-    ParseCmdError err;
     InEncodeVideoParam enc_prm;
     NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
     codec_prm[NV_ENC_H264] = DefaultParamH264();
     codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd, err);
+    parse_cmd(&enc_prm, codec_prm, conf->nvenc.cmd);
     enc_prm.encConfig.encodeCodecConfig = codec_prm[enc_prm.codec];
 
     enc_prm.common.AVSyncMode = conf->vid.afs ? RGY_AVSYNC_VFR : RGY_AVSYNC_ASSUME_CFR;

@@ -898,12 +898,11 @@ System::Void frmConfig::InitForm() {
 System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->SuspendLayout();
 
-    ParseCmdError err;
     InEncodeVideoParam encPrm;
     NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
     codecPrm[NV_ENC_H264] = DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&encPrm, codecPrm, cnf->nvenc.cmd, err);
+    parse_cmd(&encPrm, codecPrm, cnf->nvenc.cmd);
 
     SetCXIndex(fcgCXEncCodec,          get_index_from_value(encPrm.codec, list_nvenc_codecs));
     SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, encPrm.encConfig.rcParams.rateControlMode));

@@ -707,12 +707,11 @@ void guiEx_config::convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void
     auto cmd_old = gen_cmd_old3(&conf_old);
 
     //一度パラメータに戻し、再度コマンドラインに戻すことでデフォルトパラメータの削除を行う
-    ParseCmdError err;
     InEncodeVideoParam enc_prm;
     NV_ENC_CODEC_CONFIG codec_prm[2] = { 0 };
     codec_prm[NV_ENC_H264] = DefaultParamH264();
     codec_prm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&enc_prm, codec_prm, cmd_old.c_str(), err);
+    parse_cmd(&enc_prm, codec_prm, cmd_old.c_str());
 
     //うまく保存されていないことがある
     enc_prm.encConfig.mvPrecision = NV_ENC_MV_PRECISION_DEFAULT;

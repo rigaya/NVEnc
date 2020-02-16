@@ -31,13 +31,6 @@
 
 #include "rgy_prm.h"
 
-struct ParseCmdError {
-    tstring strAppName;
-    tstring strErrorMessage;
-    tstring strOptionName;
-    tstring strErrorValue;
-};
-
 struct sArgsData {
 #if ENCODER_QSV
     int outputDepth = 8;
@@ -57,15 +50,21 @@ struct sArgsData {
 };
 
 #define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
-#define CMD_PARSE_SET_ERR(app_name, errmes, opt_name, err_val) \
-    err.strAppName = (app_name) ? app_name : _T(""); \
-    err.strErrorMessage = (errmes) ? errmes : _T(""); \
-    err.strOptionName = (opt_name) ? opt_name : _T(""); \
-    err.strErrorValue = (err_val) ? err_val : _T("");
 
-int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, sArgsData *argData, ParseCmdError &err);
-int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamCommon *common, sArgsData *argData, ParseCmdError &err);
-int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamControl *ctrl, sArgsData *argData, ParseCmdError &err);
+tstring encoder_help();
+const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
+int cmd_string_to_bool(bool *b, const tstring &str);
+int parse_qp(int a[3], const TCHAR *str);
+
+void print_cmd_error_unknown_opt(tstring strErrorValue);
+void print_cmd_error_unknown_opt_param(tstring option, tstring strErrorValue, const std::vector<std::string> &optionParamsList);
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const CX_DESC *list);
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const std::vector<std::pair<RGY_CODEC, const CX_DESC *>>& codec_list);
+void print_cmd_error_invalid_value(tstring strErrorMessage, tstring strOptionName, tstring strErrorValue = _T(""), const CX_DESC *list = nullptr, int list_length = std::numeric_limits<int>::max());
+
+int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, sArgsData *argData);
+int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamCommon *common, sArgsData *argData);
+int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamControl *ctrl, sArgsData *argData);
 
 tstring print_list_options(const TCHAR *option_name, const CX_DESC *list, int default_index);
 
