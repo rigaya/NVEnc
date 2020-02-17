@@ -909,7 +909,7 @@ std::vector<AVPacket> Caption2Ass::genCaption(int64_t PTS) {
             // 字幕のスキップをチェック
             if ((PTS + itcap->dwWaitTime * 90) <= m_timestamp.startPCR) {
                 AddMessage(RGY_LOG_DEBUG, _T("%d Caption skip\n"), captionList.size());
-            } else {
+            } else if (m_capList.size() > 0) {
                 //endTimeはstartTime同様、startPCRを基準とする
                 int64_t endTime = (PTS + itcap->dwWaitTime * 90) - m_timestamp.startPCR;
                 std::vector<AVPacket> pkts;
