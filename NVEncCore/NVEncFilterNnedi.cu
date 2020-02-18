@@ -1481,14 +1481,14 @@ RGY_ERR NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamNnedi
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"pre_screen\": %d\n"), pNnediParam->nnedi.pre_screen);
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pNnediParam->nnedi.precision < VPP_NNEDI_PRECISION_UNKNOWN || VPP_NNEDI_PRECISION_MAX <= pNnediParam->nnedi.precision) {
+    if (pNnediParam->nnedi.precision < VPP_FP_PRECISION_UNKNOWN || VPP_FP_PRECISION_MAX <= pNnediParam->nnedi.precision) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"prec\": %d\n"), pNnediParam->nnedi.precision);
         return RGY_ERR_INVALID_PARAM;
     }
 #if !ENABLE_CUDA_FP16_HOST
-    if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) {
+    if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP16) {
         AddMessage(RGY_LOG_WARN, _T("prec=fp16 not compiled in this build, switching to fp32.\n"));
-        pNnediParam->nnedi.precision = VPP_NNEDI_PRECISION_FP32;
+        pNnediParam->nnedi.precision = VPP_FP_PRECISION_FP32;
     }
 #endif
     return RGY_ERR_NONE;
@@ -1555,19 +1555,19 @@ RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi
     if (!weights) {
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_AUTO) {
+    if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_AUTO) {
         pNnediParam->nnedi.precision =
 #if ENABLE_CUDA_FP16_HOST
             ((pNnediParam->compute_capability.first == 6 && pNnediParam->compute_capability.second == 0)
                 || pNnediParam->compute_capability.first >= 7)
-            ? VPP_NNEDI_PRECISION_FP16 : VPP_NNEDI_PRECISION_FP32;
+            ? VPP_FP_PRECISION_FP16 : VPP_FP_PRECISION_FP32;
 #else
-            VPP_NNEDI_PRECISION_FP32;
+            VPP_FP_PRECISION_FP32;
 #endif
     }
 
     const int weight1size = pNnediParam->nnedi.nns * 2 * (sizeNX[pNnediParam->nnedi.nsize] * sizeNY[pNnediParam->nnedi.nsize] + 1);
-    const int sizeofweight = (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) ? 4 : 2;
+    const int sizeofweight = (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) ? 4 : 2;
     int weight1size_tsize = 0;
     int weight1size_offset = 0;
     for (int j = 0; j < (int)_countof(sizeNN); j++) {
@@ -1582,7 +1582,7 @@ RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi
 
     std::vector<char> weight0f;
     weight0f.resize((((pNnediParam->nnedi.pre_screen & VPP_NNEDI_PRE_SCREEN_MODE) >= VPP_NNEDI_PRE_SCREEN_NEW) ? weight0sizenew : weight0size) * sizeofweight);
-    if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) {
+    if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) {
         setWeight0<float>((float *)weight0f.data(), weights.get(), pNnediParam);
     } else {
 #if ENABLE_CUDA_FP16_HOST
@@ -1594,7 +1594,7 @@ RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi
     for (int i = 0; i < 2; i++) {
         weight1[i].resize(weight1size * sizeofweight, 0);
         const float *ptrW = weights.get() + weight0size + weight0sizenew * 3 + weight1size_tsize * pNnediParam->nnedi.errortype + weight1size_offset + i * weight1size;
-        if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) {
+        if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) {
             setWeight1<float>((float *)weight1[i].data(), ptrW, pNnediParam);
         } else {
 #if ENABLE_CUDA_FP16_HOST
@@ -1655,7 +1655,7 @@ void NVEncFilterNnedi::setWeight0(TypeCalc *ptrDst, const float *ptrW, const std
         }
         //<<<<<< ここまでで通常(CPU版)の並びのデータが作成できた
 
-        if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) {
+        if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP16) {
             //並べ替え
             std::vector<TypeCalc> tmp(ptrDst, ptrDst + weight0sizenew);
             for (int j = 0; j < 4; j++) {
@@ -1712,7 +1712,7 @@ void NVEncFilterNnedi::setWeight0(TypeCalc *ptrDst, const float *ptrW, const std
         }
         //<<<<<< ここまでで通常(CPU版)の並びのデータが作成できた
 
-        if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) {
+        if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP16) {
             //並べ替え
             std::vector<TypeCalc> tmp(ptrDst, ptrDst + weight0size);
             for (int j = 0; j < 4; j++) {
@@ -1782,7 +1782,7 @@ void NVEncFilterNnedi::setWeight1(TypeCalc *ptrDst, const float *ptrW, const std
             }
         }
         //fp16の場合、オーバーフローを避けるため途中まで0～1の範囲で計算するので、offsetの部分には1/256が必要
-        float scale = (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) ? 1.0f / 256.0f : 1.0f;
+        float scale = (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP16) ? 1.0f / 256.0f : 1.0f;
         ptrDst[pNnediParam->nnedi.nns * 2 * sizeNXY + j] = toWeight<TypeCalc>((ptrW[pNnediParam->nnedi.nns * 2 * sizeNXY + j] - (float)(j < pNnediParam->nnedi.nns ? mean2 : 0.0)) * scale);
     }
     for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
@@ -1927,7 +1927,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         { RGY_CSP_YUV444,    proc_frame<uint8_t,  uchar4,   8, __half2, weight_loop_1> },
         { RGY_CSP_YUV444_16, proc_frame<uint16_t, ushort4, 16, __half2, weight_loop_1> }
     };
-    const auto& func_list = (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
+    const auto& func_list = (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
 #else
     const auto& func_list = func_list_fp32;
 #endif

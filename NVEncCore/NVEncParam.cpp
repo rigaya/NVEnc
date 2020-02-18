@@ -328,7 +328,8 @@ VppSpp::VppSpp() :
     strength(FILTER_DEFAULT_SPP_STRENGTH),
     threshold(FILTER_DEFAULT_SPP_THRESHOLD),
     mode((VppSppMode)FILTER_DEFAULT_SPP_MODE),
-    use_bframe_qp(FILTER_DEFAULT_SPP_USE_BFRAME_QP) {
+    use_bframe_qp(FILTER_DEFAULT_SPP_USE_BFRAME_QP),
+    prec(VPP_FP_PRECISION_AUTO) {
 
 }
 
@@ -339,7 +340,8 @@ bool VppSpp::operator==(const VppSpp &x) const {
         && strength == x.strength
         && threshold == x.threshold
         && mode == x.mode
-        && use_bframe_qp == x.use_bframe_qp;
+        && use_bframe_qp == x.use_bframe_qp
+        && prec == x.prec;
 }
 bool VppSpp::operator!=(const VppSpp &x) const {
     return !(*this == x);
@@ -347,7 +349,9 @@ bool VppSpp::operator!=(const VppSpp &x) const {
 
 tstring VppSpp::print() const {
     //return strsprintf(_T("spp: quality %d, qp %d, threshold %.1f, strength %.1f, mode %d, use_bframe_qp %s"), quality, qp, threshold, strength, mode, use_bframe_qp ? _T("yes") : _T("no"));
-    return strsprintf(_T("spp: quality %d, qp %d, threshold %.1f, strength %.1f"), quality, qp, threshold, strength);
+    return strsprintf(_T("spp: quality %d, qp %d, threshold %.1f, strength %.1f, prec %s"),
+        quality, qp, threshold, strength,
+        get_cx_desc(list_vpp_fp_prec, prec));
 }
 
 ColorspaceConv::ColorspaceConv() :
@@ -903,7 +907,7 @@ VppNnedi::VppNnedi() :
     nns(32),
     nsize(VPP_NNEDI_NSIZE_32x4),
     quality(VPP_NNEDI_QUALITY_FAST),
-    precision(VPP_NNEDI_PRECISION_AUTO),
+    precision(VPP_FP_PRECISION_AUTO),
     pre_screen(VPP_NNEDI_PRE_SCREEN_NEW_BLOCK),
     errortype(VPP_NNEDI_ETYPE_ABS),
     weightfile(_T("")) {
@@ -939,7 +943,7 @@ tstring VppNnedi::print() const {
         nns,
         get_cx_desc(list_vpp_nnedi_nsize, nsize),
         get_cx_desc(list_vpp_nnedi_quality, quality),
-        get_cx_desc(list_vpp_nnedi_prec, precision),
+        get_cx_desc(list_vpp_fp_prec, precision),
         get_cx_desc(list_vpp_nnedi_pre_screen, pre_screen),
         get_cx_desc(list_vpp_nnedi_error_type, errortype),
         ((weightfile.length()) ? weightfile.c_str() : _T("internal")));

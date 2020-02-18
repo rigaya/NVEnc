@@ -37,8 +37,9 @@ static const int VPP_SPP_MAX_QUALITY_LEVEL = 6;
 class NVEncFilterParamSpp : public NVEncFilterParam {
 public:
     VppSpp spp;
+    std::pair<int, int> compute_capability;
 
-    NVEncFilterParamSpp() : spp() {
+    NVEncFilterParamSpp() : spp(), compute_capability() {
 
     };
     virtual ~NVEncFilterParamSpp() {};

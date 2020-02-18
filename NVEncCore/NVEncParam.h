@@ -477,6 +477,23 @@ const CX_DESC list_nppi_resize_help[] = {
 };
 
 
+enum VppFpPrecision {
+    VPP_FP_PRECISION_UNKNOWN = -1,
+
+    VPP_FP_PRECISION_AUTO = 0,
+    VPP_FP_PRECISION_FP32,
+    VPP_FP_PRECISION_FP16,
+
+    VPP_FP_PRECISION_MAX,
+};
+
+const CX_DESC list_vpp_fp_prec[] = {
+    { _T("auto"), VPP_FP_PRECISION_AUTO },
+    { _T("fp32"), VPP_FP_PRECISION_FP32 },
+    { _T("fp16"), VPP_FP_PRECISION_FP16 },
+    { NULL, NULL }
+};
+
 const CX_DESC list_vpp_denoise[] = {
     { _T("none"), 0 },
     { _T("knn"),  1 },
@@ -637,23 +654,6 @@ enum VppNnediErrorType {
 const CX_DESC list_vpp_nnedi_error_type[] = {
     { _T("abs"),    VPP_NNEDI_ETYPE_ABS },
     { _T("square"), VPP_NNEDI_ETYPE_SQUARE },
-    { NULL, NULL }
-};
-
-enum VppNnediPrecision {
-    VPP_NNEDI_PRECISION_UNKNOWN = -1,
-
-    VPP_NNEDI_PRECISION_AUTO = 0,
-    VPP_NNEDI_PRECISION_FP32,
-    VPP_NNEDI_PRECISION_FP16,
-
-    VPP_NNEDI_PRECISION_MAX,
-};
-
-const CX_DESC list_vpp_nnedi_prec[] = {
-    { _T("auto"), VPP_NNEDI_PRECISION_AUTO },
-    { _T("fp32"), VPP_NNEDI_PRECISION_FP32 },
-    { _T("fp16"), VPP_NNEDI_PRECISION_FP16 },
     { NULL, NULL }
 };
 
@@ -934,6 +934,7 @@ struct VppSpp {
     float threshold;
     VppSppMode mode;
     bool use_bframe_qp;
+    VppFpPrecision prec;
     VppSpp();
     bool operator==(const VppSpp &x) const;
     bool operator!=(const VppSpp &x) const;
@@ -1114,7 +1115,7 @@ struct VppNnedi {
     int               nns;
     VppNnediNSize     nsize;
     VppNnediQuality   quality;
-    VppNnediPrecision precision;
+    VppFpPrecision precision;
     VppNnediPreScreen pre_screen;
     VppNnediErrorType errortype;
     tstring           weightfile;

@@ -30,8 +30,18 @@
 #include "convert_csp.h"
 #include "NVEncFilterSpp.h"
 #include "NVEncParam.h"
+#pragma warning (push)
+#pragma warning (disable: 4819)
+#include "cuda_runtime.h"
+#if __CUDACC_VER_MAJOR__ >= 10
+#include "cuda_fp16.h"
+#include "cuda_fp16.hpp"
+#endif
+#include "device_launch_parameters.h"
+#pragma warning (pop)
 
-#define SPP_FUSE_DCT8X8_THRESHOLD 1
+#define ENABLE_CUDA_FP16_DEVICE (__CUDACC_VER_MAJOR__ >= 10 && __CUDA_ARCH__ >= 530)
+#define ENABLE_CUDA_FP16_HOST   (__CUDACC_VER_MAJOR__ >= 10)
 
 #define SPP_THREAD_BLOCK_X (8) //blockDim.x
 #define SPP_THREAD_BLOCK_Y (8) //blockDim.y
@@ -54,144 +64,120 @@
 //Normalization constant that is used in forward and inverse DCT
 #define C_norm 0.3535533905932737f // 1 / (8^0.5)
 
-template<int Step>
-__device__ void CUDAsubroutineInplaceDCTvector(float *Vect0) {
-    float *Vect1 = Vect0 + Step;
-    float *Vect2 = Vect1 + Step;
-    float *Vect3 = Vect2 + Step;
-    float *Vect4 = Vect3 + Step;
-    float *Vect5 = Vect4 + Step;
-    float *Vect6 = Vect5 + Step;
-    float *Vect7 = Vect6 + Step;
 
-    float X07P = (*Vect0) + (*Vect7);
-    float X16P = (*Vect1) + (*Vect6);
-    float X25P = (*Vect2) + (*Vect5);
-    float X34P = (*Vect3) + (*Vect4);
+template<typename T> __device__ __inline__ T setval(float val);
+template<> __device__ __inline__ float setval(float val) { return val; };
+#if ENABLE_CUDA_FP16_HOST
+template<> __device__ __inline__ __half2 setval(float val) { return __float2half2_rn(val); }
+__device__ __inline__
+__half2 fabs(__half2 val) {
+    __half2 h;
+#if ENABLE_CUDA_FP16_DEVICE
+    __HALF2_TO_UI(h) = __HALF2_TO_UI(val) & 0x7fff7fffu;
+#endif
+    return h;
+}
+#endif //#if ENABLE_CUDA_FP16_HOST
 
-    float X07M = (*Vect0) - (*Vect7);
-    float X61M = (*Vect6) - (*Vect1);
-    float X25M = (*Vect2) - (*Vect5);
-    float X43M = (*Vect4) - (*Vect3);
+template<typename T, int Step>
+__device__ void CUDAsubroutineInplaceDCTvector(T *Vect0) {
+    T *Vect1 = Vect0 + Step;
+    T *Vect2 = Vect1 + Step;
+    T *Vect3 = Vect2 + Step;
+    T *Vect4 = Vect3 + Step;
+    T *Vect5 = Vect4 + Step;
+    T *Vect6 = Vect5 + Step;
+    T *Vect7 = Vect6 + Step;
 
-    float X07P34PP = X07P + X34P;
-    float X07P34PM = X07P - X34P;
-    float X16P25PP = X16P + X25P;
-    float X16P25PM = X16P - X25P;
+    T X07P = (*Vect0) + (*Vect7);
+    T X16P = (*Vect1) + (*Vect6);
+    T X25P = (*Vect2) + (*Vect5);
+    T X34P = (*Vect3) + (*Vect4);
 
-    (*Vect0) = C_norm * (X07P34PP + X16P25PP);
-    (*Vect2) = C_norm * (C_b * X07P34PM + C_e * X16P25PM);
-    (*Vect4) = C_norm * (X07P34PP - X16P25PP);
-    (*Vect6) = C_norm * (C_e * X07P34PM - C_b * X16P25PM);
+    T X07M = (*Vect0) - (*Vect7);
+    T X61M = (*Vect6) - (*Vect1);
+    T X25M = (*Vect2) - (*Vect5);
+    T X43M = (*Vect4) - (*Vect3);
 
-    (*Vect1) = C_norm * (C_a * X07M - C_c * X61M + C_d * X25M - C_f * X43M);
-    (*Vect3) = C_norm * (C_c * X07M + C_f * X61M - C_a * X25M + C_d * X43M);
-    (*Vect5) = C_norm * (C_d * X07M + C_a * X61M + C_f * X25M - C_c * X43M);
-    (*Vect7) = C_norm * (C_f * X07M + C_d * X61M + C_c * X25M + C_a * X43M);
+    T X07P34PP = X07P + X34P;
+    T X07P34PM = X07P - X34P;
+    T X16P25PP = X16P + X25P;
+    T X16P25PM = X16P - X25P;
+
+    (*Vect0) = setval<T>(C_norm) * (X07P34PP + X16P25PP);
+    (*Vect2) = setval<T>(C_norm) * (setval<T>(C_b) * X07P34PM + setval<T>(C_e) * X16P25PM);
+    (*Vect4) = setval<T>(C_norm) * (X07P34PP - X16P25PP);
+    (*Vect6) = setval<T>(C_norm) * (setval<T>(C_e) * X07P34PM - setval<T>(C_b) * X16P25PM);
+
+    (*Vect1) = setval<T>(C_norm) * (setval<T>(C_a) * X07M - setval<T>(C_c) * X61M + setval<T>(C_d) * X25M - setval<T>(C_f) * X43M);
+    (*Vect3) = setval<T>(C_norm) * (setval<T>(C_c) * X07M + setval<T>(C_f) * X61M - setval<T>(C_a) * X25M + setval<T>(C_d) * X43M);
+    (*Vect5) = setval<T>(C_norm) * (setval<T>(C_d) * X07M + setval<T>(C_a) * X61M + setval<T>(C_f) * X25M - setval<T>(C_c) * X43M);
+    (*Vect7) = setval<T>(C_norm) * (setval<T>(C_f) * X07M + setval<T>(C_d) * X61M + setval<T>(C_c) * X25M + setval<T>(C_a) * X43M);
 }
 
-template<int Step>
-__device__ void CUDAsubroutineInplaceDCTvector2(float *Vect0, int thWorker, float threshold) {
-    float *Vect1 = Vect0 + Step;
-    float *Vect2 = Vect1 + Step;
-    float *Vect3 = Vect2 + Step;
-    float *Vect4 = Vect3 + Step;
-    float *Vect5 = Vect4 + Step;
-    float *Vect6 = Vect5 + Step;
-    float *Vect7 = Vect6 + Step;
+template<typename T, int Step>
+__device__ void CUDAsubroutineInplaceIDCTvector(T *Vect0) {
+    T *Vect1 = Vect0 + Step;
+    T *Vect2 = Vect1 + Step;
+    T *Vect3 = Vect2 + Step;
+    T *Vect4 = Vect3 + Step;
+    T *Vect5 = Vect4 + Step;
+    T *Vect6 = Vect5 + Step;
+    T *Vect7 = Vect6 + Step;
 
-    float X07P = (*Vect0) + (*Vect7);
-    float X16P = (*Vect1) + (*Vect6);
-    float X25P = (*Vect2) + (*Vect5);
-    float X34P = (*Vect3) + (*Vect4);
+    T Y04P = (*Vect0) + (*Vect4);
+    T Y2b6eP = setval<T>(C_b) * (*Vect2) + setval<T>(C_e) * (*Vect6);
 
-    float X07M = (*Vect0) - (*Vect7);
-    float X61M = (*Vect6) - (*Vect1);
-    float X25M = (*Vect2) - (*Vect5);
-    float X43M = (*Vect4) - (*Vect3);
+    T Y04P2b6ePP = Y04P + Y2b6eP;
+    T Y04P2b6ePM = Y04P - Y2b6eP;
+    T Y7f1aP3c5dPP = setval<T>(C_f) * (*Vect7) + setval<T>(C_a) * (*Vect1) + setval<T>(C_c) * (*Vect3) + setval<T>(C_d) * (*Vect5);
+    T Y7a1fM3d5cMP = setval<T>(C_a) * (*Vect7) - setval<T>(C_f) * (*Vect1) + setval<T>(C_d) * (*Vect3) - setval<T>(C_c) * (*Vect5);
 
-    float X07P34PP = X07P + X34P;
-    float X07P34PM = X07P - X34P;
-    float X16P25PP = X16P + X25P;
-    float X16P25PM = X16P - X25P;
+    T Y04M = (*Vect0) - (*Vect4);
+    T Y2e6bM = setval<T>(C_e) * (*Vect2) - setval<T>(C_b) * (*Vect6);
 
-    float v0 = C_norm * (X07P34PP + X16P25PP);
-    float v2 = C_norm * (C_b * X07P34PM + C_e * X16P25PM);
-    float v4 = C_norm * (X07P34PP - X16P25PP);
-    float v6 = C_norm * (C_e * X07P34PM - C_b * X16P25PM);
+    T Y04M2e6bMP = Y04M + Y2e6bM;
+    T Y04M2e6bMM = Y04M - Y2e6bM;
+    T Y1c7dM3f5aPM = setval<T>(C_c) * (*Vect1) - setval<T>(C_d) * (*Vect7) - setval<T>(C_f) * (*Vect3) - setval<T>(C_a) * (*Vect5);
+    T Y1d7cP3a5fMM = setval<T>(C_d) * (*Vect1) + setval<T>(C_c) * (*Vect7) - setval<T>(C_a) * (*Vect3) + setval<T>(C_f) * (*Vect5);
 
-    float v1 = C_norm * (C_a * X07M - C_c * X61M + C_d * X25M - C_f * X43M);
-    float v3 = C_norm * (C_c * X07M + C_f * X61M - C_a * X25M + C_d * X43M);
-    float v5 = C_norm * (C_d * X07M + C_a * X61M + C_f * X25M - C_c * X43M);
-    float v7 = C_norm * (C_f * X07M + C_d * X61M + C_c * X25M + C_a * X43M);
+    (*Vect0) = setval<T>(C_norm) * (Y04P2b6ePP + Y7f1aP3c5dPP);
+    (*Vect7) = setval<T>(C_norm) * (Y04P2b6ePP - Y7f1aP3c5dPP);
+    (*Vect4) = setval<T>(C_norm) * (Y04P2b6ePM + Y7a1fM3d5cMP);
+    (*Vect3) = setval<T>(C_norm) * (Y04P2b6ePM - Y7a1fM3d5cMP);
 
-    (*Vect0) = (fabs(v0) <= threshold && thWorker != 0) ? 0.0f : v0;
-    (*Vect2) = (fabs(v2) <= threshold) ? 0.0f : v2;
-    (*Vect4) = (fabs(v4) <= threshold) ? 0.0f : v4;
-    (*Vect6) = (fabs(v6) <= threshold) ? 0.0f : v6;
-
-    (*Vect1) = (fabs(v1) <= threshold) ? 0.0f : v1;
-    (*Vect3) = (fabs(v3) <= threshold) ? 0.0f : v3;
-    (*Vect5) = (fabs(v5) <= threshold) ? 0.0f : v5;
-    (*Vect7) = (fabs(v7) <= threshold) ? 0.0f : v7;
+    (*Vect1) = setval<T>(C_norm) * (Y04M2e6bMP + Y1c7dM3f5aPM);
+    (*Vect5) = setval<T>(C_norm) * (Y04M2e6bMM - Y1d7cP3a5fMM);
+    (*Vect2) = setval<T>(C_norm) * (Y04M2e6bMM + Y1d7cP3a5fMM);
+    (*Vect6) = setval<T>(C_norm) * (Y04M2e6bMP - Y1c7dM3f5aPM);
 }
 
-template<int Step>
-__device__ void CUDAsubroutineInplaceIDCTvector(float *Vect0) {
-    float *Vect1 = Vect0 + Step;
-    float *Vect2 = Vect1 + Step;
-    float *Vect3 = Vect2 + Step;
-    float *Vect4 = Vect3 + Step;
-    float *Vect5 = Vect4 + Step;
-    float *Vect6 = Vect5 + Step;
-    float *Vect7 = Vect6 + Step;
+#if ENABLE_CUDA_FP16_HOST
+#if !ENABLE_CUDA_FP16_DEVICE
+template<> __device__ void CUDAsubroutineInplaceDCTvector<__half2, 1>(__half2 *Vect0) { };
+template<> __device__ void CUDAsubroutineInplaceDCTvector<__half2, 9>(__half2 *Vect0) { };
+template<> __device__ void CUDAsubroutineInplaceIDCTvector<__half2, 1>(__half2 *Vect0) { };
+template<> __device__ void CUDAsubroutineInplaceIDCTvector<__half2, 9>(__half2 *Vect0) { };
+#endif
+#endif
 
-    float Y04P = (*Vect0) + (*Vect4);
-    float Y2b6eP = C_b * (*Vect2) + C_e * (*Vect6);
-
-    float Y04P2b6ePP = Y04P + Y2b6eP;
-    float Y04P2b6ePM = Y04P - Y2b6eP;
-    float Y7f1aP3c5dPP = C_f * (*Vect7) + C_a * (*Vect1) + C_c * (*Vect3) + C_d * (*Vect5);
-    float Y7a1fM3d5cMP = C_a * (*Vect7) - C_f * (*Vect1) + C_d * (*Vect3) - C_c * (*Vect5);
-
-    float Y04M = (*Vect0) - (*Vect4);
-    float Y2e6bM = C_e * (*Vect2) - C_b * (*Vect6);
-
-    float Y04M2e6bMP = Y04M + Y2e6bM;
-    float Y04M2e6bMM = Y04M - Y2e6bM;
-    float Y1c7dM3f5aPM = C_c * (*Vect1) - C_d * (*Vect7) - C_f * (*Vect3) - C_a * (*Vect5);
-    float Y1d7cP3a5fMM = C_d * (*Vect1) + C_c * (*Vect7) - C_a * (*Vect3) + C_f * (*Vect5);
-
-    (*Vect0) = C_norm * (Y04P2b6ePP + Y7f1aP3c5dPP);
-    (*Vect7) = C_norm * (Y04P2b6ePP - Y7f1aP3c5dPP);
-    (*Vect4) = C_norm * (Y04P2b6ePM + Y7a1fM3d5cMP);
-    (*Vect3) = C_norm * (Y04P2b6ePM - Y7a1fM3d5cMP);
-
-    (*Vect1) = C_norm * (Y04M2e6bMP + Y1c7dM3f5aPM);
-    (*Vect5) = C_norm * (Y04M2e6bMM - Y1d7cP3a5fMM);
-    (*Vect2) = C_norm * (Y04M2e6bMM + Y1d7cP3a5fMM);
-    (*Vect6) = C_norm * (Y04M2e6bMP - Y1c7dM3f5aPM);
+template<typename T>
+__device__ void dct8x8(T shared_tmp[8][9], int thWorker) {
+    CUDAsubroutineInplaceDCTvector<T, 1>((T *)&shared_tmp[thWorker][0]); // row
+    CUDAsubroutineInplaceDCTvector<T, 9>((T *)&shared_tmp[0][thWorker]); // column
 }
 
-__device__ void dct8x8(float shared_tmp[8][9], int thWorker, float threshold) {
-    CUDAsubroutineInplaceDCTvector<1>((float *)&shared_tmp[thWorker][0]); // row
-    if (SPP_FUSE_DCT8X8_THRESHOLD) {
-        //閾値判定を統合することで、sharedメモリ帯域を節約する
-        CUDAsubroutineInplaceDCTvector2<9>((float *)&shared_tmp[0][thWorker], thWorker, threshold); // column
-    } else {
-        CUDAsubroutineInplaceDCTvector<9>((float *)&shared_tmp[0][thWorker]); // column
-    }
-}
-
-__device__ void idct8x8(float shared_tmp[8][9], int thWorker) {
-    CUDAsubroutineInplaceIDCTvector<9>((float *)&shared_tmp[0][thWorker]);  // column
-    CUDAsubroutineInplaceIDCTvector<1>((float *)&shared_tmp[thWorker][0]); // row
+template<typename T>
+__device__ void idct8x8(T shared_tmp[8][9], int thWorker) {
+    CUDAsubroutineInplaceIDCTvector<T, 9>((T *)&shared_tmp[0][thWorker]);  // column
+    CUDAsubroutineInplaceIDCTvector<T, 1>((T *)&shared_tmp[thWorker][0]); // row
 }
 __device__ float calcThreshold(const float qp, const float threshA, const float threshB) {
     return clamp(threshA * qp + threshB, 0.0f, qp);
 }
 
 __device__ void threshold8x8(float shared_tmp[8][9], int thWorker, const float threshold) {
+    #pragma unroll
     for (int y = 0; y < 8; y++) {
         if (y > 0 || thWorker > 0) {
             float *ptr = &shared_tmp[y][thWorker];
@@ -202,6 +188,21 @@ __device__ void threshold8x8(float shared_tmp[8][9], int thWorker, const float t
         }
     }
 }
+
+#if ENABLE_CUDA_FP16_HOST
+__device__ void threshold8x8(__half2 shared_tmp[8][9], int thWorker, const __half2 threshold) {
+#if ENABLE_CUDA_FP16_DEVICE
+    #pragma unroll
+    for (int y = 0; y < 8; y++) {
+        if (y > 0 || thWorker > 0) {
+            __half2 *ptr = &shared_tmp[y][thWorker];
+            const __half2 val = ptr[0];
+            ptr[0] = __hgt2(fabs(val), threshold) * val;
+        }
+    }
+#endif //#if ENABLE_CUDA_FP16_DEVICE
+}
+#endif //#if ENABLE_CUDA_FP16_HOST
 
 __constant__ uchar2 SPP_DEBLOCK_OFFSET[127] = {
   { 0,0 },                                                         // quality = 0
@@ -246,18 +247,42 @@ __device__ void zero_8x8(float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SH
         SOUT(shared_bx * 8 + thWorker, shared_by * 8 + y) = 0.0f;
     }
 }
-__device__ void load_8x8tmp(float shared_tmp[8][9], float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int offset_x, int offset_y) {
+__device__ void load_8x8tmp(float shared_tmp[8][9], float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
     #pragma unroll
     for (int y = 0; y < 8; y++) {
-        STMP(thWorker, y) = SIN(shared_bx*8 + offset_x + thWorker, shared_by*8 + offset_y + y);
+        STMP(thWorker, y) = SIN(shared_bx*8 + offset1_x + thWorker, shared_by*8 + offset1_y + y);
     }
 }
-__device__ void add_8x8tmp(float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], float shared_tmp[8][9], int thWorker, int shared_bx, int shared_by, int offset_x, int offset_y) {
+__device__ void add_8x8tmp(float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], float shared_tmp[8][9], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
     #pragma unroll
     for (int y = 0; y < 8; y++) {
-        SOUT(shared_bx * 8 + offset_x + thWorker, shared_by * 8 + offset_y + y) += STMP(thWorker, y);
+        SOUT(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y) += STMP(thWorker, y);
     }
 }
+#if ENABLE_CUDA_FP16_HOST
+__device__ void load_8x8tmp(__half2 shared_tmp[8][9], float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
+#if ENABLE_CUDA_FP16_DEVICE
+    #pragma unroll
+    for (int y = 0; y < 8; y++) {
+        float v0 = SIN(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y);
+        float v1 = SIN(shared_bx * 8 + offset2_x + thWorker, shared_by * 8 + offset2_y + y);
+        STMP(thWorker, y) = __floats2half2_rn(v0, v1);
+    }
+#endif //#if ENABLE_CUDA_FP16_DEVICE
+}
+__device__ void add_8x8tmp(float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], __half2 shared_tmp[8][9], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
+#if ENABLE_CUDA_FP16_DEVICE
+    #pragma unroll
+    for (int y = 0; y < 8; y++) {
+        __half2 v = STMP(thWorker, y);
+        float v0 = __half2float(v.x);
+        float v1 = __half2float(v.y);
+        SOUT(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y) += v0;
+        SOUT(shared_bx * 8 + offset2_x + thWorker, shared_by * 8 + offset2_y + y) += v1;
+    }
+#endif //#if ENABLE_CUDA_FP16_DEVICE
+}
+#endif //#if ENABLE_CUDA_FP16_HOST
 template<typename TypePixel, int bit_depth>
 __device__ void store_8x8(char *__restrict__ pDst, int dstPitch, int dstWidth, int dstHeight, float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int dst_global_bx, int dst_global_by, int quality) {
     const int dst_global_x = dst_global_bx * 8 + thWorker;
@@ -275,7 +300,7 @@ __device__ void store_8x8(char *__restrict__ pDst, int dstPitch, int dstWidth, i
     }
 }
 
-template<typename TypePixel, int bit_depth, typename TypeQP>
+template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, typename TypeQP>
 __global__ void kernel_spp(
     char *__restrict__ ptrDst,
     cudaTextureObject_t texSrc,
@@ -293,7 +318,7 @@ __global__ void kernel_spp(
     int global_by = blockIdx.y * SPP_LOOP_COUNT_BLOCK;
     const int count = 1 << quality;
 
-    __shared__ float shared_tmp[SPP_THREAD_BLOCK_Y][8][9];
+    __shared__ TypeDct shared_tmp[SPP_THREAD_BLOCK_Y][8][9];
     __shared__ float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
     __shared__ float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
 
@@ -306,7 +331,7 @@ __global__ void kernel_spp(
 
     for (int local_by = 0; local_by <= SPP_LOOP_COUNT_BLOCK; local_by++, global_by++) {
         const TypeQP qp = *(TypeQP *)(ptrQP + global_by * qpPitch + global_bx * sizeof(TypeQP));
-        const float threshold = (1.0f / (8.0f * 256.0f)) * (calcThreshold((float)qp, threshA, threshB) * ((float)(1 << 2) + strength) - 1.0f);
+        const TypeDct threshold = setval< TypeDct>((1.0f / (8.0f * 256.0f)) * (calcThreshold((float)qp, threshA, threshB) * ((float)(1 << 2) + strength) - 1.0f));
 
         load_8x8(shared_in, texSrc, thWorker, local_bx, local_by+1, global_bx - 1, global_by);
         zero_8x8(shared_out, thWorker, local_bx, local_by+1);
@@ -315,25 +340,44 @@ __global__ void kernel_spp(
             zero_8x8(shared_out, thWorker, local_bx + SPP_BLOCK_SIZE_X, local_by+1);
         }
         __syncthreads();
-        for (int icount = 0; icount < count; icount++) {
+
+        //fp16では、icount2つ分をSIMD的に2並列で処理する
+        for (int icount = 0; icount < count; icount += (usefp16) ? 2 : 1) {
             const uchar2 offset = SPP_DEBLOCK_OFFSET[count - 1 + icount];
-            const int offset_x = offset.x;
-            const int offset_y = offset.y;
-            load_8x8tmp(shared_tmp[local_bx], shared_in, thWorker, local_bx, local_by, offset_x, offset_y);
-            dct8x8(shared_tmp[local_bx], thWorker, threshold);
-            if (!SPP_FUSE_DCT8X8_THRESHOLD) {
-                threshold8x8(shared_tmp[local_bx], thWorker, threshold);
+            const int offset1_x = offset.x;
+            const int offset1_y = offset.y;
+            int offset2_x = 0;
+            int offset2_y = 0;
+            if (usefp16) {
+                const uchar2 offset2 = SPP_DEBLOCK_OFFSET[count + icount];
+                offset2_x = offset2.x;
+                offset2_y = offset2.y;
             }
-            idct8x8(shared_tmp[local_bx], thWorker);
-            add_8x8tmp(shared_out, shared_tmp[local_bx], thWorker, local_bx, local_by, offset_x, offset_y);
+
+            //fp16では、icount2つ分をSIMD的に2並列で処理するが、
+            //add_8x8tmpで衝突する可能性がある
+            //衝突するのは、warp間の書き込み先がオーバーラップした場合なので、
+            //そこで、warp間を1ブロック空けて処理することでオーバーラップが起こらないようにする
+            //1warp=32threadで、SPP_THREAD_BLOCK_X(blockDim)=8なので、
+            //warp1=local_bx[0-3], warp2=local_bx[4-7]
+            //local_bx 3と4の間をひとつ開けるようにする
+            //どのみち、1ブロックは別に処理する必要があるので、都合がよい
+            int target_bx = (local_bx < 4) ? local_bx : local_bx + 1;
+            load_8x8tmp(shared_tmp[local_bx], shared_in, thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
+            dct8x8<TypeDct>(shared_tmp[local_bx], thWorker);
+            threshold8x8(shared_tmp[local_bx], thWorker, threshold);
+            idct8x8<TypeDct>(shared_tmp[local_bx], thWorker);
+            add_8x8tmp(shared_out, shared_tmp[local_bx], thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
+            if (usefp16) {
+                __syncthreads();
+            }
             if (local_bx < 1) {
-                load_8x8tmp(shared_tmp[local_bx], shared_in, thWorker, local_bx+8, local_by, offset_x, offset_y);
-                dct8x8(shared_tmp[local_bx], thWorker, threshold);
-                if (!SPP_FUSE_DCT8X8_THRESHOLD) {
-                    threshold8x8(shared_tmp[local_bx], thWorker, threshold);
-                }
-                idct8x8(shared_tmp[local_bx], thWorker);
-                add_8x8tmp(shared_out, shared_tmp[local_bx], thWorker, local_bx+8, local_by, offset_x, offset_y);
+                target_bx = 4;
+                load_8x8tmp(shared_tmp[local_bx], shared_in, thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
+                dct8x8<TypeDct>(shared_tmp[local_bx], thWorker);
+                threshold8x8(shared_tmp[local_bx], thWorker, threshold);
+                idct8x8<TypeDct>(shared_tmp[local_bx], thWorker);
+                add_8x8tmp(shared_out, shared_tmp[local_bx], thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
             }
             __syncthreads();
         }
@@ -368,7 +412,7 @@ cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo *pFrame) {
     return cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
 }
 
-template<typename TypePixel, int bit_depth, typename TypeQP>
+template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, typename TypeQP>
 cudaError_t run_spp(FrameInfo *pOutputPlane,
     const FrameInfo *pSrc,
     const FrameInfo *pQP,
@@ -389,7 +433,7 @@ cudaError_t run_spp(FrameInfo *pOutputPlane,
     const float thresh_a = (threshold + W) / (2.0f * W);
     const float thresh_b = (W * W - threshold * threshold) / (2.0f * W);
 
-    kernel_spp<TypePixel, bit_depth, TypeQP><<<gridSize, blockSize, 0, stream>>>(
+    kernel_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP><<<gridSize, blockSize, 0, stream>>>(
         (char * )pOutputPlane->ptr,
         texSrc,
         pOutputPlane->pitch,
@@ -404,7 +448,7 @@ cudaError_t run_spp(FrameInfo *pOutputPlane,
     return cudaerr;
 }
 
-template<typename TypePixel, int bit_depth, typename TypeQP>
+template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, typename TypeQP>
 cudaError_t run_spp_frame(FrameInfo *pOutputFrame,
     const FrameInfo *pSrc,
     const std::array<CUFrameBuf, 3> &qpFrame,
@@ -419,15 +463,15 @@ cudaError_t run_spp_frame(FrameInfo *pOutputFrame,
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
-    auto cudaerr = run_spp<TypePixel, bit_depth, TypeQP>(&planeOutputY, &planeSrcY, &qpFrame[0].frame, quality, strength, threshold, stream);
+    auto cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputY, &planeSrcY, &qpFrame[0].frame, quality, strength, threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = run_spp<TypePixel, bit_depth, TypeQP>(&planeOutputU, &planeSrcU, &qpFrame[1].frame, quality, strength, threshold, stream);
+    cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputU, &planeSrcU, &qpFrame[1].frame, quality, strength, threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = run_spp<TypePixel, bit_depth, TypeQP>(&planeOutputV, &planeSrcV, &qpFrame[2].frame, quality, strength, threshold, stream);
+    cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputV, &planeSrcV, &qpFrame[2].frame, quality, strength, threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -504,23 +548,29 @@ NVEncFilterSpp::~NVEncFilterSpp() {
     close();
 }
 
-RGY_ERR NVEncFilterSpp::check_param(shared_ptr<NVEncFilterParamSpp> pAfsParam) {
-    if (pAfsParam->frameOut.height <= 0 || pAfsParam->frameOut.width <= 0) {
+RGY_ERR NVEncFilterSpp::check_param(shared_ptr<NVEncFilterParamSpp> prm) {
+    if (prm->frameOut.height <= 0 || prm->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pAfsParam->spp.quality < 0 || pAfsParam->spp.quality > VPP_SPP_MAX_QUALITY_LEVEL) {
+    if (prm->spp.quality < 0 || prm->spp.quality > VPP_SPP_MAX_QUALITY_LEVEL) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (quality).\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pAfsParam->spp.qp < 0 || pAfsParam->spp.qp > 63) {
+    if (prm->spp.qp < 0 || prm->spp.qp > 63) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (qp).\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pAfsParam->spp.mode < VPP_SPP_MODE_HARD || pAfsParam->spp.mode >= VPP_SPP_MODE_MAX) {
+    if (prm->spp.mode < VPP_SPP_MODE_HARD || prm->spp.mode >= VPP_SPP_MODE_MAX) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (mode).\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+#if !ENABLE_CUDA_FP16_HOST
+    if (prm->spp.prec == VPP_FP_PRECISION_FP16) {
+        AddMessage(RGY_LOG_WARN, _T("prec=fp16 not compiled in this build, switching to fp32.\n"));
+        prm->spp.prec = VPP_FP_PRECISION_FP32;
+    }
+#endif
     return RGY_ERR_NONE;
 }
 
@@ -535,6 +585,17 @@ RGY_ERR NVEncFilterSpp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     //パラメータチェック
     if (check_param(prm) != NV_ENC_SUCCESS) {
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->spp.prec == VPP_FP_PRECISION_AUTO) {
+        prm->spp.prec =
+#if ENABLE_CUDA_FP16_HOST
+            prm->spp.quality > 0 &&
+            ((prm->compute_capability.first == 6 && prm->compute_capability.second == 0)
+                || prm->compute_capability.first >= 7)
+            ? VPP_FP_PRECISION_FP16 : VPP_FP_PRECISION_FP32;
+#else
+            VPP_FP_PRECISION_FP32;
+#endif
     }
     if (!m_pParam
         || cmpFrameInfoCspResolution(&m_pParam->frameIn, &pParam->frameIn)
@@ -613,12 +674,23 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         return RGY_ERR_MEMORY_ALLOC;
     }
 
-    static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, uint8_t>)*> func_list = {
-        { RGY_CSP_YV12,      run_spp_frame<uint8_t,   8, uint8_t> },
-        { RGY_CSP_YV12_16,   run_spp_frame<uint16_t, 16, uint8_t> },
-        { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, uint8_t> },
-        { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, uint8_t> }
+    static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, float, false, uint8_t>)*> func_list_fp32 = {
+        { RGY_CSP_YV12,      run_spp_frame<uint8_t,   8, float, false, uint8_t> },
+        { RGY_CSP_YV12_16,   run_spp_frame<uint16_t, 16, float, false, uint8_t> },
+        { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, float, false, uint8_t> },
+        { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, float, false, uint8_t> }
     };
+#if ENABLE_CUDA_FP16_HOST
+    static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, float, false, uint8_t>) *> func_list_fp16 = {
+        { RGY_CSP_YV12,      run_spp_frame<uint8_t,   8, __half2, true, uint8_t> },
+        { RGY_CSP_YV12_16,   run_spp_frame<uint16_t, 16, __half2, true, uint8_t> },
+        { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, __half2, true, uint8_t> },
+        { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, __half2, true, uint8_t> },
+    };
+    const auto &func_list = (prm->spp.prec == VPP_FP_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
+#else
+    const auto &func_list = func_list_fp32;
+#endif
     if (func_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;

@@ -1209,6 +1209,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
+                if (param_arg == _T("prec")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_fp_prec, param_val.c_str(), &value)) {
+                        pParams->vpp.spp.prec = (VppFpPrecision)value;
+                    } else {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return -1;
+                    }
+                    continue;
+                }
                 CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return 1;
             }
@@ -1675,8 +1685,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("prec")) {
                     int value = 0;
-                    if (get_list_value(list_vpp_nnedi_prec, param_val.c_str(), &value)) {
-                        pParams->vpp.nnedi.precision = (VppNnediPrecision)value;
+                    if (get_list_value(list_vpp_fp_prec, param_val.c_str(), &value)) {
+                        pParams->vpp.nnedi.precision = (VppFpPrecision)value;
                     } else {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
@@ -2957,7 +2967,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_LST(_T("nns"), vpp.nnedi.nns, list_vpp_nnedi_nns);
             ADD_LST(_T("nsize"), vpp.nnedi.nsize, list_vpp_nnedi_nsize);
             ADD_LST(_T("quality"), vpp.nnedi.quality, list_vpp_nnedi_quality);
-            ADD_LST(_T("prec"), vpp.nnedi.precision, list_vpp_nnedi_prec);
+            ADD_LST(_T("prec"), vpp.nnedi.precision, list_vpp_fp_prec);
             ADD_LST(_T("prescreen"), vpp.nnedi.pre_screen, list_vpp_nnedi_pre_screen);
             ADD_LST(_T("errortype"), vpp.nnedi.errortype, list_vpp_nnedi_error_type);
             ADD_PATH(_T("weightfile"), vpp.nnedi.weightfile.c_str());

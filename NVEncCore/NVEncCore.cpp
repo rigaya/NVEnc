@@ -2239,6 +2239,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterSpp());
             shared_ptr<NVEncFilterParamSpp> param(new NVEncFilterParamSpp());
             param->spp = inputParam->vpp.spp;
+            param->compute_capability = m_dev->cc();
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
