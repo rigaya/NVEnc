@@ -321,6 +321,35 @@ tstring VppDeband::print() const {
         randEachFrame ? _T("yes") : _T("no"));
 }
 
+VppSpp::VppSpp() :
+    enable(false),
+    quality(FILTER_DEFAULT_SPP_QUALITY),
+    qp(FILTER_DEFAULT_SPP_QP),
+    strength(FILTER_DEFAULT_SPP_STRENGTH),
+    threshold(FILTER_DEFAULT_SPP_THRESHOLD),
+    mode((VppSppMode)FILTER_DEFAULT_SPP_MODE),
+    use_bframe_qp(FILTER_DEFAULT_SPP_USE_BFRAME_QP) {
+
+}
+
+bool VppSpp::operator==(const VppSpp &x) const {
+    return enable == x.enable
+        && quality == x.quality
+        && qp == x.qp
+        && strength == x.strength
+        && threshold == x.threshold
+        && mode == x.mode
+        && use_bframe_qp == x.use_bframe_qp;
+}
+bool VppSpp::operator!=(const VppSpp &x) const {
+    return !(*this == x);
+}
+
+tstring VppSpp::print() const {
+    //return strsprintf(_T("spp: quality %d, qp %d, threshold %.1f, strength %.1f, mode %d, use_bframe_qp %s"), quality, qp, threshold, strength, mode, use_bframe_qp ? _T("yes") : _T("no"));
+    return strsprintf(_T("spp: quality %d, qp %d, threshold %.1f, strength %.1f"), quality, qp, threshold, strength);
+}
+
 ColorspaceConv::ColorspaceConv() :
     from(),
     to(),
@@ -581,6 +610,7 @@ VppParam::VppParam() :
     delogo(),
     knn(),
     pmd(),
+    spp(),
     deband(),
     afs(),
     nnedi(),

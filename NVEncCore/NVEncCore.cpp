@@ -67,6 +67,7 @@
 #include "NVEncFilterDelogo.h"
 #include "NVEncFilterDenoiseKnn.h"
 #include "NVEncFilterDenoisePmd.h"
+#include "NVEncFilterSpp.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncFilterNnedi.h"
@@ -1198,6 +1199,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.unsharp.enable
             || inputParam->vpp.knn.enable
             || inputParam->vpp.pmd.enable
+            || inputParam->vpp.spp.enable
             || inputParam->vpp.deband.enable
             || inputParam->vpp.edgelevel.enable
             || inputParam->vpp.afs.enable
@@ -1930,6 +1932,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.unsharp.enable
         || inputParam->vpp.knn.enable
         || inputParam->vpp.pmd.enable
+        || inputParam->vpp.spp.enable
         || inputParam->vpp.deband.enable
         || inputParam->vpp.edgelevel.enable
         || inputParam->vpp.afs.enable
@@ -2214,6 +2217,28 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterDenoisePmd());
             shared_ptr<NVEncFilterParamDenoisePmd> param(new NVEncFilterParamDenoisePmd());
             param->pmd = inputParam->vpp.pmd;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //ノイズ除去 (spp)
+        if (inputParam->vpp.spp.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterSpp());
+            shared_ptr<NVEncFilterParamSpp> param(new NVEncFilterParamSpp());
+            param->spp = inputParam->vpp.spp;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;

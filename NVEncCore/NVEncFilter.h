@@ -312,6 +312,18 @@ public:
         frame.pitch = (int)memPitch;
         return ret;
     }
+    cudaError_t alloc(int width, int height, RGY_CSP csp = RGY_CSP_NV12) {
+        if (frame.ptr) {
+            cudaFree(frame.ptr);
+        }
+        frame.ptr = nullptr;
+        frame.pitch = 0;
+        frame.width = width;
+        frame.height = height;
+        frame.csp = csp;
+        frame.deivce_mem = true;
+        return alloc();
+    }
     void clear() {
         if (frame.ptr) {
             cudaFree(frame.ptr);
