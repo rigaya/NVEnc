@@ -2293,7 +2293,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                     param->subburn.trackId, param->subburn.trackId);
             } else {
                 param->bOutOverwrite = true;
-                param->videoTimebase = av_make_q(m_outputTimebase);
+                param->videoOutTimebase = av_make_q(m_outputTimebase);
                 param->frameIn = inputFrame;
                 param->frameOut = inputFrame;
                 param->baseFps = m_encFps;

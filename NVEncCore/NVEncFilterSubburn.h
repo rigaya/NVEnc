@@ -58,14 +58,14 @@ struct SubImageData {
 class NVEncFilterParamSubburn : public NVEncFilterParam {
 public:
     VppSubburn      subburn;
-    AVRational      videoTimebase;
+    AVRational      videoOutTimebase;
     const AVStream *videoInputStream;
     int64_t         videoInputFirstKeyPts;
     VideoInfo       videoInfo;
     AVDemuxStream   streamIn;
     sInputCrop      crop;
 
-    NVEncFilterParamSubburn() : subburn(), videoTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop() {};
+    NVEncFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop() {};
     virtual ~NVEncFilterParamSubburn() {};
     virtual tstring print() const override;
 };
