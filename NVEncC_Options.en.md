@@ -1124,7 +1124,7 @@ example2: using hdr2sdr (hable tone-mapping)
 --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
 
 example3: using hdr2sdr (hable tone-mapping) and setting the coefs (this is example for the default settings)
---vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3,w=11.2
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
 ```
 
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
