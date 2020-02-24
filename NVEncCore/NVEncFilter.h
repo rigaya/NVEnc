@@ -33,14 +33,10 @@
 #include <Windows.h>
 #include <stdint.h>
 #include <tchar.h>
-#pragma warning (push)
-#pragma warning (disable: 4819)
-#include <cuda_runtime.h>
-#include <npp.h>
-#include <cuda.h>
-#pragma warning (pop)
 #include <memory>
 #include <vector>
+#include "rgy_cuda_util.h"
+#include "rgy_frame.h"
 #include "helper_cuda.h"
 #include "NVEncUtil.h"
 #include "NVEncParam.h"
@@ -64,36 +60,6 @@ bool check_if_nvrtc_builtin_dll_available();
 
 using std::vector;
 
-struct cudaevent_deleter {
-    void operator()(cudaEvent_t *pEvent) const {
-        cudaEventDestroy(*pEvent);
-        delete pEvent;
-    }
-};
-
-struct cudastream_deleter {
-    void operator()(cudaStream_t *pStream) const {
-        cudaStreamDestroy(*pStream);
-        delete pStream;
-    }
-};
-
-struct cudahost_deleter {
-    void operator()(void *ptr) const {
-        cudaFreeHost(ptr);
-    }
-};
-
-struct cudadevice_deleter {
-    void operator()(void *ptr) const {
-        cudaFree(ptr);
-    }
-};
-
-static inline int divCeil(int value, int radix) {
-    return (value + radix - 1) / radix;
-}
-
 static NppiSize nppisize(const FrameInfo *pFrame) {
     NppiSize size;
     size.width = pFrame->width;
@@ -110,139 +76,6 @@ static NppiRect nppiroi(const FrameInfo *pFrame) {
     return rect;
 }
 
-static inline cudaMemcpyKind getCudaMemcpyKind(bool inputDevice, bool outputDevice) {
-    if (inputDevice) {
-        return (outputDevice) ? cudaMemcpyDeviceToDevice : cudaMemcpyDeviceToHost;
-    } else {
-        return (outputDevice) ? cudaMemcpyHostToDevice : cudaMemcpyHostToHost;
-    }
-}
-
-static const TCHAR *getCudaMemcpyKindStr(cudaMemcpyKind kind) {
-    switch (kind) {
-    case cudaMemcpyDeviceToDevice:
-        return _T("copyDtoD");
-    case cudaMemcpyDeviceToHost:
-        return _T("copyDtoH");
-    case cudaMemcpyHostToDevice:
-        return _T("copyHtoD");
-    case cudaMemcpyHostToHost:
-        return _T("copyHtoH");
-    default:
-        return _T("copyUnknown");
-    }
-}
-
-static const TCHAR *getCudaMemcpyKindStr(bool inputDevice, bool outputDevice) {
-    return getCudaMemcpyKindStr(getCudaMemcpyKind(inputDevice, outputDevice));
-}
-
-static void copyFrameProp(FrameInfo *dst, const FrameInfo *src) {
-    dst->width = src->width;
-    dst->height = src->height;
-    dst->csp = src->csp;
-    dst->picstruct = src->picstruct;
-    dst->timestamp = src->timestamp;
-    dst->duration = src->duration;
-    dst->flags = src->flags;
-}
-
-static cudaError_t copyPlane(FrameInfo *dst, const FrameInfo *src) {
-    const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
-    return cudaMemcpy2D(dst->ptr, dst->pitch, src->ptr, src->pitch, width_byte, dst->height, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem));
-}
-
-static cudaError_t copyPlaneAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
-    const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
-    return cudaMemcpy2DAsync(dst->ptr, dst->pitch, src->ptr, src->pitch, width_byte, dst->height, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem), stream);
-}
-
-static cudaError_t checkCopyFrame(FrameInfo *dst, const FrameInfo *src) {
-    auto dstInfoEx = getFrameInfoExtra(dst);
-    const auto srcInfoEx = getFrameInfoExtra(src);
-    if (dst->pitch == 0
-        || srcInfoEx.width_byte > dst->pitch
-        || srcInfoEx.height_total > dstInfoEx.height_total) {
-        if (dst->ptr) {
-            cudaFree(dst->ptr);
-            dst->ptr = nullptr;
-        }
-        dst->pitch = 0;
-    }
-    if (dst->ptr == nullptr) {
-        dstInfoEx = getFrameInfoExtra(dst);
-        if (!dstInfoEx.width_byte) {
-            return cudaErrorNotSupported;
-        }
-        if (dst->deivce_mem) {
-            size_t memPitch = 0;
-            auto ret = cudaMallocPitch(&dst->ptr, &memPitch, dstInfoEx.width_byte, dstInfoEx.height_total);
-            if (ret != cudaSuccess) {
-                return ret;
-            }
-            dst->pitch = (int)memPitch;
-        } else {
-            dst->pitch = ALIGN(dstInfoEx.width_byte, 64);
-            dstInfoEx = getFrameInfoExtra(dst);
-            auto ret = cudaMallocHost(&dst->ptr, dstInfoEx.frame_size);
-            if (ret != cudaSuccess) {
-                return ret;
-            }
-        }
-    }
-    return cudaSuccess;
-}
-
-static cudaError_t copyFrame(FrameInfo *dst, const FrameInfo *src) {
-    for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
-        const auto srcPlane = getPlane(src, (RGY_PLANE)i);
-        auto dstPlane = getPlane(dst, (RGY_PLANE)i);
-        auto ret = copyPlane(&dstPlane, &srcPlane);
-        if (ret != cudaSuccess) {
-            return ret;
-        }
-    }
-    return cudaSuccess;
-}
-
-static cudaError_t copyFrameAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
-    for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
-        const auto srcPlane = getPlane(src, (RGY_PLANE)i);
-        auto dstPlane = getPlane(dst, (RGY_PLANE)i);
-        auto ret = copyPlaneAsync(&dstPlane, &srcPlane, stream);
-        if (ret != cudaSuccess) {
-            return ret;
-        }
-    }
-    return cudaSuccess;
-}
-
-static cudaError_t copyFrameData(FrameInfo *dst, const FrameInfo *src) {
-    {   auto ret = checkCopyFrame(dst, src);
-        if (ret != cudaSuccess) {
-            return ret;
-        }
-    }
-    auto ret = copyFrame(dst, src);
-    if (ret == cudaSuccess) {
-        copyFrameProp(dst, src);
-    }
-    return ret;
-}
-
-static cudaError_t copyFrameDataAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
-    {   auto ret = checkCopyFrame(dst, src);
-        if (ret != cudaSuccess) {
-            return ret;
-        }
-    }
-    auto ret = copyFrameAsync(dst, src, stream);
-    if (ret == cudaSuccess) {
-        copyFrameProp(dst, src);
-    }
-    return ret;
-}
-
 class NVEncFilterParam {
 public:
     FrameInfo frameIn;
@@ -250,188 +83,9 @@ public:
     rgy_rational<int> baseFps;
     bool bOutOverwrite;
 
-    NVEncFilterParam() : frameIn({ 0 }), frameOut({ 0 }), baseFps(), bOutOverwrite(false) {};
+    NVEncFilterParam() : frameIn(), frameOut(), baseFps(), bOutOverwrite(false) {};
     virtual tstring print() const = 0;
     virtual ~NVEncFilterParam() {};
-};
-
-struct CUFrameBuf {
-public:
-    FrameInfo frame;
-    cudaEvent_t event;
-    CUFrameBuf()
-        : frame({ 0 }), event() {
-        cudaEventCreate(&event);
-    };
-    CUFrameBuf(uint8_t *ptr, int pitch, int width, int height, RGY_CSP csp = RGY_CSP_NV12)
-        : frame({ 0 }), event() {
-        frame.ptr = ptr;
-        frame.pitch = pitch;
-        frame.width = width;
-        frame.height = height;
-        frame.csp = csp;
-        frame.deivce_mem = true;
-        cudaEventCreate(&event);
-    };
-    CUFrameBuf(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
-        : frame({ 0 }), event() {
-        frame.ptr = nullptr;
-        frame.pitch = 0;
-        frame.width = width;
-        frame.height = height;
-        frame.csp = csp;
-        frame.deivce_mem = true;
-        cudaEventCreate(&event);
-    };
-    CUFrameBuf(const FrameInfo& _info)
-        : frame(_info), event() {
-        cudaEventCreate(&event);
-    };
-    cudaError_t copyFrame(const FrameInfo *src) {
-        return copyFrameData(&frame, src);
-    }
-    cudaError_t copyFrameAsync(const FrameInfo *src, cudaStream_t stream) {
-        return copyFrameDataAsync(&frame, src, stream);
-    }
-protected:
-    CUFrameBuf(const CUFrameBuf &) = delete;
-    void operator =(const CUFrameBuf &) = delete;
-public:
-    cudaError_t alloc() {
-        if (frame.ptr) {
-            cudaFree(frame.ptr);
-        }
-        size_t memPitch = 0;
-        cudaError_t ret = cudaSuccess;
-        const auto infoEx = getFrameInfoExtra(&frame);
-        if (infoEx.width_byte) {
-            ret = cudaMallocPitch(&frame.ptr, &memPitch, infoEx.width_byte, infoEx.height_total);
-        } else {
-            ret = cudaErrorNotSupported;
-        }
-        frame.pitch = (int)memPitch;
-        return ret;
-    }
-    cudaError_t alloc(int width, int height, RGY_CSP csp = RGY_CSP_NV12) {
-        if (frame.ptr) {
-            cudaFree(frame.ptr);
-        }
-        frame.ptr = nullptr;
-        frame.pitch = 0;
-        frame.width = width;
-        frame.height = height;
-        frame.csp = csp;
-        frame.deivce_mem = true;
-        return alloc();
-    }
-    void clear() {
-        if (frame.ptr) {
-            cudaFree(frame.ptr);
-            frame.ptr = nullptr;
-        }
-    }
-    ~CUFrameBuf() {
-        clear();
-        if (event) {
-            cudaEventDestroy(event);
-            event = nullptr;
-        }
-    }
-};
-
-struct CUMemBuf {
-    void *ptr;
-    size_t nSize;
-
-    CUMemBuf() : ptr(nullptr), nSize(0) {
-
-    };
-    CUMemBuf(void *_ptr, size_t _nSize) : ptr(_ptr), nSize(_nSize) {
-
-    };
-    CUMemBuf(size_t _nSize) : ptr(nullptr), nSize(_nSize) {
-
-    }
-    cudaError_t alloc() {
-        if (ptr) {
-            cudaFree(ptr);
-        }
-        cudaError_t ret = cudaSuccess;
-        if (nSize > 0) {
-            ret = cudaMalloc(&ptr, nSize);
-        } else {
-            ret = cudaErrorNotSupported;
-        }
-        return ret;
-    }
-    void clear() {
-        if (ptr) {
-            cudaFree(ptr);
-            ptr = nullptr;
-        }
-        nSize = 0;
-    }
-    ~CUMemBuf() {
-        clear();
-    }
-};
-
-struct CUMemBufPair {
-    void *ptrDevice;
-    void *ptrHost;
-    size_t nSize;
-
-    CUMemBufPair() : ptrDevice(nullptr), ptrHost(nullptr), nSize(0) {
-
-    };
-    CUMemBufPair(size_t _nSize) : ptrDevice(nullptr), ptrHost(nullptr), nSize(_nSize) {
-
-    }
-    cudaError_t alloc() {
-        if (ptrDevice) {
-            cudaFree(ptrDevice);
-        }
-        cudaError_t ret = cudaSuccess;
-        if (nSize > 0) {
-            ret = cudaMalloc(&ptrDevice, nSize);
-            if (ret == cudaSuccess) {
-                ret = cudaMallocHost(&ptrHost, nSize);
-            }
-        } else {
-            ret = cudaErrorNotSupported;
-        }
-        return ret;
-    }
-    cudaError_t alloc(size_t _nSize) {
-        nSize = _nSize;
-        return alloc();
-    }
-    cudaError_t copyDtoHAsync(cudaStream_t stream = 0) {
-        return cudaMemcpyAsync(ptrHost, ptrDevice, nSize, cudaMemcpyDeviceToHost, stream);
-    }
-    cudaError_t copyDtoH() {
-        return cudaMemcpy(ptrHost, ptrDevice, nSize, cudaMemcpyDeviceToHost);
-    }
-    cudaError_t copyHtoDAsync(cudaStream_t stream = 0) {
-        return cudaMemcpyAsync(ptrDevice, ptrHost, nSize, cudaMemcpyHostToDevice, stream);
-    }
-    cudaError_t copyHtoD() {
-        return cudaMemcpy(ptrDevice, ptrHost, nSize, cudaMemcpyHostToDevice);
-    }
-    void clear() {
-        if (ptrDevice) {
-            cudaFree(ptrDevice);
-            ptrDevice = nullptr;
-        }
-        if (ptrHost) {
-            cudaFreeHost(ptrHost);
-            ptrDevice = nullptr;
-        }
-        nSize = 0;
-    }
-    ~CUMemBufPair() {
-        clear();
-    }
 };
 
 enum FILTER_PATHTHROUGH_FRAMEINFO : uint32_t {
@@ -439,8 +93,9 @@ enum FILTER_PATHTHROUGH_FRAMEINFO : uint32_t {
     FILTER_PATHTHROUGH_TIMESTAMP = 0x01u,
     FILTER_PATHTHROUGH_FLAGS     = 0x02u,
     FILTER_PATHTHROUGH_PICSTRUCT = 0x04u,
+    FILTER_PATHTHROUGH_DATA      = 0x08u,
 
-    FILTER_PATHTHROUGH_ALL       = 0x07u,
+    FILTER_PATHTHROUGH_ALL       = 0x0fu,
 };
 
 static FILTER_PATHTHROUGH_FRAMEINFO operator|(FILTER_PATHTHROUGH_FRAMEINFO a, FILTER_PATHTHROUGH_FRAMEINFO b) {

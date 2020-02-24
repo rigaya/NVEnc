@@ -39,6 +39,7 @@
 #endif
 #include "device_launch_parameters.h"
 #pragma warning (pop)
+#include "rgy_cuda_util_kernel.h"
 
 #define ENABLE_CUDA_FP16_DEVICE (__CUDACC_VER_MAJOR__ >= 10 && __CUDA_ARCH__ >= 530)
 #define ENABLE_CUDA_FP16_HOST   (__CUDACC_VER_MAJOR__ >= 10)
@@ -309,6 +310,10 @@ __global__ void kernel_spp(
     const int dstHeight,
     const char *__restrict__ ptrQP,
     const int qpPitch,
+    const int qpWidth,
+    const int qpHeight,
+    const int qpBlockShift,
+    const float qpMul,
     const int quality,
     const float strength,
     const float threshA, const float threshB) {
@@ -330,8 +335,8 @@ __global__ void kernel_spp(
     }
 
     for (int local_by = 0; local_by <= SPP_LOOP_COUNT_BLOCK; local_by++, global_by++) {
-        const TypeQP qp = *(TypeQP *)(ptrQP + global_by * qpPitch + global_bx * sizeof(TypeQP));
-        const TypeDct threshold = setval< TypeDct>((1.0f / (8.0f * 256.0f)) * (calcThreshold((float)qp, threshA, threshB) * ((float)(1 << 2) + strength) - 1.0f));
+        const TypeQP qp = *(TypeQP *)(ptrQP + min(global_by >> qpBlockShift, qpHeight) * qpPitch + min(global_bx >> qpBlockShift, qpWidth) * sizeof(TypeQP));
+        const TypeDct threshold = setval<TypeDct>((1.0f / (8.0f * 256.0f)) * (calcThreshold((float)qp * qpMul, threshA, threshB) * ((float)(1 << 2) + strength) - 1.0f));
 
         load_8x8(shared_in, texSrc, thWorker, local_bx, local_by+1, global_bx - 1, global_by);
         zero_8x8(shared_out, thWorker, local_bx, local_by+1);
@@ -416,6 +421,8 @@ template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, type
 cudaError_t run_spp(FrameInfo *pOutputPlane,
     const FrameInfo *pSrc,
     const FrameInfo *pQP,
+    const int qpBlockShift,
+    const float qpMul,
     const int quality,
     const float strength,
     const float threshold,
@@ -441,6 +448,9 @@ cudaError_t run_spp(FrameInfo *pOutputPlane,
         pOutputPlane->height,
         (const char *)pQP->ptr,
         pQP->pitch,
+        pQP->width,
+        pQP->height,
+        qpBlockShift, qpMul,
         quality, strength,
         thresh_a, thresh_b);
     cudaerr = cudaGetLastError();
@@ -451,7 +461,8 @@ cudaError_t run_spp(FrameInfo *pOutputPlane,
 template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, typename TypeQP>
 cudaError_t run_spp_frame(FrameInfo *pOutputFrame,
     const FrameInfo *pSrc,
-    const std::array<CUFrameBuf, 3> &qpFrame,
+    const CUFrameBuf *qpFrame,
+    const float qpMul,
     const int quality,
     const float strength,
     const float threshold,
@@ -463,18 +474,85 @@ cudaError_t run_spp_frame(FrameInfo *pOutputFrame,
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
-    auto cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputY, &planeSrcY, &qpFrame[0].frame, quality, strength, threshold, stream);
+    const int qpBlockShiftY = 1;
+    const int qpBlockShiftUV = RGY_CSP_CHROMA_FORMAT[pSrc->csp] == RGY_CHROMAFMT_YUV420 ? 0 : 1;
+
+    auto cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputY, &planeSrcY, &qpFrame->frame, qpBlockShiftY, qpMul, quality, strength, threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputU, &planeSrcU, &qpFrame[1].frame, quality, strength, threshold, stream);
+    cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputU, &planeSrcU, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputV, &planeSrcV, &qpFrame[2].frame, quality, strength, threshold, stream);
+    cudaerr = run_spp<TypePixel, bit_depth, TypeDct, usefp16, TypeQP>(&planeOutputV, &planeSrcV, &qpFrame->frame, qpBlockShiftUV, qpMul, quality, strength, threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
+    return cudaerr;
+}
+
+template<typename TypeQP4>
+__global__ void kernel_gen_qp_table(
+    char *__restrict__ ptrQPDst,
+    const int qpDstPitch,
+    const int qpDstWidth,
+    const int qpDstHeight,
+    const char *__restrict__ ptrQPSrc,
+    const char *__restrict__ ptrQPSrcB,
+    const int qpSrcPitch,
+    const int qpSrcWidth,
+    const int qpSrcHeight,
+    const float qpMul,
+    const float bRatio) {
+    const int thx = threadIdx.x;
+    const int thy = threadIdx.y;
+    const int qpx = (blockIdx.x * blockDim.x + thx) * 4;
+    const int qpy = blockIdx.y * blockDim.y + thy;
+
+    const int qpsx = max(qpx, qpSrcWidth);
+    const int qpsy = max(qpy, qpSrcHeight);
+
+    ptrQPDst  += (qpy  * qpDstPitch + qpx  * sizeof(decltype(TypeQP4::x)));
+    ptrQPSrc  += (qpsy * qpSrcPitch + qpsx * sizeof(decltype(TypeQP4::x)));
+    ptrQPSrcB += (qpsy * qpSrcPitch + qpsx * sizeof(decltype(TypeQP4::x)));
+
+    TypeQP4 qpSrc  = *(TypeQP4 *)ptrQPSrc;
+    TypeQP4 qpSrcB = *(TypeQP4 *)ptrQPSrcB;
+
+    TypeQP4 qp4;
+    qp4.x = max(1, (int)(lerpf(qpSrcB.x, qpSrc.x, bRatio) * qpMul + 0.5f));
+    qp4.y = max(1, (int)(lerpf(qpSrcB.y, qpSrc.y, bRatio) * qpMul + 0.5f));
+    qp4.z = max(1, (int)(lerpf(qpSrcB.z, qpSrc.z, bRatio) * qpMul + 0.5f));
+    qp4.w = max(1, (int)(lerpf(qpSrcB.w, qpSrc.w, bRatio) * qpMul + 0.5f));
+    if (qpx < qpDstWidth && qpy < qpDstHeight) {
+        *(TypeQP4 *)ptrQPDst = qp4;
+    }
+}
+
+template<typename TypeQP4>
+cudaError_t run_gen_qp_table(
+    FrameInfo *pQPDst,
+    const FrameInfo *pQPSrc,
+    const FrameInfo *pQPSrcB,
+    const float qpMul,
+    const float bRatio,
+    cudaStream_t stream) {
+    dim3 blockSize(32, 8);
+    dim3 gridSize(divCeil(pQPDst->width, 4 * blockSize.x), divCeil(pQPDst->height, blockSize.y));
+
+    kernel_gen_qp_table<TypeQP4> << <gridSize, blockSize, 0, stream >> > (
+        (char *)pQPDst->ptr,
+        pQPDst->pitch,
+        (pQPDst->width + 3) & (~3),
+        pQPDst->height,
+        (char *)pQPSrc->ptr,
+        (char *)pQPSrcB->ptr,
+        pQPSrc->pitch,
+        (pQPSrc->width + 3) & (~3),
+        pQPSrc->height,
+        qpMul, bRatio);
+    auto cudaerr = cudaGetLastError();
     return cudaerr;
 }
 
@@ -519,28 +597,7 @@ cudaError_t run_set_qp(
     return cudaerr;
 }
 
-template<typename TypeQP4>
-cudaError_t run_set_qp_frame(
-    std::array<CUFrameBuf, 3>& qpFrame,
-    const int qp,
-    cudaStream_t stream) {
-
-    auto cudaerr = run_set_qp<TypeQP4>(&qpFrame[0].frame, qp, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = run_set_qp<TypeQP4>(&qpFrame[1].frame, qp, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = run_set_qp<TypeQP4>(&qpFrame[2].frame, qp, stream);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    return cudaerr;
-}
-
-NVEncFilterSpp::NVEncFilterSpp() : m_qp() {
+NVEncFilterSpp::NVEncFilterSpp() : m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0) {
     m_sFilterName = _T("spp");
 }
 
@@ -559,10 +616,6 @@ RGY_ERR NVEncFilterSpp::check_param(shared_ptr<NVEncFilterParamSpp> prm) {
     }
     if (prm->spp.qp < 0 || prm->spp.qp > 63) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (qp).\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    if (prm->spp.mode < VPP_SPP_MODE_HARD || prm->spp.mode >= VPP_SPP_MODE_MAX) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (mode).\n"));
         return RGY_ERR_INVALID_PARAM;
     }
 #if !ENABLE_CUDA_FP16_HOST
@@ -611,25 +664,34 @@ RGY_ERR NVEncFilterSpp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
             m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch, RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
-        for (int iplane = 0; iplane < (int)m_qp.size(); iplane++) {
-            const int uvshift = (iplane > 0 && RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) ? 1 : 0;
-            cudaerr = m_qp[iplane].alloc(qp_size(pParam->frameIn.width >> uvshift), qp_size(pParam->frameIn.height >> uvshift), RGY_CSP_Y8);
-            if (cudaerr != CUDA_SUCCESS) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-            AddMessage(RGY_LOG_DEBUG, _T("allocated qp table buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
-                m_qp[iplane].frame.width, m_qp[iplane].frame.height, m_qp[iplane].frame.pitch, RGY_CSP_NAMES[m_qp[iplane].frame.csp]);
+        cudaerr = m_qp.alloc(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8);
+        if (cudaerr != CUDA_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return RGY_ERR_MEMORY_ALLOC;
         }
+        AddMessage(RGY_LOG_DEBUG, _T("allocated qp table buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
+            m_qp.frame.width, m_qp.frame.height, m_qp.frame.pitch, RGY_CSP_NAMES[m_qp.frame.csp]);
 
         setFilterInfo(pParam->print());
-        m_pParam = pParam;
     }
+    m_qpTableRef = prm->qpTableRef;
+    m_pParam = pParam;
     return sts;
 }
 
 tstring NVEncFilterParamSpp::print() const {
     return spp.print();
+}
+
+float NVEncFilterSpp::getQPMul(int qpScaleType) {
+    switch (qpScaleType) {
+    case 0/*mpeg1*/: return 4.0f;
+    case 1/*mpeg2*/: return 2.0f;
+    case 2/*h264*/:  return 1.0f;
+    case 3/*VP56*/:  //return (63 - qscale + 2);
+    default:
+        return 0.0f;
+    }
 }
 
 RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
@@ -668,10 +730,73 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         m_nFrameIdx = (m_nFrameIdx + 1) % m_pFrameBuf.size();
     }
 
-    auto cudaerr = run_set_qp_frame<uchar4>(m_qp, prm->spp.qp, stream);
-    if (cudaerr != CUDA_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp_frame(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-        return RGY_ERR_MEMORY_ALLOC;
+    //入力フレームのQPテーブルへの参照を取得
+    std::shared_ptr<RGYFrameDataQP> qpInput;
+    if (prm->spp.qp == 0) {
+        for (auto &data : pInputFrame->dataList) {
+            if (data->dataType() == RGY_FRAME_DATA_QP) {
+                auto ptr = dynamic_cast<RGYFrameDataQP *>(data.get());
+                if (ptr == nullptr) {
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to get RGYFrameDataQP.\n"));
+                    return RGY_ERR_UNSUPPORTED;
+                }
+                auto ptrRef = m_qpTableRef->get(ptr);
+                if (!ptrRef) {
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to get ref to RGYFrameDataQP.\n"));
+                    return RGY_ERR_UNSUPPORTED;
+                }
+                qpInput = std::move(ptrRef);
+            }
+        }
+        if (!qpInput) {
+            m_qpTableErrCount++;
+            AddMessage(RGY_LOG_DEBUG, _T("Failed to get qp table from input file %d: inputID %d, %lld\n"), m_qpTableErrCount, pInputFrame->inputFrameId, pInputFrame->timestamp);
+            if (m_qpTableErrCount >= prm->spp.maxQPTableErrCount) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get qp table from input file for more than %d times, please specify \"qp\" for --vpp-spp.\n"), m_qpTableErrCount);
+                return RGY_ERR_UNSUPPORTED;
+            }
+            //ひとまず、前のQPテーブルで代用する
+            qpInput = m_qpSrc;
+        } else {
+            m_qpTableErrCount = 0;
+        }
+    }
+
+    //実際に計算用に使用するQPテーブルの選択、あるいは作成
+    CUFrameBuf *targetQPTable = nullptr;
+    float qpMul = 1.0f;
+    if (!!qpInput) {
+        auto cudaerr = cudaStreamWaitEvent(stream, qpInput->event(), 0);
+        if (cudaerr != CUDA_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("error in cudaStreamWaitEvent(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        qpMul = getQPMul(qpInput->qpScaleType());
+        if (qpMul <= 0.0f) {
+            AddMessage(RGY_LOG_ERROR, _T("Unsupported qp scale type.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const bool isBFrame = qpInput->frameType() == 3;
+        if (isBFrame) {
+            m_qpSrcB = qpInput;
+            targetQPTable = &m_qp;
+            cudaerr = run_gen_qp_table<uchar4>(&m_qp.frame, &m_qpSrc->qpDev()->frame, &m_qpSrcB->qpDev()->frame, qpMul, prm->spp.bratio, stream);
+            if (cudaerr != CUDA_SUCCESS) {
+                AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+            qpMul = 1.0f; //run_gen_qp_tableの中で反映済み
+        } else {
+            m_qpSrc = qpInput;
+            targetQPTable = m_qpSrc->qpDev();
+        }
+    } else {
+        targetQPTable = &m_qp;
+        auto cudaerr = run_set_qp<uchar4>(&m_qp.frame, prm->spp.qp, stream);
+        if (cudaerr != CUDA_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
+            return RGY_ERR_MEMORY_ALLOC;
+        }
     }
 
     static const std::map<RGY_CSP, decltype(run_spp_frame<uint8_t, 8, float, false, uint8_t>)*> func_list_fp32 = {
@@ -695,9 +820,10 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    cudaerr = func_list.at(pInputFrame->csp)(ppOutputFrames[0],
+    auto cudaerr = func_list.at(pInputFrame->csp)(ppOutputFrames[0],
         pInputFrame,
-        m_qp,
+        targetQPTable,
+        qpMul,
         prm->spp.quality,
         prm->spp.strength,
         prm->spp.threshold,

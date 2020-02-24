@@ -208,6 +208,8 @@ protected:
     shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
     unique_ptr<NVEncFilterSsim>  m_ssim;
 
+    unique_ptr<RGYListRef<RGYFrameDataQP>> m_qpTable;
+
     GUID                         m_stCodecGUID;           //出力コーデック
     int                          m_uEncWidth;             //出力縦解像度
     int                          m_uEncHeight;            //出力横解像度

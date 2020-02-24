@@ -438,10 +438,13 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
             break;
         }
     }
+    if (inputParam->vpp.spp.enable && inputParam->vpp.spp.qp <= 0) {
+        m_qpTable = std::make_unique<RGYListRef<RGYFrameDataQP>>();
+    }
 
     if (initReaders(m_pFileReader, m_AudioReaders, &inputParam->input,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
-        inputParam->vpp.rff, inputParam->vpp.afs.enable, m_pPerfMonitor.get(), m_pNVLog) != RGY_ERR_NONE) {
+        inputParam->vpp.rff, inputParam->vpp.afs.enable, m_qpTable.get(), m_pPerfMonitor.get(), m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return NV_ENC_ERR_GENERIC;
     }
@@ -923,6 +926,10 @@ NVENCSTATUS NVEncCore::Deinitialize() {
         if (m_vpFilters.size()) {
             NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
             m_vpFilters.clear();
+        }
+        if (m_qpTable) {
+            NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+            m_qpTable.reset();
         }
         ReleaseIOBuffers();
     }
@@ -1833,7 +1840,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN
         && CUVID_DISABLE_CROP;
 
-    FrameInfo inputFrame = { 0 };
+    FrameInfo inputFrame;
     inputFrame.width = inputParam->input.srcWidth;
     inputFrame.height = inputParam->input.srcHeight;
     inputFrame.csp = inputParam->input.csp;
@@ -2190,6 +2197,33 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             inputFrame = param->frameOut;
             m_encFps = param->baseFps;
         }
+        //ノイズ除去 (spp)
+        if (inputParam->vpp.spp.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterSpp());
+            shared_ptr<NVEncFilterParamSpp> param(new NVEncFilterParamSpp());
+            param->spp = inputParam->vpp.spp;
+            param->qpTableRef = m_qpTable.get();
+            param->compute_capability = m_dev->cc();
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != NV_ENC_SUCCESS) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            if (param->spp.qp > 0) {
+                m_qpTable.reset();
+            }
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
         //ノイズ除去 (knn)
         if (inputParam->vpp.knn.enable) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterDenoiseKnn());
@@ -2217,29 +2251,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterDenoisePmd());
             shared_ptr<NVEncFilterParamDenoisePmd> param(new NVEncFilterParamDenoisePmd());
             param->pmd = inputParam->vpp.pmd;
-            param->frameIn = inputFrame;
-            param->frameOut = inputFrame;
-            param->baseFps = m_encFps;
-            param->bOutOverwrite = false;
-            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
-            auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
-                return sts;
-            }
-            //フィルタチェーンに追加
-            m_vpFilters.push_back(std::move(filter));
-            //パラメータ情報を更新
-            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
-            //入力フレーム情報を更新
-            inputFrame = param->frameOut;
-            m_encFps = param->baseFps;
-        }
-        //ノイズ除去 (spp)
-        if (inputParam->vpp.spp.enable) {
-            unique_ptr<NVEncFilter> filter(new NVEncFilterSpp());
-            shared_ptr<NVEncFilterParamSpp> param(new NVEncFilterParamSpp());
-            param->spp = inputParam->vpp.spp;
-            param->compute_capability = m_dev->cc();
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
@@ -3440,7 +3451,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
     auto filter_frame = [&](int& nFilterFrame, unique_ptr<FrameBufferDataIn>& inframe, deque<unique_ptr<FrameBufferDataEnc>>& dqEncFrames, bool& bDrain) {
         cudaMemcpyKind memcpyKind = cudaMemcpyDeviceToDevice;
-        FrameInfo frameInfo = { 0 };
+        FrameInfo frameInfo;
         shared_ptr<void> deviceFrame;
         if (!bDrain) {
             if (inframe->inputIsHost()) {
@@ -3557,8 +3568,8 @@ NVENCSTATUS NVEncCore::Encode() {
                 int nOutFrames = 0;
                 FrameInfo *outInfo[16] = { 0 };
                 //エンコードバッファの情報を設定１
-                FrameInfo encFrameInfo = { 0 };
-                FrameInfo ssimTarget = { 0 };
+                FrameInfo encFrameInfo;
+                FrameInfo ssimTarget;
                 if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
                     encFrameInfo.ptr = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
                     encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
@@ -3699,7 +3710,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
             }
             NVTXRANGE(LoadNextFrame);
-            RGYFrame frame = RGYFrameInit(inputFrameBuf.frameInfo);
+            RGYFrame frame = RGYFrame(inputFrameBuf.frameInfo);
             auto rgy_err = m_pFileReader->LoadNextFrame(&frame);
             if (rgy_err != RGY_ERR_NONE) {
                 if (rgy_err != RGY_ERR_MORE_DATA) { //RGY_ERR_MORE_DATAは読み込みの正常終了を示す
@@ -3710,6 +3721,17 @@ NVENCSTATUS NVEncCore::Encode() {
             auto heTransferFin = shared_ptr<void>(inputFrameBuf.heTransferFin.get(), [&](void *ptr) {
                 SetEvent((HANDLE)ptr);
             });
+            for (auto &data : frame.dataList()) {
+                if (data->dataType() == RGY_FRAME_DATA_QP) {
+                    auto dataqp = dynamic_cast<RGYFrameDataQP *>(data.get());
+                    NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
+                    rgy_err = dataqp->transferToGPU(cudaStreamDefault);
+                    if (rgy_err != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Error sending QP table to GPU: %s.\n"), get_err_mes(rgy_err));
+                        nvStatus = err_to_nv(rgy_err);
+                    }
+                }
+            }
             inputFrame.setHostFrameInfo(frame.getInfo(), heTransferFin);
             inputFrame.setInputFrameId(nInputFrame);
             PrintMes(RGY_LOG_TRACE, _T("input frame (host) #%d, timestamp %lld, duration %lld\n"), nInputFrame, inputFrame.getTimeStamp(), inputFrame.getDuration());

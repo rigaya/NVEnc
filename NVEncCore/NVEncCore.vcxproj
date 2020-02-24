@@ -977,6 +977,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_frame.cpp" />
     <ClCompile Include="rgy_hdr10plus.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -1181,9 +1182,11 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_cmd.h" />
     <ClInclude Include="rgy_codepage.h" />
     <ClInclude Include="rgy_cuda_util.h" />
+    <ClInclude Include="rgy_cuda_util_kernel.h" />
     <ClInclude Include="rgy_def.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_event.h" />
+    <ClInclude Include="rgy_frame.h" />
     <ClInclude Include="rgy_hdr10plus.h" />
     <ClInclude Include="rgy_input.h" />
     <ClInclude Include="rgy_input_avcodec.h" />

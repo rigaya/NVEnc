@@ -46,7 +46,7 @@
 #endif
 #include "device_launch_parameters.h"
 #pragma warning (pop)
-#include "rgy_cuda_util.h"
+#include "rgy_cuda_util_kernel.h"
 
 static const int NNEDI_BLOCK_X       = 32;
 static const int NNEDI_BLOCK_Y       = 8;

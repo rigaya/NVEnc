@@ -38,8 +38,9 @@ class NVEncFilterParamSpp : public NVEncFilterParam {
 public:
     VppSpp spp;
     std::pair<int, int> compute_capability;
+    RGYListRef<RGYFrameDataQP> *qpTableRef;
 
-    NVEncFilterParamSpp() : spp(), compute_capability() {
+    NVEncFilterParamSpp() : spp(), compute_capability(), qpTableRef(nullptr) {
 
     };
     virtual ~NVEncFilterParamSpp() {};
@@ -52,10 +53,15 @@ public:
     virtual ~NVEncFilterSpp();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    int qp_size(int res) { return divCeil(res + 7, 8); }
+    int qp_size(int res) { return divCeil(res + 15, 16); }
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<NVEncFilterParamSpp> prmYadif);
+    float getQPMul(int qp_scale);
 
-    std::array<CUFrameBuf,3> m_qp;
+    CUFrameBuf m_qp;
+    std::shared_ptr<RGYFrameDataQP> m_qpSrc;
+    std::shared_ptr<RGYFrameDataQP> m_qpSrcB;
+    RGYListRef<RGYFrameDataQP> *m_qpTableRef;
+    int m_qpTableErrCount;
 };

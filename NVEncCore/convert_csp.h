@@ -29,6 +29,8 @@
 #define _CONVERT_CSP_H_
 
 #include <cstdint>
+#include <vector>
+#include <memory>
 #include "rgy_tchar.h"
 
 enum RGY_PLANE {
@@ -381,6 +383,8 @@ static RGY_FRAME_FLAGS operator~(RGY_FRAME_FLAGS a) {
     return (RGY_FRAME_FLAGS)(~((uint64_t)a));
 }
 
+class RGYFrameData;
+
 struct FrameInfo {
     uint8_t *ptr;
     RGY_CSP csp;
@@ -391,6 +395,21 @@ struct FrameInfo {
     RGY_PICSTRUCT picstruct;
     RGY_FRAME_FLAGS flags;
     int inputFrameId;
+    std::vector<std::shared_ptr<RGYFrameData>> dataList;
+
+    FrameInfo() :
+        ptr(nullptr),
+        csp(RGY_CSP_NA),
+        width(0),
+        height(0),
+        pitch(0),
+        timestamp(0),
+        duration(0),
+        deivce_mem(false),
+        picstruct(RGY_PICSTRUCT_UNKNOWN),
+        flags(RGY_FRAME_FLAG_NONE),
+        inputFrameId(-1),
+        dataList() {};
 };
 
 static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) {
@@ -399,6 +418,16 @@ static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) 
         || pA->height != pB->height
         || pA->deivce_mem != pB->deivce_mem
         || pA->pitch != pB->pitch;
+}
+
+static void copyFrameProp(FrameInfo *dst, const FrameInfo *src) {
+    dst->width = src->width;
+    dst->height = src->height;
+    dst->csp = src->csp;
+    dst->picstruct = src->picstruct;
+    dst->timestamp = src->timestamp;
+    dst->duration = src->duration;
+    dst->flags = src->flags;
 }
 
 struct FrameInfoExtra {

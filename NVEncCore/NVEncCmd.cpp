@@ -1209,6 +1209,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
+                if (param_arg == _T("bratio")) {
+                    try {
+                        pParams->vpp.spp.bratio = std::stof(param_val);
+                    } catch (...) {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return 1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("prec")) {
                     int value = 0;
                     if (get_list_value(list_vpp_fp_prec, param_val.c_str(), &value)) {
@@ -1216,6 +1225,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     } else {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("max_error")) {
+                    try {
+                        pParams->vpp.spp.maxQPTableErrCount = std::stoi(param_val);
+                    } catch (...) {
+                        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                        return 1;
                     }
                     continue;
                 }
@@ -2955,6 +2973,26 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-afs ") << tmp.str().substr(1);
         } else if (pParams->vpp.afs.enable) {
             cmd << _T(" --vpp-afs");
+        }
+    }
+    if (pParams->vpp.spp != encPrmDefault.vpp.spp) {
+        tmp.str(tstring());
+        if (!pParams->vpp.spp.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.spp.enable || save_disabled_prm) {
+            ADD_NUM(_T("quality"), vpp.spp.quality);
+            ADD_NUM(_T("qp"), vpp.spp.qp);
+            ADD_FLOAT(_T("strength"), vpp.spp.strength, 3);
+            ADD_FLOAT(_T("threshold"), vpp.spp.threshold, 3);
+            ADD_FLOAT(_T("bratio"), vpp.spp.bratio, 3);
+            ADD_LST(_T("prec"), vpp.spp.prec, list_vpp_fp_prec);
+            ADD_NUM(_T("max_error"), vpp.spp.maxQPTableErrCount);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-spp ") << tmp.str().substr(1);
+        } else if (pParams->vpp.spp.enable) {
+            cmd << _T(" --vpp-spp");
         }
     }
     if (pParams->vpp.nnedi != encPrmDefault.vpp.nnedi) {

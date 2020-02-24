@@ -68,7 +68,8 @@ static const int   FILTER_DEFAULT_SPP_QP = 0;
 static const float FILTER_DEFAULT_SPP_STRENGTH = 0.0f;
 static const float FILTER_DEFAULT_SPP_THRESHOLD = 0.0f;
 static const int   FILTER_DEFAULT_SPP_MODE = 0;
-static const bool  FILTER_DEFAULT_SPP_USE_BFRAME_QP = false;
+static const float FILTER_DEFAULT_SPP_B_RATIO = 0.5f;
+static const int   FILTER_DEFAULT_SPP_MAX_QPTABLE_ERR = 10;
 static const int   FILTER_DEFAULT_DEBAND_RANGE = 15;
 static const int   FILTER_DEFAULT_DEBAND_THRE_Y = 15;
 static const int   FILTER_DEFAULT_DEBAND_THRE_CB = 15;
@@ -920,21 +921,15 @@ struct VppDeband {
     tstring print() const;
 };
 
-enum VppSppMode {
-    VPP_SPP_MODE_HARD,
-    VPP_SPP_MODE_SOFT,
-    VPP_SPP_MODE_MAX,
-};
-
 struct VppSpp {
     bool enable;
     int quality;
     int qp;
     float strength;
     float threshold;
-    VppSppMode mode;
-    bool use_bframe_qp;
+    float bratio;
     VppFpPrecision prec;
+    int maxQPTableErrCount;
     VppSpp();
     bool operator==(const VppSpp &x) const;
     bool operator!=(const VppSpp &x) const;

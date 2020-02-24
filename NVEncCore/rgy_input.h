@@ -41,6 +41,7 @@
 #include "rgy_util.h"
 #include "rgy_prm.h"
 #include "rgy_avutil.h"
+#include "rgy_frame.h"
 #if ENCODER_NVENC
 #include "NVEncUtil.h"
 #endif //#if ENCODER_NVENC
@@ -286,6 +287,7 @@ RGY_ERR initReaders(
     const int subburnTrackId,
     const bool vpp_afs,
     const bool vpp_rff,
+    RGYListRef<RGYFrameDataQP> *qpTableListRef,
     CPerfMonitor *perfMonitor,
     shared_ptr<RGYLog> log
 );

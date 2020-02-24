@@ -327,9 +327,9 @@ VppSpp::VppSpp() :
     qp(FILTER_DEFAULT_SPP_QP),
     strength(FILTER_DEFAULT_SPP_STRENGTH),
     threshold(FILTER_DEFAULT_SPP_THRESHOLD),
-    mode((VppSppMode)FILTER_DEFAULT_SPP_MODE),
-    use_bframe_qp(FILTER_DEFAULT_SPP_USE_BFRAME_QP),
-    prec(VPP_FP_PRECISION_AUTO) {
+    bratio(FILTER_DEFAULT_SPP_B_RATIO),
+    prec(VPP_FP_PRECISION_AUTO),
+    maxQPTableErrCount(FILTER_DEFAULT_SPP_MAX_QPTABLE_ERR) {
 
 }
 
@@ -339,9 +339,9 @@ bool VppSpp::operator==(const VppSpp &x) const {
         && qp == x.qp
         && strength == x.strength
         && threshold == x.threshold
-        && mode == x.mode
-        && use_bframe_qp == x.use_bframe_qp
-        && prec == x.prec;
+        && bratio == x.bratio
+        && prec == x.prec
+        && maxQPTableErrCount == x.maxQPTableErrCount;
 }
 bool VppSpp::operator!=(const VppSpp &x) const {
     return !(*this == x);

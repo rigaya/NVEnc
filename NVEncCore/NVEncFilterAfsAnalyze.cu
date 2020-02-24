@@ -39,7 +39,7 @@
 #include <device_launch_parameters.h>
 #include <vector_types.h>
 #pragma warning (pop)
-#include "rgy_cuda_util.h"
+#include "rgy_cuda_util_kernel.h"
 
 #define BLOCK_INT_X  (32) //blockDim(x) = スレッド数/ブロック
 #define BLOCK_Y       (8) //blockDim(y) = スレッド数/ブロック
