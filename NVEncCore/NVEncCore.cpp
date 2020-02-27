@@ -1575,7 +1575,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             const bool high_tier = m_stEncConfig.encodeCodecConfig.hevcConfig.tier == NV_ENC_TIER_HEVC_HIGH;
             int level = m_stEncConfig.encodeCodecConfig.hevcConfig.level;
             if (level == 0) {
-                level = calc_hevc_auto_level(m_uEncWidth, m_uEncHeight, //m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
+                level = calc_hevc_auto_level(m_uEncWidth, m_uEncHeight, m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB,
                     m_encFps.n(), m_encFps.d(), high_tier, prefered_bitrate_kbps);
             }
             //なぜかぎりぎりを指定するとエラー終了するので、すこし減らす

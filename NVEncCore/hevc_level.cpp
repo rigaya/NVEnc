@@ -76,10 +76,20 @@ static const uint32_t HEVC_LEVEL_LIMITS[_countof(HEVC_LEVEL_INDEX)+1][LEVEL_COLU
 };
 
 //必要なLevelを計算する, 適合するLevelがなければ 0 を返す
-int calc_hevc_auto_level(int width, int height, int fps_num, int fps_den, bool high_tier, int max_bitrate) {
+int calc_hevc_auto_level(int width, int height, int ref, int fps_num, int fps_den, bool high_tier, int max_bitrate) {
+    int ref_mul_x3 = 3; //refのためにsample数にかけたい数を3倍したもの(あとで3で割る)
+    if (ref > 12) {
+        ref_mul_x3 = 4*3;
+    } else if (ref > 8) {
+        ref_mul_x3 = 2*3;
+    } else if (ref > 6) {
+        ref_mul_x3 = 4;
+    } else {
+        ref_mul_x3 = 3;
+    }
     uint32_t data[LEVEL_COLUMNS] = {
         (uint32_t)std::min((uint64_t)(width * height) * fps_num / fps_den, (uint64_t)UINT32_MAX),
-        (uint32_t)width * height,
+        (uint32_t)width * height * ref_mul_x3 / 3,
         (high_tier) ? 0 : (uint32_t)max_bitrate,
         (high_tier) ? (uint32_t)max_bitrate : 0,
         NULL

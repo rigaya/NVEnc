@@ -28,7 +28,7 @@
 #ifndef __HEVC_LEVEL_H__
 #define __HEVC_LEVEL_H__
 
-int calc_hevc_auto_level(int width, int height, int fps_num, int fps_den, bool high_tier, int max_bitrate);
+int calc_hevc_auto_level(int width, int height, int ref, int fps_num, int fps_den, bool high_tier, int max_bitrate);
 int get_hevc_max_bitrate(int level, bool high_tier);
 bool is_avail_hevc_high_tier(int level);
 
