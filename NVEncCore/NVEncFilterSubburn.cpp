@@ -116,8 +116,11 @@ RGY_ERR NVEncFilterSubburn::checkParam(const std::shared_ptr<NVEncFilterParamSub
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->subburn.filename.length() > 0 && !PathFileExists(prm->subburn.filename.c_str())) {
-        AddMessage(RGY_LOG_ERROR, _T("subtitle file \"prec\" does not exist\n"), prm->subburn.filename.c_str());
+        AddMessage(RGY_LOG_ERROR, _T("subtitle file \"%s\" does not exist\n"), prm->subburn.filename.c_str());
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->subburn.trackId != 0) {
+        prm->subburn.vid_ts_offset = true;
     }
     if (prm->subburn.brightness < -1.0f || 1.0f < prm->subburn.brightness) {
         AddMessage(RGY_LOG_ERROR, _T("\"brightness\" must be in range of -1.0 - 1.0, but %.2f set.\n"), prm->subburn.brightness);
@@ -422,7 +425,7 @@ RGY_ERR NVEncFilterSubburn::addStreamPacket(AVPacket *pkt) {
             return RGY_ERR_INVALID_PARAM;
         }
         const auto inputSubStream = (prm->streamIn.stream) ? prm->streamIn.stream : m_formatCtx->streams[m_subtitleStreamIndex];
-        const int64_t vidInputOffsetMs = (prm->videoInputStream) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
+        const int64_t vidInputOffsetMs = (prm->videoInputStream && prm->subburn.vid_ts_offset) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
         const int64_t tsOffsetMs = (int64_t)(prm->subburn.ts_offset * 1000.0 + 0.5);
         const auto pktTimeMs = av_rescale_q(pkt->pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs + tsOffsetMs;
         AddMessage(log_level, _T("Add subtitle packet: %s\n"), getTimestampString(pktTimeMs, av_make_q(1, 1000)).c_str());
@@ -438,7 +441,7 @@ RGY_ERR NVEncFilterSubburn::procFrame(FrameInfo *pOutputFrame, cudaStream_t stre
     }
     const auto inputSubStream = (prm->streamIn.stream) ? prm->streamIn.stream : m_formatCtx->streams[m_subtitleStreamIndex];
     const int64_t nFrameTimeMs = av_rescale_q(pOutputFrame->timestamp, prm->videoOutTimebase, { 1, 1000 });
-    const int64_t vidInputOffsetMs = (prm->videoInputStream) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
+    const int64_t vidInputOffsetMs = (prm->videoInputStream && prm->subburn.vid_ts_offset) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
     const int64_t tsOffsetMs = (int64_t)(prm->subburn.ts_offset * 1000.0 + 0.5);
 
     AVPacket pkt;

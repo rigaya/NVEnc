@@ -1339,6 +1339,10 @@ add padding to left,top,right,bottom (in pixels)
 
 - contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)
   modifies contrast of the subtitle.  
+  
+- vid_ts_offset=&lt;bool&gt;  
+  add timestamp offset to match the first timestamp of the video file (default on)　　
+  Please note that when \"track\" is used, this options is always on.
 
 - ts_offset=&lt;float&gt; (default=0.0)
   add offset in seconds to the subtitle timestamps (for debug perpose).  

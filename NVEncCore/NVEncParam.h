@@ -1012,6 +1012,7 @@ struct VppSubburn {
     float brightness;
     float contrast;
     double ts_offset;
+    bool vid_ts_offset;
 
     VppSubburn();
     bool operator==(const VppSubburn &x) const;

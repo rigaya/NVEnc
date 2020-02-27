@@ -470,6 +470,9 @@ tstring encoder_help() {
         _T("                                  (default=%.1f, -1.0 - 1.0)\n")
         _T("      contrast=<float>          modifies contrast of the subtitle.\n")
         _T("                                  (default=%.1f, -2.0 - 2.0)\n")
+        _T("      vid_ts_offset=<bool>      add timestamp offset to match the first timestamp of\n")
+        _T("                                  the video file (default: on)\n")
+        _T("                                  (when \"track\" is used this options is always on)\n")
         _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n"),
         FILTER_DEFAULT_TWEAK_BRIGHTNESS, FILTER_DEFAULT_TWEAK_CONTRAST);
     str += strsprintf(_T("")
@@ -2569,7 +2572,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         param_list.push_back(tstring(qstr, pstr - qstr));
 
-        const auto paramList = std::vector<std::string>{ "track", "filename", "charcode", "shaping", "scale", "transparency", "brightness", "contrast", "ts_offset" };
+        const auto paramList = std::vector<std::string>{ "track", "filename", "charcode", "shaping", "scale", "transparency", "brightness", "contrast", "vid_ts_offset", "ts_offset" };
 
         for (const auto &param : param_list) {
             auto pos = param.find_first_of(_T("="));
@@ -2645,6 +2648,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         subburn.contrast = std::stof(param_val);
                     } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("vid_ts_offset")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        subburn.vid_ts_offset = b;
+                    }
+                    else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
@@ -3604,10 +3618,11 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
                 ADD_STR(_T("charcode"), vpp.subburn[i].charcode);
                 ADD_LST(_T("shaping"), vpp.subburn[i].assShaping, list_vpp_ass_shaping);
                 ADD_FLOAT(_T("scale"), vpp.subburn[i].scale, 4);
-                ADD_FLOAT(_T("ts_offset"), vpp.subburn[i].ts_offset, 4);
                 ADD_FLOAT(_T("transparency"), vpp.subburn[i].transparency_offset, 4);
                 ADD_FLOAT(_T("brightness"), vpp.subburn[i].brightness, 4);
                 ADD_FLOAT(_T("contrast"), vpp.subburn[i].contrast, 4);
+                ADD_BOOL(_T("vid_ts_offset"), vpp.subburn[i].vid_ts_offset);
+                ADD_FLOAT(_T("ts_offset"), vpp.subburn[i].ts_offset, 4);
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);
