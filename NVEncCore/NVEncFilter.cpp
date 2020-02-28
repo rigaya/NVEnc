@@ -113,6 +113,7 @@ RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, 
         for (int i = 0; i < nOutFrame; i++) {
             if (m_nPathThrough & FILTER_PATHTHROUGH_FLAGS)     ppOutputFrames[i]->flags     = pInputFrame->flags;
             if (m_nPathThrough & FILTER_PATHTHROUGH_PICSTRUCT) ppOutputFrames[i]->picstruct = pInputFrame->picstruct;
+            if (m_nPathThrough & FILTER_PATHTHROUGH_DATA)      ppOutputFrames[i]->dataList  = pInputFrame->dataList;
         }
     }
     if (m_bCheckPerformance) {

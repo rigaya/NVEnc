@@ -312,6 +312,7 @@ RGY_ERR initReaders(
     const int subburnTrackId,
     const bool vpp_afs,
     const bool vpp_rff,
+    RGYListRef<RGYFrameDataQP> *qpTableListRef,
     CPerfMonitor *perfMonitor,
     shared_ptr<RGYLog> log
 ) {
@@ -457,6 +458,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.caption2ass = common->caption2ass;
         inputInfoAVCuvid.pasrseHDRmetadata = common->maxCll == maxCLLSource || common->masterDisplay == masterDisplaySource;
         inputInfoAVCuvid.interlaceAutoFrame = input->picstruct == RGY_PICSTRUCT_AUTO;
+        inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         pInputPrm = &inputInfoAVCuvid;
         log->write(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         pFileReader.reset(new RGYInputAvcodec());

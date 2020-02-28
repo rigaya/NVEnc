@@ -63,6 +63,13 @@ static const float FILTER_DEFAULT_PMD_STRENGTH = 100.0f;
 static const float FILTER_DEFAULT_PMD_THRESHOLD = 100.0f;
 static const int   FILTER_DEFAULT_PMD_APPLY_COUNT = 2;
 static const bool  FILTER_DEFAULT_PMD_USE_EXP = true;
+static const int   FILTER_DEFAULT_SMOOTH_QUALITY = 3;
+static const int   FILTER_DEFAULT_SMOOTH_QP = 12;
+static const float FILTER_DEFAULT_SMOOTH_STRENGTH = 0.0f;
+static const float FILTER_DEFAULT_SMOOTH_THRESHOLD = 0.0f;
+static const int   FILTER_DEFAULT_SMOOTH_MODE = 0;
+static const float FILTER_DEFAULT_SMOOTH_B_RATIO = 0.5f;
+static const int   FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR = 10;
 static const int   FILTER_DEFAULT_DEBAND_RANGE = 15;
 static const int   FILTER_DEFAULT_DEBAND_THRE_Y = 15;
 static const int   FILTER_DEFAULT_DEBAND_THRE_CB = 15;
@@ -471,6 +478,23 @@ const CX_DESC list_nppi_resize_help[] = {
 };
 
 
+enum VppFpPrecision {
+    VPP_FP_PRECISION_UNKNOWN = -1,
+
+    VPP_FP_PRECISION_AUTO = 0,
+    VPP_FP_PRECISION_FP32,
+    VPP_FP_PRECISION_FP16,
+
+    VPP_FP_PRECISION_MAX,
+};
+
+const CX_DESC list_vpp_fp_prec[] = {
+    { _T("auto"), VPP_FP_PRECISION_AUTO },
+    { _T("fp32"), VPP_FP_PRECISION_FP32 },
+    { _T("fp16"), VPP_FP_PRECISION_FP16 },
+    { NULL, NULL }
+};
+
 const CX_DESC list_vpp_denoise[] = {
     { _T("none"), 0 },
     { _T("knn"),  1 },
@@ -631,23 +655,6 @@ enum VppNnediErrorType {
 const CX_DESC list_vpp_nnedi_error_type[] = {
     { _T("abs"),    VPP_NNEDI_ETYPE_ABS },
     { _T("square"), VPP_NNEDI_ETYPE_SQUARE },
-    { NULL, NULL }
-};
-
-enum VppNnediPrecision {
-    VPP_NNEDI_PRECISION_UNKNOWN = -1,
-
-    VPP_NNEDI_PRECISION_AUTO = 0,
-    VPP_NNEDI_PRECISION_FP32,
-    VPP_NNEDI_PRECISION_FP16,
-
-    VPP_NNEDI_PRECISION_MAX,
-};
-
-const CX_DESC list_vpp_nnedi_prec[] = {
-    { _T("auto"), VPP_NNEDI_PRECISION_AUTO },
-    { _T("fp32"), VPP_NNEDI_PRECISION_FP32 },
-    { _T("fp16"), VPP_NNEDI_PRECISION_FP16 },
     { NULL, NULL }
 };
 
@@ -914,6 +921,22 @@ struct VppDeband {
     tstring print() const;
 };
 
+struct VppSmooth {
+    bool enable;
+    int quality;
+    int qp;
+    VppFpPrecision prec;
+    bool useQPTable;
+    float strength;
+    float threshold;
+    float bratio;
+    int maxQPTableErrCount;
+    VppSmooth();
+    bool operator==(const VppSmooth &x) const;
+    bool operator!=(const VppSmooth &x) const;
+    tstring print() const;
+};
+
 struct ColorspaceConv {
     VideoVUIInfo from, to;
     double sdr_source_peak;
@@ -1089,7 +1112,7 @@ struct VppNnedi {
     int               nns;
     VppNnediNSize     nsize;
     VppNnediQuality   quality;
-    VppNnediPrecision precision;
+    VppFpPrecision precision;
     VppNnediPreScreen pre_screen;
     VppNnediErrorType errortype;
     tstring           weightfile;
@@ -1189,6 +1212,7 @@ struct VppParam {
     VppEdgelevel edgelevel;
     VppKnn knn;
     VppPmd pmd;
+    VppSmooth smooth;
     VppDeband deband;
     VppAfs afs;
     VppNnedi nnedi;

@@ -35,6 +35,7 @@
 #include <stdint.h>
 #pragma warning (pop)
 #include "rgy_cuda_util.h"
+#include "rgy_cuda_util_kernel.h"
 #include "NVEncFilterSsim.h"
 
 static const int SSIM_BLOCK_X = 32;

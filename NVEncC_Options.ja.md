@@ -1205,6 +1205,27 @@ yadifによるインタレ解除を行う。
 | super         | nppのsuper sampling(詳細不明) | ○ |
 | lanczos       | Lanczos法                    | ○ |
 
+### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**パラメータ**
+- quality=&lt;int&gt;  (default=3, 1-6)  
+  処理の品質。値が大きいほど高精度だが遅くなる。
+
+- qp=&lt;int&gt;  (default=12, 1 - 63)    
+  フィルタの強さ。
+  
+- prec (デフォルト: auto)  
+  演算精度の選択。
+  - auto  
+    fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
+    現状ではTuring世代のGPUで自動的にfp16が使用される。
+    Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
+  
+  - fp16 (x64版のみ)  
+    半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
+  
+  - fp32  
+    単精度浮動小数点を使って計算する。
   
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 

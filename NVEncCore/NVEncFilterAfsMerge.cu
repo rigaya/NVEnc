@@ -39,7 +39,7 @@
 #include <device_launch_parameters.h>
 #include <vector_types.h>
 #pragma warning (pop)
-#include "rgy_cuda_util.h"
+#include "rgy_cuda_util_kernel.h"
 
 #define MERGE_BLOCK_INT_X  (32) //work groupサイズ(x) = スレッド数/work group
 #define MERGE_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group

@@ -321,6 +321,43 @@ tstring VppDeband::print() const {
         randEachFrame ? _T("yes") : _T("no"));
 }
 
+VppSmooth::VppSmooth() :
+    enable(false),
+    quality(FILTER_DEFAULT_SMOOTH_QUALITY),
+    qp(FILTER_DEFAULT_SMOOTH_QP),
+    prec(VPP_FP_PRECISION_AUTO),
+    useQPTable(false),
+    strength(FILTER_DEFAULT_SMOOTH_STRENGTH),
+    threshold(FILTER_DEFAULT_SMOOTH_THRESHOLD),
+    bratio(FILTER_DEFAULT_SMOOTH_B_RATIO),
+    maxQPTableErrCount(FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR) {
+
+}
+
+bool VppSmooth::operator==(const VppSmooth &x) const {
+    return enable == x.enable
+        && quality == x.quality
+        && qp == x.qp
+        && prec == x.prec
+        && useQPTable == x.useQPTable
+        && strength == x.strength
+        && threshold == x.threshold
+        && bratio == x.bratio
+        && maxQPTableErrCount == x.maxQPTableErrCount;
+}
+bool VppSmooth::operator!=(const VppSmooth &x) const {
+    return !(*this == x);
+}
+
+tstring VppSmooth::print() const {
+    //return strsprintf(_T("smooth: quality %d, qp %d, threshold %.1f, strength %.1f, mode %d, use_bframe_qp %s"), quality, qp, threshold, strength, mode, use_bframe_qp ? _T("yes") : _T("no"));
+    tstring str = strsprintf(_T("smooth: quality %d, qp %d, prec %s"), quality, qp, get_cx_desc(list_vpp_fp_prec, prec));
+    if (useQPTable) {
+        str += strsprintf(_T(", use QP table on"));
+    }
+    return str;
+}
+
 ColorspaceConv::ColorspaceConv() :
     from(),
     to(),
@@ -586,6 +623,7 @@ VppParam::VppParam() :
     delogo(),
     knn(),
     pmd(),
+    smooth(),
     deband(),
     afs(),
     nnedi(),
@@ -878,7 +916,7 @@ VppNnedi::VppNnedi() :
     nns(32),
     nsize(VPP_NNEDI_NSIZE_32x4),
     quality(VPP_NNEDI_QUALITY_FAST),
-    precision(VPP_NNEDI_PRECISION_AUTO),
+    precision(VPP_FP_PRECISION_AUTO),
     pre_screen(VPP_NNEDI_PRE_SCREEN_NEW_BLOCK),
     errortype(VPP_NNEDI_ETYPE_ABS),
     weightfile(_T("")) {
@@ -914,7 +952,7 @@ tstring VppNnedi::print() const {
         nns,
         get_cx_desc(list_vpp_nnedi_nsize, nsize),
         get_cx_desc(list_vpp_nnedi_quality, quality),
-        get_cx_desc(list_vpp_nnedi_prec, precision),
+        get_cx_desc(list_vpp_fp_prec, precision),
         get_cx_desc(list_vpp_nnedi_pre_screen, pre_screen),
         get_cx_desc(list_vpp_nnedi_error_type, errortype),
         ((weightfile.length()) ? weightfile.c_str() : _T("internal")));

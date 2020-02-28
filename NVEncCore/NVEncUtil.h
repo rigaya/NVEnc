@@ -321,6 +321,9 @@ struct RGYFrame {
 private:
     FrameInfo info;
 public:
+    RGYFrame() : info() {};
+    RGYFrame(const FrameInfo& frameinfo) : info(frameinfo) {};
+
     FrameInfo getInfo() const {
         return info;
     }
@@ -377,23 +380,9 @@ public:
     void setPicstruct(RGY_PICSTRUCT picstruct) {
         info.picstruct = picstruct;
     }
+    const std::vector<std::shared_ptr<RGYFrameData>> &dataList() const { return info.dataList; };
+    std::vector<std::shared_ptr<RGYFrameData>> &dataList() { return info.dataList; };
 };
-
-static inline RGYFrame RGYFrameInit() {
-    RGYFrame frame;
-    memset(&frame, 0, sizeof(frame));
-    return frame;
-}
-
-static inline RGYFrame RGYFrameInit(const FrameInfo& frameinfo) {
-    RGYFrame frame;
-    frame.set(frameinfo);
-    return frame;
-}
-
-#ifndef __CUDACC__
-static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
-#endif
 
 static inline RGY_FRAMETYPE frametype_enc_to_rgy(const NV_ENC_PIC_TYPE frametype) {
     RGY_FRAMETYPE type = RGY_FRAMETYPE_UNKNOWN;

@@ -32,7 +32,7 @@
 #include "NVEncFilterDelogo.h"
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-#include "rgy_cuda_util.h"
+#include "rgy_cuda_util_kernel.h"
 
 #define DELOGO_DEBUG_CUDA 0
 

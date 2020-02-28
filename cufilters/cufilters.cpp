@@ -871,7 +871,7 @@ BOOL func_proc(FILTER *fp, FILTER_PROC_INFO *fpip) {
     prm.nnedi.quality       = cu_exdata.nnedi_quality;
     prm.nnedi.pre_screen    = cu_exdata.nnedi_prescreen;
     prm.nnedi.errortype     = cu_exdata.nnedi_errortype;
-    prm.nnedi.precision     = VPP_NNEDI_PRECISION_AUTO;
+    prm.nnedi.precision     = VPP_FP_PRECISION_AUTO;
 
     FrameInfo in = { 0 };
     //入力フレーム情報

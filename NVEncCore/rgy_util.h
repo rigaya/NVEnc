@@ -42,6 +42,7 @@
 #include <cassert>
 #include <memory>
 #include <algorithm>
+#include <unordered_map>
 #include <climits>
 #include <map>
 #include <list>
@@ -1182,6 +1183,49 @@ public:
     };
     int m_nCombination;
     vector<vector<int>> m_nCombinationList;
+};
+
+template<typename T>
+class RGYListRef {
+private:
+    std::vector<std::unique_ptr<T>> m_objs;
+    std::unordered_map<T *, std::atomic<int>> m_refCounts;
+public:
+    RGYListRef() : m_objs(), m_refCounts() {};
+    ~RGYListRef() {
+        m_refCounts.clear();
+        m_objs.clear();
+    }
+    std::shared_ptr<T> get(T *ptr) {
+        if (ptr == nullptr || m_refCounts.count(ptr) == 0) {
+            return std::shared_ptr<T>();
+        }
+        m_refCounts[ptr]++;
+        return std::shared_ptr<T>(ptr, [this](T *ptr) {
+            m_refCounts[ptr]--;
+        });
+    }
+    std::shared_ptr<T> get(std::function<int(T*)> initFunc = nullptr) {
+        for (auto &count : m_refCounts) {
+            if (count.second == 0) {
+                m_refCounts[count.first]++;
+                return std::shared_ptr<T>(count.first, [this](T *ptr) {
+                    m_refCounts[ptr]--;
+                });
+            }
+        }
+
+        auto obj = std::make_unique<T>();
+        auto ptr = obj.get();
+        if (initFunc && initFunc(ptr)) {
+            return std::shared_ptr<T>();
+        }
+        m_refCounts[ptr] = 1;
+        m_objs.push_back(std::move(obj));
+        return std::shared_ptr<T>(ptr, [this](T *ptr) {
+            m_refCounts[ptr]--;
+        });
+    }
 };
 
 int rgy_avx_dummy_if_avail(int bAVXAvail);

@@ -105,7 +105,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     videoDetectPulldown(false),
     caption2ass(FORMAT_INVALID),
     pasrseHDRmetadata(false),
-    interlaceAutoFrame(false) {
+    interlaceAutoFrame(false),
+    qpTableListRef(nullptr) {
 
 }
 
@@ -1594,6 +1595,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
                 return RGY_ERR_NULL_PTR;
             }
+            m_Demux.video.qpTableListRef = input_prm->qpTableListRef;
         } else {
             //HWデコードの場合は、色変換がかからないので、入力フォーマットがそのまま出力フォーマットとなる
             m_inputVideoInfo.csp = pixfmtData->output_csp;
@@ -2377,6 +2379,19 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         pSurface->setDuration(m_Demux.video.frame->pkt_duration);
         if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
+        }
+        pSurface->dataList().clear();
+        if (m_Demux.video.qpTableListRef != nullptr) {
+            int qp_stride = 0;
+            int qscale_type = 0;
+            const auto qp_table = av_frame_get_qp_table(m_Demux.video.frame, &qp_stride, &qscale_type);
+            if (qp_table != nullptr) {
+                auto table = m_Demux.video.qpTableListRef->get();
+                const int qpw = (qp_stride) ? qp_stride : (pSurface->getInfo().width  + 15) / 16;
+                const int qph = (qp_stride) ? (pSurface->getInfo().height + 15) / 16 : 1;
+                table->setQPTable(qp_table, qpw, qph, qp_stride, qscale_type, m_Demux.video.frame->pict_type, m_Demux.video.frame->pts);
+                pSurface->dataList().push_back(table);
+            }
         }
         //フレームデータをコピー
         void *dst_array[3];

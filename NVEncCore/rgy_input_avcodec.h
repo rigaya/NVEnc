@@ -710,13 +710,15 @@ typedef struct AVDemuxVideo {
 
     AVMasteringDisplayMetadata *masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
     AVContentLightMetadata   *contentLight;          //入力ファイルから抽出したHDRメタ情報
+
+    RGYListRef<RGYFrameDataQP> *qpTableListRef;      //qp tableを格納するときのベース構造体
 } AVDemuxVideo;
 
 typedef struct AVDemuxThread {
-    int                          threadInput;       //入力スレッドを使用する
+    int                          threadInput;        //入力スレッドを使用する
     std::atomic<bool>            bAbortInput;        //読み込みスレッドに停止を通知する
     std::thread                  thInput;            //読み込みスレッド
-    PerfQueueInfo               *queueInfo;         //キューの情報を格納する構造体
+    PerfQueueInfo               *queueInfo;          //キューの情報を格納する構造体
 } AVDemuxThread;
 
 typedef struct AVDemuxer {
@@ -935,6 +937,7 @@ public:
     C2AFormat      caption2ass;             //caption2assの処理の有効化
     bool           pasrseHDRmetadata;       //HDR関連のmeta情報を取得する
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
+    RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
 
     RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};

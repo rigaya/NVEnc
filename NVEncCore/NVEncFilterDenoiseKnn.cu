@@ -36,12 +36,9 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #pragma warning (pop)
+#include "rgy_cuda_util_kernel.h"
 
 static const int KNN_RADIUS_MAX = 5;
-
-static __device__ float lerpf(float a, float b, float c) {
-    return a + (b - a) * c;
-}
 
 template<typename Type, int knn_radius, int bit_depth>
 __global__ void kernel_denoise_knn(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
