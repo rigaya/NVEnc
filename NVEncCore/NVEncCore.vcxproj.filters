@@ -425,9 +425,6 @@
     <ClInclude Include="NVEncDevice.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="NVEncFilterSpp.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="rgy_frame.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -435,6 +432,9 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_cuda_util.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="NVEncFilterSmooth.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>
@@ -490,7 +490,7 @@
     <CudaCompile Include="NVEncFilterSsim.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
-    <CudaCompile Include="NVEncFilterSpp.cu">
+    <CudaCompile Include="NVEncFilterSmooth.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
   </ItemGroup>

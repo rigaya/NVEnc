@@ -1150,8 +1150,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         return 0;
     }
 
-    if (IS_OPTION("vpp-spp")) {
-        pParams->vpp.spp.enable = true;
+    if (IS_OPTION("vpp-smooth")) {
+        pParams->vpp.smooth.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
@@ -1164,9 +1164,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 param_arg = tolowercase(param_arg);
                 if (param_arg == _T("enable")) {
                     if (param_val == _T("true")) {
-                        pParams->vpp.spp.enable = true;
+                        pParams->vpp.smooth.enable = true;
                     } else if (param_val == _T("false")) {
-                        pParams->vpp.spp.enable = false;
+                        pParams->vpp.smooth.enable = false;
                     } else {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return 1;
@@ -1175,7 +1175,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("quality")) {
                     try {
-                        pParams->vpp.spp.quality = std::stoi(param_val);
+                        pParams->vpp.smooth.quality = std::stoi(param_val);
                     } catch (...) {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return 1;
@@ -1184,16 +1184,20 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("qp")) {
                     try {
-                        pParams->vpp.spp.qp = std::stoi(param_val);
+                        pParams->vpp.smooth.qp = std::stoi(param_val);
                     } catch (...) {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return 1;
                     }
                     continue;
                 }
+                if (param_arg == _T("use_qp_table")) {
+                    pParams->vpp.smooth.useQPTable = (param_val == _T("on") || param_val == _T("true"));
+                    continue;
+                }
                 if (param_arg == _T("strength")) {
                     try {
-                        pParams->vpp.spp.strength = std::stof(param_val);
+                        pParams->vpp.smooth.strength = std::stof(param_val);
                     } catch (...) {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return 1;
@@ -1202,7 +1206,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("threshold")) {
                     try {
-                        pParams->vpp.spp.threshold = std::stof(param_val);
+                        pParams->vpp.smooth.threshold = std::stof(param_val);
                     } catch (...) {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return 1;
@@ -1211,7 +1215,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("bratio")) {
                     try {
-                        pParams->vpp.spp.bratio = std::stof(param_val);
+                        pParams->vpp.smooth.bratio = std::stof(param_val);
                     } catch (...) {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return 1;
@@ -1221,7 +1225,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 if (param_arg == _T("prec")) {
                     int value = 0;
                     if (get_list_value(list_vpp_fp_prec, param_val.c_str(), &value)) {
-                        pParams->vpp.spp.prec = (VppFpPrecision)value;
+                        pParams->vpp.smooth.prec = (VppFpPrecision)value;
                     } else {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return -1;
@@ -1230,7 +1234,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param_arg == _T("max_error")) {
                     try {
-                        pParams->vpp.spp.maxQPTableErrCount = std::stoi(param_val);
+                        pParams->vpp.smooth.maxQPTableErrCount = std::stoi(param_val);
                     } catch (...) {
                         CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                         return 1;
@@ -2975,24 +2979,25 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-afs");
         }
     }
-    if (pParams->vpp.spp != encPrmDefault.vpp.spp) {
+    if (pParams->vpp.smooth != encPrmDefault.vpp.smooth) {
         tmp.str(tstring());
-        if (!pParams->vpp.spp.enable && save_disabled_prm) {
+        if (!pParams->vpp.smooth.enable && save_disabled_prm) {
             tmp << _T(",enable=false");
         }
-        if (pParams->vpp.spp.enable || save_disabled_prm) {
-            ADD_NUM(_T("quality"), vpp.spp.quality);
-            ADD_NUM(_T("qp"), vpp.spp.qp);
-            ADD_FLOAT(_T("strength"), vpp.spp.strength, 3);
-            ADD_FLOAT(_T("threshold"), vpp.spp.threshold, 3);
-            ADD_FLOAT(_T("bratio"), vpp.spp.bratio, 3);
-            ADD_LST(_T("prec"), vpp.spp.prec, list_vpp_fp_prec);
-            ADD_NUM(_T("max_error"), vpp.spp.maxQPTableErrCount);
+        if (pParams->vpp.smooth.enable || save_disabled_prm) {
+            ADD_NUM(_T("quality"), vpp.smooth.quality);
+            ADD_NUM(_T("qp"), vpp.smooth.qp);
+            ADD_LST(_T("prec"), vpp.smooth.prec, list_vpp_fp_prec);
+            ADD_BOOL(_T("use_qp_table"), vpp.smooth.useQPTable);
+            ADD_FLOAT(_T("strength"), vpp.smooth.strength, 3);
+            ADD_FLOAT(_T("threshold"), vpp.smooth.threshold, 3);
+            ADD_FLOAT(_T("bratio"), vpp.smooth.bratio, 3);
+            ADD_NUM(_T("max_error"), vpp.smooth.maxQPTableErrCount);
         }
         if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-spp ") << tmp.str().substr(1);
-        } else if (pParams->vpp.spp.enable) {
-            cmd << _T(" --vpp-spp");
+            cmd << _T(" --vpp-smooth ") << tmp.str().substr(1);
+        } else if (pParams->vpp.smooth.enable) {
+            cmd << _T(" --vpp-smooth");
         }
     }
     if (pParams->vpp.nnedi != encPrmDefault.vpp.nnedi) {

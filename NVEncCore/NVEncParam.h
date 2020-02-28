@@ -63,13 +63,13 @@ static const float FILTER_DEFAULT_PMD_STRENGTH = 100.0f;
 static const float FILTER_DEFAULT_PMD_THRESHOLD = 100.0f;
 static const int   FILTER_DEFAULT_PMD_APPLY_COUNT = 2;
 static const bool  FILTER_DEFAULT_PMD_USE_EXP = true;
-static const int   FILTER_DEFAULT_SPP_QUALITY = 3;
-static const int   FILTER_DEFAULT_SPP_QP = 0;
-static const float FILTER_DEFAULT_SPP_STRENGTH = 0.0f;
-static const float FILTER_DEFAULT_SPP_THRESHOLD = 0.0f;
-static const int   FILTER_DEFAULT_SPP_MODE = 0;
-static const float FILTER_DEFAULT_SPP_B_RATIO = 0.5f;
-static const int   FILTER_DEFAULT_SPP_MAX_QPTABLE_ERR = 10;
+static const int   FILTER_DEFAULT_SMOOTH_QUALITY = 3;
+static const int   FILTER_DEFAULT_SMOOTH_QP = 12;
+static const float FILTER_DEFAULT_SMOOTH_STRENGTH = 0.0f;
+static const float FILTER_DEFAULT_SMOOTH_THRESHOLD = 0.0f;
+static const int   FILTER_DEFAULT_SMOOTH_MODE = 0;
+static const float FILTER_DEFAULT_SMOOTH_B_RATIO = 0.5f;
+static const int   FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR = 10;
 static const int   FILTER_DEFAULT_DEBAND_RANGE = 15;
 static const int   FILTER_DEFAULT_DEBAND_THRE_Y = 15;
 static const int   FILTER_DEFAULT_DEBAND_THRE_CB = 15;
@@ -921,18 +921,19 @@ struct VppDeband {
     tstring print() const;
 };
 
-struct VppSpp {
+struct VppSmooth {
     bool enable;
     int quality;
     int qp;
+    VppFpPrecision prec;
+    bool useQPTable;
     float strength;
     float threshold;
     float bratio;
-    VppFpPrecision prec;
     int maxQPTableErrCount;
-    VppSpp();
-    bool operator==(const VppSpp &x) const;
-    bool operator!=(const VppSpp &x) const;
+    VppSmooth();
+    bool operator==(const VppSmooth &x) const;
+    bool operator!=(const VppSmooth &x) const;
     tstring print() const;
 };
 
@@ -1210,7 +1211,7 @@ struct VppParam {
     VppEdgelevel edgelevel;
     VppKnn knn;
     VppPmd pmd;
-    VppSpp spp;
+    VppSmooth smooth;
     VppDeband deband;
     VppAfs afs;
     VppNnedi nnedi;

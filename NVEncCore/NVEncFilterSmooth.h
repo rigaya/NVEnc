@@ -32,31 +32,31 @@
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
 
-static const int VPP_SPP_MAX_QUALITY_LEVEL = 6;
+static const int VPP_SMOOTH_MAX_QUALITY_LEVEL = 6;
 
-class NVEncFilterParamSpp : public NVEncFilterParam {
+class NVEncFilterParamSmooth : public NVEncFilterParam {
 public:
-    VppSpp spp;
+    VppSmooth smooth;
     std::pair<int, int> compute_capability;
     RGYListRef<RGYFrameDataQP> *qpTableRef;
 
-    NVEncFilterParamSpp() : spp(), compute_capability(), qpTableRef(nullptr) {
+    NVEncFilterParamSmooth() : smooth(), compute_capability(), qpTableRef(nullptr) {
 
     };
-    virtual ~NVEncFilterParamSpp() {};
+    virtual ~NVEncFilterParamSmooth() {};
     virtual tstring print() const override;
 };
 
-class NVEncFilterSpp : public NVEncFilter {
+class NVEncFilterSmooth : public NVEncFilter {
 public:
-    NVEncFilterSpp();
-    virtual ~NVEncFilterSpp();
+    NVEncFilterSmooth();
+    virtual ~NVEncFilterSmooth();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     int qp_size(int res) { return divCeil(res + 15, 16); }
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
-    RGY_ERR check_param(shared_ptr<NVEncFilterParamSpp> prmYadif);
+    RGY_ERR check_param(shared_ptr<NVEncFilterParamSmooth> prmYadif);
     float getQPMul(int qp_scale);
 
     CUFrameBuf m_qp;

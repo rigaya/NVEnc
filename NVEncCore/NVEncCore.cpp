@@ -67,7 +67,7 @@
 #include "NVEncFilterDelogo.h"
 #include "NVEncFilterDenoiseKnn.h"
 #include "NVEncFilterDenoisePmd.h"
-#include "NVEncFilterSpp.h"
+#include "NVEncFilterSmooth.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncFilterNnedi.h"
@@ -438,7 +438,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
             break;
         }
     }
-    if (inputParam->vpp.spp.enable && inputParam->vpp.spp.qp <= 0) {
+    if (inputParam->vpp.smooth.enable && inputParam->vpp.smooth.qp <= 0) {
         m_qpTable = std::make_unique<RGYListRef<RGYFrameDataQP>>();
     }
 
@@ -1206,7 +1206,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.unsharp.enable
             || inputParam->vpp.knn.enable
             || inputParam->vpp.pmd.enable
-            || inputParam->vpp.spp.enable
+            || inputParam->vpp.smooth.enable
             || inputParam->vpp.deband.enable
             || inputParam->vpp.edgelevel.enable
             || inputParam->vpp.afs.enable
@@ -1939,7 +1939,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.unsharp.enable
         || inputParam->vpp.knn.enable
         || inputParam->vpp.pmd.enable
-        || inputParam->vpp.spp.enable
+        || inputParam->vpp.smooth.enable
         || inputParam->vpp.deband.enable
         || inputParam->vpp.edgelevel.enable
         || inputParam->vpp.afs.enable
@@ -2197,11 +2197,11 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             inputFrame = param->frameOut;
             m_encFps = param->baseFps;
         }
-        //ノイズ除去 (spp)
-        if (inputParam->vpp.spp.enable) {
-            unique_ptr<NVEncFilter> filter(new NVEncFilterSpp());
-            shared_ptr<NVEncFilterParamSpp> param(new NVEncFilterParamSpp());
-            param->spp = inputParam->vpp.spp;
+        //ノイズ除去 (smooth)
+        if (inputParam->vpp.smooth.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterSmooth());
+            shared_ptr<NVEncFilterParamSmooth> param(new NVEncFilterParamSmooth());
+            param->smooth = inputParam->vpp.smooth;
             param->qpTableRef = m_qpTable.get();
             param->compute_capability = m_dev->cc();
             param->frameIn = inputFrame;
@@ -2217,7 +2217,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_vpFilters.push_back(std::move(filter));
             //パラメータ情報を更新
             m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
-            if (param->spp.qp > 0) {
+            if (param->smooth.qp > 0) {
                 m_qpTable.reset();
             }
             //入力フレーム情報を更新

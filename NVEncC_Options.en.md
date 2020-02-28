@@ -1161,6 +1161,27 @@ Those with "○" in nppi64_10.dll use the [NPP library](https://developer.nvidia
 | lanczos       | Lanczos interpolation                    | ○ |
 
 
+### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**parameters**
+- quality=&lt;int&gt;  (default=3, 1-6)  
+  Quality of the filter. Larger value should result in higher quality but with lower speed.
+
+- qp=&lt;int&gt;  (default=12, 1 - 63)    
+  Strength of the filter.
+  
+- prec  
+  Select precision.
+  - auto (default)  
+    Use fp16 whenever it is available and will be faster, otherwise use fp32.
+  
+  - fp16  
+    Force to use fp16. x64 only.
+  
+  - fp32  
+    Force to use fp32.
+
+
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Strong noise reduction filter.
 

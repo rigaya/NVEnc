@@ -28,7 +28,7 @@
 
 #include <map>
 #include "convert_csp.h"
-#include "NVEncFilterSpp.h"
+#include "NVEncFilterSmooth.h"
 #include "NVEncParam.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
@@ -597,40 +597,40 @@ cudaError_t run_set_qp(
     return cudaerr;
 }
 
-NVEncFilterSpp::NVEncFilterSpp() : m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0) {
-    m_sFilterName = _T("spp");
+NVEncFilterSmooth::NVEncFilterSmooth() : m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0) {
+    m_sFilterName = _T("smooth");
 }
 
-NVEncFilterSpp::~NVEncFilterSpp() {
+NVEncFilterSmooth::~NVEncFilterSmooth() {
     close();
 }
 
-RGY_ERR NVEncFilterSpp::check_param(shared_ptr<NVEncFilterParamSpp> prm) {
+RGY_ERR NVEncFilterSmooth::check_param(shared_ptr<NVEncFilterParamSmooth> prm) {
     if (prm->frameOut.height <= 0 || prm->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->spp.quality < 0 || prm->spp.quality > VPP_SPP_MAX_QUALITY_LEVEL) {
+    if (prm->smooth.quality < 0 || prm->smooth.quality > VPP_SMOOTH_MAX_QUALITY_LEVEL) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (quality).\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->spp.qp < 0 || prm->spp.qp > 63) {
+    if (prm->smooth.qp <= 0 || prm->smooth.qp > 63) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (qp).\n"));
         return RGY_ERR_INVALID_PARAM;
     }
 #if !ENABLE_CUDA_FP16_HOST
-    if (prm->spp.prec == VPP_FP_PRECISION_FP16) {
+    if (prm->smooth.prec == VPP_FP_PRECISION_FP16) {
         AddMessage(RGY_LOG_WARN, _T("prec=fp16 not compiled in this build, switching to fp32.\n"));
-        prm->spp.prec = VPP_FP_PRECISION_FP32;
+        prm->smooth.prec = VPP_FP_PRECISION_FP32;
     }
 #endif
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterSpp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
+RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pPrintMes = pPrintMes;
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSpp>(pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSmooth>(pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -639,10 +639,10 @@ RGY_ERR NVEncFilterSpp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     if (check_param(prm) != NV_ENC_SUCCESS) {
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->spp.prec == VPP_FP_PRECISION_AUTO) {
-        prm->spp.prec =
+    if (prm->smooth.prec == VPP_FP_PRECISION_AUTO) {
+        prm->smooth.prec =
 #if ENABLE_CUDA_FP16_HOST
-            prm->spp.quality > 0 &&
+            prm->smooth.quality > 0 &&
             ((prm->compute_capability.first == 6 && prm->compute_capability.second == 0)
                 || prm->compute_capability.first >= 7)
             ? VPP_FP_PRECISION_FP16 : VPP_FP_PRECISION_FP32;
@@ -652,8 +652,8 @@ RGY_ERR NVEncFilterSpp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     }
     if (!m_pParam
         || cmpFrameInfoCspResolution(&m_pParam->frameIn, &pParam->frameIn)
-        || (std::dynamic_pointer_cast<NVEncFilterParamSpp>(m_pParam)
-            && std::dynamic_pointer_cast<NVEncFilterParamSpp>(m_pParam)->spp != prm->spp)) {
+        || (std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam)
+            && std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam)->smooth != prm->smooth)) {
 
         auto cudaerr = AllocFrameBuf(prm->frameOut, 1);
         if (cudaerr != CUDA_SUCCESS) {
@@ -679,11 +679,11 @@ RGY_ERR NVEncFilterSpp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     return sts;
 }
 
-tstring NVEncFilterParamSpp::print() const {
-    return spp.print();
+tstring NVEncFilterParamSmooth::print() const {
+    return smooth.print();
 }
 
-float NVEncFilterSpp::getQPMul(int qpScaleType) {
+float NVEncFilterSmooth::getQPMul(int qpScaleType) {
     switch (qpScaleType) {
     case 0/*mpeg1*/: return 4.0f;
     case 1/*mpeg2*/: return 2.0f;
@@ -694,10 +694,10 @@ float NVEncFilterSpp::getQPMul(int qpScaleType) {
     }
 }
 
-RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterSmooth::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
-    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSpp>(m_pParam);
+    auto prm = std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -732,7 +732,7 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
 
     //入力フレームのQPテーブルへの参照を取得
     std::shared_ptr<RGYFrameDataQP> qpInput;
-    if (prm->spp.qp == 0) {
+    if (prm->smooth.useQPTable) {
         for (auto &data : pInputFrame->dataList) {
             if (data->dataType() == RGY_FRAME_DATA_QP) {
                 auto ptr = dynamic_cast<RGYFrameDataQP *>(data.get());
@@ -751,8 +751,8 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         if (!qpInput) {
             m_qpTableErrCount++;
             AddMessage(RGY_LOG_DEBUG, _T("Failed to get qp table from input file %d: inputID %d, %lld\n"), m_qpTableErrCount, pInputFrame->inputFrameId, pInputFrame->timestamp);
-            if (m_qpTableErrCount >= prm->spp.maxQPTableErrCount) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get qp table from input file for more than %d times, please specify \"qp\" for --vpp-spp.\n"), m_qpTableErrCount);
+            if (m_qpTableErrCount >= prm->smooth.maxQPTableErrCount) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get qp table from input file for more than %d times, please specify \"qp\" for --vpp-smooth.\n"), m_qpTableErrCount);
                 return RGY_ERR_UNSUPPORTED;
             }
             //ひとまず、前のQPテーブルで代用する
@@ -780,7 +780,7 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         if (isBFrame) {
             m_qpSrcB = qpInput;
             targetQPTable = &m_qp;
-            cudaerr = run_gen_qp_table<uchar4>(&m_qp.frame, &m_qpSrc->qpDev()->frame, &m_qpSrcB->qpDev()->frame, qpMul, prm->spp.bratio, stream);
+            cudaerr = run_gen_qp_table<uchar4>(&m_qp.frame, &m_qpSrc->qpDev()->frame, &m_qpSrcB->qpDev()->frame, qpMul, prm->smooth.bratio, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                 return RGY_ERR_MEMORY_ALLOC;
@@ -792,7 +792,7 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         }
     } else {
         targetQPTable = &m_qp;
-        auto cudaerr = run_set_qp<uchar4>(&m_qp.frame, prm->spp.qp, stream);
+        auto cudaerr = run_set_qp<uchar4>(&m_qp.frame, prm->smooth.qp, stream);
         if (cudaerr != CUDA_SUCCESS) {
             AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
@@ -812,7 +812,7 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         { RGY_CSP_YUV444,    run_spp_frame<uint8_t,   8, __half2, true, uint8_t> },
         { RGY_CSP_YUV444_16, run_spp_frame<uint16_t, 16, __half2, true, uint8_t> },
     };
-    const auto &func_list = (prm->spp.prec == VPP_FP_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
+    const auto &func_list = (prm->smooth.prec == VPP_FP_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
 #else
     const auto &func_list = func_list_fp32;
 #endif
@@ -824,9 +824,9 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         pInputFrame,
         targetQPTable,
         qpMul,
-        prm->spp.quality,
-        prm->spp.strength,
-        prm->spp.threshold,
+        prm->smooth.quality,
+        prm->smooth.strength,
+        prm->smooth.threshold,
         stream
         );
     if (cudaerr != CUDA_SUCCESS) {
@@ -837,6 +837,6 @@ RGY_ERR NVEncFilterSpp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
     return sts;
 }
 
-void NVEncFilterSpp::close() {
-    AddMessage(RGY_LOG_DEBUG, _T("closed spp filter.\n"));
+void NVEncFilterSmooth::close() {
+    AddMessage(RGY_LOG_DEBUG, _T("closed smooth filter.\n"));
 }

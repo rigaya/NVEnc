@@ -321,37 +321,41 @@ tstring VppDeband::print() const {
         randEachFrame ? _T("yes") : _T("no"));
 }
 
-VppSpp::VppSpp() :
+VppSmooth::VppSmooth() :
     enable(false),
-    quality(FILTER_DEFAULT_SPP_QUALITY),
-    qp(FILTER_DEFAULT_SPP_QP),
-    strength(FILTER_DEFAULT_SPP_STRENGTH),
-    threshold(FILTER_DEFAULT_SPP_THRESHOLD),
-    bratio(FILTER_DEFAULT_SPP_B_RATIO),
+    quality(FILTER_DEFAULT_SMOOTH_QUALITY),
+    qp(FILTER_DEFAULT_SMOOTH_QP),
     prec(VPP_FP_PRECISION_AUTO),
-    maxQPTableErrCount(FILTER_DEFAULT_SPP_MAX_QPTABLE_ERR) {
+    useQPTable(false),
+    strength(FILTER_DEFAULT_SMOOTH_STRENGTH),
+    threshold(FILTER_DEFAULT_SMOOTH_THRESHOLD),
+    bratio(FILTER_DEFAULT_SMOOTH_B_RATIO),
+    maxQPTableErrCount(FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR) {
 
 }
 
-bool VppSpp::operator==(const VppSpp &x) const {
+bool VppSmooth::operator==(const VppSmooth &x) const {
     return enable == x.enable
         && quality == x.quality
         && qp == x.qp
+        && prec == x.prec
+        && useQPTable == x.useQPTable
         && strength == x.strength
         && threshold == x.threshold
         && bratio == x.bratio
-        && prec == x.prec
         && maxQPTableErrCount == x.maxQPTableErrCount;
 }
-bool VppSpp::operator!=(const VppSpp &x) const {
+bool VppSmooth::operator!=(const VppSmooth &x) const {
     return !(*this == x);
 }
 
-tstring VppSpp::print() const {
-    //return strsprintf(_T("spp: quality %d, qp %d, threshold %.1f, strength %.1f, mode %d, use_bframe_qp %s"), quality, qp, threshold, strength, mode, use_bframe_qp ? _T("yes") : _T("no"));
-    return strsprintf(_T("spp: quality %d, qp %d, threshold %.1f, strength %.1f, prec %s"),
-        quality, qp, threshold, strength,
-        get_cx_desc(list_vpp_fp_prec, prec));
+tstring VppSmooth::print() const {
+    //return strsprintf(_T("smooth: quality %d, qp %d, threshold %.1f, strength %.1f, mode %d, use_bframe_qp %s"), quality, qp, threshold, strength, mode, use_bframe_qp ? _T("yes") : _T("no"));
+    tstring str = strsprintf(_T("smooth: quality %d, qp %d, prec %s"), quality, qp, get_cx_desc(list_vpp_fp_prec, prec));
+    if (useQPTable) {
+        str += strsprintf(_T(", use QP table on"));
+    }
+    return str;
 }
 
 ColorspaceConv::ColorspaceConv() :
@@ -614,7 +618,7 @@ VppParam::VppParam() :
     delogo(),
     knn(),
     pmd(),
-    spp(),
+    smooth(),
     deband(),
     afs(),
     nnedi(),
