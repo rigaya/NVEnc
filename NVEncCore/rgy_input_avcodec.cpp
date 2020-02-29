@@ -2380,6 +2380,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
         }
+#if ENCODER_NVENC
         pSurface->dataList().clear();
         if (m_Demux.video.qpTableListRef != nullptr) {
             int qp_stride = 0;
@@ -2387,12 +2388,13 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
             const auto qp_table = av_frame_get_qp_table(m_Demux.video.frame, &qp_stride, &qscale_type);
             if (qp_table != nullptr) {
                 auto table = m_Demux.video.qpTableListRef->get();
-                const int qpw = (qp_stride) ? qp_stride : (pSurface->getInfo().width  + 15) / 16;
-                const int qph = (qp_stride) ? (pSurface->getInfo().height + 15) / 16 : 1;
+                const int qpw = (qp_stride) ? qp_stride : (pSurface->width() + 15) / 16;
+                const int qph = (qp_stride) ? (pSurface->height() + 15) / 16 : 1;
                 table->setQPTable(qp_table, qpw, qph, qp_stride, qscale_type, m_Demux.video.frame->pict_type, m_Demux.video.frame->pts);
                 pSurface->dataList().push_back(table);
             }
         }
+#endif //#if ENCODER_NVENC
         //フレームデータをコピー
         void *dst_array[3];
         pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);

@@ -359,8 +359,14 @@ public:
     uint8_t *ptrRGB() {
         return info.ptr;
     }
-    uint32_t pitch() {
+    uint32_t pitch() const {
         return info.pitch;
+    }
+    uint32_t width() const {
+        return info.width;
+    }
+    uint32_t height() const {
+        return info.height;
     }
     uint64_t timestamp() const {
         return info.timestamp;

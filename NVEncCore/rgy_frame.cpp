@@ -31,25 +31,28 @@
 RGYFrameDataQP::RGYFrameDataQP() :
     m_frameType(0),
     m_qpScaleType(0),
-#if ENCODER_NVENC
+#if !FOR_AUO && ENCODER_NVENC
     m_qpDev(),
     m_event(std::unique_ptr<cudaEvent_t, cudaevent_deleter>(nullptr, cudaevent_deleter())),
     m_stream(std::unique_ptr<cudaStream_t, cudastream_deleter>(nullptr, cudastream_deleter())),
-#endif //#if ENCODER_NVENC
+#endif //#if !FOR_AUO && ENCODER_NVENC
     m_qpHost() {
     m_dataType = RGY_FRAME_DATA_QP;
 };
 
 RGYFrameDataQP::~RGYFrameDataQP() {
+#if !FOR_AUO && ENCODER_NVENC
     m_qpDev.reset();
     if (m_qpHost.ptr) {
         cudaFree(m_qpHost.ptr);
         m_qpHost.ptr = nullptr;
     }
     m_event.reset();
+#endif //#if !FOR_AUO && ENCODER_NVENC
 };
 
 RGY_ERR RGYFrameDataQP::setQPTable(const int8_t *qpTable, int qpw, int qph, int qppitch, int scaleType, int frameType, int64_t timestamp) {
+#if !FOR_AUO && ENCODER_NVENC
     m_qpScaleType = scaleType;
     m_frameType = frameType;
     if (m_qpHost.ptr == nullptr
@@ -65,7 +68,6 @@ RGY_ERR RGYFrameDataQP::setQPTable(const int8_t *qpTable, int qpw, int qph, int 
         m_qpHost.timestamp = timestamp;
         m_qpHost.picstruct = RGY_PICSTRUCT_FRAME;
         m_qpHost.dataList.clear();
-#if ENCODER_NVENC
         if (m_qpHost.ptr) {
             cudaFree(m_qpHost.ptr);
             m_qpHost.ptr = nullptr;
@@ -74,24 +76,15 @@ RGY_ERR RGYFrameDataQP::setQPTable(const int8_t *qpTable, int qpw, int qph, int 
         if (cudaerr != cudaSuccess) {
             return RGY_ERR_MEMORY_ALLOC;
         }
-#else
-        if (m_qpHost.ptr) {
-            _aligned_free(m_qpHost.ptr);
-            m_qpHost.ptr = nullptr;
-        }
-        m_qpHost.ptr = (uint8_t *)_aligned_malloc(m_qpHost.pitch * m_qpHost.height, 64);
-        if (m_qpHost.ptr == nullptr) {
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-#endif //#if ENCODER_NVENC
     }
     for (int y = 0; y < m_qpHost.height; y++) {
         memcpy(m_qpHost.ptr + y * m_qpHost.pitch, qpTable + y * qppitch, m_qpHost.width);
     }
+#endif //#if !FOR_AUO && ENCODER_NVENC
     return RGY_ERR_NONE;
 }
 
-#if ENCODER_NVENC
+#if !FOR_AUO && ENCODER_NVENC
 RGY_ERR RGYFrameDataQP::transferToGPU(cudaStream_t stream) {
     if (!m_qpDev) {
         m_qpDev = std::make_unique<CUFrameBuf>(m_qpHost.width, m_qpHost.height, m_qpHost.csp);
@@ -120,4 +113,4 @@ RGY_ERR RGYFrameDataQP::transferToGPU(cudaStream_t stream) {
     }
     return RGY_ERR_NONE;
 }
-#endif //#if ENCODER_NVENC
+#endif //#if !FOR_AUO && ENCODER_NVENC
