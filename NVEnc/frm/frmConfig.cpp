@@ -768,6 +768,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcggroupBoxResize->Enabled = fcgCBVppResize->Checked;
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
+    fcgPNVppDenoiseSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth")));
     fcgPNVppUnsharp->Visible    = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible  = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
     fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
@@ -996,6 +997,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
         } else if (encPrm.vpp.pmd.enable) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
+        } else if (encPrm.vpp.smooth.enable) {
+            dnoise_idx = get_cx_index(list_vpp_denoise, _T("smooth"));
         }
         SetCXIndex(fcgCXVppDenoiseMethod,        dnoise_idx);
 
@@ -1023,6 +1026,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoisePmdApplyCount, encPrm.vpp.pmd.applyCount);
         SetNUValue(fcgNUVppDenoisePmdStrength,   encPrm.vpp.pmd.strength);
         SetNUValue(fcgNUVppDenoisePmdThreshold,  encPrm.vpp.pmd.threshold);
+        SetNUValue(fcgNUVppDenoiseSmoothQuality, encPrm.vpp.smooth.quality);
+        SetNUValue(fcgNUVppDenoiseSmoothQP,      encPrm.vpp.smooth.qp);
         fcgCBVppDebandEnable->Checked          = encPrm.vpp.deband.enable;
         SetNUValue(fcgNUVppDebandRange,          encPrm.vpp.deband.range);
         SetNUValue(fcgNUVppDebandThreY,          encPrm.vpp.deband.threY);
@@ -1253,6 +1258,10 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.pmd.applyCount         = (int)fcgNUVppDenoisePmdApplyCount->Value;
     encPrm.vpp.pmd.strength           = (float)fcgNUVppDenoisePmdStrength->Value;
     encPrm.vpp.pmd.threshold          = (float)fcgNUVppDenoisePmdThreshold->Value;
+
+    encPrm.vpp.smooth.enable          = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth"));
+    encPrm.vpp.smooth.quality         = (int)fcgNUVppDenoiseSmoothQuality->Value;
+    encPrm.vpp.smooth.qp              = (int)fcgNUVppDenoiseSmoothQP->Value;
 
     encPrm.vpp.unsharp.enable         = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
     encPrm.vpp.unsharp.radius         = (int)fcgNUVppUnsharpRadius->Value;

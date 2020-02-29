@@ -496,9 +496,10 @@ const CX_DESC list_vpp_fp_prec[] = {
 };
 
 const CX_DESC list_vpp_denoise[] = {
-    { _T("none"), 0 },
-    { _T("knn"),  1 },
-    { _T("pmd"),  2 },
+    { _T("none"),   0 },
+    { _T("knn"),    1 },
+    { _T("pmd"),    2 },
+    { _T("smooth"), 3 },
     { NULL, NULL }
 };
 
