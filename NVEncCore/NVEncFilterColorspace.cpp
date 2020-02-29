@@ -304,6 +304,15 @@ TransferFunc getTrasferFunc(CspTransfer transfer, double peak_luminance, bool sc
     return func;
 }
 
+class ColorspaceOpNone : public ColorspaceOp {
+public:
+    ColorspaceOpNone() { m_type = COLORSPACE_OP_TYPE_NONE; };
+    virtual ~ColorspaceOpNone() {};
+    virtual std::string print() { return ""; }
+    virtual bool add(const ColorspaceOp* op) { UNREFERENCED_PARAMETER(op); return false; }
+protected:
+};
+
 class ColorspaceOpMatrix : public ColorspaceOp {
 public:
     ColorspaceOpMatrix() {};
@@ -773,11 +782,13 @@ tstring ColorspaceOpCtrl::printInfoAll() const {
         const bool print_maxtrix = op.from.matrix != op.to.matrix;
         const bool print_prim = op.from.colorprim != op.to.colorprim;
         const bool print_transfer = op.from.transfer != op.to.transfer;
+        const bool print_range = op.from.colorrange != op.to.colorrange;
         tstring op_str;
-        if (print_maxtrix || print_prim || print_transfer) {
-            if (print_maxtrix)  op_str += tstring(_T(",matrix:"))   + get_cx_desc(list_colormatrix, op.from.matrix)  + _T("->") + get_cx_desc(list_colormatrix, op.to.matrix);
-            if (print_prim)     op_str += tstring(_T(",prim:"))     + get_cx_desc(list_colorprim, op.from.colorprim) + _T("->") + get_cx_desc(list_colorprim, op.to.colorprim);
-            if (print_transfer) op_str += tstring(_T(",transfer:")) + get_cx_desc(list_transfer, op.from.transfer)   + _T("->") + get_cx_desc(list_transfer, op.to.transfer);
+        if (print_maxtrix || print_prim || print_transfer || print_range) {
+            if (print_maxtrix)  op_str += tstring(_T(",matrix:"))   + get_cx_desc(list_colormatrix, op.from.matrix)    + _T("->") + get_cx_desc(list_colormatrix, op.to.matrix);
+            if (print_prim)     op_str += tstring(_T(",prim:"))     + get_cx_desc(list_colorprim, op.from.colorprim)   + _T("->") + get_cx_desc(list_colorprim, op.to.colorprim);
+            if (print_transfer) op_str += tstring(_T(",transfer:")) + get_cx_desc(list_transfer, op.from.transfer)     + _T("->") + get_cx_desc(list_transfer, op.to.transfer);
+            if (print_range)    op_str += tstring(_T(",range:"))    + get_cx_desc(list_colorrange, op.from.colorrange) + _T("->") + get_cx_desc(list_colorrange, op.to.colorrange);
 
             if (str.length() > 0) {
                 str += _T("\n                           ");
@@ -788,6 +799,10 @@ tstring ColorspaceOpCtrl::printInfoAll() const {
                 str += _T("\n                           ");
             }
             str += char_to_tstring(op.ops->printInfo());
+        } else if (op.ops->getType() == COLORSPACE_OP_TYPE_NONE) {
+            if (str.length() > 0) {
+                str += _T("\n                           ");
+            }
         }
     }
     return str;
@@ -1122,6 +1137,13 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
         AddMessage(RGY_LOG_ERROR, _T("invalid output colorspace definition\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (   in.matrix == out.matrix
+        && in.colorprim == out.colorprim
+        && in.transfer == out.transfer) {
+        //やることはない
+        m_path.push_back(std::move(ColorspaceOpInfo(in, out, std::make_unique<ColorspaceOpNone>())));
+        return RGY_ERR_NONE;
+    }
     auto out_target = out;
     out_target.apply_auto(in, height);
     AddMessage(RGY_LOG_DEBUG, _T("Search path from %s -> %s"), in.print_main().c_str(), out_target.print_main().c_str());
@@ -1184,7 +1206,7 @@ RGY_ERR ColorspaceOpCtrl::setOperation(RGY_CSP csp_in, RGY_CSP csp_out) {
 
         AddMessage(RGY_LOG_DEBUG, _T("Set path...\n"));
         AddMessage(RGY_LOG_DEBUG, _T("  node: %s\n"), m_path.begin()->from.print_main().c_str());
-        for (auto &node : m_path) {
+        for (auto& node : m_path) {
             AddMessage(RGY_LOG_DEBUG, _T("  node: %s\n"), node.to.print_main().c_str());
             addOperation(node);
         }

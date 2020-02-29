@@ -40,6 +40,7 @@ enum ColorspaceOpType {
     COLORSPACE_OP_TYPE_F2I,
     COLORSPACE_OP_TYPE_I2F,
     COLORSPACE_OP_TYPE_HDR2SDR,
+    COLORSPACE_OP_TYPE_NONE,
 };
 
 class ColorspaceOp {
