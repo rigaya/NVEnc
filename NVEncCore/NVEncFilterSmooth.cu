@@ -289,13 +289,13 @@ __device__ void store_8x8(char *__restrict__ pDst, int dstPitch, int dstWidth, i
     const int dst_global_x = dst_global_bx * 8 + thWorker;
     if (dst_global_x < dstWidth) {
         const int dst_block_offset = (dst_global_by * 8) * dstPitch + dst_global_x * sizeof(TypePixel);
-        TypePixel *ptrDst = (TypePixel *)(pDst + dst_block_offset);
+        char *ptrDst = pDst + dst_block_offset;
 
         const int y_max = dstHeight - dst_global_by * 8;
         #pragma unroll
         for (int y = 0; y < 8; y++, ptrDst += dstPitch) {
             if (y < y_max) {
-                ptrDst[0] = (TypePixel)clamp(SOUT(shared_bx * 8 + thWorker, shared_by * 8 + y) * (float)(1 << (bit_depth - quality)), 0.0f, (float)((1 << bit_depth) - 0.5f));
+                *(TypePixel *)ptrDst = (TypePixel)clamp(SOUT(shared_bx * 8 + thWorker, shared_by * 8 + y) * (float)(1 << (bit_depth - quality)), 0.0f, (float)((1 << bit_depth) - 0.5f));
             }
         }
     }
@@ -336,7 +336,7 @@ __global__ void kernel_spp(
 
     for (int local_by = 0; local_by <= SPP_LOOP_COUNT_BLOCK; local_by++, global_by++) {
         const TypeQP qp = *(TypeQP *)(ptrQP + min(global_by >> qpBlockShift, qpHeight) * qpPitch + min(global_bx >> qpBlockShift, qpWidth) * sizeof(TypeQP));
-        const TypeDct threshold = setval<TypeDct>((1.0f / (8.0f * 256.0f)) * (calcThreshold((float)qp * qpMul, threshA, threshB) * ((float)(1 << 2) + strength) - 1.0f));
+        const TypeDct threshold = setval<TypeDct>((1.0f / (8.0f * (float)(1<<bit_depth))) * (calcThreshold((float)qp * qpMul, threshA, threshB) * ((float)(1 << 2) + strength) - 1.0f));
 
         load_8x8(shared_in, texSrc, thWorker, local_bx, local_by+1, global_bx - 1, global_by);
         zero_8x8(shared_out, thWorker, local_bx, local_by+1);
@@ -642,6 +642,7 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     if (prm->smooth.prec == VPP_FP_PRECISION_AUTO) {
         prm->smooth.prec =
 #if ENABLE_CUDA_FP16_HOST
+            RGY_CSP_BIT_DEPTH[pParam->frameIn.csp] <= 8 &&
             prm->smooth.quality > 0 &&
             ((prm->compute_capability.first == 6 && prm->compute_capability.second == 0)
                 || prm->compute_capability.first >= 7)
