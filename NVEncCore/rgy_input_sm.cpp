@@ -39,8 +39,8 @@ RGYInputSMPrm::RGYInputSMPrm(RGYInputPrm base) :
 RGYInputSM::RGYInputSM() :
     m_prm(),
     m_sm(),
-    m_heBufEmpty(NULL),
-    m_heBufFilled(NULL),
+    m_heBufEmpty(),
+    m_heBufFilled(),
     m_parentProcess(NULL) {
     m_readerName = _T("sm");
 }
@@ -50,10 +50,16 @@ RGYInputSM::~RGYInputSM() {
 }
 
 void RGYInputSM::Close() {
-    m_heBufEmpty = NULL;
-    m_heBufFilled = NULL;
+    for (size_t i = 0; i < m_heBufEmpty.size(); i++) {
+        m_heBufEmpty[i] = NULL;
+    }
+    for (size_t i = 0; i < m_heBufFilled.size(); i++) {
+        m_heBufFilled[i] = NULL;
+    }
     m_parentProcess = NULL;
-    m_sm.reset();
+    for (auto& mem : m_sm) {
+        mem.reset();
+    }
     RGYInput::Close();
 }
 
@@ -105,9 +111,13 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     m_inputVideoInfo.picstruct = prmsm->picstruct;
     m_inputVideoInfo.frames = prmsm->frames;
     m_inputCsp = m_inputVideoInfo.csp = prmsm->csp;
-    m_heBufEmpty = (HANDLE)prmsm->heBufEmpty;
-    m_heBufFilled = (HANDLE)prmsm->heBufFilled;
-    AddMessage(RGY_LOG_DEBUG, _T("Got event handle empty: 0x%08p, filled: 0x%08p.\n"), m_heBufEmpty, m_heBufFilled);
+    for (size_t i = 0; i < m_heBufEmpty.size(); i++) {
+        m_heBufEmpty[i] = (HANDLE)prmsm->heBufEmpty[i];
+    }
+    for (size_t i = 0; i < m_heBufFilled.size(); i++) {
+        m_heBufFilled[i] = (HANDLE)prmsm->heBufFilled[i];
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Got event handle empty: 0x%08p, 0x%08p, filled: 0x%08p, 0x%08p\n"), m_heBufEmpty[0], m_heBufEmpty[1], m_heBufFilled[0], m_heBufFilled[1]);
 
     RGY_CSP output_csp_if_lossless = RGY_CSP_NA;
     uint32_t bufferSize = 0;
@@ -185,18 +195,21 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     }
 
     prmsm->bufSize = bufferSize;
-    m_sm = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(strsprintf("%s_%08x", RGYInputSMBuffer, prmSM->parentProcessID).c_str(), bufferSize));
-    if (!m_sm->is_open()) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate input buffer %s.\n"), char_to_tstring(m_prm->name()).c_str());
-        return RGY_ERR_NULL_PTR;
+    for (size_t i = 0; i < m_sm.size(); i++) {
+        m_sm[i] = std::unique_ptr<RGYSharedMemWin>(new RGYSharedMemWin(strsprintf("%s_%08x_%d", RGYInputSMBuffer, prmSM->parentProcessID, i).c_str(), bufferSize));
+        if (!m_sm[i]->is_open()) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate input buffer %s.\n"), char_to_tstring(m_prm->name()).c_str());
+            return RGY_ERR_NULL_PTR;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("Created input buffer[%d] %s, size = %d.\n"), i, char_to_tstring(m_prm->name()).c_str(), m_prm->size());
     }
-    AddMessage(RGY_LOG_DEBUG, _T("Created input buffer %s, size = %d.\n"), char_to_tstring(m_prm->name()).c_str(), m_prm->size());
-
-    if (SetEvent(m_heBufEmpty) == FALSE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to set event!\n"));
-        return RGY_ERR_UNKNOWN;
+    for (size_t i = 0; i < m_heBufEmpty.size(); i++) {
+        if (SetEvent(m_heBufEmpty[i]) == FALSE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to set event!\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("SetEvent: heBufEmpty[%d].\n"), i);
     }
-    AddMessage(RGY_LOG_DEBUG, _T("SetEvent: heBufEmpty.\n"));
 
     m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
 
@@ -225,7 +238,7 @@ RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
     }
 
     DWORD waiterr = 0;
-    while ((waiterr = WaitForSingleObject(m_heBufFilled, 1000)) != WAIT_OBJECT_0) {
+    while ((waiterr = WaitForSingleObject(m_heBufFilled[m_encSatusInfo->m_sData.frameIn&1], 1000)) != WAIT_OBJECT_0) {
         if (prmsm->abort) {
             return RGY_ERR_MORE_DATA;
         }
@@ -246,7 +259,7 @@ RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
     pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
 
     const void *src_array[3];
-    src_array[0] = m_sm->ptr();
+    src_array[0] = m_sm[m_encSatusInfo->m_sData.frameIn & 1]->ptr();
     src_array[1] = (uint8_t *)src_array[0] + m_inputVideoInfo.srcPitch * m_inputVideoInfo.srcHeight;
     switch (m_convert->getFunc()->csp_from) {
     case RGY_CSP_YV12:
@@ -301,7 +314,7 @@ RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
     pSurface->setTimestamp(prmsm->timestamp);
     pSurface->setDuration(prmsm->duration);
 
-    if (SetEvent(m_heBufEmpty) == FALSE) {
+    if (SetEvent(m_heBufEmpty[m_encSatusInfo->m_sData.frameIn & 1]) == FALSE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to set event!\n"));
         return RGY_ERR_UNKNOWN;
     }

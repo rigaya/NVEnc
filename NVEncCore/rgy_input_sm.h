@@ -50,8 +50,8 @@ struct RGYInputSMSharedData {
     bool afs;
     bool abort;
     bool reserved[2];
-    uint32_t heBufEmpty;
-    uint32_t heBufFilled;
+    uint32_t heBufEmpty[2];
+    uint32_t heBufFilled[2];
 };
 #pragma pack(pop)
 
@@ -80,9 +80,9 @@ protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
 
     std::unique_ptr<RGYSharedMemWin> m_prm;
-    std::unique_ptr<RGYSharedMem> m_sm;
-    HANDLE m_heBufEmpty;
-    HANDLE m_heBufFilled;
+    std::array<std::unique_ptr<RGYSharedMem>,2> m_sm;
+    std::array<HANDLE,2> m_heBufEmpty;
+    std::array<HANDLE,2> m_heBufFilled;
     HANDLE m_parentProcess;
 };
 
