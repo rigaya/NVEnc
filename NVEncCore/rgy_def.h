@@ -681,6 +681,6 @@ const CX_DESC list_interlaced[] = {
 
 typedef std::map<RGY_CODEC, std::vector<RGY_CSP>> CodecCsp;
 typedef std::vector<std::pair<int, CodecCsp>> DeviceCodecCsp;
-typedef std::vector<std::pair<tstring, tstring>> muxOptList;
+typedef std::vector<std::pair<tstring, tstring>> RGYOptList;
 
 #endif //__RGY_DEF_H__

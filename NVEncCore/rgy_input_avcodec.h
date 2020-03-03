@@ -938,6 +938,7 @@ public:
     bool           pasrseHDRmetadata;       //HDR関連のmeta情報を取得する
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
+    RGYOptList     inputOpt;
 
     RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};

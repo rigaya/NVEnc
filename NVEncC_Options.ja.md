@@ -833,6 +833,14 @@ caption2assによる字幕抽出処理を行い、動画にmuxして出力する
 ### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
 データストリームをコピーする。avhw/avswリーダー使用時のみ有効。
 
+### --input-option &lt;string1&gt;:&lt;string2&gt;
+avsw/avhwでの読み込み時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
+
+```
+Example: Blurayのplaylist 1を読み込み
+-i bluray:D:\ --input-option palylist:1
+```
+
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 mux時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 

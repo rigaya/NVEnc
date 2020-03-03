@@ -106,7 +106,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     caption2ass(FORMAT_INVALID),
     pasrseHDRmetadata(false),
     interlaceAutoFrame(false),
-    qpTableListRef(nullptr) {
+    qpTableListRef(nullptr),
+    inputOpt() {
 
 }
 
@@ -965,6 +966,17 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     }
     //ts向けの設定
     av_dict_set(&m_Demux.format.formatOptions, "scan_all_pmts", "1", 0);
+
+    for (const auto& inputOpt : input_prm->inputOpt) {
+        const std::string optName = tchar_to_string(inputOpt.first);
+        const std::string optValue = tchar_to_string(inputOpt.second);
+        const int err = av_dict_set(&m_Demux.format.formatOptions, optName.c_str(), optValue.c_str(), 0);
+        if (err < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set input opt: %s = %s.\n"), inputOpt.first.c_str(), inputOpt.second.c_str());
+            return RGY_ERR_INVALID_PARAM;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("set input opt: %s = %s.\n"), inputOpt.first.c_str(), inputOpt.second.c_str());
+    }
     //入力フォーマットが指定されていれば、それを渡す
     AVInputFormat *inFormat = nullptr;
     if (input_prm->pInputFormat) {
@@ -975,7 +987,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     }
 
 #if USE_CUSTOM_INPUT
-    if (m_Demux.format.isPipe || (!usingAVProtocols(filename_char, 0) && (inFormat == nullptr || !(inFormat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))))) {
+    if (m_Demux.format.isPipe || (!usingAVProtocols(filename_char, 0) && input_prm->inputOpt.size() == 0 && (inFormat == nullptr || !(inFormat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))))) {
         if (0 == _tcscmp(strFileName, _T("-"))) {
             m_Demux.format.fpInput = stdin;
         } else {
@@ -999,7 +1011,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             return RGY_ERR_NULL_PTR;
         }
     } else if (m_cap2ass.enabled()) {
-        AddMessage(RGY_LOG_ERROR, _T("--caption2ass only supported when input is file or pipe.\n"));
+        AddMessage(RGY_LOG_ERROR, (input_prm->inputOpt.size() > 0)
+            ? _T("--caption2ass cannot be used with --input-option.\n")
+            : _T("--caption2ass only supported when input is file or pipe.\n"));
         m_cap2ass.disable();
     }
 #endif
@@ -1009,6 +1023,14 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         return RGY_ERR_FILE_OPEN; // Couldn't open file
     }
     AddMessage(RGY_LOG_DEBUG, _T("opened file \"%s\".\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
+
+    //不正なオプションを渡していないかチェック
+    for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(m_Demux.format.formatOptions, "", t, AV_DICT_IGNORE_SUFFIX));) {
+        AddMessage(RGY_LOG_ERROR, _T("Unknown input option: %s=%s\n"),
+            char_to_tstring(t->key).c_str(),
+            char_to_tstring(t->value).c_str());
+        return RGY_ERR_INVALID_PARAM;
+    }
 
     if (m_Demux.format.analyzeSec) {
         if (0 != (ret = av_opt_set_int(m_Demux.format.formatCtx, "analyzeduration", m_Demux.format.analyzeSec * AV_TIME_BASE, 0))) {

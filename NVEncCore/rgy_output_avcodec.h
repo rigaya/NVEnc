@@ -301,7 +301,7 @@ struct AvcodecWriterPrm {
     int                          bufSizeMB;               //出力バッファサイズ
     int                          threadOutput;            //出力スレッド数
     int                          threadAudio;             //音声処理スレッド数
-    muxOptList                   muxOpt;                  //mux時に使用するオプション
+    RGYOptList                   muxOpt;                  //mux時に使用するオプション
     PerfQueueInfo               *queueInfo;               //キューの情報を格納する構造体
     tstring                      muxVidTsLogFile;         //mux timestampログファイル
     const HEVCHDRSei            *HEVCHdrSei;              //HDR関連のmetadata

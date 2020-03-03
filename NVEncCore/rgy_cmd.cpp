@@ -1293,6 +1293,22 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("input-option")) {
+        if (i + 1 < nArgNum && strInput[i + 1][0] != _T('-')) {
+            i++;
+            auto ptr = _tcschr(strInput[i], ':');
+            if (ptr == nullptr) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            } else {
+                common->inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(strInput[i]).substr(0, ptr - strInput[i]), tstring(ptr + 1)));
+            }
+        } else {
+            print_cmd_error_invalid_value(option_name, _T(""));
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("mux-option")) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
@@ -1301,10 +1317,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 print_cmd_error_invalid_value(option_name, strInput[i]);
                 return 1;
             } else {
-                if (common->muxOpt == nullptr) {
-                    common->muxOpt = new muxOptList();
-                }
-                common->muxOpt->push_back(std::make_pair<tstring, tstring>(tstring(strInput[i]).substr(0, ptr - strInput[i]), tstring(ptr+1)));
+                common->muxOpt.push_back(std::make_pair<tstring, tstring>(tstring(strInput[i]).substr(0, ptr - strInput[i]), tstring(ptr+1)));
             }
         } else {
             print_cmd_error_invalid_value(option_name, _T(""));
@@ -1628,10 +1641,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_STR(_T("--video-tag"), videoCodecTag);
     OPT_NUM(_T("--video-track"), videoTrack);
     OPT_NUM(_T("--video-streamid"), videoStreamId);
-    if (param->muxOpt) {
-        for (uint32_t i = 0; i < param->muxOpt->size(); i++) {
-            cmd << _T(" -m ") << param->muxOpt->at(i).first << _T(":") << param->muxOpt->at(i).second;
-        }
+    for (uint32_t i = 0; i < param->inputOpt.size(); i++) {
+        cmd << _T(" --input-option ") << param->inputOpt.at(i).first << _T(":") << param->inputOpt.at(i).second;
+    }
+    for (uint32_t i = 0; i < param->muxOpt.size(); i++) {
+        cmd << _T(" -m ") << param->muxOpt.at(i).first << _T(":") << param->muxOpt.at(i).second;
     }
     tmp.str(tstring());
     for (int i = 0; i < param->nAudioSelectCount; i++) {
@@ -1777,11 +1791,6 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
     }
     OPT_NUM(_T("--audio-ignore-decode-error"), audioIgnoreDecodeError);
-    if (param->muxOpt) {
-        for (uint32_t i = 0; i < param->muxOpt->size(); i++) {
-            cmd << _T(" -m ") << (*param->muxOpt)[i].first << _T(":") << (*param->muxOpt)[i].second;
-        }
-    }
 
     tmp.str(tstring());
     for (int i = 0; i < param->nSubtitleSelectCount; i++) {

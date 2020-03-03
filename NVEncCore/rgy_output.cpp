@@ -676,9 +676,7 @@ RGY_ERR initWriters(
         writerPrm.videoCodecTag           = common->videoCodecTag;
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
-        if (common->muxOpt > 0) {
-            writerPrm.muxOpt = *common->muxOpt;
-        }
+        writerPrm.muxOpt                  = common->muxOpt;
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.inputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();

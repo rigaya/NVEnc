@@ -101,6 +101,7 @@ struct RGYParamCommon {
     tstring outputFilename;       //出力ファイル名
     tstring muxOutputFormat;      //出力フォーマット
     VideoVUIInfo out_vui;
+    RGYOptList inputOpt; //入力オプション
 
     std::string maxCll;
     std::string masterDisplay;
@@ -126,7 +127,7 @@ struct RGYParamCommon {
     bool keyOnChapter;
     C2AFormat caption2ass;
     int audioIgnoreDecodeError;
-    muxOptList *muxOpt;
+    RGYOptList muxOpt;
     bool disableMp4Opt;
     tstring chapterFile;
     tstring keyFile;
