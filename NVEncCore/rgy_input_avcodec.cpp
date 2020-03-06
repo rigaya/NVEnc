@@ -1026,10 +1026,11 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
 
     //不正なオプションを渡していないかチェック
     for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(m_Demux.format.formatOptions, "", t, AV_DICT_IGNORE_SUFFIX));) {
-        AddMessage(RGY_LOG_ERROR, _T("Unknown input option: %s=%s\n"),
-            char_to_tstring(t->key).c_str(),
-            char_to_tstring(t->value).c_str());
-        return RGY_ERR_INVALID_PARAM;
+        if (strcmp(t->key, "scan_all_pmts") != 0) {
+            AddMessage(RGY_LOG_WARN, _T("Unknown input option: %s=%s, ignored.\n"),
+                char_to_tstring(t->key).c_str(),
+                char_to_tstring(t->value).c_str());
+        }
     }
 
     if (m_Demux.format.analyzeSec) {
