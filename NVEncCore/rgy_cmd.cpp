@@ -1770,6 +1770,12 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
+        if (pAudioSelect->bsf.length() > 0) {
+            cmd << _T(" --audio-bsf ") << pAudioSelect->trackID << _T("?") << pAudioSelect->bsf;
+        }
+    }
+    for (int i = 0; i < param->nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->extractFilename.length() > 0) {
             cmd << _T(" --audio-file ") << pAudioSelect->trackID << _T("?");
             if (pAudioSelect->extractFormat.length() > 0) {
@@ -1853,6 +1859,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     cmd << tmp.str().substr(1);
                 }
             }
+        }
+    }
+    for (int i = 0; i < param->nSubtitleSelectCount; i++) {
+        if (param->ppSubtitleSelectList[i]->bsf.length() > 0) {
+            cmd << _T(" --sub-bsf ") << param->ppSubtitleSelectList[i]->trackID << _T("?") << param->ppSubtitleSelectList[i]->bsf;
         }
     }
     OPT_LST(_T("--caption2ass"), caption2ass, list_caption2ass);
