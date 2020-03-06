@@ -311,8 +311,8 @@ RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
         src_uv_pitch, pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
-    pSurface->setTimestamp(prmsm->timestamp);
-    pSurface->setDuration(prmsm->duration);
+    pSurface->setTimestamp(prmsm->timestamp[m_encSatusInfo->m_sData.frameIn & 1]);
+    pSurface->setDuration(prmsm->duration[m_encSatusInfo->m_sData.frameIn & 1]);
 
     if (SetEvent(m_heBufEmpty[m_encSatusInfo->m_sData.frameIn & 1]) == FALSE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to set event!\n"));

@@ -321,6 +321,8 @@ static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO
         for (int i = 0; i < 2; i++) {
             prmsm->heBufEmpty[i] = (uint32_t)heBufEmpty[i];
             prmsm->heBufFilled[i] = (uint32_t)heBufFilled[i];
+            prmsm->duration[i] = 0;
+            prmsm->timestamp[i] = 0;
         }
     }
     return std::move(PrmSm);
@@ -433,10 +435,10 @@ static int send_frame(
             (input_csp == RGY_CSP_YC48) ? src_pitch : src_pitch >> 1,
             prmsm->pitch, oip->h, oip->h, dummy);
     }
-    prmsm->timestamp = (int64_t)i * 4;
-    prmsm->duration = 0;
+    prmsm->timestamp[sendFrame & 1] = (int64_t)i * 4;
+    prmsm->duration[sendFrame & 1] = 0;
     if (next_jitter) {
-        prmsm->timestamp += next_jitter[-1];
+        prmsm->timestamp[sendFrame & 1] += next_jitter[-1];
     }
     return AUO_RESULT_SUCCESS;
 }

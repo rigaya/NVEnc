@@ -45,8 +45,8 @@ struct RGYInputSMSharedData {
     RGY_PICSTRUCT picstruct;
     int frames;
     uint32_t bufSize;
-    int64_t timestamp;
-    int duration;
+    int64_t timestamp[2];
+    int duration[2];
     bool afs;
     bool abort;
     bool reserved[2];
