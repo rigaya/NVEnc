@@ -893,11 +893,12 @@ RGY_ERR initWriters(
                         prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
                         prm.asdata = pSubtitleSelect->asdata;
                     }
-                    log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s\n"),
+                    log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s, bsf: %s\n"),
                         char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
                         stream.trackId, stream.index, prm.bitrate, prm.encodeCodec.c_str(),
                         prm.encodeCodecProfile.c_str(),
-                        prm.encodeCodecPrm.c_str());
+                        prm.encodeCodecPrm.c_str(),
+                        prm.bsf.length() > 0 ? prm.bsf.c_str() : _T("none"));
                     writerPrm.inputStreamList.push_back(std::move(prm));
                 }
             }
