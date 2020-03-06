@@ -47,7 +47,8 @@ AudioSelect::AudioSelect() :
     extractFormat(),
     filter(),
     streamChannelSelect(),
-    streamChannelOut() {
+    streamChannelOut(),
+    bsf() {
     memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
     memset(streamChannelOut, 0, sizeof(streamChannelOut));
 }
@@ -63,7 +64,8 @@ SubtitleSelect::SubtitleSelect() :
     encCodec(),
     encCodecPrm(),
     decCodecPrm(),
-    asdata(false) {
+    asdata(false),
+    bsf() {
 
 }
 

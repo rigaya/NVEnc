@@ -82,6 +82,10 @@ void RGYOutputAvcodec::CloseOther(AVMuxOther *muxOther) {
         av_free(muxOther->bufConvert);
     }
 
+    if (muxOther->bsfc) {
+        av_bsf_free(&muxOther->bsfc);
+    }
+
     memset(muxOther, 0, sizeof(muxOther[0]));
     AddMessage(RGY_LOG_DEBUG, _T("Closed other.\n"));
 }
@@ -107,8 +111,8 @@ void RGYOutputAvcodec::CloseAudio(AVMuxAudio *muxAudio) {
         avfilter_graph_free(&muxAudio->filterGraph);
     }
 
-    if (muxAudio->AACBsfc) {
-        av_bsf_free(&muxAudio->AACBsfc);
+    if (muxAudio->bsfc) {
+        av_bsf_free(&muxAudio->bsfc);
     }
     memset(muxAudio, 0, sizeof(muxAudio[0]));
     AddMessage(RGY_LOG_DEBUG, _T("Closed audio.\n"));
@@ -957,6 +961,31 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
     return RGY_ERR_NONE;
 }
 
+AVBSFContext *RGYOutputAvcodec::InitStreamBsf(const tstring& bsfName, const AVStream * streamIn) {
+    AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsfName.c_str());
+    auto filter = av_bsf_get_by_name(tchar_to_string(bsfName).c_str());
+    if (filter == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsfName.c_str());
+        return nullptr;
+    }
+    AVBSFContext *bsfc = nullptr;
+    int ret = 0;
+    if (0 > (ret = av_bsf_alloc(filter, &bsfc))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsfName.c_str(), qsv_av_err2str(ret).c_str());
+        return nullptr;
+    }
+    if (0 > (ret = avcodec_parameters_copy(bsfc->par_in, streamIn->codecpar))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsfName.c_str(), qsv_av_err2str(ret).c_str());
+        return nullptr;
+    }
+    bsfc->time_base_in = streamIn->time_base;
+    if (0 > (ret = av_bsf_init(bsfc))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsfName.c_str(), qsv_av_err2str(ret).c_str());
+        return nullptr;
+    }
+    return bsfc;
+}
+
 RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError) {
     muxAudio->streamIn = inputAudio->src.stream;
     AddMessage(RGY_LOG_DEBUG, _T("start initializing audio ouput...\n"));
@@ -977,6 +1006,13 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
     muxAudio->filter = inputAudio->filter.length() > 0 ? _tcsdup(inputAudio->filter.c_str()) : nullptr;
     memcpy(muxAudio->streamChannelSelect, inputAudio->src.streamChannelSelect, sizeof(inputAudio->src.streamChannelSelect));
     memcpy(muxAudio->streamChannelOut,    inputAudio->src.streamChannelOut,    sizeof(inputAudio->src.streamChannelOut));
+
+    if (inputAudio->bsf.length() > 0) {
+        muxAudio->bsfc = InitStreamBsf(inputAudio->bsf, muxAudio->streamIn);
+        if (muxAudio->bsfc == nullptr) {
+            return RGY_ERR_UNKNOWN;
+        }
+    }
 
     //音声がwavの場合、フォーマット変換が必要な場合がある
     AVCodecID codecId = AV_CODEC_ID_NONE;
@@ -1174,36 +1210,20 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             muxAudio->outCodecDecodeCtx->sample_rate,
             muxAudio->outCodecDecodeCtx->sample_fmt);
         if (sts != RGY_ERR_NONE) return sts;
-    } else if (muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && m_Mux.video.streamOut) {
-        AddMessage(RGY_LOG_DEBUG, _T("start initialize aac_adtstoasc filter...\n"));
-        auto filter = av_bsf_get_by_name("aac_adtstoasc");
-        if (filter == nullptr) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to find aac_adtstoasc.\n"));
-            return RGY_ERR_NOT_FOUND;
-        }
-        int ret = 0;
-        if (0 > (ret = av_bsf_alloc(filter, &muxAudio->AACBsfc))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_NULL_PTR;
-        }
-        if (0 > (ret = avcodec_parameters_copy(muxAudio->AACBsfc->par_in, muxAudio->streamIn->codecpar))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_UNKNOWN;
-        }
-        muxAudio->AACBsfc->time_base_in = muxAudio->streamIn->time_base;
-        if (0 > (ret = av_bsf_init(muxAudio->AACBsfc))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to init aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+    } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && m_Mux.video.streamOut) {
+        muxAudio->bsfc = InitStreamBsf(_T("aac_adtstoasc"), muxAudio->streamIn);
+        if (muxAudio->bsfc == nullptr) {
             return RGY_ERR_UNKNOWN;
         }
         if (inputAudio->src.pktSample.data) {
             //mkvではavformat_write_headerまでにAVCodecContextにextradataをセットしておく必要がある
-            for (AVPacket *inpkt = av_packet_clone(&inputAudio->src.pktSample); 0 == av_bsf_send_packet(muxAudio->AACBsfc, inpkt); inpkt = nullptr) {
+            for (AVPacket *inpkt = av_packet_clone(&inputAudio->src.pktSample); 0 == av_bsf_send_packet(muxAudio->bsfc, inpkt); inpkt = nullptr) {
                 AVPacket outpkt = { 0 };
                 av_init_packet(&outpkt);
-                ret = av_bsf_receive_packet(muxAudio->AACBsfc, &outpkt);
+                int ret = av_bsf_receive_packet(muxAudio->bsfc, &outpkt);
                 if (ret == 0) {
-                    if (muxAudio->AACBsfc->par_out->extradata) {
-                        SetExtraData(muxAudio->streamIn->codecpar, muxAudio->AACBsfc->par_out->extradata, muxAudio->AACBsfc->par_out->extradata_size);
+                    if (muxAudio->bsfc->par_out->extradata) {
+                        SetExtraData(muxAudio->streamIn->codecpar, muxAudio->bsfc->par_out->extradata, muxAudio->bsfc->par_out->extradata_size);
                     }
                     break;
                 }
@@ -1290,6 +1310,13 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
     AVCodecID codecId = (inputStream->src.stream)
         ? inputStream->src.stream->codecpar->codec_id
         : (inputStream->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
+
+    if (inputStream->bsf.length() > 0) {
+        muxSub->bsfc = InitStreamBsf(inputStream->bsf, muxSub->streamIn);
+        if (muxSub->bsfc == nullptr) {
+            return RGY_ERR_UNKNOWN;
+        }
+    }
 
     if (mediaType == AVMEDIA_TYPE_UNKNOWN) {
         codecId = AV_CODEC_ID_NONE;
@@ -2355,35 +2382,45 @@ AVMuxOther *RGYOutputAvcodec::getOtherPacketStreamData(const AVPacket *pkt) {
     return NULL;
 }
 
-RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *muxAudio) {
+RGY_ERR RGYOutputAvcodec::applyBitstreamFilterOther(AVPacket *pkt, const AVMuxOther *muxOther) {
     int ret = 0;
-    //毎回bitstream filterを初期化して、extradataに新しいヘッダを供給する
-    //動画とmuxする際に必須
-    av_bsf_free(&muxAudio->AACBsfc);
-    auto filter = av_bsf_get_by_name("aac_adtstoasc");
-    if (filter == nullptr) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to find aac_adtstoasc.\n"));
-        return RGY_ERR_NOT_FOUND;
-    }
-    if (0 > (ret = av_bsf_alloc(filter, &muxAudio->AACBsfc))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
-        return RGY_ERR_NULL_PTR;
-    }
-    if (0 > (ret = avcodec_parameters_copy(muxAudio->AACBsfc->par_in, muxAudio->streamIn->codecpar))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
-        return RGY_ERR_UNKNOWN;
-    }
-    muxAudio->AACBsfc->time_base_in = muxAudio->streamIn->time_base;
-    if (0 > (ret = av_bsf_init(muxAudio->AACBsfc))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to init aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
-        return RGY_ERR_UNKNOWN;
-    }
-    if (0 > (ret = av_bsf_send_packet(muxAudio->AACBsfc, pkt))) {
+    if (0 > (ret = av_bsf_send_packet(muxOther->bsfc, pkt))) {
         av_packet_unref(pkt);
-        AddMessage(RGY_LOG_ERROR, _T("failed to send packet to aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), char_to_tstring(muxOther->bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
-    ret = av_bsf_receive_packet(muxAudio->AACBsfc, pkt);
+    ret = av_bsf_receive_packet(muxOther->bsfc, pkt);
+    if (ret == AVERROR(EAGAIN)) {
+        pkt->size = 0;
+        pkt->duration = 0;
+    } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
+        //最初のフレームとかでなければ、エラーを許容し、単に処理しないようにする
+        //多くの場合、ここでのエラーはtsなどの最終音声フレームが不完全なことで発生する
+        //先頭から連続30回エラーとなった場合はおかしいのでエラー終了するようにする
+        AddMessage(RGY_LOG_WARN, _T("failed to run %s bitstream filter: %s.\n"), char_to_tstring(muxOther->bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+        pkt->duration = 0; //書き込み処理が行われないように
+        return RGY_WRN_FILTER_SKIPPED;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *muxAudio) {
+    int ret = 0;
+    const tstring filterName = char_to_tstring(muxAudio->bsfc->filter->name);
+    if (strcmp(muxAudio->bsfc->filter->name, "aac_adtstoasc") == 0) {
+        //毎回bitstream filterを初期化して、extradataに新しいヘッダを供給する
+        //動画とmuxする際に必須
+        av_bsf_free(&muxAudio->bsfc);
+        if ((muxAudio->bsfc = InitStreamBsf(filterName, muxAudio->streamIn)) == nullptr) {
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+    if (0 > (ret = av_bsf_send_packet(muxAudio->bsfc, pkt))) {
+        av_packet_unref(pkt);
+        AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), filterName.c_str(), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    ret = av_bsf_receive_packet(muxAudio->bsfc, pkt);
     if (ret == AVERROR(EAGAIN)) {
         pkt->size = 0;
         pkt->duration = 0;
@@ -2392,19 +2429,19 @@ RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *mux
         //多くの場合、ここでのエラーはtsなどの最終音声フレームが不完全なことで発生する
         //先頭から連続30回エラーとなった場合はおかしいのでエラー終了するようにする
         if (muxAudio->packetWritten == 0) {
-            muxAudio->AACBsfErrorFromStart++;
-            static int AACBSFFILTER_ERROR_THRESHOLD = 30;
-            if (muxAudio->AACBsfErrorFromStart > AACBSFFILTER_ERROR_THRESHOLD) {
+            muxAudio->bsfErrorFromStart++;
+            static int AUDIO_BSFFILTER_ERROR_THRESHOLD = 30;
+            if (muxAudio->bsfErrorFromStart > AUDIO_BSFFILTER_ERROR_THRESHOLD) {
                 m_Mux.format.streamError = true;
-                AddMessage(RGY_LOG_ERROR, _T("failed to run aac_adtstoasc bitstream filter for %d times: %s.\n"), AACBSFFILTER_ERROR_THRESHOLD, qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter for %d times: %s.\n"), filterName.c_str(), AUDIO_BSFFILTER_ERROR_THRESHOLD, qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
         }
-        AddMessage(RGY_LOG_WARN, _T("failed to run aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_WARN, _T("failed to run %s bitstream filter: %s.\n"), filterName.c_str(), qsv_av_err2str(ret).c_str());
         pkt->duration = 0; //書き込み処理が行われないように
         return RGY_WRN_FILTER_SKIPPED;
     }
-    muxAudio->AACBsfErrorFromStart = 0;
+    muxAudio->bsfErrorFromStart = 0;
     return RGY_ERR_NONE;
 }
 
@@ -2793,8 +2830,25 @@ RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxOther *muxSub, AVPacket *
 }
 
 RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
+    const AVMuxOther* pMuxOther = getOtherPacketStreamData(pkt);
+    if (pMuxOther->bsfc) {
+        auto sts = applyBitstreamFilterOther(pkt, pMuxOther);
+        //bitstream filterを正常に起動できなかった
+        if (sts < RGY_ERR_NONE) {
+            m_Mux.format.streamError = true;
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
+        //pktData->pkt.duration == 0 の場合はなにもせず終了する
+        if (pkt->duration == 0) {
+            av_packet_unref(pkt);
+            //特にエラーでなければそのまま終了
+            if (sts == RGY_ERR_NONE) {
+                return RGY_ERR_NONE;
+            }
+            return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
+        }
+    }
     //字幕を処理する
-    const AVMuxOther *pMuxOther = getOtherPacketStreamData(pkt);
     const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.outputFps);
     const int64_t pts_offset = av_rescale_q(m_Mux.video.inputFirstKeyPts, vid_pkt_timebase, pMuxOther->streamInTimebase);
     const AVRational timebase_conv = (pMuxOther->outCodecDecodeCtx) ? pMuxOther->outCodecDecodeCtx->pkt_timebase : pMuxOther->streamOut->time_base;
@@ -2946,8 +3000,8 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
     AVRational samplerate = { 1, muxAudio->streamIn->codecpar->sample_rate };
     //このパケットのサンプル数
     const int nSamples = (int)av_rescale_q(pktData->pkt.duration, muxAudio->streamIn->time_base, samplerate);
-    if (muxAudio->AACBsfc) {
-        auto sts = applyBitstreamFilterAAC(&pktData->pkt, muxAudio);
+    if (muxAudio->bsfc) {
+        auto sts = applyBitstreamFilterAudio(&pktData->pkt, muxAudio);
         //bitstream filterを正常に起動できなかった
         if (sts < RGY_ERR_NONE) {
             m_Mux.format.streamError = true;

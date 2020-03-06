@@ -1037,6 +1037,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 1;
         }
     }
+    if (IS_OPTION("audio-bsf")) {
+        try {
+            auto ret = set_audio_prm([](AudioSelect* pAudioSelect, int trackId, const TCHAR* prmstr) {
+                if (trackId != 0 || pAudioSelect->bsf.length() == 0) {
+                    pAudioSelect->bsf = prmstr;
+                }
+                });
+            return ret;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+    }
 #endif //#if ENABLE_AVCODEC_QSV_READER
     if (IS_OPTION("chapter-copy") || IS_OPTION("copy-chapter")) {
         common->copyChapter = true;
@@ -1206,6 +1219,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             }
         }
         common->subSource.push_back(src);
+        return 0;
+    }
+    if (IS_OPTION("sub-bsf")) {
+        common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        auto ret = set_sub_prm([](SubtitleSelect* pSubSelect, int trackId, const TCHAR* prmstr) {
+            if (trackId != 0 || pSubSelect->bsf.length() == 0) {
+                pSubSelect->bsf = prmstr;
+            }
+            });
+        if (ret) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return ret;
+        }
         return 0;
     }
     if (IS_OPTION("caption2ass")) {

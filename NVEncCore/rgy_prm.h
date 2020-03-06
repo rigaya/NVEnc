@@ -57,6 +57,7 @@ struct AudioSelect {
     tstring  filter;               //音声フィルタ
     uint64_t streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
     uint64_t streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+    tstring bsf;
 
     AudioSelect();
     ~AudioSelect() {};
@@ -76,6 +77,7 @@ struct SubtitleSelect {
     tstring encCodecPrm;
     tstring decCodecPrm;
     bool asdata;
+    tstring bsf;
 
     SubtitleSelect();
     ~SubtitleSelect() {};

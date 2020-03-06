@@ -175,10 +175,10 @@ typedef struct AVMuxAudio {
     uint64_t              streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
 
     //AACの変換用
-    AVBSFContext         *AACBsfc;              //必要なら使用するbitstreamfilter
-    int                   AACBsfErrorFromStart; //開始直後からのbitstream filter errorの数
+    AVBSFContext         *bsfc;              //必要なら使用するbitstreamfilter
+    int                   bsfErrorFromStart; //開始直後からのbitstream filter errorの数
 
-    int                   outputSamples;        //出力音声の出力済みsample数
+    int64_t               outputSamples;        //出力音声の出力済みsample数
     int64_t               lastPtsIn;            //入力音声の前パケットのpts (input stream timebase)
     int64_t               lastPtsOut;           //出力音声の前パケットのpts
 } AVMuxAudio;
@@ -197,6 +197,8 @@ typedef struct AVMuxOther {
     AVCodecContext       *outCodecEncodeCtx;   //変換先の音声のCodecContext
 
     uint8_t              *bufConvert;          //変換用のバッファ
+
+    AVBSFContext         *bsfc;              //必要なら使用するbitstreamfilter
 } AVMuxOther;
 
 enum {
@@ -270,6 +272,7 @@ struct AVOutputStreamPrm {
     int     samplingRate;      //サンプリング周波数の指定
     tstring filter;             //音声フィルタ
     bool    asdata;           //バイナリデータとして転送する
+    tstring bsf;                //適用すべきbsfの名前
 
     AVOutputStreamPrm() :
         src(),
@@ -280,7 +283,8 @@ struct AVOutputStreamPrm {
         bitrate(0),
         samplingRate(0),
         filter(),
-        asdata(false) {
+        asdata(false),
+        bsf() {
 
     }
 };
@@ -416,8 +420,9 @@ protected:
     //RGY_CODECのcodecからAVCodecのCodecIDを返す
     AVCodecID getAVCodecId(RGY_CODEC codec);
 
-    //AAC音声にBitstreamフィルターを適用する
-    RGY_ERR applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *muxAudio);
+    //Bitstreamフィルターを適用する
+    RGY_ERR applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *muxAudio);
+    RGY_ERR applyBitstreamFilterOther(AVPacket* pkt, const AVMuxOther *muxOther);
 
     //音声のプロファイルを取得する
     int AudioGetCodecProfile(tstring profile, AVCodecID codecId);
@@ -443,6 +448,9 @@ protected:
 
     //音声の初期化
     RGY_ERR InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError);
+
+    //Bitstream Filterの初期化
+    AVBSFContext* InitStreamBsf(const tstring& bsfName, const AVStream* streamIn);
 
     //字幕の初期化
     RGY_ERR InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *inputSubtitle);
