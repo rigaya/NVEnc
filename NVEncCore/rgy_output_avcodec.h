@@ -178,6 +178,7 @@ typedef struct AVMuxAudio {
     AVBSFContext         *bsfc;              //必要なら使用するbitstreamfilter
     int                   bsfErrorFromStart; //開始直後からのbitstream filter errorの数
 
+    int64_t               outputSampleOffset;   //出力音声のptsがAV_NOPTS_VALUEの補正用
     int64_t               outputSamples;        //出力音声の出力済みsample数
     int64_t               lastPtsIn;            //入力音声の前パケットのpts (input stream timebase)
     int64_t               lastPtsOut;           //出力音声の前パケットのpts
