@@ -70,7 +70,7 @@ const TCHAR* NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_102.dll");
 #endif
 
 template<typename TypePixel>
-cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
+cudaError_t setTexFieldResize(cudaTextureObject_t& texSrc, const FrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -122,7 +122,7 @@ cudaError_t resize_texture_plane(FrameInfo *pOutputFrame, const FrameInfo *pInpu
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexField<Type>(texSrc, pInputFrame, (interp == RESIZE_CUDA_TEXTURE_BILINEAR) ? cudaFilterModeLinear : cudaFilterModePoint, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
+    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, (interp == RESIZE_CUDA_TEXTURE_BILINEAR) ? cudaFilterModeLinear : cudaFilterModePoint, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
         return cudaerr;
     }
     resize_texture<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
@@ -258,7 +258,7 @@ static cudaError_t resize_spline_plane(FrameInfo *pOutputFrame, const FrameInfo 
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexField<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
+    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
         return cudaerr;
     }
     resize_spline<Type, bit_depth, radius>((uint8_t *)pOutputFrame->ptr,
@@ -380,7 +380,7 @@ static cudaError_t resize_lanczos_plane(FrameInfo* pOutputFrame, const FrameInfo
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexField<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
+    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
         return cudaerr;
     }
     resize_lanczos<Type, bit_depth, radius>((uint8_t*)pOutputFrame->ptr,

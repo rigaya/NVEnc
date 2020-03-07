@@ -1158,7 +1158,7 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
 }
 
 template<typename TypePixel>
-cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo *pFrame, const NnediTargetField targetField) {
+cudaError_t setTexFieldNnedi(cudaTextureObject_t& texSrc, const FrameInfo *pFrame, const NnediTargetField targetField) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -1373,7 +1373,7 @@ cudaError_t proc_plane(
     }
 
     cudaTextureObject_t texSrc = 0;
-    cudaerr = setTexField<TypePixel>(texSrc, pInputPlane, targetField);
+    cudaerr = setTexFieldNnedi<TypePixel>(texSrc, pInputPlane, targetField);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }

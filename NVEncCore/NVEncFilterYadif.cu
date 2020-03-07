@@ -165,7 +165,7 @@ __global__ void kernel_yadif(
 }
 
 template<typename TypePixel>
-cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo *pFrame) {
+cudaError_t setTexFieldYadif(cudaTextureObject_t& texSrc, const FrameInfo *pFrame) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -200,9 +200,9 @@ cudaError_t run_yadif(FrameInfo *pOutputPlane,
     cudaTextureObject_t texSrc1 = 0;
     cudaTextureObject_t texSrc2 = 0;
     auto cudaerr = cudaSuccess;
-    if (   (cudaerr = setTexField<TypePixel>(texSrc0, pSrc0)) != cudaSuccess
-        || (cudaerr = setTexField<TypePixel>(texSrc1, pSrc1)) != cudaSuccess
-        || (cudaerr = setTexField<TypePixel>(texSrc2, pSrc2)) != cudaSuccess) {
+    if (   (cudaerr = setTexFieldYadif<TypePixel>(texSrc0, pSrc0)) != cudaSuccess
+        || (cudaerr = setTexFieldYadif<TypePixel>(texSrc1, pSrc1)) != cudaSuccess
+        || (cudaerr = setTexFieldYadif<TypePixel>(texSrc2, pSrc2)) != cudaSuccess) {
         return cudaerr;
     }
 
@@ -295,8 +295,7 @@ cudaError_t NVEncFilterYadifSource::alloc(const FrameInfo& frameInfo) {
         }
     }
     for (auto& buf : m_buf) {
-        buf.frame = frameInfo;
-        auto ret = buf.alloc();
+        auto ret = buf.alloc(frameInfo.width, frameInfo.height, frameInfo.csp);
         if (ret != cudaSuccess) {
             buf.clear();
             return ret;

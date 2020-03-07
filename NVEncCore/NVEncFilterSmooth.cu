@@ -394,7 +394,7 @@ __global__ void kernel_spp(
 }
 
 template<typename TypePixel>
-cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo *pFrame) {
+cudaError_t setTexFieldSmooth(cudaTextureObject_t& texSrc, const FrameInfo *pFrame) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -428,7 +428,7 @@ cudaError_t run_spp(FrameInfo *pOutputPlane,
     const float threshold,
     cudaStream_t stream) {
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = setTexField<TypePixel>(texSrc, pSrc);
+    auto cudaerr = setTexFieldSmooth<TypePixel>(texSrc, pSrc);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }

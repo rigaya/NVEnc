@@ -436,7 +436,7 @@ __global__ void kernel_afs_analyze_12(
 }
 
 template<typename Type>
-cudaError_t textureCreate(cudaTextureObject_t& tex, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, uint8_t *ptr, int pitch, int width, int height) {
+cudaError_t textureCreateAnalyze(cudaTextureObject_t& tex, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, uint8_t *ptr, int pitch, int width, int height) {
     cudaResourceDesc resDesc;
     memset(&resDesc, 0, sizeof(resDesc));
     resDesc.resType = cudaResourceTypePitch2D;
@@ -478,8 +478,8 @@ cudaError_t run_analyze_stripe(uint8_t *dst, const int dstPitch,
 
     cudaTextureObject_t texP0Y = 0;
     cudaTextureObject_t texP1Y = 0;
-    if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0Y, cudaFilterModePoint, cudaReadModeElementType, p0Y.ptr, p0Y.pitch, (p0Y.width + 3) / 4, p0Y.height))) return cudaerr;
-    if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1Y, cudaFilterModePoint, cudaReadModeElementType, p1Y.ptr, p1Y.pitch, (p1Y.width + 3) / 4, p1Y.height))) return cudaerr;
+    if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP0Y, cudaFilterModePoint, cudaReadModeElementType, p0Y.ptr, p0Y.pitch, (p0Y.width + 3) / 4, p0Y.height))) return cudaerr;
+    if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP1Y, cudaFilterModePoint, cudaReadModeElementType, p1Y.ptr, p1Y.pitch, (p1Y.width + 3) / 4, p1Y.height))) return cudaerr;
 
     cudaTextureObject_t texP0U0 = 0;
     cudaTextureObject_t texP0U1 = 0; //yuv444では使用されない
@@ -490,19 +490,19 @@ cudaError_t run_analyze_stripe(uint8_t *dst, const int dstPitch,
     cudaTextureObject_t texP1V0 = 0;
     cudaTextureObject_t texP1V1 = 0; //yuv444では使用されない
     if (yuv420) {
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 0, p0U.pitch * 2, p0U.width, p0U.height >> 1))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 1, p0U.pitch * 2, p0U.width, p0U.height >> 1))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 0, p0V.pitch * 2, p0V.width, p0V.height >> 1))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 1, p0V.pitch * 2, p0V.width, p0V.height >> 1))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 0, p1U.pitch * 2, p1U.width, p1U.height >> 1))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 1, p1U.pitch * 2, p1U.width, p1U.height >> 1))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 0, p1V.pitch * 2, p1V.width, p1V.height >> 1))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 1, p1V.pitch * 2, p1V.width, p1V.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 0, p0U.pitch * 2, p0U.width, p0U.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 1, p0U.pitch * 2, p0U.width, p0U.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 0, p0V.pitch * 2, p0V.width, p0V.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 1, p0V.pitch * 2, p0V.width, p0V.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 0, p1U.pitch * 2, p1U.width, p1U.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 1, p1U.pitch * 2, p1U.width, p1U.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 0, p1V.pitch * 2, p1V.width, p1V.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 1, p1V.pitch * 2, p1V.width, p1V.height >> 1))) return cudaerr;
     } else {
-        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0U0, cudaFilterModePoint, cudaReadModeElementType, p0U.ptr, p0U.pitch, (p0U.width + 3) / 4, p0U.height))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0V0, cudaFilterModePoint, cudaReadModeElementType, p0V.ptr, p0V.pitch, (p0V.width + 3) / 4, p0V.height))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1U0, cudaFilterModePoint, cudaReadModeElementType, p1U.ptr, p1U.pitch, (p1U.width + 3) / 4, p1U.height))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1V0, cudaFilterModePoint, cudaReadModeElementType, p1V.ptr, p1V.pitch, (p1V.width + 3) / 4, p1V.height))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP0U0, cudaFilterModePoint, cudaReadModeElementType, p0U.ptr, p0U.pitch, (p0U.width + 3) / 4, p0U.height))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP0V0, cudaFilterModePoint, cudaReadModeElementType, p0V.ptr, p0V.pitch, (p0V.width + 3) / 4, p0V.height))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP1U0, cudaFilterModePoint, cudaReadModeElementType, p1U.ptr, p1U.pitch, (p1U.width + 3) / 4, p1U.height))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP1V0, cudaFilterModePoint, cudaReadModeElementType, p1V.ptr, p1V.pitch, (p1V.width + 3) / 4, p1V.height))) return cudaerr;
     }
 
     dim3 blockSize(BLOCK_INT_X, BLOCK_Y);
