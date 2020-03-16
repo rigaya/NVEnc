@@ -329,7 +329,7 @@ int RGYGPUCounterWin::refreshCounters() {
 
 int RGYGPUCounterWin::thread_func() {
     auto hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
-    if (init()) {
+    if (hr != S_OK || init()) {
         return 1;
     }
     while (!m_abort) {

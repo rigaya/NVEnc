@@ -1518,7 +1518,7 @@ shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile,
             AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %u [expected: %u].\n"),
                 weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
         } else {
-            weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { return; /*何もしない*/ });
+            weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
         }
     } else {
         if (!PathFileExists(weightFile.c_str())) {
