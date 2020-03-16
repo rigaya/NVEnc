@@ -107,6 +107,7 @@ struct RGYParamCommon {
 
     std::string maxCll;
     std::string masterDisplay;
+    bool hdr10plusMetadataCopy;
     tstring dynamicHdr10plusJson;
     std::string videoCodecTag;
     float seekSec;               //指定された秒数分先頭を飛ばす

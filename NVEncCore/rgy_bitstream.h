@@ -117,6 +117,8 @@ enum PayloadType {
     REGIONAL_NESTING                     = 157,
 };
 
+std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len);
+
 static std::vector<nal_info> parse_nal_unit_h264(const uint8_t *data, size_t size) {
     std::vector<nal_info> nal_list;
     if (size > 3) {

@@ -40,6 +40,7 @@
 enum RGYFrameDataType {
     RGY_FRAME_DATA_NONE,
     RGY_FRAME_DATA_QP,
+    RGY_FRAME_DATA_HDR10PLUS,
 
     RGY_FRAME_DATA_MAX,
 };
@@ -78,6 +79,19 @@ protected:
     std::unique_ptr<cudaStream_t, cudastream_deleter> m_stream;
 #endif //#if !FOR_AUO && ENCODER_NVENC
     FrameInfo m_qpHost;
+};
+
+class RGYFrameDataHDR10plus : public RGYFrameData {
+public:
+    RGYFrameDataHDR10plus();
+    RGYFrameDataHDR10plus(const uint8_t* data, size_t size, int64_t timestamp);
+    virtual ~RGYFrameDataHDR10plus();
+
+    const std::vector<uint8_t>& getData() { return m_data; }
+    int64_t timestamp() const { return m_timestamp; }
+protected:
+    int64_t m_timestamp;
+    std::vector<uint8_t> m_data;
 };
 
 #endif //__RGY_FRAME_H__

@@ -81,6 +81,8 @@ private:
     RGY_PICSTRUCT dataPicstruct;
     int dataFrameIdx;
     int64_t dataDuration;
+    RGYFrameData **frameDataList;
+    int frameDataNum;
 public:
     uint8_t *bufptr() const {
         return dataptr;
@@ -183,6 +185,7 @@ public:
             _aligned_free(dataptr);
         }
         dataptr = nullptr;
+        clearFrameDataList();
         dataLength = 0;
         dataOffset = 0;
         maxLength = 0;
@@ -305,6 +308,9 @@ public:
     RGY_ERR append(RGYBitstream *pBitstream) {
         return append(pBitstream->data(), pBitstream->size());
     }
+    void addFrameData(RGYFrameData *frameData);
+    void clearFrameDataList();
+    std::vector<RGYFrameData *> getFrameDataList();
 };
 
 static inline RGYBitstream RGYBitstreamInit() {

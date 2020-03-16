@@ -30,6 +30,21 @@
 #include "rgy_bitstream.h"
 #include "rgy_util.h"
 
+std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
+    std::vector<uint8_t> data;
+    data.reserve(len);
+    data.push_back(ptr[0]);
+    data.push_back(ptr[1]);
+    for (size_t i = 2; i < len; i++) {
+        if (ptr[i-2] == 0x00 && ptr[i-1] == 0x00 && ptr[i] == 0x03) {
+            //skip
+        } else {
+            data.push_back(ptr[i]);
+        }
+    }
+    return data;
+}
+
 HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false) {
     memset(&masterdisplay, 0, sizeof(masterdisplay));
 }

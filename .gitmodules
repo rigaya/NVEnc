@@ -4,3 +4,6 @@
 [submodule "ffmpeg_lgpl"]
 	path = ffmpeg_lgpl
 	url = https://github.com/rigaya/ffmpeg_dlls_for_hwenc.git
+[submodule "cppcodec"]
+	path = cppcodec
+	url = https://github.com/tplgy/cppcodec.git
