@@ -30,6 +30,10 @@
 #define __RGY_AVUTIL_H__
 
 #include "rgy_version.h"
+#include "rgy_tchar.h"
+
+static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");
+static const TCHAR *RGY_AVCODEC_COPY = _T("copy");
 
 #if ENABLE_AVSW_READER
 #include <algorithm>
@@ -104,9 +108,6 @@ static const AVPixelFormat HW_DECODE_PIXFMT_LIST[] = {
     AV_PIX_FMT_YUV420P12LE,
 #endif
 };
-
-static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");
-static const TCHAR *RGY_AVCODEC_COPY = _T("copy");
 
 static const int AVQSV_DEFAULT_AUDIO_BITRATE = 192;
 

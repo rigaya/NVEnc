@@ -33,6 +33,9 @@
 #include <process.h>
 #pragma comment(lib, "winmm.lib")
 #pragma comment(lib, "user32.lib") //WaitforInputIdle
+#include <fcntl.h>
+#include <io.h>
+#include <mutex>
 
 #include "output.h"
 #include "convert.h"
@@ -59,6 +62,7 @@ const int WAVE_SIZE_POS    = WAVE_HEADER_SIZE - 4;
 
 inline void *get_audio_data(const OUTPUT_INFO *oip, PRM_ENC *pe, int start, int length, int *readed) {
     if (pe->aud_parallel.th_aud) {
+        std::lock_guard<std::mutex> lock(*pe->aud_parallel.mtx_aud);
         pe->aud_parallel.start = start;
         pe->aud_parallel.get_length = length;
         if_valid_set_event(pe->aud_parallel.he_vid_start);
@@ -74,7 +78,8 @@ inline void *get_audio_data(const OUTPUT_INFO *oip, PRM_ENC *pe, int start, int 
 void auo_faw_check(CONF_AUDIO *aud, const OUTPUT_INFO *oip, PRM_ENC *pe, const guiEx_settings *ex_stg) {
     if (!(oip->flag & OUTPUT_INFO_FLAG_AUDIO))
         return;
-    if (ex_stg->s_aud_faw_index == FAW_INDEX_ERROR) {
+    const int faw_index = ex_stg->get_faw_index(aud->use_internal);
+    if (faw_index == FAW_INDEX_ERROR) {
         write_log_auo_line(LOG_WARNING, "FAWCheck : " AUO_NAME_WITHOUT_EXT ".iniからのFAWの情報取得に失敗したため、判定を中止しました。");
         return;
     }
@@ -87,13 +92,21 @@ void auo_faw_check(CONF_AUDIO *aud, const OUTPUT_INFO *oip, PRM_ENC *pe, const g
             break;
         case FAW_FULL:
         case FAW_HALF:
-        case FAW_MIX:
-            aud->encoder   = ex_stg->s_aud_faw_index;
-            aud->enc_mode  = ret - FAW_FULL;
-            aud->use_2pass = ex_stg->s_aud[ex_stg->s_aud_faw_index].mode[aud->enc_mode].enc_2pass;
-            aud->use_wav   = !ex_stg->s_aud[ex_stg->s_aud_faw_index].pipe_input;
+        case FAW_MIX: {
+            const AUDIO_SETTINGS *aud_stg = nullptr;
+            if (aud->use_internal) {
+                aud_stg = &ex_stg->s_aud_int[faw_index];
+                aud->in.encoder = faw_index;
+                aud->in.enc_mode = ret - FAW_FULL;
+            } else {
+                aud_stg = &ex_stg->s_aud_ext[faw_index];
+                aud->ext.encoder = faw_index;
+                aud->ext.enc_mode = ret - FAW_FULL;
+                aud->ext.use_2pass = aud_stg->mode[aud->ext.enc_mode].enc_2pass;
+                aud->ext.use_wav = !aud_stg->pipe_input;
+            }
             write_log_auo_line_fmt(LOG_INFO, "FAWCheck : FAW, %s", FAW_TYPE_NAME[ret]);
-            break;
+            } break;
         case FAWCHECK_ERROR_TOO_SHORT:
             write_log_auo_line(LOG_WARNING, "FAWCheck : 音声が短すぎ、判定できません。");
             break;
@@ -147,7 +160,8 @@ static void correct_header(FILE *f_out, int data_size) {
 static void write_wav_header(FILE *f_out, const OUTPUT_INFO *oip, BOOL use_8bit) {
     BYTE head[WAVE_HEADER_SIZE];
     build_wave_header(head, oip, use_8bit, oip->audio_n);
-    _fwrite_nolock(&head, sizeof(head), 1, f_out);
+    size_t written = _fwrite_nolock(&head, sizeof(head), 1, f_out);
+    written = 0;
 }
 
 typedef struct {
@@ -158,6 +172,8 @@ typedef struct {
     char args[MAX_CMD_LEN];
     char append[MAX_APPENDIX_LEN];
 
+    BOOL is_internal;
+    HANDLE h_aud_namedpipe;
     FILE *fp_out;
     PIPE_SET pipes;
     PROCESS_INFORMATION pi_aud;
@@ -176,19 +192,20 @@ static void make_wavfilename(aud_data_t *aud_dat, BOOL use_pipe, const char *tem
 
 static void build_audcmd(aud_data_t *aud_dat, const CONF_GUIEX *conf, const AUDIO_SETTINGS *aud_stg,
                          const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const OUTPUT_INFO *oip) {
+    const CONF_AUDIO_BASE *aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
     const DWORD nSize = _countof(aud_dat->cmd);
     strcpy_s(aud_dat->cmd, nSize, aud_stg->cmd_base);
     //%{2pass_cmd}
-    replace(aud_dat->cmd, nSize, "%{2pass_cmd}", (conf->aud.use_2pass) ? aud_stg->cmd_2pass : "");
+    replace(aud_dat->cmd, nSize, "%{2pass_cmd}", (aud->use_2pass) ? aud_stg->cmd_2pass : "");
     //%{raw_cmd}
-    replace(aud_dat->cmd, nSize, "%{raw_cmd}", (conf->aud.delay_cut == AUDIO_DELAY_CUT_EDTS) ? aud_stg->cmd_raw : "");
+    replace(aud_dat->cmd, nSize, "%{raw_cmd}", (aud->delay_cut == AUDIO_DELAY_CUT_EDTS) ? aud_stg->cmd_raw : "");
     //%{mode}
-    replace(aud_dat->cmd, nSize, "%{mode}", aud_stg->mode[conf->aud.enc_mode].cmd);
+    replace(aud_dat->cmd, nSize, "%{mode}", aud_stg->mode[aud->enc_mode].cmd);
     //%{wavpath}
     replace(aud_dat->cmd, nSize, "%{wavpath}", aud_dat->wavfile);
     //%{rate}
     char tmp[22];
-    sprintf_s(tmp, _countof(tmp), "%d", conf->aud.bitrate);
+    sprintf_s(tmp, _countof(tmp), "%d", aud->bitrate);
     replace(aud_dat->cmd, nSize, "%{rate}", tmp);
 
     //音声番号に合わせ、置換キーを調整
@@ -236,7 +253,7 @@ static void show_audio_delay_cut_info(int delay_cut, const PRM_ENC *pe) {
     }
 }
 
-static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO *cnf_aud, const PRM_ENC *pe, const aud_data_t *aud_dat) {
+static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO_BASE *cnf_aud, const PRM_ENC *pe, const aud_data_t *aud_dat) {
     std::string ver_str = "";
     int version[4] = { 0 };
     if (str_has_char(aud_stg->cmd_ver) && 0 == get_exe_version_from_cmd(aud_stg->fullpath, aud_stg->cmd_ver, version)) {
@@ -252,13 +269,13 @@ static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO 
     write_log_auo_line(LOG_MORE, aud_dat->args);
 }
 
-static void recalculate_audio_delay_cut_for_afs(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const AUDIO_SETTINGS *aud_stg) {
+static void recalculate_audio_delay_cut_for_afs(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO_BASE *cnf_aud) {
     if (pe->delay_cut_additional_aframe > 0 || pe->delay_cut_additional_vframe > 0) { //ディレイカットの動画追加モード
         if (   conf->vid.afs                      //自動フィールドシフト
-            && 0 == conf->aud.audio_encode_timing //音声エンコ順が「後」
+            && 0 == cnf_aud->audio_encode_timing //音声エンコ順が「後」
             && fps_after_afs_is_24fps(oip->n, pe)) { //推定fpsが24fpsで修正が必要
             //追加した動画フレーム数を指定して再計算
-            const int audio_delay = aud_stg->mode[conf->aud.enc_mode].delay;
+            const int audio_delay = aud_stg->mode[cnf_aud->enc_mode].delay;
             double fps_after_afs = oip->rate / (double)oip->scale * 0.8;
             pe->delay_cut_additional_aframe = additional_silence_for_aud_delay_cut(fps_after_afs, oip->audio_rate, audio_delay, pe->delay_cut_additional_vframe);
         }
@@ -323,6 +340,10 @@ static AUO_RESULT wav_file_close(aud_data_t *aud_dat, const OUTPUT_INFO *oip, in
 
     //ファイルを閉じる
     (use_pipe) ? CloseStdIn(&aud_dat->pipes) : fclose(aud_dat->fp_out);
+    if (aud_dat->h_aud_namedpipe) {
+        DisconnectNamedPipe(aud_dat->h_aud_namedpipe);
+        CloseHandle(aud_dat->h_aud_namedpipe);
+    }
 
     //wavファイル出力が成功したか確認
     if (!use_pipe && !FileExistsAndHasSize(aud_dat->wavfile)) {
@@ -352,12 +373,30 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
         return ret;
     }
 
+    //パイプ or ファイルオープン
+    if (aud_dat->is_internal) {
+        for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+            char pipename[MAX_PATH_LEN];
+            get_audio_pipe_name(pipename, _countof(pipename), i_aud);
+            aud_dat[i_aud].h_aud_namedpipe = CreateNamedPipeA(pipename, PIPE_ACCESS_OUTBOUND, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 16384, 16384, 0, NULL);
+            aud_dat[i_aud].fp_out = _fdopen(_open_osfhandle((intptr_t)aud_dat[i_aud].h_aud_namedpipe, _O_BINARY), "wb");
+        }
+    }
+
     //確実なfcloseのために何故か一度ここで待機する必要あり
     if_valid_set_event(pe->aud_parallel.he_vid_start);
     if_valid_wait_for_single_object(pe->aud_parallel.he_aud_start, INFINITE);
+
     //パイプ or ファイルオープン
-    for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++)
-        ret |= wav_file_open(&aud_dat[i_aud], oip, use_pipe, wav_8bit, bufsize, auddispname, auddir, encoder_priority, disable_log);
+    if (aud_dat->is_internal) {
+        for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+            ConnectNamedPipe(aud_dat[i_aud].h_aud_namedpipe, NULL);
+            write_wav_header(aud_dat[i_aud].fp_out, oip, wav_8bit);
+        }
+    } else {
+        for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++)
+            ret |= wav_file_open(&aud_dat[i_aud], oip, use_pipe, wav_8bit, bufsize, auddispname, auddir, encoder_priority, disable_log);
+    }
 
     if (!ret) {
         //メッセージ
@@ -412,11 +451,14 @@ static AUO_RESULT init_aud_dat(aud_data_t *aud_dat, PRM_ENC *pe, BOOL use_pipe, 
         return AUO_RESULT_ERROR;
     }
 
+    aud_dat->is_internal = aud_stg->is_internal;
+    const CONF_AUDIO_BASE *aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
+
     //wavfile名作成
     make_wavfilename(aud_dat, use_pipe, pe->temp_filename, pe->append.wav);
 
     //pe一時パラメータにコピーしておく
-    strcpy_s(pe->append.aud[aud_dat->id], _countof(pe->append.aud[0]), (conf->aud.delay_cut == AUDIO_DELAY_CUT_EDTS) ? aud_stg->raw_appendix : aud_stg->aud_appendix);
+    strcpy_s(pe->append.aud[aud_dat->id], _countof(pe->append.aud[0]), (aud->delay_cut == AUDIO_DELAY_CUT_EDTS) ? aud_stg->raw_appendix : aud_stg->aud_appendix);
     if (aud_dat->id)
         insert_before_ext(pe->append.aud[aud_dat->id], _countof(pe->append.aud[0]), aud_dat->id);
 
@@ -439,7 +481,7 @@ static AUO_RESULT audio_run_enc_wavfile(aud_data_t *aud_dat, const AUDIO_SETTING
     }
     show_progressbar(TRUE, aud_stg->dispname, PROGRESSBAR_MARQUEE);
     int rp_ret;
-    if (RP_SUCCESS != (rp_ret = RunProcess(aud_dat->args, auddir, &aud_dat->pi_aud, &aud_dat->pipes, encoder_priority, TRUE, conf->aud.minimized))) {
+    if (RP_SUCCESS != (rp_ret = RunProcess(aud_dat->args, auddir, &aud_dat->pi_aud, &aud_dat->pipes, encoder_priority, TRUE, conf->aud.ext.minimized))) {
         ret |= AUO_RESULT_ERROR; error_run_process(aud_stg->dispname, rp_ret);
     }
     return ret;
@@ -481,21 +523,26 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
         return ret;
 
     //使用するエンコーダの設定を選択
-    const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud[conf->aud.encoder];
-    pe->aud_count = (aud_stg->mode[conf->aud.enc_mode].use_8bit == 2) ? 2 : 1;
+    const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
+    const AUDIO_SETTINGS *aud_stg = (conf->aud.use_internal) ? &sys_dat->exstg->s_aud_int[cnf_aud->encoder] : &sys_dat->exstg->s_aud_ext[cnf_aud->encoder];
+    pe->aud_count = (aud_stg->mode[cnf_aud->enc_mode].use_8bit == 2) ? 2 : 1;
 
     //もし必要なら、オーディオディレイカット用の追加sample数を再計算する
-    recalculate_audio_delay_cut_for_afs(conf, oip, pe, aud_stg);
+    recalculate_audio_delay_cut_for_afs(conf, oip, pe, aud_stg, cnf_aud);
 
     //可能ならfaw2aacを使用
-    if (conf->aud.encoder == sys_dat->exstg->s_aud_faw_index)
-        if (AUO_RESULT_SUCCESS == audio_faw2aac(conf, oip, pe, sys_dat))
+    if (sys_dat->exstg->is_faw(aud_stg)) {
+        if ((ret == audio_faw2aac(conf, oip, pe, sys_dat)) == AUO_RESULT_SUCCESS) {
             return run_bat_file(conf, oip, pe, sys_dat, RUN_BAT_AFTER_AUDIO);
+        } else if (ret == AUO_RESULT_ERROR) {
+            return ret;
+        }
+    }
 
     aud_data_t aud_dat[2] = { { 0, 0 }, { 1, 0 } };
     char auddir[MAX_PATH_LEN]  = { 0 };
-    const BOOL use_pipe = (!conf->aud.use_wav && !conf->aud.use_2pass) ? TRUE : FALSE;
-    DWORD encoder_priority = GetExePriority(conf->aud.priority, pe->h_p_aviutl);
+    const BOOL use_pipe = (!cnf_aud->use_wav && !cnf_aud->use_2pass) ? TRUE : FALSE;
+    DWORD encoder_priority = GetExePriority(cnf_aud->priority, pe->h_p_aviutl);
 
     //実行ファイルチェック(filenameが空文字列なら実行しない)
     if (str_has_char(aud_stg->filename) && !PathFileExists(aud_stg->fullpath)) {
@@ -512,19 +559,19 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
         init_aud_dat(&aud_dat[i_aud], pe, use_pipe, conf, oip, sys_dat, aud_stg);
 
     //情報表示
-    show_audio_enc_info(aud_stg, &conf->aud, pe, aud_dat);
+    show_audio_enc_info(aud_stg, cnf_aud, pe, aud_dat);
 
     //auddir作成
     PathGetDirectory(auddir, _countof(auddir), aud_stg->fullpath);
 
     //wav出力
-    ret |= wav_output(aud_dat, oip, pe, aud_stg->mode[conf->aud.enc_mode].use_8bit, sys_dat->exstg->s_local.audio_buffer_size, aud_stg->dispname, auddir, encoder_priority, aud_stg->disable_log);
+    ret |= wav_output(aud_dat, oip, pe, aud_stg->mode[cnf_aud->enc_mode].use_8bit, sys_dat->exstg->s_local.audio_buffer_size, aud_stg->dispname, auddir, encoder_priority, aud_stg->disable_log);
 
     //音声エンコード前バッチ処理
     ret |= run_bat_file(conf, oip, pe, sys_dat, RUN_BAT_BEFORE_AUDIO);
 
     //音声エンコード(filenameが空文字列なら実行しない)
-    if (!use_pipe && str_has_char(aud_stg->filename))
+    if (!aud_stg->is_internal && !use_pipe && str_has_char(aud_stg->filename))
         for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++)
             ret |= audio_run_enc_wavfile(&aud_dat[i_aud], aud_stg, conf, auddir, encoder_priority);
 

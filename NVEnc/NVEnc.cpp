@@ -183,8 +183,9 @@ BOOL func_output( OUTPUT_INFO *oip )
 
         ret |= run_bat_file(&conf_out, oip, &pe, &g_sys_dat, RUN_BAT_BEFORE_PROCESS);
 
+        const auto audio_encode_timing = (conf_out.aud.use_internal) ? 2 : conf_out.aud.ext.audio_encode_timing;
         for (int i = 0; !ret && i < 2; i++)
-            ret |= task[conf_out.aud.audio_encode_timing][i](&conf_out, oip, &pe, &g_sys_dat);
+            ret |= task[audio_encode_timing][i](&conf_out, oip, &pe, &g_sys_dat);
 
         if (!ret)
             ret |= mux(&conf_out, oip, &pe, &g_sys_dat);
@@ -271,7 +272,8 @@ void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     ZeroMemory(conf, sizeof(CONF_GUIEX));
     guiEx_config::write_conf_header(conf);
-    conf->aud.encoder = g_sys_dat.exstg->s_local.default_audio_encoder;
+    conf->aud.ext.encoder = g_sys_dat.exstg->s_local.default_audio_encoder_ext;
+    conf->aud.in.encoder  = g_sys_dat.exstg->s_local.default_audio_encoder_in;
     conf->vid.resize_width = 1280;
     conf->vid.resize_height = 720;
     conf->size_all = CONF_INITIALIZED;

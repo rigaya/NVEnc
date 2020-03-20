@@ -119,6 +119,12 @@ typedef struct {
     int  aud_temp_dir;        //音声専用一時フォルダ
     int  audio_encode_timing; //音声を先にエンコード
     int  delay_cut;           //エンコード遅延の削除
+} CONF_AUDIO_BASE; //音声用設定
+
+typedef struct {
+    CONF_AUDIO_BASE ext;
+    CONF_AUDIO_BASE in;
+    BOOL use_internal;
 } CONF_AUDIO; //音声用設定
 
 typedef struct {
@@ -132,6 +138,8 @@ typedef struct {
     BOOL apple_mode;      //Apple用モード(mp4系専用)
     BOOL disable_mpgext;  //mpg出力時、外部muxerを使用する
     int  mpg_mode;        //mpg 外部muxer用追加コマンドの設定
+    BOOL use_internal;    //内蔵muxerの使用
+    int  internal_mode;   //内蔵muxer用のオプション
 } CONF_MUX; //muxer用設定
 
 typedef struct {

@@ -45,7 +45,13 @@ static const char * const PIPE_FN = "-";
 
 static const char * const VID_FILE_APPENDIX = "_vid";
 
+static const char * const AUO_NAMED_PIPE_BASE = "\\\\.\\pipe\\Aviutl%08x_AuoAudioPipe%d";
+
 typedef AUO_RESULT (*encode_task) (CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
+
+const MUXER_CMD_EX *get_muxer_mode(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, int muxer_to_be_used);
+
+void get_audio_pipe_name(char *pipename, size_t nSize, int audIdx);
 
 BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const guiEx_settings *exstg);
 void open_log_window(const char *savefile, const SYSTEM_DATA *sys_dat, int current_pass, int total_pass);
@@ -58,7 +64,7 @@ BOOL fps_after_afs_is_24fps(const int frame_n, const PRM_ENC *pe);
 
 void get_aud_filename(char *audfile, size_t nSize, const PRM_ENC *pe, int i_aud); //音声一時ファイル名を作成
 void get_muxout_filename(char *filename, size_t nSize, const SYSTEM_DATA *sys_dat, const PRM_ENC *pe); //mux出力ファイル名を作成
-void set_chap_filename(char *chap_file, size_t cf_nSize, char *chap_apple, size_t ca_nSize, const char *chap_base, 
+void set_chap_filename(char *chap_file, size_t cf_nSize, char *chap_apple, size_t ca_nSize, const char *chap_base,
                        const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const CONF_GUIEX *conf, const OUTPUT_INFO *oip); //チャプターファイルのパスを生成
 void insert_num_to_replace_key(char *key, size_t nSize, int num);
 void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const CONF_GUIEX *conf, const OUTPUT_INFO *oip); //コマンドラインの共通置換を実行

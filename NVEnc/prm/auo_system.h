@@ -41,10 +41,13 @@
 #define ALIGN_PTR __declspec(align(8))
 #endif
 
+class std::mutex;
+
 typedef struct ALIGN_PTR {
     HANDLE ALIGN_PTR he_aud_start; //InterlockedExchangeを使用するため、__declspec(align(4))が必要
     HANDLE ALIGN_PTR he_vid_start; //InterlockedExchangeを使用するため、__declspec(align(4))が必要
     HANDLE th_aud;
+    std::mutex *mtx_aud;
     void  *buffer;
     DWORD  buf_len;
     DWORD  buf_max_size;
@@ -61,6 +64,7 @@ typedef struct {
     BOOL afs_init;                         //動画入力の準備ができているか
     BOOL vpp_afs;                          //vppのafsが使用されるか
     HANDLE h_p_aviutl;                     //優先度取得用のAviutlのハンドル
+    FILE *fp_enc_stdin;                    //エンコーダの標準入力
     char temp_filename[MAX_PATH_LEN];      //一時ファイル名
     char muxed_vid_filename[MAX_PATH_LEN]; //mux後に退避された動画のみファイル
     int  aud_count;                        //音声ファイル数...音声エンコード段階で設定する

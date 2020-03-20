@@ -45,7 +45,8 @@ static const BOOL   DEFAULT_DISABLE_VISUAL_STYLES = 0;
 static const BOOL   DEFAULT_ENABLE_STG_ESC_KEY    = 0;
 static const BOOL   DEFAULT_SAVE_RELATIVE_PATH    = 0;
 static const BOOL   DEFAULT_CHAP_NERO_TO_UTF8     = 0;
-static const BOOL   DEFAULT_AUDIO_ENCODER         = 15;
+static const BOOL   DEFAULT_AUDIO_ENCODER_EXT     = 15;
+static const BOOL   DEFAULT_AUDIO_ENCODER_IN      = 0;
 static const BOOL   DEFAULT_THREAD_TUNING         = 0;
 
 static const BOOL   DEFAULT_RUN_BAT_MINIMIZED     = 0;
@@ -170,8 +171,10 @@ typedef struct {
 } AUDIO_ENC_MODE;
 
 typedef struct {
+    BOOL is_internal;            //内蔵エンコーダかどうか
     char *keyName;               //iniファイルでのセクション名
     char *dispname;              //名前
+    char *codec;                 //コーデック名
     char *filename;              //拡張子付き名前
     char fullpath[MAX_PATH_LEN]; //エンコーダの場所(フルパス)
     char *aud_appendix;          //作成する音声ファイル名に追加する文字列
@@ -265,7 +268,8 @@ typedef struct {
     BOOL   enable_stg_esc_key;                  //設定画面でEscキーを有効化する
     AUO_FONT_INFO conf_font;                    //設定画面のフォント
     BOOL   chap_nero_convert_to_utf8;           //nero形式のチャプターをUTF-8に変換する
-    int    default_audio_encoder;               //デフォルトの音声エンコーダ
+    int    default_audio_encoder_ext;           //デフォルトの音声エンコーダ
+    int    default_audio_encoder_in;            //デフォルトの音声エンコーダ
     BOOL   get_relative_path;                   //相対パスで保存する
     BOOL   thread_tuning;                       //スレッドチューニング
 
@@ -303,10 +307,9 @@ private:
 
     void load_vid();          //動画エンコーダ関連の設定の読み込み・更新
     void load_aud();          //音声エンコーダ関連の設定の読み込み・更新
+    void load_aud(BOOL internal); //音声エンコーダ関連の設定の読み込み・更新
     void load_mux();          //muxerの設定の読み込み・更新
     void load_local();        //ファイルの場所等の設定の読み込み・更新
-
-    int get_faw_index();             //FAWのインデックスを取得する
     BOOL s_vid_refresh;              //動画設定の再ロード
 
     void make_default_stg_dir(char *default_stg_dir, DWORD nSize); //プロファイル設定ファイルの保存場所の作成
@@ -314,18 +317,18 @@ private:
 
 public:
     static char blog_url[MAX_PATH_LEN];      //ブログページのurl
-    int s_aud_count;                 //音声エンコーダの数
+    int s_aud_ext_count;                 //音声エンコーダの数
+    int s_aud_int_count;                 //音声エンコーダの数
     int s_mux_count;                 //muxerの数 (基本3固定)
     VIDEO_SETTINGS s_vid;            //動画エンコーダの設定
-    AUDIO_SETTINGS *s_aud;           //音声エンコーダの設定
+    AUDIO_SETTINGS *s_aud_ext;       //音声エンコーダの設定
+    AUDIO_SETTINGS *s_aud_int;       //音声エンコーダの設定
     MUXER_SETTINGS *s_mux;           //muxerの設定
     LOCAL_SETTINGS s_local;          //ファイルの場所等
     std::vector<FILENAME_REPLACE> fn_rep;  //一時ファイル名置換
     LOG_WINDOW_SETTINGS s_log;       //ログウィンドウ関連の設定
     FILE_APPENDIX s_append;          //各種ファイルに追加する名前
     BITRATE_CALC_SETTINGS s_fbc;    //簡易ビットレート計算機設定
-
-    int s_aud_faw_index;            //FAWのインデックス
 
     guiEx_settings();
     guiEx_settings(BOOL disable_loading);
@@ -345,6 +348,9 @@ public:
     void save_fbc();          //簡易ビットレート計算機設定の保存
 
     void apply_fn_replace(char *target_filename, DWORD nSize);  //一時ファイル名置換の適用
+
+    BOOL is_faw(const AUDIO_SETTINGS *aud_stg) const;
+    int get_faw_index(BOOL internal) const; //FAWのインデックスを取得する
 
 private:
     void initialize(BOOL disable_loading);

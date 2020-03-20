@@ -31,6 +31,10 @@
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
 #include <emmintrin.h>
+#include <fcntl.h>
+#include <io.h>
+#include <thread>
+#include <future>
 
 #include "output.h"
 #include "auo.h"
@@ -207,6 +211,19 @@ static AUO_RESULT audio_faw2aac_check(const char *audfile) {
     return ret;
 }
 
+typedef struct {
+    char name[MAX_PATH_LEN];
+    HANDLE h_pipe;
+} faw2aac_named_pipeset_t;
+
+typedef struct {
+    OUTPUT_INFO oip;
+    std::future<int> th_faw2aac;
+    faw2aac_named_pipeset_t from_auo;
+    faw2aac_named_pipeset_t to_exe;
+    char audfile[MAX_PATH_LEN];
+} faw2aac_data_t;
+
 AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     HMODULE hModule = NULL;
@@ -225,49 +242,116 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
     }
 
     if (hModule == NULL) {
-        ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_INFO, "faw2aac.auoが見つかりませんでした。");
+        ret = AUO_RESULT_WARNING; write_log_auo_line(LOG_INFO, "faw2aac.auoが見つかりませんでした。");
     } else if (
            NULL == (getFAW2AACTable = (func_get_auo_table)GetProcAddress(hModule, "GetOutputPluginTable"))
         || NULL == (opt = getFAW2AACTable())
         || NULL ==  opt->func_output) {
-        ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoのロードに失敗しました。");
+        ret = AUO_RESULT_WARNING; write_log_auo_line(LOG_WARNING, "faw2aac.auoのロードに失敗しました。");
     } else {
-        OUTPUT_INFO oip_faw2aac = *oip;
+        //進捗表示の取り込み
+        g_oip = oip;
+        g_pe = pe;
+
+        set_window_title("faw2aac", PROGRESSBAR_CONTINUOUS);
+        write_log_auo_line(LOG_INFO, "faw2aac で音声エンコードを行います。");
+        static const int PIPE_BUF = 4096;
+
+        faw2aac_data_t aud_dat[2];
         for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
-            //audfile名作成
-            char audfile[MAX_PATH_LEN];
-            const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud[conf->aud.encoder];
-            strcpy_s(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), aud_stg->aud_appendix); //pe一時パラメータにコピーしておく
-            if (i_aud)
-                insert_before_ext(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), i_aud);
-            get_aud_filename(audfile, _countof(audfile), pe, i_aud);
-            oip_faw2aac.savefile = audfile;
-            //進捗表示の取り込み
-            g_oip = oip;
-            g_pe = pe;
-            oip_faw2aac.func_rest_time_disp = auo_rest_time_disp;
+            aud_dat[i_aud].oip = *oip;
+            aud_dat[i_aud].from_auo.h_pipe = NULL;
+            aud_dat[i_aud].to_exe.h_pipe = NULL;
+            if (conf->aud.use_internal) {
+                static const char *const FAW2AAC_NAMED_PIPE_BASE = "\\\\.\\pipe\\Aviutl%08x_AuoFAW2AACPipe%d.aac";
+                sprintf_s(aud_dat[i_aud].from_auo.name, FAW2AAC_NAMED_PIPE_BASE, GetCurrentProcessId(), i_aud);
+                aud_dat[i_aud].from_auo.h_pipe = CreateNamedPipeA(aud_dat[i_aud].from_auo.name, PIPE_ACCESS_INBOUND, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, PIPE_BUF, PIPE_BUF, 0, NULL);
+                aud_dat[i_aud].oip.savefile = aud_dat[i_aud].from_auo.name;
+
+                get_audio_pipe_name(aud_dat[i_aud].to_exe.name, _countof(aud_dat[i_aud].to_exe.name), i_aud);
+                aud_dat[i_aud].to_exe.h_pipe = CreateNamedPipeA(aud_dat[i_aud].to_exe.name, PIPE_ACCESS_OUTBOUND, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, PIPE_BUF, PIPE_BUF, 0, NULL);
+            } else {
+                //audfile名作成
+                const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
+                const AUDIO_SETTINGS *aud_stg = (conf->aud.use_internal) ? &sys_dat->exstg->s_aud_int[cnf_aud->encoder] : &sys_dat->exstg->s_aud_ext[cnf_aud->encoder];
+                strcpy_s(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), aud_stg->aud_appendix); //pe一時パラメータにコピーしておく
+                if (i_aud)
+                    insert_before_ext(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), i_aud);
+                get_aud_filename(aud_dat[i_aud].audfile, _countof(aud_dat[i_aud].audfile), pe, i_aud);
+                aud_dat[i_aud].oip.savefile = aud_dat[i_aud].audfile;
+            }
+            aud_dat[i_aud].oip.func_rest_time_disp = auo_rest_time_disp;
             //並列処理制御用
             if (pe->aud_parallel.th_aud) {
-                oip_faw2aac.func_get_audio = (pe->aud_count > 1) ? FAW2AAC_AUDIO_PARALLEL[!!i_aud][!!check_sse2()] : auo_get_audio_parallel;
-                oip_faw2aac.func_is_abort = auo_get_if_abort;
-                oip_faw2aac.func_update_preview = auo_kill_update_preview;
-            //通常処理用
-            } else if (pe->aud_count > 1)
-                oip_faw2aac.func_get_audio = FAW2AAC_AUDIO_NORMAL[!!i_aud][!!check_sse2()];
-
-            //開始
-            if (opt->func_init && !opt->func_init()) {
-                ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoの初期化に失敗しました。");
-            } else {
-                set_window_title("faw2aac", PROGRESSBAR_CONTINUOUS);
-                write_log_auo_line(LOG_INFO, "faw2aac で音声エンコードを行います。");
-                if (FALSE == opt->func_output(&oip_faw2aac)) {
+                aud_dat[i_aud].oip.func_get_audio = (pe->aud_count > 1) ? FAW2AAC_AUDIO_PARALLEL[!!i_aud][!!check_sse2()] : auo_get_audio_parallel;
+                aud_dat[i_aud].oip.func_is_abort = auo_get_if_abort;
+                aud_dat[i_aud].oip.func_update_preview = auo_kill_update_preview;
+                //通常処理用
+            } else if (pe->aud_count > 1) {
+                aud_dat[i_aud].oip.func_get_audio = FAW2AAC_AUDIO_NORMAL[!!i_aud][!!check_sse2()];
+            }
+        }
+        if_valid_set_event(pe->aud_parallel.he_vid_start);
+        if_valid_wait_for_single_object(pe->aud_parallel.he_aud_start, INFINITE);
+        for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+            aud_dat[i_aud].th_faw2aac = std::async([&](int audio_idx) {
+                int ret = AUO_RESULT_SUCCESS;
+                //開始
+                if (opt->func_init && !opt->func_init()) {
+                    ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoの初期化に失敗しました。");
+                } else if (FALSE == opt->func_output(&aud_dat[audio_idx].oip)) {
                     ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoの実行に失敗しました。");
                 }
                 if (opt->func_exit)
                     opt->func_exit();
+                return ret;
+            }, i_aud);
+        }
+        if (conf->aud.use_internal) {
+            for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+                ConnectNamedPipe(aud_dat[i_aud].to_exe.h_pipe, NULL);
+            }
+            auto threads_finished = [&]() {
+                for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
+                    if (aud_dat[i_aud].th_faw2aac.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+                ConnectNamedPipe(aud_dat[i_aud].from_auo.h_pipe, NULL);
+            }
+            while (!threads_finished()) {
+                for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
+                    DWORD sizeRead = 0;
+                    char buffer[PIPE_BUF];
+                    if (ReadFile(aud_dat[i_aud].from_auo.h_pipe, buffer, sizeof(buffer), &sizeRead, NULL) == 0) {
+                        ret = AUO_RESULT_ERROR;
+                    } else if (sizeRead > 0) {
+                        DWORD sizeWritten = 0;
+                        if (WriteFile(aud_dat[i_aud].to_exe.h_pipe, buffer, sizeRead, &sizeWritten, NULL) == 0) {
+                            ret = AUO_RESULT_ERROR;
+                        }
+                    }
+                }
+            }
+            for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+                DisconnectNamedPipe(aud_dat[i_aud].from_auo.h_pipe);
+                DisconnectNamedPipe(aud_dat[i_aud].to_exe.h_pipe);
+                CloseHandle(aud_dat[i_aud].from_auo.h_pipe);
+                CloseHandle(aud_dat[i_aud].to_exe.h_pipe);
+                if (aud_dat[i_aud].th_faw2aac.get() != AUO_RESULT_SUCCESS) {
+                    ret = AUO_RESULT_ERROR;
+                }
+            }
+        } else {
+            for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+                if (aud_dat[i_aud].th_faw2aac.get() != AUO_RESULT_SUCCESS) {
+                    ret = AUO_RESULT_ERROR;
+                }
                 if (!ret)
-                    ret |= audio_faw2aac_check(audfile);
+                    ret |= audio_faw2aac_check(aud_dat[i_aud].audfile);
             }
         }
         release_audio_parallel_events(pe);
