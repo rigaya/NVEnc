@@ -143,7 +143,7 @@ public:
     NVENCSTATUS createDeviceCodecList();
 
     //Profile, Preset, Featureなどの情報を作成し、m_EncodeFeaturesを完成させる
-    NVENCSTATUS createDeviceFeatureList(bool getPresetConfig = true);
+    NVENCSTATUS createDeviceFeatureList(bool getPresetConfig = false);
 
     //コーデックのFeature情報のリストの作成・取得
     const std::vector<NVEncCodecFeature> &GetNVEncCapability();
