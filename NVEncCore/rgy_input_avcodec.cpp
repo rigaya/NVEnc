@@ -2153,7 +2153,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
             auto pkt2 = m_Demux.qStreamPktL1.front();
             AVDemuxStream *pStream2 = getPacketStreamData(&pkt2);
             const double pkt2timeSec = pkt2.pts * (double)pStream2->stream->time_base.num / (double)pStream2->stream->time_base.den;
-            if (pkt2timeSec > vidEstDurationSec - 5.0) {
+            if (pkt2timeSec > vidEstDurationSec + 5.0) {
                 break;
             }
             pkt2.flags = (pkt2.flags & 0xffff) | ((uint32_t)pStream2->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
@@ -2185,7 +2185,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
             auto pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
             auto pkt_dist = pktt - pStream->pktSample.pts;
             //1フレーム分のサンプルを取得したら終了
-            if (pkt_dist * (double)pStream->stream->time_base.num / (double)pStream->stream->time_base.den > vidEstDurationSec - 2.5) {
+            if (pkt_dist * (double)pStream->stream->time_base.num / (double)pStream->stream->time_base.den > vidEstDurationSec + 2.5) {
                 //およそ1フレーム分のパケットを設定する
                 int64_t pts = inputFrame;
                 m_Demux.frames.add(framePos(pts, pts, 1, 0, inputFrame, AV_PKT_FLAG_KEY));
