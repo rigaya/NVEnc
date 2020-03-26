@@ -469,7 +469,8 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         write_log_auo_line(LOG_ERROR, "どちらかを選択してからやり直してください。");
         return AUO_RESULT_ERROR;
     }
-    if (conf->aud.use_internal) {
+
+    if ((oip->flag & OUTPUT_INFO_FLAG_AUDIO) && conf->aud.use_internal) {
         if_valid_wait_for_single_object(pe->aud_parallel.he_vid_start, INFINITE);
         auto common = &enc_prm.common;
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
@@ -484,7 +485,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             AudioSource src;
             src.filename = pipename;
             AudioSelect &chSel = src.select[0];
-            if (strcmp(aud_stg->codec, "faw") == 0) {
+            if (sys_dat->exstg->is_faw(aud_stg)) {
                 chSel.encCodec = "copy";
             } else {
                 chSel.encBitrate = cnf_aud->bitrate;

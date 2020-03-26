@@ -214,11 +214,13 @@ static AUO_RESULT audio_faw2aac_check(const char *audfile) {
 typedef struct {
     char name[MAX_PATH_LEN];
     HANDLE h_pipe;
+    HANDLE he_ov_aud_namedpipe;
 } faw2aac_named_pipeset_t;
 
 typedef struct {
     OUTPUT_INFO oip;
     std::future<int> th_faw2aac;
+    std::future<int> th_transfer;
     faw2aac_named_pipeset_t from_auo;
     faw2aac_named_pipeset_t to_exe;
     char audfile[MAX_PATH_LEN];
@@ -269,7 +271,8 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
                 aud_dat[i_aud].oip.savefile = aud_dat[i_aud].from_auo.name;
 
                 get_audio_pipe_name(aud_dat[i_aud].to_exe.name, _countof(aud_dat[i_aud].to_exe.name), i_aud);
-                aud_dat[i_aud].to_exe.h_pipe = CreateNamedPipeA(aud_dat[i_aud].to_exe.name, PIPE_ACCESS_OUTBOUND, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, PIPE_BUF, PIPE_BUF, 0, NULL);
+                aud_dat[i_aud].to_exe.h_pipe = CreateNamedPipeA(aud_dat[i_aud].to_exe.name, PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, PIPE_BUF, PIPE_BUF, 0, NULL);
+                aud_dat[i_aud].to_exe.he_ov_aud_namedpipe = CreateEvent(NULL, FALSE, FALSE, NULL);
             } else {
                 //audfile名作成
                 const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
@@ -293,25 +296,26 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
         }
         if_valid_set_event(pe->aud_parallel.he_vid_start);
         if_valid_wait_for_single_object(pe->aud_parallel.he_aud_start, INFINITE);
-        for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
-            aud_dat[i_aud].th_faw2aac = std::async([&](int audio_idx) {
-                int ret = AUO_RESULT_SUCCESS;
-                //開始
-                if (opt->func_init && !opt->func_init()) {
-                    ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoの初期化に失敗しました。");
-                } else if (FALSE == opt->func_output(&aud_dat[audio_idx].oip)) {
+        HANDLE threadStarted[2] = { NULL, NULL };
+        auto run_faw2aac = [&](int audio_idx) {
+            int ret = AUO_RESULT_SUCCESS;
+            //開始
+            if (opt->func_init && !opt->func_init()) {
+                ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoの初期化に失敗しました。");
+            } else {
+                //faw2aac用の処理スレッドが処理を開始したことを通知
+                if (threadStarted[audio_idx]) SetEvent(threadStarted[audio_idx]);
+                if (FALSE == opt->func_output(&aud_dat[audio_idx].oip)) {
                     ret = AUO_RESULT_ERROR; write_log_auo_line(LOG_WARNING, "faw2aac.auoの実行に失敗しました。");
                 }
-                if (opt->func_exit)
-                    opt->func_exit();
-                return ret;
-            }, i_aud);
-        }
-        if (conf->aud.use_internal) {
-            for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
-                ConnectNamedPipe(aud_dat[i_aud].to_exe.h_pipe, NULL);
             }
-            auto threads_finished = [&]() {
+            if (opt->func_exit)
+                opt->func_exit();
+            return ret;
+        };
+
+        if (conf->aud.use_internal) {
+            auto th_faw2aac_finished = [&]() {
                 for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
                     if (aud_dat[i_aud].th_faw2aac.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
                         return false;
@@ -319,37 +323,96 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
                 }
                 return true;
             };
-            for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
-                ConnectNamedPipe(aud_dat[i_aud].from_auo.h_pipe, NULL);
-            }
-            while (!threads_finished()) {
+            auto th_transfer_finished = [&]() {
                 for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
-                    DWORD sizeRead = 0;
-                    char buffer[PIPE_BUF];
-                    if (ReadFile(aud_dat[i_aud].from_auo.h_pipe, buffer, sizeof(buffer), &sizeRead, NULL) == 0) {
-                        ret = AUO_RESULT_ERROR;
-                    } else if (sizeRead > 0) {
-                        DWORD sizeWritten = 0;
-                        if (WriteFile(aud_dat[i_aud].to_exe.h_pipe, buffer, sizeRead, &sizeWritten, NULL) == 0) {
-                            ret = AUO_RESULT_ERROR;
+                    if (aud_dat[i_aud].th_transfer.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            auto run_transfer_pipe = [&](int audio_idx) {
+                int ret = 0;
+                //faw2aacを実行するスレッドの起動を確認する
+                while (WaitForSingleObject(threadStarted[audio_idx], 10) == WAIT_TIMEOUT) {
+                    if (pe->aud_parallel.abort || aud_dat[audio_idx].th_faw2aac.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+                        return 1; //faw2aacを実行するスレッドが異常終了した場合
+                    }
+                }
+                //少し待って様子を見る(func_outputが失敗しないかどうか)
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                if (aud_dat[audio_idx].th_faw2aac.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+                    return 1; //faw2aacを実行するスレッドが異常終了した場合
+                }
+                //エンコーダプロセスの起動を確認
+                OVERLAPPED overlapped;
+                memset(&overlapped, 0, sizeof(overlapped));
+                overlapped.hEvent = aud_dat[audio_idx].to_exe.he_ov_aud_namedpipe;
+                ConnectNamedPipe(aud_dat[audio_idx].to_exe.h_pipe, &overlapped);
+                while (WaitForSingleObject(overlapped.hEvent, 50) != WAIT_OBJECT_0) {
+                    if (pe->aud_parallel.abort || aud_dat[audio_idx].th_faw2aac.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+                        return 1;
+                    }
+                }
+                //転送を実行
+                while (!pe->aud_parallel.abort) {
+                    const bool faw2aac_finished = th_faw2aac_finished();
+                    bool readFinished = true;
+                    for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
+                        DWORD sizeRead = 0;
+                        char buffer[PIPE_BUF];
+                        if (ReadFile(aud_dat[i_aud].from_auo.h_pipe, buffer, sizeof(buffer), &sizeRead, NULL) == 0) {
+                            return 1;
+                        } else if (sizeRead > 0) {
+                            readFinished = false;
+                            DWORD sizeWritten = 0;
+                            if (WriteFile(aud_dat[i_aud].to_exe.h_pipe, buffer, sizeRead, &sizeWritten, &overlapped) == 0) {
+                                return 1;
+                            }
+                            while (WaitForSingleObject(overlapped.hEvent, 50) != WAIT_OBJECT_0) {
+                                if (pe->aud_parallel.abort) {
+                                    return 1;
+                                }
+                            }
                         }
+                    }
+                    //faw2aacが終了し、かつ転送するものがなくなったら終了
+                    if (faw2aac_finished && readFinished) {
+                        break;
+                    }
+                }
+                return pe->aud_parallel.abort ? 1 : 0;
+            };
+            //スレッドを起動
+            for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
+                threadStarted[i_aud] = CreateEvent(NULL, FALSE, FALSE, NULL);
+                aud_dat[i_aud].th_faw2aac = std::async(run_faw2aac, i_aud);
+                aud_dat[i_aud].th_transfer = std::async(run_transfer_pipe, i_aud);
+            }
+            for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
+                if (aud_dat[i_aud].th_transfer.valid()) {
+                    if (aud_dat[i_aud].th_transfer.get() != AUO_RESULT_SUCCESS) {
+                        ret = AUO_RESULT_ERROR;
                     }
                 }
             }
-            for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
-                DisconnectNamedPipe(aud_dat[i_aud].from_auo.h_pipe);
-                DisconnectNamedPipe(aud_dat[i_aud].to_exe.h_pipe);
-                CloseHandle(aud_dat[i_aud].from_auo.h_pipe);
-                CloseHandle(aud_dat[i_aud].to_exe.h_pipe);
-                if (aud_dat[i_aud].th_faw2aac.get() != AUO_RESULT_SUCCESS) {
-                    ret = AUO_RESULT_ERROR;
+            //あと片付け
+            for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
+                if (aud_dat[i_aud].from_auo.h_pipe) {
+                    DisconnectNamedPipe(aud_dat[i_aud].from_auo.h_pipe);
+                    CloseHandle(aud_dat[i_aud].from_auo.h_pipe);
+                }
+                if (aud_dat[i_aud].to_exe.h_pipe) {
+                    DisconnectNamedPipe(aud_dat[i_aud].to_exe.h_pipe);
+                    CloseHandle(aud_dat[i_aud].to_exe.h_pipe);
+                }
+                if (aud_dat[i_aud].to_exe.he_ov_aud_namedpipe) {
+                    CloseHandle(aud_dat[i_aud].to_exe.he_ov_aud_namedpipe);
                 }
             }
         } else {
             for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
-                if (aud_dat[i_aud].th_faw2aac.get() != AUO_RESULT_SUCCESS) {
-                    ret = AUO_RESULT_ERROR;
-                }
+                ret = run_faw2aac(i_aud);
                 if (!ret)
                     ret |= audio_faw2aac_check(aud_dat[i_aud].audfile);
             }
