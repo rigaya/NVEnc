@@ -174,24 +174,28 @@ typedef struct {
     LOG_CACHE log_line_cache;
 } aud_data_t;
 
-static size_t write_file(aud_data_t *aud_dat, const void *buf, size_t size) {
+static size_t write_file(aud_data_t *aud_dat, const PRM_ENC *pe, const void *buf, size_t size) {
     if (aud_dat->is_internal) {
         OVERLAPPED overlapped;
         memset(&overlapped, 0, sizeof(overlapped));
         overlapped.hEvent = aud_dat->he_ov_aud_namedpipe;
         DWORD sizeWritten = 0;
         WriteFile(aud_dat->h_aud_namedpipe, buf, size, &sizeWritten, &overlapped);
-        WaitForSingleObject(overlapped.hEvent, INFINITE);
+        while (WaitForSingleObject(overlapped.hEvent, 1000) != WAIT_OBJECT_0) {
+            if (pe->aud_parallel.abort) {
+                return 0;
+            }
+        }
         return sizeWritten;
     } else {
         return _fwrite_nolock(buf, 1, size, aud_dat->fp_out);
     }
 }
 
-static void write_wav_header(aud_data_t *aud_dat, const OUTPUT_INFO *oip, BOOL use_8bit) {
+static void write_wav_header(aud_data_t *aud_dat, const OUTPUT_INFO *oip, const PRM_ENC *pe, BOOL use_8bit) {
     BYTE head[WAVE_HEADER_SIZE];
     build_wave_header(head, oip, use_8bit, oip->audio_n);
-    write_file(aud_dat, &head, sizeof(head));
+    write_file(aud_dat, pe, &head, sizeof(head));
 }
 
 static void make_wavfilename(aud_data_t *aud_dat, BOOL use_pipe, const char *tempfilename, const char *append_wav) {
@@ -296,7 +300,7 @@ static void recalculate_audio_delay_cut_for_afs(const CONF_GUIEX *conf, const OU
     }
 }
 
-static AUO_RESULT silent_wav_output(aud_data_t *aud_dat, int samples, int wav_8bit, int audio_ch) {
+static AUO_RESULT silent_wav_output(aud_data_t *aud_dat, const PRM_ENC *pe, int samples, int wav_8bit, int audio_ch) {
     if (NULL == aud_dat)
         return AUO_RESULT_ERROR;
 
@@ -312,12 +316,12 @@ static AUO_RESULT silent_wav_output(aud_data_t *aud_dat, int samples, int wav_8b
         for (int i = 0; i < silent_bytes; i++)
             buffer[i] = 128;
 
-    write_file(aud_dat, buffer, silent_bytes);
+    write_file(aud_dat, pe, buffer, silent_bytes);
     free(buffer);
     return AUO_RESULT_SUCCESS;
 }
 
-static AUO_RESULT wav_file_open(aud_data_t *aud_dat, const OUTPUT_INFO *oip, BOOL use_pipe, BOOL wav_8bit, int bufsize,
+static AUO_RESULT wav_file_open(aud_data_t *aud_dat, const OUTPUT_INFO *oip, const PRM_ENC *pe, BOOL use_pipe, BOOL wav_8bit, int bufsize,
                                 const char *auddispname, const char *auddir, DWORD encoder_priority, DWORD disable_log) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     if (use_pipe) {
@@ -342,7 +346,7 @@ static AUO_RESULT wav_file_open(aud_data_t *aud_dat, const OUTPUT_INFO *oip, BOO
     }
     //wavヘッダ出力
     if (!ret)
-        write_wav_header(aud_dat, oip, wav_8bit);
+        write_wav_header(aud_dat, oip, pe, wav_8bit);
     return ret;
 }
 
@@ -412,11 +416,11 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
                     break;
                 }
             }
-            write_wav_header(&aud_dat[i_aud], oip, wav_8bit);
+            write_wav_header(&aud_dat[i_aud], oip, pe, wav_8bit);
         }
     } else {
         for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++)
-            ret |= wav_file_open(&aud_dat[i_aud], oip, use_pipe, wav_8bit, bufsize, auddispname, auddir, encoder_priority, disable_log);
+            ret |= wav_file_open(&aud_dat[i_aud], oip, pe, use_pipe, wav_8bit, bufsize, auddispname, auddir, encoder_priority, disable_log);
     }
 
     if (!ret) {
@@ -425,7 +429,7 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
 
         //wav出力
         for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)
-            silent_wav_output(&aud_dat[i_aud], pe->delay_cut_additional_aframe, wav_8bit, oip->audio_ch);
+            silent_wav_output(&aud_dat[i_aud], pe, pe->delay_cut_additional_aframe, wav_8bit, oip->audio_ch);
 
         const int wav_sample_size = oip->audio_ch * ((wav_8bit) ? sizeof(BYTE) : sizeof(short));
         void *audio_dat = NULL;
@@ -449,7 +453,7 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
 
             const int write_bytes = samples_get * wav_sample_size;
             for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)
-                write_file(&aud_dat[i_aud], (wav_8bit) ? buf8bit + i_aud * write_bytes : audio_dat, write_bytes);
+                write_file(&aud_dat[i_aud], pe, (wav_8bit) ? buf8bit + i_aud * write_bytes : audio_dat, write_bytes);
         }
 
         //動画との音声との同時処理が終了

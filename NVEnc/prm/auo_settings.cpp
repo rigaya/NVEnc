@@ -297,7 +297,6 @@ void guiEx_settings::load_aud(BOOL internal) {
     int i, j, k;
     char encoder_section[INI_KEY_MAX_LEN];
     char key[INI_KEY_MAX_LEN];
-    size_t keybase_len;
 
     const auto ini_section = (internal) ? INI_SECTION_AUD_INTERNAL : INI_SECTION_AUD;
     const int s_aud_count = (internal) ? s_aud_int_count : s_aud_ext_count;
@@ -319,6 +318,7 @@ void guiEx_settings::load_aud(BOOL internal) {
         s_aud[i].cmd_raw      = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_cmd",      "", ini_fileName);
         s_aud[i].pipe_input   = GetPrivateProfileInt(            encoder_section, "pipe_input",    0, ini_fileName);
         s_aud[i].disable_log  = GetPrivateProfileInt(            encoder_section, "disable_log",   0, ini_fileName);
+        s_aud[i].auolink_only = GetPrivateProfileInt(            encoder_section, "auolink_only",  0, ini_fileName);
 
         sprintf_s(encoder_section, sizeof(encoder_section), "%s%s", INI_SECTION_MODE, s_aud[i].keyName);
         int tmp_count = GetPrivateProfileInt(encoder_section, "count", 0, ini_fileName);
@@ -329,7 +329,7 @@ void guiEx_settings::load_aud(BOOL internal) {
         for (j = 0; j < tmp_count; j++) {
             sprintf_s(key, _countof(key), "mode_%d", j+1);
             tmp_mode[j].name = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName);
-            keybase_len = strlen(key);
+            const size_t keybase_len = strlen(key);
             strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_cmd");
             tmp_mode[j].cmd = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName);
             strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_2pass");
@@ -499,18 +499,19 @@ void guiEx_settings::load_local() {
 
     clear_local();
 
-    s_local.large_cmdbox              = GetPrivateProfileInt(   ini_section_main, "large_cmdbox",             DEFAULT_LARGE_CMD_BOX,         conf_fileName);
-    s_local.auto_afs_disable          = GetPrivateProfileInt(   ini_section_main, "auto_afs_disable",         DEFAULT_AUTO_AFS_DISABLE,      conf_fileName);
-    s_local.default_output_ext        = GetPrivateProfileInt(   ini_section_main, "default_output_ext",       DEFAULT_OUTPUT_EXT,            conf_fileName);
-    s_local.auto_del_chap             = GetPrivateProfileInt(   ini_section_main, "auto_del_chap",            DEFAULT_AUTO_DEL_CHAP,         conf_fileName);
-    s_local.disable_tooltip_help      = GetPrivateProfileInt(   ini_section_main, "disable_tooltip_help",     DEFAULT_DISABLE_TOOLTIP_HELP,  conf_fileName);
-    s_local.disable_visual_styles     = GetPrivateProfileInt(   ini_section_main, "disable_visual_styles",    DEFAULT_DISABLE_VISUAL_STYLES, conf_fileName);
-    s_local.enable_stg_esc_key        = GetPrivateProfileInt(   ini_section_main, "enable_stg_esc_key",       DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
-    s_local.chap_nero_convert_to_utf8 = GetPrivateProfileInt(   ini_section_main, "chap_nero_convert_to_utf8",DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
-    s_local.get_relative_path         = GetPrivateProfileInt(   ini_section_main, "get_relative_path",        DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
-    s_local.run_bat_minimized         = GetPrivateProfileInt(   ini_section_main, "run_bat_minimized",        DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
-    s_local.default_audio_encoder_ext = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder",    DEFAULT_AUDIO_ENCODER_EXT,     conf_fileName);
-    s_local.default_audio_encoder_in  = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder_in", DEFAULT_AUDIO_ENCODER_IN,      conf_fileName);
+    s_local.large_cmdbox              = GetPrivateProfileInt(   ini_section_main, "large_cmdbox",              DEFAULT_LARGE_CMD_BOX,         conf_fileName);
+    s_local.auto_afs_disable          = GetPrivateProfileInt(   ini_section_main, "auto_afs_disable",          DEFAULT_AUTO_AFS_DISABLE,      conf_fileName);
+    s_local.default_output_ext        = GetPrivateProfileInt(   ini_section_main, "default_output_ext",        DEFAULT_OUTPUT_EXT,            conf_fileName);
+    s_local.auto_del_chap             = GetPrivateProfileInt(   ini_section_main, "auto_del_chap",             DEFAULT_AUTO_DEL_CHAP,         conf_fileName);
+    s_local.disable_tooltip_help      = GetPrivateProfileInt(   ini_section_main, "disable_tooltip_help",      DEFAULT_DISABLE_TOOLTIP_HELP,  conf_fileName);
+    s_local.disable_visual_styles     = GetPrivateProfileInt(   ini_section_main, "disable_visual_styles",     DEFAULT_DISABLE_VISUAL_STYLES, conf_fileName);
+    s_local.enable_stg_esc_key        = GetPrivateProfileInt(   ini_section_main, "enable_stg_esc_key",        DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
+    s_local.chap_nero_convert_to_utf8 = GetPrivateProfileInt(   ini_section_main, "chap_nero_convert_to_utf8", DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
+    s_local.get_relative_path         = GetPrivateProfileInt(   ini_section_main, "get_relative_path",         DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
+    s_local.run_bat_minimized         = GetPrivateProfileInt(   ini_section_main, "run_bat_minimized",         DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
+    s_local.default_audio_encoder_ext = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder",     DEFAULT_AUDIO_ENCODER_EXT,     conf_fileName);
+    s_local.default_audio_encoder_in  = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder_in",  DEFAULT_AUDIO_ENCODER_IN,      conf_fileName);
+    s_local.default_audenc_use_in     = GetPrivateProfileInt(   ini_section_main, "default_audenc_use_in",     DEFAULT_AUDIO_ENCODER_USE_IN,  conf_fileName);
 
 
     GetFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
@@ -581,18 +582,19 @@ void guiEx_settings::load_fbc() {
 }
 
 void guiEx_settings::save_local() {
-    WritePrivateProfileIntWithDefault(   ini_section_main, "large_cmdbox",              s_local.large_cmdbox,             DEFAULT_LARGE_CMD_BOX,         conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "auto_afs_disable",          s_local.auto_afs_disable,         DEFAULT_AUTO_AFS_DISABLE,      conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "default_output_ext",        s_local.default_output_ext,       DEFAULT_OUTPUT_EXT,            conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "auto_del_chap",             s_local.auto_del_chap,            DEFAULT_AUTO_DEL_CHAP,         conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "disable_tooltip_help",      s_local.disable_tooltip_help,     DEFAULT_DISABLE_TOOLTIP_HELP,  conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "disable_visual_styles",     s_local.disable_visual_styles,    DEFAULT_DISABLE_VISUAL_STYLES, conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "enable_stg_esc_key",        s_local.enable_stg_esc_key,       DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "large_cmdbox",              s_local.large_cmdbox,              DEFAULT_LARGE_CMD_BOX,         conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "auto_afs_disable",          s_local.auto_afs_disable,          DEFAULT_AUTO_AFS_DISABLE,      conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "default_output_ext",        s_local.default_output_ext,        DEFAULT_OUTPUT_EXT,            conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "auto_del_chap",             s_local.auto_del_chap,             DEFAULT_AUTO_DEL_CHAP,         conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "disable_tooltip_help",      s_local.disable_tooltip_help,      DEFAULT_DISABLE_TOOLTIP_HELP,  conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "disable_visual_styles",     s_local.disable_visual_styles,     DEFAULT_DISABLE_VISUAL_STYLES, conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "enable_stg_esc_key",        s_local.enable_stg_esc_key,        DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "chap_nero_convert_to_utf8", s_local.chap_nero_convert_to_utf8, DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "get_relative_path",         s_local.get_relative_path,        DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "run_bat_minimized",         s_local.run_bat_minimized,        DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder",     s_local.default_audio_encoder_ext,DEFAULT_AUDIO_ENCODER_EXT,     conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder_in",  s_local.default_audio_encoder_in, DEFAULT_AUDIO_ENCODER_IN,      conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "get_relative_path",         s_local.get_relative_path,         DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "run_bat_minimized",         s_local.run_bat_minimized,         DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder",     s_local.default_audio_encoder_ext, DEFAULT_AUDIO_ENCODER_EXT,     conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder_in",  s_local.default_audio_encoder_in,  DEFAULT_AUDIO_ENCODER_IN,      conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "default_audenc_use_in",     s_local.default_audenc_use_in,     DEFAULT_AUDIO_ENCODER_USE_IN,  conf_fileName);
 
 
     WriteFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
@@ -653,7 +655,7 @@ void guiEx_settings::save_log_win() {
     WriteColorInfo(ini_section_main, "log_color_text_info",    s_log.log_color_text[0],    DEFAULT_LOG_COLOR_TEXT[0],    conf_fileName);
     WriteColorInfo(ini_section_main, "log_color_text_warning", s_log.log_color_text[1],    DEFAULT_LOG_COLOR_TEXT[1],    conf_fileName);
     WriteColorInfo(ini_section_main, "log_color_text_error",   s_log.log_color_text[2],    DEFAULT_LOG_COLOR_TEXT[2],    conf_fileName);
-    WriteFontInfo(ini_section_main, "log_font", &s_log.log_font, conf_fileName);
+    WriteFontInfo( ini_section_main, "log_font", &s_log.log_font, conf_fileName);
 }
 
 void guiEx_settings::save_fbc() {

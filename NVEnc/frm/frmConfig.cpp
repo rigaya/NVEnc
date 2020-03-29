@@ -252,7 +252,8 @@ System::Boolean frmConfig::CheckLocalStg() {
             err += L"FAWCheckが選択されましたが、NVEnc.ini から\n"
                 + L"FAW の設定を読み込めませんでした。\n"
                 + L"NVEnc.ini を確認してください。\n";
-        } else if (!File::Exists(LocalStg.audEncPath[sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked)])
+        } else if (fcgCBAudioUseExt->Checked
+                   && !File::Exists(LocalStg.audEncPath[sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked)])
                    && !check_if_faw2aac_exists()) {
             //fawの実行ファイルが存在しない かつ faw2aacも存在しない
             if (!error) err += L"\n\n";
@@ -282,7 +283,7 @@ System::Void frmConfig::SaveLocalStg() {
     GetCHARfromString(_ex_stg->s_mux[MUXER_MPG].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MPG].fullpath),     LocalStg.MPGMuxerPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_MP4_RAW].fullpath, sizeof(_ex_stg->s_mux[MUXER_MP4_RAW].fullpath), LocalStg.MP4RawPath);
     for (int i = 0; i < _ex_stg->s_aud_ext_count; i++)
-        GetCHARfromString(_ex_stg->s_aud_ext[i].fullpath,         sizeof(_ex_stg->s_aud_ext[i].fullpath),             LocalStg.audEncPath[i]);
+        GetCHARfromString(_ex_stg->s_aud_ext[i].fullpath, sizeof(_ex_stg->s_aud_ext[i].fullpath), LocalStg.audEncPath[i]);
     _ex_stg->save_local();
 }
 
@@ -331,6 +332,9 @@ System::Void frmConfig::fcgTSBOtherSettings_Click(System::Object^  sender, Syste
     guiEx_settings stg;
     stg.load_encode_stg();
     log_reload_settings();
+    sys_dat->exstg->s_local.default_audenc_use_in = stg.s_local.default_audenc_use_in;
+    sys_dat->exstg->s_local.default_audio_encoder_ext = stg.s_local.default_audio_encoder_ext;
+    sys_dat->exstg->s_local.default_audio_encoder_in = stg.s_local.default_audio_encoder_in;
     sys_dat->exstg->s_local.get_relative_path = stg.s_local.get_relative_path;
     SetStgEscKey(stg.s_local.enable_stg_esc_key != 0);
     ActivateToolTip(stg.s_local.disable_tooltip_help == FALSE);
@@ -416,8 +420,9 @@ System::Void frmConfig::setAudioExtDisplay() {
     fcgTXAudioEncoderPath->SelectionStart = fcgTXAudioEncoderPath->Text->Length;
     fcgCXAudioEncMode->BeginUpdate();
     fcgCXAudioEncMode->Items->Clear();
-    for (int i = 0; i < astg->mode_count; i++)
+    for (int i = 0; i < astg->mode_count; i++) {
         fcgCXAudioEncMode->Items->Add(String(astg->mode[i].name).ToString());
+    }
     fcgCXAudioEncMode->EndUpdate();
     bool pipe_enabled = (astg->pipe_input && (!(fcgCBAudio2pass->Checked && astg->mode[fcgCXAudioEncMode->SelectedIndex].enc_2pass != 0)));
     CurrentPipeEnabled = pipe_enabled;
@@ -443,7 +448,7 @@ System::Void frmConfig::AudioExtEncodeModeChanged() {
         fcgLBAudioBitrate->Visible = false;
         fcgNUAudioBitrate->Visible = false;
         fcgNUAudioBitrate->Minimum = 0;
-        fcgNUAudioBitrate->Maximum = 1536; //音声の最大レートは1536kbps
+        fcgNUAudioBitrate->Maximum = 65536;
     }
     fcgCBAudio2pass->Enabled = astg->mode[index].enc_2pass != 0;
     if (!fcgCBAudio2pass->Enabled) fcgCBAudio2pass->Checked = false;
@@ -498,12 +503,26 @@ System::Void frmConfig::fcgCXAudioEncModeInternal_SelectedIndexChanged(System::O
     AudioIntEncodeModeChanged();
 }
 
+bool frmConfig::AudioIntEncoderEnabled(const AUDIO_SETTINGS *astg, bool isAuoLinkMode) {
+    if (isAuoLinkMode && astg->auolink_only < 0) {
+        return false;
+    } else if (!isAuoLinkMode && astg->auolink_only > 0) {
+        return false;
+    }
+    return true;
+}
+
 System::Void frmConfig::setAudioIntDisplay() {
     AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
     fcgCXAudioEncModeInternal->BeginUpdate();
     fcgCXAudioEncModeInternal->Items->Clear();
-    for (int i = 0; i < astg->mode_count; i++)
-        fcgCXAudioEncModeInternal->Items->Add(String(astg->mode[i].name).ToString());
+    if (AudioIntEncoderEnabled(astg, false)) {
+        for (int i = 0; i < astg->mode_count; i++) {
+            fcgCXAudioEncModeInternal->Items->Add(String(astg->mode[i].name).ToString());
+        }
+    } else {
+        fcgCXAudioEncModeInternal->Items->Add(String(L"-----").ToString());
+    }
     fcgCXAudioEncModeInternal->EndUpdate();
     if (fcgCXAudioEncModeInternal->Items->Count > 0)
         fcgCXAudioEncModeInternal->SelectedIndex = 0;
@@ -524,7 +543,7 @@ System::Void frmConfig::AudioIntEncodeModeChanged() {
         fcgLBAudioBitrateInternal->Visible = false;
         fcgNUAudioBitrateInternal->Visible = false;
         fcgNUAudioBitrateInternal->Minimum = 0;
-        fcgNUAudioBitrateInternal->Maximum = 1536; //音声の最大レートは1536kbps
+        fcgNUAudioBitrateInternal->Maximum = 65536;
     }
     SetfbcBTABEnable(fcgNUAudioBitrateInternal->Visible, (int)fcgNUAudioBitrateInternal->Maximum);
 }

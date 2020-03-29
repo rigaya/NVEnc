@@ -206,7 +206,7 @@ static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, cons
     //出力ファイル
     sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " -o \"%s\"", pe->temp_filename);
     //入力
-    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --log F:\\temp\\test.txt --sm --parent-pid %08x -i -", GetCurrentProcessId());
+    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --sm --parent-pid %08x -i -", GetCurrentProcessId());
 }
 
 //並列処理時に音声データを取得する

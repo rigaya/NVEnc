@@ -41,7 +41,7 @@ enum {
 };
 
 enum AUO_PIPE_MODE {
-    AUO_PIPE_DISABLE = 0, 
+    AUO_PIPE_DISABLE = 0,
     AUO_PIPE_ENABLE,
     AUO_PIPE_MUXED, //Stderrのモードに使用し、StderrをStdOutに混合する
 };

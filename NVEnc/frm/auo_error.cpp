@@ -228,12 +228,12 @@ void warning_failed_mux_tmp_drive_space() {
     write_log_auo_line(LOG_WARNING, "指定されたmux用一時フォルダのあるドライブの空き容量取得に失敗しました。mux用一時フォルダ指定を解除しました。");
 }
 
-void error_failed_muxer_drive_space() {
-    write_log_auo_line(LOG_ERROR, "muxerのあるドライブの空き容量取得に失敗しました。muxを行えません。");
+void warning_failed_muxer_drive_space() {
+    write_log_auo_line(LOG_WARNING, "muxerのあるドライブの空き容量取得に失敗しました。容量不足によりmuxが失敗する可能性があります。");
 }
 
-void error_failed_out_drive_space() {
-    write_log_auo_line(LOG_ERROR, "出力先のあるドライブの空き容量取得に失敗しました。muxを行えません。");
+void warning_failed_out_drive_space() {
+    write_log_auo_line(LOG_WARNING, "出力先のあるドライブの空き容量取得に失敗しました。容量不足によりmuxが失敗する可能性があります。");
 }
 
 void warning_failed_get_aud_size() {

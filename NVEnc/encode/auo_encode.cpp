@@ -52,7 +52,7 @@ void get_audio_pipe_name(char *pipename, size_t nSize, int audIdx) {
     sprintf_s(pipename, nSize, AUO_NAMED_PIPE_BASE, GetCurrentProcessId(), audIdx);
 }
 
-static BOOL check_muxer_exist(MUXER_SETTINGS *muxer_stg) {
+static BOOL check_muxer_exist(const MUXER_SETTINGS *muxer_stg) {
     if (PathFileExists(muxer_stg->fullpath))
         return TRUE;
     error_no_exe_file(muxer_stg->filename, muxer_stg->fullpath);

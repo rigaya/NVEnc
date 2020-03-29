@@ -147,8 +147,8 @@ typedef struct {
     int  temp_dir;               //一時ディレクトリ
     BOOL out_audio_only;         //音声のみ出力
     char notes[128];             //メモ
-    DWORD run_bat;                //バッチファイルを実行するかどうか
-    DWORD dont_wait_bat_fin;      //バッチファイルの処理終了待機をするかどうか
+    DWORD run_bat;                //バッチファイルを実行するかどうか (RUN_BAT_xxx)
+    DWORD dont_wait_bat_fin;      //バッチファイルの処理終了待機をするかどうか (RUN_BAT_xxx)
     union {
         char batfiles[4][512];        //バッチファイルのパス
         struct {
@@ -162,7 +162,7 @@ typedef struct {
 
 typedef struct {
     char        conf_name[CONF_NAME_BLOCK_LEN];  //保存時に使用
-    int         size_all;                        //保存時: CONF_VCEOUTの全サイズ / 設定中、エンコ中: CONF_INITIALIZED
+    int         size_all;                        //保存時: CONF_GUIEXの全サイズ / 設定中、エンコ中: CONF_INITIALIZED
     int         head_size;                       //ヘッダ部分の全サイズ
     int         block_count;                     //ヘッダ部を除いた設定のブロック数
     int         block_size[CONF_BLOCK_MAX];      //各ブロックのサイズ
