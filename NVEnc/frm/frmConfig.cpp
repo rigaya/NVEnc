@@ -514,6 +514,10 @@ bool frmConfig::AudioIntEncoderEnabled(const AUDIO_SETTINGS *astg, bool isAuoLin
 
 System::Void frmConfig::setAudioIntDisplay() {
     AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
+    if (!AudioIntEncoderEnabled(astg, false)) {
+        fcgCXAudioEncoderInternal->SelectedIndex = DEFAULT_AUDIO_ENCODER_IN;
+        astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
+    }
     fcgCXAudioEncModeInternal->BeginUpdate();
     fcgCXAudioEncModeInternal->Items->Clear();
     if (AudioIntEncoderEnabled(astg, false)) {

@@ -380,10 +380,12 @@ static int send_frame(
             error_video_get_conv_func();
             return AUO_RESULT_ERROR;
         }
-        write_log_auo_line_fmt(RGY_LOG_INFO, "Convert %s -> %s [%s]",
-            RGY_CSP_NAMES[convert->getFunc()->csp_from],
-            RGY_CSP_NAMES[convert->getFunc()->csp_to],
-            get_simd_str(convert->getFunc()->simd));
+        if (sendFrame == 0) {
+            write_log_auo_line_fmt(RGY_LOG_INFO, "Convert %s -> %s [%s]",
+                RGY_CSP_NAMES[convert->getFunc()->csp_from],
+                RGY_CSP_NAMES[convert->getFunc()->csp_to],
+                get_simd_str(convert->getFunc()->simd));
+        }
     }
     dst_array[0] = inputbuf->ptr();
     dst_array[1] = (uint8_t*)dst_array[0] + prmsm->pitch * prmsm->h;

@@ -140,48 +140,128 @@ static void __forceinline audio_pass_lower8bit_sse2(short *data, int length) {
 
 //音声通常処理用
 static void *auo_get_audio_normal_upper8bit(int start, int length, int *readed) {
-    short *dat = (short *)g_oip->func_get_audio(start, length, readed);
-    audio_pass_upper8bit(dat, *readed * g_oip->audio_ch);
+    auto oip = g_oip;
+    if (oip == nullptr) {
+        throw std::exception();
+    }
+    short *dat = (short *)oip->func_get_audio(start, length, readed);
+    audio_pass_upper8bit(dat, *readed * oip->audio_ch);
     return dat;
 }
 static void *auo_get_audio_normal_lower8bit(int start, int length, int *readed) {
-    short *dat = (short *)g_oip->func_get_audio(start, length, readed);
-    audio_pass_lower8bit(dat, *readed * g_oip->audio_ch);
+    auto oip = g_oip;
+    if (oip == nullptr) {
+        throw std::exception();
+    }
+    short *dat = (short *)oip->func_get_audio(start, length, readed);
+    audio_pass_lower8bit(dat, *readed * oip->audio_ch);
     return dat;
 }
 static void *auo_get_audio_normal_upper8bit_sse2(int start, int length, int *readed) {
-    short *dat = (short *)g_oip->func_get_audio(start, length, readed);
-    audio_pass_upper8bit_sse2(dat, *readed * g_oip->audio_ch);
+    auto oip = g_oip;
+    if (oip == nullptr) {
+        throw std::exception();
+    }
+    short *dat = (short *)oip->func_get_audio(start, length, readed);
+    audio_pass_upper8bit_sse2(dat, *readed * oip->audio_ch);
     return dat;
 }
 static void *auo_get_audio_normal_lower8bit_sse2(int start, int length, int *readed) {
-    short *dat = (short *)g_oip->func_get_audio(start, length, readed);
-    audio_pass_lower8bit_sse2(dat, *readed * g_oip->audio_ch);
+    auto oip = g_oip;
+    if (oip == nullptr) {
+        throw std::exception();
+    }
+    short *dat = (short *)oip->func_get_audio(start, length, readed);
+    audio_pass_lower8bit_sse2(dat, *readed * oip->audio_ch);
     return dat;
 }
 //音声並列処理用
+static void *auo_get_audio_parallel_buf(int length) {
+    const auto thid = GetCurrentThreadId();
+    int thidx = -1;
+    for (int i = 0; i < 2 && thidx < 0; i++) {
+        if (g_pe->aud_parallel.faw2aac[i].threadid == 0) {
+            g_pe->aud_parallel.faw2aac[i].threadid = thid;
+        }
+        if (g_pe->aud_parallel.faw2aac[i].threadid == thid) {
+            thidx = i;
+        }
+    }
+    if (thidx < 0) {
+        return nullptr;
+    }
+    if ((int)g_pe->aud_parallel.faw2aac[thidx].buf_len < length) {
+        if (g_pe->aud_parallel.faw2aac[thidx].buffer) {
+            _aligned_free(g_pe->aud_parallel.faw2aac[thidx].buffer);
+        }
+        g_pe->aud_parallel.faw2aac[thidx].buffer = _aligned_malloc(length, 32);
+        g_pe->aud_parallel.faw2aac[thidx].buf_len = length;
+    }
+    return g_pe->aud_parallel.faw2aac[thidx].buffer;
+}
 static void *auo_get_audio_parallel(int start, int length, int *readed) {
-    return get_audio_data(g_oip, g_pe, start, length, readed);
+    auto pe = g_pe;
+    auto oip = g_oip;
+    if (oip == nullptr || pe == nullptr) {
+        throw std::exception();
+    }
+    std::lock_guard<std::mutex> lock(*pe->aud_parallel.mtx_aud);
+    short *dat = (short *)get_audio_data(oip, pe, start, length, readed);
+    short *buf = (short *)auo_get_audio_parallel_buf(*readed * oip->audio_size);
+    memcpy(buf, dat, *readed * oip->audio_size);
+    return buf;
 }
 static void *auo_get_audio_parallel_upper8bit(int start, int length, int *readed) {
-    short *dat = (short *)get_audio_data(g_oip, g_pe, start, length, readed);
-    audio_pass_upper8bit(dat, *readed * g_oip->audio_ch);
-    return dat;
+    auto pe = g_pe;
+    auto oip = g_oip;
+    if (oip == nullptr || pe == nullptr) {
+        throw std::exception();
+    }
+    std::lock_guard<std::mutex> lock(*pe->aud_parallel.mtx_aud);
+    short *dat = (short *)get_audio_data(oip, pe, start, length, readed);
+    short *buf = (short *)auo_get_audio_parallel_buf(*readed * oip->audio_size);
+    memcpy(buf, dat, *readed * oip->audio_size);
+    audio_pass_upper8bit(buf, *readed * oip->audio_ch);
+    return buf;
 }
 static void *auo_get_audio_parallel_lower8bit(int start, int length, int *readed) {
-    short *dat = (short *)get_audio_data(g_oip, g_pe, start, length, readed);
-    audio_pass_lower8bit(dat, *readed * g_oip->audio_ch);
-    return dat;
+    auto pe = g_pe;
+    auto oip = g_oip;
+    if (oip == nullptr || pe == nullptr) {
+        throw std::exception();
+    }
+    std::lock_guard<std::mutex> lock(*pe->aud_parallel.mtx_aud);
+    short *dat = (short *)get_audio_data(g_oip, pe, start, length, readed);
+    short *buf = (short *)auo_get_audio_parallel_buf(*readed * oip->audio_size);
+    memcpy(buf, dat, *readed * oip->audio_size);
+    audio_pass_lower8bit(buf, *readed * oip->audio_ch);
+    return buf;
 }
 static void *auo_get_audio_parallel_upper8bit_sse2(int start, int length, int *readed) {
-    short *dat = (short *)get_audio_data(g_oip, g_pe, start, length, readed);
-    audio_pass_upper8bit_sse2(dat, *readed * g_oip->audio_ch);
-    return dat;
+    auto pe = g_pe;
+    auto oip = g_oip;
+    if (oip == nullptr || pe == nullptr) {
+        throw std::exception();
+    }
+    std::lock_guard<std::mutex> lock(*pe->aud_parallel.mtx_aud);
+    short *dat = (short *)get_audio_data(g_oip, pe, start, length, readed);
+    short *buf = (short *)auo_get_audio_parallel_buf(*readed * oip->audio_size);
+    memcpy(buf, dat, *readed * oip->audio_size);
+    audio_pass_upper8bit_sse2(buf, *readed * oip->audio_ch);
+    return buf;
 }
 static void *auo_get_audio_parallel_lower8bit_sse2(int start, int length, int *readed) {
-    short *dat = (short *)get_audio_data(g_oip, g_pe, start, length, readed);
-    audio_pass_lower8bit_sse2(dat, *readed * g_oip->audio_ch);
-    return dat;
+    auto pe = g_pe;
+    auto oip = g_oip;
+    if (oip == nullptr || pe == nullptr) {
+        throw std::exception();
+    }
+    std::lock_guard<std::mutex> lock(*pe->aud_parallel.mtx_aud);
+    short *dat = (short *)get_audio_data(g_oip, pe, start, length, readed);
+    short *buf = (short *)auo_get_audio_parallel_buf(*readed * oip->audio_size);
+    memcpy(buf, dat, *readed * oip->audio_size);
+    audio_pass_lower8bit_sse2(buf, *readed * oip->audio_ch);
+    return buf;
 }
 static const auo_func_get_audio FAW2AAC_AUDIO_NORMAL[][2] = {
     { auo_get_audio_normal_upper8bit, auo_get_audio_normal_upper8bit_sse2 },
@@ -221,6 +301,7 @@ typedef struct {
     OUTPUT_INFO oip;
     std::future<int> th_faw2aac;
     std::future<int> th_transfer;
+    bool th_transfer_started;
     faw2aac_named_pipeset_t from_auo;
     faw2aac_named_pipeset_t to_exe;
     char audfile[MAX_PATH_LEN];
@@ -264,6 +345,10 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
             aud_dat[i_aud].oip = *oip;
             aud_dat[i_aud].from_auo.h_pipe = NULL;
             aud_dat[i_aud].to_exe.h_pipe = NULL;
+            aud_dat[i_aud].th_transfer_started = false;
+            pe->aud_parallel.faw2aac[i_aud].threadid = 0;
+            pe->aud_parallel.faw2aac[i_aud].buffer = 0;
+            pe->aud_parallel.faw2aac[i_aud].buf_len = 0;
             if (conf->aud.use_internal) {
                 static const char *const FAW2AAC_NAMED_PIPE_BASE = "\\\\.\\pipe\\Aviutl%08x_AuoFAW2AACPipe%d.aac";
                 sprintf_s(aud_dat[i_aud].from_auo.name, FAW2AAC_NAMED_PIPE_BASE, GetCurrentProcessId(), i_aud);
@@ -333,24 +418,25 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
             };
             auto run_transfer_pipe = [&](int audio_idx) {
                 int ret = 0;
+                auto aud_track = &aud_dat[audio_idx];
                 //faw2aacを実行するスレッドの起動を確認する
                 while (WaitForSingleObject(threadStarted[audio_idx], 10) == WAIT_TIMEOUT) {
-                    if (pe->aud_parallel.abort || aud_dat[audio_idx].th_faw2aac.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+                    if (pe->aud_parallel.abort || aud_track->th_faw2aac.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
                         return 1; //faw2aacを実行するスレッドが異常終了した場合
                     }
                 }
                 //少し待って様子を見る(func_outputが失敗しないかどうか)
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                if (aud_dat[audio_idx].th_faw2aac.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+                if (aud_track->th_faw2aac.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
                     return 1; //faw2aacを実行するスレッドが異常終了した場合
                 }
                 //エンコーダプロセスの起動を確認
                 OVERLAPPED overlapped;
                 memset(&overlapped, 0, sizeof(overlapped));
-                overlapped.hEvent = aud_dat[audio_idx].to_exe.he_ov_aud_namedpipe;
-                ConnectNamedPipe(aud_dat[audio_idx].to_exe.h_pipe, &overlapped);
-                while (WaitForSingleObject(overlapped.hEvent, 50) != WAIT_OBJECT_0) {
-                    if (pe->aud_parallel.abort || aud_dat[audio_idx].th_faw2aac.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+                overlapped.hEvent = aud_track->to_exe.he_ov_aud_namedpipe;
+                ConnectNamedPipe(aud_track->to_exe.h_pipe, &overlapped);
+                while ((ret = WaitForSingleObject(aud_track->to_exe.he_ov_aud_namedpipe, 50)) != WAIT_OBJECT_0) {
+                    if (pe->aud_parallel.abort || aud_track->th_faw2aac.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
                         return 1;
                     }
                 }
@@ -358,21 +444,20 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
                 while (!pe->aud_parallel.abort) {
                     const bool faw2aac_finished = th_faw2aac_finished();
                     bool readFinished = true;
-                    for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
-                        DWORD sizeRead = 0;
-                        char buffer[PIPE_BUF];
-                        if (ReadFile(aud_dat[i_aud].from_auo.h_pipe, buffer, sizeof(buffer), &sizeRead, NULL) == 0) {
-                            return 1;
-                        } else if (sizeRead > 0) {
-                            readFinished = false;
-                            DWORD sizeWritten = 0;
-                            if (WriteFile(aud_dat[i_aud].to_exe.h_pipe, buffer, sizeRead, &sizeWritten, &overlapped) == 0) {
+                    DWORD sizeRead = 0;
+                    char buffer[PIPE_BUF];
+                    if (ReadFile(aud_track->from_auo.h_pipe, buffer, sizeof(buffer), &sizeRead, NULL) == 0) {
+                        return 1;
+                    } else if (sizeRead > 0) {
+                        readFinished = false;
+                        DWORD sizeWritten = 0;
+                        memset(&overlapped, 0, sizeof(overlapped));
+                        overlapped.hEvent = aud_track->to_exe.he_ov_aud_namedpipe;
+                        //非同期処理中は0を返すことがある
+                        WriteFile(aud_track->to_exe.h_pipe, buffer, sizeRead, &sizeWritten, &overlapped);
+                        while (WaitForSingleObject(aud_track->to_exe.he_ov_aud_namedpipe, 50) != WAIT_OBJECT_0) {
+                            if (pe->aud_parallel.abort) {
                                 return 1;
-                            }
-                            while (WaitForSingleObject(overlapped.hEvent, 50) != WAIT_OBJECT_0) {
-                                if (pe->aud_parallel.abort) {
-                                    return 1;
-                                }
                             }
                         }
                     }
@@ -388,9 +473,10 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
                 threadStarted[i_aud] = CreateEvent(NULL, FALSE, FALSE, NULL);
                 aud_dat[i_aud].th_faw2aac = std::async(run_faw2aac, i_aud);
                 aud_dat[i_aud].th_transfer = std::async(run_transfer_pipe, i_aud);
+                aud_dat[i_aud].th_transfer_started = true;
             }
             for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
-                if (aud_dat[i_aud].th_transfer.valid()) {
+                if (aud_dat[i_aud].th_transfer_started) {
                     if (aud_dat[i_aud].th_transfer.get() != AUO_RESULT_SUCCESS) {
                         ret = AUO_RESULT_ERROR;
                     }
