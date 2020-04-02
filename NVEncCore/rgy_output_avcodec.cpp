@@ -1062,12 +1062,10 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             }
             if (codecPrmDict) {
                 for (const AVDictionaryEntry *t = nullptr; (t = av_dict_get(codecPrmDict, "", t, AV_DICT_IGNORE_SUFFIX)) != nullptr;) {
-                    AddMessage(RGY_LOG_ERROR, _T("Unknown option to audio decoder[%s]: %s=%s\n"),
+                    AddMessage(RGY_LOG_WARN, _T("Unknown option to audio decoder[%s]: %s=%s, this will be ignored.\n"),
                         char_to_tstring(muxAudio->outCodecDecode->name).c_str(),
                         char_to_tstring(t->key).c_str(),
                         char_to_tstring(t->value).c_str());
-                    m_Mux.format.streamError = true;
-                    return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
                 }
             }
             AddMessage(RGY_LOG_DEBUG, _T("Audio Decoder opened\n"));
@@ -1189,12 +1187,10 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         }
         if (codecPrmDict) {
             for (const AVDictionaryEntry *t = nullptr; (t = av_dict_get(codecPrmDict, "", t, AV_DICT_IGNORE_SUFFIX)) != nullptr;) {
-                AddMessage(RGY_LOG_ERROR, _T("Unknown option to audio encoder[%s]: %s=%s\n"),
+                AddMessage(RGY_LOG_WARN, _T("Unknown option to audio encoder[%s]: %s=%s, this will be ignored.\n"),
                     char_to_tstring(muxAudio->outCodecEncode->name).c_str(),
                     char_to_tstring(t->key).c_str(),
                     char_to_tstring(t->value).c_str());
-                m_Mux.format.streamError = true;
-                return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
             }
         }
 
@@ -1894,11 +1890,9 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
     }
     //不正なオプションを渡していないかチェック
     for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(m_Mux.format.headerOptions, "", t, AV_DICT_IGNORE_SUFFIX));) {
-        AddMessage(RGY_LOG_ERROR, _T("Unknown option to muxer: %s=%s\n"),
+        AddMessage(RGY_LOG_WARN, _T("Unknown option to muxer: %s=%s, this will be ignored\n"),
             char_to_tstring(t->key).c_str(),
             char_to_tstring(t->value).c_str());
-        m_Mux.format.streamError = true;
-        return RGY_ERR_INVALID_PARAM;
     }
 
     av_dump_format(m_Mux.format.formatCtx, 0, m_Mux.format.formatCtx->filename, 1);
