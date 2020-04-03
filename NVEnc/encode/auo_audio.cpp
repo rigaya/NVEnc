@@ -285,7 +285,7 @@ static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO_
     write_log_auo_line_fmt(LOG_INFO, "%s%s で音声エンコードを行います。%s%s%s", aud_stg->dispname, ver_str.c_str(), aud_stg->mode[cnf_aud->enc_mode].name, bitrate, use2pass);
     show_audio_delay_cut_info(cnf_aud->delay_cut, pe);
     if (strlen(aud_dat->args) > 0) {
-        write_log_auo_line(LOG_DEBUG, aud_dat->args);
+        write_log_auo_line(LOG_MORE, aud_dat->args);
     }
 }
 
