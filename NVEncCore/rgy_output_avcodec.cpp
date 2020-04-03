@@ -962,7 +962,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
 }
 
 AVBSFContext *RGYOutputAvcodec::InitStreamBsf(const tstring& bsfName, const AVStream * streamIn) {
-    AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsfName.c_str());
+    AddMessage(RGY_LOG_TRACE, _T("start initialize %s filter...\n"), bsfName.c_str());
     auto filter = av_bsf_get_by_name(tchar_to_string(bsfName).c_str());
     if (filter == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsfName.c_str());
