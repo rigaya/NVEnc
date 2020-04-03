@@ -680,14 +680,14 @@ RGY_ERR initWriters(
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.inputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
-            if (chapters.size() > 0 && (common->copyChapter || common->chapterFile.length() > 0)) {
-                writerPrm.chapterList.clear();
-                for (uint32_t i = 0; i < chapters.size(); i++) {
-                    writerPrm.chapterList.push_back(chapters[i].get());
-                }
-            }
             writerPrm.videoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
             writerPrm.videoInputStream = pAVCodecReader->GetInputVideoStream();
+        }
+        if (chapters.size() > 0 && (common->copyChapter || common->chapterFile.length() > 0)) {
+            writerPrm.chapterList.clear();
+            for (uint32_t i = 0; i < chapters.size(); i++) {
+                writerPrm.chapterList.push_back(chapters[i].get());
+            }
         }
         if (common->AVMuxTarget & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             log->write(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
