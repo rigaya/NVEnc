@@ -240,6 +240,10 @@ AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe, BOOL use_inter
             if_valid_set_event(aud_p->he_aud_start);
             //---   排他ブロック 終了  ---> 音声スレッドを開始
         }
+        //内蔵エンコーダを使う場合、エンコーダが終了していたら意味がないので終了する
+        if (use_internal && pe->h_p_videnc && WaitForSingleObject(pe->h_p_videnc, 0) != WAIT_TIMEOUT) {
+            aud_p->abort |= TRUE;
+        }
     }
     return ret;
 }
@@ -598,6 +602,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         //Aviutlの時間を取得
         PROCESS_TIME time_aviutl;
         GetProcessTime(pe->h_p_aviutl, &time_aviutl);
+        pe->h_p_videnc = pi_enc.hProcess;
 
         //x264が待機に入るまでこちらも待機
         while (WaitForInputIdle(pi_enc.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT)
@@ -765,6 +770,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         CloseHandle(pipes.stdErr.h_read);
     CloseHandle(pi_enc.hProcess);
     CloseHandle(pi_enc.hThread);
+    pe->h_p_videnc = NULL;
 
     if (jitter) free(jitter);
 
