@@ -328,6 +328,7 @@ static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO
             prmsm->heBufFilled[i] = (uint32_t)heBufFilled[i];
             prmsm->duration[i] = 0;
             prmsm->timestamp[i] = 0;
+            prmsm->dropped[i] = 0;
         }
     }
     return std::move(PrmSm);
@@ -354,7 +355,7 @@ static int video_create_event(HANDLE heBufEmpty[2], HANDLE heBufFilled[2]) {
 static int send_frame(
     std::unique_ptr<RGYSharedMemWin>& inputbuf, void *const frame,
     const int i, const int sendFrame, const BOOL copy_frame, int *const next_jitter,
-    const OUTPUT_INFO *oip,
+    const OUTPUT_INFO *oip, const PRM_ENC *pe,
     const RGY_CSP input_csp,
     const InEncodeVideoParam& enc_prm,
     RGYInputSMSharedData* const prmsm,
@@ -447,6 +448,7 @@ static int send_frame(
     if (next_jitter) {
         prmsm->timestamp[sendFrame & 1] += next_jitter[-1];
     }
+    prmsm->dropped[sendFrame & 1] = pe->drop_count;
     return AUO_RESULT_SUCCESS;
 }
 
@@ -686,7 +688,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
             if (!drop) {
                 ret |= send_frame(inputbuf[sendFrames&1], frame, i, sendFrames, copy_frame, (jitter) ? next_jitter : nullptr,
-                    oip, input_csp, enc_prm, prmsm, convert.get(), tempBufForNonModWidth, tempBufForNonModWidthPitch);
+                    oip, pe, input_csp, enc_prm, prmsm, convert.get(), tempBufForNonModWidth, tempBufForNonModWidthPitch);
                 if (ret != AUO_RESULT_SUCCESS)
                     break;
 

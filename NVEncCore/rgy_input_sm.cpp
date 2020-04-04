@@ -41,7 +41,8 @@ RGYInputSM::RGYInputSM() :
     m_sm(),
     m_heBufEmpty(),
     m_heBufFilled(),
-    m_parentProcess(NULL) {
+    m_parentProcess(NULL),
+    m_droppedInAviutl(0) {
     m_readerName = _T("sm");
 }
 
@@ -313,6 +314,7 @@ RGY_ERR RGYInputSM::LoadNextFrame(RGYFrame *pSurface) {
 
     pSurface->setTimestamp(prmsm->timestamp[m_encSatusInfo->m_sData.frameIn & 1]);
     pSurface->setDuration(prmsm->duration[m_encSatusInfo->m_sData.frameIn & 1]);
+    m_droppedInAviutl = prmsm->dropped[m_encSatusInfo->m_sData.frameIn & 1];
 
     if (SetEvent(m_heBufEmpty[m_encSatusInfo->m_sData.frameIn & 1]) == FALSE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to set event!\n"));

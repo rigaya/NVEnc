@@ -52,6 +52,7 @@ struct RGYInputSMSharedData {
     bool reserved[2];
     uint32_t heBufEmpty[2];
     uint32_t heBufFilled[2];
+    int dropped[2];
 };
 #pragma pack(pop)
 
@@ -76,6 +77,7 @@ public:
     virtual rgy_rational<int> getInputTimebase() override;
 
     bool isAfs();
+    int droppedFrames() const { return m_droppedInAviutl; }
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
 
@@ -84,6 +86,7 @@ protected:
     std::array<HANDLE,2> m_heBufEmpty;
     std::array<HANDLE,2> m_heBufFilled;
     HANDLE m_parentProcess;
+    int m_droppedInAviutl;
 };
 
 #endif //#if ENABLE_SM_READER
