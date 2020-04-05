@@ -577,12 +577,12 @@ namespace NVEnc {
         }
     private:
         System::Void frmOtherSettings_Load(System::Object^  sender, System::EventArgs^  e) {
+            fos_ex_stg->load_encode_stg();
+            fos_ex_stg->load_log_win();
             fosSetComboBox();
 
             this->Text = String(AUO_FULL_NAME).ToString();
             fosTXStgDir->Text = stgDir;
-            fos_ex_stg->load_encode_stg();
-            fos_ex_stg->load_log_win();
             fosCBAutoAFSDisable->Checked         = fos_ex_stg->s_local.auto_afs_disable != 0;
             fosCBAutoDelChap->Checked            = fos_ex_stg->s_local.auto_del_chap != 0;
             fosCBDisableToolTip->Checked         = fos_ex_stg->s_local.disable_tooltip_help != 0;
@@ -591,14 +591,14 @@ namespace NVEnc {
             fosCBChapConvertToUTF8->Checked      = fos_ex_stg->s_local.chap_nero_convert_to_utf8 != 0;
             fosCBLogStartMinimized->Checked      = fos_ex_stg->s_log.minimized != 0;
             fosCBLogDisableTransparency->Checked = fos_ex_stg->s_log.transparent == 0;
-            fosCBOutputMoreLog->Checked             = fos_ex_stg->s_log.log_level != LOG_INFO;
+            fosCBOutputMoreLog->Checked          = fos_ex_stg->s_log.log_level != LOG_INFO;
             fosCBGetRelativePath->Checked        = fos_ex_stg->s_local.get_relative_path != 0;
             fosCXDefaultOutExt->SelectedIndex    = fos_ex_stg->s_local.default_output_ext;
             fosCBRunBatMinimized->Checked        = fos_ex_stg->s_local.run_bat_minimized != 0;
             if (fos_ex_stg->s_local.default_audenc_use_in) {
-                fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder_in, 0, fos_ex_stg->s_aud_int_count);
+                fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder_in, 0, fos_ex_stg->s_aud_int_count-1);
             } else {
-                fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder_ext, 0, fos_ex_stg->s_aud_ext_count) + fos_ex_stg->s_aud_int_count;
+                fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder_ext, 0, fos_ex_stg->s_aud_ext_count-1) + fos_ex_stg->s_aud_int_count;
             }
             if (str_has_char(fos_ex_stg->s_local.conf_font.name))
                 SetFontFamilyToForm(this, gcnew FontFamily(String(fos_ex_stg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
