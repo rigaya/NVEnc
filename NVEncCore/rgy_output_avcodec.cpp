@@ -1879,6 +1879,7 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
             }
         }
     }
+    av_dict_set(&m_Mux.format.headerOptions, "strict", "experimental", 0);
 
     //なんらかの問題があると、ここでよく死ぬ
     int ret = 0;

@@ -64,8 +64,8 @@ void error_mux_failed(const char *name, const char *args);
 
 void warning_no_mux_tmp_root(const char *dir);
 void warning_failed_mux_tmp_drive_space();
-void error_failed_muxer_drive_space();
-void error_failed_out_drive_space();
+void warning_failed_muxer_drive_space();
+void warning_failed_out_drive_space();
 void warning_failed_get_aud_size();
 void warning_failed_get_vid_size();
 void error_no_vid_file();

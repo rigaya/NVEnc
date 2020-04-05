@@ -210,56 +210,61 @@ static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, cons
 }
 
 //並列処理時に音声データを取得する
-AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe) {
+AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe, BOOL use_internal) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     AUD_PARALLEL_ENC *aud_p = &pe->aud_parallel; //長いんで省略したいだけ
     if (aud_p->th_aud) {
         //---   排他ブロック 開始  ---> 音声スレッドが止まっていなければならない
-        if_valid_wait_for_single_object(aud_p->he_vid_start, INFINITE);
-        if (aud_p->he_vid_start && aud_p->get_length) {
-            DWORD required_buf_size = aud_p->get_length * (DWORD)oip->audio_size;
-            if (aud_p->buf_max_size < required_buf_size) {
-                //メモリ不足なら再確保
-                if (aud_p->buffer) free(aud_p->buffer);
-                aud_p->buf_max_size = required_buf_size;
-                if (NULL == (aud_p->buffer = malloc(aud_p->buf_max_size)))
-                    aud_p->buf_max_size = 0; //ここのmallocエラーは次の分岐でAUO_RESULT_ERRORに設定
+        if (aud_p->he_vid_start && WaitForSingleObject(aud_p->he_vid_start, (use_internal) ? 0 : INFINITE) == WAIT_OBJECT_0) {
+            if (aud_p->he_vid_start && aud_p->get_length) {
+                DWORD required_buf_size = aud_p->get_length * (DWORD)oip->audio_size;
+                if (aud_p->buf_max_size < required_buf_size) {
+                    //メモリ不足なら再確保
+                    if (aud_p->buffer) free(aud_p->buffer);
+                    aud_p->buf_max_size = required_buf_size;
+                    if (NULL == (aud_p->buffer = malloc(aud_p->buf_max_size)))
+                        aud_p->buf_max_size = 0; //ここのmallocエラーは次の分岐でAUO_RESULT_ERRORに設定
+                }
+                void *data_ptr = NULL;
+                if (NULL == aud_p->buffer ||
+                    NULL == (data_ptr = oip->func_get_audio(aud_p->start, aud_p->get_length, &aud_p->get_length))) {
+                    ret = AUO_RESULT_ERROR; //mallocエラーかget_audioのエラー
+                } else {
+                    //自前のバッファにコピーしてdata_ptrが破棄されても良いようにする
+                    memcpy(aud_p->buffer, data_ptr, aud_p->get_length * oip->audio_size);
+                }
+                //すでにTRUEなら変更しないようにする
+                aud_p->abort |= oip->func_is_abort();
             }
-            void *data_ptr = NULL;
-            if (NULL == aud_p->buffer ||
-                NULL == (data_ptr = oip->func_get_audio(aud_p->start, aud_p->get_length, &aud_p->get_length))) {
-                ret = AUO_RESULT_ERROR; //mallocエラーかget_audioのエラー
-            } else {
-                //自前のバッファにコピーしてdata_ptrが破棄されても良いようにする
-                memcpy(aud_p->buffer, data_ptr, aud_p->get_length * oip->audio_size);
-            }
-            //すでにTRUEなら変更しないようにする
-            aud_p->abort |= oip->func_is_abort();
+            flush_audio_log();
+            if_valid_set_event(aud_p->he_aud_start);
+            //---   排他ブロック 終了  ---> 音声スレッドを開始
         }
-        flush_audio_log();
-        if_valid_set_event(aud_p->he_aud_start);
-        //---   排他ブロック 終了  ---> 音声スレッドを開始
+        //内蔵エンコーダを使う場合、エンコーダが終了していたら意味がないので終了する
+        if (use_internal && pe->h_p_videnc && WaitForSingleObject(pe->h_p_videnc, 0) != WAIT_TIMEOUT) {
+            aud_p->abort |= TRUE;
+        }
     }
     return ret;
 }
 
 //音声処理をどんどん回して終了させる
-static AUO_RESULT finish_aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe, AUO_RESULT vid_ret) {
+static AUO_RESULT finish_aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe, BOOL use_internal, AUO_RESULT vid_ret) {
     //エラーが発生していたら音声出力ループをとめる
     pe->aud_parallel.abort |= (vid_ret != AUO_RESULT_SUCCESS);
     if (pe->aud_parallel.th_aud) {
         write_log_auo_line(LOG_INFO, "音声処理の終了を待機しています...");
         set_window_title("音声処理の終了を待機しています...", PROGRESSBAR_MARQUEE);
         while (pe->aud_parallel.he_vid_start)
-            vid_ret |= aud_parallel_task(oip, pe);
+            vid_ret |= aud_parallel_task(oip, pe, use_internal);
         set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
     }
     return vid_ret;
 }
 
 //並列処理スレッドの終了を待ち、終了コードを回収する
-static AUO_RESULT exit_audio_parallel_control(const OUTPUT_INFO *oip, PRM_ENC *pe, AUO_RESULT vid_ret) {
-    vid_ret |= finish_aud_parallel_task(oip, pe, vid_ret); //wav出力を完了させる
+static AUO_RESULT exit_audio_parallel_control(const OUTPUT_INFO *oip, PRM_ENC *pe, BOOL use_internal, AUO_RESULT vid_ret) {
+    vid_ret |= finish_aud_parallel_task(oip, pe, use_internal, vid_ret); //wav出力を完了させる
     release_audio_parallel_events(pe);
     if (pe->aud_parallel.buffer) free(pe->aud_parallel.buffer);
     if (pe->aud_parallel.th_aud) {
@@ -323,6 +328,7 @@ static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO
             prmsm->heBufFilled[i] = (uint32_t)heBufFilled[i];
             prmsm->duration[i] = 0;
             prmsm->timestamp[i] = 0;
+            prmsm->dropped[i] = 0;
         }
     }
     return std::move(PrmSm);
@@ -349,7 +355,7 @@ static int video_create_event(HANDLE heBufEmpty[2], HANDLE heBufFilled[2]) {
 static int send_frame(
     std::unique_ptr<RGYSharedMemWin>& inputbuf, void *const frame,
     const int i, const int sendFrame, const BOOL copy_frame, int *const next_jitter,
-    const OUTPUT_INFO *oip,
+    const OUTPUT_INFO *oip, const PRM_ENC *pe,
     const RGY_CSP input_csp,
     const InEncodeVideoParam& enc_prm,
     RGYInputSMSharedData* const prmsm,
@@ -379,10 +385,12 @@ static int send_frame(
             error_video_get_conv_func();
             return AUO_RESULT_ERROR;
         }
-        write_log_auo_line_fmt(RGY_LOG_INFO, "Convert %s -> %s [%s]",
-            RGY_CSP_NAMES[convert->getFunc()->csp_from],
-            RGY_CSP_NAMES[convert->getFunc()->csp_to],
-            get_simd_str(convert->getFunc()->simd));
+        if (sendFrame == 0) {
+            write_log_auo_line_fmt(RGY_LOG_INFO, "Convert %s -> %s [%s]",
+                RGY_CSP_NAMES[convert->getFunc()->csp_from],
+                RGY_CSP_NAMES[convert->getFunc()->csp_to],
+                get_simd_str(convert->getFunc()->simd));
+        }
     }
     dst_array[0] = inputbuf->ptr();
     dst_array[1] = (uint8_t*)dst_array[0] + prmsm->pitch * prmsm->h;
@@ -440,6 +448,7 @@ static int send_frame(
     if (next_jitter) {
         prmsm->timestamp[sendFrame & 1] += next_jitter[-1];
     }
+    prmsm->dropped[sendFrame & 1] = pe->drop_count;
     return AUO_RESULT_SUCCESS;
 }
 
@@ -467,6 +476,44 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         write_log_auo_line(LOG_ERROR, "Aviutlの自動フィールドシフトとNVEnc Vppの自動フィールドシフトは併用できません。");
         write_log_auo_line(LOG_ERROR, "どちらかを選択してからやり直してください。");
         return AUO_RESULT_ERROR;
+    }
+
+    if ((oip->flag & OUTPUT_INFO_FLAG_AUDIO) && conf->aud.use_internal) {
+        if_valid_wait_for_single_object(pe->aud_parallel.he_vid_start, INFINITE);
+        auto common = &enc_prm.common;
+        common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        //音声
+        for (int i_aud = 0; i_aud < pe->aud_count; i_aud++) {
+            char pipename[MAX_PATH_LEN];
+            get_audio_pipe_name(pipename, _countof(pipename), i_aud);
+
+            const CONF_AUDIO_BASE *cnf_aud = &conf->aud.in;
+            const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud_int[cnf_aud->encoder];
+
+            AudioSource src;
+            src.filename = pipename;
+            AudioSelect &chSel = src.select[0];
+            if (sys_dat->exstg->is_faw(aud_stg)) {
+                chSel.encCodec = "copy";
+            } else {
+                chSel.encBitrate = cnf_aud->bitrate;
+                chSel.encCodec = aud_stg->codec;
+            }
+            common->audioSource.push_back(src);
+        }
+
+        //chapterファイル
+        char chap_file[MAX_PATH_LEN];
+        char chap_apple[MAX_PATH_LEN];
+        const MUXER_CMD_EX *muxer_mode = get_muxer_mode(conf, sys_dat, pe->muxer_to_be_used);
+        if (muxer_mode && strlen(muxer_mode->chap_file) > 0) {
+            set_chap_filename(chap_file, _countof(chap_file), chap_apple, _countof(chap_apple), muxer_mode->chap_file, pe, sys_dat, conf, oip);
+            if (!PathFileExists(chap_file)) {
+                warning_mux_no_chapter_file();
+            } else {
+                common->chapterFile = chap_file;
+            }
+        }
     }
 
     char exe_cmd[MAX_CMD_LEN] = { 0 };
@@ -557,10 +604,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         //Aviutlの時間を取得
         PROCESS_TIME time_aviutl;
         GetProcessTime(pe->h_p_aviutl, &time_aviutl);
+        pe->h_p_videnc = pi_enc.hProcess;
 
         //x264が待機に入るまでこちらも待機
         while (WaitForInputIdle(pi_enc.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT)
             log_process_events();
+        if_valid_set_event(pe->aud_parallel.he_aud_start);
 
         //ログウィンドウ側から制御を可能に
         DWORD tm_vid_enc_start = timeGetTime();
@@ -581,9 +630,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
             if (!(i & 7)) {
                 //Aviutlの進捗表示を更新
                 oip->func_rest_time_disp(i, oip->n);
-
-                //音声同時処理
-                ret |= aud_parallel_task(oip, pe);
+                if (!conf->aud.use_internal) {
+                    //音声同時処理
+                    ret |= aud_parallel_task(oip, pe, conf->aud.use_internal);
+                }
             }
 
             //一時停止
@@ -603,6 +653,11 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
             DWORD wait_err = WAIT_TIMEOUT;
             do {
+                if (conf->aud.use_internal) {
+                    //音声同時処理
+                    ret |= aud_parallel_task(oip, pe, conf->aud.use_internal);
+                }
+
                 if (wait_err == WAIT_FAILED) {
                     error_video_wait_event();
                     ret |= AUO_RESULT_ABORT;
@@ -633,7 +688,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
             if (!drop) {
                 ret |= send_frame(inputbuf[sendFrames&1], frame, i, sendFrames, copy_frame, (jitter) ? next_jitter : nullptr,
-                    oip, input_csp, enc_prm, prmsm, convert.get(), tempBufForNonModWidth, tempBufForNonModWidthPitch);
+                    oip, pe, input_csp, enc_prm, prmsm, convert.get(), tempBufForNonModWidth, tempBufForNonModWidthPitch);
                 if (ret != AUO_RESULT_SUCCESS)
                     break;
 
@@ -681,7 +736,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         if (!ret) oip->func_rest_time_disp(oip->n, oip->n);
 
         //音声の同時処理を終了させる
-        ret |= finish_aud_parallel_task(oip, pe, ret);
+        ret |= finish_aud_parallel_task(oip, pe, conf->aud.use_internal, ret);
         //音声との同時処理が終了
         release_audio_parallel_events(pe);
 
@@ -717,6 +772,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         CloseHandle(pipes.stdErr.h_read);
     CloseHandle(pi_enc.hProcess);
     CloseHandle(pi_enc.hThread);
+    pe->h_p_videnc = NULL;
 
     if (jitter) free(jitter);
 
@@ -725,5 +781,5 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 #pragma warning( pop )
 
 AUO_RESULT video_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
-    return exit_audio_parallel_control(oip, pe, video_output_inside(conf, oip, pe, sys_dat));
+    return exit_audio_parallel_control(oip, pe, conf->aud.use_internal, video_output_inside(conf, oip, pe, sys_dat));
 }

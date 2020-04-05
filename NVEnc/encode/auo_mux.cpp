@@ -60,7 +60,7 @@ static void show_mux_info(const MUXER_SETTINGS *mux_stg, BOOL vidmux, BOOL audmu
         ver_str = " (" + ver_string(version) + ")";
     }
 
-    sprintf_s(mes, _countof(mes), "%s%sでmuxを行います。映像:%s, 音声:%s, tc:%s, chap:%s, 拡張モード:%s",
+    sprintf_s(mes, _countof(mes), "%s%s でmuxを行います。映像:%s, 音声:%s, tc:%s, chap:%s, 拡張モード:%s",
         mux_stg->dispname,
         ver_str.c_str(),
         ON_OFF_INFO[vidmux != 0],
@@ -121,7 +121,7 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
         ULARGE_INTEGER muxer_drive_avail_space = { 0 };
         if (!PathGetRoot(mux_stg->fullpath, muxer_root, _countof(muxer_root)) ||
             !GetDiskFreeSpaceEx(muxer_root, &muxer_drive_avail_space, NULL, NULL)) {
-            error_failed_muxer_drive_space(); return AUO_RESULT_ERROR;
+            warning_failed_muxer_drive_space(); return AUO_RESULT_WARNING;
         }
         //一時フォルダと出力先が同じフォルダかどうかで、一時フォルダの必要とされる空き領域が変わる
         BOOL muxer_same_drive_as_out = (_stricmp(vid_root, muxer_root) == NULL);
@@ -136,7 +136,7 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
     //ドライブの空き容量取得
     ULARGE_INTEGER out_drive_avail_space = { 0 };
     if (!GetDiskFreeSpaceEx(vid_root, &out_drive_avail_space, NULL, NULL)) {
-        error_failed_out_drive_space(); return AUO_RESULT_ERROR;
+        warning_failed_out_drive_space(); return AUO_RESULT_WARNING;
     }
     if ((UINT64)out_drive_avail_space.QuadPart < required_space) {
         error_out_drive_not_enough_space(); return AUO_RESULT_ERROR;
@@ -340,12 +340,13 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
         enable_chap_mux = FALSE;
     }
     //音声ディレイ修正用コマンド %{delay_cmd}
-    const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud[conf->aud.encoder];
-    if (aud_stg->mode[conf->aud.enc_mode].delay
-        && AUDIO_DELAY_CUT_EDTS == conf->aud.delay_cut
+    const CONF_AUDIO_BASE *cnf_aud = &conf->aud.ext;
+    const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud_ext[cnf_aud->encoder];
+    if (aud_stg->mode[cnf_aud->enc_mode].delay
+        && AUDIO_DELAY_CUT_EDTS == cnf_aud->delay_cut
         && str_has_char(mux_stg->delay_cmd)) {
         char str[128] = { 0 };
-        sprintf_s(str, "%d", aud_stg->mode[conf->aud.enc_mode].delay);
+        sprintf_s(str, "%d", aud_stg->mode[cnf_aud->enc_mode].delay);
         replace(cmd, nSize, "%{delay_cmd}", mux_stg->delay_cmd);
         replace(cmd, nSize, "%{delay}", str);
     } else {
@@ -432,7 +433,7 @@ static DWORD check_for_aud_mux(int oip_flag, const char *aud_cmd, const PRM_ENC 
 AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     //muxの必要がなければ終了
-    if (pe->muxer_to_be_used == MUXER_DISABLED)
+    if (pe->muxer_to_be_used == MUXER_DISABLED || pe->muxer_to_be_used == MUXER_INTERNAL)
         return ret;
 
     //映像・音声のmux判定
@@ -464,12 +465,12 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
         enable_aud_mux = 0x00;
         if (!enable_vid_mux)
             for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)
-                if (0 != (enable_aud_mux = audio_to_mux_is_raw(pe, sys_dat, MODE_ONE | (0x01 << i_aud), conf->aud.delay_cut) << i_aud))
+                if (0 != (enable_aud_mux = audio_to_mux_is_raw(pe, sys_dat, MODE_ONE | (0x01 << i_aud), conf->aud.ext.delay_cut) << i_aud))
                     break;
     } else if (muxer_is_remux_only(pe, sys_dat)) {
         //mp4用muxer(初期状態)で、動画・音声ともrawなら、raw用muxerに完全に切り替える
         if ((enable_vid_mux && video_to_mux_is_raw(pe, sys_dat)) &&
-            (enable_aud_mux && audio_to_mux_is_raw(pe, sys_dat, ALL, conf->aud.delay_cut)) &&
+            (enable_aud_mux && audio_to_mux_is_raw(pe, sys_dat, ALL, conf->aud.ext.delay_cut)) &&
             //多重音声を扱う際、muxer.exeのコマンドを二重発行すると、--file-format m4aが重複して、muxer.exeがエラー終了してしまう。
             //これを回避するため、多重音声では各音声をmuxer.exeでmp4に格納してから、remuxer.exeで多重化する
             pe->aud_count <= 1) {
@@ -480,7 +481,7 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
                 if (AUO_RESULT_SUCCESS != (ret |= run_mux_as(conf, oip, pe, sys_dat, MUXER_MP4_RAW)))
                     return ret;
             for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)
-                if ((enable_aud_mux & (0x01 << i_aud)) && audio_to_mux_is_raw(pe, sys_dat, MODE_ONE | (0x01 << i_aud), conf->aud.delay_cut))
+                if ((enable_aud_mux & (0x01 << i_aud)) && audio_to_mux_is_raw(pe, sys_dat, MODE_ONE | (0x01 << i_aud), conf->aud.ext.delay_cut))
                     if (AUO_RESULT_SUCCESS != (ret |= run_mux_as(conf, oip, pe, sys_dat, MUXER_MP4_RAW)))
                         return ret;
         }

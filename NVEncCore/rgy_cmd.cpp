@@ -1652,7 +1652,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_STR_PATH(_T("-o"), outputFilename);
 
     std::basic_stringstream<TCHAR> tmp;
-#if ENABLE_AVSW_READER
+
     OPT_NUM(_T("--input-analyze"), demuxAnalyzeSec);
     if (param->nTrimCount > 0) {
         cmd << _T(" --trim ");
@@ -1799,21 +1799,21 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     cmd << _T("copy");
                 } else {
                     tmp.str(tstring());
-                    cmd << _T(";codec=") << sel.encCodec;
+                    tmp << _T(";codec=") << sel.encCodec;
                     if (sel.encBitrate > 0) {
-                        cmd << _T(";bitrate=") << sel.encBitrate;
+                        tmp << _T(";bitrate=") << sel.encBitrate;
                     }
                     if (sel.encCodecPrm.length() > 0) {
-                        cmd << _T(";prm=") << sel.encCodecPrm;
+                        tmp << _T(";prm=") << sel.encCodecPrm;
                     }
                     if (sel.encCodecProfile.length() > 0) {
-                        cmd << _T(";profile=") << sel.encCodecProfile;
+                        tmp << _T(";profile=") << sel.encCodecProfile;
                     }
                     if (sel.encSamplingRate > 0) {
-                        cmd << _T(";samplerate=") << sel.encSamplingRate;
+                        tmp << _T(";samplerate=") << sel.encSamplingRate;
                     }
                     if (sel.filter.length() > 0) {
-                        cmd << _T(";filter=") << _T("\"") << sel.filter << _T("\"");
+                        tmp << _T(";filter=") << _T("\"") << sel.filter << _T("\"");
                     }
                 }
                 if (!tmp.str().empty()) {
@@ -1850,9 +1850,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     cmd << _T("copy");
                 } else {
                     tmp.str(tstring());
-                    cmd << _T(";codec=") << sel.encCodec;
+                    tmp << _T(";codec=") << sel.encCodec;
                     if (sel.encCodecPrm.length() > 0) {
-                        cmd << _T(";prm=") << sel.encCodecPrm;
+                        tmp << _T(";prm=") << sel.encCodecPrm;
                     }
                 }
                 if (!tmp.str().empty()) {
@@ -1882,7 +1882,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), chapterNoTrim);
     OPT_BOOL(_T("--key-on-chapter"), _T(""), keyOnChapter);
     OPT_STR_PATH(_T("--keyfile"), keyFile);
-#endif //#if ENABLE_AVSW_READER
+
     OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
     OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
 
