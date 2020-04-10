@@ -271,6 +271,7 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     conf->vid.resize_height = 720;
     conf->aud.ext.encoder = g_sys_dat.exstg->s_local.default_audio_encoder_ext;
     conf->aud.in.encoder  = g_sys_dat.exstg->s_local.default_audio_encoder_in;
+    conf->aud.use_internal = g_sys_dat.exstg->s_local.default_audenc_use_in;
     conf->size_all = CONF_INITIALIZED;
 }
 #pragma warning( pop )
