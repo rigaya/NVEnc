@@ -150,7 +150,7 @@ protected:
     //入出力用バッファを確保
     NVENCSTATUS AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat, const VideoInfo *pInputInfo);
 
-    NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration, int inputFrameId);
+    NVENCSTATUS NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration, int inputFrameId, const std::vector<std::shared_ptr<RGYFrameData>>& frameDataList);
 
     //エンコーダをフラッシュしてストリームを最後まで取り出す
     NVENCSTATUS FlushEncoder();
@@ -200,6 +200,7 @@ protected:
     bool                          m_keyOnChapter;        //チャプター上にキーフレームを配置する
     vector<int>                   m_keyFile;             //キーフレームの指定
     vector<unique_ptr<AVChapter>> m_Chapters;            //ファイルから読み込んだチャプター
+    bool                          m_hdr10plusCopy;
 #endif //#if ENABLE_AVSW_READER
     unique_ptr<RGYHDR10Plus>      m_hdr10plus;
     unique_ptr<HEVCHDRSei>        m_hdrsei;

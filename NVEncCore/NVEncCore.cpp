@@ -212,6 +212,11 @@ public:
     void setInputFrameId(int inputFrameId) {
         m_frameInfo.inputFrameId = inputFrameId;
     }
+    void addFrameData(std::shared_ptr<RGYFrameData> data) {
+        if (data) {
+            m_frameInfo.dataList.push_back(data);
+        }
+    }
 private:
     shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
     CUVIDPROCPARAMS m_oVPP;
@@ -228,13 +233,15 @@ public:
     int m_inputFrameId;
     EncodeBuffer *m_pEncodeBuffer;
     cudaEvent_t *m_pEvent;
-    FrameBufferDataEnc(RGY_CSP csp, uint64_t timestamp, uint64_t duration, int inputFrameId, EncodeBuffer *pEncodeBuffer, cudaEvent_t *pEvent) :
+    std::vector<std::shared_ptr<RGYFrameData>> m_frameDataList;
+    FrameBufferDataEnc(RGY_CSP csp, uint64_t timestamp, uint64_t duration, int inputFrameId, EncodeBuffer *pEncodeBuffer, cudaEvent_t *pEvent, std::vector<std::shared_ptr<RGYFrameData>>& frameDataList) :
         m_csp(csp),
         m_timestamp(timestamp),
         m_duration(duration),
         m_pEncodeBuffer(pEncodeBuffer),
         m_pEvent(pEvent),
-        m_inputFrameId(inputFrameId) {
+        m_inputFrameId(inputFrameId),
+        m_frameDataList(frameDataList) {
     };
     ~FrameBufferDataEnc() {
     }
@@ -527,6 +534,8 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
             PrintMes(RGY_LOG_ERROR, _T("Failed to initialize hdr10plus reader.\n"));
             return NV_ENC_ERR_GENERIC;
         }
+    } else if (inputParam->common.hdr10plusMetadataCopy) {
+        m_hdr10plusCopy = true;
     }
 #endif
 
@@ -765,6 +774,7 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gp
 }
 
 NVENCSTATUS NVEncCore::InitDevice(std::vector<std::unique_ptr<NVGPUInfo>> &gpuList, const InEncodeVideoParam *inputParam) {
+    UNREFERENCED_PARAMETER(inputParam);
     auto gpu = std::find_if(gpuList.begin(), gpuList.end(), [device_id = m_nDeviceId](const std::unique_ptr<NVGPUInfo> &gpuinfo) {
         return gpuinfo->id() == device_id;
     });
@@ -773,12 +783,12 @@ NVENCSTATUS NVEncCore::InitDevice(std::vector<std::unique_ptr<NVGPUInfo>> &gpuLi
         return NV_ENC_ERR_GENERIC;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitDevice: device #%d (%s) selected.\n"), (*gpu)->id(), (*gpu)->name().c_str());
-    auto nvStatus = NV_ENC_SUCCESS;
     m_dev = std::move(*gpu);
     return NV_ENC_SUCCESS;
 }
 
 NVENCSTATUS NVEncCore::InitCuda(const InEncodeVideoParam *inputParam) {
+    UNREFERENCED_PARAMETER(inputParam);
     //ひとまず、これまでのすべてのエラーをflush
     auto cudaerr = cudaGetLastError();
     PrintMes(RGY_LOG_DEBUG, _T("InitCuda: device #%d.\n"), m_nDeviceId);
@@ -2953,7 +2963,7 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
     return NV_ENC_SUCCESS;
 }
 
-NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration, int inputFrameId) {
+NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration, int inputFrameId, const std::vector<std::shared_ptr<RGYFrameData>>& frameDataList) {
     PrintMes(RGY_LOG_TRACE, _T("Sending frame %d to encoder: timestamp %lld, duration %lld\n"), inputFrameId, timestamp, duration);
     NV_ENC_PIC_PARAMS encPicParams;
     INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
@@ -3034,23 +3044,37 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
         encPicParams.encodePicFlags |= NV_ENC_PIC_FLAG_FORCEIDR;
     }
 #endif //#if ENABLE_AVSW_READER
-    vector<NV_ENC_SEI_PAYLOAD> sei_payload;
     vector<uint8_t> dhdr10plus_sei;
+    vector<NV_ENC_SEI_PAYLOAD> sei_payload;
     const int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
-    if (codec == NV_ENC_HEVC && m_hdr10plus) {
-        const auto data = m_hdr10plus->getData(inputFrameId);
-        if (data && data->size() > 0) {
-            dhdr10plus_sei = *data;
-
+    if (codec == NV_ENC_HEVC) {
+        if (m_hdr10plus) {
+            const auto data = m_hdr10plus->getData(inputFrameId);
+            if (data && data->size() > 0) {
+                dhdr10plus_sei = *data;
+            }
+        } else if (frameDataList.size() > 0) {
+            auto data = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
+                return frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+            });
+            if (data != frameDataList.end()) {
+                auto hdr10plus = dynamic_cast<RGYFrameDataHDR10plus *>(data->get());
+                if (hdr10plus && hdr10plus->getData().size() > 0) {
+                    dhdr10plus_sei = hdr10plus->getData();
+                }
+            }
+        }
+        if (dhdr10plus_sei.size() > 0) {
             NV_ENC_SEI_PAYLOAD payload;
             payload.payload = dhdr10plus_sei.data();
             payload.payloadSize = (uint32_t)dhdr10plus_sei.size();
             payload.payloadType = USER_DATA_REGISTERED_ITU_T_T35;
             sei_payload.push_back(payload);
-
-            encPicParams.codecPicParams.hevcPicParams.seiPayloadArrayCnt = (uint32_t)sei_payload.size();
-            encPicParams.codecPicParams.hevcPicParams.seiPayloadArray = sei_payload.data();
         }
+    }
+    if (sei_payload.size() > 0) {
+        encPicParams.codecPicParams.hevcPicParams.seiPayloadArrayCnt = (uint32_t)sei_payload.size();
+        encPicParams.codecPicParams.hevcPicParams.seiPayloadArray = sei_payload.data();
     }
 
     encPicParams.inputBuffer = pEncodeBuffer->stInputBfr.hInputSurface;
@@ -3238,15 +3262,25 @@ NVENCSTATUS NVEncCore::Encode() {
         return RGY_ERR_NONE;
     };
 
+    RGYQueueSPSP<RGYFrameDataHDR10plus*> queueHDR10plusMetadata;
+    queueHDR10plusMetadata.init(256);
     std::thread th_input;
     if (m_cuvidDec) {
-        th_input = std::thread([this, streamIn, &nvStatus]() {
+        th_input = std::thread([this, streamIn, &queueHDR10plusMetadata, &nvStatus]() {
             CUresult curesult = CUDA_SUCCESS;
             RGYBitstream bitstream = RGYBitstreamInit();
             RGY_ERR sts = RGY_ERR_NONE;
             for (int i = 0; sts == RGY_ERR_NONE && nvStatus == NV_ENC_SUCCESS && !m_cuvidDec->GetError(); i++) {
                 sts = m_pFileReader->LoadNextFrame(nullptr);
                 m_pFileReader->GetNextBitstream(&bitstream);
+                for (auto& frameData : bitstream.getFrameDataList()) {
+                    if (frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
+                        auto ptr = dynamic_cast<RGYFrameDataHDR10plus*>(frameData);
+                        if (ptr) {
+                            queueHDR10plusMetadata.push(new RGYFrameDataHDR10plus(*ptr));
+                        }
+                    }
+                }
                 PrintMes(RGY_LOG_TRACE, _T("Set packet #%d, size %zu, pts %lld (%s)\n"), i, bitstream.size(),
                     (long long int)bitstream.pts(), getTimestampString(bitstream.pts(), streamIn->time_base).c_str());
                 if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(bitstream.bufptr() + bitstream.offset(), bitstream.size(), bitstream.pts(), streamIn->time_base))) {
@@ -3255,6 +3289,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
                 bitstream.setSize(0);
                 bitstream.setOffset(0);
+                bitstream.clearFrameDataList();
             }
             if (CUDA_SUCCESS != (curesult = m_cuvidDec->DecodePacket(nullptr, 0, AV_NOPTS_VALUE, streamIn->time_base))) {
                 PrintMes(RGY_LOG_ERROR, _T("Error in DecodePacketFin: %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
@@ -3263,6 +3298,28 @@ NVENCSTATUS NVEncCore::Encode() {
         });
         PrintMes(RGY_LOG_DEBUG, _T("Started Encode thread\n"));
     }
+    auto getHDR10plusMetadata = [&queueHDR10plusMetadata](int64_t timestamp) {
+        std::shared_ptr<RGYFrameData> frameData;
+        RGYFrameDataHDR10plus *frameDataPtr = nullptr;
+        while (queueHDR10plusMetadata.front_copy_no_lock(&frameDataPtr)) {
+            if (frameDataPtr->timestamp() < timestamp) {
+                queueHDR10plusMetadata.pop();
+                delete frameDataPtr;
+            } else {
+                break;
+            }
+        }
+        size_t queueSize = queueHDR10plusMetadata.size();
+        for (int i = 0; i < queueSize; i++) {
+            if (queueHDR10plusMetadata.copy(&frameDataPtr, i, &queueSize)) {
+                if (frameDataPtr->timestamp() == timestamp) {
+                    frameData = std::make_shared<RGYFrameDataHDR10plus>(*frameDataPtr);
+                    break;
+                }
+            }
+        }
+        return frameData;
+    };
 
     if (m_pPerfMonitor) {
         HANDLE thOutput = NULL;
@@ -3623,7 +3680,7 @@ NVENCSTATUS NVEncCore::Encode() {
                     //フィルタの数が1のときは、ここが最初(かつ最後)のフィルタであり、転送フィルタである
                     add_frame_transfer_data(pCudaEvent, inframe, deviceFrame);
                 }
-                unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(RGY_CSP_NV12, encFrameInfo.timestamp, encFrameInfo.duration, encFrameInfo.inputFrameId, pEncodeBuffer, pCudaEvent));
+                unique_ptr<FrameBufferDataEnc> frameEnc(new FrameBufferDataEnc(RGY_CSP_NV12, encFrameInfo.timestamp, encFrameInfo.duration, encFrameInfo.inputFrameId, pEncodeBuffer, pCudaEvent, encFrameInfo.dataList));
                 dqEncFrames.push_back(std::move(frameEnc));
             }
         }
@@ -3646,7 +3703,7 @@ NVENCSTATUS NVEncCore::Encode() {
         } else {
             m_dev->encoder()->NvEncUnlockInputBuffer(pEncodeBuffer->stInputBfr.hInputSurface);
         }
-        return NvEncEncodeFrame(pEncodeBuffer, nEncodeFrame++, encFrame->m_timestamp, encFrame->m_duration, encFrame->m_inputFrameId);
+        return NvEncEncodeFrame(pEncodeBuffer, nEncodeFrame++, encFrame->m_timestamp, encFrame->m_duration, encFrame->m_inputFrameId, encFrame->m_frameDataList);
     };
 
 #define NV_ENC_ERR_ABORT ((NVENCSTATUS)-1)
@@ -3702,6 +3759,14 @@ NVENCSTATUS NVEncCore::Encode() {
                     delete ptr;
                 }), m_cuvidDec->GetDecFrameInfo());
                 inputFrame.setInputFrameId(nInputFrame);
+                if (m_hdr10plusCopy && streamIn) {
+                    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+                    if (pAVCodecReader != nullptr) {
+                        //cuvidのtimestampはかならず分子が1になっているのでもとに戻す
+                        const auto orig_pts = rational_rescale(dispInfo.timestamp, srcTimebase, to_rgy(streamIn->time_base));
+                        inputFrame.addFrameData(getHDR10plusMetadata(orig_pts));
+                    }
+                }
                 PrintMes(RGY_LOG_TRACE, _T("input frame (dev) #%d, pic_idx %d, timestamp %lld\n"), nInputFrame, dispInfo.picture_index, dispInfo.timestamp);
             }
         } else
@@ -3861,6 +3926,7 @@ NVENCSTATUS NVEncCore::Encode() {
     if (m_ssim) {
         m_ssim->showResult();
     }
+    queueHDR10plusMetadata.close([](RGYFrameDataHDR10plus **ptr) { if (*ptr) { delete *ptr; *ptr = nullptr; }; });
     vector<std::pair<tstring, double>> filter_result;
     for (auto& filter : m_vpFilters) {
         auto avgtime = filter->GetAvgTimeElapsed();

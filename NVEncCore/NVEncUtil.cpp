@@ -28,6 +28,7 @@
 
 #include "NVEncUtil.h"
 #include "NvHWEncoder.h"
+#include "rgy_frame.h"
 
 static const auto RGY_CODEC_TO_NVENC = make_array<std::pair<RGY_CODEC, cudaVideoCodec>>(
     std::make_pair(RGY_CODEC_H264,  cudaVideoCodec_H264),
@@ -155,6 +156,30 @@ RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
     default:
         return RGY_CSP_NA;
     }
+}
+
+void RGYBitstream::addFrameData(RGYFrameData *frameData) {
+    if (frameData != nullptr) {
+        frameDataNum++;
+        frameDataList = (RGYFrameData **)realloc(frameDataList, frameDataNum * sizeof(frameDataList[0]));
+        frameDataList[frameDataNum - 1] = frameData;
+    }
+}
+
+void RGYBitstream::clearFrameDataList() {
+    frameDataNum = 0;
+    if (frameDataList) {
+        for (int i = 0; i < frameDataNum; i++) {
+            if (frameDataList[i]) {
+                delete frameDataList[i];
+            }
+        }
+        free(frameDataList);
+        frameDataList = nullptr;
+    }
+}
+std::vector<RGYFrameData *> RGYBitstream::getFrameDataList() {
+    return make_vector(frameDataList, frameDataNum);
 }
 
 __declspec(noinline)

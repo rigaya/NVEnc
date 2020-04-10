@@ -59,6 +59,8 @@ static const uint32_t AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 static const uint32_t AV_FRAME_MAX_REORDER = 16;
 static const int FRAMEPOS_POC_INVALID = -1;
 
+static const char* HDR10PLUS_METADATA_KEY = "rgy_hdr10plus_metadata";
+
 enum RGYPtsStatus : uint32_t {
     RGY_PTS_UNKNOWN           = 0x00,
     RGY_PTS_NORMAL            = 0x01,
@@ -707,6 +709,7 @@ typedef struct AVDemuxVideo {
     int                       HWDecodeDeviceId;      //HWデコードする場合に選択したデバイス
 
     bool                      bUseHEVCmp42AnnexB;
+    bool                      hdr10plusMetadataCopy; //HDR10plusのメタ情報を取得する
 
     AVMasteringDisplayMetadata *masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
     AVContentLightMetadata   *contentLight;          //入力ファイルから抽出したHDRメタ情報
@@ -935,10 +938,11 @@ public:
     DeviceCodecCsp *HWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
     bool           videoDetectPulldown;     //pulldownの検出を試みるかどうか
     C2AFormat      caption2ass;             //caption2assの処理の有効化
-    bool           pasrseHDRmetadata;       //HDR関連のmeta情報を取得する
+    bool           parseHDRmetadata;        //HDR関連のmeta情報を取得する
+    bool           hdr10plusMetadataCopy;  //HDR10plus関連のmeta情報を取得する
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
-    RGYOptList     inputOpt;
+    RGYOptList     inputOpt;                //入力オプション
 
     RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};
@@ -1013,6 +1017,9 @@ public:
     const AVMasteringDisplayMetadata *getMasteringDisplay() const;
     const AVContentLightMetadata *getContentLight() const;
 
+    RGYFrameDataHDR10plus *getHDR10plusMetaData(const AVFrame* frame);
+    RGYFrameDataHDR10plus *getHDR10plusMetaData(const AVPacket* pkt);
+
 #if USE_CUSTOM_INPUT
     int readPacket(uint8_t *buf, int buf_size);
     int writePacket(uint8_t *buf, int buf_size);
@@ -1022,6 +1029,8 @@ protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm) override;
 
     RGY_ERR parseHDRData();
+
+    RGY_ERR parseHDR10plus(AVPacket *pkt);
 
     void SetExtraData(AVCodecParameters *codecParam, const uint8_t *data, uint32_t size);
 

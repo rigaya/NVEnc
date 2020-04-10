@@ -88,6 +88,7 @@ RGYParamCommon::RGYParamCommon() :
     inputOpt(),
     maxCll(),
     masterDisplay(),
+    hdr10plusMetadataCopy(false),
     dynamicHdr10plusJson(),
     videoCodecTag(),
     seekSec(0.0f),               //指定された秒数分先頭を飛ばす
