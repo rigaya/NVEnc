@@ -3787,6 +3787,12 @@ NVENCSTATUS NVEncCore::Encode() {
                 if (m_hdr10plusCopy && streamIn) {
                     auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
                     if (pAVCodecReader != nullptr) {
+                        const auto timestamp_status = pAVCodecReader->GetFramePosList()->getStreamPtsStatus();
+                        if ((timestamp_status & (~RGY_PTS_NORMAL)) != 0) {
+                            PrintMes(RGY_LOG_ERROR, _T("HDR10+ dynamic metadata cannot be copied from input file using avhw reader, as timestamp was not properly got from input file.\n"));
+                            PrintMes(RGY_LOG_ERROR, _T("Please consider using avsw reader.\n"));
+                            return NV_ENC_ERR_GENERIC;
+                        }
                         //cuvidのtimestampはかならず分子が1になっているのでもとに戻す
                         const auto orig_pts = rational_rescale(dispInfo.timestamp, srcTimebase, to_rgy(streamIn->time_base));
                         inputFrame.addFrameData(getHDR10plusMetadata(orig_pts));

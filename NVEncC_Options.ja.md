@@ -487,6 +487,11 @@ Mastering display data の設定。"copy"とすると入力ファイルの値を
 ### --dhdr10-info &lt;string&gt; [HEVC only]
 指定したjsonファイルから、HDR10+のメタデータを読み込んで反映する。実行には追加で[hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen)が必要。
 
+### --dhdr10-info copy [HEVC only, Experimental]
+HDR10+のメタデータを入力ファイルからそのままコピーします。
+avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
+こうした場合には、avsw読み込みを使用してください。 
+
 ### --aud
 Access Unit Delimiter NALを挿入する。
 
