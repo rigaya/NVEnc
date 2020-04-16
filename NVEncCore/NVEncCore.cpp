@@ -271,6 +271,7 @@ NVEncCore::NVEncCore() :
     m_keyOnChapter(false),
     m_keyFile(),
     m_Chapters(),
+    m_hdr10plusCopy(false),
 #endif //#if ENABLE_AVSW_READER
     m_hdr10plus(),
     m_hdrsei(),
