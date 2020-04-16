@@ -510,10 +510,17 @@ const CX_DESC list_vpp_detail_enahance[] = {
     { NULL, NULL }
 };
 
-const CX_DESC list_vpp_deband[] ={
+const CX_DESC list_vpp_deband[] = {
     { _T("0 - 1点参照"),  0 },
     { _T("1 - 2点参照"),  1 },
     { _T("2 - 4点参照"),  2 },
+    { NULL, NULL }
+};
+
+const CX_DESC list_vpp_rotate[] = {
+    { _T("90"),   90 },
+    { _T("180"), 180 },
+    { _T("270"), 270 },
     { NULL, NULL }
 };
 
@@ -1014,6 +1021,20 @@ struct VppTweak {
     tstring print() const;
 };
 
+struct VppTransform {
+    bool enable;
+    bool transpose;
+    bool flipX;
+    bool flipY;
+
+    VppTransform();
+    int rotate() const;
+    bool setRotate(int rotate);
+    bool operator==(const VppTransform &x) const;
+    bool operator!=(const VppTransform &x) const;
+    tstring print() const;
+};
+
 struct VppSelectEvery {
     bool  enable;
     int   step;
@@ -1219,6 +1240,7 @@ struct VppParam {
     VppNnedi nnedi;
     VppYadif yadif;
     VppTweak tweak;
+    VppTransform transform;
     VppColorspace colorspace;
     VppPad pad;
     std::vector<VppSubburn> subburn;

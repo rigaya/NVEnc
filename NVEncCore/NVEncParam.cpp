@@ -489,6 +489,68 @@ tstring VppTweak::print() const {
         brightness, contrast, saturation, gamma, hue);
 }
 
+VppTransform::VppTransform() :
+    enable(false),
+    transpose(false),
+    flipX(false),
+    flipY(false) {
+}
+
+int VppTransform::rotate() const {
+    if (transpose) {
+        if (!flipY && flipX) {
+            return 270;
+        } else if (flipY && !flipX) {
+            return 90;
+        }
+    } else if (flipY && flipX) {
+        return 180;
+    }
+    return 0;
+}
+
+bool VppTransform::setRotate(int rotate) {
+    switch (rotate) {
+    case 90:
+        transpose = true;
+        flipY = true;
+        break;
+    case 180:
+        flipX = true;
+        flipY = true;
+        break;
+    case 270:
+        transpose = true;
+        flipX = true;
+        break;
+    default:
+        return false;
+    }
+    return true;
+}
+
+bool VppTransform::operator==(const VppTransform &x) const {
+    return enable == x.enable
+        && transpose == x.transpose
+        && flipX == x.flipX
+        && flipY == x.flipY;
+}
+bool VppTransform::operator!=(const VppTransform &x) const {
+    return !(*this == x);
+}
+
+tstring VppTransform::print() const {
+#define ON_OFF(b) ((b) ? _T("on") : _T("off"))
+    const auto rotation = rotate();
+    if (rotation) {
+        return strsprintf(_T("rotate: %d"), rotation);
+    } else {
+        return strsprintf(_T("transform: transpose %s, flipX %s, flipY %s"),
+            ON_OFF(transpose), ON_OFF(flipX), ON_OFF(flipY));
+    }
+#undef ON_OFF
+}
+
 VppSelectEvery::VppSelectEvery() :
     enable(false),
     step(1),
@@ -629,6 +691,7 @@ VppParam::VppParam() :
     nnedi(),
     yadif(),
     tweak(),
+    transform(),
     colorspace(),
     pad(),
     subburn(),
