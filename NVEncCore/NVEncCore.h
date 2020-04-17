@@ -185,6 +185,7 @@ protected:
     std::vector<DynamicRCParam>  m_dynamicRC;             //動的に変更するエンコーダのパラメータ
     int                          m_appliedDynamicRC;      //今適用されているパラメータ(未適用なら-1)
 
+    int                          m_pipelineDepth;
     vector<InputFrameBufInfo>    m_inputHostBuffer;
 
     sTrimParam                    m_trimParam;

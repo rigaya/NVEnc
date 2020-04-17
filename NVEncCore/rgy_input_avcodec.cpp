@@ -109,6 +109,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     hdr10plusMetadataCopy(false),
     interlaceAutoFrame(false),
     qpTableListRef(nullptr),
+    lowLatency(false),
     inputOpt() {
 
 }
@@ -455,11 +456,11 @@ void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
     m_hevcMp42AnnexbBuffer.clear();
 }
 
-RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown) {
+RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown, bool lowLatency) {
     AVRational fpsDecoder = m_Demux.video.stream->avg_frame_rate;
     const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
     //timebaseが60で割り切れない場合には、ptsが完全には割り切れない値である場合があり、より多くのフレーム数を解析する必要がある
-    int maxCheckFrames = (m_Demux.format.analyzeSec == 0) ? ((m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : 48) : 7200;
+    int maxCheckFrames = (m_Demux.format.analyzeSec == 0) ? ((m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : ((lowLatency) ? 12 : 48)) : 7200;
     int maxCheckSec = (m_Demux.format.analyzeSec == 0) ? INT_MAX : m_Demux.format.analyzeSec;
     AddMessage(RGY_LOG_DEBUG, _T("fps decoder invalid: %s\n"), fpsDecoderInvalid ? _T("true") : _T("false"));
 
@@ -1539,7 +1540,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
 #endif
 
-        if (RGY_ERR_NONE != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount, input_prm->videoDetectPulldown))) {
+        if (RGY_ERR_NONE != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount, input_prm->videoDetectPulldown, input_prm->lowLatency))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to get first frame position.\n"));
             return sts;
         }

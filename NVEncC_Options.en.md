@@ -1536,6 +1536,9 @@ Example: Limit maximum speed to 90 fps
 --max-procfps 90
 ```
 
+### --lowlatency
+Tune for lower transcoding latency, but will hurt transcoding throughput. Not recommended in most cases.
+
 ### --perf-monitor [&lt;string&gt;][,&lt;string&gt;]...
 Outputs performance information. You can select the information name you want to output as a parameter from the following table. The default is all (all information).
 

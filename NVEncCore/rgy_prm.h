@@ -159,6 +159,7 @@ struct RGYParamControl {
     int64_t perfMonitorSelectMatplot;
     int     perfMonitorInterval;
     uint32_t parentProcessID;
+    bool lowLatency;
 
     RGYParamControl();
     ~RGYParamControl();

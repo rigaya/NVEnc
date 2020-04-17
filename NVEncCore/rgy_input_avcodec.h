@@ -942,6 +942,7 @@ public:
     bool           hdr10plusMetadataCopy;  //HDR10plus関連のmeta情報を取得する
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
+    bool           lowLatency;
     RGYOptList     inputOpt;                //入力オプション
 
     RGYInputAvcodecPrm(RGYInputPrm base);
@@ -1063,7 +1064,7 @@ protected:
     //QSVでデコードした際の最初のフレームのptsを取得する
     //さらに、平均フレームレートを推定する
     //fpsDecoderはdecoderの推定したfps
-    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown);
+    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown, bool lowLatency);
 
     //読み込みスレッド関数
     RGY_ERR ThreadFuncRead();

@@ -1491,6 +1491,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->procSpeedLimit = (std::min)(value, std::numeric_limits<decltype(ctrl->procSpeedLimit)>::max());
         return 0;
     }
+    if (IS_OPTION("lowlatency")) {
+        ctrl->lowLatency = true;
+        return 0;
+    }
     if (IS_OPTION("input-thread") || IS_OPTION("thread-input")) {
         i++;
         int value = 0;
@@ -1916,6 +1920,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_NUM(_T("--thread-csp"), threadCsp);
     OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
+    OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
     OPT_STR_PATH(_T("--log"), logfile);
     OPT_LST(_T("--log-level"), loglevel, list_log_level);
     OPT_STR_PATH(_T("--log-framelist"), logFramePosList);
@@ -2151,7 +2156,8 @@ tstring gen_cmd_help_ctrl() {
 
     str += strsprintf(_T("")
         _T("   --max-procfps <int>         limit encoding speed for lower utilization.\n")
-        _T("                                 default:0 (no limit)\n"));
+        _T("                                 default:0 (no limit)\n")
+        _T("   --lowlatency                minimize latency (might have lower throughput).\n"));
 #if ENABLE_AVCODEC_OUT_THREAD
     str += strsprintf(_T("")
         _T("   --output-thread <int>        set output thread num\n")

@@ -136,7 +136,8 @@ RGYParamControl::RGYParamControl() :
     perfMonitorSelect(0),
     perfMonitorSelectMatplot(0),
     perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
-    parentProcessID(0) {
+    parentProcessID(0),
+    lowLatency(false) {
 
 }
 RGYParamControl::~RGYParamControl() {};

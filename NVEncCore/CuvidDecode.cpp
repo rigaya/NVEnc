@@ -293,7 +293,7 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
     return curesult;
 }
 
-CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool ignoreDynamicFormatChange) {
+CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency, bool ignoreDynamicFormatChange) {
     //初期化
     CloseDecoder();
 
@@ -347,7 +347,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     oVideoParserParameters.CodecType              = codec_rgy_to_enc(input->codec);
     oVideoParserParameters.ulClockRate            = streamtimebase.den;
     oVideoParserParameters.ulMaxNumDecodeSurfaces = FrameQueue::cnMaximumSize;
-    oVideoParserParameters.ulMaxDisplayDelay      = 1;
+    oVideoParserParameters.ulMaxDisplayDelay      = (lowLatency) ? 0 : 1;
     oVideoParserParameters.pUserData              = this;
     oVideoParserParameters.pfnSequenceCallback    = HandleVideoSequence;
     oVideoParserParameters.pfnDecodePicture       = HandlePictureDecode;

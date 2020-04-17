@@ -257,6 +257,7 @@ NVEncCore::NVEncCore() :
     m_stCreateEncodeParams(),
     m_dynamicRC(),
     m_appliedDynamicRC(DYNAMIC_PARAM_NOT_SELECTED),
+    m_pipelineDepth(PIPELINE_DEPTH),
     m_inputHostBuffer(),
     m_trimParam(),
     m_pFileReader(),
@@ -1068,7 +1069,7 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
 #else
     {
 #endif //#if ENABLE_AVSW_READER
-        m_inputHostBuffer.resize(PIPELINE_DEPTH);
+        m_inputHostBuffer.resize(m_pipelineDepth);
         //このアライメントは読み込み時の色変換の並列化のために必要
         const int align = 64 * (RGY_CSP_BIT_DEPTH[pInputInfo->csp] > 8 ? 2 : 1);
         const int bufWidth  = pInputInfo->srcWidth  - pInputInfo->crop.e.left - pInputInfo->crop.e.right;
@@ -1255,7 +1256,7 @@ NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 
         m_cuvidDec.reset(new CuvidDecode());
 
-        auto result = m_cuvidDec->InitDecode(m_dev->vidCtxLock(), &inputParam->input, &inputParam->vpp, streamIn->time_base, m_pNVLog, inputParam->nHWDecType, enableCuvidResize(inputParam));
+        auto result = m_cuvidDec->InitDecode(m_dev->vidCtxLock(), &inputParam->input, &inputParam->vpp, streamIn->time_base, m_pNVLog, inputParam->nHWDecType, enableCuvidResize(inputParam), inputParam->ctrl.lowLatency);
         if (result != CUDA_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init decoder.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -1625,17 +1626,19 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
 
     //バッファサイズ
     int extraBufSize = 0;
-    if (m_uEncWidth * m_uEncHeight <= 2048 * 1080) {
-        extraBufSize = 8;
-    } else if (m_uEncWidth * m_uEncHeight <= 4096 * 2160) {
-        extraBufSize = 4;
+    if (m_pipelineDepth > 1) {
+        if (m_uEncWidth * m_uEncHeight <= 2048 * 1080) {
+            extraBufSize = 8;
+        } else if (m_uEncWidth * m_uEncHeight <= 4096 * 2160) {
+            extraBufSize = 4;
+        }
     }
     int requiredBufferFrames = m_stEncConfig.frameIntervalP + 4;
     if (m_stEncConfig.rcParams.enableLookahead) {
         requiredBufferFrames += m_stEncConfig.rcParams.lookaheadDepth;
     }
-    //PIPELINE_DEPTH分拡張しないと、バッファ不足でエンコードが止まってしまう
-    m_encodeBufferCount = requiredBufferFrames + PIPELINE_DEPTH;
+    //m_pipelineDepth分拡張しないと、バッファ不足でエンコードが止まってしまう
+    m_encodeBufferCount = requiredBufferFrames + m_pipelineDepth;
     m_encodeBufferCount = std::max(m_encodeBufferCount, std::min(m_encodeBufferCount + extraBufSize, 32));
     if (m_encodeBufferCount > MAX_ENCODE_QUEUE) {
 #if FOR_AUO
@@ -1681,9 +1684,9 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     m_stCreateEncodeParams.enableEncodeAsync   = true;
     m_stCreateEncodeParams.enablePTD           = true;
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
-    m_stCreateEncodeParams.presetGUID          = list_nvenc_preset_names[inputParam->preset].id;
+    m_stCreateEncodeParams.presetGUID          = get_guid_from_value(inputParam->preset, list_nvenc_preset_names);
     if (inputParam->lossless) {
-        switch (list_nvenc_preset_names[inputParam->preset].value) {
+        switch (inputParam->preset) {
         case NVENC_PRESET_HP:
         case NVENC_PRESET_LL_HP:
             m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_HP_GUID;
@@ -2678,6 +2681,16 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     m_nAVSyncMode = inputParam->common.AVSyncMode;
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
+    if (inputParam->ctrl.lowLatency) {
+        m_pipelineDepth = 1;
+        if (inputParam->preset == NVENC_PRESET_DEFAULT) {
+            inputParam->preset = NVENC_PRESET_LL;
+        } else if (inputParam->preset == NVENC_PRESET_HP) {
+            inputParam->preset = NVENC_PRESET_LL_HP;
+        } else if (inputParam->preset == NVENC_PRESET_HQ) {
+            inputParam->preset = NVENC_PRESET_LL_HQ;
+        }
+    }
 
     //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
     std::vector<std::unique_ptr<NVGPUInfo>> gpuList;
@@ -3149,10 +3162,9 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
 #if 1
 NVENCSTATUS NVEncCore::Encode() {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    const uint32_t nPipelineDepth = PIPELINE_DEPTH;
     m_pStatus->SetStart();
 
-    const int nEventCount = nPipelineDepth + CHECK_PTS_MAX_INSERT_FRAMES + 1 + MAX_FILTER_OUTPUT;
+    const int nEventCount = m_pipelineDepth + CHECK_PTS_MAX_INSERT_FRAMES + 1 + MAX_FILTER_OUTPUT;
 
     const int cudaEventFlags = (m_cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : cudaEventDefault;
 
@@ -3177,7 +3189,7 @@ NVENCSTATUS NVEncCore::Encode() {
     }
 
     //入力フレームの転送管理用のイベント FrameTransferDataで使用する
-    vector<unique_ptr<cudaEvent_t, cudaevent_deleter>> vInFrameTransferFin(std::max(nPipelineDepth, (uint32_t)m_inputHostBuffer.size()));
+    vector<unique_ptr<cudaEvent_t, cudaevent_deleter>> vInFrameTransferFin(std::max(m_pipelineDepth, (int)m_inputHostBuffer.size()));
     for (uint32_t i = 0; i < vInFrameTransferFin.size(); i++) {
         //ctxlockした状態でcudaEventCreateを行わないと、イベントは正常に動作しない
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
@@ -3754,7 +3766,7 @@ NVENCSTATUS NVEncCore::Encode() {
 #endif //#if ENABLE_AVSW_READER
 
         //転送の終了状況を確認、可能ならリソースの開放を行う
-        auto cuerr = check_inframe_transfer(nPipelineDepth);
+        auto cuerr = check_inframe_transfer(m_pipelineDepth);
         if (cuerr != cudaSuccess) {
             PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
             return NV_ENC_ERR_GENERIC;
@@ -3772,7 +3784,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 CUVIDPARSERDISPINFO dispInfo = { 0 };
                 if (!m_cuvidDec->frameQueue()->dequeue(&dispInfo)) {
                     //転送の終了状況を確認、可能ならリソースの開放を行う
-                    cuerr = check_inframe_transfer(nPipelineDepth);
+                    cuerr = check_inframe_transfer(m_pipelineDepth);
                     if (cuerr != cudaSuccess) {
                         PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
                         return NV_ENC_ERR_GENERIC;
@@ -3808,7 +3820,7 @@ NVENCSTATUS NVEncCore::Encode() {
             if (inputFrameBuf.heTransferFin) {
                 //対象バッファの転送が終了しているかを確認
                 while (WaitForSingleObject(inputFrameBuf.heTransferFin.get(), 0) == WAIT_TIMEOUT) {
-                    cuerr = check_inframe_transfer(nPipelineDepth);
+                    cuerr = check_inframe_transfer(m_pipelineDepth);
                     if (cuerr != cudaSuccess) {
                         PrintMes(RGY_LOG_ERROR, _T("Error cudaEventSynchronize: %d (%s).\n"), cuerr, char_to_tstring(_cudaGetErrorEnum(cuerr)).c_str());
                         return NV_ENC_ERR_GENERIC;
@@ -3883,7 +3895,7 @@ NVENCSTATUS NVEncCore::Encode() {
             if (!bDrain) {
                 dqInFrames.pop_front();
             }
-            while (dqEncFrames.size() >= nPipelineDepth) {
+            while (dqEncFrames.size() >= m_pipelineDepth) {
                 auto& encframe = dqEncFrames.front();
                 if (NV_ENC_SUCCESS != (nvStatus = send_encoder(nEncodeFrames, encframe))) {
                     break;
