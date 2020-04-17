@@ -167,6 +167,7 @@ std::wstring RGYGPUCounterWinEntries::tolowercase(const std::wstring &str) {
 }
 
 RGYGPUCounterWin::RGYGPUCounterWin() :
+    initialized(false),
     thRefresh(),
     mtxRefresh(),
     m_refreshed(false),
@@ -268,6 +269,7 @@ int RGYGPUCounterWin::init() {
         &lID))) {
         return 1;
     }
+    initialized = true;
     return 0;
 }
 
@@ -359,8 +361,16 @@ void RGYGPUCounterWin::send_thread_fin() {
 int RGYGPUCounterWin::thread_fin() {
     try {
         if (thRefresh.joinable()) {
-            m_abort = true;
-            thRefresh.join();
+            if (initialized) {
+                m_abort = true;
+                thRefresh.join();
+            } else {
+                //正常に初期化処理がされず、途中でフリーズしてしまったときは強制終了が必要
+                HANDLE handle = thRefresh.native_handle();
+                thRefresh.detach();
+                TerminateThread(handle, 0);
+                CloseHandle(handle);
+            }
         }
     } catch (...) {
         return 1;

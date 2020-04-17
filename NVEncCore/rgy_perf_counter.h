@@ -94,6 +94,7 @@ public:
 protected:
     int thread_func();
 
+    bool initialized;
     std::thread thRefresh;
     std::mutex mtxRefresh;
     bool m_refreshed;
