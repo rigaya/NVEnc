@@ -111,7 +111,7 @@ static int CUDAAPI HandlePictureDisplay(void *pUserData, CUVIDPARSERDISPINFO *pP
 }
 
 CuvidDecode::CuvidDecode() :
-    m_pFrameQueue(nullptr), m_decodedFrames(0), m_videoParser(nullptr), m_videoDecoder(nullptr),
+    m_pFrameQueue(nullptr), m_decodedFrames(0), m_parsedPackets(0), m_videoParser(nullptr), m_videoDecoder(nullptr),
     m_ctxLock(nullptr), m_pPrintMes(), m_bIgnoreDynamicFormatChange(false), m_bError(false), m_videoInfo(), m_nDecType(0) {
     memset(&m_videoDecodeCreateInfo, 0, sizeof(m_videoDecodeCreateInfo));
     memset(&m_videoFormatEx, 0, sizeof(m_videoFormatEx));
@@ -459,6 +459,12 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
         result = CUDA_ERROR_UNKNOWN;
     }
     //cuvidCtxUnlock(m_ctxLock, 0);
+    m_parsedPackets++;
+    if (m_parsedPackets >= 1000 && m_decodedFrames == 0) {
+        //パケットを投入しているけど、デコードされないと検出できた場合はエラーを返す
+        AddMessage(RGY_LOG_ERROR, _T("cuvid failing to parse/decode video stream.\n"));
+        result = CUDA_ERROR_UNKNOWN;
+    }
     return result;
 }
 

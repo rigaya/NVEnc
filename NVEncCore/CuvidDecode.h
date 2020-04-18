@@ -113,7 +113,8 @@ protected:
     CUresult CreateDecoder(CUVIDEOFORMAT *pFormat);
 
     FrameQueue                  *m_pFrameQueue;
-    int                          m_decodedFrames;
+    int64_t                      m_decodedFrames;
+    int64_t                      m_parsedPackets;
     CUvideoparser                m_videoParser;
     CUvideodecoder               m_videoDecoder;
     CUvideoctxlock               m_ctxLock;
