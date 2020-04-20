@@ -235,6 +235,7 @@ CUresult CuvidDecode::CreateDecoder() {
     } __except (1) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidCreateDecoder error\n"));
         curesult = CUDA_ERROR_UNKNOWN;
+        m_bError = true;
     }
     return curesult;
 }
@@ -287,6 +288,7 @@ CUresult CuvidDecode::CreateDecoder(CUVIDEOFORMAT *pFormat) {
     CUresult curesult = CreateDecoder();
     if (CUDA_SUCCESS != curesult) {
         AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateDecoder %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+        m_bError = true;
         return curesult;
     }
     AddMessage(RGY_LOG_DEBUG, _T("created decoder (mode: %s)\n"), get_chr_from_value(list_cuvid_mode, m_nDecType));
@@ -322,6 +324,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
 
     if (nullptr == (m_pFrameQueue = new CUVIDFrameQueue(m_ctxLock))) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to alloc frame queue for decoder.\n"));
+        m_bError = true;
         return CUDA_ERROR_OUT_OF_MEMORY;
     }
     m_pFrameQueue->init(input->srcWidth, input->srcHeight);
@@ -339,6 +342,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     }
     if (!av_isvalid_q(streamtimebase)) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid stream timebase %d/%d\n"), streamtimebase.num, streamtimebase.den);
+        m_bError = true;
         return CUDA_ERROR_INVALID_VALUE;
     }
 
@@ -357,6 +361,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     CUresult curesult = CUDA_SUCCESS;
     if (CUDA_SUCCESS != (curesult = cuvidCreateVideoParser(&m_videoParser, &oVideoParserParameters))) {
         AddMessage(RGY_LOG_ERROR, _T("Failed cuvidCreateVideoParser %d (%s)\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+        m_bError = true;
         return curesult;
     }
     AddMessage(RGY_LOG_DEBUG, _T("created video parser\n"));
@@ -399,6 +404,7 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     if (m_videoFormatEx.raw_seqhdr_data && m_videoFormatEx.format.seqhdr_data_length) {
         if (CUDA_SUCCESS != (curesult = DecodePacket(m_videoFormatEx.raw_seqhdr_data, m_videoFormatEx.format.seqhdr_data_length, AV_NOPTS_VALUE, HW_NATIVE_TIMEBASE))) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to decode header %d (%s).\n"), curesult, char_to_tstring(_cudaGetErrorEnum(curesult)).c_str());
+            m_bError = true;
             return curesult;
         }
     }
@@ -429,6 +435,7 @@ CUresult CuvidDecode::FlushParser() {
     } __except (1) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         result = CUDA_ERROR_UNKNOWN;
+        m_bError = true;
     }
     //cuvidCtxUnlock(m_ctxLock, 0);
     m_pFrameQueue->endDecode();
@@ -457,6 +464,7 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
     } __except (1) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         result = CUDA_ERROR_UNKNOWN;
+        m_bError = true;
     }
     //cuvidCtxUnlock(m_ctxLock, 0);
     m_parsedPackets++;
@@ -464,6 +472,7 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
         //パケットを投入しているけど、デコードされないと検出できた場合はエラーを返す
         AddMessage(RGY_LOG_ERROR, _T("cuvid failing to parse/decode video stream.\n"));
         result = CUDA_ERROR_UNKNOWN;
+        m_bError = true;
     }
     return result;
 }
