@@ -461,6 +461,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.interlaceAutoFrame = input->picstruct == RGY_PICSTRUCT_AUTO;
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
+        inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
         pInputPrm = &inputInfoAVCuvid;
         log->write(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         pFileReader.reset(new RGYInputAvcodec());
