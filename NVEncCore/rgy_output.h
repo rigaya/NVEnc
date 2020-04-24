@@ -111,7 +111,7 @@ public:
         m_printMes = log;
         m_encSatusInfo = encSatusInfo;
         if (videoOutputInfo) {
-            memcpy(&m_VideoOutputInfo, videoOutputInfo, sizeof(m_VideoOutputInfo));
+            m_VideoOutputInfo = *videoOutputInfo;
         }
         return Init(strFileName, videoOutputInfo, prm);
     }

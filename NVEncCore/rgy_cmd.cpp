@@ -241,7 +241,7 @@ int cmd_string_to_bool(bool *b, const tstring &str) {
 }
 
 int parse_qp(int a[3], const TCHAR *str) {
-    memset(a, 0, sizeof(a));
+    a[0] = a[1] = a[2] = 0;
     if (   3 == _stscanf_s(str, _T("%d:%d:%d"), &a[0], &a[1], &a[2])
         || 3 == _stscanf_s(str, _T("%d/%d/%d"), &a[0], &a[1], &a[2])
         || 3 == _stscanf_s(str, _T("%d.%d.%d"), &a[0], &a[1], &a[2])
@@ -430,7 +430,7 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         i++;
         int value = 0;
         if (get_list_value(list_interlaced, strInput[i], &value)) {
-            if (ENCODER_QSV && value == RGY_PICSTRUCT_AUTO) { //qsvではinterlace autoは未サポート
+            if (ENCODER_QSV && value == (int)RGY_PICSTRUCT_AUTO) { //qsvではinterlace autoは未サポート
                 print_cmd_error_invalid_value(option_name, strInput[i], _T(""), list_interlaced, _countof(list_interlaced) - (ENCODER_QSV ? 2 : 1));
                 return 1;
             }

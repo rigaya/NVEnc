@@ -167,7 +167,6 @@ RGYInput::RGYInput() :
     m_trimParam() {
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
-    memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
 }
 
 RGYInput::~RGYInput() {
