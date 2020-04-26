@@ -1895,7 +1895,7 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
             char_to_tstring(t->value).c_str());
     }
 
-    av_dump_format(m_Mux.format.formatCtx, 0, m_Mux.format.formatCtx->filename, 1);
+    av_dump_format(m_Mux.format.formatCtx, 0, m_Mux.format.formatCtx->url, 1);
 
     //frame_sizeを表示
     for (const auto& audio : m_Mux.audio) {

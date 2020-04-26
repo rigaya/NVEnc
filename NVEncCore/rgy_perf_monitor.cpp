@@ -545,6 +545,7 @@ void CPerfMonitor::clear() {
 #if ENABLE_PERF_COUNTER
     AddMessage(RGY_LOG_DEBUG, _T("Closing perf counter...\n"));
     m_perfCounter.reset();
+#endif //#if ENABLE_PERF_COUNTER
     AddMessage(RGY_LOG_DEBUG, _T("Closed perf counter.\n"));
 #endif //#if ENABLE_PERF_COUNTER
     memset(m_info, 0, sizeof(m_info));

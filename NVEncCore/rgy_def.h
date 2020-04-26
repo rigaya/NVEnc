@@ -622,6 +622,33 @@ struct VideoInfo {
 
     //[      ] 入力コーデックのVUI情報
     VideoVUIInfo vui;
+
+    VideoInfo() :
+        type(RGY_INPUT_FMT_AUTO),
+        srcWidth(0),
+        srcHeight(0),
+        srcPitch(0),
+        codedWidth(0),
+        codedHeight(0),
+        dstWidth(0),
+        dstHeight(0),
+        dstPitch(0),
+        frames(0),
+        shift(0),
+        fpsN(0),
+        fpsD(0),
+        crop(),
+        sar(),
+        csp(RGY_CSP_NA),
+        picstruct(RGY_PICSTRUCT_UNKNOWN),
+        codec(RGY_CODEC_UNKNOWN),
+        codecExtra(nullptr),
+        codecExtraSize(0),
+        codecLevel(0),
+        codecProfile(0),
+        videoDelay(0),
+        vui() {};
+    ~VideoInfo(){};
 };
 
 enum RGYAVSync : uint32_t {

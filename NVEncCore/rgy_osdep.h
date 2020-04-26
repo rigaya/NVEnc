@@ -51,6 +51,8 @@
 #else //#if defined(_WIN32) || defined(_WIN64)
 #include <sys/stat.h>
 #include <sys/times.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <cstdarg>
 #include <cstdlib>
 #include <cstdio>
@@ -98,6 +100,11 @@ char (*__countof_helper(_CountofType (&_Array)[_SizeOfArray]))[_SizeOfArray];
 #ifndef FALSE
 #define FALSE (0)
 #endif
+
+struct LUID {
+  int LowPart;
+  int HighPart;
+};
 
 static inline char *strtok_s(char *strToken, const char *strDelimit, char **context) {
     return strtok(strToken, strDelimit);
@@ -238,6 +245,11 @@ static inline int fopen_s(FILE **pfp, const char *filename, const char *mode) {
     FILE *fp = fopen(filename, mode);
     *pfp = fp;
     return (fp == NULL) ? 1 : 0;
+}
+
+static uint32_t GetCurrentProcessId() {
+    pid_t pid = getpid();
+    return (uint32_t)pid;
 }
 
 static pthread_t GetCurrentThread() {

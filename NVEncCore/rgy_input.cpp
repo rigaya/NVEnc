@@ -167,7 +167,6 @@ RGYInput::RGYInput() :
     m_trimParam() {
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
-    memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
 }
 
 RGYInput::~RGYInput() {
@@ -461,6 +460,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.interlaceAutoFrame = input->picstruct == RGY_PICSTRUCT_AUTO;
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
+        inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
         pInputPrm = &inputInfoAVCuvid;
         log->write(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         pFileReader.reset(new RGYInputAvcodec());

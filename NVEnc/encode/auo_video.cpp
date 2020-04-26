@@ -609,7 +609,8 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         //x264が待機に入るまでこちらも待機
         while (WaitForInputIdle(pi_enc.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT)
             log_process_events();
-        if_valid_set_event(pe->aud_parallel.he_aud_start);
+        if (conf->aud.use_internal)
+            if_valid_set_event(pe->aud_parallel.he_aud_start);
 
         //ログウィンドウ側から制御を可能に
         DWORD tm_vid_enc_start = timeGetTime();
