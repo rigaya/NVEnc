@@ -26,9 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
 #include <vector>
 #include <array>
 #include <map>
@@ -37,7 +34,6 @@
 #include <string>
 #include <algorithm>
 #include <thread>
-#include <tchar.h>
 #pragma warning(push)
 #pragma warning(disable: 4819)
 //ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。
@@ -46,8 +42,8 @@
 #include <cuda_runtime.h>
 #include "nvEncodeAPI.h"
 #pragma warning(pop)
-#include "process.h"
-#pragma comment(lib, "winmm.lib")
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 #include "NVEncCore.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
@@ -86,8 +82,6 @@
 #include "helper_nvenc.h"
 #include "h264_level.h"
 #include "hevc_level.h"
-#include "shlwapi.h"
-#pragma comment(lib, "shlwapi.lib")
 
 #pragma warning(push)
 #pragma warning(disable: 4244)
@@ -799,10 +793,7 @@ NVENCSTATUS NVEncCore::InitCuda(const InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("\n"), m_nDeviceId);
     PrintMes(RGY_LOG_DEBUG, _T("Checking Environment Info...\n"));
     PrintMes(RGY_LOG_DEBUG, _T("%s\n"), get_encoder_version());
-
-    OSVERSIONINFOEXW osversioninfo = { 0 };
-    tstring osversionstr = getOSVersion(&osversioninfo);
-    PrintMes(RGY_LOG_DEBUG, _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+    PrintMes(RGY_LOG_DEBUG, _T("OS Version     %s\n"), getOSVersion().c_str());
 
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
@@ -1189,14 +1180,14 @@ NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
         }
         if (m_stEncodeBuffer[i].stOutputBfr.hOutputEvent) {
             m_dev->encoder()->NvEncUnregisterAsyncEvent(m_stEncodeBuffer[i].stOutputBfr.hOutputEvent);
-            nvCloseFile(m_stEncodeBuffer[i].stOutputBfr.hOutputEvent);
+            CloseEvent(m_stEncodeBuffer[i].stOutputBfr.hOutputEvent);
             m_stEncodeBuffer[i].stOutputBfr.hOutputEvent = NULL;
         }
     }
 
     if (m_stEOSOutputBfr.hOutputEvent) {
         m_dev->encoder()->NvEncUnregisterAsyncEvent(m_stEOSOutputBfr.hOutputEvent);
-        nvCloseFile(m_stEOSOutputBfr.hOutputEvent);
+        CloseEvent(m_stEOSOutputBfr.hOutputEvent);
         m_stEOSOutputBfr.hOutputEvent = NULL;
     }
     PrintMes(RGY_LOG_DEBUG, _T("Released IO Buffers.\n"));
@@ -3267,8 +3258,12 @@ NVENCSTATUS NVEncCore::Encode() {
     auto extract_audio = [&](int inputFrames) {
         auto sts = RGY_ERR_NONE;
         if ((m_pFileWriterListAudio.size() + pFilterForStreams.size()) > 0) {
+#if ENABLE_SM_READER
             RGYInputSM *pReaderSM = dynamic_cast<RGYInputSM *>(m_pFileReader.get());
             const int droppedInAviutl = (pReaderSM != nullptr) ? pReaderSM->droppedFrames() : 0;
+#else
+            const int droppedInAviutl = 0;
+#endif
             vector<AVPacket> packetList = m_pFileReader->GetStreamDataPackets(inputFrames + droppedInAviutl);
 
             //音声ファイルリーダーからのトラックを結合する
@@ -3348,7 +3343,7 @@ NVENCSTATUS NVEncCore::Encode() {
             }
         }
         size_t queueSize = queueHDR10plusMetadata.size();
-        for (int i = 0; i < queueSize; i++) {
+        for (size_t i = 0; i < queueSize; i++) {
             if (queueHDR10plusMetadata.copy(&frameDataPtr, i, &queueSize)) {
                 if (frameDataPtr->timestamp() == timestamp) {
                     frameData = std::make_shared<RGYFrameDataHDR10plus>(*frameDataPtr);
@@ -4302,13 +4297,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         cuDriverGetVersion(&cudaDriverVersion);
     }
     const auto codecFeature = m_dev->encoder()->getCodecFeature(m_stCodecGUID);
-    OSVERSIONINFOEXW osversioninfo = { 0 };
-    tstring osversionstr = getOSVersion(&osversioninfo);
     const int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
     const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
     auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
     add_str(RGY_LOG_ERROR, _T("%s\n"), get_encoder_version());
-    add_str(RGY_LOG_INFO,  _T("OS Version     %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+    add_str(RGY_LOG_INFO,  _T("OS Version     %s\n"), getOSVersion().c_str());
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
     add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info.c_str());
     add_str(RGY_LOG_INFO,  _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),

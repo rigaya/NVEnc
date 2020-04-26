@@ -72,6 +72,7 @@ typedef wchar_t WCHAR;
 typedef int BOOL;
 typedef void* HANDLE;
 typedef void* HMODULE;
+typedef void* HINSTANCE;
 typedef int errno_t;
 
 #define RGY_GET_PROC_ADDRESS dlsym
@@ -81,6 +82,10 @@ static uint32_t CP_UTF8 = 0;
 
 #define __stdcall
 #define __fastcall
+
+struct LUID {
+    uint32_t hi, lo;
+};
 
 template <typename _CountofType, size_t _SizeOfArray>
 char (*__countof_helper(_CountofType (&_Array)[_SizeOfArray]))[_SizeOfArray];
@@ -102,6 +107,9 @@ static inline char *strcpy_s(char *dst, size_t size, const char *src) {
 }
 static inline char *strcpy_s(char *dst, const char *src) {
     return strcpy(dst, src);
+}
+static inline char *strcat_s(char *dst, size_t size, const char *src) {
+    return strcat(dst, src);
 }
 static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_list argptr) {
     return vsprintf(buffer, format, argptr);

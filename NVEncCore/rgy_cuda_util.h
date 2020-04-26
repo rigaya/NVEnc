@@ -29,13 +29,13 @@
 #ifndef __RGY_CUDA_UTIL_H__
 #define __RGY_CUDA_UTIL_H__
 
-#include <tchar.h>
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include <cuda_runtime.h>
 #include <npp.h>
 #include <cuda.h>
 #pragma warning (pop)
+#include "rgy_tchar.h"
 #include "rgy_util.h"
 
 struct cudaevent_deleter {

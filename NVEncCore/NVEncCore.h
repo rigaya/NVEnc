@@ -28,25 +28,15 @@
 
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
 #include <stdint.h>
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #pragma warning (disable: 4201)
 #include "nvEncodeAPI.h"
 #pragma warning (pop)
-#include <tchar.h>
 #include <vector>
 #include <list>
 #include <string>
-#include "rgy_input.h"
-#include "rgy_output.h"
-#include "rgy_status.h"
-#include "rgy_log.h"
-#include "rgy_bitstream.h"
-#include "rgy_hdr10plus.h"
 #include "CuvidDecode.h"
 #include "NVEncDevice.h"
 #include "NVEncUtil.h"
@@ -54,6 +44,14 @@
 #include "NVEncFilter.h"
 #include "NVEncFilterSsim.h"
 #include "NVEncFrameInfo.h"
+#include "rgy_input.h"
+#include "rgy_output.h"
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
+#include "rgy_status.h"
+#include "rgy_log.h"
+#include "rgy_bitstream.h"
+#include "rgy_hdr10plus.h"
 
 using std::vector;
 

@@ -19,7 +19,7 @@
 #pragma warning(disable : 4996)
 #endif
 
-#include "../common/inc/NvHWEncoder.h"
+#include "NvHWEncoder.h"
 
 #define MAX_ENCODE_QUEUE 64
 

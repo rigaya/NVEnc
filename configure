@@ -1,0 +1,683 @@
+#!/bin/bash
+
+#-----------------------------------------------------------------------------------------
+#    QSVEnc/NVEnc/VCEEnc by rigaya
+#  -----------------------------------------------------------------------------------------
+#   ソースコードについて
+#   ・無保証です。
+#   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+#   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
+#  -----------------------------------------------------------------------------------------
+
+write_config_mak()
+{
+    echo $1
+    echo $1 >> config.mak
+}
+
+write_enc_config()
+{
+    echo $1
+    echo $1 >> NVEncCore/rgy_config.h
+}
+
+write_qsv_rev()
+{
+    echo $1
+    echo $1 >> NVEncCore/rgy_rev.h
+}
+
+cxx_check()
+{
+    echo "#include <iostream>" > cxx_check.c
+    if [ -n "$2" ]; then
+        echo "#include <$2>" >> cxx_check.c
+    fi 
+    if [ -n "$3" ]; then
+        echo "extern \"C\" {" >> cxx_check.c
+        echo "#include <$3>" >> cxx_check.c
+        echo "}" >> cxx_check.c
+    fi 
+    echo "int main(void){ $4; std::cout << \"Hello World!\" << std::endl; return 0;}" >> cxx_check.c
+    $CXX cxx_check.c $1 -o cxx_check 2>/dev/null
+    #$CXX cxx_check.c $1 -o cxx_check
+    ret=$?
+    rm -f cxx_check*
+    return $ret
+}
+
+regex_check()
+{
+    echo "#include <iostream>" > cxx_check.c
+    echo "#include <string>" >> cxx_check.c
+    echo "#include <regex>" >> cxx_check.c
+    echo "int main(void){ try { std::regex re(R\"(\d+)\"); std::string test(\"1234\"); return std::regex_match(test, re) ? 0 : 1; } catch (...) { return 1; } }" >> cxx_check.c
+    $CXX cxx_check.c $1 -o cxx_check 2>/dev/null
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        rm -f cxx_check*
+        return $ret
+    fi
+    ./cxx_check 2>/dev/null
+    ret=$?
+    rm -f cxx_check*
+    return $ret
+}
+
+rm -f config.* .depend NVEncCore/rgy_config.h NVEncCore/rgy_rev.h
+
+PKGCONFIG="pkg-config"
+USE_PKGCONFIG=1
+
+ENABLE_DEBUG=0
+NVCC=nvcc
+CXX=g++
+LD=g++
+AS=yasm
+PROGRAM=nvencc
+PREFIX="/usr/local"
+EXTRACXXFLAGS=""
+EXTRALDFLAGS=""
+SRCS=""
+ASMS=""
+X86_64=1
+NO_RDTSCP_INTRIN=0
+
+CUDA_PATH=${CUDA_PATH-"/usr/lib/cuda"}
+
+ENABLE_CPP_REGEX=1
+
+CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter"
+LIBAV_CFLAGS=""
+LIBAV_LIBS=""
+ENABLE_AVSW_READER=1
+
+CHECK_VAPOURSYNTH_NAMES="vapoursynth vapoursynth-script"
+ENABLE_VAPOURSYNTH=1
+VAPOURSYNTH_LIBS=""
+VAPOURSYNTH_CFLAGS=""
+
+CHECK_AVXSYNTH_NAMES="avxsynth"
+ENABLE_AVXSYNTH=1
+AVXSYNTH_CFLAGS=""
+
+CHECK_LIBASS_NAMES="libass"
+LIBASS_CFLAGS=""
+LIBASS_LIBS=""
+ENABLE_LIBASS=1
+
+DTL_CFLAGS=""
+ENABLE_DTL=1
+
+print_help()
+{
+cat << EOF
+Usage: ./configure [options]
+
+options:
+  -h, --help               print this message
+
+  --prefix=PREFIX          install nvencc into PREFIX/bin [${PREFIX}]
+
+  --cxx=CXX                set C++ compiler path [${CXX}]
+  --asm=AS                 set assembler path [${AS}]
+  --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
+  --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
+
+  --extra-cxxflags=XCFLAGS add XCFLAGS to CFLAGS
+  --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
+
+  --disable-libva          disable libva support [auto]
+  --disable-libav          disable libav support [auto]
+  --disable-vapoursynth    disable vapoursynth support [auto]
+  --disable-libass         disable libass support [auto]
+  --disable-dtl            disable dtl support [auto]
+EOF
+}
+
+SRCDIR=$(dirname "$0")
+if [ "${SRCDIR}" == "`pwd`" ]; then
+    SRCDIR=.
+fi
+
+for opt; do
+    optarg="${opt#*=}"
+    case "$opt" in
+         -h)
+            print_help
+            exit 0
+            ;;
+         --help)
+            print_help
+            exit 0
+            ;;
+        --prefix=*)
+            PREFIX="$optarg"
+            ;;
+        --cxx=*)
+            CXX="$optarg"
+            LD="$optarg"
+            ;;
+        --asm=*)
+            AS="$optarg"
+            ;;
+        --extra-cxxflags=*)
+            EXTRACXXFLAGS="$optarg"
+            ;;
+        --extra-ldflags=*)
+            EXTRALDFLAGS="$optarg"
+            ;;
+        --cuda=*)
+            CUDA_PATH="$optarg"
+            ;;
+        --enable-debug)
+            ENABLE_DEBUG=1
+            ;;
+        --disable-libav)
+            ENABLE_AVSW_READER=0
+            ;;
+        --disable-vapoursynth)
+            ENABLE_VAPOURSYNTH=0
+            ;;
+        --disable-libass)
+            ENABLE_LIBASS=0
+            ;;
+        --disable-dtl)
+            ENABLE_DTL=0
+            ;;
+        --pkg-config=*)
+            PKGCONFIG="$optarg"
+            ;;
+        *)
+            echo "unknown option $opt"
+            exit 1
+            ;;
+    esac
+done
+
+for file in "${CXX}" "${LD}" "${AS}"; do
+    if [ ! `which $file 2> /dev/null` ]; then
+        echo $file not found
+        exit 1
+    fi
+done
+
+printf "checking for ${CXX}..."
+if ! cxx_check "" ; then
+    echo $CXX does not work
+    exit 1
+fi
+echo "OK"
+
+if [ `echo | ${CXX} -E -dM - | egrep "WIN32|WIN64" | wc --lines` -ne 0 ]; then
+    echo "This script does not support Windows platform."
+    echo "For Windows, use Visual Studio."
+    exit 1 
+fi
+
+if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
+    X86_64=0
+fi
+
+CXXFLAGS="-Wall -Wno-attributes -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused 
+  -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS \
+  -I${SRCDIR} -I${SRCDIR}/NVEncSDK/Common/inc -I${SRCDIR}/NVEncCore \
+  -I${SRCDIR}/jitify -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
+"
+
+LDFLAGS="-L. -ldl -lstdc++"
+ASFLAGS="-I. -DLINUX=1"
+if [ $X86_64 -ne 0 ]; then
+    ASFLAGS="${ASFLAGS} -f elf64 -DARCH_X86_64=1"
+    CXXFLAGS="${CXXFLAGS} -DLINUX64 -m64"
+    LDFLAGS="${LDFLAGS} -m64"
+else
+    ASFLAGS="${ASFLAGS} -f elf32"
+    CXXFLAGS="${CXXFLAGS} -DLINUX32 -m32"
+    LDFLAGS="${LDFLAGS} -m32"
+fi
+
+CUDA_CFLAGS="-I${CUDA_PATH}/include"
+CUDA_LIBS="-L${CUDA_PATH}/lib64 -lcudart -lcuda"
+printf "checking for cuda (CUDA_PATH=${CUDA_PATH})..."
+if ! cxx_check "${CXXFLAGS} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "cuda.h" "" "auto result = cuInit(0);" ; then
+    echo "cuda not supported." 
+    exit 1
+fi
+echo "OK"
+export PATH=${CUDA_PATH}/bin:${PATH}
+NVCCFLAGS="-arch=sm_30 -arch=sm_50 -arch=sm_75 --cudart=static -std=c++14"
+
+printf "checking for pthread..."
+if cxx_check "${CXXFLAGS} -pthread ${LDFLAGS} -lpthread" ; then
+    CXXFLAGS="$CXXFLAGS -pthread"
+    LDFLAGS="${LDFLAGS} -lpthread"
+else
+    echo "pthread not installed." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for c++14 support..."
+if cxx_check "${CXXFLAGS} -std=c++14 ${LDFLAGS}" ; then
+    CXXFLAGS="$CXXFLAGS -std=c++14"
+else
+    echo $CXX does not work with -std=c++14
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <chrono>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "chrono" "" "auto start = std::chrono::system_clock::now();" ; then
+    echo "<chrono> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <thread>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "thread" "" "std::thread th;" ; then
+    echo "<thread> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <mutex>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "mutex" "" "std::mutex mtx;" ; then
+    echo "<mutex> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <atomic>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "atomic" "" "std::atomic<int> value(0);" ; then
+    echo "<atomic> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <type_traits>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "type_traits" "" "std::cout << std::is_integral<int>::value << std::endl;" ; then
+    echo "<type_traits> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <regex>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "regex" "" "" ; then
+    echo "<regex> not supported with this compiler." 
+    exit 1
+else
+    if ! regex_check "${CXXFLAGS} ${LDFLAGS}"; then
+        echo "no, disable feature using regex."
+        ENABLE_CPP_REGEX=0
+    else
+        echo "OK"
+    fi
+fi
+
+printf "checking for lambda..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto test = []() { std::cout << \"Hello c++14!!\" << std::endl; };" ; then
+    echo "lambda not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for nullptr..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto ptr = nullptr;" ; then
+    echo "nullptr not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for range based for..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "vector" "" "std::vector<int> v = { 1, 2, 3 }; for (auto i : v) { std::cout << i << std::endl; }" ; then
+    echo "range based for not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for alignas(n)..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "alignas(16) int value[8] = { 0 };" ; then
+    echo "alignas(n) not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for compiler SSE4.1 support..."
+if cxx_check "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
+    if cxx_check "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
+    elif cxx_check "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -msse4.1 -mpopcnt"
+    else
+        CXXFLAGS="$CXXFLAGS -msse4.1"
+    fi
+else
+    echo "SSE4.1 not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for system SSE4.1 support..."
+if [ `cat /proc/cpuinfo | grep "sse4_1" | wc --lines` -eq 0 ]; then
+    echo "System does not support SSE4.1."
+    exit 1 
+fi
+echo "OK"
+
+printf "checking for __rdtscp()..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
+    CXXFLAGS="${CXXFLAGS} -DNO_RDTSCP_INTRIN=1"
+    echo "no"
+else
+    echo "yes"
+fi
+
+printf "checking for _xgetbv()..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = _xgetbv(a);" ; then
+    CXXFLAGS="${CXXFLAGS} -DNO_XGETBV_INTRIN=1"
+    echo "no"
+else
+    echo "yes"
+fi
+
+if [ ! $ENABLE_DEBUG -eq 0 ]; then
+    echo "configuring for debug..."
+    CXXFLAGS="${CXXFLAGS} -O0 -g -D_DEBUG"
+else
+    echo "configuring for speed..."
+    CXXFLAGS="${CXXFLAGS} -O3 -DNDEBUG=1"
+    if cxx_check "${CXXFLAGS} -mfpmath=sse ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -mfpmath=sse"
+    fi
+    if cxx_check "${CXXFLAGS} -fexcess-precision=fast ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -fexcess-precision=fast"
+    fi
+    if cxx_check "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -ffast-math"
+    fi
+    if cxx_check "${CXXFLAGS} -fomit-frame-pointer ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -fomit-frame-pointer"
+    fi
+    LDFLAGS="$LDFLAGS -Wl,-s"
+fi
+
+if [ -n $EXTRACXXFLAGS ]; then
+    printf "checking --extra-cflags..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" ; then
+        echo --extra-cflags=${EXTRACXXFLAGS} does not work
+        exit 1
+    fi
+    echo "OK"
+fi
+
+if [ -n $EXTRALDFLAGS ]; then
+    printf "checking --extra-ldflags..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" ; then
+        echo --extra-ldflags=${EXTRALDFLAGS} does not work
+        exit 1
+    fi
+    echo "OK"
+fi
+
+printf "checking for pkg-config..."
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PREFIX/lib/pkgconfig
+which $PKGCONFIG 2>/dev/null 1>/dev/null
+if [ $? -ne 0 ]; then
+    echo "${PKGCONFIG} does not exist."
+    USE_PKGCONFIG=0
+fi
+echo "OK"
+
+if [ $ENABLE_AVSW_READER -ne 0 ]; then
+    if [ $USE_PKGCONFIG -ne 0 ]; then
+        printf "checking libavcodec with pkg-config..."
+        if ! ${PKGCONFIG} --exists $CHECK_LIBAV_NAMES ; then
+            echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+        else
+            echo "OK"
+            LIBAV_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBAV_NAMES}`
+            LIBAV_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBAV_NAMES}`
+        fi
+    fi
+    
+    if [ -z "$LIBAV_LIBS" ]; then
+        LIBAV_LIBS=""
+        for lib in $CHECK_LIB_NAMES; do
+            LIBAV_LIBS="${LIBAV_LIBS} -l${lib#lib}"
+        done
+        echo "lib settings might be inaqurate."
+    fi
+
+    printf "checking for libavutil.."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavutil/avutil.h" "avutil_version();" ; then
+        echo "no"
+        ENABLE_AVSW_READER=0
+    else
+        echo "yes"
+    fi
+    
+    printf "checking for libavcodec..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavcodec/avcodec.h" "avcodec_find_decoder((AVCodecID)0);" ; then
+        echo "no"
+        ENABLE_AVSW_READER=0
+    else
+        echo "yes"
+    fi
+    
+    printf "checking for libavformat..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavformat/avformat.h" "avformat_find_stream_info(0,0);" ; then
+        echo "no"
+        ENABLE_AVSW_READER=0
+    else
+        echo "yes"
+    fi
+    
+    printf "checking for libavfilter..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavfilter/avfilter.h" "avfilter_register_all();" ; then
+        echo "no"
+        ENABLE_AVSW_READER=0
+    else
+        echo "yes"
+    fi
+    
+    printf "checking for libswresample..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libswresample/swresample.h" "swr_alloc();" ; then
+        echo "no"
+        ENABLE_AVSW_READER=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_AVSW_READER -eq 0 ]; then
+        LIBAV_CFLAGS=""
+        LIBAV_LIBS=""
+    fi
+fi
+
+if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
+    printf "checking vapoursynth with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_VAPOURSYNTH_NAMES} ; then
+        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        echo "OK"
+        VAPOURSYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_VAPOURSYNTH_NAMES}`
+        VAPOURSYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_VAPOURSYNTH_NAMES}`
+    fi
+    printf "checking for VapourSynth.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VapourSynth.h" "" "" ; then
+        echo "no"
+        ENABLE_VAPOURSYNTH=0
+    else
+        echo "yes"
+    fi
+    printf "checking for VSScript.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VSScript.h" "" "vsscript_init();" ; then
+        echo "no"
+        ENABLE_VAPOURSYNTH=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_VAPOURSYNTH -eq 0 ]; then
+        VAPOURSYNTH_CFLAGS=""
+        VAPOURSYNTH_LIBS=""
+    fi
+fi
+
+if [ $ENABLE_AVXSYNTH -ne 0 ]; then
+    printf "checking avxsynth with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_AVXSYNTH_NAMES} ; then
+        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        echo "OK"
+        AVXSYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_AVXSYNTH_NAMES}`
+        AVXSYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_AVXSYNTH_NAMES}`
+    fi
+    printf "checking for avxsynth_c.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVXSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVXSYNTH_LIBS}" "" "avxsynth_c.h" "" ; then
+        echo "no"
+        ENABLE_AVXSYNTH=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_AVXSYNTH -eq 0 ]; then
+        AVXSYNTH_CFLAGS=""
+        AVXSYNTH_LIBS=""
+    fi
+fi
+
+if [ $ENABLE_LIBASS -ne 0 ]; then
+    printf "checking libass with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_LIBASS_NAMES} ; then
+        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        echo "OK"
+        LIBASS_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBASS_NAMES}`
+        LIBASS_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBASS_NAMES}`
+    fi
+    printf "checking for ass/ass.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "" "ass/ass.h" "" ; then
+        echo "no"
+        ENABLE_LIBASS=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_LIBASS -eq 0 ]; then
+        LIBASS_CFLAGS=""
+        LIBASS_LIBS=""
+    fi
+fi
+
+if [ $ENABLE_DTL -ne 0 ]; then
+    printf "checking for dtl/dtl.hpp..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl/dtl.hpp" "" "" ; then
+        printf "checking for dtl/dtl.hpp..."
+        if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl.hpp" "" "" ; then
+            echo "no"
+            ENABLE_DTL=0
+        else
+            echo "yes"
+        fi
+    else
+        DTL_CFLAGS="-I./dtl"
+        echo "yes"
+    fi
+fi
+
+SRC_NVENCCORE=" \
+CuvidDecode.cpp          FrameQueue.cpp               NVEncCmd.cpp                 NVEncCore.cpp \
+NVEncDevice.cpp          NVEncFilter.cpp              NVEncFilterAfs.cpp           NVEncFilterAfsAnalyze.cu \
+NVEncFilterAfsFilter.cu  NVEncFilterAfsMerge.cu       NVEncFilterAfsSynthesize.cu  NVEncFilterColorspace.cpp \
+NVEncFilterCrop.cu       NVEncFilterCustom.cpp        NVEncFilterDeband.cu         NVEncFilterDelogo.cpp \
+NVEncFilterDelogo.cu     NVEncFilterDenoiseGauss.cpp  NVEncFilterDenoiseKnn.cu     NVEncFilterDenoisePmd.cu \
+NVEncFilterEdgelevel.cu  NVEncFilterNnedi.cu          NVEncFilterPad.cpp           NVEncFilterResize.cu \
+NVEncFilterRff.cpp       NVEncFilterSelectEvery.cpp   NVEncFilterSmooth.cu         NVEncFilterSsim.cpp \
+NVEncFilterSsim.cu       NVEncFilterSubburn.cpp       NVEncFilterSubburn.cu        NVEncFilterTransform.cu \
+NVEncFilterTweak.cu      NVEncFilterUnsharp.cu        NVEncFilterYadif.cu          NVEncFrameInfo.cpp \
+NVEncParam.cpp           NVEncUtil.cpp                cl_func.cpp                  convert_csp.cpp \
+convert_csp_avx.cpp      convert_csp_avx2.cpp         convert_csp_sse2.cpp         convert_csp_sse41.cpp \
+convert_csp_ssse3.cpp    cpu_info.cpp                 gpu_info.cpp                 gpuz_info.cpp \
+h264_level.cpp           hevc_level.cpp               logo.cpp                     ram_speed.cpp \
+rgy_avlog.cpp            rgy_avutil.cpp               rgy_bitstream.cpp            rgy_caption.cpp \
+rgy_cmd.cpp              rgy_codepage.cpp             rgy_def.cpp                  rgy_err.cpp \
+rgy_event.cpp            rgy_frame.cpp                rgy_hdr10plus.cpp            rgy_input.cpp \
+rgy_input_avcodec.cpp    rgy_input_avi.cpp            rgy_input_avs.cpp            rgy_input_raw.cpp \
+rgy_input_sm.cpp         rgy_input_vpy.cpp            rgy_log.cpp                  rgy_output.cpp \
+rgy_output_avcodec.cpp   rgy_perf_monitor.cpp         rgy_pipe.cpp \
+rgy_pipe_linux.cpp       rgy_prm.cpp                  rgy_simd.cpp                 rgy_status.cpp \
+rgy_util.cpp             rgy_version.cpp \
+"
+
+SRC_TINYXML2="tinyxml2.cpp"
+
+SRC_CHAPTER_RW="chapter_rw.cpp"
+
+ASM_NVEncCore="ram_speed_x64.asm cpu_info_x64.asm"
+
+SRC_NVENCC="NVEncC.cpp"
+
+for src in $SRC_NVENCCORE; do
+    SRCS="$SRCS NVEncCore/$src"
+done
+
+for asm in $ASM_NVEncCore; do
+    ASMS="$ASMS NVEncCore/$asm"
+done
+
+for pyw in $PYW_PERF_MONITOR; do
+    PYWS="$PYWS PerfMonitor/$pyw"
+done
+
+for src in $SRC_TINYXML2; do
+    SRCS="$SRCS tinyxml2/$src"
+done
+
+for src in $SRC_CHAPTER_RW; do
+    SRCS="$SRCS ChapterRW/$src"
+done
+
+for src in $SRC_NVENCC; do
+    SRCS="$SRCS NVEncC/$src"
+done
+
+ENCODER_REV=`git rev-list HEAD | wc --lines`
+
+echo ""
+echo "Creating config.mak, rgy_config.h..."
+echo "SRCS = $SRCS" >> config.mak
+echo "ASMS = $ASMS" >> config.mak
+echo "PYWS = $PYWS" >> config.mak
+write_config_mak "SRCDIR = $SRCDIR"
+write_config_mak "CXX  = $CXX"
+write_config_mak "NVCC = $NVCC"
+write_config_mak "LD   = $LD"
+write_config_mak "AS   = $AS"
+write_config_mak "PROGRAM = $PROGRAM"
+write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
+write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $CUDA_FLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
+write_config_mak "NVCCFLAGS = $NVCCFLAGS"
+write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
+write_config_mak "ASFLAGS = $ASFLAGS"
+write_config_mak "PREFIX = $PREFIX"
+echo "X86_64 = ${X86_64}"
+write_qsv_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
+write_enc_config "#define ENABLE_AVI_READER             0"
+write_enc_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
+write_enc_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
+write_enc_config "#define ENABLE_AVSW_READER            $ENABLE_AVSW_READER"     
+write_enc_config "#define ENABLE_SM_READER              0"
+write_enc_config "#define ENABLE_CUSTOM_VPP             1"
+write_enc_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"         
+write_enc_config "#define ENABLE_ADVANCED_DEINTERLACE   0"
+write_enc_config "#define ENABLE_MVC_ENCODING           0"
+write_enc_config "#define ENABLE_FPS_CONVERSION         0"
+write_enc_config "#define ENABLE_OPENCL                 0"
+write_enc_config "#define ENABLE_SESSION_THREAD_CONFIG  0"
+write_enc_config "#define ENABLE_FEATURE_COP3_AND_ABOVE 0"
+write_enc_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
+write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
+write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
+write_enc_config "#define ENABLE_PERF_COUNTER           0"
+
+echo successfully generated config.mak, rgy_config.h
+
+

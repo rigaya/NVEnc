@@ -27,16 +27,17 @@
 // ------------------------------------------------------------------------------------------
 
 #include "CuvidDecode.h"
-#include "helper_cuda.h"
 #include "NVEncUtil.h"
 #if ENABLE_AVSW_READER
 
 bool check_if_nvcuvid_dll_available() {
+#if defined(_WIN32) || defined(_WIN64)
     //check for nvcuvid.dll
     HMODULE hModule = LoadLibrary(_T("nvcuvid.dll"));
     if (hModule == NULL)
         return false;
     FreeLibrary(hModule);
+#endif //#if defined(_WIN32) || defined(_WIN64)
     return true;
 }
 
@@ -125,9 +126,9 @@ int CuvidDecode::DecVideoData(CUVIDSOURCEDATAPACKET *pPacket) {
     AddMessage(RGY_LOG_TRACE, _T("DecVideoData packet: timestamp %lld, size %u\n"), pPacket->timestamp, pPacket->payload_size);
     CUresult curesult = CUDA_SUCCESS;
     cuvidCtxLock(m_ctxLock, 0);
-    __try {
+    try {
         curesult = cuvidParseVideoData(m_videoParser, pPacket);
-    } __except(1) {
+    } catch(...) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData exception\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
@@ -144,9 +145,9 @@ int CuvidDecode::DecPictureDecode(CUVIDPICPARAMS *pPicParams) {
     m_pFrameQueue->waitUntilFrameAvailable(pPicParams->CurrPicIdx);
     CUresult curesult = CUDA_SUCCESS;
     cuvidCtxLock(m_ctxLock, 0);
-    __try {
+    try {
         curesult = cuvidDecodePicture(m_videoDecoder, pPicParams);
-    } __except(1) {
+    } catch(...) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidDecodePicture exception\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
@@ -199,7 +200,7 @@ RGY_ERR CuvidDecode::CloseDecoder() {
             NVEncCtxAutoLock(ctxlock(m_ctxLock));
             cuvidDestroyDecoder(m_videoDecoder);
             AddMessage(RGY_LOG_DEBUG, _T("cuvidDestroyDecoder: Fin.\n"));
-        } catch (std::exception e) {
+        } catch (std::exception& e) {
             AddMessage(RGY_LOG_ERROR, _T("Error in cuvidDestroyDecoder: %s\n"), char_to_tstring(e.what()).c_str());
             err = RGY_ERR_UNKNOWN;
         }
@@ -210,7 +211,7 @@ RGY_ERR CuvidDecode::CloseDecoder() {
             NVEncCtxAutoLock(ctxlock(m_ctxLock));
             cuvidDestroyVideoParser(m_videoParser);
             AddMessage(RGY_LOG_DEBUG, _T("cuvidDestroyVideoParser: Fin.\n"));
-        } catch (std::exception e) {
+        } catch (std::exception& e) {
             AddMessage(RGY_LOG_ERROR, _T("Error in cuvidDestroyVideoParser: %s\n"), char_to_tstring(e.what()).c_str());
             err = RGY_ERR_UNKNOWN;
         }
@@ -230,9 +231,9 @@ RGY_ERR CuvidDecode::CloseDecoder() {
 
 CUresult CuvidDecode::CreateDecoder() {
     CUresult curesult = CUDA_SUCCESS;
-    __try {
+    try {
         curesult = cuvidCreateDecoder(&m_videoDecoder, &m_videoDecodeCreateInfo);
-    } __except (1) {
+    } catch(...) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidCreateDecoder error\n"));
         curesult = CUDA_ERROR_UNKNOWN;
     }
@@ -424,9 +425,9 @@ CUresult CuvidDecode::FlushParser() {
     CUresult result = CUDA_SUCCESS;
 
     //cuvidCtxLock(m_ctxLock, 0);
-    __try {
+    try {
         result = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
-    } __except (1) {
+    } catch(...) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         result = CUDA_ERROR_UNKNOWN;
     }
@@ -452,9 +453,9 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
     }
 
     //cuvidCtxLock(m_ctxLock, 0);
-    __try {
+    try {
         result = cuvidParseVideoData(m_videoParser, &pCuvidPacket);
-    } __except (1) {
+    } catch(...) {
         AddMessage(RGY_LOG_ERROR, _T("cuvidParseVideoData error\n"));
         result = CUDA_ERROR_UNKNOWN;
     }

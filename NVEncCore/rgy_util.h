@@ -607,7 +607,8 @@ static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
 int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 #if defined(_WIN32) || defined(_WIN64)
-tstring getOSVersion(OSVERSIONINFOEXW *osinfo = nullptr);
+tstring getOSVersion(OSVERSIONINFOEXW *osinfo);
+tstring getOSVersion();
 #else
 tstring getOSVersion();
 #endif

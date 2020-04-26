@@ -542,9 +542,11 @@ void CPerfMonitor::clear() {
         m_thCheck.join();
         AddMessage(RGY_LOG_DEBUG, _T("Closed thread.\n"));
     }
+#if ENABLE_PERF_COUNTER
     AddMessage(RGY_LOG_DEBUG, _T("Closing perf counter...\n"));
     m_perfCounter.reset();
     AddMessage(RGY_LOG_DEBUG, _T("Closed perf counter.\n"));
+#endif //#if ENABLE_PERF_COUNTER
     memset(m_info, 0, sizeof(m_info));
     memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
 #if ENABLE_METRIC_FRAMEWORK
@@ -579,9 +581,11 @@ void CPerfMonitor::clear() {
 
 void CPerfMonitor::send_thread_fin() {
     m_bAbort = true;
+#if ENABLE_PERF_COUNTER
     if (m_perfCounter) {
         m_perfCounter->send_thread_fin();
     }
+#endif //#if ENABLE_PERF_COUNTER
 }
 
 int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {

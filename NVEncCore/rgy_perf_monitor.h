@@ -36,6 +36,7 @@
 #include <map>
 #include "cpu_info.h"
 #include "rgy_def.h"
+#include "rgy_version.h"
 #include "rgy_pipe.h"
 #include "rgy_log.h"
 #include "gpuz_info.h"

@@ -26,14 +26,12 @@
 // --------------------------------------------------------------------------------------------
 
 #pragma once
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
 #include <string>
 #include <thread>
 #include <mutex>
 #include <chrono>
 #include <vector>
+#include "rgy_osdep.h"
 
 struct CounterEntry {
     LUID luid;

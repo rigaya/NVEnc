@@ -26,20 +26,17 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
 #include <set>
 #include <sstream>
 #include <numeric>
 #include <iomanip>
-#include <Windows.h>
-#include <shellapi.h>
 #include "rgy_version.h"
-#include "rgy_perf_monitor.h"
-#include "rgy_caption.h"
 #include "NVEncParam.h"
 #include "NVEncCmd.h"
 #include "NVEncFilterAfs.h"
+#include "rgy_osdep.h"
+#include "rgy_perf_monitor.h"
+#include "rgy_caption.h"
 #include "rgy_avutil.h"
 
 tstring GetNVEncVersion() {
@@ -3432,6 +3429,7 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, int nA
     return 0;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
 int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const char *cmda, bool ignore_parse_err) {
     if (cmda == nullptr) {
         return 0;
@@ -3457,6 +3455,7 @@ int parse_cmd(InEncodeVideoParam *pParams, NV_ENC_CODEC_CONFIG *codecPrm, const 
     int ret = parse_cmd(pParams, codecPrm, argc, strInput, ignore_parse_err);
     return ret;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 #pragma warning (push)
 #pragma warning (disable: 4127)
@@ -3854,7 +3853,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-tweak");
         }
     }
-    for (int i = 0; i < (int)pParams->vpp.subburn.size(); i++) {
+    for (size_t i = 0; i < pParams->vpp.subburn.size(); i++) {
         if (pParams->vpp.subburn[i] != VppSubburn()) {
             tmp.str(tstring());
             if (!pParams->vpp.subburn[i].enable && save_disabled_prm) {
@@ -3885,7 +3884,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             tmp << _T(",enable=false");
         }
         if (pParams->vpp.colorspace.enable || save_disabled_prm) {
-            for (int i = 0; i < pParams->vpp.colorspace.convs.size(); i++) {
+            for (size_t i = 0; i < pParams->vpp.colorspace.convs.size(); i++) {
                 auto from = pParams->vpp.colorspace.convs[i].from;
                 auto to = pParams->vpp.colorspace.convs[i].to;
                 if (from.matrix != to.matrix) {

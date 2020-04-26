@@ -28,21 +28,18 @@
 
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
 #include <stdint.h>
-#include <tchar.h>
 #include <memory>
 #include <vector>
 #include "rgy_cuda_util.h"
 #include "rgy_frame.h"
-#include "helper_cuda.h"
 #include "NVEncUtil.h"
 #include "NVEncParam.h"
+#include "NVEncFrameInfo.h"
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 #include "rgy_log.h"
 #include "convert_csp.h"
-#include "NVEncFrameInfo.h"
 
 #pragma comment(lib, "cudart_static.lib")
 

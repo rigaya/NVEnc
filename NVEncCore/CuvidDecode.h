@@ -35,12 +35,12 @@
 #pragma warning(disable: 4201)
 #include "dynlink_nvcuvid.h"
 #pragma warning(pop)
-#include "rgy_log.h"
-#include "rgy_util.h"
-#include "rgy_avutil.h"
 #include "FrameQueue.h"
 #include "NVEncParam.h"
 #include "NVEncFrameInfo.h"
+#include "rgy_log.h"
+#include "rgy_util.h"
+#include "rgy_avutil.h"
 
 #if ENABLE_AVSW_READER
 #define NVEncCtxAutoLock(x) CCtxAutoLock x

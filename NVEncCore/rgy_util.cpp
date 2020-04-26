@@ -828,6 +828,14 @@ tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
         break;
     }
     return tstring(ptr);
+}
+
+tstring getOSVersion() {
+    OSVERSIONINFOEXW osversioninfo = { 0 };
+    tstring osversionstr = getOSVersion(&osversioninfo);
+    osversionstr += strsprintf(_T(" %s (%d)"), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+    return osversionstr;
+}
 #else //#if defined(_WIN32) || defined(_WIN64)
 tstring getOSVersion() {
     std::string str = "";
@@ -861,8 +869,8 @@ tstring getOSVersion() {
         str += buf.release;
     }
     return char_to_tstring(trim(str));
-#endif //#if defined(_WIN32) || defined(_WIN64)
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 BOOL rgy_is_64bit_os() {
 #if defined(_WIN32) || defined(_WIN64)

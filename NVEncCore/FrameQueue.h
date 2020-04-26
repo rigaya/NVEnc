@@ -34,7 +34,7 @@
 class FrameQueue
 {
 public:
-    static const unsigned int cnMaximumSize = 24; // MAX_FRM_CNT;
+    static const int cnMaximumSize = 24; // MAX_FRM_CNT;
 
     FrameQueue(CUvideoctxlock ctxLock);
 

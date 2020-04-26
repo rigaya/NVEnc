@@ -27,10 +27,8 @@
 
 #pragma once
 
-#include <tchar.h>
 #include <limits.h>
 #include <vector>
-#include "rgy_osdep.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #pragma warning (disable: 4201)
@@ -38,11 +36,13 @@
 #include <npp.h>
 #include "nvEncodeAPI.h"
 #pragma warning (pop)
-#include "NVEncoderPerf.h"
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 #include "rgy_util.h"
 #include "rgy_simd.h"
 #include "rgy_prm.h"
 #include "convert_csp.h"
+#include "NvHWEncoder.h"
 
 using std::vector;
 
@@ -156,9 +156,29 @@ enum {
 
 typedef struct {
     GUID id;
-    TCHAR *desc;
+    const TCHAR *desc;
     unsigned int value;
 } guid_desc;
+
+bool operator==(const GUID &guid1, const GUID &guid2) {
+     if (guid1.Data1    == guid2.Data1 &&
+         guid1.Data2    == guid2.Data2 &&
+         guid1.Data3    == guid2.Data3 &&
+         guid1.Data4[0] == guid2.Data4[0] &&
+         guid1.Data4[1] == guid2.Data4[1] &&
+         guid1.Data4[2] == guid2.Data4[2] &&
+         guid1.Data4[3] == guid2.Data4[3] &&
+         guid1.Data4[4] == guid2.Data4[4] &&
+         guid1.Data4[5] == guid2.Data4[5] &&
+         guid1.Data4[6] == guid2.Data4[6] &&
+         guid1.Data4[7] == guid2.Data4[7]) {
+        return true;
+    }
+    return false;
+}
+bool operator!=(const GUID &guid1, const GUID &guid2) {
+    return !(guid1 == guid2);
+}
 
 const guid_desc h264_profile_names[] = {
     { NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, _T("auto"),      0 },
@@ -217,7 +237,7 @@ const CX_DESC list_nvenc_codecs_for_opt[] = {
     { _T("avc"),  NV_ENC_H264 },
     { _T("hevc"), NV_ENC_HEVC },
     { _T("h265"), NV_ENC_HEVC },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_avc_level[] = {
@@ -239,7 +259,7 @@ const CX_DESC list_avc_level[] = {
     { _T("5"),    50  },
     { _T("5.1"),  51  },
     { _T("5.2"),  52  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_hevc_level[] = {
@@ -257,7 +277,7 @@ const CX_DESC list_hevc_level[] = {
     { _T("6"),    NV_ENC_LEVEL_HEVC_6   },
     { _T("6.1"),  NV_ENC_LEVEL_HEVC_61  },
     { _T("6.2"),  NV_ENC_LEVEL_HEVC_62  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_hevc_cu_size[] = {
@@ -266,15 +286,7 @@ const CX_DESC list_hevc_cu_size[] = {
     { _T("16"),   NV_ENC_HEVC_CUSIZE_16x16      },
     { _T("32"),   NV_ENC_HEVC_CUSIZE_32x32      },
     { _T("64"),   NV_ENC_HEVC_CUSIZE_64x64      },
-    { NULL, NULL }
-};
-
-const CX_DESC nvenc_interface_names[] = {
-    { _T("CUDA"),      NV_ENC_CUDA },
-    { _T("DirectX9"),  NV_ENC_DX9  },
-    { _T("DirectX10"), NV_ENC_DX10 },
-    { _T("DirectX11"), NV_ENC_DX11 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_mv_presicion[] = {
@@ -282,7 +294,7 @@ const CX_DESC list_mv_presicion[] = {
     { _T("full-pel"), NV_ENC_MV_PRECISION_FULL_PEL    },
     { _T("half-pel"), NV_ENC_MV_PRECISION_HALF_PEL    },
     { _T("Q-pel"),    NV_ENC_MV_PRECISION_QUARTER_PEL },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_mv_presicion_ja[] = {
@@ -290,7 +302,7 @@ const CX_DESC list_mv_presicion_ja[] = {
     { _T("1画素精度"),   NV_ENC_MV_PRECISION_FULL_PEL    },
     { _T("1/2画素精度"), NV_ENC_MV_PRECISION_HALF_PEL    },
     { _T("1/4画素精度"), NV_ENC_MV_PRECISION_QUARTER_PEL },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_nvenc_rc_method[] = {
@@ -299,7 +311,7 @@ const CX_DESC list_nvenc_rc_method[] = {
     { _T("CBR - 固定ビットレート (高品質)"),        NV_ENC_PARAMS_RC_CBR_HQ    },
     { _T("VBR - 可変ビットレート"),                 NV_ENC_PARAMS_RC_VBR       },
     { _T("VBR - 可変ビットレート (高品質)"),        NV_ENC_PARAMS_RC_VBR_HQ    },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_nvenc_rc_method_en[] = {
@@ -308,13 +320,13 @@ const CX_DESC list_nvenc_rc_method_en[] = {
     { _T("CBRHQ"),                        NV_ENC_PARAMS_RC_CBR_HQ    },
     { _T("VBR"),                          NV_ENC_PARAMS_RC_VBR       },
     { _T("VBRHQ"),                        NV_ENC_PARAMS_RC_VBR_HQ    },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_entropy_coding[] = {
     //{ _T("auto"),  NV_ENC_H264_ENTROPY_CODING_MODE_AUTOSELECT },
     { _T("cabac"), NV_ENC_H264_ENTROPY_CODING_MODE_CABAC      },
     { _T("cavlc"), NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC      },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_bdirect[] = {
@@ -322,32 +334,32 @@ const CX_DESC list_bdirect[] = {
     { _T("disabled"), NV_ENC_H264_BDIRECT_MODE_DISABLE    },
     { _T("temporal"), NV_ENC_H264_BDIRECT_MODE_TEMPORAL   },
     { _T("spatial"),  NV_ENC_H264_BDIRECT_MODE_SPATIAL    },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_bref_mode[] = {
     { _T("disabled"), NV_ENC_BFRAME_REF_MODE_DISABLED },
     { _T("each"),     NV_ENC_BFRAME_REF_MODE_EACH },
     { _T("middle"),   NV_ENC_BFRAME_REF_MODE_MIDDLE },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_fmo[] = {
     { _T("auto"),     NV_ENC_H264_FMO_AUTOSELECT },
     { _T("enabled"),  NV_ENC_H264_FMO_ENABLE     },
     { _T("disabled"), NV_ENC_H264_FMO_DISABLE    },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_adapt_transform[] = {
     { _T("auto"),     NV_ENC_H264_ADAPTIVE_TRANSFORM_AUTOSELECT },
     { _T("disabled"), NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE    },
     { _T("enabled"),  NV_ENC_H264_ADAPTIVE_TRANSFORM_ENABLE     },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_bitdepth[] = {
     { _T("8bit"),    0 },
     { _T("10bit"),   2 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum : uint32_t {
@@ -361,7 +373,7 @@ const CX_DESC list_aq[] = {
     { _T("spatial"),  NV_ENC_AQ_SPATIAL },
     { _T("temporal"), NV_ENC_AQ_TEMPORAL },
     { _T("both"),     NV_ENC_AQ_BOTH },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 #if 0
 const CX_DESC list_preset[] = {
@@ -369,14 +381,14 @@ const CX_DESC list_preset[] = {
     { _T("default"), NV_ENC_PRESET_DEFAULT },
     { _T("best"),    NV_ENC_PRESET_HQ      },
     { _T("bluray"),  NV_ENC_PRESET_BD      },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_preset_ja[] = {
     { _T("高速"),   NV_ENC_PRESET_HP       },
     { _T("標準"),   NV_ENC_PRESET_DEFAULT  },
     { _T("高品質"), NV_ENC_PRESET_HQ       },
     { _T("Bluray"), NV_ENC_PRESET_BD       },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 #endif
 
@@ -452,7 +464,7 @@ const CX_DESC list_nppi_resize[] = {
     { _T("lanczos2"),      RESIZE_CUDA_LANCZOS2 },
     { _T("lanczos3"),      RESIZE_CUDA_LANCZOS3 },
     { _T("lanczos4"),      RESIZE_CUDA_LANCZOS4 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_nppi_resize_help[] = {
@@ -474,7 +486,7 @@ const CX_DESC list_nppi_resize_help[] = {
     { _T("lanczos2"),      RESIZE_CUDA_LANCZOS2 },
     { _T("lanczos3"),      RESIZE_CUDA_LANCZOS3 },
     { _T("lanczos4"),      RESIZE_CUDA_LANCZOS4 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 
@@ -492,7 +504,7 @@ const CX_DESC list_vpp_fp_prec[] = {
     { _T("auto"), VPP_FP_PRECISION_AUTO },
     { _T("fp32"), VPP_FP_PRECISION_FP32 },
     { _T("fp16"), VPP_FP_PRECISION_FP16 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vpp_denoise[] = {
@@ -500,28 +512,28 @@ const CX_DESC list_vpp_denoise[] = {
     { _T("knn"),    1 },
     { _T("pmd"),    2 },
     { _T("smooth"), 3 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vpp_detail_enahance[] = {
     { _T("none"),       0 },
     { _T("unsharp"),    1 },
     { _T("edgelevel"),  2 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vpp_deband[] = {
     { _T("0 - 1点参照"),  0 },
     { _T("1 - 2点参照"),  1 },
     { _T("2 - 4点参照"),  2 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vpp_rotate[] = {
     { _T("90"),   90 },
     { _T("180"), 180 },
     { _T("270"), 270 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum HDR2SDRToneMap {
@@ -536,7 +548,7 @@ const CX_DESC list_vpp_hdr2sdr[] = {
     { _T("hable"),    HDR2SDR_HABLE },
     { _T("mobius"),   HDR2SDR_MOBIUS },
     { _T("reinhard"), HDR2SDR_REINHARD },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum VppNnediField {
@@ -558,7 +570,7 @@ const CX_DESC list_vpp_nnedi_field[] = {
     { _T("bottom"),  VPP_NNEDI_FIELD_USE_BOTTOM },
     { _T("bob_tff"), VPP_NNEDI_FIELD_BOB_TOP_BOTTOM },
     { _T("bob_bff"), VPP_NNEDI_FIELD_BOB_BOTTOM_TOP },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vpp_nnedi_nns[] = {
@@ -567,7 +579,7 @@ const CX_DESC list_vpp_nnedi_nns[] = {
     { _T("64"),   64 },
     { _T("128"), 128 },
     { _T("256"), 256 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum VppNnediNSize {
@@ -592,7 +604,7 @@ const CX_DESC list_vpp_nnedi_nsize[] = {
     { _T("8x4"),  VPP_NNEDI_NSIZE_8x4  },
     { _T("16x4"), VPP_NNEDI_NSIZE_16x4 },
     { _T("32x4"), VPP_NNEDI_NSIZE_32x4 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum VppNnediQuality {
@@ -606,7 +618,7 @@ enum VppNnediQuality {
 const CX_DESC list_vpp_nnedi_quality[] = {
     { _T("fast"), VPP_NNEDI_QUALITY_FAST },
     { _T("slow"), VPP_NNEDI_QUALITY_SLOW },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum VppNnediPreScreen : uint32_t {
@@ -650,7 +662,7 @@ const CX_DESC list_vpp_nnedi_pre_screen[] = {
     { _T("new_block"),      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK },
     { _T("original_only"),  VPP_NNEDI_PRE_SCREEN_ORIGINAL_ONLY },
     { _T("new_only"),       VPP_NNEDI_PRE_SCREEN_NEW_ONLY },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum VppNnediErrorType {
@@ -663,7 +675,7 @@ enum VppNnediErrorType {
 const CX_DESC list_vpp_nnedi_error_type[] = {
     { _T("abs"),    VPP_NNEDI_ETYPE_ABS },
     { _T("square"), VPP_NNEDI_ETYPE_SQUARE },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_nppi_gauss[] = {
@@ -671,13 +683,13 @@ const CX_DESC list_nppi_gauss[] = {
     { _T("3"), NPP_MASK_SIZE_3_X_3 },
     { _T("5"), NPP_MASK_SIZE_5_X_5 },
     { _T("7"), NPP_MASK_SIZE_7_X_7 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_cuvid_mode[] = {
     { _T("native"), NV_ENC_AVCUVID_NATIVE },
     { _T("cuda"),   NV_ENC_AVCUVID_CUDA   },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_cuda_schedule[] = {
@@ -685,7 +697,7 @@ const CX_DESC list_cuda_schedule[] = {
     { _T("spin"),  CU_CTX_SCHED_SPIN },
     { _T("yield"), CU_CTX_SCHED_YIELD },
     { _T("sync"),  CU_CTX_SCHED_BLOCKING_SYNC },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum VppYadifMode : uint32_t {
@@ -728,18 +740,18 @@ const CX_DESC list_vpp_yadif_mode[] = {
     { _T("bob_tff"),  VPP_YADIF_MODE_BOB_TFF  },
     { _T("bob_bff"),  VPP_YADIF_MODE_BOB_BFF  },
     { _T("bob"),      VPP_YADIF_MODE_BOB_AUTO },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vpp_ass_shaping[] = {
     { _T("simple"),  0 },
     { _T("complex"), 1 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 template<size_t count>
 static const TCHAR *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]) {
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         if (0 == memcmp(&desc[i].id, &guid, sizeof(GUID))) {
             return desc[i].desc;
         }
@@ -749,7 +761,7 @@ static const TCHAR *get_name_from_guid(GUID guid, const guid_desc (&desc)[count]
 
 template<size_t count>
 static const TCHAR *get_name_from_value(int value, const guid_desc (&desc)[count]) {
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         if ((int)desc[i].value == value) {
             return desc[i].desc;
         }
@@ -759,7 +771,7 @@ static const TCHAR *get_name_from_value(int value, const guid_desc (&desc)[count
 
 template<size_t count>
 static int get_value_from_guid(GUID guid, const guid_desc (&desc)[count]) {
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         if (0 == memcmp(&desc[i].id, &guid, sizeof(GUID))) {
             return desc[i].value;
         }
@@ -769,7 +781,7 @@ static int get_value_from_guid(GUID guid, const guid_desc (&desc)[count]) {
 
 template<size_t count>
 static GUID get_guid_from_value(int value, const guid_desc (&desc)[count]) {
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         if (desc[i].value == (uint32_t)value) {
             return desc[i].id;
         }
@@ -779,7 +791,7 @@ static GUID get_guid_from_value(int value, const guid_desc (&desc)[count]) {
 
 template<size_t count>
 static GUID get_guid_from_name(const TCHAR *name, const guid_desc (&desc)[count]) {
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         if (0 == _tcsicmp(name, desc[i].desc)) {
             return desc[i].id;
         }
@@ -789,7 +801,7 @@ static GUID get_guid_from_name(const TCHAR *name, const guid_desc (&desc)[count]
 
 template<size_t count>
 static int get_value_from_name(const TCHAR *name, const guid_desc (&desc)[count]) {
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         if (0 == _tcsicmp(name, desc[i].desc)) {
             return desc[i].value;
         }
@@ -799,7 +811,7 @@ static int get_value_from_name(const TCHAR *name, const guid_desc (&desc)[count]
 
 template<size_t count>
 static int get_index_from_value(int value, const guid_desc (&desc)[count]) {
-    for (int i = 0; i < count; i++) {
+    for (size_t i = 0; i < count; i++) {
         if (desc[i].value == (uint32_t)value) {
             return i;
         }
@@ -1169,7 +1181,7 @@ const CX_DESC list_afs_preset[] = {
     { _T("24fps"),        AFS_PRESET_FORCE24_HD },
     { _T("24fps_sd"),     AFS_PRESET_FORCE24_SD },
     { _T("30fps"),        AFS_PRESET_FORCE30 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum VppCustomInterface {
@@ -1182,7 +1194,7 @@ enum VppCustomInterface {
 const CX_DESC list_vpp_custom_interface[] = {
     { _T("per_plane"),    VPP_CUSTOM_INTERFACE_PER_PLANE },
     { _T("planes"),       VPP_CUSTOM_INTERFACE_PLANES },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum VppCustomInterlaceMode {
@@ -1197,7 +1209,7 @@ const CX_DESC list_vpp_custom_interlace[] = {
     { _T("unsupported"), VPP_CUSTOM_INTERLACE_UNSUPPORTED },
     { _T("per_field"),   VPP_CUSTOM_INTERLACE_PER_FIELD },
     { _T("frame"),       VPP_CUSTOM_INTERLACE_FRAME },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 struct VppCustom {

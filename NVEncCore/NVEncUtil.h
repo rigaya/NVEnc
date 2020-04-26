@@ -40,6 +40,14 @@
 #pragma warning (disable: 4201)
 #include "dynlink_cuviddec.h"
 #pragma warning (pop)
+#pragma warning(push)
+#pragma warning(disable: 4819)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch"
+#include "helper_cuda.h"
+#include "helper_nvenc.h"
+#pragma GCC diagnostic pop
+#pragma warning (pop)
 #include "convert_csp.h"
 #include "rgy_util.h"
 #include "rgy_err.h"
