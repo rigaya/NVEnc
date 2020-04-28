@@ -526,7 +526,7 @@ cudaError_t run_analyze_stripe(uint8_t *dst, const int dstPitch,
     //YC48 -> yuv420/yuv444(bit_depth)へのスケーリングのシフト値
     const int thre_rsft = 12 - (bit_depth - 8);
     //8bitなら最大127まで、16bitなら最大32627まで (bitshift等を使って比較する都合)
-    const uint32_t thre_max = (1 << (sizeof(Type) * 8 - 1)) - 1;
+    const int thre_max = (1 << (sizeof(Type) * 8 - 1)) - 1;
     //YC48 -> yuv420/yuv444(bit_depth)へのスケーリング
     uint32_t thre_shift_yuv   = (uint32_t)clamp((pAfsPrm->thre_shift   * 219 +  383)>>thre_rsft, 0, thre_max);
     uint32_t thre_deint_yuv   = (uint32_t)clamp((pAfsPrm->thre_deint   * 219 +  383)>>thre_rsft, 0, thre_max);

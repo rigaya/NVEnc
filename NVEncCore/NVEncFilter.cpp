@@ -47,11 +47,11 @@ NVEncFilter::~NVEncFilter() {
 }
 
 cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
-    if (m_pFrameBuf.size() == frames
+    if ((int)m_pFrameBuf.size() == frames
         && !cmpFrameInfoCspResolution(&m_pFrameBuf[0]->frame, &frame)) {
         //すべて確保されているか確認
         bool allocated = true;
-        for (int i = 0; i < m_pFrameBuf.size(); i++) {
+        for (size_t i = 0; i < m_pFrameBuf.size(); i++) {
             if (m_pFrameBuf[i]->frame.ptr == nullptr) {
                 allocated = false;
                 break;
@@ -180,7 +180,7 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame, Fra
         int nFieldOut = 0;
         auto pFieldOut = &m_pFieldPairOut->frame;
         auto err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut, stream);
-        if (err != NV_ENC_SUCCESS) {
+        if (err != RGY_ERR_NONE) {
             return err;
         }
         cudaerr = cudaMemcpy2DAsync(pOutputFrame->ptr + pOutputFrame->pitch * i, pOutputFrame->pitch * 2,

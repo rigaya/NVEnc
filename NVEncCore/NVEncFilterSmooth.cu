@@ -636,7 +636,7 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
-    if (check_param(prm) != NV_ENC_SUCCESS) {
+    if (check_param(prm) != RGY_ERR_NONE) {
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->smooth.prec == VPP_FP_PRECISION_AUTO) {
@@ -657,7 +657,7 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             && std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam)->smooth != prm->smooth)) {
 
         auto cudaerr = AllocFrameBuf(prm->frameOut, 1);
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for output: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -666,7 +666,7 @@ RGY_ERR NVEncFilterSmooth::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch, RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
         cudaerr = m_qp.alloc(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8);
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -768,7 +768,7 @@ RGY_ERR NVEncFilterSmooth::run_filter(const FrameInfo *pInputFrame, FrameInfo **
     float qpMul = 1.0f;
     if (!!qpInput) {
         auto cudaerr = cudaStreamWaitEvent(stream, qpInput->event(), 0);
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("error in cudaStreamWaitEvent(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -782,7 +782,7 @@ RGY_ERR NVEncFilterSmooth::run_filter(const FrameInfo *pInputFrame, FrameInfo **
             m_qpSrcB = qpInput;
             targetQPTable = &m_qp;
             cudaerr = run_gen_qp_table<uchar4>(&m_qp.frame, &m_qpSrc->qpDev()->frame, &m_qpSrcB->qpDev()->frame, qpMul, prm->smooth.bratio, stream);
-            if (cudaerr != CUDA_SUCCESS) {
+            if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                 return RGY_ERR_MEMORY_ALLOC;
             }
@@ -794,7 +794,7 @@ RGY_ERR NVEncFilterSmooth::run_filter(const FrameInfo *pInputFrame, FrameInfo **
     } else {
         targetQPTable = &m_qp;
         auto cudaerr = run_set_qp<uchar4>(&m_qp.frame, prm->smooth.qp, stream);
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("error in run_set_qp(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -830,7 +830,7 @@ RGY_ERR NVEncFilterSmooth::run_filter(const FrameInfo *pInputFrame, FrameInfo **
         prm->smooth.threshold,
         stream
         );
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("error in run_spp_frame(): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }

@@ -1106,7 +1106,7 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
     if (csp_from1.transfer == RGY_TRANSFER_UNSPECIFIED) {
         csp_from1 = csp_from1.to(RGY_TRANSFER_ST2084);
     }
-    if (csp_from1.matrix == RGY_TRANSFER_ARIB_B67 && csp_from1.colorprim == RGY_PRIM_UNSPECIFIED) {
+    if (csp_from1.transfer == RGY_TRANSFER_ARIB_B67 && csp_from1.colorprim == RGY_PRIM_UNSPECIFIED) {
         csp_from1 = csp_from1.to(RGY_PRIM_BT2020);
     }
     const auto csp_to1 = csp_from1.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR);
@@ -1404,7 +1404,7 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
     AddMessage(RGY_LOG_DEBUG, _T("%s available.\n"), NVRTC_DLL_NAME_TSTR);
     //パラメータチェック
-    if (check_param(prmCsp) != NV_ENC_SUCCESS) {
+    if (check_param(prmCsp) != RGY_ERR_NONE) {
         return RGY_ERR_INVALID_PARAM;
     }
 

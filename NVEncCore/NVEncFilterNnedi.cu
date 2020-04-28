@@ -1522,19 +1522,19 @@ shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile,
         } else if (NULL == (pDataPtr = (const char *)LockResource(hResourceData))) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to lock resource \"NNEDI_WEIGHTBIN\".\n"));
         } else if (expectedFileSize != (weightFileSize = SizeofResource(hModule, hResource))) {
-            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %u [expected: %u].\n"),
-                (uint32_t)weightFileSize, expectedFileSize);
+            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %lld [expected: %u].\n"),
+                (long long int)weightFileSize, expectedFileSize);
         } else {
             weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
         }
 #else
         const char *pDataPtr = _binary_resource_nnedi3_weights_bin_start;
-        const uint32_t weightFileSize = (uint32_t)(size_t)_binary_resource_nnedi3_weights_bin_size;
+        weightFileSize = (size_t)_binary_resource_nnedi3_weights_bin_size;
         if (pDataPtr == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get Weights data.\n"));
         } else if (expectedFileSize != weightFileSize) {
-            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %u [expected: %u].\n"),
-                (uint32_t)weightFileSize, expectedFileSize);
+            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %lld [expected: %u].\n"),
+                (long long int)weightFileSize, expectedFileSize);
         } else {
             weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
         }
@@ -1545,8 +1545,8 @@ shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile,
         } else if (!rgy_get_filesize(weightFile.c_str(), &weightFileSize)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get filesize of weight file \"%s\".\n"), weightFile.c_str());
         } else if (weightFileSize != expectedFileSize) {
-            AddMessage(RGY_LOG_ERROR, _T("Weights file \"%s\" has unexpected file size %u [expected: %u].\n"),
-                weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
+            AddMessage(RGY_LOG_ERROR, _T("Weights file \"%s\" has unexpected file size %lld [expected: %u].\n"),
+                weightFile.c_str(), (long long int)weightFileSize, expectedFileSize);
         } else {
             std::ifstream fin(weightFile, std::ios::in | std::ios::binary);
             if (!fin.good()) {
@@ -1848,7 +1848,7 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     }
 
     auto cudaerr = AllocFrameBuf(pNnediParam->frameOut, pNnediParam->nnedi.isbob() ? 2 : 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }

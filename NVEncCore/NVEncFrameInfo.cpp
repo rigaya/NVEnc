@@ -26,8 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#pragma once
-
 #include "NVEncFrameInfo.h"
 
 FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {

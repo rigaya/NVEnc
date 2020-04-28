@@ -191,7 +191,6 @@ VideoInfo videooutputinfo(
     std::pair<int, int> outFps) {
 
     VideoInfo info;
-    memset(&info, 0, sizeof(info));
     info.codec = codec_guid_enc_to_rgy(encCodecGUID);
     info.codecLevel = (info.codec == RGY_CODEC_H264) ? pEncConfig->encodeCodecConfig.h264Config.level : pEncConfig->encodeCodecConfig.hevcConfig.level;
     info.codecProfile = codec_guid_profile_enc_to_rgy(pEncConfig->profileGUID).codecProfile;

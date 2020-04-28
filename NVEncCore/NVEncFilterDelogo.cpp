@@ -224,7 +224,6 @@ int NVEncFilterDelogo::readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo
         m_sLogoDataList.resize(logonum);
 
         for (int i = 0; i < logonum; i++) {
-            memset(&m_sLogoDataList[i], 0, sizeof(m_sLogoDataList[i]));
             if (logo_header_size != fread(&m_sLogoDataList[i].header, 1, logo_header_size, fp.get())) {
                 AddMessage(RGY_LOG_ERROR, _T("invalid logo file.\n"));
                 sts = 1;

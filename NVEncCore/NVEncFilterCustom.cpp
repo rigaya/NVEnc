@@ -130,7 +130,7 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     AddMessage(RGY_LOG_DEBUG, _T("%s available.\n"), NVRTC_BUILTIN_DLL_NAME_TSTR);
 
     auto cudaerr = AllocFrameBuf(pParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }

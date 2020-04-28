@@ -363,7 +363,7 @@ vector<int> RGYInputAvcodec::getStreamIndex(AVMediaType type, const vector<int> 
             return nearestVidA.first < nearestVidB.first;
         });
     }
-    return std::move(streams);
+    return streams;
 }
 
 bool RGYInputAvcodec::vc1StartCodeExists(uint8_t *ptr) {
@@ -887,7 +887,7 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
 }
 
 RGY_ERR RGYInputAvcodec::parseHDR10plus(AVPacket *pkt) {
-    if (m_Demux.video.stream->codec->codec_id != AV_CODEC_ID_HEVC) {
+    if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_HEVC) {
         return RGY_ERR_NONE;
     }
     const auto nal_list = parse_nal_unit_hevc(pkt->data, pkt->size);
@@ -1444,7 +1444,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     return RGY_ERR_NULL_PTR;
                 }
                 m_Demux.video.bsfcCtx->time_base_in = av_stream_get_codec_timebase(m_Demux.video.stream);
-                if (0 > (ret = avcodec_parameters_from_context(m_Demux.video.bsfcCtx->par_in, m_Demux.video.stream->codec))) {
+                if (0 > (ret = avcodec_parameters_copy(m_Demux.video.bsfcCtx->par_in, m_Demux.video.stream->codecpar))) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to set parameter for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_NULL_PTR;
                 }
@@ -1511,7 +1511,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             unique_ptr_custom<AVCodecParameters> codecParamCopy(avcodec_parameters_alloc(), [](AVCodecParameters *pCodecPar) {
                 avcodec_parameters_free(&pCodecPar);
             });
-            if (0 > (ret = avcodec_parameters_from_context(codecParamCopy.get(), m_Demux.video.stream->codec))) {
+            if (0 > (ret = avcodec_parameters_copy(codecParamCopy.get(), m_Demux.video.stream->codecpar))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
@@ -2365,7 +2365,7 @@ vector<AVPacket> RGYInputAvcodec::GetStreamDataPackets(int inputFrame) {
     while (m_Demux.qStreamPktL2.front_copy_and_pop_no_lock(&pkt, (m_Demux.thread.queueInfo) ? &m_Demux.thread.queueInfo->usage_aud_in : nullptr)) {
         packets.push_back(pkt);
     }
-    return std::move(packets);
+    return packets;
 }
 
 vector<AVDemuxStream> RGYInputAvcodec::GetInputStreamInfo() {

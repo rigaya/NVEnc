@@ -180,7 +180,7 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
             return RGY_ERR_INVALID_FORMAT; // Couldn't open file
         }
         const auto pstream = m_formatCtx->streams[m_subtitleStreamIndex];
-        inputCodecId = pstream->codec->codec_id;
+        inputCodecId = pstream->codecpar->codec_id;
         AddMessage(RGY_LOG_DEBUG, _T("found subtitle in stream #%d (%s), timebase %d/%d.\n"),
             m_subtitleStreamIndex, char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
             pstream->time_base.num, pstream->time_base.den);
@@ -222,8 +222,8 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
         SetExtraData(m_outCodecDecodeCtx.get(), prm->streamIn.stream->codecpar->extradata, prm->streamIn.stream->codecpar->extradata_size);
     } else {
         m_outCodecDecodeCtx->pkt_timebase = m_formatCtx->streams[m_subtitleStreamIndex]->time_base;
-        auto *pCodecCtx = m_formatCtx->streams[m_subtitleStreamIndex]->codec;
-        SetExtraData(m_outCodecDecodeCtx.get(), pCodecCtx->extradata, pCodecCtx->extradata_size);
+        auto *codecpar = m_formatCtx->streams[m_subtitleStreamIndex]->codecpar;
+        SetExtraData(m_outCodecDecodeCtx.get(), codecpar->extradata, codecpar->extradata_size);
     }
 
     int ret;

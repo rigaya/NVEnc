@@ -1119,15 +1119,14 @@ InEncodeVideoParam::InEncodeVideoParam() :
     bluray(0),                   //bluray出力
     yuv444(0),                   //YUV444出力
     lossless(0),                 //ロスレス出力
+    nWeightP(0),
     common(),
     ctrl(),
     vpp(),
     ssim(false),
-    psnr(false),
-    nWeightP(0) {
+    psnr(false) {
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));
-    memset(&input, 0, sizeof(input));
     input.vui = VideoVUIInfo();
 }
 

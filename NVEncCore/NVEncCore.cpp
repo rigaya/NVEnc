@@ -903,7 +903,7 @@ NVENCSTATUS NVEncCore::FlushEncoder() {
 
     EncodeBuffer *pEncodeBufer = m_EncodeBufferQueue.GetPending();
     while (pEncodeBufer) {
-        if (ProcessOutput(pEncodeBufer) != RGY_ERR_NONE) {
+        if (ProcessOutput(pEncodeBufer) != NV_ENC_SUCCESS) {
             nvStatus = NV_ENC_ERR_GENERIC;
         }
         pEncodeBufer = m_EncodeBufferQueue.GetPending();
@@ -1978,7 +1978,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterCrop->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2011,7 +2011,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->baseFps = m_encFps;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             VuiFiltered = filter->VuiOut();
@@ -2047,7 +2047,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterCrop->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2070,7 +2070,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = true;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2094,7 +2094,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = true;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2126,7 +2126,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2153,7 +2153,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2179,7 +2179,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2201,7 +2201,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2223,7 +2223,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2247,7 +2247,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2272,7 +2272,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2294,7 +2294,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2320,7 +2320,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterGauss->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2368,7 +2368,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                 param->crop = inputParam->input.crop;
                 NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
                 auto sts = filter->init(param, m_pNVLog);
-                if (sts != NV_ENC_SUCCESS) {
+                if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
                 //フィルタチェーンに追加
@@ -2403,7 +2403,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 #endif
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterCrop->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2427,7 +2427,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterUnsharp->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2449,7 +2449,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterEdgelevel->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2471,7 +2471,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = true;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterEq->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2493,7 +2493,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2518,7 +2518,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             //フィルタチェーンに追加
@@ -2544,7 +2544,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterCrop->init(param, m_pNVLog);
-            if (sts != NV_ENC_SUCCESS) {
+            if (sts != RGY_ERR_NONE) {
                 return sts;
             }
             m_vpFilters.push_back(std::move(filterCrop));
@@ -2563,7 +2563,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filterCrop->init(param, m_pNVLog);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             return sts;
         }
         m_vpFilters.push_back(std::move(filterCrop));
@@ -2582,7 +2582,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         param->bOutOverwrite = false;
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         auto sts = filterCopyDtoH->init(param, m_pNVLog);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             return sts;
         }
         //フィルタチェーンに追加
@@ -2869,7 +2869,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         param->psnr = inputParam->psnr;
         param->deviceId = m_nDeviceId;
         auto sts = filterSsim->init(param, m_pNVLog);
-        if (sts != NV_ENC_SUCCESS) {
+        if (sts != RGY_ERR_NONE) {
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
         }
         m_ssim = std::move(filterSsim);
@@ -3173,7 +3173,7 @@ NVENCSTATUS NVEncCore::Encode() {
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         vEncStartEvents[i] = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         auto cudaret = cudaEventCreateWithFlags(vEncStartEvents[i].get(), cudaEventFlags | cudaEventDisableTiming);
-        if (cudaret != CUDA_SUCCESS) {
+        if (cudaret != cudaSuccess) {
             PrintMes(RGY_LOG_ERROR, _T("Error cudaEventCreate: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
             return NV_ENC_ERR_GENERIC;
         }
@@ -3186,7 +3186,7 @@ NVENCSTATUS NVEncCore::Encode() {
         NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
         vInFrameTransferFin[i] = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         auto cudaret = cudaEventCreateWithFlags(vInFrameTransferFin[i].get(), cudaEventFlags | cudaEventDisableTiming);
-        if (cudaret != CUDA_SUCCESS) {
+        if (cudaret != cudaSuccess) {
             PrintMes(RGY_LOG_ERROR, _T("Error cudaEventCreate: %d (%s).\n"), cudaret, char_to_tstring(_cudaGetErrorEnum(cudaret)).c_str());
             return NV_ENC_ERR_GENERIC;
         }

@@ -92,7 +92,7 @@ __inline__ __device__ int spatial(
 }
 
 template<typename TypePixel>
-__inline__ __device__ const int temporal(
+__device__ int temporal(
     cudaTextureObject_t tex0,
     cudaTextureObject_t tex01,
     cudaTextureObject_t tex1,
@@ -340,12 +340,12 @@ RGY_ERR NVEncFilterYadif::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
-    if (check_param(prmYadif) != NV_ENC_SUCCESS) {
+    if (check_param(prmYadif) != RGY_ERR_NONE) {
         return RGY_ERR_INVALID_PARAM;
     }
 
     auto cudaerr = AllocFrameBuf(prmYadif->frameOut, (prmYadif->yadif.mode & VPP_YADIF_MODE_BOB) ? 2 : 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -354,7 +354,7 @@ RGY_ERR NVEncFilterYadif::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch, RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
     cudaerr = m_source.alloc(prmYadif->frameOut);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }

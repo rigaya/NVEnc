@@ -266,7 +266,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
             for (size_t i = 0; i < m_streamCalcSsim.size(); i++) {
                 m_streamCalcSsim[i] = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
                 auto cudaerr = cudaStreamCreateWithFlags(m_streamCalcSsim[i].get(), cudaStreamDefault);
-                if (cudaerr != CUDA_SUCCESS) {
+                if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                     return RGY_ERR_CUDA;
                 }
@@ -277,7 +277,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
             for (size_t i = 0; i < m_streamCalcPsnr.size(); i++) {
                 m_streamCalcPsnr[i] = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
                 auto cudaerr = cudaStreamCreateWithFlags(m_streamCalcPsnr[i].get(), cudaStreamDefault);
-                if (cudaerr != CUDA_SUCCESS) {
+                if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                     return RGY_ERR_CUDA;
                 }
@@ -286,7 +286,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
         }
         m_streamCrop = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
         auto cudaerr = cudaStreamCreateWithFlags(m_streamCrop.get(), cudaStreamDefault);
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
         }
@@ -294,7 +294,7 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
 
         m_cropEvent = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
         cudaerr = cudaEventCreate(m_cropEvent.get());
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreate: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
         }
@@ -370,7 +370,7 @@ RGY_ERR NVEncFilterSsim::run_filter(const FrameInfo *pInputFrame, FrameInfo **pp
         copyFrameProp(&frameBuf->frame, (m_crop) ? &m_crop->GetFilterParam()->frameOut : pInputFrame);
         frameBuf->frame.deivce_mem = true;
         auto curesult = frameBuf->alloc();
-        if (curesult != CUDA_SUCCESS) {
+        if (curesult != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }

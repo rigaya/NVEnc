@@ -80,10 +80,13 @@ typedef struct {
     int16_t x, y;
 } int16x2_t;
 
-typedef struct LogoData {
+struct LogoData {
     LOGO_HEADER header;
     vector<LOGO_PIXEL> logoPixel;
-} LogoData;
+
+    LogoData() : header(), logoPixel() { memset(&header, 0, sizeof(header)); };
+    ~LogoData() {};
+};
 
 typedef struct LOGO_SELECT_KEY {
     std::string key;

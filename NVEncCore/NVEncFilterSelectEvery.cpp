@@ -58,7 +58,7 @@ RGY_ERR NVEncFilterSelectEvery::init(shared_ptr<NVEncFilterParam> pParam, shared
     pParam->baseFps /= pSelectParam->selectevery.step;
 
     auto cudaerr = AllocFrameBuf(pSelectParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -99,7 +99,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, FrameIn
                 auto cudaerr = cudaMemcpy2DAsync(pOutFrame->frame.ptr, pOutFrame->frame.pitch,
                     pInputFrame->ptr, pInputFrame->pitch, frameInfoEx.width_byte, frameInfoEx.height_total,
                     cudaMemcpyDeviceToDevice);
-                if (cudaerr != CUDA_SUCCESS) {
+                if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                     return RGY_ERR_CUDA;
                 }
@@ -128,7 +128,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, FrameIn
         auto cudaerr = cudaMemcpy2DAsync(pOutFrame->frame.ptr, pOutFrame->frame.pitch,
             pInputFrame->ptr, pInputFrame->pitch, frameInfoEx.width_byte, frameInfoEx.height_total,
             cudaMemcpyDeviceToDevice);
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
         }
