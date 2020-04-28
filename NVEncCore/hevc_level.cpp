@@ -28,6 +28,7 @@
 #include <map>
 #include <cstdint>
 #include <algorithm>
+#include "rgy_osdep.h"
 #include "hevc_level.h"
 
 #ifndef NULL

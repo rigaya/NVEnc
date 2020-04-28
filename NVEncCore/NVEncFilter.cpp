@@ -233,31 +233,31 @@ double NVEncFilter::GetAvgTimeElapsed() {
     return m_dFilterTimeMs / (double)m_nFilterRunCount;
 }
 
-NVEncFilterParamCrop::NVEncFilterParamCrop() : crop(initCrop()), NVEncFilterParam() {};
+NVEncFilterParamCrop::NVEncFilterParamCrop() : NVEncFilterParam(), crop(initCrop()) {};
 NVEncFilterParamCrop::~NVEncFilterParamCrop() {};
 
 bool check_if_nppi_dll_available() {
-    HMODULE hModule = LoadLibrary(NPPI_DLL_NAME_TSTR);
+    HMODULE hModule = RGY_LOAD_LIBRARY(NPPI_DLL_NAME_TSTR);
     if (hModule == NULL)
         return false;
-    FreeLibrary(hModule);
+    RGY_FREE_LIBRARY(hModule);
     return true;
 }
 
 #if ENABLE_NVRTC
 bool check_if_nvrtc_dll_available() {
-    HMODULE hModule = LoadLibrary(NVRTC_DLL_NAME_TSTR);
+    HMODULE hModule = RGY_LOAD_LIBRARY(NVRTC_DLL_NAME_TSTR);
     if (hModule == NULL)
         return false;
-    FreeLibrary(hModule);
+    RGY_FREE_LIBRARY(hModule);
     return true;
 }
 
 bool check_if_nvrtc_builtin_dll_available() {
-    HMODULE hModule = LoadLibrary(NVRTC_BUILTIN_DLL_NAME_TSTR);
+    HMODULE hModule = RGY_LOAD_LIBRARY(NVRTC_BUILTIN_DLL_NAME_TSTR);
     if (hModule == NULL)
         return false;
-    FreeLibrary(hModule);
+    RGY_FREE_LIBRARY(hModule);
     return true;
 }
 #endif

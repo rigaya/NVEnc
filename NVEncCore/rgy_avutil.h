@@ -92,7 +92,7 @@ static const CodecMap HW_DECODE_LIST[] = {
     //{ AV_CODEC_ID_WMV3,       RGY_CODEC_VC1   },
 };
 
-static const inline AVCodecID getAVCodecId(RGY_CODEC codec) {
+static inline AVCodecID getAVCodecId(RGY_CODEC codec) {
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
         if (HW_DECODE_LIST[i].rgy_codec == codec)
             return HW_DECODE_LIST[i].avcodec_id;

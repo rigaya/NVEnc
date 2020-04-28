@@ -111,7 +111,7 @@ NVENCSTATUS NVEncoder::DestroyEncoder() {
     m_pEncodeAPI.reset();
 
     if (m_hinstLib) {
-        FreeLibrary(m_hinstLib);
+        RGY_FREE_LIBRARY(m_hinstLib);
         m_hinstLib = nullptr;
     }
 
@@ -299,6 +299,7 @@ NVENCSTATUS NVEncoder::NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD *seq
 }
 
 NVENCSTATUS NVEncoder::NvEncRegisterAsyncEvent(void **completionEvent) {
+#if ENABLE_ASYNC
     NV_ENC_EVENT_PARAMS eventParams;
     INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS);
 
@@ -312,9 +313,14 @@ NVENCSTATUS NVEncoder::NvEncRegisterAsyncEvent(void **completionEvent) {
     *completionEvent = eventParams.completionEvent;
 
     return nvStatus;
+#else //#if ENABLE_ASYNC
+    *completionEvent = nullptr;
+    return NV_ENC_SUCCESS;
+#endif //#if ENABLE_ASYNC
 }
 
 NVENCSTATUS NVEncoder::NvEncUnregisterAsyncEvent(void *completionEvent) {
+#if ENABLE_ASYNC
     if (completionEvent) {
         NV_ENC_EVENT_PARAMS eventParams;
         INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS);
@@ -327,7 +333,7 @@ NVENCSTATUS NVEncoder::NvEncUnregisterAsyncEvent(void *completionEvent) {
             return nvStatus;
         }
     }
-
+#endif //#if ENABLE_ASYNC
     return NV_ENC_SUCCESS;
 }
 
@@ -456,12 +462,9 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
     return nvStatus;
 }
 
-NVENCSTATUS NVEncoder::InitSession() {
-    if (m_hinstLib) {
-        return NV_ENC_SUCCESS;
-    }
-    if (NULL == m_hinstLib) {
-        if (NULL == (m_hinstLib = LoadLibrary(NVENCODE_API_DLL))) {
+NVENCSTATUS NVEncoder::createNVEncAPIInstance() {
+    if (m_hinstLib == NULL) {
+        if ((m_hinstLib = RGY_LOAD_LIBRARY(NVENCODE_API_DLL)) == NULL) {
             PrintMes(RGY_LOG_ERROR, _T("%s does not exists in your system.\n"), NVENCODE_API_DLL);
             PrintMes(RGY_LOG_ERROR, _T("Please check if the GPU driver is propery installed."));
             return NV_ENC_ERR_OUT_OF_MEMORY;
@@ -470,7 +473,7 @@ NVENCSTATUS NVEncoder::InitSession() {
     PrintMes(RGY_LOG_DEBUG, _T("Loaded %s.\n"), NVENCODE_API_DLL);
 
     MYPROC nvEncodeAPICreateInstance; // function pointer to create instance in nvEncodeAPI
-    if (NULL == (nvEncodeAPICreateInstance = (MYPROC)GetProcAddress(m_hinstLib, "NvEncodeAPICreateInstance"))) {
+    if (NULL == (nvEncodeAPICreateInstance = (MYPROC)RGY_GET_PROC_ADDRESS(m_hinstLib, "NvEncodeAPICreateInstance"))) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to load address of NvEncodeAPICreateInstance from %s.\n"), NVENCODE_API_DLL);
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
@@ -494,6 +497,18 @@ NVENCSTATUS NVEncoder::InitSession() {
         return nvStatus;
     }
     PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x): Success.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
+    return NV_ENC_SUCCESS;
+}
+
+NVENCSTATUS NVEncoder::InitSession() {
+    if (m_hinstLib) {
+        return NV_ENC_SUCCESS;
+    }
+
+    auto nvStatus = createNVEncAPIInstance();
+    if (nvStatus != NV_ENC_SUCCESS) {
+        return nvStatus;
+    }
 
     if (NV_ENC_SUCCESS != (nvStatus = NvEncOpenEncodeSessionEx(m_device, NV_ENC_DEVICE_TYPE_CUDA))) {
         if (nvStatus == NV_ENC_ERR_INVALID_VERSION) {

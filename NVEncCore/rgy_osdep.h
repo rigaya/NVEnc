@@ -46,7 +46,9 @@
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
 #include <shellapi.h>
+#define RGY_LOAD_LIBRARY(x) LoadLibrary(x)
 #define RGY_GET_PROC_ADDRESS GetProcAddress
+#define RGY_FREE_LIBRARY FreeLibrary
 
 #else //#if defined(_WIN32) || defined(_WIN64)
 #include <sys/stat.h>
@@ -77,17 +79,15 @@ typedef void* HMODULE;
 typedef void* HINSTANCE;
 typedef int errno_t;
 
+#define RGY_LOAD_LIBRARY(x) dlopen((x), RTLD_LAZY)
 #define RGY_GET_PROC_ADDRESS dlsym
+#define RGY_FREE_LIBRARY dlclose
 
 static uint32_t CP_THREAD_ACP = 0;
 static uint32_t CP_UTF8 = 0;
 
 #define __stdcall
 #define __fastcall
-
-struct LUID {
-    uint32_t hi, lo;
-};
 
 template <typename _CountofType, size_t _SizeOfArray>
 char (*__countof_helper(_CountofType (&_Array)[_SizeOfArray]))[_SizeOfArray];
@@ -282,6 +282,7 @@ static void SetThreadPriority(pthread_t thread, int priority) {
 
 #define _fread_nolock fread
 #define _fwrite_nolock fwrite
+#define _fgetc_nolock fgetc
 #define _fseeki64 fseek
 #define _ftelli64 ftell
 

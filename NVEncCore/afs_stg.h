@@ -1,9 +1,5 @@
 ﻿#pragma once
 
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-
 static const char *const AFS_STG_UP               = "up";
 static const char *const AFS_STG_BOTTOM           = "bottom";
 static const char *const AFS_STG_LEFT             = "left";

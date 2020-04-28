@@ -27,6 +27,7 @@
 
 #include "NVEncParam.h"
 #include "afs_stg.h"
+#include "rgy_ini.h"
 
 using std::vector;
 
@@ -680,9 +681,9 @@ VppParam::VppParam() :
     deinterlace(cudaVideoDeinterlaceMode_Weave),
     resizeInterp(NPPI_INTER_UNDEFINED),
     gaussMaskSize((NppiMaskSize)0),
+    delogo(),
     unsharp(),
     edgelevel(),
-    delogo(),
     knn(),
     pmd(),
     smooth(),

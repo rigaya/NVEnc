@@ -387,7 +387,9 @@ RGY_ERR initReaders(
     auto subBurnTrack = std::make_unique<SubtitleSelect>();
     SubtitleSelect *subBurnTrackPtr = subBurnTrack.get();
 
+#if ENABLE_AVISYNTH_READER
     RGYInputAvsPrm inputPrmAvs(inputPrm);
+#endif
 #if ENABLE_AVSW_READER
     RGYInputAvcodecPrm inputInfoAVCuvid(inputPrm);
 #endif

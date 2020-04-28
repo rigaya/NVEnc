@@ -77,7 +77,6 @@ RGYOutput::RGYOutput() :
     m_outputBuffer(),
     m_readBuffer(),
     m_UVBuffer() {
-    memset(&m_VideoOutputInfo, 0, sizeof(m_VideoOutputInfo));
 }
 
 RGYOutput::~RGYOutput() {

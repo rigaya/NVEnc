@@ -52,6 +52,26 @@
 #include "rgy_util.h"
 #include "rgy_err.h"
 
+static bool operator==(const GUID &guid1, const GUID &guid2) {
+     if (guid1.Data1    == guid2.Data1 &&
+         guid1.Data2    == guid2.Data2 &&
+         guid1.Data3    == guid2.Data3 &&
+         guid1.Data4[0] == guid2.Data4[0] &&
+         guid1.Data4[1] == guid2.Data4[1] &&
+         guid1.Data4[2] == guid2.Data4[2] &&
+         guid1.Data4[3] == guid2.Data4[3] &&
+         guid1.Data4[4] == guid2.Data4[4] &&
+         guid1.Data4[5] == guid2.Data4[5] &&
+         guid1.Data4[6] == guid2.Data4[6] &&
+         guid1.Data4[7] == guid2.Data4[7]) {
+        return true;
+    }
+    return false;
+}
+static bool operator!=(const GUID &guid1, const GUID &guid2) {
+    return !(guid1 == guid2);
+}
+
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, cudaVideoCodec);
 MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, cudaVideoChromaFormat);
 MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, NV_ENC_BUFFER_FORMAT);

@@ -56,7 +56,11 @@
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
 #include "nvml.h"
+#if defined(_WIN32) || defined(_WIN64)
 #define NVML_DLL_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvml.dll)")
+#else
+#define NVML_DLL_PATH _T("libnvidia-ml.so")
+#endif
 #endif
 #define NVSMI_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvidia-smi.exe)")
 
@@ -274,6 +278,10 @@ struct NVMLMonitorInfo {
         pcieLoadTX(0),
         pcieLoadRX(0) {
     };
+
+    void clear() {
+        *this = NVMLMonitorInfo();
+    }
 };
 
 #if ENABLE_NVML

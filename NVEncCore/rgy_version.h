@@ -103,6 +103,9 @@ const char *get_encoder_version();
 #define ENCODER_NAME              "NVEnc"
 #define DECODER_NAME              "cuvid"
 #define FOR_AUO                   0
+#define ENABLE_RAW_READER         1
+#define ENABLE_NVML               1
+#define ENABLE_NVRTC              1
 #endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //__RGY_CONFIG_H__

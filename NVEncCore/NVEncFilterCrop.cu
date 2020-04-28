@@ -775,6 +775,15 @@ void crop_rgb_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cons
         planeInputR.ptr, planeInputG.ptr, planeInputB.ptr, planeInputR.pitch, pCrop->e.left, pCrop->e.up);
 }
 
+template<typename TypeIn>
+static __device__ float3 rgb3_2_yuv(const TypeIn *ptr) {
+    float3 rgb;
+    rgb.z = (float)ptr[0];
+    rgb.y = (float)ptr[1];
+    rgb.x = (float)ptr[2];
+    return rgb_2_yuv(rgb);
+}
+
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 __global__ void kernel_crop_rgb3_yv12(uint8_t *__restrict__ pDstY, uint8_t *__restrict__ pDstU, uint8_t *__restrict__ pDstV,
     const int dstPitch, const int dstWidth, const int dstHeight,
@@ -828,15 +837,6 @@ void crop_rgb3_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const
     kernel_crop_rgb3_yv12<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
         ptrDstY, ptrDstU, ptrDstV, pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
         pInputFrame->ptr, pInputFrame->pitch, pCrop->e.left, pCrop->e.up);
-}
-
-template<typename TypeIn>
-static __device__ float3 rgb3_2_yuv(const TypeIn *ptr) {
-    float3 rgb;
-    rgb.z = (float)ptr[0];
-    rgb.y = (float)ptr[1];
-    rgb.x = (float)ptr[2];
-    return rgb_2_yuv(rgb);
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>

@@ -30,14 +30,18 @@
 #include "NVEncUtil.h"
 #if ENABLE_AVSW_READER
 
-bool check_if_nvcuvid_dll_available() {
 #if defined(_WIN32) || defined(_WIN64)
+static const TCHAR *NVCUVID_DLL_NAME = _T("nvcuvid.dll");
+#else
+static const TCHAR *NVCUVID_DLL_NAME = _T("libnvcuvid.so");
+#endif
+
+bool check_if_nvcuvid_dll_available() {
     //check for nvcuvid.dll
-    HMODULE hModule = LoadLibrary(_T("nvcuvid.dll"));
+    HMODULE hModule = RGY_LOAD_LIBRARY(NVCUVID_DLL_NAME);
     if (hModule == NULL)
         return false;
-    FreeLibrary(hModule);
-#endif //#if defined(_WIN32) || defined(_WIN64)
+    RGY_FREE_LIBRARY(hModule);
     return true;
 }
 

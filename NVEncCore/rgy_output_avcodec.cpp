@@ -2335,7 +2335,7 @@ vector<int> RGYOutputAvcodec::GetStreamTrackIdList() {
     for (auto sub : m_Mux.other) {
         streamTrackId.push_back(sub.inTrackId);
     }
-    return std::move(streamTrackId);
+    return streamTrackId;
 }
 
 AVMuxAudio *RGYOutputAvcodec::getAudioPacketStreamData(const AVPacket *pkt) {
@@ -2533,7 +2533,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVPktMuxData *pktData, int64_t *
 vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecodePacket(AVMuxAudio *muxAudio, AVPacket *pkt) {
     vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> decodedFrames;
     if (muxAudio->decodeError > muxAudio->ignoreDecodeError) {
-        return std::move(decodedFrames);
+        return decodedFrames;
     }
     AVPacket pktInInfo;
     av_packet_copy_props(&pktInInfo, pkt);

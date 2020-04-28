@@ -32,6 +32,8 @@
 static const int WARP_SIZE_2N = 5;
 static const int WARP_SIZE = (1<<WARP_SIZE_2N);
 
+static const float RGY_FLT_EPS = 1e-6;
+
 #if __CUDACC_VER_MAJOR__ >= 9
 #define __shfl(x, y)     __shfl_sync(0xFFFFFFFFU, x, y)
 #define __shfl_up(x, y)   __shfl_up_sync(0xFFFFFFFFU, x, y)

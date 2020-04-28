@@ -123,14 +123,12 @@ static const auto RGY_CSP_TO_SURFACEFMT = make_array<std::pair<RGY_CSP, cudaVide
 
 MAP_PAIR_0_1(csp, rgy, RGY_CSP, surfacefmt, cudaVideoSurfaceFormat, RGY_CSP_TO_SURFACEFMT, RGY_CSP_NA, cudaVideoSurfaceFormat_NV12);
 
-__declspec(noinline)
 NV_ENC_PIC_STRUCT picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct) {
     if (picstruct & RGY_PICSTRUCT_TFF) return NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM;
     if (picstruct & RGY_PICSTRUCT_BFF) return NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
     return NV_ENC_PIC_STRUCT_FRAME;
 }
 
-__declspec(noinline)
 RGY_PICSTRUCT picstruct_enc_to_rgy(NV_ENC_PIC_STRUCT picstruct) {
     if (picstruct == NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM) return RGY_PICSTRUCT_FRAME_TFF;
     if (picstruct == NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP) return RGY_PICSTRUCT_FRAME_BFF;
@@ -182,7 +180,6 @@ std::vector<RGYFrameData *> RGYBitstream::getFrameDataList() {
     return make_vector(frameDataList, frameDataNum);
 }
 
-__declspec(noinline)
 VideoInfo videooutputinfo(
     const GUID& encCodecGUID,
     NV_ENC_BUFFER_FORMAT buffer_fmt,

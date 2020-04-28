@@ -25,6 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#include "rgy_version.h"
+#if ENABLE_PERF_COUNTER
 #pragma once
 #include <string>
 #include <thread>
@@ -108,3 +110,5 @@ protected:
     IWbemServices *pNameSpace;
     bool m_abort;
 };
+
+#endif //#if ENABLE_PERF_COUNTER

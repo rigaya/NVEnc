@@ -29,12 +29,14 @@
 #include <map>
 #include <array>
 #include <cstdint>
+#include <limits>
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "NVEncFilterDelogo.h"
 #pragma warning (pop)
+#include "rgy_ini.h"
 
 //行列式の計算
 static double det3x3(const std::array<double, 9>& m) {
@@ -49,7 +51,7 @@ static double det3x3(const std::array<double, 9>& m) {
 //逆行列の計算
 static bool inv3x3(std::array<double, 9>& invm, const std::array<double, 9>& m) {
     const double det = det3x3(m);
-    if (std::abs(det) < DBL_MIN) {
+    if (std::abs(det) < std::numeric_limits<double>::min()) {
         return false;
     }
     const double inv_det = 1.0 / det;

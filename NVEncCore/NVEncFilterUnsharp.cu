@@ -38,6 +38,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #pragma warning (pop)
+#include "rgy_cuda_util_kernel.h"
 
 static const int UNSHARP_RADIUS_MAX = 9;
 static const int UNSHARP_BLOCK_X = 32;
@@ -76,7 +77,7 @@ __global__ void kernel_unsharp(uint8_t *__restrict__ pDst, const int dstPitch, c
         }
 
         Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)(clamp(center, 0.0f, 1.0f-FLT_EPSILON) * (1 << (bit_depth)));
+        ptr[0] = (Type)(clamp(center, 0.0f, 1.0f-RGY_FLT_EPS) * (1 << (bit_depth)));
     }
 }
 

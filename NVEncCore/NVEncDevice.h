@@ -46,10 +46,21 @@
 #include "rgy_version.h"
 #include "rgy_log.h"
 
+#if defined(_WIN32) || defined(_WIN64)
 #ifdef _M_IX86
 static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI.dll");
 #else
 static const TCHAR *NVENCODE_API_DLL = _T("nvEncodeAPI64.dll");
+#endif
+#else
+static const TCHAR *NVENCODE_API_DLL = _T("libnvidia-encode.so");
+#endif
+
+
+#if defined(_WIN32) || defined(_WIN64)
+#define ENABLE_ASYNC 1
+#else
+#define ENABLE_ASYNC 0
 #endif
 
 #define INIT_CONFIG(configStruct, type) { memset(&(configStruct), 0, sizeof(configStruct)); (configStruct).version = type##_VER;}
@@ -154,6 +165,7 @@ public:
     NVENCSTATUS DestroyEncoder();
 
     //
+    NVENCSTATUS createNVEncAPIInstance();
     NVENCSTATUS InitSession();
 
     //エンコーダインスタンスを作成

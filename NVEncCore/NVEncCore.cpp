@@ -233,9 +233,9 @@ public:
         m_csp(csp),
         m_timestamp(timestamp),
         m_duration(duration),
+        m_inputFrameId(inputFrameId),
         m_pEncodeBuffer(pEncodeBuffer),
         m_pEvent(pEvent),
-        m_inputFrameId(inputFrameId),
         m_frameDataList(frameDataList) {
     };
     ~FrameBufferDataEnc() {
@@ -859,7 +859,7 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
         return NV_ENC_ERR_INVALID_PARAM;
     }
 
-    if (pEncodeBuffer->stOutputBfr.bWaitOnEvent == TRUE) {
+    if (pEncodeBuffer->stOutputBfr.bWaitOnEvent) {
         if (!pEncodeBuffer->stOutputBfr.hOutputEvent) {
             return NV_ENC_ERR_INVALID_PARAM;
         }
@@ -909,7 +909,7 @@ NVENCSTATUS NVEncCore::FlushEncoder() {
         pEncodeBufer = m_EncodeBufferQueue.GetPending();
     }
 
-    if (WaitForSingleObject(m_stEOSOutputBfr.hOutputEvent, 500) != WAIT_OBJECT_0) {
+    if (m_stEOSOutputBfr.hOutputEvent && WaitForSingleObject(m_stEOSOutputBfr.hOutputEvent, 500) != WAIT_OBJECT_0) {
         PrintMes(RGY_LOG_ERROR, _T("m_stEOSOutputBfr.hOutputEvent%s"), (FOR_AUO) ? _T("が終了しません。") : _T(" does not finish within proper time."));
         nvStatus = NV_ENC_ERR_GENERIC;
     }
@@ -1052,7 +1052,7 @@ NVENCSTATUS NVEncCore::AllocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHe
         nvStatus = m_dev->encoder()->NvEncRegisterAsyncEvent(&m_stEncodeBuffer[i].stOutputBfr.hOutputEvent);
         if (nvStatus != NV_ENC_SUCCESS)
             return nvStatus;
-        m_stEncodeBuffer[i].stOutputBfr.bWaitOnEvent = true;
+        m_stEncodeBuffer[i].stOutputBfr.bWaitOnEvent = ENABLE_ASYNC != 0;
     }
 
 #if ENABLE_AVSW_READER
@@ -1165,7 +1165,7 @@ NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
 #if ENABLE_AVSW_READER
             cuvidCtxUnlock(m_dev->vidCtxLock(), 0);
 #endif //#if ENABLE_AVSW_READER
-            m_stEncodeBuffer[i].stInputBfr.pNV12devPtr = NULL;
+            m_stEncodeBuffer[i].stInputBfr.pNV12devPtr = 0;
         } else {
             //インタレ保持の場合にはこちらを使用
             if (m_stEncodeBuffer[i].stInputBfr.hInputSurface) {
@@ -1672,7 +1672,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
     }
 
-    m_stCreateEncodeParams.enableEncodeAsync   = true;
+    m_stCreateEncodeParams.enableEncodeAsync   = ENABLE_ASYNC != 0;
     m_stCreateEncodeParams.enablePTD           = true;
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
     m_stCreateEncodeParams.presetGUID          = get_guid_from_value(inputParam->preset, list_nvenc_preset_names);
@@ -3527,7 +3527,7 @@ NVENCSTATUS NVEncCore::Encode() {
         //次のフレームのptsの予想
         nOutEstimatedPts += outDuration;
         add_dec_vpp_param(pInputFrame, decFrames, outPtsSource, outDuration);
-        return std::move(decFrames);
+        return decFrames;
     };
 
     auto add_frame_transfer_data = [&](cudaEvent_t *pCudaEvent, unique_ptr<FrameBufferDataIn>& inframe, shared_ptr<void>& deviceFrame) {
@@ -3890,7 +3890,7 @@ NVENCSTATUS NVEncCore::Encode() {
             if (!bDrain) {
                 dqInFrames.pop_front();
             }
-            while (dqEncFrames.size() >= m_pipelineDepth) {
+            while ((int)dqEncFrames.size() >= m_pipelineDepth) {
                 auto& encframe = dqEncFrames.front();
                 if (NV_ENC_SUCCESS != (nvStatus = send_encoder(nEncodeFrames, encframe))) {
                     break;

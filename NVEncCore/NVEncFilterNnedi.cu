@@ -48,6 +48,12 @@
 #pragma warning (pop)
 #include "rgy_cuda_util_kernel.h"
 
+extern "C" {
+extern char _binary_resource_nnedi3_weights_bin_start[];
+extern char _binary_resource_nnedi3_weights_bin_end[];
+extern char _binary_resource_nnedi3_weights_bin_size[];
+}
+
 static const int NNEDI_BLOCK_X       = 32;
 static const int NNEDI_BLOCK_Y       = 8;
 
@@ -700,7 +706,7 @@ void kernel_comute_network1_calc_scale(
         mstd[ithy][3] = 0.0f;
         mstd[ithy][0] = sum * inv_nnxy;
         float tmp = sumsq * inv_nnxy - mstd[ithy][0] * mstd[ithy][0];
-        if (tmp <= FLT_EPSILON) {
+        if (tmp <= RGY_FLT_EPS) {
             mstd[ithy][1] = 0.0f;
             mstd[ithy][2] = 0.0f;
         } else {
@@ -1500,6 +1506,7 @@ shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile,
     uint64_t weightFileSize = 0;
     if (weightFile.length() == 0) {
         //埋め込みデータを使用する
+#if defined(_WIN32) || defined(_WIN64)
         if (hModule == NULL) {
             hModule = GetModuleHandle(NULL);
         }
@@ -1516,10 +1523,22 @@ shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile,
             AddMessage(RGY_LOG_ERROR, _T("Failed to lock resource \"NNEDI_WEIGHTBIN\".\n"));
         } else if (expectedFileSize != (weightFileSize = SizeofResource(hModule, hResource))) {
             AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %u [expected: %u].\n"),
-                weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
+                (uint32_t)weightFileSize, expectedFileSize);
         } else {
             weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
         }
+#else
+        const char *pDataPtr = _binary_resource_nnedi3_weights_bin_start;
+        const uint32_t weightFileSize = (uint32_t)(size_t)_binary_resource_nnedi3_weights_bin_size;
+        if (pDataPtr == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get Weights data.\n"));
+        } else if (expectedFileSize != weightFileSize) {
+            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %u [expected: %u].\n"),
+                (uint32_t)weightFileSize, expectedFileSize);
+        } else {
+            weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
+        }
+#endif
     } else {
         if (!PathFileExists(weightFile.c_str())) {
             AddMessage(RGY_LOG_ERROR, _T("weight file \"%s\" does not exist.\n"), weightFile.c_str());

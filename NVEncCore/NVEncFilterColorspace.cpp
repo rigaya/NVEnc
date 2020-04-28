@@ -38,6 +38,12 @@
 #include "NVEncFilterColorspaceFunc.h"
 #include "NVEncParam.h"
 
+extern "C" {
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start[];
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end[];
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_size[];
+}
+
 using std::pair;
 using std::make_pair;
 using std::make_unique;
@@ -1308,11 +1314,12 @@ std::string NVEncFilterColorspace::genKernelCode() {
 #if ENABLE_NVRTC
     std::vector<char> colorspace_func_h;
     uint64_t datasize = 0;
+    std::string kernel;
+#if defined(_WIN32) || defined(_WIN64)
     HMODULE hModule = GetModuleHandle(NULL);
     HRSRC hResource = NULL;
     HGLOBAL hResourceData = NULL;
     const char *pDataPtr = NULL;
-    std::string kernel;
     if (NULL == hModule) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to get module handle.\n"));
     } else if (NULL == (hResource = FindResource(hModule, _T("NVENC_FILTER_COLRSPACE_FUNC_HEADER"), _T("EXE_DATA")))) {
@@ -1323,6 +1330,14 @@ std::string NVEncFilterColorspace::genKernelCode() {
         AddMessage(RGY_LOG_ERROR, _T("Failed to lock resource \"NVENC_FILTER_COLRSPACE_FUNC_HEADER\".\n"));
     } else if (0 == (datasize = SizeofResource(hModule, hResource))) {
         AddMessage(RGY_LOG_ERROR, _T("header data has unexpected size %u.\n"), datasize);
+#else
+    const char *pDataPtr = _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start;
+    datasize = (uint32_t)(size_t)_binary_NVEncCore_NVEncFilterColorspaceFunc_h_size;
+    if (pDataPtr == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to get ColorspaceFunc.h.\n"));
+    } else if (datasize == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("header data has unexpected size %u.\n"), datasize);
+#endif //#if defined(_WIN32) || defined(_WIN64)
     } else {
         uint8_t *ptr = (uint8_t *)pDataPtr;
         if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF) { //skip UTF-8 BOM mark

@@ -631,6 +631,15 @@ tstring getExeDir() {
     GetModuleFileName(NULL, exePath, _countof(exePath));
     return PathRemoveFileSpecFixed(tstring(exePath)).second;
 }
+#else
+tstring getExeDir() {
+    char prg_path[4096];
+    auto ret = readlink("/proc/self/exe", prg_path, sizeof(prg_path));
+    if (ret <= 0) {
+        prg_path[0] = '\0';
+    }
+    return char_to_tstring(PathRemoveFileSpecFixed(prg_path).second);
+}
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
 

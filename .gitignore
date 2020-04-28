@@ -10,6 +10,7 @@ config.mak
 *.sln.docstates
 
 rgy_rev.h
+/nvencc
 
 # Build results
 
@@ -27,6 +28,7 @@ _build/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
+*.o
 *_i.c
 *_p.c
 *.i
@@ -48,6 +50,7 @@ _build/
 *.vspscc
 *.vssscc
 .builds
+.depend
 *.pidb
 *.log
 *.scc
@@ -56,6 +59,7 @@ _build/
 *.VC.db
 
 # Visual C++ cache files
+.vscode/
 .vs/
 ipch/
 *.aps

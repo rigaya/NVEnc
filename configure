@@ -21,7 +21,7 @@ write_enc_config()
     echo $1 >> NVEncCore/rgy_config.h
 }
 
-write_qsv_rev()
+write_app_rev()
 {
     echo $1
     echo $1 >> NVEncCore/rgy_rev.h
@@ -72,13 +72,14 @@ USE_PKGCONFIG=1
 ENABLE_DEBUG=0
 NVCC=nvcc
 CXX=g++
-LD=g++
+LD=nvcc
 AS=yasm
 PROGRAM=nvencc
 PREFIX="/usr/local"
 EXTRACXXFLAGS=""
 EXTRALDFLAGS=""
 SRCS=""
+SRCCUS=""
 ASMS=""
 X86_64=1
 NO_RDTSCP_INTRIN=0
@@ -219,34 +220,35 @@ if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
     X86_64=0
 fi
 
-CXXFLAGS="-Wall -Wno-attributes -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused 
+CXXINC=" \
   -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS \
   -I${SRCDIR} -I${SRCDIR}/NVEncSDK/Common/inc -I${SRCDIR}/NVEncCore \
-  -I${SRCDIR}/jitify -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
+  -I${SRCDIR}/jitify -I${SRCDIR}/tinyxml2 -I${SRCDIR}/cppcodec -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
 "
+CXXFLAGS="-Wall -Wno-attributes -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused"
 
 LDFLAGS="-L. -ldl -lstdc++"
 ASFLAGS="-I. -DLINUX=1"
 if [ $X86_64 -ne 0 ]; then
     ASFLAGS="${ASFLAGS} -f elf64 -DARCH_X86_64=1"
-    CXXFLAGS="${CXXFLAGS} -DLINUX64 -m64"
+    CXXINC="${CXXINC} -DLINUX64 -m64"
     LDFLAGS="${LDFLAGS} -m64"
 else
     ASFLAGS="${ASFLAGS} -f elf32"
-    CXXFLAGS="${CXXFLAGS} -DLINUX32 -m32"
+    CXXINC="${CXXINC} -DLINUX32 -m32"
     LDFLAGS="${LDFLAGS} -m32"
 fi
 
 CUDA_CFLAGS="-I${CUDA_PATH}/include"
-CUDA_LIBS="-L${CUDA_PATH}/lib64 -lcudart -lcuda"
+CUDA_LIBS="-L${CUDA_PATH}/lib64 -lnvrtc -lnppc -lnppif -lnppig -lcudart -lcuda"
 printf "checking for cuda (CUDA_PATH=${CUDA_PATH})..."
-if ! cxx_check "${CXXFLAGS} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "cuda.h" "" "auto result = cuInit(0);" ; then
+if ! cxx_check "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "cuda.h" "" "auto result = cuInit(0);" ; then
     echo "cuda not supported." 
     exit 1
 fi
 echo "OK"
 export PATH=${CUDA_PATH}/bin:${PATH}
-NVCCFLAGS="-arch=sm_30 -arch=sm_50 -arch=sm_75 --cudart=static -std=c++14"
+NVCCFLAGS="-arch=sm_50 --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108 --diag_suppress=177 --diag_suppress=186 --diag_suppress=2473\""
 
 printf "checking for pthread..."
 if cxx_check "${CXXFLAGS} -pthread ${LDFLAGS} -lpthread" ; then
@@ -263,82 +265,6 @@ if cxx_check "${CXXFLAGS} -std=c++14 ${LDFLAGS}" ; then
     CXXFLAGS="$CXXFLAGS -std=c++14"
 else
     echo $CXX does not work with -std=c++14
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <chrono>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "chrono" "" "auto start = std::chrono::system_clock::now();" ; then
-    echo "<chrono> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <thread>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "thread" "" "std::thread th;" ; then
-    echo "<thread> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <mutex>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "mutex" "" "std::mutex mtx;" ; then
-    echo "<mutex> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <atomic>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "atomic" "" "std::atomic<int> value(0);" ; then
-    echo "<atomic> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <type_traits>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "type_traits" "" "std::cout << std::is_integral<int>::value << std::endl;" ; then
-    echo "<type_traits> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <regex>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "regex" "" "" ; then
-    echo "<regex> not supported with this compiler." 
-    exit 1
-else
-    if ! regex_check "${CXXFLAGS} ${LDFLAGS}"; then
-        echo "no, disable feature using regex."
-        ENABLE_CPP_REGEX=0
-    else
-        echo "OK"
-    fi
-fi
-
-printf "checking for lambda..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto test = []() { std::cout << \"Hello c++14!!\" << std::endl; };" ; then
-    echo "lambda not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for nullptr..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto ptr = nullptr;" ; then
-    echo "nullptr not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for range based for..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "vector" "" "std::vector<int> v = { 1, 2, 3 }; for (auto i : v) { std::cout << i << std::endl; }" ; then
-    echo "range based for not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for alignas(n)..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "alignas(16) int value[8] = { 0 };" ; then
-    echo "alignas(n) not supported with this compiler." 
     exit 1
 fi
 echo "OK"
@@ -399,7 +325,7 @@ else
     if cxx_check "${CXXFLAGS} -fomit-frame-pointer ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -fomit-frame-pointer"
     fi
-    LDFLAGS="$LDFLAGS -Wl,-s"
+    #LDFLAGS="$LDFLAGS -Wl,-s"
 fi
 
 if [ -n $EXTRACXXFLAGS ]; then
@@ -569,9 +495,9 @@ fi
 
 if [ $ENABLE_DTL -ne 0 ]; then
     printf "checking for dtl/dtl.hpp..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl/dtl.hpp" "" "" ; then
+    if ! cxx_check "${CXXFLAGS} ${CXXINC} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl/dtl.hpp" "" "" ; then
         printf "checking for dtl/dtl.hpp..."
-        if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl.hpp" "" "" ; then
+        if ! cxx_check "${CXXFLAGS} ${CXXINC} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl.hpp" "" "" ; then
             echo "no"
             ENABLE_DTL=0
         else
@@ -583,43 +509,64 @@ if [ $ENABLE_DTL -ne 0 ]; then
     fi
 fi
 
+SRC_NVENCSDK=" \
+dynlink_nvcuvid.cpp
+"
+
 SRC_NVENCCORE=" \
-CuvidDecode.cpp          FrameQueue.cpp               NVEncCmd.cpp                 NVEncCore.cpp \
-NVEncDevice.cpp          NVEncFilter.cpp              NVEncFilterAfs.cpp           NVEncFilterAfsAnalyze.cu \
-NVEncFilterAfsFilter.cu  NVEncFilterAfsMerge.cu       NVEncFilterAfsSynthesize.cu  NVEncFilterColorspace.cpp \
-NVEncFilterCrop.cu       NVEncFilterCustom.cpp        NVEncFilterDeband.cu         NVEncFilterDelogo.cpp \
-NVEncFilterDelogo.cu     NVEncFilterDenoiseGauss.cpp  NVEncFilterDenoiseKnn.cu     NVEncFilterDenoisePmd.cu \
-NVEncFilterEdgelevel.cu  NVEncFilterNnedi.cu          NVEncFilterPad.cpp           NVEncFilterResize.cu \
-NVEncFilterRff.cpp       NVEncFilterSelectEvery.cpp   NVEncFilterSmooth.cu         NVEncFilterSsim.cpp \
-NVEncFilterSsim.cu       NVEncFilterSubburn.cpp       NVEncFilterSubburn.cu        NVEncFilterTransform.cu \
-NVEncFilterTweak.cu      NVEncFilterUnsharp.cu        NVEncFilterYadif.cu          NVEncFrameInfo.cpp \
-NVEncParam.cpp           NVEncUtil.cpp                cl_func.cpp                  convert_csp.cpp \
-convert_csp_avx.cpp      convert_csp_avx2.cpp         convert_csp_sse2.cpp         convert_csp_sse41.cpp \
-convert_csp_ssse3.cpp    cpu_info.cpp                 gpu_info.cpp                 gpuz_info.cpp \
-h264_level.cpp           hevc_level.cpp               logo.cpp                     ram_speed.cpp \
-rgy_avlog.cpp            rgy_avutil.cpp               rgy_bitstream.cpp            rgy_caption.cpp \
-rgy_cmd.cpp              rgy_codepage.cpp             rgy_def.cpp                  rgy_err.cpp \
-rgy_event.cpp            rgy_frame.cpp                rgy_hdr10plus.cpp            rgy_input.cpp \
-rgy_input_avcodec.cpp    rgy_input_avi.cpp            rgy_input_avs.cpp            rgy_input_raw.cpp \
-rgy_input_sm.cpp         rgy_input_vpy.cpp            rgy_log.cpp                  rgy_output.cpp \
-rgy_output_avcodec.cpp   rgy_perf_monitor.cpp         rgy_pipe.cpp \
-rgy_pipe_linux.cpp       rgy_prm.cpp                  rgy_simd.cpp                 rgy_status.cpp \
-rgy_util.cpp             rgy_version.cpp \
+CuvidDecode.cpp        FrameQueue.cpp              NVEncCmd.cpp                 NVEncCore.cpp \
+NVEncDevice.cpp        NVEncFilter.cpp             NVEncFilterAfs.cpp           NVEncFilterColorspace.cpp \
+NVEncFilterCustom.cpp  NVEncFilterDelogo.cpp       NVEncFilterDenoiseGauss.cpp  NVEncFilterPad.cpp \
+NVEncFilterRff.cpp     NVEncFilterSelectEvery.cpp  NVEncFilterSsim.cpp          NVEncFilterSubburn.cpp \
+NVEncFrameInfo.cpp     NVEncParam.cpp              NVEncUtil.cpp                cl_func.cpp \
+convert_csp.cpp        convert_csp_avx.cpp         convert_csp_avx2.cpp         convert_csp_sse2.cpp \
+convert_csp_sse41.cpp  convert_csp_ssse3.cpp       cpu_info.cpp                 gpu_info.cpp \
+gpuz_info.cpp          h264_level.cpp              hevc_level.cpp               logo.cpp \
+ram_speed.cpp          rgy_avlog.cpp               rgy_avutil.cpp               rgy_bitstream.cpp \
+rgy_caption.cpp        rgy_cmd.cpp                 rgy_codepage.cpp             rgy_def.cpp \
+rgy_err.cpp            rgy_event.cpp               rgy_frame.cpp                rgy_hdr10plus.cpp \
+rgy_ini.cpp            rgy_input.cpp               rgy_input_avcodec.cpp        rgy_input_avi.cpp \
+rgy_input_avs.cpp      rgy_input_raw.cpp           rgy_input_sm.cpp             rgy_input_vpy.cpp \
+rgy_log.cpp            rgy_output.cpp              rgy_output_avcodec.cpp       rgy_perf_counter.cpp \
+rgy_perf_monitor.cpp   rgy_pipe.cpp                rgy_pipe_linux.cpp           rgy_prm.cpp \
+rgy_simd.cpp           rgy_status.cpp              rgy_util.cpp                 rgy_version.cpp \
+"
+
+CU_NVENCCORE=" \
+NVEncFilterAfsAnalyze.cu  NVEncFilterAfsFilter.cu  NVEncFilterAfsMerge.cu  NVEncFilterAfsSynthesize.cu \
+NVEncFilterCrop.cu        NVEncFilterDeband.cu     NVEncFilterDelogo.cu    NVEncFilterDenoiseKnn.cu \
+NVEncFilterDenoisePmd.cu  NVEncFilterEdgelevel.cu  NVEncFilterNnedi.cu     NVEncFilterResize.cu \
+NVEncFilterSmooth.cu      NVEncFilterSsim.cu       NVEncFilterSubburn.cu   NVEncFilterTransform.cu \
+NVEncFilterTweak.cu       NVEncFilterUnsharp.cu    NVEncFilterYadif.cu \
 "
 
 SRC_TINYXML2="tinyxml2.cpp"
 
 SRC_CHAPTER_RW="chapter_rw.cpp"
 
-ASM_NVEncCore="ram_speed_x64.asm cpu_info_x64.asm"
+ASM_NVENCCORE="ram_speed_x64.asm cpu_info_x64.asm"
 
 SRC_NVENCC="NVEncC.cpp"
+
+PYW_PERF_MONITOR="perf_monitor.pyw"
+
+BINS="resource/nnedi3_weights.bin"
+
+BINHS="NVEncCore/NVEncFilterColorspaceFunc.h"
+
+for src in $SRC_NVENCSDK; do
+    SRCS="$SRCS NVEncSDK/Common/src/$src"
+done
 
 for src in $SRC_NVENCCORE; do
     SRCS="$SRCS NVEncCore/$src"
 done
 
-for asm in $ASM_NVEncCore; do
+for src in $CU_NVENCCORE; do
+    SRCCUS="$SRCCUS NVEncCore/$src"
+done
+
+for asm in $ASM_NVENCCORE; do
     ASMS="$ASMS NVEncCore/$asm"
 done
 
@@ -644,7 +591,10 @@ ENCODER_REV=`git rev-list HEAD | wc --lines`
 echo ""
 echo "Creating config.mak, rgy_config.h..."
 echo "SRCS = $SRCS" >> config.mak
+echo "SRCCUS = $SRCCUS" >> config.mak
 echo "ASMS = $ASMS" >> config.mak
+echo "BINS = $BINS" >> config.mak
+echo "BINHS = $BINHS" >> config.mak
 echo "PYWS = $PYWS" >> config.mak
 write_config_mak "SRCDIR = $SRCDIR"
 write_config_mak "CXX  = $CXX"
@@ -653,26 +603,19 @@ write_config_mak "LD   = $LD"
 write_config_mak "AS   = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $CUDA_FLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
-write_config_mak "NVCCFLAGS = $NVCCFLAGS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $CXXINC $EXTRACXXFLAGS $CUDA_FLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
+write_config_mak "NVCCFLAGS = $NVCCFLAGS $CUDA_FLAGS $CXXINC -Xcompiler \"${CXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
-write_qsv_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
+write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
 write_enc_config "#define ENABLE_AVI_READER             0"
 write_enc_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
 write_enc_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
 write_enc_config "#define ENABLE_AVSW_READER            $ENABLE_AVSW_READER"     
 write_enc_config "#define ENABLE_SM_READER              0"
-write_enc_config "#define ENABLE_CUSTOM_VPP             1"
-write_enc_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"         
-write_enc_config "#define ENABLE_ADVANCED_DEINTERLACE   0"
-write_enc_config "#define ENABLE_MVC_ENCODING           0"
-write_enc_config "#define ENABLE_FPS_CONVERSION         0"
-write_enc_config "#define ENABLE_OPENCL                 0"
-write_enc_config "#define ENABLE_SESSION_THREAD_CONFIG  0"
-write_enc_config "#define ENABLE_FEATURE_COP3_AND_ABOVE 0"
+write_enc_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"
 write_enc_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
 write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"

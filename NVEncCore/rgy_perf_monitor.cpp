@@ -164,17 +164,19 @@ const TCHAR *nvmlErrStr(nvmlReturn_t ret) {
 
 nvmlReturn_t NVMLMonitor::LoadDll() {
     if (m_hDll) {
-        CloseHandle(m_hDll);
+        RGY_FREE_LIBRARY(m_hDll);
     }
-    m_hDll = LoadLibrary(NVML_DLL_PATH);
+    m_hDll = RGY_LOAD_LIBRARY(NVML_DLL_PATH);
     if (m_hDll == NULL) {
-        m_hDll = LoadLibrary(_T("nvml.dll"));
+#if defined(_WIN32) || defined(_WIN64)
+        m_hDll = RGY_LOAD_LIBRARY(_T("nvml.dll"));
+#endif //#if defined(_WIN32) || defined(_WIN64)
         if (m_hDll == NULL) {
             return NVML_ERROR_NOT_FOUND;
         }
     }
 #define LOAD_NVML_FUNC(x) { \
-    if ( NULL == (m_func.f_ ## x = (pf ## x)GetProcAddress(m_hDll, #x )) ) { \
+    if ( NULL == (m_func.f_ ## x = (pf ## x)RGY_GET_PROC_ADDRESS(m_hDll, #x )) ) { \
         memset(&m_func, 0, sizeof(m_func)); \
         return NVML_ERROR_NOT_FOUND; \
     } \
@@ -319,47 +321,26 @@ void NVMLMonitor::Close() {
         m_func.f_nvmlShutdown();
     }
     if (m_hDll) {
-        FreeLibrary(m_hDll);
+        RGY_FREE_LIBRARY(m_hDll);
     }
     memset(&m_func, 0, sizeof(m_func));
 }
 #endif //#if ENABLE_NVML
 
 int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
-    memset(info, 0, sizeof(info[0]));
+    info->clear();
 
-    RGYPipeProcessWin process;
+    auto process = createRGYPipeProcess();
+    process->init();
     ProcessPipe pipes = { 0 };
     pipes.stdOut.mode = PIPE_MODE_ENABLE;
     std::vector<const TCHAR *> args;
     args.push_back(NVSMI_PATH);
     args.push_back(_T("-q"));
-    if (process.run(args, nullptr, &pipes, NORMAL_PRIORITY_CLASS, true, true)) {
+    if (process->run(args, nullptr, &pipes, 0, true, true)) {
         return 1;
     }
-    if (m_NVSMIOut.length() == 0) {
-        auto read_from_pipe = [&]() {
-            DWORD pipe_read = 0;
-            if (!PeekNamedPipe(pipes.stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
-                return -1;
-            if (pipe_read) {
-                char read_buf[1024] = { 0 };
-                ReadFile(pipes.stdOut.h_read, read_buf, sizeof(read_buf) - 1, &pipe_read, NULL);
-                m_NVSMIOut += read_buf;
-            }
-            return (int)pipe_read;
-        };
-
-        while (WAIT_TIMEOUT == WaitForSingleObject(process.getProcessInfo().hProcess, 10)) {
-            read_from_pipe();
-        }
-        for (;;) {
-            if (read_from_pipe() <= 0) {
-                break;
-            }
-        }
-        m_NVSMIOut = tolowercase(m_NVSMIOut);
-    }
+    m_NVSMIOut = tolowercase(process->getOutput(&pipes));
     if (m_NVSMIOut.length() == 0) {
         return 1;
     }
@@ -545,7 +526,6 @@ void CPerfMonitor::clear() {
 #if ENABLE_PERF_COUNTER
     AddMessage(RGY_LOG_DEBUG, _T("Closing perf counter...\n"));
     m_perfCounter.reset();
-#endif //#if ENABLE_PERF_COUNTER
     AddMessage(RGY_LOG_DEBUG, _T("Closed perf counter.\n"));
 #endif //#if ENABLE_PERF_COUNTER
     memset(m_info, 0, sizeof(m_info));
@@ -830,9 +810,9 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #endif //#if ENABLE_PERF_COUNTER
 
     if (m_nSelectOutputPlot) {
-#if defined(_WIN32) || defined(_WIN64)
-        m_pProcess = std::unique_ptr<RGYPipeProcess>(new RGYPipeProcessWin());
+        m_pProcess = createRGYPipeProcess();
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
+#if defined(_WIN32) || defined(_WIN64)
         TCHAR tempDir[1024] = { 0 };
         TCHAR tempPath[1024] = { 0 };
         GetModuleFileName(NULL, tempDir, _countof(tempDir));
@@ -841,8 +821,6 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         m_sPywPath = tempPath;
         uint32_t priority = NORMAL_PRIORITY_CLASS;
 #else
-        m_pProcess = std::unique_ptr<RGYPipeProcess>(new RGYPipeProcessLinux());
-        m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
         m_sPywPath = tstring(_T("/tmp/")) + strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), (int)getpid());
         uint32_t priority = 0;
 #endif

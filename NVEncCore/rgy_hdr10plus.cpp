@@ -25,14 +25,14 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include <fcntl.h>
-#include <io.h>
+#include "rgy_osdep.h"
 #include "rgy_hdr10plus.h"
 
+#if defined(_WIN32) || defined(_WIN64)
 const TCHAR *RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME =  _T("hdr10plus_gen.exe");
+#else
+const TCHAR *RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME =  _T("hdr10plus_gen");
+#endif
 
 RGYHDR10Plus::RGYHDR10Plus() :
     m_proc(), m_pipes(),
@@ -66,12 +66,16 @@ RGY_ERR RGYHDR10Plus::init(const tstring &inputJson) {
     m_pipes.stdOut.mode = PIPE_MODE_ENABLE;
     m_pipes.stdOut.bufferSize = 1024;
 
-    m_proc = std::make_unique<RGYPipeProcessWin>();
+    m_proc = createRGYPipeProcess();
     m_proc->init();
     if (m_proc->run(args, nullptr, &m_pipes, 0, true, true)) {
         return RGY_ERR_RUN_PROCESS;
     }
+#if defined(_WIN32) || defined(_WIN64)
     m_fpStdOut = std::unique_ptr<FILE, decltype(&fclose)>(_fdopen(_open_osfhandle((intptr_t)m_pipes.stdOut.h_read, _O_BINARY), "rb"), fclose);
+#else
+    m_fpStdOut = std::unique_ptr<FILE, decltype(&fclose)>(m_pipes.f_stdout, fclose);
+#endif
     if (!m_fpStdOut) {
         return RGY_ERR_INVALID_HANDLE;
     }

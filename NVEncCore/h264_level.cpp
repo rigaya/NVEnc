@@ -27,6 +27,8 @@
 
 #include <map>
 #include <cstdint>
+#include <algorithm>
+#include "rgy_osdep.h"
 #include "h264_level.h"
 
 #ifndef NULL

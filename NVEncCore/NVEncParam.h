@@ -160,26 +160,6 @@ typedef struct {
     unsigned int value;
 } guid_desc;
 
-bool operator==(const GUID &guid1, const GUID &guid2) {
-     if (guid1.Data1    == guid2.Data1 &&
-         guid1.Data2    == guid2.Data2 &&
-         guid1.Data3    == guid2.Data3 &&
-         guid1.Data4[0] == guid2.Data4[0] &&
-         guid1.Data4[1] == guid2.Data4[1] &&
-         guid1.Data4[2] == guid2.Data4[2] &&
-         guid1.Data4[3] == guid2.Data4[3] &&
-         guid1.Data4[4] == guid2.Data4[4] &&
-         guid1.Data4[5] == guid2.Data4[5] &&
-         guid1.Data4[6] == guid2.Data4[6] &&
-         guid1.Data4[7] == guid2.Data4[7]) {
-        return true;
-    }
-    return false;
-}
-bool operator!=(const GUID &guid1, const GUID &guid2) {
-    return !(guid1 == guid2);
-}
-
 const guid_desc h264_profile_names[] = {
     { NV_ENC_CODEC_PROFILE_AUTOSELECT_GUID, _T("auto"),      0 },
     { NV_ENC_H264_PROFILE_BASELINE_GUID,    _T("baseline"), 66 },

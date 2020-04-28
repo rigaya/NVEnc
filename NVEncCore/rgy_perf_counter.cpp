@@ -31,6 +31,7 @@
 #include <chrono>
 
 #include "rgy_perf_counter.h"
+#if ENABLE_PERF_COUNTER
 #define _WIN32_DCOM
 #include <Wbemidl.h>
 #pragma comment(lib, "wbemuuid.lib")
@@ -377,3 +378,5 @@ int RGYGPUCounterWin::thread_fin() {
     }
     return 0;
 }
+
+#endif //#if ENABLE_PERF_COUNTER
