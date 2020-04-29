@@ -206,7 +206,9 @@ protected:
 
     vector<unique_ptr<NVEncFilter>> m_vpFilters;
     shared_ptr<NVEncFilterParam>    m_pLastFilterParam;
+#if ENABLE_SSIM
     unique_ptr<NVEncFilterSsim>  m_ssim;
+#endif //#if ENABLE_SSIM
 
     unique_ptr<RGYListRef<RGYFrameDataQP>> m_qpTable;
 

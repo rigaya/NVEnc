@@ -32,6 +32,8 @@
 #include "NVEncFilterSsim.h"
 #include "NVEncParam.h"
 
+#if ENABLE_SSIM
+
 static double ssim_db(double ssim, double weight) {
     return 10.0 * log10(weight / (weight - ssim));
 }
@@ -568,3 +570,5 @@ void NVEncFilterSsim::close() {
     close_cuda_resources();
     AddMessage(RGY_LOG_DEBUG, _T("closed ssim/psnr filter.\n"));
 }
+
+#endif //#if ENABLE_SSIM

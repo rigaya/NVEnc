@@ -281,7 +281,7 @@ void convert_yuy2_to_nv12_i(void **dst_array, const void **src_array, int width,
     }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
-static void __forceinline convert_yuv444_to_nv12_p_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv444_to_nv12_p_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
     static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
     const int crop_left   = crop[0];
@@ -339,7 +339,7 @@ static void __forceinline convert_yuv444_to_nv12_p_c(void **dst, const void **sr
 }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
-static void __forceinline convert_yuv444_to_nv12_i_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv444_to_nv12_i_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
     static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
     const int crop_left   = crop[0];
@@ -570,7 +570,7 @@ static void convert_yuy2_to_yuv444(void **dst, const void **src, int width, int 
 }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
-static void __forceinline convert_yv12_p_to_yuv444_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yv12_p_to_yuv444_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
     static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
     const int crop_left   = crop[0];
@@ -680,7 +680,7 @@ static void __forceinline convert_yv12_p_to_yuv444_c(void **dst, const void **sr
 }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
-static void __forceinline convert_yv12_i_to_yuv444_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yv12_i_to_yuv444_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
     static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
     const int crop_left   = crop[0];
@@ -994,8 +994,8 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX(  RGY_CSP_RGB32R, RGY_CSP_RGB32, false, convert_rgb32r_to_rgb32_avx,      convert_rgb32r_to_rgb32_avx,      AVX )
     FUNC_SSE(  RGY_CSP_RGB32,  RGY_CSP_RGB32, false, convert_rgb32_to_rgb32_sse2,      convert_rgb32_to_rgb32_sse2,      SSE2 )
     FUNC_SSE(  RGY_CSP_RGB32R, RGY_CSP_RGB32, false, convert_rgb32r_to_rgb32_sse2,     convert_rgb32r_to_rgb32_sse2,     SSE2 )
-    FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_avx2,      convert_rgb24_to_rgb24_avx2,      AVX2|AVX)
-    FUNC_SSE(  RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_avx2,     convert_rgb24r_to_rgb24_avx2,     AVX2|AVX)
+    FUNC_AVX2( RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_avx2,      convert_rgb24_to_rgb24_avx2,      AVX2|AVX)
+    FUNC_AVX2( RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_avx2,     convert_rgb24r_to_rgb24_avx2,     AVX2|AVX)
     FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_sse2,      convert_rgb24_to_rgb24_sse2,      SSE2 )
     FUNC_SSE(  RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_sse2,     convert_rgb24r_to_rgb24_sse2,     SSE2 )
 

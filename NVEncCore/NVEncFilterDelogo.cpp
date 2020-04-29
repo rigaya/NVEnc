@@ -28,6 +28,7 @@
 
 #include <map>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #pragma warning (push)

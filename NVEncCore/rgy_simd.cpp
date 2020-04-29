@@ -44,6 +44,7 @@ unsigned int get_availableSIMD() {
     if (CPUInfo[2] & 0x00080000) simd |= SSE41;
     if (CPUInfo[2] & 0x00100000) simd |= SSE42;
     if (CPUInfo[2] & 0x00800000) simd |= POPCNT;
+#if defined(_MSC_VER) || defined(__AVX__)
     uint64_t xgetbv = 0;
     if ((CPUInfo[2] & 0x18000000) == 0x18000000) {
         xgetbv = _xgetbv(0);
@@ -52,6 +53,7 @@ unsigned int get_availableSIMD() {
         if (CPUInfo[2] & 0x00001000)
             simd |= FMA3;
     }
+#endif
     __cpuid(CPUInfo, 7);
     if ((simd & AVX) && (CPUInfo[1] & 0x00000020))
         simd |= AVX2;

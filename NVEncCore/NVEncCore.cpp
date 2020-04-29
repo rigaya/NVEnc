@@ -244,7 +244,9 @@ public:
 
 NVEncCore::NVEncCore() :
     m_dev(),
+#if ENABLE_AVSW_READER
     m_cuvidDec(),
+#endif //#if ENABLE_AVSW_READER
     m_pAbortByUser(nullptr),
     m_cudaSchedule(CU_CTX_SCHED_AUTO),
     m_nDeviceId(-1),
@@ -272,7 +274,9 @@ NVEncCore::NVEncCore() :
     m_hdrsei(),
     m_vpFilters(),
     m_pLastFilterParam(),
+#if ENABLE_SSIM
     m_ssim(),
+#endif //#if ENABLE_SSIM
     m_stCodecGUID(),
     m_uEncWidth(0),
     m_uEncHeight(0),

@@ -36,6 +36,10 @@
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
 
+#define ENABLE_SSIM (ENABLE_AVSW_READER)
+
+#if ENABLE_SSIM
+
 class CuvidDecode;
 
 class NVEncFilterParamSsim : public NVEncFilterParam {
@@ -100,3 +104,5 @@ protected:
     double m_psnrTotal;                     // 評価結果の累積値 All
     int m_frames;                           // 評価したフレーム数
 };
+
+#endif //#if ENABLE_SSIM

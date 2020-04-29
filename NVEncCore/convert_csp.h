@@ -33,6 +33,22 @@
 #include <memory>
 #include "rgy_tchar.h"
 
+#if defined(_MSC_VER)
+#ifndef RGY_FORCEINLINE
+#define RGY_FORCEINLINE __forceinline
+#endif
+#ifndef RGY_NOINLINE
+#define RGY_NOINLINE __declspec(noinline)
+#endif
+#else
+#ifndef RGY_FORCEINLINE
+#define RGY_FORCEINLINE inline
+#endif
+#ifndef RGY_NOINLINE
+#define RGY_NOINLINE __attribute__ ((noinline))
+#endif
+#endif
+
 enum RGY_PLANE {
     RGY_PLANE_Y,
     RGY_PLANE_R = RGY_PLANE_Y,

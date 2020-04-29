@@ -1097,7 +1097,7 @@ __global__ void kernel_crop_rgb_nv12(uint8_t *__restrict__ pDstY, uint8_t *__res
         ptr_dst_y1[0] = dstY1;
 
         TypeOut4 *ptr_dst_c = (TypeOut4 *)(pDstC + y * dstPitch + x * 4 * sizeof(TypeOut));
-        TypeOut4 dstC, dstV;
+        TypeOut4 dstC;
         dstC.x = toPix((yuv_x0_y0.y + yuv_x1_y0.y + yuv_x0_y1.y + yuv_x1_y1.y) * 0.25f);
         dstC.y = toPix((yuv_x0_y0.z + yuv_x1_y0.z + yuv_x0_y1.z + yuv_x1_y1.z) * 0.25f);
         dstC.z = toPix((yuv_x2_y0.y + yuv_x3_y0.y + yuv_x0_y1.y + yuv_x2_y1.y) * 0.25f);

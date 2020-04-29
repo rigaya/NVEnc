@@ -128,8 +128,6 @@ options:
   --extra-cxxflags=XCFLAGS add XCFLAGS to CFLAGS
   --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
 
-  --disable-libva          disable libva support [auto]
-  --disable-libav          disable libav support [auto]
   --disable-vapoursynth    disable vapoursynth support [auto]
   --disable-libass         disable libass support [auto]
   --disable-dtl            disable dtl support [auto]
@@ -173,9 +171,6 @@ for opt; do
             ;;
         --enable-debug)
             ENABLE_DEBUG=1
-            ;;
-        --disable-libav)
-            ENABLE_AVSW_READER=0
             ;;
         --disable-vapoursynth)
             ENABLE_VAPOURSYNTH=0
@@ -225,7 +220,7 @@ CXXINC=" \
   -I${SRCDIR} -I${SRCDIR}/NVEncSDK/Common/inc -I${SRCDIR}/NVEncCore \
   -I${SRCDIR}/jitify -I${SRCDIR}/tinyxml2 -I${SRCDIR}/cppcodec -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
 "
-CXXFLAGS="-Wall -Wno-attributes -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused"
+CXXFLAGS="-Wall -Wno-unknown-pragmas -Wno-unused"
 
 LDFLAGS="-L. -ldl -lstdc++"
 ASFLAGS="-I. -DLINUX=1"
@@ -248,7 +243,7 @@ if ! cxx_check "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "c
 fi
 echo "OK"
 export PATH=${CUDA_PATH}/bin:${PATH}
-NVCCFLAGS="-arch=sm_50 --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108 --diag_suppress=177 --diag_suppress=186 --diag_suppress=2473\""
+NVCCFLAGS="-arch=sm_50 --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
 
 printf "checking for pthread..."
 if cxx_check "${CXXFLAGS} -pthread ${LDFLAGS} -lpthread" ; then
@@ -292,7 +287,7 @@ fi
 echo "OK"
 
 printf "checking for __rdtscp()..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
+if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
     CXXFLAGS="${CXXFLAGS} -DNO_RDTSCP_INTRIN=1"
     echo "no"
 else
@@ -300,7 +295,7 @@ else
 fi
 
 printf "checking for _xgetbv()..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = _xgetbv(a);" ; then
+if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = _xgetbv(a);" ; then
     CXXFLAGS="${CXXFLAGS} -DNO_XGETBV_INTRIN=1"
     echo "no"
 else
@@ -415,8 +410,8 @@ if [ $ENABLE_AVSW_READER -ne 0 ]; then
         echo "yes"
     fi
     if [ $ENABLE_AVSW_READER -eq 0 ]; then
-        LIBAV_CFLAGS=""
-        LIBAV_LIBS=""
+        echo "libavutil, libavcodec, libavformat, libavfilter, libswresample are required to build nvencc."
+        exit 1
     fi
 fi
 

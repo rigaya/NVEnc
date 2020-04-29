@@ -324,7 +324,7 @@ RGY_ERR NVEncFilterYadif::check_param(shared_ptr<NVEncFilterParamYadif> pAfsPara
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pAfsParam->yadif.mode < VPP_YADIF_MODE_UNKNOWN || pAfsParam->yadif.mode >= VPP_YADIF_MODE_MAX) {
+    if (pAfsParam->yadif.mode >= VPP_YADIF_MODE_MAX) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (mode).\n"));
         return RGY_ERR_INVALID_PARAM;
     }

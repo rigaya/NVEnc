@@ -29,12 +29,20 @@
 #ifndef __RGY_OSDEP_H__
 #define __RGY_OSDEP_H__
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_MSC_VER)
+#ifndef RGY_FORCEINLINE
 #define RGY_FORCEINLINE __forceinline
+#endif
+#ifndef RGY_NOINLINE
 #define RGY_NOINLINE __declspec(noinline)
+#endif
 #else
-#define RGY_FORCEINLINE __attribute__((always_inline))
+#ifndef RGY_FORCEINLINE
+#define RGY_FORCEINLINE inline
+#endif
+#ifndef RGY_NOINLINE
 #define RGY_NOINLINE __attribute__ ((noinline))
+#endif
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -139,7 +147,7 @@ static inline void __cpuid(int cpuInfo[4], int param) {
     cpuInfo[3] = edx;
 }
 
-#if NO_XGETBV_INTRIN
+#if NO_XGETBV_INTRIN && defined(__AVX__)
 static inline unsigned long long _xgetbv(unsigned int index) {
   unsigned int eax, edx;
   __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));

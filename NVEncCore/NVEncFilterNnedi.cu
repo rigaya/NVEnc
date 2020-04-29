@@ -60,88 +60,6 @@ static const int NNEDI_BLOCK_Y       = 8;
 static const int weight0size = 49 * 4 + 5 * 4 + 9 * 4;
 static const int weight0sizenew = 4 * 65 + 4 * 5;
 
-static const int TRASNPOSE_BLOCK_DIM = 16;
-static const int TRASNPOSE_TILE_DIM  = 64;
-
-template<typename TypePixel4, bool flipX, bool flipY>
-__global__ void kernel_transpose_frame(
-    uint8_t *__restrict__ pDst,
-    const int dstPitch,
-    const int dstWidth,  // = srcHeight
-    const int dstHeight, // = srcWidth
-    const uint8_t *__restrict__ pSrc,
-    const int srcPitch
-    ) {
-    __shared__ decltype(TypePixel4::x) stemp[TRASNPOSE_TILE_DIM][TRASNPOSE_TILE_DIM + 4];
-    {
-        const int gSrcIdX = blockIdx.y * TRASNPOSE_TILE_DIM + threadIdx.x * 4;
-        const int gSrcIdY = blockIdx.x * TRASNPOSE_TILE_DIM + threadIdx.y;
-        const int srcWidth = dstHeight;
-        const int srcHeight = dstWidth;
-        if (gSrcIdX < srcWidth) {
-            for (int j = 0; j < TRASNPOSE_TILE_DIM; j++) {
-                TypePixel4 val = { 0, 0, 0, 0 };
-                if (gSrcIdY + j < srcWidth) {
-                    TypePixel4 *ptr_src = (TypePixel4 *)(pSrc + (gSrcIdY+j) * srcPitch + gSrcIdX * sizeof(TypePixel4));
-                    val = ptr_src[0];
-                }
-                *(TypePixel4 *)&stemp[threadIdx.y+j][threadIdx.x * 4] = val;
-            }
-        }
-    }
-    __syncthreads();
-
-    const int gDstIdX = blockIdx.x * TRASNPOSE_TILE_DIM + threadIdx.x * 4;
-    const int gDstIdY = blockIdx.y * TRASNPOSE_TILE_DIM + threadIdx.y;
-    if (gDstIdX < dstWidth) {
-        for (int j = 0; j < TRASNPOSE_TILE_DIM; j++) {
-            if (gDstIdY + j < dstHeight) {
-                TypePixel4 val;
-                if (flipX) {
-                    val.x = stemp[threadIdx.x * 4 + 3][threadIdx.y+j];
-                    val.y = stemp[threadIdx.x * 4 + 2][threadIdx.y+j];
-                    val.z = stemp[threadIdx.x * 4 + 1][threadIdx.y+j];
-                    val.w = stemp[threadIdx.x * 4 + 0][threadIdx.y+j];
-                } else {
-                    val.x = stemp[threadIdx.x * 4 + 0][threadIdx.y+j];
-                    val.y = stemp[threadIdx.x * 4 + 1][threadIdx.y+j];
-                    val.z = stemp[threadIdx.x * 4 + 2][threadIdx.y+j];
-                    val.w = stemp[threadIdx.x * 4 + 3][threadIdx.y+j];
-                }
-                const int dstX = (flipX) ? dstWidth - (gDstIdX) - 1 : gDstIdX;
-                const int dstY = (flipY) ? dstHeight - (gDstIdY+j) - 1 : gDstIdY+j;
-                TypePixel4 *ptr_dst = (TypePixel4 *)(pDst + dstY * dstPitch + dstX * sizeof(TypePixel4));
-                *ptr_dst = val;
-            }
-        }
-    }
-};
-
-template<typename TypePixel4, bool flipX, bool flipY>
-cudaError_t transpose_frame(
-    FrameInfo *pOutputFrame,
-    const FrameInfo *pInputFrame,
-    cudaStream_t stream
-) {
-    dim3 blockSize(TRASNPOSE_BLOCK_DIM, TRASNPOSE_BLOCK_DIM);
-    dim3 gridSize(
-        divCeil(pOutputFrame->width, blockSize.x),
-        divCeil(pOutputFrame->height, blockSize.y));
-
-    kernel_transpose_frame<TypePixel4, flipX, flipY><<<gridSize, blockSize, 0, stream>>>(
-        (uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch,
-        pOutputFrame->width,  // = srcHeight
-        pOutputFrame->height, // = srcWidth
-        (const uint8_t *)pInputFrame->ptr,
-        pInputFrame->pitch);
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    return cudaerr;
-}
-
 __device__ __inline__
 static float exp_(float val) {
     return __expf(clamp(val, -80.0f, 80.0f));
@@ -1483,7 +1401,7 @@ RGY_ERR NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamNnedi
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"quality\": %d\n"), pNnediParam->nnedi.quality);
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pNnediParam->nnedi.pre_screen < VPP_NNEDI_PRE_SCREEN_NONE || VPP_NNEDI_PRE_SCREEN_MAX <= pNnediParam->nnedi.pre_screen) {
+    if (VPP_NNEDI_PRE_SCREEN_MAX <= pNnediParam->nnedi.pre_screen) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"pre_screen\": %d\n"), pNnediParam->nnedi.pre_screen);
         return RGY_ERR_INVALID_PARAM;
     }

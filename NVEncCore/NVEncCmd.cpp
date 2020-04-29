@@ -47,11 +47,12 @@ tstring GetNVEncVersion() {
     version += strsprintf(_T("  [NVENC API v%d.%d, CUDA %d.%d]\n"),
         NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
         CUDART_VERSION / 1000, (CUDART_VERSION % 1000) / 10);
-    version += _T(" reader: raw");
+    version += _T(" reader: raw, y4m");
     if (ENABLE_AVI_READER) version += _T(", avi");
     if (ENABLE_AVISYNTH_READER) version += _T(", avs");
     if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
 #if ENABLE_AVSW_READER
+    version += _T(", avsw");
     version += strsprintf(_T(", avhw [%s]"), getHWDecSupportedCodecList().c_str());
 #endif //#if ENABLE_AVSW_READER
     version += _T("\n");

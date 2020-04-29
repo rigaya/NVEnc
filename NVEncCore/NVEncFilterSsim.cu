@@ -38,6 +38,8 @@
 #include "rgy_cuda_util_kernel.h"
 #include "NVEncFilterSsim.h"
 
+#if ENABLE_SSIM
+
 static const int SSIM_BLOCK_X = 32;
 static const int SSIM_BLOCK_Y = 8;
 static const int SSIM_LOOP_Y = 1;
@@ -445,3 +447,5 @@ RGY_ERR NVEncFilterSsim::calc_ssim_psnr(const FrameInfo *p0, const FrameInfo *p1
     }
     return RGY_ERR_NONE;
 }
+
+#endif //#if ENABLE_SSIM
