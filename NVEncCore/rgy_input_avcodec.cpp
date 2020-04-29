@@ -1408,6 +1408,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
 
         //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
         if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+            RGY_DISABLE_WARNING_PUSH
+            RGY_DISABLE_WARNING("-Wdeprecated-declarations", 4996)
             AVDictionary *pDict = nullptr;
             av_dict_set_int(&pDict, "log_level_offset", AV_LOG_ERROR, 0);
             if (0 > (ret = av_opt_set_dict(m_Demux.video.stream->codec, &pDict))) {
@@ -1416,6 +1418,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 AddMessage(RGY_LOG_DEBUG, _T("set log_level_offset for HEVC codec reader.\n"));
             }
             av_dict_free(&pDict);
+            RGY_DISABLE_WARNING_POP
         }
 
         //必要ならbitstream filterを初期化
@@ -1738,8 +1741,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         //情報を格納
         m_inputVideoInfo.srcWidth    = m_Demux.video.stream->codecpar->width;
         m_inputVideoInfo.srcHeight   = m_Demux.video.stream->codecpar->height;
-        m_inputVideoInfo.codedWidth  = m_Demux.video.stream->codec->coded_width;
-        m_inputVideoInfo.codedHeight = m_Demux.video.stream->codec->coded_height;
         m_inputVideoInfo.sar[0]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.num;
         m_inputVideoInfo.sar[1]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.den;
         m_inputVideoInfo.shift       = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
@@ -2514,7 +2515,10 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (m_Demux.video.qpTableListRef != nullptr) {
             int qp_stride = 0;
             int qscale_type = 0;
+            RGY_DISABLE_WARNING_PUSH
+            RGY_DISABLE_WARNING("-Wdeprecated-declarations", 4996)
             const auto qp_table = av_frame_get_qp_table(m_Demux.video.frame, &qp_stride, &qscale_type);
+            RGY_DISABLE_WARNING_POP
             if (qp_table != nullptr) {
                 auto table = m_Demux.video.qpTableListRef->get();
                 const int qpw = (qp_stride) ? qp_stride : (pSurface->width() + 15) / 16;

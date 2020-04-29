@@ -561,9 +561,6 @@ struct VideoInfo {
     //[(i)(i)] 入力ピッチ 0なら入力横解像度に同じ
     uint32_t srcPitch;
 
-    int codedWidth;     //[   (i)]
-    int codedHeight;    //[   (i)]
-
                              //[      ] 出力解像度
     int dstWidth;
 
@@ -628,8 +625,6 @@ struct VideoInfo {
         srcWidth(0),
         srcHeight(0),
         srcPitch(0),
-        codedWidth(0),
-        codedHeight(0),
         dstWidth(0),
         dstHeight(0),
         dstPitch(0),

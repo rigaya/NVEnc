@@ -374,8 +374,8 @@ CUresult CuvidDecode::InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input,
     cuvidCtxLock(m_ctxLock, 0);
     memset(&m_videoDecodeCreateInfo, 0, sizeof(CUVIDDECODECREATEINFO));
     m_videoDecodeCreateInfo.CodecType = cudaVideoCodec_NumCodecs; // こうしておいて後からDecVideoSequence()->CreateDecoder()で設定する
-    m_videoDecodeCreateInfo.ulWidth   = input->codedWidth  ? input->codedWidth  : input->srcWidth;
-    m_videoDecodeCreateInfo.ulHeight  = input->codedHeight ? input->codedHeight : input->srcHeight;
+    m_videoDecodeCreateInfo.ulWidth   = input->srcWidth;
+    m_videoDecodeCreateInfo.ulHeight  = input->srcHeight;
     m_videoDecodeCreateInfo.ulNumDecodeSurfaces = FrameQueue::cnMaximumSize;
 
     m_videoDecodeCreateInfo.ChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[input->csp]);

@@ -225,7 +225,8 @@ public:
         auto nSize = size();
         bool bCopy = index < nSize;
         if (bCopy) {
-            memcpy(out, m_pBufOut + index, sizeof(Type));
+            auto ptr = m_pBufOut + index;
+            *out = ptr->data;
         }
         m_bUsingData--;
         if (!bCopy) {
@@ -243,7 +244,7 @@ public:
         auto nSize = size();
         bool bCopy = nSize > m_nKeepLength;
         if (bCopy) {
-            memcpy(out, m_pBufOut.load(), sizeof(Type));
+            *out = m_pBufOut.load()->data;
         }
         m_bUsingData--;
         if (!bCopy) {
@@ -261,7 +262,8 @@ public:
         auto nSize = size();
         bool bCopy = nSize > m_nKeepLength;
         if (bCopy) {
-            memcpy(out, m_pBufOut++, sizeof(Type));
+            *out = m_pBufOut.load()->data;
+            m_pBufOut++;
             if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
                 SetEvent(m_heEventPoped);
             }

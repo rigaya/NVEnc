@@ -58,6 +58,24 @@
 #define UNREFERENCED_PARAMETER(x)
 #endif
 
+#if defined(_MSC_VER)
+#define RGY_DISABLE_WARNING_PUSH     __pragma(warning(push))
+#define RGY_DISABLE_WARNING(str,num) __pragma(warning(disable:num))
+#define RGY_DISABLE_WARNING_POP      __pragma(warning(pop))
+#elif defined(__clang__)
+#define DO_PRAGMA_(x) _Pragma (#x)
+#define DO_PRAGMA(x)  DO_PRAGMA_(x)
+#define RGY_DISABLE_WARNING_PUSH     DO_PRAGMA(clang diagnostic push)
+#define RGY_DISABLE_WARNING(str,num) DO_PRAGMA(clang diagnostic ignored str)
+#define RGY_DISABLE_WARNING_POP      DO_PRAGMA(clang diagnostic pop)
+#elif defined(__GNUC__)
+#define DO_PRAGMA_(x) _Pragma (#x)
+#define DO_PRAGMA(x)  DO_PRAGMA_(x)
+#define RGY_DISABLE_WARNING_PUSH     DO_PRAGMA(GCC diagnostic push)
+#define RGY_DISABLE_WARNING(str,num) DO_PRAGMA(GCC diagnostic ignored str)
+#define RGY_DISABLE_WARNING_POP      DO_PRAGMA(GCC diagnostic pop)
+#endif
+
 using std::vector;
 using std::unique_ptr;
 using std::shared_ptr;

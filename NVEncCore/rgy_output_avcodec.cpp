@@ -1709,7 +1709,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
 
     SetChapters(prm->chapterList, prm->chapterNoTrim);
 
-    strcpy_s(m_Mux.format.formatCtx->filename, filename.c_str());
+    strcpy_s(m_Mux.format.formatCtx->url, filename.c_str());
     if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
         if (m_Mux.video.streamOut) { m_Mux.video.streamOut->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER; }
         for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
