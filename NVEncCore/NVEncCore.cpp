@@ -34,6 +34,7 @@
 #include <string>
 #include <algorithm>
 #include <thread>
+#include "rgy_osdep.h"
 #pragma warning(push)
 #pragma warning(disable: 4819)
 //ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。
@@ -42,7 +43,6 @@
 #include <cuda_runtime.h>
 #include "nvEncodeAPI.h"
 #pragma warning(pop)
-#include "rgy_osdep.h"
 #include "rgy_tchar.h"
 #include "NVEncCore.h"
 #include "cpu_info.h"

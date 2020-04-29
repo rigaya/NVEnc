@@ -29,6 +29,7 @@
 
 #include <limits.h>
 #include <vector>
+#include "rgy_osdep.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #pragma warning (disable: 4201)
@@ -36,7 +37,6 @@
 #include <npp.h>
 #include "nvEncodeAPI.h"
 #pragma warning (pop)
-#include "rgy_osdep.h"
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 #include "rgy_simd.h"

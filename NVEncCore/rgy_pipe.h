@@ -79,7 +79,7 @@ public:
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) = 0;
     virtual void close() = 0;
     virtual bool processAlive() = 0;
-    virtual tstring getOutput(ProcessPipe *pipes) = 0;
+    virtual std::string getOutput(ProcessPipe *pipes) = 0;
 protected:
     virtual int startPipes(ProcessPipe *pipes) = 0;
     PROCESS_HANDLE m_phandle;
@@ -95,7 +95,7 @@ public:
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
     virtual void close() override;
     virtual bool processAlive() override;
-    virtual tstring getOutput(ProcessPipe *pipes) override;
+    virtual std::string getOutput(ProcessPipe *pipes) override;
     const PROCESS_INFORMATION& getProcessInfo();
 protected:
     virtual int startPipes(ProcessPipe *pipes) override;
@@ -111,7 +111,7 @@ public:
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
     virtual void close() override;
     virtual bool processAlive() override;
-    virtual tstring getOutput(ProcessPipe *pipes) override;
+    virtual std::string getOutput(ProcessPipe *pipes) override;
 protected:
     virtual int startPipes(ProcessPipe *pipes) override;
 };

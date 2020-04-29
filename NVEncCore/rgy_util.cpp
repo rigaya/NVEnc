@@ -714,7 +714,7 @@ size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
 
 #if defined(_WIN32) || defined(_WIN64)
 
-#include <Windows.h>
+#include "rgy_osdep.h"
 #include <process.h>
 #include <VersionHelpers.h>
 

@@ -131,8 +131,8 @@ int RGYPipeProcessWin::run(const std::vector<const TCHAR *>& args, const TCHAR *
     return ret;
 }
 
-tstring RGYPipeProcessWin::getOutput(ProcessPipe *pipes) {
-    tstring outstr;
+std::string RGYPipeProcessWin::getOutput(ProcessPipe *pipes) {
+    std::string outstr;
     auto read_from_pipe = [&]() {
         DWORD pipe_read = 0;
         if (!PeekNamedPipe(pipes->stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
@@ -145,7 +145,7 @@ tstring RGYPipeProcessWin::getOutput(ProcessPipe *pipes) {
         return (int)pipe_read;
     };
 
-    while (WAIT_TIMEOUT == WaitForSingleObject(process->getProcessInfo().hProcess, 10)) {
+    while (WAIT_TIMEOUT == WaitForSingleObject(m_phandle, 10)) {
         read_from_pipe();
     }
     for (;;) {

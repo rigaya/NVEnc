@@ -1191,7 +1191,19 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
         AddMessage(RGY_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.index);
 
-        m_Demux.video.stream = m_Demux.format.formatCtx->streams[m_Demux.video.index];
+        //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
+        auto stream = m_Demux.format.formatCtx->streams[m_Demux.video.index];
+        if (stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+            AVDictionary *pDict = nullptr;
+            av_dict_set_int(&pDict, "log_level_offset", AV_LOG_ERROR, 0);
+            if (0 > (ret = av_opt_set_dict(stream, &pDict))) {
+                AddMessage(RGY_LOG_WARN, _T("failed to set log_level_offset for HEVC codec reader.\n"));
+            } else {
+                AddMessage(RGY_LOG_DEBUG, _T("set log_level_offset for HEVC codec reader.\n"));
+            }
+            av_dict_free(&pDict);
+        }
+        m_Demux.video.stream = stream;
     }
 
     //音声ストリームを探す
@@ -1405,21 +1417,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         //念のため初期化
         m_trimParam.list.clear();
         m_trimParam.offset = 0;
-
-        //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
-        if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
-            RGY_DISABLE_WARNING_PUSH
-            RGY_DISABLE_WARNING("-Wdeprecated-declarations", 4996)
-            AVDictionary *pDict = nullptr;
-            av_dict_set_int(&pDict, "log_level_offset", AV_LOG_ERROR, 0);
-            if (0 > (ret = av_opt_set_dict(m_Demux.video.stream->codec, &pDict))) {
-                AddMessage(RGY_LOG_WARN, _T("failed to set log_level_offset for HEVC codec reader.\n"));
-            } else {
-                AddMessage(RGY_LOG_DEBUG, _T("set log_level_offset for HEVC codec reader.\n"));
-            }
-            av_dict_free(&pDict);
-            RGY_DISABLE_WARNING_POP
-        }
 
         //必要ならbitstream filterを初期化
         if (m_Demux.video.stream->codecpar->extradata && m_Demux.video.stream->codecpar->extradata[0] == 1) {
@@ -2516,7 +2513,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
             int qp_stride = 0;
             int qscale_type = 0;
             RGY_DISABLE_WARNING_PUSH
-            RGY_DISABLE_WARNING("-Wdeprecated-declarations", 4996)
+            RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
             const auto qp_table = av_frame_get_qp_table(m_Demux.video.frame, &qp_stride, &qscale_type);
             RGY_DISABLE_WARNING_POP
             if (qp_table != nullptr) {

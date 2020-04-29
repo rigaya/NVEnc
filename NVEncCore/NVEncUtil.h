@@ -32,26 +32,30 @@
 #include <utility>
 #include <array>
 #include "rgy_osdep.h"
+
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "nvEncodeAPI.h"
 #pragma warning (pop)
+
 #pragma warning (push)
 #pragma warning (disable: 4201)
 #include "dynlink_cuviddec.h"
 #pragma warning (pop)
-#pragma warning(push)
-#pragma warning(disable: 4819)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wswitch"
+
+#include "rgy_util.h"
+#pragma warning (push)
+#pragma warning (disable: 4819)
+RGY_DISABLE_WARNING_PUSH
+RGY_DISABLE_WARNING_STR("-Wswitch")
 #include "helper_cuda.h"
 #include "helper_nvenc.h"
-#pragma GCC diagnostic pop
+RGY_DISABLE_WARNING_POP
 #pragma warning (pop)
 #include "convert_csp.h"
-#include "rgy_util.h"
 #include "rgy_err.h"
 
+#if !defined(_MSC_VER)
 static bool operator==(const GUID &guid1, const GUID &guid2) {
      if (guid1.Data1    == guid2.Data1 &&
          guid1.Data2    == guid2.Data2 &&
@@ -71,6 +75,7 @@ static bool operator==(const GUID &guid1, const GUID &guid2) {
 static bool operator!=(const GUID &guid1, const GUID &guid2) {
     return !(guid1 == guid2);
 }
+#endif
 
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, cudaVideoCodec);
 MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, cudaVideoChromaFormat);

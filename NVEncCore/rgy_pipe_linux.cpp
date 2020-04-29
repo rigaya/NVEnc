@@ -126,7 +126,7 @@ tstring RGYPipeProcessLinux::getOutput(ProcessPipe *pipes) {
             break;
         }
     }
-    return char_to_tstring(outstr);
+    return outstr;
 }
 
 bool RGYPipeProcessLinux::processAlive() {

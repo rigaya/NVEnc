@@ -29,6 +29,7 @@
 #include "rgy_hdr10plus.h"
 
 #if defined(_WIN32) || defined(_WIN64)
+#include <fcntl.h>
 const TCHAR *RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME =  _T("hdr10plus_gen.exe");
 #else
 const TCHAR *RGYHDR10Plus::HDR10PLUS_GEN_EXE_NAME =  _T("hdr10plus_gen");
