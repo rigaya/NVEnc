@@ -263,7 +263,7 @@ std::wstring strsprintf(const WCHAR* format, ...) {
     const size_t len = _vscwprintf(format, args) + 1;
 
     std::vector<WCHAR> buffer(len, 0);
-    vswprintf(buffer.data(), format, args);
+    vswprintf(buffer.data(), buffer.size(), format, args);
     va_end(args);
     std::wstring retStr = std::wstring(buffer.data());
     return retStr;
@@ -758,6 +758,8 @@ BOOL check_OS_Win8orLater() {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
+#pragma warning(push)
+#pragma warning(disable:4996) // warning C4996: 'GetVersionExW': が古い形式として宣言されました。
 tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
     const TCHAR *ptr = _T("Unknown");
     OSVERSIONINFOW info = { 0 };
@@ -838,6 +840,7 @@ tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
     }
     return tstring(ptr);
 }
+#pragma warning(pop)
 
 tstring getOSVersion() {
     OSVERSIONINFOEXW osversioninfo = { 0 };

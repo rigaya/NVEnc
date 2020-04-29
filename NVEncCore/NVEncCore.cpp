@@ -3347,7 +3347,7 @@ NVENCSTATUS NVEncCore::Encode() {
             }
         }
         size_t queueSize = queueHDR10plusMetadata.size();
-        for (size_t i = 0; i < queueSize; i++) {
+        for (uint32_t i = 0; i < queueSize; i++) {
             if (queueHDR10plusMetadata.copy(&frameDataPtr, i, &queueSize)) {
                 if (frameDataPtr->timestamp() == timestamp) {
                     frameData = std::make_shared<RGYFrameDataHDR10plus>(*frameDataPtr);

@@ -171,6 +171,7 @@ void RGYInputRaw::Close() {
 }
 
 RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
+    m_inputVideoInfo = *pInputInfo;
     m_readerName = (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw");
 
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);

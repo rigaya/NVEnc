@@ -1191,18 +1191,20 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
         AddMessage(RGY_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.index);
 
-        //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
         auto stream = m_Demux.format.formatCtx->streams[m_Demux.video.index];
+        //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
+#if 0
         if (stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
             AVDictionary *pDict = nullptr;
             av_dict_set_int(&pDict, "log_level_offset", AV_LOG_ERROR, 0);
-            if (0 > (ret = av_opt_set_dict(stream, &pDict))) {
+            if (0 > (ret = av_opt_set_dict(stream->codec, &pDict))) {
                 AddMessage(RGY_LOG_WARN, _T("failed to set log_level_offset for HEVC codec reader.\n"));
             } else {
                 AddMessage(RGY_LOG_DEBUG, _T("set log_level_offset for HEVC codec reader.\n"));
             }
             av_dict_free(&pDict);
         }
+#endif
         m_Demux.video.stream = stream;
     }
 
@@ -2512,10 +2514,13 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (m_Demux.video.qpTableListRef != nullptr) {
             int qp_stride = 0;
             int qscale_type = 0;
+            #pragma warning(push)
+            #pragma warning(disable:4996) // warning C4996: 'av_frame_get_qp_table': が古い形式として宣言されました。
             RGY_DISABLE_WARNING_PUSH
             RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
             const auto qp_table = av_frame_get_qp_table(m_Demux.video.frame, &qp_stride, &qscale_type);
             RGY_DISABLE_WARNING_POP
+            #pragma warning(pop)
             if (qp_table != nullptr) {
                 auto table = m_Demux.video.qpTableListRef->get();
                 const int qpw = (qp_stride) ? qp_stride : (pSurface->width() + 15) / 16;

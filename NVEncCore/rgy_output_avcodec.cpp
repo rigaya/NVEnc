@@ -124,6 +124,10 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
         av_parser_close(muxVideo->parserCtx);
     }
 #endif //#if ENCODER_VCEENC
+    if (muxVideo->codecCtx) {
+        avcodec_free_context(&muxVideo->codecCtx);
+        AddMessage(RGY_LOG_DEBUG, _T("Closed video context.\n"));
+    }
     if (m_Mux.video.fpTsLogFile) {
         fclose(m_Mux.video.fpTsLogFile);
     }
@@ -448,7 +452,7 @@ int RGYOutputAvcodec::AudioGetCodecProfile(tstring profile, AVCodecID codecId) {
         for (auto avprofile = codecDesc->profiles;
             avprofile != nullptr && avprofile->profile != FF_PROFILE_UNKNOWN;
             avprofile++) {
-            if (stricmp(avprofile->name, codec_profile.c_str()) == 0) {
+            if (_stricmp(avprofile->name, codec_profile.c_str()) == 0) {
                 selectedProfile = avprofile->profile;
                 break;
             }
@@ -485,49 +489,61 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         AddMessage(RGY_LOG_ERROR, _T("failed to codec for video codec %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
         return RGY_ERR_INVALID_CODEC;
     }
-    if (NULL == (m_Mux.video.streamOut = avformat_new_stream(m_Mux.format.formatCtx, m_Mux.video.codec))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for video.\n"));
-        return RGY_ERR_NULL_PTR;
+    if (NULL == (m_Mux.video.codecCtx = avcodec_alloc_context3(m_Mux.video.codec))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate context for video codec %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
+        return RGY_ERR_INVALID_CODEC;
     }
     m_Mux.video.outputFps = av_make_q(videoOutputInfo->fpsN, videoOutputInfo->fpsD);
     AddMessage(RGY_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), m_Mux.video.outputFps.num, m_Mux.video.outputFps.den);
 
-    m_Mux.video.streamOut->codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
-    m_Mux.video.streamOut->codecpar->codec_id                = m_Mux.format.formatCtx->video_codec_id;
-    m_Mux.video.streamOut->codecpar->width                   = videoOutputInfo->dstWidth;
-    m_Mux.video.streamOut->codecpar->height                  = videoOutputInfo->dstHeight;
-    m_Mux.video.streamOut->codecpar->format                  = csp_rgy_to_avpixfmt(videoOutputInfo->csp);
-    m_Mux.video.streamOut->codecpar->level                   = videoOutputInfo->codecLevel;
-    m_Mux.video.streamOut->codecpar->profile                 = videoOutputInfo->codecProfile;
-    m_Mux.video.streamOut->codecpar->sample_aspect_ratio.num = videoOutputInfo->sar[0];
-    m_Mux.video.streamOut->codecpar->sample_aspect_ratio.den = videoOutputInfo->sar[1];
-    m_Mux.video.streamOut->codecpar->chroma_location         = (AVChromaLocation)clamp(videoOutputInfo->vui.chromaloc, 0, 6);
-    m_Mux.video.streamOut->codecpar->field_order             = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
-    m_Mux.video.streamOut->codecpar->video_delay             = videoOutputInfo->videoDelay;
-    m_Mux.video.streamOut->sample_aspect_ratio.num           = videoOutputInfo->sar[0]; //mkvではこちらの指定も必要
-    m_Mux.video.streamOut->sample_aspect_ratio.den           = videoOutputInfo->sar[1];
+    m_Mux.video.codecCtx->codec_type              = AVMEDIA_TYPE_VIDEO;
+    m_Mux.video.codecCtx->codec_id                = m_Mux.format.formatCtx->video_codec_id;
+    m_Mux.video.codecCtx->width                   = videoOutputInfo->dstWidth;
+    m_Mux.video.codecCtx->height                  = videoOutputInfo->dstHeight;
+    m_Mux.video.codecCtx->pix_fmt                 = csp_rgy_to_avpixfmt(videoOutputInfo->csp);
+    m_Mux.video.codecCtx->level                   = videoOutputInfo->codecLevel;
+    m_Mux.video.codecCtx->profile                 = videoOutputInfo->codecProfile;
+    m_Mux.video.codecCtx->sample_aspect_ratio.num = videoOutputInfo->sar[0];
+    m_Mux.video.codecCtx->sample_aspect_ratio.den = videoOutputInfo->sar[1];
+    m_Mux.video.codecCtx->chroma_sample_location  = (AVChromaLocation)clamp(videoOutputInfo->vui.chromaloc, 0, 6);
+    m_Mux.video.codecCtx->field_order             = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
+    m_Mux.video.codecCtx->delay                   = videoOutputInfo->videoDelay;
     if (prm->videoCodecTag.length() > 0) {
-        m_Mux.video.streamOut->codecpar->codec_tag           = tagFromStr(prm->videoCodecTag);
+        m_Mux.video.codecCtx->codec_tag           = tagFromStr(prm->videoCodecTag);
         AddMessage(RGY_LOG_DEBUG, _T("Set Video Codec Tag: %s\n"), char_to_tstring(tagToStr(m_Mux.video.streamOut->codecpar->codec_tag)).c_str());
     }
     if (videoOutputInfo->vui.descriptpresent) {
-        m_Mux.video.streamOut->codecpar->color_space         = (AVColorSpace)videoOutputInfo->vui.matrix;
-        m_Mux.video.streamOut->codecpar->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
-        m_Mux.video.streamOut->codecpar->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
-        m_Mux.video.streamOut->codecpar->color_trc           = (AVColorTransferCharacteristic)videoOutputInfo->vui.transfer;
+        m_Mux.video.codecCtx->colorspace          = (AVColorSpace)videoOutputInfo->vui.matrix;
+        m_Mux.video.codecCtx->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
+        m_Mux.video.codecCtx->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
+        m_Mux.video.codecCtx->color_trc           = (AVColorTransferCharacteristic)videoOutputInfo->vui.transfer;
         AddMessage(RGY_LOG_DEBUG, _T("Set VUI Params: %s\n"), videoOutputInfo->vui.print_all().c_str());
     }
-    if (0 > avcodec_open2(m_Mux.video.streamOut->codec, m_Mux.video.codec, NULL)) {
+    if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
+        m_Mux.video.codecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    }
+    if (0 > avcodec_open2(m_Mux.video.codecCtx, m_Mux.video.codec, NULL)) {
         AddMessage(RGY_LOG_ERROR, _T("failed to open codec %s for video.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
         return RGY_ERR_NULL_PTR;
     }
     AddMessage(RGY_LOG_DEBUG, _T("opened video avcodec\n"));
+
+    if (NULL == (m_Mux.video.streamOut = avformat_new_stream(m_Mux.format.formatCtx, m_Mux.video.codec))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for video.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+    if (avcodec_parameters_from_context(m_Mux.video.streamOut->codecpar, m_Mux.video.codecCtx) < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to open codec %s for video.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
 
     m_Mux.video.bitstreamTimebase    = (av_isvalid_q(prm->bitstreamTimebase)) ? prm->bitstreamTimebase : HW_NATIVE_TIMEBASE;
     m_Mux.video.streamOut->time_base = (av_isvalid_q(prm->bitstreamTimebase)) ? prm->bitstreamTimebase : av_inv_q(m_Mux.video.outputFps);
     if (m_Mux.format.isMatroska) {
         m_Mux.video.streamOut->time_base = av_make_q(1, 1000);
     }
+    m_Mux.video.streamOut->sample_aspect_ratio.num = videoOutputInfo->sar[0]; //mkvではこちらの指定も必要
+    m_Mux.video.streamOut->sample_aspect_ratio.den = videoOutputInfo->sar[1];
     m_Mux.video.streamOut->start_time          = 0;
     m_Mux.video.dtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.inputFirstKeyPts = prm->videoInputFirstKeyPts;
@@ -1138,6 +1154,9 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         if (!avcodecIsCopy(inputAudio->encodeCodec)) {
             muxAudio->outCodecEncodeCtx->bit_rate        = ((inputAudio->bitrate) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
         }
+        if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
+            muxAudio->outCodecEncodeCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+        }
         //音声プロファイルの設定
         if (inputAudio->encodeCodecProfile.length() > 0) {
             const int selected_profile = AudioGetCodecProfile(inputAudio->encodeCodecProfile, muxAudio->outCodecEncodeCtx->codec_id);
@@ -1427,6 +1446,10 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         }
         muxSub->outCodecEncodeCtx->time_base = av_make_q(1, 1000);
 
+        #pragma warning(push)
+        #pragma warning(disable:4996) // warning C4996: 'av_frame_get_qp_table': が古い形式として宣言されました。
+        RGY_DISABLE_WARNING_PUSH
+        RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
         //subtitle_headerをここで設定しないとavcodec_open2に失敗する
         //基本的にはass形式のヘッダーを設定する
         if (inputStream->src.stream) {
@@ -1435,12 +1458,17 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             muxSub->outCodecEncodeCtx->subtitle_header = (uint8_t *)av_strdup((char *)inputStream->src.subtitleHeader);
             muxSub->outCodecEncodeCtx->subtitle_header_size = inputStream->src.subtitleHeaderSize;
         }
+        RGY_DISABLE_WARNING_POP
+        #pragma warning(pop)
 
         AddMessage(RGY_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(muxSub->outCodecEncode->name).c_str(),
             muxSub->outCodecEncodeCtx->width, muxSub->outCodecEncodeCtx->height);
         if (muxSub->outCodecEncode->capabilities & AV_CODEC_CAP_EXPERIMENTAL) {
             //問答無用で使うのだ
             av_opt_set(muxSub->outCodecEncodeCtx, "strict", "experimental", 0);
+        }
+        if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
+            muxSub->outCodecEncodeCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
         }
         if (0 > (ret = avcodec_open2(muxSub->outCodecEncodeCtx, muxSub->outCodecEncode, nullptr))) {
             AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
@@ -1452,7 +1480,6 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate buffer memory for subtitle encoding.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
-        muxSub->streamOut->codec->codec = muxSub->outCodecEncodeCtx->codec;
     }
 
     muxSub->inTrackId     = inputStream->src.trackId;
@@ -1463,7 +1490,15 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
     if (muxSub->outCodecEncodeCtx) {
         avcodec_parameters_from_context(srcCodecParam.get(), muxSub->outCodecEncodeCtx);
     }
-    avcodec_parameters_copy(muxSub->streamOut->codecpar, srcCodecParam.get());
+    if (avcodec_parameters_copy(muxSub->streamOut->codecpar, srcCodecParam.get()) < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Could not copy the stream parameters.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+
+    #pragma warning(push)
+    #pragma warning(disable:4996) // warning C4996: 'av_frame_get_qp_table': が古い形式として宣言されました。
+    RGY_DISABLE_WARNING_PUSH
+    RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
     if (!muxSub->streamOut->codec->codec_tag) {
         uint32_t codec_tag = 0;
         if (!m_Mux.format.formatCtx->oformat->codec_tag
@@ -1478,6 +1513,9 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         muxSub->streamOut->codec->subtitle_header = (uint8_t *)av_strdup((char *)inputStream->src.subtitleHeader);
         muxSub->streamOut->codec->subtitle_header_size = inputStream->src.subtitleHeaderSize;
     }
+    RGY_DISABLE_WARNING_POP
+    #pragma warning(pop)
+
     muxSub->streamOut->time_base  = (mediaType == AVMEDIA_TYPE_SUBTITLE) ? av_make_q(1, 1000) : muxSub->streamInTimebase;
     muxSub->streamOut->start_time = 0;
     if (inputStream->src.stream) {
@@ -1708,16 +1746,6 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     }
 
     SetChapters(prm->chapterList, prm->chapterNoTrim);
-
-    if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
-        if (m_Mux.video.streamOut) { m_Mux.video.streamOut->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER; }
-        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            if (m_Mux.audio[i].streamOut) { m_Mux.audio[i].streamOut->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER; }
-        }
-        for (uint32_t i = 0; i < m_Mux.other.size(); i++) {
-            if (m_Mux.other[i].streamOut) { m_Mux.other[i].streamOut->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER; }
-        }
-    }
 
     if (m_Mux.format.formatCtx->metadata) {
         av_dict_copy(&m_Mux.format.formatCtx->metadata, prm->inputFormatMetadata, AV_DICT_DONT_OVERWRITE);
@@ -2168,7 +2196,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         AddMessage(RGY_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.fpsBaseNextDts);
 
         const AVRational fpsTimebase = (m_Mux.video.afs) ? av_inv_q(av_mul_q(m_Mux.video.outputFps, av_make_q(4, 5))) : av_inv_q(m_Mux.video.outputFps);
-        const AVRational streamTimebase = m_Mux.video.streamOut->codec->pkt_timebase;
+        const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
         for (int i = m_Mux.video.fpsBaseNextDts; i < 0; i++) {
             m_Mux.video.timestampList.add(av_rescale_q(i, fpsTimebase, streamTimebase));
         }
@@ -2257,7 +2285,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
     memcpy(pkt.data, bitstream->data(), bitstream->size());
     pkt.size = (int)bitstream->size();
 
-    const AVRational streamTimebase = m_Mux.video.streamOut->codec->pkt_timebase;
+    const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
     pkt.stream_index = m_Mux.video.streamOut->index;
     pkt.flags        = isIDR ? AV_PKT_FLAG_KEY : 0;
 #if ENCODER_QSV

@@ -135,6 +135,7 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
 #define vswprintf_s vswprintf
 #define _strnicmp strncasecmp
 #define stricmp strcasecmp
+#define _stricmp stricmp
 
 static inline void __cpuid(int cpuInfo[4], int param) {
     int eax = 0, ebx = 0, ecx = 0, edx = 0;
