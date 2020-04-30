@@ -84,7 +84,7 @@ ASMS=""
 X86_64=1
 NO_RDTSCP_INTRIN=0
 
-CUDA_PATH=${CUDA_PATH-"/usr/lib/cuda"}
+CUDA_PATH=""
 
 ENABLE_CPP_REGEX=1
 
@@ -123,6 +123,7 @@ options:
   --cxx=CXX                set C++ compiler path [${CXX}]
   --asm=AS                 set assembler path [${AS}]
   --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
+  --cuda-path=CUDA_PATH    set cuda path [${CUDA_PATH}]
   --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
 
   --extra-cxxflags=XCFLAGS add XCFLAGS to CFLAGS
@@ -166,7 +167,7 @@ for opt; do
         --extra-ldflags=*)
             EXTRALDFLAGS="$optarg"
             ;;
-        --cuda=*)
+        --cuda-path=*)
             CUDA_PATH="$optarg"
             ;;
         --enable-debug)
@@ -234,9 +235,15 @@ else
     LDFLAGS="${LDFLAGS} -m32"
 fi
 
-CUDA_CFLAGS="-I${CUDA_PATH}/include"
-CUDA_LIBS="-L${CUDA_PATH}/lib64 -lnvrtc -lnppc -lnppif -lnppig -lcudart -lcuda"
-printf "checking for cuda (CUDA_PATH=${CUDA_PATH})..."
+CUDA_CFLAGS=""
+CUDA_LIBS="-lnvrtc -lnppif -lnppig -lnppc -lcudart -lcuda"
+if [ "${CUDA_PATH}" != "" ]; then
+    printf "checking for cuda (CUDA_PATH=${CUDA_PATH})..."
+    CUDA_CFLAGS="-I${CUDA_PATH}/include"
+    CUDA_LIBS="-L${CUDA_PATH}/lib64 ${CUDA_LIBS}"
+else
+    printf "checking for cuda..."
+fi
 if ! cxx_check "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "cuda.h" "" "auto result = cuInit(0);" ; then
     echo "cuda not supported." 
     exit 1
