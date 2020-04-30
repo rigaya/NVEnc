@@ -2973,9 +2973,9 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
     auto nvEncCaps = (*gpu)->encoder()->GetNVEncCapability();
     if (nvEncCaps.size() == 0) {
         _ftprintf(stdout, _T("No NVEnc support.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_DEVICE;
+        nvStatus = NV_ENC_ERR_UNSUPPORTED_DEVICE;
     } else {
-        _ftprintf(stdout, _T("List of available features.\n"));
+        _ftprintf(stdout, _T("NVEnc features\n"));
         for (auto codecNVEncCaps : nvEncCaps) {
             _ftprintf(stdout, _T("Codec: %s\n"), get_name_from_guid(codecNVEncCaps.codec, list_nvenc_codecs));
             size_t max_length = 0;
@@ -2994,7 +2994,25 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
             _ftprintf(stdout, _T("\n"));
         }
     }
-    return NV_ENC_SUCCESS;
+    const auto cuvidCodecCsp = (*gpu)->cuvid_csp();
+    if (cuvidCodecCsp.size() == 0) {
+        _ftprintf(stdout, _T("No NVDec support.\n"));
+    } else {
+        _ftprintf(stdout, _T("\nNVDec features\n"));
+        size_t max_length = 0;
+        std::for_each(cuvidCodecCsp.begin(), cuvidCodecCsp.end(), [&max_length](const decltype(cuvidCodecCsp)::value_type  &codeccsp) { max_length = (std::max)(max_length, CodecToStr(codeccsp.first).length()); });
+        for (auto codeccsp : cuvidCodecCsp) {
+            tstring csps = CodecToStr(codeccsp.first) + _T(":");
+            for (size_t i = csps.length()-1; i <= max_length; i++) {
+                csps += _T(" ");
+            }
+            for (auto csp : codeccsp.second) {
+                csps += tstring(RGY_CSP_NAMES[csp]) + _T(", ");
+            }
+            _ftprintf(stdout, _T("  %s\n"), csps.substr(0, csps.length()-2).c_str());
+        }
+    }
+    return nvStatus;
 }
 
 NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration, int inputFrameId, const std::vector<std::shared_ptr<RGYFrameData>>& frameDataList) {
