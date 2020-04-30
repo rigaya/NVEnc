@@ -2,7 +2,9 @@
 # NVEncのビルド方法
 by rigaya  
 
-## 0. 準備
+## Windows
+
+### 0. 準備
 ビルドには、下記のものが必要です。
 
 - Visual Studio 2015 + CUDA 8.0 (x86)
@@ -32,13 +34,13 @@ git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
 setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
 ```
 
-## 1. ソースのダウンロード
+### 1. ソースのダウンロード
 
 ```Batchfile
 git clone https://github.com/rigaya/NVEnc --recursive
 ```
 
-## 2. NVEnc.auo / NVEncC のビルド
+### 2. NVEnc.auo / NVEncC のビルド
 
 NVEnc.slnを開き、ビルドします。
 
@@ -49,3 +51,89 @@ NVEnc.slnを開き、ビルドします。
 |NVEncC(64).exe | DebugStatic | RelStatic |
 |NVEnc.auo (win32のみ) | Debug | Release |
 |cufilters.auf (win32のみ) | DebugFilters | RelFilters |
+
+## Linux (Ubuntu 19.10)
+
+### 0. ビルドに必要なもののインストール
+
+```
+sudo apt install build-essential git yasm cmake nasm install python3-pip autoconf automake meson libtool
+```
+
+### 1. NVIDIA ドライバのインストール
+
+導入可能なドライバの確認を行うため、下記を実行します。
+```
+sudo add-apt-repository ppa:graphics-drivers/ppa
+sudo apt update
+ubuntu-drivers devices
+```
+
+すると、下記のような出力が出ます。
+```
+== /sys/devices/pci0000:00/0000:00:03.1/0000:0d:00.0 ==
+modalias : pci:v000010DEd00001B80sv000019DAsd00001426bc03sc00i00
+vendor   : NVIDIA Corporation
+model    : GP104 [GeForce GTX 1080]
+driver   : nvidia-driver-435 - distro non-free
+driver   : nvidia-driver-440 - third-party free recommended
+driver   : nvidia-driver-390 - third-party free
+driver   : xserver-xorg-video-nouveau - distro free builtin
+```
+
+最新のものをインストールします。
+```
+sudo apt install nvidia-driver-440
+sudo reboot
+```
+
+再起動後、正常に導入されたか確認します。下記のように出れば正常です。
+```
+rigaya@rigaya6-linux:~$ nvidia-smi
+Fri Apr 24 22:39:10 2020
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 440.82       Driver Version: 440.82       CUDA Version: 10.2     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|===============================+======================+======================|
+|   0  GeForce GTX 1080    Off  | 00000000:0D:00.0  On |                  N/A |
+|  0%   31C    P8     9W / 230W |     89MiB /  8111MiB |      0%      Default |
++-------------------------------+----------------------+----------------------+
+
++-----------------------------------------------------------------------------+
+| Processes:                                                       GPU Memory |
+|  GPU       PID   Type   Process name                             Usage      |
+|=============================================================================|
+|    0      1345      G   /usr/lib/xorg/Xorg                            39MiB |
+|    0      1786      G   /usr/bin/gnome-shell                          46MiB |
++-----------------------------------------------------------------------------+
+```
+
+### 2. CUDAのインストール
+```
+sudo apt install nvidia-cuda-toolkit
+```
+
+### 3. ビルドに必要なライブラリのインストール
+
+ffmpegと関連ライブラリを導入します。
+```
+sudo apt install ffmpeg \
+libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+libass9 libass-dev
+```
+
+### 4. ビルド
+下記を実行します。
+```
+git clone https://github.com/rigaya/NVEnc --recursive
+cd NVEnc
+./configure
+make
+```
+
+動作確認をします。正常にGPUが認識されていればOKです。
+```
+./nvencc --check-hw
+```
