@@ -898,10 +898,10 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
         }
 
         if (filterchain.length() > 0) filterchain += ",";
-        filterchain += strsprintf("aformat=sample_fmts=%s:sample_rates=%d:channel_layouts=0x%I64x",
+        filterchain += strsprintf("aformat=sample_fmts=%s:sample_rates=%d:channel_layouts=0x%llx",
             av_get_sample_fmt_name(muxAudio->outCodecEncodeCtx->sample_fmt),
             muxAudio->outCodecEncodeCtx->sample_rate,
-            muxAudio->outCodecEncodeCtx->channel_layout);
+            (unsigned long long int)muxAudio->outCodecEncodeCtx->channel_layout);
 
         AVFilterInOut *filter_inputs = nullptr;
         AVFilterInOut *filter_outputs = nullptr;
@@ -922,9 +922,9 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
         }
 
         //入力の設定
-        const auto inargs = strsprintf("time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%I64x",
+        const auto inargs = strsprintf("time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%llx",
             1, sample_rate,
-            sample_rate, av_get_sample_fmt_name(sample_fmt), channel_layout);
+            sample_rate, av_get_sample_fmt_name(sample_fmt), (unsigned long long int)channel_layout);
         const AVFilter *abuffersrc  = avfilter_get_by_name("abuffer");
         const auto inName = strsprintf("in_track_%d.%d", trackID(muxAudio->inTrackId), muxAudio->inSubStream);
         if (0 > (ret = avfilter_graph_create_filter(&muxAudio->filterBufferSrcCtx, abuffersrc, inName.c_str(), inargs.c_str(), nullptr, muxAudio->filterGraph))) {
