@@ -73,7 +73,7 @@ int RGYInputVpy::load_vapoursynth() {
     if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(vsscript_dll_name))) {
 #else
     const TCHAR *vsscript_dll_name = _T("libvapoursynth-script.so");
-    if (NULL == (m_sVS.hVSScriptDLL = dlopen(vsscript_dll_name, RTLD_LAZY))) {
+    if (NULL == (m_sVS.hVSScriptDLL = dlopen(vsscript_dll_name, RTLD_LAZY|RTLD_GLOBAL))) {
 #endif
         AddMessage(RGY_LOG_ERROR, _T("Failed to load %s.\n"), vsscript_dll_name);
         return 1;
