@@ -56,7 +56,7 @@ RGYInputAvi::~RGYInputAvi() {
 }
 
 RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
-    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
+    m_inputVideoInfo = *pInputInfo;
 
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
 

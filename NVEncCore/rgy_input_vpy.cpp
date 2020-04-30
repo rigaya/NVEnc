@@ -165,7 +165,7 @@ int RGYInputVpy::getRevInfo(const char *vsVersionString) {
 #pragma warning(push)
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
-    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
+    m_inputVideoInfo = *pInputInfo;
 
     if (load_vapoursynth()) {
         return RGY_ERR_NULL_PTR;
@@ -187,14 +187,20 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
     const VSVideoInfo *vsvideoinfo = nullptr;
     const VSCoreInfo *vscoreinfo = nullptr;
-    if (   !m_sVS.init()
-        || initAsyncEvents()
-        || nullptr == (m_sVSapi = m_sVS.getVSApi())
-        || m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), nullptr, efSetWorkingDir)
+    if (!m_sVS.init()) {
+        AddMessage(RGY_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
+        return RGY_ERR_NULL_PTR;
+    } else if (initAsyncEvents()) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to initialize async events.\n"));
+        return RGY_ERR_NULL_PTR;
+    } else if ((m_sVSapi = m_sVS.getVSApi()) == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to get VapourSynth APIs.\n"));
+        return RGY_ERR_NULL_PTR;
+    } else if (m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), nullptr, efSetWorkingDir)
         || nullptr == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
         || nullptr == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
         || nullptr == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
-        AddMessage(RGY_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("VapourSynth script error.\n"));
         if (m_sVSscript) {
             AddMessage(RGY_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
         }

@@ -235,7 +235,7 @@ vector<AVPacket> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
 #pragma warning(push)
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
-    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
+    m_inputVideoInfo = *pInputInfo;
 
     if (load_avisynth() != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to load %s.\n"), avisynth_dll_name);

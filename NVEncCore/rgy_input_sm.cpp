@@ -77,7 +77,7 @@ bool RGYInputSM::isAfs() {
 #pragma warning(disable: 4312) //'型キャスト': 'uint32_t' からより大きいサイズの 'HANDLE' へ変換します。
 RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     UNREFERENCED_PARAMETER(strFileName);
-    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
+    m_inputVideoInfo = *pInputInfo;
 
     m_readerName = _T("sm");
 
