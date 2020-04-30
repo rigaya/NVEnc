@@ -371,52 +371,78 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
     }
     if (IS_OPTION("raw")) {
         input->type = RGY_INPUT_FMT_RAW;
-#if ENABLE_SM_READER
-        return 0;
-    }
-    if (IS_OPTION("sm")) {
-        input->type = RGY_INPUT_FMT_SM;
-#endif
         return 0;
     }
     if (IS_OPTION("y4m")) {
         input->type = RGY_INPUT_FMT_Y4M;
-#if ENABLE_AVI_READER
         return 0;
+    }
+    if (IS_OPTION("sm")) {
+#if ENABLE_SM_READER
+        input->type = RGY_INPUT_FMT_SM;
+        return 0;
+#else
+        _ftprintf(stderr, _T("sm reader not supported in this build.\n"));
+        return 1;
+#endif
     }
     if (IS_OPTION("avi")) {
+#if ENABLE_AVI_READER
         input->type = RGY_INPUT_FMT_AVI;
-#endif
-#if ENABLE_AVISYNTH_READER
         return 0;
+#else
+        _ftprintf(stderr, _T("avi reader not supported in this build.\n"));
+        return 1;
+#endif
     }
     if (IS_OPTION("avs")) {
+#if ENABLE_AVISYNTH_READER
         input->type = RGY_INPUT_FMT_AVS;
-#endif
-#if ENABLE_VAPOURSYNTH_READER
         return 0;
+#else
+        _ftprintf(stderr, _T("avs reader not supported in this build.\n"));
+        return 1;
+#endif
     }
     if (IS_OPTION("vpy")) {
+#if ENABLE_VAPOURSYNTH_READER
         input->type = RGY_INPUT_FMT_VPY;
         return 0;
+#else
+        _ftprintf(stderr, _T("vpy reader not supported in this build.\n"));
+        return 1;
+#endif
     }
     if (IS_OPTION("vpy-mt")) {
+#if ENABLE_VAPOURSYNTH_READER
         input->type = RGY_INPUT_FMT_VPY_MT;
+        return 0;
+#else
+        _ftprintf(stderr, _T("vpy-mt reader not supported in this build.\n"));
+        return 1;
 #endif
-#if ENABLE_AVSW_READER
         return 0;
     }
     if (   IS_OPTION("avcuvid")
         || IS_OPTION("avqsv")
         || IS_OPTION("avvce")
         || IS_OPTION("avhw")) {
+#if ENABLE_AVSW_READER
         input->type = RGY_INPUT_FMT_AVHW;
-#endif
         return 0;
+#else
+        _ftprintf(stderr, _T("avhw reader not supported in this build.\n"));
+        return 1;
+#endif
     }
     if (IS_OPTION("avsw")) {
+#if ENABLE_AVSW_READER
         input->type = RGY_INPUT_FMT_AVSW;
         return 0;
+#else
+        _ftprintf(stderr, _T("avsw reader not supported in this build.\n"));
+        return 1;
+#endif
     }
     if (IS_OPTION("tff")) {
         input->picstruct = RGY_PICSTRUCT_FRAME_TFF;
