@@ -12,7 +12,7 @@ OBJBINHS = $(BINHS:%.h=%.o)
 
 all: $(PROGRAM)
 
-$(PROGRAM): .depend $(OBJS) $(OBJCUS) $(OBJASMS) $(OBJBINS) $(OBJBINHS) $(OBJPYWS)
+$(PROGRAM): .depend $(OBJCUS) $(OBJS) $(OBJASMS) $(OBJBINS) $(OBJBINHS) $(OBJPYWS)
 	$(LD) $(OBJS) $(OBJCUS) $(OBJASMS) $(OBJBINS) $(OBJBINHS) $(OBJPYWS) $(LDFLAGS) -o $(PROGRAM)
 
 %.cpp.o: %.cpp .depend
