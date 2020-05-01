@@ -56,21 +56,21 @@ NVEnc.slnを開き、ビルドします。
 
 ### 0. ビルドに必要なもののインストール
 
-```
-sudo apt install build-essential git yasm cmake nasm install python3-pip autoconf automake meson libtool
+```Shell
+sudo apt install build-essential git yasm nasm
 ```
 
 ### 1. NVIDIA ドライバのインストール
 
 導入可能なドライバの確認を行うため、下記を実行します。
-```
+```Shell
 sudo add-apt-repository ppa:graphics-drivers/ppa
 sudo apt update
 ubuntu-drivers devices
 ```
 
 すると、下記のような出力が出ます。
-```
+```Shell
 == /sys/devices/pci0000:00/0000:00:03.1/0000:0d:00.0 ==
 modalias : pci:v000010DEd00001B80sv000019DAsd00001426bc03sc00i00
 vendor   : NVIDIA Corporation
@@ -82,13 +82,13 @@ driver   : xserver-xorg-video-nouveau - distro free builtin
 ```
 
 最新のものをインストールします。
-```
+```Shell
 sudo apt install nvidia-driver-440
 sudo reboot
 ```
 
 再起動後、正常に導入されたか確認します。下記のように出れば正常です。
-```
+```Shell
 rigaya@rigaya6-linux:~$ nvidia-smi
 Fri Apr 24 22:39:10 2020
 +-----------------------------------------------------------------------------+
@@ -111,29 +111,101 @@ Fri Apr 24 22:39:10 2020
 ```
 
 ### 2. CUDAのインストール
-```
+```Shell
 sudo apt install nvidia-cuda-toolkit
 ```
 
 ### 3. ビルドに必要なライブラリのインストール
 
 ffmpegと関連ライブラリを導入します。
-```
+```Shell
 sudo apt install ffmpeg \
-libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
-libass9 libass-dev
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+  libass9 libass-dev
 ```
 
-### 4. ビルド
-下記を実行します。
+### 4. [オプション] VapourSynthのビルド
+VapourSynthのインストールは必須ではありませんが、インストールしておくとvpyを読み込めるようになります。
+
+必要のない場合は 5. NVEncCのビルド に進んでください。
+
+#### 4.1 ビルドに必要なツールのインストール
+```Shell
+sudo apt install python3-pip autoconf automake libtool meson
 ```
+
+#### 4.2 zimgのインストール
+```Shell
+git clone https://github.com/sekrit-twc/zimg.git
+cd zimg
+./autogen.sh
+./configure
+sudo make install -j16
+cd ..
+```
+
+#### 4.3 cythonのインストール
+```Shell
+sudo pip3 install Cython
+```
+
+#### 4.4 VapourSynthのビルド
+```Shell
+git clone https://github.com/vapoursynth/vapoursynth.git
+cd vapoursynth
+./autogen.sh
+./configure
+make -j16
+sudo make install
+
+# vapoursynthが自動的にロードされるようにする
+# "python3.x" は環境に応じて変えてください。これを書いた時点ではpython3.7でした
+sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
+sudo ldconfig
+```
+
+#### 4.5 VapourSynthの動作確認
+エラーが出ずにバージョンが表示されればOK。
+```Shell
+vspipe --version
+```
+
+#### 4.6 [おまけ] vslsmashsourceのビルド
+```Shell
+# lsmashのビルド
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+sudo make install -j16
+cd ..
+ 
+# vslsmashsourceのビルド
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+cd L-SMASH-Works/VapourSynth
+meson build
+cd build
+sudo ninja install
+cd ../../../
+```
+
+### 5. NVEncCのビルド
+下記を実行します。
+```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
 ./configure
-make
+make -j16
 ```
 
 動作確認をします。正常にGPUが認識されていればOKです。
-```
+```Shell
 ./nvencc --check-hw
+```
+
+こんな感じでNVENCのサポートしているコーデックが表示されればOKです。
+```
+#0: GeForce GTX 1080 (2560 cores, 1822 MHz)[PCIe3x16][440.82]
+Avaliable Codec(s)
+H.264/AVC
+H.265/HEVC
 ```

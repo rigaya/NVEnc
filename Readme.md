@@ -18,6 +18,7 @@ There are 2 types of software developed, one is command line version that runs i
 
 ## System Requirements
 Windows 10 (x86 / x64)  
+Linux (x64)  
 Aviutl 1.00 or later (NVEnc.auo)  
 Hardware which supports NVENC  
   NVIDIA GPU GeForce Kepler gen or later (GT / GTX 6xx or later)  
