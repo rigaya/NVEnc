@@ -1332,7 +1332,7 @@ std::string NVEncFilterColorspace::genKernelCode() {
         AddMessage(RGY_LOG_ERROR, _T("header data has unexpected size %u.\n"), datasize);
 #else
     const char *pDataPtr = _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start;
-    datasize = (uint32_t)(size_t)_binary_NVEncCore_NVEncFilterColorspaceFunc_h_size;
+    datasize = (uint32_t)(size_t)(_binary_NVEncCore_NVEncFilterColorspaceFunc_h_end - _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start);
     if (pDataPtr == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to get ColorspaceFunc.h.\n"));
     } else if (datasize == 0) {

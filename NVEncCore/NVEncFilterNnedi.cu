@@ -1447,7 +1447,7 @@ shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile,
         }
 #else
         const char *pDataPtr = _binary_resource_nnedi3_weights_bin_start;
-        weightFileSize = (size_t)_binary_resource_nnedi3_weights_bin_size;
+        weightFileSize = (size_t)(_binary_resource_nnedi3_weights_bin_end - _binary_resource_nnedi3_weights_bin_start);
         if (pDataPtr == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get Weights data.\n"));
         } else if (expectedFileSize != weightFileSize) {
