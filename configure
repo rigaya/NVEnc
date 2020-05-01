@@ -88,6 +88,12 @@ CUDA_PATH=""
 
 ENABLE_CPP_REGEX=1
 
+GPU_CODE_GEN="\
+--generate-code arch=compute_30,code=sm_30 \
+--generate-code arch=compute_50,code=sm_50 \
+--generate-code arch=compute_75,code=sm_75 \
+"
+
 CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter"
 LIBAV_CFLAGS=""
 LIBAV_LIBS=""
@@ -124,6 +130,8 @@ options:
   --asm=AS                 set assembler path [${AS}]
   --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
   --cuda-path=CUDA_PATH    set cuda path [${CUDA_PATH}]
+  --gpu-code=GPU_CODE_GEN  set gpu code gen options
+      [${GPU_CODE_GEN}]
   --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
 
   --extra-cxxflags=XCFLAGS add XCFLAGS to CFLAGS
@@ -169,6 +177,9 @@ for opt; do
             ;;
         --cuda-path=*)
             CUDA_PATH="$optarg"
+            ;;
+        --gpu-code=*)
+            GPU_CODE_GEN="$optarg"
             ;;
         --enable-debug)
             ENABLE_DEBUG=1
@@ -244,7 +255,7 @@ if ! cxx_check "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "c
     exit 1
 fi
 echo "OK"
-NVCCFLAGS="-arch=sm_50 --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
+NVCCFLAGS="${GPU_CODE_GEN} --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
 
 for file in "${CXX}" "${LD}" "${AS}"; do
 if [ ! `which $file 2> /dev/null` ]; then
