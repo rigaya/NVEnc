@@ -139,16 +139,15 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     std::string program_source;
     if (prm->custom.kernel.length() > 0) {
         program_source = tchar_to_string(prm->custom.filter_name) + "\n" + prm->custom.kernel;
-        AddMessage(RGY_LOG_DEBUG, _T("program source...\n"), prm->custom.kernel_path.c_str());
+        AddMessage(RGY_LOG_DEBUG, _T("program source...\n%s\n"), prm->custom.kernel.c_str());
     } else {
         program_source = tchar_to_string(prm->custom.kernel_path);
         AddMessage(RGY_LOG_DEBUG, _T("program source will be read from \"%s\".\n"), prm->custom.kernel_path.c_str());
     }
     try {
         m_program.reset(new jitify::Program(m_kernel_cache, program_source, 0, split(prm->custom.compile_options, " ", true)));
-    } catch (...) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to build program source.\n"));
-        m_pPrintMes->write_log(RGY_LOG_ERROR, char_to_tstring(m_program->getLog()).c_str());
+    } catch (const std::exception& e) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to build program source.\n%s\n"), char_to_tstring(e.what()).c_str());
         return RGY_ERR_CUDA;
     }
     m_pPrintMes->write_log(RGY_LOG_DEBUG, char_to_tstring(m_program->getLog()).c_str());
@@ -161,8 +160,8 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         } else {
             compile_log = m_program->kernel(KERNEL_NAME).instantiateLog(jitify::reflection::Type<uint8_t>());
         }
-    } catch (...) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to instantiate program source.\n"));
+    } catch (const std::exception& e) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to instantiate program source.\n%s\n"), char_to_tstring(e.what()).c_str());
         m_pPrintMes->write_log(RGY_LOG_ERROR, char_to_tstring(compile_log).c_str());
         return RGY_ERR_CUDA;
     }

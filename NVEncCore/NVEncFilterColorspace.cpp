@@ -1342,8 +1342,10 @@ std::string NVEncFilterColorspace::genKernelCode() {
         uint8_t *ptr = (uint8_t *)pDataPtr;
         if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF) { //skip UTF-8 BOM mark
             pDataPtr += 3;
+            datasize -= 3;
         }
-        kernel += pDataPtr;
+        std::string str = std::string(pDataPtr, datasize);
+        kernel += std::string(pDataPtr, datasize);
         kernel += kernel_base1;
         kernel += opCtrl->printOpAll();
         kernel += kernel_base2;
