@@ -49,7 +49,7 @@ clean:
 distclean: clean
 	rm -f config.mak NVEncCore/rgy_config.h
 
-install:
+install: all
 	install -d $(PREFIX)/bin
 	install -m 755 $(PROGRAM) $(PREFIX)/bin
 
