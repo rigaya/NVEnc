@@ -39,6 +39,7 @@
 #include "device_launch_parameters.h"
 #pragma warning (pop)
 
+#if defined(_WIN32) || defined(_WIN64)
 #if __CUDACC_VER_MAJOR__ == 8
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_80.dll");
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_80.dll");
@@ -68,6 +69,11 @@ const TCHAR* NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
 const TCHAR* NVRTC_DLL_NAME_TSTR = _T("nvrtc64_102_0.dll");
 const TCHAR* NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_102.dll");
 #endif
+#else //#if defined(_WIN32) || defined(_WIN64)
+const TCHAR* NPPI_DLL_NAME_TSTR = _T("libnppc.so");
+const TCHAR* NVRTC_DLL_NAME_TSTR = _T("libnvrtc.so");
+const TCHAR* NVRTC_BUILTIN_DLL_NAME_TSTR = _T("");
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 template<typename TypePixel>
 cudaError_t setTexFieldResize(cudaTextureObject_t& texSrc, const FrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
