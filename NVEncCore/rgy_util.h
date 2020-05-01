@@ -544,6 +544,9 @@ tstring char_to_tstring(const std::string& str, uint32_t codepage = CP_THREAD_AC
 unsigned int wstring_to_tstring(const WCHAR *wstr, tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
 tstring wstring_to_tstring(const WCHAR *wstr, uint32_t codepage = CP_THREAD_ACP);
 tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage = CP_THREAD_ACP);
+unsigned int char_to_string(std::string& dst, uint32_t codepage_to, const char *src, uint32_t codepage_from = CP_THREAD_ACP);
+std::string char_to_string(uint32_t codepage_to, const char *src, uint32_t codepage_from = CP_THREAD_ACP);
+
 std::string strsprintf(const char* format, ...);
 std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim, bool bTrim = false);
 std::vector<std::string> split(const std::string &str, const std::string &delim, bool bTrim = false);

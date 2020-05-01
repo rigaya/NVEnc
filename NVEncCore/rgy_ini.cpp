@@ -32,26 +32,36 @@
 #include <string>
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
+#include "rgy_util.h"
+#include "rgy_codepage.h"
 
-uint32_t GetPrivateProfileString(const TCHAR *Section, const TCHAR *Key, const TCHAR *Default, TCHAR *buf, size_t nSize, const TCHAR *IniFile) {
+uint32_t GetPrivateProfileStringCP(const TCHAR *Section, const TCHAR *Key, const TCHAR *Default, TCHAR *buf, size_t nSize, const TCHAR *IniFile, uint32_t codepage) {
     FILE *fp = fopen(IniFile, "r");
     if (fp != NULL) {
-        TCHAR buffer[1024];
+        char buffer[4096];
+        const auto len = fread(buffer, sizeof(char), sizeof(buffer)-1, fp);
+        buffer[len] = '\0';
+        if (codepage == CODE_PAGE_UNSET) {
+            codepage = get_code_page(buffer, len);
+        }
+        _fseeki64(fp, 0, SEEK_SET);
 
-        auto tsection = std::basic_string<TCHAR>(_T("["));
-        tsection += Section;
-        tsection += _T("]");
+        const auto section = std::string(_T("[")) + tchar_to_string(Section) + _T("]");
+        const auto key = tchar_to_string(Key);
 
         bool bTargetSection = false;
         while (_fgetts(buffer, _countof(buffer), fp) != NULL) {
-            if (buffer[0] == _T('[')) {
-                bTargetSection = (_tcscmp(buffer, tsection.c_str()) == 0);
+            auto line = trim(char_to_string(CP_THREAD_ACP, buffer, codepage));
+            strcpy_s(buffer, line.c_str());
+            if (buffer[0] == '[') {
+                bTargetSection = strncmp(buffer, section.c_str(), section.length()) == 0;
             } else if (bTargetSection) {
-                char *pDelim = _tcschr(buffer, _T('='));
-                if (pDelim != NULL) {
-                    *pDelim = _T('\0');
-                    if (_tcscmp(buffer, Key) == 0) {
-                        _tcscpy(buf, pDelim+1);
+                char *delim = strchr(buffer, '=');
+                if (delim != NULL) {
+                    *delim = '\0';
+                    if (strcmp(buffer, key.c_str()) == 0) {
+                        auto value = char_to_tstring(delim+1);
+                        _tcscpy(buf, value.c_str());
                         return _tcslen(buf);
                     }
                 }
@@ -62,26 +72,33 @@ uint32_t GetPrivateProfileString(const TCHAR *Section, const TCHAR *Key, const T
     return _tcslen(buf);
 }
 
-uint32_t GetPrivateProfileInt(const TCHAR *Section, const TCHAR *Key, const uint32_t defaultValue, const TCHAR *IniFile) {
+uint32_t GetPrivateProfileIntCP(const TCHAR *Section, const TCHAR *Key, const uint32_t defaultValue, const TCHAR *IniFile, uint32_t codepage) {
     FILE *fp = fopen(IniFile, "r");
     if (fp != NULL) {
-        TCHAR buffer[1024];
+        char buffer[4096];
+        const auto len = fread(buffer, sizeof(char), sizeof(buffer)-1, fp);
+        buffer[len] = '\0';
+        if (codepage == CODE_PAGE_UNSET) {
+            codepage = get_code_page(buffer, len);
+        }
+        _fseeki64(fp, 0, SEEK_SET);
 
-        auto tsection = std::basic_string<TCHAR>(_T("["));
-        tsection += Section;
-        tsection += _T("]");
+        const auto section = std::string(_T("[")) + tchar_to_string(Section) + _T("]");
+        const auto key = tchar_to_string(Key);
 
         bool bTargetSection = false;
         while (_fgetts(buffer, _countof(buffer), fp) != NULL) {
-            if (buffer[0] == _T('[')) {
-                bTargetSection = (_tcscmp(buffer, tsection.c_str()) == 0);
+            auto line = trim(char_to_string(CP_THREAD_ACP, buffer, codepage));
+            strcpy_s(buffer, line.c_str());
+            if (buffer[0] == '[') {
+                bTargetSection = strncmp(buffer, section.c_str(), section.length()) == 0;
             } else if (bTargetSection) {
-                char *pDelim = _tcschr(buffer, _T('='));
-                if (pDelim != NULL) {
-                    *pDelim = _T('\0');
-                    if (_tcscmp(buffer, Key) == 0) {
+                char *delim = strchr(buffer, '=');
+                if (delim != NULL) {
+                    *delim = '\0';
+                    if (strcmp(buffer, key.c_str()) == 0) {
                         try {
-                            uint32_t value = std::stoul(pDelim+1);
+                            uint32_t value = std::stoul(delim+1);
                             return value;
                         } catch (...) {
                             continue;

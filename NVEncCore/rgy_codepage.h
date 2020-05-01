@@ -43,5 +43,6 @@ enum : uint32_t {
 };
 
 uint32_t get_code_page(const void *str, uint32_t size_in_byte);
+const char *codepage_str(uint32_t codepage);
 
 #endif //__RGY_CODEPAGE_H__

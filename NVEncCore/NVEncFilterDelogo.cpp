@@ -38,6 +38,7 @@
 #include "NVEncFilterDelogo.h"
 #pragma warning (pop)
 #include "rgy_ini.h"
+#include "rgy_codepage.h"
 
 //行列式の計算
 static double det3x3(const std::array<double, 9>& m) {
@@ -205,6 +206,7 @@ int NVEncFilterDelogo::readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo
     auto file_deleter = [](FILE *fp) {
         fclose(fp);
     };
+    AddMessage(RGY_LOG_DEBUG, _T("Opening logo file: %s\n"), pDelogoParam->delogo.logoFilePath.c_str());
     unique_ptr<FILE, decltype(file_deleter)> fp(_tfopen(pDelogoParam->delogo.logoFilePath.c_str(), _T("rb")), file_deleter);
     if (fp.get() == NULL) {
         AddMessage(RGY_LOG_ERROR, _T("could not open logo file \"%s\".\n"), pDelogoParam->delogo.logoFilePath.c_str());
@@ -220,8 +222,10 @@ int NVEncFilterDelogo::readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo
         AddMessage(RGY_LOG_ERROR, _T("invalid logo file.\n"));
         sts = 1;
     } else {
+        AddMessage(RGY_LOG_DEBUG, _T("logo_header_ver: %d\n"), logo_header_ver);
         const size_t logo_header_size = (logo_header_ver == 2) ? sizeof(LOGO_HEADER) : sizeof(LOGO_HEADER_OLD);
         const int logonum = SWAP_ENDIAN(logo_file_header.logonum.l);
+        AddMessage(RGY_LOG_DEBUG, _T("logonum: %d\n"), logonum);
         m_sLogoDataList.resize(logonum);
 
         for (int i = 0; i < logonum; i++) {
@@ -253,15 +257,19 @@ int NVEncFilterDelogo::readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo
 std::string NVEncFilterDelogo::logoNameList() {
     std::string strlist;
     for (int i = 0; i < (int)m_sLogoDataList.size(); i++) {
-        strlist += strsprintf("%3d: %s\n", i+1, m_sLogoDataList[i].header.name);
+        const std::string str = char_to_string(CP_THREAD_ACP, m_sLogoDataList[i].header.name, CODE_PAGE_SJIS);
+        strlist += strsprintf("%3d: %s\n", i+1, str.c_str());
     }
     return strlist;
 }
 
 int NVEncFilterDelogo::getLogoIdx(const std::string& logoName) {
     int idx = LOGO_AUTO_SELECT_INVALID;
+        printf("getLogoIdx: \"%s\"\n", logoName.c_str());
     for (int i = 0; i < (int)m_sLogoDataList.size(); i++) {
-        if (0 == strcmp(m_sLogoDataList[i].header.name, logoName.c_str())) {
+        const std::string str = char_to_string(CP_THREAD_ACP, m_sLogoDataList[i].header.name, CODE_PAGE_SJIS);
+        printf("  name: %s\n", str.c_str());
+        if (str == logoName) {
             idx = i;
             break;
         }
@@ -306,10 +314,15 @@ int NVEncFilterDelogo::selectLogo(const tstring& selectStr, const tstring& input
         return LOGO_AUTO_SELECT_INVALID;
     }
     //自動選択キー
+#if (defined(_WIN32) || defined(_WIN64))
+    uint32_t codepage = CP_THREAD_ACP;
+#else
+    uint32_t codepage = CODE_PAGE_UNSET;
+#endif
     int count = 0;
     for (;; count++) {
         char buf[512] = { 0 };
-        GetPrivateProfileStringA("LOGO_AUTO_SELECT", strsprintf("logo%d", count+1).c_str(), "", buf, sizeof(buf), logoName.c_str());
+        GetPrivateProfileStringCP("LOGO_AUTO_SELECT", strsprintf("logo%d", count+1).c_str(), "", buf, sizeof(buf), logoName.c_str(), codepage);
         if (strlen(buf) == 0)
             break;
     }
@@ -321,7 +334,7 @@ int NVEncFilterDelogo::selectLogo(const tstring& selectStr, const tstring& input
     logoAutoSelectKeys.reserve(count);
     for (int i = 0; i < count; i++) {
         char buf[512] = { 0 };
-        GetPrivateProfileStringA("LOGO_AUTO_SELECT", strsprintf("logo%d", i+1).c_str(), "", buf, sizeof(buf), logoName.c_str());
+        GetPrivateProfileStringCP("LOGO_AUTO_SELECT", strsprintf("logo%d", i+1).c_str(), "", buf, sizeof(buf), logoName.c_str(), codepage);
         char *ptr = strchr(buf, ',');
         if (ptr != NULL) {
             LOGO_SELECT_KEY selectKey;
@@ -790,7 +803,8 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             }
         }
 
-        setFilterInfo(_T("delgo:") + char_to_tstring(logoData.header.name) + pDelogoParam->print());
+        auto logo_name = char_to_string(CP_THREAD_ACP, logoData.header.name, CODE_PAGE_SJIS);;
+        setFilterInfo(_T("delgo:") + char_to_tstring(logo_name) + pDelogoParam->print());
         if (pDelogoParam->delogo.log) {
             m_logPath = pDelogoParam->inputFileName + tstring(_T(".delogo_log.csv"));
             std::unique_ptr<FILE, decltype(&fclose)> fp(_tfopen(m_logPath.c_str(), _T("w")), fclose);

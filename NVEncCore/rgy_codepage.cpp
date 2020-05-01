@@ -149,3 +149,21 @@ uint32_t get_code_page(const void *str, uint32_t size_in_byte) {
 
     return jpn_check(str, size_in_byte);
 }
+
+const char *codepage_str(uint32_t codepage) {
+    switch (codepage) {
+    case CODE_PAGE_SJIS:
+        return "CP932";
+    case CODE_PAGE_EUC_JP:
+        return "EUC-JP";
+    case CODE_PAGE_UTF16_LE:
+        return "UTF16LE";
+    case CODE_PAGE_UTF16_BE:
+        return "UTF16BE";
+    case CODE_PAGE_JIS:
+        return "ISO2022JP";
+    case CODE_PAGE_UTF8:
+    default:
+        return "UTF-8";
+    }
+}

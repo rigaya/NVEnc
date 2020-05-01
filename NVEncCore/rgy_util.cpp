@@ -46,6 +46,7 @@
 #include "rgy_osdep.h"
 #include "ram_speed.h"
 #include "rgy_version.h"
+#include "rgy_codepage.h"
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -71,14 +72,17 @@ unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t c
         str = "";
         return 0;
     }
-    auto ic = iconv_open("UTF-8", "wchar_t"); //to, from
-    auto input_len = wcslen(wstr) * 2;
-    auto output_len = input_len * 6;
-    std::vector<char> buf(output_len, 0);
-    char *outbuf = buf.data();
-    iconv(ic, (char **)&wstr, &input_len, &outbuf, &output_len);
+    auto ic = iconv_open(codepage_str(codepage), "wchar_t"); //to, from
+    auto input_len = (wcslen(wstr)+1) * 2;
+    std::vector<char> buf(input_len, 0);
+    memcpy(buf.data(), wstr, input_len);
+    auto output_len = input_len * 12;
+    std::vector<char> bufout(output_len, 0);
+    char *outbuf = bufout.data();
+    char *input = buf.data();
+    iconv(ic, &input, &input_len, &outbuf, &output_len);
     iconv_close(ic);
-    str = buf.data();
+    str = bufout.data();
     return output_len;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -180,20 +184,34 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
     wstr = tmp.data();
     return widechar_length;
 }
+unsigned int char_to_string(std::string& dst, uint32_t codepage_to, const char *src, uint32_t codepage_from) {
+    if (src == nullptr) {
+        dst = "";
+        return 0;
+    }
+    if (codepage_to == codepage_from) {
+        dst = src;
+        return dst.length();
+    }
+    std::wstring& wstrtemp;
+    char_to_wstring(wstrtemp, src, codepage_from);
+    wstring_to_string(wstrtemp.c_str(), dst, codepage_to);
+    return dst.length();
+}
 #else
 unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
     if (str == nullptr) {
         wstr = L"";
         return 0;
     }
-    auto ic = iconv_open("wchar_t", "UTF-8"); //to, from
+    auto ic = iconv_open("wchar_t", codepage_str(codepage)); //to, from
     if ((int64_t)ic == -1) {
         fprintf(stderr, "iconv_error\n");
     }
-    auto input_len = strlen(str);
-    std::vector<char> buf(input_len + 1);
+    auto input_len = strlen(str)+1;
+    std::vector<char> buf(input_len);
     strcpy(buf.data(), str);
-    auto output_len = (input_len + 1) * 8;
+    auto output_len = (input_len + 1) * 12;
     std::vector<char> bufout(output_len, 0);
     char *inbuf = buf.data();
     char *outbuf = bufout.data();
@@ -201,6 +219,33 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
     iconv_close(ic);
     wstr = std::wstring((WCHAR *)bufout.data());
     return wstr.length();
+}
+
+unsigned int char_to_string(std::string& dst, uint32_t codepage_to, const char *src, uint32_t codepage_from) {
+    if (src == nullptr) {
+        dst = "";
+        return 0;
+    }
+    if (codepage_to == codepage_from
+        || strcmp(codepage_str(codepage_to), codepage_str(codepage_from)) == 0) {
+        dst = src;
+        return dst.length();
+    }
+    auto ic = iconv_open(codepage_str(codepage_to), codepage_str(codepage_from)); //to, from
+    if ((int64_t)ic == -1) {
+        fprintf(stderr, "iconv_error\n");
+    }
+    auto input_len = strlen(src)+1;
+    std::vector<char> buf(input_len);
+    strcpy(buf.data(), src);
+    auto output_len = (input_len + 1) * 12;
+    std::vector<char> bufout(output_len, 0);
+    char *inbuf = buf.data();
+    char *outbuf = bufout.data();
+    iconv(ic, &inbuf, &input_len, &outbuf, &output_len);
+    iconv_close(ic);
+    dst = std::string(bufout.data());
+    return dst.length();
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 std::wstring char_to_wstring(const char *str, uint32_t codepage) {
@@ -215,6 +260,11 @@ std::wstring char_to_wstring(const std::string& str, uint32_t codepage) {
     std::wstring wstr;
     char_to_wstring(wstr, str.c_str(), codepage);
     return wstr;
+}
+std::string char_to_string(uint32_t codepage_to, const char *src, uint32_t codepage_from) {
+    std::string dst;
+    char_to_string(dst, codepage_to, src, codepage_from);
+    return dst;
 }
 
 unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage) {
