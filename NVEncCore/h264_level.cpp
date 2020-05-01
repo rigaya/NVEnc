@@ -31,10 +31,6 @@
 #include "rgy_osdep.h"
 #include "h264_level.h"
 
-#ifndef NULL
-#define NULL 0
-#endif
-
 const int MAX_REF_FRAMES = 16;
 const int PROGRESSIVE    = 1;
 const int INTERLACED     = 2;
@@ -44,25 +40,25 @@ const int COLUMN_VBVBUF  = 5;
 
 static const int H264_LEVEL_LIMITS[][LEVEL_COLUMNS] =
 {   //interlaced, MaxMBpsec, MaxMBpframe, MaxDpbMbs, MaxVBVMaxrate, MaxVBVBuf,    end,  level
-    { PROGRESSIVE,        -1,          -1,        -1,             0,         0,  NULL}, // auto
-    { PROGRESSIVE,      1485,          99,       396,            64,       175,  NULL}, // 1
-    { PROGRESSIVE,      1485,          99,       396,           128,       350,  NULL}, // 1b
-    { PROGRESSIVE,      3000,         396,       900,           192,       500,  NULL}, // 1.1
-    { PROGRESSIVE,      6000,         396,      2376,           384,      1000,  NULL}, // 1.2
-    { PROGRESSIVE,     11880,         396,      2376,           768,      2000,  NULL}, // 1.3
-    { PROGRESSIVE,     11880,         396,      2376,          2000,      2000,  NULL}, // 2
-    {  INTERLACED,     19800,         792,      4752,          4000,      4000,  NULL}, // 2.1
-    {  INTERLACED,     20250,        1620,      8100,          4000,      4000,  NULL}, // 2.2
-    {  INTERLACED,     40500,        1620,      8100,         10000,     10000,  NULL}, // 3
-    {  INTERLACED,    108000,        3600,     18000,         14000,     14000,  NULL}, // 3.1
-    {  INTERLACED,    216000,        5120,     20480,         20000,     20000,  NULL}, // 3.2
-    {  INTERLACED,    245760,        8192,     32768,         20000,     25000,  NULL}, // 4
-    {  INTERLACED,    245760,        8192,     32768,         50000,     62500,  NULL}, // 4.1
-    {  INTERLACED,    522240,        8704,     34816,         50000,     62500,  NULL}, // 4.2
-    { PROGRESSIVE,    589824,       22080,    110400,        135000,    135000,  NULL}, // 5
-    { PROGRESSIVE,    983040,       36864,    184320,        240000,    240000,  NULL}, // 5.1
-    { PROGRESSIVE,   2073600,       36864,    184320,        240000,    240000,  NULL}, // 5.2
-    {        NULL,      NULL,        NULL,      NULL,          NULL,      NULL,  NULL}, // end
+    { PROGRESSIVE,        -1,          -1,        -1,             0,         0,  0}, // auto
+    { PROGRESSIVE,      1485,          99,       396,            64,       175,  0}, // 1
+    { PROGRESSIVE,      1485,          99,       396,           128,       350,  0}, // 1b
+    { PROGRESSIVE,      3000,         396,       900,           192,       500,  0}, // 1.1
+    { PROGRESSIVE,      6000,         396,      2376,           384,      1000,  0}, // 1.2
+    { PROGRESSIVE,     11880,         396,      2376,           768,      2000,  0}, // 1.3
+    { PROGRESSIVE,     11880,         396,      2376,          2000,      2000,  0}, // 2
+    {  INTERLACED,     19800,         792,      4752,          4000,      4000,  0}, // 2.1
+    {  INTERLACED,     20250,        1620,      8100,          4000,      4000,  0}, // 2.2
+    {  INTERLACED,     40500,        1620,      8100,         10000,     10000,  0}, // 3
+    {  INTERLACED,    108000,        3600,     18000,         14000,     14000,  0}, // 3.1
+    {  INTERLACED,    216000,        5120,     20480,         20000,     20000,  0}, // 3.2
+    {  INTERLACED,    245760,        8192,     32768,         20000,     25000,  0}, // 4
+    {  INTERLACED,    245760,        8192,     32768,         50000,     62500,  0}, // 4.1
+    {  INTERLACED,    522240,        8704,     34816,         50000,     62500,  0}, // 4.2
+    { PROGRESSIVE,    589824,       22080,    110400,        135000,    135000,  0}, // 5
+    { PROGRESSIVE,    983040,       36864,    184320,        240000,    240000,  0}, // 5.1
+    { PROGRESSIVE,   2073600,       36864,    184320,        240000,    240000,  0}, // 5.2
+    {           0,         0,           0,         0,             0,         0,  0}, // end
 };
 
 const int H264_LEVEL_INDEX[] = {
@@ -113,7 +109,7 @@ int calc_h264_auto_level(int width, int height, int ref, bool interlaced, int fp
         MB_frame * ref,
         int(vbv_max * profile_vbv_multi + 0.5),
         int(vbv_buf * profile_vbv_multi + 0.5),
-        NULL
+        0
     };
 
     //あとはひたすら比較

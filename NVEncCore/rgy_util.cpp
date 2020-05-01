@@ -326,7 +326,7 @@ std::string str_replace(std::string str, const std::string& from, const std::str
         str.replace(pos, from.length(), to);
         pos += to.length();
     }
-    return std::move(str);
+    return str;
 }
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -336,7 +336,7 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
         str.replace(pos, from.length(), to);
         pos += to.length();
     }
-    return std::move(str);
+    return str;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 

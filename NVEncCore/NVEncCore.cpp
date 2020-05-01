@@ -3406,7 +3406,7 @@ NVENCSTATUS NVEncCore::Encode() {
             pInputFrame->setTimeStamp(outPts);
             pInputFrame->setDuration(outDuration);
             PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[host](%d): outPtsSource %lld, outDuration %d\n"), pInputFrame->getFrameInfo().inputFrameId, outPts, outDuration);
-            vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(*pInputFrame))));
+            vppParams.push_back(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(*pInputFrame)));
         }
 #if ENABLE_AVSW_READER
         else {
@@ -3429,7 +3429,7 @@ NVENCSTATUS NVEncCore::Encode() {
                         frameinfo.timestamp -= frameinfo.duration / 2;
                     }
                 }
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                vppParams.push_back(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo)));
                 //PrintMes(RGY_LOG_INFO, _T("pts: %lld, duration %lld, progressive:%d, rff:%d\n"), (lls)frameinfo.timestamp, (lls)frameinfo.duration, oVPP.progressive_frame, (frameinfo.flags & RGY_FRAME_FLAG_RFF) ? 1 : 0);
 
                 if (vpp_rff && (frameinfo.flags & RGY_FRAME_FLAG_RFF)) {
@@ -3437,7 +3437,7 @@ NVENCSTATUS NVEncCore::Encode() {
                         frameinfo.flags |= RGY_FRAME_FLAG_RFF_COPY;
                         //rffを展開する場合、時間を補正する
                         frameinfo.timestamp += frameinfo.duration;
-                        vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                        vppParams.push_back(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo)));
                         //PrintMes(RGY_LOG_INFO, _T("pts: %lld, duration %lld\n"), (lls)frameinfo.timestamp, (lls)frameinfo.duration);
                     }
                     dec_vpp_rff_sts ^= 1; //反転
@@ -3451,11 +3451,11 @@ NVENCSTATUS NVEncCore::Encode() {
                 oVPP.progressive_frame = (interlaceAutoDetect) ? pInputFrame->getCuvidInfo()->progressive_frame : 0;
                 oVPP.second_field = 0;
                 frameinfo.duration >>= 1;
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                vppParams.push_back(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo)));
                 PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), pInputFrame->getFrameInfo().inputFrameId, frameinfo.timestamp, frameinfo.duration, oVPP.progressive_frame);
                 oVPP.second_field = 1;
                 frameinfo.timestamp += frameinfo.duration;
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                vppParams.push_back(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo)));
                 PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[bob](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), pInputFrame->getFrameInfo().inputFrameId, frameinfo.timestamp, frameinfo.duration, oVPP.progressive_frame);
                 break;
             case cudaVideoDeinterlaceMode_Adaptive:
@@ -3463,7 +3463,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 frameinfo.flags &= (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
                 pInputFrame->setInterlaceFlag(RGY_PICSTRUCT_FRAME);
                 oVPP.progressive_frame = (interlaceAutoDetect) ? pInputFrame->getCuvidInfo()->progressive_frame : 0;
-                vppParams.push_back(std::move(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo))));
+                vppParams.push_back(unique_ptr<FrameBufferDataIn>(new FrameBufferDataIn(pInputFrame->getCuvidInfo(), oVPP, frameinfo)));
                 PrintMes(RGY_LOG_TRACE, _T("add_dec_vpp_param[adp](%d): outPtsSource %lld, outDuration %d, progressive %d\n"), pInputFrame->getFrameInfo().inputFrameId, frameinfo.timestamp, frameinfo.duration, oVPP.progressive_frame);
                 break;
             default:
@@ -3579,7 +3579,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 memcpyKind = cudaMemcpyHostToDevice;
                 frameInfo = inframe->getFrameInfo();
                 deviceFrame = shared_ptr<void>(frameInfo.ptr, [&](void *ptr) {
-                    ptr = ptr;
+                    UNREFERENCED_PARAMETER(ptr);
                     //このメモリはm_inputHostBufferのメモリであり、使いまわすため、解放しない
                 });
             }

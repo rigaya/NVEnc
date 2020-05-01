@@ -164,7 +164,6 @@ for opt; do
             ;;
         --cxx=*)
             CXX="$optarg"
-            LD="$optarg"
             ;;
         --asm=*)
             AS="$optarg"
@@ -225,7 +224,7 @@ CXXINC=" \
   -I${SRCDIR} -I${SRCDIR}/NVEncSDK/Common/inc -I${SRCDIR}/NVEncCore \
   -I${SRCDIR}/jitify -I${SRCDIR}/tinyxml2 -I${SRCDIR}/cppcodec -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
 "
-CXXFLAGS="-Wall -Wno-unknown-pragmas -Wno-unused"
+CXXFLAGS="-Wall -Wno-unknown-pragmas -Wno-unused -Wno-missing-braces"
 
 LDFLAGS="-L. -ldl -lstdc++"
 ASFLAGS="-I. -DLINUX=1"
@@ -329,9 +328,6 @@ else
     CXXFLAGS="${CXXFLAGS} -O3 -DNDEBUG=1"
     if cxx_check "${CXXFLAGS} -mfpmath=sse ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -mfpmath=sse"
-    fi
-    if cxx_check "${CXXFLAGS} -fexcess-precision=fast ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -fexcess-precision=fast"
     fi
     if cxx_check "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -ffast-math"
@@ -618,7 +614,7 @@ write_config_mak "AS   = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
 write_config_mak "CXXFLAGS = $CXXFLAGS $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
-write_config_mak "NVCCFLAGS = $NVCCFLAGS $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
+write_config_mak "NVCCFLAGS = $NVCCFLAGS -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"

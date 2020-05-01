@@ -91,8 +91,12 @@ static void RGY_FORCEINLINE avx2_memcpy(uint8_t *dst, const uint8_t *src, int si
 
 //_mm256_srli_si256, _mm256_slli_si256は
 //単に128bitシフト×2をするだけの命令である
+#ifndef _mm256_bsrli_epi128
 #define _mm256_bsrli_epi128 _mm256_srli_si256
+#endif
+#ifndef _mm256_bslli_epi128
 #define _mm256_bslli_epi128 _mm256_slli_si256
+#endif
 //本当の256bitシフト
 #define _mm256_srli256_si256(a, i) ((i<=16) ? _mm256_alignr_epi8(_mm256_permute2x128_si256(a, a, (0x08<<4) + 0x03), a, i) : _mm256_bsrli_epi128(_mm256_permute2x128_si256(a, a, (0x08<<4) + 0x03), MM_ABS(i-16)))
 #define _mm256_slli256_si256(a, i) ((i<=16) ? _mm256_alignr_epi8(a, _mm256_permute2x128_si256(a, a, (0x00<<4) + 0x08), MM_ABS(16-i)) : _mm256_bslli_epi128(_mm256_permute2x128_si256(a, a, (0x00<<4) + 0x08), MM_ABS(i-16)))

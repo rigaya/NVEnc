@@ -2784,7 +2784,7 @@ void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDt
         WriteNextPacketToAudioSubtracks(std::move(audioFrames));
     }
     if (muxAudio->filterGraph) {
-        WriteNextPacketAudioFrame(std::move(AudioFilterFrameFlush(muxAudio)));
+        WriteNextPacketAudioFrame(AudioFilterFrameFlush(muxAudio));
     }
     while (muxAudio->outCodecEncodeCtx) {
         auto encPktDatas = AudioEncodeFrame(muxAudio, nullptr);
@@ -3134,7 +3134,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketToAudioSubtracks(vector<AVPktMuxData> a
             audioFrames.push_back(pktDataCopy);
         }
     }
-    return WriteNextPacketAudioFrame(std::move(AudioFilterFrame(std::move(audioFrames))));
+    return WriteNextPacketAudioFrame(AudioFilterFrame(audioFrames));
 }
 
 //フレームをresampleして後段に渡す

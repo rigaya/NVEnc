@@ -473,7 +473,10 @@ static inline bool cropEnabled(const sInputCrop &crop) {
 }
 
 static inline sInputCrop initCrop() {
-    sInputCrop crop = { 0 };
+    sInputCrop crop;
+    for (int i = 0; i < 4; i++) {
+        crop.c[i] = 0;
+    }
     return crop;
 }
 

@@ -415,16 +415,9 @@ protected:
     const TransferFunc m_func;
 };
 
-enum ColorspaceOpHDR2SDRMode {
-    HDR2SDR_MODE_UNKNOWN,
-    HDR2SDR_MODE_HABLE,
-    HDR2SDR_MODE_MOBIUS,
-    HDR2SDR_MODE_REINHARD
-};
-
 class ColorspaceOpHDR2SDRHable : public ColorspaceOp {
 public:
-    ColorspaceOpHDR2SDRHable() : m_mode(HDR2SDR_MODE_HABLE),
+    ColorspaceOpHDR2SDRHable() : m_mode(HDR2SDR_HABLE),
         m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
         m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
         m_A(FILTER_DEFAULT_HDR2SDR_HABLE_A),
@@ -435,71 +428,71 @@ public:
         m_F(FILTER_DEFAULT_HDR2SDR_HABLE_F) {};
     ColorspaceOpHDR2SDRHable(double source_peak, double ldr_nits,
         double A, double B, double C, double D, double E, double F) :
-        m_mode(HDR2SDR_MODE_HABLE),
+        m_mode(HDR2SDR_HABLE),
         m_source_peak(source_peak), m_ldr_nits(ldr_nits),
         m_A(A), m_B(B), m_C(C), m_D(D), m_E(E), m_F(F) {
         m_type = COLORSPACE_OP_TYPE_HDR2SDR;
     };
     virtual ~ColorspaceOpHDR2SDRHable() {};
-    virtual std::string print();
+    virtual std::string print() override;
     virtual std::string printInfo() override;
-    virtual bool add(const ColorspaceOp *op) { UNREFERENCED_PARAMETER(op); return false; }
+    virtual bool add(const ColorspaceOp *op) override { UNREFERENCED_PARAMETER(op); return false; }
     double source_peak() const { return m_source_peak; }
     double ldr_nits() const { return m_ldr_nits; }
 protected:
-    ColorspaceOpHDR2SDRMode m_mode;
+    HDR2SDRToneMap m_mode;
     double m_source_peak, m_ldr_nits;
     double m_A, m_B, m_C, m_D, m_E, m_F;
 };
 
 class ColorspaceOpHDR2SDRMobius : public ColorspaceOp {
 public:
-    ColorspaceOpHDR2SDRMobius() : m_mode(HDR2SDR_MODE_MOBIUS),
+    ColorspaceOpHDR2SDRMobius() : m_mode(HDR2SDR_MOBIUS),
         m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
         m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
         m_transition(FILTER_DEFAULT_HDR2SDR_MOBIUS_TRANSITION),
         m_peak(FILTER_DEFAULT_HDR2SDR_MOBIUS_PEAK) {};
     ColorspaceOpHDR2SDRMobius(double source_peak, double ldr_nits,
         double transition, double peak) :
-        m_mode(HDR2SDR_MODE_MOBIUS),
+        m_mode(HDR2SDR_MOBIUS),
         m_source_peak(source_peak), m_ldr_nits(ldr_nits),
         m_transition(transition), m_peak(peak) {
         m_type = COLORSPACE_OP_TYPE_HDR2SDR;
     };
     virtual ~ColorspaceOpHDR2SDRMobius() {};
-    virtual std::string print();
+    virtual std::string print() override;
     virtual std::string printInfo() override;
-    virtual bool add(const ColorspaceOp *op) { UNREFERENCED_PARAMETER(op); return false; }
+    virtual bool add(const ColorspaceOp *op) override { UNREFERENCED_PARAMETER(op); return false; }
     double source_peak() const { return m_source_peak; }
     double ldr_nits() const { return m_ldr_nits; }
 protected:
-    ColorspaceOpHDR2SDRMode m_mode;
+    HDR2SDRToneMap m_mode;
     double m_source_peak, m_ldr_nits;
     double m_transition, m_peak;
 };
 
 class ColorspaceOpHDR2SDRReinhard : public ColorspaceOp {
 public:
-    ColorspaceOpHDR2SDRReinhard() : m_mode(HDR2SDR_MODE_REINHARD),
+    ColorspaceOpHDR2SDRReinhard() : m_mode(HDR2SDR_REINHARD),
         m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
         m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
         m_contrast(FILTER_DEFAULT_HDR2SDR_REINHARD_CONTRAST),
         m_peak(FILTER_DEFAULT_HDR2SDR_REINHARD_PEAK) {};
     ColorspaceOpHDR2SDRReinhard(double source_peak, double ldr_nits,
         double contrast, double peak) :
-        m_mode(HDR2SDR_MODE_REINHARD),
+        m_mode(HDR2SDR_REINHARD),
         m_source_peak(source_peak), m_ldr_nits(ldr_nits),
         m_contrast(contrast), m_peak(peak) {
         m_type = COLORSPACE_OP_TYPE_HDR2SDR;
     };
     virtual ~ColorspaceOpHDR2SDRReinhard() {};
-    virtual std::string print();
+    virtual std::string print() override;
     virtual std::string printInfo() override;
-    virtual bool add(const ColorspaceOp *op) { UNREFERENCED_PARAMETER(op); return false; }
+    virtual bool add(const ColorspaceOp *op) override { UNREFERENCED_PARAMETER(op); return false; }
     double source_peak() const { return m_source_peak; }
     double ldr_nits() const { return m_ldr_nits; }
 protected:
-    ColorspaceOpHDR2SDRMode m_mode;
+    HDR2SDRToneMap m_mode;
     double m_source_peak, m_ldr_nits;
     double m_contrast, m_peak;
 };
@@ -1112,13 +1105,13 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
     const auto csp_to1 = csp_from1.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR);
     CHECK(setPath(csp_from1, csp_to1, sdr_source_peak, approx_gamma, scene_ref, height));
     switch (prm.tonemap) {
-    case HDR2SDR_MODE_HABLE:
+    case HDR2SDR_HABLE:
         CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.hable));
         break;
-    case HDR2SDR_MODE_MOBIUS:
+    case HDR2SDR_MOBIUS:
         CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.mobius));
         break;
-    case HDR2SDR_MODE_REINHARD:
+    case HDR2SDR_REINHARD:
         CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.reinhard));
         break;
     default:
@@ -1147,7 +1140,7 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
         && in.colorprim == out.colorprim
         && in.transfer == out.transfer) {
         //やることはない
-        m_path.push_back(std::move(ColorspaceOpInfo(in, out, std::make_unique<ColorspaceOpNone>())));
+        m_path.push_back(ColorspaceOpInfo(in, out, std::make_unique<ColorspaceOpNone>()));
         return RGY_ERR_NONE;
     }
     auto out_target = out;

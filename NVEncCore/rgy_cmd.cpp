@@ -359,10 +359,10 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
     }
     if (IS_OPTION("crop")) {
         i++;
-        sInputCrop a = { 0 };
+        sInputCrop a = initCrop();
         if (   4 == _stscanf_s(strInput[i], _T("%d,%d,%d,%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])
             || 4 == _stscanf_s(strInput[i], _T("%d:%d:%d:%d"), &a.c[0], &a.c[1], &a.c[2], &a.c[3])) {
-            memcpy(&input->crop, &a, sizeof(a));
+            input->crop = a;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;

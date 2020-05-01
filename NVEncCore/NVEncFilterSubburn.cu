@@ -245,7 +245,7 @@ RGY_ERR NVEncFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frame
     } else if (nDetectChange) {
         m_subImages.clear();
         for (auto image = frameImages; image; image = image->next) {
-            m_subImages.push_back(std::move(textRectToImage(image, stream)));
+            m_subImages.push_back(textRectToImage(image, stream));
         }
     }
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSubburn>(m_pParam);
@@ -435,7 +435,7 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(FrameInfo *pOutputFrame, const sInpu
         if (m_subData->num_rects != m_subImages.size()) {
             for (uint32_t irect = 0; irect < m_subData->num_rects; irect++) {
                 const AVSubtitleRect *rect = m_subData->rects[irect];
-                m_subImages.push_back(std::move(bitmapRectToImage(rect, pOutputFrame, crop, stream)));
+                m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, stream));
             }
         }
         if ((m_subData->num_rects != m_subImages.size())) {

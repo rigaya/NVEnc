@@ -294,7 +294,7 @@ static std::string str_replace(std::string str, const std::string& from, const s
         str.replace(pos, from.length(), to);
         pos += to.length();
     }
-    return std::move(str);
+    return str;
 }
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -304,7 +304,7 @@ static std::wstring str_replace(std::wstring str, const std::wstring& from, cons
         str.replace(pos, from.length(), to);
         pos += to.length();
     }
-    return std::move(str);
+    return str;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 

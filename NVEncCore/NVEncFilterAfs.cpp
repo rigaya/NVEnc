@@ -1082,7 +1082,7 @@ static inline BOOL is_latter_field(int pos_y, int tb_order) {
 }
 
 static void afs_get_stripe_count_simd(int *stripe_count, const uint8_t *ptr, const AFS_SCAN_CLIP *clip, int pitch, int scan_w, int scan_h, int tb_order) {
-    static const uint8_t STRIPE_COUNT_CHECK_MASK[][16] alignas(16) = {
+    static const uint8_t STRIPE_COUNT_CHECK_MASK[][16] = {
         { 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50 },
         { 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60 },
     };
@@ -1093,7 +1093,7 @@ static void afs_get_stripe_count_simd(int *stripe_count, const uint8_t *ptr, con
     for (int pos_y = clip->top; pos_y < y_fin; pos_y++) {
         const uint8_t *sip = ptr + pos_y * pitch + clip->left;
         const int first_field_flag = !is_latter_field(pos_y, tb_order);
-        xMask = _mm_load_si128((const __m128i*)STRIPE_COUNT_CHECK_MASK[first_field_flag]);
+        xMask = _mm_loadu_si128((const __m128i*)STRIPE_COUNT_CHECK_MASK[first_field_flag]);
         const int x_count = scan_w - clip->right - clip->left;
         const uint8_t *sip_fin = sip + (x_count & ~31);
         for (; sip < sip_fin; sip += 32) {

@@ -1484,7 +1484,7 @@ shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile,
             }
         }
     }
-    return std::move(weights);
+    return weights;
 }
 
 RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam) {
