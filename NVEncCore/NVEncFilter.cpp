@@ -254,10 +254,12 @@ bool check_if_nvrtc_dll_available() {
 }
 
 bool check_if_nvrtc_builtin_dll_available() {
+#if defined(_WIN32) || defined(_WIN64)
     HMODULE hModule = RGY_LOAD_LIBRARY(NVRTC_BUILTIN_DLL_NAME_TSTR);
     if (hModule == NULL)
         return false;
     RGY_FREE_LIBRARY(hModule);
+#endif //#if defined(_WIN32) || defined(_WIN64)
     return true;
 }
 #endif
