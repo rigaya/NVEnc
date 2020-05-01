@@ -192,13 +192,6 @@ for opt; do
     esac
 done
 
-for file in "${CXX}" "${LD}" "${AS}"; do
-    if [ ! `which $file 2> /dev/null` ]; then
-        echo $file not found
-        exit 1
-    fi
-done
-
 printf "checking for ${CXX}..."
 if ! cxx_check "" ; then
     echo $CXX does not work
@@ -241,6 +234,8 @@ if [ "${CUDA_PATH}" != "" ]; then
     printf "checking for cuda (CUDA_PATH=${CUDA_PATH})..."
     CUDA_CFLAGS="-I${CUDA_PATH}/include"
     CUDA_LIBS="-L${CUDA_PATH}/lib64 ${CUDA_LIBS}"
+    export PATH=${CUDA_PATH}/bin:${PATH}
+    NVCC=`which nvcc`
 else
     printf "checking for cuda..."
 fi
@@ -249,8 +244,14 @@ if ! cxx_check "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "c
     exit 1
 fi
 echo "OK"
-export PATH=${CUDA_PATH}/bin:${PATH}
 NVCCFLAGS="-arch=sm_50 --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
+
+for file in "${CXX}" "${LD}" "${AS}"; do
+if [ ! `which $file 2> /dev/null` ]; then
+        echo $file not found
+        exit 1
+    fi
+done
 
 printf "checking for pthread..."
 if cxx_check "${CXXFLAGS} -pthread ${LDFLAGS} -lpthread" ; then
@@ -605,8 +606,8 @@ write_config_mak "LD   = $LD"
 write_config_mak "AS   = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS $CXXINC $EXTRACXXFLAGS $CUDA_FLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
-write_config_mak "NVCCFLAGS = $NVCCFLAGS $CUDA_FLAGS $CXXINC -Xcompiler \"${CXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
+write_config_mak "NVCCFLAGS = $NVCCFLAGS $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
