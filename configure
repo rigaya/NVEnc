@@ -320,6 +320,10 @@ else
     echo "yes"
 fi
 
+if cxx_check "${CXXFLAGS} -fPIE ${LDFLAGS}" ; then
+    CXXFLAGS="$CXXFLAGS -fPIE"
+fi
+
 if [ ! $ENABLE_DEBUG -eq 0 ]; then
     echo "configuring for debug..."
     CXXFLAGS="${CXXFLAGS} -O0 -g -D_DEBUG"

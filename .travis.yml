@@ -1,0 +1,56 @@
+language: cpp
+os: linux
+sudo: required
+
+branches:
+  only: 
+    - linux
+
+matrix:
+  fast_finish: true
+  include:
+    - name: gcc9 CUDA 10 build
+      compiler: gcc
+      dist: bionic
+      env:
+      - CC=gcc-9
+      - CXX=g++-9
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages:
+            - *native_deps
+            - gcc-9
+            - g++-9
+    - name: clang8 CUDA 10 build
+      compiler: clang
+      dist: bionic
+      env:
+      - CC=clang-8
+      - CXX=clang++-8
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-xenial-8']
+          packages:
+            - *native_deps
+            - clang-8
+            - clang++-8
+
+before_install:
+  - wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
+  - sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
+  - wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
+  - sudo dpkg -i cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
+  - sudo apt-key add /var/cuda-repo-10-2-local-10.2.89-440.33.01/7fa2af80.pub
+  - sudo apt-get update
+  - sudo apt-get -y install cuda
+  - CUDA_PATH=/usr/local/cuda
+  - LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}
+  - PATH=${CUDA_PATH}/bin:${PATH}
+  - sudo apt install yasm nasm ffmpeg libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libass9 libass-dev
+  - $CXX --version
+  - nvcc --version
+
+script:
+    - ./configure && make
+    - ./nvencc --version
