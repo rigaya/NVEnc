@@ -98,6 +98,7 @@ CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter"
 LIBAV_CFLAGS=""
 LIBAV_LIBS=""
 ENABLE_AVSW_READER=1
+ENABLE_AVCODEC_ITERATE=1
 
 CHECK_VAPOURSYNTH_NAMES="vapoursynth vapoursynth-script"
 ENABLE_VAPOURSYNTH=1
@@ -405,6 +406,14 @@ if [ $ENABLE_AVSW_READER -ne 0 ]; then
         echo "yes"
     fi
     
+    printf "checking for av_codec_iterate..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavcodec/avcodec.h" "void *icodec = nullptr; av_codec_iterate(&icodec);" ; then
+        echo "no"
+        ENABLE_AVCODEC_ITERATE=0
+    else
+        echo "yes"
+    fi
+    
     printf "checking for libavformat..."
     if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavformat/avformat.h" "avformat_find_stream_info(0,0);" ; then
         echo "no"
@@ -621,7 +630,8 @@ write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
 write_enc_config "#define ENABLE_AVI_READER             0"
 write_enc_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
 write_enc_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
-write_enc_config "#define ENABLE_AVSW_READER            $ENABLE_AVSW_READER"     
+write_enc_config "#define ENABLE_AVSW_READER            $ENABLE_AVSW_READER"
+write_enc_config "#define ENABLE_AVCODEC_ITERATE        $ENABLE_AVCODEC_ITERATE"
 write_enc_config "#define ENABLE_SM_READER              0"
 write_enc_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"
 write_enc_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
