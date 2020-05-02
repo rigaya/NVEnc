@@ -51,9 +51,13 @@ RGY_ERR RGYHDR10Plus::init(const tstring &inputJson) {
         return RGY_ERR_NOT_FOUND;
     }
     m_inputJson = inputJson;
-    const tstring HDR10PlusGenExePath = (PathFileExists(HDR10PLUS_GEN_EXE_NAME)) ? HDR10PLUS_GEN_EXE_NAME : getExeDir() + _T("\\") + HDR10PLUS_GEN_EXE_NAME;
-    if (!(PathFileExists(HDR10PlusGenExePath.c_str()))) {
-        return RGY_ERR_NOT_FOUND;
+#if defined(_WIN32) || defined(_WIN64)
+    tstring HDR10PlusGenExePath = getExeDir() + _T("\\") + HDR10PLUS_GEN_EXE_NAME;
+#else
+    tstring HDR10PlusGenExePath = getExeDir() + _T("/") + HDR10PLUS_GEN_EXE_NAME;
+#endif
+    if (!PathFileExists(HDR10PLUS_GEN_EXE_NAME)) {
+        HDR10PlusGenExePath = HDR10PLUS_GEN_EXE_NAME;
     }
     const tstring HDR10PlusGenExePathWithQuotes = tstring(_T("\"")) + HDR10PlusGenExePath + _T("\"");
     const tstring inputJsonWithQuotes = tstring(_T("\"")) + inputJson + _T("\"");
