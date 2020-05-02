@@ -335,7 +335,7 @@ RGY_ERR initReaders(
 #endif
 #if ENABLE_VAPOURSYNTH_READER
         } else if (check_ext(common->inputFilename, { ".vpy" })) {
-            input->type = RGY_INPUT_FMT_VPY_MT;
+            input->type = RGY_INPUT_FMT_VPY;
 #endif
         } else {
 #if ENABLE_AVSW_READER
