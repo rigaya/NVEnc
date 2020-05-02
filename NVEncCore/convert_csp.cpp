@@ -632,7 +632,7 @@ static void RGY_FORCEINLINE convert_yv12_p_to_yuv444_c(void **dst, const void **
                     dstC[1*dst_y_pitch   + 0] = (Tout)cy3x0;
                     dstC[1*dst_y_pitch   + 1] = (Tout)((cy3x0 + cy3x1 + 1) >> 1);
                 }
-            } else if (y >= height-2) {
+            } else if (y_range.start_dst + y >= height-2) {
                 for (int x = 0; x < x_fin; x += 2, dstC += 2, srcP++) {
                     int cxplus = (x + 2 < x_fin);
                     int cy0x0 = srcP[-1*src_uv_pitch + 0];
