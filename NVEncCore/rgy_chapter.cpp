@@ -45,6 +45,23 @@
 #include "rgy_codepage.h"
 #include "rgy_util.h"
 
+
+#if defined(_WIN32) || defined(_WIN64)
+struct iunknown_deleter {
+    void operator()(IUnknown *ptr) const {
+        ptr->Release();
+        CoUninitialize();
+    }
+};
+
+static BOOL fix_ImulL_WesternEurope(uint32_t *code_page) {
+    //IMultiLanguage2 の DetectInputCodepage はよく西ヨーロッパ言語と誤判定しやがる
+    if (*code_page == CODE_PAGE_WEST_EUROPE)
+        *code_page = CODE_PAGE_SJIS;
+    return TRUE;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
 static const int MAX_UTF8_CHAR_LENGTH = 6;
 static const uint8_t UTF8_BOM[] = { 0xEF, 0xBB, 0xBF };
 
@@ -509,7 +526,6 @@ int ChapterRW::read_chapter_matroska() {
 }
 
 int ChapterRW::read_chapter() {
-    int sts = AUO_CHAP_ERR_NONE;
     if (0 == m_filedata.length()) {
         if (CHAP_TYPE_UNKNOWN == check_chap_type_from_file()) {
             return AUO_CHAP_ERR_CP_DETECT;

@@ -193,7 +193,7 @@ unsigned int char_to_string(std::string& dst, uint32_t codepage_to, const char *
         dst = src;
         return dst.length();
     }
-    std::wstring& wstrtemp;
+    std::wstring wstrtemp;
     char_to_wstring(wstrtemp, src, codepage_from);
     wstring_to_string(wstrtemp.c_str(), dst, codepage_to);
     return dst.length();
