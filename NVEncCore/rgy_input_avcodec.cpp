@@ -505,8 +505,8 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         }
 #if _DEBUG && 0
         for (int i = 0; i < m_Demux.frames.frameNum(); i++) {
-            fprintf(stderr, "%3d: pts:%I64d, poc:%3d, duration:%5d, duration2:%5d, repeat:%d\n",
-                i, m_Demux.frames.list(i).pts, m_Demux.frames.list(i).poc,
+            fprintf(stderr, "%3d: pts:%lld, poc:%3d, duration:%5d, duration2:%5d, repeat:%d\n",
+                i, (long long int)m_Demux.frames.list(i).pts, m_Demux.frames.list(i).poc,
                 m_Demux.frames.list(i).duration, m_Demux.frames.list(i).duration2,
                 m_Demux.frames.list(i).repeat_pict);
         }
@@ -527,8 +527,8 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 
         for (int i = 0; i < nFramesToCheck; i++) {
 #if _DEBUG && 0
-            fprintf(stderr, "%3d: pts:%I64d, poc:%3d, duration:%5d, duration2:%5d, repeat:%d\n",
-                i, m_Demux.frames.list(i).pts, m_Demux.frames.list(i).poc,
+            fprintf(stderr, "%3d: pts:%lld, poc:%3d, duration:%5d, duration2:%5d, repeat:%d\n",
+                i, (long long int)m_Demux.frames.list(i).pts, m_Demux.frames.list(i).poc,
                 m_Demux.frames.list(i).duration, m_Demux.frames.list(i).duration2,
                 m_Demux.frames.list(i).repeat_pict);
 #endif
@@ -615,7 +615,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 
         AddMessage(RGY_LOG_DEBUG, _T("fps mul:         %d\n"),    mul);
         AddMessage(RGY_LOG_DEBUG, _T("raw avgDuration: %lf\n"),   avgDuration);
-        AddMessage(RGY_LOG_DEBUG, _T("estimatedAvgFps: %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
+        AddMessage(RGY_LOG_DEBUG, _T("estimatedAvgFps: %llu/%llu\n"), (long long int)estimatedAvgFps.num, (long long int)estimatedAvgFps.den);
     }
 
     if (m_Demux.video.streamPtsInvalid & RGY_PTS_ALL_INVALID) {
@@ -638,7 +638,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
             }
         }
     }
-    AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (raw64): %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
+    AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (raw64): %llu/%llu\n"), (long long int)estimatedAvgFps.num, (long long int)estimatedAvgFps.den);
 
     //フレームレートが2000fpsを超えることは考えにくいので、誤判定
     //ほかのなにか使えそうな値で代用する
