@@ -222,7 +222,7 @@ fi
 CXXINC=" \
   -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS \
   -I${SRCDIR} -I${SRCDIR}/NVEncSDK/Common/inc -I${SRCDIR}/NVEncCore \
-  -I${SRCDIR}/jitify -I${SRCDIR}/tinyxml2 -I${SRCDIR}/cppcodec -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
+  -I${SRCDIR}/jitify -I${SRCDIR}/tinyxml2 -I${SRCDIR}/cppcodec -I${SRCDIR}/ttmath \
 "
 CXXFLAGS="-Wall -Wno-unknown-pragmas -Wno-unused -Wno-missing-braces"
 
@@ -533,7 +533,7 @@ convert_csp.cpp        convert_csp_avx.cpp         convert_csp_avx2.cpp         
 convert_csp_sse41.cpp  convert_csp_ssse3.cpp       cpu_info.cpp                 gpu_info.cpp \
 gpuz_info.cpp          h264_level.cpp              hevc_level.cpp               logo.cpp \
 ram_speed.cpp          rgy_avlog.cpp               rgy_avutil.cpp               rgy_bitstream.cpp \
-rgy_caption.cpp        rgy_cmd.cpp                 rgy_codepage.cpp             rgy_def.cpp \
+rgy_caption.cpp        rgy_chapter.cpp             rgy_cmd.cpp                  rgy_codepage.cpp             rgy_def.cpp \
 rgy_err.cpp            rgy_event.cpp               rgy_frame.cpp                rgy_hdr10plus.cpp \
 rgy_ini.cpp            rgy_input.cpp               rgy_input_avcodec.cpp        rgy_input_avi.cpp \
 rgy_input_avs.cpp      rgy_input_raw.cpp           rgy_input_sm.cpp             rgy_input_vpy.cpp \
@@ -551,8 +551,6 @@ NVEncFilterTweak.cu       NVEncFilterUnsharp.cu    NVEncFilterYadif.cu \
 "
 
 SRC_TINYXML2="tinyxml2.cpp"
-
-SRC_CHAPTER_RW="chapter_rw.cpp"
 
 ASM_NVENCCORE="ram_speed_x64.asm cpu_info_x64.asm"
 
@@ -586,10 +584,6 @@ done
 
 for src in $SRC_TINYXML2; do
     SRCS="$SRCS tinyxml2/$src"
-done
-
-for src in $SRC_CHAPTER_RW; do
-    SRCS="$SRCS ChapterRW/$src"
 done
 
 for src in $SRC_NVENCC; do
