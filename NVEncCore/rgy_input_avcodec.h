@@ -109,6 +109,20 @@ typedef struct FramePos {
 #define DEBUG_FRAME_COPY(x)
 #endif
 
+static FramePos framePosInit() {
+    FramePos pos;
+    pos.pts = 0;
+    pos.dts = 0;
+    pos.duration = 0;
+    pos.duration2 = 0;
+    pos.poc = FRAMEPOS_POC_INVALID;
+    pos.flags = 0;
+    pos.pic_struct = RGY_PICSTRUCT_FRAME;
+    pos.repeat_pict = 0;
+    pos.pict_type = 0;
+    return pos;
+}
+
 static FramePos framePos(int64_t pts, int64_t dts,
     int duration, int duration2 = 0,
     int poc = FRAMEPOS_POC_INVALID,
@@ -253,9 +267,9 @@ public:
         return m_streamPtsStatus;
     }
     FramePos findpts(int64_t pts, uint32_t *lastIndex) {
-        FramePos pos_last = { 0 };
+        FramePos pos_last = framePosInit();
         for (uint32_t index = *lastIndex + 1; ; index++) {
-            FramePos pos;
+            FramePos pos = framePosInit();
             if (!m_list.copy(&pos, index)) {
                 break;
             }
@@ -267,7 +281,7 @@ public:
         }
         //最初から探索
         for (uint32_t index = 0; ; index++) {
-            FramePos pos;
+            FramePos pos = framePosInit();
             if (!m_list.copy(&pos, index)) {
                 break;
             }
@@ -283,8 +297,7 @@ public:
             pos_last = pos;
         }
         //エラー
-        FramePos poserr = { 0 };
-        poserr.poc = FRAMEPOS_POC_INVALID;
+        FramePos poserr = framePosInit();
         return poserr;
     }
     //FramePosを追加し、内部状態を変更する
@@ -311,7 +324,7 @@ public:
     FramePos copy(int poc, uint32_t *lastIndex) {
         assert(lastIndex != nullptr);
         for (uint32_t index = *lastIndex + 1; ; index++) {
-            FramePos pos;
+            FramePos pos = framePosInit();
             if (!m_list.copy(&pos, index)) {
                 break;
             }
@@ -326,7 +339,7 @@ public:
                 //なにかおかしなことが起こっており、異常なのだが、最後の最後でエラーとしてしまうのもあほらしい
                 //とりあえず、ptsを推定して返してしまう
                 pos.poc = poc;
-                FramePos pos_tmp = { 0 };
+                FramePos pos_tmp = framePosInit();
                 m_list.copy(&pos_tmp, index-1);
                 int nLastPoc = pos_tmp.poc;
                 int64_t nLastPts = pos_tmp.pts;
@@ -344,8 +357,7 @@ public:
             }
         }
         //エラー
-        FramePos pos = { 0 };
-        pos.poc = FRAMEPOS_POC_INVALID;
+        FramePos pos = framePosInit();
         DEBUG_FRAME_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request: %8d, invalid, list size: %d\n"), poc, (int)m_list.size()));
         return pos;
     }
