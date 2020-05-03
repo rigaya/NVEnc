@@ -165,7 +165,7 @@ public:
                 memcpy(newBuf.get(), pBufOutOld, sizeof(queueData) * dataSize);
             } else {
                 queueData *pBufOutNew = newBuf.get();
-                for (int i = 0; i < dataSize; i++) {
+                for (size_t i = 0; i < dataSize; i++) {
                     pBufOutNew[i].data = pBufOutOld[i].data;
                 }
             }
