@@ -73,10 +73,10 @@ unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t c
         return 0;
     }
     auto ic = iconv_open(codepage_str(codepage), "wchar_t"); //to, from
-    auto input_len = (wcslen(wstr)+1) * 2;
+    auto input_len = (wcslen(wstr)+1) * 4;
     std::vector<char> buf(input_len, 0);
     memcpy(buf.data(), wstr, input_len);
-    auto output_len = input_len * 12;
+    auto output_len = input_len * 8;
     std::vector<char> bufout(output_len, 0);
     char *outbuf = bufout.data();
     char *input = buf.data();
@@ -191,12 +191,12 @@ unsigned int char_to_string(std::string& dst, uint32_t codepage_to, const char *
     }
     if (codepage_to == codepage_from) {
         dst = src;
-        return dst.length();
+        return (unsigned int)dst.length();
     }
     std::wstring wstrtemp;
     char_to_wstring(wstrtemp, src, codepage_from);
     wstring_to_string(wstrtemp.c_str(), dst, codepage_to);
-    return dst.length();
+    return (unsigned int)dst.length();
 }
 #else
 unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
@@ -211,7 +211,7 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
     auto input_len = strlen(str)+1;
     std::vector<char> buf(input_len);
     strcpy(buf.data(), str);
-    auto output_len = (input_len + 1) * 12;
+    auto output_len = (input_len + 1) * 8;
     std::vector<char> bufout(output_len, 0);
     char *inbuf = buf.data();
     char *outbuf = bufout.data();
