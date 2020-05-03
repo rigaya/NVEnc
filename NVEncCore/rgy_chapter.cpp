@@ -175,14 +175,14 @@ int ChapterRW::write_chapter_nero(const TCHAR *out_filepath, bool utf8) {
         if (utf8)
             ostream.write((const char *)UTF8_BOM, sizeof(UTF8_BOM));
 
-        const uint32_t output_codepage = (utf8) ? CODE_PAGE_UTF8 : CODE_PAGE_SJIS;
+        const uint32_t output_codepage = (utf8) ? CODE_PAGE_UTF8 : CP_THREAD_ACP;
         for (uint32_t i = 0; i < chapters.size(); i++) {
             const auto& chap = chapters[i];
             static const char * const KEY_BASE = "CHAPTER";
             static const char * const KEY_NAME = "NAME";
 
             ostream << strsprintf("%s%02d=%02d:%02d:%02d.%03d\r\n", KEY_BASE, i+1, chap->h, chap->m, chap->s, chap->ms);
-            ostream << strsprintf("%s%02d%s=%s\r\n", KEY_BASE, i+1, KEY_NAME, chap->name.c_str());
+            ostream << strsprintf("%s%02d%s=%s\r\n", KEY_BASE, i+1, KEY_NAME, char_to_string(output_codepage, chap->name.c_str(), CODE_PAGE_UTF8).c_str());
         }
         ostream.close();
     }
