@@ -248,6 +248,7 @@ if [ "${CUDA_PATH}" != "" ]; then
     CUDA_LIBS="-L${CUDA_PATH}/lib64 ${CUDA_LIBS}"
     export PATH=${CUDA_PATH}/bin:${PATH}
     NVCC=`which nvcc`
+    LD=$NVCC
 else
     printf "checking for cuda..."
 fi
