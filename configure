@@ -66,16 +66,16 @@ regex_check()
 
 rm -f config.* .depend NVEncCore/rgy_config.h NVEncCore/rgy_rev.h
 
-PKGCONFIG="pkg-config"
+PKGCONFIG=${PKGCONFIG:-pkg-config}
 USE_PKGCONFIG=1
 
 ENABLE_DEBUG=0
-NVCC=nvcc
-CXX=g++
-LD=nvcc
-AS=yasm
+NVCC=${NVCC:-nvcc}
+CXX=${CXX:-g++}
+LD=$NVCC
+AS=${AS:-yasm}
 PROGRAM=nvencc
-PREFIX="/usr/local"
+PREFIX=${PREFIX:-/usr/local}
 EXTRACXXFLAGS=""
 EXTRALDFLAGS=""
 SRCS=""
