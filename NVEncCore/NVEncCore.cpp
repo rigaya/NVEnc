@@ -380,10 +380,10 @@ NVENCSTATUS NVEncCore::readChapterFile(const tstring& chapfile) {
         avchap->end = (i < chapter_list.size()-1) ? chapter_list[i+1]->get_ms() : avchap->start + 1;
         avchap->id = (int)m_Chapters.size();
         avchap->metadata = nullptr;
-        av_dict_set(&avchap->metadata, "title", chapter_list[i]->name.c_str(), 0);
+        av_dict_set(&avchap->metadata, "title", chapter_list[i]->name.c_str(), 0); //chapter_list[i]->nameはUTF-8になっている
         chap_log += strsprintf(_T("chapter #%02d [%d.%02d.%02d.%03d]: %s.\n"),
             avchap->id, chapter_list[i]->h, chapter_list[i]->m, chapter_list[i]->s, chapter_list[i]->ms,
-            char_to_tstring(chapter_list[i]->name, CODE_PAGE_UTF8).c_str());
+            char_to_tstring(chapter_list[i]->name, CODE_PAGE_UTF8).c_str()); //chapter_list[i]->nameはUTF-8になっている
         m_Chapters.push_back(std::move(avchap));
     }
     PrintMes(RGY_LOG_DEBUG, _T("%s"), chap_log.c_str());

@@ -72,6 +72,7 @@ int RGYInputVpy::load_vapoursynth() {
     const TCHAR *vsscript_dll_name = _T("vsscript.dll");
     if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(vsscript_dll_name))) {
 #else
+    //VapourSynthを介してpython3のsoをロードするにはdlopenにRTLD_GLOBALが必要。
     const TCHAR *vsscript_dll_name = _T("libvapoursynth-script.so");
     if (NULL == (m_sVS.hVSScriptDLL = dlopen(vsscript_dll_name, RTLD_LAZY|RTLD_GLOBAL))) {
 #endif
