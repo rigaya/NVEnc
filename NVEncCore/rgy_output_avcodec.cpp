@@ -1447,7 +1447,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         muxSub->outCodecEncodeCtx->time_base = av_make_q(1, 1000);
 
         #pragma warning(push)
-        #pragma warning(disable:4996) // warning C4996: 'av_frame_get_qp_table': が古い形式として宣言されました。
+        #pragma warning(disable:4996) // warning C4996: 'codec': が古い形式として宣言されました。
         RGY_DISABLE_WARNING_PUSH
         RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
         //subtitle_headerをここで設定しないとavcodec_open2に失敗する
@@ -1496,7 +1496,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
     }
 
     #pragma warning(push)
-    #pragma warning(disable:4996) // warning C4996: 'av_frame_get_qp_table': が古い形式として宣言されました。
+    #pragma warning(disable:4996) // warning C4996: 'codec': が古い形式として宣言されました。
     RGY_DISABLE_WARNING_PUSH
     RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
     if (!muxSub->streamOut->codec->codec_tag) {
