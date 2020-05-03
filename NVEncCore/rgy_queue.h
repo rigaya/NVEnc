@@ -59,7 +59,6 @@ public:
         m_nMaxCapacity(SIZE_MAX),
         m_nKeepLength(0),
         m_pBufStart(), m_pBufFin(nullptr), m_pBufIn(nullptr), m_pBufOut(nullptr), m_bUsingData(false) {
-        static_assert(std::is_pod<Type>::value == true, "RGYQueueSPSP is only for POD type.");
         //実際のメモリのアライメントに適切な2の倍数であるか確認する
         //そうでない場合は32をデフォルトとして使用
         for (uint32_t i = 4; i < sizeof(i) * 8; i++) {
@@ -162,7 +161,14 @@ public:
             if (!newBuf) {
                 return false;
             }
-            memcpy(newBuf.get(), pBufOutOld, sizeof(queueData) * dataSize);
+            if (std::is_trivially_copyable<Type>::value) {
+                memcpy(newBuf.get(), pBufOutOld, sizeof(queueData) * dataSize);
+            } else {
+                queueData *pBufOutNew = newBuf.get();
+                for (int i = 0; i < dataSize; i++) {
+                    pBufOutNew[i].data = pBufOutOld[i].data;
+                }
+            }
             queueData *pBufOutNew = newBuf.get();
             queueData *pBufOutExpected = pBufOutOld;
             //更新前にnullptrをセット
@@ -189,7 +195,7 @@ public:
             m_pBufStart = std::move(newBuf);
             m_bUsingData--;
         }
-        memcpy(m_pBufIn.load(), &in, sizeof(Type));
+        m_pBufIn.load()->data = in;
         m_pBufIn++;
         SetEvent(m_heEventPushed);
         return true;
