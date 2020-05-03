@@ -9,20 +9,26 @@ branches:
 matrix:
   fast_finish: true
   include:
-    - name: gcc9 CUDA 10 build
+    - name: gcc 7 + CUDA 10 build
       compiler: gcc
       dist: bionic
       env:
-      - CC=gcc-9
-      - CXX=g++-9
+      - CC=gcc
+      - CXX=g++
+    - name: gcc 8 + CUDA 10 build
+      compiler: gcc
+      dist: bionic
+      env:
+      - CC=gcc-8
+      - CXX=g++-8
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages:
             - *native_deps
-            - gcc-9
-            - g++-9
-    - name: clang8 CUDA 10 build
+            - gcc-8
+            - g++-8
+    - name: clang 8 + CUDA 10 build
       compiler: clang
       dist: bionic
       env:
