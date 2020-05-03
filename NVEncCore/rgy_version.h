@@ -67,6 +67,7 @@ const char *get_encoder_version();
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 #define ENABLE_PERF_COUNTER 1
+#define ENABLE_AVCODEC_ITERATE 1
 
 #ifdef _M_IX86
 #define ENABLE_NVML 0
