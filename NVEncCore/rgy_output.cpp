@@ -527,8 +527,8 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             WRITE_CHECK(fwrite(ptrBuf + pSurface->crop().e.left, 1, (uint32_t)pSurface->width() << 1, m_fDest.get()), (uint32_t)pSurface->width() << 1);
         }
     } else if (pSurface->csp() == RGY_CSP_RGB32R
-        || pSurface->csp() == 100 //DXGI_FORMAT_AYUV
-        /*|| pSurface->csp() == RGY_CSP_A2RGB10*/) {
+        /*|| pSurface->csp() == 100 //DXGI_FORMAT_AYUV
+        || pSurface->csp() == RGY_CSP_A2RGB10*/) {
         frameSize = lumaWidthBytes * pSurface->height() * 4;
         uint32_t w = pSurface->width();
         uint32_t h = pSurface->height();
