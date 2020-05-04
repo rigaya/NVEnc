@@ -1,10 +1,13 @@
 
 # NVEncのビルド方法
-by rigaya  
+
+- [Windows](./Build.ja.md#windows)
+- [Linux (Ubuntu 19.10)](./Build.ja.md#linux-%28ubuntu-19.10%29)
+- [Linux (Ubuntu 18.04)](./Build.ja.md#linux-%28ubuntu-18.04%29)
 
 ## Windows
 
-### 0. 準備
+### 0. ビルドに必要なもの
 ビルドには、下記のものが必要です。
 
 - Visual Studio 2015 + CUDA 8.0 (x86)
@@ -13,6 +16,7 @@ by rigaya
 - Avisynth+ SDK
 - VapourSynth SDK
 
+### 1. 環境準備
 yasmはパスに追加しておきます。
 
 Avisynth+とVapourSynthは、SDKがインストールされるよう設定してインストールします。
@@ -34,13 +38,13 @@ git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
 setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
 ```
 
-### 1. ソースのダウンロード
+### 2. ソースのダウンロード
 
 ```Batchfile
 git clone https://github.com/rigaya/NVEnc --recursive
 ```
 
-### 2. NVEnc.auo / NVEncC のビルド
+### 3. NVEnc.auo / NVEncC のビルド
 
 NVEnc.slnを開き、ビルドします。
 
@@ -54,13 +58,24 @@ NVEnc.slnを開き、ビルドします。
 
 ## Linux (Ubuntu 19.10)
 
-### 0. ビルドに必要なもののインストール
+### 0. ビルドに必要なもの
+- GPUドライバ 435.21 以上
+- C++14 コンパイラ
+- CUDA 10
+- yasm
+- git
+- ライブラリ群
+  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - libass9
+  - [オプション] VapourSynth
+
+### 1. コンパイラ等のインストール
 
 ```Shell
 sudo apt install build-essential git yasm nasm
 ```
 
-### 1. NVIDIA ドライバのインストール
+### 2. NVIDIA ドライバのインストール
 
 導入可能なドライバの確認を行うため、下記を実行します。
 ```Shell
@@ -89,7 +104,7 @@ sudo reboot
 
 再起動後、正常に導入されたか確認します。下記のように出れば正常です。
 ```Shell
-rigaya@rigaya6-linux:~$ nvidia-smi
+$ nvidia-smi
 Fri Apr 24 22:39:10 2020
 +-----------------------------------------------------------------------------+
 | NVIDIA-SMI 440.82       Driver Version: 440.82       CUDA Version: 10.2     |
@@ -110,31 +125,32 @@ Fri Apr 24 22:39:10 2020
 +-----------------------------------------------------------------------------+
 ```
 
-### 2. CUDAのインストール
+### 3. CUDAのインストール
 ```Shell
 sudo apt install nvidia-cuda-toolkit
 ```
 
-### 3. ビルドに必要なライブラリのインストール
+### 4. ビルドに必要なライブラリのインストール
 
 ffmpegと関連ライブラリを導入します。
 ```Shell
-sudo apt install ffmpeg \
+sudo apt install \
   libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
   libass9 libass-dev
 ```
-
-### 4. [オプション] VapourSynthのビルド
+### 5. [オプション] VapourSynthのビルド
 VapourSynthのインストールは必須ではありませんが、インストールしておくとvpyを読み込めるようになります。
 
-必要のない場合は 5. NVEncCのビルド に進んでください。
+必要のない場合は 6. NVEncCのビルド に進んでください。
 
-#### 4.1 ビルドに必要なツールのインストール
+<details><summary>VapourSynthのビルドの詳細はこちら</summary>
+
+#### 5.1 ビルドに必要なツールのインストール
 ```Shell
 sudo apt install python3-pip autoconf automake libtool meson
 ```
 
-#### 4.2 zimgのインストール
+#### 5.2 zimgのインストール
 ```Shell
 git clone https://github.com/sekrit-twc/zimg.git
 cd zimg
@@ -144,12 +160,12 @@ sudo make install -j16
 cd ..
 ```
 
-#### 4.3 cythonのインストール
+#### 5.3 cythonのインストール
 ```Shell
 sudo pip3 install Cython
 ```
 
-#### 4.4 VapourSynthのビルド
+#### 5.4 VapourSynthのビルド
 ```Shell
 git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
@@ -164,13 +180,13 @@ sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python
 sudo ldconfig
 ```
 
-#### 4.5 VapourSynthの動作確認
+#### 5.5 VapourSynthの動作確認
 エラーが出ずにバージョンが表示されればOK。
 ```Shell
 vspipe --version
 ```
 
-#### 4.6 [おまけ] vslsmashsourceのビルド
+#### 5.6 [おまけ] vslsmashsourceのビルド
 ```Shell
 # lsmashのビルド
 git clone https://github.com/l-smash/l-smash.git
@@ -188,7 +204,9 @@ sudo ninja install
 cd ../../../
 ```
 
-### 5. NVEncCのビルド
+</details>
+
+### 6. NVEncCのビルド
 下記を実行します。
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
@@ -197,7 +215,7 @@ cd NVEnc
 make -j16
 ```
 
-動作確認をします。正常にGPUが認識されていればOKです。
+動作確認をします。
 ```Shell
 ./nvencc --check-hw
 ```
@@ -205,6 +223,172 @@ make -j16
 こんな感じでNVENCのサポートしているコーデックが表示されればOKです。
 ```
 #0: GeForce GTX 1080 (2560 cores, 1822 MHz)[PCIe3x16][440.82]
+Avaliable Codec(s)
+H.264/AVC
+H.265/HEVC
+```
+
+
+## Linux (Ubuntu 18.04)
+
+### 0. ビルドに必要なもの
+- GPUドライバ 435.21 以上
+- C++14 コンパイラ
+- CUDA 10
+- yasm
+- git
+- ライブラリ群
+  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - libass9
+  - [オプション] VapourSynth
+
+### 1. コンパイラ等のインストール
+
+```Shell
+sudo apt install git yasm nasm
+```
+
+### 2. gcc 8 のインストール
+
+CUDA 10.2はUbuntu 18.04に標準でインストールされるgcc7でも対応可能なはずですが、実際にCUDAのソースをコンパイルするとエラーが出る場合があります。そのため、ここではgcc8の導入を行います。なお、この後インストールするCUDA 10はgcc9には対応していないようです。
+
+```Shell
+sudo -E apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
+sudo -E apt-get -yq --no-install-suggests --no-install-recommends  install gcc-8 g++-8
+export CC=gcc-8
+export CXX=g++-8
+```
+
+### 3. NVIDIA ドライバ + CUDA のインストール
+
+```Shell
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
+sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
+wget http://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu1804-10-2-local-10.2.89-440.33.01_1.0-1_amd64.deb
+sudo apt-key add /var/cuda-repo-10-2-local-10.2.89-440.33.01/7fa2af80.pub
+sudo apt-get update
+sudo apt-get -y install cuda
+export CUDA_PATH=/usr/local/cuda
+```
+
+再起動後、正常に導入されたか確認します。下記のように出れば正常です。 (下記はAWS g3s.xlargeでテストしたもの)
+```Shell
+$ nvidia-smi
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 440.33.01    Driver Version: 440.33.01    CUDA Version: 10.2     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|===============================+======================+======================|
+|   0  Tesla M60           On   | 00000000:00:1E.0 Off |                    0 |
+| N/A   28C    P8    15W / 150W |      0MiB /  7618MiB |      0%      Default |
++-------------------------------+----------------------+----------------------+
+
++-----------------------------------------------------------------------------+
+| Processes:                                                       GPU Memory |
+|  GPU       PID   Type   Process name                             Usage      |
+|=============================================================================|
+|  No running processes found                                                 |
++-----------------------------------------------------------------------------+
+```
+
+### 4. ビルドに必要なライブラリのインストール
+
+Ubuntu 18.04の標準ではffmpeg 3.x系が導入されてしまうため、下記のように明示的にffmpeg 4.x系のライブラリを導入します。
+
+```Shell
+sudo add-apt-repository ppa:jonathonf/ffmpeg-4
+sudo apt update
+sudo apt install ffmpeg \
+  libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat58 libavformat-dev \
+  libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
+```
+### 5. [オプション] VapourSynthのビルド
+VapourSynthのインストールは必須ではありませんが、インストールしておくとvpyを読み込めるようになります。
+
+必要のない場合は 5. NVEncCのビルド に進んでください。
+
+<details><summary>VapourSynthのビルドの詳細はこちら</summary>
+
+#### 5.1 ビルドに必要なツールのインストール
+```Shell
+sudo apt install python3-pip autoconf automake libtool meson
+```
+
+#### 5.2 zimgのインストール
+```Shell
+git clone https://github.com/sekrit-twc/zimg.git
+cd zimg
+./autogen.sh
+./configure
+sudo make install -j4
+cd ..
+```
+
+#### 5.3 cythonのインストール
+```Shell
+sudo pip3 install Cython
+```
+
+#### 5.4 VapourSynthのビルド
+```Shell
+git clone https://github.com/vapoursynth/vapoursynth.git
+cd vapoursynth
+./autogen.sh
+./configure
+make -j4
+sudo make install
+
+# vapoursynthが自動的にロードされるようにする
+# "python3.x" は環境に応じて変えてください。これを書いた時点ではpython3.7でした
+sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
+sudo ldconfig
+```
+
+#### 5.5 VapourSynthの動作確認
+エラーが出ずにバージョンが表示されればOK。
+```Shell
+vspipe --version
+```
+
+#### 5.6 [おまけ] vslsmashsourceのビルド
+```Shell
+# lsmashのビルド
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+sudo make install -j4
+cd ..
+ 
+# vslsmashsourceのビルド
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+cd L-SMASH-Works/VapourSynth
+meson build
+cd build
+sudo ninja install
+cd ../../../
+```
+
+</details>
+
+### 6. NVEncCのビルド
+下記を実行します。
+```Shell
+git clone https://github.com/rigaya/NVEnc --recursive
+cd NVEnc
+./configure
+make -j4
+```
+
+動作確認をします。
+```Shell
+./nvencc --check-hw
+```
+
+こんな感じでNVENCのサポートしているコーデックが表示されればOKです。 (AWS g3s.xlargeの例)
+```
+#0: Tesla M60 (2048 cores, 1177 MHz)[PCIe3x16][440.33]
 Avaliable Codec(s)
 H.264/AVC
 H.265/HEVC
