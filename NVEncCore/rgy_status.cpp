@@ -152,7 +152,6 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
     double gpudecoder_usage = 0.0;
     double gpuencoder_usage = 0.0;
     double gpuusage = 0.0;
-#if defined(_WIN32) || defined(_WIN64)
 #if ENABLE_METRIC_FRAMEWORK
     QSVGPUInfo info = { 0 };
     bGPUUsage = bVideoEngineUsage = m_pPerfMonitor && m_pPerfMonitor->GetQSVInfo(&info);
@@ -214,7 +213,6 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
         m_sData.VEELoadPercentTotal += gpuencoder_usage;
         m_sData.VEDLoadPercentTotal += gpudecoder_usage;
     }
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
     double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
     if (m_sData.frameOut + m_sData.frameDrop >= 30) {
@@ -363,7 +361,6 @@ void EncodeStatus::WriteResults() {
     int mm = time_elapsed / (60*1000);
     time_elapsed -= mm * (60*1000);
     int ss = time_elapsed / 1000;
-#if defined(_WIN32) || defined(_WIN64)
     m_sData.CPUUsagePercent = GetProcessAvgCPUUsage(m_sStartTime.get());
     if (m_sData.GPUInfoCountSuccess > m_sData.GPUInfoCountFail) {
         const double gpu_load = m_sData.GPULoadPercentTotal / m_sData.GPUInfoCountSuccess;
@@ -395,10 +392,6 @@ void EncodeStatus::WriteResults() {
         _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.1f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent);
         WriteLineDirect(mes);
     }
-#else
-    _stprintf_s(mes, _T("encode time %d:%02d:%02d\n"), hh, mm, ss);
-    WriteLineDirect(mes);
-#endif
 
     uint32_t maxCount = (std::max)(m_sData.frameOutI, (std::max)(m_sData.frameOutP, m_sData.frameOutB));
     uint64_t maxFrameSize = (std::max)(m_sData.frameOutISize, (std::max)(m_sData.frameOutPSize, m_sData.frameOutBSize));

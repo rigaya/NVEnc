@@ -949,7 +949,7 @@ void CPerfMonitor::check() {
     GetProcessTimes(hProcess, (FILETIME *)&pt.creation, (FILETIME *)&pt.exit, (FILETIME *)&pt.kernel, (FILETIME *)&pt.user);
     pInfoNew->time_us = (current_time - pt.creation) / 10;
     const double time_diff_inv = 1.0 / (pInfoNew->time_us - pInfoOld->time_us);
-
+#endif //#if defined(_WIN32) || defined(_WIN64)
     //GPU情報
     bool qsv_metric = false;
     m_bGPUZInfoValid = false;
@@ -1038,7 +1038,8 @@ void CPerfMonitor::check() {
         }
     }
 #endif //#if ENABLE_PERF_COUNTER
-#else
+
+#if !(defined(_WIN32) || defined(_WIN64))
     struct rusage usage = { 0 };
     getrusage(RUSAGE_SELF, &usage);
 
