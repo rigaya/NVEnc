@@ -2,8 +2,8 @@
 # NVEncのビルド方法
 
 - [Windows](./Build.ja.md#windows)
-- [Linux (Ubuntu 19.10)](./Build.ja.md#linux-%28ubuntu-19.10%29)
-- [Linux (Ubuntu 18.04)](./Build.ja.md#linux-%28ubuntu-18.04%29)
+- [Linux (Ubuntu 19.10)](./Build.ja.md#linux-ubuntu-1910)
+- [Linux (Ubuntu 18.04)](./Build.ja.md#linux-ubuntu-1804)
 
 ## Windows
 

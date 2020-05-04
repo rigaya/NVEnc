@@ -1,13 +1,13 @@
-NVEncC (x64) 5.01 (r1503) by rigaya, May  4 2020 21:08:57 (VC 1925/Win/avx2)
-  [NVENC API v9.1, CUDA 10.1]
- reader: raw, y4m, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4]
+NVEnc (x64) 5.00 (r1494) by rigaya, May  3 2020 14:46:29 (gcc 8.4.0/Linux/avx2)
+  [NVENC API v9.1, CUDA 10.2]
+ reader: raw, y4m, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4]
 
 Environment Info
-OS : Windows 10 x64 (18363)
-CPU: Intel Core i9-7980XE @ 2.60GHz [TB: 4.10GHz] (18C/36T)
-RAM: Used 10215 MB, Total 16077 MB
+OS : Ubuntu 18.04.4 LTS x64
+CPU: Intel Xeon(R) Platinum 8259CL @ 2.50GHz [TB: 12917.33GHz] (2C/4T)
+RAM: Used 526 MB, Total 15718 MB
 
-#0: GeForce RTX 2070 (2304 cores, 1710 MHz)[PCIe3x16][445.75]
+#0: Tesla T4 (2560 cores, 1590 MHz)[PCIe3x16][440.33]
 NVEnc features
 Codec: H.264/AVC
 Max Bframes               4
@@ -23,8 +23,8 @@ Adaptive Transform        yes
 Max Temporal Layers       0
 Hierarchial P Frames      no
 Hierarchial B Frames      no
-Max Level                 62
-Min Level                 10
+Max Level                 51
+Min Level                 1
 4:4:4                     yes
 Min Width                 145
 Max Width                 4096
@@ -43,7 +43,7 @@ Custom VBV Bufsize        yes
 Dynamic Slice Mode        yes
 Ref Pic Invalidiation     yes
 PreProcess                no
-Async Encoding            yes
+Async Encoding            no
 Max MBs                   65536
 Lossless                  yes
 SAO                       no
@@ -64,8 +64,8 @@ B Direct Mode             no
 Max Temporal Layers       0
 Hierarchial P Frames      no
 Hierarchial B Frames      no
-Max Level                 186
-Min Level                 30
+Max Level                 62
+Min Level                 1
 4:4:4                     yes
 Min Width                 129
 Max Width                 8192
@@ -78,13 +78,13 @@ Dynamic Bitrate Change    yes
 Forced constant QP        yes
 Dynamic RC Mode Change    no
 Subframe Readback         yes
-Constrained Encoding      yes
+Constrained Encoding      no
 Intra Refresh             yes
 Custom VBV Bufsize        yes
 Dynamic Slice Mode        yes
 Ref Pic Invalidiation     yes
 PreProcess                no
-Async Encoding            yes
+Async Encoding            no
 Max MBs                   262144
 Lossless                  yes
 SAO                       yes

@@ -5,7 +5,7 @@ by rigaya
 **[日本語版はこちら＞＞](./Readme.ja.md)**
 **[简体中文版本＞＞](./Readme.cn.md)**
 
-[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master)  
+[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master)  [![Build Status](https://travis-ci.org/rigaya/NVEnc.svg?branch=master)](https://travis-ci.org/rigaya/NVEnc)   
 
 This software is meant to investigate performance and image quality of HW encoder (NVENC) of NVIDIA.
 There are 2 types of software developed, one is command line version that runs independently, and the nother is a output plug-in of [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
@@ -42,13 +42,13 @@ Hardware which supports NVENC
 ## Examples of supported encode features  
 Result of --check-features, a feature list returned from the driver. May depend on the driver version.  
 
-| GPU Gen | GPU Name |
-|:---|:---|
-| Kepler | [GTX660Ti](./GPUFeatures/gtx660ti.txt) |
-| Maxwell | [GTX970](./GPUFeatures/gtx970.txt) |
-| Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1070](./GPUFeatures/gtx1070.txt), [GTX1060](./GPUFeatures/gtx1060.txt) |
-| Volta | [GTX1650](./GPUFeatures/gtx1650.txt) |
-| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  |
+| GPU Gen | Windows | Linux |
+|:---|:---|:---|
+| Kepler | [GTX660Ti](./GPUFeatures/gtx660ti.txt) | [Tesla K80](./GPUFeatures/teslaK80_linux.txt) |
+| Maxwell | [GTX970](./GPUFeatures/gtx970.txt) | [Tesla M80](./GPUFeatures/teslaM80_linux.txt) |
+| Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1070](./GPUFeatures/gtx1070.txt), [GTX1060](./GPUFeatures/gtx1060.txt) | [GTX1080](./GPUFeatures/gtx1080_linux.txt) |
+| Volta | [GTX1650](./GPUFeatures/gtx1650.txt) | |
+| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  | [Tesla T4](./GPUFeatures/teslaT4_linux.txt)  |
 
 ## Precautions for using NVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.

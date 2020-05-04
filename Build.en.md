@@ -2,8 +2,8 @@
 # How to build NVEnc
 
 - [Windows](./Build.en.md#windows)
-- [Linux (Ubuntu 19.10)](./Build.en.md#linux-%28ubuntu-19.10%29)
-- [Linux (Ubuntu 18.04)](./Build.en.md#linux-%28ubuntu-18.04%29)
+- [Linux (Ubuntu 19.10)](./Build.en.md#linux-ubuntu-1910)
+- [Linux (Ubuntu 18.04)](./Build.en.md#linux-ubuntu-1804)
 
 ## Windows
 

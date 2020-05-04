@@ -1,19 +1,21 @@
-NVEncC (x64) 5.01 (r1503) by rigaya, May  4 2020 21:08:57 (VC 1925/Win/avx2)
-  [NVENC API v9.1, CUDA 10.1]
- reader: raw, y4m, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4]
+NVEnc (x64) 5.00 (r1496) by rigaya, May  4 2020 02:45:53 (gcc 8.4.0/Linux/avx2)
+  [NVENC API v9.1, CUDA 10.2]
+ reader: raw, y4m, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4]
+No LSB modules are available.
 
 Environment Info
-OS : Windows 10 x64 (18363)
-CPU: Intel Core i9-7980XE @ 2.60GHz [TB: 4.10GHz] (18C/36T)
-RAM: Used 10215 MB, Total 16077 MB
+OS : Ubuntu 18.04.4 LTS x64
+CPU: Intel Xeon(R) E5-2686 v4 @ 2.30GHz (2C/4T)
+RAM: Used 749 MB, Total 30603 MB
 
-#0: GeForce RTX 2070 (2304 cores, 1710 MHz)[PCIe3x16][445.75]
+No LSB modules are available.
+#0: Tesla M60 (2048 cores, 1177 MHz)[PCIe3x16][440.33]
 NVEnc features
 Codec: H.264/AVC
 Max Bframes               4
 B Ref Mode                yes
 RC Modes                  63
-Field Encoding            no
+Field Encoding            yes
 MonoChrome                no
 FMO                       no
 Quater-Pel MV             yes
@@ -23,14 +25,14 @@ Adaptive Transform        yes
 Max Temporal Layers       0
 Hierarchial P Frames      no
 Hierarchial B Frames      no
-Max Level                 62
-Min Level                 10
+Max Level                 51
+Min Level                 1
 4:4:4                     yes
-Min Width                 145
+Min Width                 33
 Max Width                 4096
-Min Height                49
+Min Height                17
 Max Height                4096
-Multiple Refs             yes
+Multiple Refs             no
 Max LTR Frames            8
 Dynamic Resolution Change yes
 Dynamic Bitrate Change    yes
@@ -43,19 +45,19 @@ Custom VBV Bufsize        yes
 Dynamic Slice Mode        yes
 Ref Pic Invalidiation     yes
 PreProcess                no
-Async Encoding            yes
+Async Encoding            no
 Max MBs                   65536
 Lossless                  yes
 SAO                       no
 Me Only Mode              yes
 Lookahead                 yes
 AQ (temporal)             yes
-Weighted Prediction       yes
+Weighted Prediction       no
 10bit depth               no
 
 Codec: H.265/HEVC
-Max Bframes               5
-B Ref Mode                yes
+Max Bframes               0
+B Ref Mode                no
 RC Modes                  63
 Field Encoding            no
 MonoChrome                no
@@ -64,43 +66,41 @@ B Direct Mode             no
 Max Temporal Layers       0
 Hierarchial P Frames      no
 Hierarchial B Frames      no
-Max Level                 186
-Min Level                 30
-4:4:4                     yes
-Min Width                 129
-Max Width                 8192
+Max Level                 62
+Min Level                 1
+4:4:4                     no
+Min Width                 65
+Max Width                 4096
 Min Height                33
-Max Height                8192
-Multiple Refs             yes
+Max Height                4096
+Multiple Refs             no
 Max LTR Frames            7
 Dynamic Resolution Change yes
 Dynamic Bitrate Change    yes
 Forced constant QP        yes
 Dynamic RC Mode Change    no
 Subframe Readback         yes
-Constrained Encoding      yes
+Constrained Encoding      no
 Intra Refresh             yes
 Custom VBV Bufsize        yes
 Dynamic Slice Mode        yes
 Ref Pic Invalidiation     yes
 PreProcess                no
-Async Encoding            yes
-Max MBs                   262144
-Lossless                  yes
-SAO                       yes
-Me Only Mode              yes
+Async Encoding            no
+Max MBs                   65536
+Lossless                  no
+SAO                       no
+Me Only Mode              no
 Lookahead                 yes
-AQ (temporal)             yes
-Weighted Prediction       yes
-10bit depth               yes
+AQ (temporal)             no
+Weighted Prediction       no
+10bit depth               no
 
 
 NVDec features
-  H.264/AVC:  nv12, yv12
-  H.265/HEVC: nv12, yv12, yv12(9bit), yv12(10bit), yv12(12bit), yuv444, yuv444(9bit), yuv444(10bit), yuv444(12bit)
-  MPEG1:      nv12, yv12
-  MPEG2:      nv12, yv12
-  MPEG4:      nv12, yv12
-  VP8:        nv12, yv12
-  VP9:        nv12, yv12, yv12(9bit), yv12(10bit), yv12(12bit)
-  VC-1:       nv12, yv12
+  H.264/AVC: nv12, yv12
+  MPEG1:     nv12, yv12
+  MPEG2:     nv12, yv12
+  MPEG4:     nv12, yv12
+  VP8:       nv12, yv12
+  VC-1:      nv12, yv12

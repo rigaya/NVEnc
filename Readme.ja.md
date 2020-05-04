@@ -2,7 +2,7 @@
 # NVEnc  
 by rigaya  
 
-[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master)  
+[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master) [![Build Status](https://travis-ci.org/rigaya/NVEnc.svg?branch=master)](https://travis-ci.org/rigaya/NVEnc)  
 
 このソフトウェアは、NVIDIAのGPU/APUに搭載されているHWエンコーダ(NVENC)の画質や速度といった性能の実験を目的としています。[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグイン版と単体で動作するコマンドライン版があります。  
 
@@ -39,13 +39,13 @@ NVEncが載ったハードウェア
 ## 各GPUのエンコード機能情報の調査結果  
 NVEncC --check-features の結果をまとめたものです。ドライバに問い合わせた結果となっています。そのため、ドライバのバージョンによって結果が異なる可能性があります。 
 
-| GPU世代 | GPU名 |
-|:---|:---|
-| Kepler | [GTX660Ti](./GPUFeatures/gtx660ti.txt) |
-| Maxwell | [GTX970](./GPUFeatures/gtx970.txt) |
-| Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1070](./GPUFeatures/gtx1070.txt), [GTX1060](./GPUFeatures/gtx1060.txt) |
-| Volta | [GTX1650](./GPUFeatures/gtx1650.txt) |
-| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  |
+| GPU世代 | Windows | Linux |
+|:---|:---|:---|
+| Kepler | [GTX660Ti](./GPUFeatures/gtx660ti.txt) | [Tesla K80](./GPUFeatures/teslaK80_linux.txt) |
+| Maxwell | [GTX970](./GPUFeatures/gtx970.txt) | [Tesla M80](./GPUFeatures/teslaM80_linux.txt) |
+| Pascal | [GTX1080](./GPUFeatures/gtx1080.txt), [GTX1070](./GPUFeatures/gtx1070.txt), [GTX1060](./GPUFeatures/gtx1060.txt) | [GTX1080](./GPUFeatures/gtx1080_linux.txt) |
+| Volta | [GTX1650](./GPUFeatures/gtx1650.txt) | |
+| Turing | [RTX2070](./GPUFeatures/rtx2070.txt), [RTX2060](./GPUFeatures/rtx2060.txt), [GTX1660Ti](./GPUFeatures/gtx1660ti.txt), [GTX1650 Super](./GPUFeatures/gtx1650super.txt)  | [Tesla T4](./GPUFeatures/teslaT4_linux.txt)  |
 
 ## NVEnc 使用にあたっての注意事項  
 無保証です。自己責任で使用してください。   
