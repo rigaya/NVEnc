@@ -371,6 +371,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
         buffer[0] = _T('\0');
         ret = 1;
     } else {
+#if defined(_WIN32) || defined(_WIN64) //Linuxでは環境によっては、正常に動作しない場合がある
         double defaultClock = getCPUDefaultClockFromCPUName();
         bool noDefaultClockInCPUName = (0.0 >= defaultClock);
         if (noDefaultClockInCPUName)
@@ -385,6 +386,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
                 _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [TB: %.2fGHz]"), maxFrequency);
             }
         }
+#endif //#if defined(_WIN32) || defined(_WIN64)
         _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
 #if ENCODER_QSV
         int cpuGen = getCPUGen();
