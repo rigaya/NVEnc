@@ -43,11 +43,9 @@
 #include <cassert>
 
 #if (defined(_WIN32) || defined(_WIN64))
-#define ENABLE_CAPTION2ASS 1
 #define USE_CUSTOM_INPUT 1
 #include "rgy_caption.h"
 #else
-#define ENABLE_CAPTION2ASS 0
 #define USE_CUSTOM_INPUT 0
 #endif
 

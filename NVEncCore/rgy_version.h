@@ -29,9 +29,9 @@
 #ifndef __RGY_CONFIG_H__
 #define __RGY_CONFIG_H__
 
-#define VER_FILEVERSION              0,5,0,0
-#define VER_STR_FILEVERSION          "5.00"
-#define VER_STR_FILEVERSION_TCHAR _T("5.00")
+#define VER_FILEVERSION              0,5,1,0
+#define VER_STR_FILEVERSION          "5.01"
+#define VER_STR_FILEVERSION_TCHAR _T("5.01")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -67,7 +67,6 @@ const char *get_encoder_version();
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 #define ENABLE_PERF_COUNTER 1
-#define ENABLE_AVCODEC_ITERATE 1
 
 #ifdef _M_IX86
 #define ENABLE_NVML 0
@@ -87,6 +86,7 @@ const char *get_encoder_version();
 #define ENABLE_VAPOURSYNTH_READER 0
 #define ENABLE_AVSW_READER        0
 #define ENABLE_SM_READER          0
+#define ENABLE_CAPTION2ASS        0
 #else
 #define ENCODER_NAME "NVEncC"
 #define DECODER_NAME "cuvid"
@@ -97,6 +97,7 @@ const char *get_encoder_version();
 #define ENABLE_VAPOURSYNTH_READER 1
 #define ENABLE_AVSW_READER        1
 #define ENABLE_SM_READER          1
+#define ENABLE_CAPTION2ASS        1
 #endif
 
 #else //#if defined(WIN32) || defined(WIN64)
@@ -107,6 +108,7 @@ const char *get_encoder_version();
 #define ENABLE_RAW_READER         1
 #define ENABLE_NVML               1
 #define ENABLE_NVRTC              1
+#define ENABLE_CAPTION2ASS        0
 #endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //__RGY_CONFIG_H__

@@ -1260,6 +1260,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+#if ENABLE_CAPTION2ASS
     if (IS_OPTION("caption2ass")) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
@@ -1279,6 +1280,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->caption2ass = FORMAT_INVALID;
         return 0;
     }
+#endif //#if ENABLE_CAPTION2ASS
     if (IS_OPTION("data-copy")) {
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         std::map<int, DataSelect> trackSet; //重複しないように
@@ -2150,9 +2152,11 @@ tstring gen_cmd_help_common() {
         _T("                                 avhw/avsw reader and avcodec muxer.\n")
         _T("                                 below are optional,\n")
         _T("                                  in [<int>?], specify track number to copy.\n")
+#if ENABLE_CAPTION2ASS
         _T("   --caption2ass [<string>]     enable caption2ass during encode.\n")
         _T("                                  !! This feature requires Caption.dll !!\n")
         _T("                                 supported formats ... srt (default), ass\n")
+#endif //#if ENABLE_CAPTION2ASS
         _T("   --data-copy [<int>[,...]]    copy data stream to output file.\n")
         _T("\n")
         _T("   --avsync <string>            method for AV sync (default: cfr)\n")
@@ -2217,7 +2221,6 @@ tstring gen_cmd_help_ctrl() {
         _T("                                 cpu_aud_enc  ... cpu aud enc thread usage (%%)\n")
 #endif //#if defined(_WIN32) || defined(_WIN64)
         _T("                                 cpu          ... monitor all cpu info\n")
-#if defined(_WIN32) || defined(_WIN64)
         _T("                                 gpu_load    ... gpu usage (%%)\n")
         _T("                                 gpu_clock   ... gpu avg clock\n")
         _T("                                 vee_load    ... gpu video encoder usage (%%)\n")
@@ -2226,7 +2229,6 @@ tstring gen_cmd_help_ctrl() {
         _T("                                 ve_clock    ... gpu video engine clock\n")
 #endif
         _T("                                 gpu         ... monitor all gpu info\n")
-#endif //#if defined(_WIN32) || defined(_WIN64)
         _T("                                 queue       ... queue usage\n")
         _T("                                 mem_private ... private memory (MB)\n")
         _T("                                 mem_virtual ... virtual memory (MB)\n")
