@@ -1008,6 +1008,4 @@ BOOL SetThreadAffinityForModule(DWORD TargetProcessId, const char *TargetModule,
 
 BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core);
 
-const TCHAR *getOSVersion();
-
 #endif //_AUO_UTIL_H_
