@@ -53,7 +53,9 @@ before_install:
   - CUDA_PATH=/usr/local/cuda
   - LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}
   - PATH=${CUDA_PATH}/bin:${PATH}
-  - sudo apt install yasm nasm ffmpeg libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libass9 libass-dev
+  - sudo add-apt-repository ppa:jonathonf/ffmpeg-4
+  - sudo apt update
+  - sudo apt install yasm nasm ffmpeg libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat-dev libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
   - $CXX --version
   - nvcc --version
 

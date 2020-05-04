@@ -72,10 +72,6 @@ extern "C" {
 #define RGY_AV_LOG_LEVEL AV_LOG_ERROR
 #endif
 
-#if NOCONST_GET_SIDE_DATA
-#define av_stream_get_side_data(st, num, size) av_stream_get_side_data((AVStream *)st, num, size)
-#endif
-
 typedef struct CodecMap {
     AVCodecID avcodec_id;   //avcodecのコーデックID
     RGY_CODEC rgy_codec; //QSVのfourcc

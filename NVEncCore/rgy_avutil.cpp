@@ -144,13 +144,9 @@ tstring getAVCodecs(RGYAVCodecType flag) {
 
     vector<avcodecName> list;
 
-    const AVCodec *codec = nullptr;
-#if ENABLE_AVCODEC_ITERATE
     void *icodec = nullptr;
+    const AVCodec *codec = nullptr;
     while (nullptr != (codec = av_codec_iterate(&icodec))) {
-#else
-    while (nullptr != (codec = av_codec_next(codec))) {
-#endif
         if (codec->type == AVMEDIA_TYPE_AUDIO || codec->type == AVMEDIA_TYPE_SUBTITLE) {
             bool alreadyExists = false;
             for (uint32_t i = 0; i < list.size(); i++) {
@@ -243,13 +239,9 @@ tstring getAVFormats(RGYAVFormatType flag) {
     vector<avformatName> list;
 
     std::string codecstr;
-    const AVInputFormat *iformat = nullptr;
-#if ENABLE_AVCODEC_ITERATE
     void *idemuxer = nullptr;
+    const AVInputFormat *iformat = nullptr;
     while (nullptr != (iformat = av_demuxer_iterate(&idemuxer))) {
-#else
-    while (nullptr != (iformat = av_iformat_next(iformat))) {
-#endif
         bool alreadyExists = false;
         for (uint32_t i = 0; i < list.size(); i++) {
             if (0 == strcmp(list[i].name, iformat->name)) {
@@ -263,13 +255,9 @@ tstring getAVFormats(RGYAVFormatType flag) {
         }
     }
 
-    const AVOutputFormat *oformat = nullptr;
-#if ENABLE_AVCODEC_ITERATE
     void *imuxer = nullptr;
+    const AVOutputFormat *oformat = nullptr;
     while (nullptr != (oformat = av_muxer_iterate(&imuxer))) {
-#else
-    while (nullptr != (oformat = av_oformat_next(oformat))) {
-#endif
         bool alreadyExists = false;
         for (uint32_t i = 0; i < list.size(); i++) {
             if (0 == strcmp(list[i].name, oformat->name)) {
@@ -336,13 +324,9 @@ tstring getAVFilters() {
 
     vector<avfilterName> list;
     {
-        const AVFilter *filter = nullptr;
-#if ENABLE_AVCODEC_ITERATE
         void *ifilter = nullptr;
+        const AVFilter *filter = nullptr;
         while (nullptr != (filter = av_filter_iterate(&ifilter))) {
-#else
-        while (nullptr != (filter = avfilter_next(filter))) {
-#endif
             list.push_back({ filter->flags, filter->name, filter->description });
         }
     }
