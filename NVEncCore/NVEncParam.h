@@ -81,6 +81,15 @@ static const int   FILTER_DEFAULT_DEBAND_SEED = 1234;
 static const bool  FILTER_DEFAULT_DEBAND_BLUR_FIRST = false;
 static const bool  FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME = false;
 
+static const int   FILTER_DEFAULT_DECIMATE_CYCLE = 5;
+static const float FILTER_DEFAULT_DECIMATE_THRE_DUP = 1.1f;
+static const float FILTER_DEFAULT_DECIMATE_THRE_SC = 15.0f;
+static const int   FILTER_DEFAULT_DECIMATE_BLOCK_X = 32;
+static const int   FILTER_DEFAULT_DECIMATE_BLOCK_Y = 32;
+static const bool  FILTER_DEFAULT_DECIMATE_PREPROCESSED = false;
+static const bool  FILTER_DEFAULT_DECIMATE_CHROMA = true;
+static const bool  FILTER_DEFAULT_DECIMATE_LOG = false;
+
 static const int   FILTER_DEFAULT_AFS_CLIP_TB = 16;
 static const int   FILTER_DEFAULT_AFS_CLIP_LR = 32;
 static const int   FILTER_DEFAULT_AFS_TB_ORDER = 0;
@@ -921,6 +930,30 @@ struct VppDeband {
     tstring print() const;
 };
 
+const CX_DESC list_vpp_decimate_block[] = {
+    { _T("16"),  16 },
+    { _T("32"),  32 },
+    { _T("64"),  64 },
+    { NULL, 0 }
+};
+
+struct VppDecimate {
+    bool enable;
+    int cycle;
+    float threDuplicate;
+    float threSceneChange;
+    int blockX;
+    int blockY;
+    bool preProcessed;
+    bool chroma;
+    bool log;
+
+    VppDecimate();
+    bool operator==(const VppDecimate &x) const;
+    bool operator!=(const VppDecimate &x) const;
+    tstring print() const;
+};
+
 struct VppSmooth {
     bool enable;
     int quality;
@@ -1237,6 +1270,7 @@ struct VppParam {
     VppPad pad;
     std::vector<VppSubburn> subburn;
     VppSelectEvery selectevery;
+    VppDecimate decimate;
     bool rff;
 
     VppParam();

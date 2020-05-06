@@ -68,6 +68,7 @@
 #include "NVEncFilterDenoisePmd.h"
 #include "NVEncFilterSmooth.h"
 #include "NVEncFilterDeband.h"
+#include "NVEncFilterDecimate.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncFilterNnedi.h"
 #include "NVEncFilterYadif.h"
@@ -1232,7 +1233,9 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.transform.enable
             || inputParam->vpp.colorspace.enable
             || inputParam->vpp.subburn.size() > 0
-            || inputParam->vpp.pad.enable);
+            || inputParam->vpp.pad.enable
+            || inputParam->vpp.selectevery.enable
+            || inputParam->vpp.decimate.enable);
 }
 
 #pragma warning(push)
@@ -1970,6 +1973,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.pad.enable
         || inputParam->vpp.subburn.size() > 0
         || inputParam->vpp.rff
+        || inputParam->vpp.decimate.enable
         || inputParam->vpp.selectevery.enable
         ) {
         //swデコードならGPUに上げる必要がある
@@ -2181,6 +2185,29 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //decimate
+        if (inputParam->vpp.decimate.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterDecimate());
+            shared_ptr<NVEncFilterParamDecimate> param(new NVEncFilterParamDecimate());
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->decimate = inputParam->vpp.decimate;
+            param->outfilename = inputParam->common.outputFilename;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filter->init(param, m_pNVLog);

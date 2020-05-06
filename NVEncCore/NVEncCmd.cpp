@@ -461,6 +461,25 @@ tstring encoder_help() {
         _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
         _T("     add padding to left,top,right,bottom (in pixels)\n"));
     str += strsprintf(_T("\n")
+        _T("   --vpp-decimate [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     drop duplicated frame.\n")
+        _T("    params\n")
+        _T("      cycle=<int>               num of frame from which a frame will be droppped.\n")
+        _T("                                  (default=%d)\n")
+        _T("      thredup=<float>           duplicate threshold. (default=%.1f, 0 - 100)\n")
+        _T("      thresc=<float>            scene change threshold. (default=%.1f, 0 - 100)\n")
+        _T("      blockx=<int>              block size of x direction (default=%d).\n")
+        _T("      blocky=<int>              block size of y direction (default=%d).\n")
+        _T("                                  block size could be 16, 32, 64.\n")
+        _T("      chroma=<bool>             consdier chroma (default: %s)\n")
+        _T("      log=<bool>                output log file (default: %s).\n"),
+        FILTER_DEFAULT_DECIMATE_CYCLE,
+        FILTER_DEFAULT_DECIMATE_THRE_DUP, FILTER_DEFAULT_DECIMATE_THRE_SC,
+        FILTER_DEFAULT_DECIMATE_BLOCK_X, FILTER_DEFAULT_DECIMATE_BLOCK_Y,
+        FILTER_DEFAULT_DECIMATE_PREPROCESSED ? _T("on") : _T("off"),
+        FILTER_DEFAULT_DECIMATE_CHROMA ? _T("on") : _T("off"),
+        FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
+    str += strsprintf(
         _T("   --vpp-select-every <int>[,offset=<int>]\n")
         _T("     select one frame per specified frames and create output.\n"));
     str += strsprintf(_T("\n")
@@ -2971,7 +2990,6 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-
     if (IS_OPTION("vpp-select-every")) {
         pParams->vpp.selectevery.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -3024,6 +3042,124 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     return 1;
                 }
                 continue;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-decimate")) {
+        pParams->vpp.decimate.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "cycle", "thresc", "thredup", "blockx", "blocky", "chroma", "log" /*, "pp"*/ };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vpp.selectevery.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cycle")) {
+                    try {
+                        pParams->vpp.decimate.cycle = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thresc")) {
+                    try {
+                        pParams->vpp.decimate.threSceneChange = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thredup")) {
+                    try {
+                        pParams->vpp.decimate.threDuplicate = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("blockx")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_decimate_block, param_val.c_str(), &value)) {
+                        pParams->vpp.decimate.blockX = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_decimate_block);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("blocky")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_decimate_block, param_val.c_str(), &value)) {
+                        pParams->vpp.decimate.blockY = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_decimate_block);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("pp")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vpp.decimate.preProcessed = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vpp.decimate.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vpp.decimate.log = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("log")) {
+                    pParams->vpp.decimate.log = true;
+                    continue;
+                }
+                if (param == _T("chroma")) {
+                    pParams->vpp.decimate.chroma = true;
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
             }
         }
         return 0;
@@ -4017,6 +4153,25 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         if (pParams->vpp.selectevery.enable || save_disabled_prm) {
             ADD_NUM(_T("step"), vpp.selectevery.step);
             ADD_NUM(_T("offset"), vpp.selectevery.offset);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-select-every ") << tmp.str().substr(1);
+        }
+    }
+    if (pParams->vpp.decimate != encPrmDefault.vpp.decimate) {
+        tmp.str(tstring());
+        if (!pParams->vpp.decimate.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.decimate.enable || save_disabled_prm) {
+            ADD_NUM(_T("cycle"), vpp.decimate.cycle);
+            ADD_FLOAT(_T("thredup"), vpp.decimate.threDuplicate, 3);
+            ADD_FLOAT(_T("thresc"), vpp.decimate.threSceneChange, 2);
+            ADD_LST(_T("blockx"), vpp.decimate.blockX, list_vpp_decimate_block);
+            ADD_LST(_T("blocky"), vpp.decimate.blockX, list_vpp_decimate_block);
+            ADD_BOOL(_T("pp"), vpp.decimate.preProcessed);
+            ADD_BOOL(_T("chroma"), vpp.decimate.chroma);
+            ADD_BOOL(_T("log"), vpp.decimate.log);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-select-every ") << tmp.str().substr(1);

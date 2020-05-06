@@ -1185,6 +1185,30 @@ yadifによるインタレ解除を行う。
 --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
 ```
 
+### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+重複フレームを削除します。
+
+**パラメータ**
+  - cycle=&lt;int&gt;  (デフォルト: 5)  
+    ドロップするフレームの周期。ここで設定したフレーム数の中から1枚フレームをドロップする。
+
+  - thredup=&lt;float&gt;  (デフォルト: 1.1,  0.0 - 100.0)  
+    重複と判定する閾値。
+
+  - thresc=&lt;float&gt;   (デフォルト: 15.0,  0.0 - 100.0)  
+    シーンチェンジと判定する閾値。
+
+  - blockx=&lt;int&gt;  
+  - blocky=&lt;int&gt;  
+    重複判定の計算を行うブロックサイズ。デフォルト: 32。 
+    ブロックサイズは 16, 32, 64のいずれかから選択可能。
+    
+  - chroma=&lt;bool&gt;  
+    色差成分を考慮した判定を行う。(デフォルト: on)
+    
+  - log=&lt;bool&gt;  
+    判定結果のログファイルの出力。 (デフォルト: off)
+
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 指定stepフレームごとに1フレームを選択してフレームを間引きます。フレームレートが1/stepになります。
 

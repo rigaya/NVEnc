@@ -1140,6 +1140,29 @@ example3: using hdr2sdr (hable tone-mapping) and setting the coefs (this is exam
 --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
 ```
 
+### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+Drop duplicated frame in cycles set.
+
+**parameters**
+  - cycle=&lt;int&gt;  (default: 5)  
+    num of frame from which a frame will be droppped.
+
+  - thredup=&lt;float&gt;  (default: 1.1,  0.0 - 100.0)  
+    duplicate threshold.
+
+  - thresc=&lt;float&gt;   (default: 15.0,  0.0 - 100.0)  
+    scene change threshold.
+
+  - blockx=&lt;int&gt;  
+  - blocky=&lt;int&gt;  
+    block size of x and y direction, default = 32. block size could be 16, 32, 64.
+    
+  - chroma=&lt;bool&gt;  
+    consdier chroma (default: on).
+    
+  - log=&lt;bool&gt;  
+    output log file (default: off).
+
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 select one frame per specified frames and create output.
 

@@ -55,6 +55,17 @@ Type warp_sum(Type val) {
     return val;
 }
 
+template<typename Type>
+__inline__ __device__
+Type warp_sum(Type val, int width) {
+    if (width >= 32) val += __shfl_xor(val, 16);
+    if (width >= 16) val += __shfl_xor(val, 8);
+    if (width >= 8) val += __shfl_xor(val, 4);
+    if (width >= 4) val += __shfl_xor(val, 2);
+    if (width >= 2) val += __shfl_xor(val, 1);
+    return val;
+}
+
 template<typename Type, int BLOCK_X, int BLOCK_Y>
 __inline__ __device__
 Type block_sum(Type val, Type *shared) {
@@ -72,6 +83,26 @@ Type block_sum(Type val, Type *shared) {
     if (warp_id == 0) {
         val = (lid * WARP_SIZE < BLOCK_X * BLOCK_Y) ? shared[lane] : 0;
         val = warp_sum<Type, BLOCK_X * BLOCK_Y / WARP_SIZE>(val);
+    }
+    return val;
+}
+
+template<typename Type>
+__inline__ __device__
+Type block_sum(Type val, Type *shared, int blockX, int blockY) {
+    const int lid = threadIdx.y * blockX + threadIdx.x;
+    const int lane = lid & (WARP_SIZE - 1);
+    const int warp_id = lid >> WARP_SIZE_2N;
+
+    val = warp_sum<Type, WARP_SIZE>(val);
+
+    if (lane == 0) shared[warp_id] = val;
+
+    __syncthreads();
+
+    if (warp_id == 0) {
+        val = (lid * WARP_SIZE < blockX * blockY) ? shared[lane] : 0;
+        val = warp_sum<Type>(val, (blockX * blockY + WARP_SIZE - 1) / WARP_SIZE);
     }
     return val;
 }
