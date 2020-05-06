@@ -298,6 +298,15 @@ static int getDataTrackIdx(const RGYParamCommon *common, int iTrack) {
     return -1;
 }
 
+static int getAttachmentTrackIdx(const RGYParamCommon *common, int iTrack) {
+    for (int i = 0; i < common->nAttachmentSelectCount; i++) {
+        if (iTrack == common->ppAttachmentSelectList[i]->trackID) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 #pragma warning(disable: 4100) //warning C4100: 'argData': 引数は関数の本体部で 1 度も参照されません。
 #pragma warning(disable: 4127) //warning C4127: 条件式が定数です。
 
@@ -1321,6 +1330,46 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("attachment-copy")) {
+        common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
+        std::map<int, DataSelect> trackSet; //重複しないように
+        if (i + 1 < nArgNum && (strInput[i + 1][0] != _T('-') && strInput[i + 1][0] != _T('\0'))) {
+            i++;
+            auto trackListStr = split(strInput[i], _T(","));
+            for (auto str : trackListStr) {
+                int iTrack = 0;
+                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
+                    print_cmd_error_invalid_value(option_name, strInput[i], _T("invalid track ID."));
+                    return 1;
+                } else {
+                    trackSet[iTrack].trackID = iTrack;
+                }
+            }
+        } else {
+            trackSet[0].trackID = 0;
+        }
+
+        for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
+            int trackId = it->first;
+            AttachmentSelect *pAttachmentSelect = nullptr;
+            int dataIdx = getAttachmentTrackIdx(common, trackId);
+            if (dataIdx < 0) {
+                pAttachmentSelect = new AttachmentSelect();
+            } else {
+                pAttachmentSelect = common->ppAttachmentSelectList[dataIdx];
+            }
+            pAttachmentSelect[0] = it->second;
+
+            if (dataIdx < 0) {
+                dataIdx = common->nAttachmentSelectCount;
+                //新たに要素を追加
+                common->ppAttachmentSelectList = (AttachmentSelect **)realloc(common->ppAttachmentSelectList, sizeof(common->ppAttachmentSelectList[0]) * (common->nAttachmentSelectCount + 1));
+                common->ppAttachmentSelectList[common->nAttachmentSelectCount] = pAttachmentSelect;
+                common->nAttachmentSelectCount++;
+            }
+        }
+        return 0;
+    }
 #endif //#if ENABLE_AVSW_READER
     if (IS_OPTION("output-buf")) {
         i++;
@@ -1913,6 +1962,14 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     tmp.str(tstring());
 
+    for (int i = 0; i < param->nAttachmentSelectCount; i++) {
+        tmp << _T(",") << param->ppAttachmentSelectList[i]->trackID;
+    }
+    if (!tmp.str().empty()) {
+        cmd << _T(" --attachment-copy ") << tmp.str().substr(1);
+    }
+    tmp.str(tstring());
+
     OPT_STR_PATH(_T("--chapter"), chapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), copyChapter);
     //OPT_BOOL(_T("--chapter-no-trim"), _T(""), chapterNoTrim);
@@ -2157,7 +2214,8 @@ tstring gen_cmd_help_common() {
         _T("                                  !! This feature requires Caption.dll !!\n")
         _T("                                 supported formats ... srt (default), ass\n")
 #endif //#if ENABLE_CAPTION2ASS
-        _T("   --data-copy [<int>[,...]]    copy data stream to output file.\n")
+        _T("   --data-copy [<int>[,...]]       copy data stream to output file.\n")
+        _T("   --attachment-copy [<int>[,...]] copy attachment stream to output file.\n")
         _T("\n")
         _T("   --avsync <string>            method for AV sync (default: cfr)\n")
         _T("                                 cfr      ... assume cfr\n")

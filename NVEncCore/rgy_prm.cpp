@@ -100,6 +100,8 @@ RGYParamCommon::RGYParamCommon() :
     ppAudioSelectList(nullptr),
     nDataSelectCount(0),
     ppDataSelectList(nullptr),
+    nAttachmentSelectCount(0),
+    ppAttachmentSelectList(nullptr),
     audioResampler(RGY_RESAMPLER_SWR),
     demuxAnalyzeSec(0),
     AVMuxTarget(RGY_MUX_NONE),                       //RGY_MUX_xxx

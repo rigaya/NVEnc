@@ -1408,6 +1408,11 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         srcCodecParam->codec_type = AVMEDIA_TYPE_UNKNOWN;
     } else if (mediaType == AVMEDIA_TYPE_DATA) {
         //なにもしない
+    } else if (mediaType == AVMEDIA_TYPE_ATTACHMENT) {
+        //srcCodecParam->codec_type = AVMEDIA_TYPE_ATTACHMENT;
+        if (inputStream->src.stream) {
+            av_packet_ref(&muxSub->streamOut->attached_pic, &inputStream->src.stream->attached_pic);
+        }
     } else if (srcCodecParam->codec_id != codecId || codecId == AV_CODEC_ID_MOV_TEXT) {
         //setup decoder
         if (nullptr == (muxSub->outCodecDecode = avcodec_find_decoder(srcCodecParam->codec_id))) {
@@ -1728,13 +1733,18 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
             }
         }
     }
-    const int otherStreamCount = (int)count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) { return trackMediaType(prm.src.trackId) == AVMEDIA_TYPE_SUBTITLE || trackMediaType(prm.src.trackId) == AVMEDIA_TYPE_DATA; });
+    const int otherStreamCount = (int)count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) {
+        const auto type = trackMediaType(prm.src.trackId);
+        return type == AVMEDIA_TYPE_SUBTITLE
+            || type == AVMEDIA_TYPE_DATA
+            || type == AVMEDIA_TYPE_ATTACHMENT;
+    });
     if (otherStreamCount) {
         m_Mux.other.resize(otherStreamCount, { 0 });
         int iSubIdx = 0;
         for (int iStream = 0; iStream < (int)prm->inputStreamList.size(); iStream++) {
             const auto mediaType = trackMediaType(prm->inputStreamList[iStream].src.trackId);
-            if (mediaType == AVMEDIA_TYPE_SUBTITLE || mediaType == AVMEDIA_TYPE_DATA) {
+            if (mediaType == AVMEDIA_TYPE_SUBTITLE || mediaType == AVMEDIA_TYPE_DATA || mediaType == AVMEDIA_TYPE_ATTACHMENT) {
                 RGY_ERR sts = InitOther(&m_Mux.other[iSubIdx], &prm->inputStreamList[iStream]);
                 if (sts != RGY_ERR_NONE) {
                     return sts;

@@ -3326,7 +3326,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 if (pWriterForAudioStreams.count(nTrackId)) {
                     auto pWriter = pWriterForAudioStreams[nTrackId];
                     if (pWriter == nullptr) {
-                        PrintMes(RGY_LOG_ERROR, _T("Invalid writer found for audio track %d\n"), nTrackId);
+                        PrintMes(RGY_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
                         return RGY_ERR_NOT_FOUND;
                     }
                     if ((sts = pWriter->WriteNextPacket(&packetList[i])) != RGY_ERR_NONE) {
@@ -3337,7 +3337,7 @@ NVENCSTATUS NVEncCore::Encode() {
                         return sts;
                     }
                 } else {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to find writer for audio track %d\n"), nTrackId);
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
                     return RGY_ERR_NOT_FOUND;
                 }
             }

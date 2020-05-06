@@ -434,6 +434,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.readAudio = common->nAudioSelectCount > 0;
         inputInfoAVCuvid.readSubtitle = (common->nSubtitleSelectCount > 0) || (subburnTrackId > 0);
         inputInfoAVCuvid.readData = common->nDataSelectCount > 0;
+        inputInfoAVCuvid.readAttachment = common->nAttachmentSelectCount > 0;
         inputInfoAVCuvid.readChapter = true;
         inputInfoAVCuvid.videoAvgFramerate = std::make_pair(input->fpsN, input->fpsD);
         inputInfoAVCuvid.analyzeSec = common->demuxAnalyzeSec;
@@ -448,6 +449,8 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.nSubtitleSelectCount = (subburnTrackId) ? 1 : common->nSubtitleSelectCount;
         inputInfoAVCuvid.ppDataSelect = common->ppDataSelectList;
         inputInfoAVCuvid.nDataSelectCount = common->nDataSelectCount;
+        inputInfoAVCuvid.ppAttachmentSelect = common->ppAttachmentSelectList;
+        inputInfoAVCuvid.nAttachmentSelectCount = common->nAttachmentSelectCount;
         inputInfoAVCuvid.procSpeedLimit = ctrl->procSpeedLimit;
         inputInfoAVCuvid.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.seekSec = common->seekSec;

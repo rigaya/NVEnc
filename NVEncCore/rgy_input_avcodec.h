@@ -683,6 +683,7 @@ typedef struct AVDemuxFormat {
     int                       audioTracks;           //存在する音声のトラック数
     int                       subtitleTracks;        //存在する字幕のトラック数
     int                       dataTracks;            //存在するデータのトラック数
+    int                       attachmentTracks;      //存在するAttachmentのトラック数
     RGYAVSync                 AVSyncMode;            //音声・映像同期モード
     AVDictionary             *formatOptions;         //avformat_open_inputに渡すオプション
 
@@ -924,6 +925,7 @@ public:
     uint32_t       readAudio;               //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
     bool           readSubtitle;            //字幕の読み込みを行うかどうか
     bool           readData;                //データの読み込みを行うかどうか
+    bool           readAttachment;          //Attachmentの読み込みを行うかどうか
     bool           readChapter;             //チャプターの読み込みを行うかどうか
     pair<int,int>  videoAvgFramerate;       //動画のフレームレート
     int            analyzeSec;              //入力ファイルを分析する秒数
@@ -938,6 +940,8 @@ public:
     SubtitleSelect **ppSubtitleSelect;      //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nDataSelectCount;        //muxするデータのトラック数
     DataSelect   **ppDataSelect;            //muxするデータのトラック番号のリスト 1,2,...(1から連番で指定)
+    int            nAttachmentSelectCount;  //muxするAttachmentのトラック数
+    DataSelect   **ppAttachmentSelect;      //muxするAttachmentのトラック番号のリスト 1,2,...(1から連番で指定)
     RGYAVSync      AVSyncMode;              //音声・映像同期モード
     int            procSpeedLimit;          //プリデコードする場合の処理速度制限 (0で制限なし)
     float          seekSec;                 //指定された秒数分先頭を飛ばす
