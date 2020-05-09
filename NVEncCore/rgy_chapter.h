@@ -139,7 +139,7 @@ private:
     void close(); //終了、リソース開放
     int read_file(); //ファイルの読み込み
 
-    //内部のm_code_pageに従って文字データをwcharに変換
+    //内部のm_code_pageに従って文字データをUTF-8に変換
     int get_unicode_data(std::string& data, std::vector<char>& src);
 
     //文字データの文字コードをチェック、判定した文字コードを返す
