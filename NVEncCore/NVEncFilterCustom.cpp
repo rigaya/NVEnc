@@ -78,13 +78,17 @@ RGY_ERR NVEncFilterCustom::check_param(shared_ptr<NVEncFilterParamCustom> prm) {
     }
     int device = 0;
     cudaGetDevice(&device);
-    cudaDeviceProp devProp;
-    cudaGetDeviceProperties(&devProp, device);
-    if (devProp.maxThreadsPerBlock < prm->custom.threadPerBlockX * prm->custom.threadPerBlockY) {
+    int maxThreadsPerBlock = 0;
+    auto cuErr = cudaDeviceGetAttribute(&maxThreadsPerBlock, cudaDevAttrMaxThreadsPerBlock, device);
+    if (cuErr == cudaErrorInvalidDevice || cuErr == cudaErrorInvalidValue) {
+        AddMessage(RGY_LOG_ERROR, _T("Error on cudaDeviceGetAttribute(): %s\n"), char_to_tstring(cudaGetErrorString(cuErr)).c_str());
+        return RGY_ERR_CUDA;
+    }
+    if (cuErr == cudaSuccess && maxThreadsPerBlock < prm->custom.threadPerBlockX * prm->custom.threadPerBlockY) {
         AddMessage(RGY_LOG_ERROR, _T("threadPerBlock is over limit of device: %d=%dx%d, limit=%d\n"),
             prm->custom.pixelPerThreadX * prm->custom.pixelPerThreadY,
             prm->custom.pixelPerThreadX, prm->custom.pixelPerThreadY,
-            devProp.maxThreadsPerBlock);
+            maxThreadsPerBlock);
         return RGY_ERR_INVALID_PARAM;
     }
 
@@ -119,8 +123,14 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     }
     AddMessage(RGY_LOG_DEBUG, _T("%s available.\n"), NVRTC_DLL_NAME_TSTR);
 
+    if (!check_if_nvrtc_builtin_dll_available()) {
+        AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) requires \"%s\", not available on your system.\n"), prm->custom.filter_name.c_str(), NVRTC_BUILTIN_DLL_NAME_TSTR);
+        return RGY_ERR_UNSUPPORTED;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("%s available.\n"), NVRTC_BUILTIN_DLL_NAME_TSTR);
+
     auto cudaerr = AllocFrameBuf(pParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -129,16 +139,15 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     std::string program_source;
     if (prm->custom.kernel.length() > 0) {
         program_source = tchar_to_string(prm->custom.filter_name) + "\n" + prm->custom.kernel;
-        AddMessage(RGY_LOG_DEBUG, _T("program source...\n"), prm->custom.kernel_path.c_str());
+        AddMessage(RGY_LOG_DEBUG, _T("program source...\n%s\n"), prm->custom.kernel.c_str());
     } else {
         program_source = tchar_to_string(prm->custom.kernel_path);
         AddMessage(RGY_LOG_DEBUG, _T("program source will be read from \"%s\".\n"), prm->custom.kernel_path.c_str());
     }
     try {
         m_program.reset(new jitify::Program(m_kernel_cache, program_source, 0, split(prm->custom.compile_options, " ", true)));
-    } catch (...) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to build program source.\n"));
-        m_pPrintMes->write_log(RGY_LOG_ERROR, char_to_tstring(m_program->getLog()).c_str());
+    } catch (const std::exception& e) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to build program source.\n%s\n"), char_to_tstring(e.what()).c_str());
         return RGY_ERR_CUDA;
     }
     m_pPrintMes->write_log(RGY_LOG_DEBUG, char_to_tstring(m_program->getLog()).c_str());
@@ -151,33 +160,30 @@ RGY_ERR NVEncFilterCustom::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         } else {
             compile_log = m_program->kernel(KERNEL_NAME).instantiateLog(jitify::reflection::Type<uint8_t>());
         }
-    } catch (...) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to instantiate program source.\n"));
+    } catch (const std::exception& e) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to instantiate program source.\n%s\n"), char_to_tstring(e.what()).c_str());
         m_pPrintMes->write_log(RGY_LOG_ERROR, char_to_tstring(compile_log).c_str());
         return RGY_ERR_CUDA;
     }
     m_pPrintMes->write_log(RGY_LOG_DEBUG, char_to_tstring(compile_log).c_str());
 
-    m_sFilterInfo = strsprintf(_T("%s: %s, %dx%d %s\n")
-        _T("                    interface %s, interlace %s\n")
-        _T("                    thread/block (%d,%d), pixel/thread (%d,%d)\n"),
-        m_sFilterName.c_str(), prm->custom.kernel_path.c_str(),
-        pParam->frameOut.width, pParam->frameOut.height, RGY_CSP_NAMES[pParam->frameOut.csp],
-        get_cx_desc(list_vpp_custom_interface, prm->custom.kernel_interface),
-        get_cx_desc(list_vpp_custom_interlace, prm->custom.interlace),
-        prm->custom.threadPerBlockX, prm->custom.threadPerBlockY,
-        prm->custom.pixelPerThreadX, prm->custom.pixelPerThreadY);
-    if (prm->custom.dstWidth > 0 || prm->custom.dstHeight > 0) {
-        m_sFilterInfo += strsprintf(_T("                    output res %dx%d\n"),
-            prm->frameOut.width, prm->frameOut.height);
-    }
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
 #else
     AddMessage(RGY_LOG_ERROR, _T("--vpp-custom(%s) is not supported on this build.\n"), prm->custom.filter_name.c_str());
     return RGY_ERR_UNSUPPORTED;
 #endif
+}
+
+tstring NVEncFilterParamCustom::print() const {
+    tstring info = custom.print();
+    info += strsprintf(_T("                    %dx%d %s\n"), frameIn.width, frameIn.height, RGY_CSP_NAMES[frameIn.csp]);
+    if (custom.dstWidth > 0 || custom.dstHeight > 0) {
+        info += strsprintf(_T("                    output res %dx%d\n"),
+            frameOut.width, frameOut.height);
+    };
+    return info;
 }
 
 RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputPlane, const FrameInfo *pInpuPlane, RGY_PLANE plane, cudaStream_t stream) {
@@ -289,7 +295,7 @@ RGY_ERR NVEncFilterCustom::run_planes(FrameInfo *pOutputFrame, const FrameInfo *
 #endif
 }
 
-RGY_ERR NVEncFilterCustom::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterCustom::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {
@@ -326,9 +332,9 @@ RGY_ERR NVEncFilterCustom::run_filter(const FrameInfo *pInputFrame, FrameInfo **
             return RGY_ERR_CUDA;
         }
     } else if (prm->custom.kernel_interface == VPP_CUSTOM_INTERFACE_PLANES) {
-        sts = run_planes(pOutputFrame, pInputFrame, cudaStreamDefault);
+        sts = run_planes(pOutputFrame, pInputFrame, stream);
     } else {
-        sts = run_per_plane(pOutputFrame, pInputFrame, cudaStreamDefault);
+        sts = run_per_plane(pOutputFrame, pInputFrame, stream);
     }
     return sts;
 }

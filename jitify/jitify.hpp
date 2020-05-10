@@ -2017,7 +2017,7 @@ class Program_impl {
   inline std::vector<std::string> const& include_paths() const {
     return _config->include_paths;
   }
-  const std::string& getLog() const { return _compile_log; };
+  std::string getLog() const { return _compile_log; };
 };
 
 class Kernel_impl {
@@ -2304,7 +2304,7 @@ class Program {
       std::string name, jitify::detail::vector<std::string> options = 0) const {
     return this->kernel(name, options);
   }
-  const std::string &getLog() const { return _impl->getLog(); }
+  const std::string getLog() const { return (_impl) ? _impl->getLog() : ""; }
 };
 
 /*! An object that manages a cache of JIT-compiled CUDA kernels.
@@ -2632,11 +2632,11 @@ inline void Program_impl::load_sources(std::string source,
     if (!detail::extract_include_info_from_compile_error(
             log, include_name, include_parent, line_num)) {
       // There was a non include-related compilation error
-#if 0 && JITIFY_PRINT_LOG
-      detail::print_compile_log(name, log);
+#if JITIFY_PRINT_LOG
+      _compile_log += detail::print_compile_log(name, log);
 #endif
       // TODO: How to handle error?
-      throw std::runtime_error("Runtime compilation failed");
+      throw std::runtime_error(std::string("Runtime compilation failed\n") + _compile_log);
     }
 
     // Try to load the new header
@@ -2671,7 +2671,7 @@ inline void Program_impl::load_sources(std::string source,
     }
   }
   if (ret != NVRTC_SUCCESS) {
-#if 0 && JITIFY_PRINT_LOG
+#if JITIFY_PRINT_LOG
     if (ret == NVRTC_ERROR_INVALID_OPTION) {
       log_ss << "Compiler options: ";
       for (int i = 0; i < (int)compiler_options.size(); ++i) {

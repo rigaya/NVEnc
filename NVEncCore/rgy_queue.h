@@ -59,7 +59,6 @@ public:
         m_nMaxCapacity(SIZE_MAX),
         m_nKeepLength(0),
         m_pBufStart(), m_pBufFin(nullptr), m_pBufIn(nullptr), m_pBufOut(nullptr), m_bUsingData(false) {
-        static_assert(std::is_pod<Type>::value == true, "RGYQueueSPSP is only for POD type.");
         //実際のメモリのアライメントに適切な2の倍数であるか確認する
         //そうでない場合は32をデフォルトとして使用
         for (uint32_t i = 4; i < sizeof(i) * 8; i++) {
@@ -162,7 +161,14 @@ public:
             if (!newBuf) {
                 return false;
             }
-            memcpy(newBuf.get(), pBufOutOld, sizeof(queueData) * dataSize);
+            if (std::is_trivially_copyable<Type>::value) {
+                memcpy(newBuf.get(), pBufOutOld, sizeof(queueData) * dataSize);
+            } else {
+                queueData *pBufOutNew = newBuf.get();
+                for (size_t i = 0; i < dataSize; i++) {
+                    pBufOutNew[i].data = pBufOutOld[i].data;
+                }
+            }
             queueData *pBufOutNew = newBuf.get();
             queueData *pBufOutExpected = pBufOutOld;
             //更新前にnullptrをセット
@@ -180,14 +186,16 @@ public:
             //一度falseになったことが確認できれば、
             //その次の取り出しは新しいバッファから行われていることになるので、
             //古いバッファは破棄してよい
-            while (m_bUsingData.load()) {
+            int expected = 0;
+            while (!m_bUsingData.compare_exchange_weak(expected, 1)) {
                 _mm_pause();
+                expected = 0;
             }
             //古いバッファを破棄
             m_pBufStart = std::move(newBuf);
-            m_bUsingData = 0;
+            m_bUsingData--;
         }
-        memcpy(m_pBufIn.load(), &in, sizeof(Type));
+        m_pBufIn.load()->data = in;
         m_pBufIn++;
         SetEvent(m_heEventPushed);
         return true;
@@ -223,7 +231,8 @@ public:
         auto nSize = size();
         bool bCopy = index < nSize;
         if (bCopy) {
-            memcpy(out, m_pBufOut + index, sizeof(Type));
+            auto ptr = m_pBufOut + index;
+            *out = ptr->data;
         }
         m_bUsingData--;
         if (!bCopy) {
@@ -241,7 +250,7 @@ public:
         auto nSize = size();
         bool bCopy = nSize > m_nKeepLength;
         if (bCopy) {
-            memcpy(out, m_pBufOut.load(), sizeof(Type));
+            *out = m_pBufOut.load()->data;
         }
         m_bUsingData--;
         if (!bCopy) {
@@ -259,7 +268,8 @@ public:
         auto nSize = size();
         bool bCopy = nSize > m_nKeepLength;
         if (bCopy) {
-            memcpy(out, m_pBufOut++, sizeof(Type));
+            *out = m_pBufOut.load()->data;
+            m_pBufOut++;
             if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
                 SetEvent(m_heEventPoped);
             }

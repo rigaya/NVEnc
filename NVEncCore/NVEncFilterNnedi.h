@@ -45,6 +45,7 @@ public:
 
     NVEncFilterParamNnedi() : nnedi(), compute_capability(std::make_pair(0, 0)), hModule(NULL) {};
     virtual ~NVEncFilterParamNnedi() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterNnedi : public NVEncFilter {
@@ -59,7 +60,7 @@ public:
     virtual ~NVEncFilterNnedi();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamNnedi> pParam);
     virtual RGY_ERR initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
@@ -69,7 +70,7 @@ protected:
 
     template<typename TypeWeight>
     void setWeight1(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam);
-    virtual std::vector<float> readWeights(const tstring& weightFile, HMODULE hModule);
+    virtual shared_ptr<const float> readWeights(const tstring& weightFile, HMODULE hModule);
 
     CUMemBuf m_weight0;
     std::array<CUMemBuf, 2> m_weight1;

@@ -123,12 +123,28 @@ void error_run_process(const char *exe_name, int rp_ret) {
     }
 }
 
-void error_video_convert_thread_start() {
-    write_log_auo_line(LOG_ERROR, "色空間変換用スレッドの生成に失敗しました。");
+void error_video_create_param_mem() {
+    write_log_auo_line(LOG_ERROR, "パラメータ保持用のメモリ確保に失敗しました。");
 }
 
-void error_video_output_thread_start() {
-    write_log_auo_line(LOG_ERROR, "パイプ出力用スレッドの生成に失敗しました。");
+void error_video_create_event() {
+    write_log_auo_line(LOG_ERROR, "読み込み用のイベント作成に失敗しました。");
+}
+
+void error_video_wait_event() {
+    write_log_auo_line(LOG_ERROR, "読み込み用のイベント待機に失敗しました。");
+}
+
+void error_video_set_event() {
+    write_log_auo_line(LOG_ERROR, "読み込み用のイベントセットに失敗しました。");
+}
+
+void error_video_open_shared_input_buf() {
+    write_log_auo_line(LOG_ERROR, "読み込み用のメモリのオープンに失敗しました。");
+}
+
+void error_video_get_conv_func() {
+    write_log_auo_line(LOG_ERROR, "色変換用の関数選択に失敗しました。");
 }
 
 void warning_auto_qpfile_failed() {
@@ -212,12 +228,12 @@ void warning_failed_mux_tmp_drive_space() {
     write_log_auo_line(LOG_WARNING, "指定されたmux用一時フォルダのあるドライブの空き容量取得に失敗しました。mux用一時フォルダ指定を解除しました。");
 }
 
-void error_failed_muxer_drive_space() {
-    write_log_auo_line(LOG_ERROR, "muxerのあるドライブの空き容量取得に失敗しました。muxを行えません。");
+void warning_failed_muxer_drive_space() {
+    write_log_auo_line(LOG_WARNING, "muxerのあるドライブの空き容量取得に失敗しました。容量不足によりmuxが失敗する可能性があります。");
 }
 
-void error_failed_out_drive_space() {
-    write_log_auo_line(LOG_ERROR, "出力先のあるドライブの空き容量取得に失敗しました。muxを行えません。");
+void warning_failed_out_drive_space() {
+    write_log_auo_line(LOG_WARNING, "出力先のあるドライブの空き容量取得に失敗しました。容量不足によりmuxが失敗する可能性があります。");
 }
 
 void warning_failed_get_aud_size() {

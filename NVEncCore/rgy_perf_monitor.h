@@ -35,10 +35,16 @@
 #include <memory>
 #include <map>
 #include "cpu_info.h"
-#include "rgy_util.h"
+#include "rgy_def.h"
+#include "rgy_version.h"
 #include "rgy_pipe.h"
 #include "rgy_log.h"
 #include "gpuz_info.h"
+#include "rgy_util.h"
+
+#if ENABLE_PERF_COUNTER
+#include "rgy_perf_counter.h"
+#endif //#if ENABLE_PERF_COUNTER
 
 #if ENABLE_METRIC_FRAMEWORK
 #pragma warning(push)
@@ -50,7 +56,11 @@
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
 #include "nvml.h"
+#if defined(_WIN32) || defined(_WIN64)
 #define NVML_DLL_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvml.dll)")
+#else
+#define NVML_DLL_PATH _T("libnvidia-ml.so")
+#endif
 #endif
 #define NVSMI_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvidia-smi.exe)")
 
@@ -268,6 +278,10 @@ struct NVMLMonitorInfo {
         pcieLoadTX(0),
         pcieLoadRX(0) {
     };
+
+    void clear() {
+        *this = NVMLMonitorInfo();
+    }
 };
 
 #if ENABLE_NVML
@@ -343,16 +357,23 @@ class NVSMIInfo {
 private:
     std::string m_NVSMIOut;
 public:
-    NVSMIInfo() {};
+    NVSMIInfo() : m_NVSMIOut() {};
     ~NVSMIInfo() {};
     int getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid);
 };
 
 struct CPerfMonitorPrm {
 #if ENABLE_NVML
-    const char *pciBusId;
+    std::string pciBusId;
 #endif
+    LUID luid;
     char reserved[256];
+
+    CPerfMonitorPrm() :
+#if ENABLE_NVML
+        pciBusId(),
+#endif
+        luid({ 0 }), reserved() {};
 };
 
 class CPerfMonitor {
@@ -374,6 +395,16 @@ public:
         return m_Consumer.getMFXLoad(info);
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_PERF_COUNTER
+    std::vector<CounterEntry> GetPerfCounters() {
+        std::vector<CounterEntry> counters;
+        if (m_perfCounter) {
+            std::lock_guard<std::mutex> lock(m_perfCounter->getmtx());
+            counters = m_perfCounter->getCounters().filter_pid(m_pid).get();
+        }
+        return counters;
+    }
+#endif //#if ENABLE_PERF_COUNTER
 #if ENABLE_NVML
     bool GetNVMLInfo(NVMLMonitorInfo *info) {
         *info = m_nvmlInfo;
@@ -388,6 +419,7 @@ public:
 #endif //#if ENABLE_GPUZ_INFO
 
     void clear();
+    void send_thread_fin();
 protected:
     int createPerfMpnitorPyw(const TCHAR *pywPath);
     void check();
@@ -395,13 +427,42 @@ protected:
     void write_header(FILE *fp, int nSelect);
     void write(FILE *fp, int nSelect);
 
+    void AddMessage(int log_level, const tstring &str) {
+        if (m_pRGYLog == nullptr || log_level < m_pRGYLog->getLogLevel()) {
+            return;
+        }
+        auto lines = split(str, _T("\n"));
+        for (const auto &line : lines) {
+            if (line[0] != _T('\0')) {
+                m_pRGYLog->write(log_level, (_T("perf monitor: ") + line + _T("\n")).c_str());
+            }
+        }
+    }
+    void AddMessage(int log_level, const TCHAR *format, ...) {
+        if (m_pRGYLog == nullptr || log_level < m_pRGYLog->getLogLevel()) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+        _vstprintf_s(&buffer[0], len, format, args);
+        va_end(args);
+        AddMessage(log_level, buffer);
+    }
+
     static void loader(void *prm);
 
     tstring SelectedCounters(int select);
 
     int m_nStep;
+    LUID m_luid;
+    uint32_t m_pid;
     tstring m_sPywPath;
     PerfInfo m_info[2];
+    std::chrono::system_clock::time_point m_refreshedTime;
     std::thread m_thCheck;
     std::unique_ptr<void, handle_deleter> m_thMainThread;
     std::unique_ptr<RGYPipeProcess> m_pProcess;
@@ -441,6 +502,11 @@ protected:
     GPUZ_SH_MEM m_GPUZInfo;
 #endif //#if ENABLE_GPUZ_INFO
     bool m_bGPUZInfoValid;
+
+#if ENABLE_PERF_COUNTER
+    std::unique_ptr<RGYGPUCounterWin> m_perfCounter;
+#endif
+    bool m_prefCounterValid;
 };
 
 

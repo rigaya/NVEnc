@@ -40,6 +40,7 @@ enum ColorspaceOpType {
     COLORSPACE_OP_TYPE_F2I,
     COLORSPACE_OP_TYPE_I2F,
     COLORSPACE_OP_TYPE_HDR2SDR,
+    COLORSPACE_OP_TYPE_NONE,
 };
 
 class ColorspaceOp {
@@ -48,6 +49,7 @@ public:
     virtual ~ColorspaceOp() {};
     virtual ColorspaceOpType getType() const { return m_type; };
     virtual std::string print() = 0;
+    virtual std::string printInfo() { return ""; }
     virtual bool add(const ColorspaceOp *op) = 0;
 protected:
     ColorspaceOpType m_type;
@@ -71,14 +73,16 @@ public:
     void clearOperation() {
         operations.clear();
     }
-    RGY_ERR setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, double ldr_nits);
-    RGY_ERR setPath(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref);
+    RGY_ERR setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams &prm, int height);
+    RGY_ERR setPath(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, int height);
     RGY_ERR setOperation(RGY_CSP csp_in, RGY_CSP csp_out);
     std::string printOpAll() const;
     tstring printInfoAll() const;
-
+    VideoVUIInfo VuiOut() const;
 private:
-    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits);
+    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapHable &prm);
+    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapMobius &prm);
+    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapReinhard &prm);
     RGY_ERR addColorspaceOpNclYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpNclRGB2YUV(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpClYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to, double source_peak);
@@ -121,11 +125,13 @@ class NVEncFilterParamColorspace : public NVEncFilterParam {
 public:
     VppColorspace colorspace;
     RGY_CSP encCsp;
+    VideoVUIInfo VuiIn;
 
-    NVEncFilterParamColorspace() : colorspace(), encCsp(RGY_CSP_NA) {
+    NVEncFilterParamColorspace() : colorspace(), encCsp(RGY_CSP_NA), VuiIn() {
 
     };
     virtual ~NVEncFilterParamColorspace() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterColorspace : public NVEncFilter {
@@ -135,8 +141,9 @@ public:
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
     virtual RGY_ERR setupCustomFilter(const FrameInfo &frameInfo, shared_ptr<NVEncFilterParamColorspace> prm);
     virtual std::string genKernelCode();
+    VideoVUIInfo VuiOut() const;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<NVEncFilterParamColorspace> prm);
 

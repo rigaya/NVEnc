@@ -30,6 +30,9 @@
 #include <mutex>
 #include "rgy_log.h"
 #include "rgy_version.h"
+#include "rgy_util.h"
+#include "cpu_info.h"
+#include "gpu_info.h"
 
 const char *RGYLog::HTML_FOOTER = "</body>\n</html>\n";
 
@@ -126,10 +129,8 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
 
     if (m_nLogLevel <= RGY_LOG_DEBUG) {
         TCHAR cpuInfo[256] = { 0 };
-        TCHAR gpu_info[1024] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
-        getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
-        write(RGY_LOG_DEBUG, _T("%s    %s (%s)\n"), ENCODER_NAME, VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+        write(RGY_LOG_DEBUG, _T("%s    %s (%s)\n"), _T(ENCODER_NAME), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
 #if defined(_WIN32) || defined(_WIN64)
         OSVERSIONINFOEXW osversioninfo = { 0 };
         tstring osversionstr = getOSVersion(&osversioninfo);
@@ -138,7 +139,11 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
         write(RGY_LOG_DEBUG, _T("OS        %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
 #endif
         write(RGY_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
+#if ENCODER_QSV
+        TCHAR gpu_info[1024] = { 0 };
+        getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
         write(RGY_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+#endif //#if ENCODER_QSV
 #if defined(_WIN32) || defined(_WIN64)
         write(RGY_LOG_DEBUG, _T("Locale    %s\n"), _tsetlocale(LC_ALL, nullptr));
 #endif
@@ -226,13 +231,13 @@ void RGYLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     }
 }
 
-void RGYLog::write(int log_level, const WCHAR *format, va_list args) {
+void RGYLog::write(int log_level, const wchar_t *format, va_list args) {
     if (log_level < m_nLogLevel) {
         return;
     }
 
     int len = _vscwprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
-    std::vector<WCHAR> buffer(len, 0);
+    std::vector<wchar_t> buffer(len, 0);
     if (buffer.data() != nullptr) {
         vswprintf_s(buffer.data(), len, format, args); // C4996
         write_log(log_level, wstring_to_tstring(buffer.data()).c_str());
@@ -240,7 +245,7 @@ void RGYLog::write(int log_level, const WCHAR *format, va_list args) {
     va_end(args);
 }
 
-void RGYLog::write(int log_level, const char *format, va_list args, uint32_t codepage) {
+void RGYLog::write(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP) {
     if (log_level < m_nLogLevel) {
         return;
     }
@@ -254,7 +259,7 @@ void RGYLog::write(int log_level, const char *format, va_list args, uint32_t cod
     va_end(args);
 }
 
-void RGYLog::write_line(int log_level, const char *format, va_list args, uint32_t codepage) {
+void RGYLog::write_line(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP) {
     if (log_level < m_nLogLevel) {
         return;
     }

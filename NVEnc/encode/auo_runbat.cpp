@@ -25,6 +25,8 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -51,7 +53,7 @@ static void bat_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM
     if (pe->muxer_to_be_used >= 0) {
         const MUXER_SETTINGS *mux_stg = &sys_dat->exstg->s_mux[pe->muxer_to_be_used];
         const MUXER_CMD_EX *muxer_mode = &mux_stg->ex_cmd[(pe->muxer_to_be_used == MUXER_MKV) ? conf->mux.mkv_mode : conf->mux.mp4_mode];
-        set_chap_filename(chap_file, _countof(chap_file), chap_apple, _countof(chap_apple), 
+        set_chap_filename(chap_file, _countof(chap_file), chap_apple, _countof(chap_apple),
             muxer_mode->chap_file, pe, sys_dat, conf, oip);
     }
     replace(cmd, nSize, "%{chapter}",    chap_file);

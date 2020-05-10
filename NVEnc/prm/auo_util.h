@@ -28,6 +28,8 @@
 #ifndef _AUO_UTIL_H_
 #define _AUO_UTIL_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #if (_MSC_VER >= 1800)
 #include <VersionHelpers.h>
@@ -47,33 +49,23 @@
 #include "auo_version.h"
 
 //日本語環境の一般的なコードページ一覧
-#define CODE_PAGE_SJIS        932 //Shift-JIS
-#define CODE_PAGE_JIS         50220
-#define CODE_PAGE_EUC_JP      51932
-#define CODE_PAGE_UTF8        CP_UTF8
-#define CODE_PAGE_UTF16_LE    CP_WINUNICODE //WindowsのUnicode WCHAR のコードページ
-#define CODE_PAGE_UTF16_BE    1201
-#define CODE_PAGE_US_ASCII    20127
-#define CODE_PAGE_WEST_EUROPE 1252  //厄介な西ヨーロッパ言語
-#define CODE_PAGE_UNSET       0xffffffff
+enum : DWORD {
+    CODE_PAGE_SJIS        = 932, //Shift-JIS
+    CODE_PAGE_JIS         = 50220,
+    CODE_PAGE_EUC_JP      = 51932,
+    CODE_PAGE_UTF8        = CP_UTF8,
+    CODE_PAGE_UTF16_LE    = 1200, //WindowsのUnicode WCHAR のコードページ
+    CODE_PAGE_UTF16_BE    = 1201,
+    CODE_PAGE_US_ASCII    = 20127,
+    CODE_PAGE_WEST_EUROPE = 1252,  //厄介な西ヨーロッパ言語
+    CODE_PAGE_UNSET       = 0xffffffff,
+};
 
 //BOM文字リスト
 static const int MAX_UTF8_CHAR_LENGTH = 6;
 static const BYTE UTF8_BOM[]     = { 0xEF, 0xBB, 0xBF };
 static const BYTE UTF16_LE_BOM[] = { 0xFF, 0xFE };
 static const BYTE UTF16_BE_BOM[] = { 0xFE, 0xFF };
-
-//SIMD
-enum {
-    AUO_SIMD_NONE  = 0x0000,
-    AUO_SIMD_SSE2  = 0x0001,
-    AUO_SIMD_SSE3  = 0x0002, //使用していない
-    AUO_SIMD_SSSE3 = 0x0004,
-    AUO_SIMD_SSE41 = 0x0008,
-    AUO_SIMD_SSE42 = 0x0010, //使用していない
-    AUO_SIMD_AVX   = 0x0020,
-    AUO_SIMD_AVX2  = 0x0040, //使用していない
-};
 
 //関数マクロ
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
@@ -1015,7 +1007,5 @@ BOOL SetThreadPriorityForModule(DWORD TargetProcessId, const char *TargetModule,
 BOOL SetThreadAffinityForModule(DWORD TargetProcessId, const char *TargetModule, DWORD_PTR ThreadAffinityMask);
 
 BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core);
-
-const TCHAR *getOSVersion();
 
 #endif //_AUO_UTIL_H_

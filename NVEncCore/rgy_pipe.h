@@ -33,6 +33,7 @@
 #include <cstdio>
 #include <vector>
 #include "rgy_osdep.h"
+#include "rgy_util.h"
 #include "rgy_tchar.h"
 
 enum PipeMode {
@@ -63,6 +64,8 @@ typedef struct {
     PipeSet stdOut;
     PipeSet stdErr;
     FILE *f_stdin;
+    FILE *f_stdout;
+    FILE *f_stderr;
     uint32_t buf_len;
     char read_buf[QSV_PIPE_READ_BUF];
 } ProcessPipe;
@@ -76,6 +79,7 @@ public:
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) = 0;
     virtual void close() = 0;
     virtual bool processAlive() = 0;
+    virtual std::string getOutput(ProcessPipe *pipes) = 0;
 protected:
     virtual int startPipes(ProcessPipe *pipes) = 0;
     PROCESS_HANDLE m_phandle;
@@ -91,6 +95,7 @@ public:
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
     virtual void close() override;
     virtual bool processAlive() override;
+    virtual std::string getOutput(ProcessPipe *pipes) override;
     const PROCESS_INFORMATION& getProcessInfo();
 protected:
     virtual int startPipes(ProcessPipe *pipes) override;
@@ -106,9 +111,12 @@ public:
     virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
     virtual void close() override;
     virtual bool processAlive() override;
+    virtual std::string getOutput(ProcessPipe *pipes) override;
 protected:
     virtual int startPipes(ProcessPipe *pipes) override;
 };
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+std::unique_ptr<RGYPipeProcess> createRGYPipeProcess();
 
 #endif //__RGY_PIPE_H__

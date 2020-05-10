@@ -39,10 +39,14 @@
 #include <iconv.h>
 #endif
 #include "rgy_util.h"
+#include "rgy_log.h"
+#include "cpu_info.h"
+#include "gpu_info.h"
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
 #include "ram_speed.h"
 #include "rgy_version.h"
+#include "rgy_codepage.h"
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -68,14 +72,17 @@ unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t c
         str = "";
         return 0;
     }
-    auto ic = iconv_open("UTF-8", "wchar_t"); //to, from
-    auto input_len = wcslen(wstr) * 2;
-    auto output_len = input_len * 6;
-    std::vector<char> buf(output_len, 0);
-    char *outbuf = buf.data();
-    iconv(ic, (char **)&wstr, &input_len, &outbuf, &output_len);
+    auto ic = iconv_open(codepage_str(codepage), "wchar_t"); //to, from
+    auto input_len = (wcslen(wstr)+1) * 4;
+    std::vector<char> buf(input_len, 0);
+    memcpy(buf.data(), wstr, input_len);
+    auto output_len = input_len * 8;
+    std::vector<char> bufout(output_len, 0);
+    char *outbuf = bufout.data();
+    char *input = buf.data();
+    iconv(ic, &input, &input_len, &outbuf, &output_len);
     iconv_close(ic);
-    str = buf.data();
+    str = bufout.data();
     return output_len;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -177,18 +184,32 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
     wstr = tmp.data();
     return widechar_length;
 }
+unsigned int char_to_string(std::string& dst, uint32_t codepage_to, const char *src, uint32_t codepage_from) {
+    if (src == nullptr) {
+        dst = "";
+        return 0;
+    }
+    if (codepage_to == codepage_from) {
+        dst = src;
+        return (unsigned int)dst.length();
+    }
+    std::wstring wstrtemp;
+    char_to_wstring(wstrtemp, src, codepage_from);
+    wstring_to_string(wstrtemp.c_str(), dst, codepage_to);
+    return (unsigned int)dst.length();
+}
 #else
 unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
     if (str == nullptr) {
         wstr = L"";
         return 0;
     }
-    auto ic = iconv_open("wchar_t", "UTF-8"); //to, from
+    auto ic = iconv_open("wchar_t", codepage_str(codepage)); //to, from
     if ((int64_t)ic == -1) {
         fprintf(stderr, "iconv_error\n");
     }
-    auto input_len = strlen(str);
-    std::vector<char> buf(input_len + 1);
+    auto input_len = strlen(str)+1;
+    std::vector<char> buf(input_len);
     strcpy(buf.data(), str);
     auto output_len = (input_len + 1) * 8;
     std::vector<char> bufout(output_len, 0);
@@ -198,6 +219,33 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
     iconv_close(ic);
     wstr = std::wstring((WCHAR *)bufout.data());
     return wstr.length();
+}
+
+unsigned int char_to_string(std::string& dst, uint32_t codepage_to, const char *src, uint32_t codepage_from) {
+    if (src == nullptr) {
+        dst = "";
+        return 0;
+    }
+    if (codepage_to == codepage_from
+        || strcmp(codepage_str(codepage_to), codepage_str(codepage_from)) == 0) {
+        dst = src;
+        return dst.length();
+    }
+    auto ic = iconv_open(codepage_str(codepage_to), codepage_str(codepage_from)); //to, from
+    if ((int64_t)ic == -1) {
+        fprintf(stderr, "iconv_error\n");
+    }
+    auto input_len = strlen(src)+1;
+    std::vector<char> buf(input_len);
+    strcpy(buf.data(), src);
+    auto output_len = (input_len + 1) * 12;
+    std::vector<char> bufout(output_len, 0);
+    char *inbuf = buf.data();
+    char *outbuf = bufout.data();
+    iconv(ic, &inbuf, &input_len, &outbuf, &output_len);
+    iconv_close(ic);
+    dst = std::string(bufout.data());
+    return dst.length();
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 std::wstring char_to_wstring(const char *str, uint32_t codepage) {
@@ -212,6 +260,11 @@ std::wstring char_to_wstring(const std::string& str, uint32_t codepage) {
     std::wstring wstr;
     char_to_wstring(wstr, str.c_str(), codepage);
     return wstr;
+}
+std::string char_to_string(uint32_t codepage_to, const char *src, uint32_t codepage_from) {
+    std::string dst;
+    char_to_string(dst, codepage_to, src, codepage_from);
+    return dst;
 }
 
 unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage) {
@@ -260,7 +313,7 @@ std::wstring strsprintf(const WCHAR* format, ...) {
     const size_t len = _vscwprintf(format, args) + 1;
 
     std::vector<WCHAR> buffer(len, 0);
-    vswprintf(buffer.data(), format, args);
+    vswprintf(buffer.data(), buffer.size(), format, args);
     va_end(args);
     std::wstring retStr = std::wstring(buffer.data());
     return retStr;
@@ -273,7 +326,7 @@ std::string str_replace(std::string str, const std::string& from, const std::str
         str.replace(pos, from.length(), to);
         pos += to.length();
     }
-    return std::move(str);
+    return str;
 }
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -283,7 +336,7 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
         str.replace(pos, from.length(), to);
         pos += to.length();
     }
-    return std::move(str);
+    return str;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
@@ -335,6 +388,29 @@ std::vector<std::string> split(const std::string &str, const std::string &delim,
     }
     return res;
 }
+
+#if defined(_WIN32) || defined(_WIN64)
+std::vector<std::wstring> sep_cmd(const std::wstring& cmd) {
+    std::vector<std::wstring> args;
+    int argc = 0;
+    auto ptr = CommandLineToArgvW(cmd.c_str(), &argc);
+    for (int i = 0; i < argc; i++) {
+        args.push_back(ptr[i]);
+    }
+    args.push_back(L"");
+    LocalFree(ptr);
+    return std::move(args);
+}
+
+std::vector<std::string> sep_cmd(const std::string& cmd) {
+    std::vector<std::string> args;
+    std::wstring wcmd = char_to_wstring(cmd);
+    for (const auto &warg : sep_cmd(wcmd)) {
+        args.push_back(wstring_to_string(warg));
+    }
+    return std::move(args);
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 std::string lstrip(const std::string& string, const char* trim) {
     auto result = string;
@@ -598,6 +674,23 @@ std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir) {
     FindClose(hFind);
     return list;
 }
+
+tstring getExeDir() {
+    TCHAR exePath[1024];
+    memset(exePath, 0, sizeof(exePath));
+    GetModuleFileName(NULL, exePath, _countof(exePath));
+    return PathRemoveFileSpecFixed(tstring(exePath)).second;
+}
+#else
+tstring getExeDir() {
+    char prg_path[4096];
+    auto ret = readlink("/proc/self/exe", prg_path, sizeof(prg_path));
+    if (ret <= 0) {
+        prg_path[0] = '\0';
+    }
+    return char_to_tstring(PathRemoveFileSpecFixed(prg_path).second);
+}
+
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 tstring print_time(double time) {
@@ -671,7 +764,7 @@ size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
 
 #if defined(_WIN32) || defined(_WIN64)
 
-#include <Windows.h>
+#include "rgy_osdep.h"
 #include <process.h>
 #include <VersionHelpers.h>
 
@@ -715,6 +808,8 @@ BOOL check_OS_Win8orLater() {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
+#pragma warning(push)
+#pragma warning(disable:4996) // warning C4996: 'GetVersionExW': が古い形式として宣言されました。
 tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
     const TCHAR *ptr = _T("Unknown");
     OSVERSIONINFOW info = { 0 };
@@ -794,6 +889,15 @@ tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
         break;
     }
     return tstring(ptr);
+}
+#pragma warning(pop)
+
+tstring getOSVersion() {
+    OSVERSIONINFOEXW osversioninfo = { 0 };
+    tstring osversionstr = getOSVersion(&osversioninfo);
+    osversionstr += strsprintf(_T(" %s (%d)"), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+    return osversionstr;
+}
 #else //#if defined(_WIN32) || defined(_WIN64)
 tstring getOSVersion() {
     std::string str = "";
@@ -827,8 +931,8 @@ tstring getOSVersion() {
         str += buf.release;
     }
     return char_to_tstring(trim(str));
-#endif //#if defined(_WIN32) || defined(_WIN64)
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 BOOL rgy_is_64bit_os() {
 #if defined(_WIN32) || defined(_WIN64)
@@ -868,13 +972,8 @@ tstring getEnviromentInfo(bool add_ram_info, int device_id) {
 
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
-
-    TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info), device_id);
-
     uint64_t UsedRamSize = 0;
     uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
-
 
     buf += _T("Environment Info\n");
 #if defined(_WIN32) || defined(_WIN64)
@@ -905,7 +1004,12 @@ tstring getEnviromentInfo(bool add_ram_info, int device_id) {
         add_ram_info |= write_rw_speed(_T("RAM"), (cpuinfo.max_cache_level) ? cpuinfo.caches[cpuinfo.max_cache_level-1].size / 1024 * 8 : 96 * 1024);
     }
     buf += strsprintf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
+
+#if ENCODER_QSV
+    TCHAR gpu_info[1024] = { 0 };
+    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
     buf += strsprintf(_T("GPU: %s\n"), gpu_info);
+#endif //#if ENCODER_QSV
     return buf;
 }
 
@@ -1016,6 +1120,57 @@ std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned in
     return std::make_pair<int, int>(x / b, y / b);
 }
 
+void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, int src_w, int src_h, int src_sar_w, int src_sar_h, const sInputCrop& crop) {
+    if (dst_w * dst_h < 0) {
+        src_w -= (crop.e.left + crop.e.right);
+        src_h -= (crop.e.bottom + crop.e.up);
+        double dar = src_w / (double)src_h;
+        if (src_sar_w * src_sar_h > 0) {
+            if (src_sar_w < 0) {
+                dar = src_sar_w / (double)src_sar_h;
+            } else {
+                dar = (src_w * (double)src_sar_w) / (src_h * (double)src_sar_h);
+            }
+        }
+        if (dst_sar_w * dst_sar_h <= 0) {
+            dst_sar_w = dst_sar_h = 1;
+        }
+        dar /= (dst_sar_w / (double)dst_sar_h);
+        if (dst_w < 0) {
+            const int div = std::abs(dst_w);
+            dst_w = (((int)(dst_h * dar) + (div >> 1)) / div) * div;
+        } else { //dst_h < 0
+            const int div = std::abs(dst_h);
+            dst_h = (((int)(dst_w / dar) + (div >> 1)) / div) * div;
+        }
+    }
+}
+
+int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule) {
+    *data = nullptr;
+#if defined(_WIN32) || defined(_WIN64)
+    //埋め込みデータを使用する
+    if (hModule == NULL) {
+        hModule = GetModuleHandle(NULL);
+    }
+    if (hModule == NULL) {
+        return 0;
+    }
+    HRSRC hResource = FindResource(hModule, name, type);
+    if (hResource == NULL) {
+        return 0;
+    }
+    HGLOBAL hResourceData = LoadResource(hModule, hResource);
+    if (hResourceData == NULL) {
+        return 0;
+    }
+    *data = LockResource(hResourceData);
+    return (int)SizeofResource(hModule, hResource);
+#else
+    return 0;
+#endif
+}
+
 #include "rgy_simd.h"
 #include <immintrin.h>
 
@@ -1024,9 +1179,11 @@ RGY_NOINLINE int rgy_avx_dummy_if_avail(int bAVXAvail) {
     if (bAVXAvail) {
         return ret;
     }
+#if defined(_MSC_VER) || defined(__AVX2__)
     __m256 y0 = _mm256_castsi256_ps(_mm256_castsi128_si256(_mm_cvtsi32_si128(bAVXAvail)));
     y0 = _mm256_xor_ps(y0, y0);
     ret = _mm_cvtsi128_si32(_mm256_castsi256_si128(_mm256_castps_si256(y0)));
     _mm256_zeroupper();
+#endif
     return ret;
 }

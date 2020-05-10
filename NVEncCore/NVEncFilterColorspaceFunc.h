@@ -290,9 +290,31 @@ COLORSPACE_FUNC float3 matrix_mul(float m[3][3], float3 v) {
 }
 
 //参考: https://gist.github.com/4re/34ccbb95732c1bef47c3d2975ac62395
-COLORSPACE_FUNC float hdr2sdr(float x, float source_peak, float ldr_nits, float A, float B, float C, float D, float E, float F) {
+COLORSPACE_FUNC float hable(float x, float A, float B, float C, float D, float E, float F) {
+    return ((x*(A*x+C*B)+D*E) / (x*(A*x+B)+D*F)) - E/F;
+}
+
+COLORSPACE_FUNC float hdr2sdr_hable(float x, float source_peak, float ldr_nits, float A, float B, float C, float D, float E, float F) {
     const float eb = source_peak / ldr_nits;
-    const float tm = (x * eb * (A * x * eb + C*B) + D*E) / (x * eb * (A * x * eb + B) + D*F) - E/F;
-    const float w  = (    eb * (A *     eb + C*B) + D*E) / (    eb * (A *     eb + B) + D*F) - E/F;
-    return tm / w;
+    const float t0 = hable(x, A, B, C, D, E, F);
+    const float t1 = hable(eb, A, B, C, D, E, F);
+    return t0 / t1;
+}
+
+COLORSPACE_FUNC float hdr2sdr_mobius(float x, float source_peak, float ldr_nits, float t, float peak) {
+    const float eb = source_peak / ldr_nits;
+    peak *= eb;
+    if (x <= t) {
+        return x;
+    }
+
+    float a = -t * t * (peak - 1.0f) / (t * t - 2.0f * t + peak);
+    float b = (t * t - 2.0f * t * peak + peak) / fmaxf(peak - 1.0f, 1e-6f);
+    return (b * b + 2.0f * b * t + t * t) / (b - a) * (x + a) / (x + b);
+}
+
+COLORSPACE_FUNC float hdr2sdr_reinhard(float x, float source_peak, float ldr_nits, float offset, float peak) {
+    const float eb = source_peak / ldr_nits;
+    peak *= eb;
+    return x / (x + offset) * (peak + offset) / peak;
 }

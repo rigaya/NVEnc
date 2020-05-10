@@ -26,12 +26,14 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include <stdio.h>
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
 #include <mmsystem.h>
-#pragma comment(lib, "winmm.lib") 
+#pragma comment(lib, "winmm.lib")
 
 #include "output.h"
 #include "auo.h"
@@ -80,8 +82,7 @@ OUTPUT_PLUGIN_TABLE output_plugin_table = {
 //---------------------------------------------------------------------
 //        出力プラグイン構造体のポインタを渡す関数
 //---------------------------------------------------------------------
-EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTable( void )
-{
+EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTable( void ) {
     init_SYSTEM_DATA(&g_sys_dat);
     make_file_filter(NULL, 0, g_sys_dat.exstg->s_local.default_output_ext);
     overwrite_aviutl_ini_file_filter(g_sys_dat.exstg->s_local.default_output_ext);
@@ -145,19 +146,16 @@ EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTa
     //                        //    戻り値    : データへのポインタ
     //                        //              画像データポインタの内容は次に外部関数を使うかメインに処理を戻すまで有効
 
-BOOL func_init() 
-{
+BOOL func_init() {
     return TRUE;
 }
 
-BOOL func_exit() 
-{
+BOOL func_exit() {
     delete_SYSTEM_DATA(&g_sys_dat);
     return TRUE;
 }
 
-BOOL func_output( OUTPUT_INFO *oip ) 
-{
+BOOL func_output( OUTPUT_INFO *oip ) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     static const encode_task task[3][2] = { { video_output, audio_output }, { audio_output, video_output }, { audio_output_parallel, video_output }  };
     PRM_ENC pe = { 0 };
@@ -181,8 +179,9 @@ BOOL func_output( OUTPUT_INFO *oip )
 
         ret |= run_bat_file(&conf_out, oip, &pe, &g_sys_dat, RUN_BAT_BEFORE_PROCESS);
 
+        const auto audio_encode_timing = (conf_out.aud.use_internal) ? 2 : conf_out.aud.ext.audio_encode_timing;
         for (int i = 0; !ret && i < 2; i++)
-            ret |= task[conf_out.aud.audio_encode_timing][i](&conf_out, oip, &pe, &g_sys_dat);
+            ret |= task[audio_encode_timing][i](&conf_out, oip, &pe, &g_sys_dat);
 
         if (!ret)
             ret |= mux(&conf_out, oip, &pe, &g_sys_dat);
@@ -205,7 +204,7 @@ BOOL func_output( OUTPUT_INFO *oip )
 
     if (!(ret & (AUO_RESULT_ERROR | AUO_RESULT_ABORT)))
         ret |= run_bat_file(&conf_out, oip, &pe, &g_sys_dat, RUN_BAT_AFTER_PROCESS);
-    
+
     log_process_events();
     return (ret & AUO_RESULT_ERROR) ? FALSE : TRUE;
 }
@@ -217,8 +216,7 @@ BOOL func_output( OUTPUT_INFO *oip )
 //C4100 : 引数は関数の本体部で 1 度も参照されません。
 #pragma warning( push )
 #pragma warning( disable: 4100 )
-BOOL func_config(HWND hwnd, HINSTANCE dll_hinst)
-{
+BOOL func_config(HWND hwnd, HINSTANCE dll_hinst) {
     init_SYSTEM_DATA(&g_sys_dat);
     overwrite_aviutl_ini_name();
     if (g_sys_dat.exstg->get_init_success())
@@ -227,18 +225,18 @@ BOOL func_config(HWND hwnd, HINSTANCE dll_hinst)
 }
 #pragma warning( pop )
 
-int func_config_get( void *data, int size )
-{
-    if (data && size == sizeof(CONF_GUIEX))
+int func_config_get( void *data, int size ) {
+    if (data && size == sizeof(CONF_GUIEX)) {
         memcpy(data, &g_conf, sizeof(g_conf));
+    }
     return sizeof(g_conf);
 }
 
-int func_config_set( void *data,int size )
-{
+int func_config_set( void *data,int size ) {
     init_SYSTEM_DATA(&g_sys_dat);
-    if (!g_sys_dat.exstg->get_init_success(TRUE))
+    if (!g_sys_dat.exstg->get_init_success(TRUE)) {
         return NULL;
+    }
     init_CONF_GUIEX(&g_conf, FALSE);
     return (guiEx_config::adjust_conf_size(&g_conf, data, size)) ? size : NULL;
 }
@@ -269,9 +267,11 @@ void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     ZeroMemory(conf, sizeof(CONF_GUIEX));
     guiEx_config::write_conf_header(conf);
-    conf->aud.encoder = g_sys_dat.exstg->s_local.default_audio_encoder;
     conf->vid.resize_width = 1280;
     conf->vid.resize_height = 720;
+    conf->aud.ext.encoder = g_sys_dat.exstg->s_local.default_audio_encoder_ext;
+    conf->aud.in.encoder  = g_sys_dat.exstg->s_local.default_audio_encoder_in;
+    conf->aud.use_internal = g_sys_dat.exstg->s_local.default_audenc_use_in;
     conf->size_all = CONF_INITIALIZED;
 }
 #pragma warning( pop )
@@ -290,10 +290,10 @@ void write_log_auo_line_fmt(int log_type_index, const char *format, ... ) {
 //エンコード時間の表示
 void write_log_auo_enc_time(const char *mes, DWORD time) {
     time = ((time + 50) / 100) * 100; //四捨五入
-    write_log_auo_line_fmt(LOG_INFO, "%s : %d時間%2d分%2d.%1d秒", 
-        mes, 
+    write_log_auo_line_fmt(LOG_INFO, "%s : %d時間%2d分%2d.%1d秒",
+        mes,
         time / (60*60*1000),
-        (time % (60*60*1000)) / (60*1000), 
+        (time % (60*60*1000)) / (60*1000),
         (time % (60*1000)) / 1000,
         ((time % 1000)) / 100);
 }
@@ -312,7 +312,7 @@ void overwrite_aviutl_ini_file_filter(int idx) {
     get_aviutl_dir(ini_file, _countof(ini_file));
     PathAddBackSlashLong(ini_file);
     strcat_s(ini_file, _countof(ini_file), "aviutl.ini");
-    
+
     char filefilter_ini[1024] = { 0 };
     make_file_filter(filefilter_ini, _countof(filefilter_ini), idx);
     WritePrivateProfileString(AUO_NAME, "filefilter", filefilter_ini, ini_file);
@@ -326,38 +326,38 @@ void make_file_filter(char *filter, size_t nSize, int default_index) {
         nSize = _countof(g_auo_filefilter);
     }
     char *ptr = filter;
-    
-#define ADD_FILTER(str, appendix) { \
-    size_t len = strlen(str); \
-    if (nSize - (ptr - filter) <= len + 1) return; \
-    memcpy(ptr, (str), sizeof(ptr[0]) * len); \
-    ptr += len; \
-    *ptr = (appendix); \
-    ptr++; \
-}
-#define ADD_DESC(idx) { \
-    size_t len = sprintf_s(ptr, nSize - (ptr - filter), "%s (%s)", OUTPUT_FILE_EXT_DESC[idx], OUTPUT_FILE_EXT_FILTER[idx]); \
-    ptr += len; \
-    *ptr = separator; \
-    ptr++; \
-    len = strlen(OUTPUT_FILE_EXT_FILTER[idx]); \
-    if (nSize - (ptr - filter) <= len + 1) return; \
-    memcpy(ptr, OUTPUT_FILE_EXT_FILTER[idx], sizeof(ptr[0]) * len); \
-    ptr += len; \
-    *ptr = separator; \
-    ptr++; \
-}
-    ADD_FILTER(TOP, separator);
-    ADD_FILTER(OUTPUT_FILE_EXT_FILTER[default_index], ';');
+
+    auto add_filter = [&](const char *str, char appendix) {
+        size_t len = strlen(str);
+        if (nSize - (ptr - filter) <= len + 1)
+            return;
+        memcpy(ptr, (str), sizeof(ptr[0]) * len);
+        ptr += len;
+        *ptr = appendix;
+        ptr++;
+    };
+    auto add_desc = [&](int idx) {
+        size_t len = sprintf_s(ptr, nSize - (ptr - filter), "%s (%s)", OUTPUT_FILE_EXT_DESC[idx], OUTPUT_FILE_EXT_FILTER[idx]);
+        ptr += len;
+        *ptr = separator;
+        ptr++;
+        len = strlen(OUTPUT_FILE_EXT_FILTER[idx]);
+        if (nSize - (ptr - filter) <= len + 1)
+            return;
+        memcpy(ptr, OUTPUT_FILE_EXT_FILTER[idx], sizeof(ptr[0]) * len);
+        ptr += len;
+        *ptr = separator;
+        ptr++;
+    };
+    add_filter(TOP, separator);
+    add_filter(OUTPUT_FILE_EXT_FILTER[default_index], ';');
     for (int idx = 0; idx < _countof(OUTPUT_FILE_EXT_FILTER); idx++)
         if (idx != default_index)
-            ADD_FILTER(OUTPUT_FILE_EXT_FILTER[idx], ';');
-    ADD_FILTER(OUTPUT_FILE_EXT_FILTER[default_index], separator);
-    ADD_DESC(default_index);
+            add_filter(OUTPUT_FILE_EXT_FILTER[idx], ';');
+    add_filter(OUTPUT_FILE_EXT_FILTER[default_index], separator);
+    add_desc(default_index);
     for (int idx = 0; idx < _countof(OUTPUT_FILE_EXT_FILTER); idx++)
         if (idx != default_index)
-            ADD_DESC(idx);
+            add_desc(idx);
     ptr[0] = '\0';
-#undef ADD_FILTER
-#undef ADD_DESC
 }

@@ -49,7 +49,9 @@ typedef char TCHAR;
 #define _tcsnccmp strncmp
 #define _tcsicmp strcasecmp
 #define _tcschr strchr
+#define _tcsrchr strrchr
 #define _tcsstr strstr
+#define _tcscat_s strcat_s
 #define _tcstol strtol
 #define _tcsdup strdup
 #define _tfopen fopen
@@ -61,6 +63,8 @@ typedef char TCHAR;
 #define _tcserror strerror
 #define _fgetts fgets
 #define _tcscpy strcpy
+#define _tremove remove
+#define _trename rename
 
 #define _SH_DENYRW      0x10    // deny read/write mode
 #define _SH_DENYWR      0x20    // deny write mode

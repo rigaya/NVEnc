@@ -19,7 +19,7 @@
 #pragma warning(push)
 #pragma warning(disable: 4100)
 #pragma warning(disable: 4477)
-#include "nvUtils.h"
+//#include "nvUtils.h"
 #pragma warning(pop)
 
 #define SET_VER(configStruct, type) {configStruct.version = type##_VER;}
@@ -161,6 +161,8 @@ struct MEOnlyConfig
     unsigned int referenceFrameIndex;
 };
 
+#if 0
+
 class CNvHWEncoder
 {
 public:
@@ -242,3 +244,4 @@ public:
 
 typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*); 
 
+#endif

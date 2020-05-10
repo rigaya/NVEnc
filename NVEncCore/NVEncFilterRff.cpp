@@ -60,7 +60,7 @@ RGY_ERR NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     if (cmpFrameInfoCspResolution(&m_fieldBuf.frame, &pRffParam->frameOut)) {
         m_fieldBuf.frame = pRffParam->frameOut;
         auto cudaerr = m_fieldBuf.alloc();
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -69,12 +69,16 @@ RGY_ERR NVEncFilterRff::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     m_nFieldBufUsed = -1;
     m_nPathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT));
 
-    m_sFilterInfo = strsprintf(_T("rff"));
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
 }
 
-RGY_ERR NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+tstring NVEncFilterParamRff::print() const {
+    return _T("rff");
+}
+
+RGY_ERR NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     UNREFERENCED_PARAMETER(pOutputFrameNum);
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
@@ -109,7 +113,7 @@ RGY_ERR NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         auto cudaerr = cudaMemcpy2DAsync(m_fieldBuf.frame.ptr + m_fieldBuf.frame.pitch * bufDst, m_fieldBuf.frame.pitch * 2,
             pInputFrame->ptr + pInputFrame->pitch * ((bufPicStruct & RGY_FRAME_FLAG_RFF_BFF) ? 1 : 0), pInputFrame->pitch * 2,
             frameInfoEx.width_byte, frameInfoEx.height_total >> 1, cudaMemcpyDeviceToDevice, cudaStreamDefault);
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to field buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
         }
@@ -119,7 +123,7 @@ RGY_ERR NVEncFilterRff::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         auto cudaerr = cudaMemcpy2DAsync(pOutFrame->ptr + pOutFrame->pitch * ((m_nFieldBufPicStruct & RGY_FRAME_FLAG_RFF_BFF) ? 1 : 0), pOutFrame->pitch * 2,
             m_fieldBuf.frame.ptr + m_fieldBuf.frame.pitch * m_nFieldBufUsed, m_fieldBuf.frame.pitch * 2,
             frameInfoEx.width_byte, frameInfoEx.height_total >> 1, cudaMemcpyDeviceToDevice, cudaStreamDefault);
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to field buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
         }

@@ -26,8 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#pragma once
-
 #include "NVEncFrameInfo.h"
 
 FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
@@ -89,6 +87,14 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
         exinfo.width_byte = pFrameInfo->width * 2;
         exinfo.height_total = pFrameInfo->height * 3;
         break;
+    case RGY_CSP_YUVA444:
+        exinfo.width_byte = pFrameInfo->width;
+        exinfo.height_total = pFrameInfo->height * 4;
+        break;
+    case RGY_CSP_YUVA444_16:
+        exinfo.width_byte = pFrameInfo->width * 2;
+        exinfo.height_total = pFrameInfo->height * 4;
+        break;
     case RGY_CSP_RGB24:
     case RGY_CSP_RGB24R:
     case RGY_CSP_BGR24:
@@ -140,6 +146,12 @@ FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane) {
         }
     } else {
         switch (plane) {
+        case RGY_PLANE_A:
+            if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] != RGY_CHROMAFMT_YUVA444) {
+                planeInfo.ptr = nullptr;
+                break;
+            }
+            //フォールスルー
         case RGY_PLANE_U:
         case RGY_PLANE_V:
             //case RGY_PLANE_G:
@@ -166,7 +178,7 @@ FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane) {
                 if (plane == RGY_PLANE_V) {
                     planeInfo.ptr += planeInfo.pitch * planeInfo.height;
                 }
-            } else { //RGY_CHROMAFMT_YUV444 & RGY_CHROMAFMT_RGB
+            } else { //RGY_CHROMAFMT_YUV444 & RGY_CHROMAFMT_YUVA444 & RGY_CHROMAFMT_RGB
                 planeInfo.ptr += plane * planeInfo.pitch * planeInfo.height;
             }
             break;

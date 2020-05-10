@@ -27,6 +27,7 @@
 
 #include "NVEncParam.h"
 #include "afs_stg.h"
+#include "rgy_ini.h"
 
 using std::vector;
 
@@ -44,6 +45,65 @@ tstring get_codec_level_name(RGY_CODEC codec, int level) {
     case RGY_CODEC_HEVC: return get_chr_from_value(list_hevc_level, level);
     default: return _T("Unknown codec.\n");
     }
+}
+
+tstring printParams(const std::vector<DynamicRCParam> &dynamicRC) {
+    TStringStream t;
+    for (const auto& a : dynamicRC) {
+        t << a.print() << std::endl;
+    }
+    return t.str();
+};
+
+DynamicRCParam::DynamicRCParam() : start(-1), end(-1), rc_mode(NV_ENC_PARAMS_RC_CONSTQP), avg_bitrate(-1), max_bitrate(0), targetQuality(-1), targetQualityLSB(-1), qp() {
+
+}
+tstring DynamicRCParam::print() const {
+    TStringStream t;
+    if (end == INT_MAX || end <= 0) {
+        t << "frame=" << start << ":end";
+    } else {
+        t << "frame=" << start << ":" << end;
+    }
+    t << "," << get_chr_from_value(list_nvenc_rc_method_en, rc_mode) << "=";
+    if (rc_mode == NV_ENC_PARAMS_RC_CONSTQP) {
+        t << qp.qpIntra << ":" << qp.qpInterP << ":" << qp.qpInterB;
+    } else {
+        t << avg_bitrate / 1000;
+        if (targetQuality >= 0) {
+            double qual = targetQuality + targetQualityLSB / 256.0;
+            t << ",vbr-quality=" << qual;
+        }
+    }
+    if (max_bitrate != 0) {
+        t << ",maxbitrate=" << max_bitrate / 1000;
+    }
+    return t.str();
+}
+bool DynamicRCParam::operator==(const DynamicRCParam &x) const {
+    return start == x.start
+        && end == x.end
+        && rc_mode == x.rc_mode
+        && avg_bitrate == x.avg_bitrate
+        && max_bitrate == x.max_bitrate
+        && targetQuality == x.targetQuality
+        && targetQualityLSB == x.targetQualityLSB
+        && memcmp(&qp, &x.qp, sizeof(qp)) == 0;
+}
+bool DynamicRCParam::operator!=(const DynamicRCParam &x) const {
+    return !(*this == x);
+}
+
+GPUAutoSelectMul::GPUAutoSelectMul() : cores(0.001f), gen(1.0f), gpu(1.0f), ve(1.0f) {}
+
+bool GPUAutoSelectMul::operator==(const GPUAutoSelectMul &x) const {
+    return cores == x.cores
+        && gen == x.gen
+        && gpu == x.gpu
+        && ve == x.ve;
+}
+bool GPUAutoSelectMul::operator!=(const GPUAutoSelectMul &x) const {
+    return !(*this == x);
 }
 
 VppDelogo::VppDelogo() :
@@ -82,6 +142,43 @@ bool VppDelogo::operator!=(const VppDelogo& x) const {
     return !(*this == x);
 }
 
+tstring VppDelogo::print() const {
+    tstring str = _T("");
+    switch (mode) {
+    case DELOGO_MODE_ADD:
+        str += _T(", add");
+        break;
+    case DELOGO_MODE_REMOVE:
+    default:
+        break;
+    }
+    if (posX || posY) {
+        str += strsprintf(_T(", pos=%d:%d"), posX, posY);
+    }
+    if (depth != FILTER_DEFAULT_DELOGO_DEPTH) {
+        str += strsprintf(_T(", dpth=%d"), depth);
+    }
+    if (Y || Cb || Cr) {
+        str += strsprintf(_T(", YCbCr=%d:%d:%d"), Y, Cb, Cr);
+    }
+    if (autoFade) {
+        str += _T(", auto_fade");
+    }
+    if (autoNR) {
+        str += _T(", auto_nr");
+    }
+    if ((autoFade || autoNR) && log) {
+        str += _T(", log");
+    }
+    if (NRValue) {
+        str += strsprintf(_T(", nr_value=%d"), NRValue);
+    }
+    if (NRArea) {
+        str += strsprintf(_T(", nr_area=%d"), NRArea);
+    }
+    return str;
+}
+
 VppUnsharp::VppUnsharp() :
     enable(false),
     radius(FILTER_DEFAULT_UNSHARP_RADIUS),
@@ -98,6 +195,11 @@ bool VppUnsharp::operator==(const VppUnsharp& x) const {
 }
 bool VppUnsharp::operator!=(const VppUnsharp& x) const {
     return !(*this == x);
+}
+
+tstring VppUnsharp::print() const {
+    return strsprintf(_T("unsharp: radius %d, weight %.1f, threshold %.1f"),
+        radius, weight, threshold);
 }
 
 VppEdgelevel::VppEdgelevel() :
@@ -117,6 +219,11 @@ bool VppEdgelevel::operator==(const VppEdgelevel& x) const {
 }
 bool VppEdgelevel::operator!=(const VppEdgelevel& x) const {
     return !(*this == x);
+}
+
+tstring VppEdgelevel::print() const {
+    return strsprintf(_T("edgelevel: strength %.1f, threshold %.1f, black %.1f, white %.1f"),
+        strength, threshold, black, white);
 }
 
 VppKnn::VppKnn() :
@@ -140,6 +247,14 @@ bool VppKnn::operator!=(const VppKnn& x) const {
     return !(*this == x);
 }
 
+tstring VppKnn::print() const {
+    return strsprintf(
+        _T("denoise(knn): radius %d, strength %.2f, lerp %.2f\n")
+        _T("                              th_weight %.2f, th_lerp %.2f"),
+        radius, strength, lerpC,
+        weight_threshold, lerp_threshold);
+}
+
 VppPmd::VppPmd() :
     enable(false),
     strength(FILTER_DEFAULT_PMD_STRENGTH),
@@ -158,6 +273,11 @@ bool VppPmd::operator==(const VppPmd& x) const {
 }
 bool VppPmd::operator!=(const VppPmd& x) const {
     return !(*this == x);
+}
+
+tstring VppPmd::print() const {
+    return strsprintf(_T("denoise(pmd): strength %d, threshold %d, apply %d, exp %d"),
+        (int)strength, (int)threshold, applyCount, useExp);
 }
 
 VppDeband::VppDeband() :
@@ -192,10 +312,96 @@ bool VppDeband::operator!=(const VppDeband& x) const {
     return !(*this == x);
 }
 
+tstring VppDeband::print() const {
+    return strsprintf(_T("deband: mode %d, range %d, threY %d, threCb %d, threCr %d\n")
+        _T("                       ditherY %d, ditherC %d, blurFirst %s, randEachFrame %s"),
+        sample, range,
+        threY, threCb, threCr,
+        ditherY, ditherC,
+        blurFirst ? _T("yes") : _T("no"),
+        randEachFrame ? _T("yes") : _T("no"));
+}
+
+VppDecimate::VppDecimate() :
+    enable(false),
+    cycle(FILTER_DEFAULT_DECIMATE_CYCLE),
+    threDuplicate(FILTER_DEFAULT_DECIMATE_THRE_DUP),
+    threSceneChange(FILTER_DEFAULT_DECIMATE_THRE_SC),
+    blockX(FILTER_DEFAULT_DECIMATE_BLOCK_X),
+    blockY(FILTER_DEFAULT_DECIMATE_BLOCK_Y),
+    preProcessed(FILTER_DEFAULT_DECIMATE_PREPROCESSED),
+    chroma(FILTER_DEFAULT_DECIMATE_CHROMA),
+    log(FILTER_DEFAULT_DECIMATE_LOG) {
+
+}
+
+bool VppDecimate::operator==(const VppDecimate &x) const {
+    return enable == x.enable
+        && cycle == x.cycle
+        && threDuplicate == x.threDuplicate
+        && threSceneChange == x.threSceneChange
+        && blockX == x.blockX
+        && blockY == x.blockY
+        && preProcessed == x.preProcessed
+        && chroma == x.chroma
+        && log == x.log;
+}
+bool VppDecimate::operator!=(const VppDecimate &x) const {
+    return !(*this == x);
+}
+
+tstring VppDecimate::print() const {
+    return strsprintf(_T("decimate: cycle %d, threDup %.2f, threSC %.2f\n")
+        _T("                         block %dx%d, chroma %s, log %s"),
+        cycle,
+        threDuplicate, threSceneChange,
+        blockX, blockY,
+        /*preProcessed ? _T("on") : _T("off"),*/
+        chroma ? _T("on") : _T("off"),
+        log ? _T("on") : _T("off"));
+}
+
+VppSmooth::VppSmooth() :
+    enable(false),
+    quality(FILTER_DEFAULT_SMOOTH_QUALITY),
+    qp(FILTER_DEFAULT_SMOOTH_QP),
+    prec(VPP_FP_PRECISION_AUTO),
+    useQPTable(false),
+    strength(FILTER_DEFAULT_SMOOTH_STRENGTH),
+    threshold(FILTER_DEFAULT_SMOOTH_THRESHOLD),
+    bratio(FILTER_DEFAULT_SMOOTH_B_RATIO),
+    maxQPTableErrCount(FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR) {
+
+}
+
+bool VppSmooth::operator==(const VppSmooth &x) const {
+    return enable == x.enable
+        && quality == x.quality
+        && qp == x.qp
+        && prec == x.prec
+        && useQPTable == x.useQPTable
+        && strength == x.strength
+        && threshold == x.threshold
+        && bratio == x.bratio
+        && maxQPTableErrCount == x.maxQPTableErrCount;
+}
+bool VppSmooth::operator!=(const VppSmooth &x) const {
+    return !(*this == x);
+}
+
+tstring VppSmooth::print() const {
+    //return strsprintf(_T("smooth: quality %d, qp %d, threshold %.1f, strength %.1f, mode %d, use_bframe_qp %s"), quality, qp, threshold, strength, mode, use_bframe_qp ? _T("yes") : _T("no"));
+    tstring str = strsprintf(_T("smooth: quality %d, qp %d, prec %s"), quality, qp, get_cx_desc(list_vpp_fp_prec, prec));
+    if (useQPTable) {
+        str += strsprintf(_T(", use QP table on"));
+    }
+    return str;
+}
+
 ColorspaceConv::ColorspaceConv() :
     from(),
     to(),
-    source_peak(FILTER_DEFAULT_COLORSPACE_SOURCE_PEAK),
+    sdr_source_peak(FILTER_DEFAULT_COLORSPACE_NOMINAL_SOURCE_PEAK),
     approx_gamma(false),
     scene_ref(false) {
 
@@ -203,7 +409,7 @@ ColorspaceConv::ColorspaceConv() :
 bool ColorspaceConv::operator==(const ColorspaceConv &x) const {
     return from == x.from
         && to == x.to
-        && source_peak == x.source_peak
+        && sdr_source_peak == x.sdr_source_peak
         && approx_gamma == x.approx_gamma
         && scene_ref == x.scene_ref;
 }
@@ -211,10 +417,70 @@ bool ColorspaceConv::operator!=(const ColorspaceConv &x) const {
     return !(*this == x);
 }
 
+TonemapHable::TonemapHable() :
+    a(FILTER_DEFAULT_HDR2SDR_HABLE_A),
+    b(FILTER_DEFAULT_HDR2SDR_HABLE_B),
+    c(FILTER_DEFAULT_HDR2SDR_HABLE_C),
+    d(FILTER_DEFAULT_HDR2SDR_HABLE_D),
+    e(FILTER_DEFAULT_HDR2SDR_HABLE_E),
+    f(FILTER_DEFAULT_HDR2SDR_HABLE_F) {}
+
+bool TonemapHable::operator==(const TonemapHable &x) const {
+    return a == x.a
+        && b == x.b
+        && c == x.c
+        && d == x.d
+        && e == x.e
+        && f == x.f;
+}
+bool TonemapHable::operator!=(const TonemapHable &x) const {
+    return !(*this == x);
+}
+TonemapMobius::TonemapMobius() :
+    transition(FILTER_DEFAULT_HDR2SDR_MOBIUS_TRANSITION),
+    peak(FILTER_DEFAULT_HDR2SDR_MOBIUS_PEAK) {
+}
+bool TonemapMobius::operator==(const TonemapMobius &x) const {
+    return transition == x.transition
+        &&peak == x.peak;
+}
+bool TonemapMobius::operator!=(const TonemapMobius &x) const {
+    return !(*this == x);
+}
+TonemapReinhard::TonemapReinhard() :
+    contrast(FILTER_DEFAULT_HDR2SDR_REINHARD_CONTRAST),
+    peak(FILTER_DEFAULT_HDR2SDR_REINHARD_PEAK) {
+}
+bool TonemapReinhard::operator==(const TonemapReinhard &x) const {
+    return contrast == x.contrast
+        &&peak == x.peak;
+}
+bool TonemapReinhard::operator!=(const TonemapReinhard &x) const {
+    return !(*this == x);
+}
+
+HDR2SDRParams::HDR2SDRParams() :
+    tonemap(HDR2SDR_DISABLED),
+    hable(),
+    mobius(),
+    reinhard(),
+    ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+    hdr_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK) {
+
+}
+bool HDR2SDRParams::operator==(const HDR2SDRParams &x) const {
+    return tonemap == x.tonemap
+        && hable == x.hable
+        && mobius == x.mobius
+        && reinhard == x.reinhard;
+}
+bool HDR2SDRParams::operator!=(const HDR2SDRParams &x) const {
+    return !(*this == x);
+}
+
 VppColorspace::VppColorspace() :
     enable(false),
-    hdr2sdr(false),
-    ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+    hdr2sdr(),
     convs() {
 
 }
@@ -222,7 +488,6 @@ VppColorspace::VppColorspace() :
 bool VppColorspace::operator==(const VppColorspace &x) const {
     if (enable != x.enable
         || x.hdr2sdr != this->hdr2sdr
-        || x.ldr_nits != this->ldr_nits
         || x.convs.size() != this->convs.size()) {
         return false;
     }
@@ -259,6 +524,73 @@ bool VppTweak::operator!=(const VppTweak& x) const {
     return !(*this == x);
 }
 
+tstring VppTweak::print() const {
+    return strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f"),
+        brightness, contrast, saturation, gamma, hue);
+}
+
+VppTransform::VppTransform() :
+    enable(false),
+    transpose(false),
+    flipX(false),
+    flipY(false) {
+}
+
+int VppTransform::rotate() const {
+    if (transpose) {
+        if (!flipY && flipX) {
+            return 270;
+        } else if (flipY && !flipX) {
+            return 90;
+        }
+    } else if (flipY && flipX) {
+        return 180;
+    }
+    return 0;
+}
+
+bool VppTransform::setRotate(int rotate) {
+    switch (rotate) {
+    case 90:
+        transpose = true;
+        flipY = true;
+        break;
+    case 180:
+        flipX = true;
+        flipY = true;
+        break;
+    case 270:
+        transpose = true;
+        flipX = true;
+        break;
+    default:
+        return false;
+    }
+    return true;
+}
+
+bool VppTransform::operator==(const VppTransform &x) const {
+    return enable == x.enable
+        && transpose == x.transpose
+        && flipX == x.flipX
+        && flipY == x.flipY;
+}
+bool VppTransform::operator!=(const VppTransform &x) const {
+    return !(*this == x);
+}
+
+tstring VppTransform::print() const {
+#define ON_OFF(b) ((b) ? _T("on") : _T("off"))
+    const auto rotation = rotate();
+    if (rotation) {
+        return strsprintf(_T("rotate: %d"), rotation);
+    } else {
+        return strsprintf(_T("transform: transpose %s, flipX %s, flipY %s"),
+            ON_OFF(transpose), ON_OFF(flipX), ON_OFF(flipY));
+    }
+#undef ON_OFF
+}
+
 VppSelectEvery::VppSelectEvery() :
     enable(false),
     step(1),
@@ -272,6 +604,65 @@ bool VppSelectEvery::operator==(const VppSelectEvery& x) const {
 }
 bool VppSelectEvery::operator!=(const VppSelectEvery& x) const {
     return !(*this == x);
+}
+
+tstring VppSelectEvery::print() const {
+    return strsprintf(_T("selectevery %d (offset %d)"), step, offset);
+}
+
+VppSubburn::VppSubburn() :
+    enable(false),
+    filename(),
+    charcode(),
+    trackId(0),
+    assShaping(1),
+    scale(0.0),
+    transparency_offset(0.0),
+    brightness(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
+    contrast(FILTER_DEFAULT_TWEAK_CONTRAST),
+    ts_offset(0.0),
+    vid_ts_offset(true) {
+}
+
+bool VppSubburn::operator==(const VppSubburn &x) const {
+    return enable == x.enable
+        && filename == x.filename
+        && charcode == x.charcode
+        && trackId == x.trackId
+        && assShaping == x.assShaping
+        && scale == x.scale
+        && transparency_offset == x.transparency_offset
+        && brightness == x.brightness
+        && contrast == x.contrast
+        && ts_offset == x.ts_offset
+        && vid_ts_offset == x.vid_ts_offset;
+}
+bool VppSubburn::operator!=(const VppSubburn &x) const {
+    return !(*this == x);
+}
+
+tstring VppSubburn::print() const {
+    tstring str = strsprintf(_T("subburn: %s, scale x%.2f"),
+        (filename.length() > 0)
+            ? filename.c_str()
+            : strsprintf(_T("track #%d"), trackId).c_str(),
+        scale);
+    if (transparency_offset != 0.0) {
+        str += strsprintf(_T(", transparency %.2f"), transparency_offset);
+    }
+    if (brightness != FILTER_DEFAULT_TWEAK_BRIGHTNESS) {
+        str += strsprintf(_T(", brightness %.2f"), brightness);
+    }
+    if (contrast != FILTER_DEFAULT_TWEAK_CONTRAST) {
+        str += strsprintf(_T(", contrast %.2f"), contrast);
+    }
+    if (ts_offset != 0.0) {
+        str += strsprintf(_T(", ts_offset %.2f"), ts_offset);
+    }
+    if (!vid_ts_offset) {
+        str += _T(", vid_ts_offset off");
+    }
+    return str;
 }
 
 VppCustom::VppCustom() :
@@ -314,25 +705,38 @@ bool VppCustom::operator!=(const VppCustom &x) const {
     return !(*this == x);
 }
 
+tstring VppCustom::print() const {
+    return strsprintf(_T("%s: %s, interface %s, interlace %s\n")
+        _T("                    thread/block (%d,%d), pixel/thread (%d,%d)\n"),
+        filter_name.c_str(), kernel_path.c_str(),
+        get_cx_desc(list_vpp_custom_interface, kernel_interface),
+        get_cx_desc(list_vpp_custom_interlace, interlace),
+        threadPerBlockX, threadPerBlockY,
+        pixelPerThreadX, pixelPerThreadY);
+}
 
 VppParam::VppParam() :
-    bCheckPerformance(false),
+    checkPerformance(false),
     deinterlace(cudaVideoDeinterlaceMode_Weave),
     resizeInterp(NPPI_INTER_UNDEFINED),
     gaussMaskSize((NppiMaskSize)0),
+    delogo(),
     unsharp(),
     edgelevel(),
-    delogo(),
     knn(),
     pmd(),
+    smooth(),
     deband(),
     afs(),
     nnedi(),
     yadif(),
     tweak(),
+    transform(),
     colorspace(),
     pad(),
+    subburn(),
     selectevery(),
+    decimate(),
     rff(false) {
 }
 
@@ -550,6 +954,21 @@ int VppAfs::read_afs_inifile(const TCHAR* inifile) {
     return 0;
 }
 
+tstring VppAfs::print() const {
+#define ON_OFF(b) ((b) ? _T("on") : _T("off"))
+    return strsprintf(
+        _T("afs: clip(T %d, B %d, L %d, R %d), switch %d, coeff_shift %d\n")
+        _T("                    thre(shift %d, deint %d, Ymotion %d, Cmotion %d)\n")
+        _T("                    level %d, shift %s, drop %s, smooth %s, force24 %s\n")
+        _T("                    tune %s, tb_order %d(%s), rff %s, timecode %s, log %s"),
+        clip.top, clip.bottom, clip.left, clip.right,
+        method_switch, coeff_shift,
+        thre_shift, thre_deint, thre_Ymotion, thre_Cmotion,
+        analyze, ON_OFF(shift), ON_OFF(drop), ON_OFF(smooth), ON_OFF(force24),
+        ON_OFF(tune), tb_order, tb_order ? _T("tff") : _T("bff"), ON_OFF(rff), ON_OFF(timecode), ON_OFF(log));
+#undef ON_OFF
+}
+
 VppYadif::VppYadif() :
     enable(false),
     mode(VPP_YADIF_MODE_AUTO) {
@@ -562,6 +981,12 @@ bool VppYadif::operator==(const VppYadif& x) const {
 }
 bool VppYadif::operator!=(const VppYadif& x) const {
     return !(*this == x);
+}
+
+tstring VppYadif::print() const {
+    return strsprintf(
+        _T("yadif: mode %s"),
+        get_cx_desc(list_vpp_yadif_mode, mode));
 }
 
 VppPad::VppPad() :
@@ -584,13 +1009,18 @@ bool VppPad::operator!=(const VppPad& x) const {
     return !(*this == x);
 }
 
+tstring VppPad::print() const {
+    return strsprintf(_T("(right=%d, left=%d, top=%d, bottom=%d)"),
+        right, left, top, bottom);
+}
+
 VppNnedi::VppNnedi() :
     enable(false),
     field(VPP_NNEDI_FIELD_USE_AUTO),
     nns(32),
     nsize(VPP_NNEDI_NSIZE_32x4),
     quality(VPP_NNEDI_QUALITY_FAST),
-    precision(VPP_NNEDI_PRECISION_AUTO),
+    precision(VPP_FP_PRECISION_AUTO),
     pre_screen(VPP_NNEDI_PRE_SCREEN_NEW_BLOCK),
     errortype(VPP_NNEDI_ETYPE_ABS),
     weightfile(_T("")) {
@@ -616,6 +1046,20 @@ bool VppNnedi::operator==(const VppNnedi& x) const {
 }
 bool VppNnedi::operator!=(const VppNnedi& x) const {
     return !(*this == x);
+}
+
+tstring VppNnedi::print() const {
+    return strsprintf(
+        _T("nnedi: field %s, nns %d, nsize %s, quality %s, prec %s\n")
+        _T("                       pre_screen %s, errortype %s, weight \"%s\""),
+        get_cx_desc(list_vpp_nnedi_field, field),
+        nns,
+        get_cx_desc(list_vpp_nnedi_nsize, nsize),
+        get_cx_desc(list_vpp_nnedi_quality, quality),
+        get_cx_desc(list_vpp_fp_prec, precision),
+        get_cx_desc(list_vpp_nnedi_pre_screen, pre_screen),
+        get_cx_desc(list_vpp_nnedi_error_type, errortype),
+        ((weightfile.length()) ? weightfile.c_str() : _T("internal")));
 }
 
 NV_ENC_CODEC_CONFIG DefaultParamH264() {
@@ -701,65 +1145,28 @@ NV_ENC_CONFIG DefaultParam() {
 }
 
 InEncodeVideoParam::InEncodeVideoParam() :
-    input(),
-    inputFilename(),
-    outputFilename(),
-    sAVMuxOutputFormat(),
-    preset(0),
     deviceID(-1),
+    cudaSchedule(DEFAULT_CUDA_SCHEDULE),
+    gpuSelect(),
+    sessionRetry(0),
+    input(),
+    preset(0),
     nHWDecType(0),
     par(),
     encConfig(),
-    codec(0),
+    dynamicRC(),
+    codec(NV_ENC_H264),
     bluray(0),                   //bluray出力
     yuv444(0),                   //YUV444出力
     lossless(0),                 //ロスレス出力
-    sMaxCll(),
-    sMasterDisplay(),
-    videoCodecTag(),
-    logfile(),              //ログ出力先
-    loglevel(RGY_LOG_INFO),                 //ログ出力レベル
-    nOutputBufSizeMB(DEFAULT_OUTPUT_BUF),         //出力バッファサイズ
-    sFramePosListLog(),     //framePosList出力先
-    fSeekSec(0.0f),               //指定された秒数分先頭を飛ばす
-    nSubtitleSelectCount(0),
-    pSubtitleSelect(nullptr),
-    nAudioSourceCount(0),
-    ppAudioSourceList(nullptr),
-    nAudioSelectCount(0), //pAudioSelectの数
-    ppAudioSelectList(nullptr),
-    nAudioResampler(RGY_RESAMPLER_SWR),
-    nAVDemuxAnalyzeSec(0),
-    nAVMux(RGY_MUX_NONE),                       //RGY_MUX_xxx
-    nVideoTrack(0),
-    nVideoStreamId(0),
-    nTrimCount(0),
-    pTrimList(nullptr),
-    bCopyChapter(false),
-    keyOnChapter(false),
-    caption2ass(FORMAT_INVALID),
-    nOutputThread(RGY_OUTPUT_THREAD_AUTO),
-    nAudioThread(RGY_INPUT_THREAD_AUTO),
-    nInputThread(RGY_AUDIO_THREAD_AUTO),
-    nAudioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
-    pMuxOpt(nullptr),
-    sChapterFile(),
-    pMuxVidTsLogFile(nullptr),
-    pAVInputFormat(nullptr),
-    nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
-    nProcSpeedLimit(0),      //処理速度制限 (0で制限なし)
-    vpp(),
     nWeightP(0),
-    nPerfMonitorSelect(0),
-    nPerfMonitorSelectMatplot(0),
-    nPerfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
-    nCudaSchedule(DEFAULT_CUDA_SCHEDULE),
-    sessionRetry(0),
-    threadCsp(0),
-    simdCsp(-1),
-    pPrivatePrm(nullptr) {
+    common(),
+    ctrl(),
+    vpp(),
+    ssim(false),
+    psnr(false) {
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));
-    memset(&input, 0, sizeof(input));
+    input.vui = VideoVUIInfo();
 }
 

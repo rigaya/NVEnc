@@ -210,14 +210,10 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 使用 avformat 和 ffmpeg 的软件解码器读取文件.
 
-### --avhw [&lt;string&gt;]
+### --avhw
 
 使用 avformat 和 cuvid 的硬件解码器。使用该模式可以提供最佳性能，因为该模式下整个编解码过程均在 GPU 运行。
 
-尽管你可以选择解码器模式，但一般情况下不需要。
-
-- native (默认)
-- cuda
 
 **avhw reader 支持的编码**  
 
@@ -229,7 +225,7 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 | H.265/HEVC | ○ |
 | VP8        | × |
 | VP9        | ○ |
-| VC-1       | × |
+| VC-1       | ○ |
 | WMV3/WMV9  | × |
 
 ○ ... 支持  
@@ -361,7 +357,7 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 ### --weightp
 
-启用带权 P 帧。[仅在 H.264 下有效]
+启用带权 P 帧。
 
 ### --aq
 
@@ -458,7 +454,7 @@ hevc:  main, high
 ```
   undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
+  bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```
 
 ### --chromaloc &lt;int&gt;
@@ -549,7 +545,7 @@ Bluray输出。（默认：关）
 
 要将H.264 / HEVC输出为基本流，请指定“raw”。
 
-### --video-tag <string>
+### --video-tag  &lt;string&gt;
 指定视频标签。
 ```
  -o test.mp4 -c hevc --video-tag hvc1
@@ -600,7 +596,7 @@ Example 3: 为 "aac_coder" 添加 "twoloop" 参数可以提升低码率下的音
 示例 2: --audio-bitrate 2?256 (设置第二根音频轨的码率为 256kbps)
 ```
 
-### --audio-profile [[&lt;int&gt;?]&lt;string&gt;
+### --audio-profile [&lt;int&gt;?]&lt;string&gt;
 
 指定音频编码器的profile。
 
@@ -975,7 +971,7 @@ Activate Auto Field Shift (AFS) deinterlacer.
   指定权重参数文件。不指定的时候将会使用内置的数据。
 
 ```
-示例：--vpp-nnedi field=auto,nns=64,nsize=32x6,qual=slow,prescreen=none,prec=fp32
+示例：--vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
 ```
 
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]

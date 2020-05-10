@@ -38,6 +38,12 @@
 #include "NVEncFilterColorspaceFunc.h"
 #include "NVEncParam.h"
 
+extern "C" {
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start[];
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end[];
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_size[];
+}
+
 using std::pair;
 using std::make_pair;
 using std::make_unique;
@@ -97,6 +103,7 @@ mat3x3 matrixRGB2YUV(CspMatrix matrix) {
     case RGY_MATRIX_BT709:     return genMatrix(0.2126, 0.0722);
     case RGY_MATRIX_FCC:       return genMatrix(0.3,      0.11);
     case RGY_MATRIX_ST170_M:   return genMatrix(0.299,   0.114);
+    case RGY_MATRIX_ST240_M:   return genMatrix(0.212,   0.087);
     case RGY_MATRIX_BT2020_NCL:
     case RGY_MATRIX_BT2020_CL: return genMatrix(0.2627, 0.0593);
     default:                   return mat3x3();
@@ -129,7 +136,7 @@ mat3x3 genMatrixfromPrim(CspColorprim prim) {
         w.dot(r.cross(g)) / x.dot(y.cross(z)));
 }
 
-mat3x3 matrixYUV2RGBfromPrim(CspColorprim prim) {
+mat3x3 matrixRGB2YUVfromPrim(CspColorprim prim) {
     switch (prim) {
     case RGY_PRIM_BT709:  return matrixRGB2YUV(RGY_MATRIX_BT709);
     case RGY_PRIM_BT2020: return matrixRGB2YUV(RGY_MATRIX_BT2020_NCL);
@@ -137,8 +144,8 @@ mat3x3 matrixYUV2RGBfromPrim(CspColorprim prim) {
     }
 }
 
-mat3x3 matrixRGB2YUVfromPrim(CspColorprim prim) {
-    return matrixYUV2RGBfromPrim(prim).inv();
+mat3x3 matrixYUV2RGBfromPrim(CspColorprim prim) {
+    return matrixRGB2YUVfromPrim(prim).inv();
 }
 
 mat3x3 getPrimXYZ(CspColorprim prim) {
@@ -282,6 +289,18 @@ TransferFunc getTrasferFunc(CspTransfer transfer, double peak_luminance, bool sc
         func.to_linear_scale = ST2084_PEAK_LUMINANCE / peak_luminance;
         func.to_gamma_scale = peak_luminance / ST2084_PEAK_LUMINANCE;
         break;
+    case RGY_TRANSFER_ARIB_B67:
+        if (scene_referred) {
+            SET_FUNC(to_linear, arib_b67_inverse_oetf);
+            SET_FUNC(to_gamma, arib_b67_oetf);
+        } else {
+            SET_FUNC(to_linear, arib_b67_eotf);
+            SET_FUNC(to_gamma, arib_b67_inverse_eotf);
+
+        }
+        func.to_linear_scale = scene_referred ? 12.0f : static_cast<float>(1000.0 / peak_luminance);
+        func.to_gamma_scale = scene_referred ? 1.0f / 12.0f : static_cast<float>(peak_luminance / 1000.0);
+        break;
     default:
         func.to_linear = nullptr;
         func.to_gamma = nullptr;
@@ -290,6 +309,15 @@ TransferFunc getTrasferFunc(CspTransfer transfer, double peak_luminance, bool sc
 #undef SET_FUNC
     return func;
 }
+
+class ColorspaceOpNone : public ColorspaceOp {
+public:
+    ColorspaceOpNone() { m_type = COLORSPACE_OP_TYPE_NONE; };
+    virtual ~ColorspaceOpNone() {};
+    virtual std::string print() { return ""; }
+    virtual bool add(const ColorspaceOp* op) { UNREFERENCED_PARAMETER(op); return false; }
+protected:
+};
 
 class ColorspaceOpMatrix : public ColorspaceOp {
 public:
@@ -387,23 +415,86 @@ protected:
     const TransferFunc m_func;
 };
 
-class ColorspaceOpHDR2SDR : public ColorspaceOp {
+class ColorspaceOpHDR2SDRHable : public ColorspaceOp {
 public:
-    ColorspaceOpHDR2SDR() : m_source_peak(1000.0), m_ldr_nits(100.0), m_A(0.22), m_B(0.3), m_C(0.1), m_D(0.2), m_E(0.01), m_F(0.3) {};
-    ColorspaceOpHDR2SDR(double source_peak, double ldr_nits,
-        double A = 0.22, double B = 0.3, double C = 0.1, double D = 0.2, double E = 0.01, double F = 0.3) :
+    ColorspaceOpHDR2SDRHable() : m_mode(HDR2SDR_HABLE),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
+        m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+        m_A(FILTER_DEFAULT_HDR2SDR_HABLE_A),
+        m_B(FILTER_DEFAULT_HDR2SDR_HABLE_B),
+        m_C(FILTER_DEFAULT_HDR2SDR_HABLE_C),
+        m_D(FILTER_DEFAULT_HDR2SDR_HABLE_D),
+        m_E(FILTER_DEFAULT_HDR2SDR_HABLE_E),
+        m_F(FILTER_DEFAULT_HDR2SDR_HABLE_F) {};
+    ColorspaceOpHDR2SDRHable(double source_peak, double ldr_nits,
+        double A, double B, double C, double D, double E, double F) :
+        m_mode(HDR2SDR_HABLE),
         m_source_peak(source_peak), m_ldr_nits(ldr_nits),
         m_A(A), m_B(B), m_C(C), m_D(D), m_E(E), m_F(F) {
         m_type = COLORSPACE_OP_TYPE_HDR2SDR;
     };
-    virtual ~ColorspaceOpHDR2SDR() {};
-    virtual std::string print();
-    virtual bool add(const ColorspaceOp *op) { UNREFERENCED_PARAMETER(op); return false; }
+    virtual ~ColorspaceOpHDR2SDRHable() {};
+    virtual std::string print() override;
+    virtual std::string printInfo() override;
+    virtual bool add(const ColorspaceOp *op) override { UNREFERENCED_PARAMETER(op); return false; }
     double source_peak() const { return m_source_peak; }
     double ldr_nits() const { return m_ldr_nits; }
 protected:
+    HDR2SDRToneMap m_mode;
     double m_source_peak, m_ldr_nits;
     double m_A, m_B, m_C, m_D, m_E, m_F;
+};
+
+class ColorspaceOpHDR2SDRMobius : public ColorspaceOp {
+public:
+    ColorspaceOpHDR2SDRMobius() : m_mode(HDR2SDR_MOBIUS),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
+        m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+        m_transition(FILTER_DEFAULT_HDR2SDR_MOBIUS_TRANSITION),
+        m_peak(FILTER_DEFAULT_HDR2SDR_MOBIUS_PEAK) {};
+    ColorspaceOpHDR2SDRMobius(double source_peak, double ldr_nits,
+        double transition, double peak) :
+        m_mode(HDR2SDR_MOBIUS),
+        m_source_peak(source_peak), m_ldr_nits(ldr_nits),
+        m_transition(transition), m_peak(peak) {
+        m_type = COLORSPACE_OP_TYPE_HDR2SDR;
+    };
+    virtual ~ColorspaceOpHDR2SDRMobius() {};
+    virtual std::string print() override;
+    virtual std::string printInfo() override;
+    virtual bool add(const ColorspaceOp *op) override { UNREFERENCED_PARAMETER(op); return false; }
+    double source_peak() const { return m_source_peak; }
+    double ldr_nits() const { return m_ldr_nits; }
+protected:
+    HDR2SDRToneMap m_mode;
+    double m_source_peak, m_ldr_nits;
+    double m_transition, m_peak;
+};
+
+class ColorspaceOpHDR2SDRReinhard : public ColorspaceOp {
+public:
+    ColorspaceOpHDR2SDRReinhard() : m_mode(HDR2SDR_REINHARD),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
+        m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
+        m_contrast(FILTER_DEFAULT_HDR2SDR_REINHARD_CONTRAST),
+        m_peak(FILTER_DEFAULT_HDR2SDR_REINHARD_PEAK) {};
+    ColorspaceOpHDR2SDRReinhard(double source_peak, double ldr_nits,
+        double contrast, double peak) :
+        m_mode(HDR2SDR_REINHARD),
+        m_source_peak(source_peak), m_ldr_nits(ldr_nits),
+        m_contrast(contrast), m_peak(peak) {
+        m_type = COLORSPACE_OP_TYPE_HDR2SDR;
+    };
+    virtual ~ColorspaceOpHDR2SDRReinhard() {};
+    virtual std::string print() override;
+    virtual std::string printInfo() override;
+    virtual bool add(const ColorspaceOp *op) override { UNREFERENCED_PARAMETER(op); return false; }
+    double source_peak() const { return m_source_peak; }
+    double ldr_nits() const { return m_ldr_nits; }
+protected:
+    HDR2SDRToneMap m_mode;
+    double m_source_peak, m_ldr_nits;
+    double m_contrast, m_peak;
 };
 
 class ColorspaceOpRange : public ColorspaceOp {
@@ -418,9 +509,9 @@ public:
             offset_y  = 0.0;
             offset_uv = 0.0;
         } else {
-            range_y   = (info.fullrange) ? ((1<<bit_depth)-1) : 219 << (bit_depth - 8);
-            range_uv  = (info.fullrange) ? ((1<<bit_depth)-1) : 224 << (bit_depth - 8);
-            offset_y  = (info.fullrange) ? 0 : 16 << (bit_depth - 8);
+            range_y   = (info.colorrange == RGY_COLORRANGE_FULL) ? ((1<<bit_depth)-1) : 219 << (bit_depth - 8);
+            range_uv  = (info.colorrange == RGY_COLORRANGE_FULL) ? ((1<<bit_depth)-1) : 224 << (bit_depth - 8);
+            offset_y  = (info.colorrange == RGY_COLORRANGE_FULL) ? 0 : 16 << (bit_depth - 8);
             offset_uv = (double)(1 << (bit_depth - 1));
         }
         if (int2float) {
@@ -573,9 +664,9 @@ std::string ColorspaceOpCL2YUV::print() {
         m_nb, m_pb, m_nr, m_pr);
 }
 
-std::string ColorspaceOpHDR2SDR::print() {
+std::string ColorspaceOpHDR2SDRHable::print() {
     return strsprintf(R"(
-    { //hdr2sdr
+    { //hdr2sdr hable
         const float source_peak = %.16ef;
         const float ldr_nits = %.16ef;
         const float A = %.16ef;
@@ -584,11 +675,71 @@ std::string ColorspaceOpHDR2SDR::print() {
         const float D = %.16ef;
         const float E = %.16ef;
         const float F = %.16ef;
-        x.x = hdr2sdr( x.x, source_peak, ldr_nits, A, B, C, D, E, F );
-        x.y = hdr2sdr( x.y, source_peak, ldr_nits, A, B, C, D, E, F );
-        x.z = hdr2sdr( x.z, source_peak, ldr_nits, A, B, C, D, E, F );
+        const float in = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
+        const float out = hdr2sdr_hable( in, source_peak, ldr_nits, A, B, C, D, E, F );
+        const float mul = out / in;
+        x.x *= mul;
+        x.y *= mul;
+        x.z *= mul;
     })",
         m_source_peak, m_ldr_nits, m_A, m_B, m_C, m_D, m_E, m_F);
+}
+
+std::string ColorspaceOpHDR2SDRMobius::print() {
+    return strsprintf(R"(
+    { //hdr2sdr mobius
+        const float source_peak = %.16ef;
+        const float ldr_nits = %.16ef;
+        const float transition = %.16ef;
+        const float peak = %.16ef;
+        const float in = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
+        const float out = hdr2sdr_mobius( in, source_peak, ldr_nits, transition, peak );
+        const float mul = out / in;
+        x.x *= mul;
+        x.y *= mul;
+        x.z *= mul;
+    })",
+        m_source_peak, m_ldr_nits, m_transition, m_peak);
+}
+
+std::string ColorspaceOpHDR2SDRReinhard::print() {
+    return strsprintf(R"(
+    { //hdr2sdr reinhard
+        const float source_peak = %.16ef;
+        const float ldr_nits = %.16ef;
+        const float contrast = %.16ef;
+        const float peak = %.16ef;
+        const float offset = (1.0f - contrast) / contrast;
+        const float in = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
+        const float out = hdr2sdr_reinhard( in, source_peak, ldr_nits, offset, peak );
+        const float mul = out / in;
+        x.x *= mul;
+        x.y *= mul;
+        x.z *= mul;
+    })",
+        m_source_peak, m_ldr_nits, m_contrast, m_peak);
+}
+
+std::string ColorspaceOpHDR2SDRHable::printInfo() {
+    return strsprintf("hdr2sdr(hable): source_peak=%.2f ldr_nits=%.2f\n"
+        "                             A %.2f, B %.2f, C %.2f, D %.2f\n"
+        "                             E %.2f, F %.2f",
+        m_source_peak, m_ldr_nits,
+        m_A, m_B, m_C, m_D, m_E, m_F);
+}
+
+std::string ColorspaceOpHDR2SDRMobius::printInfo() {
+    return strsprintf("hdr2sdr(mobius): source_peak=%.2f ldr_nits=%.2f\n"
+        "                             transition %.2f, peak %.2f",
+        m_source_peak, m_ldr_nits,
+        m_transition, m_peak);
+}
+
+std::string ColorspaceOpHDR2SDRReinhard::printInfo() {
+    return strsprintf("hdr2sdr(reinhard): source_peak=%.2f ldr_nits=%.2f\n"
+        "                             contrast %.2f, peak %.2f",
+        m_source_peak, m_ldr_nits,
+        m_contrast, m_peak);
 }
 
 std::string ColorspaceOpRange::print() {
@@ -630,11 +781,13 @@ tstring ColorspaceOpCtrl::printInfoAll() const {
         const bool print_maxtrix = op.from.matrix != op.to.matrix;
         const bool print_prim = op.from.colorprim != op.to.colorprim;
         const bool print_transfer = op.from.transfer != op.to.transfer;
+        const bool print_range = op.from.colorrange != op.to.colorrange;
         tstring op_str;
-        if (print_maxtrix || print_prim || print_transfer) {
-            if (print_maxtrix)  op_str += tstring(_T(",matrix:"))   + get_cx_desc(list_colormatrix, op.from.matrix)  + _T("->") + get_cx_desc(list_colormatrix, op.to.matrix);
-            if (print_prim)     op_str += tstring(_T(",prim:"))     + get_cx_desc(list_colorprim, op.from.colorprim) + _T("->") + get_cx_desc(list_colorprim, op.to.colorprim);
-            if (print_transfer) op_str += tstring(_T(",transfer:")) + get_cx_desc(list_transfer, op.from.transfer)   + _T("->") + get_cx_desc(list_transfer, op.to.transfer);
+        if (print_maxtrix || print_prim || print_transfer || print_range) {
+            if (print_maxtrix)  op_str += tstring(_T(",matrix:"))   + get_cx_desc(list_colormatrix, op.from.matrix)    + _T("->") + get_cx_desc(list_colormatrix, op.to.matrix);
+            if (print_prim)     op_str += tstring(_T(",prim:"))     + get_cx_desc(list_colorprim, op.from.colorprim)   + _T("->") + get_cx_desc(list_colorprim, op.to.colorprim);
+            if (print_transfer) op_str += tstring(_T(",transfer:")) + get_cx_desc(list_transfer, op.from.transfer)     + _T("->") + get_cx_desc(list_transfer, op.to.transfer);
+            if (print_range)    op_str += tstring(_T(",range:"))    + get_cx_desc(list_colorrange, op.from.colorrange) + _T("->") + get_cx_desc(list_colorrange, op.to.colorrange);
 
             if (str.length() > 0) {
                 str += _T("\n                           ");
@@ -644,11 +797,18 @@ tstring ColorspaceOpCtrl::printInfoAll() const {
             if (str.length() > 0) {
                 str += _T("\n                           ");
             }
-            auto op_hdr2sdr = dynamic_cast<ColorspaceOpHDR2SDR *>(op.ops.get());
-            str += strsprintf(_T("hdr2sdr:source_peak=%.2f ldr_nits=%.2f"), op_hdr2sdr->source_peak(), op_hdr2sdr->ldr_nits());
+            str += char_to_tstring(op.ops->printInfo());
+        } else if (op.ops->getType() == COLORSPACE_OP_TYPE_NONE) {
+            if (str.length() > 0) {
+                str += _T("\n                           ");
+            }
         }
     }
     return str;
+}
+
+VideoVUIInfo ColorspaceOpCtrl::VuiOut() const {
+    return operations.back().to;
 }
 
 RGY_ERR ColorspaceOpCtrl::addColorspaceOpNclYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to) {
@@ -710,7 +870,7 @@ RGY_ERR ColorspaceOpCtrl::addColorspaceOpGamma2Linear(vector<ColorspaceOpInfo> &
         AddMessage(RGY_LOG_ERROR, _T("invalid conversion\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (from.transfer == RGY_TRANSFER_ARIB_B67  && useDisplayReferredB67(from, approx_gamma, scene_ref)) {
+    if (from.transfer == RGY_TRANSFER_ARIB_B67 && useDisplayReferredB67(from, approx_gamma, scene_ref)) {
         const mat3x3 mat = matrixRGB2YUVfromPrim(from.colorprim);
         const auto func = getTrasferFunc(RGY_TRANSFER_ARIB_B67, source_peak, false);
         ops.push_back(ColorspaceOpInfo(from, to, make_unique<ColorspaceOpInvAribB67>(mat(0, 0), mat(0, 1), mat(0, 2), func.to_linear_scale)));
@@ -798,8 +958,18 @@ RGY_ERR ColorspaceOpCtrl::addColorspaceOpClRGB2YUV(vector<ColorspaceOpInfo> &ops
     return RGY_ERR_NONE;
 }
 
-RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits) {
-    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDR>(source_peak, ldr_nits)));
+RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapHable& prm) {
+    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDRHable>(source_peak, ldr_nits, prm.a, prm.b, prm.c, prm.d, prm.e, prm.f)));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapMobius &prm) {
+    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDRMobius>(source_peak, ldr_nits, prm.transition, prm.peak)));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapReinhard &prm) {
+    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDRReinhard>(source_peak, ldr_nits, prm.contrast, prm.peak)));
     return RGY_ERR_NONE;
 }
 
@@ -921,21 +1091,43 @@ struct ColorspaceHash {
     }
 };
 
-RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, double ldr_nits) {
-    const auto csp_from1 = in.to(RGY_MATRIX_BT2020_NCL).to(RGY_TRANSFER_ST2084);
+RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double sdr_source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm, int height) {
+    auto csp_from1 = in;
+    if (csp_from1.matrix == RGY_MATRIX_UNSPECIFIED) {
+        csp_from1 = csp_from1.to(RGY_MATRIX_BT2020_NCL);
+    }
+    if (csp_from1.transfer == RGY_TRANSFER_UNSPECIFIED) {
+        csp_from1 = csp_from1.to(RGY_TRANSFER_ST2084);
+    }
+    if (csp_from1.transfer == RGY_TRANSFER_ARIB_B67 && csp_from1.colorprim == RGY_PRIM_UNSPECIFIED) {
+        csp_from1 = csp_from1.to(RGY_PRIM_BT2020);
+    }
     const auto csp_to1 = csp_from1.to(RGY_MATRIX_RGB).to(RGY_TRANSFER_LINEAR);
-    CHECK(setPath(csp_from1, csp_to1, source_peak, approx_gamma, scene_ref));
-    CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, source_peak, ldr_nits));
+    CHECK(setPath(csp_from1, csp_to1, sdr_source_peak, approx_gamma, scene_ref, height));
+    switch (prm.tonemap) {
+    case HDR2SDR_HABLE:
+        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.hable));
+        break;
+    case HDR2SDR_MOBIUS:
+        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.mobius));
+        break;
+    case HDR2SDR_REINHARD:
+        CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.reinhard));
+        break;
+    default:
+        return RGY_ERR_INVALID_PARAM;
+    }
     auto csp_to2 = out;
+    csp_to2.apply_auto(csp_from1, height);
     if (csp_to2.matrix == RGY_MATRIX_UNSPECIFIED) {
         csp_to2 = csp_to2.to(RGY_MATRIX_BT709).to(RGY_TRANSFER_BT709).to(RGY_PRIM_BT709);
     }
     const auto csp_from2 = csp_to2.to(RGY_PRIM_BT2020).to(RGY_TRANSFER_LINEAR).to(RGY_MATRIX_RGB);
-    CHECK(setPath(csp_from2, csp_to2, source_peak, approx_gamma, scene_ref));
+    CHECK(setPath(csp_from2, csp_to2, sdr_source_peak, approx_gamma, scene_ref, height));
     return RGY_ERR_NONE;
 }
 
-RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref) {
+RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, int height) {
     if (!is_valid_csp(in)) {
         AddMessage(RGY_LOG_ERROR, _T("invalid input colorspace definition\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -944,7 +1136,16 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
         AddMessage(RGY_LOG_ERROR, _T("invalid output colorspace definition\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    AddMessage(RGY_LOG_DEBUG, _T("Search path from %s -> %s"), in.print_main().c_str(), out.print_main().c_str());
+    if (   in.matrix == out.matrix
+        && in.colorprim == out.colorprim
+        && in.transfer == out.transfer) {
+        //やることはない
+        m_path.push_back(ColorspaceOpInfo(in, out, std::make_unique<ColorspaceOpNone>()));
+        return RGY_ERR_NONE;
+    }
+    auto out_target = out;
+    out_target.apply_auto(in, height);
+    AddMessage(RGY_LOG_DEBUG, _T("Search path from %s -> %s"), in.print_main().c_str(), out_target.print_main().c_str());
 
     std::deque<VideoVUIInfo> queue;
     std::unordered_set<VideoVUIInfo, ColorspaceHash> visited;
@@ -959,7 +1160,7 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
         vertex = queue.front();
         queue.pop_front();
 
-        if (vertex == out)
+        if (vertex == out_target)
             break;
 
         vector<ColorspaceOpInfo> nodes;
@@ -973,7 +1174,7 @@ RGY_ERR ColorspaceOpCtrl::setPath(const VideoVUIInfo &in, const VideoVUIInfo &ou
             parents[edge.to] = std::move(edge);
         }
     }
-    if (vertex != out) {
+    if (vertex != out_target) {
         AddMessage(RGY_LOG_ERROR, _T("no path between colorspaces\n"));
         return RGY_ERR_INVALID_PARAM;
     }
@@ -1004,7 +1205,7 @@ RGY_ERR ColorspaceOpCtrl::setOperation(RGY_CSP csp_in, RGY_CSP csp_out) {
 
         AddMessage(RGY_LOG_DEBUG, _T("Set path...\n"));
         AddMessage(RGY_LOG_DEBUG, _T("  node: %s\n"), m_path.begin()->from.print_main().c_str());
-        for (auto &node : m_path) {
+        for (auto& node : m_path) {
             AddMessage(RGY_LOG_DEBUG, _T("  node: %s\n"), node.to.print_main().c_str());
             addOperation(node);
         }
@@ -1103,13 +1304,15 @@ RGY_ERR NVEncFilterColorspace::check_param(shared_ptr<NVEncFilterParamColorspace
 }
 
 std::string NVEncFilterColorspace::genKernelCode() {
+#if ENABLE_NVRTC
     std::vector<char> colorspace_func_h;
     uint64_t datasize = 0;
+    std::string kernel;
+#if defined(_WIN32) || defined(_WIN64)
     HMODULE hModule = GetModuleHandle(NULL);
     HRSRC hResource = NULL;
     HGLOBAL hResourceData = NULL;
     const char *pDataPtr = NULL;
-    std::string kernel;
     if (NULL == hModule) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to get module handle.\n"));
     } else if (NULL == (hResource = FindResource(hModule, _T("NVENC_FILTER_COLRSPACE_FUNC_HEADER"), _T("EXE_DATA")))) {
@@ -1120,20 +1323,34 @@ std::string NVEncFilterColorspace::genKernelCode() {
         AddMessage(RGY_LOG_ERROR, _T("Failed to lock resource \"NVENC_FILTER_COLRSPACE_FUNC_HEADER\".\n"));
     } else if (0 == (datasize = SizeofResource(hModule, hResource))) {
         AddMessage(RGY_LOG_ERROR, _T("header data has unexpected size %u.\n"), datasize);
+#else
+    const char *pDataPtr = _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start;
+    datasize = (uint32_t)(size_t)(_binary_NVEncCore_NVEncFilterColorspaceFunc_h_end - _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start);
+    if (pDataPtr == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to get ColorspaceFunc.h.\n"));
+    } else if (datasize == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("header data has unexpected size %u.\n"), datasize);
+#endif //#if defined(_WIN32) || defined(_WIN64)
     } else {
         uint8_t *ptr = (uint8_t *)pDataPtr;
         if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF) { //skip UTF-8 BOM mark
             pDataPtr += 3;
+            datasize -= 3;
         }
-        kernel += pDataPtr;
+        std::string str = std::string(pDataPtr, datasize);
+        kernel += std::string(pDataPtr, datasize);
         kernel += kernel_base1;
         kernel += opCtrl->printOpAll();
         kernel += kernel_base2;
     }
     return kernel;
+#else
+    return "";
+#endif
 }
 
 RGY_ERR NVEncFilterColorspace::setupCustomFilter(const FrameInfo& frameInfo, shared_ptr<NVEncFilterParamColorspace> prm) {
+#if ENABLE_NVRTC
     VppCustom customPrms;
     customPrms.enable = true;
     customPrms.compile_options = "--use_fast_math -DTYPE4=" + std::string((RGY_CSP_BIT_DEPTH[frameInfo.csp] > 8) ? "ushort4" : "uchar4");
@@ -1159,6 +1376,9 @@ RGY_ERR NVEncFilterColorspace::setupCustomFilter(const FrameInfo& frameInfo, sha
     }
     custom = std::move(filterCustom);
     return RGY_ERR_NONE;
+#else
+    return RGY_ERR_UNSUPPORTED;
+#endif
 }
 
 RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -1169,17 +1389,17 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-#if _M_IX86
+#if !ENABLE_NVRTC
     AddMessage(RGY_LOG_ERROR, _T("--vpp-colorspace is not supported on x86 exec file.\n"));
     return RGY_ERR_UNSUPPORTED;
-#endif
+#else
     if (!check_if_nvrtc_dll_available()) {
         AddMessage(RGY_LOG_ERROR, _T("--vpp-colorspace requires \"%s\", not available on your system.\n"), NVRTC_DLL_NAME_TSTR);
         return RGY_ERR_UNSUPPORTED;
     }
     AddMessage(RGY_LOG_DEBUG, _T("%s available.\n"), NVRTC_DLL_NAME_TSTR);
     //パラメータチェック
-    if (check_param(prmCsp) != NV_ENC_SUCCESS) {
+    if (check_param(prmCsp) != RGY_ERR_NONE) {
         return RGY_ERR_INVALID_PARAM;
     }
 
@@ -1206,6 +1426,10 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
         }
     }
 
+    //入力ファイルのVUIが取得されていれば、これを使用する
+    auto &firstVUI = prmCsp->colorspace.convs.begin()->from;
+    firstVUI.apply_auto(prmCsp->VuiIn, prmCsp->frameIn.height);
+
     auto prmPrev = std::dynamic_pointer_cast<NVEncFilterParamColorspace>(m_pParam);
     if (!prmPrev || prmPrev->colorspace != prmCsp->colorspace) {
         const auto filterInCsp = prmCsp->frameOut.csp;
@@ -1221,18 +1445,19 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
             prmCsp->frameOut.csp = RGY_CSP_YUV444;
         }
         opCtrl = std::make_unique<ColorspaceOpCtrl>(pPrintMes);
-        if (prmCsp->colorspace.hdr2sdr) {
-            const auto from = prmCsp->colorspace.convs.begin()->from;
-            const auto source_peak = prmCsp->colorspace.convs.begin()->source_peak;
-            const auto approx_gamma = prmCsp->colorspace.convs.begin()->approx_gamma;
-            const auto scene_ref = prmCsp->colorspace.convs.begin()->scene_ref;
+        if (prmCsp->colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED) {
+            const auto &convbegin = prmCsp->colorspace.convs.begin();
+            const auto from = convbegin->from;
+            const auto source_peak = convbegin->sdr_source_peak;
+            const auto approx_gamma = convbegin->approx_gamma;
+            const auto scene_ref = convbegin->scene_ref;
             const auto to = prmCsp->colorspace.convs.back().to;
-            if ((sts = opCtrl->setHDR2SDR(from, to, source_peak, approx_gamma, scene_ref, prmCsp->colorspace.ldr_nits)) != RGY_ERR_NONE) {
+            if ((sts = opCtrl->setHDR2SDR(from, to, source_peak, approx_gamma, scene_ref, prmCsp->colorspace.hdr2sdr, prmCsp->frameIn.height)) != RGY_ERR_NONE) {
                 return sts;
             }
         } else {
             for (const auto &conv : prmCsp->colorspace.convs) {
-                if ((sts = opCtrl->setPath(conv.from, conv.to, conv.source_peak, conv.approx_gamma, conv.scene_ref)) != RGY_ERR_NONE) {
+                if ((sts = opCtrl->setPath(conv.from, conv.to, conv.sdr_source_peak, conv.approx_gamma, conv.scene_ref, prmCsp->frameIn.height)) != RGY_ERR_NONE) {
                     return sts;
                 }
             }
@@ -1248,16 +1473,27 @@ RGY_ERR NVEncFilterColorspace::init(shared_ptr<NVEncFilterParam> pParam, shared_
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, picth %d, %s.\n"),
         pParam->frameOut.width, pParam->frameOut.height, pParam->frameOut.pitch, RGY_CSP_NAMES[pParam->frameOut.csp]);
 
-    m_sFilterInfo = _T("colorspace: ");
+    tstring filterInfo = _T("colorspace: ");
     if (crop) {
-        m_sFilterInfo += crop->GetInputMessage() + _T("\n                           ");
+        filterInfo += crop->GetInputMessage() + _T("\n                           ");
     }
-    m_sFilterInfo += opCtrl->printInfoAll();
+    filterInfo += opCtrl->printInfoAll();
+    setFilterInfo(filterInfo);
     m_pParam = pParam;
     return sts;
+#endif
 }
 
-RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+VideoVUIInfo NVEncFilterColorspace::VuiOut() const {
+    return opCtrl->VuiOut();
+}
+
+tstring NVEncFilterParamColorspace::print() const {
+    return _T("");
+}
+
+RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+#if ENABLE_NVRTC
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {
@@ -1274,7 +1510,7 @@ RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInf
         int cropFilterOutputNum = 0;
         FrameInfo *pCropFilterOutput[1] = { nullptr };
         FrameInfo cropInput = *pInputFrame;
-        auto sts_filter = crop->filter(&cropInput, (FrameInfo **)&pCropFilterOutput, &cropFilterOutputNum);
+        auto sts_filter = crop->filter(&cropInput, (FrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, stream);
         if (pCropFilterOutput[0] == nullptr || cropFilterOutputNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), crop->name().c_str());
             return sts_filter;
@@ -1287,12 +1523,15 @@ RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInf
     }
     //色空間変換
     FrameInfo filterInput = *pInputFrame;
-    auto sts_filter = custom->filter(&filterInput, ppOutputFrames, pOutputFrameNum);
+    auto sts_filter = custom->filter(&filterInput, ppOutputFrames, pOutputFrameNum, stream);
     if (sts_filter != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), custom->name().c_str());
         return sts_filter;
     }
     return sts;
+#else
+    return RGY_ERR_UNSUPPORTED;
+#endif
 }
 
 void NVEncFilterColorspace::close() {

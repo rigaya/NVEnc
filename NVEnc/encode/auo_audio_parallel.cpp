@@ -25,8 +25,11 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <process.h>
+#include <mutex>
 #pragma comment(lib, "winmm.lib")
 #include "auo.h"
 #include "auo_version.h"
@@ -83,6 +86,7 @@ AUO_RESULT audio_output_parallel(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     } else if (NULL == (pe->aud_parallel.th_aud = (HANDLE)_beginthreadex(NULL, 0, audio_output_parallel_func, (void *)parameters, 0, NULL))) {
         ret = AUO_RESULT_ERROR;
     }
+    pe->aud_parallel.mtx_aud = new std::mutex();
 
     if (ret == AUO_RESULT_ERROR) {
         if_valid_close_handle(&(pe->aud_parallel.he_aud_start));
@@ -107,5 +111,9 @@ void release_audio_parallel_events(PRM_ENC *pe) {
         HANDLE he_vid_start_copy = InterlockedExchangePointer(&(pe->aud_parallel.he_vid_start), NULL);
         SetEvent(he_vid_start_copy); //もし止まっていたら動かしてやる
         CloseHandle(he_vid_start_copy);
+    }
+    std::mutex *mtx_aud = (std::mutex *)InterlockedExchangePointer((void **)&pe->aud_parallel.mtx_aud, nullptr);
+    if (mtx_aud) {
+        delete mtx_aud;
     }
 }

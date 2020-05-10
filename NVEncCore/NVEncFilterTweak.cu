@@ -204,9 +204,9 @@ RGY_ERR NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    //delogoは常に元のフレームを書き換え
+    //tweakは常に元のフレームを書き換え
     if (!pTweakParam->bOutOverwrite) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid param, delogo will overwrite input frame.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid param, tweak will overwrite input frame.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     pTweakParam->frameOut = pTweakParam->frameIn;
@@ -233,15 +233,16 @@ RGY_ERR NVEncFilterTweak::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         AddMessage(RGY_LOG_WARN, _T("gamma should be in range of %.1f - %.1f.\n"), 0.1f, 10.0f);
     }
 
-    m_sFilterInfo = strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f"),
-        pTweakParam->tweak.brightness, pTweakParam->tweak.contrast, pTweakParam->tweak.saturation, pTweakParam->tweak.gamma, pTweakParam->tweak.hue);
-
-    //コピーを保存
+    setFilterInfo(pParam->print());
     m_pParam = pTweakParam;
     return sts;
 }
 
-RGY_ERR NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+tstring NVEncFilterParamTweak::print() const {
+    return tweak.print();
+}
+
+RGY_ERR NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

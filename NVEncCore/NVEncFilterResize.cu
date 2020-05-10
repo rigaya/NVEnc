@@ -39,28 +39,44 @@
 #include "device_launch_parameters.h"
 #pragma warning (pop)
 
+#if defined(_WIN32) || defined(_WIN64)
 #if __CUDACC_VER_MAJOR__ == 8
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_80.dll");
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_80.dll");
+const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_80.dll");
 #elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 0
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_90.dll");
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_90.dll");
+const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_90.dll");
 #elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 1
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_91.dll");
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_91.dll");
+const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_91.dll");
 #elif __CUDACC_VER_MAJOR__ == 9 && __CUDACC_VER_MINOR__ == 2
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_92.dll");
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_92.dll");
+const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_92.dll");
 #elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 0
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_100_0.dll");
+const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_100.dll");
 #elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 1
 const TCHAR *NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
 const TCHAR *NVRTC_DLL_NAME_TSTR = _T("nvrtc64_101_0.dll");
+const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_101.dll");
+#elif __CUDACC_VER_MAJOR__ == 10 && __CUDACC_VER_MINOR__ == 2
+const TCHAR* NPPI_DLL_NAME_TSTR = _T("nppc64_10.dll");
+const TCHAR* NVRTC_DLL_NAME_TSTR = _T("nvrtc64_102_0.dll");
+const TCHAR* NVRTC_BUILTIN_DLL_NAME_TSTR = _T("nvrtc-builtins64_102.dll");
 #endif
+#else //#if defined(_WIN32) || defined(_WIN64)
+const TCHAR* NPPI_DLL_NAME_TSTR = _T("libnppc.so");
+const TCHAR* NVRTC_DLL_NAME_TSTR = _T("libnvrtc.so");
+const TCHAR* NVRTC_BUILTIN_DLL_NAME_TSTR = _T("");
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 template<typename TypePixel>
-cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
+cudaError_t setTexFieldResize(cudaTextureObject_t& texSrc, const FrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -84,7 +100,7 @@ cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo* pFrame, cu
 }
 
 template<typename Type, int bit_depth>
-__global__ void kernel_resize_texture_bilinear(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+__global__ void kernel_resize_texture(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     cudaTextureObject_t texObj,
     const float ratioX, const float ratioY) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
@@ -94,28 +110,28 @@ __global__ void kernel_resize_texture_bilinear(uint8_t *__restrict__ pDst, const
         const float y = (float)iy + 0.5f;
 
         Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)(tex2D<float>(texObj, x * ratioX, y * ratioY) * (float)(1<<bit_depth));
+        ptr[0] = (Type)(tex2D<float>(texObj, x * ratioX, y * ratioY) * (float)((1<<bit_depth)-1));
     }
 }
 
 template<typename Type, int bit_depth>
-void resize_texture_bilinear(uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight, cudaTextureObject_t texObj, const float ratioX, const float ratioY, cudaStream_t stream) {
+void resize_texture(uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight, cudaTextureObject_t texObj, const float ratioX, const float ratioY, cudaStream_t stream) {
     dim3 blockSize(32, 8);
     dim3 gridSize(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
-    kernel_resize_texture_bilinear<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texObj, ratioX, ratioY);
+    kernel_resize_texture<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texObj, ratioX, ratioY);
 }
 
 template<typename Type, int bit_depth>
-cudaError_t resize_texture_bilinear_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+cudaError_t resize_texture_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int interp, cudaStream_t stream) {
     const float ratioX = 1.0f / (float)(pOutputFrame->width);
     const float ratioY = 1.0f / (float)(pOutputFrame->height);
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexField<Type>(texSrc, pInputFrame, cudaFilterModeLinear, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
+    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, (interp == RESIZE_CUDA_TEXTURE_BILINEAR) ? cudaFilterModeLinear : cudaFilterModePoint, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
         return cudaerr;
     }
-    resize_texture_bilinear<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
+    resize_texture<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
         pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
         texSrc, ratioX, ratioY, stream);
     cudaerr = cudaGetLastError();
@@ -130,25 +146,33 @@ cudaError_t resize_texture_bilinear_plane(FrameInfo *pOutputFrame, const FrameIn
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t resize_texture_bilinear_frame(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, cudaStream_t stream) {
+static cudaError_t resize_texture_frame(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, int interp, cudaStream_t stream) {
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
+    const auto planeSrcA = getPlane(pInputFrame, RGY_PLANE_A);
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+    auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
 
-    auto cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputY, &planeSrcY, stream);
+    auto cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputY, &planeSrcY, interp, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputU, &planeSrcU, stream);
+    cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputU, &planeSrcU, interp, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = resize_texture_bilinear_plane<Type, bit_depth>(&planeOutputV, &planeSrcV, stream);
+    cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputV, &planeSrcV, interp, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
+    }
+    if (planeOutputA.ptr != nullptr) {
+        cudaerr = resize_texture_plane<Type, bit_depth>(&planeOutputA, &planeSrcA, interp, stream);
+        if (cudaerr != cudaSuccess) {
+            return cudaerr;
+        }
     }
     return cudaerr;
 }
@@ -240,7 +264,7 @@ static cudaError_t resize_spline_plane(FrameInfo *pOutputFrame, const FrameInfo 
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexField<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
+    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
         return cudaerr;
     }
     resize_spline<Type, bit_depth, radius>((uint8_t *)pOutputFrame->ptr,
@@ -259,9 +283,11 @@ static cudaError_t resize_spline_frame(FrameInfo* pOutputFrame, const FrameInfo*
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
+    const auto planeSrcA = getPlane(pInputFrame, RGY_PLANE_A);
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+    auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
 
     auto cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputY, &planeSrcY, pgFactor, stream);
     if (cudaerr != cudaSuccess) {
@@ -274,6 +300,12 @@ static cudaError_t resize_spline_frame(FrameInfo* pOutputFrame, const FrameInfo*
     cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputV, &planeSrcV, pgFactor, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
+    }
+    if (planeOutputA.ptr != nullptr) {
+        cudaerr = resize_spline_plane<Type, bit_depth, radius>(&planeOutputA, &planeSrcA, pgFactor, stream);
+        if (cudaerr != cudaSuccess) {
+            return cudaerr;
+        }
     }
     return cudaerr;
 }
@@ -354,7 +386,7 @@ static cudaError_t resize_lanczos_plane(FrameInfo* pOutputFrame, const FrameInfo
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexField<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
+    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, cudaFilterModePoint, cudaReadModeNormalizedFloat, 0)) != cudaSuccess) {
         return cudaerr;
     }
     resize_lanczos<Type, bit_depth, radius>((uint8_t*)pOutputFrame->ptr,
@@ -373,9 +405,11 @@ static cudaError_t resize_lanczos_frame(FrameInfo* pOutputFrame, const FrameInfo
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
+    const auto planeSrcA = getPlane(pInputFrame, RGY_PLANE_A);
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+    auto planeOutputA = getPlane(pOutputFrame, RGY_PLANE_A);
 
     auto cudaerr = resize_lanczos_plane<Type, bit_depth, radius>(&planeOutputY, &planeSrcY, stream);
     if (cudaerr != cudaSuccess) {
@@ -389,13 +423,20 @@ static cudaError_t resize_lanczos_frame(FrameInfo* pOutputFrame, const FrameInfo
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
+    if (planeOutputA.ptr != nullptr) {
+        cudaerr = resize_lanczos_plane<Type, bit_depth, radius>(&planeOutputA, &planeSrcA, stream);
+        if (cudaerr != cudaSuccess) {
+            return cudaerr;
+        }
+    }
     return cudaerr;
 }
 
 template<typename Type, int bit_depth>
 static cudaError_t resize_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int interp, const float *pgFactor, cudaStream_t stream) {
     switch (interp) {
-    case RESIZE_CUDA_TEXTURE_BILINEAR: return resize_texture_bilinear_frame<Type, bit_depth>(pOutputFrame, pInputFrame, stream);
+    case RESIZE_CUDA_TEXTURE_BILINEAR:
+    case RESIZE_CUDA_TEXTURE_NEAREST: return resize_texture_frame<Type, bit_depth>(pOutputFrame, pInputFrame, interp, stream);
     case RESIZE_CUDA_SPLINE16: return resize_spline_frame<Type, bit_depth, 2>(pOutputFrame, pInputFrame, pgFactor, stream);
     case RESIZE_CUDA_SPLINE36: return resize_spline_frame<Type, bit_depth, 3>(pOutputFrame, pInputFrame, pgFactor, stream);
     case RESIZE_CUDA_SPLINE64: return resize_spline_frame<Type, bit_depth, 4>(pOutputFrame, pInputFrame, pgFactor, stream);
@@ -413,9 +454,9 @@ static NppStatus resize_nppi_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInp
     auto srcSize = nppisize(pInputFrame);
     auto srcRect = nppiroi(pInputFrame);
     auto dstRect = nppiroi(pOutputFrame);
-    const auto planeSrcY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    const auto planeSrcU = getPlane(pOutputFrame, RGY_PLANE_U);
-    const auto planeSrcV = getPlane(pOutputFrame, RGY_PLANE_V);
+    const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
@@ -594,7 +635,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     }
 
     auto cudaerr = AllocFrameBuf(pResizeParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -604,7 +645,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         && (pResizeParam->interp == RESIZE_CUDA_SPLINE16 || pResizeParam->interp == RESIZE_CUDA_SPLINE36 || pResizeParam->interp == RESIZE_CUDA_SPLINE64)) {
         static const auto SPLINE16_WEIGHT = std::vector<float>{
             1.0f,       -9.0f/5.0f,  -1.0f/5.0f, 1.0f,
-            -1.0f/3.0f,  9.0f/5.0f, -46.0f/5.0f, 8.0f/5.0f
+            -1.0f/3.0f,  9.0f/5.0f, -46.0f/15.0f, 8.0f/5.0f
         };
         static const auto SPLINE36_WEIGHT = std::vector<float>{
             13.0f/11.0f, -453.0f/209.0f,    -3.0f/209.0f,  1.0f,
@@ -629,28 +670,32 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
 
         m_weightSpline = CUMemBuf(sizeof((*weight)[0]) * weight->size());
-        if (CUDA_SUCCESS != (cudaerr = m_weightSpline.alloc())) {
+        if (cudaSuccess != (cudaerr = m_weightSpline.alloc())) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
         }
         cudaerr = cudaMemcpy(m_weightSpline.ptr, weight->data(), m_weightSpline.nSize, cudaMemcpyHostToDevice);
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to send weight to gpu memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
         }
     }
 
-    m_sFilterInfo = strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
-        get_chr_from_value(list_nppi_resize, pResizeParam->interp),
-        pResizeParam->frameIn.width, pResizeParam->frameIn.height,
-        pResizeParam->frameOut.width, pResizeParam->frameOut.height);
+    setFilterInfo(pResizeParam->print());
 
     //コピーを保存
     m_pParam = pResizeParam;
     return sts;
 }
 
-RGY_ERR NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+tstring NVEncFilterParamResize::print() const {
+    return strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
+        get_chr_from_value(list_nppi_resize, interp),
+        frameIn.width, frameIn.height,
+        frameOut.width, frameOut.height);
+}
+
+RGY_ERR NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;
@@ -694,10 +739,12 @@ RGY_ERR NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **
         }
     } else {
         static const std::map<RGY_CSP, decltype(resize_frame<uint8_t, 8>)*> resize_list = {
-            { RGY_CSP_YV12,      resize_frame<uint8_t,   8> },
-            { RGY_CSP_YV12_16,   resize_frame<uint16_t, 16> },
-            { RGY_CSP_YUV444,    resize_frame<uint8_t,   8> },
-            { RGY_CSP_YUV444_16, resize_frame<uint16_t, 16> },
+            { RGY_CSP_YV12,       resize_frame<uint8_t,   8> },
+            { RGY_CSP_YV12_16,    resize_frame<uint16_t, 16> },
+            { RGY_CSP_YUV444,     resize_frame<uint8_t,   8> },
+            { RGY_CSP_YUV444_16,  resize_frame<uint16_t, 16> },
+            { RGY_CSP_YUVA444,    resize_frame<uint8_t,   8> },
+            { RGY_CSP_YUVA444_16, resize_frame<uint16_t, 16> },
         };
         if (resize_list.count(pInputFrame->csp) == 0) {
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);

@@ -46,95 +46,19 @@
 #endif
 #include "device_launch_parameters.h"
 #pragma warning (pop)
-#include "rgy_cuda_util.h"
+#include "rgy_cuda_util_kernel.h"
+
+extern "C" {
+extern char _binary_resource_nnedi3_weights_bin_start[];
+extern char _binary_resource_nnedi3_weights_bin_end[];
+extern char _binary_resource_nnedi3_weights_bin_size[];
+}
 
 static const int NNEDI_BLOCK_X       = 32;
 static const int NNEDI_BLOCK_Y       = 8;
 
 static const int weight0size = 49 * 4 + 5 * 4 + 9 * 4;
 static const int weight0sizenew = 4 * 65 + 4 * 5;
-
-static const int TRASNPOSE_BLOCK_DIM = 16;
-static const int TRASNPOSE_TILE_DIM  = 64;
-
-template<typename TypePixel4, bool flipX, bool flipY>
-__global__ void kernel_transpose_frame(
-    uint8_t *__restrict__ pDst,
-    const int dstPitch,
-    const int dstWidth,  // = srcHeight
-    const int dstHeight, // = srcWidth
-    const uint8_t *__restrict__ pSrc,
-    const int srcPitch
-    ) {
-    __shared__ decltype(TypePixel4::x) stemp[TRASNPOSE_TILE_DIM][TRASNPOSE_TILE_DIM + 4];
-    {
-        const int gSrcIdX = blockIdx.y * TRASNPOSE_TILE_DIM + threadIdx.x * 4;
-        const int gSrcIdY = blockIdx.x * TRASNPOSE_TILE_DIM + threadIdx.y;
-        const int srcWidth = dstHeight;
-        const int srcHeight = dstWidth;
-        if (gSrcIdX < srcWidth) {
-            for (int j = 0; j < TRASNPOSE_TILE_DIM; j++) {
-                TypePixel4 val = { 0, 0, 0, 0 };
-                if (gSrcIdY + j < srcWidth) {
-                    TypePixel4 *ptr_src = (TypePixel4 *)(pSrc + (gSrcIdY+j) * srcPitch + gSrcIdX * sizeof(TypePixel4));
-                    val = ptr_src[0];
-                }
-                *(TypePixel4 *)&stemp[threadIdx.y+j][threadIdx.x * 4] = val;
-            }
-        }
-    }
-    __syncthreads();
-
-    const int gDstIdX = blockIdx.x * TRASNPOSE_TILE_DIM + threadIdx.x * 4;
-    const int gDstIdY = blockIdx.y * TRASNPOSE_TILE_DIM + threadIdx.y;
-    if (gDstIdX < dstWidth) {
-        for (int j = 0; j < TRASNPOSE_TILE_DIM; j++) {
-            if (gDstIdY + j < dstHeight) {
-                TypePixel4 val;
-                if (flipX) {
-                    val.x = stemp[threadIdx.x * 4 + 3][threadIdx.y+j];
-                    val.y = stemp[threadIdx.x * 4 + 2][threadIdx.y+j];
-                    val.z = stemp[threadIdx.x * 4 + 1][threadIdx.y+j];
-                    val.w = stemp[threadIdx.x * 4 + 0][threadIdx.y+j];
-                } else {
-                    val.x = stemp[threadIdx.x * 4 + 0][threadIdx.y+j];
-                    val.y = stemp[threadIdx.x * 4 + 1][threadIdx.y+j];
-                    val.z = stemp[threadIdx.x * 4 + 2][threadIdx.y+j];
-                    val.w = stemp[threadIdx.x * 4 + 3][threadIdx.y+j];
-                }
-                const int dstX = (flipX) ? dstWidth - (gDstIdX) - 1 : gDstIdX;
-                const int dstY = (flipY) ? dstHeight - (gDstIdY+j) - 1 : gDstIdY+j;
-                TypePixel4 *ptr_dst = (TypePixel4 *)(pDst + dstY * dstPitch + dstX * sizeof(TypePixel4));
-                *ptr_dst = val;
-            }
-        }
-    }
-};
-
-template<typename TypePixel4, bool flipX, bool flipY>
-cudaError_t transpose_frame(
-    FrameInfo *pOutputFrame,
-    const FrameInfo *pInputFrame,
-    cudaStream_t stream
-) {
-    dim3 blockSize(TRASNPOSE_BLOCK_DIM, TRASNPOSE_BLOCK_DIM);
-    dim3 gridSize(
-        divCeil(pOutputFrame->width, blockSize.x),
-        divCeil(pOutputFrame->height, blockSize.y));
-
-    kernel_transpose_frame<TypePixel4, flipX, flipY><<<gridSize, blockSize, 0, stream>>>(
-        (uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch,
-        pOutputFrame->width,  // = srcHeight
-        pOutputFrame->height, // = srcWidth
-        (const uint8_t *)pInputFrame->ptr,
-        pInputFrame->pitch);
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    return cudaerr;
-}
 
 __device__ __inline__
 static float exp_(float val) {
@@ -700,7 +624,7 @@ void kernel_comute_network1_calc_scale(
         mstd[ithy][3] = 0.0f;
         mstd[ithy][0] = sum * inv_nnxy;
         float tmp = sumsq * inv_nnxy - mstd[ithy][0] * mstd[ithy][0];
-        if (tmp <= FLT_EPSILON) {
+        if (tmp <= RGY_FLT_EPS) {
             mstd[ithy][1] = 0.0f;
             mstd[ithy][2] = 0.0f;
         } else {
@@ -1158,7 +1082,7 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
 }
 
 template<typename TypePixel>
-cudaError_t setTexField(cudaTextureObject_t& texSrc, const FrameInfo *pFrame, const NnediTargetField targetField) {
+cudaError_t setTexFieldNnedi(cudaTextureObject_t& texSrc, const FrameInfo *pFrame, const NnediTargetField targetField) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -1373,7 +1297,7 @@ cudaError_t proc_plane(
     }
 
     cudaTextureObject_t texSrc = 0;
-    cudaerr = setTexField<TypePixel>(texSrc, pInputPlane, targetField);
+    cudaerr = setTexFieldNnedi<TypePixel>(texSrc, pInputPlane, targetField);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -1477,29 +1401,30 @@ RGY_ERR NVEncFilterNnedi::checkParam(const std::shared_ptr<NVEncFilterParamNnedi
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"quality\": %d\n"), pNnediParam->nnedi.quality);
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pNnediParam->nnedi.pre_screen < VPP_NNEDI_PRE_SCREEN_NONE || VPP_NNEDI_PRE_SCREEN_MAX <= pNnediParam->nnedi.pre_screen) {
+    if (VPP_NNEDI_PRE_SCREEN_MAX <= pNnediParam->nnedi.pre_screen) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"pre_screen\": %d\n"), pNnediParam->nnedi.pre_screen);
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pNnediParam->nnedi.precision < VPP_NNEDI_PRECISION_UNKNOWN || VPP_NNEDI_PRECISION_MAX <= pNnediParam->nnedi.precision) {
+    if (pNnediParam->nnedi.precision < VPP_FP_PRECISION_UNKNOWN || VPP_FP_PRECISION_MAX <= pNnediParam->nnedi.precision) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"prec\": %d\n"), pNnediParam->nnedi.precision);
         return RGY_ERR_INVALID_PARAM;
     }
 #if !ENABLE_CUDA_FP16_HOST
-    if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) {
+    if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP16) {
         AddMessage(RGY_LOG_WARN, _T("prec=fp16 not compiled in this build, switching to fp32.\n"));
-        pNnediParam->nnedi.precision = VPP_NNEDI_PRECISION_FP32;
+        pNnediParam->nnedi.precision = VPP_FP_PRECISION_FP32;
     }
 #endif
     return RGY_ERR_NONE;
 }
 
-std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMODULE hModule) {
-    std::vector<float> weights;
+shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMODULE hModule) {
+    shared_ptr<const float> weights;
     const uint32_t expectedFileSize = 13574928u;
     uint64_t weightFileSize = 0;
     if (weightFile.length() == 0) {
         //埋め込みデータを使用する
+#if defined(_WIN32) || defined(_WIN64)
         if (hModule == NULL) {
             hModule = GetModuleHandle(NULL);
         }
@@ -1515,52 +1440,71 @@ std::vector<float> NVEncFilterNnedi::readWeights(const tstring& weightFile, HMOD
         } else if (NULL == (pDataPtr = (const char *)LockResource(hResourceData))) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to lock resource \"NNEDI_WEIGHTBIN\".\n"));
         } else if (expectedFileSize != (weightFileSize = SizeofResource(hModule, hResource))) {
-            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %u [expected: %u].\n"),
-                weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
+            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %lld [expected: %u].\n"),
+                (long long int)weightFileSize, expectedFileSize);
         } else {
-            weights.resize(weightFileSize);
-            memcpy(weights.data(), pDataPtr, weightFileSize);
+            weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
         }
+#else
+        const char *pDataPtr = _binary_resource_nnedi3_weights_bin_start;
+        weightFileSize = (size_t)(_binary_resource_nnedi3_weights_bin_end - _binary_resource_nnedi3_weights_bin_start);
+        if (pDataPtr == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get Weights data.\n"));
+        } else if (expectedFileSize != weightFileSize) {
+            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %lld [expected: %u].\n"),
+                (long long int)weightFileSize, expectedFileSize);
+        } else {
+            weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
+        }
+#endif
     } else {
         if (!PathFileExists(weightFile.c_str())) {
             AddMessage(RGY_LOG_ERROR, _T("weight file \"%s\" does not exist.\n"), weightFile.c_str());
         } else if (!rgy_get_filesize(weightFile.c_str(), &weightFileSize)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get filesize of weight file \"%s\".\n"), weightFile.c_str());
         } else if (weightFileSize != expectedFileSize) {
-            AddMessage(RGY_LOG_ERROR, _T("Weights file \"%s\" has unexpected file size %u [expected: %u].\n"),
-                weightFile.c_str(), (uint32_t)weightFileSize, expectedFileSize);
+            AddMessage(RGY_LOG_ERROR, _T("Weights file \"%s\" has unexpected file size %lld [expected: %u].\n"),
+                weightFile.c_str(), (long long int)weightFileSize, expectedFileSize);
         } else {
-            weights.resize(weightFileSize);
             std::ifstream fin(weightFile, std::ios::in | std::ios::binary);
             if (!fin.good()) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to open weights file \"%s\".\n"), weightFile.c_str());
-            } else if (fin.read((char *)weights.data(), weightFileSize).gcount() != (int64_t)weightFileSize) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to read weights file \"%s\".\n"), weightFile.c_str());
+            } else {
+                float *buffer = new float[weightFileSize / sizeof(float)];
+                if (!buffer) {
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to allocate buffer memory for \"%s\".\n"), weightFile.c_str());
+                } else {
+                    weights = shared_ptr<float>(buffer, std::default_delete<float[]>());
+                    if (fin.read((char *)weights.get(), weightFileSize).gcount() != (int64_t)weightFileSize) {
+                        AddMessage(RGY_LOG_ERROR, _T("Failed to read weights file \"%s\".\n"), weightFile.c_str());
+                        weights.reset();
+                    }
+                }
+                fin.close();
             }
-            fin.close();
         }
     }
-    return std::move(weights);
+    return weights;
 }
 
 RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam) {
-    std::vector<float> weights = readWeights(pNnediParam->nnedi.weightfile, pNnediParam->hModule);
-    if (weights.size() == 0) {
+    auto weights = readWeights(pNnediParam->nnedi.weightfile, pNnediParam->hModule);
+    if (!weights) {
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_AUTO) {
+    if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_AUTO) {
         pNnediParam->nnedi.precision =
 #if ENABLE_CUDA_FP16_HOST
             ((pNnediParam->compute_capability.first == 6 && pNnediParam->compute_capability.second == 0)
                 || pNnediParam->compute_capability.first >= 7)
-            ? VPP_NNEDI_PRECISION_FP16 : VPP_NNEDI_PRECISION_FP32;
+            ? VPP_FP_PRECISION_FP16 : VPP_FP_PRECISION_FP32;
 #else
-            VPP_NNEDI_PRECISION_FP32;
+            VPP_FP_PRECISION_FP32;
 #endif
     }
 
     const int weight1size = pNnediParam->nnedi.nns * 2 * (sizeNX[pNnediParam->nnedi.nsize] * sizeNY[pNnediParam->nnedi.nsize] + 1);
-    const int sizeofweight = (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) ? 4 : 2;
+    const int sizeofweight = (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) ? 4 : 2;
     int weight1size_tsize = 0;
     int weight1size_offset = 0;
     for (int j = 0; j < (int)_countof(sizeNN); j++) {
@@ -1575,19 +1519,19 @@ RGY_ERR NVEncFilterNnedi::initParams(const std::shared_ptr<NVEncFilterParamNnedi
 
     std::vector<char> weight0f;
     weight0f.resize((((pNnediParam->nnedi.pre_screen & VPP_NNEDI_PRE_SCREEN_MODE) >= VPP_NNEDI_PRE_SCREEN_NEW) ? weight0sizenew : weight0size) * sizeofweight);
-    if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) {
-        setWeight0<float>((float *)weight0f.data(), weights.data(), pNnediParam);
+    if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) {
+        setWeight0<float>((float *)weight0f.data(), weights.get(), pNnediParam);
     } else {
 #if ENABLE_CUDA_FP16_HOST
-        setWeight0<__half>((__half *)weight0f.data(), weights.data(), pNnediParam);
+        setWeight0<__half>((__half *)weight0f.data(), weights.get(), pNnediParam);
 #endif //#if ENABLE_CUDA_FP16_HOST
     }
 
     std::array<std::vector<char>, 2> weight1;
     for (int i = 0; i < 2; i++) {
         weight1[i].resize(weight1size * sizeofweight, 0);
-        const float *ptrW = weights.data() + weight0size + weight0sizenew * 3 + weight1size_tsize * pNnediParam->nnedi.errortype + weight1size_offset + i * weight1size;
-        if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) {
+        const float *ptrW = weights.get() + weight0size + weight0sizenew * 3 + weight1size_tsize * pNnediParam->nnedi.errortype + weight1size_offset + i * weight1size;
+        if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) {
             setWeight1<float>((float *)weight1[i].data(), ptrW, pNnediParam);
         } else {
 #if ENABLE_CUDA_FP16_HOST
@@ -1648,7 +1592,7 @@ void NVEncFilterNnedi::setWeight0(TypeCalc *ptrDst, const float *ptrW, const std
         }
         //<<<<<< ここまでで通常(CPU版)の並びのデータが作成できた
 
-        if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) {
+        if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP16) {
             //並べ替え
             std::vector<TypeCalc> tmp(ptrDst, ptrDst + weight0sizenew);
             for (int j = 0; j < 4; j++) {
@@ -1705,7 +1649,7 @@ void NVEncFilterNnedi::setWeight0(TypeCalc *ptrDst, const float *ptrW, const std
         }
         //<<<<<< ここまでで通常(CPU版)の並びのデータが作成できた
 
-        if (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) {
+        if (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP16) {
             //並べ替え
             std::vector<TypeCalc> tmp(ptrDst, ptrDst + weight0size);
             for (int j = 0; j < 4; j++) {
@@ -1775,7 +1719,7 @@ void NVEncFilterNnedi::setWeight1(TypeCalc *ptrDst, const float *ptrW, const std
             }
         }
         //fp16の場合、オーバーフローを避けるため途中まで0～1の範囲で計算するので、offsetの部分には1/256が必要
-        float scale = (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP16) ? 1.0f / 256.0f : 1.0f;
+        float scale = (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP16) ? 1.0f / 256.0f : 1.0f;
         ptrDst[pNnediParam->nnedi.nns * 2 * sizeNXY + j] = toWeight<TypeCalc>((ptrW[pNnediParam->nnedi.nns * 2 * sizeNXY + j] - (float)(j < pNnediParam->nnedi.nns ? mean2 : 0.0)) * scale);
     }
     for (int j = 0; j < pNnediParam->nnedi.nns * 2; j++) {
@@ -1822,7 +1766,7 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
     }
 
     auto cudaerr = AllocFrameBuf(pNnediParam->frameOut, pNnediParam->nnedi.isbob() ? 2 : 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -1840,24 +1784,16 @@ RGY_ERR NVEncFilterNnedi::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<R
         m_nPathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
     }
 
-    m_sFilterInfo = strsprintf(
-        _T("nnedi: field %s, nns %d, nsize %s, quality %s, prec %s\n")
-        _T("                       pre_screen %s, errortype %s, weight \"%s\""),
-        get_cx_desc(list_vpp_nnedi_field, pNnediParam->nnedi.field),
-        pNnediParam->nnedi.nns,
-        get_cx_desc(list_vpp_nnedi_nsize, pNnediParam->nnedi.nsize),
-        get_cx_desc(list_vpp_nnedi_quality, pNnediParam->nnedi.quality),
-        get_cx_desc(list_vpp_nnedi_prec, pNnediParam->nnedi.precision),
-        get_cx_desc(list_vpp_nnedi_pre_screen, pNnediParam->nnedi.pre_screen),
-        get_cx_desc(list_vpp_nnedi_error_type, pNnediParam->nnedi.errortype),
-        ((pNnediParam->nnedi.weightfile.length()) ? pNnediParam->nnedi.weightfile.c_str() : _T("internal")));
-
-    //コピーを保存
+    setFilterInfo(pParam->print());
     m_pParam = pNnediParam;
     return sts;
 }
 
-RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+tstring NVEncFilterParamNnedi::print() const {
+    return nnedi.print();
+}
+
+RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;
@@ -1897,20 +1833,11 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
     if (   pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_AUTO
         || pNnediParam->nnedi.field == VPP_NNEDI_FIELD_BOB_AUTO) {
         if ((pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
-            const auto inputFrameInfoEx = getFrameInfoExtra(pInputFrame);
-            cudaMemcpy2DAsync(
-                ppOutputFrames[0]->ptr,
-                ppOutputFrames[0]->pitch,
-                pInputFrame->ptr,
-                pInputFrame->pitch,
-                inputFrameInfoEx.width_byte,
-                inputFrameInfoEx.height_total,
-                memcpyKind
-            );
+            copyFrameAsync(ppOutputFrames[0], pInputFrame, stream);
             return RGY_ERR_NONE;
-        } else if (pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_TFF) {
+        } else if ((pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_TFF) == RGY_PICSTRUCT_FRAME_TFF) {
             targetField = NNEDI_GEN_FIELD_BOTTOM;
-        } else if (pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_BFF) {
+        } else if ((pInputFrame->picstruct & RGY_PICSTRUCT_FRAME_BFF) == RGY_PICSTRUCT_FRAME_BFF) {
             targetField = NNEDI_GEN_FIELD_TOP;
         }
     } else if (pNnediParam->nnedi.field == VPP_NNEDI_FIELD_USE_TOP
@@ -1937,7 +1864,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         { RGY_CSP_YUV444,    proc_frame<uint8_t,  uchar4,   8, __half2, weight_loop_1> },
         { RGY_CSP_YUV444_16, proc_frame<uint16_t, ushort4, 16, __half2, weight_loop_1> }
     };
-    const auto& func_list = (pNnediParam->nnedi.precision == VPP_NNEDI_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
+    const auto& func_list = (pNnediParam->nnedi.precision == VPP_FP_PRECISION_FP32) ? func_list_fp32 : func_list_fp16;
 #else
     const auto& func_list = func_list_fp32;
 #endif
@@ -1950,7 +1877,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         m_weight0.ptr,
         m_weight1[0].ptr,
         m_weight1[1].ptr,
-        (cudaStream_t)0
+        stream
         );
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
@@ -1968,7 +1895,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
             m_weight0.ptr,
             m_weight1[0].ptr,
             m_weight1[1].ptr,
-            (cudaStream_t)0
+            stream
             );
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
@@ -1982,6 +1909,7 @@ RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         ppOutputFrames[0]->duration = (pInputFrame->duration + 1) / 2;
         ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
         ppOutputFrames[1]->duration = pInputFrame->duration - ppOutputFrames[0]->duration;
+        ppOutputFrames[1]->inputFrameId = pInputFrame->inputFrameId;
     }
     return sts;
 }

@@ -1,46 +1,49 @@
-﻿//  -----------------------------------------------------------------------------------------
-//    拡張 x264 出力(GUI) Ex  v1.xx/2.xx by rigaya
-//  -----------------------------------------------------------------------------------------
-//   ソースコードについて
-//   ・無保証です。
-//   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
-//   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
-//  -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
+// QSVEnc/NVEnc by rigaya
+// -----------------------------------------------------------------------------------------
+// The MIT License
+//
+// Copyright (c) 2019 rigaya
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+// -------------------------------------------------------------------------------------------
 
-#ifndef _AUO_CHAPTER_H_
-#define _AUO_CHAPTER_H_
+#ifndef __RGY_CHAPTER_H__
+#define __RGY_CHAPTER_H__
 
 #include <cstdint>
 #include <string>
 #include <memory>
 #include <vector>
+#include "rgy_tchar.h"
 
-#ifndef TCHAR
-#ifdef UNICODE
-typedef wchar_t TCHAR;
-#else
-typedef char TCHAR;
-#endif
-#endif
-
-//日本語環境の一般的なコードページ一覧
-enum : uint32_t {
-    CODE_PAGE_SJIS        = 932, //Shift-JIS
-    CODE_PAGE_JIS         = 50220,
-    CODE_PAGE_EUC_JP      = 51932,
-    CODE_PAGE_UTF8        = 65001,
-    CODE_PAGE_UTF16_LE    = 1200, //WindowsのUnicode WCHAR のコードページ
-    CODE_PAGE_UTF16_BE    = 1201,
-    CODE_PAGE_US_ASCII    = 20127,
-    CODE_PAGE_WEST_EUROPE = 1252,  //厄介な西ヨーロッパ言語
-    CODE_PAGE_UNSET       = 0xffffffff,
-};
+namespace tinyxml2 {
+    class XMLElement;
+}
 
 enum ChapType {
     CHAP_TYPE_ANOTHER = -1,
     CHAP_TYPE_UNKNOWN = 0,
-    CHAP_TYPE_NERO    = 1,
-    CHAP_TYPE_APPLE   = 2,
+    CHAP_TYPE_NERO,
+    CHAP_TYPE_APPLE,
+    CHAP_TYPE_MATROSKA,
 };
 
 enum {
@@ -62,7 +65,7 @@ enum {
 
 class ChapData {
 public:
-    std::wstring name;
+    std::string name;
     int h = 0;
     int m = 0;
     int s = 0;
@@ -86,15 +89,16 @@ public:
 
 class ChapterRW {
 private:
-    std::wstring m_wchar_filedata;                //チャプターファイルの文字列をwcharに変換したもの
-    const TCHAR *m_filepath = nullptr;             //読み込むチャプターファイル
-    ChapType m_chapter_type = CHAP_TYPE_UNKNOWN;  //読み込んだチャプターの種類
-    uint32_t m_code_page = 0;                     //読み込んだチャプターの文字コード
-    double m_duration = 0.0;                      //動画の長さ情報 (秒)
+    std::string m_filedata;   //チャプターファイルの文字列をwcharに変換したもの
+    const TCHAR *m_filepath;  //読み込むチャプターファイル
+    ChapType m_chapter_type;  //読み込んだチャプターの種類
+    uint32_t m_code_page;     //読み込んだチャプターの文字コード
+    double m_duration;        //動画の長さ情報 (秒)
+    std::vector<std::unique_ptr<ChapData>> chapters; //読み込んだチャプターのリスト
 public:
     ChapterRW();
     ~ChapterRW();
-    
+
     //読み込んだチャプターの種類(m_chapter_type)を返す
     int file_chapter_type();
 
@@ -112,7 +116,7 @@ public:
     //out_chapter_type...出力するチャプターの種類
     //nero_in_utf8...出力するチャプターがneroの場合に、utf-8で出力する
     int write_file(const TCHAR *out_filepath, ChapType out_chapter_type, bool nero_in_utf8);
-    
+
     //チャプターファイルを上書きする
     //失敗した場合にはなにもしない
     //out_chapter_type...出力するチャプターの種類
@@ -130,28 +134,27 @@ public:
     }
 
 private:
-    std::vector<std::unique_ptr<ChapData>> chapters; //読み込んだチャプターのリスト
 
     void init(); //初期化
     void close(); //終了、リソース開放
     int read_file(); //ファイルの読み込み
 
-    //内部のm_code_pageに従って文字データをwcharに変換
-    int get_unicode_data(std::wstring& wchar_data, std::vector<char>& src);
+    //内部のm_code_pageに従って文字データをUTF-8に変換
+    int get_unicode_data(std::string& data, std::vector<char>& src);
 
     //文字データの文字コードをチェック、判定した文字コードを返す
     uint32_t check_code_page(std::vector<char>& src, uint32_t orig_code_page);
 
     //ファイルからデータを取得し、
     // 1. check_code_pageを使って、内部のm_code_pageに判定結果をセット
-    // 2. get_unicode_dataで文字列をwcharに変換し、m_wchar_filedataにセット
-    int get_unicode_data_from_file(std::wstring& wchar_data);
+    // 2. get_unicode_dataで文字列をUTF-8変換し、m_filedataにセット
+    int get_unicode_data_from_file(std::string& data);
 
     //読み込んだチャプターの種類を判定
     ChapType check_chap_type_from_file();
 
     //文字列データからチャプターの種類を判定
-    ChapType check_chap_type(const std::wstring& data);
+    ChapType check_chap_type(const std::string& data);
 
     //ファイルを読み込み、チャプターリスト(chapters)を作成
     //m_chapter_typeに従って処理を振り分け
@@ -162,6 +165,11 @@ private:
 
     //appleチャプターから、チャプターリスト(chapters)を作成
     int read_chapter_apple();
+
+    int read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, int &count);
+
+    //matroskaチャプターから、チャプターリスト(chapters)を作成
+    int read_chapter_matroska();
 
     //appleチャプターのヘッダー部分を作成
     int write_chapter_apple_header(std::ostream& ostream);
@@ -176,5 +184,4 @@ private:
     int write_chapter_nero(const TCHAR *filepath, bool utf8);
 };
 
-
-#endif //_AUO_CHAPTER_H_
+#endif //__RGY_CHAPTER_H__

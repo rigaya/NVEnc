@@ -36,12 +36,9 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #pragma warning (pop)
+#include "rgy_cuda_util_kernel.h"
 
 static const int KNN_RADIUS_MAX = 5;
-
-static __device__ float lerpf(float a, float b, float c) {
-    return a + (b - a) * c;
-}
 
 template<typename Type, int knn_radius, int bit_depth>
 __global__ void kernel_denoise_knn(uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
@@ -311,20 +308,22 @@ RGY_ERR NVEncFilterDenoiseKnn::init(shared_ptr<NVEncFilterParam> pParam, shared_
     }
 
     auto cudaerr = AllocFrameBuf(pKnnParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
     pKnnParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_sFilterInfo = strsprintf(_T("denoise(knn): radius %d, strength %.2f, lerp %.2f\n                              th_weight %.2f, th_lerp %.2f"),
-        pKnnParam->knn.radius, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold);
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
 }
 
-RGY_ERR NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+tstring NVEncFilterParamDenoiseKnn::print() const {
+    return knn.print();
+}
+
+RGY_ERR NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {

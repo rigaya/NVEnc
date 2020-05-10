@@ -199,19 +199,23 @@ RGY_ERR NVEncFilterDenoiseGauss::init(shared_ptr<NVEncFilterParam> pParam, share
     }
 
     auto cudaerr = AllocFrameBuf(pGaussParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
     pGaussParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_sFilterInfo = strsprintf(_T("denoise(gauss): mask size: %s"), get_chr_from_value(list_nppi_gauss, pGaussParam->masksize));
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
 }
 
-RGY_ERR NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+tstring NVEncFilterParamGaussDenoise::print() const {
+    return strsprintf(_T("denoise(gauss): mask size: %s"),
+        get_chr_from_value(list_nppi_gauss, masksize));
+}
+
+RGY_ERR NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {

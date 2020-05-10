@@ -28,6 +28,8 @@
 #ifndef _CONVERT_H_
 #define _CONVERT_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 
 enum {

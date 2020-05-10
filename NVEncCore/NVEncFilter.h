@@ -28,65 +28,34 @@
 
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
 #include <stdint.h>
-#include <tchar.h>
-#pragma warning (push)
-#pragma warning (disable: 4819)
-#include <cuda_runtime.h>
-#include <npp.h>
-#include <cuda.h>
-#pragma warning (pop)
 #include <memory>
 #include <vector>
-#include "helper_cuda.h"
+#include "rgy_cuda_util.h"
+#include "rgy_frame.h"
 #include "NVEncUtil.h"
 #include "NVEncParam.h"
+#include "NVEncFrameInfo.h"
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 #include "rgy_log.h"
 #include "convert_csp.h"
-#include "NVEncFrameInfo.h"
 
 #pragma comment(lib, "cudart_static.lib")
 
+struct AVPacket;
+
 extern const TCHAR *NPPI_DLL_NAME_TSTR;
 extern const TCHAR *NVRTC_DLL_NAME_TSTR;
+extern const TCHAR *NVRTC_BUILTIN_DLL_NAME_TSTR;
 
 bool check_if_nppi_dll_available();
+#if ENABLE_NVRTC
 bool check_if_nvrtc_dll_available();
+bool check_if_nvrtc_builtin_dll_available();
+#endif
 
 using std::vector;
-
-struct cudaevent_deleter {
-    void operator()(cudaEvent_t *pEvent) const {
-        cudaEventDestroy(*pEvent);
-        delete pEvent;
-    }
-};
-
-struct cudastream_deleter {
-    void operator()(cudaStream_t *pStream) const {
-        cudaStreamDestroy(*pStream);
-        delete pStream;
-    }
-};
-
-struct cudahost_deleter {
-    void operator()(void *ptr) const {
-        cudaFreeHost(ptr);
-    }
-};
-
-struct cudadevice_deleter {
-    void operator()(void *ptr) const {
-        cudaFree(ptr);
-    }
-};
-
-static inline int divCeil(int value, int radix) {
-    return (value + radix - 1) / radix;
-}
 
 static NppiSize nppisize(const FrameInfo *pFrame) {
     NppiSize size;
@@ -104,33 +73,6 @@ static NppiRect nppiroi(const FrameInfo *pFrame) {
     return rect;
 }
 
-static inline cudaMemcpyKind getCudaMemcpyKind(bool inputDevice, bool outputDevice) {
-    if (inputDevice) {
-        return (outputDevice) ? cudaMemcpyDeviceToDevice : cudaMemcpyDeviceToHost;
-    } else {
-        return (outputDevice) ? cudaMemcpyHostToDevice : cudaMemcpyHostToHost;
-    }
-}
-
-static const TCHAR *getCudaMemcpyKindStr(cudaMemcpyKind kind) {
-    switch (kind) {
-    case cudaMemcpyDeviceToDevice:
-        return _T("copyDtoD");
-    case cudaMemcpyDeviceToHost:
-        return _T("copyDtoH");
-    case cudaMemcpyHostToDevice:
-        return _T("copyHtoD");
-    case cudaMemcpyHostToHost:
-        return _T("copyHtoH");
-    default:
-        return _T("copyUnknown");
-    }
-}
-
-static const TCHAR *getCudaMemcpyKindStr(bool inputDevice, bool outputDevice) {
-    return getCudaMemcpyKindStr(getCudaMemcpyKind(inputDevice, outputDevice));
-}
-
 class NVEncFilterParam {
 public:
     FrameInfo frameIn;
@@ -138,169 +80,9 @@ public:
     rgy_rational<int> baseFps;
     bool bOutOverwrite;
 
-    NVEncFilterParam() : frameIn({ 0 }), frameOut({ 0 }), baseFps(), bOutOverwrite(false) {};
+    NVEncFilterParam() : frameIn(), frameOut(), baseFps(), bOutOverwrite(false) {};
+    virtual tstring print() const = 0;
     virtual ~NVEncFilterParam() {};
-};
-
-struct CUFrameBuf {
-public:
-    FrameInfo frame;
-    cudaEvent_t event;
-    CUFrameBuf()
-        : frame({ 0 }), event() {
-        cudaEventCreate(&event);
-    };
-    CUFrameBuf(uint8_t *ptr, int pitch, int width, int height, RGY_CSP csp = RGY_CSP_NV12)
-        : frame({ 0 }), event() {
-        frame.ptr = ptr;
-        frame.pitch = pitch;
-        frame.width = width;
-        frame.height = height;
-        frame.csp = csp;
-        frame.deivce_mem = true;
-        cudaEventCreate(&event);
-    };
-    CUFrameBuf(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
-        : frame({ 0 }), event() {
-        frame.ptr = nullptr;
-        frame.pitch = 0;
-        frame.width = width;
-        frame.height = height;
-        frame.csp = csp;
-        frame.deivce_mem = true;
-        cudaEventCreate(&event);
-    };
-    CUFrameBuf(const FrameInfo& _info)
-        : frame(_info), event() {
-        cudaEventCreate(&event);
-    };
-protected:
-    CUFrameBuf(const CUFrameBuf &) = delete;
-    void operator =(const CUFrameBuf &) = delete;
-public:
-    cudaError_t alloc() {
-        if (frame.ptr) {
-            cudaFree(frame.ptr);
-        }
-        size_t memPitch = 0;
-        cudaError_t ret = cudaSuccess;
-        const auto infoEx = getFrameInfoExtra(&frame);
-        if (infoEx.width_byte) {
-            ret = cudaMallocPitch(&frame.ptr, &memPitch, infoEx.width_byte, infoEx.height_total);
-        } else {
-            ret = cudaErrorNotSupported;
-        }
-        frame.pitch = (int)memPitch;
-        return ret;
-    }
-    void clear() {
-        if (frame.ptr) {
-            cudaFree(frame.ptr);
-            frame.ptr = nullptr;
-        }
-    }
-    ~CUFrameBuf() {
-        clear();
-        if (event) {
-            cudaEventDestroy(event);
-            event = nullptr;
-        }
-    }
-};
-
-struct CUMemBuf {
-    void *ptr;
-    size_t nSize;
-
-    CUMemBuf() : ptr(nullptr), nSize(0) {
-
-    };
-    CUMemBuf(void *_ptr, size_t _nSize) : ptr(_ptr), nSize(_nSize) {
-
-    };
-    CUMemBuf(size_t _nSize) : ptr(nullptr), nSize(_nSize) {
-
-    }
-    cudaError_t alloc() {
-        if (ptr) {
-            cudaFree(ptr);
-        }
-        cudaError_t ret = cudaSuccess;
-        if (nSize > 0) {
-            ret = cudaMalloc(&ptr, nSize);
-        } else {
-            ret = cudaErrorNotSupported;
-        }
-        return ret;
-    }
-    void clear() {
-        if (ptr) {
-            cudaFree(ptr);
-            ptr = nullptr;
-        }
-        nSize = 0;
-    }
-    ~CUMemBuf() {
-        clear();
-    }
-};
-
-struct CUMemBufPair {
-    void *ptrDevice;
-    void *ptrHost;
-    size_t nSize;
-
-    CUMemBufPair() : ptrDevice(nullptr), ptrHost(nullptr), nSize(0) {
-
-    };
-    CUMemBufPair(size_t _nSize) : ptrDevice(nullptr), ptrHost(nullptr), nSize(_nSize) {
-
-    }
-    cudaError_t alloc() {
-        if (ptrDevice) {
-            cudaFree(ptrDevice);
-        }
-        cudaError_t ret = cudaSuccess;
-        if (nSize > 0) {
-            ret = cudaMalloc(&ptrDevice, nSize);
-            if (ret == cudaSuccess) {
-                ret = cudaMallocHost(&ptrHost, nSize);
-            }
-        } else {
-            ret = cudaErrorNotSupported;
-        }
-        return ret;
-    }
-    cudaError_t alloc(size_t _nSize) {
-        nSize = _nSize;
-        return alloc();
-    }
-    cudaError_t copyDtoHAsync(cudaStream_t stream = 0) {
-        return cudaMemcpyAsync(ptrHost, ptrDevice, nSize, cudaMemcpyDeviceToHost, stream);
-    }
-    cudaError_t copyDtoH() {
-        return cudaMemcpy(ptrHost, ptrDevice, nSize, cudaMemcpyDeviceToHost);
-    }
-    cudaError_t copyHtoDAsync(cudaStream_t stream = 0) {
-        return cudaMemcpyAsync(ptrDevice, ptrHost, nSize, cudaMemcpyHostToDevice, stream);
-    }
-    cudaError_t copyHtoD() {
-        return cudaMemcpy(ptrDevice, ptrHost, nSize, cudaMemcpyHostToDevice);
-    }
-    void clear() {
-        if (ptrDevice) {
-            cudaFree(ptrDevice);
-            ptrDevice = nullptr;
-        }
-        if (ptrHost) {
-            cudaFreeHost(ptrHost);
-            ptrDevice = nullptr;
-        }
-        nSize = 0;
-    }
-    ~CUMemBufPair() {
-        clear();
-    }
 };
 
 enum FILTER_PATHTHROUGH_FRAMEINFO : uint32_t {
@@ -308,8 +90,9 @@ enum FILTER_PATHTHROUGH_FRAMEINFO : uint32_t {
     FILTER_PATHTHROUGH_TIMESTAMP = 0x01u,
     FILTER_PATHTHROUGH_FLAGS     = 0x02u,
     FILTER_PATHTHROUGH_PICSTRUCT = 0x04u,
+    FILTER_PATHTHROUGH_DATA      = 0x08u,
 
-    FILTER_PATHTHROUGH_ALL       = 0x07u,
+    FILTER_PATHTHROUGH_ALL       = 0x0fu,
 };
 
 static FILTER_PATHTHROUGH_FRAMEINFO operator|(FILTER_PATHTHROUGH_FRAMEINFO a, FILTER_PATHTHROUGH_FRAMEINFO b) {
@@ -342,7 +125,7 @@ public:
         return m_sFilterName;
     }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) = 0;
-    RGY_ERR filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum);
+    RGY_ERR filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
     const tstring GetInputMessage() {
         return m_sFilterInfo;
     }
@@ -351,11 +134,17 @@ public:
     }
     void CheckPerformance(bool flag);
     double GetAvgTimeElapsed();
+    virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
+    virtual int targetTrackIdx() { return 0; };
 protected:
     RGY_ERR filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream);
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) = 0;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) = 0;
     virtual void close() = 0;
 
+    void setFilterInfo(const tstring &info) {
+        m_sFilterInfo = info;
+        AddMessage(RGY_LOG_DEBUG, info);
+    }
     void AddMessage(int log_level, const tstring& str) {
         if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
             return;
@@ -404,7 +193,9 @@ class NVEncFilterParamCrop : public NVEncFilterParam {
 public:
     sInputCrop crop;
 
-    virtual ~NVEncFilterParamCrop() {};
+    NVEncFilterParamCrop();
+    virtual ~NVEncFilterParamCrop();
+    virtual tstring print() const override;
 };
 
 class NVEncFilterCspCrop : public NVEncFilter {
@@ -413,20 +204,22 @@ public:
     virtual ~NVEncFilterCspCrop();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
-    RGY_ERR convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    RGY_ERR convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    RGY_ERR convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    RGY_ERR convertCspFromNV16(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    RGY_ERR convertCspFromRGB(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    RGY_ERR convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    RGY_ERR convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromNV16(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromRGB(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
     virtual void close() override;
 };
 
 class NVEncFilterParamResize : public NVEncFilterParam {
 public:
     int interp;
+    NVEncFilterParamResize() : interp(RESIZE_CUDA_SPLINE36) {}
     virtual ~NVEncFilterParamResize() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterResize : public NVEncFilter {
@@ -435,7 +228,7 @@ public:
     virtual ~NVEncFilterResize();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     RGY_ERR resizeNppiYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     RGY_ERR resizeNppiYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
@@ -448,7 +241,9 @@ protected:
 class NVEncFilterParamGaussDenoise : public NVEncFilterParam {
 public:
     NppiMaskSize masksize;
+    NVEncFilterParamGaussDenoise() : masksize(NPP_MASK_SIZE_3_X_3) {};
     virtual ~NVEncFilterParamGaussDenoise() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterDenoiseGauss : public NVEncFilter {
@@ -457,7 +252,7 @@ public:
     virtual ~NVEncFilterDenoiseGauss();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     RGY_ERR denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     RGY_ERR denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
@@ -467,7 +262,9 @@ protected:
 class NVEncFilterParamPad : public NVEncFilterParam {
 public:
     VppPad pad;
+    NVEncFilterParamPad() : pad() {};
     virtual ~NVEncFilterParamPad() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterPad : public NVEncFilter {
@@ -476,7 +273,7 @@ public:
     virtual ~NVEncFilterPad();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
 
     RGY_ERR padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad);
     virtual void close() override;

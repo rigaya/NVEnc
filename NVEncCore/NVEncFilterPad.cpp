@@ -68,20 +68,22 @@ RGY_ERR NVEncFilterPad::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     }
 
     auto cudaerr = AllocFrameBuf(pParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
     pParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_sFilterInfo = strsprintf(_T("pad: [%dx%d]->[%dx%d] (right=%d, left=%d, top=%d, bottom=%d)"),
-        pParam->frameIn.width, pParam->frameIn.height,
-        pParam->frameOut.width, pParam->frameOut.height,
-        pPadParam->pad.right, pPadParam->pad.left,
-        pPadParam->pad.top, pPadParam->pad.bottom);
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamPad::print() const {
+    return strsprintf(_T("pad: [%dx%d]->[%dx%d] "),
+        frameIn.width, frameIn.height,
+        frameOut.width, frameOut.height)
+        + pad.print();
 }
 
 RGY_ERR NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad) {
@@ -141,14 +143,14 @@ RGY_ERR NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInpu
             pInputFrame->ptr, pInputFrame->pitch,
             pInputFrame->width * pixel_byte, pInputFrame->height,
             memcpyKind);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("error at cudaMemcpy2DAsync: %s.\n"),
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
     }
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterPad::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterPad::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {

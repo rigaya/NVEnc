@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include "rgy_pipe.h"
+#include "rgy_tchar.h"
 
 RGYPipeProcessLinux::RGYPipeProcessLinux() {
 }
@@ -49,10 +50,12 @@ int RGYPipeProcessLinux::startPipes(ProcessPipe *pipes) {
     if (pipes->stdOut.mode) {
         if (-1 == (pipe((int *)&pipes->stdOut.h_read)))
             return 1;
+        pipes->f_stdout = fdopen(pipes->stdOut.h_read, "r");
     }
     if (pipes->stdErr.mode) {
         if (-1 == (pipe((int *)&pipes->stdErr.h_read)))
             return 1;
+        pipes->f_stderr = fdopen(pipes->stdErr.h_read, "r");
     }
     if (pipes->stdIn.mode) {
         if (-1 == (pipe((int *)&pipes->stdIn.h_read)))
@@ -76,6 +79,14 @@ int RGYPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR
             ::close(pipes->stdIn.h_write);
             dup2(pipes->stdIn.h_read, STDIN_FILENO);
         }
+        if (pipes->stdOut.mode) {
+            ::close(pipes->stdOut.h_read);
+            dup2(pipes->stdOut.h_write, STDOUT_FILENO);
+        }
+        if (pipes->stdErr.mode) {
+            ::close(pipes->stdErr.h_read);
+            dup2(pipes->stdErr.h_write, STDERR_FILENO);
+        }
         int ret = execvp(args[0], (char *const *)args.data());
         exit(-1);
     }
@@ -96,6 +107,26 @@ int RGYPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR
 }
 
 void RGYPipeProcessLinux::close() {
+}
+
+tstring RGYPipeProcessLinux::getOutput(ProcessPipe *pipes) {
+    std::string outstr;
+    auto read_from_pipe = [&]() {
+        char buf[4096];
+        int ret = fread(buf, sizeof(buf[0]), _countof(buf), pipes->f_stdout);
+        outstr += ret;
+        return (int)ret;
+    };
+
+    while (processAlive()) {
+        read_from_pipe();
+    }
+    for (;;) {
+        if (read_from_pipe() <= 0) {
+            break;
+        }
+    }
+    return outstr;
 }
 
 bool RGYPipeProcessLinux::processAlive() {

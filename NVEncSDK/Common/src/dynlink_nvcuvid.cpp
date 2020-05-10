@@ -46,14 +46,14 @@ tcuvidCtxUnlock                       *cuvidCtxUnlock;
 
 
 // Auto-lock helper for C++ applications
-CCtxAutoLock::CCtxAutoLock(CUvideoctxlock ctx) 
-    : m_ctx(ctx) 
+CCtxAutoLock::CCtxAutoLock(CUvideoctxlock ctx)
+    : m_ctx(ctx)
 {
-    cuvidCtxLock(m_ctx, 0); 
+    cuvidCtxLock(m_ctx, 0);
 }
 CCtxAutoLock::~CCtxAutoLock()
-{ 
-    cuvidCtxUnlock(m_ctx, 0); 
+{
+    cuvidCtxUnlock(m_ctx, 0);
 }
 
 
@@ -62,6 +62,7 @@ CCtxAutoLock::~CCtxAutoLock()
 
 #if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
 #include <Windows.h>
+#pragma warning (disable:4477)
 
 #ifdef UNICODE
    static LPCWSTR __DriverLibName = L"nvcuvid.dll";

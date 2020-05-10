@@ -43,11 +43,9 @@
 #include <cassert>
 
 #if (defined(_WIN32) || defined(_WIN64))
-#define ENABLE_CAPTION2ASS 1
 #define USE_CUSTOM_INPUT 1
 #include "rgy_caption.h"
 #else
-#define ENABLE_CAPTION2ASS 0
 #define USE_CUSTOM_INPUT 0
 #endif
 
@@ -58,6 +56,8 @@ using std::deque;
 static const uint32_t AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 static const uint32_t AV_FRAME_MAX_REORDER = 16;
 static const int FRAMEPOS_POC_INVALID = -1;
+
+static const char* HDR10PLUS_METADATA_KEY = "rgy_hdr10plus_metadata";
 
 enum RGYPtsStatus : uint32_t {
     RGY_PTS_UNKNOWN           = 0x00,
@@ -107,6 +107,20 @@ typedef struct FramePos {
 #define DEBUG_FRAME_COPY(x)
 #endif
 
+static FramePos framePosInit() {
+    FramePos pos;
+    pos.pts = 0;
+    pos.dts = 0;
+    pos.duration = 0;
+    pos.duration2 = 0;
+    pos.poc = FRAMEPOS_POC_INVALID;
+    pos.flags = 0;
+    pos.pic_struct = RGY_PICSTRUCT_FRAME;
+    pos.repeat_pict = 0;
+    pos.pict_type = 0;
+    return pos;
+}
+
 static FramePos framePos(int64_t pts, int64_t dts,
     int duration, int duration2 = 0,
     int poc = FRAMEPOS_POC_INVALID,
@@ -137,17 +151,17 @@ public:
 class FramePosList {
 public:
     FramePosList() :
-        m_dFrameDuration(0.0),
+        m_frameDuration(0.0),
         m_list(),
-        m_nNextFixNumIndex(0),
-        m_bInputFin(false),
-        m_nDuration(0),
-        m_nDurationNum(0),
-        m_nStreamPtsStatus(RGY_PTS_UNKNOWN),
-        m_nLastPoc(0),
-        m_nFirstKeyframePts(AV_NOPTS_VALUE),
-        m_nPAFFRewind(0),
-        m_nPtsWrapArroundThreshold(0xFFFFFFFF),
+        m_nextFixNumIndex(0),
+        m_inputFin(false),
+        m_duration(0),
+        m_durationNum(0),
+        m_streamPtsStatus(RGY_PTS_UNKNOWN),
+        m_lastPoc(0),
+        m_firstKeyframePts(AV_NOPTS_VALUE),
+        m_PAFFRewind(0),
+        m_ptsWrapArroundThreshold(0xFFFFFFFF),
         m_fpDebugCopyFrameData() {
         m_list.init();
         static_assert(sizeof(m_list.get()[0]) == sizeof(m_list.get()->data), "FramePos must not have padding.");
@@ -203,22 +217,22 @@ public:
     //初期化
     void clear() {
         m_list.close();
-        m_dFrameDuration = 0.0;
-        m_nNextFixNumIndex = 0;
-        m_bInputFin = false;
-        m_nDuration = 0;
-        m_nDurationNum = 0;
-        m_nStreamPtsStatus = RGY_PTS_UNKNOWN;
-        m_nLastPoc = 0;
-        m_nFirstKeyframePts = AV_NOPTS_VALUE;
-        m_nPAFFRewind = 0;
-        m_nPtsWrapArroundThreshold = 0xFFFFFFFF;
+        m_frameDuration = 0.0;
+        m_nextFixNumIndex = 0;
+        m_inputFin = false;
+        m_duration = 0;
+        m_durationNum = 0;
+        m_streamPtsStatus = RGY_PTS_UNKNOWN;
+        m_lastPoc = 0;
+        m_firstKeyframePts = AV_NOPTS_VALUE;
+        m_PAFFRewind = 0;
+        m_ptsWrapArroundThreshold = 0xFFFFFFFF;
         m_fpDebugCopyFrameData.reset();
         m_list.init();
     }
     //ここまで計算したdurationを返す
     int64_t duration() const {
-        return m_nDuration;
+        return m_duration;
     }
     //登録された(ptsの確定していないものを含む)フレーム数を返す
     int frameNum() const {
@@ -226,10 +240,10 @@ public:
     }
     //ptsが確定したフレーム数を返す
     int fixedNum() const {
-        return m_nNextFixNumIndex;
+        return m_nextFixNumIndex;
     }
     void clearPtsStatus() {
-        if (m_nStreamPtsStatus & RGY_PTS_DUPLICATE) {
+        if (m_streamPtsStatus & RGY_PTS_DUPLICATE) {
             const int nListSize = (int)m_list.size();
             for (int i = 0; i < nListSize; i++) {
                 if (m_list[i].data.duration == 0
@@ -241,19 +255,19 @@ public:
                 }
             }
         }
-        m_nLastPoc = 0;
-        m_nNextFixNumIndex = 0;
-        m_nStreamPtsStatus = RGY_PTS_UNKNOWN;
-        m_nPAFFRewind = 0;
-        m_nPtsWrapArroundThreshold = 0xFFFFFFFF;
+        m_lastPoc = 0;
+        m_nextFixNumIndex = 0;
+        m_streamPtsStatus = RGY_PTS_UNKNOWN;
+        m_PAFFRewind = 0;
+        m_ptsWrapArroundThreshold = 0xFFFFFFFF;
     }
     RGYPtsStatus getStreamPtsStatus() const {
-        return m_nStreamPtsStatus;
+        return m_streamPtsStatus;
     }
     FramePos findpts(int64_t pts, uint32_t *lastIndex) {
-        FramePos pos_last = { 0 };
+        FramePos pos_last = framePosInit();
         for (uint32_t index = *lastIndex + 1; ; index++) {
-            FramePos pos;
+            FramePos pos = framePosInit();
             if (!m_list.copy(&pos, index)) {
                 break;
             }
@@ -265,7 +279,7 @@ public:
         }
         //最初から探索
         for (uint32_t index = 0; ; index++) {
-            FramePos pos;
+            FramePos pos = framePosInit();
             if (!m_list.copy(&pos, index)) {
                 break;
             }
@@ -281,8 +295,7 @@ public:
             pos_last = pos;
         }
         //エラー
-        FramePos poserr = { 0 };
-        poserr.poc = FRAMEPOS_POC_INVALID;
+        FramePos poserr = framePosInit();
         return poserr;
     }
     //FramePosを追加し、内部状態を変更する
@@ -294,13 +307,13 @@ public:
         //ptsの補正
         adjustFrameInfo(nIndex);
         //最初のキーフレームの位置を記憶しておく
-        if (m_nFirstKeyframePts == AV_NOPTS_VALUE && (pos.flags & AV_PKT_FLAG_KEY) && nIndex == 0) {
-            m_nFirstKeyframePts = m_list[nIndex].data.pts;
+        if (m_firstKeyframePts == AV_NOPTS_VALUE && (pos.flags & AV_PKT_FLAG_KEY) && nIndex == 0) {
+            m_firstKeyframePts = m_list[nIndex].data.pts;
         }
-        //m_nStreamPtsStatusがRGY_PTS_UNKNOWNの場合には、ソートなどは行わない
-        if (m_bInputFin || (m_nStreamPtsStatus && nListSize - m_nNextFixNumIndex > (int)AV_FRAME_MAX_REORDER)) {
+        //m_streamPtsStatusがRGY_PTS_UNKNOWNの場合には、ソートなどは行わない
+        if (m_inputFin || (m_streamPtsStatus && nListSize - m_nextFixNumIndex > (int)AV_FRAME_MAX_REORDER)) {
             //ptsでソート
-            sortPts(m_nNextFixNumIndex, nListSize - m_nNextFixNumIndex);
+            sortPts(m_nextFixNumIndex, nListSize - m_nextFixNumIndex);
             setPocAndFix(nListSize);
         }
         calcDuration();
@@ -309,7 +322,7 @@ public:
     FramePos copy(int poc, uint32_t *lastIndex) {
         assert(lastIndex != nullptr);
         for (uint32_t index = *lastIndex + 1; ; index++) {
-            FramePos pos;
+            FramePos pos = framePosInit();
             if (!m_list.copy(&pos, index)) {
                 break;
             }
@@ -318,13 +331,13 @@ public:
                 DEBUG_FRAME_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d, pts: %lld\n"), poc, index, (lls)pos.pts));
                 return pos;
             }
-            if (m_bInputFin && pos.poc == -1) {
+            if (m_inputFin && pos.poc == -1) {
                 //もう読み込みは終了しているが、さらなるフレーム情報の要求が来ている
                 //予想より出力が過剰になっているということで、tsなどで最初がopengopの場合に起こりうる
                 //なにかおかしなことが起こっており、異常なのだが、最後の最後でエラーとしてしまうのもあほらしい
                 //とりあえず、ptsを推定して返してしまう
                 pos.poc = poc;
-                FramePos pos_tmp = { 0 };
+                FramePos pos_tmp = framePosInit();
                 m_list.copy(&pos_tmp, index-1);
                 int nLastPoc = pos_tmp.poc;
                 int64_t nLastPts = pos_tmp.pts;
@@ -342,33 +355,32 @@ public:
             }
         }
         //エラー
-        FramePos pos = { 0 };
-        pos.poc = FRAMEPOS_POC_INVALID;
+        FramePos pos = framePosInit();
         DEBUG_FRAME_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request: %8d, invalid, list size: %d\n"), poc, (int)m_list.size()));
         return pos;
     }
     //入力が終了した際に使用し、内部状態を変更する
     void fin(const FramePos& pos, int64_t total_duration) {
-        m_bInputFin = true;
-        if (m_nStreamPtsStatus == RGY_PTS_UNKNOWN) {
+        m_inputFin = true;
+        if (m_streamPtsStatus == RGY_PTS_UNKNOWN) {
             checkPtsStatus();
         }
         const int nFrame = (int)m_list.size();
-        sortPts(m_nNextFixNumIndex, nFrame - m_nNextFixNumIndex);
-        m_nNextFixNumIndex += m_nPAFFRewind;
-        for (int i = m_nNextFixNumIndex; i < nFrame; i++) {
-            adjustDurationAfterSort(m_nNextFixNumIndex);
+        sortPts(m_nextFixNumIndex, nFrame - m_nextFixNumIndex);
+        m_nextFixNumIndex += m_PAFFRewind;
+        for (int i = m_nextFixNumIndex; i < nFrame; i++) {
+            adjustDurationAfterSort(m_nextFixNumIndex);
             setPoc(i);
         }
-        m_nNextFixNumIndex = nFrame;
+        m_nextFixNumIndex = nFrame;
         add(pos);
-        m_nNextFixNumIndex += m_nPAFFRewind;
-        m_nPAFFRewind = 0;
-        m_nDuration = total_duration;
-        m_nDurationNum = m_nNextFixNumIndex;
+        m_nextFixNumIndex += m_PAFFRewind;
+        m_PAFFRewind = 0;
+        m_duration = total_duration;
+        m_durationNum = m_nextFixNumIndex;
     }
     bool isEof() const {
-        return m_bInputFin;
+        return m_inputFin;
     }
     //現在の情報から、ptsの状態を確認する
     //さらにptsの補正、ptsのソート、pocの確定を行う
@@ -422,63 +434,63 @@ public:
         }
         //多い順にソートする
         std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
-        m_nStreamPtsStatus = RGY_PTS_UNKNOWN;
+        m_streamPtsStatus = RGY_PTS_UNKNOWN;
         if (nDuplicateFrameInfo > 0) {
             //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
-            m_nStreamPtsStatus |= RGY_PTS_DUPLICATE;
+            m_streamPtsStatus |= RGY_PTS_DUPLICATE;
         }
         if (nInvalidPtsCount == 0) {
-            m_nStreamPtsStatus |= RGY_PTS_NORMAL;
+            m_streamPtsStatus |= RGY_PTS_NORMAL;
         } else {
-            m_dFrameDuration = durationHintifPtsAllInvalid;
+            m_frameDuration = durationHintifPtsAllInvalid;
             if (nInvalidPtsCount >= nInputPacketCount - 1) {
                 if (m_list[0].data.duration || durationHintifPtsAllInvalid > 0.0) {
                     //durationが得られていれば、durationに基づいて、cfrでptsを発行する
                     //主にH.264/HEVCのESなど
-                    m_nStreamPtsStatus |= RGY_PTS_ALL_INVALID;
+                    m_streamPtsStatus |= RGY_PTS_ALL_INVALID;
                 } else {
                     //durationがなければ、dtsを見てptsを発行する
                     //主にVC-1ストリームなど
-                    m_nStreamPtsStatus |= RGY_PTS_SOMETIMES_INVALID;
+                    m_streamPtsStatus |= RGY_PTS_SOMETIMES_INVALID;
                 }
             } else if (nInputFields > 0 && nInvalidPtsCountField <= nInputFields / 2) {
                 //主にH.264のPAFFストリームなど
-                m_nStreamPtsStatus |= RGY_PTS_HALF_INVALID;
+                m_streamPtsStatus |= RGY_PTS_HALF_INVALID;
             } else if (nInvalidPtsCountKeyFrame == 0 && nInvalidPtsCountNonKeyFrame > (nInputPacketCount - nInputKeys) * 3 / 4) {
-                m_nStreamPtsStatus |= RGY_PTS_NONKEY_INVALID;
+                m_streamPtsStatus |= RGY_PTS_NONKEY_INVALID;
                 if (nInvalidPtsCount == nInvalidDtsCount) {
                     //ワンセグなど、ptsもdtsもキーフレーム以外は得られない場合
-                    m_nStreamPtsStatus |= RGY_DTS_SOMETIMES_INVALID;
+                    m_streamPtsStatus |= RGY_DTS_SOMETIMES_INVALID;
                 }
                 if (nInvalidDuration == 0) {
                     //ptsがだいぶいかれてるので、安定してdurationが得られていれば、durationベースで作っていったほうが早い
-                    m_nStreamPtsStatus |= RGY_PTS_SOMETIMES_INVALID;
+                    m_streamPtsStatus |= RGY_PTS_SOMETIMES_INVALID;
                 }
             }
-            if (!(m_nStreamPtsStatus & (RGY_PTS_ALL_INVALID | RGY_PTS_HALF_INVALID | RGY_PTS_NONKEY_INVALID | RGY_PTS_SOMETIMES_INVALID))
+            if (!(m_streamPtsStatus & (RGY_PTS_ALL_INVALID | RGY_PTS_HALF_INVALID | RGY_PTS_NONKEY_INVALID | RGY_PTS_SOMETIMES_INVALID))
                 && nInvalidPtsCount > nInputPacketCount / 16) {
-                m_nStreamPtsStatus |= RGY_PTS_SOMETIMES_INVALID;
+                m_streamPtsStatus |= RGY_PTS_SOMETIMES_INVALID;
             }
         }
-        if ((m_nStreamPtsStatus & RGY_PTS_ALL_INVALID)) {
+        if ((m_streamPtsStatus & RGY_PTS_ALL_INVALID)) {
             auto& mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0];
-            if ((m_dFrameDuration > 0.0 && m_list[0].data.duration == 0) || mostPopularDuration.first == 0) {
+            if ((m_frameDuration > 0.0 && m_list[0].data.duration == 0) || mostPopularDuration.first == 0) {
                 //主にH.264/HEVCのESなど向けの対策
-                m_list[0].data.duration = (int)(m_dFrameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
+                m_list[0].data.duration = (int)(m_frameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
             } else {
                 //durationのヒストグラムを作成
-                m_dFrameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
+                m_frameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
             }
         }
-        for (int i = m_nNextFixNumIndex; i < nInputPacketCount; i++) {
+        for (int i = m_nextFixNumIndex; i < nInputPacketCount; i++) {
             adjustFrameInfo(i);
         }
-        sortPts(m_nNextFixNumIndex, nInputPacketCount - m_nNextFixNumIndex);
+        sortPts(m_nextFixNumIndex, nInputPacketCount - m_nextFixNumIndex);
         setPocAndFix(nInputPacketCount);
-        if (m_nNextFixNumIndex > 1) {
+        if (m_nextFixNumIndex > 1) {
             int64_t pts0 = m_list[0].data.pts;
             int64_t pts1 = m_list[1 + (m_list[0].data.poc == -1)].data.pts;
-            m_nPtsWrapArroundThreshold = (uint32_t)clamp((int64_t)(std::max)((uint32_t)(pts1 - pts0), (uint32_t)(m_dFrameDuration + 0.5)) * 360, 360, (int64_t)0xFFFFFFFF);
+            m_ptsWrapArroundThreshold = (uint32_t)clamp((int64_t)(std::max)((uint32_t)(pts1 - pts0), (uint32_t)(m_frameDuration + 0.5)) * 360, 360, (int64_t)0xFFFFFFFF);
         }
     }
     RGY_PICSTRUCT getVideoPicStruct() {
@@ -494,20 +506,20 @@ public:
 protected:
     //ptsでソート
     void sortPts(uint32_t index, uint32_t len) {
-#if !defined(_MSC_VER) && __cplusplus <= 201103
+#if (!defined(_MSC_VER) && __cplusplus <= 201103) || defined(__NVCC__)
         FramePos *pStart = (FramePos *)m_list.get(index);
         FramePos *pEnd = (FramePos *)m_list.get(index + len);
         std::sort(pStart, pEnd, CompareFramePos());
 #else
-        const auto nPtsWrapArroundThreshold = m_nPtsWrapArroundThreshold;
+        const auto nPtsWrapArroundThreshold = m_ptsWrapArroundThreshold;
         std::sort(m_list.get(index), m_list.get(index + len), [nPtsWrapArroundThreshold](const auto& posA, const auto& posB) {
             return ((uint32_t)(std::abs(posA.data.pts - posB.data.pts)) < nPtsWrapArroundThreshold) ? posA.data.pts < posB.data.pts : posB.data.pts < posA.data.pts; });
 #endif
     }
     //ptsの補正
     void adjustFrameInfo(uint32_t nIndex) {
-        if (m_nStreamPtsStatus & RGY_PTS_SOMETIMES_INVALID) {
-            if (m_nStreamPtsStatus & RGY_DTS_SOMETIMES_INVALID) {
+        if (m_streamPtsStatus & RGY_PTS_SOMETIMES_INVALID) {
+            if (m_streamPtsStatus & RGY_DTS_SOMETIMES_INVALID) {
                 //ptsもdtsはあてにならないので、durationから再構築する (ワンセグなど)
                 if (nIndex == 0) {
                     if (m_list[nIndex].data.pts == AV_NOPTS_VALUE) {
@@ -528,24 +540,24 @@ protected:
             if (nIndex == 0) {
                 m_list[nIndex].data.pts = 0;
                 m_list[nIndex].data.dts = 0;
-            } else if (m_nStreamPtsStatus & (RGY_PTS_ALL_INVALID | RGY_PTS_NONKEY_INVALID)) {
+            } else if (m_streamPtsStatus & (RGY_PTS_ALL_INVALID | RGY_PTS_NONKEY_INVALID)) {
                 //AVPacketのもたらすptsが無効であれば、CFRを仮定して適当にptsとdurationを突っ込んでいく
-                double frameDuration = m_dFrameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 2.0 : 1.0);
+                double frameDuration = m_frameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 2.0 : 1.0);
                 m_list[nIndex].data.pts = (int64_t)(nIndex * frameDuration * ((m_list[nIndex].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
                 m_list[nIndex].data.dts = m_list[nIndex].data.pts;
-            } else if (m_nStreamPtsStatus & RGY_PTS_NONKEY_INVALID) {
+            } else if (m_streamPtsStatus & RGY_PTS_NONKEY_INVALID) {
                 //キーフレーム以外のptsとdtsが無効な場合は、適当に推定する
-                double frameDuration = m_dFrameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 2.0 : 1.0);
+                double frameDuration = m_frameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 2.0 : 1.0);
                 m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + (int)(frameDuration * ((m_list[nIndex].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
                 m_list[nIndex].data.dts = m_list[nIndex-1].data.dts + (int)(frameDuration * ((m_list[nIndex].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
-            } else if (m_nStreamPtsStatus & RGY_PTS_HALF_INVALID) {
+            } else if (m_streamPtsStatus & RGY_PTS_HALF_INVALID) {
                 //ptsがないのは音声抽出で、正常に抽出されない問題が生じる
                 //半分PTSがないPAFFのような動画については、前のフレームからの補完を行う
                 if (m_list[nIndex].data.dts == AV_NOPTS_VALUE) {
                     m_list[nIndex].data.dts = m_list[nIndex-1].data.dts + m_list[nIndex-1].data.duration;
                 }
                 m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + m_list[nIndex-1].data.duration;
-            } else if (m_nStreamPtsStatus & RGY_PTS_NORMAL) {
+            } else if (m_streamPtsStatus & RGY_PTS_NORMAL) {
                 if (m_list[nIndex].data.pts == AV_NOPTS_VALUE) {
                     m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + m_list[nIndex-1].data.duration;
                 }
@@ -554,7 +566,7 @@ protected:
     }
     //ソートにより確定したptsに対して、pocを設定する
     void setPoc(int index) {
-        if ((m_nStreamPtsStatus & RGY_PTS_DUPLICATE)
+        if ((m_streamPtsStatus & RGY_PTS_DUPLICATE)
             && m_list[index].data.duration == 0
             && m_list[index+1].data.pts - m_list[index].data.pts <= (std::min)(m_list[index+1].data.duration / 10, 1)
             && m_list[index+1].data.dts - m_list[index].data.dts <= (std::min)(m_list[index+1].data.duration / 10, 1)) {
@@ -565,10 +577,10 @@ protected:
                 m_list[index].data.poc = FRAMEPOS_POC_INVALID;
                 m_list[index-1].data.duration2 = m_list[index].data.duration;
             } else {
-                m_list[index].data.poc = m_nLastPoc++;
+                m_list[index].data.poc = m_lastPoc++;
             }
         } else {
-            m_list[index].data.poc = m_nLastPoc++;
+            m_list[index].data.poc = m_lastPoc++;
         }
     }
     //ソート後にindexのdurationを再計算する
@@ -576,7 +588,7 @@ protected:
     //ソート後のこの段階では、AV_NOPTS_VALUEはないものとする
     void adjustDurationAfterSort(int index) {
         int diff = (int)(m_list[index+1].data.pts - m_list[index].data.pts);
-        if ((m_nStreamPtsStatus & RGY_PTS_DUPLICATE)
+        if ((m_streamPtsStatus & RGY_PTS_DUPLICATE)
             && diff <= 1
             && m_list[index].data.duration > 0
             && m_list[index].data.pts != AV_NOPTS_VALUE
@@ -593,20 +605,20 @@ protected:
     //進捗表示用のdurationの計算を行う
     //これは16フレームに1回行う
     void calcDuration() {
-        int nNonDurationCalculatedFrames = m_nNextFixNumIndex - m_nDurationNum;
+        int nNonDurationCalculatedFrames = m_nextFixNumIndex - m_durationNum;
         if (nNonDurationCalculatedFrames >= 16) {
-            const auto *pos_fixed = m_list.get(m_nDurationNum);
+            const auto *pos_fixed = m_list.get(m_durationNum);
             int64_t duration = pos_fixed[nNonDurationCalculatedFrames-1].data.pts - pos_fixed[0].data.pts;
-            if (duration < 0 || duration > m_nPtsWrapArroundThreshold) {
+            if (duration < 0 || duration > m_ptsWrapArroundThreshold) {
                 duration = 0;
                 for (int i = 1; i < nNonDurationCalculatedFrames; i++) {
                     int64_t diff = (std::max<int64_t>)(0, pos_fixed[i].data.pts - pos_fixed[i-1].data.pts);
                     int64_t last_frame_dur = (std::max<int64_t>)(0, pos_fixed[i-1].data.duration);
-                    duration += (diff > m_nPtsWrapArroundThreshold) ? last_frame_dur : diff;
+                    duration += (diff > m_ptsWrapArroundThreshold) ? last_frame_dur : diff;
                 }
             }
-            m_nDuration += duration;
-            m_nDurationNum += nNonDurationCalculatedFrames;
+            m_duration += duration;
+            m_durationNum += nNonDurationCalculatedFrames;
         }
     }
     //pocを確定させる
@@ -614,42 +626,42 @@ protected:
         //ソートによりptsが確定している範囲
         //本来はnSortedSize - (int)AV_FRAME_MAX_REORDERでよいが、durationを確定させるためにはさらにもう一枚必要になる
         int nSortFixedSize = nSortedSize - (int)AV_FRAME_MAX_REORDER - 1;
-        m_nNextFixNumIndex += m_nPAFFRewind;
-        for (; m_nNextFixNumIndex < nSortFixedSize; m_nNextFixNumIndex++) {
-            if (m_list[m_nNextFixNumIndex].data.pts < m_nFirstKeyframePts //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
-                && m_nNextFixNumIndex <= 16) { //wrap arroundの場合は除く
+        m_nextFixNumIndex += m_PAFFRewind;
+        for (; m_nextFixNumIndex < nSortFixedSize; m_nextFixNumIndex++) {
+            if (m_list[m_nextFixNumIndex].data.pts < m_firstKeyframePts //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
+                && m_nextFixNumIndex <= 16) { //wrap arroundの場合は除く
                 //これはフレームリストから取り除く
                 m_list.pop();
-                m_nNextFixNumIndex--;
+                m_nextFixNumIndex--;
                 nSortFixedSize--;
             } else {
-                adjustDurationAfterSort(m_nNextFixNumIndex);
+                adjustDurationAfterSort(m_nextFixNumIndex);
                 //ソートにより確定したptsに対して、pocとdurationを設定する
-                setPoc(m_nNextFixNumIndex);
+                setPoc(m_nextFixNumIndex);
             }
         }
-        m_nPAFFRewind = 0;
+        m_PAFFRewind = 0;
         //もし、現在のインデックスがフィールドデータの片割れなら、次のフィールドがくるまでdurationは確定しない
         //setPocでduration2が埋まるのを待つ必要がある
-        if (m_nNextFixNumIndex > 0
-            && (m_list[m_nNextFixNumIndex-1].data.pic_struct & RGY_PICSTRUCT_FIELD)
-            && m_list[m_nNextFixNumIndex-1].data.poc != FRAMEPOS_POC_INVALID) {
-            m_nNextFixNumIndex--;
-            m_nPAFFRewind = 1;
+        if (m_nextFixNumIndex > 0
+            && (m_list[m_nextFixNumIndex-1].data.pic_struct & RGY_PICSTRUCT_FIELD)
+            && m_list[m_nextFixNumIndex-1].data.poc != FRAMEPOS_POC_INVALID) {
+            m_nextFixNumIndex--;
+            m_PAFFRewind = 1;
         }
     }
 protected:
-    double m_dFrameDuration; //CFRを仮定する際のフレーム長 (RGY_PTS_ALL_INVALID, RGY_PTS_NONKEY_INVALID, RGY_PTS_NONKEY_INVALID時有効)
+    double m_frameDuration; //CFRを仮定する際のフレーム長 (RGY_PTS_ALL_INVALID, RGY_PTS_NONKEY_INVALID, RGY_PTS_NONKEY_INVALID時有効)
     RGYQueueSPSP<FramePos, 1> m_list; //内部データサイズとFramePosのデータサイズを一致させるため、alignを1に設定
-    int m_nNextFixNumIndex; //次にptsを確定させるフレームのインデックス
-    bool m_bInputFin; //入力が終了したことを示すフラグ
-    int64_t m_nDuration; //m_nDurationNumのフレーム数分のdurationの総和
-    int m_nDurationNum; //durationを計算したフレーム数
-    RGYPtsStatus m_nStreamPtsStatus; //入力から提供されるptsの状態 (RGY_PTS_xxx)
-    uint32_t m_nLastPoc; //ptsが確定したフレームのうち、直近のpoc
-    int64_t m_nFirstKeyframePts; //最初のキーフレームのpts
-    int m_nPAFFRewind; //PAFFのdurationを確定させるため、戻した枚数
-    uint32_t m_nPtsWrapArroundThreshold; //wrap arroundを判定する閾値
+    int m_nextFixNumIndex; //次にptsを確定させるフレームのインデックス
+    bool m_inputFin; //入力が終了したことを示すフラグ
+    int64_t m_duration; //m_durationNumのフレーム数分のdurationの総和
+    int m_durationNum; //durationを計算したフレーム数
+    RGYPtsStatus m_streamPtsStatus; //入力から提供されるptsの状態 (RGY_PTS_xxx)
+    uint32_t m_lastPoc; //ptsが確定したフレームのうち、直近のpoc
+    int64_t m_firstKeyframePts; //最初のキーフレームのpts
+    int m_PAFFRewind; //PAFFのdurationを確定させるため、戻した枚数
+    uint32_t m_ptsWrapArroundThreshold; //wrap arroundを判定する閾値
     unique_ptr<FILE, fp_deleter> m_fpDebugCopyFrameData; //copyのデバッグ用
 };
 
@@ -664,74 +676,63 @@ typedef struct VideoFrameData {
 } VideoFrameData;
 
 typedef struct AVDemuxFormat {
-    AVFormatContext          *pFormatCtx;            //動画ファイルのformatContext
-    int                       nAnalyzeSec;           //動画ファイルを先頭から分析する時間
-    bool                      bIsPipe;               //入力がパイプ
-    uint32_t                  nPreReadBufferIdx;     //先読みバッファの読み込み履歴
-    int                       nAudioTracks;          //存在する音声のトラック数
-    int                       nSubtitleTracks;       //存在する字幕のトラック数
-    RGYAVSync                 nAVSyncMode;           //音声・映像同期モード
-    AVDictionary             *pFormatOptions;        //avformat_open_inputに渡すオプション
+    AVFormatContext          *formatCtx;             //動画ファイルのformatContext
+    int                       analyzeSec;            //動画ファイルを先頭から分析する時間
+    bool                      isPipe;                //入力がパイプ
+    uint32_t                  preReadBufferIdx;      //先読みバッファの読み込み履歴
+    int                       audioTracks;           //存在する音声のトラック数
+    int                       subtitleTracks;        //存在する字幕のトラック数
+    int                       dataTracks;            //存在するデータのトラック数
+    int                       attachmentTracks;      //存在するAttachmentのトラック数
+    RGYAVSync                 AVSyncMode;            //音声・映像同期モード
+    AVDictionary             *formatOptions;         //avformat_open_inputに渡すオプション
 
     FILE                     *fpInput;               //入力ファイルポインタ
-    char                     *pInputBuffer;          //入力バッファ
-    int                      inputBufferSize;        //入力バッファサイズ
-    uint64_t                 inputFilesize;          //入力ファイルサイズ
+    char                     *inputBuffer;           //入力バッファ
+    int                       inputBufferSize;       //入力バッファサイズ
+    uint64_t                  inputFilesize;         //入力ファイルサイズ
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
                                                      //動画は音声のみ抽出する場合でも同期のため参照することがあり、
                                                      //pCodecCtxのチェックだけでは読み込むかどうか判定できないので、
                                                      //実際に使用するかどうかはこのフラグをチェックする
-    bool                      bReadVideo;
-    const AVStream           *pStream;               //動画のStream, 動画を読み込むかどうかの判定には使用しないこと (bReadVideoを使用)
-    const AVCodec            *pCodecDecode;          //動画のデコーダ (使用しない場合はnullptr)
-    AVCodecContext           *pCodecCtxDecode;       //動画のデコーダ (使用しない場合はnullptr)
-    AVFrame                  *pFrame;                //動画デコード用のフレーム
-    int                       nIndex;                //動画のストリームID
-    int64_t                   nStreamFirstKeyPts;    //動画ファイルの最初のpts
-    uint32_t                  nStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES, 等)
-    int                       nRFFEstimate;          //動画がRFFの可能性がある
-    bool                      bGotFirstKeyframe;     //動画の最初のキーフレームを取得済み
-    AVBSFContext             *pBsfcCtx;              //必要なら使用するbitstreamfilter
-    uint8_t                  *pExtradata;            //動画のヘッダ情報
-    int                       nExtradataSize;        //動画のヘッダサイズ
+    bool                      readVideo;
+    const AVStream           *stream;                //動画のStream, 動画を読み込むかどうかの判定には使用しないこと (readVideoを使用)
+    const AVCodec            *codecDecode;           //動画のデコーダ (使用しない場合はnullptr)
+    AVCodecContext           *codecCtxDecode;        //動画のデコーダ (使用しない場合はnullptr)
+    AVFrame                  *frame;                 //動画デコード用のフレーム
+    int                       index;                 //動画のストリームID
+    int64_t                   streamFirstKeyPts;     //動画ファイルの最初のpts
+    uint32_t                  streamPtsInvalid;      //動画ファイルのptsが無効 (H.264/ES, 等)
+    int                       RFFEstimate;           //動画がRFFの可能性がある
+    bool                      gotFirstKeyframe;      //動画の最初のキーフレームを取得済み
+    AVBSFContext             *bsfcCtx;               //必要なら使用するbitstreamfilter
+    uint8_t                  *extradata;             //動画のヘッダ情報
+    int                       extradataSize;         //動画のヘッダサイズ
     AVRational                nAvgFramerate;         //動画のフレームレート
 
-    uint32_t                  nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
+    int                       nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
 
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
     AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
 
-    int                       nHWDecodeDeviceId;     //HWデコードする場合に選択したデバイス
+    int                       HWDecodeDeviceId;      //HWデコードする場合に選択したデバイス
 
     bool                      bUseHEVCmp42AnnexB;
+    bool                      hdr10plusMetadataCopy; //HDR10plusのメタ情報を取得する
+
+    AVMasteringDisplayMetadata *masteringDisplay;    //入力ファイルから抽出したHDRメタ情報
+    AVContentLightMetadata   *contentLight;          //入力ファイルから抽出したHDRメタ情報
+
+    RGYListRef<RGYFrameDataQP> *qpTableListRef;      //qp tableを格納するときのベース構造体
 } AVDemuxVideo;
 
-typedef struct AVDemuxStream {
-    int                       nIndex;                 //音声・字幕のストリームID (libavのストリームID)
-    int                       nTrackId;               //音声のトラックID (QSVEncC独自, 1,2,3,...)、字幕は0
-    int                       nSubStreamId;           //通常は0、音声のチャンネルを分離する際に複製として作成
-    AVStream                 *pStream;                //音声・字幕のストリーム (caption2assから字幕生成の場合、nullptrとなる)
-    int                       nLastVidIndex;          //音声の直前の相当する動画の位置
-    int64_t                   nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
-    int64_t                   trimOffset;             //trimによる補正量 (stream timebase基準)
-    int64_t                   aud0_fin;               //直前に有効だったパケットのpts(stream timebase基準)
-    int                       appliedTrimBlock;       //trim blockをどこまで適用したか
-    AVPacket                  pktSample;              //サンプル用の音声・字幕データ
-    uint64_t                  pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
-    uint64_t                  pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
-    AVRational                timebase;               //streamのtimebase [pStream = nullptrの場合でも使えるように]
-    void                     *subtitleHeader;         //pStream = nullptrの場合 caption2assのヘッダー情報 (srt形式でもass用のヘッダーが入っている)
-    int                       subtitleHeaderSize;     //pStream = nullptrの場合 caption2assのヘッダー情報のサイズ
-    C2AFormat                 caption2ass;            //pStream = nullptrの場合 caption2assのformat
-} AVDemuxStream;
-
 typedef struct AVDemuxThread {
-    int                          nInputThread;       //入力スレッドを使用する
+    int                          threadInput;        //入力スレッドを使用する
     std::atomic<bool>            bAbortInput;        //読み込みスレッドに停止を通知する
     std::thread                  thInput;            //読み込みスレッド
-    PerfQueueInfo               *pQueueInfo;         //キューの情報を格納する構造体
+    PerfQueueInfo               *queueInfo;          //キューの情報を格納する構造体
 } AVDemuxThread;
 
 typedef struct AVDemuxer {
@@ -811,8 +812,8 @@ public:
         std::string header = m_cap2ass.assHeader();
         AVDemuxStream stream;
         memset(&stream, 0, sizeof(AVDemuxStream));
-        stream.nIndex = m_index;
-        stream.nTrackId = m_trackId;
+        stream.index = m_index;
+        stream.trackId = m_trackId;
         stream.subtitleHeader = av_strdup(header.c_str());
         stream.subtitleHeaderSize = (int)header.length();
         stream.timebase = av_make_q(1, 90000);
@@ -918,34 +919,47 @@ class RGYInputAvcodecPrm : public RGYInputPrm {
 public:
     uint8_t        memType;                 //使用するメモリの種類
     const TCHAR   *pInputFormat;            //入力フォーマット
-    bool           bReadVideo;              //映像の読み込みを行うかどうか
-    int            nVideoTrack;             //動画トラックの選択
-    int            nVideoStreamId;          //動画StreamIdの選択
-    uint32_t       nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
-    bool           bReadSubtitle;           //字幕の読み込みを行うかどうか
-    bool           bReadChapter;            //チャプターの読み込みを行うかどうか
-    pair<int,int>  nVideoAvgFramerate;      //動画のフレームレート
-    int            nAnalyzeSec;             //入力ファイルを分析する秒数
+    bool           readVideo;               //映像の読み込みを行うかどうか
+    int            videoTrack;              //動画トラックの選択
+    int            videoStreamId;           //動画StreamIdの選択
+    uint32_t       readAudio;               //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
+    bool           readSubtitle;            //字幕の読み込みを行うかどうか
+    bool           readData;                //データの読み込みを行うかどうか
+    bool           readAttachment;          //Attachmentの読み込みを行うかどうか
+    bool           readChapter;             //チャプターの読み込みを行うかどうか
+    pair<int,int>  videoAvgFramerate;       //動画のフレームレート
+    int            analyzeSec;              //入力ファイルを分析する秒数
     int            nTrimCount;              //Trimする動画フレームの領域の数
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
-    int            nAudioTrackStart;        //音声のトラック番号の開始点
-    int            nSubtitleTrackStart;     //字幕のトラック番号の開始点
+    int            trackStartAudio;         //音声のトラック番号の開始点
+    int            trackStartSubtitle;      //字幕のトラック番号の開始点
+    int            trackStartData;          //データのトラック番号の開始点
     int            nAudioSelectCount;       //muxする音声のトラック数
-    sAudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
+    AudioSelect **ppAudioSelect;            //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
-    const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
-    RGYAVSync      nAVSyncMode;             //音声・映像同期モード
-    int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
-    float          fSeekSec;                //指定された秒数分先頭を飛ばす
-    const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
-    const TCHAR   *pLogCopyFrameData;       //frame情報copy関数のログ出力先 (デバッグ用)
-    int            nInputThread;            //入力スレッドを有効にする
-    PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
-    DeviceCodecCsp *pHWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
-    bool           bVideoDetectPulldown;     //pulldownの検出を試みるかどうか
-    C2AFormat      caption2ass;              //caption2assの処理の有効化
+    SubtitleSelect **ppSubtitleSelect;      //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
+    int            nDataSelectCount;        //muxするデータのトラック数
+    DataSelect   **ppDataSelect;            //muxするデータのトラック番号のリスト 1,2,...(1から連番で指定)
+    int            nAttachmentSelectCount;  //muxするAttachmentのトラック数
+    DataSelect   **ppAttachmentSelect;      //muxするAttachmentのトラック番号のリスト 1,2,...(1から連番で指定)
+    RGYAVSync      AVSyncMode;              //音声・映像同期モード
+    int            procSpeedLimit;          //プリデコードする場合の処理速度制限 (0で制限なし)
+    float          seekSec;                 //指定された秒数分先頭を飛ばす
+    const TCHAR   *logFramePosList;         //FramePosListの内容を入力終了時に出力する (デバッグ用)
+    const TCHAR   *logCopyFrameData;        //frame情報copy関数のログ出力先 (デバッグ用)
+    int            threadInput;             //入力スレッドを有効にする
+    PerfQueueInfo *queueInfo;               //キューの情報を格納する構造体
+    DeviceCodecCsp *HWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
+    bool           videoDetectPulldown;     //pulldownの検出を試みるかどうか
+    C2AFormat      caption2ass;             //caption2assの処理の有効化
+    bool           parseHDRmetadata;        //HDR関連のmeta情報を取得する
+    bool           hdr10plusMetadataCopy;  //HDR10plus関連のmeta情報を取得する
+    bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
+    RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
+    bool           lowLatency;
+    RGYOptList     inputOpt;                //入力オプション
 
-    RGYInputAvcodecPrm();
+    RGYInputAvcodecPrm(RGYInputPrm base);
     virtual ~RGYInputAvcodecPrm() {};
 };
 
@@ -980,10 +994,10 @@ public:
     double GetInputVideoDuration();
 
     //音声・字幕パケットの配列を取得する
-    vector<AVPacket> GetStreamDataPackets();
+    virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) override;
 
     //音声・字幕のコーデックコンテキストを取得する
-    vector<AVDemuxStream> GetInputStreamInfo();
+    virtual vector<AVDemuxStream> GetInputStreamInfo() override;
 
     //チャプターリストを取得する
     vector<const AVChapter *> GetChapterList();
@@ -991,11 +1005,16 @@ public:
     //フレーム情報構造へのポインタを返す
     FramePosList *GetFramePosList();
 
+    virtual rgy_rational<int> getInputTimebase() override;
+
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;
 
     //入力ファイルに存在する字幕のトラック数を返す
     int GetSubtitleTrackCount() override;
+
+    //入力ファイルに存在するデータのトラック数を返す
+    int GetDataTrackCount() override;
 
     //動画の最初のフレームのptsを取得する
     int64_t GetVideoFirstKeyPts();
@@ -1009,22 +1028,33 @@ public:
     //出力する動画の情報をセット
     void setOutputVideoInfo(int w, int h, int sar_x, int sar_y, bool mux);
 
+    //HDRのmetadataへのポインタを返す
+    const AVMasteringDisplayMetadata *getMasteringDisplay() const;
+    const AVContentLightMetadata *getContentLight() const;
+
+    RGYFrameDataHDR10plus *getHDR10plusMetaData(const AVFrame* frame);
+    RGYFrameDataHDR10plus *getHDR10plusMetaData(const AVPacket* pkt);
+
 #if USE_CUSTOM_INPUT
     int readPacket(uint8_t *buf, int buf_size);
     int writePacket(uint8_t *buf, int buf_size);
     int64_t seek(int64_t offset, int whence);
 #endif //USE_CUSTOM_INPUT
 protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm) override;
 
-    void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
+    RGY_ERR parseHDRData();
+
+    RGY_ERR parseHDR10plus(AVPacket *pkt);
+
+    void SetExtraData(AVCodecParameters *codecParam, const uint8_t *data, uint32_t size);
 
     //avcodecのコーデックIDからHWデコード可能ならRGY_CODECを返す
-    RGY_CODEC checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt, const CodecCsp *pHWDecCodecCsp);
+    RGY_CODEC checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt, const CodecCsp *HWDecCodecCsp);
 
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
     //動画ストリーム以外は、vidStreamIdに近いstreamIDのものの順番にソートする
-    vector<int> getStreamIndex(AVMediaType type, const vector<int> *pVidStreamIndex = nullptr);
+    vector<int> getStreamIndex(AVMediaType type, const vector<int> *vidStreamIndex = nullptr);
 
     //VC-1のスタートコードの確認
     bool vc1StartCodeExists(uint8_t *ptr);
@@ -1033,7 +1063,7 @@ protected:
     int getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe = false);
 
     //対象・字幕の音声パケットを追加するかどうか
-    bool checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *pStream);
+    bool checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *stream);
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVDemuxStream *getPacketStreamData(const AVPacket *pkt);
@@ -1043,12 +1073,12 @@ protected:
     void CheckAndMoveStreamPacketList();
 
     //音声パケットの配列を取得する (映像を読み込んでいないときに使用)
-    void GetAudioDataPacketsWhenNoVideoRead();
+    void GetAudioDataPacketsWhenNoVideoRead(int inputFrame);
 
     //QSVでデコードした際の最初のフレームのptsを取得する
     //さらに、平均フレームレートを推定する
     //fpsDecoderはdecoderの推定したfps
-    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown);
+    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown, bool lowLatency);
 
     //読み込みスレッド関数
     RGY_ERR ThreadFuncRead();
@@ -1057,7 +1087,7 @@ protected:
     int getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart);
 
     //ptsを動画のtimebaseから音声のtimebaseに変換する
-    int64_t convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *pStream);
+    int64_t convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *stream);
 
     void hevcMp42Annexb(AVPacket *pkt);
 
@@ -1067,13 +1097,13 @@ protected:
     //VC-1のフレームヘッダを追加
     void vc1AddFrameHeader(AVPacket *pkt);
 
-    void CloseStream(AVDemuxStream *pAudio);
-    void CloseVideo(AVDemuxVideo *pVideo);
-    void CloseFormat(AVDemuxFormat *pFormat);
+    void CloseStream(AVDemuxStream *audio);
+    void CloseVideo(AVDemuxVideo *video);
+    void CloseFormat(AVDemuxFormat *format);
     void CloseThread();
 
     AVDemuxer        m_Demux;                      //デコード用情報
-    tstring          m_sFramePosListLog;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
+    tstring          m_logFramePosList;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
     AVCaption2Ass    m_cap2ass;
 };

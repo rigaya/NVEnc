@@ -47,11 +47,11 @@ NVEncFilter::~NVEncFilter() {
 }
 
 cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
-    if (m_pFrameBuf.size() == frames
+    if ((int)m_pFrameBuf.size() == frames
         && !cmpFrameInfoCspResolution(&m_pFrameBuf[0]->frame, &frame)) {
         //すべて確保されているか確認
         bool allocated = true;
-        for (int i = 0; i < m_pFrameBuf.size(); i++) {
+        for (size_t i = 0; i < m_pFrameBuf.size(); i++) {
             if (m_pFrameBuf[i]->frame.ptr == nullptr) {
                 allocated = false;
                 break;
@@ -77,7 +77,7 @@ cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
     return cudaSuccess;
 }
 
-RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     cudaError_t cudaerr = cudaSuccess;
     if (m_bCheckPerformance) {
         cudaerr = cudaEventRecord(*m_peFilterStart.get());
@@ -97,7 +97,7 @@ RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, 
         ppOutputFrames[0] = pInputFrame;
         *pOutputFrameNum = 1;
     }
-    const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum);
+    const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, stream);
     const int nOutFrame = *pOutputFrameNum;
     if (!m_pParam->bOutOverwrite && nOutFrame > 0) {
         if (m_nPathThrough & FILTER_PATHTHROUGH_TIMESTAMP) {
@@ -107,11 +107,13 @@ RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, 
             } else {
                 ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
                 ppOutputFrames[0]->duration  = pInputFrame->duration;
+                ppOutputFrames[0]->inputFrameId = pInputFrame->inputFrameId;
             }
         }
         for (int i = 0; i < nOutFrame; i++) {
             if (m_nPathThrough & FILTER_PATHTHROUGH_FLAGS)     ppOutputFrames[i]->flags     = pInputFrame->flags;
             if (m_nPathThrough & FILTER_PATHTHROUGH_PICSTRUCT) ppOutputFrames[i]->picstruct = pInputFrame->picstruct;
+            if (m_nPathThrough & FILTER_PATHTHROUGH_DATA)      ppOutputFrames[i]->dataList  = pInputFrame->dataList;
         }
     }
     if (m_bCheckPerformance) {
@@ -177,8 +179,8 @@ RGY_ERR NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame, Fra
         }
         int nFieldOut = 0;
         auto pFieldOut = &m_pFieldPairOut->frame;
-        auto err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut);
-        if (err != NV_ENC_SUCCESS) {
+        auto err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut, stream);
+        if (err != RGY_ERR_NONE) {
             return err;
         }
         cudaerr = cudaMemcpy2DAsync(pOutputFrame->ptr + pOutputFrame->pitch * i, pOutputFrame->pitch * 2,
@@ -231,19 +233,33 @@ double NVEncFilter::GetAvgTimeElapsed() {
     return m_dFilterTimeMs / (double)m_nFilterRunCount;
 }
 
+NVEncFilterParamCrop::NVEncFilterParamCrop() : NVEncFilterParam(), crop(initCrop()) {};
+NVEncFilterParamCrop::~NVEncFilterParamCrop() {};
+
 bool check_if_nppi_dll_available() {
-    HMODULE hModule = LoadLibrary(NPPI_DLL_NAME_TSTR);
+    HMODULE hModule = RGY_LOAD_LIBRARY(NPPI_DLL_NAME_TSTR);
     if (hModule == NULL)
         return false;
-    FreeLibrary(hModule);
+    RGY_FREE_LIBRARY(hModule);
     return true;
 }
 
+#if ENABLE_NVRTC
 bool check_if_nvrtc_dll_available() {
-    HMODULE hModule = LoadLibrary(NVRTC_DLL_NAME_TSTR);
+    HMODULE hModule = RGY_LOAD_LIBRARY(NVRTC_DLL_NAME_TSTR);
     if (hModule == NULL)
         return false;
-    FreeLibrary(hModule);
+    RGY_FREE_LIBRARY(hModule);
     return true;
 }
 
+bool check_if_nvrtc_builtin_dll_available() {
+#if defined(_WIN32) || defined(_WIN64)
+    HMODULE hModule = RGY_LOAD_LIBRARY(NVRTC_BUILTIN_DLL_NAME_TSTR);
+    if (hModule == NULL)
+        return false;
+    RGY_FREE_LIBRARY(hModule);
+#endif //#if defined(_WIN32) || defined(_WIN64)
+    return true;
+}
+#endif

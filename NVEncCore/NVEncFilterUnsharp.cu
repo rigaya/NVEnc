@@ -38,6 +38,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #pragma warning (pop)
+#include "rgy_cuda_util_kernel.h"
 
 static const int UNSHARP_RADIUS_MAX = 9;
 static const int UNSHARP_BLOCK_X = 32;
@@ -76,7 +77,7 @@ __global__ void kernel_unsharp(uint8_t *__restrict__ pDst, const int dstPitch, c
         }
 
         Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)(clamp(center, 0.0f, 1.0f-FLT_EPSILON) * (1 << (bit_depth)));
+        ptr[0] = (Type)(clamp(center, 0.0f, 1.0f-RGY_FLT_EPS) * (1 << (bit_depth)));
     }
 }
 
@@ -287,7 +288,7 @@ RGY_ERR NVEncFilterUnsharp::setWeight(unique_ptr<CUMemBuf>& pGaussWeightBuf, int
         }
     }
     cudaerr = cudaMemcpy(pGaussWeightBuf->ptr, weight.data(), nBufferSize, cudaMemcpyHostToDevice);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy weight to device: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
@@ -325,7 +326,7 @@ RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
     }
 
     auto cudaerr = AllocFrameBuf(pUnsharpParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -343,15 +344,16 @@ RGY_ERR NVEncFilterUnsharp::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr
         }
     }
 
-    m_sFilterInfo = strsprintf(_T("unsharp: radius %d, weight %.1f, threshold %.1f"),
-        pUnsharpParam->unsharp.radius, pUnsharpParam->unsharp.weight, pUnsharpParam->unsharp.threshold);
-
-    //コピーを保存
+    setFilterInfo(pParam->print());
     m_pParam = pUnsharpParam;
     return sts;
 }
 
-RGY_ERR NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+tstring NVEncFilterParamUnsharp::print() const {
+    return unsharp.print();
+}
+
+RGY_ERR NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

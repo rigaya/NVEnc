@@ -29,9 +29,9 @@
 #ifndef __RGY_CONFIG_H__
 #define __RGY_CONFIG_H__
 
-#define VER_FILEVERSION              0,4,37,0
-#define VER_STR_FILEVERSION          "4.37"
-#define VER_STR_FILEVERSION_TCHAR _T("4.37")
+#define VER_FILEVERSION              0,5,1,0
+#define VER_STR_FILEVERSION          "5.01"
+#define VER_STR_FILEVERSION_TCHAR _T("5.01")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -51,14 +51,22 @@ const char *get_encoder_version();
 #define ENCODER_NVENC  1
 #define ENCODER_VCEENC 0
 
-#define ENABLE_OPENCL 1
+#define CUVID_DISABLE_CROP 1
 
 #define ENABLE_AVCODEC_OUT_THREAD 1
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
-#define ENABLE_CPP_REGEX 1
-#define ENABLE_DTL 1
 
 #define ENABLE_NVTX 0
+
+#define GPU_VENDOR "NVIDIA"
+
+#define NV_DRIVER_VER_MIN 436000
+
+#if defined(_WIN32) || defined(_WIN64)
+#define ENABLE_OPENCL 1
+#define ENABLE_CPP_REGEX 1
+#define ENABLE_DTL 1
+#define ENABLE_PERF_COUNTER 1
 
 #ifdef _M_IX86
 #define ENABLE_NVML 0
@@ -68,10 +76,6 @@ const char *get_encoder_version();
 #define ENABLE_NVRTC 1
 #endif
 
-#define GPU_VENDOR "NVIDIA"
-
-#define NV_DRIVER_VER_MIN 418810
-
 #ifdef NVENC_AUO
 #define ENCODER_NAME  "NVEnc"
 #define AUO_NAME      "NVEnc.auo"
@@ -80,7 +84,9 @@ const char *get_encoder_version();
 #define ENABLE_AVI_READER         0
 #define ENABLE_AVISYNTH_READER    0
 #define ENABLE_VAPOURSYNTH_READER 0
-#define ENABLE_AVSW_READER 0
+#define ENABLE_AVSW_READER        0
+#define ENABLE_SM_READER          0
+#define ENABLE_CAPTION2ASS        0
 #else
 #define ENCODER_NAME "NVEncC"
 #define DECODER_NAME "cuvid"
@@ -90,6 +96,19 @@ const char *get_encoder_version();
 #define ENABLE_AVISYNTH_READER    1
 #define ENABLE_VAPOURSYNTH_READER 1
 #define ENABLE_AVSW_READER        1
+#define ENABLE_SM_READER          1
+#define ENABLE_CAPTION2ASS        1
 #endif
+
+#else //#if defined(WIN32) || defined(WIN64)
+#include "rgy_config.h"
+#define ENCODER_NAME              "NVEnc"
+#define DECODER_NAME              "cuvid"
+#define FOR_AUO                   0
+#define ENABLE_RAW_READER         1
+#define ENABLE_NVML               1
+#define ENABLE_NVRTC              1
+#define ENABLE_CAPTION2ASS        0
+#endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //__RGY_CONFIG_H__

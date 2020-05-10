@@ -28,13 +28,17 @@
 
 #include <map>
 #include <array>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "NVEncFilterDelogo.h"
 #pragma warning (pop)
+#include "rgy_ini.h"
+#include "rgy_codepage.h"
 
 //行列式の計算
 static double det3x3(const std::array<double, 9>& m) {
@@ -49,7 +53,7 @@ static double det3x3(const std::array<double, 9>& m) {
 //逆行列の計算
 static bool inv3x3(std::array<double, 9>& invm, const std::array<double, 9>& m) {
     const double det = det3x3(m);
-    if (std::abs(det) < DBL_MIN) {
+    if (std::abs(det) < std::numeric_limits<double>::min()) {
         return false;
     }
     const double inv_det = 1.0 / det;
@@ -202,6 +206,7 @@ int NVEncFilterDelogo::readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo
     auto file_deleter = [](FILE *fp) {
         fclose(fp);
     };
+    AddMessage(RGY_LOG_DEBUG, _T("Opening logo file: %s\n"), pDelogoParam->delogo.logoFilePath.c_str());
     unique_ptr<FILE, decltype(file_deleter)> fp(_tfopen(pDelogoParam->delogo.logoFilePath.c_str(), _T("rb")), file_deleter);
     if (fp.get() == NULL) {
         AddMessage(RGY_LOG_ERROR, _T("could not open logo file \"%s\".\n"), pDelogoParam->delogo.logoFilePath.c_str());
@@ -217,12 +222,13 @@ int NVEncFilterDelogo::readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo
         AddMessage(RGY_LOG_ERROR, _T("invalid logo file.\n"));
         sts = 1;
     } else {
+        AddMessage(RGY_LOG_DEBUG, _T("logo_header_ver: %d\n"), logo_header_ver);
         const size_t logo_header_size = (logo_header_ver == 2) ? sizeof(LOGO_HEADER) : sizeof(LOGO_HEADER_OLD);
         const int logonum = SWAP_ENDIAN(logo_file_header.logonum.l);
+        AddMessage(RGY_LOG_DEBUG, _T("logonum: %d\n"), logonum);
         m_sLogoDataList.resize(logonum);
 
         for (int i = 0; i < logonum; i++) {
-            memset(&m_sLogoDataList[i], 0, sizeof(m_sLogoDataList[i]));
             if (logo_header_size != fread(&m_sLogoDataList[i].header, 1, logo_header_size, fp.get())) {
                 AddMessage(RGY_LOG_ERROR, _T("invalid logo file.\n"));
                 sts = 1;
@@ -251,15 +257,19 @@ int NVEncFilterDelogo::readLogoFile(const std::shared_ptr<NVEncFilterParamDelogo
 std::string NVEncFilterDelogo::logoNameList() {
     std::string strlist;
     for (int i = 0; i < (int)m_sLogoDataList.size(); i++) {
-        strlist += strsprintf("%3d: %s\n", i+1, m_sLogoDataList[i].header.name);
+        const std::string str = char_to_string(CP_THREAD_ACP, m_sLogoDataList[i].header.name, CODE_PAGE_SJIS);
+        strlist += strsprintf("%3d: %s\n", i+1, str.c_str());
     }
     return strlist;
 }
 
 int NVEncFilterDelogo::getLogoIdx(const std::string& logoName) {
     int idx = LOGO_AUTO_SELECT_INVALID;
+        printf("getLogoIdx: \"%s\"\n", logoName.c_str());
     for (int i = 0; i < (int)m_sLogoDataList.size(); i++) {
-        if (0 == strcmp(m_sLogoDataList[i].header.name, logoName.c_str())) {
+        const std::string str = char_to_string(CP_THREAD_ACP, m_sLogoDataList[i].header.name, CODE_PAGE_SJIS);
+        printf("  name: %s\n", str.c_str());
+        if (str == logoName) {
             idx = i;
             break;
         }
@@ -304,10 +314,15 @@ int NVEncFilterDelogo::selectLogo(const tstring& selectStr, const tstring& input
         return LOGO_AUTO_SELECT_INVALID;
     }
     //自動選択キー
+#if (defined(_WIN32) || defined(_WIN64))
+    uint32_t codepage = CP_THREAD_ACP;
+#else
+    uint32_t codepage = CODE_PAGE_UNSET;
+#endif
     int count = 0;
     for (;; count++) {
         char buf[512] = { 0 };
-        GetPrivateProfileStringA("LOGO_AUTO_SELECT", strsprintf("logo%d", count+1).c_str(), "", buf, sizeof(buf), logoName.c_str());
+        GetPrivateProfileStringCP("LOGO_AUTO_SELECT", strsprintf("logo%d", count+1).c_str(), "", buf, sizeof(buf), logoName.c_str(), codepage);
         if (strlen(buf) == 0)
             break;
     }
@@ -319,7 +334,7 @@ int NVEncFilterDelogo::selectLogo(const tstring& selectStr, const tstring& input
     logoAutoSelectKeys.reserve(count);
     for (int i = 0; i < count; i++) {
         char buf[512] = { 0 };
-        GetPrivateProfileStringA("LOGO_AUTO_SELECT", strsprintf("logo%d", i+1).c_str(), "", buf, sizeof(buf), logoName.c_str());
+        GetPrivateProfileStringCP("LOGO_AUTO_SELECT", strsprintf("logo%d", i+1).c_str(), "", buf, sizeof(buf), logoName.c_str(), codepage);
         char *ptr = strchr(buf, ',');
         if (ptr != NULL) {
             LOGO_SELECT_KEY selectKey;
@@ -788,41 +803,8 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
             }
         }
 
-        //フィルタ情報の調整
-        std::string str = "";
-        switch (pDelogoParam->delogo.mode) {
-        case DELOGO_MODE_ADD:
-            str += ", add";
-            break;
-        case DELOGO_MODE_REMOVE:
-        default:
-            break;
-        }
-        if (pDelogoParam->delogo.posX || pDelogoParam->delogo.posY) {
-            str += strsprintf(", pos=%d:%d", pDelogoParam->delogo.posX, pDelogoParam->delogo.posY);
-        }
-        if (pDelogoParam->delogo.depth != FILTER_DEFAULT_DELOGO_DEPTH) {
-            str += strsprintf(", dpth=%d", pDelogoParam->delogo.depth);
-        }
-        if (pDelogoParam->delogo.Y || pDelogoParam->delogo.Cb || pDelogoParam->delogo.Cr) {
-            str += strsprintf(", YCbCr=%d:%d:%d", pDelogoParam->delogo.Y, pDelogoParam->delogo.Cb, pDelogoParam->delogo.Cr);
-        }
-        if (pDelogoParam->delogo.autoFade) {
-            str += ", auto_fade";
-        }
-        if (pDelogoParam->delogo.autoNR) {
-            str += ", auto_nr";
-        }
-        if ((pDelogoParam->delogo.autoFade || pDelogoParam->delogo.autoNR) && pDelogoParam->delogo.log) {
-            str += ", log";
-        }
-        if (pDelogoParam->delogo.NRValue) {
-            str += ", nr_value=" + std::to_string(pDelogoParam->delogo.NRValue);
-        }
-        if (pDelogoParam->delogo.NRArea) {
-            str += ", nr_area=" + std::to_string(pDelogoParam->delogo.NRArea);
-        }
-        m_sFilterInfo = char_to_tstring("delogo: " + std::string(logoData.header.name) + str);
+        auto logo_name = char_to_string(CP_THREAD_ACP, logoData.header.name, CODE_PAGE_SJIS);;
+        setFilterInfo(_T("delgo:") + char_to_tstring(logo_name) + pDelogoParam->print());
         if (pDelogoParam->delogo.log) {
             m_logPath = pDelogoParam->inputFileName + tstring(_T(".delogo_log.csv"));
             std::unique_ptr<FILE, decltype(&fclose)> fp(_tfopen(m_logPath.c_str(), _T("w")), fclose);
@@ -832,6 +814,10 @@ RGY_ERR NVEncFilterDelogo::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
     }
     return sts;
+}
+
+tstring NVEncFilterParamDelogo::print() const {
+    return delogo.print();
 }
 
 RGY_ERR NVEncFilterDelogo::createLogoMask() {
@@ -1164,7 +1150,7 @@ RGY_ERR NVEncFilterDelogo::logAutoFadeNR() {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     *pOutputFrameNum = 1;

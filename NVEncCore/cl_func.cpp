@@ -26,11 +26,9 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include <tchar.h>
 #include <vector>
+#include "rgy_tchar.h"
+#include "rgy_osdep.h"
 #include "cl_func.h"
 
 #if ENABLE_OPENCL

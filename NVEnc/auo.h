@@ -28,6 +28,8 @@
 #ifndef _AUO_H_
 #define _AUO_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 
 const int   MAX_PATH_LEN          = 1024; //NTFSでは32768文字らしいが...いらんやろ
@@ -57,6 +59,7 @@ enum {
     MUXER_TC2MP4   = VIDEO_OUTPUT_MP4 + 2,
     MUXER_MPG      = VIDEO_OUTPUT_MPEG2,
     MUXER_MP4_RAW  = VIDEO_OUTPUT_MP4 + 4,
+    MUXER_INTERNAL,
 };
 
 enum {

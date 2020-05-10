@@ -28,15 +28,37 @@
 #include <regex>
 #include "rgy_util.h"
 #include "rgy_bitstream.h"
+#include "rgy_util.h"
 
-HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), masterdisplay(), masterdisplay_set(false) {
+std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
+    std::vector<uint8_t> data;
+    data.reserve(len);
+    data.push_back(ptr[0]);
+    data.push_back(ptr[1]);
+    for (size_t i = 2; i < len; i++) {
+        if (ptr[i-2] == 0x00 && ptr[i-1] == 0x00 && ptr[i] == 0x03) {
+            //skip
+        } else {
+            data.push_back(ptr[i]);
+        }
+    }
+    return data;
+}
+
+HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false) {
     memset(&masterdisplay, 0, sizeof(masterdisplay));
 }
 
 HEVCHDRSei::HEVCHDRSei() : prm() {
 }
 
-int HEVCHDRSei::parse(std::string str_maxcll, std::string str_masterdisplay) {
+void HEVCHDRSei::set_maxcll(int maxcll, int maxfall) {
+    prm.maxcll = maxcll;
+    prm.maxfall = maxfall;
+    prm.contentlight_set = true;
+}
+
+int HEVCHDRSei::parse_maxcll(std::string str_maxcll) {
     if (str_maxcll.length()) {
         std::regex re_maxcll(R"((\d+),(\d+))");
         std::smatch match_maxcll;
@@ -47,11 +69,22 @@ int HEVCHDRSei::parse(std::string str_maxcll, std::string str_masterdisplay) {
         try {
             prm.maxcll = std::stoi(match_maxcll[1]);
             prm.maxfall = std::stoi(match_maxcll[2]);
+            prm.contentlight_set = true;
         } catch (...) {
             return 1;
         }
     }
+    return 0;
+}
 
+void HEVCHDRSei::set_masterdisplay(const int masterdisplay[10]) {
+    for (int i = 0; i < 10; i++) {
+        prm.masterdisplay[i] = masterdisplay[i];
+    }
+    prm.masterdisplay_set = true;
+}
+
+int HEVCHDRSei::parse_masterdisplay(std::string str_masterdisplay) {
     if (str_masterdisplay.length()) {
         std::regex re_masterdisplay(R"(G\((\d+),(\d+)\)B\((\d+),(\d+)\)R\((\d+),(\d+)\)WP\((\d+),(\d+)\)L\((\d+),(\d+)\))");
         std::smatch match_masterdisplay;
@@ -61,18 +94,56 @@ int HEVCHDRSei::parse(std::string str_maxcll, std::string str_masterdisplay) {
 
         try {
             for (int i = 0; i < 10; i++) {
-                prm.masterdisplay[i] = std::stoi(match_masterdisplay[i+1]);
+                prm.masterdisplay[i] = std::stoi(match_masterdisplay[i + 1]);
             }
+            prm.masterdisplay_set = true;
         } catch (...) {
             return 1;
         }
-        prm.masterdisplay_set = true;
     }
     return 0;
 }
 
 HEVCHDRSeiPrm HEVCHDRSei::getprm() const {
     return prm;
+}
+std::string HEVCHDRSei::print_masterdisplay() const {
+    std::string str;
+    if (prm.masterdisplay_set) {
+        str += strsprintf("G(%f %f) B(%f %f) R(%f %f) WP(%f %f) L(%f %f)",
+            (float)prm.masterdisplay[0] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[1] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[2] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[3] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[4] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[5] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[6] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[7] * (1.0f / 50000.0f),
+            (float)prm.masterdisplay[8] * (1.0f / 10000.0f),
+            (float)prm.masterdisplay[9] * (1.0f / 10000.0f));
+    }
+    return str;
+}
+
+std::string HEVCHDRSei::print_maxcll() const {
+    std::string str;
+    if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
+        str += strsprintf("%d/%d", prm.maxcll, prm.maxfall);
+    }
+    return str;
+}
+
+std::string HEVCHDRSei::print() const {
+    std::string str = print_masterdisplay();
+    std::string str1 = print_maxcll();
+    if (str.length() > 0) {
+        str = "Mastering Display: " + str + "\n";
+    }
+    str += str1;
+    if (str1.length() > 0) {
+        str += "MaxCLL/MaxFALL: " + str1 + "\n";
+    }
+    return str;
 }
 
 void HEVCHDRSei::add_u16(std::vector<uint8_t>& data, uint16_t u16) const {
@@ -121,7 +192,7 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
 std::vector<uint8_t> HEVCHDRSei::sei_maxcll() const {
     std::vector<uint8_t> data;
     data.reserve(256);
-    if (prm.maxcll >= 0 && prm.maxfall >= 0) {
+    if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
         data.push_back(144);
         data.push_back(4);
         add_u16(data, (uint16_t)prm.maxcll);

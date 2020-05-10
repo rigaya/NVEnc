@@ -32,17 +32,50 @@
 #include <utility>
 #include <array>
 #include "rgy_osdep.h"
+
 #pragma warning (push)
 #pragma warning (disable: 4819)
 #include "nvEncodeAPI.h"
 #pragma warning (pop)
+
 #pragma warning (push)
 #pragma warning (disable: 4201)
 #include "dynlink_cuviddec.h"
 #pragma warning (pop)
-#include "convert_csp.h"
+
 #include "rgy_util.h"
+#pragma warning (push)
+#pragma warning (disable: 4819)
+RGY_DISABLE_WARNING_PUSH
+RGY_DISABLE_WARNING_STR("-Wswitch")
+#include "helper_cuda.h"
+#include "helper_nvenc.h"
+RGY_DISABLE_WARNING_POP
+#pragma warning (pop)
+#include "convert_csp.h"
 #include "rgy_err.h"
+
+#if !defined(_MSC_VER)
+static bool operator==(const GUID &guid1, const GUID &guid2) {
+     if (guid1.Data1    == guid2.Data1 &&
+         guid1.Data2    == guid2.Data2 &&
+         guid1.Data3    == guid2.Data3 &&
+         guid1.Data4[0] == guid2.Data4[0] &&
+         guid1.Data4[1] == guid2.Data4[1] &&
+         guid1.Data4[2] == guid2.Data4[2] &&
+         guid1.Data4[3] == guid2.Data4[3] &&
+         guid1.Data4[4] == guid2.Data4[4] &&
+         guid1.Data4[5] == guid2.Data4[5] &&
+         guid1.Data4[6] == guid2.Data4[6] &&
+         guid1.Data4[7] == guid2.Data4[7]) {
+        return true;
+    }
+    return false;
+}
+static bool operator!=(const GUID &guid1, const GUID &guid2) {
+    return !(guid1 == guid2);
+}
+#endif
 
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, cudaVideoCodec);
 MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, cudaVideoChromaFormat);
@@ -81,6 +114,8 @@ private:
     RGY_PICSTRUCT dataPicstruct;
     int dataFrameIdx;
     int64_t dataDuration;
+    RGYFrameData **frameDataList;
+    int frameDataNum;
 public:
     uint8_t *bufptr() const {
         return dataptr;
@@ -183,6 +218,7 @@ public:
             _aligned_free(dataptr);
         }
         dataptr = nullptr;
+        clearFrameDataList();
         dataLength = 0;
         dataOffset = 0;
         maxLength = 0;
@@ -305,6 +341,9 @@ public:
     RGY_ERR append(RGYBitstream *pBitstream) {
         return append(pBitstream->data(), pBitstream->size());
     }
+    void addFrameData(RGYFrameData *frameData);
+    void clearFrameDataList();
+    std::vector<RGYFrameData *> getFrameDataList();
 };
 
 static inline RGYBitstream RGYBitstreamInit() {
@@ -321,6 +360,9 @@ struct RGYFrame {
 private:
     FrameInfo info;
 public:
+    RGYFrame() : info() {};
+    RGYFrame(const FrameInfo& frameinfo) : info(frameinfo) {};
+
     FrameInfo getInfo() const {
         return info;
     }
@@ -356,38 +398,36 @@ public:
     uint8_t *ptrRGB() {
         return info.ptr;
     }
-    uint32_t pitch() {
+    uint32_t pitch() const {
         return info.pitch;
     }
-    uint64_t timestamp() {
+    uint32_t width() const {
+        return info.width;
+    }
+    uint32_t height() const {
+        return info.height;
+    }
+    uint64_t timestamp() const {
         return info.timestamp;
     }
     void setTimestamp(uint64_t frame_timestamp) {
         info.timestamp = frame_timestamp;
     }
-    int64_t duration() {
+    int64_t duration() const {
         return info.duration;
     }
     void setDuration(int64_t frame_duration) {
         info.duration = frame_duration;
     }
+    RGY_PICSTRUCT picstruct() const {
+        return info.picstruct;
+    }
+    void setPicstruct(RGY_PICSTRUCT picstruct) {
+        info.picstruct = picstruct;
+    }
+    const std::vector<std::shared_ptr<RGYFrameData>> &dataList() const { return info.dataList; };
+    std::vector<std::shared_ptr<RGYFrameData>> &dataList() { return info.dataList; };
 };
-
-static inline RGYFrame RGYFrameInit() {
-    RGYFrame frame;
-    memset(&frame, 0, sizeof(frame));
-    return frame;
-}
-
-static inline RGYFrame RGYFrameInit(const FrameInfo& frameinfo) {
-    RGYFrame frame;
-    frame.set(frameinfo);
-    return frame;
-}
-
-#ifndef __CUDACC__
-static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
-#endif
 
 static inline RGY_FRAMETYPE frametype_enc_to_rgy(const NV_ENC_PIC_TYPE frametype) {
     RGY_FRAMETYPE type = RGY_FRAMETYPE_UNKNOWN;

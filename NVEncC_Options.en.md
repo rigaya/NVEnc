@@ -112,6 +112,7 @@ If unspecified, and you are running on multi-GPU environment, the device to be u
 
 - whether the device supports specified encoding
 - if --avhw is specified, then check whether the device supports hw decoding for the input file
+- if interlaced encoding is specified, then check if it is supported
 - device with lower Video Engine Utilization will be favored
 - device with lower GPU Utilization will be favored
 - later generation GPU will be favored
@@ -151,15 +152,17 @@ reader used will be selected depending on the extension of input file.
 
 | reader | yuv420 | yuy2 | yuv422 | yuv444 | rgb24 | rgb32 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| raw | ○ |  |  |  |  |  |
-| y4m | ◎ |  | ◎ | ◎ |  |  |
-| avi | ○ | ○ |  |  | ○ | ○ |
-| avs | ◎ | ○ | ◎ | ◎ |  |  |
-| vpy | ◎ |  | ◎ | ◎ |  |  |
-| avhw | ◎ |  |  |  |  |  |
-| avsw | ◎ |  | ◎ | ◎ | ○ | ○ |
+| raw    |   ○   |      |        |        |       |       |
+| y4m    |   ◎   |      |   ◎   |   ◎   |       |       |
+| avi    |   ○   |  ○  |        |        |   ○  |   ○  |
+| avs    |   ◎   |  ○  |   ◎   |   ◎   |   ○  |   ○  |
+| vpy    |   ◎   |      |   ◎   |   ◎   |       |       |
+| avhw   |   □   |      |        |   ◇   |       |       |
+| avsw   |   ◎   |      |   ◎   |   ◎   |   ○  |   ○  |
 
 ◎ ... 8bit / 9bit / 10bit / 12bit / 14bit / 16bit supported  
+◇ ... 8bit / 10bit / 12bit supported  
+□ ... 8bit / 10bit supported  
 ○ ... support only 8 bits
 
 ### --raw
@@ -181,14 +184,9 @@ Read VapourSynth script file using vpy reader.
 ### --avsw
 Read input file using avformat + ffmpeg's sw decoder.
 
-### --avhw [&lt;string&gt;]
+### --avhw
 Read using avformat + cuvid hw decoder. Using this mode will provide maximum performance,
 since entire transcode process will be run on the GPU.
-
-Although you can specify the mode of the decoder as an option, normally it is not required.
-
-- native (default)
-- cuda
 
 **Codecs supported by avhw reader**  
 
@@ -200,7 +198,7 @@ Although you can specify the mode of the decoder as an option, normally it is no
 | H.265/HEVC | ○ |
 | VP8        | × |
 | VP9        | ○ |
-| VC-1       | × |
+| VC-1       | ○ |
 | WMV3/WMV9  | × |
 
 ○ ... supported  
@@ -214,6 +212,7 @@ Deinterlace is available through [--vpp-deinterlace](#--vpp-deinterlace-string) 
 - none ... progressive
 - tff ... top field first
 - bff ... Bottom Field First
+- auto ... detect each frame (available only for [avhw](#--avhw)/[avsw](#--avsw) reader)
 
 ### --video-track &lt;int&gt;
 Set video track to encode in track id. Will be active when used with avhw/avsw reader.
@@ -236,7 +235,19 @@ Set input resolution. Required for raw format.
 ### --output-res &lt;int&gt;x&lt;int&gt;
 Set output resolution. When it is different from the input resolution, HW/GPU resizer will be activated automatically.
 
-If not specified, it will be same as the input resolution. (no resize)
+If not specified, it will be same as the input resolution. (no resize)  
+
+_Special Values_
+- 0 ... Will be same as input.
+- One of width or height as negative value    
+  Will be resized keeping aspect ratio, and a value which could be divided by the negative value will be chosen.
+
+```
+Example: input 1280x720
+--output-res 1024x576 -> normal
+--output-res 960x0    -> resize to 960x720 (0 will be replaced to 720, same as input)
+--output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
+```
 
 
 ## Encode Mode Options
@@ -253,6 +264,8 @@ Generally, it is recommended to set the QP value to be I &lt; P &lt; B.
 ### --vbr &lt;int&gt;
 ### --vbrhq &lt;int&gt;
 Set bitrate in kbps.
+
+Constant quality mode can be used by "--vbrhq 0 --vbr-quality &lt;float&gt;".
 
 ## Other Options for Encoder
 
@@ -293,6 +306,32 @@ It could be used to maintain certain degree of image quality in any part of the 
 ### --vbr-quality &lt;float&gt;
 Set target quality when using VBR mode. (0.0-51.0, 0 = automatic)
 
+### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
+Change the rate control mode and rate control params within the specified range of output frames.
+
+**required parameters**
+It is required to specify one of the params below.
+- [cqp](./NVEncC_Options.en.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+- [cbr](./NVEncC_Options.en.md#--cbr-int)=&lt;int&gt;  
+- [cbrhq](./NVEncC_Options.en.md#--cbrhq-int)=&lt;int&gt;  
+- [vbr](./NVEncC_Options.en.md#--vbr-int)=&lt;int&gt;  
+- [vbrhq](./NVEncC_Options.en.md#--vbrhq-int)=&lt;int&gt;  
+
+**additional parameters**
+- [max-bitrate](./NVEncC_Options.en.md#--max-bitrate-int)=&lt;int&gt;  
+- [vbr-quality](./NVEncC_Options.en.md#--vbr-quality-float)=&lt;float&gt;  
+
+```
+Example1: Encode by vbrhq(12000kbps) in output frame range 3000-3999,
+          encode by constant quality mode(29.0) in output frame range 5000-5999,
+          and encode by constant quality mode(25.0) on other frame range.
+  --vbrhq 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbrhq=12000 --dynamic-rc 5000:5999,vbrhq=0,vbr-quality=29.0
+
+Example2: Encode by vbrhq(6000kbps) to output frame number 2999,
+          and encode by vbrhq(12000kbps) from output frame number 3000 and later.
+  --vbrhq 6000 --dynamic-rc start=3000,vbrhq=12000
+```
+
 ### --lookahead &lt;int&gt;
 Enable lookahead, and specify its target range by the number of frames. (0 - 32)  
 This is useful to improve image quality, allowing adaptive insertion of I and B frames.
@@ -313,10 +352,17 @@ Set maximum GOP length. When lookahead is off, this value will always be used. (
 Set the number of consecutive B frames.
 
 ### --ref &lt;int&gt;
-Set the reference distance. In hw encoding, incresing ref frames will have minor effect on image quality or compression rate.
+Set the reference distance (max=16).  
+
+### --multiref-l0 &lt;int&gt;  
+### --multiref-l1 &lt;int&gt;  
+Set max number of reference frames in reference picture list L0/L1 (max=7).
 
 ### --weightp
-Enable weighted P frames. [H.264 only]
+Enable weighted P frames.
+
+### --nonrefp
+enable automatic insertion of non-reference P-frames.
 
 ### --aq
 Enable adaptive quantization in frame (spatial). (Default: off)
@@ -384,40 +430,62 @@ Set DAR ratio (screen aspect ratio).
 ### --fullrange
 Encode as full range YUV.
 
-### --videoformat &lt;string&gt;
+### --colorrange &lt;string&gt;
+"--colorrange full" is same as "--fullrange".
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
-  undef, ntsc, component, pal, secam, mac
+  limited, full, auto
+```
+
+### --videoformat &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
+```
+  undef, auto, ntsc, component, pal, secam, mac
 ```
 ### --colormatrix &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
-  undef, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+  undef, auto, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
 ```
 ### --colorprim &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
 ```
 ### --transfer &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
+  bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```
 
-### --chromaloc &lt;int&gt;
+### --chromaloc &lt;int&gt; or "auto"
 Set chroma location flag of the output bitstream from values 0 ... 5.  
+"auto" will copy from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 default: 0 = unspecified
 
-### --max-cll &lt;int&gt;,&lt;int&gt; [HEVC only]
-Set MaxCLL and MaxFall in nits. 
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC only]
+Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 ```
---max-cll 1000,300
+Example1: --max-cll 1000,300
+Example2: --max-cll copy  # copy values from source
 ```
 
-### --master-display &lt;string&gt; [HEVC only]
-Set Mastering display data.
+### --master-display &lt;string&gt; or "copy" [HEVC only]
+Set Mastering display data. "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 ```
-Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+Example1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+Example2: --master-display copy  # copy values from source
 ```
+
+### --dhdr10-info &lt;string&gt; [HEVC only]
+Apply HDR10+ dynamic metadata from specified json file. Requires [hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen) module  additionally.
+
+### --dhdr10-info copy [HEVC only, Experimental]
+Copy HDR10+ dynamic metadata from input file.  
+Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
+Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.
 
 ### --aud
 Insert Access Unit Delimiter NAL.
@@ -441,6 +509,12 @@ Enable deblock filter. (Default: on)
 ### --cu-min &lt;int&gt; [HEVC only]
 Specify the maximum and minimum size of CU respectively. 8, 16, 32 can be specified.
 **Since it is known that image quality may be degraded when this option is used, it is recommended not to use these options.**
+
+### --ssim
+Calculate ssim of the encoded video.
+
+### --psnr
+Calculate psnr of the encoded video.
 
 ## IO / Audio / Subtitle Options
 
@@ -488,7 +562,7 @@ Set video track to encode by resolution. Will be active when used with avhw/avsw
 ### --video-streamid &lt;int&gt;
 Set video track to encode in stream id.
 
-### --video-tag <string>
+### --video-tag &lt;string&gt;
 Specify video tag.
 ```
  -o test.mp4 -c hevc --video-tag hvc1
@@ -535,7 +609,7 @@ Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
 Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ```
 
-### --audio-profile [[&lt;int&gt;?]&lt;string&gt;
+### --audio-profile [&lt;int&gt;?]&lt;string&gt;
 Specify audio codec profile when encoding audio.
 
 ### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]
@@ -598,6 +672,9 @@ Example 1: --audio-bitrate 44100 (converting sound to 44100 Hz)
 Example 2: --audio-bitrate 2?22050 (Convert the second track of voice to 22050 Hz)
 ```
 
+### --audio-delay [&lt;int&gt;?]&lt;int&gt;
+Specify audio delay in milli seconds.
+
 ### --audio-resampler &lt;string&gt;
 Specify the engine used for mixing audio channels and sampling frequency conversion.
 - swr ... swresampler (default)
@@ -641,14 +718,42 @@ Example2: Quit transcoding for a single audio decode error.
 --audio-ignore-decode-error 0
 ```
 
-### --audio-source &lt;string&gt;
+### --audio-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
 Mux an external audio file specified.
+
+**params** 
+- copy  
+  Copy audio track.
+
+- codec=&lt;string&gt;  
+  Encode audio to specified audio codec.
+
+- profile=&lt;string&gt;  
+  Specify audio codec profile when encoding audio.
+
+- bitrate=&lt;int&gt;  
+  Specify audio bitrate in kbps.
+  
+- samplerate=&lt;int&gt;  
+  Specify audio sampling rate.
+
+- enc_prm=&lt;string&gt;  
+  Specify params for audio encoder.
+
+- filter=&lt;string&gt;  
+  Specify filters for audio.
+
+```
+Example1: --audio-source "<audio_file>":copy
+Example2: --audio-source "<audio_file>":codec=aac
+Example3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
+```
 
 ### --chapter &lt;string&gt;
 Set chapter in the (separate) chapter file.
-The chapter file could be either in nero format or apple format. Cannot be used with --chapter-copy.
+The chapter file could be in nero format, apple format or matroska format. Cannot be used with --chapter-copy.
 
-nero format
+nero format  
 ```
 CHAPTER01=00:00:39.706
 CHAPTER01NAME=chapter-1
@@ -658,7 +763,7 @@ CHAPTER03=00:01:28.288
 CHAPTER03NAME=chapter-3
 ```
 
-apple format (should be in utf-8)
+apple format (should be in utf-8)  
 ```
 <?xml version="1.0" encoding="UTF-8" ?>
   <TextStream version="1.1">
@@ -673,6 +778,40 @@ apple format (should be in utf-8)
 </TextStream>
 ```
 
+matroska形式 (hould be in utf-8)  
+[Other Samples&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<Chapters>
+  <EditionEntry>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-0</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-1</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-2</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
+      <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
+      <ChapterDisplay>
+        <ChapterString>chapter-3</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+  </EditionEntry>
+</Chapters>
+```
 
 ### --chapter-copy
 Copy chapters from input file.
@@ -683,6 +822,9 @@ Set keyframes on chapter position.
 ### --keyfile &lt;string&gt;
 Set keyframes on frames (starting from 0, 1, 2, ...) specified in the file.
 There should be one frame ID per line.
+
+### --sub-source &lt;string&gt;
+Read subtitle from the specified file and mux into the output file.
 
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
@@ -700,6 +842,20 @@ Enable caption2ass process. This feature requires Caption.dll.
 
 supported formats ... srt (default), ass
 
+### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
+Copy data stream from input file. Available only when avhw / avsw reader is used.
+
+### --attachment-copy [&lt;int&gt;[,&lt;int&gt;]...]
+Copy attachment stream from input file. Available only when avhw / avsw reader is used.
+
+### --input-option &lt;string1&gt;:&lt;string2&gt;
+Pass optional parameters for input for avhw/avsw reader. Specify the option name in &lt;string1&gt, and the option value in &lt;string2&gt;.
+
+```
+Example: Reading playlist 1 of bluray 
+-i bluray:D:\ --input-option palylist:1
+```
+
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, and the option value in &lt;string2&gt;.
 
@@ -713,10 +869,10 @@ Example: Output for HLS
     The input will be assumed as CFR and input pts will not be checked.
 
   - forcecfr
-    Check pts from the input file, and duplicate or remove frames if required to keep CFR, so that synchronization with the audio could be maintained.
+    Check pts from the input file, and duplicate or remove frames if required to keep CFR, so that synchronization with the audio could be maintained. Please note that this could not be used with --trim.
 
   - vfr  
-    Honor source timestamp and enable vfr output. Only available for avsw/avhw reader, and could not be used with --trim.
+    Honor source timestamp and enable vfr output. Only available for avsw/avhw reader.
 
 ## Vpp Options
 
@@ -892,7 +1048,7 @@ nnedi deinterlacer.
 
   
 ```
-example: --vpp-nnedi field=auto,nns=64,nsize=32x6,qual=slow,prescreen=none,prec=fp32
+example: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
 ```
 
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
@@ -915,47 +1071,100 @@ Yadif deinterlacer.
     Generate one frame from each field assuming bottom field first.
     
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-Converts colorspace of the video. Available on x64 version.
+Converts colorspace of the video. Available on x64 version.  
+Values for parameters will be copied from input file for "input".
 
 **parameters**
 - matrix=&lt;from&gt;:&lt;to&gt;  
   
 ```
-  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
 ```
 
 - colorprim=&lt;from&gt;:&lt;to&gt;  
 ```
-  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
 ```
 
 - transfer=&lt;from&gt;:&lt;to&gt;  
 ```
   bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, arib-srd-b67
+  bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
 ```
 
 - range=&lt;from&gt;:&lt;to&gt;  
 ```
-  limited, full
+  limited, full, auto
 ```
 
-- hdr2sdr=&lt;bool&gt;  
-Enables HDR10 to SDR with Hable tone-mapping, based on [hdr2sdr.py](https://gist.github.com/4re/34ccbb95732c1bef47c3d2975ac62395).
+- hdr2sdr=&lt;string&gt;  
+  Enables HDR10 to SDR by selected tone-mapping.  
+
+  - none (default)  
+    hdr2sdr processing is disabled.
+  
+  - hable  
+    Trys to preserve both bright and dark detailes, but with rather dark result.
+    You may specify addtional params (a,b,c,d,e,f) for the hable tone-mapping function below.  
+
+    hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
+    output = hable( input ) / hable( (source_peak / ldr_nits) )
+    
+    defaults: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
+
+  - mobius  
+    Trys to preserve contrast and colors while bright details might be removed.  
+    - transition=&lt;float&gt;  (default: 0.3)  
+      Threshold to move from linear conversion to mobius tone mapping.  
+    - peak=&lt;float&gt;  (default: 1.0)  
+      reference peak brightness
+  
+  - reinhard  
+    - contrast=&lt;float&gt;  (default: 0.5)  
+      local contrast coefficient  
+    - peak=&lt;float&gt;  (default: 1.0)  
+      reference peak brightness
 
 - source_peak=&lt;float&gt;  (default: 1000.0)  
 
 - ldr_nits=&lt;float&gt;  (default: 100.0)  
+  Target brightness for hdr2sdr function.
 
 
 ```
 example1: convert from BT.601 -> BT.709
 --vpp-colorspace matrix=smpte170m:bt709
 
-example2: using hdr2sdr
---vpp-colorspace hdr2sdr=true,source_peak=1000.0,ldr_nits=100.0
+example2: using hdr2sdr (hable tone-mapping)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
+
+example3: using hdr2sdr (hable tone-mapping) and setting the coefs (this is example for the default settings)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
 ```
+
+### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+Drop duplicated frame in cycles set.
+
+**parameters**
+  - cycle=&lt;int&gt;  (default: 5)  
+    num of frame from which a frame will be droppped.
+
+  - thredup=&lt;float&gt;  (default: 1.1,  0.0 - 100.0)  
+    duplicate threshold.
+
+  - thresc=&lt;float&gt;   (default: 15.0,  0.0 - 100.0)  
+    scene change threshold.
+
+  - blockx=&lt;int&gt;  
+  - blocky=&lt;int&gt;  
+    block size of x and y direction, default = 32. block size could be 16, 32, 64.
+    
+  - chroma=&lt;bool&gt;  
+    consdier chroma (default: on).
+    
+  - log=&lt;bool&gt;  
+    output log file (default: off).
 
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 select one frame per specified frames and create output.
@@ -989,6 +1198,27 @@ Those with "○" in nppi64_10.dll use the [NPP library](https://developer.nvidia
 | cubic         | 4x4 cubic interpolation | ○ |
 | super         | So called "super sampling" by NPP library | ○ |
 | lanczos       | Lanczos interpolation                    | ○ |
+
+
+### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**parameters**
+- quality=&lt;int&gt;  (default=3, 1-6)  
+  Quality of the filter. Larger value should result in higher quality but with lower speed.
+
+- qp=&lt;int&gt;  (default=12, 1 - 63)    
+  Strength of the filter.
+  
+- prec  
+  Select precision.
+  - auto (default)  
+    Use fp16 whenever it is available and will be faster, otherwise use fp32.
+  
+  - fp16  
+    Force to use fp16. x64 only.
+  
+  - fp32  
+    Force to use fp32.
 
 
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -1118,6 +1348,21 @@ Example:
 --vpp-deband range=31,dither=12,rand_each_frame
 ```
 
+### --vpp-rotate &lt;int&gt;
+
+Rotate video. 90, 180, 270 degrees is allowed.
+
+
+### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**Parameters**
+- flip_x=&lt;bool&gt;
+
+- flip_y=&lt;bool&gt;
+
+- transpose=&lt;bool&gt;
+
+
 ### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **Parameters**
@@ -1136,8 +1381,57 @@ Example:
 --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
 ```
 
-### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
+### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 add padding to left,top,right,bottom (in pixels)
+
+### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+"Burn in" specified subtitle to the video. Text type subtitles will be rendered by [libass](https://github.com/libass/libass).
+
+**Parameters**
+- track=&lt;int&gt;  
+  Select subtitle track of the input file to burn in, track count starting from 1. 
+  Available when --avhw or --avsw is used.
+  
+- filename=&lt;string&gt;  
+  Select subtitle file path to burn in.
+
+- charcode=&lt;string&gt;  
+  Specify subtitle charcter code to burn in, for text type sub.
+
+- shaping=&lt;string&gt;  
+  Rendering quality of text, for text type sub.  
+  - simple
+  - complex (default)
+
+- scale=&lt;float&gt; (default=0.0 (auto))
+  scaling multiplizer for bitmap fonts.  
+
+- transparency=&lt;float&gt; (default=0.0, 0.0 - 1.0)
+  adds additional transparency for subtitle.  
+
+- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)
+  modifies brightness of the subtitle.  
+
+- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)
+  modifies contrast of the subtitle.  
+  
+- vid_ts_offset=&lt;bool&gt;  
+  add timestamp offset to match the first timestamp of the video file (default on)　　
+  Please note that when \"track\" is used, this options is always on.
+
+- ts_offset=&lt;float&gt; (default=0.0)
+  add offset in seconds to the subtitle timestamps (for debug perpose).  
+
+```
+Example1: burn in subtitle from the track of the input file
+--vpp-subburn track=1
+
+Example2: burn in PGS subtitle from file
+--vpp-subburn filename="subtitle.sup"
+
+Example3: burn in ASS subtitle from file which charcter code is Shift-JIS
+--vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
+```
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
@@ -1268,6 +1562,9 @@ Example: Limit maximum speed to 90 fps
 --max-procfps 90
 ```
 
+### --lowlatency
+Tune for lower transcoding latency, but will hurt transcoding throughput. Not recommended in most cases.
+
 ### --perf-monitor [&lt;string&gt;][,&lt;string&gt;]...
 Outputs performance information. You can select the information name you want to output as a parameter from the following table. The default is all (all information).
 
@@ -1285,6 +1582,7 @@ Outputs performance information. You can select the information name you want to
  gpu_load    ... gpu usage (%)
  gpu_clock   ... gpu avg clock
  vee_load    ... gpu video encoder usage (%)
+ ved_load    ... gpu video decoder usage (%)
  gpu         ... monitor all gpu info
  queue       ... queue usage
  mem_private ... private memory (MB)

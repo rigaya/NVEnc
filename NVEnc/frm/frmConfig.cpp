@@ -212,10 +212,10 @@ System::Void frmConfig::LoadLocalStg() {
     LocalStg.audEncName->Clear();
     LocalStg.audEncExeName->Clear();
     LocalStg.audEncPath->Clear();
-    for (int i = 0; i < _ex_stg->s_aud_count; i++) {
-        LocalStg.audEncName->Add(String(_ex_stg->s_aud[i].dispname).ToString());
-        LocalStg.audEncExeName->Add(String(_ex_stg->s_aud[i].filename).ToString());
-        LocalStg.audEncPath->Add(String(_ex_stg->s_aud[i].fullpath).ToString());
+    for (int i = 0; i < _ex_stg->s_aud_ext_count; i++) {
+        LocalStg.audEncName->Add(String(_ex_stg->s_aud_ext[i].dispname).ToString());
+        LocalStg.audEncExeName->Add(String(_ex_stg->s_aud_ext[i].filename).ToString());
+        LocalStg.audEncPath->Add(String(_ex_stg->s_aud_ext[i].fullpath).ToString());
     }
     if (_ex_stg->s_local.large_cmdbox)
         fcgTXCmd_DoubleClick(nullptr, nullptr); //初期状態は縮小なので、拡大
@@ -231,10 +231,11 @@ System::Boolean frmConfig::CheckLocalStg() {
         err += L"指定された 動画エンコーダ は存在しません。\n [ " + LocalStg.vidEncPath + L" ]\n";
     }
     //音声エンコーダのチェック (実行ファイル名がない場合はチェックしない)
-    if (LocalStg.audEncExeName[fcgCXAudioEncoder->SelectedIndex]->Length) {
+    if (fcgCBAudioUseExt->Checked
+        && LocalStg.audEncExeName[fcgCXAudioEncoder->SelectedIndex]->Length) {
         String^ AudioEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
         if (!File::Exists(AudioEncoderPath)
-            && (fcgCXAudioEncoder->SelectedIndex != sys_dat->exstg->s_aud_faw_index
+            && (fcgCXAudioEncoder->SelectedIndex != sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked)
                 || !check_if_faw2aac_exists()) ) {
             //音声実行ファイルがない かつ
             //選択された音声がfawでない または fawであってもfaw2aacがない
@@ -245,13 +246,14 @@ System::Boolean frmConfig::CheckLocalStg() {
     }
     //FAWのチェック
     if (fcgCBFAWCheck->Checked) {
-        if (sys_dat->exstg->s_aud_faw_index == FAW_INDEX_ERROR) {
+        if (sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked) == FAW_INDEX_ERROR) {
             if (!error) err += L"\n\n";
             error = true;
             err += L"FAWCheckが選択されましたが、NVEnc.ini から\n"
                 + L"FAW の設定を読み込めませんでした。\n"
                 + L"NVEnc.ini を確認してください。\n";
-        } else if (!File::Exists(LocalStg.audEncPath[sys_dat->exstg->s_aud_faw_index])
+        } else if (fcgCBAudioUseExt->Checked
+                   && !File::Exists(LocalStg.audEncPath[sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked)])
                    && !check_if_faw2aac_exists()) {
             //fawの実行ファイルが存在しない かつ faw2aacも存在しない
             if (!error) err += L"\n\n";
@@ -280,8 +282,8 @@ System::Void frmConfig::SaveLocalStg() {
     GetCHARfromString(_ex_stg->s_mux[MUXER_TC2MP4].fullpath,  sizeof(_ex_stg->s_mux[MUXER_TC2MP4].fullpath),  LocalStg.TC2MP4Path);
     GetCHARfromString(_ex_stg->s_mux[MUXER_MPG].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MPG].fullpath),     LocalStg.MPGMuxerPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_MP4_RAW].fullpath, sizeof(_ex_stg->s_mux[MUXER_MP4_RAW].fullpath), LocalStg.MP4RawPath);
-    for (int i = 0; i < _ex_stg->s_aud_count; i++)
-        GetCHARfromString(_ex_stg->s_aud[i].fullpath,         sizeof(_ex_stg->s_aud[i].fullpath),             LocalStg.audEncPath[i]);
+    for (int i = 0; i < _ex_stg->s_aud_ext_count; i++)
+        GetCHARfromString(_ex_stg->s_aud_ext[i].fullpath, sizeof(_ex_stg->s_aud_ext[i].fullpath), LocalStg.audEncPath[i]);
     _ex_stg->save_local();
 }
 
@@ -330,6 +332,9 @@ System::Void frmConfig::fcgTSBOtherSettings_Click(System::Object^  sender, Syste
     guiEx_settings stg;
     stg.load_encode_stg();
     log_reload_settings();
+    sys_dat->exstg->s_local.default_audenc_use_in = stg.s_local.default_audenc_use_in;
+    sys_dat->exstg->s_local.default_audio_encoder_ext = stg.s_local.default_audio_encoder_ext;
+    sys_dat->exstg->s_local.default_audio_encoder_in = stg.s_local.default_audio_encoder_in;
     sys_dat->exstg->s_local.get_relative_path = stg.s_local.get_relative_path;
     SetStgEscKey(stg.s_local.enable_stg_esc_key != 0);
     ActivateToolTip(stg.s_local.disable_tooltip_help == FALSE);
@@ -385,20 +390,20 @@ System::Void frmConfig::fcgCBAudio2pass_CheckedChanged(System::Object^  sender, 
     }
 }
 
-System::Void frmConfig::fcgCXAudioEncoder_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
-    setAudioDisplay();
+System::Void frmConfig::fcgCXAudioEncoder_SelectedIndexChanged(System::Object ^sender, System::EventArgs ^e) {
+    setAudioExtDisplay();
 }
 
-System::Void frmConfig::fcgCXAudioEncMode_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
-    AudioEncodeModeChanged();
+System::Void frmConfig::fcgCXAudioEncMode_SelectedIndexChanged(System::Object ^sender, System::EventArgs ^e) {
+    AudioExtEncodeModeChanged();
 }
 
 System::Int32 frmConfig::GetCurrentAudioDefaultBitrate() {
-    return sys_dat->exstg->s_aud[fcgCXAudioEncoder->SelectedIndex].mode[fcgCXAudioEncMode->SelectedIndex].bitrate_default;
+    return sys_dat->exstg->s_aud_ext[fcgCXAudioEncoder->SelectedIndex].mode[fcgCXAudioEncMode->SelectedIndex].bitrate_default;
 }
 
-System::Void frmConfig::setAudioDisplay() {
-    AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud[fcgCXAudioEncoder->SelectedIndex];
+System::Void frmConfig::setAudioExtDisplay() {
+    AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_ext[fcgCXAudioEncoder->SelectedIndex];
     //～の指定
     if (str_has_char(astg->filename)) {
         fcgLBAudioEncoderPath->Text = String(astg->filename).ToString() + L" の指定";
@@ -415,8 +420,9 @@ System::Void frmConfig::setAudioDisplay() {
     fcgTXAudioEncoderPath->SelectionStart = fcgTXAudioEncoderPath->Text->Length;
     fcgCXAudioEncMode->BeginUpdate();
     fcgCXAudioEncMode->Items->Clear();
-    for (int i = 0; i < astg->mode_count; i++)
+    for (int i = 0; i < astg->mode_count; i++) {
         fcgCXAudioEncMode->Items->Add(String(astg->mode[i].name).ToString());
+    }
     fcgCXAudioEncMode->EndUpdate();
     bool pipe_enabled = (astg->pipe_input && (!(fcgCBAudio2pass->Checked && astg->mode[fcgCXAudioEncMode->SelectedIndex].enc_2pass != 0)));
     CurrentPipeEnabled = pipe_enabled;
@@ -426,9 +432,9 @@ System::Void frmConfig::setAudioDisplay() {
         fcgCXAudioEncMode->SelectedIndex = 0;
 }
 
-System::Void frmConfig::AudioEncodeModeChanged() {
+System::Void frmConfig::AudioExtEncodeModeChanged() {
     int index = fcgCXAudioEncMode->SelectedIndex;
-    AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud[fcgCXAudioEncoder->SelectedIndex];
+    AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_ext[fcgCXAudioEncoder->SelectedIndex];
     if (astg->mode[index].bitrate) {
         fcgCXAudioEncMode->Width = fcgCXAudioEncModeSmallWidth;
         fcgLBAudioBitrate->Visible = true;
@@ -436,13 +442,13 @@ System::Void frmConfig::AudioEncodeModeChanged() {
         fcgNUAudioBitrate->Minimum = astg->mode[index].bitrate_min;
         fcgNUAudioBitrate->Maximum = astg->mode[index].bitrate_max;
         fcgNUAudioBitrate->Increment = astg->mode[index].bitrate_step;
-        SetNUValue(fcgNUAudioBitrate, (conf->aud.bitrate != 0) ? conf->aud.bitrate : astg->mode[index].bitrate_default);
+        SetNUValue(fcgNUAudioBitrate, (conf->aud.ext.bitrate != 0) ? conf->aud.ext.bitrate : astg->mode[index].bitrate_default);
     } else {
         fcgCXAudioEncMode->Width = fcgCXAudioEncModeLargeWidth;
         fcgLBAudioBitrate->Visible = false;
         fcgNUAudioBitrate->Visible = false;
         fcgNUAudioBitrate->Minimum = 0;
-        fcgNUAudioBitrate->Maximum = 1536; //音声の最大レートは1536kbps
+        fcgNUAudioBitrate->Maximum = 65536;
     }
     fcgCBAudio2pass->Enabled = astg->mode[index].enc_2pass != 0;
     if (!fcgCBAudio2pass->Enabled) fcgCBAudio2pass->Checked = false;
@@ -464,6 +470,88 @@ System::Void frmConfig::AudioEncodeModeChanged() {
     } else {
         fcgCXAudioDelayCut->SelectedIndex = 0;
     }
+}
+
+System::Void frmConfig::fcgCBAudioUseExt_CheckedChanged(System::Object ^sender, System::EventArgs ^e) {
+    fcgPNAudioExt->Visible = fcgCBAudioUseExt->Checked;
+    fcgPNAudioInternal->Visible = !fcgCBAudioUseExt->Checked;
+
+    //一度ウィンドウの再描画を完全に抑止する
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+    //なぜか知らんが、Visibleプロパティをfalseにするだけでは非表示にできない
+    //しょうがないので参照の削除と挿入を行う
+    fcgtabControlMux->TabPages->Clear();
+    if (fcgCBAudioUseExt->Checked) {
+        fcgtabControlMux->TabPages->Insert(0, fcgtabPageMP4);
+        fcgtabControlMux->TabPages->Insert(1, fcgtabPageMKV);
+        fcgtabControlMux->TabPages->Insert(2, fcgtabPageBat);
+        fcgtabControlMux->TabPages->Insert(3, fcgtabPageMux);
+    } else {
+        fcgtabControlMux->TabPages->Insert(0, fcgtabPageInternal);
+        fcgtabControlMux->TabPages->Insert(1, fcgtabPageBat);
+        fcgtabControlMux->TabPages->Insert(2, fcgtabPageMux);
+    }
+    //一度ウィンドウの再描画を再開し、強制的に再描画させる
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+    this->Refresh();
+}
+
+System::Void frmConfig::fcgCXAudioEncoderInternal_SelectedIndexChanged(System::Object ^sender, System::EventArgs ^e) {
+    setAudioIntDisplay();
+}
+System::Void frmConfig::fcgCXAudioEncModeInternal_SelectedIndexChanged(System::Object ^sender, System::EventArgs ^e) {
+    AudioIntEncodeModeChanged();
+}
+
+bool frmConfig::AudioIntEncoderEnabled(const AUDIO_SETTINGS *astg, bool isAuoLinkMode) {
+    if (isAuoLinkMode && astg->auolink_only < 0) {
+        return false;
+    } else if (!isAuoLinkMode && astg->auolink_only > 0) {
+        return false;
+    }
+    return true;
+}
+
+System::Void frmConfig::setAudioIntDisplay() {
+    AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
+    if (!AudioIntEncoderEnabled(astg, false)) {
+        fcgCXAudioEncoderInternal->SelectedIndex = DEFAULT_AUDIO_ENCODER_IN;
+        astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
+    }
+    fcgCXAudioEncModeInternal->BeginUpdate();
+    fcgCXAudioEncModeInternal->Items->Clear();
+    if (AudioIntEncoderEnabled(astg, false)) {
+        for (int i = 0; i < astg->mode_count; i++) {
+            fcgCXAudioEncModeInternal->Items->Add(String(astg->mode[i].name).ToString());
+        }
+    } else {
+        fcgCXAudioEncModeInternal->Items->Add(String(L"-----").ToString());
+    }
+    fcgCXAudioEncModeInternal->EndUpdate();
+    if (fcgCXAudioEncModeInternal->Items->Count > 0)
+        fcgCXAudioEncModeInternal->SelectedIndex = 0;
+}
+System::Void frmConfig::AudioIntEncodeModeChanged() {
+    const int imode = fcgCXAudioEncModeInternal->SelectedIndex;
+    if (imode >= 0 && fcgCXAudioEncoderInternal->SelectedIndex >= 0) {
+        AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
+        if (astg->mode[imode].bitrate) {
+            fcgCXAudioEncModeInternal->Width = fcgCXAudioEncModeSmallWidth;
+            fcgLBAudioBitrateInternal->Visible = true;
+            fcgNUAudioBitrateInternal->Visible = true;
+            fcgNUAudioBitrateInternal->Minimum = astg->mode[imode].bitrate_min;
+            fcgNUAudioBitrateInternal->Maximum = astg->mode[imode].bitrate_max;
+            fcgNUAudioBitrateInternal->Increment = astg->mode[imode].bitrate_step;
+            SetNUValue(fcgNUAudioBitrateInternal, (conf->aud.in.bitrate > 0) ? conf->aud.in.bitrate : astg->mode[imode].bitrate_default);
+        } else {
+            fcgCXAudioEncModeInternal->Width = fcgCXAudioEncModeLargeWidth;
+            fcgLBAudioBitrateInternal->Visible = false;
+            fcgNUAudioBitrateInternal->Visible = false;
+            fcgNUAudioBitrateInternal->Minimum = 0;
+            fcgNUAudioBitrateInternal->Maximum = 65536;
+        }
+    }
+    SetfbcBTABEnable(fcgNUAudioBitrateInternal->Visible, (int)fcgNUAudioBitrateInternal->Maximum);
 }
 
 ///////////////   設定ファイル関連   //////////////////////
@@ -645,19 +733,15 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXQuality,           list_nvenc_preset_names);
     setComboBox(fcgCXCodecLevel,        list_avc_level);
     setComboBox(fcgCXCodecProfile,      h264_profile_names);
-    setComboBox(fcgCXInterlaced,        list_interlaced);
+    setComboBox(fcgCXInterlaced,        list_interlaced, "auto");
     setComboBox(fcgCXAspectRatio,       list_aspect_ratio);
     setComboBox(fcgCXAdaptiveTransform, list_adapt_transform);
     setComboBox(fcgCXBDirectMode,       list_bdirect);
     setComboBox(fcgCXMVPrecision,       list_mv_presicion);
-    setComboBox(fcgCXVideoFormatH264,   list_videoformat);
-    setComboBox(fcgCXTransferH264,      list_transfer);
-    setComboBox(fcgCXColorMatrixH264,   list_colormatrix);
-    setComboBox(fcgCXColorPrimH264,     list_colorprim);
-    setComboBox(fcgCXVideoFormatHEVC,   list_videoformat);
-    setComboBox(fcgCXTransferHEVC,      list_transfer);
-    setComboBox(fcgCXColorMatrixHEVC,   list_colormatrix);
-    setComboBox(fcgCXColorPrimHEVC,     list_colorprim);
+    setComboBox(fcgCXVideoFormat,       list_videoformat, "auto");
+    setComboBox(fcgCXTransfer,          list_transfer, "auto");
+    setComboBox(fcgCXColorMatrix,       list_colormatrix, "auto");
+    setComboBox(fcgCXColorPrim,         list_colorprim, "auto");
     setComboBox(fcgCXHEVCTier,          h265_profile_names);
     setComboBox(fxgCXHEVCLevel,         list_hevc_level);
     setComboBox(fcgCXHEVCMaxCUSize,     list_hevc_cu_size);
@@ -675,9 +759,10 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppNnediNsize,     list_vpp_nnedi_nsize);
     setComboBox(fcgCXVppNnediNns,       list_vpp_nnedi_nns);
     setComboBox(fcgCXVppNnediQual,      list_vpp_nnedi_quality);
-    setComboBox(fcgCXVppNnediPrec,      list_vpp_nnedi_prec);
+    setComboBox(fcgCXVppNnediPrec,      list_vpp_fp_prec);
     setComboBox(fcgCXVppNnediPrescreen, list_vpp_nnedi_pre_screen_gui);
     setComboBox(fcgCXVppNnediErrorType, list_vpp_nnedi_error_type);
+    setComboBox(fcgCXVppYadifMode,      list_vpp_yadif_mode_gui);
 
     setComboBox(fcgCXAudioTempDir,  list_audtempdir);
     setComboBox(fcgCXMP4BoxTempDir, list_mp4boxtempdir);
@@ -688,6 +773,7 @@ System::Void frmConfig::InitComboBox() {
 
     setMuxerCmdExNames(fcgCXMP4CmdEx, MUXER_MP4);
     setMuxerCmdExNames(fcgCXMKVCmdEx, MUXER_MKV);
+    setMuxerCmdExNames(fcgCXInternalCmdEx, MUXER_INTERNAL);
 #ifdef HIDE_MPEG2
     fcgCXMPGCmdEx->Items->Clear();
     fcgCXMPGCmdEx->Items->Add("");
@@ -716,7 +802,7 @@ System::Void frmConfig::SetTXMaxLen(TextBox^ TX, int max_len) {
 System::Void frmConfig::SetTXMaxLenAll() {
     //MaxLengthに最大文字数をセットし、それをもとにバイト数計算を行うイベントをセットする。
     SetTXMaxLen(fcgTXVideoEncoderPath,   sizeof(sys_dat->exstg->s_vid.fullpath) - 1);
-    SetTXMaxLen(fcgTXAudioEncoderPath,   sizeof(sys_dat->exstg->s_aud[0].fullpath) - 1);
+    SetTXMaxLen(fcgTXAudioEncoderPath,   sizeof(sys_dat->exstg->s_aud_ext[0].fullpath) - 1);
     SetTXMaxLen(fcgTXMP4MuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MP4].fullpath) - 1);
     SetTXMaxLen(fcgTXMKVMuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MKV].fullpath) - 1);
     SetTXMaxLen(fcgTXTC2MP4Path,         sizeof(sys_dat->exstg->s_mux[MUXER_TC2MP4].fullpath) - 1);
@@ -771,11 +857,13 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcggroupBoxResize->Enabled = fcgCBVppResize->Checked;
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
+    fcgPNVppDenoiseSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth")));
     fcgPNVppUnsharp->Visible    = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible  = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
     fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
     fcgPNVppAfs->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"自動フィールドシフト"));
     fcgPNVppNnedi->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"nnedi"));
+    fcgPNVppYadif->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"yadif"));
     fcggroupBoxVppTweak->Enabled = fcgCBVppTweakEnable->Checked;
 
     this->ResumeLayout();
@@ -883,10 +971,7 @@ System::Void frmConfig::InitForm() {
     fcgChangeMuxerVisible(nullptr, nullptr);
     fcgChangeEnabled(nullptr, nullptr);
     EnableSettingsNoteChange(false);
-#ifdef HIDE_MPEG2
-    tabPageMpgMux = fcgtabControlMux->TabPages[2];
-    fcgtabControlMux->TabPages->RemoveAt(2);
-#endif
+    fcgCBAudioUseExt_CheckedChanged(nullptr, nullptr);
     //表示位置の調整
     AdjustLocation();
     //キー設定
@@ -900,12 +985,11 @@ System::Void frmConfig::InitForm() {
 System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->SuspendLayout();
 
-    ParseCmdError err;
     InEncodeVideoParam encPrm;
     NV_ENC_CODEC_CONFIG codecPrm[2] = { 0 };
     codecPrm[NV_ENC_H264] = DefaultParamH264();
     codecPrm[NV_ENC_HEVC] = DefaultParamHEVC();
-    parse_cmd(&encPrm, codecPrm, cnf->nvenc.cmd, err);
+    parse_cmd(&encPrm, codecPrm, cnf->nvenc.cmd);
 
     SetCXIndex(fcgCXEncCodec,          get_index_from_value(encPrm.codec, list_nvenc_codecs));
     SetCXIndex(fcgCXEncMode,           get_cx_index(list_nvenc_rc_method, encPrm.encConfig.rcParams.rateControlMode));
@@ -936,8 +1020,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUAspectRatioY, abs(encPrm.par[1]));
 
     SetCXIndex(fcgCXDevice,      encPrm.deviceID+1); //先頭は"Auto"なので+1
-    SetCXIndex(fcgCXCudaSchdule, encPrm.nCudaSchedule);
-    fcgCBPerfMonitor->Checked = 0 != encPrm.nPerfMonitorSelect;
+    SetCXIndex(fcgCXCudaSchdule, encPrm.cudaSchedule);
+    fcgCBPerfMonitor->Checked = 0 != encPrm.ctrl.perfMonitorSelect;
+    fcgCBLossless->Checked = 0 != encPrm.lossless;
 
     //QPDetail
     fcgCBQPMin->Checked = encPrm.encConfig.rcParams.enableMinQP != 0;
@@ -962,11 +1047,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBBluray->Checked       = 0 != encPrm.bluray;
     fcgCBCABAC->Checked        = NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC != codecPrm[NV_ENC_H264].h264Config.entropyCodingMode;
     fcgCBDeblock->Checked                                          = 0 == codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC;
-    SetCXIndex(fcgCXVideoFormatH264,       get_cx_index(list_videoformat, codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat));
-    fcgCBFullrangeH264->Checked                                    = 0 != codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag;
-    SetCXIndex(fcgCXTransferH264,          get_cx_index(list_transfer,    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics));
-    SetCXIndex(fcgCXColorMatrixH264,       get_cx_index(list_colormatrix, codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix));
-    SetCXIndex(fcgCXColorPrimH264,         get_cx_index(list_colorprim,   codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries));
     SetCXIndex(fcgCXAdaptiveTransform, get_cx_index(list_adapt_transform, codecPrm[NV_ENC_H264].h264Config.adaptiveTransformMode));
     SetCXIndex(fcgCXBDirectMode,       get_cx_index(list_bdirect,         codecPrm[NV_ENC_H264].h264Config.bdirectMode));
 
@@ -976,21 +1056,24 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fxgCXHEVCLevel,     get_cx_index(list_hevc_level,   codecPrm[NV_ENC_HEVC].hevcConfig.level));
     SetCXIndex(fcgCXHEVCMaxCUSize, get_cx_index(list_hevc_cu_size, codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize));
     SetCXIndex(fcgCXHEVCMinCUSize, get_cx_index(list_hevc_cu_size, codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize));
-    SetCXIndex(fcgCXVideoFormatHEVC,       get_cx_index(list_videoformat, codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat));
-    fcgCBFullrangeHEVC->Checked                                    = 0 != codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag;
-    SetCXIndex(fcgCXTransferHEVC,          get_cx_index(list_transfer,    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics));
-    SetCXIndex(fcgCXColorMatrixHEVC,       get_cx_index(list_colormatrix, codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix));
-    SetCXIndex(fcgCXColorPrimHEVC,         get_cx_index(list_colorprim,   codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries));
+
+    SetCXIndex(fcgCXVideoFormat,       get_cx_index(list_videoformat, encPrm.common.out_vui.format));
+    fcgCBFullrange->Checked                                         = encPrm.common.out_vui.colorrange == RGY_COLORRANGE_FULL;
+    SetCXIndex(fcgCXTransfer,          get_cx_index(list_transfer,    encPrm.common.out_vui.transfer));
+    SetCXIndex(fcgCXColorMatrix,       get_cx_index(list_colormatrix, encPrm.common.out_vui.matrix));
+    SetCXIndex(fcgCXColorPrim,         get_cx_index(list_colorprim,   encPrm.common.out_vui.colorprim));
 
     //fcgCBShowPerformanceInfo->Checked = (CHECK_PERFORMANCE) ? cnf->vid.vce_ext_prm.show_performance_info != 0 : false;
 
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
+        fcgCBSSIM->Checked                 = encPrm.ssim;
+        fcgCBPSNR->Checked                 = encPrm.psnr;
         SetCXIndex(fcgCXTempDir,             cnf->oth.temp_dir);
         fcgCBAFS->Checked                  = cnf->vid.afs != 0;
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
-        fcgCBLogDebug->Checked             = encPrm.loglevel == RGY_LOG_DEBUG;
+        fcgCBLogDebug->Checked             = encPrm.ctrl.loglevel == RGY_LOG_DEBUG;
 
-        fcgCBVppPerfMonitor->Checked   = encPrm.vpp.bCheckPerformance != 0;
+        fcgCBVppPerfMonitor->Checked   = encPrm.vpp.checkPerformance != 0;
         fcgCBVppResize->Checked        = cnf->vid.resize_enable != 0;
         SetNUValue(fcgNUVppResizeWidth,  cnf->vid.resize_width);
         SetNUValue(fcgNUVppResizeHeight, cnf->vid.resize_height);
@@ -1000,6 +1083,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
         } else if (encPrm.vpp.pmd.enable) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
+        } else if (encPrm.vpp.smooth.enable) {
+            dnoise_idx = get_cx_index(list_vpp_denoise, _T("smooth"));
         }
         SetCXIndex(fcgCXVppDenoiseMethod,        dnoise_idx);
 
@@ -1016,6 +1101,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             deinterlacer_idx = get_cx_index(list_vpp_deinterlacer, L"自動フィールドシフト");
         } else if (encPrm.vpp.nnedi.enable) {
             deinterlacer_idx = get_cx_index(list_vpp_deinterlacer, L"nnedi");
+        } else if (encPrm.vpp.yadif.enable) {
+            deinterlacer_idx = get_cx_index(list_vpp_deinterlacer, L"yadif");
         }
         SetCXIndex(fcgCXVppDeinterlace, deinterlacer_idx);
 
@@ -1025,6 +1112,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoisePmdApplyCount, encPrm.vpp.pmd.applyCount);
         SetNUValue(fcgNUVppDenoisePmdStrength,   encPrm.vpp.pmd.strength);
         SetNUValue(fcgNUVppDenoisePmdThreshold,  encPrm.vpp.pmd.threshold);
+        SetNUValue(fcgNUVppDenoiseSmoothQuality, encPrm.vpp.smooth.quality);
+        SetNUValue(fcgNUVppDenoiseSmoothQP,      encPrm.vpp.smooth.qp);
         fcgCBVppDebandEnable->Checked          = encPrm.vpp.deband.enable;
         SetNUValue(fcgNUVppDebandRange,          encPrm.vpp.deband.range);
         SetNUValue(fcgNUVppDebandThreY,          encPrm.vpp.deband.threY);
@@ -1060,10 +1149,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBVppAfsTune->Checked               = encPrm.vpp.afs.tune != 0;
         SetCXIndex(fcgCXVppNnediNsize,           get_cx_index(list_vpp_nnedi_nsize, encPrm.vpp.nnedi.nsize));
         SetCXIndex(fcgCXVppNnediNns,             get_cx_index(list_vpp_nnedi_nns, encPrm.vpp.nnedi.nns));
-        SetCXIndex(fcgCXVppNnediPrec,            get_cx_index(list_vpp_nnedi_prec, encPrm.vpp.nnedi.precision));
-        SetCXIndex(fcgCXVppNnediPrescreen,       get_cx_index(list_vpp_nnedi_pre_screen, encPrm.vpp.nnedi.pre_screen));
+        SetCXIndex(fcgCXVppNnediPrec,            get_cx_index(list_vpp_fp_prec, encPrm.vpp.nnedi.precision));
+        SetCXIndex(fcgCXVppNnediPrescreen,       get_cx_index(list_vpp_nnedi_pre_screen_gui, encPrm.vpp.nnedi.pre_screen));
         SetCXIndex(fcgCXVppNnediQual,            get_cx_index(list_vpp_nnedi_quality, encPrm.vpp.nnedi.quality));
         SetCXIndex(fcgCXVppNnediErrorType,       get_cx_index(list_vpp_nnedi_error_type, encPrm.vpp.nnedi.errortype));
+        SetCXIndex(fcgCXVppYadifMode,            get_cx_index(list_vpp_yadif_mode_gui, encPrm.vpp.yadif.mode));
         fcgCBVppTweakEnable->Checked           = encPrm.vpp.tweak.enable;
         SetNUValue(fcgNUVppTweakBrightness,      (int)(encPrm.vpp.tweak.brightness * 100.0f));
         SetNUValue(fcgNUVppTweakContrast,        (int)(encPrm.vpp.tweak.contrast * 100.0f));
@@ -1072,17 +1162,24 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppTweakHue,             (int) encPrm.vpp.tweak.hue);
 
         //音声
+        fcgCBAudioUseExt->Checked          = cnf->aud.use_internal == 0;
+        //外部音声エンコーダ
         fcgCBAudioOnly->Checked            = cnf->oth.out_audio_only != 0;
-        fcgCBFAWCheck->Checked             = cnf->aud.faw_check != 0;
-        SetCXIndex(fcgCXAudioEncoder,        cnf->aud.encoder);
-        fcgCBAudio2pass->Checked           = cnf->aud.use_2pass != 0;
-        fcgCBAudioUsePipe->Checked = (CurrentPipeEnabled && !cnf->aud.use_wav);
-        SetCXIndex(fcgCXAudioDelayCut,       cnf->aud.delay_cut);
-        SetCXIndex(fcgCXAudioEncMode,        cnf->aud.enc_mode);
-        SetNUValue(fcgNUAudioBitrate,       (cnf->aud.bitrate != 0) ? cnf->aud.bitrate : GetCurrentAudioDefaultBitrate());
-        SetCXIndex(fcgCXAudioPriority,       cnf->aud.priority);
-        SetCXIndex(fcgCXAudioTempDir,        cnf->aud.aud_temp_dir);
-        SetCXIndex(fcgCXAudioEncTiming,      cnf->aud.audio_encode_timing);
+        fcgCBFAWCheck->Checked             = cnf->aud.ext.faw_check != 0;
+        SetCXIndex(fcgCXAudioEncoder,        cnf->aud.ext.encoder);
+        fcgCBAudio2pass->Checked           = cnf->aud.ext.use_2pass != 0;
+        fcgCBAudioUsePipe->Checked = (CurrentPipeEnabled && !cnf->aud.ext.use_wav);
+        SetCXIndex(fcgCXAudioDelayCut,       cnf->aud.ext.delay_cut);
+        SetCXIndex(fcgCXAudioEncMode,        cnf->aud.ext.enc_mode);
+        SetNUValue(fcgNUAudioBitrate,       (cnf->aud.ext.bitrate != 0) ? cnf->aud.ext.bitrate : GetCurrentAudioDefaultBitrate());
+        SetCXIndex(fcgCXAudioPriority,       cnf->aud.ext.priority);
+        SetCXIndex(fcgCXAudioTempDir,        cnf->aud.ext.aud_temp_dir);
+        SetCXIndex(fcgCXAudioEncTiming,      cnf->aud.ext.audio_encode_timing);
+        //内蔵音声エンコーダ
+        SetCXIndex(fcgCXAudioEncoderInternal, cnf->aud.in.encoder);
+        SetCXIndex(fcgCXAudioEncModeInternal, cnf->aud.in.enc_mode);
+        SetNUValue(fcgNUAudioBitrateInternal, (cnf->aud.in.bitrate != 0) ? cnf->aud.in.bitrate : GetCurrentAudioDefaultBitrate());
+
         fcgCBRunBatBeforeAudio->Checked    =(cnf->oth.run_bat & RUN_BAT_BEFORE_AUDIO) != 0;
         fcgCBRunBatAfterAudio->Checked     =(cnf->oth.run_bat & RUN_BAT_AFTER_AUDIO) != 0;
         fcgTXBatBeforeAudioPath->Text      = String(cnf->oth.batfile.before_audio).ToString();
@@ -1097,6 +1194,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXMKVCmdEx,            cnf->mux.mkv_mode);
         fcgCBMPGMuxerExt->Checked          = cnf->mux.disable_mpgext == 0;
         SetCXIndex(fcgCXMPGCmdEx,            cnf->mux.mpg_mode);
+        SetCXIndex(fcgCXInternalCmdEx,       cnf->mux.internal_mode);
         fcgCBMuxMinimize->Checked          = cnf->mux.minimized != 0;
         SetCXIndex(fcgCXMuxPriority,         cnf->mux.priority);
 
@@ -1163,7 +1261,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     }
 
     encPrm.deviceID = (int)fcgCXDevice->SelectedIndex-1; //先頭は"Auto"なので-1
-    encPrm.nCudaSchedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
+    encPrm.cudaSchedule = list_cuda_schedule[fcgCXCudaSchdule->SelectedIndex].value;
+    encPrm.lossless = fcgCBLossless->Checked;
 
     //QPDetail
     encPrm.encConfig.rcParams.enableMinQP = (fcgCBQPMin->Checked) ? 1 : 0;
@@ -1179,7 +1278,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.encConfig.rcParams.initialRCQP.qpInterP = (int)fcgNUQPInitP->Value;
     encPrm.encConfig.rcParams.initialRCQP.qpInterB = (int)fcgNUQPInitB->Value;
 
-    encPrm.nPerfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;
+    encPrm.ctrl.perfMonitorSelect = fcgCBPerfMonitor->Checked ? UINT_MAX : 0;
 
     //H.264
     codecPrm[NV_ENC_H264].h264Config.bdirectMode = (NV_ENC_H264_BDIRECT_MODE)list_bdirect[fcgCXBDirectMode->SelectedIndex].value;
@@ -1193,22 +1292,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     codecPrm[NV_ENC_H264].h264Config.entropyCodingMode = (fcgCBCABAC->Checked) ? NV_ENC_H264_ENTROPY_CODING_MODE_CABAC : NV_ENC_H264_ENTROPY_CODING_MODE_CAVLC;
     codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = false == fcgCBDeblock->Checked;
 
-    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormatH264->SelectedIndex].value;
-    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoFullRangeFlag      = fcgCBFullrangeH264->Checked;
-    if (fcgCBFullrangeH264->Checked || fcgCXVideoFormatH264->SelectedIndex == get_cx_index(list_videoformat, "undef")) {
-        codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.videoSignalTypePresentFlag = 1;
-    }
-    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.transferCharacteristics = list_transfer[fcgCXTransferH264->SelectedIndex].value;
-    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrixH264->SelectedIndex].value;
-    codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrimH264->SelectedIndex].value;
-    if (   fcgCXTransferH264->SelectedIndex    == get_cx_index(list_transfer,    "undef")
-        || fcgCXColorMatrixH264->SelectedIndex == get_cx_index(list_colormatrix, "undef")
-        || fcgCXColorPrimH264->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) {
-        codecPrm[NV_ENC_H264].h264Config.h264VUIParameters.colourDescriptionPresentFlag = 1;
-    }
-
     //HEVC
-
     codecPrm[NV_ENC_HEVC].hevcConfig.pixelBitDepthMinus8 = list_bitdepth[fcgCXHEVCOutBitDepth->SelectedIndex].value;
     codecPrm[NV_ENC_HEVC].hevcConfig.maxNumRefFramesInDPB = (int)fcgNURefFrames->Value;
     codecPrm[NV_ENC_HEVC].hevcConfig.level = list_hevc_level[fxgCXHEVCLevel->SelectedIndex].value;
@@ -1216,22 +1300,20 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     codecPrm[NV_ENC_HEVC].hevcConfig.maxCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMaxCUSize->SelectedIndex].value;
     codecPrm[NV_ENC_HEVC].hevcConfig.minCUSize = (NV_ENC_HEVC_CUSIZE)list_hevc_cu_size[fcgCXHEVCMinCUSize->SelectedIndex].value;
 
-    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFormat             = list_videoformat[fcgCXVideoFormatHEVC->SelectedIndex].value;
-    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoFullRangeFlag      = fcgCBFullrangeHEVC->Checked;
-    if (fcgCBFullrangeH264->Checked || fcgCXVideoFormatH264->SelectedIndex == get_cx_index(list_videoformat, "undef")) {
-        codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.videoSignalTypePresentFlag = 1;
-    }
-    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.transferCharacteristics = list_transfer[fcgCXTransferHEVC->SelectedIndex].value;
-    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourMatrix            = list_colormatrix[fcgCXColorMatrixHEVC->SelectedIndex].value;
-    codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourPrimaries         = list_colorprim[fcgCXColorPrimHEVC->SelectedIndex].value;
-    if (   fcgCXTransferHEVC->SelectedIndex    == get_cx_index(list_transfer,    "undef")
-        || fcgCXColorMatrixHEVC->SelectedIndex == get_cx_index(list_colormatrix, "undef")
-        || fcgCXColorPrimHEVC->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) {
-        codecPrm[NV_ENC_HEVC].hevcConfig.hevcVUIParameters.colourDescriptionPresentFlag = 1;
-    }
+    encPrm.common.out_vui.format    = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
+    encPrm.common.out_vui.colorrange = fcgCBFullrange->Checked ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
+    encPrm.common.out_vui.matrix    = (CspMatrix)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
+    encPrm.common.out_vui.colorprim = (CspColorprim)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
+    encPrm.common.out_vui.transfer  = (CspTransfer)list_transfer[fcgCXTransfer->SelectedIndex].value;
+    encPrm.common.out_vui.descriptpresent = (
+           fcgCXTransfer->SelectedIndex    == get_cx_index(list_transfer,    "undef")
+        || fcgCXColorMatrix->SelectedIndex == get_cx_index(list_colormatrix, "undef")
+        || fcgCXColorPrim->SelectedIndex   == get_cx_index(list_colorprim,   "undef")) ? 1 : 0;
 
     //cnf->vid.vce_ext_prm.show_performance_info = fcgCBShowPerformanceInfo->Checked;
 
+    encPrm.ssim                     = fcgCBSSIM->Checked;
+    encPrm.psnr                     = fcgCBPSNR->Checked;
     cnf->vid.afs                    = FALSE;
     cnf->vid.auo_tcfile_out         = FALSE;
     /*cnf->qsv.nPAR[0]                = (int)fcgNUAspectRatioX->Value;
@@ -1256,8 +1338,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         encPrm.input.dstHeight = 0;
     }
 
-    encPrm.loglevel                   = fcgCBLogDebug->Checked ? RGY_LOG_DEBUG : RGY_LOG_INFO;
-    encPrm.vpp.bCheckPerformance      = fcgCBVppPerfMonitor->Checked;
+    encPrm.ctrl.loglevel              = fcgCBLogDebug->Checked ? RGY_LOG_DEBUG : RGY_LOG_INFO;
+    encPrm.vpp.checkPerformance       = fcgCBVppPerfMonitor->Checked;
 
     encPrm.vpp.resizeInterp           = list_nppi_resize_help[fcgCXVppResizeAlg->SelectedIndex].value;
 
@@ -1270,6 +1352,10 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.pmd.applyCount         = (int)fcgNUVppDenoisePmdApplyCount->Value;
     encPrm.vpp.pmd.strength           = (float)fcgNUVppDenoisePmdStrength->Value;
     encPrm.vpp.pmd.threshold          = (float)fcgNUVppDenoisePmdThreshold->Value;
+
+    encPrm.vpp.smooth.enable          = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth"));
+    encPrm.vpp.smooth.quality         = (int)fcgNUVppDenoiseSmoothQuality->Value;
+    encPrm.vpp.smooth.qp              = (int)fcgNUVppDenoiseSmoothQP->Value;
 
     encPrm.vpp.unsharp.enable         = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
     encPrm.vpp.unsharp.radius         = (int)fcgNUVppUnsharpRadius->Value;
@@ -1316,9 +1402,12 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.nnedi.nsize            = (VppNnediNSize)list_vpp_nnedi_nsize[fcgCXVppNnediNsize->SelectedIndex].value;
     encPrm.vpp.nnedi.nns              = list_vpp_nnedi_nns[fcgCXVppNnediNns->SelectedIndex].value;
     encPrm.vpp.nnedi.quality          = (VppNnediQuality)list_vpp_nnedi_quality[fcgCXVppNnediQual->SelectedIndex].value;
-    encPrm.vpp.nnedi.precision        = (VppNnediPrecision)list_vpp_nnedi_prec[fcgCXVppNnediPrec->SelectedIndex].value;
-    encPrm.vpp.nnedi.pre_screen       = (VppNnediPreScreen)list_vpp_nnedi_pre_screen[fcgCXVppNnediPrescreen->SelectedIndex].value;
+    encPrm.vpp.nnedi.precision        = (VppFpPrecision)list_vpp_fp_prec[fcgCXVppNnediPrec->SelectedIndex].value;
+    encPrm.vpp.nnedi.pre_screen       = (VppNnediPreScreen)list_vpp_nnedi_pre_screen_gui[fcgCXVppNnediPrescreen->SelectedIndex].value;
     encPrm.vpp.nnedi.errortype        = (VppNnediErrorType)list_vpp_nnedi_error_type[fcgCXVppNnediErrorType->SelectedIndex].value;
+
+    encPrm.vpp.yadif.enable = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"yadif"));
+    encPrm.vpp.yadif.mode = (VppYadifMode)list_vpp_yadif_mode_gui[fcgCXVppYadifMode->SelectedIndex].value;
 
     encPrm.vpp.tweak.enable           = fcgCBVppTweakEnable->Checked;
     encPrm.vpp.tweak.brightness       = (float)fcgNUVppTweakBrightness->Value * 0.01f;
@@ -1328,19 +1417,26 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.tweak.hue              = (float)fcgNUVppTweakHue->Value;
 
     //音声部
-    cnf->aud.encoder                = fcgCXAudioEncoder->SelectedIndex;
-    cnf->oth.out_audio_only         = fcgCBAudioOnly->Checked;
-    cnf->aud.faw_check              = fcgCBFAWCheck->Checked;
-    cnf->aud.enc_mode               = fcgCXAudioEncMode->SelectedIndex;
-    cnf->aud.bitrate                = (int)fcgNUAudioBitrate->Value;
-    cnf->aud.use_2pass              = fcgCBAudio2pass->Checked;
-    cnf->aud.use_wav                = !fcgCBAudioUsePipe->Checked;
-    cnf->aud.delay_cut              = fcgCXAudioDelayCut->SelectedIndex;
-    cnf->aud.priority               = fcgCXAudioPriority->SelectedIndex;
-    cnf->aud.audio_encode_timing    = fcgCXAudioEncTiming->SelectedIndex;
-    cnf->aud.aud_temp_dir           = fcgCXAudioTempDir->SelectedIndex;
+    cnf->oth.out_audio_only             = fcgCBAudioOnly->Checked;
+    cnf->aud.ext.faw_check              = fcgCBFAWCheck->Checked;
+    cnf->aud.use_internal               = !fcgCBAudioUseExt->Checked;
+    cnf->aud.ext.encoder                = fcgCXAudioEncoder->SelectedIndex;
+    cnf->aud.ext.faw_check              = fcgCBFAWCheck->Checked;
+    cnf->aud.ext.enc_mode               = fcgCXAudioEncMode->SelectedIndex;
+    cnf->aud.ext.bitrate                = (int)fcgNUAudioBitrate->Value;
+    cnf->aud.ext.use_2pass              = fcgCBAudio2pass->Checked;
+    cnf->aud.ext.use_wav                = !fcgCBAudioUsePipe->Checked;
+    cnf->aud.ext.delay_cut              = fcgCXAudioDelayCut->SelectedIndex;
+    cnf->aud.ext.priority               = fcgCXAudioPriority->SelectedIndex;
+    cnf->aud.ext.audio_encode_timing    = fcgCXAudioEncTiming->SelectedIndex;
+    cnf->aud.ext.aud_temp_dir           = fcgCXAudioTempDir->SelectedIndex;
+    cnf->aud.in.encoder                 = fcgCXAudioEncoderInternal->SelectedIndex;
+    cnf->aud.in.faw_check               = fcgCBFAWCheck->Checked;
+    cnf->aud.in.enc_mode                = fcgCXAudioEncModeInternal->SelectedIndex;
+    cnf->aud.in.bitrate                 = (int)fcgNUAudioBitrateInternal->Value;
 
     //mux部
+    cnf->mux.use_internal           = !fcgCBAudioUseExt->Checked;
     cnf->mux.disable_mp4ext         = !fcgCBMP4MuxerExt->Checked;
     cnf->mux.apple_mode             = fcgCBMP4MuxApple->Checked;
     cnf->mux.mp4_mode               = fcgCXMP4CmdEx->SelectedIndex;
@@ -1351,6 +1447,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->mux.mpg_mode               = fcgCXMPGCmdEx->SelectedIndex;
     cnf->mux.minimized              = fcgCBMuxMinimize->Checked;
     cnf->mux.priority               = fcgCXMuxPriority->SelectedIndex;
+    cnf->mux.internal_mode          = fcgCXInternalCmdEx->SelectedIndex;
 
     cnf->oth.run_bat                = RUN_BAT_NONE;
     cnf->oth.run_bat               |= (fcgCBRunBatBeforeAudio->Checked) ? RUN_BAT_BEFORE_AUDIO   : NULL;

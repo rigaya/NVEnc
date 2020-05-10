@@ -28,6 +28,7 @@
 
 #include "NVEncUtil.h"
 #include "NvHWEncoder.h"
+#include "rgy_frame.h"
 
 static const auto RGY_CODEC_TO_NVENC = make_array<std::pair<RGY_CODEC, cudaVideoCodec>>(
     std::make_pair(RGY_CODEC_H264,  cudaVideoCodec_H264),
@@ -58,7 +59,7 @@ static const auto RGY_CODEC_PROFILE_TO_GUID = make_array<std::pair<RGY_CODEC_DAT
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_H264, 144), NV_ENC_H264_PROFILE_HIGH_444_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 1),   NV_ENC_HEVC_PROFILE_MAIN_GUID),
     std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 2),   NV_ENC_HEVC_PROFILE_MAIN10_GUID),
-    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 3),   NV_ENC_HEVC_PROFILE_FREXT_GUID)
+    std::make_pair(RGY_CODEC_DATA(RGY_CODEC_HEVC, 4),   NV_ENC_HEVC_PROFILE_FREXT_GUID)
     );
 
 MAP_PAIR_0_1(codec_guid_profile, rgy, RGY_CODEC_DATA, enc, GUID, RGY_CODEC_PROFILE_TO_GUID, RGY_CODEC_DATA(), GUID_EMPTY);
@@ -78,7 +79,7 @@ static const auto RGY_CSP_TO_NVENC = make_array<std::pair<RGY_CSP, NV_ENC_BUFFER
     std::make_pair(RGY_CSP_YV12,      NV_ENC_BUFFER_FORMAT_YV12),
     std::make_pair(RGY_CSP_YUY2,      NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YUV422,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
-    std::make_pair(RGY_CSP_YUV444,    NV_ENC_BUFFER_FORMAT_UNDEFINED),
+    std::make_pair(RGY_CSP_YUV444,    NV_ENC_BUFFER_FORMAT_YUV444),
     std::make_pair(RGY_CSP_YV12_09,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
     std::make_pair(RGY_CSP_YV12_10,   NV_ENC_BUFFER_FORMAT_YUV420_10BIT),
     std::make_pair(RGY_CSP_YV12_12,   NV_ENC_BUFFER_FORMAT_UNDEFINED),
@@ -122,14 +123,12 @@ static const auto RGY_CSP_TO_SURFACEFMT = make_array<std::pair<RGY_CSP, cudaVide
 
 MAP_PAIR_0_1(csp, rgy, RGY_CSP, surfacefmt, cudaVideoSurfaceFormat, RGY_CSP_TO_SURFACEFMT, RGY_CSP_NA, cudaVideoSurfaceFormat_NV12);
 
-__declspec(noinline)
 NV_ENC_PIC_STRUCT picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct) {
     if (picstruct & RGY_PICSTRUCT_TFF) return NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM;
     if (picstruct & RGY_PICSTRUCT_BFF) return NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP;
     return NV_ENC_PIC_STRUCT_FRAME;
 }
 
-__declspec(noinline)
 RGY_PICSTRUCT picstruct_enc_to_rgy(NV_ENC_PIC_STRUCT picstruct) {
     if (picstruct == NV_ENC_PIC_STRUCT_FIELD_TOP_BOTTOM) return RGY_PICSTRUCT_FRAME_TFF;
     if (picstruct == NV_ENC_PIC_STRUCT_FIELD_BOTTOM_TOP) return RGY_PICSTRUCT_FRAME_BFF;
@@ -157,7 +156,30 @@ RGY_CSP getEncCsp(NV_ENC_BUFFER_FORMAT enc_buffer_format) {
     }
 }
 
-__declspec(noinline)
+void RGYBitstream::addFrameData(RGYFrameData *frameData) {
+    if (frameData != nullptr) {
+        frameDataNum++;
+        frameDataList = (RGYFrameData **)realloc(frameDataList, frameDataNum * sizeof(frameDataList[0]));
+        frameDataList[frameDataNum - 1] = frameData;
+    }
+}
+
+void RGYBitstream::clearFrameDataList() {
+    frameDataNum = 0;
+    if (frameDataList) {
+        for (int i = 0; i < frameDataNum; i++) {
+            if (frameDataList[i]) {
+                delete frameDataList[i];
+            }
+        }
+        free(frameDataList);
+        frameDataList = nullptr;
+    }
+}
+std::vector<RGYFrameData *> RGYBitstream::getFrameDataList() {
+    return make_vector(frameDataList, frameDataNum);
+}
+
 VideoInfo videooutputinfo(
     const GUID& encCodecGUID,
     NV_ENC_BUFFER_FORMAT buffer_fmt,
@@ -169,7 +191,6 @@ VideoInfo videooutputinfo(
     std::pair<int, int> outFps) {
 
     VideoInfo info;
-    memset(&info, 0, sizeof(info));
     info.codec = codec_guid_enc_to_rgy(encCodecGUID);
     info.codecLevel = (info.codec == RGY_CODEC_H264) ? pEncConfig->encodeCodecConfig.h264Config.level : pEncConfig->encodeCodecConfig.hevcConfig.level;
     info.codecProfile = codec_guid_profile_enc_to_rgy(pEncConfig->profileGUID).codecProfile;
@@ -192,9 +213,9 @@ VideoInfo videooutputinfo(
     info.vui.colorprim = (CspColorprim)videoSignalInfo.colourPrimaries;
     info.vui.matrix = (CspMatrix)videoSignalInfo.colourMatrix;
     info.vui.transfer = (CspTransfer)videoSignalInfo.transferCharacteristics;
-    info.vui.fullrange = videoSignalInfo.videoFullRangeFlag;
+    info.vui.colorrange = videoSignalInfo.videoFullRangeFlag ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
     info.vui.format = videoSignalInfo.videoFormat;
-    info.vui.chromaloc = (videoSignalInfo.chromaSampleLocationFlag) ? videoSignalInfo.chromaSampleLocationTop : 0;
+    info.vui.chromaloc = (videoSignalInfo.chromaSampleLocationFlag) ? (CspChromaloc)(videoSignalInfo.chromaSampleLocationTop+1) :  RGY_CHROMALOC_UNSPECIFIED;
     return info;
 }
 
@@ -202,6 +223,7 @@ VideoInfo videooutputinfo(
 #define TTMATH_NOASM
 #pragma warning(push)
 #pragma warning(disable: 4244)
+#pragma warning(disable: 4834)
 #include "ttmath/ttmath.h"
 #pragma warning(pop)
 

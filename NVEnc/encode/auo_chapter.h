@@ -28,6 +28,8 @@
 #ifndef _AUO_CHAPTER_H_
 #define _AUO_CHAPTER_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <string>
 #include <memory>
@@ -98,13 +100,13 @@ public:
 
     chapter_file();
     ~chapter_file();
-    
+
     //読み込んだチャプターの種類(chapter_type)を返す
     int file_chapter_type();
 
     //読み込んだチャプターの文字コード(code_page)を返す
     DWORD file_code_page();
-    
+
     //エラー情報(sts)を返す
     int get_result();
 
@@ -119,7 +121,7 @@ public:
     //out_chapter_type...出力するチャプターの種類
     //nero_in_utf8...出力するチャプターがneroの場合に、utf-8で出力する
     int write_file(const char *out_filepath, int out_chapter_type, bool nero_in_utf8);
-    
+
     //チャプターファイルを上書きする
     //失敗した場合にはなにもしない
     //out_chapter_type...出力するチャプターの種類

@@ -29,12 +29,20 @@
 #ifndef __RGY_OSDEP_H__
 #define __RGY_OSDEP_H__
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_MSC_VER)
+#ifndef RGY_FORCEINLINE
 #define RGY_FORCEINLINE __forceinline
+#endif
+#ifndef RGY_NOINLINE
 #define RGY_NOINLINE __declspec(noinline)
+#endif
 #else
-#define RGY_FORCEINLINE __attribute__((always_inline))
+#ifndef RGY_FORCEINLINE
+#define RGY_FORCEINLINE inline
+#endif
+#ifndef RGY_NOINLINE
 #define RGY_NOINLINE __attribute__ ((noinline))
+#endif
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -45,11 +53,16 @@
 #include <io.h>
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
+#include <shellapi.h>
+#define RGY_LOAD_LIBRARY(x) LoadLibrary(x)
 #define RGY_GET_PROC_ADDRESS GetProcAddress
+#define RGY_FREE_LIBRARY FreeLibrary
 
 #else //#if defined(_WIN32) || defined(_WIN64)
 #include <sys/stat.h>
 #include <sys/times.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <cstdarg>
 #include <cstdlib>
 #include <cstdio>
@@ -71,9 +84,12 @@ typedef wchar_t WCHAR;
 typedef int BOOL;
 typedef void* HANDLE;
 typedef void* HMODULE;
+typedef void* HINSTANCE;
 typedef int errno_t;
 
+#define RGY_LOAD_LIBRARY(x) dlopen((x), RTLD_LAZY)
 #define RGY_GET_PROC_ADDRESS dlsym
+#define RGY_FREE_LIBRARY dlclose
 
 static uint32_t CP_THREAD_ACP = 0;
 static uint32_t CP_UTF8 = 0;
@@ -93,6 +109,11 @@ char (*__countof_helper(_CountofType (&_Array)[_SizeOfArray]))[_SizeOfArray];
 #define FALSE (0)
 #endif
 
+struct LUID {
+  int LowPart;
+  int HighPart;
+};
+
 static inline char *strtok_s(char *strToken, const char *strDelimit, char **context) {
     return strtok(strToken, strDelimit);
 }
@@ -101,6 +122,9 @@ static inline char *strcpy_s(char *dst, size_t size, const char *src) {
 }
 static inline char *strcpy_s(char *dst, const char *src) {
     return strcpy(dst, src);
+}
+static inline char *strcat_s(char *dst, size_t size, const char *src) {
+    return strcat(dst, src);
 }
 static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_list argptr) {
     return vsprintf(buffer, format, argptr);
@@ -111,6 +135,7 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
 #define vswprintf_s vswprintf
 #define _strnicmp strncasecmp
 #define stricmp strcasecmp
+#define _stricmp stricmp
 
 static inline void __cpuid(int cpuInfo[4], int param) {
     int eax = 0, ebx = 0, ecx = 0, edx = 0;
@@ -123,7 +148,7 @@ static inline void __cpuid(int cpuInfo[4], int param) {
     cpuInfo[3] = edx;
 }
 
-#if NO_XGETBV_INTRIN
+#if NO_XGETBV_INTRIN && defined(__AVX__)
 static inline unsigned long long _xgetbv(unsigned int index) {
   unsigned int eax, edx;
   __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
@@ -231,6 +256,11 @@ static inline int fopen_s(FILE **pfp, const char *filename, const char *mode) {
     return (fp == NULL) ? 1 : 0;
 }
 
+static uint32_t GetCurrentProcessId() {
+    pid_t pid = getpid();
+    return (uint32_t)pid;
+}
+
 static pthread_t GetCurrentThread() {
     return pthread_self();
 }
@@ -261,6 +291,7 @@ static void SetThreadPriority(pthread_t thread, int priority) {
 
 #define _fread_nolock fread
 #define _fwrite_nolock fwrite
+#define _fgetc_nolock fgetc
 #define _fseeki64 fseek
 #define _ftelli64 ftell
 

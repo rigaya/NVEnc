@@ -17,6 +17,8 @@
 #pragma warning(pop)
 
 #ifdef _WIN32
+  #define WIN32_LEAN_AND_MEAN
+  #define NOMINMAX
   #include <windows.h>
 
 #else
@@ -34,7 +36,7 @@
 class FrameQueue
 {
 public:
-    static const unsigned int cnMaximumSize = 24; // MAX_FRM_CNT;
+    static const int cnMaximumSize = 24; // MAX_FRM_CNT;
 
     FrameQueue(CUvideoctxlock ctxLock);
 

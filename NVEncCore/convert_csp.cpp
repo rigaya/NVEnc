@@ -281,7 +281,7 @@ void convert_yuy2_to_nv12_i(void **dst_array, const void **src_array, int width,
     }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
-static void __forceinline convert_yuv444_to_nv12_p_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv444_to_nv12_p_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
     static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
     const int crop_left   = crop[0];
@@ -339,7 +339,7 @@ static void __forceinline convert_yuv444_to_nv12_p_c(void **dst, const void **sr
 }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
-static void __forceinline convert_yuv444_to_nv12_i_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yuv444_to_nv12_i_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
     static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
     const int crop_left   = crop[0];
@@ -570,7 +570,7 @@ static void convert_yuy2_to_yuv444(void **dst, const void **src, int width, int 
 }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
-static void __forceinline convert_yv12_p_to_yuv444_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yv12_p_to_yuv444_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
     static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
     const int crop_left   = crop[0];
@@ -632,7 +632,7 @@ static void __forceinline convert_yv12_p_to_yuv444_c(void **dst, const void **sr
                     dstC[1*dst_y_pitch   + 0] = (Tout)cy3x0;
                     dstC[1*dst_y_pitch   + 1] = (Tout)((cy3x0 + cy3x1 + 1) >> 1);
                 }
-            } else if (y >= height-2) {
+            } else if (y_range.start_dst + y >= height-2) {
                 for (int x = 0; x < x_fin; x += 2, dstC += 2, srcP++) {
                     int cxplus = (x + 2 < x_fin);
                     int cy0x0 = srcP[-1*src_uv_pitch + 0];
@@ -680,7 +680,7 @@ static void __forceinline convert_yv12_p_to_yuv444_c(void **dst, const void **sr
 }
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
-static void __forceinline convert_yv12_i_to_yuv444_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+static void RGY_FORCEINLINE convert_yv12_i_to_yuv444_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     static_assert((sizeof(Tin)  == 1 && in_bit_depth  == 8) || (sizeof(Tin)  == 2 && 8 < in_bit_depth  && in_bit_depth  <= 16), "invalid input bit depth.");
     static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
     const int crop_left   = crop[0];
@@ -922,10 +922,12 @@ static void convert_yv12_to_p010(void **dst, const void **src, int width, int sr
 
 
 static const ConvertCSP funcList[] = {
+#if !FOR_AUO
     FUNC_AVX2( RGY_CSP_NV12,      RGY_CSP_NV12,      false,  copy_nv12_to_nv12_avx2,              copy_nv12_to_nv12_avx2,              AVX2|AVX)
     FUNC_SSE(  RGY_CSP_NV12,      RGY_CSP_NV12,      false,  copy_nv12_to_nv12_sse2,              copy_nv12_to_nv12_sse2,              SSE2 )
     FUNC_AVX2( RGY_CSP_P010,      RGY_CSP_P010,      false,  copy_p010_to_p010_avx2,              copy_p010_to_p010_avx2,              AVX2|AVX)
     FUNC_SSE(  RGY_CSP_P010,      RGY_CSP_P010,      false,  copy_p010_to_p010_sse2,              copy_p010_to_p010_sse2,              SSE2 )
+#endif
     FUNC_AVX2( RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_avx2,           convert_yuy2_to_nv12_i_avx2,         AVX2|AVX)
     FUNC_AVX(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_avx,            convert_yuy2_to_nv12_i_avx,          AVX )
     FUNC_SSE(  RGY_CSP_YUY2,      RGY_CSP_NV12,      false,  convert_yuy2_to_nv12_sse2,           convert_yuy2_to_nv12_i_ssse3,        SSSE3|SSE2 )
@@ -946,6 +948,8 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_sse41,  convert_yc48_to_yuv444_16bit_sse41,  SSE41|SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_ssse3,  convert_yc48_to_yuv444_16bit_ssse3,  SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_sse2,   convert_yc48_to_yuv444_16bit_sse2,   SSE2 )
+#endif
+#if 0
     FUNC_AVX2(RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_avx2,   convert_yuv444_16bit_to_yc48_avx2,   AVX2 )
     FUNC_SSE( RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_avx,    convert_yuv444_16bit_to_yc48_avx,    AVX )
     FUNC_SSE( RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_sse41,  convert_yuv444_16bit_to_yc48_sse41,  SSE41|SSSE3|SSE2 )
@@ -990,8 +994,8 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX(  RGY_CSP_RGB32R, RGY_CSP_RGB32, false, convert_rgb32r_to_rgb32_avx,      convert_rgb32r_to_rgb32_avx,      AVX )
     FUNC_SSE(  RGY_CSP_RGB32,  RGY_CSP_RGB32, false, convert_rgb32_to_rgb32_sse2,      convert_rgb32_to_rgb32_sse2,      SSE2 )
     FUNC_SSE(  RGY_CSP_RGB32R, RGY_CSP_RGB32, false, convert_rgb32r_to_rgb32_sse2,     convert_rgb32r_to_rgb32_sse2,     SSE2 )
-    FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_avx2,      convert_rgb24_to_rgb24_avx2,      AVX2|AVX)
-    FUNC_SSE(  RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_avx2,     convert_rgb24r_to_rgb24_avx2,     AVX2|AVX)
+    FUNC_AVX2( RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_avx2,      convert_rgb24_to_rgb24_avx2,      AVX2|AVX)
+    FUNC_AVX2( RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_avx2,     convert_rgb24r_to_rgb24_avx2,     AVX2|AVX)
     FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_sse2,      convert_rgb24_to_rgb24_sse2,      SSE2 )
     FUNC_SSE(  RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_sse2,     convert_rgb24r_to_rgb24_sse2,     SSE2 )
 
@@ -1076,6 +1080,20 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_YUV444_09, RGY_CSP_YUV444,    false, convert_yuv444_09_to_yuv444_sse2,    convert_yuv444_09_to_yuv444_sse2, SSE2 )
 #endif
 };
+
+const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct) {
+    switch (picstruct) {
+    case RGY_PICSTRUCT_FRAME:        return _T("progressive");
+    case RGY_PICSTRUCT_FIELD_TOP:    return _T("tff_field");
+    case RGY_PICSTRUCT_FIELD_BOTTOM: return _T("bff_field");
+    case RGY_PICSTRUCT_FIELD:        return _T("field");
+    case RGY_PICSTRUCT_FRAME_TFF:    return _T("tff_frame");
+    case RGY_PICSTRUCT_FRAME_BFF:    return _T("bff_frame");
+    case RGY_PICSTRUCT_AUTO:         return _T("auto");
+    case RGY_PICSTRUCT_UNKNOWN:
+    default: return _T("unknown");
+    }
+}
 
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd) {
     uint32_t availableSIMD = get_availableSIMD() & simd;

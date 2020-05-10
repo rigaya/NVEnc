@@ -164,17 +164,19 @@ const TCHAR *nvmlErrStr(nvmlReturn_t ret) {
 
 nvmlReturn_t NVMLMonitor::LoadDll() {
     if (m_hDll) {
-        CloseHandle(m_hDll);
+        RGY_FREE_LIBRARY(m_hDll);
     }
-    m_hDll = LoadLibrary(NVML_DLL_PATH);
+    m_hDll = RGY_LOAD_LIBRARY(NVML_DLL_PATH);
     if (m_hDll == NULL) {
-        m_hDll = LoadLibrary(_T("nvml.dll"));
+#if defined(_WIN32) || defined(_WIN64)
+        m_hDll = RGY_LOAD_LIBRARY(_T("nvml.dll"));
+#endif //#if defined(_WIN32) || defined(_WIN64)
         if (m_hDll == NULL) {
             return NVML_ERROR_NOT_FOUND;
         }
     }
 #define LOAD_NVML_FUNC(x) { \
-    if ( NULL == (m_func.f_ ## x = (pf ## x)GetProcAddress(m_hDll, #x )) ) { \
+    if ( NULL == (m_func.f_ ## x = (pf ## x)RGY_GET_PROC_ADDRESS(m_hDll, #x )) ) { \
         memset(&m_func, 0, sizeof(m_func)); \
         return NVML_ERROR_NOT_FOUND; \
     } \
@@ -319,47 +321,26 @@ void NVMLMonitor::Close() {
         m_func.f_nvmlShutdown();
     }
     if (m_hDll) {
-        FreeLibrary(m_hDll);
+        RGY_FREE_LIBRARY(m_hDll);
     }
     memset(&m_func, 0, sizeof(m_func));
 }
 #endif //#if ENABLE_NVML
 
 int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
-    memset(info, 0, sizeof(info[0]));
+    info->clear();
 
-    RGYPipeProcessWin process;
+    auto process = createRGYPipeProcess();
+    process->init();
     ProcessPipe pipes = { 0 };
     pipes.stdOut.mode = PIPE_MODE_ENABLE;
     std::vector<const TCHAR *> args;
     args.push_back(NVSMI_PATH);
     args.push_back(_T("-q"));
-    if (process.run(args, nullptr, &pipes, NORMAL_PRIORITY_CLASS, true, true)) {
+    if (process->run(args, nullptr, &pipes, 0, true, true)) {
         return 1;
     }
-    if (m_NVSMIOut.length() == 0) {
-        auto read_from_pipe = [&]() {
-            DWORD pipe_read = 0;
-            if (!PeekNamedPipe(pipes.stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
-                return -1;
-            if (pipe_read) {
-                char read_buf[1024] = { 0 };
-                ReadFile(pipes.stdOut.h_read, read_buf, sizeof(read_buf) - 1, &pipe_read, NULL);
-                m_NVSMIOut += read_buf;
-            }
-            return (int)pipe_read;
-        };
-
-        while (WAIT_TIMEOUT == WaitForSingleObject(process.getProcessInfo().hProcess, 10)) {
-            read_from_pipe();
-        }
-        for (;;) {
-            if (read_from_pipe() <= 0) {
-                break;
-            }
-        }
-        m_NVSMIOut = tolowercase(m_NVSMIOut);
-    }
+    m_NVSMIOut = tolowercase(process->getOutput(&pipes));
     if (m_NVSMIOut.length() == 0) {
         return 1;
     }
@@ -466,27 +447,65 @@ tstring CPerfMonitor::SelectedCounters(int select) {
     return str;
 }
 
-CPerfMonitor::CPerfMonitor() {
+CPerfMonitor::CPerfMonitor() :
+    m_nStep(0),
+    m_luid({ 0, 0 }),
+    m_pid(),
+    m_sPywPath(),
+    m_info(),
+    m_refreshedTime(),
+    m_thCheck(),
+    m_thMainThread(),
+    m_pProcess(),
+    m_pipes(),
+    m_thEncThread(NULL),
+    m_thInThread(NULL),
+    m_thOutThread(NULL),
+    m_thAudProcThread(NULL),
+    m_thAudEncThread(NULL),
+    m_nLogicalCPU(get_cpu_info().logical_cores),
+    m_pEncStatus(),
+    m_nEncStartTime(0),
+    m_nOutputFPSRate(0),
+    m_nOutputFPSScale(0),
+    m_nCreateTime100ns(0),
+    m_bAbort(false),
+    m_bEncStarted(false),
+    m_nInterval(500),
+    m_sMonitorFilename(),
+    m_fpLog(),
+    m_nSelectCheck(0),
+    m_nSelectOutputLog(0),
+    m_nSelectOutputPlot(0),
+    m_QueueInfo(),
+    m_pRGYLog(),
+#if ENABLE_METRIC_FRAMEWORK
+    m_pLoader(nullptr),
+    m_pManager(),
+    m_Consumer(),
+#endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+    m_nvmlMonitor(),
+    m_nvmlInfo(),
+#endif //#if ENABLE_NVML
+#if ENABLE_GPUZ_INFO
+    m_GPUZInfo(),
+#endif //#if ENABLE_GPUZ_INFO
+    m_bGPUZInfoValid(false),
+#if ENABLE_PERF_COUNTER
+    m_perfCounter(),
+#endif //#if ENABLE_PERF_COUNTER
+    m_prefCounterValid(false)
+{
     memset(m_info, 0, sizeof(m_info));
     memset(&m_pipes, 0, sizeof(m_pipes));
     memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
 #if ENABLE_METRIC_FRAMEWORK
     m_pManager = nullptr;
 #endif //#if ENABLE_METRIC_FRAMEWORK
-#if ENABLE_NVML
-    memset(&m_nvmlInfo, 0, sizeof(m_nvmlInfo));
-#endif
 #if ENABLE_GPUZ_INFO
     memset(&m_GPUZInfo, 0, sizeof(m_GPUZInfo));
 #endif //#if ENABLE_GPUZ_INFO
-    m_bGPUZInfoValid = false;
-
-    cpu_info_t cpu_info;
-    get_cpu_info(&cpu_info);
-    m_nLogicalCPU = cpu_info.logical_cores;
-    m_thAudProcThread = NULL;
-    m_thEncThread = NULL;
-    m_thOutThread = NULL;
 }
 
 CPerfMonitor::~CPerfMonitor() {
@@ -494,10 +513,18 @@ CPerfMonitor::~CPerfMonitor() {
 }
 
 void CPerfMonitor::clear() {
+    send_thread_fin();
     if (m_thCheck.joinable()) {
+        AddMessage(RGY_LOG_DEBUG, _T("Closing thread...\n"));
         m_bAbort = true;
         m_thCheck.join();
+        AddMessage(RGY_LOG_DEBUG, _T("Closed thread.\n"));
     }
+#if ENABLE_PERF_COUNTER
+    AddMessage(RGY_LOG_DEBUG, _T("Closing perf counter...\n"));
+    m_perfCounter.reset();
+    AddMessage(RGY_LOG_DEBUG, _T("Closed perf counter.\n"));
+#endif //#if ENABLE_PERF_COUNTER
     memset(m_info, 0, sizeof(m_info));
     memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
 #if ENABLE_METRIC_FRAMEWORK
@@ -519,6 +546,7 @@ void CPerfMonitor::clear() {
     m_bEncStarted = false;
     if (m_fpLog) {
         fprintf(m_fpLog.get(), "\n\n");
+        AddMessage(RGY_LOG_DEBUG, _T("Closing perf monitor log...\n"));
     }
     m_fpLog.reset();
     if (m_pipes.f_stdin) {
@@ -527,6 +555,15 @@ void CPerfMonitor::clear() {
     }
     m_pProcess.reset();
     m_pRGYLog.reset();
+}
+
+void CPerfMonitor::send_thread_fin() {
+    m_bAbort = true;
+#if ENABLE_PERF_COUNTER
+    if (m_perfCounter) {
+        m_perfCounter->send_thread_fin();
+    }
+#endif //#if ENABLE_PERF_COUNTER
 }
 
 int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
@@ -667,6 +704,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     std::shared_ptr<RGYLog> pRGYLog, CPerfMonitorPrm *prm) {
     clear();
     m_pRGYLog = pRGYLog;
+    m_luid = prm->luid;
+    m_pid = GetCurrentProcessId();
 
     m_nCreateTime100ns = (int64_t)(clock() * (1e7 / CLOCKS_PER_SEC) + 0.5);
     m_sMonitorFilename = filename;
@@ -675,6 +714,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_nSelectOutputLog = nSelectOutputLog;
     m_nSelectCheck = m_nSelectOutputLog | m_nSelectOutputPlot;
     m_thMainThread = std::move(thMainThread);
+    m_refreshedTime = std::chrono::system_clock::now() - std::chrono::milliseconds(m_nInterval);
 
     if (!m_fpLog && m_sMonitorFilename.length() > 0) {
         m_fpLog = std::unique_ptr<FILE, fp_deleter>(_tfopen(m_sMonitorFilename.c_str(), _T("a")));
@@ -757,10 +797,19 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     UNREFERENCED_PARAMETER(prm);
 #endif //#if ENABLE_NVML
 
+#if ENABLE_PERF_COUNTER
+    OSVERSIONINFOEXW osver;
+    getOSVersion(&osver);
+    if (osver.dwMajorVersion > 6 || (osver.dwMajorVersion == 6 && osver.dwMinorVersion >= 4)) { //Windows10
+        m_perfCounter = std::make_unique<RGYGPUCounterWin>();
+        m_perfCounter->thread_run();
+    }
+#endif //#if ENABLE_PERF_COUNTER
+
     if (m_nSelectOutputPlot) {
-#if defined(_WIN32) || defined(_WIN64)
-        m_pProcess = std::unique_ptr<RGYPipeProcess>(new RGYPipeProcessWin());
+        m_pProcess = createRGYPipeProcess();
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
+#if defined(_WIN32) || defined(_WIN64)
         TCHAR tempDir[1024] = { 0 };
         TCHAR tempPath[1024] = { 0 };
         GetModuleFileName(NULL, tempDir, _countof(tempDir));
@@ -769,8 +818,6 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         m_sPywPath = tempPath;
         uint32_t priority = NORMAL_PRIORITY_CLASS;
 #else
-        m_pProcess = std::unique_ptr<RGYPipeProcess>(new RGYPipeProcessLinux());
-        m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
         m_sPywPath = tstring(_T("/tmp/")) + strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), (int)getpid());
         uint32_t priority = 0;
 #endif
@@ -837,8 +884,6 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #endif
 #if ENCODER_NVENC
     m_nSelectCheck &= (~PERF_MONITOR_MFX_LOAD);
-    //うまくとれてなさそう
-    m_nSelectCheck &= (~PERF_MONITOR_VED_LOAD);
 #endif
 
     m_nSelectOutputLog &= m_nSelectCheck;
@@ -904,20 +949,21 @@ void CPerfMonitor::check() {
     GetProcessTimes(hProcess, (FILETIME *)&pt.creation, (FILETIME *)&pt.exit, (FILETIME *)&pt.kernel, (FILETIME *)&pt.user);
     pInfoNew->time_us = (current_time - pt.creation) / 10;
     const double time_diff_inv = 1.0 / (pInfoNew->time_us - pInfoOld->time_us);
-
+#endif //#if defined(_WIN32) || defined(_WIN64)
     //GPU情報
+    bool qsv_metric = false;
     m_bGPUZInfoValid = false;
     pInfoNew->gpu_info_valid = FALSE;
 #if ENABLE_METRIC_FRAMEWORK
     QSVGPUInfo qsvinfo = { 0 };
     if (m_Consumer.getMFXLoad(&qsvinfo)) {
+        qsv_metric = true;
         pInfoNew->gpu_info_valid = TRUE;
         pInfoNew->mfx_load_percent = qsvinfo.dMFXLoad;
         pInfoNew->gpu_load_percent = qsvinfo.dEULoad;
-        pInfoNew->gpu_clock = qsvinfo.GPUFreq;
+        pInfoNew->gpu_clock = qsvinfo.dGPUFreq;
     } else {
 #endif //#if ENABLE_METRIC_FRAMEWORK
-#if ENABLE_NVML
     pInfoNew->gpu_info_valid   = FALSE;
     pInfoNew->gpu_clock = 0.0;
     pInfoNew->gpu_load_percent = 0.0;
@@ -928,6 +974,7 @@ void CPerfMonitor::check() {
     pInfoNew->pcie_link = 0;
     pInfoNew->pcie_throughput_tx_per_sec = 0;
     pInfoNew->pcie_throughput_rx_per_sec = 0;
+#if ENABLE_NVML
     NVMLMonitorInfo nvmlInfo;
     if (m_nvmlMonitor.getData(&nvmlInfo) == NVML_SUCCESS) {
         m_nvmlInfo = nvmlInfo;
@@ -965,7 +1012,34 @@ void CPerfMonitor::check() {
 #if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
-#else
+#if ENABLE_PERF_COUNTER
+    if (m_perfCounter) {
+        if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKの値を優先する
+            pInfoNew->vee_load_percent = 0.0;
+        }
+        pInfoNew->gpu_load_percent = 0.0;
+        pInfoNew->ved_load_percent = 0.0;
+        std::vector<CounterEntry> counters;
+        {
+            std::lock_guard<std::mutex> lock(m_perfCounter->getmtx());
+            counters = m_perfCounter->getCounters().filter_pid(m_pid).get();
+        }
+        if (counters.size() > 0) {
+            pInfoNew->gpu_info_valid = TRUE;
+            if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKの値を優先する
+                pInfoNew->vee_load_percent = RGYGPUCounterWinEntries(counters).filter_type(L"encode").sum();
+            }
+            pInfoNew->gpu_load_percent = std::max(std::max(std::max(
+                RGYGPUCounterWinEntries(counters).filter_type(L"cuda").sum(), //nvenc
+                RGYGPUCounterWinEntries(counters).filter_type(L"compute").sum()), //vce-opencl
+                RGYGPUCounterWinEntries(counters).filter_type(L"3d").sum()), //qsv
+                RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").sum()); //qsv
+            pInfoNew->ved_load_percent = RGYGPUCounterWinEntries(counters).filter_type(L"decode").sum();
+        }
+    }
+#endif //#if ENABLE_PERF_COUNTER
+
+#if !(defined(_WIN32) || defined(_WIN64))
     struct rusage usage = { 0 };
     getrusage(RUSAGE_SELF, &usage);
 
@@ -1246,20 +1320,24 @@ void CPerfMonitor::loader(void *prm) {
 
 void CPerfMonitor::run() {
     while (!m_bAbort) {
-        check();
-        if (m_pProcess && !m_pProcess->processAlive()) {
-            if (m_pipes.f_stdin) {
-                fclose(m_pipes.f_stdin);
+        auto timenow = std::chrono::system_clock::now();
+        if (m_nInterval <= 100 || timenow - m_refreshedTime > std::chrono::milliseconds(m_nInterval)) {
+            check();
+            if (m_pProcess && !m_pProcess->processAlive()) {
+                if (m_pipes.f_stdin) {
+                    fclose(m_pipes.f_stdin);
+                }
+                m_pipes.f_stdin = NULL;
+                if (m_nSelectOutputPlot) {
+                    m_pRGYLog->write(RGY_LOG_WARN, _T("Error occured running python for perf-monitor-plot.\n"));
+                    m_nSelectOutputPlot = 0;
+                }
             }
-            m_pipes.f_stdin = NULL;
-            if (m_nSelectOutputPlot) {
-                m_pRGYLog->write(RGY_LOG_WARN, _T("Error occured running python for perf-monitor-plot.\n"));
-                m_nSelectOutputPlot = 0;
-            }
+            write(m_fpLog.get(), m_nSelectOutputLog);
+            write(m_pipes.f_stdin, m_nSelectOutputPlot);
+            m_refreshedTime = timenow;
         }
-        write(m_fpLog.get(),   m_nSelectOutputLog);
-        write(m_pipes.f_stdin, m_nSelectOutputPlot);
-        std::this_thread::sleep_for(std::chrono::milliseconds(m_nInterval));
+        std::this_thread::sleep_for(std::chrono::milliseconds((m_nInterval <= 100) ? m_nInterval : 50));
     }
     check();
     write(m_fpLog.get(),   m_nSelectOutputLog);

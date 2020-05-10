@@ -28,6 +28,8 @@
 #ifndef _AUO_AUDIO_PARALLEL_H_
 #define _AUO_AUDIO_PARALLEL_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <process.h>
 #include "auo.h"
 #include "auo_system.h"

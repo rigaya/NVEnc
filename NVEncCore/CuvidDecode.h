@@ -35,11 +35,12 @@
 #pragma warning(disable: 4201)
 #include "dynlink_nvcuvid.h"
 #pragma warning(pop)
+#include "FrameQueue.h"
+#include "NVEncParam.h"
+#include "NVEncFrameInfo.h"
 #include "rgy_log.h"
 #include "rgy_util.h"
 #include "rgy_avutil.h"
-#include "FrameQueue.h"
-#include "NVEncFrameInfo.h"
 
 #if ENABLE_AVSW_READER
 #define NVEncCtxAutoLock(x) CCtxAutoLock x
@@ -59,8 +60,8 @@ public:
     CuvidDecode();
     ~CuvidDecode();
 
-    CUresult InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool ignoreDynamicFormatChange = false);
-    void CloseDecoder();
+    CUresult InitDecode(CUvideoctxlock ctxLock, const VideoInfo *input, const VppParam *vpp, AVRational streamtimebase, shared_ptr<RGYLog> pLog, int nDecType, bool bCuvidResize, bool lowLatency = false, bool ignoreDynamicFormatChange = false);
+    RGY_ERR CloseDecoder();
     CUresult DecodePacket(uint8_t *data, size_t nSize, int64_t timestamp, AVRational streamtimebase);
     CUresult FlushParser();
 
@@ -112,7 +113,8 @@ protected:
     CUresult CreateDecoder(CUVIDEOFORMAT *pFormat);
 
     FrameQueue                  *m_pFrameQueue;
-    int                          m_decodedFrames;
+    int64_t                      m_decodedFrames;
+    int64_t                      m_parsedPackets;
     CUvideoparser                m_videoParser;
     CUvideodecoder               m_videoDecoder;
     CUvideoctxlock               m_ctxLock;

@@ -531,7 +531,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     }
 
     auto cudaerr = AllocFrameBuf(pDebandParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -546,7 +546,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         m_RandY.frame.deivce_mem = pDebandParam->frameOut.deivce_mem;
         m_RandY.frame.csp = RGY_CSP_RGB32;
         cudaerr = m_RandY.alloc();
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -558,7 +558,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         m_RandUV.frame.deivce_mem = pDebandParam->frameOut.deivce_mem;
         m_RandUV.frame.csp = pDebandParam->frameOut.csp;
         cudaerr = m_RandUV.alloc();
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -571,7 +571,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         dim3 grids(divCeil(pDebandParam->frameOut.width >> 1, threads.x), divCeil(pDebandParam->frameOut.height >> 1, threads.y * GEN_RAND_BLOCK_LOOP_Y), 1);
         m_RandState.nSize = sizeof(curandState) * (threads.x * grids.x) * (threads.y * grids.y);
         cudaerr = m_RandState.alloc();
-        if (cudaerr != CUDA_SUCCESS) {
+        if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -595,19 +595,16 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         }
     }
 
-    m_sFilterInfo = strsprintf(_T("deband: mode %d, range %d, threY %d, threCb %d, threCr %d\n")
-        _T("                       ditherY %d, ditherC %d, blurFirst %s, randEachFrame %s"),
-        pDebandParam->deband.sample, pDebandParam->deband.range,
-        pDebandParam->deband.threY, pDebandParam->deband.threCb, pDebandParam->deband.threCr,
-        pDebandParam->deband.ditherY, pDebandParam->deband.ditherC,
-        pDebandParam->deband.blurFirst ? _T("yes") : _T("no"),
-        pDebandParam->deband.randEachFrame ? _T("yes") : _T("no"));
-
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
 }
 
-RGY_ERR NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+tstring NVEncFilterParamDeband::print() const {
+    return deband.print();
+}
+
+RGY_ERR NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 
     if (pInputFrame->ptr == nullptr) {
         return RGY_ERR_NONE;

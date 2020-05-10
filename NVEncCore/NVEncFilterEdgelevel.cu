@@ -30,6 +30,7 @@
 #include <array>
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <limits>
 #include "convert_csp.h"
 #include "NVEncFilterEdgelevel.h"
 #include "NVEncParam.h"
@@ -38,6 +39,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #pragma warning (pop)
+#include "rgy_cuda_util_kernel.h"
 
 static const int EDGELEVEL_BLOCK_X = 32;
 static const int EDGELEVEL_BLOCK_Y = 16;
@@ -90,7 +92,7 @@ __global__ void kernel_edgelevel(uint8_t *__restrict__ pDst, const int dstPitch,
         }
 
         Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)(clamp(center, 0.0f, 1.0f-FLT_EPSILON) * (1 << (bit_depth)));
+        ptr[0] = (Type)(clamp(center, 0.0f, 1.0f - RGY_FLT_EPS) * (1 << (bit_depth)));
     }
 }
 
@@ -317,21 +319,22 @@ RGY_ERR NVEncFilterEdgelevel::init(shared_ptr<NVEncFilterParam> pParam, shared_p
     }
 
     auto cudaerr = AllocFrameBuf(pEdgelevelParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
     pEdgelevelParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
-    m_sFilterInfo = strsprintf(_T("edgelevel: strength %.1f, threshold %.1f, black %.1f, white %.1f"),
-        pEdgelevelParam->edgelevel.strength, pEdgelevelParam->edgelevel.threshold, pEdgelevelParam->edgelevel.black, pEdgelevelParam->edgelevel.white);
-
-    //コピーを保存
+    setFilterInfo(pParam->print());
     m_pParam = pEdgelevelParam;
     return sts;
 }
 
-RGY_ERR NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+tstring NVEncFilterParamEdgelevel::print() const {
+    return edgelevel.print();
+}
+
+RGY_ERR NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

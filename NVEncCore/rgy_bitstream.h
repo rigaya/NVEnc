@@ -69,6 +69,56 @@ enum : uint8_t {
     NALU_HEVC_SUFFIX_SEI = 40,
 };
 
+enum PayloadType {
+    BUFFERING_PERIOD                     = 0,
+    PICTURE_TIMING                       = 1,
+    PAN_SCAN_RECT                        = 2,
+    FILLER_PAYLOAD                       = 3,
+    USER_DATA_REGISTERED_ITU_T_T35       = 4,
+    USER_DATA_UNREGISTERED               = 5,
+    RECOVERY_POINT                       = 6,
+    SCENE_INFO                           = 9,
+    PICTURE_SNAPSHOT                     = 15,
+    PROGRESSIVE_REFINEMENT_SEGMENT_START = 16,
+    PROGRESSIVE_REFINEMENT_SEGMENT_END   = 17,
+    FILM_GRAIN_CHARACTERISTICS           = 19,
+    POST_FILTER_HINT                     = 22,
+    TONE_MAPPING_INFO                    = 23,
+    FRAME_PACKING                        = 45,
+    DISPLAY_ORIENTATION                  = 47,
+    GREEN_METADATA                       = 56,
+    SOP_DESCRIPTION                      = 128,
+    ACTIVE_PARAMETER_SETS                = 129,
+    DECODING_UNIT_INFO                   = 130,
+    TEMPORAL_LEVEL0_INDEX                = 131,
+    DECODED_PICTURE_HASH                 = 132,
+    SCALABLE_NESTING                     = 133,
+    REGION_REFRESH_INFO                  = 134,
+    NO_DISPLAY                           = 135,
+    TIME_CODE                            = 136,
+    MASTERING_DISPLAY_COLOUR_VOLUME      = 137,
+    SEGM_RECT_FRAME_PACKING              = 138,
+    TEMP_MOTION_CONSTRAINED_TILE_SETS    = 139,
+    CHROMA_RESAMPLING_FILTER_HINT        = 140,
+    KNEE_FUNCTION_INFO                   = 141,
+    COLOUR_REMAPPING_INFO                = 142,
+    DEINTERLACE_FIELD_IDENTIFICATION     = 143,
+    CONTENT_LIGHT_LEVEL_INFO             = 144,
+    DEPENDENT_RAP_INDICATION             = 145,
+    CODED_REGION_COMPLETION              = 146,
+    ALTERNATIVE_TRANSFER_CHARACTERISTICS = 147,
+    AMBIENT_VIEWING_ENVIRONMENT          = 148,
+    CONTENT_COLOUR_VOLUME                = 149,
+    EQUIRECTANGULAR_PROJECTION           = 150,
+    SPHERE_ROTATION                      = 154,
+    OMNI_VIEWPORT                        = 156,
+    CUBEMAP_PROJECTION                   = 151,
+    REGION_WISE_PACKING                  = 155,
+    REGIONAL_NESTING                     = 157,
+};
+
+std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len);
+
 static std::vector<nal_info> parse_nal_unit_h264(const uint8_t *data, size_t size) {
     std::vector<nal_info> nal_list;
     if (size > 3) {
@@ -127,6 +177,7 @@ static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, size_t siz
 struct HEVCHDRSeiPrm {
     int maxcll;
     int maxfall;
+    bool contentlight_set;
     int masterdisplay[10];
     bool masterdisplay_set;
 public:
@@ -140,8 +191,14 @@ private:
 public:
     HEVCHDRSei();
 
-    int parse(std::string maxcll, std::string masterdisplay);
+    void set_maxcll(int maxcll, int maxfall);
+    int parse_maxcll(std::string maxcll);
+    void set_masterdisplay(const int masterdisplay[10]);
+    int parse_masterdisplay(std::string masterdisplay);
     HEVCHDRSeiPrm getprm() const;
+    std::string print_masterdisplay() const;
+    std::string print_maxcll() const;
+    std::string print() const;
     std::vector<uint8_t> gen_nal() const;
     std::vector<uint8_t> gen_nal(HEVCHDRSeiPrm prm);
 private:

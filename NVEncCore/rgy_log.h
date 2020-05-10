@@ -31,8 +31,8 @@
 
 #include <cstdint>
 #include <string>
+#include <memory>
 #include "rgy_tchar.h"
-#include "rgy_util.h"
 
 //NVEnc.auo/QSVEnc.auoビルド時、/clrでは<thread>は使用できませんなどと出るので、
 //前方宣言で回避する
@@ -40,12 +40,22 @@ namespace std {
     class mutex;
 }
 
+enum {
+    RGY_LOG_TRACE = -3,
+    RGY_LOG_DEBUG = -2,
+    RGY_LOG_MORE  = -1,
+    RGY_LOG_INFO  = 0,
+    RGY_LOG_WARN  = 1,
+    RGY_LOG_ERROR = 2,
+    RGY_LOG_QUIET = 3,
+};
+
 class RGYLog {
 protected:
     int m_nLogLevel = RGY_LOG_INFO;
     const TCHAR *m_pStrLog = nullptr;
     bool m_bHtml = false;
-    unique_ptr<std::mutex> m_mtx;
+    std::unique_ptr<std::mutex> m_mtx;
     static const char *HTML_FOOTER;
 public:
     RGYLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO);
@@ -67,9 +77,9 @@ public:
     }
     virtual void write_log(int log_level, const TCHAR *buffer, bool file_only = false);
     virtual void write(int log_level, const TCHAR *format, ...);
-    virtual void write(int log_level, const WCHAR *format, va_list args);
-    virtual void write(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP);
-    virtual void write_line(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP);
+    virtual void write(int log_level, const wchar_t *format, va_list args);
+    virtual void write(int log_level, const char *format, va_list args, uint32_t codepage);
+    virtual void write_line(int log_level, const char *format, va_list args, uint32_t codepage);
 };
 
 #endif //__RGY_LOG_H__

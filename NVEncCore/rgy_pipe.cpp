@@ -25,6 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#include "rgy_pipe.h"
+#include "rgy_util.h"
 #if defined(_WIN32) || defined(_WIN64)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -32,8 +34,6 @@
 #include <fcntl.h>
 #include <io.h>
 #include <cstring>
-#include "rgy_pipe.h"
-#include "rgy_util.h"
 
 RGYPipeProcessWin::RGYPipeProcessWin() {
     memset(&m_pi, 0, sizeof(m_pi));
@@ -131,6 +131,31 @@ int RGYPipeProcessWin::run(const std::vector<const TCHAR *>& args, const TCHAR *
     return ret;
 }
 
+std::string RGYPipeProcessWin::getOutput(ProcessPipe *pipes) {
+    std::string outstr;
+    auto read_from_pipe = [&]() {
+        DWORD pipe_read = 0;
+        if (!PeekNamedPipe(pipes->stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
+            return -1;
+        if (pipe_read) {
+            char read_buf[1024] = { 0 };
+            ReadFile(pipes->stdOut.h_read, read_buf, sizeof(read_buf) - 1, &pipe_read, NULL);
+            outstr += read_buf;
+        }
+        return (int)pipe_read;
+    };
+
+    while (WAIT_TIMEOUT == WaitForSingleObject(m_phandle, 10)) {
+        read_from_pipe();
+    }
+    for (;;) {
+        if (read_from_pipe() <= 0) {
+            break;
+        }
+    }
+    return outstr;
+}
+
 const PROCESS_INFORMATION& RGYPipeProcessWin::getProcessInfo() {
     return m_pi;
 }
@@ -149,3 +174,13 @@ bool RGYPipeProcessWin::processAlive() {
     return WAIT_OBJECT_0 == WaitForSingleObject(m_phandle, 0);
 }
 #endif //defined(_WIN32) || defined(_WIN64)
+
+
+std::unique_ptr<RGYPipeProcess> createRGYPipeProcess() {
+#if defined(_WIN32) || defined(_WIN64)
+    auto process = std::make_unique<RGYPipeProcessWin>();
+#else
+    auto process = std::make_unique<RGYPipeProcessLinux>();
+#endif
+    return std::move(process);
+}

@@ -39,7 +39,7 @@
 #include <device_launch_parameters.h>
 #include <vector_types.h>
 #pragma warning (pop)
-#include "rgy_cuda_util.h"
+#include "rgy_cuda_util_kernel.h"
 
 #define BLOCK_INT_X  (32) //blockDim(x) = スレッド数/ブロック
 #define BLOCK_Y       (8) //blockDim(y) = スレッド数/ブロック
@@ -436,7 +436,7 @@ __global__ void kernel_afs_analyze_12(
 }
 
 template<typename Type>
-cudaError_t textureCreate(cudaTextureObject_t& tex, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, uint8_t *ptr, int pitch, int width, int height) {
+cudaError_t textureCreateAnalyze(cudaTextureObject_t& tex, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, uint8_t *ptr, int pitch, int width, int height) {
     cudaResourceDesc resDesc;
     memset(&resDesc, 0, sizeof(resDesc));
     resDesc.resType = cudaResourceTypePitch2D;
@@ -458,17 +458,28 @@ cudaError_t textureCreate(cudaTextureObject_t& tex, cudaTextureFilterMode filter
 }
 
 template<typename Type, typename Type4, int bit_depth, bool tb_order, bool yuv420>
-cudaError_t run_analyze_stripe(uint8_t *dst,
-    uint8_t *p0, uint8_t *p1,
-    const int srcWidth, const int srcPitch, const int srcHeight, const int dstPitch,
+cudaError_t run_analyze_stripe(uint8_t *dst, const int dstPitch,
+    const FrameInfo *pFrame0, const FrameInfo *pFrame1,
     CUMemBufPair *count_motion,
     const VppAfs *pAfsPrm, cudaStream_t stream) {
     auto cudaerr = cudaSuccess;
+    const auto p0Y = getPlane(pFrame0, RGY_PLANE_Y);
+    const auto p0U = getPlane(pFrame0, RGY_PLANE_U);
+    const auto p0V = getPlane(pFrame0, RGY_PLANE_V);
+    const auto p1Y = getPlane(pFrame1, RGY_PLANE_Y);
+    const auto p1U = getPlane(pFrame1, RGY_PLANE_U);
+    const auto p1V = getPlane(pFrame1, RGY_PLANE_V);
+
+    if (   p0Y.width != p1Y.width || p0Y.height != p1Y.height
+        || p0U.width != p1U.width || p0U.height != p1U.height
+        || p0V.width != p1V.width || p0V.height != p1V.height) {
+        return cudaErrorUnknown;
+    }
 
     cudaTextureObject_t texP0Y = 0;
     cudaTextureObject_t texP1Y = 0;
-    if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0Y, cudaFilterModePoint, cudaReadModeElementType, p0, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
-    if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1Y, cudaFilterModePoint, cudaReadModeElementType, p1, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
+    if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP0Y, cudaFilterModePoint, cudaReadModeElementType, p0Y.ptr, p0Y.pitch, (p0Y.width + 3) / 4, p0Y.height))) return cudaerr;
+    if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP1Y, cudaFilterModePoint, cudaReadModeElementType, p1Y.ptr, p1Y.pitch, (p1Y.width + 3) / 4, p1Y.height))) return cudaerr;
 
     cudaTextureObject_t texP0U0 = 0;
     cudaTextureObject_t texP0U1 = 0; //yuv444では使用されない
@@ -479,24 +490,24 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
     cudaTextureObject_t texP1V0 = 0;
     cudaTextureObject_t texP1V1 = 0; //yuv444では使用されない
     if (yuv420) {
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight,         srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight * 5 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight * 6 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0 + srcPitch * srcHeight * 7 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight,         srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight * 5 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight * 6 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1 + srcPitch * srcHeight * 7 / 4, srcPitch, srcWidth >> 1, srcHeight >> 2))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP0U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 0, p0U.pitch * 2, p0U.width, p0U.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP0U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0U.ptr + p0U.pitch * 1, p0U.pitch * 2, p0U.width, p0U.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP0V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 0, p0V.pitch * 2, p0V.width, p0V.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP0V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p0V.ptr + p0V.pitch * 1, p0V.pitch * 2, p0V.width, p0V.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP1U0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 0, p1U.pitch * 2, p1U.width, p1U.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP1U1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1U.ptr + p1U.pitch * 1, p1U.pitch * 2, p1U.width, p1U.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP1V0, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 0, p1V.pitch * 2, p1V.width, p1V.height >> 1))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type>(texP1V1, cudaFilterModeLinear, cudaReadModeNormalizedFloat, p1V.ptr + p1V.pitch * 1, p1V.pitch * 2, p1V.width, p1V.height >> 1))) return cudaerr;
     } else {
-        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0U0, cudaFilterModePoint, cudaReadModeElementType, p0 + srcPitch * srcHeight,     srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP0V0, cudaFilterModePoint, cudaReadModeElementType, p0 + srcPitch * srcHeight * 2, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1U0, cudaFilterModePoint, cudaReadModeElementType, p1 + srcPitch * srcHeight,     srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
-        if (cudaSuccess != (cudaerr = textureCreate<Type4>(texP1V0, cudaFilterModePoint, cudaReadModeElementType, p1 + srcPitch * srcHeight * 2, srcPitch, (srcWidth + 3) / 4, srcHeight))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP0U0, cudaFilterModePoint, cudaReadModeElementType, p0U.ptr, p0U.pitch, (p0U.width + 3) / 4, p0U.height))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP0V0, cudaFilterModePoint, cudaReadModeElementType, p0V.ptr, p0V.pitch, (p0V.width + 3) / 4, p0V.height))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP1U0, cudaFilterModePoint, cudaReadModeElementType, p1U.ptr, p1U.pitch, (p1U.width + 3) / 4, p1U.height))) return cudaerr;
+        if (cudaSuccess != (cudaerr = textureCreateAnalyze<Type4>(texP1V0, cudaFilterModePoint, cudaReadModeElementType, p1V.ptr, p1V.pitch, (p1V.width + 3) / 4, p1V.height))) return cudaerr;
     }
 
     dim3 blockSize(BLOCK_INT_X, BLOCK_Y);
     //横方向は1スレッドで4pixel処理する
-    dim3 gridSize(divCeil(srcWidth, blockSize.x * 4), divCeil(srcHeight, blockSize.y * BLOCK_LOOP_Y));
+    dim3 gridSize(divCeil(p0Y.width, blockSize.x * 4), divCeil(p0Y.height, blockSize.y * BLOCK_LOOP_Y));
 
     const uint32_t grid_count = gridSize.x * gridSize.y;
     if (count_motion->nSize < grid_count) {
@@ -508,14 +519,14 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
     }
     //opencl版を変更、横方向は1スレッドで4pixel処理するため、1/4にする必要がある
     const uint32_t scan_left   = pAfsPrm->clip.left >> 2;
-    const uint32_t scan_width  = (srcWidth - pAfsPrm->clip.left - pAfsPrm->clip.right) >> 2;
+    const uint32_t scan_width  = (p0Y.width - pAfsPrm->clip.left - pAfsPrm->clip.right) >> 2;
     const uint32_t scan_top    = pAfsPrm->clip.top;
-    const uint32_t scan_height = (srcHeight - pAfsPrm->clip.top - pAfsPrm->clip.bottom) & ~1;
+    const uint32_t scan_height = (p0Y.height - pAfsPrm->clip.top - pAfsPrm->clip.bottom) & ~1;
 
     //YC48 -> yuv420/yuv444(bit_depth)へのスケーリングのシフト値
     const int thre_rsft = 12 - (bit_depth - 8);
     //8bitなら最大127まで、16bitなら最大32627まで (bitshift等を使って比較する都合)
-    const uint32_t thre_max = (1 << (sizeof(Type) * 8 - 1)) - 1;
+    const int thre_max = (1 << (sizeof(Type) * 8 - 1)) - 1;
     //YC48 -> yuv420/yuv444(bit_depth)へのスケーリング
     uint32_t thre_shift_yuv   = (uint32_t)clamp((pAfsPrm->thre_shift   * 219 +  383)>>thre_rsft, 0, thre_max);
     uint32_t thre_deint_yuv   = (uint32_t)clamp((pAfsPrm->thre_deint   * 219 +  383)>>thre_rsft, 0, thre_max);
@@ -546,7 +557,7 @@ cudaError_t run_analyze_stripe(uint8_t *dst,
         (uint32_t *)dst, (int *)count_motion->ptrDevice,
         texP0Y, texP0U0, texP0U1, texP0V0, texP0V1,
         texP1Y, texP1U0, texP1U1, texP1V0, texP1V1,
-        divCeil(srcWidth, 4), dstPitch / sizeof(uint32_t), srcHeight,
+        divCeil(p0Y.width, 4), dstPitch / sizeof(uint32_t), p0Y.height,
         thre_Ymotion_yuv, thre_deint_yuv, thre_shift_yuv,
         thre_Cmotion_yuv, thre_Cmotion_yuvf, thre_deint_yuvf, thre_shift_yuvf,
         scan_left, scan_top, scan_width, scan_height);
@@ -594,7 +605,7 @@ cudaError_t NVEncFilterAfs::analyze_stripe(CUFrameBuf *p0, CUFrameBuf *p1, AFS_S
         return cudaErrorNotSupported;
     }
     auto cudaerr = analyze_stripe_func_list.at(pAfsParam->frameIn.csp).func[!!pAfsParam->afs.tb_order](
-        sp->map.frame.ptr, p0->frame.ptr, p1->frame.ptr, p1->frame.width, p1->frame.pitch, p1->frame.height, sp->map.frame.pitch,
+        sp->map.frame.ptr, sp->map.frame.pitch, &p0->frame, &p1->frame,
         count_motion, &pAfsParam->afs, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;

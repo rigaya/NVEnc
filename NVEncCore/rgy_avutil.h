@@ -30,6 +30,10 @@
 #define __RGY_AVUTIL_H__
 
 #include "rgy_version.h"
+#include "rgy_tchar.h"
+
+static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");
+static const TCHAR *RGY_AVCODEC_COPY = _T("copy");
 
 #if ENABLE_AVSW_READER
 #include <algorithm>
@@ -59,6 +63,7 @@ extern "C" {
 #pragma comment (lib, "avfilter.lib")
 #pragma warning (pop)
 
+#include "rgy_log.h"
 #include "rgy_util.h"
 
 #if _DEBUG
@@ -79,15 +84,15 @@ static const CodecMap HW_DECODE_LIST[] = {
     { AV_CODEC_ID_MPEG2VIDEO, RGY_CODEC_MPEG2 },
     { AV_CODEC_ID_VP8,        RGY_CODEC_VP8 },
     { AV_CODEC_ID_VP9,        RGY_CODEC_VP9 },
-    { AV_CODEC_ID_VC1,        RGY_CODEC_VC1   },
 #if ENCODER_NVENC
+    { AV_CODEC_ID_VC1,        RGY_CODEC_VC1   },
     { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
     { AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4 },
 #endif
     //{ AV_CODEC_ID_WMV3,       RGY_CODEC_VC1   },
 };
 
-static const inline AVCodecID getAVCodecId(RGY_CODEC codec) {
+static inline AVCodecID getAVCodecId(RGY_CODEC codec) {
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
         if (HW_DECODE_LIST[i].rgy_codec == codec)
             return HW_DECODE_LIST[i].avcodec_id;
@@ -103,9 +108,6 @@ static const AVPixelFormat HW_DECODE_PIXFMT_LIST[] = {
     AV_PIX_FMT_YUV420P12LE,
 #endif
 };
-
-static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");
-static const TCHAR *RGY_AVCODEC_COPY = _T("copy");
 
 static const int AVQSV_DEFAULT_AUDIO_BITRATE = 192;
 
@@ -125,6 +127,12 @@ static inline bool avcodecIsCopy(const TCHAR *codec) {
 }
 static inline bool avcodecIsAuto(const TCHAR *codec) {
     return codec != nullptr && 0 == _tcsicmp(codec, RGY_AVCODEC_AUTO);
+}
+static inline bool avcodecIsCopy(const tstring& codec) {
+    return codec.length() == 0 || avcodecIsCopy(codec.c_str());
+}
+static inline bool avcodecIsAuto(const tstring &codec) {
+    return codec.length() > 0 && avcodecIsAuto(codec.c_str());
 }
 
 //AV_LOG_TRACE    56 - RGY_LOG_TRACE -3
@@ -146,7 +154,7 @@ static tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
     return mes + tstring(_T(" for ")) + char_to_tstring(avcodec_get_name(targetCodec)) + tstring(_T(".\n"));
 };
 
-static const AVRational HW_NATIVE_TIMEBASE = { 1, HW_TIMEBASE };
+static const AVRational HW_NATIVE_TIMEBASE = { 1, (int)HW_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
     _T("avcodec-58.dll"), _T("avformat-58.dll"), _T("avutil-56.dll"), _T("avfilter-7.dll"), _T("swresample-3.dll")
 };
@@ -171,6 +179,9 @@ enum RGYAVFormatType : uint32_t {
 
 //NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
 AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct);
+
+//AVFrameの情報からRGY_PICSTRUCTを返す
+RGY_PICSTRUCT picstruct_avframe_to_rgy(const AVFrame *frame);
 
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret);

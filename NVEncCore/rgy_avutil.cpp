@@ -99,6 +99,13 @@ AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct) {
     return AV_FIELD_PROGRESSIVE;
 }
 
+RGY_PICSTRUCT picstruct_avframe_to_rgy(const AVFrame *frame) {
+    if (frame->interlaced_frame) {
+        return frame->top_field_first ? RGY_PICSTRUCT_FRAME_TFF : RGY_PICSTRUCT_FRAME_BFF;
+    }
+    return RGY_PICSTRUCT_FRAME;
+}
+
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret) {
     char mes[256];
@@ -128,8 +135,6 @@ tstring getAVCodecs(RGYAVCodecType flag) {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
-    av_register_all();
-    avcodec_register_all();
 
     struct avcodecName {
         uint32_t type;
@@ -139,8 +144,9 @@ tstring getAVCodecs(RGYAVCodecType flag) {
 
     vector<avcodecName> list;
 
-    AVCodec *codec = nullptr;
-    while (nullptr != (codec = av_codec_next(codec))) {
+    void *icodec = nullptr;
+    const AVCodec *codec = nullptr;
+    while (nullptr != (codec = av_codec_iterate(&icodec))) {
         if (codec->type == AVMEDIA_TYPE_AUDIO || codec->type == AVMEDIA_TYPE_SUBTITLE) {
             bool alreadyExists = false;
             for (uint32_t i = 0; i < list.size(); i++) {
@@ -223,8 +229,6 @@ tstring getAVFormats(RGYAVFormatType flag) {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
-    av_register_all();
-    avcodec_register_all();
 
     struct avformatName {
         uint32_t type;
@@ -235,8 +239,9 @@ tstring getAVFormats(RGYAVFormatType flag) {
     vector<avformatName> list;
 
     std::string codecstr;
-    AVInputFormat *iformat = nullptr;
-    while (nullptr != (iformat = av_iformat_next(iformat))) {
+    void *idemuxer = nullptr;
+    const AVInputFormat *iformat = nullptr;
+    while (nullptr != (iformat = av_demuxer_iterate(&idemuxer))) {
         bool alreadyExists = false;
         for (uint32_t i = 0; i < list.size(); i++) {
             if (0 == strcmp(list[i].name, iformat->name)) {
@@ -250,8 +255,9 @@ tstring getAVFormats(RGYAVFormatType flag) {
         }
     }
 
-    AVOutputFormat *oformat = nullptr;
-    while (nullptr != (oformat = av_oformat_next(oformat))) {
+    void *imuxer = nullptr;
+    const AVOutputFormat *oformat = nullptr;
+    while (nullptr != (oformat = av_muxer_iterate(&imuxer))) {
         bool alreadyExists = false;
         for (uint32_t i = 0; i < list.size(); i++) {
             if (0 == strcmp(list[i].name, oformat->name)) {
@@ -309,8 +315,6 @@ tstring getAVFilters() {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
-    av_register_all();
-    avfilter_register_all();
 
     struct avfilterName {
         int type;
@@ -320,8 +324,9 @@ tstring getAVFilters() {
 
     vector<avfilterName> list;
     {
+        void *ifilter = nullptr;
         const AVFilter *filter = nullptr;
-        while (nullptr != (filter = avfilter_next(filter))) {
+        while (nullptr != (filter = av_filter_iterate(&ifilter))) {
             list.push_back({ filter->flags, filter->name, filter->description });
         }
     }
@@ -414,8 +419,6 @@ tstring getAVProtocols() {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
-    av_register_all();
-    avcodec_register_all();
 
     const auto inputProtocols  = getAVProtocolList(0);
     const auto outputProtocols = getAVProtocolList(1);
@@ -461,7 +464,7 @@ bool usingAVProtocols(std::string filename, int bOutput) {
     const auto pos = filename.find_first_of(':');
     if (pos != std::string::npos) {
         std::string check = filename.substr(0, pos);
-        std::transform(check.begin(), check.end(), check.begin(), tolower);
+        check = tolowercase(check);
         if (std::find(protocolList.begin(), protocolList.end(), check) != protocolList.end()) {
             return true;
         }

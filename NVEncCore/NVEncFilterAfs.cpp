@@ -68,60 +68,12 @@ cudaError_t afsSourceCache::alloc(const FrameInfo& frameInfo) {
 cudaError_t afsSourceCache::add(const FrameInfo *pInputFrame, cudaStream_t stream) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
-    pDstFrame->frame.flags     = pInputFrame->flags;
-    pDstFrame->frame.picstruct = pInputFrame->picstruct;
-    pDstFrame->frame.timestamp = pInputFrame->timestamp;
-    pDstFrame->frame.duration  = pInputFrame->duration;
-
-    const auto frameOutInfoEx = getFrameInfoExtra(pInputFrame);
-    static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
-    static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-    auto cudaerr = cudaSuccess;
-    if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pInputFrame->csp) != supportedCspYV12.end()) {
-        //Y
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr, pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
-            frameOutInfoEx.width_byte, pDstFrame->frame.height, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        //Uフィールド分離
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr + pDstFrame->frame.pitch * pDstFrame->frame.height,
-            pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr + (pInputFrame->height + 0) * pInputFrame->pitch,
-            pInputFrame->pitch * 2, //偶数ラインのみ取り出し
-            frameOutInfoEx.width_byte >> 1, pDstFrame->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr + pDstFrame->frame.pitch * pDstFrame->frame.height * 5 / 4,
-            pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr + (pInputFrame->height + 1) * pInputFrame->pitch,
-            pInputFrame->pitch * 2, //奇数ラインのみ取り出し
-            frameOutInfoEx.width_byte >> 1, pDstFrame->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        //Vフィールド分離
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr + pDstFrame->frame.pitch * pDstFrame->frame.height * 6 / 4,
-            pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr + (pInputFrame->height * 3 / 2 + 0) * pInputFrame->pitch,
-            pInputFrame->pitch * 2, //偶数ラインのみ取り出し
-            frameOutInfoEx.width_byte >> 1, pDstFrame->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr + pDstFrame->frame.pitch * pDstFrame->frame.height * 7 / 4,
-            pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr + (pInputFrame->height * 3 / 2 + 1) * pInputFrame->pitch,
-            pInputFrame->pitch * 2, //奇数ラインのみ取り出し
-            frameOutInfoEx.width_byte >> 1, pDstFrame->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-    } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), pInputFrame->csp) != supportedCspYUV444.end()) {
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pDstFrame->frame.ptr, pDstFrame->frame.pitch,
-            (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
-            frameOutInfoEx.width_byte, frameOutInfoEx.height_total, cudaMemcpyDeviceToDevice, stream);
-    } else {
-        cudaerr = cudaErrorNotSupported;
-    }
-    return cudaerr;
+    pDstFrame->frame.flags        = pInputFrame->flags;
+    pDstFrame->frame.picstruct    = pInputFrame->picstruct;
+    pDstFrame->frame.timestamp    = pInputFrame->timestamp;
+    pDstFrame->frame.duration     = pInputFrame->duration;
+    pDstFrame->frame.inputFrameId = pInputFrame->inputFrameId;
+    return copyFrameAsync(&pDstFrame->frame, pInputFrame, stream);;
 }
 
 void afsSourceCache::clear() {
@@ -316,7 +268,7 @@ void afsStreamStatus::write_log(const afsFrameTs *const frameTs) {
         (((m_prev_status & AFS_FLAG_PROGRESSIVE) ? 0 : m_prev_status) & AFS_FLAG_SHIFT1) ? "1" : "-",
         (((m_prev_status & AFS_FLAG_PROGRESSIVE) ? 0 : m_prev_status) & AFS_FLAG_SHIFT2) ? "2" : "-",
         (((m_prev_status & AFS_FLAG_PROGRESSIVE) ? 0 : m_prev_status) & AFS_FLAG_SHIFT3) ? "3" : "-",
-        frameTs->pos, frameTs->orig_pts,
+        (long long int)frameTs->pos, (long long int)frameTs->orig_pts,
         m_quarter_jitter, m_prev_jitter, m_position24, m_phase24, m_prev_rff_smooth);
     return;
 }
@@ -549,12 +501,12 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         return RGY_ERR_INVALID_PARAM;
     }
     //パラメータチェック
-    if (check_param(pAfsParam) != NV_ENC_SUCCESS) {
+    if (check_param(pAfsParam) != RGY_ERR_NONE) {
         return RGY_ERR_INVALID_PARAM;
     }
 
     auto cudaerr = AllocFrameBuf(pAfsParam->frameOut, 1);
-    if (cudaerr != CUDA_SUCCESS) {
+    if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -562,21 +514,21 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, pitch %d, %s.\n"),
         m_pFrameBuf[0]->frame.width, m_pFrameBuf[0]->frame.height, m_pFrameBuf[0]->frame.pitch, RGY_CSP_NAMES[m_pFrameBuf[0]->frame.csp]);
 
-    if (CUDA_SUCCESS != (cudaerr = m_source.alloc(pAfsParam->frameOut))) {
+    if (cudaSuccess != (cudaerr = m_source.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated source buffer: %dx%d, pitch %d, %s.\n"),
         m_source.get(0)->frame.width, m_source.get(0)->frame.height, m_source.get(0)->frame.pitch, RGY_CSP_NAMES[m_source.get(0)->frame.csp]);
 
-    if (CUDA_SUCCESS != (cudaerr = m_scan.alloc(pAfsParam->frameOut))) {
+    if (cudaSuccess != (cudaerr = m_scan.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated scan buffer: %dx%d, pitch %d, %s.\n"),
         m_scan.get(0)->map.frame.width, m_scan.get(0)->map.frame.height, m_scan.get(0)->map.frame.pitch, RGY_CSP_NAMES[m_scan.get(0)->map.frame.csp]);
 
-    if (CUDA_SUCCESS != (cudaerr = m_stripe.alloc(pAfsParam->frameOut))) {
+    if (cudaSuccess != (cudaerr = m_stripe.alloc(pAfsParam->frameOut))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -584,13 +536,13 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         m_stripe.get(0)->map.frame.width, m_stripe.get(0)->map.frame.height, m_stripe.get(0)->map.frame.pitch, RGY_CSP_NAMES[m_stripe.get(0)->map.frame.csp]);
 
     m_streamAnalyze = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-    if (CUDA_SUCCESS != (cudaerr = cudaStreamCreateWithFlags(m_streamAnalyze.get(), cudaStreamNonBlocking))) {
+    if (cudaSuccess != (cudaerr = cudaStreamCreateWithFlags(m_streamAnalyze.get(), cudaStreamNonBlocking))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
 
     m_streamCopy = std::unique_ptr<cudaStream_t, cudastream_deleter>(new cudaStream_t(), cudastream_deleter());
-    if (CUDA_SUCCESS != (cudaerr = cudaStreamCreateWithFlags(m_streamCopy.get(), cudaStreamNonBlocking))) {
+    if (cudaSuccess != (cudaerr = cudaStreamCreateWithFlags(m_streamCopy.get(), cudaStreamNonBlocking))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaStreamCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
@@ -598,19 +550,19 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     const uint32_t cudaEventFlags = (pAfsParam->cudaSchedule & CU_CTX_SCHED_BLOCKING_SYNC) ? cudaEventBlockingSync : 0;
 
     m_eventSrcAdd = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-    if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventSrcAdd.get(), cudaEventFlags | cudaEventDisableTiming))) {
+    if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventSrcAdd.get(), cudaEventFlags | cudaEventDisableTiming))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
 
     m_eventScanFrame = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-    if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventScanFrame.get(), cudaEventFlags | cudaEventDisableTiming))) {
+    if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventScanFrame.get(), cudaEventFlags | cudaEventDisableTiming))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
 
     m_eventMergeScan = std::unique_ptr<cudaEvent_t, cudaevent_deleter>(new cudaEvent_t(), cudaevent_deleter());
-    if (CUDA_SUCCESS != (cudaerr = cudaEventCreateWithFlags(m_eventMergeScan.get(), cudaEventFlags | cudaEventDisableTiming))) {
+    if (cudaSuccess != (cudaerr = cudaEventCreateWithFlags(m_eventMergeScan.get(), cudaEventFlags | cudaEventDisableTiming))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to cudaEventCreateWithFlags: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
         return RGY_ERR_CUDA;
     }
@@ -643,20 +595,13 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_DEBUG, _T("opened afs log file \"%s\".\n"), log_filename.c_str());
     }
 
-#define ON_OFF(b) ((b) ? _T("on") : _T("off"))
-    m_sFilterInfo = strsprintf(
-        _T("afs: clip(T %d, B %d, L %d, R %d), switch %d, coeff_shift %d\n")
-        _T("                    thre(shift %d, deint %d, Ymotion %d, Cmotion %d)\n")
-        _T("                    level %d, shift %s, drop %s, smooth %s, force24 %s\n")
-        _T("                    tune %s, tb_order %d(%s), rff %s, timecode %s, log %s"),
-        pAfsParam->afs.clip.top, pAfsParam->afs.clip.bottom , pAfsParam->afs.clip.left, pAfsParam->afs.clip.right,
-        pAfsParam->afs.method_switch, pAfsParam->afs.coeff_shift,
-        pAfsParam->afs.thre_shift, pAfsParam->afs.thre_deint, pAfsParam->afs.thre_Ymotion, pAfsParam->afs.thre_Cmotion,
-        pAfsParam->afs.analyze, ON_OFF(pAfsParam->afs.shift), ON_OFF(pAfsParam->afs.drop), ON_OFF(pAfsParam->afs.smooth), ON_OFF(pAfsParam->afs.force24),
-        ON_OFF(pAfsParam->afs.tune), pAfsParam->afs.tb_order, pAfsParam->afs.tb_order ? _T("tff") : _T("bff"), ON_OFF(pAfsParam->afs.rff), ON_OFF(pAfsParam->afs.timecode), ON_OFF(pAfsParam->afs.log));
-#undef ON_OFF
+    setFilterInfo(pParam->print());
     m_pParam = pParam;
     return sts;
+}
+
+tstring NVEncFilterParamAfs::print() const {
+    return afs.print();
 }
 
 bool NVEncFilterAfs::scan_frame_result_cached(int frame, const VppAfs *pAfsPrm) {
@@ -942,7 +887,7 @@ cudaError_t NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs 
     return cudaSuccess;
 }
 
-RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     auto pAfsParam = std::dynamic_pointer_cast<NVEncFilterParamAfs>(m_pParam);
@@ -1074,7 +1019,7 @@ RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
             get_stripe_info(m_nFrame, 1, pAfsParam.get());
             cudaError_t cudaerr = cudaSuccess;
             auto sip_filtered = m_stripe.filter(m_nFrame, pAfsParam->afs.analyze, cudaStreamDefault, &cudaerr);
-            if (sip_filtered == nullptr || cudaerr != CUDA_SUCCESS) {
+            if (sip_filtered == nullptr || cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("failed m_stripe.filter(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                 return RGY_ERR_INVALID_CALL;
             }
@@ -1082,7 +1027,7 @@ RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
             if (interlaced(m_source.get(m_nFrame)->frame) || pAfsParam->afs.tune) {
                 cudaerr = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, pAfsParam.get(), cudaStreamDefault);
             } else {
-                cudaerr = copy_frame(pOutFrame, m_source.get(m_nFrame), cudaStreamDefault);
+                cudaerr = copyFrameAsync(&pOutFrame->frame, &m_source.get(m_nFrame)->frame, cudaStreamDefault);
             }
             if (cudaerr != cudaSuccess) {
                 AddMessage(RGY_LOG_ERROR, _T("error on synthesize(m_nFrame=%d, iframe=%d): %s.\n"), m_nFrame, iframe - (5+preread_len), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
@@ -1097,58 +1042,6 @@ RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         ppOutputFrames[0] = nullptr;
     }
     return sts;
-}
-
-cudaError_t NVEncFilterAfs::copy_frame(CUFrameBuf *pOut, CUFrameBuf *p0, cudaStream_t stream) {
-    const auto frameOutInfoEx = getFrameInfoExtra(&p0->frame);
-    static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
-    static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-    auto cudaerr = cudaSuccess;
-    if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), p0->frame.csp) != supportedCspYV12.end()) {
-        //Y
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr, pOut->frame.pitch,
-            (uint8_t *)p0->frame.ptr, p0->frame.pitch,
-            frameOutInfoEx.width_byte, pOut->frame.height, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        //Uフィールド
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height + 0),
-            pOut->frame.pitch * 2, //偶数ラインの展開
-            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height,
-            p0->frame.pitch,
-            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height + 1),
-            pOut->frame.pitch * 2, //奇数ラインの展開
-            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height * 5 / 4,
-            p0->frame.pitch,
-            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        //Vフィールド
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height * 3 / 2 + 0),
-            pOut->frame.pitch * 2, //偶数ラインの展開
-            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height * 6 / 4,
-            p0->frame.pitch,
-            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr + pOut->frame.pitch * (pOut->frame.height * 3 / 2 + 1),
-            pOut->frame.pitch * 2, //奇数ラインの展開
-            (uint8_t *)p0->frame.ptr + p0->frame.pitch * p0->frame.height * 7 / 4,
-            p0->frame.pitch,
-            frameOutInfoEx.width_byte >> 1, pOut->frame.height >> 2, cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) return cudaerr;
-
-    } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), p0->frame.csp) != supportedCspYUV444.end()) {
-        cudaerr = cudaMemcpy2DAsync((uint8_t *)pOut->frame.ptr, pOut->frame.pitch,
-            (uint8_t *)p0->frame.ptr, p0->frame.pitch,
-            frameOutInfoEx.width_byte, frameOutInfoEx.height_total, cudaMemcpyDeviceToDevice, stream);
-    } else {
-        cudaerr = cudaErrorNotSupported;
-    }
-    return cudaerr;
 }
 
 int NVEncFilterAfs::open_timecode(tstring tc_filename) {
@@ -1189,7 +1082,7 @@ static inline BOOL is_latter_field(int pos_y, int tb_order) {
 }
 
 static void afs_get_stripe_count_simd(int *stripe_count, const uint8_t *ptr, const AFS_SCAN_CLIP *clip, int pitch, int scan_w, int scan_h, int tb_order) {
-    static const _declspec(align(16)) BYTE STRIPE_COUNT_CHECK_MASK[][16] = {
+    static const uint8_t STRIPE_COUNT_CHECK_MASK[][16] = {
         { 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50 },
         { 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60 },
     };
@@ -1200,7 +1093,7 @@ static void afs_get_stripe_count_simd(int *stripe_count, const uint8_t *ptr, con
     for (int pos_y = clip->top; pos_y < y_fin; pos_y++) {
         const uint8_t *sip = ptr + pos_y * pitch + clip->left;
         const int first_field_flag = !is_latter_field(pos_y, tb_order);
-        xMask = _mm_load_si128((const __m128i*)STRIPE_COUNT_CHECK_MASK[first_field_flag]);
+        xMask = _mm_loadu_si128((const __m128i*)STRIPE_COUNT_CHECK_MASK[first_field_flag]);
         const int x_count = scan_w - clip->right - clip->left;
         const uint8_t *sip_fin = sip + (x_count & ~31);
         for (; sip < sip_fin; sip += 32) {

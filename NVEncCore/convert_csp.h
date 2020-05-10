@@ -29,12 +29,31 @@
 #define _CONVERT_CSP_H_
 
 #include <cstdint>
+#include <vector>
+#include <memory>
 #include "rgy_tchar.h"
+
+#if defined(_MSC_VER)
+#ifndef RGY_FORCEINLINE
+#define RGY_FORCEINLINE __forceinline
+#endif
+#ifndef RGY_NOINLINE
+#define RGY_NOINLINE __declspec(noinline)
+#endif
+#else
+#ifndef RGY_FORCEINLINE
+#define RGY_FORCEINLINE inline
+#endif
+#ifndef RGY_NOINLINE
+#define RGY_NOINLINE __attribute__ ((noinline))
+#endif
+#endif
 
 enum RGY_PLANE {
     RGY_PLANE_Y,
     RGY_PLANE_R = RGY_PLANE_Y,
-    RGY_PLANE_U,
+    RGY_PLANE_C,
+    RGY_PLANE_U = RGY_PLANE_C,
     RGY_PLANE_G = RGY_PLANE_U,
     RGY_PLANE_V,
     RGY_PLANE_B = RGY_PLANE_V,
@@ -68,6 +87,8 @@ enum RGY_CSP {
     RGY_CSP_YUV444_12,
     RGY_CSP_YUV444_14,
     RGY_CSP_YUV444_16,
+    RGY_CSP_YUVA444,
+    RGY_CSP_YUVA444_16,
     RGY_CSP_RGB24R, //packed
     RGY_CSP_RGB32R, //packed
     RGY_CSP_RGB24, //packed
@@ -108,6 +129,8 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yuv444(12bit)"),
     _T("yuv444(14bit)"),
     _T("yuv444(16bit)"),
+    _T("yuva444"),
+    _T("yuva444(16bit)"),
     _T("rgb24r"),
     _T("rgb32r"),
     _T("rgb24"),
@@ -148,6 +171,8 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     12,
     14,
     16, //RGY_CSP_YUV444_16
+     8, //RGY_CSP_YUVA444
+    16, //RGY_CSP_YUVA444_16
      8, //RGY_CSP_RGB24R
      8, //RGY_CSP_RGB32R
      8, //RGY_CSP_RGB24
@@ -163,12 +188,55 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     16, //RGY_CSP_Y16
 };
 
+static const uint8_t RGY_CSP_PLANES[] = {
+     0, //RGY_CSP_NA
+     2, //RGY_CSP_NV12
+     3, //RGY_CSP_YV12
+     1, //RGY_CSP_YUY2
+     3, //RGY_CSP_YUV422
+     2, //RGY_CSP_NV16
+     3, //RGY_CSP_YUV444
+     3, //RGY_CSP_YV12_09
+     3,
+     3,
+     3,
+     3, //RGY_CSP_YV12_16
+     2, //RGY_CSP_P010
+     3, //RGY_CSP_YUV422_09
+     3,
+     3,
+     3,
+     3, //RGY_CSP_YUV422_16
+     2, //RGY_CSP_P210
+     3, //RGY_CSP_YUV444_09
+     3,
+     3,
+     3,
+     3, //RGY_CSP_YUV444_16
+     4, //RGY_CSP_YUVA444
+     4, //RGY_CSP_YUVA444_16
+     1, //RGY_CSP_RGB24R
+     1, //RGY_CSP_RGB32R
+     1, //RGY_CSP_RGB24
+     1, //RGY_CSP_RGB32
+     1, //RGY_CSP_BGR24
+     1, //RGY_CSP_BGR32
+     3, //RGY_CSP_RGB
+     3, //RGY_CSP_RGBA
+     3, //RGY_CSP_GBR
+     3, //RGY_CSP_GBRA
+     1, //RGY_CSP_YC48
+     1, //RGY_CSP_Y8
+     1, //RGY_CSP_Y16
+};
+
 enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_UNKNOWN = 0,
     RGY_CHROMAFMT_MONOCHROME = 0,
     RGY_CHROMAFMT_YUV420,
     RGY_CHROMAFMT_YUV422,
     RGY_CHROMAFMT_YUV444,
+    RGY_CHROMAFMT_YUVA444,
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB,
 };
@@ -198,6 +266,8 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_16
+    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444
+    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444_16
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB_PACKED,
@@ -238,6 +308,8 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     48,
     48,
     48, //RGY_CSP_YUV444_16
+    32, //RGY_CSP_YUVA444
+    64, //RGY_CSP_YUVA444_16
     24, //RGY_CSP_RGB24R
     24, //RGY_CSP_RGB32R
     24, //RGY_CSP_RGB24
@@ -264,6 +336,7 @@ enum RGY_PICSTRUCT : uint32_t {
     RGY_PICSTRUCT_FRAME_BFF    = 0x00 | RGY_PICSTRUCT_BFF | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (BFF)
     RGY_PICSTRUCT_FIELD_TOP    = 0x00 | RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_FIELD, //フィールドとして符号化されている (Topフィールド)
     RGY_PICSTRUCT_FIELD_BOTTOM = 0x00 | RGY_PICSTRUCT_BFF | RGY_PICSTRUCT_FIELD, //フィールドとして符号化されている (Bottomフィールド)
+    RGY_PICSTRUCT_AUTO         = 0xffffffff,
 };
 
 static RGY_PICSTRUCT operator|(RGY_PICSTRUCT a, RGY_PICSTRUCT b) {
@@ -283,6 +356,8 @@ static RGY_PICSTRUCT operator&=(RGY_PICSTRUCT& a, RGY_PICSTRUCT b) {
     a = (RGY_PICSTRUCT)((uint8_t)a & (uint8_t)b);
     return a;
 }
+
+const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct);
 
 typedef struct ConvertCSP {
     RGY_CSP csp_from, csp_to;
@@ -324,6 +399,8 @@ static RGY_FRAME_FLAGS operator~(RGY_FRAME_FLAGS a) {
     return (RGY_FRAME_FLAGS)(~((uint64_t)a));
 }
 
+class RGYFrameData;
+
 struct FrameInfo {
     uint8_t *ptr;
     RGY_CSP csp;
@@ -333,6 +410,22 @@ struct FrameInfo {
     bool deivce_mem;
     RGY_PICSTRUCT picstruct;
     RGY_FRAME_FLAGS flags;
+    int inputFrameId;
+    std::vector<std::shared_ptr<RGYFrameData>> dataList;
+
+    FrameInfo() :
+        ptr(nullptr),
+        csp(RGY_CSP_NA),
+        width(0),
+        height(0),
+        pitch(0),
+        timestamp(0),
+        duration(0),
+        deivce_mem(false),
+        picstruct(RGY_PICSTRUCT_UNKNOWN),
+        flags(RGY_FRAME_FLAG_NONE),
+        inputFrameId(-1),
+        dataList() {};
 };
 
 static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) {
@@ -341,6 +434,16 @@ static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) 
         || pA->height != pB->height
         || pA->deivce_mem != pB->deivce_mem
         || pA->pitch != pB->pitch;
+}
+
+static void copyFrameProp(FrameInfo *dst, const FrameInfo *src) {
+    dst->width = src->width;
+    dst->height = src->height;
+    dst->csp = src->csp;
+    dst->picstruct = src->picstruct;
+    dst->timestamp = src->timestamp;
+    dst->duration = src->duration;
+    dst->flags = src->flags;
 }
 
 struct FrameInfoExtra {
@@ -355,6 +458,55 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
 
 FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane);
 
+#pragma warning(push)
+#pragma warning(disable: 4201)
+typedef union sInputCrop {
+    struct {
+        int left, up, right, bottom;
+    } e;
+    int c[4];
+} sInputCrop;
+#pragma warning(pop)
+
+static inline bool cropEnabled(const sInputCrop &crop) {
+    return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
+}
+
+static inline sInputCrop initCrop() {
+    sInputCrop crop;
+    for (int i = 0; i < 4; i++) {
+        crop.c[i] = 0;
+    }
+    return crop;
+}
+
+static sInputCrop getPlane(const sInputCrop *crop, const RGY_CSP csp, const RGY_PLANE plane) {
+    sInputCrop planeCrop = *crop;
+    if (plane == RGY_PLANE_Y
+        || csp == RGY_CSP_YUY2
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB_PACKED
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV444
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_MONOCHROME) {
+        return planeCrop;
+    }
+    if (csp == RGY_CSP_NV12 || csp == RGY_CSP_P010) {
+        planeCrop.e.up >>= 1;
+        planeCrop.e.bottom >>= 1;
+    } else if (csp == RGY_CSP_NV16 || csp == RGY_CSP_P210) {
+        ;
+    } else if (RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420) {
+        planeCrop.e.up >>= 1;
+        planeCrop.e.bottom >>= 1;
+        planeCrop.e.left >>= 1;
+        planeCrop.e.right >>= 1;
+    } else if (RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV422) {
+        planeCrop.e.left >>= 1;
+        planeCrop.e.right >>= 1;
+    }
+    return planeCrop;
+}
+
 struct THREAD_Y_RANGE {
     int start_src;
     int start_dst;
@@ -366,8 +518,8 @@ static inline THREAD_Y_RANGE thread_y_range(int y_start, int y_end, int thread_i
     THREAD_Y_RANGE y_range;
     int y0 = ((((h *  thread_id)    / thread_n) + 3) & ~3);
     int y1 = ((((h * (thread_id+1)) / thread_n) + 3) & ~3);
-    if (y1 > y_end) {
-        y1 = y_end;
+    if (y1 > h) {
+        y1 = h;
     }
     y_range.start_src = y_start + y0;
     y_range.start_dst = y0;

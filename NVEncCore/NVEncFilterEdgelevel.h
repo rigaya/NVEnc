@@ -35,7 +35,9 @@ class NVEncFilterParamEdgelevel : public NVEncFilterParam {
 public:
     VppEdgelevel edgelevel;
 
+    NVEncFilterParamEdgelevel() : edgelevel() {};
     virtual ~NVEncFilterParamEdgelevel() {};
+    virtual tstring print() const override;
 };
 
 class NVEncFilterEdgelevel : public NVEncFilter {
@@ -44,6 +46,6 @@ public:
     virtual ~NVEncFilterEdgelevel();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) override;
+    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 };
