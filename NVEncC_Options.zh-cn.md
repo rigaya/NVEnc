@@ -175,16 +175,18 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 | 读取器 | yuv420 | yuy2 | yuv422 | yuv444 | rgb24 | rgb32 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| raw | ○ |  |  |  |  |  |
-| y4m | ◎ |  | ◎ | ◎ |  |  |
-| avi | ○ | ○ |  |  | ○ | ○ |
-| avs | ◎ | ○ | ◎ | ◎ |  |  |
-| vpy | ◎ |  | ◎ | ◎ |  |  |
-| avhw | ◎ |  |  |  |  |  |
-| avsw | ◎ |  | ◎ | ◎ | ○ | ○ |
+| raw    |   ○   |      |        |        |       |       |
+| y4m    |   ◎   |      |   ◎   |   ◎   |       |       |
+| avi    |   ○   |  ○  |        |        |   ○  |   ○  |
+| avs    |   ◎   |  ○  |   ◎   |   ◎   |   ○  |   ○  |
+| vpy    |   ◎   |      |   ◎   |   ◎   |       |       |
+| avhw   |   □   |      |        |   ◇   |       |       |
+| avsw   |   ◎   |      |   ◎   |   ◎   |   ○  |   ○  |
 
 ◎ ... 支持 8bit / 9bit / 10bit / 12bit / 14bit / 16bit   
-○ ... 仅支持 8 bits
+◇ ... 支持 8bit / 10bit / 12bit   
+□ ... 支持 8bit / 10bit   
+○ ... 仅支持 8 bits   
 
 ### --raw
 
@@ -240,6 +242,7 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 - none ... 逐行扫描
 - tff ... 上场优先
 - bff ... 下场优先
+- auto ... 根据各帧自动判断 (仅使用[avhw](#--avhw)/[avsw](#--avsw)时有效)
 
 ### --video-track &lt;int&gt;
 
@@ -270,6 +273,12 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 未指定时将会与输入分辨率相同（不缩放）。
 
+_使用特殊值_
+
+- 0 ... 与输入保持一致
+- 宽高其中一个为负值   
+  调整尺寸以适合另一侧，同时保持长宽比。将会选择一个能被该负数整除的值。
+
 
 ## 编码模式选项
 
@@ -287,6 +296,8 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 ### --vbrhq &lt;int&gt;
 
 设置码率，单位kbps。
+
+若要使用固定质量模式，可以使用`--vbrhq 0 --vbr-quality <float>`。
 
 ## Other Options for Encoder
 
@@ -324,6 +335,31 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 当使用 VBR 模式时设置输出质量。 (0.0-51.0, 0 = 自动)
 
+### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
+改变"开始帧编号:结束帧编号"之间使用的码率控制方法。可以指定的参数有码率控制方法、最大码率和目标质量（vbr-quality）。
+
+**必要参数**   
+必须指定以下参数之一。
+- [cqp](./NVEncC_Options.zh-cn.md#--cqp-int-or-intintint%E5%9B%BA%E5%AE%9A%E9%87%8F%E5%AD%90%E5%8C%96%E9%87%8F)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+- [cbr](./NVEncC_Options.zh-cn.md#--cbr-int---%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+- [cbrhq](./NVEncC_Options.zh-cn.md#--cbrhq-int-%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88-%E9%AB%98%E5%93%81%E8%B3%AA)=&lt;int&gt;  
+- [vbr](./NVEncC_Options.zh-cn.md#--vbr-int---%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+- [vbrhq](./NVEncC_Options.zh-cn.md#--vbrhq-int-%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88-%E9%AB%98%E5%93%81%E8%B3%AA)=&lt;int&gt;  
+
+**追加参数**
+- [max-bitrate](./NVEncC_Options.zh-cn.md#--max-bitrate-int)=&lt;int&gt;  
+- [vbr-quality](./NVEncC_Options.zh-cn.md#--vbr-quality-float)=&lt;float&gt;  
+
+```
+例1: 3000-3999 帧使用vbrhq模式12000kbps编码、
+     5000-5999 帧使用固定质量29.0编码、
+     其他部分使用固定质量25.0编码。
+  --vbrhq 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbrhq=12000 --dynamic-rc 5000:5999,vbrhq=0,vbr-quality=29.0
+例2: 3000 帧之前使用vbrhq模式6000kbps编码、
+     3000 帧之后使用vbrhq模式12000kbps编码。
+  --vbrhq 6000 --dynamic-rc start=3000,vbrhq=12000
+```
+
 ### --lookahead &lt;int&gt;
 
 使用 lookahead 并指定其目标范围的帧数。 (0 - 32) 
@@ -351,13 +387,23 @@ nvidia-smi 通常与驱动一起安装在 "C:\Program Files\NVIDIA Corporation\N
 
 设置连续 B 帧数量。
 
-### --ref &lt;int&gt;
+### --ref &lt;int&gt;[,L0=&lt;int&gt;][,L1=&lt;int&gt;]
 
-设置参考距离。在硬件编码中，增加参考帧将会对画面质量和压缩率产生微小的影响。
+设置参考距离。（最大16）
+
+此外，也可以设置多参考的最大帧数量。（最大7）
+
+```
+例1: --ref 4
+例2: --ref 8,L0=5,L1=4
+```
 
 ### --weightp
 
 启用带权 P 帧。
+
+### --nonrefp
+自动插入 non-reference P 帧。
 
 ### --aq
 
@@ -438,45 +484,71 @@ hevc:  main, high
 
 以全范围 YUV 编码.
 
-### --videoformat &lt;string&gt;
+### --colorrange &lt;string&gt;   
+"--colorrange full"与"--fullrange"相同。   
+指定为"auto"时、与输入文件保持一致。(仅当使用[avhw](#--avhw)/[avsw](#--avsw)时有效)
 ```
-  undef, ntsc, component, pal, secam, mac
+  limited, full, auto
 ```
-### --colormatrix &lt;string&gt;
+
+### --videoformat &lt;string&gt;   
+指定为"auto"时、与输入文件保持一致。(仅当使用[avhw](#--avhw)/[avsw](#--avsw)时有效)
 ```
-  undef, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+  undef, auto, ntsc, component, pal, secam, mac
 ```
-### --colorprim &lt;string&gt;
+### --colormatrix &lt;string&gt;   
+指定为"auto"时、与输入文件保持一致。(仅当使用[avhw](#--avhw)/[avsw](#--avsw)时有效)
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+  undef, auto, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
 ```
-### --transfer &lt;string&gt;
+### --colorprim &lt;string&gt;   
+指定为"auto"时、与输入文件保持一致。(仅当使用[avhw](#--avhw)/[avsw](#--avsw)时有效)
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+```
+### --transfer &lt;string&gt;   
+指定为"auto"时、与输入文件保持一致。(仅当使用[avhw](#--avhw)/[avsw](#--avsw)时有效)
+```
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```
 
-### --chromaloc &lt;int&gt;
+### --chromaloc &lt;int&gt; 或 "auto"
+指定为"auto"时、与输入文件保持一致。(仅当使用[avhw](#--avhw)/[avsw](#--avsw)时有效)
 
 为输出流设置色度位置标志（Chroma Location Flag），从0到5。
  
 默认: 0 = 未指定
 
-### --max-cll &lt;int&gt;,&lt;int&gt; [仅在 HEVC 下有效]
+### --max-cll &lt;int&gt;,&lt;int&gt; 或 "auto" [仅在 HEVC 下有效]
 
-设置 MaxCLL and MaxFall，单位nits。
+设置 MaxCLL 和 MaxFall，单位nits。如设定为copy则与输入文件保持一致。
 
 ```
---max-cll 1000,300
+示例：--max-cll 1000,300
 ```
 
-### --master-display &lt;string&gt; [仅在 HEVC 下有效]
+### --master-display &lt;string&gt; 或 "auto" [仅在 HEVC 下有效]
 
-设置 Mastering display 数据。
+设置 Mastering display 数据。如设定为copy则与输入文件保持一致。
 ```
-示例: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+例1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+例2: --master-display copy # 从输入文件复制
 ```
+
+### --dhdr10-info &lt;string&gt; [仅在 HEVC 下有效]
+从指定JSON文件导入HDR10+的动态范围信息。额外依赖[hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen)。
+
+### --dhdr10-info copy [仅在 HEVC 下有效, 试验性功能]   
+从输入文件负值HDR10+的动态范围信息。
+
+使用 avhw 读取文件时，需要使用时间戳对帧进行排序，因此无法取得时间戳的raw ES等输入文件无法使用。
+
+这种情况下请使用 avsw 读取文件。
+
+### --aud
+插入Access Unit Delimiter NAL。
 
 ### --pic-struct
 插入 Picture Timing SEI。
@@ -503,6 +575,12 @@ Bluray输出。（默认：关）
 设置最大和最小编码单元（Coding Unit, CU）大小。可以设置8、16、32。
 
 **由于已知这些设置会降低画面质量，不推荐使用这些设置**
+
+### --ssim  
+计算编码结果的SSIM。
+
+### --psnr   
+计算编码结果的PSNR。
 
 ## 输入输出 / 音频 / 字幕设置 
 
@@ -670,6 +748,9 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 - swr ... swresampler (默认)
 - soxr ... sox resampler (libsoxr)
 
+### --audio-delay [&lt;int&gt;?]&lt;int&gt;   
+设置音频延迟，单位ms。
+
 ### --audio-file [&lt;int&gt;?][&lt;string&gt;]&lt;string&gt;
 
 把音频轨抽取到指定的路径。输出格式由输出文件后缀名自动确定。仅当使用 avhw / avsw 读取器时有效。
@@ -711,13 +792,42 @@ Example2: 任何解码错误后退出转码
 --audio-ignore-decode-error 0
 ```
 
-### --audio-source &lt;string&gt;
+### --audio-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
 
 混流指定的外部音频文件。
 
+**参数**
+
+- copy  
+  直接复制音频轨。
+
+- codec=&lt;string&gt;  
+  使用指定编码器编码音频轨。
+
+- profile=&lt;string&gt;  
+  指定编码音频时使用的profile。
+
+- bitrate=&lt;int&gt;  
+  指定音频编码时使用的码率，单位kbps。
+
+- samplerate=&lt;int&gt;  
+  指定音频编码时使用的采样率，单位Hz。
+
+- enc_prm=&lt;string&gt;  
+  指定音频编码参数。
+
+- filter=&lt;string&gt;  
+  指定音频编码滤镜。
+
+```
+例1: --audio-source "<audio_file>":copy
+例2: --audio-source "<audio_file>":codec=aac
+例3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
+```
+
 ### --chapter &lt;string&gt;
 
-使用章节文件设置章节信息。章节文件可以是 nero 或者 apple 格式。在 --chapter-copy 应用的情况下无法使用。
+使用章节文件设置章节信息。章节文件可以是 nero、apple 或 matroska 格式。无法与 --chapter-copy 同时使用。
 
 
 nero格式
@@ -745,6 +855,42 @@ apple格式 (utf-8)
 </TextStream>
 ```
 
+matroska格式 (utf-8)
+
+[其他例子](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<Chapters>
+  <EditionEntry>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-0</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-1</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-2</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
+      <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
+      <ChapterDisplay>
+        <ChapterString>chapter-3</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+  </EditionEntry>
+</Chapters>
+```
+
 ### --chapter-copy
 
 从输入文件复制章节信息。
@@ -756,6 +902,9 @@ apple格式 (utf-8)
 ### --keyfile &lt;string&gt;
 
 由文件指定关键帧位置（从0,1,2,...起）。文件应一行一个帧序号。
+
+### --sub-source &lt;string&gt;   
+读取指定字幕文件并混流。
 
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 
@@ -780,6 +929,20 @@ apple格式 (utf-8)
 - ass (默认)
 - srt
 
+### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]   
+复制 Data 流，使用avhw/avsw时有效。
+
+### --attachment-copy [&lt;int&gt;[,&lt;int&gt;]...]   
+复制输入文件的附加文件流，使用avhw/avsw时有效。
+
+### --input-option &lt;string1&gt;:&lt;string2&gt;   
+使用 avsw/avhw 读取视频时透传的参数。&lt;string1&gt;为参数名，&lt;string2&gt;为参数值。
+
+```
+示例: 读取BD的Playlist 1
+-i bluray:D:\ --input-option palylist:1
+```
+
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 
 为混流器传递附加参数。用&lt;string1&gt;指定参数名，用&lt;string2&gt;指定参数值。
@@ -794,10 +957,10 @@ apple格式 (utf-8)
     输入文件将会被认为是固定帧率，输入的PTS（Presentation Time Stamp）将不会被检查。
 
   - forcecfr
-    检查输入文件的PTS（Presentation Time Stamp），重复或者移除帧来保持固定帧率，以维持与音频的同步。
+    检查输入文件的PTS（Presentation Time Stamp），重复或者移除帧来保持固定帧率，以维持与音频的同步。无法和 --trim 一起使用。
 
   - vfr  
-    遵循输入文件的时间戳并启用可变帧率输出。仅当使用 avsw/avhw 读取器时有效。无法和 --trim 一起使用。
+    遵循输入文件的时间戳并启用可变帧率输出。仅当使用 avsw/avhw 读取器时有效。
 
 ## Vpp 设置
 
@@ -994,34 +1157,63 @@ Activate Auto Field Shift (AFS) deinterlacer.
     处理成60fps（下场优先）
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-进行色彩空间变换。
+进行色彩空间变换。仅64位版本可用。   
+当参数设置为"input"时，与输入文件保持一致。(仅当使用avhw/avsw时有效)
 
 **参数**
 - matrix=&lt;from&gt;:&lt;to&gt;  
 
 ```
-  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
 ```
 
 - colorprim=&lt;from&gt;:&lt;to&gt;  
 ```
-  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
 ```
 
 - transfer=&lt;from&gt;:&lt;to&gt;  
 ```
   bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, arib-srd-b67
+  bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
 ```
 
 - range=&lt;from&gt;:&lt;to&gt;  
 ```
-  limited, full
+  limited, full, auto
 ```
 
-- hdr2sdr=&lt;bool&gt;  
-使用"Hable tone-mapping"将HDR10转换为SDR。 是从[hdr2sdr.py](https://gist.github.com/4re/34ccbb95732c1bef47c3d2975ac62395)移植的。
+- hdr2sdr=&lt;string&gt;  
+  指定tone-mapping算法将HDR转换为SDR。 
+
+  - none  (默认)  
+    不进行hdr2sdr处理。
+
+  - hable  
+    能够较好地平衡并保留亮部和暗部的细节。（但画面会稍稍变暗）
+
+    可以指定以下hable tone-mapping变化公式中的a、b、c、d、e、f参数。
+    
+    hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
+    output = hable( input ) / hable( (source_peak / ldr_nits) )
+
+    默认值: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
+
+  - mobius  
+    能够尽量保留画面的亮度和对比度，但可能损坏亮部的细节。
+
+    - transition=&lt;float&gt;  (默认: 0.3)  
+      由线性变换改用mobius tone mapping的临界点。
+
+    - peak=&lt;float&gt;  (默认: 1.0)  
+      参考峰值亮度。
+
+  - reinhard  
+    - contrast=&lt;float&gt;  (默认: 0.5)  
+      局部对比度系数。
+    - peak=&lt;float&gt;  (默认: 1.0)  
+      参考峰值亮度。
 
 - source_peak=&lt;float&gt;  (默认: 1000.0)  
 
@@ -1031,9 +1223,35 @@ Activate Auto Field Shift (AFS) deinterlacer.
 ```
 例1: BT.709(fullrange) -> BT.601
 --vpp-colorspace matrix=smpte170m:bt709,range=full:limited
-例2: hdr2sdr
---vpp-colorspace hdr2sdr=true,source_peak=1000.0,ldr_nits=100.0
+例2: hdr2sdr (hable tone-mapping)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
+例3：hdr2sdr并设置参数（该例与默认一致）
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
 ```
+
+### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+删除重复帧。
+
+**参数**
+  - cycle=&lt;int&gt;  (默认: 5)  
+    丢弃帧的周期。从每该设置的值的帧中丢弃1帧。
+
+  - thredup=&lt;float&gt;  (デフォルト: 1.1,  0.0 - 100.0)  
+    重复帧判断阈值。
+
+  - thresc=&lt;float&gt;   (デフォルト: 15.0,  0.0 - 100.0)  
+    场景变化判断阈值。
+
+  - blockx=&lt;int&gt;  
+  - blocky=&lt;int&gt;  
+    判定重复时计算使用的块大小。默认：32。
+    块大小可以设置为 16、32、64。
+
+  - chroma=&lt;bool&gt;  
+    考虑色差成分进行判断。(默认: on)
+
+  - log=&lt;bool&gt;  
+    输出判断结果日志。 (默认: off)
 
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 
@@ -1070,6 +1288,28 @@ Activate Auto Field Shift (AFS) deinterlacer.
 | cubic         | 4x4 立方插值 | ○ |
 | super         | NPP 库提供的所谓的 "super sampling"  | ○ |
 | lanczos       | Lanczos 插值                    | ○ |
+
+### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**パラメータ**
+- quality=&lt;int&gt;  (default=3, 1-6)  
+  处理之类，值越大精度越高速度越慢。
+
+- qp=&lt;int&gt;  (default=12, 1 - 63)    
+  滤镜强度。
+
+- prec (默认: auto)  
+  选择计算精度。
+  - auto  
+    如可以使用fp16且fp16似乎更快，则自动选择fp16。   
+    当前对Turing代的GPU自动使用fp16。   
+    Pascal的GPU虽然可以使用fp16但速度很慢默认不使用。
+
+  - fp16 (仅64位版本)  
+    主要是用半精度浮点数进行计算。在某些环境下速度很快。Maxwell以前的GPU和32位版本无法使用。
+
+  - fp32  
+    使用单精度浮点数进行计算。
 
 
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
@@ -1207,6 +1447,18 @@ Example: 增强边缘的暗部
 --vpp-deband range=31,dither=12,rand_each_frame
 ```
 
+### --vpp-rotate &lt;int&gt;   
+旋转视频。可以旋转90、180、270度。
+
+### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...   
+
+**参数**
+- flip_x=&lt;bool&gt;
+
+- flip_y=&lt;bool&gt;
+
+- transpose=&lt;bool&gt;
+
 ### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **参数**
@@ -1228,6 +1480,52 @@ Example: 增强边缘的暗部
 ### --vpp-pad &lt;int&gt,&lt;int&gt,&lt;int&gt,&lt;int&gt
 
 为左、上、右、下边缘添加内边距，单位像素。
+
+### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+将指定字幕压入。文本格式的字幕使用[libass](https://github.com/libass/libass)渲染。
+
+**参数**
+- track=&lt;int&gt;  
+  压入输入文件的指定字幕轨（仅当使用--avhw、--avsw时有效，字幕轨从1起编号）
+
+- filename=&lt;string&gt;  
+  压入指定字幕文件。
+
+- charcode=&lt;string&gt;  
+  指定字幕的文本编码。（当字幕为文本格式时有效）
+
+- shaping=&lt;string&gt;  
+  指定字幕的渲染质量。（当字幕为文本格式时有效）
+  - simple
+  - complex (默认)
+
+- scale=&lt;float&gt; (默认=0.0 (auto))  
+  bitmap格式字幕缩放倍率。  
+
+- transparency=&lt;float&gt; (デフォルト=0.0, 0.0 - 1.0)   
+  字幕透明度。  
+
+- brightness=&lt;float&gt; (デフォルト=0.0, -1.0 - 1.0)   
+  字幕亮度调整。  
+
+- contrast=&lt;float&gt; (デフォルト=1.0, -2.0 - 2.0)   
+  字幕对比度调整。  
+
+- vid_ts_offset=&lt;bool&gt;  
+  为字幕轨增加偏移使其与视频的起始时间戳相合。 (默认=on)   
+  使用"track"时该设置总是有效。
+
+- ts_offset=&lt;float&gt; (默认=0.0)   
+  字幕时间戳偏移，单位秒。
+
+```
+例1: 将输入文件的第1字幕轨压入
+--vpp-subburn track=1
+例2: 压入PGS字幕
+--vpp-subburn filename="subtitle.sup"
+例3: 压入Shift-JIS编码的ass字幕文件
+--vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
+```
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
@@ -1371,6 +1669,9 @@ Logo附近降噪的强度。（默认为0（关闭），取值为0-4）
 --max-procfps 90
 ```
 
+### --lowlatency   
+降低编码延迟的模式。由于会降低最大编码速度（吞吐量），一般不会使用。
+
 ### --perf-monitor [&lt;string&gt;][,&lt;string&gt;]...
 
 输出性能信息。可以从下表中选择要输出的信息的名字，默认为全部。
@@ -1390,6 +1691,7 @@ Logo附近降噪的强度。（默认为0（关闭），取值为0-4）
  gpu_load    ... GPU 占用 (%)
  gpu_clock   ... GPU 平均时钟频率
  vee_load    ... GPU 视频编码器占用 (%)
+ ved_load    ... GPU 视频解码器占用 (%)
  gpu         ... 监视全部 GPU 信息
  queue       ... 队列占用
  mem_private ... 私有内存 (MB)
