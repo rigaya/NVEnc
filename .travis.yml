@@ -5,6 +5,7 @@ sudo: required
 branches:
   only: 
     - master
+    - linux
 
 matrix:
   fast_finish: true
