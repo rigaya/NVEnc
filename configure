@@ -265,8 +265,8 @@ if [ ! `which $file 2> /dev/null` ]; then
 done
 
 printf "checking for pthread..."
-if cxx_check "${CXXFLAGS} -pthread ${LDFLAGS} -lpthread" ; then
-    CXXFLAGS="$CXXFLAGS -pthread"
+if cxx_check "${CXXFLAGS} ${LDFLAGS} -lpthread" ; then
+    CXXFLAGS="$CXXFLAGS"
     LDFLAGS="${LDFLAGS} -lpthread"
 else
     echo "pthread not installed." 
