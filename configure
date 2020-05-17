@@ -72,7 +72,6 @@ USE_PKGCONFIG=1
 ENABLE_DEBUG=0
 NVCC=${NVCC:-nvcc}
 CXX=${CXX:-g++}
-LD=$NVCC
 AS=${AS:-yasm}
 PROGRAM=nvencc
 PREFIX=${PREFIX:-/usr/local}
@@ -246,7 +245,6 @@ if [ "${CUDA_PATH}" != "" ]; then
     CUDA_LIBS="-L${CUDA_PATH}/lib64 ${CUDA_LIBS}"
     export PATH=${CUDA_PATH}/bin:${PATH}
     NVCC=`which nvcc`
-    LD=$NVCC
 else
     printf "checking for cuda..."
 fi
@@ -257,7 +255,7 @@ fi
 echo "OK"
 NVCCFLAGS="${GPU_CODE_GEN} --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
 
-for file in "${CXX}" "${LD}" "${AS}"; do
+for file in "${CXX}" "${AS}"; do
 if [ ! `which $file 2> /dev/null` ]; then
         echo $file not found
         exit 1
@@ -265,9 +263,9 @@ if [ ! `which $file 2> /dev/null` ]; then
 done
 
 printf "checking for pthread..."
-if cxx_check "${CXXFLAGS} ${LDFLAGS} -lpthread" ; then
-    CXXFLAGS="$CXXFLAGS"
-    LDFLAGS="${LDFLAGS} -lpthread"
+if cxx_check "${CXXFLAGS} ${LDFLAGS} -pthread" ; then
+    CXXFLAGS="${CXXFLAGS} -pthread"
+    LDFLAGS="${LDFLAGS} -pthread"
 else
     echo "pthread not installed." 
     exit 1
@@ -608,7 +606,7 @@ echo "PYWS = $PYWS" >> config.mak
 write_config_mak "SRCDIR = $SRCDIR"
 write_config_mak "CXX  = $CXX"
 write_config_mak "NVCC = $NVCC"
-write_config_mak "LD   = $LD"
+write_config_mak "LD   = $CXX"
 write_config_mak "AS   = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
