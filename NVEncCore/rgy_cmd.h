@@ -56,6 +56,8 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
 int cmd_string_to_bool(bool *b, const tstring &str);
 int parse_qp(int a[3], const TCHAR *str);
 
+std::vector<std::pair<std::string, std::string>> createOptionList();
+
 void print_cmd_error_unknown_opt(tstring strErrorValue);
 void print_cmd_error_unknown_opt_param(tstring option, tstring strErrorValue, const std::vector<std::string> &optionParamsList);
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const CX_DESC *list);

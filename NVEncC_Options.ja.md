@@ -90,6 +90,9 @@ remuxer.exe -i "<video mp4file>" -i "<m4a(ALAC in mp4)file>" -o "<muxed mp4 file
 ### -v, --version
 バージョンの表示
 
+### --option-list
+オプションリストの表示。
+
 ### --check-device
 NVEncが認識している利用可能なGPUのDeviceIdを表示
 

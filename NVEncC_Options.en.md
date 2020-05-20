@@ -73,6 +73,9 @@ Show help
 ### -v, --version
 Show version of NVEncC
 
+### --option-list
+Show option list.
+
 ### --check-device
 Show device of available GPU recognized by NVEnc
 
