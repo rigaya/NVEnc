@@ -607,6 +607,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         AudioSource src;
         const TCHAR *ptr = strInput[i];
         const TCHAR *qtr = _tcsrchr(ptr, _T(':'));
+#if defined(_WIN32) || defined(_WIN64)
+        if (qtr[1] == '\\' && std::isalpha(qtr[-1])) {
+            qtr = _tcsrchr(qtr + 1, _T(':'));
+        }
+#endif
         if (qtr == nullptr) {
             src.filename = strInput[i];
             src.select[0].encCodec = RGY_AVCODEC_COPY;
@@ -1200,6 +1205,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         SubSource src;
         const TCHAR *ptr = strInput[i];
         const TCHAR *qtr = _tcsrchr(ptr, _T(':'));
+#if defined(_WIN32) || defined(_WIN64)
+        if (qtr[1] == '\\' && std::isalpha(qtr[-1])) {
+            qtr = _tcsrchr(qtr+1, _T(':'));
+        }
+#endif
         if (qtr == nullptr) {
             src.filename = strInput[i];
             src.select[0].encCodec = RGY_AVCODEC_COPY;
