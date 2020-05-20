@@ -43,7 +43,7 @@
 #endif //#if ENABLE_DTL
 
 #if ENABLE_CPP_REGEX
-static vector<std::pair<std::string, std::string>> createOptionList() {
+std::vector<std::pair<std::string, std::string>> createOptionList() {
     vector<std::pair<std::string, std::string>> optionList;
     const auto helpLines = split(tchar_to_string(encoder_help()), "\n");
     std::regex re1(R"(^\s{2,6}--([A-Za-z0-9][A-Za-z0-9-_]+)\s+.*)");
@@ -619,7 +619,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 0;
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
-        const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy" };
+        const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition" };
         auto channel_select_list = split(qtr+1, _T(":"));
         for (auto channel : channel_select_list) {
             int trackId = 0;
@@ -658,6 +658,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         }
                     } else if (param_arg == _T("profile")) {
                         chSel.encCodecProfile = param_val;
+                    } else if (param_arg == _T("disposition")) {
+                        chSel.disposition = param_val;
                     } else if (param_arg == _T("filter")) {
                         chSel.filter = param_val;
                     } else if (param_arg == _T("enc_prm")) {
@@ -871,6 +873,58 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             common->ppSubtitleSelectList = (SubtitleSelect **)realloc(common->ppSubtitleSelectList, sizeof(common->ppSubtitleSelectList[0]) * (common->nSubtitleSelectCount + 1));
             common->ppSubtitleSelectList[common->nSubtitleSelectCount] = pSubSelect;
             common->nSubtitleSelectCount++;
+        }
+        return 0;
+    };
+    auto set_data_prm = [&](std::function<void(DataSelect *pSelect, int trackId, const TCHAR *prmstr)> func_set) {
+        const TCHAR *ptr = nullptr;
+        const TCHAR *ptrDelim = nullptr;
+        int trackId = 0;
+        if (i + 1 < nArgNum) {
+            if (strInput[i + 1][0] != _T('-') && strInput[i + 1][0] != _T('\0')) {
+                i++;
+                ptrDelim = _tcschr(strInput[i], _T('?'));
+                ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim + 1;
+            }
+            if (ptrDelim != nullptr) {
+                tstring temp = tstring(strInput[i]).substr(0, ptrDelim - strInput[i]);
+                trackId = std::stoi(temp);
+            }
+        }
+        DataSelect *pSelect = nullptr;
+        int dataIdx = getDataTrackIdx(common, trackId);
+        if (dataIdx < 0) {
+            pSelect = new DataSelect();
+            if (trackId != 0) {
+                //もし、trackID=0以外の指定であれば、
+                //これまでalltrackに指定されたパラメータを探して引き継ぐ
+                DataSelect *pDataSelectAll = nullptr;
+                for (int itrack = 0; itrack < common->nDataSelectCount; itrack++) {
+                    if (common->ppDataSelectList[itrack]->trackID == 0) {
+                        pDataSelectAll = common->ppDataSelectList[itrack];
+                    }
+                }
+                if (pDataSelectAll) {
+                    *pSelect = *pDataSelectAll;
+                }
+            }
+            pSelect->trackID = trackId;
+        } else {
+            pSelect = common->ppDataSelectList[dataIdx];
+        }
+        func_set(pSelect, trackId, ptr);
+        if (trackId == 0) {
+            for (int itrack = 0; itrack < common->nDataSelectCount; itrack++) {
+                func_set(common->ppDataSelectList[itrack], trackId, ptr);
+            }
+        }
+
+        if (dataIdx < 0) {
+            dataIdx = common->nDataSelectCount;
+            //新たに要素を追加
+            common->ppDataSelectList = (DataSelect **)realloc(common->ppDataSelectList, sizeof(common->ppDataSelectList[0]) * (common->nDataSelectCount + 1));
+            common->ppDataSelectList[common->nDataSelectCount] = pSelect;
+            common->nDataSelectCount++;
         }
         return 0;
     };
@@ -1090,6 +1144,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 1;
         }
     }
+    if (IS_OPTION("audio-disposition")) {
+        try {
+            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || pAudioSelect->disposition.length() == 0) {
+                    pAudioSelect->disposition = prmstr;
+                }
+                });
+            return ret;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+    }
 #endif //#if ENABLE_AVCODEC_QSV_READER
     if (IS_OPTION("chapter-copy") || IS_OPTION("copy-chapter")) {
         common->copyChapter = true;
@@ -1199,6 +1266,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("sub-disposition")) {
+        try {
+            auto ret = set_sub_prm([](SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || pSubSelect->disposition.length() == 0) {
+                    pSubSelect->disposition = prmstr;
+                }
+                });
+            return ret;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+    }
     if (IS_OPTION("sub-source")) {
         i++;
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
@@ -1217,7 +1297,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 0;
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
-        const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy" };
+        const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition" };
         auto channel_select_list = split(qtr+1, _T(":"));
         for (auto channel : channel_select_list) {
             int trackId = 0;
@@ -1242,6 +1322,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         chSel.encCodec = param_val;
                     } else if (param_arg == _T("enc_prm")) {
                         chSel.encCodecPrm = param_val;
+                    } else if (param_arg == _T("disposition")) {
+                        chSel.disposition = param_val;
                     } else {
                         print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                         return 1;
@@ -1339,6 +1421,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             }
         }
         return 0;
+    }
+    if (IS_OPTION("data-disposition")) {
+        try {
+            auto ret = set_data_prm([](DataSelect *pDataSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || pDataSelect->disposition.length() == 0) {
+                    pDataSelect->disposition = prmstr;
+                }
+                });
+            return ret;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
     }
     if (IS_OPTION("attachment-copy")) {
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
@@ -1871,6 +1966,12 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
+        if (pAudioSelect->disposition.length() > 0) {
+            cmd << _T(" --audio-disposition ") << pAudioSelect->trackID << _T("?") << pAudioSelect->disposition;
+        }
+    }
+    for (int i = 0; i < param->nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->extractFilename.length() > 0) {
             cmd << _T(" --audio-file ") << pAudioSelect->trackID << _T("?");
             if (pAudioSelect->extractFormat.length() > 0) {
@@ -1910,6 +2011,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     if (sel.filter.length() > 0) {
                         tmp << _T(";filter=") << _T("\"") << sel.filter << _T("\"");
                     }
+                    if (sel.disposition.length() > 0) {
+                        tmp << _T(";disposition=") << sel.disposition;
+                    }
                 }
                 if (!tmp.str().empty()) {
                     cmd << tmp.str().substr(1);
@@ -1928,6 +2032,12 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     if (!tmp.str().empty()) {
         cmd << _T(" --sub-copy ") << tmp.str().substr(1);
+    }
+    for (int i = 0; i < param->nSubtitleSelectCount; i++) {
+        const SubtitleSelect *pSubSelect = param->ppSubtitleSelectList[i];
+        if (pSubSelect->disposition.length() > 0) {
+            cmd << _T(" --sub-disposition ") << pSubSelect->trackID << _T("?") << pSubSelect->disposition;
+        }
     }
     tmp.str(tstring());
     for (const auto &src : param->subSource) {
@@ -1948,6 +2058,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     tmp << _T(";codec=") << sel.encCodec;
                     if (sel.encCodecPrm.length() > 0) {
                         tmp << _T(";prm=") << sel.encCodecPrm;
+                    }
+                    if (sel.disposition.length() > 0) {
+                        tmp << _T(";disposition=") << sel.disposition;
                     }
                 }
                 if (!tmp.str().empty()) {
@@ -1971,6 +2084,12 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         cmd << _T(" --data-copy ") << tmp.str().substr(1);
     }
     tmp.str(tstring());
+    for (int i = 0; i < param->nDataSelectCount; i++) {
+        const DataSelect *pDataSelect = param->ppDataSelectList[i];
+        if (pDataSelect->disposition.length() > 0) {
+            cmd << _T(" --data-disposition ") << pDataSelect->trackID << _T("?") << pDataSelect->disposition;
+        }
+    }
 
     for (int i = 0; i < param->nAttachmentSelectCount; i++) {
         tmp << _T(",") << param->ppAttachmentSelectList[i]->trackID;
@@ -2210,6 +2329,9 @@ tstring gen_cmd_help_common() {
         _T("   --audio-filter [<int>?]<string>\n")
         _T("                                set audio filter.\n")
         _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --audio-disposition [<int>?]<string>\n")
+        _T("                                set disposition for the specified audio track.\n")
+        _T("                                disposition for the unspecified tracks will be reset.\n")
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
         _T("   --key-on-chapter             set key frame on chapter.\n")
@@ -2219,6 +2341,9 @@ tstring gen_cmd_help_common() {
         _T("                                 avhw/avsw reader and avcodec muxer.\n")
         _T("                                 below are optional,\n")
         _T("                                  in [<int>?], specify track number to copy.\n")
+        _T("   --sub-disposition [<int>?]<string>\n")
+        _T("                                set disposition for the specified subtitle track.\n")
+        _T("                                disposition for the unspecified tracks will be reset.\n")
 #if ENABLE_CAPTION2ASS
         _T("   --caption2ass [<string>]     enable caption2ass during encode.\n")
         _T("                                  !! This feature requires Caption.dll !!\n")

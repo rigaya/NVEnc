@@ -270,11 +270,12 @@ struct AVOutputStreamPrm {
     tstring encodeCodec;        //音声をエンコードするコーデック
     tstring encodeCodecPrm;     //音声をエンコードするコーデックのパラメータ
     tstring encodeCodecProfile; //音声をエンコードするコーデックのパラメータ
-    int     bitrate;           //ビットレートの指定
-    int     samplingRate;      //サンプリング周波数の指定
+    int     bitrate;            //ビットレートの指定
+    int     samplingRate;       //サンプリング周波数の指定
     tstring filter;             //音声フィルタ
-    bool    asdata;           //バイナリデータとして転送する
+    bool    asdata;             //バイナリデータとして転送する
     tstring bsf;                //適用すべきbsfの名前
+    tstring disposition;        //disposition
 
     AVOutputStreamPrm() :
         src(),
@@ -286,7 +287,8 @@ struct AVOutputStreamPrm {
         samplingRate(0),
         filter(),
         asdata(false),
-        bsf() {
+        bsf(),
+        disposition() {
 
     }
 };
@@ -449,13 +451,13 @@ protected:
     RGY_ERR InitAudioResampler(AVMuxAudio *muxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
-    RGY_ERR InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError);
+    RGY_ERR InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet);
 
     //Bitstream Filterの初期化
     AVBSFContext* InitStreamBsf(const tstring& bsfName, const AVStream* streamIn);
 
     //字幕の初期化
-    RGY_ERR InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *inputSubtitle);
+    RGY_ERR InitOther(AVMuxOther *pMuxSub, AVOutputStreamPrm *inputSubtitle, bool streamDispositionSet);
 
     //チャプターをコピー
     RGY_ERR SetChapters(const vector<const AVChapter *>& chapterList, bool chapterNoTrim);

@@ -705,6 +705,31 @@ Example 1: --audio-filter volume=0.2  (lowering the volume)
 Example 2: --audio-filter 2?volume=-4db (lowering the volume of the 2nd track)
 ```
 
+### --audio-disposition [&lt;int&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
+set disposition for the specified audio track.
+
+```
+ default
+ dub
+ original
+ comment
+ lyrics
+ karaoke
+ forced
+ hearing_impaired
+ visual_impaired
+ clean_effects
+ attached_pic
+ captions
+ descriptions
+ dependent
+ metadata
+ copy
+
+Example:
+--audio-disposition 2?default,forced
+```
+
 ### --audio-ignore-decode-error &lt;int&gt;
 Ignore the consecutive audio decode error, and continue transcoding within the threshold specified. The portion of audio which could not be decoded properly will be replaced with silence.
 
@@ -835,6 +860,28 @@ Supported subtitles are PGS / srt / txt / ttxt.
 ```
 Example: Copy subtitle track #1 and #2
 --sub-copy 1,2
+```
+
+### --sub-disposition [&lt;int&gt;?]&lt;string&gt;
+set disposition for the specified subtitle track.
+
+```
+ default
+ dub
+ original
+ comment
+ lyrics
+ karaoke
+ forced
+ hearing_impaired
+ visual_impaired
+ clean_effects
+ attached_pic
+ captions
+ descriptions
+ dependent
+ metadata
+ copy
 ```
 
 ### --caption2ass [&lt;string&gt;]

@@ -48,7 +48,8 @@ AudioSelect::AudioSelect() :
     filter(),
     streamChannelSelect(),
     streamChannelOut(),
-    bsf() {
+    bsf(),
+    disposition() {
     memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
     memset(streamChannelOut, 0, sizeof(streamChannelOut));
 }
@@ -65,7 +66,8 @@ SubtitleSelect::SubtitleSelect() :
     encCodecPrm(),
     decCodecPrm(),
     asdata(false),
-    bsf() {
+    bsf(),
+    disposition() {
 
 }
 
@@ -76,7 +78,8 @@ SubSource::SubSource() :
 }
 
 DataSelect::DataSelect() :
-    trackID(0) {
+    trackID(0),
+    disposition() {
 
 }
 

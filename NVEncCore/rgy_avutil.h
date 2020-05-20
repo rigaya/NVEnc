@@ -239,6 +239,13 @@ tstring getAVVersions();
 
 MAP_PAIR_0_1_PROTO(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP);
 
+#define AV_DISPOSITION_UNSET (0x00000000)
+#define AV_DISPOSITION_COPY  (0xffffffff)
+MAP_PAIR_0_1_PROTO(disposition, str, tstring, av, uint32_t);
+
+uint32_t parseDisposition(const tstring &disposition_str);
+tstring getDispositionStr(uint32_t disposition);
+
 #else
 #define AV_NOPTS_VALUE (-1)
 #endif //ENABLE_AVSW_READER

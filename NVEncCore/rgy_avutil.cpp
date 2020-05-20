@@ -527,4 +527,51 @@ static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>
 
 MAP_PAIR_0_1(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP, CSP_PIXFMT_RGY, AV_PIX_FMT_NONE, RGY_CSP_NA);
 
+static const auto RGY_DISPOSITION_TO_AV = make_array<std::pair<tstring, uint32_t>>(
+    std::make_pair(_T("default"),          AV_DISPOSITION_DEFAULT),
+    std::make_pair(_T("dub"),              AV_DISPOSITION_DUB),
+    std::make_pair(_T("original"),         AV_DISPOSITION_ORIGINAL),
+    std::make_pair(_T("comment"),          AV_DISPOSITION_COMMENT),
+    std::make_pair(_T("lyrics"),           AV_DISPOSITION_LYRICS),
+    std::make_pair(_T("karaoke"),          AV_DISPOSITION_KARAOKE),
+    std::make_pair(_T("forced"),           AV_DISPOSITION_FORCED),
+    std::make_pair(_T("hearing_impaired"), AV_DISPOSITION_HEARING_IMPAIRED),
+    std::make_pair(_T("visual_impaired"),  AV_DISPOSITION_VISUAL_IMPAIRED),
+    std::make_pair(_T("clean_effects"),    AV_DISPOSITION_CLEAN_EFFECTS),
+    std::make_pair(_T("attached_pic"),     AV_DISPOSITION_ATTACHED_PIC),
+    std::make_pair(_T("captions"),         AV_DISPOSITION_CAPTIONS),
+    std::make_pair(_T("descriptions"),     AV_DISPOSITION_DESCRIPTIONS),
+    std::make_pair(_T("dependent"),        AV_DISPOSITION_DEPENDENT),
+    std::make_pair(_T("metadata"),         AV_DISPOSITION_METADATA),
+    std::make_pair(_T("copy"),             AV_DISPOSITION_DEFAULT),
+    std::make_pair(_T("unset"),            AV_DISPOSITION_UNSET)
+);
+
+MAP_PAIR_0_1(disposition, str, tstring, av, uint32_t, RGY_DISPOSITION_TO_AV, _T("unset"), AV_DISPOSITION_UNSET);
+
+uint32_t parseDisposition(const tstring& disposition_str) {
+    uint32_t disposition = 0;
+    for (auto str : split(disposition_str, _T(","))) {
+        disposition |= disposition_str_to_av(str);
+    }
+    return disposition;
+}
+
+tstring getDispositionStr(uint32_t disposition) {
+    if (disposition == AV_DISPOSITION_COPY) {
+        return disposition_av_to_str(AV_DISPOSITION_COPY);
+    } else if (disposition == AV_DISPOSITION_UNSET) {
+        return disposition_av_to_str(AV_DISPOSITION_UNSET);
+    }
+    tstring str;
+    for (int i = 0; i < sizeof(disposition) * 8; i++) {
+        const decltype(disposition) flag = 1u << i;
+        if (flag & disposition) {
+            if (str.length() > 0) str += _T(",");
+            str += disposition_av_to_str(flag);
+        }
+    }
+    return str;
+}
+
 #endif //ENABLE_AVSW_READER

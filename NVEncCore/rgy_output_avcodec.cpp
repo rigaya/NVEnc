@@ -1002,7 +1002,7 @@ AVBSFContext *RGYOutputAvcodec::InitStreamBsf(const tstring& bsfName, const AVSt
     return bsfc;
 }
 
-RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError) {
+RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inputAudio, uint32_t audioIgnoreDecodeError, bool audioDispositionSet) {
     muxAudio->streamIn = inputAudio->src.stream;
     AddMessage(RGY_LOG_DEBUG, _T("start initializing audio ouput...\n"));
     AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, trackId %d.%d\n"), inputAudio->src.index, trackID(inputAudio->src.trackId), inputAudio->src.subStreamId);
@@ -1296,7 +1296,21 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         }
     }
     muxAudio->streamOut->time_base = av_make_q(1, muxAudio->streamOut->codecpar->sample_rate);
-    muxAudio->streamOut->disposition = inputAudio->src.stream->disposition;
+    if (audioDispositionSet) {
+        if (inputAudio->disposition.length() > 0) {
+            auto disposition = parseDisposition(inputAudio->disposition);
+            if (disposition == AV_DISPOSITION_COPY) {
+                AddMessage(RGY_LOG_DEBUG, _T("Copy Disposition: %s\n"), getDispositionStr(inputAudio->src.stream->disposition).c_str());
+                muxAudio->streamOut->disposition = inputAudio->src.stream->disposition;
+            } else {
+                AddMessage(RGY_LOG_DEBUG, _T("Set Disposition: %s\n"), getDispositionStr(disposition).c_str());
+                muxAudio->streamOut->disposition = disposition;
+            }
+        }
+    } else {
+        AddMessage(RGY_LOG_DEBUG, _T("Copy Disposition: %s\n"), getDispositionStr(inputAudio->src.stream->disposition).c_str());
+        muxAudio->streamOut->disposition = inputAudio->src.stream->disposition;
+    }
 
     if (inputAudio->src.subStreamId != 0) {
         //substream(--audio-filterなどによる複製stream)の場合はデフォルトstreamではない
@@ -1317,7 +1331,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *inputStream) {
+RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *inputStream, bool streamDispositionSet) {
     const auto mediaType = (inputStream->asdata) ? AVMEDIA_TYPE_UNKNOWN : trackMediaType(inputStream->src.trackId);
     const auto mediaTypeStr = char_to_tstring(av_get_media_type_string(mediaType));
     AddMessage(RGY_LOG_DEBUG, _T("start initializing %s ouput...\n"), mediaTypeStr.c_str());
@@ -1524,7 +1538,21 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
     muxSub->streamOut->time_base  = (mediaType == AVMEDIA_TYPE_SUBTITLE) ? av_make_q(1, 1000) : muxSub->streamInTimebase;
     muxSub->streamOut->start_time = 0;
     if (inputStream->src.stream) {
-        muxSub->streamOut->disposition = inputStream->src.stream->disposition;
+        if (streamDispositionSet) {
+            if (inputStream->disposition.length() > 0) {
+                auto disposition = parseDisposition(inputStream->disposition);
+                if (disposition == AV_DISPOSITION_COPY) {
+                    AddMessage(RGY_LOG_DEBUG, _T("Copy Disposition: %s\n"), getDispositionStr(inputStream->src.stream->disposition).c_str());
+                    muxSub->streamOut->disposition = inputStream->src.stream->disposition;
+                } else {
+                    AddMessage(RGY_LOG_DEBUG, _T("Set Disposition: %s\n"), getDispositionStr(disposition).c_str());
+                    muxSub->streamOut->disposition = disposition;
+                }
+            }
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("Copy Disposition: %s\n"), getDispositionStr(inputStream->src.stream->disposition).c_str());
+            muxSub->streamOut->disposition = inputStream->src.stream->disposition;
+        }
         if (inputStream->src.stream->metadata) {
             for (AVDictionaryEntry *entry = nullptr;
                 nullptr != (entry = av_dict_get(inputStream->src.stream->metadata, "", entry, AV_DICT_IGNORE_SUFFIX));) {
@@ -1705,6 +1733,9 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
 
     const int audioStreamCount = (int)count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) { return trackMediaType(prm.src.trackId) == AVMEDIA_TYPE_AUDIO; });
     if (audioStreamCount) {
+        const bool audioDispositionSet = 0 != count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) {
+            return trackMediaType(prm.src.trackId) == AVMEDIA_TYPE_AUDIO && prm.disposition.length() > 0;
+        });
         m_Mux.audio.resize(audioStreamCount, { 0 });
         int iAudioIdx = 0;
         for (int iStream = 0; iStream < (int)prm->inputStreamList.size(); iStream++) {
@@ -1723,7 +1754,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
                         return RGY_ERR_UNDEFINED_BEHAVIOR;
                     }
                 }
-                RGY_ERR sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->audioIgnoreDecodeError);
+                RGY_ERR sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->audioIgnoreDecodeError, audioDispositionSet);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
@@ -1745,7 +1776,10 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
         for (int iStream = 0; iStream < (int)prm->inputStreamList.size(); iStream++) {
             const auto mediaType = trackMediaType(prm->inputStreamList[iStream].src.trackId);
             if (mediaType == AVMEDIA_TYPE_SUBTITLE || mediaType == AVMEDIA_TYPE_DATA || mediaType == AVMEDIA_TYPE_ATTACHMENT) {
-                RGY_ERR sts = InitOther(&m_Mux.other[iSubIdx], &prm->inputStreamList[iStream]);
+                const bool streamDispositionSet = 0 != count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [mediaType](AVOutputStreamPrm prm) {
+                    return trackMediaType(prm.src.trackId) == mediaType && prm.disposition.length() > 0;
+                });
+                RGY_ERR sts = InitOther(&m_Mux.other[iSubIdx], &prm->inputStreamList[iStream], streamDispositionSet);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
