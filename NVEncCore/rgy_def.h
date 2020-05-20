@@ -36,6 +36,7 @@
 #include <map>
 #include <limits>
 #include "rgy_tchar.h"
+#include "rgy_version.h"
 #include "convert_csp.h"
 
 typedef std::basic_string<TCHAR> tstring;
@@ -697,7 +698,9 @@ const CX_DESC list_interlaced[] = {
     { _T("progressive"), RGY_PICSTRUCT_FRAME     },
     { _T("tff"),         RGY_PICSTRUCT_FRAME_TFF },
     { _T("bff"),         RGY_PICSTRUCT_FRAME_BFF },
+#if ENCODER_NVENC
     { _T("auto"),        (int)RGY_PICSTRUCT_AUTO },
+#endif //#if ENCODER_NVENC
     { NULL, 0 }
 };
 
