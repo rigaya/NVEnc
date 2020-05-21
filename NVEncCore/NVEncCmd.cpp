@@ -393,6 +393,16 @@ tstring encoder_help() {
         _T("                                  lower value will preserve edge.\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
     str += strsprintf(_T("\n")
+        _T("   --vpp-smooth [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable smooth filter.\n")
+        _T("    params\n")
+        _T("      quality=<int>         quality of filter (high=higher quality but slow)\n")
+        _T("                             (default=%d, 1-6)\n")
+        _T("      qp=<float>            strength of filter (default=%.2f, 0.0-100.0)\n")
+        _T("      prec=<string>         Select calculation precision.\n")
+        _T("                              auto (default), fp16, fp32\n"),
+        FILTER_DEFAULT_SMOOTH_QUALITY, FILTER_DEFAULT_SMOOTH_QP);
+    str += strsprintf(_T("\n")
         _T("   --vpp-unsharp [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable unsharp filter.\n")
         _T("    params\n")
