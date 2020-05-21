@@ -2336,6 +2336,8 @@ tstring gen_cmd_help_common() {
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
         _T("   --key-on-chapter             set key frame on chapter.\n")
+        _T("   --keyfile <string>           set keyframes on frames specified in the file.\n")
+        _T("                                  frame num should start from 0.\n")
         _T("   --sub-source <string>        input extra subtitle file.\n")
         _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
         _T("                                 these could be only used with\n")
