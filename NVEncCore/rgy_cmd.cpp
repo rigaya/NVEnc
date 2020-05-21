@@ -1172,6 +1172,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+#if ENCODER_NVENC
     if (IS_OPTION("key-on-chapter")) {
         common->keyOnChapter = true;
         return 0;
@@ -1186,6 +1187,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+#endif // #if ENCODER_NVENC
 #if ENABLE_AVSW_READER && !FOR_AUO
     if (IS_OPTION("sub-copy") || IS_OPTION("copy-sub")) {
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
@@ -2335,9 +2337,11 @@ tstring gen_cmd_help_common() {
         _T("                                disposition for the unspecified tracks will be reset.\n")
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
+#if ENCODER_NVENC
         _T("   --key-on-chapter             set key frame on chapter.\n")
         _T("   --keyfile <string>           set keyframes on frames specified in the file.\n")
         _T("                                  frame num should start from 0.\n")
+#endif //#if ENCODER_NVENC
         _T("   --sub-source <string>        input extra subtitle file.\n")
         _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
         _T("                                 these could be only used with\n")
