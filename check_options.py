@@ -67,6 +67,7 @@ if __name__ == '__main__':
     md_files = []
     md_en_file = 'NVEncC_Options.en.md'
     md_ja_file = 'NVEncC_Options.ja.md'
+    md_cn_file = 'NVEncC_Options.zh-cn.md'
     exe_file = r'_build\x64\RelStatic\NVEncC64.exe' if os.name == 'nt' else './nvencc'
     
     iarg = 0
@@ -79,10 +80,13 @@ if __name__ == '__main__':
             md_files.append(sys.argv[iarg])
         iarg=iarg+1
             
+    # デフォルトのファイルの追加
     if os.path.exists(md_en_file):
         md_files.append(md_en_file)
     if os.path.exists(md_ja_file):
         md_files.append(md_ja_file)
+    if os.path.exists(md_cn_file):
+        md_files.append(md_cn_file)
     
     # mdファイルからのオプションの抽出
     option_list_md = []
