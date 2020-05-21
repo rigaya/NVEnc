@@ -514,14 +514,22 @@ tstring encoder_help() {
         _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n"),
         FILTER_DEFAULT_TWEAK_BRIGHTNESS, FILTER_DEFAULT_TWEAK_CONTRAST);
     str += strsprintf(_T("")
-        _T("   --vpp-delogo <string>        set delogo file path\n")
-        _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
+        _T("   --vpp-delogo <string>[,<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     remove half-transparent logo with the specified logo file.\n")
+        _T("     the logo file should be created by logoscan.auf.\n")
+        _T("    params\n")
+        _T("      select=<string>           set target logo name or auto select file\n")
         _T("                                 or logo index starting from 1.\n")
-        _T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
-        _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
-        _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
-        _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
-        _T("   --vpp-delogo-cr <int>        set delogo cr param\n"),
+        _T("      pos=<int>:<int>           set delogo pos offset.\n")
+        _T("      depth=<int>               set delogo depth. [default:%d]\n")
+        _T("      y=<int>                   set delogo y  param.\n")
+        _T("      cb=<int>                  set delogo cb param.\n")
+        _T("      cr=<int>                  set delogo cr param.\n")
+        _T("      auto_fade=<bool>          adjust fade value dynamically.\n")
+        _T("      auto_nr=<bool>            adjust strength of noise reduction dynamically.\n")
+        _T("      nr_area=<int>             area of noise reduction near logo.\n")
+        _T("      nr_value=<int>            strength of noise reduction near logo.\n")
+        _T("      log=<bool>                output log for auto_fade/auto_nr.\n"),
         FILTER_DEFAULT_DELOGO_DEPTH);
     str += strsprintf(_T("")
         _T("   --vpp-perf-monitor           check duration of each filter.\n")
