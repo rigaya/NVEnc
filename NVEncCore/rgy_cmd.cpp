@@ -607,7 +607,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         const TCHAR *ptr = strInput[i];
         const TCHAR *qtr = _tcsrchr(ptr, _T(':'));
 #if defined(_WIN32) || defined(_WIN64)
-        if (qtr[1] == '\\' && std::isalpha(qtr[-1])) {
+        if (qtr
+            && (qtr - ptr == 1 || qtr - ptr == 2)
+            && qtr[1] == '\\'
+            && std::isalpha(qtr[-1])
+            && (qtr - ptr == 1 || qtr[-2] == '\"')) {
             qtr = _tcsrchr(qtr + 1, _T(':'));
         }
 #endif
@@ -1287,8 +1291,12 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         const TCHAR *ptr = strInput[i];
         const TCHAR *qtr = _tcsrchr(ptr, _T(':'));
 #if defined(_WIN32) || defined(_WIN64)
-        if (qtr[1] == '\\' && std::isalpha(qtr[-1])) {
-            qtr = _tcsrchr(qtr+1, _T(':'));
+        if (qtr
+            && (qtr - ptr == 1 || qtr - ptr == 2)
+            && qtr[1] == '\\'
+            && std::isalpha(qtr[-1])
+            && (qtr - ptr == 1 || qtr[-2] == '\"')) {
+            qtr = _tcsrchr(qtr + 1, _T(':'));
         }
 #endif
         if (qtr == nullptr) {
