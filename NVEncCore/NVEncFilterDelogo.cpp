@@ -265,10 +265,10 @@ std::string NVEncFilterDelogo::logoNameList() {
 
 int NVEncFilterDelogo::getLogoIdx(const std::string& logoName) {
     int idx = LOGO_AUTO_SELECT_INVALID;
-        printf("getLogoIdx: \"%s\"\n", logoName.c_str());
+    AddMessage(RGY_LOG_DEBUG, _T("getLogoIdx: \"%s\"\n"), char_to_tstring(logoName).c_str());
     for (int i = 0; i < (int)m_sLogoDataList.size(); i++) {
         const std::string str = char_to_string(CP_THREAD_ACP, m_sLogoDataList[i].header.name, CODE_PAGE_SJIS);
-        printf("  name: %s\n", str.c_str());
+        AddMessage(RGY_LOG_DEBUG, _T("  name: %s\n"), char_to_tstring(str).c_str());
         if (str == logoName) {
             idx = i;
             break;
