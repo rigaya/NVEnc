@@ -2249,6 +2249,7 @@ tstring gen_cmd_help_common() {
         _T("                                 -2           next low resolution video track\n")
         _T("                                   ... \n")
         _T("   --video-streamid <int>       set video track to encode in stream id\n")
+        _T("   --video-tag <string>         specify video tag\n")
         _T("   --audio-source <string>      input extra audio file.\n")
         _T("   --audio-file [<int>?][<string>:]<string>\n")
         _T("                                extract audio into file.\n")
