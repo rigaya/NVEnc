@@ -436,9 +436,6 @@ SAR比 (画素アスペクト比) の指定。
 ### --dar &lt;int&gt;:&lt;int&gt;
 DAR比 (画面アスペクト比) の指定。
 
-### --fullrange
-フルレンジYUVとしてエンコードする。
-
 ### --colorrange &lt;string&gt;
 "--colorrange full"は"--fullrange"に同じ。
 "auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)

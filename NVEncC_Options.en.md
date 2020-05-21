@@ -430,9 +430,6 @@ Set SAR ratio (pixel aspect ratio).
 ### --dar &lt;int&gt;:&lt;int&gt;
 Set DAR ratio (screen aspect ratio).
 
-### --fullrange
-Encode as full range YUV.
-
 ### --colorrange &lt;string&gt;
 "--colorrange full" is same as "--fullrange".
 "auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
