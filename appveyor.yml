@@ -32,6 +32,8 @@ install:
   - if "%PLATFORM%" == "Win32" curl -o "c:\yasm\yasm.exe" http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win32.exe
   - set PATH=c:\yasm;%PATH%
   - yasm --version
+  - set PATH=C:\Python38-x64;%PATH%
+  - python --version
   - mkdir c:\hdr10plus_gen
   - curl -L -o "c:\hdr10plus_gen\hdr10plus_gen_0.00_%PLATFORM%.7z" https://github.com/rigaya/hdr10plus_gen/releases/download/0.00/hdr10plus_gen_0.00_%PLATFORM%.7z
   - 7z x -oC:\hdr10plus_gen\ "c:\hdr10plus_gen\hdr10plus_gen_0.00_%PLATFORM%.7z"
@@ -89,6 +91,10 @@ after_build:
   - if "%PLATFORM%" == "x64" copy "%CUDA_PATH%\bin\nvrtc64_101_0.dll" NVEncC_Release
   - if "%PLATFORM%" == "x64" copy "%CUDA_PATH%\bin\nvrtc-builtins64_101.dll" NVEncC_Release
   - 7z a -mx9 NVEncC_%BUILD_VERSION%_%PLATFORM%.7z .\NVEncC_Release\*
+
+test:
+  - if "%PLATFORM%" == "Win32" python check_options.py -exe _build\%PLATFORM%\%CONFIGURATION%\NVEncC.exe
+  - if "%PLATFORM%" == "x64"   python check_options.py -exe _build\%PLATFORM%\%CONFIGURATION%\NVEncC64.exe
 
 artifacts:
   - path: NVEncC_%BUILD_VERSION%_%PLATFORM%.7z

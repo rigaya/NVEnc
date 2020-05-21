@@ -61,4 +61,4 @@ before_install:
   - nvcc --version
 
 script:
-    - ./configure --cuda-path=${CUDA_PATH} && make && ./nvencc --version
+    - ./configure --cuda-path=${CUDA_PATH} && make && ./nvencc --version && ./check_option.py
