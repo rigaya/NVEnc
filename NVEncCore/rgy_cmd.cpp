@@ -430,7 +430,6 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         _ftprintf(stderr, _T("vpy-mt reader not supported in this build.\n"));
         return 1;
 #endif
-        return 0;
     }
     if (   IS_OPTION("avcuvid")
         || IS_OPTION("avqsv")
