@@ -289,6 +289,9 @@ Perform lossless output. (Default: off)
 ### --max-bitrate &lt;int&gt;
 Maximum bitrate (in kbps).
 
+### --vbv-bufsize &lt;int&gt;
+Set vbv buffer size (in kbps). (default: auto)
+
 ### --qp-init &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;
 Set the initial QP value with &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;. This option will be ignored in CQP mode.
 

@@ -290,6 +290,9 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 ### --max-bitrate &lt;int&gt;
 最大ビットレート(kbps単位)。
 
+### --vbv-bufsize &lt;int&gt;
+VBVバッファサイズ(kbps単位)。 (default: auto)
+
 ### --qp-init &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;
 初期QP値を&lt;Iフレーム&gt;:&lt;Pフレーム&gt;:&lt;Bフレーム&gt;で設定する。
 ビットレート指定のエンコードモードを使用する際に、
