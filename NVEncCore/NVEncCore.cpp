@@ -3354,8 +3354,13 @@ NVENCSTATUS NVEncCore::Encode() {
             RGYBitstream bitstream = RGYBitstreamInit();
             RGY_ERR sts = RGY_ERR_NONE;
             for (int i = 0; sts == RGY_ERR_NONE && nvStatus == NV_ENC_SUCCESS && !m_cuvidDec->GetError(); i++) {
-                sts = m_pFileReader->LoadNextFrame(nullptr);
-                m_pFileReader->GetNextBitstream(&bitstream);
+                if ((  (sts = m_pFileReader->LoadNextFrame(nullptr)) != RGY_ERR_NONE //進捗表示のため
+                    || (sts = m_pFileReader->GetNextBitstream(&bitstream)) != RGY_ERR_NONE)
+                    && sts != RGY_ERR_MORE_DATA) {
+                    nvStatus = NV_ENC_ERR_GENERIC;
+                    break;
+                }
+
                 for (auto& frameData : bitstream.getFrameDataList()) {
                     if (frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
                         auto ptr = dynamic_cast<RGYFrameDataHDR10plus*>(frameData);

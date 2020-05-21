@@ -490,7 +490,8 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
             durationHistgram.clear();
             frameDurationList.clear();
         }
-        for (; i_samples < maxCheckFrames && !getSample(&pkt); i_samples++) {
+        int ret = 0;
+        for (; i_samples < maxCheckFrames && !(ret = getSample(&pkt)); i_samples++) {
             m_Demux.qVideoPkt.push(pkt);
             if (bCheckDuration) {
                 int64_t diff = 0;
@@ -504,6 +505,9 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                     break;
                 }
             }
+        }
+        if (ret != 0 && ret != AVERROR_EOF) {
+            return RGY_ERR_UNKNOWN;
         }
         if (m_Demux.qVideoPkt.size() == 0) {
             AddMessage(RGY_LOG_ERROR, _T("No video packets found!\n"));
@@ -1511,7 +1515,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
         if (input_prm->seekSec > 0.0f) {
             AVPacket firstpkt;
-            getSample(&firstpkt); //現在のtimestampを取得する
+            if (getSample(&firstpkt)) { //現在のtimestampを取得する
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get firstpkt of video!\n"));
+                return RGY_ERR_UNKNOWN;
+            }
             const auto seek_time = av_rescale_q(1, av_d2q((double)input_prm->seekSec, 1<<24), m_Demux.video.stream->time_base);
             int seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt.pts + seek_time, 0);
             if (0 > seek_ret) {
@@ -1834,7 +1841,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             //音声のみ処理モードでは、動画の先頭をキーフレームとする必要はなく、
             //先頭がキーフレームでなくてもframePosListに追加するようにして、trimをoffsetなしで反映できるようにする
             //そこで、bTreatFirstPacketAsKeyframe=trueにして最初のパケットを処理する
-            getSample(&pkt, true);
+            if (getSample(&pkt, true)) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get first packet of the video!\n"));
+                return RGY_ERR_UNKNOWN;
+            }
             av_packet_unref(&pkt);
 
             m_Demux.frames.checkPtsStatus();
@@ -2202,7 +2212,7 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
         m_encSatusInfo->UpdateDisplay(100.0);
     }
 #endif
-    return 1;
+    return AVERROR_EOF;
 }
 
 //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
@@ -2210,8 +2220,11 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
     AVPacket pkt;
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
         && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
-        if (0 == getSample(&pkt)) {
+        const int ret = getSample(&pkt);
+        if (ret == 0) {
             m_Demux.qVideoPkt.push(pkt);
+        } else if (ret != AVERROR_EOF) {
+            return RGY_ERR_UNKNOWN;
         }
     }
 
@@ -2240,8 +2253,11 @@ RGY_ERR RGYInputAvcodec::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
     AVPacket pkt;
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
         && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
-        if (0 == getSample(&pkt)) {
+        const int ret = getSample(&pkt);
+        if (ret == 0) {
             m_Demux.qVideoPkt.push(pkt);
+        } else if (ret != AVERROR_EOF) {
+            return RGY_ERR_UNKNOWN;
         }
     }
 
@@ -2489,8 +2505,11 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
             av_init_packet(&pkt);
             if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
                 && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
-                if (0 == getSample(&pkt)) {
+                const int ret = getSample(&pkt);
+                if (ret == 0) {
                     m_Demux.qVideoPkt.push(pkt);
+                } else if (ret != AVERROR_EOF) {
+                    return RGY_ERR_UNKNOWN;
                 }
             }
 
