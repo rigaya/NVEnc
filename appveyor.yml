@@ -92,7 +92,7 @@ after_build:
   - if "%PLATFORM%" == "x64" copy "%CUDA_PATH%\bin\nvrtc-builtins64_101.dll" NVEncC_Release
   - 7z a -mx9 NVEncC_%BUILD_VERSION%_%PLATFORM%.7z .\NVEncC_Release\*
 
-test:
+test_script:
   - if "%PLATFORM%" == "Win32" python check_options.py -exe _build\%PLATFORM%\%CONFIGURATION%\NVEncC.exe
   - if "%PLATFORM%" == "x64"   python check_options.py -exe _build\%PLATFORM%\%CONFIGURATION%\NVEncC64.exe
 
