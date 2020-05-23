@@ -491,7 +491,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
             frameDurationList.clear();
         }
         int ret = 0;
-        for (; i_samples < maxCheckFrames && !(ret = getSample(&pkt)); i_samples++) {
+        for (; i_samples < maxCheckFrames && ((ret = getSample(&pkt)) == 0); i_samples++) {
             m_Demux.qVideoPkt.push(pkt);
             if (bCheckDuration) {
                 int64_t diff = 0;
