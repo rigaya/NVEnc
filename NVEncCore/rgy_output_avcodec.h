@@ -351,6 +351,7 @@ struct AvcodecWriterPrm {
         vidTimestamp(nullptr),
         videoCodecTag(),
         videoMetadata(),
+        formatMetadata(),
         afs(false),
         disableMp4Opt(false) {
     }
