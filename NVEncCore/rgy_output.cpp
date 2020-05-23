@@ -744,7 +744,7 @@ RGY_ERR initWriters(
                     if (pSubtitleSelect == nullptr) {
                         //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
                         for (int i = 0; i < common->nSubtitleSelectCount; i++) {
-                            if (common->ppAudioSelectList[i]->trackID == 0) {
+                            if (common->ppSubtitleSelectList[i]->trackID == 0) {
                                 pSubtitleSelect = common->ppSubtitleSelectList[i];
                                 break;
                             }
