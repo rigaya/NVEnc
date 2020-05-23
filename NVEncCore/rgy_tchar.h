@@ -65,6 +65,7 @@ typedef char TCHAR;
 #define _tcscpy strcpy
 #define _tremove remove
 #define _trename rename
+#define _istalpha isalpha
 
 #define _SH_DENYRW      0x10    // deny read/write mode
 #define _SH_DENYWR      0x20    // deny write mode
