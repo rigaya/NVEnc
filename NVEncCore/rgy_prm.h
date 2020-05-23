@@ -43,6 +43,9 @@ static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 static const char *maxCLLSource = "copy";
 static const char *masterDisplaySource = "copy";
 
+static const TCHAR *RGY_METADATA_CLEAR = _T("clear");
+static const TCHAR *RGY_METADATA_COPY = _T("copy");
+
 struct AudioSelect {
     int      trackID;         //選択した音声トラックのリスト 1,2,...(1から連番で指定)
     tstring  decCodecPrm;     //音声エンコードのデコーダのパラメータ
@@ -59,6 +62,7 @@ struct AudioSelect {
     uint64_t streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
     tstring  bsf;
     tstring  disposition;
+    std::vector<tstring> metadata;
 
     AudioSelect();
     ~AudioSelect() {};
@@ -80,6 +84,7 @@ struct SubtitleSelect {
     bool asdata;
     tstring bsf;
     tstring disposition;
+    std::vector<tstring> metadata;
 
     SubtitleSelect();
     ~SubtitleSelect() {};
@@ -96,6 +101,7 @@ struct SubSource {
 struct DataSelect {
     int trackID;
     tstring disposition;
+    std::vector<tstring> metadata;
 
     DataSelect();
     ~DataSelect() {};
@@ -115,6 +121,8 @@ struct RGYParamCommon {
     bool hdr10plusMetadataCopy;
     tstring dynamicHdr10plusJson;
     std::string videoCodecTag;
+    std::vector<tstring> videoMetadata;
+    std::vector<tstring> formatMetadata;
     float seekSec;               //指定された秒数分先頭を飛ばす
     int nSubtitleSelectCount;
     SubtitleSelect **ppSubtitleSelectList;
@@ -175,6 +183,9 @@ struct RGYParamControl {
 bool trim_active(const sTrimParam *pTrim);
 std::pair<bool, int> frame_inside_range(int frame, const std::vector<sTrim> &trimList);
 bool rearrange_trim_list(int frame, int offset, std::vector<sTrim> &trimList);
+tstring print_metadata(const std::vector<tstring>& metadata);
+bool metadata_copy(const std::vector<tstring> &metadata);
+bool metadata_clear(const std::vector<tstring> &metadata);
 
 const CX_DESC list_simd[] = {
     { _T("auto"),     -1  },

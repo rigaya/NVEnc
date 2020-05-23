@@ -61,6 +61,12 @@ static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 static const int VID_BITSTREAM_QUEUE_SIZE_I  = 4;
 static const int VID_BITSTREAM_QUEUE_SIZE_PB = 64;
 
+enum RGYMetadataCopyDefault {
+    RGY_METADATA_DEFAULT_CLEAR,
+    RGY_METADATA_DEFAULT_COPY_LANG_ONLY,
+    RGY_METADATA_DEFAULT_COPY
+};
+
 struct AVMuxTimestamp {
     int64_t timestamp_list[8];
 
@@ -276,6 +282,7 @@ struct AVOutputStreamPrm {
     bool    asdata;             //バイナリデータとして転送する
     tstring bsf;                //適用すべきbsfの名前
     tstring disposition;        //disposition
+    std::vector<tstring> metadata; //metadata
 
     AVOutputStreamPrm() :
         src(),
@@ -288,7 +295,8 @@ struct AVOutputStreamPrm {
         filter(),
         asdata(false),
         bsf(),
-        disposition() {
+        disposition(),
+        metadata() {
 
     }
 };
@@ -315,6 +323,8 @@ struct AvcodecWriterPrm {
     const HEVCHDRSei            *HEVCHdrSei;              //HDR関連のmetadata
     RGYTimestamp                *vidTimestamp;            //動画のtimestampの情報
     std::string                  videoCodecTag;           //動画タグ
+    std::vector<tstring>         videoMetadata;           //動画のmetadata
+    std::vector<tstring>         formatMetadata;          //formatのmetadata
     bool                         afs;                     //入力が自動フィールドシフト
     bool                         disableMp4Opt;           //mp4出力時のmuxの最適化を無効にする
 
@@ -340,6 +350,7 @@ struct AvcodecWriterPrm {
         HEVCHdrSei(nullptr),
         vidTimestamp(nullptr),
         videoCodecTag(),
+        videoMetadata(),
         afs(false),
         disableMp4Opt(false) {
     }
@@ -461,6 +472,9 @@ protected:
 
     //チャプターをコピー
     RGY_ERR SetChapters(const vector<const AVChapter *>& chapterList, bool chapterNoTrim);
+
+    //metadataの設定
+    RGY_ERR SetMetadata(AVDictionary **metadata, const AVDictionary *srcMetadata, const std::vector<tstring>& metadataOpt, const RGYMetadataCopyDefault defaultCopy, const tstring &trackName);
 
     //メッセージを作成
     tstring GetWriterMes();

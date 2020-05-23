@@ -535,6 +535,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->videoCodecTag = tchar_to_string(strInput[i]);
         return 0;
     }
+    if (IS_OPTION("video-metadata")) {
+        i++;
+        common->videoMetadata.push_back(strInput[i]);
+        return 0;
+    }
     if (IS_OPTION("trim")) {
         i++;
         auto trim_str_list = split(strInput[i], _T(","));
@@ -1160,6 +1165,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 1;
         }
     }
+    if (IS_OPTION("audio-metadata")) {
+        try {
+            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || pAudioSelect->metadata.size() == 0) {
+                    pAudioSelect->metadata.push_back(prmstr);
+                }
+                });
+            return ret;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+    }
 #endif //#if ENABLE_AVCODEC_QSV_READER
     if (IS_OPTION("chapter-copy") || IS_OPTION("copy-chapter")) {
         common->copyChapter = true;
@@ -1276,6 +1294,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             auto ret = set_sub_prm([](SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr) {
                 if (trackId != 0 || pSubSelect->disposition.length() == 0) {
                     pSubSelect->disposition = prmstr;
+                }
+                });
+            return ret;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+    }
+    if (IS_OPTION("sub-metadata")) {
+        try {
+            auto ret = set_sub_prm([](SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || pSubSelect->metadata.size() == 0) {
+                    pSubSelect->metadata.push_back(prmstr);
                 }
                 });
             return ret;
@@ -1444,6 +1475,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 1;
         }
     }
+    if (IS_OPTION("data-metadata")) {
+        try {
+            auto ret = set_data_prm([](DataSelect *pDataSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || pDataSelect->metadata.size() == 0) {
+                    pDataSelect->metadata.push_back(prmstr);
+                }
+                });
+            return ret;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+    }
     if (IS_OPTION("attachment-copy")) {
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         std::map<int, DataSelect> trackSet; //重複しないように
@@ -1536,6 +1580,16 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             } else {
                 common->muxOpt.push_back(std::make_pair<tstring, tstring>(tstring(strInput[i]).substr(0, ptr - strInput[i]), tstring(ptr+1)));
             }
+        } else {
+            print_cmd_error_invalid_value(option_name, _T(""));
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("metadata")) {
+        if (i + 1 < nArgNum && strInput[i + 1][0] != _T('-')) {
+            i++;
+            common->formatMetadata.push_back(strInput[i]);
         } else {
             print_cmd_error_invalid_value(option_name, _T(""));
             return 1;
@@ -1864,6 +1918,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_TCHAR(_T("--input-format"), AVInputFormat);
     OPT_TSTR(_T("--output-format"), muxOutputFormat);
     OPT_STR(_T("--video-tag"), videoCodecTag);
+    for (auto &m : param->videoMetadata) {
+        cmd << _T(" --video-metadata ") << m;
+    }
     OPT_NUM(_T("--video-track"), videoTrack);
     OPT_NUM(_T("--video-streamid"), videoStreamId);
     for (uint32_t i = 0; i < param->inputOpt.size(); i++) {
@@ -1972,11 +2029,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         if (pAudioSelect->bsf.length() > 0) {
             cmd << _T(" --audio-bsf ") << pAudioSelect->trackID << _T("?") << pAudioSelect->bsf;
         }
-    }
-    for (int i = 0; i < param->nAudioSelectCount; i++) {
-        const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->disposition.length() > 0) {
             cmd << _T(" --audio-disposition ") << pAudioSelect->trackID << _T("?") << pAudioSelect->disposition;
+        }
+        for (auto &m : pAudioSelect->metadata) {
+            cmd << _T(" --audio-metadata ") << pAudioSelect->trackID << _T("?") << m;
         }
     }
     for (int i = 0; i < param->nAudioSelectCount; i++) {
@@ -2047,6 +2104,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         if (pSubSelect->disposition.length() > 0) {
             cmd << _T(" --sub-disposition ") << pSubSelect->trackID << _T("?") << pSubSelect->disposition;
         }
+        for (auto &m : pSubSelect->metadata) {
+            cmd << _T(" --sub-metadata ") << pSubSelect->trackID << _T("?") << m;
+        }
     }
     tmp.str(tstring());
     for (const auto &src : param->subSource) {
@@ -2098,6 +2158,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         if (pDataSelect->disposition.length() > 0) {
             cmd << _T(" --data-disposition ") << pDataSelect->trackID << _T("?") << pDataSelect->disposition;
         }
+        for (auto &m : pDataSelect->metadata) {
+            cmd << _T(" --data-metadata ") << pDataSelect->trackID << _T("?") << m;
+        }
     }
 
     for (int i = 0; i < param->nAttachmentSelectCount; i++) {
@@ -2116,6 +2179,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
 
     OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
     OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
+    for (auto &m : param->formatMetadata) {
+        cmd << _T(" --metadata ") << m;
+    }
 
     OPT_LST(_T("--chromaloc"), out_vui.chromaloc, list_chromaloc);
     OPT_LST(_T("--colorrange"), out_vui.colorrange, list_colorrange);
@@ -2259,6 +2325,9 @@ tstring gen_cmd_help_common() {
         _T("                                   ... \n")
         _T("   --video-streamid <int>       set video track to encode in stream id\n")
         _T("   --video-tag <string>         specify video tag\n")
+        _T("   --video-metadata <string>    set metadata for video track.\n")
+        _T("                                 - copy ... copy metadata from input\n")
+        _T("                                 - clear ... do not set metadata (default)\n")
         _T("   --audio-source <string>      input extra audio file.\n")
         _T("   --audio-file [<int>?][<string>:]<string>\n")
         _T("                                extract audio into file.\n")
@@ -2342,6 +2411,10 @@ tstring gen_cmd_help_common() {
         _T("   --audio-disposition [<int>?]<string>\n")
         _T("                                set disposition for the specified audio track.\n")
         _T("                                disposition for the unspecified tracks will be reset.\n")
+        _T("   --audio-metadata [<int>?]<string>\n")
+        _T("                                set metadata for the specified audio track.\n")
+        _T("                                 - copy ... copy metadata from input (default)\n")
+        _T("                                 - clear ... do not set metadata\n")
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
 #if ENCODER_NVENC
@@ -2358,6 +2431,10 @@ tstring gen_cmd_help_common() {
         _T("   --sub-disposition [<int>?]<string>\n")
         _T("                                set disposition for the specified subtitle track.\n")
         _T("                                disposition for the unspecified tracks will be reset.\n")
+        _T("   --sub-metadata [<int>?]<string>\n")
+        _T("                                set metadata for the specified audio track.\n")
+        _T("                                 - copy ... copy metadata from input (default)\n")
+        _T("                                 - clear ... do not set metadata\n")
 #if ENABLE_CAPTION2ASS
         _T("   --caption2ass [<string>]     enable caption2ass during encode.\n")
         _T("                                  !! This feature requires Caption.dll !!\n")
@@ -2378,7 +2455,10 @@ tstring gen_cmd_help_common() {
         _T("-m,--mux-option <string1>:<string2>\n")
         _T("                                set muxer option name and value.\n")
         _T("                                 these could be only used with\n")
-        _T("                                 avhw/avsw reader and avcodec muxer.\n"),
+        _T("                                 avhw/avsw reader and avcodec muxer.\n")
+        _T("   --metadata <string>          set metadata for output file.\n")
+        _T("                                 - copy ... copy metadata from input (default)\n")
+        _T("                                 - clear ... do not set metadata\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
 #endif
     return str;

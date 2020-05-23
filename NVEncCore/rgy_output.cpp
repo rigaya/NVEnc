@@ -673,6 +673,8 @@ RGY_ERR initWriters(
         writerPrm.bitstreamTimebase       = av_make_q(outputTimebase);
         writerPrm.HEVCHdrSei              = hedrsei;
         writerPrm.videoCodecTag           = common->videoCodecTag;
+        writerPrm.videoMetadata           = common->videoMetadata;
+        writerPrm.formatMetadata           = common->formatMetadata;
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
         writerPrm.muxOpt                  = common->muxOpt;
@@ -784,6 +786,7 @@ RGY_ERR initWriters(
                         prm.filter = pAudioSelect->filter;
                         prm.bsf = pAudioSelect->bsf;
                         prm.disposition = pAudioSelect->disposition;
+                        prm.metadata = pAudioSelect->metadata;
                     }
                     if (pSubtitleSelect != nullptr) {
                         prm.encodeCodec = pSubtitleSelect->encCodec;
@@ -791,17 +794,20 @@ RGY_ERR initWriters(
                         prm.asdata = pSubtitleSelect->asdata;
                         prm.bsf = pSubtitleSelect->bsf;
                         prm.disposition = pSubtitleSelect->disposition;
+                        prm.metadata = pSubtitleSelect->metadata;
                     }
                     if (pDataSelect != nullptr) {
                         prm.disposition = pDataSelect->disposition;
+                        prm.metadata = pDataSelect->metadata;
                     }
-                    log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s, bsf: %s, disposition: %s\n"),
+                    log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s, bsf: %s, disposition: %s, metadata %s\n"),
                         char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
                         stream.trackId, stream.index, prm.bitrate, prm.encodeCodec.c_str(),
                         prm.encodeCodecProfile.c_str(),
                         prm.encodeCodecPrm.c_str(),
                         prm.bsf.length() > 0 ? prm.bsf.c_str() : _T("<none>"),
-                        prm.disposition.length() > 0 ? prm.disposition.c_str() : _T("<none>"));
+                        prm.disposition.length() > 0 ? prm.disposition.c_str() : _T("<copy>"),
+                        prm.metadata.size() > 0 ? print_metadata(prm.metadata).c_str() : _T("<copy>"));
                     writerPrm.inputStreamList.push_back(std::move(prm));
                 }
             }
@@ -892,18 +898,24 @@ RGY_ERR initWriters(
                         prm.encodeCodecProfile = pAudioSelect->encCodecProfile;
                         prm.filter = pAudioSelect->filter;
                         prm.bsf = pAudioSelect->bsf;
+                        prm.disposition = pAudioSelect->disposition;
+                        prm.metadata = pAudioSelect->metadata;
                     }
                     if (pSubtitleSelect != nullptr) {
                         prm.encodeCodec = pSubtitleSelect->encCodec;
                         prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
                         prm.asdata = pSubtitleSelect->asdata;
+                        prm.disposition = pSubtitleSelect->disposition;
+                        prm.metadata = pSubtitleSelect->metadata;
                     }
-                    log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s, bsf: %s\n"),
+                    log->write(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s, bsf: %s, disposition: %s, metadata: %s\n"),
                         char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
                         stream.trackId, stream.index, prm.bitrate, prm.encodeCodec.c_str(),
                         prm.encodeCodecProfile.c_str(),
                         prm.encodeCodecPrm.c_str(),
-                        prm.bsf.length() > 0 ? prm.bsf.c_str() : _T("none"));
+                        prm.bsf.length() > 0 ? prm.bsf.c_str() : _T("<none>"),
+                        prm.disposition.length() > 0 ? prm.disposition.c_str() : _T("<copy>"),
+                        prm.metadata.size() > 0 ? print_metadata(prm.metadata).c_str() : _T("<copy>"));
                     writerPrm.inputStreamList.push_back(std::move(prm));
                 }
             }

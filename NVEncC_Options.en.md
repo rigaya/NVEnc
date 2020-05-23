@@ -571,6 +571,22 @@ Specify video tag.
  -o test.mp4 -c hevc --video-tag hvc1
 ```
 
+### --video-metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
+Set metadata for video track.
+  - copy  ... copy metadata from input if possible
+  - clear ... do not copy metadata (default)
+
+```
+Example1: copy metadata from input file
+--video-metadata 1?copy
+
+Example2: clear metadata from input file
+--video-metadata 1?clear
+
+Example3: set metadata
+--video-metadata 1?title="video title" --video-metadata 1?language=jpn
+```
+
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy audio track into output file. Available only when avhw / avsw reader is used.
 
@@ -733,6 +749,22 @@ Example:
 --audio-disposition 2?default,forced
 ```
 
+### --audio-metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
+Set metadata for audio track.
+  - copy  ... copy metadata from input if possible (default)
+  - clear ... do not copy metadata
+
+```
+Example1: copy metadata from input file
+--audio-metadata 1?copy
+
+Example2: clear metadata from input file
+--audio-metadata 1?clear
+
+Example3: set metadata
+--audio-metadata 1?title="audio title" --audio-metadata 1?language=jpn
+```
+
 ### --audio-ignore-decode-error &lt;int&gt;
 Ignore the consecutive audio decode error, and continue transcoding within the threshold specified. The portion of audio which could not be decoded properly will be replaced with silence.
 
@@ -887,6 +919,22 @@ set disposition for the specified subtitle track.
  copy
 ```
 
+### --sub-metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
+Set metadata for subtitle track.
+  - copy  ... copy metadata from input if possible (default)
+  - clear ... do not copy metadata
+
+```
+Example1: copy metadata from input file
+--sub-metadata 1?copy
+
+Example2: clear metadata from input file
+--sub-metadata 1?clear
+
+Example3: set metadata
+--sub-metadata 1?title="subtitle title" --sub-metadata 1?language=jpn
+```
+
 ### --caption2ass [&lt;string&gt;]
 Enable caption2ass process. This feature requires Caption.dll.  
 
@@ -912,6 +960,22 @@ Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, an
 ```
 Example: Output for HLS
 -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
+```
+
+### --metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
+Set global metadata for output file.
+  - copy  ... copy metadata from input if possible (default)
+  - clear ... do not copy metadata
+
+```
+Example1: copy metadata from input file
+--metadata copy
+
+Example2: clear metadata from input file
+--metadata clear
+
+Example3: set metadata
+--metadata title="video title" --metadata language=jpn
 ```
 
 ### --avsync &lt;string&gt;

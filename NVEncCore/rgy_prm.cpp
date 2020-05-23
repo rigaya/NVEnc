@@ -49,7 +49,8 @@ AudioSelect::AudioSelect() :
     streamChannelSelect(),
     streamChannelOut(),
     bsf(),
-    disposition() {
+    disposition(),
+    metadata() {
     memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
     memset(streamChannelOut, 0, sizeof(streamChannelOut));
 }
@@ -67,7 +68,8 @@ SubtitleSelect::SubtitleSelect() :
     decCodecPrm(),
     asdata(false),
     bsf(),
-    disposition() {
+    disposition(),
+    metadata() {
 
 }
 
@@ -79,7 +81,8 @@ SubSource::SubSource() :
 
 DataSelect::DataSelect() :
     trackID(0),
-    disposition() {
+    disposition(),
+    metadata() {
 
 }
 
@@ -94,6 +97,8 @@ RGYParamCommon::RGYParamCommon() :
     hdr10plusMetadataCopy(false),
     dynamicHdr10plusJson(),
     videoCodecTag(),
+    videoMetadata(),
+    formatMetadata(),
     seekSec(0.0f),               //指定された秒数分先頭を飛ばす
     nSubtitleSelectCount(0),
     ppSubtitleSelectList(nullptr),
@@ -197,6 +202,22 @@ bool rearrange_trim_list(int frame, int offset, std::vector<sTrim> &trimList) {
         }
     }
     return false;
+}
+
+tstring print_metadata(const std::vector<tstring> &metadata) {
+    tstring str;
+    for (const auto &m : metadata) {
+        str += _T(" \"") + m + _T("\"");
+    }
+    return str;
+}
+
+bool metadata_copy(const std::vector<tstring> &metadata) {
+    return std::find(metadata.begin(), metadata.end(), RGY_METADATA_COPY) != metadata.end();
+}
+
+bool metadata_clear(const std::vector<tstring> &metadata) {
+    return std::find(metadata.begin(), metadata.end(), RGY_METADATA_CLEAR) != metadata.end();
 }
 
 #if !FOR_AUO

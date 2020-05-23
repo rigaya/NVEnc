@@ -575,6 +575,22 @@ muxerに出力フォーマットを指定して出力する。
  -o test.mp4 -c hevc --video-tag hvc1
 ```
 
+### --video-metadata [&lt;int&gt;?]&lt;string&gt; or [&lt;int&gt;?]&lt;string&gt;=&lt;string&gt;
+映像トラックのmetadataを指定する。
+  - copy  ... 入力ファイルからmetadataをコピーする。 
+  - clear ... do not copy metadata (デフォルト)
+
+```
+例1: 入力ファイルからmetadataをコピー
+--video-metadata 1?copy
+
+例2: 入力ファイルからのmetadataのコピーを行わない
+--video-metadata 1?clear
+
+例3: 指定のmetadataを設定する
+--video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
+```
+
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
 
@@ -730,6 +746,22 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 --audio-disposition 2?default,forced
 ```
 
+### --audio-metadata [&lt;int&gt;?]&lt;string&gt; or [&lt;int&gt;?]&lt;string&gt;=&lt;string&gt;
+音声トラックのmetadataを指定する。
+  - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
+  - clear ... do not copy metadata
+
+```
+例1: 入力ファイルからmetadataをコピー
+--audio-metadata 1?copy
+
+例2: 入力ファイルからのmetadataのコピーを行わない
+--audio-metadata 1?clear
+
+例3: 指定のmetadataを設定する
+--audio-metadata 1?title="音声の タイトル" --audio-metadata 1?language=jpn
+```
+
 ### --audio-ignore-decode-error &lt;int&gt;
 指定した連続する音声のデコードエラーの数をカウントし、閾値以内ならエラーを無視して処理を継続し、エラーの箇所は無音に置き換える。
 
@@ -876,6 +908,22 @@ matroska形式 (UTF-8であること)
  copy
 ```
 
+### --sub-metadata [&lt;int&gt;?]&lt;string&gt; or [&lt;int&gt;?]&lt;string&gt;=&lt;string&gt;
+字幕トラックのmetadataを指定する。
+  - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
+  - clear ... do not copy metadata
+
+```
+例1: 入力ファイルからmetadataをコピー
+--sub-metadata 1?copy
+
+例2: 入力ファイルからのmetadataのコピーを行わない
+--sub-metadata 1?clear
+
+例3: 指定のmetadataを設定する
+--sub-metadata 1?title="字幕の タイトル" --sub-metadata 1?language=jpn
+```
+
 ### --caption2ass [&lt;string&gt;]
 caption2assによる字幕抽出処理を行い、動画にmuxして出力する。別途 "Caption.dll" が必要。
 
@@ -895,7 +943,7 @@ attachmentストリームをコピーする。avhw/avswリーダー使用時の�
 avsw/avhwでの読み込み時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
 ```
-Example: Blurayのplaylist 1を読み込み
+例: Blurayのplaylist 1を読み込み
 -i bluray:D:\ --input-option palylist:1
 ```
 
@@ -905,6 +953,22 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 ```
 例: HLS用の出力
 -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
+```
+
+### --metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
+出力ファイルの(グローバルな)metadataを指定する。
+  - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
+  - clear ... do not copy metadata
+
+```
+例1: 入力ファイルからmetadataをコピー
+--metadata copy
+
+例2: 入力ファイルからのmetadataのコピーを行わない
+--metadata clear
+
+例3: 指定のmetadataを設定する
+--metadata title="動画の タイトル" --metadata language=jpn
 ```
 
 ### --avsync &lt;string&gt;

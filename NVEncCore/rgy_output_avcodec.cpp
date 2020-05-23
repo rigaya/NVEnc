@@ -35,6 +35,7 @@
 #include "rgy_output_avcodec.h"
 #include "rgy_avlog.h"
 #include "rgy_bitstream.h"
+#include "rgy_codepage.h"
 
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
@@ -476,6 +477,71 @@ tstring RGYOutputAvcodec::AudioGetCodecProfileStr(int profile, AVCodecID codecId
     return _T("default");
 }
 
+RGY_ERR RGYOutputAvcodec::SetMetadata(AVDictionary **metadata, const AVDictionary *srcMetadata, const std::vector<tstring> &metadataOpt, const RGYMetadataCopyDefault defaultCopy, const tstring& trackName) {
+    bool metadataCopyAll = false;
+    bool metadataCopyLang = false;
+    if (metadataOpt.size() == 0) {
+        //デフォルトの操作
+        switch (defaultCopy) {
+        case RGY_METADATA_DEFAULT_CLEAR:
+            metadataCopyAll = false;
+            metadataCopyLang = false;
+            break;
+        case RGY_METADATA_DEFAULT_COPY_LANG_ONLY:
+            metadataCopyAll = false;
+            metadataCopyLang = true;
+            break;
+        case RGY_METADATA_DEFAULT_COPY:
+            metadataCopyAll = true;
+            metadataCopyLang = true;
+            break;
+        default:
+            AddMessage(RGY_LOG_DEBUG, _T("Unknown default setting %d for %s metadata setting!\n"), defaultCopy, trackName.c_str());
+            return RGY_ERR_UNSUPPORTED;
+        }
+    } else if (metadata_clear(metadataOpt)) {
+        metadataCopyAll = false;
+        metadataCopyLang = false;
+    } else if (metadata_copy(metadataOpt)) {
+        metadataCopyAll = true;
+        metadataCopyLang = true;
+    }
+    if (srcMetadata == nullptr) {
+        metadataCopyAll = false;
+        metadataCopyLang = false;
+    }
+    if (metadataCopyLang) {
+        const auto language_data = av_dict_get(srcMetadata, "language", NULL, AV_DICT_MATCH_CASE);
+        if (language_data) {
+            av_dict_set(metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
+            AddMessage(RGY_LOG_DEBUG, _T("Set %s language: key %s, value %s\n"), trackName.c_str(), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
+        }
+    }
+    if (metadataCopyAll) {
+        for (AVDictionaryEntry *entry = nullptr;
+            nullptr != (entry = av_dict_get(srcMetadata, "", entry, AV_DICT_IGNORE_SUFFIX));) {
+            av_dict_set(metadata, entry->key, entry->value, AV_DICT_IGNORE_SUFFIX);
+            AddMessage(RGY_LOG_DEBUG, _T("Copy %s Metadata: key %s, value %s\n"), trackName.c_str(), char_to_tstring(entry->key).c_str(), char_to_tstring(entry->value).c_str());
+        }
+    }
+    //このあたりは矛盾することがあるので消去
+    av_dict_set(&m_Mux.format.formatCtx->metadata, "duration", NULL, 0);
+    av_dict_set(&m_Mux.format.formatCtx->metadata, "creation_time", NULL, 0);
+    //ユーザー指定のパラメータの指定
+    for (const auto& m : metadataOpt) {
+        if (m == RGY_METADATA_CLEAR || m == RGY_METADATA_COPY) {
+            continue;
+        }
+        const std::string m_utf8 = tchar_to_string(m, CODE_PAGE_UTF8);
+        if (av_dict_parse_string(metadata, m_utf8.c_str(), "=", "", 0)) {
+            AddMessage(RGY_LOG_WARN, _T("Failed to parse metadata \"%s\" for %s, ignored!\n"), m.c_str(), trackName.c_str());
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("Set metadata \"%s\" for %s\n"), m.c_str(), trackName.c_str());
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
 #pragma warning (push)
 #pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const AvcodecWriterPrm *prm) {
@@ -550,16 +616,13 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.timestamp        = prm->vidTimestamp;
     m_Mux.video.afs              = prm->afs;
 
+    auto retm = SetMetadata(&m_Mux.video.streamOut->metadata, (prm->videoInputStream) ? prm->videoInputStream->metadata : nullptr, prm->videoMetadata, RGY_METADATA_DEFAULT_COPY_LANG_ONLY, _T("Video"));
+    if (retm != RGY_ERR_NONE) {
+        return retm;
+    }
     if (prm->videoInputStream) {
         m_Mux.video.inputStreamTimebase = prm->videoInputStream->time_base;
         m_Mux.video.streamOut->disposition = prm->videoInputStream->disposition;
-        if (prm->videoInputStream->metadata) {
-            auto language_data = av_dict_get(prm->videoInputStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
-            if (language_data) {
-                av_dict_set(&m_Mux.video.streamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
-                AddMessage(RGY_LOG_DEBUG, _T("Set Video language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
-            }
-        }
         int side_data_size = 0;
         auto side_data = av_stream_get_side_data(prm->videoInputStream, AV_PKT_DATA_DISPLAYMATRIX, &side_data_size);
         if (side_data) {
@@ -1316,17 +1379,10 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
         //substream(--audio-filterなどによる複製stream)の場合はデフォルトstreamではない
         muxAudio->streamOut->disposition &= (~AV_DISPOSITION_DEFAULT);
     }
-    if (inputAudio->src.stream->metadata) {
-        for (AVDictionaryEntry *entry = nullptr;
-        nullptr != (entry = av_dict_get(inputAudio->src.stream->metadata, "", entry, AV_DICT_IGNORE_SUFFIX));) {
-            av_dict_set(&muxAudio->streamOut->metadata, entry->key, entry->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(RGY_LOG_DEBUG, _T("Copy Audio Metadata: key %s, value %s\n"), char_to_tstring(entry->key).c_str(), char_to_tstring(entry->value).c_str());
-        }
-        auto language_data = av_dict_get(inputAudio->src.stream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
-        if (language_data) {
-            av_dict_set(&muxAudio->streamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(RGY_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
-        }
+    auto ret = SetMetadata(&muxAudio->streamOut->metadata, inputAudio->src.stream->metadata, inputAudio->metadata, RGY_METADATA_DEFAULT_COPY,
+        strsprintf(_T("Audio #%d.%d"), muxAudio->inTrackId, muxAudio->inSubStream));
+    if (ret != RGY_ERR_NONE) {
+        return ret;
     }
     return RGY_ERR_NONE;
 }
@@ -1566,6 +1622,10 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             }
         }
     }
+    auto ret = SetMetadata(&muxSub->streamOut->metadata, (inputStream->src.stream) ? inputStream->src.stream->metadata : nullptr, inputStream->metadata, RGY_METADATA_DEFAULT_COPY, strsprintf(_T("Other #%d"), inputStream->src.trackId));
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
     return RGY_ERR_NONE;
 }
 
@@ -1791,10 +1851,9 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
 
     SetChapters(prm->chapterList, prm->chapterNoTrim);
 
-    if (m_Mux.format.formatCtx->metadata) {
-        av_dict_copy(&m_Mux.format.formatCtx->metadata, prm->inputFormatMetadata, AV_DICT_DONT_OVERWRITE);
-        av_dict_set(&m_Mux.format.formatCtx->metadata, "duration", NULL, 0);
-        av_dict_set(&m_Mux.format.formatCtx->metadata, "creation_time", NULL, 0);
+    auto ret = SetMetadata(&m_Mux.format.formatCtx->metadata, prm->inputFormatMetadata, prm->formatMetadata, RGY_METADATA_DEFAULT_COPY, _T("Container"));
+    if (ret != RGY_ERR_NONE) {
+        return ret;
     }
 
     for (const auto& muxOpt : prm->muxOpt) {
