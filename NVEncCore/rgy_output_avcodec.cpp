@@ -2773,6 +2773,7 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
             //フィルタリングなし
             outputFrames.push_back(pktData);
         } else {
+            const bool flush = pktData.frame == nullptr;
             if (pktData.frame != nullptr) {
                 //音声入力フォーマットに変更がないか確認し、もしあればresamplerを再初期化する
                 auto sts = InitAudioFilter(muxAudio, pktData.frame->channels, pktData.frame->channel_layout, pktData.frame->sample_rate, (AVSampleFormat)pktData.frame->format);
@@ -2793,7 +2794,7 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
             }
             for (;;) {
                 unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> filteredFrame(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free));
-                auto ret = av_buffersink_get_frame_flags(muxAudio->filterBufferSinkCtx, filteredFrame.get(), AV_BUFFERSINK_FLAG_NO_REQUEST);
+                auto ret = av_buffersink_get_frame_flags(muxAudio->filterBufferSinkCtx, filteredFrame.get(), (flush) ? AV_BUFFERSINK_FLAG_NO_REQUEST : 0);
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                     break;
                 }
