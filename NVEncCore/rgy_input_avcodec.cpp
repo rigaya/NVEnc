@@ -2577,13 +2577,15 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
                 pSurface->dataList().push_back(table);
             }
         }
+#endif //#if ENCODER_NVENC
+#if ENABLE_DHDR10_INFO
         {
             auto hdr10plus = std::shared_ptr<RGYFrameData>(getHDR10plusMetaData(m_Demux.video.frame));
             if (hdr10plus) {
                 pSurface->dataList().push_back(hdr10plus);
             }
         }
-#endif //#if ENCODER_NVENC
+#endif //#if ENABLE_DHDR10_INFO
         //フレームデータをコピー
         void *dst_array[3];
         pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);

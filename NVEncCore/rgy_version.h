@@ -62,6 +62,10 @@ const char *get_encoder_version();
 
 #define NV_DRIVER_VER_MIN 436000
 
+#define ENABLE_DHDR10_INFO 1
+#define ENABLE_KEYFRAME_INSERT 1
+#define ENABLE_AUTO_PICSTRUCT 1
+
 #if defined(_WIN32) || defined(_WIN64)
 #define ENABLE_OPENCL 1
 #define ENABLE_CPP_REGEX 1

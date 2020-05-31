@@ -1193,7 +1193,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-#if ENCODER_NVENC
+#if ENABLE_KEYFRAME_INSERT
     if (IS_OPTION("key-on-chapter")) {
         common->keyOnChapter = true;
         return 0;
@@ -1208,7 +1208,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-#endif // #if ENCODER_NVENC
+#endif // #if ENABLE_KEYFRAME_INSERT
 #if ENABLE_AVSW_READER && !FOR_AUO
     if (IS_OPTION("sub-copy") || IS_OPTION("copy-sub")) {
         common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
@@ -1683,6 +1683,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->masterDisplay = tchar_to_string(strInput[i]);
         return 0;
     }
+#if ENABLE_DHDR10_INFO
     if (IS_OPTION("dhdr10-info")) {
         i++;
         if (strInput[i] == tstring(_T("copy"))) {
@@ -1692,6 +1693,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+#endif //#if ENABLE_DHDR10_INFO
     return -10;
 }
 
@@ -2191,11 +2193,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_LST(_T("--videoformat"), out_vui.format, list_videoformat);
     OPT_STR(_T("--max-cll"), maxCll);
     OPT_STR(_T("--master-display"), masterDisplay);
+#if ENABLE_DHDR10_INFO
     if (param->hdr10plusMetadataCopy) {
         cmd << _T("--dhdr10-info copy");
     } else {
         OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
     }
+#endif //#if ENABLE_DHDR10_INFO
 
     OPT_NUM(_T("--output-buf"), outputBufSizeMB);
     return cmd.str();
@@ -2310,8 +2314,10 @@ tstring gen_cmd_help_common() {
         _T("   --max-cll <int>,<int>        set MaxCLL/MaxFall in nits. e.g. \"1000,300\"\n")
         _T("   --master-display <string>    set Mastering display data.\n")
         _T("   e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n")
+#if ENABLE_DHDR10_INFO
         _T("   --dhdr10-info <string>       apply dynamic HDR10+ metadata from json file.\n")
         _T("   --dhdr10-info copy           Copy dynamic HDR10+ metadata from input file.\n")
+#endif //#if ENABLE_DHDR10_INFO
         _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avhw/avsw reader.\n")
@@ -2417,11 +2423,11 @@ tstring gen_cmd_help_common() {
         _T("                                 - clear ... do not set metadata\n")
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
-#if ENCODER_NVENC
+#if ENABLE_KEYFRAME_INSERT
         _T("   --key-on-chapter             set key frame on chapter.\n")
         _T("   --keyfile <string>           set keyframes on frames specified in the file.\n")
         _T("                                  frame num should start from 0.\n")
-#endif //#if ENCODER_NVENC
+#endif //#if ENABLE_KEYFRAME_INSERT
         _T("   --sub-source <string>        input extra subtitle file.\n")
         _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
         _T("                                 these could be only used with\n")
