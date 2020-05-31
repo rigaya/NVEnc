@@ -137,7 +137,7 @@ RGYParamControl::RGYParamControl() :
     simdCsp(-1),
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
-    logFramePosList(),     //framePosList出力先
+    logFramePosList(false),     //framePosList出力
     logMuxVidTsFile(nullptr),
     threadOutput(RGY_OUTPUT_THREAD_AUTO),
     threadAudio(RGY_AUDIO_THREAD_AUTO),

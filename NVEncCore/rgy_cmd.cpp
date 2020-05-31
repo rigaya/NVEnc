@@ -1715,8 +1715,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
     if (IS_OPTION("log-framelist")) {
-        i++;
-        ctrl->logFramePosList = strInput[i];
+        ctrl->logFramePosList = true;
         return 0;
     }
     if (IS_OPTION("log-mux-ts")) {
@@ -2216,7 +2215,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
     OPT_STR_PATH(_T("--log"), logfile);
     OPT_LST(_T("--log-level"), loglevel, list_log_level);
-    OPT_STR_PATH(_T("--log-framelist"), logFramePosList);
+    OPT_BOOL(_T("--log-framelist"), _T(""), logFramePosList);
     OPT_CHAR_PATH(_T("--log-mux-ts"), logMuxVidTsFile);
     if (param->perfMonitorSelect != defaultPrm->perfMonitorSelect) {
         auto select = (int)param->perfMonitorSelect;
@@ -2475,7 +2474,7 @@ tstring gen_cmd_help_ctrl() {
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error\n")
-        _T("   --log-framelist <string>     output frame info of avhw reader to path\n"));
+        _T("   --log-framelist              output debug info for avsw/avhw reader.\n"));
 
     str += strsprintf(_T("")
         _T("   --max-procfps <int>         limit encoding speed for lower utilization.\n")

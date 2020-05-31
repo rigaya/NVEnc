@@ -99,8 +99,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),
     procSpeedLimit(0),
     seekSec(0.0),
-    logFramePosList(nullptr),
-    logCopyFrameData(nullptr),
+    logFramePosList(),
+    logCopyFrameData(),
     threadInput(0),
     queueInfo(nullptr),
     HWDecCodecCsp(nullptr),
@@ -1404,8 +1404,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             av_stream_get_codec_timebase(m_Demux.video.stream).num, av_stream_get_codec_timebase(m_Demux.video.stream).den);
 
         m_logFramePosList.clear();
-        if (input_prm->logFramePosList) {
+        if (input_prm->logFramePosList.length() > 0) {
             m_logFramePosList = input_prm->logFramePosList;
+            AddMessage(RGY_LOG_DEBUG, _T("Opened framepos log file: \"%s\"\n"), input_prm->logCopyFrameData.c_str());
         }
 
         m_Demux.video.hdr10plusMetadataCopy = input_prm->hdr10plusMetadataCopy;
@@ -1568,8 +1569,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             return RGY_ERR_NULL_PTR;
         }
 #if _DEBUG
-        if (m_Demux.frames.setLogCopyFrameData(input_prm->logCopyFrameData)) {
-            AddMessage(RGY_LOG_WARN, _T("failed to open copy-framedata log file: \"%s\"\n"), input_prm->logCopyFrameData);
+        if (input_prm->logCopyFrameData.length() > 0) {
+            if (m_Demux.frames.setLogCopyFrameData(input_prm->logCopyFrameData.c_str())) {
+                AddMessage(RGY_LOG_WARN, _T("failed to open copy-framedata log file: \"%s\"\n"), input_prm->logCopyFrameData.c_str());
+            } else {
+                AddMessage(RGY_LOG_DEBUG, _T("Opened copy-framedata log file: \"%s\"\n"), input_prm->logCopyFrameData.c_str());
+            }
         }
 #endif
 

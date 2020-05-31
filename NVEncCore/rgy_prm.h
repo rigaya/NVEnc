@@ -164,7 +164,7 @@ struct RGYParamControl {
     int simdCsp;
     tstring logfile;              //ログ出力先
     int loglevel;                 //ログ出力レベル
-    tstring logFramePosList;     //framePosList出力先
+    bool logFramePosList;     //framePosList出力
     TCHAR *logMuxVidTsFile;
     int threadOutput;
     int threadAudio;

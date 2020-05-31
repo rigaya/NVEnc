@@ -1667,6 +1667,9 @@ Select the level of log output.
 - debug ... Output additional information, mainly for debug
 - trace ... Output information for each frame (slow)
 
+### --log-framelist
+FOR DEBUG ONLY! Output debug log for avsw/avhw reader.
+
 ### --max-procfps &lt;int&gt;
 Set the upper limit of transcode speed. The default is 0 (= unlimited).
 
