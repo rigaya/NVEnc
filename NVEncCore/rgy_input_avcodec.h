@@ -873,6 +873,8 @@ protected:
     bool m_resolutionDetermined;
 };
 #else
+#pragma warning(push)
+#pragma warning(disable: 4100)
 class AVCaption2Ass {
 public:
     AVCaption2Ass() {};
@@ -913,6 +915,7 @@ public:
     }
 protected:
 };
+#pragma warning(pop)
 #endif //#if ENABLE_CAPTION2ASS
 
 class RGYInputAvcodecPrm : public RGYInputPrm {
