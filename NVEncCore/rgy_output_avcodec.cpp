@@ -576,7 +576,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.codecCtx->delay                   = videoOutputInfo->videoDelay;
     if (prm->videoCodecTag.length() > 0) {
         m_Mux.video.codecCtx->codec_tag           = tagFromStr(prm->videoCodecTag);
-        AddMessage(RGY_LOG_DEBUG, _T("Set Video Codec Tag: %s\n"), char_to_tstring(tagToStr(m_Mux.video.streamOut->codecpar->codec_tag)).c_str());
+        AddMessage(RGY_LOG_DEBUG, _T("Set Video Codec Tag: %s\n"), char_to_tstring(tagToStr(m_Mux.video.codecCtx->codec_tag)).c_str());
     }
     if (videoOutputInfo->vui.descriptpresent) {
         m_Mux.video.codecCtx->colorspace          = (AVColorSpace)videoOutputInfo->vui.matrix;
