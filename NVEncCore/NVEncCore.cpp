@@ -3943,7 +3943,9 @@ NVENCSTATUS NVEncCore::Encode() {
             const bool bDrain = (dqInFrames.size()) ? false : bInputEmpty;
             auto& inframe = (dqInFrames.size()) ? dqInFrames.front() : dummyFrame;
             bool bDrainFin = bDrain;
-            if (NV_ENC_SUCCESS != (nvStatus = filter_frame(nFilterFrame, inframe, dqEncFrames, bDrainFin))) {
+            auto filter_ret = filter_frame(nFilterFrame, inframe, dqEncFrames, bDrainFin);
+            if (filter_ret != NV_ENC_SUCCESS) {
+                nvStatus = filter_ret;
                 break;
             }
             bFilterEmpty = bDrainFin;
@@ -3952,7 +3954,9 @@ NVENCSTATUS NVEncCore::Encode() {
             }
             while ((int)dqEncFrames.size() >= m_pipelineDepth) {
                 auto& encframe = dqEncFrames.front();
-                if (NV_ENC_SUCCESS != (nvStatus = send_encoder(nEncodeFrames, encframe))) {
+                auto enc_ret = send_encoder(nEncodeFrames, encframe);
+                if (enc_ret != NV_ENC_SUCCESS) {
+                    nvStatus = enc_ret;
                     break;
                 }
                 dqEncFrames.pop_front();
