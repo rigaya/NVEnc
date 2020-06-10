@@ -424,6 +424,7 @@ RGY_ERR RGYInputAvcodec::parseVideoExtraData(const AVPacket *pkt) {
     if (side_data) {
         AddMessage(RGY_LOG_DEBUG, _T("Found extradata of codec %s: size %d\n"), char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(), side_data_size);
     }
+    return RGY_ERR_NONE;
 }
 
 void RGYInputAvcodec::SetExtraData(AVCodecParameters *codecParam, const uint8_t *data, uint32_t size) {
@@ -1631,6 +1632,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     && !m_Demux.video.hdr10plusMetadataCopy) {
                     AddMessage(RGY_LOG_WARN, _T("Failed to get header for hardware decoder, switching to software decoder...\n"));
                     m_inputVideoInfo.codec = RGY_CODEC_UNKNOWN; //hwデコードをオフにする
+                    m_Demux.video.HWDecodeDeviceId = -1;
                     //close bitstreamfilter
                     if (m_Demux.video.bsfcCtx) {
                         AddMessage(RGY_LOG_DEBUG, _T("Free bsf...\n"));
