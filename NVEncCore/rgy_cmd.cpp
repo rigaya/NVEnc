@@ -1893,7 +1893,7 @@ tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, bool save_d
     if (param->srcWidth * param->srcHeight > 0) {
         cmd << _T(" --input-res ") << param->srcWidth << _T("x") << param->srcHeight;
     }
-    if (param->dstWidth * param->dstHeight > 0) {
+    if (param->dstWidth * param->dstHeight != 0) {
         cmd << _T(" --output-res ") << param->dstWidth << _T("x") << param->dstHeight;
     }
     return cmd.str();
