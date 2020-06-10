@@ -670,7 +670,8 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
             gpu = gpuList.erase(gpu);
             continue;
         }
-        if (inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0 && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps)) {
+        const bool highbitdepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+        if (highbitdepth && !get_value(NV_ENC_CAPS_SUPPORT_10BIT_ENCODE, codec->caps)) {
             message += strsprintf(_T("GPU #%d (%s) does not support HEVC 10bit depth encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str());
             gpu = gpuList.erase(gpu);
             continue;
@@ -686,6 +687,23 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
             message += strsprintf(_T("GPU #%d (%s) does not support H.264 interlaced encoding.\n"), (*gpu)->id(), (*gpu)->name().c_str());
             gpu = gpuList.erase(gpu);
             continue;
+        }
+        if (inputParam->ssim || inputParam->psnr) {
+            //デコードのほうもチェックしてあげないといけない
+           const auto& cuvid_csp = (*gpu)->cuvid_csp();
+           if (cuvid_csp.count(rgy_codec) == 0) {
+               message += strsprintf(_T("GPU #%d (%s) does not support %s decoding required for ssim/psnr calculation.\n"), CodecToStr(rgy_codec).c_str());
+               gpu = gpuList.erase(gpu);
+               continue;
+           }
+           const auto targetCsp = (highbitdepth) ? ((inputParam->yuv444) ? RGY_CSP_YUV444_10 : RGY_CSP_YV12_10)
+                                                 : ((inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_YV12);
+           const auto& cuvid_codec_csp = cuvid_csp.at(rgy_codec);
+           if (std::find(cuvid_codec_csp.begin(), cuvid_codec_csp.end(), targetCsp) == cuvid_codec_csp.end()) {
+               message += strsprintf(_T("GPU #%d (%s) does not support %s %s decoding required for ssim/psnr calculation.\n"), CodecToStr(rgy_codec).c_str(), RGY_CSP_NAMES[targetCsp]);
+               gpu = gpuList.erase(gpu);
+               continue;
+           }
         }
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) available for encode.\n"), (*gpu)->id(), (*gpu)->name().c_str());
         gpu++;
