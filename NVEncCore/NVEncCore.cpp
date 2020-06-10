@@ -1438,6 +1438,11 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         m_stEncConfig.rcParams.disableBadapt = 0;
         m_stEncConfig.rcParams.disableIadapt = 0;
     }
+    if (m_hdr10plus != nullptr || m_hdr10plusCopy) {
+        PrintMes(RGY_LOG_WARN, _T("--dhdr10-info is unstable with lookahead, lookahead feature will be disabled.\n"));
+        m_stEncConfig.rcParams.enableLookahead = 0;
+        m_stEncConfig.rcParams.lookaheadDepth = 0;
+    }
     if (m_stEncConfig.rcParams.enableTemporalAQ && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ)) {
         error_feature_unsupported(RGY_LOG_WARN, _T("Temporal AQ"));
         m_stEncConfig.rcParams.enableTemporalAQ = 0;
