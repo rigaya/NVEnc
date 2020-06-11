@@ -383,9 +383,25 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 #else
     tstring avisynth_version = (m_sAvisynth.f_is_420 && m_sAvisynth.f_is_422 && m_sAvisynth.f_is_444) ? _T("Avisynth+ ") : _T("Avisynth ");
 #endif
-    AVS_Value val_version = m_sAvisynth.f_invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(nullptr, 0), nullptr);
-    if (avs_is_float(val_version)) {
-        avisynth_version += strsprintf(_T("%.2f"), avs_as_float(val_version));
+    AVS_Value val_version = m_sAvisynth.f_invoke(m_sAVSenv, "VersionString", avs_new_value_array(nullptr, 0), nullptr);
+    if (avs_is_error(val_version) || avs_as_string(val_version) == nullptr) {
+        val_version = m_sAvisynth.f_invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(nullptr, 0), nullptr);
+        if (avs_is_float(val_version)) {
+            avisynth_version += strsprintf(_T("%.2f"), avs_as_float(val_version));
+        }
+    } else {
+        //VersionStringの短縮 (ちょっと長い)
+        avisynth_version = char_to_tstring(avs_as_string(val_version));
+        auto pos1 = avisynth_version.find(_T("("));
+        if (pos1 != std::string::npos) {
+            auto pos2 = avisynth_version.find(_T(","), pos1);
+            if (pos2 != std::string::npos) {
+                avisynth_version = avisynth_version.substr(0, pos1) + avisynth_version.substr(pos1 + 1, pos2 - pos1 - 1);
+            }
+        }
+        avisynth_version = str_replace(avisynth_version, _T("Avisynth "), _T("Avisynth"));
+        avisynth_version = str_replace(avisynth_version, _T("AviSynth "), _T("AviSynth"));
+        avisynth_version = str_replace(avisynth_version, _T(", "), _T(","));
     }
     m_sAvisynth.f_release_value(val_version);
 
