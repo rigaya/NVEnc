@@ -248,18 +248,7 @@ H.265/HEVC
 sudo apt install git yasm nasm
 ```
 
-### 2. gcc 8 のインストール
-
-CUDA 10.2はUbuntu 18.04に標準でインストールされるgcc7でも対応可能なはずですが、実際にCUDAのソースをコンパイルするとエラーが出る場合があります。そのため、ここではgcc8の導入を行います。なお、この後インストールするCUDA 10はgcc9には対応していないようです。
-
-```Shell
-sudo -E apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
-sudo -E apt-get -yq --no-install-suggests --no-install-recommends  install gcc-8 g++-8
-export CC=gcc-8
-export CXX=g++-8
-```
-
-### 3. NVIDIA ドライバ + CUDA のインストール
+### 2. NVIDIA ドライバ + CUDA のインストール
 
 ```Shell
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
@@ -293,7 +282,7 @@ $ nvidia-smi
 +-----------------------------------------------------------------------------+
 ```
 
-### 4. ビルドに必要なライブラリのインストール
+### 3. ビルドに必要なライブラリのインストール
 
 Ubuntu 18.04の標準ではffmpeg 3.x系が導入されてしまうため、下記のように明示的にffmpeg 4.x系のライブラリを導入します。
 
@@ -304,19 +293,19 @@ sudo apt install ffmpeg \
   libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat58 libavformat-dev \
   libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
 ```
-### 5. [オプション] VapourSynthのビルド
+### 4. [オプション] VapourSynthのビルド
 VapourSynthのインストールは必須ではありませんが、インストールしておくとvpyを読み込めるようになります。
 
 必要のない場合は 5. NVEncCのビルド に進んでください。
 
 <details><summary>VapourSynthのビルドの詳細はこちら</summary>
 
-#### 5.1 ビルドに必要なツールのインストール
+#### 4.1 ビルドに必要なツールのインストール
 ```Shell
 sudo apt install python3-pip autoconf automake libtool meson
 ```
 
-#### 5.2 zimgのインストール
+#### 4.2 zimgのインストール
 ```Shell
 git clone https://github.com/sekrit-twc/zimg.git
 cd zimg
@@ -326,12 +315,12 @@ sudo make install -j4
 cd ..
 ```
 
-#### 5.3 cythonのインストール
+#### 4.3 cythonのインストール
 ```Shell
 sudo pip3 install Cython
 ```
 
-#### 5.4 VapourSynthのビルド
+#### 4.4 VapourSynthのビルド
 ```Shell
 git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
@@ -346,13 +335,13 @@ sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python
 sudo ldconfig
 ```
 
-#### 5.5 VapourSynthの動作確認
+#### 4.5 VapourSynthの動作確認
 エラーが出ずにバージョンが表示されればOK。
 ```Shell
 vspipe --version
 ```
 
-#### 5.6 [おまけ] vslsmashsourceのビルド
+#### 4.6 [おまけ] vslsmashsourceのビルド
 ```Shell
 # lsmashのビルド
 git clone https://github.com/l-smash/l-smash.git
@@ -372,7 +361,7 @@ cd ../../../
 
 </details>
 
-### 6. NVEncCのビルド
+### 5. NVEncCのビルド
 下記を実行します。
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive

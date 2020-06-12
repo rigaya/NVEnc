@@ -34,6 +34,7 @@
 #include <atomic>
 #include <climits>
 #include <memory>
+#include <xmmintrin.h>
 #include "rgy_osdep.h"
 #include "rgy_event.h"
 

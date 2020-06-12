@@ -32,6 +32,7 @@
 #include "NVEncFilterAfs.h"
 #include "NVEncParam.h"
 #include "afs_stg.h"
+#include <emmintrin.h>
 #pragma warning (push)
 
 static void afs_get_motion_count_simd(int *motion_count, const uint8_t *ptr, const AFS_SCAN_CLIP *clip, int pitch, int scan_w, int scan_h, int tb_order);

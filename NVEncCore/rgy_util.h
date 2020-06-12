@@ -30,7 +30,6 @@
 #define __RGY_UTIL_H__
 
 #include "rgy_tchar.h"
-#include <emmintrin.h>
 #if defined(_WIN32) || defined(_WIN64)
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
@@ -643,43 +642,6 @@ tstring getEnviromentInfo(bool add_ram_info = true, int device_id = 0);
 BOOL check_OS_Win8orLater();
 
 int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule = NULL);
-
-static void RGY_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
-    if (size < 64) {
-        memcpy(dst, src, size);
-        return;
-    }
-    uint8_t *dst_fin = dst + size;
-    uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)(dst_fin + 15) & ~15) - 64);
-    __m128 x0, x1, x2, x3;
-    const int start_align_diff = (int)((size_t)dst & 15);
-    if (start_align_diff) {
-        x0 = _mm_loadu_ps((const float*)src);
-        _mm_storeu_ps((float*)dst, x0);
-        dst += 16 - start_align_diff;
-        src += 16 - start_align_diff;
-    }
-    for ( ; dst < dst_aligned_fin; dst += 64, src += 64) {
-        x0 = _mm_loadu_ps((const float*)(src +  0));
-        x1 = _mm_loadu_ps((const float*)(src + 16));
-        x2 = _mm_loadu_ps((const float*)(src + 32));
-        x3 = _mm_loadu_ps((const float*)(src + 48));
-        _mm_store_ps((float*)(dst +  0), x0);
-        _mm_store_ps((float*)(dst + 16), x1);
-        _mm_store_ps((float*)(dst + 32), x2);
-        _mm_store_ps((float*)(dst + 48), x3);
-    }
-    uint8_t *dst_tmp = dst_fin - 64;
-    src -= (dst - dst_tmp);
-    x0 = _mm_loadu_ps((const float*)(src +  0));
-    x1 = _mm_loadu_ps((const float*)(src + 16));
-    x2 = _mm_loadu_ps((const float*)(src + 32));
-    x3 = _mm_loadu_ps((const float*)(src + 48));
-    _mm_storeu_ps((float*)(dst_tmp +  0), x0);
-    _mm_storeu_ps((float*)(dst_tmp + 16), x1);
-    _mm_storeu_ps((float*)(dst_tmp + 32), x2);
-    _mm_storeu_ps((float*)(dst_tmp + 48), x3);
-}
 
 //確保できなかったら、サイズを小さくして再度確保を試みる (最終的にnMinSizeも確保できなかったら諦める)
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);

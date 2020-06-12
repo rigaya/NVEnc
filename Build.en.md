@@ -249,18 +249,7 @@ H.265/HEVC
 sudo apt install git yasm nasm
 ```
 
-### 2. Install gcc 8
-
-CUDA sources failes to compile with gcc 7, so install gcc 8 here.
-
-```Shell
-sudo -E apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
-sudo -E apt-get -yq --no-install-suggests --no-install-recommends  install gcc-8 g++-8
-export CC=gcc-8
-export CXX=g++-8
-```
-
-### 3. Install NVIDIA driver and CUDA 10.2
+### 2. Install NVIDIA driver and CUDA 10.2
 ```Shell
 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
 sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
@@ -294,7 +283,7 @@ $ nvidia-smi
 +-----------------------------------------------------------------------------+
 ```
 
-### 4. Install required libraries
+### 3. Install required libraries
 
 Install ffmpeg 4.x libraries.
 ```Shell
@@ -305,19 +294,19 @@ sudo apt install ffmpeg \
   libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
 ```
 
-### 5. [Optional] Install VapourSynth
+### 4. [Optional] Install VapourSynth
 VapourSynth is required only if you need VapourSynth(vpy) reader support.  
 
 Please go on to [6. Build NVEncC] if you don't need vpy reader.
 
 <details><summary>How to build VapourSynth</summary>
 
-#### 5.1 Install build tools for VapourSynth
+#### 4.1 Install build tools for VapourSynth
 ```Shell
 sudo apt install python3-pip autoconf automake libtool meson
 ```
 
-#### 5.2 Install zimg
+#### 4.2 Install zimg
 ```Shell
 git clone https://github.com/sekrit-twc/zimg.git
 cd zimg
@@ -327,12 +316,12 @@ sudo make install -j4
 cd ..
 ```
 
-#### 5.3 Install cython
+#### 4.3 Install cython
 ```Shell
 sudo pip3 install Cython
 ```
 
-#### 5.4 Install VapourSynth
+#### 4.4 Install VapourSynth
 ```Shell
 git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
@@ -347,13 +336,13 @@ sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python
 sudo ldconfig
 ```
 
-#### 5.5 Check if VapourSynth has been installed properly
+#### 4.5 Check if VapourSynth has been installed properly
 Make sure you get version number without errors.
 ```Shell
 vspipe --version
 ```
 
-#### 5.6 [Option] Build vslsmashsource
+#### 4.6 [Option] Build vslsmashsource
 ```Shell
 # Install lsmash
 git clone https://github.com/l-smash/l-smash.git
@@ -373,7 +362,7 @@ cd ../../../
 
 </details>
 
-### 6. Build NVEncC
+### 5. Build NVEncC
 ```Shell
 git clone https://github.com/rigaya/NVEnc --recursive
 cd NVEnc
