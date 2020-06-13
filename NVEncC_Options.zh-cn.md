@@ -480,10 +480,6 @@ hevc:  main, high
 
 设置 DAR 比例 (Screen Aspect Ratio)。
 
-### --fullrange
-
-以全范围 YUV 编码.
-
 ### --colorrange &lt;string&gt;   
 "--colorrange full"与"--fullrange"相同。   
 指定为"auto"时、与输入文件保持一致。(仅当使用[avhw](#--avhw)/[avsw](#--avsw)时有效)
