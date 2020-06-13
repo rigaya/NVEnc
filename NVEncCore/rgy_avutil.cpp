@@ -564,7 +564,7 @@ tstring getDispositionStr(uint32_t disposition) {
         return disposition_av_to_str(AV_DISPOSITION_UNSET);
     }
     tstring str;
-    for (int i = 0; i < sizeof(disposition) * 8; i++) {
+    for (size_t i = 0; i < sizeof(disposition) * 8; i++) {
         const decltype(disposition) flag = 1u << i;
         if (flag & disposition) {
             if (str.length() > 0) str += _T(",");
