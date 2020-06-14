@@ -1652,7 +1652,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     return sts;
                 }
             }
-
+            m_inputVideoInfo.codecExtra = m_Demux.video.extradata;
+            m_inputVideoInfo.codecExtraSize = m_Demux.video.extradataSize;
         }
         if (input_prm->seekSec > 0.0f) {
             AVPacket firstpkt;
@@ -2175,25 +2176,6 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
             if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
                 const auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts;
                 AddMessage(RGY_LOG_WARN, _T("corrupt packet in video: %lld (%s)\n"), (long long int)timestamp, getTimestampString(timestamp, m_Demux.video.stream->time_base).c_str());
-            }
-            if (false && m_Demux.video.stream->codecpar->extradata != nullptr
-                && m_Demux.video.extradata == nullptr) {
-                //ヘッダの取得が必要
-                parseVideoExtraData(pkt);
-                initVideoBsfs();
-                RGYBitstream bitstream = RGYBitstreamInit();
-                if (m_Demux.video.stream->codecpar->extradata) {
-                    auto sts = GetHeader(&bitstream);
-                    if (sts != RGY_ERR_MORE_DATA && sts != RGY_ERR_NONE) {
-                        AddMessage(RGY_LOG_ERROR, _T("failed to get header.\n"));
-                        return sts;
-                    }
-                    if (sts == RGY_ERR_NONE) {
-                        m_inputVideoInfo.codecExtra = m_Demux.video.extradata;
-                        m_inputVideoInfo.codecExtraSize = m_Demux.video.extradataSize;
-                        initVideoParser();
-                    }
-                }
             }
             if (m_Demux.video.bsfcCtx) {
                 auto ret = av_bsf_send_packet(m_Demux.video.bsfcCtx, pkt);
