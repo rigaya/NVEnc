@@ -796,6 +796,9 @@ Mux an external audio file specified.
   
 - samplerate=&lt;int&gt;  
   Specify audio sampling rate.
+  
+- delay=&lt;int&gt;  
+  Set audio delay in milli seconds.
 
 - enc_prm=&lt;string&gt;  
   Specify params for audio encoder.

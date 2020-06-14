@@ -627,7 +627,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 0;
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
-        const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition" };
+        const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition", "delay" };
         auto channel_select_list = split(qtr+1, _T(":"));
         for (auto channel : channel_select_list) {
             int trackId = 0;
@@ -660,6 +660,13 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     } else if (param_arg == _T("samplerate")) {
                         try {
                             chSel.encSamplingRate = std::stoi(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                    } else if (param_arg == _T("delay")) {
+                        try {
+                            chSel.addDelayMs = std::stoi(param_val);
                         } catch (...) {
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                             return 1;
@@ -2065,6 +2072,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     tmp << _T(";codec=") << sel.encCodec;
                     if (sel.encBitrate > 0) {
                         tmp << _T(";bitrate=") << sel.encBitrate;
+                    }
+                    if (sel.addDelayMs > 0) {
+                        tmp << _T(";delay=") << sel.addDelayMs;
                     }
                     if (sel.encCodecPrm.length() > 0) {
                         tmp << _T(";prm=") << sel.encCodecPrm;

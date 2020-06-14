@@ -785,6 +785,9 @@ hexagonal  = FL + FR + FC + BL + BR + BC
   
 - samplerate=&lt;int&gt;  
   音声エンコード時のサンプリングレートをHz単位で指定する。
+  
+- delay=&lt;int&gt;  
+  音声を指定した時間遅延させる。(ms単位)
 
 - enc_prm=&lt;string&gt;  
   音声エンコード時のパラメータを指定する。
