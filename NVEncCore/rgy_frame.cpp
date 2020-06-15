@@ -51,6 +51,8 @@ RGYFrameDataQP::~RGYFrameDataQP() {
 #endif //#if !FOR_AUO && ENCODER_NVENC
 };
 
+#pragma warning(push)
+#pragma warning(disable: 4100) //warning C4100: 'timestamp': 引数は関数の本体部で 1 度も参照されません。
 RGY_ERR RGYFrameDataQP::setQPTable(const int8_t *qpTable, int qpw, int qph, int qppitch, int scaleType, int frameType, int64_t timestamp) {
 #if !FOR_AUO && ENCODER_NVENC
     m_qpScaleType = scaleType;
@@ -83,6 +85,7 @@ RGY_ERR RGYFrameDataQP::setQPTable(const int8_t *qpTable, int qpw, int qph, int 
 #endif //#if !FOR_AUO && ENCODER_NVENC
     return RGY_ERR_NONE;
 }
+#pragma warning(pop)
 
 #if !FOR_AUO && ENCODER_NVENC
 RGY_ERR RGYFrameDataQP::transferToGPU(cudaStream_t stream) {
