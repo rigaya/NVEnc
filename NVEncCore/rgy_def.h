@@ -698,9 +698,9 @@ const CX_DESC list_interlaced[] = {
     { _T("progressive"), RGY_PICSTRUCT_FRAME     },
     { _T("tff"),         RGY_PICSTRUCT_FRAME_TFF },
     { _T("bff"),         RGY_PICSTRUCT_FRAME_BFF },
-#if ENCODER_NVENC
+#if ENABLE_AUTO_PICSTRUCT
     { _T("auto"),        (int)RGY_PICSTRUCT_AUTO },
-#endif //#if ENCODER_NVENC
+#endif //#if ENABLE_AUTO_PICSTRUCT
     { NULL, 0 }
 };
 
