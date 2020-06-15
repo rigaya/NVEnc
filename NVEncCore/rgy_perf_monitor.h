@@ -396,6 +396,21 @@ public:
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_PERF_COUNTER
+    void runCounterThread();
+    bool isPerfCounterRefreshed() const {
+        return (m_perfCounter) ? m_perfCounter->refreshed() : false;
+    }
+    bool isPerfCounterInitialized() const {
+        return (m_perfCounter) ? m_perfCounter->isinitialized() : false;
+    }
+    std::vector<CounterEntry> GetPerfCountersSystem() {
+        std::vector<CounterEntry> counters;
+        if (m_perfCounter) {
+            std::lock_guard<std::mutex> lock(m_perfCounter->getmtx());
+            counters = m_perfCounter->getCounters().get();
+        }
+        return counters;
+    }
     std::vector<CounterEntry> GetPerfCounters() {
         std::vector<CounterEntry> counters;
         if (m_perfCounter) {

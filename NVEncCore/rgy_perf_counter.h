@@ -76,7 +76,6 @@ public:
     virtual ~RGYGPUCounterWin();
 
     int init();
-    int refreshCounters();
     void close();
 
     void thread_run();
@@ -90,8 +89,11 @@ public:
         m_refreshed = false;
         return RGYGPUCounterWinEntries(counters);
     }
+    bool isinitialized() const { return initialized; }
+    bool refreshed() const { return m_refreshed; }
 
 protected:
+    int refreshCounters();
     int thread_func();
 
     bool initialized;

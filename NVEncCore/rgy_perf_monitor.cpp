@@ -698,6 +698,17 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     fflush(fp);
 }
 
+void CPerfMonitor::runCounterThread() {
+    if (!m_perfCounter) {
+        OSVERSIONINFOEXW osver;
+        getOSVersion(&osver);
+        if (osver.dwMajorVersion > 6 || (osver.dwMajorVersion == 6 && osver.dwMinorVersion >= 4)) { //Windows10
+            m_perfCounter = std::make_unique<RGYGPUCounterWin>();
+            m_perfCounter->thread_run();
+        }
+    }
+}
+
 int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     int interval, int nSelectOutputLog, int nSelectOutputPlot,
     std::unique_ptr<void, handle_deleter> thMainThread,
@@ -798,12 +809,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #endif //#if ENABLE_NVML
 
 #if ENABLE_PERF_COUNTER
-    OSVERSIONINFOEXW osver;
-    getOSVersion(&osver);
-    if (osver.dwMajorVersion > 6 || (osver.dwMajorVersion == 6 && osver.dwMinorVersion >= 4)) { //Windows10
-        m_perfCounter = std::make_unique<RGYGPUCounterWin>();
-        m_perfCounter->thread_run();
-    }
+    runCounterThread();
 #endif //#if ENABLE_PERF_COUNTER
 
     if (m_nSelectOutputPlot) {
