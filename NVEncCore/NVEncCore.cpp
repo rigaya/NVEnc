@@ -757,8 +757,8 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gp
     }
     std::map<int, double> gpuscore;
     for (const auto& gpu : gpuList) {
-        double core_score = gpu->cuda_cores() * inputParam->gpuSelect.cores;
-        double cc_score = (gpu->cc().first * 10.0 + gpu->cc().second) * inputParam->gpuSelect.gen;
+        double core_score = gpu->cuda_cores() * inputParam->ctrl.gpuSelect.cores;
+        double cc_score = (gpu->cc().first * 10.0 + gpu->cc().second) * inputParam->ctrl.gpuSelect.gen;
         double ve_score = 0.0;
         double gpu_score = 0.0;
 
@@ -772,8 +772,8 @@ NVENCSTATUS NVEncCore::GPUAutoSelect(std::vector<std::unique_ptr<NVGPUInfo>> &gp
         NVSMIInfo nvsmi;
         if (nvsmi.getData(&info, gpu->pciBusId()) == 0) {
 #endif
-            ve_score  = 100.0 * (1.0 - std::pow(info.VEELoad / 100.0, 1.0)) * inputParam->gpuSelect.ve;
-            gpu_score = 100.0 * (1.0 - std::pow(info.GPULoad / 100.0, 1.5)) * inputParam->gpuSelect.gpu;
+            ve_score  = 100.0 * (1.0 - std::pow(info.VEELoad / 100.0, 1.0)) * inputParam->ctrl.gpuSelect.ve;
+            gpu_score = 100.0 * (1.0 - std::pow(info.GPULoad / 100.0, 1.5)) * inputParam->ctrl.gpuSelect.gpu;
             PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) Load: GPU %.1f, VE: %.1f.\n"), gpu->id(), gpu->name().c_str(), info.GPULoad, info.VEELoad);
         }
         gpuscore[gpu->id()] = cc_score + ve_score + gpu_score + core_score;

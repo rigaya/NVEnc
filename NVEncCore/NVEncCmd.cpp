@@ -3462,64 +3462,6 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
-
-    if (IS_OPTION("gpu-select")) {
-        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
-            return 0;
-        }
-        i++;
-        const auto paramList = std::vector<std::string>{ "cores", "gen", "ve", "gpu" };
-        for (const auto &param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = param.substr(0, pos);
-                auto param_val = param.substr(pos+1);
-                param_arg = tolowercase(param_arg);
-                if (param_arg == _T("cores")) {
-                    try {
-                        pParams->gpuSelect.cores = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("gen")) {
-                    try {
-                        pParams->gpuSelect.gen = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("ve")) {
-                    try {
-                        pParams->gpuSelect.ve = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("gpu")) {
-                    try {
-                        pParams->gpuSelect.gpu = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                return 1;
-            } else {
-                print_cmd_error_unknown_opt_param(option_name, param, paramList);
-                return 1;
-            }
-        }
-        return 0;
-    }
     if (IS_OPTION("session-retry")) {
         i++;
         int value = 0;
@@ -4202,16 +4144,6 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
     OPT_BOOL(_T("--psnr"), _T(""), psnr);
 
     OPT_LST(_T("--cuda-schedule"), cudaSchedule, list_cuda_schedule);
-    if (pParams->gpuSelect != encPrmDefault.gpuSelect) {
-        tmp.str(tstring());
-        ADD_FLOAT(_T("cores"), gpuSelect.cores, 6);
-        ADD_FLOAT(_T("gen"), gpuSelect.gen, 3);
-        ADD_FLOAT(_T("ve"), gpuSelect.ve, 3);
-        ADD_FLOAT(_T("gpu"), gpuSelect.gpu, 3);
-        if (!tmp.str().empty()) {
-            cmd << _T(" --gpu-select ") << tmp.str().substr(1);
-        }
-    }
     OPT_NUM(_T("--session-retry"), sessionRetry);
 
     cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm);

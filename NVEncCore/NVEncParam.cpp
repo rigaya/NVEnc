@@ -94,18 +94,6 @@ bool DynamicRCParam::operator!=(const DynamicRCParam &x) const {
     return !(*this == x);
 }
 
-GPUAutoSelectMul::GPUAutoSelectMul() : cores(0.001f), gen(1.0f), gpu(1.0f), ve(1.0f) {}
-
-bool GPUAutoSelectMul::operator==(const GPUAutoSelectMul &x) const {
-    return cores == x.cores
-        && gen == x.gen
-        && gpu == x.gpu
-        && ve == x.ve;
-}
-bool GPUAutoSelectMul::operator!=(const GPUAutoSelectMul &x) const {
-    return !(*this == x);
-}
-
 VppDelogo::VppDelogo() :
     enable(false),
     logoFilePath(),
@@ -1147,7 +1135,6 @@ NV_ENC_CONFIG DefaultParam() {
 InEncodeVideoParam::InEncodeVideoParam() :
     deviceID(-1),
     cudaSchedule(DEFAULT_CUDA_SCHEDULE),
-    gpuSelect(),
     sessionRetry(0),
     input(),
     preset(0),

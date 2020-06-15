@@ -1859,6 +1859,63 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
+    if (IS_OPTION("gpu-select")) {
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "cores", "gen", "ve", "gpu" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("cores")) {
+                    try {
+                        ctrl->gpuSelect.cores = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("gen")) {
+                    try {
+                        ctrl->gpuSelect.gen = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ve")) {
+                    try {
+                        ctrl->gpuSelect.ve = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("gpu")) {
+                    try {
+                        ctrl->gpuSelect.gpu = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     return -10;
 }
 
@@ -1873,6 +1930,14 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 #define OPT_STR(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << char_to_tstring(param->opt).c_str();
 #define OPT_CHAR_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" \"") << (param->opt) << _T("\"");
 #define OPT_STR_PATH(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (param->opt.c_str()) << _T("\"");
+
+#define ADD_FLOAT(str, opt, prec) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << std::setprecision(prec) << (param->opt);
+#define ADD_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
+#define ADD_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (param->opt));
+#define ADD_BOOL(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << ((param->opt) ? (_T("true")) : (_T("false")));
+#define ADD_CHAR(str, opt) if ((param->opt) && _tcslen(param->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
+#define ADD_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) tmp << _T(",") << (str) << _T("=\"") << (param->opt) << _T("\"");
+#define ADD_STR(str, opt) if (param->opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (param->opt.c_str());
 
 tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, bool save_disabled_prm) {
     std::basic_stringstream<TCHAR> cmd;
@@ -2246,6 +2311,17 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     }
     OPT_NUM(_T("--perf-monitor-interval"), perfMonitorInterval);
     OPT_NUM(_T("--parent-pid"), parentProcessID);
+    if (param->gpuSelect != defaultPrm->gpuSelect) {
+        std::basic_stringstream<TCHAR> tmp;
+        tmp.str(tstring());
+        ADD_FLOAT(_T("cores"), gpuSelect.cores, 6);
+        ADD_FLOAT(_T("gen"), gpuSelect.gen, 3);
+        ADD_FLOAT(_T("ve"), gpuSelect.ve, 3);
+        ADD_FLOAT(_T("gpu"), gpuSelect.gpu, 3);
+        if (!tmp.str().empty()) {
+            cmd << _T(" --gpu-select ") << tmp.str().substr(1);
+        }
+    }
     return cmd.str();
 }
 

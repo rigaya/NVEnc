@@ -828,17 +828,6 @@ static int get_value(int id, const std::vector<NVEncCap>& capList) {
     return 0;
 }
 
-struct GPUAutoSelectMul {
-    float cores;
-    float gen;
-    float gpu;
-    float ve;
-
-    GPUAutoSelectMul();
-    bool operator==(const GPUAutoSelectMul &x) const;
-    bool operator!=(const GPUAutoSelectMul &x) const;
-};
-
 struct VppDelogo {
     bool enable;
     tstring logoFilePath;  //ロゴファイル名
@@ -1279,7 +1268,6 @@ struct VppParam {
 struct InEncodeVideoParam {
     int deviceID;                 //使用するGPUのID
     int cudaSchedule;
-    GPUAutoSelectMul gpuSelect;
     int sessionRetry;
 
     VideoInfo input;              //入力する動画の情報

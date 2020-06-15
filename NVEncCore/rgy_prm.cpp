@@ -86,6 +86,18 @@ DataSelect::DataSelect() :
 
 }
 
+GPUAutoSelectMul::GPUAutoSelectMul() : cores(0.001f), gen(1.0f), gpu(1.0f), ve(1.0f) {}
+
+bool GPUAutoSelectMul::operator==(const GPUAutoSelectMul &x) const {
+    return cores == x.cores
+        && gen == x.gen
+        && gpu == x.gpu
+        && ve == x.ve;
+}
+bool GPUAutoSelectMul::operator!=(const GPUAutoSelectMul &x) const {
+    return !(*this == x);
+}
+
 RGYParamCommon::RGYParamCommon() :
     inputFilename(),
     outputFilename(),
@@ -147,7 +159,8 @@ RGYParamControl::RGYParamControl() :
     perfMonitorSelectMatplot(0),
     perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
     parentProcessID(0),
-    lowLatency(false) {
+    lowLatency(false),
+    gpuSelect() {
 
 }
 RGYParamControl::~RGYParamControl() {};

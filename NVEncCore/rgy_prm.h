@@ -109,6 +109,17 @@ struct DataSelect {
 
 using AttachmentSelect = DataSelect;
 
+struct GPUAutoSelectMul {
+    float cores;
+    float gen;
+    float gpu;
+    float ve;
+
+    GPUAutoSelectMul();
+    bool operator==(const GPUAutoSelectMul &x) const;
+    bool operator!=(const GPUAutoSelectMul &x) const;
+};
+
 struct RGYParamCommon {
     tstring inputFilename;        //入力ファイル名
     tstring outputFilename;       //出力ファイル名
@@ -175,6 +186,7 @@ struct RGYParamControl {
     int     perfMonitorInterval;
     uint32_t parentProcessID;
     bool lowLatency;
+    GPUAutoSelectMul gpuSelect;
 
     RGYParamControl();
     ~RGYParamControl();
