@@ -698,6 +698,7 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     fflush(fp);
 }
 
+#if ENABLE_PERF_COUNTER
 void CPerfMonitor::runCounterThread() {
     if (!m_perfCounter) {
         OSVERSIONINFOEXW osver;
@@ -708,6 +709,7 @@ void CPerfMonitor::runCounterThread() {
         }
     }
 }
+#endif //#if ENABLE_PERF_COUNTER
 
 int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     int interval, int nSelectOutputLog, int nSelectOutputPlot,
