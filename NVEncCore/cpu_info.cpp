@@ -1,10 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// NVEnc by rigaya
+// QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
-//
 // The MIT License
 //
-// Copyright (c) 2014-2016 rigaya
+// Copyright (c) 2011-2020 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -349,21 +348,15 @@ double getCPUMaxTurboClock() {
     return (tick_per_sec / tick_per_clock) * 1e-9;
 }
 
-#pragma warning (push)
-#pragma warning (disable: 4100)
-double getCPUDefaultClockOpenCL() {
-    return 0.0;
-}
-#pragma warning (pop)
-
 double getCPUDefaultClock() {
-    double defautlClock = getCPUDefaultClockFromCPUName();
-    if (0 >= defautlClock)
-        defautlClock = getCPUDefaultClockOpenCL();
-    return defautlClock;
+    return getCPUDefaultClockFromCPUName();
 }
 
-int getCPUInfo(TCHAR *buffer, size_t nSize) {
+int getCPUInfo(TCHAR *buffer, size_t nSize
+#if ENCODER_QSV
+    , MFXVideoSession *pSession
+#endif
+) {
     int ret = 0;
     buffer[0] = _T('\0');
     cpu_info_t cpu_info;
@@ -374,8 +367,6 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
 #if defined(_WIN32) || defined(_WIN64) //Linuxでは環境によっては、正常に動作しない場合がある
         double defaultClock = getCPUDefaultClockFromCPUName();
         bool noDefaultClockInCPUName = (0.0 >= defaultClock);
-        if (noDefaultClockInCPUName)
-            defaultClock = getCPUDefaultClockOpenCL();
         if (defaultClock > 0.0) {
             if (noDefaultClockInCPUName) {
                 _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" @ %.2fGHz"), defaultClock);
@@ -388,9 +379,9 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
         }
 #endif //#if defined(_WIN32) || defined(_WIN64)
         _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
-#if ENCODER_QSV
-        int cpuGen = getCPUGen();
-        if (cpuGen) {
+#if ENCODER_QSV && !FOR_AUO
+        int cpuGen = getCPUGen(pSession);
+        if (cpuGen != CPU_GEN_UNKNOWN) {
             _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" <%s>"), CPU_GEN_STR[cpuGen]);
         }
 #endif

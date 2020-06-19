@@ -1,10 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// NVEnc by rigaya
+// QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
-//
 // The MIT License
 //
-// Copyright (c) 2014-2016 rigaya
+// Copyright (c) 2011-2020 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +23,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
 
 #ifndef _CPU_INFO_H_
 #define _CPU_INFO_H_
@@ -32,6 +31,7 @@
 #include <stdint.h>
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
+#include "rgy_version.h"
 
 typedef struct cache_info_t {
     uint32_t count;
@@ -55,7 +55,12 @@ int getCPUName(char *buffer, size_t nSize);
 bool get_cpu_info(cpu_info_t *cpu_info);
 cpu_info_t get_cpu_info();
 
+#if ENCODER_QSV
+#include "mfxvideo++.h"
+int getCPUInfo(TCHAR *buffer, size_t nSize, MFXVideoSession *pSession = nullptr);
+#else
 int getCPUInfo(TCHAR *buffer, size_t nSize);
+#endif
 
 template <size_t size>
 int inline getCPUInfo(TCHAR(&buffer)[size]) {
