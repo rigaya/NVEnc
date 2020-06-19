@@ -101,6 +101,26 @@ static void RGY_FORCEINLINE avx2_memcpy(uint8_t *dst, const uint8_t *src, int si
 #define _mm256_srli256_si256(a, i) ((i<=16) ? _mm256_alignr_epi8(_mm256_permute2x128_si256(a, a, (0x08<<4) + 0x03), a, i) : _mm256_bsrli_epi128(_mm256_permute2x128_si256(a, a, (0x08<<4) + 0x03), MM_ABS(i-16)))
 #define _mm256_slli256_si256(a, i) ((i<=16) ? _mm256_alignr_epi8(a, _mm256_permute2x128_si256(a, a, (0x00<<4) + 0x08), MM_ABS(16-i)) : _mm256_bslli_epi128(_mm256_permute2x128_si256(a, a, (0x00<<4) + 0x08), MM_ABS(i-16)))
 
+#ifndef _MSC_VER
+
+#ifndef __forceinline
+#define __forceinline __attribute__((always_inline))
+#endif
+
+#ifndef _mm256_set_m128i
+#define _mm256_set_m128i(/* __m128i */ hi, /* __m128i */ lo) \
+    _mm256_insertf128_si256(_mm256_castsi128_si256(lo), (hi), 0x1)
+#endif //#ifndef _mm256_set_m128i
+
+#ifndef _mm256_loadu2_m128i
+#define _mm256_loadu2_m128i(hiptr, loptr) \
+    _mm256_inserti128_si256(_mm256_castsi128_si256( \
+        _mm_loadu_si128((__m128i*)(loptr))), \
+        _mm_loadu_si128((__m128i*)(hiptr)),1)
+#endif //#ifndef _mm256_loadu2_m128i
+
+#endif //#ifndef _MSC_VER
+
 alignas(32) static const uint8_t  Array_INTERLACE_WEIGHT[2][32] = {
     {1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3},
     {3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1}
