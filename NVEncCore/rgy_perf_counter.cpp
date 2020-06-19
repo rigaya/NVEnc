@@ -342,8 +342,12 @@ int RGYGPUCounterWin::thread_func() {
     while (!m_abort) {
         auto timenow = std::chrono::system_clock::now();
         if (timenow - m_refreshedTime > std::chrono::milliseconds(500)) {
-            auto ret = refreshCounters();
-            if (ret) break;
+            try {
+                auto ret = refreshCounters();
+                if (ret) break;
+            } catch (...) {
+                break;
+            }
             m_refreshed = true;
             m_refreshedTime = timenow;
         }
