@@ -79,31 +79,32 @@ __global__ void kernel_denoise_knn(uint8_t *__restrict__ pDst, const int dstPitc
 
 template<typename Type, int bit_depth>
 void denoise_knn(uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight,
-    cudaTextureObject_t texSrc, int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold) {
+    cudaTextureObject_t texSrc, int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
+    cudaStream_t stream) {
     dim3 blockSize(64, 16);
     dim3 gridSize(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
     switch (radius) {
     case 1:
-        kernel_denoise_knn<Type, 1, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
+        kernel_denoise_knn<Type, 1, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
             1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
         break;
     case 2:
-        kernel_denoise_knn<Type, 2, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
+        kernel_denoise_knn<Type, 2, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
             1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
         break;
     case 3:
-        kernel_denoise_knn<Type, 3, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
+        kernel_denoise_knn<Type, 3, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
             1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
         break;
     case 4:
-        kernel_denoise_knn<Type, 4, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
+        kernel_denoise_knn<Type, 4, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
             1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
         break;
     case 5:
         //よりレジスタを使うので、ブロック当たりのスレッド数を低減
         blockSize = dim3(32, 16);
         gridSize = dim3(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
-        kernel_denoise_knn<Type, 5, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
+        kernel_denoise_knn<Type, 5, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc,
             1.0f / (strength * strength), lerpC, weight_threshold, lerp_threshold);
         break;
     default:
@@ -111,71 +112,40 @@ void denoise_knn(uint8_t *pDst, const int dstPitch, const int dstWidth, const in
     }
 }
 
+template<typename Type>
+cudaError_t textureCreateDenoiseKnn(cudaTextureObject_t& tex, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, uint8_t *ptr, int pitch, int width, int height) {
+    cudaResourceDesc resDesc;
+    memset(&resDesc, 0, sizeof(resDesc));
+    resDesc.resType = cudaResourceTypePitch2D;
+    resDesc.res.pitch2D.devPtr = ptr;
+    resDesc.res.pitch2D.pitchInBytes = pitch;
+    resDesc.res.pitch2D.width = width;
+    resDesc.res.pitch2D.height = height;
+    resDesc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
+
+    cudaTextureDesc texDesc;
+    memset(&texDesc, 0, sizeof(texDesc));
+    texDesc.addressMode[0]   = cudaAddressModeClamp;
+    texDesc.addressMode[1]   = cudaAddressModeClamp;
+    texDesc.filterMode       = filterMode;
+    texDesc.readMode         = readMode;
+    texDesc.normalizedCoords = 0;
+
+    return cudaCreateTextureObject(&tex, &resDesc, &texDesc, nullptr);
+}
+
 template<typename Type, int bit_depth>
-static cudaError_t denoise_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
-    int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold) {
-    //Y
-    cudaResourceDesc resDescSrc;
-    memset(&resDescSrc, 0, sizeof(resDescSrc));
-    resDescSrc.resType = cudaResourceTypePitch2D;
-    resDescSrc.res.pitch2D.devPtr = pInputFrame->ptr;
-    resDescSrc.res.pitch2D.pitchInBytes = pInputFrame->pitch;
-    resDescSrc.res.pitch2D.width = pInputFrame->width;
-    resDescSrc.res.pitch2D.height = pInputFrame->height;
-    resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
-
-    cudaTextureDesc texDescSrc;
-    memset(&texDescSrc, 0, sizeof(texDescSrc));
-    texDescSrc.addressMode[0]   = cudaAddressModeClamp;
-    texDescSrc.addressMode[1]   = cudaAddressModeClamp;
-    texDescSrc.filterMode       = cudaFilterModePoint;
-    texDescSrc.readMode         = cudaReadModeElementType;
-    texDescSrc.normalizedCoords = 0;
-
+static cudaError_t denoise_knn_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+    int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
+    cudaStream_t stream) {
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
+    auto cudaerr = textureCreateDenoiseKnn<Type>(texSrc, cudaFilterModePoint, cudaReadModeElementType, pInputFrame->ptr, pInputFrame->pitch, pInputFrame->width, pInputFrame->height);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
     denoise_knn<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
         pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, radius, strength, lerpC, weight_threshold, lerp_threshold);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //U
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
-    resDescSrc.res.pitch2D.width >>= 1;
-    resDescSrc.res.pitch2D.height >>= 1;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    denoise_knn<Type, bit_depth>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height,
-        pOutputFrame->pitch, pOutputFrame->width >> 1, pOutputFrame->height >> 1,
-        texSrc, radius, strength, lerpC, weight_threshold, lerp_threshold);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //V
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 3 / 2;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    denoise_knn<Type, bit_depth>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 3 / 2,
-        pOutputFrame->pitch, pOutputFrame->width >> 1, pOutputFrame->height >> 1,
-        texSrc, radius, strength, lerpC, weight_threshold, lerp_threshold);
+        texSrc, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return cudaerr;
@@ -188,73 +158,26 @@ static cudaError_t denoise_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInput
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t denoise_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
-    int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold) {
-    //Y
-    cudaResourceDesc resDescSrc;
-    memset(&resDescSrc, 0, sizeof(resDescSrc));
-    resDescSrc.resType = cudaResourceTypePitch2D;
-    resDescSrc.res.pitch2D.devPtr = pInputFrame->ptr;
-    resDescSrc.res.pitch2D.pitchInBytes = pInputFrame->pitch;
-    resDescSrc.res.pitch2D.width = pInputFrame->width;
-    resDescSrc.res.pitch2D.height = pInputFrame->height;
-    resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
+static cudaError_t denoise_knn_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+    int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
+    cudaStream_t stream) {
+    cudaError_t cudaerr = cudaSuccess;
+    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
+    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
-    cudaTextureDesc texDescSrc;
-    memset(&texDescSrc, 0, sizeof(texDescSrc));
-    texDescSrc.addressMode[0]   = cudaAddressModeClamp;
-    texDescSrc.addressMode[1]   = cudaAddressModeClamp;
-    texDescSrc.filterMode       = cudaFilterModePoint;
-    texDescSrc.readMode         = cudaReadModeElementType;
-    texDescSrc.normalizedCoords = 0;
-
-    cudaTextureObject_t texSrc = 0;
-    auto cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
+    cudaerr = denoise_knn_plane<Type, bit_depth>(&planeOutputY, &planeInputY, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    denoise_knn<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, radius, strength, lerpC, weight_threshold, lerp_threshold);
-    cudaerr = cudaGetLastError();
+    cudaerr = denoise_knn_plane<Type, bit_depth>(&planeOutputU, &planeInputU, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //U
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    denoise_knn<Type, bit_depth>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, radius, strength, lerpC, weight_threshold, lerp_threshold);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //V
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 2;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    denoise_knn<Type, bit_depth>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 2,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, radius, strength, lerpC, weight_threshold, lerp_threshold);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
+    cudaerr = denoise_knn_plane<Type, bit_depth>(&planeOutputV, &planeInputV, radius, strength, lerpC, weight_threshold, lerp_threshold, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
@@ -355,17 +278,17 @@ RGY_ERR NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, FrameInf
         return RGY_ERR_INVALID_PARAM;
     }
 
-    static const std::map<RGY_CSP, decltype(denoise_yv12<uint8_t, 8>)*> denoise_list = {
-        { RGY_CSP_YV12,      denoise_yv12<uint8_t,   8> },
-        { RGY_CSP_YV12_16,   denoise_yv12<uint16_t, 16> },
-        { RGY_CSP_YUV444,    denoise_yuv444<uint8_t,   8> },
-        { RGY_CSP_YUV444_16, denoise_yuv444<uint16_t, 16> },
+    static const std::map<RGY_CSP, decltype(denoise_knn_frame<uint8_t, 8>)*> denoise_list = {
+        { RGY_CSP_YV12,      denoise_knn_frame<uint8_t,   8> },
+        { RGY_CSP_YV12_16,   denoise_knn_frame<uint16_t, 16> },
+        { RGY_CSP_YUV444,    denoise_knn_frame<uint8_t,   8> },
+        { RGY_CSP_YUV444_16, denoise_knn_frame<uint16_t, 16> },
     };
     if (denoise_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pKnnParam->knn.radius, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold);
+    denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pKnnParam->knn.radius, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold, stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
