@@ -198,6 +198,13 @@ static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, cons
     //apply_guiEx_auto_settings(&prm.x264, oip->w, oip->h, oip->rate, oip->scale, sys_dat->exstg->s_local.auto_ref_limit_by_level);
     //GUI部のコマンドライン生成
     strcpy_s(cmd, nSize, gen_cmd(encPrm, nullptr, false).c_str());
+    //cmdexの処理
+    char cmdex[sizeof(conf->nvenc.cmdex)];
+    strcpy_s(cmdex, conf->nvenc.cmdex);
+    cmd_replace(cmdex, sizeof(cmdex), pe, sys_dat, conf, oip);
+    replace_cmd_CRLF_to_Space(cmdex, sizeof(cmdex) - 1);
+    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " %s", cmdex);
+
     //メッセージの発行
     if ((encPrm->encConfig.rcParams.vbvBufferSize != 0 || encPrm->encConfig.rcParams.vbvInitialDelay != 0) && conf->vid.afs) {
         write_log_auo_line(LOG_INFO, "自動フィールドシフト使用時はvbv設定は正確に反映されません。");

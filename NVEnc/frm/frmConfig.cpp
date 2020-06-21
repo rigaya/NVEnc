@@ -802,6 +802,7 @@ System::Void frmConfig::SetTXMaxLen(TextBox^ TX, int max_len) {
 System::Void frmConfig::SetTXMaxLenAll() {
     //MaxLengthに最大文字数をセットし、それをもとにバイト数計算を行うイベントをセットする。
     SetTXMaxLen(fcgTXVideoEncoderPath,   sizeof(sys_dat->exstg->s_vid.fullpath) - 1);
+    SetTXMaxLen(fcgTXCmdEx,              sizeof(CONF_NVENC::cmdex) - 1);
     SetTXMaxLen(fcgTXAudioEncoderPath,   sizeof(sys_dat->exstg->s_aud_ext[0].fullpath) - 1);
     SetTXMaxLen(fcgTXMP4MuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MP4].fullpath) - 1);
     SetTXMaxLen(fcgTXMKVMuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MKV].fullpath) - 1);
@@ -1205,6 +1206,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgTXBatBeforePath->Text           = String(cnf->oth.batfile.before_process).ToString();
         fcgTXBatAfterPath->Text            = String(cnf->oth.batfile.after_process).ToString();
 
+        fcgTXCmdEx->Text                   = String(cnf->nvenc.cmdex).ToString();
+
         SetfcgTSLSettingsNotes(cnf->oth.notes);
 
     this->ResumeLayout();
@@ -1462,8 +1465,10 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     GetCHARfromString(cnf->oth.batfile.before_audio, sizeof(cnf->oth.batfile.before_audio), fcgTXBatBeforeAudioPath->Text);
     GetCHARfromString(cnf->oth.batfile.after_audio,  sizeof(cnf->oth.batfile.after_audio),  fcgTXBatAfterAudioPath->Text);
 
+
     GetfcgTSLSettingsNotes(cnf->oth.notes, sizeof(cnf->oth.notes));
 
+    GetCHARfromString(cnf->nvenc.cmdex, sizeof(cnf->nvenc.cmdex), fcgTXCmdEx->Text);
     strcpy_s(cnf->nvenc.cmd, gen_cmd(&encPrm, codecPrm, true).c_str());
 
     return String(gen_cmd(&encPrm, codecPrm, false).c_str()).ToString();
