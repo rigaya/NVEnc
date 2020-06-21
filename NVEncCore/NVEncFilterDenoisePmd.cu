@@ -106,40 +106,45 @@ __global__ void kernel_denoise_pmd(uint8_t *__restrict__ pDst, const int dstPitc
     }
 }
 
+template<typename Type>
+cudaError_t textureCreateDenoisePmd(cudaTextureObject_t &tex, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, uint8_t *ptr, int pitch, int width, int height) {
+    cudaResourceDesc resDesc;
+    memset(&resDesc, 0, sizeof(resDesc));
+    resDesc.resType = cudaResourceTypePitch2D;
+    resDesc.res.pitch2D.devPtr = ptr;
+    resDesc.res.pitch2D.pitchInBytes = pitch;
+    resDesc.res.pitch2D.width = width;
+    resDesc.res.pitch2D.height = height;
+    resDesc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
+
+    cudaTextureDesc texDesc;
+    memset(&texDesc, 0, sizeof(texDesc));
+    texDesc.addressMode[0] = cudaAddressModeClamp;
+    texDesc.addressMode[1] = cudaAddressModeClamp;
+    texDesc.filterMode = filterMode;
+    texDesc.readMode = readMode;
+    texDesc.normalizedCoords = 0;
+
+    return cudaCreateTextureObject(&tex, &resDesc, &texDesc, nullptr);
+}
+
 template<typename Type, int bit_depth, bool useExp>
-cudaError_t denoise_pmd(uint8_t *pDst[2], uint8_t *pGauss, const int dstPitch, const int dstWidth, const int dstHeight,
+cudaError_t denoise_pmd_plane(uint8_t *pDst[2], uint8_t *pGauss, const int dstPitch, const int dstWidth, const int dstHeight,
     uint8_t *pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
-    int loop_count, const float strength, const float threshold) {
+    int loop_count, const float strength, const float threshold, cudaStream_t stream) {
     const float range = 4.0f;
     const float strength2 = strength / (range * 100.0f);
     const float threshold2 = std::pow(2.0f, threshold / 10.0f - (12 - bit_depth) * 2.0f);
     const float inv_threshold2 = 1.0f / threshold2;
 
-    cudaResourceDesc resDescSrc;
-    memset(&resDescSrc, 0, sizeof(resDescSrc));
-    resDescSrc.resType = cudaResourceTypePitch2D;
-    resDescSrc.res.pitch2D.devPtr = pSrc;
-    resDescSrc.res.pitch2D.pitchInBytes = srcPitch;
-    resDescSrc.res.pitch2D.width = srcWidth;
-    resDescSrc.res.pitch2D.height = srcHeight;
-    resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
-
-    cudaTextureDesc texDescSrc;
-    memset(&texDescSrc, 0, sizeof(texDescSrc));
-    texDescSrc.addressMode[0]   = cudaAddressModeClamp;
-    texDescSrc.addressMode[1]   = cudaAddressModeClamp;
-    texDescSrc.filterMode       = cudaFilterModePoint;
-    texDescSrc.readMode         = cudaReadModeElementType;
-    texDescSrc.normalizedCoords = 0;
-
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
+    auto cudaerr = textureCreateDenoisePmd<Type>(texSrc, cudaFilterModePoint, cudaReadModeElementType, pSrc, srcPitch, srcWidth, srcHeight);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
     dim3 blockSize(32, 16);
     dim3 gridSize(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
-    kernel_create_gauss<Type, bit_depth><<<gridSize, blockSize>>>(
+    kernel_create_gauss<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>(
         pGauss,
         dstPitch, dstWidth, dstHeight, texSrc);
     cudaerr = cudaGetLastError();
@@ -147,32 +152,15 @@ cudaError_t denoise_pmd(uint8_t *pDst[2], uint8_t *pGauss, const int dstPitch, c
         return cudaerr;
     }
 
-    cudaResourceDesc resDescGrf;
-    memset(&resDescGrf, 0, sizeof(resDescGrf));
-    resDescGrf.resType = cudaResourceTypePitch2D;
-    resDescGrf.res.pitch2D.devPtr = pGauss;
-    resDescGrf.res.pitch2D.pitchInBytes = dstPitch;
-    resDescGrf.res.pitch2D.width = dstWidth;
-    resDescGrf.res.pitch2D.height = dstHeight;
-    resDescGrf.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
-
-    cudaTextureDesc texDescGrf;
-    memset(&texDescGrf, 0, sizeof(texDescGrf));
-    texDescGrf.addressMode[0]   = cudaAddressModeClamp;
-    texDescGrf.addressMode[1]   = cudaAddressModeClamp;
-    texDescGrf.filterMode       = cudaFilterModePoint;
-    texDescGrf.readMode         = cudaReadModeElementType;
-    texDescGrf.normalizedCoords = 0;
-
     cudaTextureObject_t texGrf = 0;
-    cudaerr = cudaCreateTextureObject(&texGrf, &resDescGrf, &texDescGrf, nullptr);
+    cudaerr = textureCreateDenoisePmd<Type>(texGrf, cudaFilterModePoint, cudaReadModeElementType, pGauss, dstPitch, dstWidth, dstHeight);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
     int dst_index = 0;
     for (int i = 0; i < loop_count; i++) {
         dst_index = i & 1;
-        kernel_denoise_pmd<Type, bit_depth, useExp><<<gridSize, blockSize>>>(pDst[dst_index],
+        kernel_denoise_pmd<Type, bit_depth, useExp><<<gridSize, blockSize, 0, stream>>>(pDst[dst_index],
             dstPitch, dstWidth, dstHeight, texSrc, texGrf, strength2, inv_threshold2);
         cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
@@ -183,11 +171,7 @@ cudaError_t denoise_pmd(uint8_t *pDst[2], uint8_t *pGauss, const int dstPitch, c
             return cudaerr;
         }
         if (i < loop_count-1) {
-            resDescSrc.res.pitch2D.devPtr = pDst[dst_index];
-            resDescSrc.res.pitch2D.pitchInBytes = dstPitch;
-            resDescSrc.res.pitch2D.width = dstWidth;
-            resDescSrc.res.pitch2D.height = dstHeight;
-            cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
+            cudaerr = textureCreateDenoisePmd<Type>(texSrc, cudaFilterModePoint, cudaReadModeElementType, pDst[dst_index], dstPitch, dstWidth, dstHeight);
             if (cudaerr != cudaSuccess) {
                 return cudaerr;
             }
@@ -198,99 +182,30 @@ cudaError_t denoise_pmd(uint8_t *pDst[2], uint8_t *pGauss, const int dstPitch, c
 }
 
 template<typename Type, int bit_depth, bool useExp>
-static cudaError_t denoise_yv12(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame,
-    int loop_count, const float strength, const float threshold) {
-    uint8_t *pDst[2] = { 0 };
-    pDst[0] = (uint8_t *)pOutputFrame[0]->ptr;
-    pDst[1] = (uint8_t *)pOutputFrame[1]->ptr;
-    //Y
-    auto cudaerr = denoise_pmd<Type, bit_depth, useExp>(
-        pDst,
-        (uint8_t *)pGauss->ptr,
-        pOutputFrame[0]->pitch, pOutputFrame[0]->width, pOutputFrame[0]->height,
-        (uint8_t *)pInputFrame->ptr,
-        pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
-        loop_count, strength, threshold);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+static cudaError_t denoise_pmd_frame(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame,
+    int loop_count, const float strength, const float threshold, cudaStream_t stream) {
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+        const auto plane = (RGY_PLANE)iplane;
+        const auto planeInput = getPlane(pInputFrame, plane);
+        const auto planeGauss = getPlane(pGauss, plane);
+        FrameInfo planeOutput[2] = { getPlane(pOutputFrame[0], plane), getPlane(pOutputFrame[1], plane) };
+        uint8_t *pDst[2];
+        pDst[0] = planeOutput[0].ptr;
+        pDst[1] = planeOutput[1].ptr;
+        auto cudaerr = denoise_pmd_plane<Type, bit_depth, useExp>(
+            pDst, planeGauss.ptr,
+            planeOutput[0].pitch, planeOutput[0].width, planeOutput[0].height,
+            planeInput.ptr,
+            planeInput.pitch, planeInput.width, planeInput.height,
+            loop_count, strength, threshold, stream);
+        if (cudaerr != cudaSuccess) {
+            return cudaerr;
+        }
     }
-    //U
-    pDst[0] = (uint8_t *)pOutputFrame[0]->ptr + pOutputFrame[0]->pitch * pOutputFrame[0]->height;
-    pDst[1] = (uint8_t *)pOutputFrame[1]->ptr + pOutputFrame[1]->pitch * pOutputFrame[1]->height;
-    cudaerr = denoise_pmd<Type, bit_depth, useExp>(
-        pDst,
-        (uint8_t *)pGauss->ptr + pGauss->pitch * pGauss->height,
-        pOutputFrame[0]->pitch, pOutputFrame[0]->width >> 1, pOutputFrame[0]->height >> 1,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height,
-        pInputFrame->pitch, pInputFrame->width >> 1, pInputFrame->height >> 1,
-        loop_count, strength, threshold);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //V
-    pDst[0] = (uint8_t *)pOutputFrame[0]->ptr + pOutputFrame[0]->pitch * pOutputFrame[0]->height * 3 / 2;
-    pDst[1] = (uint8_t *)pOutputFrame[1]->ptr + pOutputFrame[1]->pitch * pOutputFrame[1]->height * 3 / 2;
-    cudaerr = denoise_pmd<Type, bit_depth, useExp>(
-        pDst,
-        (uint8_t *)pGauss->ptr + pGauss->pitch * pGauss->height * 3 / 2,
-        pOutputFrame[0]->pitch, pOutputFrame[0]->width >> 1, pOutputFrame[0]->height >> 1,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 3 / 2,
-        pInputFrame->pitch, pInputFrame->width >> 1, pInputFrame->height >> 1,
-        loop_count, strength, threshold);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    return cudaerr;
+    return cudaSuccess;
 }
 
-template<typename Type, int bit_depth, bool useExp>
-static cudaError_t denoise_yuv444(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame,
-    int loop_count, const float strength, const float threshold) {
-    uint8_t *pDst[2] = { 0 };
-    pDst[0] = (uint8_t *)pOutputFrame[0]->ptr;
-    pDst[1] = (uint8_t *)pOutputFrame[1]->ptr;
-    //Y
-    auto cudaerr = denoise_pmd<Type, bit_depth, useExp>(
-        pDst,
-        (uint8_t *)pGauss->ptr,
-        pOutputFrame[0]->pitch, pOutputFrame[0]->width, pOutputFrame[0]->height,
-        (uint8_t *)pInputFrame->ptr,
-        pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
-        loop_count, strength, threshold);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //U
-    pDst[0] = (uint8_t *)pOutputFrame[0]->ptr + pOutputFrame[0]->pitch * pOutputFrame[0]->height;
-    pDst[1] = (uint8_t *)pOutputFrame[1]->ptr + pOutputFrame[1]->pitch * pOutputFrame[1]->height;
-    cudaerr = denoise_pmd<Type, bit_depth, useExp>(
-        pDst,
-        (uint8_t *)pGauss->ptr + pGauss->pitch * pGauss->height,
-        pOutputFrame[0]->pitch, pOutputFrame[0]->width, pOutputFrame[0]->height,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height,
-        pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
-        loop_count, strength, threshold);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //V
-    pDst[0] = (uint8_t *)pOutputFrame[0]->ptr + pOutputFrame[0]->pitch * pOutputFrame[0]->height * 2;
-    pDst[1] = (uint8_t *)pOutputFrame[1]->ptr + pOutputFrame[1]->pitch * pOutputFrame[1]->height * 2;
-    cudaerr = denoise_pmd<Type, bit_depth, useExp>(
-        pDst,
-        (uint8_t *)pGauss->ptr + pGauss->pitch * pGauss->height * 2,
-        pOutputFrame[0]->pitch, pOutputFrame[0]->width, pOutputFrame[0]->height,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 2,
-        pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
-        loop_count, strength, threshold);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    return cudaerr;
-}
-
-
-RGY_ERR NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame, cudaStream_t stream) {
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -301,24 +216,24 @@ RGY_ERR NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo *pG
         return RGY_ERR_INVALID_PARAM;
     }
     struct pmd_func {
-        decltype(denoise_yv12<uint8_t, 8, true>)* func[2];
-        pmd_func(decltype(denoise_yv12<uint8_t, 8, true>)* useexp, decltype(denoise_yv12<uint8_t, 8, false>)* noexp) {
+        decltype(denoise_pmd_frame<uint8_t, 8, true>)* func[2];
+        pmd_func(decltype(denoise_pmd_frame<uint8_t, 8, true>)* useexp, decltype(denoise_pmd_frame<uint8_t, 8, false>)* noexp) {
             func[0] = noexp;
             func[1] = useexp;
         };
     };
 
     static const std::map<RGY_CSP, pmd_func> denoise_func_list = {
-        { RGY_CSP_YV12,      pmd_func(denoise_yv12<uint8_t,   8, true>,   denoise_yv12<uint8_t,   8, false>) },
-        { RGY_CSP_YV12_16,   pmd_func(denoise_yv12<uint16_t, 16, true>,   denoise_yv12<uint16_t, 16, false>) },
-        { RGY_CSP_YUV444,    pmd_func(denoise_yuv444<uint8_t,   8, true>, denoise_yuv444<uint8_t,   8, false>) },
-        { RGY_CSP_YUV444_16, pmd_func(denoise_yuv444<uint16_t, 16, true>, denoise_yuv444<uint16_t, 16, false>) },
+        { RGY_CSP_YV12,      pmd_func(denoise_pmd_frame<uint8_t,   8, true>, denoise_pmd_frame<uint8_t,   8, false>) },
+        { RGY_CSP_YV12_16,   pmd_func(denoise_pmd_frame<uint16_t, 16, true>, denoise_pmd_frame<uint16_t, 16, false>) },
+        { RGY_CSP_YUV444,    pmd_func(denoise_pmd_frame<uint8_t,   8, true>, denoise_pmd_frame<uint8_t,   8, false>) },
+        { RGY_CSP_YUV444_16, pmd_func(denoise_pmd_frame<uint16_t, 16, true>, denoise_pmd_frame<uint16_t, 16, false>) },
     };
     if (denoise_func_list.count(pPmdParam->frameIn.csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for denoise(pmd): %s\n"), RGY_CSP_NAMES[pPmdParam->frameIn.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto cudaerr = denoise_func_list.at(pPmdParam->frameIn.csp).func[!!pPmdParam->pmd.useExp](pOutputFrame, pGauss, pInputFrame, pPmdParam->pmd.applyCount, pPmdParam->pmd.strength, pPmdParam->pmd.threshold);
+    auto cudaerr = denoise_func_list.at(pPmdParam->frameIn.csp).func[!!pPmdParam->pmd.useExp](pOutputFrame, pGauss, pInputFrame, pPmdParam->pmd.applyCount, pPmdParam->pmd.strength, pPmdParam->pmd.threshold, stream);
     if (cudaerr != cudaSuccess) {
         return RGY_ERR_CUDA;
     }
@@ -433,7 +348,7 @@ RGY_ERR NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInf
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto ret = denoise(pOutputFrame, &m_Gauss.frame, pInputFrame);
+    auto ret = denoise(pOutputFrame, &m_Gauss.frame, pInputFrame, stream);
     if (frame_swapped) {
         //filter_as_interlaced_pair()の時の処理
         pOutputFrame[out_idx]->width     = pOutputFrame[(out_idx + 1) & 1]->width;
