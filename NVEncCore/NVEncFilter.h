@@ -253,8 +253,8 @@ public:
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
-    RGY_ERR denoiseYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    RGY_ERR denoiseYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR denoisePlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR denoiseFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
     virtual void close() override;
     bool m_bInterlacedWarn;
 };
