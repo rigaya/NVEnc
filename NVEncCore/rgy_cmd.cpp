@@ -1916,6 +1916,9 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
+    if (IS_OPTION("debug-cmd-parser")) {
+        return 0;
+    }
     return -10;
 }
 
