@@ -96,102 +96,31 @@ __global__ void kernel_edgelevel(uint8_t *__restrict__ pDst, const int dstPitch,
     }
 }
 
-template<typename Type, int bit_depth>
-static cudaError_t edgelevel_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
-    float strength, float threshold, float black, float white) {
-    dim3 blockSize(EDGELEVEL_BLOCK_X, EDGELEVEL_BLOCK_Y);
-    dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
-    strength  /= (1<<4);
-    threshold /= (1<<((sizeof(Type) * 8) - 1));
-    black     /= (1<<(sizeof(Type) * 8));
-    white     /= (1<<(sizeof(Type) * 8));
+template<typename Type>
+cudaError_t textureCreateEdgelevel(cudaTextureObject_t &tex, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, uint8_t *ptr, int pitch, int width, int height) {
+    cudaResourceDesc resDesc;
+    memset(&resDesc, 0, sizeof(resDesc));
+    resDesc.resType = cudaResourceTypePitch2D;
+    resDesc.res.pitch2D.devPtr = ptr;
+    resDesc.res.pitch2D.pitchInBytes = pitch;
+    resDesc.res.pitch2D.width = width;
+    resDesc.res.pitch2D.height = height;
+    resDesc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
 
-    //Y
-    cudaResourceDesc resDescSrc;
-    memset(&resDescSrc, 0, sizeof(resDescSrc));
-    resDescSrc.resType = cudaResourceTypePitch2D;
-    resDescSrc.res.pitch2D.devPtr = pInputFrame->ptr;
-    resDescSrc.res.pitch2D.pitchInBytes = pInputFrame->pitch;
-    resDescSrc.res.pitch2D.width = pInputFrame->width;
-    resDescSrc.res.pitch2D.height = pInputFrame->height;
-    resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
+    cudaTextureDesc texDesc;
+    memset(&texDesc, 0, sizeof(texDesc));
+    texDesc.addressMode[0] = cudaAddressModeClamp;
+    texDesc.addressMode[1] = cudaAddressModeClamp;
+    texDesc.filterMode = filterMode;
+    texDesc.readMode = readMode;
+    texDesc.normalizedCoords = 0;
 
-    cudaTextureDesc texDescSrc;
-    memset(&texDescSrc, 0, sizeof(texDescSrc));
-    texDescSrc.addressMode[0]   = cudaAddressModeClamp;
-    texDescSrc.addressMode[1]   = cudaAddressModeClamp;
-    texDescSrc.filterMode       = cudaFilterModePoint;
-    texDescSrc.readMode         = cudaReadModeNormalizedFloat;
-    texDescSrc.normalizedCoords = 0;
-
-    cudaTextureObject_t texSrc = 0;
-    auto cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize>>>((uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, strength, threshold, black, white);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-#if 1
-    auto frameinfoex = getFrameInfoExtra(pOutputFrame);
-    cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height, pOutputFrame->pitch,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height, pInputFrame->pitch,
-        frameinfoex.width_byte, frameinfoex.height_total - pOutputFrame->height, cudaMemcpyDeviceToDevice);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-#else
-    //U
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
-    resDescSrc.res.pitch2D.width >>= 1;
-    resDescSrc.res.pitch2D.height >>= 1;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize>>>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height,
-        pOutputFrame->pitch, pOutputFrame->width >> 1, pOutputFrame->height >> 1,
-        texSrc, strength, threshold, black, white);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //V
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 3 / 2;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize>>>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 3 / 2,
-        pOutputFrame->pitch, pOutputFrame->width >> 1, pOutputFrame->height >> 1,
-        texSrc, strength, threshold, black, white);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-#endif
-    return cudaerr;
+    return cudaCreateTextureObject(&tex, &resDesc, &texDesc, nullptr);
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t edgelevel_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
-    float strength, float threshold, float black, float white) {
+static RGY_ERR edgelevel_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+    float strength, float threshold, float black, float white, cudaStream_t stream) {
     dim3 blockSize(EDGELEVEL_BLOCK_X, EDGELEVEL_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
     strength  /= (1<<4);
@@ -199,85 +128,55 @@ static cudaError_t edgelevel_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pI
     black     /= (1<<(sizeof(Type) * 8));
     white     /= (1<<(sizeof(Type) * 8));
 
-    //Y
-    cudaResourceDesc resDescSrc;
-    memset(&resDescSrc, 0, sizeof(resDescSrc));
-    resDescSrc.resType = cudaResourceTypePitch2D;
-    resDescSrc.res.pitch2D.devPtr = pInputFrame->ptr;
-    resDescSrc.res.pitch2D.pitchInBytes = pInputFrame->pitch;
-    resDescSrc.res.pitch2D.width = pInputFrame->width;
-    resDescSrc.res.pitch2D.height = pInputFrame->height;
-    resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
-
-    cudaTextureDesc texDescSrc;
-    memset(&texDescSrc, 0, sizeof(texDescSrc));
-    texDescSrc.addressMode[0]   = cudaAddressModeClamp;
-    texDescSrc.addressMode[1]   = cudaAddressModeClamp;
-    texDescSrc.filterMode       = cudaFilterModePoint;
-    texDescSrc.readMode         = cudaReadModeNormalizedFloat;
-    texDescSrc.normalizedCoords = 0;
-
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
+    auto cudaerr = textureCreateEdgelevel<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptr, pInputFrame->pitch, pInputFrame->width, pInputFrame->height);
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
-    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize>>>((uint8_t *)pOutputFrame->ptr,
+    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize, 0, stream>>>((uint8_t *)pOutputFrame->ptr,
         pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
         texSrc, strength, threshold, black, white);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
     cudaerr = cudaDestroyTextureObject(texSrc);
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
     }
-#if 1
-    auto frameinfoex = getFrameInfoExtra(pOutputFrame);
-    cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height, pOutputFrame->pitch,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height, pInputFrame->pitch,
-        frameinfoex.width_byte, frameinfoex.height_total - pOutputFrame->height, cudaMemcpyDeviceToDevice);
+    return RGY_ERR_NONE;
+}
+
+template<typename Type, int bit_depth>
+static RGY_ERR edgelevel_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+    float strength, float threshold, float black, float white, cudaStream_t stream) {
+    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
+    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+    auto err = edgelevel_plane<Type, bit_depth>(&planeOutputY, &planeInputY,
+        strength,
+        threshold,
+        black,
+        white,
+        stream);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    err = copyPlane(&planeOutputU, &planeInputU, stream);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    err = copyPlane(&planeOutputV, &planeInputV, stream);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        return cudaerr;
+        return err_to_rgy(cudaerr);
     }
-#else
-    //U
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize>>>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, strength, threshold, black, white);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //V
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 2;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    kernel_edgelevel<Type, bit_depth><<<gridSize, blockSize>>>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 2,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, strength, threshold, black, white);
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-#endif
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterEdgelevel::NVEncFilterEdgelevel() {
@@ -365,27 +264,27 @@ RGY_ERR NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, FrameInfo
         return RGY_ERR_INVALID_PARAM;
     }
 
-    static const std::map<RGY_CSP, decltype(edgelevel_yv12<uint8_t, 8>)*> denoise_list = {
-        { RGY_CSP_YV12,      edgelevel_yv12<uint8_t,     8> },
-        { RGY_CSP_YV12_16,   edgelevel_yv12<uint16_t,   16> },
-        { RGY_CSP_YUV444,    edgelevel_yuv444<uint8_t,   8> },
-        { RGY_CSP_YUV444_16, edgelevel_yuv444<uint16_t, 16> }
+    static const std::map<RGY_CSP, decltype(edgelevel_frame<uint8_t, 8>)*> denoise_list = {
+        { RGY_CSP_YV12,      edgelevel_frame<uint8_t,   8> },
+        { RGY_CSP_YV12_16,   edgelevel_frame<uint16_t, 16> },
+        { RGY_CSP_YUV444,    edgelevel_frame<uint8_t,   8> },
+        { RGY_CSP_YUV444_16, edgelevel_frame<uint16_t, 16> }
     };
     if (denoise_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame,
+    sts = denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame,
         pEdgelevelParam->edgelevel.strength,
         pEdgelevelParam->edgelevel.threshold,
         pEdgelevelParam->edgelevel.black,
-        pEdgelevelParam->edgelevel.white);
-    auto cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
+        pEdgelevelParam->edgelevel.white,
+        stream);
+    if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at edgelevel(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
-            char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
-        return RGY_ERR_CUDA;
+            get_err_mes(sts));
+        return sts;
     }
     return sts;
 }
