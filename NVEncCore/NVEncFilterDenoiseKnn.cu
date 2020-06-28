@@ -291,7 +291,7 @@ RGY_ERR NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, FrameInf
     denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pKnnParam->knn.radius, pKnnParam->knn.strength, pKnnParam->knn.lerpC, pKnnParam->knn.weight_threshold, pKnnParam->knn.lerp_threshold, stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at knn(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return RGY_ERR_CUDA;
