@@ -33,6 +33,40 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
+RGY_ERR copyPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+    const int pix_size = RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? 2 : 1;
+    const auto memkind = getCudaMemcpyKind(pInputFrame->deivce_mem, pOutputFrame->deivce_mem);;
+    auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
+        (uint8_t *)pInputFrame->ptr, pInputFrame->pitch,
+        pInputFrame->width * pix_size, pInputFrame->height, memkind, stream);
+    if (cudaerr != cudaSuccess) {
+        return err_to_rgy(cudaerr);
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR copyFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
+    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+    auto err = copyPlane(&planeOutputY, &planeInputY, stream);
+    if (err != cudaSuccess) {
+        return err;
+    }
+    err = copyPlane(&planeOutputU, &planeInputU, stream);
+    if (err != cudaSuccess) {
+        return err;
+    }
+    err = copyPlane(&planeOutputV, &planeInputV, stream);
+    if (err != cudaSuccess) {
+        return err;
+    }
+    return err;
+}
+
 union RGY_CSP_2 {
     struct {
         RGY_CSP a, b;

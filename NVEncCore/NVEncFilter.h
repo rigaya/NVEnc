@@ -57,6 +57,11 @@ bool check_if_nvrtc_builtin_dll_available();
 
 using std::vector;
 
+RGY_ERR err_to_rgy(cudaError_t err);
+
+RGY_ERR copyPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
+RGY_ERR copyFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
+
 static NppiSize nppisize(const FrameInfo *pFrame) {
     NppiSize size;
     size.width = pFrame->width;
