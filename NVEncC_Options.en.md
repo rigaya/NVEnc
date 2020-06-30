@@ -493,7 +493,7 @@ Therefore, input files without timestamps (such as raw ES), are not supported. P
 ### --aud
 Insert Access Unit Delimiter NAL.
 
-### --repeat-spspps
+### --repeat-headers
 output VPS,SPS and PPS for every IDR frame.
 
 ### --pic-struct

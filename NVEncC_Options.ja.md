@@ -498,7 +498,7 @@ avhw読み込みでは、フレームの並び替えにタイムスタンプを�
 ### --aud
 Access Unit Delimiter NALを挿入する。
 
-### --repeat-spspps
+### --repeat-headers
 キーフレームごとに VPS,SPS,PPS を出力する。
 
 ### --pic-struct

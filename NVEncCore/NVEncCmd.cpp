@@ -251,7 +251,7 @@ tstring encoder_help() {
 
     str += strsprintf(_T("")
         _T("   --aud                        insert aud nal unit to ouput stream.\n")
-        _T("   --repeat-spspps              output VPS,SPS and PPS for every IDR frame.\n")
+        _T("   --repeat-headers             output VPS,SPS and PPS for every IDR frame.\n")
         _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n"));
 
     str += _T("\n");
@@ -3270,15 +3270,15 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 0;
         return 0;
     }
-    if (IS_OPTION("repeat-spspps:h264")) {
+    if (IS_OPTION("repeat-headers:h264")) {
         codecPrm[NV_ENC_H264].h264Config.repeatSPSPPS = 1;
         return 0;
     }
-    if (IS_OPTION("repeat-spspps:hevc")) {
+    if (IS_OPTION("repeat-headers:hevc")) {
         codecPrm[NV_ENC_HEVC].hevcConfig.repeatSPSPPS = 1;
         return 0;
     }
-    if (IS_OPTION("repeat-spspps")) {
+    if (IS_OPTION("repeat-headers")) {
         codecPrm[NV_ENC_H264].h264Config.repeatSPSPPS = 1;
         codecPrm[NV_ENC_HEVC].hevcConfig.repeatSPSPPS = 1;
         return 0;
@@ -3749,7 +3749,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
         OPT_NUM_HEVC(_T("--slices"), _T(":hevc"), sliceModeData);
         OPT_BOOL_HEVC(_T("--aud"), _T(""), _T(":hevc"), outputAUD);
-        OPT_BOOL_HEVC(_T("--repeat-spspps"), _T(""), _T(":hevc"), repeatSPSPPS);
+        OPT_BOOL_HEVC(_T("--repeat-headers"), _T(""), _T(":hevc"), repeatSPSPPS);
         OPT_BOOL_HEVC(_T("--pic-struct"), _T(""), _T(":hevc"), outputPictureTimingSEI);
         OPT_LST_HEVC(_T("--cu-max"), _T(""), maxCUSize, list_hevc_cu_size);
         OPT_LST_HEVC(_T("--cu-min"), _T(""), minCUSize, list_hevc_cu_size);
@@ -3765,7 +3765,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_LST_H264(_T("--adapt-transform"), _T(""), adaptiveTransformMode, list_adapt_transform);
         OPT_NUM_H264(_T("--slices"), _T(":h264"), sliceModeData);
         OPT_BOOL_H264(_T("--aud"), _T(""), _T(":h264"), outputAUD);
-        OPT_BOOL_H264(_T("--repeat-spspps"), _T(""), _T(":h264"), repeatSPSPPS);
+        OPT_BOOL_H264(_T("--repeat-headers"), _T(""), _T(":h264"), repeatSPSPPS);
         OPT_BOOL_H264(_T("--pic-struct"), _T(""), _T(":h264"), outputPictureTimingSEI);
         if ((codecPrm[NV_ENC_H264].h264Config.entropyCodingMode) != (codecPrmDefault[NV_ENC_H264].h264Config.entropyCodingMode)) {
             cmd << _T(" --") << get_chr_from_value(list_entropy_coding, codecPrm[NV_ENC_H264].h264Config.entropyCodingMode);

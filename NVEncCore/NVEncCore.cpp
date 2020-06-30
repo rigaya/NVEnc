@@ -4634,12 +4634,18 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         if (m_stEncConfig.encodeCodecConfig.h264Config.outputPictureTimingSEI) {
             add_str(RGY_LOG_INFO, _T("pic-struct "));
         }
+        if (m_stEncConfig.encodeCodecConfig.h264Config.repeatSPSPPS) {
+            add_str(RGY_LOG_INFO, _T("repeat-headers "));
+        }
     } else if (codec == NV_ENC_HEVC) {
         if (m_stEncConfig.encodeCodecConfig.hevcConfig.outputAUD) {
             add_str(RGY_LOG_INFO, _T("aud "));
         }
         if (m_stEncConfig.encodeCodecConfig.hevcConfig.outputPictureTimingSEI) {
             add_str(RGY_LOG_INFO, _T("pic-struct "));
+        }
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.repeatSPSPPS) {
+            add_str(RGY_LOG_INFO, _T("repeat-headers "));
         }
     }
     add_str(RGY_LOG_INFO, _T("\n"));
