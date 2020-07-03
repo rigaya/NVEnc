@@ -125,6 +125,15 @@ public:
         return dataptr + dataOffset;
     }
 
+    uint8_t *release() {
+        uint8_t *ptr = dataptr;
+        dataptr = nullptr;
+        dataOffset = 0;
+        dataLength = 0;
+        maxLength = 0;
+        return ptr;
+    }
+
     uint32_t dataflag() const {
         return dataFlag;
     }
@@ -271,17 +280,17 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR ref(uint8_t *refData, size_t refSize) {
+    RGY_ERR ref(uint8_t *refData, size_t dataSize) {
         clear();
         dataptr = refData;
-        dataLength = refSize;
+        dataLength = dataSize;
         dataOffset = 0;
         maxLength = 0;
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR ref(uint8_t *refData, size_t refSize, int64_t dts, int64_t pts) {
-        auto sts = ref(refData, refSize);
+    RGY_ERR ref(uint8_t *refData, size_t dataSize, int64_t dts, int64_t pts) {
+        auto sts = ref(refData, dataSize);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }

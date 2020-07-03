@@ -136,6 +136,10 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
     if (m_Mux.video.bsfc) {
         av_bsf_free(&m_Mux.video.bsfc);
     }
+    if (m_Mux.video.outBuffer) {
+        delete m_Mux.video.outBuffer;
+        m_Mux.video.outBuffer = nullptr;
+    }
     memset(muxVideo, 0, sizeof(muxVideo[0]));
     AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
 }
@@ -2356,7 +2360,14 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
             const auto next_nal_new_offset = sps_nal_offset + pkt.size;
             const auto stream_orig_length = bitstream->size();
             if ((decltype(new_data_size))bitstream->bufsize() < new_data_size) {
-                bitstream->changeSize(new_data_size);
+                if (m_Mux.video.outBuffer == nullptr) {
+                    m_Mux.video.outBuffer = new vector<uint8_t>();
+                }
+                const auto org_data_size = bitstream->size();
+                m_Mux.video.outBuffer->resize(new_data_size);
+                memcpy(m_Mux.video.outBuffer->data(), bitstream->data(), org_data_size);
+                bitstream->release();
+                bitstream->ref(m_Mux.video.outBuffer->data(), m_Mux.video.outBuffer->size());
             } else if (pkt.size > (decltype(pkt.size))sps_nal->size) {
                 bitstream->trim();
             }

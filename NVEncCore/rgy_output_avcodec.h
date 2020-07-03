@@ -136,6 +136,7 @@ typedef struct AVMuxVideo {
     FILE                 *fpTsLogFile;          //mux timestampログファイル
     RGYBitstream          seiNal;               //追加のsei nal
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
+    vector<uint8_t>      *outBuffer;            //出力用のバッファ
     RGYTimestamp         *timestamp;            //timestampの情報
 #if ENCODER_VCEENC
     AVCodecParserContext *parserCtx;            //動画ストリームのParser (VCEのみ)

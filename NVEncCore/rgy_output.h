@@ -198,6 +198,7 @@ public:
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
 
+    vector<uint8_t> m_outputBuf2;
     vector<uint8_t> m_seiNal;
 #if ENABLE_AVSW_READER
     unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
