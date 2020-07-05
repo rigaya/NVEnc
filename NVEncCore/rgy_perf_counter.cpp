@@ -353,7 +353,11 @@ int RGYGPUCounterWin::thread_func() {
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
-    close();
+    try {
+        close();
+    } catch (...) {
+
+    }
     CoUninitialize();
     return 0;
 }
