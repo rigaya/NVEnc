@@ -140,6 +140,39 @@ Type block_min(Type val, Type *shared) {
     return val;
 }
 
+template<typename Type, int width>
+__inline__ __device__
+Type warp_max(Type val) {
+    static_assert(width <= WARP_SIZE, "width too big for warp_max");
+    if (width >= 32) val = max(val, __shfl_xor(val, 16));
+    if (width >= 16) val = max(val, __shfl_xor(val, 8));
+    if (width >= 8)  val = max(val, __shfl_xor(val, 4));
+    if (width >= 4)  val = max(val, __shfl_xor(val, 2));
+    if (width >= 2)  val = max(val, __shfl_xor(val, 1));
+    return val;
+}
+
+template<typename Type, int BLOCK_X, int BLOCK_Y>
+__inline__ __device__
+Type block_max(Type val, Type *shared) {
+    static_assert(BLOCK_X * BLOCK_Y <= WARP_SIZE * WARP_SIZE, "block size too big for block_max");
+    const int lid = threadIdx.y * BLOCK_X + threadIdx.x;
+    const int lane = lid & (WARP_SIZE - 1);
+    const int warp_id = lid >> WARP_SIZE_2N;
+
+    val = warp_max<Type, WARP_SIZE>(val);
+
+    if (lane == 0) shared[warp_id] = val;
+
+    __syncthreads();
+
+    if (warp_id == 0) {
+        val = (lid * WARP_SIZE < BLOCK_X *BLOCK_Y) ? shared[lane] : 0;
+        val = warp_max<Type, BLOCK_X *BLOCK_Y / WARP_SIZE>(val);
+    }
+    return val;
+}
+
 static __device__ float lerpf(float v0, float v1, float ratio) {
     return v0 + (v1 - v0) * ratio;
 }

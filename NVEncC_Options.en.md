@@ -1278,7 +1278,7 @@ Drop duplicated frame in cycles set.
 
   - blockx=&lt;int&gt;  
   - blocky=&lt;int&gt;  
-    block size of x and y direction, default = 32. block size could be 16, 32, 64.
+    block size of x and y direction, default = 32. block size could be 4, 8, 16, 32, 64.
     
   - chroma=&lt;bool&gt;  
     consdier chroma (default: on).

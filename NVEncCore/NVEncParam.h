@@ -920,6 +920,8 @@ struct VppDeband {
 };
 
 const CX_DESC list_vpp_decimate_block[] = {
+    { _T("4"),    4 },
+    { _T("8"),    8 },
     { _T("16"),  16 },
     { _T("32"),  32 },
     { _T("64"),  64 },

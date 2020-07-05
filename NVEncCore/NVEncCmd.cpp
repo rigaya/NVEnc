@@ -482,7 +482,7 @@ tstring encoder_help() {
         _T("      thresc=<float>            scene change threshold. (default=%.1f, 0 - 100)\n")
         _T("      blockx=<int>              block size of x direction (default=%d).\n")
         _T("      blocky=<int>              block size of y direction (default=%d).\n")
-        _T("                                  block size could be 16, 32, 64.\n")
+        _T("                                  block size could be 4, 8, 16, 32, 64.\n")
         _T("      chroma=<bool>             consdier chroma (default: %s)\n")
         _T("      log=<bool>                output log file (default: %s).\n"),
         FILTER_DEFAULT_DECIMATE_CYCLE,
@@ -4162,7 +4162,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_FLOAT(_T("thredup"), vpp.decimate.threDuplicate, 3);
             ADD_FLOAT(_T("thresc"), vpp.decimate.threSceneChange, 2);
             ADD_LST(_T("blockx"), vpp.decimate.blockX, list_vpp_decimate_block);
-            ADD_LST(_T("blocky"), vpp.decimate.blockX, list_vpp_decimate_block);
+            ADD_LST(_T("blocky"), vpp.decimate.blockY, list_vpp_decimate_block);
             ADD_BOOL(_T("pp"), vpp.decimate.preProcessed);
             ADD_BOOL(_T("chroma"), vpp.decimate.chroma);
             ADD_BOOL(_T("log"), vpp.decimate.log);

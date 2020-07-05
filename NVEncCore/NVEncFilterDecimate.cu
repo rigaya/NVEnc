@@ -32,6 +32,7 @@
 #include <fstream>
 #include <algorithm>
 #include <numeric>
+#include <type_traits>
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include "convert_csp.h"
@@ -45,17 +46,238 @@
 #include "rgy_cuda_util_kernel.h"
 
 #define DECIMATE_BLOCK_MAX (32)
+#define DECIMATE_K2_THREAD_BLOCK_X (32)
+#define DECIMATE_K2_THREAD_BLOCK_Y (8)
+
+//blockxがこの値以下なら、kernel2を使用する
+static const int DECIMATE_KERNEL2_BLOCK_X_THRESHOLD = 4;
 
 __device__ __inline__
 int func_diff_pix(int a, int b) {
     return abs(a - b);
 }
 
+template<typename Type, int block_half_x>
+__device__ __inline__
+int func_diff_block1(
+    const uint8_t *__restrict__ p0, const int p0_pitch,
+    const uint8_t *__restrict__ p1, const int p1_pitch,
+    const int block_half_y,
+    const int width, const int height,
+    const int imgx, const int imgy) {
+    static_assert(block_half_x == 1, "block_half_x == 1");
+    int diff = 0;
+    for (int y = 0; y < block_half_y; y++) {
+        if (imgx < width && imgy + y < height) {
+            Type pix0 = *(Type *)(p0 + (imgy + y) * p0_pitch + imgx * sizeof(Type));
+            Type pix1 = *(Type *)(p1 + (imgy + y) * p1_pitch + imgx * sizeof(Type));
+            diff += func_diff_pix(pix0, pix1);
+        }
+    }
+    return diff;
+}
+
+template<typename Type2, int block_half_x>
+__device__ __inline__
+int func_diff_block2(
+    const uint8_t *__restrict__ p0, const int p0_pitch,
+    const uint8_t *__restrict__ p1, const int p1_pitch,
+    const int block_half_y,
+    const int width, const int height,
+    const int imgx, const int imgy) {
+    static_assert(block_half_x == 2, "block_half_x == 2");
+    int diff = 0;
+    for (int y = 0; y < block_half_y; y++) {
+        if (imgx < width && imgy + y < height) {
+            Type2 pix0 = *(Type2 *)(p0 + (imgy + y) * p0_pitch + imgx * sizeof(Type2::x));
+            Type2 pix1 = *(Type2 *)(p1 + (imgy + y) * p1_pitch + imgx * sizeof(Type2::x));
+            diff += func_diff_pix(pix0.x, pix1.x);
+            if (imgx + 1 < width) diff += func_diff_pix(pix0.y, pix1.y);
+        }
+    }
+    return diff;
+}
+
+template<typename Type4, int block_half_x>
+__device__ __inline__
+int func_diff_block4(
+    const uint8_t *__restrict__ p0, const int p0_pitch,
+    const uint8_t *__restrict__ p1, const int p1_pitch,
+    const int block_half_y,
+    const int width, const int height,
+    const int imgx, const int imgy) {
+    static_assert(block_half_x <= 16, "block_half_x <= 16");
+    static_assert((block_half_x & (block_half_x-1)) == 0, "(block_half_x & (block_half_x-1)) == 0");
+    int diff = 0;
+    for (int y = 0; y < block_half_y; y++) {
+        if (imgx < width && imgy + y < height) {
+            Type4 pix0 = *(Type4 *)(p0 + (imgy + y)* p0_pitch + imgx * sizeof(Type4::x));
+            Type4 pix1 = *(Type4 *)(p1 + (imgy + y)* p1_pitch + imgx * sizeof(Type4::x));
+            diff += func_diff_pix(pix0.x, pix1.x);
+            if (imgx + 1 < width && block_half_x >= 2) diff += func_diff_pix(pix0.y, pix1.y);
+            if (imgx + 2 < width && block_half_x >= 3) diff += func_diff_pix(pix0.z, pix1.z);
+            if (imgx + 3 < width && block_half_x >= 4) diff += func_diff_pix(pix0.w, pix1.w);
+            if (block_half_x > 4) {
+                pix0 = *(Type4 *)(p0 + (imgy + y) * p0_pitch + (imgx + 4) * sizeof(Type4::x));
+                pix1 = *(Type4 *)(p1 + (imgy + y) * p1_pitch + (imgx + 4) * sizeof(Type4::x));
+                if (imgx + 4 < width) diff += func_diff_pix(pix0.x, pix1.x);
+                if (imgx + 5 < width) diff += func_diff_pix(pix0.y, pix1.y);
+                if (imgx + 6 < width) diff += func_diff_pix(pix0.z, pix1.z);
+                if (imgx + 7 < width) diff += func_diff_pix(pix0.w, pix1.w);
+            }
+            if (block_half_x > 8) {
+                pix0 = *(Type4 *)(p0 + (imgy + y) * p0_pitch + (imgx + 8) * sizeof(Type4::x));
+                pix1 = *(Type4 *)(p1 + (imgy + y) * p1_pitch + (imgx + 8) * sizeof(Type4::x));
+                if (imgx +  8 < width) diff += func_diff_pix(pix0.x, pix1.x);
+                if (imgx +  9 < width) diff += func_diff_pix(pix0.y, pix1.y);
+                if (imgx + 10 < width) diff += func_diff_pix(pix0.z, pix1.z);
+                if (imgx + 11 < width) diff += func_diff_pix(pix0.w, pix1.w);
+
+                pix0 = *(Type4 *)(p0 + (imgy + y) * p0_pitch + (imgx + 12) * sizeof(Type4::x));
+                pix1 = *(Type4 *)(p1 + (imgy + y) * p1_pitch + (imgx + 12) * sizeof(Type4::x));
+                if (imgx + 12 < width) diff += func_diff_pix(pix0.x, pix1.x);
+                if (imgx + 13 < width) diff += func_diff_pix(pix0.y, pix1.y);
+                if (imgx + 14 < width) diff += func_diff_pix(pix0.z, pix1.z);
+                if (imgx + 15 < width) diff += func_diff_pix(pix0.w, pix1.w);
+            }
+        }
+    }
+    return diff;
+}
+
+template<int DTB_X, int DTB_Y>
+__device__ __inline__
+void func_calc_sum_max(int diff[DTB_Y+1][DTB_X+1], int2 *__restrict__ pDst, const bool firstPlane) {
+    const int lx = threadIdx.x;
+    const int ly = threadIdx.y;
+    int sum = diff[ly][lx];
+    int b2x2 = diff[ly+0][lx+0]
+             + diff[ly+0][lx+1]
+             + diff[ly+1][lx+0]
+             + diff[ly+1][lx+1];
+    __shared__ int tmp[DTB_X * DTB_Y / WARP_SIZE];
+    sum  = block_sum<decltype(sum),  DTB_X, DTB_Y>(sum, tmp);
+    b2x2 = block_max<decltype(b2x2), DTB_X, DTB_Y>(b2x2, tmp);
+    const int lid = ly * DTB_X + lx;
+    if (lid == 0) {
+        const int gid = blockIdx.y * gridDim.x + blockIdx.x;
+        int2 ret = pDst[gid];
+        ret.x = sum;
+        ret.y = b2x2;
+        if (firstPlane) {
+            int2 dst = pDst[gid];
+            ret.x += dst.x;
+            ret.y = max(ret.y, dst.y);
+        }
+        pDst[gid] = ret;
+    }
+}
+
+//block_half_x = 1の実装
+//集計までをGPUで行う
+template<typename Type, int DTB_X, int DTB_Y, int block_half_x>
+__global__ void kernel_block_diff2_1(
+    const uint8_t *__restrict__ p0, const int p0_pitch,
+    const uint8_t *__restrict__ p1, const int p1_pitch,
+    const int width, const int height,
+    const int block_half_y, const bool firstPlane,
+    int2 *__restrict__ pDst) {
+    static_assert(block_half_x == 1, "block_half_x == 1");
+    const int lx = threadIdx.x; //スレッド数=DTB_X
+    const int ly = threadIdx.y; //スレッド数=DTB_Y
+    const int imgx = (blockIdx.x * DTB_X /*blockDim.x*/ + lx) * block_half_x;
+    const int imgy = (blockIdx.y * DTB_Y /*blockDim.y*/ + ly) * block_half_y;
+
+    __shared__ int diff[DTB_Y + 1][DTB_X + 1];
+    diff[ly][lx] = func_diff_block1<Type, block_half_x>(p0, p0_pitch, p1, p1_pitch, block_half_y, width, height, imgx, imgy);
+    if (ly == 0) {
+        int loady = (blockIdx.y + 1) * DTB_Y * block_half_y;
+        diff[DTB_Y][lx] = func_diff_block1<Type, block_half_x>(p0, p0_pitch, p1, p1_pitch, block_half_y, width, height, imgx, loady);
+    }
+    {
+        const int targety = ly * DTB_X + lx;
+        if (targety <= DTB_Y) {
+            const int loadx = (blockIdx.x + 1) * DTB_X * block_half_x;
+            const int loady = (blockIdx.y * DTB_Y /*blockDim.y*/ + targety) * block_half_y;
+            diff[targety][DTB_X] = func_diff_block1<Type, block_half_x>(p0, p0_pitch, p1, p1_pitch, block_half_y, width, height, loadx, loady);
+        }
+    }
+    __syncthreads();
+    func_calc_sum_max<DTB_X, DTB_Y>(diff, pDst, firstPlane);
+}
+
+//block_half_x = 2の実装
+//集計までをGPUで行う
+template<typename Type2, int DTB_X, int DTB_Y, int block_half_x>
+__global__ void kernel_block_diff2_2(
+    const uint8_t *__restrict__ p0, const int p0_pitch,
+    const uint8_t *__restrict__ p1, const int p1_pitch,
+    const int width, const int height,
+    const int block_half_y, const bool firstPlane,
+    int2 *__restrict__ pDst) {
+    static_assert(block_half_x == 2, "block_half_x == 2");
+    const int lx = threadIdx.x; //スレッド数=DTB_X
+    const int ly = threadIdx.y; //スレッド数=DTB_Y
+    const int imgx = (blockIdx.x * DTB_X /*blockDim.x*/ + lx) * block_half_x;
+    const int imgy = (blockIdx.y * DTB_Y /*blockDim.y*/ + ly) * block_half_y;
+
+    __shared__ int diff[DTB_Y + 1][DTB_X + 1];
+    diff[ly][lx] = func_diff_block2<Type2, block_half_x>(p0, p0_pitch, p1, p1_pitch, block_half_y, width, height, imgx, imgy);
+    if (ly == 0) {
+        int loady = (blockIdx.y + 1) * DTB_Y * block_half_y;
+        diff[DTB_Y][lx] = func_diff_block2<Type2, block_half_x>(p0, p0_pitch, p1, p1_pitch, block_half_y, width, height, imgx, loady);
+    }
+    {
+        const int targety = ly * DTB_X + lx;
+        if (targety <= DTB_Y) {
+            const int loadx = (blockIdx.x + 1) * DTB_X * block_half_x;
+            const int loady = (blockIdx.y * DTB_Y /*blockDim.y*/ + targety) * block_half_y;
+            diff[targety][DTB_X] = func_diff_block2<Type2, block_half_x>(p0, p0_pitch, p1, p1_pitch, block_half_y, width, height, loadx, loady);
+        }
+    }
+    __syncthreads();
+    func_calc_sum_max<DTB_X, DTB_Y>(diff, pDst, firstPlane);
+}
+
+//block_half_x = 4, 8, 16の実装
+//集計までをGPUで行う
+template<typename Type4, int DTB_X, int DTB_Y, int block_half_x>
+__global__ void kernel_block_diff2_4(
+    const uint8_t *__restrict__ p0, const int p0_pitch,
+    const uint8_t *__restrict__ p1, const int p1_pitch,
+    const int width, const int height,
+    const int block_half_y, const bool firstPlane,
+    int2 *__restrict__ pDst) {
+    static_assert(4 <= block_half_x && block_half_x <= 16, "4 <= block_half_x && block_half_x <= 16");
+    static_assert((block_half_x & (block_half_x - 1)) == 0, "(block_half_x & (block_half_x-1)) == 0");
+    const int lx = threadIdx.x; //スレッド数=DTB_X
+    const int ly = threadIdx.y; //スレッド数=DTB_Y
+    const int imgx = (blockIdx.x * DTB_X /*blockDim.x*/ + lx) * block_half_x;
+    const int imgy = (blockIdx.y * DTB_Y /*blockDim.y*/ + ly) * block_half_y;
+
+    __shared__ int diff[DTB_Y+1][DTB_X+1];
+    diff[ly][lx] = func_diff_block4<Type4, block_half_x>(p0, p0_pitch, p1, p1_pitch, block_half_y, width, height, imgx, imgy);
+    if (ly == 0) {
+        int loady = (blockIdx.y + 1) * DTB_Y * block_half_y;
+        diff[DTB_Y][lx] = func_diff_block4<Type4, block_half_x>(p0, p0_pitch, p1, p1_pitch, block_half_y, width, height, imgx, loady);
+    }
+    {
+        const int targety = ly * DTB_X + lx;
+        if (targety <= DTB_Y) {
+            const int loadx = (blockIdx.x + 1) * DTB_X * block_half_x;
+            const int loady = (blockIdx.y * DTB_Y /*blockDim.y*/ + targety) * block_half_y;
+            diff[targety][DTB_X] = func_diff_block4<Type4, block_half_x>(p0, p0_pitch, p1, p1_pitch, block_half_y, width, height, loadx, loady);
+        }
+    }
+    __syncthreads();
+    func_calc_sum_max<DTB_X, DTB_Y>(diff, pDst, firstPlane);
+}
+
 template<typename Type4>
 __global__ void kernel_block_diff(
     const uint8_t *__restrict__ p0, const int p0_pitch,
     const uint8_t *__restrict__ p1, const int p1_pitch,
-    const int width, const int height,
+    const int width, const int height, const bool firstPlane,
     int *__restrict__ pDst) {
     const int lx = threadIdx.x; //スレッド数=SSIM_BLOCK_X
     const int ly = threadIdx.y; //スレッド数=SSIM_BLOCK_Y
@@ -82,22 +304,34 @@ __global__ void kernel_block_diff(
     const int lid = threadIdx.y * blockDim.x + threadIdx.x;
     if (lid == 0) {
         const int gid = blockIdx.y * gridDim.x + blockIdx.x;
-        pDst[gid] += diff;
+        if (firstPlane) {
+            diff += pDst[gid];
+        }
+        pDst[gid] = diff;
     }
 }
 
-template<typename Type4>
-cudaError calc_block_diff_plane(const FrameInfo *p0, const FrameInfo *p1, CUMemBufPair &tmp,
+template<typename Type2, typename Type4>
+cudaError calc_block_diff_plane(const bool useKernel2, const bool firstPlane, const FrameInfo *p0, const FrameInfo *p1, CUMemBufPair &tmp,
     const int blockHalfX, const int blockHalfY, cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
+    static_assert(std::is_integral<decltype(Type2::x)>::value && std::is_integral<decltype(Type4::x)>::value && sizeof(Type2::x) == sizeof(Type4::x),
+        "Type2::x == Type4::x");
     const int width = p0->width;
     const int height = p0->height;
-    dim3 blockSize(blockHalfX / 4, blockHalfY);
-    dim3 gridSize(divCeil(width, blockSize.x * 4), divCeil(height, blockSize.y));
+    dim3 blockSize, gridSize;
+    if (useKernel2) {
+        blockSize = dim3(DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y);
+        gridSize = dim3(divCeil(divCeil(width, blockHalfX), blockSize.x), divCeil(divCeil(width, blockHalfY), blockSize.y));
+    } else {
+        blockSize = dim3(blockHalfX / 4, blockHalfY);
+        gridSize = dim3(divCeil(width, blockSize.x * 4), divCeil(height, blockSize.y));
+    }
 
     const int grid_count = gridSize.x * gridSize.y;
-    if (tmp.nSize < grid_count * sizeof(int)) {
+    const int bufsize = (useKernel2) ? grid_count * sizeof(int2) : grid_count * sizeof(int);
+    if (tmp.nSize < bufsize) {
         tmp.clear();
-        auto cudaerr = tmp.alloc(grid_count * sizeof(int));
+        auto cudaerr = tmp.alloc(bufsize);
         if (cudaerr != cudaSuccess) {
             return cudaerr;
         }
@@ -110,12 +344,60 @@ cudaError calc_block_diff_plane(const FrameInfo *p0, const FrameInfo *p1, CUMemB
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
-    kernel_block_diff<Type4> << < gridSize, blockSize, 0, streamDiff >> > (
-        (const uint8_t *)p0->ptr, p0->pitch,
-        (const uint8_t *)p1->ptr, p1->pitch,
-        width,
-        height,
-        (int *)tmp.ptrDevice);
+    if (useKernel2) {
+        switch (blockHalfX) {
+        case 1:
+            kernel_block_diff2_1<decltype(Type4::x), DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 1> << < gridSize, blockSize, 0, streamDiff >> > (
+                (const uint8_t *)p0->ptr, p0->pitch,
+                (const uint8_t *)p1->ptr, p1->pitch,
+                width, height,
+                blockHalfX, firstPlane,
+                (int2 *)tmp.ptrDevice);
+            break;
+        case 2:
+            kernel_block_diff2_2<Type2, DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 2> << < gridSize, blockSize, 0, streamDiff >> > (
+                (const uint8_t *)p0->ptr, p0->pitch,
+                (const uint8_t *)p1->ptr, p1->pitch,
+                width, height,
+                blockHalfX, firstPlane,
+                (int2 *)tmp.ptrDevice);
+            break;
+        case 4:
+            kernel_block_diff2_4<Type4, DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 4> << < gridSize, blockSize, 0, streamDiff >> > (
+                (const uint8_t *)p0->ptr, p0->pitch,
+                (const uint8_t *)p1->ptr, p1->pitch,
+                width, height,
+                blockHalfX, firstPlane,
+                (int2 *)tmp.ptrDevice);
+            break;
+        case 8:
+            kernel_block_diff2_4<Type4, DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 8> << < gridSize, blockSize, 0, streamDiff >> > (
+                (const uint8_t *)p0->ptr, p0->pitch,
+                (const uint8_t *)p1->ptr, p1->pitch,
+                width, height,
+                blockHalfX, firstPlane,
+                (int2 *)tmp.ptrDevice);
+            break;
+        case 16:
+            kernel_block_diff2_4<Type4, DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y, 16> << < gridSize, blockSize, 0, streamDiff >> > (
+                (const uint8_t *)p0->ptr, p0->pitch,
+                (const uint8_t *)p1->ptr, p1->pitch,
+                width, height,
+                blockHalfX, firstPlane,
+                (int2 *)tmp.ptrDevice);
+            break;
+        }
+    } else {
+        if (blockHalfX < 4 || 64 < blockHalfX) {
+            return cudaErrorUnsupportedLimit;
+        }
+        kernel_block_diff<Type4><<< gridSize, blockSize, 0, streamDiff >>> (
+            (const uint8_t *)p0->ptr, p0->pitch,
+            (const uint8_t *)p1->ptr, p1->pitch,
+            width, height,
+            firstPlane,
+            (int *)tmp.ptrDevice);
+    }
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return cudaerr;
@@ -129,7 +411,7 @@ cudaError calc_block_diff_plane(const FrameInfo *p0, const FrameInfo *p1, CUMemB
     return cudaGetLastError();
 }
 
-template<typename Type4>
+template<typename Type2, typename Type4>
 cudaError_t calc_block_diff_frame(const FrameInfo *p0, const FrameInfo *p1, CUMemBufPair &tmp,
     const int blockX, const int blockY,  const bool chroma,
     cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
@@ -140,6 +422,7 @@ cudaError_t calc_block_diff_frame(const FrameInfo *p0, const FrameInfo *p1, CUMe
             return cudaerr;
         }
     }
+    const bool useKernel2 = (blockX / 2 <= DECIMATE_KERNEL2_BLOCK_X_THRESHOLD);
 
     const int targetPlanes = (chroma) ? (int)(RGY_CSP_PLANES[p0->csp]) : 1;
     for (int i = 0; i < targetPlanes; i++) {
@@ -151,7 +434,7 @@ cudaError_t calc_block_diff_frame(const FrameInfo *p0, const FrameInfo *p1, CUMe
             blockHalfX /= 2;
             blockHalfY /= 2;
         }
-        auto cudaerr = calc_block_diff_plane<Type4>(&plane0, &plane1, tmp, blockHalfX, blockHalfY, streamDiff, eventTransfer, streamTransfer);
+        auto cudaerr = calc_block_diff_plane<Type2, Type4>(useKernel2, i==0, &plane0, &plane1, tmp, blockHalfX, blockHalfY, streamDiff, eventTransfer, streamTransfer);
         if (cudaerr != cudaSuccess) {
             return cudaerr;
         }
@@ -203,24 +486,35 @@ void NVEncFilterDecimateFrameData::calcDiffFromTmp() {
     }
     const int blockHalfX = m_blockX / 2;
     const int blockHalfY = m_blockY / 2;
-    const int blockXHalfCount = divCeil(m_buf.frame.width, blockHalfX);
-    const int blockYHalfCount = divCeil(m_buf.frame.height, blockHalfY);
-    const int blockXYHalfCount = blockXHalfCount * blockYHalfCount;
-
-    int *const tmpHost = (int *)m_tmp.ptrHost;
-
-    m_diffMaxBlock = -1;
-    for (int i = 0; i < blockYHalfCount - 1; i++) {
-        for (int j = 0; j < blockXHalfCount - 1; j++) {
-            int64_t tmp = tmpHost[(i + 0) * blockXHalfCount + j + 0]
-                        + tmpHost[(i + 0) * blockXHalfCount + j + 1]
-                        + tmpHost[(i + 1) * blockXHalfCount + j + 0]
-                        + tmpHost[(i + 1) * blockXHalfCount + j + 1];
-            m_diffMaxBlock = std::max(m_diffMaxBlock, tmp);
+    const bool useKernel2 = (m_blockX / 2 <= DECIMATE_KERNEL2_BLOCK_X_THRESHOLD);
+    if (useKernel2) {
+        int2 *const tmpHost = (int2 *)m_tmp.ptrHost;
+        const int count = m_tmp.nSize / sizeof(int2);
+        m_diffMaxBlock = -1;
+        m_diffTotal = 0;
+        for (int i = 0; i < count; i++) {
+            m_diffTotal += tmpHost[i].x;
+            m_diffMaxBlock = std::max<int64_t>(m_diffMaxBlock, tmpHost[i].y);
         }
-    }
+    } else {
+        const int blockXHalfCount = divCeil(m_buf.frame.width, blockHalfX);
+        const int blockYHalfCount = divCeil(m_buf.frame.height, blockHalfY);
+        const int blockXYHalfCount = blockXHalfCount * blockYHalfCount;
 
-    m_diffTotal = std::accumulate(tmpHost, tmpHost + blockXYHalfCount, (int64_t)0);
+        int *const tmpHost = (int *)m_tmp.ptrHost;
+
+        m_diffMaxBlock = -1;
+        for (int i = 0; i < blockYHalfCount - 1; i++) {
+            for (int j = 0; j < blockXHalfCount - 1; j++) {
+                int64_t tmp = tmpHost[(i + 0) * blockXHalfCount + j + 0]
+                            + tmpHost[(i + 0) * blockXHalfCount + j + 1]
+                            + tmpHost[(i + 1) * blockXHalfCount + j + 0]
+                            + tmpHost[(i + 1) * blockXHalfCount + j + 1];
+                m_diffMaxBlock = std::max(m_diffMaxBlock, tmp);
+            }
+        }
+        m_diffTotal = std::accumulate(tmpHost, tmpHost + blockXYHalfCount, (int64_t)0);
+    }
 }
 
 NVEncFilterDecimateCache::NVEncFilterDecimateCache() : m_inputFrames(0), m_frames() {
@@ -260,6 +554,14 @@ RGY_ERR NVEncFilterDecimate::checkParam(const std::shared_ptr<NVEncFilterParamDe
     }
     if (prm->decimate.cycle <= 1) {
         AddMessage(RGY_LOG_ERROR, _T("cycle must be 2 or bigger.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->decimate.blockX < 4 || 64 < prm->decimate.blockX || (prm->decimate.blockX & (prm->decimate.blockX-1)) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid blockX: %d.\n"), prm->decimate.blockX);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->decimate.blockY < 4 || 64 < prm->decimate.blockY || (prm->decimate.blockY & (prm->decimate.blockY - 1)) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid blockY: %d.\n"), prm->decimate.blockY);
         return RGY_ERR_INVALID_PARAM;
     }
     return RGY_ERR_NONE;
@@ -481,10 +783,10 @@ RGY_ERR NVEncFilterDecimate::run_filter(const FrameInfo *pInputFrame, FrameInfo 
         cudaStreamWaitEvent(*m_streamDiff.get(), *m_eventDiff.get(), 0);
 
         static const std::map<RGY_CSP, funcCalcDiff> func_list = {
-            { RGY_CSP_YV12,      calc_block_diff_frame<uchar4>  },
-            { RGY_CSP_YV12_16,   calc_block_diff_frame<ushort4> },
-            { RGY_CSP_YUV444,    calc_block_diff_frame<uchar4>  },
-            { RGY_CSP_YUV444_16, calc_block_diff_frame<ushort4> }
+            { RGY_CSP_YV12,      calc_block_diff_frame<uchar2,  uchar4>  },
+            { RGY_CSP_YV12_16,   calc_block_diff_frame<ushort2, ushort4> },
+            { RGY_CSP_YUV444,    calc_block_diff_frame<uchar2,  uchar4>  },
+            { RGY_CSP_YUV444_16, calc_block_diff_frame<ushort2, ushort4> }
         };
         if (func_list.count(pInputFrame->csp) == 0) {
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
