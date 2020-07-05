@@ -105,6 +105,7 @@ void RGYOutput::Close() {
 }
 
 RGYOutputRaw::RGYOutputRaw() :
+    m_outputBuf2(),
     m_seiNal()
 #if ENABLE_AVSW_READER
     , m_pBsfc()
@@ -320,11 +321,15 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                 const auto next_nal_new_offset = sps_nal_offset + pkt.size;
                 const auto stream_orig_length = pBitstream->size();
                 if ((decltype(new_data_size))pBitstream->bufsize() < new_data_size) {
+#if ENCODER_QSV
+                    pBitstream->changeSize(new_data_size);
+#else //NVEnc, VCEの場合はこうしないとメモリリークが発生する
                     const auto org_data_size = pBitstream->size();
                     m_outputBuf2.resize(new_data_size);
                     memcpy(m_outputBuf2.data(), pBitstream->data(), org_data_size);
                     pBitstream->release();
                     pBitstream->ref(m_outputBuf2.data(), m_outputBuf2.size());
+#endif
                 } else if (pkt.size > (decltype(pkt.size))sps_nal->size) {
                     pBitstream->trim();
                 }
