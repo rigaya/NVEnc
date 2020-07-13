@@ -63,10 +63,13 @@ static const TCHAR *NVENCODE_API_DLL = _T("libnvidia-encode.so");
 #define ENABLE_ASYNC 0
 #endif
 
-#define INIT_CONFIG(configStruct, type) { memset(&(configStruct), 0, sizeof(configStruct)); (configStruct).version = type##_VER;}
-#ifndef SET_VER
-#define SET_VER(configStruct, type) { (configStruct).version = type##_VER; }
-#endif
+#define INIT_CONFIG(configStruct, type, apiver) { \
+    memset(&(configStruct), 0, sizeof(configStruct)); \
+    (configStruct).version = ((type##_VER & 0xf0ff0000) | apiver); \
+}
+#define SET_VER(configStruct, type, apiver) { \
+    (configStruct).version = ((type##_VER & 0xf0ff0000) | apiver); \
+}
 
 #define MAX_ENCODE_QUEUE 64
 
@@ -145,7 +148,7 @@ public:
 
     T* GetPending()
     {
-        if (m_uPendingCount == 0) 
+        if (m_uPendingCount == 0)
         {
             return NULL;
         }
@@ -165,7 +168,7 @@ public:
     NVENCSTATUS DestroyEncoder();
 
     //
-    NVENCSTATUS createNVEncAPIInstance();
+    NVENCSTATUS loadNVEncAPIDLL();
     NVENCSTATUS InitSession();
 
     //エンコーダインスタンスを作成
@@ -221,6 +224,9 @@ public:
 
     //コーデックのFeature情報のリストの作成・取得
     const std::vector<NVEncCodecFeature> &GetNVEncCapability();
+
+    bool checkAPIver(uint32_t major, uint32_t minor) const;
+    uint32_t getAPIver() const { return m_apiVer; }
 protected:
     //既定の出力先に情報をメッセージを出力
     void PrintMes(int log_level, const tstring &str);
@@ -236,6 +242,7 @@ protected:
     std::unique_ptr<NV_ENCODE_API_FUNCTION_LIST> m_pEncodeAPI;            //NVEnc APIの関数リスト
     HINSTANCE                    m_hinstLib;              //nvEncodeAPI.dllのモジュールハンドル
     void *m_hEncoder;              //エンコーダのインスタンス
+    uint32_t m_apiVer;
     std::vector<NVEncCodecFeature> m_EncodeFeatures;
     std::shared_ptr<RGYLog>           m_log;
 };

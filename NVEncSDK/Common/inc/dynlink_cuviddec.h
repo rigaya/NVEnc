@@ -84,11 +84,11 @@ typedef enum cudaVideoCodec_enum {
 //! These enums are used in CUVIDDECODECREATEINFO structure
 /*********************************************************************************/
 typedef enum cudaVideoSurfaceFormat_enum {
-    cudaVideoSurfaceFormat_NV12=0,       /**< NV12 format          */
-    cudaVideoSurfaceFormat_P016=1,       /**< 16 bit semiplaner format. Can be used for 10 bit(6LSB bits 0),
-                                              12 bit (4LSB bits 0) */
+    cudaVideoSurfaceFormat_NV12=0,          /**< Semi-Planar YUV [Y plane followed by interleaved UV plane]     */
+    cudaVideoSurfaceFormat_P016=1,          /**< 16 bit Semi-Planar YUV [Y plane followed by interleaved UV plane].
+                                                 Can be used for 10 bit(6LSB bits 0), 12 bit (4LSB bits 0)      */
     cudaVideoSurfaceFormat_YUV444=2,        /**< Planar YUV [Y plane followed by U and V planes]                */
-    cudaVideoSurfaceFormat_YUV444_16Bit=3,  /**< 16 bit Planar YUV [Y plane followed by U and V planes].
+    cudaVideoSurfaceFormat_YUV444_16Bit=3,  /**< 16 bit Planar YUV [Y plane followed by U and V planes]. 
                                                  Can be used for 10 bit(6LSB bits 0), 12 bit (4LSB bits 0)      */
 } cudaVideoSurfaceFormat;
 
@@ -109,8 +109,6 @@ typedef enum cudaVideoDeinterlaceMode_enum {
 //! \enum cudaVideoChromaFormat
 //! Chroma format enums
 //! These enums are used in CUVIDDECODECREATEINFO and CUVIDDECODECAPS structures
-//! JPEG supports Monochrome, YUV 4:2:0, YUV 4:2:2 and YUV 4:4:4 chroma formats.
-//! H264, HEVC, VP9, VP8, VC1, MPEG1, MPEG2 and MPEG4 support YUV 4:2:0 chroma format only.
 /**************************************************************************************************************/
 typedef enum cudaVideoChromaFormat_enum {
     cudaVideoChromaFormat_Monochrome=0,  /**< MonoChrome */
@@ -132,26 +130,42 @@ typedef enum cudaVideoCreateFlags_enum {
 } cudaVideoCreateFlags;
 
 
+/*************************************************************************/
+//! \enum cuvidDecodeStatus
+//! Decode status enums
+//! These enums are used in CUVIDGETDECODESTATUS structure
+/*************************************************************************/
+typedef enum cuvidDecodeStatus_enum
+{
+    cuvidDecodeStatus_Invalid         = 0,   // Decode status is not valid
+    cuvidDecodeStatus_InProgress      = 1,   // Decode is in progress
+    cuvidDecodeStatus_Success         = 2,   // Decode is completed without any errors
+    // 3 to 7 enums are reserved for future use
+    cuvidDecodeStatus_Error           = 8,   // Decode is completed with an error (error is not concealed)
+    cuvidDecodeStatus_Error_Concealed = 9,   // Decode is completed with an error and error is concealed 
+} cuvidDecodeStatus;
+
 /**************************************************************************************************************/
 //! \struct CUVIDDECODECAPS;
 //! This structure is used in cuvidGetDecoderCaps API
 /**************************************************************************************************************/
 typedef struct _CUVIDDECODECAPS
 {
-    cudaVideoCodec          eCodecType;                 /**< IN: cudaVideoCodec_XXX                                 */
-    cudaVideoChromaFormat   eChromaFormat;              /**< IN: cudaVideoChromaFormat_XXX                          */
-    unsigned int            nBitDepthMinus8;            /**< IN: The Value "BitDepth minus 8"                       */
-    unsigned int            reserved1[3];               /**< Reserved for future use - set to zero                  */
+    cudaVideoCodec          eCodecType;                 /**< IN: cudaVideoCodec_XXX                                             */
+    cudaVideoChromaFormat   eChromaFormat;              /**< IN: cudaVideoChromaFormat_XXX                                      */
+    unsigned int            nBitDepthMinus8;            /**< IN: The Value "BitDepth minus 8"                                   */
+    unsigned int            reserved1[3];               /**< Reserved for future use - set to zero                              */
 
-    unsigned char           bIsSupported;               /**< OUT: 1 if codec supported, 0 if not supported          */
-    unsigned char           reserved2[3];               /**< Reserved for future use - set to zero                  */
-    unsigned int            nMaxWidth;                  /**< OUT: Max supported coded width in pixels               */
-    unsigned int            nMaxHeight;                 /**< OUT: Max supported coded height in pixels              */
+    unsigned char           bIsSupported;               /**< OUT: 1 if codec supported, 0 if not supported                      */
+    unsigned char           reserved2;                  /**< Reserved for future use - set to zero                              */
+    unsigned short          nOutputFormatMask;          /**< OUT: each bit represents corresponding cudaVideoSurfaceFormat enum */
+    unsigned int            nMaxWidth;                  /**< OUT: Max supported coded width in pixels                           */
+    unsigned int            nMaxHeight;                 /**< OUT: Max supported coded height in pixels                          */
     unsigned int            nMaxMBCount;                /**< OUT: Max supported macroblock count
-                                                                  CodedWidth*CodedHeight/256 must be <= nMaxMBCount */
-    unsigned short          nMinWidth;                  /**< OUT: Min supported coded width in pixels               */
-    unsigned short          nMinHeight;                 /**< OUT: Min supported coded height in pixels              */
-    unsigned int            reserved3[11];              /**< Reserved for future use - set to zero                  */
+                                                                  CodedWidth*CodedHeight/256 must be <= nMaxMBCount             */
+    unsigned short          nMinWidth;                  /**< OUT: Min supported coded width in pixels                           */
+    unsigned short          nMinHeight;                 /**< OUT: Min supported coded height in pixels                          */
+    unsigned int            reserved3[11];              /**< Reserved for future use - set to zero                              */
 } CUVIDDECODECAPS;
 
 /**************************************************************************************************************/
@@ -169,10 +183,12 @@ typedef struct _CUVIDDECODECREATEINFO
     unsigned long bitDepthMinus8;       /**< IN: The value "BitDepth minus 8"                                               */
     unsigned long ulIntraDecodeOnly;    /**< IN: Set 1 only if video has all intra frames (default value is 0). This will
                                              optimize video memory for Intra frames only decoding. The support is limited
-                                             to specific codecs(H264 rightnow), the flag will be ignored for codecs which
+                                             to specific codecs - H264, HEVC, VP9, the flag will be ignored for codecs which
                                              are not supported. However decoding might fail if the flag is enabled in case
                                              of supported codecs for regular bit streams having P and/or B frames.          */
-    unsigned long Reserved1[3];         /**< Reserved for future use - set to zero                                          */
+    unsigned long ulMaxWidth;           /**< IN: Coded sequence max width in pixels used with reconfigure Decoder           */
+    unsigned long ulMaxHeight;          /**< IN: Coded sequence max height in pixels used with reconfigure Decoder          */                                           
+    unsigned long Reserved1;            /**< Reserved for future use - set to zero                                          */
     /**
     * IN: area of the frame that should be displayed
     */
@@ -186,9 +202,9 @@ typedef struct _CUVIDDECODECREATEINFO
     cudaVideoSurfaceFormat OutputFormat;       /**< IN: cudaVideoSurfaceFormat_XXX                                     */
     cudaVideoDeinterlaceMode DeinterlaceMode;  /**< IN: cudaVideoDeinterlaceMode_XXX                                   */
     unsigned long ulTargetWidth;               /**< IN: Post-processed output width (Should be aligned to 2)           */
-    unsigned long ulTargetHeight;              /**< IN: Post-processed output height (Should be aligbed to 2)          */
+    unsigned long ulTargetHeight;              /**< IN: Post-processed output height (Should be aligned to 2)          */
     unsigned long ulNumOutputSurfaces;         /**< IN: Maximum number of output surfaces simultaneously mapped        */
-    CUvideoctxlock vidLock;                    /**< IN: If non-NULL, context lock used for synchronizing ownership of
+    CUvideoctxlock vidLock;                    /**< IN: If non-NULL, context lock used for synchronizing ownership of 
                                                     the cuda context. Needed for cudaVideoCreate_PreferCUDA decode     */
     /**
     * IN: target rectangle in the output frame (for aspect ratio conversion)
@@ -271,7 +287,7 @@ typedef struct _CUVIDH264SVCEXT
     short scaled_ref_layer_right_offset;
     short scaled_ref_layer_bottom_offset;
     unsigned short Reserved16Bits;
-    struct _CUVIDPICPARAMS *pNextLayer; /**< Points to the picparams for the next layer to be decoded.
+    struct _CUVIDPICPARAMS *pNextLayer; /**< Points to the picparams for the next layer to be decoded. 
                                              Linked list ends at the target layer. */
     int bRefBaseLayer;                  /**< whether to store ref base pic */
 } CUVIDH264SVCEXT;
@@ -500,7 +516,12 @@ typedef struct _CUVIDHEVCPICPARAMS
 
     unsigned char bit_depth_luma_minus8;
     unsigned char bit_depth_chroma_minus8;
-    unsigned char reserved1[14];
+    //sps/pps extension fields
+    unsigned char log2_max_transform_skip_block_size_minus2;
+    unsigned char log2_sao_offset_scale_luma;
+    unsigned char log2_sao_offset_scale_chroma;
+    unsigned char high_precision_offsets_enabled_flag;
+    unsigned char reserved1[10];
 
     // pps
     unsigned char dependent_slice_segments_enabled_flag;
@@ -541,7 +562,31 @@ typedef struct _CUVIDHEVCPICPARAMS
 
     unsigned short column_width_minus1[21];
     unsigned short row_height_minus1[21];
-    unsigned int   reserved3[15];
+
+    // sps and pps extension HEVC-main 444
+    unsigned char sps_range_extension_flag;
+    unsigned char transform_skip_rotation_enabled_flag;
+    unsigned char transform_skip_context_enabled_flag;
+    unsigned char implicit_rdpcm_enabled_flag;
+
+    unsigned char explicit_rdpcm_enabled_flag;
+    unsigned char extended_precision_processing_flag;
+    unsigned char intra_smoothing_disabled_flag;
+    unsigned char persistent_rice_adaptation_enabled_flag;
+
+    unsigned char cabac_bypass_alignment_enabled_flag;
+    unsigned char pps_range_extension_flag;
+    unsigned char cross_component_prediction_enabled_flag;
+    unsigned char chroma_qp_offset_list_enabled_flag;
+
+    unsigned char diff_cu_chroma_qp_offset_depth;
+    unsigned char chroma_qp_offset_list_len_minus1;
+    signed char cb_qp_offset_list[6];
+
+    signed char cr_qp_offset_list[6];
+    unsigned char reserved2[2];
+
+    unsigned int   reserved3[8];
 
     // RefPicSets
     int NumBitsForShortTermRPSInSlice;
@@ -592,7 +637,7 @@ typedef struct _CUVIDVP8PICPARAMS
             unsigned char show_frame : 1;
             unsigned char update_mb_segmentation_data : 1;    /**< Must be 0 if segmentation is not enabled */
             unsigned char Reserved2Bits : 2;
-        };
+        }vp8_frame_tag;
         unsigned char wFrameTagFlags;
     };
     unsigned char Reserved1[4];
@@ -689,7 +734,7 @@ typedef struct _CUVIDPICPARAMS
     unsigned int nBitstreamDataLen;        /**< IN: Number of bytes in bitstream data buffer                  */
     const unsigned char *pBitstreamData;   /**< IN: Ptr to bitstream data for this picture (slice-layer)      */
     unsigned int nNumSlices;               /**< IN: Number of slices in this picture                          */
-    const unsigned int *pSliceDataOffsets; /**< IN: nNumSlices entries, contains offset of each slice within
+    const unsigned int *pSliceDataOffsets; /**< IN: nNumSlices entries, contains offset of each slice within 
                                                         the bitstream data buffer                             */
     int ref_pic_flag;                      /**< IN: This picture is a reference picture                       */
     int intra_pic_flag;                    /**< IN: This picture is entirely intra coded                      */
@@ -733,6 +778,52 @@ typedef struct _CUVIDPROCPARAMS
     unsigned int Reserved[46];          /**< Reserved for future use (set to zero)                                      */
     void *Reserved2[2];                 /**< Reserved for future use (set to zero)                                      */
 } CUVIDPROCPARAMS;
+
+/*********************************************************************************************************/
+//! \struct CUVIDGETDECODESTATUS
+//! Struct for reporting decode status.
+//! This structure is used in cuvidGetDecodeStatus API.
+/*********************************************************************************************************/
+typedef struct _CUVIDGETDECODESTATUS
+{
+    cuvidDecodeStatus decodeStatus;
+    unsigned int reserved[31];
+    void *pReserved[8];
+} CUVIDGETDECODESTATUS;
+
+/****************************************************/
+//! \struct CUVIDRECONFIGUREDECODERINFO
+//! Struct for decoder reset
+//! This structure is used in cuvidReconfigureDecoder() API
+/****************************************************/
+typedef struct _CUVIDRECONFIGUREDECODERINFO
+{
+    unsigned int ulWidth;             /**< IN: Coded sequence width in pixels, MUST be < = ulMaxWidth defined at CUVIDDECODECREATEINFO  */
+    unsigned int ulHeight;            /**< IN: Coded sequence height in pixels, MUST be < = ulMaxHeight defined at CUVIDDECODECREATEINFO  */
+    unsigned int ulTargetWidth;       /**< IN: Post processed output width */
+    unsigned int ulTargetHeight;      /**< IN: Post Processed output height */
+    unsigned int ulNumDecodeSurfaces; /**< IN: Maximum number of internal decode surfaces */
+    unsigned int reserved1[12];       /**< Reserved for future use. Set to Zero */
+    /**
+    * IN: Area of frame to be displayed. Use-case : Source Cropping
+    */
+    struct {
+        short left;
+        short top;
+        short right;
+        short bottom;
+    } display_area;
+    /**
+    * IN: Target Rectangle in the OutputFrame. Use-case : Aspect ratio Conversion
+    */
+    struct {
+        short left;
+        short top;
+        short right;
+        short bottom;
+    } target_rect;
+    unsigned int reserved2[11]; /**< Reserved for future use. Set to Zero */
+} CUVIDRECONFIGUREDECODERINFO; 
 
 
 /***********************************************************************************************************/

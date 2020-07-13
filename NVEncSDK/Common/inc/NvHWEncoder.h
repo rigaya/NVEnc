@@ -22,8 +22,6 @@
 //#include "nvUtils.h"
 #pragma warning(pop)
 
-#define SET_VER(configStruct, type) {configStruct.version = type##_VER;}
-
 #if defined (NV_WINDOWS)
     #include "d3d9.h"
     #define NVENCAPI __stdcall
@@ -230,7 +228,7 @@ public:
     NVENCSTATUS                                          NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, NvEncPictureCommand *encPicCommand,
                                                                           uint32_t width, uint32_t height,
                                                                           NV_ENC_PIC_STRUCT ePicStruct = NV_ENC_PIC_STRUCT_FRAME,
-                                                                          int8_t *qpDeltaMapArray = NULL, uint32_t qpDeltaMapArraySize = 0, NVENC_EXTERNAL_ME_HINT *meExternalHints = NULL, 
+                                                                          int8_t *qpDeltaMapArray = NULL, uint32_t qpDeltaMapArraySize = 0, NVENC_EXTERNAL_ME_HINT *meExternalHints = NULL,
                                                                           NVENC_EXTERNAL_ME_HINT_COUNTS_PER_BLOCKTYPE *meHintCountsPerBlock = NULL);
     NVENCSTATUS                                          CreateEncoder(EncodeConfig *pEncCfg);
     GUID                                                 GetPresetGUID(char* encoderPreset, int codec);
@@ -242,6 +240,6 @@ public:
     static NVENCSTATUS                                   ParseArguments(EncodeConfig *encodeConfig, int argc, char *argv[]);
 };
 
-typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*); 
+typedef NVENCSTATUS (NVENCAPI *MYPROC)(NV_ENCODE_API_FUNCTION_LIST*);
 
 #endif

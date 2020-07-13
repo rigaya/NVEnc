@@ -730,7 +730,8 @@ System::Void frmConfig::InitComboBox() {
     //コンボボックスに値を設定する
     setComboBox(fcgCXEncCodec,          list_nvenc_codecs);
     setComboBox(fcgCXEncMode,           list_nvenc_rc_method);
-    setComboBox(fcgCXQuality,           list_nvenc_preset_names);
+    setComboBox(fcgCXQuality,           list_nvenc_preset_names_ver10, 3);
+    setComboBox(fcgCXMultiPass,         list_nvenc_multipass_mode);
     setComboBox(fcgCXCodecLevel,        list_avc_level);
     setComboBox(fcgCXCodecProfile,      h264_profile_names);
     setComboBox(fcgCXInterlaced,        list_interlaced, "auto");
@@ -1002,7 +1003,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUVBRTragetQuality,  Decimal(encPrm.encConfig.rcParams.targetQuality + encPrm.encConfig.rcParams.targetQualityLSB / 256.0));
     SetNUValue(fcgNUGopLength,         encPrm.encConfig.gopLength);
     SetNUValue(fcgNUBframes,           encPrm.encConfig.frameIntervalP - 1);
-    SetCXIndex(fcgCXQuality,           get_index_from_value(encPrm.preset, list_nvenc_preset_names));
+    SetCXIndex(fcgCXQuality,           get_index_from_value(encPrm.preset, list_nvenc_preset_names_ver10));
+    SetCXIndex(fcgCXMultiPass,         get_cx_index(list_nvenc_multipass_mode, encPrm.encConfig.rcParams.multiPass));
     SetCXIndex(fcgCXMVPrecision,       get_cx_index(list_mv_presicion, encPrm.encConfig.mvPrecision));
     SetNUValue(fcgNUVBVBufsize, encPrm.encConfig.rcParams.vbvBufferSize / 1000);
     SetNUValue(fcgNULookaheadDepth,   (encPrm.encConfig.rcParams.enableLookahead) ? encPrm.encConfig.rcParams.lookaheadDepth : 0);
@@ -1237,7 +1239,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.encConfig.frameIntervalP = (int)fcgNUBframes->Value + 1;
     encPrm.encConfig.mvPrecision = (NV_ENC_MV_PRECISION)list_mv_presicion[fcgCXMVPrecision->SelectedIndex].value;
     encPrm.encConfig.rcParams.vbvBufferSize = (int)fcgNUVBVBufsize->Value * 1000;
-    encPrm.preset = list_nvenc_preset_names[fcgCXQuality->SelectedIndex].value;
+    encPrm.preset = list_nvenc_preset_names_ver10[fcgCXQuality->SelectedIndex].value;
+    encPrm.encConfig.rcParams.multiPass = (NV_ENC_MULTI_PASS)list_nvenc_multipass_mode[fcgCXMultiPass->SelectedIndex].value;
     codecPrm[NV_ENC_H264].h264Config.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)list_bref_mode[fcgCXBrefMode->SelectedIndex].value;
     codecPrm[NV_ENC_HEVC].hevcConfig.useBFramesAsRef = (NV_ENC_BFRAME_REF_MODE)list_bref_mode[fcgCXBrefMode->SelectedIndex].value;
 

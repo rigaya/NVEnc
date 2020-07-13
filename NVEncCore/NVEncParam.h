@@ -200,6 +200,11 @@ const CX_DESC h265_tier_names[] = {
 enum {
     NVENC_PRESET_DEFAULT = 0,
     NVENC_PRESET_HP,
+    NVENC_PRESET_P2,
+    NVENC_PRESET_P3,
+    NVENC_PRESET_P4,
+    NVENC_PRESET_P5,
+    NVENC_PRESET_P6,
     NVENC_PRESET_HQ,
     NVENC_PRESET_LL,
     NVENC_PRESET_LL_HP,
@@ -207,7 +212,9 @@ enum {
     NVENC_PRESET_BD,
 };
 
-const guid_desc list_nvenc_preset_names[] = {
+#pragma warning (push)
+#pragma warning (disable: 4996)
+const guid_desc list_nvenc_preset_names_ver9_2[] = {
     { NV_ENC_PRESET_DEFAULT_GUID,              _T("default"),                 NVENC_PRESET_DEFAULT },
     { NV_ENC_PRESET_HP_GUID,                   _T("performance"),             NVENC_PRESET_HP },
     { NV_ENC_PRESET_HQ_GUID,                   _T("quality"),                 NVENC_PRESET_HQ },
@@ -216,11 +223,32 @@ const guid_desc list_nvenc_preset_names[] = {
     { NV_ENC_PRESET_LOW_LATENCY_HQ_GUID,       _T("lowlatency-quality"),      NVENC_PRESET_LL_HQ },
     //{ NV_ENC_PRESET_BD_GUID,                   _T("bluray"),                  NVENC_PRESET_BD },
 };
+#pragma warning (pop)
+
+const guid_desc list_nvenc_preset_names_ver10[] = {
+    { NV_ENC_PRESET_P1_GUID,                   _T("performance"),             NVENC_PRESET_HP },
+    { NV_ENC_PRESET_P4_GUID,                   _T("default"),                 NVENC_PRESET_DEFAULT },
+    { NV_ENC_PRESET_P7_GUID,                   _T("quality"),                 NVENC_PRESET_HQ },
+    { NV_ENC_PRESET_P1_GUID,                   _T("1"),                       NVENC_PRESET_HP },
+    { NV_ENC_PRESET_P2_GUID,                   _T("2"),                       NVENC_PRESET_P2 },
+    { NV_ENC_PRESET_P3_GUID,                   _T("3"),                       NVENC_PRESET_P3 },
+    { NV_ENC_PRESET_P4_GUID,                   _T("4"),                       NVENC_PRESET_P4 },
+    { NV_ENC_PRESET_P5_GUID,                   _T("5"),                       NVENC_PRESET_P5 },
+    { NV_ENC_PRESET_P6_GUID,                   _T("6"),                       NVENC_PRESET_P6 },
+    { NV_ENC_PRESET_P7_GUID,                   _T("7"),                       NVENC_PRESET_HQ },
+};
 
 const guid_desc list_nvenc_codecs[] = {
     { NV_ENC_CODEC_H264_GUID, _T("H.264/AVC"),  NV_ENC_H264 },
     { NV_ENC_CODEC_HEVC_GUID, _T("H.265/HEVC"), NV_ENC_HEVC },
 };
+const CX_DESC list_nvenc_multipass_mode[] = {
+    { _T("none"),         NV_ENC_MULTI_PASS_DISABLED },
+    { _T("2pass-quater"), NV_ENC_TWO_PASS_QUARTER_RESOLUTION },
+    { _T("2pass-full"),   NV_ENC_TWO_PASS_FULL_RESOLUTION },
+    { NULL, 0 }
+};
+
 const CX_DESC list_nvenc_codecs_for_opt[] = {
     { _T("h264"), NV_ENC_H264 },
     { _T("avc"),  NV_ENC_H264 },
@@ -297,9 +325,9 @@ const CX_DESC list_mv_presicion_ja[] = {
 const CX_DESC list_nvenc_rc_method[] = {
     { _T("CQP - 固定量子化量"),                     NV_ENC_PARAMS_RC_CONSTQP   },
     { _T("CBR - 固定ビットレート"),                 NV_ENC_PARAMS_RC_CBR       },
-    { _T("CBR - 固定ビットレート (高品質)"),        NV_ENC_PARAMS_RC_CBR_HQ    },
+    //{ _T("CBR - 固定ビットレート (高品質)"),        NV_ENC_PARAMS_RC_CBR_HQ    },
     { _T("VBR - 可変ビットレート"),                 NV_ENC_PARAMS_RC_VBR       },
-    { _T("VBR - 可変ビットレート (高品質)"),        NV_ENC_PARAMS_RC_VBR_HQ    },
+    //{ _T("VBR - 可変ビットレート (高品質)"),        NV_ENC_PARAMS_RC_VBR_HQ    },
     { NULL, 0 }
 };
 

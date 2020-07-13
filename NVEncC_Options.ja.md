@@ -263,12 +263,10 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 基本的にQP値は I &lt; P &lt; B になるように設定することをおすすめ。
 
 ### --cbr &lt;int&gt;   (固定ビットレート)
-### --cbrhq &lt;int&gt; (固定ビットレート (高品質))
 ### --vbr &lt;int&gt;   (可変ビットレート)
-### --vbrhq &lt;int&gt; (可変ビットレート (高品質))
 ビットレートをkbps単位で指定してエンコードを行う。
 
-固定品質モードを使用するには、--vbrhq 0 --vbr-quality &lt;float&gt; で利用可能。
+固定品質モードを使用するには、--vbr 0 --vbr-quality &lt;float&gt; で利用可能。
 
 
 ## その他のオプション
@@ -286,6 +284,12 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 
 ### --lossless
 ロスレス出力を行う。(デフォルト: オフ)
+
+### --multipass &lt;string&gt;
+マルチパス解析の設定。
+- none
+- 2pass-quater
+- 2pass-full
 
 ### --max-bitrate &lt;int&gt;
 最大ビットレート(kbps単位)。
@@ -318,29 +322,28 @@ VBVバッファサイズ(kbps単位)。 (default: auto)
 VBRモード使用時の目標品質を設定する。(0.0-51.0, 0 = 自動)
 
 ### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
-"開始フレーム番号:終了フレーム番号"で指定した出力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(vbr-quality)。
+"開始フレーム番号:終了フレーム番号"で指定した出力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(vbr-quality)、multipass。
 
 **必須パラメータ**
 下記パラメータのうち、必ずひとつは指定が必要。
 - [cqp](./NVEncC_Options.ja.md#--cqp-int-or-intintint%E5%9B%BA%E5%AE%9A%E9%87%8F%E5%AD%90%E5%8C%96%E9%87%8F)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
 - [cbr](./NVEncC_Options.ja.md#--cbr-int---%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
-- [cbrhq](./NVEncC_Options.ja.md#--cbrhq-int-%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88-%E9%AB%98%E5%93%81%E8%B3%AA)=&lt;int&gt;  
 - [vbr](./NVEncC_Options.ja.md#--vbr-int---%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
-- [vbrhq](./NVEncC_Options.ja.md#--vbrhq-int-%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88-%E9%AB%98%E5%93%81%E8%B3%AA)=&lt;int&gt;  
 
 **追加パラメータ**
 - [max-bitrate](./NVEncC_Options.ja.md#--max-bitrate-int)=&lt;int&gt;  
 - [vbr-quality](./NVEncC_Options.ja.md#--vbr-quality-float)=&lt;float&gt;  
+- [multipass](./NVEncC_Options.ja.md#--multipass-string)=&lt;string&gt;  
 
 ```
-例1: 出力フレーム番号 3000-3999 の間はvbrhqの12000kbpsでエンコード、
+例1: 出力フレーム番号 3000-3999 の間はvbrの12000kbpsでエンコード、
      出力フレーム番号 5000-5999 の間は固定品質の29.0でエンコードし、
      その他の領域は固定品質の25.0でエンコードする。
-  --vbrhq 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbrhq=12000 --dynamic-rc 5000:5999,vbrhq=0,vbr-quality=29.0
+  --vbr 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,vbr=0,vbr-quality=29.0
 
-例2: 出力フレーム番号 3000までは、vbrhqの6000kbpsでエンコードし、
-     出力フレーム番号 3000以降はvbrhqの12000kbpsでエンコードする。
-  --vbrhq 6000 --dynamic-rc start=3000,vbrhq=12000
+例2: 出力フレーム番号 3000までは、vbrの6000kbpsでエンコードし、
+     出力フレーム番号 3000以降はvbrの12000kbpsでエンコードする。
+  --vbr 6000 --dynamic-rc start=3000,vbr=12000
 ```
 
 ### --lookahead &lt;int&gt;

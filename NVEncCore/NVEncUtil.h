@@ -55,6 +55,34 @@ RGY_DISABLE_WARNING_POP
 #include "convert_csp.h"
 #include "rgy_err.h"
 
+#define NVENCAPI_VERSION (NVENCAPI_MAJOR_VERSION | (NVENCAPI_MINOR_VERSION << 24))
+
+static constexpr uint32_t nvenc_api_ver(uint32_t major, uint8_t minor) {
+    return major | ((uint32_t)minor << 24);
+}
+static constexpr uint32_t nvenc_api_ver_major(uint32_t ver) {
+    return ver & 0x00ffffff;
+}
+static constexpr uint32_t nvenc_api_ver_minor(uint32_t ver) {
+    return ver >> 24;
+}
+static constexpr uint32_t nvenc_api_struct_ver(uint32_t apiver, uint32_t structver) {
+    return ((uint32_t)apiver | (structver << 16) | (0x7 << 28));
+}
+
+static_assert(nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION) == NVENCAPI_VERSION, "API ver check!");
+//static_assert(NVENCAPI_STRUCT_VERSION(ver) ((uint32_t)NVENCAPI_VERSION | ((ver) << 16) | (0x7 << 28)); ,"API struct ver check!");
+
+static constexpr bool nvenc_api_ver_check(uint32_t ver, uint32_t required) {
+    auto required_major = nvenc_api_ver_major(required);
+    auto required_minor = nvenc_api_ver_minor(required);
+    auto ver_major = nvenc_api_ver_major(ver);
+    auto ver_minor = nvenc_api_ver_minor(ver);
+    return required_major < ver_major || (ver_major == required_major && required_minor <= ver_minor);
+}
+#define NVENCAPI_CHECK_VERSION(major, minor) \
+
+
 #if !defined(_MSC_VER)
 static bool operator==(const GUID &guid1, const GUID &guid2) {
      if (guid1.Data1    == guid2.Data1 &&

@@ -170,15 +170,15 @@ tstring encoder_help() {
         _T("   --cqp <int> or               encode in Constant QP mode\n")
         _T("         <int>:<int>:<int>        default: <I>:<P>:<B>=<%d>:<%d>:<%d>\n")
         _T("   --vbr <int>                  set bitrate for VBR mode (kbps)\n")
-        _T("   --vbrhq <int>                set bitrate for VBR (High Quality) mode (kbps)\n")
         _T("   --cbr <int>                  set bitrate for CBR mode (kbps)\n")
-        _T("   --cbrhq <int>                set bitrate for CBR (High Quality) mode (kbps)\n")
         _T("                                  default: %d kbps\n")
         _T("\n")
         _T("-u,--preset <string>            set encoder preset\n")
         _T("                                  default, performance, quality\n")
         _T("\n")
         _T("   --vbr-quality <float>        target quality for VBR mode (0-51, 0=auto)\n")
+        _T("   --multipass <string>         multipass mode for VBR, CBR mode\n")
+        _T("                                  none, 2pass-quater, 2pass-full\n")
         _T("   --max-bitrate <int>          set Max Bitrate (kbps)\n")
         _T("\n")
         _T("   --dynamic-rc <int>:<int>,<param1>=<value>[,<param2>=<value>][...]\n")
@@ -663,11 +663,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("preset")) {
         i++;
-        int value = get_value_from_name(strInput[i], list_nvenc_preset_names);
+        int value = get_value_from_name(strInput[i], list_nvenc_preset_names_ver10);
         if (value >= 0) {
             pParams->preset = value;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_nvenc_preset_names);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_nvenc_preset_names_ver10);
             return 1;
         }
         return 0;
@@ -715,6 +715,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
             pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_HQ;
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
+            pParams->encConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -741,6 +742,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR_HQ;
             pParams->encConfig.rcParams.averageBitRate = value * 1000;
             pParams->encConfig.rcParams.maxBitRate = value * 1000;
+            pParams->encConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -757,6 +759,17 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
             pParams->encConfig.rcParams.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("multipass")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_nvenc_multipass_mode, strInput[i], &value)) {
+            pParams->encConfig.rcParams.multiPass = (NV_ENC_MULTI_PASS)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_bref_mode);
             return 1;
         }
         return 0;
@@ -815,6 +828,9 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     try {
                         rcPrm.avg_bitrate = std::stoi(param_val) * 1000;
                         rcPrm.rc_mode = (NV_ENC_PARAMS_RC_MODE)temp;
+                        if (temp == NV_ENC_PARAMS_RC_CBR_HQ || temp == NV_ENC_PARAMS_RC_VBR_HQ) {
+                            pParams->encConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
+                        }
                         rc_mode_defined = true;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
@@ -838,6 +854,16 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         rcPrm.targetQuality = (uint8_t)clamp(value_int, 0, 51);
                         rcPrm.targetQualityLSB = (uint8_t)clamp((int)((value - value_int) * 256.0), 0, 255);
                     } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("multipass")) {
+                    int value = 0;
+                    if (get_list_value(list_nvenc_multipass_mode, param_val.c_str(), &value)) {
+                        pParams->encConfig.rcParams.multiPass = (NV_ENC_MULTI_PASS)value;
+                    } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
@@ -3657,7 +3683,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_NUM(_T("-d"), deviceID);
     cmd << _T(" -c ") << get_chr_from_value(list_nvenc_codecs_for_opt, pParams->codec);
-    if ((pParams->preset) != (encPrmDefault.preset)) cmd << _T(" -u ") << get_name_from_value(pParams->preset, list_nvenc_preset_names);
+    if ((pParams->preset) != (encPrmDefault.preset)) cmd << _T(" -u ") << get_name_from_value(pParams->preset, list_nvenc_preset_names_ver10);
 
     cmd << gen_cmd(&pParams->input, &encPrmDefault.input, save_disabled_prm);
 
@@ -3693,6 +3719,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         OPT_QP(_T("--cqp"), encConfig.rcParams.constQP, true, true);
     } break;
     }
+    OPT_LST(_T("--multipass"), encConfig.rcParams.multiPass, list_nvenc_multipass_mode);
     if (pParams->encConfig.rcParams.rateControlMode != NV_ENC_PARAMS_RC_CONSTQP || save_disabled_prm) {
         OPT_NUM(_T("--vbv-bufsize"), encConfig.rcParams.vbvBufferSize / 1000);
         if ((pParams->encConfig.rcParams.targetQuality) != (encPrmDefault.encConfig.rcParams.targetQuality)

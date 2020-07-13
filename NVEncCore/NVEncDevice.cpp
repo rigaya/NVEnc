@@ -37,6 +37,8 @@
 #include "NVEncUtil.h"
 #include "rgy_perf_monitor.h"
 
+#define INIT_CONFIG_EX
+
 bool check_if_nvcuda_dll_available() {
 #if defined(_WIN32) || defined(_WIN64)
     //check for nvcuda.dll
@@ -96,6 +98,7 @@ NVEncoder::NVEncoder(void *device, shared_ptr<RGYLog> log) :
     m_pEncodeAPI(nullptr),
     m_hinstLib(nullptr),
     m_hEncoder(nullptr),
+    m_apiVer(0),
     m_EncodeFeatures(),
     m_log(log) {
 
@@ -114,6 +117,7 @@ NVENCSTATUS NVEncoder::DestroyEncoder() {
         RGY_FREE_LIBRARY(m_hinstLib);
         m_hinstLib = nullptr;
     }
+    m_apiVer = 0;
 
     return sts;
 }
@@ -154,7 +158,7 @@ void NVEncoder::PrintMes(int log_level, const TCHAR *format, ...) {
 
 NVENCSTATUS NVEncoder::NvEncCreateInputBuffer(uint32_t width, uint32_t height, void **inputBuffer, NV_ENC_BUFFER_FORMAT inputFormat) {
     NV_ENC_CREATE_INPUT_BUFFER createInputBufferParams;
-    INIT_CONFIG(createInputBufferParams, NV_ENC_CREATE_INPUT_BUFFER);
+    INIT_CONFIG(createInputBufferParams, NV_ENC_CREATE_INPUT_BUFFER, m_apiVer);
 
     createInputBufferParams.width = width;
     createInputBufferParams.height = height;
@@ -187,7 +191,7 @@ NVENCSTATUS NVEncoder::NvEncDestroyInputBuffer(NV_ENC_INPUT_PTR inputBuffer) {
 NVENCSTATUS NVEncoder::NvEncCreateBitstreamBuffer(uint32_t size, void **bitstreamBuffer) {
     UNREFERENCED_PARAMETER(size);
     NV_ENC_CREATE_BITSTREAM_BUFFER createBitstreamBufferParams;
-    INIT_CONFIG(createBitstreamBufferParams, NV_ENC_CREATE_BITSTREAM_BUFFER);
+    INIT_CONFIG(createBitstreamBufferParams, NV_ENC_CREATE_BITSTREAM_BUFFER, m_apiVer);
 
     //ここでは特に指定せず、ドライバにバッファサイズを決めさせる
     //createBitstreamBufferParams.size = size;
@@ -236,7 +240,7 @@ NVENCSTATUS NVEncoder::NvEncUnlockBitstream(NV_ENC_OUTPUT_PTR bitstreamBuffer) {
 
 NVENCSTATUS NVEncoder::NvEncLockInputBuffer(void *inputBuffer, void **bufferDataPtr, uint32_t *pitch) {
     NV_ENC_LOCK_INPUT_BUFFER lockInputBufferParams;
-    INIT_CONFIG(lockInputBufferParams, NV_ENC_LOCK_INPUT_BUFFER);
+    INIT_CONFIG(lockInputBufferParams, NV_ENC_LOCK_INPUT_BUFFER, m_apiVer);
 
     lockInputBufferParams.inputBuffer = inputBuffer;
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncLockInputBuffer(m_hEncoder, &lockInputBufferParams);
@@ -301,7 +305,7 @@ NVENCSTATUS NVEncoder::NvEncGetSequenceParams(NV_ENC_SEQUENCE_PARAM_PAYLOAD *seq
 NVENCSTATUS NVEncoder::NvEncRegisterAsyncEvent(void **completionEvent) {
 #if ENABLE_ASYNC
     NV_ENC_EVENT_PARAMS eventParams;
-    INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS);
+    INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS, m_apiVer);
 
     eventParams.completionEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     NVENCSTATUS nvStatus = m_pEncodeAPI->nvEncRegisterAsyncEvent(m_hEncoder, &eventParams);
@@ -323,7 +327,7 @@ NVENCSTATUS NVEncoder::NvEncUnregisterAsyncEvent(void *completionEvent) {
 #if ENABLE_ASYNC
     if (completionEvent) {
         NV_ENC_EVENT_PARAMS eventParams;
-        INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS);
+        INIT_CONFIG(eventParams, NV_ENC_EVENT_PARAMS, m_apiVer);
 
         eventParams.completionEvent = completionEvent;
 
@@ -341,7 +345,7 @@ NVENCSTATUS NVEncoder::NvEncRegisterResource(NV_ENC_INPUT_RESOURCE_TYPE resource
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
     NV_ENC_REGISTER_RESOURCE registerResParams;
 
-    INIT_CONFIG(registerResParams, NV_ENC_REGISTER_RESOURCE);
+    INIT_CONFIG(registerResParams, NV_ENC_REGISTER_RESOURCE, m_apiVer);
 
     registerResParams.resourceType = resourceType;
     registerResParams.resourceToRegister = resourceToRegister;
@@ -373,7 +377,7 @@ NVENCSTATUS NVEncoder::NvEncUnregisterResource(NV_ENC_REGISTERED_PTR registeredR
 
 NVENCSTATUS NVEncoder::NvEncMapInputResource(void *registeredResource, void **mappedResource) {
     NV_ENC_MAP_INPUT_RESOURCE mapInputResParams;
-    INIT_CONFIG(mapInputResParams, NV_ENC_MAP_INPUT_RESOURCE);
+    INIT_CONFIG(mapInputResParams, NV_ENC_MAP_INPUT_RESOURCE, m_apiVer);
 
     mapInputResParams.registeredResource = registeredResource;
 
@@ -416,7 +420,7 @@ NVENCSTATUS NVEncoder::NvEncDestroyEncoder() {
 
 NVENCSTATUS NVEncoder::NvEncFlushEncoderQueue(void *hEOSEvent) {
     NV_ENC_PIC_PARAMS encPicParams;
-    INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
+    INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS, m_apiVer);
     encPicParams.encodePicFlags = NV_ENC_PIC_FLAG_EOS;
     encPicParams.completionEvent = hEOSEvent;
 
@@ -429,48 +433,6 @@ NVENCSTATUS NVEncoder::NvEncFlushEncoderQueue(void *hEOSEvent) {
 }
 
 NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE deviceType, const int sessionRetry) {
-    NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS openSessionExParams;
-    INIT_CONFIG(openSessionExParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS);
-
-    openSessionExParams.device = device;
-    openSessionExParams.deviceType = deviceType;
-    openSessionExParams.reserved = NULL;
-    openSessionExParams.apiVersion = NVENCAPI_VERSION;
-
-    static const int retry_millisec = 500;
-    static const int retry_max = sessionRetry * 1000 / retry_millisec;
-    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    for (int retry = 0; NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder)); retry++) {
-        if (nvStatus != NV_ENC_ERR_OUT_OF_MEMORY) {
-            NVPrintFuncError(_T("nvEncOpenEncodeSessionEx"), nvStatus);
-            break;
-        }
-        if (retry >= retry_max) {
-            PrintMes(RGY_LOG_ERROR,
-                FOR_AUO ? _T("このエラーはメモリが不足しているか、同時にNVEncで3ストリーム以上エンコードしようとすると発生することがあります。\n")
-                          _T("Geforceでは、NVIDIAのドライバの制限により3ストリーム以上の同時エンコードが行えません。\n")
-                        : _T("This error might occur when shortage of memory, or when trying to encode more than 2 streams by NVEnc.\n")
-                          _T("In Geforce, simultaneous encoding is limited up to 2, due to the NVIDIA's driver limitation.\n"));
-            break;
-        }
-        if ((retry % (10 * 1000 / retry_millisec)) == 0) {
-            PrintMes(RGY_LOG_INFO, _T("Waiting for other encode to finish...\n"));
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(retry_millisec));
-    }
-
-    return nvStatus;
-}
-
-NVENCSTATUS NVEncoder::createNVEncAPIInstance() {
-    if (m_hinstLib == NULL) {
-        if ((m_hinstLib = RGY_LOAD_LIBRARY(NVENCODE_API_DLL)) == NULL) {
-            PrintMes(RGY_LOG_ERROR, _T("%s does not exists in your system.\n"), NVENCODE_API_DLL);
-            PrintMes(RGY_LOG_ERROR, _T("Please check if the GPU driver is propery installed."));
-            return NV_ENC_ERR_OUT_OF_MEMORY;
-        }
-    }
-    PrintMes(RGY_LOG_DEBUG, _T("Loaded %s.\n"), NVENCODE_API_DLL);
 
     MYPROC nvEncodeAPICreateInstance; // function pointer to create instance in nvEncodeAPI
     if (NULL == (nvEncodeAPICreateInstance = (MYPROC)RGY_GET_PROC_ADDRESS(m_hinstLib, "NvEncodeAPICreateInstance"))) {
@@ -484,19 +446,88 @@ NVENCSTATUS NVEncoder::createNVEncAPIInstance() {
         return NV_ENC_ERR_OUT_OF_MEMORY;
     }
 
-    memset(m_pEncodeAPI.get(), 0, sizeof(NV_ENCODE_API_FUNCTION_LIST));
-    m_pEncodeAPI->version = NV_ENCODE_API_FUNCTION_LIST_VER;
+    static constexpr auto API_VER_LIST = make_array<uint32_t>(
+        nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
+        nvenc_api_ver(9,1)
+    );
 
-    auto nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI.get());
-    if (nvStatus != NV_ENC_SUCCESS) {
-        if (nvStatus == NV_ENC_ERR_INVALID_VERSION) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI(ver=0x%x), please consider updating your GPU driver.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
-        } else {
-            NVPrintFuncError(_T("nvEncodeAPICreateInstance"), nvStatus);
+    NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS openSessionExParams;
+    INIT_CONFIG(openSessionExParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS, API_VER_LIST.front());
+
+    openSessionExParams.device = device;
+    openSessionExParams.deviceType = deviceType;
+    openSessionExParams.reserved = NULL;
+
+    NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
+    for (const auto apiver : API_VER_LIST) {
+        INIT_CONFIG((*m_pEncodeAPI), NV_ENCODE_API_FUNCTION_LIST, apiver);
+
+        auto nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI.get());
+        if (nvStatus != NV_ENC_SUCCESS) {
+            if (nvStatus == NV_ENC_ERR_INVALID_VERSION) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI(ver=0x%x), please consider updating your GPU driver.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
+            } else {
+                NVPrintFuncError(_T("nvEncodeAPICreateInstance"), nvStatus);
+            }
+            return nvStatus;
         }
-        return nvStatus;
+        PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x): Success.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
+
+        openSessionExParams.apiVersion = apiver;
+        SET_VER(openSessionExParams, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS, apiver);
+        nvStatus = m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder);
+        if (nvStatus != NV_ENC_ERR_INVALID_VERSION) {
+            break;
+        }
+
+        if (m_pEncodeAPI) {
+            m_pEncodeAPI->nvEncDestroyEncoder(m_hEncoder);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        PrintMes(RGY_LOG_DEBUG, _T("Failed to open Encode Session as API ver %d.%d\n"), nvenc_api_ver_major(apiver), nvenc_api_ver_minor(apiver));
     }
-    PrintMes(RGY_LOG_DEBUG, _T("nvEncodeAPICreateInstance(APIVer=0x%x): Success.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
+
+    if (nvStatus == NV_ENC_ERR_OUT_OF_MEMORY) {
+        static const int retry_millisec = 500;
+        static const int retry_max = sessionRetry * 1000 / retry_millisec;
+        std::this_thread::sleep_for(std::chrono::milliseconds(retry_millisec));
+        for (int retry = 0; (m_pEncodeAPI->nvEncOpenEncodeSessionEx(&openSessionExParams, &m_hEncoder)) == NV_ENC_ERR_OUT_OF_MEMORY; retry++) {
+            if (nvStatus != NV_ENC_SUCCESS) {
+            }
+            if (retry >= retry_max) {
+                NVPrintFuncError(_T("nvEncOpenEncodeSessionEx"), nvStatus);
+                PrintMes(RGY_LOG_ERROR,
+                    FOR_AUO ? _T("このエラーはメモリが不足しているか、同時にNVEncで3ストリーム以上エンコードしようとすると発生することがあります。\n")
+                    _T("Geforceでは、NVIDIAのドライバの制限により3ストリーム以上の同時エンコードが行えません。\n")
+                    : _T("This error might occur when shortage of memory, or when trying to encode more than 3 streams by NVEnc.\n")
+                    _T("In Geforce, simultaneous encoding is limited up to 3, due to the NVIDIA's driver limitation.\n"));
+                break;
+            }
+            if ((retry % (10 * 1000 / retry_millisec)) == 0) {
+                PrintMes(RGY_LOG_INFO, _T("Waiting for other encode to finish...\n"));
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(retry_millisec));
+        }
+    }
+    if (nvStatus == NV_ENC_SUCCESS) {
+        m_apiVer = openSessionExParams.apiVersion;
+        PrintMes(RGY_LOG_DEBUG, _T("Opened Encode Session (API ver %d.%d)\n"), nvenc_api_ver_major(m_apiVer), nvenc_api_ver_minor(m_apiVer));
+    } else {
+        NVPrintFuncError(_T("nvEncOpenEncodeSessionEx"), nvStatus);
+    }
+    return nvStatus;
+}
+
+NVENCSTATUS NVEncoder::loadNVEncAPIDLL() {
+    if (m_hinstLib == NULL) {
+        if ((m_hinstLib = RGY_LOAD_LIBRARY(NVENCODE_API_DLL)) == NULL) {
+            PrintMes(RGY_LOG_ERROR, _T("%s does not exists in your system.\n"), NVENCODE_API_DLL);
+            PrintMes(RGY_LOG_ERROR, _T("Please check if the GPU driver is propery installed."));
+            return NV_ENC_ERR_OUT_OF_MEMORY;
+        }
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("Loaded %s.\n"), NVENCODE_API_DLL);
+
     return NV_ENC_SUCCESS;
 }
 
@@ -505,7 +536,7 @@ NVENCSTATUS NVEncoder::InitSession() {
         return NV_ENC_SUCCESS;
     }
 
-    auto nvStatus = createNVEncAPIInstance();
+    auto nvStatus = loadNVEncAPIDLL();
     if (nvStatus != NV_ENC_SUCCESS) {
         return nvStatus;
     }
@@ -591,8 +622,8 @@ NVENCSTATUS NVEncoder::setCodecPresetList(NVEncCodecFeature& codecFeature, bool 
     }
     if (getPresetConfig) {
         for (uint32_t i = 0; i < codecFeature.presets.size(); i++) {
-            INIT_CONFIG(codecFeature.presetConfigs[i], NV_ENC_PRESET_CONFIG);
-            SET_VER(codecFeature.presetConfigs[i].presetCfg, NV_ENC_CONFIG);
+            INIT_CONFIG(codecFeature.presetConfigs[i], NV_ENC_PRESET_CONFIG, m_apiVer);
+            SET_VER(codecFeature.presetConfigs[i].presetCfg, NV_ENC_CONFIG, m_apiVer);
             if (NV_ENC_SUCCESS != (nvStatus = m_pEncodeAPI->nvEncGetEncodePresetConfig(m_hEncoder, codecFeature.codec, codecFeature.presets[i], &codecFeature.presetConfigs[i]))) {
                 NVPrintFuncError(_T("nvEncGetEncodePresetConfig"), nvStatus);
                 return nvStatus;
@@ -625,7 +656,7 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     auto add_cap_info = [&](NV_ENC_CAPS cap_id, bool for_h264_only, bool is_boolean, const TCHAR *cap_name) {
         if (!(!check_h264 && for_h264_only)) {
             NV_ENC_CAPS_PARAM param;
-            INIT_CONFIG(param, NV_ENC_CAPS_PARAM);
+            INIT_CONFIG(param, NV_ENC_CAPS_PARAM, m_apiVer);
             param.capsToQuery = cap_id;
             int value = 0;
             NVENCSTATUS result = m_pEncodeAPI->nvEncGetEncodeCaps(m_hEncoder, codecFeature.codec, &param, &value);
@@ -715,6 +746,10 @@ const std::vector<NVEncCodecFeature> &NVEncoder::GetNVEncCapability() {
         createDeviceFeatureList();
     }
     return m_EncodeFeatures;
+}
+
+bool NVEncoder::checkAPIver(uint32_t major, uint32_t minor) const {
+    return nvenc_api_ver_check(m_apiVer, nvenc_api_ver(major, minor));
 }
 
 const NVEncCodecFeature *NVEncoder::getCodecFeature(const GUID &codec) {

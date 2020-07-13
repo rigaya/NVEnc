@@ -263,12 +263,10 @@ Set the QP value of &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;
 Generally, it is recommended to set the QP value to be I &lt; P &lt; B.
 
 ### --cbr &lt;int&gt;
-### --cbrhq &lt;int&gt;
 ### --vbr &lt;int&gt;
-### --vbrhq &lt;int&gt;
 Set bitrate in kbps.
 
-Constant quality mode can be used by "--vbrhq 0 --vbr-quality &lt;float&gt;".
+Constant quality mode can be used by "--vbr 0 --vbr-quality &lt;float&gt;".
 
 ## Other Options for Encoder
 
@@ -282,6 +280,12 @@ Encode qulaity preset.
 Set output bit depth.
 - 8 ... 8 bits (default)
 - 10 ... 10 bits
+
+### --multipass &lt;string&gt;
+Multi pass mode.
+- none
+- 2pass-quater
+- 2pass-full
 
 ### --lossless
 Perform lossless output. (Default: off)
@@ -319,23 +323,22 @@ Change the rate control mode and rate control params within the specified range 
 It is required to specify one of the params below.
 - [cqp](./NVEncC_Options.en.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
 - [cbr](./NVEncC_Options.en.md#--cbr-int)=&lt;int&gt;  
-- [cbrhq](./NVEncC_Options.en.md#--cbrhq-int)=&lt;int&gt;  
 - [vbr](./NVEncC_Options.en.md#--vbr-int)=&lt;int&gt;  
-- [vbrhq](./NVEncC_Options.en.md#--vbrhq-int)=&lt;int&gt;  
 
 **additional parameters**
 - [max-bitrate](./NVEncC_Options.en.md#--max-bitrate-int)=&lt;int&gt;  
 - [vbr-quality](./NVEncC_Options.en.md#--vbr-quality-float)=&lt;float&gt;  
+- [multipass](./NVEncC_Options.en.md#--multipass-string)=&lt;string&gt;  
 
 ```
-Example1: Encode by vbrhq(12000kbps) in output frame range 3000-3999,
+Example1: Encode by vbr(12000kbps) in output frame range 3000-3999,
           encode by constant quality mode(29.0) in output frame range 5000-5999,
           and encode by constant quality mode(25.0) on other frame range.
-  --vbrhq 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbrhq=12000 --dynamic-rc 5000:5999,vbrhq=0,vbr-quality=29.0
+  --vbr 0 --vbr-quality=25.0 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,vbr=0,vbr-quality=29.0
 
-Example2: Encode by vbrhq(6000kbps) to output frame number 2999,
-          and encode by vbrhq(12000kbps) from output frame number 3000 and later.
-  --vbrhq 6000 --dynamic-rc start=3000,vbrhq=12000
+Example2: Encode by vbr(6000kbps) to output frame number 2999,
+          and encode by vbr(12000kbps) from output frame number 3000 and later.
+  --vbr 6000 --dynamic-rc start=3000,vbr=12000
 ```
 
 ### --lookahead &lt;int&gt;

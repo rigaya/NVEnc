@@ -1099,7 +1099,6 @@ NV_ENC_CODEC_CONFIG DefaultParamHEVC() {
 NV_ENC_CONFIG DefaultParam() {
 
     NV_ENC_CONFIG config = { 0 };
-    SET_VER(config, NV_ENC_CONFIG);
     config.frameFieldMode                 = NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME;
     config.profileGUID                    = NV_ENC_H264_PROFILE_HIGH_GUID;
     config.gopLength                      = DEFAULT_GOP_LENGTH;

@@ -298,8 +298,8 @@ NVEncCore::NVEncCore() :
     m_keyFile.clear();
     m_keyOnChapter = false;
 #endif //#if ENABLE_AVSW_READER
-    INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
-    INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG);
+    INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS, 0);
+    INIT_CONFIG(m_stEncConfig, NV_ENC_CONFIG, 0);
     memset(&m_stCodecGUID,    0, sizeof(m_stCodecGUID));
     memset(&m_stEOSOutputBfr, 0, sizeof(m_stEOSOutputBfr));
     memset(&m_stEncodeBuffer, 0, sizeof(m_stEncodeBuffer));
@@ -896,7 +896,7 @@ NVENCSTATUS NVEncCore::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
 
     NVTXRANGE(ProcessOutput);
     NV_ENC_LOCK_BITSTREAM lockBitstreamData;
-    INIT_CONFIG(lockBitstreamData, NV_ENC_LOCK_BITSTREAM);
+    INIT_CONFIG(lockBitstreamData, NV_ENC_LOCK_BITSTREAM, m_dev->encoder()->getAPIver());
     lockBitstreamData.outputBitstream = pEncodeBuffer->stOutputBfr.hBitstreamBuffer;
     lockBitstreamData.doNotWait = false;
 
@@ -1287,6 +1287,9 @@ NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     memcpy(&m_stEncConfig, &inputParam->encConfig, sizeof(m_stEncConfig));
 
+    SET_VER(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS, m_dev->encoder()->getAPIver());
+    SET_VER(m_stEncConfig, NV_ENC_CONFIG, m_dev->encoder()->getAPIver());
+
     //コーデックの決定とチェックNV_ENC_PIC_PARAMS
     m_stCodecGUID = inputParam->codec == NV_ENC_H264 ? NV_ENC_CODEC_H264_GUID : NV_ENC_CODEC_HEVC_GUID;
     auto codecFeature = m_dev->encoder()->getCodecFeature(m_stCodecGUID);
@@ -1308,9 +1311,17 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     }
 
     //プリセットのチェック
-    if (!codecFeature->checkPresetSupported(get_guid_from_value(inputParam->preset, list_nvenc_preset_names))) {
-        PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("指定されたプリセットはサポートされていません。\n") : _T("Selected preset is not supported.\n"));
-        return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    {
+        GUID presetGUID;
+        if (m_dev->encoder()->checkAPIver(10, 0)) {
+            presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver10);
+        } else {
+            presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver9_2);
+        }
+        if (!codecFeature->checkPresetSupported(presetGUID)) {
+            PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("指定されたプリセットはサポートされていません。\n") : _T("Selected preset is not supported.\n"));
+            return NV_ENC_ERR_UNSUPPORTED_PARAM;
+        }
     }
 
     //入力フォーマットはここでは気にしない
@@ -1438,6 +1449,25 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             PrintMes(RGY_LOG_ERROR, FOR_AUO ? _T("現在の設定ではインタレ保持出力はサポートされていません。\n") : _T("interlaced output is not supported for current setting.\n"));
         }
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
+    }
+    // API v10.0で追加されたmultipass関係の互換性維持
+    if (m_dev->encoder()->checkAPIver(10, 0)) {
+        if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CBR_HQ) {
+            m_stEncConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
+            m_stEncConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
+        } else if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_VBR_HQ) {
+            m_stEncConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
+            m_stEncConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
+        }
+    } else {
+        if (m_stEncConfig.rcParams.multiPass != NV_ENC_MULTI_PASS_DISABLED) {
+            m_stEncConfig.rcParams.multiPass = NV_ENC_MULTI_PASS_DISABLED;
+            if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CBR) {
+                m_stEncConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR_HQ;
+            } else if (m_stEncConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_VBR) {
+                m_stEncConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_HQ;
+            }
+        }
     }
     if (m_stEncConfig.rcParams.rateControlMode != (m_stEncConfig.rcParams.rateControlMode & codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES))) {
         error_feature_unsupported(RGY_LOG_ERROR, FOR_AUO ? _T("選択されたレート制御モード") : _T("Selected encode mode"));
@@ -1672,7 +1702,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         return NV_ENC_ERR_UNSUPPORTED_PARAM;
     }
 
-    INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS);
+    INIT_CONFIG(m_stCreateEncodeParams, NV_ENC_INITIALIZE_PARAMS, m_dev->encoder()->getAPIver());
     m_stCreateEncodeParams.encodeConfig        = &m_stEncConfig;
     m_stCreateEncodeParams.encodeHeight        = m_uEncHeight;
     m_stCreateEncodeParams.encodeWidth         = m_uEncWidth;
@@ -1702,25 +1732,39 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.enableWeightedPrediction = 1;
         }
     }
+    m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_HIGH_QUALITY;
 
+    if (inputParam->ctrl.lowLatency
+        && m_dev->encoder()->checkAPIver(10, 0)) {
+        m_stCreateEncodeParams.encodeConfig->rcParams.lowDelayKeyFrameScale = 1;
+        m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY;
+    }
     m_stCreateEncodeParams.enableEncodeAsync   = ENABLE_ASYNC != 0;
     m_stCreateEncodeParams.enablePTD           = true;
     m_stCreateEncodeParams.encodeGUID          = m_stCodecGUID;
-    m_stCreateEncodeParams.presetGUID          = get_guid_from_value(inputParam->preset, list_nvenc_preset_names);
-    if (inputParam->lossless) {
-        switch (inputParam->preset) {
-        case NVENC_PRESET_HP:
-        case NVENC_PRESET_LL_HP:
-            m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_HP_GUID;
-            break;
-        default:
-            m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID;
-            break;
-        }
+    if (m_dev->encoder()->checkAPIver(10, 0)) {
+        m_stCreateEncodeParams.presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver10);
+    } else {
+        m_stCreateEncodeParams.presetGUID = get_guid_from_value(inputParam->preset, list_nvenc_preset_names_ver9_2);
     }
-
     //ロスレス出力
     if (inputParam->lossless) {
+        if (m_dev->encoder()->checkAPIver(10, 0)) {
+            m_stCreateEncodeParams.tuningInfo = NV_ENC_TUNING_INFO_LOSSLESS;
+        } else {
+            #pragma warning (push)
+            #pragma warning (disable: 4996)
+            switch (inputParam->preset) {
+            case NVENC_PRESET_HP:
+            case NVENC_PRESET_LL_HP:
+                m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_HP_GUID;
+                break;
+            default:
+                m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID;
+                break;
+            }
+            #pragma warning (pop)
+        }
         //profileは0にしておかないと正常に動作しない
         if (inputParam->codec == NV_ENC_H264) {
             memset(&m_stCreateEncodeParams.encodeConfig->profileGUID, 0, sizeof(m_stCreateEncodeParams.encodeConfig->profileGUID));
@@ -2729,13 +2773,6 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
     if (inputParam->ctrl.lowLatency) {
         m_pipelineDepth = 1;
-        if (inputParam->preset == NVENC_PRESET_DEFAULT) {
-            inputParam->preset = NVENC_PRESET_LL;
-        } else if (inputParam->preset == NVENC_PRESET_HP) {
-            inputParam->preset = NVENC_PRESET_LL_HP;
-        } else if (inputParam->preset == NVENC_PRESET_HQ) {
-            inputParam->preset = NVENC_PRESET_LL_HQ;
-        }
     }
 
     //デコーダが使用できるか確認する必要があるので、先にGPU関係の情報を取得しておく必要がある
@@ -2846,6 +2883,17 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitFilters: Success.\n"));
 
+    if (inputParam->ctrl.lowLatency) {
+        if (!m_dev->encoder()->checkAPIver(10, 0)) {
+            if (inputParam->preset == NVENC_PRESET_DEFAULT) {
+                inputParam->preset = NVENC_PRESET_LL;
+            } else if (inputParam->preset == NVENC_PRESET_HP) {
+                inputParam->preset = NVENC_PRESET_LL_HP;
+            } else if (inputParam->preset == NVENC_PRESET_HQ) {
+                inputParam->preset = NVENC_PRESET_LL_HQ;
+            }
+        }
+    }
     if (NV_ENC_SUCCESS != (nvStatus = SetInputParam(inputParam)))
         return nvStatus;
     PrintMes(RGY_LOG_DEBUG, _T("SetInputParam: Success.\n"));
@@ -3069,7 +3117,7 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
 NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uint64_t timestamp, uint64_t duration, int inputFrameId, const std::vector<std::shared_ptr<RGYFrameData>>& frameDataList) {
     PrintMes(RGY_LOG_TRACE, _T("Sending frame %d to encoder: timestamp %lld, duration %lld\n"), inputFrameId, timestamp, duration);
     NV_ENC_PIC_PARAMS encPicParams;
-    INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS);
+    INIT_CONFIG(encPicParams, NV_ENC_PIC_PARAMS, m_dev->encoder()->getAPIver());
 
     if (m_dynamicRC.size() > 0) {
         int selectedIdx = DYNAMIC_PARAM_NOT_SELECTED;
@@ -3084,7 +3132,7 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
         if (m_appliedDynamicRC != selectedIdx) {
             NV_ENC_CONFIG encConfig = m_stEncConfig; //エンコード設定
             NV_ENC_RECONFIGURE_PARAMS reconf_params = { 0 };
-            reconf_params.version = NV_ENC_RECONFIGURE_PARAMS_VER;
+            INIT_CONFIG(reconf_params, NV_ENC_RECONFIGURE_PARAMS, m_dev->encoder()->getAPIver());
             reconf_params.resetEncoder = 1;
             reconf_params.forceIDR = 1;
             reconf_params.reInitEncodeParams = m_stCreateEncodeParams;
@@ -3092,6 +3140,25 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
             if (selectedIdx >= 0) {
                 const auto &selectedPrms = m_dynamicRC[selectedIdx];
                 encConfig.rcParams.rateControlMode = selectedPrms.rc_mode;
+                // API v10.0で追加されたmultipass関係の互換性維持
+                if (m_dev->encoder()->checkAPIver(10, 0)) {
+                    if (encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CBR_HQ) {
+                        encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
+                        encConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
+                    } else if (encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_VBR_HQ) {
+                        encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR;
+                        encConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
+                    }
+                } else {
+                    if (encConfig.rcParams.multiPass != NV_ENC_MULTI_PASS_DISABLED) {
+                        encConfig.rcParams.multiPass = NV_ENC_MULTI_PASS_DISABLED;
+                        if (encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CBR) {
+                            encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR_HQ;
+                        } else if (encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_VBR) {
+                            encConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_VBR_HQ;
+                        }
+                    }
+                }
                 if (encConfig.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CONSTQP) {
                     encConfig.rcParams.constQP = selectedPrms.qp;
                 } else {
@@ -4379,6 +4446,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         cuDriverGetVersion(&cudaDriverVersion);
     }
     const auto codecFeature = m_dev->encoder()->getCodecFeature(m_stCodecGUID);
+    const auto encAPIver = m_dev->encoder()->getAPIver();
     const int codec = get_value_from_guid(m_stCodecGUID, list_nvenc_codecs);
     const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
     auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
@@ -4387,7 +4455,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
     add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info.c_str());
     add_str(RGY_LOG_INFO,  _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
-        NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION,
+        nvenc_api_ver_major(encAPIver), nvenc_api_ver_minor(encAPIver),
         cudaDriverVersion / 1000, (cudaDriverVersion % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
     add_str(RGY_LOG_ERROR, _T("Input Buffers  %s, %d frames\n"), _T("CUDA"), m_encodeBufferCount);
     tstring inputMes = m_pFileReader->GetInputMessage();
@@ -4457,7 +4525,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             }
         }
     }
-    add_str(RGY_LOG_INFO,  _T("Encoder Preset %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, list_nvenc_preset_names));
+    if (m_dev->encoder()->checkAPIver(10,0)) {
+        add_str(RGY_LOG_INFO, _T("Encoder Preset %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, list_nvenc_preset_names_ver10));
+    } else {
+        add_str(RGY_LOG_INFO, _T("Encoder Preset %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, list_nvenc_preset_names_ver9_2));
+    }
     add_str(RGY_LOG_ERROR, _T("Rate Control   %s"), get_chr_from_value(list_nvenc_rc_method_en, m_stEncConfig.rcParams.rateControlMode));
     const bool lossless = (get_value_from_guid(m_stCodecGUID, list_nvenc_codecs) == NV_ENC_H264 && m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag)
         || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_HP_GUID, sizeof(m_stCreateEncodeParams.presetGUID)) == 0
@@ -4467,6 +4539,9 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
             lossless ? _T(" (lossless)") : _T(""));
     } else {
         add_str(RGY_LOG_ERROR, _T("\n"));
+        if (m_dev->encoder()->checkAPIver(10, 0)) {
+            add_str(RGY_LOG_ERROR, _T("Multipass      %s\n"), get_chr_from_value(list_nvenc_multipass_mode, m_stEncConfig.rcParams.multiPass));
+        }
         add_str(RGY_LOG_ERROR, _T("Bitrate        %d kbps (Max: %d kbps)\n"), m_stEncConfig.rcParams.averageBitRate / 1000, m_stEncConfig.rcParams.maxBitRate / 1000);
         if (m_stEncConfig.rcParams.targetQuality) {
             double targetQuality = m_stEncConfig.rcParams.targetQuality + m_stEncConfig.rcParams.targetQualityLSB / 256.0;
