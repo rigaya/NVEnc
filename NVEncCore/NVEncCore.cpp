@@ -1538,7 +1538,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
         if (  (   m_stEncConfig.encodeCodecConfig.h264Config.numRefL0 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
                || m_stEncConfig.encodeCodecConfig.h264Config.numRefL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)
-            && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
+            && (!m_dev->encoder()->checkAPIver(9, 1)
+                || !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES))) {
             m_stEncConfig.encodeCodecConfig.h264Config.numRefL0 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
             m_stEncConfig.encodeCodecConfig.h264Config.numRefL1 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
             error_feature_unsupported(RGY_LOG_WARN, _T("Multiple Refs"));
@@ -1569,7 +1570,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         }
         if (  (   m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
                || m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)) {
-            if (!codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
+            if (!m_dev->encoder()->checkAPIver(9, 1)
+                || !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
                 m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
                 m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
                 error_feature_unsupported(RGY_LOG_WARN, _T("Multiple Refs"));
@@ -4533,7 +4535,8 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(RGY_LOG_ERROR, _T("Rate Control   %s"), get_chr_from_value(list_nvenc_rc_method_en, m_stEncConfig.rcParams.rateControlMode));
     const bool lossless = (get_value_from_guid(m_stCodecGUID, list_nvenc_codecs) == NV_ENC_H264 && m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag)
         || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_HP_GUID, sizeof(m_stCreateEncodeParams.presetGUID)) == 0
-        || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, sizeof(m_stCreateEncodeParams.presetGUID)) == 0;
+        || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, sizeof(m_stCreateEncodeParams.presetGUID)) == 0
+        || m_stCreateEncodeParams.tuningInfo == NV_ENC_TUNING_INFO_LOSSLESS;
     if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
         add_str(RGY_LOG_ERROR, _T("  I:%d  P:%d  B:%d%s\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB,
             lossless ? _T(" (lossless)") : _T(""));
@@ -4607,17 +4610,19 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 
     tstring strRef = strsprintf(_T("%d frames"),
         (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.maxNumRefFrames : m_stEncConfig.encodeCodecConfig.hevcConfig.maxNumRefFramesInDPB);
-    auto numRefL0 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
-    auto numRefL1 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
-    if (codec == NV_ENC_H264) {
-        numRefL0 = m_stEncConfig.encodeCodecConfig.h264Config.numRefL0;
-        numRefL1 = m_stEncConfig.encodeCodecConfig.h264Config.numRefL1;
-    } else if (codec == NV_ENC_HEVC) {
-        numRefL0 = m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0;
-        numRefL1 = m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1;
-    }
-    if (codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
-        strRef += strsprintf(_T(", MultiRef L0:%s L1:%s"), get_chr_from_value(list_num_refs, numRefL0), get_chr_from_value(list_num_refs, numRefL1));
+    if (m_dev->encoder()->checkAPIver(9, 1)) {
+        auto numRefL0 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+        auto numRefL1 = NV_ENC_NUM_REF_FRAMES_AUTOSELECT;
+        if (codec == NV_ENC_H264) {
+            numRefL0 = m_stEncConfig.encodeCodecConfig.h264Config.numRefL0;
+            numRefL1 = m_stEncConfig.encodeCodecConfig.h264Config.numRefL1;
+        } else if (codec == NV_ENC_HEVC) {
+            numRefL0 = m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0;
+            numRefL1 = m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1;
+        }
+        if (codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_MULTIPLE_REF_FRAMES)) {
+            strRef += strsprintf(_T(", MultiRef L0:%s L1:%s"), get_chr_from_value(list_num_refs, numRefL0), get_chr_from_value(list_num_refs, numRefL1));
+        }
     }
     const bool bEnableLTR = (codec == NV_ENC_H264) ? m_stEncConfig.encodeCodecConfig.h264Config.enableLTR : m_stEncConfig.encodeCodecConfig.hevcConfig.enableLTR;
     if (bEnableLTR) {

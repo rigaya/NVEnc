@@ -448,7 +448,8 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
 
     static constexpr auto API_VER_LIST = make_array<uint32_t>(
         nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
-        nvenc_api_ver(9,1)
+        nvenc_api_ver(9,1),
+        nvenc_api_ver(9,0)
     );
 
     NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS openSessionExParams;
@@ -462,7 +463,7 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
     for (const auto apiver : API_VER_LIST) {
         INIT_CONFIG((*m_pEncodeAPI), NV_ENCODE_API_FUNCTION_LIST, apiver);
 
-        auto nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI.get());
+        nvStatus = nvEncodeAPICreateInstance(m_pEncodeAPI.get());
         if (nvStatus != NV_ENC_SUCCESS) {
             if (nvStatus == NV_ENC_ERR_INVALID_VERSION) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to create instance of nvEncodeAPI(ver=0x%x), please consider updating your GPU driver.\n"), NV_ENCODE_API_FUNCTION_LIST_VER);
@@ -748,7 +749,7 @@ const std::vector<NVEncCodecFeature> &NVEncoder::GetNVEncCapability() {
     return m_EncodeFeatures;
 }
 
-bool NVEncoder::checkAPIver(uint32_t major, uint32_t minor) const {
+bool NVEncoder::checkAPIver(uint32_t major, uint8_t minor) const {
     return nvenc_api_ver_check(m_apiVer, nvenc_api_ver(major, minor));
 }
 

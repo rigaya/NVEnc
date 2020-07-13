@@ -225,7 +225,7 @@ public:
     //コーデックのFeature情報のリストの作成・取得
     const std::vector<NVEncCodecFeature> &GetNVEncCapability();
 
-    bool checkAPIver(uint32_t major, uint32_t minor) const;
+    bool checkAPIver(uint32_t major, uint8_t minor) const;
     uint32_t getAPIver() const { return m_apiVer; }
 protected:
     //既定の出力先に情報をメッセージを出力
