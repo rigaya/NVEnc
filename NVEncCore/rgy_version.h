@@ -60,7 +60,7 @@ const char *get_encoder_version();
 
 #define GPU_VENDOR "NVIDIA"
 
-#define NV_DRIVER_VER_MIN 436000
+#define NV_DRIVER_VER_MIN 418000
 
 #define ENABLE_DHDR10_INFO 1
 #define ENABLE_KEYFRAME_INSERT 1
