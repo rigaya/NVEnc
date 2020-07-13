@@ -328,7 +328,7 @@ cudaError calc_block_diff_plane(const bool useKernel2, const bool firstPlane, co
     }
 
     const int grid_count = gridSize.x * gridSize.y;
-    const int bufsize = (useKernel2) ? grid_count * sizeof(int2) : grid_count * sizeof(int);
+    const size_t bufsize = (useKernel2) ? grid_count * sizeof(int2) : grid_count * sizeof(int);
     if (tmp.nSize < bufsize) {
         tmp.clear();
         auto cudaerr = tmp.alloc(bufsize);

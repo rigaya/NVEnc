@@ -214,6 +214,8 @@ enum {
 
 #pragma warning (push)
 #pragma warning (disable: 4996)
+RGY_DISABLE_WARNING_PUSH
+RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
 const guid_desc list_nvenc_preset_names_ver9_2[] = {
     { NV_ENC_PRESET_DEFAULT_GUID,              _T("default"),                 NVENC_PRESET_DEFAULT },
     { NV_ENC_PRESET_HP_GUID,                   _T("performance"),             NVENC_PRESET_HP },
@@ -223,6 +225,7 @@ const guid_desc list_nvenc_preset_names_ver9_2[] = {
     { NV_ENC_PRESET_LOW_LATENCY_HQ_GUID,       _T("lowlatency-quality"),      NVENC_PRESET_LL_HQ },
     //{ NV_ENC_PRESET_BD_GUID,                   _T("bluray"),                  NVENC_PRESET_BD },
 };
+RGY_DISABLE_WARNING_POP
 #pragma warning (pop)
 
 const guid_desc list_nvenc_preset_names_ver10[] = {

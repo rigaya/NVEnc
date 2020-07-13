@@ -1756,6 +1756,8 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
         } else {
             #pragma warning (push)
             #pragma warning (disable: 4996)
+            RGY_DISABLE_WARNING_PUSH
+            RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
             switch (inputParam->preset) {
             case NVENC_PRESET_HP:
             case NVENC_PRESET_LL_HP:
@@ -1765,6 +1767,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
                 m_stCreateEncodeParams.presetGUID = NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID;
                 break;
             }
+            RGY_DISABLE_WARNING_POP
             #pragma warning (pop)
         }
         //profileは0にしておかないと正常に動作しない
@@ -4533,10 +4536,17 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
         add_str(RGY_LOG_INFO, _T("Encoder Preset %s\n"), get_name_from_guid(m_stCreateEncodeParams.presetGUID, list_nvenc_preset_names_ver9_2));
     }
     add_str(RGY_LOG_ERROR, _T("Rate Control   %s"), get_chr_from_value(list_nvenc_rc_method_en, m_stEncConfig.rcParams.rateControlMode));
+
+    #pragma warning (push)
+    #pragma warning (disable: 4996)
+    RGY_DISABLE_WARNING_PUSH
+    RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
     const bool lossless = (get_value_from_guid(m_stCodecGUID, list_nvenc_codecs) == NV_ENC_H264 && m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.h264Config.qpPrimeYZeroTransformBypassFlag)
         || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_HP_GUID, sizeof(m_stCreateEncodeParams.presetGUID)) == 0
         || memcmp(&m_stCreateEncodeParams.presetGUID, &NV_ENC_PRESET_LOSSLESS_DEFAULT_GUID, sizeof(m_stCreateEncodeParams.presetGUID)) == 0
         || m_stCreateEncodeParams.tuningInfo == NV_ENC_TUNING_INFO_LOSSLESS;
+    RGY_DISABLE_WARNING_POP
+    #pragma warning (pop)
     if (NV_ENC_PARAMS_RC_CONSTQP == m_stEncConfig.rcParams.rateControlMode) {
         add_str(RGY_LOG_ERROR, _T("  I:%d  P:%d  B:%d%s\n"), m_stEncConfig.rcParams.constQP.qpIntra, m_stEncConfig.rcParams.constQP.qpInterP, m_stEncConfig.rcParams.constQP.qpInterB,
             lossless ? _T(" (lossless)") : _T(""));
