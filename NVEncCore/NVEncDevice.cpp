@@ -796,10 +796,10 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     GETATTRIB_CHECK(cudaDevMinor, cudaDevAttrComputeCapabilityMinor, deviceID);
 
     if (((cudaDevMajor << 4) + cudaDevMinor) < 0x30) {
-        writeLog(error_level, _T("  Error: device does not satisfy required CUDA version (>=3.0): %d.%d\n"), cudaDevMajor, cudaDevMinor);
+        writeLog(error_level, _T("  Error: device does not satisfy required CUDA version (>=3.0): %d.%02d\n"), cudaDevMajor, cudaDevMinor);
         return RGY_ERR_UNSUPPORTED;
     }
-    writeLog(RGY_LOG_DEBUG, _T("  cudaDeviceGetAttribute: CUDA %d.%d\n"), cudaDevMajor, cudaDevMinor);
+    writeLog(RGY_LOG_DEBUG, _T("  cudaDeviceGetAttribute: CUDA %d.%02d\n"), cudaDevMajor, cudaDevMinor);
 
     {
         auto cuErr = cudaDeviceGetPCIBusId(pci_bus_name, sizeof(pci_bus_name), deviceID);
