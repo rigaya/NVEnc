@@ -780,7 +780,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         i++;
         bool rc_mode_defined = false;
-        auto paramList = std::vector<std::string>{ "start", "end", "cqp", "max-bitrate", "vbr-quality" };
+        auto paramList = std::vector<std::string>{ "start", "end", "cqp", "max-bitrate", "vbr-quality", "multipass" };
         for (int j = 0; list_nvenc_rc_method_en[j].desc; j++) {
             paramList.push_back(tolowercase(tchar_to_string(list_nvenc_rc_method_en[j].desc)));
         }
