@@ -73,6 +73,15 @@ static constexpr uint32_t nvenc_api_struct_ver(uint32_t apiver, uint32_t structv
 static_assert(nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION) == NVENCAPI_VERSION, "API ver check!");
 //static_assert(NVENCAPI_STRUCT_VERSION(ver) ((uint32_t)NVENCAPI_VERSION | ((ver) << 16) | (0x7 << 28)); ,"API struct ver check!");
 
+#if defined(_MSC_VER) && _MSC_VER <= 1900
+static const bool nvenc_api_ver_check(uint32_t ver, uint32_t required) {
+    auto required_major = nvenc_api_ver_major(required);
+    auto required_minor = nvenc_api_ver_minor(required);
+    auto ver_major = nvenc_api_ver_major(ver);
+    auto ver_minor = nvenc_api_ver_minor(ver);
+    return required_major < ver_major || (ver_major == required_major && required_minor <= ver_minor);
+}
+#else
 static constexpr bool nvenc_api_ver_check(uint32_t ver, uint32_t required) {
     auto required_major = nvenc_api_ver_major(required);
     auto required_minor = nvenc_api_ver_minor(required);
@@ -80,7 +89,7 @@ static constexpr bool nvenc_api_ver_check(uint32_t ver, uint32_t required) {
     auto ver_minor = nvenc_api_ver_minor(ver);
     return required_major < ver_major || (ver_major == required_major && required_minor <= ver_minor);
 }
-#define NVENCAPI_CHECK_VERSION(major, minor) \
+#endif
 
 
 #if !defined(_MSC_VER)
