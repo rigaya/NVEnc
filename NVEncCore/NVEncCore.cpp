@@ -4459,7 +4459,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(RGY_LOG_INFO,  _T("OS Version     %s\n"), getOSVersion().c_str());
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
     add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info.c_str());
-    add_str(RGY_LOG_INFO,  _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%02d, schedule mode: %s\n"),
+    add_str(RGY_LOG_INFO,  _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),
         nvenc_api_ver_major(encAPIver), nvenc_api_ver_minor(encAPIver),
         cudaDriverVersion / 1000, (cudaDriverVersion % 1000) / 10, get_chr_from_value(list_cuda_schedule, m_cudaSchedule));
     add_str(RGY_LOG_ERROR, _T("Input Buffers  %s, %d frames\n"), _T("CUDA"), m_encodeBufferCount);
