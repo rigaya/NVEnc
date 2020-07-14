@@ -841,7 +841,7 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
 #endif //#if ENABLE_NVML
     if (m_nv_driver_version != std::numeric_limits<int>::max()) {
         if (0 < m_nv_driver_version && m_nv_driver_version < NV_DRIVER_VER_MIN) {
-            writeLog(RGY_LOG_ERROR, _T("Insufficient NVIDIA driver version, Required %d.%d, Installed %d.%d\n"),
+            writeLog(RGY_LOG_ERROR, _T("Insufficient NVIDIA driver version, Required %d.%02d, Installed %d.%02d\n"),
                 NV_DRIVER_VER_MIN / 1000, (NV_DRIVER_VER_MIN % 1000) / 10,
                 m_nv_driver_version / 1000, (m_nv_driver_version % 1000) / 10);
             return RGY_ERR_UNSUPPORTED;
