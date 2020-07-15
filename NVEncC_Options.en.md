@@ -282,7 +282,7 @@ Set output bit depth.
 - 10 ... 10 bits
 
 ### --multipass &lt;string&gt;
-Multi pass mode. [API v10.0]
+Multi pass mode. Available only for --vbr and --cbr. [API v10.0]
 - none
 - 2pass-quarter
 - 2pass-full
