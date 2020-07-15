@@ -271,10 +271,17 @@ Constant quality mode can be used by "--vbr 0 --vbr-quality &lt;float&gt;".
 ## Other Options for Encoder
 
 ### -u, --preset
-Encode qulaity preset.
+Encode qulaity preset. P1～P7 preset is available from API v10.0.
 - default
 - performance
 - quality
+- P1 (= quality)
+- P2
+- P3
+- P4 (= default)
+- P5
+- P6
+- P7 (= performance)
 
 ### --output-depth &lt;int&gt;
 Set output bit depth.

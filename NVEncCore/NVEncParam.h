@@ -232,13 +232,13 @@ const guid_desc list_nvenc_preset_names_ver10[] = {
     { NV_ENC_PRESET_P1_GUID,                   _T("performance"),             NVENC_PRESET_HP },
     { NV_ENC_PRESET_P4_GUID,                   _T("default"),                 NVENC_PRESET_DEFAULT },
     { NV_ENC_PRESET_P7_GUID,                   _T("quality"),                 NVENC_PRESET_HQ },
-    { NV_ENC_PRESET_P1_GUID,                   _T("1"),                       NVENC_PRESET_HP },
-    { NV_ENC_PRESET_P2_GUID,                   _T("2"),                       NVENC_PRESET_P2 },
-    { NV_ENC_PRESET_P3_GUID,                   _T("3"),                       NVENC_PRESET_P3 },
-    { NV_ENC_PRESET_P4_GUID,                   _T("4"),                       NVENC_PRESET_P4 },
-    { NV_ENC_PRESET_P5_GUID,                   _T("5"),                       NVENC_PRESET_P5 },
-    { NV_ENC_PRESET_P6_GUID,                   _T("6"),                       NVENC_PRESET_P6 },
-    { NV_ENC_PRESET_P7_GUID,                   _T("7"),                       NVENC_PRESET_HQ },
+    { NV_ENC_PRESET_P1_GUID,                   _T("P1"),                      NVENC_PRESET_HP },
+    { NV_ENC_PRESET_P2_GUID,                   _T("P2"),                      NVENC_PRESET_P2 },
+    { NV_ENC_PRESET_P3_GUID,                   _T("P3"),                      NVENC_PRESET_P3 },
+    { NV_ENC_PRESET_P4_GUID,                   _T("P4"),                      NVENC_PRESET_P4 },
+    { NV_ENC_PRESET_P5_GUID,                   _T("P5"),                      NVENC_PRESET_P5 },
+    { NV_ENC_PRESET_P6_GUID,                   _T("P6"),                      NVENC_PRESET_P6 },
+    { NV_ENC_PRESET_P7_GUID,                   _T("P7"),                      NVENC_PRESET_HQ },
 };
 
 const guid_desc list_nvenc_codecs[] = {
