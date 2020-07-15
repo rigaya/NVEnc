@@ -769,7 +769,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         if (get_list_value(list_nvenc_multipass_mode, strInput[i], &value)) {
             pParams->encConfig.rcParams.multiPass = (NV_ENC_MULTI_PASS)value;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_bref_mode);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_nvenc_multipass_mode);
             return 1;
         }
         return 0;
