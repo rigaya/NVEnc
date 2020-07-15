@@ -246,9 +246,9 @@ const guid_desc list_nvenc_codecs[] = {
     { NV_ENC_CODEC_HEVC_GUID, _T("H.265/HEVC"), NV_ENC_HEVC },
 };
 const CX_DESC list_nvenc_multipass_mode[] = {
-    { _T("none"),         NV_ENC_MULTI_PASS_DISABLED },
-    { _T("2pass-quater"), NV_ENC_TWO_PASS_QUARTER_RESOLUTION },
-    { _T("2pass-full"),   NV_ENC_TWO_PASS_FULL_RESOLUTION },
+    { _T("none"),          NV_ENC_MULTI_PASS_DISABLED },
+    { _T("2pass-quarter"), NV_ENC_TWO_PASS_QUARTER_RESOLUTION },
+    { _T("2pass-full"),    NV_ENC_TWO_PASS_FULL_RESOLUTION },
     { NULL, 0 }
 };
 

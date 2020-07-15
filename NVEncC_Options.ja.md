@@ -288,7 +288,7 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 ### --multipass &lt;string&gt;
 マルチパス解析の設定。
 - none
-- 2pass-quater
+- 2pass-quarter
 - 2pass-full
 
 ### --max-bitrate &lt;int&gt;

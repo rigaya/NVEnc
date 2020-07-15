@@ -178,7 +178,7 @@ tstring encoder_help() {
         _T("\n")
         _T("   --vbr-quality <float>        target quality for VBR mode (0-51, 0=auto)\n")
         _T("   --multipass <string>         multipass mode for VBR, CBR mode\n")
-        _T("                                  none, 2pass-quater, 2pass-full\n")
+        _T("                                  none, 2pass-quarter, 2pass-full\n")
         _T("   --max-bitrate <int>          set Max Bitrate (kbps)\n")
         _T("\n")
         _T("   --dynamic-rc <int>:<int>,<param1>=<value>[,<param2>=<value>][...]\n")

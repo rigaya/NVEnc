@@ -284,7 +284,7 @@ Set output bit depth.
 ### --multipass &lt;string&gt;
 Multi pass mode.
 - none
-- 2pass-quater
+- 2pass-quarter
 - 2pass-full
 
 ### --lossless
