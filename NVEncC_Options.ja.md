@@ -286,7 +286,7 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 ロスレス出力を行う。(デフォルト: オフ)
 
 ### --multipass &lt;string&gt;
-マルチパス解析の設定。
+マルチパス解析の設定。API v10.0以降で使用可能。
 - none
 - 2pass-quarter
 - 2pass-full
