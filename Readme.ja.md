@@ -21,24 +21,24 @@ NVEncが載ったハードウェア
   NVIDIA製 GPU GeForce Kepler世代以降 (GT/GTX 6xx 以降)  
   ※GT 63x, 62x等はFermi世代のリネームであるため非対応なものがあります。  
 
-|NVEnc|必要なグラフィックドライバのバージョン|
-|:--------------|:----------------------------------|
-|NVEnc 0.00 以降 | NVIDIA グラフィックドライバ 334.89以降 |
-|NVEnc 1.00 以降 | NVIDIA グラフィックドライバ 347.09以降 |
-|NVEnc 2.00 以降 | NVIDIA グラフィックドライバ 358   以降 |
-|NVEnc 2.08 以降 | NVIDIA グラフィックドライバ 368.69以降 |
-|NVEnc 3.02 以降 | NVIDIA グラフィックドライバ 369.30以降 |
-|NVEnc 3.08 以降 | NVIDIA グラフィックドライバ 378.66以降 |
-|NVEnc 4.00 以降 | NVIDIA グラフィックドライバ 390.77以降 |
-|NVEnc 4.31 以降 | NVIDIA グラフィックドライバ 418.81以降 |
-|NVEnc 4.51 以降 | NVIDIA グラフィックドライバ 436.15以降 |
-|NVEnc 5.10 以降 | NVIDIA グラフィックドライバ 418.81以降 |
+|NVEnc       |対応するNVENC SDK API|必要なグラフィックドライバのバージョン   |
+|:--------------- |:-------------- |:--------------------------------------- |
+| NVEnc 0.00 以降 | 4.0            | NVIDIA グラフィックドライバ 334.89 以降 |
+| NVEnc 1.00 以降 | 5.0            | NVIDIA グラフィックドライバ 347.09 以降 |
+| NVEnc 2.00 以降 | 6.0            | NVIDIA グラフィックドライバ 358 以降    |
+| NVEnc 2.08 以降 | 7.0            | NVIDIA グラフィックドライバ 368.69 以降 |
+| NVEnc 3.02 以降 | 7.0            | NVIDIA グラフィックドライバ 369.30 以降 |
+| NVEnc 3.08 以降 | 8.0            | NVIDIA グラフィックドライバ 378.66 以降 |
+| NVEnc 4.00 以降 | 8.1            | NVIDIA グラフィックドライバ 390.77 以降 |
+| NVEnc 4.31 以降 | 9.0            | NVIDIA グラフィックドライバ 418.81 以降 |
+| NVEnc 4.51 以降 | 9.1            | NVIDIA グラフィックドライバ 436.15 以降 |
+| NVEnc 5.10 以降 | 9.0, 9.1, 10.0 | NVIDIA グラフィックドライバ 418.81 以降 |
 
 | 対応するNVENC SDK API | required graphics driver version |
 |:-------------- |:--------------------------------- |
-| v9.0  | NVIDIA graphics driver (Win 418.81 / Linux 418.30) or later |
-| v9.1  | NVIDIA graphics driver (Win 436.15 / Linux 435.21) or later |
-| v10.0 | NVIDIA graphics driver (Win 445.87 / Linux 450.51) or later |
+| 9.0  | NVIDIA graphics driver (Win 418.81 / Linux 418.30) or later |
+| 9.1  | NVIDIA graphics driver (Win 436.15 / Linux 435.21) or later |
+| 10.0 | NVIDIA graphics driver (Win 445.87 / Linux 450.51) or later |
 
 ## NVEncCの使用方法とオプション  
 [NVEncCのオプションの説明](./NVEncC_Options.ja.md)

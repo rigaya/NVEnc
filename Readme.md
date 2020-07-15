@@ -24,24 +24,24 @@ Hardware which supports NVENC
   NVIDIA GPU GeForce Kepler gen or later (GT / GTX 6xx or later)  
   ※ Since GT 63x, 62x etc. are renames of the Fermi generation, they cannot run NVEnc.
 
-| NVEnc | required graphics driver version |
-|:-------------- |:--------------------------------- |
-| NVEnc 0.00 or later | NVIDIA graphics driver 334.89 or later |
-| NVEnc 1.00 or later | NVIDIA graphics driver 347.09 or later |
-| NVEnc 2.00 or later | NVIDIA graphics driver 358 or later |
-| NVEnc 2.08 or later | NVIDIA graphics driver 368.69 or later |
-| NVEnc 3.02 or later | NVIDIA graphics driver 369.30 or later |
-| NVEnc 3.08 or later | NVIDIA graphics driver 378.66 or later |
-| NVEnc 4.00 or later | NVIDIA graphics driver 390.77 or later |
-| NVEnc 4.31 or later | NVIDIA graphics driver 418.81 or later |
-| NVEnc 4.51 or later | NVIDIA graphics driver 436.15 or later |
-| NVEnc 5.10 or later | NVIDIA graphics driver 418.81 or later |
+| NVEnc          | Supported NVENC API | Required graphics driver version       |
+|:------------------- |:-------------- |:----------------------------           |
+| NVEnc 0.00 or later | 4.0            | NVIDIA graphics driver 334.89 or later |
+| NVEnc 1.00 or later | 5.0            | NVIDIA graphics driver 347.09 or later |
+| NVEnc 2.00 or later | 6.0            | NVIDIA graphics driver 358 or later    |
+| NVEnc 2.08 or later | 7.0            | NVIDIA graphics driver 368.69 or later |
+| NVEnc 3.02 or later | 7.0            | NVIDIA graphics driver 369.30 or later |
+| NVEnc 3.08 or later | 8.0            | NVIDIA graphics driver 378.66 or later |
+| NVEnc 4.00 or later | 8.1            | NVIDIA graphics driver 390.77 or later |
+| NVEnc 4.31 or later | 9.0            | NVIDIA graphics driver 418.81 or later |
+| NVEnc 4.51 or later | 9.1            | NVIDIA graphics driver 436.15 or later |
+| NVEnc 5.10 or later | 9.0, 9.1, 10.0 | NVIDIA graphics driver 418.81 or later |
 
-| Supported NVENC SDK API ver | required graphics driver version |
+| Supported NVENC API | Required graphics driver version |
 |:-------------- |:--------------------------------- |
-| v9.0  | NVIDIA graphics driver (Win 418.81 / Linux 418.30) or later |
-| v9.1  | NVIDIA graphics driver (Win 436.15 / Linux 435.21) or later |
-| v10.0 | NVIDIA graphics driver (Win 445.87 / Linux 450.51) or later |
+| 9.0  | NVIDIA graphics driver (Win 418.81 / Linux 418.30) or later |
+| 9.1  | NVIDIA graphics driver (Win 436.15 / Linux 435.21) or later |
+| 10.0 | NVIDIA graphics driver (Win 445.87 / Linux 450.51) or later |
 
 ## Usage and options of NVEncC
 [Option list and details of NVEncC](./NVEncC_Options.en.md)
