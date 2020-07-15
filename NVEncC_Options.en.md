@@ -372,7 +372,7 @@ Set the reference distance (max=16).
 
 ### --multiref-l0 &lt;int&gt;  
 ### --multiref-l1 &lt;int&gt;  
-Set max number of reference frames in reference picture list L0/L1 (max=7).
+Set max number of reference frames in reference picture list L0/L1 (max=7). Avaialble from API v9.1.
 
 ### --weightp
 Enable weighted P frames.
