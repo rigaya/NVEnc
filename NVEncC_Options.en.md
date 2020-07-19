@@ -275,13 +275,13 @@ Encode quality preset. P1～P7 preset is available from API v10.0.
 - default
 - performance
 - quality
-- P1 (= quality)
+- P1 (= performance)
 - P2
 - P3
 - P4 (= default)
 - P5
 - P6
-- P7 (= performance)
+- P7 (= quality)
 
 ### --output-depth &lt;int&gt;
 Set output bit depth.

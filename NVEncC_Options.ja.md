@@ -276,13 +276,13 @@ CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;P
 - default
 - performance
 - quality
-- P1 (= quality)
+- P1 (= performance)
 - P2
 - P3
 - P4 (= default)
 - P5
 - P6
-- P7 (= performance)
+- P7 (= quality)
 
 ### --output-depth &lt;int&gt;
 出力ビット深度を設定。
