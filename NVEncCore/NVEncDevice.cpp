@@ -675,9 +675,9 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     };
 
     add_cap_info(NV_ENC_CAPS_NUM_MAX_BFRAMES,              false, false, _T("Max Bframes"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE,      false, true,  _T("B Ref Mode"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE,      false, false, _T("B Ref Mode"));
     add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  false, false, _T("RC Modes"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       false, true,  _T("Field Encoding"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_FIELD_ENCODING,       false, false, _T("Field Encoding"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_MONOCHROME,           false, true,  _T("MonoChrome"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_FMO,                  true,  true,  _T("FMO"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_QPELMV,               false, true,  _T("Quater-Pel MV"));
@@ -712,7 +712,7 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     //add_cap_info(NV_ENC_CAPS_MB_PER_SEC_MAX,               false, false, _T("MAX MB per sec"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_LOSSLESS_ENCODE,      false, true,  _T("Lossless"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_SAO,                  false, true,  _T("SAO"));
-    add_cap_info(NV_ENC_CAPS_SUPPORT_MEONLY_MODE,          false, true,  _T("Me Only Mode"));
+    add_cap_info(NV_ENC_CAPS_SUPPORT_MEONLY_MODE,          false, false, _T("Me Only Mode"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_LOOKAHEAD,            false, true,  _T("Lookahead"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_TEMPORAL_AQ,          false, true,  _T("AQ (temporal)"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_WEIGHTED_PREDICTION,  false, true,  _T("Weighted Prediction"));
