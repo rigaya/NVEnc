@@ -1,19 +1,19 @@
-NVEncC (x64) 5.01 (r1503) by rigaya, May  4 2020 21:08:57 (VC 1925/Win/avx2)
-  [NVENC API v9.1, CUDA 10.1]
+NVEncC (x64) 5.11 (r1611) by rigaya, Jul 20 2020 07:44:10 (VC 1926/Win/avx2)
+  [NVENC API v10.0, CUDA 10.1]
  reader: raw, y4m, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4]
 
 Environment Info
 OS : Windows 10 x64 (18363)
 CPU: Intel Core i9-7980XE @ 2.60GHz [TB: 4.10GHz] (18C/36T)
-RAM: Used 10211 MB, Total 16077 MB
+RAM: Used 7746 MB, Total 16077 MB
 
-#1: GeForce GTX 1060 6GB (1280 cores, 1708 MHz)[PCIe3x16][445.75]
+#1: GeForce GTX 1060 6GB (1280 cores, 1708 MHz)[PCIe3x16][451.67]
 NVEnc features
 Codec: H.264/AVC
 Max Bframes               4
-B Ref Mode                yes
+B Ref Mode                2
 RC Modes                  63
-Field Encoding            yes
+Field Encoding            1
 MonoChrome                no
 FMO                       no
 Quater-Pel MV             yes
@@ -47,7 +47,7 @@ Async Encoding            yes
 Max MBs                   65536
 Lossless                  yes
 SAO                       no
-Me Only Mode              yes
+Me Only Mode              1
 Lookahead                 yes
 AQ (temporal)             yes
 Weighted Prediction       yes
@@ -55,9 +55,9 @@ Weighted Prediction       yes
 
 Codec: H.265/HEVC
 Max Bframes               0
-B Ref Mode                no
+B Ref Mode                0
 RC Modes                  63
-Field Encoding            no
+Field Encoding            0
 MonoChrome                no
 Quater-Pel MV             yes
 B Direct Mode             no
@@ -88,7 +88,7 @@ Async Encoding            yes
 Max MBs                   262144
 Lossless                  yes
 SAO                       yes
-Me Only Mode              yes
+Me Only Mode              1
 Lookahead                 yes
 AQ (temporal)             no
 Weighted Prediction       yes
