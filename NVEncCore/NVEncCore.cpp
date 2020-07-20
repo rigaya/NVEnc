@@ -1532,9 +1532,12 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stEncConfig.encodeCodecConfig.h264Config.adaptiveTransformMode = NV_ENC_H264_ADAPTIVE_TRANSFORM_DISABLE;
             error_feature_unsupported(RGY_LOG_WARN, _T("Adaptive Tranform"));
         }
-        if (m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef != NV_ENC_BFRAME_REF_MODE_DISABLED && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE)) {
-            m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef = NV_ENC_BFRAME_REF_MODE_DISABLED;
-            error_feature_unsupported(RGY_LOG_WARN, _T("B Ref Mode"));
+        if (m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef != NV_ENC_BFRAME_REF_MODE_DISABLED) {
+            const int cap = codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE);
+            if ((cap & m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef) != m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef) {
+                error_feature_unsupported(RGY_LOG_WARN, strsprintf(_T("B Ref Mode %s"), get_chr_from_value(list_bref_mode, m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef)).c_str());
+                m_stEncConfig.encodeCodecConfig.h264Config.useBFramesAsRef = NV_ENC_BFRAME_REF_MODE_DISABLED;
+            }
         }
         if (  (   m_stEncConfig.encodeCodecConfig.h264Config.numRefL0 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
                || m_stEncConfig.encodeCodecConfig.h264Config.numRefL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)
@@ -1564,9 +1567,12 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
               && m_stEncConfig.encodeCodecConfig.hevcConfig.minCUSize != NV_ENC_HEVC_CUSIZE_8x8)) {
             PrintMes(RGY_LOG_WARN, _T("it is not recommended to use --cu-max or --cu-min, leaving it auto will enhance video quality.\n"));
         }
-        if (m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef != NV_ENC_BFRAME_REF_MODE_DISABLED && !codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE)) {
-            m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef = NV_ENC_BFRAME_REF_MODE_DISABLED;
-            error_feature_unsupported(RGY_LOG_WARN, _T("B Ref Mode"));
+        if (m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef != NV_ENC_BFRAME_REF_MODE_DISABLED) {
+            const int cap = codecFeature->getCapLimit(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE);
+            if ((cap & m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef) != m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef) {
+                error_feature_unsupported(RGY_LOG_WARN, strsprintf(_T("B Ref Mode %s"), get_chr_from_value(list_bref_mode, m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef)).c_str());
+                m_stEncConfig.encodeCodecConfig.hevcConfig.useBFramesAsRef = NV_ENC_BFRAME_REF_MODE_DISABLED;
+            }
         }
         if (  (   m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL0 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT
                || m_stEncConfig.encodeCodecConfig.hevcConfig.numRefL1 != NV_ENC_NUM_REF_FRAMES_AUTOSELECT)) {
