@@ -610,6 +610,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     }
     m_Mux.video.streamOut->sample_aspect_ratio.num = videoOutputInfo->sar[0]; //mkvではこちらの指定も必要
     m_Mux.video.streamOut->sample_aspect_ratio.den = videoOutputInfo->sar[1];
+    m_Mux.video.streamOut->avg_frame_rate.num = videoOutputInfo->fpsN; //mkvのTRACKDEFAULTDURATIONの出力に必要
+    m_Mux.video.streamOut->avg_frame_rate.den = videoOutputInfo->fpsD;
     m_Mux.video.streamOut->start_time          = 0;
     m_Mux.video.dtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.inputFirstKeyPts = prm->videoInputFirstKeyPts;
