@@ -948,7 +948,7 @@ __global__ void kernel_create_adjust_mask1(
         const int gid = blockIdx.y * gridDim.x + blockIdx.x;
         ptr_temp_whole_min_result_valid_mask_count[gid] = make_int2(whole_min_result, valid_mask_count);
     }
-    //グローバルメモリにArtomic演算を使ってブロック単位の結果を足しこむ
+    //グローバルメモリにAtomic演算を使ってブロック単位の結果を足しこむ
     if (lid <= DELOGO_PRE_DIV_COUNT) {
         atomicAdd(&ptr_temp_each_fade_count[lid], each_fade_count[lid]);
     }
