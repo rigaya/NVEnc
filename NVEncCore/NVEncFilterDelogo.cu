@@ -1323,6 +1323,12 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     std::vector<float> eval_results(DELOGO_PRE_DIV_COUNT+1);
     cudaEventRecord(*m_adjMaskStream.heEval.get(), cudaStreamDefault);
     cudaStreamWaitEvent(*m_adjMaskStream.stEval.get(), *m_adjMaskStream.heEval.get(), 0);
+    }
+
+    if (m_fadeValueAdjust.nSize < sizeof(float) * eval_results.size()) {
+        AddMessage(RGY_LOG_ERROR, _T("Not enough buffer: m_fadeValueAdjust.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
     auto sts = autoFadeCoef2Run(true, frame_logo, 0, pDelogoParam->delogo.NRArea,
         (const float *)m_fadeValueAdjust.ptrDevice, (int)eval_results.size(),
         m_adjMaskStream);
@@ -1338,11 +1344,19 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     const int blockCount = gridSize.x * gridSize.y;
 
     //fade値をリセット(あとでkernel_create_adjust_mask1で加算していく)
+    if (m_adjMaskEachFadeCount.nSize < sizeof(int) * (DELOGO_PRE_DIV_COUNT + 1)) {
+        AddMessage(RGY_LOG_ERROR, _T("error: not enough buffer m_adjMaskEachFadeCount.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
     auto cudaerr = cudaMemsetAsync(m_adjMaskEachFadeCount.ptrDevice, 0, sizeof(int) * (DELOGO_PRE_DIV_COUNT+1), stream);
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("error at createAdjustedMask(cudaMemset): %s.\n"),
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return RGY_ERR_CUDA;
+    }
+    if (m_adjMaskMinResAndValidMaskCount.nSize < sizeof(int2) * blockCount) {
+        AddMessage(RGY_LOG_ERROR, _T("error: not enough buffer m_adjMaskMinResAndValidMaskCount.\n"));
+        return RGY_ERR_UNKNOWN;
     }
 
     static_assert(DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(char4::x)>::max(), "DELOGO_PRE_DIV_COUNT < std::numeric_limits<decltype(char4::x)>::max()");
@@ -1436,6 +1450,10 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     }
 
     const dim3 gridSize2(gridSize.x, gridSize.y, DELOGO_ADJMASK_DIV_COUNT);
+    if (m_adjMask2ValidMaskCount.nSize < sizeof(int) * gridSize2.x * gridSize2.y * gridSize2.z) {
+        AddMessage(RGY_LOG_ERROR, _T("error: not enough buffer m_adjMask2ValidMaskCount.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
 
     kernel_create_adjust_mask2<char4, short4><<<gridSize2, blockSize, 0, stream>>>(
         (uint8_t *)m_adjMaskThresholdTest->frame.ptr, //TypeMask4
@@ -1680,11 +1698,19 @@ RGY_ERR NVEncFilterDelogo::prewittEvaluateRun(
         AddMessage(RGY_LOG_ERROR, _T("eval_n == 0.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    if (eval_n > DELOGO_PARALLEL_FADE) {
+        AddMessage(RGY_LOG_ERROR, _T("eval_n > DELOGO_PARALLEL_FADE.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
     const auto stream = *evalst.stEval.get();
     const dim3 blockSize(DELOGO_BLOCK_X, DELOGO_BLOCK_Y);
     const dim3 gridSize(divCeil(logo_w, blockSize.x * 4), divCeil(logo_h, blockSize.y * DELOGO_BLOCK_LOOP_Y), eval_n);
     m_evalStream[nr_value].evalBlocks = gridSize.x * gridSize.y;
 
+    if (m_evalCounter[nr_value].nSize < gridSize.x * gridSize.y * gridSize.z * sizeof(float)) {
+        AddMessage(RGY_LOG_ERROR, _T("error: Not enough buffer for m_evalCounter[nr_value]\n"));
+        return RGY_ERR_UNKNOWN;
+    }
     if (store_pixel_result) {
         //ピクセルごとの評価結果をバッファに出力
         kernel_proc_prewitt<short4, short4, 2, true, true, true, false><<<gridSize, blockSize, 0, stream>>>(
