@@ -3097,6 +3097,8 @@ NVENCSTATUS NVEncCore::ShowNVEncFeatures(const InEncodeVideoParam *inputParam) {
                 }
                 if (cap.isBool) {
                     _ftprintf(stdout, cap.value ? _T("yes\n") : _T("no\n"));
+                } else if (cap.desc) {
+                    _ftprintf(stdout, _T("%d (%s)\n"), cap.value, get_cx_desc(cap.desc, cap.value));
                 } else {
                     _ftprintf(stdout, _T("%d\n"), cap.value);
                 }

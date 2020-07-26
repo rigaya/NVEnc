@@ -843,11 +843,34 @@ static inline bool is_interlaced(NV_ENC_PIC_STRUCT pic_struct) {
     return pic_struct != NV_ENC_PIC_STRUCT_FRAME;
 }
 
+const CX_DESC list_nvenc_caps_field_encoding[] = {
+    { _T("no"),                 0 },
+    { _T("field mode"),         1 },
+    { _T("field + frame mode"), 2 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_nvenc_caps_bref_mode[] = {
+    { _T("no"),                 0 },
+    { _T("each"),               1 },
+    { _T("only middle"),        2 },
+    { _T("each + only middle"), 3 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_nvenc_caps_me_only[] = {
+    { _T("no"),                 0 },
+    { _T("I,P frames"),         1 },
+    { _T("I,P,B frames"),       2 },
+    { NULL, 0 }
+};
+
 typedef struct NVEncCap {
-    int id;            //feature ID
-    const TCHAR *name; //feature名
-    bool isBool;       //値がtrue/falseの値
-    int value;         //featureの制限値
+    int id;              //feature ID
+    const TCHAR *name;   //feature名
+    bool isBool;         //値がtrue/falseの値
+    int value;           //featureの制限値
+    const CX_DESC *desc; //説明
 } NVEncCap;
 
 //指定したIDのfeatureの値を取得する
