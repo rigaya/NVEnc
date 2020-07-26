@@ -587,7 +587,6 @@ __global__ void kernel_proc_symmetry(
             *(Type4 *)ptr_dst = apply_mask<Type4, TypeMask4>(
                 vec_cast4<Type4, Type4>(src), vec_cast4<float4, Type4>(ret),
                 *(const TypeMask4 *)ptr_mask, mask_threshold);
-            *(Type4 *)ptr_dst = src;
         }
     }
 }
@@ -1192,7 +1191,7 @@ RGY_ERR NVEncFilterDelogo::createLogoMask(int maskThreshold) {
 
     const dim3 blockSize(DELOGO_BLOCK_X, DELOGO_BLOCK_Y);
     const dim3 gridSize(divCeil(pLogoData->width, blockSize.x * 4), divCeil(pLogoData->height, blockSize.y * DELOGO_BLOCK_LOOP_Y), 1);
-    const int blockCount = gridSize.x * gridSize.y;
+    const int blockCount = gridSize.x * gridSize.y * gridSize.z;
 
     if (m_createLogoMaskValidMaskCount.nSize < blockCount * sizeof(int)) {
         auto cudaerr = m_createLogoMaskValidMaskCount.alloc(blockCount * sizeof(int));
