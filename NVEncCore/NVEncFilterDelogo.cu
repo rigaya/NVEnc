@@ -700,7 +700,7 @@ float4x2 prewitt_pixel_x(
     type4_to_array(&src[4], t1);
     type4_to_array(&src[8], t2);
 
-    float dst[8] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    float dst[8] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
     #pragma unroll
     for (int ir = -range; ir < 0; ir++) {
         #pragma unroll
