@@ -218,7 +218,7 @@ RGY_ERR NVEncFilterDelogo::delogoY(FrameInfo *pFrame, const float fade) {
     delogo_y_list.at(pFrame->csp)(pFrame, &m_sProcessData[LOGO__Y], LOGO__Y, pDelogoParam->delogo.mode, fade);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("error at delogo_uv_list(%s): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at delogo_y_list(%s): %s.\n"),
             RGY_CSP_NAMES[pFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return RGY_ERR_CUDA;
