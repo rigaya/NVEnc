@@ -368,9 +368,9 @@ std::string getChannelLayoutChar(int channels, uint64_t channel_layout) {
     if (auto ptr = strstr(string, "channel")) {
         strcpy(ptr, "ch");
     }
-    if (0 == _strnicmp(string, "stereo", strlen("stereo"))) {
-        return "2ch";
-    }
+    //if (0 == _strnicmp(string, "stereo", strlen("stereo"))) {
+    //    return "2ch";
+    //}
     return string;
 }
 
