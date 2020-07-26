@@ -1323,7 +1323,6 @@ RGY_ERR NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
     std::vector<float> eval_results(DELOGO_PRE_DIV_COUNT+1);
     cudaEventRecord(*m_adjMaskStream.heEval.get(), cudaStreamDefault);
     cudaStreamWaitEvent(*m_adjMaskStream.stEval.get(), *m_adjMaskStream.heEval.get(), 0);
-    }
 
     if (m_fadeValueAdjust.nSize < sizeof(float) * eval_results.size()) {
         AddMessage(RGY_LOG_ERROR, _T("Not enough buffer: m_fadeValueAdjust.\n"));
