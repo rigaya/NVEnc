@@ -165,6 +165,8 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         if ((ENCODER_NVENC
             && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
             && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0)
+            || (ENCODER_QSV
+                && pVideoOutputInfo->vui.chromaloc != 0)
             || (ENCODER_VCEENC
                 && (pVideoOutputInfo->vui.format != 5
                     || pVideoOutputInfo->vui.colorprim != 2
@@ -249,6 +251,8 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                     av_dict_set_int(&bsfPrm, "matrix_coefficients", pVideoOutputInfo->vui.matrix, 0);
                     AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), pVideoOutputInfo->vui.matrix, bsf_tname.c_str());
                 }
+            }
+            if (ENCODER_QSV || ENCODER_VCEENC) {
                 if (pVideoOutputInfo->vui.chromaloc != 0) {
                     av_dict_set_int(&bsfPrm, "chroma_sample_loc_type", pVideoOutputInfo->vui.chromaloc-1, 0);
                     AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), pVideoOutputInfo->vui.chromaloc-1, bsf_tname.c_str());
