@@ -294,7 +294,7 @@ static bool check_if_avhw_or_avsw(RGY_INPUT_FMT input_type) {
 template<typename T>
 bool check_avhw_avsw_only(const T& target, const T& autoval, const char *name, RGYLog *log) {
     if (target == autoval) {
-        log->write(RGY_LOG_ERROR, _T("\"%s\" is only supported with avsw/avhw reader.\n"), name);
+        log->write(RGY_LOG_ERROR, _T("\"%s\" is only supported with avsw/avhw reader.\n"), char_to_tstring(name).c_str());
         return true;
     }
     return false;
