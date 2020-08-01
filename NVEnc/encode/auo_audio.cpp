@@ -464,6 +464,10 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
         //ファイルクローズ
         for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)
             ret |= wav_file_close(&aud_dat[i_aud], oip, samples_read, wav_sample_size, use_pipe);
+    } else {
+        //これをやっておかないとプラグインがフリーズしてしまう
+        //動画との音声との同時処理が終了
+        release_audio_parallel_events(pe);
     }
     if (buf8bit) _aligned_free(buf8bit);
     if (aud_dat->he_ov_aud_namedpipe) {
