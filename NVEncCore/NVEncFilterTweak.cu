@@ -112,18 +112,22 @@ __global__ void kernel_tweak_uv(uint8_t *__restrict__ pFrameU, uint8_t *__restri
 }
 
 template<typename Type, typename Type4, int bit_depth>
-static cudaError_t tweak_yv12(FrameInfo *pFrame,
-    float contrast, float brightness, float saturation, float gamma, float hue_degree) {
-    dim3 blockSize(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
-    dim3 gridSize(divCeil(pFrame->width, blockSize.x * 4), divCeil(pFrame->height, blockSize.y));
+static cudaError_t tweak_frame(FrameInfo *pFrame,
+    float contrast, float brightness, float saturation, float gamma, float hue_degree,
+    cudaStream_t stream) {
+    auto planeInputY = getPlane(pFrame, RGY_PLANE_Y);
+    auto planeInputU = getPlane(pFrame, RGY_PLANE_U);
+    auto planeInputV = getPlane(pFrame, RGY_PLANE_V);
+    static_assert(sizeof(Type4::x) == sizeof(Type), "sizeof(Type4::x) == sizeof(Type)");
 
     //Y
     if (   contrast != 1.0f
         || brightness != 0.0f
         || gamma != 1.0f) {
-        kernel_tweak_y<Type, Type4, bit_depth><<<gridSize, blockSize>>>(
-            (uint8_t *)pFrame->ptr, pFrame->pitch,
-            pFrame->width, pFrame->height,
+        dim3 blockSize(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
+        dim3 gridSize(divCeil(planeInputY.width, blockSize.x * 4), divCeil(planeInputY.height, blockSize.y));
+        kernel_tweak_y<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
+            planeInputY.ptr, planeInputY.pitch, planeInputY.width, planeInputY.height,
             contrast, brightness, 1.0f / gamma);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
@@ -134,51 +138,16 @@ static cudaError_t tweak_yv12(FrameInfo *pFrame,
     //UV
     if (saturation != 1.0f
         || hue_degree != 0.0f) {
-        const float hue = hue_degree * (float)M_PI / 180.0f;
-        gridSize = dim3(divCeil(pFrame->width >> 1, blockSize.x * 4), divCeil(pFrame->height >> 1, blockSize.y));
-        kernel_tweak_uv<Type, Type4, bit_depth><<<gridSize, blockSize>>>(
-            (uint8_t *)pFrame->ptr + pFrame->pitch * pFrame->height,
-            (uint8_t *)pFrame->ptr + pFrame->pitch * pFrame->height * 3 / 2,
-            pFrame->pitch,
-            pFrame->width >> 1, pFrame->height >> 1,
-            saturation, std::sin(hue) * saturation, std::cos(hue) * saturation);
-        auto cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        if (   planeInputU.width  != planeInputV.width
+            || planeInputU.height != planeInputV.height
+            || planeInputU.pitch  != planeInputV.pitch) {
+            return cudaErrorAssert;
         }
-    }
-    return cudaSuccess;
-}
-
-template<typename Type, typename Type4, int bit_depth>
-static cudaError_t tweak_yuv444(FrameInfo *pFrame,
-    float contrast, float brightness, float saturation, float gamma, float hue_degree) {
-    dim3 blockSize(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
-    dim3 gridSize(divCeil(pFrame->width, blockSize.x * 4), divCeil(pFrame->height, blockSize.y));
-
-    //Y
-    if (contrast != 1.0f
-        || brightness != 0.0f
-        || gamma != 1.0f) {
-        kernel_tweak_y<Type, Type4, bit_depth><<<gridSize, blockSize>>>(
-            (uint8_t *)pFrame->ptr, pFrame->pitch,
-            pFrame->width, pFrame->height,
-            contrast, brightness, 1.0f / gamma);
-        auto cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
-        }
-    }
-
-    //UV
-    if (saturation != 1.0f
-        || hue_degree != 0.0f) {
+        dim3 blockSize(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
+        dim3 gridSize(divCeil(planeInputU.width, blockSize.x * 4), divCeil(planeInputU.height, blockSize.y));
         const float hue = hue_degree * (float)M_PI / 180.0f;
-        kernel_tweak_uv<Type, Type4, bit_depth><<<gridSize, blockSize>>>(
-            (uint8_t *)pFrame->ptr + pFrame->pitch * pFrame->height,
-            (uint8_t *)pFrame->ptr + pFrame->pitch * pFrame->height * 2,
-            pFrame->pitch,
-            pFrame->width, pFrame->height,
+        kernel_tweak_uv<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
+            planeInputU.ptr, planeInputV.ptr, planeInputU.pitch, planeInputU.width, planeInputU.height,
             saturation, std::sin(hue) * saturation, std::cos(hue) * saturation);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
@@ -273,11 +242,11 @@ RGY_ERR NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         return RGY_ERR_INVALID_PARAM;
     }
 
-    static const std::map<RGY_CSP, decltype(tweak_yv12<uint8_t, uchar4, 8>)*> tweak_list = {
-        { RGY_CSP_YV12,      tweak_yv12<uint8_t,    uchar4,   8> },
-        { RGY_CSP_YV12_16,   tweak_yv12<uint16_t,   ushort4, 16> },
-        { RGY_CSP_YUV444,    tweak_yuv444<uint8_t,  uchar4,   8> },
-        { RGY_CSP_YUV444_16, tweak_yuv444<uint16_t, ushort4, 16> }
+    static const std::map<RGY_CSP, decltype(tweak_frame<uint8_t, uchar4, 8>)*> tweak_list = {
+        { RGY_CSP_YV12,      tweak_frame<uint8_t,  uchar4,   8> },
+        { RGY_CSP_YV12_16,   tweak_frame<uint16_t, ushort4, 16> },
+        { RGY_CSP_YUV444,    tweak_frame<uint8_t,  uchar4,   8> },
+        { RGY_CSP_YUV444_16, tweak_frame<uint16_t, ushort4, 16> }
     };
     if (tweak_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
@@ -288,7 +257,8 @@ RGY_ERR NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         pTweakParam->tweak.brightness,
         pTweakParam->tweak.saturation,
         pTweakParam->tweak.gamma,
-        pTweakParam->tweak.hue);
+        pTweakParam->tweak.hue,
+        stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         AddMessage(RGY_LOG_ERROR, _T("error at tweak(%s): %s.\n"),
