@@ -83,88 +83,58 @@ __global__ void kernel_unsharp(uint8_t *__restrict__ pDst, const int dstPitch, c
 
 template<typename Type, int bit_depth>
 void unsharp(uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight,
-    cudaTextureObject_t texSrc, const float *__restrict__ pGaussWeight, int radius, const float weight, const float threshold) {
+    cudaTextureObject_t texSrc, const float *__restrict__ pGaussWeight, const int radius, const float weight, const float threshold,
+    cudaStream_t stream) {
     dim3 blockSize(UNSHARP_BLOCK_X, UNSHARP_BLOCK_Y);
     dim3 gridSize(divCeil(dstWidth, blockSize.x), divCeil(dstHeight, blockSize.y));
     switch (radius) {
-    case 1: kernel_unsharp<Type, 1, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
-    case 2: kernel_unsharp<Type, 2, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
-    case 3: kernel_unsharp<Type, 3, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
-    case 4: kernel_unsharp<Type, 4, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
-    case 5: kernel_unsharp<Type, 5, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
-    case 6: kernel_unsharp<Type, 6, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
-    case 7: kernel_unsharp<Type, 7, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
-    case 8: kernel_unsharp<Type, 8, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
-    case 9: kernel_unsharp<Type, 9, bit_depth><<<gridSize, blockSize>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
+    case 1: kernel_unsharp<Type, 1, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
+    case 2: kernel_unsharp<Type, 2, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
+    case 3: kernel_unsharp<Type, 3, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
+    case 4: kernel_unsharp<Type, 4, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
+    case 5: kernel_unsharp<Type, 5, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
+    case 6: kernel_unsharp<Type, 6, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
+    case 7: kernel_unsharp<Type, 7, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
+    case 8: kernel_unsharp<Type, 8, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
+    case 9: kernel_unsharp<Type, 9, bit_depth><<<gridSize, blockSize, 0, stream>>>(pDst, dstPitch, dstWidth, dstHeight, texSrc, pGaussWeight, weight, threshold); break;
     default: break;
     }
 }
 
+template<typename Type>
+cudaError_t textureCreateDenoiseUnsharp(cudaTextureObject_t &tex, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, uint8_t *ptr, const int pitch, const int width, const int height) {
+    cudaResourceDesc resDesc;
+    memset(&resDesc, 0, sizeof(resDesc));
+    resDesc.resType = cudaResourceTypePitch2D;
+    resDesc.res.pitch2D.devPtr = ptr;
+    resDesc.res.pitch2D.pitchInBytes = pitch;
+    resDesc.res.pitch2D.width = width;
+    resDesc.res.pitch2D.height = height;
+    resDesc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
+
+    cudaTextureDesc texDesc;
+    memset(&texDesc, 0, sizeof(texDesc));
+    texDesc.addressMode[0] = cudaAddressModeClamp;
+    texDesc.addressMode[1] = cudaAddressModeClamp;
+    texDesc.filterMode = filterMode;
+    texDesc.readMode = readMode;
+    texDesc.normalizedCoords = 0;
+
+    return cudaCreateTextureObject(&tex, &resDesc, &texDesc, nullptr);
+}
+
 template<typename Type, int bit_depth>
-static cudaError_t unsharp_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pGaussWeightY, CUMemBuf *pGaussWeightUV,
-    int radius, const float weight, const float threshold) {
-    //Y
-    cudaResourceDesc resDescSrc;
-    memset(&resDescSrc, 0, sizeof(resDescSrc));
-    resDescSrc.resType = cudaResourceTypePitch2D;
-    resDescSrc.res.pitch2D.devPtr = pInputFrame->ptr;
-    resDescSrc.res.pitch2D.pitchInBytes = pInputFrame->pitch;
-    resDescSrc.res.pitch2D.width = pInputFrame->width;
-    resDescSrc.res.pitch2D.height = pInputFrame->height;
-    resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
-
-    cudaTextureDesc texDescSrc;
-    memset(&texDescSrc, 0, sizeof(texDescSrc));
-    texDescSrc.addressMode[0]   = cudaAddressModeClamp;
-    texDescSrc.addressMode[1]   = cudaAddressModeClamp;
-    texDescSrc.filterMode       = cudaFilterModePoint;
-    texDescSrc.readMode         = cudaReadModeNormalizedFloat;
-    texDescSrc.normalizedCoords = 0;
-
+static cudaError_t unsharp_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pGaussWeight,
+    const int radius, const float weight, const float threshold, cudaStream_t stream) {
     cudaTextureObject_t texSrc = 0;
-    auto cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
+    auto cudaerr = textureCreateDenoiseUnsharp<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptr, pInputFrame->pitch, pInputFrame->width, pInputFrame->height);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
     unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
         pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, (const float *)pGaussWeightY->ptr, radius, weight, threshold / (1 << (sizeof(Type)*8)));
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //U
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
-    resDescSrc.res.pitch2D.width >>= 1;
-    resDescSrc.res.pitch2D.height >>= 1;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height,
-        pOutputFrame->pitch, pOutputFrame->width >> 1, pOutputFrame->height >> 1,
-        texSrc, (const float *)pGaussWeightUV->ptr, radius, weight, threshold / (1 << (sizeof(Type)*8)));
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //V
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 3 / 2;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 3 / 2,
-        pOutputFrame->pitch, pOutputFrame->width >> 1, pOutputFrame->height >> 1,
-        texSrc, (const float *)pGaussWeightUV->ptr, radius, weight, threshold / (1 << (sizeof(Type)*8)));
+        texSrc, (const float *)pGaussWeight->ptr, radius, weight, threshold / (1 << (sizeof(Type) * 8)),
+        stream);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return cudaerr;
@@ -177,77 +147,32 @@ static cudaError_t unsharp_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInput
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t unsharp_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pGaussWeightY, CUMemBuf *pGaussWeightUV,
-    int radius, const float weight, const float threshold) {
-    //Y
-    cudaResourceDesc resDescSrc;
-    memset(&resDescSrc, 0, sizeof(resDescSrc));
-    resDescSrc.resType = cudaResourceTypePitch2D;
-    resDescSrc.res.pitch2D.devPtr = pInputFrame->ptr;
-    resDescSrc.res.pitch2D.pitchInBytes = pInputFrame->pitch;
-    resDescSrc.res.pitch2D.width = pInputFrame->width;
-    resDescSrc.res.pitch2D.height = pInputFrame->height;
-    resDescSrc.res.pitch2D.desc = cudaCreateChannelDesc<Type>();
+static RGY_ERR unsharp_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pGaussWeightY, CUMemBuf *pGaussWeightUV,
+    const int radius, const float weight, const float threshold, cudaStream_t stream) {
+    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
+    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
-    cudaTextureDesc texDescSrc;
-    memset(&texDescSrc, 0, sizeof(texDescSrc));
-    texDescSrc.addressMode[0]   = cudaAddressModeClamp;
-    texDescSrc.addressMode[1]   = cudaAddressModeClamp;
-    texDescSrc.filterMode       = cudaFilterModePoint;
-    texDescSrc.readMode         = cudaReadModeNormalizedFloat;
-    texDescSrc.normalizedCoords = 0;
-
-    cudaTextureObject_t texSrc = 0;
-    auto cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    auto err = unsharp_plane<Type, bit_depth>(&planeOutputY, &planeInputY, pGaussWeightY, radius, weight, threshold, stream);
+    if (err != RGY_ERR_NONE) {
+        return err_to_rgy(err);
     }
-    unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, (const float *)pGaussWeightY->ptr, radius, weight, threshold / (1 << (sizeof(Type)*8)));
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    err = unsharp_plane<Type, bit_depth>(&planeOutputU, &planeInputU, pGaussWeightUV, radius, weight, threshold, stream);
+    if (err != RGY_ERR_NONE) {
+        return err_to_rgy(err);
     }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    err = unsharp_plane<Type, bit_depth>(&planeOutputV, &planeInputV, pGaussWeightUV, radius, weight, threshold, stream);
+    if (err != RGY_ERR_NONE) {
+        return err_to_rgy(err);
     }
-    //U
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        return err_to_rgy(err);
     }
-    unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, (const float *)pGaussWeightUV->ptr, radius, weight, threshold / (1 << (sizeof(Type)*8)));
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //V
-    resDescSrc.res.pitch2D.devPtr = (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 2;
-    cudaerr = cudaCreateTextureObject(&texSrc, &resDescSrc, &texDescSrc, nullptr);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    unsharp<Type, bit_depth>((uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 2,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        texSrc, (const float *)pGaussWeightUV->ptr, radius, weight, threshold / (1 << (sizeof(Type)*8)));
-    cudaerr = cudaGetLastError();
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    cudaerr = cudaDestroyTextureObject(texSrc);
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    return cudaerr;
+    return RGY_ERR_NONE;
 }
 
 NVEncFilterUnsharp::NVEncFilterUnsharp() : m_bInterlacedWarn(false) {
@@ -384,21 +309,22 @@ RGY_ERR NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo *
         return RGY_ERR_INVALID_PARAM;
     }
 
-    static const std::map<RGY_CSP, decltype(unsharp_yv12<uint8_t, 8>)*> denoise_list = {
-        { RGY_CSP_YV12,      unsharp_yv12<uint8_t,     8> },
-        { RGY_CSP_YV12_16,   unsharp_yv12<uint16_t,   16> },
-        { RGY_CSP_YUV444,    unsharp_yuv444<uint8_t,   8> },
-        { RGY_CSP_YUV444_16, unsharp_yuv444<uint16_t, 16> }
+    static const std::map<RGY_CSP, decltype(unsharp_frame<uint8_t, 8>)*> denoise_list = {
+        { RGY_CSP_YV12,      unsharp_frame<uint8_t,   8> },
+        { RGY_CSP_YV12_16,   unsharp_frame<uint16_t, 16> },
+        { RGY_CSP_YUV444,    unsharp_frame<uint8_t,   8> },
+        { RGY_CSP_YUV444_16, unsharp_frame<uint16_t, 16> }
     };
     if (denoise_list.count(pInputFrame->csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
     denoise_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, m_pGaussWeightBufY.get(), m_pGaussWeightBufUV.get(),
-        pUnsharpParam->unsharp.radius, pUnsharpParam->unsharp.weight, pUnsharpParam->unsharp.threshold);
+        pUnsharpParam->unsharp.radius, pUnsharpParam->unsharp.weight, pUnsharpParam->unsharp.threshold,
+        stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
-        AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at unsharp(%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp],
             char_to_tstring(cudaGetErrorString(cudaerr)).c_str());
         return RGY_ERR_CUDA;
