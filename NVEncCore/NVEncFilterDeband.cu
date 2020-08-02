@@ -262,7 +262,8 @@ cudaError_t deband_plane(
     uint8_t *pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     uint8_t *pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
     uint8_t *pRand, const int randPitch,
-    const bool isYUV420, const int range, const int dither, const int threshold, const bool interlaced) {
+    const bool isYUV420, const int range, const int dither, const int threshold, const bool interlaced,
+    cudaStream_t stream) {
     const float dither_range = (float)dither * std::pow(2.0f, bit_depth-12) + 0.5f;
     const float threshold_float = (threshold << (!(sample_mode && blur_first) + 1)) * (1.0f / (1 << 12));
     const int range_plane = (isYUV420 && mode_yuv != MODE_Y) ? range >> 1 : range;
@@ -295,7 +296,7 @@ cudaError_t deband_plane(
         divCeil(dstWidth, blockSize.x * block_loop_x_inner * block_loop_x_outer),
         divCeil(dstHeight, blockSize.y * block_loop_y_inner * block_loop_y_outer));
     kernel_deband<Type, bit_depth, sample_mode, mode_yuv, blur_first, block_loop_x_inner, block_loop_y_inner, block_loop_x_outer, block_loop_y_outer>
-        <<<gridSize, blockSize>>>(
+        <<<gridSize, blockSize, 0, stream>>>(
         pDst, dstPitch, dstWidth, dstHeight,
         (uchar4 *)pRand, randPitch,
         texSrc,
@@ -310,116 +311,69 @@ cudaError_t deband_plane(
 }
 
 template<typename Type, int bit_depth, int sample_mode, bool blur_first>
-cudaError_t deband_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, FrameInfo *pRandY, FrameInfo *pRandUV,
+static RGY_ERR deband_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, FrameInfo *pRandY, FrameInfo *pRandUV,
     const int range, const int threY, const int threCb, const int threCr, const int ditherY, const int ditherC, bool randEachFrame,
-    curandState *pState) {
-    auto cudaerr = cudaSuccess;
+    curandState *pState, cudaStream_t stream) {
     if (randEachFrame) {
         dim3 threads(GEN_RAND_THREAD_X, GEN_RAND_THREAD_Y, 1);
         dim3 grids(divCeil(pRandY->width >> 1, threads.x), divCeil(pRandY->height >> 1, threads.y * GEN_RAND_BLOCK_LOOP_Y), 1);
-        kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false><<<grids, threads>>>(
+        kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false> << <grids, threads, 0, stream >> > (
             (int8_t *)pRandY->ptr, (int8_t *)pRandUV->ptr,
             pRandY->pitch, pRandUV->pitch,
             pRandY->width, pRandY->height,
             pState);
-        cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
+        auto err = cudaGetLastError();
+        if (err != cudaSuccess) {
+            return err_to_rgy(err);
         }
     }
-    //Y
-    cudaerr = deband_plane<Type, bit_depth, sample_mode, MODE_Y, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
-        (uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        (uint8_t *)pInputFrame->ptr,
-        pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
-        (uint8_t *)pRandY->ptr, pRandY->pitch,
-        true, range, ditherY, threY, interlaced(*pInputFrame));
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //U
-    cudaerr = deband_plane<Type, bit_depth, sample_mode, MODE_U, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
-        (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height,
-        pOutputFrame->pitch, pOutputFrame->width >> 1, pOutputFrame->height >> 1,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height,
-        pInputFrame->pitch, pInputFrame->width >> 1, pInputFrame->height >> 1,
-        (uint8_t *)pRandUV->ptr, pRandUV->pitch,
-        true, range, ditherC, threCb, interlaced(*pInputFrame));
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
 
-    //V
-    cudaerr = deband_plane<Type, bit_depth, sample_mode, MODE_V, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
-        (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 3 / 2,
-        pOutputFrame->pitch, pOutputFrame->width >> 1, pOutputFrame->height >> 1,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 3 / 2,
-        pInputFrame->pitch, pInputFrame->width >> 1, pInputFrame->height >> 1,
-        (uint8_t *)pRandUV->ptr, pRandUV->pitch,
-        true, range, ditherC, threCr, interlaced(*pInputFrame));
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
+    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
+    auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
+    auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
+
+    auto err = deband_plane<Type, bit_depth, sample_mode, MODE_Y, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
+        planeOutputY.ptr, planeOutputY.pitch, planeOutputY.width, planeOutputY.height,
+        planeInputY.ptr, planeInputY.pitch, planeInputY.width, planeInputY.height,
+        pRandY->ptr, pRandY->pitch,
+        RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
+        range, ditherY, threY, interlaced(*pInputFrame),
+        stream);
+    if (err != RGY_ERR_NONE) {
+        return err_to_rgy(err);
     }
-    return cudaerr;
+    err = deband_plane<Type, bit_depth, sample_mode, MODE_U, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
+        planeOutputU.ptr, planeOutputU.pitch, planeOutputU.width, planeOutputU.height,
+        planeInputU.ptr, planeInputU.pitch, planeInputU.width, planeInputU.height,
+        pRandUV->ptr, pRandUV->pitch,
+        RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
+        range, ditherC, threCb, interlaced(*pInputFrame),
+        stream);
+    if (err != RGY_ERR_NONE) {
+        return err_to_rgy(err);
+    }
+    err = deband_plane<Type, bit_depth, sample_mode, MODE_V, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
+        planeOutputV.ptr, planeOutputV.pitch, planeOutputV.width, planeOutputV.height,
+        planeInputV.ptr, planeInputV.pitch, planeInputV.width, planeInputV.height,
+        pRandUV->ptr, pRandUV->pitch,
+        RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
+        range, ditherC, threCr, interlaced(*pInputFrame),
+        stream);
+    if (err != RGY_ERR_NONE) {
+        return err_to_rgy(err);
+    }
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        return err_to_rgy(err);
+    }
+    return RGY_ERR_NONE;
 }
 
-template<typename Type, int bit_depth, int sample_mode, bool blur_first>
-static cudaError_t deband_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, FrameInfo *pRandY, FrameInfo *pRandUV,
-    const int range, const int threY, const int threCb, const int threCr, const int ditherY, const int ditherC, bool randEachFrame,
-    curandState *pState) {
-    auto cudaerr = cudaSuccess;
-    if (randEachFrame) {
-        dim3 threads(GEN_RAND_THREAD_X, GEN_RAND_THREAD_Y, 1);
-        dim3 grids(divCeil(pRandY->width >> 1, threads.x), divCeil(pRandY->height >> 1, threads.y * GEN_RAND_BLOCK_LOOP_Y), 1);
-        kernel_gen_rand<GEN_RAND_BLOCK_LOOP_Y, false><<<grids, threads>>>(
-            (int8_t *)pRandY->ptr, (int8_t *)pRandUV->ptr,
-            pRandY->pitch, pRandUV->pitch,
-            pRandY->width, pRandY->height,
-            pState);
-        cudaerr = cudaGetLastError();
-        if (cudaerr != cudaSuccess) {
-            return cudaerr;
-        }
-    }
-    //Y
-    cudaerr = deband_plane<Type, bit_depth, sample_mode, MODE_Y, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
-        (uint8_t *)pOutputFrame->ptr,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        (uint8_t *)pInputFrame->ptr,
-        pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
-        (uint8_t *)pRandY->ptr, pRandY->pitch,
-        false, range, ditherY, threY, interlaced(*pInputFrame));
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    //U
-    cudaerr = deband_plane<Type, bit_depth, sample_mode, MODE_U, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
-        (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height,
-        pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
-        (uint8_t *)pRandUV->ptr, pRandUV->pitch,
-        false, range, ditherC, threCb, interlaced(*pInputFrame));
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
 
-    //V
-    cudaerr = deband_plane<Type, bit_depth, sample_mode, MODE_V, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
-        (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height * 2,
-        pOutputFrame->pitch, pOutputFrame->width, pOutputFrame->height,
-        (uint8_t *)pInputFrame->ptr + pInputFrame->pitch * pInputFrame->height * 2,
-        pInputFrame->pitch, pInputFrame->width, pInputFrame->height,
-        (uint8_t *)pRandUV->ptr, pRandUV->pitch,
-        false, range, ditherC, threCr, interlaced(*pInputFrame));
-    if (cudaerr != cudaSuccess) {
-        return cudaerr;
-    }
-    return cudaerr;
-}
-
-RGY_ERR NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_CALL;
@@ -430,14 +384,14 @@ RGY_ERR NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *pInp
         return RGY_ERR_INVALID_PARAM;
     }
     struct deband_func {
-        decltype(deband_yv12<uint8_t, 8, 0, true>)* func[3][2]; /* sample_mode, blur_first */
+        decltype(deband_frame<uint8_t, 8, 0, true>)* func[3][2]; /* sample_mode, blur_first */
         deband_func(
-            decltype(deband_yv12<uint8_t, 8, 0, true>)* sample0_blur_first0,
-            decltype(deband_yv12<uint8_t, 8, 0, true>)* sample0_blur_first1,
-            decltype(deband_yv12<uint8_t, 8, 0, true>)* sample1_blur_first0,
-            decltype(deband_yv12<uint8_t, 8, 0, true>)* sample1_blur_first1,
-            decltype(deband_yv12<uint8_t, 8, 0, true>)* sample2_blur_first0,
-            decltype(deband_yv12<uint8_t, 8, 0, true>)* sample2_blur_first1
+            decltype(deband_frame<uint8_t, 8, 0, true>)* sample0_blur_first0,
+            decltype(deband_frame<uint8_t, 8, 0, true>)* sample0_blur_first1,
+            decltype(deband_frame<uint8_t, 8, 0, true>)* sample1_blur_first0,
+            decltype(deband_frame<uint8_t, 8, 0, true>)* sample1_blur_first1,
+            decltype(deband_frame<uint8_t, 8, 0, true>)* sample2_blur_first0,
+            decltype(deband_frame<uint8_t, 8, 0, true>)* sample2_blur_first1
             ) {
             func[0][0] = sample0_blur_first0;
             func[0][1] = sample0_blur_first1;
@@ -450,21 +404,21 @@ RGY_ERR NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *pInp
 
     static const std::map<RGY_CSP, deband_func> deband_func_list = {
         { RGY_CSP_YV12,      deband_func(
-            deband_yv12<uint8_t,   8, 0, false>, deband_yv12<uint8_t,   8, 0, true>,
-            deband_yv12<uint8_t,   8, 1, false>, deband_yv12<uint8_t,   8, 1, true>,
-            deband_yv12<uint8_t,   8, 2, false>, deband_yv12<uint8_t,   8, 2, true>) },
+            deband_frame<uint8_t,   8, 0, false>, deband_frame<uint8_t,   8, 0, true>,
+            deband_frame<uint8_t,   8, 1, false>, deband_frame<uint8_t,   8, 1, true>,
+            deband_frame<uint8_t,   8, 2, false>, deband_frame<uint8_t,   8, 2, true>) },
         { RGY_CSP_YV12_16,   deband_func(
-            deband_yv12<uint16_t, 16, 0, false>, deband_yv12<uint16_t, 16, 0, true>,
-            deband_yv12<uint16_t, 16, 1, false>, deband_yv12<uint16_t, 16, 1, true>,
-            deband_yv12<uint16_t, 16, 2, false>, deband_yv12<uint16_t, 16, 2, true>) },
+            deband_frame<uint16_t, 16, 0, false>, deband_frame<uint16_t, 16, 0, true>,
+            deband_frame<uint16_t, 16, 1, false>, deband_frame<uint16_t, 16, 1, true>,
+            deband_frame<uint16_t, 16, 2, false>, deband_frame<uint16_t, 16, 2, true>) },
         { RGY_CSP_YUV444,    deband_func(
-            deband_yuv444<uint8_t,   8, 0, false>, deband_yuv444<uint8_t,   8, 0, true>,
-            deband_yuv444<uint8_t,   8, 1, false>, deband_yuv444<uint8_t,   8, 1, true>,
-            deband_yuv444<uint8_t,   8, 2, false>, deband_yuv444<uint8_t,   8, 2, true>) },
+            deband_frame<uint8_t,   8, 0, false>, deband_frame<uint8_t,   8, 0, true>,
+            deband_frame<uint8_t,   8, 1, false>, deband_frame<uint8_t,   8, 1, true>,
+            deband_frame<uint8_t,   8, 2, false>, deband_frame<uint8_t,   8, 2, true>) },
         { RGY_CSP_YUV444_16, deband_func(
-            deband_yuv444<uint16_t, 16, 0, false>, deband_yuv444<uint16_t, 16, 0, true>,
-            deband_yuv444<uint16_t, 16, 1, false>, deband_yuv444<uint16_t, 16, 1, true>,
-            deband_yuv444<uint16_t, 16, 2, false>, deband_yuv444<uint16_t, 16, 2, true>) },
+            deband_frame<uint16_t, 16, 0, false>, deband_frame<uint16_t, 16, 0, true>,
+            deband_frame<uint16_t, 16, 1, false>, deband_frame<uint16_t, 16, 1, true>,
+            deband_frame<uint16_t, 16, 2, false>, deband_frame<uint16_t, 16, 2, true>) },
     };
     if (deband_func_list.count(pParam->frameIn.csp) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for deband: %s\n"), RGY_CSP_NAMES[pParam->frameIn.csp]);
@@ -473,7 +427,7 @@ RGY_ERR NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *pInp
     auto cudaerr = deband_func_list.at(pParam->frameIn.csp).func[pParam->deband.sample][pParam->deband.blurFirst ? 1 : 0](
         pOutputFrame, pInputFrame, &m_RandY.frame, &m_RandUV.frame,
         pParam->deband.range, pParam->deband.threY, pParam->deband.threCb, pParam->deband.threCr, pParam->deband.ditherY, pParam->deband.ditherC, pParam->deband.randEachFrame,
-        (curandState *)m_RandState.ptr);
+        (curandState *)m_RandState.ptr, stream);
     if (cudaerr != cudaSuccess) {
         return RGY_ERR_CUDA;
     }
@@ -632,7 +586,7 @@ RGY_ERR NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **
         return RGY_ERR_INVALID_CALL;
     }
 
-    return deband(ppOutputFrames[0], pInputFrame);
+    return deband(ppOutputFrames[0], pInputFrame, stream);
 }
 
 void NVEncFilterDeband::close() {

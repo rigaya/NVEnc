@@ -52,7 +52,7 @@ protected:
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
 
-    RGY_ERR deband(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    RGY_ERR deband(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
 
     CUFrameBuf m_RandY;
     CUFrameBuf m_RandUV;
