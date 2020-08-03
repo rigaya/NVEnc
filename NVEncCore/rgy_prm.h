@@ -187,6 +187,7 @@ struct RGYParamControl {
     uint32_t parentProcessID;
     bool lowLatency;
     GPUAutoSelectMul gpuSelect;
+    tstring avsdll;
 
     RGYParamControl();
     ~RGYParamControl();

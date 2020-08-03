@@ -55,7 +55,8 @@ const uint8_t* AVSC_CC rgy_avs_get_read_ptr_p(const AVS_VideoFrame * p, int plan
 
 RGYInputAvsPrm::RGYInputAvsPrm(RGYInputPrm base) :
     RGYInputPrm(base),
-    readAudio(false) {
+    readAudio(false),
+    avsdll() {
 
 }
 
@@ -89,13 +90,22 @@ void RGYInputAvs::release_avisynth() {
     memset(&m_sAvisynth, 0, sizeof(m_sAvisynth));
 }
 
-RGY_ERR RGYInputAvs::load_avisynth() {
+RGY_ERR RGYInputAvs::load_avisynth(const tstring &avsdll) {
     release_avisynth();
 
+    const TCHAR *avs_dll_target = nullptr;
+    if (avsdll.length() > 0) {
+        avs_dll_target = avsdll.c_str();
+    }
+    if (avs_dll_target == nullptr) {
+        avs_dll_target = avisynth_dll_name;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Load Avisynth DLL \"%s\".\n"), avs_dll_target);
+
 #if defined(_WIN32) || defined(_WIN64)
-    if (nullptr == (m_sAvisynth.h_avisynth = (HMODULE)LoadLibrary(avisynth_dll_name)))
+    if (nullptr == (m_sAvisynth.h_avisynth = (HMODULE)LoadLibrary(avs_dll_target)))
 #else
-    if (nullptr == (m_sAvisynth.h_avisynth = dlopen(avisynth_dll_name, RTLD_LAZY)))
+    if (nullptr == (m_sAvisynth.h_avisynth = dlopen(avs_dll_target, RTLD_LAZY)))
 #endif
         return RGY_ERR_INVALID_HANDLE;
 
@@ -237,7 +247,8 @@ vector<AVPacket> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
 RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
     m_inputVideoInfo = *pInputInfo;
 
-    if (load_avisynth() != RGY_ERR_NONE) {
+    auto avsPrm = reinterpret_cast<const RGYInputAvsPrm *>(prm);
+    if (load_avisynth(avsPrm->avsdll) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to load %s.\n"), avisynth_dll_name);
         return RGY_ERR_INVALID_HANDLE;
     }
@@ -365,7 +376,6 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo.frames = m_sAVSinfo->num_frames;
     rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 
-    auto avsPrm = reinterpret_cast<const RGYInputAvsPrm *>(prm);
     if (avsPrm != nullptr && avsPrm->readAudio) {
         if (!avs_has_audio(m_sAVSinfo)) {
             AddMessage(RGY_LOG_WARN, _T("avs has no audio.\n"));

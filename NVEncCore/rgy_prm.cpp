@@ -160,7 +160,8 @@ RGYParamControl::RGYParamControl() :
     perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
     parentProcessID(0),
     lowLatency(false),
-    gpuSelect() {
+    gpuSelect(),
+    avsdll() {
 
 }
 RGYParamControl::~RGYParamControl() {};

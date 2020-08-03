@@ -1819,6 +1819,11 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
+    if (IS_OPTION("avsdll")) {
+        i++;
+        ctrl->avsdll = strInput[i];
+        return 0;
+    }
     if (IS_OPTION("perf-monitor")) {
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             ctrl->perfMonitorSelect = (int)PERF_MONITOR_ALL;
@@ -2295,6 +2300,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_LST(_T("--log-level"), loglevel, list_log_level);
     OPT_BOOL(_T("--log-framelist"), _T(""), logFramePosList);
     OPT_CHAR_PATH(_T("--log-mux-ts"), logMuxVidTsFile);
+    OPT_STR_PATH(_T("--avsdll"), avsdll);
     if (param->perfMonitorSelect != defaultPrm->perfMonitorSelect) {
         auto select = (int)param->perfMonitorSelect;
         std::basic_stringstream<TCHAR> tmp;
@@ -2584,6 +2590,8 @@ tstring gen_cmd_help_ctrl() {
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     );
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
+    str += strsprintf(_T("\n")
+        _T("   --avsdll <string>            specifies AviSynth DLL location to use.\n"));
     str += strsprintf(_T("\n")
         _T("   --perf-monitor [<string>][,<string>]...\n")
         _T("       check performance info of encoder and output to log file\n")

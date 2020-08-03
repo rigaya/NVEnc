@@ -100,6 +100,7 @@ struct avs_dll_t {
 class RGYInputAvsPrm : public RGYInputPrm {
 public:
     bool readAudio;
+    tstring avsdll;
     RGYInputAvsPrm(RGYInputPrm base);
 
     virtual ~RGYInputAvsPrm() {};
@@ -125,7 +126,7 @@ public:
 
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
-    RGY_ERR load_avisynth();
+    RGY_ERR load_avisynth(const tstring& avsdll);
     void release_avisynth();
 
     AVS_ScriptEnvironment *m_sAVSenv;
