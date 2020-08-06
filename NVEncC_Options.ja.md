@@ -1741,7 +1741,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
 ### --lowlatency
 エンコード遅延を低減するモード。最大エンコード速度(スループット)は低下するので、通常は不要。
 
-### --avsdll
+### --avsdll &lt;string&gt;
 使用するAvsiynth.dllを指定するオプション。特に指定しない場合、システムのAvisynth.dllが使用される。
 
 ### --perf-monitor [&lt;string&gt;][,&lt;string&gt;]...

@@ -1698,7 +1698,7 @@ Example: Limit maximum speed to 90 fps
 ### --lowlatency
 Tune for lower transcoding latency, but will hurt transcoding throughput. Not recommended in most cases.
 
-### --avsdll
+### --avsdll &lt;string&gt;
 Specifies AviSynth DLL location to use. When unspecified, the DLL installed in the system32 will be used.
 
 ### --perf-monitor [&lt;string&gt;][,&lt;string&gt;]...
