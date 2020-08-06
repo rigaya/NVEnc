@@ -291,13 +291,11 @@ _使用特殊值_
 一般情况下，推荐将 QP 值设置为 I &lt; P &lt; B 的组合。
 
 ### --cbr &lt;int&gt;
-### --cbrhq &lt;int&gt;
 ### --vbr &lt;int&gt;
-### --vbrhq &lt;int&gt;
 
 设置码率，单位kbps。
 
-若要使用固定质量模式，可以使用`--vbrhq 0 --vbr-quality <float>`。
+若要使用固定质量模式，可以使用`--vbr 0 --vbr-quality <float>`。
 
 ## Other Options for Encoder
 
