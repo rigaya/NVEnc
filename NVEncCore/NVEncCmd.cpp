@@ -2424,7 +2424,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "brightness", "gamma", "saturation", "hue" };
+        const auto paramList = std::vector<std::string>{ "contrast, ""brightness", "gamma", "saturation", "hue" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
