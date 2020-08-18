@@ -47,8 +47,6 @@ public:
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
-    RGY_ERR unsharpYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pWeight);
-    RGY_ERR unsharpYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pWeight);
     RGY_ERR setWeight(unique_ptr<CUMemBuf>& m_pGaussWeightBuf, int radius, float sigma);
     virtual void close() override;
 
