@@ -2528,9 +2528,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         if (inputParam->vpp.unsharp.enable) {
             unique_ptr<NVEncFilter> filterUnsharp(new NVEncFilterUnsharp());
             shared_ptr<NVEncFilterParamUnsharp> param(new NVEncFilterParamUnsharp());
-            param->unsharp.radius = inputParam->vpp.unsharp.radius;
-            param->unsharp.weight = inputParam->vpp.unsharp.weight;
-            param->unsharp.threshold = inputParam->vpp.unsharp.threshold;
+            param->unsharp = inputParam->vpp.unsharp;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
