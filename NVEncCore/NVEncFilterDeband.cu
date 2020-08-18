@@ -479,7 +479,7 @@ RGY_ERR NVEncFilterDeband::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_WARN, _T("ditherC must be in range of 0 - 31.\n"));
         pDebandParam->deband.ditherC = clamp(pDebandParam->deband.ditherC, 0, 31);
     }
-    if (pDebandParam->deband.sample < 0 || 31 < pDebandParam->deband.sample) {
+    if (pDebandParam->deband.sample < 0 || 2 < pDebandParam->deband.sample) {
         AddMessage(RGY_LOG_WARN, _T("mode must be in range of 0 - 2.\n"));
         pDebandParam->deband.sample = clamp(pDebandParam->deband.sample, 0, 2);
     }
