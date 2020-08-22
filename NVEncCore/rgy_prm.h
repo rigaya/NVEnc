@@ -154,6 +154,7 @@ struct RGYParamCommon {
     sTrim *pTrimList;
     bool copyChapter;
     bool keyOnChapter;
+    bool chapterNoTrim;
     C2AFormat caption2ass;
     int audioIgnoreDecodeError;
     RGYOptList muxOpt;

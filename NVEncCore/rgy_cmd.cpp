@@ -1200,6 +1200,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("chapter-no-trim")) {
+        common->chapterNoTrim = true;
+        return 0;
+    }
 #if ENABLE_KEYFRAME_INSERT
     if (IS_OPTION("key-on-chapter")) {
         common->keyOnChapter = true;
@@ -2257,7 +2261,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
 
     OPT_STR_PATH(_T("--chapter"), chapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), copyChapter);
-    //OPT_BOOL(_T("--chapter-no-trim"), _T(""), chapterNoTrim);
+    OPT_BOOL(_T("--chapter-no-trim"), _T(""), chapterNoTrim);
     OPT_BOOL(_T("--key-on-chapter"), _T(""), keyOnChapter);
     OPT_STR_PATH(_T("--keyfile"), keyFile);
 
@@ -2517,6 +2521,7 @@ tstring gen_cmd_help_common() {
         _T("                                 - clear ... do not set metadata\n")
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
+        _T("   --chapter-no-trim            do not apply --trim to --chapter.\n")
 #if ENABLE_KEYFRAME_INSERT
         _T("   --key-on-chapter             set key frame on chapter.\n")
         _T("   --keyfile <string>           set keyframes on frames specified in the file.\n")

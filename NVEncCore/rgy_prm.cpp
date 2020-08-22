@@ -131,6 +131,7 @@ RGYParamCommon::RGYParamCommon() :
     pTrimList(nullptr),
     copyChapter(false),
     keyOnChapter(false),
+    chapterNoTrim(false),
     caption2ass(FORMAT_INVALID),
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     muxOpt(),

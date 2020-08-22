@@ -684,10 +684,11 @@ RGY_ERR initWriters(
         writerPrm.queueInfo = (pPerfMonitor) ? pPerfMonitor->GetQueueInfoPtr() : nullptr;
         writerPrm.muxVidTsLogFile         = (ctrl->logMuxVidTsFile) ? ctrl->logMuxVidTsFile : _T("");
         writerPrm.bitstreamTimebase       = av_make_q(outputTimebase);
+        writerPrm.chapterNoTrim           = common->chapterNoTrim;
         writerPrm.HEVCHdrSei              = hedrsei;
         writerPrm.videoCodecTag           = common->videoCodecTag;
         writerPrm.videoMetadata           = common->videoMetadata;
-        writerPrm.formatMetadata           = common->formatMetadata;
+        writerPrm.formatMetadata          = common->formatMetadata;
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
         writerPrm.muxOpt                  = common->muxOpt;
