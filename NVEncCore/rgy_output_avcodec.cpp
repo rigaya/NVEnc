@@ -2264,32 +2264,6 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 #else
         m_Mux.video.dtsUnavailable = true;
 #endif
-        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && m_Mux.video.seiNal.size() > 0) {
-            RGYBitstream bsCopy = RGYBitstreamInit();
-            bsCopy.copy(bitstream);
-            std::vector<nal_info> nal_list = parse_nal_unit_hevc(bsCopy.data(), bsCopy.size());
-            const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
-            const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
-            const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
-            const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
-            if (header_check) {
-                bitstream->setSize(0);
-                bitstream->setOffset(0);
-                bitstream->append(hevc_vps_nal->ptr, hevc_vps_nal->size);
-                bitstream->append(hevc_sps_nal->ptr, hevc_sps_nal->size);
-                bitstream->append(hevc_pps_nal->ptr, hevc_pps_nal->size);
-                bitstream->append(&m_Mux.video.seiNal);
-                for (const auto& nal : nal_list) {
-                    if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
-                        bitstream->append(nal.ptr, nal.size);
-                    }
-                }
-            } else {
-                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
-                return RGY_ERR_UNDEFINED_BEHAVIOR;
-            }
-            m_Mux.video.seiNal.clear();
-        }
         RGY_ERR sts = WriteFileHeader(bitstream);
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -2325,9 +2299,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
     VidCheckStreamAVParser(bitstream);
 #endif //#if ENCODER_VCEENC
 
-    std::vector<nal_info> nal_list;
     if (m_Mux.video.bsfc) {
         int target_nal = 0;
+        std::vector<nal_info> nal_list;
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
             target_nal = NALU_HEVC_SPS;
             nal_list = parse_nal_unit_hevc(bitstream->data(), bitstream->size());
@@ -2373,18 +2347,51 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
     }
 
     //IDRかどうかのフラグ
-    bool isIDR = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
+    bool isIDR = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
     if (m_Mux.video.streamOut->codecpar->field_order != AV_FIELD_PROGRESSIVE) {
         if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
-            if (nal_list.size() == 0) {
-                nal_list = parse_nal_unit_h264(bitstream->data(), bitstream->size());
-            }
+            const auto nal_list = parse_nal_unit_h264(bitstream->data(), bitstream->size());
             //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
             //どちらかのフィールドがIDRならIDRのフラグを立てる
             isIDR = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_IDR; }) != nal_list.end();
         } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
             AddMessage(RGY_LOG_ERROR, _T("Interlaced HEVC encoding not supported!\n"));
             return RGY_ERR_UNSUPPORTED;
+        }
+    }
+    if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC
+        && m_Mux.video.seiNal.size() > 0
+        && isIDR) {
+        RGYBitstream bsCopy = RGYBitstreamInit();
+        bsCopy.copy(bitstream);
+        const auto nal_list = parse_nal_unit_hevc(bsCopy.data(), bsCopy.size());
+        const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+        const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+        const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+        const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
+
+        bitstream->setSize(0);
+        bitstream->setOffset(0);
+        bool seiWritten = false;
+        if (!header_check) {
+            bitstream->append(&m_Mux.video.seiNal);
+            seiWritten = true;
+        }
+        for (size_t i = 0; i < nal_list.size(); i++) {
+            bitstream->append(nal_list[i].ptr, nal_list[i].size);
+            if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
+                if (!seiWritten
+                    && i + 1 < nal_list.size()
+                    && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
+                    bitstream->append(&m_Mux.video.seiNal);
+                    seiWritten = true;
+                }
+            }
+        }
+        bsCopy.clear();
+        if (!seiWritten) {
+            AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
     }
 

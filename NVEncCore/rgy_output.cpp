@@ -343,27 +343,28 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             }
         }
 #endif //#if ENABLE_AVSW_READER
-        if (m_seiNal.size()) {
-            const auto nal_list     = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
+        if (m_seiNal.size() > 0 && (pBitstream->frametype() & (RGY_FRAMETYPE_IDR|RGY_FRAMETYPE_xIDR)) != 0) {
+            const auto nal_list = parse_nal_unit_hevc(pBitstream->data(), pBitstream->size());
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
             const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
             const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
             const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
-            if (header_check) {
-                nBytesWritten  = _fwrite_nolock(hevc_vps_nal->ptr, 1, hevc_vps_nal->size, m_fDest.get());
-                nBytesWritten += _fwrite_nolock(hevc_sps_nal->ptr, 1, hevc_sps_nal->size, m_fDest.get());
-                nBytesWritten += _fwrite_nolock(hevc_pps_nal->ptr, 1, hevc_pps_nal->size, m_fDest.get());
-                nBytesWritten += _fwrite_nolock(m_seiNal.data(),   1, m_seiNal.size(),    m_fDest.get());
-                for (const auto& nal : nal_list) {
-                    if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
-                        nBytesWritten += _fwrite_nolock(nal.ptr, 1, nal.size, m_fDest.get());
+            bool seiWritten = false;
+            if (!header_check) {
+                nBytesWritten += _fwrite_nolock(m_seiNal.data(), 1, m_seiNal.size(), m_fDest.get());
+                seiWritten = true;
+            }
+            for (size_t i = 0; i < nal_list.size(); i++) {
+                nBytesWritten += _fwrite_nolock(nal_list[i].ptr, 1, nal_list[i].size, m_fDest.get());
+                if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
+                    if (!seiWritten
+                        && i+1 < nal_list.size()
+                        && (nal_list[i+1].type != NALU_HEVC_VPS && nal_list[i+1].type != NALU_HEVC_SPS && nal_list[i+1].type != NALU_HEVC_PPS)) {
+                        nBytesWritten += _fwrite_nolock(m_seiNal.data(), 1, m_seiNal.size(), m_fDest.get());
+                        seiWritten = true;
                     }
                 }
-            } else {
-                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
-                return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
-            m_seiNal.clear();
         } else {
             nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
             WRITE_CHECK(nBytesWritten, pBitstream->size());
