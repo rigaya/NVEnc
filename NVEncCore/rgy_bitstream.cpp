@@ -173,6 +173,7 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
         return data;
     }
     std::vector<uint8_t> header = { 0x00, 0x00, 0x00, 0x01 };
+#if 0
     header.reserve(128);
 
     uint16_t u16 = 0x00;
@@ -186,6 +187,42 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
     vector_cat(header, data);
     header.push_back(0x80);
     return header;
+#else
+    if (data_maxcll.size() > 0) {
+        std::vector<uint8_t> buf;
+        uint16_t u16 = 0x00;
+        u16 |= (39 << 9) | 1;
+        add_u16(buf, u16);
+        vector_cat(buf, data_maxcll);
+        to_nal(buf);
+
+        std::vector<uint8_t> nal_maxcll;
+        nal_maxcll.reserve(128);
+        vector_cat(nal_maxcll, header);
+        vector_cat(nal_maxcll, buf);
+        nal_maxcll.push_back(0x80);
+
+        vector_cat(data, nal_maxcll);
+    }
+
+    if (data_masterdisplay.size() > 0) {
+        std::vector<uint8_t> buf;
+        uint16_t u16 = 0x00;
+        u16 |= (39 << 9) | 1;
+        add_u16(buf, u16);
+        vector_cat(buf, data_masterdisplay);
+        to_nal(buf);
+
+        std::vector<uint8_t> nal_masterdisplay;
+        nal_masterdisplay.reserve(128);
+        vector_cat(nal_masterdisplay, header);
+        vector_cat(nal_masterdisplay, buf);
+        nal_masterdisplay.push_back(0x80);
+
+        vector_cat(data, nal_masterdisplay);
+    }
+#endif
+    return data;
 }
 
 
