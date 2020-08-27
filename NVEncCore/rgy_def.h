@@ -302,6 +302,7 @@ const CX_DESC list_colormatrix[] = {
 
 enum CspTransfer {
     RGY_TRANSFER_AUTO         = COLOR_VALUE_AUTO,
+    RGY_TRANSFER_UNKNOWN      = 0,
     RGY_TRANSFER_BT709        = 1,
     RGY_TRANSFER_UNSPECIFIED  = 2,
     RGY_TRANSFER_BT470_M      = 4,
@@ -339,6 +340,7 @@ static const std::array<CspTransfer, 15> CspTransferList{
 
 const CX_DESC list_transfer[] = {
     { _T("undef"),         RGY_TRANSFER_UNSPECIFIED  },
+    { _T("unknown"),       RGY_TRANSFER_UNKNOWN },
     { _T("auto"),          RGY_TRANSFER_AUTO },
     { _T("auto_res"),      COLOR_VALUE_AUTO_RESOLUTION },
     { _T("bt709"),         RGY_TRANSFER_BT709  },
@@ -362,6 +364,7 @@ const CX_DESC list_transfer[] = {
 
 enum CspColorprim {
     RGY_PRIM_AUTO        = COLOR_VALUE_AUTO,
+    RGY_PRIM_UNKNOWN     = 0,
     RGY_PRIM_BT709       = 1,
     RGY_PRIM_UNSPECIFIED = 2,
     RGY_PRIM_BT470_M     = 4,
@@ -393,6 +396,7 @@ static const std::array<CspColorprim, 12> CspColorprimList{
 
 const CX_DESC list_colorprim[] = {
     { _T("undef"),     RGY_PRIM_UNSPECIFIED  },
+    { _T("unknown"),   RGY_PRIM_UNKNOWN      },
     { _T("auto"),      RGY_PRIM_AUTO      },
     { _T("auto_res"),  COLOR_VALUE_AUTO_RESOLUTION   },
     { _T("bt709"),     RGY_PRIM_BT709     },
