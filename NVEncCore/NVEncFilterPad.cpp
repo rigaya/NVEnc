@@ -86,7 +86,7 @@ tstring NVEncFilterParamPad::print() const {
         + pad.print();
 }
 
-RGY_ERR NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad) {
+RGY_ERR NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad, cudaStream_t stream) {
     const auto memcpyKind = getCudaMemcpyKind(pInputFrame->deivce_mem, pOutputFrame->deivce_mem);
     if (memcpyKind != cudaMemcpyDeviceToDevice) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -95,27 +95,27 @@ RGY_ERR NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInpu
     if (pad->right == 0 && pad->left == 0) {
         if (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8) {
             auto cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptr, pOutputFrame->pitch,
-                (uint16_t)pad_color, pOutputFrame->width, pad->top, (CUstream)CU_STREAM_DEFAULT);
+                (uint16_t)pad_color, pOutputFrame->width, pad->top, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"),
                     char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
             }
             cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptr + (pad->top + pInputFrame->height) * pOutputFrame->pitch, pOutputFrame->pitch,
-                (uint16_t)pad_color, pOutputFrame->width, pad->bottom, (CUstream)CU_STREAM_DEFAULT);
+                (uint16_t)pad_color, pOutputFrame->width, pad->bottom, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"),
                     char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
             }
         } else { //RGY_CSP_BIT_DEPTH[pOutputFrame->csp] == 8
             auto cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptr, pOutputFrame->pitch,
-                (uint8_t)pad_color, pOutputFrame->width, pad->top, (CUstream)CU_STREAM_DEFAULT);
+                (uint8_t)pad_color, pOutputFrame->width, pad->top, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D8Async: %s.\n"),
                     char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
             }
 
             cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptr + (pad->top + pInputFrame->height) * pOutputFrame->pitch, pOutputFrame->pitch,
-                (uint8_t)pad_color, pOutputFrame->width, pad->bottom, (CUstream)CU_STREAM_DEFAULT);
+                (uint8_t)pad_color, pOutputFrame->width, pad->bottom, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D8Async: %s.\n"),
                     char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
@@ -124,14 +124,14 @@ RGY_ERR NVEncFilterPad::padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInpu
     } else {
         if (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8) {
             auto cudaerr = cuMemsetD2D16Async((CUdeviceptr)pOutputFrame->ptr, pOutputFrame->pitch,
-                (uint16_t)pad_color, pOutputFrame->width, pOutputFrame->height, (CUstream)CU_STREAM_DEFAULT);
+                (uint16_t)pad_color, pOutputFrame->width, pOutputFrame->height, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D16Async: %s.\n"),
                     char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
             }
         } else {// RGY_CSP_BIT_DEPTH[pOutputFrame->csp] == 8
             auto cudaerr = cuMemsetD2D8Async((CUdeviceptr)pOutputFrame->ptr, pOutputFrame->pitch,
-                (uint8_t)pad_color, pOutputFrame->width, pOutputFrame->height, (CUstream)CU_STREAM_DEFAULT);
+                (uint8_t)pad_color, pOutputFrame->width, pOutputFrame->height, stream);
             if (cudaerr != CUDA_SUCCESS) {
                 AddMessage(RGY_LOG_ERROR, _T("error at cuMemsetD2D8Async: %s.\n"),
                     char_to_tstring(_cudaGetErrorEnum(cudaerr)).c_str());
@@ -179,46 +179,35 @@ RGY_ERR NVEncFilterPad::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppO
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto frameOut = *ppOutputFrames[0];
-    auto frameIn = *pInputFrame;
-    sts = padPlane(&frameOut, &frameIn, (uint16_t)(16 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &pPadParam->pad);
+    const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
+    auto planeOutputY = getPlane(ppOutputFrames[0], RGY_PLANE_Y);
+    auto planeOutputU = getPlane(ppOutputFrames[0], RGY_PLANE_U);
+    auto planeOutputV = getPlane(ppOutputFrames[0], RGY_PLANE_V);
+
+    sts = padPlane(&planeOutputY, &planeInputY, (uint16_t)(16 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &pPadParam->pad, stream);
     if (sts != RGY_ERR_NONE) return sts;
 
-    const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
-    const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-    if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), m_pParam->frameIn.csp) != supportedCspYV12.end()) {
-        auto uvPad = pPadParam->pad;
+    auto uvPad = pPadParam->pad;
+    if (RGY_CSP_CHROMA_FORMAT[m_pParam->frameIn.csp] == RGY_CHROMAFMT_YUV420) {
         uvPad.right >>= 1;
         uvPad.left >>= 1;
         uvPad.top >>= 1;
         uvPad.bottom >>= 1;
-        frameOut.ptr += frameOut.pitch * frameOut.height;
-        frameIn.ptr  += frameIn.pitch  * frameIn.height;
-        frameOut.height >>= 1;
-        frameOut.width  >>= 1;
-        frameIn.height >>= 1;
-        frameIn.width  >>= 1;
-        sts = padPlane(&frameOut, &frameIn, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &uvPad);
-        if (sts != RGY_ERR_NONE) return sts;
-
-        frameOut.ptr += frameOut.pitch * frameOut.height;
-        frameIn.ptr  += frameIn.pitch  * frameIn.height;
-        sts = padPlane(&frameOut, &frameIn, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &uvPad);
-        if (sts != RGY_ERR_NONE) return sts;
-    } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), m_pParam->frameIn.csp) != supportedCspYUV444.end()) {
-        frameOut.ptr += frameOut.pitch * frameOut.height;
-        frameIn.ptr  += frameIn.pitch  * frameIn.height;
-        sts = padPlane(&frameOut, &frameIn, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &pPadParam->pad);
-        if (sts != RGY_ERR_NONE) return sts;
-
-        frameOut.ptr += frameOut.pitch * frameOut.height;
-        frameIn.ptr  += frameIn.pitch  * frameIn.height;
-        sts = padPlane(&frameOut, &frameIn, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &pPadParam->pad);
-        if (sts != RGY_ERR_NONE) return sts;
+    } else if (RGY_CSP_CHROMA_FORMAT[m_pParam->frameIn.csp] == RGY_CHROMAFMT_YUV444) {
+        //特に何もしない
     } else {
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
         sts = RGY_ERR_UNSUPPORTED;
     }
+
+    sts = padPlane(&planeOutputU, &planeInputU, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &uvPad, stream);
+    if (sts != RGY_ERR_NONE) return sts;
+
+    sts = padPlane(&planeOutputV, &planeInputV, (uint16_t)(128 << (RGY_CSP_BIT_DEPTH[m_pParam->frameIn.csp] - 8)), &uvPad, stream);
+    if (sts != RGY_ERR_NONE) return sts;
+
     return sts;
 }
 
