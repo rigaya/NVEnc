@@ -2522,7 +2522,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "flipX", "flipX", "transpose" };
+        const auto paramList = std::vector<std::string>{ "flip_x", "flip_y", "transpose" };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -2572,11 +2572,11 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
-                if (param == _T("flipX")) {
+                if (param == _T("flip_x")) {
                     pParams->vpp.transform.flipX = true;
                     continue;
                 }
-                if (param == _T("flipY")) {
+                if (param == _T("flip_y")) {
                     pParams->vpp.transform.flipY = true;
                     continue;
                 }
