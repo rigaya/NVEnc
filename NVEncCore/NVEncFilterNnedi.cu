@@ -1144,14 +1144,7 @@ cudaError_t nnedi_compute_network_0(FrameInfo *pOutputPlane,
             weight0, targetField);
         cudaerr = cudaGetLastError();
     } else {
-        const auto outputFrameInfoEx = getFrameInfoExtra(pOutputPlane);
-        cudaerr = cudaMemset2DAsync(
-            (uint8_t *)pOutputPlane->ptr + pOutputPlane->pitch * (targetField == NNEDI_GEN_FIELD_TOP ? 0 : 1),
-            pOutputPlane->pitch * 2, //1行おきなので通常の2倍
-            -1, //value
-            outputFrameInfoEx.width_byte,
-            pOutputPlane->height / 2,
-            stream);
+        cudaerr = setPlaneFieldAsync(pOutputPlane, -1, targetField == NNEDI_GEN_FIELD_TOP /* 生成するほうのフィールドを選択 */, stream);
     }
     if (cudaerr != cudaSuccess) {
         return cudaerr;
@@ -1281,17 +1274,8 @@ cudaError_t proc_plane(
     const TypeCalc *weight11,
     cudaStream_t stream
 ) {
-    const auto inputFrameInfoEx = getFrameInfoExtra(pInputPlane);
     // 有効なほうのフィールドをコピー
-    auto cudaerr = cudaMemcpy2DAsync(
-        (uint8_t *)pOutputPlane->ptr + pOutputPlane->pitch * (targetField == NNEDI_GEN_FIELD_TOP ? 1 : 0),
-        pOutputPlane->pitch * 2, //1行おきなので通常の2倍
-        (uint8_t *)pInputPlane->ptr + pInputPlane->pitch * (targetField == NNEDI_GEN_FIELD_TOP ? 1 : 0),
-        pInputPlane->pitch * 2,  //1行おきなので通常の2倍
-        inputFrameInfoEx.width_byte,
-        pInputPlane->height / 2,
-        cudaMemcpyDeviceToDevice,
-        stream);
+    auto cudaerr = copyPlaneFieldAsync(pOutputPlane, pInputPlane, targetField != NNEDI_GEN_FIELD_TOP, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
