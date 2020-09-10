@@ -74,7 +74,7 @@ __global__ void kernel_transpose_plane(
             TypePixel4 val = { 128, 128, 128, 128 };
             if (srcX < srcWidth && srcY < srcHeight) {
                 TypePixel4 *ptr_src = (TypePixel4 *)(pSrc + srcY * srcPitch + srcX * sizeof(TypePixel4::x));
-                if (offsetX & 3 == 0) {
+                if ((offsetX & 3) == 0) {
                     val = ptr_src[0];
                 } else {
                     decltype(TypePixel4::x) *ptr_src_elem = (decltype(TypePixel4::x) *)ptr_src;
@@ -161,7 +161,7 @@ __global__ void kernel_flip_plane(
     TypePixel4 val = { 128, 128, 128, 128 };
     if (srcX < dstWidth && srcY < dstHeight) {
         TypePixel4 *ptr_src = (TypePixel4 *)(pSrc + srcY * srcPitch + srcX * sizeof(TypePixel4::x));
-        if (offsetX & 3 == 0) {
+        if ((offsetX & 3) == 0) {
             val = ptr_src[0];
         } else {
             decltype(TypePixel4::x) *ptr_src_elem = (decltype(TypePixel4::x) *)ptr_src;
