@@ -156,7 +156,7 @@ tstring encoder_help() {
         _T("                                  HEVC : main, main10, main444\n")
         _T("   --tier <string>              set codec tier\n")
         _T("                                  HEVC : main, high\n")
-        _T("   --lossless                   for lossless (YUV444 only) / default: off\n"));
+        _T("   --lossless                   for lossless encoding / default: off\n"));
 
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
         { { _T("H.264"), list_avc_level,   0 },
@@ -3250,6 +3250,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         pParams->lossless = TRUE;
         return 0;
     }
+    if (IS_OPTION("lossless-ignore-input-csp")) {
+        pParams->losslessIgnoreInputCsp = TRUE;
+        return 0;
+    }
     if (IS_OPTION("no-deblock")) {
         codecPrm[NV_ENC_H264].h264Config.disableDeblockingFilterIDC = 1;
         return 0;
@@ -3762,6 +3766,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         cmd << _T(" --dar ") << -1 * pParams->par[0] << _T(":") << -1 * pParams->par[1];
     }
     OPT_BOOL(_T("--lossless"), _T(""), lossless);
+    OPT_BOOL(_T("--lossless-ignore-input-csp"), _T(""), losslessIgnoreInputCsp);
 
     if (pParams->codec == NV_ENC_HEVC || save_disabled_prm) {
         OPT_LST_HEVC(_T("--level"), _T(":hevc"), level, list_hevc_level);

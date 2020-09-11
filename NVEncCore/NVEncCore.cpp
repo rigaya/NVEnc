@@ -2833,7 +2833,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
     bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
-    if (inputParam->lossless) {
+    if (inputParam->lossless && inputParam->losslessIgnoreInputCsp == 0) {
         const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
         //入力ファイルの情報をもとに修正
         //なるべくオリジナルに沿ったものにエンコードする

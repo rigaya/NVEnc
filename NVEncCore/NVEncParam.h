@@ -1336,6 +1336,7 @@ struct InEncodeVideoParam {
     int bluray;                   //bluray出力
     int yuv444;                   //YUV444出力
     int lossless;                 //ロスレス出力
+    int losslessIgnoreInputCsp;
     int nWeightP;
 
     RGYParamCommon common;
