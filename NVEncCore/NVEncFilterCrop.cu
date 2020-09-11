@@ -1311,6 +1311,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(FrameInfo *pOutputFrame, const Fr
         { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_12).i,   crop_uv_nv16_yv12_p<uint16_t, 12, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_10).i,   crop_uv_nv16_yv12_p<uint16_t, 10, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_09).i,   crop_uv_nv16_yv12_p<uint16_t,  9, uint8_t,   8> },
+        { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YV12).i,      crop_uv_nv16_yv12_p<uint8_t,   8, uint16_t, 16> },
         { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YV12_16).i,   crop_uv_nv16_yv12_p<uint16_t, 16, uint16_t, 16> },
         { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YV12_14).i,   crop_uv_nv16_yv12_p<uint16_t, 14, uint16_t, 16> },
         { RGY_CSP_2(RGY_CSP_P210, RGY_CSP_YV12_12).i,   crop_uv_nv16_yv12_p<uint16_t, 12, uint16_t, 16> },
