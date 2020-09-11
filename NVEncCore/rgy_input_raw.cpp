@@ -196,7 +196,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         }
     }
 
-    auto nOutputCSP = m_inputVideoInfo.csp;
+    auto nOutputCSP = m_inputVideoInfo.csp; //RGYInputRawがエンコーダに渡すべき色空間
     m_inputCsp = RGY_CSP_YV12;
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         //read y4m header
@@ -210,7 +210,9 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         }
         m_inputCsp = m_inputVideoInfo.csp;
     } else {
-        m_inputVideoInfo.srcPitch = m_inputVideoInfo.srcWidth;
+        auto rawprm = reinterpret_cast<const RGYInputPrmRaw *>(prm);
+        m_inputCsp = (rawprm->inputCsp == RGY_CSP_NA) ? RGY_CSP_YV12 : rawprm->inputCsp; //input-cspで指定されたraw読み込みの値
+        m_inputVideoInfo.srcPitch = m_inputVideoInfo.srcWidth * (RGY_CSP_BIT_DEPTH[m_inputCsp] > 8 ? 2 : 1);
     }
 
     RGY_CSP output_csp_if_lossless = RGY_CSP_NA;

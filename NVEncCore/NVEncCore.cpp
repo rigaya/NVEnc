@@ -453,7 +453,23 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
         m_qpTable = std::make_unique<RGYListRef<RGYFrameDataQP>>();
     }
 
-    if (initReaders(m_pFileReader, m_AudioReaders, &inputParam->input,
+    //--input-cspの値 (raw読み込み用の入力色空間)
+    //この後上書きするので、ここで保存する
+    const auto inputCspOfRawReader = inputParam->input.csp;
+
+    //入力モジュールが、エンコーダに返すべき色空間をセット
+    const bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
+    if (inputParam->lossless || inputParam->vpp.colorspace.enable) {
+        inputParam->input.csp = RGY_CSP_NA; //なるべくそのままの色空間のままGPUへ転送する
+    } else {
+        if (bOutputHighBitDepth) {
+            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
+        } else {
+            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
+        }
+    }
+    //入力モジュールの初期化
+    if (initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
         inputParam->vpp.rff, inputParam->vpp.afs.enable, m_qpTable.get(), m_pPerfMonitor.get(), m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
@@ -2768,16 +2784,6 @@ RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<DynamicRCParam>& dynamicRC) 
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
-    bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
-    if (inputParam->lossless || inputParam->vpp.colorspace.enable) {
-        inputParam->input.csp = RGY_CSP_NA; //なるべくそのままの色空間のままGPUへ転送する
-    } else {
-        if (bOutputHighBitDepth) {
-            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444_16 : RGY_CSP_P010;
-        } else {
-            inputParam->input.csp = (inputParam->yuv444) ? RGY_CSP_YUV444 : RGY_CSP_NV12;
-        }
-    }
     m_nAVSyncMode = inputParam->common.AVSyncMode;
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
     if (inputParam->ctrl.lowLatency) {
@@ -2826,6 +2832,7 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
+    bool bOutputHighBitDepth = inputParam->codec == NV_ENC_HEVC && inputParam->encConfig.encodeCodecConfig.hevcConfig.pixelBitDepthMinus8 > 0;
     if (inputParam->lossless) {
         const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
         //入力ファイルの情報をもとに修正

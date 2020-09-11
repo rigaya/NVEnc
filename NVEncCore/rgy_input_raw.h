@@ -33,6 +33,16 @@
 
 #if ENABLE_RAW_READER
 
+
+
+class RGYInputPrmRaw : public RGYInputPrm {
+public:
+    RGY_CSP inputCsp;
+
+    RGYInputPrmRaw(RGYInputPrm base) : RGYInputPrm(base), inputCsp(RGY_CSP_YV12) {};
+    virtual ~RGYInputPrmRaw() {};
+};
+
 class RGYInputRaw : public RGYInput {
 public:
     RGYInputRaw();

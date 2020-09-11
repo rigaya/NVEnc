@@ -378,6 +378,17 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         }
         return 0;
     }
+    if (IS_OPTION("input-csp")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_rgy_csp, strInput[i], &value)) {
+            input->csp = (RGY_CSP)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_rgy_csp);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("raw")) {
         input->type = RGY_INPUT_FMT_RAW;
         return 0;
@@ -1964,6 +1975,9 @@ tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, bool save_d
     case RGY_INPUT_FMT_AVSW:   cmd << _T(" --avsw"); break;
     default: break;
     }
+    if (param->csp != RGY_CSP_NA) {
+        OPT_LST(_T("--input-csp"), csp, list_rgy_csp);
+    }
     if (save_disabled_prm || param->picstruct != RGY_PICSTRUCT_FRAME) {
         OPT_LST(_T("--interlace"), picstruct, list_interlaced);
     }
@@ -2395,6 +2409,8 @@ tstring gen_cmd_help_input() {
         _T("   --fps <int>/<int> or <float> set framerate\n")
         _T("   --interlace <string>         set input as interlaced\n")
         _T("                                  tff, bff\n");
+    str += print_list_options(_T("--input-csp <string>           set input colorspace for raw reader"),
+        list_rgy_csp, get_cx_index(list_rgy_csp, _T("yv12")));
     return str;
 }
 

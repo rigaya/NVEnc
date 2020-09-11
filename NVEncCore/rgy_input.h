@@ -280,6 +280,7 @@ RGY_ERR initReaders(
     shared_ptr<RGYInput> &pFileReader,
     vector<shared_ptr<RGYInput>> &otherReaders,
     VideoInfo *input,
+    const RGY_CSP inputCspOfRawReader,
     const shared_ptr<EncodeStatus> pStatus,
     const RGYParamCommon *common,
     const RGYParamControl *ctrl,

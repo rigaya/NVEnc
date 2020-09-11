@@ -708,6 +708,58 @@ const CX_DESC list_interlaced[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_rgy_csp[] = {
+    { _T("Invalid"),        RGY_CSP_NA },
+    { _T("nv12"),           RGY_CSP_NV12 },
+    { _T("yv12"),           RGY_CSP_YV12 },
+    { _T("yuv420p"),        RGY_CSP_YV12 },
+#if 0
+    { _T("yuy2"),           RGY_CSP_YUY2 },
+#endif
+    { _T("yuv422p"),        RGY_CSP_YUV422 },
+#if 0
+    { _T("nv16"),           RGY_CSP_NV16 },
+#endif
+    { _T("yuv444p"),        RGY_CSP_YUV444 },
+    { _T("yuv420p9le"),     RGY_CSP_YV12_09 },
+    { _T("yuv420p10le"),    RGY_CSP_YV12_10 },
+    { _T("yuv420p12le"),    RGY_CSP_YV12_12 },
+    { _T("yuv420p14le"),    RGY_CSP_YV12_14 },
+    { _T("yuv420p16le"),    RGY_CSP_YV12_16 },
+    { _T("p010"),           RGY_CSP_P010 },
+    { _T("yuv422p9le"),     RGY_CSP_YUV422_09 },
+    { _T("yuv422p10le"),    RGY_CSP_YUV422_10 },
+    { _T("yuv422p12le"),    RGY_CSP_YUV422_12 },
+    { _T("yuv422p14le"),    RGY_CSP_YUV422_14 },
+    { _T("yuv422p16le"),    RGY_CSP_YUV422_16 },
+#if 0
+    { _T("p210"),           RGY_CSP_P210 },
+#endif
+    { _T("yuv444p9le"),     RGY_CSP_YUV444_09 },
+    { _T("yuv444p10le"),    RGY_CSP_YUV444_10 },
+    { _T("yuv444p12le"),    RGY_CSP_YUV444_12 },
+    { _T("yuv444p14le"),    RGY_CSP_YUV444_14 },
+    { _T("yuv444p16le"),    RGY_CSP_YUV444_16 },
+#if 0
+    { _T("yuva444"),        RGY_CSP_YUVA444 },
+    { _T("yuva444p16le"),   RGY_CSP_YUVA444_16 },
+    { _T("rgb24r"),         RGY_CSP_RGB24R },
+    { _T("rgb32r"),         RGY_CSP_RGB32R },
+    { _T("rgb24"),          RGY_CSP_RGB24 },
+    { _T("rgb32"),          RGY_CSP_RGB32 },
+    { _T("bgr24"),          RGY_CSP_BGR24 },
+    { _T("bgr32"),          RGY_CSP_BGR32 },
+    { _T("rgb"),            RGY_CSP_RGB },
+    { _T("rgba"),           RGY_CSP_RGBA },
+    { _T("gbr"),            RGY_CSP_GBR },
+    { _T("gbra"),           RGY_CSP_GBRA },
+    { _T("yc48"),           RGY_CSP_YC48 },
+    { _T("y8"),             RGY_CSP_Y8 },
+    { _T("yc16"),           RGY_CSP_Y16 },
+#endif
+    { NULL, 0 }
+};
+
 typedef std::map<RGY_CODEC, std::vector<RGY_CSP>> CodecCsp;
 typedef std::vector<std::pair<int, CodecCsp>> DeviceCodecCsp;
 typedef std::vector<std::pair<tstring, tstring>> RGYOptList;

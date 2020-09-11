@@ -155,7 +155,7 @@ reader used will be selected depending on the extension of input file.
 
 | reader | yuv420 | yuy2 | yuv422 | yuv444 | rgb24 | rgb32 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| raw    |   ○   |      |        |        |       |       |
+| raw    |   ◎   |      |   ◎   |   ◎   |       |       |
 | y4m    |   ◎   |      |   ◎   |   ◎   |       |       |
 | avi    |   ○   |  ○  |        |        |   ○  |   ○  |
 | avs    |   ◎   |  ○  |   ◎   |   ◎   |   ○  |   ○  |
@@ -252,6 +252,13 @@ Example: input 1280x720
 --output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
 ```
 
+### --input-csp %lt;string%gt;
+Set input colorspace for --raw input. Default is yv12.
+```
+  yv12, nv12, p010, yuv420p9le, yuv420p10le, yuv420p12le, yuv420p14le, yuv420p16le
+  yuv422, yuv422p9le, yuv422p10le, yuv422p12le, yuv422p14le, yuv422p16le
+  yuv444, yuv444p9le, yuv444p10le, yuv444p12le, yuv444p14le, yuv444p16le
+```
 
 ## Encode Mode Options
 

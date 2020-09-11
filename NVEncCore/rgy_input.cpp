@@ -304,6 +304,7 @@ RGY_ERR initReaders(
     shared_ptr<RGYInput>& pFileReader,
     vector<shared_ptr<RGYInput>>& otherReaders,
     VideoInfo *input,
+    const RGY_CSP inputCspOfRawReader,
     const shared_ptr<EncodeStatus> pStatus,
     const RGYParamCommon *common,
     const RGYParamControl *ctrl,
@@ -387,6 +388,8 @@ RGY_ERR initReaders(
     auto subBurnTrack = std::make_unique<SubtitleSelect>();
     SubtitleSelect *subBurnTrackPtr = subBurnTrack.get();
 
+    RGYInputPrmRaw inputPrmRaw(inputPrm);
+    inputPrmRaw.inputCsp = inputCspOfRawReader;
 #if ENABLE_AVISYNTH_READER
     RGYInputAvsPrm inputPrmAvs(inputPrm);
 #endif
@@ -487,6 +490,7 @@ RGY_ERR initReaders(
             log->write(RGY_LOG_ERROR, _T("Please set fps when using raw input.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
+        pInputPrm = &inputPrmRaw;
         log->write(RGY_LOG_DEBUG, _T("raw/y4m reader selected.\n"));
         pFileReader.reset(new RGYInputRaw());
         break; }
