@@ -54,7 +54,7 @@
     <ProjectGuid>{2EEB3276-C363-4820-92EA-FEA8BF1045FE}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>NVEncC</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <UseMultiToolTask>true</UseMultiToolTask>
     <EnforceProcessCountAcrossBuilds>true</EnforceProcessCountAcrossBuilds>
   </PropertyGroup>
