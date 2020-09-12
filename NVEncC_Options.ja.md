@@ -493,14 +493,18 @@ DAR比 (画面アスペクト比) の指定。
 デフォルト = 0 (unspecified)
 
 ### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVCのみ]
-MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
+MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
+
+[--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
 ```
 例1: --max-cll 1000,300
 例2: --max-cll copy  # 入力ファイルから値をコピー
 ```
 
 ### --master-display &lt;string&gt; or "copy" [HEVCのみ]
-Mastering display data の設定。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
+Mastering display data の設定。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
+
+[--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
 ```
 例1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 例2: --master-display copy  # 入力ファイルから値をコピー

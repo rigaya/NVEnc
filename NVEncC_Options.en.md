@@ -487,14 +487,18 @@ Set chroma location flag of the output bitstream from values 0 ... 5.
 default: 0 = unspecified
 
 ### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC only]
-Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
+Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)  
+
+Please note that this option will implicitly activate [--repeat-headers](#--repeat-headers).  
 ```
 Example1: --max-cll 1000,300
 Example2: --max-cll copy  # copy values from source
 ```
 
 ### --master-display &lt;string&gt; or "copy" [HEVC only]
-Set Mastering display data. "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
+Set Mastering display data. "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)  
+
+Please note that this option will implicitly activate [--repeat-headers](#--repeat-headers).  
 ```
 Example1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 Example2: --master-display copy  # copy values from source
@@ -512,7 +516,7 @@ Therefore, input files without timestamps (such as raw ES), are not supported. P
 Insert Access Unit Delimiter NAL.
 
 ### --repeat-headers
-output VPS,SPS and PPS for every IDR frame.
+Output VPS, SPS and PPS for every IDR frame.
 
 ### --pic-struct
 Insert picture timing SEI.
