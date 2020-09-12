@@ -246,7 +246,6 @@ cudaError_t transform_plane(
             return flip_plane<TypePixel4, false, false>(pOutputPlane, pInputPlane, stream);
         }
     }
-    return cudaSuccess;
 }
 
 template<typename TypePixel4>
