@@ -157,15 +157,15 @@ static RGY_ERR unsharp_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFra
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
 
     auto err = unsharp_plane<Type, bit_depth>(&planeOutputY, &planeInputY, pGaussWeightY, radius, weight, threshold, stream);
-    if (err != RGY_ERR_NONE) {
+    if (err != cudaSuccess) {
         return err_to_rgy(err);
     }
     err = unsharp_plane<Type, bit_depth>(&planeOutputU, &planeInputU, pGaussWeightUV, radius, weight, threshold, stream);
-    if (err != RGY_ERR_NONE) {
+    if (err != cudaSuccess) {
         return err_to_rgy(err);
     }
     err = unsharp_plane<Type, bit_depth>(&planeOutputV, &planeInputV, pGaussWeightUV, radius, weight, threshold, stream);
-    if (err != RGY_ERR_NONE) {
+    if (err != cudaSuccess) {
         return err_to_rgy(err);
     }
     err = cudaGetLastError();

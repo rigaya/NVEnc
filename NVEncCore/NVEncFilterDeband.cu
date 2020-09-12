@@ -342,7 +342,7 @@ static RGY_ERR deband_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFram
         RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
         range, ditherY, threY, interlaced(*pInputFrame),
         stream);
-    if (err != RGY_ERR_NONE) {
+    if (err != cudaSuccess) {
         return err_to_rgy(err);
     }
     err = deband_plane<Type, bit_depth, sample_mode, MODE_U, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
@@ -352,7 +352,7 @@ static RGY_ERR deband_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFram
         RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
         range, ditherC, threCb, interlaced(*pInputFrame),
         stream);
-    if (err != RGY_ERR_NONE) {
+    if (err != cudaSuccess) {
         return err_to_rgy(err);
     }
     err = deband_plane<Type, bit_depth, sample_mode, MODE_V, blur_first, DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER>(
@@ -362,7 +362,7 @@ static RGY_ERR deband_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFram
         RGY_CSP_CHROMA_FORMAT[pInputFrame->csp] == RGY_CHROMAFMT_YUV420,
         range, ditherC, threCr, interlaced(*pInputFrame),
         stream);
-    if (err != RGY_ERR_NONE) {
+    if (err != cudaSuccess) {
         return err_to_rgy(err);
     }
     err = cudaGetLastError();
