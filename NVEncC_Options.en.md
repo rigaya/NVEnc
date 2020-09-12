@@ -452,7 +452,6 @@ Set SAR ratio (pixel aspect ratio).
 Set DAR ratio (screen aspect ratio).
 
 ### --colorrange &lt;string&gt;
-"--colorrange full" is same as "--fullrange".
 "auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
   limited, full, auto
