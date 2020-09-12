@@ -297,10 +297,22 @@ Set output bit depth.
 - 10 ... 10 bits
 
 ### --multipass &lt;string&gt;
-Multi pass mode. Available only for --vbr and --cbr. [API v10.0]
-- none
-- 2pass-quarter
-- 2pass-full
+Multi pass mode. Available only for --vbr and --cbr. [API v10.0]  
+
+In 1-pass rate control modes, the encoder will estimate the required QP for the macroblock and immediately encode the macroblock.
+
+In 2-pass rate control modes, NVENC estimates the complexity of the frame to be encoded and determines bit distribution across the frame in the first pass.
+In the second pass, NVENC encodes macroblocks in the frame using the distribution determined in the first pass. 
+2-pass rate control modes can distribute the bits more optimally within the frame and can reach closer to the target bitrate, especially for CBR encoding.
+
+- none  
+  1pass mode. (fast)
+
+- 2pass-quarter  
+  Runs first pass in quater resolution, which results in larger motion vectors being caught and fed as hints to second pass.
+
+- 2pass-full  
+  Runs first pass in full resolution, slower but generating better statistics for the second pass.
 
 ### --lossless
 Perform lossless output. (Default: off)
@@ -1710,7 +1722,7 @@ Example: Limit maximum speed to 90 fps
 Tune for lower transcoding latency, but will hurt transcoding throughput. Not recommended in most cases.
 
 ### --avsdll &lt;string&gt;
-Specifies AviSynth DLL location to use. When unspecified, the DLL installed in the system32 will be used.
+Specifies AviSynth DLL location to use. When unspecified, the default AviSynth.dll will be used.
 
 ### --perf-monitor [&lt;string&gt;][,&lt;string&gt;]...
 Outputs performance information. You can select the information name you want to output as a parameter from the following table. The default is all (all information).
