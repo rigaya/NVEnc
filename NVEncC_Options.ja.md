@@ -253,7 +253,7 @@ _特殊な値について_
 --output-res 1920x-2  -> 1920x1080にリサイズ (アスペクト比が維持できるように調整)
 ```
 
-### --input-csp %lt;string%gt;
+### --input-csp &lt;string&gt;
 raw読み込み時の入力色空間の設定。デフォルトはyv12。
 ```
   yv12, nv12, p010, yuv420p9le, yuv420p10le, yuv420p12le, yuv420p14le, yuv420p16le

@@ -253,7 +253,7 @@ Example: input 1280x720
 --output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
 ```
 
-### --input-csp %lt;string%gt;
+### --input-csp &lt;string&gt;
 Set input colorspace for --raw input. Default is yv12.
 ```
   yv12, nv12, p010, yuv420p9le, yuv420p10le, yuv420p12le, yuv420p14le, yuv420p16le
