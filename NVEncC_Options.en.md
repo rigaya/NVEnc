@@ -167,6 +167,7 @@ reader used will be selected depending on the extension of input file.
 ◇ ... 8bit / 10bit / 12bit supported  
 □ ... 8bit / 10bit supported  
 ○ ... support only 8 bits
+No marks ... not supported
 
 ### --raw
 Set the input to raw format.
