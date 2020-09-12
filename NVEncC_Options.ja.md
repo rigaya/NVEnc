@@ -257,8 +257,8 @@ _特殊な値について_
 raw読み込み時の入力色空間の設定。デフォルトはyv12。
 ```
   yv12, nv12, p010, yuv420p9le, yuv420p10le, yuv420p12le, yuv420p14le, yuv420p16le
-  yuv422, yuv422p9le, yuv422p10le, yuv422p12le, yuv422p14le, yuv422p16le
-  yuv444, yuv444p9le, yuv444p10le, yuv444p12le, yuv444p14le, yuv444p16le
+  yuv422p, yuv422p9le, yuv422p10le, yuv422p12le, yuv422p14le, yuv422p16le
+  yuv444p, yuv444p9le, yuv444p10le, yuv444p12le, yuv444p14le, yuv444p16le
 ```
 
 ## エンコードモードのオプション
