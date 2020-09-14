@@ -71,7 +71,7 @@ static void show_device_list() {
     }
 }
 
-static void show_hw(int deviceid) {
+static int show_hw(int deviceid) {
     show_version();
 
     InEncodeVideoParam encPrm;
@@ -81,9 +81,9 @@ static void show_hw(int deviceid) {
     NVEncCore nvEnc;
     if (NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
         && NV_ENC_SUCCESS == nvEnc.ShowCodecSupport(&encPrm)) {
-        return;
+        return 0;
     }
-    return;
+    return 1;
 }
 
 static void show_environment_info() {
@@ -91,7 +91,7 @@ static void show_environment_info() {
     _ftprintf(stdout, _T("%s\n"), getEnviromentInfo(false).c_str());
 }
 
-static void show_nvenc_features(int deviceid) {
+static int show_nvenc_features(int deviceid) {
     show_version();
     _ftprintf(stdout, _T("\n%s\n"), getEnviromentInfo(false).c_str());
 
@@ -102,8 +102,9 @@ static void show_nvenc_features(int deviceid) {
     NVEncCore nvEnc;
     if (NV_ENC_SUCCESS == nvEnc.Initialize(&encPrm)
         && NV_ENC_SUCCESS == nvEnc.ShowNVEncFeatures(&encPrm)) {
-        return;
+        return 0;
     }
+    return 1;
 }
 
 static void show_option_list() {
@@ -150,8 +151,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
                 deviceid = value;
             }
         }
-        show_hw(deviceid);
-        return 1;
+        return show_hw(deviceid) == 0 ? 1 : -1;
     }
     if (IS_OPTION("check-environment")) {
         show_environment_info();
@@ -165,8 +165,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
                 deviceid = value;
             }
         }
-        show_nvenc_features(deviceid);
-        return 1;
+        return show_nvenc_features(deviceid) == 0 ? 1 : -1;
     }
 #if ENABLE_AVSW_READER
     if (0 == _tcscmp(option_name, _T("check-avversion"))) {
