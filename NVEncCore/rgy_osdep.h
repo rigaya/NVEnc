@@ -172,6 +172,22 @@ static inline uint64_t __rdtscp(uint32_t *Aux) {
 //    return ((uint64_t)edx << 32) | eax;
 //}
 
+static short _InterlockedIncrement16(volatile short *pVariable) {
+    return __sync_add_and_fetch((volatile short*)pVariable, 1);
+}
+
+static short _InterlockedDecrement16(volatile short *pVariable) {
+    return __sync_sub_and_fetch((volatile short*)pVariable, 1);
+}
+
+static int32_t _InterlockedIncrement(volatile int32_t *pVariable) {
+    return __sync_add_and_fetch((volatile int32_t*)pVariable, 1);
+}
+
+static int32_t _InterlockedDecrement(volatile int32_t *pVariable) {
+    return __sync_sub_and_fetch((volatile int32_t*)pVariable, 1);
+}
+
 static inline int _vscprintf(const char * format, va_list pargs) {
     int retval;
     va_list argcopy;
