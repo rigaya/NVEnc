@@ -90,7 +90,7 @@ void apply_basic_tweak_uv(Type& u, Type& v, const float saturation, const float 
 template<typename Type, typename Type4, int bit_depth>
 __global__ void kernel_tweak_uv(uint8_t *__restrict__ pFrameU, uint8_t *__restrict__ pFrameV, const int pitch,
     const int width, const int height,
-    const float saturation, const float hue_sin, const float hue_cos) {
+    const float saturation, const float hue_sin, const float hue_cos, const bool swapuv) {
     const int ix = blockIdx.x * blockDim.x + threadIdx.x;
     const int iy = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -106,14 +106,14 @@ __global__ void kernel_tweak_uv(uint8_t *__restrict__ pFrameU, uint8_t *__restri
         apply_basic_tweak_uv<Type, bit_depth>(pixelU.z, pixelV.z, saturation, hue_sin, hue_cos);
         apply_basic_tweak_uv<Type, bit_depth>(pixelU.w, pixelV.w, saturation, hue_sin, hue_cos);
 
-        ptrU[0] = pixelU;
-        ptrV[0] = pixelV;
+        ptrU[0] = (swapuv) ? pixelU : pixelV;
+        ptrV[0] = (swapuv) ? pixelV : pixelU;
     }
 }
 
 template<typename Type, typename Type4, int bit_depth>
 static cudaError_t tweak_frame(FrameInfo *pFrame,
-    float contrast, float brightness, float saturation, float gamma, float hue_degree,
+    float contrast, float brightness, float saturation, float gamma, float hue_degree, bool swapuv,
     cudaStream_t stream) {
     auto planeInputY = getPlane(pFrame, RGY_PLANE_Y);
     auto planeInputU = getPlane(pFrame, RGY_PLANE_U);
@@ -148,7 +148,7 @@ static cudaError_t tweak_frame(FrameInfo *pFrame,
         const float hue = hue_degree * (float)M_PI / 180.0f;
         kernel_tweak_uv<Type, Type4, bit_depth><<<gridSize, blockSize, 0, stream>>>(
             planeInputU.ptr, planeInputV.ptr, planeInputU.pitch, planeInputU.width, planeInputU.height,
-            saturation, std::sin(hue) * saturation, std::cos(hue) * saturation);
+            saturation, std::sin(hue) * saturation, std::cos(hue) * saturation, swapuv);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             return cudaerr;
@@ -258,6 +258,7 @@ RGY_ERR NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         pTweakParam->tweak.saturation,
         pTweakParam->tweak.gamma,
         pTweakParam->tweak.hue,
+        pTweakParam->tweak.swapuv,
         stream);
     auto cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {

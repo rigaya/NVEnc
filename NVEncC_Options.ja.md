@@ -1575,6 +1575,8 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 
 - hue=&lt;float&gt; (default=0.0, -180 - 180)  
 
+- swapuv=&lt;bool&gt;  (default=false)
+
 ```
 例:
 --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75

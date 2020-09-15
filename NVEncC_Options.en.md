@@ -1529,6 +1529,8 @@ Rotate video. 90, 180, 270 degrees is allowed.
 
 - hue=&lt;float&gt; (default=0.0, -180 - 180)  
 
+- swapuv=&lt;bool&gt;  (default=false)
+
 ```
 Example:
 --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75

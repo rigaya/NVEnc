@@ -497,7 +497,8 @@ VppTweak::VppTweak() :
     contrast(FILTER_DEFAULT_TWEAK_CONTRAST),
     gamma(FILTER_DEFAULT_TWEAK_GAMMA),
     saturation(FILTER_DEFAULT_TWEAK_SATURATION),
-    hue(FILTER_DEFAULT_TWEAK_HUE) {
+    hue(FILTER_DEFAULT_TWEAK_HUE),
+    swapuv(false) {
 }
 
 bool VppTweak::operator==(const VppTweak& x) const {
@@ -506,15 +507,20 @@ bool VppTweak::operator==(const VppTweak& x) const {
         && contrast == x.contrast
         && gamma == x.gamma
         && saturation == x.saturation
-        && hue == x.hue;
+        && hue == x.hue
+        && swapuv == x.swapuv;
 }
 bool VppTweak::operator!=(const VppTweak& x) const {
     return !(*this == x);
 }
 
 tstring VppTweak::print() const {
-    return strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f"),
+    auto str = strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f"),
         brightness, contrast, saturation, gamma, hue);
+    if (swapuv) {
+        str += _T(", swapuv");
+    }
+    return str;
 }
 
 VppTransform::VppTransform() :

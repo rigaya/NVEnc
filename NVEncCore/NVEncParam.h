@@ -1084,6 +1084,7 @@ struct VppTweak {
     float gamma;      //  0.1 - 10.0 (1.0)
     float saturation; //  0.0 - 3.0 (1.0)
     float hue;        // -180 - 180 (0.0)
+    bool  swapuv;
 
     VppTweak();
     bool operator==(const VppTweak& x) const;

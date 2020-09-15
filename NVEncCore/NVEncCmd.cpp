@@ -463,7 +463,8 @@ tstring encoder_help() {
         _T("      contrast=<float>          (default=%.1f, -2.0 - 2.0)\n")
         _T("      gamma=<float>             (default=%.1f,  0.1 - 10.0)\n")
         _T("      saturation=<float>        (default=%.1f,  0.0 - 3.0)\n")
-        _T("      hue=<float>               (default=%.1f, -180 - 180)\n"),
+        _T("      hue=<float>               (default=%.1f, -180 - 180)\n")
+        _T("      swapuv=<bool>             (default=false)\n"),
         FILTER_DEFAULT_TWEAK_BRIGHTNESS,
         FILTER_DEFAULT_TWEAK_CONTRAST,
         FILTER_DEFAULT_TWEAK_GAMMA,
@@ -2424,7 +2425,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "contrast, ""brightness", "gamma", "saturation", "hue" };
+        const auto paramList = std::vector<std::string>{ "contrast, ""brightness", "gamma", "saturation", "hue", "swapuv" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2487,9 +2488,23 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
+                if (param_arg == _T("swapuv")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vpp.tweak.swapuv = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
+                if (param == _T("swapuv")) {
+                    pParams->vpp.tweak.swapuv = true;
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
@@ -4009,6 +4024,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_FLOAT(_T("gamma"), vpp.tweak.gamma, 3);
             ADD_FLOAT(_T("saturation"), vpp.tweak.saturation, 3);
             ADD_FLOAT(_T("hue"), vpp.tweak.hue, 3);
+            ADD_BOOL(_T("swapuv"), vpp.tweak.swapuv);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-tweak ") << tmp.str().substr(1);
