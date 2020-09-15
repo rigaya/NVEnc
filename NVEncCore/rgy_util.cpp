@@ -1146,6 +1146,54 @@ void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, i
     }
 }
 
+// convert float to half precision floating point
+unsigned short float2half(float value) {
+    // 1 : 8 : 23
+    union {
+        unsigned int u;
+        float f;
+    } tmp;
+
+    tmp.f = value;
+
+    // 1 : 8 : 23
+    unsigned short sign = (tmp.u & 0x80000000) >> 31;
+    unsigned short exponent = (tmp.u & 0x7F800000) >> 23;
+    unsigned int significand = tmp.u & 0x7FFFFF;
+
+    //     fprintf(stderr, "%d %d %d\n", sign, exponent, significand);
+
+        // 1 : 5 : 10
+    unsigned short fp16;
+    if (exponent == 0) {
+        // zero or denormal, always underflow
+        fp16 = (sign << 15) | (0x00 << 10) | 0x00;
+    } else if (exponent == 0xFF) {
+        // infinity or NaN
+        fp16 = (sign << 15) | (0x1F << 10) | (significand ? 0x200 : 0x00);
+    } else {
+        // normalized
+        short newexp = exponent + (-127 + 15);
+        if (newexp >= 31) {
+            // overflow, return infinity
+            fp16 = (sign << 15) | (0x1F << 10) | 0x00;
+        } else if (newexp <= 0) {
+            // underflow
+            if (newexp >= -10) {
+                // denormal half-precision
+                unsigned short sig = (significand | 0x800000) >> (14 - newexp);
+                fp16 = (sign << 15) | (0x00 << 10) | sig;
+            } else {
+                // underflow
+                fp16 = (sign << 15) | (0x00 << 10) | 0x00;
+            }
+        } else {
+            fp16 = (sign << 15) | (newexp << 10) | (significand >> 13);
+        }
+    }
+    return fp16;
+}
+
 int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule) {
     *data = nullptr;
 #if defined(_WIN32) || defined(_WIN64)

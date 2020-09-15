@@ -1216,4 +1216,6 @@ public:
 
 int rgy_avx_dummy_if_avail(int bAVXAvail);
 
+unsigned short float2half(float value);
+
 #endif //__RGY_UTIL_H__
