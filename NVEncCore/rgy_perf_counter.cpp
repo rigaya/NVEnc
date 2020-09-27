@@ -382,7 +382,6 @@ int RGYGPUCounterWin::thread_fin() {
                 HANDLE handle = thRefresh.native_handle();
                 thRefresh.detach();
                 TerminateThread(handle, 0);
-                CloseHandle(handle);
             }
         }
     } catch (...) {
