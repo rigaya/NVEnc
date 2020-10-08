@@ -715,7 +715,6 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     int interval, int nSelectOutputLog, int nSelectOutputPlot,
     std::unique_ptr<void, handle_deleter> thMainThread,
     std::shared_ptr<RGYLog> pRGYLog, CPerfMonitorPrm *prm) {
-    clear();
     m_pRGYLog = pRGYLog;
     m_luid = prm->luid;
     m_pid = GetCurrentProcessId();
