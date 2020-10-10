@@ -385,8 +385,15 @@ RGY_ERR initReaders(
     inputPrm.simdCsp = ctrl->simdCsp;
     RGYInputPrm *pInputPrm = &inputPrm;
 
-    auto subBurnTrack = std::make_unique<SubtitleSelect>();
-    SubtitleSelect *subBurnTrackPtr = subBurnTrack.get();
+    std::unique_ptr<SubtitleSelect> subBurnTrack;
+    auto subTitleSelectList = make_vector<SubtitleSelect *>(common->ppSubtitleSelectList, common->nSubtitleSelectCount);
+    if (std::find_if(subTitleSelectList.begin(), subTitleSelectList.end(), [](SubtitleSelect *sub) {
+        return (sub->trackID == 0);
+        }) == subTitleSelectList.end()) {
+        subBurnTrack = std::make_unique<SubtitleSelect>();
+        subBurnTrack->trackID = subburnTrackId;
+        subTitleSelectList.push_back(subBurnTrack.get());
+    }
 
     RGYInputPrmRaw inputPrmRaw(inputPrm);
     inputPrmRaw.inputCsp = inputCspOfRawReader;
@@ -428,7 +435,6 @@ RGY_ERR initReaders(
     case RGY_INPUT_FMT_AVHW:
     case RGY_INPUT_FMT_AVSW:
     case RGY_INPUT_FMT_AVANY: {
-        subBurnTrack->trackID = subburnTrackId;
         inputInfoAVCuvid.threadCsp = ctrl->threadCsp;
         inputInfoAVCuvid.simdCsp = ctrl->simdCsp;
         inputInfoAVCuvid.pInputFormat = common->AVInputFormat;
@@ -449,8 +455,8 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.trackStartData = sourceDataTrackIdStart;
         inputInfoAVCuvid.nAudioSelectCount = common->nAudioSelectCount;
         inputInfoAVCuvid.ppAudioSelect = common->ppAudioSelectList;
-        inputInfoAVCuvid.ppSubtitleSelect = (subburnTrackId) ? &subBurnTrackPtr : common->ppSubtitleSelectList;
-        inputInfoAVCuvid.nSubtitleSelectCount = (subburnTrackId) ? 1 : common->nSubtitleSelectCount;
+        inputInfoAVCuvid.ppSubtitleSelect = subTitleSelectList.data();
+        inputInfoAVCuvid.nSubtitleSelectCount = (int)subTitleSelectList.size();
         inputInfoAVCuvid.ppDataSelect = common->ppDataSelectList;
         inputInfoAVCuvid.nDataSelectCount = common->nDataSelectCount;
         inputInfoAVCuvid.ppAttachmentSelect = common->ppAttachmentSelectList;

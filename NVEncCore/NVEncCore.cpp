@@ -438,10 +438,6 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
 #endif
     m_pStatus.reset(new EncodeStatus());
 
-    if (inputParam->common.nSubtitleSelectCount > 0 && inputParam->vpp.subburn.size() > 0) {
-        PrintMes(RGY_LOG_ERROR, _T("--sub-copy and --vpp-subburn should not be set at the same time.\n"));
-        return NV_ENC_ERR_GENERIC;
-    }
     int subburnTrackId = 0;
     for (const auto &subburn : inputParam->vpp.subburn) {
         if (subburn.trackId > 0) {
@@ -3432,20 +3428,32 @@ NVENCSTATUS NVEncCore::Encode() {
             //パケットを各Writerに分配する
             for (uint32_t i = 0; i < packetList.size(); i++) {
                 const int nTrackId = (int)((uint32_t)packetList[i].flags >> 16);
-                if (pWriterForAudioStreams.count(nTrackId)) {
+                const bool sendToFilter = pFilterForStreams.count(nTrackId) > 0;
+                const bool sendToWriter = pWriterForAudioStreams.count(nTrackId) > 0;
+                AVPacket *pkt = &packetList[i];
+                if (sendToFilter) {
+                    AVPacket *pktToFilter = nullptr;
+                    if (sendToWriter) {
+                        pktToFilter = av_packet_clone(pkt);
+                    } else {
+                        std::swap(pktToFilter, pkt);
+                    }
+                    if ((sts = pFilterForStreams[nTrackId]->addStreamPacket(pktToFilter)) != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                }
+                if (sendToWriter) {
                     auto pWriter = pWriterForAudioStreams[nTrackId];
                     if (pWriter == nullptr) {
                         PrintMes(RGY_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
                         return RGY_ERR_NOT_FOUND;
                     }
-                    if ((sts = pWriter->WriteNextPacket(&packetList[i])) != RGY_ERR_NONE) {
+                    if ((sts = pWriter->WriteNextPacket(pkt)) != RGY_ERR_NONE) {
                         return sts;
                     }
-                } else if (pFilterForStreams.count(nTrackId)) {
-                    if ((sts = pFilterForStreams[nTrackId]->addStreamPacket(&packetList[i])) != RGY_ERR_NONE) {
-                        return sts;
-                    }
-                } else {
+                    pkt = nullptr;
+                }
+                if (pkt != nullptr) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
                     return RGY_ERR_NOT_FOUND;
                 }
