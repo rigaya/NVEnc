@@ -33,6 +33,8 @@
 #include <memory>
 #include <thread>
 #include <mutex>
+#include "rgy_osdep.h"
+#include "rgy_event.h"
 #include "NVEncFilter.h"
 #include "NVEncParam.h"
 
@@ -46,16 +48,30 @@ class NVEncFilterParamSsim : public NVEncFilterParam {
 public:
     bool ssim;
     bool psnr;
+    VMAFParam vmaf;
     int deviceId;
     CUvideoctxlock vidctxlock;
     VideoInfo input;
     rgy_rational<int> streamtimebase;
 
-    NVEncFilterParamSsim() : ssim(true), psnr(false), deviceId(0), vidctxlock(), input(), streamtimebase() {
+    NVEncFilterParamSsim() : ssim(true), psnr(false), vmaf(), deviceId(0), vidctxlock(), input(), streamtimebase() {
 
     };
     virtual ~NVEncFilterParamSsim() {};
     virtual tstring print() const override;
+};
+
+struct NVEncFilterVMAFData {
+    std::array<HANDLE, 2> heProcFin;
+    bool abort;
+    int procIndex;
+    int error;
+    double score;
+    std::thread thread;
+
+    void thread_fin();
+    NVEncFilterVMAFData();
+    ~NVEncFilterVMAFData();
 };
 
 class NVEncFilterSsim : public NVEncFilter {
@@ -65,17 +81,24 @@ public:
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
     RGY_ERR initDecode(const RGYBitstream *bitstream);
     bool decodeStarted() { return m_decodeStarted; }
-    RGY_ERR thread_func();
+    RGY_ERR thread_func_ssim_psnr();
+    RGY_ERR thread_func_vmaf();
     RGY_ERR compare_frames(bool flush);
 
     RGY_ERR addBitstream(const RGYBitstream *bitstream);
     virtual void showResult();
+
+    std::array<std::unique_ptr<CUFrameBuf>, 2> &frameHostOrg() { return m_frameHostOrg; };
+    std::array<std::unique_ptr<CUFrameBuf>, 2> &frameHostEnc() { return m_frameHostEnc; };
+    NVEncFilterVMAFData &vmaf() { return m_vmaf; }
+    int frameHostSendIndex() const { return m_frameHostSendIndex; }
 protected:
     RGY_ERR init_cuda_resources();
     void close_cuda_resources();
     virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     virtual RGY_ERR calc_ssim_psnr(const FrameInfo *p0, const FrameInfo *p1);
+
 
     bool m_decodeStarted; //デコードが開始したか
     int m_deviceId;       //SSIM計算で使用するCUDA device ID
@@ -90,6 +113,11 @@ protected:
     std::deque<std::unique_ptr<CUFrameBuf>> m_unused; //使っていないフレームバッファ(オリジナルフレーム格納用)
     std::unique_ptr<CuvidDecode> m_decoder;     // デコーダエンジン
     unique_ptr<NVEncFilterCspCrop> m_crop;      // NV12->YV12変換用
+    unique_ptr<NVEncFilterCspCrop> m_cropDToH;  // Device to Host 転送用
+    int m_frameHostSendIndex;
+    std::array<std::unique_ptr<CUFrameBuf>, 2> m_frameHostOrg;   // オリジナルのフレームのHostメモリでのバッファ
+    std::array<std::unique_ptr<CUFrameBuf>, 2> m_frameHostEnc;   // エンコード後のフレームのHostメモリでのバッファ
+    NVEncFilterVMAFData m_vmaf;
     std::unique_ptr<CUFrameBuf> m_decFrameCopy; //デコード後にcrop(NV12->YV12変換)したフレームの格納場所
     std::array<CUMemBufPair, 3> m_tmpSsim; //評価結果を返すための一時バッファ
     std::array<CUMemBufPair, 3> m_tmpPsnr; //評価結果を返すための一時バッファ

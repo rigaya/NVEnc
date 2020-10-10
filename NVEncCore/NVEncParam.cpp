@@ -764,6 +764,8 @@ VppParam::VppParam() :
     rff(false) {
 }
 
+VMAFParam::VMAFParam() : enable(false), model_path("vmaf_v0.6.1.pkl"), threads(0) {};
+
 VppAfs::VppAfs() :
     enable(false),
     tb_order(FILTER_DEFAULT_AFS_TB_ORDER),
@@ -1187,7 +1189,8 @@ InEncodeVideoParam::InEncodeVideoParam() :
     ctrl(),
     vpp(),
     ssim(false),
-    psnr(false) {
+    psnr(false),
+    vmaf() {
     encConfig = DefaultParam();
     memset(&par, 0, sizeof(par));
     input.vui = VideoVUIInfo();

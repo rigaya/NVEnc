@@ -1341,6 +1341,14 @@ struct VppParam {
     VppParam();
 };
 
+struct VMAFParam {
+    bool enable;
+    std::string model_path;
+    int threads;
+
+    VMAFParam();
+};
+
 struct InEncodeVideoParam {
     int deviceID;                 //使用するGPUのID
     int cudaSchedule;
@@ -1364,6 +1372,7 @@ struct InEncodeVideoParam {
     VppParam vpp;                 //vpp
     bool ssim;
     bool psnr;
+    VMAFParam vmaf;
 
     InEncodeVideoParam();
 };

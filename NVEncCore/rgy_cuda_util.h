@@ -348,6 +348,33 @@ public:
         frame.deivce_mem = true;
         return alloc();
     }
+    cudaError_t allocHost() {
+        if (frame.ptr) {
+            cudaFree(frame.ptr);
+        }
+        cudaError_t ret = cudaSuccess;
+        const auto infoEx = getFrameInfoExtra(&frame);
+        frame.pitch = ALIGN(infoEx.width_byte, 64);
+        if (frame.pitch) {
+            ret = cudaMallocHost(&frame.ptr, frame.pitch * infoEx.height_total);
+        } else {
+            ret = cudaErrorNotSupported;
+        }
+        return ret;
+    }
+    cudaError_t allocHost(int width, int height, RGY_CSP csp = RGY_CSP_NV12) {
+        if (frame.ptr) {
+            cudaFree(frame.ptr);
+        }
+        const auto infoEx = getFrameInfoExtra(&frame);
+        frame.ptr = nullptr;
+        frame.pitch = 0;
+        frame.width = width;
+        frame.height = height;
+        frame.csp = csp;
+        frame.deivce_mem = false;
+        return allocHost();
+    }
     void clear() {
         if (frame.ptr) {
             cudaFree(frame.ptr);

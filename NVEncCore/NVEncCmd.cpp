@@ -556,6 +556,7 @@ tstring encoder_help() {
     str += strsprintf(_T("")
         _T("   --ssim                       calc ssim.\n")
         _T("   --psnr                       calc psnr.\n")
+        _T("   --vmaf                       calc vmaf.\n")
         _T("   --cuda-schedule <string>     set cuda schedule mode (default: sync).\n")
         _T("       auto  : let cuda driver to decide\n")
         _T("       spin  : CPU will spin when waiting GPU tasks,\n")
@@ -3348,6 +3349,57 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
     }
     if (IS_OPTION("no-psnr")) {
         pParams->psnr = false;
+        return 0;
+    }
+    if (IS_OPTION("no-vmaf")) {
+        pParams->vmaf.enable = false;
+        return 0;
+    }
+    if (IS_OPTION("vmaf")) {
+        pParams->vmaf.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "model_path", "threads" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vmaf.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("threads")) {
+                    try {
+                        pParams->vmaf.threads = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("model_path")) {
+                    pParams->vmaf.model_path = tchar_to_string(trim(param_val, _T("\"")));
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
         return 0;
     }
     if (IS_OPTION("cavlc")) {
