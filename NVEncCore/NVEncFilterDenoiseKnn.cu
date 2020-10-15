@@ -56,12 +56,14 @@ __global__ void kernel_denoise_knn(uint8_t *__restrict__ pDst, const int dstPitc
         float sum = 0.0f;
         float center = (float)tex2D<Type>(texSrc, x, y) * (1.0f / (1<<bit_depth));
 
-        for (float i = -knn_radius; i <= knn_radius; i++) {
-            for (float j = -knn_radius; j <= knn_radius; j++) {
-                float clrIJ = (float)tex2D<Type>(texSrc, x + j, y + i) * (1.0f / (1<<bit_depth));
+        #pragma unroll
+        for (int i = -knn_radius; i <= knn_radius; i++) {
+            #pragma unroll
+            for (int j = -knn_radius; j <= knn_radius; j++) {
+                float clrIJ = (float)tex2D<Type>(texSrc, x + (float)j, y + (float)i) * (1.0f / (1<<bit_depth));
                 float distanceIJ = (center - clrIJ) * (center - clrIJ);
 
-                float weightIJ = __expf(-(distanceIJ * strength + (i * i + j * j) * inv_knn_window_area));
+                float weightIJ = __expf(-(distanceIJ * strength + (float)(i * i + j * j) * inv_knn_window_area));
 
                 sum += clrIJ * weightIJ;
 
