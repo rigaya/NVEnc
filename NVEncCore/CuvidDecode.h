@@ -51,7 +51,7 @@
 #if ENABLE_AVSW_READER
 
 bool check_if_nvcuvid_dll_available();
-CodecCsp getHWDecCodecCsp();
+CodecCsp getHWDecCodecCsp(bool skipHWDecodeCheck);
 
 struct VideoInfo;
 

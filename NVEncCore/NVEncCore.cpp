@@ -879,7 +879,7 @@ NVENCSTATUS NVEncCore::InitDeviceList(std::vector<std::unique_ptr<NVGPUInfo>>& g
         cudaGetLastError(); //これまでのエラーを初期化
         if ((m_nDeviceId < 0 || m_nDeviceId == currentDevice)) {
             auto gpu = std::make_unique<NVGPUInfo>(m_pNVLog);
-            if (gpu->initDevice(currentDevice, m_cudaSchedule, m_nDeviceId == currentDevice) == RGY_ERR_NONE) {
+            if (gpu->initDevice(currentDevice, m_cudaSchedule, m_nDeviceId == currentDevice, inputParam->ctrl.skipHWDecodeCheck) == RGY_ERR_NONE) {
                 gpuList.push_back(std::move(gpu));
             }
         }

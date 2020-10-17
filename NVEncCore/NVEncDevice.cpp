@@ -767,7 +767,7 @@ const NVEncCodecFeature *NVEncoder::getCodecFeature(const GUID &codec) {
     return nullptr;
 }
 
-RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail) {
+RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_fail, bool skipHWDecodeCheck) {
 #define GETATTRIB_CHECK(val, attrib, dev) { \
         cudaError_t cuErr = cudaDeviceGetAttribute(&(val), (attrib), (dev)); \
         if (cuErr == cudaErrorInvalidDevice || cuErr == cudaErrorInvalidValue) { \
@@ -894,7 +894,7 @@ RGY_ERR NVGPUInfo::initDevice(int deviceID, CUctx_flags ctxFlags, bool error_if_
     m_vidCtxLock = std::unique_ptr<std::remove_pointer<CUvideoctxlock>::type, decltype(cuvidCtxLockDestroy)>(vidCtxLockTmp, cuvidCtxLockDestroy);
     {
         NVEncCtxAutoLock(ctxlock(m_vidCtxLock.get()));
-        m_cuvid_csp = getHWDecCodecCsp();
+        m_cuvid_csp = getHWDecCodecCsp(skipHWDecodeCheck);
     }
     m_encoder = std::make_unique<NVEncoder>(cuCtxCreated, m_log);
     auto nvsts = m_encoder->InitSession();

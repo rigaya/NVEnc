@@ -1936,6 +1936,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
+    if (IS_OPTION("skip-hwdec-check")) {
+        ctrl->skipHWDecodeCheck = true;
+        return 0;
+    }
     if (IS_OPTION("debug-cmd-parser")) {
         return 0;
     }
@@ -2318,6 +2322,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_LST(_T("--log-level"), loglevel, list_log_level);
     OPT_BOOL(_T("--log-framelist"), _T(""), logFramePosList);
     OPT_CHAR_PATH(_T("--log-mux-ts"), logMuxVidTsFile);
+    OPT_BOOL(_T("--skip-hwdec-check"), _T(""), skipHWDecodeCheck);
     OPT_STR_PATH(_T("--avsdll"), avsdll);
     if (param->perfMonitorSelect != defaultPrm->perfMonitorSelect) {
         auto select = (int)param->perfMonitorSelect;

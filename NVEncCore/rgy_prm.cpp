@@ -162,6 +162,7 @@ RGYParamControl::RGYParamControl() :
     parentProcessID(0),
     lowLatency(false),
     gpuSelect(),
+    skipHWDecodeCheck(false),
     avsdll() {
 
 }
