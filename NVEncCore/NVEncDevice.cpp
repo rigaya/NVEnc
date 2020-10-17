@@ -448,8 +448,9 @@ NVENCSTATUS NVEncoder::NvEncOpenEncodeSessionEx(void *device, NV_ENC_DEVICE_TYPE
 
     static constexpr auto API_VER_LIST = make_array<uint32_t>(
         nvenc_api_ver(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION),
-        nvenc_api_ver(9,1),
-        nvenc_api_ver(9,0)
+        nvenc_api_ver(10, 0),
+        nvenc_api_ver( 9, 1),
+        nvenc_api_ver( 9, 0)
     );
 
     NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS openSessionExParams;
@@ -675,6 +676,9 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
         }
     };
 
+    if (nvenc_api_ver_check(m_apiVer, nvenc_api_ver(10,0))) {
+        add_cap_info(NV_ENC_CAPS_NUM_ENCODER_ENGINES, false, false, _T("Encoder Engines"));
+    }
     add_cap_info(NV_ENC_CAPS_NUM_MAX_BFRAMES,              false, false, _T("Max Bframes"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_BFRAME_REF_MODE,      false, false, _T("B Ref Mode"), list_nvenc_caps_bref_mode);
     add_cap_info(NV_ENC_CAPS_SUPPORTED_RATECONTROL_MODES,  false, false, _T("RC Modes"));

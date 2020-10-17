@@ -38,7 +38,8 @@ static const auto RGY_CODEC_TO_NVENC = make_array<std::pair<RGY_CODEC, cudaVideo
     std::make_pair(RGY_CODEC_MPEG4, cudaVideoCodec_MPEG4),
     std::make_pair(RGY_CODEC_VP8,   cudaVideoCodec_VP8),
     std::make_pair(RGY_CODEC_VP9,   cudaVideoCodec_VP9),
-    std::make_pair(RGY_CODEC_VC1,   cudaVideoCodec_VC1)
+    std::make_pair(RGY_CODEC_VC1,   cudaVideoCodec_VC1),
+    std::make_pair(RGY_CODEC_AV1,   cudaVideoCodec_AV1)
     );
 
 MAP_PAIR_0_1(codec, rgy, RGY_CODEC, enc, cudaVideoCodec, RGY_CODEC_TO_NVENC, RGY_CODEC_UNKNOWN, cudaVideoCodec_NumCodecs);
