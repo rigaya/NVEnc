@@ -11,7 +11,7 @@
 ビルドには、下記のものが必要です。
 
 - Visual Studio 2015 + CUDA 8.0 (x86)
-- Visual Studio 2015/2017/2019 + CUDA 10.2 (x64)
+- Visual Studio 2019 + CUDA 10.2 (x64)
 - yasm
 - Avisynth+ SDK
 - VapourSynth SDK
