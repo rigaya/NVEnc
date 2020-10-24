@@ -387,12 +387,14 @@ RGY_ERR initReaders(
 
     std::unique_ptr<SubtitleSelect> subBurnTrack;
     auto subTitleSelectList = make_vector<SubtitleSelect *>(common->ppSubtitleSelectList, common->nSubtitleSelectCount);
-    if (std::find_if(subTitleSelectList.begin(), subTitleSelectList.end(), [](SubtitleSelect *sub) {
-        return (sub->trackID == 0);
-        }) == subTitleSelectList.end()) {
-        subBurnTrack = std::make_unique<SubtitleSelect>();
-        subBurnTrack->trackID = subburnTrackId;
-        subTitleSelectList.push_back(subBurnTrack.get());
+    if (subburnTrackId > 0) {
+        if (std::find_if(subTitleSelectList.begin(), subTitleSelectList.end(), [](SubtitleSelect *sub) {
+            return (sub->trackID == 0);
+            }) == subTitleSelectList.end()) {
+            subBurnTrack = std::make_unique<SubtitleSelect>();
+            subBurnTrack->trackID = subburnTrackId;
+            subTitleSelectList.push_back(subBurnTrack.get());
+        }
     }
 
     RGYInputPrmRaw inputPrmRaw(inputPrm);
