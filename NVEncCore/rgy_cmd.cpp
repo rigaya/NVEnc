@@ -1710,7 +1710,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         int value = 0;
         if (get_list_value(list_transfer, strInput[i], &value)) {
             common->atcSei = (CspTransfer)value;
-        } else if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+        } else if (_stscanf_s(strInput[i], _T("%d"), &value) == 1) {
             common->atcSei = (CspTransfer)value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_transfer);
