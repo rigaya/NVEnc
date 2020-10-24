@@ -84,6 +84,9 @@ static AVMediaType trackMediaType(int trackID) {
 static int trackID(int trackID) {
     return (int)(((uint32_t)trackID) & 0x0fff);
 }
+static const char *trackMediaTypeStr(int trackID) {
+    return av_get_media_type_string(trackMediaType(trackID));
+}
 #endif //#if ENABLE_AVSW_READER
 
 struct RGYConvertCSPPrm {
