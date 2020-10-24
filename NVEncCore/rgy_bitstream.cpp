@@ -45,7 +45,7 @@ std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
     return data;
 }
 
-HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false) {
+HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false), atcSei(RGY_TRANSFER_UNKNOWN) {
     memset(&masterdisplay, 0, sizeof(masterdisplay));
 }
 
@@ -104,6 +104,10 @@ int HEVCHDRSei::parse_masterdisplay(std::string str_masterdisplay) {
     return 0;
 }
 
+void HEVCHDRSei::set_atcsei(CspTransfer atcSei) {
+    prm.atcSei = atcSei;
+}
+
 HEVCHDRSeiPrm HEVCHDRSei::getprm() const {
     return prm;
 }
@@ -133,15 +137,26 @@ std::string HEVCHDRSei::print_maxcll() const {
     return str;
 }
 
+std::string HEVCHDRSei::print_atcsei() const {
+    std::string str;
+    if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {
+        str += tchar_to_string(get_cx_desc(list_transfer, prm.atcSei));
+    }
+    return str;
+}
+
 std::string HEVCHDRSei::print() const {
     std::string str = print_masterdisplay();
     std::string str1 = print_maxcll();
+    std::string str2 = print_atcsei();
     if (str.length() > 0) {
         str = "Mastering Display: " + str + "\n";
     }
-    str += str1;
     if (str1.length() > 0) {
         str += "MaxCLL/MaxFALL: " + str1 + "\n";
+    }
+    if (str2.length() > 0) {
+        str += "AtcSei: " + str2 + "\n";
     }
     return str;
 }
@@ -169,7 +184,10 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
 
     auto data_maxcll = sei_maxcll();
     auto data_masterdisplay = sei_masterdisplay();
-    if (data_maxcll.size() == 0 && data_masterdisplay.size() == 0) {
+    auto data_atcsei = sei_atcsei();
+    if (data_maxcll.size() == 0
+        && data_masterdisplay.size() == 0
+        && data_atcsei.size() == 0) {
         return data;
     }
     std::vector<uint8_t> header = { 0x00, 0x00, 0x00, 0x01 };
@@ -221,6 +239,23 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
 
         vector_cat(data, nal_masterdisplay);
     }
+
+    if (data_atcsei.size() > 0) {
+        std::vector<uint8_t> buf;
+        uint16_t u16 = 0x00;
+        u16 |= (39 << 9) | 1;
+        add_u16(buf, u16);
+        vector_cat(buf, data_atcsei);
+        to_nal(buf);
+
+        std::vector<uint8_t> nal_atcsei;
+        nal_atcsei.reserve(128);
+        vector_cat(nal_atcsei, header);
+        vector_cat(nal_atcsei, buf);
+        nal_atcsei.push_back(0x80);
+
+        vector_cat(data, nal_atcsei);
+    }
 #endif
     return data;
 }
@@ -249,6 +284,17 @@ std::vector<uint8_t> HEVCHDRSei::sei_masterdisplay() const {
         }
         add_u32(data, (uint32_t)prm.masterdisplay[8]);
         add_u32(data, (uint32_t)prm.masterdisplay[9]);
+    }
+    return data;
+}
+
+std::vector<uint8_t> HEVCHDRSei::sei_atcsei() const {
+    std::vector<uint8_t> data;
+    data.reserve(8);
+    if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {
+        data.push_back(147);
+        data.push_back(1);
+        data.push_back(prm.atcSei);
     }
     return data;
 }

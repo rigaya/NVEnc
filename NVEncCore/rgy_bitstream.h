@@ -180,6 +180,7 @@ struct HEVCHDRSeiPrm {
     bool contentlight_set;
     int masterdisplay[10];
     bool masterdisplay_set;
+    CspTransfer atcSei;
 public:
     HEVCHDRSeiPrm();
 };
@@ -195,15 +196,18 @@ public:
     int parse_maxcll(std::string maxcll);
     void set_masterdisplay(const int masterdisplay[10]);
     int parse_masterdisplay(std::string masterdisplay);
+    void set_atcsei(CspTransfer atcSei);
     HEVCHDRSeiPrm getprm() const;
     std::string print_masterdisplay() const;
     std::string print_maxcll() const;
+    std::string print_atcsei() const;
     std::string print() const;
     std::vector<uint8_t> gen_nal() const;
     std::vector<uint8_t> gen_nal(HEVCHDRSeiPrm prm);
 private:
     std::vector<uint8_t> sei_maxcll() const;
     std::vector<uint8_t> sei_masterdisplay() const;
+    std::vector<uint8_t> sei_atcsei() const;
     void to_nal(std::vector<uint8_t>& data) const;
     void add_u16(std::vector<uint8_t>& data, uint16_t u16) const;
     void add_u32(std::vector<uint8_t>& data, uint32_t u32) const;

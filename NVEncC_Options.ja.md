@@ -520,6 +520,14 @@ Mastering display data の設定。"copy"とすると入力ファイルの値を
 例2: --master-display copy  # 入力ファイルから値をコピー
 ```
 
+### --atc-sei &lt;string&gt; or &lt;int&gt;
+Alternative transfer characteristics SEI の設定。下記文字列または整数で指定する。
+```
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
+```  
+
 ### --dhdr10-info &lt;string&gt; [HEVC only]
 指定したjsonファイルから、HDR10+のメタデータを読み込んで反映する。実行には追加で[hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen)が必要。
 

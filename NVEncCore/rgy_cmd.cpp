@@ -1705,6 +1705,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->masterDisplay = tchar_to_string(strInput[i]);
         return 0;
     }
+    if (IS_OPTION("atc-sei")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_transfer, strInput[i], &value)) {
+            common->atcSei = (CspTransfer)value;
+        } else if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            common->atcSei = (CspTransfer)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_transfer);
+            return 1;
+        }
+        return 0;
+    }
 #if ENABLE_DHDR10_INFO
     if (IS_OPTION("dhdr10-info")) {
         i++;
@@ -2297,6 +2310,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_LST(_T("--videoformat"), out_vui.format, list_videoformat);
     OPT_STR(_T("--max-cll"), maxCll);
     OPT_STR(_T("--master-display"), masterDisplay);
+    OPT_LST(_T("--atc-sei"), atcSei, list_transfer);
 #if ENABLE_DHDR10_INFO
     if (param->hdr10plusMetadataCopy) {
         cmd << _T("--dhdr10-info copy");
@@ -2432,7 +2446,9 @@ tstring gen_cmd_help_common() {
     str += strsprintf(
         _T("   --max-cll <int>,<int>        set MaxCLL/MaxFall in nits. e.g. \"1000,300\"\n")
         _T("   --master-display <string>    set Mastering display data.\n")
-        _T("   e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n")
+        _T("   e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n"));
+    str += print_list_options(_T("--atc-sei <string> or <int>"), list_transfer, 1);
+    str += strsprintf(
 #if ENABLE_DHDR10_INFO
         _T("   --dhdr10-info <string>       apply dynamic HDR10+ metadata from json file.\n")
         _T("   --dhdr10-info copy           Copy dynamic HDR10+ metadata from input file.\n")

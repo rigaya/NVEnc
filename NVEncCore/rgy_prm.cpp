@@ -106,6 +106,7 @@ RGYParamCommon::RGYParamCommon() :
     inputOpt(),
     maxCll(),
     masterDisplay(),
+    atcSei(RGY_TRANSFER_UNKNOWN),
     hdr10plusMetadataCopy(false),
     dynamicHdr10plusJson(),
     videoCodecTag(),

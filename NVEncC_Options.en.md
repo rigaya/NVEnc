@@ -515,6 +515,14 @@ Example1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,1645
 Example2: --master-display copy  # copy values from source
 ```
 
+### --atc-sei &lt;string&gt; or &lt;int&gt;
+Set alternative transfer characteristics SEI from below or by integer, Required for HLG (Hybrid Log Gamma) signaling.
+```
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
+```  
+
 ### --dhdr10-info &lt;string&gt; [HEVC only]
 Apply HDR10+ dynamic metadata from specified json file. Requires [hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen) module  additionally.
 

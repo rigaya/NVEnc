@@ -129,6 +129,7 @@ struct RGYParamCommon {
 
     std::string maxCll;
     std::string masterDisplay;
+    CspTransfer atcSei;
     bool hdr10plusMetadataCopy;
     tstring dynamicHdr10plusJson;
     std::string videoCodecTag;

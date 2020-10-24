@@ -566,7 +566,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 #include "rgy_input_avcodec.h"
 #include "rgy_output_avcodec.h"
 
-std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string& maxCll, const std::string &masterDisplay, const RGYInput *reader) {
+std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string& maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader) {
     auto hedrsei = std::make_unique<HEVCHDRSei>();
     const AVMasteringDisplayMetadata *masteringDisplaySrc = nullptr;
     const AVContentLightMetadata *contentLightSrc = nullptr;
@@ -601,6 +601,9 @@ std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string& maxCll, const st
         }
     } else {
         ret = hedrsei->parse_masterdisplay(masterDisplay);
+    }
+    if (atcSei != RGY_TRANSFER_UNKNOWN) {
+        hedrsei->set_atcsei(atcSei);
     }
     if (ret) {
         hedrsei.reset();
