@@ -294,7 +294,7 @@ std::vector<uint8_t> HEVCHDRSei::sei_atcsei() const {
     if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {
         data.push_back(147);
         data.push_back(1);
-        data.push_back(prm.atcSei);
+        data.push_back((uint8_t)prm.atcSei);
     }
     return data;
 }
