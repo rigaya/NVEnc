@@ -95,10 +95,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, FrameIn
                     AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
                     return RGY_ERR_INVALID_PARAM;
                 }
-                const auto frameInfoEx = getFrameInfoExtra(pInputFrame);
-                auto cudaerr = cudaMemcpy2DAsync(pOutFrame->frame.ptr, pOutFrame->frame.pitch,
-                    pInputFrame->ptr, pInputFrame->pitch, frameInfoEx.width_byte, frameInfoEx.height_total,
-                    cudaMemcpyDeviceToDevice);
+                auto cudaerr = copyFrameAsync(&pOutFrame->frame, pInputFrame, stream);
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
                     return RGY_ERR_CUDA;
@@ -124,10 +121,7 @@ RGY_ERR NVEncFilterSelectEvery::run_filter(const FrameInfo *pInputFrame, FrameIn
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
             return RGY_ERR_INVALID_PARAM;
         }
-        const auto frameInfoEx = getFrameInfoExtra(pInputFrame);
-        auto cudaerr = cudaMemcpy2DAsync(pOutFrame->frame.ptr, pOutFrame->frame.pitch,
-            pInputFrame->ptr, pInputFrame->pitch, frameInfoEx.width_byte, frameInfoEx.height_total,
-            cudaMemcpyDeviceToDevice);
+        auto cudaerr = copyFrameAsync(&pOutFrame->frame, pInputFrame, stream);
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copy frame to buffer: %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
             return RGY_ERR_CUDA;
