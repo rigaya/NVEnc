@@ -1275,7 +1275,7 @@ cudaError_t proc_plane(
     cudaStream_t stream
 ) {
     // 有効なほうのフィールドをコピー
-    auto cudaerr = copyPlaneFieldAsync(pOutputPlane, pInputPlane, targetField != NNEDI_GEN_FIELD_TOP, stream);
+    auto cudaerr = copyPlaneFieldAsync(pOutputPlane, pInputPlane, targetField != NNEDI_GEN_FIELD_TOP, targetField != NNEDI_GEN_FIELD_TOP, stream);
     if (cudaerr != cudaSuccess) {
         return cudaerr;
     }
