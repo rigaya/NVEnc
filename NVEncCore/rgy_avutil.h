@@ -50,6 +50,7 @@ extern "C" {
 #include <libavutil/display.h>
 #include <libavutil/mastering_display_metadata.h>
 #include <libavformat/avformat.h>
+#include <libavformat/avio.h>
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
 #include <libavfilter/avfilter.h>
@@ -235,7 +236,7 @@ vector<std::string> getAVProtocolList(int bOutput);
 tstring getAVProtocols();
 
 //protocolを使用
-bool usingAVProtocols(std::string filename, int bOutput);
+bool usingAVProtocols(const std::string& filename, int bOutput);
 
 //バージョン情報の取得
 tstring getAVVersions();
