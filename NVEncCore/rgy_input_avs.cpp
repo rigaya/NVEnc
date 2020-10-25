@@ -338,6 +338,11 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 m_inputVideoInfo.csp = csp.out;
             } else {
                 m_inputVideoInfo.csp = (m_convert->getFunc(m_inputCsp, prefered_csp, false, prm->simdCsp) != nullptr) ? prefered_csp : csp.out;
+                //csp.outがYUV422に関しては可能ならcsp.outを優先する
+                if (RGY_CSP_CHROMA_FORMAT[csp.out] == RGY_CHROMAFMT_YUV422
+                    && m_convert->getFunc(m_inputCsp, csp.out, false, prm->simdCsp) != nullptr) {
+                    m_inputVideoInfo.csp = csp.out;
+                }
                 //QSVではNV16->P010がサポートされていない
                 if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
                     m_inputVideoInfo.csp = RGY_CSP_P210;
