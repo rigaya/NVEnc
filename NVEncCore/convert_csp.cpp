@@ -709,8 +709,8 @@ static void convert_yuv422_to_yuv444_c(void **dst, const void **src, int width, 
             const int x_fin = width - crop_right - crop_left;
             for (int x = 0; x < x_fin; x += 2) {
                 int cxplus = (x + 2 < x_fin);
-                int cy1x0 = srcP[x+0];
-                int cy1x1 = srcP[x+cxplus];
+                int cy1x0 = srcP[(x>>1)+0];
+                int cy1x1 = srcP[(x>>1)+cxplus];
                 dstC[x+0] = bit_dpeth_conv(cy1x0);
                 dstC[x+1] = bit_dpeth_conv((cy1x0 + cy1x1 + 1) >> 1);
             }
