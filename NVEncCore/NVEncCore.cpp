@@ -1867,7 +1867,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationTop = m_encVUI.chromaloc - 1;
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.hevcVUIParameters.chromaSampleLocationBot = m_encVUI.chromaloc - 1;
         }
-        if (m_hdr10plus || m_hdrsei) {
+        if (m_hdr10plus || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
             m_stCreateEncodeParams.encodeConfig->encodeCodecConfig.hevcConfig.repeatSPSPPS = 1;
         }
     } else if (inputParam->codec == NV_ENC_H264) {
