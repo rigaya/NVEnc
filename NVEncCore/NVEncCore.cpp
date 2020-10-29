@@ -2471,7 +2471,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             if (pAVCodecReader != nullptr) {
                 param->videoInputStream = pAVCodecReader->GetInputVideoStream();
                 param->videoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
-                param->videoInfo = m_pFileReader->GetInputFrameInfo();
                 for (const auto &stream : pAVCodecReader->GetInputStreamInfo()) {
                     if (stream.trackId == trackFullID(AVMEDIA_TYPE_SUBTITLE, param->subburn.trackId)) {
                         param->streamIn = stream;
@@ -2479,6 +2478,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                     }
                 }
             }
+            param->videoInfo = m_pFileReader->GetInputFrameInfo();
             if (param->subburn.trackId != 0 && param->streamIn.stream == nullptr) {
                 PrintMes(RGY_LOG_WARN, _T("Could not find subtitle track #%d, vpp-subburn for track #%d will be disabled.\n"),
                     param->subburn.trackId, param->subburn.trackId);
