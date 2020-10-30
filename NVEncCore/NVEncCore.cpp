@@ -3548,6 +3548,7 @@ NVENCSTATUS NVEncCore::Encode() {
     int64_t lastTrimFramePts = AV_NOPTS_VALUE; //直前のtrimで落とされたフレームのpts, trimで落とされてない場合はAV_NOPTS_VALUE (スケール: m_outputTimebase)
     int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: m_outputTimebase)
     const int64_t nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
+    int64_t nLastPts = AV_NOPTS_VALUE;
 
     int dec_vpp_rff_sts = 0; //rffの展開状態を示すフラグ
 
@@ -3695,9 +3696,29 @@ NVENCSTATUS NVEncCore::Encode() {
             }
             outPtsSource = nOutEstimatedPts;
         }
+        if (nLastPts >= outPtsSource) {
+            if (nLastPts - outPtsSource >= 32 * nOutFrameDuration) {
+                PrintMes(RGY_LOG_DEBUG, _T("check_pts: previous pts %lld, current pts %lld, estimated pts %lld, nOutFirstPts %lld, changing offset.\n"), nLastPts, outPtsSource, nOutEstimatedPts, nOutFirstPts);
+                nOutFirstPts += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
+                outPtsSource = nOutEstimatedPts;
+                PrintMes(RGY_LOG_DEBUG, _T("check_pts:   changed to nOutFirstPts %lld, outPtsSource %lld.\n"), nOutFirstPts, outPtsSource);
+            } else {
+                if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) {
+                    //間引きが必要
+                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), pInputFrame->getFrameInfo().inputFrameId, nLastPts, outPtsSource);
+                    return decFrames;
+                } else {
+                    const auto origPts = outPtsSource;
+                    outPtsSource = nLastPts + std::max<int64_t>(1, nOutFrameDuration / 8);
+                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, changing pts: %lld -> %lld (previous pts %lld).\n"),
+                        pInputFrame->getFrameInfo().inputFrameId, origPts, outPtsSource, nLastPts);
+                }
+            }
+        }
 #endif //#if ENABLE_AVSW_READER
         //次のフレームのptsの予想
         nOutEstimatedPts += outDuration;
+        nLastPts = outPtsSource;
         add_dec_vpp_param(pInputFrame, decFrames, outPtsSource, outDuration);
         return decFrames;
     };
