@@ -317,6 +317,10 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
         return RGY_ERR_NULL_PTR;
     }
 
+    if (prm->videoInfo.srcWidth <= 0 || prm->videoInfo.srcHeight <= 0) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to detect frame size: %dx%d.\n"), prm->videoInfo.srcWidth, prm->videoInfo.srcHeight);
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
     const int width = prm->videoInfo.srcWidth - prm->videoInfo.crop.e.left - prm->videoInfo.crop.e.right;
     const int height = prm->videoInfo.srcHeight - prm->videoInfo.crop.e.up - prm->videoInfo.crop.e.bottom;
     ass_set_frame_size(m_assRenderer.get(), width, height);
