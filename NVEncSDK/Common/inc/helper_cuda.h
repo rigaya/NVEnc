@@ -754,6 +754,8 @@ inline int _ConvertSMVer2Cores(int major, int minor)
         { 0x62, 128 }, // Pascal Generation (SM 6.2) GP10x class
         { 0x70, 64 }, // Volta Generation (SM 7.0)
         { 0x75, 64 }, // Turing Generation (SM 7.5)
+        { 0x80, 64 }, // Ampere Generation (SM 8.0) A100
+        { 0x86, 128 }, // Ampere Generation (SM 8.6) GA10x
         {   -1, -1 }
     };
 
