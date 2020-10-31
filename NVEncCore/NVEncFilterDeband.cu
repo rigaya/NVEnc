@@ -424,11 +424,11 @@ RGY_ERR NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *pInp
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp for deband: %s\n"), RGY_CSP_NAMES[pParam->frameIn.csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    auto cudaerr = deband_func_list.at(pParam->frameIn.csp).func[pParam->deband.sample][pParam->deband.blurFirst ? 1 : 0](
+    auto err = deband_func_list.at(pParam->frameIn.csp).func[pParam->deband.sample][pParam->deband.blurFirst ? 1 : 0](
         pOutputFrame, pInputFrame, &m_RandY.frame, &m_RandUV.frame,
         pParam->deband.range, pParam->deband.threY, pParam->deband.threCb, pParam->deband.threCr, pParam->deband.ditherY, pParam->deband.ditherC, pParam->deband.randEachFrame,
         (curandState *)m_RandState.ptr, stream);
-    if (cudaerr != cudaSuccess) {
+    if (err != RGY_ERR_NONE) {
         return RGY_ERR_CUDA;
     }
     return RGY_ERR_NONE;

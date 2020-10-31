@@ -53,15 +53,15 @@ RGY_ERR copyFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStr
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
     auto err = copyPlane(&planeOutputY, &planeInputY, stream);
-    if (err != cudaSuccess) {
+    if (err != RGY_ERR_NONE) {
         return err;
     }
     err = copyPlane(&planeOutputU, &planeInputU, stream);
-    if (err != cudaSuccess) {
+    if (err != RGY_ERR_NONE) {
         return err;
     }
     err = copyPlane(&planeOutputV, &planeInputV, stream);
-    if (err != cudaSuccess) {
+    if (err != RGY_ERR_NONE) {
         return err;
     }
     return err;
