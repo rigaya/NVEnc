@@ -4216,7 +4216,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             ADD_BOOL(_T("log"), vpp.decimate.log);
         }
         if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-select-every ") << tmp.str().substr(1);
+            cmd << _T(" --vpp-decimate ") << tmp.str().substr(1);
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vpp.checkPerformance);
