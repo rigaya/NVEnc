@@ -1,15 +1,16 @@
-NVEncC (x64) 5.12 (r1622) by rigaya, Jul 26 2020 18:53:08 (VC 1926/Win/avx2)
-  [NVENC API v10.0, CUDA 10.1]
- reader: raw, y4m, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4]
+NVEncC (x64) 5.19 (r1694) by rigaya, Nov  1 2020 11:04:24 (VC 1927/Win/avx2)
+  [NVENC API v11.0, CUDA 10.1]
+ reader: raw, y4m, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4, AV1]
 
 Environment Info
-OS : Windows 10 x64 (18363)
-CPU: Intel Core i9-7980XE @ 2.60GHz [TB: 4.10GHz] (18C/36T)
-RAM: Used 7292 MB, Total 16077 MB
+OS : Windows 10 x64 (19042)
+CPU: Intel Core i9-7980XE @ 2.60GHz [TB: 4.50GHz] (18C/36T)
+RAM: Used 5490 MB, Total 16077 MB
 
-#0: GeForce RTX 2070 (2304 cores, 1710 MHz)[PCIe3x16][451.67]
+#0: GeForce RTX 2070 (2304 cores, 1710 MHz)[PCIe3x16][457.09]
 NVEnc features
 Codec: H.264/AVC
+Encoder Engines           1
 Max Bframes               4
 B Ref Mode                2 (only middle)
 RC Modes                  63
@@ -20,7 +21,7 @@ Quater-Pel MV             yes
 B Direct Mode             yes
 CABAC                     yes
 Adaptive Transform        yes
-Max Temporal Layers       0
+Max Temporal Layers       4
 Hierarchial P Frames      no
 Hierarchial B Frames      no
 Max Level                 62
@@ -54,6 +55,7 @@ Weighted Prediction       yes
 10bit depth               no
 
 Codec: H.265/HEVC
+Encoder Engines           1
 Max Bframes               5
 B Ref Mode                3 (each + only middle)
 RC Modes                  63

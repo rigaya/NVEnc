@@ -1,30 +1,31 @@
-NVEncC (x64) 5.02 (r1541) by rigaya, May 23 2020 19:20:00 (VC 1925/Win/avx2)
-  [NVENC API v9.1, CUDA 10.1]
- reader: raw, y4m, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4]
+NVEncC (x64) 5.19 (r1696) by rigaya, Nov  2 2020 16:00:24 (VC 1927/Win/avx2)
+  [NVENC API v11.0, CUDA 10.1]
+ reader: raw, y4m, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, VC-1, MPEG1, MPEG4, AV1]
 
 Environment Info
-OS : Windows 10 x64 (18362)
+OS : Windows 10 x64 (20185)
 CPU: AMD Ryzen 7 3700X 8-Core Processor (8C/16T)
-RAM: Used 5217 MB, Total 16315 MB
+RAM: Used 3257 MB, Total 16315 MB
 
-#0: GeForce GTX 1080 (2560 cores, 1822 MHz)[PCIe3x16][441.20]
+#0: GeForce GTX 1080 (2560 cores, 1822 MHz)[PCIe3x16][457.09]
 NVEnc features
 Codec: H.264/AVC
+Encoder Engines           2
 Max Bframes               4
-B Ref Mode                yes
+B Ref Mode                2 (only middle)
 RC Modes                  63
-Field Encoding            yes
+Field Encoding            1 (field mode)
 MonoChrome                no
 FMO                       no
 Quater-Pel MV             yes
 B Direct Mode             yes
 CABAC                     yes
 Adaptive Transform        yes
-Max Temporal Layers       0
+Max Temporal Layers       4
 Hierarchial P Frames      no
 Hierarchial B Frames      no
-Max Level                 51
-Min Level                 1
+Max Level                 62
+Min Level                 10
 4:4:4                     yes
 Min Width                 33
 Max Width                 4096
@@ -47,25 +48,26 @@ Async Encoding            yes
 Max MBs                   65536
 Lossless                  yes
 SAO                       no
-Me Only Mode              yes
+Me Only Mode              1 (I,P frames)
 Lookahead                 yes
 AQ (temporal)             yes
 Weighted Prediction       yes
 10bit depth               no
 
 Codec: H.265/HEVC
+Encoder Engines           2
 Max Bframes               0
-B Ref Mode                no
+B Ref Mode                0 (no)
 RC Modes                  63
-Field Encoding            no
+Field Encoding            0 (no)
 MonoChrome                no
 Quater-Pel MV             yes
 B Direct Mode             no
 Max Temporal Layers       0
 Hierarchial P Frames      no
 Hierarchial B Frames      no
-Max Level                 62
-Min Level                 1
+Max Level                 186
+Min Level                 30
 4:4:4                     yes
 Min Width                 65
 Max Width                 8192
@@ -78,7 +80,7 @@ Dynamic Bitrate Change    yes
 Forced constant QP        yes
 Dynamic RC Mode Change    no
 Subframe Readback         yes
-Constrained Encoding      no
+Constrained Encoding      yes
 Intra Refresh             yes
 Custom VBV Bufsize        yes
 Dynamic Slice Mode        yes
@@ -88,7 +90,7 @@ Async Encoding            yes
 Max MBs                   262144
 Lossless                  yes
 SAO                       yes
-Me Only Mode              yes
+Me Only Mode              1 (I,P frames)
 Lookahead                 yes
 AQ (temporal)             no
 Weighted Prediction       yes
