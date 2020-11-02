@@ -189,20 +189,28 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
     cudaMallocHost(&img.ptr, imgInfoEx.frame_size);
     unique_ptr<void, decltype(&cudaFreeHost)> bufCPU(img.ptr, cudaFreeHost);
 
-    //とりあえずすべて0で初期化しておく
-    //Alpha=0で透明なので都合がよい
-    memset(img.ptr, 0, imgInfoEx.frame_size);
-
     auto planeY = getPlane(&img, RGY_PLANE_Y);
     auto planeU = getPlane(&img, RGY_PLANE_U);
     auto planeV = getPlane(&img, RGY_PLANE_V);
     auto planeA = getPlane(&img, RGY_PLANE_A);
 
-    for (int j = 0; j < img.height; j++) {
-        for (int i = 0; i < img.width; i++) {
-            const int idx = j * img.pitch + i;
-            planeU.ptr[idx] = 128;
-            planeV.ptr[idx] = 128;
+    //とりあえずすべて0で初期化しておく
+    memset(planeY.ptr, 0, (size_t)planeY.pitch * planeY.height);
+
+    //とりあえずすべて0で初期化しておく
+    //Alpha=0で透明なので都合がよい
+    memset(planeA.ptr, 0, (size_t)planeA.pitch * planeA.height);
+
+    for (int j = 0; j < planeU.height; j++) {
+        auto ptr = planeU.ptr + j * planeU.pitch;
+        for (int i = 0; i < planeU.pitch / sizeof(ptr[0]); i++) {
+            ptr[i] = 128;
+        }
+    }
+    for (int j = 0; j < planeV.height; j++) {
+        auto ptr = planeV.ptr + j * planeV.pitch;
+        for (int i = 0; i < planeV.pitch / sizeof(ptr[0]); i++) {
+            ptr[i] = 128;
         }
     }
 
@@ -222,11 +230,12 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
             const int src_idx = j * image->stride + i;
             const uint8_t alpha = image->bitmap[src_idx];
 
-            const int dst_idx = (j+y_offset) * img.pitch + (i+x_offset);
-            planeY.ptr[dst_idx] = subY;
-            planeU.ptr[dst_idx] = subU;
-            planeV.ptr[dst_idx] = subV;
-            planeA.ptr[dst_idx] = (uint8_t)clamp(((int)subA * alpha) >> 8, 0, 255);
+            #define PLANE_DST(plane, x, y) (plane.ptr[(y) * plane.pitch + (x)])
+            PLANE_DST(planeY, i + x_offset, j + y_offset) = subY;
+            PLANE_DST(planeU, i + x_offset, j + y_offset) = subU;
+            PLANE_DST(planeV, i + x_offset, j + y_offset) = subV;
+            PLANE_DST(planeA, i + x_offset, j + y_offset) = (uint8_t)clamp(((int)subA * alpha) >> 8, 0, 255);
+            #undef PLANE_DST
         }
     }
     //GPUへ転送
@@ -295,20 +304,28 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
     cudaMallocHost(&img.ptr, imgInfoEx.frame_size);
     unique_ptr<void, decltype(&cudaFreeHost)> bufCPU(img.ptr, cudaFreeHost);
 
-    //とりあえずすべて0で初期化しておく
-    //Alpha=0で透明なので都合がよい
-    memset(img.ptr, 0, imgInfoEx.frame_size);
-
     auto planeY = getPlane(&img, RGY_PLANE_Y);
     auto planeU = getPlane(&img, RGY_PLANE_U);
     auto planeV = getPlane(&img, RGY_PLANE_V);
     auto planeA = getPlane(&img, RGY_PLANE_A);
 
-    for (int j = 0; j < img.height; j++) {
-        for (int i = 0; i < img.width; i++) {
-            const int idx = j * img.pitch + i;
-            planeU.ptr[idx] = 128;
-            planeV.ptr[idx] = 128;
+    //とりあえずすべて0で初期化しておく
+    memset(planeY.ptr, 0, (size_t)planeY.pitch * planeY.height);
+
+    //とりあえずすべて0で初期化しておく
+    //Alpha=0で透明なので都合がよい
+    memset(planeA.ptr, 0, (size_t)planeA.pitch * planeA.height);
+
+    for (int j = 0; j < planeU.height; j++) {
+        auto ptr = planeU.ptr + j * planeU.pitch;
+        for (int i = 0; i < planeU.pitch / sizeof(ptr[0]); i++) {
+            ptr[i] = 128;
+        }
+    }
+    for (int j = 0; j < planeV.height; j++) {
+        auto ptr = planeV.ptr + j * planeV.pitch;
+        for (int i = 0; i < planeV.pitch / sizeof(ptr[0]); i++) {
+            ptr[i] = 128;
         }
     }
 
@@ -345,11 +362,12 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
             const uint8_t subU = (uint8_t)((subColor >>  8) & 0xff);
             const uint8_t subY = (uint8_t)(subColor        & 0xff);
 
-            const int dst_idx = (j+y_offset) * img.pitch + (i+x_offset);
-            planeY.ptr[dst_idx] = subY;
-            planeU.ptr[dst_idx] = subU;
-            planeV.ptr[dst_idx] = subV;
-            planeA.ptr[dst_idx] = subA;
+            #define PLANE_DST(plane, x, y) (plane.ptr[(y) * plane.pitch + (x)])
+            PLANE_DST(planeY, i + x_offset, j + y_offset) = subY;
+            PLANE_DST(planeU, i + x_offset, j + y_offset) = subU;
+            PLANE_DST(planeV, i + x_offset, j + y_offset) = subV;
+            PLANE_DST(planeA, i + x_offset, j + y_offset) = subA;
+            #undef PLANE_DST
         }
     }
 
