@@ -67,8 +67,13 @@ void blend(void *pix, const void *alpha, const void *val, float transparency_off
 }
 
 template<typename TypePixel, int bit_depth, bool yuv420>
-__global__ void kernel_subburn(uint8_t *__restrict__ pPlaneY, uint8_t *__restrict__ pPlaneU, uint8_t *__restrict__ pPlaneV,
-    const int pitchFrame,
+__global__ void kernel_subburn(
+    uint8_t *__restrict__ pPlaneY,
+    uint8_t *__restrict__ pPlaneU,
+    uint8_t *__restrict__ pPlaneV,
+    const int pitchFrameY,
+    const int pitchFrameU,
+    const int pitchFrameV,
     const uint8_t *__restrict__ pSubY, const uint8_t *__restrict__ pSubU, const uint8_t *__restrict__ pSubV, const uint8_t *__restrict__ pSubA,
     const int pitchSub,
     const int width, const int height, bool interlaced, float transparency_offset, float brightness, float contrast) {
@@ -80,18 +85,18 @@ __global__ void kernel_subburn(uint8_t *__restrict__ pPlaneY, uint8_t *__restric
         TypePixel x, y;
     };
     if (ix < width && iy < height) {
-        pPlaneY += iy * pitchFrame + ix * sizeof(TypePixel);
+        pPlaneY += iy * pitchFrameY + ix * sizeof(TypePixel);
         pSubY   += iy * pitchSub + ix;
         pSubU   += iy * pitchSub + ix;
         pSubV   += iy * pitchSub + ix;
         pSubA   += iy * pitchSub + ix;
 
-        blend<TypePixel2, bit_depth>(pPlaneY,              pSubA,            pSubY,            transparency_offset, brightness, contrast);
-        blend<TypePixel2, bit_depth>(pPlaneY + pitchFrame, pSubA + pitchSub, pSubY + pitchSub, transparency_offset, brightness, contrast);
+        blend<TypePixel2, bit_depth>(pPlaneY,               pSubA,            pSubY,            transparency_offset, brightness, contrast);
+        blend<TypePixel2, bit_depth>(pPlaneY + pitchFrameY, pSubA + pitchSub, pSubY + pitchSub, transparency_offset, brightness, contrast);
 
         if (yuv420) {
-            pPlaneU += (iy>>1) * pitchFrame + (ix>>1) * sizeof(TypePixel);
-            pPlaneV += (iy>>1) * pitchFrame + (ix>>1) * sizeof(TypePixel);
+            pPlaneU += (iy>>1) * pitchFrameU + (ix>>1) * sizeof(TypePixel);
+            pPlaneV += (iy>>1) * pitchFrameV + (ix>>1) * sizeof(TypePixel);
             uint8_t subU, subV, subA;
             if (interlaced) {
                 if (((iy>>1) & 1) == 0) {
@@ -112,12 +117,12 @@ __global__ void kernel_subburn(uint8_t *__restrict__ pPlaneY, uint8_t *__restric
             *(TypePixel *)pPlaneU = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneU, subA, subU, transparency_offset, 0.0f, 1.0f);
             *(TypePixel *)pPlaneV = blend<TypePixel, bit_depth>(*(TypePixel *)pPlaneV, subA, subV, transparency_offset, 0.0f, 1.0f);
         } else {
-            pPlaneU += iy * pitchFrame + ix * sizeof(TypePixel);
-            pPlaneV += iy * pitchFrame + ix * sizeof(TypePixel);
-            blend<TypePixel2, bit_depth>(pPlaneU,              pSubA,            pSubU,            transparency_offset, 0.0f, 1.0f);
-            blend<TypePixel2, bit_depth>(pPlaneU + pitchFrame, pSubA + pitchSub, pSubU + pitchSub, transparency_offset, 0.0f, 1.0f);
-            blend<TypePixel2, bit_depth>(pPlaneV,              pSubA,            pSubV,            transparency_offset, 0.0f, 1.0f);
-            blend<TypePixel2, bit_depth>(pPlaneV + pitchFrame, pSubA + pitchSub, pSubV + pitchSub, transparency_offset, 0.0f, 1.0f);
+            pPlaneU += iy * pitchFrameU + ix * sizeof(TypePixel);
+            pPlaneV += iy * pitchFrameV + ix * sizeof(TypePixel);
+            blend<TypePixel2, bit_depth>(pPlaneU,               pSubA,            pSubU,            transparency_offset, 0.0f, 1.0f);
+            blend<TypePixel2, bit_depth>(pPlaneU + pitchFrameU, pSubA + pitchSub, pSubU + pitchSub, transparency_offset, 0.0f, 1.0f);
+            blend<TypePixel2, bit_depth>(pPlaneV,               pSubA,            pSubV,            transparency_offset, 0.0f, 1.0f);
+            blend<TypePixel2, bit_depth>(pPlaneV + pitchFrameV, pSubA + pitchSub, pSubV + pitchSub, transparency_offset, 0.0f, 1.0f);
         }
     }
 }
@@ -145,27 +150,30 @@ cudaError_t proc_frame(FrameInfo *pFrame,
     auto planeSubV = getPlane(pSubImg, RGY_PLANE_V);
     auto planeSubA = getPlane(pSubImg, RGY_PLANE_A);
 
-    const int frameOffsetByte = (pos_y & ~1) * pFrame->pitch + (pos_x & ~1) * sizeof(TypePixel);
+    const int subPosX_Y = (pos_x & ~1);
+    const int subPosY_Y = (pos_y & ~1);
+    const int subPosX_UV = (RGY_CSP_CHROMA_FORMAT[pFrame->csp] == RGY_CHROMAFMT_YUV420) ? (pos_x >> 1) : (pos_x & ~1);
+    const int subPosY_UV = (RGY_CSP_CHROMA_FORMAT[pFrame->csp] == RGY_CHROMAFMT_YUV420) ? (pos_y >> 1) : (pos_y & ~1);
+    const int frameOffsetByteY = subPosY_Y  * planeFrameY.pitch + subPosX_Y  * sizeof(TypePixel);
+    const int frameOffsetByteU = subPosY_UV * planeFrameU.pitch + subPosX_UV * sizeof(TypePixel);
+    const int frameOffsetByteV = subPosY_UV * planeFrameV.pitch + subPosX_UV * sizeof(TypePixel);
+
+    if (   planeSubY.pitch != planeSubU.pitch
+        || planeSubY.pitch != planeSubV.pitch
+        || planeSubY.pitch != planeSubA.pitch) {
+        return cudaErrorNotSupported;
+    }
 
     cudaError_t cudaerr = cudaSuccess;
-    if (RGY_CSP_CHROMA_FORMAT[pFrame->csp] == RGY_CHROMAFMT_YUV420) {
-        const int frameOffsetByteUV = (pos_y >> 1) * pFrame->pitch + (pos_x >> 1) * sizeof(TypePixel);
-        kernel_subburn<TypePixel, bit_depth, true><<<gridSize, blockSize, 0, stream>>>(
-            planeFrameY.ptr + frameOffsetByte,
-            planeFrameU.ptr + frameOffsetByteUV,
-            planeFrameV.ptr + frameOffsetByteUV,
-            planeFrameY.pitch,
-            planeSubY.ptr, planeSubU.ptr, planeSubV.ptr, planeSubA.ptr, planeSubY.pitch,
-            burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
-    } else {
-        kernel_subburn<TypePixel, bit_depth, false><<<gridSize, blockSize, 0, stream>>>(
-            planeFrameY.ptr + frameOffsetByte,
-            planeFrameU.ptr + frameOffsetByte,
-            planeFrameV.ptr + frameOffsetByte,
-            planeFrameY.pitch,
-            planeSubY.ptr, planeSubU.ptr, planeSubV.ptr, planeSubA.ptr, planeSubY.pitch,
-            burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
-    }
+    kernel_subburn<TypePixel, bit_depth, true> << <gridSize, blockSize, 0, stream >> > (
+        planeFrameY.ptr + frameOffsetByteY,
+        planeFrameU.ptr + frameOffsetByteU,
+        planeFrameV.ptr + frameOffsetByteV,
+        planeFrameY.pitch,
+        planeFrameU.pitch,
+        planeFrameV.pitch,
+        planeSubY.ptr, planeSubU.ptr, planeSubV.ptr, planeSubA.ptr, planeSubY.pitch,
+        burnWidth, burnHeight, interlaced(*pFrame), transparency_offset, brightness, contrast);
     cudaerr = cudaGetLastError();
     if (cudaerr != cudaSuccess) {
         return cudaerr;
