@@ -1000,6 +1000,9 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 ```
 例: HLS用の出力
 -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
+
+例: "default"として設定されている字幕トラックがない場合に、自動的に"default"が付与されるのを抑止しする (mkvのみ)
+-m default_mode:infer_no_subs
 ```
 
 ### --metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;

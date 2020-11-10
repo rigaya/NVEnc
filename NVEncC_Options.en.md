@@ -1007,6 +1007,9 @@ Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, an
 ```
 Example: Output for HLS
 -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
+
+Example: Pass through "default" disposition even if there are no "default" tracks in the output (mkv only)
+-m default_mode:infer_no_subs
 ```
 
 ### --metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
