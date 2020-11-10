@@ -578,7 +578,10 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         m_Mux.video.codecCtx->codec_tag           = tagFromStr(prm->videoCodecTag);
         AddMessage(RGY_LOG_DEBUG, _T("Set Video Codec Tag: %s\n"), char_to_tstring(tagToStr(m_Mux.video.codecCtx->codec_tag)).c_str());
     }
-    if (videoOutputInfo->vui.descriptpresent) {
+    if (videoOutputInfo->vui.descriptpresent
+        //atcSeiを設定する場合は、コンテナ側にはVUI情報をもたせないようにする
+        //コンテナ側にはatcの情報をもたせられないので、勝ちあってしまう
+        && prm->HEVCHdrSei->getprm().atcSei == RGY_TRANSFER_UNKNOWN) {
         m_Mux.video.codecCtx->colorspace          = (AVColorSpace)videoOutputInfo->vui.matrix;
         m_Mux.video.codecCtx->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
         m_Mux.video.codecCtx->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
