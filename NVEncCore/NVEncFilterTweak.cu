@@ -106,8 +106,8 @@ __global__ void kernel_tweak_uv(uint8_t *__restrict__ pFrameU, uint8_t *__restri
         apply_basic_tweak_uv<Type, bit_depth>(pixelU.z, pixelV.z, saturation, hue_sin, hue_cos);
         apply_basic_tweak_uv<Type, bit_depth>(pixelU.w, pixelV.w, saturation, hue_sin, hue_cos);
 
-        ptrU[0] = (swapuv) ? pixelU : pixelV;
-        ptrV[0] = (swapuv) ? pixelV : pixelU;
+        ptrU[0] = (swapuv) ? pixelV : pixelU;
+        ptrV[0] = (swapuv) ? pixelU : pixelV;
     }
 }
 
@@ -137,7 +137,8 @@ static cudaError_t tweak_frame(FrameInfo *pFrame,
 
     //UV
     if (saturation != 1.0f
-        || hue_degree != 0.0f) {
+        || hue_degree != 0.0f
+        || swapuv) {
         if (   planeInputU.width  != planeInputV.width
             || planeInputU.height != planeInputV.height
             || planeInputU.pitch  != planeInputV.pitch) {
