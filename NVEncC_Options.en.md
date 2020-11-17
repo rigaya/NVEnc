@@ -515,7 +515,7 @@ Example1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,1645
 Example2: --master-display copy  # copy values from source
 ```
 
-### --atc-sei &lt;string&gt; or &lt;int&gt;
+### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVC only]
 Set alternative transfer characteristics SEI from below or by integer, Required for HLG (Hybrid Log Gamma) signaling.
 ```
   undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,

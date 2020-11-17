@@ -520,7 +520,7 @@ Mastering display data の設定。"copy"とすると入力ファイルの値を
 例2: --master-display copy  # 入力ファイルから値をコピー
 ```
 
-### --atc-sei &lt;string&gt; or &lt;int&gt;
+### --atc-sei &lt;string&gt; or &lt;int&gt; [HEVCのみ]
 Alternative transfer characteristics SEI の設定。下記文字列または整数で指定する。
 ```
   undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
