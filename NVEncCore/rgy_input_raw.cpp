@@ -237,7 +237,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         break;
     case RGY_CSP_YUV422:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2;
-        if (ENCODER_VCEENC) {
+        if (ENCODER_QSV || ENCODER_VCEENC) {
             nOutputCSP = RGY_CSP_NV12;
             output_csp_if_lossless = RGY_CSP_NV12;
         } else {
@@ -252,7 +252,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     case RGY_CSP_YUV422_14:
     case RGY_CSP_YUV422_16:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 4;
-        if (ENCODER_VCEENC) {
+        if (ENCODER_QSV || ENCODER_VCEENC) {
             //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでP010に変換する
             nOutputCSP = RGY_CSP_P010;
             output_csp_if_lossless = RGY_CSP_P010;
