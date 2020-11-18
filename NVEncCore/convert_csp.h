@@ -87,6 +87,7 @@ enum RGY_CSP {
     RGY_CSP_YUV444_12,
     RGY_CSP_YUV444_14,
     RGY_CSP_YUV444_16,
+    RGY_CSP_YUV444_32,
     RGY_CSP_YUVA444,
     RGY_CSP_YUVA444_16,
     RGY_CSP_RGB24R, //packed
@@ -129,6 +130,7 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yuv444(12bit)"),
     _T("yuv444(14bit)"),
     _T("yuv444(16bit)"),
+    _T("yuv444(32bit)"),
     _T("yuva444"),
     _T("yuva444(16bit)"),
     _T("rgb24r"),
@@ -171,6 +173,7 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     12,
     14,
     16, //RGY_CSP_YUV444_16
+    32, //RGY_CSP_YUV444_16
      8, //RGY_CSP_YUVA444
     16, //RGY_CSP_YUVA444_16
      8, //RGY_CSP_RGB24R
@@ -213,6 +216,7 @@ static const uint8_t RGY_CSP_PLANES[] = {
      3,
      3,
      3, //RGY_CSP_YUV444_16
+     3, //RGY_CSP_YUV444_32
      4, //RGY_CSP_YUVA444
      4, //RGY_CSP_YUVA444_16
      1, //RGY_CSP_RGB24R
@@ -266,6 +270,7 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_16
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_32
     RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444
     RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444_16
     RGY_CHROMAFMT_RGB_PACKED,
@@ -308,6 +313,7 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     48,
     48,
     48, //RGY_CSP_YUV444_16
+    96, //RGY_CSP_YUV444_32
     32, //RGY_CSP_YUVA444
     64, //RGY_CSP_YUVA444_16
     24, //RGY_CSP_RGB24R

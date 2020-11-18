@@ -349,6 +349,35 @@ tstring VppDecimate::print() const {
         log ? _T("on") : _T("off"));
 }
 
+
+VppMpdecimate::VppMpdecimate() :
+    enable(false),
+    lo(FILTER_DEFAULT_MPDECIMATE_LO),
+    hi(FILTER_DEFAULT_MPDECIMATE_HI),
+    max(FILTER_DEFAULT_MPDECIMATE_MAX),
+    frac(FILTER_DEFAULT_MPDECIMATE_FRAC),
+    log(FILTER_DEFAULT_MPDECIMATE_LOG) {
+
+}
+
+bool VppMpdecimate::operator==(const VppMpdecimate &x) const {
+    return enable == x.enable
+        && lo == x.lo
+        && hi == x.hi
+        && max == x.max
+        && frac == x.frac
+        && log == x.log;
+}
+bool VppMpdecimate::operator!=(const VppMpdecimate &x) const {
+    return !(*this == x);
+}
+
+tstring VppMpdecimate::print() const {
+    return strsprintf(_T("mpdecimate: lo %d, hi %d, max %d, frac %.2f, log %s"),
+        lo, hi, max, frac,
+        log ? _T("on") : _T("off"));
+}
+
 VppSmooth::VppSmooth() :
     enable(false),
     quality(FILTER_DEFAULT_SMOOTH_QUALITY),
@@ -731,6 +760,7 @@ VppParam::VppParam() :
     subburn(),
     selectevery(),
     decimate(),
+    mpdecimate(),
     rff(false) {
 }
 

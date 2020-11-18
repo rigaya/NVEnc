@@ -90,6 +90,12 @@ static const bool  FILTER_DEFAULT_DECIMATE_PREPROCESSED = false;
 static const bool  FILTER_DEFAULT_DECIMATE_CHROMA = true;
 static const bool  FILTER_DEFAULT_DECIMATE_LOG = false;
 
+static const int   FILTER_DEFAULT_MPDECIMATE_HI = 768;
+static const int   FILTER_DEFAULT_MPDECIMATE_LO = 320;
+static const bool  FILTER_DEFAULT_MPDECIMATE_MAX = 0;
+static const float FILTER_DEFAULT_MPDECIMATE_FRAC = 0.33f;
+static const bool  FILTER_DEFAULT_MPDECIMATE_LOG = false;
+
 static const int   FILTER_DEFAULT_AFS_CLIP_TB = 16;
 static const int   FILTER_DEFAULT_AFS_CLIP_LR = 32;
 static const int   FILTER_DEFAULT_AFS_TB_ORDER = 0;
@@ -999,6 +1005,18 @@ struct VppDecimate {
     tstring print() const;
 };
 
+struct VppMpdecimate {
+    bool enable;
+    int lo, hi, max;
+    float frac;
+    bool log;
+
+    VppMpdecimate();
+    bool operator==(const VppMpdecimate &x) const;
+    bool operator!=(const VppMpdecimate &x) const;
+    tstring print() const;
+};
+
 struct VppSmooth {
     bool enable;
     int quality;
@@ -1317,6 +1335,7 @@ struct VppParam {
     std::vector<VppSubburn> subburn;
     VppSelectEvery selectevery;
     VppDecimate decimate;
+    VppMpdecimate mpdecimate;
     bool rff;
 
     VppParam();

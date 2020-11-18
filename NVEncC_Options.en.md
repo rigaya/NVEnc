@@ -1329,6 +1329,25 @@ Drop duplicated frame in cycles set.
     
   - log=&lt;bool&gt;  
     output log file (default: off).
+    
+
+### --vpp-mpdecimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+Drop duplicated frames.
+
+**パラメータ**
+  - hi=&lt;int&gt;  (default: 768, 8x8x12)  
+    The frame might be dropped if no 8x8 block difference is more than "hi".
+
+  - lo=&lt;int&gt;  (default: 320, 8x8x5)  
+  - frac=&lt;float&gt;  (default: 0.33)  
+    The frame might be dropped if the fraction of 8x8 blocks with difference smaller than "lo" is more than "frac".
+
+  - max=&lt;int&gt;  (default: 0)  
+    Max consecutive frames which can be dropped (if positive).  
+    Min interval between dropped frames (if negative).
+    
+  - log=&lt;bool&gt;  
+    output log file. (default: off)
 
 ### --vpp-select-every &lt;int&gt;[,&lt;param1&gt;=&lt;int&gt;]
 select one frame per specified frames and create output.

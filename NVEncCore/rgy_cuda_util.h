@@ -363,6 +363,128 @@ public:
     }
 };
 
+struct CUFrameBufPair {
+public:
+    FrameInfo frameDev;
+    FrameInfo frameHost;
+    cudaEvent_t event;
+    CUFrameBufPair()
+        : frameDev(), frameHost(), event() {
+        cudaEventCreate(&event);
+    };
+    CUFrameBufPair(int width, int height, RGY_CSP csp = RGY_CSP_NV12)
+        : frameDev(), frameHost(), event() {
+        frameDev.ptr = nullptr;
+        frameDev.pitch = 0;
+        frameDev.width = width;
+        frameDev.height = height;
+        frameDev.csp = csp;
+        frameDev.deivce_mem = true;
+
+        frameHost = frameDev;
+        frameHost.deivce_mem = false;
+
+        cudaEventCreate(&event);
+    };
+protected:
+    CUFrameBufPair(const CUFrameBufPair &) = delete;
+    void operator =(const CUFrameBufPair &) = delete;
+public:
+    cudaError_t allocHost() {
+        if (frameHost.ptr) {
+            cudaFree(frameHost.ptr);
+        }
+        cudaError_t ret = cudaSuccess;
+        const auto infoEx = getFrameInfoExtra(&frameHost);
+        frameHost.pitch = ALIGN(infoEx.width_byte, 256);
+        if (infoEx.width_byte) {
+            ret = cudaMallocHost(&frameHost.ptr, frameHost.pitch * infoEx.height_total);
+        } else {
+            ret = cudaErrorNotSupported;
+        }
+        return ret;
+    }
+    cudaError_t allocDev() {
+        if (frameDev.ptr) {
+            cudaFree(frameDev.ptr);
+        }
+        size_t memPitch = 0;
+        cudaError_t ret = cudaSuccess;
+        const auto infoEx = getFrameInfoExtra(&frameDev);
+        if (infoEx.width_byte) {
+            ret = cudaMallocPitch(&frameDev.ptr, &memPitch, infoEx.width_byte, infoEx.height_total);
+        } else {
+            ret = cudaErrorNotSupported;
+        }
+        frameDev.pitch = (int)memPitch;
+        return ret;
+    }
+    cudaError_t alloc() {
+        clearHost();
+        clearDev();
+        auto err = allocDev();
+        if (err != cudaSuccess) return err;
+        return allocHost();
+    }
+    cudaError_t alloc(int width, int height, RGY_CSP csp = RGY_CSP_NV12) {
+        clearHost();
+        clearDev();
+
+        frameDev.ptr = nullptr;
+        frameDev.pitch = 0;
+        frameDev.width = width;
+        frameDev.height = height;
+        frameDev.csp = csp;
+        frameDev.deivce_mem = true;
+
+        frameHost = frameDev;
+        frameHost.deivce_mem = false;
+
+        return alloc();
+    }
+    cudaError_t copyDtoHAsync(cudaStream_t stream = 0) {
+        const auto infoEx = getFrameInfoExtra(&frameDev);
+        return cudaMemcpy2DAsync(frameHost.ptr, frameHost.pitch, frameDev.ptr, frameDev.pitch, infoEx.width_byte, infoEx.height_total, cudaMemcpyDeviceToHost, stream);
+    }
+    cudaError_t copyDtoH() {
+        const auto infoEx = getFrameInfoExtra(&frameDev);
+        return cudaMemcpy2D(frameHost.ptr, frameHost.pitch, frameDev.ptr, frameDev.pitch, infoEx.width_byte, infoEx.height_total, cudaMemcpyDeviceToHost);
+    }
+    cudaError_t copyHtoDAsync(cudaStream_t stream = 0) {
+        const auto infoEx = getFrameInfoExtra(&frameDev);
+        return cudaMemcpy2DAsync(frameDev.ptr, frameDev.pitch, frameHost.ptr, frameHost.pitch, infoEx.width_byte, infoEx.height_total, cudaMemcpyHostToDevice, stream);
+    }
+    cudaError_t copyHtoD() {
+        const auto infoEx = getFrameInfoExtra(&frameDev);
+        return cudaMemcpy2D(frameDev.ptr, frameDev.pitch, frameHost.ptr, frameHost.pitch, infoEx.width_byte, infoEx.height_total, cudaMemcpyHostToDevice);
+    }
+
+    void clearHost() {
+        if (frameDev.ptr) {
+            cudaFree(frameDev.ptr);
+            frameDev.ptr = nullptr;
+        }
+    }
+    void clearDev() {
+        if (frameDev.ptr) {
+            cudaFree(frameDev.ptr);
+            frameDev.ptr = nullptr;
+        }
+    }
+    void clear() {
+        clearDev();
+        clearHost();
+    }
+    ~CUFrameBufPair() {
+        clearDev();
+        clearHost();
+        if (event) {
+            cudaEventDestroy(event);
+            event = nullptr;
+        }
+    }
+};
+
 struct CUMemBuf {
     void *ptr;
     size_t nSize;

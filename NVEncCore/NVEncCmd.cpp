@@ -492,6 +492,23 @@ tstring encoder_help() {
         FILTER_DEFAULT_DECIMATE_PREPROCESSED ? _T("on") : _T("off"),
         FILTER_DEFAULT_DECIMATE_CHROMA ? _T("on") : _T("off"),
         FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-mpdecimate [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     drop duplicated frame.\n")
+        _T("    params\n")
+        _T("      hi=<int>                  the frame might be dropped if no 8x8 block difference\n")
+        _T("                                is more than \"hi\" (default=%d (8x8x%d)).\n")
+        _T("      lo=<int>                  the frame might be dropped if the fraction of 8x8 blocks\n")
+        _T("      frac=<float>              with difference smaller than \"lo\" is more than \"frac\".\n")
+        _T("                                  (lo default=%d (8x8x%d), frac default=%.3f)\n")
+        _T("      max=<bool>                Max consecutive frames which can be dropped (positive)\n")
+        _T("                                min interval between dropped frames (if negative)\n")
+        _T("                                  (default: %d)\n")
+        _T("      log=<bool>                output log file (default: %s).\n"),
+        FILTER_DEFAULT_MPDECIMATE_HI, FILTER_DEFAULT_MPDECIMATE_HI / (8*8),
+        FILTER_DEFAULT_MPDECIMATE_LO, FILTER_DEFAULT_MPDECIMATE_LO / (8*8),
+        FILTER_DEFAULT_MPDECIMATE_FRAC, FILTER_DEFAULT_MPDECIMATE_MAX,
+        FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
     str += strsprintf(
         _T("   --vpp-select-every <int>[,offset=<int>]\n")
         _T("     select one frame per specified frames and create output.\n"));
@@ -3225,6 +3242,90 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         return 0;
     }
+
+    if (IS_OPTION("vpp-mpdecimate")) {
+        pParams->vpp.mpdecimate.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "lo", "hi", "max", "frac", "log" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vpp.mpdecimate.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lo")) {
+                    try {
+                        pParams->vpp.mpdecimate.lo = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("hi")) {
+                    try {
+                        pParams->vpp.mpdecimate.hi = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("max")) {
+                    try {
+                        pParams->vpp.mpdecimate.max = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("frac")) {
+                    try {
+                        pParams->vpp.mpdecimate.frac = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vpp.mpdecimate.log = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("log")) {
+                    pParams->vpp.decimate.log = true;
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-perf-monitor")) {
         pParams->vpp.checkPerformance = true;
         return 0;
@@ -4217,6 +4318,22 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-decimate ") << tmp.str().substr(1);
+        }
+    }
+    if (pParams->vpp.mpdecimate != encPrmDefault.vpp.mpdecimate) {
+        tmp.str(tstring());
+        if (!pParams->vpp.mpdecimate.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.mpdecimate.enable || save_disabled_prm) {
+            ADD_NUM(_T("lo"), vpp.mpdecimate.lo);
+            ADD_NUM(_T("hi"), vpp.mpdecimate.hi);
+            ADD_NUM(_T("max"), vpp.mpdecimate.max);
+            ADD_FLOAT(_T("frac"), vpp.mpdecimate.frac, 3);
+            ADD_BOOL(_T("log"), vpp.decimate.log);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-mpdecimate ") << tmp.str().substr(1);
         }
     }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), vpp.checkPerformance);

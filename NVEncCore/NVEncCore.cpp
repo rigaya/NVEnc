@@ -69,6 +69,7 @@
 #include "NVEncFilterSmooth.h"
 #include "NVEncFilterDeband.h"
 #include "NVEncFilterDecimate.h"
+#include "NVEncFilterMpdecimate.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncFilterNnedi.h"
 #include "NVEncFilterYadif.h"
@@ -1266,7 +1267,8 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
             || inputParam->vpp.subburn.size() > 0
             || inputParam->vpp.pad.enable
             || inputParam->vpp.selectevery.enable
-            || inputParam->vpp.decimate.enable);
+            || inputParam->vpp.decimate.enable
+            || inputParam->vpp.mpdecimate.enable);
 }
 
 #pragma warning(push)
@@ -2065,6 +2067,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         || inputParam->vpp.subburn.size() > 0
         || inputParam->vpp.rff
         || inputParam->vpp.decimate.enable
+        || inputParam->vpp.mpdecimate.enable
         || inputParam->vpp.selectevery.enable
         ) {
         //swデコードならGPUに上げる必要がある
@@ -2298,6 +2301,29 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
             param->decimate = inputParam->vpp.decimate;
+            param->outfilename = inputParam->common.outputFilename;
+            param->bOutOverwrite = false;
+            NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
+            auto sts = filter->init(param, m_pNVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<NVEncFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        //mpdecimate
+        if (inputParam->vpp.mpdecimate.enable) {
+            unique_ptr<NVEncFilter> filter(new NVEncFilterMpdecimate());
+            shared_ptr<NVEncFilterParamMpdecimate> param(new NVEncFilterParamMpdecimate());
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            param->mpdecimate = inputParam->vpp.mpdecimate;
             param->outfilename = inputParam->common.outputFilename;
             param->bOutOverwrite = false;
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
@@ -2925,6 +2951,10 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
     }
     m_nAVSyncMode = inputParam->common.AVSyncMode;
+    if (inputParam->vpp.mpdecimate.enable) {
+        m_nAVSyncMode = RGY_AVSYNC_VFR;
+        PrintMes(RGY_LOG_INFO, _T("Switching to VFR mode as --vpp-mpdecimate is activated.\n"));
+    }
     if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, encBufferFormat, &inputParam->input))) {
         return nvStatus;
     }
