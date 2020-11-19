@@ -368,8 +368,7 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const FrameInfo *pInputFrame, FrameInf
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-
-    if (pInputFrame == nullptr && m_ref < 0) {
+    if (pInputFrame->ptr == nullptr && m_ref < 0) {
         //終了
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
@@ -384,6 +383,9 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const FrameInfo *pInputFrame, FrameInf
         }
         *pOutputFrameNum = 1;
         ppOutputFrames[0] = &m_cache.get(m_ref)->frame;
+        if (m_fpLog) {
+            fprintf(m_fpLog.get(), "  %8d: %10lld\n", m_ref, ppOutputFrames[0]->timestamp);
+        }
         return sts;
     }
     if (m_target >= 0) {
@@ -391,7 +393,10 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const FrameInfo *pInputFrame, FrameInf
         //GPU->CPUの転送終了を待機
         cudaStreamSynchronize(*m_streamTransfer.get());
 
-        const bool drop = dropFrame(targetFrame);
+        const bool drop = dropFrame(targetFrame) && pInputFrame->ptr != nullptr; //最終フレームは必ず出力する
+        if (m_fpLog) {
+            fprintf(m_fpLog.get(), "%s %8d: %10lld\n", (drop) ? "d" : " ", m_target, targetFrame->get()->frame.timestamp);
+        }
         if (drop) {
             targetFrame->reset();
             m_target = -1;
@@ -407,7 +412,7 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const FrameInfo *pInputFrame, FrameInf
             ppOutputFrames[0] = &targetFrame->get()->frame;
         }
     }
-    if (pInputFrame != nullptr) {
+    if (pInputFrame->ptr != nullptr) {
         m_target = m_cache.inframe();
         auto err = m_cache.add(pInputFrame, stream);
         if (err != RGY_ERR_NONE) {
