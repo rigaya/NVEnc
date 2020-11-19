@@ -994,7 +994,7 @@ Copy data stream from input file. Available only when avhw / avsw reader is used
 Copy attachment stream from input file. Available only when avhw / avsw reader is used.
 
 ### --input-option &lt;string1&gt;:&lt;string2&gt;
-Pass optional parameters for input for avhw/avsw reader. Specify the option name in &lt;string1&gt, and the option value in &lt;string2&gt;.
+Pass optional parameters for input for avhw/avsw reader. Specify the option name in &lt;string1&gt;, and the option value in &lt;string2&gt;.
 
 ```
 Example: Reading playlist 1 of bluray 
