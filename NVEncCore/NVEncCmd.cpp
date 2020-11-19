@@ -3366,7 +3366,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "model_path", "threads" };
+        const auto paramList = std::vector<std::string>{ "model", "threads" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -3393,7 +3393,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
-                if (param_arg == _T("model_path")) {
+                if (param_arg == _T("model")) {
                     pParams->vmaf.model_path = tchar_to_string(trim(param_val, _T("\"")));
                     continue;
                 }
