@@ -1378,7 +1378,8 @@ yadifによるインタレ解除を行う。
     
 
 ### --vpp-mpdecimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-重複フレームを削除します。
+連続した重複フレームを削除し、VFR動画を作ることで、実効的なエンコード速度の向上と圧縮率向上を測ります。
+なお、このフィルタを使用すると[--avsync](./NVEncC_Options.ja.md#--avsync-string) vfrが自動で有効になります。
 
 **パラメータ**
   - hi=&lt;int&gt;  (デフォルト: 768)  

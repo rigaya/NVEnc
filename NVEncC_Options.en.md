@@ -1332,9 +1332,10 @@ Drop duplicated frame in cycles set.
     
 
 ### --vpp-mpdecimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-Drop duplicated frames.
+Drop consequentive duplicate frame(s) and create a VFR video, which might improve effective encoding performance, and improve compression efficiency.
+Please note that [--avsync](./NVEncC_Options.en.md#--avsync-string) vfr is automatically activated when using this filter.
 
-**パラメータ**
+**parameters**
   - hi=&lt;int&gt;  (default: 768, 8x8x12)  
     The frame might be dropped if no 8x8 block difference is more than "hi".
 
