@@ -1,0 +1,3 @@
+call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars32.bat" %1
+MSBuild "..\vmaf-1.3.15\vmaf.sln" /property:WindowsTargetPlatformVersion=10.0;PlatformToolset=v142;Configuration="Release";Platform=%1;WholeProgramOptimization=true;ConfigurationType=StaticLibrary;ForceImportBeforeCppTargets="BuildVmaf.props" /p:BuildProjectReferences=true /p:SpectreMitigation=false
+pause
