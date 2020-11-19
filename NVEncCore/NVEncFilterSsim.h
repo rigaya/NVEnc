@@ -60,7 +60,7 @@ public:
     virtual ~NVEncFilterParamSsim() {};
     virtual tstring print() const override;
 };
-
+#if ENABLE_VMAF
 struct NVEncFilterVMAFData {
     std::array<HANDLE, 2> heProcFin;
     bool abort;
@@ -73,6 +73,7 @@ struct NVEncFilterVMAFData {
     NVEncFilterVMAFData();
     ~NVEncFilterVMAFData();
 };
+#endif //#if ENABLE_VMAF
 
 class NVEncFilterSsim : public NVEncFilter {
 public:
@@ -90,7 +91,9 @@ public:
 
     std::array<std::unique_ptr<CUFrameBuf>, 2> &frameHostOrg() { return m_frameHostOrg; };
     std::array<std::unique_ptr<CUFrameBuf>, 2> &frameHostEnc() { return m_frameHostEnc; };
+#if ENABLE_VMAF
     NVEncFilterVMAFData &vmaf() { return m_vmaf; }
+#endif //#if ENABLE_VMAF
     int frameHostSendIndex() const { return m_frameHostSendIndex; }
 protected:
     RGY_ERR init_cuda_resources();
@@ -117,7 +120,9 @@ protected:
     int m_frameHostSendIndex;
     std::array<std::unique_ptr<CUFrameBuf>, 2> m_frameHostOrg;   // オリジナルのフレームのHostメモリでのバッファ
     std::array<std::unique_ptr<CUFrameBuf>, 2> m_frameHostEnc;   // エンコード後のフレームのHostメモリでのバッファ
+#if ENABLE_VMAF
     NVEncFilterVMAFData m_vmaf;
+#endif //#if ENABLE_VMAF
     std::unique_ptr<CUFrameBuf> m_decFrameCopy; //デコード後にcrop(NV12->YV12変換)したフレームの格納場所
     std::array<CUMemBufPair, 3> m_tmpSsim; //評価結果を返すための一時バッファ
     std::array<CUMemBufPair, 3> m_tmpPsnr; //評価結果を返すための一時バッファ

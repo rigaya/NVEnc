@@ -27,11 +27,16 @@
 // ------------------------------------------------------------------------------------------
 
 #include <map>
-#include <libvmaf.h>
 #include "rgy_avutil.h"
 #include "CuvidDecode.h"
 #include "NVEncFilterSsim.h"
 #include "NVEncParam.h"
+#if ENABLE_VMAF
+#include <libvmaf.h>
+#pragma comment(lib, "libvmaf.lib")
+#pragma comment(lib, "pthreads.lib")
+#pragma comment(lib, "ptools.lib")
+#endif //#if ENABLE_VMAF
 
 #if ENABLE_SSIM
 
@@ -66,7 +71,9 @@ NVEncFilterSsim::NVEncFilterSsim() :
     m_frameHostSendIndex(0),
     m_frameHostOrg(),
     m_frameHostEnc(),
+#if ENABLE_VMAF
     m_vmaf(),
+#endif //#if ENABLE_VMAF
     m_decFrameCopy(),
     m_tmpSsim(),
     m_tmpPsnr(),
@@ -348,8 +355,10 @@ RGY_ERR NVEncFilterSsim::init_cuda_resources() {
                 }
             }
 
+#if ENABLE_VMAF
             m_vmaf.thread = std::thread(&NVEncFilterSsim::thread_func_vmaf, this);
             AddMessage(RGY_LOG_DEBUG, _T("Started vmaf calculation thread.\n"));
+#endif //#if ENABLE_VMAF
         }
     }
     return RGY_ERR_NONE;
@@ -489,13 +498,16 @@ void NVEncFilterSsim::showResult() {
         str += strsprintf(_T(" Avg: %f, (Frames: %d)\n"), get_psnr(m_psnrTotal, m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1), m_frames);
         AddMessage(RGY_LOG_INFO, _T("%s\n"), str.c_str());
     }
+#if ENABLE_VMAF
     if (prm->vmaf.enable) {
         if (m_vmaf.error == 0) {
             AddMessage(RGY_LOG_INFO, _T("VMAF Score %.6f\n"), m_vmaf.score);
         }
     }
+#endif //#if ENABLE_VMAF
 }
 
+#if ENABLE_VMAF
 NVEncFilterVMAFData::NVEncFilterVMAFData() : heProcFin(), abort(false), procIndex(0), error(0), score(0.0), thread() {
     for (auto &event : heProcFin) {
         event = CreateEvent(nullptr, false, false, nullptr);
@@ -581,6 +593,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
     AddMessage(RGY_LOG_DEBUG, _T("Finishing vmaf calculation thread: %d.\n"), m_vmaf.error);
     return (m_vmaf.error == 0) ? RGY_ERR_NONE : RGY_ERR_UNKNOWN;
 }
+#endif //#if ENABLE_VMAF
 
 RGY_ERR NVEncFilterSsim::thread_func_ssim_psnr() {
     auto sts = init_cuda_resources();
@@ -590,7 +603,9 @@ RGY_ERR NVEncFilterSsim::thread_func_ssim_psnr() {
     m_decodeStarted = true;
     auto ret = compare_frames(true);
     AddMessage(RGY_LOG_DEBUG, _T("Finishing ssim/psnr calculation thread: %s.\n"), get_err_mes(ret));
+#if ENABLE_VMAF
     m_vmaf.thread_fin();
+#endif //#if ENABLE_VMAF
     close_cuda_resources();
     return ret;
 }
@@ -680,7 +695,9 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             }
         }
         if (m_cropDToH) {
+#if ENABLE_VMAF
             WaitForSingleObject(m_vmaf.heProcFin[m_frameHostSendIndex % m_vmaf.heProcFin.size()], INFINITE);
+#endif //#if ENABLE_VMAF
             {
                 int cropFilterOutputNum = 0;
                 auto &frameHostOrg = m_frameHostOrg[m_frameHostSendIndex % m_frameHostOrg.size()];
