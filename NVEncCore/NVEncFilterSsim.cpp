@@ -540,7 +540,7 @@ void NVEncFilterVMAFData::thread_fin() {
 
 template<typename pixType>
 void read_frame_vmaf(float *dst, int stride_byte, const FrameInfo *srcFrame) {
-    const float factor = 1.f / (1 << (RGY_CSP_BIT_DEPTH[srcFrame->csp] - 8));
+    const float factor = 1.0f / (1 << (RGY_CSP_BIT_DEPTH[srcFrame->csp] - 8));
     for (int y = 0; y < srcFrame->height; y++) {
         float *ptrDstLine = (float *)((char *)dst + stride_byte * y);
         const pixType *ptrSrcLine = (const pixType *)((char *)srcFrame->ptr + srcFrame->pitch * y);
@@ -550,15 +550,17 @@ void read_frame_vmaf(float *dst, int stride_byte, const FrameInfo *srcFrame) {
     }
 }
 
-int read_frames_vmaf(float *ref_data, float *main_data, float *temp_data, int stride_byte, void *user_data) {
+int read_frames_vmaf(float *ref_data /*オリジナルのこと*/, float *main_data /*エンコードしたもの*/, float *temp_data, int stride_byte, void *user_data) {
     UNREFERENCED_PARAMETER(temp_data);
     NVEncFilterSsim *filter = (NVEncFilterSsim *)user_data;
-    if (filter->vmaf().abort
-        && filter->vmaf().procIndex >= filter->frameHostSendIndex()) {
-        return 2;
+    while (filter->vmaf().procIndex >= filter->frameHostSendIndex()) {
+        if (filter->vmaf().abort) {
+            return 2;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(0));
     }
     auto &framesEnc = filter->frameHostEnc()[filter->vmaf().procIndex % filter->frameHostEnc().size()];
-    auto &framesOrg = filter->frameHostOrg()[filter->vmaf().procIndex % filter->frameHostEnc().size()];
+    auto &framesOrg = filter->frameHostOrg()[filter->vmaf().procIndex % filter->frameHostOrg().size()];
     if (   cudaEventSynchronize(framesOrg->event) != cudaSuccess
         || cudaEventSynchronize(framesEnc->event) != cudaSuccess) {
         return 2;
@@ -570,8 +572,8 @@ int read_frames_vmaf(float *ref_data, float *main_data, float *temp_data, int st
         read_frame_vmaf<uint8_t>(main_data, stride_byte, &framesEnc->frame);
         read_frame_vmaf<uint8_t>(ref_data,  stride_byte, &framesOrg->frame);
     }
-
-    SetEvent(filter->vmaf().heProcFin[(filter->vmaf().procIndex++) % filter->vmaf().heProcFin.size()]);
+    SetEvent(filter->vmaf().heProcFin[filter->vmaf().procIndex % filter->vmaf().heProcFin.size()]);
+    filter->vmaf().procIndex++;
     return 0;
 };
 
@@ -599,7 +601,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
         nullptr /*pool*/,
         prm->vmaf.threads,
         1 /*subsample*/, 0 /*enable_conf_interval*/);
-    AddMessage(RGY_LOG_DEBUG, _T("Finishing vmaf calculation thread: %d.\n"), m_vmaf.error);
+    AddMessage((m_vmaf.error == 0) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("Finishing vmaf calculation thread: %d.\n"), m_vmaf.error);
     return (m_vmaf.error == 0) ? RGY_ERR_NONE : RGY_ERR_UNKNOWN;
 }
 #endif //#if ENABLE_VMAF
