@@ -764,7 +764,7 @@ VppParam::VppParam() :
     rff(false) {
 }
 
-VMAFParam::VMAFParam() : enable(false), model_path("vmaf_v0.6.1.pkl"), threads(0) {};
+VMAFParam::VMAFParam() : enable(false), model_path(), threads(0) {};
 
 VppAfs::VppAfs() :
     enable(false),
