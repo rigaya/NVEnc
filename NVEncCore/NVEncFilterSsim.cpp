@@ -147,6 +147,15 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         }
         m_cropDToH = std::move(filterCrop);
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_cropDToH->GetInputMessage().c_str());
+
+        if (prm->vmaf.model_path.length() == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("\"model\" not set for vmaf.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (!PathFileExistsA(prm->vmaf.model_path.c_str())) {
+            AddMessage(RGY_LOG_ERROR, _T("\"model\" does not exist!\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
     }
 
     {
