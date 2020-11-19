@@ -373,8 +373,8 @@ bool VppMpdecimate::operator!=(const VppMpdecimate &x) const {
 }
 
 tstring VppMpdecimate::print() const {
-    return strsprintf(_T("mpdecimate: lo %d, hi %d, max %d, frac %.2f, log %s"),
-        lo, hi, max, frac,
+    return strsprintf(_T("mpdecimate: hi %d, lo %d, frac %.2f, max %d, log %s"),
+        hi, lo, frac, max,
         log ? _T("on") : _T("off"));
 }
 
