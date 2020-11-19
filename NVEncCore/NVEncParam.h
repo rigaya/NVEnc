@@ -1343,10 +1343,16 @@ struct VppParam {
 
 struct VMAFParam {
     bool enable;
-    std::string model_path;
+    tstring model_path;
     int threads;
+    int subsample;
+    bool phone_model;
+    bool enable_transform;
 
     VMAFParam();
+    bool operator==(const VMAFParam &x) const;
+    bool operator!=(const VMAFParam &x) const;
+    tstring print() const;
 };
 
 struct InEncodeVideoParam {

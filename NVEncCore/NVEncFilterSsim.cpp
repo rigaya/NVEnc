@@ -52,7 +52,7 @@ tstring NVEncFilterParamSsim::print() const {
     tstring str;
     if (ssim) str += _T("ssim ");
     if (psnr) str += _T("psnr ");
-    if (vmaf.enable) str += _T("vmaf ");
+    if (vmaf.enable) str += vmaf.print();
     return str;
 }
 
@@ -152,7 +152,7 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
             AddMessage(RGY_LOG_ERROR, _T("\"model\" not set for vmaf.\n"));
             return RGY_ERR_INVALID_PARAM;
         }
-        if (!PathFileExistsA(prm->vmaf.model_path.c_str())) {
+        if (!PathFileExists(prm->vmaf.model_path.c_str())) {
             AddMessage(RGY_LOG_ERROR, _T("\"model\" does not exist!\n"));
             return RGY_ERR_INVALID_PARAM;
         }
@@ -586,7 +586,12 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    std::unique_ptr<char, decltype(&free)> model_path(_strdup(prm->vmaf.model_path.c_str()), free);
+    std::string model_path_str;
+    if (tchar_to_string(prm->vmaf.model_path.c_str(), model_path_str) == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to convert model \"%s\" to char.\n"), prm->vmaf.model_path.c_str());
+        return RGY_ERR_INVALID_PARAM;
+    }
+    std::unique_ptr<char, decltype(&free)> model_path(_strdup(model_path_str.c_str()), free);
 
     for (auto &handle : m_vmaf.heProcFin) {
         SetEvent(handle);
@@ -595,12 +600,12 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
     m_vmaf.error = compute_vmaf(&m_vmaf.score, pix_fmt_name.get(), frameInfo.width, frameInfo.height,
         read_frames_vmaf, this,
         model_path.get(), nullptr /*log_path*/, nullptr /*log_fmt*/, 0, 0,
-        0 /*enable_transform*/,
-        0 /*phone_model*/,
+        prm->vmaf.enable_transform ? 1 : 0 /*enable_transform*/,
+        prm->vmaf.phone_model /*phone_model*/,
         false /*psnr*/, false /*ssim*/, false /*ms_ssim*/,
         nullptr /*pool*/,
         prm->vmaf.threads,
-        1 /*subsample*/, 0 /*enable_conf_interval*/);
+        prm->vmaf.subsample /*subsample*/, 0 /*enable_conf_interval*/);
     AddMessage((m_vmaf.error == 0) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("Finishing vmaf calculation thread: %d.\n"), m_vmaf.error);
     return (m_vmaf.error == 0) ? RGY_ERR_NONE : RGY_ERR_UNKNOWN;
 }

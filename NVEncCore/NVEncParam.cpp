@@ -764,7 +764,32 @@ VppParam::VppParam() :
     rff(false) {
 }
 
-VMAFParam::VMAFParam() : enable(false), model_path(), threads(0) {};
+VMAFParam::VMAFParam() :
+    enable(false),
+    model_path(),
+    threads(0),
+    subsample(1),
+    phone_model(false),
+    enable_transform(false) {
+};
+
+bool VMAFParam::operator==(const VMAFParam &x) const {
+    return enable == x.enable
+        && model_path == x.model_path
+        && threads == x.threads
+        && subsample == x.subsample
+        && phone_model == x.phone_model
+        && enable_transform == x.enable_transform;
+}
+bool VMAFParam::operator!=(const VMAFParam &x) const {
+    return !(*this == x);
+}
+tstring VMAFParam::print() const {
+    return strsprintf(_T("vmaf %s, threads %d, subsample %d, phone_model %s, enable_transform %s"),
+        model_path.c_str(), threads, subsample,
+        phone_model ? _T("on") : _T("off"),
+        enable_transform ? _T("on") : _T("off"));
+}
 
 VppAfs::VppAfs() :
     enable(false),

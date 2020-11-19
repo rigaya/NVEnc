@@ -557,9 +557,15 @@ tstring encoder_help() {
         _T("   --ssim                       calc ssim.\n")
         _T("   --psnr                       calc psnr.\n")
 #if ENABLE_VMAF
-        _T("   --vmaf                       calc vmaf.\n")
+        _T("   --vmaf [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Calc vmaf. Please note that this is likely to become bottleneck and\n")
+        _T("     strongly affect encoding perfromance.\n")
         _T("    params\n")
-        _T("      model=<string>            set model file path.\n")
+        _T("      model=<string>            set model file path [always required].\n")
+        _T("      threads=<int>             cpu thread(s) to calculate vmaf score.\n")
+        _T("      subsample=<int>           interval for frame subsampling calculating vmaf score.\n")
+        _T("      phone_model=<bool>        use phone model which generate higher vmaf score.\n")
+        _T("      enable_transform=<bool>   enable transform when calculating vmaf score.\n")
 #endif //#if ENABLE_VMAF
         _T("   --cuda-schedule <string>     set cuda schedule mode (default: sync).\n")
         _T("       auto  : let cuda driver to decide\n")
@@ -3366,7 +3372,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "model", "threads" };
+        const auto paramList = std::vector<std::string>{ "model", "threads", "subsample", "phone_model", "enable_transform" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -3384,6 +3390,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
+                if (param_arg == _T("model")) {
+                    pParams->vmaf.model_path = trim(param_val, _T("\""));
+                    continue;
+                }
                 if (param_arg == _T("threads")) {
                     try {
                         pParams->vmaf.threads = std::stoi(param_val);
@@ -3393,13 +3403,42 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     }
                     continue;
                 }
-                if (param_arg == _T("model")) {
-                    pParams->vmaf.model_path = tchar_to_string(trim(param_val, _T("\"")));
+                if (param_arg == _T("subsample")) {
+                    try {
+                        pParams->vmaf.subsample = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("phone_model")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vmaf.phone_model = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("enable_transform")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vmaf.enable_transform = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
+                if (param == _T("enable_transform")) {
+                    pParams->vmaf.enable_transform = true;
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
@@ -4396,6 +4435,23 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
 
     OPT_BOOL(_T("--ssim"), _T(""), ssim);
     OPT_BOOL(_T("--psnr"), _T(""), psnr);
+
+    if (pParams->vmaf != encPrmDefault.vmaf) {
+        tmp.str(tstring());
+        if (!pParams->vmaf.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vmaf.enable || save_disabled_prm) {
+            ADD_PATH(_T("model"), vmaf.model_path.c_str());
+            ADD_NUM(_T("threads"), vmaf.threads);
+            ADD_NUM(_T("subsample"), vmaf.subsample);
+            ADD_BOOL(_T("phone_model"), vmaf.phone_model);
+            ADD_BOOL(_T("enable_transform"), vmaf.enable_transform);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-mpdecimate ") << tmp.str().substr(1);
+        }
+    }
 
     OPT_LST(_T("--cuda-schedule"), cudaSchedule, list_cuda_schedule);
     OPT_NUM(_T("--session-retry"), sessionRetry);
