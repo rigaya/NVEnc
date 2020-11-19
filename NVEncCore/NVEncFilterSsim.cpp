@@ -716,7 +716,6 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                     AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDToH->name().c_str());
                     return sts_filter;
                 }
-                cudaDeviceSynchronize();
                 auto cudaerr = cudaGetLastError();
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("error at m_cropDToH(Org)->filter: %s.\n"),
@@ -741,7 +740,6 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
                     AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDToH->name().c_str());
                     return sts_filter;
                 }
-                cudaDeviceSynchronize();
                 auto cudaerr = cudaGetLastError();
                 if (cudaerr != cudaSuccess) {
                     AddMessage(RGY_LOG_ERROR, _T("error at m_cropDToH(Enc)->filter: %s.\n"),
