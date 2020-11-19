@@ -563,6 +563,36 @@ Calculate ssim of the encoded video.
 ### --psnr
 Calculate psnr of the encoded video.
 
+### --vmaf [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Calculate vmaf score of the encoded video. Please note that the vmaf score calculation is run by libvmaf on CPU,
+and is highly likely to become a bottleneck and result in poor encoding performance.
+
+Currently for Windows x64 only.
+
+**Parameters**
+
+  - model=&lt;string&gt;  
+    Set model file path. Always required.
+    For example, download model file "vmaf_v0.6.1.pkl" and "vmaf_v0.6.1.pkl.model" from 
+    [link](https://github.com/Netflix/vmaf/tree/master/model) and put them in the same folder,
+    and set the path by this option. (Please check the example below.)
+
+  - threads=&lt;int&gt;  (default: 0)  
+    CPU thread(s) to calculate vmaf score. Default is to use all cores.
+
+  - subsample=&lt;int&gt;  (default: 1)  
+    Interval for frame subsampling calculating vmaf score.
+
+  - phone_model=&lt;bool&gt;  (default: false)  
+    Use phone model which generate higher vmaf score.
+    
+  - enable_transform=&lt;bool&gt;  (default: false)  
+    Enable transform when calculating vmaf score.
+    
+```
+Example: --vmaf model=vmaf_v0.6.1.pkl
+```
+
 ## IO / Audio / Subtitle Options
 
 ### --input-analyze &lt;int&gt;

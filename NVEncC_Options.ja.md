@@ -569,6 +569,35 @@ HEVCの規格では64まで存在するが、現状NVENCでは32までしかサ�
 ### --psnr
 エンコード結果のPSNRを計算。
 
+### --vmaf [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+エンコード結果のVMAFスコアを計算する。なお、VMAFスコアの計算はlibvmafによりCPUで行われるため、
+エンコード速度を律速し非常に遅くなる可能性が高いので注意してください。
+
+現状、Windowsの64bit版のみ使用可能です。
+
+**パラメータ**
+
+  - model=&lt;string&gt;  
+    モデルファイルのパスを指定する。常に指定が必要です(例参照)。
+    [こちら](https://github.com/Netflix/vmaf/tree/master/model)から
+    vmaf_v0.6.1.pkl と vmaf_v0.6.1.pkl.model をダウンロードし、同じフォルダに入れ、そのファイル名を例のように指定してください。
+
+  - threads=&lt;int&gt;  (default: 0)  
+    VMAFスコアを計算するCPUのスレッド数の指定。デフォルトは全コア。
+
+  - subsample=&lt;int&gt;  (default: 1)  
+    VMAFスコアを計算対象とするフレームサブサンプリング間隔の指定。
+
+  - phone_model=&lt;bool&gt;  (default: false)  
+    電話モデルを使用し、モバイル端末等に適したより高いVMAFスコアを計算する。
+    
+  - enable_transform=&lt;bool&gt;  (default: false)  
+    VMAFスコアの計算でtransformを有効にして計算する。
+    
+```
+例: --vmaf model=vmaf_v0.6.1.pkl
+```
+
 ## 入出力 / 音声 / 字幕などのオプション
 
 ### --input-analyze &lt;int&gt;
