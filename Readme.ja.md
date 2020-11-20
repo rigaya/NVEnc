@@ -100,7 +100,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   - VC-1
   - VP9
 - avs, vpy, y4m, rawなど各種形式に対応
-- エンコード結果のSSIM/PSNRを計算
+- エンコード結果のSSIM/PSNR/VMAFを計算
 - GPUを使用した高速フィルタリング
   - cuvid内蔵のhw処理
     - リサイズ
@@ -111,6 +111,8 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
       - afs (自動フィールドシフト)
       - nnedi
       - yadif
+    - decimate
+    - mpdecimate
     - delogo
     - 字幕焼きこみ
     - 色空間変換 (x64版のみ)
@@ -150,6 +152,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
 - 本ソフトウェアでは、
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
+  [vmaf](https://github.com/Netflix/vmaf),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),
   [libass](https://github.com/libass/libass),

@@ -95,7 +95,7 @@ which might cause problem in some playback environments.
 - Supports various formats such as avs, vpy, y4m, and raw
 - Supports demux/muxing using libavformat
 - Supports decode using libavcodec
-- Calculation of ssim/psnr of the encode
+- Calculation of ssim/psnr/vmaf of the encode
 - High performance filtering (VPP, Video Pre-Processing)
   - cuvid built-in hw processing
     - resize
@@ -106,6 +106,8 @@ which might cause problem in some playback environments.
       - afs (Automatic field shift)
       - nnedi
       - yadif
+    - decimate
+    - mpdecimate
     - colorspace conversion (x64 version only)
       - hdr2sdr
     - delogo
@@ -150,6 +152,7 @@ which might cause problem in some playback environments.
 - This software depends on
   [jitify](https://github.com/NVIDIA/jitify),
   [ffmpeg](https://ffmpeg.org/),
+  [vmaf](https://github.com/Netflix/vmaf),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),
   [libass](https://github.com/libass/libass),
