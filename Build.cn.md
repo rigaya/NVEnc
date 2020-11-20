@@ -7,11 +7,11 @@ by rigaya
 
 - Visual Studio 2015 + CUDA 8.0 (x86)
 - Visual Studio 2019 + CUDA 10.2 (x64)
-- yasm
-- Avisynth SDK
-- VapourSynth SDK
+- [nasm](https://www.nasm.us/)
+- [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
+- [VapourSynth](http://www.vapoursynth.com/) SDK
 
-请将yasm设置为您的环境路径。
+请将nasm设置为您的环境路径。
 
 使用sdk安装Avisynth+和VapourSynth。
 
@@ -25,7 +25,7 @@ setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```
 
-您还需要Caption2Ass_PCR的源代码。
+您还需要[Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR)的源代码。
 
 ```Batchfile
 git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>

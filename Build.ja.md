@@ -12,12 +12,12 @@
 
 - Visual Studio 2015 + CUDA 8.0 (x86)
 - Visual Studio 2019 + CUDA 10.2 (x64)
-- yasm
-- Avisynth+ SDK
-- VapourSynth SDK
+- [nasm](https://www.nasm.us/)
+- [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
+- [VapourSynth](http://www.vapoursynth.com/) SDK
 
 ### 1. 環境準備
-yasmはパスに追加しておきます。
+nasmはパスに追加しておきます。
 
 Avisynth+とVapourSynthは、SDKがインストールされるよう設定してインストールします。
 
@@ -31,11 +31,18 @@ setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```
 
-さらにビルドに必要なCaption2Ass_PCRをcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
+さらにビルドに必要な[Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR)をcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
 
 ```Batchfile
 git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
-setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
+setx CAPTION2ASS_SRC "<path-to-clone>/src"
+```
+
+また、64bit版ではlibvmafのビルドも必要です。
+[vmaf 1.3.15](https://github.com/Netflix/vmaf/releases/tag/v1.3.15)のソースコードをダウンロードし、中のvmaf.slnを開き、Release|x64でビルドします。
+その後、vmaf.slnのあるフォルダを環境変数 "VMAF_DIR" として設定します。
+```Batchfile
+setx VMAF_DIR <path-of-vmaf-1.3.15>
 ```
 
 ### 2. ソースのダウンロード
@@ -62,7 +69,7 @@ NVEnc.slnを開き、ビルドします。
 - GPUドライバ 435.21 以上
 - C++14 コンパイラ
 - CUDA 10
-- yasm
+- nasm
 - git
 - ライブラリ群
   - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -72,7 +79,7 @@ NVEnc.slnを開き、ビルドします。
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install build-essential git yasm nasm
+sudo apt install build-essential git nasm nasm
 ```
 
 ### 2. NVIDIA ドライバのインストール
@@ -235,7 +242,7 @@ H.265/HEVC
 - GPUドライバ 435.21 以上
 - C++14 コンパイラ
 - CUDA 10
-- yasm
+- nasm
 - git
 - ライブラリ群
   - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -245,7 +252,7 @@ H.265/HEVC
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install git yasm nasm
+sudo apt install git nasm nasm
 ```
 
 ### 2. NVIDIA ドライバ + CUDA のインストール

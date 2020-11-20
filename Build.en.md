@@ -12,13 +12,13 @@ To build NVEnc, components below are required.
 
 - Visual Studio 2015 + CUDA 8.0 (x86)
 - Visual Studio 2019 + CUDA 10.2 (x64)
-- yasm
-- Avisynth SDK
-- VapourSynth SDK
+- [nasm](https://www.nasm.us/)
+- [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
+- [VapourSynth](http://www.vapoursynth.com/) SDK
 
 ### 1. Install build tools.
 
-Please set yasm to your environment PATH.
+Please set nasm to your environment PATH.
 
 Install Avisynth+ and VapourSynth, with the SDKs.
 
@@ -32,11 +32,19 @@ setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```
 
-You will also need source code of Caption2Ass_PCR.
+You will also need source code of [Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR).
 
 ```Batchfile
 git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
-setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
+setx CAPTION2ASS_SRC "<path-to-clone>/src"
+```
+
+For x64 build, you will also need to build libvmaf 1.3.15.
+Download source code of [vmaf 1.3.15](https://github.com/Netflix/vmaf/releases/tag/v1.3.15),
+and open vmaf.sln by Visual Studio, and build by configuration Releae|x64.
+Then set environment variable "VMAF_DIR" to the directory which vmaf.sln exists.
+```Batchfile
+setx VMAF_DIR <path-of-vmaf-1.3.15>
 ```
 
 ### 2. Download source code
@@ -63,7 +71,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 - GPU Driver 435.21 or later
 - C++14 Compiler
 - CUDA 10
-- yasm
+- nasm
 - git
 - libraries
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -73,7 +81,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 ### 1. Install build tools
 
 ```Shell
-sudo apt install build-essential git yasm nasm
+sudo apt install build-essential git nasm nasm
 ```
 
 ### 2. Install NVIDIA driver
@@ -236,7 +244,7 @@ H.265/HEVC
 - GPU Driver 435.21 or later
 - C++14 Compiler
 - CUDA 10
-- yasm
+- nasm
 - git
 - libraries
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -246,7 +254,7 @@ H.265/HEVC
 ### 1. Install build tools
 
 ```Shell
-sudo apt install git yasm nasm
+sudo apt install git nasm nasm
 ```
 
 ### 2. Install NVIDIA driver and CUDA 10.2
