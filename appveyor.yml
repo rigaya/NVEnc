@@ -27,11 +27,10 @@ init:
 
 install:
   - git submodule update --init --recursive
-  - mkdir c:\yasm
-  - if "%PLATFORM%" == "x64"   curl -o "c:\yasm\yasm.exe" http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win64.exe
-  - if "%PLATFORM%" == "Win32" curl -o "c:\yasm\yasm.exe" http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win32.exe
-  - set PATH=c:\yasm;%PATH%
-  - yasm --version
+  - curl -o "nasminst.exe" https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/win32/nasm-2.15.05-installer-x86.exe
+  - start /wait nasminst.exe /S
+  - set PATH=C:\Program Files (x86)\nasm;%PATH%
+  - nasm --version
   - set PATH=C:\Python38-x64;%PATH%
   - python --version
   - mkdir c:\hdr10plus_gen
