@@ -361,10 +361,10 @@ int ChapterRW::read_chapter_nero() {
         if (i&1) {
             //読み取り
             unique_ptr<ChapData> chap(new ChapData());
-            if (   4 != sscanf_s(pw_data[0], "%d:%d:%d:%d", &chap->h, &chap->m, &chap->s, &chap->ms)
-                && 4 != sscanf_s(pw_data[0], "%d:%d:%d.%d", &chap->h, &chap->m, &chap->s, &chap->ms)
-                && 4 != sscanf_s(pw_data[0], "%d:%d.%d.%d", &chap->h, &chap->m, &chap->s, &chap->ms)
-                && 4 != sscanf_s(pw_data[0], "%d.%d.%d.%d", &chap->h, &chap->m, &chap->s, &chap->ms)) {
+            if (   4 != sscanf_s(pw_data[0], "%d:%d:%d:%03d", &chap->h, &chap->m, &chap->s, &chap->ms)
+                && 4 != sscanf_s(pw_data[0], "%d:%d:%d.%03d", &chap->h, &chap->m, &chap->s, &chap->ms)
+                && 4 != sscanf_s(pw_data[0], "%d:%d.%d.%03d", &chap->h, &chap->m, &chap->s, &chap->ms)
+                && 4 != sscanf_s(pw_data[0], "%d.%d.%d.%03d", &chap->h, &chap->m, &chap->s, &chap->ms)) {
                 sts = AUO_CHAP_ERR_INVALID_FMT;
             } else {
                 chap->name = pw_data[1];
@@ -401,10 +401,10 @@ int ChapterRW::read_chapter_apple() {
         for (auto element = elemTextStream->FirstChildElement(ELEMENT_NAME); element != nullptr; element = element->NextSiblingElement(ELEMENT_NAME)) {
             int time[4] = { 0 };
             auto pSampleTime = element->Attribute(ATTRIBUTE_NAME);
-            if (   4 != sscanf_s(pSampleTime, "%d:%d:%d:%d", &time[0], &time[1], &time[2], &time[3])
-                && 4 != sscanf_s(pSampleTime, "%d:%d:%d.%d", &time[0], &time[1], &time[2], &time[3])
-                && 4 != sscanf_s(pSampleTime, "%d:%d.%d.%d", &time[0], &time[1], &time[2], &time[3])
-                && 4 != sscanf_s(pSampleTime, "%d.%d.%d.%d", &time[0], &time[1], &time[2], &time[3])) {
+            if (   4 != sscanf_s(pSampleTime, "%d:%d:%d:%03d", &time[0], &time[1], &time[2], &time[3])
+                && 4 != sscanf_s(pSampleTime, "%d:%d:%d.%03d", &time[0], &time[1], &time[2], &time[3])
+                && 4 != sscanf_s(pSampleTime, "%d:%d.%d.%03d", &time[0], &time[1], &time[2], &time[3])
+                && 4 != sscanf_s(pSampleTime, "%d.%d.%d.%03d", &time[0], &time[1], &time[2], &time[3])) {
                 return AUO_CHAP_ERR_PARSE_XML;
             }
             unique_ptr<ChapData> chap(new ChapData());
@@ -452,10 +452,10 @@ int ChapterRW::read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, in
 
                 auto timeStart = chapterTimeStart->GetText();
                 int time[4] = { 0 };
-                if (   4 != sscanf_s(timeStart, "%d:%d:%d:%d", &time[0], &time[1], &time[2], &time[3])
-                    && 4 != sscanf_s(timeStart, "%d:%d:%d.%d", &time[0], &time[1], &time[2], &time[3])
-                    && 4 != sscanf_s(timeStart, "%d:%d.%d.%d", &time[0], &time[1], &time[2], &time[3])
-                    && 4 != sscanf_s(timeStart, "%d.%d.%d.%d", &time[0], &time[1], &time[2], &time[3])) {
+                if (   4 != sscanf_s(timeStart, "%d:%d:%d:%03d", &time[0], &time[1], &time[2], &time[3])
+                    && 4 != sscanf_s(timeStart, "%d:%d:%d.%03d", &time[0], &time[1], &time[2], &time[3])
+                    && 4 != sscanf_s(timeStart, "%d:%d.%d.%03d", &time[0], &time[1], &time[2], &time[3])
+                    && 4 != sscanf_s(timeStart, "%d.%d.%d.%03d", &time[0], &time[1], &time[2], &time[3])) {
                     return AUO_CHAP_ERR_PARSE_XML;
                 }
                 unique_ptr<ChapData> chap(new ChapData());
@@ -475,10 +475,10 @@ int ChapterRW::read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, in
         if (chapterTimeEnd) {
             auto timeEnd = chapterTimeEnd->GetText();
             int time[4] = { 0 };
-            if (   4 == sscanf_s(timeEnd, "%d:%d:%d:%d", &time[0], &time[1], &time[2], &time[3])
-                || 4 == sscanf_s(timeEnd, "%d:%d:%d.%d", &time[0], &time[1], &time[2], &time[3])
-                || 4 == sscanf_s(timeEnd, "%d:%d.%d.%d", &time[0], &time[1], &time[2], &time[3])
-                || 4 == sscanf_s(timeEnd, "%d.%d.%d.%d", &time[0], &time[1], &time[2], &time[3])) {
+            if (   4 == sscanf_s(timeEnd, "%d:%d:%d:%03d", &time[0], &time[1], &time[2], &time[3])
+                || 4 == sscanf_s(timeEnd, "%d:%d:%d.%03d", &time[0], &time[1], &time[2], &time[3])
+                || 4 == sscanf_s(timeEnd, "%d:%d.%d.%03d", &time[0], &time[1], &time[2], &time[3])
+                || 4 == sscanf_s(timeEnd, "%d.%d.%d.%03d", &time[0], &time[1], &time[2], &time[3])) {
                 ChapData chap;
                 chap.h  = time[0];
                 chap.m  = time[1];
