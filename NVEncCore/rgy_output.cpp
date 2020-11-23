@@ -339,6 +339,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                 }
                 memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
                 memcpy(pBitstream->data() + sps_nal_offset, pkt.data, pkt.size);
+                pBitstream->setSize(new_data_size);
                 av_packet_unref(&pkt);
             }
         }

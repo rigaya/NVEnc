@@ -2345,6 +2345,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
             }
             memmove(bitstream->data() + next_nal_new_offset, bitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
             memcpy(bitstream->data() + sps_nal_offset, pkt.data, pkt.size);
+            bitstream->setSize(new_data_size);
             av_packet_unref(&pkt);
         }
     }
