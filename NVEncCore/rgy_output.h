@@ -222,7 +222,6 @@ RGY_ERR initWriters(
     const vector<unique_ptr<AVChapter>> &chapters,
 #endif //#if ENABLE_AVSW_READER
     const HEVCHDRSei *hedrsei,
-    const int subburnTrackId,
     const bool videoDtsUnavailable,
     const bool benchmark,
     shared_ptr<EncodeStatus> pStatus,

@@ -489,10 +489,10 @@ void NVEncFilterDecimateFrameData::calcDiffFromTmp() {
     const bool useKernel2 = (m_blockX / 2 <= DECIMATE_KERNEL2_BLOCK_X_THRESHOLD);
     if (useKernel2) {
         int2 *const tmpHost = (int2 *)m_tmp.ptrHost;
-        const int count = m_tmp.nSize / sizeof(int2);
+        const size_t count = m_tmp.nSize / sizeof(int2);
         m_diffMaxBlock = -1;
         m_diffTotal = 0;
-        for (int i = 0; i < count; i++) {
+        for (size_t i = 0; i < count; i++) {
             m_diffTotal += tmpHost[i].x;
             m_diffMaxBlock = std::max<int64_t>(m_diffMaxBlock, tmpHost[i].y);
         }

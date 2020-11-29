@@ -264,7 +264,7 @@ cudaError_t deband_plane(
     uint8_t *pRand, const int randPitch,
     const bool isYUV420, const int range, const int dither, const int threshold, const bool interlaced,
     cudaStream_t stream) {
-    const float dither_range = (float)dither * std::pow(2.0f, bit_depth-12) + 0.5f;
+    const float dither_range = dither * (float)std::pow(2.0f, bit_depth-12) + 0.5f;
     const float threshold_float = (threshold << (!(sample_mode && blur_first) + 1)) * (1.0f / (1 << 12));
     const int range_plane = (isYUV420 && mode_yuv != MODE_Y) ? range >> 1 : range;
     const int field_mask = (interlaced) ? -2 : -1;

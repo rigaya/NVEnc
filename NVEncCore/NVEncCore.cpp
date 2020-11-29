@@ -602,17 +602,10 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->AVMuxTarget &= ~RGY_MUX_VIDEO;
     //}
-    int subburnTrackId = 0;
-    for (const auto &subburn : inputParams->vpp.subburn) {
-        if (subburn.trackId > 0) {
-            subburnTrackId = subburn.trackId;
-            break;
-        }
-    }
 
     if (initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
-        m_trimParam, m_outputTimebase, m_Chapters, m_hdrsei.get(), subburnTrackId, false, false, m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
+        m_trimParam, m_outputTimebase, m_Chapters, m_hdrsei.get(), false, false, m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return NV_ENC_ERR_GENERIC;
     }
