@@ -82,11 +82,8 @@ union RGY_CSP_2 {
     };
 };
 
-#define BIT_DEPTH_CONV(x) (TypeOut)((out_bit_depth == in_bit_depth) \
-    ? (x) \
-    : ((out_bit_depth > in_bit_depth) \
-        ? ((int)(x) << (out_bit_depth - in_bit_depth)) \
-        : ((int)(x) >> (in_bit_depth - out_bit_depth))))
+#define BIT_DEPTH_CONV(x) \
+    conv_bit_depth<in_bit_depth, out_bit_depth, 0>(x)
 
 #define BIT_DEPTH_CONV_FLOAT(x) (TypeOut)((out_bit_depth == in_bit_depth) \
     ? (x) \
@@ -94,17 +91,14 @@ union RGY_CSP_2 {
         ? ((x) * (float)(1 << (out_bit_depth - in_bit_depth))) \
         : ((x) * (float)(1.0f / (1 << (in_bit_depth - out_bit_depth))))))
 
-#define BIT_DEPTH_CONV_AVG(a, b) (TypeOut)((out_bit_depth == in_bit_depth + 1) \
-    ? ((int)(a) + (int)(b) + 1) \
-    : ((out_bit_depth > in_bit_depth + 1) \
-        ? (((int)(a) + (int)(b) + 1) << (out_bit_depth - in_bit_depth - 1)) \
-        : (((int)(a) + (int)(b) + 1) >> (in_bit_depth + 1 - out_bit_depth))))
+#define BIT_DEPTH_CONV_AVG(a, b) \
+    conv_bit_depth<in_bit_depth, out_bit_depth, 1>((int)a + (int)b)
 
-#define BIT_DEPTH_CONV_3x1_AVG(a, b) (TypeOut)((out_bit_depth == in_bit_depth + 2) \
-    ? ((int)(a) * 3 + (int)(b) + 2) \
-    : ((out_bit_depth > in_bit_depth + 2) \
-        ? (((int)(a) * 3 + (int)(b) + 2) << (out_bit_depth - in_bit_depth - 2)) \
-        : (((int)(a) * 3 + (int)(b) + 2) >> (in_bit_depth + 2 - out_bit_depth))))
+#define BIT_DEPTH_CONV_3x1_AVG(a, b) \
+    conv_bit_depth<in_bit_depth, out_bit_depth, 2>((int)a * 3 + (int)b)
+
+#define BIT_DEPTH_CONV_ia_jb_rsh3(i, a, j, b) \
+    conv_bit_depth<in_bit_depth, out_bit_depth, 3>((int)a * i + (int)b * j)
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
 __global__ void kernel_crop_nv12_nv12(TypeOut *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
@@ -136,7 +130,7 @@ __global__ void kernel_crop_y(uint8_t *__restrict__ pDst, const int dstPitch, co
         int isrc = (y + offsetY) * srcPitch + (x + offsetX) * sizeof(TypeIn);
         const TypeIn *ptr_src = (const TypeIn *)(pSrc + isrc);
         TypeOut *ptr_dst = (TypeOut *)(pDst + idst);
-        ptr_dst[0] = BIT_DEPTH_CONV(ptr_src[0]);
+        ptr_dst[0] = (TypeOut)BIT_DEPTH_CONV(ptr_src[0]);
     }
 }
 
@@ -214,8 +208,8 @@ __global__ void kernel_crop_uv_nv12_yv12(uint8_t *__restrict__ pDstU, uint8_t *_
         const TypeIn *ptr_src = (const TypeIn *)(pSrc  + isrc);
         TypeOut *ptr_dst_u = (TypeOut *)(pDstU + idst);
         TypeOut *ptr_dst_v = (TypeOut *)(pDstV + idst);
-        ptr_dst_u[0] = BIT_DEPTH_CONV(ptr_src[0]);
-        ptr_dst_v[0] = BIT_DEPTH_CONV(ptr_src[1]);
+        ptr_dst_u[0] = (TypeOut)BIT_DEPTH_CONV(ptr_src[0]);
+        ptr_dst_v[0] = (TypeOut)BIT_DEPTH_CONV(ptr_src[1]);
     }
 }
 
@@ -259,22 +253,16 @@ __global__ void kernel_crop_uv_nv12_yuv444_p(uint8_t *__restrict__ pDstU, uint8_
         const int u_y2x1 = (ptr_src[y2_offset+next_pixel+0] + u_y2x0 + 1) >> 1;
         const int v_y2x1 = (ptr_src[y2_offset+next_pixel+1] + v_y2x0 + 1) >> 1;
 
-#define BIT_DEPTH_CONV_a3_b1_rsh2(a, b) (TypeOut)((out_bit_depth == in_bit_depth + 2) \
-    ? (3 * (a) + (b) + 2) \
-    : ((out_bit_depth > in_bit_depth + 2) \
-        ? ((3 * (a) + (b) + 2) << (out_bit_depth - in_bit_depth - 2)) \
-        : ((3 * (a) + (b) + 2) >> (in_bit_depth + 2 - out_bit_depth))))
-
-        ptr_dst_u[0] = BIT_DEPTH_CONV_a3_b1_rsh2(u_y1x0, u_y0x0);
-        ptr_dst_v[0] = BIT_DEPTH_CONV_a3_b1_rsh2(v_y1x0, v_y0x0);
-        ptr_dst_u[1] = BIT_DEPTH_CONV_a3_b1_rsh2(u_y1x1, u_y0x1);
-        ptr_dst_v[1] = BIT_DEPTH_CONV_a3_b1_rsh2(v_y1x1, v_y0x1);
+        ptr_dst_u[0] = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(u_y1x0, u_y0x0);
+        ptr_dst_v[0] = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(v_y1x0, v_y0x0);
+        ptr_dst_u[1] = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(u_y1x1, u_y0x1);
+        ptr_dst_v[1] = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(v_y1x1, v_y0x1);
         ptr_dst_u = (TypeOut *)((uint8_t *)ptr_dst_u + dstPitch);
         ptr_dst_v = (TypeOut *)((uint8_t *)ptr_dst_v + dstPitch);
-        ptr_dst_u[0] = BIT_DEPTH_CONV_a3_b1_rsh2(u_y1x0, u_y2x0);
-        ptr_dst_v[0] = BIT_DEPTH_CONV_a3_b1_rsh2(v_y1x0, v_y2x0);
-        ptr_dst_u[1] = BIT_DEPTH_CONV_a3_b1_rsh2(u_y1x1, u_y2x1);
-        ptr_dst_v[1] = BIT_DEPTH_CONV_a3_b1_rsh2(v_y1x1, v_y2x1);
+        ptr_dst_u[0] = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(u_y1x0, u_y2x0);
+        ptr_dst_v[0] = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(v_y1x0, v_y2x0);
+        ptr_dst_u[1] = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(u_y1x1, u_y2x1);
+        ptr_dst_v[1] = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(v_y1x1, v_y2x1);
     }
 }
 
@@ -321,34 +309,28 @@ __global__ void kernel_crop_uv_nv12_yuv444_i(uint8_t *__restrict__ pDstU, uint8_
         const int u_y5x1 = (ptr_src[y5_offset+next_pixel+0] + u_y5x0 + 1) >> 1;
         const int v_y5x1 = (ptr_src[y5_offset+next_pixel+1] + v_y5x0 + 1) >> 1;
 
-#define BIT_DEPTH_CONV_ia_jb_rsh3(i, a, j, b) (TypeOut)((out_bit_depth == in_bit_depth + 3) \
-    ? ((i) * (a) + (j) * (b) + 4) \
-    : ((out_bit_depth > in_bit_depth + 2) \
-        ? (((i) * (a) + (j) * (b) + 4) << (out_bit_depth - in_bit_depth - 3)) \
-        : (((i) * (a) + (j) * (b) + 4) >> (in_bit_depth + 3 - out_bit_depth))))
-
-        ptr_dst_u[0] = BIT_DEPTH_CONV_ia_jb_rsh3(1, u_y0x0, 7, u_y2x0);
-        ptr_dst_v[0] = BIT_DEPTH_CONV_ia_jb_rsh3(1, v_y0x0, 7, v_y2x0);
-        ptr_dst_u[1] = BIT_DEPTH_CONV_ia_jb_rsh3(1, u_y0x1, 7, u_y2x1);
-        ptr_dst_v[1] = BIT_DEPTH_CONV_ia_jb_rsh3(1, v_y0x1, 7, v_y2x1);
+        ptr_dst_u[0] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(1, u_y0x0, 7, u_y2x0);
+        ptr_dst_v[0] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(1, v_y0x0, 7, v_y2x0);
+        ptr_dst_u[1] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(1, u_y0x1, 7, u_y2x1);
+        ptr_dst_v[1] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(1, v_y0x1, 7, v_y2x1);
         ptr_dst_u = (TypeOut *)((uint8_t *)ptr_dst_u + dstPitch);
         ptr_dst_v = (TypeOut *)((uint8_t *)ptr_dst_v + dstPitch);
-        ptr_dst_u[0] = BIT_DEPTH_CONV_ia_jb_rsh3(3, u_y1x0, 5, u_y3x0);
-        ptr_dst_v[0] = BIT_DEPTH_CONV_ia_jb_rsh3(3, v_y1x0, 5, v_y3x0);
-        ptr_dst_u[1] = BIT_DEPTH_CONV_ia_jb_rsh3(3, u_y1x1, 5, u_y3x1);
-        ptr_dst_v[1] = BIT_DEPTH_CONV_ia_jb_rsh3(3, v_y1x1, 5, v_y3x1);
+        ptr_dst_u[0] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(3, u_y1x0, 5, u_y3x0);
+        ptr_dst_v[0] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(3, v_y1x0, 5, v_y3x0);
+        ptr_dst_u[1] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(3, u_y1x1, 5, u_y3x1);
+        ptr_dst_v[1] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(3, v_y1x1, 5, v_y3x1);
         ptr_dst_u = (TypeOut *)((uint8_t *)ptr_dst_u + dstPitch);
         ptr_dst_v = (TypeOut *)((uint8_t *)ptr_dst_v + dstPitch);
-        ptr_dst_u[0] = BIT_DEPTH_CONV_ia_jb_rsh3(5, u_y2x0, 3, u_y4x0);
-        ptr_dst_v[0] = BIT_DEPTH_CONV_ia_jb_rsh3(5, v_y2x0, 3, v_y4x0);
-        ptr_dst_u[1] = BIT_DEPTH_CONV_ia_jb_rsh3(5, u_y2x1, 3, u_y4x1);
-        ptr_dst_v[1] = BIT_DEPTH_CONV_ia_jb_rsh3(5, v_y2x1, 3, v_y4x1);
+        ptr_dst_u[0] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(5, u_y2x0, 3, u_y4x0);
+        ptr_dst_v[0] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(5, v_y2x0, 3, v_y4x0);
+        ptr_dst_u[1] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(5, u_y2x1, 3, u_y4x1);
+        ptr_dst_v[1] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(5, v_y2x1, 3, v_y4x1);
         ptr_dst_u = (TypeOut *)((uint8_t *)ptr_dst_u + dstPitch);
         ptr_dst_v = (TypeOut *)((uint8_t *)ptr_dst_v + dstPitch);
-        ptr_dst_u[0] = BIT_DEPTH_CONV_ia_jb_rsh3(7, u_y3x0, 1, u_y5x0);
-        ptr_dst_v[0] = BIT_DEPTH_CONV_ia_jb_rsh3(7, v_y3x0, 1, v_y5x0);
-        ptr_dst_u[1] = BIT_DEPTH_CONV_ia_jb_rsh3(7, u_y3x1, 1, u_y5x1);
-        ptr_dst_v[1] = BIT_DEPTH_CONV_ia_jb_rsh3(7, v_y3x1, 1, v_y5x1);
+        ptr_dst_u[0] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(7, u_y3x0, 1, u_y5x0);
+        ptr_dst_v[0] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(7, v_y3x0, 1, v_y5x0);
+        ptr_dst_u[1] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(7, u_y3x1, 1, u_y5x1);
+        ptr_dst_v[1] = (TypeOut)BIT_DEPTH_CONV_ia_jb_rsh3(7, v_y3x1, 1, v_y5x1);
     }
 }
 
@@ -381,8 +363,8 @@ __global__ void kernel_crop_uv_yv12_nv12(uint8_t *__restrict__ pDst, const int d
         const TypeIn *ptr_src_u = (const TypeIn *)(pSrcU + isrc);
         const TypeIn *ptr_src_v = (const TypeIn *)(pSrcV + isrc);
         TypeOut *ptr_dst = (TypeOut *)(pDst + idst);
-        ptr_dst[0] = BIT_DEPTH_CONV(ptr_src_u[0]);
-        ptr_dst[1] = BIT_DEPTH_CONV(ptr_src_v[0]);
+        ptr_dst[0] = (TypeOut)BIT_DEPTH_CONV(ptr_src_u[0]);
+        ptr_dst[1] = (TypeOut)BIT_DEPTH_CONV(ptr_src_v[0]);
     }
 }
 
@@ -415,8 +397,8 @@ __global__ void kernel_crop_uv_nv16_yuv444(uint8_t *__restrict__ pDstU, uint8_t 
         TypeOut *ptr_dst_u = (TypeOut *)(pDstU + idst);
         TypeOut *ptr_dst_v = (TypeOut *)(pDstV + idst);
         struct TypeOut2 { TypeOut a, b; };
-        TypeOut2 dst_u = { BIT_DEPTH_CONV(src0.a), BIT_DEPTH_CONV_AVG(src0.a, src1.b) };
-        TypeOut2 dst_v = { BIT_DEPTH_CONV(src0.b), BIT_DEPTH_CONV_AVG(src0.b, src1.b) };
+        TypeOut2 dst_u = { (TypeOut)BIT_DEPTH_CONV(src0.a), (TypeOut)BIT_DEPTH_CONV_AVG(src0.a, src1.b) };
+        TypeOut2 dst_v = { (TypeOut)BIT_DEPTH_CONV(src0.b), (TypeOut)BIT_DEPTH_CONV_AVG(src0.b, src1.b) };
         *(TypeOut2 *)ptr_dst_u = dst_u;
         *(TypeOut2 *)ptr_dst_v = dst_v;
     }
@@ -453,8 +435,8 @@ __global__ void kernel_crop_uv_nv16_yv12_p(uint8_t *__restrict__ pDstU, uint8_t 
         TypeOut *ptr_dst_u = (TypeOut *)(pDstU + idst);
         TypeOut *ptr_dst_v = (TypeOut *)(pDstV + idst);
 
-        ptr_dst_u[0] = BIT_DEPTH_CONV_AVG(src0.a, src1.a);
-        ptr_dst_v[0] = BIT_DEPTH_CONV_AVG(src0.b, src1.b);
+        ptr_dst_u[0] = (TypeOut)BIT_DEPTH_CONV_AVG(src0.a, src1.a);
+        ptr_dst_v[0] = (TypeOut)BIT_DEPTH_CONV_AVG(src0.b, src1.b);
     }
 }
 
@@ -492,7 +474,7 @@ __global__ void kernel_crop_uv_nv16_nv12_p(uint8_t *__restrict__ pDstC, const in
         TypeIn2 src1 = *ptr_src_1; //下のu,v 2要素ロード
 
         struct TypeOut2 { TypeOut a, b; };
-        TypeOut2 dst = { BIT_DEPTH_CONV_AVG(src0.a, src1.a), BIT_DEPTH_CONV_AVG(src0.b, src1.b) };
+        TypeOut2 dst = { (TypeOut)BIT_DEPTH_CONV_AVG(src0.a, src1.a), (TypeOut)BIT_DEPTH_CONV_AVG(src0.b, src1.b) };
 
         *(TypeOut2 *)(pDstC + idst) = dst;
     }
@@ -529,7 +511,7 @@ __global__ void kernel_crop_uv_yuv444_nv12_p(uint8_t *__restrict__ pDstC, const 
         const TypeIn src_v1 = *(const TypeIn *)(pSrcV + isrc + srcPitch);
 
         struct TypeOut2 { TypeOut a, b; };
-        TypeOut2 dst = { BIT_DEPTH_CONV_AVG(src_u0, src_u1), BIT_DEPTH_CONV_AVG(src_v0, src_v1) };
+        TypeOut2 dst = { (TypeOut)BIT_DEPTH_CONV_AVG(src_u0, src_u1), (TypeOut)BIT_DEPTH_CONV_AVG(src_v0, src_v1) };
         *(TypeOut2 *)(pDstC + idst) = dst;
     }
 }
@@ -553,8 +535,8 @@ __global__ void kernel_crop_uv_yuv444_nv12_i(uint8_t *__restrict__ pDstC, const 
         const TypeIn src_v3 = *(const TypeIn *)(pSrcV + isrc + srcPitch * 3);
 
         struct TypeOut2 { TypeOut a, b; };
-        TypeOut2 dst0 = { BIT_DEPTH_CONV_3x1_AVG(src_u0, src_u2), BIT_DEPTH_CONV_3x1_AVG(src_v0, src_v2) };
-        TypeOut2 dst1 = { BIT_DEPTH_CONV_3x1_AVG(src_u3, src_u1), BIT_DEPTH_CONV_3x1_AVG(src_v3, src_v1) };
+        TypeOut2 dst0 = { (TypeOut)BIT_DEPTH_CONV_3x1_AVG(src_u0, src_u2), (TypeOut)BIT_DEPTH_CONV_3x1_AVG(src_v0, src_v2) };
+        TypeOut2 dst1 = { (TypeOut)BIT_DEPTH_CONV_3x1_AVG(src_u3, src_u1), (TypeOut)BIT_DEPTH_CONV_3x1_AVG(src_v3, src_v1) };
 
         *(TypeOut2 *)(pDstC + idst +        0) = dst0;
         *(TypeOut2 *)(pDstC + idst + dstPitch) = dst1;
@@ -594,8 +576,8 @@ __global__ void kernel_crop_uv_yuv444_yv12_p(uint8_t *__restrict__ pDstU, uint8_
         const TypeIn src_v0 = *(const TypeIn *)(pSrcV + isrc +        0);
         const TypeIn src_v1 = *(const TypeIn *)(pSrcV + isrc + srcPitch);
 
-        *(TypeOut *)(pDstU + idst) = BIT_DEPTH_CONV_AVG(src_u0, src_u1);
-        *(TypeOut *)(pDstV + idst) = BIT_DEPTH_CONV_AVG(src_v0, src_v1);
+        *(TypeOut *)(pDstU + idst) = (TypeOut)BIT_DEPTH_CONV_AVG(src_u0, src_u1);
+        *(TypeOut *)(pDstV + idst) = (TypeOut)BIT_DEPTH_CONV_AVG(src_v0, src_v1);
     }
 }
 
@@ -617,10 +599,10 @@ __global__ void kernel_crop_uv_yuv444_yv12_i(uint8_t *__restrict__ pDstU, uint8_
         const TypeIn src_v2 = *(const TypeIn *)(pSrcV + isrc + srcPitch * 2);
         const TypeIn src_v3 = *(const TypeIn *)(pSrcV + isrc + srcPitch * 3);
 
-        *(TypeOut *)(pDstU + idst +        0) = BIT_DEPTH_CONV_3x1_AVG(src_u0, src_u2);
-        *(TypeOut *)(pDstV + idst +        0) = BIT_DEPTH_CONV_3x1_AVG(src_v0, src_v2);
-        *(TypeOut *)(pDstU + idst + dstPitch) = BIT_DEPTH_CONV_3x1_AVG(src_u3, src_u1);
-        *(TypeOut *)(pDstV + idst + dstPitch) = BIT_DEPTH_CONV_3x1_AVG(src_v3, src_v1);
+        *(TypeOut *)(pDstU + idst +        0) = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(src_u0, src_u2);
+        *(TypeOut *)(pDstV + idst +        0) = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(src_v0, src_v2);
+        *(TypeOut *)(pDstU + idst + dstPitch) = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(src_u3, src_u1);
+        *(TypeOut *)(pDstV + idst + dstPitch) = (TypeOut)BIT_DEPTH_CONV_3x1_AVG(src_v3, src_v1);
     }
 }
 

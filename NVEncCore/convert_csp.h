@@ -533,4 +533,45 @@ static inline THREAD_Y_RANGE thread_y_range(int y_start, int y_end, int thread_i
     return y_range;
 }
 
+#ifdef __CUDACC__
+#define CU_DEV_HOST_CODE __device__ __host__
+#elif defined(_MSC_VER)
+#define CU_DEV_HOST_CODE __forceinline
+#else
+#define CU_DEV_HOST_CODE inline
+#endif
+
+template<int in_bit_depth, int out_bit_depth, int shift_offset>
+CU_DEV_HOST_CODE
+static int conv_bit_depth_lsft() {
+    const int lsft = out_bit_depth - (in_bit_depth + shift_offset);
+    return lsft < 0 ? 0 : lsft;
+}
+
+template<int in_bit_depth, int out_bit_depth, int shift_offset>
+CU_DEV_HOST_CODE
+static int conv_bit_depth_rsft() {
+    const int rsft = in_bit_depth + shift_offset - out_bit_depth;
+    return rsft < 0 ? 0 : rsft;
+}
+
+template<int in_bit_depth, int out_bit_depth, int shift_offset>
+CU_DEV_HOST_CODE
+static int conv_bit_depth_rsft_add() {
+    const int rsft = conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>();
+    return (rsft - 1 >= 0) ? 1 << (rsft - 1) : 0;
+}
+
+template<int in_bit_depth, int out_bit_depth, int shift_offset>
+CU_DEV_HOST_CODE
+static int conv_bit_depth(int c) {
+    if (out_bit_depth > in_bit_depth + shift_offset) {
+        return c << conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>();
+    } else if (out_bit_depth < in_bit_depth + shift_offset) {
+        return (c + conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, shift_offset>()) >> conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>();
+    } else {
+        return c;
+    }
+}
+
 #endif //_CONVERT_CSP_H_

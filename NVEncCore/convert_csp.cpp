@@ -258,35 +258,18 @@ void convert_yuy2_to_nv12_i(void **dst_array, const void **src_array, int width,
 #pragma GCC diagnostic ignored "-Wshift-count-negative"
 #endif
 
-
 #define CHANGE_BIT_DEPTH_1(c0, offset) \
-    if (out_bit_depth > in_bit_depth + offset) { \
-        c0 <<= (out_bit_depth - in_bit_depth - offset); \
-    } else if (out_bit_depth < in_bit_depth + offset) { \
-        c0 >>= (in_bit_depth + offset - out_bit_depth); \
-    }
+    conv_bit_depth<in_bit_depth, out_bit_depth, offset>(c0)
 
 #define CHANGE_BIT_DEPTH_2(c0, c1, offset) \
-    if (out_bit_depth > in_bit_depth + offset) { \
-        c0 <<= (out_bit_depth - in_bit_depth - offset); \
-        c1 <<= (out_bit_depth - in_bit_depth - offset); \
-    } else if (out_bit_depth < in_bit_depth + offset) { \
-        c0 >>= (in_bit_depth + offset - out_bit_depth); \
-        c1 >>= (in_bit_depth + offset - out_bit_depth); \
-    }
+    c0 = CHANGE_BIT_DEPTH_1(c0, offset); \
+    c1 = CHANGE_BIT_DEPTH_1(c1, offset);
 
 #define CHANGE_BIT_DEPTH_4(c0, c1, c2, c3, offset) \
-    if (out_bit_depth > in_bit_depth + offset) { \
-        c0 <<= (out_bit_depth - in_bit_depth - offset); \
-        c1 <<= (out_bit_depth - in_bit_depth - offset); \
-        c2 <<= (out_bit_depth - in_bit_depth - offset); \
-        c3 <<= (out_bit_depth - in_bit_depth - offset); \
-    } else if (out_bit_depth < in_bit_depth + offset) { \
-        c0 >>= (in_bit_depth + offset - out_bit_depth); \
-        c1 >>= (in_bit_depth + offset - out_bit_depth); \
-        c2 >>= (in_bit_depth + offset - out_bit_depth); \
-        c3 >>= (in_bit_depth + offset - out_bit_depth); \
-    }
+    c0 = CHANGE_BIT_DEPTH_1(c0, offset); \
+    c1 = CHANGE_BIT_DEPTH_1(c1, offset); \
+    c2 = CHANGE_BIT_DEPTH_1(c2, offset); \
+    c3 = CHANGE_BIT_DEPTH_1(c3, offset);
 
 template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
 static void RGY_FORCEINLINE convert_yuv444_to_nv12_p_c(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
@@ -309,13 +292,7 @@ static void RGY_FORCEINLINE convert_yuv444_to_nv12_p_c(void **dst, const void **
                 memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
             } else {
                 for (int x = 0; x < y_width; x++) {
-                    if (out_bit_depth > in_bit_depth) {
-                        dstLine[x] = (Tout)((int)(srcYLine[x]) << std::max(out_bit_depth - in_bit_depth, 0));
-                    } else if (out_bit_depth < in_bit_depth) {
-                        dstLine[x] = (Tout)((int)(srcYLine[x]) >> std::max(in_bit_depth - out_bit_depth, 0));
-                    } else {
-                        dstLine[x] = (Tout)srcYLine[x];
-                    }
+                    dstLine[x] = (Tout)CHANGE_BIT_DEPTH_1(srcYLine[x], 0);
                 }
             }
         }
@@ -336,8 +313,8 @@ static void RGY_FORCEINLINE convert_yuv444_to_nv12_p_c(void **dst, const void **
             int cy1u = srcU[1*src_uv_pitch + 0];
             int cy1v = srcV[1*src_uv_pitch + 0];
 
-            int cu = cy0u + cy1u + 1;
-            int cv = cy0v + cy1v + 1;
+            int cu = cy0u + cy1u;
+            int cv = cy0v + cy1v;
             CHANGE_BIT_DEPTH_2(cu, cv, 1);
 
             dstC[0] = (Tout)cu;
@@ -367,13 +344,7 @@ static void RGY_FORCEINLINE convert_yuv444_to_nv12_i_c(void **dst, const void **
                 memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
             } else {
                 for (int x = 0; x < y_width; x++) {
-                    if (out_bit_depth > in_bit_depth) {
-                        dstLine[x] = (Tout)((int)(srcYLine[x]) << std::max(out_bit_depth - in_bit_depth, 0));
-                    } else if (out_bit_depth < in_bit_depth) {
-                        dstLine[x] = (Tout)((int)(srcYLine[x]) >> std::max(in_bit_depth - out_bit_depth, 0));
-                    } else {
-                        dstLine[x] = (Tout)srcYLine[x];
-                    }
+                    dstLine[x] = (Tout)CHANGE_BIT_DEPTH_1(srcYLine[x], 0);
                 }
             }
         }
@@ -399,10 +370,10 @@ static void RGY_FORCEINLINE convert_yuv444_to_nv12_i_c(void **dst, const void **
             int cy3u = srcU[3*src_uv_pitch + 0];
             int cy3v = srcV[3*src_uv_pitch + 0];
 
-            int cu_y0 = cy0u * 3 + cy2u * 1 + 2;
-            int cu_y1 = cy1u * 1 + cy3u * 3 + 2;
-            int cv_y0 = cy0v * 3 + cy2v * 1 + 2;
-            int cv_y1 = cy1v * 1 + cy3v * 3 + 2;
+            int cu_y0 = cy0u * 3 + cy2u * 1;
+            int cu_y1 = cy1u * 1 + cy3u * 3;
+            int cv_y0 = cy0v * 3 + cy2v * 1;
+            int cv_y1 = cy1v * 1 + cy3v * 3;
             CHANGE_BIT_DEPTH_4(cu_y0, cu_y1, cv_y0, cv_y1, 2);
 
             dstC[0*dst_y_pitch + 0] = (Tout)cu_y0;
@@ -516,15 +487,6 @@ static void convert_yuv422_to_nv12_c(void **dst, const void **src, int width, in
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
-    auto bit_dpeth_conv = [](int value) {
-        if (out_bit_depth > in_bit_depth) {
-            return (Tout)((int)(value) << std::max(out_bit_depth - in_bit_depth, 0));
-        } else if (out_bit_depth < in_bit_depth) {
-            return (Tout)((int)(value) >> std::max(in_bit_depth - out_bit_depth, 0));
-        } else {
-            return (Tout)value;
-        }
-    };
 
     //Y成分のコピー
     if (!uv_only) {
@@ -538,7 +500,7 @@ static void convert_yuv422_to_nv12_c(void **dst, const void **src, int width, in
                 const Tin *ptrsrc = (const Tin *)srcYLine;
                 Tout *ptrdst = (Tout *)dstLine;
                 for (int x = 0; x < y_width; x++) {
-                    ptrdst[x] = bit_dpeth_conv(ptrsrc[x]);
+                    ptrdst[x] = (Tout)CHANGE_BIT_DEPTH_1(ptrsrc[x], 0);
                 }
             }
         }
@@ -570,10 +532,10 @@ static void convert_yuv422_to_nv12_c(void **dst, const void **src, int width, in
                 const int vy2x0 = srcVY2[x];
                 const int vy3x0 = srcVY3[x];
 
-                int u0 = uy0x0 * 3 + uy2x0 * 1 + 2;
-                int u1 = uy1x0 * 1 + uy3x0 * 3 + 2;
-                int v0 = vy0x0 * 3 + vy2x0 * 1 + 2;
-                int v1 = vy1x0 * 1 + vy3x0 * 3 + 2;
+                int u0 = uy0x0 * 3 + uy2x0 * 1;
+                int u1 = uy1x0 * 1 + uy3x0 * 3;
+                int v0 = vy0x0 * 3 + vy2x0 * 1;
+                int v1 = vy1x0 * 1 + vy3x0 * 3;
                 CHANGE_BIT_DEPTH_4(u0, u1, v0, v1, 2);
                 dstCY0[2*x+0] = (Tout)u0;
                 dstCY0[2*x+1] = (Tout)v0;
@@ -594,8 +556,8 @@ static void convert_yuv422_to_nv12_c(void **dst, const void **src, int width, in
                 const int uy1x0 = srcUY1[x];
                 const int vy0x0 = srcVY0[x];
                 const int vy1x0 = srcVY1[x];
-                int u = uy0x0 + uy1x0 + 1;
-                int v = vy0x0 + vy1x0 + 1;
+                int u = uy0x0 + uy1x0;
+                int v = vy0x0 + vy1x0;
                 CHANGE_BIT_DEPTH_2(u, v, 1);
                 dstC[2*x+0] = (Tout)u;
                 dstC[2*x+1] = (Tout)v;
@@ -672,15 +634,6 @@ static void convert_yuv422_to_yuv444_c(void **dst, const void **src, int width, 
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
-    auto bit_dpeth_conv = [](int value) {
-        if (out_bit_depth > in_bit_depth) {
-            return (Tout)((int)(value) << std::max(out_bit_depth - in_bit_depth, 0));
-        } else if (out_bit_depth < in_bit_depth) {
-            return (Tout)((int)(value) >> std::max(in_bit_depth - out_bit_depth, 0));
-        } else {
-            return (Tout)value;
-        }
-    };
 
     //Y成分のコピー
     if (!uv_only) {
@@ -694,7 +647,7 @@ static void convert_yuv422_to_yuv444_c(void **dst, const void **src, int width, 
                 const Tin *ptrsrc = (const Tin *)srcYLine;
                 Tout *ptrdst = (Tout *)dstLine;
                 for (int x = 0; x < y_width; x++) {
-                    ptrdst[x] = bit_dpeth_conv(ptrsrc[x]);
+                    ptrdst[x] = (Tout)CHANGE_BIT_DEPTH_1(ptrsrc[x], 0);
                 }
             }
         }
@@ -711,8 +664,9 @@ static void convert_yuv422_to_yuv444_c(void **dst, const void **src, int width, 
                 int cxplus = (x + 2 < x_fin);
                 int cy1x0 = srcP[(x>>1)+0];
                 int cy1x1 = srcP[(x>>1)+cxplus];
-                dstC[x+0] = bit_dpeth_conv(cy1x0);
-                dstC[x+1] = bit_dpeth_conv((cy1x0 + cy1x1 + 1) >> 1);
+                int cy1x01 = cy1x0 + cy1x1;
+                dstC[x+0] = (Tout)CHANGE_BIT_DEPTH_1(cy1x0,  0);
+                dstC[x+1] = (Tout)CHANGE_BIT_DEPTH_1(cy1x01, 0);
             }
         }
     }
@@ -805,13 +759,7 @@ static void RGY_FORCEINLINE convert_yv12_p_to_yuv444_c(void **dst, const void **
                 memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
             } else {
                 for (int x = 0; x < y_width; x++) {
-                    if (out_bit_depth > in_bit_depth) {
-                        dstLine[x] = (Tout)((int)(srcYLine[x]) << std::max(out_bit_depth - in_bit_depth, 0));
-                    } else if (out_bit_depth < in_bit_depth) {
-                        dstLine[x] = (Tout)((int)(srcYLine[x]) >> std::max(in_bit_depth - out_bit_depth, 0));
-                    } else {
-                        dstLine[x] = (Tout)srcYLine[x];
-                    }
+                    dstLine[x] = (Tout)CHANGE_BIT_DEPTH_1(srcYLine[x], 0);
                 }
             }
         }
@@ -835,10 +783,10 @@ static void RGY_FORCEINLINE convert_yv12_p_to_yuv444_c(void **dst, const void **
                     int cy2x1 = srcP[ 0*src_uv_pitch + cxplus];
                     int cy4x1 = srcP[ 1*src_uv_pitch + cxplus];
 
-                    int cy1x0 = (cy0x0 * 1 + cy2x0 * 3 + 2);
-                    int cy3x0 = (cy2x0 * 3 + cy4x0 * 1 + 2);
-                    int cy1x1 = (cy0x1 * 1 + cy2x1 * 3 + 2);
-                    int cy3x1 = (cy2x1 * 3 + cy4x1 * 1 + 2);
+                    int cy1x0 = (cy0x0 * 1 + cy2x0 * 3);
+                    int cy3x0 = (cy2x0 * 3 + cy4x0 * 1);
+                    int cy1x1 = (cy0x1 * 1 + cy2x1 * 3);
+                    int cy3x1 = (cy2x1 * 3 + cy4x1 * 1);
                     CHANGE_BIT_DEPTH_4(cy1x0, cy3x0, cy1x1, cy3x1, 2);
 
                     dstC[0*dst_y_pitch   + 0] = (Tout)cy1x0;
@@ -856,10 +804,10 @@ static void RGY_FORCEINLINE convert_yv12_p_to_yuv444_c(void **dst, const void **
                     int cy2x1 = srcP[ 0*src_uv_pitch + cxplus];
                     int cy4x1 = srcP[ 0*src_uv_pitch + cxplus];
 
-                    int cy1x0 = (cy0x0 * 1 + cy2x0 * 3 + 2);
-                    int cy3x0 = (cy2x0 * 3 + cy4x0 * 1 + 2);
-                    int cy1x1 = (cy0x1 * 1 + cy2x1 * 3 + 2);
-                    int cy3x1 = (cy2x1 * 3 + cy4x1 * 1 + 2);
+                    int cy1x0 = (cy0x0 * 1 + cy2x0 * 3);
+                    int cy3x0 = (cy2x0 * 3 + cy4x0 * 1);
+                    int cy1x1 = (cy0x1 * 1 + cy2x1 * 3);
+                    int cy3x1 = (cy2x1 * 3 + cy4x1 * 1);
                     CHANGE_BIT_DEPTH_4(cy1x0, cy3x0, cy1x1, cy3x1, 2);
 
                     dstC[0*dst_y_pitch   + 0] = (Tout)cy1x0;
@@ -877,10 +825,10 @@ static void RGY_FORCEINLINE convert_yv12_p_to_yuv444_c(void **dst, const void **
                     int cy2x1 = srcP[ 0*src_uv_pitch + cxplus];
                     int cy4x1 = srcP[ 1*src_uv_pitch + cxplus];
 
-                    int cy1x0 = (cy0x0 * 1 + cy2x0 * 3 + 2);
-                    int cy3x0 = (cy2x0 * 3 + cy4x0 * 1 + 2);
-                    int cy1x1 = (cy0x1 * 1 + cy2x1 * 3 + 2);
-                    int cy3x1 = (cy2x1 * 3 + cy4x1 * 1 + 2);
+                    int cy1x0 = (cy0x0 * 1 + cy2x0 * 3);
+                    int cy3x0 = (cy2x0 * 3 + cy4x0 * 1);
+                    int cy1x1 = (cy0x1 * 1 + cy2x1 * 3);
+                    int cy3x1 = (cy2x1 * 3 + cy4x1 * 1);
                     CHANGE_BIT_DEPTH_4(cy1x0, cy3x0, cy1x1, cy3x1, 2);
 
                     dstC[0*dst_y_pitch   + 0] = (Tout)cy1x0;
@@ -949,10 +897,10 @@ static void RGY_FORCEINLINE convert_yv12_i_to_yuv444_c(void **dst, const void **
             int sy4x0 = srcP[y_p2*src_uv_pitch + 0];
             int sy5x0 = srcP[y_p3*src_uv_pitch + 0];
 
-            int cy0x0 = (sy0x0 * 1 + sy2x0 * 7 + 4);
-            int cy1x0 = (sy1x0 * 3 + sy3x0 * 5 + 4);
-            int cy2x0 = (sy2x0 * 5 + sy4x0 * 3 + 4);
-            int cy3x0 = (sy3x0 * 7 + sy5x0 * 1 + 4);
+            int cy0x0 = (sy0x0 * 1 + sy2x0 * 7);
+            int cy1x0 = (sy1x0 * 3 + sy3x0 * 5);
+            int cy2x0 = (sy2x0 * 5 + sy4x0 * 3);
+            int cy3x0 = (sy3x0 * 7 + sy5x0 * 1);
             CHANGE_BIT_DEPTH_4(cy0x0, cy1x0, cy2x0, cy3x0, 3);
 
             for (int x = 0; x < x_fin; x += 2, dstC += 2, srcP++) {
@@ -964,10 +912,10 @@ static void RGY_FORCEINLINE convert_yv12_i_to_yuv444_c(void **dst, const void **
                 int sy4x1 = srcP[y_p2*src_uv_pitch + cxplus];
                 int sy5x1 = srcP[y_p3*src_uv_pitch + cxplus];
 
-                int cy0x1 = (sy0x1 * 1 + sy2x1 * 7 + 4);
-                int cy1x1 = (sy1x1 * 3 + sy3x1 * 5 + 4);
-                int cy2x1 = (sy2x1 * 5 + sy4x1 * 3 + 4);
-                int cy3x1 = (sy3x1 * 7 + sy5x1 * 1 + 4);
+                int cy0x1 = (sy0x1 * 1 + sy2x1 * 7);
+                int cy1x1 = (sy1x1 * 3 + sy3x1 * 5);
+                int cy2x1 = (sy2x1 * 5 + sy4x1 * 3);
+                int cy3x1 = (sy3x1 * 7 + sy5x1 * 1);
                 CHANGE_BIT_DEPTH_4(cy0x1, cy1x1, cy2x1, cy3x1, 3);
 
                 dstC[0*dst_y_pitch   + 0] = (Tout)cy0x0;
