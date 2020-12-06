@@ -1,7 +1,7 @@
 if "%VisualStudioVersion%" == "16.0" (
     set WIN_TARGET_PLATFORM=10.0
     set PLATFORM_TOOLSET=v142
-) else if "%VisualStudioVersion%" == "15.0" (
+) else (
     set WIN_TARGET_PLATFORM=8.1
     set PLATFORM_TOOLSET=v141
 )
