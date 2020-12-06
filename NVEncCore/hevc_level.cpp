@@ -53,14 +53,14 @@ const int HEVC_LEVEL_INDEX[] = {
     186, //6.2
 };
 
-static const uint32_t HEVC_LEVEL_LIMITS[_countof(HEVC_LEVEL_INDEX)+1][LEVEL_COLUMNS] =
+static const int64_t HEVC_LEVEL_LIMITS[_countof(HEVC_LEVEL_INDEX)+1][LEVEL_COLUMNS] =
 {   //Sample/s,   Samples,  MaxBitrate(Main), MaxBitrate(High), end,  level
     {          0,          0,              0,                0, 0}, // auto
-    {     552960,      36864,            128,                1, 0}, // 1
-    {    3686400,     122880,           1500,                1, 0}, // 2
-    {    7372800,     245760,           3000,                1, 0}, // 2.1
-    {   16588800,     552960,           6000,                1, 0}, // 3
-    {   33177600,     983040,          10000,                1, 0}, // 3.1
+    {     552960,      36864,            128,               -1, 0}, // 1
+    {    3686400,     122880,           1500,               -1, 0}, // 2
+    {    7372800,     245760,           3000,               -1, 0}, // 2.1
+    {   16588800,     552960,           6000,               -1, 0}, // 3
+    {   33177600,     983040,          10000,               -1, 0}, // 3.1
     {   66846720,    2228224,          12000,            30000, 0}, // 4
     {  133693440,    2228224,          20000,            50000, 0}, // 4.1
     {  267386880,    8912896,          25000,           100000, 0}, // 5
@@ -84,11 +84,11 @@ int calc_hevc_auto_level(int width, int height, int ref, int fps_num, int fps_de
     } else {
         ref_mul_x3 = 3;
     }
-    uint32_t data[LEVEL_COLUMNS] = {
-        (uint32_t)std::min((uint64_t)(width * height) * fps_num / fps_den, (uint64_t)UINT32_MAX),
-        (uint32_t)width * height * ref_mul_x3 / 3,
-        (high_tier) ? 0 : (uint32_t)max_bitrate,
-        (high_tier) ? (uint32_t)max_bitrate : 0,
+    const int64_t data[LEVEL_COLUMNS] = {
+        (int64_t)width * height * fps_num / fps_den,
+        (int64_t)width * height * ref_mul_x3 / 3,
+        (high_tier) ? 0 : max_bitrate,
+        (high_tier) ? max_bitrate : 0,
         0
     };
 
