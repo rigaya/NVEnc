@@ -666,7 +666,7 @@ static void convert_yuv422_to_yuv444_c(void **dst, const void **src, int width, 
                 int cy1x1 = srcP[(x>>1)+cxplus];
                 int cy1x01 = cy1x0 + cy1x1;
                 dstC[x+0] = (Tout)CHANGE_BIT_DEPTH_1(cy1x0,  0);
-                dstC[x+1] = (Tout)CHANGE_BIT_DEPTH_1(cy1x01, 0);
+                dstC[x+1] = (Tout)CHANGE_BIT_DEPTH_1(cy1x01, 1);
             }
         }
     }
