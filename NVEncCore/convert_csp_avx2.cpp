@@ -586,8 +586,8 @@ static void convert_yv12_high_to_nv12_avx2_base(void **dst, const void **src, in
                 y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 16)), _mm_loadu_si128((__m128i*)(src_ptr +  0)));
                 y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 24)), _mm_loadu_si128((__m128i*)(src_ptr +  8)));
 
-                y0 = _mm256_add_epi16(y0, yrsftAdd);
-                y1 = _mm256_add_epi16(y1, yrsftAdd);
+                y0 = _mm256_adds_epi16(y0, yrsftAdd);
+                y1 = _mm256_adds_epi16(y1, yrsftAdd);
 
                 y0 = _mm256_srli_epi16(y0, in_bit_depth - 8);
                 y1 = _mm256_srli_epi16(y1, in_bit_depth - 8);
@@ -615,8 +615,8 @@ static void convert_yv12_high_to_nv12_avx2_base(void **dst, const void **src, in
             y0 = _mm256_loadu_si256((const __m256i *)src_u_ptr);
             y1 = _mm256_loadu_si256((const __m256i *)src_v_ptr);
 
-            y0 = _mm256_add_epi16(y0, yrsftAdd);
-            y1 = _mm256_add_epi16(y1, yrsftAdd);
+            y0 = _mm256_adds_epi16(y0, yrsftAdd);
+            y1 = _mm256_adds_epi16(y1, yrsftAdd);
 
             y0 = _mm256_srli_epi16(y0, in_bit_depth - 8);
             y1 = _mm256_slli_epi16(y1, 16 - in_bit_depth);
@@ -857,8 +857,8 @@ static void RGY_FORCEINLINE convert_yuv444_high_to_yuv444_avx2_base(void **dst, 
             for (int x = 0; x < y_width; x += 32, dst_ptr += 32, src_ptr += 32) {
                 __m256i y0 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 16), (const __m128i *)(src_ptr +  0));
                 __m256i y1 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 24), (const __m128i *)(src_ptr +  8));
-                y0 = _mm256_add_epi16(y0, yrsftAdd);
-                y1 = _mm256_add_epi16(y1, yrsftAdd);
+                y0 = _mm256_adds_epi16(y0, yrsftAdd);
+                y1 = _mm256_adds_epi16(y1, yrsftAdd);
                 y0 = _mm256_srli_epi16(y0, in_bit_depth - 8);
                 y1 = _mm256_srli_epi16(y1, in_bit_depth - 8);
                 y0 = _mm256_packus_epi16(y0, y1);
