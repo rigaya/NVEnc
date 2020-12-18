@@ -1363,6 +1363,9 @@ yadifによるインタレ解除を行う。
       local contrast coefficient  
     - peak=&lt;float&gt;  (デフォルト: 1.0)  
       reference peak brightness
+      
+  - bt2390
+    BT.2390で規定されるtone mapping。
 
 
 - source_peak=&lt;float&gt;  (デフォルト: 1000.0)  

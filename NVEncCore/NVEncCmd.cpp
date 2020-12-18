@@ -367,7 +367,7 @@ tstring encoder_help() {
         _T("      range=<from>:<to>\n")
         _T("        limited, full\n")
         _T("      hdr2sdr=<string>     Enables HDR10 to SDR.\n")
-        _T("                             hable, mobius, reinhard, none\n")
+        _T("                             hable, mobius, reinhard, bt2390, none\n")
         _T("      source_peak=<float>  (default: 1000.0)\n")
         _T("      ldr_nits=<float>  (default: 100.0)\n"));
 #endif //#if ENABLE_NVRTC

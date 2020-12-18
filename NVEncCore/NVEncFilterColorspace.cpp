@@ -497,6 +497,28 @@ protected:
     double m_contrast, m_peak;
 };
 
+class ColorspaceOpHDR2SDRBT2390 : public ColorspaceOp {
+public:
+    ColorspaceOpHDR2SDRBT2390() : m_mode(HDR2SDR_BT2390),
+        m_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
+        m_ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS)  {};
+    ColorspaceOpHDR2SDRBT2390(double source_peak, double ldr_nits) :
+        m_mode(HDR2SDR_BT2390),
+        m_source_peak(source_peak), m_ldr_nits(ldr_nits) {
+        m_type = COLORSPACE_OP_TYPE_HDR2SDR;
+    };
+    virtual ~ColorspaceOpHDR2SDRBT2390() {};
+    virtual std::string print() override;
+    virtual std::string printInfo() override;
+    virtual bool add(const ColorspaceOp *op) override { UNREFERENCED_PARAMETER(op); return false; }
+    double source_peak() const { return m_source_peak; }
+    double ldr_nits() const { return m_ldr_nits; }
+protected:
+    HDR2SDRToneMap m_mode;
+    double m_source_peak, m_ldr_nits;
+    double m_A, m_B, m_C, m_D, m_E, m_F;
+};
+
 class ColorspaceOpRange : public ColorspaceOp {
 public:
     ColorspaceOpRange() : m_scale_y(0), m_offset_y(0), m_scale_uv(0), m_offset_uv(0), m_int2float(false) {};
@@ -720,6 +742,45 @@ std::string ColorspaceOpHDR2SDRReinhard::print() {
         m_source_peak, m_ldr_nits, m_contrast, m_peak);
 }
 
+std::string ColorspaceOpHDR2SDRBT2390::print() {
+    return strsprintf(R"(
+    { //hdr2sdr bt.2390
+        float sig_peak = %.16ef;
+        const float dst_peak = %.16ef;
+        float3 y = x;
+
+        y.x = linear_to_pq_space(y.x);
+        y.y = linear_to_pq_space(y.y);
+        y.z = linear_to_pq_space(y.z);
+        sig_peak = linear_to_pq_space(sig_peak);
+
+        const float scale = 1.0 / sig_peak;
+        y.x *= scale;
+        y.y *= scale;
+        y.z *= scale;
+        const float maxLum = linear_to_pq_space(dst_peak) * scale;
+        y.x = apply_bt2390(y.x, maxLum);
+        y.y = apply_bt2390(y.y, maxLum);
+        y.z = apply_bt2390(y.z, maxLum);
+
+        y.x *= sig_peak;
+        y.y *= sig_peak;
+        y.z *= sig_peak;
+
+        y.x = pq_space_to_linear(y.x);
+        y.y = pq_space_to_linear(y.y);
+        y.z = pq_space_to_linear(y.z);
+
+        const float in  = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
+        const float out = fmaxf( fmaxf(y.x, y.y), fmaxf(y.z, 1e-6f) );
+        const float mul = out / in;
+        x.x *= mul;
+        x.y *= mul;
+        x.z *= mul;
+    })",
+        m_source_peak, m_ldr_nits);
+}
+
 std::string ColorspaceOpHDR2SDRHable::printInfo() {
     return strsprintf("hdr2sdr(hable): source_peak=%.2f ldr_nits=%.2f\n"
         "                             A %.2f, B %.2f, C %.2f, D %.2f\n"
@@ -740,6 +801,11 @@ std::string ColorspaceOpHDR2SDRReinhard::printInfo() {
         "                             contrast %.2f, peak %.2f",
         m_source_peak, m_ldr_nits,
         m_contrast, m_peak);
+}
+
+std::string ColorspaceOpHDR2SDRBT2390::printInfo() {
+    return strsprintf("hdr2sdr(bt2390): source_peak=%.2f ldr_nits=%.2f",
+        m_source_peak, m_ldr_nits);
 }
 
 std::string ColorspaceOpRange::print() {
@@ -973,6 +1039,11 @@ RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, 
     return RGY_ERR_NONE;
 }
 
+RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDRBT2390(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits) {
+    ops.push_back(ColorspaceOpInfo(from, from, make_unique<ColorspaceOpHDR2SDRBT2390>(source_peak, ldr_nits)));
+    return RGY_ERR_NONE;
+}
+
 bool is_valid_2020cl(const VideoVUIInfo &csp) {
     return csp.matrix == RGY_MATRIX_BT2020_CL && transferEquivbt709(csp.transfer);
 }
@@ -1113,6 +1184,9 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
         break;
     case HDR2SDR_REINHARD:
         CHECK(addColorspaceOpHDR2SDR(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits, prm.reinhard));
+        break;
+    case HDR2SDR_BT2390:
+        CHECK(addColorspaceOpHDR2SDRBT2390(m_path, csp_to1, prm.hdr_source_peak, prm.ldr_nits));
         break;
     default:
         return RGY_ERR_INVALID_PARAM;

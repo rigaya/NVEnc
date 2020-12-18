@@ -1319,6 +1319,9 @@ Values for parameters will be copied from input file for "input".
       local contrast coefficient  
     - peak=&lt;float&gt;  (default: 1.0)  
       reference peak brightness
+      
+  - bt2390
+    Perceptual tone mapping curve EETF) specified in BT.2390.
 
 - source_peak=&lt;float&gt;  (default: 1000.0)  
 

@@ -568,7 +568,10 @@ static int conv_bit_depth(int c) {
     if (out_bit_depth > in_bit_depth + shift_offset) {
         return c << conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>();
     } else if (out_bit_depth < in_bit_depth + shift_offset) {
-        return clamp((c + conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, shift_offset>()) >> conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>(), 0, (1 << out_bit_depth) - 1);
+        const int x = (c + conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, shift_offset>()) >> conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>();
+        const int low = 0;
+        const int high = (1 << out_bit_depth) - 1;
+        return (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high));
     } else {
         return c;
     }

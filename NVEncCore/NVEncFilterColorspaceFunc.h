@@ -35,6 +35,15 @@ const float ARIB_B67_C = 0.55991073f;
 
 const float FLOAT_EPS = 1.175494351e-38f;
 
+const float MP_REF_WHITE = 203.0f;
+const float MP_REF_WHITE_HLG = 3.17955f;
+
+// Common constants for SMPTE ST.2084 (HDR)
+const float PQ_M1 = 2610.0f / 4096.0f * 1.0f / 4.0f;
+const float PQ_M2 = 2523.0f / 4096.0f * 128.0f;
+const float PQ_C1 = 3424.0f / 4096.0f;
+const float PQ_C2 = 2413.0f / 4096.0f * 32.0f;
+const float PQ_C3 = 2392.0f / 4096.0f * 32.0f;
 
 // Chosen for compatibility with higher precision REC709_ALPHA/REC709_BETA.
 // See: ITU-R BT.2390-2 5.3.1
@@ -317,4 +326,33 @@ COLORSPACE_FUNC float hdr2sdr_reinhard(float x, float source_peak, float ldr_nit
     const float eb = source_peak / ldr_nits;
     peak *= eb;
     return x / (x + offset) * (peak + offset) / peak;
+}
+
+COLORSPACE_FUNC float linear_to_pq_space(float x) {
+    x *= MP_REF_WHITE / 10000.0f;
+    x = powf(x, PQ_M1);
+    x = (PQ_C1 + PQ_C2 * x) / (1.0f + PQ_C3 * x);
+    x = powf(x, PQ_M2);
+    return x;
+}
+
+COLORSPACE_FUNC float pq_space_to_linear(float x) {
+    x = powf(x, 1.0f/PQ_M2);
+    x = fmaxf(x - PQ_C1, 0.0f) / (PQ_C2 - PQ_C3 * x);
+    x = powf(x, 1.0f / PQ_M1);
+    x *= 10000.0f / MP_REF_WHITE;
+    return x;
+}
+
+COLORSPACE_FUNC float apply_bt2390(float x, const float maxLum) {
+    const float ks = 1.5f * maxLum - 0.5f;
+    float tb = (x - ks) / (1.0f - ks);
+    float tb2 = tb * tb;
+    float tb3 = tb2 * tb;
+    float pb = (2.0f * tb3 - 3.0f * tb2 + 1.0f) * ks +
+        (tb3 - 2.0f * tb2 + tb) * (1.0f - ks) +
+        (-2.0f * tb3 + 3.0f * tb2) * maxLum;
+    //x = mix(pb, x, lessThan(x, ks));
+    x = (x < ks) ? x : pb;
+    return x;
 }

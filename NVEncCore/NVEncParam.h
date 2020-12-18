@@ -566,7 +566,8 @@ enum HDR2SDRToneMap {
     HDR2SDR_DISABLED,
     HDR2SDR_HABLE,
     HDR2SDR_MOBIUS,
-    HDR2SDR_REINHARD
+    HDR2SDR_REINHARD,
+    HDR2SDR_BT2390,
 };
 
 const CX_DESC list_vpp_hdr2sdr[] = {
@@ -574,6 +575,7 @@ const CX_DESC list_vpp_hdr2sdr[] = {
     { _T("hable"),    HDR2SDR_HABLE },
     { _T("mobius"),   HDR2SDR_MOBIUS },
     { _T("reinhard"), HDR2SDR_REINHARD },
+    { _T("bt2390"),   HDR2SDR_BT2390 },
     { NULL, 0 }
 };
 
