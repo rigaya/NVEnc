@@ -148,6 +148,14 @@ FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane) {
         case RGY_PLANE_A: planeInfo.ptr += frameInfo->pitch * frameInfo->height * 3; break;
         default: break;
         }
+    } else if (frameInfo->csp == RGY_CSP_RGB || frameInfo->csp == RGY_CSP_RGBA) {
+        switch (plane) {
+        case RGY_PLANE_R: break;
+        case RGY_PLANE_G: planeInfo.ptr += frameInfo->pitch * frameInfo->height; break;
+        case RGY_PLANE_B: planeInfo.ptr += frameInfo->pitch * frameInfo->height * 2; break;
+        case RGY_PLANE_A: planeInfo.ptr += frameInfo->pitch * frameInfo->height * 3; break;
+        default: break;
+        }
     } else {
         switch (plane) {
         case RGY_PLANE_A:

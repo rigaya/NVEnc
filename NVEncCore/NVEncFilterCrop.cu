@@ -1474,6 +1474,35 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromRGB(FrameInfo *pOutputFrame, const Fra
         { RGY_CSP_2(RGY_CSP_RGB, RGY_CSP_YV12_16).i,   crop_rgb_yv12<uint16_t, 16, uint8_t, 8> },
         { RGY_CSP_2(RGY_CSP_RGB, RGY_CSP_NV12).i,      crop_rgb_nv12<uint8_t,   8, uint8_t, 8> },
         { RGY_CSP_2(RGY_CSP_RGB, RGY_CSP_P010).i,      crop_rgb_nv12<uint16_t, 16, uint8_t, 8> },
+
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444).i,    crop_rgb_yuv444<uint8_t,   8, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_09).i, crop_rgb_yuv444<uint16_t,  9, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_10).i, crop_rgb_yuv444<uint16_t, 10, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_12).i, crop_rgb_yuv444<uint16_t, 12, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_14).i, crop_rgb_yuv444<uint16_t, 14, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_16).i, crop_rgb_yuv444<uint16_t, 16, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12).i,      crop_rgb_yv12<uint8_t,   8, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_09).i,   crop_rgb_yv12<uint16_t,  9, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_10).i,   crop_rgb_yv12<uint16_t, 10, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_12).i,   crop_rgb_yv12<uint16_t, 12, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_14).i,   crop_rgb_yv12<uint16_t, 14, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_16).i,   crop_rgb_yv12<uint16_t, 16, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_NV12).i,      crop_rgb_nv12<uint8_t,   8, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_P010).i,      crop_rgb_nv12<uint16_t, 16, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444).i,    crop_rgb_yuv444<uint8_t,   8, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_09).i, crop_rgb_yuv444<uint16_t,  9, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_10).i, crop_rgb_yuv444<uint16_t, 10, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_12).i, crop_rgb_yuv444<uint16_t, 12, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_14).i, crop_rgb_yuv444<uint16_t, 14, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YUV444_16).i, crop_rgb_yuv444<uint16_t, 16, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12).i,      crop_rgb_yv12<uint8_t,   8, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_09).i,   crop_rgb_yv12<uint16_t,  9, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_10).i,   crop_rgb_yv12<uint16_t, 10, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_12).i,   crop_rgb_yv12<uint16_t, 12, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_14).i,   crop_rgb_yv12<uint16_t, 14, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_YV12_16).i,   crop_rgb_yv12<uint16_t, 16, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_NV12).i,      crop_rgb_nv12<uint8_t,   8, uint8_t, 8> },
+        { RGY_CSP_2(RGY_CSP_GBR, RGY_CSP_P010).i,      crop_rgb_nv12<uint16_t, 16, uint8_t, 8> },
     };
     const auto cspconv = RGY_CSP_2(pInputFrame->csp, pOutputFrame->csp);
     if (convert_from_rgb_list.count(cspconv.i) == 0) {
@@ -1652,7 +1681,7 @@ RGY_ERR NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameInfo *
         static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
         static const auto supportedCspNV16   = make_array<RGY_CSP>(RGY_CSP_NV16, RGY_CSP_P210);
         static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
-        static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32, RGY_CSP_RGB);
+        static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32, RGY_CSP_RGB, RGY_CSP_GBR);
         if (std::find(supportedCspNV12.begin(), supportedCspNV12.end(), pCropParam->frameIn.csp) != supportedCspNV12.end()) {
             sts = convertCspFromNV12(ppOutputFrames[0], pInputFrame, stream);
         } else if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pCropParam->frameIn.csp) != supportedCspYV12.end()) {
