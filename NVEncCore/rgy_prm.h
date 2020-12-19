@@ -46,8 +46,12 @@ static const char *masterDisplaySource = "copy";
 static const TCHAR *RGY_METADATA_CLEAR = _T("clear");
 static const TCHAR *RGY_METADATA_COPY = _T("copy");
 
+static const int TRACK_SELECT_BY_LANG = -1;
+
 struct AudioSelect {
-    int      trackID;         //選択した音声トラックのリスト 1,2,...(1から連番で指定)
+    int      trackID;         //選択したトラックのリスト 1,2,...(1から連番で指定)
+                              // 0 ... 全指定
+                              // TRACK_SELECT_BY_LANG ... langによる選択
     tstring  decCodecPrm;     //音声エンコードのデコーダのパラメータ
     tstring  encCodec;        //音声エンコードのコーデック
     tstring  encCodecPrm;     //音声エンコードのコーデックのパラメータ
@@ -60,8 +64,9 @@ struct AudioSelect {
     tstring  filter;               //音声フィルタ
     uint64_t streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
     uint64_t streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
-    tstring  bsf;
-    tstring  disposition;
+    tstring  bsf;                  // 適用するbitstreamfilterの名前
+    tstring  disposition;          // 指定のdisposition
+    std::string lang;              // 言語選択
     std::vector<tstring> metadata;
 
     AudioSelect();
@@ -77,13 +82,16 @@ struct AudioSource {
 };
 
 struct SubtitleSelect {
-    int trackID;
+    int trackID;         // 選択したトラックのリスト 1,2,...(1から連番で指定)
+                         //  0 ... 全指定
+                         //  TRACK_SELECT_BY_LANG ... langによる選択
     tstring encCodec;
     tstring encCodecPrm;
     tstring decCodecPrm;
     bool asdata;
-    tstring bsf;
-    tstring disposition;
+    tstring bsf;          // 適用するbitstreamfilterの名前
+    tstring disposition;  // 指定のdisposition
+    std::string lang;         // 言語選択
     std::vector<tstring> metadata;
 
     SubtitleSelect();
@@ -99,8 +107,11 @@ struct SubSource {
 };
 
 struct DataSelect {
-    int trackID;
-    tstring disposition;
+    int trackID;         // 選択したトラックのリスト 1,2,...(1から連番で指定)
+                         //  0 ... 全指定
+                         //  TRACK_SELECT_BY_LANG ... langによる選択
+    tstring disposition; // 指定のdisposition
+    std::string lang;    // 言語選択
     std::vector<tstring> metadata;
 
     DataSelect();

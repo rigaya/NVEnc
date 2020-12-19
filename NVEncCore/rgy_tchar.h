@@ -63,6 +63,7 @@ typedef char TCHAR;
 #define _tcserror strerror
 #define _fgetts fgets
 #define _tcscpy strcpy
+#define _tcsncpy strncpy
 #define _tremove remove
 #define _trename rename
 #define _istalpha isalpha

@@ -40,6 +40,7 @@
 #include "rgy_input_avcodec.h"
 #include "rgy_bitstream.h"
 #include "rgy_avlog.h"
+#include "rgy_language.h"
 
 //#ifdef LIBVA_SUPPORT
 //#include "qsv_hw_va.h"
@@ -555,6 +556,13 @@ void RGYInputAvcodec::vc1AddFrameHeader(AVPacket *pkt) {
         memmove(pkt->data + sizeof(startCode), pkt->data, size);
         memcpy(pkt->data, &startCode, sizeof(startCode));
     }
+}
+
+bool RGYInputAvcodec::isSelectedLangTrack(const std::string &lang, const AVStream *stream) {
+    if (lang.length() == 0) return false;
+    const auto &streamLang = getTrackLang(stream);
+    if (streamLang.length() == 0) return false;
+    return rgy_lang_equal(lang, streamLang);
 }
 
 void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
@@ -1412,6 +1420,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 //字幕・データの場合
                 for (int i = 0; !useStream && i < input_prm->nSubtitleSelectCount; i++) {
                     if (input_prm->ppSubtitleSelect[i]->trackID == 0 //特に指定なし = 全指定かどうか
+                        || (input_prm->ppSubtitleSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppSubtitleSelect[i]->lang, srcStream))
                         || input_prm->ppSubtitleSelect[i]->trackID - 1 == (iTrack - m_Demux.format.audioTracks)) {
                         useStream = true;
                     }
@@ -1420,6 +1429,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 //データの場合
                 for (int i = 0; !useStream && i < input_prm->nDataSelectCount; i++) {
                     if (input_prm->ppDataSelect[i]->trackID == 0 //特に指定なし = 全指定かどうか
+                        || (input_prm->ppDataSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppDataSelect[i]->lang, srcStream))
                         || input_prm->ppDataSelect[i]->trackID - 1 == (iTrack - m_Demux.format.audioTracks - m_Demux.format.subtitleTracks)) {
                         useStream = true;
                     }
@@ -1427,7 +1437,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             } else {
                 //音声の場合
                 for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
-                    if (input_prm->ppAudioSelect[i]->trackID - 1 == (iTrack)) {
+                    if ((input_prm->ppAudioSelect[i]->trackID == TRACK_SELECT_BY_LANG && isSelectedLangTrack(input_prm->ppAudioSelect[i]->lang, srcStream))
+                        || (input_prm->ppAudioSelect[i]->trackID - 1 == (iTrack))) {
                         useStream = true;
                         pAudioSelect = input_prm->ppAudioSelect[i];
                     }
@@ -1489,6 +1500,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     stream.appliedTrimBlock = -1;
                     stream.trimOffset = 0;
                     stream.aud0_fin = AV_NOPTS_VALUE;
+                    strncpy_s(stream.lang, _countof(stream.lang), getTrackLang(m_Demux.format.formatCtx->streams[stream.index]).c_str(), 3);
                     if (pAudioSelect) {
                         stream.addDelayMs = pAudioSelect->addDelayMs;
                         memcpy(stream.streamChannelSelect, pAudioSelect->streamChannelSelect, sizeof(stream.streamChannelSelect));

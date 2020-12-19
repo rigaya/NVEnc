@@ -50,6 +50,7 @@ AudioSelect::AudioSelect() :
     streamChannelOut(),
     bsf(),
     disposition(),
+    lang(),
     metadata() {
     memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
     memset(streamChannelOut, 0, sizeof(streamChannelOut));
@@ -69,6 +70,7 @@ SubtitleSelect::SubtitleSelect() :
     asdata(false),
     bsf(),
     disposition(),
+    lang(),
     metadata() {
 
 }
@@ -82,6 +84,7 @@ SubSource::SubSource() :
 DataSelect::DataSelect() :
     trackID(0),
     disposition(),
+    lang(),
     metadata() {
 
 }

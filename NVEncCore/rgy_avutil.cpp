@@ -118,6 +118,12 @@ tstring get_media_type_string(AVCodecID codecId) {
     return char_to_tstring(av_get_media_type_string(avcodec_get_type(codecId))).c_str();
 }
 
+// trackの言語を取得
+std::string getTrackLang(const AVStream *stream) {
+    auto language_data = av_dict_get(stream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
+    return (language_data) ? language_data->value : "";
+}
+
 //avqsvでサポートされている動画コーデックを表示
 tstring getHWDecSupportedCodecList() {
     tstring codecs;
