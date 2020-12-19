@@ -1801,11 +1801,11 @@ inline void detect_and_add_cuda_arch(std::vector<std::string>& options) {
   cudaDeviceGetAttribute(&cc_major, cudaDevAttrComputeCapabilityMajor, device);
   int cc_minor;
   cudaDeviceGetAttribute(&cc_minor, cudaDevAttrComputeCapabilityMinor, device);
-  int cc = cc_major * 10 + cc_minor;
   // Note: We must limit the architecture to the max supported by the current
   //         version of NVRTC, otherwise newer hardware will cause errors
   //         on older versions of CUDA.
   // TODO: It would be better to detect this somehow, rather than hard-coding it
+  int cc = std::min(cc_major * 10 + cc_minor, CUDA_MAX_ARCH);
 #if CUDA_VERSION / 10 > 900
 #elif CUDA_VERSION / 10 == 900
   cc = std::min(cc, 70);
