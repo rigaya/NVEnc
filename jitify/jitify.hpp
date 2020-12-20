@@ -1805,10 +1805,6 @@ inline void detect_and_add_cuda_arch(std::vector<std::string>& options) {
   // Note: We must limit the architecture to the max supported by the current
   //         version of NVRTC, otherwise newer hardware will cause errors
   //         on older versions of CUDA.
-  // TODO: It would be better to detect this somehow, rather than hard-coding it
-#ifdef CUDA_MAX_ARCH
-  cc = std::min(cc, CUDA_MAX_ARCH);
-#endif
   const int cuda_major = std::min(10, CUDA_VERSION / 1000);
   switch (cuda_major) {
     case 11: cc = std::min(cc, 86); break; // Ampere
