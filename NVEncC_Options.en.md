@@ -661,12 +661,12 @@ Example3: set metadata
 --video-metadata 1?title="video title" --video-metadata 1?language=jpn
 ```
 
-### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
+### --audio-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
 Copy audio track into output file. Available only when avhw / avsw reader is used.
 
 If it does not work well, try encoding with [--audio-codec](#--audio-codec-intstring), which is more stable.
 
-You can also specify the audio track (1, 2, ...) to extract.
+You can also specify the audio track (1, 2, ...) to extract with [&lt;int&gt;], or select audio track to copy by language with [&lt;string&gt].
 
 ```
 Example: Copy all audio tracks
@@ -674,12 +674,15 @@ Example: Copy all audio tracks
 
 Example: Extract track numbers #1 and #2
 --audio-copy 1,2
+
+例: Extract audio tracks marked as English and Japanese
+--audio-copy eng,jpn
 ```
 
-### --audio-codec [[&lt;int&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;],...]
+### --audio-codec [[{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;],...]
 Encode audio track with the codec specified. If codec is not set, most suitable codec will be selected automatically. Codecs available could be checked with [--check-encoders](#--check-codecs---check-decoders---check-encoders).
 
-You can also specify the audio track (1, 2, ...) to extract.
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
 
 Also, you can specify params for audio encoder.
 ```
@@ -689,23 +692,29 @@ Example 1: encode all audio tracks to mp3
 Example 2: encode the 2nd track of audio to aac
 --audio-codec 2?aac
 
-Example 3: set param "aac_coder" to "twoloop" which will improve quality at low bitrate for aac encoder
+Example 3: encode the English audio track to aac
+--audio-codec eng?aac
+
+Example 4: encode the English audio track and Japanese audio track to aac
+--audio-codec eng?aac --audio-codec jpn?aac
+
+Example 5: set param "aac_coder" to "twoloop" which will improve quality at low bitrate for aac encoder
 --audio-codec aac:aac_coder=twoloop
 ```
 
-### --audio-bitrate [&lt;int&gt;?]&lt;int&gt;
+### --audio-bitrate [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
 Specify the bitrate in kbps when encoding audio.
 
-You can also specify the audio track (1, 2, ...) to extract.
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
 ```
 Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
 Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ```
 
-### --audio-profile [&lt;int&gt;?]&lt;string&gt;
-Specify audio codec profile when encoding audio.
+### --audio-profile [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
+Specify audio codec profile when encoding audio.You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
 
-### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]
+### --audio-stream [{&lt;int&gt;or&lt;string&gt;}?][&lt;string1&gt;][:&lt;string2&gt;]
 Separate or merge audio channels.
 Audio tracks specified with this option will always be encoded. (no copying available)
 
@@ -757,23 +766,23 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
 ```
 
-### --audio-samplerate [&lt;int&gt;?]&lt;int&gt;
+### --audio-samplerate [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
 Specify the sampling frequency of the sound in Hz.
-You can also specify the audio track (1, 2, ...) to extract.
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
 ```
 Example 1: --audio-bitrate 44100 (converting sound to 44100 Hz)
 Example 2: --audio-bitrate 2?22050 (Convert the second track of voice to 22050 Hz)
 ```
 
-### --audio-delay [&lt;int&gt;?]&lt;int&gt;
-Specify audio delay in milli seconds.
+### --audio-delay [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
+Specify audio delay in milli seconds.　You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
 
 ### --audio-resampler &lt;string&gt;
 Specify the engine used for mixing audio channels and sampling frequency conversion.
 - swr ... swresampler (default)
 - soxr ... sox resampler (libsoxr)
 
-### --audio-file [&lt;int&gt;?][&lt;string&gt;]&lt;string&gt;
+### --audio-file [{&lt;int&gt;or&lt;string&gt;}?][&lt;string&gt;]&lt;string&gt;
 Extract audio track to the specified path. The output format is determined automatically from the output extension. Available only when avhw / avsw reader is used.
 
 You can also specify the audio track (1, 2, ...) to extract.
@@ -788,18 +797,19 @@ Example: Output in adts format without extension
 --audio-file 2?adts:"test_out2"  
 ```
 
-### --audio-filter [&lt;int&gt;?]&lt;string&gt;
+### --audio-filter [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
 Apply filters to audio track. Filters could be slected from [link](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters).
 
-You can also specify the audio track (1, 2, ...) to filter.
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
 
 ```
 Example 1: --audio-filter volume=0.2  (lowering the volume)
 Example 2: --audio-filter 2?volume=-4db (lowering the volume of the 2nd track)
 ```
 
-### --audio-disposition [&lt;int&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
+### --audio-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[,&lt;string&gt;][]...
 set disposition for the specified audio track.
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
 
 ```
  default
@@ -823,11 +833,12 @@ Example:
 --audio-disposition 2?default,forced
 ```
 
-### --audio-metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
+### --audio-metadata [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt; or [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;=&lt;string&gt;
 Set metadata for audio track.
   - copy  ... copy metadata from input if possible (default)
   - clear ... do not copy metadata
 
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
 ```
 Example1: copy metadata from input file
 --audio-metadata 1?copy
@@ -963,18 +974,24 @@ There should be one frame ID per line.
 ### --sub-source &lt;string&gt;
 Read subtitle from the specified file and mux into the output file.
 
-### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
+### --sub-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
-It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;int&gt;].
+It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;int&gt;], or select subtitle tracks to copy by language with [&lt;string&gt;].
 
 Supported subtitles are PGS / srt / txt / ttxt.
 
 ```
+Example: Copy all subtitle tracks
+--sub-copy
+
 Example: Copy subtitle track #1 and #2
 --sub-copy 1,2
+
+Example: Copy subtitle tracks marked as English and Japanese
+--sub-copy eng,jpn
 ```
 
-### --sub-disposition [&lt;int&gt;?]&lt;string&gt;
+### --sub-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
 set disposition for the specified subtitle track.
 
 ```
@@ -996,7 +1013,7 @@ set disposition for the specified subtitle track.
  copy
 ```
 
-### --sub-metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
+### --sub-metadata [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt; or [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;=&lt;string&gt;
 Set metadata for subtitle track.
   - copy  ... copy metadata from input if possible (default)
   - clear ... do not copy metadata

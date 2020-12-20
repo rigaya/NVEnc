@@ -664,20 +664,28 @@ muxerに出力フォーマットを指定して出力する。
 --video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
 ```
 
-### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
+### --audio-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
 
 tsなどでエラーが出るなどしてうまく動作しない場合は、[--audio-codec](#--audio-codec-intstring)で一度エンコードしたほうが安定動作するかもしれない。
 
+[&lt;int&gt;[,&lt;int&gt;]...]で、抽出する音声トラック(1,2,...)を指定したり、[&lt;string&gt;]で指定した言語の音声トラックをコピーすることもできる。
+
 ```
+例: 全ての音声トラックを抽出
+--audio-copy
+
 例: トラック番号#1,#2を抽出
 --audio-copy 1,2
+
+例: 日本語と英語の音声トラックを抽出
+--audio-copy jpn,eng
 ```
 
-### --audio-codec [[&lt;int&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;]...]
+### --audio-codec [[{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;]...]
 音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-codecs---check-decoders---check-encoders)で確認できる。
 
-[&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 さらに、[&lt;string&gt;=&lt;string&gt;]の形式で、音声エンコーダのオプションを指定することもできる。
 ```
@@ -687,23 +695,29 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 例2: 音声の第2トラックをaacに変換
 --audio-codec 2?aac
 
-例3: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
+例3: 日本語の音声をaacに変換
+--audio-codec jpn?aac
+
+例4: 日本語と英語の音声をaacに変換
+--audio-codec jpn?aac --audio-codec eng?aac
+
+例5: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
 --audio-codec aac:aac_coder=twoloop
 ```
 
-### --audio-bitrate [&lt;int&gt;?]&lt;int&gt;
+### --audio-bitrate [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
 音声をエンコードする際のビットレートをkbpsで指定する。
 
-[&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 ```
 例1: --audio-bitrate 192   (音声を192kbpsで変換)
 例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
 ```
 
-### --audio-profile [&lt;int&gt;?]&lt;string&gt;
+### --audio-profile [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
 音声をエンコードする際、そのプロファイルを指定する。
 
-### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]
+### --audio-stream [{&lt;int&gt;or&lt;string&gt;}?][&lt;string1&gt;][:&lt;string2&gt;]
 音声チャンネルの分離・統合などを行う。
 --audio-streamが指定された音声トラックは常にエンコードされる。(コピー不可)
 ,(カンマ)で区切ることで、入力の同じトラックから複数のトラックを生成できる。
@@ -752,9 +766,9 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
 ```
 
-### --audio-samplerate [&lt;int&gt;?]&lt;int&gt;
+### --audio-samplerate [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
 音声のサンプリング周波数をHzで指定する。
-[&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 ```
 例1: --audio-bitrate 44100   (音声を44100Hzに変換)
 例2: --audio-bitrate 2?22050 (音声の第2トラックを22050Hzに変換)
@@ -765,13 +779,13 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 - swr  ... swresampler (デフォルト)
 - soxr ... sox resampler (libsoxr)
 
-### --audio-delay [&lt;int&gt;?]&lt;int&gt;
-音声に設定する遅延をms単位で指定する。
+### --audio-delay [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
+音声に設定する遅延をms単位で指定する。[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 ### --audio-file [&lt;int&gt;][&lt;string&gt;?]&lt;string&gt;
 指定したパスに音声を抽出する。出力フォーマットは出力拡張子から自動的に決定する。avhw/avswリーダー使用時のみ有効。
 
-[&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 ```
 例: test_out2.aacにトラック番号#2を抽出
 --audio-file 2?"test_out2.aac"
@@ -783,19 +797,20 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 --audio-file 2?adts:"test_out2"  
 ```
 
-### --audio-filter [&lt;int&gt;?]&lt;string&gt;
+### --audio-filter [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
 音声に音声フィルタを適用する。適用可能なフィルタは[こちら](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters)。
 
-
-[&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 ```
 例1: --audio-filter volume=0.2     (音量を下げる例)
 例2: --audio-filter 2?volume=-4db  (第2トラックの音量を下げる例)
 ```
 
-### --audio-disposition [&lt;int&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
+### --audio-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[,&lt;string&gt;][]...
 音声のdispositionを指定する。
+
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 ```
  default
@@ -819,11 +834,12 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 --audio-disposition 2?default,forced
 ```
 
-### --audio-metadata [&lt;int&gt;?]&lt;string&gt; or [&lt;int&gt;?]&lt;string&gt;=&lt;string&gt;
+### --audio-metadata [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt; or [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;=&lt;string&gt;
 音声トラックのmetadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
   - clear ... do not copy metadata
 
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 ```
 例1: 入力ファイルからmetadataをコピー
 --audio-metadata 1?copy
@@ -951,18 +967,25 @@ matroska形式 (UTF-8であること)
 ### --sub-source &lt;string&gt;
 指定のファイルから字幕を読み込みmuxする。
 
-### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
+### --sub-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
-[&lt;int&gt;[,&lt;int&gt;]...]で、抽出する字幕トラック(1,2,...)を指定することもできる。
+
+[&lt;int&gt;[,&lt;int&gt;]...]で、抽出する字幕トラック(1,2,...)を指定したり、[&lt;string&gt;[,&lt;string&gt;]...]で指定した言語の字幕トラックをコピーすることもできる。
 
 対応する字幕は、PGS/srt/txt/ttxtなど。
 
 ```
+例: 全ての字幕トラックをコピー
+--sub-copy
+
 例: 字幕トラック #1と#2をコピー
 --sub-copy 1,2
+
+例: 日本語と英語の音声トラックを抽出
+--sub-copy jpn,eng
 ```
 
-### --sub-disposition [&lt;int&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
+### --sub-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[,&lt;string&gt;][]...
 字幕のdispositionを指定する。
 
 ```
@@ -984,7 +1007,7 @@ matroska形式 (UTF-8であること)
  copy
 ```
 
-### --sub-metadata [&lt;int&gt;?]&lt;string&gt; or [&lt;int&gt;?]&lt;string&gt;=&lt;string&gt;
+### --sub-metadata [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt; or [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;=&lt;string&gt;
 字幕トラックのmetadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
   - clear ... do not copy metadata
