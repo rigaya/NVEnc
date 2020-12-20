@@ -236,13 +236,13 @@ static inline std::string rgy_lang_tolowercase(const std::string &str) {
 static int rgy_lang_index(const std::string &lang_code) {
     const std::string lang_code_lower = rgy_lang_tolowercase(lang_code);
     if (lang_code_lower.length() == 2) {
-        for (int i = 0; i < _countof(RGY_LANG_TABLE); i++) {
+        for (int i = 0; i < (int)(sizeof(RGY_LANG_TABLE) / sizeof(RGY_LANG_TABLE[0])); i++) {
             if (lang_code_lower == RGY_LANG_TABLE[i].code_2letter_6391) {
                 return i;
             }
         }
     } else if (lang_code_lower.length() == 3) {
-        for (int i = 0; i < _countof(RGY_LANG_TABLE); i++) {
+        for (int i = 0; i < (int)(sizeof(RGY_LANG_TABLE) / sizeof(RGY_LANG_TABLE[0])); i++) {
             if (lang_code_lower == RGY_LANG_TABLE[i].code_3letter_6392b) {
                 return i;
             }

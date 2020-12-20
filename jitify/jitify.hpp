@@ -1801,19 +1801,25 @@ inline void detect_and_add_cuda_arch(std::vector<std::string>& options) {
   cudaDeviceGetAttribute(&cc_major, cudaDevAttrComputeCapabilityMajor, device);
   int cc_minor;
   cudaDeviceGetAttribute(&cc_minor, cudaDevAttrComputeCapabilityMinor, device);
+  int cc = cc_major * 10 + cc_minor;
   // Note: We must limit the architecture to the max supported by the current
   //         version of NVRTC, otherwise newer hardware will cause errors
   //         on older versions of CUDA.
   // TODO: It would be better to detect this somehow, rather than hard-coding it
-  int cc = std::min(cc_major * 10 + cc_minor, CUDA_MAX_ARCH);
-#if CUDA_VERSION / 10 > 900
-#elif CUDA_VERSION / 10 == 900
-  cc = std::min(cc, 70);
-#elif CUDA_VERSION / 10 == 800
-  cc = std::min(cc, 61);
-#else
-  cc = std::min(cc, 53);
+#ifdef CUDA_MAX_ARCH
+  cc = std::min(cc, CUDA_MAX_ARCH);
 #endif
+  const int cuda_major = std::min(10, CUDA_VERSION / 1000);
+  switch (cuda_major) {
+    case 11: cc = std::min(cc, 86); break; // Ampere
+    case 10: cc = std::min(cc, 75); break; // Turing
+    case  9: cc = std::min(cc, 70); break; // Volta
+    case  8: cc = std::min(cc, 61); break; // Pascal
+    case  7: cc = std::min(cc, 52); break; // Maxwell
+    default:
+      throw std::runtime_error("Unexpected CUDA major version " +
+                             std::to_string(cuda_major));
+  }
   std::stringstream ss;
   ss << cc;
   options.push_back("-arch=compute_" + ss.str());
