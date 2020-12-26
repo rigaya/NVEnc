@@ -541,9 +541,9 @@ static NppStatus resize_nppi_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pI
     auto srcSize = nppisize(pInputFrame);
     auto srcRect = nppiroi(pInputFrame);
     auto dstRect = nppiroi(pOutputFrame);
-    const auto planeSrcY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    const auto planeSrcU = getPlane(pOutputFrame, RGY_PLANE_U);
-    const auto planeSrcV = getPlane(pOutputFrame, RGY_PLANE_V);
+    const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
+    const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
+    const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
