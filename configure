@@ -108,6 +108,11 @@ LIBASS_CFLAGS=""
 LIBASS_LIBS=""
 ENABLE_LIBASS=1
 
+CHECK_LIBVMAF_NAMES="libvmaf"
+LIBVMAF_CFLAGS=""
+LIBVMAF_LIBS=""
+ENABLE_LIBVMAF=0
+
 DTL_CFLAGS=""
 ENABLE_DTL=1
 
@@ -183,6 +188,9 @@ for opt; do
             ;;
         --disable-libass)
             ENABLE_LIBASS=0
+            ;;
+        --disable-libvmaf)
+            ENABLE_LIBVMAF=0
             ;;
         --disable-dtl)
             ENABLE_DTL=0
@@ -517,6 +525,28 @@ if [ $ENABLE_LIBASS -ne 0 ]; then
     fi
 fi
 
+if [ $ENABLE_LIBVMAF -ne 0 ]; then
+    printf "checking libvmaf with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_LIBVMAF_NAMES} ; then
+        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        echo "OK"
+        LIBVMAF_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBVMAF_NAMES}`
+        LIBVMAF_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBVMAF_NAMES}`
+    fi
+    printf "checking for libvmaf/vmaf.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "" "libvmaf/libvmaf.h" "" ; then
+        echo "no"
+        ENABLE_LIBASS=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_LIBVMAF -eq 0 ]; then
+        LIBVMAF_CFLAGS=""
+        LIBVMAF_LIBS=""
+    fi
+fi
+
 if [ $ENABLE_DTL -ne 0 ]; then
     printf "checking for dtl/dtl.hpp..."
     if ! cxx_check "${CXXFLAGS} ${CXXINC} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl/dtl.hpp" "" "" ; then
@@ -621,9 +651,9 @@ write_config_mak "LD   = $CXX"
 write_config_mak "AS   = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
-write_config_mak "NVCCFLAGS = $NVCCFLAGS -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
-write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
+write_config_mak "NVCCFLAGS = $NVCCFLAGS -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
+write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBVMAF_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
@@ -634,6 +664,7 @@ write_enc_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
 write_enc_config "#define ENABLE_AVSW_READER            $ENABLE_AVSW_READER"     
 write_enc_config "#define ENABLE_SM_READER              0"
 write_enc_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"
+write_enc_config "#define ENABLE_VMAF                   $ENABLE_LIBVMAF"
 write_enc_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
 write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
