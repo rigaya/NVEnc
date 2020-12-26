@@ -6,6 +6,7 @@ branches:
   only: 
     - master
     - linux
+    - buildtest
 
 matrix:
   fast_finish: true
