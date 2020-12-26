@@ -87,11 +87,7 @@ CUDA_PATH=${CUDA_PATH:-/usr/local/cuda}
 
 ENABLE_CPP_REGEX=1
 
-GPU_CODE_GEN="\
---generate-code arch=compute_30,code=[compute_30,sm_30] \
---generate-code arch=compute_50,code=[compute_50,sm_50] \
---generate-code arch=compute_75,code=[compute_75,sm_75] \
-"
+GPU_CODE_GEN=""
 
 CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter"
 LIBAV_CFLAGS=""
@@ -252,7 +248,22 @@ if ! cxx_check "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "c
     echo "cuda not supported." 
     exit 1
 fi
-echo "OK"
+CUDA_VER_MAJOR=`${NVCC} --version | grep "release" | awk '{print $6}' | cut -c2- | cut -d . -f1`
+CUDA_VER_MINOR=`${NVCC} --version | grep "release" | awk '{print $6}' | cut -c2- | cut -d . -f2`
+if [ $CUDA_VER_MAJOR -le 8 ]; then
+    echo "CUDA >= 9.0 required, but CUDA ${CUDA_VER_MAJOR}.${CUDA_VER_MINOR} found." 
+    exit 1
+fi
+if [ $CUDA_VER_MAJOR -le 10 ]; then
+    GPU_CODE_GEN="--generate-code arch=compute_30,code=[compute_30,sm_30]"
+fi
+GPU_CODE_GEN="${GPU_CODE_GEN} --generate-code arch=compute_50,code=[compute_50,sm_50]"
+GPU_CODE_GEN="${GPU_CODE_GEN} --generate-code arch=compute_75,code=[compute_75,sm_75]"
+if ( [ $CUDA_VER_MAJOR -ge 11 ] && [ $CUDA_VER_MINOR -ge 1 ] ) || [ $CUDA_VER_MAJOR -ge 12 ]; then
+    GPU_CODE_GEN="${GPU_CODE_GEN} --generate-code arch=compute_86,code=[compute_86,sm_86]"
+fi
+echo "OK, CUDA ${CUDA_VER_MAJOR}.${CUDA_VER_MINOR}"
+
 NVCCFLAGS="${GPU_CODE_GEN} --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
 
 for file in "${CXX}" "${AS}"; do
