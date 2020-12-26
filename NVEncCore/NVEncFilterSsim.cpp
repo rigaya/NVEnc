@@ -28,6 +28,7 @@
 
 #include <map>
 #include "rgy_avutil.h"
+#include "cpu_info.h"
 #include "CuvidDecode.h"
 #include "NVEncFilterSsim.h"
 #include "NVEncParam.h"
@@ -611,6 +612,9 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
     cfg.n_threads = prm->vmaf.threads;
     cfg.n_subsample = prm->vmaf.subsample;
     cfg.cpumask = disable_avx ? -1 : 0;
+    if (cfg.n_threads == 0) {
+        cfg.n_threads = get_cpu_info().physical_cores;
+    }
 
     VmafContext *vmafptr = nullptr;
     m_vmaf.error = vmaf_init(&vmafptr, cfg);

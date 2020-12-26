@@ -578,7 +578,7 @@ Currently for Windows x64 only.
     and set the path by this option. (Please check the example below.)
 
   - threads=&lt;int&gt;  (default: 0)  
-    CPU thread(s) to calculate vmaf score. Default is to use all cores.
+    CPU thread(s) to calculate vmaf score. Default is to use all physical cores.
 
   - subsample=&lt;int&gt;  (default: 1)  
     Interval for frame subsampling calculating vmaf score.

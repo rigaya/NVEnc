@@ -583,7 +583,7 @@ HEVCの規格では64まで存在するが、現状NVENCでは32までしかサ�
     vmaf_v0.6.1.pkl と vmaf_v0.6.1.pkl.model をダウンロードし、同じフォルダに入れ、そのファイル名を例のように指定してください。
 
   - threads=&lt;int&gt;  (default: 0)  
-    VMAFスコアを計算するCPUのスレッド数の指定。デフォルトは全コア。
+    VMAFスコアを計算するCPUのスレッド数の指定。デフォルトは全物理コア。
 
   - subsample=&lt;int&gt;  (default: 1)  
     VMAFスコアを計算対象とするフレームサブサンプリング間隔の指定。
