@@ -32,10 +32,8 @@
 #include "NVEncFilterSsim.h"
 #include "NVEncParam.h"
 #if ENABLE_VMAF
-#include <libvmaf.h>
+#include <libvmaf/compute_vmaf.h>
 #pragma comment(lib, "libvmaf.lib")
-#pragma comment(lib, "pthreads.lib")
-#pragma comment(lib, "ptools.lib")
 #endif //#if ENABLE_VMAF
 
 #if ENABLE_SSIM
@@ -599,7 +597,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
 
     m_vmaf.error = compute_vmaf(&m_vmaf.score, pix_fmt_name.get(), frameInfo.width, frameInfo.height,
         read_frames_vmaf, this,
-        model_path.get(), nullptr /*log_path*/, nullptr /*log_fmt*/, 0, 0,
+        model_path.get(), "F:\\temp\\test.json" /*log_path*/, nullptr /*log_fmt*/, 0 /*disable_clip*/, 0 /*disable_avx*/,
         prm->vmaf.enable_transform ? 1 : 0 /*enable_transform*/,
         prm->vmaf.phone_model /*phone_model*/,
         false /*psnr*/, false /*ssim*/, false /*ms_ssim*/,
