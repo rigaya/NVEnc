@@ -211,13 +211,13 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
 
     for (int j = 0; j < planeU.height; j++) {
         auto ptr = planeU.ptr + j * planeU.pitch;
-        for (int i = 0; i < planeU.pitch / sizeof(ptr[0]); i++) {
+        for (int i = 0; i < planeU.pitch / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
     for (int j = 0; j < planeV.height; j++) {
         auto ptr = planeV.ptr + j * planeV.pitch;
-        for (int i = 0; i < planeV.pitch / sizeof(ptr[0]); i++) {
+        for (int i = 0; i < planeV.pitch / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
@@ -326,13 +326,13 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
 
     for (int j = 0; j < planeU.height; j++) {
         auto ptr = planeU.ptr + j * planeU.pitch;
-        for (int i = 0; i < planeU.pitch / sizeof(ptr[0]); i++) {
+        for (int i = 0; i < planeU.pitch / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
     for (int j = 0; j < planeV.height; j++) {
         auto ptr = planeV.ptr + j * planeV.pitch;
-        for (int i = 0; i < planeV.pitch / sizeof(ptr[0]); i++) {
+        for (int i = 0; i < planeV.pitch / (int)sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }

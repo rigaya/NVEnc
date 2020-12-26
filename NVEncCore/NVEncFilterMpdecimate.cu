@@ -384,7 +384,7 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const FrameInfo *pInputFrame, FrameInf
         *pOutputFrameNum = 1;
         ppOutputFrames[0] = &m_cache.get(m_ref)->frame;
         if (m_fpLog) {
-            fprintf(m_fpLog.get(), "  %8d: %10lld\n", m_ref, ppOutputFrames[0]->timestamp);
+            fprintf(m_fpLog.get(), "  %8d: %10lld\n", m_ref, (long long)ppOutputFrames[0]->timestamp);
         }
         return sts;
     }
@@ -395,7 +395,7 @@ RGY_ERR NVEncFilterMpdecimate::run_filter(const FrameInfo *pInputFrame, FrameInf
 
         const bool drop = dropFrame(targetFrame) && pInputFrame->ptr != nullptr; //最終フレームは必ず出力する
         if (m_fpLog) {
-            fprintf(m_fpLog.get(), "%s %8d: %10lld\n", (drop) ? "d" : " ", m_target, targetFrame->get()->frame.timestamp);
+            fprintf(m_fpLog.get(), "%s %8d: %10lld\n", (drop) ? "d" : " ", m_target, (long long)targetFrame->get()->frame.timestamp);
         }
         if (drop) {
             targetFrame->reset();
