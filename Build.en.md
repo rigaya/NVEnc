@@ -10,8 +10,9 @@
 ### 0. Requirements
 To build NVEnc, components below are required.
 
-- Visual Studio 2015 + CUDA 8.0 (x86)
-- Visual Studio 2019 + CUDA 10.2 (x64)
+- Visual Studio 2019
+- CUDA 10.1 or later (x64)
+- CUDA 11.0 or later (x86)
 - [nasm](https://www.nasm.us/)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK

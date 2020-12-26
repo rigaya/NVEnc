@@ -10,8 +10,9 @@
 ### 0. ビルドに必要なもの
 ビルドには、下記のものが必要です。
 
-- Visual Studio 2015 + CUDA 8.0 (x86)
-- Visual Studio 2019 + CUDA 10.2 (x64)
+- Visual Studio 2019
+- CUDA 10.1 以降 (x64)
+- CUDA 11.0 以降 (x86)
 - [nasm](https://www.nasm.us/)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK

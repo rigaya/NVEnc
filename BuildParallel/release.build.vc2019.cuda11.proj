@@ -1,0 +1,10 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <ItemGroup>
+        <ProjectToBuild Include="..\NVEnc.sln">
+            <Properties>Configuration=RelStatic;Platform=Win32</Properties>
+        </ProjectToBuild>
+    </ItemGroup>
+    <Target Name="Build">
+        <MSBuild Projects="@(ProjectToBuild)" BuildInParallel="true" />
+    </Target>
+</Project>
