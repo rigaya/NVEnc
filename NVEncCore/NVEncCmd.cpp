@@ -558,8 +558,8 @@ tstring encoder_help() {
         _T("   --psnr                       calc psnr.\n")
 #if ENABLE_VMAF
         _T("   --vmaf [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     Calc vmaf. Please note that this is likely to become bottleneck and\n")
-        _T("     strongly affect encoding perfromance.\n")
+        _T("     Calc vmaf. Please note that this is very CPU intensive and likely to \n")
+        _T("     become bottleneck, strongly affecting encoding perfromance.\n")
         _T("    params\n")
         _T("      model=<string>            set model file path [always required].\n")
         _T("      threads=<int>             cpu thread(s) to calculate vmaf score.\n")
