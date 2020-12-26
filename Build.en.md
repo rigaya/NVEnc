@@ -40,14 +40,6 @@ git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
 setx CAPTION2ASS_SRC "<path-to-clone>/src"
 ```
 
-For x64 build, you will also need to build libvmaf 1.3.15.
-Download source code of [vmaf 1.3.15](https://github.com/Netflix/vmaf/releases/tag/v1.3.15),
-and open vmaf.sln by Visual Studio, and build by configuration Releae|x64.
-Then set environment variable "VMAF_DIR" to the directory which vmaf.sln exists.
-```Batchfile
-setx VMAF_DIR <path-of-vmaf-1.3.15>
-```
-
 ### 2. Download source code
 
 ```Batchfile

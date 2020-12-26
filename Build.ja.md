@@ -39,13 +39,6 @@ git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
 setx CAPTION2ASS_SRC "<path-to-clone>/src"
 ```
 
-また、64bit版ではlibvmafのビルドも必要です。
-[vmaf 1.3.15](https://github.com/Netflix/vmaf/releases/tag/v1.3.15)のソースコードをダウンロードし、中のvmaf.slnを開き、Release|x64でビルドします。
-その後、vmaf.slnのあるフォルダを環境変数 "VMAF_DIR" として設定します。
-```Batchfile
-setx VMAF_DIR <path-of-vmaf-1.3.15>
-```
-
 ### 2. ソースのダウンロード
 
 ```Batchfile
