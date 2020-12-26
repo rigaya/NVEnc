@@ -32,7 +32,9 @@
 #include "NVEncFilterSsim.h"
 #include "NVEncParam.h"
 #if ENABLE_VMAF
-#include <libvmaf/compute_vmaf.h>
+extern "C" {
+#include <libvmaf/libvmaf.h>
+}
 #pragma comment(lib, "libvmaf.lib")
 #endif //#if ENABLE_VMAF
 
@@ -536,20 +538,17 @@ void NVEncFilterVMAFData::thread_fin() {
     }
 }
 
-template<typename pixType>
-void read_frame_vmaf(float *dst, int stride_byte, const FrameInfo *srcFrame) {
-    const float factor = 1.0f / (1 << (RGY_CSP_BIT_DEPTH[srcFrame->csp] - 8));
-    for (int y = 0; y < srcFrame->height; y++) {
-        float *ptrDstLine = (float *)((char *)dst + stride_byte * y);
-        const pixType *ptrSrcLine = (const pixType *)((char *)srcFrame->ptr + srcFrame->pitch * y);
-        for (int x = 0; x < srcFrame->width; x++) {
-            ptrDstLine[x] = ptrSrcLine[x] * factor;
-        }
+void read_frame_vmaf2(VmafPicture *dst, const FrameInfo *srcFrame) {
+    const auto srcPlane = getPlane(srcFrame, RGY_PLANE_Y);
+    const int pixsize = (RGY_CSP_BIT_DEPTH[srcPlane.csp] > 8) ? 2 : 1;
+    for (int y = 0; y < srcPlane.height; y++) {
+        void *ptrDstLine = (void *)((char *)dst->data[0] + dst->stride[0] * y);
+        const void *ptrSrcLine = (const void *)((char *)srcPlane.ptr + srcPlane.pitch * y);
+        memcpy(ptrDstLine, ptrSrcLine, srcPlane.width * pixsize);
     }
 }
 
-int read_frames_vmaf(float *ref_data /*オリジナルのこと*/, float *main_data /*エンコードしたもの*/, float *temp_data, int stride_byte, void *user_data) {
-    UNREFERENCED_PARAMETER(temp_data);
+int read_frames_vmaf2(VmafPicture *ref_data /*オリジナルのこと*/, VmafPicture *main_data /*エンコードしたもの*/, void *user_data) {
     NVEncFilterSsim *filter = (NVEncFilterSsim *)user_data;
     while (filter->vmaf().procIndex >= filter->frameHostSendIndex()) {
         if (filter->vmaf().abort) {
@@ -559,17 +558,12 @@ int read_frames_vmaf(float *ref_data /*オリジナルのこと*/, float *main_d
     }
     auto &framesEnc = filter->frameHostEnc()[filter->vmaf().procIndex % filter->frameHostEnc().size()];
     auto &framesOrg = filter->frameHostOrg()[filter->vmaf().procIndex % filter->frameHostOrg().size()];
-    if (   cudaEventSynchronize(framesOrg->event) != cudaSuccess
+    if (cudaEventSynchronize(framesOrg->event) != cudaSuccess
         || cudaEventSynchronize(framesEnc->event) != cudaSuccess) {
         return 2;
     }
-    if (RGY_CSP_BIT_DEPTH[framesEnc->frame.csp] > 8) {
-        read_frame_vmaf<uint16_t>(main_data, stride_byte, &framesEnc->frame);
-        read_frame_vmaf<uint16_t>(ref_data,  stride_byte, &framesOrg->frame);
-    } else {
-        read_frame_vmaf<uint8_t>(main_data, stride_byte, &framesEnc->frame);
-        read_frame_vmaf<uint8_t>(ref_data,  stride_byte, &framesOrg->frame);
-    }
+    read_frame_vmaf2(main_data, &framesEnc->frame);
+    read_frame_vmaf2(ref_data, &framesOrg->frame);
     SetEvent(filter->vmaf().heProcFin[filter->vmaf().procIndex % filter->vmaf().heProcFin.size()]);
     filter->vmaf().procIndex++;
     return 0;
@@ -577,7 +571,19 @@ int read_frames_vmaf(float *ref_data /*オリジナルのこと*/, float *main_d
 
 RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
     const auto frameInfo = m_frameHostEnc[0]->frame;
-    std::unique_ptr<char, decltype(&free)> pix_fmt_name(_strdup(av_pix_fmt_desc_get(csp_rgy_to_avpixfmt(frameInfo.csp))->name), free);
+
+
+    VmafPixelFormat vmafPixFmt = VMAF_PIX_FMT_UNKNOWN;
+    switch (RGY_CSP_CHROMA_FORMAT[frameInfo.csp]) {
+    case RGY_CHROMAFMT_YUV420: vmafPixFmt = VMAF_PIX_FMT_YUV420P; break;
+    case RGY_CHROMAFMT_YUV422: vmafPixFmt = VMAF_PIX_FMT_YUV422P; break;
+    case RGY_CHROMAFMT_YUV444: vmafPixFmt = VMAF_PIX_FMT_YUV444P; break;
+    default: {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid csp for vmaf.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    }
+    const int bitdepth = RGY_CSP_BIT_DEPTH[frameInfo.csp];
 
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
     if (!prm) {
@@ -589,22 +595,162 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
         AddMessage(RGY_LOG_ERROR, _T("Failed to convert model \"%s\" to char.\n"), prm->vmaf.model_path.c_str());
         return RGY_ERR_INVALID_PARAM;
     }
-    std::unique_ptr<char, decltype(&free)> model_path(_strdup(model_path_str.c_str()), free);
 
     for (auto &handle : m_vmaf.heProcFin) {
         SetEvent(handle);
     }
+    const bool do_psnr = false;
+    const bool do_ssim = false;
+    const bool do_ms_ssim = false;
+    const int disable_avx = 0;
+    const int disable_clip = 0;
+    const int enable_conf_interval = 0;
 
-    m_vmaf.error = compute_vmaf(&m_vmaf.score, pix_fmt_name.get(), frameInfo.width, frameInfo.height,
-        read_frames_vmaf, this,
-        model_path.get(), "F:\\temp\\test.json" /*log_path*/, nullptr /*log_fmt*/, 0 /*disable_clip*/, 0 /*disable_avx*/,
-        prm->vmaf.enable_transform ? 1 : 0 /*enable_transform*/,
-        prm->vmaf.phone_model /*phone_model*/,
-        false /*psnr*/, false /*ssim*/, false /*ms_ssim*/,
-        nullptr /*pool*/,
-        prm->vmaf.threads,
-        prm->vmaf.subsample /*subsample*/, 0 /*enable_conf_interval*/);
-    AddMessage((m_vmaf.error == 0) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("Finishing vmaf calculation thread: %d.\n"), m_vmaf.error);
+    VmafConfiguration cfg;
+    cfg.log_level = VMAF_LOG_LEVEL_INFO;
+    cfg.n_threads = prm->vmaf.threads;
+    cfg.n_subsample = prm->vmaf.subsample;
+    cfg.cpumask = disable_avx ? -1 : 0;
+
+    VmafContext *vmafptr = nullptr;
+    m_vmaf.error = vmaf_init(&vmafptr, cfg);
+    if (m_vmaf.error) {
+        AddMessage(RGY_LOG_ERROR, _T("problem initializing VMAF context\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    std::unique_ptr<VmafContext, decltype(&vmaf_close)> vmaf(vmafptr, vmaf_close);
+    vmafptr = nullptr;
+
+    enum VmafModelFlags flags = (prm->vmaf.enable_transform || prm->vmaf.phone_model) ? VMAF_MODEL_FLAG_ENABLE_TRANSFORM : VMAF_MODEL_FLAGS_DEFAULT;
+
+    VmafModelConfig model_cfg;
+    model_cfg.name = "vmaf";
+    model_cfg.flags = flags;
+
+    std::unique_ptr<VmafModel, decltype(&vmaf_model_destroy)> model(nullptr, vmaf_model_destroy);
+    std::unique_ptr<VmafModelCollection, decltype(&vmaf_model_collection_destroy)> model_collection(nullptr, vmaf_model_collection_destroy);
+    if (enable_conf_interval) {
+        VmafModel *model_ptr = nullptr;
+        VmafModelCollection *model_collection_ptr = nullptr;
+        m_vmaf.error = vmaf_model_collection_load_from_path(&model_ptr, &model_collection_ptr, &model_cfg, model_path_str.c_str());
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model_path.c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        model.reset(model_ptr);
+
+        m_vmaf.error = vmaf_use_features_from_model_collection(vmaf.get(), model_collection_ptr);
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model file: %s\n"), model_path_str.c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        model_collection.reset(model_collection_ptr);
+    } else {
+        VmafModel *model_ptr = nullptr;
+        m_vmaf.error = vmaf_model_load_from_path(&model_ptr, &model_cfg, model_path_str.c_str());
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model_path.c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        m_vmaf.error = vmaf_use_features_from_model(vmaf.get(), model_ptr);
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model file: %s\n"), prm->vmaf.model_path.c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+        model.reset(model_ptr);
+    }
+
+    if (do_psnr) {
+        m_vmaf.error = vmaf_use_feature(vmaf.get(), "float_psnr", NULL);
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractor: psnr\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+
+    if (do_ssim) {
+        m_vmaf.error = vmaf_use_feature(vmaf.get(), "float_ssim", NULL);
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractor: ssim\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+
+    if (do_ms_ssim) {
+        m_vmaf.error = vmaf_use_feature(vmaf.get(), "float_ms_ssim", NULL);
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractor: ms_ssim\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+
+    unsigned picture_index;
+    for (picture_index = 0;; picture_index++) {
+        VmafPicture pic_ref; // オリジナルのこと
+        VmafPicture pic_dist; //エンコードしたもののこと
+        m_vmaf.error = vmaf_picture_alloc(&pic_ref, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
+        m_vmaf.error |= vmaf_picture_alloc(&pic_dist, vmafPixFmt, RGY_CSP_BIT_DEPTH[frameInfo.csp], frameInfo.width, frameInfo.height);
+        if (m_vmaf.error) {
+            vmaf_picture_unref(&pic_ref);
+            vmaf_picture_unref(&pic_dist);
+            AddMessage(RGY_LOG_ERROR, _T("problem allocating picture memory\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+
+        m_vmaf.error = read_frames_vmaf2(&pic_ref, &pic_dist, this);
+        if (m_vmaf.error == 2) {
+            break; //EOF
+        } else if (m_vmaf.error == 1) {
+            vmaf_picture_unref(&pic_ref);
+            vmaf_picture_unref(&pic_dist);
+            AddMessage(RGY_LOG_ERROR, _T("problem during read_frame\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+
+        m_vmaf.error = vmaf_read_pictures(vmaf.get(), &pic_ref, &pic_dist, picture_index);
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem reading pictures\n"));
+            break;
+        }
+    }
+
+    m_vmaf.error = vmaf_read_pictures(vmaf.get(), NULL, NULL, 0);
+    if (m_vmaf.error) {
+        AddMessage(RGY_LOG_ERROR, _T("problem flushing context\n"));
+        return RGY_ERR_NONE;
+    }
+
+    const auto pool_method = VMAF_POOL_METHOD_MEAN;
+    if (enable_conf_interval) {
+        VmafModelCollectionScore model_collection_score;
+        m_vmaf.error = vmaf_score_pooled_model_collection(vmaf.get(), model_collection.get(), pool_method, &model_collection_score, 0, picture_index - 1);
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem generating pooled VMAF score\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+
+    m_vmaf.error = vmaf_score_pooled(vmaf.get(), model.get(), pool_method, &m_vmaf.score, 0, picture_index - 1);
+    if (m_vmaf.error) {
+        AddMessage(RGY_LOG_ERROR, _T("problem generating pooled VMAF score\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+#if 0
+    const enum VmafOutputFormat output_fmt = log_fmt_map(log_fmt);
+    if (output_fmt) {
+        //vmaf_use_vmafossexec_aliases();
+        m_vmaf.error = vmaf_write_output(vmaf, log_path, output_fmt);
+        if (m_vmaf.error) {
+            fprintf(stderr,
+                "could not write output: %s\n", log_path);
+            goto free_data;
+        }
+    }
+#endif
+
+    model.reset();
+    model_collection.reset();
+    vmaf.reset();
     return (m_vmaf.error == 0) ? RGY_ERR_NONE : RGY_ERR_UNKNOWN;
 }
 #endif //#if ENABLE_VMAF
