@@ -578,9 +578,10 @@ HEVCの規格では64まで存在するが、現状NVENCでは32までしかサ�
 **パラメータ**
 
   - model=&lt;string&gt;  
-    モデルファイルのパスを指定する。常に指定が必要です(例参照)。
-    [こちら](https://github.com/Netflix/vmaf/tree/master/model)から
-    vmaf_v0.6.1.pkl と vmaf_v0.6.1.pkl.model をダウンロードし、同じフォルダに入れ、そのファイル名を例のように指定してください。
+    libvmafの内蔵モデルファイルのバージョン、あるいは外部のモデルファイルのパスを指定する。デフォルトは内蔵モデル"vmaf_v0.6.1"。
+
+    モデルファイルを使用する場合は、[こちら](https://github.com/Netflix/vmaf/tree/master/model)から
+    json形式のモデルファイルをダウンロードし、そのファイル名を指定してください。
 
   - threads=&lt;int&gt;  (default: 0)  
     VMAFスコアを計算するCPUのスレッド数の指定。デフォルトは全物理コア。
@@ -595,7 +596,7 @@ HEVCの規格では64まで存在するが、現状NVENCでは32までしかサ�
     VMAFスコアの計算でtransformを有効にして計算する。
     
 ```
-例: --vmaf model=vmaf_v0.6.1.pkl
+例: --vmaf model=vmaf_v0.6.1.json
 ```
 
 ## 入出力 / 音声 / 字幕などのオプション

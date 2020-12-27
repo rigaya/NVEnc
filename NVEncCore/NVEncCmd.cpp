@@ -555,18 +555,21 @@ tstring encoder_help() {
         _T("                                  may decrease overall transcode performance.\n"));
     str += strsprintf(_T("")
         _T("   --ssim                       calc ssim.\n")
-        _T("   --psnr                       calc psnr.\n")
+        _T("   --psnr                       calc psnr.\n"));
 #if ENABLE_VMAF
+    str += strsprintf(_T("")
         _T("   --vmaf [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Calc vmaf. Please note that this is very CPU intensive and likely to \n")
         _T("     become bottleneck, strongly affecting encoding perfromance.\n")
         _T("    params\n")
-        _T("      model=<string>            set model file path [always required].\n")
+        _T("      model=<string>            set model version/filepath [default:%s].\n")
         _T("      threads=<int>             cpu thread(s) to calculate vmaf score.\n")
         _T("      subsample=<int>           interval for frame subsampling calculating vmaf score.\n")
         _T("      phone_model=<bool>        use phone model which generate higher vmaf score.\n")
-        _T("      enable_transform=<bool>   enable transform when calculating vmaf score.\n")
+        _T("      enable_transform=<bool>   enable transform when calculating vmaf score.\n"),
+        VMAF_DEFAULT_MODEL_VERSION);
 #endif //#if ENABLE_VMAF
+    str += strsprintf(_T("")
         _T("   --cuda-schedule <string>     set cuda schedule mode (default: sync).\n")
         _T("       auto  : let cuda driver to decide\n")
         _T("       spin  : CPU will spin when waiting GPU tasks,\n")
@@ -3391,7 +3394,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                     continue;
                 }
                 if (param_arg == _T("model")) {
-                    pParams->vmaf.model_path = trim(param_val, _T("\""));
+                    pParams->vmaf.model = trim(param_val, _T("\""));
                     continue;
                 }
                 if (param_arg == _T("threads")) {
@@ -4442,7 +4445,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             tmp << _T(",enable=false");
         }
         if (pParams->vmaf.enable || save_disabled_prm) {
-            ADD_PATH(_T("model"), vmaf.model_path.c_str());
+            ADD_PATH(_T("model"), vmaf.model.c_str());
             ADD_NUM(_T("threads"), vmaf.threads);
             ADD_NUM(_T("subsample"), vmaf.subsample);
             ADD_BOOL(_T("phone_model"), vmaf.phone_model);

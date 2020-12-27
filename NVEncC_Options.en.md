@@ -572,10 +572,10 @@ Currently for Windows x64 only.
 **Parameters**
 
   - model=&lt;string&gt;  
-    Set model file path. Always required.
-    For example, download model file "vmaf_v0.6.1.pkl" and "vmaf_v0.6.1.pkl.model" from 
-    [link](https://github.com/Netflix/vmaf/tree/master/model) and put them in the same folder,
-    and set the path by this option. (Please check the example below.)
+    Set internal model version of libvmaf, or external model file path. Default is internal "vmaf_v0.6.1".
+
+    When using model file, download json format model files from  
+    [link](https://github.com/Netflix/vmaf/tree/master/model) and set the path by this option.
 
   - threads=&lt;int&gt;  (default: 0)  
     CPU thread(s) to calculate vmaf score. Default is to use all physical cores.
@@ -590,7 +590,7 @@ Currently for Windows x64 only.
     Enable transform when calculating vmaf score.
     
 ```
-Example: --vmaf model=vmaf_v0.6.1.pkl
+Example: --vmaf model=vmaf_v0.6.1.json
 ```
 
 ## IO / Audio / Subtitle Options

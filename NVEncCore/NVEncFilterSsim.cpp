@@ -149,12 +149,8 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         m_cropDToH = std::move(filterCrop);
         AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_cropDToH->GetInputMessage().c_str());
 
-        if (prm->vmaf.model_path.length() == 0) {
+        if (prm->vmaf.model.length() == 0) {
             AddMessage(RGY_LOG_ERROR, _T("\"model\" not set for vmaf.\n"));
-            return RGY_ERR_INVALID_PARAM;
-        }
-        if (!PathFileExists(prm->vmaf.model_path.c_str())) {
-            AddMessage(RGY_LOG_ERROR, _T("\"model\" does not exist!\n"));
             return RGY_ERR_INVALID_PARAM;
         }
     }
@@ -591,9 +587,9 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    std::string model_path_str;
-    if (tchar_to_string(prm->vmaf.model_path.c_str(), model_path_str) == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to convert model \"%s\" to char.\n"), prm->vmaf.model_path.c_str());
+    std::string model_str;
+    if (tchar_to_string(prm->vmaf.model.c_str(), model_str) == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to convert model \"%s\" to char.\n"), prm->vmaf.model.c_str());
         return RGY_ERR_INVALID_PARAM;
     }
 
@@ -636,32 +632,49 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
     if (enable_conf_interval) {
         VmafModel *model_ptr = nullptr;
         VmafModelCollection *model_collection_ptr = nullptr;
-        m_vmaf.error = vmaf_model_collection_load_from_path(&model_ptr, &model_collection_ptr, &model_cfg, model_path_str.c_str());
-        if (m_vmaf.error) {
-            AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model_path.c_str());
-            return RGY_ERR_UNKNOWN;
+        if (PathFileExistsA(model_str.c_str())) {
+            m_vmaf.error = vmaf_model_collection_load_from_path(&model_ptr, &model_collection_ptr, &model_cfg, model_str.c_str());
+            if (m_vmaf.error) {
+                AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model.c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            model.reset(model_ptr);
+        } else {
+            m_vmaf.error = vmaf_model_collection_load(&model_ptr, &model_collection_ptr, &model_cfg, model_str.c_str());
+            if (m_vmaf.error) {
+                AddMessage(RGY_LOG_ERROR, _T("problem loading model version: %s\n"), prm->vmaf.model.c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            model.reset(model_ptr);
         }
-        model.reset(model_ptr);
 
         m_vmaf.error = vmaf_use_features_from_model_collection(vmaf.get(), model_collection_ptr);
         if (m_vmaf.error) {
-            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model file: %s\n"), model_path_str.c_str());
+            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model: %s\n"), model_str.c_str());
             return RGY_ERR_UNKNOWN;
         }
         model_collection.reset(model_collection_ptr);
     } else {
         VmafModel *model_ptr = nullptr;
-        m_vmaf.error = vmaf_model_load_from_path(&model_ptr, &model_cfg, model_path_str.c_str());
-        if (m_vmaf.error) {
-            AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model_path.c_str());
-            return RGY_ERR_UNKNOWN;
-        }
-        m_vmaf.error = vmaf_use_features_from_model(vmaf.get(), model_ptr);
-        if (m_vmaf.error) {
-            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model file: %s\n"), prm->vmaf.model_path.c_str());
-            return RGY_ERR_UNKNOWN;
+        if (PathFileExistsA(model_str.c_str())) {
+            m_vmaf.error = vmaf_model_load_from_path(&model_ptr, &model_cfg, model_str.c_str());
+            if (m_vmaf.error) {
+                AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model.c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+        } else {
+            m_vmaf.error = vmaf_model_load(&model_ptr, &model_cfg, model_str.c_str());
+            if (m_vmaf.error) {
+                AddMessage(RGY_LOG_ERROR, _T("problem loading model version: %s\n"), prm->vmaf.model.c_str());
+                return RGY_ERR_UNKNOWN;
+            }
         }
         model.reset(model_ptr);
+        m_vmaf.error = vmaf_use_features_from_model(vmaf.get(), model_ptr);
+        if (m_vmaf.error) {
+            AddMessage(RGY_LOG_ERROR, _T("problem loading feature extractors from model: %s\n"), prm->vmaf.model.c_str());
+            return RGY_ERR_UNKNOWN;
+        }
     }
 
     if (do_psnr) {

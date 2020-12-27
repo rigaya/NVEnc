@@ -145,6 +145,8 @@ static const int FILTER_DEFAULT_CUSTOM_THREAD_PER_BLOCK_Y = 8;
 static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_X = 1;
 static const int FILTER_DEFAULT_CUSTOM_PIXEL_PER_THREAD_Y = 1;
 
+static const TCHAR *VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
+
 static const int MAX_DECODE_FRAMES = 16;
 
 static const int DEFAULT_GOP_LENGTH  = 0;
@@ -1345,7 +1347,7 @@ struct VppParam {
 
 struct VMAFParam {
     bool enable;
-    tstring model_path;
+    tstring model;
     int threads;
     int subsample;
     bool phone_model;
