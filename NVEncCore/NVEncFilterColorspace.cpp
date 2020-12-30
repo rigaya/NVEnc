@@ -692,6 +692,8 @@ std::string ColorspaceOpCL2YUV::print() {
         m_nb, m_pb, m_nr, m_pr);
 }
 
+// https://mpv.io/manual/master/#options-tone-mapping-desaturate あたりがベース
+// https://github.com/mpv-player/mpv/blob/master/video/out/gpu/video_shaders.c あたりを参考にして実装しなおしたもの
 std::string ColorspaceOpHDR2SDR::printDesat(double desat_scale) {
     return strsprintf(R"(
         const float in  = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
@@ -771,6 +773,8 @@ std::string ColorspaceOpHDR2SDRReinhard::print() {
     return str;
 }
 
+// https://mpv.io/manual/master/#options-tone-mapping ベースの実装
+// https://github.com/mpv-player/mpv/blob/master/video/out/gpu/video_shaders.c あたりを参考にして実装しなおしたもの
 std::string ColorspaceOpHDR2SDRBT2390::print() {
     auto str = strsprintf(R"(
     { //hdr2sdr bt.2390
