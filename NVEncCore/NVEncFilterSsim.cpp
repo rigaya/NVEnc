@@ -170,10 +170,12 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
             return RGY_ERR_INVALID_PARAM;
         }
 
+#if ENABLE_VMAF
         if (!check_if_vmaf_dll_available()) {
             AddMessage(RGY_LOG_ERROR, _T("--vmaf requires \"%s\", not available on your system.\n"), VMAF_DLL_NAME_TSTR);
             return RGY_ERR_UNSUPPORTED;
         }
+#endif
     }
 
     {
