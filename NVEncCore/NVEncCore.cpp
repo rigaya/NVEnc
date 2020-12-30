@@ -477,6 +477,13 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
+#if ENABLE_AVSW_READER
+    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+    if (pAVCodecReader && inputParam->vpp.mpdecimate.enable) {
+        inputParam->common.AVSyncMode = RGY_AVSYNC_VFR;
+        PrintMes(RGY_LOG_INFO, _T("Switching to VFR mode as --vpp-mpdecimate is activated.\n"));
+    }
+#endif //#if ENABLE_AVSW_READER
     if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
         //avsync vfr時は、入力streamのtimebaseをそのまま使用する
         m_outputTimebase = m_pFileReader->getInputTimebase();
@@ -487,7 +494,7 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
 
     if (
 #if ENABLE_AVSW_READER
-        std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader) == nullptr &&
+        pAVCodecReader == nullptr &&
 #endif
         inputParam->common.pTrimList && inputParam->common.nTrimCount > 0) {
         //avhw/avswリーダー以外は、trimは自分ではセットされないので、ここでセットする
@@ -507,7 +514,6 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
     }
 
 #if ENABLE_AVSW_READER
-    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
     if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || inputParam->vpp.rff) {
         tstring err_target;
         if (m_nAVSyncMode & RGY_AVSYNC_VFR)       err_target += _T("avsync vfr, ");
@@ -2818,10 +2824,6 @@ RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<DynamicRCParam>& dynamicRC) 
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
-    if (inputParam->vpp.mpdecimate.enable) {
-        inputParam->common.AVSyncMode = RGY_AVSYNC_VFR;
-        PrintMes(RGY_LOG_INFO, _T("Switching to VFR mode as --vpp-mpdecimate is activated.\n"));
-    }
     m_nAVSyncMode = inputParam->common.AVSyncMode;
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
     if (inputParam->ctrl.lowLatency) {
