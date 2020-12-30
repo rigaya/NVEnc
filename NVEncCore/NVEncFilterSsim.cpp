@@ -37,6 +37,22 @@ extern "C" {
 #include <libvmaf/libvmaf.h>
 }
 #pragma comment(lib, "libvmaf.lib")
+#if defined(_WIN32) || defined(_WIN64)
+static const TCHAR *VMAF_DLL_NAME_TSTR = _T("libvmaf.dll");
+#else
+static const TCHAR *VMAF_DLL_NAME_TSTR = _T("libvmaf.so");
+#endif
+
+static bool check_if_vmaf_dll_available() {
+#if defined(_WIN32) || defined(_WIN64)
+    HMODULE hModule = RGY_LOAD_LIBRARY(VMAF_DLL_NAME_TSTR);
+    if (hModule == NULL)
+        return false;
+    RGY_FREE_LIBRARY(hModule);
+#endif
+    return true;
+}
+
 #endif //#if ENABLE_VMAF
 
 #if ENABLE_SSIM
@@ -152,6 +168,11 @@ RGY_ERR NVEncFilterSsim::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RG
         if (prm->vmaf.model.length() == 0) {
             AddMessage(RGY_LOG_ERROR, _T("\"model\" not set for vmaf.\n"));
             return RGY_ERR_INVALID_PARAM;
+        }
+
+        if (!check_if_vmaf_dll_available()) {
+            AddMessage(RGY_LOG_ERROR, _T("--vmaf requires \"%s\", not available on your system.\n"), VMAF_DLL_NAME_TSTR);
+            return RGY_ERR_UNSUPPORTED;
         }
     }
 
