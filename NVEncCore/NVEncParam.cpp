@@ -482,7 +482,10 @@ HDR2SDRParams::HDR2SDRParams() :
     mobius(),
     reinhard(),
     ldr_nits(FILTER_DEFAULT_COLORSPACE_LDRNITS),
-    hdr_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK) {
+    hdr_source_peak(FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK),
+    desat_base(FILTER_DEFAULT_HDR2SDR_DESAT_BASE),
+    desat_strength(FILTER_DEFAULT_HDR2SDR_DESAT_STRENGTH),
+    desat_exp(FILTER_DEFAULT_HDR2SDR_DESAT_EXP) {
 
 }
 bool HDR2SDRParams::operator==(const HDR2SDRParams &x) const {

@@ -80,10 +80,10 @@ public:
     tstring printInfoAll() const;
     VideoVUIInfo VuiOut() const;
 private:
-    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapHable &prm);
-    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapMobius &prm);
-    RGY_ERR addColorspaceOpHDR2SDR(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits, const TonemapReinhard &prm);
-    RGY_ERR addColorspaceOpHDR2SDRBT2390(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, double source_peak, double ldr_nits);
+    RGY_ERR addColorspaceOpHDR2SDRHable(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
+    RGY_ERR addColorspaceOpHDR2SDRMobius(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
+    RGY_ERR addColorspaceOpHDR2SDRReinhard(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
+    RGY_ERR addColorspaceOpHDR2SDRBT2390(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
     RGY_ERR addColorspaceOpNclYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpNclRGB2YUV(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpClYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to, double source_peak);

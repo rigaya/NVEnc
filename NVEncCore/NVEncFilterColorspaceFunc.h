@@ -207,6 +207,7 @@ COLORSPACE_FUNC float xvycc_inverse_eotf(float x) {
         return copysignf(rec_1886_inverse_eotf(fabsf(x)), x);
 }
 
+//pq_space_to_linear
 COLORSPACE_FUNC float st_2084_eotf(float x) {
     // Filter negative values to avoid NAN.
     if (x > 0.0f) {
@@ -221,6 +222,7 @@ COLORSPACE_FUNC float st_2084_eotf(float x) {
     return x;
 }
 
+//linear_to_pq_space
 COLORSPACE_FUNC float st_2084_inverse_eotf(float x) {
     // Filter negative values to avoid NAN, and also special-case 0 so that (f(g(0)) == 0).
     if (x > 0.0f) {
@@ -329,19 +331,27 @@ COLORSPACE_FUNC float hdr2sdr_reinhard(float x, float source_peak, float ldr_nit
 }
 
 COLORSPACE_FUNC float linear_to_pq_space(float x) {
-    x *= MP_REF_WHITE / 10000.0f;
-    x = powf(x, PQ_M1);
-    x = (PQ_C1 + PQ_C2 * x) / (1.0f + PQ_C3 * x);
-    x = powf(x, PQ_M2);
-    return x;
+    if (x > 0.0f) {
+        x *= MP_REF_WHITE / 10000.0f;
+        x = powf(x, PQ_M1);
+        x = (PQ_C1 + PQ_C2 * x) / (1.0f + PQ_C3 * x);
+        x = powf(x, PQ_M2);
+        return x;
+    } else {
+        return 0.0f;
+    }
 }
 
 COLORSPACE_FUNC float pq_space_to_linear(float x) {
-    x = powf(x, 1.0f/PQ_M2);
-    x = fmaxf(x - PQ_C1, 0.0f) / (PQ_C2 - PQ_C3 * x);
-    x = powf(x, 1.0f / PQ_M1);
-    x *= 10000.0f / MP_REF_WHITE;
-    return x;
+    if (x > 0.0f) {
+        x = powf(x, 1.0f / PQ_M2);
+        x = fmaxf(x - PQ_C1, 0.0f) / (PQ_C2 - PQ_C3 * x);
+        x = powf(x, 1.0f / PQ_M1);
+        x *= 10000.0f / MP_REF_WHITE;
+        return x;
+    } else {
+        return 0.0f;
+    }
 }
 
 COLORSPACE_FUNC float apply_bt2390(float x, const float maxLum) {
@@ -355,4 +365,10 @@ COLORSPACE_FUNC float apply_bt2390(float x, const float maxLum) {
     //x = mix(pb, x, lessThan(x, ks));
     x = (x < ks) ? x : pb;
     return x;
+}
+
+COLORSPACE_FUNC float mix(float x, float y, float a) {
+    a = (a < 0.0f) ? 0.0f : a;
+    a = (a > 1.0f) ? 1.0f : a;
+    return (x) * (1.0f - (a)) + (y) * (a);
 }

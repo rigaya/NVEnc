@@ -125,6 +125,10 @@ static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
 static const double FILTER_DEFAULT_COLORSPACE_NOMINAL_SOURCE_PEAK = 100.0;
 static const double FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK = 1000.0;
 
+static const double FILTER_DEFAULT_HDR2SDR_DESAT_BASE = 0.18;
+static const double FILTER_DEFAULT_HDR2SDR_DESAT_STRENGTH = 0.75;
+static const double FILTER_DEFAULT_HDR2SDR_DESAT_EXP = 1.5;
+
 static const double FILTER_DEFAULT_HDR2SDR_HABLE_A = 0.22;
 static const double FILTER_DEFAULT_HDR2SDR_HABLE_B = 0.3;
 static const double FILTER_DEFAULT_HDR2SDR_HABLE_C = 0.1;
@@ -1083,6 +1087,9 @@ struct HDR2SDRParams {
     TonemapReinhard reinhard;
     double ldr_nits;
     double hdr_source_peak;
+    double desat_base;
+    double desat_strength;
+    double desat_exp;
 
     HDR2SDRParams();
     bool operator==(const HDR2SDRParams &x) const;

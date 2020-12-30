@@ -478,6 +478,9 @@ NVENCSTATUS NVEncCore::InitInput(InEncodeVideoParam *inputParam, const std::vect
     if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
         //avsync vfr時は、入力streamのtimebaseをそのまま使用する
         m_outputTimebase = m_pFileReader->getInputTimebase();
+        if (inputParam->vpp.afs.enable) {
+            m_outputTimebase *= rgy_rational<int>(1, 4);
+        }
     }
 
     if (
@@ -2800,6 +2803,10 @@ RGY_ERR NVEncCore::CheckDynamicRCParams(std::vector<DynamicRCParam>& dynamicRC) 
 NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
+    if (inputParam->vpp.mpdecimate.enable) {
+        inputParam->common.AVSyncMode = RGY_AVSYNC_VFR;
+        PrintMes(RGY_LOG_INFO, _T("Switching to VFR mode as --vpp-mpdecimate is activated.\n"));
+    }
     m_nAVSyncMode = inputParam->common.AVSyncMode;
     m_nProcSpeedLimit = inputParam->ctrl.procSpeedLimit;
     if (inputParam->ctrl.lowLatency) {
@@ -2942,11 +2949,6 @@ NVENCSTATUS NVEncCore::InitEncode(InEncodeVideoParam *inputParam) {
         encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_10BIT : NV_ENC_BUFFER_FORMAT_YUV420_10BIT;
     } else {
         encBufferFormat = (inputParam->yuv444) ? NV_ENC_BUFFER_FORMAT_YUV444_PL : NV_ENC_BUFFER_FORMAT_NV12_PL;
-    }
-    m_nAVSyncMode = inputParam->common.AVSyncMode;
-    if (inputParam->vpp.mpdecimate.enable) {
-        m_nAVSyncMode = RGY_AVSYNC_VFR;
-        PrintMes(RGY_LOG_INFO, _T("Switching to VFR mode as --vpp-mpdecimate is activated.\n"));
     }
     if (NV_ENC_SUCCESS != (nvStatus = AllocateIOBuffers(m_uEncWidth, m_uEncHeight, encBufferFormat, &inputParam->input))) {
         return nvStatus;

@@ -1396,6 +1396,15 @@ yadifによるインタレ解除を行う。
 
 - ldr_nits=&lt;float&gt;  (デフォルト: 100.0)  
 
+- desat_base=&lt;float&gt;  (デフォルト: 0.18)  
+  hdr2sdrで使用されるdesaturation処理のオフセット。
+
+- desat_strength=&lt;float&gt;  (デフォルト: 0.75)  
+  hdr2sdrで使用されるdesaturation処理の強度。0.0では処理が無効化され、1.0では明るい色は白くなる。
+
+- desat_exp=&lt;float&gt;  (デフォルト: 1.5)  
+  hdr2sdrで使用されるdesaturation処理の指数で、どのくらいの明るさから処理が行われるかを制御する。
+  低めの値では、より積極的に処理が行われる。
 
 ```
 例1: BT.709(fullrange) -> BT.601 への変換

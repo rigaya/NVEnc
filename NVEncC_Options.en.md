@@ -1344,7 +1344,18 @@ Values for parameters will be copied from input file for "input".
 
 - ldr_nits=&lt;float&gt;  (default: 100.0)  
   Target brightness for hdr2sdr function.
+  
+- desat_base=&lt;float&gt;  (default: 0.18)  
+  Offset for desaturation curve used in hdr2sr.
 
+- desat_strength=&lt;float&gt;  (default: 0.75)  
+  Strength of desaturation curve used in hdr2sr.
+  0.0 will disable the desaturation, 1.0 will make overly bright colors will tend towards white.
+
+- desat_exp=&lt;float&gt;  (default: 1.5)  
+  Exponent of the desaturation curve used in hdr2sr.
+  This controls the brightness of which desaturated is going to start.
+  Lower value will make the desaturation to start earlier.
 
 ```
 example1: convert from BT.601 -> BT.709

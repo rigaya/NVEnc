@@ -368,8 +368,17 @@ tstring encoder_help() {
         _T("        limited, full\n")
         _T("      hdr2sdr=<string>     Enables HDR10 to SDR.\n")
         _T("                             hable, mobius, reinhard, bt2390, none\n")
-        _T("      source_peak=<float>  (default: 1000.0)\n")
-        _T("      ldr_nits=<float>  (default: 100.0)\n"));
+        _T("      source_peak=<float>     (default: %.1f)\n")
+        _T("      ldr_nits=<float>        (default: %.1f)\n")
+        _T("      desat_base=<float>      (default: %.2f)\n")
+        _T("      desat_strength=<float>  (default: %.2f)\n")
+        _T("      desat_exp=<float>       (default: %.2f)\n"),
+        FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK,
+        FILTER_DEFAULT_COLORSPACE_LDRNITS,
+        FILTER_DEFAULT_HDR2SDR_DESAT_BASE,
+        FILTER_DEFAULT_HDR2SDR_DESAT_STRENGTH,
+        FILTER_DEFAULT_HDR2SDR_DESAT_EXP
+        );
 #endif //#if ENABLE_NVRTC
     str += print_list_options(_T("--vpp-resize <string>"),     list_nppi_resize_help, 0);
     str += print_list_options(_T("--vpp-gauss <int>"),         list_nppi_gauss,  0);
@@ -2645,7 +2654,8 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
 
         const auto paramList = std::vector<std::string>{
             "matrix", "colormatrix", "colorprim", "transfer", "range", "colorrange", "source_peak", "approx_gamma",
-            "hdr2sdr", "ldr_nits", "a", "b", "c", "d", "e", "f", "contrast", "peak" };
+            "hdr2sdr", "ldr_nits", "a", "b", "c", "d", "e", "f", "contrast", "peak",
+            "desat_base", "desat_strength", "desat_exp" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2843,6 +2853,36 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         float peak = std::stof(param_val);
                         pParams->vpp.colorspace.hdr2sdr.mobius.peak = peak;
                         pParams->vpp.colorspace.hdr2sdr.reinhard.peak = peak;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("desat_base")) {
+                    try {
+                        float desat_base = std::stof(param_val);
+                        pParams->vpp.colorspace.hdr2sdr.desat_base = desat_base;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("desat_strength")) {
+                    try {
+                        float desat_strength = std::stof(param_val);
+                        pParams->vpp.colorspace.hdr2sdr.desat_strength = desat_strength;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("desat_exp")) {
+                    try {
+                        float desat_exp = std::stof(param_val);
+                        pParams->vpp.colorspace.hdr2sdr.desat_exp = desat_exp;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -4303,6 +4343,9 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
                 ADD_FLOAT(_T("transition"), vpp.colorspace.hdr2sdr.mobius.transition, 3);
                 ADD_FLOAT(_T("peak"), vpp.colorspace.hdr2sdr.mobius.peak, 3);
                 ADD_FLOAT(_T("contrast"), vpp.colorspace.hdr2sdr.reinhard.contrast, 3);
+                ADD_FLOAT(_T("desat_base"), vpp.colorspace.hdr2sdr.desat_base, 3);
+                ADD_FLOAT(_T("desat_strength"), vpp.colorspace.hdr2sdr.desat_strength, 3);
+                ADD_FLOAT(_T("desat_exp"), vpp.colorspace.hdr2sdr.desat_exp, 3);
             }
         }
         if (!tmp.str().empty()) {
