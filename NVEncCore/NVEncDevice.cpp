@@ -654,7 +654,8 @@ NVENCSTATUS NVEncoder::setInputFormatList(NVEncCodecFeature& codecFeature) {
 
 NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecFeature) {
     NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
-    bool check_h264 = get_value_from_guid(codecFeature.codec, list_nvenc_codecs) == NV_ENC_H264;
+    const auto codec = codec_guid_enc_to_rgy(codecFeature.codec);
+    bool check_h264 = codec == RGY_CODEC_H264;
     auto add_cap_info = [&](NV_ENC_CAPS cap_id, bool for_h264_only, bool is_boolean, const TCHAR *cap_name, const CX_DESC *desc = nullptr) {
         if (!(!check_h264 && for_h264_only)) {
             NV_ENC_CAPS_PARAM param;
@@ -692,8 +693,8 @@ NVENCSTATUS NVEncoder::GetCurrentDeviceNVEncCapability(NVEncCodecFeature& codecF
     add_cap_info(NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS,      false, false, _T("Max Temporal Layers"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_PFRAMES, false, true,  _T("Hierarchial P Frames"));
     add_cap_info(NV_ENC_CAPS_SUPPORT_HIERARCHICAL_BFRAMES, false, true,  _T("Hierarchial B Frames"));
-    add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    false, false, _T("Max Level"));
-    add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    false, false, _T("Min Level"));
+    add_cap_info(NV_ENC_CAPS_LEVEL_MAX,                    false, false, _T("Max Level"), get_codec_level_list(codec));
+    add_cap_info(NV_ENC_CAPS_LEVEL_MIN,                    false, false, _T("Min Level"), get_codec_level_list(codec));
     add_cap_info(NV_ENC_CAPS_SUPPORT_YUV444_ENCODE,        false, true,  _T("4:4:4"));
     add_cap_info(NV_ENC_CAPS_WIDTH_MIN,                    false, false, _T("Min Width"));
     add_cap_info(NV_ENC_CAPS_WIDTH_MAX,                    false, false, _T("Max Width"));

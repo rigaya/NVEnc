@@ -291,6 +291,9 @@ const CX_DESC list_avc_level[] = {
     { _T("5"),    50  },
     { _T("5.1"),  51  },
     { _T("5.2"),  52  },
+    { _T("6"),    60  },
+    { _T("6.1"),  61  },
+    { _T("6.2"),  62  },
     { NULL, 0 }
 };
 
@@ -311,6 +314,14 @@ const CX_DESC list_hevc_level[] = {
     { _T("6.2"),  NV_ENC_LEVEL_HEVC_62  },
     { NULL, 0 }
 };
+
+static const CX_DESC *get_codec_level_list(RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_H264: return list_avc_level;
+    case RGY_CODEC_HEVC: return list_hevc_level;
+    default: return nullptr;
+    }
+}
 
 const CX_DESC list_hevc_cu_size[] = {
     { _T("auto"), NV_ENC_HEVC_CUSIZE_AUTOSELECT },
