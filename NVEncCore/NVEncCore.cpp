@@ -616,7 +616,7 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
     }
     if (inputParams->common.timecode) {
         m_timecode = std::make_unique<RGYTimecode>();
-        const auto tcfilename = (inputParams->common.timecodeFile.length() > 0) ? inputParams->common.timecodeFile : inputParams->common.outputFilename + _T(".timecode.txt");
+        const auto tcfilename = (inputParams->common.timecodeFile.length() > 0) ? inputParams->common.timecodeFile : PathRemoveExtensionS(inputParams->common.outputFilename) + _T(".timecode.txt");
         auto err = m_timecode->init(tcfilename);
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to open timecode file: \"%s\".\n"), tcfilename.c_str());
@@ -2226,6 +2226,9 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             shared_ptr<NVEncFilterParamAfs> param(new NVEncFilterParamAfs());
             param->afs = inputParam->vpp.afs;
             param->afs.tb_order = (inputParam->input.picstruct & RGY_PICSTRUCT_TFF) != 0;
+            if (inputParam->common.timecode && param->afs.timecode) {
+                param->afs.timecode = 2;
+            }
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->inFps = m_inputFps;

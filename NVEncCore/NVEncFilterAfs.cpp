@@ -577,7 +577,7 @@ RGY_ERR NVEncFilterAfs::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGY
     }
 
     if (pAfsParam->afs.timecode) {
-        const tstring tc_filename = PathRemoveExtensionS(pAfsParam->outFilename) + _T(".timecode.txt");
+        const tstring tc_filename = PathRemoveExtensionS(pAfsParam->outFilename) + ((pAfsParam->afs.timecode == 2) ? _T(".timecode.afs.txt") : _T(".timecode.txt"));
         if (open_timecode(tc_filename)) {
             errno_t error = errno;
             AddMessage(RGY_LOG_ERROR, _T("failed to open timecode file \"%s\": %s.\n"), tc_filename.c_str(), _tcserror(error));

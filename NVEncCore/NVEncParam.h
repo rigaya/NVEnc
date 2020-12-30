@@ -112,7 +112,7 @@ static const bool  FILTER_DEFAULT_AFS_SMOOTH = false;
 static const bool  FILTER_DEFAULT_AFS_FORCE24 = false;
 static const bool  FILTER_DEFAULT_AFS_TUNE = false;
 static const bool  FILTER_DEFAULT_AFS_RFF = false;
-static const bool  FILTER_DEFAULT_AFS_TIMECODE = false;
+static const int   FILTER_DEFAULT_AFS_TIMECODE = 0;
 static const bool  FILTER_DEFAULT_AFS_LOG = false;
 
 static const float FILTER_DEFAULT_TWEAK_BRIGHTNESS = 0.0f;
@@ -1206,7 +1206,7 @@ struct VppAfs {
     bool force24;          //24fps化
     bool tune;             //調整モード
     bool rff;              //rffフラグを認識して調整
-    bool timecode;         //timecode出力
+    int timecode;          //timecode出力
     bool log;              //log出力
 
     VppAfs();

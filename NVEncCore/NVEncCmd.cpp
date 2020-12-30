@@ -2249,7 +2249,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 if (param_arg == _T("timecode")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
-                        pParams->vpp.afs.timecode = b;
+                        pParams->vpp.afs.timecode = b ? 1 : 0;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -2293,6 +2293,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 }
                 if (param == _T("tune")) {
                     pParams->vpp.afs.tune = true;
+                    continue;
+                }
+                if (param == _T("timecode")) {
+                    pParams->vpp.afs.timecode = 1;
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
