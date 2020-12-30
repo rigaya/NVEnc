@@ -666,7 +666,7 @@ Copy audio track into output file. Available only when avhw / avsw reader is use
 
 If it does not work well, try encoding with [--audio-codec](#--audio-codec-intstring), which is more stable.
 
-You can also specify the audio track (1, 2, ...) to extract with [&lt;int&gt;], or select audio track to copy by language with [&lt;string&gt].
+You can also specify the audio track (1, 2, ...) to extract with [&lt;int&gt;], or select audio track to copy by language with [&lt;string&gt;].
 
 ```
 Example: Copy all audio tracks
@@ -682,7 +682,7 @@ Example: Extract track numbers #1 and #2
 ### --audio-codec [[{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;],...]
 Encode audio track with the codec specified. If codec is not set, most suitable codec will be selected automatically. Codecs available could be checked with [--check-encoders](#--check-codecs---check-decoders---check-encoders).
 
-You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 Also, you can specify params for audio encoder.
 ```
@@ -705,14 +705,14 @@ Example 5: set param "aac_coder" to "twoloop" which will improve quality at low 
 ### --audio-bitrate [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
 Specify the bitrate in kbps when encoding audio.
 
-You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 ```
 Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
 Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ```
 
 ### --audio-profile [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
-Specify audio codec profile when encoding audio.You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
+Specify audio codec profile when encoding audio.You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ### --audio-stream [{&lt;int&gt;or&lt;string&gt;}?][&lt;string1&gt;][:&lt;string2&gt;]
 Separate or merge audio channels.
@@ -775,7 +775,7 @@ Example 2: --audio-bitrate 2?22050 (Convert the second track of voice to 22050 H
 ```
 
 ### --audio-delay [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
-Specify audio delay in milli seconds.　You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
+Specify audio delay in milli seconds.　You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ### --audio-resampler &lt;string&gt;
 Specify the engine used for mixing audio channels and sampling frequency conversion.
@@ -800,7 +800,7 @@ Example: Output in adts format without extension
 ### --audio-filter [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
 Apply filters to audio track. Filters could be slected from [link](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters).
 
-You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ```
 Example 1: --audio-filter volume=0.2  (lowering the volume)
@@ -809,7 +809,7 @@ Example 2: --audio-filter 2?volume=-4db (lowering the volume of the 2nd track)
 
 ### --audio-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[,&lt;string&gt;][]...
 set disposition for the specified audio track.
-You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ```
  default
@@ -838,7 +838,7 @@ Set metadata for audio track.
   - copy  ... copy metadata from input if possible (default)
   - clear ... do not copy metadata
 
-You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 ```
 Example1: copy metadata from input file
 --audio-metadata 1?copy
