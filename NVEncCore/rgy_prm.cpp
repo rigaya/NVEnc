@@ -143,6 +143,8 @@ RGYParamCommon::RGYParamCommon() :
     chapterFile(),
     AVInputFormat(nullptr),
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
+    timecode(false),
+    timecodeFile(),
     outputBufSizeMB(8) {
 
 }

@@ -175,7 +175,8 @@ struct RGYParamCommon {
     tstring keyFile;
     TCHAR *AVInputFormat;
     RGYAVSync AVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
-
+    bool timecode;
+    tstring timecodeFile;
 
     int outputBufSizeMB;         //出力バッファサイズ
 

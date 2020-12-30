@@ -1810,6 +1810,22 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
 #endif //#if ENABLE_DHDR10_INFO
+    if (IS_OPTION("timecode")) {
+        common->timecode = true;
+        if (i + 1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            common->timecodeFile = strInput[i];
+        }
+        return 0;
+    }
+    if (IS_OPTION("no-timecode")) {
+        common->timecode = false;
+        if (i + 1 < nArgNum && strInput[i + 1][0] != _T('-')) {
+            i++;
+            common->timecodeFile = strInput[i];
+        }
+        return 0;
+    }
     return -10;
 }
 
@@ -2413,7 +2429,12 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
     }
 #endif //#if ENABLE_DHDR10_INFO
-
+    if (param->timecode || param->timecodeFile.length() > 0) {
+        cmd << (param->timecode ? _T("--timecode ") : _T("--no-timecode "));
+        if (param->timecodeFile.length() > 0) {
+            cmd << param->timecodeFile;
+        }
+    }
     OPT_NUM(_T("--output-buf"), outputBufSizeMB);
     return cmd.str();
 }
@@ -2695,7 +2716,9 @@ tstring gen_cmd_help_common() {
         _T("                                 avhw/avsw reader and avcodec muxer.\n")
         _T("   --metadata <string>          set metadata for output file.\n")
         _T("                                 - copy ... copy metadata from input (default)\n")
-        _T("                                 - clear ... do not set metadata\n"),
+        _T("                                 - clear ... do not set metadata\n")
+        _T("\n")
+        _T("   --timecode [<string>]        output timecode file.\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
 #endif
     return str;

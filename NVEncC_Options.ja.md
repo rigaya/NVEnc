@@ -1083,6 +1083,9 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 
   - vfr  
     入力に従い、フレームのタイムスタンプをそのまま引き渡す。avsw/avhwリーダによる読み込みの時のみ使用可能。
+    
+### --timecode [&lt;string&gt;]  
+  指定のパスにtimecodeファイルを出力する。パスを省略した場合には、"&lt;出力ファイル名&gt;.timecode.txt"に出力する。
 
 ## vppオプション
 
@@ -1388,7 +1391,7 @@ yadifによるインタレ解除を行う。
     - peak=&lt;float&gt;  (デフォルト: 1.0)  
       reference peak brightness
       
-  - bt2390
+  - bt2390  
     BT.2390で規定されるtone mapping。
 
 

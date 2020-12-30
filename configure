@@ -583,7 +583,7 @@ rgy_ini.cpp            rgy_input.cpp               rgy_input_avcodec.cpp        
 rgy_input_avs.cpp      rgy_input_raw.cpp           rgy_input_sm.cpp             rgy_input_vpy.cpp            rgy_language.cpp \
 rgy_log.cpp            rgy_output.cpp              rgy_output_avcodec.cpp       rgy_perf_counter.cpp \
 rgy_perf_monitor.cpp   rgy_pipe.cpp                rgy_pipe_linux.cpp           rgy_prm.cpp \
-rgy_simd.cpp           rgy_status.cpp              rgy_util.cpp                 rgy_version.cpp \
+rgy_simd.cpp           rgy_status.cpp              rgy_timecode.cpp             rgy_util.cpp                 rgy_version.cpp \
 "
 
 CU_NVENCCORE=" \

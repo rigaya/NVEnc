@@ -1084,6 +1084,9 @@ Example3: set metadata
 
   - vfr  
     Honor source timestamp and enable vfr output. Only available for avsw/avhw reader.
+    
+### --timecode [&lt;string&gt;]  
+  Write timecode file to the specified path. If the path is not set, it will be written to "&lt;output file path&gt;.timecode.txt".
 
 ## Vpp Options
 
@@ -1337,7 +1340,7 @@ Values for parameters will be copied from input file for "input".
     - peak=&lt;float&gt;  (default: 1.0)  
       reference peak brightness
       
-  - bt2390
+  - bt2390  
     Perceptual tone mapping curve EETF) specified in BT.2390.
 
 - source_peak=&lt;float&gt;  (default: 1000.0)  

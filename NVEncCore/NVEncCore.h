@@ -53,6 +53,8 @@
 #include "rgy_bitstream.h"
 #include "rgy_hdr10plus.h"
 
+class RGYTimecode;
+
 using std::vector;
 
 struct InputFrameBufInfo {
@@ -201,6 +203,7 @@ protected:
     vector<unique_ptr<AVChapter>> m_Chapters;            //ファイルから読み込んだチャプター
     bool                          m_hdr10plusCopy;
 #endif //#if ENABLE_AVSW_READER
+    unique_ptr<RGYTimecode>       m_timecode;
     unique_ptr<RGYHDR10Plus>      m_hdr10plus;
     unique_ptr<HEVCHDRSei>        m_hdrsei;
 

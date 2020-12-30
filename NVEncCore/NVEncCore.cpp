@@ -60,6 +60,7 @@
 #include "rgy_output.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_chapter.h"
+#include "rgy_timecode.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
 #include "NVEncFilter.h"
@@ -273,6 +274,7 @@ NVEncCore::NVEncCore() :
     m_Chapters(),
     m_hdr10plusCopy(false),
 #endif //#if ENABLE_AVSW_READER
+    m_timecode(),
     m_hdr10plus(),
     m_hdrsei(),
     m_vpFilters(),
@@ -611,6 +613,15 @@ NVENCSTATUS NVEncCore::InitOutput(InEncodeVideoParam *inputParams, NV_ENC_BUFFER
         m_trimParam, m_outputTimebase, m_Chapters, m_hdrsei.get(), false, false, m_pStatus, m_pPerfMonitor, m_pNVLog) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return NV_ENC_ERR_GENERIC;
+    }
+    if (inputParams->common.timecode) {
+        m_timecode = std::make_unique<RGYTimecode>();
+        const auto tcfilename = (inputParams->common.timecodeFile.length() > 0) ? inputParams->common.timecodeFile : inputParams->common.outputFilename + _T(".timecode.txt");
+        auto err = m_timecode->init(tcfilename);
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to open timecode file: \"%s\".\n"), tcfilename.c_str());
+            return NV_ENC_ERR_GENERIC;
+        }
     }
     return NV_ENC_SUCCESS;
 }
@@ -979,6 +990,7 @@ NVENCSTATUS NVEncCore::Deinitialize() {
         m_dev->close_device();
     }
 
+    m_timecode.reset();
 #if ENABLE_AVSW_READER
     m_keyFile.clear();
     m_Chapters.clear();
@@ -3286,6 +3298,10 @@ NVENCSTATUS NVEncCore::NvEncEncodeFrame(EncodeBuffer *pEncodeBuffer, int id, uin
     if (sei_payload.size() > 0) {
         encPicParams.codecPicParams.hevcPicParams.seiPayloadArrayCnt = (uint32_t)sei_payload.size();
         encPicParams.codecPicParams.hevcPicParams.seiPayloadArray = sei_payload.data();
+    }
+
+    if (m_timecode) {
+        m_timecode->write(timestamp, m_outputTimebase);
     }
 
     encPicParams.inputBuffer = pEncodeBuffer->stInputBfr.hInputSurface;
