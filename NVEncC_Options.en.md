@@ -774,18 +774,18 @@ Example 1: --audio-bitrate 44100 (converting sound to 44100 Hz)
 Example 2: --audio-bitrate 2?22050 (Convert the second track of voice to 22050 Hz)
 ```
 
-### --audio-delay [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
-Specify audio delay in milli seconds.　You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
-
 ### --audio-resampler &lt;string&gt;
 Specify the engine used for mixing audio channels and sampling frequency conversion.
 - swr ... swresampler (default)
 - soxr ... sox resampler (libsoxr)
 
+### --audio-delay [{&lt;int&gt;or&lt;string&gt;}?]&lt;int&gt;
+Specify audio delay in milli seconds.　You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
+
 ### --audio-file [{&lt;int&gt;or&lt;string&gt;}?][&lt;string&gt;]&lt;string&gt;
 Extract audio track to the specified path. The output format is determined automatically from the output extension. Available only when avhw / avsw reader is used.
 
-You can also specify the audio track (1, 2, ...) to extract.
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
 ```
 Example: extract audio track number #2 to test_out2.aac
 --audio-file 2?"test_out2.aac"
@@ -926,7 +926,7 @@ apple format (should be in utf-8)
 </TextStream>
 ```
 
-matroska形式 (hould be in utf-8)  
+matroska format (hould be in utf-8)  
 [Other Samples&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
 ```
 <?xml version="1.0" encoding="UTF-8"?>
