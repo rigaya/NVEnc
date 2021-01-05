@@ -9,40 +9,67 @@
 #   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 #  -----------------------------------------------------------------------------------------
 
+CNF_LOG=config.log
+
+cnf_write()
+{
+    echo "$*"
+    echo "$*" >> ${CNF_LOG}
+}
+cnf_print()
+{
+    printf "$*"
+    echo "$*" >> ${CNF_LOG}
+}
+
 write_config_mak()
 {
-    echo $1
+    cnf_write $1
     echo $1 >> config.mak
 }
 
 write_enc_config()
 {
-    echo $1
+    cnf_write $1
     echo $1 >> NVEncCore/rgy_config.h
 }
 
 write_app_rev()
 {
-    echo $1
+    cnf_write $1
     echo $1 >> NVEncCore/rgy_rev.h
 }
 
 cxx_check()
 {
+    echo "" >> ${CNF_LOG}
+    if [ -n "$1" ]; then
+        printf "checking for $1..."
+        echo "### - checking for $1... --------------" >> ${CNF_LOG}
+    else 
+        echo "### - test start --------------" >> ${CNF_LOG}
+    fi
     echo "#include <iostream>" > cxx_check.c
-    if [ -n "$2" ]; then
-        echo "#include <$2>" >> cxx_check.c
-    fi 
     if [ -n "$3" ]; then
-        echo "extern \"C\" {" >> cxx_check.c
         echo "#include <$3>" >> cxx_check.c
+    fi 
+    if [ -n "$4" ]; then
+        echo "extern \"C\" {" >> cxx_check.c
+        echo "#include <$4>" >> cxx_check.c
         echo "}" >> cxx_check.c
     fi 
-    echo "int main(void){ $4; std::cout << \"Hello World!\" << std::endl; return 0;}" >> cxx_check.c
-    $CXX cxx_check.c $1 -o cxx_check 2>/dev/null
+    echo "int main(void){ $5; std::cout << \"Hello World!\" << std::endl; return 0;}" >> cxx_check.c
+    CXX_CMD="$CXX -w cxx_check.c $2 -o cxx_check"
+    echo "------ command ------------" >> ${CNF_LOG}
+    echo ${CXX_CMD} >> ${CNF_LOG}
+    echo "------ test ---------------" >> ${CNF_LOG}
+    cat cxx_check.c >> ${CNF_LOG}
+    echo "---------------------------" >> ${CNF_LOG}
+    $CXX_CMD 2>> ${CNF_LOG}
     #$CXX cxx_check.c $1 -o cxx_check
     ret=$?
     rm -f cxx_check*
+    echo "### - test fin -> ${ret} ----------" >> ${CNF_LOG}
     return $ret
 }
 
@@ -199,22 +226,45 @@ for opt; do
             PKGCONFIG="$optarg"
             ;;
         *)
-            echo "unknown option $opt"
+            cnf_write "unknown option $opt"
             exit 1
             ;;
     esac
 done
 
-printf "checking for ${CXX}..."
-if ! cxx_check "" ; then
-    echo $CXX does not work
+## log
+echo "" > ${CNF_LOG}
+echo "CNF_LOG=${CNF_LOG}" >> ${CNF_LOG}
+echo "PKGCONFIG=${PKGCONFIG}" >> ${CNF_LOG}
+echo "USE_PKGCONFIG=${USE_PKGCONFIG}" >> ${CNF_LOG}
+echo "ENABLE_DEBUG=${ENABLE_DEBUG}" >> ${CNF_LOG}
+echo "NVCC=${NVCC}" >> ${CNF_LOG}
+echo "CXX=${CXX}" >> ${CNF_LOG}
+echo "AS=${AS}" >> ${CNF_LOG}
+echo "PROGRAM=${PROGRAM}" >> ${CNF_LOG}
+echo "PREFIX=${PREFIX}" >> ${CNF_LOG}
+echo "EXTRACXXFLAGS=${EXTRACXXFLAGS}" >> ${CNF_LOG}
+echo "EXTRALDFLAGS=${EXTRALDFLAGS}" >> ${CNF_LOG}
+echo "X86_64=${X86_64}" >> ${CNF_LOG}
+echo "CUDA_PATH=${CUDA_PATH}" >> ${CNF_LOG}
+echo "ENABLE_CPP_REGEX=${ENABLE_CPP_REGEX}" >> ${CNF_LOG}
+echo "CHECK_LIBAV_NAMES=${CHECK_LIBAV_NAMES}" >> ${CNF_LOG}
+echo "ENABLE_AVSW_READER=${ENABLE_AVSW_READER}" >> ${CNF_LOG}
+echo "ENABLE_VAPOURSYNTH=${ENABLE_VAPOURSYNTH}" >> ${CNF_LOG}
+echo "ENABLE_AVXSYNTH=${ENABLE_AVXSYNTH}" >> ${CNF_LOG}
+echo "ENABLE_LIBASS=${ENABLE_LIBASS}" >> ${CNF_LOG}
+echo "ENABLE_LIBVMAF=${ENABLE_LIBVMAF}" >> ${CNF_LOG}
+echo "ENABLE_DTL=${ENABLE_DTL}" >> ${CNF_LOG}
+
+if ! cxx_check "${CXX}" "" ; then
+    cnf_write "${CXX} does not work"
     exit 1
 fi
 echo "OK"
 
 if [ `echo | ${CXX} -E -dM - | egrep "WIN32|WIN64" | wc --lines` -ne 0 ]; then
-    echo "This script does not support Windows platform."
-    echo "For Windows, use Visual Studio."
+    cnf_write "This script does not support Windows platform."
+    cnf_write "For Windows, use Visual Studio."
     exit 1 
 fi
 
@@ -244,22 +294,21 @@ fi
 CUDA_CFLAGS=""
 CUDA_LIBS="-lnvrtc -lnppif -lnppig -lnppc -lcudart -lcuda"
 if [ "${CUDA_PATH}" != "" ]; then
-    printf "checking for cuda (CUDA_PATH=${CUDA_PATH})..."
+    cnf_print "checking for cuda (CUDA_PATH=${CUDA_PATH})..."
     CUDA_CFLAGS="-I${CUDA_PATH}/include"
     CUDA_LIBS="-L${CUDA_PATH}/lib64 ${CUDA_LIBS}"
     export PATH=${CUDA_PATH}/bin:${PATH}
     NVCC=`which nvcc`
-else
-    printf "checking for cuda..."
+    cnf_write "nvcc=${NVCC}"
 fi
-if ! cxx_check "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "cuda.h" "" "auto result = cuInit(0);" ; then
-    echo "cuda not supported." 
+if ! cxx_check "cuda" "${CXXFLAGS} ${CXXINC} ${CUDA_CFLAGS} ${LDFLAGS} ${CUDA_LIBS}" "cuda.h" "" "auto result = cuInit(0);" ; then
+    cnf_write "cuda not supported." 
     exit 1
 fi
 CUDA_VER_MAJOR=`${NVCC} --version | grep "release" | awk '{print $6}' | cut -c2- | cut -d . -f1`
 CUDA_VER_MINOR=`${NVCC} --version | grep "release" | awk '{print $6}' | cut -c2- | cut -d . -f2`
 if [ $CUDA_VER_MAJOR -le 8 ]; then
-    echo "CUDA >= 9.0 required, but CUDA ${CUDA_VER_MAJOR}.${CUDA_VER_MINOR} found." 
+    cnf_write "CUDA >= 9.0 required, but CUDA ${CUDA_VER_MAJOR}.${CUDA_VER_MINOR} found." 
     exit 1
 fi
 if [ $CUDA_VER_MAJOR -le 10 ]; then
@@ -270,130 +319,132 @@ GPU_CODE_GEN="${GPU_CODE_GEN} --generate-code arch=compute_75,code=[compute_75,s
 if ( [ $CUDA_VER_MAJOR -ge 11 ] && [ $CUDA_VER_MINOR -ge 1 ] ) || [ $CUDA_VER_MAJOR -ge 12 ]; then
     GPU_CODE_GEN="${GPU_CODE_GEN} --generate-code arch=compute_86,code=[compute_86,sm_86]"
 fi
-echo "OK, CUDA ${CUDA_VER_MAJOR}.${CUDA_VER_MINOR}"
+cnf_write "OK, CUDA ${CUDA_VER_MAJOR}.${CUDA_VER_MINOR}"
 
 NVCCFLAGS="${GPU_CODE_GEN} --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
 
 for file in "${CXX}" "${AS}"; do
 if [ ! `which $file 2> /dev/null` ]; then
-        echo $file not found
+        cnf_write "$file not found"
         exit 1
     fi
 done
 
-printf "checking for pthread..."
-if cxx_check "${CXXFLAGS} ${LDFLAGS} -pthread" ; then
+if cxx_check "pthread" "${CXXFLAGS} ${LDFLAGS} -pthread" ; then
     CXXFLAGS="${CXXFLAGS} -pthread"
     LDFLAGS="${LDFLAGS} -pthread"
 else
-    echo "pthread not installed." 
+    cnf_write "pthread not installed." 
     exit 1
 fi
-echo "OK"
+cnf_write "OK"
 
-printf "checking for c++14 support..."
-if cxx_check "${CXXFLAGS} -std=c++14 ${LDFLAGS}" ; then
+if cxx_check "c++14" "${CXXFLAGS} -std=c++14 ${LDFLAGS}" ; then
     CXXFLAGS="$CXXFLAGS -std=c++14"
 else
-    echo $CXX does not work with -std=c++14
+    cnf_write "${CXX} does not work with -std=c++14"
     exit 1
 fi
-echo "OK"
+cnf_write "OK"
 
-printf "checking for compiler SSE4.1 support..."
-if cxx_check "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
-    if cxx_check "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
+if cxx_check "-msse4.1" "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
+    if cxx_check "-march=native" "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
-    elif cxx_check "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
+    elif cxx_check "-mpopcnt" "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -msse4.1 -mpopcnt"
     else
         CXXFLAGS="$CXXFLAGS -msse4.1"
     fi
 else
-    echo "SSE4.1 not supported with this compiler." 
+    cnf_write "SSE4.1 not supported with this compiler." 
     exit 1
 fi
-echo "OK"
+cnf_write "OK"
 
-printf "checking for system SSE4.1 support..."
+cnf_print "checking for system SSE4.1 support..."
 if [ `cat /proc/cpuinfo | grep "sse4_1" | wc --lines` -eq 0 ]; then
-    echo "System does not support SSE4.1."
+    cnf_write "System does not support SSE4.1."
     exit 1 
 fi
-echo "OK"
+cnf_write "OK"
 
-printf "checking for __rdtscp()..."
-if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
+if ! cxx_check "__rdtscp()" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
     CXXFLAGS="${CXXFLAGS} -DNO_RDTSCP_INTRIN=1"
-    echo "no"
+    cnf_write "no"
 else
-    echo "yes"
+    cnf_write "yes"
 fi
 
-printf "checking for _xgetbv()..."
-if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = _xgetbv(a);" ; then
+if ! cxx_check "_xgetbv()" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = _xgetbv(a);" ; then
     CXXFLAGS="${CXXFLAGS} -DNO_XGETBV_INTRIN=1"
-    echo "no"
+    cnf_write "no"
 else
-    echo "yes"
+    cnf_write "yes"
 fi
 
-if cxx_check "${CXXFLAGS} -fPIE ${LDFLAGS}" ; then
+if cxx_check "-fPIE" "${CXXFLAGS} -fPIE ${LDFLAGS}" ; then
     CXXFLAGS="$CXXFLAGS -fPIE"
 fi
 
 if [ ! $ENABLE_DEBUG -eq 0 ]; then
-    echo "configuring for debug..."
+    cnf_write "configuring for debug..."
     CXXFLAGS="${CXXFLAGS} -O0 -g -D_DEBUG"
 else
-    echo "configuring for speed..."
+    cnf_write "configuring for speed..."
     CXXFLAGS="${CXXFLAGS} -O3 -DNDEBUG=1"
-    if cxx_check "${CXXFLAGS} -mfpmath=sse ${LDFLAGS}" ; then
+    if cxx_check "-mfpmath=sse" "${CXXFLAGS} -mfpmath=sse ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -mfpmath=sse"
+        cnf_write "yes"
+    else
+        cnf_write "no"
     fi
-    if cxx_check "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
+    if cxx_check "-ffast-math" "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -ffast-math"
+        cnf_write "yes"
+    else
+        cnf_write "no"
     fi
-    if cxx_check "${CXXFLAGS} -fomit-frame-pointer ${LDFLAGS}" ; then
+    if cxx_check "-fomit-frame-pointer" "${CXXFLAGS} -fomit-frame-pointer ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -fomit-frame-pointer"
+        cnf_write "yes"
+    else
+        cnf_write "no"
     fi
     #LDFLAGS="$LDFLAGS -Wl,-s"
 fi
 
 if [ -n $EXTRACXXFLAGS ]; then
-    printf "checking --extra-cflags..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" ; then
-        echo --extra-cflags=${EXTRACXXFLAGS} does not work
+    if ! cxx_check "--extra-cflags" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" ; then
+        cnf_write "--extra-cflags=${EXTRACXXFLAGS} does not work"
         exit 1
     fi
-    echo "OK"
+    cnf_write "OK"
 fi
 
 if [ -n $EXTRALDFLAGS ]; then
-    printf "checking --extra-ldflags..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" ; then
-        echo --extra-ldflags=${EXTRALDFLAGS} does not work
+    if ! cxx_check "--extra-ldflags" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" ; then
+        cnf_write "--extra-ldflags=${EXTRALDFLAGS} does not work"
         exit 1
     fi
-    echo "OK"
+    cnf_write "OK"
 fi
 
-printf "checking for pkg-config..."
+cnf_print "checking for pkg-config..."
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PREFIX/lib/pkgconfig
 which $PKGCONFIG 2>/dev/null 1>/dev/null
 if [ $? -ne 0 ]; then
-    echo "${PKGCONFIG} does not exist."
+    cnf_write "${PKGCONFIG} does not exist."
     USE_PKGCONFIG=0
 fi
-echo "OK"
+cnf_write "OK"
 
 if [ $ENABLE_AVSW_READER -ne 0 ]; then
     if [ $USE_PKGCONFIG -ne 0 ]; then
-        printf "checking libavcodec with pkg-config..."
+        cnf_print "checking libavcodec with pkg-config..."
         if ! ${PKGCONFIG} --exists $CHECK_LIBAV_NAMES ; then
-            echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+            cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
         else
-            echo "OK"
+            cnf_write "OK"
             LIBAV_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBAV_NAMES}`
             LIBAV_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBAV_NAMES}`
         fi
@@ -404,76 +455,69 @@ if [ $ENABLE_AVSW_READER -ne 0 ]; then
         for lib in $CHECK_LIB_NAMES; do
             LIBAV_LIBS="${LIBAV_LIBS} -l${lib#lib}"
         done
-        echo "lib settings might be inaqurate."
+        cnf_write "lib settings might be inaqurate."
     fi
 
-    printf "checking for libavutil.."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavutil/avutil.h" "avutil_version();" ; then
-        echo "no"
+    if ! cxx_check "libavutil" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavutil/avutil.h" "avutil_version();" ; then
+        cnf_write "no"
         ENABLE_AVSW_READER=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
     
-    printf "checking for libavcodec..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavcodec/avcodec.h" "avcodec_find_decoder((AVCodecID)0);" ; then
-        echo "no"
+    if ! cxx_check "libavcodec" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavcodec/avcodec.h" "avcodec_find_decoder((AVCodecID)0);" ; then
+        cnf_write "no"
         ENABLE_AVSW_READER=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
     
-    printf "checking for libavformat..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavformat/avformat.h" "avformat_find_stream_info(0,0);" ; then
-        echo "no"
+    if ! cxx_check "libavformat" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavformat/avformat.h" "avformat_find_stream_info(0,0);" ; then
+        cnf_write "no"
         ENABLE_AVSW_READER=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
     
-    printf "checking for libavfilter..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavfilter/avfilter.h" "avfilter_register_all();" ; then
-        echo "no"
+    if ! cxx_check "libavfilter" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavfilter/avfilter.h" "avfilter_register_all();" ; then
+        cnf_write "no"
         ENABLE_AVSW_READER=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
     
-    printf "checking for libswresample..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libswresample/swresample.h" "swr_alloc();" ; then
-        echo "no"
+    if ! cxx_check "libswresample" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libswresample/swresample.h" "swr_alloc();" ; then
+        cnf_write "no"
         ENABLE_AVSW_READER=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
     if [ $ENABLE_AVSW_READER -eq 0 ]; then
-        echo "libavutil, libavcodec, libavformat, libavfilter, libswresample are required to build nvencc."
+        cnf_write "libavutil, libavcodec, libavformat, libavfilter, libswresample are required to build nvencc."
         exit 1
     fi
 fi
 
 if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
-    printf "checking vapoursynth with pkg-config..."
+    cnf_print "checking vapoursynth with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_VAPOURSYNTH_NAMES} ; then
-        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
     else
-        echo "OK"
+        cnf_write "OK"
         VAPOURSYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_VAPOURSYNTH_NAMES}`
         VAPOURSYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_VAPOURSYNTH_NAMES}`
     fi
-    printf "checking for VapourSynth.h..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VapourSynth.h" "" "" ; then
-        echo "no"
+    if ! cxx_check "VapourSynth.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VapourSynth.h" "" "" ; then
+        cnf_write "no"
         ENABLE_VAPOURSYNTH=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
-    printf "checking for VSScript.h..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VSScript.h" "" "vsscript_init();" ; then
-        echo "no"
+    if ! cxx_check "VSScript.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VSScript.h" "" "vsscript_init();" ; then
+        cnf_write "no"
         ENABLE_VAPOURSYNTH=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
     if [ $ENABLE_VAPOURSYNTH -eq 0 ]; then
         VAPOURSYNTH_CFLAGS=""
@@ -482,20 +526,19 @@ if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
 fi
 
 if [ $ENABLE_AVXSYNTH -ne 0 ]; then
-    printf "checking avxsynth with pkg-config..."
+    cnf_print "checking avxsynth with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_AVXSYNTH_NAMES} ; then
-        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
     else
-        echo "OK"
+        cnf_write "OK"
         AVXSYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_AVXSYNTH_NAMES}`
         AVXSYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_AVXSYNTH_NAMES}`
     fi
-    printf "checking for avxsynth_c.h..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVXSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVXSYNTH_LIBS}" "" "avxsynth_c.h" "" ; then
-        echo "no"
+    if ! cxx_check "avxsynth_c.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVXSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVXSYNTH_LIBS}" "" "avxsynth_c.h" "" ; then
+        cnf_write "no"
         ENABLE_AVXSYNTH=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
     if [ $ENABLE_AVXSYNTH -eq 0 ]; then
         AVXSYNTH_CFLAGS=""
@@ -504,20 +547,19 @@ if [ $ENABLE_AVXSYNTH -ne 0 ]; then
 fi
 
 if [ $ENABLE_LIBASS -ne 0 ]; then
-    printf "checking libass with pkg-config..."
+    cnf_print "checking libass with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_LIBASS_NAMES} ; then
-        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
     else
-        echo "OK"
+        cnf_write "OK"
         LIBASS_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBASS_NAMES}`
         LIBASS_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBASS_NAMES}`
     fi
-    printf "checking for ass/ass.h..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "" "ass/ass.h" "" ; then
-        echo "no"
+    if ! cxx_check "ass/ass.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "" "ass/ass.h" "" ; then
+        cnf_write "no"
         ENABLE_LIBASS=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
     if [ $ENABLE_LIBASS -eq 0 ]; then
         LIBASS_CFLAGS=""
@@ -526,20 +568,19 @@ if [ $ENABLE_LIBASS -ne 0 ]; then
 fi
 
 if [ $ENABLE_LIBVMAF -ne 0 ]; then
-    printf "checking libvmaf with pkg-config..."
+    cnf_print "checking libvmaf with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_LIBVMAF_NAMES} ; then
-        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
     else
-        echo "OK"
+        cnf_write "OK"
         LIBVMAF_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBVMAF_NAMES}`
         LIBVMAF_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBVMAF_NAMES}`
     fi
-    printf "checking for libvmaf/vmaf.h..."
-    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "" "libvmaf/libvmaf.h" "" ; then
-        echo "no"
+    if ! cxx_check "libvmaf/vmaf.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "" "libvmaf/libvmaf.h" "" ; then
+        cnf_write "no"
         ENABLE_LIBASS=0
     else
-        echo "yes"
+        cnf_write "yes"
     fi
     if [ $ENABLE_LIBVMAF -eq 0 ]; then
         LIBVMAF_CFLAGS=""
@@ -548,18 +589,16 @@ if [ $ENABLE_LIBVMAF -ne 0 ]; then
 fi
 
 if [ $ENABLE_DTL -ne 0 ]; then
-    printf "checking for dtl/dtl.hpp..."
-    if ! cxx_check "${CXXFLAGS} ${CXXINC} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl/dtl.hpp" "" "" ; then
-        printf "checking for dtl/dtl.hpp..."
-        if ! cxx_check "${CXXFLAGS} ${CXXINC} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl.hpp" "" "" ; then
-            echo "no"
+    if ! cxx_check "dtl/dtl.hpp" "${CXXFLAGS} ${CXXINC} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl/dtl.hpp" "" "" ; then
+        if ! cxx_check "dtl/dtl.hpp" "${CXXFLAGS} ${CXXINC} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl.hpp" "" "" ; then
+            cnf_write "no"
             ENABLE_DTL=0
         else
-            echo "yes"
+            cnf_write "yes"
         fi
     else
         DTL_CFLAGS="-I./dtl"
-        echo "yes"
+        cnf_write "yes"
     fi
 fi
 
@@ -636,8 +675,8 @@ done
 
 ENCODER_REV=`git rev-list HEAD | wc --lines`
 
-echo ""
-echo "Creating config.mak, rgy_config.h..."
+cnf_write ""
+cnf_write "Creating config.mak, rgy_config.h..."
 echo "SRCS = $SRCS" >> config.mak
 echo "SRCCUS = $SRCCUS" >> config.mak
 echo "ASMS = $ASMS" >> config.mak
@@ -670,6 +709,6 @@ write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
 write_enc_config "#define ENABLE_PERF_COUNTER           0"
 
-echo successfully generated config.mak, rgy_config.h
+cnf_write "successfully generated config.mak, rgy_config.h"
 
 
