@@ -256,11 +256,12 @@ echo "ENABLE_LIBASS=${ENABLE_LIBASS}" >> ${CNF_LOG}
 echo "ENABLE_LIBVMAF=${ENABLE_LIBVMAF}" >> ${CNF_LOG}
 echo "ENABLE_DTL=${ENABLE_DTL}" >> ${CNF_LOG}
 
+cnf_print "checking for ${CXX}..."
 if ! cxx_check "${CXX}" "" ; then
     cnf_write "${CXX} does not work"
     exit 1
 fi
-echo "OK"
+cnf_write "OK"
 
 if [ `echo | ${CXX} -E -dM - | egrep "WIN32|WIN64" | wc --lines` -ne 0 ]; then
     cnf_write "This script does not support Windows platform."
