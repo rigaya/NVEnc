@@ -316,6 +316,7 @@ if [ $CUDA_VER_MAJOR -le 10 ]; then
     GPU_CODE_GEN="--generate-code arch=compute_30,code=[compute_30,sm_30]"
 fi
 GPU_CODE_GEN="${GPU_CODE_GEN} --generate-code arch=compute_50,code=[compute_50,sm_50]"
+GPU_CODE_GEN="${GPU_CODE_GEN} --generate-code arch=compute_61,code=[compute_61,sm_61]"
 GPU_CODE_GEN="${GPU_CODE_GEN} --generate-code arch=compute_75,code=[compute_75,sm_75]"
 if ( [ $CUDA_VER_MAJOR -ge 11 ] && [ $CUDA_VER_MINOR -ge 1 ] ) || [ $CUDA_VER_MAJOR -ge 12 ]; then
     GPU_CODE_GEN="${GPU_CODE_GEN} --generate-code arch=compute_86,code=[compute_86,sm_86]"
