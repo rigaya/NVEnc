@@ -533,6 +533,7 @@ struct VideoVUIInfo {
         apply_auto_color_characteristic(matrix,     list_colormatrix, inputHeight, input.matrix);
         apply_auto_color_characteristic(colorrange, list_colorrange,  inputHeight, input.colorrange);
         apply_auto_color_characteristic(chromaloc,  list_chromaloc,   inputHeight, input.chromaloc);
+        if (format == COLOR_VALUE_AUTO) format = input.format;
     }
 
     bool operator==(const VideoVUIInfo &x) const {
