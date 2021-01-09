@@ -696,16 +696,16 @@ std::string ColorspaceOpCL2YUV::print() {
 // https://github.com/mpv-player/mpv/blob/master/video/out/gpu/video_shaders.c あたりを参考にして実装しなおしたもの
 std::string ColorspaceOpHDR2SDR::printDesat(double desat_scale) {
     return strsprintf(R"(
-        const float in  = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
-        const float out = fmaxf( fmaxf(y.x, y.y), fmaxf(y.z, 1e-6f) );
-        const float mul = out / in;
+        const float in_max  = fmaxf( fmaxf(x.x, x.y), fmaxf(x.z, 1e-6f) );
+        const float out_max = fmaxf( fmaxf(y.x, y.y), fmaxf(y.z, 1e-6f) );
+        const float mul = out_max / in_max;
 
         const float desat_scale = %.16ef;
         const float desat_base = %.16ef;
         const float desat_strength = %.16ef;
         const float desat_exp = %.16ef;
-        // in coeff calculation, "out" should be in normalized scale
-        const float coeff = fmaxf(out * desat_scale - desat_base, 1e-6f) / fmaxf(out * desat_scale, 1.0f);
+        // in coeff calculation, "out_max" should be in normalized scale
+        const float coeff = fmaxf(out_max * desat_scale - desat_base, 1e-6f) / fmaxf(out_max * desat_scale, 1.0f);
         const float mixcoeff = desat_strength * powf(coeff, desat_exp);
         x.x = mix(x.x * mul, y.x, mixcoeff);
         x.y = mix(x.y * mul, y.y, mixcoeff);
