@@ -764,9 +764,9 @@ std::string ColorspaceOpHDR2SDRReinhard::print() {
         const float peak = %.16ef;
         const float offset = (1.0f - contrast) / contrast;
         float3 y;
-        y.x = hdr2sdr_reinhard( in, source_peak, ldr_nits, offset, peak );
-        y.y = hdr2sdr_reinhard( in, source_peak, ldr_nits, offset, peak );
-        y.z = hdr2sdr_reinhard( in, source_peak, ldr_nits, offset, peak );
+        y.x = hdr2sdr_reinhard( x.x, source_peak, ldr_nits, offset, peak );
+        y.y = hdr2sdr_reinhard( x.y, source_peak, ldr_nits, offset, peak );
+        y.z = hdr2sdr_reinhard( x.z, source_peak, ldr_nits, offset, peak );
     )", m_source_peak, m_ldr_nits, m_contrast, m_peak);
     str += printDesat(1.0f);
     str += "}";
