@@ -476,9 +476,8 @@ DAR比 (画面アスペクト比) の指定。
 ```
 
 ### --videoformat &lt;string&gt;
-"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
-  undef, auto, ntsc, component, pal, secam, mac
+  undef, ntsc, component, pal, secam, mac
 ```
 ### --colormatrix &lt;string&gt;
 "auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)

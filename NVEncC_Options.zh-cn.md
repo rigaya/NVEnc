@@ -486,9 +486,8 @@ hevc:  main, high
 ```
 
 ### --videoformat &lt;string&gt;   
-指定为"auto"时、与输入文件保持一致。(仅当使用[avhw](#--avhw)/[avsw](#--avsw)时有效)
 ```
-  undef, auto, ntsc, component, pal, secam, mac
+  undef, ntsc, component, pal, secam, mac
 ```
 ### --colormatrix &lt;string&gt;   
 指定为"auto"时、与输入文件保持一致。(仅当使用[avhw](#--avhw)/[avsw](#--avsw)时有效)

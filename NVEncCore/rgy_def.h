@@ -417,7 +417,6 @@ const CX_DESC list_colorprim[] = {
 
 const CX_DESC list_videoformat[] = {
     { _T("undef"),     5  },
-    { _T("auto"),     COLOR_VALUE_AUTO  },
     { _T("ntsc"),      2  },
     { _T("component"), 0  },
     { _T("pal"),       1  },
@@ -533,7 +532,6 @@ struct VideoVUIInfo {
         apply_auto_color_characteristic(matrix,     list_colormatrix, inputHeight, input.matrix);
         apply_auto_color_characteristic(colorrange, list_colorrange,  inputHeight, input.colorrange);
         apply_auto_color_characteristic(chromaloc,  list_chromaloc,   inputHeight, input.chromaloc);
-        if (format == COLOR_VALUE_AUTO) format = input.format;
     }
 
     bool operator==(const VideoVUIInfo &x) const {
