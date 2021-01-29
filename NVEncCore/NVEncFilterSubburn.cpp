@@ -162,8 +162,19 @@ RGY_ERR NVEncFilterSubburn::initAVCodec(const std::shared_ptr<NVEncFilterParamSu
             AVFormatContext *tmpFormatCtx = nullptr;
             int ret = avformat_open_input(&tmpFormatCtx, filename_char.c_str(), nullptr, nullptr);
             if (ret < 0) {
-                AddMessage(RGY_LOG_ERROR, _T("error opening file: \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_FILE_OPEN; // Couldn't open file
+                AVInputFormat* inFormat = nullptr;
+                if (check_ext(prm->subburn.filename, { ".ass" })) {
+                    inFormat = av_find_input_format("ass");
+                } else if (check_ext(prm->subburn.filename, { ".srt" })) {
+                    inFormat = av_find_input_format("srt");
+                }
+                if (inFormat) {
+                    ret = avformat_open_input(&tmpFormatCtx, filename_char.c_str(), inFormat, nullptr);
+                }
+                if (ret < 0) {
+                    AddMessage(RGY_LOG_ERROR, _T("error opening file: \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
+                    return RGY_ERR_FILE_OPEN; // Couldn't open file
+                }
             }
             m_formatCtx = unique_ptr<AVFormatContext, RGYAVDeleter<AVFormatContext>>(tmpFormatCtx, RGYAVDeleter<AVFormatContext>(avformat_close_input));
         }
