@@ -142,6 +142,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
     - 輪郭・ディテール強調
       - unsharp
       - edgelevel (エッジレベル調整)
+      - warpsharp
 
 ### cufilters.auf
 - 対応フィルタ

@@ -112,6 +112,7 @@ NVEnc的输出可能不包括max_dec_frame_buffering字段，
     - edge / detail enhancement
       - unsharp
       - edgelevel (edge ​​level adjustment)
+      - warpsharp
 
 ### NVEnc.auo (Aviutl plugin)
 - Audio encoding

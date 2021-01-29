@@ -1604,6 +1604,33 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 --vpp-edgelevel strength=5.0,threshold=24.0,black=6.0
 ```
 
+### --vpp-warpsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+細線化フィルタ。輪郭調整用のフィルタ。
+
+**パラメータ**
+- threshold=&lt;float&gt;  (default=128.0, 0 - 255)  
+  輪郭検出の閾値。値をあげるほどフィルタの強度が強まる。
+
+- blur=&lt;int&gt;  (default=2)  
+  blur処理を行う回数。値をあげるほどフィルタの強度が弱まる。
+
+- type=&lt;int&gt;  (default=0)  
+  - 0 ... 13x13のblur処理を行う。
+  - 1 ... 5x5のblur処理を行う。より高品質だが、blur回数を多めにする必要がある。
+  
+- depth=&lt;float&gt;  (default=16.0, -128.0 - 128.0)  
+  warpの深度。値をあげるほどフィルタの強度が強まる。
+  
+- chroma=&lt;int&gt;  (default=0)  
+  色差の処理方法の指定。
+  - 0 ... 輝度ベースの輪郭検出を色差成分にも適用する。
+  - 1 ... 各色差成分についてそれぞれ輪郭検出を行う。
+
+```
+例: type=1を使う場合
+--vpp-warpsharp threshold=128,blur=3,type=1
+```
+
 ### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **パラメータ**

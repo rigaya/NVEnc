@@ -138,6 +138,7 @@ which might cause problem in some playback environments.
     - edge / detail enhancement
       - unsharp
       - edgelevel (edge ​​level adjustment)
+      - warpsharp
 
 ### NVEnc.auo (Aviutl plugin)
 - Audio encoding

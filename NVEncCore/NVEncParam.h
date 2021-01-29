@@ -50,6 +50,11 @@ static const int   FILTER_DEFAULT_DELOGO_DEPTH = 128;
 static const int   FILTER_DEFAULT_UNSHARP_RADIUS = 3;
 static const float FILTER_DEFAULT_UNSHARP_WEIGHT = 0.5f;
 static const float FILTER_DEFAULT_UNSHARP_THRESHOLD = 10.0f;
+static const float FILTER_DEFAULT_WARPSHARP_THRESHOLD = 128.0f;
+static const int   FILTER_DEFAULT_WARPSHARP_BLUR = 2;
+static const int   FILTER_DEFAULT_WARPSHARP_TYPE = 0;
+static const float FILTER_DEFAULT_WARPSHARP_DEPTH = 16.0f;
+static const int   FILTER_DEFAULT_WARPSHARP_CHROMA = 0;
 static const float FILTER_DEFAULT_EDGELEVEL_STRENGTH = 5.0f;
 static const float FILTER_DEFAULT_EDGELEVEL_THRESHOLD = 20.0f;
 static const float FILTER_DEFAULT_EDGELEVEL_BLACK = 0.0f;
@@ -939,6 +944,20 @@ struct VppUnsharp {
     tstring print() const;
 };
 
+struct VppWarpsharp {
+    bool enable;
+    float threshold;
+    int blur;
+    int type;
+    float depth;
+    int chroma;
+
+    VppWarpsharp();
+    bool operator==(const VppWarpsharp& x) const;
+    bool operator!=(const VppWarpsharp& x) const;
+    tstring print() const;
+};
+
 struct VppEdgelevel {
     bool  enable;
     float strength;
@@ -1342,6 +1361,7 @@ struct VppParam {
 
     VppDelogo delogo;
     VppUnsharp unsharp;
+    VppWarpsharp warpsharp;
     VppEdgelevel edgelevel;
     VppKnn knn;
     VppPmd pmd;

@@ -1553,6 +1553,33 @@ Example: Strengthening the black part of the outline
 --vpp-edgelevel strength=5.0,threshold=24.0,black=6.0
 ```
 
+### --vpp-warpsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Edge warping (sharpening) filter.
+
+**Parameters**
+- threshold=&lt;float&gt;  (default=128.0, 0 - 255)  
+  Threshold used when detencting edges. Raising this value will result stronger sharpening.
+
+- blur=&lt;int&gt;  (default=2)  
+  Number of times to blur. More times of blur will result weaker sharpening.
+
+- type=&lt;int&gt;  (default=0)  
+  - 0 ... use 13x13 size blur.
+  - 1 ... use 5x5 size blur. This results higher quality, but requires more blur counts.
+  
+- depth=&lt;float&gt;  (default=16.0, -128.0 - 128.0)  
+  Depth of warping, raising this value will result stronger sharpening.
+  
+- chroma=&lt;int&gt;  (default=0)  
+  Select how to process chroma channels.
+  - 0 ... Use luma based mask to process hcroma channels.
+  - 1 ... Create individual mask for each chroma channels.
+
+```
+例: Using type 1.
+--vpp-warpsharp threshold=128,blur=3,type=1
+```
+
 ### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **Parameters**

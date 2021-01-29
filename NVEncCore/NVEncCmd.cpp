@@ -433,6 +433,19 @@ tstring encoder_help() {
         _T("                                  (default=%.1f, 0-31)\n"),
         FILTER_DEFAULT_EDGELEVEL_STRENGTH, FILTER_DEFAULT_EDGELEVEL_THRESHOLD, FILTER_DEFAULT_EDGELEVEL_BLACK, FILTER_DEFAULT_EDGELEVEL_WHITE);
     str += strsprintf(_T("\n")
+        _T("   --vpp-warpsharp [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     warpsharp filter to enhance edge.\n")
+        _T("    params\n")
+        _T("      threshold=<float>         edge mask threshold (default=%.1f, 0-255)\n")
+        _T("      blur=<int>                number of times to blur the edge mask.\n")//Increase for weaker sharpening
+        _T("                                  (default=%d, 0-)\n")
+        _T("      type=<int>                blur type, 0...13x13, 1...5x5 (default=%d)\n")
+        _T("      depth=<float>             how far to warp (default=%.1f, -128 - 128)\n"),
+        _T("      chroma=<int>              0...use luma mask, 1...create chroma mask\n")
+        _T("                                  (default=%d)\n"),
+        FILTER_DEFAULT_WARPSHARP_THRESHOLD, FILTER_DEFAULT_WARPSHARP_BLUR, FILTER_DEFAULT_WARPSHARP_TYPE,
+        FILTER_DEFAULT_WARPSHARP_DEPTH, FILTER_DEFAULT_WARPSHARP_CHROMA);
+    str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable deband filter.\n")
         _T("    params\n")
@@ -1342,6 +1355,80 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                 if (param_arg == _T("white")) {
                     try {
                         pParams->vpp.edgelevel.white = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-warpsharp")) {
+        pParams->vpp.warpsharp.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "threshold", "blur", "type", "depth", "chroma" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->vpp.warpsharp.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("threshold")) {
+                    try {
+                        pParams->vpp.warpsharp.threshold = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("blur")) {
+                    try {
+                        pParams->vpp.warpsharp.blur = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("type")) {
+                    try {
+                        pParams->vpp.warpsharp.type = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("depth")) {
+                    try {
+                        pParams->vpp.warpsharp.depth = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma")) {
+                    try {
+                        pParams->vpp.warpsharp.chroma = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -4234,6 +4321,24 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
             cmd << _T(" --vpp-edgelevel ") << tmp.str().substr(1);
         } else if (pParams->vpp.edgelevel.enable) {
             cmd << _T(" --vpp-edgelevel");
+        }
+    }
+    if (pParams->vpp.warpsharp != encPrmDefault.vpp.warpsharp) {
+        tmp.str(tstring());
+        if (!pParams->vpp.warpsharp.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.warpsharp.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("threshold"), vpp.warpsharp.threshold, 3);
+            ADD_NUM(_T("blur"), vpp.warpsharp.blur);
+            ADD_NUM(_T("type"), vpp.warpsharp.type);
+            ADD_FLOAT(_T("depth"), vpp.warpsharp.depth, 3);
+            ADD_NUM(_T("chroma"), vpp.warpsharp.chroma);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-warpsharp ") << tmp.str().substr(1);
+        } else if (pParams->vpp.warpsharp.enable) {
+            cmd << _T(" --vpp-warpsharp");
         }
     }
 
