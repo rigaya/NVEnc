@@ -83,15 +83,12 @@ __global__ void kernel_sobel(
         const int avg_r = (p12 + ((p02 + p22 + 1) >> 1) + 1) >> 1;
         const int abs_v = abs(avg_u - avg_d);
         const int abs_h = abs(avg_l - avg_r);
+        const int abs_max = max(abs_v, abs_h);
 
         int absolute = min(abs_v + abs_h, pixel_max);
-
-        const int abs_max = max(abs_h, abs_v);
-
         absolute = min(absolute + abs_max, pixel_max);
         absolute = min(min(absolute * 2, pixel_max) + absolute, pixel_max);
         absolute = min(absolute * 2, pixel_max);
-
         absolute = min(absolute, threshold);
 
         Type* ptr = (Type*)(pDst + iy * dstPitch + ix * sizeof(Type));
