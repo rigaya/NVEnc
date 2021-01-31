@@ -38,16 +38,24 @@
 #endif //#ifndef _MSC_VER
 
 enum {
-    NONE   = 0x0000,
-    SSE2   = 0x0001,
-    SSE3   = 0x0002,
-    SSSE3  = 0x0004,
-    SSE41  = 0x0008,
-    SSE42  = 0x0010,
-    POPCNT = 0x0020,
-    AVX    = 0x0040,
-    AVX2   = 0x0080,
-    FMA3   = 0x0100,
+    NONE       = 0x0000,
+    SSE2       = 0x0001,
+    SSE3       = 0x0002,
+    SSSE3      = 0x0004,
+    SSE41      = 0x0008,
+    SSE42      = 0x0010,
+    POPCNT     = 0x0020,
+    AVX        = 0x0040,
+    AVX2       = 0x0080,
+    AVX512F    = 0x0100,
+    AVX512DQ   = 0x0200,
+    AVX512IFMA = 0x0400,
+    AVX512PF   = 0x0800,
+    AVX512ER   = 0x1000,
+    AVX512CD   = 0x2000,
+    AVX512BW   = 0x4000,
+    AVX512VL   = 0x8000,
+    AVX512VBMI = 0x10000,
 };
 
 unsigned int get_availableSIMD();

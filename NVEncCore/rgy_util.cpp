@@ -44,7 +44,6 @@
 #include "gpu_info.h"
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
-#include "ram_speed.h"
 #include "rgy_version.h"
 #include "rgy_codepage.h"
 
@@ -967,7 +966,7 @@ uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-tstring getEnviromentInfo(bool add_ram_info, int device_id) {
+tstring getEnviromentInfo(int device_id) {
     tstring buf;
 
     TCHAR cpu_info[1024] = { 0 };
@@ -984,26 +983,7 @@ tstring getEnviromentInfo(bool add_ram_info, int device_id) {
     buf += strsprintf(_T("OS : %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
 #endif
     buf += strsprintf(_T("CPU: %s\n"), cpu_info);
-    if (add_ram_info) {
-        cpu_info_t cpuinfo;
-        get_cpu_info(&cpuinfo);
-        auto write_rw_speed = [&](const TCHAR *type, int test_size) {
-            if (test_size) {
-                auto ram_read_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_READ);
-                auto ram_write_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_WRITE);
-                double max_read  = *std::max_element(ram_read_speed_list.begin(), ram_read_speed_list.end())  * (1.0 / 1024.0);
-                double max_write = *std::max_element(ram_write_speed_list.begin(), ram_write_speed_list.end()) * (1.0 / 1024.0);
-                buf += strsprintf(_T("%s: Read:%7.2fGB/s, Write:%7.2fGB/s\n"), type, max_read, max_write);
-            }
-            return test_size > 0;
-        };
-        add_ram_info = false;
-        add_ram_info |= write_rw_speed(_T("L1 "), cpuinfo.caches[0].size / 1024 / 8);
-        add_ram_info |= write_rw_speed(_T("L2 "), cpuinfo.caches[1].size / 1024 / 2);
-        add_ram_info |= write_rw_speed(_T("L3 "), cpuinfo.caches[2].size / 1024 / 2);
-        add_ram_info |= write_rw_speed(_T("RAM"), (cpuinfo.max_cache_level) ? cpuinfo.caches[cpuinfo.max_cache_level-1].size / 1024 * 8 : 96 * 1024);
-    }
-    buf += strsprintf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
+    buf += strsprintf(_T("RAM: Used %d MB, Total %d MB\n"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
 
 #if ENCODER_QSV
     TCHAR gpu_info[1024] = { 0 };

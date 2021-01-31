@@ -81,9 +81,6 @@
     <ClCompile Include="rgy_simd.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="ram_speed.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="rgy_avlog.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -306,9 +303,6 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_thread.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="ram_speed.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_avlog.h">
@@ -535,13 +529,5 @@
     <CudaCompile Include="NVEncFilterWarpsharp.cu">
       <Filter>ソース ファイル</Filter>
     </CudaCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <CustomBuild Include="ram_speed_x64.asm">
-      <Filter>ソース ファイル</Filter>
-    </CustomBuild>
-    <CustomBuild Include="ram_speed_x86.asm">
-      <Filter>ソース ファイル</Filter>
-    </CustomBuild>
   </ItemGroup>
 </Project>

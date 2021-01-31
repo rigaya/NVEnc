@@ -34,7 +34,7 @@
 #endif //_MSC_VER
 #include "rgy_simd.h"
 
-unsigned int get_availableSIMD() {
+uint32_t get_availableSIMD() {
     int CPUInfo[4];
     __cpuid(CPUInfo, 1);
     uint32_t simd = NONE;
@@ -44,18 +44,28 @@ unsigned int get_availableSIMD() {
     if (CPUInfo[2] & 0x00080000) simd |= SSE41;
     if (CPUInfo[2] & 0x00100000) simd |= SSE42;
     if (CPUInfo[2] & 0x00800000) simd |= POPCNT;
-#if defined(_MSC_VER) || defined(__AVX__)
     uint64_t xgetbv = 0;
     if ((CPUInfo[2] & 0x18000000) == 0x18000000) {
         xgetbv = _xgetbv(0);
         if ((xgetbv & 0x06) == 0x06)
             simd |= AVX;
-        if (CPUInfo[2] & 0x00001000)
-            simd |= FMA3;
     }
-#endif
     __cpuid(CPUInfo, 7);
-    if ((simd & AVX) && (CPUInfo[1] & 0x00000020))
+    if ((simd & AVX) && (CPUInfo[1] & 0x00000020)) {
         simd |= AVX2;
+    }
+    if ((simd & AVX) && ((xgetbv >> 5) & 7) == 7) {
+        if (CPUInfo[1] & (1u << 16)) simd |= AVX512F;
+        if (simd & AVX512F) {
+            if (CPUInfo[1] & (1u << 17)) simd |= AVX512DQ;
+            if (CPUInfo[1] & (1u << 21)) simd |= AVX512IFMA;
+            if (CPUInfo[1] & (1u << 26)) simd |= AVX512PF;
+            if (CPUInfo[1] & (1u << 27)) simd |= AVX512ER;
+            if (CPUInfo[1] & (1u << 28)) simd |= AVX512CD;
+            if (CPUInfo[1] & (1u << 30)) simd |= AVX512BW;
+            if (CPUInfo[1] & (1u << 31)) simd |= AVX512VL;
+            if (CPUInfo[2] & (1u <<  1)) simd |= AVX512VBMI;
+        }
+    }
     return simd;
 }

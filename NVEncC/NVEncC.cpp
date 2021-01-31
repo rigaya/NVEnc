@@ -88,12 +88,12 @@ static int show_hw(int deviceid) {
 
 static void show_environment_info() {
     show_version();
-    _ftprintf(stdout, _T("%s\n"), getEnviromentInfo(false).c_str());
+    _ftprintf(stdout, _T("%s\n"), getEnviromentInfo().c_str());
 }
 
 static int show_nvenc_features(int deviceid) {
     show_version();
-    _ftprintf(stdout, _T("\n%s\n"), getEnviromentInfo(false).c_str());
+    _ftprintf(stdout, _T("\n%s\n"), getEnviromentInfo().c_str());
 
     InEncodeVideoParam encPrm;
     encPrm.deviceID = deviceid;

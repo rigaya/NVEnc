@@ -951,7 +951,6 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="ram_speed.cpp" />
     <ClCompile Include="rgy_avlog.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -1215,7 +1214,6 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="NVEncParam.h" />
     <ClInclude Include="NVEncCmd.h" />
     <ClInclude Include="NVEncUtil.h" />
-    <ClInclude Include="ram_speed.h" />
     <ClInclude Include="rgy_avlog.h" />
     <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_bitstream.h" />
@@ -1255,76 +1253,6 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_timecode.h" />
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="rgy_version.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <CustomBuild Include="ram_speed_x64.asm">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">nasm -f win64 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">nasm -f win64 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">nasm -f win64 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">Compiling asm...</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">nasm -f win64 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">nasm -f win64 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">Compiling asm...</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">nasm -f win64 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</BuildInParallel>
-    </CustomBuild>
-    <CustomBuild Include="ram_speed_x86.asm">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">nasm -f win32 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">nasm -f win32 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">nasm -f win32 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">Compiling asm...</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">nasm -f win32 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">nasm -f win32 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">Compiling asm...</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">nasm -f win32 -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelFilters|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='DebugFilters|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelStatic|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelFilters|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='DebugFilters|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelStatic|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</BuildInParallel>
-    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
