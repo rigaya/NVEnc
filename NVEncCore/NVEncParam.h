@@ -567,6 +567,7 @@ const CX_DESC list_vpp_detail_enahance[] = {
     { _T("none"),       0 },
     { _T("unsharp"),    1 },
     { _T("edgelevel"),  2 },
+    { _T("warpsharp"),  3 },
     { NULL, 0 }
 };
 

@@ -862,6 +862,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppDenoiseSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth")));
     fcgPNVppUnsharp->Visible    = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible  = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
+    fcgPNVppWarpsharp->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("warpsharp")));
     fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
     fcgPNVppAfs->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"自動フィールドシフト"));
     fcgPNVppNnedi->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"nnedi"));
@@ -1096,6 +1097,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
         } else if (encPrm.vpp.edgelevel.enable) {
             detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("edgelevel"));
+        } else if (encPrm.vpp.warpsharp.enable) {
+            detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("warpsharp"));
         }
         SetCXIndex(fcgCXVppDetailEnhance, detail_enahance_idx);
 
@@ -1134,6 +1137,10 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppEdgelevelThreshold,   encPrm.vpp.edgelevel.threshold);
         SetNUValue(fcgNUVppEdgelevelBlack,       encPrm.vpp.edgelevel.black);
         SetNUValue(fcgNUVppEdgelevelWhite,       encPrm.vpp.edgelevel.white);
+        SetNUValue(fcgNUVppWarpsharpThreshold,   encPrm.vpp.warpsharp.threshold);
+        SetNUValue(fcgNUVppWarpsharpDepth,       encPrm.vpp.warpsharp.depth);
+        SetNUValue(fcgNUVppWarpsharpBlur,        encPrm.vpp.warpsharp.blur);
+        SetNUValue(fcgNUVppWarpsharpBlurType,    encPrm.vpp.warpsharp.type);
         SetNUValue(fcgNUVppAfsUp,                encPrm.vpp.afs.clip.top);
         SetNUValue(fcgNUVppAfsBottom,            encPrm.vpp.afs.clip.bottom);
         SetNUValue(fcgNUVppAfsLeft,              encPrm.vpp.afs.clip.left);
@@ -1373,6 +1380,12 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     encPrm.vpp.edgelevel.threshold    = (float)fcgNUVppEdgelevelThreshold->Value;
     encPrm.vpp.edgelevel.black        = (float)fcgNUVppEdgelevelBlack->Value;
     encPrm.vpp.edgelevel.white        = (float)fcgNUVppEdgelevelWhite->Value;
+
+    encPrm.vpp.warpsharp.enable       = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("warpsharp"));
+    encPrm.vpp.warpsharp.threshold    = (float)fcgNUVppWarpsharpThreshold->Value;
+    encPrm.vpp.warpsharp.depth        = (float)fcgNUVppWarpsharpDepth->Value;
+    encPrm.vpp.warpsharp.blur         = (int)fcgNUVppWarpsharpBlur->Value;
+    encPrm.vpp.warpsharp.type         = (int)fcgNUVppWarpsharpBlurType->Value;
 
     encPrm.vpp.deband.enable          = fcgCBVppDebandEnable->Checked;
     encPrm.vpp.deband.range           = (int)fcgNUVppDebandRange->Value;
