@@ -543,11 +543,5 @@
     <CustomBuild Include="ram_speed_x86.asm">
       <Filter>ソース ファイル</Filter>
     </CustomBuild>
-    <CustomBuild Include="cpu_info_x64.asm">
-      <Filter>ソース ファイル</Filter>
-    </CustomBuild>
-    <CustomBuild Include="cpu_info_x86.asm">
-      <Filter>ソース ファイル</Filter>
-    </CustomBuild>
   </ItemGroup>
 </Project>
