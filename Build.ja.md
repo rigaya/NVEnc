@@ -13,12 +13,10 @@
 - Visual Studio 2019
 - CUDA 10.1 以降 (x64)
 - CUDA 11.0 以降 (x86)
-- [nasm](https://www.nasm.us/)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
 
 ### 1. 環境準備
-nasmはパスに追加しておきます。
 
 Avisynth+とVapourSynthは、SDKがインストールされるよう設定してインストールします。
 
@@ -63,7 +61,6 @@ NVEnc.slnを開き、ビルドします。
 - GPUドライバ 435.21 以上
 - C++14 コンパイラ
 - CUDA 10
-- nasm
 - git
 - ライブラリ群
   - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -73,7 +70,7 @@ NVEnc.slnを開き、ビルドします。
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install build-essential git nasm nasm
+sudo apt install build-essential git
 ```
 
 ### 2. NVIDIA ドライバのインストール
@@ -236,7 +233,6 @@ H.265/HEVC
 - GPUドライバ 435.21 以上
 - C++14 コンパイラ
 - CUDA 10
-- nasm
 - git
 - ライブラリ群
   - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -246,7 +242,7 @@ H.265/HEVC
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install git nasm nasm
+sudo apt install git
 ```
 
 ### 2. NVIDIA ドライバ + CUDA のインストール

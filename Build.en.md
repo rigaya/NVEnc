@@ -13,13 +13,10 @@ To build NVEnc, components below are required.
 - Visual Studio 2019
 - CUDA 10.1 or later (x64)
 - CUDA 11.0 or later (x86)
-- [nasm](https://www.nasm.us/)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
 
 ### 1. Install build tools.
-
-Please set nasm to your environment PATH.
 
 Install Avisynth+ and VapourSynth, with the SDKs.
 
@@ -64,7 +61,6 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 - GPU Driver 435.21 or later
 - C++14 Compiler
 - CUDA 10
-- nasm
 - git
 - libraries
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -74,7 +70,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 ### 1. Install build tools
 
 ```Shell
-sudo apt install build-essential git nasm nasm
+sudo apt install build-essential git
 ```
 
 ### 2. Install NVIDIA driver
@@ -237,7 +233,6 @@ H.265/HEVC
 - GPU Driver 435.21 or later
 - C++14 Compiler
 - CUDA 10
-- nasm
 - git
 - libraries
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -247,7 +242,7 @@ H.265/HEVC
 ### 1. Install build tools
 
 ```Shell
-sudo apt install git nasm nasm
+sudo apt install git
 ```
 
 ### 2. Install NVIDIA driver and CUDA 10.2

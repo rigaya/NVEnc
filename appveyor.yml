@@ -30,10 +30,6 @@ init:
 
 install:
   - git submodule update --init --recursive
-  - curl -o "nasminst.exe" https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/win32/nasm-2.15.05-installer-x86.exe
-  - start /wait nasminst.exe /S
-  - set PATH=C:\Program Files (x86)\nasm;%PATH%
-  - nasm --version
   - set PATH=C:\Python38-x64;%PATH%
   - python --version
   - mkdir c:\hdr10plus_gen

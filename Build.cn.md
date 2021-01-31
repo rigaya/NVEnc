@@ -8,11 +8,8 @@ by rigaya
 - Visual Studio 2019
 - CUDA 10.1 (x64)
 - CUDA 11.0 (x86)
-- [nasm](https://www.nasm.us/)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
-
-请将nasm设置为您的环境路径。
 
 使用sdk安装Avisynth+和VapourSynth。
 
