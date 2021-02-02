@@ -35,7 +35,7 @@ NVEncC -i "<avsfile>" -o "<outfilename.264>"
 #### 管道输入示例
 
 ```Batchfile
-avs2pipemod -y4mp "<avsfile>" | NVEncC - y4m - i - - o "<outfilename.264>"
+avs2pipemod -y4mp "<avsfile>" | NVEncC --y4m -i - -o "<outfilename.264>"
 ```
 
 #### 从 FFmpeg 管道输入
