@@ -440,7 +440,7 @@ tstring encoder_help() {
         _T("      blur=<int>                number of times to blur the edge mask.\n")//Increase for weaker sharpening
         _T("                                  (default=%d, 0-)\n")
         _T("      type=<int>                blur type, 0...13x13, 1...5x5 (default=%d)\n")
-        _T("      depth=<float>             how far to warp (default=%.1f, -128 - 128)\n"),
+        _T("      depth=<float>             how far to warp (default=%.1f, -128 - 128)\n")
         _T("      chroma=<int>              0...use luma mask, 1...create chroma mask\n")
         _T("                                  (default=%d)\n"),
         FILTER_DEFAULT_WARPSHARP_THRESHOLD, FILTER_DEFAULT_WARPSHARP_BLUR, FILTER_DEFAULT_WARPSHARP_TYPE,
