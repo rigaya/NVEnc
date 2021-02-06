@@ -890,10 +890,16 @@ Mux an external audio file specified.
 - filter=&lt;string&gt;  
   Specify filters for audio.
 
+- disposition=&lt;string&gt;  
+  Specify disposition for audio.
+  
+- metadata=&lt;string1&gt;=&lt;string2&gt;  
+  Specify metadata for audio track.
+
 ```
 Example1: --audio-source "<audio_file>":copy
 Example2: --audio-source "<audio_file>":codec=aac
-Example3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
+Example3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
 ```
 
 ### --chapter &lt;string&gt;
@@ -970,9 +976,20 @@ Set keyframes on chapter position.
 Set keyframes on frames (starting from 0, 1, 2, ...) specified in the file.
 There should be one frame ID per line.
 
-### --sub-source &lt;string&gt;
+### --sub-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
 Read subtitle from the specified file and mux into the output file.
 
+**params** 
+- disposition=&lt;string&gt;  
+  Specify disposition for subtitle.
+  
+- metadata=&lt;string1&gt;=&lt;string2&gt;  
+  Specify metadata for subtitle track.
+
+```
+Example1: --sub-source "<sub_file>"
+Example2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
+```
 ### --sub-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
 It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;int&gt;], or select subtitle tracks to copy by language with [&lt;string&gt;].

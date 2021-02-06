@@ -518,7 +518,7 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
 }
 
 int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition", "delay" };
+    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition", "delay", "metadata" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -557,12 +557,49 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
                 chSel.encCodecPrm = param_val;
             } else if (param_arg == _T("lang")) {
                 chSel.lang = tchar_to_string(param_val);
+            } else if (param_arg == _T("metadata")) {
+                chSel.metadata.push_back(param_val);
             } else {
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             }
             if (chSel.encCodec.length() == 0) {
                 chSel.encCodec = RGY_AVCODEC_AUTO;
+            }
+            continue;
+        } else {
+            if (param == _T("copy")) {
+                chSel.encCodec = RGY_AVCODEC_COPY;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TCHAR *option_name) {
+    const auto paramList = std::vector<std::string>{ "codec", "metadata", "enc_prm", "copy", "disposition" };
+    for (const auto &param : split(str, _T(";"))) {
+        auto pos = param.find_first_of(_T("="));
+        if (pos != std::string::npos) {
+            auto param_arg = param.substr(0, pos);
+            auto param_val = param.substr(pos + 1);
+            if (param_arg == _T("codec")) {
+                chSel.encCodec = param_val;
+            } else if (param_arg == _T("enc_prm")) {
+                chSel.encCodecPrm = param_val;
+            } else if (param_arg == _T("disposition")) {
+                chSel.disposition = param_val;
+            } else if (param_arg == _T("metadata")) {
+                chSel.metadata.push_back(param_val);
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+            if (chSel.encCodec.length() == 0) {
+                chSel.encCodec = RGY_AVCODEC_COPY;
             }
             continue;
         } else {
@@ -1447,34 +1484,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             }
             SubtitleSelect &chSel = src.select[trackId];
             chSel.trackID = trackId;
-            for (const auto &param : split(channel, _T(";"))) {
-                auto pos = param.find_first_of(_T("="));
-                if (pos != std::string::npos) {
-                    auto param_arg = param.substr(0, pos);
-                    auto param_val = param.substr(pos+1);
-                    if (param_arg == _T("codec")) {
-                        chSel.encCodec = param_val;
-                    } else if (param_arg == _T("enc_prm")) {
-                        chSel.encCodecPrm = param_val;
-                    } else if (param_arg == _T("disposition")) {
-                        chSel.disposition = param_val;
-                    } else {
-                        print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                        return 1;
-                    }
-                    if (chSel.encCodec.length() == 0) {
-                        chSel.encCodec = RGY_AVCODEC_AUTO;
-                    }
-                    continue;
-                } else {
-                    if (param == _T("copy")) {
-                        chSel.encCodec = RGY_AVCODEC_COPY;
-                    } else {
-                        print_cmd_error_unknown_opt_param(option_name, param, paramList);
-                        return 1;
-                    }
-                }
-            }
+            int ret = parse_one_subtitle_param(chSel, channel, option_name);
+            if (ret != 0) return ret;
             if (chSel.encCodec.length() == 0) {
                 chSel.encCodec = RGY_AVCODEC_COPY;
             }
