@@ -2006,6 +2006,19 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
 }
 #pragma warning(pop)
 
+vector<const AVStream *> RGYInputAvcodec::GetInputAttachmentStreams() {
+    vector<const AVStream *> streams;
+    if (m_Demux.format.formatCtx) {
+        for (int ist = 0; ist < m_Demux.format.formatCtx->nb_streams; ist++) {
+            const AVStream *stream = m_Demux.format.formatCtx->streams[ist];
+            if (stream->codecpar->codec_type == AVMEDIA_TYPE_ATTACHMENT) {
+                streams.push_back(stream);
+            }
+        }
+    }
+    return streams;
+}
+
 vector<const AVChapter *> RGYInputAvcodec::GetChapterList() {
     return m_Demux.chapter;
 }

@@ -2513,6 +2513,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             unique_ptr<NVEncFilter> filter(new NVEncFilterSubburn());
             shared_ptr<NVEncFilterParamSubburn> param(new NVEncFilterParamSubburn());
             param->subburn = subburn;
+
             auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             if (pAVCodecReader != nullptr) {
                 param->videoInputStream = pAVCodecReader->GetInputVideoStream();
@@ -2523,6 +2524,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
                         break;
                     }
                 }
+                param->attachmentStreams = pAVCodecReader->GetInputAttachmentStreams();
             }
             param->videoInfo = m_pFileReader->GetInputFrameInfo();
             if (param->subburn.trackId != 0 && param->streamIn.stream == nullptr) {

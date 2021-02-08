@@ -666,6 +666,7 @@ VppSubburn::VppSubburn() :
     enable(false),
     filename(),
     charcode(),
+    fontsdir(),
     trackId(0),
     assShaping(1),
     scale(0.0),
@@ -680,6 +681,7 @@ bool VppSubburn::operator==(const VppSubburn &x) const {
     return enable == x.enable
         && filename == x.filename
         && charcode == x.charcode
+        && fontsdir == x.fontsdir
         && trackId == x.trackId
         && assShaping == x.assShaping
         && scale == x.scale
@@ -713,6 +715,11 @@ tstring VppSubburn::print() const {
     }
     if (!vid_ts_offset) {
         str += _T(", vid_ts_offset off");
+    }
+    if (fontsdir.length() > 0) {
+        str += _T("\n");
+        str += _T("                        ");
+        str += strsprintf(_T("fontsdir \"%s\""), fontsdir.c_str());
     }
     return str;
 }

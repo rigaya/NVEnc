@@ -1766,6 +1766,10 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
 - ts_offset=&lt;float&gt; (デフォルト=0.0)
   字幕のtimestampを秒単位で調整(デバッグ用)  
 
+- fontsdir=&lt;string&gt;  
+  字幕で使用するフォントの存在するフォルダの指定。
+
+
 ```
 例1: 入力ファイルの字幕トラックを焼きこみ
 --vpp-subburn track=1

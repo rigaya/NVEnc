@@ -1002,6 +1002,9 @@ public:
     //音声・字幕のコーデックコンテキストを取得する
     virtual vector<AVDemuxStream> GetInputStreamInfo() override;
 
+    //AVMEDIA_TYPE_ATTACHMENTのstreamを取得する
+    vector<const AVStream *> GetInputAttachmentStreams();
+
     //チャプターリストを取得する
     vector<const AVChapter *> GetChapterList();
 

@@ -89,6 +89,22 @@ static void ass_log_error_only(int ass_level, const char *fmt, va_list args, voi
     }
 }
 
+static bool font_attached(const AVStream *stream) {
+    const AVDictionaryEntry *tag = av_dict_get(stream->metadata, "mimetype", NULL, AV_DICT_MATCH_CASE);
+    if (tag) {
+        const auto font_mimetypes = make_array<std::string>(
+            "application/x-truetype-font",
+            "application/vnd.ms-opentype",
+            "application/x-font-ttf");
+        for (const auto &mime : font_mimetypes) {
+            if (tolowercase(mime) == tolowercase(tag->value)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 NVEncFilterSubburn::NVEncFilterSubburn() :
     m_subType(0),
     m_formatCtx(),
@@ -303,6 +319,31 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
     }
     ass_set_message_cb(m_assLibrary.get(), ass_log, m_pPrintMes.get());
 
+    if (prm->subburn.fontsdir.length() > 0) {
+        if (!PathFileExists(prm->subburn.fontsdir.c_str()) && !PathIsDirectory(prm->subburn.fontsdir.c_str())) {
+            AddMessage(RGY_LOG_WARN, _T("fontsdir=\"%s\" does not exist, ignored.\n"), prm->subburn.fontsdir.c_str());
+        } else {
+            std::string fontsdir;
+            if (tchar_to_string(prm->subburn.fontsdir.c_str(), fontsdir, CP_UTF8) == 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to convert fontsdir=\"%s\" to UTF8.\n"), prm->subburn.fontsdir.c_str());
+                return RGY_ERR_NULL_PTR;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("Setting fontsdir \"%s\"\n"), prm->subburn.fontsdir.c_str());
+            ass_set_fonts_dir(m_assLibrary.get(), fontsdir.c_str());
+        }
+    }
+    for (const auto& s : prm->attachmentStreams) {
+        if (font_attached(s)) {
+            const AVDictionaryEntry *tag = av_dict_get(s->metadata, "filename", NULL, AV_DICT_MATCH_CASE);
+            if (tag) {
+                AddMessage(RGY_LOG_DEBUG, _T("Loading attached font: %s\n"), char_to_tstring(tag->value).c_str());
+                ass_add_font(m_assLibrary.get(), tag->value, (char *)s->codecpar->extradata, s->codecpar->extradata_size);
+            } else {
+                AddMessage(RGY_LOG_WARN, _T("Font attachment has no filename, ignored.\n"));
+            }
+        }
+    }
+
     ass_set_extract_fonts(m_assLibrary.get(), 1);
     ass_set_style_overrides(m_assLibrary.get(), nullptr);
 
@@ -318,9 +359,7 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
     ass_set_line_spacing(m_assRenderer.get(), 1.0);
     ass_set_shaper(m_assRenderer.get(), (ASS_ShapingLevel)prm->subburn.assShaping);
 
-    const char *font = nullptr;
-    const char *family = "Arial";
-    ass_set_fonts(m_assRenderer.get(), font, family, 1, nullptr, 1);
+    ass_set_fonts(m_assRenderer.get(), nullptr, nullptr, 1, nullptr, 1);
 
     m_assTrack = unique_ptr<ASS_Track, decltype(&ass_free_track)>(ass_new_track(m_assLibrary.get()), ass_free_track);
     if (!m_assTrack) {

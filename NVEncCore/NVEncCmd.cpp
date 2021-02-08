@@ -552,7 +552,8 @@ tstring encoder_help() {
         _T("      vid_ts_offset=<bool>      add timestamp offset to match the first timestamp of\n")
         _T("                                  the video file (default: on)\n")
         _T("                                  (when \"track\" is used this options is always on)\n")
-        _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n"),
+        _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n")
+        _T("      fontsdir=<string>         directory with fonts used.\n"),
         FILTER_DEFAULT_TWEAK_BRIGHTNESS, FILTER_DEFAULT_TWEAK_CONTRAST);
     str += strsprintf(_T("")
         _T("   --vpp-delogo <string>[,<param1>=<value>][,<param2>=<value>][...]\n")
@@ -3019,7 +3020,7 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
         }
         param_list.push_back(tstring(qstr, pstr - qstr));
 
-        const auto paramList = std::vector<std::string>{ "track", "filename", "charcode", "shaping", "scale", "transparency", "brightness", "contrast", "vid_ts_offset", "ts_offset" };
+        const auto paramList = std::vector<std::string>{ "track", "filename", "charcode", "shaping", "scale", "transparency", "brightness", "contrast", "vid_ts_offset", "ts_offset", "fontsdir" };
 
         for (const auto &param : param_list) {
             auto pos = param.find_first_of(_T("="));
@@ -3118,6 +3119,10 @@ int parse_one_option(const TCHAR *option_name, const TCHAR* strInput[], int& i, 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
+                    continue;
+                }
+                if (param_arg == _T("fontsdir")) {
+                    subburn.fontsdir = trim(param_val, _T("\""));
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
@@ -4397,6 +4402,7 @@ tstring gen_cmd(const InEncodeVideoParam *pParams, const NV_ENC_CODEC_CONFIG cod
                 ADD_FLOAT(_T("contrast"), vpp.subburn[i].contrast, 4);
                 ADD_BOOL(_T("vid_ts_offset"), vpp.subburn[i].vid_ts_offset);
                 ADD_FLOAT(_T("ts_offset"), vpp.subburn[i].ts_offset, 4);
+                ADD_PATH(_T("fontsdir"), vpp.subburn[i].fontsdir.c_str());
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);
