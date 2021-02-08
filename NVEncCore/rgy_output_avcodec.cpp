@@ -2432,7 +2432,11 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
     }
     const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
     *writtenDts = av_rescale_q(pkt.dts, streamTimebase, QUEUE_DTS_TIMEBASE);
-    m_Mux.format.streamError |= 0 != av_interleaved_write_frame(m_Mux.format.formatCtx, &pkt);
+    const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, &pkt);
+    if (ret_write != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write video frame: %s.\n"), qsv_av_err2str(ret_write).c_str());
+        m_Mux.format.streamError = true;
+    }
 
     //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
     //どちらかのフィールドがIDRならIDRのフラグを立ててているので、それを参照する
@@ -2659,7 +2663,13 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
         atomic_max(m_Mux.thread.streamOutMaxDts, *writtenDts);
     }
     //av_interleaved_write_frameに渡ったパケットは開放する必要がない
-    m_Mux.format.streamError |= 0 != av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+    const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+    if (ret_write != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
+            get_media_type_string(muxAudio->streamOut->codecpar->codec_id).c_str(),
+            muxAudio->streamOut->index, qsv_av_err2str(ret_write).c_str());
+        m_Mux.format.streamError = true;
+    }
     muxAudio->outputSamples += samples;
 }
 
@@ -2972,7 +2982,13 @@ RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxOther *muxSub, AVPacket *
             pktOut.pts += 90 * ((i == 0) ? sub.start_display_time : sub.end_display_time);
         }
         pktOut.dts = pktOut.pts;
-        m_Mux.format.streamError |= 0 != av_interleaved_write_frame(m_Mux.format.formatCtx, &pktOut);
+        const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, &pktOut);
+        if (ret_write != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
+                get_media_type_string(muxSub->streamOut->codecpar->codec_id).c_str(),
+                muxSub->streamOut->index, qsv_av_err2str(ret_write).c_str());
+            m_Mux.format.streamError = true;
+        }
     }
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
@@ -3009,7 +3025,13 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
     if (pkt->dts != AV_NOPTS_VALUE) {
         atomic_max(m_Mux.thread.streamOutMaxDts, av_rescale_q(pkt->dts, timebase_conv, QUEUE_DTS_TIMEBASE));
     }
-    m_Mux.format.streamError |= 0 != av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+    const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+    if (ret_write != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
+            get_media_type_string(pMuxOther->streamOut->codecpar->codec_id).c_str(),
+            pMuxOther->streamOut->index, qsv_av_err2str(ret_write).c_str());
+        m_Mux.format.streamError = true;
+    }
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 

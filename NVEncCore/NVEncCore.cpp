@@ -955,8 +955,10 @@ NVENCSTATUS NVEncCore::FlushEncoder() {
 
     EncodeBuffer *pEncodeBufer = m_EncodeBufferQueue.GetPending();
     while (pEncodeBufer) {
-        if (ProcessOutput(pEncodeBufer) != NV_ENC_SUCCESS) {
-            nvStatus = NV_ENC_ERR_GENERIC;
+        auto ret = ProcessOutput(pEncodeBufer);
+        if (ret != NV_ENC_SUCCESS) {
+            PrintMes(RGY_LOG_ERROR, _T("Error occurred in ProcessOutput: %d\n"), ret);
+            nvStatus = ret;
         }
         pEncodeBufer = m_EncodeBufferQueue.GetPending();
     }
