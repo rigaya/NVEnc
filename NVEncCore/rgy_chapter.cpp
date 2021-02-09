@@ -31,8 +31,6 @@
 #include "rgy_osdep.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <mlang.h>
-#include <shlwapi.h>
-#pragma comment (lib, "shlwapi.lib")
 #else
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -202,7 +200,7 @@ int ChapterRW::overwrite_file(ChapType out_chapter_type, bool nero_in_utf8) {
     int sts = AUO_CHAP_ERR_NONE;
     std::basic_string<TCHAR> temp_file = m_filepath;
     temp_file += _T(".tmp");
-    for (int i = 0; PathFileExists(temp_file.c_str()); i++) {
+    for (int i = 0; rgy_file_exists(temp_file); i++) {
         temp_file = strsprintf(_T("%s.tmp%d"), m_filepath, i);
     }
     sts = write_file(temp_file.c_str(), out_chapter_type, nero_in_utf8);

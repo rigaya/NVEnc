@@ -30,6 +30,7 @@
 #include <thread>
 #include <memory>
 #include <cstring>
+#include <filesystem>
 #include <cstdio>
 #include <ctime>
 #include <string>
@@ -818,11 +819,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
 #if defined(_WIN32) || defined(_WIN64)
         TCHAR tempDir[1024] = { 0 };
-        TCHAR tempPath[1024] = { 0 };
         GetModuleFileName(NULL, tempDir, _countof(tempDir));
-        PathRemoveFileSpec(tempDir);
-        PathCombine(tempPath, tempDir, strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), GetProcessId(GetCurrentProcess())).c_str());
-        m_sPywPath = tempPath;
+        m_sPywPath = std::filesystem::path(tempDir).remove_filename().append(strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), GetProcessId(GetCurrentProcess())));
         uint32_t priority = NORMAL_PRIORITY_CLASS;
 #else
         m_sPywPath = tstring(_T("/tmp/")) + strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), (int)getpid());

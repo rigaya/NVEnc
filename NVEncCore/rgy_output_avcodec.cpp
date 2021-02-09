@@ -1733,8 +1733,8 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
                 filename = "pipe:1";
                 AddMessage(RGY_LOG_DEBUG, _T("output is set to stdout\n"));
             } else if (m_printMes->getLogLevel() == RGY_LOG_DEBUG) {
-                AddMessage(RGY_LOG_DEBUG, _T("file name is %sunc path.\n"), (PathIsUNC(strFileName)) ? _T("") : _T("not "));
-                if (PathFileExists(strFileName)) {
+                //AddMessage(RGY_LOG_DEBUG, _T("file name is %sunc path.\n"), (PathIsUNC(strFileName)) ? _T("") : _T("not "));
+                if (rgy_file_exists(strFileName)) {
                     AddMessage(RGY_LOG_DEBUG, _T("file already exists and will overwrite.\n"));
                 }
             }

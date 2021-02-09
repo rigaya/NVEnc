@@ -30,6 +30,7 @@
 #include <array>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <algorithm>
 #include <numeric>
 #define _USE_MATH_DEFINES
@@ -131,7 +132,7 @@ RGY_ERR NVEncFilterSubburn::checkParam(const std::shared_ptr<NVEncFilterParamSub
         AddMessage(RGY_LOG_ERROR, _T("track and filename should not be set at the same time.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->subburn.filename.length() > 0 && !PathFileExists(prm->subburn.filename.c_str())) {
+    if (prm->subburn.filename.length() > 0 && !rgy_file_exists(prm->subburn.filename.c_str())) {
         AddMessage(RGY_LOG_ERROR, _T("subtitle file \"%s\" does not exist\n"), prm->subburn.filename.c_str());
         return RGY_ERR_INVALID_PARAM;
     }
@@ -320,7 +321,7 @@ RGY_ERR NVEncFilterSubburn::InitLibAss(const std::shared_ptr<NVEncFilterParamSub
     ass_set_message_cb(m_assLibrary.get(), ass_log, m_pPrintMes.get());
 
     if (prm->subburn.fontsdir.length() > 0) {
-        if (!PathFileExists(prm->subburn.fontsdir.c_str()) && !PathIsDirectory(prm->subburn.fontsdir.c_str())) {
+        if (!std::filesystem::exists(std::filesystem::path(prm->subburn.fontsdir))) {
             AddMessage(RGY_LOG_WARN, _T("fontsdir=\"%s\" does not exist, ignored.\n"), prm->subburn.fontsdir.c_str());
         } else {
             std::string fontsdir;

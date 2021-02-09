@@ -30,10 +30,6 @@
 #define __RGY_UTIL_H__
 
 #include "rgy_tchar.h"
-#if defined(_WIN32) || defined(_WIN64)
-#include <shlwapi.h>
-#pragma comment(lib, "shlwapi.lib")
-#endif
 #include <vector>
 #include <array>
 #include <string>
@@ -563,6 +559,8 @@ std::vector<std::string> sep_cmd(const std::string &cmd);
 
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
 std::string GetFullPath(const char *path);
+bool rgy_file_exists(const std::string& filepath);
+bool rgy_file_exists(const std::wstring& filepath);
 bool rgy_get_filesize(const char *filepath, uint64_t *filesize);
 std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
 std::string PathRemoveExtensionS(const std::string& path);
@@ -623,9 +621,7 @@ bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
 bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list);
 
 //拡張子が一致するか確認する
-static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
-    return (_tcsicmp(PathFindExtension(filename), ext) == 0) ? TRUE : FALSE;
-}
+BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext);
 
 int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 

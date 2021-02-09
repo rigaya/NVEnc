@@ -1442,7 +1442,7 @@ shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile,
         }
 #endif
     } else {
-        if (!PathFileExists(weightFile.c_str())) {
+        if (!rgy_file_exists(weightFile)) {
             AddMessage(RGY_LOG_ERROR, _T("weight file \"%s\" does not exist.\n"), weightFile.c_str());
         } else if (!rgy_get_filesize(weightFile.c_str(), &weightFileSize)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get filesize of weight file \"%s\".\n"), weightFile.c_str());

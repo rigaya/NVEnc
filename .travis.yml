@@ -11,12 +11,6 @@ branches:
 matrix:
   fast_finish: true
   include:
-    - name: gcc 7 + CUDA 10 build
-      compiler: gcc
-      dist: bionic
-      env:
-      - CC=gcc
-      - CXX=g++
     - name: gcc 8 + CUDA 10 build
       compiler: gcc
       dist: bionic

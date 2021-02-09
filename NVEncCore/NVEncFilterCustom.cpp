@@ -100,7 +100,7 @@ RGY_ERR NVEncFilterCustom::check_param(shared_ptr<NVEncFilterParamCustom> prm) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"pixelPerThreadY\": %d\n"), prm->custom.pixelPerThreadY);
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->custom.kernel.length() == 0 && !PathFileExists(prm->custom.kernel_path.c_str())) {
+    if (prm->custom.kernel.length() == 0 && !rgy_file_exists(prm->custom.kernel_path.c_str())) {
         AddMessage(RGY_LOG_ERROR, _T("custom kernel not specified.\n"));
         return RGY_ERR_INVALID_PARAM;
     }

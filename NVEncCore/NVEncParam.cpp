@@ -1011,7 +1011,7 @@ void VppAfs::set_preset(int preset) {
 }
 
 int VppAfs::read_afs_inifile(const TCHAR* inifile) {
-    if (!PathFileExists(inifile)) {
+    if (!rgy_file_exists(inifile)) {
         return 1;
     }
     const auto filename = tchar_to_string(inifile);

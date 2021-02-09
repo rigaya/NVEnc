@@ -245,7 +245,7 @@ bool metadata_clear(const std::vector<tstring> &metadata) {
 #if !FOR_AUO
 unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log) {
     unique_ptr<RGYHDR10Plus> hdr10plus;
-    if (!PathFileExists(dynamicHdr10plusJson.c_str())) {
+    if (!rgy_file_exists(dynamicHdr10plusJson)) {
         log->write(RGY_LOG_ERROR, _T("Cannot find the file specified : %s.\n"), dynamicHdr10plusJson.c_str());
     } else {
         hdr10plus = std::unique_ptr<RGYHDR10Plus>(new RGYHDR10Plus());

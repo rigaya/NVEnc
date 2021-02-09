@@ -655,7 +655,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
     if (enable_conf_interval) {
         VmafModel *model_ptr = nullptr;
         VmafModelCollection *model_collection_ptr = nullptr;
-        if (PathFileExistsA(model_str.c_str())) {
+        if (rgy_file_exists(model_str)) {
             m_vmaf.error = vmaf_model_collection_load_from_path(&model_ptr, &model_collection_ptr, &model_cfg, model_str.c_str());
             if (m_vmaf.error) {
                 AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model.c_str());
@@ -679,7 +679,7 @@ RGY_ERR NVEncFilterSsim::thread_func_vmaf() {
         model_collection.reset(model_collection_ptr);
     } else {
         VmafModel *model_ptr = nullptr;
-        if (PathFileExistsA(model_str.c_str())) {
+        if (rgy_file_exists(model_str)) {
             m_vmaf.error = vmaf_model_load_from_path(&model_ptr, &model_cfg, model_str.c_str());
             if (m_vmaf.error) {
                 AddMessage(RGY_LOG_ERROR, _T("problem loading model file: %s\n"), prm->vmaf.model.c_str());
