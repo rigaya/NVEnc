@@ -331,13 +331,12 @@ else
 fi
 cnf_write "OK"
 
-if cxx_check "c++14" "${CXXFLAGS} -std=c++14 ${LDFLAGS}" ; then
-    CXXFLAGS="$CXXFLAGS -std=c++14"
+if cxx_check "c++17" "${CXXFLAGS} -std=c++17 ${LDFLAGS}" ; then
+    cnf_write "OK"
 else
-    cnf_write "${CXX} does not work with -std=c++14"
+    cnf_write "${CXX} does not work with -std=c++17"
     exit 1
 fi
-cnf_write "OK"
 
 if cxx_check "-msse4.1" "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
     if cxx_check "-march=native" "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
@@ -674,8 +673,8 @@ write_config_mak "NVCC = $NVCC"
 write_config_mak "LD   = $CXX"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
-write_config_mak "NVCCFLAGS = $NVCCFLAGS -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
+write_config_mak "CXXFLAGS = $CXXFLAGS -std=c++17 $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
+write_config_mak "NVCCFLAGS = $NVCCFLAGS -std=c++14 -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBVMAF_LIBS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
