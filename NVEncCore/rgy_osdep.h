@@ -224,51 +224,6 @@ static inline int sprintf_s(char *dst, size_t size, const char* format, ...) {
     return ret;
 }
 
-static inline char *_fullpath(char *dst, const char *path, size_t size) {
-    return realpath(path, dst);
-}
-
-static inline const char *PathFindExtension(const char *path) {
-    return strrchr(basename(path), '.');
-}
-
-static inline const char *PathFindFileName(const char *path) {
-    const int path_len = strlen(path) + 1;
-    char *const buffer = (char *)calloc(path_len, sizeof(buffer[0]));
-    if (buffer == nullptr) {
-        return nullptr;
-    }
-    memcpy(buffer, path, path_len);
-    char *ptr_basename = basename(buffer);
-    const char *ptr_ret = nullptr;
-    if (!(ptr_basename == nullptr || *ptr_basename == '.' || ptr_basename < buffer || buffer + path_len <= ptr_basename)) {
-        ptr_ret = path + (ptr_basename - buffer);
-    }
-    free(buffer);
-    return ptr_ret;
-}
-#define PathFindFileNameA PathFindFileName
-
-static inline int PathFileExists(const char *path) {
-    struct stat st;
-    return 0 == stat(path, &st) && !S_ISDIR(st.st_mode);
-}
-static inline int PathIsDirectory(const char *dir) {
-    struct stat st;
-    return 0 == stat(dir, &st) && S_ISDIR(st.st_mode);
-}
-static inline BOOL CreateDirectory(const char *dir, void *dummy) {
-    return mkdir(dir, S_IRWXU | S_IRWXG | S_IRWXO) == 0 ? 1 : 0;
-}
-#define PathFileExistsA PathFileExists
-#define PathIsDirectoryA PathIsDirectory
-#define CreateDirectoryA CreateDirectory
-#define PathFindExtensionA PathFindExtension
-
-static inline int PathIsUNC(const char *path) {
-    return 0;
-}
-
 static inline int fopen_s(FILE **pfp, const char *filename, const char *mode) {
     FILE *fp = fopen(filename, mode);
     *pfp = fp;
