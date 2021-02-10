@@ -2319,6 +2319,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     if (sel.disposition.length() > 0) {
                         tmp << _T(";disposition=") << sel.disposition;
                     }
+                    for (const auto& metadata : sel.metadata) {
+                        tmp << _T(";metadata=") << metadata;
+                    }
                 }
                 if (!tmp.str().empty()) {
                     cmd << tmp.str().substr(1);
@@ -2371,6 +2374,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     }
                     if (sel.disposition.length() > 0) {
                         tmp << _T(";disposition=") << sel.disposition;
+                    }
+                    for (const auto& metadata : sel.metadata) {
+                        tmp << _T(";metadata=") << metadata;
                     }
                 }
                 if (!tmp.str().empty()) {
