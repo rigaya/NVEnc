@@ -59,7 +59,7 @@ Finally, open NVEnc.sln, and start build of NVEnc by Visual Studio.
 ### 0. Requirements
 
 - GPU Driver 435.21 or later
-- C++14 Compiler
+- C++17 Compiler
 - CUDA 10
 - git
 - libraries
@@ -231,7 +231,7 @@ H.265/HEVC
 ### 0. Requirements
 
 - GPU Driver 435.21 or later
-- C++14 Compiler
+- C++17 Compiler
 - CUDA 10
 - git
 - libraries
