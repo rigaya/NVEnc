@@ -668,7 +668,7 @@ RGY_ERR initWriters(
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =
         ((common->muxOutputFormat.length() > 0 && 0 == _tcscmp(common->muxOutputFormat.c_str(), _T("raw")))) //--formatにrawが指定されている
-        || std::filesystem::path(common->outputFilename).extension().empty() //拡張子がしない
+        || std::filesystem::path(common->outputFilename).extension().empty() //拡張子がない
         || check_ext(common->outputFilename.c_str(), { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc" }); //特定の拡張子
     if (!useH264ESOutput) {
         common->AVMuxTarget |= RGY_MUX_VIDEO;
