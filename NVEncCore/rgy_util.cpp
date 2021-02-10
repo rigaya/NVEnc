@@ -558,7 +558,7 @@ bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list
 }
 
 BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
-    return tolowercase(std::filesystem::path(filename).extension().wstring()) == tolowercase(tchar_to_wstring(ext));
+    return tolowercase(std::filesystem::path(filename).extension().string()) == tolowercase(tchar_to_string(ext));
 }
 
 bool rgy_file_exists(const std::string& filepath) {
