@@ -70,7 +70,7 @@ __global__ void kernel_sobel(
         const int p01 = SRC(x1, y0);
         const int p02 = SRC(x2, y0);
         const int p10 = SRC(x0, y1);
-        const int p11 = SRC(x1, y1);
+        //const int p11 = SRC(x1, y1);
         const int p12 = SRC(x2, y1);
         const int p20 = SRC(x0, y2);
         const int p21 = SRC(x1, y2);
@@ -169,8 +169,6 @@ __global__ void kernel_warp(
     const uint8_t *__restrict__ pEdge, const int edgePitch,
     const int width, const int height,
     const float depth) {
-    const int lx = threadIdx.x;
-    const int ly = threadIdx.y;
     const int imgx = blockIdx.x * blockDim.x + threadIdx.x;
     const int imgy = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -199,8 +197,6 @@ template<typename Type>
 __global__ void kernel_downscale(
     uint8_t *__restrict__ pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     const uint8_t *__restrict__ pSrc, const int srcPitch) {
-    const int lx = threadIdx.x;
-    const int ly = threadIdx.y;
     const int idstx = blockIdx.x * blockDim.x + threadIdx.x;
     const int idsty = blockIdx.y * blockDim.y + threadIdx.y;
 
