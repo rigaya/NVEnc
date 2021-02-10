@@ -91,6 +91,8 @@
 #pragma warning(push)
 #pragma warning(disable: 4244)
 #pragma warning(disable: 4834)
+RGY_DISABLE_WARNING_PUSH
+RGY_DISABLE_WARNING_STR("-Wunused-result")
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"
 #if _M_IX86
@@ -98,6 +100,7 @@ typedef ttmath::Int<4> ttint128;
 #else
 typedef ttmath::Int<2> ttint128;
 #endif
+RGY_DISABLE_WARNING_POP
 #pragma warning(pop)
 
 
