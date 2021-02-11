@@ -24,19 +24,6 @@ matrix:
             - *native_deps
             - gcc-8
             - g++-8
-    - name: clang 8 + CUDA 10 build
-      compiler: clang
-      dist: bionic
-      env:
-      - CC=clang-8
-      - CXX=clang++-8
-      addons:
-        apt:
-          sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-xenial-8']
-          packages:
-            - *native_deps
-            - clang-8
-            - clang++-8
 
 before_install:
   - wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
