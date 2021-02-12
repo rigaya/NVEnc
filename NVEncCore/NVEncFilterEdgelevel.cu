@@ -92,7 +92,7 @@ __global__ void kernel_edgelevel(uint8_t *__restrict__ pDst, const int dstPitch,
         }
 
         Type *ptr = (Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)(clamp(center, 0.0f, 1.0f - RGY_FLT_EPS) * ((1 << (bit_depth) - 1)));
+        ptr[0] = (Type)(clamp(center, 0.0f, 1.0f - RGY_FLT_EPS) * ((1 << bit_depth) - 1));
     }
 }
 
