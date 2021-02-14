@@ -2064,6 +2064,16 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
     if (IS_OPTION("debug-cmd-parser")) {
         return 0;
     }
+#if defined(_WIN32) || defined(_WIN64)
+    if (IS_OPTION("process-codepage")) {
+        i++;
+        return 0;
+    }
+    if (IS_OPTION("process-codepage-applied")) {
+        i++;
+        return 0;
+    }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     return -10;
 }
 
@@ -2769,6 +2779,11 @@ tstring gen_cmd_help_ctrl() {
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
     str += strsprintf(_T("\n")
         _T("   --avsdll <string>            specifies AviSynth DLL location to use.\n"));
+#if defined(_WIN32) || defined(_WIN64)
+    str += strsprintf(_T("\n")
+        _T("   --process-codepage <string>  utf8 ... use UTF-8 (default)\n")
+        _T("                                os   ... use the codepage set in Operating System.\n"));
+#endif //#if defined(_WIN32) || defined(_WIN64)
     str += strsprintf(_T("\n")
         _T("   --perf-monitor [<string>][,<string>]...\n")
         _T("       check performance info of encoder and output to log file\n")

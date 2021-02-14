@@ -163,7 +163,8 @@ const char *codepage_str(uint32_t codepage) {
     case CODE_PAGE_JIS:
         return "ISO2022JP";
     case CODE_PAGE_UTF8:
-    default:
         return "UTF-8";
+    default:
+        return nullptr;
     }
 }

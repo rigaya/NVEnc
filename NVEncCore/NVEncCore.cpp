@@ -4578,7 +4578,11 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     const RGY_CODEC rgy_codec = codec_guid_enc_to_rgy(m_stCodecGUID);
     auto sar = get_sar(m_uEncWidth, m_uEncHeight, m_stCreateEncodeParams.darWidth, m_stCreateEncodeParams.darHeight);
     add_str(RGY_LOG_ERROR, _T("%s\n"), get_encoder_version());
-    add_str(RGY_LOG_INFO,  _T("OS Version     %s\n"), getOSVersion().c_str());
+#if defined(_WIN32) || defined(_WIN64)
+    add_str(RGY_LOG_INFO,  _T("OS Version     %s [%s]\n"), getOSVersion().c_str(), getACPCodepageStr().c_str());
+#else
+    add_str(RGY_LOG_INFO,  _T("OS Version     %s\n"), getOSVersion().c_str(), getACPCodepageStr().c_str());
+#endif
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
     add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info.c_str());
     add_str(RGY_LOG_INFO,  _T("NVENC / CUDA   NVENC API %d.%d, CUDA %d.%d, schedule mode: %s\n"),

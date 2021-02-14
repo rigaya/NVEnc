@@ -633,23 +633,28 @@ bool PathFileExistsW(const WCHAR *filename) {
     return std::filesystem::exists(path) && std::filesystem::is_regular_file(path);
 }
 
-tstring getExeDir() {
+
+tstring getExePath() {
     TCHAR exePath[1024];
     memset(exePath, 0, sizeof(exePath));
     GetModuleFileName(NULL, exePath, _countof(exePath));
-    return PathRemoveFileSpecFixed(tstring(exePath)).second;
+    return exePath;
 }
+
 #else
-tstring getExeDir() {
+tstring getExePath() {
     char prg_path[4096];
     auto ret = readlink("/proc/self/exe", prg_path, sizeof(prg_path));
     if (ret <= 0) {
         prg_path[0] = '\0';
     }
-    return char_to_tstring(PathRemoveFileSpecFixed(prg_path).second);
+    return prg_path;
 }
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
+tstring getExeDir() {
+    return PathRemoveFileSpecFixed(getExePath()).second;
+}
 
 tstring print_time(double time) {
     int sec = (int)time;
@@ -925,6 +930,17 @@ uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+tstring getACPCodepageStr() {
+    const auto codepage = GetACP();
+    auto codepage_ptr = codepage_str((uint32_t)codepage);
+    if (codepage_ptr != nullptr) {
+        return char_to_tstring(codepage_ptr);
+    }
+    return _T("CP") + char_to_tstring(std::to_string(codepage));
+}
+#endif
+
 tstring getEnviromentInfo(int device_id) {
     tstring buf;
 
@@ -937,7 +953,7 @@ tstring getEnviromentInfo(int device_id) {
 #if defined(_WIN32) || defined(_WIN64)
     OSVERSIONINFOEXW osversioninfo = { 0 };
     tstring osversionstr = getOSVersion(&osversioninfo);
-    buf += strsprintf(_T("OS : %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+    buf += strsprintf(_T("OS : %s %s (%d) [%s]\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber, getACPCodepageStr().c_str());
 #else
     buf += strsprintf(_T("OS : %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
 #endif

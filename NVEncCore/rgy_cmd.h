@@ -51,6 +51,11 @@ struct sArgsData {
 
 #define IS_OPTION(x) (0 == _tcscmp(option_name, _T(x)))
 
+#if defined(_WIN32) || defined(_WIN64)
+static const auto CODEPAGE_CMDARG = _T("--process-codepage");
+static const auto CODEPAGE_CMDARG_APPLIED = _T("--process-codepage-applied");
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
 tstring encoder_help();
 const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
 int cmd_string_to_bool(bool *b, const tstring &str);

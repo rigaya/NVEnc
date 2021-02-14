@@ -134,7 +134,7 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
 #if defined(_WIN32) || defined(_WIN64)
         OSVERSIONINFOEXW osversioninfo = { 0 };
         tstring osversionstr = getOSVersion(&osversioninfo);
-        write(RGY_LOG_DEBUG, _T("OS        %s %s (%d)\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+        write(RGY_LOG_DEBUG, _T("OS        %s %s (%d) [%s]\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber, getACPCodepageStr().c_str());
 #else
         write(RGY_LOG_DEBUG, _T("OS        %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
 #endif
