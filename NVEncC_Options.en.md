@@ -184,7 +184,7 @@ Read Avisynth script file using avs reader.
 
 NVEncC works on UTF-8 mode as default, so the Avisynth script is required to be also in UTF-8 when using non ASCII characters.
 When using scripts in the default codepage of the OS, such as ANSI,
-you will need to add "--process-codepage os" option to change NVEncC also work on the default codepage of the OS.
+you will need to add "[--process-codepage](#--process-codepage-string-windows-os-only) os" option to change NVEncC also work on the default codepage of the OS.
 
 ### --vpy
 Read VapourSynth script file using vpy reader.
@@ -1700,23 +1700,23 @@ add padding to left,top,right,bottom (in pixels)
   - simple
   - complex (default)
 
-- scale=&lt;float&gt; (default=0.0 (auto))
+- scale=&lt;float&gt; (default=0.0 (auto))  
   scaling multiplizer for bitmap fonts.  
 
-- transparency=&lt;float&gt; (default=0.0, 0.0 - 1.0)
+- transparency=&lt;float&gt; (default=0.0, 0.0 - 1.0)  
   adds additional transparency for subtitle.  
 
-- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)
+- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
   modifies brightness of the subtitle.  
 
-- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)
+- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
   modifies contrast of the subtitle.  
   
 - vid_ts_offset=&lt;bool&gt;  
   add timestamp offset to match the first timestamp of the video file (default on)　　
   Please note that when \"track\" is used, this options is always on.
 
-- ts_offset=&lt;float&gt; (default=0.0)
+- ts_offset=&lt;float&gt; (default=0.0)  
   add offset in seconds to the subtitle timestamps (for debug perpose).  
 
 - fontsdir=&lt;string&gt;  

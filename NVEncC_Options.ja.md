@@ -197,7 +197,7 @@ NVEncの入力方法は下の表のとおり。入力フォーマットをして
 
 NVEncCはデフォルトではUTF-8モードで動作するため、AvisynthスクリプトはUTF-8(BOM無し)とする必要がある。
 一般的なShiftJISがデフォルトの文字コードとなっている環境で、従来のShiftJISのスクリプトを使用する場合には、
-"--process-codepage os" オプションを追加して、モードを切り替えてください。
+"[--process-codepage](#--process-codepage-string) os" オプションを追加して、モードを切り替えてください。
 
 ### --vpy
 入力ファイルをVapourSynthで読み込む。
@@ -1751,23 +1751,23 @@ unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
   - simple
   - complex (デフォルト)
 
-- scale=&lt;float&gt; (デフォルト=0.0 (auto))
+- scale=&lt;float&gt; (デフォルト=0.0 (auto))  
   bitmap形式の字幕の表示サイズの倍率  
 
-- transparency=&lt;float&gt; (デフォルト=0.0, 0.0 - 1.0)
+- transparency=&lt;float&gt; (デフォルト=0.0, 0.0 - 1.0)  
   字幕に透過性を追加する。  
 
-- brightness=&lt;float&gt; (デフォルト=0.0, -1.0 - 1.0)
+- brightness=&lt;float&gt; (デフォルト=0.0, -1.0 - 1.0)  
   字幕の輝度の調整を行う。  
 
-- contrast=&lt;float&gt; (デフォルト=1.0, -2.0 - 2.0)
+- contrast=&lt;float&gt; (デフォルト=1.0, -2.0 - 2.0)  
   字幕のコントラストの調整を行う。  
   
 - vid_ts_offset=&lt;bool&gt;  
-  動画ファイルの最初のタイムスタンプに合わせて、タイムスタンプを補正する。 (デフォルト=on)
+  動画ファイルの最初のタイムスタンプに合わせて、タイムスタンプを補正する。 (デフォルト=on)  
   なお、"track"を使用する場合は、このオプションは常にオンになります。
 
-- ts_offset=&lt;float&gt; (デフォルト=0.0)
+- ts_offset=&lt;float&gt; (デフォルト=0.0)  
   字幕のtimestampを秒単位で調整(デバッグ用)  
 
 - fontsdir=&lt;string&gt;  
@@ -1921,10 +1921,10 @@ avsw/avhw読み込み時のデバッグ情報出力。
 使用するAvsiynth.dllを指定するオプション。特に指定しない場合、システムのAvisynth.dllが使用される。
 
 ### --process-codepage &lt;string&gt;  
-- utf8
+- utf8  
   プロセスの文字コードとしてUTF-8を使用する。(デフォルト)
   
-- os
+- os  
   プロセスの使用する文字コードをデフォルトのUTF-8から、OSで設定されている(SJIS等の)文字コードに切り替える。
   通常通りOSでSJISを使用している場合に、SJISのAvisynthスクリプトを読み込ませる際に必要。
 
