@@ -4581,7 +4581,7 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
 #if defined(_WIN32) || defined(_WIN64)
     add_str(RGY_LOG_INFO,  _T("OS Version     %s [%s]\n"), getOSVersion().c_str(), getACPCodepageStr().c_str());
 #else
-    add_str(RGY_LOG_INFO,  _T("OS Version     %s\n"), getOSVersion().c_str(), getACPCodepageStr().c_str());
+    add_str(RGY_LOG_INFO,  _T("OS Version     %s\n"), getOSVersion().c_str());
 #endif
     add_str(RGY_LOG_INFO,  _T("CPU            %s\n"), cpu_info);
     add_str(RGY_LOG_INFO,  _T("GPU            %s\n"), gpu_info.c_str());
