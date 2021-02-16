@@ -128,6 +128,7 @@ which might cause problem in some playback environments.
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
       - various algorithms by npp library are available (x64 version only)
+    - transpose / rotate / flip
     - padding
     - select-every
     - deband

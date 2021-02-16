@@ -132,6 +132,7 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
       - nppライブラリによる各種アルゴリズム (x64版のみ)
+    - 回転 / 反転
     - パディング(黒帯)の追加
     - フレーム間引き(select every)
     - バンディング低減
