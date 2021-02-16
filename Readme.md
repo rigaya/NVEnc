@@ -157,6 +157,37 @@ which might cause problem in some playback environments.
     - unsharp
     - edgelevel (edge ​​level adjustment)
   - deband
+  
+#### Auto GPU selection in multi GPU envinronment
+NVEncC will automatically select a GPU depending on the options used,
+when there are multiple GPUs available which support NVENC.
+--device option can be used to specify on which GPU to run manually. 
+
+1. Select GPU which supports...  
+  Items below will be checked whether the GPU supports it or not  
+  - Codec, Profile, Level
+  - Additionally, below items will be checked if specified
+    - 10bit depth encoding
+    - Lossless encoding
+    - Interlaced encoding
+    - HW decode support for ssim/psnr/vmaf calculation
+  
+2. Prefer GPU which supports...  
+  - B frame support
+  
+3. If there are multiple GPUs which suports all the items checked in 1. and 2., GPU below will be prefered.  
+  - GPU which has low Video Engine(VE) utilization
+  - GPU which has low GPU core utilization
+  - newer Generation GPU
+  - GPU with more CUDA cores
+  
+  The purpose of selecting GPU with lower VE/GPU ulitization is to assign tasks to mulitple GPUs
+  and improve the throughput of the tasks. Also, newer Gen GPU and GPU with more cores are assumed to
+  have improved performance.  
+  
+  Please note that VE and GPU ulitization are check at the initialization pahse of the app,
+  and there are delays in values taken. Therefore, it is likely that the multiple tasks started at the same time
+  to run on the same GPU, and divided into multiple GPUs, even if the options are supported in every GPUs.
 
 ### NVEnc source code
 - MIT license.
