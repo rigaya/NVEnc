@@ -1065,7 +1065,7 @@ avsw/avhwでの読み込み時にオプションパラメータを渡す。&lt;s
 
 ```
 例: Blurayのplaylist 1を読み込み
--i bluray:D:\ --input-option palylist:1
+-i bluray:D:\ --input-option playlist:1
 ```
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
