@@ -156,9 +156,11 @@ which might cause problem in some playback environments.
   - edge / detail enhancement
     - unsharp
     - edgelevel (edge ​​level adjustment)
-  - deband
-  
-#### Auto GPU selection in multi GPU envinronment
+  - deband  
+
+
+## Auto GPU selection in multi GPU envinronment
+
 NVEncC will automatically select a GPU depending on the options used,
 when there are multiple GPUs available which support NVENC.
 --device option can be used to specify on which GPU to run manually. 
@@ -189,7 +191,7 @@ when there are multiple GPUs available which support NVENC.
   and there are delays in values taken. Therefore, it is likely that the multiple tasks started at the same time
   to run on the same GPU, and divided into multiple GPUs, even if the options are supported in every GPUs.
 
-### NVEnc source code
+## NVEnc source code
 - MIT license.
 - This program is based on NVIDA CUDA Samples and includes sample code.
   This software contains source code provided by NVIDIA Corporation.

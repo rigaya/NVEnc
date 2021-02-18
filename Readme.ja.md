@@ -155,9 +155,11 @@ NVEncによる出力は、max_dec_frame_buffering フィールドを含まない
   - 輪郭・ディテール強調
     - unsharp
     - edgelevel (エッジレベル調整)
-  - バンディング低減
+  - バンディング低減  
 
-#### マルチGPU環境でのGPU自動選択
+
+## マルチGPU環境でのGPU自動選択
+
 NVEncCでは、NVENCを実行可能なGPUが複数存在する場合、
 指定されたオプションをもとに実行時に最適なGPUを自動選択します。
 自動選択に任せず、自分でGPUを選択する場合には--deviceオプションで指定してください。
@@ -186,7 +188,7 @@ NVEncCでは、NVENCを実行可能なGPUが複数存在する場合、
   エンコードをほぼ同時に複数開始すると、複数のエンコードが同じGPUに割り当てられてしまうことが
   多いのでご注意ください。
 
-### NVEncのソースコードについて
+## NVEncのソースコードについて
 - MITライセンスです。
 - 本プログラムは、NVIDA CUDA Samplesをベースに作成されており、サンプルコードを含みます。  
   This software contains source code provided by NVIDIA Corporation.  
