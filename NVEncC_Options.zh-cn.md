@@ -933,7 +933,7 @@ matroska格式 (utf-8)
 
 ```
 示例: 读取BD的Playlist 1
--i bluray:D:\ --input-option palylist:1
+-i bluray:D:\ --input-option playlist:1
 ```
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
