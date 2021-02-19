@@ -1378,7 +1378,7 @@ __global__ void kernel_filter(
     const int srcPitch, const int srcWidth, const int srcHeight, bool srcInterlaced) {
     const int ix = (blockIdx.x * blockDim.x + threadIdx.x) * PIX_PER_THREAD;
     const int iy =  blockIdx.y * blockDim.y + threadIdx.y;
-    if (ix + PIX_PER_THREAD - 1 < dstWidth && iy < dstHeight) {
+    if (ix < dstWidth && iy < dstHeight) {
 
         TYPE4 srcY = *(TYPE4 *)(pSrcY + iy * srcPitch + ix * sizeof(T));
         TYPE4 srcU = *(TYPE4 *)(pSrcU + iy * srcPitch + ix * sizeof(T));
@@ -1651,6 +1651,10 @@ RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInf
     if (sts_filter != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), custom->name().c_str());
         return sts_filter;
+    }
+    if (ppOutputFrames[0]->pitch % 4 != 0) { // あとからでもチェックしておく
+        AddMessage(RGY_LOG_ERROR, _T("Invalid pitch!\n"));
+        return RGY_ERR_UNSUPPORTED;
     }
     return sts;
 #else
