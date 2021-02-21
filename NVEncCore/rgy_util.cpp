@@ -72,7 +72,9 @@ unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t c
         str = "";
         return 0;
     }
-    auto ic = iconv_open(codepage_str(codepage), "wchar_t"); //to, from
+    auto codepage_str_to = codepage_str(codepage);
+    if (codepage_str_to == nullptr) codepage_str_to = "UTF-8";
+    auto ic = iconv_open(codepage_str_to, "wchar_t"); //to, from
     auto input_len = (wcslen(wstr)+1) * 4;
     std::vector<char> buf(input_len, 0);
     memcpy(buf.data(), wstr, input_len);
@@ -204,7 +206,9 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
         wstr = L"";
         return 0;
     }
-    auto ic = iconv_open("wchar_t", codepage_str(codepage)); //to, from
+    auto codepage_str_from = codepage_str(codepage);
+    if (codepage_str_from == nullptr) codepage_str_from = "UTF-8";
+    auto ic = iconv_open("wchar_t", codepage_str_from); //to, from
     if ((int64_t)ic == -1) {
         fprintf(stderr, "iconv_error\n");
     }
@@ -226,12 +230,16 @@ unsigned int char_to_string(std::string& dst, uint32_t codepage_to, const char *
         dst = "";
         return 0;
     }
+    auto codepage_str_from = codepage_str(codepage_from);
+    if (codepage_str_from == nullptr) codepage_str_from = "UTF-8";
+    auto codepage_str_to = codepage_str(codepage_to);
+    if (codepage_str_to == nullptr) codepage_str_to = "UTF-8";
     if (codepage_to == codepage_from
-        || strcmp(codepage_str(codepage_to), codepage_str(codepage_from)) == 0) {
+        || strcmp(codepage_str_to, codepage_str_from) == 0) {
         dst = src;
         return dst.length();
     }
-    auto ic = iconv_open(codepage_str(codepage_to), codepage_str(codepage_from)); //to, from
+    auto ic = iconv_open(codepage_str_to, codepage_str_from); //to, from
     if ((int64_t)ic == -1) {
         fprintf(stderr, "iconv_error\n");
     }
