@@ -313,7 +313,7 @@ if ( [ $CUDA_VER_MAJOR -ge 11 ] && [ $CUDA_VER_MINOR -ge 1 ] ) || [ $CUDA_VER_MA
 fi
 cnf_write "OK, CUDA ${CUDA_VER_MAJOR}.${CUDA_VER_MINOR}"
 
-NVCCFLAGS="${GPU_CODE_GEN} --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
+NVCCFLAGS="${GPU_CODE_GEN} -Wno-deprecated-gpu-targets --cudart=static -std=c++14 -Xcudafe \"--display_error_number --diag_suppress=108\""
 
 for file in "${CXX}"; do
 if [ ! `which $file 2> /dev/null` ]; then
