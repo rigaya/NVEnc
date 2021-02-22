@@ -124,9 +124,9 @@ ENABLE_VAPOURSYNTH=1
 VAPOURSYNTH_LIBS=""
 VAPOURSYNTH_CFLAGS=""
 
-CHECK_AVXSYNTH_NAMES="avxsynth"
-ENABLE_AVXSYNTH=1
-AVXSYNTH_CFLAGS=""
+CHECK_AVISYNTH_NAMES="avisynth"
+ENABLE_AVISYNTH=1
+AVISYNTH_CFLAGS=""
 
 CHECK_LIBASS_NAMES="libass"
 LIBASS_CFLAGS=""
@@ -162,6 +162,7 @@ options:
   --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
 
   --disable-vapoursynth    disable vapoursynth support [auto]
+  --disable-avisynth       disable avisynth support [auto]
   --disable-libass         disable libass support [auto]
   --disable-dtl            disable dtl support [auto]
 EOF
@@ -207,6 +208,9 @@ for opt; do
         --disable-vapoursynth)
             ENABLE_VAPOURSYNTH=0
             ;;
+        --disable-avisynth)
+            ENABLE_AVISYNTH=0
+            ;;
         --disable-libass)
             ENABLE_LIBASS=0
             ;;
@@ -244,7 +248,7 @@ echo "ENABLE_CPP_REGEX=${ENABLE_CPP_REGEX}" >> ${CNF_LOG}
 echo "CHECK_LIBAV_NAMES=${CHECK_LIBAV_NAMES}" >> ${CNF_LOG}
 echo "ENABLE_AVSW_READER=${ENABLE_AVSW_READER}" >> ${CNF_LOG}
 echo "ENABLE_VAPOURSYNTH=${ENABLE_VAPOURSYNTH}" >> ${CNF_LOG}
-echo "ENABLE_AVXSYNTH=${ENABLE_AVXSYNTH}" >> ${CNF_LOG}
+echo "ENABLE_AVISYNTH=${ENABLE_AVISYNTH}" >> ${CNF_LOG}
 echo "ENABLE_LIBASS=${ENABLE_LIBASS}" >> ${CNF_LOG}
 echo "ENABLE_LIBVMAF=${ENABLE_LIBVMAF}" >> ${CNF_LOG}
 echo "ENABLE_DTL=${ENABLE_DTL}" >> ${CNF_LOG}
@@ -516,24 +520,24 @@ if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
     fi
 fi
 
-if [ $ENABLE_AVXSYNTH -ne 0 ]; then
-    cnf_print "checking avxsynth with pkg-config..."
-    if ! ${PKGCONFIG} --exists ${CHECK_AVXSYNTH_NAMES} ; then
+if [ $ENABLE_AVISYNTH -ne 0 ]; then
+    cnf_print "checking avisynth with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_AVISYNTH_NAMES} ; then
         cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
     else
         cnf_write "OK"
-        AVXSYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_AVXSYNTH_NAMES}`
-        AVXSYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_AVXSYNTH_NAMES}`
+        AVISYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_AVISYNTH_NAMES}`
+        AVISYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_AVISYNTH_NAMES}`
     fi
-    if ! cxx_check "avxsynth_c.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVXSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVXSYNTH_LIBS}" "" "avxsynth_c.h" "" ; then
+    if ! cxx_check "avisynth_c.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVISYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVISYNTH_LIBS}" "" "avisynth_c.h" "" ; then
         cnf_write "no"
-        ENABLE_AVXSYNTH=0
+        ENABLE_AVISYNTH=0
     else
         cnf_write "yes"
     fi
-    if [ $ENABLE_AVXSYNTH -eq 0 ]; then
-        AVXSYNTH_CFLAGS=""
-        AVXSYNTH_LIBS=""
+    if [ $ENABLE_AVISYNTH -eq 0 ]; then
+        AVISYNTH_CFLAGS=""
+        AVISYNTH_LIBS=""
     fi
 fi
 
@@ -673,14 +677,14 @@ write_config_mak "NVCC = $NVCC"
 write_config_mak "LD   = $CXX"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS -std=c++17 $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
-write_config_mak "NVCCFLAGS = $NVCCFLAGS -std=c++14 -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
+write_config_mak "CXXFLAGS = $CXXFLAGS -std=c++17 $CXXINC $EXTRACXXFLAGS $CUDA_CFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
+write_config_mak "NVCCFLAGS = $NVCCFLAGS -std=c++14 -ccbin $CXX $CUDA_CFLAGS $CXXINC -Xcompiler \"${CXXFLAGS} ${EXTRACXXFLAGS}\" $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $LIBVMAF_CFLAGS $DTL_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $CUDA_LIBS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBVMAF_LIBS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
 write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
 write_enc_config "#define ENABLE_AVI_READER             0"
-write_enc_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
+write_enc_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVISYNTH"
 write_enc_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
 write_enc_config "#define ENABLE_AVSW_READER            $ENABLE_AVSW_READER"     
 write_enc_config "#define ENABLE_SM_READER              0"

@@ -34,13 +34,7 @@
 #pragma warning(push)
 #pragma warning(disable:4244)
 #pragma warning(disable:4456)
-#if defined(_WIN32) || defined(_WIN64)
-#include "avisynth_c.h" //Avisynth+のヘッダを想定
-#define IS_AVXSYNTH 0
-#else
-#include "avxsynth_c.h"
-#define IS_AVXSYNTH 1
-#endif
+#include "avisynth_c.h"
 #include "rgy_osdep.h"
 #include "rgy_input.h"
 #pragma warning(pop)
@@ -61,11 +55,9 @@ AVS_FUNCTYPE(get_version);
 AVS_FUNCTYPE(get_pitch_p);
 AVS_FUNCTYPE(get_read_ptr_p);
 AVS_FUNCTYPE(clip_get_error);
-#if !IS_AVXSYNTH
 AVS_FUNCTYPE(is_420);
 AVS_FUNCTYPE(is_422);
 AVS_FUNCTYPE(is_444);
-#endif
 
 #undef AVS_FUNCTYPE
 
@@ -87,11 +79,9 @@ struct avs_dll_t {
     AVS_FUNCDECL(get_pitch_p)
     AVS_FUNCDECL(get_read_ptr_p)
     AVS_FUNCDECL(clip_get_error);
-#if !IS_AVXSYNTH
     AVS_FUNCDECL(is_420)
     AVS_FUNCDECL(is_422)
     AVS_FUNCDECL(is_444)
-#endif
 };
 
 #undef AVS_FUNCDECL

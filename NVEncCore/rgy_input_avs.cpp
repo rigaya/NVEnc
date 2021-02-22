@@ -31,7 +31,7 @@
 #if defined(_WIN32) || defined(_WIN64)
 static const TCHAR *avisynth_dll_name = _T("avisynth.dll");
 #else
-static const TCHAR *avisynth_dll_name = _T("libavxsynth.so");
+static const TCHAR *avisynth_dll_name = _T("libavisynth.so");
 #endif
 
 static const int RGY_AVISYNTH_INTERFACE_25 = 2;
@@ -131,11 +131,9 @@ RGY_ERR RGYInputAvs::load_avisynth(const tstring &avsdll) {
     LOAD_FUNC(get_pitch_p, false, rgy_avs_get_pitch_p);
     LOAD_FUNC(get_read_ptr_p, false, rgy_avs_get_read_ptr_p);
     LOAD_FUNC(clip_get_error, true, nullptr);
-#if !IS_AVXSYNTH
     LOAD_FUNC(is_420, false, nullptr);
     LOAD_FUNC(is_422, false, nullptr);
     LOAD_FUNC(is_444, false, nullptr);
-#endif
 #pragma warning(pop)
 #undef LOAD_FUNC
     return RGY_ERR_NONE;
@@ -399,11 +397,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         }
     }
 
-#if IS_AVXSYNTH
-    tstring avisynth_version = _T("Avxsynth ");
-#else
     tstring avisynth_version = (m_sAvisynth.f_is_420 && m_sAvisynth.f_is_422 && m_sAvisynth.f_is_444) ? _T("Avisynth+ ") : _T("Avisynth ");
-#endif
     AVS_Value val_version = m_sAvisynth.f_invoke(m_sAVSenv, "VersionString", avs_new_value_array(nullptr, 0), nullptr);
     if (avs_is_error(val_version) || avs_as_string(val_version) == nullptr) {
         val_version = m_sAvisynth.f_invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(nullptr, 0), nullptr);
