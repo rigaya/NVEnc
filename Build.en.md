@@ -152,7 +152,7 @@ sudo apt install ffmpeg \
 ### 5. [Optional] Install AvisynthPlus
 AvisynthPlus is required only if you need AvisynthPlus(avs) reader support.  
 
-Please go on to [7. Build NVEncC] if you don't need vpy reader.
+Please go on to [7. Build NVEncC] if you don't need avs reader.
 
 <details><summary>How to build AvisynthPlus</summary>
 
