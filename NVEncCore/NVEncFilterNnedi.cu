@@ -51,7 +51,6 @@
 extern "C" {
 extern char _binary_resource_nnedi3_weights_bin_start[];
 extern char _binary_resource_nnedi3_weights_bin_end[];
-extern char _binary_resource_nnedi3_weights_bin_size[];
 }
 
 static const int NNEDI_BLOCK_X       = 32;
