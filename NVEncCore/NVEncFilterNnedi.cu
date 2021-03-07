@@ -1015,7 +1015,7 @@ __global__ void kernel_comute_network1(
         }
     }
 
-#if 0
+/*
                                       |<-------- nns*2 --------->|
                                     WEIGHT_LOOP
                                       |<-->| ---> 繰り返し処理
@@ -1041,7 +1041,7 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
            |    |                  |
         　↓    |                  |
 
-#endif
+*/
     //weightの先頭のポインタ
     if (__any(flag_sum)) { //どのpixelも処理する必要がなければ、スキップする
         for (int iquality = 0; iquality < quals; iquality++) {
