@@ -193,8 +193,10 @@ RGY_ERR RGYInputAvs::load_avisynth(const tstring &avsdll) {
 }
 #pragma warning(push)
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
-DISABLE_WARNING_PUSH
-DISABLE_WARNING(-Waddress)
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress"
+#endif
     LOAD_FUNC(invoke, true, nullptr);
     LOAD_FUNC(take_clip, true, nullptr);
     LOAD_FUNC(release_value, true, nullptr);
@@ -212,8 +214,9 @@ DISABLE_WARNING(-Waddress)
     LOAD_FUNC(is_420, false, nullptr);
     LOAD_FUNC(is_422, false, nullptr);
     LOAD_FUNC(is_444, false, nullptr);
-DISABLE_WARNING_POP
+#if defined(__GNUC__) || defined(__clang__)
 #pragma warning(pop)
+#endif
 #undef LOAD_FUNC
     return RGY_ERR_NONE;
 }
