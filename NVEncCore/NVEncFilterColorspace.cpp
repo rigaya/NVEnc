@@ -41,7 +41,6 @@
 extern "C" {
 extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start[];
 extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end[];
-extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_size[];
 }
 
 using std::pair;

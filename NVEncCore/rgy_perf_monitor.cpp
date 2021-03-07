@@ -52,7 +52,6 @@
 extern "C" {
 extern char _binary_PerfMonitor_perf_monitor_pyw_start[];
 extern char _binary_PerfMonitor_perf_monitor_pyw_end[];
-extern char _binary_PerfMonitor_perf_monitor_pyw_size[];
 }
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -590,7 +589,7 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
     } else
 #else
     pDataPtr = _binary_PerfMonitor_perf_monitor_pyw_start;
-    resourceSize = (uint32_t)(size_t)_binary_PerfMonitor_perf_monitor_pyw_size;
+    resourceSize = (uint32_t)(size_t)(_binary_PerfMonitor_perf_monitor_pyw_end - _binary_PerfMonitor_perf_monitor_pyw_start);
 #endif //#if defined(_WIN32) || defined(_WIN64)
     if (_tfopen_s(&fp, pywPath, _T("wb")) || NULL == fp) {
         ret = 1;
