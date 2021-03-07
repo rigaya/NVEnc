@@ -93,6 +93,7 @@
 #pragma warning(disable: 4834)
 RGY_DISABLE_WARNING_PUSH
 RGY_DISABLE_WARNING_STR("-Wunused-result")
+RGY_DISABLE_WARNING_STR("-Wtautological-compare")
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"
 #if _M_IX86
