@@ -872,24 +872,40 @@ tstring getOSVersion() {
 #else //#if defined(_WIN32) || defined(_WIN64)
 tstring getOSVersion() {
     std::string str = "";
-    FILE *fp = popen("/usr/bin/lsb_release -a", "r");
+    FILE *fp = fopen("/etc/os-release", "r");
     if (fp != NULL) {
         char buffer[2048];
-        while (NULL != fgets(buffer, _countof(buffer), fp)) {
-            str += buffer;
+        while (fgets(buffer, _countof(buffer), fp) != NULL) {
+            if (strncmp(buffer, "PRETTY_NAME=", strlen("PRETTY_NAME=")) == 0) {
+                str = trim(std::string(buffer + strlen("PRETTY_NAME=")), " \"\t\n");
+                break;
+            }
         }
-        pclose(fp);
-        if (str.length() > 0) {
-            auto sep = split(str, "\n");
-            for (auto line : sep) {
-                if (line.find("Description") != std::string::npos) {
-                    std::string::size_type pos = line.find(":");
-                    if (pos == std::string::npos) {
-                        pos = std::string("Description").length();
+        fclose(fp);
+    }
+    if (str.length() == 0) {
+        struct stat buffer;
+        if (stat ("/usr/bin/lsb_release", &buffer) == 0) {
+            FILE *fp = popen("/usr/bin/lsb_release -a", "r");
+            if (fp != NULL) {
+                char buffer[2048];
+                while (NULL != fgets(buffer, _countof(buffer), fp)) {
+                    str += buffer;
+                }
+                pclose(fp);
+                if (str.length() > 0) {
+                    auto sep = split(str, "\n");
+                    for (auto line : sep) {
+                        if (line.find("Description") != std::string::npos) {
+                            std::string::size_type pos = line.find(":");
+                            if (pos == std::string::npos) {
+                                pos = std::string("Description").length();
+                            }
+                            pos++;
+                            str = line.substr(pos);
+                            break;
+                        }
                     }
-                    pos++;
-                    str = line.substr(pos);
-                    break;
                 }
             }
         }
