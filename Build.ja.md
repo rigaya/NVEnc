@@ -5,6 +5,7 @@
 - [Linux (Ubuntu 20.04)](./Build.ja.md#linux-ubuntu-2004)
 - [Linux (Ubuntu 19.10)](./Build.ja.md#linux-ubuntu-1910)
 - [Linux (Ubuntu 18.04)](./Build.ja.md#linux-ubuntu-1804)
+- [Linux (Fedora 33)](./Build.ja.md#linux-fedora-33)
 
 ## Windows
 
@@ -611,6 +612,209 @@ make -j4
 こんな感じでNVENCのサポートしているコーデックが表示されればOKです。 (AWS g3s.xlargeの例)
 ```
 #0: Tesla M60 (2048 cores, 1177 MHz)[PCIe3x16][440.33]
+Avaliable Codec(s)
+H.264/AVC
+H.265/HEVC
+```
+
+## Linux (Fedora 33)
+
+### 0. ビルドに必要なもの
+- C++17 コンパイラ
+- CUDA 11
+- git
+- ライブラリ群
+  - ffmpeg 4.x系のライブラリ群 (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - libass9
+  - [オプション] AvisynthPlus
+  - [オプション] VapourSynth
+
+### 1. コンパイラ等のインストール
+
+```Shell
+sudo dnf install @development-tools
+```
+
+### 2. CUDA・ドライバインストールの準備
+
+```Shell
+sudo dnf update
+sudo dnf upgrade
+sudo dnf clean all
+sudo dnf install kernel-devel
+sudo dnf install make pciutils acpid libglvnd-devel
+sudo dnf install dkms
+```
+
+### 3. CUDAとNVIDIA ドライバのインストール
+CUDAと付属ドライバをインストールします。
+```Shell
+wget https://developer.download.nvidia.com/compute/cuda/11.2.1/local_installers/cuda-repo-fedora33-11-2-local-11.2.1_460.32.03-1.x86_64.rpm
+sudo rpm -ivh cuda-repo-fedora33-11-2-local-11.2.1_460.32.03-1.x86_64.rpm
+sudo dnf clean all
+sudo dnf install cuda
+reboot
+```
+手元の環境では、cudaは/usr/local/cudaにインストールされました。
+
+再起動後、正常に導入されたか確認します。下記のように出れば正常です。
+```Shell
+$ nvidia-smi
+Sun Mar  7 14:27:45 2021
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 460.32.03    Driver Version: 460.32.03    CUDA Version: 11.2     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  GeForce GTX 1080    Off  | 00000000:0D:00.0 Off |                  N/A |
+|  0%   27C    P8     7W / 230W |     65MiB /  8111MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+
++-----------------------------------------------------------------------------+
+| Processes:                                                                  |
+|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+|        ID   ID                                                   Usage      |
+|=============================================================================|
+|    0   N/A  N/A      1335      G   /usr/libexec/Xorg                  56MiB |
+|    0   N/A  N/A      1476      G   /usr/bin/gnome-shell                6MiB |
++-----------------------------------------------------------------------------+
+```
+
+### 4. ビルドに必要なライブラリのインストール
+
+ffmpegと関連ライブラリを導入します。
+```Shell
+sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf install ffmpeg ffmpeg-devel libass libass-devel
+```
+
+### 5. [オプション] AvisynthPlusのビルド
+
+AvisynthPlusのインストールは必須ではありませんが、インストールしておくとavsを読み込めるようになります。
+
+必要のない場合は 7. NVEncCのビルド に進んでください。
+
+<details><summary>AvisynthPlusのビルドの詳細はこちら</summary>
+#### 5.1 ビルドに必要なツールのインストール
+```Shell
+sudo dnf install cmake
+```
+
+#### 5.2 AvisynthPlusのインストール
+```Shell
+git clone git://github.com/AviSynth/AviSynthPlus.git
+cd AviSynthPlus
+mkdir avisynth-build && cd avisynth-build 
+cmake ../
+make -j16 && sudo make install
+cd ../..
+```
+
+#### 5.3 [おまけ] lsmashsourceのビルド
+```Shell
+# lsmashのビルド
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+sudo make install -j16
+cd ..
+
+# lsmashsourceのビルド
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+cd L-SMASH-Works
+# libavcodec の要求バージョンをクリアするためバージョンを下げる
+git checkout -b 20200531 refs/tags/20200531
+cd AviSynth
+meson build
+cd build
+sudo ninja install
+cd ../../../
+```
+
+</details>
+
+
+### 6. [オプション] VapourSynthのビルド
+VapourSynthのインストールは必須ではありませんが、インストールしておくとvpyを読み込めるようになります。
+
+必要のない場合は 7. NVEncCのビルド に進んでください。
+
+<details><summary>VapourSynthのビルドの詳細はこちら</summary>
+
+#### 6.1 ビルドに必要なツールのインストール
+```Shell
+sudo dnf install zimg zimg-devel meson autotools automake libtool python3-devel ImageMagick
+```
+
+#### 6.2 cythonのインストール
+```Shell
+sudo pip3 install Cython --install-option="--no-cython-compile"
+```
+
+#### 6.3 VapourSynthのビルド
+```Shell
+git clone https://github.com/vapoursynth/vapoursynth.git
+cd vapoursynth
+./autogen.sh
+./configure
+make -j16
+sudo make install
+
+# vapoursynthが自動的にロードされるようにする
+# "python3.x" は環境に応じて変えてください。これを書いた時点ではpython3.9でした
+sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
+sudo ldconfig
+```
+
+#### 6.4 VapourSynthの動作確認
+エラーが出ずにバージョンが表示されればOK。
+```Shell
+vspipe --version
+```
+
+#### 6.5 [おまけ] vslsmashsourceのビルド
+```Shell
+# lsmashのビルド (5.3 でビルドしていたら不要)
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+sudo make install -j16
+cd ..
+ 
+# vslsmashsourceのビルド
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+cd L-SMASH-Works
+# libavcodec の要求バージョンをクリアするためバージョンを下げる
+git checkout -b 20200531 refs/tags/20200531
+cd VapourSynth
+meson build
+cd build
+sudo ninja install
+cd ../../../
+```
+
+</details>
+
+### 7. NVEncCのビルド
+下記を実行します。
+```Shell
+git clone https://github.com/rigaya/NVEnc --recursive
+cd NVEnc
+./configure
+make -j16
+```
+
+動作確認をします。
+```Shell
+./nvencc --check-hw
+```
+
+こんな感じでNVENCのサポートしているコーデックが表示されればOKです。
+```
+#0: GeForce GTX 1080 (2560 cores, 1822 MHz)[PCIe3x16][460.32]
 Avaliable Codec(s)
 H.264/AVC
 H.265/HEVC

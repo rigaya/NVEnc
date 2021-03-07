@@ -5,6 +5,7 @@
 - [Linux (Ubuntu 20.04)](./Build.en.md#linux-ubuntu-2004)
 - [Linux (Ubuntu 19.10)](./Build.en.md#linux-ubuntu-1910)
 - [Linux (Ubuntu 18.04)](./Build.en.md#linux-ubuntu-1804)
+- [Linux (Fedora 33)](./Build.en.md#linux-fedora-33)
 
 ## Windows
 
@@ -102,7 +103,7 @@ sudo apt install nvidia-driver-460
 sudo reboot
 ```
 
-After rebbot, check if the driver has been installed properly.
+After reboot, check if the driver has been installed properly.
 ```Shell
 rigaya@rigaya6-linux:~$ nvidia-smi
 Sun Feb 21 13:49:17 2021
@@ -142,7 +143,7 @@ export CUDA_PATH=/usr/local/cuda
 
 ### 4. Install required libraries
 
-ffmpegと関連ライブラリを導入します。
+Install ffmpeg and other required libraries.
 ```Shell
 sudo apt install ffmpeg \
   libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
@@ -230,7 +231,7 @@ make -j16
 sudo make install
 
 # Make sure vapoursynth could be imported from python
-# Change "python3.x" depending on your encironment
+# Change "python3.x" depending on your environment
 sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
 sudo ldconfig
 ```
@@ -331,7 +332,7 @@ sudo apt install nvidia-driver-440
 sudo reboot
 ```
 
-After rebbot, check if the driver has been installed properly.
+After reboot, check if the driver has been installed properly.
 ```Shell
 rigaya@rigaya6-linux:~$ nvidia-smi
 Fri Apr 24 22:39:10 2020
@@ -361,7 +362,7 @@ sudo apt install nvidia-cuda-toolkit
 
 ### 4. Install required libraries
 
-ffmpegと関連ライブラリを導入します。
+Install ffmpeg and other required libraries.
 ```Shell
 sudo apt install ffmpeg \
   libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
@@ -405,7 +406,7 @@ make -j16
 sudo make install
 
 # Make sure vapoursynth could be imported from python
-# Change "python3.x" depending on your encironment
+# Change "python3.x" depending on your environment
 sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
 sudo ldconfig
 ```
@@ -488,7 +489,7 @@ sudo apt-get -y install cuda
 export CUDA_PATH=/usr/local/cuda
 ```
 
-After rebbot, check if the driver has been installed properly. (Tested on AWS g3s.xlarge)
+After reboot, check if the driver has been installed properly. (Tested on AWS g3s.xlarge)
 
 ```Shell
 $ nvidia-smi
@@ -558,7 +559,7 @@ make -j4
 sudo make install
 
 # Make sure vapoursynth could be imported from python
-# Change "python3.x" depending on your encironment
+# Change "python3.x" depending on your environment
 sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
 sudo ldconfig
 ```
@@ -604,6 +605,207 @@ Check if it works properly.
 You shall get information of the avaliable codecs supported by NVENC. (Tested on AWS g3s.xlarge)
 ```
 #0: Tesla M60 (2048 cores, 1177 MHz)[PCIe3x16][440.33]
+Avaliable Codec(s)
+H.264/AVC
+H.265/HEVC
+```
+
+
+## Linux (Fedora 33)
+
+### 0. Requirements
+- C++17 compiler
+- CUDA 11
+- git
+- libraries
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - libass9
+  - [Option] AvisynthPlus
+  - [Option] VapourSynth
+
+### 1. Install build tools
+
+```Shell
+sudo dnf install @development-tools
+```
+
+### 2. Getting ready to install CUDA and NVIDIA driver
+
+```Shell
+sudo dnf update
+sudo dnf upgrade
+sudo dnf clean all
+sudo dnf install kernel-devel
+sudo dnf install make pciutils acpid libglvnd-devel
+sudo dnf install dkms
+```
+
+### 3. Install CUDA and NVIDIA driver
+Install CUDA and the NVIDIA driver included in CUDA package.
+```Shell
+wget https://developer.download.nvidia.com/compute/cuda/11.2.1/local_installers/cuda-repo-fedora33-11-2-local-11.2.1_460.32.03-1.x86_64.rpm
+sudo rpm -ivh cuda-repo-fedora33-11-2-local-11.2.1_460.32.03-1.x86_64.rpm
+sudo dnf clean all
+sudo dnf install cuda
+reboot
+```
+CUDA was installed in /usr/local/cuda.
+
+After reboot, check if the driver has been installed properly.
+```Shell
+$ nvidia-smi
+Sun Mar  7 14:27:45 2021
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 460.32.03    Driver Version: 460.32.03    CUDA Version: 11.2     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  GeForce GTX 1080    Off  | 00000000:0D:00.0 Off |                  N/A |
+|  0%   27C    P8     7W / 230W |     65MiB /  8111MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+
++-----------------------------------------------------------------------------+
+| Processes:                                                                  |
+|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+|        ID   ID                                                   Usage      |
+|=============================================================================|
+|    0   N/A  N/A      1335      G   /usr/libexec/Xorg                  56MiB |
+|    0   N/A  N/A      1476      G   /usr/bin/gnome-shell                6MiB |
++-----------------------------------------------------------------------------+
+```
+
+### 4. Install required libraries
+
+Install ffmpeg and other required libraries.
+```Shell
+sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf install ffmpeg ffmpeg-devel libass libass-devel
+```
+
+### 5. [Optional] Install AvisynthPlus
+AvisynthPlus is required only if you need AvisynthPlus(avs) reader support.  
+
+Please go on to [7. Build NVEncC] if you don't need avs reader.
+
+<details><summary>How to build AvisynthPlus</summary>
+
+#### 5.1 Install build tools for AvisynthPlus
+```Shell
+sudo dnf install cmake
+```
+
+#### 5.2 Install AvisynthPlus
+```Shell
+git clone git://github.com/AviSynth/AviSynthPlus.git
+cd AviSynthPlus
+mkdir avisynth-build && cd avisynth-build 
+cmake ../
+make -j16 && sudo make install
+cd ../..
+```
+
+#### 5.3 [Option] Build lsmashsource
+```Shell
+# Build lsmash
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+sudo make install -j16
+cd ..
+
+# Build lsmashsource
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+cd L-SMASH-Works
+git checkout -b 20200531 refs/tags/20200531
+cd AviSynth
+meson build
+cd build
+sudo ninja install
+cd ../../../
+```
+
+</details>
+
+
+### 6. [Option] Install VapourSynth
+VapourSynth is required only if you need VapourSynth(vpy) reader support.  
+
+Please go on to [7. Build NVEncC] if you don't need vpy reader.
+
+<details><summary>How to build VapourSynth</summary>
+
+#### 6.1 Install build tools for VapourSynth
+```Shell
+sudo dnf install zimg zimg-devel meson autotools automake libtool python3-devel ImageMagick
+```
+
+#### 6.2 Install cython
+```Shell
+sudo pip3 install Cython --install-option="--no-cython-compile"
+```
+
+#### 6.3 Build VapourSynth
+```Shell
+git clone https://github.com/vapoursynth/vapoursynth.git
+cd vapoursynth
+./autogen.sh
+./configure
+make -j16
+sudo make install
+
+# Make sure vapoursynth could be imported from python
+# Change "python3.x" depending on your environment
+sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
+sudo ldconfig
+```
+
+#### 6.4 Check if VapourSynth has been installed properly
+Make sure you get version number without errors.
+```Shell
+vspipe --version
+```
+
+#### 6.5 [Option] Build vslsmashsource
+```Shell
+# Build lsmash (Not required if already done in 5.3)
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+sudo make install -j16
+cd ..
+ 
+# Build vslsmashsource
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+cd L-SMASH-Works
+git checkout -b 20200531 refs/tags/20200531
+cd VapourSynth
+meson build
+cd build
+sudo ninja install
+cd ../../../
+```
+
+</details>
+
+### 7. Build NVEncC
+```Shell
+git clone https://github.com/rigaya/NVEnc --recursive
+cd NVEnc
+./configure
+make -j16
+```
+
+Check if it works properly.
+```Shell
+./nvencc --check-hw
+```
+
+You shall get information of the avaliable codecs supported by NVENC.
+```
+#0: GeForce GTX 1080 (2560 cores, 1822 MHz)[PCIe3x16][460.32]
 Avaliable Codec(s)
 H.264/AVC
 H.265/HEVC
