@@ -34,58 +34,14 @@
 #pragma warning(push)
 #pragma warning(disable:4244)
 #pragma warning(disable:4456)
-#include "avisynth_c.h"
 #include "rgy_osdep.h"
 #include "rgy_input.h"
 #pragma warning(pop)
 
-#define AVS_FUNCTYPE(x) typedef decltype(avs_ ## x)* func_avs_ ## x;
-
-AVS_FUNCTYPE(invoke);
-AVS_FUNCTYPE(take_clip);
-AVS_FUNCTYPE(release_value);
-AVS_FUNCTYPE(create_script_environment);
-AVS_FUNCTYPE(get_video_info);
-AVS_FUNCTYPE(get_audio);
-AVS_FUNCTYPE(get_frame);
-AVS_FUNCTYPE(release_video_frame);
-AVS_FUNCTYPE(release_clip);
-AVS_FUNCTYPE(delete_script_environment);
-AVS_FUNCTYPE(get_version);
-AVS_FUNCTYPE(get_pitch_p);
-AVS_FUNCTYPE(get_read_ptr_p);
-AVS_FUNCTYPE(clip_get_error);
-AVS_FUNCTYPE(is_420);
-AVS_FUNCTYPE(is_422);
-AVS_FUNCTYPE(is_444);
-
-#undef AVS_FUNCTYPE
-
-#define AVS_FUNCDECL(x) func_avs_ ## x f_ ## x;
-
-struct avs_dll_t {
-    HMODULE h_avisynth;
-    AVS_FUNCDECL(invoke)
-    AVS_FUNCDECL(take_clip)
-    AVS_FUNCDECL(release_value)
-    AVS_FUNCDECL(create_script_environment)
-    AVS_FUNCDECL(get_video_info)
-    AVS_FUNCDECL(get_audio)
-    AVS_FUNCDECL(get_frame)
-    AVS_FUNCDECL(release_video_frame)
-    AVS_FUNCDECL(release_clip)
-    AVS_FUNCDECL(delete_script_environment)
-    AVS_FUNCDECL(get_version)
-    AVS_FUNCDECL(get_pitch_p)
-    AVS_FUNCDECL(get_read_ptr_p)
-    AVS_FUNCDECL(clip_get_error);
-    AVS_FUNCDECL(is_420)
-    AVS_FUNCDECL(is_422)
-    AVS_FUNCDECL(is_444)
-};
-
-#undef AVS_FUNCDECL
-
+struct AVS_ScriptEnvironment;
+struct AVS_Clip;
+struct AVS_VideoInfo;
+struct avs_dll_t;
 
 class RGYInputAvsPrm : public RGYInputPrm {
 public:
@@ -123,7 +79,7 @@ protected:
     AVS_Clip *m_sAVSclip;
     const AVS_VideoInfo *m_sAVSinfo;
 
-    avs_dll_t m_sAvisynth;
+    std::unique_ptr<avs_dll_t> m_sAvisynth;
 
 #if ENABLE_AVSW_READER
     RGY_ERR InitAudio();

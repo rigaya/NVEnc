@@ -27,6 +27,81 @@
 
 #include "rgy_input_avs.h"
 #if ENABLE_AVISYNTH_READER
+#pragma warning(push)
+#pragma warning(disable:4244)
+#pragma warning(disable:4456)
+#include "avisynth_c.h"
+#pragma warning(pop)
+
+#define AVS_FUNCTYPE(x) typedef decltype(avs_ ## x)* func_avs_ ## x;
+
+AVS_FUNCTYPE(invoke);
+AVS_FUNCTYPE(take_clip);
+AVS_FUNCTYPE(release_value);
+AVS_FUNCTYPE(create_script_environment);
+AVS_FUNCTYPE(get_video_info);
+AVS_FUNCTYPE(get_audio);
+AVS_FUNCTYPE(get_frame);
+AVS_FUNCTYPE(release_video_frame);
+AVS_FUNCTYPE(release_clip);
+AVS_FUNCTYPE(delete_script_environment);
+AVS_FUNCTYPE(get_version);
+AVS_FUNCTYPE(get_pitch_p);
+AVS_FUNCTYPE(get_read_ptr_p);
+AVS_FUNCTYPE(clip_get_error);
+AVS_FUNCTYPE(is_420);
+AVS_FUNCTYPE(is_422);
+AVS_FUNCTYPE(is_444);
+
+#undef AVS_FUNCTYPE
+
+#define AVS_FUNCDECL(x) func_avs_ ## x f_ ## x;
+#define AVS_FUNCINITNULL(x) f_ ## x(NULL)
+
+struct avs_dll_t {
+    HMODULE h_avisynth;
+    AVS_FUNCDECL(invoke)
+    AVS_FUNCDECL(take_clip)
+    AVS_FUNCDECL(release_value)
+    AVS_FUNCDECL(create_script_environment)
+    AVS_FUNCDECL(get_video_info)
+    AVS_FUNCDECL(get_audio)
+    AVS_FUNCDECL(get_frame)
+    AVS_FUNCDECL(release_video_frame)
+    AVS_FUNCDECL(release_clip)
+    AVS_FUNCDECL(delete_script_environment)
+    AVS_FUNCDECL(get_version)
+    AVS_FUNCDECL(get_pitch_p)
+    AVS_FUNCDECL(get_read_ptr_p)
+    AVS_FUNCDECL(clip_get_error)
+    AVS_FUNCDECL(is_420)
+    AVS_FUNCDECL(is_422)
+    AVS_FUNCDECL(is_444)
+
+    avs_dll_t() : h_avisynth(nullptr),
+        AVS_FUNCINITNULL(invoke),
+        AVS_FUNCINITNULL(take_clip),
+        AVS_FUNCINITNULL(release_value),
+        AVS_FUNCINITNULL(create_script_environment),
+        AVS_FUNCINITNULL(get_video_info),
+        AVS_FUNCINITNULL(get_audio),
+        AVS_FUNCINITNULL(get_frame),
+        AVS_FUNCINITNULL(release_video_frame),
+        AVS_FUNCINITNULL(release_clip),
+        AVS_FUNCINITNULL(delete_script_environment),
+        AVS_FUNCINITNULL(get_version),
+        AVS_FUNCINITNULL(get_pitch_p),
+        AVS_FUNCINITNULL(get_read_ptr_p),
+        AVS_FUNCINITNULL(clip_get_error),
+        AVS_FUNCINITNULL(is_420),
+        AVS_FUNCINITNULL(is_422),
+        AVS_FUNCINITNULL(is_444) {
+
+        }
+};
+
+#undef AVS_FUNCDECL
+#undef AVS_FUNCINITNULL
 
 #if defined(_WIN32) || defined(_WIN64)
 static const TCHAR *avisynth_dll_name = _T("avisynth.dll");
@@ -71,7 +146,6 @@ RGYInputAvs::RGYInputAvs() :
     m_audioCurrentSample(0)
 #endif //#if ENABLE_AVSW_READER
 {
-    memset(&m_sAvisynth, 0, sizeof(m_sAvisynth));
     m_readerName = _T("avs");
 }
 
@@ -80,14 +154,14 @@ RGYInputAvs::~RGYInputAvs() {
 }
 
 void RGYInputAvs::release_avisynth() {
-    if (m_sAvisynth.h_avisynth)
+    if (m_sAvisynth && m_sAvisynth->h_avisynth)
 #if defined(_WIN32) || defined(_WIN64)
-        FreeLibrary(m_sAvisynth.h_avisynth);
+        FreeLibrary(m_sAvisynth->h_avisynth);
 #else
-        dlclose(m_sAvisynth.h_avisynth);
+        dlclose(m_sAvisynth->h_avisynth);
 #endif
 
-    memset(&m_sAvisynth, 0, sizeof(m_sAvisynth));
+    m_sAvisynth.reset();
 }
 
 RGY_ERR RGYInputAvs::load_avisynth(const tstring &avsdll) {
@@ -102,21 +176,25 @@ RGY_ERR RGYInputAvs::load_avisynth(const tstring &avsdll) {
     }
     AddMessage(RGY_LOG_DEBUG, _T("Load Avisynth DLL \"%s\".\n"), avs_dll_target);
 
+    m_sAvisynth = std::make_unique<avs_dll_t>();
+
 #if defined(_WIN32) || defined(_WIN64)
-    if (nullptr == (m_sAvisynth.h_avisynth = (HMODULE)LoadLibrary(avs_dll_target)))
+    if (nullptr == (m_sAvisynth->h_avisynth = (HMODULE)LoadLibrary(avs_dll_target)))
 #else
-    if (nullptr == (m_sAvisynth.h_avisynth = dlopen(avs_dll_target, RTLD_LAZY)))
+    if (nullptr == (m_sAvisynth->h_avisynth = dlopen(avs_dll_target, RTLD_LAZY)))
 #endif
         return RGY_ERR_INVALID_HANDLE;
 
 #define LOAD_FUNC(x, required, altern_func) {\
-    if (nullptr == (m_sAvisynth.f_ ## x = (func_avs_ ## x)RGY_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_" #x))) { \
+    if (nullptr == (m_sAvisynth->f_ ## x = (func_avs_ ## x)RGY_GET_PROC_ADDRESS(m_sAvisynth->h_avisynth, "avs_" #x))) { \
         if (required) return RGY_ERR_INVALID_HANDLE; \
-        if (altern_func != nullptr) { m_sAvisynth.f_ ## x = (altern_func); }; \
+        if (altern_func != nullptr) { m_sAvisynth->f_ ## x = (altern_func); }; \
     } \
 }
 #pragma warning(push)
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
+DISABLE_WARNING_PUSH
+DISABLE_WARNING(-Waddress)
     LOAD_FUNC(invoke, true, nullptr);
     LOAD_FUNC(take_clip, true, nullptr);
     LOAD_FUNC(release_value, true, nullptr);
@@ -134,6 +212,7 @@ RGY_ERR RGYInputAvs::load_avisynth(const tstring &avsdll) {
     LOAD_FUNC(is_420, false, nullptr);
     LOAD_FUNC(is_422, false, nullptr);
     LOAD_FUNC(is_444, false, nullptr);
+DISABLE_WARNING_POP
 #pragma warning(pop)
 #undef LOAD_FUNC
     return RGY_ERR_NONE;
@@ -228,8 +307,8 @@ vector<AVPacket> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
     pkt.stream_index = m_audio.begin()->index;
     pkt.flags = (pkt.flags & 0xffff) | ((uint32_t)m_audio.begin()->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
 
-    m_sAvisynth.f_get_audio(m_sAVSclip, pkt.data, m_audioCurrentSample, samples);
-    const auto avs_err = m_sAvisynth.f_clip_get_error(m_sAVSclip);
+    m_sAvisynth->f_get_audio(m_sAVSclip, pkt.data, m_audioCurrentSample, samples);
+    const auto avs_err = m_sAvisynth->f_clip_get_error(m_sAVSclip);
     if (avs_err) {
         AddMessage(RGY_LOG_ERROR, _T("Unknown error when reading audio frame from avisynth: %d.\n"), avs_err);
         return pkts;
@@ -253,8 +332,8 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
     m_convert = std::make_unique<RGYConvertCSP>(prm->threadCsp);
 
-    const auto interface_ver = (m_sAvisynth.f_is_420 && m_sAvisynth.f_is_422 && m_sAvisynth.f_is_444) ? AVISYNTH_INTERFACE_VERSION : RGY_AVISYNTH_INTERFACE_25;
-    if (nullptr == (m_sAVSenv = m_sAvisynth.f_create_script_environment(interface_ver))) {
+    const auto interface_ver = (m_sAvisynth->f_is_420 && m_sAvisynth->f_is_422 && m_sAvisynth->f_is_444) ? AVISYNTH_INTERFACE_VERSION : RGY_AVISYNTH_INTERFACE_25;
+    if (nullptr == (m_sAVSenv = m_sAvisynth->f_create_script_environment(interface_ver))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init avisynth enviroment.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
@@ -264,21 +343,21 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_UNSUPPORTED;
     }
     AVS_Value val_filename = avs_new_value_string(filename_char.c_str());
-    AVS_Value val_res = m_sAvisynth.f_invoke(m_sAVSenv, "Import", val_filename, nullptr);
-    m_sAvisynth.f_release_value(val_filename);
+    AVS_Value val_res = m_sAvisynth->f_invoke(m_sAVSenv, "Import", val_filename, nullptr);
+    m_sAvisynth->f_release_value(val_filename);
     AddMessage(RGY_LOG_DEBUG,  _T("opened avs file: \"%s\"\n"), char_to_tstring(filename_char).c_str());
     if (!avs_is_clip(val_res)) {
         AddMessage(RGY_LOG_ERROR, _T("invalid clip.\n"));
         if (avs_is_error(val_res)) {
             AddMessage(RGY_LOG_ERROR, char_to_tstring(avs_as_string(val_res)) + _T("\n"));
         }
-        m_sAvisynth.f_release_value(val_res);
+        m_sAvisynth->f_release_value(val_res);
         return RGY_ERR_INVALID_HANDLE;
     }
-    m_sAVSclip = m_sAvisynth.f_take_clip(val_res, m_sAVSenv);
-    m_sAvisynth.f_release_value(val_res);
+    m_sAVSclip = m_sAvisynth->f_take_clip(val_res, m_sAVSenv);
+    m_sAvisynth->f_release_value(val_res);
 
-    if (nullptr == (m_sAVSinfo = m_sAvisynth.f_get_video_info(m_sAVSclip))) {
+    if (nullptr == (m_sAVSinfo = m_sAvisynth->f_get_video_info(m_sAVSclip))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to get avs info.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
@@ -397,10 +476,10 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         }
     }
 
-    tstring avisynth_version = (m_sAvisynth.f_is_420 && m_sAvisynth.f_is_422 && m_sAvisynth.f_is_444) ? _T("Avisynth+ ") : _T("Avisynth ");
-    AVS_Value val_version = m_sAvisynth.f_invoke(m_sAVSenv, "VersionString", avs_new_value_array(nullptr, 0), nullptr);
+    tstring avisynth_version = (m_sAvisynth->f_is_420 && m_sAvisynth->f_is_422 && m_sAvisynth->f_is_444) ? _T("Avisynth+ ") : _T("Avisynth ");
+    AVS_Value val_version = m_sAvisynth->f_invoke(m_sAVSenv, "VersionString", avs_new_value_array(nullptr, 0), nullptr);
     if (avs_is_error(val_version) || avs_as_string(val_version) == nullptr) {
-        val_version = m_sAvisynth.f_invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(nullptr, 0), nullptr);
+        val_version = m_sAvisynth->f_invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(nullptr, 0), nullptr);
         if (avs_is_float(val_version)) {
             avisynth_version += strsprintf(_T("%.2f"), avs_as_float(val_version));
         }
@@ -418,7 +497,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         avisynth_version = str_replace(avisynth_version, _T("AviSynth "), _T("AviSynth"));
         avisynth_version = str_replace(avisynth_version, _T(", "), _T(","));
     }
-    m_sAvisynth.f_release_value(val_version);
+    m_sAvisynth->f_release_value(val_version);
 
     CreateInputInfo(avisynth_version.c_str(), RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
     AddMessage(RGY_LOG_DEBUG, m_inputInfo);
@@ -433,9 +512,9 @@ void RGYInputAvs::Close() {
     m_format.reset();
 #endif //#if ENABLE_AVSW_READER
     if (m_sAVSclip)
-        m_sAvisynth.f_release_clip(m_sAVSclip);
+        m_sAvisynth->f_release_clip(m_sAVSclip);
     if (m_sAVSenv)
-        m_sAvisynth.f_delete_script_environment(m_sAVSenv);
+        m_sAvisynth->f_delete_script_environment(m_sAVSenv);
 
     release_avisynth();
 
@@ -454,11 +533,11 @@ RGY_ERR RGYInputAvs::LoadNextFrame(RGYFrame *pSurface) {
         return RGY_ERR_MORE_DATA;
     }
 
-    AVS_VideoFrame *frame = m_sAvisynth.f_get_frame(m_sAVSclip, m_encSatusInfo->m_sData.frameIn);
+    AVS_VideoFrame *frame = m_sAvisynth->f_get_frame(m_sAVSclip, m_encSatusInfo->m_sData.frameIn);
     if (frame == nullptr) {
         return RGY_ERR_MORE_DATA;
     }
-    auto avs_err = m_sAvisynth.f_clip_get_error(m_sAVSclip);
+    auto avs_err = m_sAvisynth->f_clip_get_error(m_sAVSclip);
     if (avs_err) {
         AddMessage(RGY_LOG_ERROR, _T("Unknown error when reading video frame from avisynth: %d.\n"), avs_err);
         return RGY_ERR_UNKNOWN;
@@ -466,14 +545,14 @@ RGY_ERR RGYInputAvs::LoadNextFrame(RGYFrame *pSurface) {
 
     void *dst_array[3];
     pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
-    const void *src_array[3] = { m_sAvisynth.f_get_read_ptr_p(frame, AVS_PLANAR_Y), m_sAvisynth.f_get_read_ptr_p(frame, AVS_PLANAR_U), m_sAvisynth.f_get_read_ptr_p(frame, AVS_PLANAR_V) };
+    const void *src_array[3] = { m_sAvisynth->f_get_read_ptr_p(frame, AVS_PLANAR_Y), m_sAvisynth->f_get_read_ptr_p(frame, AVS_PLANAR_U), m_sAvisynth->f_get_read_ptr_p(frame, AVS_PLANAR_V) };
 
     m_convert->run((m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
         dst_array, src_array,
-        m_inputVideoInfo.srcWidth, m_sAvisynth.f_get_pitch_p(frame, AVS_PLANAR_Y), m_sAvisynth.f_get_pitch_p(frame, AVS_PLANAR_U),
+        m_inputVideoInfo.srcWidth, m_sAvisynth->f_get_pitch_p(frame, AVS_PLANAR_Y), m_sAvisynth->f_get_pitch_p(frame, AVS_PLANAR_U),
         pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
-    m_sAvisynth.f_release_video_frame(frame);
+    m_sAvisynth->f_release_video_frame(frame);
 
     m_encSatusInfo->m_sData.frameIn++;
     return m_encSatusInfo->UpdateDisplay();
