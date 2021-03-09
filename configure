@@ -545,6 +545,7 @@ if [ $ENABLE_LIBASS -ne 0 ]; then
     cnf_print "checking libass with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_LIBASS_NAMES} ; then
         cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+        LIBASS_LIBS="-lass"
     else
         cnf_write "OK"
         LIBASS_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBASS_NAMES}`
@@ -566,6 +567,7 @@ if [ $ENABLE_LIBVMAF -ne 0 ]; then
     cnf_print "checking libvmaf with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_LIBVMAF_NAMES} ; then
         cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+        LIBVMAF_LIBS="-lvmaf"
     else
         cnf_write "OK"
         LIBVMAF_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBVMAF_NAMES}`
@@ -573,7 +575,7 @@ if [ $ENABLE_LIBVMAF -ne 0 ]; then
     fi
     if ! cxx_check "libvmaf/vmaf.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "" "libvmaf/libvmaf.h" "" ; then
         cnf_write "no"
-        ENABLE_LIBASS=0
+        ENABLE_LIBVMAF=0
     else
         cnf_write "yes"
     fi
