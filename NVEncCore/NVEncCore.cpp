@@ -4785,15 +4785,15 @@ tstring NVEncCore::GetEncodingParamsInfo(int output_level) {
     add_str(RGY_LOG_INFO,  _T("AQ             %s\n"), strAQ.c_str());
     if (codec == NV_ENC_H264) {
         if (m_stEncConfig.encodeCodecConfig.h264Config.sliceMode == 3) {
-            add_str(RGY_LOG_DEBUG, _T("Slices            %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+            add_str((m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData > 1) ? RGY_LOG_INFO : RGY_LOG_DEBUG, _T("Slices            %d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
         } else {
-            add_str(RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
+            add_str((m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData > 1) ? RGY_LOG_INFO : RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.h264Config.sliceMode, m_stEncConfig.encodeCodecConfig.h264Config.sliceModeData);
         }
     } else if (codec == NV_ENC_HEVC) {
         if (m_stEncConfig.encodeCodecConfig.hevcConfig.sliceMode == 3) {
-            add_str(RGY_LOG_DEBUG, _T("Slices            %d\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData);
+            add_str((m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData > 1) ? RGY_LOG_INFO : RGY_LOG_DEBUG, _T("Slices            %d\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData);
         } else {
-            add_str(RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.sliceMode, m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData);
+            add_str((m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData > 1) ? RGY_LOG_INFO : RGY_LOG_DEBUG, _T("Slice          Mode:%d, ModeData:%d\n"), m_stEncConfig.encodeCodecConfig.hevcConfig.sliceMode, m_stEncConfig.encodeCodecConfig.hevcConfig.sliceModeData);
         }
     }
     if (codec == NV_ENC_HEVC) {
