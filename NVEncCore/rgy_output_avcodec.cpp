@@ -1618,18 +1618,6 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             AddMessage(RGY_LOG_DEBUG, _T("Copy Disposition: %s\n"), getDispositionStr(inputStream->src.stream->disposition).c_str());
             muxSub->streamOut->disposition = inputStream->src.stream->disposition;
         }
-        if (inputStream->src.stream->metadata) {
-            for (AVDictionaryEntry *entry = nullptr;
-                nullptr != (entry = av_dict_get(inputStream->src.stream->metadata, "", entry, AV_DICT_IGNORE_SUFFIX));) {
-                av_dict_set(&muxSub->streamOut->metadata, entry->key, entry->value, AV_DICT_IGNORE_SUFFIX);
-                AddMessage(RGY_LOG_DEBUG, _T("Copy Subtitle Metadata: key %s, value %s\n"), char_to_tstring(entry->key).c_str(), char_to_tstring(entry->value).c_str());
-            }
-            auto language_data = av_dict_get(inputStream->src.stream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
-            if (language_data) {
-                av_dict_set(&muxSub->streamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
-                AddMessage(RGY_LOG_DEBUG, _T("Set Subtitle language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
-            }
-        }
     }
     auto ret = SetMetadata(&muxSub->streamOut->metadata, (inputStream->src.stream) ? inputStream->src.stream->metadata : nullptr, inputStream->metadata, RGY_METADATA_DEFAULT_COPY, strsprintf(_T("Other #%d"), inputStream->src.trackId));
     if (ret != RGY_ERR_NONE) {
