@@ -480,26 +480,25 @@ tstring RGYOutputAvcodec::AudioGetCodecProfileStr(int profile, AVCodecID codecId
 RGY_ERR RGYOutputAvcodec::SetMetadata(AVDictionary **metadata, const AVDictionary *srcMetadata, const std::vector<tstring> &metadataOpt, const RGYMetadataCopyDefault defaultCopy, const tstring& trackName) {
     bool metadataCopyAll = false;
     bool metadataCopyLang = false;
-    if (metadataOpt.size() == 0) {
-        //デフォルトの操作
-        switch (defaultCopy) {
-        case RGY_METADATA_DEFAULT_CLEAR:
-            metadataCopyAll = false;
-            metadataCopyLang = false;
-            break;
-        case RGY_METADATA_DEFAULT_COPY_LANG_ONLY:
-            metadataCopyAll = false;
-            metadataCopyLang = true;
-            break;
-        case RGY_METADATA_DEFAULT_COPY:
-            metadataCopyAll = true;
-            metadataCopyLang = true;
-            break;
-        default:
-            AddMessage(RGY_LOG_DEBUG, _T("Unknown default setting %d for %s metadata setting!\n"), defaultCopy, trackName.c_str());
-            return RGY_ERR_UNSUPPORTED;
-        }
-    } else if (metadata_clear(metadataOpt)) {
+    //デフォルトの操作
+    switch (defaultCopy) {
+    case RGY_METADATA_DEFAULT_CLEAR:
+        metadataCopyAll = false;
+        metadataCopyLang = false;
+        break;
+    case RGY_METADATA_DEFAULT_COPY_LANG_ONLY:
+        metadataCopyAll = false;
+        metadataCopyLang = true;
+        break;
+    case RGY_METADATA_DEFAULT_COPY:
+        metadataCopyAll = true;
+        metadataCopyLang = true;
+        break;
+    default:
+        AddMessage(RGY_LOG_DEBUG, _T("Unknown default setting %d for %s metadata setting!\n"), defaultCopy, trackName.c_str());
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (metadata_clear(metadataOpt)) {
         metadataCopyAll = false;
         metadataCopyLang = false;
     } else if (metadata_copy(metadataOpt)) {
