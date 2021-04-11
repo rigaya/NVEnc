@@ -29,12 +29,15 @@
 #ifndef __RGY_INI_H__
 #define __RGY_INI_H__
 
+#include "rgy_tchar.h"
+#include "rgy_osdep.h"
+
 #if (defined(_WIN32) || defined(_WIN64))
 #define GetPrivateProfileStringCP(Section, Key, Default, buf, nSize, IniFile, codecpage) GetPrivateProfileStringA((Section), (Key), (Default), (buf), (nSize), (IniFile))
 #define GetPrivateProfileIntCP(Section, Key, defaultValue, IniFile, codecpage) GetPrivateProfileStringA((Section), (Key), (defaultValue), (IniFile))
 #else
-uint32_t GetPrivateProfileStringCP(const TCHAR *Section, const TCHAR *Key, const TCHAR *Default, TCHAR *buf, size_t nSize, const TCHAR *IniFile, uint32_t codecpage = CP_THREAD_ACP);
-uint32_t GetPrivateProfileIntCP(const TCHAR *Section, const TCHAR *Key, const uint32_t defaultValue, const TCHAR *IniFile, uint32_t codecpage = CP_THREAD_ACP);
+uint32_t GetPrivateProfileStringCP(const TCHAR* Section, const TCHAR* Key, const TCHAR* Default, TCHAR* buf, size_t nSize, const TCHAR* IniFile, uint32_t codecpage = CP_THREAD_ACP);
+uint32_t GetPrivateProfileIntCP(const TCHAR* Section, const TCHAR* Key, const uint32_t defaultValue, const TCHAR* IniFile, uint32_t codecpage = CP_THREAD_ACP);
 
 #define GetPrivateProfileStringA GetPrivateProfileStringCP
 #define GetPrivateProfileIntA GetPrivateProfileIntCP
