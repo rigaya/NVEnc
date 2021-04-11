@@ -453,18 +453,15 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    if (m_inputVideoInfo.csp != prefered_csp) {
-        //入力フォーマットを変えた場合、m_inputVideoInfo.shiftは、出力フォーマットに対応する値ではなく、
-        //入力フォーマットに対応する値とする必要がある
-        m_inputVideoInfo.shift = (RGY_CSP_BIT_DEPTH[m_inputCsp] > 8) ? 16 - RGY_CSP_BIT_DEPTH[m_inputCsp] : 0;
-    }
-
     m_inputVideoInfo.srcWidth = m_sAVSinfo->width;
     m_inputVideoInfo.srcHeight = m_sAVSinfo->height;
     m_inputVideoInfo.fpsN = m_sAVSinfo->fps_numerator;
     m_inputVideoInfo.fpsD = m_sAVSinfo->fps_denominator;
-    m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
     m_inputVideoInfo.frames = m_sAVSinfo->num_frames;
+    m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
+    if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
+        m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
+    }
     rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 
     if (avsPrm != nullptr && avsPrm->readAudio) {
