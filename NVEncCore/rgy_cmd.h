@@ -32,9 +32,6 @@
 #include "rgy_prm.h"
 
 struct sArgsData {
-#if ENCODER_QSV
-    int outputDepth = 8;
-#endif
     tstring cachedlevel, cachedprofile;
 #if !ENCODER_NVENC
     tstring cachedtier;
