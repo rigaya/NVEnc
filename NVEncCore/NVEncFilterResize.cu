@@ -26,8 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#define _USE_MATH_DEFINES
-#include <cmath>
 #include <map>
 #include <array>
 #include "convert_csp.h"
@@ -215,8 +213,8 @@ __global__ void kernel_resize_spline(uint8_t *__restrict__ pDst, const int dstPi
         #pragma unroll
         for (int i = 0; i < radius * 2; i++) {
             //+0.5fはピクセル中心とするため
-            const float sx = floor(x) + i - radius + 1.0f + 0.5f;
-            const float sy = floor(y) + i - radius + 1.0f + 0.5f;
+            const float sx = floorf(x) + i - radius + 1.0f + 0.5f;
+            const float sy = floorf(y) + i - radius + 1.0f + 0.5f;
             //拡大ならratioDistXは1.0f、縮小ならratioの逆数(縮小側の距離に変換)
             const float dx = std::abs(sx - x) * ratioDistX;
             const float dy = std::abs(sy - y) * ratioDistY;
@@ -240,11 +238,11 @@ __global__ void kernel_resize_spline(uint8_t *__restrict__ pDst, const int dstPi
         float weightSum = 0.0f;
         float clr = 0.0f;
         for (int j = 0; j < radius * 2; j++) {
-            const float sy = floor(y) + j - radius + 1.0f + 0.5f;
+            const float sy = floorf(y) + j - radius + 1.0f + 0.5f;
             const float weightY = pWeightY[j];
             #pragma unroll
             for (int i = 0; i < radius * 2; i++) {
-                const float sx = floor(x) + i - radius + 1.0f + 0.5f;
+                const float sx = floorf(x) + i - radius + 1.0f + 0.5f;
                 const float weightXY = pWeightX[i] * weightY;
                 clr += tex2D<float>(texObj, sx, sy) * weightXY;
                 weightSum += weightXY;
@@ -350,8 +348,8 @@ __global__ void kernel_resize_lanczos(uint8_t* __restrict__ pDst, const int dstP
         #pragma unroll
         for (int i = 0; i < radius * 2; i++) {
             //+0.5fはピクセル中心とするため
-            const float sx = floor(x) + i - radius + 1.0f + 0.5f;
-            const float sy = floor(y) + i - radius + 1.0f + 0.5f;
+            const float sx = floorf(x) + i - radius + 1.0f + 0.5f;
+            const float sy = floorf(y) + i - radius + 1.0f + 0.5f;
             //拡大ならratioDistXは1.0f、縮小ならratioの逆数(縮小側の距離に変換)
             const float dx = std::abs(sx - x) * ratioDistX;
             const float dy = std::abs(sy - y) * ratioDistY;
@@ -362,11 +360,11 @@ __global__ void kernel_resize_lanczos(uint8_t* __restrict__ pDst, const int dstP
         float weightSum = 0.0f;
         float clr = 0.0f;
         for (int j = 0; j < radius * 2; j++) {
-            const float sy = floor(y) + j - radius + 1.0f + 0.5f;
+            const float sy = floorf(y) + j - radius + 1.0f + 0.5f;
             const float weightY = pWeightY[j];
             #pragma unroll
             for (int i = 0; i < radius * 2; i++) {
-                const float sx = floor(x) + i - radius + 1.0f + 0.5f;
+                const float sx = floorf(x) + i - radius + 1.0f + 0.5f;
                 const float weightXY = pWeightX[i] * weightY;
                 clr += tex2D<float>(texObj, sx, sy) * weightXY;
                 weightSum += weightXY;
