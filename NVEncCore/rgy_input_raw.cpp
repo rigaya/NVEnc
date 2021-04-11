@@ -261,8 +261,6 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             nOutputCSP = RGY_CSP_P210;
             output_csp_if_lossless = RGY_CSP_YUV444_16;
         }
-        //m_inputVideoInfo.shiftも出力フォーマットに対応する値でなく入力フォーマットに対するものに
-        m_inputVideoInfo.shift = 16 - RGY_CSP_BIT_DEPTH[m_inputCsp];
         break;
     case RGY_CSP_YUV444:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;
@@ -292,13 +290,15 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         m_inputVideoInfo.csp = output_csp_if_lossless;
     }
 
+    m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
+    if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
+        m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
+    }
     m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(bufferSize, 32), aligned_malloc_deleter());
     if (!m_pBuffer) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate input buffer.\n"));
         return RGY_ERR_NULL_PTR;
     }
-
-    m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
 
     if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("raw/y4m: color conversion not supported: %s -> %s.\n"),

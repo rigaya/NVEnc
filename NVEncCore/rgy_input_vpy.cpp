@@ -309,12 +309,6 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    if (m_inputVideoInfo.csp != prefered_csp) {
-        //入力フォーマットを変えた場合、m_inputVideoInfo.shiftは、出力フォーマットに対応する値ではなく、
-        //入力フォーマットに対応する値とする必要がある
-        m_inputVideoInfo.shift = (RGY_CSP_BIT_DEPTH[m_inputCsp] > 8) ? 16 - RGY_CSP_BIT_DEPTH[m_inputCsp] : 0;
-    }
-
     if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid framerate.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
@@ -325,8 +319,11 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     m_inputVideoInfo.srcHeight = vsvideoinfo->height;
     m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
     m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
-    m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
     m_inputVideoInfo.frames = vsvideoinfo->numFrames;
+    m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
+    if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
+        m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
+    }
 
     m_nAsyncFrames = vsvideoinfo->numFrames;
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo->numThreads);

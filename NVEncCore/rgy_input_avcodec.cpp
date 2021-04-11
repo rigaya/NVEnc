@@ -1883,12 +1883,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                      RGY_CSP_NAMES[pixCspConv], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
-            if (m_inputVideoInfo.csp != prefered_csp) {
-                //入力フォーマットを変えた場合、m_inputVideoInfo.shiftは、出力フォーマットに対応する値ではなく、
-                //入力フォーマットに対応する値とする必要がある
-                m_inputVideoInfo.shift = (RGY_CSP_BIT_DEPTH[m_inputCsp] > 8) ? 16 - RGY_CSP_BIT_DEPTH[m_inputCsp] : 0;
+            m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
+            if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
+                m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
             }
-            m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) ? m_inputVideoInfo.shift : 0;
             if (nullptr == (m_Demux.video.frame = av_frame_alloc())) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frame for decoder.\n"));
                 return RGY_ERR_NULL_PTR;
@@ -1897,7 +1895,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         } else {
             //HWデコードの場合は、色変換がかからないので、入力フォーマットがそのまま出力フォーマットとなる
             m_inputVideoInfo.csp = pixfmtData->output_csp;
-            m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) ? 16 - pixfmtData->bit_depth : 0;
+            m_inputVideoInfo.bitdepth = pixfmtData->bit_depth;
         }
 
         m_Demux.format.AVSyncMode = input_prm->AVSyncMode;
@@ -1915,7 +1913,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_inputVideoInfo.srcHeight   = m_Demux.video.stream->codecpar->height;
         m_inputVideoInfo.sar[0]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.num;
         m_inputVideoInfo.sar[1]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.den;
-        m_inputVideoInfo.shift       = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
         m_inputVideoInfo.picstruct   = (input_prm->interlaceAutoFrame) ? RGY_PICSTRUCT_AUTO : m_Demux.frames.getVideoPicStruct();
         m_inputVideoInfo.frames      = 0;
         //getFirstFramePosAndFrameRateをもとにfpsを決定
@@ -1948,8 +1945,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         if (m_Demux.video.stream) {
             AddMessage(RGY_LOG_DEBUG, _T("streamFirstKeyPts: %lld\n"), (long long int)m_Demux.video.streamFirstKeyPts);
             AddMessage(RGY_LOG_DEBUG, m_inputVideoInfo.vui.print_all());
-            AddMessage(RGY_LOG_DEBUG, _T("sar %d:%d, shift %d\n"),
-                m_inputVideoInfo.sar[0], m_inputVideoInfo.sar[1], m_inputVideoInfo.shift);
+            AddMessage(RGY_LOG_DEBUG, _T("sar %d:%d, bitdepth %d\n"),
+                m_inputVideoInfo.sar[0], m_inputVideoInfo.sar[1], m_inputVideoInfo.bitdepth);
         }
 
         *inputInfo = m_inputVideoInfo;

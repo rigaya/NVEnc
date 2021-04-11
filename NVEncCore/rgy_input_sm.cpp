@@ -162,8 +162,6 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
         }
         //yuv422読み込みは、出力フォーマットへの直接変換を持たないのでP210に変換する
         nOutputCSP = RGY_CSP_P210;
-        //m_inputVideoInfo.shiftも出力フォーマットに対応する値でなく入力フォーマットに対するものに
-        m_inputVideoInfo.shift = 16 - RGY_CSP_BIT_DEPTH[m_inputCsp];
         output_csp_if_lossless = RGY_CSP_YUV444_16;
         break;
     case RGY_CSP_YUV444:
@@ -194,6 +192,11 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
         //ロスレスの場合は、入力側で出力フォーマットを決める
         m_inputVideoInfo.csp = output_csp_if_lossless;
     }
+    //m_inputVideoInfo.shiftも出力フォーマットに対応する値でなく入力フォーマットに対するものに
+    m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
+    if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
+        m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
+    }
 
     prmsm->bufSize = bufferSize;
     for (size_t i = 0; i < m_sm.size(); i++) {
@@ -211,8 +214,6 @@ RGY_ERR RGYInputSM::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
         }
         AddMessage(RGY_LOG_DEBUG, _T("SetEvent: heBufEmpty[%d].\n"), i);
     }
-
-    m_inputVideoInfo.shift = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
 
     if (m_convert->getFunc(m_inputCsp, m_inputVideoInfo.csp, false, prm->simdCsp) == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("sm: color conversion not supported: %s -> %s.\n"),
