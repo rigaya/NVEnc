@@ -2535,7 +2535,9 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
         AVDemuxStream *pStream = getPacketStreamData(&pkt);
         const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
         //音声のptsが映像の終わりのptsを行きすぎたらやめる
-        if (0 < av_compare_ts(pkt.pts + delay_ts, pStream->timebase, m_Demux.frames.list(m_Demux.frames.fixedNum()).pts, vid_pkt_timebase)) {
+        const auto fixedLastFrame = m_Demux.frames.list(m_Demux.frames.fixedNum() - 1);
+        if (!m_Demux.frames.isEof() // 最後まで読み込んでいたらすべて転送するようにする
+            && 0 < av_compare_ts(pkt.pts + delay_ts, pStream->timebase, fixedLastFrame.pts, vid_pkt_timebase)) {
             break;
         }
         pkt.pts += delay_ts;
