@@ -535,7 +535,7 @@ RGY_ERR RGYOutputAvcodec::SetMetadata(AVDictionary **metadata, const AVDictionar
         if (av_dict_parse_string(metadata, m_utf8.c_str(), "=", "", 0)) {
             AddMessage(RGY_LOG_WARN, _T("Failed to parse metadata \"%s\" for %s, ignored!\n"), m.c_str(), trackName.c_str());
         } else {
-            AddMessage(RGY_LOG_DEBUG, _T("Set metadata \"%s\" for %s\n"), m.c_str(), trackName.c_str());
+            AddMessage(RGY_LOG_DEBUG, _T("Set/Overwrite metadata \"%s\" for %s\n"), m.c_str(), trackName.c_str());
         }
     }
     return RGY_ERR_NONE;
