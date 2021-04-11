@@ -93,6 +93,8 @@ static const CodecMap HW_DECODE_LIST[] = {
 #if ENCODER_NVENC
     { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
     { AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4 },
+#endif
+#if !ENCODER_VCEENC
     { AV_CODEC_ID_AV1,        RGY_CODEC_AV1 },
 #endif
     //{ AV_CODEC_ID_WMV3,       RGY_CODEC_VC1   },
