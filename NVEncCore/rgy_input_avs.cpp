@@ -385,7 +385,11 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         CSPMap( AVS_CS_YUV420P12,  RGY_CSP_YV12_12,   RGY_CSP_P010 ),
         CSPMap( AVS_CS_YUV420P14,  RGY_CSP_YV12_14,   RGY_CSP_P010 ),
         CSPMap( AVS_CS_YUV420P16,  RGY_CSP_YV12_16,   RGY_CSP_P010 ),
+#if ENCODER_VCEENC
+        CSPMap( AVS_CS_YUY2,       RGY_CSP_YUY2,      RGY_CSP_NV12 ),
+#else
         CSPMap( AVS_CS_YUY2,       RGY_CSP_YUY2,      RGY_CSP_NV16 ),
+#endif
 #if ENCODER_QSV || ENCODER_VCEENC
         CSPMap( AVS_CS_YV16,       RGY_CSP_YUV422,    RGY_CSP_NV12 ),
         CSPMap( AVS_CS_YUV422P10,  RGY_CSP_YUV422_10, RGY_CSP_P010 ),
