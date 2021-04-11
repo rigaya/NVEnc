@@ -59,6 +59,7 @@ typedef struct AVDemuxStream {
     int                       index;                  //音声・字幕のストリームID (libavのストリームID)
     int                       trackId;                //音声のトラックID (QSVEncC独自, 1,2,3,...)、字幕は0
     int                       subStreamId;            //通常は0、音声のチャンネルを分離する際に複製として作成
+    int                       sourceFileIndex;        //audio/sub/data-source経由の場合、そのファイルインデックス
     AVStream                 *stream;                 //音声・字幕のストリーム (caption2assから字幕生成の場合、nullptrとなる)
     int                       addDelayMs;             //設定すべき遅延の量(millisecond)
     int                       lastVidIndex;           //音声の直前の相当する動画の位置

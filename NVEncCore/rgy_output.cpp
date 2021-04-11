@@ -875,59 +875,67 @@ RGY_ERR initWriters(
             }
             for (auto &stream : otherSrcStreams) {
                 const auto streamMediaType = trackMediaType(stream.trackId);
+                if (stream.sourceFileIndex < 0) {
+                    log->write(RGY_LOG_ERROR, _T("Internal Error, Invalid file index %d set for %s-source.\n"),
+                        stream.sourceFileIndex, char_to_tstring(av_get_media_type_string(streamMediaType)).c_str());
+                    return RGY_ERR_UNKNOWN;
+                }
                 //audio-fileで別ファイルとして抽出するものは除く
-                bool usedInAudioFile = false;
-                for (const auto &audsrc : common->audioSource) {
-                    for (const auto &audsel : audsrc.select) {
+                if (streamMediaType == AVMEDIA_TYPE_AUDIO) {
+                    bool usedInAudioFile = false;
+                    const auto& audsrc = common->audioSource[stream.sourceFileIndex];
+                    for (const auto& audsel : audsrc.select) {
                         if (audioSelected(&audsel.second, &stream)
                             && audsel.second.extractFilename.length() > 0) {
                             usedInAudioFile = true;
                         }
                     }
-                }
-                if (usedInAudioFile) {
-                    continue;
+                    if (usedInAudioFile) {
+                        continue;
+                    }
                 }
                 const AudioSelect *pAudioSelect = nullptr;
                 if (streamMediaType == AVMEDIA_TYPE_AUDIO) {
-                    for (const auto &audsrc : common->audioSource) {
-                        for (const auto &audsel : audsrc.select) {
-                            if (audioSelected(&audsel.second, &stream)) {
-                                pAudioSelect = &audsel.second;
-                                break;
-                            }
+                    if (stream.sourceFileIndex >= (int)common->audioSource.size()) {
+                        log->write(RGY_LOG_ERROR, _T("Internal Error, Invalid file index %d set for audio-source.\n"), stream.sourceFileIndex);
+                        return RGY_ERR_UNKNOWN;
+                    }
+                    const auto& audsrc = common->audioSource[stream.sourceFileIndex];
+                    for (const auto &audsel : audsrc.select) {
+                        if (audioSelected(&audsel.second, &stream)) {
+                            pAudioSelect = &audsel.second;
+                            break;
                         }
                     }
                     if (pAudioSelect == nullptr) {
                         //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
-                        for (const auto &audsrc : common->audioSource) {
-                            for (const auto &audsel : audsrc.select) {
-                                if (audsel.first == 0) {
-                                    pAudioSelect = &audsel.second;
-                                    break;
-                                }
+                        for (const auto& audsel : audsrc.select) {
+                            if (audsel.first == 0) {
+                                pAudioSelect = &audsel.second;
+                                break;
                             }
                         }
                     }
                 }
                 const SubtitleSelect *pSubtitleSelect = nullptr;
                 if (streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
-                    for (const auto &subSrc : common->subSource) {
-                        for (const auto &subsel : subSrc.select) {
-                            if (subSelected(&subsel.second, &stream)) {
-                                pSubtitleSelect = &subsel.second;
-                                break;
-                            }
+                    if (stream.sourceFileIndex >= (int)common->subSource.size()) {
+                        log->write(RGY_LOG_ERROR, _T("Internal Error, Invalid file index %d set for audio-source.\n"), stream.sourceFileIndex);
+                        return RGY_ERR_UNKNOWN;
+                    }
+                    const auto& subsrc = common->subSource[stream.sourceFileIndex];
+                    for (const auto &subsel : subsrc.select) {
+                        if (subSelected(&subsel.second, &stream)) {
+                            pSubtitleSelect = &subsel.second;
+                            break;
                         }
                     }
                     if (pSubtitleSelect == nullptr) {
                         //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
-                        for (const auto &subSrc : common->subSource) {
-                            for (const auto &subsel : subSrc.select) {
-                                if (subsel.first == 0) {
-                                    pSubtitleSelect = &subsel.second;
-                                    break;
-                                }
+                        for (const auto &subsel : subsrc.select) {
+                            if (subsel.first == 0) {
+                                pSubtitleSelect = &subsel.second;
+                                break; //2重ループをbreak
                             }
                         }
                     }

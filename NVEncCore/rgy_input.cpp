@@ -232,8 +232,8 @@ static RGY_ERR initOtherReaders(
     inputPrm.threadCsp = ctrl->threadCsp;
     inputPrm.simdCsp = ctrl->simdCsp;
 
-    for (auto &src : source) {
-
+    for (int ifile = 0; ifile < (int)source.size(); ifile++) {
+        auto& src = source[ifile];
         VideoInfo inputInfo = *input;
 
         std::vector<T *> select;
@@ -246,6 +246,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.readVideo = false;
         inputInfoAVAudioReader.readChapter = false;
         inputInfoAVAudioReader.readData = false;
+        inputInfoAVAudioReader.fileIndex = ifile;
         inputInfoAVAudioReader.videoAvgFramerate = std::make_pair(inputInfo.fpsN, inputInfo.fpsD);
         inputInfoAVAudioReader.analyzeSec = common->demuxAnalyzeSec;
         inputInfoAVAudioReader.nTrimCount = common->nTrimCount;
@@ -452,6 +453,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.analyzeSec = common->demuxAnalyzeSec;
         inputInfoAVCuvid.nTrimCount = common->nTrimCount;
         inputInfoAVCuvid.pTrimList = common->pTrimList;
+        inputInfoAVCuvid.fileIndex = -1; //動画ファイルは-1
         inputInfoAVCuvid.trackStartAudio = sourceAudioTrackIdStart;
         inputInfoAVCuvid.trackStartSubtitle = sourceSubtitleTrackIdStart;
         inputInfoAVCuvid.trackStartData = sourceDataTrackIdStart;

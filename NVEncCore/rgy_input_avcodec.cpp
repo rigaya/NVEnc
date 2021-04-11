@@ -1494,6 +1494,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     }
                     stream.index = mediaStreams[iTrack];
                     stream.subStreamId = iSubStream;
+                    stream.sourceFileIndex = input_prm->fileIndex;
                     stream.stream = m_Demux.format.formatCtx->streams[stream.index];
                     stream.timebase = stream.stream->time_base;
                     stream.extractErrExcess = 0;

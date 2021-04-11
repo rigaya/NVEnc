@@ -934,6 +934,7 @@ public:
     int            analyzeSec;              //入力ファイルを分析する秒数
     int            nTrimCount;              //Trimする動画フレームの領域の数
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
+    int            fileIndex;               //audio-source, sub-source等のファイルインデックス、動画と同じファイルなら-1
     int            trackStartAudio;         //音声のトラック番号の開始点
     int            trackStartSubtitle;      //字幕のトラック番号の開始点
     int            trackStartData;          //データのトラック番号の開始点
