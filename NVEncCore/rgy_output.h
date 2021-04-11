@@ -68,6 +68,12 @@ private:
 public:
     RGYTimestamp() : m_duration(), mtx(), last_check_pts(-1), offset(0) {};
     ~RGYTimestamp() {};
+    void clear() {
+        std::lock_guard<std::mutex> lock(mtx);
+        m_duration.clear();
+        last_check_pts = -1;
+        offset = 0;
+    }
     void add(int64_t pts, int64_t duration) {
         std::lock_guard<std::mutex> lock(mtx);
         m_duration[pts] = duration;
