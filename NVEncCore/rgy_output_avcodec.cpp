@@ -2246,8 +2246,7 @@ RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
 #pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_t *writtenDts) {
     if (!m_Mux.format.fileHeaderWritten) {
-#if ENCODER_QSV
-        //HEVCエンコードでは、DecodeTimeStampが正しく設定されない
+#if 0 && ENCODER_QSV //HEVCエンコードやFixed Funcでは、DecodeTimeStampが正しく設定されないので無効化
         if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC && bitstream->dts() == MFX_TIMESTAMP_UNKNOWN) {
             m_Mux.video.dtsUnavailable = true;
         }
@@ -2261,7 +2260,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 
         //dts生成を初期化
         //何フレーム前からにすればよいかは、b-pyramid次第で異なるので、可能な限りエンコーダの情報を使用する
-        if (!m_Mux.video.dtsUnavailable) {
+        if (ENCODER_QSV && bitstream->dts() != MFX_TIMESTAMP_UNKNOWN) {
             const auto srcTimebase = (ENCODER_QSV) ? HW_NATIVE_TIMEBASE : m_Mux.video.bitstreamTimebase;
             m_VideoOutputInfo.videoDelay = -1 * (int)av_rescale_q(bitstream->dts(), srcTimebase, av_inv_q(m_Mux.video.outputFps));
         }
