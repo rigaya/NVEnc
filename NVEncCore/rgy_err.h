@@ -88,6 +88,7 @@ enum RGY_ERR {
     RGY_ERR_MAP_FAILED                  = -38,
     RGY_ERR_CUDA                        = -39,
     RGY_ERR_RUN_PROCESS                 = -40,
+    RGY_ERR_NONE_PARTIAL_OUTPUT         = -41,
 
     //OpenCL
     RGY_ERR_INVALID_PLATFORM                = -50,
