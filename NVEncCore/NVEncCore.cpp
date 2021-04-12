@@ -711,7 +711,7 @@ NVENCSTATUS NVEncCore::CheckGPUListByEncoder(std::vector<std::unique_ptr<NVGPUIn
         if (inputParam->codec == NV_ENC_H264
             && (
                 (inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED)
-                && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave
+                && (inputParam->vppnv.deinterlace == cudaVideoDeinterlaceMode_Weave
                     && !inputParam->vpp.afs.enable
                     && !inputParam->vpp.nnedi.enable
                     && !inputParam->vpp.yadif.enable))
@@ -1255,15 +1255,15 @@ NVENCSTATUS NVEncCore::ReleaseIOBuffers() {
 
 bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
     const bool interlacedEncode = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED)
-        && (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Weave
+        && (inputParam->vppnv.deinterlace == cudaVideoDeinterlaceMode_Weave
             && !inputParam->vpp.afs.enable
             && !inputParam->vpp.nnedi.enable
             && !inputParam->vpp.yadif.enable));
     return
          //デフォルトの補間方法
-        inputParam->vpp.resizeInterp == NPPI_INTER_UNDEFINED
+        inputParam->vpp.resize_algo == RGY_VPP_RESIZE_AUTO
         //deinterlace bobとリサイズを有効にすると色成分が正常に出力されない場合がある
-        && inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Bob
+        && inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Bob
 #if CUVID_DISABLE_CROP
         //cropが行われていない (cuvidのcropはよくわからん)
         && !cropEnabled(inputParam->input.crop)
@@ -1272,7 +1272,7 @@ bool NVEncCore::enableCuvidResize(const InEncodeVideoParam *inputParam) {
         && !interlacedEncode
         //フィルタ処理が必要
         && !(  inputParam->vpp.delogo.enable
-            || inputParam->vpp.gaussMaskSize > 0
+            || inputParam->vppnv.gaussMaskSize > 0
             || inputParam->vpp.unsharp.enable
             || inputParam->vpp.knn.enable
             || inputParam->vpp.pmd.enable
@@ -1310,7 +1310,7 @@ NVENCSTATUS NVEncCore::InitDecoder(const InEncodeVideoParam *inputParam) {
 
         m_cuvidDec.reset(new CuvidDecode());
 
-        auto result = m_cuvidDec->InitDecode(m_dev->vidCtxLock(), &inputParam->input, &inputParam->vpp, streamIn->time_base, m_pNVLog, inputParam->nHWDecType, enableCuvidResize(inputParam), inputParam->ctrl.lowLatency);
+        auto result = m_cuvidDec->InitDecode(m_dev->vidCtxLock(), &inputParam->input, &inputParam->vppnv, streamIn->time_base, m_pNVLog, inputParam->nHWDecType, enableCuvidResize(inputParam), inputParam->ctrl.lowLatency);
         if (result != CUDA_SUCCESS) {
             PrintMes(RGY_LOG_ERROR, _T("failed to init decoder.\n"));
             return NV_ENC_ERR_UNSUPPORTED_PARAM;
@@ -1398,7 +1398,7 @@ NVENCSTATUS NVEncCore::SetInputParam(const InEncodeVideoParam *inputParam) {
     //picStructの設定
     m_stPicStruct = picstruct_rgy_to_enc(inputParam->input.picstruct);
 
-    if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
+    if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) {
 #if ENABLE_AVSW_READER
         if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-deinterlace requires to be used with avhw reader.\n"));
@@ -1993,7 +1993,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         inputFrame.deivce_mem = true;
     }
     m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
-    if (inputParam->vpp.deinterlace == cudaVideoDeinterlaceMode_Bob) {
+    if (inputParam->vppnv.deinterlace == cudaVideoDeinterlaceMode_Bob) {
         m_encFps *= 2;
     }
 
@@ -2031,7 +2031,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
 
     //picStructの設定
     m_stPicStruct = picstruct_rgy_to_enc(inputParam->input.picstruct);
-    if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
+    if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) {
         m_stPicStruct = NV_ENC_PIC_STRUCT_FRAME;
         inputFrame.picstruct = RGY_PICSTRUCT_FRAME;
     } else if (inputParam->vpp.afs.enable || inputParam->vpp.nnedi.enable || inputParam->vpp.yadif.enable) {
@@ -2039,7 +2039,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     }
     //インタレ解除の個数をチェック
     int deinterlacer = 0;
-    if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
+    if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) deinterlacer++;
     if (inputParam->vpp.afs.enable) deinterlacer++;
     if (inputParam->vpp.nnedi.enable) deinterlacer++;
     if (inputParam->vpp.yadif.enable) deinterlacer++;
@@ -2059,7 +2059,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             return RGY_ERR_UNSUPPORTED;
         }
 #endif //#if ENABLE_AVSW_READER
-        if (inputParam->vpp.deinterlace != cudaVideoDeinterlaceMode_Weave) {
+        if (inputParam->vppnv.deinterlace != cudaVideoDeinterlaceMode_Weave) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-deinterlace.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
@@ -2072,7 +2072,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     if (resizeRequired
         || cropRequired
         || inputParam->vpp.delogo.enable
-        || inputParam->vpp.gaussMaskSize > 0
+        || inputParam->vppnv.gaussMaskSize > 0
         || inputParam->vpp.unsharp.enable
         || inputParam->vpp.knn.enable
         || inputParam->vpp.pmd.enable
@@ -2481,14 +2481,14 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             m_encFps = param->baseFps;
         }
         //ノイズ除去
-        if (inputParam->vpp.gaussMaskSize > 0) {
+        if (inputParam->vppnv.gaussMaskSize > 0) {
 #if _M_IX86
             PrintMes(RGY_LOG_ERROR, _T("gauss denoise filter not supported in x86.\n"));
             return RGY_ERR_UNSUPPORTED;
 #else
             unique_ptr<NVEncFilter> filterGauss(new NVEncFilterDenoiseGauss());
             shared_ptr<NVEncFilterParamGaussDenoise> param(new NVEncFilterParamGaussDenoise());
-            param->masksize = inputParam->vpp.gaussMaskSize;
+            param->masksize = inputParam->vppnv.gaussMaskSize;
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->baseFps = m_encFps;
@@ -2565,7 +2565,20 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         if (resizeRequired) {
             unique_ptr<NVEncFilter> filterCrop(new NVEncFilterResize());
             shared_ptr<NVEncFilterParamResize> param(new NVEncFilterParamResize());
-            param->interp = (inputParam->vpp.resizeInterp != NPPI_INTER_UNDEFINED) ? inputParam->vpp.resizeInterp : RESIZE_CUDA_SPLINE36;
+            if (inputParam->vpp.resize_algo == RGY_VPP_RESIZE_AUTO) {
+                param->interp = RGY_VPP_RESIZE_SPLINE36;
+            } else if (inputParam->vpp.resize_algo <= RGY_VPP_RESIZE_OPENCL_CUDA_MAX) {
+                param->interp = inputParam->vpp.resize_algo;
+            } else {
+#if _M_IX86
+                if (param->interp <= RGY_VPP_RESIZE_NPPI_INTER_MAX) {
+                    param->interp = RGY_VPP_RESIZE_SPLINE36;
+                    PrintMes(RGY_LOG_WARN, _T("npp resize filters not supported in x86, switching to %s.\n"), get_chr_from_value(list_nppi_resize, param->interp));
+                }
+#else
+                param->interp = inputParam->vpp.resize_algo;
+#endif
+            }
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
             param->frameOut.width = resizeWidth;
@@ -2573,8 +2586,8 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
 #if _M_IX86
-            if (param->interp <= NPPI_INTER_MAX) {
-                param->interp = RESIZE_CUDA_SPLINE36;
+            if (param->interp <= RGY_VPP_RESIZE_NPPI_INTER_MAX) {
+                param->interp = RGY_VPP_RESIZE_SPLINE36;
                 PrintMes(RGY_LOG_WARN, _T("npp resize filters not supported in x86, switching to %s.\n"), get_chr_from_value(list_nppi_resize, param->interp));
             }
 #endif
@@ -2793,7 +2806,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
     {
         NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
         for (auto& filter : m_vpFilters) {
-            filter->CheckPerformance(inputParam->vpp.checkPerformance);
+            filter->CheckPerformance(inputParam->vppnv.checkPerformance);
         }
     }
     m_encVUI = inputParam->common.out_vui;

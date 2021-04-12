@@ -85,6 +85,22 @@ const TCHAR* NVRTC_DLL_NAME_TSTR = _T("libnvrtc.so");
 const TCHAR* NVRTC_BUILTIN_DLL_NAME_TSTR = _T("");
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+
+static const auto RGY_VPP_RESIZE_ALGO_TO_NPPI = make_array<std::pair<RGY_VPP_RESIZE_ALGO, NppiInterpolationMode>>(
+    std::make_pair(RGY_VPP_RESIZE_NPPI_INTER_NN,                 NPPI_INTER_NN),
+    std::make_pair(RGY_VPP_RESIZE_NPPI_INTER_LINEAR,             NPPI_INTER_LINEAR),
+    std::make_pair(RGY_VPP_RESIZE_NPPI_INTER_CUBIC,              NPPI_INTER_CUBIC),
+    std::make_pair(RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_BSPLINE,    NPPI_INTER_CUBIC2P_BSPLINE),
+    std::make_pair(RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_CATMULLROM, NPPI_INTER_CUBIC2P_CATMULLROM),
+    std::make_pair(RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_B05C03,     NPPI_INTER_CUBIC2P_B05C03),
+    std::make_pair(RGY_VPP_RESIZE_NPPI_INTER_SUPER,              NPPI_INTER_SUPER),
+    std::make_pair(RGY_VPP_RESIZE_NPPI_INTER_LANCZOS,            NPPI_INTER_LANCZOS),
+    std::make_pair(RGY_VPP_RESIZE_NPPI_INTER_LANCZOS3_ADVANCED,  NPPI_INTER_LANCZOS3_ADVANCED),
+    std::make_pair(RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE,              NPPI_SMOOTH_EDGE)
+    );
+
+MAP_PAIR_0_1(vpp_resize_algo, rgy, RGY_VPP_RESIZE_ALGO, enc, NppiInterpolationMode, RGY_VPP_RESIZE_ALGO_TO_NPPI, RGY_VPP_RESIZE_UNKNOWN, NPPI_INTER_UNDEFINED);
+
 template<typename TypePixel>
 cudaError_t setTexFieldResize(cudaTextureObject_t& texSrc, const FrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
     texSrc = 0;
@@ -132,13 +148,13 @@ void resize_texture(uint8_t *pDst, const int dstPitch, const int dstWidth, const
 }
 
 template<typename Type, int bit_depth>
-cudaError_t resize_texture_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int interp, cudaStream_t stream) {
+cudaError_t resize_texture_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
     const float ratioX = 1.0f / (float)(pOutputFrame->width);
     const float ratioY = 1.0f / (float)(pOutputFrame->height);
 
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = cudaSuccess;
-    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, (interp == RESIZE_CUDA_TEXTURE_BILINEAR) ? cudaFilterModeLinear : cudaFilterModePoint, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
+    if ((cudaerr = setTexFieldResize<Type>(texSrc, pInputFrame, (interp == RGY_VPP_RESIZE_BILINEAR) ? cudaFilterModeLinear : cudaFilterModePoint, cudaReadModeNormalizedFloat, 1)) != cudaSuccess) {
         return cudaerr;
     }
     resize_texture<Type, bit_depth>((uint8_t *)pOutputFrame->ptr,
@@ -156,7 +172,7 @@ cudaError_t resize_texture_plane(FrameInfo *pOutputFrame, const FrameInfo *pInpu
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t resize_texture_frame(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, int interp, cudaStream_t stream) {
+static cudaError_t resize_texture_frame(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -443,16 +459,16 @@ static cudaError_t resize_lanczos_frame(FrameInfo* pOutputFrame, const FrameInfo
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t resize_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int interp, const float *pgFactor, cudaStream_t stream) {
+static cudaError_t resize_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, const float *pgFactor, cudaStream_t stream) {
     switch (interp) {
-    case RESIZE_CUDA_TEXTURE_BILINEAR:
-    case RESIZE_CUDA_TEXTURE_NEAREST: return resize_texture_frame<Type, bit_depth>(pOutputFrame, pInputFrame, interp, stream);
-    case RESIZE_CUDA_SPLINE16: return resize_spline_frame<Type, bit_depth, 2>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RESIZE_CUDA_SPLINE36: return resize_spline_frame<Type, bit_depth, 3>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RESIZE_CUDA_SPLINE64: return resize_spline_frame<Type, bit_depth, 4>(pOutputFrame, pInputFrame, pgFactor, stream);
-    case RESIZE_CUDA_LANCZOS2: return resize_lanczos_frame<Type, bit_depth, 2>(pOutputFrame, pInputFrame, stream);
-    case RESIZE_CUDA_LANCZOS3: return resize_lanczos_frame<Type, bit_depth, 3>(pOutputFrame, pInputFrame, stream);
-    case RESIZE_CUDA_LANCZOS4: return resize_lanczos_frame<Type, bit_depth, 4>(pOutputFrame, pInputFrame, stream);
+    case RGY_VPP_RESIZE_BILINEAR:
+    case RGY_VPP_RESIZE_NEAREST: return resize_texture_frame<Type, bit_depth>(pOutputFrame, pInputFrame, interp, stream);
+    case RGY_VPP_RESIZE_SPLINE16: return resize_spline_frame<Type, bit_depth, 2>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_SPLINE36: return resize_spline_frame<Type, bit_depth, 3>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_SPLINE64: return resize_spline_frame<Type, bit_depth, 4>(pOutputFrame, pInputFrame, pgFactor, stream);
+    case RGY_VPP_RESIZE_LANCZOS2: return resize_lanczos_frame<Type, bit_depth, 2>(pOutputFrame, pInputFrame, stream);
+    case RGY_VPP_RESIZE_LANCZOS3: return resize_lanczos_frame<Type, bit_depth, 3>(pOutputFrame, pInputFrame, stream);
+    case RGY_VPP_RESIZE_LANCZOS4: return resize_lanczos_frame<Type, bit_depth, 4>(pOutputFrame, pInputFrame, stream);
     default:  return cudaErrorUnknown;
     }
 }
@@ -521,7 +537,11 @@ RGY_ERR NVEncFilterResize::resizeNppiYV12(FrameInfo *pOutputFrame, const FrameIn
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    const auto interp = (NppiInterpolationMode)pResizeParam->interp;
+    const auto interp = vpp_resize_algo_rgy_to_enc(pResizeParam->interp);
+    if (interp == NPPI_INTER_UNDEFINED) {
+        AddMessage(RGY_LOG_ERROR, _T("Unknown nppi interp mode: %d.\n"), (int)pResizeParam->interp);
+        return RGY_ERR_UNSUPPORTED;
+    }
     static const auto supportedCspYV12High = make_array<RGY_CSP>(RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     NppStatus nppsts = NPP_SUCCESS;
     if (m_pParam->frameIn.csp == RGY_CSP_YV12) {
@@ -594,7 +614,11 @@ RGY_ERR NVEncFilterResize::resizeNppiYUV444(FrameInfo *pOutputFrame, const Frame
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    const auto interp = (NppiInterpolationMode)pResizeParam->interp;
+    const auto interp = vpp_resize_algo_rgy_to_enc(pResizeParam->interp);
+    if (interp == NPPI_INTER_UNDEFINED) {
+        AddMessage(RGY_LOG_ERROR, _T("Unknown nppi interp mode: %d.\n"), (int)pResizeParam->interp);
+        return RGY_ERR_UNSUPPORTED;
+    }
     static const auto supportedCspYUV444High = make_array<RGY_CSP>(RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
     NppStatus nppsts = NPP_SUCCESS;
     if (m_pParam->frameIn.csp == RGY_CSP_YUV444) {
@@ -633,10 +657,10 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pResizeParam->interp <= NPPI_INTER_MAX && !check_if_nppi_dll_available()) {
-        AddMessage(RGY_LOG_WARN, _T("--vpp-resize %s requires \"%s\", not available on your system.\n"), get_chr_from_value(list_nppi_resize, pResizeParam->interp), NPPI_DLL_NAME_TSTR);
-        pResizeParam->interp = RESIZE_CUDA_SPLINE36;
-        AddMessage(RGY_LOG_WARN, _T("switching to %s."), get_chr_from_value(list_nppi_resize, pResizeParam->interp));
+    if (pResizeParam->interp > RGY_VPP_RESIZE_OPENCL_CUDA_MAX && !check_if_nppi_dll_available()) {
+        AddMessage(RGY_LOG_WARN, _T("--vpp-resize %s requires \"%s\", not available on your system.\n"), get_chr_from_value(list_vpp_resize, pResizeParam->interp), NPPI_DLL_NAME_TSTR);
+        pResizeParam->interp = RGY_VPP_RESIZE_SPLINE36;
+        AddMessage(RGY_LOG_WARN, _T("switching to %s."), get_chr_from_value(list_vpp_resize, pResizeParam->interp));
     }
     //パラメータチェック
     if (pResizeParam->frameOut.height <= 0 || pResizeParam->frameOut.width <= 0) {
@@ -652,7 +676,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
     pResizeParam->frameOut.pitch = m_pFrameBuf[0]->frame.pitch;
 
     if (m_weightSpline.ptr == nullptr
-        && (pResizeParam->interp == RESIZE_CUDA_SPLINE16 || pResizeParam->interp == RESIZE_CUDA_SPLINE36 || pResizeParam->interp == RESIZE_CUDA_SPLINE64)) {
+        && (pResizeParam->interp == RGY_VPP_RESIZE_SPLINE16 || pResizeParam->interp == RGY_VPP_RESIZE_SPLINE36 || pResizeParam->interp == RGY_VPP_RESIZE_SPLINE64)) {
         static const auto SPLINE16_WEIGHT = std::vector<float>{
             1.0f,       -9.0f/5.0f,  -1.0f/5.0f, 1.0f,
             -1.0f/3.0f,  9.0f/5.0f, -46.0f/15.0f, 8.0f/5.0f
@@ -670,9 +694,9 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
         };
         const std::vector<float>* weight = nullptr;
         switch (pResizeParam->interp) {
-        case RESIZE_CUDA_SPLINE16: weight = &SPLINE16_WEIGHT; break;
-        case RESIZE_CUDA_SPLINE36: weight = &SPLINE36_WEIGHT; break;
-        case RESIZE_CUDA_SPLINE64: weight = &SPLINE64_WEIGHT; break;
+        case RGY_VPP_RESIZE_SPLINE16: weight = &SPLINE16_WEIGHT; break;
+        case RGY_VPP_RESIZE_SPLINE36: weight = &SPLINE36_WEIGHT; break;
+        case RGY_VPP_RESIZE_SPLINE64: weight = &SPLINE64_WEIGHT; break;
         default: {
             AddMessage(RGY_LOG_ERROR, _T("unknown interpolation type: %d.\n"), pResizeParam->interp);
             return RGY_ERR_INVALID_PARAM;
@@ -700,7 +724,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 
 tstring NVEncFilterParamResize::print() const {
     return strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
-        get_chr_from_value(list_nppi_resize, interp),
+        get_chr_from_value(list_vpp_resize_mode, interp),
         frameIn.width, frameIn.height,
         frameOut.width, frameOut.height);
 }
@@ -738,7 +762,7 @@ RGY_ERR NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pResizeParam->interp <= NPPI_INTER_MAX) {
+    if (pResizeParam->interp > RGY_VPP_RESIZE_OPENCL_CUDA_MAX) {
         if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), m_pParam->frameIn.csp) != supportedCspYV12.end()) {
             sts = resizeNppiYV12(ppOutputFrames[0], pInputFrame);
         } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), m_pParam->frameIn.csp) != supportedCspYUV444.end()) {
@@ -760,7 +784,7 @@ RGY_ERR NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **
             AddMessage(RGY_LOG_ERROR, _T("unsupported csp %s.\n"), RGY_CSP_NAMES[pInputFrame->csp]);
             return RGY_ERR_UNSUPPORTED;
         }
-        resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pResizeParam->interp,(float *)m_weightSpline.ptr, cudaStreamDefault);
+        resize_list.at(pInputFrame->csp)(ppOutputFrames[0], pInputFrame, pResizeParam->interp, (float *)m_weightSpline.ptr, cudaStreamDefault);
         auto cudaerr = cudaGetLastError();
         if (cudaerr != cudaSuccess) {
             AddMessage(RGY_LOG_ERROR, _T("error at resize(%s): %s.\n"),

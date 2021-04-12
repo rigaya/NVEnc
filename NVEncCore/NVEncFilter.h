@@ -221,8 +221,8 @@ protected:
 
 class NVEncFilterParamResize : public NVEncFilterParam {
 public:
-    int interp;
-    NVEncFilterParamResize() : interp(RESIZE_CUDA_SPLINE36) {}
+    RGY_VPP_RESIZE_ALGO interp;
+    NVEncFilterParamResize() : interp(RGY_VPP_RESIZE_SPLINE36) {}
     virtual ~NVEncFilterParamResize() {};
     virtual tstring print() const override;
 };

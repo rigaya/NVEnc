@@ -437,7 +437,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
         paramResize->baseFps = prm->baseFps;
         paramResize->frameOut.deivce_mem = true;
         paramResize->bOutOverwrite = false;
-        paramResize->interp = RESIZE_CUDA_TEXTURE_BILINEAR;
+        paramResize->interp = RGY_VPP_RESIZE_BILINEAR;
         filterResize->init(paramResize, m_pPrintMes);
         m_resize = std::move(filterResize);
 

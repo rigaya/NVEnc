@@ -66,18 +66,21 @@ void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue,
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const std::vector<std::pair<RGY_CODEC, const CX_DESC *>>& codec_list);
 void print_cmd_error_invalid_value(tstring strErrorMessage, tstring strOptionName, tstring strErrorValue = _T(""), const CX_DESC *list = nullptr, int list_length = std::numeric_limits<int>::max());
 
+int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamVpp *vpp, sArgsData *argData);
 int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, sArgsData *argData);
 int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamCommon *common, sArgsData *argData);
 int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamControl *ctrl, sArgsData *argData);
 
 tstring print_list_options(const TCHAR *option_name, const CX_DESC *list, int default_index);
 
+tstring gen_cmd(const RGYParamVpp *common, const RGYParamVpp *defaultPrm, bool save_disabled_prm);
 tstring gen_cmd(const VideoInfo *common, const VideoInfo *defaultPrm, bool save_disabled_prm);
 tstring gen_cmd(const RGYParamCommon *common, const RGYParamCommon *defaultPrm, bool save_disabled_prm);
 tstring gen_cmd(const RGYParamControl *ctrl, const RGYParamControl *defaultPrm, bool save_disabled_prm);
 
 tstring gen_cmd_help_input();
 tstring gen_cmd_help_common();
+tstring gen_cmd_help_vpp();
 tstring gen_cmd_help_ctrl();
 
 #endif //__RGY_CMD_H__
