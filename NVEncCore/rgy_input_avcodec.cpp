@@ -42,11 +42,6 @@
 #include "rgy_avlog.h"
 #include "rgy_language.h"
 
-//#ifdef LIBVA_SUPPORT
-//#include "qsv_hw_va.h"
-//#include "qsv_allocator.h"
-//#endif //#if LIBVA_SUPPORT
-
 
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_INPUT
