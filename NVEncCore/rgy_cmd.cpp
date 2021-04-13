@@ -5263,7 +5263,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
             cmd << _T(" --gpu-select ") << tmp.str().substr(1);
         }
     }
-#if ENCODER_QSV    
+#if ENCODER_QSV
     OPT_BOOL(_T("--disable-opencl"), _T(""), enableOpenCL);
 #endif
     return cmd.str();
