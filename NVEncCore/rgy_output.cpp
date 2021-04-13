@@ -670,7 +670,7 @@ RGY_ERR initWriters(
         ((common->muxOutputFormat.length() > 0 && 0 == _tcscmp(common->muxOutputFormat.c_str(), _T("raw")))) //--formatにrawが指定されている
         || std::filesystem::path(common->outputFilename).extension().empty() //拡張子がない
         || check_ext(common->outputFilename.c_str(), { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc" }); //特定の拡張子
-    if (!useH264ESOutput) {
+    if (!useH264ESOutput && outputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
         common->AVMuxTarget |= RGY_MUX_VIDEO;
     }
 
