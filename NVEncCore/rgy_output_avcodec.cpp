@@ -2862,7 +2862,7 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioEncodeFrame(AVMuxAudio *muxAudio, AV
         return encPktDatas;
     }
 
-    AVPktMuxData pktData;
+    AVPktMuxData pktData = { 0 };
     memset(&pktData.pkt, 0, sizeof(pktData.pkt)); //av_init_packetでsizeなどは初期化されないので0をセット
     pktData.type = MUX_DATA_TYPE_PACKET;
     pktData.muxAudio = muxAudio;
