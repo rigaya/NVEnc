@@ -475,6 +475,7 @@ struct FrameInfo {
     uint8_t *ptr;
     RGY_CSP csp;
     int width, height, pitch;
+    int bitdepth;
     int64_t timestamp;
     int64_t duration;
     bool deivce_mem;
@@ -489,6 +490,7 @@ struct FrameInfo {
         width(0),
         height(0),
         pitch(0),
+        bitdepth(0),
         timestamp(0),
         duration(0),
         deivce_mem(false),
