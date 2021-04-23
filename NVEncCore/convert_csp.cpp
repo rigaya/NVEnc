@@ -1404,6 +1404,16 @@ const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct) {
     }
 }
 
+const TCHAR *get_memtype_str(RGY_MEM_TYPE type) {
+    switch (type) {
+    case RGY_MEM_TYPE_CPU: return _T("cpu");
+    case RGY_MEM_TYPE_GPU: return _T("gpu");
+    case RGY_MEM_TYPE_GPU_IMAGE: return _T("gpu_image");
+    case RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED: return _T("gpu_image_norm");
+    default: return _T("unknwon");
+    }
+}
+
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd) {
     uint32_t availableSIMD = get_availableSIMD() & simd;
     const ConvertCSP *convert = nullptr;
