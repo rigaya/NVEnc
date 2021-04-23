@@ -185,6 +185,8 @@ enum RGYAVFormatType : uint32_t {
     RGY_AVFORMAT_MUX   = 0x02,
 };
 
+int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
+
 //NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
 AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct);
 
