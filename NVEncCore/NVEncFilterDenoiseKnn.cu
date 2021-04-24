@@ -137,7 +137,7 @@ cudaError_t textureCreateDenoiseKnn(cudaTextureObject_t& tex, cudaTextureFilterM
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t denoise_knn_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+static cudaError_t denoise_knn_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
     cudaStream_t stream) {
     cudaTextureObject_t texSrc = 0;
@@ -160,7 +160,7 @@ static cudaError_t denoise_knn_plane(FrameInfo *pOutputFrame, const FrameInfo *p
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t denoise_knn_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+static cudaError_t denoise_knn_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     int radius, const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold,
     cudaStream_t stream) {
     cudaError_t cudaerr = cudaSuccess;
@@ -248,7 +248,7 @@ tstring NVEncFilterParamDenoiseKnn::print() const {
     return knn.print();
 }
 
-RGY_ERR NVEncFilterDenoiseKnn::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {

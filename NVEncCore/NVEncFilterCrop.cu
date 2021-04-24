@@ -33,7 +33,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-RGY_ERR copyPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR copyPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const int pix_size = RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? 2 : 1;
     const auto memkind = getCudaMemcpyKind(pInputFrame->deivce_mem, pOutputFrame->deivce_mem);;
     auto cudaerr = cudaMemcpy2DAsync((uint8_t *)pOutputFrame->ptr, pOutputFrame->pitch,
@@ -45,7 +45,7 @@ RGY_ERR copyPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStr
     return RGY_ERR_NONE;
 }
 
-RGY_ERR copyFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR copyFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -135,7 +135,7 @@ __global__ void kernel_crop_y(uint8_t *__restrict__ pDst, const int dstPitch, co
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_y(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_y(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(64, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
     kernel_crop_y<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
@@ -144,7 +144,7 @@ void crop_y(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputC
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_uv(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_uv(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(64, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
     kernel_crop_y<TypeOut, out_bit_depth, TypeIn, in_bit_depth><<<gridSize, blockSize, 0, stream>>>(
@@ -154,9 +154,9 @@ void crop_uv(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInput
         pInputFrame->pitch, pCrop->e.left, pCrop->e.up >> 1);
 }
 
-RGY_ERR NVEncFilterCspCrop::convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterCspCrop::convertYBitDepth(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
 #define CONV_DEPTH_TO_FROM(to, from) ((to) << 8 | (from))
-    static const std::map<int, void (*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> crop_y_list = {
+    static const std::map<int, void (*)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> crop_y_list = {
         { CONV_DEPTH_TO_FROM(16,  8), crop_y<uint16_t, 16, uint8_t,   8> },
         { CONV_DEPTH_TO_FROM(14,  8), crop_y<uint16_t, 14, uint8_t,   8> },
         { CONV_DEPTH_TO_FROM(12,  8), crop_y<uint16_t, 12, uint8_t,   8> },
@@ -214,7 +214,7 @@ __global__ void kernel_crop_uv_nv12_yv12(uint8_t *__restrict__ pDstU, uint8_t *_
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_uv_nv12_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_uv_nv12_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
     auto outPlaneU = getPlane(pOutputFrame, RGY_PLANE_U);
@@ -335,7 +335,7 @@ __global__ void kernel_crop_uv_nv12_yuv444_i(uint8_t *__restrict__ pDstU, uint8_
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_uv_nv12_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_uv_nv12_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
     uint8_t *ptrU = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
@@ -369,7 +369,7 @@ __global__ void kernel_crop_uv_yv12_nv12(uint8_t *__restrict__ pDst, const int d
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_uv_yv12_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_uv_yv12_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height >> 1, blockSize.y));
     uint8_t *ptrC = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
@@ -405,7 +405,7 @@ __global__ void kernel_crop_uv_nv16_yuv444(uint8_t *__restrict__ pDstU, uint8_t 
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_uv_nv16_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_uv_nv16_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width >> 1, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
     uint8_t *ptrU = (uint8_t *)pOutputFrame->ptr + pOutputFrame->pitch * pOutputFrame->height;
@@ -441,7 +441,7 @@ __global__ void kernel_crop_uv_nv16_yv12_p(uint8_t *__restrict__ pDstU, uint8_t 
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_uv_nv16_yv12_p(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_uv_nv16_yv12_p(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     if (interlaced(*pInputFrame)) {
         fprintf(stderr, "interlaced yuv422 -> yuv420 is not supported.\n");
         exit(1);
@@ -481,7 +481,7 @@ __global__ void kernel_crop_uv_nv16_nv12_p(uint8_t *__restrict__ pDstC, const in
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_uv_nv16_nv12_p(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_uv_nv16_nv12_p(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     if (interlaced(*pInputFrame)) {
         fprintf(stderr, "interlaced yuv422 -> yuv420 is not supported.\n");
         exit(1);
@@ -544,7 +544,7 @@ __global__ void kernel_crop_uv_yuv444_nv12_i(uint8_t *__restrict__ pDstC, const 
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_uv_yuv444_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_uv_yuv444_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
     auto planeOutputC = getPlane(pOutputFrame, RGY_PLANE_U);
@@ -607,7 +607,7 @@ __global__ void kernel_crop_uv_yuv444_yv12_i(uint8_t *__restrict__ pDstU, uint8_
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_uv_yuv444_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_uv_yuv444_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
@@ -677,7 +677,7 @@ __global__ void kernel_crop_rgb3_yuv444(uint8_t *__restrict__ pDstY, uint8_t *__
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_rgb3_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_rgb3_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
     uint8_t *ptrY = (uint8_t *)pOutputFrame->ptr;
@@ -722,7 +722,7 @@ __global__ void kernel_crop_rgb4_yuv444(uint8_t *__restrict__ pDstY, uint8_t *__
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_rgb4_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_rgb4_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
     uint8_t *ptrY = (uint8_t *)pOutputFrame->ptr;
@@ -776,7 +776,7 @@ __global__ void kernel_crop_rgb_yuv444(uint8_t *__restrict__ pDstY, uint8_t *__r
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_rgb_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_rgb_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     const auto planeInputR = getPlane(pInputFrame, RGY_PLANE_R);
     const auto planeInputG = getPlane(pInputFrame, RGY_PLANE_G);
     const auto planeInputB = getPlane(pInputFrame, RGY_PLANE_B);
@@ -844,7 +844,7 @@ __global__ void kernel_crop_rgb3_yv12(uint8_t *__restrict__ pDstY, uint8_t *__re
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_rgb3_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_rgb3_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width / 2, blockSize.x), divCeil(pOutputFrame->height / 2, blockSize.y));
     uint8_t *ptrDstY = (uint8_t *)pOutputFrame->ptr;
@@ -898,7 +898,7 @@ __global__ void kernel_crop_rgb3_nv12(uint8_t *__restrict__ pDstY, uint8_t *__re
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_rgb3_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_rgb3_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width / 2, blockSize.x), divCeil(pOutputFrame->height / 2, blockSize.y));
     uint8_t *ptrDstY = (uint8_t *)pOutputFrame->ptr;
@@ -949,7 +949,7 @@ __global__ void kernel_crop_rgb4_yv12(uint8_t *__restrict__ pDstY, uint8_t *__re
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_rgb4_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_rgb4_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width / 2, blockSize.x), divCeil(pOutputFrame->height / 2, blockSize.y));
     uint8_t *ptrDstY = (uint8_t *)pOutputFrame->ptr;
@@ -987,7 +987,7 @@ __global__ void kernel_crop_rgb4_nv12(uint8_t *__restrict__ pDstY, uint8_t *__re
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_rgb4_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_rgb4_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pOutputFrame->width / 2, blockSize.x), divCeil(pOutputFrame->height / 2, blockSize.y));
     uint8_t *ptrDstY = (uint8_t *)pOutputFrame->ptr;
@@ -1056,7 +1056,7 @@ __global__ void kernel_crop_rgb_yv12(uint8_t *__restrict__ pDstY, uint8_t *__res
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_rgb_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_rgb_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     const auto planeInputR = getPlane(pInputFrame, RGY_PLANE_R);
     const auto planeInputG = getPlane(pInputFrame, RGY_PLANE_G);
     const auto planeInputB = getPlane(pInputFrame, RGY_PLANE_B);
@@ -1124,7 +1124,7 @@ __global__ void kernel_crop_rgb_nv12(uint8_t *__restrict__ pDstY, uint8_t *__res
 }
 
 template<typename TypeOut, int out_bit_depth, typename TypeIn, int in_bit_depth>
-void crop_rgb_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
+void crop_rgb_nv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream) {
     const auto planeInputR = getPlane(pInputFrame, RGY_PLANE_R);
     const auto planeInputG = getPlane(pInputFrame, RGY_PLANE_G);
     const auto planeInputB = getPlane(pInputFrame, RGY_PLANE_B);
@@ -1137,7 +1137,7 @@ void crop_rgb_nv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const 
         planeInputR.ptr, planeInputG.ptr, planeInputB.ptr, planeInputR.pitch, pCrop->e.left, pCrop->e.up);
 }
 
-RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1164,7 +1164,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const Fr
     }
 
     //UV
-    static const std::map<uint64_t, void (*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> convert_from_nv12_list = {
+    static const std::map<uint64_t, void (*)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> convert_from_nv12_list = {
         { RGY_CSP_2(RGY_CSP_NV12, RGY_CSP_YV12   ).i,   crop_uv_nv12_yv12<uint8_t,   8, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_NV12, RGY_CSP_YV12_16).i,   crop_uv_nv12_yv12<uint16_t, 16, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_NV12, RGY_CSP_YV12_14).i,   crop_uv_nv12_yv12<uint16_t, 14, uint8_t,   8> },
@@ -1207,7 +1207,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const Fr
     }
     return RGY_ERR_NONE;
 }
-RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1234,7 +1234,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fr
     }
 
     //UV
-    static const std::map<uint64_t, void (*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> crop_uv_yv12_nv12_list = {
+    static const std::map<uint64_t, void (*)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> crop_uv_yv12_nv12_list = {
         { RGY_CSP_2(RGY_CSP_YV12,    RGY_CSP_NV12).i, crop_uv_yv12_nv12<uint8_t,   8, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_YV12_16, RGY_CSP_P010).i, crop_uv_yv12_nv12<uint16_t, 16, uint16_t, 16> },
         { RGY_CSP_2(RGY_CSP_YV12_14, RGY_CSP_P010).i, crop_uv_yv12_nv12<uint16_t, 16, uint16_t, 14> },
@@ -1259,7 +1259,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fr
 
 }
 
-RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1286,7 +1286,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(FrameInfo *pOutputFrame, const Fr
     }
 
     //UV
-    static const std::map<uint64_t, void(*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> convert_from_nv16_list = {
+    static const std::map<uint64_t, void(*)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> convert_from_nv16_list = {
         { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12).i,      crop_uv_nv16_yv12_p<uint8_t,   8, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_16).i,   crop_uv_nv16_yv12_p<uint16_t, 16, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_NV16, RGY_CSP_YV12_14).i,   crop_uv_nv16_yv12_p<uint16_t, 14, uint8_t,   8> },
@@ -1336,7 +1336,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromNV16(FrameInfo *pOutputFrame, const Fr
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1363,7 +1363,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const 
     }
 
     //UV
-    static const std::map<uint64_t, void(*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> convert_from_yuv444_list = {
+    static const std::map<uint64_t, void(*)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> convert_from_yuv444_list = {
         { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_NV12).i, crop_uv_yuv444_nv12<uint8_t,   8, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_YUV444,    RGY_CSP_P010).i, crop_uv_yuv444_nv12<uint16_t, 16, uint8_t,   8> },
         { RGY_CSP_2(RGY_CSP_YUV444_09, RGY_CSP_NV12).i, crop_uv_yuv444_nv12<uint8_t,   8, uint16_t,  9> },
@@ -1408,7 +1408,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const 
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterCspCrop::convertCspFromRGB(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterCspCrop::convertCspFromRGB(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     auto pCropParam = std::dynamic_pointer_cast<NVEncFilterParamCrop>(m_pParam);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1416,7 +1416,7 @@ RGY_ERR NVEncFilterCspCrop::convertCspFromRGB(FrameInfo *pOutputFrame, const Fra
     }
     const auto frameOutInfoEx = getFrameInfoExtra(&pCropParam->frameOut);
 
-    static const std::map<uint64_t, void(*)(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> convert_from_rgb_list = {
+    static const std::map<uint64_t, void(*)(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const sInputCrop *pCrop, cudaStream_t stream)> convert_from_rgb_list = {
         { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YUV444).i,    crop_rgb3_yuv444<uint8_t,   8, uint8_t, 8> },
         { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YUV444_09).i, crop_rgb3_yuv444<uint16_t,  9, uint8_t, 8> },
         { RGY_CSP_2(RGY_CSP_RGB24, RGY_CSP_YUV444_10).i, crop_rgb3_yuv444<uint16_t, 10, uint8_t, 8> },
@@ -1597,7 +1597,7 @@ tstring NVEncFilterParamCrop::print() const {
     return filterInfo;
 }
 
-RGY_ERR NVEncFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {

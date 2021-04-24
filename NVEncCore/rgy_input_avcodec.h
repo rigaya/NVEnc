@@ -931,7 +931,7 @@ public:
     bool           readAttachment;          //Attachmentの読み込みを行うかどうか
     bool           readChapter;             //チャプターの読み込みを行うかどうか
     rgy_rational<int> videoAvgFramerate;       //動画のフレームレート
-    int            analyzeSec;              //入力ファイルを分析する秒数
+    double         analyzeSec;              //入力ファイルを分析する秒数
     int64_t        probesize;               //probeするデータサイズ
     int            nTrimCount;              //Trimする動画フレームの領域の数
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト

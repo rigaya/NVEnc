@@ -102,7 +102,7 @@ static const auto RGY_VPP_RESIZE_ALGO_TO_NPPI = make_array<std::pair<RGY_VPP_RES
 MAP_PAIR_0_1(vpp_resize_algo, rgy, RGY_VPP_RESIZE_ALGO, enc, NppiInterpolationMode, RGY_VPP_RESIZE_ALGO_TO_NPPI, RGY_VPP_RESIZE_UNKNOWN, NPPI_INTER_UNDEFINED);
 
 template<typename TypePixel>
-cudaError_t setTexFieldResize(cudaTextureObject_t& texSrc, const FrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
+cudaError_t setTexFieldResize(cudaTextureObject_t& texSrc, const RGYFrameInfo* pFrame, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, int normalizedCord) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -148,7 +148,7 @@ void resize_texture(uint8_t *pDst, const int dstPitch, const int dstWidth, const
 }
 
 template<typename Type, int bit_depth>
-cudaError_t resize_texture_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
+cudaError_t resize_texture_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
     const float ratioX = 1.0f / (float)(pOutputFrame->width);
     const float ratioY = 1.0f / (float)(pOutputFrame->height);
 
@@ -172,7 +172,7 @@ cudaError_t resize_texture_plane(FrameInfo *pOutputFrame, const FrameInfo *pInpu
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t resize_texture_frame(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
+static cudaError_t resize_texture_frame(RGYFrameInfo* pOutputFrame, const RGYFrameInfo* pInputFrame, RGY_VPP_RESIZE_ALGO interp, cudaStream_t stream) {
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -282,7 +282,7 @@ void resize_spline(uint8_t *pDst, const int dstPitch, const int dstWidth, const 
 }
 
 template<typename Type, int bit_depth, int radius>
-static cudaError_t resize_spline_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const float *pgFactor, cudaStream_t stream) {
+static cudaError_t resize_spline_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const float *pgFactor, cudaStream_t stream) {
     const float ratioX = pInputFrame->width / (float)(pOutputFrame->width);
     const float ratioY = pInputFrame->height / (float)(pOutputFrame->height);
     const float ratioDistX = (pInputFrame->width <= pOutputFrame->width) ? 1.0f : pOutputFrame->width / (float)(pInputFrame->width);
@@ -305,7 +305,7 @@ static cudaError_t resize_spline_plane(FrameInfo *pOutputFrame, const FrameInfo 
 }
 
 template<typename Type, int bit_depth, int radius>
-static cudaError_t resize_spline_frame(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, const float* pgFactor, cudaStream_t stream) {
+static cudaError_t resize_spline_frame(RGYFrameInfo* pOutputFrame, const RGYFrameInfo* pInputFrame, const float* pgFactor, cudaStream_t stream) {
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -404,7 +404,7 @@ void resize_lanczos(uint8_t* pDst, const int dstPitch, const int dstWidth, const
 }
 
 template<typename Type, int bit_depth, int radius>
-static cudaError_t resize_lanczos_plane(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, cudaStream_t stream) {
+static cudaError_t resize_lanczos_plane(RGYFrameInfo* pOutputFrame, const RGYFrameInfo* pInputFrame, cudaStream_t stream) {
     const float ratioX = pInputFrame->width / (float)(pOutputFrame->width);
     const float ratioY = pInputFrame->height / (float)(pOutputFrame->height);
     const float ratioDistX = (pInputFrame->width <= pOutputFrame->width) ? 1.0f : pOutputFrame->width / (float)(pInputFrame->width);
@@ -427,7 +427,7 @@ static cudaError_t resize_lanczos_plane(FrameInfo* pOutputFrame, const FrameInfo
 }
 
 template<typename Type, int bit_depth, int radius>
-static cudaError_t resize_lanczos_frame(FrameInfo* pOutputFrame, const FrameInfo* pInputFrame, cudaStream_t stream) {
+static cudaError_t resize_lanczos_frame(RGYFrameInfo* pOutputFrame, const RGYFrameInfo* pInputFrame, cudaStream_t stream) {
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -459,7 +459,7 @@ static cudaError_t resize_lanczos_frame(FrameInfo* pOutputFrame, const FrameInfo
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t resize_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, const float *pgFactor, cudaStream_t stream) {
+static cudaError_t resize_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGY_VPP_RESIZE_ALGO interp, const float *pgFactor, cudaStream_t stream) {
     switch (interp) {
     case RGY_VPP_RESIZE_BILINEAR:
     case RGY_VPP_RESIZE_NEAREST: return resize_texture_frame<Type, bit_depth>(pOutputFrame, pInputFrame, interp, stream);
@@ -474,7 +474,7 @@ static cudaError_t resize_frame(FrameInfo *pOutputFrame, const FrameInfo *pInput
 }
 
 template<typename T, typename Tfunc>
-static NppStatus resize_nppi_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode) {
+static NppStatus resize_nppi_yv12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode) {
     const double factorX = pOutputFrame->width / (double)pInputFrame->width;
     const double factorY = pOutputFrame->height / (double)pInputFrame->height;
     auto srcSize = nppisize(pInputFrame);
@@ -522,7 +522,7 @@ static NppStatus resize_nppi_yv12(FrameInfo *pOutputFrame, const FrameInfo *pInp
     return sts;
 }
 
-RGY_ERR NVEncFilterResize::resizeNppiYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterResize::resizeNppiYV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
 #if _M_IX86
     AddMessage(RGY_LOG_ERROR, _T("npp filter not supported on x86.\n"));
     return RGY_ERR_UNSUPPORTED;
@@ -565,7 +565,7 @@ RGY_ERR NVEncFilterResize::resizeNppiYV12(FrameInfo *pOutputFrame, const FrameIn
 }
 
 template<typename T, typename Tfunc>
-static NppStatus resize_nppi_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode) {
+static NppStatus resize_nppi_yuv444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcResize, NppiInterpolationMode interpMode) {
     const double factorX = pOutputFrame->width / (double)pInputFrame->width;
     const double factorY = pOutputFrame->height / (double)pInputFrame->height;
     auto srcSize = nppisize(pInputFrame);
@@ -599,7 +599,7 @@ static NppStatus resize_nppi_yuv444(FrameInfo *pOutputFrame, const FrameInfo *pI
     return sts;
 }
 
-RGY_ERR NVEncFilterResize::resizeNppiYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterResize::resizeNppiYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
 #if _M_IX86
     AddMessage(RGY_LOG_ERROR, _T("npp filter not supported on x86.\n"));
     return RGY_ERR_UNSUPPORTED;
@@ -729,7 +729,7 @@ tstring NVEncFilterParamResize::print() const {
         frameOut.width, frameOut.height);
 }
 
-RGY_ERR NVEncFilterResize::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

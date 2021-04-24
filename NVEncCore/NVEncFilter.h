@@ -59,17 +59,17 @@ using std::vector;
 
 RGY_ERR err_to_rgy(cudaError_t err);
 
-RGY_ERR copyPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
-RGY_ERR copyFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
+RGY_ERR copyPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+RGY_ERR copyFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
 
-static NppiSize nppisize(const FrameInfo *pFrame) {
+static NppiSize nppisize(const RGYFrameInfo *pFrame) {
     NppiSize size;
     size.width = pFrame->width;
     size.height = pFrame->height;
     return size;
 }
 
-static NppiRect nppiroi(const FrameInfo *pFrame) {
+static NppiRect nppiroi(const RGYFrameInfo *pFrame) {
     NppiRect rect;
     rect.x = 0;
     rect.y = 0;
@@ -80,8 +80,8 @@ static NppiRect nppiroi(const FrameInfo *pFrame) {
 
 class NVEncFilterParam {
 public:
-    FrameInfo frameIn;
-    FrameInfo frameOut;
+    RGYFrameInfo frameIn;
+    RGYFrameInfo frameOut;
     rgy_rational<int> baseFps;
     bool bOutOverwrite;
 
@@ -130,7 +130,7 @@ public:
         return m_sFilterName;
     }
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) = 0;
-    RGY_ERR filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
+    RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream);
     const tstring GetInputMessage() {
         return m_sFilterInfo;
     }
@@ -142,8 +142,8 @@ public:
     virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
     virtual int targetTrackIdx() { return 0; };
 protected:
-    RGY_ERR filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream);
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) = 0;
+    RGY_ERR filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, cudaStream_t stream);
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) = 0;
     virtual void close() = 0;
 
     void setFilterInfo(const tstring &info) {
@@ -175,7 +175,7 @@ protected:
         va_end(args);
         AddMessage(log_level, buffer);
     }
-    cudaError_t AllocFrameBuf(const FrameInfo& frame, int frames);
+    cudaError_t AllocFrameBuf(const RGYFrameInfo& frame, int frames);
 
     tstring m_sFilterName;
     tstring m_sFilterInfo;
@@ -209,13 +209,13 @@ public:
     virtual ~NVEncFilterCspCrop();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
-    RGY_ERR convertYBitDepth(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
-    RGY_ERR convertCspFromNV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
-    RGY_ERR convertCspFromYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
-    RGY_ERR convertCspFromNV16(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
-    RGY_ERR convertCspFromRGB(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
-    RGY_ERR convertCspFromYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream);
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    RGY_ERR convertYBitDepth(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromNV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromYV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromNV16(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromRGB(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+    RGY_ERR convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
     virtual void close() override;
 };
 
@@ -233,9 +233,9 @@ public:
     virtual ~NVEncFilterResize();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
-    RGY_ERR resizeNppiYV12(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    RGY_ERR resizeNppiYUV444(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    RGY_ERR resizeNppiYV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame);
+    RGY_ERR resizeNppiYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame);
     virtual void close() override;
 
     bool m_bInterlacedWarn;
@@ -257,9 +257,9 @@ public:
     virtual ~NVEncFilterDenoiseGauss();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
-    RGY_ERR denoisePlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
-    RGY_ERR denoiseFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame);
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    RGY_ERR denoisePlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame);
+    RGY_ERR denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame);
     virtual void close() override;
     bool m_bInterlacedWarn;
 };
@@ -278,8 +278,8 @@ public:
     virtual ~NVEncFilterPad();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
 
-    RGY_ERR padPlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, int pad_color, const VppPad *pad, cudaStream_t stream);
+    RGY_ERR padPlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, int pad_color, const VppPad *pad, cudaStream_t stream);
     virtual void close() override;
 };

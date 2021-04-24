@@ -95,17 +95,17 @@ static const TCHAR *getCudaMemcpyKindStr(bool inputDevice, bool outputDevice) {
     return getCudaMemcpyKindStr(getCudaMemcpyKind(inputDevice, outputDevice));
 }
 
-static cudaError_t copyPlane(FrameInfo *dst, const FrameInfo *src) {
+static cudaError_t copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
     return cudaMemcpy2D(dst->ptr, dst->pitch, src->ptr, src->pitch, width_byte, dst->height, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem));
 }
 
-static cudaError_t copyPlaneAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
+static cudaError_t copyPlaneAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, cudaStream_t stream) {
     const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
     return cudaMemcpy2DAsync(dst->ptr, dst->pitch, src->ptr, src->pitch, width_byte, dst->height, getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem), stream);
 }
 
-static cudaError_t copyPlaneField(FrameInfo *dst, const FrameInfo *src, const bool dstTopField, const bool srcTopField) {
+static cudaError_t copyPlaneField(RGYFrameInfo *dst, const RGYFrameInfo *src, const bool dstTopField, const bool srcTopField) {
     const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
     return cudaMemcpy2D(
         dst->ptr + ((dstTopField) ? 0 : dst->pitch),
@@ -117,7 +117,7 @@ static cudaError_t copyPlaneField(FrameInfo *dst, const FrameInfo *src, const bo
         getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem));
 }
 
-static cudaError_t copyPlaneFieldAsync(FrameInfo *dst, const FrameInfo *src, const bool dstTopField, const bool srcTopField, cudaStream_t stream) {
+static cudaError_t copyPlaneFieldAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, const bool dstTopField, const bool srcTopField, cudaStream_t stream) {
     const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
     return cudaMemcpy2DAsync(
         dst->ptr + ((dstTopField) ? 0 : dst->pitch),
@@ -129,7 +129,7 @@ static cudaError_t copyPlaneFieldAsync(FrameInfo *dst, const FrameInfo *src, con
         getCudaMemcpyKind(src->deivce_mem, dst->deivce_mem), stream);
 }
 
-static cudaError_t setPlane(FrameInfo *dst, int value) {
+static cudaError_t setPlane(RGYFrameInfo *dst, int value) {
     const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
     return cudaMemset2D(
         dst->ptr,
@@ -139,7 +139,7 @@ static cudaError_t setPlane(FrameInfo *dst, int value) {
         dst->height);
 }
 
-static cudaError_t setPlaneAsync(FrameInfo *dst, int value, cudaStream_t stream) {
+static cudaError_t setPlaneAsync(RGYFrameInfo *dst, int value, cudaStream_t stream) {
     const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
     return cudaMemset2DAsync(
         dst->ptr,
@@ -149,7 +149,7 @@ static cudaError_t setPlaneAsync(FrameInfo *dst, int value, cudaStream_t stream)
         dst->height, stream);
 }
 
-static cudaError_t setPlaneField(FrameInfo *dst, int value, bool topField) {
+static cudaError_t setPlaneField(RGYFrameInfo *dst, int value, bool topField) {
     const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
     return cudaMemset2D(
         dst->ptr + ((topField) ? 0 : dst->pitch),
@@ -159,7 +159,7 @@ static cudaError_t setPlaneField(FrameInfo *dst, int value, bool topField) {
         dst->height >> 1);
 }
 
-static cudaError_t setPlaneFieldAsync(FrameInfo *dst, int value, bool topField, cudaStream_t stream) {
+static cudaError_t setPlaneFieldAsync(RGYFrameInfo *dst, int value, bool topField, cudaStream_t stream) {
     const int width_byte = dst->width * (RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1);
     return cudaMemset2DAsync(
         dst->ptr + ((topField) ? 0 : dst->pitch),
@@ -169,7 +169,7 @@ static cudaError_t setPlaneFieldAsync(FrameInfo *dst, int value, bool topField, 
         dst->height >> 1, stream);
 }
 
-static cudaError_t checkCopyFrame(FrameInfo *dst, const FrameInfo *src) {
+static cudaError_t checkCopyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     auto dstInfoEx = getFrameInfoExtra(dst);
     const auto srcInfoEx = getFrameInfoExtra(src);
     if (dst->pitch == 0
@@ -205,7 +205,7 @@ static cudaError_t checkCopyFrame(FrameInfo *dst, const FrameInfo *src) {
     return cudaSuccess;
 }
 
-static cudaError_t copyFrame(FrameInfo *dst, const FrameInfo *src) {
+static cudaError_t copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
         const auto srcPlane = getPlane(src, (RGY_PLANE)i);
         auto dstPlane = getPlane(dst, (RGY_PLANE)i);
@@ -217,7 +217,7 @@ static cudaError_t copyFrame(FrameInfo *dst, const FrameInfo *src) {
     return cudaSuccess;
 }
 
-static cudaError_t copyFrameAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
+static cudaError_t copyFrameAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, cudaStream_t stream) {
     for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
         const auto srcPlane = getPlane(src, (RGY_PLANE)i);
         auto dstPlane = getPlane(dst, (RGY_PLANE)i);
@@ -229,7 +229,7 @@ static cudaError_t copyFrameAsync(FrameInfo *dst, const FrameInfo *src, cudaStre
     return cudaSuccess;
 }
 
-static cudaError_t copyFrameField(FrameInfo *dst, const FrameInfo *src, const bool dstTopField, const bool srcTopField) {
+static cudaError_t copyFrameField(RGYFrameInfo *dst, const RGYFrameInfo *src, const bool dstTopField, const bool srcTopField) {
     for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
         const auto srcPlane = getPlane(src, (RGY_PLANE)i);
         auto dstPlane = getPlane(dst, (RGY_PLANE)i);
@@ -241,7 +241,7 @@ static cudaError_t copyFrameField(FrameInfo *dst, const FrameInfo *src, const bo
     return cudaSuccess;
 }
 
-static cudaError_t copyFrameFieldAsync(FrameInfo *dst, const FrameInfo *src, const bool dstTopField, const bool srcTopField, cudaStream_t stream) {
+static cudaError_t copyFrameFieldAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, const bool dstTopField, const bool srcTopField, cudaStream_t stream) {
     for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
         const auto srcPlane = getPlane(src, (RGY_PLANE)i);
         auto dstPlane = getPlane(dst, (RGY_PLANE)i);
@@ -253,7 +253,7 @@ static cudaError_t copyFrameFieldAsync(FrameInfo *dst, const FrameInfo *src, con
     return cudaSuccess;
 }
 
-static cudaError_t copyFrameData(FrameInfo *dst, const FrameInfo *src) {
+static cudaError_t copyFrameData(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     {   auto ret = checkCopyFrame(dst, src);
         if (ret != cudaSuccess) {
             return ret;
@@ -266,7 +266,7 @@ static cudaError_t copyFrameData(FrameInfo *dst, const FrameInfo *src) {
     return ret;
 }
 
-static cudaError_t copyFrameDataAsync(FrameInfo *dst, const FrameInfo *src, cudaStream_t stream) {
+static cudaError_t copyFrameDataAsync(RGYFrameInfo *dst, const RGYFrameInfo *src, cudaStream_t stream) {
     {   auto ret = checkCopyFrame(dst, src);
         if (ret != cudaSuccess) {
             return ret;
@@ -281,7 +281,7 @@ static cudaError_t copyFrameDataAsync(FrameInfo *dst, const FrameInfo *src, cuda
 
 struct CUFrameBuf {
 public:
-    FrameInfo frame;
+    RGYFrameInfo frame;
     cudaEvent_t event;
     CUFrameBuf()
         : frame(), event() {
@@ -307,14 +307,14 @@ public:
         frame.deivce_mem = true;
         cudaEventCreate(&event);
     };
-    CUFrameBuf(const FrameInfo& _info)
+    CUFrameBuf(const RGYFrameInfo& _info)
         : frame(_info), event() {
         cudaEventCreate(&event);
     };
-    cudaError_t copyFrame(const FrameInfo *src) {
+    cudaError_t copyFrame(const RGYFrameInfo *src) {
         return copyFrameData(&frame, src);
     }
-    cudaError_t copyFrameAsync(const FrameInfo *src, cudaStream_t stream) {
+    cudaError_t copyFrameAsync(const RGYFrameInfo *src, cudaStream_t stream) {
         return copyFrameDataAsync(&frame, src, stream);
     }
 protected:
@@ -392,8 +392,8 @@ public:
 
 struct CUFrameBufPair {
 public:
-    FrameInfo frameDev;
-    FrameInfo frameHost;
+    RGYFrameInfo frameDev;
+    RGYFrameInfo frameHost;
     cudaEvent_t event;
     CUFrameBufPair()
         : frameDev(), frameHost(), event() {

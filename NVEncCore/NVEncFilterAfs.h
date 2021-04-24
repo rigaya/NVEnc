@@ -88,11 +88,11 @@ public:
     afsSourceCache();
     ~afsSourceCache();
 
-    cudaError_t alloc(const FrameInfo& frameInfo);
+    cudaError_t alloc(const RGYFrameInfo& frameInfo);
 
-    cudaError_t add(const FrameInfo *pInputFrame, cudaStream_t stream);
+    cudaError_t add(const RGYFrameInfo *pInputFrame, cudaStream_t stream);
 
-    cudaError_t sep_field_uv(FrameInfo *pDstFrame, const FrameInfo *pSrcFrame, cudaStream_t stream);
+    cudaError_t sep_field_uv(RGYFrameInfo *pDstFrame, const RGYFrameInfo *pSrcFrame, cudaStream_t stream);
 
     CUFrameBuf *get(int iframe) {
         iframe = clamp(iframe, 0, m_nFramesInput-1);
@@ -121,7 +121,7 @@ public:
     void clearcache(int iframe);
     void initcache(int iframe);
 
-    cudaError_t alloc(const FrameInfo& frameInfo);
+    cudaError_t alloc(const RGYFrameInfo& frameInfo);
 
     AFS_SCAN_DATA *get(int iframe) {
         return &m_scanArray[iframe & (AFS_SCAN_CACHE_NUM-1)];
@@ -148,7 +148,7 @@ public:
     void initcache(int iframe);
     void expire(int iframe);
 
-    cudaError_t alloc(const FrameInfo& frameInfo);
+    cudaError_t alloc(const RGYFrameInfo& frameInfo);
 
     AFS_STRIPE_DATA *get(int iframe) {
         return &m_stripeArray[iframe & (AFS_STRIPE_CACHE_NUM-1)];
@@ -232,7 +232,7 @@ public:
     virtual ~NVEncFilterAfs();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<NVEncFilterParamAfs> pAfsParam);
 

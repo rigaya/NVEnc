@@ -41,7 +41,7 @@ public:
     virtual tstring print() const override;
 };
 
-using funcCalcDiff = std::function<cudaError_t(const FrameInfo *, const FrameInfo *, CUMemBufPair&,
+using funcCalcDiff = std::function<cudaError_t(const RGYFrameInfo *, const RGYFrameInfo *, CUMemBufPair&,
     const int, const int, const bool, cudaStream_t, cudaEvent_t, cudaStream_t)>;
 
 class NVEncFilterDecimateFrameData {
@@ -51,7 +51,7 @@ public:
 
     CUFrameBuf *get() { return &m_buf; }
     const CUFrameBuf *get() const { return &m_buf; }
-    cudaError_t set(const FrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream);
+    cudaError_t set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream);
     int id() const { return m_inFrameId; }
     cudaError_t calcDiff(funcCalcDiff func, const NVEncFilterDecimateFrameData *target, const bool chroma,
         cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer);
@@ -75,7 +75,7 @@ public:
     NVEncFilterDecimateCache();
     ~NVEncFilterDecimateCache();
     void init(int bufCount, int blockX, int blockY);
-    cudaError_t add(const FrameInfo *pInputFrame, cudaStream_t stream = 0);
+    cudaError_t add(const RGYFrameInfo *pInputFrame, cudaStream_t stream = 0);
     NVEncFilterDecimateFrameData *frame(int iframe) {
         iframe = clamp(iframe, 0, m_inputFrames - 1);
         return m_frames[iframe % m_frames.size()].get();
@@ -97,10 +97,10 @@ public:
     virtual ~NVEncFilterDecimate();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamDecimate> pParam);
-    RGY_ERR setOutputFrame(int64_t nextTimestamp, FrameInfo **ppOutputFrames, int *pOutputFrameNum);
+    RGY_ERR setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
 
     bool m_flushed;
     int m_frameLastDropped;

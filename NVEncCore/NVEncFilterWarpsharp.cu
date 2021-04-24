@@ -236,7 +236,7 @@ cudaError_t textureCreateWarpsharp(cudaTextureObject_t &tex, cudaTextureFilterMo
 }
 
 template<typename Type, int bit_depth>
-static RGY_ERR warpsharp_sobel_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const float threshold, cudaStream_t stream) {
+static RGY_ERR warpsharp_sobel_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const float threshold, cudaStream_t stream) {
     dim3 blockSize(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
 
@@ -253,7 +253,7 @@ static RGY_ERR warpsharp_sobel_plane(FrameInfo *pOutputFrame, const FrameInfo *p
 }
 
 template<typename Type, int bit_depth, int range>
-static RGY_ERR warpsharp_blur_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+static RGY_ERR warpsharp_blur_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     dim3 blockSize(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
 
@@ -269,7 +269,7 @@ static RGY_ERR warpsharp_blur_plane(FrameInfo *pOutputFrame, const FrameInfo *pI
 }
 
 template<typename Type, int bit_depth>
-static RGY_ERR warpsharp_warp_plane(FrameInfo *pOutputFrame, const FrameInfo *pMaskFrame, const FrameInfo *pInputFrame, const float depth, cudaStream_t stream) {
+static RGY_ERR warpsharp_warp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pMaskFrame, const RGYFrameInfo *pInputFrame, const float depth, cudaStream_t stream) {
     dim3 blockSize(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
 
@@ -295,7 +295,7 @@ static RGY_ERR warpsharp_warp_plane(FrameInfo *pOutputFrame, const FrameInfo *pM
 }
 
 template<typename Type>
-static RGY_ERR warpsharp_downscale_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+static RGY_ERR warpsharp_downscale_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     dim3 blockSize(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
 
@@ -310,7 +310,7 @@ static RGY_ERR warpsharp_downscale_plane(FrameInfo *pOutputFrame, const FrameInf
 }
 
 template<typename Type, int bit_depth>
-static RGY_ERR warpsharp_plane(FrameInfo *pOutputFrame, FrameInfo *pMaskFrame0, FrameInfo *pMaskFrame1, const FrameInfo *pInputFrame,
+static RGY_ERR warpsharp_plane(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFrame0, RGYFrameInfo *pMaskFrame1, const RGYFrameInfo *pInputFrame,
     const float threshold, const float depth, const int blur, const int type, cudaStream_t stream) {
 #if 1
     auto err = warpsharp_sobel_plane<Type, bit_depth>(pMaskFrame0, pInputFrame, threshold, stream);
@@ -343,7 +343,7 @@ static RGY_ERR warpsharp_plane(FrameInfo *pOutputFrame, FrameInfo *pMaskFrame0, 
 }
 
 template<typename Type, int bit_depth>
-static RGY_ERR warpsharp_frame(FrameInfo *pOutputFrame, FrameInfo *pMaskFrame0, FrameInfo *pMaskFrame1, const FrameInfo *pInputFrame,
+static RGY_ERR warpsharp_frame(RGYFrameInfo *pOutputFrame, RGYFrameInfo *pMaskFrame0, RGYFrameInfo *pMaskFrame1, const RGYFrameInfo *pInputFrame,
     const float threshold, const float depth, const int blur, const int type, const int chroma, cudaStream_t stream) {
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
@@ -363,7 +363,7 @@ static RGY_ERR warpsharp_frame(FrameInfo *pOutputFrame, FrameInfo *pMaskFrame0, 
     }
     const float depthUV = (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) ? depth * 0.5f : depth;
     if (chroma == 0) {
-        FrameInfo *pMaskUV = &planeMask0Y;
+        RGYFrameInfo *pMaskUV = &planeMask0Y;
         if (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) {
             err = warpsharp_downscale_plane<Type>(&planeMask0U, &planeMask0Y, stream);
             if (err != RGY_ERR_NONE) {
@@ -476,7 +476,7 @@ tstring NVEncFilterParamWarpsharp::print() const {
     return warpsharp.print();
 }
 
-RGY_ERR NVEncFilterWarpsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

@@ -116,8 +116,8 @@ __global__ void kernel_transpose_plane(
 
 template<typename TypePixel4, bool flipX, bool flipY>
 cudaError_t transpose_plane(
-    FrameInfo *pOutputFrame,
-    const FrameInfo *pInputFrame,
+    RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pInputFrame,
     cudaStream_t stream
 ) {
     dim3 blockSize(TRASNPOSE_BLOCK_DIM, TRASNPOSE_BLOCK_DIM);
@@ -195,8 +195,8 @@ __global__ void kernel_flip_plane(
 
 template<typename TypePixel4, bool flipX, bool flipY>
 cudaError_t flip_plane(
-    FrameInfo *pOutputFrame,
-    const FrameInfo *pInputFrame,
+    RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pInputFrame,
     cudaStream_t stream
 ) {
     dim3 blockSize(FLIP_BLOCK_DIM, FLIP_BLOCK_DIM);
@@ -220,8 +220,8 @@ cudaError_t flip_plane(
 
 template<typename TypePixel4>
 cudaError_t transform_plane(
-    FrameInfo *pOutputPlane,
-    const FrameInfo *pInputPlane,
+    RGYFrameInfo *pOutputPlane,
+    const RGYFrameInfo *pInputPlane,
     const std::shared_ptr<NVEncFilterParamTransform> pParam,
     cudaStream_t stream
 ) {
@@ -249,8 +249,8 @@ cudaError_t transform_plane(
 }
 
 template<typename TypePixel4>
-cudaError_t transform_frame(FrameInfo *pOutputFrame,
-    const FrameInfo *pInputFrame,
+cudaError_t transform_frame(RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pInputFrame,
     const std::shared_ptr<NVEncFilterParamTransform> pParam,
     cudaStream_t stream
 ) {
@@ -326,7 +326,7 @@ tstring NVEncFilterParamTransform::print() const {
     return trans.print();
 }
 
-RGY_ERR NVEncFilterTransform::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterTransform::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

@@ -119,7 +119,7 @@ cudaError_t textureCreateEdgelevel(cudaTextureObject_t &tex, cudaTextureFilterMo
 }
 
 template<typename Type, int bit_depth>
-static RGY_ERR edgelevel_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+static RGY_ERR edgelevel_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     float strength, float threshold, float black, float white, cudaStream_t stream) {
     dim3 blockSize(EDGELEVEL_BLOCK_X, EDGELEVEL_BLOCK_Y);
     dim3 gridSize(divCeil(pOutputFrame->width, blockSize.x), divCeil(pOutputFrame->height, blockSize.y));
@@ -147,7 +147,7 @@ static RGY_ERR edgelevel_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputF
 }
 
 template<typename Type, int bit_depth>
-static RGY_ERR edgelevel_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame,
+static RGY_ERR edgelevel_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
     float strength, float threshold, float black, float white, cudaStream_t stream) {
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
@@ -233,7 +233,7 @@ tstring NVEncFilterParamEdgelevel::print() const {
     return edgelevel.print();
 }
 
-RGY_ERR NVEncFilterEdgelevel::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

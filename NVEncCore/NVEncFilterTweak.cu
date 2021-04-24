@@ -112,7 +112,7 @@ __global__ void kernel_tweak_uv(uint8_t *__restrict__ pFrameU, uint8_t *__restri
 }
 
 template<typename Type, typename Type4, int bit_depth>
-static cudaError_t tweak_frame(FrameInfo *pFrame,
+static cudaError_t tweak_frame(RGYFrameInfo *pFrame,
     float contrast, float brightness, float saturation, float gamma, float hue_degree, bool swapuv,
     cudaStream_t stream) {
     auto planeInputY = getPlane(pFrame, RGY_PLANE_Y);
@@ -212,7 +212,7 @@ tstring NVEncFilterParamTweak::print() const {
     return tweak.print();
 }
 
-RGY_ERR NVEncFilterTweak::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

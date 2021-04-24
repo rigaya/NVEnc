@@ -182,13 +182,13 @@ cudaError_t denoise_pmd_plane(uint8_t *pDst[2], uint8_t *pGauss, const int dstPi
 }
 
 template<typename Type, int bit_depth, bool useExp>
-static cudaError_t denoise_pmd_frame(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame,
+static cudaError_t denoise_pmd_frame(RGYFrameInfo *pOutputFrame[2], RGYFrameInfo *pGauss, const RGYFrameInfo *pInputFrame,
     int loop_count, const float strength, const float threshold, cudaStream_t stream) {
     for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
         const auto plane = (RGY_PLANE)iplane;
         const auto planeInput = getPlane(pInputFrame, plane);
         const auto planeGauss = getPlane(pGauss, plane);
-        FrameInfo planeOutput[2] = { getPlane(pOutputFrame[0], plane), getPlane(pOutputFrame[1], plane) };
+        RGYFrameInfo planeOutput[2] = { getPlane(pOutputFrame[0], plane), getPlane(pOutputFrame[1], plane) };
         uint8_t *pDst[2];
         pDst[0] = planeOutput[0].ptr;
         pDst[1] = planeOutput[1].ptr;
@@ -205,7 +205,7 @@ static cudaError_t denoise_pmd_frame(FrameInfo *pOutputFrame[2], FrameInfo *pGau
     return cudaSuccess;
 }
 
-RGY_ERR NVEncFilterDenoisePmd::denoise(FrameInfo *pOutputFrame[2], FrameInfo *pGauss, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterDenoisePmd::denoise(RGYFrameInfo *pOutputFrame[2], RGYFrameInfo *pGauss, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -304,7 +304,7 @@ tstring NVEncFilterParamDenoisePmd::print() const {
     return pmd.print();
 }
 
-RGY_ERR NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 
     if (pInputFrame->ptr == nullptr) {
         return RGY_ERR_NONE;
@@ -318,7 +318,7 @@ RGY_ERR NVEncFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInf
     const int out_idx = final_dst_index(pPmdParam->pmd.applyCount);
 
     *pOutputFrameNum = 1;
-    FrameInfo *pOutputFrame[2] = {
+    RGYFrameInfo *pOutputFrame[2] = {
         &m_pFrameBuf[(m_nFrameIdx++) % m_pFrameBuf.size()].get()->frame,
         &m_pFrameBuf[(m_nFrameIdx++) % m_pFrameBuf.size()].get()->frame,
     };

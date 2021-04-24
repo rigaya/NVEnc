@@ -69,12 +69,12 @@ public:
     virtual ~NVEncFilterCustom();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     virtual RGY_ERR check_param(shared_ptr<NVEncFilterParamCustom> prm);
-    virtual RGY_ERR run_per_plane(FrameInfo *ppOutputFrames, const FrameInfo *pInputFrame, RGY_PLANE plane, cudaStream_t stream);
-    virtual RGY_ERR run_per_plane(FrameInfo *ppOutputFrames, const FrameInfo *pInputFrame, cudaStream_t stream);
-    virtual RGY_ERR run_planes(FrameInfo *ppOutputFrames, const FrameInfo *pInputFrame, cudaStream_t stream);
+    virtual RGY_ERR run_per_plane(RGYFrameInfo *ppOutputFrames, const RGYFrameInfo *pInputFrame, RGY_PLANE plane, cudaStream_t stream);
+    virtual RGY_ERR run_per_plane(RGYFrameInfo *ppOutputFrames, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
+    virtual RGY_ERR run_planes(RGYFrameInfo *ppOutputFrames, const RGYFrameInfo *pInputFrame, cudaStream_t stream);
 
 #if ENABLE_NVRTC
     jitify::JitCache m_kernel_cache;

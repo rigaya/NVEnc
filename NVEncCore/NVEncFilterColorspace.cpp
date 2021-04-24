@@ -1472,7 +1472,7 @@ std::string NVEncFilterColorspace::genKernelCode() {
 #endif
 }
 
-RGY_ERR NVEncFilterColorspace::setupCustomFilter(const FrameInfo& frameInfo, shared_ptr<NVEncFilterParamColorspace> prm) {
+RGY_ERR NVEncFilterColorspace::setupCustomFilter(const RGYFrameInfo& frameInfo, shared_ptr<NVEncFilterParamColorspace> prm) {
 #if ENABLE_NVRTC
     VppCustom customPrms;
     customPrms.enable = true;
@@ -1615,7 +1615,7 @@ tstring NVEncFilterParamColorspace::print() const {
     return _T("");
 }
 
-RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterColorspace::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 #if ENABLE_NVRTC
     RGY_ERR sts = RGY_ERR_NONE;
 
@@ -1631,9 +1631,9 @@ RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInf
     //YUV444への変換
     if (crop) {
         int cropFilterOutputNum = 0;
-        FrameInfo *pCropFilterOutput[1] = { nullptr };
-        FrameInfo cropInput = *pInputFrame;
-        auto sts_filter = crop->filter(&cropInput, (FrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, stream);
+        RGYFrameInfo *pCropFilterOutput[1] = { nullptr };
+        RGYFrameInfo cropInput = *pInputFrame;
+        auto sts_filter = crop->filter(&cropInput, (RGYFrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, stream);
         if (pCropFilterOutput[0] == nullptr || cropFilterOutputNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), crop->name().c_str());
             return sts_filter;
@@ -1645,7 +1645,7 @@ RGY_ERR NVEncFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInf
         pInputFrame = pCropFilterOutput[0];
     }
     //色空間変換
-    FrameInfo filterInput = *pInputFrame;
+    RGYFrameInfo filterInput = *pInputFrame;
     auto sts_filter = custom->filter(&filterInput, ppOutputFrames, pOutputFrameNum, stream);
     if (sts_filter != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), custom->name().c_str());

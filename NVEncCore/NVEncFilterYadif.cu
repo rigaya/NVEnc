@@ -165,7 +165,7 @@ __global__ void kernel_yadif(
 }
 
 template<typename TypePixel>
-cudaError_t setTexFieldYadif(cudaTextureObject_t& texSrc, const FrameInfo *pFrame) {
+cudaError_t setTexFieldYadif(cudaTextureObject_t& texSrc, const RGYFrameInfo *pFrame) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -189,10 +189,10 @@ cudaError_t setTexFieldYadif(cudaTextureObject_t& texSrc, const FrameInfo *pFram
 }
 
 template<typename TypePixel, int bit_depth>
-cudaError_t run_yadif(FrameInfo *pOutputPlane,
-    const FrameInfo *pSrc0,
-    const FrameInfo *pSrc1,
-    const FrameInfo *pSrc2,
+cudaError_t run_yadif(RGYFrameInfo *pOutputPlane,
+    const RGYFrameInfo *pSrc0,
+    const RGYFrameInfo *pSrc1,
+    const RGYFrameInfo *pSrc2,
     const YadifTargetField targetField,
     const RGY_PICSTRUCT picstruct,
     cudaStream_t stream) {
@@ -229,10 +229,10 @@ cudaError_t run_yadif(FrameInfo *pOutputPlane,
 
 
 template<typename TypePixel, int bit_depth>
-cudaError_t run_yadif_frame(FrameInfo *pOutputFrame,
-    const FrameInfo *pSrc0,
-    const FrameInfo *pSrc1,
-    const FrameInfo *pSrc2,
+cudaError_t run_yadif_frame(RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pSrc0,
+    const RGYFrameInfo *pSrc1,
+    const RGYFrameInfo *pSrc2,
     const YadifTargetField targetField,
     const RGY_PICSTRUCT picstruct,
     cudaStream_t stream) {
@@ -280,7 +280,7 @@ void NVEncFilterYadifSource::clear() {
     m_nFramesOutput = 0;
 }
 
-cudaError_t NVEncFilterYadifSource::alloc(const FrameInfo& frameInfo) {
+cudaError_t NVEncFilterYadifSource::alloc(const RGYFrameInfo& frameInfo) {
     if (!cmpFrameInfoCspResolution(&m_buf.begin()->frame, &frameInfo)) {
         //すべて確保されているか確認
         bool allocated = true;
@@ -304,7 +304,7 @@ cudaError_t NVEncFilterYadifSource::alloc(const FrameInfo& frameInfo) {
     return cudaSuccess;
 }
 
-cudaError_t NVEncFilterYadifSource::add(const FrameInfo *pInputFrame, cudaStream_t stream) {
+cudaError_t NVEncFilterYadifSource::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
     copyFrameProp(&pDstFrame->frame, pInputFrame);
@@ -376,7 +376,7 @@ tstring NVEncFilterParamYadif::print() const {
     return yadif.print();
 }
 
-RGY_ERR NVEncFilterYadif::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     auto prmYadif = std::dynamic_pointer_cast<NVEncFilterParamYadif>(m_pParam);

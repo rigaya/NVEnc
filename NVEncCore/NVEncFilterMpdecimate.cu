@@ -106,7 +106,7 @@ __global__ void kernel_block_diff(
 }
 
 template<typename Type4>
-cudaError calc_block_diff_plane(const FrameInfo *p0, const FrameInfo *p1, FrameInfo *tmp, cudaStream_t streamDiff) {
+cudaError calc_block_diff_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, cudaStream_t streamDiff) {
     const int width = p0->width;
     const int height = p0->height;
     dim3 blockSize(MPDECIMATE_BLOCK_X, MPDECIMATE_BLOCK_Y);
@@ -120,7 +120,7 @@ cudaError calc_block_diff_plane(const FrameInfo *p0, const FrameInfo *p1, FrameI
 }
 
 template<typename Type4>
-cudaError_t calc_block_diff_frame(const FrameInfo *p0, const FrameInfo *p1, FrameInfo *tmp, cudaStream_t streamDiff) {
+cudaError_t calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, cudaStream_t streamDiff) {
     for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
@@ -145,7 +145,7 @@ NVEncFilterMpdecimateFrameData::~NVEncFilterMpdecimateFrameData() {
     m_buf.clear();
 }
 
-RGY_ERR NVEncFilterMpdecimateFrameData::set(const FrameInfo *pInputFrame, int inputFrameId, cudaStream_t stream) {
+RGY_ERR NVEncFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, cudaStream_t stream) {
     m_inFrameId = inputFrameId;
     if (m_buf.frame.ptr == nullptr) {
         m_buf.alloc(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
@@ -238,7 +238,7 @@ void NVEncFilterMpdecimateCache::init(int bufCount, std::shared_ptr<RGYLog> log)
     }
 }
 
-RGY_ERR NVEncFilterMpdecimateCache::add(const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterMpdecimateCache::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const int id = m_inputFrames++;
     return getEmpty()->set(pInputFrame, id, stream);
 }
@@ -361,7 +361,7 @@ bool NVEncFilterMpdecimate::dropFrame(NVEncFilterMpdecimateFrameData *targetFram
     return targetFrame->checkIfFrameCanbeDropped(prm->mpdecimate.hi << (bit_depth - 8), prm->mpdecimate.lo << (bit_depth - 8), prm->mpdecimate.frac);
 }
 
-RGY_ERR NVEncFilterMpdecimate::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamMpdecimate>(m_pParam);
     if (!prm) {

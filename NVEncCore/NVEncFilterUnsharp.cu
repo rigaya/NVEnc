@@ -124,7 +124,7 @@ cudaError_t textureCreateDenoiseUnsharp(cudaTextureObject_t &tex, cudaTextureFil
 }
 
 template<typename Type, int bit_depth>
-static cudaError_t unsharp_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pGaussWeight,
+static cudaError_t unsharp_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, CUMemBuf *pGaussWeight,
     const int radius, const float weight, const float threshold, cudaStream_t stream) {
     cudaTextureObject_t texSrc = 0;
     auto cudaerr = textureCreateDenoiseUnsharp<Type>(texSrc, cudaFilterModePoint, cudaReadModeNormalizedFloat, pInputFrame->ptr, pInputFrame->pitch, pInputFrame->width, pInputFrame->height);
@@ -147,7 +147,7 @@ static cudaError_t unsharp_plane(FrameInfo *pOutputFrame, const FrameInfo *pInpu
 }
 
 template<typename Type, int bit_depth>
-static RGY_ERR unsharp_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, CUMemBuf *pGaussWeightY, CUMemBuf *pGaussWeightUV,
+static RGY_ERR unsharp_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, CUMemBuf *pGaussWeightY, CUMemBuf *pGaussWeightUV,
     const int radius, const float weight, const float threshold, cudaStream_t stream) {
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
@@ -278,7 +278,7 @@ tstring NVEncFilterParamUnsharp::print() const {
     return unsharp.print();
 }
 
-RGY_ERR NVEncFilterUnsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

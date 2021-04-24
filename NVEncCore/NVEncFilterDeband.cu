@@ -311,7 +311,7 @@ cudaError_t deband_plane(
 }
 
 template<typename Type, int bit_depth, int sample_mode, bool blur_first>
-static RGY_ERR deband_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, FrameInfo *pRandY, FrameInfo *pRandUV,
+static RGY_ERR deband_frame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYFrameInfo *pRandY, RGYFrameInfo *pRandUV,
     const int range, const int threY, const int threCb, const int threCr, const int ditherY, const int ditherC, bool randEachFrame,
     curandState *pState, cudaStream_t stream) {
     if (randEachFrame) {
@@ -373,7 +373,7 @@ static RGY_ERR deband_frame(FrameInfo *pOutputFrame, const FrameInfo *pInputFram
 }
 
 
-RGY_ERR NVEncFilterDeband::deband(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterDeband::deband(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_INVALID_CALL;
@@ -558,7 +558,7 @@ tstring NVEncFilterParamDeband::print() const {
     return deband.print();
 }
 
-RGY_ERR NVEncFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
 
     if (pInputFrame->ptr == nullptr) {
         return RGY_ERR_NONE;

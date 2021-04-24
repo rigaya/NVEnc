@@ -54,7 +54,7 @@ afsSourceCache::afsSourceCache() :
     m_nFramesInput(0) {
 }
 
-cudaError_t afsSourceCache::alloc(const FrameInfo& frameInfo) {
+cudaError_t afsSourceCache::alloc(const RGYFrameInfo& frameInfo) {
     for (int i = 0; i < _countof(m_sourceArray); i++) {
         m_sourceArray[i].frame = frameInfo;
         auto ret = m_sourceArray[i].alloc();
@@ -66,7 +66,7 @@ cudaError_t afsSourceCache::alloc(const FrameInfo& frameInfo) {
     return cudaSuccess;
 }
 
-cudaError_t afsSourceCache::add(const FrameInfo *pInputFrame, cudaStream_t stream) {
+cudaError_t afsSourceCache::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
     pDstFrame->frame.flags        = pInputFrame->flags;
@@ -114,7 +114,7 @@ void afsScanCache::initcache(int iframe) {
     cudaEventCreateWithFlags(data->cuevent.get(), cudaEventDisableTiming | cudaEventBlockingSync);
 }
 
-cudaError_t afsScanCache::alloc(const FrameInfo& frameInfo) {
+cudaError_t afsScanCache::alloc(const RGYFrameInfo& frameInfo) {
     for (int i = 0; i < _countof(m_scanArray); i++) {
         initcache(i);
         m_scanArray[i].map.frame = frameInfo;
@@ -167,7 +167,7 @@ void afsStripeCache::expire(int iframe) {
     }
 }
 
-cudaError_t afsStripeCache::alloc(const FrameInfo& frameInfo) {
+cudaError_t afsStripeCache::alloc(const RGYFrameInfo& frameInfo) {
     for (int i = 0; i < _countof(m_stripeArray); i++) {
         initcache(i);
         m_stripeArray[i].map.frame = frameInfo;
@@ -888,7 +888,7 @@ cudaError_t NVEncFilterAfs::analyze_frame(int iframe, const NVEncFilterParamAfs 
     return cudaSuccess;
 }
 
-RGY_ERR NVEncFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     auto pAfsParam = std::dynamic_pointer_cast<NVEncFilterParamAfs>(m_pParam);

@@ -918,7 +918,7 @@ RGY_ERR NVEncFilterDelogo::autoFadeLS2(float& auto_fade, const int nr_value) {
 }
 
 #if 0
-NVENCSTATUS NVEncFilterDelogo::autoFade4(float& auto_fade, const FrameInfo *frame_logo, const int nr_value, const int nr_area) {
+NVENCSTATUS NVEncFilterDelogo::autoFade4(float& auto_fade, const RGYFrameInfo *frame_logo, const int nr_value, const int nr_area) {
     float minFade = 0.0f;
     float maxFade = LOGO_FADE_MAX * 1.15f;
     std::array<float, 5> results;
@@ -998,7 +998,7 @@ NVENCSTATUS NVEncFilterDelogo::autoFade4(float& auto_fade, const FrameInfo *fram
 }
 #endif
 
-RGY_ERR NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const FrameInfo *pFrame) {
+RGY_ERR NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame) {
     // Frame毎に調整したMaskの作成
     auto sts = createAdjustedMask(pFrame);
     if (sts != RGY_ERR_NONE) return sts;
@@ -1044,7 +1044,7 @@ RGY_ERR NVEncFilterDelogo::calcAutoFadeNRFrame(int& auto_nr, float& auto_fade, c
 
 #pragma warning (push)
 #pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
-RGY_ERR NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, const FrameInfo *pFrame) {
+RGY_ERR NVEncFilterDelogo::calcAutoFadeNR(int& auto_nr, float& auto_fade, const RGYFrameInfo *pFrame) {
     auto sts = calcAutoFadeNRFrame(auto_nr, auto_fade, pFrame);
     if (sts != RGY_ERR_NONE) return sts;
 
@@ -1150,7 +1150,7 @@ RGY_ERR NVEncFilterDelogo::logAutoFadeNR() {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDelogo::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterDelogo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     *pOutputFrameNum = 1;

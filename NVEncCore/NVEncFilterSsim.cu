@@ -197,7 +197,7 @@ __global__ void kernel_ssim(
 }
 
 template<typename Type4, int bit_depth>
-cudaError calc_ssim_plane(const FrameInfo *p0, const FrameInfo *p1, CUMemBufPair& tmp, cudaStream_t stream) {
+cudaError calc_ssim_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair& tmp, cudaStream_t stream) {
     const int width = p0->width & (~3);
     const int height = p0->height & (~3);
     dim3 blockSize(SSIM_BLOCK_X, SSIM_BLOCK_Y);
@@ -241,7 +241,7 @@ cudaError calc_ssim_plane(const FrameInfo *p0, const FrameInfo *p1, CUMemBufPair
 }
 
 template<typename Type4, int bit_depth>
-cudaError calc_ssim_frame(const FrameInfo *p0, const FrameInfo *p1, std::array<CUMemBufPair, 3> &tmp, std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> &streamCalc) {
+cudaError calc_ssim_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::array<CUMemBufPair, 3> &tmp, std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> &streamCalc) {
     for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
@@ -295,7 +295,7 @@ __global__ void kernel_psnr(
 }
 
 template<typename Type4, int bit_depth>
-cudaError calc_psnr_plane(const FrameInfo *p0, const FrameInfo *p1, CUMemBufPair &tmp, cudaStream_t stream) {
+cudaError calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp, cudaStream_t stream) {
     const int width = p0->width;
     const int height = p0->height;
     dim3 blockSize(SSIM_BLOCK_X, SSIM_BLOCK_Y);
@@ -339,7 +339,7 @@ cudaError calc_psnr_plane(const FrameInfo *p0, const FrameInfo *p1, CUMemBufPair
 }
 
 template<typename Type4, int bit_depth>
-cudaError calc_psnr_frame(const FrameInfo *p0, const FrameInfo *p1, std::array<CUMemBufPair, 3> &tmp, std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> &streamCalc) {
+cudaError calc_psnr_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::array<CUMemBufPair, 3> &tmp, std::array<std::unique_ptr<cudaStream_t, cudastream_deleter>, 3> &streamCalc) {
     for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
@@ -351,7 +351,7 @@ cudaError calc_psnr_frame(const FrameInfo *p0, const FrameInfo *p1, std::array<C
     return cudaSuccess;
 }
 
-RGY_ERR NVEncFilterSsim::calc_ssim_psnr(const FrameInfo *p0, const FrameInfo *p1) {
+RGY_ERR NVEncFilterSsim::calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameInfo *p1) {
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSsim>(m_pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));

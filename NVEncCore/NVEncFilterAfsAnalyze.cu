@@ -459,7 +459,7 @@ cudaError_t textureCreateAnalyze(cudaTextureObject_t& tex, cudaTextureFilterMode
 
 template<typename Type, typename Type4, int bit_depth, bool tb_order, bool yuv420>
 cudaError_t run_analyze_stripe(uint8_t *dst, const int dstPitch,
-    const FrameInfo *pFrame0, const FrameInfo *pFrame1,
+    const RGYFrameInfo *pFrame0, const RGYFrameInfo *pFrame1,
     CUMemBufPair *count_motion,
     const VppAfs *pAfsPrm, cudaStream_t stream) {
     auto cudaerr = cudaSuccess;

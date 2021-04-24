@@ -41,7 +41,7 @@ public:
     virtual tstring print() const override;
 };
 
-using funcCalcDiff = std::function<cudaError_t(const FrameInfo *, const FrameInfo *, CUMemBufPair&,
+using funcCalcDiff = std::function<cudaError_t(const RGYFrameInfo *, const RGYFrameInfo *, CUMemBufPair&,
     const int, const int, const bool, cudaStream_t, cudaEvent_t, cudaStream_t)>;
 
 class NVEncFilterMpdecimateFrameData {
@@ -51,7 +51,7 @@ public:
 
     CUFrameBuf *get() { return &m_buf; }
     const CUFrameBuf *get() const { return &m_buf; }
-    RGY_ERR set(const FrameInfo *pInputFrame, int inputFrameId, cudaStream_t stream);
+    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, cudaStream_t stream);
     int id() const { return m_inFrameId; }
     void reset() { m_inFrameId = -1; }
     RGY_ERR calcDiff(const NVEncFilterMpdecimateFrameData *ref,
@@ -69,7 +69,7 @@ public:
     NVEncFilterMpdecimateCache();
     ~NVEncFilterMpdecimateCache();
     void init(int bufCount, std::shared_ptr<RGYLog> log);
-    RGY_ERR add(const FrameInfo *pInputFrame, cudaStream_t stream = 0);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, cudaStream_t stream = 0);
     void removeFromCache(int iframe) {
         for (auto &f : m_frames) {
             if (f->id() == iframe) {
@@ -110,7 +110,7 @@ public:
     virtual ~NVEncFilterMpdecimate();
     virtual RGY_ERR init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamMpdecimate> pParam);
     bool dropFrame(NVEncFilterMpdecimateFrameData *targetFrame);

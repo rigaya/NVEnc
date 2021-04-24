@@ -78,7 +78,7 @@ protected:
     std::unique_ptr<cudaEvent_t, cudaevent_deleter> m_event;
     std::unique_ptr<cudaStream_t, cudastream_deleter> m_stream;
 #endif //#if !FOR_AUO && ENCODER_NVENC
-    FrameInfo m_qpHost;
+    RGYFrameInfo m_qpHost;
 };
 
 class RGYFrameDataHDR10plus : public RGYFrameData {

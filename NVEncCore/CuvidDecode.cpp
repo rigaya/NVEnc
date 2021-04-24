@@ -486,8 +486,8 @@ CUresult CuvidDecode::DecodePacket(uint8_t *data, size_t nSize, int64_t timestam
     return result;
 }
 
-FrameInfo CuvidDecode::GetDecFrameInfo() {
-    FrameInfo frame;
+RGYFrameInfo CuvidDecode::GetDecFrameInfo() {
+    RGYFrameInfo frame;
     frame.ptr = nullptr;
     frame.csp = m_videoInfo.csp;
     frame.width = m_videoDecodeCreateInfo.ulTargetWidth;

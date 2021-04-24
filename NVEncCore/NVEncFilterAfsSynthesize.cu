@@ -797,8 +797,8 @@ cudaError_t textureCreateSynthesize(cudaTextureObject_t& tex, cudaTextureFilterM
 }
 
 template<typename Type, typename Type2, typename Type4, typename Type8, int mode, bool yuv420>
-cudaError_t run_synthesize(FrameInfo *pFrameOut,
-    const FrameInfo *pFrame0, const FrameInfo *pFrame1, uint8_t *sip, const int sipPitch,
+cudaError_t run_synthesize(RGYFrameInfo *pFrameOut,
+    const RGYFrameInfo *pFrame0, const RGYFrameInfo *pFrame1, uint8_t *sip, const int sipPitch,
     const int tb_order, const uint8_t status, const RGY_CSP csp,
     cudaStream_t stream) {
     auto cudaerr = cudaSuccess;

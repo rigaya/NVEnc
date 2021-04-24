@@ -394,7 +394,7 @@ __global__ void kernel_spp(
 }
 
 template<typename TypePixel>
-cudaError_t setTexFieldSmooth(cudaTextureObject_t& texSrc, const FrameInfo *pFrame) {
+cudaError_t setTexFieldSmooth(cudaTextureObject_t& texSrc, const RGYFrameInfo *pFrame) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -418,9 +418,9 @@ cudaError_t setTexFieldSmooth(cudaTextureObject_t& texSrc, const FrameInfo *pFra
 }
 
 template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, typename TypeQP>
-cudaError_t run_spp(FrameInfo *pOutputPlane,
-    const FrameInfo *pSrc,
-    const FrameInfo *pQP,
+cudaError_t run_spp(RGYFrameInfo *pOutputPlane,
+    const RGYFrameInfo *pSrc,
+    const RGYFrameInfo *pQP,
     const int qpBlockShift,
     const float qpMul,
     const int quality,
@@ -459,8 +459,8 @@ cudaError_t run_spp(FrameInfo *pOutputPlane,
 }
 
 template<typename TypePixel, int bit_depth, typename TypeDct, bool usefp16, typename TypeQP>
-cudaError_t run_spp_frame(FrameInfo *pOutputFrame,
-    const FrameInfo *pSrc,
+cudaError_t run_spp_frame(RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pSrc,
     const CUFrameBuf *qpFrame,
     const float qpMul,
     const int quality,
@@ -532,9 +532,9 @@ __global__ void kernel_gen_qp_table(
 
 template<typename TypeQP4>
 cudaError_t run_gen_qp_table(
-    FrameInfo *pQPDst,
-    const FrameInfo *pQPSrc,
-    const FrameInfo *pQPSrcB,
+    RGYFrameInfo *pQPDst,
+    const RGYFrameInfo *pQPSrc,
+    const RGYFrameInfo *pQPSrcB,
     const float qpMul,
     const float bRatio,
     cudaStream_t stream) {
@@ -581,7 +581,7 @@ __global__ void kernel_set_qp(
 
 template<typename TypeQP4>
 cudaError_t run_set_qp(
-    FrameInfo *pQP,
+    RGYFrameInfo *pQP,
     const int qp,
     cudaStream_t stream) {
     dim3 blockSize(32, 8);
@@ -695,7 +695,7 @@ float NVEncFilterSmooth::getQPMul(int qpScaleType) {
     }
 }
 
-RGY_ERR NVEncFilterSmooth::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamSmooth>(m_pParam);

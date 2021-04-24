@@ -454,7 +454,7 @@ RGY_ERR NVEncFilterSsim::addBitstream(const RGYBitstream *bitstream) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterSsim::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     UNREFERENCED_PARAMETER(ppOutputFrames);
     UNREFERENCED_PARAMETER(pOutputFrameNum);
     RGY_ERR sts = RGY_ERR_NONE;
@@ -475,9 +475,9 @@ RGY_ERR NVEncFilterSsim::run_filter(const FrameInfo *pInputFrame, FrameInfo **pp
     auto& copyFrame = m_unused.front();
     if (m_crop) {
         int cropFilterOutputNum = 0;
-        FrameInfo *outInfo[1] = { &copyFrame->frame };
-        FrameInfo cropInput = *pInputFrame;
-        auto sts_filter = m_crop->filter(&cropInput, (FrameInfo **)&outInfo, &cropFilterOutputNum, stream);
+        RGYFrameInfo *outInfo[1] = { &copyFrame->frame };
+        RGYFrameInfo cropInput = *pInputFrame;
+        auto sts_filter = m_crop->filter(&cropInput, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, stream);
         if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_crop->name().c_str());
             return sts_filter;
@@ -558,7 +558,7 @@ void NVEncFilterVMAFData::thread_fin() {
     }
 }
 
-void read_frame_vmaf2(VmafPicture *dst, const FrameInfo *srcFrame) {
+void read_frame_vmaf2(VmafPicture *dst, const RGYFrameInfo *srcFrame) {
     const auto srcPlane = getPlane(srcFrame, RGY_PLANE_Y);
     const int pixsize = (RGY_CSP_BIT_DEPTH[srcPlane.csp] > 8) ? 2 : 1;
     for (int y = 0; y < srcPlane.height; y++) {
@@ -858,7 +858,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             cuvidUnmapVideoFrame(m_decoder->GetDecoder(), (CUdeviceptr)ptr);
             });
 
-        FrameInfo targetFrame = frameInfo;
+        RGYFrameInfo targetFrame = frameInfo;
         if (m_crop) {
             if (!m_decFrameCopy) {
                 m_decFrameCopy = std::make_unique<CUFrameBuf>();
@@ -873,8 +873,8 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             targetFrame = m_decFrameCopy->frame;
 
             int cropFilterOutputNum = 0;
-            FrameInfo *outInfo[1] = { &targetFrame };
-            auto sts_filter = m_crop->filter(&frameInfo, (FrameInfo **)&outInfo, &cropFilterOutputNum, *m_streamCrop.get());
+            RGYFrameInfo *outInfo[1] = { &targetFrame };
+            auto sts_filter = m_crop->filter(&frameInfo, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, *m_streamCrop.get());
             if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
                 AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_crop->name().c_str());
                 return sts_filter;
@@ -901,8 +901,8 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             {
                 int cropFilterOutputNum = 0;
                 auto &frameHostOrg = m_frameHostOrg[m_frameHostSendIndex % m_frameHostOrg.size()];
-                FrameInfo *outInfoOrg[1] = { &frameHostOrg->frame };
-                auto sts_filter = m_cropDToH->filter(&m_input.front()->frame, (FrameInfo **)&outInfoOrg, &cropFilterOutputNum, *m_streamCrop.get());
+                RGYFrameInfo *outInfoOrg[1] = { &frameHostOrg->frame };
+                auto sts_filter = m_cropDToH->filter(&m_input.front()->frame, (RGYFrameInfo **)&outInfoOrg, &cropFilterOutputNum, *m_streamCrop.get());
                 if (outInfoOrg[0] == nullptr || cropFilterOutputNum != 1) {
                     AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDToH->name().c_str());
                     return sts_filter;
@@ -925,8 +925,8 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             {
                 int cropFilterOutputNum = 0;
                 auto &frameHostEnc = m_frameHostEnc[m_frameHostSendIndex % m_frameHostEnc.size()];
-                FrameInfo *outInfoEnc[1] = { &frameHostEnc->frame };
-                auto sts_filter = m_cropDToH->filter(&targetFrame, (FrameInfo **)&outInfoEnc, &cropFilterOutputNum, *m_streamCrop.get());
+                RGYFrameInfo *outInfoEnc[1] = { &frameHostEnc->frame };
+                auto sts_filter = m_cropDToH->filter(&targetFrame, (RGYFrameInfo **)&outInfoEnc, &cropFilterOutputNum, *m_streamCrop.get());
                 if (outInfoEnc[0] == nullptr || cropFilterOutputNum != 1) {
                     AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDToH->name().c_str());
                     return sts_filter;
@@ -953,7 +953,7 @@ RGY_ERR NVEncFilterSsim::compare_frames(bool flush) {
             AddMessage(RGY_LOG_ERROR, _T("Original frame #%d to be compared is missing.\n"), m_frames);
             return RGY_ERR_UNKNOWN;
         }
-        FrameInfo original;
+        RGYFrameInfo original;
         {
             std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
             auto &originalFrame = m_input.front();

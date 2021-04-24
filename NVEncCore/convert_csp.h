@@ -471,7 +471,7 @@ const TCHAR *get_memtype_str(RGY_MEM_TYPE type);
 
 class RGYFrameData;
 
-struct FrameInfo {
+struct RGYFrameInfo {
     uint8_t *ptr;
     RGY_CSP csp;
     int width, height, pitch;
@@ -484,7 +484,7 @@ struct FrameInfo {
     int inputFrameId;
     std::vector<std::shared_ptr<RGYFrameData>> dataList;
 
-    FrameInfo() :
+    RGYFrameInfo() :
         ptr(nullptr),
         csp(RGY_CSP_NA),
         width(0),
@@ -500,7 +500,7 @@ struct FrameInfo {
         dataList() {};
 };
 
-static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) {
+static bool cmpFrameInfoCspResolution(const RGYFrameInfo *pA, const RGYFrameInfo *pB) {
     return pA->csp != pB->csp
         || pA->width != pB->width
         || pA->height != pB->height
@@ -508,7 +508,7 @@ static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) 
         || pA->pitch != pB->pitch;
 }
 
-static void copyFrameProp(FrameInfo *dst, const FrameInfo *src) {
+static void copyFrameProp(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     dst->width = src->width;
     dst->height = src->height;
     dst->csp = src->csp;
@@ -522,13 +522,13 @@ struct FrameInfoExtra {
     int width_byte, height_total, frame_size;
 };
 
-static bool interlaced(const FrameInfo& FrameInfo) {
-    return (FrameInfo.picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
+static bool interlaced(const RGYFrameInfo& RGYFrameInfo) {
+    return (RGYFrameInfo.picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
 }
 
-FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
+FrameInfoExtra getFrameInfoExtra(const RGYFrameInfo *pFrameInfo);
 
-FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane);
+RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, const RGY_PLANE plane);
 
 #pragma warning(push)
 #pragma warning(disable: 4201)

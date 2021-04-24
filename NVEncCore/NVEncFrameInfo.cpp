@@ -28,7 +28,7 @@
 
 #include "NVEncFrameInfo.h"
 
-FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
+FrameInfoExtra getFrameInfoExtra(const RGYFrameInfo *pFrameInfo) {
     FrameInfoExtra exinfo = { 0 };
     switch (pFrameInfo->csp) {
     case RGY_CSP_NV12:
@@ -138,8 +138,8 @@ FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo) {
     return exinfo;
 }
 
-FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane) {
-    FrameInfo planeInfo = *frameInfo;
+RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, const RGY_PLANE plane) {
+    RGYFrameInfo planeInfo = *frameInfo;
     if (frameInfo->csp == RGY_CSP_GBR || frameInfo->csp == RGY_CSP_GBRA) {
         switch (plane) {
         case RGY_PLANE_G: break;

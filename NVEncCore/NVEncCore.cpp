@@ -135,7 +135,7 @@ public:
     FrameBufferDataIn() : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(), m_heTransferFin(NULL) {
 
     };
-    FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(false), m_heTransferFin(NULL) {
+    FrameBufferDataIn(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const RGYFrameInfo& frameInfo) : m_pInfo(), m_oVPP(), m_frameInfo(), m_bInputHost(false), m_heTransferFin(NULL) {
         setInfo(pInfo, oVPP, frameInfo);
     };
     FrameBufferDataIn(const FrameBufferDataIn& obj) :
@@ -150,7 +150,7 @@ public:
         m_pInfo.reset();
     }
     void setHostFrameInfo(
-        const FrameInfo& frameInfo, //入力フレームへのポインタと情報
+        const RGYFrameInfo& frameInfo, //入力フレームへのポインタと情報
         shared_ptr<void> heTransferFin //入力フレームに関連付けられたイベント、このフレームが不要になったらSetする
     ) {
         m_pInfo.reset();
@@ -159,7 +159,7 @@ public:
         m_bInputHost = true;
         m_heTransferFin = heTransferFin;
     }
-    void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const FrameInfo& frameInfo) {
+    void setCuvidInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const RGYFrameInfo& frameInfo) {
         m_pInfo = pInfo;
         memset(&m_oVPP, 0, sizeof(m_oVPP));
 
@@ -178,7 +178,7 @@ public:
         m_frameInfo.timestamp = pInfo->timestamp;
         m_bInputHost = false;
     }
-    void setInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const FrameInfo& frameInfo) {
+    void setInfo(shared_ptr<CUVIDPARSERDISPINFO> pInfo, const CUVIDPROCPARAMS& oVPP, const RGYFrameInfo& frameInfo) {
         m_pInfo = pInfo;
         m_frameInfo = frameInfo;
         m_oVPP = oVPP;
@@ -207,7 +207,7 @@ public:
     bool inputIsHost() const {
         return m_bInputHost;
     }
-    FrameInfo getFrameInfo() const {
+    RGYFrameInfo getFrameInfo() const {
         return m_frameInfo;
     }
     void setInterlaceFlag(RGY_PICSTRUCT picstruct) {
@@ -224,7 +224,7 @@ public:
 private:
     shared_ptr<CUVIDPARSERDISPINFO> m_pInfo;
     CUVIDPROCPARAMS m_oVPP;
-    FrameInfo m_frameInfo;
+    RGYFrameInfo m_frameInfo;
     bool m_bInputHost;      //入力フレームへのポインタと情報
     shared_ptr<void> m_heTransferFin; //入力フレームに関連付けられたイベント、このフレームが不要になったらSetする
 };
@@ -1977,7 +1977,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
         && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN
         && CUVID_DISABLE_CROP;
 
-    FrameInfo inputFrame;
+    RGYFrameInfo inputFrame;
     inputFrame.width = inputParam->input.srcWidth;
     inputFrame.height = inputParam->input.srcHeight;
     inputFrame.csp = inputParam->input.csp;
@@ -3836,7 +3836,7 @@ NVENCSTATUS NVEncCore::Encode() {
 
     auto filter_frame = [&](int& nFilterFrame, unique_ptr<FrameBufferDataIn>& inframe, deque<unique_ptr<FrameBufferDataEnc>>& dqEncFrames, bool& bDrain) {
         cudaMemcpyKind memcpyKind = cudaMemcpyDeviceToDevice;
-        FrameInfo frameInfo;
+        RGYFrameInfo frameInfo;
         shared_ptr<void> deviceFrame;
         if (!bDrain) {
             if (inframe->inputIsHost()) {
@@ -3879,7 +3879,7 @@ NVENCSTATUS NVEncCore::Encode() {
 #endif //#if ENABLE_AVSW_READER
         }
 
-        deque<std::pair<FrameInfo, uint32_t>> filterframes;
+        deque<std::pair<RGYFrameInfo, uint32_t>> filterframes;
         filterframes.push_back(std::make_pair(frameInfo, 0u));
 
         while (filterframes.size() > 0 || bDrain) {
@@ -3887,8 +3887,8 @@ NVENCSTATUS NVEncCore::Encode() {
             for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
                 NVEncCtxAutoLock(ctxlock(m_dev->vidCtxLock()));
                 int nOutFrames = 0;
-                FrameInfo *outInfo[16] = { 0 };
-                auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames, cudaStreamDefault);
+                RGYFrameInfo *outInfo[16] = { 0 };
+                auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, cudaStreamDefault);
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
                     return NV_ENC_ERR_GENERIC;
@@ -3951,10 +3951,10 @@ NVENCSTATUS NVEncCore::Encode() {
                     return NV_ENC_ERR_GENERIC;
                 }
                 int nOutFrames = 0;
-                FrameInfo *outInfo[16] = { 0 };
+                RGYFrameInfo *outInfo[16] = { 0 };
                 //エンコードバッファの情報を設定１
-                FrameInfo encFrameInfo;
-                FrameInfo ssimTarget;
+                RGYFrameInfo encFrameInfo;
+                RGYFrameInfo ssimTarget;
                 if (pEncodeBuffer->stInputBfr.pNV12devPtr) {
                     encFrameInfo.ptr = (uint8_t *)pEncodeBuffer->stInputBfr.pNV12devPtr;
                     encFrameInfo.pitch = pEncodeBuffer->stInputBfr.uNV12Stride;
@@ -3978,7 +3978,7 @@ NVENCSTATUS NVEncCore::Encode() {
                 }
                 //エンコードバッファのポインタを渡す
                 outInfo[0] = &encFrameInfo;
-                auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames, cudaStreamDefault);
+                auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, cudaStreamDefault);
                 filterframes.pop_front();
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());

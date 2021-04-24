@@ -404,15 +404,15 @@ static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be 
 
 struct RGYFrame {
 private:
-    FrameInfo info;
+    RGYFrameInfo info;
 public:
     RGYFrame() : info() {};
-    RGYFrame(const FrameInfo& frameinfo) : info(frameinfo) {};
+    RGYFrame(const RGYFrameInfo& frameinfo) : info(frameinfo) {};
 
-    FrameInfo getInfo() const {
+    RGYFrameInfo getInfo() const {
         return info;
     }
-    void set(const FrameInfo& frameinfo) {
+    void set(const RGYFrameInfo& frameinfo) {
         info = frameinfo;
     }
     void set(uint8_t *ptr, int width, int height, int pitch, RGY_CSP csp, int64_t timestamp = 0) {

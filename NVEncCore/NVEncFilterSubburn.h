@@ -79,7 +79,7 @@ public:
     virtual RGY_ERR addStreamPacket(AVPacket *pkt) override;
     virtual int targetTrackIdx() override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) override;
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<NVEncFilterParamSubburn> prm);
     virtual RGY_ERR initAVCodec(const std::shared_ptr<NVEncFilterParamSubburn> prm);
@@ -87,10 +87,10 @@ protected:
     void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
     RGY_ERR readSubFile();
     SubImageData textRectToImage(const ASS_Image *image, cudaStream_t stream);
-    SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const FrameInfo *outputFrame, const sInputCrop &crop, cudaStream_t stream);
-    RGY_ERR procFrameText(FrameInfo *pOutputFrame, int64_t frameTimeMs, cudaStream_t stream);
-    RGY_ERR procFrameBitmap(FrameInfo *pOutputFrame, const sInputCrop& crop, cudaStream_t stream);
-    RGY_ERR procFrame(FrameInfo *pOutputFrame, cudaStream_t stream);
+    SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, cudaStream_t stream);
+    RGY_ERR procFrameText(RGYFrameInfo *pOutputFrame, int64_t frameTimeMs, cudaStream_t stream);
+    RGY_ERR procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop& crop, cudaStream_t stream);
+    RGY_ERR procFrame(RGYFrameInfo *pOutputFrame, cudaStream_t stream);
 
     int m_subType; //字幕の種類
     unique_ptr<AVFormatContext, RGYAVDeleter<AVFormatContext>> m_formatCtx;     //ファイル読み込みの際に使用する(トラックを受け取る場合はnullptr)

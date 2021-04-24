@@ -312,7 +312,7 @@ __global__ void kernel_block_diff(
 }
 
 template<typename Type2, typename Type4>
-cudaError calc_block_diff_plane(const bool useKernel2, const bool firstPlane, const FrameInfo *p0, const FrameInfo *p1, CUMemBufPair &tmp,
+cudaError calc_block_diff_plane(const bool useKernel2, const bool firstPlane, const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp,
     const int blockHalfX, const int blockHalfY, cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
     static_assert(std::is_integral<decltype(Type2::x)>::value && std::is_integral<decltype(Type4::x)>::value && sizeof(Type2::x) == sizeof(Type4::x),
         "Type2::x == Type4::x");
@@ -412,7 +412,7 @@ cudaError calc_block_diff_plane(const bool useKernel2, const bool firstPlane, co
 }
 
 template<typename Type2, typename Type4>
-cudaError_t calc_block_diff_frame(const FrameInfo *p0, const FrameInfo *p1, CUMemBufPair &tmp,
+cudaError_t calc_block_diff_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, CUMemBufPair &tmp,
     const int blockX, const int blockY,  const bool chroma,
     cudaStream_t streamDiff, cudaEvent_t eventTransfer, cudaStream_t streamTransfer) {
     if (tmp.ptrDevice) {
@@ -457,7 +457,7 @@ NVEncFilterDecimateFrameData::~NVEncFilterDecimateFrameData() {
     m_buf.clear();
 }
 
-cudaError_t NVEncFilterDecimateFrameData::set(const FrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream) {
+cudaError_t NVEncFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, cudaStream_t stream) {
     m_inFrameId = inputFrameId;
     m_blockX = blockSizeX;
     m_blockY = blockSizeY;
@@ -534,7 +534,7 @@ void NVEncFilterDecimateCache::init(int bufCount, int blockX, int blockY) {
     }
 }
 
-cudaError_t NVEncFilterDecimateCache::add(const FrameInfo *pInputFrame, cudaStream_t stream) {
+cudaError_t NVEncFilterDecimateCache::add(const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const int id = m_inputFrames++;
     return frame(id)->set(pInputFrame, id, m_blockX, m_blockY, stream);
 }
@@ -642,7 +642,7 @@ tstring NVEncFilterParamDecimate::print() const {
     return decimate.print();
 }
 
-RGY_ERR NVEncFilterDecimate::setOutputFrame(int64_t nextTimestamp, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR NVEncFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_pParam);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -738,7 +738,7 @@ RGY_ERR NVEncFilterDecimate::setOutputFrame(int64_t nextTimestamp, FrameInfo **p
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDecimate::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamDecimate>(m_pParam);
     if (!prm) {

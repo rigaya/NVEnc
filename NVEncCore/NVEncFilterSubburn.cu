@@ -128,8 +128,8 @@ __global__ void kernel_subburn(
 }
 
 template<typename TypePixel, int bit_depth>
-cudaError_t proc_frame(FrameInfo *pFrame,
-    const FrameInfo *pSubImg,
+cudaError_t proc_frame(RGYFrameInfo *pFrame,
+    const RGYFrameInfo *pSubImg,
     int pos_x, int pos_y,
     float transparency_offset, float brightness, float contrast,
     cudaStream_t stream) {
@@ -185,7 +185,7 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
     //YUV420の関係で縦横2pixelずつ処理するので、2で割り切れている必要がある
     const int x_offset = ((image->dst_x % 2) != 0) ? 1 : 0;
     const int y_offset = ((image->dst_y % 2) != 0) ? 1 : 0;
-    FrameInfo img;
+    RGYFrameInfo img;
     img.csp = RGY_CSP_YUVA444;
     img.width  = ALIGN(image->w + x_offset, 2);
     img.height = ALIGN(image->h + y_offset, 2);
@@ -253,7 +253,7 @@ SubImageData NVEncFilterSubburn::textRectToImage(const ASS_Image *image, cudaStr
 }
 
 
-RGY_ERR NVEncFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frameTimeMs, cudaStream_t stream) {
+RGY_ERR NVEncFilterSubburn::procFrameText(RGYFrameInfo *pOutputFrame, int64_t frameTimeMs, cudaStream_t stream) {
     int nDetectChange = 0;
     const auto frameImages = ass_render_frame(m_assRenderer.get(), m_assTrack.get(), frameTimeMs, &nDetectChange);
 
@@ -282,7 +282,7 @@ RGY_ERR NVEncFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frame
             return RGY_ERR_UNSUPPORTED;
         }
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
-            const FrameInfo *pSubImg = &m_subImages[irect].image->frame;
+            const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
             auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
                 prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, stream);
             if (cudaerr != cudaSuccess) {
@@ -296,11 +296,11 @@ RGY_ERR NVEncFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frame
     return RGY_ERR_NONE;
 }
 
-SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, const FrameInfo *outputFrame, const sInputCrop &crop, cudaStream_t stream) {
+SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, cudaStream_t stream) {
     //YUV420の関係で縦横2pixelずつ処理するので、2で割り切れている必要がある
     const int x_offset = ((rect->x % 2) != 0) ? 1 : 0;
     const int y_offset = ((rect->y % 2) != 0) ? 1 : 0;
-    FrameInfo img;
+    RGYFrameInfo img;
     img.csp = RGY_CSP_YUVA444;
     img.width  = ALIGN(rect->w + x_offset, 2);
     img.height = ALIGN(rect->h + y_offset, 2);
@@ -389,7 +389,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
         frame = std::move(frameTemp);
     } else {
 #if 0
-        FrameInfo tempframe = img;
+        RGYFrameInfo tempframe = img;
         std::vector<uint8_t> temp(imgInfoEx.frame_size);
         memcpy(temp.data(), img.ptr, temp.size());
         tempframe.ptr = temp.data();
@@ -442,8 +442,8 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
         m_resize = std::move(filterResize);
 
         int filterOutputNum = 0;
-        FrameInfo *filterOutput[1] = { &frame->frame };
-        m_resize->filter(&frameTemp->frame, (FrameInfo **)&filterOutput, &filterOutputNum, stream);
+        RGYFrameInfo *filterOutput[1] = { &frame->frame };
+        m_resize->filter(&frameTemp->frame, (RGYFrameInfo **)&filterOutput, &filterOutputNum, stream);
     }
     int x_pos = ALIGN((int)(prm->subburn.scale * rect->x + 0.5f) - ((crop.e.left + crop.e.right) / 2), 2);
     int y_pos = ALIGN((int)(prm->subburn.scale * rect->y + 0.5f) - crop.e.up - crop.e.bottom, 2);
@@ -456,7 +456,7 @@ SubImageData NVEncFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, c
 }
 
 
-RGY_ERR NVEncFilterSubburn::procFrameBitmap(FrameInfo *pOutputFrame, const sInputCrop &crop, cudaStream_t stream) {
+RGY_ERR NVEncFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop &crop, cudaStream_t stream) {
     if (m_subData) {
         if (m_subData->num_rects != m_subImages.size()) {
             for (uint32_t irect = 0; irect < m_subData->num_rects; irect++) {
@@ -484,7 +484,7 @@ RGY_ERR NVEncFilterSubburn::procFrameBitmap(FrameInfo *pOutputFrame, const sInpu
             return RGY_ERR_UNSUPPORTED;
         }
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
-            const FrameInfo *pSubImg = &m_subImages[irect].image->frame;
+            const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
             auto cudaerr = func_list.at(pOutputFrame->csp)(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
                 prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, stream);
             if (cudaerr != cudaSuccess) {

@@ -37,7 +37,7 @@
 #pragma warning (pop)
 
 template<typename T, typename Tfunc>
-static NppStatus denoise_nnpi_gauss_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, Tfunc funcGauss, NppiMaskSize masksize) {
+static NppStatus denoise_nnpi_gauss_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, Tfunc funcGauss, NppiMaskSize masksize) {
     const double factorX = pOutputFrame->width / (double)pInputFrame->width;
     const double factorY = pOutputFrame->height / (double)pInputFrame->height;
     auto srcSize = nppisize(pInputFrame);
@@ -54,7 +54,7 @@ static NppStatus denoise_nnpi_gauss_plane(FrameInfo *pOutputFrame, const FrameIn
     return NPP_SUCCESS;
 }
 
-RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (m_pParam->frameOut.csp != m_pParam->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
@@ -85,7 +85,7 @@ RGY_ERR NVEncFilterDenoiseGauss::denoisePlane(FrameInfo *pOutputFrame, const Fra
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDenoiseGauss::denoiseFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame) {
+RGY_ERR NVEncFilterDenoiseGauss::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame) {
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -151,7 +151,7 @@ tstring NVEncFilterParamGaussDenoise::print() const {
         get_chr_from_value(list_nppi_gauss, masksize));
 }
 
-RGY_ERR NVEncFilterDenoiseGauss::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterDenoiseGauss::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {

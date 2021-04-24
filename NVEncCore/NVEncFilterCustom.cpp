@@ -186,7 +186,7 @@ tstring NVEncFilterParamCustom::print() const {
     return info;
 }
 
-RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputPlane, const FrameInfo *pInpuPlane, RGY_PLANE plane, cudaStream_t stream) {
+RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInpuPlane, RGY_PLANE plane, cudaStream_t stream) {
 #if ENABLE_NVRTC
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_pParam);
     const dim3 blockSize(prm->custom.threadPerBlockX, prm->custom.threadPerBlockY);
@@ -226,7 +226,7 @@ RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputPlane, const FrameInf
 #endif
 }
 
-RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterCustom::run_per_plane(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -246,7 +246,7 @@ RGY_ERR NVEncFilterCustom::run_per_plane(FrameInfo *pOutputFrame, const FrameInf
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterCustom::run_planes(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilterCustom::run_planes(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, cudaStream_t stream) {
 #if ENABLE_NVRTC
     auto prm = std::dynamic_pointer_cast<NVEncFilterParamCustom>(m_pParam);
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
@@ -295,7 +295,7 @@ RGY_ERR NVEncFilterCustom::run_planes(FrameInfo *pOutputFrame, const FrameInfo *
 #endif
 }
 
-RGY_ERR NVEncFilterCustom::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterCustom::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     if (pInputFrame->ptr == nullptr) {

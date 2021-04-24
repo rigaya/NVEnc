@@ -54,7 +54,7 @@ NVEncFilter::~NVEncFilter() {
     m_pParam.reset();
 }
 
-cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
+cudaError_t NVEncFilter::AllocFrameBuf(const RGYFrameInfo& frame, int frames) {
     if ((int)m_pFrameBuf.size() == frames
         && !cmpFrameInfoCspResolution(&m_pFrameBuf[0]->frame, &frame)) {
         //すべて確保されているか確認
@@ -85,7 +85,7 @@ cudaError_t NVEncFilter::AllocFrameBuf(const FrameInfo& frame, int frames) {
     return cudaSuccess;
 }
 
-RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     cudaError_t cudaerr = cudaSuccess;
     if (m_bCheckPerformance) {
         cudaerr = cudaEventRecord(*m_peFilterStart.get());
@@ -144,7 +144,7 @@ RGY_ERR NVEncFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, 
     return ret;
 }
 
-RGY_ERR NVEncFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame, cudaStream_t stream) {
+RGY_ERR NVEncFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, cudaStream_t stream) {
     if (!m_pFieldPairIn) {
         unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(*pInputFrame));
         uptr->frame.ptr = nullptr;

@@ -1081,7 +1081,7 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
 }
 
 template<typename TypePixel>
-cudaError_t setTexFieldNnedi(cudaTextureObject_t& texSrc, const FrameInfo *pFrame, const NnediTargetField targetField) {
+cudaError_t setTexFieldNnedi(cudaTextureObject_t& texSrc, const RGYFrameInfo *pFrame, const NnediTargetField targetField) {
     texSrc = 0;
 
     cudaResourceDesc resDescSrc;
@@ -1106,7 +1106,7 @@ cudaError_t setTexFieldNnedi(cudaTextureObject_t& texSrc, const FrameInfo *pFram
 }
 
 template<typename TypePixel4, int bit_depth, typename TypeCalc>
-cudaError_t nnedi_compute_network_0(FrameInfo *pOutputPlane,
+cudaError_t nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
     cudaTextureObject_t texSrc,
     const TypeCalc *weight0,
     const VppNnediPreScreen pre_screen,
@@ -1153,7 +1153,7 @@ cudaError_t nnedi_compute_network_0(FrameInfo *pOutputPlane,
 
 template<typename TypePixel, int bit_depth, typename TypeCalc, int WEIGHT_LOOP_1>
 cudaError_t nnedi_compute_network_1(
-    FrameInfo *pOutputFrame,
+    RGYFrameInfo *pOutputFrame,
     cudaTextureObject_t texSrc,
     const TypeCalc *weight10,
     const TypeCalc *weight11,
@@ -1264,8 +1264,8 @@ cudaError_t nnedi_compute_network_1(
 
 template<typename TypePixel, typename TypePixel4, int bit_depth, typename TypeCalc, int WEIGHT_LOOP_1>
 cudaError_t proc_plane(
-    FrameInfo *pOutputPlane,
-    const FrameInfo *pInputPlane,
+    RGYFrameInfo *pOutputPlane,
+    const RGYFrameInfo *pInputPlane,
     const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam,
     const NnediTargetField targetField,
     const TypeCalc *weight0,
@@ -1317,8 +1317,8 @@ cudaError_t proc_plane(
 }
 
 template<typename TypePixel, typename TypePixel4, int bit_depth, typename TypeCalc, int WEIGHT_LOOP_1>
-cudaError_t proc_frame(FrameInfo *pOutputFrame,
-    const FrameInfo *pInputFrame,
+cudaError_t proc_frame(RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pInputFrame,
     const std::shared_ptr<NVEncFilterParamNnedi> pNnediParam,
     const NnediTargetField targetField,
     const void *weight0,
@@ -1776,7 +1776,7 @@ tstring NVEncFilterParamNnedi::print() const {
     return nnedi.print();
 }
 
-RGY_ERR NVEncFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
+RGY_ERR NVEncFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, cudaStream_t stream) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr == nullptr) {
         return sts;

@@ -157,7 +157,7 @@ __global__ void kernel_logo_add(
 }
 
 template<typename Type, int bit_depth, bool target_y>
-void run_delogo(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, const int target_yuv, const int mode, const float fade) {
+void run_delogo(RGYFrameInfo *pFrame, const ProcessDataDelogo *pDelego, const int target_yuv, const int mode, const float fade) {
     dim3 blockSize(32, 4);
     dim3 gridSize(divCeil(pDelego->width, blockSize.x), divCeil(pDelego->height, blockSize.y));
     uint8_t *dptr = (uint8_t *)pFrame->ptr;
@@ -192,7 +192,7 @@ void run_delogo(FrameInfo *pFrame, const ProcessDataDelogo *pDelego, const int t
     }
 }
 
-RGY_ERR NVEncFilterDelogo::delogoY(FrameInfo *pFrame, const float fade) {
+RGY_ERR NVEncFilterDelogo::delogoY(RGYFrameInfo *pFrame, const float fade) {
     //Y
     static const std::map<RGY_CSP, decltype(&run_delogo<uint8_t, 8, true>)> delogo_y_list ={
         { RGY_CSP_YV12,      run_delogo<uint8_t,   8, true> },
@@ -226,7 +226,7 @@ RGY_ERR NVEncFilterDelogo::delogoY(FrameInfo *pFrame, const float fade) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDelogo::delogoUV(FrameInfo *pFrame, float fade) {
+RGY_ERR NVEncFilterDelogo::delogoUV(RGYFrameInfo *pFrame, float fade) {
     const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     //const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
     //UV
@@ -1311,7 +1311,7 @@ RGY_ERR NVEncFilterDelogo::createNRMask(CUFrameBuf *ptr_mask_nr, const CUFrameBu
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDelogo::createAdjustedMask(const FrameInfo *frame_logo) {
+RGY_ERR NVEncFilterDelogo::createAdjustedMask(const RGYFrameInfo *frame_logo) {
 
     auto pDelogoParam = std::dynamic_pointer_cast<NVEncFilterParamDelogo>(m_pParam);
     if (!pDelogoParam) {
@@ -1542,7 +1542,7 @@ template<typename Type, int bit_depth>
 cudaError runDelogoYMultiFadeKernel(
     const CUFrameBuf *pDevBufDst,       //出力先、fade_n分のメモリが必要
     const ProcessDataDelogo *logo_data, //logoの情報
-    const FrameInfo *srcFrame,          //delogoを行うフレームの情報
+    const RGYFrameInfo *srcFrame,          //delogoを行うフレームの情報
     const bool multi_src,               //入力(frame_logo)も複数枚の入力(fade_n)を持つ
     const float *ptrDevFadeDepth,       //fade * depthの情報 (fade_n分の配列)
     const int fade_n,                   //並列処理するfadeの数
@@ -1564,7 +1564,7 @@ cudaError runDelogoYMultiFadeKernel(
 }
 
 RGY_ERR NVEncFilterDelogo::runDelogoYMultiFade(
-    const FrameInfo *frame_logo,    //delogoを行うフレームの情報
+    const RGYFrameInfo *frame_logo,    //delogoを行うフレームの情報
     const bool multi_src,           //入力(frame_logo)も複数枚の入力(fade_n)を持つ
     const int nr_value,             //この処理の時のnr_value (delogo処理には関係ないが、出力先のバッファを決めるために指定が必要)
     const float *ptrDevFadeDepth,   //fade * depthの情報 (fade_n分の配列)
@@ -1762,7 +1762,7 @@ RGY_ERR NVEncFilterDelogo::prewittEvaluateRun(
 
 RGY_ERR NVEncFilterDelogo::autoFadeCoef2Run(
     const bool store_pixel_result, //評価結果をピクセルごとにm_bufEvalに格納するかどうか
-    const FrameInfo *frame_logo,   //delogoを行うフレームの情報
+    const RGYFrameInfo *frame_logo,   //delogoを行うフレームの情報
     const int nr_value,            //この処理の時のnr_value
     const int nr_area,             //この処理の時のnr_area
     const float *ptrDevFadeDepth,  //fade * depthの情報 (calc_n分の配列)
@@ -1817,7 +1817,7 @@ RGY_ERR NVEncFilterDelogo::autoFadeCoef2Collect(
     return RGY_ERR_NONE;
 }
 
-RGY_ERR NVEncFilterDelogo::logoNR(FrameInfo *pFrame, int nr_value) {
+RGY_ERR NVEncFilterDelogo::logoNR(RGYFrameInfo *pFrame, int nr_value) {
     static const std::map<std::pair<RGY_CSP, int>, decltype(&runSmoothKernel<uchar4, short4, 1>)> smooth_func_list = {
         { std::make_pair(RGY_CSP_Y8,  1), runSmoothKernel<uchar4,  short4, 1> },
         { std::make_pair(RGY_CSP_Y8,  2), runSmoothKernel<uchar4,  short4, 2> },
