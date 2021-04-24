@@ -1610,6 +1610,11 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_ERROR, _T("unable to find video stream.\n"));
             return RGY_ERR_NOT_FOUND;
         }
+        if (m_Demux.video.stream->codecpar->width == 0 || m_Demux.video.stream->codecpar->height == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Input video info not parsed yet [%dx%d]!\n"), m_Demux.video.stream->codecpar->width, m_Demux.video.stream->codecpar->height);
+            AddMessage(RGY_LOG_ERROR, _T("Consider increasing the value for the --input-analyze and/or --input-probesize!\n"), input_prm->analyzeSec, input_prm->probesize);
+            return RGY_ERR_NOT_FOUND;
+        }
         AddMessage(RGY_LOG_DEBUG, _T("use video stream #%d for input, codec %s, stream time_base %d/%d, codec_timebase %d/%d.\n"),
             m_Demux.video.stream->index,
             char_to_tstring(avcodec_get_name(m_Demux.video.stream->codecpar->codec_id)).c_str(),
