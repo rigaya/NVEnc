@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <vector>
 #include <numeric>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <algorithm>
@@ -559,6 +560,121 @@ bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) 
         }
     }
     return false;
+}
+
+struct RGYSIPrefix {
+    char prefix;
+    bool inverse;
+    int64_t pow2;
+    int64_t pow10;
+
+    RGYSIPrefix(char prefix_, bool inverse_, int64_t pow2_, int64_t pow10_) :
+        prefix(prefix_), inverse(inverse_), pow2(pow2_), pow10(pow10_) {};
+};
+
+const auto RGY_SI_PREFIX_LIST = make_array<RGYSIPrefix>(
+    RGYSIPrefix{ 'a', true,  rgy_pow_int<60,int64_t>(2), rgy_pow_int<18,int64_t>(10) },
+    RGYSIPrefix{ 'f', true,  rgy_pow_int<50,int64_t>(2), rgy_pow_int<15,int64_t>(10) },
+    RGYSIPrefix{ 'p', true,  rgy_pow_int<40,int64_t>(2), rgy_pow_int<12,int64_t>(10) },
+    RGYSIPrefix{ 'n', true,  rgy_pow_int<30,int64_t>(2), rgy_pow_int< 9,int64_t>(10) },
+    RGYSIPrefix{ 'u', true,  rgy_pow_int<20,int64_t>(2), rgy_pow_int< 6,int64_t>(10) },
+    RGYSIPrefix{ 'm', true,  rgy_pow_int<10,int64_t>(2), rgy_pow_int< 3,int64_t>(10) },
+    RGYSIPrefix{ 'k', false, rgy_pow_int<10,int64_t>(2), rgy_pow_int< 3,int64_t>(10) },
+    RGYSIPrefix{ 'K', false, rgy_pow_int<10,int64_t>(2), rgy_pow_int< 3,int64_t>(10) },
+    RGYSIPrefix{ 'M', false, rgy_pow_int<20,int64_t>(2), rgy_pow_int< 6,int64_t>(10) },
+    RGYSIPrefix{ 'g', false, rgy_pow_int<30,int64_t>(2), rgy_pow_int< 9,int64_t>(10) },
+    RGYSIPrefix{ 'G', false, rgy_pow_int<30,int64_t>(2), rgy_pow_int< 9,int64_t>(10) },
+    RGYSIPrefix{ 't', false, rgy_pow_int<40,int64_t>(2), rgy_pow_int<12,int64_t>(10) },
+    RGYSIPrefix{ 'T', false, rgy_pow_int<40,int64_t>(2), rgy_pow_int<12,int64_t>(10) },
+    RGYSIPrefix{ 'P', false, rgy_pow_int<50,int64_t>(2), rgy_pow_int<15,int64_t>(10) },
+    RGYSIPrefix{ 'E', false, rgy_pow_int<60,int64_t>(2), rgy_pow_int<18,int64_t>(10) }
+    );
+
+template<typename T>
+static void rgy_apply_si_prefix(T& val, const TCHAR *endptr) {
+    const auto prefix = tchar_to_string(endptr, CODE_PAGE_UTF8);
+    if (prefix[0] != '\0') {
+        auto siprefix = std::find_if(RGY_SI_PREFIX_LIST.begin(), RGY_SI_PREFIX_LIST.end(), [p = prefix[0]](const RGYSIPrefix& si) { return si.prefix == p; });
+        if (siprefix != RGY_SI_PREFIX_LIST.end()) {
+            const bool usepow2 = prefix[1] != 'i';
+            if (siprefix->inverse) {
+                val /= (usepow2) ? siprefix->pow2 : siprefix->pow10;
+            } else {
+                val *= (usepow2) ? siprefix->pow2 : siprefix->pow10;
+            }
+        }
+    }
+}
+
+int rgy_parse_num(int& val, const tstring& str) {
+    val = 0;
+    try {
+        size_t idx = 0;
+        int64_t val64 = std::stoll(str, &idx, 0);
+        auto endptr = str.c_str() + idx;
+        rgy_apply_si_prefix(val64, endptr);
+        if (val64 < std::numeric_limits<int>::min() || std::numeric_limits<int>::max() < val64) {
+            val = 0;
+            return 1;
+        }
+        val = (int)val64;
+    } catch (...) {
+        return 1;
+    }
+    return 0;
+}
+
+int rgy_parse_num(int64_t& val, const tstring& str) {
+    val = 0;
+    try {
+        size_t idx = 0;
+        val = std::stoll(str, &idx, 0);
+        auto endptr = str.c_str() + idx;
+        const auto prefix = tchar_to_string(endptr, CODE_PAGE_UTF8);
+        rgy_apply_si_prefix(val, endptr);
+    } catch (...) {
+        return 1;
+    }
+    return 0;
+}
+
+int rgy_parse_num(float& val, const tstring& str) {
+    val = 0;
+    try {
+        size_t idx = 0;
+        double vald = std::stod(str, &idx);
+        rgy_apply_si_prefix(vald, str.c_str() + idx);
+        val = (float)vald;
+    } catch (...) {
+        return 1;
+    }
+    return 0;
+}
+
+int rgy_parse_num(double& val, const tstring& str) {
+    val = 0;
+    try {
+        size_t idx = 0;
+        val = std::stod(str, &idx);
+        rgy_apply_si_prefix(val, str.c_str() + idx);
+    } catch (...) {
+        return 1;
+    }
+    return 0;
+}
+
+tstring rgy_print_num_with_siprefix(const int64_t value) {
+    const RGYSIPrefix *usePrefix = nullptr;
+    for (const auto& prefix : RGY_SI_PREFIX_LIST) {
+        if (!prefix.inverse && value > prefix.pow10 * 100) {
+            usePrefix = &prefix;
+        }
+    }
+    if (usePrefix) {
+        return strsprintf(_T("%.2f%c"), value / (double)usePrefix->pow10, usePrefix->prefix);
+    } else {
+        return strsprintf(_T("%lld"), value);
+    }
 }
 
 bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list) {

@@ -175,6 +175,33 @@ static void rgy_free(T& ptr) {
     }
 }
 
+template <class T, int N>
+struct RGYPowerBase {
+    static constexpr T run(T x) {
+        if constexpr (N < 0) {
+            return RGYPowerBase<T, -N>::run(1 / x);
+        } else if constexpr (N % 2 != 0) {
+            return x * RGYPowerBase<T, ((N>0)?N-1:0)>::run(x);
+        } else if constexpr (N == 0) {
+            return 1;
+        } else {
+            return RGYPowerBase<T, N / 2>::run(x * x);
+        }
+    }
+};
+
+
+template <int N, class T>
+constexpr T rgy_pow_int(T x) {
+    return RGYPowerBase<T, N>::run(x);
+}
+
+int rgy_parse_num(int& val, const tstring& str);
+int rgy_parse_num(int64_t& val, const tstring& str);
+int rgy_parse_num(float& val, const tstring& str);
+int rgy_parse_num(double& val, const tstring& str);
+tstring rgy_print_num_with_siprefix(const int64_t value);
+
 template<typename T>
 using unique_ptr_custom = std::unique_ptr<T, std::function<void(T*)>>;
 
