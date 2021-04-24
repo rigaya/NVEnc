@@ -677,7 +677,7 @@ typedef struct VideoFrameData {
 
 typedef struct AVDemuxFormat {
     AVFormatContext          *formatCtx;             //動画ファイルのformatContext
-    int                       analyzeSec;            //動画ファイルを先頭から分析する時間
+    double                    analyzeSec;            //動画ファイルを先頭から分析する時間
     bool                      isPipe;                //入力がパイプ
     uint32_t                  preReadBufferIdx;      //先読みバッファの読み込み履歴
     int                       audioTracks;           //存在する音声のトラック数
@@ -930,8 +930,9 @@ public:
     bool           readData;                //データの読み込みを行うかどうか
     bool           readAttachment;          //Attachmentの読み込みを行うかどうか
     bool           readChapter;             //チャプターの読み込みを行うかどうか
-    pair<int,int>  videoAvgFramerate;       //動画のフレームレート
+    rgy_rational<int> videoAvgFramerate;       //動画のフレームレート
     int            analyzeSec;              //入力ファイルを分析する秒数
+    int64_t        probesize;               //probeするデータサイズ
     int            nTrimCount;              //Trimする動画フレームの領域の数
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
     int            fileIndex;               //audio-source, sub-source等のファイルインデックス、動画と同じファイルなら-1
@@ -1088,10 +1089,13 @@ protected:
     //音声パケットの配列を取得する (映像を読み込んでいないときに使用)
     void GetAudioDataPacketsWhenNoVideoRead(int inputFrame);
 
+    //対象音声ストリームのキューの中の最初のパケットを探す
+    const AVPacket *findFirstAudioStreamPackets(const AVDemuxStream& streamInfo);
+
     //QSVでデコードした際の最初のフレームのptsを取得する
     //さらに、平均フレームレートを推定する
     //fpsDecoderはdecoderの推定したfps
-    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown, bool lowLatency);
+    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown, bool lowLatency, rgy_rational<int> fpsOverride);
 
     //読み込みスレッド関数
     RGY_ERR ThreadFuncRead();

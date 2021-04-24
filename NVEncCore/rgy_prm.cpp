@@ -1117,7 +1117,8 @@ RGYParamCommon::RGYParamCommon() :
     nAttachmentSelectCount(0),
     ppAttachmentSelectList(nullptr),
     audioResampler(RGY_RESAMPLER_SWR),
-    demuxAnalyzeSec(0),
+    demuxAnalyzeSec(-1),
+    demuxProbesize(-1),
     AVMuxTarget(RGY_MUX_NONE),                       //RGY_MUX_xxx
     videoTrack(0),
     videoStreamId(0),

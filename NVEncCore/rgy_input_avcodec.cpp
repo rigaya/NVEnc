@@ -81,6 +81,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     readChapter(false),
     videoAvgFramerate(),
     analyzeSec(0),
+    probesize(0),
     nTrimCount(0),
     pTrimList(nullptr),
     trackStartAudio(0),
@@ -605,13 +606,51 @@ void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
     m_hevcMp42AnnexbBuffer.clear();
 }
 
-RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown, bool lowLatency) {
+const AVPacket *RGYInputAvcodec::findFirstAudioStreamPackets(const AVDemuxStream& streamInfo) {
+    //まず、L2キューを探す
+    for (int j = 0; j < (int)m_Demux.qStreamPktL2.size(); j++) {
+        if (m_Demux.qStreamPktL2.get(j)->data.stream_index == streamInfo.index) {
+            return &(m_Demux.qStreamPktL2.get(j)->data);
+        }
+    }
+    //それで見つからなかったら、L1キューを探す
+    for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
+        if (m_Demux.qStreamPktL1[j].stream_index == streamInfo.index) {
+            return &m_Demux.qStreamPktL1[j];
+        }
+    }
+    return nullptr;
+}
+
+RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown, bool lowLatency, rgy_rational<int> fpsOverride) {
     AVRational fpsDecoder = m_Demux.video.stream->avg_frame_rate;
     const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
     //timebaseが60で割り切れない場合には、ptsが完全には割り切れない値である場合があり、より多くのフレーム数を解析する必要がある
-    int maxCheckFrames = (m_Demux.format.analyzeSec == 0) ? ((m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : ((lowLatency) ? 32 : 48)) : 7200;
-    int maxCheckSec = (m_Demux.format.analyzeSec == 0) ? INT_MAX : m_Demux.format.analyzeSec;
-    AddMessage(RGY_LOG_DEBUG, _T("fps decoder invalid: %s\n"), fpsDecoderInvalid ? _T("true") : _T("false"));
+
+    int maxCheckFrames = 0;
+    double maxCheckSec = 0.0;
+    if (fpsOverride.is_valid()) { //あらかじめfpsが指定されていればそれを採用する
+        maxCheckFrames = 1;
+        maxCheckSec = 1e99;
+    } else if (m_Demux.format.analyzeSec >= 0.0) {
+        if (m_Demux.format.analyzeSec <= 1.0) { // analyzeが1秒以下の場合
+            if (!fpsDecoderInvalid) { //fpsDecoderが有効な値ならそれを使用する
+                maxCheckFrames = 1;
+                maxCheckSec = 1e99;
+                fpsOverride = rgy_rational<int>(fpsDecoder.num, fpsDecoder.den);
+            } else { // なるべく短く判定を行う
+                maxCheckFrames = (m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : 20;
+                maxCheckSec = std::max(m_Demux.format.analyzeSec, 1.0);
+            }
+        } else {
+            maxCheckFrames = 7200;
+            maxCheckSec = m_Demux.format.analyzeSec;
+        }
+    } else {
+        maxCheckFrames = (m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : ((lowLatency) ? 32 : 48);
+        maxCheckSec = 1e99;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("fps decoder %d/%d, invalid: %s\n"), fpsDecoder.num, fpsDecoder.den, fpsDecoderInvalid ? _T("true") : _T("false"));
 
     AVPacket pkt;
     av_init_packet(&pkt);
@@ -628,13 +667,15 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         if (i_retry) {
             //フレームレート推定がうまくいかなそうだった場合、もう少しフレームを解析してみる
             maxCheckFrames <<= 1;
-            if (maxCheckSec != INT_MAX) {
-                maxCheckSec <<= 1;
+            if (maxCheckSec != 1e99) {
+                maxCheckSec *= 2.0;
             }
             //ヒストグラム生成などは最初からやり直すので、一度クリアする
             durationHistgram.clear();
             frameDurationList.clear();
         }
+        AddMessage(RGY_LOG_DEBUG, _T("maxCheckFrames %d, maxCheckSec: %.2f\n"), maxCheckFrames, maxCheckSec);
+
         int ret = 0;
         for (; i_samples < maxCheckFrames && ((ret = getSample(&pkt)) == 0); i_samples++) {
             m_Demux.qVideoPkt.push(pkt);
@@ -645,7 +686,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 } else if (pkt.pts != AV_NOPTS_VALUE && m_Demux.frames.list(0).pts != AV_NOPTS_VALUE) {
                     diff = (int)(pkt.pts - m_Demux.frames.list(0).pts);
                 }
-                const int duration = (int)((double)diff * timebase + 0.5);
+                const double duration = diff * timebase;
                 if (duration >= maxCheckSec) {
                     break;
                 }
@@ -676,186 +717,205 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         const int nFramesToCheck = m_Demux.frames.fixedNum();
         AddMessage(RGY_LOG_DEBUG, _T("read %d packets.\n"), m_Demux.frames.frameNum());
         AddMessage(RGY_LOG_DEBUG, _T("checking %d frame samples.\n"), nFramesToCheck);
-
-        frameDurationList.reserve(nFramesToCheck);
-        int rff_frames = 0;
-
-        for (int i = 0; i < nFramesToCheck; i++) {
-#if _DEBUG && 0
-            fprintf(stderr, "%3d: pts:%lld, poc:%3d, duration:%5d, duration2:%5d, repeat:%d\n",
-                i, (long long int)m_Demux.frames.list(i).pts, m_Demux.frames.list(i).poc,
-                m_Demux.frames.list(i).duration, m_Demux.frames.list(i).duration2,
-                m_Demux.frames.list(i).repeat_pict);
-#endif
-            if (m_Demux.frames.list(i).poc != FRAMEPOS_POC_INVALID) {
-                int duration = m_Demux.frames.list(i).duration + m_Demux.frames.list(i).duration2;
-                auto repeat_pict = m_Demux.frames.list(i).repeat_pict;
-                //RFF用の補正
-                if (repeat_pict > 1) {
-                    duration = (int)(duration * 2 / (double)(repeat_pict + 1) + 0.5);
-                    rff_frames++;
+        if (fpsOverride.is_valid()) { //あらかじめfpsが指定されていればそれを採用するので、ここでちゃんと分析する必要はない
+            //音声の最初のパケットが見つかっていればOK、そうでなければやり直す
+            bool audioStreamPacketNotFound = false;
+            for (const auto& streamInfo : m_Demux.stream) {
+                if (streamInfo.stream
+                    && avcodec_get_type(streamInfo.stream->codecpar->codec_id) == AVMEDIA_TYPE_AUDIO
+                    && findFirstAudioStreamPackets(streamInfo) == nullptr) {
+                    audioStreamPacketNotFound = true;
+                    break;
                 }
-                frameDurationList.push_back(duration);
             }
-        }
-        bPulldown = (bDetectpulldown && ((rff_frames+1/*たまたま切り捨てられることのないように*/) / (double)nFramesToCheck > 0.45));
-
-        //durationのヒストグラムを作成
-        std::for_each(frameDurationList.begin(), frameDurationList.end(), [&durationHistgram](const int& duration) {
-            auto target = std::find_if(durationHistgram.begin(), durationHistgram.end(), [duration](const std::pair<int, int>& pair) { return pair.first == duration; });
-            if (target != durationHistgram.end()) {
-                target->second++;
-            } else {
-                durationHistgram.push_back(std::make_pair(duration, 1));
+            if (!audioStreamPacketNotFound) {
+                break; //音声の最初のパケットが見つかっていればOK
             }
-        });
-        //多い順にソートする
-        std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
+        } else if (nFramesToCheck > 0) {
+            frameDurationList.reserve(nFramesToCheck);
+            int rff_frames = 0;
 
-        const auto codec_timebase = av_stream_get_codec_timebase(m_Demux.video.stream);
-        AddMessage(RGY_LOG_DEBUG, _T("stream timebase %d/%d\n"), codec_timebase.num, codec_timebase.den);
-        AddMessage(RGY_LOG_DEBUG, _T("decoder fps     %d/%d\n"), fpsDecoder.num, fpsDecoder.den);
-        AddMessage(RGY_LOG_DEBUG, _T("duration histgram of %d frames\n"), durationHistgram.size());
-        for (const auto& sample : durationHistgram) {
-            AddMessage(RGY_LOG_DEBUG, _T("%3d [%3d frames]\n"), sample.first, sample.second);
-        }
+            for (int i = 0; i < nFramesToCheck; i++) {
+#if _DEBUG && 0
+                fprintf(stderr, "%3d: pts:%lld, poc:%3d, duration:%5d, duration2:%5d, repeat:%d\n",
+                    i, (long long int)m_Demux.frames.list(i).pts, m_Demux.frames.list(i).poc,
+                    m_Demux.frames.list(i).duration, m_Demux.frames.list(i).duration2,
+                    m_Demux.frames.list(i).repeat_pict);
+#endif
+                if (m_Demux.frames.list(i).poc != FRAMEPOS_POC_INVALID) {
+                    int duration = m_Demux.frames.list(i).duration + m_Demux.frames.list(i).duration2;
+                    auto repeat_pict = m_Demux.frames.list(i).repeat_pict;
+                    //RFF用の補正
+                    if (repeat_pict > 1) {
+                        duration = (int)(duration * 2 / (double)(repeat_pict + 1) + 0.5);
+                        rff_frames++;
+                    }
+                    frameDurationList.push_back(duration);
+                }
+            }
+            bPulldown = (bDetectpulldown && ((rff_frames + 1/*たまたま切り捨てられることのないように*/) / (double)nFramesToCheck > 0.45));
 
-        //ここでやめてよいか判定する
-        if (i_retry == 0) {
-            //初回は、唯一のdurationが得られている場合を除き再解析する
-            if (durationHistgram.size() <= 1) {
+            //durationのヒストグラムを作成
+            std::for_each(frameDurationList.begin(), frameDurationList.end(), [&durationHistgram](const int& duration) {
+                auto target = std::find_if(durationHistgram.begin(), durationHistgram.end(), [duration](const std::pair<int, int>& pair) { return pair.first == duration; });
+                if (target != durationHistgram.end()) {
+                    target->second++;
+                } else {
+                    durationHistgram.push_back(std::make_pair(duration, 1));
+                }
+                });
+            //多い順にソートする
+            std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
+
+            const auto codec_timebase = av_stream_get_codec_timebase(m_Demux.video.stream);
+            AddMessage(RGY_LOG_DEBUG, _T("stream timebase %d/%d\n"), codec_timebase.num, codec_timebase.den);
+            AddMessage(RGY_LOG_DEBUG, _T("decoder fps     %d/%d\n"), fpsDecoder.num, fpsDecoder.den);
+            AddMessage(RGY_LOG_DEBUG, _T("duration histgram of %d frames\n"), durationHistgram.size());
+            for (const auto& sample : durationHistgram) {
+                AddMessage(RGY_LOG_DEBUG, _T("%3d [%3d frames]\n"), sample.first, sample.second);
+            }
+
+            //ここでやめてよいか判定する
+            if (i_retry == 0) {
+                //初回は、唯一のdurationが得られている場合を除き再解析する
+                if (durationHistgram.size() <= 1) {
+                    break;
+                }
+            } else if (durationHistgram.size() <= 1 //唯一のdurationが得られている
+                || durationHistgram[0].second / (double)frameDurationList.size() > 0.95 //大半がひとつのdurationである
+                || std::abs(durationHistgram[0].first - durationHistgram[1].first) <= 1) { //durationのブレが貧弱なtimebaseによる丸めによるもの(mkvなど)
                 break;
             }
-        } else if (durationHistgram.size() <= 1 //唯一のdurationが得られている
-            || durationHistgram[0].second / (double)frameDurationList.size() > 0.95 //大半がひとつのdurationである
-            || std::abs(durationHistgram[0].first - durationHistgram[1].first) <= 1) { //durationのブレが貧弱なtimebaseによる丸めによるもの(mkvなど)
-            break;
-        }
-        if (i_retry >= 4) {
-            break;
+            if (i_retry >= 4) {
+                break;
+            }
         }
         //再度解析を行う場合は、音声がL2キューに入らないよう、一度fixedNumを0に戻す
         m_Demux.frames.clearPtsStatus();
     }
 
-    //durationが0でなく、最も頻繁に出てきたもの
-    auto& mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0];
-
-    struct Rational64 {
-        uint64_t num;
-        uint64_t den;
-    } estimatedAvgFps = { 0 }, nAvgFramerate64 = { 0 }, fpsDecoder64 = { (uint64_t)fpsDecoder.num, (uint64_t)fpsDecoder.den };
-    if (mostPopularDuration.first == 0) {
-        m_Demux.video.streamPtsInvalid |= RGY_PTS_ALL_INVALID;
+    if (fpsOverride.is_valid()) {
+        m_Demux.video.nAvgFramerate = av_make_q(fpsOverride);
     } else {
-        //avgFpsとtargetFpsが近いかどうか
-        auto fps_near = [](double avgFps, double targetFps) { return std::abs(1 - avgFps / targetFps) < 0.5; };
-        //durationの平均を求める (ただし、先頭は信頼ならないので、cutoff分は計算に含めない)
-        //std::accumulateの初期値に"(uint64_t)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
-        //大きすぎるtimebaseの時に必要
-        double avgDuration = std::accumulate(frameDurationList.begin(), frameDurationList.end(), (uint64_t)0, [this](const uint64_t sum, const int& duration) { return sum + duration; }) / (double)(frameDurationList.size());
-        if (bPulldown) {
-            avgDuration *= 1.25;
-        }
-        double avgFps = m_Demux.video.stream->time_base.den / (double)(avgDuration * m_Demux.video.stream->time_base.num);
-        double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.05 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
-        if (mostPopularDuration.second / (double)frameDurationList.size() > 0.95 && std::abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
-            avgDuration = mostPopularDuration.first;
-            AddMessage(RGY_LOG_DEBUG, _T("using popular duration...\n"));
-        }
-        //durationから求めた平均fpsを計算する
-        const uint64_t mul = (uint64_t)ceil(1001.0 / m_Demux.video.stream->time_base.num);
-        estimatedAvgFps.num = (uint64_t)(m_Demux.video.stream->time_base.den / avgDuration * (double)m_Demux.video.stream->time_base.num * mul + 0.5);
-        estimatedAvgFps.den = (uint64_t)m_Demux.video.stream->time_base.num * mul;
+        //durationが0でなく、最も頻繁に出てきたもの
+        auto& mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0];
 
-        AddMessage(RGY_LOG_DEBUG, _T("fps mul:         %d\n"),    mul);
-        AddMessage(RGY_LOG_DEBUG, _T("raw avgDuration: %lf\n"),   avgDuration);
-        AddMessage(RGY_LOG_DEBUG, _T("estimatedAvgFps: %llu/%llu\n"), (long long int)estimatedAvgFps.num, (long long int)estimatedAvgFps.den);
-    }
-
-    if (m_Demux.video.streamPtsInvalid & RGY_PTS_ALL_INVALID) {
-        //ptsとdurationをpkt_timebaseで適当に作成する
-        nAvgFramerate64 = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder64;
-    } else {
-        if (fpsDecoderInvalid) {
-            nAvgFramerate64 = estimatedAvgFps;
+        struct Rational64 {
+            uint64_t num;
+            uint64_t den;
+        } estimatedAvgFps = { 0 }, nAvgFramerate64 = { 0 }, fpsDecoder64 = { (uint64_t)fpsDecoder.num, (uint64_t)fpsDecoder.den };
+        if (mostPopularDuration.first == 0) {
+            m_Demux.video.streamPtsInvalid |= RGY_PTS_ALL_INVALID;
         } else {
-            double dFpsDecoder = fpsDecoder.num / (double)fpsDecoder.den;
-            double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
-            //2フレーム分程度がもたらす誤差があっても許容する
-            if (std::abs(dFpsDecoder / dEstimatedAvgFps - 1.0) < (2.0 / frameDurationList.size())) {
-                AddMessage(RGY_LOG_DEBUG, _T("use decoder fps...\n"));
-                nAvgFramerate64 = fpsDecoder64;
-            } else {
-                double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
-                //durationから求めた平均fpsがデコーダの出したfpsの近似値と分かれば、デコーダの出したfpsを採用する
-                nAvgFramerate64 = (std::abs(dEstimatedAvgFps - dFpsDecoder) < std::abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder64 : estimatedAvgFps;
+            //avgFpsとtargetFpsが近いかどうか
+            auto fps_near = [](double avgFps, double targetFps) { return std::abs(1 - avgFps / targetFps) < 0.5; };
+            //durationの平均を求める (ただし、先頭は信頼ならないので、cutoff分は計算に含めない)
+            //std::accumulateの初期値に"(uint64_t)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
+            //大きすぎるtimebaseの時に必要
+            double avgDuration = std::accumulate(frameDurationList.begin(), frameDurationList.end(), (uint64_t)0, [this](const uint64_t sum, const int& duration) { return sum + duration; }) / (double)(frameDurationList.size());
+            if (bPulldown) {
+                avgDuration *= 1.25;
             }
+            double avgFps = m_Demux.video.stream->time_base.den / (double)(avgDuration * m_Demux.video.stream->time_base.num);
+            double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.05 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
+            if (mostPopularDuration.second / (double)frameDurationList.size() > 0.95 && std::abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
+                avgDuration = mostPopularDuration.first;
+                AddMessage(RGY_LOG_DEBUG, _T("using popular duration...\n"));
+            }
+            //durationから求めた平均fpsを計算する
+            const uint64_t mul = (uint64_t)ceil(1001.0 / m_Demux.video.stream->time_base.num);
+            estimatedAvgFps.num = (uint64_t)(m_Demux.video.stream->time_base.den / avgDuration * (double)m_Demux.video.stream->time_base.num * mul + 0.5);
+            estimatedAvgFps.den = (uint64_t)m_Demux.video.stream->time_base.num * mul;
+
+            AddMessage(RGY_LOG_DEBUG, _T("fps mul:         %d\n"), mul);
+            AddMessage(RGY_LOG_DEBUG, _T("raw avgDuration: %lf\n"), avgDuration);
+            AddMessage(RGY_LOG_DEBUG, _T("estimatedAvgFps: %llu/%llu\n"), (long long int)estimatedAvgFps.num, (long long int)estimatedAvgFps.den);
         }
-    }
-    AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (raw64): %llu/%llu\n"), (long long int)estimatedAvgFps.num, (long long int)estimatedAvgFps.den);
 
-    //フレームレートが2000fpsを超えることは考えにくいので、誤判定
-    //ほかのなにか使えそうな値で代用する
-    const auto codec_timebase = av_stream_get_codec_timebase(m_Demux.video.stream);
-    if (nAvgFramerate64.num / (double)nAvgFramerate64.den > 2000.0) {
-        if (fpsDecoder.den > 0 && fpsDecoder.num > 0) {
-            nAvgFramerate64.num = fpsDecoder.num;
-            nAvgFramerate64.den = fpsDecoder.den;
-        } else if (codec_timebase.den > 0
-                && codec_timebase.num > 0) {
-            const AVCodec *codec = avcodec_find_decoder(m_Demux.video.stream->codecpar->codec_id);
-            AVCodecContext *pCodecCtx = avcodec_alloc_context3(codec);
-            nAvgFramerate64.num = codec_timebase.den * pCodecCtx->ticks_per_frame;
-            nAvgFramerate64.den = codec_timebase.num;
-            avcodec_free_context(&pCodecCtx);
-        }
-    }
-
-    rgy_reduce(nAvgFramerate64.num, nAvgFramerate64.den);
-    m_Demux.video.nAvgFramerate = av_make_q((int)nAvgFramerate64.num, (int)nAvgFramerate64.den);
-    AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (gcd): %d/%d\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
-
-    struct KnownFpsList {
-        std::vector<int> base;
-        std::vector<int> mul;
-        int timebase_num;
-    };
-    const KnownFpsList knownFpsSmall = {
-        std::vector<int>{1, 2, 3, 4, 5, 10},
-        std::vector<int>{1},
-        1
-    };
-    const KnownFpsList knownFps1 = {
-        std::vector<int>{10, 12, 25},
-        std::vector<int>{1, 2, 3, 4, 5, 6, 10, 12, 20},
-        1
-    };
-    const KnownFpsList knownFps1001 = {
-        std::vector<int>{12000, 15000},
-        std::vector<int>{1, 2, 3, 4, 6, 8, 12, 16},
-        1001
-    };
-    const double fpsAvg = av_q2d(m_Demux.video.nAvgFramerate);
-    double fpsDiff = std::numeric_limits<double>::max();
-    AVRational fpsNear = m_Demux.video.nAvgFramerate;
-    auto round_fps = [&fpsDiff, &fpsNear, fpsAvg](const KnownFpsList& known_fps) {
-        for (auto b : known_fps.base) {
-            for (auto m : known_fps.mul) {
-                double fpsKnown = b * m / (double)known_fps.timebase_num;
-                double diff = std::abs(fpsKnown - fpsAvg);
-                if (diff < fpsDiff) {
-                    fpsDiff = diff;
-                    fpsNear = av_make_q(b * m, known_fps.timebase_num);
+        if (m_Demux.video.streamPtsInvalid & RGY_PTS_ALL_INVALID) {
+            //ptsとdurationをpkt_timebaseで適当に作成する
+            nAvgFramerate64 = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder64;
+        } else {
+            if (fpsDecoderInvalid) {
+                nAvgFramerate64 = estimatedAvgFps;
+            } else {
+                double dFpsDecoder = fpsDecoder.num / (double)fpsDecoder.den;
+                double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
+                //2フレーム分程度がもたらす誤差があっても許容する
+                if (std::abs(dFpsDecoder / dEstimatedAvgFps - 1.0) < (2.0 / frameDurationList.size())) {
+                    AddMessage(RGY_LOG_DEBUG, _T("use decoder fps...\n"));
+                    nAvgFramerate64 = fpsDecoder64;
+                } else {
+                    double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
+                    //durationから求めた平均fpsがデコーダの出したfpsの近似値と分かれば、デコーダの出したfpsを採用する
+                    nAvgFramerate64 = (std::abs(dEstimatedAvgFps - dFpsDecoder) < std::abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder64 : estimatedAvgFps;
                 }
             }
         }
-    };
-    round_fps(knownFpsSmall);
-    round_fps(knownFps1);
-    round_fps(knownFps1001);
-    if (fpsDiff / fpsAvg < 2.0 / 60.0) {
-        m_Demux.video.nAvgFramerate = fpsNear;
+        AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (raw64): %llu/%llu\n"), (long long int)estimatedAvgFps.num, (long long int)estimatedAvgFps.den);
+
+        //フレームレートが2000fpsを超えることは考えにくいので、誤判定
+        //ほかのなにか使えそうな値で代用する
+        const auto codec_timebase = av_stream_get_codec_timebase(m_Demux.video.stream);
+        if (nAvgFramerate64.num / (double)nAvgFramerate64.den > 2000.0) {
+            if (fpsDecoder.den > 0 && fpsDecoder.num > 0) {
+                nAvgFramerate64.num = fpsDecoder.num;
+                nAvgFramerate64.den = fpsDecoder.den;
+            } else if (codec_timebase.den > 0
+                && codec_timebase.num > 0) {
+                const AVCodec *codec = avcodec_find_decoder(m_Demux.video.stream->codecpar->codec_id);
+                AVCodecContext *pCodecCtx = avcodec_alloc_context3(codec);
+                nAvgFramerate64.num = codec_timebase.den * pCodecCtx->ticks_per_frame;
+                nAvgFramerate64.den = codec_timebase.num;
+                avcodec_free_context(&pCodecCtx);
+            }
+        }
+
+        rgy_reduce(nAvgFramerate64.num, nAvgFramerate64.den);
+        m_Demux.video.nAvgFramerate = av_make_q((int)nAvgFramerate64.num, (int)nAvgFramerate64.den);
+        AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (gcd): %d/%d\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
+
+        struct KnownFpsList {
+            std::vector<int> base;
+            std::vector<int> mul;
+            int timebase_num;
+        };
+        const KnownFpsList knownFpsSmall = {
+            std::vector<int>{1, 2, 3, 4, 5, 10},
+            std::vector<int>{1},
+            1
+        };
+        const KnownFpsList knownFps1 = {
+            std::vector<int>{10, 12, 25},
+            std::vector<int>{1, 2, 3, 4, 5, 6, 10, 12, 20},
+            1
+        };
+        const KnownFpsList knownFps1001 = {
+            std::vector<int>{12000, 15000},
+            std::vector<int>{1, 2, 3, 4, 6, 8, 12, 16},
+            1001
+        };
+        const double fpsAvg = av_q2d(m_Demux.video.nAvgFramerate);
+        double fpsDiff = std::numeric_limits<double>::max();
+        AVRational fpsNear = m_Demux.video.nAvgFramerate;
+        auto round_fps = [&fpsDiff, &fpsNear, fpsAvg](const KnownFpsList& known_fps) {
+            for (auto b : known_fps.base) {
+                for (auto m : known_fps.mul) {
+                    double fpsKnown = b * m / (double)known_fps.timebase_num;
+                    double diff = std::abs(fpsKnown - fpsAvg);
+                    if (diff < fpsDiff) {
+                        fpsDiff = diff;
+                        fpsNear = av_make_q(b * m, known_fps.timebase_num);
+                    }
+                }
+            }
+        };
+        round_fps(knownFpsSmall);
+        round_fps(knownFps1);
+        round_fps(knownFps1001);
+        if (fpsDiff / fpsAvg < 2.0 / 60.0) {
+            m_Demux.video.nAvgFramerate = fpsNear;
+        }
     }
 
     AddMessage(RGY_LOG_DEBUG, _T("final AvgFps (round): %d/%d\n\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
@@ -1200,11 +1260,13 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         || filename_char.c_str() == strstr(filename_char.c_str(), R"(\\.\pipe\)");
     m_Demux.format.formatCtx = avformat_alloc_context();
     m_Demux.format.analyzeSec = input_prm->analyzeSec;
-    if (m_Demux.format.analyzeSec) {
-        if (0 != (ret = av_opt_set_int(m_Demux.format.formatCtx, "probesize", 1 << 29, 0))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set probesize to 0.5GB: error %d\n"), ret);
+    if (input_prm->probesize >= 0 || input_prm->analyzeSec >= 0) {
+        const int64_t probesize = (input_prm->probesize > 0) ? input_prm->probesize : 1 << 29;
+        if (0 != (ret = av_opt_set_int(m_Demux.format.formatCtx, "probesize", probesize, 0))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set probesize to %s: error %d\n"), rgy_print_num_with_siprefix(probesize).c_str(), ret);
+            return RGY_ERR_INVALID_PARAM;
         } else {
-            AddMessage(RGY_LOG_DEBUG, _T("set probesize: 0.5GB\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("set probesize: %s\n"), rgy_print_num_with_siprefix(probesize).c_str());
         }
     }
     if (0 == strcmp(filename_char.c_str(), "-")) {
@@ -1286,11 +1348,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
     }
 
-    if (m_Demux.format.analyzeSec) {
-        if (0 != (ret = av_opt_set_int(m_Demux.format.formatCtx, "analyzeduration", m_Demux.format.analyzeSec * AV_TIME_BASE, 0))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set analyzeduration to %d sec, error %s\n"), m_Demux.format.analyzeSec, qsv_av_err2str(ret).c_str());
+    if (m_Demux.format.analyzeSec >= 0) {
+        const int64_t value = (int64_t)(m_Demux.format.analyzeSec * AV_TIME_BASE + 0.5);
+        if (0 != (ret = av_opt_set_int(m_Demux.format.formatCtx, "analyzeduration", value, 0))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set analyzeduration to %.2f sec, error %s\n"), m_Demux.format.analyzeSec, qsv_av_err2str(ret).c_str());
         } else {
-            AddMessage(RGY_LOG_DEBUG, _T("set analyzeduration: %d sec\n"), m_Demux.format.analyzeSec);
+            AddMessage(RGY_LOG_DEBUG, _T("set analyzeduration: %.2f sec\n"), m_Demux.format.analyzeSec);
         }
     }
 
@@ -1305,7 +1368,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     //キュー関連初期化
     //getFirstFramePosAndFrameRateで大量にパケットを突っ込む可能性があるので、この段階ではcapacityは無限大にしておく
     m_Demux.qVideoPkt.init(4096, SIZE_MAX, 4);
-    m_Demux.qVideoPkt.set_keep_length(AV_FRAME_MAX_REORDER);
+    m_Demux.qVideoPkt.set_keep_length(1);
     m_Demux.qStreamPktL2.init(4096);
 
     //動画ストリームを探す
@@ -1700,7 +1763,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
 #endif
 
-        if (RGY_ERR_NONE != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount, input_prm->videoDetectPulldown, input_prm->lowLatency))) {
+        if (RGY_ERR_NONE != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount, input_prm->videoDetectPulldown, input_prm->lowLatency, input_prm->videoAvgFramerate))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to get first frame position.\n"));
             return sts;
         }
@@ -1728,12 +1791,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 m_trimParam.list.push_back({ 0, TRIM_MAX });
             }
             AddMessage(RGY_LOG_DEBUG, _T("adjust trim by offset %d.\n"), m_trimParam.offset);
-        }
-
-        //あらかじめfpsが指定されていればそれを採用する
-        if (input_prm->videoAvgFramerate.first * input_prm->videoAvgFramerate.second > 0) {
-            m_Demux.video.nAvgFramerate.num = input_prm->videoAvgFramerate.first;
-            m_Demux.video.nAvgFramerate.den = input_prm->videoAvgFramerate.second;
         }
 
         struct pixfmtInfo {
@@ -1963,7 +2020,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
     } else {
         //音声との同期とかに使うので、動画の情報を格納する
-        m_Demux.video.nAvgFramerate = av_make_q(input_prm->videoAvgFramerate.first, input_prm->videoAvgFramerate.second);
+        m_Demux.video.nAvgFramerate = av_make_q(input_prm->videoAvgFramerate);
 
         if (input_prm->nTrimCount) {
             m_trimParam.list = vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);

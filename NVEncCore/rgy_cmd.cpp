@@ -2939,15 +2939,29 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     if (   IS_OPTION("input-analyze")
         || IS_OPTION("avcuvid-analyze")) {
         i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+        double value = 0.0;
+        if (rgy_parse_num(value, strInput[i]) != 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
-        } else if (value < 0) {
+        } else if (value < 0.0) {
             print_cmd_error_invalid_value(option_name, strInput[i], _T("input-analyze requires non-negative value."));
             return 1;
         } else {
-            common->demuxAnalyzeSec = (int)((std::min)(value, USHRT_MAX));
+            common->demuxAnalyzeSec = value;
+        }
+        return 0;
+    }
+    if (IS_OPTION("input-probesize")) {
+        i++;
+        int64_t value = 0;
+        if (rgy_parse_num(value, strInput[i]) != 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        } else if (value < 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("input-probesize requires non-negative value."));
+            return 1;
+        } else {
+            common->demuxProbesize = value;
         }
         return 0;
     }
@@ -4902,7 +4916,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
 
     std::basic_stringstream<TCHAR> tmp;
 
-    OPT_NUM(_T("--input-analyze"), demuxAnalyzeSec);
+    OPT_FLOAT(_T("--input-analyze"), demuxAnalyzeSec, 6);
     if (param->nTrimCount > 0) {
         cmd << _T(" --trim ");
         for (int i = 0; i < param->nTrimCount; i++) {

@@ -247,8 +247,9 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.readChapter = false;
         inputInfoAVAudioReader.readData = false;
         inputInfoAVAudioReader.fileIndex = ifile;
-        inputInfoAVAudioReader.videoAvgFramerate = std::make_pair(inputInfo.fpsN, inputInfo.fpsD);
+        inputInfoAVAudioReader.videoAvgFramerate = rgy_rational<int>(inputInfo.fpsN, inputInfo.fpsD);
         inputInfoAVAudioReader.analyzeSec = common->demuxAnalyzeSec;
+        inputInfoAVAudioReader.probesize = common->demuxProbesize;
         inputInfoAVAudioReader.nTrimCount = common->nTrimCount;
         inputInfoAVAudioReader.pTrimList = common->pTrimList;
         inputInfoAVAudioReader.trackStartAudio = sourceAudioTrackIdStart;
@@ -449,8 +450,9 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.readData = common->nDataSelectCount > 0;
         inputInfoAVCuvid.readAttachment = common->nAttachmentSelectCount > 0;
         inputInfoAVCuvid.readChapter = true;
-        inputInfoAVCuvid.videoAvgFramerate = std::make_pair(input->fpsN, input->fpsD);
+        inputInfoAVCuvid.videoAvgFramerate = rgy_rational<int>(input->fpsN, input->fpsD);
         inputInfoAVCuvid.analyzeSec = common->demuxAnalyzeSec;
+        inputInfoAVCuvid.probesize = common->demuxProbesize;
         inputInfoAVCuvid.nTrimCount = common->nTrimCount;
         inputInfoAVCuvid.pTrimList = common->pTrimList;
         inputInfoAVCuvid.fileIndex = -1; //動画ファイルは-1

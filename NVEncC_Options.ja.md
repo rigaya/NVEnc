@@ -604,9 +604,12 @@ HEVCの規格では64まで存在するが、現状NVENCでは32までしかサ�
 
 ## 入出力 / 音声 / 字幕などのオプション
 
-### --input-analyze &lt;int&gt;
+### --input-analyze &lt;float&gt;
 libavが読み込み時に解析するファイルの時間を秒で指定。デフォルトは5。
 音声トラックなどが正しく抽出されない場合、この値を大きくしてみてください(例:60)。
+
+### --input-probesize &lt;int&gt;
+libavが読み込み時に解析する最大のサイズをbyte単位で指定。
 
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 指定した範囲のフレームのみをエンコードする。

@@ -598,9 +598,12 @@ Example: --vmaf model=vmaf_v0.6.1.json
 
 ## IO / Audio / Subtitle Options
 
-### --input-analyze &lt;int&gt;
+### --input-analyze &lt;float&gt;
 Specify the length in seconds that libav parses for file analysis. The default is 5 (sec).
 If audio / subtitle tracks etc. are not detected properly, try increasing this value (eg 60).
+
+### --input-probesize &lt;int&gt;
+Set the maximum size in bytes that libav parses for file analysis.
 
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 Encode only frames in the specified range.
