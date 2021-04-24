@@ -46,14 +46,14 @@ bool check_if_nvcuvid_dll_available() {
 }
 
 CodecCsp getHWDecCodecCsp(bool skipHWDecodeCheck) {
-    static const auto test_target = make_array<RGY_CSP>(
+    static const auto test_target_yv12 = make_array<RGY_CSP>(
         RGY_CSP_NV12,
-        RGY_CSP_YV12,
         RGY_CSP_YV12_09,
         RGY_CSP_YV12_10,
         RGY_CSP_YV12_12,
         RGY_CSP_YV12_14,
-        RGY_CSP_YV12_16,
+        RGY_CSP_YV12_16);
+    static const auto test_target_yuv444 = make_array<RGY_CSP>(
         RGY_CSP_YUV444,
         RGY_CSP_YUV444_09,
         RGY_CSP_YUV444_10,
@@ -67,7 +67,7 @@ CodecCsp getHWDecCodecCsp(bool skipHWDecodeCheck) {
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         std::vector<RGY_CSP> supported_csp;
         const auto enc_codec = codec_rgy_to_enc(HW_DECODE_LIST[i].rgy_codec);
-        for (auto csp : test_target) {
+        for (auto csp : test_target_yv12) {
             if (skipHWDecodeCheck) {
                 supported_csp.push_back(csp);
                 continue;
@@ -78,7 +78,26 @@ CodecCsp getHWDecCodecCsp(bool skipHWDecodeCheck) {
             caps_test.nBitDepthMinus8 = RGY_CSP_BIT_DEPTH[csp] - 8;
             caps_test.eChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[csp]);
             auto ret = cuvidGetDecoderCaps(&caps_test);
-            if (ret == CUDA_SUCCESS && caps_test.bIsSupported) {
+            if (ret != CUDA_SUCCESS || caps_test.bIsSupported) {
+                break;
+            }
+            supported_csp.push_back(csp);
+        }
+        if (supported_csp.size() > 0) {
+            for (auto csp : test_target_yuv444) {
+                if (skipHWDecodeCheck) {
+                    supported_csp.push_back(csp);
+                    continue;
+                }
+                CUVIDDECODECAPS caps_test;
+                memset(&caps_test, 0, sizeof(caps_test));
+                caps_test.eCodecType = enc_codec;
+                caps_test.nBitDepthMinus8 = RGY_CSP_BIT_DEPTH[csp] - 8;
+                caps_test.eChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[csp]);
+                auto ret = cuvidGetDecoderCaps(&caps_test);
+                if (ret != CUDA_SUCCESS || caps_test.bIsSupported) {
+                    break;
+                }
                 supported_csp.push_back(csp);
             }
         }
