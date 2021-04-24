@@ -288,7 +288,7 @@ int64_t runl_por(int loop_count, int& dummy_dep) {
 }
 
 static double get_tick_per_clock() {
-    const int outer_loop_count = 1000;
+    const int outer_loop_count = 100;
     const int inner_loop_count = TEST_COUNT;
     int dummy = 0;
     auto tick_min = runl_por(inner_loop_count, dummy);
@@ -300,8 +300,7 @@ static double get_tick_per_clock() {
 }
 
 static double get_tick_per_sec() {
-    const int nMul = 100;
-    const int outer_loop_count = TEST_COUNT * nMul;
+    const int outer_loop_count = TEST_COUNT;
     int dummy = 0;
     runl_por(outer_loop_count, dummy);
     auto start = std::chrono::high_resolution_clock::now();
@@ -328,6 +327,10 @@ bool check_rdtscp_available() {
 //__rdtscが定格クロックに基づいた値を返すのを利用して、実際の動作周波数を得る
 //やや時間がかかるので注意
 double getCPUMaxTurboClock() {
+    static double turboClock = 0.0;
+    if (turboClock > 0.0) {
+        return turboClock;
+    }
     //http://instlatx64.atw.hu/
     //によれば、Sandy/Ivy/Haswell/Silvermont
     //いずれでもサポートされているのでノーチェックでも良い気がするが...
@@ -351,7 +354,8 @@ double getCPUMaxTurboClock() {
 
     const double tick_per_clock = get_tick_per_clock();
     const double tick_per_sec = get_tick_per_sec();
-    return (tick_per_sec / tick_per_clock) * 1e-9;
+    turboClock = (tick_per_sec / tick_per_clock) * 1e-9;
+    return turboClock;
 }
 
 double getCPUDefaultClock() {
