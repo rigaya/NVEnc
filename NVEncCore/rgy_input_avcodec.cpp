@@ -674,7 +674,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
             durationHistgram.clear();
             frameDurationList.clear();
         }
-        AddMessage(RGY_LOG_DEBUG, _T("maxCheckFrames %d, maxCheckSec: %.2f\n"), maxCheckFrames, maxCheckSec);
+        AddMessage(RGY_LOG_DEBUG, _T("maxCheckFrames %d, maxCheckSec: %.3e\n"), maxCheckFrames, maxCheckSec);
 
         int ret = 0;
         for (; i_samples < maxCheckFrames && ((ret = getSample(&pkt)) == 0); i_samples++) {
