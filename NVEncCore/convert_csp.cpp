@@ -179,12 +179,16 @@ void convert_yuv444_to_y410_avx2(void** dst, const void** src, int width, int sr
 void convert_yuv444_to_y410_sse2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
 void convert_yuv444_10_to_y410_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
 void convert_yuv444_10_to_y410_sse41(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
+void convert_yuv444_10_to_y410_sse2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
 void convert_yuv444_12_to_y410_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
 void convert_yuv444_12_to_y410_sse41(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
+void convert_yuv444_12_to_y410_sse2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
 void convert_yuv444_14_to_y410_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
 void convert_yuv444_14_to_y410_sse41(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
+void convert_yuv444_14_to_y410_sse2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
 void convert_yuv444_16_to_y410_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
 void convert_yuv444_16_to_y410_sse41(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
+void convert_yuv444_16_to_y410_sse2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop);
 
 void convert_yc48_to_yuv444_avx(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
 void convert_yc48_to_yuv444_sse41(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
@@ -1328,14 +1332,19 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_YUV444,    RGY_CSP_AYUV,      false, copy_yuv444_to_ayuv444_sse2,         copy_yuv444_to_ayuv444_sse2,     SSE2 )
     FUNC_AVX2( RGY_CSP_YUV444_16, RGY_CSP_Y410,      false, convert_yuv444_16_to_y410_avx2,      convert_yuv444_16_to_y410_avx2,  AVX2|AVX)
     FUNC_SSE(  RGY_CSP_YUV444_16, RGY_CSP_Y410,      false, convert_yuv444_16_to_y410_sse41,     convert_yuv444_16_to_y410_sse41, SSE41)
+    FUNC_SSE(  RGY_CSP_YUV444_16, RGY_CSP_Y410,      false, convert_yuv444_16_to_y410_sse2,      convert_yuv444_16_to_y410_sse2,  SSE2)
     FUNC_AVX2( RGY_CSP_YUV444_16, RGY_CSP_Y410,      false, convert_yuv444_16_to_y410,           convert_yuv444_16_to_y410,       NONE)
     FUNC_SSE(  RGY_CSP_YUV444_14, RGY_CSP_Y410,      false, convert_yuv444_14_to_y410_avx2,      convert_yuv444_14_to_y410_avx2,  AVX2|AVX)
+    FUNC_SSE(  RGY_CSP_YUV444_14, RGY_CSP_Y410,      false, convert_yuv444_14_to_y410_sse41,     convert_yuv444_14_to_y410_sse41, SSE41)
+    FUNC_SSE(  RGY_CSP_YUV444_14, RGY_CSP_Y410,      false, convert_yuv444_14_to_y410_sse2,      convert_yuv444_14_to_y410_sse2,  SSE2)
     FUNC_AVX2( RGY_CSP_YUV444_14, RGY_CSP_Y410,      false, convert_yuv444_14_to_y410,           convert_yuv444_14_to_y410,       NONE)
     FUNC_SSE(  RGY_CSP_YUV444_12, RGY_CSP_Y410,      false, convert_yuv444_12_to_y410_avx2,      convert_yuv444_12_to_y410_avx2,  AVX2|AVX)
     FUNC_AVX2( RGY_CSP_YUV444_12, RGY_CSP_Y410,      false, convert_yuv444_12_to_y410_sse41,     convert_yuv444_12_to_y410_sse41, SSE41)
+    FUNC_AVX2( RGY_CSP_YUV444_12, RGY_CSP_Y410,      false, convert_yuv444_12_to_y410_sse2,      convert_yuv444_12_to_y410_sse2,  SSE2)
     FUNC_SSE(  RGY_CSP_YUV444_12, RGY_CSP_Y410,      false, convert_yuv444_12_to_y410,           convert_yuv444_12_to_y410,       NONE)
     FUNC_AVX2( RGY_CSP_YUV444_10, RGY_CSP_Y410,      false, convert_yuv444_10_to_y410_avx2,      convert_yuv444_10_to_y410_avx2,  AVX2|AVX)
     FUNC_SSE(  RGY_CSP_YUV444_10, RGY_CSP_Y410,      false, convert_yuv444_10_to_y410_sse41,     convert_yuv444_10_to_y410_sse41, SSE41)
+    FUNC_SSE(  RGY_CSP_YUV444_10, RGY_CSP_Y410,      false, convert_yuv444_10_to_y410_sse2,      convert_yuv444_10_to_y410_sse2,  SSE2)
     FUNC_AVX2( RGY_CSP_YUV444_10, RGY_CSP_Y410,      false, convert_yuv444_10_to_y410,           convert_yuv444_10_to_y410,       NONE)
     FUNC_SSE(  RGY_CSP_YUV444_09, RGY_CSP_Y410,      false, convert_yuv444_09_to_y410,           convert_yuv444_09_to_y410,       NONE)
     FUNC_AVX2( RGY_CSP_YUV444,    RGY_CSP_Y410,      false, convert_yuv444_to_y410_avx2,         convert_yuv444_to_y410_avx2,     AVX2|AVX)

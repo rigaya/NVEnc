@@ -114,6 +114,19 @@ static RGY_FORCEINLINE __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
 #endif
 }
 
+static RGY_FORCEINLINE __m128i _mm_min_epu16_simd(__m128i a, __m128i b) {
+#if USE_SSE41
+    return _mm_min_epu16(a, b);
+#else
+    alignas(64) static const uint32_t VAL[4] = { 0x80008000, 0x80008000, 0x80008000, 0x80008000 };
+#define LOAD_16BIT_0x8000 _mm_load_si128((__m128i *)VAL)
+    __m128i a1 = _mm_xor_si128(a, LOAD_16BIT_0x8000);
+    __m128i b1 = _mm_xor_si128(b, LOAD_16BIT_0x8000);
+    __m128i m1 = _mm_min_epi16(a1, b1);
+    return _mm_xor_si128(m1, LOAD_16BIT_0x8000);
+#endif
+}
+
 #pragma warning (push)
 #pragma warning (disable: 4100)
 template<bool highbit_depth>
@@ -1402,12 +1415,12 @@ void convert_yuv444_high_to_y410_simd(void** dst, const void** src, int width, i
                 pixV0 = _mm_srli_epi16(_mm_add_epi16(pixV0, xrsftAdd), in_bit_depth - out_bit_depth);
                 pixV1 = _mm_srli_epi16(_mm_add_epi16(pixV1, xrsftAdd), in_bit_depth - out_bit_depth);
             }
-            pixY0 = _mm_min_epu16(pixY0, _mm_set1_epi16((1<<out_bit_depth)-1));
-            pixY1 = _mm_min_epu16(pixY1, _mm_set1_epi16((1<<out_bit_depth)-1));
-            pixU0 = _mm_min_epu16(pixU0, _mm_set1_epi16((1<<out_bit_depth)-1));
-            pixU1 = _mm_min_epu16(pixU1, _mm_set1_epi16((1<<out_bit_depth)-1));
-            pixV0 = _mm_min_epu16(pixV0, _mm_set1_epi16((1<<out_bit_depth)-1));
-            pixV1 = _mm_min_epu16(pixV1, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixY0 = _mm_min_epu16_simd(pixY0, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixY1 = _mm_min_epu16_simd(pixY1, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixU0 = _mm_min_epu16_simd(pixU0, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixU1 = _mm_min_epu16_simd(pixU1, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixV0 = _mm_min_epu16_simd(pixV0, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixV1 = _mm_min_epu16_simd(pixV1, _mm_set1_epi16((1<<out_bit_depth)-1));
 
             __m128i pixY410_0 = _mm_slli_epi32(_mm_unpacklo_epi16(pixY0, _mm_setzero_si128()), 10);
             __m128i pixY410_1 = _mm_slli_epi32(_mm_unpackhi_epi16(pixY0, _mm_setzero_si128()), 10);
