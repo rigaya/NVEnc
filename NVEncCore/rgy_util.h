@@ -175,14 +175,16 @@ static void rgy_free(T& ptr) {
     }
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4127)
 template <class T, int N>
 struct RGYPowerBase {
-    static constexpr T run(T x) {
-        if constexpr (N < 0) {
+    static T run(T x) {
+        if (N < 0) {
             return RGYPowerBase<T, -N>::run(1 / x);
-        } else if constexpr (N % 2 != 0) {
+        } else if (N % 2 != 0) {
             return x * RGYPowerBase<T, ((N>0)?N-1:0)>::run(x);
-        } else if constexpr (N == 0) {
+        } else if (N == 0) {
             return 1;
         } else {
             return RGYPowerBase<T, N / 2>::run(x * x);
@@ -192,9 +194,10 @@ struct RGYPowerBase {
 
 
 template <int N, class T>
-constexpr T rgy_pow_int(T x) {
+T rgy_pow_int(T x) {
     return RGYPowerBase<T, N>::run(x);
 }
+#pragma warning(pop)
 
 int rgy_parse_num(int& val, const tstring& str);
 int rgy_parse_num(int64_t& val, const tstring& str);
