@@ -1262,11 +1262,20 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     m_Demux.format.analyzeSec = input_prm->analyzeSec;
     if (input_prm->probesize >= 0 || input_prm->analyzeSec >= 0) {
         const int64_t probesize = (input_prm->probesize > 0) ? input_prm->probesize : 1 << 29;
-        if (0 != (ret = av_opt_set_int(m_Demux.format.formatCtx, "probesize", probesize, 0))) {
+        if (0 != (ret = av_dict_set_int(&m_Demux.format.formatOptions, "probesize", probesize, 0))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to set probesize to %s: error %d\n"), rgy_print_num_with_siprefix(probesize).c_str(), ret);
             return RGY_ERR_INVALID_PARAM;
         } else {
             AddMessage(RGY_LOG_DEBUG, _T("set probesize: %s\n"), rgy_print_num_with_siprefix(probesize).c_str());
+        }
+    }
+
+    if (m_Demux.format.analyzeSec >= 0) {
+        const auto value = (int64_t)(m_Demux.format.analyzeSec * AV_TIME_BASE + 0.5);
+        if (0 != (ret = av_dict_set_int(&m_Demux.format.formatOptions, "analyzeduration", value, 0))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to set analyzeduration to %.2f sec, error %s\n"), m_Demux.format.analyzeSec, qsv_av_err2str(ret).c_str());
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("set analyzeduration: %.2f sec\n"), m_Demux.format.analyzeSec);
         }
     }
     if (0 == strcmp(filename_char.c_str(), "-")) {
@@ -1279,8 +1288,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         AddMessage(RGY_LOG_DEBUG, _T("input source set to stdin.\n"));
         filename_char = "pipe:0";
     }
-    //ts向けの設定
-    av_dict_set(&m_Demux.format.formatOptions, "scan_all_pmts", "1", 0);
 
     for (const auto& inputOpt : input_prm->inputOpt) {
         const std::string optName = tchar_to_string(inputOpt.first);
@@ -1291,6 +1298,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             return RGY_ERR_INVALID_PARAM;
         }
         AddMessage(RGY_LOG_DEBUG, _T("set input opt: %s = %s.\n"), inputOpt.first.c_str(), inputOpt.second.c_str());
+    }
+    //ts向けの設定
+    bool scan_all_pmts_set = false;
+    if (!av_dict_get(m_Demux.format.formatOptions, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
+        av_dict_set(&m_Demux.format.formatOptions, "scan_all_pmts", "1", AV_DICT_DONT_OVERWRITE);
+        scan_all_pmts_set = true;
     }
     //入力フォーマットが指定されていれば、それを渡す
     AVInputFormat *inFormat = nullptr;
@@ -1348,15 +1361,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
     }
 
-    if (m_Demux.format.analyzeSec >= 0) {
-        const int64_t value = (int64_t)(m_Demux.format.analyzeSec * AV_TIME_BASE + 0.5);
-        if (0 != (ret = av_opt_set_int(m_Demux.format.formatCtx, "analyzeduration", value, 0))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set analyzeduration to %.2f sec, error %s\n"), m_Demux.format.analyzeSec, qsv_av_err2str(ret).c_str());
-        } else {
-            AddMessage(RGY_LOG_DEBUG, _T("set analyzeduration: %.2f sec\n"), m_Demux.format.analyzeSec);
-        }
-    }
-
+    m_Demux.format.formatCtx->flags |= AVFMT_FLAG_NONBLOCK;
     if (avformat_find_stream_info(m_Demux.format.formatCtx, nullptr) < 0) {
         AddMessage(RGY_LOG_ERROR, _T("error finding stream information.\n"));
         return RGY_ERR_UNKNOWN; // Couldn't find stream information
