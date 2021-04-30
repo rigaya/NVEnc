@@ -666,12 +666,12 @@ int rgy_parse_num(double& val, const tstring& str) {
 tstring rgy_print_num_with_siprefix(const int64_t value) {
     const RGYSIPrefix *usePrefix = nullptr;
     for (const auto& prefix : RGY_SI_PREFIX_LIST) {
-        if (!prefix.inverse && value > prefix.pow10 * 100) {
+        if (!prefix.inverse && value > prefix.pow10) {
             usePrefix = &prefix;
         }
     }
     if (usePrefix) {
-        return strsprintf(_T("%.2f%c"), value / (double)usePrefix->pow10, usePrefix->prefix);
+        return strsprintf(_T("%.3f%c"), value / (double)usePrefix->pow10, usePrefix->prefix);
     } else {
         return strsprintf(_T("%lld"), value);
     }
