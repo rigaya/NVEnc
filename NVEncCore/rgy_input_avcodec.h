@@ -1066,6 +1066,9 @@ protected:
     //avcodecのコーデックIDからHWデコード可能ならRGY_CODECを返す
     RGY_CODEC checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt, const CodecCsp *HWDecCodecCsp);
 
+    //情報を取得できた動画ストリームがあるかを確認
+    bool hasVideoWithStreamInfo() const;
+
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
     //動画ストリーム以外は、vidStreamIdに近いstreamIDのものの順番にソートする
     vector<int> getStreamIndex(AVMediaType type, const vector<int> *vidStreamIndex = nullptr);

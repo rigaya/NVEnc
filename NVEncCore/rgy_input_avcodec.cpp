@@ -452,6 +452,18 @@ RGY_CODEC RGYInputAvcodec::checkHWDecoderAvailable(AVCodecID id, AVPixelFormat p
     return RGY_CODEC_UNKNOWN;
 }
 
+bool RGYInputAvcodec::hasVideoWithStreamInfo() const {
+    for (int i = 0; i < m_Demux.format.formatCtx->nb_streams; i++) {
+        const AVStream *stream = m_Demux.format.formatCtx->streams[i];
+        if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+            if (stream->codecpar->width > 0 && stream->codecpar->height > 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 vector<int> RGYInputAvcodec::getStreamIndex(AVMediaType type, const vector<int> *vidStreamIndex) {
     vector<int> streams;
     const int n_streams = m_Demux.format.formatCtx->nb_streams;
