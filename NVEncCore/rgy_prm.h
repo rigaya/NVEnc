@@ -1091,6 +1091,7 @@ struct RGYParamCommon {
     int        nAttachmentSelectCount;
     AttachmentSelect **ppAttachmentSelectList;
     int audioResampler;
+    int inputRetry;
     double demuxAnalyzeSec;
     int64_t demuxProbesize;
     int AVMuxTarget;                       //RGY_MUX_xxx

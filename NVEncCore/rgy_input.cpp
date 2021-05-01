@@ -248,6 +248,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.readData = false;
         inputInfoAVAudioReader.fileIndex = ifile;
         inputInfoAVAudioReader.videoAvgFramerate = rgy_rational<int>(inputInfo.fpsN, inputInfo.fpsD);
+        inputInfoAVAudioReader.inputRetry = common->inputRetry;
         inputInfoAVAudioReader.analyzeSec = common->demuxAnalyzeSec;
         inputInfoAVAudioReader.probesize = common->demuxProbesize;
         inputInfoAVAudioReader.nTrimCount = common->nTrimCount;
@@ -453,6 +454,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.videoAvgFramerate = rgy_rational<int>(input->fpsN, input->fpsD);
         inputInfoAVCuvid.analyzeSec = common->demuxAnalyzeSec;
         inputInfoAVCuvid.probesize = common->demuxProbesize;
+        inputInfoAVCuvid.inputRetry = common->inputRetry;
         inputInfoAVCuvid.nTrimCount = common->nTrimCount;
         inputInfoAVCuvid.pTrimList = common->pTrimList;
         inputInfoAVCuvid.fileIndex = -1; //動画ファイルは-1

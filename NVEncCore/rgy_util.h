@@ -197,6 +197,19 @@ template <int N, class T>
 T rgy_pow_int(T x) {
     return RGYPowerBase<T, N>::run(x);
 }
+
+template <class T>
+T rgy_pow_int(T x, int n) {
+    if (n < 0) {
+        x = T(1) / x;
+        n = -n;
+    }
+    T v = T(1);
+    for (int i = 0; i < n; i++) {
+        v *= x;
+    }
+    return v;
+}
 #pragma warning(pop)
 
 int rgy_parse_num(int& val, const tstring& str);
@@ -302,6 +315,7 @@ private:
     T num, den;
 public:
     rgy_rational() : num(0), den(1) {}
+    rgy_rational(T _num) : num(_num), den(1) { }
     rgy_rational(T _num, T _den) : num(_num), den(_den) { reduce(); }
     rgy_rational(const rgy_rational<T>& r) : num(r.num), den(r.den) { reduce(); }
     rgy_rational<T>& operator=(const rgy_rational<T> &r) { num = r.num; den = r.den; reduce(); return *this; }

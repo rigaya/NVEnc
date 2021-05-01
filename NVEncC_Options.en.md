@@ -605,6 +605,9 @@ If audio / subtitle tracks etc. are not detected properly, try increasing this v
 ### --input-probesize &lt;int&gt;
 Set the maximum size in bytes that libav parses for file analysis.
 
+### --input-retry &lt;int&gt;
+Maxmimum retry count for opening input file, disabled by default as it is not effective for ordinary file input. Might be useful when grabbing streaming input.
+
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 Encode only frames in the specified range.
 

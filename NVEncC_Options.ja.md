@@ -611,6 +611,9 @@ libavが読み込み時に解析するファイルの時間を秒で指定。デ
 ### --input-probesize &lt;int&gt;
 libavが読み込み時に解析する最大のサイズをbyte単位で指定。
 
+### --input-retry &lt;int&gt;
+ファイルオープンの試行回数。デフォルトでは無効。通常特に意味はないが、入力がストリーミングなどの場合に効果的かもしれない。
+
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 指定した範囲のフレームのみをエンコードする。
 

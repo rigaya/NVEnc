@@ -2965,6 +2965,20 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("input-retry")) {
+        i++;
+        int v = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        if (v == 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        common->inputRetry = v;
+        return 0;
+    }
     if (IS_OPTION("video-track")) {
         i++;
         int v = 0;
@@ -4917,6 +4931,8 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     std::basic_stringstream<TCHAR> tmp;
 
     OPT_FLOAT(_T("--input-analyze"), demuxAnalyzeSec, 6);
+    OPT_NUM(_T("--input-probesize"), demuxProbesize);
+    OPT_NUM(_T("--input-retry"), inputRetry);
     if (param->nTrimCount > 0) {
         cmd << _T(" --trim ");
         for (int i = 0; i < param->nTrimCount; i++) {
@@ -5369,6 +5385,10 @@ tstring gen_cmd_help_common() {
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avhw/avsw reader.\n")
         _T("                                 use if reader fails to detect audio stream.\n")
+        _T("   --input-probesize <int>      set size in bytes which reader analyze input file.\n")
+        _T("   --input-retry <int>          set retry count for openning input file.\n")
+        _T("                                 could useful for streaming input.\n")
+        _T("                                  default: disabled.\n")
         _T("   --video-track <int>          set video track to encode in track id\n")
         _T("                                 1 (default)  highest resolution video track\n")
         _T("                                 2            next high resolution video track\n")

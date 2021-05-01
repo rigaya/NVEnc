@@ -920,6 +920,7 @@ protected:
 
 class RGYInputAvcodecPrm : public RGYInputPrm {
 public:
+    int            inputRetry;              //ファイルオープンを再試行する回数
     uint8_t        memType;                 //使用するメモリの種類
     const TCHAR   *pInputFormat;            //入力フォーマット
     bool           readVideo;               //映像の読み込みを行うかどうか
@@ -1055,6 +1056,7 @@ protected:
 
     RGY_ERR parseHDR10plus(AVPacket *pkt);
 
+    RGY_ERR initFormatCtx(const TCHAR *strFileName, const RGYInputAvcodecPrm *input_prm, const int iretry);
     RGY_ERR initVideoBsfs();
     RGY_ERR initVideoParser();
     RGY_ERR parseVideoExtraData(const AVPacket *pkt);

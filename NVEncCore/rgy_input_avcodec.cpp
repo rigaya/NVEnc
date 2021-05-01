@@ -69,6 +69,7 @@ static inline void extend_array_size(VideoFrameData *dataset) {
 
 RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     RGYInputPrm(base),
+    inputRetry(0),
     memType(0),
     pInputFormat(nullptr),
     readVideo(false),
@@ -1206,61 +1207,9 @@ RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVPacket *pkt
     return nullptr;
 }
 
-#pragma warning(push)
-#pragma warning(disable:4100)
-#pragma warning(disable:4127) //warning C4127: 条件式が定数です。
-RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm) {
-    const RGYInputAvcodecPrm *input_prm = dynamic_cast<const RGYInputAvcodecPrm*>(prm);
-
-    if (input_prm->readVideo) {
-        if (inputInfo->type != RGY_INPUT_FMT_AVANY) {
-            m_readerName = (inputInfo->type != RGY_INPUT_FMT_AVSW) ? _T("av" DECODER_NAME) : _T("avsw");
-        }
-    } else {
-        m_readerName = _T("avsw");
-    }
-
-    m_Demux.video.readVideo = input_prm->readVideo;
-    m_Demux.thread.queueInfo = input_prm->queueInfo;
-    if (input_prm->readVideo) {
-        m_inputVideoInfo = *inputInfo;
-    } else {
-        m_inputVideoInfo = VideoInfo();
-    }
-
-    if (!check_avcodec_dll()) {
-        AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
-        return RGY_ERR_NULL_PTR;
-    }
-
-    m_convert = std::unique_ptr<RGYConvertCSP>(new RGYConvertCSP(prm->threadCsp));
-
-    for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
-        tstring audioLog = strsprintf(_T("select audio track %s, codec %s"),
-            (input_prm->ppAudioSelect[i]->trackID) ? strsprintf(_T("#%d"), input_prm->ppAudioSelect[i]->trackID).c_str() : _T("all"),
-            input_prm->ppAudioSelect[i]->encCodec.c_str());
-        if (input_prm->ppAudioSelect[i]->extractFormat.length() > 0) {
-            audioLog += tstring(_T("format ")) + input_prm->ppAudioSelect[i]->extractFormat;
-        }
-        if (input_prm->ppAudioSelect[i]->encCodec.length() > 0
-            && !avcodecIsCopy(input_prm->ppAudioSelect[i]->encCodec)) {
-            audioLog += strsprintf(_T("bitrate %d"), input_prm->ppAudioSelect[i]->encBitrate);
-        }
-        if (input_prm->ppAudioSelect[i]->extractFilename.length() > 0) {
-            audioLog += tstring(_T("filename \"")) + input_prm->ppAudioSelect[i]->extractFilename + tstring(_T("\""));
-        }
-        AddMessage(RGY_LOG_DEBUG, audioLog);
-    }
-
-    av_log_set_level((m_printMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
-    av_qsv_log_set(m_printMes);
-    if (input_prm->caption2ass != FORMAT_INVALID) {
-        auto err = m_cap2ass.init(m_printMes, input_prm->caption2ass);
-        if (err != RGY_ERR_NONE) {
-            return err;
-        }
-    }
-
+RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputAvcodecPrm *input_prm, const int iretry) {
+    CloseFormat(&m_Demux.format);
+    const auto retry_multi = rgy_pow_int(rgy_rational(3, 2), iretry);
     int ret = 0;
     std::string filename_char;
     if (0 == tchar_to_string(strFileName, filename_char, CP_UTF8)) {
@@ -1270,10 +1219,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     m_Demux.format.isPipe = (0 == strcmp(filename_char.c_str(), "-"))
         || (0 == strncmp(filename_char.c_str(), "pipe:", strlen("pipe:")))
         || filename_char.c_str() == strstr(filename_char.c_str(), R"(\\.\pipe\)");
-    m_Demux.format.formatCtx = avformat_alloc_context();
     m_Demux.format.analyzeSec = input_prm->analyzeSec;
+    m_Demux.format.formatCtx = avformat_alloc_context();
     if (input_prm->probesize >= 0 || input_prm->analyzeSec >= 0) {
-        const int64_t probesize = (input_prm->probesize > 0) ? input_prm->probesize : 1 << 29;
+        const int64_t probesize = (input_prm->probesize > 0) ? input_prm->probesize * retry_multi.n() / retry_multi.d() : 1 << 29;
         if (0 != (ret = av_dict_set_int(&m_Demux.format.formatOptions, "probesize", probesize, 0))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to set probesize to %s: error %d\n"), rgy_print_num_with_siprefix(probesize).c_str(), ret);
             return RGY_ERR_INVALID_PARAM;
@@ -1283,11 +1232,11 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     }
 
     if (m_Demux.format.analyzeSec >= 0) {
-        const auto value = (int64_t)(m_Demux.format.analyzeSec * AV_TIME_BASE + 0.5);
+        const auto value = (int64_t)(m_Demux.format.analyzeSec * AV_TIME_BASE * retry_multi.qdouble() + 0.5);
         if (0 != (ret = av_dict_set_int(&m_Demux.format.formatOptions, "analyzeduration", value, 0))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set analyzeduration to %.2f sec, error %s\n"), m_Demux.format.analyzeSec, qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to set analyzeduration to %.2f sec, error %s\n"), value / (double)AV_TIME_BASE, qsv_av_err2str(ret).c_str());
         } else {
-            AddMessage(RGY_LOG_DEBUG, _T("set analyzeduration: %.2f sec\n"), m_Demux.format.analyzeSec);
+            AddMessage(RGY_LOG_DEBUG, _T("set analyzeduration: %.2f sec\n"), value / (double)AV_TIME_BASE);
         }
     }
     if (0 == strcmp(filename_char.c_str(), "-")) {
@@ -1381,6 +1330,79 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     AddMessage(RGY_LOG_DEBUG, _T("got stream information.\n"));
     av_dump_format(m_Demux.format.formatCtx, 0, filename_char.c_str(), 0);
     //dump_format(dec.formatCtx, 0, argv[1], 0);
+    return RGY_ERR_NONE;
+}
+
+#pragma warning(push)
+#pragma warning(disable:4100)
+#pragma warning(disable:4127) //warning C4127: 条件式が定数です。
+RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm) {
+    const RGYInputAvcodecPrm *input_prm = dynamic_cast<const RGYInputAvcodecPrm*>(prm);
+
+    if (input_prm->readVideo) {
+        if (inputInfo->type != RGY_INPUT_FMT_AVANY) {
+            m_readerName = (inputInfo->type != RGY_INPUT_FMT_AVSW) ? _T("av" DECODER_NAME) : _T("avsw");
+        }
+    } else {
+        m_readerName = _T("avsw");
+    }
+
+    m_Demux.video.readVideo = input_prm->readVideo;
+    m_Demux.thread.queueInfo = input_prm->queueInfo;
+    if (input_prm->readVideo) {
+        m_inputVideoInfo = *inputInfo;
+    } else {
+        m_inputVideoInfo = VideoInfo();
+    }
+
+    if (!check_avcodec_dll()) {
+        AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
+        return RGY_ERR_NULL_PTR;
+    }
+
+    m_convert = std::unique_ptr<RGYConvertCSP>(new RGYConvertCSP(prm->threadCsp));
+
+    for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
+        tstring audioLog = strsprintf(_T("select audio track %s, codec %s"),
+            (input_prm->ppAudioSelect[i]->trackID) ? strsprintf(_T("#%d"), input_prm->ppAudioSelect[i]->trackID).c_str() : _T("all"),
+            input_prm->ppAudioSelect[i]->encCodec.c_str());
+        if (input_prm->ppAudioSelect[i]->extractFormat.length() > 0) {
+            audioLog += tstring(_T("format ")) + input_prm->ppAudioSelect[i]->extractFormat;
+        }
+        if (input_prm->ppAudioSelect[i]->encCodec.length() > 0
+            && !avcodecIsCopy(input_prm->ppAudioSelect[i]->encCodec)) {
+            audioLog += strsprintf(_T("bitrate %d"), input_prm->ppAudioSelect[i]->encBitrate);
+        }
+        if (input_prm->ppAudioSelect[i]->extractFilename.length() > 0) {
+            audioLog += tstring(_T("filename \"")) + input_prm->ppAudioSelect[i]->extractFilename + tstring(_T("\""));
+        }
+        AddMessage(RGY_LOG_DEBUG, audioLog);
+    }
+
+    av_log_set_level((m_printMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
+    av_qsv_log_set(m_printMes);
+    if (input_prm->caption2ass != FORMAT_INVALID) {
+        auto err = m_cap2ass.init(m_printMes, input_prm->caption2ass);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    for (int iretry = 0; iretry < input_prm->inputRetry + 1; iretry++) {
+        if (iretry > 0) {
+            AddMessage(RGY_LOG_WARN, _T("Failed to get video stream information, retry opening input (%d/%d)!\n"), iretry, input_prm->inputRetry);
+        }
+        auto err = initFormatCtx(strFileName, input_prm, iretry);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if (!input_prm->readVideo) {
+            break;
+        }
+        if (hasVideoWithStreamInfo()) {
+            break;
+        }
+    }
 
     //キュー関連初期化
     //getFirstFramePosAndFrameRateで大量にパケットを突っ込む可能性があるので、この段階ではcapacityは無限大にしておく
@@ -1893,6 +1915,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             unique_ptr_custom<AVCodecParameters> codecParamCopy(avcodec_parameters_alloc(), [](AVCodecParameters *pCodecPar) {
                 avcodec_parameters_free(&pCodecPar);
             });
+            int ret = 0;
             if (0 > (ret = avcodec_parameters_copy(codecParamCopy.get(), m_Demux.video.stream->codecpar))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
