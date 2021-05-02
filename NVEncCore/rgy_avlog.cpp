@@ -40,7 +40,6 @@ static std::atomic<bool> g_bSetCustomLog(false);
 static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
     const int qsv_log_level = log_level_av2rgy(level);
     if (auto pQSVLog = g_pQSVLog.lock()) {
-        const int qsv_log_level = log_level_av2rgy(level);
         if (qsv_log_level >= pQSVLog->getLogLevel())  {
             if (pQSVLog->logFileAvail()) {
                 char mes[4096];
