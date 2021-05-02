@@ -261,19 +261,26 @@ int parse_qp(int a[3], const TCHAR *str) {
     return 0;
 }
 
-static int getAudioTrackIdx(const RGYParamCommon *common, int iTrack) {
-    for (int i = 0; i < common->nAudioSelectCount; i++) {
-        if (iTrack == common->ppAudioSelectList[i]->trackID) {
-            return i;
+static int getAudioTrackIdx(const RGYParamCommon *common, const int iTrack, const std::string& lang, const std::string& selectCodec) {
+    if (iTrack == TRACK_SELECT_BY_LANG) {
+        if (lang.length() == 0) return -1;
+        for (int i = 0; i < common->nAudioSelectCount; i++) {
+            if (lang == common->ppAudioSelectList[i]->lang) {
+                return i;
+            }
         }
-    }
-    return -1;
-}
-
-static int getAudioLangTrackIdx(const RGYParamCommon *common, const std::string& lang) {
-    for (int i = 0; i < common->nAudioSelectCount; i++) {
-        if (lang == common->ppAudioSelectList[i]->lang) {
-            return i;
+    } else if (iTrack == TRACK_SELECT_BY_CODEC) {
+        if (selectCodec.length() == 0) return -1;
+        for (int i = 0; i < common->nAudioSelectCount; i++) {
+            if (selectCodec == common->ppAudioSelectList[i]->selectCodec) {
+                return i;
+            }
+        }
+    } else {
+        for (int i = 0; i < common->nAudioSelectCount; i++) {
+            if (iTrack == common->ppAudioSelectList[i]->trackID) {
+                return i;
+            }
         }
     }
     return -1;
@@ -281,7 +288,7 @@ static int getAudioLangTrackIdx(const RGYParamCommon *common, const std::string&
 
 static int getFreeAudioTrack(const RGYParamCommon *common) {
     for (int iTrack = 1;; iTrack++) {
-        if (0 > getAudioTrackIdx(common, iTrack)) {
+        if (0 > getAudioTrackIdx(common, iTrack, "", "")) {
             return iTrack;
         }
     }
@@ -290,43 +297,57 @@ static int getFreeAudioTrack(const RGYParamCommon *common) {
 #endif //_MSC_VER
 }
 
-static int getSubTrackIdx(const RGYParamCommon *common, int iTrack) {
-    for (int i = 0; i < common->nSubtitleSelectCount; i++) {
-        if (iTrack == common->ppSubtitleSelectList[i]->trackID) {
-            return i;
+static int getSubTrackIdx(const RGYParamCommon *common, const int iTrack, const std::string& lang, const std::string& selectCodec) {
+    if (iTrack == TRACK_SELECT_BY_LANG) {
+        if (lang.length() == 0) return -1;
+        for (int i = 0; i < common->nSubtitleSelectCount; i++) {
+            if (lang == common->ppSubtitleSelectList[i]->lang) {
+                return i;
+            }
+        }
+    } else if (iTrack == TRACK_SELECT_BY_CODEC) {
+        if (selectCodec.length() == 0) return -1;
+        for (int i = 0; i < common->nSubtitleSelectCount; i++) {
+            if (selectCodec == common->ppSubtitleSelectList[i]->selectCodec) {
+                return i;
+            }
+        }
+    } else {
+        for (int i = 0; i < common->nSubtitleSelectCount; i++) {
+            if (iTrack == common->ppSubtitleSelectList[i]->trackID) {
+                return i;
+            }
         }
     }
     return -1;
 }
 
-static int getSubLangTrackIdx(const RGYParamCommon *common, const std::string &lang) {
-    for (int i = 0; i < common->nSubtitleSelectCount; i++) {
-        if (lang == common->ppSubtitleSelectList[i]->lang) {
-            return i;
+static int getDataTrackIdx(const RGYParamCommon *common, const int iTrack, const std::string& lang, const std::string& selectCodec) {
+    if (iTrack == TRACK_SELECT_BY_LANG) {
+        if (lang.length() == 0) return -1;
+        for (int i = 0; i < common->nDataSelectCount; i++) {
+            if (lang == common->ppDataSelectList[i]->lang) {
+                return i;
+            }
+        }
+    } else if (iTrack == TRACK_SELECT_BY_CODEC) {
+        if (selectCodec.length() == 0) return -1;
+        for (int i = 0; i < common->nDataSelectCount; i++) {
+            if (selectCodec == common->ppDataSelectList[i]->selectCodec) {
+                return i;
+            }
+        }
+    } else {
+        for (int i = 0; i < common->nDataSelectCount; i++) {
+            if (iTrack == common->ppDataSelectList[i]->trackID) {
+                return i;
+            }
         }
     }
     return -1;
 }
 
-static int getDataTrackIdx(const RGYParamCommon *common, int iTrack) {
-    for (int i = 0; i < common->nDataSelectCount; i++) {
-        if (iTrack == common->ppDataSelectList[i]->trackID) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static int getDataLangTrackIdx(const RGYParamCommon *common, const std::string &lang) {
-    for (int i = 0; i < common->nDataSelectCount; i++) {
-        if (lang == common->ppDataSelectList[i]->lang) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static int getAttachmentTrackIdx(const RGYParamCommon *common, int iTrack) {
+static int getAttachmentTrackIdx(const RGYParamCommon *common, const int iTrack) {
     for (int i = 0; i < common->nAttachmentSelectCount; i++) {
         if (iTrack == common->ppAttachmentSelectList[i]->trackID) {
             return i;
@@ -2866,6 +2887,8 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
                 chSel.encCodecPrm = param_val;
             } else if (param_arg == _T("lang")) {
                 chSel.lang = tchar_to_string(param_val);
+            } else if (param_arg == _T("select-codec")) {
+                chSel.selectCodec = tchar_to_string(param_val);
             } else if (param_arg == _T("metadata")) {
                 chSel.metadata.push_back(param_val);
             } else {
@@ -2901,6 +2924,8 @@ int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TC
                 chSel.encCodecPrm = param_val;
             } else if (param_arg == _T("disposition")) {
                 chSel.disposition = param_val;
+            } else if (param_arg == _T("select-codec")) {
+                chSel.selectCodec = tchar_to_string(param_val);
             } else if (param_arg == _T("metadata")) {
                 chSel.metadata.push_back(param_val);
             } else {
@@ -3133,7 +3158,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         if (_tcschr(ptr, '?') == nullptr || 1 != _stscanf(ptr, _T("%d?"), &trackId)) {
             //トラック番号を適当に発番する (カウントは1から)
             trackId = argData->nParsedAudioFile+1;
-            audioIdx = getAudioTrackIdx(common, trackId);
+            audioIdx = getAudioTrackIdx(common, trackId, "", "");
             if (audioIdx < 0 || common->ppAudioSelectList[audioIdx]->extractFilename.length() > 0) {
                 trackId = getFreeAudioTrack(common);
                 pAudioSelect = new AudioSelect();
@@ -3146,7 +3171,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             print_cmd_error_invalid_value(option_name, strInput[i], _T("track number should be positive value."));
             return 1;
         } else {
-            audioIdx = getAudioTrackIdx(common, trackId);
+            audioIdx = getAudioTrackIdx(common, trackId, "", "");
             if (audioIdx < 0) {
                 pAudioSelect = new AudioSelect();
                 pAudioSelect->trackID = trackId;
@@ -3212,6 +3237,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         const TCHAR *ptrDelim = nullptr;
         int trackId = 0;
         std::string lang;
+        std::string selectCodec;
         if (i+1 < nArgNum) {
             int test_val = 0;
             if ((strInput[i+1][0] != _T('-') || (_stscanf_s(strInput[i+1], _T("%d"), &test_val) == 1 && test_val < 0)) && strInput[i+1][0] != _T('\0')) {
@@ -3224,16 +3250,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 try {
                     trackId = std::stoi(temp);
                 } catch (...) {
-                    lang = tchar_to_string(temp);
-                    if (!rgy_lang_exist(lang)) {
-                        return 1;
+                    auto tempc = tchar_to_string(temp);
+                    if (rgy_lang_exist(tempc)) {
+                        trackId = TRACK_SELECT_BY_LANG;
+                        lang = tempc;
+                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_AUDIO)) {
+                        trackId = TRACK_SELECT_BY_CODEC;
+                        selectCodec = tempc;
                     }
-                    trackId = TRACK_SELECT_BY_LANG;
                 }
             }
         }
         AudioSelect *pAudioSelect = nullptr;
-        int audioIdx = (trackId == TRACK_SELECT_BY_LANG) ? getAudioLangTrackIdx(common, lang) : getAudioTrackIdx(common, trackId);
+        int audioIdx = getAudioTrackIdx(common, trackId, lang, selectCodec);
         if (audioIdx < 0) {
             pAudioSelect = new AudioSelect();
             if (trackId != 0) {
@@ -3275,6 +3304,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         const TCHAR *ptrDelim = nullptr;
         int trackId = 0;
         std::string lang;
+        std::string selectCodec;
         if (i+1 < nArgNum) {
             if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
                 i++;
@@ -3286,13 +3316,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 try {
                     trackId = std::stoi(temp);
                 } catch (...) {
-                    lang = tchar_to_string(temp);
-                    trackId = TRACK_SELECT_BY_LANG;
+                    auto tempc = tchar_to_string(temp);
+                    if (rgy_lang_exist(tempc)) {
+                        trackId = TRACK_SELECT_BY_LANG;
+                        lang = tempc;
+                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_SUBTITLE)) {
+                        trackId = TRACK_SELECT_BY_CODEC;
+                        selectCodec = tempc;
+                    }
                 }
             }
         }
         SubtitleSelect *pSubSelect = nullptr;
-        int subIdx = (trackId == TRACK_SELECT_BY_LANG) ? getSubLangTrackIdx(common, lang) : getSubTrackIdx(common, trackId);
+        int subIdx = getSubTrackIdx(common, trackId, lang, selectCodec);
         if (subIdx < 0) {
             pSubSelect = new SubtitleSelect();
             if (trackId != 0) {
@@ -3334,6 +3370,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         const TCHAR *ptrDelim = nullptr;
         int trackId = 0;
         std::string lang;
+        std::string selectCodec;
         if (i + 1 < nArgNum) {
             if (strInput[i + 1][0] != _T('-') && strInput[i + 1][0] != _T('\0')) {
                 i++;
@@ -3345,13 +3382,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 try {
                     trackId = std::stoi(temp);
                 } catch (...) {
-                    lang = tchar_to_string(temp);
-                    trackId = TRACK_SELECT_BY_LANG;
+                    auto tempc = tchar_to_string(temp);
+                    if (rgy_lang_exist(tempc)) {
+                        trackId = TRACK_SELECT_BY_LANG;
+                        lang = tempc;
+                    } else if (avcodec_exists(tempc), AVMEDIA_TYPE_DATA) {
+                        trackId = TRACK_SELECT_BY_CODEC;
+                        selectCodec = tempc;
+                    }
                 }
             }
         }
         DataSelect *pSelect = nullptr;
-        int dataIdx = (trackId == TRACK_SELECT_BY_LANG) ? getDataLangTrackIdx(common, lang) : getDataTrackIdx(common, trackId);
+        int dataIdx = getDataTrackIdx(common, trackId, lang, selectCodec);
         if (dataIdx < 0) {
             pSelect = new DataSelect();
             if (trackId != 0) {
@@ -3401,6 +3444,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     trackSet.insert(std::make_pair(iTrack, ""));
                 } else if (rgy_lang_exist(tchar_to_string(str))) {
                     trackSet.insert(std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str)));
+                } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_AUDIO)) {
+                    trackSet.insert(std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str)));
                 } else {
                     print_cmd_error_invalid_value(option_name, strInput[i]);
                     return 1;
@@ -3412,7 +3457,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
 
         for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
             AudioSelect *pAudioSelect = nullptr;
-            int audioIdx = (it->first == TRACK_SELECT_BY_LANG) ? getAudioLangTrackIdx(common, it->second) : getAudioTrackIdx(common, it->first);
+            int audioIdx = getAudioTrackIdx(common, it->first, it->second, it->second);
             if (audioIdx < 0) {
                 pAudioSelect = new AudioSelect();
                 pAudioSelect->trackID = it->first;
@@ -3690,6 +3735,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         trackSet[track].trackID = TRACK_SELECT_BY_LANG;
                         trackSet[track].encCodec = RGY_AVCODEC_COPY;
                         trackSet[track].lang = tchar_to_string(str);
+                    } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_SUBTITLE)) {
+                        auto track = std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str));
+                        trackSet[track].trackID = TRACK_SELECT_BY_CODEC;
+                        trackSet[track].encCodec = RGY_AVCODEC_COPY;
+                        trackSet[track].selectCodec = tchar_to_string(str);
                     } else {
                         print_cmd_error_unknown_opt_param(option_name, str, paramList);
                         return 1;
@@ -3713,7 +3763,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
             auto& track = it->first;
             SubtitleSelect *pSubtitleSelect = nullptr;
-            int subIdx = (track.first == TRACK_SELECT_BY_LANG) ? getSubLangTrackIdx(common, track.second) : getSubTrackIdx(common, track.first);
+            int subIdx = getSubTrackIdx(common, track.first, track.second, track.second);
             if (subIdx < 0) {
                 pSubtitleSelect = new SubtitleSelect();
             } else {
@@ -3805,7 +3855,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 0;
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
-        const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition" };
+        const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition", "select-codec" };
         auto channel_select_list = split(qtr+1, _T(":"));
         for (auto channel : channel_select_list) {
             int trackId = 0;
@@ -3878,6 +3928,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         auto track = std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str));
                         trackSet[track].trackID = TRACK_SELECT_BY_LANG;
                         trackSet[track].lang = tchar_to_string(str);
+                    } else if (avcodec_exists(tchar_to_string(str)), AVMEDIA_TYPE_DATA) {
+                        auto track = std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str));
+                        trackSet[track].trackID = TRACK_SELECT_BY_CODEC;
+                        trackSet[track].selectCodec = tchar_to_string(str);
                     } else {
                         print_cmd_error_invalid_value(option_name, strInput[i], _T("invalid track ID."));
                         return 1;
@@ -3895,7 +3949,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
             const auto track = it->first;
             DataSelect *pDataSelect = nullptr;
-            int dataIdx = (track.first == TRACK_SELECT_BY_LANG) ? getDataLangTrackIdx(common, track.second) : getDataTrackIdx(common, track.first);
+            int dataIdx = getDataTrackIdx(common, track.first, track.second, track.second);
             if (dataIdx < 0) {
                 pDataSelect = new DataSelect();
             } else {

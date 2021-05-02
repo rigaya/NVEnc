@@ -1041,6 +1041,7 @@ AudioSelect::AudioSelect() :
     bsf(),
     disposition(),
     lang(),
+    selectCodec(),
     metadata() {
     memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
     memset(streamChannelOut, 0, sizeof(streamChannelOut));
@@ -1061,6 +1062,7 @@ SubtitleSelect::SubtitleSelect() :
     bsf(),
     disposition(),
     lang(),
+    selectCodec(),
     metadata() {
 
 }
@@ -1075,6 +1077,7 @@ DataSelect::DataSelect() :
     trackID(0),
     disposition(),
     lang(),
+    selectCodec(),
     metadata() {
 
 }
@@ -1149,6 +1152,7 @@ RGYParamControl::RGYParamControl() :
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
     logFramePosList(false),     //framePosList出力
+    logPacketsList(false),
     logMuxVidTsFile(nullptr),
     threadOutput(RGY_OUTPUT_THREAD_AUTO),
     threadAudio(RGY_AUDIO_THREAD_AUTO),

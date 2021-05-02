@@ -979,12 +979,14 @@ static const char *masterDisplaySource = "copy";
 static const TCHAR *RGY_METADATA_CLEAR = _T("clear");
 static const TCHAR *RGY_METADATA_COPY = _T("copy");
 
-static const int TRACK_SELECT_BY_LANG = -1;
+static const int TRACK_SELECT_BY_LANG  = -1;
+static const int TRACK_SELECT_BY_CODEC = -2;
 
 struct AudioSelect {
     int      trackID;         //選択したトラックのリスト 1,2,...(1から連番で指定)
                               // 0 ... 全指定
-                              // TRACK_SELECT_BY_LANG ... langによる選択
+                              // TRACK_SELECT_BY_LANG  ... langによる選択
+                              // TRACK_SELECT_BY_CODEC ... selectCodecによる選択
     tstring  decCodecPrm;     //音声エンコードのデコーダのパラメータ
     tstring  encCodec;        //音声エンコードのコーデック
     tstring  encCodecPrm;     //音声エンコードのコーデックのパラメータ
@@ -1000,6 +1002,7 @@ struct AudioSelect {
     tstring  bsf;                  // 適用するbitstreamfilterの名前
     tstring  disposition;          // 指定のdisposition
     std::string lang;              // 言語選択
+    std::string selectCodec;       // 対象コーデック
     std::vector<tstring> metadata;
 
     AudioSelect();
@@ -1018,6 +1021,7 @@ struct SubtitleSelect {
     int trackID;         // 選択したトラックのリスト 1,2,...(1から連番で指定)
                          //  0 ... 全指定
                          //  TRACK_SELECT_BY_LANG ... langによる選択
+                         //  TRACK_SELECT_BY_CODEC ... selectCodecによる選択
     tstring encCodec;
     tstring encCodecPrm;
     tstring decCodecPrm;
@@ -1025,6 +1029,7 @@ struct SubtitleSelect {
     tstring bsf;          // 適用するbitstreamfilterの名前
     tstring disposition;  // 指定のdisposition
     std::string lang;         // 言語選択
+    std::string selectCodec;  // 対象コーデック
     std::vector<tstring> metadata;
 
     SubtitleSelect();
@@ -1043,8 +1048,10 @@ struct DataSelect {
     int trackID;         // 選択したトラックのリスト 1,2,...(1から連番で指定)
                          //  0 ... 全指定
                          //  TRACK_SELECT_BY_LANG ... langによる選択
+                         //  TRACK_SELECT_BY_CODEC ... selectCodecによる選択
     tstring disposition; // 指定のdisposition
     std::string lang;    // 言語選択
+    std::string selectCodec; // 対象コーデック
     std::vector<tstring> metadata;
 
     DataSelect();
@@ -1125,6 +1132,7 @@ struct RGYParamControl {
     tstring logfile;              //ログ出力先
     int loglevel;                 //ログ出力レベル
     bool logFramePosList;     //framePosList出力
+    bool logPacketsList;
     TCHAR *logMuxVidTsFile;
     int threadOutput;
     int threadAudio;

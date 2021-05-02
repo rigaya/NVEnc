@@ -621,6 +621,9 @@ static bool audioSelected(const AudioSelect *sel, const AVDemuxStream *stream) {
     if (sel->trackID == TRACK_SELECT_BY_LANG && rgy_lang_equal(sel->lang, stream->lang)) {
         return true;
     }
+    if (sel->trackID == TRACK_SELECT_BY_CODEC && stream->stream != nullptr && avcodec_equal(sel->selectCodec, stream->stream->codec->codec_id)) {
+        return true;
+    }
     return false;
 };
 static bool subSelected(const SubtitleSelect *sel, const AVDemuxStream *stream) {
@@ -630,6 +633,9 @@ static bool subSelected(const SubtitleSelect *sel, const AVDemuxStream *stream) 
     if (sel->trackID == TRACK_SELECT_BY_LANG && rgy_lang_equal(sel->lang, stream->lang)) {
         return true;
     }
+    if (sel->trackID == TRACK_SELECT_BY_CODEC && stream->stream != nullptr && avcodec_equal(sel->selectCodec, stream->stream->codec->codec_id)) {
+        return true;
+    }
     return false;
 };
 static bool dataSelected(const DataSelect *sel, const AVDemuxStream *stream) {
@@ -637,6 +643,9 @@ static bool dataSelected(const DataSelect *sel, const AVDemuxStream *stream) {
         return true;
     }
     if (sel->trackID == TRACK_SELECT_BY_LANG && rgy_lang_equal(sel->lang, stream->lang)) {
+        return true;
+    }
+    if (sel->trackID == TRACK_SELECT_BY_CODEC && stream->stream != nullptr && avcodec_equal(sel->selectCodec, stream->stream->codec->codec_id)) {
         return true;
     }
     return false;

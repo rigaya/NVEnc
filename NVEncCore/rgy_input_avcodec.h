@@ -1061,7 +1061,11 @@ protected:
     RGY_ERR initVideoParser();
     RGY_ERR parseVideoExtraData(const AVPacket *pkt);
 
+    //streamで指定されたtrackの言語属性がlangの言語と等しいか
     bool isSelectedLangTrack(const std::string &lang, const AVStream *stream);
+
+    //streamで指定されたtrackのコーデックがselectCodecのコーデックと等しいか
+    bool isSelectedCodecTrack(const std::string &selectCodec, const AVStream *stream);
 
     void SetExtraData(AVCodecParameters *codecParam, const uint8_t *data, uint32_t size);
 
