@@ -3004,7 +3004,12 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
     const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.outputFps);
     const int64_t pts_offset = av_rescale_q(m_Mux.video.inputFirstKeyPts, vid_pkt_timebase, pMuxOther->streamInTimebase);
     const AVRational timebase_conv = (pMuxOther->outCodecDecodeCtx) ? pMuxOther->outCodecDecodeCtx->pkt_timebase : pMuxOther->streamOut->time_base;
+    auto oirg_pts = pkt->pts;
     pkt->pts = av_rescale_q(std::max<int64_t>(0, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
+    if (false && pMuxOther->streamIn->codec->codec_id == AV_CODEC_ID_TIMED_ID3) {
+        AddMessage(RGY_LOG_WARN, _T("pts: %lld (%d/%d) -> %lld (%d/%d)\n"),
+            oirg_pts, pMuxOther->streamInTimebase.num, pMuxOther->streamInTimebase.den, pkt->pts, timebase_conv.num, timebase_conv.den);
+    }
     pkt->dts = av_rescale_q(std::max<int64_t>(0, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
     pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
     pkt->duration = (int)av_rescale_q(pkt->duration, pMuxOther->streamInTimebase, pMuxOther->streamOut->time_base);
