@@ -196,6 +196,9 @@ RGY_PICSTRUCT picstruct_avframe_to_rgy(const AVFrame *frame);
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret);
 
+//コーデックが一致するか確認
+bool avcodec_equal(const std::string& codec, const AVCodecID id);
+
 //コーデックが存在するか確認
 bool avcodec_exists(const std::string& codec, const AVMediaType type = AVMEDIA_TYPE_NB);
 

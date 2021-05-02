@@ -113,6 +113,13 @@ tstring qsv_av_err2str(int ret) {
     return char_to_tstring(mes);
 }
 
+//コーデックが一致するか確認
+bool avcodec_equal(const std::string& codec, const AVCodecID id) {
+    const auto desc = avcodec_descriptor_get_by_name(codec.c_str());
+    if (desc == nullptr) return false;
+    return desc->id == id;
+}
+
 //コーデックが存在するか確認
 bool avcodec_exists(const std::string& codec, const AVMediaType type) {
     const auto desc = avcodec_descriptor_get_by_name(codec.c_str());
