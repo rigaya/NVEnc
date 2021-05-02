@@ -113,6 +113,14 @@ tstring qsv_av_err2str(int ret) {
     return char_to_tstring(mes);
 }
 
+//コーデックが存在するか確認
+bool avcodec_exists(const std::string& codec, const AVMediaType type) {
+    const auto desc = avcodec_descriptor_get_by_name(codec.c_str());
+    if (desc == nullptr) return false;
+    if (type == AVMEDIA_TYPE_NB) return true;
+    return desc->type == type;
+}
+
 //コーデックの種類を表示
 tstring get_media_type_string(AVCodecID codecId) {
     return char_to_tstring(av_get_media_type_string(avcodec_get_type(codecId))).c_str();
