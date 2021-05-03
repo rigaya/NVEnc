@@ -37,6 +37,8 @@
 #include "rgy_bitstream.h"
 #include "rgy_codepage.h"
 
+#define WRITE_PTS_DEBUG (1)
+
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
 static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
@@ -2418,6 +2420,11 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         m_Mux.video.timestampList.add(pkt.pts);
         pkt.dts = m_Mux.video.timestampList.get_min_pts();
     }
+    if (WRITE_PTS_DEBUG) {
+        AddMessage(RGY_LOG_WARN, _T("%3d, %12s, pts, %lld (%d/%d) [%s]\n"),
+            pkt.stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt.stream_index]->codecpar->codec_id)).c_str(),
+            pkt.pts, streamTimebase.num, streamTimebase.den, getTimestampString(pkt.pts, streamTimebase).c_str());
+    }
     const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
     *writtenDts = av_rescale_q(pkt.dts, streamTimebase, QUEUE_DTS_TIMEBASE);
     const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, &pkt);
@@ -2649,6 +2656,11 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
     *writtenDts = av_rescale_q(pkt->dts, muxAudio->streamOut->time_base, QUEUE_DTS_TIMEBASE);
     if (*writtenDts != AV_NOPTS_VALUE) {
         atomic_max(m_Mux.thread.streamOutMaxDts, *writtenDts);
+    }
+    if (WRITE_PTS_DEBUG) {
+        AddMessage(RGY_LOG_WARN, _T("%3d, %12s, pts, %lld (%d/%d) [%s]\n"),
+            pkt->stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
+            pkt->pts, muxAudio->streamOut->time_base.num, muxAudio->streamOut->time_base.den, getTimestampString(pkt->pts, muxAudio->streamOut->time_base).c_str());
     }
     //av_interleaved_write_frameに渡ったパケットは開放する必要がない
     const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
@@ -3006,9 +3018,10 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
     const AVRational timebase_conv = (pMuxOther->outCodecDecodeCtx) ? pMuxOther->outCodecDecodeCtx->pkt_timebase : pMuxOther->streamOut->time_base;
     auto oirg_pts = pkt->pts;
     pkt->pts = av_rescale_q(std::max<int64_t>(0, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
-    if (false && pMuxOther->streamIn->codec->codec_id == AV_CODEC_ID_TIMED_ID3) {
-        AddMessage(RGY_LOG_WARN, _T("pts: %lld (%d/%d) -> %lld (%d/%d)\n"),
-            oirg_pts, pMuxOther->streamInTimebase.num, pMuxOther->streamInTimebase.den, pkt->pts, timebase_conv.num, timebase_conv.den);
+    if (WRITE_PTS_DEBUG) {
+        AddMessage((pkt->pts == AV_NOPTS_VALUE) ? RGY_LOG_ERROR : RGY_LOG_WARN, _T("%3d, %12s, pts, %lld (%d/%d) [%s]\n"),
+            pMuxOther->streamOut->index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pMuxOther->streamOut->index]->codecpar->codec_id)).c_str(),
+            pkt->pts, timebase_conv.num, timebase_conv.den, getTimestampString(pkt->pts, timebase_conv).c_str());
     }
     pkt->dts = av_rescale_q(std::max<int64_t>(0, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
     pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
