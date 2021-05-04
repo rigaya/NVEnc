@@ -456,6 +456,7 @@ RGY_CODEC RGYInputAvcodec::checkHWDecoderAvailable(AVCodecID id, AVPixelFormat p
     return RGY_CODEC_UNKNOWN;
 }
 
+// コーデックの情報が得られている動画があるかを確認
 bool RGYInputAvcodec::hasVideoWithStreamInfo() const {
     for (int i = 0; i < m_Demux.format.formatCtx->nb_streams; i++) {
         const AVStream *stream = m_Demux.format.formatCtx->streams[i];
@@ -661,7 +662,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 maxCheckSec = 1e99;
                 fpsOverride = rgy_rational<int>(fpsDecoder.num, fpsDecoder.den);
             } else { // なるべく短く判定を行う
-                maxCheckFrames = (m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : 20;
+                maxCheckFrames = (m_Demux.video.stream->time_base.den >= 1000 && m_Demux.video.stream->time_base.den % 60) ? 128 : 24;
                 maxCheckSec = std::max(m_Demux.format.analyzeSec, 1.0);
             }
         } else {
@@ -740,6 +741,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         AddMessage(RGY_LOG_DEBUG, _T("read %d packets.\n"), m_Demux.frames.frameNum());
         AddMessage(RGY_LOG_DEBUG, _T("checking %d frame samples.\n"), nFramesToCheck);
         if (fpsOverride.is_valid()) { //あらかじめfpsが指定されていればそれを採用するので、ここでちゃんと分析する必要はない
+            //この後の分析のため、音声のパケットも取得しておきたい
             //音声の最初のパケットが見つかっていればOK、そうでなければやり直す
             bool audioStreamPacketNotFound = false;
             for (const auto& streamInfo : m_Demux.stream) {
@@ -751,7 +753,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 }
             }
             if (!audioStreamPacketNotFound) {
-                break; //音声の最初のパケットが見つかっていればOK
+                break; //対象のすべてのストリームの音声の最初のパケットが見つかっていればOK
             }
         } else if (nFramesToCheck > 0) {
             frameDurationList.reserve(nFramesToCheck);
@@ -816,7 +818,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         m_Demux.frames.clearPtsStatus();
     }
 
-    if (fpsOverride.is_valid()) {
+    if (fpsOverride.is_valid()) { //あらかじめfpsが指定されていればそれを採用
         m_Demux.video.nAvgFramerate = av_make_q(fpsOverride);
     } else {
         //durationが0でなく、最も頻繁に出てきたもの
@@ -1218,7 +1220,7 @@ RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVPacket *pkt
 
 RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputAvcodecPrm *input_prm, const int iretry) {
     CloseFormat(&m_Demux.format);
-    const auto retry_multi = rgy_pow_int(rgy_rational(3, 2), iretry);
+    const auto retry_multi = rgy_pow_int(rgy_rational(3, 2), iretry); // input-retryを行うときに、probesize/analyzedurationにかける倍率
     int ret = 0;
     std::string filename_char;
     if (0 == tchar_to_string(strFileName, filename_char, CP_UTF8)) {
@@ -1231,6 +1233,9 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
     m_Demux.format.analyzeSec = input_prm->analyzeSec;
     m_Demux.format.formatCtx = avformat_alloc_context();
     if (input_prm->probesize >= 0 || input_prm->analyzeSec >= 0) {
+        // probesizeの設定
+        // avformat_find_stream_infoで各コーデックの詳細情報を解析する長さのほか、avformat_open_inputでフォーマットを分析する際の長さにも使用される
+        // analyzeSec が指定され、probesizeが特に指定されていないときは、大きめにとってanalyzeSec分必ず分析されるようにする
         const int64_t probesize = (input_prm->probesize > 0) ? input_prm->probesize * retry_multi.n() / retry_multi.d() : 1 << 29;
         if (0 != (ret = av_dict_set_int(&m_Demux.format.formatOptions, "probesize", probesize, 0))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to set probesize to %s: error %d\n"), rgy_print_num_with_siprefix(probesize).c_str(), ret);
@@ -1331,7 +1336,7 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         }
     }
 
-    m_Demux.format.formatCtx->flags |= AVFMT_FLAG_NONBLOCK;
+    m_Demux.format.formatCtx->flags |= AVFMT_FLAG_NONBLOCK; // ffmpeg_opt.cのopen_input_file()と同様にフラグを立てる
     if (avformat_find_stream_info(m_Demux.format.formatCtx, nullptr) < 0) {
         AddMessage(RGY_LOG_ERROR, _T("error finding stream information.\n"));
         return RGY_ERR_UNKNOWN; // Couldn't find stream information
@@ -1400,6 +1405,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_fpPacketList.reset(_tfopen(input_prm->logPackets.c_str(), _T("w")));
     }
 
+    // input-probesizeやinput-analyzeが小さすぎて動画情報を得られなかったときのためのretryループ (デフォルトでは無効)
     for (int iretry = 0; iretry < input_prm->inputRetry + 1; iretry++) {
         if (iretry > 0) {
             AddMessage(RGY_LOG_WARN, _T("Failed to get video stream information, retry opening input (%d/%d)!\n"), iretry, input_prm->inputRetry);
@@ -1408,10 +1414,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         if (err != RGY_ERR_NONE) {
             return err;
         }
-        if (!input_prm->readVideo) {
+        if (!input_prm->readVideo) { // 動画が必要なければこのループから抜ける
             break;
         }
-        if (hasVideoWithStreamInfo()) {
+        if (hasVideoWithStreamInfo()) { // コーデックの情報が得られている動画があればこのループから抜ける
             break;
         }
     }
@@ -1419,7 +1425,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     //キュー関連初期化
     //getFirstFramePosAndFrameRateで大量にパケットを突っ込む可能性があるので、この段階ではcapacityは無限大にしておく
     m_Demux.qVideoPkt.init(4096, SIZE_MAX, 4);
-    m_Demux.qVideoPkt.set_keep_length(1);
+    m_Demux.qVideoPkt.set_keep_length(1); // 読み込み終了の判定に使うので、0にしてはならない
     m_Demux.qStreamPktL2.init(4096);
 
     //動画ストリームを探す
