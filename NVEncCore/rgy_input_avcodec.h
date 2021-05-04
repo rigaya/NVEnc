@@ -1131,7 +1131,7 @@ protected:
 
     AVDemuxer        m_Demux;                      //デコード用情報
     tstring          m_logFramePosList;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
-    std::unique_ptr<FILE, fp_deleter> m_fpPacketList;
+    std::unique_ptr<FILE, fp_deleter> m_fpPacketList; // 読み取ったパケット情報を出力するファイル
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
     AVCaption2Ass    m_cap2ass;
 };
