@@ -357,7 +357,6 @@ static void convert_yv12_high_to_nv12_c_base(void **dst, const void **src, int w
         for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch_byte) {
             uint8_t *dst_ptr = dstLine;
             uint16_t *src_ptr = srcYLine;
-            uint16_t *src_ptr_fin = src_ptr + y_width;
             for (int x = 0; x < y_width; x++) {
                 dst_ptr[x] = (uint8_t)conv_bit_depth<in_bit_depth, 8, 0>(src_ptr[x]);
             }
@@ -374,7 +373,6 @@ static void convert_yv12_high_to_nv12_c_base(void **dst, const void **src, int w
         uint16_t *src_u_ptr = srcULine;
         uint16_t *src_v_ptr = srcVLine;
         uint8_t *dst_ptr = dstLine;
-        uint8_t *dst_ptr_fin = dst_ptr + x_fin;
         for (int x = 0; x < x_fin; x++) {
             dst_ptr[2*x+0] = (uint8_t)conv_bit_depth<in_bit_depth, 8, 0>(src_u_ptr[x]);
             dst_ptr[2*x+1] = (uint8_t)conv_bit_depth<in_bit_depth, 8, 0>(src_v_ptr[x]);
@@ -1928,7 +1926,7 @@ const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv
 
 std::basic_string<TCHAR> RGYFrameInfo::print() const {
     TCHAR buf[1024];
-#if ENCODER_NVENC    
+#if ENCODER_NVENC
     _stprintf_s(buf, _T("%dx%d %s %dbit (%d) %s %s f0x%x"),
         width, height, RGY_CSP_NAMES[csp], bitdepth, pitch,
 #else

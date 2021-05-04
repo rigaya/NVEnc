@@ -581,7 +581,7 @@ bool RGYInputAvcodec::isSelectedLangTrack(const std::string &lang, const AVStrea
 bool RGYInputAvcodec::isSelectedCodecTrack(const std::string &selectCodec, const AVStream *stream) {
     const auto desc = avcodec_descriptor_get_by_name(selectCodec.c_str());
     if (desc == nullptr) return false;
-    return desc->id == stream->codec->codec_id;
+    return desc->id == stream->codecpar->codec_id;
 }
 
 void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
