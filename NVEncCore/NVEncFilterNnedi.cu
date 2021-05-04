@@ -47,11 +47,7 @@
 #include "device_launch_parameters.h"
 #pragma warning (pop)
 #include "rgy_cuda_util_kernel.h"
-
-extern "C" {
-extern char _binary_resource_nnedi3_weights_bin_start[];
-extern char _binary_resource_nnedi3_weights_bin_end[];
-}
+#include "rgy_resource.h"
 
 static const int NNEDI_BLOCK_X       = 32;
 static const int NNEDI_BLOCK_Y       = 8;
@@ -1411,35 +1407,17 @@ shared_ptr<const float> NVEncFilterNnedi::readWeights(const tstring& weightFile,
         if (hModule == NULL) {
             hModule = GetModuleHandle(NULL);
         }
-        HRSRC hResource = NULL;
-        HGLOBAL hResourceData = NULL;
-        const char *pDataPtr = NULL;
-        if (NULL == hModule) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to get module handle.\n"));
-        } else if (NULL == (hResource = FindResource(hModule, _T("NNEDI_WEIGHTBIN"), _T("EXE_DATA")))) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to get resource handle for \"NNEDI_WEIGHTBIN\".\n"));
-        } else if (NULL == (hResourceData = LoadResource(hModule, hResource))) {
+#endif
+        void *pDataPtr = NULL;
+        weightFileSize = getEmbeddedResource(&pDataPtr, _T("NNEDI_WEIGHTBIN"), _T("EXE_DATA"), hModule);
+        if (pDataPtr == nullptr || weightFileSize == 0) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to load resource \"NNEDI_WEIGHTBIN\".\n"));
-        } else if (NULL == (pDataPtr = (const char *)LockResource(hResourceData))) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to lock resource \"NNEDI_WEIGHTBIN\".\n"));
-        } else if (expectedFileSize != (weightFileSize = SizeofResource(hModule, hResource))) {
-            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %lld [expected: %u].\n"),
-                (long long int)weightFileSize, expectedFileSize);
-        } else {
-            weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
-        }
-#else
-        const char *pDataPtr = _binary_resource_nnedi3_weights_bin_start;
-        weightFileSize = (size_t)(_binary_resource_nnedi3_weights_bin_end - _binary_resource_nnedi3_weights_bin_start);
-        if (pDataPtr == nullptr) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to get Weights data.\n"));
         } else if (expectedFileSize != weightFileSize) {
             AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %lld [expected: %u].\n"),
                 (long long int)weightFileSize, expectedFileSize);
         } else {
             weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
         }
-#endif
     } else {
         if (!rgy_file_exists(weightFile)) {
             AddMessage(RGY_LOG_ERROR, _T("weight file \"%s\" does not exist.\n"), weightFile.c_str());

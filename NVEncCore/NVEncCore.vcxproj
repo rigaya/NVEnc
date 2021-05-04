@@ -1055,6 +1055,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="rgy_prm.cpp" />
+    <ClCompile Include="rgy_resource.cpp" />
     <ClCompile Include="rgy_simd.cpp" />
     <ClCompile Include="rgy_status.cpp" />
     <ClCompile Include="rgy_timecode.cpp" />
@@ -1254,6 +1255,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_pipe.h" />
     <ClInclude Include="rgy_prm.h" />
     <ClInclude Include="rgy_queue.h" />
+    <ClInclude Include="rgy_resource.h" />
     <ClInclude Include="rgy_shared_mem.h" />
     <ClInclude Include="rgy_simd.h" />
     <ClInclude Include="rgy_status.h" />

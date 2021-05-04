@@ -36,6 +36,7 @@
 #include <string>
 #include "rgy_status.h"
 #include "rgy_perf_monitor.h"
+#include "rgy_resource.h"
 #include "cpu_info.h"
 #include "rgy_osdep.h"
 #include "rgy_util.h"
@@ -48,11 +49,6 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-
-extern "C" {
-extern char _binary_PerfMonitor_perf_monitor_pyw_start[];
-extern char _binary_PerfMonitor_perf_monitor_pyw_end[];
-}
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
@@ -571,26 +567,17 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
     int ret = 0;
     uint32_t resourceSize = 0;
     FILE *fp = NULL;
-    const char *pDataPtr = NULL;
 #if defined(_WIN32) || defined(_WIN64)
-    HRSRC hResource = NULL;
-    HGLOBAL hResourceData = NULL;
 #if BUILD_AUO
     HMODULE hModule = GetModuleHandleA(AUO_NAME);
 #else
     HMODULE hModule = GetModuleHandleA(NULL);
 #endif
-    if (   NULL == hModule
-        || NULL == (hResource = FindResource(hModule, _T("PERF_MONITOR_PYW"), _T("PERF_MONITOR_SRC")))
-        || NULL == (hResourceData = LoadResource(hModule, hResource))
-        || NULL == (pDataPtr = (const char *)LockResource(hResourceData))
-        || 0    == (resourceSize = SizeofResource(hModule, hResource))) {
-        ret = 1;
-    } else
 #else
-    pDataPtr = _binary_PerfMonitor_perf_monitor_pyw_start;
-    resourceSize = (uint32_t)(size_t)(_binary_PerfMonitor_perf_monitor_pyw_end - _binary_PerfMonitor_perf_monitor_pyw_start);
-#endif //#if defined(_WIN32) || defined(_WIN64)
+    HMODULE hModule = NULL;
+#endif
+    void *pDataPtr = NULL;
+    resourceSize = getEmbeddedResource(&pDataPtr, _T("PERF_MONITOR_PYW"), _T("PERF_MONITOR_SRC"), hModule);
     if (_tfopen_s(&fp, pywPath, _T("wb")) || NULL == fp) {
         ret = 1;
     } else if (resourceSize != fwrite(pDataPtr, 1, resourceSize, fp)) {

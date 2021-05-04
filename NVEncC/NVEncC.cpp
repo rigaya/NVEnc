@@ -41,6 +41,7 @@
 #include "rgy_version.h"
 #include "rgy_util.h"
 #include "rgy_codepage.h"
+#include "rgy_resource.h"
 #include "NVEncDevice.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"
@@ -242,7 +243,7 @@ static int run_on_os_codepage() {
         return 1;
     }
     void *manifest = nullptr;
-    int size = getEmbeddedResource(&manifest,_T("APP_OSCODEPAGE_MANIFEST"), _T("EXE_DATA"));
+    int size = getEmbeddedResource(&manifest, _T("APP_OSCODEPAGE_MANIFEST"), _T("EXE_DATA"));
     if (size == 0) {
         _ftprintf(stderr, _T("Failed to load manifest for OS codepage mode.\n"));
         return 1;

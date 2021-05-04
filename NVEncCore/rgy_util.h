@@ -683,8 +683,6 @@ tstring getEnviromentInfo(int device_id = 0);
 
 BOOL check_OS_Win8orLater();
 
-int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule = NULL);
-
 //確保できなかったら、サイズを小さくして再度確保を試みる (最終的にnMinSizeも確保できなかったら諦める)
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);
 

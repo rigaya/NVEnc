@@ -1288,29 +1288,3 @@ unsigned short float2half(float value) {
     }
     return fp16;
 }
-
-int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule) {
-    *data = nullptr;
-#if defined(_WIN32) || defined(_WIN64)
-    //埋め込みデータを使用する
-    if (hModule == NULL) {
-        hModule = GetModuleHandle(NULL);
-    }
-    if (hModule == NULL) {
-        return 0;
-    }
-    HRSRC hResource = FindResource(hModule, name, type);
-    if (hResource == NULL) {
-        return 0;
-    }
-    HGLOBAL hResourceData = LoadResource(hModule, hResource);
-    if (hResourceData == NULL) {
-        return 0;
-    }
-    *data = LockResource(hResourceData);
-    return (int)SizeofResource(hModule, hResource);
-#else
-    return 0;
-#endif
-}
-
