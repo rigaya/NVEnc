@@ -1929,11 +1929,12 @@ std::basic_string<TCHAR> RGYFrameInfo::print() const {
 #if ENCODER_NVENC
     _stprintf_s(buf, _T("%dx%d %s %dbit (%d) %s %s f0x%x"),
         width, height, RGY_CSP_NAMES[csp], bitdepth, pitch,
+        picstrcut_to_str(picstruct), deivce_mem ? _T("deivce") : _T("host"), (uint32_t)flags);
 #else
     _stprintf_s(buf, _T("%dx%d %s %dbit (%d, %d, %d, %d) %s %s f0x%x"),
         width, height, RGY_CSP_NAMES[csp], bitdepth, pitch[0], pitch[1], pitch[2], pitch[3],
-#endif
         picstrcut_to_str(picstruct), get_memtype_str(mem_type), (uint32_t)flags);
+#endif
     return std::basic_string<TCHAR>(buf);
 };
 
