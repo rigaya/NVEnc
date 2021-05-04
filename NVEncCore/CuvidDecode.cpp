@@ -48,18 +48,18 @@ bool check_if_nvcuvid_dll_available() {
 CodecCsp getHWDecCodecCsp(bool skipHWDecodeCheck) {
     static const auto test_target_yv12 = make_array<RGY_CSP>(
         RGY_CSP_NV12,
-        RGY_CSP_YV12_09,
         RGY_CSP_YV12_10,
         RGY_CSP_YV12_12,
         RGY_CSP_YV12_14,
-        RGY_CSP_YV12_16);
+        RGY_CSP_YV12_16,
+        RGY_CSP_YV12_09);
     static const auto test_target_yuv444 = make_array<RGY_CSP>(
         RGY_CSP_YUV444,
-        RGY_CSP_YUV444_09,
         RGY_CSP_YUV444_10,
         RGY_CSP_YUV444_12,
         RGY_CSP_YUV444_14,
-        RGY_CSP_YUV444_16
+        RGY_CSP_YUV444_16,
+        RGY_CSP_YUV444_09
         );
 
     CodecCsp HWDecCodecCsp;
@@ -78,7 +78,7 @@ CodecCsp getHWDecCodecCsp(bool skipHWDecodeCheck) {
             caps_test.nBitDepthMinus8 = RGY_CSP_BIT_DEPTH[csp] - 8;
             caps_test.eChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[csp]);
             auto ret = cuvidGetDecoderCaps(&caps_test);
-            if (ret != CUDA_SUCCESS || caps_test.bIsSupported) {
+            if (ret != CUDA_SUCCESS || !caps_test.bIsSupported) {
                 break;
             }
             supported_csp.push_back(csp);
@@ -95,7 +95,7 @@ CodecCsp getHWDecCodecCsp(bool skipHWDecodeCheck) {
                 caps_test.nBitDepthMinus8 = RGY_CSP_BIT_DEPTH[csp] - 8;
                 caps_test.eChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[csp]);
                 auto ret = cuvidGetDecoderCaps(&caps_test);
-                if (ret != CUDA_SUCCESS || caps_test.bIsSupported) {
+                if (ret != CUDA_SUCCESS || !caps_test.bIsSupported) {
                     break;
                 }
                 supported_csp.push_back(csp);
