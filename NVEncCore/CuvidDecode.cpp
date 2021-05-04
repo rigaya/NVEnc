@@ -82,6 +82,9 @@ CodecCsp getHWDecCodecCsp(bool skipHWDecodeCheck) {
                 break;
             }
             supported_csp.push_back(csp);
+            if (csp == RGY_CSP_NV12) {
+                supported_csp.push_back(RGY_CSP_YV12);
+            }
         }
         if (supported_csp.size() > 0) {
             for (auto csp : test_target_yuv444) {
