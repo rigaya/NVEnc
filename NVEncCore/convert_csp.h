@@ -498,6 +498,8 @@ struct RGYFrameInfo {
         flags(RGY_FRAME_FLAG_NONE),
         inputFrameId(-1),
         dataList() {};
+
+    std::basic_string<TCHAR> print() const;
 };
 
 static bool cmpFrameInfoCspResolution(const RGYFrameInfo *pA, const RGYFrameInfo *pB) {
