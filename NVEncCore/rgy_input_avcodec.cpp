@@ -2199,6 +2199,14 @@ int64_t RGYInputAvcodec::convertTimebaseVidToStream(int64_t pts, const AVDemuxSt
 }
 
 bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *stream) {
+    // EPGやbin_dataなど、data streamでtimestampがついていない
+    // 一度もtimestampが設定されていない場合でもそれはすべて転送する
+    if (stream->aud0_fin == AV_NOPTS_VALUE //一度もtimestampが設定されていない
+        && pkt->pts == AV_NOPTS_VALUE //timestampが設定されていない
+        && avcodec_get_type(stream->stream->codecpar->codec_id) == AVMEDIA_TYPE_DATA // data stream
+    ) {
+        return true;
+    }
     if (pkt->pts != AV_NOPTS_VALUE) { //pkt->ptsがAV_NOPTS_VALUEの場合は、以前のフレームの継続とみなして更新しない
         stream->lastVidIndex = getVideoFrameIdx(pkt->pts, stream->timebase, stream->lastVidIndex);
     }
@@ -2595,7 +2603,8 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
         } else {
             AVDemuxStream *pStream = getPacketStreamData(&pkt);
             const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
-            pkt.pts += delay_ts;
+            if (pkt.pts == AV_NOPTS_VALUE) pkt.pts += delay_ts;
+            if (pkt.dts == AV_NOPTS_VALUE) pkt.dts += delay_ts;
             if (checkStreamPacketToAdd(&pkt, pStream)) {
                 m_Demux.qStreamPktL1.push_back(pkt);
             } else {
@@ -2663,7 +2672,8 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
             && 0 < av_compare_ts(pkt.pts + delay_ts, pStream->timebase, fixedLastFrame.pts, vid_pkt_timebase)) {
             break;
         }
-        pkt.pts += delay_ts;
+        if (pkt.pts != AV_NOPTS_VALUE) pkt.pts += delay_ts;
+        if (pkt.dts != AV_NOPTS_VALUE) pkt.dts += delay_ts;
         if (checkStreamPacketToAdd(&pkt, pStream)) {
             pkt.flags = (pkt.flags & 0xffff) | ((uint32_t)pStream->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
             m_Demux.qStreamPktL2.push(pkt); //Writer側に渡したパケットはWriter側で開放する

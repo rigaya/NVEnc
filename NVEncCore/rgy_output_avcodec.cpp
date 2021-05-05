@@ -37,7 +37,7 @@
 #include "rgy_bitstream.h"
 #include "rgy_codepage.h"
 
-#define WRITE_PTS_DEBUG (0)
+#define WRITE_PTS_DEBUG (1)
 
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
@@ -3016,13 +3016,13 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
     const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.outputFps);
     const int64_t pts_offset = av_rescale_q(m_Mux.video.inputFirstKeyPts, vid_pkt_timebase, pMuxOther->streamInTimebase);
     const AVRational timebase_conv = (pMuxOther->outCodecDecodeCtx) ? pMuxOther->outCodecDecodeCtx->pkt_timebase : pMuxOther->streamOut->time_base;
-    pkt->pts = av_rescale_q(std::max<int64_t>(0, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
+    if (pkt->pts != AV_NOPTS_VALUE) pkt->pts = av_rescale_q(std::max<int64_t>(0, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
+    if (pkt->dts != AV_NOPTS_VALUE) pkt->dts = av_rescale_q(std::max<int64_t>(0, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
     if (WRITE_PTS_DEBUG) {
         AddMessage((pkt->pts == AV_NOPTS_VALUE) ? RGY_LOG_ERROR : RGY_LOG_WARN, _T("%3d, %12s, pts, %lld (%d/%d) [%s]\n"),
             pMuxOther->streamOut->index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pMuxOther->streamOut->index]->codecpar->codec_id)).c_str(),
             pkt->pts, timebase_conv.num, timebase_conv.den, getTimestampString(pkt->pts, timebase_conv).c_str());
     }
-    pkt->dts = av_rescale_q(std::max<int64_t>(0, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
     pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
     pkt->duration = (int)av_rescale_q(pkt->duration, pMuxOther->streamInTimebase, pMuxOther->streamOut->time_base);
     pkt->stream_index = pMuxOther->streamOut->index;
@@ -3408,7 +3408,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
     //syncIgnoreDtsは映像と音声の同期を行う必要がないことを意味する
     //dtsThresholdを加算したときにオーバーフローしないよう、dtsThresholdを引いておく
     const int64_t syncIgnoreDts = INT64_MAX - dtsThreshold;
-    int64_t audioDts = (m_Mux.audio.size()) ? 0 : syncIgnoreDts;
+    int64_t audioDts = (m_Mux.audio.size() + m_Mux.other.size()) ? 0 : syncIgnoreDts;
     int64_t videoDts = (m_Mux.video.streamOut) ? 0 : syncIgnoreDts;
     WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, INFINITE);
     //bThAudProcessは出力開始した後で取得する(この前だとまだ起動していないことがある)
@@ -3472,7 +3472,9 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                 //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
                 (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
                 //複数のstreamがあり得るので最大値をとる
-                audioDts = (std::max)(audioDts, (std::max)(pktData.dts, m_Mux.thread.streamOutMaxDts.load()));
+                if (pktData.dts != AV_NOPTS_VALUE) {
+                    audioDts = (std::max)(audioDts, (std::max)(pktData.dts, m_Mux.thread.streamOutMaxDts.load()));
+                }
                 nWaitAudio = 0;
                 const int log_level = RGY_LOG_TRACE;
                 if (m_printMes && log_level >= m_printMes->getLogLevel()) {
@@ -3539,7 +3541,9 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
             const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : INT64_MAX;
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
             //複数のstreamがあり得るので最大値をとる
-            audioDts = (std::max)(audioDts, pktData.dts);
+            if (pktData.dts != AV_NOPTS_VALUE) {
+                audioDts = (std::max)(audioDts, pktData.dts);
+            }
         }
         RGYBitstream bitstream = RGYBitstreamInit();
         while (videoDts <= audioDts + dtsThreshold
