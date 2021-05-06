@@ -35,6 +35,7 @@ extern char _binary_PerfMonitor_perf_monitor_pyw_start[];
 extern char _binary_PerfMonitor_perf_monitor_pyw_end[];
 extern char _binary_resource_nnedi3_weights_bin_start[];
 extern char _binary_resource_nnedi3_weights_bin_end[];
+#if ENCODER_QSV
 extern char _binary_QSVPipeline_rgy_filter_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_cl_end[];
 extern char _binary_QSVPipeline_rgy_filter_afs_analyze_cl_start[];
@@ -89,6 +90,7 @@ extern char _binary_QSVPipeline_rgy_filter_unsharp_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_unsharp_cl_end[];
 extern char _binary_QSVPipeline_rgy_filter_warpsharp_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_warpsharp_cl_end[];
+#endif
 }
 
 struct RGYResourceData {
@@ -103,6 +105,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     
     { _T("EXE_DATA"), _T("NNEDI_WEIGHTBIN"), _binary_resource_nnedi3_weights_bin_start, _binary_resource_nnedi3_weights_bin_end },
 
+#if ENCODER_QSV
     { _T("EXE_DATA"), _T("RGY_FILTER_CL"), _binary_QSVPipeline_rgy_filter_cl_start, _binary_QSVPipeline_rgy_filter_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_ANALYZE_CL"), _binary_QSVPipeline_rgy_filter_afs_analyze_cl_start, _binary_QSVPipeline_rgy_filter_afs_analyze_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_FILTER_CL"), _binary_QSVPipeline_rgy_filter_afs_filter_cl_start, _binary_QSVPipeline_rgy_filter_afs_filter_cl_end },
@@ -132,6 +135,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_TWEAK_CL"), _binary_QSVPipeline_rgy_filter_tweak_cl_start, _binary_QSVPipeline_rgy_filter_tweak_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_UNSHARP_CL"), _binary_QSVPipeline_rgy_filter_unsharp_cl_start, _binary_QSVPipeline_rgy_filter_unsharp_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_WARPSHARP_CL"), _binary_QSVPipeline_rgy_filter_warpsharp_cl_start, _binary_QSVPipeline_rgy_filter_warpsharp_cl_end }
+#endif
 };
 #endif
 
