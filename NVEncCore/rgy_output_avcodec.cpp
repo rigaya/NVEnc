@@ -37,7 +37,7 @@
 #include "rgy_bitstream.h"
 #include "rgy_codepage.h"
 
-#define WRITE_PTS_DEBUG (1)
+#define WRITE_PTS_DEBUG (0)
 
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
