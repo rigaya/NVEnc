@@ -29,7 +29,7 @@
 #include "rgy_bitstream.h"
 #include "rgy_language.h"
 #include <filesystem>
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #include <smmintrin.h>
 #endif
 
@@ -447,7 +447,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     }
 
     auto loadLineToBuffer = [](uint8_t *ptrBuf, uint8_t *ptrSrc, int pitch) {
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
         for (int i = 0; i < pitch; i += 128, ptrSrc += 128, ptrBuf += 128) {
             __m128i x0 = _mm_stream_load_si128((__m128i *)(ptrSrc +   0));
             __m128i x1 = _mm_stream_load_si128((__m128i *)(ptrSrc +  16));
@@ -533,7 +533,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             uint8_t *ptrUV = ptrBuf + pSurface->crop().e.left;
             uint8_t *ptrU = m_UVBuffer.get() + j * uvWidth;
             uint8_t *ptrV = ptrU + uvFrameOffset;
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
             for (uint32_t i = 0; i < uvWidth; i += 16, ptrUV += 32, ptrU += 16, ptrV += 16) {
                 __m128i x0 = _mm_loadu_si128((__m128i *)(ptrUV +  0));
                 __m128i x1 = _mm_loadu_si128((__m128i *)(ptrUV + 16));

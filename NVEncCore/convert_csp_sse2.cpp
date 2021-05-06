@@ -25,7 +25,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #define USE_SSE2  1
 #define USE_SSSE3 0
 #define USE_SSE41 0
@@ -284,4 +284,4 @@ void convert_yuv422_16_to_p210_sse2(void **dst, const void **src, int width, int
 }
 
 #pragma warning (pop)
-#endif //#if defined(_M_IX86) || defined(_M_X64)
+#endif //#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)

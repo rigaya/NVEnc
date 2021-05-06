@@ -1609,7 +1609,7 @@ static void convert_yv12_to_p010(void **dst, const void **src, int width, int sr
 
 #pragma warning (pop)
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #if defined(_MSC_VER) || defined(__AVX__)
 #define FUNC_AVX(from, to, uv_only, funcp, funci, simd) { from, to, uv_only, { funcp, funci }, simd },
 #else

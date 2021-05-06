@@ -28,7 +28,8 @@
 #include <cstdint>
 #include "rgy_osdep.h"
 #include "rgy_simd.h"
-#if defined(_M_IX86) || defined(_M_X64)
+#include "rgy_arch.h"
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #if _MSC_VER
 #include <intrin.h>
 #else

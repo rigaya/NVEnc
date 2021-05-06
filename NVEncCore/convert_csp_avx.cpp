@@ -25,7 +25,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #define USE_SSE2  1
 #define USE_SSSE3 1
 #define USE_SSE41 1
@@ -100,4 +100,4 @@ void convert_yuv444_16bit_to_yc48_avx(void **dst, const void **src, int width, i
 #pragma warning (pop)
 
 #endif //#if defined(_MSC_VER) || defined(__AVX__)
-#endif //#if defined(_M_IX86) || defined(_M_X64)
+#endif //#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)

@@ -36,15 +36,16 @@
 #include <climits>
 #include <condition_variable>
 #include "rgy_tchar.h"
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #ifdef _MSC_VER
 #include <intrin.h>
 #else
 #include <x86intrin.h>
 #endif
 #include <emmintrin.h>
-#endif //#if defined(_M_IX86) || defined(_M_X64)
+#endif //#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #include "rgy_osdep.h"
+#include "rgy_arch.h"
 #include "rgy_util.h"
 #include "rgy_version.h"
 #include "cpu_info.h"
@@ -53,7 +54,7 @@
 #endif
 
 int getCPUName(char *buffer, size_t nSize) {
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x80000000);
     unsigned int nExIds = CPUInfo[0];
@@ -305,7 +306,7 @@ cpu_info_t get_cpu_info() {
     return cpu;
 }
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 const int TEST_COUNT = 5000;
 RGY_NOINLINE
 int64_t runl_por(int loop_count, int& dummy_dep) {
@@ -363,12 +364,12 @@ static double get_tick_per_sec() {
     double second = std::chrono::duration_cast<std::chrono::microseconds>(fin - start).count() * 1e-6;
     return tick / second;
 }
-#endif //#if defined(_M_IX86) || defined(_M_X64)
+#endif //#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 
 //__rdtscが定格クロックに基づいた値を返すのを利用して、実際の動作周波数を得る
 //やや時間がかかるので注意
 double getCPUMaxTurboClock() {
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
     static double turboClock = 0.0;
     if (turboClock > 0.0) {
         return turboClock;
@@ -400,7 +401,7 @@ double getCPUMaxTurboClock() {
     return turboClock;
 #else
     return 0.0;
-#endif //#if defined(_M_IX86) || defined(_M_X64)
+#endif //#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 }
 
 double getCPUDefaultClock() {

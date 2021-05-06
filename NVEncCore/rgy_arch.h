@@ -29,7 +29,7 @@
 #ifndef __RGY_ARCH_H__
 #define __RGY_ARCH_H__
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #include <xmmintrin.h>
 static inline void rgy_yield() {
     _mm_pause();
