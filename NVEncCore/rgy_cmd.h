@@ -58,6 +58,7 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
 int cmd_string_to_bool(bool *b, const tstring &str);
 int parse_qp(int a[3], const TCHAR *str);
 
+std::vector<tstring> cmd_from_config_file(const tstring& filename);
 std::vector<std::pair<std::string, std::string>> createOptionList();
 
 void print_cmd_error_unknown_opt(tstring strErrorValue);

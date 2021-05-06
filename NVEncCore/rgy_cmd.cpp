@@ -26,6 +26,7 @@
 // --------------------------------------------------------------------------------------------
 
 #include <set>
+#include <fstream>
 #include <iostream>
 #include <iomanip>
 #include "rgy_util.h"
@@ -34,6 +35,7 @@
 #include "rgy_cmd.h"
 #include "rgy_language.h"
 #include "rgy_perf_monitor.h"
+#include "rgy_osdep.h"
 
 #if !FOR_AUO
 #if ENABLE_CPP_REGEX
@@ -227,6 +229,32 @@ void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue,
             }
         }
     }
+}
+
+std::vector<tstring> cmd_from_config_file(const tstring& filename) {
+#if defined(_WIN32) || defined(_WIN64)
+    std::ifstream ifs(filename);
+    if (ifs.fail()) {
+        _ftprintf(stderr, _T("Failed to open option file!\n"));
+        return std::vector<tstring>();
+    }
+    std::string configstr;
+    std::string str;
+    while (getline(ifs, str)) {
+        str = trim(str);
+        if (str.length() > 0) {
+            if (configstr.length() > 0) {
+                configstr += " ";
+            }
+            configstr += trim(str);
+        }
+    }
+    return sep_cmd(char_to_tstring(configstr));
+#else
+    _ftprintf(stderr, _T("--option-file not supported on linux systems!\n"));
+    exit(1);
+    return std::vector<tstring>();
+#endif
 }
 
 int cmd_string_to_bool(bool *b, const tstring &str) {
@@ -4459,6 +4487,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
     if (IS_OPTION("debug-cmd-parser")) {
         return 0;
     }
+    if (IS_OPTION("option-file")) {
+        i++;
+        return 0;
+    }
 #if defined(_WIN32) || defined(_WIN64)
     if (IS_OPTION("process-codepage")) {
         i++;
@@ -5955,6 +5987,8 @@ tstring gen_cmd_help_ctrl() {
         _T("                                  debug, info(default), warn, error\n")
         _T("   --log-framelist              output debug info for avsw/avhw reader.\n"));
 
+    str += strsprintf(_T("\n")
+        _T("   --option-file <string>       read commanline options written in file.\n"));
     str += strsprintf(_T("")
         _T("   --max-procfps <int>         limit encoding speed for lower utilization.\n")
         _T("                                 default:0 (no limit)\n")

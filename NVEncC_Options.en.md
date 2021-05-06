@@ -1859,6 +1859,10 @@ Select the level of log output.
 ### --log-framelist
 FOR DEBUG ONLY! Output debug log for avsw/avhw reader.
 
+### --option-file &lt;string&gt;
+File which containes a list of options to be used.
+Line feed is treated as a blank, therefore an option or a value of it should not splitted in multiple lines.
+
 ### --max-procfps &lt;int&gt;
 Set the upper limit of transcode speed. The default is 0 (= unlimited).
 
