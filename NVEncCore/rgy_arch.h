@@ -26,37 +26,56 @@
 // --------------------------------------------------------------------------------------------
 
 #pragma once
-#ifndef __RGY_THREAD_H__
-#define __RGY_THREAD_H__
+#ifndef __RGY_ARCH_H__
+#define __RGY_ARCH_H__
 
-#include <thread>
-#include "rgy_osdep.h"
-#include "rgy_arch.h"
-
-static void RGY_FORCEINLINE sleep_hybrid(int count) {
-    rgy_yield();
-    if ((count & 4095) == 4095) {
-        std::this_thread::sleep_for(std::chrono::milliseconds((count & 65535) == 65535));
-    }
+#if defined(_M_IX86) || defined(_M_X64)
+#include <xmmintrin.h>
+static inline void rgy_yield() {
+    _mm_pause();
+}
+#if !(defined(_WIN32) || defined(_WIN64))
+static inline void __cpuid(int cpuInfo[4], int param) {
+    int eax = 0, ebx = 0, ecx = 0, edx = 0;
+     __asm("xor %%ecx, %%ecx\n\t"
+           "cpuid" : "=a"(eax), "=b" (ebx), "=c"(ecx), "=d"(edx)
+                   : "0"(param));
+    cpuInfo[0] = eax;
+    cpuInfo[1] = ebx;
+    cpuInfo[2] = ecx;
+    cpuInfo[3] = edx;
 }
 
-#if defined(_WIN32) || defined(_WIN64)
-#include <Windows.h>
-
-static inline bool CheckThreadAlive(std::thread& thread) {
-    DWORD exit_code = 0;
-    return (0 != GetExitCodeThread(thread.native_handle(), &exit_code)) && exit_code == STILL_ACTIVE;
+#if NO_XGETBV_INTRIN && defined(__AVX__)
+static inline unsigned long long _xgetbv(unsigned int index) {
+  unsigned int eax, edx;
+  __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
+  return ((unsigned long long)edx << 32) | eax;
 }
+#endif
 
-#else //#if defined(_WIN32) || defined(_WIN64)
-#include <pthread.h>
-#include <signal.h>
-
-static inline bool CheckThreadAlive(std::thread& thread) {
-    uint32_t exit_code = 0;
-    return pthread_kill(thread.native_handle(), 0) != ESRCH;
+#if NO_RDTSCP_INTRIN
+static inline uint64_t __rdtscp(uint32_t *Aux) {
+    uint32_t aux;
+    uint64_t rax,rdx;
+    asm volatile ( "rdtscp\n" : "=a" (rax), "=d" (rdx), "=c" (aux) : : );
+    *Aux = aux;
+    return (rdx << 32) + rax;
 }
+#endif //#if NO_RDTSCP_INTRIN
 
-#endif //#if defined(_WIN32) || defined(_WIN64)
+//uint64_t __rdtsc() {
+//    unsigned int eax, edx;
+//    __asm__ volatile("rdtsc" : "=a"(eax), "=d"(edx));
+//    return ((uint64_t)edx << 32) | eax;
+//}
+#endif //#if !(defined(_WIN32) || defined(_WIN64))
 
-#endif //__RGY_THREAD_H__
+#elif defined(__ARM_ARCH)
+
+static inline void rgy_yield() {
+    __asm__ __volatile__("isb\n");
+}
+#endif
+
+#endif //__RGY_ARCH_H__

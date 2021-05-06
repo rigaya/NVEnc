@@ -140,41 +140,6 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
 #define stricmp strcasecmp
 #define _stricmp stricmp
 
-static inline void __cpuid(int cpuInfo[4], int param) {
-    int eax = 0, ebx = 0, ecx = 0, edx = 0;
-     __asm("xor %%ecx, %%ecx\n\t"
-           "cpuid" : "=a"(eax), "=b" (ebx), "=c"(ecx), "=d"(edx)
-                   : "0"(param));
-    cpuInfo[0] = eax;
-    cpuInfo[1] = ebx;
-    cpuInfo[2] = ecx;
-    cpuInfo[3] = edx;
-}
-
-#if NO_XGETBV_INTRIN && defined(__AVX__)
-static inline unsigned long long _xgetbv(unsigned int index) {
-  unsigned int eax, edx;
-  __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
-  return ((unsigned long long)edx << 32) | eax;
-}
-#endif
-
-#if NO_RDTSCP_INTRIN
-static inline uint64_t __rdtscp(uint32_t *Aux) {
-    uint32_t aux;
-    uint64_t rax,rdx;
-    asm volatile ( "rdtscp\n" : "=a" (rax), "=d" (rdx), "=c" (aux) : : );
-    *Aux = aux;
-    return (rdx << 32) + rax;
-}
-#endif //#if NO_RDTSCP_INTRIN
-
-//uint64_t __rdtsc() {
-//    unsigned int eax, edx;
-//    __asm__ volatile("rdtsc" : "=a"(eax), "=d"(edx));
-//    return ((uint64_t)edx << 32) | eax;
-//}
-
 static short _InterlockedIncrement16(volatile short *pVariable) {
     return __sync_add_and_fetch((volatile short*)pVariable, 1);
 }

@@ -106,6 +106,9 @@ EXTRALDFLAGS=""
 SRCS=""
 SRCCUS=""
 X86_64=1
+ARM64=0
+OBJCOPY_ARCH_ELF=
+OBJCOPY_ARCH_BIN=
 NO_RDTSCP_INTRIN=0
 
 CUDA_PATH=${CUDA_PATH:-/usr/local/cuda}
@@ -266,8 +269,19 @@ if [ `echo | ${CXX} -E -dM - | egrep "WIN32|WIN64" | wc --lines` -ne 0 ]; then
     exit 1 
 fi
 
-if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
+if [ `echo | ${CXX} -E -dM - | grep "__ARM_ARCH_ISA_A64" | wc --lines` -ne 0 ]; then
+    ARM64=1
     X86_64=0
+    OBJCOPY_ARCH_ELF="elf64-littleaarch64"
+    OBJCOPY_ARCH_BIN="aarch64"
+elif [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -ne 0 ]; then
+    ARM64=0
+    X86_64=1
+    OBJCOPY_ARCH_ELF="elf64-x86-64"
+    OBJCOPY_ARCH_BIN="i386"
+else
+    cnf_write "Unknown architecture!"
+    exit 1
 fi
 
 CXXINC=" \
@@ -278,7 +292,9 @@ CXXINC=" \
 CXXFLAGS="-Wall -Wno-unknown-pragmas -Wno-unused -Wno-missing-braces"
 
 LDFLAGS="-L. -ldl -lstdc++ -lstdc++fs"
-if [ $X86_64 -ne 0 ]; then
+if [ $ARM64 -ne 0 ]; then
+    CXXINC="${CXXINC} -DLINUX64"
+elif [ $X86_64 -ne 0 ]; then
     CXXINC="${CXXINC} -DLINUX64 -m64"
     LDFLAGS="${LDFLAGS} -m64"
 else
@@ -342,39 +358,41 @@ else
     exit 1
 fi
 
-if cxx_check "-msse4.1" "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
-    if cxx_check "-march=native" "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
-    elif cxx_check "-mpopcnt" "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -msse4.1 -mpopcnt"
+if [ $X86_64 -ne 0 ]; then
+    if cxx_check "-msse4.1" "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
+        if cxx_check "-march=native" "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
+            CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
+        elif cxx_check "-mpopcnt" "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
+            CXXFLAGS="$CXXFLAGS -msse4.1 -mpopcnt"
+        else
+            CXXFLAGS="$CXXFLAGS -msse4.1"
+        fi
     else
-        CXXFLAGS="$CXXFLAGS -msse4.1"
+        cnf_write "SSE4.1 not supported with this compiler." 
+        exit 1
     fi
-else
-    cnf_write "SSE4.1 not supported with this compiler." 
-    exit 1
-fi
-cnf_write "OK"
+    cnf_write "OK"
 
-cnf_print "checking for system SSE4.1 support..."
-if [ `cat /proc/cpuinfo | grep "sse4_1" | wc --lines` -eq 0 ]; then
-    cnf_write "System does not support SSE4.1."
-    exit 1 
-fi
-cnf_write "OK"
+    cnf_print "checking for system SSE4.1 support..."
+    if [ `cat /proc/cpuinfo | grep "sse4_1" | wc --lines` -eq 0 ]; then
+        cnf_write "System does not support SSE4.1."
+        exit 1 
+    fi
+    cnf_write "OK"
 
-if ! cxx_check "__rdtscp()" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
-    CXXFLAGS="${CXXFLAGS} -DNO_RDTSCP_INTRIN=1"
-    cnf_write "no"
-else
-    cnf_write "yes"
-fi
+    if ! cxx_check "__rdtscp()" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
+        CXXFLAGS="${CXXFLAGS} -DNO_RDTSCP_INTRIN=1"
+        cnf_write "no"
+    else
+        cnf_write "yes"
+    fi
 
-if ! cxx_check "_xgetbv()" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = _xgetbv(a);" ; then
-    CXXFLAGS="${CXXFLAGS} -DNO_XGETBV_INTRIN=1"
-    cnf_write "no"
-else
-    cnf_write "yes"
+    if ! cxx_check "_xgetbv()" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = _xgetbv(a);" ; then
+        CXXFLAGS="${CXXFLAGS} -DNO_XGETBV_INTRIN=1"
+        cnf_write "no"
+    else
+        cnf_write "yes"
+    fi
 fi
 
 if cxx_check "-fPIE" "${CXXFLAGS} -fPIE ${LDFLAGS}" ; then
@@ -618,7 +636,7 @@ rgy_err.cpp            rgy_event.cpp               rgy_frame.cpp                
 rgy_ini.cpp            rgy_input.cpp               rgy_input_avcodec.cpp        rgy_input_avi.cpp \
 rgy_input_avs.cpp      rgy_input_raw.cpp           rgy_input_sm.cpp             rgy_input_vpy.cpp            rgy_language.cpp \
 rgy_log.cpp            rgy_output.cpp              rgy_output_avcodec.cpp       rgy_perf_counter.cpp \
-rgy_perf_monitor.cpp   rgy_pipe.cpp                rgy_pipe_linux.cpp           rgy_prm.cpp \
+rgy_perf_monitor.cpp   rgy_pipe.cpp                rgy_pipe_linux.cpp           rgy_prm.cpp                  rgy_resource.cpp \
 rgy_simd.cpp           rgy_status.cpp              rgy_timecode.cpp             rgy_util.cpp                 rgy_version.cpp \
 "
 
@@ -673,6 +691,8 @@ echo "SRCCUS = $SRCCUS" >> config.mak
 echo "BINS = $BINS" >> config.mak
 echo "BINHS = $BINHS" >> config.mak
 echo "PYWS = $PYWS" >> config.mak
+echo "OBJCOPY_ARCH_ELF = $OBJCOPY_ARCH_ELF" >> config.mak
+echo "OBJCOPY_ARCH_BIN = $OBJCOPY_ARCH_BIN" >> config.mak
 write_config_mak "SRCDIR = $SRCDIR"
 write_config_mak "CXX  = $CXX"
 write_config_mak "NVCC = $NVCC"

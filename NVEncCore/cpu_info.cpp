@@ -36,12 +36,14 @@
 #include <climits>
 #include <condition_variable>
 #include "rgy_tchar.h"
+#if defined(_M_IX86) || defined(_M_X64)
 #ifdef _MSC_VER
 #include <intrin.h>
 #else
 #include <x86intrin.h>
 #endif
 #include <emmintrin.h>
+#endif //#if defined(_M_IX86) || defined(_M_X64)
 #include "rgy_osdep.h"
 #include "rgy_util.h"
 #include "rgy_version.h"
@@ -51,6 +53,7 @@
 #endif
 
 int getCPUName(char *buffer, size_t nSize) {
+#if defined(_M_IX86) || defined(_M_X64)
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x80000000);
     unsigned int nExIds = CPUInfo[0];
@@ -104,6 +107,42 @@ int getCPUName(char *buffer, size_t nSize) {
             *last_ptr = '\0';
     }
     return 0;
+#else
+    std::string arch;
+    std::string name;
+    memset(buffer, 0, 0x40);
+    FILE *fp = NULL;
+    const char *cmdline = "lscpu";
+    if ((fp = popen(cmdline, "r")) == NULL) {
+        return 1;
+    }
+    char buf[1024];
+    while (!feof(fp)) {
+        fgets(buf, sizeof(buf), fp);
+        if (strstr(buf, "Architecture:") != nullptr) {
+            //改行の削除
+            char *ptr = buf + strlen(buf) - 1;
+            if (*ptr == '\n') *ptr = '\0';
+            //Architectureの部分の取得
+            ptr = buf + strlen("Architecture:");
+            while (*ptr == ' ')
+                ptr++;
+            arch = ptr;
+        }
+        if (strstr(buf, "Model name:") != nullptr) {
+            //改行の削除
+            char *ptr = buf + strlen(buf) - 1;
+            if (*ptr == '\n') *ptr = '\0';
+            //Model nameの部分の取得
+            ptr = buf + strlen("Model name:");
+            while (*ptr == ' ')
+                ptr++;
+            name = ptr;
+        }
+    }
+    sprintf(buf, "%s (%s)", name.c_str(), arch.c_str());
+    return 0;
+#endif
 }
 
 #if _MSC_VER
@@ -266,6 +305,7 @@ cpu_info_t get_cpu_info() {
     return cpu;
 }
 
+#if defined(_M_IX86) || defined(_M_X64)
 const int TEST_COUNT = 5000;
 RGY_NOINLINE
 int64_t runl_por(int loop_count, int& dummy_dep) {
@@ -285,6 +325,20 @@ int64_t runl_por(int loop_count, int& dummy_dep) {
     const auto te = __rdtscp(&dummy);
     dummy_dep = i;
     return te - ts;
+}
+
+//rdtscpを使うと0xc0000096例外 (一般ソフトウェア例外)を発する場合があるらしい
+//そこでそれを検出する
+bool check_rdtscp_available() {
+#if defined(_WIN32) || defined(_WIN64)
+    __try {
+        UINT dummy;
+        __rdtscp(&dummy);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+#endif //defined(_WIN32) || defined(_WIN64)
+    return true;
 }
 
 static double get_tick_per_clock() {
@@ -309,24 +363,12 @@ static double get_tick_per_sec() {
     double second = std::chrono::duration_cast<std::chrono::microseconds>(fin - start).count() * 1e-6;
     return tick / second;
 }
-
-//rdtscpを使うと0xc0000096例外 (一般ソフトウェア例外)を発する場合があるらしい
-//そこでそれを検出する
-bool check_rdtscp_available() {
-#if defined(_WIN32) || defined(_WIN64)
-    __try {
-        UINT dummy;
-        __rdtscp(&dummy);
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return false;
-    }
-#endif //defined(_WIN32) || defined(_WIN64)
-    return true;
-}
+#endif //#if defined(_M_IX86) || defined(_M_X64)
 
 //__rdtscが定格クロックに基づいた値を返すのを利用して、実際の動作周波数を得る
 //やや時間がかかるので注意
 double getCPUMaxTurboClock() {
+#if defined(_M_IX86) || defined(_M_X64)
     static double turboClock = 0.0;
     if (turboClock > 0.0) {
         return turboClock;
@@ -356,6 +398,9 @@ double getCPUMaxTurboClock() {
     const double tick_per_sec = get_tick_per_sec();
     turboClock = (tick_per_sec / tick_per_clock) * 1e-9;
     return turboClock;
+#else
+    return 0.0;
+#endif //#if defined(_M_IX86) || defined(_M_X64)
 }
 
 double getCPUDefaultClock() {

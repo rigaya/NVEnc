@@ -34,7 +34,7 @@
 #include <atomic>
 #include <climits>
 #include <memory>
-#include <xmmintrin.h>
+#include "rgy_arch.h"
 #include "rgy_osdep.h"
 #include "rgy_event.h"
 
@@ -189,7 +189,7 @@ public:
             //古いバッファは破棄してよい
             int expected = 0;
             while (!m_bUsingData.compare_exchange_weak(expected, 1)) {
-                _mm_pause();
+                rgy_yield();
                 expected = 0;
             }
             //古いバッファを破棄
@@ -209,7 +209,7 @@ public:
         //押し込み処理で書き換え中なので待機する
         queueData *ptr = nullptr;
         while ((ptr = m_pBufIn.load()) == nullptr) {
-            _mm_pause();
+            rgy_yield();
         }
         return ptr - m_pBufOut;
     }

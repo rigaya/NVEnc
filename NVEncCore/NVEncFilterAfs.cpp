@@ -32,7 +32,6 @@
 #include "NVEncFilterAfs.h"
 #include "NVEncParam.h"
 #include "afs_stg.h"
-#include <emmintrin.h>
 #pragma warning (push)
 
 static void afs_get_motion_count(int *motion_count, const uint8_t *ptr, const AFS_SCAN_CLIP *clip, int pitch, int scan_w, int scan_h, int tb_order);
@@ -1082,6 +1081,10 @@ static inline BOOL is_latter_field(int pos_y, int tb_order) {
     return ((pos_y & 1) == tb_order);
 }
 
+#if defined(_M_IX86) || defined(_M_X64)
+#include <emmintrin.h>
+#endif // #if defined(_M_IX86) || defined(_M_X64)
+
 static void afs_get_stripe_count(int *stripe_count, const uint8_t *ptr, const AFS_SCAN_CLIP *clip, int pitch, int scan_w, int scan_h, int tb_order) {
     static const uint8_t STRIPE_COUNT_CHECK_MASK[][16] = {
         { 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50 },
@@ -1089,14 +1092,14 @@ static void afs_get_stripe_count(int *stripe_count, const uint8_t *ptr, const AF
     };
     const int y_fin = scan_h - clip->bottom - ((scan_h - clip->top - clip->bottom) & 1);
     const uint32_t check_mask[2] = { 0x50, 0x60 };
-    __m128i xZero = _mm_setzero_si128();
-    __m128i xMask, x0, x1;
     for (int pos_y = clip->top; pos_y < y_fin; pos_y++) {
-#if defined(_M_IX86) || defined(_M_X64)
         const uint8_t *sip = ptr + pos_y * pitch + clip->left;
-        const int first_field_flag = !is_latter_field(pos_y, tb_order);
-        xMask = _mm_loadu_si128((const __m128i*)STRIPE_COUNT_CHECK_MASK[first_field_flag]);
         const int x_count = scan_w - clip->right - clip->left;
+        const int first_field_flag = !is_latter_field(pos_y, tb_order);
+#if defined(_M_IX86) || defined(_M_X64)
+        __m128i xMask, x0, x1;
+        __m128i xZero = _mm_setzero_si128();
+        xMask = _mm_loadu_si128((const __m128i*)STRIPE_COUNT_CHECK_MASK[first_field_flag]);
         const uint8_t *sip_fin = sip + (x_count & ~31);
         for (; sip < sip_fin; sip += 32) {
             x0 = _mm_loadu_si128((const __m128i*)(sip +  0));
@@ -1121,15 +1124,14 @@ static void afs_get_stripe_count(int *stripe_count, const uint8_t *ptr, const AF
         for (; sip < sip_fin; sip++)
             stripe_count[first_field_flag] += (!(*sip & check_mask[first_field_flag]));
 #else
-        const uint8_t *sip = sp->map + pos_y * si_w + sp0->clip.left;
-        if (is_latter_field(pos_y, sp0->tb_order)) {
-            for (int pos_x = sp0->clip.left; pos_x < scan_w - sp0->clip.right; pos_x++) {
-                if (!(*sip & 0x50)) count[0]++;
+        if (first_field_flag) {
+            for (int pos_x = 0; pos_x < x_count; pos_x++) {
+                if (!(*sip & 0x50)) stripe_count[0]++;
                 sip++;
             }
         } else {
-            for (int pos_x = sp0->clip.left; pos_x < scan_w - sp0->clip.right; pos_x++) {
-                if (!(*sip & 0x60)) count[1]++;
+            for (int pos_x = 0; pos_x < x_count; pos_x++) {
+                if (!(*sip & 0x60)) stripe_count[1]++;
                 sip++;
             }
         }
@@ -1140,12 +1142,12 @@ static void afs_get_stripe_count(int *stripe_count, const uint8_t *ptr, const AF
 static void afs_get_motion_count(int *motion_count, const uint8_t *ptr, const AFS_SCAN_CLIP *clip, int pitch, int scan_w, int scan_h, int tb_order) {
     const int y_fin = scan_h - clip->bottom - ((scan_h - clip->top - clip->bottom) & 1);
     for (int pos_y = clip->top; pos_y < y_fin; pos_y++) {
+        const uint8_t *sip = ptr + pos_y * pitch + clip->left;
+        const int x_count = scan_w - clip->right - clip->left;
+        const int is_latter_feild = is_latter_field(pos_y, tb_order);
 #if defined(_M_IX86) || defined(_M_X64)
         __m128i xMotion = _mm_set1_epi8(0x40);
         __m128i x0, x1;
-        const uint8_t *sip = ptr + pos_y * pitch + clip->left;
-        const int is_latter_feild = is_latter_field(pos_y, tb_order);
-        const int x_count = scan_w - clip->right - clip->left;
         const uint8_t *sip_fin = sip + (x_count & ~31);
         for (; sip < sip_fin; sip += 32) {
             x0 = _mm_loadu_si128((const __m128i*)(sip +  0));
@@ -1170,14 +1172,13 @@ static void afs_get_motion_count(int *motion_count, const uint8_t *ptr, const AF
         for (; sip < sip_fin; sip++)
             motion_count[is_latter_feild] += ((~*sip & 0x40) >> 6);
 #else
-        const uint8_t *sip = sp->map + pos_y * si_w + sp->clip.left;
-        if (is_latter_field(pos_y, sp->tb_order)) {
-            for (int pos_x = sp->clip.left; pos_x < scan_w - sp->clip.right; pos_x++) {
+        if (is_latter_feild) {
+            for (int pos_x = 0; pos_x < x_count; pos_x++) {
                 motion_count[1] += ((~*sip & 0x40) >> 6);
                 sip++;
             }
         } else {
-            for (int pos_x = sp->clip.left; pos_x < scan_w - sp->clip.right; pos_x++) {
+            for (int pos_x = 0; pos_x < x_count; pos_x++) {
                 motion_count[0] += ((~*sip & 0x40) >> 6);
                 sip++;
             }

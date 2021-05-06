@@ -29,7 +29,9 @@
 #include "rgy_bitstream.h"
 #include "rgy_language.h"
 #include <filesystem>
+#if defined(_M_IX86) || defined(_M_X64)
 #include <smmintrin.h>
+#endif
 
 #if ENCODER_QSV
 
@@ -445,6 +447,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     }
 
     auto loadLineToBuffer = [](uint8_t *ptrBuf, uint8_t *ptrSrc, int pitch) {
+#if defined(_M_IX86) || defined(_M_X64)
         for (int i = 0; i < pitch; i += 128, ptrSrc += 128, ptrBuf += 128) {
             __m128i x0 = _mm_stream_load_si128((__m128i *)(ptrSrc +   0));
             __m128i x1 = _mm_stream_load_si128((__m128i *)(ptrSrc +  16));
@@ -463,6 +466,9 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             _mm_store_si128((__m128i *)(ptrBuf +  96), x6);
             _mm_store_si128((__m128i *)(ptrBuf + 112), x7);
         }
+#else
+        memcpy(ptrBuf, ptrSrc, pitch);
+#endif
     };
 
     const uint32_t lumaWidthBytes = pSurface->width() << ((pSurface->csp() == RGY_CSP_P010) ? 1 : 0);
@@ -527,12 +533,19 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             uint8_t *ptrUV = ptrBuf + pSurface->crop().e.left;
             uint8_t *ptrU = m_UVBuffer.get() + j * uvWidth;
             uint8_t *ptrV = ptrU + uvFrameOffset;
+#if defined(_M_IX86) || defined(_M_X64)
             for (uint32_t i = 0; i < uvWidth; i += 16, ptrUV += 32, ptrU += 16, ptrV += 16) {
                 __m128i x0 = _mm_loadu_si128((__m128i *)(ptrUV +  0));
                 __m128i x1 = _mm_loadu_si128((__m128i *)(ptrUV + 16));
                 _mm_storeu_si128((__m128i *)ptrU, _mm_packus_epi16(_mm_and_si128(x0, xMaskLow8), _mm_and_si128(x1, xMaskLow8)));
                 _mm_storeu_si128((__m128i *)ptrV, _mm_packus_epi16(_mm_srli_epi16(x0, 8), _mm_srli_epi16(x1, 8)));
             }
+#else
+            for (uint32_t i = 0; i < uvWidth; i++) {
+                ptrU[i] = ptrUV[2*i+0];
+                ptrV[i] = ptrUV[2*i+1];
+            } 
+#endif
         }
         WRITE_CHECK(fwrite(m_UVBuffer.get(), 1, uvWidth * uvHeight, m_fDest.get()), uvWidth * uvHeight);
         WRITE_CHECK(fwrite(m_UVBuffer.get() + uvFrameOffset, 1, uvWidth * uvHeight, m_fDest.get()), uvWidth * uvHeight);
