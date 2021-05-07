@@ -690,8 +690,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         param_list.push_back(tstring(qstr, pstr - qstr));
 
         const auto paramList = std::vector<std::string>{
-            "file", "select", "add", "pos", "depth", "y", "cb", "cr",
-            "auto_nr", "auto_fade", "nr_area", "nr_value", "log" };
+            "file", "select", "add", "pos", "depth", "y", "cb", "cr"
+#if ENCODER_NVENC
+            , "auto_nr", "auto_fade", "nr_area", "nr_value", "log"
+#endif
+        };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -786,53 +789,55 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("auto_nr")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->delogo.autoNR = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
+                if (ENCODER_NVENC) {
+                    if (param_arg == _T("auto_nr")) {
+                        bool b = false;
+                        if (!cmd_string_to_bool(&b, param_val)) {
+                            vpp->delogo.autoNR = b;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
                     }
-                    continue;
-                }
-                if (param_arg == _T("auto_fade")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->delogo.autoFade = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
+                    if (param_arg == _T("auto_fade")) {
+                        bool b = false;
+                        if (!cmd_string_to_bool(&b, param_val)) {
+                            vpp->delogo.autoFade = b;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
                     }
-                    continue;
-                }
-                if (param_arg == _T("nr_area")) {
-                    try {
-                        vpp->delogo.NRArea = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
+                    if (param_arg == _T("nr_area")) {
+                        try {
+                            vpp->delogo.NRArea = std::stoi(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
                     }
-                    continue;
-                }
-                if (param_arg == _T("nr_value")) {
-                    try {
-                        vpp->delogo.NRValue = std::stoi(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
+                    if (param_arg == _T("nr_value")) {
+                        try {
+                            vpp->delogo.NRValue = std::stoi(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
                     }
-                    continue;
-                }
-                if (param_arg == _T("log")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->delogo.log = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
+                    if (param_arg == _T("log")) {
+                        bool b = false;
+                        if (!cmd_string_to_bool(&b, param_val)) {
+                            vpp->delogo.log = b;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
                     }
-                    continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
