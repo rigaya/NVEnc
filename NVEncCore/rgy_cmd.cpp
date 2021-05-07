@@ -5680,8 +5680,9 @@ tstring gen_cmd_help_vpp() {
         _T("      auto_nr=<bool>            adjust strength of noise reduction dynamically.\n")
         _T("      nr_area=<int>             area of noise reduction near logo.\n")
         _T("      nr_value=<int>            strength of noise reduction near logo.\n")
+        _T("      log=<bool>                output log for auto_fade/auto_nr.\n")
 #endif
-        _T("      log=<bool>                output log for auto_fade/auto_nr.\n"),
+        ,
         FILTER_DEFAULT_DELOGO_DEPTH);
 #if ENABLE_VPP_FILTER_AFS
     str += strsprintf(_T("")
@@ -5828,11 +5829,6 @@ tstring gen_cmd_help_vpp() {
 #if ENCODER_QSV
     str += print_list_options(_T("--vpp-resize-mode <string>"), list_vpp_resize_mode, 0);
 #endif
-#if ENABLE_VPP_FILTER_PAD
-    str += strsprintf(_T("\n")
-        _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
-        _T("     add padding to left,top,right,bottom (in pixels)\n"));
-#endif
     str += strsprintf(_T("")
         _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by K-nearest neighbor.\n")
@@ -5976,6 +5972,11 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DEBAND_SEED,
         FILTER_DEFAULT_DEBAND_BLUR_FIRST ? _T("on") : _T("off"),
         FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME ? _T("on") : _T("off"));
+#endif
+#if ENABLE_VPP_FILTER_PAD
+    str += strsprintf(_T("\n")
+        _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
+        _T("     add padding to left,top,right,bottom (in pixels)\n"));
 #endif
     return str;
 }

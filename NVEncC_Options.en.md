@@ -14,12 +14,12 @@ NVEncC.exe [Options] -i <filename> -o <filename>
 ```
 
 ### More practical commands
-#### example of using hw (cuvid) decoder
+#### example of using hw decoder
 ```Batchfile
 NVEncC --avhw -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
 
-#### example of using hw (cuvid) decoder (interlaced)
+#### example of using hw decoder (interlaced)
 ```Batchfile
 NVEncC --avhw --interlace tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
@@ -685,12 +685,12 @@ Example: Extract track numbers #1 and #2
 --audio-copy eng,jpn
 ```
 
-### --audio-codec [[{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;],...]
+### --audio-codec [[{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;][#&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;],...]
 Encode audio track with the codec specified. If codec is not set, most suitable codec will be selected automatically. Codecs available could be checked with [--check-encoders](#--check-codecs---check-decoders---check-encoders).
 
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
-Also, you can specify params for audio encoder.
+Also, after ":" you can specify params for audio encoder,  after "#" you can specify params for audio decoder.
 ```
 Example 1: encode all audio tracks to mp3
 --audio-codec libmp3lame
@@ -845,6 +845,7 @@ Set metadata for audio track.
   - clear ... do not copy metadata
 
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
+
 ```
 Example1: copy metadata from input file
 --audio-metadata 1?copy
@@ -997,6 +998,7 @@ Read subtitle from the specified file and mux into the output file.
 Example1: --sub-source "<sub_file>"
 Example2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
 ```
+
 ### --sub-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
 It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;int&gt;], or select subtitle tracks to copy by language with [&lt;string&gt;].
@@ -1053,7 +1055,9 @@ Example3: set metadata
 ```
 
 ### --caption2ass [&lt;string&gt;]
-Enable caption2ass process. This feature requires Caption.dll.  
+Enable internal caption2ass process. This feature requires Caption.dll.  
+
+**Note:** Pelase always select srt format when muxing to mp4.  
 
 supported formats ... srt (default), ass
 
@@ -1106,12 +1110,178 @@ Example3: set metadata
     Check pts from the input file, and duplicate or remove frames if required to keep CFR, so that synchronization with the audio could be maintained. Please note that this could not be used with --trim.
 
   - vfr  
-    Honor source timestamp and enable vfr output. Only available for avsw/avhw reader.
+    Honor source timestamp and enable vfr output. Only available for avsw/avhw reader, and could not be used with --trim.
     
 ### --timecode [&lt;string&gt;]  
   Write timecode file to the specified path. If the path is not set, it will be written to "&lt;output file path&gt;.timecode.txt".
 
 ## Vpp Options
+
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+Converts colorspace of the video. Available on x64 version.  
+Values for parameters will be copied from input file for "input".
+
+**parameters**
+- matrix=&lt;from&gt;:&lt;to&gt;  
+  
+```
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
+```
+
+- colorprim=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
+```
+
+- transfer=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
+```
+
+- range=&lt;from&gt;:&lt;to&gt;  
+```
+  limited, full, auto
+```
+
+- hdr2sdr=&lt;string&gt;  
+  Enables HDR10 to SDR by selected tone-mapping.  
+
+  - none (default)  
+    hdr2sdr processing is disabled.
+  
+  - hable  
+    Trys to preserve both bright and dark detailes, but with rather dark result.
+    You may specify addtional params (a,b,c,d,e,f) for the hable tone-mapping function below.  
+
+    hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
+    output = hable( input ) / hable( (source_peak / ldr_nits) )
+    
+    defaults: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
+
+  - mobius  
+    Trys to preserve contrast and colors while bright details might be removed.  
+    - transition=&lt;float&gt;  (default: 0.3)  
+      Threshold to move from linear conversion to mobius tone mapping.  
+    - peak=&lt;float&gt;  (default: 1.0)  
+      reference peak brightness
+  
+  - reinhard  
+    - contrast=&lt;float&gt;  (default: 0.5)  
+      local contrast coefficient  
+    - peak=&lt;float&gt;  (default: 1.0)  
+      reference peak brightness
+      
+  - bt2390  
+    Perceptual tone mapping curve EETF) specified in BT.2390.
+
+- source_peak=&lt;float&gt;  (default: 1000.0)  
+
+- ldr_nits=&lt;float&gt;  (default: 100.0)  
+  Target brightness for hdr2sdr function.
+  
+- desat_base=&lt;float&gt;  (default: 0.18)  
+  Offset for desaturation curve used in hdr2sr.
+
+- desat_strength=&lt;float&gt;  (default: 0.75)  
+  Strength of desaturation curve used in hdr2sr.
+  0.0 will disable the desaturation, 1.0 will make overly bright colors will tend towards white.
+
+- desat_exp=&lt;float&gt;  (default: 1.5)  
+  Exponent of the desaturation curve used in hdr2sr.
+  This controls the brightness of which desaturated is going to start.
+  Lower value will make the desaturation to start earlier.
+
+```
+example1: convert from BT.601 -> BT.709
+--vpp-colorspace matrix=smpte170m:bt709
+
+example2: using hdr2sdr (hable tone-mapping)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
+
+example3: using hdr2sdr (hable tone-mapping) and setting the coefs (this is example for the default settings)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
+```
+
+### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**Parameters**
+- select=&lt;string&gt;  
+For logo pack, specify the logo to use with one of the following.
+  - Logo name
+  - Index (1, 2, ...)
+  - Automatic selection ini file
+
+For logo pack, specify the logo to use with one of the following.
+
+- Logo name
+- Index (1, 2, ...)
+- Automatic selection ini file
+```
+ [LOGO_AUTO_SELECT]
+ logo<num>=<pattern>,<logo name>
+```
+
+ Example:
+ ```ini
+[LOGO_AUTO_SELECT]
+logo1= (NHK-G).,NHK総合 1440x1080
+logo2= (NHK-E).,NHK-E 1440x1080
+logo3= (MX).,TOKYO MX 1 1440x1080
+logo4= (CTC).,チバテレビ 1440x1080
+logo5= (NTV).,日本テレビ 1440x1080
+logo6= (TBS).,TBS 1440x1088
+logo7= (TX).,TV東京 50th 1440x1080
+logo8= (CX).,フジテレビ 1440x1088
+logo9= (BSP).,NHK BSP v3 1920x1080
+logo10= (BS4).,BS日テレ 1920x1080
+logo11= (BSA).,BS朝日 1920x1080
+logo12= (BS-TBS).,BS-TBS 1920x1080
+logo13= (BSJ).,BS Japan 1920x1080
+logo14= (BS11).,BS11 1920x1080 v3
+```
+
+
+- pos &lt;int&gt;:&lt;int&gt;
+Adjustment of logo position with 1/4 pixel accuracy in x:y direction.  
+
+- depth &lt;int&gt;
+Adjustment of logo transparency. Default 128.  
+
+- y=&lt;int&gt;  
+- cb=&lt;int&gt;  
+- cr=&lt;int&gt;  
+Adjustment of each color component of the logo.  
+
+- auto_fade=&lt;bool&gt;  
+Adjust fade value dynamically. default=false.  
+  
+- auto_nr=&lt;bool&gt;  
+Adjust strength of noise reduction dynamically. default=false.  
+
+- nr_area=&lt;int&gt;  
+Area of noise reduction near logo. (default=0 (off), 0 - 3)  
+
+- nr_value=&lt;int&gt;  
+Strength of noise reduction near logo. (default=0 (off), 0 - 4)  
+
+- log=&lt;bool&gt;  
+auto_fade, auto_nrを使用した場合のfade値の推移をログに出力する。
+
+```
+例:
+--vpp-delogo logodata.ldp2,select=delogo.auf.ini,auto_fade=true,auto_nr=true,nr_value=3,nr_area=1,log=true
+```
+
+
+
+### --vpp-rff
+Reflect the Repeat Field Flag. The avsync error caused by rff could be solved. Available only when [--avhw](#--avhw-string) is used.
+
+rff of 2 or more will not be supported (only  supports rff = 1). Also, it can not be used with [--trim](#--trim-intintintintintint), [--vpp-deinterlace](#--vpp-deinterlace-string).
+
+
 
 ### --vpp-deinterlace &lt;string&gt;
 Activate hw deinterlacer. Available only when used with [--avhw](#--avhw-string)(hw decode) and [--interlace](#--interlace-string) tff or [--interlace](#--interlace-string) bff is specified.
@@ -1122,11 +1292,6 @@ Activate hw deinterlacer. Available only when used with [--avhw](#--avhw-string)
 - bob ... 60i → 60p interleaved.
 
 for IT(inverse telecine), use [--vpp-afs](#--vpp-afs-param1value1param2value2).
-
-### --vpp-rff
-Reflect the Repeat Field Flag. The avsync error caused by rff could be solved. Available only when [--avhw](#--avhw-string) is used.
-
-rff of 2 or more will not be supported (only  supports rff = 1). Also, it can not be used with [--trim](#--trim-intintintintintint), [--vpp-deinterlace](#--vpp-deinterlace-string).
 
 ### --vpp-afs [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Activate Auto Field Shift (AFS) deinterlacer.
@@ -1306,93 +1471,6 @@ Yadif deinterlacer.
     Generate one frame from each field assuming top field first.
   - bob_bff   
     Generate one frame from each field assuming bottom field first.
-    
-### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-Converts colorspace of the video. Available on x64 version.  
-Values for parameters will be copied from input file for "input".
-
-**parameters**
-- matrix=&lt;from&gt;:&lt;to&gt;  
-  
-```
-  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
-```
-
-- colorprim=&lt;from&gt;:&lt;to&gt;  
-```
-  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
-```
-
-- transfer=&lt;from&gt;:&lt;to&gt;  
-```
-  bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
-  log100, log316, iec61966-2-4, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
-```
-
-- range=&lt;from&gt;:&lt;to&gt;  
-```
-  limited, full, auto
-```
-
-- hdr2sdr=&lt;string&gt;  
-  Enables HDR10 to SDR by selected tone-mapping.  
-
-  - none (default)  
-    hdr2sdr processing is disabled.
-  
-  - hable  
-    Trys to preserve both bright and dark detailes, but with rather dark result.
-    You may specify addtional params (a,b,c,d,e,f) for the hable tone-mapping function below.  
-
-    hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
-    output = hable( input ) / hable( (source_peak / ldr_nits) )
-    
-    defaults: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
-
-  - mobius  
-    Trys to preserve contrast and colors while bright details might be removed.  
-    - transition=&lt;float&gt;  (default: 0.3)  
-      Threshold to move from linear conversion to mobius tone mapping.  
-    - peak=&lt;float&gt;  (default: 1.0)  
-      reference peak brightness
-  
-  - reinhard  
-    - contrast=&lt;float&gt;  (default: 0.5)  
-      local contrast coefficient  
-    - peak=&lt;float&gt;  (default: 1.0)  
-      reference peak brightness
-      
-  - bt2390  
-    Perceptual tone mapping curve EETF) specified in BT.2390.
-
-- source_peak=&lt;float&gt;  (default: 1000.0)  
-
-- ldr_nits=&lt;float&gt;  (default: 100.0)  
-  Target brightness for hdr2sdr function.
-  
-- desat_base=&lt;float&gt;  (default: 0.18)  
-  Offset for desaturation curve used in hdr2sr.
-
-- desat_strength=&lt;float&gt;  (default: 0.75)  
-  Strength of desaturation curve used in hdr2sr.
-  0.0 will disable the desaturation, 1.0 will make overly bright colors will tend towards white.
-
-- desat_exp=&lt;float&gt;  (default: 1.5)  
-  Exponent of the desaturation curve used in hdr2sr.
-  This controls the brightness of which desaturated is going to start.
-  Lower value will make the desaturation to start earlier.
-
-```
-example1: convert from BT.601 -> BT.709
---vpp-colorspace matrix=smpte170m:bt709
-
-example2: using hdr2sdr (hable tone-mapping)
---vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
-
-example3: using hdr2sdr (hable tone-mapping) and setting the coefs (this is example for the default settings)
---vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
-```
 
 ### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 Drop duplicated frame in cycles set.
@@ -1456,7 +1534,7 @@ Those with "○" in nppi64_10.dll use the [NPP library](https://developer.nvidia
 
 | option name | description | require nppi64_10.dll |
 |:---|:---|:---:|
-| default  | auto select | |
+| auto     | auto select | |
 | bilinear | linear interpolation | |
 | spline16 | 4x4 spline curve interpolation | |
 | spline36 | 6x6 spline curve interpolation | |
@@ -1469,28 +1547,6 @@ Those with "○" in nppi64_10.dll use the [NPP library](https://developer.nvidia
 | cubic         | 4x4 cubic interpolation | ○ |
 | super         | So called "super sampling" by NPP library | ○ |
 | lanczos       | Lanczos interpolation                    | ○ |
-
-
-### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-
-**parameters**
-- quality=&lt;int&gt;  (default=3, 1-6)  
-  Quality of the filter. Larger value should result in higher quality but with lower speed.
-
-- qp=&lt;int&gt;  (default=12, 1 - 63)    
-  Strength of the filter.
-  
-- prec  
-  Select precision.
-  - auto (default)  
-    Use fp16 whenever it is available and will be faster, otherwise use fp32.
-  
-  - fp16  
-    Force to use fp16. x64 only.
-  
-  - fp32  
-    Force to use fp32.
-
 
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Strong noise reduction filter.
@@ -1531,9 +1587,81 @@ Example: Slightly weak than default
 --vpp-pmd apply_count=2,strength=90,threshold=120
 ```
 
+### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**parameters**
+- quality=&lt;int&gt;  (default=3, 1-6)  
+  Quality of the filter. Larger value should result in higher quality but with lower speed.
+
+- qp=&lt;int&gt;  (default=12, 1 - 63)    
+  Strength of the filter.
+  
+- prec  
+  Select precision.
+  - auto (default)  
+    Use fp16 whenever it is available and will be faster, otherwise use fp32.
+  
+  - fp16  
+    Force to use fp16. x64 only.
+  
+  - fp32  
+    Force to use fp32.
+
 ### --vpp-gauss &lt;int&gt;
 Specify the size of Gaussian filter, from 3, 5 or 7.  
-It is necessary to install nppi64_80.dll, and could be used only in x64 version.
+It is necessary to install nppi64_10.dll, and could be used only in x64 version.
+
+### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+"Burn in" specified subtitle to the video. Text type subtitles will be rendered by [libass](https://github.com/libass/libass).
+
+**Parameters**
+- track=&lt;int&gt;  
+  Select subtitle track of the input file to burn in, track count starting from 1. 
+  Available when --avhw or --avsw is used.
+  
+- filename=&lt;string&gt;  
+  Select subtitle file path to burn in.
+
+- charcode=&lt;string&gt;  
+  Specify subtitle charcter code to burn in, for text type sub.
+
+- shaping=&lt;string&gt;  
+  Rendering quality of text, for text type sub.  
+  - simple
+  - complex (default)
+
+- scale=&lt;float&gt; (default=0.0 (auto))  
+  scaling multiplizer for bitmap fonts.  
+
+- transparency=&lt;float&gt; (default=0.0, 0.0 - 1.0)  
+  adds additional transparency for subtitle.  
+
+- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+  modifies brightness of the subtitle.  
+
+- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+  modifies contrast of the subtitle.  
+  
+- vid_ts_offset=&lt;bool&gt;  
+  add timestamp offset to match the first timestamp of the video file (default on)　　
+  Please note that when \"track\" is used, this options is always on.
+
+- ts_offset=&lt;float&gt; (default=0.0)  
+  add offset in seconds to the subtitle timestamps (for debug perpose).  
+
+- fontsdir=&lt;string&gt;  
+  directory with fonts used.
+
+```
+Example1: burn in subtitle from the track of the input file
+--vpp-subburn track=1
+
+Example2: burn in PGS subtitle from file
+--vpp-subburn filename="subtitle.sup"
+
+Example3: burn in ASS subtitle from file which charcter code is Shift-JIS
+--vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
+```
 
 ### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 unsharp filter, for edge and detail enhancement.
@@ -1604,6 +1732,39 @@ Edge warping (sharpening) filter.
 --vpp-warpsharp threshold=128,blur=3,type=1
 ```
 
+### --vpp-rotate &lt;int&gt;
+
+Rotate video. 90, 180, 270 degrees is allowed.
+
+### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**Parameters**
+- flip_x=&lt;bool&gt;
+
+- flip_y=&lt;bool&gt;
+
+- transpose=&lt;bool&gt;
+
+### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**Parameters**
+- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+
+- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+
+- gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
+
+- saturation=&lt;float&gt; (default=1.0, 0.0 - 3.0)  
+
+- hue=&lt;float&gt; (default=0.0, -180 - 180)  
+
+- swapuv=&lt;bool&gt;  (default=false)
+
+```
+Example:
+--vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
+```
+
 ### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **Parameters**
@@ -1646,165 +1807,8 @@ Example:
 --vpp-deband range=31,dither=12,rand_each_frame
 ```
 
-### --vpp-rotate &lt;int&gt;
-
-Rotate video. 90, 180, 270 degrees is allowed.
-
-
-### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-
-**Parameters**
-- flip_x=&lt;bool&gt;
-
-- flip_y=&lt;bool&gt;
-
-- transpose=&lt;bool&gt;
-
-
-### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-
-**Parameters**
-- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
-
-- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
-
-- gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
-
-- saturation=&lt;float&gt; (default=1.0, 0.0 - 3.0)  
-
-- hue=&lt;float&gt; (default=0.0, -180 - 180)  
-
-- swapuv=&lt;bool&gt;  (default=false)
-
-```
-Example:
---vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
-```
-
 ### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 add padding to left,top,right,bottom (in pixels)
-
-### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-"Burn in" specified subtitle to the video. Text type subtitles will be rendered by [libass](https://github.com/libass/libass).
-
-**Parameters**
-- track=&lt;int&gt;  
-  Select subtitle track of the input file to burn in, track count starting from 1. 
-  Available when --avhw or --avsw is used.
-  
-- filename=&lt;string&gt;  
-  Select subtitle file path to burn in.
-
-- charcode=&lt;string&gt;  
-  Specify subtitle charcter code to burn in, for text type sub.
-
-- shaping=&lt;string&gt;  
-  Rendering quality of text, for text type sub.  
-  - simple
-  - complex (default)
-
-- scale=&lt;float&gt; (default=0.0 (auto))  
-  scaling multiplizer for bitmap fonts.  
-
-- transparency=&lt;float&gt; (default=0.0, 0.0 - 1.0)  
-  adds additional transparency for subtitle.  
-
-- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
-  modifies brightness of the subtitle.  
-
-- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
-  modifies contrast of the subtitle.  
-  
-- vid_ts_offset=&lt;bool&gt;  
-  add timestamp offset to match the first timestamp of the video file (default on)　　
-  Please note that when \"track\" is used, this options is always on.
-
-- ts_offset=&lt;float&gt; (default=0.0)  
-  add offset in seconds to the subtitle timestamps (for debug perpose).  
-
-- fontsdir=&lt;string&gt;  
-  directory with fonts used.
-
-```
-Example1: burn in subtitle from the track of the input file
---vpp-subburn track=1
-
-Example2: burn in PGS subtitle from file
---vpp-subburn filename="subtitle.sup"
-
-Example3: burn in ASS subtitle from file which charcter code is Shift-JIS
---vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
-```
-
-### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-
-**Parameters**
-- select=&lt;string&gt;  
-For logo pack, specify the logo to use with one of the following.
-  - Logo name
-  - Index (1, 2, ...)
-  - Automatic selection ini file
-
-For logo pack, specify the logo to use with one of the following.
-
-- Logo name
-- Index (1, 2, ...)
-- Automatic selection ini file
-```
- [LOGO_AUTO_SELECT]
- logo<num>=<pattern>,<logo name>
-```
-
- Example:
- ```ini
-[LOGO_AUTO_SELECT]
-logo1= (NHK-G).,NHK総合 1440x1080
-logo2= (NHK-E).,NHK-E 1440x1080
-logo3= (MX).,TOKYO MX 1 1440x1080
-logo4= (CTC).,チバテレビ 1440x1080
-logo5= (NTV).,日本テレビ 1440x1080
-logo6= (TBS).,TBS 1440x1088
-logo7= (TX).,TV東京 50th 1440x1080
-logo8= (CX).,フジテレビ 1440x1088
-logo9= (BSP).,NHK BSP v3 1920x1080
-logo10= (BS4).,BS日テレ 1920x1080
-logo11= (BSA).,BS朝日 1920x1080
-logo12= (BS-TBS).,BS-TBS 1920x1080
-logo13= (BSJ).,BS Japan 1920x1080
-logo14= (BS11).,BS11 1920x1080 v3
-```
-
-
-- pos &lt;int&gt;:&lt;int&gt;
-Adjustment of logo position with 1/4 pixel accuracy in x:y direction.  
-
-- depth &lt;int&gt;
-Adjustment of logo transparency. Default 128.  
-
-- y=&lt;int&gt;  
-- cb=&lt;int&gt;  
-- cr=&lt;int&gt;  
-Adjustment of each color component of the logo.  
-
-- auto_fade=&lt;bool&gt;  
-Adjust fade value dynamically. default=false.  
-  
-- auto_nr=&lt;bool&gt;  
-Adjust strength of noise reduction dynamically. default=false.  
-
-- nr_area=&lt;int&gt;  
-Area of noise reduction near logo. (default=0 (off), 0 - 3)  
-
-- nr_value=&lt;int&gt;  
-Strength of noise reduction near logo. (default=0 (off), 0 - 4)  
-
-- log=&lt;bool&gt;  
-auto_fade, auto_nrを使用した場合のfade値の推移をログに出力する。
-
-```
-例:
---vpp-delogo logodata.ldp2,select=delogo.auf.ini,auto_fade=true,auto_nr=true,nr_value=3,nr_area=1,log=true
-```
 
 ### --vpp-perf-monitor
 Monitor the performance of each vpp filter, and output the average per frame processing time of the applied filter(s). Note that the overall encoding performance may slightly be harmed.
@@ -1858,6 +1862,9 @@ Select the level of log output.
 
 ### --log-framelist
 FOR DEBUG ONLY! Output debug log for avsw/avhw reader.
+
+### --log-packets
+FOR DEBUG ONLY! Output debug log for packets read in avsw/avhw reader.
 
 ### --option-file &lt;string&gt;
 File which containes a list of options to be used.
