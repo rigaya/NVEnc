@@ -2570,14 +2570,7 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             } else if (inputParam->vpp.resize_algo <= RGY_VPP_RESIZE_OPENCL_CUDA_MAX) {
                 param->interp = inputParam->vpp.resize_algo;
             } else {
-#if _M_IX86
-                if (param->interp <= RGY_VPP_RESIZE_NPPI_INTER_MAX) {
-                    param->interp = RGY_VPP_RESIZE_SPLINE36;
-                    PrintMes(RGY_LOG_WARN, _T("npp resize filters not supported in x86, switching to %s.\n"), get_chr_from_value(list_nppi_resize, param->interp));
-                }
-#else
                 param->interp = inputParam->vpp.resize_algo;
-#endif
             }
             param->frameIn = inputFrame;
             param->frameOut = inputFrame;
@@ -2585,12 +2578,6 @@ RGY_ERR NVEncCore::InitFilters(const InEncodeVideoParam *inputParam) {
             param->frameOut.height = resizeHeight;
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
-#if _M_IX86
-            if (param->interp <= RGY_VPP_RESIZE_NPPI_INTER_MAX) {
-                param->interp = RGY_VPP_RESIZE_SPLINE36;
-                PrintMes(RGY_LOG_WARN, _T("npp resize filters not supported in x86, switching to %s.\n"), get_chr_from_value(list_nppi_resize, param->interp));
-            }
-#endif
             NVEncCtxAutoLock(cxtlock(m_dev->vidCtxLock()));
             auto sts = filterCrop->init(param, m_pNVLog);
             if (sts != RGY_ERR_NONE) {
