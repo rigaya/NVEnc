@@ -39,6 +39,42 @@
 #include "auo_conf.h"
 #include "NVEncCmd.h"
 
+enum {
+    NPPI_INTER_MAX = NPPI_INTER_LANCZOS3_ADVANCED,
+    RESIZE_CUDA_TEXTURE_BILINEAR,
+    RESIZE_CUDA_TEXTURE_NEAREST,
+    RESIZE_CUDA_SPLINE16,
+    RESIZE_CUDA_SPLINE36,
+    RESIZE_CUDA_SPLINE64,
+    RESIZE_CUDA_LANCZOS2,
+    RESIZE_CUDA_LANCZOS3,
+    RESIZE_CUDA_LANCZOS4,
+};
+
+const CX_DESC list_nppi_resize[] = {
+    { _T("default"),       NPPI_INTER_UNDEFINED },
+#if !defined(_M_IX86) || FOR_AUO
+    { _T("nn"),            NPPI_INTER_NN },
+    { _T("npp_linear"),    NPPI_INTER_LINEAR },
+    { _T("cubic"),         NPPI_INTER_CUBIC },
+    { _T("cubic_bspline"), NPPI_INTER_CUBIC2P_BSPLINE },
+    { _T("cubic_catmull"), NPPI_INTER_CUBIC2P_CATMULLROM },
+    { _T("cubic_b05c03"),  NPPI_INTER_CUBIC2P_B05C03 },
+    { _T("super"),         NPPI_INTER_SUPER },
+    { _T("lanczos"),       NPPI_INTER_LANCZOS },
+#endif
+    //{ _T("lanczons3"),     NPPI_INTER_LANCZOS3_ADVANCED },
+    { _T("bilinear"),      RESIZE_CUDA_TEXTURE_BILINEAR },
+    { _T("nearest"),       RESIZE_CUDA_TEXTURE_NEAREST },
+    { _T("spline16"),      RESIZE_CUDA_SPLINE16 },
+    { _T("spline36"),      RESIZE_CUDA_SPLINE36 },
+    { _T("spline64"),      RESIZE_CUDA_SPLINE64 },
+    { _T("lanczos2"),      RESIZE_CUDA_LANCZOS2 },
+    { _T("lanczos3"),      RESIZE_CUDA_LANCZOS3 },
+    { _T("lanczos4"),      RESIZE_CUDA_LANCZOS4 },
+    { NULL, 0 }
+};
+
 typedef struct _NV_ENC_CONFIG_SVC_TEMPORAL
 {
     uint32_t         numTemporalLayers;                /**< [in]: Max temporal layers. Valid value range is [1,::NV_ENC_CAPS_NUM_MAX_TEMPORAL_LAYERS] */

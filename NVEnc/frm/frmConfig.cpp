@@ -751,7 +751,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXAQ,                list_aq);
     setComboBox(fcgCXBrefMode,          list_bref_mode);
     setComboBox(fcgCXCudaSchdule,       list_cuda_schedule);
-    setComboBox(fcgCXVppResizeAlg,      list_nppi_resize_help);
+    setComboBox(fcgCXVppResizeAlg,      list_vpp_resize);
     setComboBox(fcgCXVppDenoiseMethod,  list_vpp_denoise);
     setComboBox(fcgCXVppDetailEnhance,  list_vpp_detail_enahance);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
@@ -1077,11 +1077,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBAuoTcfileout->Checked         = cnf->vid.auo_tcfile_out != 0;
         fcgCBLogDebug->Checked             = encPrm.ctrl.loglevel == RGY_LOG_DEBUG;
 
-        fcgCBVppPerfMonitor->Checked   = encPrm.vpp.checkPerformance != 0;
+        fcgCBVppPerfMonitor->Checked   = encPrm.vppnv.checkPerformance != 0;
         fcgCBVppResize->Checked        = cnf->vid.resize_enable != 0;
         SetNUValue(fcgNUVppResizeWidth,  cnf->vid.resize_width);
         SetNUValue(fcgNUVppResizeHeight, cnf->vid.resize_height);
-        SetCXIndex(fcgCXVppResizeAlg,    get_cx_index(list_nppi_resize_help, encPrm.vpp.resizeInterp));
+        SetCXIndex(fcgCXVppResizeAlg,    get_cx_index(list_vpp_resize, encPrm.vpp.resize_algo));
         int dnoise_idx = 0;
         if (encPrm.vpp.knn.enable) {
             dnoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
@@ -1352,9 +1352,9 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     }
 
     encPrm.ctrl.loglevel              = fcgCBLogDebug->Checked ? RGY_LOG_DEBUG : RGY_LOG_INFO;
-    encPrm.vpp.checkPerformance       = fcgCBVppPerfMonitor->Checked;
+    encPrm.vppnv.checkPerformance     = fcgCBVppPerfMonitor->Checked;
 
-    encPrm.vpp.resizeInterp           = list_nppi_resize_help[fcgCXVppResizeAlg->SelectedIndex].value;
+    encPrm.vpp.resize_algo            = (RGY_VPP_RESIZE_ALGO)list_vpp_resize[fcgCXVppResizeAlg->SelectedIndex].value;
 
     encPrm.vpp.knn.enable             = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn"));
     encPrm.vpp.knn.radius             = (int)fcgNUVppDenoiseKnnRadius->Value;
