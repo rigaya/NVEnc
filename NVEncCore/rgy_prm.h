@@ -174,15 +174,21 @@ static const bool  FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME = false;
 
 
 const CX_DESC list_vpp_denoise[] = {
-    { _T("none"),   0 },
-    { _T("knn"),    1 },
-    { _T("pmd"),    2 },
-    { _T("smooth"), 3 },
+    { _T("none"),    0 },
+#if ENCODER_QSV
+    { _T("denoise"), 4 },
+#endif
+    { _T("knn"),     1 },
+    { _T("pmd"),     2 },
+    { _T("smooth"),  3 },
     { NULL, 0 }
 };
 
 const CX_DESC list_vpp_detail_enahance[] = {
     { _T("none"),       0 },
+#if ENCODER_QSV
+    { _T("detail-enhance"), 4 },
+#endif
     { _T("unsharp"),    1 },
     { _T("edgelevel"),  2 },
     { _T("warpsharp"),  3 },
@@ -288,10 +294,14 @@ const CX_DESC list_vpp_resize[] = {
     { _T("lanczos3"), RGY_VPP_RESIZE_LANCZOS3 },
     { _T("lanczos4"), RGY_VPP_RESIZE_LANCZOS4 },
 #if ENCODER_QSV
+  #if !FOR_AUO
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
+  #endif
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
     { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
+  #if !FOR_AUO
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
+  #endif
 #endif
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
     { _T("nn"),            RGY_VPP_RESIZE_NPPI_INTER_NN },
