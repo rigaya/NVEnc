@@ -977,6 +977,9 @@ matroska format (hould be in utf-8)
 ### --chapter-copy
 Copy chapters from input file.
 
+### --chapter-no-trim
+Do not apply --trim when reading chapters.
+
 ### --key-on-chapter
 Set keyframes on chapter position.
 
