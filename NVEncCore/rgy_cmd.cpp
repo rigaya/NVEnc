@@ -5991,7 +5991,8 @@ tstring gen_cmd_help_ctrl() {
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error\n")
-        _T("   --log-framelist              output debug info for avsw/avhw reader.\n"));
+        _T("   --log-framelist              output debug info for avsw/avhw reader.\n")
+        _T("   --log-packets                output debug info for avsw/avhw reader.\n"));
 
     str += strsprintf(_T("\n")
         _T("   --option-file <string>       read commanline options written in file.\n"));
