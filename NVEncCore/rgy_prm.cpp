@@ -1139,8 +1139,7 @@ RGYParamCommon::RGYParamCommon() :
     AVInputFormat(nullptr),
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
     timecode(false),
-    timecodeFile(),
-    outputBufSizeMB(8) {
+    timecodeFile() {
 
 }
 
@@ -1166,7 +1165,8 @@ RGYParamControl::RGYParamControl() :
     gpuSelect(),
     skipHWDecodeCheck(false),
     avsdll(),
-    enableOpenCL(true) {
+    enableOpenCL(true),
+    outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT) {
 
 }
 RGYParamControl::~RGYParamControl() {};

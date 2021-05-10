@@ -296,11 +296,6 @@ tstring encoder_help() {
         _T("       sync  : CPU will sleep when waiting GPU tasks, performance might\n")
         _T("                drop slightly, while CPU utilization will be lower,\n")
         _T("                especially on HW decode mode.\n"));
-    str += strsprintf(_T("\n")
-        _T("   --output-buf <int>           buffer size for output in MByte\n")
-        _T("                                 default %d MB (0-%d)\n"),
-        DEFAULT_OUTPUT_BUF, RGY_OUTPUT_BUF_MB_MAX
-    );
     str += gen_cmd_help_ctrl();
     return str;
 }

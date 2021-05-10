@@ -4067,20 +4067,6 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
 #endif //#if ENABLE_AVSW_READER
-    if (IS_OPTION("output-buf")) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        if (value < 0) {
-            print_cmd_error_invalid_value(option_name, strInput[i], _T("--output-buf should be set in positive value."));
-            return 1;
-        }
-        common->outputBufSizeMB = (std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
-        return 0;
-    }
     if (IS_OPTION("avsync")) {
         int value = 0;
         i++;
@@ -4356,6 +4342,20 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
             return 1;
         }
         ctrl->threadAudio = value;
+        return 0;
+    }
+    if (IS_OPTION("output-buf")) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        if (value < 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("--output-buf should be set in positive value."));
+            return 1;
+        }
+        ctrl->outputBufSizeMB = (std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
         return 0;
     }
     if (IS_OPTION("thread-csp")) {
@@ -5339,12 +5339,12 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << param->timecodeFile;
         }
     }
-    OPT_NUM(_T("--output-buf"), outputBufSizeMB);
     return cmd.str();
 }
 
 tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm, bool save_disabled_prm) {
     std::basic_stringstream<TCHAR> cmd;
+    OPT_NUM(_T("--output-buf"), outputBufSizeMB);
     OPT_NUM(_T("--thread-output"), threadOutput);
     OPT_NUM(_T("--thread-input"), threadInput);
     OPT_NUM(_T("--thread-audio"), threadAudio);
@@ -5997,9 +5997,14 @@ tstring gen_cmd_help_ctrl() {
     str += strsprintf(_T("\n")
         _T("   --option-file <string>       read commanline options written in file.\n"));
     str += strsprintf(_T("")
-        _T("   --max-procfps <int>         limit encoding speed for lower utilization.\n")
+        _T("   --max-procfps <int>          limit encoding speed for lower utilization.\n")
         _T("                                 default:0 (no limit)\n")
-        _T("   --lowlatency                minimize latency (might have lower throughput).\n"));
+        _T("   --lowlatency                 minimize latency (might have lower throughput).\n"));
+    str += strsprintf(_T("")
+        _T("   --output-buf <int>           buffer size for output in MByte\n")
+        _T("                                 default %d MB (0-%d)\n"),
+        RGY_OUTPUT_BUF_MB_DEFAULT, RGY_OUTPUT_BUF_MB_MAX
+    );
 #if ENABLE_AVCODEC_OUT_THREAD
     str += strsprintf(_T("")
         _T("   --output-thread <int>        set output thread num\n")

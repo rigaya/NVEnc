@@ -1130,8 +1130,6 @@ struct RGYParamCommon {
     bool timecode;
     tstring timecodeFile;
 
-    int outputBufSizeMB;         //出力バッファサイズ
-
     RGYParamCommon();
     ~RGYParamCommon();
 };
@@ -1157,6 +1155,8 @@ struct RGYParamControl {
     bool skipHWDecodeCheck;
     tstring avsdll;
     bool enableOpenCL;
+
+    int outputBufSizeMB;         //出力バッファサイズ
 
     RGYParamControl();
     ~RGYParamControl();

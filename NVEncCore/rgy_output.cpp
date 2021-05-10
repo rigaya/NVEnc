@@ -734,7 +734,7 @@ RGY_ERR initWriters(
         writerPrm.bVideoDtsUnavailable    = videoDtsUnavailable;
         writerPrm.threadOutput           = ctrl->threadOutput;
         writerPrm.threadAudio            = ctrl->threadAudio;
-        writerPrm.bufSizeMB              = common->outputBufSizeMB;
+        writerPrm.bufSizeMB              = ctrl->outputBufSizeMB;
         writerPrm.audioResampler         = common->audioResampler;
         writerPrm.audioIgnoreDecodeError = common->audioIgnoreDecodeError;
         writerPrm.queueInfo = (pPerfMonitor) ? pPerfMonitor->GetQueueInfoPtr() : nullptr;
@@ -1030,7 +1030,7 @@ RGY_ERR initWriters(
         {
             pFileWriter = std::make_shared<RGYOutputRaw>();
             RGYOutputRawPrm rawPrm;
-            rawPrm.bufSizeMB = common->outputBufSizeMB;
+            rawPrm.bufSizeMB = ctrl->outputBufSizeMB;
             rawPrm.benchmark = benchmark;
             rawPrm.codecId = outputVideoInfo.codec;
             rawPrm.hedrsei = hedrsei;
@@ -1091,7 +1091,7 @@ RGY_ERR initWriters(
                 AvcodecWriterPrm writerAudioPrm;
                 writerAudioPrm.threadOutput   = ctrl->threadOutput;
                 writerAudioPrm.threadAudio    = ctrl->threadAudio;
-                writerAudioPrm.bufSizeMB      = common->outputBufSizeMB;
+                writerAudioPrm.bufSizeMB      = ctrl->outputBufSizeMB;
                 writerAudioPrm.outputFormat   = pAudioSelect->extractFormat;
                 writerAudioPrm.audioIgnoreDecodeError = common->audioIgnoreDecodeError;
                 writerAudioPrm.audioResampler = common->audioResampler;
