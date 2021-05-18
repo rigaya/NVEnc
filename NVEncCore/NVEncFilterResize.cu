@@ -726,7 +726,7 @@ RGY_ERR NVEncFilterResize::init(shared_ptr<NVEncFilterParam> pParam, shared_ptr<
 
 tstring NVEncFilterParamResize::print() const {
     return strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
-        get_chr_from_value(list_vpp_resize_mode, interp),
+        get_chr_from_value(list_vpp_resize, interp),
         frameIn.width, frameIn.height,
         frameOut.width, frameOut.height);
 }
