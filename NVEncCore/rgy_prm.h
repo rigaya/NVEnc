@@ -313,7 +313,7 @@ const CX_DESC list_vpp_resize[] = {
     //{ _T("cubic_b05c03"),  RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_B05C03 },
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
-    { _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+    //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
 #endif
     { NULL, 0 }
 };
@@ -346,7 +346,7 @@ const CX_DESC list_vpp_resize_help[] = {
     //{ _T("cubic_b05c03"),  RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_B05C03 },
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
-    { _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+    //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
 #endif
     { NULL, 0 }
 };
