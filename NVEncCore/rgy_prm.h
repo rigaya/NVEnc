@@ -307,9 +307,10 @@ const CX_DESC list_vpp_resize[] = {
     { _T("nn"),            RGY_VPP_RESIZE_NPPI_INTER_NN },
     { _T("npp_linear"),    RGY_VPP_RESIZE_NPPI_INTER_LINEAR },
     { _T("cubic"),         RGY_VPP_RESIZE_NPPI_INTER_CUBIC },
-    { _T("cubic_bspline"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_BSPLINE },
-    { _T("cubic_catmull"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_CATMULLROM },
-    { _T("cubic_b05c03"),  RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_B05C03 },
+    //下記値は無効(指定しても動作しない)
+    //{ _T("cubic_bspline"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_BSPLINE },
+    //{ _T("cubic_catmull"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_CATMULLROM },
+    //{ _T("cubic_b05c03"),  RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_B05C03 },
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     { _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
@@ -339,6 +340,7 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("nn"),            RGY_VPP_RESIZE_NPPI_INTER_NN },
     { _T("npp_linear"),    RGY_VPP_RESIZE_NPPI_INTER_LINEAR },
     { _T("cubic"),         RGY_VPP_RESIZE_NPPI_INTER_CUBIC },
+    //下記値は無効(指定しても動作しない)
     //{ _T("cubic_bspline"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_BSPLINE },
     //{ _T("cubic_catmull"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_CATMULLROM },
     //{ _T("cubic_b05c03"),  RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_B05C03 },
