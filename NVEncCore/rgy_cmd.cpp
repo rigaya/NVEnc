@@ -242,6 +242,8 @@ std::vector<tstring> cmd_from_config_file(const tstring& filename) {
     std::string str;
     while (getline(ifs, str)) {
         str = trim(str);
+        //行頭が"#"の場合はコメントとする
+        if (str[0] == '#') continue;
         if (str.length() > 0) {
             if (configstr.length() > 0) {
                 configstr += " ";
