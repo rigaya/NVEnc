@@ -1705,7 +1705,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     vpp->pad.top    = val[1];
                     vpp->pad.right  = val[2];
                     vpp->pad.bottom = val[3];
-                    continue;
+                    return 0;
                 }
                 print_cmd_error_invalid_value(option_name, strInput[i]);
                 return 1;
