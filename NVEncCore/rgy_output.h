@@ -63,10 +63,11 @@ class RGYTimestamp {
 private:
     std::unordered_map<int64_t, int64_t> m_duration;
     std::mutex mtx;
+    int64_t last_add_pts;
     int64_t last_check_pts;
     int64_t offset;
 public:
-    RGYTimestamp() : m_duration(), mtx(), last_check_pts(-1), offset(0) {};
+    RGYTimestamp() : m_duration(), mtx(), last_add_pts(-1), last_check_pts(-1), offset(0) {};
     ~RGYTimestamp() {};
     void clear() {
         std::lock_guard<std::mutex> lock(mtx);
@@ -76,7 +77,13 @@ public:
     }
     void add(int64_t pts, int64_t duration) {
         std::lock_guard<std::mutex> lock(mtx);
+        if (last_add_pts >= 0) { // 前のフレームのdurationの更新
+            auto last_add_pos = m_duration.find(last_add_pts);
+            last_add_pos->second = pts - last_add_pos->first;
+            if (duration == 0) duration = last_add_pos->second;
+        }
         m_duration[pts] = duration;
+        last_add_pts = pts;
     }
     int64_t check(int64_t pts) {
         if (last_check_pts < 0 && pts > 0) {
