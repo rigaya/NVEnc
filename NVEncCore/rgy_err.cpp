@@ -225,6 +225,9 @@ const TCHAR *get_err_mes(RGY_ERR sts) {
     case RGY_ERR_INVALID_VIDEO_PARAM:             return _T("invalid video parameters.");
     case RGY_ERR_UNDEFINED_BEHAVIOR:              return _T("undefined behavior.");
     case RGY_ERR_DEVICE_FAILED:                   return _T("device operation failure.");
+    case RGY_ERR_MORE_BITSTREAM:                  return _T("more bitstream required.");
+    case RGY_ERR_INCOMPATIBLE_AUDIO_PARAM:        return _T("incompatible audio param.");
+    case RGY_ERR_INVALID_AUDIO_PARAM:             return _T("invalid audio param.");
     case RGY_ERR_GPU_HANG:                        return _T("gpu hang.");
     case RGY_ERR_REALLOC_SURFACE:                 return _T("failed to realloc surface.");
     case RGY_ERR_ACCESS_DENIED:                   return _T("access denied");
