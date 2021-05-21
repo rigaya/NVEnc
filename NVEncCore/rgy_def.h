@@ -47,7 +47,7 @@ static const int RGY_OUTPUT_THREAD_AUTO = -1;
 static const int RGY_AUDIO_THREAD_AUTO = -1;
 static const int RGY_INPUT_THREAD_AUTO = -1;
 
-static const int CHECK_PTS_MAX_INSERT_FRAMES = 1024;
+static const int CHECK_PTS_MAX_INSERT_FRAMES = 18000;
 
 static const int TRIM_MAX = std::numeric_limits<int>::max();
 static const int TRIM_OVERREAD_FRAMES = 128;
