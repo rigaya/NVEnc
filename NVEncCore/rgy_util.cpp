@@ -478,18 +478,18 @@ std::wstring trim(const std::wstring& string, const WCHAR* trim) {
 }
 
 std::string GetFullPath(const char *path) {
-    return std::filesystem::absolute(std::filesystem::path(path)).lexically_normal().string();
+    return std::filesystem::absolute(std::filesystem::path(strlen(path) ? path : ".")).lexically_normal().string();
 }
 #if defined(_WIN32) || defined(_WIN64)
 std::wstring GetFullPath(const WCHAR *path) {
-    return std::filesystem::absolute(std::filesystem::path(path)).lexically_normal().wstring();
+    return std::filesystem::absolute(std::filesystem::path(wcslen(path) ? path : L".")).lexically_normal().wstring();
 }
 //ルートディレクトリを取得
 std::string PathGetRoot(const char *path) {
-    return std::filesystem::path(path).root_name().string();
+    return std::filesystem::path(GetFullPath(path)).root_name().string();
 }
 std::wstring PathGetRoot(const WCHAR *path) {
-    return std::filesystem::path(path).root_name().wstring();
+    return std::filesystem::path(GetFullPath(path)).root_name().wstring();
 }
 
 //パスのルートが存在するかどうか
@@ -534,7 +534,7 @@ std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename)
 #endif //#if defined(_WIN32) || defined(_WIN64)
 //フォルダがあればOK、なければ作成する
 bool CreateDirectoryRecursive(const char *dir) {
-    auto targetDir = std::filesystem::path(dir);
+    auto targetDir = std::filesystem::path(strlen(dir) ? dir : ".");
     if (std::filesystem::exists(targetDir)) {
         return true;
     }
@@ -542,7 +542,7 @@ bool CreateDirectoryRecursive(const char *dir) {
 }
 #if defined(_WIN32) || defined(_WIN64)
 bool CreateDirectoryRecursive(const WCHAR *dir) {
-    auto targetDir = std::filesystem::path(dir);
+    auto targetDir = std::filesystem::path(wcslen(dir) ? dir : L".");
     if (std::filesystem::exists(targetDir)) {
         return true;
     }
