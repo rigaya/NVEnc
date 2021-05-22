@@ -207,6 +207,9 @@ typedef struct AVMuxOther {
     uint8_t              *bufConvert;          //変換用のバッファ
 
     AVBSFContext         *bsfc;              //必要なら使用するbitstreamfilter
+
+    RGYSubAsData asdata;        //バイナリデータとして転送する
+    char        *datahandler;   //asdata=timed_id3の時のデータ
 } AVMuxOther;
 
 enum {
@@ -279,7 +282,8 @@ struct AVOutputStreamPrm {
     int     bitrate;            //ビットレートの指定
     int     samplingRate;       //サンプリング周波数の指定
     tstring filter;             //音声フィルタ
-    bool    asdata;             //バイナリデータとして転送する
+    RGYSubAsData asdata;        //バイナリデータとして転送する
+    tstring datahandler;        //asdata=timed_id3の時のデータ
     tstring bsf;                //適用すべきbsfの名前
     tstring disposition;        //disposition
     std::vector<tstring> metadata; //metadata
@@ -293,7 +297,8 @@ struct AVOutputStreamPrm {
         bitrate(0),
         samplingRate(0),
         filter(),
-        asdata(false),
+        asdata(RGYSubAsData::None),
+        datahandler(),
         bsf(),
         disposition(),
         metadata() {
@@ -512,6 +517,9 @@ protected:
 
     //その他のパケットを書き出す
     RGY_ERR WriteOtherPacket(AVPacket *pkt);
+
+    //字幕用にpacketをtimed_id3に変換する
+    RGY_ERR ConvertPacketToTimedID3(AVPacket *pkt, const AVMuxOther *pMuxOther);
 
     //パケットを実際に書き出す
     void WriteNextPacketProcessed(AVPktMuxData *pktData);

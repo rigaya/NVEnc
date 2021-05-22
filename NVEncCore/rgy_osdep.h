@@ -139,6 +139,7 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
 #define _strnicmp strncasecmp
 #define stricmp strcasecmp
 #define _stricmp stricmp
+#define _strdup strdup
 
 static short _InterlockedIncrement16(volatile short *pVariable) {
     return __sync_add_and_fetch((volatile short*)pVariable, 1);

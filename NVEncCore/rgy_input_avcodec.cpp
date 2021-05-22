@@ -2330,9 +2330,17 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
         //trimからわかるフレーム数の上限値よりfixedNumがある程度の量の処理を進めたら読み込みを打ち切る
         && m_Demux.frames.fixedNum() - TRIM_OVERREAD_FRAMES < getVideoTrimMaxFramIdx()) {
         if (m_fpPacketList) {
+            const auto codecID = m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id;
             fprintf(m_fpPacketList.get(), "stream %2d, %12s, pts, %s\n",
-                pkt->stream_index, avcodec_get_name(m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id),
+                pkt->stream_index, avcodec_get_name(codecID),
                 pkt->pts == AV_NOPTS_VALUE ? "Unknown" : strsprintf("%lld", pkt->pts).c_str());
+            if (false
+                && (codecID == AV_CODEC_ID_ARIB_CAPTION
+                || codecID == AV_CODEC_ID_TIMED_ID3)) {
+                FILE *fp = fopen(strsprintf("debug_%lld_%s.dat", pkt->pts, avcodec_get_name(codecID)).c_str(), "wb");
+                fwrite(pkt->data, 1, pkt->size, fp);
+                fclose(fp);
+            }
         }
         if (pkt->stream_index == m_Demux.video.index) {
             if (pkt->flags & AV_PKT_FLAG_CORRUPT) {

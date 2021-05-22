@@ -1029,6 +1029,12 @@ struct AudioSource {
     ~AudioSource() {};
 };
 
+enum class RGYSubAsData {
+    None,
+    AsData,
+    AsTimedID3
+};
+
 struct SubtitleSelect {
     int trackID;         // 選択したトラックのリスト 1,2,...(1から連番で指定)
                          //  0 ... 全指定
@@ -1037,7 +1043,8 @@ struct SubtitleSelect {
     tstring encCodec;
     tstring encCodecPrm;
     tstring decCodecPrm;
-    bool asdata;
+    RGYSubAsData asdata;
+    tstring datahandler;
     tstring bsf;          // 適用するbitstreamfilterの名前
     tstring disposition;  // 指定のdisposition
     std::string lang;         // 言語選択

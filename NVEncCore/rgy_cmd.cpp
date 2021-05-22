@@ -2883,7 +2883,7 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
 }
 
 int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition", "delay", "metadata" };
+    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition", "delay", "metadata", "select-codec" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -2947,7 +2947,7 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
 }
 
 int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "metadata", "enc_prm", "copy", "disposition" };
+    const auto paramList = std::vector<std::string>{ "codec", "metadata", "enc_prm", "copy", "disposition", "select-codec" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -3318,6 +3318,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             pAudioSelect = common->ppAudioSelectList[audioIdx];
         }
         pAudioSelect->lang = lang;
+        pAudioSelect->selectCodec = selectCodec;
         func_set(pAudioSelect, trackId, ptr);
         if (trackId == 0) {
             for (int itrack = 0; itrack < common->nAudioSelectCount; itrack++) {
@@ -3384,6 +3385,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             pSubSelect = common->ppSubtitleSelectList[subIdx];
         }
         pSubSelect->lang = lang;
+        pSubSelect->selectCodec = selectCodec;
         func_set(pSubSelect, trackId, ptr);
         if (trackId == 0) {
             for (int itrack = 0; itrack < common->nSubtitleSelectCount; itrack++) {
@@ -3450,6 +3452,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             pSelect = common->ppDataSelectList[dataIdx];
         }
         pSelect->lang = lang;
+        pSelect->selectCodec = selectCodec;
         func_set(pSelect, trackId, ptr);
         if (trackId == 0) {
             for (int itrack = 0; itrack < common->nDataSelectCount; itrack++) {
@@ -3764,7 +3767,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         auto track = std::make_pair(0, "");
                         trackSet[track].trackID = iTrack;
                         trackSet[track].encCodec = RGY_AVCODEC_COPY;
-                        trackSet[track].asdata = true;
+                        trackSet[track].asdata = RGYSubAsData::AsData;
                     } else if (rgy_lang_exist(tchar_to_string(str))) {
                         auto track = std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str));
                         trackSet[track].trackID = TRACK_SELECT_BY_LANG;
@@ -3785,7 +3788,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     trackSet[track].encCodec = RGY_AVCODEC_COPY;
                     auto options = str.find(_T('?'));
                     if (str.substr(options+1) == _T("asdata")) {
-                        trackSet[track].asdata = true;
+                        trackSet[track].asdata = RGYSubAsData::AsData;
+                    } else {
+                        print_cmd_error_invalid_value(option_name, strInput[i+1]);
+                        return 1;
                     }
                 }
             }
@@ -3827,8 +3833,28 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     auto delimEnc = prm.find(_T(":"));
                     auto delimDec = prm.find(_T("#"));
                     pSubSelect->encCodec = prm.substr(0, std::min(delimEnc, delimDec));
+                    auto codec_desc = avcodec_descriptor_get_by_name(tchar_to_string(pSubSelect->encCodec).c_str());
+                    if (codec_desc && codec_desc->id == AV_CODEC_ID_TIMED_ID3) {
+                        pSubSelect->asdata = RGYSubAsData::AsTimedID3;
+                    }
                     if (delimEnc != tstring::npos) {
-                        pSubSelect->encCodecPrm = prm.substr(delimEnc + 1, (delimEnc < delimDec) ? delimDec - delimEnc - 1 : tstring::npos);
+                        auto prmstring = prm.substr(delimEnc + 1, (delimEnc < delimDec) ? delimDec - delimEnc - 1 : tstring::npos);
+                        if (pSubSelect->asdata == RGYSubAsData::AsTimedID3) {
+                            auto prmlists = split(prmstring, _T(","));
+                            prmstring.clear();
+                            for (auto& prm_kv : prmlists) {
+                                auto key_val = split(prm_kv, _T("="));
+                                if (key_val.size() == 2 && key_val[0] == _T("handler")) {
+                                    pSubSelect->datahandler = key_val[1];
+                                } else {
+                                    if (prmstring.length() > 0) {
+                                        prmstring += _T(",");
+                                    }
+                                    prmstring += prm_kv;
+                                }
+                            }
+                        }
+                        pSubSelect->encCodecPrm = prmstring;
                     }
                     if (delimDec != tstring::npos) {
                         pSubSelect->decCodecPrm = prm.substr(delimDec + 1, (delimDec < delimEnc) ? delimEnc - delimDec - 1 : tstring::npos);
@@ -5223,7 +5249,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     tmp.str(tstring());
     for (int i = 0; i < param->nSubtitleSelectCount; i++) {
         tmp << _T(",") << param->ppSubtitleSelectList[i]->trackID;
-        if (param->ppSubtitleSelectList[i]->asdata) {
+        if (param->ppSubtitleSelectList[i]->asdata == RGYSubAsData::AsData) {
             tmp << _T("?asdata");
         }
     }

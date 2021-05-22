@@ -862,6 +862,7 @@ RGY_ERR initWriters(
                         prm.encodeCodec = pSubtitleSelect->encCodec;
                         prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
                         prm.asdata = pSubtitleSelect->asdata;
+                        prm.datahandler = pSubtitleSelect->datahandler;
                         prm.bsf = pSubtitleSelect->bsf;
                         prm.disposition = pSubtitleSelect->disposition;
                         prm.metadata = pSubtitleSelect->metadata;
@@ -983,6 +984,7 @@ RGY_ERR initWriters(
                         prm.encodeCodec = pSubtitleSelect->encCodec;
                         prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
                         prm.asdata = pSubtitleSelect->asdata;
+                        prm.datahandler = pSubtitleSelect->datahandler;
                         prm.disposition = pSubtitleSelect->disposition;
                         prm.metadata = pSubtitleSelect->metadata;
                     }
