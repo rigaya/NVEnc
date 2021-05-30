@@ -39,8 +39,6 @@
 #include "rgy_version.h"
 #include "convert_csp.h"
 
-typedef std::basic_string<TCHAR> tstring;
-
 static const int MAX_FILENAME_LEN = 1024;
 
 static const int RGY_OUTPUT_THREAD_AUTO = -1;

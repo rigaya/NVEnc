@@ -40,6 +40,7 @@
 #include "cpu_info.h"
 #include "rgy_osdep.h"
 #include "rgy_util.h"
+#include "rgy_env.h"
 #include "rgy_pipe.h"
 #include "gpuz_info.h"
 #if defined(_WIN32) || defined(_WIN64)

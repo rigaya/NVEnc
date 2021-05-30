@@ -32,6 +32,7 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include "rgy_def.h"
 
 struct nal_info {
     const uint8_t *ptr;

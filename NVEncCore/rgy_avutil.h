@@ -65,6 +65,7 @@ extern "C" {
 #pragma warning (pop)
 
 #include "rgy_log.h"
+#include "rgy_def.h"
 #include "rgy_util.h"
 
 #if _DEBUG

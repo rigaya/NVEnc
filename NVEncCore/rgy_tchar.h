@@ -86,4 +86,9 @@ static inline char *_tcscpy_s(TCHAR *dst, size_t size, const TCHAR *src) {
     return strcpy(dst, src);
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+#include <string>
+
+typedef std::basic_string<TCHAR> tstring;
+
 #endif // __RGY_TCHAR_H__

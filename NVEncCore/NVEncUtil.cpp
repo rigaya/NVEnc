@@ -29,6 +29,7 @@
 #include "NVEncUtil.h"
 #include "NvHWEncoder.h"
 #include "rgy_frame.h"
+#include "rgy_aspect_ratio.h"
 
 static const auto RGY_CODEC_TO_NVENC = make_array<std::pair<RGY_CODEC, cudaVideoCodec>>(
     std::make_pair(RGY_CODEC_H264,  cudaVideoCodec_H264),

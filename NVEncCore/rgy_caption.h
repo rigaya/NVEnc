@@ -34,6 +34,7 @@
 #include "rgy_err.h"
 #include "rgy_log.h"
 #include "rgy_def.h"
+#include "rgy_stream.h"
 
 enum C2AFormat {
     FORMAT_INVALID = 0,

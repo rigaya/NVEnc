@@ -45,9 +45,7 @@
 #include <atomic>
 #include <functional>
 #include <type_traits>
-#include "rgy_def.h"
 #include "rgy_osdep.h"
-#include "rgy_err.h"
 
 #ifndef UNREFERENCED_PARAMETER
 #define UNREFERENCED_PARAMETER(x)
@@ -669,20 +667,6 @@ bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list
 //拡張子が一致するか確認する
 BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext);
 
-int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
-
-#if defined(_WIN32) || defined(_WIN64)
-tstring getOSVersion(OSVERSIONINFOEXW *osinfo);
-tstring getOSVersion();
-#else
-tstring getOSVersion();
-#endif
-BOOL rgy_is_64bit_os();
-uint64_t getPhysicalRamSize(uint64_t *ramUsed);
-tstring getEnviromentInfo(int device_id = 0);
-
-BOOL check_OS_Win8orLater();
-
 //確保できなかったら、サイズを小さくして再度確保を試みる (最終的にnMinSizeも確保できなかったら諦める)
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);
 
@@ -917,13 +901,6 @@ private:
     double mat[3][3]; //[行][列]
 };
 
-void get_dar_pixels(unsigned int* width, unsigned int* height, int sar_w, int sar_h);
-std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned int darWidth, unsigned int darHeight);
-void adjust_sar(int *sar_w, int *sar_h, int width, int height);
-void set_auto_resolution(int& dst_w, int& dst_h, int dst_sar_w, int dst_sar_h, int src_w, int src_h, int src_sar_w, int src_sar_h, const sInputCrop& crop);
-int get_h264_sar_idx(std::pair<int, int>sar);
-std::pair<int, int> get_h264_sar(int idx);
-
 struct rgy_time {
     int h, m, s, ms, us, ns;
 
@@ -984,205 +961,6 @@ struct rgy_time {
         }
         return str;
     };
-};
-
-class rgy_stream {
-    uint8_t *bufptr_;
-    size_t buf_size_;
-    size_t data_length_;
-    int64_t offset_;
-
-    uint32_t data_flag_;
-    int duration_;
-    int64_t pts_;
-    int64_t dts_;
-public:
-    rgy_stream() :
-        bufptr_(nullptr),
-        buf_size_(0),
-        data_length_(0),
-        offset_(0),
-        data_flag_(0),
-        duration_(0),
-        pts_(0),
-        dts_(0) {
-    };
-    ~rgy_stream() {
-        if (bufptr_) {
-            _aligned_free(bufptr_);
-        }
-        bufptr_ = nullptr;
-        buf_size_ = 0;
-    }
-    uint8_t *bufptr() const {
-        return bufptr_;
-    }
-    uint8_t *data() const {
-        return bufptr_ + offset_;
-    }
-    size_t size() const {
-        return data_length_;
-    }
-    size_t buf_size() const {
-        return buf_size_;
-    }
-    void add_offset(size_t add) {
-        if (data_length_ < add) {
-            add = data_length_;
-        }
-        offset_ += add;
-        data_length_ -= add;
-        assert(offset_ >= 0);
-    }
-
-    void clear() {
-        data_length_ = 0;
-        offset_ = 0;
-    }
-    RGY_ERR alloc(size_t size) {
-        clear();
-        if (bufptr_) {
-            _aligned_free(bufptr_);
-        }
-        bufptr_ = nullptr;
-        buf_size_ = 0;
-
-        if (size > 0) {
-            if (nullptr == (bufptr_ = (uint8_t *)_aligned_malloc(size, 32))) {
-                return RGY_ERR_NULL_PTR;
-            }
-            buf_size_ = size;
-        }
-        return RGY_ERR_NONE;
-    }
-    RGY_ERR realloc(size_t size) {
-        if (bufptr_ == nullptr || data_length_ == 0) {
-            return alloc(size);
-        }
-        if (size > 0) {
-            auto newptr = (uint8_t *)_aligned_malloc(size, 32);
-            if (newptr == nullptr) {
-                return RGY_ERR_NULL_PTR;
-            }
-            auto newdatalen = (std::min)(size, data_length_);
-            memcpy(newptr, bufptr_ + offset_, newdatalen);
-            _aligned_free(bufptr_);
-            bufptr_ = newptr;
-            buf_size_ = size;
-            offset_ = 0;
-            data_length_ = newdatalen;
-        }
-        return RGY_ERR_NONE;
-    }
-    void init() {
-        bufptr_ = nullptr;
-        buf_size_ = 0;
-        data_length_ = 0;
-        offset_ = 0;
-
-        data_flag_ = 0;
-        duration_ = 0;
-        pts_ = 0;
-        dts_ = 0;
-    }
-
-    void trim() {
-        if (offset_ > 0 && data_length_ > 0) {
-            memmove(bufptr_, bufptr_ + offset_, data_length_);
-            offset_ = 0;
-        }
-    }
-
-    RGY_ERR copy(const uint8_t *data, size_t size) {
-        if (data == nullptr || size == 0) {
-            return RGY_ERR_MORE_BITSTREAM;
-        }
-        if (buf_size_ < size) {
-            clear();
-            auto sts = alloc(size);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
-        }
-        data_length_ = size;
-        offset_ = 0;
-        memcpy(bufptr_, data, size);
-        return RGY_ERR_NONE;
-    }
-
-    RGY_ERR copy(const uint8_t *data, size_t size, int64_t pts) {
-        pts_ = pts;
-        return copy(data, size);
-    }
-
-    RGY_ERR copy(const uint8_t *data, size_t size, int64_t pts, int64_t dts) {
-        dts_ = dts;
-        return copy(data, size, pts);
-    }
-
-    RGY_ERR copy(const uint8_t *data, size_t size, int64_t pts, int64_t dts, int duration) {
-        duration_ = duration;
-        return copy(data, size, pts, dts);
-    }
-
-    RGY_ERR copy(const uint8_t *data, size_t size, int64_t pts, int64_t dts, int duration, uint32_t flag) {
-        data_flag_ = flag;
-        return copy(data, size, pts, dts, duration);
-    }
-
-    RGY_ERR copy(const rgy_stream *pBitstream) {
-        auto sts = copy(pBitstream->data(), pBitstream->size());
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-        return copy(pBitstream->data(), pBitstream->size(), pBitstream->pts(), pBitstream->dts(), pBitstream->duration(), pBitstream->data_flag());
-    }
-
-    RGY_ERR append(const uint8_t *append_data, size_t append_size) {
-        if (append_data && append_size > 0) {
-            const auto new_data_length = data_length_ + append_size;
-            if (buf_size_ < new_data_length) {
-                auto sts = realloc(new_data_length + (std::min<size_t>)(new_data_length / 2, 256 * 1024u));
-                if (sts != RGY_ERR_NONE) {
-                    return sts;
-                }
-            }
-
-            if (buf_size_ < new_data_length + offset_) {
-                memmove(bufptr_, bufptr_ + offset_, data_length_);
-                offset_ = 0;
-            }
-            assert(new_data_length + offset_ <= buf_size_);
-            memcpy(bufptr_ + offset_ + data_length_, append_data, append_size);
-            data_length_ = new_data_length;
-        }
-        return RGY_ERR_NONE;
-    }
-
-    uint32_t data_flag() const {
-        return data_flag_;
-    }
-    void set_data_flag(uint32_t flag) {
-        data_flag_  = flag;
-    }
-    int duration() const {
-        return duration_;
-    }
-    void set_duration(int duration) {
-        duration_ = duration;
-    }
-    int64_t pts() const {
-        return pts_;
-    }
-    void set_pts(int64_t pts) {
-        pts_ = pts;
-    }
-    int64_t dts() const {
-        return dts_;
-    }
-    void set_dts(int64_t dts) {
-        dts_ = dts;
-    }
 };
 
 class CombinationGenerator {
@@ -1253,8 +1031,6 @@ public:
         });
     }
 };
-
-int rgy_avx_dummy_if_avail(int bAVXAvail);
 
 unsigned short float2half(float value);
 

@@ -42,6 +42,7 @@
 #include "rgy_util.h"
 #include "rgy_codepage.h"
 #include "rgy_resource.h"
+#include "rgy_env.h"
 #include "NVEncDevice.h"
 #include "NVEncParam.h"
 #include "NVEncUtil.h"

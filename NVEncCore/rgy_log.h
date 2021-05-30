@@ -50,6 +50,8 @@ enum {
     RGY_LOG_QUIET = 3,
 };
 
+int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle = NULL);
+
 class RGYLog {
 protected:
     int m_nLogLevel = RGY_LOG_INFO;

@@ -37,6 +37,7 @@
 #pragma warning (pop)
 #include "rgy_tchar.h"
 #include "rgy_util.h"
+#include "convert_csp.h"
 
 struct cudaevent_deleter {
     void operator()(cudaEvent_t *pEvent) const {

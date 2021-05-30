@@ -44,6 +44,7 @@
 #pragma warning (pop)
 
 #include "rgy_util.h"
+#include "rgy_def.h"
 #pragma warning (push)
 #pragma warning (disable: 4819)
 RGY_DISABLE_WARNING_PUSH
