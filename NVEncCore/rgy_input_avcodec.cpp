@@ -459,7 +459,7 @@ RGY_CODEC RGYInputAvcodec::checkHWDecoderAvailable(AVCodecID id, AVPixelFormat p
 
 // コーデックの情報が得られている動画があるかを確認
 bool RGYInputAvcodec::hasVideoWithStreamInfo() const {
-    for (int i = 0; i < m_Demux.format.formatCtx->nb_streams; i++) {
+    for (uint32_t i = 0; i < m_Demux.format.formatCtx->nb_streams; i++) {
         const AVStream *stream = m_Demux.format.formatCtx->streams[i];
         if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
             if (stream->codecpar->width > 0 && stream->codecpar->height > 0) {
