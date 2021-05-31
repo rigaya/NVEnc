@@ -559,18 +559,8 @@ std::wstring char_to_wstring(const std::string& str, uint32_t codepage = CP_THRE
 std::wstring strsprintf(const WCHAR* format, ...);
 
 std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to);
-std::wstring GetFullPath(const WCHAR *path);
-bool rgy_get_filesize(const WCHAR *filepath, uint64_t *filesize);
-std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
-std::wstring PathRemoveExtensionS(const std::wstring& path);
-std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename);
-std::string PathCombineS(const std::string& dir, const std::string& filename);
-bool CreateDirectoryRecursive(const WCHAR *dir);
-std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
 tstring getACPCodepageStr();
 #endif //#if defined(_WIN32) || defined(_WIN64)
-tstring getExePath();
-tstring getExeDir();
 
 std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
 std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
@@ -602,13 +592,6 @@ std::vector<std::string> sep_cmd(const std::string &cmd);
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
-std::string GetFullPath(const char *path);
-bool rgy_file_exists(const std::string& filepath);
-bool rgy_file_exists(const std::wstring& filepath);
-bool rgy_get_filesize(const char *filepath, uint64_t *filesize);
-std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
-std::string PathRemoveExtensionS(const std::string& path);
-bool CreateDirectoryRecursive(const char *dir);
 
 tstring print_time(double time);
 
@@ -660,12 +643,6 @@ static tstring fourccToStr(uint32_t nFourCC) {
     }
     return fcc;
 }
-
-bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
-bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list);
-
-//拡張子が一致するか確認する
-BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext);
 
 //確保できなかったら、サイズを小さくして再度確保を試みる (最終的にnMinSizeも確保できなかったら諦める)
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);

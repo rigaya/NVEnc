@@ -32,6 +32,7 @@
 #include <memory>
 #include "rgy_osdep.h"
 #include "rgy_util.h"
+#include "rgy_filesystem.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_avlog.h"
 #include "rgy_bitstream.h"

@@ -27,6 +27,7 @@
 
 #include "rgy_osdep.h"
 #include "rgy_hdr10plus.h"
+#include "rgy_filesystem.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <fcntl.h>

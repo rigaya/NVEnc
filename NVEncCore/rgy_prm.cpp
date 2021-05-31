@@ -29,6 +29,7 @@
 #include <iostream>
 #include <iomanip>
 #include "rgy_util.h"
+#include "rgy_filesystem.h"
 #include "rgy_avutil.h"
 #include "rgy_prm.h"
 #include "rgy_err.h"

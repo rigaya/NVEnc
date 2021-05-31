@@ -30,6 +30,7 @@
 #include <fstream>
 #include <set>
 #include "rgy_input.h"
+#include "rgy_filesystem.h"
 #include "cpu_info.h"
 
 RGYConvertCSPPrm::RGYConvertCSPPrm() :

@@ -28,6 +28,7 @@
 
 #include <map>
 #include "rgy_avutil.h"
+#include "rgy_filesystem.h"
 #include "cpu_info.h"
 #include "CuvidDecode.h"
 #include "NVEncFilterSsim.h"

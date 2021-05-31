@@ -29,6 +29,7 @@
 #include <sstream>
 #include "rgy_osdep.h"
 #include "rgy_caption.h"
+#include "rgy_filesystem.h"
 
 #if ENABLE_AVSW_READER && (defined(_WIN32) || defined(_WIN64))
 

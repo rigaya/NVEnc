@@ -37,6 +37,7 @@
 #include "device_launch_parameters.h"
 #include "NVEncFilterDelogo.h"
 #pragma warning (pop)
+#include "rgy_filesystem.h"
 #include "rgy_ini.h"
 #include "rgy_codepage.h"
 

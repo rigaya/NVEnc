@@ -36,6 +36,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include "rgy_codepage.h"
+#include "rgy_filesystem.h"
 #include "convert_csp.h"
 #include "NVEncFilterSubburn.h"
 #include "NVEncParam.h"

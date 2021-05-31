@@ -40,6 +40,7 @@
 #include "rgy_input_avcodec.h"
 #include "rgy_bitstream.h"
 #include "rgy_avlog.h"
+#include "rgy_filesystem.h"
 #include "rgy_language.h"
 
 

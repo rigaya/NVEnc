@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include "rgy_output.h"
+#include "rgy_filesystem.h"
 #include "rgy_bitstream.h"
 #include "rgy_language.h"
 #include <filesystem>
@@ -544,7 +545,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             for (uint32_t i = 0; i < uvWidth; i++) {
                 ptrU[i] = ptrUV[2*i+0];
                 ptrV[i] = ptrUV[2*i+1];
-            } 
+            }
 #endif
         }
         WRITE_CHECK(fwrite(m_UVBuffer.get(), 1, uvWidth * uvHeight, m_fDest.get()), uvWidth * uvHeight);

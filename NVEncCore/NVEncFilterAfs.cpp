@@ -29,6 +29,7 @@
 #include <map>
 #include <array>
 #include "convert_csp.h"
+#include "rgy_filesystem.h"
 #include "NVEncFilterAfs.h"
 #include "NVEncParam.h"
 #include "afs_stg.h"

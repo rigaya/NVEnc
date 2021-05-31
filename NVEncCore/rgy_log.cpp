@@ -34,6 +34,7 @@
 #include "rgy_def.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
+#include "rgy_filesystem.h"
 #include "rgy_env.h"
 
 int rgy_print_stderr(int log_level, const TCHAR *mes, void *handle_) {

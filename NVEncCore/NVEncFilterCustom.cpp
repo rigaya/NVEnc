@@ -30,6 +30,7 @@
 
 #include <array>
 #include "convert_csp.h"
+#include "rgy_filesystem.h"
 #include "NVEncFilterCustom.h"
 #include "NVEncParam.h"
 #pragma warning (push)

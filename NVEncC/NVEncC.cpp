@@ -40,6 +40,7 @@
 #include <cstdio>
 #include "rgy_version.h"
 #include "rgy_util.h"
+#include "rgy_filesystem.h"
 #include "rgy_codepage.h"
 #include "rgy_resource.h"
 #include "rgy_env.h"

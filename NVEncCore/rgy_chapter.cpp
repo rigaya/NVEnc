@@ -42,6 +42,7 @@
 #include "rgy_chapter.h"
 #include "rgy_codepage.h"
 #include "rgy_util.h"
+#include "rgy_filesystem.h"
 
 
 #if defined(_WIN32) || defined(_WIN64)

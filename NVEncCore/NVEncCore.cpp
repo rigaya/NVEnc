@@ -50,6 +50,7 @@
 #include "gpu_info.h"
 #include "rgy_version.h"
 #include "rgy_status.h"
+#include "rgy_filesystem.h"
 #include "rgy_env.h"
 #include "rgy_input.h"
 #include "rgy_input_raw.h"
