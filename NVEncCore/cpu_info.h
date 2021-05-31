@@ -43,11 +43,17 @@ typedef struct cache_info_t {
 } cache_info_t;
 
 typedef struct {
+    int processor_id;
+    int core_id;
+    int socket_id;
+} processor_info_t;
+typedef struct {
     uint32_t nodes;
     uint32_t physical_cores;
     uint32_t logical_cores;
     uint32_t max_cache_level;
     cache_info_t caches[4];
+    processor_info_t proc_list[1024];
 } cpu_info_t;
 
 

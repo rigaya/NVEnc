@@ -141,7 +141,7 @@ int getCPUName(char *buffer, size_t nSize) {
             name = ptr;
         }
     }
-    sprintf(buf, "%s (%s)", name.c_str(), arch.c_str());
+    sprintf(buffer, "%s %s", name.c_str(), arch.c_str());
     return 0;
 #endif
 }
@@ -262,6 +262,9 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
 }
 
 #else //#if defined(_WIN32) || defined(_WIN64)
+#include <iostream>
+#include <fstream>
+
 bool get_cpu_info(cpu_info_t *cpu_info) {
     memset(cpu_info, 0, sizeof(cpu_info[0]));
     std::ifstream inputFile("/proc/cpuinfo");
@@ -270,32 +273,64 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
     std::string script_data = std::string(data_begin, data_end);
     inputFile.close();
 
+    std::vector<processor_info_t> processor_list;
+    processor_info_t info = { 0 };
+    info.processor_id = info.core_id = info.socket_id = -1;
+
     for (auto line : split(script_data, "\n")) {
         auto pos = line.find("processor");
         if (pos != std::string::npos) {
             int i = 0;
             if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), "%d", &i)) {
-                cpu_info->logical_cores = (std::max)(cpu_info->logical_cores, i + 1u);
+                if (info.processor_id >= 0) {
+                    if (info.socket_id < 0) info.socket_id = 0; // physical id がない場合
+                    if (info.core_id < 0) info.core_id = info.processor_id; // core id がない場合
+                    processor_list.push_back(info);
+                    info.processor_id = info.core_id = info.socket_id = -1; // 次に備えて初期化
+                }
+                info.processor_id = i;
             }
             continue;
         }
-        pos = line.find("cpu cores");
+        pos = line.find("core id");
         if (pos != std::string::npos) {
             int i = 0;
             if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), "%d", &i)) {
-                cpu_info->physical_cores = (std::max)(cpu_info->physical_cores, (uint32_t)i);
+                info.core_id = i;
             }
             continue;
         }
-        pos = line.find("pyhisical id");
+        pos = line.find("physical id");
         if (pos != std::string::npos) {
             int i = 0;
             if (1 == sscanf(line.substr(line.find(":") + 1).c_str(), "%d", &i)) {
-                cpu_info->nodes = (std::max)(cpu_info->nodes, i + 1u);
+                info.socket_id = i;
             }
             continue;
         }
     }
+    if (info.processor_id >= 0) {
+        if (info.socket_id < 0) info.socket_id = 0; // physical id がない場合
+        if (info.core_id < 0) info.core_id = info.processor_id; // core id がない場合
+        processor_list.push_back(info);
+    }
+
+    std::sort(processor_list.begin(), processor_list.end(), [](const processor_info_t& a, const processor_info_t& b) {
+        if (a.socket_id != b.socket_id) return a.socket_id < b.socket_id;
+        if (a.core_id != b.core_id) return a.core_id < b.core_id;
+        return a.processor_id < b.processor_id;
+    });
+    int physical_core_count = 0;
+    uint64_t last_key = UINT64_MAX;
+    for (uint32_t i = 0; i < processor_list.size(); i++) {
+        uint64_t key = ((uint64_t)processor_list[i].socket_id << 32) | processor_list[i].core_id;
+        physical_core_count += key != last_key;
+        last_key = key;
+    }
+    memcpy(cpu_info->proc_list, processor_list.data(), sizeof(processor_list[0]) * processor_list.size());
+    cpu_info->nodes = processor_list.back().socket_id + 1;
+    cpu_info->physical_cores = physical_core_count;
+    cpu_info->logical_cores = processor_list.size();
     return true;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
