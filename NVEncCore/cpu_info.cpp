@@ -119,7 +119,9 @@ int getCPUName(char *buffer, size_t nSize) {
     }
     char buf[1024];
     while (!feof(fp)) {
-        fgets(buf, sizeof(buf), fp);
+        if (fgets(buf, sizeof(buf), fp) == nullptr) {
+            break;
+        }
         if (strstr(buf, "Architecture:") != nullptr) {
             //改行の削除
             char *ptr = buf + strlen(buf) - 1;
