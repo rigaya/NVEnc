@@ -2,7 +2,7 @@
 # NVEnc  
 by rigaya  
 
-[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master) [![Build Status](https://travis-ci.org/rigaya/NVEnc.svg?branch=master)](https://travis-ci.org/rigaya/NVEnc)  
+[![Build status](https://ci.appveyor.com/api/projects/status/dmlkxw4rbrby0oi9/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/nvenc/branch/master) [![Build Status](https://travis-ci.com/rigaya/NVEnc.svg?branch=master)](https://travis-ci.com/rigaya/NVEnc)  
 
 このソフトウェアは、NVIDIAのGPU/APUに搭載されているHWエンコーダ(NVENC)の画質や速度といった性能の実験を目的としています。[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグイン版と単体で動作するコマンドライン版があります。  
 
